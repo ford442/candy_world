@@ -10,6 +10,7 @@
             overflow: hidden;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: #FFD1DC; /* Pastel Pink background fallback */
+            user-select: none;
         }
         canvas {
             display: block;
@@ -17,41 +18,69 @@
             height: 100%;
             outline: none;
         }
-        #info {
+        #instructions {
             position: absolute;
-            top: 20px;
-            left: 20px;
-            color: #555;
-            background: rgba(255, 255, 255, 0.85);
-            padding: 20px;
-            border-radius: 15px;
-            font-size: 16px;
-            z-index: 100;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: rgba(255, 209, 220, 0.8); /* Fog color with transparency */
+            z-index: 200;
+            cursor: pointer;
             backdrop-filter: blur(5px);
-            border: 2px solid #fff;
+            transition: opacity 0.3s;
         }
-        h1 {
-            margin: 0 0 10px 0;
+        #instructions h1 {
             color: #FF6B6B;
-            font-size: 1.2em;
+            font-size: 3em;
+            margin: 0 0 20px 0;
+            text-shadow: 2px 2px 0px #fff;
         }
-        p {
-            margin: 5px 0;
-            font-size: 0.9em;
+        #instructions p {
+            color: #555;
+            font-size: 1.2em;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 15px 30px;
+            border-radius: 50px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        .controls {
+            margin-top: 20px;
+            text-align: left;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 20px;
+            border-radius: 20px;
+        }
+        .key {
+            display: inline-block;
+            background: #eee;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            padding: 2px 8px;
+            font-family: monospace;
+            font-weight: bold;
+            color: #333;
+            margin: 0 3px;
+            box-shadow: 0 2px 0 #ccc;
         }
     </style>
 
 </head>
 <body>
-    <div id="info">
+    <div id="instructions">
         <h1>🍭 Candy World</h1>
-        <p>Use your mouse to look around (Left Click + Drag).</p>
-        <p>Scroll to Zoom.</p>
-        <p>Welcome to the fantasy realm!</p>
-        <p><small>Requires WebGPU support (Chrome 113+)</small></p>
+        <p>Click anywhere to Explore</p>
+        <div class="controls">
+            <div><span class="key">Right Click</span> Move Forward</div>
+            <div><span class="key">A</span> Left <span class="key">D</span> Right <span class="key">S</span> Back</div>
+            <div><span class="key">Space</span> Jump</div>
+            <div><span class="key">Mouse</span> Look</div>
+        </div>
     </div>
-    <!-- The canvas is created automatically by Three.js usually, or we can target one -->
     <canvas id="glCanvas"></canvas>
     <script type="module" src="main.js"></script>
 </body>
