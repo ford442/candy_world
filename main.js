@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 
 // --- Configuration ---
 const CONFIG = {
@@ -19,7 +19,7 @@ scene.background = new THREE.Color(CONFIG.colors.sky);
 scene.fog = new THREE.Fog(CONFIG.colors.fog, 20, 100);
 
 const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-camera.position.set(0, 15, 40);
+camera.position.set(0, 10, 0); // Start closer to the ground
 
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -31,12 +31,81 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.0;
 
 // --- Controls ---
-const controls = new OrbitControls(camera, canvas);
-controls.enableDamping = true;
-controls.dampingFactor = 0.05;
-controls.maxPolarAngle = Math.PI / 2 - 0.05; // Prevent going under ground
-controls.minDistance = 5;
-controls.maxDistance = 100;
+const controls = new PointerLockControls(camera, document.body);
+
+const instructions = document.getElementById('info');
+
+document.addEventListener('click', function () {
+    controls.lock();
+});
+
+controls.addEventListener('lock', function () {
+    instructions.style.display = 'none';
+});
+
+controls.addEventListener('unlock', function () {
+    instructions.style.display = 'block';
+});
+
+// Movement State
+let moveForward = false;
+let moveBackward = false;
+let moveLeft = false;
+let moveRight = false;
+let canJump = false;
+
+const velocity = new THREE.Vector3();
+const direction = new THREE.Vector3();
+
+// Key Listeners
+const onKeyDown = function (event) {
+    switch (event.code) {
+        case 'ArrowUp':
+        case 'KeyW':
+            moveForward = true;
+            break;
+        case 'ArrowLeft':
+        case 'KeyA':
+            moveLeft = true;
+            break;
+        case 'ArrowDown':
+        case 'KeyS':
+            moveBackward = true;
+            break;
+        case 'ArrowRight':
+        case 'KeyD':
+            moveRight = true;
+            break;
+        case 'Space':
+            if (canJump === true) velocity.y += 20; // Jump force
+            canJump = false;
+            break;
+    }
+};
+
+const onKeyUp = function (event) {
+    switch (event.code) {
+        case 'ArrowUp':
+        case 'KeyW':
+            moveForward = false;
+            break;
+        case 'ArrowLeft':
+        case 'KeyA':
+            moveLeft = false;
+            break;
+        case 'ArrowDown':
+        case 'KeyS':
+            moveBackward = false;
+            break;
+        case 'ArrowRight':
+        case 'KeyD':
+            moveRight = false;
+            break;
+    }
+};
+
+document.addEventListener('keydown', onKeyDown);
+document.addEventListener('keyup', onKeyUp);
 
 // --- Lighting ---
 const ambientLight = new THREE.HemisphereLight(CONFIG.colors.sky, CONFIG.colors.ground, 0.6);
@@ -255,12 +324,52 @@ for(let i=0; i<15; i++) {
 }
 
 // --- Animation Loop ---
-function animate(time) {
+let prevTime = performance.now();
+
+function animate() {
     requestAnimationFrame(animate);
 
-    const t = time * 0.001;
+    const time = performance.now();
+    const delta = (time - prevTime) / 1000;
 
-    controls.update();
+    // Physics / Movement
+    if (controls.isLocked === true) {
+        // Friction / Damping
+        velocity.x -= velocity.x * 10.0 * delta;
+        velocity.z -= velocity.z * 10.0 * delta;
+
+        // Gravity
+        velocity.y -= 50.0 * delta; // 9.8 * mass factor, adjusted for snappy feel
+
+        direction.z = Number(moveForward) - Number(moveBackward);
+        direction.x = Number(moveRight) - Number(moveLeft);
+        direction.normalize(); // this ensures consistent movements in all directions
+
+        if (moveForward || moveBackward) velocity.z -= direction.z * 400.0 * delta;
+        if (moveLeft || moveRight) velocity.x -= direction.x * 400.0 * delta;
+
+        controls.moveRight(-velocity.x * delta);
+        controls.moveForward(-velocity.z * delta);
+
+        controls.getObject().position.y += (velocity.y * delta); // new behavior
+
+        // Ground Collision
+        const playerX = controls.getObject().position.x;
+        const playerZ = controls.getObject().position.z;
+        const groundHeight = getGroundHeight(playerX, playerZ);
+        const playerEyeLevel = 1.7; // Height of eyes above ground
+
+        if (controls.getObject().position.y < groundHeight + playerEyeLevel) {
+            velocity.y = 0;
+            controls.getObject().position.y = groundHeight + playerEyeLevel;
+            canJump = true;
+        }
+    }
+
+    prevTime = time;
+
+    // Environment Animation
+    const t = time * 0.001;
 
     // Animate Mushrooms (Bounce)
     animatedObjects.forEach(obj => {
