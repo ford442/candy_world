@@ -1,15 +1,28 @@
 # candy_world
 
-A 3D world of rudimentary, but sharp graphically nature.
+A 3D world of rudimentary, but sharp graphically nature - featuring smooth, glossy shapes in a pastel candy-colored landscape.
 
 ## Features
 
 - **Pure WebGL rendering** - No external dependencies, runs in any modern browser
-- **Sharp, flat-shaded graphics** - Rudimentary geometric shapes with crisp lighting
-- **Candy-themed world** - Colorful cubes and pyramids scattered across a landscape
+- **Smooth, glossy graphics** - Rounded organic shapes with specular highlights
+- **Nature-themed candy world** - Trees, mushrooms, rocks, flowers, and clouds
+- **Pastel color palette** - Soft greens, pinks, purples, and oranges inspired by candy aesthetics
 - **First-person navigation** - WASD or Arrow keys to move, mouse to look around
-- **Animated objects** - Candy shapes rotate slowly as you explore
+- **Animated elements** - Some objects rotate gently as you explore
 - **3D perspective** - Proper depth rendering with WebGL
+
+## Visual Style
+
+The world features:
+- **Mushroom-style trees** with rounded caps and brown trunks
+- **Smooth rocks** in pastel purple and pink tones
+- **Colorful mushrooms** with soft caps
+- **Floating clouds** in the cream-colored sky
+- **Decorative spheres** scattered throughout
+- **Glossy shading** with specular highlights for a polished look
+
+Inspired by low-poly nature scenes with a candy twist!
 
 ## How to Run
 
@@ -24,15 +37,21 @@ A 3D world of rudimentary, but sharp graphically nature.
 
 - **WASD** or **Arrow Keys** - Move around the world
 - **Mouse** - Look around (click canvas first to lock pointer)
-- **Click canvas** - Start interaction and lock pointer
+- **Click canvas** - Start exploring and lock pointer
 
 ## Technical Details
 
-- Built with raw WebGL (no libraries required)
-- Vertex and fragment shaders for lighting
-- Flat shading for sharp, faceted appearance
-- 50 procedurally placed candy objects
+- Built with raw WebGL (no external libraries required)
+- Custom vertex and fragment shaders with:
+  - Smooth Phong-style lighting
+  - Specular highlights for glossiness
+  - Rim lighting for extra polish
+- Procedurally generated geometry:
+  - Smooth spheres (16 segments for detail)
+  - Domed caps (hemisphere geometry)
+  - Smooth cylinders for trunks
+- 100+ objects including trees, mushrooms, rocks, flowers, and clouds
 - 200x200 unit ground plane
 - Depth testing for proper 3D rendering
 
-Enjoy wandering through the candy world!
+Enjoy wandering through this memorable 3D candy nature world!

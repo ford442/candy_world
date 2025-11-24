@@ -97,7 +97,7 @@ const mat4 = {
     }
 };
 
-// Vertex shader - sharp, faceted lighting
+// Vertex shader - smooth lighting with glossy highlights
 const vertexShaderSource = `
     attribute vec3 aPosition;
     attribute vec3 aNormal;
@@ -105,33 +105,54 @@ const vertexShaderSource = `
     
     uniform mat4 uModelViewMatrix;
     uniform mat4 uProjectionMatrix;
+    uniform vec3 uCameraPos;
     
     varying vec3 vColor;
     varying vec3 vNormal;
     varying vec3 vPosition;
+    varying vec3 vViewDir;
     
     void main() {
-        gl_Position = uProjectionMatrix * uModelViewMatrix * vec4(aPosition, 1.0);
+        vec4 worldPos = uModelViewMatrix * vec4(aPosition, 1.0);
+        gl_Position = uProjectionMatrix * worldPos;
         vColor = aColor;
-        vNormal = aNormal;
-        vPosition = aPosition;
+        vNormal = mat3(uModelViewMatrix) * aNormal;
+        vPosition = worldPos.xyz;
+        vViewDir = normalize(uCameraPos - worldPos.xyz);
     }
 `;
 
-// Fragment shader - flat shading for sharp look
+// Fragment shader - smooth shading with specular highlights for glossy look
 const fragmentShaderSource = `
     precision mediump float;
     
     varying vec3 vColor;
     varying vec3 vNormal;
     varying vec3 vPosition;
+    varying vec3 vViewDir;
     
     void main() {
+        vec3 normal = normalize(vNormal);
         vec3 lightDir = normalize(vec3(0.5, 1.0, 0.3));
-        float diff = max(dot(normalize(vNormal), lightDir), 0.0);
-        vec3 ambient = vColor * 0.4;
-        vec3 diffuse = vColor * diff * 0.8;
-        gl_FragColor = vec4(ambient + diffuse, 1.0);
+        vec3 viewDir = normalize(vViewDir);
+        
+        // Ambient
+        vec3 ambient = vColor * 0.5;
+        
+        // Diffuse (smooth)
+        float diff = max(dot(normal, lightDir), 0.0);
+        vec3 diffuse = vColor * diff * 0.6;
+        
+        // Specular (glossy highlights)
+        vec3 reflectDir = reflect(-lightDir, normal);
+        float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32.0);
+        vec3 specular = vec3(1.0, 1.0, 1.0) * spec * 0.4;
+        
+        // Fresnel-like rim lighting for extra glossiness
+        float rim = pow(1.0 - max(dot(viewDir, normal), 0.0), 3.0);
+        vec3 rimColor = vColor * rim * 0.3;
+        
+        gl_FragColor = vec4(ambient + diffuse + specular + rimColor, 1.0);
     }
 `;
 
@@ -168,92 +189,163 @@ const aNormal = gl.getAttribLocation(program, 'aNormal');
 const aColor = gl.getAttribLocation(program, 'aColor');
 const uModelViewMatrix = gl.getUniformLocation(program, 'uModelViewMatrix');
 const uProjectionMatrix = gl.getUniformLocation(program, 'uProjectionMatrix');
+const uCameraPos = gl.getUniformLocation(program, 'uCameraPos');
 
-// Create cube geometry (rudimentary shape)
-function createCube(size, color) {
-    const s = size / 2;
-    const positions = [
-        // Front
-        -s, -s, s,  s, -s, s,  s, s, s,  -s, s, s,
-        // Back
-        -s, -s, -s,  -s, s, -s,  s, s, -s,  s, -s, -s,
-        // Top
-        -s, s, -s,  -s, s, s,  s, s, s,  s, s, -s,
-        // Bottom
-        -s, -s, -s,  s, -s, -s,  s, -s, s,  -s, -s, s,
-        // Right
-        s, -s, -s,  s, s, -s,  s, s, s,  s, -s, s,
-        // Left
-        -s, -s, -s,  -s, -s, s,  -s, s, s,  -s, s, -s
-    ];
-    
-    const normals = [
-        0, 0, 1,  0, 0, 1,  0, 0, 1,  0, 0, 1,
-        0, 0, -1,  0, 0, -1,  0, 0, -1,  0, 0, -1,
-        0, 1, 0,  0, 1, 0,  0, 1, 0,  0, 1, 0,
-        0, -1, 0,  0, -1, 0,  0, -1, 0,  0, -1, 0,
-        1, 0, 0,  1, 0, 0,  1, 0, 0,  1, 0, 0,
-        -1, 0, 0,  -1, 0, 0,  -1, 0, 0,  -1, 0, 0
-    ];
-    
-    const indices = [
-        0,1,2, 0,2,3,    4,5,6, 4,6,7,    8,9,10, 8,10,11,
-        12,13,14, 12,14,15,    16,17,18, 16,18,19,    20,21,22, 20,22,23
-    ];
-    
+// Create smooth sphere geometry (rounded shapes for nature-like look)
+function createSphere(radius, segments, color) {
+    const positions = [];
+    const normals = [];
+    const indices = [];
     const colors = [];
-    for (let i = 0; i < 24; i++) {
-        colors.push(color[0], color[1], color[2]);
+    
+    // Generate vertices
+    for (let lat = 0; lat <= segments; lat++) {
+        const theta = lat * Math.PI / segments;
+        const sinTheta = Math.sin(theta);
+        const cosTheta = Math.cos(theta);
+        
+        for (let lon = 0; lon <= segments; lon++) {
+            const phi = lon * 2 * Math.PI / segments;
+            const sinPhi = Math.sin(phi);
+            const cosPhi = Math.cos(phi);
+            
+            const x = cosPhi * sinTheta;
+            const y = cosTheta;
+            const z = sinPhi * sinTheta;
+            
+            positions.push(radius * x, radius * y, radius * z);
+            normals.push(x, y, z);
+            colors.push(color[0], color[1], color[2]);
+        }
+    }
+    
+    // Generate indices
+    for (let lat = 0; lat < segments; lat++) {
+        for (let lon = 0; lon < segments; lon++) {
+            const first = (lat * (segments + 1)) + lon;
+            const second = first + segments + 1;
+            
+            indices.push(first, second, first + 1);
+            indices.push(second, second + 1, first + 1);
+        }
     }
     
     return { positions, normals, indices, colors };
 }
 
-// Create pyramid geometry
-function createPyramid(size, color) {
-    const h = size;
-    const b = size / 2;
-    const positions = [
-        // Base
-        -b, 0, -b,  b, 0, -b,  b, 0, b,  -b, 0, b,
-        // Apex (4 copies for different faces)
-        0, h, 0,  0, h, 0,  0, h, 0,  0, h, 0
-    ];
-    
-    const normals = [
-        0, -1, 0,  0, -1, 0,  0, -1, 0,  0, -1, 0,
-        0, 1, 0,  0, 1, 0,  0, 1, 0,  0, 1, 0
-    ];
-    
-    const indices = [
-        0, 1, 2,  0, 2, 3,  // Base
-        0, 4, 1,  1, 5, 2,  2, 6, 3,  3, 7, 0  // Sides
-    ];
-    
+// Create smooth cylinder geometry (for tree trunks)
+function createCylinder(radiusTop, radiusBottom, height, segments, color) {
+    const positions = [];
+    const normals = [];
+    const indices = [];
     const colors = [];
-    for (let i = 0; i < 8; i++) {
-        colors.push(color[0], color[1], color[2]);
+    
+    // Generate side vertices
+    for (let y = 0; y <= segments; y++) {
+        const v = y / segments;
+        const radius = radiusBottom + (radiusTop - radiusBottom) * v;
+        const py = height * v;
+        
+        for (let x = 0; x <= segments; x++) {
+            const u = x / segments;
+            const theta = u * Math.PI * 2;
+            
+            const px = radius * Math.cos(theta);
+            const pz = radius * Math.sin(theta);
+            
+            positions.push(px, py, pz);
+            normals.push(Math.cos(theta), 0, Math.sin(theta));
+            colors.push(color[0], color[1], color[2]);
+        }
+    }
+    
+    // Generate indices for sides
+    for (let y = 0; y < segments; y++) {
+        for (let x = 0; x < segments; x++) {
+            const a = y * (segments + 1) + x;
+            const b = a + segments + 1;
+            
+            indices.push(a, b, a + 1);
+            indices.push(b, b + 1, a + 1);
+        }
     }
     
     return { positions, normals, indices, colors };
 }
 
-// Candy colors (RGB values 0-1)
-const candyColors = [
-    [1.0, 0.41, 0.71],  // Pink
-    [1.0, 0.08, 0.58],  // Deep pink
-    [1.0, 0.39, 0.28],  // Tomato
-    [1.0, 0.84, 0.0],   // Gold
-    [1.0, 0.55, 0.0],   // Orange
-    [0.58, 0.44, 0.86], // Purple
-    [0.0, 0.81, 0.82],  // Cyan
-    [0.20, 0.80, 0.20]  // Lime
+// Create mushroom/tree cap (hemisphere)
+function createDome(radius, segments, color) {
+    const positions = [];
+    const normals = [];
+    const indices = [];
+    const colors = [];
+    
+    // Generate vertices for hemisphere
+    for (let lat = 0; lat <= segments / 2; lat++) {
+        const theta = lat * Math.PI / segments;
+        const sinTheta = Math.sin(theta);
+        const cosTheta = Math.cos(theta);
+        
+        for (let lon = 0; lon <= segments; lon++) {
+            const phi = lon * 2 * Math.PI / segments;
+            const sinPhi = Math.sin(phi);
+            const cosPhi = Math.cos(phi);
+            
+            const x = cosPhi * sinTheta;
+            const y = cosTheta;
+            const z = sinPhi * sinTheta;
+            
+            positions.push(radius * x, radius * y, radius * z);
+            normals.push(x, y, z);
+            colors.push(color[0], color[1], color[2]);
+        }
+    }
+    
+    // Generate indices
+    for (let lat = 0; lat < segments / 2; lat++) {
+        for (let lon = 0; lon < segments; lon++) {
+            const first = (lat * (segments + 1)) + lon;
+            const second = first + segments + 1;
+            
+            indices.push(first, second, first + 1);
+            indices.push(second, second + 1, first + 1);
+        }
+    }
+    
+    return { positions, normals, indices, colors };
+}
+
+// Nature colors - pastel and soft (RGB values 0-1)
+const treeCapColors = [
+    [0.65, 0.85, 0.45],  // Lime green
+    [0.55, 0.80, 0.40],  // Green
+    [0.70, 0.88, 0.50],  // Light green
+];
+
+const trunkColor = [0.60, 0.45, 0.35];  // Brown trunk
+
+const rockColors = [
+    [0.75, 0.60, 0.80],  // Light purple
+    [0.85, 0.70, 0.85],  // Pink-purple
+    [0.70, 0.55, 0.75],  // Purple
+];
+
+const mushroomColors = [
+    [0.95, 0.75, 0.80],  // Light pink
+    [0.85, 0.65, 0.75],  // Pink
+    [0.90, 0.70, 0.75],  // Rose
+];
+
+const flowerColors = [
+    [1.0, 0.60, 0.40],   // Orange
+    [0.95, 0.85, 0.35],  // Yellow
+    [0.90, 0.50, 0.65],  // Pink
 ];
 
 // Create world objects
 const worldObjects = [];
 
-// Ground plane
+// Ground plane - rolling hills effect
 const groundSize = 200;
 const groundPositions = [
     -groundSize, 0, -groundSize,
@@ -263,23 +355,124 @@ const groundPositions = [
 ];
 const groundNormals = [0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0];
 const groundIndices = [0, 1, 2, 0, 2, 3];
-const groundColors = [0.56, 0.93, 0.56,  0.56, 0.93, 0.56,  0.56, 0.93, 0.56,  0.56, 0.93, 0.56];
+const groundColors = [0.75, 0.88, 0.45,  0.75, 0.88, 0.45,  0.75, 0.88, 0.45,  0.75, 0.88, 0.45]; // Pastel green
 
-// Add candy objects
-for (let i = 0; i < 50; i++) {
+// Add trees (mushroom-style with rounded caps)
+for (let i = 0; i < 25; i++) {
     const x = (Math.random() - 0.5) * 180;
     const z = (Math.random() - 0.5) * 180;
-    const color = candyColors[Math.floor(Math.random() * candyColors.length)];
-    const size = 2 + Math.random() * 3;
-    const type = Math.random() > 0.5 ? 'cube' : 'pyramid';
+    const treeHeight = 3 + Math.random() * 4;
+    const capRadius = 2 + Math.random() * 2;
     
-    const geometry = type === 'cube' ? createCube(size, color) : createPyramid(size, color);
-    
+    // Tree trunk
+    const trunk = createCylinder(0.3, 0.5, treeHeight, 12, trunkColor);
     worldObjects.push({
-        geometry,
-        x, y: size / 2, z,
+        geometry: trunk,
+        x, y: 0, z,
+        rotation: 0,
+        rotationSpeed: 0
+    });
+    
+    // Tree cap (dome)
+    const capColor = treeCapColors[Math.floor(Math.random() * treeCapColors.length)];
+    const cap = createDome(capRadius, 16, capColor);
+    worldObjects.push({
+        geometry: cap,
+        x, y: treeHeight, z,
+        rotation: 0,
+        rotationSpeed: 0
+    });
+}
+
+// Add rocks (smooth spheres flattened)
+for (let i = 0; i < 20; i++) {
+    const x = (Math.random() - 0.5) * 180;
+    const z = (Math.random() - 0.5) * 180;
+    const size = 1 + Math.random() * 2;
+    const color = rockColors[Math.floor(Math.random() * rockColors.length)];
+    
+    const rock = createSphere(size, 8, color);
+    worldObjects.push({
+        geometry: rock,
+        x, y: size * 0.3, z,  // Partially embedded in ground
         rotation: Math.random() * Math.PI * 2,
-        rotationSpeed: (Math.random() - 0.5) * 0.02
+        rotationSpeed: 0
+    });
+}
+
+// Add mushrooms (small sphere on cylinder)
+for (let i = 0; i < 15; i++) {
+    const x = (Math.random() - 0.5) * 180;
+    const z = (Math.random() - 0.5) * 180;
+    const stemHeight = 1 + Math.random() * 1.5;
+    const capRadius = 0.8 + Math.random() * 0.8;
+    
+    // Mushroom stem
+    const stem = createCylinder(0.2, 0.25, stemHeight, 8, [0.95, 0.92, 0.88]);
+    worldObjects.push({
+        geometry: stem,
+        x, y: 0, z,
+        rotation: 0,
+        rotationSpeed: 0
+    });
+    
+    // Mushroom cap
+    const capColor = mushroomColors[Math.floor(Math.random() * mushroomColors.length)];
+    const cap = createDome(capRadius, 12, capColor);
+    worldObjects.push({
+        geometry: cap,
+        x, y: stemHeight, z,
+        rotation: 0,
+        rotationSpeed: 0
+    });
+}
+
+// Add flower-like spheres
+for (let i = 0; i < 20; i++) {
+    const x = (Math.random() - 0.5) * 180;
+    const z = (Math.random() - 0.5) * 180;
+    const size = 0.4 + Math.random() * 0.4;
+    const color = flowerColors[Math.floor(Math.random() * flowerColors.length)];
+    
+    const flower = createSphere(size, 8, color);
+    worldObjects.push({
+        geometry: flower,
+        x, y: 0.5 + Math.random() * 0.5, z,
+        rotation: 0,
+        rotationSpeed: 0.01 + Math.random() * 0.02
+    });
+}
+
+// Add clouds (floating spheres in the sky)
+const cloudColor = [0.95, 0.95, 0.92];  // Off-white
+for (let i = 0; i < 12; i++) {
+    const x = (Math.random() - 0.5) * 200;
+    const z = (Math.random() - 0.5) * 200;
+    const y = 15 + Math.random() * 10;
+    const size = 3 + Math.random() * 3;
+    
+    const cloud = createSphere(size, 10, cloudColor);
+    worldObjects.push({
+        geometry: cloud,
+        x, y, z,
+        rotation: 0,
+        rotationSpeed: 0
+    });
+}
+
+// Add some larger decorative spheres (like in the reference image)
+for (let i = 0; i < 8; i++) {
+    const x = (Math.random() - 0.5) * 160;
+    const z = (Math.random() - 0.5) * 160;
+    const size = 2 + Math.random() * 3;
+    const color = [...treeCapColors, ...rockColors, ...mushroomColors][Math.floor(Math.random() * 9)];
+    
+    const sphere = createSphere(size, 12, color);
+    worldObjects.push({
+        geometry: sphere,
+        x, y: size, z,
+        rotation: 0,
+        rotationSpeed: 0.005 + Math.random() * 0.01
     });
 }
 
@@ -320,8 +513,8 @@ gl.depthFunc(gl.LEQUAL);
 
 // Main render loop
 function render() {
-    // Clear
-    gl.clearColor(0.53, 0.81, 0.92, 1.0);
+    // Clear with pastel sky color
+    gl.clearColor(0.96, 0.93, 0.84, 1.0);  // Soft beige/cream sky
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     
     // Update camera movement
@@ -350,6 +543,9 @@ function render() {
     const projectionMatrix = mat4.create();
     mat4.perspective(projectionMatrix, Math.PI / 4, canvas.width / canvas.height, 0.1, 500);
     gl.uniformMatrix4fv(uProjectionMatrix, false, projectionMatrix);
+    
+    // Pass camera position for specular lighting
+    gl.uniform3f(uCameraPos, camera.x, camera.y, camera.z);
     
     // View matrix (camera)
     const viewMatrix = mat4.create();
