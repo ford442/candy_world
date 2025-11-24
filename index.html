@@ -41,15 +41,7 @@
             font-size: 0.9em;
         }
     </style>
-    <!-- Import Map for Three.js -->
-    <script type="importmap">
-        {
-            "imports": {
-                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
-            }
-        }
-    </script>
+
 </head>
 <body>
     <div id="info">
@@ -57,6 +49,7 @@
         <p>Use your mouse to look around (Left Click + Drag).</p>
         <p>Scroll to Zoom.</p>
         <p>Welcome to the fantasy realm!</p>
+        <p><small>Requires WebGPU support (Chrome 113+)</small></p>
     </div>
     <!-- The canvas is created automatically by Three.js usually, or we can target one -->
     <canvas id="glCanvas"></canvas>
