@@ -4,13 +4,14 @@ A 3D world of rudimentary, but sharp graphically nature - featuring smooth, glos
 
 ## Features
 
-- **Pure WebGL rendering** - No external dependencies, runs in any modern browser
+- **WebGPU rendering** - Modern GPU API for high-performance 3D graphics
 - **Smooth, glossy graphics** - Rounded organic shapes with specular highlights
-- **Nature-themed candy world** - Trees, mushrooms, rocks, flowers, and clouds
+- **Nature-themed candy world** - Trees, mushrooms with faces, and clouds
 - **Pastel color palette** - Soft greens, pinks, purples, and oranges inspired by candy aesthetics
-- **First-person navigation** - WASD or Arrow keys to move, mouse to look around
-- **Animated elements** - Some objects rotate gently as you explore
-- **3D perspective** - Proper depth rendering with WebGL
+- **Orbit camera controls** - Mouse to look around and scroll to zoom
+- **Animated elements** - Mushrooms bounce and clouds drift across the sky
+- **3D perspective** - Proper depth rendering with WebGPU
+- **npm buildable** - Modern build system with Vite
 
 ## Visual Style
 
@@ -26,32 +27,58 @@ Inspired by low-poly nature scenes with a candy twist!
 
 ## How to Run
 
-1. Open `index.html` in a modern web browser, or
-2. Serve with a local web server:
+### Development
+
+1. Install dependencies:
    ```bash
-   python3 -m http.server 8000
+   npm install
    ```
-   Then navigate to `http://localhost:8000`
+
+2. Start the development server:
+   ```bash
+   npm run dev
+   ```
+
+3. Open your browser to `http://localhost:5173`
+
+### Production Build
+
+Build the project for production:
+```bash
+npm run build
+```
+
+The built files will be in the `dist/` directory. You can preview the production build with:
+```bash
+npm run preview
+```
+
+### Requirements
+
+- Node.js 16+ and npm
+- A modern browser with WebGPU support (Chrome 113+, Edge 113+, or other browsers with WebGPU enabled)
 
 ## Controls
 
-- **WASD** or **Arrow Keys** - Move around the world
-- **Mouse** - Look around (click canvas first to lock pointer)
-- **Click canvas** - Start exploring and lock pointer
+- **Mouse Drag** - Look around the world (Left Click + Drag)
+- **Mouse Wheel** - Zoom in/out
 
 ## Technical Details
 
-- Built with raw WebGL (no external libraries required)
-- Custom vertex and fragment shaders with:
-  - Smooth Phong-style lighting
-  - Specular highlights for glossiness
-  - Rim lighting for extra polish
+- Built with Three.js and WebGPU renderer
+- Modern WebGPU API for next-generation graphics
+- Advanced materials:
+  - MeshPhysicalMaterial with clearcoat for candy surfaces
+  - MeshStandardMaterial for ground and other elements
+  - Transparent materials for clouds
 - Procedurally generated geometry:
-  - Smooth spheres (16 segments for detail)
-  - Domed caps (hemisphere geometry)
-  - Smooth cylinders for trunks
-- 100+ objects including trees, mushrooms, rocks, flowers, and clouds
-- 200x200 unit ground plane
-- Depth testing for proper 3D rendering
+  - Smooth spheres for tree canopies and mushroom faces
+  - Domed caps (hemisphere geometry) for mushroom caps
+  - Cylinders for tree and mushroom stems
+  - Rolling hills with sine wave displacement
+- 30 trees, 20 animated mushrooms with faces, and 15 floating clouds
+- 300x300 unit terrain with fog effects
+- OrbitControls for smooth camera movement
+- Vite build system for fast development and optimized production builds
 
 Enjoy wandering through this memorable 3D candy nature world!
