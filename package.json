@@ -1,0 +1,20 @@
+{
+  "name": "candy_world",
+  "version": "1.0.0",
+  "description": "A 3D world of rudimentary, but sharp graphically nature - featuring smooth, glossy shapes in a pastel candy-colored landscape.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "three": "^0.171.0"
+  },
+  "devDependencies": {
+    "vite": "^7.2.4"
+  }
+}

@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import WebGPU from 'three/addons/capabilities/WebGPU.js';
+import { WebGPURenderer } from 'three/webgpu';
 
 // --- Configuration ---
 const CONFIG = {
@@ -21,12 +23,16 @@ scene.fog = new THREE.Fog(CONFIG.colors.fog, 20, 100);
 const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
 camera.position.set(0, 15, 40);
 
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
+// Check for WebGPU support
+if (!WebGPU.isAvailable()) {
+    const warning = WebGPU.getErrorMessage();
+    document.body.appendChild(warning);
+    throw new Error('WebGPU not supported');
+}
+
+const renderer = new WebGPURenderer({ canvas, antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(window.devicePixelRatio);
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.SoftShadowMap;
-renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.0;
 
@@ -255,7 +261,7 @@ for(let i=0; i<15; i++) {
 }
 
 // --- Animation Loop ---
-function animate(time) {
+async function animate(time) {
     requestAnimationFrame(animate);
 
     const t = time * 0.001;
@@ -278,7 +284,7 @@ function animate(time) {
         }
     });
 
-    renderer.render(scene, camera);
+    await renderer.renderAsync(scene, camera);
 }
 
 // Resize Handler
