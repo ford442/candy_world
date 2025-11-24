@@ -342,20 +342,50 @@ const flowerColors = [
     [0.90, 0.50, 0.65],  // Pink
 ];
 
-// Create world objects
+// Create world objects with cached buffers
 const worldObjects = [];
+
+// Helper to create and cache WebGL buffers for geometry
+function createBuffers(geometry) {
+    const posBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, posBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(geometry.positions), gl.STATIC_DRAW);
+    
+    const normBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, normBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(geometry.normals), gl.STATIC_DRAW);
+    
+    const colorBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(geometry.colors), gl.STATIC_DRAW);
+    
+    const indexBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(geometry.indices), gl.STATIC_DRAW);
+    
+    return {
+        position: posBuffer,
+        normal: normBuffer,
+        color: colorBuffer,
+        index: indexBuffer,
+        indexCount: geometry.indices.length
+    };
+}
 
 // Ground plane - rolling hills effect
 const groundSize = 200;
-const groundPositions = [
-    -groundSize, 0, -groundSize,
-    groundSize, 0, -groundSize,
-    groundSize, 0, groundSize,
-    -groundSize, 0, groundSize
-];
-const groundNormals = [0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0];
-const groundIndices = [0, 1, 2, 0, 2, 3];
-const groundColors = [0.75, 0.88, 0.45,  0.75, 0.88, 0.45,  0.75, 0.88, 0.45,  0.75, 0.88, 0.45]; // Pastel green
+const groundGeometry = {
+    positions: [
+        -groundSize, 0, -groundSize,
+        groundSize, 0, -groundSize,
+        groundSize, 0, groundSize,
+        -groundSize, 0, groundSize
+    ],
+    normals: [0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0],
+    indices: [0, 1, 2, 0, 2, 3],
+    colors: [0.75, 0.88, 0.45,  0.75, 0.88, 0.45,  0.75, 0.88, 0.45,  0.75, 0.88, 0.45] // Pastel green
+};
+const groundBuffers = createBuffers(groundGeometry);
 
 // Add trees (mushroom-style with rounded caps)
 for (let i = 0; i < 25; i++) {
@@ -367,7 +397,7 @@ for (let i = 0; i < 25; i++) {
     // Tree trunk
     const trunk = createCylinder(0.3, 0.5, treeHeight, 12, trunkColor);
     worldObjects.push({
-        geometry: trunk,
+        buffers: createBuffers(trunk),
         x, y: 0, z,
         rotation: 0,
         rotationSpeed: 0
@@ -377,7 +407,7 @@ for (let i = 0; i < 25; i++) {
     const capColor = treeCapColors[Math.floor(Math.random() * treeCapColors.length)];
     const cap = createDome(capRadius, 16, capColor);
     worldObjects.push({
-        geometry: cap,
+        buffers: createBuffers(cap),
         x, y: treeHeight, z,
         rotation: 0,
         rotationSpeed: 0
@@ -393,7 +423,7 @@ for (let i = 0; i < 20; i++) {
     
     const rock = createSphere(size, 8, color);
     worldObjects.push({
-        geometry: rock,
+        buffers: createBuffers(rock),
         x, y: size * 0.3, z,  // Partially embedded in ground
         rotation: Math.random() * Math.PI * 2,
         rotationSpeed: 0
@@ -410,7 +440,7 @@ for (let i = 0; i < 15; i++) {
     // Mushroom stem
     const stem = createCylinder(0.2, 0.25, stemHeight, 8, [0.95, 0.92, 0.88]);
     worldObjects.push({
-        geometry: stem,
+        buffers: createBuffers(stem),
         x, y: 0, z,
         rotation: 0,
         rotationSpeed: 0
@@ -420,7 +450,7 @@ for (let i = 0; i < 15; i++) {
     const capColor = mushroomColors[Math.floor(Math.random() * mushroomColors.length)];
     const cap = createDome(capRadius, 12, capColor);
     worldObjects.push({
-        geometry: cap,
+        buffers: createBuffers(cap),
         x, y: stemHeight, z,
         rotation: 0,
         rotationSpeed: 0
@@ -436,7 +466,7 @@ for (let i = 0; i < 20; i++) {
     
     const flower = createSphere(size, 8, color);
     worldObjects.push({
-        geometry: flower,
+        buffers: createBuffers(flower),
         x, y: 0.5 + Math.random() * 0.5, z,
         rotation: 0,
         rotationSpeed: 0.01 + Math.random() * 0.02
@@ -453,7 +483,7 @@ for (let i = 0; i < 12; i++) {
     
     const cloud = createSphere(size, 10, cloudColor);
     worldObjects.push({
-        geometry: cloud,
+        buffers: createBuffers(cloud),
         x, y, z,
         rotation: 0,
         rotationSpeed: 0
@@ -469,7 +499,7 @@ for (let i = 0; i < 8; i++) {
     
     const sphere = createSphere(size, 12, color);
     worldObjects.push({
-        geometry: sphere,
+        buffers: createBuffers(sphere),
         x, y: size, z,
         rotation: 0,
         rotationSpeed: 0.005 + Math.random() * 0.01
@@ -556,9 +586,9 @@ function render() {
     // Draw ground
     const groundModelView = mat4.create();
     mat4.multiply(groundModelView, viewMatrix, mat4.identity(mat4.create()));
-    drawGeometry(groundPositions, groundNormals, groundIndices, groundColors, groundModelView);
+    drawWithBuffers(groundBuffers, groundModelView);
     
-    // Draw candy objects
+    // Draw world objects
     worldObjects.forEach(obj => {
         obj.rotation += obj.rotationSpeed;
         
@@ -570,44 +600,36 @@ function render() {
         const modelViewMatrix = mat4.create();
         mat4.multiply(modelViewMatrix, viewMatrix, modelMatrix);
         
-        drawGeometry(obj.geometry.positions, obj.geometry.normals, obj.geometry.indices, obj.geometry.colors, modelViewMatrix);
+        drawWithBuffers(obj.buffers, modelViewMatrix);
     });
     
     requestAnimationFrame(render);
 }
 
-function drawGeometry(positions, normals, indices, colors, modelViewMatrix) {
-    // Position buffer
-    const posBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, posBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
+function drawWithBuffers(buffers, modelViewMatrix) {
+    // Bind position buffer
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffers.position);
     gl.vertexAttribPointer(aPosition, 3, gl.FLOAT, false, 0, 0);
     gl.enableVertexAttribArray(aPosition);
     
-    // Normal buffer
-    const normBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, normBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(normals), gl.STATIC_DRAW);
+    // Bind normal buffer
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffers.normal);
     gl.vertexAttribPointer(aNormal, 3, gl.FLOAT, false, 0, 0);
     gl.enableVertexAttribArray(aNormal);
     
-    // Color buffer
-    const colorBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colors), gl.STATIC_DRAW);
+    // Bind color buffer
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffers.color);
     gl.vertexAttribPointer(aColor, 3, gl.FLOAT, false, 0, 0);
     gl.enableVertexAttribArray(aColor);
     
-    // Index buffer
-    const indexBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
+    // Bind index buffer
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffers.index);
     
     // Set model-view matrix
     gl.uniformMatrix4fv(uModelViewMatrix, false, modelViewMatrix);
     
     // Draw
-    gl.drawElements(gl.TRIANGLES, indices.length, gl.UNSIGNED_SHORT, 0);
+    gl.drawElements(gl.TRIANGLES, buffers.indexCount, gl.UNSIGNED_SHORT, 0);
 }
 
 // Start rendering
