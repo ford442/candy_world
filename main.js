@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 import WebGPU from 'three/addons/capabilities/WebGPU.js';
 import { WebGPURenderer } from 'three/webgpu';
 
@@ -21,7 +21,8 @@ scene.background = new THREE.Color(CONFIG.colors.sky);
 scene.fog = new THREE.Fog(CONFIG.colors.fog, 20, 100);
 
 const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-camera.position.set(0, 15, 40);
+// Initial camera position (will be overridden by player logic, but good for initial frame)
+camera.position.set(0, 5, 0);
 
 // Check for WebGPU support
 if (!WebGPU.isAvailable()) {
@@ -35,14 +36,6 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(window.devicePixelRatio);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.0;
-
-// --- Controls ---
-const controls = new OrbitControls(camera, canvas);
-controls.enableDamping = true;
-controls.dampingFactor = 0.05;
-controls.maxPolarAngle = Math.PI / 2 - 0.05; // Prevent going under ground
-controls.minDistance = 5;
-controls.maxDistance = 100;
 
 // --- Lighting ---
 const ambientLight = new THREE.HemisphereLight(CONFIG.colors.sky, CONFIG.colors.ground, 0.6);
@@ -102,6 +95,9 @@ const materials = {
     })
 };
 
+// --- Physics Data ---
+const obstacles = [];
+
 // --- Procedural Generation ---
 
 // 1. Ground (Rolling Hills)
@@ -109,10 +105,7 @@ const groundGeo = new THREE.PlaneGeometry(300, 300, 64, 64);
 const posAttribute = groundGeo.attributes.position;
 for (let i = 0; i < posAttribute.count; i++) {
     const x = posAttribute.getX(i);
-    const y = posAttribute.getY(i); // This is actually Z in world space initially before rotation, but Plane lies on XY usually? No, standard is XY.
-    // We will rotate -90 X later, so let's perturb Z (which becomes height Y)
-    // Actually PlaneGeometry is on XY plane.
-
+    const y = posAttribute.getY(i);
     // Simple sine waves for hills
     const z = Math.sin(x * 0.05) * 2 + Math.cos(y * 0.05) * 2;
     posAttribute.setZ(i, z);
@@ -125,7 +118,7 @@ scene.add(ground);
 
 // Helper to get ground height at x, z
 function getGroundHeight(x, z) {
-    return Math.sin(x * 0.05) * 2 + Math.cos(-z * 0.05) * 2; // Note: z coordinate is y in plane geo logic
+    return Math.sin(x * 0.05) * 2 + Math.cos(-z * 0.05) * 2;
 }
 
 // 2. Objects Container
@@ -140,7 +133,8 @@ function createTree(x, z) {
 
     // Trunk
     const trunkH = 3 + Math.random() * 2;
-    const trunkGeo = new THREE.CylinderGeometry(0.3, 0.5, trunkH, 8);
+    const trunkRadius = 0.5; // Avg radius of base
+    const trunkGeo = new THREE.CylinderGeometry(0.3, trunkRadius, trunkH, 8);
     const trunk = new THREE.Mesh(trunkGeo, materials.trunk);
     trunk.position.y = trunkH / 2;
     trunk.castShadow = true;
@@ -158,6 +152,12 @@ function createTree(x, z) {
     group.add(leaves);
 
     worldGroup.add(group);
+
+    // Add to obstacles for collision
+    obstacles.push({
+        position: new THREE.Vector3(x, height, z),
+        radius: 0.8 // Slightly larger than trunk
+    });
 }
 
 // 4. Fantasy Mushrooms with Faces
@@ -205,10 +205,13 @@ function createMushroom(x, z) {
     faceGroup.add(leftEye, rightEye, smile);
     group.add(faceGroup);
 
-    // Animate rotation slightly for "looking"
-    faceGroup.lookAt(camera.position.x, faceGroup.position.y, camera.position.z); // Initial look (will fix later if needed)
-
     worldGroup.add(group);
+
+    // Add to obstacles for collision
+    obstacles.push({
+        position: new THREE.Vector3(x, height, z),
+        radius: stemR * 2 // Collision against the stem area
+    });
 
     // Store for animation
     return { mesh: group, type: 'mushroom', speed: Math.random() * 0.02 + 0.01, offset: Math.random() * 100 };
@@ -260,13 +263,159 @@ for(let i=0; i<15; i++) {
     createCloud();
 }
 
+// --- Player & Input Logic ---
+
+const controls = new PointerLockControls(camera, document.body);
+
+const instructions = document.getElementById('instructions');
+
+instructions.addEventListener('click', function () {
+    controls.lock();
+});
+
+controls.addEventListener('lock', function () {
+    instructions.style.display = 'none';
+});
+
+controls.addEventListener('unlock', function () {
+    instructions.style.display = 'flex';
+});
+
+// Prevent context menu (Right Click)
+document.addEventListener('contextmenu', event => event.preventDefault());
+
+const keyStates = {
+    forward: false,
+    backward: false,
+    left: false,
+    right: false,
+    jump: false
+};
+
+const onKeyDown = function (event) {
+    switch (event.code) {
+        case 'KeyW': // W is unused, but maybe user wants it later.
+            // keyStates.forward = true;
+            break;
+        case 'KeyA': keyStates.left = true; break;
+        case 'KeyS': keyStates.backward = true; break;
+        case 'KeyD': keyStates.right = true; break;
+        case 'Space': keyStates.jump = true; break;
+    }
+};
+
+const onKeyUp = function (event) {
+    switch (event.code) {
+        case 'KeyW':
+            // keyStates.forward = false;
+            break;
+        case 'KeyA': keyStates.left = false; break;
+        case 'KeyS': keyStates.backward = false; break;
+        case 'KeyD': keyStates.right = false; break;
+        case 'Space': keyStates.jump = false; break;
+    }
+};
+
+const onMouseDown = function (event) {
+    if (event.button === 2) { // Right Click
+        keyStates.forward = true;
+    }
+};
+
+const onMouseUp = function (event) {
+    if (event.button === 2) {
+        keyStates.forward = false;
+    }
+};
+
+document.addEventListener('keydown', onKeyDown);
+document.addEventListener('keyup', onKeyUp);
+document.addEventListener('mousedown', onMouseDown);
+document.addEventListener('mouseup', onMouseUp);
+
+
+const player = {
+    velocity: new THREE.Vector3(),
+    direction: new THREE.Vector3(),
+    speed: 10.0,
+    gravity: 20.0, // "Little floaty"
+    jumpStrength: 10.0,
+    height: 1.8, // Eye level
+    radius: 0.5
+};
+
 // --- Animation Loop ---
-async function animate(time) {
+let prevTime = performance.now();
+
+async function animate() {
     requestAnimationFrame(animate);
 
-    const t = time * 0.001;
+    const time = performance.now();
+    const delta = (time - prevTime) / 1000;
+    prevTime = time;
 
-    controls.update();
+    if (controls.isLocked) {
+
+        // 1. Movement Logic
+        player.velocity.x -= player.velocity.x * 10.0 * delta;
+        player.velocity.z -= player.velocity.z * 10.0 * delta;
+        player.velocity.y -= player.gravity * delta; // Gravity
+
+        player.direction.z = Number(keyStates.forward) - Number(keyStates.backward);
+        player.direction.x = Number(keyStates.right) - Number(keyStates.left);
+        player.direction.normalize(); // Ensure consistent speed in diagonals
+
+        if (keyStates.forward || keyStates.backward) {
+            player.velocity.z -= player.direction.z * player.speed * delta;
+        }
+        if (keyStates.left || keyStates.right) {
+            player.velocity.x -= player.direction.x * player.speed * delta;
+        }
+
+        // Apply movement
+        controls.moveRight(-player.velocity.x * delta);
+        controls.moveForward(-player.velocity.z * delta);
+
+        // 2. Ground Collision & Jumping
+        const camPos = camera.position;
+        const groundY = getGroundHeight(camPos.x, camPos.z);
+        const playerBottom = camPos.y - player.height;
+
+        if (playerBottom <= groundY) {
+            // Landed
+            player.velocity.y = Math.max(0, player.velocity.y);
+            camPos.y = groundY + player.height;
+
+            // Allow Jump
+            if (keyStates.jump) {
+                player.velocity.y = player.jumpStrength;
+            }
+        }
+
+        camPos.y += player.velocity.y * delta;
+
+        // 3. Object Collision (Simple Cylinder push)
+        for(let obj of obstacles) {
+            const dx = camPos.x - obj.position.x;
+            const dz = camPos.z - obj.position.z;
+            const dist = Math.sqrt(dx * dx + dz * dz);
+            const minDist = obj.radius + player.radius;
+
+            if (dist < minDist) {
+                // Collision detected, push back
+                const overlap = minDist - dist;
+                const pushX = dx / dist * overlap;
+                const pushZ = dz / dist * overlap;
+
+                camPos.x += pushX;
+                camPos.z += pushZ;
+            }
+        }
+
+    } // End if Locked
+
+    // 4. Object Animations
+    const t = time * 0.001;
 
     // Animate Mushrooms (Bounce)
     animatedObjects.forEach(obj => {
@@ -294,4 +443,4 @@ window.addEventListener('resize', () => {
     renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
-animate(0);
+animate();
