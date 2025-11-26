@@ -314,7 +314,7 @@ const keyStates = {
     left: false,
     right: false,
     jump: false,
-    sprint: false
+    sneak: false
 };
 
 const onKeyDown = function (event) {
@@ -326,7 +326,10 @@ const onKeyDown = function (event) {
         case 'KeyS': keyStates.backward = true; break;
         case 'KeyD': keyStates.right = true; break;
         case 'Space': keyStates.jump = true; break;
-        case 'ShiftLeft': keyStates.sprint = true; break;
+        case 'ControlLeft':
+            keyStates.sneak = true;
+            event.preventDefault();
+            break;
     }
 };
 
@@ -339,7 +342,7 @@ const onKeyUp = function (event) {
         case 'KeyS': keyStates.backward = false; break;
         case 'KeyD': keyStates.right = false; break;
         case 'Space': keyStates.jump = false; break;
-        case 'ShiftLeft': keyStates.sprint = false; break;
+        case 'ControlLeft': keyStates.sneak = false; break;
     }
 };
 
@@ -364,9 +367,9 @@ document.addEventListener('mouseup', onMouseUp);
 const player = {
     velocity: new THREE.Vector3(),
     direction: new THREE.Vector3(),
-    walkSpeed: 10.0,
-    sprintSpeed: 30.0,
-    currentSpeed: 10.0,
+    sneakSpeed: 10.0,
+    runSpeed: 30.0,
+    currentSpeed: 30.0,
     acceleration: 20.0, // Rate of speed change
     gravity: 20.0, // "Little floaty"
     jumpStrength: 10.0,
@@ -387,7 +390,7 @@ async function animate() {
     if (controls.isLocked) {
 
         // 1. Speed Management (Acceleration/Deceleration)
-        const targetSpeed = keyStates.sprint ? player.sprintSpeed : player.walkSpeed;
+        const targetSpeed = keyStates.sneak ? player.sneakSpeed : player.runSpeed;
         if (player.currentSpeed < targetSpeed) {
             player.currentSpeed = Math.min(targetSpeed, player.currentSpeed + player.acceleration * delta);
         } else if (player.currentSpeed > targetSpeed) {
