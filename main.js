@@ -314,21 +314,29 @@ const keyStates = {
     left: false,
     right: false,
     jump: false,
-    sneak: false
+    sneak: false,
+    sprint: false
 };
 
 const onKeyDown = function (event) {
+    if (event.ctrlKey && event.code !== 'ControlLeft' && event.code !== 'ControlRight') {
+        event.preventDefault();
+    }
     switch (event.code) {
-        case 'KeyW': // W is unused, but maybe user wants it later.
-            // keyStates.forward = true;
+        case 'KeyW':
             break;
         case 'KeyA': keyStates.left = true; break;
         case 'KeyS': keyStates.backward = true; break;
         case 'KeyD': keyStates.right = true; break;
         case 'Space': keyStates.jump = true; break;
         case 'ControlLeft':
+        case 'ControlRight':
             keyStates.sneak = true;
             event.preventDefault();
+            break;
+        case 'ShiftLeft':
+        case 'ShiftRight':
+            keyStates.sprint = true;
             break;
     }
 };
@@ -336,13 +344,19 @@ const onKeyDown = function (event) {
 const onKeyUp = function (event) {
     switch (event.code) {
         case 'KeyW':
-            // keyStates.forward = false;
             break;
         case 'KeyA': keyStates.left = false; break;
         case 'KeyS': keyStates.backward = false; break;
         case 'KeyD': keyStates.right = false; break;
         case 'Space': keyStates.jump = false; break;
-        case 'ControlLeft': keyStates.sneak = false; break;
+        case 'ControlLeft':
+        case 'ControlRight':
+            keyStates.sneak = false;
+            break;
+        case 'ShiftLeft':
+        case 'ShiftRight':
+            keyStates.sprint = false;
+            break;
     }
 };
 
@@ -369,6 +383,7 @@ const player = {
     direction: new THREE.Vector3(),
     sneakSpeed: 10.0,
     runSpeed: 30.0,
+    sprintSpeed: 50.0,
     currentSpeed: 30.0,
     acceleration: 20.0, // Rate of speed change
     gravity: 20.0, // "Little floaty"
@@ -390,7 +405,9 @@ async function animate() {
     if (controls.isLocked) {
 
         // 1. Speed Management (Acceleration/Deceleration)
-        const targetSpeed = keyStates.sneak ? player.sneakSpeed : player.runSpeed;
+        const targetSpeed = keyStates.sprint
+            ? player.sprintSpeed
+            : (keyStates.sneak ? player.sneakSpeed : player.runSpeed);
         if (player.currentSpeed < targetSpeed) {
             player.currentSpeed = Math.min(targetSpeed, player.currentSpeed + player.acceleration * delta);
         } else if (player.currentSpeed > targetSpeed) {
