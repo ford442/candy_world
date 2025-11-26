@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 import WebGPU from 'three/addons/capabilities/WebGPU.js';
 import { WebGPURenderer } from 'three/webgpu';
+import { createFlower, createGrass, animateFoliage } from './foliage.js';
 
 // --- Configuration ---
 const CONFIG = {
@@ -244,6 +245,29 @@ function createCloud() {
     clouds.push({ mesh: group, speed: (Math.random() * 0.05) + 0.02 });
 }
 
+// 6. Foliage
+const foliageGroup = new THREE.Group();
+worldGroup.add(foliageGroup);
+const animatedFoliage = [];
+
+for (let i = 0; i < 150; i++) {
+    const x = (Math.random() - 0.5) * 180;
+    const z = (Math.random() - 0.5) * 180;
+    const y = getGroundHeight(x, z);
+
+    if (Math.random() > 0.4) {
+        const flower = createFlower();
+        flower.position.set(x, y, z);
+        foliageGroup.add(flower);
+        animatedFoliage.push(flower);
+    } else {
+        const grass = createGrass();
+        grass.position.set(x, y, z);
+        foliageGroup.add(grass);
+        animatedFoliage.push(grass);
+    }
+}
+
 // Populate World
 for(let i=0; i<30; i++) {
     const x = (Math.random() - 0.5) * 180;
@@ -289,7 +313,8 @@ const keyStates = {
     backward: false,
     left: false,
     right: false,
-    jump: false
+    jump: false,
+    sprint: false
 };
 
 const onKeyDown = function (event) {
@@ -301,6 +326,7 @@ const onKeyDown = function (event) {
         case 'KeyS': keyStates.backward = true; break;
         case 'KeyD': keyStates.right = true; break;
         case 'Space': keyStates.jump = true; break;
+        case 'ShiftLeft': keyStates.sprint = true; break;
     }
 };
 
@@ -313,6 +339,7 @@ const onKeyUp = function (event) {
         case 'KeyS': keyStates.backward = false; break;
         case 'KeyD': keyStates.right = false; break;
         case 'Space': keyStates.jump = false; break;
+        case 'ShiftLeft': keyStates.sprint = false; break;
     }
 };
 
@@ -337,7 +364,10 @@ document.addEventListener('mouseup', onMouseUp);
 const player = {
     velocity: new THREE.Vector3(),
     direction: new THREE.Vector3(),
-    speed: 10.0,
+    walkSpeed: 10.0,
+    sprintSpeed: 30.0,
+    currentSpeed: 10.0,
+    acceleration: 20.0, // Rate of speed change
     gravity: 20.0, // "Little floaty"
     jumpStrength: 10.0,
     height: 1.8, // Eye level
@@ -356,7 +386,16 @@ async function animate() {
 
     if (controls.isLocked) {
 
-        // 1. Movement Logic
+        // 1. Speed Management (Acceleration/Deceleration)
+        const targetSpeed = keyStates.sprint ? player.sprintSpeed : player.walkSpeed;
+        if (player.currentSpeed < targetSpeed) {
+            player.currentSpeed = Math.min(targetSpeed, player.currentSpeed + player.acceleration * delta);
+        } else if (player.currentSpeed > targetSpeed) {
+            player.currentSpeed = Math.max(targetSpeed, player.currentSpeed - player.acceleration * delta);
+        }
+
+
+        // 2. Movement Logic
         player.velocity.x -= player.velocity.x * 10.0 * delta;
         player.velocity.z -= player.velocity.z * 10.0 * delta;
         player.velocity.y -= player.gravity * delta; // Gravity
@@ -366,10 +405,10 @@ async function animate() {
         player.direction.normalize(); // Ensure consistent speed in diagonals
 
         if (keyStates.forward || keyStates.backward) {
-            player.velocity.z -= player.direction.z * player.speed * delta;
+            player.velocity.z -= player.direction.z * player.currentSpeed * delta;
         }
         if (keyStates.left || keyStates.right) {
-            player.velocity.x -= player.direction.x * player.speed * delta;
+            player.velocity.x -= player.direction.x * player.currentSpeed * delta;
         }
 
         // Apply movement
@@ -423,6 +462,11 @@ async function animate() {
             obj.mesh.scale.y = 1 + Math.sin(t * 3 + obj.offset) * 0.05;
             obj.mesh.rotation.z = Math.sin(t * 2 + obj.offset) * 0.05;
         }
+    });
+
+    // Animate Foliage
+    animatedFoliage.forEach(foliage => {
+        animateFoliage(foliage, t);
     });
 
     // Animate Clouds
