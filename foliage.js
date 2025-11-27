@@ -421,6 +421,176 @@ export function createWisteriaCluster(options = {}) {
     return group;
 }
 
+// --- New Roundy Foliage Types (Requested by User) ---
+
+/**
+ * Bubble Willow — a tree with drooping, rounded tube-like branches (Capsules).
+ */
+export function createBubbleWillow(options = {}) {
+    const { color = 0x8A2BE2 } = options;
+    const group = new THREE.Group();
+
+    // Trunk
+    const trunkH = 2.5 + Math.random();
+    const trunkGeo = new THREE.CylinderGeometry(0.4, 0.6, trunkH, 12);
+    const trunk = new THREE.Mesh(trunkGeo, createClayMaterial(0x5D4037));
+    trunk.position.y = trunkH / 2;
+    trunk.castShadow = true;
+    group.add(trunk);
+
+    // Drooping branches (Capsules)
+    const branchCount = 6 + Math.floor(Math.random() * 4);
+    const branchMat = createClayMaterial(color);
+
+    for (let i = 0; i < branchCount; i++) {
+        const branchGroup = new THREE.Group();
+        branchGroup.position.y = trunkH * 0.9;
+        // Radial distribution
+        branchGroup.rotation.y = (i / branchCount) * Math.PI * 2;
+
+        // The actual drooping part
+        const length = 1.5 + Math.random();
+        const capsuleGeo = new THREE.CapsuleGeometry(0.2, length, 8, 16);
+        const capsule = new THREE.Mesh(capsuleGeo, branchMat);
+
+        // Orient so it hangs down.
+        // Default capsule is vertical. We want it to curve out and down.
+        // Simplified: Rotate it so it points somewhat down-out
+        capsule.position.set(0.5, -length/2, 0); // Offset
+        capsule.rotation.z = -Math.PI / 6; // Angle out
+
+        branchGroup.add(capsule);
+        group.add(branchGroup);
+    }
+
+    group.userData.animationType = 'gentleSway';
+    group.userData.animationOffset = Math.random() * 10;
+    return group;
+}
+
+/**
+ * Puffball Flower — Large spherical blooms on thick stems.
+ */
+export function createPuffballFlower(options = {}) {
+    const { color = 0xFF69B4 } = options;
+    const group = new THREE.Group();
+
+    // Thick Stem
+    const stemH = 1.0 + Math.random() * 0.5;
+    const stemGeo = new THREE.CylinderGeometry(0.1, 0.12, stemH, 8);
+    const stem = new THREE.Mesh(stemGeo, createClayMaterial(0x6B8E23));
+    stem.position.y = stemH / 2;
+    stem.castShadow = true;
+    group.add(stem);
+
+    // Big Puffball Head
+    const headR = 0.4 + Math.random() * 0.2;
+    const headGeo = new THREE.SphereGeometry(headR, 16, 16);
+    const headMat = createClayMaterial(color);
+    const head = new THREE.Mesh(headGeo, headMat);
+    head.position.y = stemH;
+    head.castShadow = true;
+    group.add(head);
+
+    // Spores (smaller spheres attached)
+    const sporeCount = 4 + Math.floor(Math.random() * 4);
+    const sporeGeo = new THREE.SphereGeometry(headR * 0.3, 8, 8);
+    const sporeMat = createClayMaterial(color + 0x111111); // Slightly lighter
+    for(let i=0; i<sporeCount; i++) {
+        const spore = new THREE.Mesh(sporeGeo, sporeMat);
+        // Random point on sphere surface
+        const u = Math.random();
+        const v = Math.random();
+        const theta = 2 * Math.PI * u;
+        const phi = Math.acos(2 * v - 1);
+        const x = Math.sin(phi) * Math.cos(theta);
+        const y = Math.sin(phi) * Math.sin(theta);
+        const z = Math.cos(phi);
+
+        spore.position.set(x * headR, stemH + y * headR, z * headR);
+        group.add(spore);
+    }
+
+    group.userData.animationType = 'sway';
+    group.userData.animationOffset = Math.random() * 10;
+    return group;
+}
+
+/**
+ * Helix Plant — Smooth, rounded spiral shapes.
+ */
+export function createHelixPlant(options = {}) {
+    const { color = 0x00FA9A } = options;
+    const group = new THREE.Group();
+
+    // Create a spiral curve
+    class SpiralCurve extends THREE.Curve {
+        constructor(scale = 1) {
+            super();
+            this.scale = scale;
+        }
+        getPoint(t, optionalTarget = new THREE.Vector3()) {
+            const tx = Math.cos(t * Math.PI * 4) * 0.2 * t * this.scale;
+            const ty = t * 2.0 * this.scale;
+            const tz = Math.sin(t * Math.PI * 4) * 0.2 * t * this.scale;
+            return optionalTarget.set(tx, ty, tz);
+        }
+    }
+
+    const path = new SpiralCurve(1.0 + Math.random() * 0.5);
+    const tubeGeo = new THREE.TubeGeometry(path, 20, 0.08, 8, false);
+    const mat = createClayMaterial(color);
+    const mesh = new THREE.Mesh(tubeGeo, mat);
+    mesh.castShadow = true;
+    group.add(mesh);
+
+    // Glow ball at tip
+    const tipGeo = new THREE.SphereGeometry(0.15, 8, 8);
+    const tipMat = new THREE.MeshStandardMaterial({
+        color: 0xFFFFFF, emissive: 0xFFFACD, emissiveIntensity: 0.5, roughness: 0.5
+    });
+    const tip = new THREE.Mesh(tipGeo, tipMat);
+    // Position at end of curve
+    const endPoint = path.getPoint(1);
+    tip.position.copy(endPoint);
+    group.add(tip);
+
+    group.userData.animationType = 'spring'; // New animation type needed? Or reuse bounce?
+    group.userData.animationOffset = Math.random() * 10;
+    return group;
+}
+
+/**
+ * Balloon Bush — Clumps of varied spheres.
+ */
+export function createBalloonBush(options = {}) {
+    const { color = 0xFF4500 } = options;
+    const group = new THREE.Group();
+
+    // Central mass not visible, just holder
+    const sphereCount = 5 + Math.floor(Math.random() * 5);
+    const mat = createClayMaterial(color);
+
+    for (let i=0; i<sphereCount; i++) {
+        const r = 0.3 + Math.random() * 0.4;
+        const geo = new THREE.SphereGeometry(r, 16, 16);
+        const mesh = new THREE.Mesh(geo, mat);
+
+        // Random cluster position
+        mesh.position.set(
+            (Math.random()-0.5) * 0.8,
+            r + (Math.random()) * 0.8, // Lifted off ground
+            (Math.random()-0.5) * 0.8
+        );
+        mesh.castShadow = true;
+        group.add(mesh);
+    }
+
+    group.userData.animationType = 'bounce';
+    group.userData.animationOffset = Math.random() * 10;
+    return group;
+}
+
 /**
  * Creates a raining cloud with particle effects.
  * @param {Object} options - Options for the cloud: color, rain intensity.
@@ -550,5 +720,8 @@ export function animateFoliage(foliageObject, time) {
         // global spin of the whole group
         foliageObject.rotation.y = Math.sin(time + offset) * 0.8;
         foliageObject.rotation.z = Math.cos(time * 0.5 + offset) * 0.05;
+    } else if (type === 'spring') {
+        // Scale vertical stretch
+        foliageObject.scale.y = 1.0 + Math.sin(time * 3 + offset) * 0.1;
     }
 }
