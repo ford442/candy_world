@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 import WebGPU from 'three/addons/capabilities/WebGPU.js';
 import { WebGPURenderer } from 'three/webgpu';
-import { createFlower, createGrass, createFloweringTree, createShrub, animateFoliage, createGlowingFlower, createFloatingOrb, createVine, createStarflower, createBellBloom, createWisteriaCluster, createRainingCloud } from './foliage.js';
+import { createFlower, createGrass, createFloweringTree, createShrub, animateFoliage, createGlowingFlower, createFloatingOrb, createVine, createStarflower, createBellBloom, createWisteriaCluster, createRainingCloud, createLeafParticle, createGlowingFlowerPatch, createFloatingOrbCluster, createVineCluster } from './foliage.js';
 import { createSky } from './sky.js';
 
 // --- Configuration ---
@@ -221,11 +221,7 @@ function createMushroom(x, z) {
 const clouds = [];
 function createCloud() {
     const group = new THREE.Group();
-    const y = 20 + Math.random() * 10;
-    const x = (Math.random() - 0.5) * 200;
-    const z = (Math.random() - 0.5) * 200;
-    group.position.set(x, y, z);
-
+    // Position will be set by caller
     // Compose cloud of 3-5 spheres
     const blobs = 3 + Math.floor(Math.random() * 3);
     for(let i=0; i<blobs; i++) {
@@ -239,9 +235,7 @@ function createCloud() {
         );
         group.add(mesh);
     }
-
-    scene.add(group);
-    clouds.push({ mesh: group, speed: (Math.random() * 0.05) + 0.02 });
+    return group;
 }
 
 // --- Color Palettes ---
@@ -356,21 +350,27 @@ for(let i=0; i<25; i++) {
 for (let i = 0; i < 30; i++) {
     const x = (Math.random() - 0.5) * 300;
     const z = (Math.random() - 0.5) * 300;
-    createGlowingFlowerPatch(x, z);
+    const patch = createGlowingFlowerPatch(x, z);
+    worldGroup.add(patch);
+    animatedFoliage.push(patch);
 }
 
 // Floating Orbs: 15 -> 25
 for (let i = 0; i < 25; i++) {
     const x = (Math.random() - 0.5) * 300;
     const z = (Math.random() - 0.5) * 300;
-    createFloatingOrbCluster(x, z);
+    const cluster = createFloatingOrbCluster(x, z);
+    worldGroup.add(cluster);
+    animatedFoliage.push(cluster);
 }
 
 // Vines: 10 -> 15
 for (let i = 0; i < 15; i++) {
     const x = (Math.random() - 0.5) * 300;
     const z = (Math.random() - 0.5) * 300;
-    createVineCluster(x, z);
+    const cluster = createVineCluster(x, z);
+    worldGroup.add(cluster);
+    animatedFoliage.push(cluster);
 }
 
 // --- Player & Input Logic ---
