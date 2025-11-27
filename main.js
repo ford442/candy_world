@@ -3,23 +3,27 @@ import { PointerLockControls } from 'three/addons/controls/PointerLockControls.j
 import WebGPU from 'three/addons/capabilities/WebGPU.js';
 import { WebGPURenderer } from 'three/webgpu';
 import { createFlower, createGrass, animateFoliage } from './foliage.js';
+import { createSky } from './sky.js';
 
 // --- Configuration ---
 const CONFIG = {
     colors: {
-        sky: 0xB0E0E6,        // Powder Blue
-        ground: 0xB8F0A8,     // Pastel Mint Green
-        fog: 0xFFD1DC,        // Pastel Pink fog
+        sky: 0x87CEEB,        // Sky Blue
+        ground: 0x98FB98,     // Pale Green
+        fog: 0xFFB6C1,        // Light Pink fog
         light: 0xFFFFFF,
-        ambient: 0xFFE4E1     // Misty Rose
+        ambient: 0xFFA07A     // Light Salmon
     }
 };
 
 // --- Scene Setup ---
 const canvas = document.querySelector('#glCanvas');
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(CONFIG.colors.sky);
 scene.fog = new THREE.Fog(CONFIG.colors.fog, 20, 100);
+
+// Sky
+const sky = createSky();
+scene.add(sky);
 
 const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
 // Initial camera position (will be overridden by player logic, but good for initial frame)
@@ -39,10 +43,10 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.0;
 
 // --- Lighting ---
-const ambientLight = new THREE.HemisphereLight(CONFIG.colors.sky, CONFIG.colors.ground, 0.6);
+const ambientLight = new THREE.HemisphereLight(CONFIG.colors.sky, CONFIG.colors.ground, 1.0); // Increased intensity
 scene.add(ambientLight);
 
-const sunLight = new THREE.DirectionalLight(CONFIG.colors.light, 1.5);
+const sunLight = new THREE.DirectionalLight(CONFIG.colors.light, 0.8); // Decreased intensity
 sunLight.position.set(50, 80, 30);
 sunLight.castShadow = true;
 sunLight.shadow.mapSize.width = 2048;
@@ -57,34 +61,29 @@ sunLight.shadow.bias = -0.0005;
 scene.add(sunLight);
 
 // --- Materials ---
-function createCandyMaterial(color) {
-    return new THREE.MeshPhysicalMaterial({
+function createClayMaterial(color) {
+    return new THREE.MeshStandardMaterial({
         color: color,
         metalness: 0.0,
-        roughness: 0.2,
-        clearcoat: 1.0,
-        clearcoatRoughness: 0.1,
+        roughness: 0.8, // Matte surface
+        flatShading: false,
     });
 }
 
 const materials = {
-    ground: new THREE.MeshStandardMaterial({
-        color: CONFIG.colors.ground,
-        roughness: 0.8,
-        flatShading: false
-    }),
-    trunk: createCandyMaterial(0x8B5A2B), // Brownish
+    ground: createClayMaterial(CONFIG.colors.ground),
+    trunk: createClayMaterial(0x8B5A2B), // Brownish
     leaves: [
-        createCandyMaterial(0xFF69B4), // Hot Pink
-        createCandyMaterial(0x87CEEB), // Sky Blue
-        createCandyMaterial(0xDDA0DD), // Plum
-        createCandyMaterial(0xFFD700), // Gold
+        createClayMaterial(0xFF69B4), // Hot Pink
+        createClayMaterial(0x87CEEB), // Sky Blue
+        createClayMaterial(0xDDA0DD), // Plum
+        createClayMaterial(0xFFD700), // Gold
     ],
-    mushroomStem: createCandyMaterial(0xFFFFF0), // Ivory
+    mushroomStem: createClayMaterial(0xF5DEB3), // Wheat
     mushroomCap: [
-        createCandyMaterial(0xFF0000), // Red
-        createCandyMaterial(0x9932CC), // Dark Orchid
-        createCandyMaterial(0xFF4500), // Orange Red
+        createClayMaterial(0xFF6347), // Tomato
+        createClayMaterial(0xDA70D6), // Orchid
+        createClayMaterial(0xFFA07A), // Light Salmon
     ],
     eye: new THREE.MeshStandardMaterial({ color: 0x000000, roughness: 0.1 }),
     mouth: new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.5 }),
@@ -135,7 +134,7 @@ function createTree(x, z) {
     // Trunk
     const trunkH = 3 + Math.random() * 2;
     const trunkRadius = 0.5; // Avg radius of base
-    const trunkGeo = new THREE.CylinderGeometry(0.3, trunkRadius, trunkH, 8);
+    const trunkGeo = new THREE.CylinderGeometry(0.3, trunkRadius, trunkH, 16); // Increased segments
     const trunk = new THREE.Mesh(trunkGeo, materials.trunk);
     trunk.position.y = trunkH / 2;
     trunk.castShadow = true;
@@ -144,7 +143,7 @@ function createTree(x, z) {
 
     // Leaves (Spheres)
     const leavesR = 1.5 + Math.random();
-    const leavesGeo = new THREE.SphereGeometry(leavesR, 16, 16);
+    const leavesGeo = new THREE.SphereGeometry(leavesR, 32, 32); // Increased segments
     const matIndex = Math.floor(Math.random() * materials.leaves.length);
     const leaves = new THREE.Mesh(leavesGeo, materials.leaves[matIndex]);
     leaves.position.y = trunkH + leavesR * 0.8;
@@ -170,7 +169,7 @@ function createMushroom(x, z) {
     // Stem
     const stemH = 1.5 + Math.random();
     const stemR = 0.3 + Math.random() * 0.2;
-    const stemGeo = new THREE.CylinderGeometry(stemR * 0.8, stemR, stemH, 10);
+    const stemGeo = new THREE.CylinderGeometry(stemR * 0.8, stemR, stemH, 16); // Increased segments
     const stem = new THREE.Mesh(stemGeo, materials.mushroomStem);
     stem.position.y = stemH / 2;
     stem.castShadow = true;
@@ -179,7 +178,7 @@ function createMushroom(x, z) {
     // Cap
     const capR = stemR * 3 + Math.random();
     // Use Sphere but cut off bottom
-    const capGeo = new THREE.SphereGeometry(capR, 20, 16, 0, Math.PI * 2, 0, Math.PI / 2);
+    const capGeo = new THREE.SphereGeometry(capR, 32, 32, 0, Math.PI * 2, 0, Math.PI / 2); // Increased segments
     const matIndex = Math.floor(Math.random() * materials.mushroomCap.length);
     const cap = new THREE.Mesh(capGeo, materials.mushroomCap[matIndex]);
     cap.position.y = stemH; // Sit on top

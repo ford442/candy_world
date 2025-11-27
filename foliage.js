@@ -2,13 +2,13 @@ import * as THREE from 'three';
 
 // --- Materials for Foliage ---
 const foliageMaterials = {
-    grass: new THREE.MeshLambertMaterial({ color: 0x4CBB17 }), // Kelly Green
-    flowerStem: new THREE.MeshLambertMaterial({ color: 0x006400 }), // Dark Green
-    flowerCenter: new THREE.MeshLambertMaterial({ color: 0xFFD700 }), // Gold
+    grass: new THREE.MeshLambertMaterial({ color: 0x7CFC00 }), // Lawn Green
+    flowerStem: new THREE.MeshLambertMaterial({ color: 0x228B22 }), // Forest Green
+    flowerCenter: new THREE.MeshLambertMaterial({ color: 0xFFFACD }), // Lemon Chiffon
     flowerPetal: [
-        new THREE.MeshPhongMaterial({ color: 0xFF1493, shininess: 30 }), // Deep Pink
-        new THREE.MeshPhongMaterial({ color: 0x9370DB, shininess: 30 }), // Medium Purple
-        new THREE.MeshPhongMaterial({ color: 0x00BFFF, shininess: 30 }), // Deep Sky Blue
+        new THREE.MeshStandardMaterial({ color: 0xFF69B4, roughness: 0.8 }), // Hot Pink
+        new THREE.MeshStandardMaterial({ color: 0xBA55D3, roughness: 0.8 }), // Medium Orchid
+        new THREE.MeshStandardMaterial({ color: 0x87CEFA, roughness: 0.8 }), // Light Sky Blue
     ],
 };
 
