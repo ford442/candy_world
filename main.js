@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 import WebGPU from 'three/addons/capabilities/WebGPU.js';
 import { WebGPURenderer } from 'three/webgpu';
-import { createFlower, createGrass, animateFoliage } from './foliage.js';
+import { createFlower, createGrass, createFloweringTree, createShrub, animateFoliage, createGlowingFlower, createFloatingOrb, createVine, createStarflower, createBellBloom, createWisteriaCluster, createRainingCloud } from './foliage.js';
 import { createSky } from './sky.js';
 
 // --- Configuration ---
@@ -244,46 +244,129 @@ function createCloud() {
     clouds.push({ mesh: group, speed: (Math.random() * 0.05) + 0.02 });
 }
 
+// --- Color Palettes ---
+const FLOWER_COLORS = [0xFF69B4, 0xFFD700, 0x7FFFD4, 0xFF8C00, 0xDA70D6, 0x87CEFA, 0xFF6347, 0xBA55D3];
+const GRASS_COLORS = [0x6B8E23, 0x9ACD32, 0x556B2F, 0x228B22, 0x32CD32];
+const TREE_COLORS = [0xFF69B4, 0xFFD700, 0xFF6347, 0xDA70D6, 0x87CEFA];
+const SHRUB_COLORS = [0x32CD32, 0x228B22, 0x6B8E23, 0x9ACD32];
+
 // 6. Foliage
 const foliageGroup = new THREE.Group();
 worldGroup.add(foliageGroup);
 const animatedFoliage = [];
 
-for (let i = 0; i < 150; i++) {
-    const x = (Math.random() - 0.5) * 180;
-    const z = (Math.random() - 0.5) * 180;
+const flowerShapes = ['simple', 'multi', 'spiral', 'layered', 'bell'];
+const grassShapes = ['tall', 'bushy'];
+
+// Increase density: 400 -> 600
+for (let i = 0; i < 600; i++) {
+    const x = (Math.random() - 0.5) * 260;
+    const z = (Math.random() - 0.5) * 260;
     const y = getGroundHeight(x, z);
 
-    if (Math.random() > 0.4) {
-        const flower = createFlower();
+    const rand = Math.random();
+    if (rand < 0.38) {
+        // Flower (now with new shapes)
+        const color = FLOWER_COLORS[Math.floor(Math.random() * FLOWER_COLORS.length)];
+        const shape = flowerShapes[Math.floor(Math.random() * flowerShapes.length)];
+        const flower = createFlower({ color, shape });
         flower.position.set(x, y, z);
         foliageGroup.add(flower);
         animatedFoliage.push(flower);
-    } else {
-        const grass = createGrass();
+    } else if (rand < 0.76) {
+        // Grass
+        const color = GRASS_COLORS[Math.floor(Math.random() * GRASS_COLORS.length)];
+        const shape = grassShapes[Math.floor(Math.random() * grassShapes.length)];
+        const grass = createGrass({ color, shape });
         grass.position.set(x, y, z);
         foliageGroup.add(grass);
         animatedFoliage.push(grass);
+    } else if (rand < 0.88) {
+        // Shrub
+        const color = SHRUB_COLORS[Math.floor(Math.random() * SHRUB_COLORS.length)];
+        const shrub = createShrub({ color });
+        shrub.position.set(x, y, z);
+        worldGroup.add(shrub);
+        animatedFoliage.push(shrub);
+        obstacles.push({ position: new THREE.Vector3(x, y, z), radius: 0.8 });
+    } else if (rand < 0.94) {
+        // New flowers (starflower / bell)
+        const pick = Math.random();
+        let nf;
+        if (pick < 0.6) nf = createStarflower({ color: FLOWER_COLORS[Math.floor(Math.random() * FLOWER_COLORS.length)] });
+        else nf = createBellBloom({ color: FLOWER_COLORS[Math.floor(Math.random() * FLOWER_COLORS.length)] });
+        nf.position.set(x, y, z);
+        foliageGroup.add(nf);
+        animatedFoliage.push(nf);
+    } else {
+        // Wisteria clusters
+        const w = createWisteriaCluster({ color: TREE_COLORS[Math.floor(Math.random() * TREE_COLORS.length)] });
+        w.position.set(x, y + 1.0, z); // hang from above-ish
+        worldGroup.add(w);
+        animatedFoliage.push(w);
     }
 }
 
-// Populate World
-for(let i=0; i<30; i++) {
-    const x = (Math.random() - 0.5) * 180;
-    const z = (Math.random() - 0.5) * 180;
+// Flowering Trees: increase 25 -> 40
+for (let i = 0; i < 40; i++) {
+    const x = (Math.random() - 0.5) * 260;
+    const z = (Math.random() - 0.5) * 260;
+    const y = getGroundHeight(x, z);
+    const color = TREE_COLORS[Math.floor(Math.random() * TREE_COLORS.length)];
+    const tree = createFloweringTree({ color });
+    tree.position.set(x, y, z);
+    worldGroup.add(tree);
+    animatedFoliage.push(tree);
+    obstacles.push({ position: new THREE.Vector3(x, y, z), radius: 1.5 });
+}
+
+// Regular Trees: increase 30 -> 50
+for(let i=0; i<50; i++) {
+    const x = (Math.random() - 0.5) * 260;
+    const z = (Math.random() - 0.5) * 260;
     createTree(x, z);
 }
 
+// Mushrooms: increase 20 -> 30
 const animatedObjects = [];
-for(let i=0; i<20; i++) {
-    const x = (Math.random() - 0.5) * 180;
-    const z = (Math.random() - 0.5) * 180;
+for(let i=0; i<30; i++) {
+    const x = (Math.random() - 0.5) * 220;
+    const z = (Math.random() - 0.5) * 220;
     const obj = createMushroom(x, z);
     animatedObjects.push(obj);
 }
 
-for(let i=0; i<15; i++) {
-    createCloud();
+// Clouds: increase 15 -> 25
+for(let i=0; i<25; i++) {
+    const cloud = Math.random() > 0.5 ? createCloud() : createRainingCloud({ rainIntensity: 100 });
+    cloud.position.set(
+        (Math.random() - 0.5) * 100,
+        20 + Math.random() * 10,
+        (Math.random() - 0.5) * 100
+    );
+    scene.add(cloud);
+    animateObjects.push(cloud);
+}
+
+// Glowing Flowers: 20 -> 30
+for (let i = 0; i < 30; i++) {
+    const x = (Math.random() - 0.5) * 300;
+    const z = (Math.random() - 0.5) * 300;
+    createGlowingFlowerPatch(x, z);
+}
+
+// Floating Orbs: 15 -> 25
+for (let i = 0; i < 25; i++) {
+    const x = (Math.random() - 0.5) * 300;
+    const z = (Math.random() - 0.5) * 300;
+    createFloatingOrbCluster(x, z);
+}
+
+// Vines: 10 -> 15
+for (let i = 0; i < 15; i++) {
+    const x = (Math.random() - 0.5) * 300;
+    const z = (Math.random() - 0.5) * 300;
+    createVineCluster(x, z);
 }
 
 // --- Player & Input Logic ---
@@ -504,6 +587,17 @@ window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+// Add rainbow-leaf thrower functionality
+document.addEventListener('click', (event) => {
+    if (event.button === 0) { // Left click
+        const leaf = createLeafParticle({ color: 0xFF69B4 });
+        leaf.position.set(camera.position.x, camera.position.y, camera.position.z);
+        leaf.userData.animationType = 'float';
+        scene.add(leaf);
+        animateObjects.push(leaf);
+    }
 });
 
 animate();
