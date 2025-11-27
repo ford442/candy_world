@@ -345,7 +345,11 @@ for(let i=0; i<25; i++) {
         (Math.random() - 0.5) * 100
     );
     scene.add(cloud);
-    animateObjects.push(cloud);
+    if (cloud.userData.animationType === 'rain') {
+        animatedFoliage.push(cloud);
+    } else {
+        clouds.push({ mesh: cloud, speed: (Math.random() * 0.05) + 0.02 });
+    }
 }
 
 // Glowing Flowers: 20 -> 30
@@ -590,13 +594,15 @@ window.addEventListener('resize', () => {
 });
 
 // Add rainbow-leaf thrower functionality
+const rainbowColors = [0xFF0000, 0xFF7F00, 0xFFFF00, 0x00FF00, 0x0000FF, 0x4B0082, 0x9400D3]; // Red, Orange, Yellow, Green, Blue, Indigo, Violet
 document.addEventListener('click', (event) => {
     if (event.button === 0) { // Left click
-        const leaf = createLeafParticle({ color: 0xFF69B4 });
+        const color = rainbowColors[Math.floor(Math.random() * rainbowColors.length)];
+        const leaf = createLeafParticle({ color });
         leaf.position.set(camera.position.x, camera.position.y, camera.position.z);
         leaf.userData.animationType = 'float';
         scene.add(leaf);
-        animateObjects.push(leaf);
+        animatedFoliage.push(leaf);
     }
 });
 
