@@ -457,6 +457,48 @@ export function createRainingCloud(options = {}) {
     return group;
 }
 
+/**
+ * Creates a patch of glowing flowers.
+ */
+export function createGlowingFlowerPatch(x, z) {
+    const patch = new THREE.Group();
+    patch.position.set(x, 0, z);
+    for(let i=0; i<5; i++) {
+        const gf = createGlowingFlower();
+        gf.position.set(Math.random()*2 - 1, 0, Math.random()*2 - 1);
+        patch.add(gf);
+    }
+    return patch;
+}
+
+/**
+ * Creates a cluster of floating orbs.
+ */
+export function createFloatingOrbCluster(x, z) {
+    const cluster = new THREE.Group();
+    cluster.position.set(x, 5, z);
+    for(let i=0; i<3; i++) {
+        const orb = createFloatingOrb();
+        orb.position.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5);
+        cluster.add(orb);
+    }
+    return cluster;
+}
+
+/**
+ * Creates a cluster of vines.
+ */
+export function createVineCluster(x, z) {
+    const cluster = new THREE.Group();
+    cluster.position.set(x, 0, z);
+    for(let i=0; i<3; i++) {
+        const vine = createVine();
+        vine.position.set(Math.random() - 0.5, 0, Math.random() - 0.5);
+        cluster.add(vine);
+    }
+    return cluster;
+}
+
 // --- Animation System ---
 
 /**
