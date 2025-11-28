@@ -248,7 +248,12 @@ export function createGlowingFlower(options = {}) {
 
     // Glowing Head
     const headGeo = new THREE.SphereGeometry(0.2, 16, 16);
-    const headMat = new THREE.MeshBasicMaterial({ color, emissive: color, emissiveIntensity: intensity });
+    const headMat = new THREE.MeshStandardMaterial({
+        color,
+        emissive: color,
+        emissiveIntensity: intensity,
+        roughness: 0.8
+    });
     const head = new THREE.Mesh(headGeo, headMat);
     head.position.y = stemHeight;
     group.add(head);
