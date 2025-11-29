@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js';
 import WebGPU from 'three/examples/jsm/capabilities/WebGPU.js';
-import { WebGPURenderer } from 'three/examples/jsm/renderers/webgpu/WebGPURenderer.js';
+import { WebGPURenderer } from 'three/webgpu';
 import { createFlower, createGrass, createFloweringTree, createShrub, animateFoliage, createGlowingFlower, createFloatingOrb, createVine, createStarflower, createBellBloom, createWisteriaCluster, createRainingCloud, createLeafParticle, createGlowingFlowerPatch, createFloatingOrbCluster, createVineCluster, createBubbleWillow, createPuffballFlower, createHelixPlant, createBalloonBush } from './foliage.js';
 import { createSky } from './sky.js';
 
@@ -95,6 +95,8 @@ const materials = {
     }),
     // Add a new material for drivable mushrooms (e.g., bright blue)
     drivableMushroomCap: createClayMaterial(0x00BFFF) // Deep Sky Blue
+};
+
 // --- Physics Data ---
 const obstacles = [];
 
@@ -161,9 +163,11 @@ function createTree(x, z) {
 }
 
 // 4. Fantasy Mushrooms with Faces
-function createMushroom(x, z) {
-    const height = getGroundHeight(x, z);
+const eyeGeo = new THREE.SphereGeometry(0.05, 16, 16); // Geometry for eyes
+
 function createMushroom(x, z, options = {}) {
+    const height = getGroundHeight(x, z);
+    const group = new THREE.Group();
     group.position.set(x, height, z);
 
     // Stem
@@ -171,7 +175,6 @@ function createMushroom(x, z, options = {}) {
     const stemR = 0.3 + Math.random() * 0.2;
     const stemGeo = new THREE.CylinderGeometry(stemR * 0.8, stemR, stemH, 16); // Increased segments
     const stem = new THREE.Mesh(stemGeo, materials.mushroomStem);
-    const stemGeo = new THREE.CylinderGeometry(stemR * 0.8, stemR, stemH, 16);
     stem.castShadow = true;
     group.add(stem);
 
@@ -179,7 +182,7 @@ function createMushroom(x, z, options = {}) {
     const capR = stemR * 3 + Math.random();
     // Use Sphere but cut off bottom
     const capGeo = new THREE.SphereGeometry(capR, 32, 32, 0, Math.PI * 2, 0, Math.PI / 2); // Increased segments
-    const capGeo = new THREE.SphereGeometry(capR, 32, 32, 0, Math.PI * 2, 0, Math.PI / 2);
+
     let capMaterial;
     let isDrivable = false;
     if (options.drivable) {
@@ -191,12 +194,16 @@ function createMushroom(x, z, options = {}) {
     }
     const cap = new THREE.Mesh(capGeo, capMaterial);
     cap.position.y = stemH;
+
+    // Face
+    const faceGroup = new THREE.Group();
+    faceGroup.position.set(0, stemH * 0.6, stemR * 0.95);
+
     const leftEye = new THREE.Mesh(eyeGeo, materials.eye);
     leftEye.position.set(-0.15, 0.1, 0);
     const rightEye = new THREE.Mesh(eyeGeo, materials.eye);
-    // Face
+    rightEye.position.set(0.15, 0.1, 0);
 
-    faceGroup.position.set(0, stemH * 0.6, stemR * 0.95);
     const smileGeo = new THREE.TorusGeometry(0.12, 0.03, 6, 12, Math.PI);
     const smile = new THREE.Mesh(smileGeo, materials.mouth);
     smile.rotation.z = Math.PI;
@@ -204,17 +211,18 @@ function createMushroom(x, z, options = {}) {
 
     faceGroup.add(leftEye, rightEye, smile);
     group.add(faceGroup);
+    group.add(cap); // Add cap to group
 
     worldGroup.add(group);
 
     // Add to obstacles for collision
     obstacles.push({
         position: new THREE.Vector3(x, height, z),
-    obstacles.push({ position: new THREE.Vector3(x, height, z), radius: stemR * 2 });
+        radius: stemR * 2
     });
+
     // Store for animation and driving
     return { mesh: group, type: 'mushroom', speed: Math.random() * 0.02 + 0.01, offset: Math.random() * 100, drivable: isDrivable };
-    return { mesh: group, type: 'mushroom', speed: Math.random() * 0.02 + 0.01, offset: Math.random() * 100 };
 }
 
 // 5. Clouds
@@ -547,6 +555,7 @@ const player = {
     height: 1.8, // Eye level
     radius: 0.5
 };
+
 // --- Driving Drivable Mushrooms ---
 let drivingMushroom = null;
 let previousCameraPosition = null;
@@ -641,6 +650,95 @@ document.addEventListener('keydown', (event) => {
     }
 });
 
+
+// --- Loop ---
+const clock = new THREE.Clock();
+
+async function animate() {
+    const delta = clock.getDelta();
+    const t = clock.getElapsedTime();
+
+    // Player Physics & Movement
+    if (controls.isLocked) {
+        // Speed determination
+        let targetSpeed = player.runSpeed;
+        if (keyStates.sneak) targetSpeed = player.sneakSpeed;
+        if (keyStates.sprint) targetSpeed = player.sprintSpeed;
+
+        // Smooth speed transition
+        if (player.currentSpeed < targetSpeed) player.currentSpeed += player.acceleration * delta;
+        if (player.currentSpeed > targetSpeed) player.currentSpeed -= player.acceleration * delta;
+
+        player.velocity.x -= player.velocity.x * 10.0 * delta;
+        player.velocity.z -= player.velocity.z * 10.0 * delta;
+        player.velocity.y -= player.gravity * delta;
+
+        player.direction.z = Number(keyStates.forward) - Number(keyStates.backward);
+        player.direction.x = Number(keyStates.right) - Number(keyStates.left);
+        player.direction.normalize();
+
+        if (keyStates.forward || keyStates.backward) player.velocity.z -= player.direction.z * player.currentSpeed * delta;
+        if (keyStates.left || keyStates.right) player.velocity.x -= player.direction.x * player.currentSpeed * delta;
+
+        if (keyStates.jump) {
+             // Simple jump check (grounded)
+             if (camera.position.y <= getGroundHeight(camera.position.x, camera.position.z) + player.height + 0.5) {
+                  player.velocity.y = player.jumpStrength;
+             }
+        }
+
+        if (!drivingMushroom && !cloudHelicopter) {
+            controls.moveRight(-player.velocity.x * delta);
+            controls.moveForward(-player.velocity.z * delta);
+            camera.position.y += player.velocity.y * delta;
+
+            // Ground Collision
+            const groundY = getGroundHeight(camera.position.x, camera.position.z);
+            if (camera.position.y < groundY + player.height) {
+                player.velocity.y = 0;
+                camera.position.y = groundY + player.height;
+            }
+        }
+    }
+
+    // Logic for Vehicles (driving/helicopter)
+    if (drivingMushroom) {
+        let moveSpeed = 10 * delta;
+        let moveX = 0, moveZ = 0;
+        if (keyStates.forward) moveZ -= moveSpeed;
+        if (keyStates.backward) moveZ += moveSpeed;
+        if (keyStates.left) moveX -= moveSpeed;
+        if (keyStates.right) moveX += moveSpeed;
+
+        // Update mushroom position
+        drivingMushroom.mesh.position.x += moveX;
+        drivingMushroom.mesh.position.z += moveZ;
+
+        // Keep camera on mushroom
+        camera.position.copy(drivingMushroom.mesh.position);
+
+        // Keep mushroom above ground
+        const groundY = getGroundHeight(drivingMushroom.mesh.position.x, drivingMushroom.mesh.position.z);
+        drivingMushroom.mesh.position.y = groundY;
+    }
+
+    if (cloudHelicopter) {
+        let moveSpeed = 15 * delta;
+        let moveX = 0, moveY = 0, moveZ = 0;
+        if (keyStates.forward) moveZ -= moveSpeed;
+        if (keyStates.backward) moveZ += moveSpeed;
+        if (keyStates.left) moveX -= moveSpeed;
+        if (keyStates.right) moveX += moveSpeed;
+        if (keyStates.jump) moveY += moveSpeed;
+        if (keyStates.sneak) moveY -= moveSpeed;
+
+        cloudHelicopter.position.x += moveX;
+        cloudHelicopter.position.y += moveY;
+        cloudHelicopter.position.z += moveZ;
+        camera.position.copy(cloudHelicopter.position);
+    }
+
+    // Animate Foliage
     animatedFoliage.forEach(foliage => {
         animateFoliage(foliage, t);
     });
@@ -653,66 +751,55 @@ document.addEventListener('keydown', (event) => {
         }
     });
 
-    // Animate Raining Clouds (drift slowly)
+    // Animate Raining Clouds
     rainingClouds.forEach(cloud => {
         cloud.position.x += 0.01;
         if (cloud.position.x > 120) cloud.position.x = -120;
 
-        // --- RAIN LOGIC ---
-        // 1. Grow Plants under rain
-        // 2. Spawn new plants occasionally
+        // Rain Logic (Growth & Spawning)
+        // Check if rain is active (for player cloud) or always for auto-clouds
+        // Note: auto-clouds are always raining in this setup
 
-        // Optimization: Don't check every frame against every plant.
-        // Just pick a few random samples or check bounding box.
-        // For simplicity: Check distance to a few random foliage items per frame.
+        if (cloudIsRaining || cloud.userData.animationType === 'rain') {
+             // 1. Growth
+             for(let k=0; k<5; k++) {
+                if (animatedFoliage.length === 0) break;
+                const idx = Math.floor(Math.random() * animatedFoliage.length);
+                const plant = animatedFoliage[idx];
 
-        // A. Growth
-        // Pick 5 random foliage items to check
-        for(let k=0; k<5; k++) {
-            if (animatedFoliage.length === 0) break;
-            const idx = Math.floor(Math.random() * animatedFoliage.length);
-            const plant = animatedFoliage[idx];
+                if (plant.userData.animationType === 'rain') continue;
 
-            // ignore clouds themselves
-            if (plant.userData.animationType === 'rain') continue;
+                const dx = plant.position.x - cloud.position.x;
+                const dz = plant.position.z - cloud.position.z;
+                if (dx*dx + dz*dz < 25) {
+                     if (plant.scale.y < 2.0) {
+                         plant.scale.multiplyScalar(1.002);
+                     }
+                }
+             }
 
-            const dx = plant.position.x - cloud.position.x;
-            const dz = plant.position.z - cloud.position.z;
-            if (dx*dx + dz*dz < 25) { // Radius 5 (squared 25)
-                 // Grow!
-                 if (plant.scale.y < 2.0) { // Max scale cap
-                     plant.scale.multiplyScalar(1.002);
+             // 2. Spawn
+             if (Math.random() < 0.02) {
+                 const offsetR = Math.random() * 4;
+                 const offsetTheta = Math.random() * Math.PI * 2;
+                 const sx = cloud.position.x + offsetR * Math.cos(offsetTheta);
+                 const sz = cloud.position.z + offsetR * Math.sin(offsetTheta);
+                 const sy = getGroundHeight(sx, sz);
+
+                 if (Math.random() < 0.2) {
+                     const m = createMushroom(sx, sz);
+                     animatedObjects.push(m);
+                 } else {
+                     const picker = Math.floor(Math.random() * 3);
+                     let baby;
+                     if (picker === 0) baby = createGrass({ color: GRASS_COLORS[0] });
+                     else if (picker === 1) baby = createFlower({ color: FLOWER_COLORS[0] });
+                     else baby = createPuffballFlower({ color: FLOWER_COLORS[1] });
+
+                     baby.position.set(sx, sy, sz);
+                     baby.scale.set(0.1, 0.1, 0.1);
+                     safeAddFoliage(baby);
                  }
-            }
-        }
-
-        // B. Spawn (Chance: 1 in 60 frames approx)
-        if (Math.random() < 0.02) {
-             const offsetR = Math.random() * 4; // Under cloud radius
-             const offsetTheta = Math.random() * Math.PI * 2;
-             const sx = cloud.position.x + offsetR * Math.cos(offsetTheta);
-             const sz = cloud.position.z + offsetR * Math.sin(offsetTheta);
-             const sy = getGroundHeight(sx, sz);
-
-             // Spawn a baby plant!
-             const types = [createGrass, createFlower, createPuffballFlower, createMushroom];
-             // Note: createMushroom returns wrapper object, others return Group/Mesh
-
-             if (Math.random() < 0.2) {
-                 // Mushroom special case
-                 const m = createMushroom(sx, sz);
-                 animatedObjects.push(m);
-             } else {
-                 const picker = Math.floor(Math.random() * 3); // 0, 1, 2
-                 let baby;
-                 if (picker === 0) baby = createGrass({ color: GRASS_COLORS[0] });
-                 else if (picker === 1) baby = createFlower({ color: FLOWER_COLORS[0] });
-                 else baby = createPuffballFlower({ color: FLOWER_COLORS[1] });
-
-                 baby.position.set(sx, sy, sz);
-                 baby.scale.set(0.1, 0.1, 0.1); // Start tiny
-
-                 safeAddFoliage(baby);
              }
         }
     });
@@ -720,44 +807,12 @@ document.addEventListener('keydown', (event) => {
     await renderer.renderAsync(scene, camera);
 }
 
+// Start Animation Loop
+renderer.setAnimationLoop(animate);
+
 // Resize Handler
 window.addEventListener('resize', () => {
-    if (drivingMushroom) {
-        // Driving mushroom logic
-        let moveSpeed = 10 * delta;
-        let moveX = 0, moveZ = 0;
-        if (keyStates.forward) moveZ -= moveSpeed;
-        if (keyStates.backward) moveZ += moveSpeed;
-        if (keyStates.left) moveX -= moveSpeed;
-        if (keyStates.right) moveX += moveSpeed;
-        // Update mushroom position
-        drivingMushroom.mesh.position.x += moveX;
-        drivingMushroom.mesh.position.z += moveZ;
-        // Keep camera on mushroom
-        camera.position.copy(drivingMushroom.mesh.position);
-        // Optional: keep mushroom above ground
-        const groundY = getGroundHeight(drivingMushroom.mesh.position.x, drivingMushroom.mesh.position.z);
-        drivingMushroom.mesh.position.y = groundY;
-    }
-
-    if (cloudHelicopter) {
-        // Cloud helicopter movement
-        let moveSpeed = 15 * delta;
-        let moveX = 0, moveY = 0, moveZ = 0;
-        if (keyStates.forward) moveZ -= moveSpeed;
-        if (keyStates.backward) moveZ += moveSpeed;
-        if (keyStates.left) moveX -= moveSpeed;
-        if (keyStates.right) moveX += moveSpeed;
-        if (keyStates.jump) moveY += moveSpeed; // Up
-        if (keyStates.sneak) moveY -= moveSpeed; // Down
-        cloudHelicopter.position.x += moveX;
-        cloudHelicopter.position.y += moveY;
-        cloudHelicopter.position.z += moveZ;
-        camera.position.copy(cloudHelicopter.position);
-        // Rain logic: grow plants and spawn new ones under cloud
-        if (cloudIsRaining) {
-            for(let k=0; k<5; k++) {
-                if (animatedFoliage.length === 0) break;
-                const idx = Math.floor(Math.random() * animatedFoliage.length);
-                const plant = animatedFoliage[idx];
-                if
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+});
