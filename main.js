@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js';
 import WebGPU from 'three/examples/jsm/capabilities/WebGPU.js';
 import { WebGPURenderer, PointsNodeMaterial } from 'three/webgpu';
-import { color, float, vec3, timerLocal, positionLocal, attribute, storage, uniform, uv } from 'three/tsl';
+import { color, float, vec3, time, positionLocal, attribute, storage, uniform, uv } from 'three/tsl';
 import { createFlower, createGrass, createFloweringTree, createShrub, animateFoliage, createGlowingFlower, createFloatingOrb, createVine, createStarflower, createBellBloom, createWisteriaCluster, createRainingCloud, createLeafParticle, createGlowingFlowerPatch, createFloatingOrbCluster, createVineCluster, createBubbleWillow, createPuffballFlower, createHelixPlant, createBalloonBush, initGrassSystem, addGrassInstance } from './foliage.js';
 import { createSky } from './sky.js';
 
@@ -690,7 +690,7 @@ function createWaterfall(height, colorHex = 0x87CEEB) {
     const aOffset = attribute('aOffset', 'float');
 
     // Animation Logic
-    const t = timerLocal(); // Global time
+    const t = time; // Global time
     const fallHeight = float(height);
 
     // Calculate current Y: (offset + speed * time) % height
