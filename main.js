@@ -650,6 +650,308 @@ document.addEventListener('keydown', (event) => {
     }
 });
 
+// --- NEW FEATURE: Overgrown Rain Zone & King Mushroom ---
+
+// 1. Custom Waterfall Particle System
+function createWaterfall(height, color = 0x87CEEB) {
+    const particleCount = 1500; // Dense stream
+    const geo = new THREE.BufferGeometry();
+    const positions = new Float32Array(particleCount * 3);
+    const speeds = new Float32Array(particleCount); // Individual speeds
+
+    for (let i = 0; i < particleCount; i++) {
+        // Spawn at top (0,0,0) with slight spread for "stream" width
+        positions[i * 3] = (Math.random() - 0.5) * 2.0; // X spread
+        positions[i * 3 + 1] = Math.random() * -height; // Initial Y spread down the fall
+        positions[i * 3 + 2] = (Math.random() - 0.5) * 2.0; // Z spread
+
+        speeds[i] = 0.5 + Math.random() * 0.5; // Random fall speed
+    }
+
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geo.setAttribute('speed', new THREE.BufferAttribute(speeds, 1));
+
+    const mat = new THREE.PointsMaterial({
+        color: color,
+        size: 0.4,
+        transparent: true,
+        opacity: 0.8,
+        blending: THREE.AdditiveBlending // Makes water look shiny
+    });
+
+    const waterfall = new THREE.Points(geo, mat);
+    waterfall.userData = {
+        animationType: 'waterfall',
+        fallHeight: height
+    };
+    return waterfall;
+}
+
+// 2. Animation Logic for Waterfall (To be called in loop)
+function updateWaterfall(waterfall) {
+    const positions = waterfall.geometry.attributes.position.array;
+    const speeds = waterfall.geometry.attributes.speed.array;
+    const height = waterfall.userData.fallHeight;
+
+    for (let i = 0; i < waterfall.geometry.attributes.position.count; i++) {
+        // Move Y down
+        positions[i * 3 + 1] -= speeds[i];
+
+        // Reset if it hits the bottom
+        if (positions[i * 3 + 1] < -height) {
+            positions[i * 3 + 1] = 0; // Back to top
+            // Reshuffle X/Z slightly for turbulence
+            positions[i * 3] = (Math.random() - 0.5) * 2.0;
+            positions[i * 3 + 2] = (Math.random() - 0.5) * 2.0;
+        }
+    }
+    waterfall.geometry.attributes.position.needsUpdate = true;
+}
+
+// 3. A specialized function to create Giant Mushrooms with correct physics
+function createGiantMushroom(x, z, scale = 8) {
+    const height = getGroundHeight(x, z);
+    const group = new THREE.Group();
+    group.position.set(x, height, z);
+
+    // Stem
+    const stemH = (1.5 + Math.random()) * scale;
+    const stemR = (0.3 + Math.random() * 0.2) * scale;
+    const stemGeo = new THREE.CylinderGeometry(stemR * 0.8, stemR, stemH, 16);
+    const stem = new THREE.Mesh(stemGeo, materials.mushroomStem);
+    stem.castShadow = true;
+    group.add(stem);
+
+    // Cap
+    const capR = stemR * 3 + Math.random() * scale;
+    const capGeo = new THREE.SphereGeometry(capR, 32, 32, 0, Math.PI * 2, 0, Math.PI / 2);
+
+    const matIndex = Math.floor(Math.random() * materials.mushroomCap.length);
+    const capMaterial = materials.mushroomCap[matIndex];
+
+    const cap = new THREE.Mesh(capGeo, capMaterial);
+    cap.position.y = stemH;
+
+    // Face (Scaled)
+    const faceGroup = new THREE.Group();
+    // Adjust face position based on new scale
+    faceGroup.position.set(0, stemH * 0.6, stemR * 0.95);
+    faceGroup.scale.set(scale, scale, scale); // Scale the face features
+
+    const leftEye = new THREE.Mesh(eyeGeo, materials.eye);
+    leftEye.position.set(-0.15, 0.1, 0);
+    const rightEye = new THREE.Mesh(eyeGeo, materials.eye);
+    rightEye.position.set(0.15, 0.1, 0);
+
+    const smileGeo = new THREE.TorusGeometry(0.12, 0.03, 6, 12, Math.PI);
+    const smile = new THREE.Mesh(smileGeo, materials.mouth);
+    smile.rotation.z = Math.PI;
+    smile.position.set(0, -0.05, 0);
+
+    faceGroup.add(leftEye, rightEye, smile);
+    group.add(faceGroup);
+    group.add(cap);
+
+    worldGroup.add(group);
+
+    // IMPORTANT: Add a larger collision obstacle
+    obstacles.push({
+        position: new THREE.Vector3(x, height, z),
+        radius: stemR * 1.2 // Adjusted to "somewhere between" strict and soft
+    });
+
+    // Add to animated objects so it might bounce or look alive
+    const giantMushroom = { mesh: group, type: 'mushroom', speed: Math.random() * 0.02 + 0.01, offset: Math.random() * 100, drivable: false };
+    animatedObjects.push(giantMushroom);
+}
+
+// 4. Helper for Giant Rain Cloud (Manual scaling to keep rain drops normal size)
+function createGiantRainCloud(options = {}) {
+    const { color = 0x555555, rainIntensity = 200 } = options;
+    const group = new THREE.Group();
+
+    // Giant Cloud Body (Scaled geometry radius, standard is 1.5, giant is 4.5)
+    const cloudGeo = new THREE.SphereGeometry(4.5, 32, 32);
+    const cloudMat = materials.cloud.clone(); // Use existing cloud material
+    cloudMat.color.setHex(color);
+    const cloud = new THREE.Mesh(cloudGeo, cloudMat);
+    cloud.castShadow = true;
+    group.add(cloud);
+
+    // Rain Particles (Scaled spread, standard is 3.0, giant is 9.0)
+    const rainGeo = new THREE.BufferGeometry();
+    const positions = new Float32Array(rainIntensity * 3);
+    for (let i = 0; i < rainIntensity; i++) {
+        positions[i * 3] = (Math.random() - 0.5) * 9.0; // x spread
+        positions[i * 3 + 1] = Math.random() * -6.0; // y spread
+        positions[i * 3 + 2] = (Math.random() - 0.5) * 9.0; // z spread
+    }
+    rainGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+    // Use normal size for droplets
+    const rainMat = new THREE.PointsMaterial({ color: 0x87CEEB, size: 0.05 });
+    const rain = new THREE.Points(rainGeo, rainMat);
+    group.add(rain);
+
+    group.userData.animationType = 'rain';
+    return group;
+}
+
+// 5. The King Mushroom with Pool and Waterfall
+function spawnKingMushroomZone(cx, cz) {
+    console.log(`Spawning King Mushroom at ${cx}, ${cz}`);
+
+    // A. The Giant Mushroom Structure
+    const scale = 12;
+    const stemH = 2.5 * scale; // Tall stem
+    const stemR = 0.4 * scale;
+    const capR = 1.5 * scale; // Wide cap
+
+    const group = new THREE.Group();
+    group.position.set(cx, getGroundHeight(cx, cz), cz);
+
+    // Stem
+    const stem = new THREE.Mesh(
+        new THREE.CylinderGeometry(stemR * 0.8, stemR, stemH, 32),
+        materials.mushroomStem
+    );
+    stem.position.y = stemH / 2;
+    stem.castShadow = true;
+    group.add(stem);
+
+    // Cap
+    const cap = new THREE.Mesh(
+        new THREE.SphereGeometry(capR, 32, 32, 0, Math.PI * 2, 0, Math.PI / 2),
+        materials.mushroomCap[0] // Red/Tomato cap
+    );
+    cap.position.y = stemH;
+    group.add(cap);
+
+    // B. The Pool of Water (On top of cap)
+    const poolGeo = new THREE.CylinderGeometry(capR * 0.8, capR * 0.8, 0.5, 32);
+    const poolMat = new THREE.MeshStandardMaterial({
+        color: 0x0099FF,
+        roughness: 0.1,
+        metalness: 0.5
+    });
+    const pool = new THREE.Mesh(poolGeo, poolMat);
+    pool.position.y = stemH + (capR * 0.2); // Sits slightly embedded in top
+    group.add(pool);
+
+    // C. The Waterfall
+    // Calculate edge position
+    const waterfallOffset = capR * 0.8;
+    const waterfall = createWaterfall(stemH); // Height matches stem
+    // Position at the edge of the pool
+    waterfall.position.set(0, stemH + 0.5, waterfallOffset);
+    group.add(waterfall);
+
+    // Add collision for the King Mushroom
+    obstacles.push({ position: group.position.clone(), radius: stemR * 1.2 });
+    scene.add(group);
+
+    // Register Waterfall for Logic
+    // We treat it like a "cloud" so it causes growth, and "foliage" so it gets updated
+    animatedFoliage.push(waterfall);
+
+    // Hack: Add the waterfall WORLD position to rainingClouds so plants grow near the base
+    // Since waterfall is in a group, we need a proxy object representing the "Splash Zone"
+    const splashZone = new THREE.Object3D();
+    splashZone.position.set(cx, 0, cz + waterfallOffset); // Base of waterfall
+    splashZone.userData = { animationType: 'rain' }; // Tag for growth logic
+    rainingClouds.push(splashZone);
+
+    // D. Surround with Giant Plants (The "Jungle")
+    for(let i=0; i<20; i++) {
+        const r = 15 + Math.random() * 30;
+        const theta = Math.random() * Math.PI * 2;
+        const x = cx + r * Math.cos(theta);
+        const z = cz + r * Math.sin(theta);
+
+        // Random Giant Plant
+        const type = Math.random();
+        let plant;
+        if (type < 0.33) plant = createBubbleWillow({ color: 0xDA70D6 });
+        else if (type < 0.66) plant = createHelixPlant({ color: 0x7FFFD4 });
+        else plant = createStarflower({ color: 0xFFD700 });
+
+        const pScale = 4 + Math.random() * 4;
+        plant.position.set(x, getGroundHeight(x, z), z);
+        plant.scale.set(pScale, pScale, pScale);
+
+        safeAddFoliage(plant, true, 1.0 * pScale);
+    }
+}
+
+// 6. The Zone Generator
+function spawnOvergrownZone(cx, cz) {
+    console.log(`Spawning Overgrown Zone at ${cx}, ${cz}`);
+    const radius = 50; // Large area
+
+    // A. Permanent Heavy Rain Cloud
+    // We create a cluster of rain clouds to cover the area
+    for(let i=0; i<3; i++) {
+        // Use custom giant cloud creator instead of scaling
+        const cloud = createGiantRainCloud({ rainIntensity: 200, color: 0x555555 });
+        cloud.position.set(
+            cx + (Math.random()-0.5)*30,
+            60 + Math.random()*10,
+            cz + (Math.random()-0.5)*30
+        );
+        scene.add(cloud);
+        // Add to animation loop so rain works
+        animatedFoliage.push(cloud);
+    }
+
+    // B. Giant Mushrooms (The "Hills")
+    for(let i=0; i<15; i++) {
+        const r = Math.random() * radius;
+        const theta = Math.random() * Math.PI * 2;
+        const x = cx + r * Math.cos(theta);
+        const z = cz + r * Math.sin(theta);
+
+        // Massive scale between 8x and 15x
+        createGiantMushroom(x, z, 8 + Math.random() * 7);
+    }
+
+    // C. Giant Foliage
+    for(let i=0; i<30; i++) {
+        const r = Math.random() * radius;
+        const theta = Math.random() * Math.PI * 2;
+        const x = cx + r * Math.cos(theta);
+        const z = cz + r * Math.sin(theta);
+        const y = getGroundHeight(x, z);
+
+        const type = Math.random();
+        let plant;
+        let scale;
+
+        if (type < 0.4) {
+            // Giant Helix Plant
+            plant = createHelixPlant({ color: 0x00FF00 }); // Neon Green
+            scale = 5 + Math.random() * 5;
+        } else if (type < 0.7) {
+            // Giant Starflower
+            plant = createStarflower({ color: 0xFF00FF }); // Magenta
+            scale = 4 + Math.random() * 4;
+        } else {
+            // Giant Bubble Willow
+            plant = createBubbleWillow({ color: 0x00BFFF });
+            scale = 3 + Math.random() * 3;
+        }
+
+        plant.position.set(x, y, z);
+        plant.scale.set(scale, scale, scale);
+
+        // Add to world with approximated collision radius (base radius * scale)
+        safeAddFoliage(plant, true, 1.0 * scale);
+    }
+}
+
+// 7. Call the functions to place it in the world
+spawnOvergrownZone(-100, -100);
+spawnKingMushroomZone(-100, -100);
+
 
 // --- Loop ---
 const clock = new THREE.Clock();
@@ -740,7 +1042,13 @@ async function animate() {
 
     // Animate Foliage
     animatedFoliage.forEach(foliage => {
-        animateFoliage(foliage, t);
+        // Check for our new custom waterfall type
+        if (foliage.userData.animationType === 'waterfall') {
+            updateWaterfall(foliage);
+        } else {
+            // Default behavior for everything else
+            animateFoliage(foliage, t);
+        }
     });
 
     // Animate Clouds
