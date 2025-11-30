@@ -675,30 +675,39 @@ export function createVineCluster(x, z) {
 }
 
 // --- Instancing System (Grass) ---
-let grassInstancedMesh = null;
+let grassMeshes = [];
 const dummy = new THREE.Object3D();
+const MAX_PER_MESH = 1000; // Limit to prevent Uniform Buffer overflow (64KB limit)
 
 export function initGrassSystem(scene, count = 5000) {
-    // Create ONE geometry and material
+    grassMeshes = [];
+    // Create geometry and material once
     const height = 0.8;
     const geo = new THREE.BoxGeometry(0.05, height, 0.05);
     geo.translate(0, height / 2, 0);
 
     const mat = createClayMaterial(0x7CFC00);
 
-    grassInstancedMesh = new THREE.InstancedMesh(geo, mat, count);
-    grassInstancedMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage); // If you want them to move
-    grassInstancedMesh.count = 0; // Start with 0 visible
-    scene.add(grassInstancedMesh);
+    const meshCount = Math.ceil(count / MAX_PER_MESH);
 
-    return grassInstancedMesh;
+    for (let i = 0; i < meshCount; i++) {
+        const capacity = Math.min(MAX_PER_MESH, count - i * MAX_PER_MESH);
+        const mesh = new THREE.InstancedMesh(geo, mat, capacity);
+        mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+        mesh.count = 0; // Start with 0 visible
+        scene.add(mesh);
+        grassMeshes.push(mesh);
+    }
+
+    return grassMeshes;
 }
 
 export function addGrassInstance(x, y, z) {
-    if (!grassInstancedMesh) return;
+    // Find the first mesh that isn't full
+    const mesh = grassMeshes.find(m => m.count < m.instanceMatrix.count);
+    if (!mesh) return;
 
-    const index = grassInstancedMesh.count;
-    if (index >= grassInstancedMesh.instanceMatrix.count) return; // Full
+    const index = mesh.count;
 
     dummy.position.set(x, y, z);
     // Add some random rotation for variety
@@ -708,9 +717,9 @@ export function addGrassInstance(x, y, z) {
     dummy.scale.set(s, s, s);
 
     dummy.updateMatrix();
-    grassInstancedMesh.setMatrixAt(index, dummy.matrix);
-    grassInstancedMesh.count++;
-    grassInstancedMesh.instanceMatrix.needsUpdate = true;
+    mesh.setMatrixAt(index, dummy.matrix);
+    mesh.count++;
+    mesh.instanceMatrix.needsUpdate = true;
 }
 
 // --- Animation System ---
