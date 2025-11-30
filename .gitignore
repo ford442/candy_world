@@ -7,7 +7,7 @@ dist/
 # Logs
 *.log
 npm-debug.log*
-
+package-lock.json
 # OS files
 .DS_Store
 Thumbs.db
