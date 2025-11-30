@@ -1,8 +1,9 @@
 import * as THREE from 'three';
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js';
 import WebGPU from 'three/examples/jsm/capabilities/WebGPU.js';
-import { WebGPURenderer } from 'three/webgpu';
-import { createFlower, createGrass, createFloweringTree, createShrub, animateFoliage, createGlowingFlower, createFloatingOrb, createVine, createStarflower, createBellBloom, createWisteriaCluster, createRainingCloud, createLeafParticle, createGlowingFlowerPatch, createFloatingOrbCluster, createVineCluster, createBubbleWillow, createPuffballFlower, createHelixPlant, createBalloonBush } from './foliage.js';
+import { WebGPURenderer, PointsNodeMaterial } from 'three/webgpu';
+import { color, float, vec3, time, positionLocal, attribute, storage, uniform, uv } from 'three/tsl';
+import { createFlower, createGrass, createFloweringTree, createShrub, animateFoliage, createGlowingFlower, createFloatingOrb, createVine, createStarflower, createBellBloom, createWisteriaCluster, createRainingCloud, createLeafParticle, createGlowingFlowerPatch, createFloatingOrbCluster, createVineCluster, createBubbleWillow, createPuffballFlower, createHelixPlant, createBalloonBush, initGrassSystem, addGrassInstance } from './foliage.js';
 import { createSky } from './sky.js';
 
 // --- Configuration ---
@@ -126,6 +127,9 @@ function getGroundHeight(x, z) {
 // 2. Objects Container
 const worldGroup = new THREE.Group();
 scene.add(worldGroup);
+
+// Initialize Instancing (Grass)
+initGrassSystem(scene, 10000); // Pre-allocate 10k blades
 
 // 3. Trees
 function createTree(x, z) {
@@ -304,11 +308,8 @@ function spawnCluster(cx, cz) {
             const y = getGroundHeight(x, z);
 
             if(Math.random() < 0.7) {
-                const color = GRASS_COLORS[Math.floor(Math.random() * GRASS_COLORS.length)];
-                const shape = Math.random() > 0.5 ? 'tall' : 'bushy';
-                const grass = createGrass({color, shape});
-                grass.position.set(x, y, z);
-                safeAddFoliage(grass);
+                // Instanced Grass
+                addGrassInstance(x, y, z);
             } else {
                 const color = FLOWER_COLORS[Math.floor(Math.random() * FLOWER_COLORS.length)];
                 const shape = ['simple', 'multi', 'spiral'][Math.floor(Math.random() * 3)];
@@ -652,60 +653,67 @@ document.addEventListener('keydown', (event) => {
 
 // --- NEW FEATURE: Overgrown Rain Zone & King Mushroom ---
 
-// 1. Custom Waterfall Particle System
-function createWaterfall(height, color = 0x87CEEB) {
-    const particleCount = 1500; // Dense stream
+// 1. GPU-Driven Waterfall (No CPU updates needed!)
+function createWaterfall(height, colorHex = 0x87CEEB) {
+    const particleCount = 2000;
     const geo = new THREE.BufferGeometry();
+
+    // We create static buffers for initial position and speed
     const positions = new Float32Array(particleCount * 3);
-    const speeds = new Float32Array(particleCount); // Individual speeds
+    const speeds = new Float32Array(particleCount);
+    const offsets = new Float32Array(particleCount); // Random starting offset
 
     for (let i = 0; i < particleCount; i++) {
-        // Spawn at top (0,0,0) with slight spread for "stream" width
-        positions[i * 3] = (Math.random() - 0.5) * 2.0; // X spread
-        positions[i * 3 + 1] = Math.random() * -height; // Initial Y spread down the fall
-        positions[i * 3 + 2] = (Math.random() - 0.5) * 2.0; // Z spread
+        positions[i * 3] = (Math.random() - 0.5) * 2.0; // X
+        positions[i * 3 + 1] = 0;                        // Y (starts at 0, logic handles the fall)
+        positions[i * 3 + 2] = (Math.random() - 0.5) * 2.0; // Z
 
-        speeds[i] = 0.5 + Math.random() * 0.5; // Random fall speed
+        speeds[i] = 1.0 + Math.random() * 2.0; // Faster fall speed
+        offsets[i] = Math.random() * height;   // Random start along the height
     }
 
     geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    geo.setAttribute('speed', new THREE.BufferAttribute(speeds, 1));
+    geo.setAttribute('aSpeed', new THREE.BufferAttribute(speeds, 1));
+    geo.setAttribute('aOffset', new THREE.BufferAttribute(offsets, 1));
 
-    const mat = new THREE.PointsMaterial({
-        color: color,
+    // --- TSL Shader Logic ---
+    const mat = new PointsNodeMaterial({
+        color: colorHex,
         size: 0.4,
         transparent: true,
         opacity: 0.8,
-        blending: THREE.AdditiveBlending // Makes water look shiny
+        blending: THREE.AdditiveBlending
     });
 
+    // Access Attributes
+    const aSpeed = attribute('aSpeed', 'float');
+    const aOffset = attribute('aOffset', 'float');
+
+    // Animation Logic
+    const t = time; // Global time
+    const fallHeight = float(height);
+
+    // Calculate current Y: (offset + speed * time) % height
+    // We negate it to make it fall DOWN
+    const currentDist = aOffset.add(aSpeed.mul(t));
+    const modDist = currentDist.mod(fallHeight);
+    const newY = modDist.negate(); // 0 to -height
+
+    // Update Position Node
+    // We keep X and Z from the original position, only override Y
+    mat.positionNode = vec3(
+        positionLocal.x,
+        newY,
+        positionLocal.z
+    );
+
     const waterfall = new THREE.Points(geo, mat);
-    waterfall.userData = {
-        animationType: 'waterfall',
-        fallHeight: height
-    };
+
+    // We no longer need 'updateWaterfall' in the loop!
+    // But we strictly tag it so the growth logic still works
+    waterfall.userData = { animationType: 'gpuWaterfall' };
+
     return waterfall;
-}
-
-// 2. Animation Logic for Waterfall (To be called in loop)
-function updateWaterfall(waterfall) {
-    const positions = waterfall.geometry.attributes.position.array;
-    const speeds = waterfall.geometry.attributes.speed.array;
-    const height = waterfall.userData.fallHeight;
-
-    for (let i = 0; i < waterfall.geometry.attributes.position.count; i++) {
-        // Move Y down
-        positions[i * 3 + 1] -= speeds[i];
-
-        // Reset if it hits the bottom
-        if (positions[i * 3 + 1] < -height) {
-            positions[i * 3 + 1] = 0; // Back to top
-            // Reshuffle X/Z slightly for turbulence
-            positions[i * 3] = (Math.random() - 0.5) * 2.0;
-            positions[i * 3 + 2] = (Math.random() - 0.5) * 2.0;
-        }
-    }
-    waterfall.geometry.attributes.position.needsUpdate = true;
 }
 
 // 3. A specialized function to create Giant Mushrooms with correct physics
@@ -1042,13 +1050,8 @@ async function animate() {
 
     // Animate Foliage
     animatedFoliage.forEach(foliage => {
-        // Check for our new custom waterfall type
-        if (foliage.userData.animationType === 'waterfall') {
-            updateWaterfall(foliage);
-        } else {
-            // Default behavior for everything else
-            animateFoliage(foliage, t);
-        }
+        // Default behavior for everything else
+        animateFoliage(foliage, t);
     });
 
     // Animate Clouds
