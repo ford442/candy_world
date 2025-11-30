@@ -674,6 +674,45 @@ export function createVineCluster(x, z) {
     return cluster;
 }
 
+// --- Instancing System (Grass) ---
+let grassInstancedMesh = null;
+const dummy = new THREE.Object3D();
+
+export function initGrassSystem(scene, count = 5000) {
+    // Create ONE geometry and material
+    const height = 0.8;
+    const geo = new THREE.BoxGeometry(0.05, height, 0.05);
+    geo.translate(0, height / 2, 0);
+
+    const mat = createClayMaterial(0x7CFC00);
+
+    grassInstancedMesh = new THREE.InstancedMesh(geo, mat, count);
+    grassInstancedMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage); // If you want them to move
+    grassInstancedMesh.count = 0; // Start with 0 visible
+    scene.add(grassInstancedMesh);
+
+    return grassInstancedMesh;
+}
+
+export function addGrassInstance(x, y, z) {
+    if (!grassInstancedMesh) return;
+
+    const index = grassInstancedMesh.count;
+    if (index >= grassInstancedMesh.instanceMatrix.count) return; // Full
+
+    dummy.position.set(x, y, z);
+    // Add some random rotation for variety
+    dummy.rotation.y = Math.random() * Math.PI;
+    // Slight scale variation
+    const s = 0.8 + Math.random() * 0.4;
+    dummy.scale.set(s, s, s);
+
+    dummy.updateMatrix();
+    grassInstancedMesh.setMatrixAt(index, dummy.matrix);
+    grassInstancedMesh.count++;
+    grassInstancedMesh.instanceMatrix.needsUpdate = true;
+}
+
 // --- Animation System ---
 
 /**
