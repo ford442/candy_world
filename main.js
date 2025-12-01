@@ -3,8 +3,10 @@ import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockCont
 import WebGPU from 'three/examples/jsm/capabilities/WebGPU.js';
 import { WebGPURenderer, PointsNodeMaterial } from 'three/webgpu';
 import { color, float, vec3, time, positionLocal, attribute, storage, uniform, uv } from 'three/tsl';
-import { createFlower, createGrass, createFloweringTree, createShrub, animateFoliage, createGlowingFlower, createFloatingOrb, createVine, createStarflower, createBellBloom, createWisteriaCluster, createRainingCloud, createLeafParticle, createGlowingFlowerPatch, createFloatingOrbCluster, createVineCluster, createBubbleWillow, createPuffballFlower, createHelixPlant, createBalloonBush, initGrassSystem, addGrassInstance } from './foliage.js';
-import { createSky } from './sky.js';
+import { createFlower, createGrass, createFloweringTree, createShrub, animateFoliage, createGlowingFlower, createFloatingOrb, createVine, createStarflower, createBellBloom, createWisteriaCluster, createRainingCloud, createLeafParticle, createGlowingFlowerPatch, createFloatingOrbCluster, createVineCluster, createBubbleWillow, createPuffballFlower, createHelixPlant, createBalloonBush, initGrassSystem, addGrassInstance, updateFoliageMaterials } from './foliage.js';
+import { createSky, uSkyTopColor, uSkyBottomColor } from './sky.js';
+import { createStars, uStarPulse, uStarColor } from './stars.js';
+import { AudioSystem } from './audio-system.js';
 
 // --- Configuration ---
 const CONFIG = {
@@ -25,6 +27,13 @@ scene.fog = new THREE.Fog(CONFIG.colors.fog, 20, 100);
 // Sky
 const sky = createSky();
 scene.add(sky);
+
+const stars = createStars();
+scene.add(stars);
+
+const audioSystem = new AudioSystem();
+let isNight = false;
+let dayNightFactor = 0.0;
 
 const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
 // Initial camera position (will be overridden by player logic, but good for initial frame)
@@ -472,6 +481,33 @@ controls.addEventListener('unlock', function () {
 
 // Prevent context menu (Right Click)
 document.addEventListener('contextmenu', event => event.preventDefault());
+
+// UI Listeners
+const musicUpload = document.getElementById('musicUpload');
+if (musicUpload) {
+    musicUpload.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) {
+            audioSystem.loadModule(e.target.files[0]);
+        }
+    });
+    musicUpload.addEventListener('click', (e) => e.stopPropagation());
+    const label = document.querySelector('label[for="musicUpload"]');
+    if(label) label.addEventListener('click', (e) => e.stopPropagation());
+}
+
+const toggleDayNightBtn = document.getElementById('toggleDayNight');
+if (toggleDayNightBtn) {
+    toggleDayNightBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        isNight = !isNight;
+    });
+}
+
+document.addEventListener('keydown', (e) => {
+    if (e.code === 'KeyN') {
+        isNight = !isNight;
+    }
+});
 
 const keyStates = {
     forward: false,
@@ -968,6 +1004,35 @@ async function animate() {
     const delta = clock.getDelta();
     const t = clock.getElapsedTime();
 
+    const audioState = audioSystem.update();
+
+    // Day/Night Transition
+    const targetFactor = isNight ? 1.0 : 0.0;
+    dayNightFactor += (targetFactor - dayNightFactor) * delta * 2.0;
+
+    // Update Sky
+    uSkyTopColor.value.lerpColors(new THREE.Color(0x87CEEB), new THREE.Color(0x000033), dayNightFactor);
+    uSkyBottomColor.value.lerpColors(new THREE.Color(0xFFB6C1), new THREE.Color(0x4B0082), dayNightFactor);
+
+    // Update Light
+    sunLight.intensity = THREE.MathUtils.lerp(0.8, 0.1, dayNightFactor);
+    ambientLight.intensity = THREE.MathUtils.lerp(1.0, 0.2, dayNightFactor);
+
+    // Update Stars
+    if (stars.material) {
+        // PointsNodeMaterial might wrap opacity, but TSL material handles transparency differently sometimes.
+        // Assuming standard opacity property works for transparency fade.
+        stars.material.opacity = dayNightFactor;
+    }
+
+    if (audioState && isNight) {
+        uStarPulse.value = audioState.kickTrigger;
+        const hue = (t * 0.1 + audioState.beatPhase) % 1;
+        uStarColor.value.setHSL(hue, 1.0, 0.8);
+    }
+
+    updateFoliageMaterials(audioState, isNight);
+
     // Player Physics & Movement
     if (controls.isLocked) {
         // Speed determination
@@ -1051,7 +1116,7 @@ async function animate() {
     // Animate Foliage
     animatedFoliage.forEach(foliage => {
         // Default behavior for everything else
-        animateFoliage(foliage, t);
+        animateFoliage(foliage, t, audioState, !isNight);
     });
 
     // Animate Clouds
