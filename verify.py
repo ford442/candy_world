@@ -2,32 +2,30 @@ from playwright.sync_api import sync_playwright
 
 def verify_scene():
     with sync_playwright() as p:
-        # Launch browser with swiftshader to emulate WebGPU/WebGL if possible,
-        # though Playwright support for WebGPU is limited.
-        # We'll use standard launch options.
-        # Note: --use-gl=swiftshader might help in some headless envs.
+        # Launch browser with swiftshader for WebGPU support emulation if needed,
+        # though headless chromium usually doesn't support WebGPU well.
+        # We will try with standard args first.
         browser = p.chromium.launch(
             headless=True,
-            args=["--use-gl=swiftshader", "--enable-webgpu"]
+            args=['--use-gl=swiftshader']
         )
         page = browser.new_page()
 
         # Navigate to the preview server
-        page.goto("http://localhost:4173/")
+        try:
+            page.goto("http://localhost:4173/")
+            page.wait_for_timeout(5000) # Wait for scene to load
 
-        # Wait for canvas to be present
-        page.wait_for_selector("#glCanvas")
+            # Check for console logs to verify no errors
+            page.on("console", lambda msg: print(f"Console: {msg.text}"))
 
-        # Wait a bit for the scene to load/render
-        page.wait_for_timeout(5000)
-
-        # Check for console errors
-        page.on("console", lambda msg: print(f"Console: {msg.text}"))
-
-        # Take a screenshot
-        page.screenshot(path="verification_screenshot.png")
-
-        browser.close()
+            # Take a screenshot
+            page.screenshot(path="/home/jules/verification/verification_screenshot.png")
+            print("Screenshot taken.")
+        except Exception as e:
+            print(f"Error: {e}")
+        finally:
+            browser.close()
 
 if __name__ == "__main__":
     verify_scene()

@@ -726,10 +726,27 @@ function createWaterfall(height, colorHex = 0x87CEEB) {
     const aOffset = attribute('aOffset', 'float');
 
     // Animation Logic
-    const t = time; // Global time
+    // Idea 4: Waterfall Speed Control
+    // We import a uniform for speed modulation
+    // We can't easily add a new uniform to 'time' directly inside TSL without passing it.
+    // Instead, we use 'time' scaled by a uniform, or accumulate it?
+    // 'time' is global. We want to speed up the flow.
+    // We can multiply time by a factor? No, if factor changes, time jumps.
+    // Best way: Use a custom uniform 'uTime' that we update in JS?
+    // OR: Just use `time.mul(uWaterfallSpeed)`.
+    // If uWaterfallSpeed changes from 1 to 2, `time*2` jumps forward.
+    // This might look like a glitch (sudden fast forward), but for a waterfall of particles, it's acceptable (just more flow).
+
+    // We need to define uWaterfallSpeed outside or attach to material?
+    // Let's attach it to the material's userData or just use a shared uniform if exported?
+    // Since this is local, let's create it here.
+    const uSpeed = uniform(1.0);
+    mat.uSpeed = uSpeed; // Expose to JS
+
+    const t = time.mul(uSpeed);
     const fallHeight = float(height);
 
-    // Calculate current Y: (offset + speed * time) % height
+    // Calculate current Y: (offset + speed * t) % height
     // We negate it to make it fall DOWN
     const currentDist = aOffset.add(aSpeed.mul(t));
     const modDist = currentDist.mod(fallHeight);
@@ -806,7 +823,14 @@ function createGiantMushroom(x, z, scale = 8) {
 
     // Add to animated objects so it might bounce or look alive
     const giantMushroom = { mesh: group, type: 'mushroom', speed: Math.random() * 0.02 + 0.01, offset: Math.random() * 100, drivable: false };
+    group.userData.type = 'mushroom';
     animatedObjects.push(giantMushroom);
+    // Also add to animatedFoliage if we want it to dance?
+    // Use safeAddFoliage logic manually
+    if (group.parent !== worldGroup && group.parent !== foliageGroup && group.parent !== scene) {
+         // It's already in worldGroup
+    }
+    animatedFoliage.push(group);
 }
 
 // 4. Helper for Giant Rain Cloud (Manual scaling to keep rain drops normal size)
@@ -897,6 +921,11 @@ function spawnKingMushroomZone(cx, cz) {
     // Register Waterfall for Logic
     // We treat it like a "cloud" so it causes growth, and "foliage" so it gets updated
     animatedFoliage.push(waterfall);
+
+    // Idea 4: Expose King Cap and Waterfall for animation
+    // Store in global scope or similar
+    window.kingMushroomCap = cap;
+    window.kingWaterfall = waterfall;
 
     // Hack: Add the waterfall WORLD position to rainingClouds so plants grow near the base
     // Since waterfall is in a group, we need a proxy object representing the "Splash Zone"
@@ -1029,6 +1058,21 @@ async function animate() {
         uStarPulse.value = audioState.kickTrigger;
         const hue = (t * 0.1 + audioState.beatPhase) % 1;
         uStarColor.value.setHSL(hue, 1.0, 0.8);
+    }
+
+    // Idea 4: Giant EQ Mushroom
+    if (window.kingMushroomCap && audioState) {
+        const kick = audioState.kickTrigger || 0;
+        const groove = audioState.grooveAmount || 0;
+
+        // Bounce Cap
+        const targetScale = 1.0 + kick * 0.3;
+        window.kingMushroomCap.scale.setScalar(targetScale); // Assumes base scale is 1 relative to parent
+
+        // Speed up Waterfall
+        if (window.kingWaterfall && window.kingWaterfall.material && window.kingWaterfall.material.uSpeed) {
+             window.kingWaterfall.material.uSpeed.value = 1.0 + groove * 5.0;
+        }
     }
 
     updateFoliageMaterials(audioState, isNight);
