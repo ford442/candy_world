@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { color, float, vec3, time, positionLocal, attribute, uniform, mix } from 'three/tsl';
+import { color, float, vec3, time, positionLocal, attribute, uniform, mix, length, sin, cos } from 'three/tsl';
 import { PointsNodeMaterial } from 'three/webgpu';
 
 // Global uniform for star pulse (driven by music)
@@ -67,8 +67,20 @@ export function createStars(count = 2000) {
     // PointsNodeMaterial handles size if we set sizeNode
     mat.sizeNode = aSize.mul(intensity.max(0.2)); // Minimum size 0.2
 
+    // --- TSL Star Warp (Idea 2) ---
+    // 1. Warp Effect: Push stars outward based on pulse
+    const pos = positionLocal;
+    const warpFactor = uStarPulse.mul(50.0); // Push out by 50 units on beat
+    const warpedPos = pos.add(pos.normalize().mul(warpFactor));
+
+    // 2. Rotation Effect: Rotate around Y axis based on time
+    // We can drive this speed via a uniform updated by audioState.bpm if needed, or just time
+    const angle = time.mul(0.1);
+    const rotatedX = warpedPos.x.mul(cos(angle)).sub(warpedPos.z.mul(sin(angle)));
+    const rotatedZ = warpedPos.x.mul(sin(angle)).add(warpedPos.z.mul(cos(angle)));
+
     // Position
-    mat.positionNode = positionLocal;
+    mat.positionNode = vec3(rotatedX, warpedPos.y, rotatedZ);
 
     const stars = new THREE.Points(geo, mat);
     stars.userData.isStars = true;

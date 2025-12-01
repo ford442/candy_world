@@ -52,6 +52,7 @@ export function createGrass(options = {}) {
 
     const blade = new THREE.Mesh(geo, material);
     blade.castShadow = true;
+    blade.userData.type = 'grass';
     blade.userData.animationType = shape === 'tall' ? 'sway' : 'bounce';
     blade.userData.animationOffset = Math.random() * 10;
     return blade;
@@ -153,6 +154,7 @@ export function createFlower(options = {}) {
     // Add a unique animation offset to each flower
     group.userData.animationOffset = Math.random() * 10;
     group.userData.animationType = 'sway';
+    group.userData.type = 'flower';
     return group;
 }
 
@@ -190,6 +192,7 @@ export function createFloweringTree(options = {}) {
 
     group.userData.animationType = 'gentleSway';
     group.userData.animationOffset = Math.random() * 10;
+    group.userData.type = 'tree';
     return group;
 }
 
@@ -224,6 +227,7 @@ export function createShrub(options = {}) {
 
     group.userData.animationType = 'bounce';
     group.userData.animationOffset = Math.random() * 10;
+    group.userData.type = 'shrub';
     return group;
 }
 
@@ -260,6 +264,7 @@ export function createGlowingFlower(options = {}) {
 
     group.userData.animationType = 'glowPulse';
     group.userData.animationOffset = Math.random() * 10;
+    group.userData.type = 'flower';
     return group;
 }
 
@@ -276,6 +281,7 @@ export function createFloatingOrb(options = {}) {
     orb.castShadow = true;
     orb.userData.animationType = 'float';
     orb.userData.animationOffset = Math.random() * 10;
+    orb.userData.type = 'orb';
     return orb;
 }
 
@@ -298,6 +304,7 @@ export function createVine(options = {}) {
 
     group.userData.animationType = 'vineSway';
     group.userData.animationOffset = Math.random() * 10;
+    group.userData.type = 'vine';
     return group;
 }
 
@@ -356,6 +363,7 @@ export function createStarflower(options = {}) {
 
     group.userData.animationType = 'spin';
     group.userData.animationOffset = Math.random() * 10;
+    group.userData.type = 'flower';
     return group;
 }
 
@@ -388,6 +396,7 @@ export function createBellBloom(options = {}) {
 
     group.userData.animationType = 'sway'; // reuse sway but amplitude can be larger via offset
     group.userData.animationOffset = Math.random() * 10;
+    group.userData.type = 'flower';
     return group;
 }
 
@@ -423,6 +432,7 @@ export function createWisteriaCluster(options = {}) {
 
     group.userData.animationType = 'vineSway';
     group.userData.animationOffset = Math.random() * 10;
+    group.userData.type = 'vine';
     return group;
 }
 
@@ -470,6 +480,7 @@ export function createBubbleWillow(options = {}) {
 
     group.userData.animationType = 'gentleSway';
     group.userData.animationOffset = Math.random() * 10;
+    group.userData.type = 'tree';
     return group;
 }
 
@@ -518,6 +529,7 @@ export function createPuffballFlower(options = {}) {
 
     group.userData.animationType = 'sway';
     group.userData.animationOffset = Math.random() * 10;
+    group.userData.type = 'flower';
     return group;
 }
 
@@ -562,6 +574,7 @@ export function createHelixPlant(options = {}) {
 
     group.userData.animationType = 'spring'; // New animation type needed? Or reuse bounce?
     group.userData.animationOffset = Math.random() * 10;
+    group.userData.type = 'shrub'; // or helix
     return group;
 }
 
@@ -593,6 +606,7 @@ export function createBalloonBush(options = {}) {
 
     group.userData.animationType = 'bounce';
     group.userData.animationOffset = Math.random() * 10;
+    group.userData.type = 'shrub';
     return group;
 }
 
@@ -629,6 +643,7 @@ export function createRainingCloud(options = {}) {
 
     group.userData.animationType = 'rain';
     group.userData.animationOffset = Math.random() * 10;
+    group.userData.type = 'cloud';
     return group;
 }
 
@@ -724,25 +739,49 @@ export function addGrassInstance(x, y, z) {
 
 // --- Animation System ---
 
+function freqToHue(freq) {
+    // A simple log mapping for audible range (approx 55Hz to 10kHz)
+    if (!freq || freq < 50) return 0;
+    // Map A1 (55Hz) to C8 (4186Hz) or similar
+    const logF = Math.log2(freq / 55.0);
+    return (logF * 0.1) % 1.0; // Scale to rotate hue nicely
+}
+
 export function updateFoliageMaterials(audioData, isNight) {
     if (!audioData) return;
 
-    // Nighttime Blinking Logic
+    // Nighttime Blinking Logic & Note Reactivity
     if (isNight) {
-        // Pulse flower petals based on channels
-        // We have 3 petal colors, map them to channels?
         const channels = audioData.channelData;
         if (!channels || channels.length === 0) return;
 
         foliageMaterials.flowerPetal.forEach((mat, i) => {
-            const chIndex = i % channels.length;
-            const trigger = channels[chIndex]?.trigger || 0;
-            const volume = channels[chIndex]?.volume || 0;
+            // Map material index to a channel. We cycle through available channels.
+            // Note: We might have more materials than channels or vice versa.
+            // Let's check channels 1, 2, 3 mostly for melody/chords
+            // But here we just cycle.
+            const chIndex = (i + 1) % Math.min(channels.length, 8); // Skip Ch 0 (Kick) usually?
+            const ch = channels[chIndex];
+
+            const trigger = ch?.trigger || 0;
+            const volume = ch?.volume || 0;
+            const freq = ch?.freq || 0;
+
+            // Idea 3: Note-Reactive Bioluminescence
+            // If freq is present, update Emissive Color
+            if (freq > 0) {
+                 const targetHue = freqToHue(freq);
+                 const color = new THREE.Color().setHSL(targetHue, 1.0, 0.5);
+                 // Lerp current emissive color to target?
+                 // Material.emissive is a color.
+                 mat.emissive.lerp(color, 0.2);
+            } else {
+                 // Fallback to base color if silence
+                 mat.emissive.lerp(mat.color, 0.1);
+            }
 
             // Base emissive + pulse
-            // If trigger just happened, spike intensity
-            const intensity = 0.2 + volume * 0.5 + trigger * 2.0;
-            mat.emissive.setHex(mat.color.getHex());
+            const intensity = 0.2 + volume * 0.5 + trigger * 3.0;
             mat.emissiveIntensity = intensity;
         });
 
@@ -771,85 +810,133 @@ export function updateFoliageMaterials(audioData, isNight) {
 export function animateFoliage(foliageObject, time, audioData, isDay) {
     const offset = foliageObject.userData.animationOffset || 0;
     const type = foliageObject.userData.animationType || 'sway';
+    const plantType = foliageObject.userData.type;
 
-    // Dance Factor: Amplify movement if kick/beat is present and it is Day
-    let danceAmp = 1.0;
-    let bounceAmp = 0.0;
+    // --- Audio Analysis ---
+    let groove = 0;
+    let kick = 0;
+    let beatPhase = 0;
+    let bassVol = 0;
+    let leadVol = 0;
+    let chordVol = 0;
 
-    if (isDay && audioData) {
-        danceAmp = 1.0 + audioData.grooveAmount * 5.0; // Groove adds speed/intensity
-        bounceAmp = audioData.kickTrigger * 0.5; // Kick adds bounce
+    if (audioData) {
+        groove = audioData.grooveAmount || 0;
+        kick = audioData.kickTrigger || 0;
+        beatPhase = audioData.beatPhase || 0;
+        if (audioData.channelData) {
+            bassVol = audioData.channelData[0]?.volume || 0;
+            // Sum leads (typically 1 and 2)
+            leadVol = Math.max(audioData.channelData[1]?.volume || 0, audioData.channelData[2]?.volume || 0);
+            // Sum chords (typically 3+)
+            chordVol = Math.max(audioData.channelData[3]?.volume || 0, audioData.channelData[4]?.volume || 0);
+        }
     }
 
-    // Original Time + Music Time
-    // We can speed up time with groove
-    const animTime = time + (audioData ? audioData.beatPhase * 10 : 0);
+    // --- Intensity Logic (Midnight Dance) ---
+    // User requested "invert logic... dance harder when sun goes down"
+    // Day = Relaxed (0.5), Night = Party Mode (1.0 + Groove)
+    const baseIntensity = isDay ? 0.5 : (1.0 + groove * 8.0);
 
-    if (type === 'rain') {
+    // --- Channel Mappings (Night Only) ---
+    let squash = 1.0;
+    let spin = 0.0;
+    let wave = 0.0;
+
+    if (!isDay) {
+        if (plantType === 'tree' || plantType === 'mushroom') {
+            // Squash/Stretch on Bass
+            squash = 1.0 + bassVol * 0.3;
+        }
+        if (plantType === 'flower' || plantType === 'orb' || plantType === 'starflower') {
+            // Spin on Leads
+            spin = leadVol * 5.0;
+        }
+        if (plantType === 'grass' || plantType === 'vine' || plantType === 'shrub') {
+            // Wave on Chords
+            wave = chordVol * 2.0;
+        }
+    }
+
+    // --- Animation Time ---
+    // Sync to Beat Phase for tight synchronization
+    const animTime = time + (beatPhase * 2.0);
+
+    // --- Apply Effects ---
+
+    // 1. Squash/Stretch (Trees/Mushrooms)
+    if (plantType === 'tree' || plantType === 'mushroom') {
+        if (squash > 1.01) {
+            foliageObject.scale.set(squash, 1.0 / squash, squash);
+        } else {
+            // Reset to normal if not squashing (assuming no dynamic growth for these)
+            foliageObject.scale.set(1, 1, 1);
+        }
+    }
+
+    // 2. Spin (Flowers)
+    if (spin > 0) {
+        foliageObject.rotation.y += spin * 0.1;
+    }
+
+    // 3. Movement Types
+    const intensity = baseIntensity + wave;
+
+    // Capture Original Y to prevent drift
+    if (foliageObject.userData.originalY === undefined) {
+        foliageObject.userData.originalY = foliageObject.position.y;
+    }
+    const originalY = foliageObject.userData.originalY;
+
+    if (type === 'sway' || type === 'gentleSway' || type === 'vineSway' || type === 'spin') {
+        const t = animTime + offset;
+
+        if (type === 'vineSway') {
+            foliageObject.children.forEach((segment, i) => {
+                segment.rotation.z = Math.sin(t * 2 + i * 0.5) * 0.2 * intensity;
+            });
+        } else {
+            // Trees wave in tempo
+            // If tree, use strict beat time, else modulated time
+            const tFinal = (plantType === 'tree') ? animTime : (time + offset);
+            const speed = (plantType === 'tree') ? 1.0 : 2.0;
+
+            if (type === 'spin') {
+                // Continuous spin base
+                foliageObject.rotation.y += 0.02 * intensity;
+                foliageObject.rotation.z = Math.cos(time * 0.5 + offset) * 0.05 * intensity;
+            } else {
+                foliageObject.rotation.z = Math.sin(tFinal * speed + offset) * 0.05 * intensity;
+                foliageObject.rotation.x = Math.cos(tFinal * speed * 0.8 + offset) * 0.05 * intensity;
+            }
+        }
+    } else if (type === 'bounce') {
+        foliageObject.position.y = originalY + Math.sin(animTime * 3 + offset) * 0.1 * intensity;
+        // Kick bounce
+        if (kick > 0.1) foliageObject.position.y += kick * 0.2;
+
+    } else if (type === 'glowPulse') {
+        if (foliageObject.children[1] && foliageObject.children[1].material) {
+            foliageObject.children[1].material.emissiveIntensity = 1.5 + Math.sin(time * 3 + offset) * 0.5 + (kick * 2.0);
+        }
+    } else if (type === 'float') {
+        foliageObject.position.y = originalY + Math.sin(time * 1.5 + offset) * 0.2;
+        if (!isDay && kick > 0.1) foliageObject.scale.setScalar(1.0 + kick * 0.2);
+
+    } else if (type === 'spring') {
+        foliageObject.scale.y = 1.0 + Math.sin(time * 3 + offset) * 0.1 * intensity + (kick * 0.5);
+
+    } else if (type === 'rain') {
         const rain = foliageObject.children[1];
         if (rain) {
             const positions = rain.geometry.attributes.position;
             for (let i = 0; i < positions.count; i++) {
                 let y = positions.getY(i);
-                y -= 0.1; // Move rain downward
+                y -= 0.1 + (kick * 0.2); // Rain falls faster on kick
                 if (y < -2) y = 0; // Reset position
                 positions.setY(i, y);
             }
             positions.needsUpdate = true;
         }
-    }
-
-    // Only apply transforms if isDay (Dancing) or standard Sway
-    // The user said "Dancing ... in the daytime".
-    // We keep standard sway always? Or only dance in day?
-    // "Dancing of the plants ... in the daytime". Implies at night they might be still?
-    // Let's keep gentle sway at night, but intense dance at day.
-
-    const intensity = isDay ? danceAmp : 0.5; // Reduced movement at night
-
-    if (type === 'sway') {
-        foliageObject.rotation.z = Math.sin(time * 2 + offset) * 0.1 * intensity;
-        foliageObject.rotation.x = Math.cos(time * 1.5 + offset) * 0.1 * intensity;
-
-        // Add vertical bounce for dance
-        if (isDay && bounceAmp > 0.01) {
-             foliageObject.position.y += bounceAmp * 0.2; // Temporary bounce?
-             // Need original Y to bounce correctly.
-             // Simplified: assumes Y starts at ground.
-             // We won't accumulate Y, just sine wave modulation
-             const originalY = foliageObject.userData.originalY ?? foliageObject.position.y;
-             foliageObject.userData.originalY = originalY; // store it
-             foliageObject.position.y = originalY + bounceAmp * 0.5;
-        }
-
-        const head = foliageObject.children[1];
-        if (head) {
-            head.rotation.y = time * 0.5 * intensity;
-        }
-    } else if (type === 'bounce') {
-        foliageObject.position.y += Math.sin(time * 3 + offset) * 0.01 * intensity;
-        if (isDay) foliageObject.position.y += bounceAmp * 0.5;
-    } else if (type === 'gentleSway') {
-        foliageObject.rotation.z = Math.sin(time + offset) * 0.05 * intensity;
-    } else if (type === 'glowPulse') {
-        // Managed by material update mostly, but pulse logic here too
-        if (foliageObject.children[1] && foliageObject.children[1].material) {
-            foliageObject.children[1].material.emissiveIntensity = 1.5 + Math.sin(time * 3 + offset) * 0.5;
-        }
-    } else if (type === 'float') {
-        foliageObject.position.y += Math.sin(time * 2 + offset) * 0.05;
-        // Clouds dance too?
-        if (isDay) {
-            foliageObject.scale.setScalar(1.0 + bounceAmp * 0.2);
-        }
-    } else if (type === 'vineSway') {
-        foliageObject.children.forEach((segment, i) => {
-            segment.rotation.z = Math.sin(time * 2 + offset + i * 0.5) * 0.2 * intensity;
-        });
-    } else if (type === 'spin') {
-        foliageObject.rotation.y = Math.sin(time + offset) * 0.8 * intensity;
-        foliageObject.rotation.z = Math.cos(time * 0.5 + offset) * 0.05 * intensity;
-    } else if (type === 'spring') {
-        foliageObject.scale.y = 1.0 + Math.sin(time * 3 + offset) * 0.1 * intensity + bounceAmp;
     }
 }
