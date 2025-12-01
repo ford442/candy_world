@@ -33,7 +33,8 @@ import { createStars, uStarPulse, uStarColor } from './stars.js';
 import { AudioSystem } from './audio-system.js';
 import { addAmbientParticles, createShimmerParticles, createPollenCloud, uPulseStrength, uPulseColor } from './particle-systems.js';
 import { createCandyMaterial, createGlowingCandyMaterial, createGroundMaterial, updateAudioReactiveMaterials } from './candy-materials.js';
-import { MeshDeformationCompute, ProceduralNoiseCompute } from './compute-shaders.js';
+import { MeshDeformationCompute, ProceduralNoiseCompute, ComputeParticleSystem } from './compute-shaders.js';
+import { WasmParticleSystem } from './wasm-particles.js';
 
 // --- Configuration ---
 const CONFIG = {
@@ -78,6 +79,16 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(window.devicePixelRatio);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.0;
+
+// --- Initialize Particle Systems ---
+// 1. GPU Particles
+const gpuParticles = new ComputeParticleSystem(10000, renderer);
+const gpuMesh = gpuParticles.createMesh();
+scene.add(gpuMesh);
+
+// 2. WASM Particles
+const wasmParticles = new WasmParticleSystem(5000, scene);
+
 
 // --- Lighting ---
 const ambientLight = new THREE.HemisphereLight(CONFIG.colors.sky, CONFIG.colors.ground, 1.0); // Increased intensity
@@ -1131,6 +1142,16 @@ async function animate() {
     const t = clock.getElapsedTime();
 
     const audioState = audioSystem.update();
+
+    // Update GPU Particles
+    if (gpuParticles) {
+        gpuParticles.update(delta, audioState || {});
+    }
+
+    // Update WASM Particles
+    if (wasmParticles) {
+        wasmParticles.update(delta);
+    }
 
     // Day/Night Transition
     const targetFactor = isNight ? 1.0 : 0.0;
