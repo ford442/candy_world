@@ -352,4 +352,4 @@ export function addAmbientParticles(scene, bounds = { x: 100, y: 30, z: 100 }) {
     return systems;
 }
 
-export { createBubbleStream, createPollenCloud, createLeafConfetti, createPulseRing, addAmbientParticles };
+export { createPollenCloud, createLeafConfetti, createPulseRing, addAmbientParticles };
