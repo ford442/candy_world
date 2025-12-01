@@ -7,6 +7,9 @@ import { createFlower, createGrass, createFloweringTree, createShrub, animateFol
 import { createSky, uSkyTopColor, uSkyBottomColor } from './sky.js';
 import { createStars, uStarPulse, uStarColor } from './stars.js';
 import { AudioSystem } from './audio-system.js';
+import { addAmbientParticles, createShimmerParticles, createPollenCloud, uPulseStrength, uPulseColor } from './particle-systems.js';
+import { createCandyMaterial, createGlowingCandyMaterial, createGroundMaterial, updateAudioReactiveMaterials } from './candy-materials.js';
+import { MeshDeformationCompute, ProceduralNoiseCompute } from './compute-shaders.js';
 
 // --- Configuration ---
 const CONFIG = {
@@ -112,18 +115,27 @@ const obstacles = [];
 
 // --- Procedural Generation ---
 
-// 1. Ground (Rolling Hills)
-const groundGeo = new THREE.PlaneGeometry(300, 300, 64, 64);
+// 1. Ground (Rolling Hills) - Enhanced with more detail
+const groundGeo = new THREE.PlaneGeometry(300, 300, 128, 128); // Doubled resolution
 const posAttribute = groundGeo.attributes.position;
 for (let i = 0; i < posAttribute.count; i++) {
     const x = posAttribute.getX(i);
     const y = posAttribute.getY(i);
-    // Simple sine waves for hills
-    const z = Math.sin(x * 0.05) * 2 + Math.cos(y * 0.05) * 2;
+    // Enhanced multi-octave hills for more interesting terrain
+    const z = Math.sin(x * 0.05) * 2 + Math.cos(y * 0.05) * 2 +
+              Math.sin(x * 0.1) * 0.8 + Math.cos(y * 0.1) * 0.8 +
+              Math.sin(x * 0.2) * 0.3 + Math.cos(y * 0.2) * 0.3;
     posAttribute.setZ(i, z);
 }
 groundGeo.computeVertexNormals();
-const ground = new THREE.Mesh(groundGeo, materials.ground);
+
+// Use enhanced candy ground material
+const enhancedGroundMat = createGroundMaterial({
+    baseColor: CONFIG.colors.ground,
+    detailScale: 5.0,
+    roughness: 0.85
+});
+const ground = new THREE.Mesh(groundGeo, enhancedGroundMat);
 ground.rotation.x = -Math.PI / 2;
 ground.receiveShadow = true;
 scene.add(ground);
@@ -140,27 +152,39 @@ scene.add(worldGroup);
 // Initialize Instancing (Grass)
 initGrassSystem(scene, 10000); // Pre-allocate 10k blades
 
-// 3. Trees
+// 3. Trees - Enhanced with candy materials
 function createTree(x, z) {
     const height = getGroundHeight(x, z);
     const group = new THREE.Group();
     group.position.set(x, height, z);
 
-    // Trunk
+    // Trunk - Enhanced geometry
     const trunkH = 3 + Math.random() * 2;
-    const trunkRadius = 0.5; // Avg radius of base
-    const trunkGeo = new THREE.CylinderGeometry(0.3, trunkRadius, trunkH, 16); // Increased segments
-    const trunk = new THREE.Mesh(trunkGeo, materials.trunk);
+    const trunkRadius = 0.5;
+    const trunkGeo = new THREE.CylinderGeometry(0.3, trunkRadius, trunkH, 24, 8); // More segments
+    const trunkMat = createCandyMaterial({
+        baseColor: 0x8B5A2B,
+        roughness: 0.7,
+        translucency: 0.2
+    });
+    const trunk = new THREE.Mesh(trunkGeo, trunkMat);
     trunk.position.y = trunkH / 2;
     trunk.castShadow = true;
     trunk.receiveShadow = true;
     group.add(trunk);
 
-    // Leaves (Spheres)
+    // Leaves (Spheres) - Enhanced with translucent candy material
     const leavesR = 1.5 + Math.random();
-    const leavesGeo = new THREE.SphereGeometry(leavesR, 32, 32); // Increased segments
+    const leavesGeo = new THREE.SphereGeometry(leavesR, 48, 32); // Higher detail
     const matIndex = Math.floor(Math.random() * materials.leaves.length);
-    const leaves = new THREE.Mesh(leavesGeo, materials.leaves[matIndex]);
+    const leafColor = materials.leaves[matIndex].color.getHex();
+    const leavesMat = createCandyMaterial({
+        baseColor: leafColor,
+        roughness: 0.4,
+        translucency: 0.6,
+        iridescence: 0.1
+    });
+    const leaves = new THREE.Mesh(leavesGeo, leavesMat);
     leaves.position.y = trunkH + leavesR * 0.8;
     leaves.castShadow = true;
     leaves.receiveShadow = true;
@@ -171,39 +195,54 @@ function createTree(x, z) {
     // Add to obstacles for collision
     obstacles.push({
         position: new THREE.Vector3(x, height, z),
-        radius: 0.8 // Slightly larger than trunk
+        radius: 0.8
     });
 }
 
-// 4. Fantasy Mushrooms with Faces
-const eyeGeo = new THREE.SphereGeometry(0.05, 16, 16); // Geometry for eyes
+// 4. Fantasy Mushrooms with Faces - Enhanced
+const eyeGeo = new THREE.SphereGeometry(0.05, 20, 20); // Higher detail eyes
 
 function createMushroom(x, z, options = {}) {
     const height = getGroundHeight(x, z);
     const group = new THREE.Group();
     group.position.set(x, height, z);
 
-    // Stem
+    // Stem - Enhanced with candy material
     const stemH = 1.5 + Math.random();
     const stemR = 0.3 + Math.random() * 0.2;
-    const stemGeo = new THREE.CylinderGeometry(stemR * 0.8, stemR, stemH, 16); // Increased segments
-    const stem = new THREE.Mesh(stemGeo, materials.mushroomStem);
+    const stemGeo = new THREE.CylinderGeometry(stemR * 0.8, stemR, stemH, 24, 8); // More segments
+    const stemMat = createCandyMaterial({
+        baseColor: 0xF5DEB3,
+        roughness: 0.6,
+        translucency: 0.3
+    });
+    const stem = new THREE.Mesh(stemGeo, stemMat);
     stem.castShadow = true;
     group.add(stem);
 
-    // Cap
+    // Cap - Enhanced geometry and material
     const capR = stemR * 3 + Math.random();
-    // Use Sphere but cut off bottom
-    const capGeo = new THREE.SphereGeometry(capR, 32, 32, 0, Math.PI * 2, 0, Math.PI / 2); // Increased segments
+    const capGeo = new THREE.SphereGeometry(capR, 48, 32, 0, Math.PI * 2, 0, Math.PI / 2); // Higher detail
 
     let capMaterial;
     let isDrivable = false;
     if (options.drivable) {
-        capMaterial = materials.drivableMushroomCap;
+        capMaterial = createGlowingCandyMaterial({
+            baseColor: 0x00BFFF,
+            glowIntensity: 1.2,
+            pulseSpeed: 1.5,
+            roughness: 0.3
+        });
         isDrivable = true;
     } else {
         const matIndex = Math.floor(Math.random() * materials.mushroomCap.length);
-        capMaterial = materials.mushroomCap[matIndex];
+        const capColor = materials.mushroomCap[matIndex].color.getHex();
+        capMaterial = createCandyMaterial({
+            baseColor: capColor,
+            roughness: 0.35,
+            translucency: 0.4,
+            iridescence: 0.2
+        });
     }
     const cap = new THREE.Mesh(capGeo, capMaterial);
     cap.position.y = stemH;
@@ -238,17 +277,23 @@ function createMushroom(x, z, options = {}) {
     return { mesh: group, type: 'mushroom', speed: Math.random() * 0.02 + 0.01, offset: Math.random() * 100, drivable: isDrivable };
 }
 
-// 5. Clouds
+// 5. Clouds - Enhanced
 const clouds = [];
 function createCloud() {
     const group = new THREE.Group();
     // Position will be set by caller
-    // Compose cloud of 3-5 spheres
+    // Compose cloud of 3-5 spheres with higher detail
     const blobs = 3 + Math.floor(Math.random() * 3);
+    const cloudMat = createCandyMaterial({
+        baseColor: 0xFFFFFF,
+        roughness: 0.2,
+        translucency: 0.7,
+        iridescence: 0.05
+    });
     for(let i=0; i<blobs; i++) {
         const size = 2 + Math.random() * 2;
-        const geo = new THREE.SphereGeometry(size, 16, 16);
-        const mesh = new THREE.Mesh(geo, materials.cloud);
+        const geo = new THREE.SphereGeometry(size, 32, 24); // Higher detail
+        const mesh = new THREE.Mesh(geo, cloudMat);
         mesh.position.set(
             (Math.random() - 0.5) * size * 1.5,
             (Math.random() - 0.5) * size * 0.5,
@@ -459,6 +504,21 @@ for(let i=0; i<25; i++) {
     } else {
         clouds.push({ mesh: cloud, speed: (Math.random() * 0.05) + 0.02 });
     }
+}
+
+// --- Add Enhanced Particle Systems ---
+const particleSystems = addAmbientParticles(scene, { x: 200, y: 30, z: 200 });
+
+// Add pollen clouds around some flowers
+const pollenClouds = [];
+for (let i = 0; i < 20; i++) {
+    const x = (Math.random() - 0.5) * 200;
+    const z = (Math.random() - 0.5) * 200;
+    const y = getGroundHeight(x, z) + 1.5;
+    const pollenColor = [0xFFD700, 0xFFB7C5, 0xE6E6FA][Math.floor(Math.random() * 3)];
+    const pollen = createPollenCloud(new THREE.Vector3(x, y, z), 150, pollenColor);
+    scene.add(pollen);
+    pollenClouds.push(pollen);
 }
 
 // --- Player & Input Logic ---
@@ -1058,6 +1118,20 @@ async function animate() {
         uStarPulse.value = audioState.kickTrigger;
         const hue = (t * 0.1 + audioState.beatPhase) % 1;
         uStarColor.value.setHSL(hue, 1.0, 0.8);
+    }
+
+    // Update audio-reactive materials
+    if (audioState) {
+        updateAudioReactiveMaterials({
+            kick: audioState.kickTrigger || 0,
+            color: audioState.currentColor || 0xFFFFFF
+        });
+
+        // Update pulse ring particles
+        uPulseStrength.value = audioState.kickTrigger || 0;
+        if (audioState.currentColor) {
+            uPulseColor.value.setHex(audioState.currentColor);
+        }
     }
 
     // Idea 4: Giant EQ Mushroom
