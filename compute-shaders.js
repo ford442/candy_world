@@ -1,14 +1,12 @@
-// filepath: g:\github\candy_world\compute-shaders.js
 import * as THREE from 'three';
-import { storage, uniform, vec3, vec4, float, uint, instanceIndex, cos, sin, time, length as lengthNode } from 'three/tsl';
-import { StorageBufferNode, StorageInstancedBufferAttribute } from 'three/webgpu';
+import { storage, uniform, vec3, vec4, float, uint, instanceIndex, cos, sin, time, If } from 'three/tsl';
+import { StorageInstancedBufferAttribute } from 'three/webgpu';
 
 /**
  * Compute Shader Infrastructure for Candy World
- * Provides GPU-accelerated procedural generation and particle simulation
+ * Fully GPU-accelerated particle system
  */
 
-// --- Particle System Compute Shader ---
 export class ComputeParticleSystem {
     constructor(count, renderer) {
         this.count = count;
@@ -19,7 +17,6 @@ export class ComputeParticleSystem {
         this.velocityBuffer = new Float32Array(count * 4); // xyz + speed
         this.colorBuffer = new Float32Array(count * 4); // rgba
 
-        // Initialize particles
         this.initParticles();
 
         // Create storage buffer nodes
@@ -30,8 +27,8 @@ export class ComputeParticleSystem {
         // Uniforms
         this.uTime = uniform(0.0);
         this.uDeltaTime = uniform(0.016);
-        this.uGravity = uniform(vec3(0, -0.5, 0));
-        this.uSpawnCenter = uniform(vec3(0, 0, 0));
+        this.uGravity = uniform(vec3(0, -2.0, 0)); // Stronger gravity
+        this.uSpawnCenter = uniform(vec3(0, 5, 0));
         this.uAudioPulse = uniform(0.0);
 
         this.setupComputeShader();
@@ -40,61 +37,80 @@ export class ComputeParticleSystem {
     initParticles() {
         for (let i = 0; i < this.count; i++) {
             const i4 = i * 4;
-            // Random positions
-            this.positionBuffer[i4] = (Math.random() - 0.5) * 10;
-            this.positionBuffer[i4 + 1] = Math.random() * 5;
-            this.positionBuffer[i4 + 2] = (Math.random() - 0.5) * 10;
-            this.positionBuffer[i4 + 3] = Math.random(); // life (0-1)
+            // Spread out initially
+            this.positionBuffer[i4] = (Math.random() - 0.5) * 50;
+            this.positionBuffer[i4 + 1] = Math.random() * 20;
+            this.positionBuffer[i4 + 2] = (Math.random() - 0.5) * 50;
+            this.positionBuffer[i4 + 3] = Math.random(); // life
 
-            // Random velocities
             this.velocityBuffer[i4] = (Math.random() - 0.5) * 2;
-            this.velocityBuffer[i4 + 1] = Math.random() * 3;
+            this.velocityBuffer[i4 + 1] = Math.random() * 5;
             this.velocityBuffer[i4 + 2] = (Math.random() - 0.5) * 2;
-            this.velocityBuffer[i4 + 3] = 1.0 + Math.random(); // speed multiplier
+            this.velocityBuffer[i4 + 3] = 1.0; // speed
 
-            // Random colors (pastel)
-            this.colorBuffer[i4] = 0.7 + Math.random() * 0.3;
-            this.colorBuffer[i4 + 1] = 0.7 + Math.random() * 0.3;
-            this.colorBuffer[i4 + 2] = 0.7 + Math.random() * 0.3;
-            this.colorBuffer[i4 + 3] = 1.0; // alpha
+            this.colorBuffer[i4] = Math.random(); // Hue
+            this.colorBuffer[i4 + 1] = 0.8; // Sat
+            this.colorBuffer[i4 + 2] = 0.8; // Light
+            this.colorBuffer[i4 + 3] = 1.0; // Alpha
         }
     }
 
     setupComputeShader() {
-        // TSL Compute Shader Logic
-        // This updates particle positions based on velocity, gravity, and lifecycle
+        // TSL Compute Logic
         const idx = instanceIndex;
 
-        // Read current state
-        const position = this.positionStorage.element(idx);
-        const velocity = this.velocityStorage.element(idx);
-        const color = this.colorStorage.element(idx);
+        // Fetch current
+        const posData = this.positionStorage.element(idx);
+        const velData = this.velocityStorage.element(idx);
+        const colData = this.colorStorage.element(idx);
 
-        // Update logic (will be implemented in compute node)
-        // For now, create compute function structure
-        this.computeNode = () => {
-            // Update velocity with gravity
-            const newVelocityY = velocity.y.add(this.uGravity.y.mul(this.uDeltaTime));
-            const newVelocity = vec4(velocity.x, newVelocityY, velocity.z, velocity.w);
+        const position = posData.toVar();
+        const velocity = velData.toVar();
 
-            // Update position
-            const newX = position.x.add(newVelocity.x.mul(this.uDeltaTime).mul(newVelocity.w));
-            const newY = position.y.add(newVelocity.y.mul(this.uDeltaTime).mul(newVelocity.w));
-            const newZ = position.z.add(newVelocity.z.mul(this.uDeltaTime).mul(newVelocity.w));
+        // Physics
+        const dt = this.uDeltaTime;
+        const gravity = this.uGravity.mul(dt);
 
-            // Update life
-            const newLife = position.w.sub(this.uDeltaTime.mul(0.1));
+        // Update Velocity
+        velocity.y.addAssign(gravity.y);
 
-            // Reset if dead
-            const isDead = newLife.lessThan(0.0);
-            const respawnX = this.uSpawnCenter.x.add((Math.random() - 0.5) * 5);
-            const respawnY = this.uSpawnCenter.y.add(Math.random() * 2);
-            const respawnZ = this.uSpawnCenter.z.add((Math.random() - 0.5) * 5);
+        // Audio Boost
+        const speed = velocity.w.mul(this.uAudioPulse.mul(2.0).add(1.0));
 
-            // Store updates (this is pseudocode - actual implementation needs compute pass)
-            // this.positionStorage.element(idx).assign(vec4(finalX, finalY, finalZ, finalLife));
-            // this.velocityStorage.element(idx).assign(newVelocity);
-        };
+        // Update Position
+        position.x.addAssign(velocity.x.mul(dt).mul(speed));
+        position.y.addAssign(velocity.y.mul(dt).mul(speed));
+        position.z.addAssign(velocity.z.mul(dt).mul(speed));
+
+        // Age Life
+        position.w.subAssign(dt.mul(0.3)); // Decay rate
+
+        // Respawn Logic
+        If(position.w.lessThan(0.0), () => {
+            // Reset Life
+            position.w.assign(1.0);
+
+            // Respawn at center + random spread (simulated by using index as seed)
+            const seed = float(idx).mul(0.123);
+            const offsetX = sin(seed.mul(12.9898)).mul(10.0);
+            const offsetZ = cos(seed.mul(78.233)).mul(10.0);
+
+            position.x.assign(this.uSpawnCenter.x.add(offsetX));
+            position.y.assign(this.uSpawnCenter.y);
+            position.z.assign(this.uSpawnCenter.z.add(offsetZ));
+
+            // Reset Velocity
+            velocity.y.assign(float(5.0).add(cos(seed).mul(2.0))); // Upward burst
+            velocity.x.assign(sin(seed).mul(2.0));
+            velocity.z.assign(cos(seed).mul(2.0));
+        });
+
+        // Write back
+        posData.assign(position);
+        velData.assign(velocity);
+
+        // Store the compute node to be executed
+        this.computeNode = posData;
     }
 
     update(deltaTime, audioState = {}) {
@@ -102,66 +118,35 @@ export class ComputeParticleSystem {
         this.uTime.value += deltaTime;
         this.uAudioPulse.value = audioState.kick || 0;
 
-        // CPU fallback for now (will be replaced by actual compute shader)
-        this.updateCPU(deltaTime, audioState);
-    }
-
-    updateCPU(deltaTime, audioState) {
-        const gravity = -0.5;
-        const audioPulse = audioState.kick || 0;
-
-        for (let i = 0; i < this.count; i++) {
-            const i4 = i * 4;
-
-            // Update velocity with gravity
-            this.velocityBuffer[i4 + 1] += gravity * deltaTime;
-
-            // Update position
-            const speed = this.velocityBuffer[i4 + 3];
-            this.positionBuffer[i4] += this.velocityBuffer[i4] * deltaTime * speed;
-            this.positionBuffer[i4 + 1] += this.velocityBuffer[i4 + 1] * deltaTime * speed;
-            this.positionBuffer[i4 + 2] += this.velocityBuffer[i4 + 2] * deltaTime * speed;
-
-            // Update life
-            this.positionBuffer[i4 + 3] -= deltaTime * 0.2 * (1 + audioPulse * 0.5);
-
-            // Reset if dead
-            if (this.positionBuffer[i4 + 3] <= 0) {
-                const spawnX = this.uSpawnCenter.value.x || 0;
-                const spawnY = this.uSpawnCenter.value.y || 5;
-                const spawnZ = this.uSpawnCenter.value.z || 0;
-
-                this.positionBuffer[i4] = spawnX + (Math.random() - 0.5) * 5;
-                this.positionBuffer[i4 + 1] = spawnY + Math.random() * 2;
-                this.positionBuffer[i4 + 2] = spawnZ + (Math.random() - 0.5) * 5;
-                this.positionBuffer[i4 + 3] = 1.0;
-
-                this.velocityBuffer[i4] = (Math.random() - 0.5) * 2;
-                this.velocityBuffer[i4 + 1] = Math.random() * 3 + 1;
-                this.velocityBuffer[i4 + 2] = (Math.random() - 0.5) * 2;
-            }
-
-            // Update color alpha based on life
-            this.colorBuffer[i4 + 3] = this.positionBuffer[i4 + 3];
-        }
+        // Execute Compute Shader
+        this.renderer.compute(this.computeNode);
     }
 
     createMesh() {
         const geometry = new THREE.BufferGeometry();
-        geometry.setAttribute('position', new THREE.BufferAttribute(this.positionBuffer, 4));
-        geometry.setAttribute('color', new THREE.BufferAttribute(this.colorBuffer, 4));
+        // Use the storage buffers as attributes for rendering
+        geometry.setAttribute('position', this.positionStorage);
+        geometry.setAttribute('color', this.colorStorage);
+        geometry.drawRange.count = this.count;
 
-        const material = new THREE.PointsMaterial({
-            size: 0.3,
-            vertexColors: true,
+        const material = new THREE.PointsNodeMaterial({
+            size: 0.2,
+            color: 0xFFFFFF,
             transparent: true,
             opacity: 0.8,
             blending: THREE.AdditiveBlending,
             depthWrite: false
         });
 
-        const mesh = new THREE.Points(geometry, material);
-        return mesh;
+        // Use buffer data in shader
+        const particlePos = this.positionStorage.toAttribute();
+        const life = particlePos.w;
+
+        material.positionNode = particlePos.xyz;
+        material.sizeNode = float(0.2).mul(life); // Shrink as they die
+        material.colorNode = vec4(1.0, 0.5, 0.2, life); // Simple fade
+
+        return new THREE.Points(geometry, material);
     }
 }
 
