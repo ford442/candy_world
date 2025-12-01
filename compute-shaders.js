@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { storage, uniform, vec3, vec4, float, uint, instanceIndex, cos, sin, time, If } from 'three/tsl';
+import { storage, uniform, vec3, vec4, float, uint, instanceIndex, cos, sin, time, If, Fn } from 'three/tsl';
 import { StorageInstancedBufferAttribute } from 'three/webgpu';
 
 /**
@@ -27,8 +27,8 @@ export class ComputeParticleSystem {
         // Uniforms
         this.uTime = uniform(0.0);
         this.uDeltaTime = uniform(0.016);
-        this.uGravity = uniform(vec3(0, -2.0, 0)); // Stronger gravity
-        this.uSpawnCenter = uniform(vec3(0, 5, 0));
+        this.uGravity = uniform(new THREE.Vector3(0, -2.0, 0)); // Stronger gravity
+        this.uSpawnCenter = uniform(new THREE.Vector3(0, 5, 0));
         this.uAudioPulse = uniform(0.0);
 
         this.setupComputeShader();
@@ -57,60 +57,62 @@ export class ComputeParticleSystem {
 
     setupComputeShader() {
         // TSL Compute Logic
-        const idx = instanceIndex;
+        const computeLogic = Fn(() => {
+            const idx = instanceIndex;
 
-        // Fetch current
-        const posData = this.positionStorage.element(idx);
-        const velData = this.velocityStorage.element(idx);
-        const colData = this.colorStorage.element(idx);
+            // Fetch current
+            const posData = this.positionStorage.element(idx);
+            const velData = this.velocityStorage.element(idx);
 
-        const position = posData.toVar();
-        const velocity = velData.toVar();
+            // We read the current values
+            const position = posData.toVar();
+            const velocity = velData.toVar();
 
-        // Physics
-        const dt = this.uDeltaTime;
-        const gravity = this.uGravity.mul(dt);
+            // Physics
+            const dt = this.uDeltaTime;
+            const gravity = this.uGravity.mul(dt);
 
-        // Update Velocity
-        velocity.y.addAssign(gravity.y);
+            // Update Velocity
+            velocity.y.addAssign(gravity.y);
 
-        // Audio Boost
-        const speed = velocity.w.mul(this.uAudioPulse.mul(2.0).add(1.0));
+            // Audio Boost
+            const speed = velocity.w.mul(this.uAudioPulse.mul(2.0).add(1.0));
 
-        // Update Position
-        position.x.addAssign(velocity.x.mul(dt).mul(speed));
-        position.y.addAssign(velocity.y.mul(dt).mul(speed));
-        position.z.addAssign(velocity.z.mul(dt).mul(speed));
+            // Update Position
+            position.x.addAssign(velocity.x.mul(dt).mul(speed));
+            position.y.addAssign(velocity.y.mul(dt).mul(speed));
+            position.z.addAssign(velocity.z.mul(dt).mul(speed));
 
-        // Age Life
-        position.w.subAssign(dt.mul(0.3)); // Decay rate
+            // Age Life
+            position.w.subAssign(dt.mul(0.3)); // Decay rate
 
-        // Respawn Logic
-        If(position.w.lessThan(0.0), () => {
-            // Reset Life
-            position.w.assign(1.0);
+            // Respawn Logic
+            If(position.w.lessThan(0.0), () => {
+                // Reset Life
+                position.w.assign(1.0);
 
-            // Respawn at center + random spread (simulated by using index as seed)
-            const seed = float(idx).mul(0.123);
-            const offsetX = sin(seed.mul(12.9898)).mul(10.0);
-            const offsetZ = cos(seed.mul(78.233)).mul(10.0);
+                // Respawn at center + random spread (simulated by using index as seed)
+                const seed = float(idx).mul(0.123);
+                const offsetX = sin(seed.mul(12.9898)).mul(10.0);
+                const offsetZ = cos(seed.mul(78.233)).mul(10.0);
 
-            position.x.assign(this.uSpawnCenter.x.add(offsetX));
-            position.y.assign(this.uSpawnCenter.y);
-            position.z.assign(this.uSpawnCenter.z.add(offsetZ));
+                position.x.assign(this.uSpawnCenter.x.add(offsetX));
+                position.y.assign(this.uSpawnCenter.y);
+                position.z.assign(this.uSpawnCenter.z.add(offsetZ));
 
-            // Reset Velocity
-            velocity.y.assign(float(5.0).add(cos(seed).mul(2.0))); // Upward burst
-            velocity.x.assign(sin(seed).mul(2.0));
-            velocity.z.assign(cos(seed).mul(2.0));
+                // Reset Velocity
+                velocity.y.assign(float(5.0).add(cos(seed).mul(2.0))); // Upward burst
+                velocity.x.assign(sin(seed).mul(2.0));
+                velocity.z.assign(cos(seed).mul(2.0));
+            });
+
+            // Write back
+            posData.assign(position);
+            velData.assign(velocity);
         });
 
-        // Write back
-        posData.assign(position);
-        velData.assign(velocity);
-
         // Store the compute node to be executed
-        this.computeNode = posData;
+        this.computeNode = computeLogic().compute(this.count);
     }
 
     update(deltaTime, audioState = {}) {
