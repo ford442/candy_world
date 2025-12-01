@@ -1,6 +1,6 @@
 // filepath: g:\github\candy_world\candy-materials.js
 import * as THREE from 'three';
-import { color, vec3, vec4, float, positionWorld, normalWorld, normalView, viewPosition, dot, pow, mix, smoothstep, sin, cos, time, uv, uniform } from 'three/tsl';
+import { color, vec3, vec4, float, positionWorld, normalWorld, normalView, positionView, cameraPosition, dot, pow, mix, smoothstep, sin, cos, time, uv, uniform } from 'three/tsl';
 import { MeshStandardNodeMaterial, MeshPhysicalNodeMaterial } from 'three/webgpu';
 
 /**
@@ -34,7 +34,8 @@ export function createCandyMaterial(options = {}) {
 
     // TSL: Fake Subsurface Scattering (Rim Lighting)
     const normal = normalView;
-    const viewDir = viewPosition.normalize();
+    // View Space: Camera is at (0,0,0). View Direction is towards camera (-positionView)
+    const viewDir = positionView.negate().normalize();
     const rimDot = dot(normal, viewDir).abs().oneMinus();
     const rimPower = float(3.0);
     const rim = pow(rimDot, rimPower).mul(translucency);
@@ -83,7 +84,7 @@ export function createGlowingCandyMaterial(options = {}) {
 
     // Add rim glow
     const normal = normalView;
-    const viewDir = viewPosition.normalize();
+    const viewDir = positionView.negate().normalize();
     const rimDot = dot(normal, viewDir).abs().oneMinus();
     const rim = pow(rimDot, float(2.0)).mul(0.5);
 
@@ -112,7 +113,8 @@ export function createPetalMaterial(options = {}) {
 
     // TSL: Subsurface scattering effect
     const normal = normalWorld;
-    const viewDir = positionWorld.sub(viewPosition).normalize();
+    // World Space: Vector from Camera to Fragment
+    const viewDir = positionWorld.sub(cameraPosition).normalize();
     const NdotV = dot(normal, viewDir).abs();
 
     // Back-lighting effect (fake translucency)
@@ -158,7 +160,7 @@ export function createIridescentMaterial(options = {}) {
 
     // TSL: Rainbow iridescence
     const normal = normalView;
-    const viewDir = viewPosition.normalize();
+    const viewDir = positionView.negate().normalize();
     const fresnel = dot(normal, viewDir).abs().oneMinus();
 
     // Create rainbow effect
@@ -236,7 +238,7 @@ export function createFrostedMaterial(options = {}) {
 
     // Add subtle rim light
     const normal = normalView;
-    const viewDir = viewPosition.normalize();
+    const viewDir = positionView.negate().normalize();
     const rim = dot(normal, viewDir).abs().oneMinus();
     const rimLight = pow(rim, float(4.0)).mul(0.3);
 
@@ -367,17 +369,3 @@ export function updateAudioReactiveMaterials(audioState) {
         uAudioColor.value.setHex(audioState.color);
     }
 }
-
-export {
-    createCandyMaterial,
-    createGlowingCandyMaterial,
-    createPetalMaterial,
-    createIridescentMaterial,
-    createJellyMaterial,
-    createFrostedMaterial,
-    createSwirledMaterial,
-    createAudioReactiveMaterial,
-    createGroundMaterial,
-    updateAudioReactiveMaterials
-};
-

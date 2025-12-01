@@ -1,4 +1,15 @@
 import * as THREE from 'three';
+import {
+    createCandyMaterial,
+    createGlowingCandyMaterial,
+    createPetalMaterial,
+    createIridescentMaterial,
+    createJellyMaterial,
+    createFrostedMaterial,
+    createSwirledMaterial,
+    createAudioReactiveMaterial,
+    createGroundMaterial
+} from './candy-materials.js';
 
 // --- Materials for Foliage ---
 function createClayMaterial(color) {
@@ -252,11 +263,10 @@ export function createGlowingFlower(options = {}) {
 
     // Glowing Head
     const headGeo = new THREE.SphereGeometry(0.2, 16, 16);
-    const headMat = new THREE.MeshStandardMaterial({
-        color,
-        emissive: color,
-        emissiveIntensity: intensity,
-        roughness: 0.8
+    // Use enhanced glowing material
+    const headMat = createGlowingCandyMaterial({
+        baseColor: color,
+        glowIntensity: intensity
     });
     const head = new THREE.Mesh(headGeo, headMat);
     head.position.y = stemHeight;
@@ -275,8 +285,9 @@ export function createGlowingFlower(options = {}) {
  */
 export function createFloatingOrb(options = {}) {
     const { color = 0x87CEEB, size = 0.5 } = options;
-    const geo = new THREE.SphereGeometry(size, 16, 16);
-    const mat = new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.8 });
+    const geo = new THREE.SphereGeometry(size, 32, 32);
+    // Use iridescent material for orb
+    const mat = createIridescentMaterial({ baseColor: color, strength: 0.8 });
     const orb = new THREE.Mesh(geo, mat);
     orb.castShadow = true;
     orb.userData.animationType = 'float';
@@ -326,10 +337,10 @@ export function createLeafParticle(options = {}) {
     return leaf;
 }
 
-// --- New imaginative flowering types ---
+// --- New imaginative flowering types (Refined) ---
 
 /**
- * Starflower — a radial star-shaped bloom that slowly spins.
+ * Starflower — a radial star-shaped bloom that slowly spins and breathes.
  */
 export function createStarflower(options = {}) {
     const { color = 0xFF6EC7 } = options;
@@ -337,20 +348,23 @@ export function createStarflower(options = {}) {
 
     // Stem
     const stemH = 0.7 + Math.random() * 0.4;
-    const stemGeo = new THREE.CylinderGeometry(0.04, 0.04, stemH, 6);
+    const stemGeo = new THREE.CylinderGeometry(0.04, 0.04, stemH, 8); // Smoother
     stemGeo.translate(0, stemH / 2, 0);
     const stem = new THREE.Mesh(stemGeo, createClayMaterial(0x228B22));
     stem.castShadow = true;
     group.add(stem);
 
-    // Center
-    const center = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 8), createClayMaterial(0xFFFACD));
+    // Center - Glowing
+    const centerMat = createGlowingCandyMaterial({ baseColor: 0xFFFACD, glowIntensity: 0.8 });
+    const center = new THREE.Mesh(new THREE.SphereGeometry(0.09, 16, 16), centerMat);
     center.position.y = stemH;
     group.add(center);
 
     // Star petals (cones) arranged radially
-    const petalGeo = new THREE.ConeGeometry(0.09, 0.2, 6);
-    const petalMat = createClayMaterial(color);
+    // Increase segments for roundness
+    const petalGeo = new THREE.ConeGeometry(0.09, 0.25, 16);
+    const petalMat = createPetalMaterial({ baseColor: color, translucency: 0.6 });
+
     const petalCount = 6 + Math.floor(Math.random() * 3);
     for (let i = 0; i < petalCount; i++) {
         const petal = new THREE.Mesh(petalGeo, petalMat);
@@ -363,7 +377,7 @@ export function createStarflower(options = {}) {
 
     group.userData.animationType = 'spin';
     group.userData.animationOffset = Math.random() * 10;
-    group.userData.type = 'flower';
+    group.userData.type = 'starflower';
     return group;
 }
 
@@ -376,25 +390,38 @@ export function createBellBloom(options = {}) {
 
     // Short stem
     const stemH = 0.4 + Math.random() * 0.2;
-    const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, stemH, 6), createClayMaterial(0x2E8B57));
+    const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, stemH, 8), createClayMaterial(0x2E8B57));
     stem.castShadow = true;
     stem.position.y = 0;
     group.add(stem);
 
-    // Bell petals — cones pointing downward
-    const petalGeo = new THREE.ConeGeometry(0.12, 0.28, 10);
-    const petalMat = createClayMaterial(color);
-    const petals = 4 + Math.floor(Math.random() * 3);
-    for (let i = 0; i < petals; i++) {
-        const p = new THREE.Mesh(petalGeo, petalMat);
-        const angle = (i / petals) * Math.PI * 2;
-        p.position.set(Math.cos(angle) * 0.08, -0.08, Math.sin(angle) * 0.08);
-        p.rotation.x = Math.PI; // point downward
-        p.castShadow = true;
-        group.add(p);
+    // Bell petals - using LatheGeometry for a smooth bell shape
+    const points = [];
+    for (let i = 0; i < 10; i++) {
+        const t = i / 9;
+        points.push(new THREE.Vector2(Math.sin(t * Math.PI) * 0.15 * (1-t*0.5), t * 0.3));
     }
+    const bellGeo = new THREE.LatheGeometry(points, 20);
+    bellGeo.rotateX(Math.PI); // Face down
+    const bellMat = createIridescentMaterial({ baseColor: color, strength: 0.4 });
 
-    group.userData.animationType = 'sway'; // reuse sway but amplitude can be larger via offset
+    // Group petals/bell into a container for swaying
+    const bloom = new THREE.Group();
+    bloom.position.y = stemH; // Attach to top of stem
+
+    const bell = new THREE.Mesh(bellGeo, bellMat);
+    bell.castShadow = true;
+    bloom.add(bell);
+
+    // Inner clapper
+    const clapper = new THREE.Mesh(new THREE.SphereGeometry(0.04, 8, 8), createClayMaterial(0xFFD700));
+    clapper.position.y = -0.15;
+    bloom.add(clapper);
+
+    group.add(bloom);
+
+    group.userData.bloomRef = bloom; // Reference for animation
+    group.userData.animationType = 'bellSway';
     group.userData.animationOffset = Math.random() * 10;
     group.userData.type = 'flower';
     return group;
@@ -409,23 +436,30 @@ export function createWisteriaCluster(options = {}) {
 
     for (let s = 0; s < strands; s++) {
         const strand = new THREE.Group();
-        const length = 3 + Math.floor(Math.random() * 3);
+        const length = 4 + Math.floor(Math.random() * 3);
+
+        // Use tube geometry for smoother vine? Or just linked cylinders.
+        // Linked cylinders allow independent segment rotation which is nice for physics-like sway.
         for (let i = 0; i < length; i++) {
-            const seg = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.4, 6), createClayMaterial(0x2E8B57));
+            const seg = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.02, 0.4, 8), createClayMaterial(0x2E8B57));
             seg.position.y = -i * 0.35;
             seg.rotation.z = Math.sin(i * 0.5) * 0.15;
             strand.add(seg);
 
-            // Small clustered bloom
-            if (i > 0 && Math.random() > 0.6) {
-                const b = new THREE.Mesh(new THREE.SphereGeometry(0.05, 6, 6), createClayMaterial(color));
+            // Small clustered bloom - Glistering Jelly like
+            if (i > 0 && Math.random() > 0.4) {
+                const b = new THREE.Mesh(
+                    new THREE.SphereGeometry(0.08, 12, 12),
+                    createJellyMaterial({ baseColor: color, opacity: 0.9 })
+                );
                 b.position.y = seg.position.y - 0.1;
-                b.position.x = (Math.random() - 0.5) * 0.06;
-                b.position.z = (Math.random() - 0.5) * 0.06;
+                b.position.x = (Math.random() - 0.5) * 0.1;
+                b.position.z = (Math.random() - 0.5) * 0.1;
                 strand.add(b);
             }
         }
-        strand.position.x = (Math.random() - 0.5) * 0.6;
+        strand.position.x = (Math.random() - 0.5) * 0.8;
+        strand.position.z = (Math.random() - 0.5) * 0.8;
         strand.position.y = 0;
         group.add(strand);
     }
@@ -436,8 +470,6 @@ export function createWisteriaCluster(options = {}) {
     return group;
 }
 
-// --- New Roundy Foliage Types (Requested by User) ---
-
 /**
  * Bubble Willow — a tree with drooping, rounded tube-like branches (Capsules).
  */
@@ -445,17 +477,18 @@ export function createBubbleWillow(options = {}) {
     const { color = 0x8A2BE2 } = options;
     const group = new THREE.Group();
 
-    // Trunk
+    // Trunk - Swirled candy material
     const trunkH = 2.5 + Math.random();
-    const trunkGeo = new THREE.CylinderGeometry(0.4, 0.6, trunkH, 12);
-    const trunk = new THREE.Mesh(trunkGeo, createClayMaterial(0x5D4037));
+    const trunkGeo = new THREE.CylinderGeometry(0.4, 0.6, trunkH, 16);
+    const trunkMat = createSwirledMaterial({ color1: 0x5D4037, color2: 0x8B4513, scale: 3.0 });
+    const trunk = new THREE.Mesh(trunkGeo, trunkMat);
     trunk.position.y = trunkH / 2;
     trunk.castShadow = true;
     group.add(trunk);
 
     // Drooping branches (Capsules)
-    const branchCount = 6 + Math.floor(Math.random() * 4);
-    const branchMat = createClayMaterial(color);
+    const branchCount = 8 + Math.floor(Math.random() * 4);
+    const branchMat = createCandyMaterial({ baseColor: color, roughness: 0.2, iridescence: 0.3 });
 
     for (let i = 0; i < branchCount; i++) {
         const branchGroup = new THREE.Group();
@@ -465,14 +498,12 @@ export function createBubbleWillow(options = {}) {
 
         // The actual drooping part
         const length = 1.5 + Math.random();
-        const capsuleGeo = new THREE.CapsuleGeometry(0.2, length, 8, 16);
+        const capsuleGeo = new THREE.CapsuleGeometry(0.25, length, 8, 24);
         const capsule = new THREE.Mesh(capsuleGeo, branchMat);
 
         // Orient so it hangs down.
-        // Default capsule is vertical. We want it to curve out and down.
-        // Simplified: Rotate it so it points somewhat down-out
-        capsule.position.set(0.5, -length/2, 0); // Offset
-        capsule.rotation.z = -Math.PI / 6; // Angle out
+        capsule.position.set(0.6, -length/2, 0); // Offset
+        capsule.rotation.z = -Math.PI / 5; // Angle out
 
         branchGroup.add(capsule);
         group.add(branchGroup);
@@ -493,25 +524,27 @@ export function createPuffballFlower(options = {}) {
 
     // Thick Stem
     const stemH = 1.0 + Math.random() * 0.5;
-    const stemGeo = new THREE.CylinderGeometry(0.1, 0.12, stemH, 8);
+    const stemGeo = new THREE.CylinderGeometry(0.1, 0.12, stemH, 12);
     const stem = new THREE.Mesh(stemGeo, createClayMaterial(0x6B8E23));
     stem.position.y = stemH / 2;
     stem.castShadow = true;
     group.add(stem);
 
     // Big Puffball Head
-    const headR = 0.4 + Math.random() * 0.2;
-    const headGeo = new THREE.SphereGeometry(headR, 16, 16);
-    const headMat = createClayMaterial(color);
+    const headR = 0.5 + Math.random() * 0.2;
+    const headGeo = new THREE.SphereGeometry(headR, 24, 24);
+    // Use frosted material for fuzzy look
+    const headMat = createFrostedMaterial({ baseColor: color, roughness: 0.8, sparkle: true });
     const head = new THREE.Mesh(headGeo, headMat);
     head.position.y = stemH;
     head.castShadow = true;
     group.add(head);
 
-    // Spores (smaller spheres attached)
-    const sporeCount = 4 + Math.floor(Math.random() * 4);
-    const sporeGeo = new THREE.SphereGeometry(headR * 0.3, 8, 8);
-    const sporeMat = createClayMaterial(color + 0x111111); // Slightly lighter
+    // Spores (smaller spheres attached) - Increased count significantly
+    const sporeCount = 15 + Math.floor(Math.random() * 10);
+    const sporeGeo = new THREE.SphereGeometry(headR * 0.25, 12, 12);
+    const sporeMat = createCandyMaterial({ baseColor: color + 0x111111, roughness: 0.6 });
+
     for(let i=0; i<sporeCount; i++) {
         const spore = new THREE.Mesh(sporeGeo, sporeMat);
         // Random point on sphere surface
@@ -523,7 +556,9 @@ export function createPuffballFlower(options = {}) {
         const y = Math.sin(phi) * Math.sin(theta);
         const z = Math.cos(phi);
 
-        spore.position.set(x * headR, stemH + y * headR, z * headR);
+        // Position slightly outside surface
+        const offsetR = headR * (1.0 + Math.random() * 0.2);
+        spore.position.set(x * offsetR, stemH + y * offsetR, z * offsetR);
         group.add(spore);
     }
 
@@ -547,32 +582,31 @@ export function createHelixPlant(options = {}) {
             this.scale = scale;
         }
         getPoint(t, optionalTarget = new THREE.Vector3()) {
-            const tx = Math.cos(t * Math.PI * 4) * 0.2 * t * this.scale;
-            const ty = t * 2.0 * this.scale;
-            const tz = Math.sin(t * Math.PI * 4) * 0.2 * t * this.scale;
+            const tx = Math.cos(t * Math.PI * 4) * 0.3 * t * this.scale;
+            const ty = t * 2.5 * this.scale;
+            const tz = Math.sin(t * Math.PI * 4) * 0.3 * t * this.scale;
             return optionalTarget.set(tx, ty, tz);
         }
     }
 
     const path = new SpiralCurve(1.0 + Math.random() * 0.5);
-    const tubeGeo = new THREE.TubeGeometry(path, 20, 0.08, 8, false);
+    // Increased segments for smoothness
+    const tubeGeo = new THREE.TubeGeometry(path, 64, 0.1, 12, false);
     const mat = createClayMaterial(color);
     const mesh = new THREE.Mesh(tubeGeo, mat);
     mesh.castShadow = true;
     group.add(mesh);
 
     // Glow ball at tip
-    const tipGeo = new THREE.SphereGeometry(0.15, 8, 8);
-    const tipMat = new THREE.MeshStandardMaterial({
-        color: 0xFFFFFF, emissive: 0xFFFACD, emissiveIntensity: 0.5, roughness: 0.5
-    });
+    const tipGeo = new THREE.SphereGeometry(0.2, 16, 16);
+    const tipMat = createAudioReactiveMaterial({ baseColor: 0xFFFACD, intensity: 1.5 });
     const tip = new THREE.Mesh(tipGeo, tipMat);
     // Position at end of curve
     const endPoint = path.getPoint(1);
     tip.position.copy(endPoint);
     group.add(tip);
 
-    group.userData.animationType = 'spring'; // New animation type needed? Or reuse bounce?
+    group.userData.animationType = 'spring';
     group.userData.animationOffset = Math.random() * 10;
     group.userData.type = 'shrub'; // or helix
     return group;
@@ -586,19 +620,20 @@ export function createBalloonBush(options = {}) {
     const group = new THREE.Group();
 
     // Central mass not visible, just holder
-    const sphereCount = 5 + Math.floor(Math.random() * 5);
-    const mat = createClayMaterial(color);
+    const sphereCount = 6 + Math.floor(Math.random() * 4);
+    // Iridescent balloons
+    const mat = createCandyMaterial({ baseColor: color, roughness: 0.2, iridescence: 0.5 });
 
     for (let i=0; i<sphereCount; i++) {
-        const r = 0.3 + Math.random() * 0.4;
-        const geo = new THREE.SphereGeometry(r, 16, 16);
+        const r = 0.3 + Math.random() * 0.5;
+        const geo = new THREE.SphereGeometry(r, 32, 32); // Smoother spheres
         const mesh = new THREE.Mesh(geo, mat);
 
         // Random cluster position
         mesh.position.set(
-            (Math.random()-0.5) * 0.8,
+            (Math.random()-0.5) * 1.0,
             r + (Math.random()) * 0.8, // Lifted off ground
-            (Math.random()-0.5) * 0.8
+            (Math.random()-0.5) * 1.0
         );
         mesh.castShadow = true;
         group.add(mesh);
@@ -620,8 +655,8 @@ export function createRainingCloud(options = {}) {
     const group = new THREE.Group();
 
     // Cloud body
-    const cloudGeo = new THREE.SphereGeometry(1.5, 16, 16);
-    const cloudMat = createClayMaterial(color);
+    const cloudGeo = new THREE.SphereGeometry(1.5, 32, 32);
+    const cloudMat = createFrostedMaterial({ baseColor: color, roughness: 0.5 });
     const cloud = new THREE.Mesh(cloudGeo, cloudMat);
     cloud.castShadow = true;
     group.add(cloud);
@@ -905,11 +940,24 @@ export function animateFoliage(foliageObject, time, audioData, isDay) {
                 // Continuous spin base
                 foliageObject.rotation.y += 0.02 * intensity;
                 foliageObject.rotation.z = Math.cos(time * 0.5 + offset) * 0.05 * intensity;
+
+                // Starflower breathing
+                if (plantType === 'starflower') {
+                    const breath = 1.0 + Math.sin(time * 2.0) * 0.1;
+                    foliageObject.scale.setScalar(breath);
+                }
             } else {
                 foliageObject.rotation.z = Math.sin(tFinal * speed + offset) * 0.05 * intensity;
                 foliageObject.rotation.x = Math.cos(tFinal * speed * 0.8 + offset) * 0.05 * intensity;
             }
         }
+    } else if (type === 'bellSway') {
+        const bloom = foliageObject.userData.bloomRef;
+        if (bloom) {
+            bloom.rotation.z = Math.sin(animTime * 2.0 + offset) * 0.3 * intensity;
+            bloom.rotation.x = Math.cos(animTime * 1.5 + offset) * 0.1 * intensity;
+        }
+
     } else if (type === 'bounce') {
         foliageObject.position.y = originalY + Math.sin(animTime * 3 + offset) * 0.1 * intensity;
         // Kick bounce

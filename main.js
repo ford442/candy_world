@@ -3,7 +3,31 @@ import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockCont
 import WebGPU from 'three/examples/jsm/capabilities/WebGPU.js';
 import { WebGPURenderer, PointsNodeMaterial } from 'three/webgpu';
 import { color, float, vec3, time, positionLocal, attribute, storage, uniform, uv } from 'three/tsl';
-import { createFlower, createGrass, createFloweringTree, createShrub, animateFoliage, createGlowingFlower, createFloatingOrb, createVine, createStarflower, createBellBloom, createWisteriaCluster, createRainingCloud, createLeafParticle, createGlowingFlowerPatch, createFloatingOrbCluster, createVineCluster, createBubbleWillow, createPuffballFlower, createHelixPlant, createBalloonBush, initGrassSystem, addGrassInstance, updateFoliageMaterials } from './foliage.js';
+import {
+    createFlower,
+    createGrass,
+    createFloweringTree,
+    createShrub,
+    animateFoliage,
+    createGlowingFlower,
+    createFloatingOrb,
+    createVine,
+    createStarflower,
+    createBellBloom,
+    createWisteriaCluster,
+    createRainingCloud,
+    createLeafParticle,
+    createGlowingFlowerPatch,
+    createFloatingOrbCluster,
+    createVineCluster,
+    createBubbleWillow,
+    createPuffballFlower,
+    createHelixPlant,
+    createBalloonBush,
+    initGrassSystem,
+    addGrassInstance,
+    updateFoliageMaterials
+} from './foliage.js';
 import { createSky, uSkyTopColor, uSkyBottomColor } from './sky.js';
 import { createStars, uStarPulse, uStarColor } from './stars.js';
 import { AudioSystem } from './audio-system.js';
@@ -365,11 +389,19 @@ function spawnCluster(cx, cz) {
                 // Instanced Grass
                 addGrassInstance(x, y, z);
             } else {
-                const color = FLOWER_COLORS[Math.floor(Math.random() * FLOWER_COLORS.length)];
-                const shape = ['simple', 'multi', 'spiral'][Math.floor(Math.random() * 3)];
-                const flower = createFlower({color, shape});
-                flower.position.set(x, y, z);
-                safeAddFoliage(flower);
+                // Mix standard flowers with Bell Blooms
+                if (Math.random() < 0.2) {
+                     const color = FLOWER_COLORS[Math.floor(Math.random() * FLOWER_COLORS.length)];
+                     const bell = createBellBloom({ color });
+                     bell.position.set(x, y, z);
+                     safeAddFoliage(bell);
+                } else {
+                    const color = FLOWER_COLORS[Math.floor(Math.random() * FLOWER_COLORS.length)];
+                    const shape = ['simple', 'multi', 'spiral'][Math.floor(Math.random() * 3)];
+                    const flower = createFlower({color, shape});
+                    flower.position.set(x, y, z);
+                    safeAddFoliage(flower);
+                }
             }
         }
     } else if (typeRoll < 0.5) {
@@ -410,15 +442,20 @@ function spawnCluster(cx, cz) {
             const z = cz + r * Math.sin(theta);
 
             const subRoll = Math.random();
-            if (subRoll < 0.3) {
+            if (subRoll < 0.25) {
                  const m = createMushroom(x, z);
                  animatedObjects.push(m);
-            } else if (subRoll < 0.6) {
+            } else if (subRoll < 0.5) {
                  const patch = createGlowingFlowerPatch(x, z);
                  safeAddFoliage(patch);
-            } else {
+            } else if (subRoll < 0.75) {
                  const cluster = createFloatingOrbCluster(x, z);
                  safeAddFoliage(cluster);
+            } else {
+                 const color = PASTEL_COLORS[Math.floor(Math.random() * PASTEL_COLORS.length)];
+                 const wisteria = createWisteriaCluster({ color });
+                 wisteria.position.set(x, getGroundHeight(x, z), z);
+                 safeAddFoliage(wisteria);
             }
         }
     } else if (typeRoll < 0.85) {
