@@ -316,6 +316,3 @@ export class MeshDeformationCompute {
         this.geometry.computeVertexNormals();
     }
 }
-
-export { ComputeParticleSystem, ProceduralNoiseCompute, MeshDeformationCompute };
-

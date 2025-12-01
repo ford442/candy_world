@@ -351,5 +351,3 @@ export function addAmbientParticles(scene, bounds = { x: 100, y: 30, z: 100 }) {
 
     return systems;
 }
-
-export { createPollenCloud, createLeafConfetti, createPulseRing, addAmbientParticles };
