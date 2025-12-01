@@ -724,14 +724,66 @@ export function addGrassInstance(x, y, z) {
 
 // --- Animation System ---
 
+export function updateFoliageMaterials(audioData, isNight) {
+    if (!audioData) return;
+
+    // Nighttime Blinking Logic
+    if (isNight) {
+        // Pulse flower petals based on channels
+        // We have 3 petal colors, map them to channels?
+        const channels = audioData.channelData;
+        if (!channels || channels.length === 0) return;
+
+        foliageMaterials.flowerPetal.forEach((mat, i) => {
+            const chIndex = i % channels.length;
+            const trigger = channels[chIndex]?.trigger || 0;
+            const volume = channels[chIndex]?.volume || 0;
+
+            // Base emissive + pulse
+            // If trigger just happened, spike intensity
+            const intensity = 0.2 + volume * 0.5 + trigger * 2.0;
+            mat.emissive.setHex(mat.color.getHex());
+            mat.emissiveIntensity = intensity;
+        });
+
+        // Also center
+        foliageMaterials.flowerCenter.emissive.setHex(0xFFFACD);
+        foliageMaterials.flowerCenter.emissiveIntensity = audioData.kickTrigger * 3.0;
+
+    } else {
+        // Reset to day state (no emission)
+        foliageMaterials.flowerPetal.forEach(mat => {
+            mat.emissive.setHex(0x000000);
+            mat.emissiveIntensity = 0;
+        });
+        foliageMaterials.flowerCenter.emissive.setHex(0x000000);
+        foliageMaterials.flowerCenter.emissiveIntensity = 0;
+    }
+}
+
 /**
  * Applies animations to foliage objects.
  * @param {THREE.Object3D} foliageObject The foliage object to animate.
  * @param {number} time The current animation time.
+ * @param {Object} audioData Audio analysis data (optional).
+ * @param {boolean} isDay Whether it is daytime (enables dancing).
  */
-export function animateFoliage(foliageObject, time) {
+export function animateFoliage(foliageObject, time, audioData, isDay) {
     const offset = foliageObject.userData.animationOffset || 0;
     const type = foliageObject.userData.animationType || 'sway';
+
+    // Dance Factor: Amplify movement if kick/beat is present and it is Day
+    let danceAmp = 1.0;
+    let bounceAmp = 0.0;
+
+    if (isDay && audioData) {
+        danceAmp = 1.0 + audioData.grooveAmount * 5.0; // Groove adds speed/intensity
+        bounceAmp = audioData.kickTrigger * 0.5; // Kick adds bounce
+    }
+
+    // Original Time + Music Time
+    // We can speed up time with groove
+    const animTime = time + (audioData ? audioData.beatPhase * 10 : 0);
 
     if (type === 'rain') {
         const rain = foliageObject.children[1];
@@ -747,34 +799,57 @@ export function animateFoliage(foliageObject, time) {
         }
     }
 
+    // Only apply transforms if isDay (Dancing) or standard Sway
+    // The user said "Dancing ... in the daytime".
+    // We keep standard sway always? Or only dance in day?
+    // "Dancing of the plants ... in the daytime". Implies at night they might be still?
+    // Let's keep gentle sway at night, but intense dance at day.
+
+    const intensity = isDay ? danceAmp : 0.5; // Reduced movement at night
+
     if (type === 'sway') {
-        foliageObject.rotation.z = Math.sin(time * 2 + offset) * 0.1;
-        foliageObject.rotation.x = Math.cos(time * 1.5 + offset) * 0.1;
-        // For flowers, also animate the head
+        foliageObject.rotation.z = Math.sin(time * 2 + offset) * 0.1 * intensity;
+        foliageObject.rotation.x = Math.cos(time * 1.5 + offset) * 0.1 * intensity;
+
+        // Add vertical bounce for dance
+        if (isDay && bounceAmp > 0.01) {
+             foliageObject.position.y += bounceAmp * 0.2; // Temporary bounce?
+             // Need original Y to bounce correctly.
+             // Simplified: assumes Y starts at ground.
+             // We won't accumulate Y, just sine wave modulation
+             const originalY = foliageObject.userData.originalY ?? foliageObject.position.y;
+             foliageObject.userData.originalY = originalY; // store it
+             foliageObject.position.y = originalY + bounceAmp * 0.5;
+        }
+
         const head = foliageObject.children[1];
         if (head) {
-            head.rotation.y = time * 0.5;
+            head.rotation.y = time * 0.5 * intensity;
         }
     } else if (type === 'bounce') {
-        foliageObject.position.y += Math.sin(time * 3 + offset) * 0.01;
+        foliageObject.position.y += Math.sin(time * 3 + offset) * 0.01 * intensity;
+        if (isDay) foliageObject.position.y += bounceAmp * 0.5;
     } else if (type === 'gentleSway') {
-        foliageObject.rotation.z = Math.sin(time + offset) * 0.05;
+        foliageObject.rotation.z = Math.sin(time + offset) * 0.05 * intensity;
     } else if (type === 'glowPulse') {
+        // Managed by material update mostly, but pulse logic here too
         if (foliageObject.children[1] && foliageObject.children[1].material) {
             foliageObject.children[1].material.emissiveIntensity = 1.5 + Math.sin(time * 3 + offset) * 0.5;
         }
     } else if (type === 'float') {
         foliageObject.position.y += Math.sin(time * 2 + offset) * 0.05;
+        // Clouds dance too?
+        if (isDay) {
+            foliageObject.scale.setScalar(1.0 + bounceAmp * 0.2);
+        }
     } else if (type === 'vineSway') {
         foliageObject.children.forEach((segment, i) => {
-            segment.rotation.z = Math.sin(time * 2 + offset + i * 0.5) * 0.2;
+            segment.rotation.z = Math.sin(time * 2 + offset + i * 0.5) * 0.2 * intensity;
         });
     } else if (type === 'spin') {
-        // global spin of the whole group
-        foliageObject.rotation.y = Math.sin(time + offset) * 0.8;
-        foliageObject.rotation.z = Math.cos(time * 0.5 + offset) * 0.05;
+        foliageObject.rotation.y = Math.sin(time + offset) * 0.8 * intensity;
+        foliageObject.rotation.z = Math.cos(time * 0.5 + offset) * 0.05 * intensity;
     } else if (type === 'spring') {
-        // Scale vertical stretch
-        foliageObject.scale.y = 1.0 + Math.sin(time * 3 + offset) * 0.1;
+        foliageObject.scale.y = 1.0 + Math.sin(time * 3 + offset) * 0.1 * intensity + bounceAmp;
     }
 }
