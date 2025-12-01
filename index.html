@@ -78,11 +78,34 @@
             }
         }
     </script>
+    <script>
+        window.libopenmptReady = new Promise(resolve => {
+            window.libopenmpt = {
+                onRuntimeInitialized: function() {
+                    console.log('libopenmpt runtime initialized via pre-load script.');
+                    resolve(this);
+                }
+            };
+        });
+    </script>
+    <script src="https://wasm.noahcohn.com/libmpt/libopenmptjs.js"></script>
 </head>
 <body>
     <div id="instructions">
         <h1>🍭 Candy World</h1>
         <p>Click anywhere to Explore</p>
+
+        <div class="settings" style="margin-bottom: 20px; z-index: 201;">
+            <label for="musicUpload" style="background: #fff; padding: 10px 20px; border-radius: 20px; cursor: pointer; border: 2px solid #FF6B6B; color: #FF6B6B; font-weight: bold; margin-right: 10px; display: inline-block;">
+                🎵 Upload Music
+            </label>
+            <input type="file" id="musicUpload" accept=".mod,.xm,.it,.s3m" style="display: none;">
+
+            <button id="toggleDayNight" style="background: #6A5ACD; border: none; padding: 10px 20px; border-radius: 20px; cursor: pointer; color: white; font-weight: bold; font-size: 1em;">
+                Toggle Day/Night (N)
+            </button>
+        </div>
+
         <div class="controls">
             <div><span class="key">Right Click</span> Move Forward (Run)</div>
             <div><span class="key">A</span> Left <span class="key">D</span> Right <span class="key">S</span> Back</div>

@@ -1,15 +1,15 @@
 import * as THREE from 'three';
-import { color, mix, positionWorld, float } from 'three/tsl';
+import { color, mix, positionWorld, float, uniform } from 'three/tsl';
 import { MeshBasicNodeMaterial } from 'three/webgpu';
+
+// Export uniforms so main.js can drive them
+export const uSkyTopColor = uniform(color(0x87CEEB));
+export const uSkyBottomColor = uniform(color(0xFFB6C1));
 
 function createSky() {
     const skyGeo = new THREE.SphereGeometry(1000, 32, 15);
 
     // TSL Gradient
-    // gl_FragColor = vec4( mix( bottomColor, topColor, max( pow( max( h , 0.0), exponent ), 0.0 ) ), 1.0 );
-
-    const topColor = color(0x87CEEB);
-    const bottomColor = color(0xFFB6C1);
     const offset = float(33.0);
     const exponent = float(0.6);
 
@@ -26,7 +26,7 @@ function createSky() {
     const h = positionWorld.add(offset).normalize().y;
     const mixFactor = h.max(0.0).pow(exponent).max(0.0);
 
-    const skyColor = mix(bottomColor, topColor, mixFactor);
+    const skyColor = mix(uSkyBottomColor, uSkyTopColor, mixFactor);
 
     const skyMat = new MeshBasicNodeMaterial();
     skyMat.colorNode = skyColor;
