@@ -1,9 +1,5 @@
 import * as THREE from 'three';
 
-/**
- * WasmParticleSystem
- * Bridges JavaScript/Three.js with AssemblyScript/WASM for high-performance physics on CPU.
- */
 export class WasmParticleSystem {
     constructor(count, scene) {
         this.count = count;
@@ -19,62 +15,88 @@ export class WasmParticleSystem {
 
     async initWasm() {
         try {
-            // Load the WASM module
+            // 1. Define minimal WASI imports to satisfy Emscripten
+            // Emscripten binaries often expect these for libc support (even if unused)
+            const wasiImports = {
+                fd_write: () => 0,
+                fd_close: () => 0,
+                fd_seek: () => 0,
+                proc_exit: (code) => console.log('WASM exit:', code),
+                random_get: (bufPtr, bufLen) => {
+                    // Fill buffer with random bytes if requested
+                    const mem = new Uint8Array(this.memory.buffer);
+                    for (let i = 0; i < bufLen; i++) {
+                        mem[bufPtr + i] = Math.floor(Math.random() * 256);
+                    }
+                    return 0;
+                }
+            };
+
+            // 2. Load the WASM
             const response = await fetch('build/optimized.wasm');
             const buffer = await response.arrayBuffer();
 
-            // Create memory - AssemblyScript needs to import 'env' usually, but for simple stuff minimal is ok
-            const memory = new WebAssembly.Memory({ initial: 10 }); // 1 page = 64KB
-
-            const imports = {
+            // 3. Instantiate with imports
+            const { instance } = await WebAssembly.instantiate(buffer, {
                 env: {
-                    memory: memory,
-                    abort: (msg, file, line, col) => console.error(`WASM Abort: ${msg} ${file}:${line}:${col}`),
-                    seed: () => Math.random()
+                    // Emscripten might need these depending on optimization level
+                    emscripten_notify_memory_growth: (idx) => {
+                        console.log('WASM memory grew');
+                        this.updateViews(); // Re-create typed arrays on resize
+                    },
+                    abort: () => console.error("WASM Aborted"),
                 },
-                Math: Math // Give WASM access to JS Math if needed (depends on ASC build)
-            };
+                wasi_snapshot_preview1: wasiImports // <--- The missing piece causing your crash
+            });
 
-            const module = await WebAssembly.instantiate(buffer, imports);
-            this.wasm = module.instance.exports;
-            this.memory = this.wasm.memory || memory;
+            this.wasm = instance.exports;
+            
+            // 4. Handle Memory (Emscripten usually exports 'memory')
+            this.memory = this.wasm.memory;
+            this.updateViews();
 
-            // Allocate memory pointer in WASM heap
-            // For simplicity, we just use offset 0 or whatever strict malloc was provided,
-            // but since we compiled with standard ASC, we might not have a full allocator.
-            // We'll treat memory starting at offset 1024 as ours.
-            this.ptr = 1024;
+            // 5. Get Function Pointers (Emscripten adds '_' prefix)
+            this.updateFn = this.wasm._updateParticles; 
+            
+            // Allocate memory in WASM heap (simple bump allocation or use malloc if exported)
+            // Since we compiled with STANDALONE, we might not have full malloc. 
+            // We'll place our data at the end of the static data area (often __heap_base).
+            const heapBase = this.wasm.__heap_base?.value || 1024;
+            this.ptr = heapBase;
 
-            // Need to grow memory if not enough
+            // Grow memory if needed
             const pagesNeeded = Math.ceil((this.ptr + this.byteSize) / 65536);
-            if (this.memory.buffer.byteLength < pagesNeeded * 65536) {
-                this.memory.grow(pagesNeeded - (this.memory.buffer.byteLength / 65536));
+            if (this.memory.buffer.byteLength < (this.ptr + this.byteSize)) {
+                this.memory.grow(pagesNeeded);
+                this.updateViews();
             }
 
-            // Initial init of particles in JS (or could do in WASM)
             this.initParticles();
-
-            // Create Mesh
             this.createMesh();
 
             this.isReady = true;
-            console.log("WASM Particle System Initialized");
+            console.log("WASM Particle System Initialized (Emscripten Mode)");
+
         } catch (e) {
             console.error("Failed to init WASM:", e);
         }
+    }
+
+    // Helper to refresh views when memory grows
+    updateViews() {
+        // No-op if you re-create views every frame, but good practice
     }
 
     initParticles() {
         const f32 = new Float32Array(this.memory.buffer, this.ptr, this.count * this.floatsPerParticle);
         for (let i = 0; i < this.count; i++) {
             const idx = i * this.floatsPerParticle;
-            f32[idx] = (Math.random() - 0.5) * 10;     // x
-            f32[idx + 1] = 10 + Math.random() * 10;    // y
-            f32[idx + 2] = (Math.random() - 0.5) * 10; // z
+            f32[idx] = (Math.random() - 0.5) * 50;     // x
+            f32[idx + 1] = Math.random() * 20;         // y
+            f32[idx + 2] = (Math.random() - 0.5) * 50; // z
             f32[idx + 3] = Math.random();              // life
-
             f32[idx + 4] = (Math.random() - 0.5) * 2;  // vx
-            f32[idx + 5] = Math.random() * 2;          // vy
+            f32[idx + 5] = Math.random() * 5;          // vy
             f32[idx + 6] = (Math.random() - 0.5) * 2;  // vz
             f32[idx + 7] = 1.0 + Math.random();        // speed
         }
@@ -82,17 +104,12 @@ export class WasmParticleSystem {
 
     createMesh() {
         const geometry = new THREE.BufferGeometry();
-
-        // We will update this buffer every frame from WASM memory
         this.positions = new Float32Array(this.count * 3);
-        // Colors/Life could be another attribute
-        this.life = new Float32Array(this.count);
-
+        
         geometry.setAttribute('position', new THREE.BufferAttribute(this.positions, 3));
-        geometry.setAttribute('alpha', new THREE.BufferAttribute(this.life, 1));
 
         const material = new THREE.PointsMaterial({
-            color: 0x00FFFF, // Cyan for WASM
+            color: 0x00FFFF,
             size: 0.2,
             transparent: true,
             opacity: 0.8,
@@ -100,25 +117,19 @@ export class WasmParticleSystem {
             depthWrite: false
         });
 
-        // Hook up opacity to alpha attribute if possible, or just standard
-        // Standard PointsMaterial doesn't use custom attributes easily without onBeforeCompile.
-        // Let's use TSL or just simple opacity.
-        // For simplicity, just standard material for now.
-
         this.mesh = new THREE.Points(geometry, material);
-        this.mesh.position.set(20, 0, 0); // Offset to side
+        // this.mesh.position.set(20, 0, 0); // Remove offset if not needed
         this.scene.add(this.mesh);
     }
 
     update(deltaTime) {
         if (!this.isReady) return;
 
-        // Call WASM Update
-        this.wasm.updateParticles(this.ptr, this.count, deltaTime);
+        // Call the C++ function (note the underscore!)
+        this.updateFn(this.ptr, this.count, deltaTime);
 
-        // Copy data back to Three.js attributes
-        // (Ideally we'd use the WASM buffer directly as the attribute buffer, but threading/safety...)
-        // We act as the bridge.
+        // Copy data back to Three.js
+        // Be careful: memory.buffer might have detached if grown, so access it fresh
         const wasmFloats = new Float32Array(this.memory.buffer, this.ptr, this.count * this.floatsPerParticle);
 
         for (let i = 0; i < this.count; i++) {
@@ -128,7 +139,6 @@ export class WasmParticleSystem {
             this.positions[pIdx] = wasmFloats[wIdx];
             this.positions[pIdx+1] = wasmFloats[wIdx+1];
             this.positions[pIdx+2] = wasmFloats[wIdx+2];
-            // Life is at wIdx + 3
         }
 
         this.mesh.geometry.attributes.position.needsUpdate = true;
