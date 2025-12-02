@@ -12,11 +12,11 @@ export class WasmParticleSystem { constructor(count, scene) { this.count = count
 async initWasm() {
     try {
         // 1. Imports for AssemblyScript
-        // AS uses 'env' for some math, and we mock WASI just in case.
+        // AS uses 'env' for some math (like seed), and we mock WASI.
         const imports = {
             env: {
                 abort: () => console.error("WASM Abort"),
-                seed: () => Math.random() * Date.now(), // Random seed
+                seed: () => Math.random() * Date.now(), // Random seed for AS Math.random()
                 trace: (msg, n, val) => console.log(`AS Trace: ${msg}`)
             },
             wasi_snapshot_preview1: {
@@ -24,11 +24,7 @@ async initWasm() {
                 fd_close: () => 0,
                 fd_seek: () => 0,
                 proc_exit: (code) => console.log('WASM exit:', code),
-                random_get: (bufPtr, bufLen) => {
-                    // Fill buffer with random bytes if requested
-                    // This usually won't be called unless using specific WASI random functions
-                    return 0;
-                }
+                random_get: () => 0
             }
         };
 
@@ -41,35 +37,39 @@ async initWasm() {
 
         const { instance } = await WebAssembly.instantiate(buffer, imports);
         this.wasm = instance.exports;
+        this.memory = this.wasm.memory;
 
         // 2. Memory Management
-        // AssemblyScript exports memory directly
-        this.memory = this.wasm.memory;
-        
-        // AssemblyScript often exports a '__new' function to allocate, 
-        // but for this simple array we can just use the start of memory or a fixed offset.
-        // If the module exports __heap_base, use it to be safe.
+        // Use the start of memory or heap_base if exported
         const heapBase = this.wasm.__heap_base ? this.wasm.__heap_base.value : 1024;
         this.ptr = heapBase;
 
-        // Ensure memory is large enough
+        // Grow memory if needed
         const pagesNeeded = Math.ceil((this.ptr + this.byteSize) / 65536);
         if (this.memory.buffer.byteLength < (this.ptr + this.byteSize)) {
             this.memory.grow(pagesNeeded);
         }
 
-        // 3. Function Detection (AssemblyScript usually has no underscore prefix)
+        // 3. Function Detection
+        // AssemblyScript exports exactly what you name them
         this.updateFn = this.wasm.updateParticles;
         this.initFn = this.wasm.initParticles;
         this.checkCollisionFn = this.wasm.checkCollision;
 
         if (!this.updateFn) {
-            console.warn("⚠️ updateParticles not found. Did you compile 'assembly/index.ts'?");
+            console.error("⚠️ updateParticles not found. Please run 'npm run build:wasm' to compile assembly/index.ts");
+            // Fallback attempt for C++ names just in case
+            if (this.wasm._updateParticles) {
+                console.warn("⚠️ Found _updateParticles (C++ style). Using that instead.");
+                this.updateFn = this.wasm._updateParticles;
+                this.initFn = this.wasm._initParticles;
+                this.checkCollisionFn = this.wasm._checkCollision;
+            }
         }
 
         // 4. Initialize
         if (this.initFn) {
-            console.log("⚡ initializing particles via AssemblyScript...");
+            console.log("⚡ initializing particles via WASM...");
             this.initFn(this.ptr, this.count);
         } else {
             this.initParticlesJS();
@@ -83,7 +83,7 @@ async initWasm() {
     }
 }
 
-// Fallback JS init if WASM function is missing
+// Fallback JS init
 initParticlesJS() {
     if (!this.memory) return;
     const f32 = new Float32Array(this.memory.buffer, this.ptr, this.count * this.floatsPerParticle);
@@ -127,12 +127,10 @@ checkCollision(playerX, playerZ, radius) {
 update(deltaTime) {
     if (!this.isReady || !this.updateFn) return;
 
-    // Call the update function
+    // Call WASM update
     this.updateFn(this.ptr, this.count, deltaTime);
 
-    // Sync with Three.js
-    // Note: We re-create the view every frame in case memory grew, 
-    // but for this simple demo caching the view is often fine unless we resize arrays.
+    // Sync view with Three.js buffer
     const wasmFloats = new Float32Array(this.memory.buffer, this.ptr, this.count * this.floatsPerParticle);
     
     for (let i = 0; i < this.count; i++) {
