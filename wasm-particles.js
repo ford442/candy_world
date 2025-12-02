@@ -20,7 +20,7 @@ export class WasmParticleSystem {
     async initWasm() {
         try {
             // Load the WASM module
-            const response = await fetch('build/optimized.wasm');
+            const response = await fetch('./assets/optimized.wasm');
             const buffer = await response.arrayBuffer();
 
             // Create memory - AssemblyScript needs to import 'env' usually, but for simple stuff minimal is ok
