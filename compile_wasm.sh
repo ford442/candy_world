@@ -3,6 +3,7 @@
 # Ensure the build directory exists
 mkdir -p build
 mkdir -p dist/build
+source /content/build_space/emsdk/emsdk_env.sh
 
 # Define the source and output
 SOURCE="src/physics.cpp"
