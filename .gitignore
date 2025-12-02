@@ -21,3 +21,6 @@ Thumbs.db
 
 # Vite
 .vite/
+
+# Temp public folder created during build
+public/
