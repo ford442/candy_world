@@ -31,7 +31,6 @@ export class WasmParticleSystem {
             };
 
             // 2. Load WASM
-            // FIX: We hardcode the path here to match deploy.py output
             const wasmPath = 'build/optimized.wasm'; 
             console.log(`Fetching WASM from: ${wasmPath}`);
             
@@ -58,8 +57,11 @@ export class WasmParticleSystem {
             // 4. Debug Exports
             console.log("✅ WASM Loaded. Exports:", Object.keys(this.wasm));
 
-            // 5. Smart Function Detection
+            // 5. Smart Function Detection (Handle _ prefix)
             this.updateFn = this.wasm._updateParticles || this.wasm.updateParticles;
+            this.initFn = this.wasm._initParticles || this.wasm.initParticles;
+            this.checkCollisionFn = this.wasm._checkCollision || this.wasm.checkCollision;
+            this.seedFn = this.wasm._seedRandom || this.wasm.seedRandom;
 
             if (!this.updateFn) {
                 console.error("❌ CRITICAL: 'updateParticles' function not found in WASM exports!");
@@ -78,7 +80,19 @@ export class WasmParticleSystem {
                 this.memory.grow(pagesNeeded);
             }
             
-            this.initParticles();
+            // 7. Initialize in WASM
+            if (this.seedFn) {
+                this.seedFn(Date.now());
+            }
+
+            if (this.initFn) {
+                console.log("⚡ initializing particles in WASM...");
+                this.initFn(this.ptr, this.count);
+            } else {
+                console.warn("⚠️ initParticles not found in WASM, falling back to JS init.");
+                this.initParticlesJS();
+            }
+
             this.createMesh();
             this.isReady = true;
 
@@ -89,9 +103,11 @@ export class WasmParticleSystem {
 
     updateViews() {
         // Optional: Re-acquire typed arrays if memory grows
+        // In this implementation, we re-create views every frame or just use direct buffer access
     }
 
-    initParticles() {
+    // Fallback JS init if WASM function is missing
+    initParticlesJS() {
         if (!this.memory) return;
         const f32 = new Float32Array(this.memory.buffer, this.ptr, this.count * this.floatsPerParticle);
         for (let i = 0; i < this.count; i++) {
@@ -125,10 +141,17 @@ export class WasmParticleSystem {
         this.scene.add(this.mesh);
     }
 
+    // New: Allow calling collision check from main loop
+    checkCollision(playerX, playerZ, radius) {
+        if (this.isReady && this.checkCollisionFn) {
+            this.checkCollisionFn(this.ptr, this.count, playerX, playerZ, radius);
+        }
+    }
+
     update(deltaTime) {
         if (!this.isReady || !this.updateFn) return;
 
-        // Call the resolved function
+        // Call the update function
         this.updateFn(this.ptr, this.count, deltaTime);
 
         // Sync with Three.js
