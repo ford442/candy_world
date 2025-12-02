@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { storage, uniform, vec3, vec4, float, uint, instanceIndex, cos, sin, time, If, Fn } from 'three/tsl';
-import { StorageInstancedBufferAttribute } from 'three/webgpu';
+import { StorageInstancedBufferAttribute, PointsNodeMaterial } from 'three/webgpu';
 
 /**
  * Compute Shader Infrastructure for Candy World
@@ -131,7 +131,7 @@ export class ComputeParticleSystem {
         geometry.setAttribute('color', this.colorStorage);
         geometry.drawRange.count = this.count;
 
-        const material = new THREE.PointsNodeMaterial({
+        const material = new PointsNodeMaterial({
             size: 0.2,
             color: 0xFFFFFF,
             transparent: true,
