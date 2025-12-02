@@ -1,4 +1,4 @@
-import * as THREE from 'three';
+import * as THREE from 'three'; import { PointsNodeMaterial } from 'three/webgpu';
 
 export class WasmParticleSystem { constructor(count, scene) { this.count = count; this.scene = scene; this.isReady = false;
 
@@ -11,12 +11,10 @@ export class WasmParticleSystem { constructor(count, scene) { this.count = count
 
 async initWasm() {
     try {
-        // 1. Imports for AssemblyScript
-        // AS uses 'env' for some math (like seed), and we mock WASI.
         const imports = {
             env: {
                 abort: () => console.error("WASM Abort"),
-                seed: () => Math.random() * Date.now(), // Random seed for AS Math.random()
+                seed: () => Math.random() * Date.now(),
                 trace: (msg, n, val) => console.log(`AS Trace: ${msg}`)
             },
             wasi_snapshot_preview1: {
@@ -39,8 +37,7 @@ async initWasm() {
         this.wasm = instance.exports;
         this.memory = this.wasm.memory;
 
-        // 2. Memory Management
-        // Use the start of memory or heap_base if exported
+        // AssemblyScript memory handling
         const heapBase = this.wasm.__heap_base ? this.wasm.__heap_base.value : 1024;
         this.ptr = heapBase;
 
@@ -50,26 +47,18 @@ async initWasm() {
             this.memory.grow(pagesNeeded);
         }
 
-        // 3. Function Detection
-        // AssemblyScript exports exactly what you name them
+        // Function Detection
         this.updateFn = this.wasm.updateParticles;
         this.initFn = this.wasm.initParticles;
         this.checkCollisionFn = this.wasm.checkCollision;
 
         if (!this.updateFn) {
-            console.error("⚠️ updateParticles not found. Please run 'npm run build:wasm' to compile assembly/index.ts");
-            // Fallback attempt for C++ names just in case
-            if (this.wasm._updateParticles) {
-                console.warn("⚠️ Found _updateParticles (C++ style). Using that instead.");
-                this.updateFn = this.wasm._updateParticles;
-                this.initFn = this.wasm._initParticles;
-                this.checkCollisionFn = this.wasm._checkCollision;
-            }
+            console.warn("⚠️ updateParticles not found. Did you compile 'assembly/index.ts'?");
         }
 
-        // 4. Initialize
+        // Initialize Particles
         if (this.initFn) {
-            console.log("⚡ initializing particles via WASM...");
+            console.log("⚡ initializing particles via AssemblyScript...");
             this.initFn(this.ptr, this.count);
         } else {
             this.initParticlesJS();
@@ -83,7 +72,6 @@ async initWasm() {
     }
 }
 
-// Fallback JS init
 initParticlesJS() {
     if (!this.memory) return;
     const f32 = new Float32Array(this.memory.buffer, this.ptr, this.count * this.floatsPerParticle);
@@ -105,7 +93,8 @@ createMesh() {
     this.positions = new Float32Array(this.count * 3);
     geometry.setAttribute('position', new THREE.BufferAttribute(this.positions, 3));
 
-    const material = new THREE.PointsMaterial({
+    // Use PointsNodeMaterial for WebGPU compatibility
+    const material = new PointsNodeMaterial({
         color: 0x00FFFF,
         size: 0.2,
         transparent: true,
@@ -130,7 +119,7 @@ update(deltaTime) {
     // Call WASM update
     this.updateFn(this.ptr, this.count, deltaTime);
 
-    // Sync view with Three.js buffer
+    // Sync view
     const wasmFloats = new Float32Array(this.memory.buffer, this.ptr, this.count * this.floatsPerParticle);
     
     for (let i = 0; i < this.count; i++) {
