@@ -31,7 +31,7 @@ export class WasmParticleSystem {
             };
 
             // 2. Load WASM
-            const response = await fetch('./assets/optimized.wasm');
+            const response = await fetch('build/optimized.wasm');
             const buffer = await response.arrayBuffer();
 
             // 3. Instantiate
