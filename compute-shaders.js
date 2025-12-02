@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { storage, uniform, vec3, vec4, float, uint, instanceIndex, cos, sin, time, If, Fn } from 'three/tsl';
+import { storage, uniform, vec3, vec4, float, uint, instanceIndex, cos, sin, time, If, Fn, attribute } from 'three/tsl';
 import { StorageInstancedBufferAttribute, PointsNodeMaterial } from 'three/webgpu';
 
 /**
@@ -19,10 +19,15 @@ export class ComputeParticleSystem {
 
         this.initParticles();
 
-        // Create storage buffer nodes
-        this.positionStorage = storage(new StorageInstancedBufferAttribute(this.positionBuffer, 4), 'vec4', this.count);
-        this.velocityStorage = storage(new StorageInstancedBufferAttribute(this.velocityBuffer, 4), 'vec4', this.count);
-        this.colorStorage = storage(new StorageInstancedBufferAttribute(this.colorBuffer, 4), 'vec4', this.count);
+        // FIX: Create attributes explicitly so we can pass them to Geometry
+        this.posAttr = new StorageInstancedBufferAttribute(this.positionBuffer, 4);
+        this.velAttr = new StorageInstancedBufferAttribute(this.velocityBuffer, 4);
+        this.colAttr = new StorageInstancedBufferAttribute(this.colorBuffer, 4);
+
+        // Create storage buffer nodes for Compute
+        this.positionStorage = storage(this.posAttr, 'vec4', this.count);
+        this.velocityStorage = storage(this.velAttr, 'vec4', this.count);
+        this.colorStorage = storage(this.colAttr, 'vec4', this.count);
 
         // Uniforms
         this.uTime = uniform(0.0);
@@ -126,9 +131,9 @@ export class ComputeParticleSystem {
 
     createMesh() {
         const geometry = new THREE.BufferGeometry();
-        // Use the storage buffers as attributes for rendering
-        geometry.setAttribute('position', this.positionStorage);
-        geometry.setAttribute('color', this.colorStorage);
+        // FIX: Use the actual attributes, not the storage nodes
+        geometry.setAttribute('position', this.posAttr);
+        geometry.setAttribute('color', this.colAttr);
         geometry.drawRange.count = this.count;
 
         const material = new PointsNodeMaterial({
@@ -140,8 +145,8 @@ export class ComputeParticleSystem {
             depthWrite: false
         });
 
-        // Use buffer data in shader
-        const particlePos = this.positionStorage.toAttribute();
+        // FIX: Access data via standard attribute lookup since we bound it to geometry
+        const particlePos = attribute('position', 'vec4'); 
         const life = particlePos.w;
 
         material.positionNode = particlePos.xyz;
