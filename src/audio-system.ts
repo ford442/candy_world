@@ -30,7 +30,11 @@ export class AudioSystem {
   isReady = false;
   volume = 1.0;
   visualState: { beatPhase: number; kickTrigger: number; grooveAmount: number; activeChannels: number; channelData: ChannelState[] } = { beatPhase: 0, kickTrigger: 0, grooveAmount: 0, activeChannels: 0, channelData: [] };
-  constructor() { this.init(); }
+  
+  constructor() {
+    // No-op
+  }
+
   async init() {
     if (!window.libopenmptReady) { console.error('libopenmptReady promise not found.'); return; }
     try { 

@@ -21,7 +21,7 @@ async function loadScript(src: string) {
 
 (async () => {
   try {
-    await loadScript('./assets/libopenmpt.js');
+    await loadScript('/mod-player/libopenmpt.js');
     main();
   } catch (e) {
     console.error(e);
@@ -53,6 +53,8 @@ async function main() {
   scene.add(stars);
 
   const audioSystem = new AudioSystem();
+  await audioSystem.init();
+  
   let isNight = false;
   let dayNightFactor = 0.0;
 
