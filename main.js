@@ -3,7 +3,7 @@ import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockCont
 import WebGPU from 'three/examples/jsm/capabilities/WebGPU.js';
 import { WebGPURenderer, PointsNodeMaterial } from 'three/webgpu';
 import { color, float, vec3, time, positionLocal, attribute, storage, uniform, uv } from 'three/tsl';
-import { createFlower, createGrass, createFloweringTree, createShrub, animateFoliage, createGlowingFlower, createFloatingOrb, createVine, createStarflower, createBellBloom, createWisteriaCluster, createRainingCloud, createLeafParticle, createGlowingFlowerPatch, createFloatingOrbCluster, createVineCluster, createBubbleWillow, createPuffballFlower, createHelixPlant, createBalloonBush, initGrassSystem, addGrassInstance, updateFoliageMaterials } from './foliage.js';
+import { createFlower, createGrass, createFloweringTree, createShrub, animateFoliage, createGlowingFlower, createFloatingOrb, createVine, createStarflower, createBellBloom, createWisteriaCluster, createRainingCloud, createLeafParticle, createGlowingFlowerPatch, createFloatingOrbCluster, createVineCluster, createBubbleWillow, createPuffballFlower, createHelixPlant, createBalloonBush, createPrismRoseBush, initGrassSystem, addGrassInstance, updateFoliageMaterials } from './foliage.js';
 import { createSky, uSkyTopColor, uSkyBottomColor } from './sky.js';
 import { createStars, uStarPulse, uStarColor } from './stars.js';
 import { AudioSystem } from './audio-system.js';
@@ -306,6 +306,7 @@ function spawnCluster(cx, cz) {
     // 3. Fantasy (Glowing, Mushrooms, Orbs)
     // 4. Bubble Grove (New Bubble Willows + Puffballs)
     // 5. Helix Garden (Helix Plants + Starflowers)
+    // 6. Prism Rose Garden (NEW)
 
     if (typeRoll < 0.3) {
         // MEADOW
@@ -347,16 +348,16 @@ function spawnCluster(cx, cz) {
         }
         // Undergrowth
         for(let i=0; i<count*2; i++) {
-             const r = Math.random() * radius;
-             const theta = Math.random() * Math.PI * 2;
-             const x = cx + r * Math.cos(theta);
-             const z = cz + r * Math.sin(theta);
-             const color = SHRUB_COLORS[Math.floor(Math.random() * SHRUB_COLORS.length)];
-             const shrub = createShrub({ color });
-             shrub.position.set(x, getGroundHeight(x,z), z);
-             safeAddFoliage(shrub, true, 0.8);
+            const r = Math.random() * radius;
+            const theta = Math.random() * Math.PI * 2;
+            const x = cx + r * Math.cos(theta);
+            const z = cz + r * Math.sin(theta);
+            const color = SHRUB_COLORS[Math.floor(Math.random() * SHRUB_COLORS.length)];
+            const shrub = createShrub({ color });
+            shrub.position.set(x, getGroundHeight(x,z), z);
+            safeAddFoliage(shrub, true, 0.8);
         }
-    } else if (typeRoll < 0.7) {
+    } else if (typeRoll < 0.65) {
         // FANTASY
         for(let i=0; i<count; i++) {
             const r = Math.random() * radius;
@@ -366,17 +367,17 @@ function spawnCluster(cx, cz) {
 
             const subRoll = Math.random();
             if (subRoll < 0.3) {
-                 const m = createMushroom(x, z);
-                 animatedObjects.push(m);
+                const m = createMushroom(x, z);
+                animatedObjects.push(m);
             } else if (subRoll < 0.6) {
-                 const patch = createGlowingFlowerPatch(x, z);
-                 safeAddFoliage(patch);
+                const patch = createGlowingFlowerPatch(x, z);
+                safeAddFoliage(patch);
             } else {
-                 const cluster = createFloatingOrbCluster(x, z);
-                 safeAddFoliage(cluster);
+                const cluster = createFloatingOrbCluster(x, z);
+                safeAddFoliage(cluster);
             }
         }
-    } else if (typeRoll < 0.85) {
+    } else if (typeRoll < 0.75) {
         // BUBBLE GROVE (New)
         // Bubble Willows + Puffballs
         for (let i=0; i<5; i++) { // Trees
@@ -399,8 +400,20 @@ function spawnCluster(cx, cz) {
             puff.position.set(x, getGroundHeight(x,z), z);
             safeAddFoliage(puff);
         }
+    } else if (typeRoll < 0.90) {
+        // PRISM ROSE GARDEN (NEW)
+        for (let i=0; i<8; i++) {
+            const r = Math.random() * radius;
+            const theta = Math.random() * Math.PI * 2;
+            const x = cx + r * Math.cos(theta);
+            const z = cz + r * Math.sin(theta);
+
+            const rose = createPrismRoseBush();
+            rose.position.set(x, getGroundHeight(x,z), z);
+            safeAddFoliage(rose, true, 1.0);
+        }
     } else {
-        // HELIX GARDEN (New)
+        // HELIX GARDEN
         for (let i=0; i<12; i++) {
             const r = Math.random() * radius;
             const theta = Math.random() * Math.PI * 2;
@@ -413,14 +426,14 @@ function spawnCluster(cx, cz) {
                 helix.position.set(x, getGroundHeight(x,z), z);
                 safeAddFoliage(helix);
             } else {
-                 const color = FLOWER_COLORS[Math.floor(Math.random() * FLOWER_COLORS.length)];
-                 const sf = createStarflower({ color });
-                 sf.position.set(x, getGroundHeight(x,z), z);
-                 safeAddFoliage(sf);
+                const color = FLOWER_COLORS[Math.floor(Math.random() * FLOWER_COLORS.length)];
+                const sf = createStarflower({ color });
+                sf.position.set(x, getGroundHeight(x,z), z);
+                safeAddFoliage(sf);
             }
         }
         // Add a balloon bush or two
-         for (let i=0; i<3; i++) {
+        for (let i=0; i<3; i++) {
             const r = Math.random() * radius;
             const theta = Math.random() * Math.PI * 2;
             const x = cx + r * Math.cos(theta);
@@ -428,7 +441,7 @@ function spawnCluster(cx, cz) {
             const bb = createBalloonBush({ color: 0xFF4500 });
             bb.position.set(x, getGroundHeight(x,z), z);
             safeAddFoliage(bb, true, 1.0);
-         }
+        }
     }
 }
 
@@ -726,10 +739,27 @@ function createWaterfall(height, colorHex = 0x87CEEB) {
     const aOffset = attribute('aOffset', 'float');
 
     // Animation Logic
-    const t = time; // Global time
+    // Idea 4: Waterfall Speed Control
+    // We import a uniform for speed modulation
+    // We can't easily add a new uniform to 'time' directly inside TSL without passing it.
+    // Instead, we use 'time' scaled by a uniform, or accumulate it?
+    // 'time' is global. We want to speed up the flow.
+    // We can multiply time by a factor? No, if factor changes, time jumps.
+    // Best way: Use a custom uniform 'uTime' that we update in JS?
+    // OR: Just use `time.mul(uWaterfallSpeed)`.
+    // If uWaterfallSpeed changes from 1 to 2, `time*2` jumps forward.
+    // This might look like a glitch (sudden fast forward), but for a waterfall of particles, it's acceptable (just more flow).
+
+    // We need to define uWaterfallSpeed outside or attach to material?
+    // Let's attach it to the material's userData or just use a shared uniform if exported?
+    // Since this is local, let's create it here.
+    const uSpeed = uniform(1.0);
+    mat.uSpeed = uSpeed; // Expose to JS
+
+    const t = time.mul(uSpeed);
     const fallHeight = float(height);
 
-    // Calculate current Y: (offset + speed * time) % height
+    // Calculate current Y: (offset + speed * t) % height
     // We negate it to make it fall DOWN
     const currentDist = aOffset.add(aSpeed.mul(t));
     const modDist = currentDist.mod(fallHeight);
@@ -806,7 +836,14 @@ function createGiantMushroom(x, z, scale = 8) {
 
     // Add to animated objects so it might bounce or look alive
     const giantMushroom = { mesh: group, type: 'mushroom', speed: Math.random() * 0.02 + 0.01, offset: Math.random() * 100, drivable: false };
+    group.userData.type = 'mushroom';
     animatedObjects.push(giantMushroom);
+    // Also add to animatedFoliage if we want it to dance?
+    // Use safeAddFoliage logic manually
+    if (group.parent !== worldGroup && group.parent !== foliageGroup && group.parent !== scene) {
+        // It's already in worldGroup
+    }
+    animatedFoliage.push(group);
 }
 
 // 4. Helper for Giant Rain Cloud (Manual scaling to keep rain drops normal size)
@@ -897,6 +934,11 @@ function spawnKingMushroomZone(cx, cz) {
     // Register Waterfall for Logic
     // We treat it like a "cloud" so it causes growth, and "foliage" so it gets updated
     animatedFoliage.push(waterfall);
+
+    // Idea 4: Expose King Cap and Waterfall for animation
+    // Store in global scope or similar
+    window.kingMushroomCap = cap;
+    window.kingWaterfall = waterfall;
 
     // Hack: Add the waterfall WORLD position to rainingClouds so plants grow near the base
     // Since waterfall is in a group, we need a proxy object representing the "Splash Zone"
@@ -1011,12 +1053,18 @@ async function animate() {
     dayNightFactor += (targetFactor - dayNightFactor) * delta * 2.0;
 
     // Update Sky
-    uSkyTopColor.value.lerpColors(new THREE.Color(0x87CEEB), new THREE.Color(0x000033), dayNightFactor);
-    uSkyBottomColor.value.lerpColors(new THREE.Color(0xFFB6C1), new THREE.Color(0x4B0082), dayNightFactor);
+    // Darker night sky target (Deep dark blue/purple to almost black)
+    uSkyTopColor.value.lerpColors(new THREE.Color(0x87CEEB), new THREE.Color(0x000000), dayNightFactor);
+    uSkyBottomColor.value.lerpColors(new THREE.Color(0xFFB6C1), new THREE.Color(0x000000), dayNightFactor);
 
-    // Update Light
-    sunLight.intensity = THREE.MathUtils.lerp(0.8, 0.1, dayNightFactor);
-    ambientLight.intensity = THREE.MathUtils.lerp(1.0, 0.2, dayNightFactor);
+    // Update Fog to match darker night
+    const dayFog = new THREE.Color(CONFIG.colors.fog);
+    const nightFog = new THREE.Color(0x050510); // Very dark blue/black
+    scene.fog.color.lerpColors(dayFog, nightFog, dayNightFactor);
+
+    // Update Light - Darker at night
+    sunLight.intensity = THREE.MathUtils.lerp(0.8, 0.0, dayNightFactor); // Sun completely gone
+    ambientLight.intensity = THREE.MathUtils.lerp(1.0, 0.02, dayNightFactor); // Very dim ambient
 
     // Update Stars
     if (stars.material) {
@@ -1029,6 +1077,21 @@ async function animate() {
         uStarPulse.value = audioState.kickTrigger;
         const hue = (t * 0.1 + audioState.beatPhase) % 1;
         uStarColor.value.setHSL(hue, 1.0, 0.8);
+    }
+
+    // Idea 4: Giant EQ Mushroom
+    if (window.kingMushroomCap && audioState) {
+        const kick = audioState.kickTrigger || 0;
+        const groove = audioState.grooveAmount || 0;
+
+        // Bounce Cap
+        const targetScale = 1.0 + kick * 0.3;
+        window.kingMushroomCap.scale.setScalar(targetScale); // Assumes base scale is 1 relative to parent
+
+        // Speed up Waterfall
+        if (window.kingWaterfall && window.kingWaterfall.material && window.kingWaterfall.material.uSpeed) {
+            window.kingWaterfall.material.uSpeed.value = 1.0 + groove * 5.0;
+        }
     }
 
     updateFoliageMaterials(audioState, isNight);
@@ -1056,10 +1119,10 @@ async function animate() {
         if (keyStates.left || keyStates.right) player.velocity.x -= player.direction.x * player.currentSpeed * delta;
 
         if (keyStates.jump) {
-             // Simple jump check (grounded)
-             if (camera.position.y <= getGroundHeight(camera.position.x, camera.position.z) + player.height + 0.5) {
-                  player.velocity.y = player.jumpStrength;
-             }
+            // Simple jump check (grounded)
+            if (camera.position.y <= getGroundHeight(camera.position.x, camera.position.z) + player.height + 0.5) {
+                player.velocity.y = player.jumpStrength;
+            }
         }
 
         if (!drivingMushroom && !cloudHelicopter) {
@@ -1137,8 +1200,8 @@ async function animate() {
         // Note: auto-clouds are always raining in this setup
 
         if (cloudIsRaining || cloud.userData.animationType === 'rain') {
-             // 1. Growth
-             for(let k=0; k<5; k++) {
+            // 1. Growth
+            for(let k=0; k<5; k++) {
                 if (animatedFoliage.length === 0) break;
                 const idx = Math.floor(Math.random() * animatedFoliage.length);
                 const plant = animatedFoliage[idx];
@@ -1148,35 +1211,35 @@ async function animate() {
                 const dx = plant.position.x - cloud.position.x;
                 const dz = plant.position.z - cloud.position.z;
                 if (dx*dx + dz*dz < 25) {
-                     if (plant.scale.y < 2.0) {
-                         plant.scale.multiplyScalar(1.002);
-                     }
+                    if (plant.scale.y < 2.0) {
+                        plant.scale.multiplyScalar(1.002);
+                    }
                 }
-             }
+            }
 
-             // 2. Spawn
-             if (Math.random() < 0.02) {
-                 const offsetR = Math.random() * 4;
-                 const offsetTheta = Math.random() * Math.PI * 2;
-                 const sx = cloud.position.x + offsetR * Math.cos(offsetTheta);
-                 const sz = cloud.position.z + offsetR * Math.sin(offsetTheta);
-                 const sy = getGroundHeight(sx, sz);
+            // 2. Spawn
+            if (Math.random() < 0.02) {
+                const offsetR = Math.random() * 4;
+                const offsetTheta = Math.random() * Math.PI * 2;
+                const sx = cloud.position.x + offsetR * Math.cos(offsetTheta);
+                const sz = cloud.position.z + offsetR * Math.sin(offsetTheta);
+                const sy = getGroundHeight(sx, sz);
 
-                 if (Math.random() < 0.2) {
-                     const m = createMushroom(sx, sz);
-                     animatedObjects.push(m);
-                 } else {
-                     const picker = Math.floor(Math.random() * 3);
-                     let baby;
-                     if (picker === 0) baby = createGrass({ color: GRASS_COLORS[0] });
-                     else if (picker === 1) baby = createFlower({ color: FLOWER_COLORS[0] });
-                     else baby = createPuffballFlower({ color: FLOWER_COLORS[1] });
+                if (Math.random() < 0.2) {
+                    const m = createMushroom(sx, sz);
+                    animatedObjects.push(m);
+                } else {
+                    const picker = Math.floor(Math.random() * 3);
+                    let baby;
+                    if (picker === 0) baby = createGrass({ color: GRASS_COLORS[0] });
+                    else if (picker === 1) baby = createFlower({ color: FLOWER_COLORS[0] });
+                    else baby = createPuffballFlower({ color: FLOWER_COLORS[1] });
 
-                     baby.position.set(sx, sy, sz);
-                     baby.scale.set(0.1, 0.1, 0.1);
-                     safeAddFoliage(baby);
-                 }
-             }
+                    baby.position.set(sx, sy, sz);
+                    baby.scale.set(0.1, 0.1, 0.1);
+                    safeAddFoliage(baby);
+                }
+            }
         }
     });
 
