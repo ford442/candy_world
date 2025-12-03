@@ -31,14 +31,17 @@ export class WasmParticleSystem {
             };
 
             // 2. Load WASM
-            // FIX: We hardcode the path here to match deploy.py output
-            const wasmPath = 'build/optimized.wasm'; 
+            // FIX: We hardcode the path here to match deploy.py output.
+            // We append a timestamp to bust the cache and ensure we get the latest binary.
+            const wasmPath = `build/optimized.wasm?v=${Date.now()}`;
             console.log(`Fetching WASM from: ${wasmPath}`);
             
             const response = await fetch(wasmPath);
             
-            if (!response.ok) {
-                throw new Error(`Failed to fetch WASM: ${response.status} ${response.statusText}`);
+            // Debug: Log content type to catch cases where we get HTML (404) instead of WASM
+            const contentType = response.headers.get('content-type');
+            if (!response.ok || (contentType && contentType.includes('text/html'))) {
+                throw new Error(`Failed to fetch WASM: ${response.status} ${response.statusText} (Type: ${contentType})`);
             }
             
             const buffer = await response.arrayBuffer();
@@ -56,13 +59,16 @@ export class WasmParticleSystem {
             this.wasm = instance.exports;
             
             // 4. Debug Exports
-            console.log("✅ WASM Loaded. Exports:", Object.keys(this.wasm));
+            const exports = Object.keys(this.wasm);
+            console.log("✅ WASM Loaded. Exports:", exports);
 
             // 5. Smart Function Detection
             this.updateFn = this.wasm._updateParticles || this.wasm.updateParticles;
 
             if (!this.updateFn) {
                 console.error("❌ CRITICAL: 'updateParticles' function not found in WASM exports!");
+                console.error("Available Exports:", exports);
+                console.error("Did you compile 'assembly/index.ts' correctly?");
                 return;
             }
 
