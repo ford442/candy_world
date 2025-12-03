@@ -1,13 +1,14 @@
 import * as THREE from 'three';
 import { createClayMaterial } from '../materials';
+import type { CreateFoliageOptions } from '../types';
 import { createGlowingFlower } from './flowers';
 
-export function createRainingCloud(options: any = {}) {
-  const { color = 0xB0C4DE, rainIntensity = 50 } = options;
+export function createRainingCloud(options: CreateFoliageOptions & { rainIntensity?: number } = {}) {
+  const { color = 0xB0C4DE, rainIntensity = 50 } = options as CreateFoliageOptions & { rainIntensity?: number };
   const group = new THREE.Group();
   const cloudGeo = new THREE.SphereGeometry(1.5, 16, 16);
   const cloudMat = createClayMaterial(color);
-  const cloud = new THREE.Mesh(cloudGeo, cloudMat as any);
+  const cloud = new THREE.Mesh(cloudGeo, cloudMat as THREE.Material);
   cloud.castShadow = true;
   group.add(cloud);
   const rainGeo = new THREE.BufferGeometry();

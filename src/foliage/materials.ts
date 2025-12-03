@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import type { FoliageUserData } from './types';
 
 export function createClayMaterial(color: number): THREE.MeshStandardMaterial {
     return new THREE.MeshStandardMaterial({
@@ -9,7 +10,7 @@ export function createClayMaterial(color: number): THREE.MeshStandardMaterial {
     });
 }
 
-export const foliageMaterials: any = {
+export const foliageMaterials: Record<string, THREE.Material> & { flowerPetal: THREE.Material[] } = {
     grass: createClayMaterial(0x7CFC00),
     flowerStem: createClayMaterial(0x228B22),
     flowerCenter: createClayMaterial(0xFFFACD),

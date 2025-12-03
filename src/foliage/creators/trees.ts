@@ -1,8 +1,9 @@
 import * as THREE from 'three';
 import { createClayMaterial, foliageMaterials, registerReactiveMaterial } from '../materials';
+import type { CreateFoliageOptions } from '../types';
 
-export function createFloweringTree(options: any = {}) {
-  const { color = 0xFF69B4 } = options;
+export function createFloweringTree(options: CreateFoliageOptions = {}) {
+  const { color = 0xFF69B4 } = options as CreateFoliageOptions;
   const group = new THREE.Group();
   const trunkH = 3 + Math.random() * 2;
   const trunkGeo = new THREE.CylinderGeometry(0.3, 0.5, trunkH, 16);
@@ -26,8 +27,8 @@ export function createFloweringTree(options: any = {}) {
   return group;
 }
 
-export function createShrub(options: any = {}) {
-  const { color = 0x32CD32 } = options;
+export function createShrub(options: CreateFoliageOptions = {}) {
+  const { color = 0x32CD32 } = options as CreateFoliageOptions;
   const group = new THREE.Group();
   const baseGeo = new THREE.SphereGeometry(1 + Math.random() * 0.5, 16, 16);
   const base = new THREE.Mesh(baseGeo, createClayMaterial(color));
@@ -49,8 +50,8 @@ export function createShrub(options: any = {}) {
   return group;
 }
 
-export function createBubbleWillow(options: any = {}) {
-  const { color = 0x8A2BE2 } = options;
+export function createBubbleWillow(options: CreateFoliageOptions = {}) {
+  const { color = 0x8A2BE2 } = options as CreateFoliageOptions;
   const group = new THREE.Group();
   const trunkH = 2.5 + Math.random();
   const trunkGeo = new THREE.CylinderGeometry(0.4, 0.6, trunkH, 12);

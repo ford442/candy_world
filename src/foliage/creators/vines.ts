@@ -1,12 +1,13 @@
 import * as THREE from 'three';
 import { createClayMaterial, registerReactiveMaterial } from '../materials';
+import type { CreateFoliageOptions } from '../types';
 
-export function createVine(options: any = {}) {
-  const { color = 0x228B22, length = 3 } = options;
+export function createVine(options: CreateFoliageOptions = {}) {
+  const { color = 0x228B22, length = 3 } = options as CreateFoliageOptions;
   const group = new THREE.Group();
   for (let i = 0; i < length; i++) {
     const segmentGeo = new THREE.CylinderGeometry(0.05, 0.05, 0.5, 8);
-    const segment = new THREE.Mesh(segmentGeo, createClayMaterial(color) as any);
+    const segment = new THREE.Mesh(segmentGeo, createClayMaterial(color) as THREE.Material);
     segment.position.y = i * 0.5;
     segment.rotation.z = Math.sin(i * 0.5) * 0.2;
     group.add(segment);

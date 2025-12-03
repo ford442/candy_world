@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { createClayMaterial } from '../materials';
+import type { CreateFoliageOptions } from '../types';
 
-export function createGrass(options: any = {}) {
+export function createGrass(options: CreateFoliageOptions = {}) {
   const { color = 0x7CFC00, shape = 'tall' } = options;
   const material = createClayMaterial(color);
   let geo: THREE.BufferGeometry | undefined;
@@ -23,7 +24,7 @@ export function createGrass(options: any = {}) {
     geo.translate(0, height / 2, 0);
   }
   if (geo) (geo as any).computeVertexNormals();
-  const blade = new THREE.Mesh(geo as THREE.BufferGeometry, material);
+  const blade = new THREE.Mesh(geo as THREE.BufferGeometry, material as THREE.Material);
   blade.castShadow = true;
   blade.userData.type = 'grass';
   blade.userData.animationType = shape === 'tall' ? 'sway' : 'bounce';
