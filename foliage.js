@@ -19,7 +19,7 @@ const foliageMaterials = {
         createClayMaterial(0xBA55D3), // Medium Orchid
         createClayMaterial(0x87CEFA), // Light Sky Blue
     ],
-    // NEW: Shared material for light beams/wash
+    // Shared material for generic light washes (still used by Glowing Flower)
     lightBeam: new THREE.MeshBasicMaterial({
         color: 0xFFFFFF,
         transparent: true,
@@ -50,12 +50,11 @@ export function createGrass(options = {}) {
     if (shape === 'tall') {
         const height = 0.5 + Math.random();
         geo = new THREE.BoxGeometry(0.05, height, 0.05);
-        geo.translate(0, height / 2, 0); // Anchor at the bottom
-        // Add a slight curve
+        geo.translate(0, height / 2, 0);
         const pos = geo.attributes.position;
         for (let i = 0; i < pos.count; i++) {
             const y = pos.getY(i);
-            if (y > height * 0.5) { // Only bend the top half
+            if (y > height * 0.5) {
                 const bendFactor = (y - height * 0.5) / (height * 0.5);
                 pos.setX(i, pos.getX(i) + bendFactor * 0.1);
             }
@@ -82,25 +81,21 @@ export function createFlower(options = {}) {
     const { color = null, shape = 'simple' } = options;
     const group = new THREE.Group();
 
-    // Stem
     const stemHeight = 0.6 + Math.random() * 0.4;
     const stemGeo = new THREE.CylinderGeometry(0.05, 0.05, stemHeight, 6);
-    stemGeo.translate(0, stemHeight / 2, 0); // Anchor at the bottom
+    stemGeo.translate(0, stemHeight / 2, 0);
     const stem = new THREE.Mesh(stemGeo, foliageMaterials.flowerStem);
     stem.castShadow = true;
     group.add(stem);
 
-    // Flower Head
     const head = new THREE.Group();
     head.position.y = stemHeight;
     group.add(head);
 
-    // Center
     const centerGeo = new THREE.SphereGeometry(0.1, 8, 8);
     const center = new THREE.Mesh(centerGeo, foliageMaterials.flowerCenter);
     head.add(center);
 
-    // Petals based on shape
     let petalMat;
     if (color) {
         petalMat = createClayMaterial(color);
@@ -116,11 +111,7 @@ export function createFlower(options = {}) {
         for (let i = 0; i < petalCount; i++) {
             const angle = (i / petalCount) * Math.PI * 2;
             const petal = new THREE.Mesh(petalGeo, petalMat);
-            petal.position.set(
-                Math.cos(angle) * 0.18,
-                0,
-                Math.sin(angle) * 0.18
-            );
+            petal.position.set(Math.cos(angle) * 0.18, 0, Math.sin(angle) * 0.18);
             petal.rotation.z = Math.PI / 4;
             head.add(petal);
         }
@@ -130,11 +121,7 @@ export function createFlower(options = {}) {
         for (let i = 0; i < petalCount; i++) {
             const angle = (i / petalCount) * Math.PI * 2;
             const petal = new THREE.Mesh(petalGeo, petalMat);
-            petal.position.set(
-                Math.cos(angle) * 0.2,
-                Math.sin(i * 0.5) * 0.1,
-                Math.sin(angle) * 0.2
-            );
+            petal.position.set(Math.cos(angle) * 0.2, Math.sin(i * 0.5) * 0.1, Math.sin(angle) * 0.2);
             head.add(petal);
         }
     } else if (shape === 'spiral') {
@@ -144,11 +131,7 @@ export function createFlower(options = {}) {
             const angle = (i / petalCount) * Math.PI * 4;
             const radius = 0.05 + (i / petalCount) * 0.15;
             const petal = new THREE.Mesh(petalGeo, petalMat);
-            petal.position.set(
-                Math.cos(angle) * radius,
-                (i / petalCount) * 0.1,
-                Math.sin(angle) * radius
-            );
+            petal.position.set(Math.cos(angle) * radius, (i / petalCount) * 0.1, Math.sin(angle) * radius);
             petal.rotation.z = angle;
             head.add(petal);
         }
@@ -259,7 +242,6 @@ export function createGlowingFlower(options = {}) {
     const { color = 0xFFD700, intensity = 1.5 } = options;
     const group = new THREE.Group();
 
-    // Stem
     const stemHeight = 0.6 + Math.random() * 0.4;
     const stemGeo = new THREE.CylinderGeometry(0.05, 0.05, stemHeight, 6);
     stemGeo.translate(0, stemHeight / 2, 0);
@@ -267,7 +249,6 @@ export function createGlowingFlower(options = {}) {
     stem.castShadow = true;
     group.add(stem);
 
-    // Glowing Head
     const headGeo = new THREE.SphereGeometry(0.2, 16, 16);
     const headMat = new THREE.MeshStandardMaterial({
         color,
@@ -281,7 +262,7 @@ export function createGlowingFlower(options = {}) {
     head.position.y = stemHeight;
     group.add(head);
 
-    // ADD: Light Wash (Sphere)
+    // Light Wash (Shared Material)
     const washGeo = new THREE.SphereGeometry(1.5, 16, 16);
     const wash = new THREE.Mesh(washGeo, foliageMaterials.lightBeam);
     wash.position.y = stemHeight;
@@ -349,7 +330,7 @@ export function createLeafParticle(options = {}) {
 }
 
 /**
- * Starflower — a radial star-shaped bloom with a light beam.
+ * Starflower — a radial star-shaped bloom with a NARROW light beam.
  */
 export function createStarflower(options = {}) {
     const { color = 0xFF6EC7 } = options;
@@ -380,12 +361,18 @@ export function createStarflower(options = {}) {
         group.add(petal);
     }
 
-    // ADD: Light Beam (Cone)
-    const beamGeo = new THREE.ConeGeometry(0.3, 5, 8, 1, true); // Open ended
-    beamGeo.translate(0, 2.5, 0); // Base at 0 (ish)
-    const beam = new THREE.Mesh(beamGeo, foliageMaterials.lightBeam);
+    // ADD: Light Beam (Narrow & Colored)
+    // Tweak: Much narrower radius (0.02) for a "laser" or "fiber optic" look
+    const beamGeo = new THREE.ConeGeometry(0.02, 8, 8, 1, true); // Tall and thin
+    beamGeo.translate(0, 4, 0); // Move base to 0
+
+    // Create specific material for this beam to match flower color
+    const beamMat = foliageMaterials.lightBeam.clone();
+    beamMat.color.setHex(color); // Match petal color
+
+    const beam = new THREE.Mesh(beamGeo, beamMat);
     beam.position.y = stemH;
-    beam.userData.isBeam = true;
+    beam.userData.isBeam = true; // Tag for animation
     group.add(beam);
 
     group.userData.animationType = 'spin';
@@ -416,7 +403,7 @@ export function createBellBloom(options = {}) {
         const p = new THREE.Mesh(petalGeo, petalMat);
         const angle = (i / petals) * Math.PI * 2;
         p.position.set(Math.cos(angle) * 0.08, -0.08, Math.sin(angle) * 0.08);
-        p.rotation.x = Math.PI; // point downward
+        p.rotation.x = Math.PI;
         p.castShadow = true;
         group.add(p);
     }
@@ -706,6 +693,94 @@ export function createVineCluster(x, z) {
     return cluster;
 }
 
+/**
+ * Prism Rose Bush — A cluster of glowing, multi-colored roses.
+ */
+export function createPrismRoseBush(options = {}) {
+    const group = new THREE.Group();
+
+    // 1. The Woody Base (Thick & gnarly)
+    const stemsMat = createClayMaterial(0x5D4037); // Dark wood
+    const baseHeight = 1.0 + Math.random() * 0.5;
+
+    // Main Trunk
+    const trunkGeo = new THREE.CylinderGeometry(0.15, 0.2, baseHeight, 8);
+    trunkGeo.translate(0, baseHeight/2, 0);
+    const trunk = new THREE.Mesh(trunkGeo, stemsMat);
+    trunk.castShadow = true;
+    group.add(trunk);
+
+    // 2. Branches & Blooms
+    const branchCount = 3 + Math.floor(Math.random() * 3); // 3 to 5 roses
+
+    // Rose Colors Palette (Vibrant for the "Candy" look)
+    const roseColors = [0xFF0055, 0xFFAA00, 0x00CCFF, 0xFF00FF, 0x00FF88];
+
+    for (let i = 0; i < branchCount; i++) {
+        const branchGroup = new THREE.Group();
+        // Position branching out from near top of trunk
+        branchGroup.position.y = baseHeight * 0.8;
+        branchGroup.rotation.y = (i / branchCount) * Math.PI * 2; // Spread around
+        branchGroup.rotation.z = Math.PI / 4; // Angle up/out
+
+        // The Branch Stem
+        const branchLen = 0.8 + Math.random() * 0.5;
+        const branchGeo = new THREE.CylinderGeometry(0.08, 0.1, branchLen, 6);
+        branchGeo.translate(0, branchLen/2, 0);
+        const branch = new THREE.Mesh(branchGeo, stemsMat);
+        branchGroup.add(branch);
+
+        // --- THE ROSE ---
+        const roseGroup = new THREE.Group();
+        roseGroup.position.y = branchLen;
+
+        // Pick a random color for THIS rose
+        const color = roseColors[Math.floor(Math.random() * roseColors.length)];
+
+        // Material that supports the "Inner Glow"
+        const petalMat = new THREE.MeshStandardMaterial({
+            color: color,
+            roughness: 0.7,
+            emissive: 0x000000, // Starts dark
+            emissiveIntensity: 0.0
+        });
+        registerReactiveMaterial(petalMat); // Make it blink!
+
+        // Procedural Rose Shape (Stacked twisted layers)
+        // Layer 1: Outer Petals
+        const outerGeo = new THREE.TorusKnotGeometry(0.25, 0.08, 64, 8, 2, 3);
+        const outer = new THREE.Mesh(outerGeo, petalMat);
+        outer.scale.set(1, 0.6, 1); // Flatten slightly
+        roseGroup.add(outer);
+
+        // Layer 2: Inner Bud (Glowing Core)
+        const innerGeo = new THREE.SphereGeometry(0.15, 16, 16);
+        // Inner core can use the same material so it pulses in sync
+        const inner = new THREE.Mesh(innerGeo, petalMat);
+        inner.position.y = 0.05;
+        roseGroup.add(inner);
+
+        // --- LIGHT WASH ---
+        // A soft sphere of light that surrounds the flower
+        const washGeo = new THREE.SphereGeometry(1.2, 16, 16);
+        const washMat = foliageMaterials.lightBeam.clone(); // Clone to tint it individually
+        washMat.color.setHex(color); // Tint wash to match rose
+        const wash = new THREE.Mesh(washGeo, washMat);
+        wash.userData.isWash = true; // Tag for animation
+        roseGroup.add(wash);
+
+        branchGroup.add(roseGroup);
+        group.add(branchGroup);
+    }
+
+    // Animation Metadata
+    group.userData.animationType = 'sway';
+    group.userData.animationOffset = Math.random() * 10;
+    group.userData.type = 'flower'; // Reacts to 'leads' in music
+
+    return group;
+}
+
 // --- Instancing System (Grass) ---
 let grassMeshes = [];
 const dummy = new THREE.Object3D();
@@ -794,7 +869,6 @@ export function updateFoliageMaterials(audioData, isNight) {
         updateMats(reactiveMaterials, 1);
 
         // 2. Flower Center (Contrast Blink)
-        // Use complementary hue to the dominant melody channel (ch 1)
         const melodyCh = channels[1];
         if (melodyCh && melodyCh.freq > 0) {
             let hue = freqToHue(melodyCh.freq);
@@ -806,20 +880,18 @@ export function updateFoliageMaterials(audioData, isNight) {
         }
         foliageMaterials.flowerCenter.emissiveIntensity = 0.5 + audioData.kickTrigger * 2.0;
 
-        // 3. Update Light Beams (Strobe/Wash)
+        // 3. Update Light Beams (Strobe/Wash) - Shared generic beam (if used)
         const beamMat = foliageMaterials.lightBeam;
         const kick = audioData.kickTrigger;
 
         // Use Pan to shift beam color temperature (Cool vs Warm)
-        const pan = channels[1]?.pan || 0; // -1 to 1
-        const beamHue = 0.6 + pan * 0.1; // Blue-ish base, shifts to purple/cyan
+        const pan = channels[1]?.pan || 0;
+        const beamHue = 0.6 + pan * 0.1;
         beamMat.color.setHSL(beamHue, 0.8, 0.8);
 
-        // Strobe effect if any active effect is present
         let effectActive = 0;
         for(let c of channels) if(c.activeEffect > 0) effectActive = 1;
 
-        // Base opacity from kick + strobe
         let opacity = kick * 0.4;
         if (effectActive) {
             opacity += Math.random() * 0.3; // Flicker
@@ -907,18 +979,34 @@ export function animateFoliage(foliageObject, time, audioData, isDay) {
     const originalY = foliageObject.userData.originalY;
 
     // --- Special: Animate Light Beams/Wash ---
-    // Look for children marked as beams/wash
     foliageObject.children.forEach(child => {
         if (child.userData.isBeam) {
-            // Spin and pulse the beam
             child.rotation.y += 0.05 + spin * 0.01;
             const targetScale = 1.0 + kick * 2.0;
             child.scale.setScalar(targetScale);
+
+            // Per-object opacity update for individual colored beams
+            if (!isDay && child.material && child.material !== foliageMaterials.lightBeam) {
+                // Flash on kick, decay rest of time
+                let beamOpacity = kick * 0.6;
+                // Basic strobe
+                if (Math.random() > 0.8) beamOpacity += 0.2;
+                child.material.opacity = beamOpacity;
+            } else if (isDay) {
+                child.material.opacity = 0;
+            }
         }
         if (child.userData.isWash) {
-            // Pulse the wash sphere
             const washScale = 1.0 + Math.sin(time * 2) * 0.2 + kick;
             child.scale.setScalar(washScale);
+
+            // Per-object opacity for individual colored washes
+            if (!isDay && child.material && child.material !== foliageMaterials.lightBeam) {
+                let washOpacity = 0.2 + kick * 0.3; // Always slightly visible
+                child.material.opacity = washOpacity;
+            } else if (isDay) {
+                child.material.opacity = 0;
+            }
         }
     });
 
@@ -952,9 +1040,7 @@ export function animateFoliage(foliageObject, time, audioData, isDay) {
         if (isActive && kick > 0.1) foliageObject.position.y += kick * 0.2;
 
     } else if (type === 'glowPulse') {
-        if (foliageObject.children[1] && foliageObject.children[1].material) {
-            // Handled by updateFoliageMaterials now for color, but we can do extra pulse here
-        }
+        // ... (handled by material update mostly)
     } else if (type === 'float') {
         foliageObject.position.y = originalY + Math.sin(time * 1.5 + offset) * 0.2;
         if (!isDay && kick > 0.1) foliageObject.scale.setScalar(1.0 + kick * 0.2);
@@ -975,94 +1061,4 @@ export function animateFoliage(foliageObject, time, audioData, isDay) {
             positions.needsUpdate = true;
         }
     }
-}
-
-
-/**
- * Prism Rose Bush — A cluster of glowing, multi-colored roses.
- * Features "translucent" petal glowing and ground lighting.
- */
-export function createPrismRoseBush(options = {}) {
-    const group = new THREE.Group();
-
-    // 1. The Woody Base (Thick & gnarly)
-    const stemsMat = createClayMaterial(0x5D4037); // Dark wood
-    const baseHeight = 1.0 + Math.random() * 0.5;
-
-    // Main Trunk
-    const trunkGeo = new THREE.CylinderGeometry(0.15, 0.2, baseHeight, 8);
-    trunkGeo.translate(0, baseHeight/2, 0);
-    const trunk = new THREE.Mesh(trunkGeo, stemsMat);
-    trunk.castShadow = true;
-    group.add(trunk);
-
-    // 2. Branches & Blooms
-    const branchCount = 3 + Math.floor(Math.random() * 3); // 3 to 5 roses
-
-    // Rose Colors Palette (Vibrant for the "Candy" look)
-    const roseColors = [0xFF0055, 0xFFAA00, 0x00CCFF, 0xFF00FF, 0x00FF88];
-
-    for (let i = 0; i < branchCount; i++) {
-        const branchGroup = new THREE.Group();
-        // Position branching out from near top of trunk
-        branchGroup.position.y = baseHeight * 0.8;
-        branchGroup.rotation.y = (i / branchCount) * Math.PI * 2; // Spread around
-        branchGroup.rotation.z = Math.PI / 4; // Angle up/out
-
-        // The Branch Stem
-        const branchLen = 0.8 + Math.random() * 0.5;
-        const branchGeo = new THREE.CylinderGeometry(0.08, 0.1, branchLen, 6);
-        branchGeo.translate(0, branchLen/2, 0);
-        const branch = new THREE.Mesh(branchGeo, stemsMat);
-        branchGroup.add(branch);
-
-        // --- THE ROSE ---
-        const roseGroup = new THREE.Group();
-        roseGroup.position.y = branchLen;
-
-        // Pick a random color for THIS rose
-        const color = roseColors[Math.floor(Math.random() * roseColors.length)];
-
-        // Material that supports the "Inner Glow"
-        const petalMat = new THREE.MeshStandardMaterial({
-            color: color,
-            roughness: 0.7,
-            emissive: 0x000000, // Starts dark
-            emissiveIntensity: 0.0
-        });
-        registerReactiveMaterial(petalMat); // Make it blink!
-
-        // Procedural Rose Shape (Stacked twisted layers)
-        // Layer 1: Outer Petals
-        const outerGeo = new THREE.TorusKnotGeometry(0.25, 0.08, 64, 8, 2, 3);
-        const outer = new THREE.Mesh(outerGeo, petalMat);
-        outer.scale.set(1, 0.6, 1); // Flatten slightly
-        roseGroup.add(outer);
-
-        // Layer 2: Inner Bud (Glowing Core)
-        const innerGeo = new THREE.SphereGeometry(0.15, 16, 16);
-        // Inner core can use the same material so it pulses in sync
-        const inner = new THREE.Mesh(innerGeo, petalMat);
-        inner.position.y = 0.05;
-        roseGroup.add(inner);
-
-        // --- LIGHT WASH ---
-        // A soft sphere of light that surrounds the flower
-        const washGeo = new THREE.SphereGeometry(1.2, 16, 16);
-        const washMat = foliageMaterials.lightBeam.clone(); // Clone to tint it individually
-        washMat.color.setHex(color); // Tint wash to match rose
-        const wash = new THREE.Mesh(washGeo, washMat);
-        wash.userData.isWash = true; // Tag for animation
-        roseGroup.add(wash);
-
-        branchGroup.add(roseGroup);
-        group.add(branchGroup);
-    }
-
-    // Animation Metadata
-    group.userData.animationType = 'sway';
-    group.userData.animationOffset = Math.random() * 10;
-    group.userData.type = 'flower'; // Reacts to 'leads' in music
-
-    return group;
 }
