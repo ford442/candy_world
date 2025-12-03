@@ -78,17 +78,7 @@
             }
         }
     </script>
-    <script>
-        window.libopenmptReady = new Promise(resolve => {
-            window.libopenmpt = {
-                onRuntimeInitialized: function() {
-                    console.log('libopenmpt runtime initialized via pre-load script.');
-                    resolve(this);
-                }
-            };
-        });
-    </script>
-    <script src="https://wasm.noahcohn.com/libmpt/libopenmptjs.js"></script>
+    <script src="assets/libopenmpt.js"></script>
 </head>
 <body>
     <div id="instructions">
