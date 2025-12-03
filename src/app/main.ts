@@ -173,6 +173,7 @@ function createMushroom(x: number, z: number, options: any = {}) {
     const stemGeo = new THREE.CylinderGeometry(stemR * 0.8, stemR, stemH, 16);
     const stem = new THREE.Mesh(stemGeo, materials.mushroomStem);
     stem.castShadow = true;
+    stem.position.y = stemH / 2;
     group.add(stem);
 
     const capR = stemR * 3 + Math.random();
@@ -485,24 +486,48 @@ function createWaterfall(height: number, colorHex = 0x87CEEB) {
 }
 
 function createGiantMushroom(x: number, z: number, scale = 8) {
-    const height = getGroundHeight(x,z);
-    const group = new THREE.Group(); group.position.set(x, height, z);
+    const height = getGroundHeight(x, z);
+    const group = new THREE.Group();
+    group.position.set(x, height, z);
+
     const stemH = (1.5 + Math.random()) * scale;
     const stemR = (0.3 + Math.random() * 0.2) * scale;
     const stemGeo = new THREE.CylinderGeometry(stemR * 0.8, stemR, stemH, 16);
-    const stem = new THREE.Mesh(stemGeo, materials.mushroomStem); stem.castShadow = true; group.add(stem);
-    const capR = stemR * 3 + Math.random() * scale; const capGeo = new THREE.SphereGeometry(capR, 32, 32, 0, Math.PI * 2, 0, Math.PI/2);
+    const stem = new THREE.Mesh(stemGeo, materials.mushroomStem);
+    stem.castShadow = true;
+    stem.position.y = stemH / 2;
+    group.add(stem);
+
+    const capR = stemR * 3 + Math.random() * scale;
+    const capGeo = new THREE.SphereGeometry(capR, 32, 32, 0, Math.PI * 2, 0, Math.PI / 2);
     const matIndex = Math.floor(Math.random() * materials.mushroomCap.length);
     const capMaterial = materials.mushroomCap[matIndex];
-    const cap = new THREE.Mesh(capGeo, capMaterial); cap.position.y = stemH;
-    const faceGroup = new THREE.Group(); faceGroup.position.set(0, stemH * 0.6, stemR * 0.95); faceGroup.scale.set(scale, scale, scale);
-    const leftEye = new THREE.Mesh(eyeGeo, materials.eye); leftEye.position.set(-0.15, 0.1, 0); const rightEye = new THREE.Mesh(eyeGeo, materials.eye); rightEye.position.set(0.15, 0.1, 0);
-    const smileGeo = new THREE.TorusGeometry(0.12, 0.03, 6, 12, Math.PI); const smile = new THREE.Mesh(smileGeo, materials.mouth); smile.rotation.z = Math.PI; smile.position.set(0, -0.05, 0);
-    faceGroup.add(leftEye, rightEye, smile); group.add(faceGroup); group.add(cap);
+    const cap = new THREE.Mesh(capGeo, capMaterial);
+    cap.position.y = stemH;
+
+    const faceGroup = new THREE.Group();
+    faceGroup.position.set(0, stemH * 0.6, stemR * 0.95);
+    faceGroup.scale.set(scale, scale, scale);
+
+    const leftEye = new THREE.Mesh(eyeGeo, materials.eye);
+    leftEye.position.set(-0.15, 0.1, 0);
+    const rightEye = new THREE.Mesh(eyeGeo, materials.eye);
+    rightEye.position.set(0.15, 0.1, 0);
+    const smileGeo = new THREE.TorusGeometry(0.12, 0.03, 6, 12, Math.PI);
+    const smile = new THREE.Mesh(smileGeo, materials.mouth);
+    smile.rotation.z = Math.PI;
+    smile.position.set(0, -0.05, 0);
+
+    faceGroup.add(leftEye, rightEye, smile);
+    group.add(faceGroup);
+    group.add(cap);
+
     worldGroup.add(group);
     obstacles.push({ position: new THREE.Vector3(x, height, z), radius: stemR * 1.2 });
     const giantMushroom = { mesh: group, type: 'mushroom', speed: Math.random() * 0.02 + 0.01, offset: Math.random() * 100, drivable: false };
-    (group as any).userData.type = 'mushroom'; animatedObjects.push(giantMushroom); animatedFoliage.push(group);
+    (group as any).userData.type = 'mushroom';
+    animatedObjects.push(giantMushroom);
+    animatedFoliage.push(group);
 }
 
 function createGiantRainCloud(options: any = {}) { const { color = 0x555555, rainIntensity = 200 } = options; const group = new THREE.Group(); const cloudGeo = new THREE.SphereGeometry(4.5, 32, 32); const cloudMat = (materials.cloud as THREE.MeshStandardMaterial).clone(); cloudMat.color.setHex(color); const cloud = new THREE.Mesh(cloudGeo, cloudMat); cloud.castShadow = true; group.add(cloud); const rainGeo = new THREE.BufferGeometry(); const positions = new Float32Array(rainIntensity * 3); for (let i = 0; i < rainIntensity; i++) { positions[i*3] = (Math.random() - 0.5) * 9.0; positions[i*3 + 1] = Math.random() * -6.0; positions[i*3 + 2] = (Math.random() - 0.5) * 9.0; } rainGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3)); const rainMat = new THREE.PointsMaterial({ color: 0x87CEEB, size: 0.05 }); const rain = new THREE.Points(rainGeo, rainMat); group.add(rain); (group as any).userData.animationType = 'rain'; return group; }
@@ -537,10 +562,10 @@ async function animate() {
     const audioState = audioSystem.update();
     const targetFactor = isNight ? 1.0 : 0.0;
     dayNightFactor += (targetFactor - dayNightFactor) * delta * 2.0;
-    uSkyTopColor.value.lerpColors(new THREE.Color(0x87CEEB), new THREE.Color(0x000000), dayNightFactor);
-    uSkyBottomColor.value.lerpColors(new THREE.Color(0xFFB6C1), new THREE.Color(0x000000), dayNightFactor);
+    uSkyTopColor.value.lerpColors(new THREE.Color(0x87CEEB), new THREE.Color(0x000020), dayNightFactor);
+    uSkyBottomColor.value.lerpColors(new THREE.Color(0xFFB6C1), new THREE.Color(0x000020), dayNightFactor);
     const dayFog = new THREE.Color(CONFIG.colors.fog); const nightFog = new THREE.Color(0x050510); scene.fog.color.lerpColors(dayFog, nightFog, dayNightFactor);
-    sunLight.intensity = THREE.MathUtils.lerp(0.8, 0.0, dayNightFactor); ambientLight.intensity = THREE.MathUtils.lerp(1.0, 0.02, dayNightFactor);
+    sunLight.intensity = THREE.MathUtils.lerp(0.8, 0.0, dayNightFactor); ambientLight.intensity = THREE.MathUtils.lerp(1.0, 0.2, dayNightFactor);
     if ((stars as any).material) (stars as any).material.opacity = dayNightFactor;
     if (audioState && isNight) { (uStarPulse as any).value = audioState.kickTrigger; const hue = (t * 0.1 + audioState.beatPhase) % 1; (uStarColor as any).value.setHSL(hue, 1.0, 0.8); }
     if ((window as any).kingMushroomCap && audioState) { const kick = audioState.kickTrigger || 0; const groove = audioState.grooveAmount || 0; const targetScale = 1.0 + kick * 0.3; ((window as any).kingMushroomCap as THREE.Object3D).scale.setScalar(targetScale); if ((window as any).kingWaterfall && (window as any).kingWaterfall.material && ((window as any).kingWaterfall.material as any).uSpeed) { ((window as any).kingWaterfall.material as any).uSpeed.value = 1.0 + groove * 5.0; } }

@@ -29,7 +29,7 @@ export function createStars(count: number = 2000) {
     geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
     geo.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
     geo.setAttribute('offset', new THREE.BufferAttribute(offsets, 1));
-    const mat = new PointsNodeMaterial({ size: 1.0, transparent: true, opacity: 0.0, blending: THREE.AdditiveBlending, depthWrite: false });
+    const mat = new PointsNodeMaterial({ size: 1.0, transparent: true, opacity: 1.0, blending: THREE.AdditiveBlending, depthWrite: false });
     const aOffset = attribute('offset', 'float');
     const aSize = attribute('size', 'float');
     const twinkle = time.add(aOffset).sin().mul(0.5).add(0.5);
