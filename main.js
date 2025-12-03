@@ -1054,8 +1054,8 @@ async function animate() {
 
     // Update Sky
     // Darker night sky target (Deep dark blue/purple to almost black)
-    uSkyTopColor.value.lerpColors(new THREE.Color(0x87CEEB), new THREE.Color(0x000011), dayNightFactor);
-    uSkyBottomColor.value.lerpColors(new THREE.Color(0xFFB6C1), new THREE.Color(0x110022), dayNightFactor);
+    uSkyTopColor.value.lerpColors(new THREE.Color(0x87CEEB), new THREE.Color(0x000000), dayNightFactor);
+    uSkyBottomColor.value.lerpColors(new THREE.Color(0xFFB6C1), new THREE.Color(0x000000), dayNightFactor);
 
     // Update Fog to match darker night
     const dayFog = new THREE.Color(CONFIG.colors.fog);
