@@ -3,7 +3,6 @@ import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockCont
 import WebGPU from 'three/examples/jsm/capabilities/WebGPU.js';
 import { WebGPURenderer, PointsNodeMaterial } from 'three/webgpu';
 import { color, float, vec3, time, positionLocal, attribute, storage, uniform, uv } from 'three/tsl';
-// UPDATED IMPORT: Added createPrismRoseBush
 import { createFlower, createGrass, createFloweringTree, createShrub, animateFoliage, createGlowingFlower, createFloatingOrb, createVine, createStarflower, createBellBloom, createWisteriaCluster, createRainingCloud, createLeafParticle, createGlowingFlowerPatch, createFloatingOrbCluster, createVineCluster, createBubbleWillow, createPuffballFlower, createHelixPlant, createBalloonBush, createPrismRoseBush, initGrassSystem, addGrassInstance, updateFoliageMaterials } from './foliage.js';
 import { createSky, uSkyTopColor, uSkyBottomColor } from './sky.js';
 import { createStars, uStarPulse, uStarColor } from './stars.js';
@@ -1054,12 +1053,18 @@ async function animate() {
     dayNightFactor += (targetFactor - dayNightFactor) * delta * 2.0;
 
     // Update Sky
-    uSkyTopColor.value.lerpColors(new THREE.Color(0x87CEEB), new THREE.Color(0x000033), dayNightFactor);
-    uSkyBottomColor.value.lerpColors(new THREE.Color(0xFFB6C1), new THREE.Color(0x4B0082), dayNightFactor);
+    // Darker night sky target (Deep dark blue/purple to almost black)
+    uSkyTopColor.value.lerpColors(new THREE.Color(0x87CEEB), new THREE.Color(0x000011), dayNightFactor);
+    uSkyBottomColor.value.lerpColors(new THREE.Color(0xFFB6C1), new THREE.Color(0x110022), dayNightFactor);
 
-    // Update Light
-    sunLight.intensity = THREE.MathUtils.lerp(0.8, 0.1, dayNightFactor);
-    ambientLight.intensity = THREE.MathUtils.lerp(1.0, 0.2, dayNightFactor);
+    // Update Fog to match darker night
+    const dayFog = new THREE.Color(CONFIG.colors.fog);
+    const nightFog = new THREE.Color(0x050510); // Very dark blue/black
+    scene.fog.color.lerpColors(dayFog, nightFog, dayNightFactor);
+
+    // Update Light - Darker at night
+    sunLight.intensity = THREE.MathUtils.lerp(0.8, 0.0, dayNightFactor); // Sun completely gone
+    ambientLight.intensity = THREE.MathUtils.lerp(1.0, 0.02, dayNightFactor); // Very dim ambient
 
     // Update Stars
     if (stars.material) {
