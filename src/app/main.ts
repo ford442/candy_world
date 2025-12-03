@@ -4,10 +4,10 @@ import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockCont
 import WebGPU from 'three/examples/jsm/capabilities/WebGPU.js';
 import { WebGPURenderer, PointsNodeMaterial } from 'three/webgpu';
 import { color, float, vec3, time, positionLocal, attribute, storage, uniform, uv } from 'three/tsl';
-import { createFlower, createGrass, createFloweringTree, createShrub, animateFoliage, createGlowingFlower, createFloatingOrb, createVine, createStarflower, createBellBloom, createWisteriaCluster, createRainingCloud, createLeafParticle, createGlowingFlowerPatch, createFloatingOrbCluster, createVineCluster, createBubbleWillow, createPuffballFlower, createHelixPlant, createBalloonBush, createPrismRoseBush, initGrassSystem, addGrassInstance, updateFoliageMaterials } from '../../foliage';
-import { createSky, uSkyTopColor, uSkyBottomColor } from '../../sky';
-import { createStars, uStarPulse, uStarColor } from '../../stars';
-import { AudioSystem } from '../../audio-system';
+import { createFlower, createGrass, createFloweringTree, createShrub, animateFoliage, createGlowingFlower, createFloatingOrb, createVine, createStarflower, createBellBloom, createWisteriaCluster, createRainingCloud, createLeafParticle, createGlowingFlowerPatch, createFloatingOrbCluster, createVineCluster, createBubbleWillow, createPuffballFlower, createHelixPlant, createBalloonBush, createPrismRoseBush, initGrassSystem, addGrassInstance, updateFoliageMaterials } from '@/foliage';
+import { createSky, uSkyTopColor, uSkyBottomColor } from '@/sky';
+import { createStars, uStarPulse, uStarColor } from '@/stars';
+import { AudioSystem } from '@/audio-system';
 
 // --- Configuration ---
 const CONFIG = {
