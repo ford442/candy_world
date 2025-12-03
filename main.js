@@ -356,6 +356,7 @@ function spawnCluster(cx, cz) {
              shrub.position.set(x, getGroundHeight(x,z), z);
              safeAddFoliage(shrub, true, 0.8);
         }
+
     } else if (typeRoll < 0.7) {
         // FANTASY
         for(let i=0; i<count; i++) {
@@ -398,6 +399,20 @@ function spawnCluster(cx, cz) {
             const puff = createPuffballFlower({ color });
             puff.position.set(x, getGroundHeight(x,z), z);
             safeAddFoliage(puff);
+        }
+    } else if (typeRoll < 0.95) { // New slot for Prism Roses
+        // PRISM ROSE GARDEN
+        for (let i=0; i<8; i++) {
+            const r = Math.random() * radius;
+            const theta = Math.random() * Math.PI * 2;
+            const x = cx + r * Math.cos(theta);
+            const z = cz + r * Math.sin(theta);
+
+            const rose = createPrismRoseBush(); // No args needed, it picks random colors
+            rose.position.set(x, getGroundHeight(x,z), z);
+
+            // Roses are bushy, give them collision
+            safeAddFoliage(rose, true, 1.0);
         }
     } else {
         // HELIX GARDEN (New)
