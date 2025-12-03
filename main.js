@@ -153,16 +153,37 @@ const obstacles = [];
 // 1. Ground (Rolling Hills) - Enhanced with more detail
 const groundGeo = new THREE.PlaneGeometry(300, 300, 128, 128); // Doubled resolution
 const posAttribute = groundGeo.attributes.position;
-for (let i = 0; i < posAttribute.count; i++) {
-    const x = posAttribute.getX(i);
-    const y = posAttribute.getY(i);
-    // Enhanced multi-octave hills for more interesting terrain
-    const z = Math.sin(x * 0.05) * 2 + Math.cos(y * 0.05) * 2 +
-              Math.sin(x * 0.1) * 0.8 + Math.cos(y * 0.1) * 0.8 +
-              Math.sin(x * 0.2) * 0.3 + Math.cos(y * 0.2) * 0.3;
-    posAttribute.setZ(i, z);
-}
-groundGeo.computeVertexNormals();
+
+// --- WASM Terrain Integration ---
+import wasmInit from './build/optimized.wasm';
+let wasmTerrain = null;
+let wasmMemory = null;
+let getTerrainHeightWasm = null;
+let generateTerrainMeshWasm = null;
+
+(async () => {
+    const wasmModule = await wasmInit();
+    wasmTerrain = wasmModule;
+    wasmMemory = wasmModule.memory;
+    getTerrainHeightWasm = wasmModule.getTerrainHeight;
+    generateTerrainMeshWasm = wasmModule.generateTerrainMesh;
+
+    // Fill the ground mesh using WASM terrain
+    const width = 129;
+    const depth = 129;
+    const spacing = 300 / (width - 1);
+    const bufferPtr = wasmTerrain.__heap_base.value || 1024;
+    generateTerrainMeshWasm(bufferPtr, width, depth, spacing);
+    const heights = new Float32Array(wasmMemory.buffer, bufferPtr, width * depth);
+    for (let z = 0; z < depth; z++) {
+        for (let x = 0; x < width; x++) {
+            const idx = z * width + x;
+            const i = z * width + x;
+            posAttribute.setZ(i, heights[idx]);
+        }
+    }
+    groundGeo.computeVertexNormals();
+})();
 
 // Use enhanced candy ground material
 const enhancedGroundMat = createGroundMaterial({
@@ -175,8 +196,12 @@ ground.rotation.x = -Math.PI / 2;
 ground.receiveShadow = true;
 scene.add(ground);
 
-// Helper to get ground height at x, z
+// Helper to get ground height at x, z using WASM
 function getGroundHeight(x, z) {
+    if (getTerrainHeightWasm) {
+        return getTerrainHeightWasm(x, z);
+    }
+    // fallback
     return Math.sin(x * 0.05) * 2 + Math.cos(-z * 0.05) * 2;
 }
 
@@ -298,7 +323,7 @@ function createMushroom(x, z, options = {}) {
 
     faceGroup.add(leftEye, rightEye, smile);
     group.add(faceGroup);
-    group.add(cap); // Add cap to group
+    group.add(cap; // Add cap to group
 
     worldGroup.add(group);
 

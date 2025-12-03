@@ -1,6 +1,6 @@
 #include <emscripten.h>
 #include <cmath>
-#include <cstdlib> // for rand()
+#include <cstdlib>
 
 extern "C" {
 
@@ -11,12 +11,10 @@ float random_float() {
 
 EMSCRIPTEN_KEEPALIVE
 void updateParticles(float* data, int count, float dt) {
-    // Each particle has 8 floats (x, y, z, life, vx, vy, vz, speed)
-    // Stride = 8
+    // 8 floats per particle: [x, y, z, life, vx, vy, vz, speed]
     for (int i = 0; i < count; i++) {
         int offset = i * 8;
 
-        // Load values
         float px = data[offset + 0];
         float py = data[offset + 1];
         float pz = data[offset + 2];
@@ -26,25 +24,22 @@ void updateParticles(float* data, int count, float dt) {
         float vz = data[offset + 6];
         float speed = data[offset + 7];
 
-        // Update Physics
         vy -= 2.0f * dt; // Gravity
         px += vx * dt * speed;
         py += vy * dt * speed;
         pz += vz * dt * speed;
         life -= dt * 0.2f;
 
-        // Reset if dead
         if (life <= 0.0f) {
             py = 10.0f;
             life = 1.0f;
             vy = 2.0f;
-            px = random_float() * 10.0f; // Adjusted scale matching TS
+            px = random_float() * 10.0f;
             pz = random_float() * 10.0f;
             vx = random_float() * 2.0f;
             vz = random_float() * 2.0f;
         }
 
-        // Store values back
         data[offset + 0] = px;
         data[offset + 1] = py;
         data[offset + 2] = pz;
@@ -52,13 +47,18 @@ void updateParticles(float* data, int count, float dt) {
         data[offset + 4] = vx;
         data[offset + 5] = vy;
         data[offset + 6] = vz;
-        // speed (index 7) doesn't change
     }
 }
 
+// New C++ Terrain Height function (can be used if you switch to C++ for logic)
 EMSCRIPTEN_KEEPALIVE
-int checkCollision(float playerX, float playerZ, float radius, int count) {
-    return 0; // Placeholder logic from your TS file
+float getTerrainHeight(float x, float z) {
+    float h = 0.0f;
+    h += sin(x * 0.05f) * 2.0f + cos(z * 0.05f) * 2.0f;
+    h += sin(x * 0.1f) * 0.8f + cos(z * 0.1f) * 0.8f;
+    h += sin(x * 0.2f) * 0.3f + cos(z * 0.2f) * 0.3f;
+    return h;
 }
 
 }
+

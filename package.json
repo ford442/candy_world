@@ -5,7 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "npm run build:asc && npm run build:cpp && vite build",
+    "build:asc": "asc assembly/index.ts --target release --outFile public/build/optimized.wasm",
+    "build:cpp": "emcc src/physics.cpp -O3 -s WASM=1 -s STANDALONE_WASM=1 --no-entry -o public/build/physics.wasm",
+    "deploy": "npm run build && python3 deploy.py",
     "preview": "vite preview"
   },
   "keywords": [],
@@ -17,6 +20,6 @@
   "devDependencies": {
     "assemblyscript": "^0.27.37",
     "http-server": "^14.1.1",
-    "vite": "^7.2.4"
+    "vite": "^5.0.0"
   }
 }
