@@ -21,6 +21,14 @@ export default defineConfig({
   build: {
     target: 'esnext'
   },
+  optimizeDeps: {
+    esbuildOptions: {
+      target: 'esnext'
+    }
+  },
+  ssr: {
+    target: 'esnext'
+  },
   resolve: {
     alias: {
       '@': resolve(__dirname, 'src')
