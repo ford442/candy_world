@@ -1,31 +1,48 @@
 from playwright.sync_api import sync_playwright
 
-def verify_scene():
+def verify_night_mode():
     with sync_playwright() as p:
-        # Launch browser with swiftshader for WebGPU support emulation if needed,
-        # though headless chromium usually doesn't support WebGPU well.
-        # We will try with standard args first.
+        # Need WebGPU flags
         browser = p.chromium.launch(
             headless=True,
-            args=['--use-gl=swiftshader']
+            args=[
+                "--use-gl=swiftshader",
+                "--enable-unsafe-webgpu"
+            ]
         )
         page = browser.new_page()
-
-        # Navigate to the preview server
         try:
-            page.goto("http://localhost:4173/")
-            page.wait_for_timeout(5000) # Wait for scene to load
+            # Navigate to local server (Vite default is 5173, but check log if needed)
+            # Assuming 5173 for now
+            page.goto("http://localhost:5173")
 
-            # Check for console logs to verify no errors
-            page.on("console", lambda msg: print(f"Console: {msg.text}"))
+            # Wait for instructions overlay
+            page.wait_for_selector("#instructions")
 
-            # Take a screenshot
-            page.screenshot(path="/home/jules/verification/verification_screenshot.png")
-            print("Screenshot taken.")
+            # Click to start (pointer lock)
+            page.click("#instructions")
+
+            # Wait a bit for initial load
+            page.wait_for_timeout(2000)
+
+            # Screenshot Day
+            page.screenshot(path="verification_day.png")
+            print("Day screenshot taken.")
+
+            # Press 'N' for Night Mode
+            page.keyboard.press("n")
+
+            # Wait for transition (lerp is fast but safe 2s)
+            page.wait_for_timeout(3000)
+
+            # Screenshot Night
+            page.screenshot(path="verification_night.png")
+            print("Night screenshot taken.")
+
         except Exception as e:
             print(f"Error: {e}")
         finally:
             browser.close()
 
 if __name__ == "__main__":
-    verify_scene()
+    verify_night_mode()

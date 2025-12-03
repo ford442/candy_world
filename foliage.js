@@ -751,43 +751,53 @@ export function updateFoliageMaterials(audioData, isNight) {
     if (!audioData) return;
 
     // Nighttime Blinking Logic & Note Reactivity
+    // Goal: "change color of blinking to the music pattern depending on note"
+    // And ensure it's not just white.
+
     if (isNight) {
         const channels = audioData.channelData;
         if (!channels || channels.length === 0) return;
 
+        // 1. Flower Petals (Melody/Leads)
         foliageMaterials.flowerPetal.forEach((mat, i) => {
-            // Map material index to a channel. We cycle through available channels.
-            // Note: We might have more materials than channels or vice versa.
-            // Let's check channels 1, 2, 3 mostly for melody/chords
-            // But here we just cycle.
-            const chIndex = (i + 1) % Math.min(channels.length, 8); // Skip Ch 0 (Kick) usually?
-            const ch = channels[chIndex];
+            // Skip kick (0), use 1-4
+            const chIndex = 1 + (i % 4);
+            const ch = channels[Math.min(chIndex, channels.length-1)];
 
             const trigger = ch?.trigger || 0;
             const volume = ch?.volume || 0;
             const freq = ch?.freq || 0;
 
-            // Idea 3: Note-Reactive Bioluminescence
-            // If freq is present, update Emissive Color
             if (freq > 0) {
-                 const targetHue = freqToHue(freq);
+                 let targetHue = freqToHue(freq);
+
+                 // Shift hue based on material index to get variety even with same note
+                 targetHue = (targetHue + i * 0.2) % 1.0;
+
+                 // High Saturation (1.0), Medium Lightness (0.5) ensures rich color
                  const color = new THREE.Color().setHSL(targetHue, 1.0, 0.5);
-                 // Lerp current emissive color to target?
-                 // Material.emissive is a color.
-                 mat.emissive.lerp(color, 0.2);
+                 mat.emissive.lerp(color, 0.3);
             } else {
-                 // Fallback to base color if silence
-                 mat.emissive.lerp(mat.color, 0.1);
+                 // Fade to a base night glow if silent (e.g. Deep Purple/Blue)
+                 mat.emissive.lerp(new THREE.Color(0x220044), 0.1);
             }
 
-            // Base emissive + pulse
-            const intensity = 0.2 + volume * 0.5 + trigger * 3.0;
+            // Intensity: Cap at 1.5 to prevent blowout to white
+            // Base 0.2 + reactive
+            const intensity = 0.2 + volume * 0.5 + trigger * 1.5;
             mat.emissiveIntensity = intensity;
         });
 
-        // Also center
-        foliageMaterials.flowerCenter.emissive.setHex(0xFFFACD);
-        foliageMaterials.flowerCenter.emissiveIntensity = audioData.kickTrigger * 3.0;
+        // 2. Flower Center (Kick/Pulse)
+        foliageMaterials.flowerCenter.emissive.setHex(0xFFFACD); // Keep warm yellow
+        foliageMaterials.flowerCenter.emissiveIntensity = 0.5 + audioData.kickTrigger * 2.0;
+
+        // 3. Grass (Chords/Background) - Subtle Cool Glow
+        // Grass material is separate: foliageMaterials.grass
+        const chordVol = Math.max(channels[3]?.volume || 0, channels[4]?.volume || 0);
+        const grassHue = 0.6 + chordVol * 0.1; // Blue to Purple range
+        foliageMaterials.grass.emissive.setHSL(grassHue, 0.8, 0.2); // Low lightness for subtle glow
+        foliageMaterials.grass.emissiveIntensity = 0.2 + chordVol * 0.8;
 
     } else {
         // Reset to day state (no emission)
@@ -797,6 +807,9 @@ export function updateFoliageMaterials(audioData, isNight) {
         });
         foliageMaterials.flowerCenter.emissive.setHex(0x000000);
         foliageMaterials.flowerCenter.emissiveIntensity = 0;
+
+        foliageMaterials.grass.emissive.setHex(0x000000);
+        foliageMaterials.grass.emissiveIntensity = 0;
     }
 }
 
@@ -833,17 +846,30 @@ export function animateFoliage(foliageObject, time, audioData, isDay) {
         }
     }
 
-    // --- Intensity Logic (Midnight Dance) ---
-    // User requested "invert logic... dance harder when sun goes down"
-    // Day = Relaxed (0.5), Night = Party Mode (1.0 + Groove)
-    const baseIntensity = isDay ? 0.5 : (1.0 + groove * 8.0);
+    // --- Intensity Logic ---
+    // Day = Dance Mode (High Intensity)
+    // Night = Light Mode (Low Intensity)
+    // UNLESS it is a special "Night Dancer" (active at night only)
+    const isNightDancer = (type === 'glowPulse' || plantType === 'starflower' || type === 'spin');
 
-    // --- Channel Mappings (Night Only) ---
+    // Determine if this specific plant should be dancing right now
+    let isActive = false;
+    if (isNightDancer) {
+        isActive = !isDay; // Night dancers only dance at night
+    } else {
+        isActive = isDay; // Normal plants only dance during the day
+    }
+
+    // Base intensity: High if Active, Low if Inactive
+    let baseIntensity = isActive ? (1.0 + groove * 8.0) : 0.2;
+
+    // --- Channel Mappings ---
     let squash = 1.0;
     let spin = 0.0;
     let wave = 0.0;
 
-    if (!isDay) {
+    // Apply mappings only if active
+    if (isActive) {
         if (plantType === 'tree' || plantType === 'mushroom') {
             // Squash/Stretch on Bass
             squash = 1.0 + bassVol * 0.3;
@@ -912,10 +938,11 @@ export function animateFoliage(foliageObject, time, audioData, isDay) {
         }
     } else if (type === 'bounce') {
         foliageObject.position.y = originalY + Math.sin(animTime * 3 + offset) * 0.1 * intensity;
-        // Kick bounce
-        if (kick > 0.1) foliageObject.position.y += kick * 0.2;
+        // Kick bounce (only if Active)
+        if (isActive && kick > 0.1) foliageObject.position.y += kick * 0.2;
 
     } else if (type === 'glowPulse') {
+        // Always pulse if it's a glow flower
         if (foliageObject.children[1] && foliageObject.children[1].material) {
             foliageObject.children[1].material.emissiveIntensity = 1.5 + Math.sin(time * 3 + offset) * 0.5 + (kick * 2.0);
         }
