@@ -1,3 +1,4 @@
+export * from './src/audio-system.ts';
 // AudioSystem.js - Ported from useLibOpenMPT.ts for Vanilla JS
 
 const SAMPLE_RATE = 44100;

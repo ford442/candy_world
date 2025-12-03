@@ -41,6 +41,10 @@ Inspired by low-poly nature scenes with a candy twist!
 
 3. Open your browser to `http://localhost:5173`
 
+Note: The project now uses a modular structure under `src/`. The main entrypoint is `src/app/main.ts` and foliage modules have been split under `src/foliage/`.
+
+Design assets and prototype images are in the `design/` folder. Legacy copies may still exist in the repository root and will be removed on final cleanup.
+
 ### Production Build
 
 Build the project for production:

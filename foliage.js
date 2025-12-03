@@ -1,78 +1,8 @@
-import * as THREE from 'three';
-
-// --- Materials for Foliage ---
-function createClayMaterial(color) {
-    return new THREE.MeshStandardMaterial({
-        color: color,
-        metalness: 0.0,
-        roughness: 0.8, // Matte surface
-        flatShading: false,
-    });
-}
-
-const foliageMaterials = {
-    grass: createClayMaterial(0x7CFC00), // Lawn Green
-    flowerStem: createClayMaterial(0x228B22), // Forest Green
-    flowerCenter: createClayMaterial(0xFFFACD), // Lemon Chiffon
-    flowerPetal: [
-        createClayMaterial(0xFF69B4), // Hot Pink
-        createClayMaterial(0xBA55D3), // Medium Orchid
-        createClayMaterial(0x87CEFA), // Light Sky Blue
-    ],
-    // Shared material for generic light washes (still used by Glowing Flower)
-    lightBeam: new THREE.MeshBasicMaterial({
-        color: 0xFFFFFF,
-        transparent: true,
-        opacity: 0.0,
-        side: THREE.DoubleSide,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false
-    })
-};
-
-// Registry for custom materials that should react to music
-export const reactiveMaterials = [];
-
-// Helper to register a material safely
-function registerReactiveMaterial(mat) {
-    if (reactiveMaterials.length < 3000) { // Safety cap matching main.js limits
-        reactiveMaterials.push(mat);
-    }
-}
-
-/**
- * Creates a blade of grass with variety.
- */
-export function createGrass(options = {}) {
-    const { color = 0x7CFC00, shape = 'tall' } = options;
-    const material = createClayMaterial(color);
-    let geo;
-    if (shape === 'tall') {
-        const height = 0.5 + Math.random();
-        geo = new THREE.BoxGeometry(0.05, height, 0.05);
-        geo.translate(0, height / 2, 0);
-        const pos = geo.attributes.position;
-        for (let i = 0; i < pos.count; i++) {
-            const y = pos.getY(i);
-            if (y > height * 0.5) {
-                const bendFactor = (y - height * 0.5) / (height * 0.5);
-                pos.setX(i, pos.getX(i) + bendFactor * 0.1);
-            }
-        }
-    } else if (shape === 'bushy') {
-        const height = 0.2 + Math.random() * 0.3;
-        geo = new THREE.CylinderGeometry(0.1, 0.05, height, 8);
-        geo.translate(0, height / 2, 0);
-    }
-    geo.computeVertexNormals();
-
-    const blade = new THREE.Mesh(geo, material);
-    blade.castShadow = true;
-    blade.userData.type = 'grass';
-    blade.userData.animationType = shape === 'tall' ? 'sway' : 'bounce';
-    blade.userData.animationOffset = Math.random() * 10;
-    return blade;
-}
+// Minimal compatibility wrapper for legacy consumers
+// Re-export everything from the new TypeScript source under `src/foliage`
+export * from './src/foliage/index.ts';
+export { THREE } from 'three';
+export const deprecated = true;
 
 /**
  * Creates a flower with variety.
