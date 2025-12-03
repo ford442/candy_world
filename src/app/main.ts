@@ -9,13 +9,22 @@ import { createSky, uSkyTopColor, uSkyBottomColor } from '@/sky';
 import { createStars, uStarPulse, uStarColor } from '@/stars';
 import { AudioSystem } from '@/audio-system';
 
-// Dynamically import the wasm-backed library
+async function loadScript(src: string) {
+  return new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = src;
+    script.onload = () => resolve(true);
+    script.onerror = () => reject(new Error(`Failed to load script: ${src}`));
+    document.head.appendChild(script);
+  });
+}
+
 (async () => {
   try {
-    await import('../assets/libopenmpt.js');
+    await loadScript('/mod-player/libopenmpt.js');
     main();
   } catch (e) {
-    console.error('Failed to load libopenmpt:', e);
+    console.error(e);
   }
 })();
 
