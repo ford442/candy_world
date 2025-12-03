@@ -21,6 +21,16 @@ const foliageMaterials = {
     ],
 };
 
+// Registry for custom materials that should react to music
+export const reactiveMaterials = [];
+
+// Helper to register a material safely
+function registerReactiveMaterial(mat) {
+    if (reactiveMaterials.length < 3000) { // Safety cap matching main.js limits
+        reactiveMaterials.push(mat);
+    }
+}
+
 /**
  * Creates a blade of grass with variety.
  * @param {Object} options - Options for grass: color, shape ('tall', 'bushy')
@@ -86,7 +96,13 @@ export function createFlower(options = {}) {
     head.add(center);
 
     // Petals based on shape
-    let petalMat = color ? createClayMaterial(color) : foliageMaterials.flowerPetal[Math.floor(Math.random() * foliageMaterials.flowerPetal.length)];
+    let petalMat;
+    if (color) {
+        petalMat = createClayMaterial(color);
+        registerReactiveMaterial(petalMat);
+    } else {
+        petalMat = foliageMaterials.flowerPetal[Math.floor(Math.random() * foliageMaterials.flowerPetal.length)];
+    }
     if (shape === 'simple') {
         const petalCount = 5 + Math.floor(Math.random() * 2);
         const petalGeo = new THREE.IcosahedronGeometry(0.15, 0);
@@ -137,6 +153,7 @@ export function createFlower(options = {}) {
             const petalGeo = new THREE.IcosahedronGeometry(0.12, 0);
             petalGeo.scale(1, 0.5, 1);
             const layerColor = layer === 0 ? petalMat : createClayMaterial(color ? color + 0x111111 : 0xFFD700); // Slightly different color
+            if (layer !== 0) registerReactiveMaterial(layerColor);
             for (let i = 0; i < petalCount; i++) {
                 const angle = (i / petalCount) * Math.PI * 2 + (layer * Math.PI / petalCount);
                 const petal = new THREE.Mesh(petalGeo, layerColor);
@@ -758,37 +775,39 @@ export function updateFoliageMaterials(audioData, isNight) {
         const channels = audioData.channelData;
         if (!channels || channels.length === 0) return;
 
-        // 1. Flower Petals (Melody/Leads)
-        foliageMaterials.flowerPetal.forEach((mat, i) => {
-            // Skip kick (0), use 1-4
-            const chIndex = 1 + (i % 4);
-            const ch = channels[Math.min(chIndex, channels.length-1)];
+        const updateMats = (mats, startCh) => {
+            mats.forEach((mat, i) => {
+                const chIndex = startCh + (i % 4);
+                const ch = channels[Math.min(chIndex, channels.length - 1)];
 
-            const trigger = ch?.trigger || 0;
-            const volume = ch?.volume || 0;
-            const freq = ch?.freq || 0;
+                const trigger = ch?.trigger || 0;
+                const volume = ch?.volume || 0;
+                const freq = ch?.freq || 0;
 
-            if (freq > 0) {
-                 let targetHue = freqToHue(freq);
+                if (freq > 0) {
+                     let targetHue = freqToHue(freq);
 
-                 // Shift hue based on material index to get variety even with same note
-                 targetHue = (targetHue + i * 0.2) % 1.0;
+                     // Shift hue based on material index to get variety even with same note
+                     targetHue = (targetHue + i * 0.1) % 1.0;
 
-                 // High Saturation (1.0), Medium Lightness (0.5) ensures rich color
-                 const color = new THREE.Color().setHSL(targetHue, 1.0, 0.5);
-                 mat.emissive.lerp(color, 0.3);
-            } else {
-                 // Fade to a base night glow if silent (e.g. Deep Purple/Blue)
-                 mat.emissive.lerp(new THREE.Color(0x220044), 0.1);
-            }
+                     // High Saturation (1.0), Medium Lightness (0.5) ensures rich color
+                     const color = new THREE.Color().setHSL(targetHue, 1.0, 0.5);
+                     mat.emissive.lerp(color, 0.3);
+                } else {
+                     // Fade to a base night glow if silent (e.g. Deep Purple/Blue)
+                     mat.emissive.lerp(new THREE.Color(0x220044), 0.1);
+                }
 
-            // Intensity: Cap at 1.5 to prevent blowout to white
-            // Base 0.2 + reactive
-            const intensity = 0.2 + volume * 0.5 + trigger * 1.5;
-            mat.emissiveIntensity = intensity;
-        });
+                // Intensity: Cap at 1.5 to prevent blowout to white
+                // Base 0.2 + reactive
+                const intensity = 0.2 + volume * 0.5 + trigger * 1.5;
+                mat.emissiveIntensity = intensity;
+            });
+        };
 
-        // 2. Flower Center (Kick/Pulse)
+        updateMats(foliageMaterials.flowerPetal, 1);
+        updateMats(reactiveMaterials, 1);
+
         foliageMaterials.flowerCenter.emissive.setHex(0xFFFACD); // Keep warm yellow
         foliageMaterials.flowerCenter.emissiveIntensity = 0.5 + audioData.kickTrigger * 2.0;
 
@@ -801,10 +820,14 @@ export function updateFoliageMaterials(audioData, isNight) {
 
     } else {
         // Reset to day state (no emission)
-        foliageMaterials.flowerPetal.forEach(mat => {
-            mat.emissive.setHex(0x000000);
-            mat.emissiveIntensity = 0;
-        });
+        const resetMats = (mats) => {
+            mats.forEach(mat => {
+                mat.emissive.setHex(0x000000);
+                mat.emissiveIntensity = 0;
+            });
+        };
+        resetMats(foliageMaterials.flowerPetal);
+        resetMats(reactiveMaterials);
         foliageMaterials.flowerCenter.emissive.setHex(0x000000);
         foliageMaterials.flowerCenter.emissiveIntensity = 0;
 
