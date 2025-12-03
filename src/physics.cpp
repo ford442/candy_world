@@ -50,15 +50,12 @@ void updateParticles(float* data, int count, float dt) {
     }
 }
 
-// New C++ Terrain Height function (can be used if you switch to C++ for logic)
+// Collision Check Stub (to match interface expected by JS)
 EMSCRIPTEN_KEEPALIVE
-float getTerrainHeight(float x, float z) {
-    float h = 0.0f;
-    h += sin(x * 0.05f) * 2.0f + cos(z * 0.05f) * 2.0f;
-    h += sin(x * 0.1f) * 0.8f + cos(z * 0.1f) * 0.8f;
-    h += sin(x * 0.2f) * 0.3f + cos(z * 0.2f) * 0.3f;
-    return h;
+int checkCollision(float playerX, float playerZ, float playerRadius, int objectCount) {
+    // Placeholder logic
+    // In a real implementation, we would check against an obstacle buffer
+    return 0;
 }
 
 }
-
