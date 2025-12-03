@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "npm run build:asc && npm run build:cpp && vite build",
-    "build:asc": "asc assembly/index.ts --target release --outFile public/build/optimized.wasm",
+    "build:asc": "asc assembly/index.ts --outFile public/build/optimized.wasm --textFile build/optimized.wat --optimizeLevel 2 --shrinkLevel 0",
     "build:cpp": "if [ -f ./emsdk/emsdk_env.sh ]; then bash -lc \"source ./emsdk/emsdk_env.sh && emcc src/physics.cpp -O3 -s WASM=1 -s STANDALONE_WASM=1 --no-entry -o public/build/physics.wasm\"; elif command -v emcc >/dev/null 2>&1; then emcc src/physics.cpp -O3 -s WASM=1 -s STANDALONE_WASM=1 --no-entry -o public/build/physics.wasm; else echo 'emcc not found, skipping C++ wasm build'; fi",
     "deploy": "npm run build && python3 deploy.py",
     "preview": "vite preview"

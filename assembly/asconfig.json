@@ -1,0 +1,8 @@
+{
+  "entries": ["./index.ts"],
+  "options": {
+    "optimizeLevel": 0,
+    "shrinkLevel": 0,
+    "outFile": "../public/build/optimized.wasm"
+  }
+}

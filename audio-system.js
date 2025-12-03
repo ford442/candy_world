@@ -68,12 +68,23 @@ export class AudioSystem {
 
     async init() {
         if (!window.libopenmptReady) {
-            console.error("libopenmptReady promise not found.");
+            console.warn("libopenmptReady promise not found. Audio disabled.");
+            this.isReady = false;
             return;
         }
 
         try {
-            const lib = await window.libopenmptReady;
+            const lib = await Promise.race([
+                window.libopenmptReady,
+                new Promise((_, reject) => setTimeout(() => reject(new Error('libopenmpt init timeout')), 5000))
+            ]);
+
+            // Check if lib is valid
+            if (!lib || typeof lib !== 'object' || !lib._malloc) {
+                console.warn("libopenmpt not properly initialized. Audio disabled.");
+                this.isReady = false;
+                return;
+            }
 
             // Polyfills if needed (copied from hook)
             if (!lib.UTF8ToString) {
@@ -103,9 +114,10 @@ export class AudioSystem {
 
             this.libopenmpt = lib;
             this.isReady = true;
-            console.log("AudioSystem initialized.");
+            console.log("✅ AudioSystem initialized.");
         } catch (err) {
-            console.error("AudioSystem init failed:", err);
+            console.warn("AudioSystem init failed (non-fatal):", err.message);
+            this.isReady = false;
         }
     }
 

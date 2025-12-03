@@ -79,16 +79,44 @@
         }
     </script>
     <script>
+        // Pre-initialize libopenmpt with exception handling stubs
         window.libopenmptReady = new Promise(resolve => {
             window.libopenmpt = {
                 onRuntimeInitialized: function() {
-                    console.log('libopenmpt runtime initialized via pre-load script.');
+                    console.log('✅ libopenmpt runtime initialized.');
                     resolve(this);
                 }
             };
+            // Provide exception handling exports that libopenmpt may need
+            window.libopenmpt.__cxa_throw = () => {
+                console.error('libopenmpt: C++ exception thrown (stubbed)');
+            };
+            window.libopenmpt.__cxa_allocate_exception = () => 0;
+            window.libopenmpt.__cxa_begin_catch = () => 0;
+            window.libopenmpt.__cxa_end_catch = () => {};
         });
+        
+        // Load libopenmpt with error handling
+        const libopenmptScript = document.createElement('script');
+        libopenmptScript.src = 'https://wasm.noahcohn.com/libmpt/libopenmptjs.js';
+        libopenmptScript.onerror = () => {
+            console.warn('⚠️ Failed to load libopenmpt from CDN. Music upload disabled.');
+            // Resolve anyway so app can continue
+            window.libopenmptReady.then(() => {}).catch(() => {});
+        };
+        document.head.appendChild(libopenmptScript);
+        
+        // Timeout: if libopenmpt doesn't init within 5 seconds, proceed anyway
+        setTimeout(() => {
+            if (!window.libopenmpt || !window.libopenmpt.ModuleFactory) {
+                console.warn('⚠️ libopenmpt initialization timeout (5s). App will continue without music support.');
+                // Mark as ready to unblock app
+                if (window.libopenmptReady.then) {
+                    window.libopenmptReady.resolve?.({ /* dummy */ });
+                }
+            }
+        }, 5000);
     </script>
-    <script src="https://wasm.noahcohn.com/libmpt/libopenmptjs.js"></script>
 </head>
 <body>
     <div id="instructions">

@@ -163,18 +163,32 @@ let wasmMemory = null;
 let getTerrainHeightWasm = null;
 let generateTerrainMeshWasm = null;
 
+// Shared memory for terrain WASM
+const terrainMemory = new WebAssembly.Memory({ initial: 16, maximum: 256 });
+
 (async () => {
-    const wasmModule = await wasmInit();
-    wasmTerrain = wasmModule;
-    wasmMemory = wasmModule.memory;
-    getTerrainHeightWasm = wasmModule.getTerrainHeight;
-    generateTerrainMeshWasm = wasmModule.generateTerrainMesh;
+    // AssemblyScript requires env imports
+    // Vite's ?init returns a WebAssembly.Instance
+    const instance = await wasmInit({
+        env: {
+            memory: terrainMemory,
+            seed: () => Math.random(),
+            abort: (msg, file, line, col) => console.error(`WASM abort at ${line}:${col}`)
+        }
+    });
+    // Access exports from the instance
+    const wasmExports = instance.exports || instance;
+    wasmTerrain = wasmExports;
+    wasmMemory = terrainMemory;
+    getTerrainHeightWasm = wasmExports.getTerrainHeight;
+    generateTerrainMeshWasm = wasmExports.generateTerrainMesh;
 
     // Fill the ground mesh using WASM terrain
     const width = 129;
     const depth = 129;
     const spacing = 300 / (width - 1);
-    const bufferPtr = wasmTerrain.__heap_base.value || 1024;
+    // Use a safe fixed offset for the buffer (no __heap_base export in simple AS modules)
+    const bufferPtr = 1024;
     generateTerrainMeshWasm(bufferPtr, width, depth, spacing);
     const heights = new Float32Array(wasmMemory.buffer, bufferPtr, width * depth);
     for (let z = 0; z < depth; z++) {
