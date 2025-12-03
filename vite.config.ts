@@ -9,7 +9,7 @@ export default defineConfig({
     viteStaticCopy({
       targets: [
         {
-          src: 'assets/libopenmpt.js',
+          src: 'src/assets/libopenmpt.js',
           dest: 'assets'
         }
       ]
