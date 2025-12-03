@@ -155,7 +155,9 @@ const groundGeo = new THREE.PlaneGeometry(300, 300, 128, 128); // Doubled resolu
 const posAttribute = groundGeo.attributes.position;
 
 // --- WASM Terrain Integration ---
-import wasmInit from './build/optimized.wasm';
+// Use Vite-friendly wasm init import so the bundler receives an initializer
+// See: https://vitejs.dev/guide/features.html#webassembly
+import wasmInit from './build/optimized.wasm?init';
 let wasmTerrain = null;
 let wasmMemory = null;
 let getTerrainHeightWasm = null;
@@ -323,7 +325,7 @@ function createMushroom(x, z, options = {}) {
 
     faceGroup.add(leftEye, rightEye, smile);
     group.add(faceGroup);
-    group.add(cap; // Add cap to group
+    group.add(cap); // Add cap to group
 
     worldGroup.add(group);
 
