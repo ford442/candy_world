@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-// Use Vite's ?init pattern to bundle the WASM correctly
-import wasmInit from './build/optimized.wasm?init';
+// Use Vite's ?init pattern to bundle the C++ WASM correctly
+import wasmInit from './build/physics.wasm?init';
 
 export class WasmParticleSystem {
     constructor(count, scene) {
@@ -17,58 +17,63 @@ export class WasmParticleSystem {
 
     async initWasm() {
         try {
-            // Use Vite's ?init loader which handles WASM bundling correctly
-            console.log('Initializing WASM particles via Vite loader...');
+            console.log('Initializing C++ WASM particles via Vite loader...');
             
-            // Create memory for the WASM module
-            // 5000 particles * 8 floats * 4 bytes = 160KB, plus offset, need at least 3 pages (192KB)
-            const memory = new WebAssembly.Memory({ initial: 4, maximum: 256 });
+            // Emscripten Standalone WASM exports its memory.
+            // We do NOT create memory here. We let the module provide it.
             
-            // AssemblyScript requires these env imports
-            // Vite's ?init returns a WebAssembly.Instance
-            const instance = await wasmInit({
+            // Note: Emscripten generated WASM often expects 'env' imports even if standalone,
+            // but usually for syscalls. For a pure computation module with -s STANDALONE_WASM,
+            // it shouldn't need much.
+            // However, we pass an empty env or basic mocks just in case.
+            const imports = {
                 env: {
-                    memory: memory,
-                    seed: () => Math.random(),
-                    abort: (msg, file, line, col) => console.error(`WASM abort at ${line}:${col}`)
+                    emscripten_notify_memory_growth: (idx) => {
+                        console.log('WASM Memory grew at index ' + idx);
+                    }
                 }
-            });
+            };
+
+            const instance = await wasmInit(imports);
             
             // Access exports from the instance
             this.wasm = instance.exports || instance;
             
-            // Use the memory we passed in (also exported by the module)
-            this.memory = memory;
+            // Use the memory exported by the C++ module
+            this.memory = this.wasm.memory;
             
             // Debug Exports
             const exportNames = Object.keys(this.wasm).filter(key => typeof this.wasm[key] === 'function');
-            console.log("✅ WASM Particles Loaded. Function Exports:", exportNames);
+            console.log("✅ C++ WASM Particles Loaded. Function Exports:", exportNames);
 
-            // Smart Function Detection
-            this.updateFn = this.wasm.updateParticles || this.wasm._updateParticles;
+            // Function Detection (Emscripten usually prefixes with _)
+            this.updateFn = this.wasm._updateParticles || this.wasm.updateParticles;
+            this.malloc = this.wasm._malloc || this.wasm.malloc; // If we need to allocate
+            this.free = this.wasm._free || this.wasm.free;
 
             if (!this.updateFn) {
                 console.error("❌ CRITICAL: 'updateParticles' function not found in WASM exports!");
-                console.error("Available Exports:", exportNames);
-                console.error("Did you compile 'assembly/index.ts' correctly?");
                 return;
             }
 
             // Memory Setup
-            // Use a safe fixed offset (no __heap_base export in simple AS modules)
-            this.ptr = 1024;
+            // Since we are using C++, we should ideally use malloc to get a safe pointer.
+            // But if we want to keep it simple and just use an offset, we need to know where the heap starts.
+            // Emscripten exports `__heap_base` usually.
 
-            // Ensure we have enough memory for particle buffer
-            const requiredBytes = this.ptr + this.byteSize;
-            const currentBytes = this.memory.buffer.byteLength;
-            if (currentBytes < requiredBytes) {
-                const pagesNeeded = Math.ceil((requiredBytes - currentBytes) / 65536) + 1;
-                try {
-                    this.memory.grow(pagesNeeded);
-                    console.log(`📦 Grew WASM memory by ${pagesNeeded} pages`);
-                } catch(e) {
-                    console.error("WASM Memory grow failed:", e);
-                }
+            if (this.malloc) {
+                this.ptr = this.malloc(this.byteSize);
+                console.log(`📦 Allocated ${this.byteSize} bytes via malloc at ${this.ptr}`);
+            } else {
+                 // Fallback if malloc isn't exported (though we should export it)
+                 // Use a safe offset (e.g. after stack).
+                 this.ptr = this.wasm.__heap_base ? this.wasm.__heap_base.value : 1024;
+                 console.log(`📦 Using manual offset at ${this.ptr}`);
+            }
+
+            // Ensure memory is large enough (Emscripten usually handles this if we use malloc, but if we go OOB or manual...)
+            if (this.memory.buffer.byteLength < this.ptr + this.byteSize) {
+                this.memory.grow(Math.ceil((this.ptr + this.byteSize - this.memory.buffer.byteLength) / 65536));
             }
 
             console.log(`📦 WASM Memory: ${this.memory.buffer.byteLength} bytes, particle buffer at offset ${this.ptr}`);
@@ -78,7 +83,7 @@ export class WasmParticleSystem {
             this.isReady = true;
 
         } catch (e) {
-            console.error("Failed to init WASM particles:", e);
+            console.error("Failed to init C++ WASM particles:", e);
         }
     }
 
@@ -124,13 +129,15 @@ export class WasmParticleSystem {
             this.updateFn(this.ptr, this.count, deltaTime);
 
             // Sync with Three.js
-            const wasmFloats = new Float32Array(this.memory.buffer, this.ptr, this.count * this.floatsPerParticle);
+            // Note: If memory grew, the buffer is detached, so we must re-create the view
+            const f32 = new Float32Array(this.memory.buffer, this.ptr, this.count * this.floatsPerParticle);
+
             for (let i = 0; i < this.count; i++) {
                 const wIdx = i * this.floatsPerParticle;
                 const pIdx = i * 3;
-                this.positions[pIdx] = wasmFloats[wIdx];
-                this.positions[pIdx+1] = wasmFloats[wIdx+1];
-                this.positions[pIdx+2] = wasmFloats[wIdx+2];
+                this.positions[pIdx] = f32[wIdx];
+                this.positions[pIdx+1] = f32[wIdx+1];
+                this.positions[pIdx+2] = f32[wIdx+2];
             }
             this.mesh.geometry.attributes.position.needsUpdate = true;
         } catch (e) {
