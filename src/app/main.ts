@@ -21,7 +21,7 @@ async function loadScript(src: string) {
 
 (async () => {
   try {
-    await loadScript('/mod-player/libopenmpt.js');
+    await loadScript('mod-player/libopenmpt.js');
     main();
   } catch (e) {
     console.error(e);
