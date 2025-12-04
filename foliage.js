@@ -17,7 +17,7 @@ const foliageMaterials = {
     flowerPetal: [
         createClayMaterial(0xFF69B4), // Hot Pink
         createClayMaterial(0xBA55D3), // Medium Orchid
-        createClayMaterial(0x87CEFA), // Light Sky Blue
+        createClay-material(0x87CEFA), // Light Sky Blue
     ],
     // Shared material for generic light washes (still used by Glowing Flower)
     lightBeam: new THREE.MeshBasicMaterial({
@@ -157,9 +157,21 @@ export function createFlower(options = {}) {
         }
     }
 
+    // Add a light beam to some flowers
+    if (Math.random() > 0.5) {
+        const beamGeo = new THREE.ConeGeometry(0.1, 1, 8, 1, true);
+        beamGeo.translate(0, 0.5, 0);
+        const beamMat = foliageMaterials.lightBeam.clone();
+        const beam = new THREE.Mesh(beamGeo, beamMat);
+        beam.position.y = stemHeight;
+        beam.userData.isBeam = true;
+        group.add(beam);
+    }
+
     group.userData.animationOffset = Math.random() * 10;
     group.userData.animationType = 'sway';
     group.userData.type = 'flower';
+    group.userData.isFlower = true;
     return group;
 }
 
@@ -979,36 +991,32 @@ export function animateFoliage(foliageObject, time, audioData, isDay) {
     const originalY = foliageObject.userData.originalY;
 
     // --- Special: Animate Light Beams/Wash ---
-    foliageObject.children.forEach(child => {
-        if (child.userData.isBeam) {
-            child.rotation.y += 0.05 + spin * 0.01;
-            const targetScale = 1.0 + kick * 2.0;
-            child.scale.setScalar(targetScale);
-
-            // Per-object opacity update for individual colored beams
-            if (!isDay && child.material && child.material !== foliageMaterials.lightBeam) {
-                // Flash on kick, decay rest of time
-                let beamOpacity = kick * 0.6;
-                // Basic strobe
-                if (Math.random() > 0.8) beamOpacity += 0.2;
-                child.material.opacity = beamOpacity;
-            } else if (isDay) {
-                child.material.opacity = 0;
+    if (foliageObject.userData.isFlower) {
+        const melodyCh = audioData?.channelData?.[1];
+        if (melodyCh && melodyCh.trigger) {
+            const hue = freqToHue(melodyCh.freq);
+            const center = foliageObject.getObjectByName('flowerCenter');
+            if (center) {
+                center.material.emissive.setHSL(hue, 1, 0.5);
+            }
+            const beam = foliageObject.getObjectByProperty('isBeam', true);
+            if (beam) {
+                beam.material.color.setHSL(hue, 1, 0.5);
+                beam.material.opacity = 1.0;
+                beam.scale.y = 10;
+            }
+        } else {
+            const center = foliageObject.getObjectByName('flowerCenter');
+            if (center) {
+                center.material.emissive.setHSL(0, 0, 0);
+            }
+            const beam = foliageObject.getObjectByProperty('isBeam', true);
+            if (beam) {
+                beam.material.opacity *= 0.9;
+                beam.scale.y *= 0.9;
             }
         }
-        if (child.userData.isWash) {
-            const washScale = 1.0 + Math.sin(time * 2) * 0.2 + kick;
-            child.scale.setScalar(washScale);
-
-            // Per-object opacity for individual colored washes
-            if (!isDay && child.material && child.material !== foliageMaterials.lightBeam) {
-                let washOpacity = 0.2 + kick * 0.3; // Always slightly visible
-                child.material.opacity = washOpacity;
-            } else if (isDay) {
-                child.material.opacity = 0;
-            }
-        }
-    });
+    }
 
     if (plantType === 'tree' || plantType === 'mushroom') {
         if (squash > 1.01) foliageObject.scale.set(squash, 1.0 / squash, squash);

@@ -138,7 +138,7 @@ const worldGroup = new THREE.Group();
 scene.add(worldGroup);
 
 // Initialize Instancing (Grass)
-initGrassSystem(scene, 10000); // Pre-allocate 10k blades
+initGrassSystem(scene, 20000); // Pre-allocate 20k blades
 
 // 3. Trees
 function createTree(x, z) {
@@ -188,6 +188,7 @@ function createMushroom(x, z, options = {}) {
     const stemR = 0.3 + Math.random() * 0.2;
     const stemGeo = new THREE.CylinderGeometry(stemR * 0.8, stemR, stemH, 16); // Increased segments
     const stem = new THREE.Mesh(stemGeo, materials.mushroomStem);
+    stem.position.y = stemH / 2;
     stem.castShadow = true;
     group.add(stem);
 
@@ -223,7 +224,7 @@ function createMushroom(x, z, options = {}) {
     smile.position.set(0, -0.05, 0);
 
     faceGroup.add(leftEye, rightEye, smile);
-    group.add(faceGroup);
+    stem.add(faceGroup);
     group.add(cap); // Add cap to group
 
     worldGroup.add(group);
