@@ -624,6 +624,9 @@ async function main() {
       await renderer.renderAsync(scene, camera);
   }
   
-  // Start the main application logic
-  main();
+  // Start the animation loop
+  renderer.setAnimationLoop(animate);
 }
+
+// Start the main application logic
+main();

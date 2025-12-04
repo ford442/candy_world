@@ -68,6 +68,17 @@
             box-shadow: 0 2px 0 #ccc;
         }
     </style>
+    <!-- Set up libopenmpt configuration before loading the script -->
+    <script>
+        window.libopenmptReady = new Promise(resolve => {
+            window.libopenmpt = {
+                onRuntimeInitialized: function() {
+                    console.log('libopenmpt runtime initialized.');
+                    resolve(this);
+                }
+            };
+        });
+    </script>
     <script src="./libopenmpt.js"></script>
     <script type="importmap">
         {
