@@ -35,7 +35,7 @@ function waitForLibOpenMPT() {
 (async () => {
   try {
     // First, get the script on the page
-    await loadScript('mod-player/libopenmpt.js');
+    await loadScript('/libopenmpt.js');
     // Second, wait for the library to announce its readiness
     await waitForLibOpenMPT();
     // NOW it's safe to run the main application logic
