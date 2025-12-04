@@ -62,7 +62,7 @@ export function createStars(count = 2000) {
     // Color: Mix white with uStarColor based on pulse
     const finalColor = mix(color(0xFFFFFF), uStarColor, uStarPulse.mul(0.8));
 
-    mat.colorNode = finalColor;
+    mat.colorNode = finalColor.mul(mat.color);
     // Size attenuation manually or using built-in?
     // PointsNodeMaterial handles size if we set sizeNode
     mat.sizeNode = aSize.mul(intensity.max(0.2)); // Minimum size 0.2
