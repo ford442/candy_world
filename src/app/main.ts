@@ -9,42 +9,8 @@ import { createSky, uSkyTopColor, uSkyBottomColor } from '@/sky';
 import { createStars, uStarPulse, uStarColor } from '@/stars';
 import { AudioSystem } from '@/audio-system';
 
-async function loadScript(src: string) {
-  return new Promise((resolve, reject) => {
-    const script = document.createElement('script');
-    script.src = src;
-    script.onload = () => resolve(true);
-    script.onerror = () => reject(new Error(`Failed to load script: ${src}`));
-    document.head.appendChild(script);
-  });
-}
-
-function waitForLibOpenMPT() {
-  return new Promise<void>((resolve) => {
-    const check = () => {
-      if ((window as any).libopenmptReady) {
-        resolve();
-      } else {
-        setTimeout(check, 50); // Check again in 50ms
-      }
-    };
-    check();
-  });
-}
-
-(async () => {
-  try {
-    // First, get the script on the page
-    await loadScript('./libopenmpt.js');
-    // Second, wait for the library to announce its readiness
-    await waitForLibOpenMPT();
-    // NOW it's safe to run the main application logic
-    main();
-  } catch (e) {
-    console.error(e);
-  }
-})();
-
+// The main logic is now wrapped in a single async function
+// and will be called directly.
 async function main() {
   // --- Configuration ---
   const CONFIG = {
@@ -657,7 +623,7 @@ async function main() {
       });
       await renderer.renderAsync(scene, camera);
   }
-
-  renderer.setAnimationLoop(animate);
-  window.addEventListener('resize', () => { camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); });
+  
+  // Start the main application logic
+  main();
 }
