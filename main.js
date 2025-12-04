@@ -1041,12 +1041,19 @@ spawnKingMushroomZone(-100, -100);
 
 // --- Loop ---
 const clock = new THREE.Clock();
+let audioState = null;
+let audioUpdateTimer = 0;
+const audioUpdateInterval = 1 / 30; // 30 Hz
 
 async function animate() {
     const delta = clock.getDelta();
     const t = clock.getElapsedTime();
 
-    const audioState = audioSystem.update();
+    audioUpdateTimer += delta;
+    if (audioUpdateTimer >= audioUpdateInterval) {
+        audioUpdateTimer = 0;
+        audioState = audioSystem.update();
+    }
 
     // Day/Night Transition
     const targetFactor = isNight ? 1.0 : 0.0;
@@ -1054,8 +1061,8 @@ async function animate() {
 
     // Update Sky
     // Darker night sky target (Deep dark blue/purple to almost black)
-    uSkyTopColor.value.lerpColors(new THREE.Color(0x87CEEB), new THREE.Color(0x000000), dayNightFactor);
-    uSkyBottomColor.value.lerpColors(new THREE.Color(0xFFB6C1), new THREE.Color(0x000000), dayNightFactor);
+    uSkyTopColor.value.lerpColors(new THREE.Color(0x87CEEB), new THREE.Color(0x000020), dayNightFactor);
+    uSkyBottomColor.value.lerpColors(new THREE.Color(0xADD8E6), new THREE.Color(0x000020), dayNightFactor);
 
     // Update Fog to match darker night
     const dayFog = new THREE.Color(CONFIG.colors.fog);
