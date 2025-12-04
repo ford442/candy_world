@@ -19,9 +19,26 @@ async function loadScript(src: string) {
   });
 }
 
+function waitForLibOpenMPT() {
+  return new Promise<void>((resolve) => {
+    const check = () => {
+      if ((window as any).libopenmptReady) {
+        resolve();
+      } else {
+        setTimeout(check, 50); // Check again in 50ms
+      }
+    };
+    check();
+  });
+}
+
 (async () => {
   try {
+    // First, get the script on the page
     await loadScript('mod-player/libopenmpt.js');
+    // Second, wait for the library to announce its readiness
+    await waitForLibOpenMPT();
+    // NOW it's safe to run the main application logic
     main();
   } catch (e) {
     console.error(e);
