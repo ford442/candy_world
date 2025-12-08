@@ -1063,8 +1063,8 @@ async function animate() {
 
     // Update Sky
     // Darker night sky target (Deep dark blue/purple to almost black)
-    uSkyTopColor.value.lerpColors(new THREE.Color(0x87CEEB), new THREE.Color(0x203060), dayNightFactor); // Lighter midnight blue
-    uSkyBottomColor.value.lerpColors(new THREE.Color(0xADD8E6), new THREE.Color(0x604070), dayNightFactor); // Purple horizon
+    uSkyTopColor.value.lerpColors(new THREE.Color(0x87CEEB), new THREE.Color(0x152040), dayNightFactor); // Darker midnight blue
+    uSkyBottomColor.value.lerpColors(new THREE.Color(0xADD8E6), new THREE.Color(0x302040), dayNightFactor); // Darker Purple horizon
 
     // Update Fog to match darker night
     const dayFog = new THREE.Color(CONFIG.colors.fog);
@@ -1073,7 +1073,7 @@ async function animate() {
 
     // Update Light - Darker at night
     sunLight.intensity = THREE.MathUtils.lerp(0.8, 0.1, dayNightFactor); // Sun completely gone -> faint moon
-    ambientLight.intensity = THREE.MathUtils.lerp(1.0, 0.15, dayNightFactor); // Dim ambient (was 0.02)
+    ambientLight.intensity = THREE.MathUtils.lerp(1.0, 0.06, dayNightFactor); // Dim ambient (was 0.15)
 
     // Update Stars
     if (stars.material) {
