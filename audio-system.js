@@ -60,6 +60,9 @@ export class AudioSystem {
         this.stereoPanner = null;
         this.gainNode = null;
 
+        this.leftBufferPtr = 0;
+        this.rightBufferPtr = 0;
+
         this.moduleInfo = { title: '...', order: 0, row: 0, bpm: 0, numChannels: 0 };
         this.patternMatrices = {};
         this.channelStates = []; // Array of channel state objects
@@ -239,8 +242,17 @@ export class AudioSystem {
 
             const lib = this.libopenmpt;
             const modPtr = this.currentModulePtr;
-            const leftBufferPtr = lib._malloc(BUFFER_SIZE * 4);
-            const rightBufferPtr = lib._malloc(BUFFER_SIZE * 4);
+
+            // Clean up any old buffers if they exist (though stop() should have handled this)
+            if (this.leftBufferPtr) lib._free(this.leftBufferPtr);
+            if (this.rightBufferPtr) lib._free(this.rightBufferPtr);
+
+            this.leftBufferPtr = lib._malloc(BUFFER_SIZE * 4);
+            this.rightBufferPtr = lib._malloc(BUFFER_SIZE * 4);
+
+            // Capture pointers for closure
+            const lPtr = this.leftBufferPtr;
+            const rPtr = this.rightBufferPtr;
 
             this.scriptNode = this.audioContext.createScriptProcessor(BUFFER_SIZE, 0, 2);
 
@@ -251,7 +263,7 @@ export class AudioSystem {
                 // SAFETY GUARD: Check if we are still the active node and supposed to be playing
                 if (!this.isPlaying || this.scriptNode !== currentNode) return;
 
-                const frames = lib._openmpt_module_read_float_stereo(modPtr, SAMPLE_RATE, BUFFER_SIZE, leftBufferPtr, rightBufferPtr);
+                const frames = lib._openmpt_module_read_float_stereo(modPtr, SAMPLE_RATE, BUFFER_SIZE, lPtr, rPtr);
                 if (frames === 0) {
                     lib._openmpt_module_set_position_order_row(modPtr, 0, 0);
                     return;
@@ -259,8 +271,8 @@ export class AudioSystem {
 
                 const leftOutput = e.outputBuffer.getChannelData(0);
                 const rightOutput = e.outputBuffer.getChannelData(1);
-                leftOutput.set(new Float32Array(lib.HEAPF32.buffer, leftBufferPtr, frames));
-                rightOutput.set(new Float32Array(lib.HEAPF32.buffer, rightBufferPtr, frames));
+                leftOutput.set(new Float32Array(lib.HEAPF32.buffer, lPtr, frames));
+                rightOutput.set(new Float32Array(lib.HEAPF32.buffer, rPtr, frames));
             };
 
             this.stereoPanner = this.audioContext.createStereoPanner();
@@ -285,6 +297,17 @@ export class AudioSystem {
         if (this.stereoPanner) {
             this.stereoPanner.disconnect();
             this.stereoPanner = null;
+        }
+
+        if (this.libopenmpt) {
+            if (this.leftBufferPtr) {
+                this.libopenmpt._free(this.leftBufferPtr);
+                this.leftBufferPtr = 0;
+            }
+            if (this.rightBufferPtr) {
+                this.libopenmpt._free(this.rightBufferPtr);
+                this.rightBufferPtr = 0;
+            }
         }
 
         this.isPlaying = false;
