@@ -94,7 +94,7 @@ if (!WebGPU.isAvailable()) {
 
 const renderer = new WebGPURenderer({ canvas, antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(window.devicePixelRatio);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5)); // Cap pixel ratio for better performance
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.0;
 
@@ -105,8 +105,8 @@ scene.add(ambientLight);
 const sunLight = new THREE.DirectionalLight(PALETTE.day.sun, 0.8);
 sunLight.position.set(50, 80, 30);
 sunLight.castShadow = true;
-sunLight.shadow.mapSize.width = 2048;
-sunLight.shadow.mapSize.height = 2048;
+sunLight.shadow.mapSize.width = 1024; // Reduced from 2048 for better performance
+sunLight.shadow.mapSize.height = 1024;
 scene.add(sunLight);
 
 // Mild Shaft Lighting / Sun Glow
@@ -130,7 +130,7 @@ function getGroundHeight(x, z) {
     return Math.sin(x * 0.05) * 2 + Math.cos(z * 0.05) * 2 + (Math.sin(x * 0.2) * 0.3 + Math.cos(z * 0.15) * 0.3);
 }
 
-const groundGeo = new THREE.PlaneGeometry(2000, 2000, 256, 256);
+const groundGeo = new THREE.PlaneGeometry(2000, 2000, 128, 128); // Reduced from 256 for better performance
 const posAttribute = groundGeo.attributes.position;
 for (let i = 0; i < posAttribute.count; i++) {
     const x = posAttribute.getX(i);
@@ -158,10 +158,10 @@ const foliageGroup = new THREE.Group();
 worldGroup.add(foliageGroup);
 
 // Initialize Grass
-initGrassSystem(scene, 30000); // Increased count for density
+initGrassSystem(scene, 10000); // Optimized count for better performance
 
 function safeAddFoliage(obj, isObstacle = false, radius = 1.0) {
-    if (animatedFoliage.length > 4000) return; // Increased limit
+    if (animatedFoliage.length > 1500) return; // Optimized limit for better performance
     foliageGroup.add(obj);
     animatedFoliage.push(obj);
     if (isObstacle) obstacles.push({ position: obj.position.clone(), radius });
@@ -174,7 +174,7 @@ function spawnCluster(cx, cz, type) {
 
     // 1. Mushroom Forest (Fixes "0 mushrooms" issue)
     if (type === 'mushroom_forest') {
-        const count = 40 + Math.random() * 20;
+        const count = 20 + Math.random() * 10; // Reduced for performance
         for (let i = 0; i < count; i++) {
             const x = cx + (Math.random() - 0.5) * 30;
             const z = cz + (Math.random() - 0.5) * 30;
@@ -195,7 +195,7 @@ function spawnCluster(cx, cz, type) {
 
     // 2. Glowing Flower Field
     else if (type === 'flower_field') {
-        const count = 60 + Math.random() * 20;
+        const count = 30 + Math.random() * 10; // Reduced for performance
         for (let i = 0; i < count; i++) {
             const x = cx + (Math.random() - 0.5) * 35;
             const z = cz + (Math.random() - 0.5) * 35;
@@ -217,7 +217,7 @@ function spawnCluster(cx, cz, type) {
 
     // 3. Weird Jungle (Subwoofers, Palms, Willows)
     else if (type === 'weird_jungle') {
-        const count = 15;
+        const count = 8; // Reduced for performance
         for (let i = 0; i < count; i++) {
             const x = cx + (Math.random() - 0.5) * 25;
             const z = cz + (Math.random() - 0.5) * 25;
@@ -236,7 +236,7 @@ function spawnCluster(cx, cz, type) {
 
     // 4. Crystal Grove (Prisms, Starflowers)
     else if (type === 'crystal_grove') {
-        const count = 25;
+        const count = 15; // Reduced for performance
         for (let i = 0; i < count; i++) {
             const x = cx + (Math.random() - 0.5) * 20;
             const z = cz + (Math.random() - 0.5) * 20;
@@ -252,8 +252,8 @@ function spawnCluster(cx, cz, type) {
 
 // Generate the Map
 const SCENE_GRID_SIZE = 40; // Spacing between centers
-const SCENE_ROWS = 6;
-const SCENE_COLS = 6;
+const SCENE_ROWS = 4; // Reduced from 6 for better performance
+const SCENE_COLS = 4; // Reduced from 6 for better performance
 const SCENE_TYPES = ['mushroom_forest', 'flower_field', 'weird_jungle', 'crystal_grove'];
 
 for (let r = -SCENE_ROWS / 2; r < SCENE_ROWS / 2; r++) {
@@ -266,7 +266,7 @@ for (let r = -SCENE_ROWS / 2; r < SCENE_ROWS / 2; r++) {
         spawnCluster(cx, cz, SCENE_TYPES[typeIndex]);
 
         // Fill gaps with grass
-        for (let k = 0; k < 20; k++) {
+        for (let k = 0; k < 10; k++) { // Reduced from 20 for better performance
             const gx = cx + (Math.random() - 0.5) * 40;
             const gz = cz + (Math.random() - 0.5) * 40;
             const gy = getGroundHeight(gx, gz);
@@ -276,8 +276,8 @@ for (let r = -SCENE_ROWS / 2; r < SCENE_ROWS / 2; r++) {
 }
 
 // Rain Clouds
-for (let i = 0; i < 20; i++) {
-    const cloud = createRainingCloud({ rainIntensity: 100 });
+for (let i = 0; i < 10; i++) { // Reduced from 20 for better performance
+    const cloud = createRainingCloud({ rainIntensity: 30 }); // Reduced from 100 for better performance
     cloud.position.set((Math.random() - 0.5) * 200, 35 + Math.random() * 10, (Math.random() - 0.5) * 200);
     scene.add(cloud);
     animatedFoliage.push(cloud);
@@ -485,7 +485,19 @@ function animate() {
     if (stars.material) stars.material.opacity = THREE.MathUtils.lerp(stars.material.opacity, starOpacity, delta);
 
     updateFoliageMaterials(audioState, isNight);
-    animatedFoliage.forEach(f => animateFoliage(f, t, audioState, !isNight));
+    
+    // Distance-based animation culling for better performance
+    const camPos = camera.position;
+    const maxAnimationDistance = 50; // Only animate objects within 50 units
+    const maxDistanceSq = maxAnimationDistance * maxAnimationDistance;
+    
+    animatedFoliage.forEach(f => {
+        // Skip animation for objects far from camera
+        const distSq = f.position.distanceToSquared(camPos);
+        if (distSq > maxDistanceSq) return;
+        
+        animateFoliage(f, t, audioState, !isNight);
+    });
 
     // Player Movement
     if (controls.isLocked) {
