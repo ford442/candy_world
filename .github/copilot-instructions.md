@@ -129,7 +129,7 @@ Currently, this project has no automated testing infrastructure. Testing is done
 - **Import Paths**: Use the import map defined in `index.html` for Three.js modules
 - **Geometry Translation**: Remember to translate geometry to anchor objects at their base
 - **TSL Syntax**: TSL nodes require method chaining (e.g., `.add()`, `.normalize()`)
-- **Async Renderer**: WebGPU renderer is async; use `await renderer.render()` in animation loop
+- **WebGPU Renderer**: Use `renderer.setAnimationLoop(animate)` for animation loops with WebGPU renderer, and `await renderer.renderAsync(scene, camera)` within async animation functions
 
 ## Performance Considerations
 
