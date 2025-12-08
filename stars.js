@@ -28,9 +28,7 @@ export function createStars(count = 2000) {
         const z = r * Math.cos(phi);
 
         positions[i * 3] = x;
-        positions[i * 3 + 1] = Math.abs(y); // Keep above horizon mostly? Or full sphere?
-        // Let's do full sphere but mask in shader if needed.
-        // Actually for sky, full sphere is fine, but ground covers bottom.
+        positions[i * 3 + 1] = Math.abs(y); // Keep above horizon mostly
         positions[i * 3 + 2] = z;
 
         sizes[i] = Math.random() * 1.5 + 0.5;
@@ -46,7 +44,8 @@ export function createStars(count = 2000) {
         transparent: true,
         opacity: 0.0, // Hidden by default (Day)
         blending: THREE.AdditiveBlending,
-        depthWrite: false
+        depthWrite: false,
+        fog: false // <--- CRITICAL FIX: Stars are far away, so we must ignore scene fog
     });
 
     // TSL Logic
