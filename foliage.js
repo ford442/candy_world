@@ -17,7 +17,7 @@ const foliageMaterials = {
     flowerPetal: [
         createClayMaterial(0xFF69B4), // Hot Pink
         createClayMaterial(0xBA55D3), // Medium Orchid
-        createClay-material(0x87CEFA), // Light Sky Blue
+        createClayMaterial(0x87CEFA), // Light Sky Blue
     ],
     // Shared material for generic light washes (still used by Glowing Flower)
     lightBeam: new THREE.MeshBasicMaterial({
