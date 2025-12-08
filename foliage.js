@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { color, mix, positionLocal, normalWorld, viewDirection, float, time, sin, cos, vec3, uniform, attribute } from 'three/tsl';
+import { color, mix, positionLocal, normalWorld, float, time, sin, cos, vec3, uniform, attribute } from 'three/tsl';
 import { PointsNodeMaterial } from 'three/webgpu';
 
 // --- Helper: Rim Lighting Effect ---
