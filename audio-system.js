@@ -123,15 +123,29 @@ export class AudioSystem {
     }
 
     async loadModule(file) {
-        if (!this.isReady) return;
-        const arrayBuffer = await file.arrayBuffer();
-        const fileData = new Uint8Array(arrayBuffer);
-        this.processModuleData(fileData, file.name);
+        if (!this.isReady) {
+            console.warn("AudioSystem not ready yet.");
+            return;
+        }
+
+        // Ensure context is resumed on user gesture
+        if (this.audioContext && this.audioContext.state === 'suspended') {
+            await this.audioContext.resume();
+        }
+
+        try {
+            const arrayBuffer = await file.arrayBuffer();
+            const fileData = new Uint8Array(arrayBuffer);
+            this.processModuleData(fileData, file.name);
+        } catch (e) {
+            console.error("Error reading file:", e);
+        }
     }
 
     processModuleData(fileData, fileName) {
         if (!this.libopenmpt) return;
 
+        // CRITICAL FIX: Stop cleanly before destroying memory
         this.stop(false);
 
         if (this.currentModulePtr !== 0) {
@@ -229,8 +243,13 @@ export class AudioSystem {
             const rightBufferPtr = lib._malloc(BUFFER_SIZE * 4);
 
             this.scriptNode = this.audioContext.createScriptProcessor(BUFFER_SIZE, 0, 2);
+
+            // Capture the current node in closure to check validity later
+            const currentNode = this.scriptNode;
+
             this.scriptNode.onaudioprocess = (e) => {
-                if (!this.isPlaying) return;
+                // SAFETY GUARD: Check if we are still the active node and supposed to be playing
+                if (!this.isPlaying || this.scriptNode !== currentNode) return;
 
                 const frames = lib._openmpt_module_read_float_stereo(modPtr, SAMPLE_RATE, BUFFER_SIZE, leftBufferPtr, rightBufferPtr);
                 if (frames === 0) {
@@ -257,7 +276,9 @@ export class AudioSystem {
     }
 
     stop(fullReset = true) {
+        // 1. Kill the audio processing immediately
         if (this.scriptNode) {
+            this.scriptNode.onaudioprocess = null; // CRITICAL: Stop callbacks
             this.scriptNode.disconnect();
             this.scriptNode = null;
         }
@@ -265,9 +286,15 @@ export class AudioSystem {
             this.stereoPanner.disconnect();
             this.stereoPanner = null;
         }
+
         this.isPlaying = false;
+
         if (fullReset && this.currentModulePtr && this.libopenmpt) {
-            this.libopenmpt._openmpt_module_set_position_order_row(this.currentModulePtr, 0, 0);
+            try {
+                this.libopenmpt._openmpt_module_set_position_order_row(this.currentModulePtr, 0, 0);
+            } catch (e) {
+                console.warn("Failed to reset position:", e);
+            }
         }
     }
 
