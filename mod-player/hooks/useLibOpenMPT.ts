@@ -110,6 +110,9 @@ export function useLibOpenMPT(volume: number = 1.0) {
   const stopMusic = useCallback((ended = false) => {
     if (!scriptNodeRef.current) return;
 
+    // FIX: Immediately remove the callback so no audio processes run during teardown
+    scriptNodeRef.current.onaudioprocess = null;
+
     scriptNodeRef.current.disconnect();
     scriptNodeRef.current = null;
     if (stereoPannerRef.current) {
@@ -121,6 +124,7 @@ export function useLibOpenMPT(volume: number = 1.0) {
     setIsPlaying(false);
     cancelAnimationFrame(animationFrameHandle.current);
 
+    // Reset position safely
     if (currentModulePtr.current !== 0 && libopenmptRef.current) {
       try {
         libopenmptRef.current._openmpt_module_set_position_order_row(currentModulePtr.current, 0, 0);
@@ -131,7 +135,7 @@ export function useLibOpenMPT(volume: number = 1.0) {
 
     setPatternData(ended ? '... Song Ended ...' : '... Stopped ...');
     if (ended) {
-        setStatus(`Finished playing "${moduleInfoRef.current.title}".`);
+      setStatus(`Finished playing "${moduleInfoRef.current.title}".`);
     }
   }, []);
 
@@ -140,90 +144,93 @@ export function useLibOpenMPT(volume: number = 1.0) {
     rowBufferRef.current = {};
     patternMatricesRef.current = {};
     setTimeout(() => {
-        try {
-            const numOrders = lib._openmpt_module_get_num_orders(modPtr);
-            const numChannels = lib._openmpt_module_get_num_channels(modPtr);
-            setModuleInfo(prev => ({ ...prev, numChannels }));
+      try {
+        const numOrders = lib._openmpt_module_get_num_orders(modPtr);
+        const numChannels = lib._openmpt_module_get_num_channels(modPtr);
+        setModuleInfo(prev => ({ ...prev, numChannels }));
 
-            for (let o = 0; o < numOrders; o++) {
-                const pattern = lib._openmpt_module_get_order_pattern(modPtr, o);
-                if (pattern >= lib._openmpt_module_get_num_patterns(modPtr)) continue;
-                const numRows = lib._openmpt_module_get_pattern_num_rows(modPtr, pattern);
+        for (let o = 0; o < numOrders; o++) {
+          const pattern = lib._openmpt_module_get_order_pattern(modPtr, o);
+          if (pattern >= lib._openmpt_module_get_num_patterns(modPtr)) continue;
+          const numRows = lib._openmpt_module_get_pattern_num_rows(modPtr, pattern);
 
-                // initialize matrix rows
-                const matrixRows: PatternCell[][] = Array.from({ length: numRows }, () =>
-                    Array.from({ length: numChannels }, () => ({ type: 'empty', text: '' }))
-                );
+          // initialize matrix rows
+          const matrixRows: PatternCell[][] = Array.from({ length: numRows }, () =>
+            Array.from({ length: numChannels }, () => ({ type: 'empty', text: '' }))
+          );
 
-                for (let r = 0; r < numRows; r++) {
-                     let line = "";
-                     for (let c = 0; c < numChannels; c++) {
-                         const commandPtr = lib._openmpt_module_format_pattern_row_channel(modPtr, pattern, r, c, 12, 1);
-                         const commandStr = lib.UTF8ToString(commandPtr);
-                         lib._openmpt_free_string(commandPtr);
-                         line += " " + commandStr.replace(/ /g, '&nbsp;') + " |";
+          for (let r = 0; r < numRows; r++) {
+            let line = "";
+            for (let c = 0; c < numChannels; c++) {
+              const commandPtr = lib._openmpt_module_format_pattern_row_channel(modPtr, pattern, r, c, 12, 1);
+              const commandStr = lib.UTF8ToString(commandPtr);
+              lib._openmpt_free_string(commandPtr);
+              line += " " + commandStr.replace(/ /g, '&nbsp;') + " |";
 
-                        // Parse commandStr into a PatternCell (simple heuristics)
-                        const raw = (commandStr || '').trim();
-                        let cellType: 'note' | 'effect' | 'instrument' | 'empty' = 'empty';
-                        if (!raw || /^[-\.\s]+$/.test(raw)) {
-                            cellType = 'empty';
-                        } else if (/[A-Ga-g][#b]?\d/.test(raw)) {
-                            // e.g., C-4, A#3
-                            cellType = 'note';
-                        } else if (/^\d{1,3}$/.test(raw) || /^i\d+/i.test(raw)) {
-                            // pure numeric instrument ids
-                            cellType = 'instrument';
-                        } else if (/^[0-9A-Fa-f]{1,4}$/.test(raw) || /[A-Za-z]+=/.test(raw) || /[0-9A-Fa-f]{1,2}/.test(raw)) {
-                            cellType = 'effect';
-                        } else {
-                            // default to effect for other non-empty commands
-                            cellType = 'effect';
-                        }
+              // Parse commandStr into a PatternCell (simple heuristics)
+              const raw = (commandStr || '').trim();
+              let cellType: 'note' | 'effect' | 'instrument' | 'empty' = 'empty';
+              if (!raw || /^[-\.\s]+$/.test(raw)) {
+                cellType = 'empty';
+              } else if (/[A-Ga-g][#b]?\d/.test(raw)) {
+                // e.g., C-4, A#3
+                cellType = 'note';
+              } else if (/^\d{1,3}$/.test(raw) || /^i\d+/i.test(raw)) {
+                // pure numeric instrument ids
+                cellType = 'instrument';
+              } else if (/^[0-9A-Fa-f]{1,4}$/.test(raw) || /[A-Za-z]+=/.test(raw) || /[0-9A-Fa-f]{1,2}/.test(raw)) {
+                cellType = 'effect';
+              } else {
+                // default to effect for other non-empty commands
+                cellType = 'effect';
+              }
 
-                        matrixRows[r][c] = { type: cellType, text: raw };
-                     }
-                     rowBufferRef.current[`${o}-${r}`] = line;
-                 }
+              matrixRows[r][c] = { type: cellType, text: raw };
+            }
+            rowBufferRef.current[`${o}-${r}`] = line;
+          }
 
-                patternMatricesRef.current[o] = {
-                     order: o,
-                     patternIndex: pattern,
-                     numRows,
-                     numChannels,
-                     rows: matrixRows,
-                 };
-             }
-             // compute total rows across orders
-             {
-               let total = 0;
-               const keys = Object.keys(patternMatricesRef.current);
-               for (let idx = 0; idx < keys.length; idx++) {
-                 const k = Number(keys[idx]);
-                 const m = patternMatricesRef.current[k];
-                 if (m) total += m.numRows;
-               }
-               setTotalPatternRows(total);
-             }
-             setStatus(`Loaded "${title}". Ready to play.`);
-             console.log("Pattern data cached.");
-         } catch (e) {
-             console.error("Failed to cache pattern data:", e);
-             setStatus("Error: Failed to cache patterns. See console.");
-         }
-     }, 50);
-   }, []);
+          patternMatricesRef.current[o] = {
+            order: o,
+            patternIndex: pattern,
+            numRows,
+            numChannels,
+            rows: matrixRows,
+          };
+        }
+        // compute total rows across orders
+        {
+          let total = 0;
+          const keys = Object.keys(patternMatricesRef.current);
+          for (let idx = 0; idx < keys.length; idx++) {
+            const k = Number(keys[idx]);
+            const m = patternMatricesRef.current[k];
+            if (m) total += m.numRows;
+          }
+          setTotalPatternRows(total);
+        }
+        setStatus(`Loaded "${title}". Ready to play.`);
+        console.log("Pattern data cached.");
+      } catch (e) {
+        console.error("Failed to cache pattern data:", e);
+        setStatus("Error: Failed to cache patterns. See console.");
+      }
+    }, 50);
+  }, []);
 
   const processModuleData = useCallback(async (fileData: Uint8Array, fileName: string) => {
     if (!libopenmptRef.current) return;
 
-    if (isPlayingRef.current) {
+    // Ensure previous playback is completely stopped
+    if (isPlayingRef.current || scriptNodeRef.current) {
       stopMusic(false);
     }
 
     if (currentModulePtr.current !== 0) {
-        libopenmptRef.current._openmpt_module_destroy(currentModulePtr.current);
-        currentModulePtr.current = 0;
+      // FIX: Invalidate pointer first so other async tasks don't use it
+      const oldPtr = currentModulePtr.current;
+      currentModulePtr.current = 0;
+      libopenmptRef.current._openmpt_module_destroy(oldPtr);
     }
     rowBufferRef.current = {};
     patternMatricesRef.current = {};
@@ -232,36 +239,36 @@ export function useLibOpenMPT(volume: number = 1.0) {
     setStatus(`Loading "${fileName}"...`);
 
     try {
-        const lib = libopenmptRef.current;
+      const lib = libopenmptRef.current;
 
-        const bufferPtr = lib._malloc(fileData.length);
-        lib.HEAPU8.set(fileData, bufferPtr);
+      const bufferPtr = lib._malloc(fileData.length);
+      lib.HEAPU8.set(fileData, bufferPtr);
 
-        const modPtr = lib._openmpt_module_create_from_memory2(bufferPtr, fileData.length, 0, 0, 0, 0, 0, 0, 0);
-        lib._free(bufferPtr);
+      const modPtr = lib._openmpt_module_create_from_memory2(bufferPtr, fileData.length, 0, 0, 0, 0, 0, 0, 0);
+      lib._free(bufferPtr);
 
-        if (modPtr === 0) {
-            throw new Error(`Failed to load module "${fileName}".`);
-        }
-        currentModulePtr.current = modPtr;
+      if (modPtr === 0) {
+        throw new Error(`Failed to load module "${fileName}".`);
+      }
+      currentModulePtr.current = modPtr;
 
-        const titleKeyPtr = lib.stringToUTF8("title");
-        const titleValuePtr = lib._openmpt_module_get_metadata(modPtr, titleKeyPtr);
-        const title = lib.UTF8ToString(titleValuePtr) || fileName;
-        lib._free(titleKeyPtr);
-        lib._openmpt_free_string(titleValuePtr);
+      const titleKeyPtr = lib.stringToUTF8("title");
+      const titleValuePtr = lib._openmpt_module_get_metadata(modPtr, titleKeyPtr);
+      const title = lib.UTF8ToString(titleValuePtr) || fileName;
+      lib._free(titleKeyPtr);
+      lib._openmpt_free_string(titleValuePtr);
 
-        setModuleInfo({ ...INITIAL_MODULE_INFO, title });
-        setIsModuleLoaded(true);
-        preCachePatternData(modPtr, lib, title);
+      setModuleInfo({ ...INITIAL_MODULE_INFO, title });
+      setIsModuleLoaded(true);
+      preCachePatternData(modPtr, lib, title);
 
     } catch (e) {
-        console.error("Failed to load module:", e);
-        const error = e as Error;
-        setStatus(`Error: ${error.message}. See console.`);
-        if (error.name === "TypeError") {
-            setStatus("Error: libopenmpt.js may be missing required C API functions.");
-        }
+      console.error("Failed to load module:", e);
+      const error = e as Error;
+      setStatus(`Error: ${error.message}. See console.`);
+      if (error.name === "TypeError") {
+        setStatus("Error: libopenmpt.js may be missing required C API functions.");
+      }
     }
   }, [stopMusic, preCachePatternData]);
 
@@ -370,6 +377,10 @@ export function useLibOpenMPT(volume: number = 1.0) {
 
       scriptNodeRef.current = audioContextRef.current.createScriptProcessor(BUFFER_SIZE, 0, 2);
       scriptNodeRef.current.onaudioprocess = (e) => {
+        // FIX: Safety check - if scriptNodeRef is null or disconnected, stop processing
+        // This prevents the closure from accessing modPtr after destruction
+        if (!scriptNodeRef.current) return;
+
         try {
           const frames = lib._openmpt_module_read_float_stereo(modPtr, SAMPLE_RATE, BUFFER_SIZE, leftBufferPtr, rightBufferPtr);
           if (frames === 0) {
@@ -453,7 +464,7 @@ export function useLibOpenMPT(volume: number = 1.0) {
             const heap = lib.HEAPU8;
             let i = 0, j = 0;
             while (i < jsString.length) {
-                heap[ptr + j++] = jsString.charCodeAt(i++);
+              heap[ptr + j++] = jsString.charCodeAt(i++);
             }
             heap[ptr + j] = 0;
             return ptr;
@@ -473,6 +484,7 @@ export function useLibOpenMPT(volume: number = 1.0) {
     return () => {
       console.log("Cleaning up libopenmpt resources.");
       if (scriptNodeRef.current) {
+        scriptNodeRef.current.onaudioprocess = null; // FIX: Ensure clean detach on unmount
         scriptNodeRef.current.disconnect();
       }
       if (stereoPannerRef.current) {
