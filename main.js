@@ -3,34 +3,76 @@ import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockCont
 import WebGPU from 'three/examples/jsm/capabilities/WebGPU.js';
 import { WebGPURenderer, PointsNodeMaterial } from 'three/webgpu';
 import { color, float, vec3, time, positionLocal, attribute, storage, uniform, uv } from 'three/tsl';
-import { createFlower, createGrass, createFloweringTree, createShrub, animateFoliage, createGlowingFlower, createFloatingOrb, createVine, createStarflower, createBellBloom, createWisteriaCluster, createRainingCloud, createLeafParticle, createGlowingFlowerPatch, createFloatingOrbCluster, createVineCluster, createBubbleWillow, createPuffballFlower, createHelixPlant, createBalloonBush, initGrassSystem, addGrassInstance } from './foliage.js';
-import { createSky } from './sky.js';
+import { createFlower, createGrass, createFloweringTree, createShrub, animateFoliage, createGlowingFlower, createFloatingOrb, createVine, createStarflower, createBellBloom, createWisteriaCluster, createRainingCloud, createLeafParticle, createGlowingFlowerPatch, createFloatingOrbCluster, createVineCluster, createBubbleWillow, createPuffballFlower, createHelixPlant, createBalloonBush, createPrismRoseBush, initGrassSystem, addGrassInstance, updateFoliageMaterials, createSubwooferLotus, createAccordionPalm, createFiberOpticWillow } from './foliage.js';
+import { createSky, uSkyTopColor, uSkyBottomColor } from './sky.js';
+// FIX: Add uStarOpacity to imports
+import { createStars, uStarPulse, uStarColor, uStarOpacity } from './stars.js';
+import { AudioSystem } from './audio-system.js';
 
 // --- Configuration ---
-const CONFIG = {
-    colors: {
-        sky: 0x87CEEB,        // Sky Blue
-        ground: 0x98FB98,     // Pale Green
-        fog: 0xFFB6C1,        // Light Pink fog
-        light: 0xFFFFFF,
-        ambient: 0xFFA07A     // Light Salmon
+const PALETTE = {
+    day: {
+        skyTop: new THREE.Color(0x87CEEB),
+        skyBot: new THREE.Color(0xADD8E6),
+        fog: new THREE.Color(0xFFB6C1),
+        sun: new THREE.Color(0xFFFFFF),
+        amb: new THREE.Color(0xFFFFFF),
+        sunInt: 0.8,
+        ambInt: 0.6
+    },
+    sunset: {
+        skyTop: new THREE.Color(0x483D8B),
+        skyBot: new THREE.Color(0xFF4500),
+        fog: new THREE.Color(0xDB7093),
+        sun: new THREE.Color(0xFF8C00),
+        amb: new THREE.Color(0x800000),
+        sunInt: 0.5,
+        ambInt: 0.4
+    },
+    night: {
+        skyTop: new THREE.Color(0x020205),
+        skyBot: new THREE.Color(0x050510),
+        fog: new THREE.Color(0x050510),
+        sun: new THREE.Color(0x223355),
+        amb: new THREE.Color(0x050510),
+        sunInt: 0.1,
+        ambInt: 0.05
+    },
+    sunrise: {
+        skyTop: new THREE.Color(0x40E0D0),
+        skyBot: new THREE.Color(0xFF69B4),
+        fog: new THREE.Color(0xFFDAB9),
+        sun: new THREE.Color(0xFFD700),
+        amb: new THREE.Color(0xFFB6C1),
+        sunInt: 0.6,
+        ambInt: 0.5
     }
 };
+
+const CONFIG = {
+    colors: { ground: 0x98FB98 }
+};
+
+const CYCLE_DURATION = 420;
 
 // --- Scene Setup ---
 const canvas = document.querySelector('#glCanvas');
 const scene = new THREE.Scene();
-scene.fog = new THREE.Fog(CONFIG.colors.fog, 20, 100);
+scene.fog = new THREE.Fog(PALETTE.day.fog, 20, 100);
 
-// Sky
 const sky = createSky();
 scene.add(sky);
 
-const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-// Initial camera position (will be overridden by player logic, but good for initial frame)
+const stars = createStars();
+scene.add(stars);
+
+const audioSystem = new AudioSystem();
+let isNight = false;
+let timeOffset = 0; // Manual time shift for Day/Night toggle
+
+const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000); // Increased far plane
 camera.position.set(0, 5, 0);
 
-// Check for WebGPU support
 if (!WebGPU.isAvailable()) {
     const warning = WebGPU.getErrorMessage();
     document.body.appendChild(warning);
@@ -44,21 +86,14 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.0;
 
 // --- Lighting ---
-const ambientLight = new THREE.HemisphereLight(CONFIG.colors.sky, CONFIG.colors.ground, 1.0); // Increased intensity
+const ambientLight = new THREE.HemisphereLight(PALETTE.day.skyTop, CONFIG.colors.ground, 1.0);
 scene.add(ambientLight);
 
-const sunLight = new THREE.DirectionalLight(CONFIG.colors.light, 0.8); // Decreased intensity
+const sunLight = new THREE.DirectionalLight(PALETTE.day.sun, 0.8);
 sunLight.position.set(50, 80, 30);
 sunLight.castShadow = true;
 sunLight.shadow.mapSize.width = 2048;
 sunLight.shadow.mapSize.height = 2048;
-sunLight.shadow.camera.near = 0.5;
-sunLight.shadow.camera.far = 200;
-sunLight.shadow.camera.left = -100;
-sunLight.shadow.camera.right = 100;
-sunLight.shadow.camera.top = 100;
-sunLight.shadow.camera.bottom = -100;
-sunLight.shadow.bias = -0.0005;
 scene.add(sunLight);
 
 // --- Materials ---
@@ -94,149 +129,16 @@ const materials = {
         transparent: true,
         opacity: 0.9
     }),
-    // Add a new material for drivable mushrooms (e.g., bright blue)
-    drivableMushroomCap: createClayMaterial(0x00BFFF) // Deep Sky Blue
+    drivableMushroomCap: createClayMaterial(0x00BFFF)
 };
 
-// --- Physics Data ---
-const obstacles = [];
+// --- Helper Objects ---
+const eyeGeo = new THREE.SphereGeometry(0.05, 16, 16);
 
-// --- Procedural Generation ---
-
-// 1. Ground (Rolling Hills)
-const groundGeo = new THREE.PlaneGeometry(300, 300, 64, 64);
-const posAttribute = groundGeo.attributes.position;
-for (let i = 0; i < posAttribute.count; i++) {
-    const x = posAttribute.getX(i);
-    const y = posAttribute.getY(i);
-    // Simple sine waves for hills
-    const z = Math.sin(x * 0.05) * 2 + Math.cos(y * 0.05) * 2;
-    posAttribute.setZ(i, z);
-}
-groundGeo.computeVertexNormals();
-const ground = new THREE.Mesh(groundGeo, materials.ground);
-ground.rotation.x = -Math.PI / 2;
-ground.receiveShadow = true;
-scene.add(ground);
-
-// Helper to get ground height at x, z
-function getGroundHeight(x, z) {
-    return Math.sin(x * 0.05) * 2 + Math.cos(-z * 0.05) * 2;
-}
-
-// 2. Objects Container
-const worldGroup = new THREE.Group();
-scene.add(worldGroup);
-
-// Initialize Instancing (Grass)
-initGrassSystem(scene, 10000); // Pre-allocate 10k blades
-
-// 3. Trees
-function createTree(x, z) {
-    const height = getGroundHeight(x, z);
-    const group = new THREE.Group();
-    group.position.set(x, height, z);
-
-    // Trunk
-    const trunkH = 3 + Math.random() * 2;
-    const trunkRadius = 0.5; // Avg radius of base
-    const trunkGeo = new THREE.CylinderGeometry(0.3, trunkRadius, trunkH, 16); // Increased segments
-    const trunk = new THREE.Mesh(trunkGeo, materials.trunk);
-    trunk.position.y = trunkH / 2;
-    trunk.castShadow = true;
-    trunk.receiveShadow = true;
-    group.add(trunk);
-
-    // Leaves (Spheres)
-    const leavesR = 1.5 + Math.random();
-    const leavesGeo = new THREE.SphereGeometry(leavesR, 32, 32); // Increased segments
-    const matIndex = Math.floor(Math.random() * materials.leaves.length);
-    const leaves = new THREE.Mesh(leavesGeo, materials.leaves[matIndex]);
-    leaves.position.y = trunkH + leavesR * 0.8;
-    leaves.castShadow = true;
-    leaves.receiveShadow = true;
-    group.add(leaves);
-
-    worldGroup.add(group);
-
-    // Add to obstacles for collision
-    obstacles.push({
-        position: new THREE.Vector3(x, height, z),
-        radius: 0.8 // Slightly larger than trunk
-    });
-}
-
-// 4. Fantasy Mushrooms with Faces
-const eyeGeo = new THREE.SphereGeometry(0.05, 16, 16); // Geometry for eyes
-
-function createMushroom(x, z, options = {}) {
-    const height = getGroundHeight(x, z);
-    const group = new THREE.Group();
-    group.position.set(x, height, z);
-
-    // Stem
-    const stemH = 1.5 + Math.random();
-    const stemR = 0.3 + Math.random() * 0.2;
-    const stemGeo = new THREE.CylinderGeometry(stemR * 0.8, stemR, stemH, 16); // Increased segments
-    const stem = new THREE.Mesh(stemGeo, materials.mushroomStem);
-    stem.castShadow = true;
-    group.add(stem);
-
-    // Cap
-    const capR = stemR * 3 + Math.random();
-    // Use Sphere but cut off bottom
-    const capGeo = new THREE.SphereGeometry(capR, 32, 32, 0, Math.PI * 2, 0, Math.PI / 2); // Increased segments
-
-    let capMaterial;
-    let isDrivable = false;
-    if (options.drivable) {
-        capMaterial = materials.drivableMushroomCap;
-        isDrivable = true;
-    } else {
-        const matIndex = Math.floor(Math.random() * materials.mushroomCap.length);
-        capMaterial = materials.mushroomCap[matIndex];
-    }
-    const cap = new THREE.Mesh(capGeo, capMaterial);
-    cap.position.y = stemH;
-
-    // Face
-    const faceGroup = new THREE.Group();
-    faceGroup.position.set(0, stemH * 0.6, stemR * 0.95);
-
-    const leftEye = new THREE.Mesh(eyeGeo, materials.eye);
-    leftEye.position.set(-0.15, 0.1, 0);
-    const rightEye = new THREE.Mesh(eyeGeo, materials.eye);
-    rightEye.position.set(0.15, 0.1, 0);
-
-    const smileGeo = new THREE.TorusGeometry(0.12, 0.03, 6, 12, Math.PI);
-    const smile = new THREE.Mesh(smileGeo, materials.mouth);
-    smile.rotation.z = Math.PI;
-    smile.position.set(0, -0.05, 0);
-
-    faceGroup.add(leftEye, rightEye, smile);
-    group.add(faceGroup);
-    group.add(cap); // Add cap to group
-
-    worldGroup.add(group);
-
-    // Add to obstacles for collision
-    obstacles.push({
-        position: new THREE.Vector3(x, height, z),
-        radius: stemR * 2
-    });
-
-    // Store for animation and driving
-    return { mesh: group, type: 'mushroom', speed: Math.random() * 0.02 + 0.01, offset: Math.random() * 100, drivable: isDrivable };
-}
-
-// 5. Clouds
-const clouds = [];
 function createCloud() {
     const group = new THREE.Group();
-    // Position will be set by caller
-    // Compose cloud of 3-5 spheres
     const blobs = 3 + Math.floor(Math.random() * 3);
-    for(let i=0; i<blobs; i++) {
+    for (let i = 0; i < blobs; i++) {
         const size = 2 + Math.random() * 2;
         const geo = new THREE.SphereGeometry(size, 16, 16);
         const mesh = new THREE.Mesh(geo, materials.cloud);
@@ -250,229 +152,432 @@ function createCloud() {
     return group;
 }
 
-// --- Color Palettes (Expanded) ---
-const FLOWER_COLORS = [0xFF69B4, 0xFFD700, 0x7FFFD4, 0xFF8C00, 0xDA70D6, 0x87CEFA, 0xFF6347, 0xBA55D3, 0xD8BFD8, 0xFFB7C5];
-const GRASS_COLORS = [0x6B8E23, 0x9ACD32, 0x556B2F, 0x228B22, 0x32CD32, 0x00FA9A];
-const TREE_COLORS = [0xFF69B4, 0xFFD700, 0xFF6347, 0xDA70D6, 0x87CEFA, 0x8A2BE2];
-const SHRUB_COLORS = [0x32CD32, 0x228B22, 0x6B8E23, 0x9ACD32, 0x008080];
-const PASTEL_COLORS = [0xFFB7C5, 0xE6E6FA, 0xADD8E6, 0x98FB98, 0xFFFFE0, 0xFFDAB9];
+function createWaterfall(height, colorHex = 0x87CEEB) {
+    const particleCount = 2000;
+    const geo = new THREE.BufferGeometry();
+    const positions = new Float32Array(particleCount * 3);
+    const speeds = new Float32Array(particleCount);
+    const offsets = new Float32Array(particleCount);
 
-// 6. Foliage
-const foliageGroup = new THREE.Group();
-worldGroup.add(foliageGroup);
-const animatedFoliage = [];
-const animatedObjects = []; // Mushrooms
-
-// Max Object Limit to prevent infinite spawn crash
-const MAX_OBJECTS = 2500;
-
-function safeAddFoliage(obj, isObstacle = false, obstacleRadius = 1.0) {
-    if (animatedFoliage.length > MAX_OBJECTS) return; // Hard Cap
-
-    // Add to group or scene
-    if (obj.parent !== worldGroup && obj.parent !== foliageGroup && obj.parent !== scene) {
-        foliageGroup.add(obj);
+    for (let i = 0; i < particleCount; i++) {
+        positions[i * 3] = (Math.random() - 0.5) * 2.0;
+        positions[i * 3 + 1] = 0;
+        positions[i * 3 + 2] = (Math.random() - 0.5) * 2.0;
+        speeds[i] = 1.0 + Math.random() * 2.0;
+        offsets[i] = Math.random() * height;
     }
 
-    animatedFoliage.push(obj);
-    if (isObstacle) {
-        obstacles.push({ position: obj.position.clone(), radius: obstacleRadius });
-    }
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geo.setAttribute('aSpeed', new THREE.BufferAttribute(speeds, 1));
+    geo.setAttribute('aOffset', new THREE.BufferAttribute(offsets, 1));
+
+    const mat = new PointsNodeMaterial({
+        color: colorHex,
+        size: 0.4,
+        transparent: true,
+        opacity: 0.8,
+        blending: THREE.AdditiveBlending
+    });
+
+    const aSpeed = attribute('aSpeed', 'float');
+    const aOffset = attribute('aOffset', 'float');
+    const uSpeed = uniform(1.0);
+    mat.uSpeed = uSpeed;
+
+    const t = time.mul(uSpeed);
+    const fallHeight = float(height);
+    const currentDist = aOffset.add(aSpeed.mul(t));
+    const modDist = currentDist.mod(fallHeight);
+    const newY = modDist.negate();
+
+    mat.positionNode = vec3(
+        positionLocal.x,
+        newY,
+        positionLocal.z
+    );
+
+    const waterfall = new THREE.Points(geo, mat);
+    waterfall.userData = { animationType: 'gpuWaterfall' };
+    return waterfall;
 }
 
-// --- CLUSTERING SYSTEM ---
+function createGiantMushroom(x, z, scale = 8) {
+    const height = getGroundHeight(x, z);
+    const group = new THREE.Group();
+    group.position.set(x, height, z);
 
-/**
- * Spawns a cluster of vegetation around a central point.
- */
-function spawnCluster(cx, cz) {
-    // Determine Biome / Theme for this cluster
-    const typeRoll = Math.random();
-    let count = 10 + Math.floor(Math.random() * 10);
-    let radius = 15 + Math.random() * 10;
+    const stemH = (1.5 + Math.random()) * scale;
+    const stemR = (0.3 + Math.random() * 0.2) * scale;
+    const stemGeo = new THREE.CylinderGeometry(stemR * 0.8, stemR, stemH, 16);
+    const stem = new THREE.Mesh(stemGeo, materials.mushroomStem);
+    stem.castShadow = true;
+    group.add(stem);
 
-    // Cluster Types:
-    // 1. Meadow (Grass + Flowers)
-    // 2. Forest (Trees + Shrubs)
-    // 3. Fantasy (Glowing, Mushrooms, Orbs)
-    // 4. Bubble Grove (New Bubble Willows + Puffballs)
-    // 5. Helix Garden (Helix Plants + Starflowers)
+    const capR = stemR * 3 + Math.random() * scale;
+    const capGeo = new THREE.SphereGeometry(capR, 32, 32, 0, Math.PI * 2, 0, Math.PI / 2);
+    const matIndex = Math.floor(Math.random() * materials.mushroomCap.length);
+    const capMaterial = materials.mushroomCap[matIndex];
+    const cap = new THREE.Mesh(capGeo, capMaterial);
+    cap.position.y = stemH;
 
-    if (typeRoll < 0.3) {
-        // MEADOW
-        for(let i=0; i<count*2; i++) { // Dense
-            const r = Math.random() * radius;
+    const faceGroup = new THREE.Group();
+    faceGroup.position.set(0, stemH * 0.6, stemR * 0.95);
+    faceGroup.scale.set(scale, scale, scale);
+
+    const leftEye = new THREE.Mesh(eyeGeo, materials.eye);
+    leftEye.position.set(-0.15, 0.1, 0);
+    const rightEye = new THREE.Mesh(eyeGeo, materials.eye);
+    rightEye.position.set(0.15, 0.1, 0);
+
+    const smileGeo = new THREE.TorusGeometry(0.12, 0.03, 6, 12, Math.PI);
+    const smile = new THREE.Mesh(smileGeo, materials.mouth);
+    smile.rotation.z = Math.PI;
+    smile.position.set(0, -0.05, 0);
+
+    faceGroup.add(leftEye, rightEye, smile);
+    group.add(faceGroup);
+    group.add(cap);
+
+    worldGroup.add(group);
+    obstacles.push({
+        position: new THREE.Vector3(x, height, z),
+        radius: stemR * 1.2
+    });
+
+    const anims = ['wobble', 'bounce', 'accordion'];
+    const chosenAnim = anims[Math.floor(Math.random() * anims.length)];
+    group.userData.animationType = chosenAnim;
+    group.userData.type = 'mushroom';
+
+    const giantMushroom = { mesh: group, type: 'mushroom', speed: Math.random() * 0.02 + 0.01, offset: Math.random() * 100, drivable: false };
+}
+
+function createGiantRainCloud(options = {}) {
+    const { color = 0x555555, rainIntensity = 200 } = options;
+    const group = new THREE.Group();
+
+    const cloudGeo = new THREE.SphereGeometry(4.5, 32, 32);
+    const cloudMat = materials.cloud.clone();
+    cloudMat.color.setHex(color);
+    const cloud = new THREE.Mesh(cloudGeo, cloudMat);
+    cloud.castShadow = true;
+    group.add(cloud);
+
+    const rainGeo = new THREE.BufferGeometry();
+    const positions = new Float32Array(rainIntensity * 3);
+    for (let i = 0; i < rainIntensity; i++) {
+        positions[i * 3] = (Math.random() - 0.5) * 9.0;
+        positions[i * 3 + 1] = Math.random() * -6.0;
+        positions[i * 3 + 2] = (Math.random() - 0.5) * 9.0;
+    }
+    rainGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+    const rainMat = new THREE.PointsMaterial({ color: 0x87CEEB, size: 0.05 });
+    const rain = new THREE.Points(rainGeo, rainMat);
+    group.add(rain);
+
+    group.userData.animationType = 'rain';
+    return group;
+}
+
+// --- Procedural Generation ---
+function getGroundHeight(x, z) {
+    if (isNaN(x) || isNaN(z)) return 0; // Guard
+    return Math.sin(x * 0.05) * 2 + Math.cos(z * 0.05) * 2 + (Math.sin(x * 0.2) * 0.3 + Math.cos(z * 0.15) * 0.3);
+}
+
+// FIX: Increased ground size to prevent falling off into the void
+const groundGeo = new THREE.PlaneGeometry(2000, 2000, 256, 256);
+const posAttribute = groundGeo.attributes.position;
+for (let i = 0; i < posAttribute.count; i++) {
+    const x = posAttribute.getX(i);
+    const y = posAttribute.getY(i);
+    const zWorld = -y;
+    const height = getGroundHeight(x, zWorld);
+    posAttribute.setZ(i, height);
+}
+groundGeo.computeVertexNormals();
+const groundMat = new THREE.MeshStandardMaterial({
+    color: CONFIG.colors.ground,
+    roughness: 0.8,
+    flatShading: false,
+});
+const ground = new THREE.Mesh(groundGeo, groundMat);
+ground.rotation.x = -Math.PI / 2;
+ground.receiveShadow = true;
+scene.add(ground);
+
+const worldGroup = new THREE.Group();
+scene.add(worldGroup);
+const obstacles = [];
+const animatedFoliage = [];
+const foliageGroup = new THREE.Group();
+worldGroup.add(foliageGroup);
+
+// Initialize Grass (Reduced count for safety)
+initGrassSystem(scene, 20000);
+
+function safeAddFoliage(obj, isObstacle = false, radius = 1.0) {
+    if (animatedFoliage.length > 2500) return;
+    foliageGroup.add(obj);
+    animatedFoliage.push(obj);
+    if (isObstacle) obstacles.push({ position: obj.position.clone(), radius });
+}
+
+// --- Spawn Logic ---
+// --- Spawn Logic ---
+const CLUSTER_COUNT = 60;
+for (let i = 0; i < CLUSTER_COUNT; i++) {
+    const cx = (Math.random() - 0.5) * 260;
+    const cz = (Math.random() - 0.5) * 260;
+    const type = Math.random();
+    const subRoll = Math.random();
+
+    if (type < 0.2) { // Swamp
+        for (let j = 0; j < 5; j++) {
+            const x = cx + (Math.random() - 0.5) * 15;
+            const z = cz + (Math.random() - 0.5) * 15;
+            const y = getGroundHeight(x, z);
+            const lotus = createSubwooferLotus({ color: 0x2E8B57 });
+            lotus.position.set(x, y + 0.5, z);
+            safeAddFoliage(lotus);
+        }
+        for (let j = 0; j < 2; j++) {
+            const x = cx + (Math.random() - 0.5) * 20;
+            const z = cz + (Math.random() - 0.5) * 20;
+            const y = getGroundHeight(x, z);
+            const willow = createFiberOpticWillow();
+            willow.position.set(x, y, z);
+            safeAddFoliage(willow, true, 1.0);
+        }
+    } else if (type < 0.4) { // Accordion
+        for (let j = 0; j < 6; j++) {
+            const x = cx + (Math.random() - 0.5) * 15;
+            const z = cz + (Math.random() - 0.5) * 15;
+            const y = getGroundHeight(x, z);
+            const palm = createAccordionPalm({ color: 0xFF6347 });
+            palm.position.set(x, y, z);
+            safeAddFoliage(palm, true, 0.8);
+        }
+    } else if (type < 0.6) { // Meadow
+        for (let j = 0; j < 150; j++) {
+            const r = Math.random() * 10;
             const theta = Math.random() * Math.PI * 2;
             const x = cx + r * Math.cos(theta);
             const z = cz + r * Math.sin(theta);
             const y = getGroundHeight(x, z);
-
-            if(Math.random() < 0.7) {
-                // Instanced Grass
-                addGrassInstance(x, y, z);
-            } else {
-                const color = FLOWER_COLORS[Math.floor(Math.random() * FLOWER_COLORS.length)];
-                const shape = ['simple', 'multi', 'spiral'][Math.floor(Math.random() * 3)];
-                const flower = createFlower({color, shape});
-                flower.position.set(x, y, z);
-                safeAddFoliage(flower);
-            }
+            addGrassInstance(x, y, z);
         }
-    } else if (typeRoll < 0.5) {
-        // FOREST
-        count = 5 + Math.floor(Math.random() * 3);
-        for(let i=0; i<count; i++) {
-            const r = Math.random() * radius;
+        for (let j = 0; j < 8; j++) {
+            const r = Math.random() * 8;
             const theta = Math.random() * Math.PI * 2;
             const x = cx + r * Math.cos(theta);
             const z = cz + r * Math.sin(theta);
-
-            if (Math.random() < 0.4) {
-                createTree(x, z); // Standard Tree
-            } else {
-                const color = TREE_COLORS[Math.floor(Math.random() * TREE_COLORS.length)];
-                const tree = createFloweringTree({ color });
-                tree.position.set(x, getGroundHeight(x,z), z);
-                safeAddFoliage(tree, true, 1.5);
-            }
+            const y = getGroundHeight(x, z);
+            const f = createFlower({ color: 0xFF69B4 });
+            f.position.set(x, y, z);
+            safeAddFoliage(f);
         }
-        // Undergrowth
-        for(let i=0; i<count*2; i++) {
-             const r = Math.random() * radius;
-             const theta = Math.random() * Math.PI * 2;
-             const x = cx + r * Math.cos(theta);
-             const z = cz + r * Math.sin(theta);
-             const color = SHRUB_COLORS[Math.floor(Math.random() * SHRUB_COLORS.length)];
-             const shrub = createShrub({ color });
-             shrub.position.set(x, getGroundHeight(x,z), z);
-             safeAddFoliage(shrub, true, 0.8);
-        }
-    } else if (typeRoll < 0.7) {
-        // FANTASY
-        for(let i=0; i<count; i++) {
-            const r = Math.random() * radius;
-            const theta = Math.random() * Math.PI * 2;
-            const x = cx + r * Math.cos(theta);
-            const z = cz + r * Math.sin(theta);
-
-            const subRoll = Math.random();
+    } else if (type < 0.8) { // Fantasy (Mushroom Zone)
+        for (let j = 0; j < 8; j++) {
+            const x = cx + (Math.random() - 0.5) * 15;
+            const z = cz + (Math.random() - 0.5) * 15;
             if (subRoll < 0.3) {
-                 const m = createMushroom(x, z);
-                 animatedObjects.push(m);
-            } else if (subRoll < 0.6) {
-                 const patch = createGlowingFlowerPatch(x, z);
-                 safeAddFoliage(patch);
+                // Small Mushrooms
+                const m = createMushroom(x, z);
+                // m is a wrapper { mesh: group } to support animation targeting
+                if (m && m.mesh) {
+                    safeAddFoliage(m.mesh, false);
+                }
             } else {
-                 const cluster = createFloatingOrbCluster(x, z);
-                 safeAddFoliage(cluster);
+                // Other fantasy plants
+                const y = getGroundHeight(x, z);
+                const plant = createPuffballFlower();
+                plant.position.set(x, y, z);
+                safeAddFoliage(plant);
             }
         }
-    } else if (typeRoll < 0.85) {
-        // BUBBLE GROVE (New)
-        // Bubble Willows + Puffballs
-        for (let i=0; i<5; i++) { // Trees
-            const r = Math.random() * radius;
-            const theta = Math.random() * Math.PI * 2;
-            const x = cx + r * Math.cos(theta);
-            const z = cz + r * Math.sin(theta);
-            const color = PASTEL_COLORS[Math.floor(Math.random() * PASTEL_COLORS.length)];
-            const tree = createBubbleWillow({ color });
-            tree.position.set(x, getGroundHeight(x,z), z);
-            safeAddFoliage(tree, true, 1.2);
+    } else { // Weird
+        for (let j = 0; j < 5; j++) {
+            const x = cx + (Math.random() - 0.5) * 15;
+            const z = cz + (Math.random() - 0.5) * 15;
+            const y = getGroundHeight(x, z);
+            const obj = Math.random() < 0.5 ? createPrismRoseBush() : createBubbleWillow();
+            obj.position.set(x, y, z);
+            safeAddFoliage(obj);
         }
-        for (let i=0; i<10; i++) { // Flowers
-            const r = Math.random() * radius;
-            const theta = Math.random() * Math.PI * 2;
-            const x = cx + r * Math.cos(theta);
-            const z = cz + r * Math.sin(theta);
-            const color = FLOWER_COLORS[Math.floor(Math.random() * FLOWER_COLORS.length)];
-            const puff = createPuffballFlower({ color });
-            puff.position.set(x, getGroundHeight(x,z), z);
-            safeAddFoliage(puff);
-        }
-    } else {
-        // HELIX GARDEN (New)
-        for (let i=0; i<12; i++) {
-            const r = Math.random() * radius;
-            const theta = Math.random() * Math.PI * 2;
-            const x = cx + r * Math.cos(theta);
-            const z = cz + r * Math.sin(theta);
-
-            if (Math.random() < 0.5) {
-                const color = PASTEL_COLORS[Math.floor(Math.random() * PASTEL_COLORS.length)];
-                const helix = createHelixPlant({ color });
-                helix.position.set(x, getGroundHeight(x,z), z);
-                safeAddFoliage(helix);
-            } else {
-                 const color = FLOWER_COLORS[Math.floor(Math.random() * FLOWER_COLORS.length)];
-                 const sf = createStarflower({ color });
-                 sf.position.set(x, getGroundHeight(x,z), z);
-                 safeAddFoliage(sf);
-            }
-        }
-        // Add a balloon bush or two
-         for (let i=0; i<3; i++) {
-            const r = Math.random() * radius;
-            const theta = Math.random() * Math.PI * 2;
-            const x = cx + r * Math.cos(theta);
-            const z = cz + r * Math.sin(theta);
-            const bb = createBalloonBush({ color: 0xFF4500 });
-            bb.position.set(x, getGroundHeight(x,z), z);
-            safeAddFoliage(bb, true, 1.0);
-         }
     }
 }
 
-// Generate the world using Clusters
-const CLUSTER_COUNT = 60; // How many patches
-for (let i=0; i<CLUSTER_COUNT; i++) {
-    const cx = (Math.random() - 0.5) * 260;
-    const cz = (Math.random() - 0.5) * 260;
-    spawnCluster(cx, cz);
+function createMushroom(x, z) {
+    const height = getGroundHeight(x, z);
+    const group = new THREE.Group();
+    group.position.set(x, height, z);
+
+    // Stem
+    const stem = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.1, 0.15, 0.4, 8),
+        materials.mushroomStem
+    );
+    stem.position.y = 0.2;
+    stem.castShadow = true;
+    group.add(stem);
+
+    // Cap
+    const cap = new THREE.Mesh(
+        new THREE.SphereGeometry(0.3, 16, 16, 0, Math.PI * 2, 0, Math.PI / 2),
+        materials.mushroomCap[Math.floor(Math.random() * materials.mushroomCap.length)]
+    );
+    cap.position.y = 0.4;
+    cap.castShadow = true;
+    group.add(cap);
+
+    group.userData.animationType = 'bounce'; // Use bounce/squash
+    group.userData.type = 'mushroom';
+
+    return { mesh: group, type: 'mushroom' };
 }
 
-// Clouds: increase 15 -> 25
 const rainingClouds = [];
-
-for(let i=0; i<25; i++) {
-    const isRaining = Math.random() > 0.6; // More chance of rain
+for (let i = 0; i < 25; i++) {
+    const isRaining = Math.random() > 0.6;
     const cloud = isRaining ? createRainingCloud({ rainIntensity: 100 }) : createCloud();
-    cloud.position.set(
-        (Math.random() - 0.5) * 200,
-        25 + Math.random() * 10,
-        (Math.random() - 0.5) * 200
-    );
+    cloud.position.set((Math.random() - 0.5) * 200, 25 + Math.random() * 10, (Math.random() - 0.5) * 200);
     scene.add(cloud);
-
     if (cloud.userData.animationType === 'rain') {
         animatedFoliage.push(cloud);
-        rainingClouds.push(cloud); // Track for logic
-    } else {
-        clouds.push({ mesh: cloud, speed: (Math.random() * 0.05) + 0.02 });
+        rainingClouds.push(cloud);
     }
 }
 
-// --- Player & Input Logic ---
+// --- OVERGROWN & KING MUSHROOM ZONES ---
+function spawnKingMushroomZone(cx, cz) {
+    const scale = 12;
+    const stemH = 2.5 * scale;
+    const stemR = 0.4 * scale;
+    const capR = 1.5 * scale;
 
+    const group = new THREE.Group();
+    group.position.set(cx, getGroundHeight(cx, cz), cz);
+
+    const stem = new THREE.Mesh(
+        new THREE.CylinderGeometry(stemR * 0.8, stemR, stemH, 32),
+        materials.mushroomStem
+    );
+    stem.position.y = stemH / 2;
+    stem.castShadow = true;
+    group.add(stem);
+
+    const cap = new THREE.Mesh(
+        new THREE.SphereGeometry(capR, 32, 32, 0, Math.PI * 2, 0, Math.PI / 2),
+        materials.mushroomCap[0]
+    );
+    cap.position.y = stemH;
+    group.add(cap);
+
+    const poolGeo = new THREE.CylinderGeometry(capR * 0.8, capR * 0.8, 0.5, 32);
+    const poolMat = new THREE.MeshStandardMaterial({
+        color: 0x0099FF,
+        roughness: 0.1,
+        metalness: 0.5
+    });
+    const pool = new THREE.Mesh(poolGeo, poolMat);
+    pool.position.y = stemH + (capR * 0.2);
+    group.add(pool);
+
+    const waterfallOffset = capR * 0.8;
+    const waterfall = createWaterfall(stemH);
+    waterfall.position.set(0, stemH + 0.5, waterfallOffset);
+    group.add(waterfall);
+
+    obstacles.push({ position: group.position.clone(), radius: stemR * 1.2 });
+    scene.add(group);
+    animatedFoliage.push(waterfall);
+
+    const splashZone = new THREE.Object3D();
+    splashZone.position.set(cx, 0, cz + waterfallOffset);
+    splashZone.userData = { animationType: 'rain' };
+    rainingClouds.push(splashZone);
+
+    for (let i = 0; i < 20; i++) {
+        const r = 15 + Math.random() * 30;
+        const theta = Math.random() * Math.PI * 2;
+        const x = cx + r * Math.cos(theta);
+        const z = cz + r * Math.sin(theta);
+
+        const type = Math.random();
+        let plant;
+        if (type < 0.33) plant = createBubbleWillow({ color: 0xDA70D6 });
+        else if (type < 0.66) plant = createHelixPlant({ color: 0x7FFFD4 });
+        else plant = createStarflower({ color: 0xFFD700 });
+
+        const pScale = 4 + Math.random() * 4;
+        plant.position.set(x, getGroundHeight(x, z), z);
+        plant.scale.set(pScale, pScale, pScale);
+
+        safeAddFoliage(plant, true, 1.0 * pScale);
+    }
+}
+
+function spawnOvergrownZone(cx, cz) {
+    const radius = 50;
+    for (let i = 0; i < 3; i++) {
+        const cloud = createGiantRainCloud({ rainIntensity: 200, color: 0x555555 });
+        cloud.position.set(
+            cx + (Math.random() - 0.5) * 30,
+            60 + Math.random() * 10,
+            cz + (Math.random() - 0.5) * 30
+        );
+        scene.add(cloud);
+        animatedFoliage.push(cloud);
+    }
+
+    // Increased Mushrooms from 15 to 30
+    for (let i = 0; i < 30; i++) {
+        const r = Math.random() * radius;
+        const theta = Math.random() * Math.PI * 2;
+        const x = cx + r * Math.cos(theta);
+        const z = cz + r * Math.sin(theta);
+        createGiantMushroom(x, z, 8 + Math.random() * 7);
+    }
+
+    for (let i = 0; i < 30; i++) {
+        const r = Math.random() * radius;
+        const theta = Math.random() * Math.PI * 2;
+        const x = cx + r * Math.cos(theta);
+        const z = cz + r * Math.sin(theta);
+        const y = getGroundHeight(x, z);
+
+        const type = Math.random();
+        let plant;
+
+        if (type < 0.4) {
+            plant = createHelixPlant({ color: 0x00FF00 });
+            plant.scale.set(5, 5, 5);
+        } else if (type < 0.7) {
+            plant = createStarflower({ color: 0xFF00FF });
+            plant.scale.set(4, 4, 4);
+        } else {
+            plant = createBubbleWillow({ color: 0x00BFFF });
+            plant.scale.set(3, 3, 3);
+        }
+
+        plant.position.set(x, y, z);
+        safeAddFoliage(plant, true, 2.0);
+    }
+}
+
+spawnOvergrownZone(-100, -100);
+spawnKingMushroomZone(-100, -100);
+
+// --- Inputs ---
 const controls = new PointerLockControls(camera, document.body);
-
 const instructions = document.getElementById('instructions');
+instructions.addEventListener('click', () => controls.lock());
+controls.addEventListener('lock', () => instructions.style.display = 'none');
+controls.addEventListener('unlock', () => instructions.style.display = 'flex');
 
-instructions.addEventListener('click', function () {
-    controls.lock();
-});
-
-controls.addEventListener('lock', function () {
-    instructions.style.display = 'none';
-});
-
-controls.addEventListener('unlock', function () {
-    instructions.style.display = 'flex';
-});
-
-// Prevent context menu (Right Click)
-document.addEventListener('contextmenu', event => event.preventDefault());
-
+// Control State
 const keyStates = {
     forward: false,
     backward: false,
@@ -483,17 +588,28 @@ const keyStates = {
     sprint: false
 };
 
+// Helper function to toggle day/night
+function toggleDayNight() {
+    timeOffset += CYCLE_DURATION / 2;
+}
+
+// Key Handlers
 const onKeyDown = function (event) {
     if (event.ctrlKey && event.code !== 'ControlLeft' && event.code !== 'ControlRight') {
         event.preventDefault();
     }
     switch (event.code) {
         case 'KeyW':
+            // W is now JUMP
+            keyStates.jump = true;
             break;
         case 'KeyA': keyStates.left = true; break;
         case 'KeyS': keyStates.backward = true; break;
         case 'KeyD': keyStates.right = true; break;
-        case 'Space': keyStates.jump = true; break;
+        case 'Space': keyStates.jump = true; break; // Space also Jumps
+        case 'KeyN':
+            toggleDayNight();
+            break;
         case 'ControlLeft':
         case 'ControlRight':
             keyStates.sneak = true;
@@ -508,8 +624,7 @@ const onKeyDown = function (event) {
 
 const onKeyUp = function (event) {
     switch (event.code) {
-        case 'KeyW':
-            break;
+        case 'KeyW': keyStates.jump = false; break;
         case 'KeyA': keyStates.left = false; break;
         case 'KeyS': keyStates.backward = false; break;
         case 'KeyD': keyStates.right = false; break;
@@ -542,586 +657,159 @@ document.addEventListener('keyup', onKeyUp);
 document.addEventListener('mousedown', onMouseDown);
 document.addEventListener('mouseup', onMouseUp);
 
-
+// Player State
 const player = {
     velocity: new THREE.Vector3(),
-    direction: new THREE.Vector3(),
-    sneakSpeed: 10.0,
-    runSpeed: 30.0,
-    sprintSpeed: 50.0,
-    currentSpeed: 30.0,
-    acceleration: 20.0, // Rate of speed change
-    gravity: 20.0, // "Little floaty"
-    jumpStrength: 10.0,
-    height: 1.8, // Eye level
-    radius: 0.5
+    speed: 10.0, // Reduced from 15.0
+    sprintSpeed: 18.0, // Reduced from 25.0
+    sneakSpeed: 5.0,
+    gravity: 20.0
 };
 
-// --- Driving Drivable Mushrooms ---
-let drivingMushroom = null;
-let previousCameraPosition = null;
-
-function findNearestDrivableMushroom() {
-    let minDist = Infinity;
-    let nearest = null;
-    const camPos = camera.position;
-    animatedObjects.forEach(obj => {
-        if (obj.type === 'mushroom' && obj.drivable) {
-            const mPos = obj.mesh.position;
-            const dx = camPos.x - mPos.x;
-            const dz = camPos.z - mPos.z;
-            const dist = Math.sqrt(dx * dx + dz * dz);
-            if (dist < minDist) {
-                minDist = dist;
-                nearest = obj;
-            }
-        }
-    });
-    return nearest;
+// --- Cycle Interpolation ---
+function getCycleState(progress) {
+    if (progress < 0.40) return PALETTE.day;
+    else if (progress < 0.50) return lerpPalette(PALETTE.day, PALETTE.sunset, (progress - 0.40) / 0.10);
+    else if (progress < 0.55) return lerpPalette(PALETTE.sunset, PALETTE.night, (progress - 0.50) / 0.05);
+    else if (progress < 0.90) return PALETTE.night;
+    else if (progress < 0.95) return lerpPalette(PALETTE.night, PALETTE.sunrise, (progress - 0.90) / 0.05);
+    else return lerpPalette(PALETTE.sunrise, PALETTE.day, (progress - 0.95) / 0.05);
 }
 
-function startDrivingMushroom(mushroom) {
-    drivingMushroom = mushroom;
-    previousCameraPosition = camera.position.clone();
-    camera.position.copy(mushroom.mesh.position);
+function lerpPalette(p1, p2, t) {
+    return {
+        skyTop: p1.skyTop.clone().lerp(p2.skyTop, t),
+        skyBot: p1.skyBot.clone().lerp(p2.skyBot, t),
+        fog: p1.fog.clone().lerp(p2.fog, t),
+        sun: p1.sun.clone().lerp(p2.sun, t),
+        amb: p1.amb.clone().lerp(p2.amb, t),
+        sunInt: THREE.MathUtils.lerp(p1.sunInt, p2.sunInt, t),
+        ambInt: THREE.MathUtils.lerp(p1.ambInt, p2.ambInt, t)
+    };
 }
 
-function stopDrivingMushroom() {
-    if (previousCameraPosition) {
-        camera.position.copy(previousCameraPosition);
-    }
-    drivingMushroom = null;
-}
-
-// Add keybinding to toggle driving mode (e.g., 'M')
-document.addEventListener('keydown', (event) => {
-    if (event.code === 'KeyM') {
-        if (drivingMushroom) {
-            stopDrivingMushroom();
-        } else {
-            const nearest = findNearestDrivableMushroom();
-            if (nearest) {
-                startDrivingMushroom(nearest);
-            }
-        }
-    }
-});
-
-// --- Cloud Helicopter Control ---
-let cloudHelicopter = null;
-let cloudIsRaining = false;
-let previousCameraPositionCloud = null;
-
-function summonCloudHelicopter() {
-    if (!cloudHelicopter) {
-        cloudHelicopter = createCloud();
-        cloudHelicopter.position.set(camera.position.x, camera.position.y + 10, camera.position.z);
-        scene.add(cloudHelicopter);
-        previousCameraPositionCloud = camera.position.clone();
-        camera.position.copy(cloudHelicopter.position);
-    }
-}
-
-function dismissCloudHelicopter() {
-    if (cloudHelicopter) {
-        scene.remove(cloudHelicopter);
-        cloudHelicopter = null;
-        cloudIsRaining = false;
-        if (previousCameraPositionCloud) {
-            camera.position.copy(previousCameraPositionCloud);
-        }
-    }
-}
-
-function toggleCloudRain() {
-    cloudIsRaining = !cloudIsRaining;
-}
-
-// Keybindings: 'C' to summon/dismiss, 'R' to toggle rain
-document.addEventListener('keydown', (event) => {
-    if (event.code === 'KeyC') {
-        if (cloudHelicopter) {
-            dismissCloudHelicopter();
-        } else {
-            summonCloudHelicopter();
-        }
-    }
-    if (event.code === 'KeyR' && cloudHelicopter) {
-        toggleCloudRain();
-    }
-});
-
-// --- NEW FEATURE: Overgrown Rain Zone & King Mushroom ---
-
-// 1. GPU-Driven Waterfall (No CPU updates needed!)
-function createWaterfall(height, colorHex = 0x87CEEB) {
-    const particleCount = 2000;
-    const geo = new THREE.BufferGeometry();
-
-    // We create static buffers for initial position and speed
-    const positions = new Float32Array(particleCount * 3);
-    const speeds = new Float32Array(particleCount);
-    const offsets = new Float32Array(particleCount); // Random starting offset
-
-    for (let i = 0; i < particleCount; i++) {
-        positions[i * 3] = (Math.random() - 0.5) * 2.0; // X
-        positions[i * 3 + 1] = 0;                        // Y (starts at 0, logic handles the fall)
-        positions[i * 3 + 2] = (Math.random() - 0.5) * 2.0; // Z
-
-        speeds[i] = 1.0 + Math.random() * 2.0; // Faster fall speed
-        offsets[i] = Math.random() * height;   // Random start along the height
-    }
-
-    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    geo.setAttribute('aSpeed', new THREE.BufferAttribute(speeds, 1));
-    geo.setAttribute('aOffset', new THREE.BufferAttribute(offsets, 1));
-
-    // --- TSL Shader Logic ---
-    const mat = new PointsNodeMaterial({
-        color: colorHex,
-        size: 0.4,
-        transparent: true,
-        opacity: 0.8,
-        blending: THREE.AdditiveBlending
-    });
-
-    // Access Attributes
-    const aSpeed = attribute('aSpeed', 'float');
-    const aOffset = attribute('aOffset', 'float');
-
-    // Animation Logic
-    const t = time; // Global time
-    const fallHeight = float(height);
-
-    // Calculate current Y: (offset + speed * time) % height
-    // We negate it to make it fall DOWN
-    const currentDist = aOffset.add(aSpeed.mul(t));
-    const modDist = currentDist.mod(fallHeight);
-    const newY = modDist.negate(); // 0 to -height
-
-    // Update Position Node
-    // We keep X and Z from the original position, only override Y
-    mat.positionNode = vec3(
-        positionLocal.x,
-        newY,
-        positionLocal.z
-    );
-
-    const waterfall = new THREE.Points(geo, mat);
-
-    // We no longer need 'updateWaterfall' in the loop!
-    // But we strictly tag it so the growth logic still works
-    waterfall.userData = { animationType: 'gpuWaterfall' };
-
-    return waterfall;
-}
-
-// 3. A specialized function to create Giant Mushrooms with correct physics
-function createGiantMushroom(x, z, scale = 8) {
-    const height = getGroundHeight(x, z);
-    const group = new THREE.Group();
-    group.position.set(x, height, z);
-
-    // Stem
-    const stemH = (1.5 + Math.random()) * scale;
-    const stemR = (0.3 + Math.random() * 0.2) * scale;
-    const stemGeo = new THREE.CylinderGeometry(stemR * 0.8, stemR, stemH, 16);
-    const stem = new THREE.Mesh(stemGeo, materials.mushroomStem);
-    stem.castShadow = true;
-    group.add(stem);
-
-    // Cap
-    const capR = stemR * 3 + Math.random() * scale;
-    const capGeo = new THREE.SphereGeometry(capR, 32, 32, 0, Math.PI * 2, 0, Math.PI / 2);
-
-    const matIndex = Math.floor(Math.random() * materials.mushroomCap.length);
-    const capMaterial = materials.mushroomCap[matIndex];
-
-    const cap = new THREE.Mesh(capGeo, capMaterial);
-    cap.position.y = stemH;
-
-    // Face (Scaled)
-    const faceGroup = new THREE.Group();
-    // Adjust face position based on new scale
-    faceGroup.position.set(0, stemH * 0.6, stemR * 0.95);
-    faceGroup.scale.set(scale, scale, scale); // Scale the face features
-
-    const leftEye = new THREE.Mesh(eyeGeo, materials.eye);
-    leftEye.position.set(-0.15, 0.1, 0);
-    const rightEye = new THREE.Mesh(eyeGeo, materials.eye);
-    rightEye.position.set(0.15, 0.1, 0);
-
-    const smileGeo = new THREE.TorusGeometry(0.12, 0.03, 6, 12, Math.PI);
-    const smile = new THREE.Mesh(smileGeo, materials.mouth);
-    smile.rotation.z = Math.PI;
-    smile.position.set(0, -0.05, 0);
-
-    faceGroup.add(leftEye, rightEye, smile);
-    group.add(faceGroup);
-    group.add(cap);
-
-    worldGroup.add(group);
-
-    // IMPORTANT: Add a larger collision obstacle
-    obstacles.push({
-        position: new THREE.Vector3(x, height, z),
-        radius: stemR * 1.2 // Adjusted to "somewhere between" strict and soft
-    });
-
-    // Add to animated objects so it might bounce or look alive
-    const giantMushroom = { mesh: group, type: 'mushroom', speed: Math.random() * 0.02 + 0.01, offset: Math.random() * 100, drivable: false };
-    animatedObjects.push(giantMushroom);
-}
-
-// 4. Helper for Giant Rain Cloud (Manual scaling to keep rain drops normal size)
-function createGiantRainCloud(options = {}) {
-    const { color = 0x555555, rainIntensity = 200 } = options;
-    const group = new THREE.Group();
-
-    // Giant Cloud Body (Scaled geometry radius, standard is 1.5, giant is 4.5)
-    const cloudGeo = new THREE.SphereGeometry(4.5, 32, 32);
-    const cloudMat = materials.cloud.clone(); // Use existing cloud material
-    cloudMat.color.setHex(color);
-    const cloud = new THREE.Mesh(cloudGeo, cloudMat);
-    cloud.castShadow = true;
-    group.add(cloud);
-
-    // Rain Particles (Scaled spread, standard is 3.0, giant is 9.0)
-    const rainGeo = new THREE.BufferGeometry();
-    const positions = new Float32Array(rainIntensity * 3);
-    for (let i = 0; i < rainIntensity; i++) {
-        positions[i * 3] = (Math.random() - 0.5) * 9.0; // x spread
-        positions[i * 3 + 1] = Math.random() * -6.0; // y spread
-        positions[i * 3 + 2] = (Math.random() - 0.5) * 9.0; // z spread
-    }
-    rainGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-
-    // Use normal size for droplets
-    const rainMat = new THREE.PointsMaterial({ color: 0x87CEEB, size: 0.05 });
-    const rain = new THREE.Points(rainGeo, rainMat);
-    group.add(rain);
-
-    group.userData.animationType = 'rain';
-    return group;
-}
-
-// 5. The King Mushroom with Pool and Waterfall
-function spawnKingMushroomZone(cx, cz) {
-    console.log(`Spawning King Mushroom at ${cx}, ${cz}`);
-
-    // A. The Giant Mushroom Structure
-    const scale = 12;
-    const stemH = 2.5 * scale; // Tall stem
-    const stemR = 0.4 * scale;
-    const capR = 1.5 * scale; // Wide cap
-
-    const group = new THREE.Group();
-    group.position.set(cx, getGroundHeight(cx, cz), cz);
-
-    // Stem
-    const stem = new THREE.Mesh(
-        new THREE.CylinderGeometry(stemR * 0.8, stemR, stemH, 32),
-        materials.mushroomStem
-    );
-    stem.position.y = stemH / 2;
-    stem.castShadow = true;
-    group.add(stem);
-
-    // Cap
-    const cap = new THREE.Mesh(
-        new THREE.SphereGeometry(capR, 32, 32, 0, Math.PI * 2, 0, Math.PI / 2),
-        materials.mushroomCap[0] // Red/Tomato cap
-    );
-    cap.position.y = stemH;
-    group.add(cap);
-
-    // B. The Pool of Water (On top of cap)
-    const poolGeo = new THREE.CylinderGeometry(capR * 0.8, capR * 0.8, 0.5, 32);
-    const poolMat = new THREE.MeshStandardMaterial({
-        color: 0x0099FF,
-        roughness: 0.1,
-        metalness: 0.5
-    });
-    const pool = new THREE.Mesh(poolGeo, poolMat);
-    pool.position.y = stemH + (capR * 0.2); // Sits slightly embedded in top
-    group.add(pool);
-
-    // C. The Waterfall
-    // Calculate edge position
-    const waterfallOffset = capR * 0.8;
-    const waterfall = createWaterfall(stemH); // Height matches stem
-    // Position at the edge of the pool
-    waterfall.position.set(0, stemH + 0.5, waterfallOffset);
-    group.add(waterfall);
-
-    // Add collision for the King Mushroom
-    obstacles.push({ position: group.position.clone(), radius: stemR * 1.2 });
-    scene.add(group);
-
-    // Register Waterfall for Logic
-    // We treat it like a "cloud" so it causes growth, and "foliage" so it gets updated
-    animatedFoliage.push(waterfall);
-
-    // Hack: Add the waterfall WORLD position to rainingClouds so plants grow near the base
-    // Since waterfall is in a group, we need a proxy object representing the "Splash Zone"
-    const splashZone = new THREE.Object3D();
-    splashZone.position.set(cx, 0, cz + waterfallOffset); // Base of waterfall
-    splashZone.userData = { animationType: 'rain' }; // Tag for growth logic
-    rainingClouds.push(splashZone);
-
-    // D. Surround with Giant Plants (The "Jungle")
-    for(let i=0; i<20; i++) {
-        const r = 15 + Math.random() * 30;
-        const theta = Math.random() * Math.PI * 2;
-        const x = cx + r * Math.cos(theta);
-        const z = cz + r * Math.sin(theta);
-
-        // Random Giant Plant
-        const type = Math.random();
-        let plant;
-        if (type < 0.33) plant = createBubbleWillow({ color: 0xDA70D6 });
-        else if (type < 0.66) plant = createHelixPlant({ color: 0x7FFFD4 });
-        else plant = createStarflower({ color: 0xFFD700 });
-
-        const pScale = 4 + Math.random() * 4;
-        plant.position.set(x, getGroundHeight(x, z), z);
-        plant.scale.set(pScale, pScale, pScale);
-
-        safeAddFoliage(plant, true, 1.0 * pScale);
-    }
-}
-
-// 6. The Zone Generator
-function spawnOvergrownZone(cx, cz) {
-    console.log(`Spawning Overgrown Zone at ${cx}, ${cz}`);
-    const radius = 50; // Large area
-
-    // A. Permanent Heavy Rain Cloud
-    // We create a cluster of rain clouds to cover the area
-    for(let i=0; i<3; i++) {
-        // Use custom giant cloud creator instead of scaling
-        const cloud = createGiantRainCloud({ rainIntensity: 200, color: 0x555555 });
-        cloud.position.set(
-            cx + (Math.random()-0.5)*30,
-            60 + Math.random()*10,
-            cz + (Math.random()-0.5)*30
-        );
-        scene.add(cloud);
-        // Add to animation loop so rain works
-        animatedFoliage.push(cloud);
-    }
-
-    // B. Giant Mushrooms (The "Hills")
-    for(let i=0; i<15; i++) {
-        const r = Math.random() * radius;
-        const theta = Math.random() * Math.PI * 2;
-        const x = cx + r * Math.cos(theta);
-        const z = cz + r * Math.sin(theta);
-
-        // Massive scale between 8x and 15x
-        createGiantMushroom(x, z, 8 + Math.random() * 7);
-    }
-
-    // C. Giant Foliage
-    for(let i=0; i<30; i++) {
-        const r = Math.random() * radius;
-        const theta = Math.random() * Math.PI * 2;
-        const x = cx + r * Math.cos(theta);
-        const z = cz + r * Math.sin(theta);
-        const y = getGroundHeight(x, z);
-
-        const type = Math.random();
-        let plant;
-        let scale;
-
-        if (type < 0.4) {
-            // Giant Helix Plant
-            plant = createHelixPlant({ color: 0x00FF00 }); // Neon Green
-            scale = 5 + Math.random() * 5;
-        } else if (type < 0.7) {
-            // Giant Starflower
-            plant = createStarflower({ color: 0xFF00FF }); // Magenta
-            scale = 4 + Math.random() * 4;
-        } else {
-            // Giant Bubble Willow
-            plant = createBubbleWillow({ color: 0x00BFFF });
-            scale = 3 + Math.random() * 3;
-        }
-
-        plant.position.set(x, y, z);
-        plant.scale.set(scale, scale, scale);
-
-        // Add to world with approximated collision radius (base radius * scale)
-        safeAddFoliage(plant, true, 1.0 * scale);
-    }
-}
-
-// 7. Call the functions to place it in the world
-spawnOvergrownZone(-100, -100);
-spawnKingMushroomZone(-100, -100);
-
-
-// --- Loop ---
+// --- Animation ---
 const clock = new THREE.Clock();
+let audioState = null;
 
-async function animate() {
-    const delta = clock.getDelta();
+function animate() {
+    // 1. Time & Safety
+    const rawDelta = clock.getDelta();
+    // Prevent explosion on lag spikes (cap at 0.1s)
+    const delta = Math.min(rawDelta, 0.1);
     const t = clock.getElapsedTime();
 
-    // Player Physics & Movement
+    audioState = audioSystem.update();
+
+    // 2. Day/Night Cycle with Manual Toggle Support
+    const effectiveTime = t + timeOffset;
+    const progress = (effectiveTime % CYCLE_DURATION) / CYCLE_DURATION;
+
+    isNight = (progress > 0.50 && progress < 0.95);
+    const currentState = getCycleState(progress);
+
+    uSkyTopColor.value.copy(currentState.skyTop);
+    uSkyBottomColor.value.copy(currentState.skyBot);
+    scene.fog.color.copy(currentState.fog);
+
+    // Smooth Fog transition
+    const targetNear = isNight ? 5 : (progress > 0.4 && progress < 0.55 ? 10 : 20);
+    const targetFar = isNight ? 40 : (progress > 0.4 && progress < 0.55 ? 60 : 100);
+    scene.fog.near += (targetNear - scene.fog.near) * delta * 0.5;
+    scene.fog.far += (targetFar - scene.fog.far) * delta * 0.5;
+
+    sunLight.color.copy(currentState.sun);
+    sunLight.intensity = currentState.sunInt;
+    ambientLight.color.copy(currentState.amb);
+    ambientLight.intensity = currentState.ambInt;
+
+    // --- FIX: Update the WebGPU Uniform for Star Opacity ---
+    let starOp = 0;
+    if (progress > 0.50 && progress < 0.95) starOp = 1;
+    else if (progress > 0.45 && progress <= 0.50) starOp = (progress - 0.45) / 0.05;
+    else if (progress >= 0.95) starOp = 1.0 - (progress - 0.95) / 0.05;
+
+    // Instead of setting material.opacity, we set the node uniform value
+    uStarOpacity.value = starOp;
+
+    updateFoliageMaterials(audioState, isNight);
+    animatedFoliage.forEach(f => animateFoliage(f, t, audioState, !isNight));
+
+    // 3. Robust Player Movement (Direct Velocity Control)
     if (controls.isLocked) {
-        // Speed determination
-        let targetSpeed = player.runSpeed;
-        if (keyStates.sneak) targetSpeed = player.sneakSpeed;
-        if (keyStates.sprint) targetSpeed = player.sprintSpeed;
+        // Determine base speed
+        let moveSpeed = player.speed;
+        if (keyStates.sprint) moveSpeed = player.sprintSpeed;
+        if (keyStates.sneak) moveSpeed = player.sneakSpeed;
 
-        // Smooth speed transition
-        if (player.currentSpeed < targetSpeed) player.currentSpeed += player.acceleration * delta;
-        if (player.currentSpeed > targetSpeed) player.currentSpeed -= player.acceleration * delta;
+        // A. Calculate Target Velocity based on keys
+        const targetVelocity = new THREE.Vector3();
+        if (keyStates.forward) targetVelocity.z += moveSpeed;
+        if (keyStates.backward) targetVelocity.z -= moveSpeed;
+        if (keyStates.left) targetVelocity.x -= moveSpeed;
+        if (keyStates.right) targetVelocity.x += moveSpeed;
 
-        player.velocity.x -= player.velocity.x * 10.0 * delta;
-        player.velocity.z -= player.velocity.z * 10.0 * delta;
+        // B. Normalize to prevent fast diagonals
+        if (targetVelocity.lengthSq() > 0) {
+            targetVelocity.normalize().multiplyScalar(moveSpeed);
+        }
+
+        // C. Smoothly interpolate current velocity to target (10.0 = responsiveness)
+        // FIX: Clamp smoothing factor to prevent overshoot/explosion
+        const smoothing = Math.min(1.0, 15.0 * delta);
+        player.velocity.x += (targetVelocity.x - player.velocity.x) * smoothing;
+        player.velocity.z += (targetVelocity.z - player.velocity.z) * smoothing;
+
+        // D. Apply Gravity (Independent of smoothing)
         player.velocity.y -= player.gravity * delta;
 
-        player.direction.z = Number(keyStates.forward) - Number(keyStates.backward);
-        player.direction.x = Number(keyStates.right) - Number(keyStates.left);
-        player.direction.normalize();
-
-        if (keyStates.forward || keyStates.backward) player.velocity.z -= player.direction.z * player.currentSpeed * delta;
-        if (keyStates.left || keyStates.right) player.velocity.x -= player.direction.x * player.currentSpeed * delta;
-
-        if (keyStates.jump) {
-             // Simple jump check (grounded)
-             if (camera.position.y <= getGroundHeight(camera.position.x, camera.position.z) + player.height + 0.5) {
-                  player.velocity.y = player.jumpStrength;
-             }
+        // E. NaN Guard: Reset if physics broke
+        if (isNaN(player.velocity.x) || isNaN(player.velocity.z) || isNaN(player.velocity.y)) {
+            player.velocity.set(0, 0, 0);
         }
 
-        if (!drivingMushroom && !cloudHelicopter) {
-            controls.moveRight(-player.velocity.x * delta);
-            controls.moveForward(-player.velocity.z * delta);
+        // F. Move Camera
+        // PointerLockControls moves relative to camera look direction
+        controls.moveRight(player.velocity.x * delta);
+        controls.moveForward(player.velocity.z * delta);
+
+        // G. Ground Collision
+        const groundY = getGroundHeight(camera.position.x, camera.position.z);
+        // Safety check for NaN ground
+        const safeGroundY = isNaN(groundY) ? 0 : groundY;
+
+        if (camera.position.y < safeGroundY + 1.8) {
+            camera.position.y = safeGroundY + 1.8;
+            player.velocity.y = 0;
+            if (keyStates.jump) player.velocity.y = 10;
+        } else {
             camera.position.y += player.velocity.y * delta;
-
-            // Ground Collision
-            const groundY = getGroundHeight(camera.position.x, camera.position.z);
-            if (camera.position.y < groundY + player.height) {
-                player.velocity.y = 0;
-                camera.position.y = groundY + player.height;
-            }
         }
     }
 
-    // Logic for Vehicles (driving/helicopter)
-    if (drivingMushroom) {
-        let moveSpeed = 10 * delta;
-        let moveX = 0, moveZ = 0;
-        if (keyStates.forward) moveZ -= moveSpeed;
-        if (keyStates.backward) moveZ += moveSpeed;
-        if (keyStates.left) moveX -= moveSpeed;
-        if (keyStates.right) moveX += moveSpeed;
-
-        // Update mushroom position
-        drivingMushroom.mesh.position.x += moveX;
-        drivingMushroom.mesh.position.z += moveZ;
-
-        // Keep camera on mushroom
-        camera.position.copy(drivingMushroom.mesh.position);
-
-        // Keep mushroom above ground
-        const groundY = getGroundHeight(drivingMushroom.mesh.position.x, drivingMushroom.mesh.position.z);
-        drivingMushroom.mesh.position.y = groundY;
-    }
-
-    if (cloudHelicopter) {
-        let moveSpeed = 15 * delta;
-        let moveX = 0, moveY = 0, moveZ = 0;
-        if (keyStates.forward) moveZ -= moveSpeed;
-        if (keyStates.backward) moveZ += moveSpeed;
-        if (keyStates.left) moveX -= moveSpeed;
-        if (keyStates.right) moveX += moveSpeed;
-        if (keyStates.jump) moveY += moveSpeed;
-        if (keyStates.sneak) moveY -= moveSpeed;
-
-        cloudHelicopter.position.x += moveX;
-        cloudHelicopter.position.y += moveY;
-        cloudHelicopter.position.z += moveZ;
-        camera.position.copy(cloudHelicopter.position);
-    }
-
-    // Animate Foliage
-    animatedFoliage.forEach(foliage => {
-        // Default behavior for everything else
-        animateFoliage(foliage, t);
-    });
-
-    // Animate Clouds
-    clouds.forEach(cloud => {
-        cloud.mesh.position.x += cloud.speed;
-        if (cloud.mesh.position.x > 120) {
-            cloud.mesh.position.x = -120;
-        }
-    });
-
-    // Animate Raining Clouds
-    rainingClouds.forEach(cloud => {
-        cloud.position.x += 0.01;
-        if (cloud.position.x > 120) cloud.position.x = -120;
-
-        // Rain Logic (Growth & Spawning)
-        // Check if rain is active (for player cloud) or always for auto-clouds
-        // Note: auto-clouds are always raining in this setup
-
-        if (cloudIsRaining || cloud.userData.animationType === 'rain') {
-             // 1. Growth
-             for(let k=0; k<5; k++) {
-                if (animatedFoliage.length === 0) break;
-                const idx = Math.floor(Math.random() * animatedFoliage.length);
-                const plant = animatedFoliage[idx];
-
-                if (plant.userData.animationType === 'rain') continue;
-
-                const dx = plant.position.x - cloud.position.x;
-                const dz = plant.position.z - cloud.position.z;
-                if (dx*dx + dz*dz < 25) {
-                     if (plant.scale.y < 2.0) {
-                         plant.scale.multiplyScalar(1.002);
-                     }
-                }
-             }
-
-             // 2. Spawn
-             if (Math.random() < 0.02) {
-                 const offsetR = Math.random() * 4;
-                 const offsetTheta = Math.random() * Math.PI * 2;
-                 const sx = cloud.position.x + offsetR * Math.cos(offsetTheta);
-                 const sz = cloud.position.z + offsetR * Math.sin(offsetTheta);
-                 const sy = getGroundHeight(sx, sz);
-
-                 if (Math.random() < 0.2) {
-                     const m = createMushroom(sx, sz);
-                     animatedObjects.push(m);
-                 } else {
-                     const picker = Math.floor(Math.random() * 3);
-                     let baby;
-                     if (picker === 0) baby = createGrass({ color: GRASS_COLORS[0] });
-                     else if (picker === 1) baby = createFlower({ color: FLOWER_COLORS[0] });
-                     else baby = createPuffballFlower({ color: FLOWER_COLORS[1] });
-
-                     baby.position.set(sx, sy, sz);
-                     baby.scale.set(0.1, 0.1, 0.1);
-                     safeAddFoliage(baby);
-                 }
-             }
-        }
-    });
-
-    await renderer.renderAsync(scene, camera);
+    renderer.render(scene, camera);
 }
 
-// Start Animation Loop
 renderer.setAnimationLoop(animate);
 
-// Resize Handler
+// --- Music Upload Handler ---
+const musicUpload = document.getElementById('musicUpload');
+if (musicUpload) {
+    musicUpload.addEventListener('change', (event) => {
+        const files = event.target.files;
+        if (files && files.length > 0) {
+            console.log(`Selected ${files.length} file(s) for upload`);
+            audioSystem.addToQueue(files);
+        }
+    });
+}
+
+// --- Toggle Day/Night Button ---
+const toggleDayNightBtn = document.getElementById('toggleDayNight');
+if (toggleDayNightBtn) {
+    toggleDayNightBtn.addEventListener('click', toggleDayNight);
+}
+
 window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
