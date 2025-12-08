@@ -4,7 +4,7 @@ import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockCont
 import WebGPU from 'three/examples/jsm/capabilities/WebGPU.js';
 import { WebGPURenderer, PointsNodeMaterial } from 'three/webgpu';
 import { color, float, vec3, time, positionLocal, attribute, storage, uniform, uv } from 'three/tsl';
-import { createFlower, createGrass, createFloweringTree, createShrub, animateFoliage, createGlowingFlower, createFloatingOrb, createVine, createStarflower, createBellBloom, createWisteriaCluster, createRainingCloud, createLeafParticle, createGlowingFlowerPatch, createFloatingOrbCluster, createVineCluster, createBubbleWillow, createPuffballFlower, createHelixPlant, createBalloonBush, createPrismRoseBush, initGrassSystem, addGrassInstance, updateFoliageMaterials } from './foliage.js';
+import { createFlower, createGrass, createFloweringTree, createShrub, animateFoliage, createGlowingFlower, createFloatingOrb, createVine, createStarflower, createBellBloom, createWisteriaCluster, createRainingCloud, createLeafParticle, createGlowingFlowerPatch, createFloatingOrbCluster, createVineCluster, createBubbleWillow, createPuffballFlower, createHelixPlant, createBalloonBush, createPrismRoseBush, initGrassSystem, addGrassInstance, updateFoliageMaterials, createSubwooferLotus, createAccordionPalm, createFiberOpticWillow } from './foliage.js';
 import { createSky, uSkyTopColor, uSkyBottomColor } from './sky.js';
 import { createStars, uStarPulse, uStarColor } from './stars.js';
 import { AudioSystem } from './audio-system.js';
@@ -281,26 +281,57 @@ function safeAddFoliage(obj, isObstacle = false, obstacleRadius = 1.0) {
     }
 }
 
-// --- CLUSTERING SYSTEM ---
-function spawnCluster(cx, cz) {
-    const typeRoll = Math.random();
-    let count = 10 + Math.floor(Math.random() * 10);
-    let radius = 15 + Math.random() * 10;
+// --- CLUSTERS ---
+const CLUSTER_COUNT = 60;
 
-    if (typeRoll < 0.3) {
-        const radius = 10 + Math.random() * 5;
-        // Place grass blades (Dense Patch)
-        for (let j = 0; j < 200; j++) {
-            const r = Math.random() * radius;
+for (let i = 0; i < CLUSTER_COUNT; i++) {
+    const cx = (Math.random() - 0.5) * 260;
+    const cz = (Math.random() - 0.5) * 260;
+    const type = Math.random();
+
+    // 1. SUBWOOFER SWAMP (Lotus + Willows)
+    if (type < 0.2) {
+        for (let j = 0; j < 5; j++) {
+            const x = cx + (Math.random() - 0.5) * 15;
+            const z = cz + (Math.random() - 0.5) * 15;
+            const y = getGroundHeight(x, z);
+            // Hover lotus slightly above ground
+            const lotus = createSubwooferLotus({ color: 0x2E8B57 });
+            lotus.position.set(x, y + 0.5, z);
+            safeAddFoliage(lotus);
+        }
+        for (let j = 0; j < 2; j++) {
+            const x = cx + (Math.random() - 0.5) * 20;
+            const z = cz + (Math.random() - 0.5) * 20;
+            const y = getGroundHeight(x, z);
+            const willow = createFiberOpticWillow();
+            willow.position.set(x, y, z);
+            safeAddFoliage(willow, true, 1.0);
+        }
+    }
+    // 2. ACCORDION GROVE (Toy Trees)
+    else if (type < 0.4) {
+        for (let j = 0; j < 6; j++) {
+            const x = cx + (Math.random() - 0.5) * 15;
+            const z = cz + (Math.random() - 0.5) * 15;
+            const y = getGroundHeight(x, z);
+            const palm = createAccordionPalm({ color: 0xFF6347 });
+            palm.position.set(x, y, z);
+            safeAddFoliage(palm, true, 0.8);
+        }
+    }
+    // 3. MEADOW (Grass + Flowers)
+    else if (type < 0.7) {
+        for (let j = 0; j < 150; j++) {
+            const r = Math.random() * 10;
             const theta = Math.random() * Math.PI * 2;
             const x = cx + r * Math.cos(theta);
             const z = cz + r * Math.sin(theta);
             const y = getGroundHeight(x, z);
             addGrassInstance(x, y, z);
         }
-        // Add a few flowers
-        for (let j = 0; j < 5; j++) {
-            const r = Math.random() * radius * 0.8;
+        for (let j = 0; j < 8; j++) {
+            const r = Math.random() * 8;
             const theta = Math.random() * Math.PI * 2;
             const x = cx + r * Math.cos(theta);
             const z = cz + r * Math.sin(theta);
@@ -309,119 +340,18 @@ function spawnCluster(cx, cz) {
             f.position.set(x, y, z);
             safeAddFoliage(f);
         }
-    } else if (typeRoll < 0.5) {
-        count = 5 + Math.floor(Math.random() * 3);
-        for (let i = 0; i < count; i++) {
-            const r = Math.random() * radius;
-            const theta = Math.random() * Math.PI * 2;
-            const x = cx + r * Math.cos(theta);
-            const z = cz + r * Math.sin(theta);
-
-            if (Math.random() < 0.4) {
-                createTree(x, z);
-            } else {
-                const color = TREE_COLORS[Math.floor(Math.random() * TREE_COLORS.length)];
-                const tree = createFloweringTree({ color });
-                tree.position.set(x, getGroundHeight(x, z), z);
-                safeAddFoliage(tree, true, 1.5);
-            }
-        }
-        for (let i = 0; i < count * 2; i++) {
-            const r = Math.random() * radius;
-            const theta = Math.random() * Math.PI * 2;
-            const x = cx + r * Math.cos(theta);
-            const z = cz + r * Math.sin(theta);
-            const color = SHRUB_COLORS[Math.floor(Math.random() * SHRUB_COLORS.length)];
-            const shrub = createShrub({ color });
-            shrub.position.set(x, getGroundHeight(x, z), z);
-            safeAddFoliage(shrub, true, 0.8);
-        }
-    } else if (typeRoll < 0.65) {
-        for (let i = 0; i < count; i++) {
-            const r = Math.random() * radius;
-            const theta = Math.random() * Math.PI * 2;
-            const x = cx + r * Math.cos(theta);
-            const z = cz + r * Math.sin(theta);
-
-            const subRoll = Math.random();
-            if (subRoll < 0.3) {
-                const m = createMushroom(x, z);
-                animatedObjects.push(m);
-            } else if (subRoll < 0.6) {
-                const patch = createGlowingFlowerPatch(x, z);
-                safeAddFoliage(patch);
-            } else {
-                const cluster = createFloatingOrbCluster(x, z);
-                safeAddFoliage(cluster);
-            }
-        }
-    } else if (typeRoll < 0.75) {
-        for (let i = 0; i < 5; i++) {
-            const r = Math.random() * radius;
-            const theta = Math.random() * Math.PI * 2;
-            const x = cx + r * Math.cos(theta);
-            const z = cz + r * Math.sin(theta);
-            const color = PASTEL_COLORS[Math.floor(Math.random() * PASTEL_COLORS.length)];
-            const tree = createBubbleWillow({ color });
-            tree.position.set(x, getGroundHeight(x, z), z);
-            safeAddFoliage(tree, true, 1.2);
-        }
-        for (let i = 0; i < 10; i++) {
-            const r = Math.random() * radius;
-            const theta = Math.random() * Math.PI * 2;
-            const x = cx + r * Math.cos(theta);
-            const z = cz + r * Math.sin(theta);
-            const color = FLOWER_COLORS[Math.floor(Math.random() * FLOWER_COLORS.length)];
-            const puff = createPuffballFlower({ color });
-            puff.position.set(x, getGroundHeight(x, z), z);
-            safeAddFoliage(puff);
-        }
-    } else if (typeRoll < 0.90) {
-        for (let i = 0; i < 8; i++) {
-            const r = Math.random() * radius;
-            const theta = Math.random() * Math.PI * 2;
-            const x = cx + r * Math.cos(theta);
-            const z = cz + r * Math.sin(theta);
-            const rose = createPrismRoseBush();
-            rose.position.set(x, getGroundHeight(x, z), z);
-            safeAddFoliage(rose, true, 1.0);
-        }
-    } else {
-        for (let i = 0; i < 12; i++) {
-            const r = Math.random() * radius;
-            const theta = Math.random() * Math.PI * 2;
-            const x = cx + r * Math.cos(theta);
-            const z = cz + r * Math.sin(theta);
-
-            if (Math.random() < 0.5) {
-                const color = PASTEL_COLORS[Math.floor(Math.random() * PASTEL_COLORS.length)];
-                const helix = createHelixPlant({ color });
-                helix.position.set(x, getGroundHeight(x, z), z);
-                safeAddFoliage(helix);
-            } else {
-                const color = FLOWER_COLORS[Math.floor(Math.random() * FLOWER_COLORS.length)];
-                const sf = createStarflower({ color });
-                sf.position.set(x, getGroundHeight(x, z), z);
-                safeAddFoliage(sf);
-            }
-        }
-        for (let i = 0; i < 3; i++) {
-            const r = Math.random() * radius;
-            const theta = Math.random() * Math.PI * 2;
-            const x = cx + r * Math.cos(theta);
-            const z = cz + r * Math.sin(theta);
-            const bb = createBalloonBush({ color: 0xFF4500 });
-            bb.position.set(x, getGroundHeight(x, z), z);
-            safeAddFoliage(bb, true, 1.0);
+    }
+    // 4. WEIRD GARDEN (Puffballs + Prisms)
+    else {
+        for (let j = 0; j < 5; j++) {
+            const x = cx + (Math.random() - 0.5) * 15;
+            const z = cz + (Math.random() - 0.5) * 15;
+            const y = getGroundHeight(x, z);
+            const obj = Math.random() < 0.5 ? createPrismRoseBush() : createPuffballFlower();
+            obj.position.set(x, y, z);
+            safeAddFoliage(obj);
         }
     }
-}
-
-const CLUSTER_COUNT = 60;
-for (let i = 0; i < CLUSTER_COUNT; i++) {
-    const cx = (Math.random() - 0.5) * 260;
-    const cz = (Math.random() - 0.5) * 260;
-    spawnCluster(cx, cz);
 }
 
 const rainingClouds = [];
