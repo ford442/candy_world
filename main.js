@@ -528,12 +528,24 @@ function spawnOvergrownZone(cx, cz) {
 }
 
 spawnOvergrownZone(-100, -100);
-backward: false,
+spawnKingMushroomZone(-100, -100);
+
+// --- Inputs ---
+const controls = new PointerLockControls(camera, document.body);
+const instructions = document.getElementById('instructions');
+instructions.addEventListener('click', () => controls.lock());
+controls.addEventListener('lock', () => instructions.style.display = 'none');
+controls.addEventListener('unlock', () => instructions.style.display = 'flex');
+
+// Control State
+const keyStates = {
+    forward: false,
+    backward: false,
     left: false,
-        right: false,
-            jump: false,
-                sneak: false,
-                    sprint: false
+    right: false,
+    jump: false,
+    sneak: false,
+    sprint: false
 };
 
 // Key Handlers
