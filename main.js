@@ -67,7 +67,7 @@ scene.add(stars);
 
 const audioSystem = new AudioSystem();
 let isNight = false;
-let dayNightFactor = 0.0;
+let timeOffset = 0; // Manual time shift for Day/Night toggle
 
 const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000); // Increased far plane
 camera.position.set(0, 5, 0);
@@ -538,26 +538,88 @@ instructions.addEventListener('click', () => controls.lock());
 controls.addEventListener('lock', () => instructions.style.display = 'none');
 controls.addEventListener('unlock', () => instructions.style.display = 'flex');
 
-const keyStates = { forward: false, backward: false, left: false, right: false, jump: false };
-document.addEventListener('keydown', (e) => {
-    if (e.code === 'KeyW') keyStates.forward = true;
-    if (e.code === 'KeyS') keyStates.backward = true;
-    if (e.code === 'KeyA') keyStates.left = true;
-    if (e.code === 'KeyD') keyStates.right = true;
-    if (e.code === 'Space') keyStates.jump = true;
-});
-document.addEventListener('keyup', (e) => {
-    if (e.code === 'KeyW') keyStates.forward = false;
-    if (e.code === 'KeyS') keyStates.backward = false;
-    if (e.code === 'KeyA') keyStates.left = false;
-    if (e.code === 'KeyD') keyStates.right = false;
-    if (e.code === 'Space') keyStates.jump = false;
-});
+// Control State
+const keyStates = {
+    forward: false,
+    backward: false,
+    left: false,
+    right: false,
+    jump: false,
+    sneak: false,
+    sprint: false
+};
+
+// Key Handlers
+const onKeyDown = function (event) {
+    if (event.ctrlKey && event.code !== 'ControlLeft' && event.code !== 'ControlRight') {
+        event.preventDefault();
+    }
+    switch (event.code) {
+        case 'KeyW':
+            // W is now JUMP
+            keyStates.jump = true;
+            break;
+        case 'KeyA': keyStates.left = true; break;
+        case 'KeyS': keyStates.backward = true; break;
+        case 'KeyD': keyStates.right = true; break;
+        case 'Space': keyStates.jump = true; break; // Space also Jumps
+        case 'KeyN':
+            // Toggle Day/Night by shifting time by half a day
+            timeOffset += CYCLE_DURATION / 2;
+            break;
+        case 'ControlLeft':
+        case 'ControlRight':
+            keyStates.sneak = true;
+            event.preventDefault();
+            break;
+        case 'ShiftLeft':
+        case 'ShiftRight':
+            keyStates.sprint = true;
+            break;
+    }
+};
+
+const onKeyUp = function (event) {
+    switch (event.code) {
+        case 'KeyW': keyStates.jump = false; break;
+        case 'KeyA': keyStates.left = false; break;
+        case 'KeyS': keyStates.backward = false; break;
+        case 'KeyD': keyStates.right = false; break;
+        case 'Space': keyStates.jump = false; break;
+        case 'ControlLeft':
+        case 'ControlRight':
+            keyStates.sneak = false;
+            break;
+        case 'ShiftLeft':
+        case 'ShiftRight':
+            keyStates.sprint = false;
+            break;
+    }
+};
+
+const onMouseDown = function (event) {
+    if (event.button === 2) { // Right Click
+        keyStates.forward = true;
+    }
+};
+
+const onMouseUp = function (event) {
+    if (event.button === 2) {
+        keyStates.forward = false;
+    }
+};
+
+document.addEventListener('keydown', onKeyDown);
+document.addEventListener('keyup', onKeyUp);
+document.addEventListener('mousedown', onMouseDown);
+document.addEventListener('mouseup', onMouseUp);
 
 // Player State
 const player = {
     velocity: new THREE.Vector3(),
-    speed: 30.0,
+    speed: 15.0, // Reduced from 30.0 for better control
+    sprintSpeed: 25.0,
+    sneakSpeed: 5.0,
     gravity: 20.0
 };
 
@@ -596,8 +658,10 @@ function animate() {
 
     audioState = audioSystem.update();
 
-    // 2. Day/Night Cycle
-    const progress = (t % CYCLE_DURATION) / CYCLE_DURATION;
+    // 2. Day/Night Cycle with Manual Toggle Support
+    const effectiveTime = t + timeOffset;
+    const progress = (effectiveTime % CYCLE_DURATION) / CYCLE_DURATION;
+
     isNight = (progress > 0.50 && progress < 0.95);
     const currentState = getCycleState(progress);
 
@@ -627,16 +691,21 @@ function animate() {
 
     // 3. Robust Player Movement (Direct Velocity Control)
     if (controls.isLocked) {
+        // Determine base speed
+        let moveSpeed = player.speed;
+        if (keyStates.sprint) moveSpeed = player.sprintSpeed;
+        if (keyStates.sneak) moveSpeed = player.sneakSpeed;
+
         // A. Calculate Target Velocity based on keys
         const targetVelocity = new THREE.Vector3();
-        if (keyStates.forward) targetVelocity.z += player.speed;
-        if (keyStates.backward) targetVelocity.z -= player.speed;
-        if (keyStates.left) targetVelocity.x -= player.speed;
-        if (keyStates.right) targetVelocity.x += player.speed;
+        if (keyStates.forward) targetVelocity.z += moveSpeed;
+        if (keyStates.backward) targetVelocity.z -= moveSpeed;
+        if (keyStates.left) targetVelocity.x -= moveSpeed;
+        if (keyStates.right) targetVelocity.x += moveSpeed;
 
         // B. Normalize to prevent fast diagonals
         if (targetVelocity.lengthSq() > 0) {
-            targetVelocity.normalize().multiplyScalar(player.speed);
+            targetVelocity.normalize().multiplyScalar(moveSpeed);
         }
 
         // C. Smoothly interpolate current velocity to target (10.0 = responsiveness)
