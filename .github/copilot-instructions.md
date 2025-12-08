@@ -105,7 +105,8 @@ npm run build:wasm   # Compile AssemblyScript to WASM
 
 ### Modifying Colors
 
-- Update the `CONFIG.colors` object in `main.js` for global colors (available properties: `sky`, `ground`, `fog`, `light`, `ambient`)
+- Update the `CONFIG.colors` object in `main.js` for global colors (defined properties: `sky`, `ground`, `fog`, `light`, `ambient`)
+- Currently active properties: `sky` (scene background), `ground` (hemisphere light), `fog` (fog color), `light` (directional light)
 - Modify material creation functions in `foliage.js` for specific elements
 - Maintain the pastel candy color palette
 
