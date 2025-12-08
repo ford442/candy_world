@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js';
 import WebGPU from 'three/examples/jsm/capabilities/WebGPU.js';
 import { WebGPURenderer, PointsNodeMaterial } from 'three/webgpu';
+import { color, float, vec3, time, positionLocal, attribute, storage, uniform, uv } from 'three/tsl';
 import { createFlower, createGrass, createFloweringTree, createShrub, animateFoliage, createGlowingFlower, createFloatingOrb, createVine, createStarflower, createBellBloom, createWisteriaCluster, createRainingCloud, createLeafParticle, createGlowingFlowerPatch, createFloatingOrbCluster, createVineCluster, createBubbleWillow, createPuffballFlower, createHelixPlant, createBalloonBush, createPrismRoseBush, initGrassSystem, addGrassInstance, updateFoliageMaterials, createSubwooferLotus, createAccordionPalm, createFiberOpticWillow } from './foliage.js';
 import { createSky, uSkyTopColor, uSkyBottomColor } from './sky.js';
 import { createStars, uStarPulse, uStarColor } from './stars.js';
@@ -68,7 +69,7 @@ const audioSystem = new AudioSystem();
 let isNight = false;
 let dayNightFactor = 0.0;
 
-const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000); // Increased far plane
 camera.position.set(0, 5, 0);
 
 if (!WebGPU.isAvailable()) {
@@ -293,7 +294,8 @@ function getGroundHeight(x, z) {
     return Math.sin(x * 0.05) * 2 + Math.cos(z * 0.05) * 2 + (Math.sin(x * 0.2) * 0.3 + Math.cos(z * 0.15) * 0.3);
 }
 
-const groundGeo = new THREE.PlaneGeometry(300, 300, 128, 128);
+// FIX: Increased ground size to prevent falling off into the void
+const groundGeo = new THREE.PlaneGeometry(2000, 2000, 256, 256);
 const posAttribute = groundGeo.attributes.position;
 for (let i = 0; i < posAttribute.count; i++) {
     const x = posAttribute.getX(i);
@@ -638,7 +640,8 @@ function animate() {
         }
 
         // C. Smoothly interpolate current velocity to target (10.0 = responsiveness)
-        const smoothing = 10.0 * delta;
+        // FIX: Clamp smoothing factor to prevent overshoot/explosion
+        const smoothing = Math.min(1.0, 15.0 * delta);
         player.velocity.x += (targetVelocity.x - player.velocity.x) * smoothing;
         player.velocity.z += (targetVelocity.z - player.velocity.z) * smoothing;
 
