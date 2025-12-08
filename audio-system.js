@@ -7,6 +7,19 @@ const lerp = (a, b, t) => a + (b - a) * t;
 const decayTowards = (value, target, rate, dt) => lerp(value, target, 1 - Math.exp(-rate * dt));
 
 const extractNote = (cell) => cell?.text?.match(/[A-G][#-]?\d/)?.[0];
+
+// NEW: Helper to extract instrument number
+const extractInstrument = (cell) => {
+    if (!cell || !cell.text) return 0;
+    // Matches standard pattern: Note (3 chars) Space Instrument (2-3 chars)
+    // e.g. "C-5 01" -> 1
+    const match = cell.text.match(/[A-G\.-][#\.-][\d\.-]\s+(\d+|[0-9A-F]{2})/i);
+    if (match) {
+        return parseInt(match[1], 10) || parseInt(match[1], 16) || 0;
+    }
+    return 0;
+};
+
 const noteToFreq = (note) => {
     if (!note) return 0;
     const n = note.toUpperCase();
@@ -75,7 +88,7 @@ export class AudioSystem {
         try {
             const lib = await window.libopenmptReady;
 
-            // Polyfills if needed (copied from hook)
+            // Polyfills if needed
             if (!lib.UTF8ToString) {
                 lib.UTF8ToString = (ptr) => {
                     let str = '';
@@ -148,11 +161,7 @@ export class AudioSystem {
             this.moduleInfo.title = title;
             console.log(`Loaded "${title}"`);
 
-            // Pre-cache logic similar to hook
             this.preCachePatternData(modPtr);
-
-            // Auto-play on load if context exists, or wait for user trigger
-            // Usually we want to ensure context is resumed
             this.play();
 
         } catch (e) {
@@ -164,25 +173,11 @@ export class AudioSystem {
         const lib = this.libopenmpt;
         this.patternMatrices = {};
 
-        // This can be slow for large mods, maybe optimize or do lazy?
-        // For now, doing it synchronously but it might block frame.
-        // The original used setTimeout. We'll do it simple first.
-
         try {
             const numOrders = lib._openmpt_module_get_num_orders(modPtr);
             const numChannels = lib._openmpt_module_get_num_channels(modPtr);
             this.moduleInfo.numChannels = numChannels;
 
-            // We only need to cache for visual lookup.
-            // Simplified caching: just store the raw pointer or minimal data if needed.
-            // The original hook parsed everything to display text.
-            // We mainly need "triggers" and "notes" which we can *try* to get live,
-            // but getting pattern cell data live is tricky without cache if we want text.
-            // Actually, for "Blinking", we need to know if a note was hit.
-            // We can get channel VU and Mute status live.
-            // Getting the specific *Note* (e.g. C-5) requires pattern lookup.
-
-            // Let's implement the parsing loop, assuming mods aren't huge.
             for (let o = 0; o < numOrders; o++) {
                 const pattern = lib._openmpt_module_get_order_pattern(modPtr, o);
                 if (pattern >= lib._openmpt_module_get_num_patterns(modPtr)) continue;
@@ -192,11 +187,11 @@ export class AudioSystem {
                 for (let r = 0; r < numRows; r++) {
                     const rowCells = [];
                     for (let c = 0; c < numChannels; c++) {
-                        const commandPtr = lib._openmpt_module_format_pattern_row_channel(modPtr, pattern, r, c, 0, 1);
+                        // Use 12 char width to ensure standard formatting for regex parsing
+                        const commandPtr = lib._openmpt_module_format_pattern_row_channel(modPtr, pattern, r, c, 12, 1);
                         const commandStr = lib.UTF8ToString(commandPtr);
                         lib._openmpt_free_string(commandPtr);
 
-                        // Parse
                         const raw = (commandStr || '').trim();
                         rowCells.push({ text: raw });
                     }
@@ -235,21 +230,16 @@ export class AudioSystem {
 
             this.scriptNode = this.audioContext.createScriptProcessor(BUFFER_SIZE, 0, 2);
             this.scriptNode.onaudioprocess = (e) => {
-                // If stopped externally
                 if (!this.isPlaying) return;
 
                 const frames = lib._openmpt_module_read_float_stereo(modPtr, SAMPLE_RATE, BUFFER_SIZE, leftBufferPtr, rightBufferPtr);
                 if (frames === 0) {
-                    // Loop or Stop. Default to loop for game background music.
-                     lib._openmpt_module_set_position_order_row(modPtr, 0, 0);
-                     // If frames is 0, we output silence this buffer?
-                     // Actually let's just return, next call will read from start.
-                     return;
+                    lib._openmpt_module_set_position_order_row(modPtr, 0, 0);
+                    return;
                 }
 
                 const leftOutput = e.outputBuffer.getChannelData(0);
                 const rightOutput = e.outputBuffer.getChannelData(1);
-                // Copy
                 leftOutput.set(new Float32Array(lib.HEAPF32.buffer, leftBufferPtr, frames));
                 rightOutput.set(new Float32Array(lib.HEAPF32.buffer, rightBufferPtr, frames));
             };
@@ -277,15 +267,14 @@ export class AudioSystem {
         }
         this.isPlaying = false;
         if (fullReset && this.currentModulePtr && this.libopenmpt) {
-             this.libopenmpt._openmpt_module_set_position_order_row(this.currentModulePtr, 0, 0);
+            this.libopenmpt._openmpt_module_set_position_order_row(this.currentModulePtr, 0, 0);
         }
     }
 
     update() {
         if (!this.libopenmpt || this.currentModulePtr === 0 || !this.isPlaying) {
-             // Decay values when not playing
-             this.visualState.kickTrigger = decayTowards(this.visualState.kickTrigger, 0, 8, 1/60);
-             return this.visualState;
+            this.visualState.kickTrigger = decayTowards(this.visualState.kickTrigger, 0, 8, 1 / 60);
+            return this.visualState;
         }
 
         const lib = this.libopenmpt;
@@ -293,53 +282,70 @@ export class AudioSystem {
 
         const order = lib._openmpt_module_get_current_order(modPtr);
         const row = lib._openmpt_module_get_current_row(modPtr);
-
-        // BPM/Tempo
         const bpm = lib._openmpt_module_get_current_estimated_bpm(modPtr);
         const tempo2 = lib._openmpt_module_get_current_tempo2?.(modPtr) ?? bpm;
         const speed = lib._openmpt_module_get_current_speed?.(modPtr) ?? 6;
 
-        // Update Beat Phase
         this.visualState.beatPhase = (this.visualState.beatPhase + (tempo2 / 60) * (1 / 60)) % 1;
-        this.visualState.grooveAmount = decayTowards(this.visualState.grooveAmount, speed % 2 === 0 ? 0 : 0.1, 3, 1/60);
+        this.visualState.grooveAmount = decayTowards(this.visualState.grooveAmount, speed % 2 === 0 ? 0 : 0.1, 3, 1 / 60);
 
-        // Pattern Data Lookup
         const matrix = this.patternMatrices[order];
         const rowData = matrix?.rows[row] || [];
-
         const numChannels = matrix?.numChannels || this.moduleInfo.numChannels;
 
-        // Ensure channel data array is sized
         while (this.visualState.channelData.length < numChannels) {
-            this.visualState.channelData.push({ volume: 0, trigger: 0, note: '', freq: 0 });
+            this.visualState.channelData.push({
+                volume: 0,
+                pan: 0,
+                trigger: 0,
+                note: '',
+                freq: 0,
+                instrument: 0,
+                activeEffect: 0,
+                effectValue: 0
+            });
         }
 
         let anyTrigger = false;
 
         for (let ch = 0; ch < numChannels; ch++) {
-            // VU Meter
+            // VU & Pan
             const vu = lib._openmpt_module_get_current_channel_vu_mono?.(modPtr, ch) ?? 0;
+            const vuL = lib._openmpt_module_get_current_channel_vu_left?.(modPtr, ch) ?? vu;
+            const vuR = lib._openmpt_module_get_current_channel_vu_right?.(modPtr, ch) ?? vu;
+            const pan = Math.max(-1, Math.min(1, vuR - vuL));
             const volume = Math.min(1, vu);
 
-            // Note Data
+            // Pattern Info
             const cell = rowData[ch];
             const noteMatch = extractNote(cell);
             const trigger = noteMatch ? 1 : 0;
             const freq = noteToFreq(noteMatch);
+            const instrument = extractInstrument(cell);
+            const { activeEffect, intensity } = decodeEffectCode(cell);
 
             if (trigger) anyTrigger = true;
 
             const chState = this.visualState.channelData[ch];
             chState.volume = volume;
-            chState.trigger = trigger ? 1 : decayTowards(chState.trigger, 0, 10, 1/60); // decay trigger
+            chState.pan = pan;
+            chState.trigger = trigger ? 1 : decayTowards(chState.trigger, 0, 10, 1 / 60);
             chState.note = noteMatch || chState.note;
             chState.freq = freq || chState.freq;
+
+            // Only update instrument on note trigger, otherwise preserve last known instrument
+            if (trigger && instrument > 0) {
+                chState.instrument = instrument;
+            }
+
+            chState.activeEffect = activeEffect;
+            chState.effectValue = intensity;
         }
 
         if (anyTrigger) {
             this.visualState.kickTrigger = 1;
         } else {
-            this.visualState.kickTrigger = decayTowards(this.visualState.kickTrigger, 0, 8, 1/60);
+            this.visualState.kickTrigger = decayTowards(this.visualState.kickTrigger, 0, 8, 1 / 60);
         }
 
         return this.visualState;
