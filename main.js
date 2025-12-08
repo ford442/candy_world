@@ -548,6 +548,11 @@ const keyStates = {
     sprint: false
 };
 
+// Helper function to toggle day/night
+function toggleDayNight() {
+    timeOffset += CYCLE_DURATION / 2;
+}
+
 // Key Handlers
 const onKeyDown = function (event) {
     if (event.ctrlKey && event.code !== 'ControlLeft' && event.code !== 'ControlRight') {
@@ -563,8 +568,7 @@ const onKeyDown = function (event) {
         case 'KeyD': keyStates.right = true; break;
         case 'Space': keyStates.jump = true; break; // Space also Jumps
         case 'KeyN':
-            // Toggle Day/Night by shifting time by half a day
-            timeOffset += CYCLE_DURATION / 2;
+            toggleDayNight();
             break;
         case 'ControlLeft':
         case 'ControlRight':
@@ -744,6 +748,24 @@ function animate() {
 }
 
 renderer.setAnimationLoop(animate);
+
+// --- Music Upload Handler ---
+const musicUpload = document.getElementById('musicUpload');
+if (musicUpload) {
+    musicUpload.addEventListener('change', (event) => {
+        const files = event.target.files;
+        if (files && files.length > 0) {
+            console.log(`Selected ${files.length} file(s) for upload`);
+            audioSystem.addToQueue(files);
+        }
+    });
+}
+
+// --- Toggle Day/Night Button ---
+const toggleDayNightBtn = document.getElementById('toggleDayNight');
+if (toggleDayNightBtn) {
+    toggleDayNightBtn.addEventListener('click', toggleDayNight);
+}
 
 window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
