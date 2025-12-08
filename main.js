@@ -10,21 +10,62 @@ import { createStars, uStarPulse, uStarColor } from './stars.js';
 import { AudioSystem } from './audio-system.js';
 
 // --- Configuration ---
-const CONFIG = {
-    colors: {
-        sky: 0x87CEEB,        // Sky Blue
-        ground: 0x98FB98,     // Pale Green
-        fog: 0xFFB6C1,        // Light Pink fog
-        light: 0xFFFFFF,
-        ambient: 0xFFA07A     // Light Salmon
+// --- Configuration ---
+// Expanded Palette for the 4-Stage Cycle
+const PALETTE = {
+    day: {
+        skyTop: new THREE.Color(0x87CEEB),    // Sky Blue
+        skyBot: new THREE.Color(0xADD8E6),    // Light Blue
+        fog: new THREE.Color(0xFFB6C1),    // Pastel Pink Fog
+        sun: new THREE.Color(0xFFFFFF),    // White Sun
+        amb: new THREE.Color(0xFFFFFF),    // Bright Ambient
+        sunInt: 0.8,
+        ambInt: 0.6
+    },
+    sunset: {
+        skyTop: new THREE.Color(0x483D8B),    // Dark Slate Blue
+        skyBot: new THREE.Color(0xFF4500),    // Orange Red
+        fog: new THREE.Color(0xDB7093),    // Pale Violet Red
+        sun: new THREE.Color(0xFF8C00),    // Dark Orange Sun (Golden Hour)
+        amb: new THREE.Color(0x800000),    // Maroon Ambient
+        sunInt: 0.5,
+        ambInt: 0.4
+    },
+    night: {
+        skyTop: new THREE.Color(0x020205),    // Near Black
+        skyBot: new THREE.Color(0x050510),    // Deep Blue
+        fog: new THREE.Color(0x050510),    // Deep Blue Fog
+        sun: new THREE.Color(0x223355),    // Dim Blue Moon
+        amb: new THREE.Color(0x050510),    // Very Dark Ambient
+        sunInt: 0.1,                          // Moon brightness
+        ambInt: 0.05
+    },
+    sunrise: {
+        skyTop: new THREE.Color(0x40E0D0),    // Turquoise
+        skyBot: new THREE.Color(0xFF69B4),    // Hot Pink
+        fog: new THREE.Color(0xFFDAB9),    // Peach Puff Fog
+        sun: new THREE.Color(0xFFD700),    // Gold Sun
+        amb: new THREE.Color(0xFFB6C1),    // Pink Ambient
+        sunInt: 0.6,
+        ambInt: 0.5
     }
 };
+
+const CONFIG = {
+    colors: {
+        // Fallbacks
+        ground: 0x98FB98,     // Pale Green
+    }
+};
+
+const CYCLE_DURATION = 420; // 7 Minutes for a full 24h cycle
 
 // --- Scene Setup ---
 const canvas = document.querySelector('#glCanvas');
 const scene = new THREE.Scene();
 // Initial fog (Day settings) - ranges will be animated
-scene.fog = new THREE.Fog(CONFIG.colors.fog, 20, 100);
+// Initial fog (Day settings) - ranges will be animated
+scene.fog = new THREE.Fog(PALETTE.day.fog, 20, 100);
 
 // Sky
 const sky = createSky();
@@ -54,22 +95,18 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.0;
 
 // --- Lighting ---
-const ambientLight = new THREE.HemisphereLight(CONFIG.colors.sky, CONFIG.colors.ground, 1.0);
+// --- Lighting ---
+const ambientLight = new THREE.HemisphereLight(PALETTE.day.skyTop, CONFIG.colors.ground, 1.0);
 scene.add(ambientLight);
 
-const sunLight = new THREE.DirectionalLight(CONFIG.colors.light, 0.8);
+const sunLight = new THREE.DirectionalLight(PALETTE.day.sun, 0.8);
 sunLight.position.set(50, 80, 30);
 sunLight.castShadow = true;
 sunLight.shadow.mapSize.width = 2048;
 sunLight.shadow.mapSize.height = 2048;
-sunLight.shadow.camera.near = 0.5;
-sunLight.shadow.camera.far = 200;
-sunLight.shadow.camera.left = -100;
-sunLight.shadow.camera.right = 100;
-sunLight.shadow.camera.top = 100;
-sunLight.shadow.camera.bottom = -100;
-sunLight.shadow.bias = -0.0005;
 scene.add(sunLight);
+
+
 
 // --- Materials ---
 function createClayMaterial(color) {
@@ -410,9 +447,14 @@ if (toggleDayNightBtn) {
 }
 
 document.addEventListener('keydown', (e) => {
-    if (e.code === 'KeyN') {
-        isNight = !isNight;
-    }
+    if (e.code === 'KeyW') keyStates.forward = true;
+    if (e.code === 'KeyS') keyStates.backward = true;
+    if (e.code === 'KeyA') keyStates.left = true;
+    if (e.code === 'KeyD') keyStates.right = true;
+    if (e.code === 'Space') keyStates.jump = true;
+    // Manual toggle 'N' removed/deprecated in favor of auto-cycle, 
+    // but kept as debug override if needed:
+    // if(e.code === 'KeyN') isNight = !isNight; 
 });
 
 const keyStates = {
@@ -846,196 +888,146 @@ spawnOvergrownZone(-100, -100);
 spawnKingMushroomZone(-100, -100);
 
 
-// --- Loop ---
+
+// --- HELPER: Cycle Interpolation ---
+// Smoothly blends between 4 sets of colors based on progress (0..1)
+function getCycleState(progress) {
+    // Schedule:
+    // 0.00 - 0.40: DAY
+    // 0.40 - 0.50: SUNSET (Day -> Sunset)
+    // 0.50 - 0.55: DUSK (Sunset -> Night)
+    // 0.55 - 0.90: NIGHT
+    // 0.90 - 1.00: SUNRISE (Night -> Sunrise -> Day)
+
+    // We'll perform manual LERP here for control
+    let state = {};
+
+    if (progress < 0.40) {
+        // Full Day
+        return PALETTE.day;
+    } else if (progress < 0.50) {
+        // Day -> Sunset
+        const t = (progress - 0.40) / 0.10;
+        return lerpPalette(PALETTE.day, PALETTE.sunset, t);
+    } else if (progress < 0.55) {
+        // Sunset -> Night
+        const t = (progress - 0.50) / 0.05;
+        return lerpPalette(PALETTE.sunset, PALETTE.night, t);
+    } else if (progress < 0.90) {
+        // Full Night
+        return PALETTE.night;
+    } else {
+        // Night -> Sunrise -> Day
+        // Split last 10% into two 5% chunks
+        if (progress < 0.95) {
+            const t = (progress - 0.90) / 0.05;
+            return lerpPalette(PALETTE.night, PALETTE.sunrise, t);
+        } else {
+            const t = (progress - 0.95) / 0.05;
+            return lerpPalette(PALETTE.sunrise, PALETTE.day, t);
+        }
+    }
+}
+
+function lerpPalette(p1, p2, t) {
+    return {
+        skyTop: p1.skyTop.clone().lerp(p2.skyTop, t),
+        skyBot: p1.skyBot.clone().lerp(p2.skyBot, t),
+        fog: p1.fog.clone().lerp(p2.fog, t),
+        sun: p1.sun.clone().lerp(p2.sun, t),
+        amb: p1.amb.clone().lerp(p2.amb, t),
+        sunInt: THREE.MathUtils.lerp(p1.sunInt, p2.sunInt, t),
+        ambInt: THREE.MathUtils.lerp(p1.ambInt, p2.ambInt, t)
+    };
+}
+
+// --- ANIMATION LOOP ---
 const clock = new THREE.Clock();
 let audioState = null;
-let audioUpdateTimer = 0;
-const audioUpdateInterval = 1 / 30;
 
-async function animate() {
+function animate() {
     const delta = clock.getDelta();
     const t = clock.getElapsedTime();
 
-    audioUpdateTimer += delta;
-    if (audioUpdateTimer >= audioUpdateInterval) {
-        audioUpdateTimer = 0;
-        audioState = audioSystem.update();
+    audioState = audioSystem.update();
+
+    // --- DAY/NIGHT CYCLE ---
+    const cycleTime = t % CYCLE_DURATION;
+    const progress = cycleTime / CYCLE_DURATION; // 0.0 to 1.0
+
+    // Logic Switch for "Is Night" behavior (dancing lights)
+    isNight = (progress > 0.50 && progress < 0.95);
+
+    // Get Interpolated Colors
+    const currentState = getCycleState(progress);
+
+    // Apply to Scene
+    uSkyTopColor.value.copy(currentState.skyTop);
+    uSkyBottomColor.value.copy(currentState.skyBot);
+    scene.fog.color.copy(currentState.fog);
+
+    // Dynamic Fog Distance (Close in at night/sunset, far at day)
+    let targetNear = 20;
+    let targetFar = 100;
+    if (isNight) {
+        targetNear = 5;
+        targetFar = 40;
+    } else if (progress > 0.40 && progress < 0.55) { // Sunset/Dusk
+        targetNear = 10;
+        targetFar = 60;
     }
 
-    // Day/Night Transition
-    const targetFactor = isNight ? 1.0 : 0.0;
-    dayNightFactor += (targetFactor - dayNightFactor) * delta * 2.0;
+    // Lerp fog distance smoothly (dampened)
+    scene.fog.near += (targetNear - scene.fog.near) * delta * 0.5;
+    scene.fog.far += (targetFar - scene.fog.far) * delta * 0.5;
 
-    // Update Sky
-    // Darker night targets (Almost black to dark blue/purple)
-    uSkyTopColor.value.lerpColors(new THREE.Color(0x87CEEB), new THREE.Color(0x020205), dayNightFactor); // Near black
-    uSkyBottomColor.value.lerpColors(new THREE.Color(0xADD8E6), new THREE.Color(0x050510), dayNightFactor); // Dark blue horizon
+    // Apply Lighting
+    sunLight.color.copy(currentState.sun);
+    sunLight.intensity = currentState.sunInt;
 
-    // Update Fog
-    const dayFogColor = new THREE.Color(CONFIG.colors.fog);
-    const nightFogColor = new THREE.Color(0x050510); // Match night horizon
-    scene.fog.color.lerpColors(dayFogColor, nightFogColor, dayNightFactor);
+    ambientLight.color.copy(currentState.amb); // Color shift for reflections!
+    ambientLight.intensity = currentState.ambInt;
 
-    // Dynamic Fog Distance: Closes in at night
-    scene.fog.near = THREE.MathUtils.lerp(20, 5, dayNightFactor);
-    scene.fog.far = THREE.MathUtils.lerp(100, 40, dayNightFactor);
+    // Stars only visible at night/dusk
+    let starOpacity = 0;
+    if (progress > 0.50 && progress < 0.95) starOpacity = 1; // Night
+    else if (progress > 0.45 && progress <= 0.50) starOpacity = (progress - 0.45) / 0.05; // Fade In
+    else if (progress >= 0.95) starOpacity = 1.0 - (progress - 0.95) / 0.05; // Fade Out
 
-    // Update Light - Much darker at night
-    sunLight.intensity = THREE.MathUtils.lerp(0.8, 0.0, dayNightFactor); // Sun effectively off
-    ambientLight.intensity = THREE.MathUtils.lerp(1.0, 0.05, dayNightFactor); // Very dim ambient
+    if (stars.material) stars.material.opacity = starOpacity;
 
-    // Update Stars
-    if (stars.material) {
-        stars.material.opacity = dayNightFactor;
-    }
-
-    if (audioState && isNight) {
-        uStarPulse.value = audioState.kickTrigger;
-        const hue = (t * 0.1 + audioState.beatPhase) % 1;
-        uStarColor.value.setHSL(hue, 1.0, 0.8);
-    }
-
-    if (window.kingMushroomCap && audioState) {
-        const kick = audioState.kickTrigger || 0;
-        const groove = audioState.grooveAmount || 0;
-        const targetScale = 1.0 + kick * 0.3;
-        window.kingMushroomCap.scale.setScalar(targetScale);
-        if (window.kingWaterfall && window.kingWaterfall.material && window.kingWaterfall.material.uSpeed) {
-            window.kingWaterfall.material.uSpeed.value = 1.0 + groove * 5.0;
-        }
-    }
-
+    // --- Audio Reactivity ---
     updateFoliageMaterials(audioState, isNight);
+    animatedFoliage.forEach(f => animateFoliage(f, t, audioState, !isNight));
 
-    // Player Physics & Movement
+    // --- Player Movement ---
     if (controls.isLocked) {
-        let targetSpeed = player.runSpeed;
-        if (keyStates.sneak) targetSpeed = player.sneakSpeed;
-        if (keyStates.sprint) targetSpeed = player.sprintSpeed;
-
-        if (player.currentSpeed < targetSpeed) player.currentSpeed += player.acceleration * delta;
-        if (player.currentSpeed > targetSpeed) player.currentSpeed -= player.acceleration * delta;
-
         player.velocity.x -= player.velocity.x * 10.0 * delta;
         player.velocity.z -= player.velocity.z * 10.0 * delta;
         player.velocity.y -= player.gravity * delta;
 
-        player.direction.z = Number(keyStates.forward) - Number(keyStates.backward);
-        player.direction.x = Number(keyStates.right) - Number(keyStates.left);
-        player.direction.normalize();
+        const direction = new THREE.Vector3();
+        direction.z = Number(keyStates.forward) - Number(keyStates.backward);
+        direction.x = Number(keyStates.right) - Number(keyStates.left);
+        direction.normalize();
 
-        if (keyStates.forward || keyStates.backward) player.velocity.z -= player.direction.z * player.currentSpeed * delta;
-        if (keyStates.left || keyStates.right) player.velocity.x -= player.direction.x * player.currentSpeed * delta;
+        if (keyStates.forward || keyStates.backward) player.velocity.z -= direction.z * player.speed * delta;
+        if (keyStates.left || keyStates.right) player.velocity.x -= direction.x * player.speed * delta;
 
-        if (keyStates.jump) {
-            if (camera.position.y <= getGroundHeight(camera.position.x, camera.position.z) + player.height + 0.5) {
-                player.velocity.y = player.jumpStrength;
-            }
-        }
+        controls.moveRight(-player.velocity.x * delta);
+        controls.moveForward(-player.velocity.z * delta);
 
-        if (!drivingMushroom && !cloudHelicopter) {
-            controls.moveRight(-player.velocity.x * delta);
-            controls.moveForward(-player.velocity.z * delta);
+        const groundY = getGroundHeight(camera.position.x, camera.position.z);
+        if (camera.position.y < groundY + 1.8) {
+            camera.position.y = groundY + 1.8;
+            player.velocity.y = 0;
+            if (keyStates.jump) player.velocity.y = 10;
+        } else {
             camera.position.y += player.velocity.y * delta;
-
-            const groundY = getGroundHeight(camera.position.x, camera.position.z);
-            if (camera.position.y < groundY + player.height) {
-                player.velocity.y = 0;
-                camera.position.y = groundY + player.height;
-            }
         }
     }
 
-    if (drivingMushroom) {
-        let moveSpeed = 10 * delta;
-        let moveX = 0, moveZ = 0;
-        if (keyStates.forward) moveZ -= moveSpeed;
-        if (keyStates.backward) moveZ += moveSpeed;
-        if (keyStates.left) moveX -= moveSpeed;
-        if (keyStates.right) moveX += moveSpeed;
-
-        drivingMushroom.mesh.position.x += moveX;
-        drivingMushroom.mesh.position.z += moveZ;
-        camera.position.copy(drivingMushroom.mesh.position);
-
-        const groundY = getGroundHeight(drivingMushroom.mesh.position.x, drivingMushroom.mesh.position.z);
-        drivingMushroom.mesh.position.y = groundY;
-    }
-
-    if (cloudHelicopter) {
-        let moveSpeed = 15 * delta;
-        let moveX = 0, moveY = 0, moveZ = 0;
-        if (keyStates.forward) moveZ -= moveSpeed;
-        if (keyStates.backward) moveZ += moveSpeed;
-        if (keyStates.left) moveX -= moveSpeed;
-        if (keyStates.right) moveX += moveSpeed;
-        if (keyStates.jump) moveY += moveSpeed;
-        if (keyStates.sneak) moveY -= moveSpeed;
-
-        cloudHelicopter.position.x += moveX;
-        cloudHelicopter.position.y += moveY;
-        cloudHelicopter.position.z += moveZ;
-        camera.position.copy(cloudHelicopter.position);
-    }
-
-    animatedFoliage.forEach(foliage => {
-        animateFoliage(foliage, t, audioState, !isNight);
-    });
-
-    clouds.forEach(cloud => {
-        cloud.mesh.position.x += cloud.speed;
-        if (cloud.mesh.position.x > 120) {
-            cloud.mesh.position.x = -120;
-        }
-    });
-
-    rainingClouds.forEach(cloud => {
-        cloud.position.x += 0.01;
-        if (cloud.position.x > 120) cloud.position.x = -120;
-
-        if (cloudIsRaining || cloud.userData.animationType === 'rain') {
-            for (let k = 0; k < 5; k++) {
-                if (animatedFoliage.length === 0) break;
-                const idx = Math.floor(Math.random() * animatedFoliage.length);
-                const plant = animatedFoliage[idx];
-
-                if (plant.userData.animationType === 'rain') continue;
-
-                const dx = plant.position.x - cloud.position.x;
-                const dz = plant.position.z - cloud.position.z;
-                if (dx * dx + dz * dz < 25) {
-                    if (plant.scale.y < 2.0) {
-                        plant.scale.multiplyScalar(1.002);
-                    }
-                }
-            }
-
-            if (Math.random() < 0.02) {
-                const offsetR = Math.random() * 4;
-                const offsetTheta = Math.random() * Math.PI * 2;
-                const sx = cloud.position.x + offsetR * Math.cos(offsetTheta);
-                const sz = cloud.position.z + offsetR * Math.sin(offsetTheta);
-                const sy = getGroundHeight(sx, sz);
-
-                if (Math.random() < 0.2) {
-                    const m = createMushroom(sx, sz);
-                    animatedObjects.push(m);
-                } else {
-                    const picker = Math.floor(Math.random() * 3);
-                    let baby;
-                    if (picker === 0) baby = createGrass({ color: GRASS_COLORS[0] });
-                    else if (picker === 1) baby = createFlower({ color: FLOWER_COLORS[0] });
-                    else baby = createPuffballFlower({ color: FLOWER_COLORS[1] });
-
-                    baby.position.set(sx, sy, sz);
-                    baby.scale.set(0.1, 0.1, 0.1);
-                    safeAddFoliage(baby);
-                }
-            }
-        }
-    });
-
-    await renderer.renderAsync(scene, camera);
+    renderer.render(scene, camera);
 }
 
 renderer.setAnimationLoop(animate);
