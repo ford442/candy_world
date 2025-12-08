@@ -1,3 +1,4 @@
+
 import * as THREE from 'three';
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js';
 import WebGPU from 'three/examples/jsm/capabilities/WebGPU.js';
@@ -246,7 +247,7 @@ function createCloud() {
     // Position will be set by caller
     // Compose cloud of 3-5 spheres
     const blobs = 3 + Math.floor(Math.random() * 3);
-    for(let i=0; i<blobs; i++) {
+    for (let i = 0; i < blobs; i++) {
         const size = 2 + Math.random() * 2;
         const geo = new THREE.SphereGeometry(size, 16, 16);
         const mesh = new THREE.Mesh(geo, materials.cloud);
@@ -311,20 +312,20 @@ function spawnCluster(cx, cz) {
 
     if (typeRoll < 0.3) {
         // MEADOW
-        for(let i=0; i<count*2; i++) { // Dense
+        for (let i = 0; i < count * 2; i++) { // Dense
             const r = Math.random() * radius;
             const theta = Math.random() * Math.PI * 2;
             const x = cx + r * Math.cos(theta);
             const z = cz + r * Math.sin(theta);
             const y = getGroundHeight(x, z);
 
-            if(Math.random() < 0.7) {
+            if (Math.random() < 0.7) {
                 // Instanced Grass
                 addGrassInstance(x, y, z);
             } else {
                 const color = FLOWER_COLORS[Math.floor(Math.random() * FLOWER_COLORS.length)];
                 const shape = ['simple', 'multi', 'spiral'][Math.floor(Math.random() * 3)];
-                const flower = createFlower({color, shape});
+                const flower = createFlower({ color, shape });
                 flower.position.set(x, y, z);
                 safeAddFoliage(flower);
             }
@@ -332,7 +333,7 @@ function spawnCluster(cx, cz) {
     } else if (typeRoll < 0.5) {
         // FOREST
         count = 5 + Math.floor(Math.random() * 3);
-        for(let i=0; i<count; i++) {
+        for (let i = 0; i < count; i++) {
             const r = Math.random() * radius;
             const theta = Math.random() * Math.PI * 2;
             const x = cx + r * Math.cos(theta);
@@ -343,24 +344,24 @@ function spawnCluster(cx, cz) {
             } else {
                 const color = TREE_COLORS[Math.floor(Math.random() * TREE_COLORS.length)];
                 const tree = createFloweringTree({ color });
-                tree.position.set(x, getGroundHeight(x,z), z);
+                tree.position.set(x, getGroundHeight(x, z), z);
                 safeAddFoliage(tree, true, 1.5);
             }
         }
         // Undergrowth
-        for(let i=0; i<count*2; i++) {
+        for (let i = 0; i < count * 2; i++) {
             const r = Math.random() * radius;
             const theta = Math.random() * Math.PI * 2;
             const x = cx + r * Math.cos(theta);
             const z = cz + r * Math.sin(theta);
             const color = SHRUB_COLORS[Math.floor(Math.random() * SHRUB_COLORS.length)];
             const shrub = createShrub({ color });
-            shrub.position.set(x, getGroundHeight(x,z), z);
+            shrub.position.set(x, getGroundHeight(x, z), z);
             safeAddFoliage(shrub, true, 0.8);
         }
     } else if (typeRoll < 0.65) {
         // FANTASY
-        for(let i=0; i<count; i++) {
+        for (let i = 0; i < count; i++) {
             const r = Math.random() * radius;
             const theta = Math.random() * Math.PI * 2;
             const x = cx + r * Math.cos(theta);
@@ -381,41 +382,41 @@ function spawnCluster(cx, cz) {
     } else if (typeRoll < 0.75) {
         // BUBBLE GROVE (New)
         // Bubble Willows + Puffballs
-        for (let i=0; i<5; i++) { // Trees
+        for (let i = 0; i < 5; i++) { // Trees
             const r = Math.random() * radius;
             const theta = Math.random() * Math.PI * 2;
             const x = cx + r * Math.cos(theta);
             const z = cz + r * Math.sin(theta);
             const color = PASTEL_COLORS[Math.floor(Math.random() * PASTEL_COLORS.length)];
             const tree = createBubbleWillow({ color });
-            tree.position.set(x, getGroundHeight(x,z), z);
+            tree.position.set(x, getGroundHeight(x, z), z);
             safeAddFoliage(tree, true, 1.2);
         }
-        for (let i=0; i<10; i++) { // Flowers
+        for (let i = 0; i < 10; i++) { // Flowers
             const r = Math.random() * radius;
             const theta = Math.random() * Math.PI * 2;
             const x = cx + r * Math.cos(theta);
             const z = cz + r * Math.sin(theta);
             const color = FLOWER_COLORS[Math.floor(Math.random() * FLOWER_COLORS.length)];
             const puff = createPuffballFlower({ color });
-            puff.position.set(x, getGroundHeight(x,z), z);
+            puff.position.set(x, getGroundHeight(x, z), z);
             safeAddFoliage(puff);
         }
     } else if (typeRoll < 0.90) {
         // PRISM ROSE GARDEN (NEW)
-        for (let i=0; i<8; i++) {
+        for (let i = 0; i < 8; i++) {
             const r = Math.random() * radius;
             const theta = Math.random() * Math.PI * 2;
             const x = cx + r * Math.cos(theta);
             const z = cz + r * Math.sin(theta);
 
             const rose = createPrismRoseBush();
-            rose.position.set(x, getGroundHeight(x,z), z);
+            rose.position.set(x, getGroundHeight(x, z), z);
             safeAddFoliage(rose, true, 1.0);
         }
     } else {
         // HELIX GARDEN
-        for (let i=0; i<12; i++) {
+        for (let i = 0; i < 12; i++) {
             const r = Math.random() * radius;
             const theta = Math.random() * Math.PI * 2;
             const x = cx + r * Math.cos(theta);
@@ -424,23 +425,23 @@ function spawnCluster(cx, cz) {
             if (Math.random() < 0.5) {
                 const color = PASTEL_COLORS[Math.floor(Math.random() * PASTEL_COLORS.length)];
                 const helix = createHelixPlant({ color });
-                helix.position.set(x, getGroundHeight(x,z), z);
+                helix.position.set(x, getGroundHeight(x, z), z);
                 safeAddFoliage(helix);
             } else {
                 const color = FLOWER_COLORS[Math.floor(Math.random() * FLOWER_COLORS.length)];
                 const sf = createStarflower({ color });
-                sf.position.set(x, getGroundHeight(x,z), z);
+                sf.position.set(x, getGroundHeight(x, z), z);
                 safeAddFoliage(sf);
             }
         }
         // Add a balloon bush or two
-        for (let i=0; i<3; i++) {
+        for (let i = 0; i < 3; i++) {
             const r = Math.random() * radius;
             const theta = Math.random() * Math.PI * 2;
             const x = cx + r * Math.cos(theta);
             const z = cz + r * Math.sin(theta);
             const bb = createBalloonBush({ color: 0xFF4500 });
-            bb.position.set(x, getGroundHeight(x,z), z);
+            bb.position.set(x, getGroundHeight(x, z), z);
             safeAddFoliage(bb, true, 1.0);
         }
     }
@@ -448,7 +449,7 @@ function spawnCluster(cx, cz) {
 
 // Generate the world using Clusters
 const CLUSTER_COUNT = 60; // How many patches
-for (let i=0; i<CLUSTER_COUNT; i++) {
+for (let i = 0; i < CLUSTER_COUNT; i++) {
     const cx = (Math.random() - 0.5) * 260;
     const cz = (Math.random() - 0.5) * 260;
     spawnCluster(cx, cz);
@@ -457,7 +458,7 @@ for (let i=0; i<CLUSTER_COUNT; i++) {
 // Clouds: increase 15 -> 25
 const rainingClouds = [];
 
-for(let i=0; i<25; i++) {
+for (let i = 0; i < 25; i++) {
     const isRaining = Math.random() > 0.6; // More chance of rain
     const cloud = isRaining ? createRainingCloud({ rainIntensity: 100 }) : createCloud();
     cloud.position.set(
@@ -506,7 +507,7 @@ if (musicUpload) {
     });
     musicUpload.addEventListener('click', (e) => e.stopPropagation());
     const label = document.querySelector('label[for="musicUpload"]');
-    if(label) label.addEventListener('click', (e) => e.stopPropagation());
+    if (label) label.addEventListener('click', (e) => e.stopPropagation());
 }
 
 const toggleDayNightBtn = document.getElementById('toggleDayNight');
@@ -949,7 +950,7 @@ function spawnKingMushroomZone(cx, cz) {
     rainingClouds.push(splashZone);
 
     // D. Surround with Giant Plants (The "Jungle")
-    for(let i=0; i<20; i++) {
+    for (let i = 0; i < 20; i++) {
         const r = 15 + Math.random() * 30;
         const theta = Math.random() * Math.PI * 2;
         const x = cx + r * Math.cos(theta);
@@ -977,13 +978,13 @@ function spawnOvergrownZone(cx, cz) {
 
     // A. Permanent Heavy Rain Cloud
     // We create a cluster of rain clouds to cover the area
-    for(let i=0; i<3; i++) {
+    for (let i = 0; i < 3; i++) {
         // Use custom giant cloud creator instead of scaling
         const cloud = createGiantRainCloud({ rainIntensity: 200, color: 0x555555 });
         cloud.position.set(
-            cx + (Math.random()-0.5)*30,
-            60 + Math.random()*10,
-            cz + (Math.random()-0.5)*30
+            cx + (Math.random() - 0.5) * 30,
+            60 + Math.random() * 10,
+            cz + (Math.random() - 0.5) * 30
         );
         scene.add(cloud);
         // Add to animation loop so rain works
@@ -991,7 +992,7 @@ function spawnOvergrownZone(cx, cz) {
     }
 
     // B. Giant Mushrooms (The "Hills")
-    for(let i=0; i<15; i++) {
+    for (let i = 0; i < 15; i++) {
         const r = Math.random() * radius;
         const theta = Math.random() * Math.PI * 2;
         const x = cx + r * Math.cos(theta);
@@ -1002,7 +1003,7 @@ function spawnOvergrownZone(cx, cz) {
     }
 
     // C. Giant Foliage
-    for(let i=0; i<30; i++) {
+    for (let i = 0; i < 30; i++) {
         const r = Math.random() * radius;
         const theta = Math.random() * Math.PI * 2;
         const x = cx + r * Math.cos(theta);
@@ -1062,17 +1063,17 @@ async function animate() {
 
     // Update Sky
     // Darker night sky target (Deep dark blue/purple to almost black)
-    uSkyTopColor.value.lerpColors(new THREE.Color(0x87CEEB), new THREE.Color(0x000020), dayNightFactor);
-    uSkyBottomColor.value.lerpColors(new THREE.Color(0xADD8E6), new THREE.Color(0x000020), dayNightFactor);
+    uSkyTopColor.value.lerpColors(new THREE.Color(0x87CEEB), new THREE.Color(0x203060), dayNightFactor); // Lighter midnight blue
+    uSkyBottomColor.value.lerpColors(new THREE.Color(0xADD8E6), new THREE.Color(0x604070), dayNightFactor); // Purple horizon
 
     // Update Fog to match darker night
     const dayFog = new THREE.Color(CONFIG.colors.fog);
-    const nightFog = new THREE.Color(0x050510); // Very dark blue/black
+    const nightFog = new THREE.Color(0x2A2A5A); // Deep purple/blue fog
     scene.fog.color.lerpColors(dayFog, nightFog, dayNightFactor);
 
     // Update Light - Darker at night
-    sunLight.intensity = THREE.MathUtils.lerp(0.8, 0.0, dayNightFactor); // Sun completely gone
-    ambientLight.intensity = THREE.MathUtils.lerp(1.0, 0.02, dayNightFactor); // Very dim ambient
+    sunLight.intensity = THREE.MathUtils.lerp(0.8, 0.1, dayNightFactor); // Sun completely gone -> faint moon
+    ambientLight.intensity = THREE.MathUtils.lerp(1.0, 0.15, dayNightFactor); // Dim ambient (was 0.02)
 
     // Update Stars
     if (stars.material) {
@@ -1209,7 +1210,7 @@ async function animate() {
 
         if (cloudIsRaining || cloud.userData.animationType === 'rain') {
             // 1. Growth
-            for(let k=0; k<5; k++) {
+            for (let k = 0; k < 5; k++) {
                 if (animatedFoliage.length === 0) break;
                 const idx = Math.floor(Math.random() * animatedFoliage.length);
                 const plant = animatedFoliage[idx];
@@ -1218,7 +1219,7 @@ async function animate() {
 
                 const dx = plant.position.x - cloud.position.x;
                 const dz = plant.position.z - cloud.position.z;
-                if (dx*dx + dz*dz < 25) {
+                if (dx * dx + dz * dz < 25) {
                     if (plant.scale.y < 2.0) {
                         plant.scale.multiplyScalar(1.002);
                     }
