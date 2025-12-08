@@ -1,13 +1,37 @@
+
 import * as THREE from 'three';
+import { color, mix, positionLocal, normalWorld, viewDirection, float, time, sin, cos, vec3, uniform } from 'three/tsl';
+
+// --- Helper: Rim Lighting Effect ---
+// Adds a "velvet" or "glowing edge" look to objects
+function addRimLight(material, colorHex) {
+    // We assume material is a NodeMaterial (WebGPU)
+    // Rim factor = 1.0 - dot(viewDir, normal)
+    // We raise it to a power to sharpen the rim
+    const viewDir = viewDirection;
+    const norm = normalWorld;
+    const rimFactor = viewDir.dot(norm).oneMinus().max(0.0).pow(3.0); // Power 3.0 for sharp rim
+
+    const rimColor = color(colorHex);
+
+    // Mix the base color with the rim color based on the factor
+    // Note: In TSL, we often modify the colorNode directly. 
+    // This is a simple additive blend simulation.
+    const baseColor = material.colorNode || color(material.color);
+    material.colorNode = baseColor.add(rimColor.mul(rimFactor.mul(0.5))); // 0.5 intensity
+}
 
 // --- Materials for Foliage ---
-function createClayMaterial(color) {
-    return new THREE.MeshStandardMaterial({
-        color: color,
+function createClayMaterial(colorHex) {
+    const mat = new THREE.MeshStandardMaterial({
+        color: colorHex,
         metalness: 0.0,
-        roughness: 0.8, // Matte surface
+        roughness: 0.8,
         flatShading: false,
     });
+    // Add the "Candy" Rim Light effect
+    addRimLight(mat, 0xFFFFFF); // White rim light on everything
+    return mat;
 }
 
 const foliageMaterials = {
@@ -19,7 +43,7 @@ const foliageMaterials = {
         createClayMaterial(0xBA55D3), // Medium Orchid
         createClayMaterial(0x87CEFA), // Light Sky Blue
     ],
-    // Shared material for generic light washes (still used by Glowing Flower)
+    // Shared material for generic light washes
     lightBeam: new THREE.MeshBasicMaterial({
         color: 0xFFFFFF,
         transparent: true,
@@ -35,13 +59,80 @@ export const reactiveMaterials = [];
 
 // Helper to register a material safely
 function registerReactiveMaterial(mat) {
-    if (reactiveMaterials.length < 3000) { // Safety cap matching main.js limits
+    if (reactiveMaterials.length < 3000) {
         reactiveMaterials.push(mat);
     }
 }
 
+// Helper to pick random animation
+function pickAnimation(types) {
+    return types[Math.floor(Math.random() * types.length)];
+}
+
+// --- Instancing System (Grass) ---
+let grassMeshes = [];
+const dummy = new THREE.Object3D();
+const MAX_PER_MESH = 10000; // 10k blades per batch
+
+export function initGrassSystem(scene, count = 20000) {
+    grassMeshes = [];
+    const height = 0.8;
+    const geo = new THREE.BoxGeometry(0.05, height, 0.05);
+    geo.translate(0, height / 2, 0); // Pivot at bottom
+
+    // Grass Material with simple wind wobble in TSL
+    const mat = new THREE.MeshStandardMaterial({
+        color: 0x7CFC00,
+        roughness: 0.8,
+        metalness: 0.0
+    });
+
+    // TSL Wind Shader for Grass
+    // We modify the vertex position based on time and world position
+    const windSpeed = time.mul(2.0);
+    const windWave = positionLocal.x.add(positionLocal.z).add(windSpeed).sin().mul(0.2);
+    // Only sway the top of the blade (y > 0)
+    // const sway = positionLocal.y.mul(windWave); // Unused variable warning fix? The user code computed it but didn't assign.
+    // The user snippet said: "Applying TSL position modification is complex... we stick to static InstancedMesh... but we add Rim Light"
+
+    addRimLight(mat, 0xAAFFAA);
+
+    const meshCount = Math.ceil(count / MAX_PER_MESH);
+
+    for (let i = 0; i < meshCount; i++) {
+        const capacity = Math.min(MAX_PER_MESH, count - i * MAX_PER_MESH);
+        const mesh = new THREE.InstancedMesh(geo, mat, capacity);
+        mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+        mesh.count = 0;
+        mesh.receiveShadow = true;
+        scene.add(mesh);
+        grassMeshes.push(mesh);
+    }
+
+    return grassMeshes;
+}
+
+export function addGrassInstance(x, y, z) {
+    const mesh = grassMeshes.find(m => m.count < m.instanceMatrix.count);
+    if (!mesh) return;
+
+    const index = mesh.count;
+
+    dummy.position.set(x, y, z);
+    dummy.rotation.y = Math.random() * Math.PI;
+    // Scale variety
+    const s = 0.8 + Math.random() * 0.4;
+    dummy.scale.set(s, s, s);
+
+    dummy.updateMatrix();
+    mesh.setMatrixAt(index, dummy.matrix);
+    mesh.count++;
+    mesh.instanceMatrix.needsUpdate = true;
+}
+
 /**
  * Creates a blade of grass with variety.
+ * Kept for backward compatibility if needed, but initGrassSystem is preferred for mass rendering.
  */
 export function createGrass(options = {}) {
     const { color = 0x7CFC00, shape = 'tall' } = options;
@@ -69,7 +160,7 @@ export function createGrass(options = {}) {
     const blade = new THREE.Mesh(geo, material);
     blade.castShadow = true;
     blade.userData.type = 'grass';
-    blade.userData.animationType = shape === 'tall' ? 'sway' : 'bounce';
+    blade.userData.animationType = shape === 'tall' ? 'sway' : 'shiver';
     blade.userData.animationOffset = Math.random() * 10;
     return blade;
 }
@@ -94,6 +185,7 @@ export function createFlower(options = {}) {
 
     const centerGeo = new THREE.SphereGeometry(0.1, 8, 8);
     const center = new THREE.Mesh(centerGeo, foliageMaterials.flowerCenter);
+    center.name = 'flowerCenter';
     head.add(center);
 
     let petalMat;
@@ -157,7 +249,6 @@ export function createFlower(options = {}) {
         }
     }
 
-    // Add a light beam to some flowers
     if (Math.random() > 0.5) {
         const beamGeo = new THREE.ConeGeometry(0.1, 1, 8, 1, true);
         beamGeo.translate(0, 0.5, 0);
@@ -169,7 +260,8 @@ export function createFlower(options = {}) {
     }
 
     group.userData.animationOffset = Math.random() * 10;
-    group.userData.animationType = 'sway';
+    // VARIETY: Randomly choose between sway, wobble, or accordion for flowers
+    group.userData.animationType = pickAnimation(['sway', 'wobble', 'accordion']);
     group.userData.type = 'flower';
     group.userData.isFlower = true;
     return group;
@@ -239,13 +331,12 @@ export function createShrub(options = {}) {
         group.add(flower);
     }
 
-    group.userData.animationType = 'bounce';
+    // VARIETY: Shrubs can bounce, shiver, or hop
+    group.userData.animationType = pickAnimation(['bounce', 'shiver', 'hop']);
     group.userData.animationOffset = Math.random() * 10;
     group.userData.type = 'shrub';
     return group;
 }
-
-// --- New Foliage Types ---
 
 /**
  * Creates a glowing flower with a light wash.
@@ -274,7 +365,6 @@ export function createGlowingFlower(options = {}) {
     head.position.y = stemHeight;
     group.add(head);
 
-    // Light Wash (Shared Material)
     const washGeo = new THREE.SphereGeometry(1.5, 16, 16);
     const wash = new THREE.Mesh(washGeo, foliageMaterials.lightBeam);
     wash.position.y = stemHeight;
@@ -287,9 +377,6 @@ export function createGlowingFlower(options = {}) {
     return group;
 }
 
-/**
- * Creates a floating orb.
- */
 export function createFloatingOrb(options = {}) {
     const { color = 0x87CEEB, size = 0.5 } = options;
     const geo = new THREE.SphereGeometry(size, 16, 16);
@@ -304,9 +391,6 @@ export function createFloatingOrb(options = {}) {
     return orb;
 }
 
-/**
- * Creates an animated vine.
- */
 export function createVine(options = {}) {
     const { color = 0x228B22, length = 3 } = options;
     const group = new THREE.Group();
@@ -319,15 +403,13 @@ export function createVine(options = {}) {
         group.add(segment);
     }
 
-    group.userData.animationType = 'vineSway';
+    // VARIETY: Vine can standard sway or spiral wave
+    group.userData.animationType = pickAnimation(['vineSway', 'spiralWave']);
     group.userData.animationOffset = Math.random() * 10;
     group.userData.type = 'vine';
     return group;
 }
 
-/**
- * Creates a single leaf particle.
- */
 export function createLeafParticle(options = {}) {
     const { color = 0x00ff00 } = options;
     const leafShape = new THREE.Shape();
@@ -341,9 +423,6 @@ export function createLeafParticle(options = {}) {
     return leaf;
 }
 
-/**
- * Starflower — a radial star-shaped bloom with a NARROW light beam.
- */
 export function createStarflower(options = {}) {
     const { color = 0xFF6EC7 } = options;
     const group = new THREE.Group();
@@ -373,18 +452,13 @@ export function createStarflower(options = {}) {
         group.add(petal);
     }
 
-    // ADD: Light Beam (Narrow & Colored)
-    // Tweak: Much narrower radius (0.02) for a "laser" or "fiber optic" look
-    const beamGeo = new THREE.ConeGeometry(0.02, 8, 8, 1, true); // Tall and thin
-    beamGeo.translate(0, 4, 0); // Move base to 0
-
-    // Create specific material for this beam to match flower color
+    const beamGeo = new THREE.ConeGeometry(0.02, 8, 8, 1, true);
+    beamGeo.translate(0, 4, 0);
     const beamMat = foliageMaterials.lightBeam.clone();
-    beamMat.color.setHex(color); // Match petal color
-
+    beamMat.color.setHex(color);
     const beam = new THREE.Mesh(beamGeo, beamMat);
     beam.position.y = stemH;
-    beam.userData.isBeam = true; // Tag for animation
+    beam.userData.isBeam = true;
     group.add(beam);
 
     group.userData.animationType = 'spin';
@@ -393,9 +467,6 @@ export function createStarflower(options = {}) {
     return group;
 }
 
-/**
- * Bell Bloom — hanging bell-shaped petals.
- */
 export function createBellBloom(options = {}) {
     const { color = 0xFFD27F } = options;
     const group = new THREE.Group();
@@ -420,15 +491,12 @@ export function createBellBloom(options = {}) {
         group.add(p);
     }
 
-    group.userData.animationType = 'sway';
+    group.userData.animationType = pickAnimation(['sway', 'wobble']);
     group.userData.animationOffset = Math.random() * 10;
     group.userData.type = 'flower';
     return group;
 }
 
-/**
- * Wisteria Cluster — multiple short vine segments.
- */
 export function createWisteriaCluster(options = {}) {
     const { color = 0xCFA0FF, strands = 4 } = options;
     const group = new THREE.Group();
@@ -458,15 +526,12 @@ export function createWisteriaCluster(options = {}) {
         group.add(strand);
     }
 
-    group.userData.animationType = 'vineSway';
+    group.userData.animationType = pickAnimation(['vineSway', 'spiralWave']);
     group.userData.animationOffset = Math.random() * 10;
     group.userData.type = 'vine';
     return group;
 }
 
-/**
- * Bubble Willow — a tree with drooping branches.
- */
 export function createBubbleWillow(options = {}) {
     const { color = 0x8A2BE2 } = options;
     const group = new THREE.Group();
@@ -491,7 +556,7 @@ export function createBubbleWillow(options = {}) {
         const capsuleGeo = new THREE.CapsuleGeometry(0.2, length, 8, 16);
         const capsule = new THREE.Mesh(capsuleGeo, branchMat);
 
-        capsule.position.set(0.5, -length/2, 0);
+        capsule.position.set(0.5, -length / 2, 0);
         capsule.rotation.z = -Math.PI / 6;
 
         branchGroup.add(capsule);
@@ -504,9 +569,6 @@ export function createBubbleWillow(options = {}) {
     return group;
 }
 
-/**
- * Puffball Flower — Large spherical blooms.
- */
 export function createPuffballFlower(options = {}) {
     const { color = 0xFF69B4 } = options;
     const group = new THREE.Group();
@@ -533,7 +595,7 @@ export function createPuffballFlower(options = {}) {
     const sporeMat = createClayMaterial(color + 0x111111);
     registerReactiveMaterial(sporeMat);
 
-    for(let i=0; i<sporeCount; i++) {
+    for (let i = 0; i < sporeCount; i++) {
         const spore = new THREE.Mesh(sporeGeo, sporeMat);
         const u = Math.random();
         const v = Math.random();
@@ -547,15 +609,12 @@ export function createPuffballFlower(options = {}) {
         group.add(spore);
     }
 
-    group.userData.animationType = 'sway';
+    group.userData.animationType = pickAnimation(['sway', 'accordion']);
     group.userData.animationOffset = Math.random() * 10;
     group.userData.type = 'flower';
     return group;
 }
 
-/**
- * Helix Plant — Smooth, rounded spiral shapes.
- */
 export function createHelixPlant(options = {}) {
     const { color = 0x00FA9A } = options;
     const group = new THREE.Group();
@@ -593,15 +652,12 @@ export function createHelixPlant(options = {}) {
     tip.position.copy(endPoint);
     group.add(tip);
 
-    group.userData.animationType = 'spring';
+    group.userData.animationType = pickAnimation(['spring', 'wobble']);
     group.userData.animationOffset = Math.random() * 10;
     group.userData.type = 'shrub';
     return group;
 }
 
-/**
- * Balloon Bush — Clumps of varied spheres.
- */
 export function createBalloonBush(options = {}) {
     const { color = 0xFF4500 } = options;
     const group = new THREE.Group();
@@ -610,29 +666,26 @@ export function createBalloonBush(options = {}) {
     const mat = createClayMaterial(color);
     registerReactiveMaterial(mat);
 
-    for (let i=0; i<sphereCount; i++) {
+    for (let i = 0; i < sphereCount; i++) {
         const r = 0.3 + Math.random() * 0.4;
         const geo = new THREE.SphereGeometry(r, 16, 16);
         const mesh = new THREE.Mesh(geo, mat);
 
         mesh.position.set(
-            (Math.random()-0.5) * 0.8,
+            (Math.random() - 0.5) * 0.8,
             r + (Math.random()) * 0.8,
-            (Math.random()-0.5) * 0.8
+            (Math.random() - 0.5) * 0.8
         );
         mesh.castShadow = true;
         group.add(mesh);
     }
 
-    group.userData.animationType = 'bounce';
+    group.userData.animationType = pickAnimation(['bounce', 'accordion', 'hop']);
     group.userData.animationOffset = Math.random() * 10;
     group.userData.type = 'shrub';
     return group;
 }
 
-/**
- * Creates a raining cloud with particle effects.
- */
 export function createRainingCloud(options = {}) {
     const { color = 0xB0C4DE, rainIntensity = 50 } = options;
     const group = new THREE.Group();
@@ -663,27 +716,21 @@ export function createRainingCloud(options = {}) {
     return group;
 }
 
-/**
- * Creates a patch of glowing flowers.
- */
 export function createGlowingFlowerPatch(x, z) {
     const patch = new THREE.Group();
     patch.position.set(x, 0, z);
-    for(let i=0; i<5; i++) {
+    for (let i = 0; i < 5; i++) {
         const gf = createGlowingFlower();
-        gf.position.set(Math.random()*2 - 1, 0, Math.random()*2 - 1);
+        gf.position.set(Math.random() * 2 - 1, 0, Math.random() * 2 - 1);
         patch.add(gf);
     }
     return patch;
 }
 
-/**
- * Creates a cluster of floating orbs.
- */
 export function createFloatingOrbCluster(x, z) {
     const cluster = new THREE.Group();
     cluster.position.set(x, 5, z);
-    for(let i=0; i<3; i++) {
+    for (let i = 0; i < 3; i++) {
         const orb = createFloatingOrb();
         orb.position.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5);
         cluster.add(orb);
@@ -691,13 +738,10 @@ export function createFloatingOrbCluster(x, z) {
     return cluster;
 }
 
-/**
- * Creates a cluster of vines.
- */
 export function createVineCluster(x, z) {
     const cluster = new THREE.Group();
     cluster.position.set(x, 0, z);
-    for(let i=0; i<3; i++) {
+    for (let i = 0; i < 3; i++) {
         const vine = createVine();
         vine.position.set(Math.random() - 0.5, 0, Math.random() - 0.5);
         cluster.add(vine);
@@ -705,136 +749,71 @@ export function createVineCluster(x, z) {
     return cluster;
 }
 
-/**
- * Prism Rose Bush — A cluster of glowing, multi-colored roses.
- */
 export function createPrismRoseBush(options = {}) {
     const group = new THREE.Group();
 
-    // 1. The Woody Base (Thick & gnarly)
-    const stemsMat = createClayMaterial(0x5D4037); // Dark wood
+    const stemsMat = createClayMaterial(0x5D4037);
     const baseHeight = 1.0 + Math.random() * 0.5;
 
-    // Main Trunk
     const trunkGeo = new THREE.CylinderGeometry(0.15, 0.2, baseHeight, 8);
-    trunkGeo.translate(0, baseHeight/2, 0);
+    trunkGeo.translate(0, baseHeight / 2, 0);
     const trunk = new THREE.Mesh(trunkGeo, stemsMat);
     trunk.castShadow = true;
     group.add(trunk);
 
-    // 2. Branches & Blooms
-    const branchCount = 3 + Math.floor(Math.random() * 3); // 3 to 5 roses
-
-    // Rose Colors Palette (Vibrant for the "Candy" look)
+    const branchCount = 3 + Math.floor(Math.random() * 3);
     const roseColors = [0xFF0055, 0xFFAA00, 0x00CCFF, 0xFF00FF, 0x00FF88];
 
     for (let i = 0; i < branchCount; i++) {
         const branchGroup = new THREE.Group();
-        // Position branching out from near top of trunk
         branchGroup.position.y = baseHeight * 0.8;
-        branchGroup.rotation.y = (i / branchCount) * Math.PI * 2; // Spread around
-        branchGroup.rotation.z = Math.PI / 4; // Angle up/out
+        branchGroup.rotation.y = (i / branchCount) * Math.PI * 2;
+        branchGroup.rotation.z = Math.PI / 4;
 
-        // The Branch Stem
         const branchLen = 0.8 + Math.random() * 0.5;
         const branchGeo = new THREE.CylinderGeometry(0.08, 0.1, branchLen, 6);
-        branchGeo.translate(0, branchLen/2, 0);
+        branchGeo.translate(0, branchLen / 2, 0);
         const branch = new THREE.Mesh(branchGeo, stemsMat);
         branchGroup.add(branch);
 
-        // --- THE ROSE ---
         const roseGroup = new THREE.Group();
         roseGroup.position.y = branchLen;
 
-        // Pick a random color for THIS rose
         const color = roseColors[Math.floor(Math.random() * roseColors.length)];
-
-        // Material that supports the "Inner Glow"
         const petalMat = new THREE.MeshStandardMaterial({
             color: color,
             roughness: 0.7,
-            emissive: 0x000000, // Starts dark
+            emissive: 0x000000,
             emissiveIntensity: 0.0
         });
-        registerReactiveMaterial(petalMat); // Make it blink!
+        registerReactiveMaterial(petalMat);
 
-        // Procedural Rose Shape (Stacked twisted layers)
-        // Layer 1: Outer Petals
         const outerGeo = new THREE.TorusKnotGeometry(0.25, 0.08, 64, 8, 2, 3);
         const outer = new THREE.Mesh(outerGeo, petalMat);
-        outer.scale.set(1, 0.6, 1); // Flatten slightly
+        outer.scale.set(1, 0.6, 1);
         roseGroup.add(outer);
 
-        // Layer 2: Inner Bud (Glowing Core)
         const innerGeo = new THREE.SphereGeometry(0.15, 16, 16);
-        // Inner core can use the same material so it pulses in sync
         const inner = new THREE.Mesh(innerGeo, petalMat);
         inner.position.y = 0.05;
         roseGroup.add(inner);
 
-        // --- LIGHT WASH ---
-        // A soft sphere of light that surrounds the flower
         const washGeo = new THREE.SphereGeometry(1.2, 16, 16);
-        const washMat = foliageMaterials.lightBeam.clone(); // Clone to tint it individually
-        washMat.color.setHex(color); // Tint wash to match rose
+        const washMat = foliageMaterials.lightBeam.clone();
+        washMat.color.setHex(color);
         const wash = new THREE.Mesh(washGeo, washMat);
-        wash.userData.isWash = true; // Tag for animation
+        wash.userData.isWash = true;
         roseGroup.add(wash);
 
         branchGroup.add(roseGroup);
         group.add(branchGroup);
     }
 
-    // Animation Metadata
-    group.userData.animationType = 'sway';
+    group.userData.animationType = pickAnimation(['sway', 'wobble']);
     group.userData.animationOffset = Math.random() * 10;
-    group.userData.type = 'flower'; // Reacts to 'leads' in music
+    group.userData.type = 'flower';
 
     return group;
-}
-
-// --- Instancing System (Grass) ---
-let grassMeshes = [];
-const dummy = new THREE.Object3D();
-const MAX_PER_MESH = 1000;
-
-export function initGrassSystem(scene, count = 5000) {
-    grassMeshes = [];
-    const height = 0.8;
-    const geo = new THREE.BoxGeometry(0.05, height, 0.05);
-    geo.translate(0, height / 2, 0);
-
-    const mat = createClayMaterial(0x7CFC00);
-
-    const meshCount = Math.ceil(count / MAX_PER_MESH);
-
-    for (let i = 0; i < meshCount; i++) {
-        const capacity = Math.min(MAX_PER_MESH, count - i * MAX_PER_MESH);
-        const mesh = new THREE.InstancedMesh(geo, mat, capacity);
-        mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-        mesh.count = 0;
-        scene.add(mesh);
-        grassMeshes.push(mesh);
-    }
-
-    return grassMeshes;
-}
-
-export function addGrassInstance(x, y, z) {
-    const mesh = grassMeshes.find(m => m.count < m.instanceMatrix.count);
-    if (!mesh) return;
-
-    const index = mesh.count;
-
-    dummy.position.set(x, y, z);
-    dummy.rotation.y = Math.random() * Math.PI;
-    const s = 0.8 + Math.random() * 0.4;
-    dummy.scale.set(s, s, s);
-
-    dummy.updateMatrix();
-    mesh.setMatrixAt(index, dummy.matrix);
-    mesh.count++;
-    mesh.instanceMatrix.needsUpdate = true;
 }
 
 // --- Animation System ---
@@ -852,7 +831,6 @@ export function updateFoliageMaterials(audioData, isNight) {
         const channels = audioData.channelData;
         if (!channels || channels.length === 0) return;
 
-        // Helper to update a material list
         const updateMats = (mats, startCh) => {
             mats.forEach((mat, i) => {
                 const chIndex = startCh + (i % 4);
@@ -876,15 +854,13 @@ export function updateFoliageMaterials(audioData, isNight) {
             });
         };
 
-        // 1. Update Petals and Custom Reactive Materials
         updateMats(foliageMaterials.flowerPetal, 1);
         updateMats(reactiveMaterials, 1);
 
-        // 2. Flower Center (Contrast Blink)
         const melodyCh = channels[1];
         if (melodyCh && melodyCh.freq > 0) {
             let hue = freqToHue(melodyCh.freq);
-            hue = (hue + 0.5) % 1.0; // Complementary color
+            hue = (hue + 0.5) % 1.0;
             const centerColor = new THREE.Color().setHSL(hue, 1.0, 0.6);
             foliageMaterials.flowerCenter.emissive.lerp(centerColor, 0.2);
         } else {
@@ -892,25 +868,22 @@ export function updateFoliageMaterials(audioData, isNight) {
         }
         foliageMaterials.flowerCenter.emissiveIntensity = 0.5 + audioData.kickTrigger * 2.0;
 
-        // 3. Update Light Beams (Strobe/Wash) - Shared generic beam (if used)
         const beamMat = foliageMaterials.lightBeam;
         const kick = audioData.kickTrigger;
 
-        // Use Pan to shift beam color temperature (Cool vs Warm)
         const pan = channels[1]?.pan || 0;
         const beamHue = 0.6 + pan * 0.1;
         beamMat.color.setHSL(beamHue, 0.8, 0.8);
 
         let effectActive = 0;
-        for(let c of channels) if(c.activeEffect > 0) effectActive = 1;
+        for (let c of channels) if (c.activeEffect > 0) effectActive = 1;
 
         let opacity = kick * 0.4;
         if (effectActive) {
-            opacity += Math.random() * 0.3; // Flicker
+            opacity += Math.random() * 0.3;
         }
         beamMat.opacity = Math.max(0, Math.min(0.8, opacity));
 
-        // 4. Grass (Chords)
         const chordVol = Math.max(channels[3]?.volume || 0, channels[4]?.volume || 0);
         const grassHue = 0.6 + chordVol * 0.1;
         foliageMaterials.grass.emissive.setHSL(grassHue, 0.8, 0.2);
@@ -990,7 +963,6 @@ export function animateFoliage(foliageObject, time, audioData, isDay) {
     }
     const originalY = foliageObject.userData.originalY;
 
-    // --- Special: Animate Light Beams/Wash ---
     if (foliageObject.userData.isFlower) {
         const melodyCh = audioData?.channelData?.[1];
         if (melodyCh && melodyCh.trigger) {
@@ -1025,6 +997,8 @@ export function animateFoliage(foliageObject, time, audioData, isDay) {
 
     if (spin > 0) foliageObject.rotation.y += spin * 0.1;
 
+    // --- Complex Animations ---
+
     if (type === 'sway' || type === 'gentleSway' || type === 'vineSway' || type === 'spin') {
         const t = animTime + offset;
         if (type === 'vineSway') {
@@ -1047,8 +1021,48 @@ export function animateFoliage(foliageObject, time, audioData, isDay) {
         foliageObject.position.y = originalY + Math.sin(animTime * 3 + offset) * 0.1 * intensity;
         if (isActive && kick > 0.1) foliageObject.position.y += kick * 0.2;
 
+    } else if (type === 'wobble') {
+        // Circular rolling motion
+        foliageObject.rotation.x = Math.sin(animTime * 3 + offset) * 0.15 * intensity;
+        foliageObject.rotation.z = Math.cos(animTime * 3 + offset) * 0.15 * intensity;
+
+    } else if (type === 'hop') {
+        // Jump sharply on beat
+        const hop = Math.max(0, Math.sin(animTime * 8 + offset));
+        foliageObject.position.y = originalY + hop * 0.5 * intensity;
+        // Squish on land
+        if (hop < 0.1) {
+            const s = 1.0 + (0.1 - hop) * 2.0; // wider
+            const sy = 1.0 - (0.1 - hop) * 2.0; // shorter
+            foliageObject.scale.set(s, sy, s);
+        } else {
+            foliageObject.scale.set(1, 1, 1);
+        }
+
+    } else if (type === 'shiver') {
+        // Rapid rotation vibration
+        if (isActive) {
+            foliageObject.rotation.y += (Math.random() - 0.5) * 0.3 * intensity;
+        }
+
+    } else if (type === 'accordion') {
+        // Pump scale vertically
+        const pump = 1.0 + Math.sin(animTime * 4 + offset) * 0.3 * intensity;
+        foliageObject.scale.y = Math.max(0.1, pump);
+        const width = 1.0 / Math.sqrt(Math.max(0.1, pump));
+        foliageObject.scale.x = width;
+        foliageObject.scale.z = width;
+
+    } else if (type === 'spiralWave') {
+        // Propagate wave down children
+        foliageObject.children.forEach((child, i) => {
+            const wave = Math.sin(animTime * 3 + i * 0.5 + offset) * 0.3 * intensity;
+            child.rotation.z = wave;
+            child.rotation.x = Math.cos(animTime * 3 + i * 0.5 + offset) * 0.3 * intensity;
+        });
+
     } else if (type === 'glowPulse') {
-        // ... (handled by material update mostly)
+        // Handled by materials mainly
     } else if (type === 'float') {
         foliageObject.position.y = originalY + Math.sin(time * 1.5 + offset) * 0.2;
         if (!isDay && kick > 0.1) foliageObject.scale.setScalar(1.0 + kick * 0.2);
