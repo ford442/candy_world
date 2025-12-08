@@ -105,7 +105,7 @@ npm run build:wasm   # Compile AssemblyScript to WASM
 
 ### Modifying Colors
 
-- Update the `CONFIG.colors` object in `main.js` for global colors
+- Update the `CONFIG.colors` object in `main.js` for global colors (available properties: `sky`, `ground`, `fog`, `light`, `ambient`)
 - Modify material creation functions in `foliage.js` for specific elements
 - Maintain the pastel candy color palette
 
@@ -136,7 +136,7 @@ Currently, this project has no automated testing infrastructure. Testing is done
 - Target 60 FPS on systems with WebGPU support
 - Terrain size is 300x300 units - avoid making it larger
 - Fog range (20-100) helps with draw distance culling
-- Use `requestAnimationFrame` for smooth animations
+- Use `renderer.setAnimationLoop(animate)` for animations (WebGPU renderer handles timing internally)
 
 ## Visual Style Guidelines
 
