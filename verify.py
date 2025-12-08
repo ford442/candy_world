@@ -14,7 +14,7 @@ def verify_night_mode():
         try:
             # Navigate to local server (Vite default is 5173, but check log if needed)
             # Assuming 5173 for now
-            page.goto("http://localhost:5173")
+            page.goto("http://localhost:5175", timeout=60000)
 
             # Wait for instructions overlay
             page.wait_for_selector("#instructions")

@@ -1,3 +1,4 @@
+
 import * as THREE from 'three';
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js';
 import WebGPU from 'three/examples/jsm/capabilities/WebGPU.js';
@@ -112,13 +113,15 @@ const obstacles = [];
 // --- Procedural Generation ---
 
 // 1. Ground (Rolling Hills)
-const groundGeo = new THREE.PlaneGeometry(300, 300, 64, 64);
+const groundGeo = new THREE.PlaneGeometry(300, 300, 128, 128);
 const posAttribute = groundGeo.attributes.position;
 for (let i = 0; i < posAttribute.count; i++) {
     const x = posAttribute.getX(i);
     const y = posAttribute.getY(i);
-    const z = Math.sin(x * 0.05) * 2 + Math.cos(y * 0.05) * 2;
-    posAttribute.setZ(i, z);
+    // Note: Plane is rotated, so 'y' in geometry is 'z' in world
+    const zWorld = -y;
+    const height = getGroundHeight(x, zWorld);
+    posAttribute.setZ(i, height);
 }
 groundGeo.computeVertexNormals();
 const ground = new THREE.Mesh(groundGeo, materials.ground);
@@ -127,14 +130,18 @@ ground.receiveShadow = true;
 scene.add(ground);
 
 function getGroundHeight(x, z) {
-    return Math.sin(x * 0.05) * 2 + Math.cos(-z * 0.05) * 2;
+    // Large rolling hills
+    const h1 = Math.sin(x * 0.05) * 2 + Math.cos(z * 0.05) * 2;
+    // Small detailed bumps (Micro-terrain)
+    const h2 = Math.sin(x * 0.2) * 0.3 + Math.cos(z * 0.15) * 0.3;
+    return h1 + h2;
 }
 
 // 2. Objects Container
 const worldGroup = new THREE.Group();
 scene.add(worldGroup);
 
-initGrassSystem(scene, 20000);
+initGrassSystem(scene, 25000);
 
 // 3. Trees
 function createTree(x, z) {
@@ -221,6 +228,13 @@ function createMushroom(x, z, options = {}) {
         radius: stemR * 2
     });
 
+    // Randomize mushroom animation: wobble, bounce, or accordion
+    const anims = ['wobble', 'bounce', 'accordion'];
+    const chosenAnim = anims[Math.floor(Math.random() * anims.length)];
+    group.userData.animationType = chosenAnim;
+    // Mark type for specific logic in animateFoliage
+    group.userData.type = 'mushroom';
+
     return { mesh: group, type: 'mushroom', speed: Math.random() * 0.02 + 0.01, offset: Math.random() * 100, drivable: isDrivable };
 }
 
@@ -274,22 +288,26 @@ function spawnCluster(cx, cz) {
     let radius = 15 + Math.random() * 10;
 
     if (typeRoll < 0.3) {
-        for (let i = 0; i < count * 2; i++) {
+        const radius = 10 + Math.random() * 5;
+        // Place grass blades (Dense Patch)
+        for (let j = 0; j < 200; j++) {
             const r = Math.random() * radius;
             const theta = Math.random() * Math.PI * 2;
             const x = cx + r * Math.cos(theta);
             const z = cz + r * Math.sin(theta);
             const y = getGroundHeight(x, z);
-
-            if (Math.random() < 0.7) {
-                addGrassInstance(x, y, z);
-            } else {
-                const color = FLOWER_COLORS[Math.floor(Math.random() * FLOWER_COLORS.length)];
-                const shape = ['simple', 'multi', 'spiral'][Math.floor(Math.random() * 3)];
-                const flower = createFlower({ color, shape });
-                flower.position.set(x, y, z);
-                safeAddFoliage(flower);
-            }
+            addGrassInstance(x, y, z);
+        }
+        // Add a few flowers
+        for (let j = 0; j < 5; j++) {
+            const r = Math.random() * radius * 0.8;
+            const theta = Math.random() * Math.PI * 2;
+            const x = cx + r * Math.cos(theta);
+            const z = cz + r * Math.sin(theta);
+            const y = getGroundHeight(x, z);
+            const f = createFlower({ color: 0xFF69B4 });
+            f.position.set(x, y, z);
+            safeAddFoliage(f);
         }
     } else if (typeRoll < 0.5) {
         count = 5 + Math.floor(Math.random() * 3);
@@ -735,8 +753,13 @@ function createGiantMushroom(x, z, scale = 8) {
         radius: stemR * 1.2
     });
 
-    const giantMushroom = { mesh: group, type: 'mushroom', speed: Math.random() * 0.02 + 0.01, offset: Math.random() * 100, drivable: false };
+    // Randomize giant mushroom animation too
+    const anims = ['wobble', 'bounce', 'accordion'];
+    const chosenAnim = anims[Math.floor(Math.random() * anims.length)];
+    group.userData.animationType = chosenAnim;
     group.userData.type = 'mushroom';
+
+    const giantMushroom = { mesh: group, type: 'mushroom', speed: Math.random() * 0.02 + 0.01, offset: Math.random() * 100, drivable: false };
     animatedObjects.push(giantMushroom);
     animatedFoliage.push(group);
 }
