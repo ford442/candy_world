@@ -1111,12 +1111,88 @@ export function animateFoliage(foliageObject, time, audioData, isDay) {
     }
 
     // --- KEEP EXISTING ANIMATIONS ---
+    else if (type === 'bounce') {
+        const y = foliageObject.userData.originalY ?? foliageObject.position.y;
+        foliageObject.userData.originalY = y;
+        foliageObject.position.y = y + Math.sin(animTime * 3 + offset) * 0.1 * intensity;
+        if (isActive && kick > 0.1) foliageObject.position.y += kick * 0.2;
+    }
     else if (type === 'sway') {
         foliageObject.rotation.z = Math.sin(time + offset) * 0.1 * intensity;
     }
-    // ... (include bounce, wobble, etc from previous implementation)
     else if (type === 'wobble') {
         foliageObject.rotation.x = Math.sin(animTime * 3 + offset) * 0.15 * intensity;
         foliageObject.rotation.z = Math.cos(animTime * 3 + offset) * 0.15 * intensity;
+    }
+    else if (type === 'accordion') {
+        // Fallback if trunk group not set (e.g. mushrooms)
+        const target = foliageObject.userData.trunk || foliageObject;
+        const stretch = 1.0 + Math.max(0, Math.sin(animTime * 10 + offset)) * 0.3 * intensity;
+        target.scale.y = stretch;
+        // Squash width if it's the accordion tree trunk, otherwise maybe just stretch y
+        if (foliageObject.userData.trunk) {
+            const w = 1.0 / Math.sqrt(stretch);
+            target.scale.x = w;
+            target.scale.z = w;
+        }
+    }
+    else if (type === 'hop') {
+        const y = foliageObject.userData.originalY ?? foliageObject.position.y;
+        foliageObject.userData.originalY = y;
+        const hopTime = animTime * 4 + offset;
+        const bounce = Math.max(0, Math.sin(hopTime)) * 0.3 * intensity;
+        foliageObject.position.y = y + bounce;
+        if (isActive && kick > 0.1) foliageObject.position.y += kick * 0.15;
+    }
+    else if (type === 'shiver') {
+        const shiver = Math.sin(animTime * 20 + offset) * 0.05 * intensity;
+        foliageObject.rotation.z = shiver;
+        foliageObject.rotation.x = shiver * 0.5;
+    }
+    else if (type === 'spring') {
+        const springTime = animTime * 5 + offset;
+        foliageObject.scale.y = 1.0 + Math.sin(springTime) * 0.1 * intensity;
+        foliageObject.scale.x = 1.0 - Math.sin(springTime) * 0.05 * intensity;
+        foliageObject.scale.z = 1.0 - Math.sin(springTime) * 0.05 * intensity;
+    }
+    else if (type === 'gentleSway') {
+        foliageObject.rotation.z = Math.sin(time * 0.5 + offset) * 0.05 * intensity;
+    }
+    else if (type === 'vineSway') {
+        foliageObject.rotation.z = Math.sin(time * 1.5 + offset) * 0.2 * intensity;
+        foliageObject.rotation.x = Math.cos(time * 1.2 + offset) * 0.1 * intensity;
+    }
+    else if (type === 'spiralWave') {
+        foliageObject.children.forEach((child, i) => {
+            child.rotation.y = Math.sin(time * 2 + offset + i * 0.5) * 0.3 * intensity;
+        });
+    }
+    else if (type === 'float') {
+        const y = foliageObject.userData.originalY ?? foliageObject.position.y;
+        foliageObject.userData.originalY = y;
+        foliageObject.position.y = y + Math.sin(time * 2 + offset) * 0.5 * intensity;
+    }
+    else if (type === 'spin') {
+        foliageObject.rotation.y += 0.01 * intensity;
+    }
+    else if (type === 'glowPulse') {
+        // Material pulsing is handled in updateFoliageMaterials
+        const y = foliageObject.userData.originalY ?? foliageObject.position.y;
+        foliageObject.userData.originalY = y;
+        foliageObject.position.y = y + Math.sin(time * 2 + offset) * 0.1;
+    }
+    else if (type === 'rain') {
+        // Animate rain particles
+        if (foliageObject.children.length > 1) {
+            const rain = foliageObject.children[1];
+            if (rain.geometry && rain.geometry.attributes.position) {
+                const positions = rain.geometry.attributes.position.array;
+                for (let i = 0; i < positions.length; i += 3) {
+                    positions[i + 1] -= 0.1;
+                    if (positions[i + 1] < -6) positions[i + 1] = 0;
+                }
+                rain.geometry.attributes.position.needsUpdate = true;
+            }
+        }
     }
 }
