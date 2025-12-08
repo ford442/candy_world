@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { color, mix, positionLocal, normalWorld, viewDirection, float, time, sin, cos, vec3, uniform } from 'three/tsl';
-import { PointsNodeMaterial, attribute } from 'three/webgpu';
+import { color, mix, positionLocal, normalWorld, viewDirection, float, time, sin, cos, vec3, uniform, attribute } from 'three/tsl';
+import { PointsNodeMaterial } from 'three/webgpu';
 
 // --- Helper: Rim Lighting Effect ---
 function addRimLight(material, colorHex) {
@@ -333,7 +333,7 @@ export function createFlower(options = {}) {
     const stamenGeo = new THREE.CylinderGeometry(0.01, 0.01, 0.15, 4);
     stamenGeo.translate(0, 0.075, 0);
     const stamenMat = createClayMaterial(0xFFFF00);
-    for(let i=0; i<stamenCount; i++) {
+    for (let i = 0; i < stamenCount; i++) {
         const stamen = new THREE.Mesh(stamenGeo, stamenMat);
         stamen.rotation.z = (Math.random() - 0.5) * 1.0;
         stamen.rotation.x = (Math.random() - 0.5) * 1.0;
@@ -442,13 +442,13 @@ export function createFloweringTree(options = {}) {
         const cluster = new THREE.Group();
         const subBlooms = 3 + Math.floor(Math.random() * 3);
 
-        for(let j=0; j<subBlooms; j++) {
+        for (let j = 0; j < subBlooms; j++) {
             const bloomGeo = new THREE.SphereGeometry(0.4 + Math.random() * 0.3, 16, 16);
             const bloom = new THREE.Mesh(bloomGeo, bloomMat);
             bloom.position.set(
-                (Math.random()-0.5)*0.5,
-                (Math.random()-0.5)*0.5,
-                (Math.random()-0.5)*0.5
+                (Math.random() - 0.5) * 0.5,
+                (Math.random() - 0.5) * 0.5,
+                (Math.random() - 0.5) * 0.5
             );
             cluster.add(bloom);
         }

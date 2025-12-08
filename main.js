@@ -175,7 +175,7 @@ function spawnCluster(cx, cz, type) {
     // 1. Mushroom Forest (Fixes "0 mushrooms" issue)
     if (type === 'mushroom_forest') {
         const count = 40 + Math.random() * 20;
-        for(let i=0; i<count; i++) {
+        for (let i = 0; i < count; i++) {
             const x = cx + (Math.random() - 0.5) * 30;
             const z = cz + (Math.random() - 0.5) * 30;
             const y = getGroundHeight(x, z);
@@ -196,7 +196,7 @@ function spawnCluster(cx, cz, type) {
     // 2. Glowing Flower Field
     else if (type === 'flower_field') {
         const count = 60 + Math.random() * 20;
-        for(let i=0; i<count; i++) {
+        for (let i = 0; i < count; i++) {
             const x = cx + (Math.random() - 0.5) * 35;
             const z = cz + (Math.random() - 0.5) * 35;
             const y = getGroundHeight(x, z);
@@ -218,7 +218,7 @@ function spawnCluster(cx, cz, type) {
     // 3. Weird Jungle (Subwoofers, Palms, Willows)
     else if (type === 'weird_jungle') {
         const count = 15;
-        for(let i=0; i<count; i++) {
+        for (let i = 0; i < count; i++) {
             const x = cx + (Math.random() - 0.5) * 25;
             const z = cz + (Math.random() - 0.5) * 25;
             const y = getGroundHeight(x, z);
@@ -237,7 +237,7 @@ function spawnCluster(cx, cz, type) {
     // 4. Crystal Grove (Prisms, Starflowers)
     else if (type === 'crystal_grove') {
         const count = 25;
-        for(let i=0; i<count; i++) {
+        for (let i = 0; i < count; i++) {
             const x = cx + (Math.random() - 0.5) * 20;
             const z = cz + (Math.random() - 0.5) * 20;
             const y = getGroundHeight(x, z);
@@ -256,8 +256,8 @@ const SCENE_ROWS = 6;
 const SCENE_COLS = 6;
 const SCENE_TYPES = ['mushroom_forest', 'flower_field', 'weird_jungle', 'crystal_grove'];
 
-for (let r = -SCENE_ROWS/2; r < SCENE_ROWS/2; r++) {
-    for (let c = -SCENE_COLS/2; c < SCENE_COLS/2; c++) {
+for (let r = -SCENE_ROWS / 2; r < SCENE_ROWS / 2; r++) {
+    for (let c = -SCENE_COLS / 2; c < SCENE_COLS / 2; c++) {
         const cx = r * SCENE_GRID_SIZE + (Math.random() - 0.5) * 10;
         const cz = c * SCENE_GRID_SIZE + (Math.random() - 0.5) * 10;
 
@@ -266,11 +266,11 @@ for (let r = -SCENE_ROWS/2; r < SCENE_ROWS/2; r++) {
         spawnCluster(cx, cz, SCENE_TYPES[typeIndex]);
 
         // Fill gaps with grass
-        for(let k=0; k<20; k++) {
-             const gx = cx + (Math.random()-0.5) * 40;
-             const gz = cz + (Math.random()-0.5) * 40;
-             const gy = getGroundHeight(gx, gz);
-             addGrassInstance(gx, gy, gz);
+        for (let k = 0; k < 20; k++) {
+            const gx = cx + (Math.random() - 0.5) * 40;
+            const gz = cz + (Math.random() - 0.5) * 40;
+            const gy = getGroundHeight(gx, gz);
+            addGrassInstance(gx, gy, gz);
         }
     }
 }
@@ -381,7 +381,7 @@ function getCycleState(tRaw) {
     }
     // 60 -> Day End (480s)
     else if (t < DURATION_SUNRISE + DURATION_DAY) {
-        // Transition from Sunrise to Day quickly at start of Day block?
+        // Transition from Sunrise to Day quickly at start of Day block? 
         // Or just hold Day? Let's Lerp from Sunrise to Day over 60s, then hold.
         const dayTime = t - DURATION_SUNRISE;
         if (dayTime < 60) return lerpPalette(PALETTE.sunrise, PALETTE.day, dayTime / 60);
@@ -451,7 +451,7 @@ function animate() {
     ambientLight.intensity = currentState.ambInt;
 
     // Sun Position Animation (Arc over sky)
-    // Map cycle to angle.
+    // Map cycle to angle. 
     // Sunrise=0deg, Day=overhead, Sunset=180deg
     // We want the sun to be visible during Sunrise -> Sunset (0 to 540s)
     // 0s = Horizon East (-50, 0, 0)
