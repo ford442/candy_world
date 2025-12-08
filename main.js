@@ -417,22 +417,11 @@ function lerpPalette(p1, p2, t) {
 // --- Animation ---
 const clock = new THREE.Clock();
 let audioState = null;
-let lastFrameTime = 0;
-const targetFrameTime = 1000 / 60; // Target 60 FPS
 
 function animate() {
     const rawDelta = clock.getDelta();
-    const delta = Math.min(rawDelta, 0.1);
+    const delta = Math.min(rawDelta, 0.1); // Cap delta to prevent large jumps
     const t = clock.getElapsedTime();
-    
-    // Frame rate limiting for stability
-    const now = performance.now();
-    const timeSinceLastFrame = now - lastFrameTime;
-    if (timeSinceLastFrame < targetFrameTime * 0.9) {
-        // Skip this frame if we're running too fast
-        return;
-    }
-    lastFrameTime = now;
 
     audioState = audioSystem.update();
 
