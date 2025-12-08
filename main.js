@@ -237,7 +237,6 @@ function createGiantMushroom(x, z, scale = 8) {
     group.add(faceGroup);
     group.add(cap);
 
-    worldGroup.add(group);
     obstacles.push({
         position: new THREE.Vector3(x, height, z),
         radius: stemR * 1.2
@@ -247,17 +246,9 @@ function createGiantMushroom(x, z, scale = 8) {
     const chosenAnim = anims[Math.floor(Math.random() * anims.length)];
     group.userData.animationType = chosenAnim;
     group.userData.type = 'mushroom';
+    group.userData.animationOffset = Math.random() * 10;
 
-    const giantMushroom = { mesh: group, type: 'mushroom', speed: Math.random() * 0.02 + 0.01, offset: Math.random() * 100, drivable: false };
-    // Note: animatedObjects is defined later, so we might need to push to it later or define it earlier.
-    // Actually animatedObjects is defined LATER in the file (Step 130). 
-    // We should probably define things like animatedObjects earlier if we use them here.
-    // Or just define these functions here and call them later.
-
-    // For now, let's just add to scene. We'll handle animatedObjects in the spawning logic if needed.
-    // But wait, createGiantMushroom pushes to animatedObjects!
-    // I need to ensure animatedObjects is defined.
-    // I will check where animatedObjects is defined.
+    safeAddFoliage(group, false); // Add to animated foliage system
 }
 
 function createGiantRainCloud(options = {}) {
@@ -493,7 +484,8 @@ function spawnOvergrownZone(cx, cz) {
         animatedFoliage.push(cloud);
     }
 
-    for (let i = 0; i < 15; i++) {
+    // Increased Mushrooms back to 30
+    for (let i = 0; i < 30; i++) {
         const r = Math.random() * radius;
         const theta = Math.random() * Math.PI * 2;
         const x = cx + r * Math.cos(theta);
