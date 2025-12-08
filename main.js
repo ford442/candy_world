@@ -745,6 +745,26 @@ function animate() {
 
 renderer.setAnimationLoop(animate);
 
+// --- Music Upload Handler ---
+const musicUpload = document.getElementById('musicUpload');
+if (musicUpload) {
+    musicUpload.addEventListener('change', (event) => {
+        const files = event.target.files;
+        if (files && files.length > 0) {
+            console.log(`Selected ${files.length} file(s) for upload`);
+            audioSystem.addToQueue(files);
+        }
+    });
+}
+
+// --- Toggle Day/Night Button ---
+const toggleDayNightBtn = document.getElementById('toggleDayNight');
+if (toggleDayNightBtn) {
+    toggleDayNightBtn.addEventListener('click', () => {
+        timeOffset += CYCLE_DURATION / 2;
+    });
+}
+
 window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
