@@ -426,6 +426,38 @@ function checkMushroomBounce(pos) {
     return 0;
 }
 
+function checkFlowerTrampoline(pos) {
+    // Check collision with trampoline flowers (puffballs etc)
+    for (let i = 0; i < animatedFoliage.length; i++) {
+        const obj = animatedFoliage[i];
+        if (obj.userData.isTrampoline) {
+            const dx = pos.x - obj.position.x;
+            const dz = pos.z - obj.position.z;
+            const bounceTop = obj.position.y + obj.userData.bounceHeight;
+            const dy = pos.y - bounceTop;
+
+            const distH = Math.sqrt(dx * dx + dz * dz);
+            const radius = obj.userData.bounceRadius || 0.5;
+
+            // Check if above the flower and within radius
+            if (distH < radius && dy > -0.5 && dy < 1.5) {
+                // Are we falling onto it?
+                if (player.velocity.y < 0) {
+                    const audioBoost = audioState?.kickTrigger || 0.3;
+                    const force = obj.userData.bounceForce || 12;
+
+                    // Visual feedback - squash the flower slightly
+                    obj.scale.y = 0.7;
+                    setTimeout(() => { obj.scale.y = 1.0; }, 100);
+
+                    return force + audioBoost * 5;
+                }
+            }
+        }
+    }
+    return 0;
+}
+
 // --- Cycle Interpolation (Corrected for Segments) ---
 function getCycleState(tRaw) {
     const t = tRaw % CYCLE_DURATION;
@@ -503,6 +535,10 @@ function lerpPalette(p1, p2, t) {
 // --- Animation ---
 const clock = new THREE.Clock();
 let audioState = null;
+let lastBeatPhase = 0;
+let beatFlashIntensity = 0;
+let cameraZoomPulse = 0;
+const baseFOV = 75;
 
 function animate() {
     const rawDelta = clock.getDelta();
@@ -511,6 +547,35 @@ function animate() {
 
     audioState = audioSystem.update();
     weatherSystem.update(t, audioState);
+
+    // Beat Detection - detect when beatPhase wraps around (new beat)
+    const currentBeatPhase = audioState?.beatPhase || 0;
+    if (currentBeatPhase < lastBeatPhase && lastBeatPhase > 0.8) {
+        // Beat just happened!
+        const kickTrigger = audioState?.kickTrigger || 0;
+        if (kickTrigger > 0.3) {
+            beatFlashIntensity = 0.5 + kickTrigger * 0.5;
+            cameraZoomPulse = 2 + kickTrigger * 3; // FOV reduction
+        }
+    }
+    lastBeatPhase = currentBeatPhase;
+
+    // Apply beat effects
+    if (beatFlashIntensity > 0) {
+        beatFlashIntensity *= 0.9; // Decay
+        if (beatFlashIntensity < 0.01) beatFlashIntensity = 0;
+    }
+    if (cameraZoomPulse > 0) {
+        camera.fov = baseFOV - cameraZoomPulse;
+        camera.updateProjectionMatrix();
+        cameraZoomPulse *= 0.85; // Decay back to normal
+        if (cameraZoomPulse < 0.1) {
+            cameraZoomPulse = 0;
+            camera.fov = baseFOV;
+            camera.updateProjectionMatrix();
+        }
+    }
+
 
     // Cycle Update
     const effectiveTime = t + timeOffset;
@@ -540,7 +605,7 @@ function animate() {
     sunLight.color.copy(currentState.sun);
     sunLight.intensity = currentState.sunInt;
     ambientLight.color.copy(currentState.amb);
-    ambientLight.intensity = currentState.ambInt;
+    ambientLight.intensity = currentState.ambInt + beatFlashIntensity * 0.5; // Beat flash boost
 
     // Sun Position Animation (Arc over sky)
     // Map cycle to angle. 
@@ -677,6 +742,13 @@ function animate() {
         if (bounce > 0) {
             player.velocity.y = Math.max(player.velocity.y, bounce);
             keyStates.jump = false; // Consume jump
+        }
+
+        // 3. Flower Trampoline Bouncing
+        const flowerBounce = checkFlowerTrampoline(playerPos);
+        if (flowerBounce > 0) {
+            player.velocity.y = Math.max(player.velocity.y, flowerBounce);
+            keyStates.jump = false;
         }
 
         // Determine effective ground
