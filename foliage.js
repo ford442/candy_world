@@ -82,7 +82,9 @@ const eyeGeo = new THREE.SphereGeometry(0.05, 16, 16);
 // --- Instancing System (Grass) ---
 let grassMeshes = [];
 const dummy = new THREE.Object3D();
-const MAX_PER_MESH = 10000; // 10k blades per batch
+// WebGPU uniform buffer limit is 64KB, each instance matrix is 64 bytes
+// So max ~1000 instances per mesh to stay within limit
+const MAX_PER_MESH = 1000;
 
 export function initGrassSystem(scene, count = 20000) {
     grassMeshes = [];

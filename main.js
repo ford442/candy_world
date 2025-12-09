@@ -157,7 +157,7 @@ const foliageGroup = new THREE.Group();
 worldGroup.add(foliageGroup);
 
 // Initialize Grass
-initGrassSystem(scene, 10000); // Optimized count for better performance
+initGrassSystem(scene, 5000); // Reduced to fit WebGPU uniform buffer limits
 
 function safeAddFoliage(obj, isObstacle = false, radius = 1.0) {
     if (animatedFoliage.length > 1500) return; // Optimized limit for better performance
