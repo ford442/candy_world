@@ -71,9 +71,12 @@ export async function initWasm() {
 
         wasmInstance = result.instance;
 
+        // Log available exports for debugging
+        console.log('WASM exports:', Object.keys(wasmInstance.exports));
+
         // Verify exports exist
         if (!wasmInstance.exports.getGroundHeight) {
-            console.error('WASM exports missing getGroundHeight');
+            console.error('WASM exports missing getGroundHeight. Available:', Object.keys(wasmInstance.exports));
             wasmInstance = null;
             return false;
         }
