@@ -1256,6 +1256,13 @@ export function createPuffballFlower(options = {}) {
     group.userData.animationType = pickAnimation(['sway', 'accordion']);
     group.userData.animationOffset = Math.random() * 10;
     group.userData.type = 'flower';
+
+    // Trampoline properties - puffballs are bouncy!
+    group.userData.isTrampoline = true;
+    group.userData.bounceHeight = stemH; // Top of the puffball
+    group.userData.bounceRadius = headR + 0.3; // Collision radius
+    group.userData.bounceForce = 12 + Math.random() * 5; // Bounce strength
+
     return group;
 }
 
@@ -1331,34 +1338,154 @@ export function createBalloonBush(options = {}) {
 }
 
 export function createRainingCloud(options = {}) {
-    const { color = 0xB0C4DE, rainIntensity = 30 } = options; // Reduced default from 50
+    const {
+        color = null, // null = random color
+        rainIntensity = 30,
+        shape = 'random', // 'fluffy', 'long', 'tall', 'random'
+        size = 1.0
+    } = options;
+
     const group = new THREE.Group();
 
-    const cloudGeo = new THREE.SphereGeometry(1.5, 16, 16); // Increased segments for smooth clouds
-    const cloudMat = createClayMaterial(color);
-    const cloud = new THREE.Mesh(cloudGeo, cloudMat);
-    cloud.castShadow = true;
-    group.add(cloud);
+    // Cloud color palette
+    const cloudColors = [
+        0xF5F5F5, // White
+        0xFFE4E1, // Misty Rose  
+        0xE6E6FA, // Lavender
+        0xB0C4DE, // Light Steel Blue
+        0xFFC0CB, // Pink
+        0xDDA0DD, // Plum
+        0x98FB98  // Pale Green
+    ];
 
-    const rainGeo = new THREE.BufferGeometry();
-    const rainCount = rainIntensity;
-    const positions = new Float32Array(rainCount * 3);
-    for (let i = 0; i < rainCount; i++) {
-        positions[i * 3] = (Math.random() - 0.5) * 3;
-        positions[i * 3 + 1] = Math.random() * -2;
-        positions[i * 3 + 2] = (Math.random() - 0.5) * 3;
+    const cloudColor = color !== null ? color : cloudColors[Math.floor(Math.random() * cloudColors.length)];
+    const cloudMat = createClayMaterial(cloudColor);
+
+    // Determine cloud shape
+    const shapeType = shape === 'random'
+        ? ['fluffy', 'long', 'tall', 'puffy'][Math.floor(Math.random() * 4)]
+        : shape;
+
+    // Create cloud based on shape
+    switch (shapeType) {
+        case 'fluffy': {
+            // Classic fluffy cloud with 5-7 spheres
+            const sphereCount = 5 + Math.floor(Math.random() * 3);
+            for (let i = 0; i < sphereCount; i++) {
+                const r = (0.8 + Math.random() * 0.8) * size;
+                const geo = new THREE.SphereGeometry(r, 16, 16);
+                const sphere = new THREE.Mesh(geo, cloudMat);
+                sphere.position.set(
+                    (Math.random() - 0.5) * 2.5 * size,
+                    (Math.random() - 0.3) * 1.0 * size,
+                    (Math.random() - 0.5) * 1.5 * size
+                );
+                sphere.castShadow = true;
+                group.add(sphere);
+            }
+            break;
+        }
+        case 'long': {
+            // Elongated wispy cloud
+            for (let i = 0; i < 6; i++) {
+                const r = (0.6 + Math.random() * 0.4) * size;
+                const geo = new THREE.SphereGeometry(r, 16, 16);
+                const sphere = new THREE.Mesh(geo, cloudMat);
+                sphere.position.set(
+                    (i - 2.5) * 1.2 * size,
+                    (Math.random() - 0.5) * 0.5 * size,
+                    (Math.random() - 0.5) * 0.8 * size
+                );
+                sphere.scale.set(1.3, 0.7, 1);
+                sphere.castShadow = true;
+                group.add(sphere);
+            }
+            break;
+        }
+        case 'tall': {
+            // Towering cumulus style
+            const layers = 3;
+            for (let layer = 0; layer < layers; layer++) {
+                const count = 4 - layer;
+                const layerY = layer * 1.2 * size;
+                for (let i = 0; i < count; i++) {
+                    const r = (1.0 - layer * 0.2 + Math.random() * 0.3) * size;
+                    const geo = new THREE.SphereGeometry(r, 16, 16);
+                    const sphere = new THREE.Mesh(geo, cloudMat);
+                    const angle = (i / count) * Math.PI * 2;
+                    const radius = (1.5 - layer * 0.4) * size;
+                    sphere.position.set(
+                        Math.cos(angle) * radius,
+                        layerY,
+                        Math.sin(angle) * radius
+                    );
+                    sphere.castShadow = true;
+                    group.add(sphere);
+                }
+            }
+            break;
+        }
+        case 'puffy': {
+            // Dense, rounded cloud
+            const core = new THREE.Mesh(
+                new THREE.SphereGeometry(1.5 * size, 16, 16),
+                cloudMat
+            );
+            core.castShadow = true;
+            group.add(core);
+
+            // Add bumps
+            for (let i = 0; i < 8; i++) {
+                const r = (0.5 + Math.random() * 0.4) * size;
+                const geo = new THREE.SphereGeometry(r, 12, 12);
+                const sphere = new THREE.Mesh(geo, cloudMat);
+                const theta = Math.random() * Math.PI * 2;
+                const phi = Math.random() * Math.PI * 0.6;
+                sphere.position.set(
+                    Math.sin(phi) * Math.cos(theta) * 1.4 * size,
+                    Math.cos(phi) * 0.8 * size,
+                    Math.sin(phi) * Math.sin(theta) * 1.4 * size
+                );
+                sphere.castShadow = true;
+                group.add(sphere);
+            }
+            break;
+        }
     }
-    rainGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
 
-    const rainMat = new THREE.PointsMaterial({ color: 0x87CEEB, size: 0.05 });
-    const rain = new THREE.Points(rainGeo, rainMat);
-    group.add(rain);
+    // Add rain particles
+    if (rainIntensity > 0) {
+        const rainGeo = new THREE.BufferGeometry();
+        const rainCount = rainIntensity;
+        const positions = new Float32Array(rainCount * 3);
+        for (let i = 0; i < rainCount; i++) {
+            positions[i * 3] = (Math.random() - 0.5) * 4 * size;
+            positions[i * 3 + 1] = Math.random() * -2;
+            positions[i * 3 + 2] = (Math.random() - 0.5) * 4 * size;
+        }
+        rainGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
 
-    group.userData.animationType = 'rain';
+        const rainMat = new THREE.PointsMaterial({ color: 0x87CEEB, size: 0.05 });
+        const rain = new THREE.Points(rainGeo, rainMat);
+        group.add(rain);
+    }
+
+    group.userData.animationType = rainIntensity > 0 ? 'rain' : 'cloudBob';
     group.userData.animationOffset = Math.random() * 10;
     group.userData.type = 'cloud';
+    group.userData.shapeType = shapeType;
+    group.userData.cloudColor = cloudColor;
+
     return group;
 }
+
+/**
+ * Creates a decorative cloud without rain (for sky decoration)
+ */
+export function createDecoCloud(options = {}) {
+    return createRainingCloud({ ...options, rainIntensity: 0 });
+}
+
 
 export function createWaterfall(height, colorHex = 0x87CEEB) {
     const particleCount = 500; // Reduced from 2000 for better performance
@@ -1887,17 +2014,27 @@ export function animateFoliage(foliageObject, time, audioData, isDay, isDeepNigh
     }
     else if (type === 'rain') {
         // Animate rain particles
-        if (foliageObject.children.length > 1) {
-            const rain = foliageObject.children[1];
-            if (rain.geometry && rain.geometry.attributes.position) {
-                const positions = rain.geometry.attributes.position.array;
-                for (let i = 0; i < positions.length; i += 3) {
-                    positions[i + 1] -= 0.1;
-                    if (positions[i + 1] < -6) positions[i + 1] = 0;
-                }
-                rain.geometry.attributes.position.needsUpdate = true;
+        const rainChild = foliageObject.children.find(c => c.type === 'Points');
+        if (rainChild && rainChild.geometry && rainChild.geometry.attributes.position) {
+            const positions = rainChild.geometry.attributes.position.array;
+            for (let i = 0; i < positions.length; i += 3) {
+                positions[i + 1] -= 0.1;
+                if (positions[i + 1] < -6) positions[i + 1] = 0;
             }
+            rainChild.geometry.attributes.position.needsUpdate = true;
         }
+        // Also bob the cloud gently
+        const y = foliageObject.userData.originalY ?? foliageObject.position.y;
+        foliageObject.userData.originalY = y;
+        foliageObject.position.y = y + Math.sin(time * 0.3 + offset) * 0.2;
+    }
+    else if (type === 'cloudBob') {
+        // Gentle bobbing for decorative clouds
+        const y = foliageObject.userData.originalY ?? foliageObject.position.y;
+        foliageObject.userData.originalY = y;
+        foliageObject.position.y = y + Math.sin(time * 0.5 + offset) * 0.3;
+        // Slight rotation drift
+        foliageObject.rotation.y = Math.sin(time * 0.2 + offset * 0.5) * 0.05;
     }
 }
 

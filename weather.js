@@ -41,6 +41,16 @@ export class WeatherSystem {
         this.targetIntensity = 0;
         this.transitionSpeed = 0.02;
 
+        // Wind System
+        this.windDirection = new THREE.Vector3(1, 0, 0.3).normalize();
+        this.windSpeed = 0; // 0-1, driven by audio
+        this.windTargetSpeed = 0;
+
+        // Fog reference (set from main.js)
+        this.fog = scene.fog;
+        this.baseFogNear = scene.fog ? scene.fog.near : 20;
+        this.baseFogFar = scene.fog ? scene.fog.far : 100;
+
         this.initParticles();
         this.initLightning();
     }
@@ -182,6 +192,57 @@ export class WeatherSystem {
         } else {
             this.stormCharge = Math.max(0, this.stormCharge - 0.0005);
         }
+
+        // Update wind system
+        this.updateWind(time, audioData);
+
+        // Update fog density based on weather
+        this.updateFog();
+    }
+
+    /**
+     * Update wind direction and speed based on audio
+     */
+    updateWind(time, audioData) {
+        const channels = audioData.channelData || [];
+        // High-frequency channels drive wind speed
+        const highFreqVol = channels[3]?.volume || 0;
+        const melodyVol = channels[2]?.volume || 0;
+
+        // Wind speed target based on audio
+        this.windTargetSpeed = Math.max(highFreqVol, melodyVol * 0.5);
+
+        // Smooth wind speed transition
+        this.windSpeed += (this.windTargetSpeed - this.windSpeed) * 0.02;
+
+        // Slowly rotate wind direction
+        const rotSpeed = (audioData.beatPhase || 0) * 0.001;
+        this.windDirection.applyAxisAngle(new THREE.Vector3(0, 1, 0), rotSpeed);
+    }
+
+    /**
+     * Update fog density based on weather state
+     */
+    updateFog() {
+        if (!this.fog) return;
+
+        let fogMultiplier = 1.0;
+        switch (this.state) {
+            case WeatherState.RAIN:
+                fogMultiplier = 0.8; // Slightly thicker
+                break;
+            case WeatherState.STORM:
+                fogMultiplier = 0.6; // Much thicker fog
+                break;
+            default:
+                fogMultiplier = 1.0;
+        }
+
+        // Apply intensity scaling
+        const effectiveMult = 1 - (1 - fogMultiplier) * this.intensity;
+
+        this.fog.near = this.baseFogNear * effectiveMult;
+        this.fog.far = this.baseFogFar * effectiveMult;
     }
 
     /**
