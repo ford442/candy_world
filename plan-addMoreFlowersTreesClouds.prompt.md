@@ -1,19 +1,52 @@
-## Plan: Add More Flowers, Trees, and Clouds
+## Plan: Musical Ecosystem & Atmospheric
 
 ### TL;DR
-Increase the density of flowers, trees, and clouds in the scene by raising the spawn counts in the population loops in `main.js`.
-Imagine some new flowering foliage types.
+Shift focus from simple population increases to creating a "Vertical Ecosystem" and "Audio-Reactive World." We need to construct the geometry for the Lake and Waterfalls, implement shaders.
 
-### Steps
-1. **Increase Foliage Count**: Change the foliage loop from 400 to 600.
-2. **Increase Flowering Trees**: Change from 25 to 40.
-3. **Increase Regular Trees**: Change from 30 to 50.
-4. **Increase Mushrooms**: Change from 20 to 30.
-5. **Increase Clouds**: Change from 15 to 25.
-6. **Increase Glowing Flowers**: Change from 20 to 30.
-7. **Increase Floating Orbs**: Change from 15 to 25.
-8. **Increase Vines**: Change from 10 to 15.
+### Phase 1: New Geometry & Map Architecture
+1.  **Construct "The Melody Lake"**:
+    * Create a high-vertex plane (to allow for ripples) at the ground level.
+    * *Constraint:* Needs to handle shader inputs for "Note Frequency".
+2.  **Vertical Cloud Hierarchy**:
+    * Refactor Cloud generation into Tiers:
+        * **Tier 1 (Source):** High, large clouds.
+        * **Tier 2 (Mid):** Smaller clouds and "Mushroom Platforms" that catch rain.
+    * **Logic:** Implement "Chain Reaction Rain" (Cloud A rains on Cloud B, Cloud B rains on Ground).
+3.  **Add Bioluminescent Waterfalls**:
+    * Create flow meshes connecting Tier 1 Clouds to Tier 2 Mushrooms, and Mushrooms to the Lake.
+    * Material: Viscous/Neon style (not transparent water).
+
+### Phase 2: Shaders & Visuals
+1.  **"Breathing" Mushroom Shader**:
+    * Write a Vertex Shader for Giant Mushrooms.
+    * **Input:** Song channel `kick`
+    * **Output:** Vertex Displacement (Expansion/Puff) + Emissive Pulse.
+2.  **Atmospheric Sky Updates**:
+    * **Lightning:** Add random strobe effect logic to cloud interiors (linked to high-hats or random timer).
+    * **No Moon:** Ensure night sky focuses on stars/nebula; remove any directional moon light source, rely on bioluminescence.
+3.  **Shadow Zone Logic**:
+    * Identify areas *under* the Giant Mushrooms.
+    * Force "Always Night" lighting rules there (max bioluminescence on foliage).
+
+### Phase 3: Game Logic & Systems
+1.  **Inverse Day/Night Cycle**:
+    * Refactor the `UpdateSun()` function.
+    * **Formula:** `SunSpeed = BaseConstant / SongBPM`.
+    * *Result:* Faster songs = Time stands still; Slower songs = Time passes quickly.
+
+### Phase 4: Population & Density (Revised from Old Plan)
+*Now that we have "Shadow Zones," we increase density specifically in those areas.*
+
+1.  **Foliage Loops (General)**: Increase loop from 400 to **600** (spread across new vertical tiers).
+2.  **Flowering Trees**: Increase from 25 to **40**.
+3.  **Regular Trees**: Increase from 30 to **50**.
+4.  **Giant Mushrooms**: Increase from 20 to **30** (critical for the "Breathing" effect).
+5.  **Clouds**: Increase from 15 to **25** (varying sizes: Small/Dense vs Large/Wispy).
+6.  **Shadow Zone Specifics**:
+    * **Glowing Flowers**: Increase from 20 to **30** (Place mostly under mushrooms).
+    * **Floating Orbs**: Increase from 15 to **25** (Place near Waterfalls).
+    * **Vines**: Increase from 10 to **15** (Draping off the new higher cloud tiers).
 
 ### Further Considerations
-1. Ensure performance remains good with the increased counts.
-2. Perhaps adjust the spread areas if needed.
+1.  **Optimization:** The "Breathing" effect must be GPU-side (Shader) to keep performance high with 30+ giant mushrooms.
+2.  **Color Palette:** Define the specific "Neon" palette for the waterfall/glows (Cyan/Magenta vs. Natural Green).
