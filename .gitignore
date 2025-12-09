@@ -19,6 +19,9 @@ Thumbs.db
 *.swp
 *.swo
 *~
+*.wasm
+*.wat
+*.map
 
 # Vite
 .vite/
