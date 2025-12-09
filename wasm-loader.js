@@ -34,8 +34,8 @@ export async function initWasm() {
     if (wasmInstance) return true;
 
     try {
-        // Load WASM binary
-        const response = await fetch('./build/optimized.wasm');
+        // Load WASM binary with cache buster
+        const response = await fetch('./build/optimized.wasm?v=' + Date.now());
         if (!response.ok) {
             console.warn('WASM not found, using JS fallbacks');
             return false;

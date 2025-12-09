@@ -4,8 +4,8 @@
   "description": "A 3D world of rudimentary, but sharp graphically nature - featuring smooth, glossy shapes in a pastel candy-colored landscape.",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
+    "dev": "npm run build:wasm && vite",
+    "build": "npm run build:wasm && vite build",
     "preview": "vite preview",
     "build:wasm": "asc assembly/index.ts --outFile build/optimized.wasm --textFile build/optimized.wat --sourceMap --optimize",
     "test": "python3 verify.py"
