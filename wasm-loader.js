@@ -29,12 +29,6 @@ export async function initWasm() {
     if (wasmInstance) return true;
 
     try {
-        // Create shared memory
-        wasmMemory = new WebAssembly.Memory({
-            initial: TOTAL_MEMORY_PAGES,
-            maximum: TOTAL_MEMORY_PAGES
-        });
-
         // Load WASM binary
         const response = await fetch('./build/optimized.wasm');
         if (!response.ok) {
@@ -44,23 +38,42 @@ export async function initWasm() {
 
         const wasmBytes = await response.arrayBuffer();
 
-        // Instantiate with imports
+        // WASI stubs - AssemblyScript needs these even if not used
+        const wasiStubs = {
+            fd_close: () => 0,
+            fd_seek: () => 0,
+            fd_write: () => 0,
+            fd_read: () => 0,
+            fd_fdstat_get: () => 0,
+            fd_prestat_get: () => 0,
+            fd_prestat_dir_name: () => 0,
+            path_open: () => 0,
+            environ_sizes_get: () => 0,
+            environ_get: () => 0,
+            proc_exit: () => { },
+            clock_time_get: () => 0,
+        };
+
+        // Instantiate with full imports for AssemblyScript
         const result = await WebAssembly.instantiate(wasmBytes, {
             env: {
-                memory: wasmMemory,
                 abort: (msg, file, line, col) => {
                     console.error(`WASM abort at ${file}:${line}:${col}: ${msg}`);
                 }
-            }
+            },
+            wasi_snapshot_preview1: wasiStubs
         });
 
         wasmInstance = result.instance;
 
-        // Create typed array views into WASM memory
-        const memBuffer = wasmMemory.buffer;
-        positionView = new Float32Array(memBuffer, POSITION_OFFSET, 1024);   // 256 objects * 4 floats
-        animationView = new Float32Array(memBuffer, ANIMATION_OFFSET, 1024); // 256 objects * 4 floats
-        outputView = new Float32Array(memBuffer, OUTPUT_OFFSET, 1024);       // Output buffer
+        // Use WASM's exported memory (AssemblyScript manages its own)
+        if (wasmInstance.exports.memory) {
+            wasmMemory = wasmInstance.exports.memory;
+            const memBuffer = wasmMemory.buffer;
+            positionView = new Float32Array(memBuffer, POSITION_OFFSET, 1024);
+            animationView = new Float32Array(memBuffer, ANIMATION_OFFSET, 1024);
+            outputView = new Float32Array(memBuffer, OUTPUT_OFFSET, 1024);
+        }
 
         console.log('WASM module loaded successfully');
         return true;
