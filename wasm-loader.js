@@ -38,33 +38,23 @@ export async function initWasm() {
 
         const wasmBytes = await response.arrayBuffer();
 
-        // WASI stubs - AssemblyScript needs these even if not used
-        const wasiStubs = {
-            fd_close: () => 0,
-            fd_seek: () => 0,
-            fd_write: () => 0,
-            fd_read: () => 0,
-            fd_fdstat_get: () => 0,
-            fd_prestat_get: () => 0,
-            fd_prestat_dir_name: () => 0,
-            path_open: () => 0,
-            environ_sizes_get: () => 0,
-            environ_get: () => 0,
-            proc_exit: () => { },
-            clock_time_get: () => 0,
-        };
-
-        // Instantiate with full imports for AssemblyScript
+        // Instantiate - AssemblyScript only needs env.abort
         const result = await WebAssembly.instantiate(wasmBytes, {
             env: {
-                abort: (msg, file, line, col) => {
-                    console.error(`WASM abort at ${file}:${line}:${col}: ${msg}`);
+                abort: (messagePtr, fileNamePtr, lineNumber, columnNumber) => {
+                    console.error(`WASM abort at line ${lineNumber}:${columnNumber}`);
                 }
-            },
-            wasi_snapshot_preview1: wasiStubs
+            }
         });
 
         wasmInstance = result.instance;
+
+        // Verify exports exist
+        if (!wasmInstance.exports.getGroundHeight) {
+            console.error('WASM exports missing getGroundHeight');
+            wasmInstance = null;
+            return false;
+        }
 
         // Use WASM's exported memory (AssemblyScript manages its own)
         if (wasmInstance.exports.memory) {
@@ -76,9 +66,11 @@ export async function initWasm() {
         }
 
         console.log('WASM module loaded successfully');
+        console.log('WASM exports:', Object.keys(wasmInstance.exports));
         return true;
     } catch (error) {
         console.warn('Failed to load WASM:', error);
+        wasmInstance = null;
         return false;
     }
 }
