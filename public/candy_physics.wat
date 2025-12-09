@@ -1,15 +1,40 @@
 (module
- (type $0 (func (param f32 f32 f32) (result f32)))
- (type $1 (func (param f32) (result f32)))
- (type $2 (func (result f32)))
- (type $3 (func (param f32 f32) (result f32)))
- (type $4 (func (param f32 f32 f32 i32) (result i32)))
- (type $5 (func (param f32 f32 f32 f32 i32) (result i32)))
- (type $6 (func (param f32 f32 f32 i32)))
- (type $7 (func (param f32 f32 f32 f32) (result f32)))
- (type $8 (func (param f32 f32 f32)))
+ (type $0 (func (result f32)))
+ (type $1 (func (param f32 f32 f32)))
+ (type $2 (func (param f32 f32 f32) (result f32)))
+ (type $3 (func (param f32) (result f32)))
+ (type $4 (func (param f32 f32 f32 f32) (result f32)))
+ (type $5 (func (param f32 f32) (result f32)))
+ (type $6 (func (param f32 f32 f32 i32) (result i32)))
+ (type $7 (func (param f32 f32 f32 f32 i32) (result i32)))
+ (type $8 (func (param f32 f32 f32 i32)))
+ (type $9 (func (param f32 f32 f32 i32 i32)))
+ (type $10 (func (param f32 f32 f32 f32)))
+ (type $11 (func (param f32 f32 f32 f32 i32)))
+ (type $12 (func (param i32 i32 f32) (result i32)))
+ (type $13 (func (param f32 f32 f32 f32 f32 f32)))
  (global $assembly/index/wobbleResultX (mut f32) (f32.const 0))
  (global $assembly/index/wobbleResultZ (mut f32) (f32.const 0))
+ (global $assembly/index/speakerYOffset (mut f32) (f32.const 0))
+ (global $assembly/index/speakerScaleX (mut f32) (f32.const 1))
+ (global $assembly/index/speakerScaleY (mut f32) (f32.const 1))
+ (global $assembly/index/speakerScaleZ (mut f32) (f32.const 1))
+ (global $assembly/index/accordionStretchY (mut f32) (f32.const 1))
+ (global $assembly/index/accordionWidthXZ (mut f32) (f32.const 1))
+ (global $assembly/index/fiberBaseRotY (mut f32) (f32.const 0))
+ (global $assembly/index/fiberBranchRotZ (mut f32) (f32.const 0))
+ (global $assembly/index/shiverRotX (mut f32) (f32.const 0))
+ (global $assembly/index/shiverRotZ (mut f32) (f32.const 0))
+ (global $assembly/index/spiralRotY (mut f32) (f32.const 0))
+ (global $assembly/index/spiralYOffset (mut f32) (f32.const 0))
+ (global $assembly/index/spiralScale (mut f32) (f32.const 1))
+ (global $assembly/index/prismUnfurl (mut f32) (f32.const 0))
+ (global $assembly/index/prismSpin (mut f32) (f32.const 0))
+ (global $assembly/index/prismPulse (mut f32) (f32.const 1))
+ (global $assembly/index/prismHue (mut f32) (f32.const 0))
+ (global $assembly/index/particleX (mut f32) (f32.const 0))
+ (global $assembly/index/particleY (mut f32) (f32.const 0))
+ (global $assembly/index/particleZ (mut f32) (f32.const 0))
  (global $~lib/math/rempio2f_y (mut f64) (f64.const 0))
  (memory $0 1)
  (data $0 (i32.const 1024) ")\15DNn\83\f9\a2\c0\dd4\f5\d1W\'\fcA\90C<\99\95b\dba\c5\bb\de\abcQ\fe")
@@ -26,6 +51,36 @@
  (export "calcWobble" (func $assembly/index/calcWobble))
  (export "getWobbleX" (func $assembly/index/getWobbleX))
  (export "getWobbleZ" (func $assembly/index/getWobbleZ))
+ (export "calcSpeakerPulse" (func $assembly/index/calcSpeakerPulse))
+ (export "getSpeakerYOffset" (func $assembly/index/getSpeakerYOffset))
+ (export "getSpeakerScaleX" (func $assembly/index/getSpeakerScaleX))
+ (export "getSpeakerScaleY" (func $assembly/index/getSpeakerScaleY))
+ (export "getSpeakerScaleZ" (func $assembly/index/getSpeakerScaleZ))
+ (export "calcAccordionStretch" (func $assembly/index/calcAccordionStretch))
+ (export "getAccordionStretchY" (func $assembly/index/getAccordionStretchY))
+ (export "getAccordionWidthXZ" (func $assembly/index/getAccordionWidthXZ))
+ (export "calcFiberWhip" (func $assembly/index/calcFiberWhip))
+ (export "getFiberBaseRotY" (func $assembly/index/getFiberBaseRotY))
+ (export "getFiberBranchRotZ" (func $assembly/index/getFiberBranchRotZ))
+ (export "calcHopY" (func $assembly/index/calcHopY))
+ (export "calcShiver" (func $assembly/index/calcShiver))
+ (export "getShiverRotX" (func $assembly/index/getShiverRotX))
+ (export "getShiverRotZ" (func $assembly/index/getShiverRotZ))
+ (export "calcSpiralWave" (func $assembly/index/calcSpiralWave))
+ (export "getSpiralRotY" (func $assembly/index/getSpiralRotY))
+ (export "getSpiralYOffset" (func $assembly/index/getSpiralYOffset))
+ (export "getSpiralScale" (func $assembly/index/getSpiralScale))
+ (export "calcPrismRose" (func $assembly/index/calcPrismRose))
+ (export "getPrismUnfurl" (func $assembly/index/getPrismUnfurl))
+ (export "getPrismSpin" (func $assembly/index/getPrismSpin))
+ (export "getPrismPulse" (func $assembly/index/getPrismPulse))
+ (export "getPrismHue" (func $assembly/index/getPrismHue))
+ (export "lerpColor" (func $assembly/index/lerpColor))
+ (export "calcRainDropY" (func $assembly/index/calcRainDropY))
+ (export "calcFloatingParticle" (func $assembly/index/calcFloatingParticle))
+ (export "getParticleX" (func $assembly/index/getParticleX))
+ (export "getParticleY" (func $assembly/index/getParticleY))
+ (export "getParticleZ" (func $assembly/index/getParticleZ))
  (export "memory" (memory $0))
  (func $assembly/index/lerp (param $0 f32) (param $1 f32) (param $2 f32) (result f32)
   local.get $0
@@ -984,6 +1039,211 @@
   f32.add
   f32.add
  )
+ (func $~lib/math/NativeMathf.mod (param $0 f32) (param $1 f32) (result f32)
+  (local $2 i32)
+  (local $3 i32)
+  (local $4 i32)
+  (local $5 i32)
+  (local $6 i32)
+  (local $7 i32)
+  (local $8 i32)
+  local.get $1
+  f32.abs
+  f32.const 1
+  f32.eq
+  if
+   local.get $0
+   local.get $0
+   f32.trunc
+   f32.sub
+   local.get $0
+   f32.copysign
+   return
+  end
+  local.get $1
+  i32.reinterpret_f32
+  local.tee $6
+  i32.const 23
+  i32.shr_u
+  i32.const 255
+  i32.and
+  local.set $7
+  local.get $6
+  i32.const 1
+  i32.shl
+  local.tee $4
+  i32.eqz
+  local.get $0
+  i32.reinterpret_f32
+  local.tee $3
+  i32.const 23
+  i32.shr_u
+  i32.const 255
+  i32.and
+  local.tee $8
+  i32.const 255
+  i32.eq
+  i32.or
+  local.get $1
+  local.get $1
+  f32.ne
+  i32.or
+  if
+   local.get $0
+   local.get $1
+   f32.mul
+   local.tee $0
+   local.get $0
+   f32.div
+   return
+  end
+  local.get $3
+  i32.const 1
+  i32.shl
+  local.tee $2
+  local.get $4
+  i32.le_u
+  if
+   local.get $0
+   local.get $2
+   local.get $4
+   i32.ne
+   f32.convert_i32_u
+   f32.mul
+   return
+  end
+  local.get $3
+  i32.const -2147483648
+  i32.and
+  local.set $5
+  local.get $8
+  if (result i32)
+   local.get $3
+   i32.const 8388607
+   i32.and
+   i32.const 8388608
+   i32.or
+  else
+   local.get $3
+   i32.const 1
+   local.get $8
+   local.get $3
+   i32.const 9
+   i32.shl
+   i32.clz
+   i32.sub
+   local.tee $8
+   i32.sub
+   i32.shl
+  end
+  local.set $2
+  local.get $7
+  if (result i32)
+   local.get $6
+   i32.const 8388607
+   i32.and
+   i32.const 8388608
+   i32.or
+  else
+   local.get $6
+   i32.const 1
+   local.get $7
+   local.get $6
+   i32.const 9
+   i32.shl
+   i32.clz
+   i32.sub
+   local.tee $7
+   i32.sub
+   i32.shl
+  end
+  local.set $3
+  loop $while-continue|0
+   local.get $7
+   local.get $8
+   i32.lt_s
+   if
+    local.get $2
+    local.get $3
+    i32.ge_u
+    if (result i32)
+     local.get $2
+     local.get $3
+     i32.eq
+     if
+      local.get $0
+      f32.const 0
+      f32.mul
+      return
+     end
+     local.get $2
+     local.get $3
+     i32.sub
+    else
+     local.get $2
+    end
+    i32.const 1
+    i32.shl
+    local.set $2
+    local.get $8
+    i32.const 1
+    i32.sub
+    local.set $8
+    br $while-continue|0
+   end
+  end
+  local.get $2
+  local.get $3
+  i32.ge_u
+  if
+   local.get $2
+   local.get $3
+   i32.eq
+   if
+    local.get $0
+    f32.const 0
+    f32.mul
+    return
+   end
+   local.get $2
+   local.get $3
+   i32.sub
+   local.set $2
+  end
+  local.get $8
+  local.get $2
+  i32.const 8
+  i32.shl
+  i32.clz
+  local.tee $4
+  i32.sub
+  local.set $3
+  local.get $2
+  local.get $4
+  i32.shl
+  local.set $2
+  local.get $3
+  i32.const 0
+  i32.gt_s
+  if (result i32)
+   local.get $2
+   i32.const 8388608
+   i32.sub
+   local.get $3
+   i32.const 23
+   i32.shl
+   i32.or
+  else
+   local.get $2
+   i32.const 1
+   local.get $3
+   i32.sub
+   i32.shr_u
+  end
+  local.get $5
+  i32.or
+  f32.reinterpret_i32
+ )
  (func $assembly/index/freqToHue (param $0 f32) (result f32)
   (local $1 i32)
   (local $2 f64)
@@ -1103,12 +1363,8 @@
   end
   f32.const 0.10000000149011612
   f32.mul
-  local.tee $0
-  local.get $0
-  f32.trunc
-  f32.sub
-  local.get $0
-  f32.copysign
+  f32.const 1
+  call $~lib/math/NativeMathf.mod
  )
  (func $assembly/index/checkCollision (param $0 f32) (param $1 f32) (param $2 f32) (param $3 i32) (result i32)
   (local $4 i32)
@@ -1436,5 +1692,385 @@
  )
  (func $assembly/index/getWobbleZ (result f32)
   global.get $assembly/index/wobbleResultZ
+ )
+ (func $assembly/index/calcSpeakerPulse (param $0 f32) (param $1 f32) (param $2 f32)
+  local.get $0
+  local.get $1
+  f32.add
+  call $~lib/math/NativeMathf.sin
+  f32.const 0.20000000298023224
+  f32.mul
+  global.set $assembly/index/speakerYOffset
+  local.get $2
+  f32.const 0.5
+  f32.mul
+  local.tee $0
+  f32.const 0.20000000298023224
+  f32.mul
+  f32.const 1
+  f32.add
+  local.tee $1
+  global.set $assembly/index/speakerScaleX
+  f32.const 1
+  local.get $0
+  f32.const 0.5
+  f32.mul
+  f32.sub
+  global.set $assembly/index/speakerScaleY
+  local.get $1
+  global.set $assembly/index/speakerScaleZ
+ )
+ (func $assembly/index/getSpeakerYOffset (result f32)
+  global.get $assembly/index/speakerYOffset
+ )
+ (func $assembly/index/getSpeakerScaleX (result f32)
+  global.get $assembly/index/speakerScaleX
+ )
+ (func $assembly/index/getSpeakerScaleY (result f32)
+  global.get $assembly/index/speakerScaleY
+ )
+ (func $assembly/index/getSpeakerScaleZ (result f32)
+  global.get $assembly/index/speakerScaleZ
+ )
+ (func $assembly/index/calcAccordionStretch (param $0 f32) (param $1 f32) (param $2 f32)
+  local.get $0
+  f32.const 10
+  f32.mul
+  local.get $1
+  f32.add
+  call $~lib/math/NativeMathf.sin
+  f32.const 0
+  f32.max
+  f32.const 0.30000001192092896
+  f32.mul
+  local.get $2
+  f32.mul
+  f32.const 1
+  f32.add
+  global.set $assembly/index/accordionStretchY
+  f32.const 1
+  global.get $assembly/index/accordionStretchY
+  f32.sqrt
+  f32.div
+  global.set $assembly/index/accordionWidthXZ
+ )
+ (func $assembly/index/getAccordionStretchY (result f32)
+  global.get $assembly/index/accordionStretchY
+ )
+ (func $assembly/index/getAccordionWidthXZ (result f32)
+  global.get $assembly/index/accordionWidthXZ
+ )
+ (func $assembly/index/calcFiberWhip (param $0 f32) (param $1 f32) (param $2 f32) (param $3 i32) (param $4 i32)
+  local.get $0
+  f32.const 0.5
+  f32.mul
+  local.get $1
+  f32.add
+  call $~lib/math/NativeMathf.sin
+  f32.const 0.10000000149011612
+  f32.mul
+  global.set $assembly/index/fiberBaseRotY
+  local.get $0
+  local.get $0
+  f32.add
+  local.get $4
+  f32.convert_i32_s
+  f32.const 0.5
+  f32.mul
+  local.tee $1
+  f32.add
+  call $~lib/math/NativeMathf.sin
+  f32.const 0.10000000149011612
+  f32.mul
+  f32.const 0.785398006439209
+  f32.add
+  global.set $assembly/index/fiberBranchRotZ
+  local.get $3
+  if
+   global.get $assembly/index/fiberBranchRotZ
+   local.get $0
+   f32.const 10
+   f32.mul
+   local.get $1
+   f32.add
+   call $~lib/math/NativeMathf.sin
+   local.get $2
+   local.get $2
+   f32.add
+   f32.mul
+   f32.add
+   global.set $assembly/index/fiberBranchRotZ
+  end
+ )
+ (func $assembly/index/getFiberBaseRotY (result f32)
+  global.get $assembly/index/fiberBaseRotY
+ )
+ (func $assembly/index/getFiberBranchRotZ (result f32)
+  global.get $assembly/index/fiberBranchRotZ
+ )
+ (func $assembly/index/calcHopY (param $0 f32) (param $1 f32) (param $2 f32) (param $3 f32) (result f32)
+  local.get $0
+  local.get $1
+  f32.add
+  f32.const 4
+  f32.mul
+  call $~lib/math/NativeMathf.sin
+  f32.const 0
+  f32.max
+  f32.const 0.30000001192092896
+  f32.mul
+  local.get $2
+  f32.mul
+  local.tee $0
+  local.get $3
+  f32.const 0.15000000596046448
+  f32.mul
+  f32.add
+  local.get $0
+  local.get $3
+  f32.const 0.10000000149011612
+  f32.gt
+  select
+ )
+ (func $assembly/index/calcShiver (param $0 f32) (param $1 f32) (param $2 f32)
+  local.get $0
+  local.get $1
+  f32.add
+  f32.const 20
+  f32.mul
+  local.tee $0
+  call $~lib/math/NativeMathf.sin
+  f32.const 0.019999999552965164
+  f32.mul
+  local.get $2
+  f32.mul
+  global.set $assembly/index/shiverRotX
+  local.get $0
+  call $~lib/math/NativeMathf.cos
+  f32.const 0.019999999552965164
+  f32.mul
+  local.get $2
+  f32.mul
+  global.set $assembly/index/shiverRotZ
+ )
+ (func $assembly/index/getShiverRotX (result f32)
+  global.get $assembly/index/shiverRotX
+ )
+ (func $assembly/index/getShiverRotZ (result f32)
+  global.get $assembly/index/shiverRotZ
+ )
+ (func $assembly/index/calcSpiralWave (param $0 f32) (param $1 f32) (param $2 f32) (param $3 f32)
+  local.get $0
+  local.get $1
+  f32.add
+  local.tee $0
+  local.get $0
+  f32.add
+  call $~lib/math/NativeMathf.sin
+  f32.const 0.20000000298023224
+  f32.mul
+  local.get $2
+  f32.mul
+  global.set $assembly/index/spiralRotY
+  local.get $0
+  f32.const 3
+  f32.mul
+  call $~lib/math/NativeMathf.sin
+  f32.const 0.10000000149011612
+  f32.mul
+  local.get $3
+  f32.const 1
+  f32.add
+  f32.mul
+  global.set $assembly/index/spiralYOffset
+  local.get $0
+  f32.const 4
+  f32.mul
+  call $~lib/math/NativeMathf.sin
+  f32.const 0.05000000074505806
+  f32.mul
+  local.get $2
+  f32.mul
+  f32.const 1
+  f32.add
+  global.set $assembly/index/spiralScale
+ )
+ (func $assembly/index/getSpiralRotY (result f32)
+  global.get $assembly/index/spiralRotY
+ )
+ (func $assembly/index/getSpiralYOffset (result f32)
+  global.get $assembly/index/spiralYOffset
+ )
+ (func $assembly/index/getSpiralScale (result f32)
+  global.get $assembly/index/spiralScale
+ )
+ (func $assembly/index/calcPrismRose (param $0 f32) (param $1 f32) (param $2 f32) (param $3 f32) (param $4 i32)
+  local.get $0
+  local.get $1
+  f32.add
+  local.tee $0
+  local.get $0
+  f32.add
+  call $~lib/math/NativeMathf.sin
+  f32.const 0.10000000149011612
+  f32.mul
+  local.get $4
+  if (result f32)
+   local.get $3
+   f32.const 3
+   f32.mul
+   f32.const 1
+   f32.add
+  else
+   f32.const 0.30000001192092896
+  end
+  f32.mul
+  global.set $assembly/index/prismUnfurl
+  local.get $0
+  f32.const 0.5
+  f32.mul
+  local.get $3
+  local.get $3
+  f32.add
+  f32.add
+  global.set $assembly/index/prismSpin
+  local.get $2
+  f32.const 0.30000001192092896
+  f32.mul
+  f32.const 1
+  f32.add
+  global.set $assembly/index/prismPulse
+  local.get $0
+  f32.const 0.10000000149011612
+  f32.mul
+  f32.const 1
+  call $~lib/math/NativeMathf.mod
+  global.set $assembly/index/prismHue
+ )
+ (func $assembly/index/getPrismUnfurl (result f32)
+  global.get $assembly/index/prismUnfurl
+ )
+ (func $assembly/index/getPrismSpin (result f32)
+  global.get $assembly/index/prismSpin
+ )
+ (func $assembly/index/getPrismPulse (result f32)
+  global.get $assembly/index/prismPulse
+ )
+ (func $assembly/index/getPrismHue (result f32)
+  global.get $assembly/index/prismHue
+ )
+ (func $assembly/index/lerpColor (param $0 i32) (param $1 i32) (param $2 f32) (result i32)
+  (local $3 f32)
+  local.get $0
+  i32.const 255
+  i32.and
+  f32.convert_i32_u
+  local.tee $3
+  local.get $1
+  i32.const 255
+  i32.and
+  f32.convert_i32_u
+  local.get $3
+  f32.sub
+  local.get $2
+  f32.mul
+  f32.add
+  i32.trunc_sat_f32_u
+  local.get $0
+  i32.const 16
+  i32.shr_u
+  i32.const 255
+  i32.and
+  f32.convert_i32_u
+  local.tee $3
+  local.get $1
+  i32.const 16
+  i32.shr_u
+  i32.const 255
+  i32.and
+  f32.convert_i32_u
+  local.get $3
+  f32.sub
+  local.get $2
+  f32.mul
+  f32.add
+  i32.trunc_sat_f32_u
+  i32.const 16
+  i32.shl
+  local.get $0
+  i32.const 8
+  i32.shr_u
+  i32.const 255
+  i32.and
+  f32.convert_i32_u
+  local.tee $3
+  local.get $1
+  i32.const 8
+  i32.shr_u
+  i32.const 255
+  i32.and
+  f32.convert_i32_u
+  local.get $3
+  f32.sub
+  local.get $2
+  f32.mul
+  f32.add
+  i32.trunc_sat_f32_u
+  i32.const 8
+  i32.shl
+  i32.or
+  i32.or
+ )
+ (func $assembly/index/calcRainDropY (param $0 f32) (param $1 f32) (param $2 f32) (param $3 f32) (result f32)
+  local.get $0
+  local.get $1
+  local.get $2
+  f32.mul
+  local.get $3
+  call $~lib/math/NativeMathf.mod
+  f32.sub
+ )
+ (func $assembly/index/calcFloatingParticle (param $0 f32) (param $1 f32) (param $2 f32) (param $3 f32) (param $4 f32) (param $5 f32)
+  local.get $0
+  local.get $3
+  local.get $4
+  f32.add
+  local.tee $0
+  f32.const 0.5
+  f32.mul
+  call $~lib/math/NativeMathf.sin
+  local.get $5
+  f32.mul
+  f32.add
+  global.set $assembly/index/particleX
+  local.get $1
+  local.get $0
+  f32.const 0.699999988079071
+  f32.mul
+  call $~lib/math/NativeMathf.sin
+  local.get $5
+  f32.mul
+  f32.const 0.5
+  f32.mul
+  f32.add
+  global.set $assembly/index/particleY
+  local.get $2
+  local.get $0
+  f32.const 0.6000000238418579
+  f32.mul
+  call $~lib/math/NativeMathf.cos
+  local.get $5
+  f32.mul
+  f32.add
+  global.set $assembly/index/particleZ
+ )
+ (func $assembly/index/getParticleX (result f32)
+  global.get $assembly/index/particleX
+ )
+ (func $assembly/index/getParticleY (result f32)
+  global.get $assembly/index/particleY
+ )
+ (func $assembly/index/getParticleZ (result f32)
+  global.get $assembly/index/particleZ
  )
 )
