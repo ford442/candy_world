@@ -7,7 +7,7 @@
     "dev": "npm run build:wasm && vite",
     "build": "npm run build:wasm && vite build",
     "preview": "vite preview",
-    "build:wasm": "asc assembly/index.ts --outFile candy_physics.wasm --textFile candy_physics.wat --sourceMap --optimize",
+    "build:wasm": "asc assembly/index.ts --outFile /build/candy_physics.wasm --textFile /build/candy_physics.wat --sourceMap --optimize",
     "test": "python3 verify.py"
   },
   "keywords": [],
