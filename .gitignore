@@ -4,7 +4,7 @@ package-lock.json
 # Build output
 dist/
 build/
-
+emsdk
 # Logs
 *.log
 npm-debug.log*
