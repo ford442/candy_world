@@ -35,13 +35,26 @@ export async function initWasm() {
 
     try {
         // Load WASM binary with cache buster
-        const response = await fetch('./assets/candy_physics.wasm?v=' + Date.now());
+        const response = await fetch('./candy_physics.wasm?v=' + Date.now());
+        console.log('Fetch response:', response.status, response.url);
+
         if (!response.ok) {
             console.warn('WASM not found, using JS fallbacks');
             return false;
         }
 
         const wasmBytes = await response.arrayBuffer();
+        console.log('WASM buffer size:', wasmBytes.byteLength, 'bytes');
+
+        // Check if we got HTML instead of WASM (common 404 issue)
+        const firstBytes = new Uint8Array(wasmBytes.slice(0, 4));
+        const magic = Array.from(firstBytes).map(b => b.toString(16).padStart(2, '0')).join('');
+        console.log('WASM magic number:', magic, '(expected: 0061736d)');
+
+        if (magic !== '0061736d') {
+            console.error('Invalid WASM file - not a WebAssembly binary!');
+            return false;
+        }
 
         // WASI stubs (required for some runtime features)
         const wasiStubs = {
@@ -60,23 +73,32 @@ export async function initWasm() {
         };
 
         // Instantiate with env AND wasi imports
-        const result = await WebAssembly.instantiate(wasmBytes, {
+        console.log('Attempting WebAssembly.compile + new Instance (bypassing potential interception)...');
+
+        const importObject = {
             env: {
                 abort: (msg, file, line, col) => {
                     console.error(`WASM abort at ${file}:${line}:${col}: ${msg}`);
                 }
             },
             wasi_snapshot_preview1: wasiStubs
-        });
+        };
 
-        wasmInstance = result.instance;
+        // Use compile + new Instance instead of instantiate to bypass monkey-patching
+        const module = await WebAssembly.compile(wasmBytes);
+        const instance = new WebAssembly.Instance(module, importObject);
+
+        console.log('Instantiation successful');
+        wasmInstance = instance;
 
         // Log available exports for debugging
-        console.log('WASM exports:', Object.keys(wasmInstance.exports));
+        const exportKeys = Object.keys(wasmInstance.exports);
+        console.log('WASM exports:', exportKeys);
+        console.log('Export count:', exportKeys.length);
 
         // Verify exports exist
         if (!wasmInstance.exports.getGroundHeight) {
-            console.error('WASM exports missing getGroundHeight. Available:', Object.keys(wasmInstance.exports));
+            console.error('WASM exports missing getGroundHeight. Available:', exportKeys);
             wasmInstance = null;
             return false;
         }
