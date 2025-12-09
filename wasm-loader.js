@@ -12,6 +12,10 @@ let wasmGetGroundHeight = null;
 let wasmFreqToHue = null;
 let wasmLerp = null;
 
+// Emscripten module (native C functions)
+let emscriptenInstance = null;
+let emscriptenMemory = null;
+
 // Memory layout constants (must match AssemblyScript)
 const POSITION_OFFSET = 0;
 const ANIMATION_OFFSET = 4096;
@@ -120,6 +124,37 @@ export async function initWasm() {
 
         console.log('WASM module loaded successfully');
         console.log('WASM exports:', Object.keys(wasmInstance.exports));
+
+        // =====================================================================
+        // Load Emscripten WASM module (optional - for native C functions)
+        // =====================================================================
+        try {
+            const emResponse = await fetch('./candy_native.wasm?v=' + Date.now());
+            if (emResponse.ok) {
+                const emBytes = await emResponse.arrayBuffer();
+
+                // Check magic number
+                const emMagic = new Uint8Array(emBytes.slice(0, 4));
+                if (emMagic[0] === 0 && emMagic[1] === 0x61 && emMagic[2] === 0x73 && emMagic[3] === 0x6d) {
+                    const emResult = await WA.instantiate(emBytes, {
+                        wasi_snapshot_preview1: wasiStubs,
+                        env: {
+                            // Emscripten might request this for memory growth
+                            emscripten_notify_memory_growth: () => { }
+                        }
+                    });
+
+                    emscriptenInstance = emResult.instance;
+                    emscriptenMemory = emResult.instance.exports.memory;
+                    console.log('Emscripten module loaded:', Object.keys(emResult.instance.exports));
+                }
+            } else {
+                console.log('Emscripten WASM not found (optional), skipping');
+            }
+        } catch (emError) {
+            console.warn('Optional Emscripten WASM failed to load:', emError.message);
+        }
+
         return true;
     } catch (error) {
         console.warn('Failed to load WASM:', error);
@@ -321,4 +356,85 @@ export function calcWobble(time, offset, intensity) {
 export function checkCollision(playerX, playerZ, playerRadius, objectCount) {
     if (!wasmInstance) return false;
     return wasmInstance.exports.checkCollision(playerX, playerZ, playerRadius, objectCount) === 1;
+}
+
+// =============================================================================
+// EMSCRIPTEN NATIVE FUNCTIONS (from candy_native.c)
+// =============================================================================
+
+/**
+ * Check if Emscripten module is available
+ */
+export function isEmscriptenReady() {
+    return emscriptenInstance !== null;
+}
+
+/**
+ * 2D Value Noise (Emscripten)
+ * @param {number} x 
+ * @param {number} y 
+ * @returns {number} Noise value -1 to 1
+ */
+export function valueNoise2D(x, y) {
+    if (!emscriptenInstance) {
+        // JS fallback - simple hash-based noise
+        const n = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
+        return n - Math.floor(n);
+    }
+    return emscriptenInstance.exports._valueNoise2D(x, y);
+}
+
+/**
+ * Fractal Brownian Motion (layered noise)
+ * @param {number} x 
+ * @param {number} y 
+ * @param {number} octaves - Number of noise layers (default 4)
+ * @returns {number} FBM value
+ */
+export function fbm(x, y, octaves = 4) {
+    if (!emscriptenInstance) {
+        // JS fallback
+        let value = 0, amp = 0.5, freq = 1;
+        for (let i = 0; i < octaves; i++) {
+            value += amp * valueNoise2D(x * freq, y * freq);
+            amp *= 0.5;
+            freq *= 2;
+        }
+        return value;
+    }
+    return emscriptenInstance.exports._fbm(x, y, octaves);
+}
+
+/**
+ * Fast inverse square root (Quake III algorithm)
+ * @param {number} x 
+ * @returns {number} 1/sqrt(x)
+ */
+export function fastInvSqrt(x) {
+    if (!emscriptenInstance) {
+        return 1 / Math.sqrt(x);
+    }
+    return emscriptenInstance.exports._fastInvSqrt(x);
+}
+
+/**
+ * Fast distance calculation
+ */
+export function fastDistance(x1, y1, z1, x2, y2, z2) {
+    if (!emscriptenInstance) {
+        const dx = x2 - x1, dy = y2 - y1, dz = z2 - z1;
+        return Math.sqrt(dx * dx + dy * dy + dz * dz);
+    }
+    return emscriptenInstance.exports._fastDistance(x1, y1, z1, x2, y2, z2);
+}
+
+/**
+ * Hash function for procedural generation
+ */
+export function hash(x, y) {
+    if (!emscriptenInstance) {
+        const n = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
+        return (n - Math.floor(n)) * 2 - 1;
+    }
+    return emscriptenInstance.exports._hash(x, y);
 }
