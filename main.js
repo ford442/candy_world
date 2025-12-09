@@ -468,16 +468,26 @@ function getCycleState(tRaw) {
     return PALETTE.night; // Fallback
 }
 
+// --- Reusable Color Pool for Render Loop (prevents GC pressure) ---
+const _scratchPalette = {
+    skyTop: new THREE.Color(),
+    skyBot: new THREE.Color(),
+    fog: new THREE.Color(),
+    sun: new THREE.Color(),
+    amb: new THREE.Color(),
+    sunInt: 0,
+    ambInt: 0
+};
+
 function lerpPalette(p1, p2, t) {
-    return {
-        skyTop: p1.skyTop.clone().lerp(p2.skyTop, t),
-        skyBot: p1.skyBot.clone().lerp(p2.skyBot, t),
-        fog: p1.fog.clone().lerp(p2.fog, t),
-        sun: p1.sun.clone().lerp(p2.sun, t),
-        amb: p1.amb.clone().lerp(p2.amb, t),
-        sunInt: THREE.MathUtils.lerp(p1.sunInt, p2.sunInt, t),
-        ambInt: THREE.MathUtils.lerp(p1.ambInt, p2.ambInt, t)
-    };
+    _scratchPalette.skyTop.copy(p1.skyTop).lerp(p2.skyTop, t);
+    _scratchPalette.skyBot.copy(p1.skyBot).lerp(p2.skyBot, t);
+    _scratchPalette.fog.copy(p1.fog).lerp(p2.fog, t);
+    _scratchPalette.sun.copy(p1.sun).lerp(p2.sun, t);
+    _scratchPalette.amb.copy(p1.amb).lerp(p2.amb, t);
+    _scratchPalette.sunInt = THREE.MathUtils.lerp(p1.sunInt, p2.sunInt, t);
+    _scratchPalette.ambInt = THREE.MathUtils.lerp(p1.ambInt, p2.ambInt, t);
+    return _scratchPalette;
 }
 
 // --- Animation ---

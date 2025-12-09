@@ -60,6 +60,24 @@ function createClayMaterial(colorHex) {
     });
 }
 
+// --- Gradient Material using TSL (for smooth organic transitions) ---
+import { MeshStandardNodeMaterial } from 'three/webgpu';
+
+function createGradientMaterial(topColorHex, bottomColorHex, roughnessVal = 0.7) {
+    const mat = new MeshStandardNodeMaterial();
+    mat.roughness = roughnessVal;
+    mat.metalness = 0;
+
+    // Vertical gradient based on normalized local Y position
+    // positionLocal.y ranges based on geometry, normalize to 0-1
+    const h = positionLocal.y.add(0.5).clamp(0, 1); // Shift and clamp for typical centered geometry
+    const topCol = color(topColorHex);
+    const bottomCol = color(bottomColorHex);
+    mat.colorNode = mix(bottomCol, topCol, h);
+
+    return mat;
+}
+
 const foliageMaterials = {
     grass: createClayMaterial(0x7CFC00),
     flowerStem: createClayMaterial(0x228B22),
@@ -202,6 +220,11 @@ export function createBerryCluster(options = {}) {
     return group;
 }
 
+// --- Reusable Colors for Berry Updates (prevents GC pressure) ---
+const _berryBaseColor = new THREE.Color(0x331100);
+const _berryTargetColor = new THREE.Color();
+const _berryCurrentColor = new THREE.Color();
+
 /**
  * Update berry glow based on weather and audio
  * @param {THREE.Group} berryCluster - The berry cluster
@@ -217,21 +240,20 @@ export function updateBerryGlow(berryCluster, weatherIntensity, audioData) {
     const glowFactor = Math.max(0, Math.min(2, totalGlow));
 
     // Lerp color: dim (dark red/brown) -> bright (orange/yellow)
-    const baseColor = new THREE.Color(0x331100); // Dark
-    const targetColor = new THREE.Color(berryCluster.userData.berryColor || 0xFF6600); // Bright
-
-    const currentColor = baseColor.clone().lerp(targetColor, Math.min(1.0, glowFactor));
+    // Reuse pooled colors to avoid per-frame allocation
+    _berryTargetColor.setHex(berryCluster.userData.berryColor || 0xFF6600);
+    _berryCurrentColor.copy(_berryBaseColor).lerp(_berryTargetColor, Math.min(1.0, glowFactor));
 
     berryCluster.userData.berries.forEach((berry, i) => {
         // Slight offset per berry for organic pulsing
         const offset = i * 0.1;
         const pulse = Math.sin((performance.now() * 0.001) + offset) * 0.1 + 1;
 
-        berry.material.emissive.copy(currentColor);
+        berry.material.emissive.copy(_berryCurrentColor);
         berry.material.emissiveIntensity = berryCluster.userData.baseGlow * (1 + glowFactor) * pulse;
 
         // Also update color if supported
-        berry.material.color.copy(currentColor);
+        berry.material.color.copy(_berryCurrentColor);
     });
 
     // Weather glow decays over time
@@ -438,7 +460,7 @@ export function createMushroom(options = {}) {
     group.add(stem);
 
     // 2. Cap (Sphere slice)
-    const capGeo = new THREE.SphereGeometry(capR, 16, 16, 0, Math.PI * 2, 0, Math.PI / 1.8); // Reduced segments for performance
+    const capGeo = new THREE.SphereGeometry(capR, 24, 24, 0, Math.PI * 2, 0, Math.PI / 1.8); // Increased segments for smooth cap
     // Determine Material
     let capMat;
     if (colorIndex >= 0 && colorIndex < foliageMaterials.mushroomCap.length) {
@@ -455,7 +477,7 @@ export function createMushroom(options = {}) {
 
     // 3. Gills (Ribbed underside)
     // A cone/disc underneath with texture or ridges
-    const gillGeo = new THREE.ConeGeometry(capR * 0.9, capR * 0.4, 16, 1, true); // Reduced segments for performance
+    const gillGeo = new THREE.ConeGeometry(capR * 0.9, capR * 0.4, 24, 1, true); // Increased segments for smooth gills
     const gillMat = foliageMaterials.mushroomGills;
     const gill = new THREE.Mesh(gillGeo, gillMat);
     gill.position.y = stemH - (capR * 0.2);
@@ -541,7 +563,7 @@ export function createFlower(options = {}) {
     const group = new THREE.Group();
 
     const stemHeight = 0.6 + Math.random() * 0.4;
-    const stemGeo = new THREE.CylinderGeometry(0.05, 0.05, stemHeight, 6);
+    const stemGeo = new THREE.CylinderGeometry(0.05, 0.05, stemHeight, 12); // Increased radial segments
     stemGeo.translate(0, stemHeight / 2, 0);
     const stem = new THREE.Mesh(stemGeo, foliageMaterials.flowerStem);
     stem.castShadow = true;
@@ -551,7 +573,7 @@ export function createFlower(options = {}) {
     head.position.y = stemHeight;
     group.add(head);
 
-    const centerGeo = new THREE.SphereGeometry(0.1, 8, 8);
+    const centerGeo = new THREE.SphereGeometry(0.1, 16, 16); // Increased segments for smooth center
     const center = new THREE.Mesh(centerGeo, foliageMaterials.flowerCenter);
     center.name = 'flowerCenter';
     head.add(center);
@@ -589,7 +611,7 @@ export function createFlower(options = {}) {
         }
     } else if (shape === 'multi') {
         const petalCount = 8 + Math.floor(Math.random() * 4);
-        const petalGeo = new THREE.SphereGeometry(0.12, 8, 8);
+        const petalGeo = new THREE.SphereGeometry(0.12, 12, 12); // Increased segments
         for (let i = 0; i < petalCount; i++) {
             const angle = (i / petalCount) * Math.PI * 2;
             const petal = new THREE.Mesh(petalGeo, petalMat);
@@ -656,7 +678,9 @@ export function createFloweringTree(options = {}) {
 
     const trunkH = 3 + Math.random() * 2;
     const trunkGeo = new THREE.CylinderGeometry(0.3, 0.5, trunkH, 16);
-    const trunk = new THREE.Mesh(trunkGeo, createClayMaterial(0x8B5A2B));
+    // Use gradient material for trunk (dark base -> lighter top)
+    const trunkMat = createGradientMaterial(0xA0724B, 0x6B4226, 0.8);
+    const trunk = new THREE.Mesh(trunkGeo, trunkMat);
     trunk.position.y = trunkH / 2;
     trunk.castShadow = true;
     group.add(trunk);
@@ -671,7 +695,7 @@ export function createFloweringTree(options = {}) {
         const subBlooms = 2 + Math.floor(Math.random() * 2); // Reduced for performance
 
         for (let j = 0; j < subBlooms; j++) {
-            const bloomGeo = new THREE.SphereGeometry(0.4 + Math.random() * 0.3, 8, 8); // Reduced segments
+            const bloomGeo = new THREE.SphereGeometry(0.4 + Math.random() * 0.3, 12, 12); // Increased segments
             const bloom = new THREE.Mesh(bloomGeo, bloomMat);
             bloom.position.set(
                 (Math.random() - 0.5) * 0.5,
@@ -975,7 +999,7 @@ export function createBubbleWillow(options = {}) {
     const group = new THREE.Group();
 
     const trunkH = 2.5 + Math.random();
-    const trunkGeo = new THREE.CylinderGeometry(0.4, 0.6, trunkH, 12);
+    const trunkGeo = new THREE.CylinderGeometry(0.4, 0.6, trunkH, 16); // Increased segments
     const trunk = new THREE.Mesh(trunkGeo, createClayMaterial(0x5D4037));
     trunk.position.y = trunkH / 2;
     trunk.castShadow = true;
@@ -1128,7 +1152,7 @@ export function createRainingCloud(options = {}) {
     const { color = 0xB0C4DE, rainIntensity = 30 } = options; // Reduced default from 50
     const group = new THREE.Group();
 
-    const cloudGeo = new THREE.SphereGeometry(1.5, 12, 12); // Reduced segments for performance
+    const cloudGeo = new THREE.SphereGeometry(1.5, 16, 16); // Increased segments for smooth clouds
     const cloudMat = createClayMaterial(color);
     const cloud = new THREE.Mesh(cloudGeo, cloudMat);
     cloud.castShadow = true;
