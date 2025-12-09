@@ -35,7 +35,7 @@ export async function initWasm() {
 
     try {
         // Load WASM binary with cache buster
-        const response = await fetch('./candy_physics.wasm?v=' + Date.now());
+        const response = await fetch('./assets/candy_physics.wasm?v=' + Date.now());
         if (!response.ok) {
             console.warn('WASM not found, using JS fallbacks');
             return false;
