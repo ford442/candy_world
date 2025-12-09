@@ -4,7 +4,7 @@
 
 import * as THREE from 'three';
 import { calcRainDropY } from './wasm-loader.js';
-import { chargeBerries, triggerGrowth, triggerBloom } from './foliage.js';
+import { chargeBerries, triggerGrowth, triggerBloom, shakeBerriesLoose, updateBerrySeasons } from './foliage.js';
 
 // Weather states
 export const WeatherState = {
@@ -185,6 +185,52 @@ export class WeatherSystem {
     }
 
     /**
+     * Update berry sizes based on day/night cycle phase
+     * @param {number} cyclePos - Current position in cycle (0 to CYCLE_DURATION)
+     * @param {number} CYCLE_DURATION - Total cycle duration
+     */
+    updateBerrySeasonalSize(cyclePos, CYCLE_DURATION) {
+        // Define phase boundaries (matching main.js)
+        const SUNRISE = 60, DAY = 420, SUNSET = 60, DUSK = 180, DEEP = 120, PREDAWN = 120;
+        let elapsed = SUNRISE + DAY;
+
+        let phase = 'day';
+        let phaseProgress = 0;
+
+        if (cyclePos < SUNRISE) {
+            phase = 'sunrise';
+            phaseProgress = cyclePos / SUNRISE;
+        } else if (cyclePos < SUNRISE + DAY) {
+            phase = 'day';
+            phaseProgress = (cyclePos - SUNRISE) / DAY;
+        } else if (cyclePos < SUNRISE + DAY + SUNSET) {
+            phase = 'sunset';
+            phaseProgress = (cyclePos - SUNRISE - DAY) / SUNSET;
+        } else if (cyclePos < SUNRISE + DAY + SUNSET + DUSK) {
+            phase = 'dusk';
+            phaseProgress = (cyclePos - SUNRISE - DAY - SUNSET) / DUSK;
+        } else if (cyclePos < SUNRISE + DAY + SUNSET + DUSK + DEEP) {
+            phase = 'deepNight';
+            phaseProgress = (cyclePos - SUNRISE - DAY - SUNSET - DUSK) / DEEP;
+        } else {
+            phase = 'preDawn';
+            phaseProgress = (cyclePos - SUNRISE - DAY - SUNSET - DUSK - DEEP) / PREDAWN;
+        }
+
+        // Update all tracked plants with berries
+        this.trackedTrees.forEach(tree => {
+            if (tree.userData.berries) {
+                updateBerrySeasons(tree.userData.berries, phase, phaseProgress);
+            }
+        });
+        this.trackedShrubs.forEach(shrub => {
+            if (shrub.userData.berries) {
+                updateBerrySeasons(shrub.userData.berries, phase, phaseProgress);
+            }
+        });
+    }
+
+    /**
      * Determine weather state from audio
      */
     updateWeatherState(bass, melody, groove) {
@@ -313,6 +359,20 @@ export class WeatherSystem {
                 chargeBerries(shrub.userData.berries, chargeAmount);
             }
         });
+
+        // Shake berries loose during intense storms
+        if (bassIntensity > 0.6) {
+            this.trackedTrees.forEach(tree => {
+                if (tree.userData.berries) {
+                    shakeBerriesLoose(tree.userData.berries, bassIntensity);
+                }
+            });
+            this.trackedShrubs.forEach(shrub => {
+                if (shrub.userData.berries) {
+                    shakeBerriesLoose(shrub.userData.berries, bassIntensity);
+                }
+            });
+        }
     }
 
     /**

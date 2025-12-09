@@ -8,368 +8,450 @@ Transform Candy World from a visual experience into an interactive musical ecosy
 
 ## Phase 1: Berry & Fruit System
 
-### 1.1 Berry Geometry (`foliage.js`)
+### 1.1 Berry Geometry (`foliage.js`) ✅ COMPLETE
 
-Create berry cluster functions with SSS-capable materials:
+Create berry cluster functions with SSS-capable materials.
 
-```javascript
-function createBerryCluster(options = {}) {
-  const count = options.count || 5;
-  const color = options.color || 0xFF6600;
-  const baseGlow = options.baseGlow || 0.2;
-  
-  const group = new THREE.Group();
-  const geometry = new THREE.SphereGeometry(0.08, 16, 16);
-  
-  // SSS Material for translucency
-  const material = new MeshPhysicalNodeMaterial();
-  material.transmission = 0.6; // Translucent
-  material.thickness = 0.4; // SSS depth
-  material.roughness = 0.3;
-  material.color.setHex(color);
-  material.emissive.setHex(color);
-  material.emissiveIntensity = baseGlow;
-  
-  // Create cluster
-  for (let i = 0; i < count; i++) {
-    const berry = new THREE.Mesh(geometry, material.clone());
-    // Position in cluster pattern
-    const angle = (i / count) * Math.PI * 2;
-    const radius = 0.12;
-    berry.position.set(
-      Math.cos(angle) * radius,
-      Math.sin(angle) * radius * 0.5,
-      Math.sin(angle) * radius
-    );
-    berry.scale.setScalar(0.8 + Math.random() * 0.4);
-    group.add(berry);
-  }
-  
-  // Store for weather system
-  group.userData.berries = group.children;
-  group.userData.baseGlow = baseGlow;
-  group.userData.weatherGlow = 0;
-  
-  return group;
-}
-```
+### 1.2 Integration with Trees ✅ COMPLETE
 
-**Berry Types:**
+Berries spawn on trees and shrubs with `createBerryCluster`.
 
-- **Cyan Berries** - Oak-like trees
-- **Magenta Pears** - Flowering trees  
-- **Orange Orbs** - Shrubs
-- **Purple Clusters** - Vines
+### 1.3 Luminescence System ✅ COMPLETE
 
-### 1.2 Integration with Trees
+`updateBerryGlow` with color lerping (dark → bright orange).
 
-Modify `createFloweringTree` and tree functions:
+### 🚀 Phase 1 Enhancements
+
+#### 1.4 Berry Physics (Falling Berries)
 
 ```javascript
-// In createFloweringTree
-if (Math.random() > 0.5) {
-  const berries = createBerryCluster({
-    color: 0xFF00AA,
-    count: 8,
-    baseGlow: 0.3
-  });
-  berries.position.y = trunkHeight + crownRadius * 0.5;
-  tree.add(berries);
-  tree.userData.berries = berries;
-}
-```
-
-### 1.3 Luminescence System
-
-Add to `updateFoliageMaterials`:
-
-```javascript
-export function updateBerryGlow(tree, weatherIntensity, audioData) {
-  if (!tree.userData.berries) return;
-  
-  // Use WASM lerpColor for smooth transitions
-  const glowFactor = clamp(weatherIntensity + (audioData.grooveAmount || 0), 0, 2);
-  
-  tree.userData.berries.children.forEach(berry => {
-    berry.material.emissiveIntensity = tree.userData.baseGlow * (1 + glowFactor);
+// When storm intensity > threshold, shake berries loose
+function shakeBerriesLoose(cluster, intensity) {
+  cluster.userData.berries.forEach(berry => {
+    if (Math.random() < intensity * 0.01) {
+      // Spawn falling berry particle
+      spawnFallingBerry(berry.getWorldPosition(new THREE.Vector3()));
+    }
   });
 }
 ```
+
+#### 1.5 Berry Collection System
+
+- Player walks through berries → collect effect
+- Collected berries increase "energy" meter
+- Energy affects jump height / speed
+
+#### 1.6 Berry Audio Feedback
+
+- Different berry colors make different sounds when collected
+- Berries hum/pulse with bass frequency
+
+#### 1.7 Seasonal Berry Cycles
+
+- Berries grow larger during "harvest" phase (sunset)
+- Berries shrink/fall during winter-like phase (deep night)
 
 ---
 
 ## Phase 2: Weather System
 
-### 2.1 Weather Module (`weather.js`)
+### 2.1 Weather Module (`weather.js`) ✅ COMPLETE
+
+Audio-driven weather states (Clear, Rain, Storm).
+
+### 2.2 Growth Logic ✅ COMPLETE
+
+`triggerGrowth` and `triggerBloom` respond to weather.
+
+### 2.3 Berry Charging ✅ COMPLETE
+
+`chargeBerries` accumulates glow during storms.
+
+### 🚀 Phase 2 Enhancements
+
+#### 2.4 Wind System
 
 ```javascript
-export class WeatherSystem {
-  constructor(scene, audioSystem) {
-    this.scene = scene;
-    this.audio = audioSystem;
-    this.state = 'clear'; // clear, rain, storm
-    this.intensity = 0;
-    
-    // Particle systems
-    this.percussionRain = null; // Fat droplets
-    this.melodicMist = null;    // Fine spray
-    this.lightning = null;
-    
-    this.initParticles();
+// Add wind direction that affects particle movement
+class WindSystem {
+  constructor() {
+    this.direction = new THREE.Vector3(1, 0, 0.5);
+    this.speed = 0; // 0-1, driven by melody
   }
   
-  update(time, audioData) {
-    // Map audio to weather
-    const bassIntensity = audioData.kickTrigger || 0;
-    const melodyVol = audioData.channelData?.[2]?.volume || 0;
+  update(audioData) {
+    // Wind speed from high-frequency channels
+    this.speed = audioData.channelData?.[3]?.volume || 0;
     
-    // Percussion Rain (bass → structural growth)
-    if (bassIntensity > 0.7) {
-      this.triggerPercussionRain(bassIntensity);
-    }
-    
-    // Melodic Mist (melody → flowers)
-    if (melodyVol > 0.3) {
-      this.triggerMelodicMist(melodyVol);
-    }
-    
-    // Storm (all channels peak)
-    if (this.detectStorm(audioData)) {
-      this.triggerStorm();
-    }
-    
-    this.updateParticles(time);
+    // Rotate direction slowly
+    this.direction.applyAxisAngle(
+      new THREE.Vector3(0, 1, 0),
+      audioData.beatPhase * 0.01
+    );
   }
   
-  triggerPercussionRain(intensity) {
-    // Use WASM calcRainDropY for particle updates
-    // Spawn fat droplets, track ground hits
-    // On hit: grow tree/mushroom nearby
-  }
-  
-  detectStorm(audioData) {
-    // Check if multiple channels are peaking
-    const channels = audioData.channelData || [];
-    const peakCount = channels.filter(ch => ch.volume > 0.8).length;
-    return peakCount >= 3;
+  applyToParticle(position, velocity) {
+    velocity.addScaledVector(this.direction, this.speed * 0.1);
   }
 }
 ```
 
-### 2.2 Growth Logic
+#### 2.5 Rainbow After Storm
 
-```javascript
-function handleRainHit(position, type) {
-  if (type === 'percussion') {
-    // Grow structural plant
-    const nearest = findNearestStructural(position);
-    if (nearest) {
-      scaleStructural(nearest, 1.05); // Grow 5%
-    } else {
-      spawnNewTree(position);
-    }
-  } else if (type === 'melodic') {
-    // Bloom flowers
-    const flowers = findNearbyFlowers(position);
-    flowers.forEach(f => bloomFlower(f));
-  }
-}
-```
+- When storm ends → spawn rainbow arc
+- Rainbow colors pulse with beat
+- Lasts for 30-60 seconds
 
-### 2.3 Berry Charging
+#### 2.6 Fog Density Variation
 
-```javascript
-function chargeBerries(stormIntensity, duration) {
-  allTrees.forEach(tree => {
-    if (tree.userData.berries) {
-      tree.userData.weatherGlow += stormIntensity * duration;
-      tree.userData.weatherGlow = Math.min(2.0, tree.userData.weatherGlow);
-      
-      // Slow decay after storm
-      tree.userData.glowDecayRate = 0.01;
-    }
-  });
-}
-```
+- Fog gets thicker during rain
+- Fog color shifts (blue rain → purple storm)
+- Use `scene.fog.near/far` to adjust density
+
+#### 2.7 Thunder Rumble Effect
+
+- Camera shake on lightning
+- Low-frequency rumble audio cue
+- All plants briefly "flinch" (scale down then recover)
+
+#### 2.8 Puddles & Reflections
+
+- Spawn puddle meshes after rain stops
+- Use `MeshPhysicalMaterial` with `reflectivity: 0.8`
+- Puddles slowly evaporate (shrink over time)
 
 ---
 
 ## Phase 3: Enhanced Day/Night Cycle
 
-### 3.1 New Cycle Structure
+### 3.1 New Cycle Structure ✅ COMPLETE
 
-**Total: 16 minutes**
+6-phase cycle: Sunrise, Day, Sunset, Dusk Night, Deep Night, Pre-Dawn
 
-| Phase | Duration | Description |
-|-------|----------|-------------|
-| **Sunrise** | 1 min | Transition, plants wake |
-| **Day** | 5 min | Normal growth |
-| **Sunset** | 1 min | Transition |
-| **Dusk Night** | 3 min | Partial bio glow |
-| **Deep Night** | 2 min | Most sleep, special flowers glow |
-| **Pre-Dawn** | 3 min | Re-awakening |
+### 3.2 Deep Night Logic ✅ COMPLETE
 
-### 3.2 Deep Night Logic (`main.js`)
+Special flowers glow, others sleep.
+
+### 3.3 Sleep States ✅ COMPLETE
+
+Plants shiver subtly when sleeping.
+
+### 🚀 Phase 3 Enhancements
+
+#### 3.4 Firefly Particles (Deep Night)
 
 ```javascript
-function updateDeepNight(cycleProgress) {
-  const isDeepNight = cycleProgress > 0.625 && cycleProgress < 0.75;
+function spawnFireflies(count = 50) {
+  const geo = new THREE.BufferGeometry();
+  const positions = new Float32Array(count * 3);
+  const phases = new Float32Array(count);
   
-  if (isDeepNight) {
-    // Dim most plants (use calcShiver for subtle movement)
-    regularFoliage.forEach(plant => {
-      if (!plant.userData.deepNightFlower) {
-        plant.visible = false; // Or reduce opacity
-      }
-    });
-    
-    // Activate special flowers
-    deepNightFlowers.forEach(flower => {
-      const pulse = calcPrismRose(time, flower.userData.offset, 0, 0.5, true);
-      flower.material.emissiveIntensity = pulse.pulse * 3.0;
-    });
+  for (let i = 0; i < count; i++) {
+    positions[i * 3] = (Math.random() - 0.5) * 100;
+    positions[i * 3 + 1] = 1 + Math.random() * 5;
+    positions[i * 3 + 2] = (Math.random() - 0.5) * 100;
+    phases[i] = Math.random() * Math.PI * 2;
   }
+  
+  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geo.setAttribute('phase', new THREE.BufferAttribute(phases, 1));
+  
+  // TSL material with blinking
+  const mat = new PointsNodeMaterial({
+    size: 0.15,
+    transparent: true,
+    blending: THREE.AdditiveBlending
+  });
+  
+  // Blink pattern
+  const blink = sin(time.add(attribute('phase')).mul(3.0)).mul(0.5).add(0.5);
+  mat.colorNode = color(0xFFFF00).mul(blink);
+  mat.opacityNode = blink;
+  
+  return new THREE.Points(geo, mat);
 }
 ```
 
-### 3.3 Sleep States
+#### 3.5 Moonbeam Shafts
 
-Use WASM `calcShiver` for sleeping plants:
+- Volumetric light rays during night
+- Rays track player loosely
+- Special flowers in moonbeam grow faster
 
-```javascript
-if (plantIsSleeping) {
-  const shiver = calcShiver(time, offset, 0.05); // Very subtle
-  plant.rotation.x = shiver.rotX;
-  plant.rotation.z = shiver.rotZ;
-}
-```
+#### 3.6 Star Constellations
+
+- Connect random stars with faint lines during deep night
+- Constellations pulse with melody
+- Different constellations appear on different "nights"
+
+#### 3.7 Aurora Borealis (Rare Event)
+
+- Triggered when multiple channels hit peak during deep night
+- Flowing ribbon of colors in sky
+- All plants glow during aurora
+
+#### 3.8 Dawn Chorus
+
+- At pre-dawn, birds start "singing" (audio effect)
+- Plants gradually wake (reverse sleep animation)
+- Sky color transition speeds up slightly with beat
 
 ---
 
 ## Phase 4: Textures & Materials
 
-### 4.1 Procedural Bark Texture
+### 4.1 Procedural Noise Textures ✅ COMPLETE
 
-Use Emscripten `fbm` for bark:
+WASM FBM for bump maps.
+
+### 4.2 Gradient Materials ✅ COMPLETE
+
+TSL-based vertical gradients.
+
+### 🚀 Phase 4 Enhancements
+
+#### 4.3 Animated Emission Patterns
 
 ```javascript
-import { fbm } from './wasm-loader.js';
-
-function generateBarkTexture(size = 256) {
-  const canvas = document.createElement('canvas');
-  canvas.width = canvas.height = size;
-  const ctx = canvas.getContext('2d');
-  const imageData = ctx.createImageData(size, size);
+// Pulsing glow stripes on mushroom caps
+function createPulsingCapMaterial(baseColor) {
+  const mat = new MeshStandardNodeMaterial();
+  mat.color = color(baseColor);
+  mat.roughness = 0.6;
   
-  for (let y = 0; y < size; y++) {
-    for (let x = 0; x < size; x++) {
-      const noise = fbm(x * 0.05, y * 0.05, 4);
-      const value = Math.floor((noise + 1) * 127.5);
-      const idx = (y * size + x) * 4;
-      imageData.data[idx] = value * 0.6; // R
-      imageData.data[idx + 1] = value * 0.4; // G
-      imageData.data[idx + 2] = value * 0.2; // B
-      imageData.data[idx + 3] = 255;
-    }
-  }
+  // Emission stripes that pulse with time
+  const stripe = sin(positionLocal.y.mul(20.0).add(time.mul(2.0)));
+  const emission = stripe.max(0.0).mul(0.5);
   
-  ctx.putImageData(imageData, 0, 0);
-  return new THREE.CanvasTexture(canvas);
+  mat.emissiveNode = color(baseColor).mul(emission);
+  
+  return mat;
 }
 ```
 
-### 4.2 Mushroom Cap Material
+#### 4.4 Iridescent Materials
 
-```javascript
-const capMaterial = new MeshPhysicalNodeMaterial();
-capMaterial.map = generateMushroomCapTexture();
-capMaterial.normalMap = generateBumpMap();
-capMaterial.roughness = 0.6;
-capMaterial.clearcoat = 0.3; // Waxy look
-```
+- Mushroom gills with color shift based on view angle
+- Use `normalWorld` and `cameraPosition` in TSL
+- Shift between 2-3 colors
+
+#### 4.5 Wet Surface Shader
+
+- When raining, surfaces get shinier
+- Roughness decreases, add subtle reflection
+- Water droplet normal map overlay
+
+#### 4.6 Glow Edge Effect
+
+- Night flowers have glowing rim
+- Use Fresnel-like effect in TSL
+- Rim color pulses with audio
+
+#### 4.7 Translucent Leaves
+
+- Leaf materials with SSS
+- Light shines through when sun is behind
+- Automatic based on sun position
 
 ---
 
 ## Phase 5: Physics & Platforming
 
-### 5.1 Cloud Collision
+### 5.1 Cloud Walking ✅ COMPLETE
+
+Height-based collision with clouds.
+
+### 5.2 Mushroom Bouncing ✅ COMPLETE
+
+Velocity boost on cap collision.
+
+### 🚀 Phase 5 Enhancements
+
+#### 5.3 Vine Swinging
 
 ```javascript
-class CloudPlatform {
-  constructor(cloudMesh, tier) {
-    this.mesh = cloudMesh;
-    this.tier = tier; // 1 = solid, 2 = pass-through
-    this.isWalkable = tier === 1;
-    
-    if (this.isWalkable) {
-      // Create simplified collision mesh
-      this.collider = new THREE.Mesh(
-        new THREE.BoxGeometry(cloudMesh.scale.x, 2, cloudMesh.scale.z),
-        new THREE.MeshBasicMaterial({ visible: false })
-      );
-      this.collider.position.copy(cloudMesh.position);
+class VineSwing {
+  constructor(vineMesh) {
+    this.vine = vineMesh;
+    this.anchorPoint = vineMesh.position.clone().add(new THREE.Vector3(0, 3, 0));
+    this.length = 3;
+    this.isPlayerAttached = false;
+    this.swingAngle = 0;
+  }
+  
+  update(player, delta) {
+    if (this.isPlayerAttached) {
+      // Pendulum physics
+      const gravity = 9.8;
+      const angularAccel = -gravity / this.length * Math.sin(this.swingAngle);
+      this.swingAngularVel += angularAccel * delta;
+      this.swingAngle += this.swingAngularVel * delta;
+      
+      // Update player position
+      player.position.x = this.anchorPoint.x + Math.sin(this.swingAngle) * this.length;
+      player.position.y = this.anchorPoint.y - Math.cos(this.swingAngle) * this.length;
     }
   }
   
-  checkPlayerCollision(playerPos) {
-    if (!this.isWalkable) return null;
-    
-    // Simple AABB check
-    const bounds = this.collider.geometry.boundingBox;
-    // ... collision logic
+  attachPlayer(player) {
+    this.isPlayerAttached = true;
+    this.swingAngle = Math.atan2(
+      player.position.x - this.anchorPoint.x,
+      this.anchorPoint.y - player.position.y
+    );
+  }
+  
+  detachPlayer(player) {
+    this.isPlayerAttached = false;
+    // Transfer momentum to player velocity
+    player.velocity.x = this.swingAngularVel * this.length * Math.cos(this.swingAngle);
+    player.velocity.y = this.swingAngularVel * this.length * Math.sin(this.swingAngle);
   }
 }
 ```
 
-### 5.2 Mushroom Bouncing
+#### 5.4 Flower Trampolines
 
-```javascript
-function checkMushroomCapCollision(player, mushroom) {
-  if (player.velocity.y < 0 && isOnCapTop(player, mushroom)) {
-    // Use WASM calcHopY for bounce curve
-    const audioBoost = audioSystem.getKickTrigger();
-    const bounceForce = 5.0 * (1 + audioBoost);
-    
-    player.velocity.y = bounceForce;
-    
-    // Visual feedback
-    const result = calcSpeakerPulse(time, 0, audioBoost);
-    mushroom.scale.y = result.scaleY;
-  }
-}
-```
+- Certain large flowers act as trampolines
+- Bounce height based on flower size + audio intensity
+- Flower compresses visually when landed on
+
+#### 5.5 Leaf Gliding
+
+- Player can grab large leaves
+- Slow fall / glide mechanic
+- Wind affects glide direction
+
+#### 5.6 Water Lily Hopping
+
+- Lily pads on water surfaces
+- Sink slightly when stepped on
+- Chain-hop bonus (faster jumps)
+
+#### 5.7 Mushroom Stalk Climbing
+
+- Player can "stick" to mushroom stalks
+- Climb up by pressing jump
+- Audio-reactive grip (slippery during bass drops)
 
 ---
 
-## Implementation Order
+## Phase 6: Audio-Visual Synchronization (NEW)
 
-### Week 1: Foundation
+### 6.1 Beat-Synced Events
+
+```javascript
+class BeatSync {
+  constructor(audioSystem) {
+    this.audio = audioSystem;
+    this.lastBeat = 0;
+    this.beatCallbacks = [];
+  }
+  
+  onBeat(callback) {
+    this.beatCallbacks.push(callback);
+  }
+  
+  update() {
+    const state = this.audio.getVisualState();
+    if (state.beatPhase < this.lastBeat && state.beatPhase < 0.1) {
+      // Beat just happened
+      this.beatCallbacks.forEach(cb => cb(state));
+    }
+    this.lastBeat = state.beatPhase;
+  }
+}
+
+// Usage
+beatSync.onBeat(state => {
+  // Flash all flowers
+  flowers.forEach(f => f.material.emissiveIntensity = 2.0);
+  
+  // Camera zoom pulse
+  camera.fov *= 0.98;
+  
+  // Ground bump
+  groundShakeIntensity = 0.1;
+});
+```
+
+### 6.2 Channel-Color Mapping
+
+| Channel | Color | Effect |
+|---------|-------|--------|
+| Drums (0) | Red/Orange | Ground shake, plant bounce |
+| Bass (1) | Purple | Deep glow, fog pulse |
+| Melody (2) | Cyan/Blue | Flower bloom, mist |
+| Harmony (3) | Green | Leaves flutter, wind |
+
+### 6.3 Frequency Band Visualization
+
+- Split audio into bands (sub-bass, bass, mid, high)
+- Different plant types react to different bands
+- Creates visual "equalizer" effect across the landscape
+
+---
+
+## Phase 7: Collectibles & Progression (NEW)
+
+### 7.1 Seed Collection
+
+- Seeds spawn after storms
+- Collect seeds to "plant" new flora
+- Different seeds = different plants
+
+### 7.2 Rare Flora Discovery
+
+- Some plants only spawn under specific conditions
+- "Discovery" popup when new plant type found
+- Gallery of discovered flora
+
+### 7.3 World Evolution
+
+- More plants = richer ecosystem
+- Ecosystem "health" meter
+- Unlockable areas based on ecosystem health
+
+---
+
+## Implementation Order (Updated)
+
+### ✅ Week 1-2: Foundation (COMPLETE)
 
 1. ✅ Berry geometry functions
 2. ✅ Berry spawning on trees
 3. ✅ Basic SSS materials
-4. Weather.js skeleton
+4. ✅ Weather.js module
+5. ✅ Weather → audio mapping
+6. ✅ Berry glow system
 
-### Week 2: Audio Integration
+### ✅ Week 3-4: Cycle & Physics (COMPLETE)
 
-5. Weather → audio mapping
-6. Percussion rain particles
-7. Melodic mist particles
-8. Berry glow system
+7. ✅ Enhanced day/night phases
+8. ✅ Deep Night flowers
+9. ✅ Plant sleep states
+10. ✅ Cloud walking
+11. ✅ Mushroom bouncing
+12. ✅ Procedural textures
+13. ✅ Gradient materials
 
-### Week 3: Cycle & Growth
+### 🔄 Week 5-6: Polish & Enhancements
 
-9. Enhanced day/night phases
-10. Deep Night flowers
-11. Plant sleep states
-12. Growth triggers from weather
+14. [ ] Firefly particles
+15. [ ] Wind system
+16. [ ] Vine swinging
+17. [ ] Flower trampolines
+18. [ ] Beat synchronization
+19. [ ] Performance optimization
 
-### Week 4: Physics
+### 📋 Week 7-8: Advanced Features
 
-13. Cloud collision
-14. Mushroom bouncing
-15. Texture generation
-16. Polish & optimization
+20. [ ] Aurora borealis
+21. [ ] Seed collection
+22. [ ] Rare flora discovery
+23. [ ] Iridescent materials
+24. [ ] World evolution system
 
 ---
 
@@ -379,28 +461,39 @@ function checkMushroomCapCollision(player, mushroom) {
 - **Max 2000 particles** for weather
 - Use **WASM batch functions** for particle updates
 - GPU-side vertex displacement for "breathing" effect
-
----
-
-## Files to Modify
-
-| File | Changes |
-|------|---------|
-| `foliage.js` | Add berry functions, update materials |
-| `main.js` | Integrate weather, update cycle |
-| `sky.js` | Add Deep Night phase |
-| `wasm-loader.js` | Already done ✅ |
-| **NEW** | `weather.js` - Weather system module |
+- **Object pooling** for berry/particle spawning
 
 ---
 
 ## Testing Checklist
 
-- [ ] Berries spawn on all tree types
-- [ ] Berry glow responds to weather
-- [ ] Rain particles trigger growth
-- [ ] Deep Night activates special flowers
-- [ ] Player can walk on Tier 1 clouds
-- [ ] Mushroom caps bounce player
-- [ ] Textures load without lag
-- [ ] 60 FPS maintained with all effects
+### Core Features ✅
+
+- [x] Berries spawn on all tree types
+- [x] Berry glow responds to weather
+- [x] Rain particles trigger growth
+- [x] Deep Night activates special flowers
+- [x] Player can walk on clouds
+- [x] Mushroom caps bounce player
+
+### Enhancements 🔄
+
+- [ ] Fireflies appear during deep night
+- [ ] Wind affects rain/mist particles
+- [ ] Vines are swingable
+- [ ] Beat-synced visual pulses work
+- [ ] Performance stays at 60 FPS
+
+---
+
+## Files Structure
+
+| File | Purpose |
+|------|---------|
+| `foliage.js` | All plant creation, materials, animations |
+| `main.js` | Scene setup, day/night cycle, player physics |
+| `weather.js` | Weather states, particles, growth triggers |
+| `sky.js` | Sky gradient, star field |
+| `stars.js` | Star particles, deep night effects |
+| `wasm-loader.js` | WASM physics/animation helpers |
+| `audio-system.js` | Audio playback, beat detection |

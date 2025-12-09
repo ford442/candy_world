@@ -11,7 +11,8 @@ import {
     createBubbleWillow, createPuffballFlower, createHelixPlant, createBalloonBush,
     createPrismRoseBush, initGrassSystem, addGrassInstance, updateFoliageMaterials,
     createSubwooferLotus, createAccordionPalm, createFiberOpticWillow,
-    createMushroom, createWaterfall
+    createMushroom, createWaterfall, createFireflies, updateFireflies,
+    initFallingBerries, updateFallingBerries, collectFallingBerries
 } from './foliage.js';
 import { createSky, uSkyTopColor, uSkyBottomColor } from './sky.js';
 import { createStars, uStarPulse, uStarColor } from './stars.js';
@@ -162,6 +163,13 @@ worldGroup.add(foliageGroup);
 
 // Initialize Grass
 initGrassSystem(scene, 5000); // Reduced to fit WebGPU uniform buffer limits
+
+// Initialize Fireflies (for Deep Night)
+const fireflies = createFireflies(100, 80);
+scene.add(fireflies);
+
+// Initialize Falling Berry Pool (for storms)
+initFallingBerries(scene);
 
 function safeAddFoliage(obj, isObstacle = false, radius = 1.0) {
     if (animatedFoliage.length > 1500) return; // Optimized limit for better performance
@@ -378,7 +386,9 @@ const player = {
     speed: 15.0,
     sprintSpeed: 25.0,
     sneakSpeed: 5.0,
-    gravity: 20.0
+    gravity: 20.0,
+    energy: 0.0,        // Berry energy (0 to 10)
+    maxEnergy: 10.0
 };
 
 // --- Physics Helpers ---
@@ -508,6 +518,10 @@ function animate() {
 
     // Determine isNight for foliage logic
     const cyclePos = effectiveTime % CYCLE_DURATION;
+
+    // Update berry seasonal sizes based on cycle phase
+    weatherSystem.updateBerrySeasonalSize(cyclePos, CYCLE_DURATION);
+
     const nightStart = DURATION_SUNRISE + DURATION_DAY + DURATION_SUNSET; // 540
     const sunriseStart = 0; // 0
     // Strictly, night is the dark period.
@@ -583,6 +597,25 @@ function animate() {
         animateFoliage(f, t, audioState, !isNight, isDeepNight);
     });
 
+    // Firefly visibility and update (Deep Night only)
+    if (fireflies) {
+        fireflies.visible = isDeepNight;
+        if (isDeepNight) {
+            updateFireflies(fireflies, t, delta);
+        }
+    }
+
+    // Update falling berries (physics)
+    updateFallingBerries(delta);
+
+    // Collect falling berries near player
+    const berriesCollected = collectFallingBerries(camera.position, 1.5);
+    if (berriesCollected > 0) {
+        player.energy = Math.min(player.maxEnergy, player.energy + berriesCollected * 0.5);
+    }
+    // Energy decays slowly over time
+    player.energy = Math.max(0, player.energy - delta * 0.1);
+
     // Player Movement
     if (controls.isLocked) {
         let moveSpeed = player.speed;
@@ -654,9 +687,11 @@ function animate() {
             camera.position.y = safeGroundY + 1.8;
             player.velocity.y = 0;
             if (keyStates.jump) {
-                player.velocity.y = 10;
+                // Base jump + energy bonus (up to +50% at max energy)
+                const energyBonus = 1 + (player.energy / player.maxEnergy) * 0.5;
+                player.velocity.y = 10 * energyBonus;
                 // Bonus jump height on clouds
-                if (cloudY > groundY) player.velocity.y = 15;
+                if (cloudY > groundY) player.velocity.y = 15 * energyBonus;
             }
         } else {
             camera.position.y += player.velocity.y * delta;

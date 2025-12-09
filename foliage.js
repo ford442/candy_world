@@ -275,6 +275,188 @@ export function chargeBerries(berryCluster, chargeAmount) {
     );
 }
 
+/**
+ * Update berry size based on day/night cycle phase (Seasonal effect)
+ * @param {THREE.Group} berryCluster - Berry cluster to update
+ * @param {string} phase - Current cycle phase ('sunrise', 'day', 'sunset', 'dusk', 'deepNight', 'preDawn')
+ * @param {number} phaseProgress - Progress within phase (0-1)
+ */
+export function updateBerrySeasons(berryCluster, phase, phaseProgress) {
+    if (!berryCluster.userData.berries) return;
+
+    // Store original scale if not already stored
+    if (!berryCluster.userData.originalBerryScales) {
+        berryCluster.userData.originalBerryScales = berryCluster.userData.berries.map(b => b.scale.x);
+    }
+
+    // Determine target scale multiplier based on phase
+    let targetScale = 1.0;
+    switch (phase) {
+        case 'sunset':
+            // Berries grow during harvest time (sunset)
+            targetScale = 1.0 + phaseProgress * 0.3; // Up to 1.3x
+            break;
+        case 'dusk':
+            targetScale = 1.3 - phaseProgress * 0.1; // 1.3 → 1.2
+            break;
+        case 'deepNight':
+            // Berries shrink during deep night
+            targetScale = 1.2 - phaseProgress * 0.4; // 1.2 → 0.8
+            break;
+        case 'preDawn':
+            targetScale = 0.8 + phaseProgress * 0.2; // 0.8 → 1.0
+            break;
+        default:
+            targetScale = 1.0;
+    }
+
+    // Apply scale to each berry
+    berryCluster.userData.berries.forEach((berry, i) => {
+        const origScale = berryCluster.userData.originalBerryScales[i];
+        const newScale = origScale * targetScale;
+        berry.scale.setScalar(newScale);
+    });
+}
+
+
+// =============================================================================
+// FALLING BERRY PARTICLE SYSTEM (Storm Enhancement)
+// =============================================================================
+
+// Pool of falling berries for performance
+let fallingBerryPool = [];
+const MAX_FALLING_BERRIES = 50;
+let fallingBerryGroup = null;
+
+/**
+ * Initialize the falling berry particle pool
+ * @param {THREE.Scene} scene - Scene to add particles to
+ */
+export function initFallingBerries(scene) {
+    fallingBerryGroup = new THREE.Group();
+    fallingBerryGroup.name = 'fallingBerries';
+
+    const berryGeo = new THREE.SphereGeometry(0.06, 8, 8);
+
+    for (let i = 0; i < MAX_FALLING_BERRIES; i++) {
+        const mat = new THREE.MeshStandardMaterial({
+            color: 0xFF6600,
+            emissive: 0xFF6600,
+            emissiveIntensity: 0.5
+        });
+        const berry = new THREE.Mesh(berryGeo, mat);
+        berry.visible = false;
+        berry.userData.velocity = new THREE.Vector3();
+        berry.userData.active = false;
+        berry.userData.age = 0;
+        fallingBerryGroup.add(berry);
+        fallingBerryPool.push(berry);
+    }
+
+    scene.add(fallingBerryGroup);
+}
+
+/**
+ * Spawn a falling berry at a position
+ * @param {THREE.Vector3} position - World position to spawn at
+ * @param {number} colorHex - Berry color
+ */
+export function spawnFallingBerry(position, colorHex = 0xFF6600) {
+    // Find inactive berry in pool
+    const berry = fallingBerryPool.find(b => !b.userData.active);
+    if (!berry) return; // Pool exhausted
+
+    berry.position.copy(position);
+    berry.material.color.setHex(colorHex);
+    berry.material.emissive.setHex(colorHex);
+    berry.userData.velocity.set(
+        (Math.random() - 0.5) * 2,
+        -2 - Math.random() * 3, // Fall downward
+        (Math.random() - 0.5) * 2
+    );
+    berry.userData.active = true;
+    berry.userData.age = 0;
+    berry.visible = true;
+}
+
+/**
+ * Update all falling berries
+ * @param {number} delta - Time delta
+ */
+export function updateFallingBerries(delta) {
+    if (!fallingBerryGroup) return;
+
+    const gravity = -9.8;
+    const maxAge = 3.0; // 3 seconds max lifetime
+
+    fallingBerryPool.forEach(berry => {
+        if (!berry.userData.active) return;
+
+        berry.userData.age += delta;
+
+        // Apply gravity
+        berry.userData.velocity.y += gravity * delta;
+
+        // Update position
+        berry.position.x += berry.userData.velocity.x * delta;
+        berry.position.y += berry.userData.velocity.y * delta;
+        berry.position.z += berry.userData.velocity.z * delta;
+
+        // Fade out as it ages
+        berry.material.opacity = 1.0 - (berry.userData.age / maxAge);
+
+        // Deactivate if hit ground or too old
+        if (berry.position.y < 0 || berry.userData.age > maxAge) {
+            berry.userData.active = false;
+            berry.visible = false;
+        }
+    });
+}
+
+/**
+ * Shake berries loose from a cluster during storms
+ * @param {THREE.Group} cluster - Berry cluster to shake
+ * @param {number} intensity - Storm intensity (0-1)
+ */
+export function shakeBerriesLoose(cluster, intensity) {
+    if (!cluster.userData.berries) return;
+
+    cluster.userData.berries.forEach(berry => {
+        // Random chance based on intensity
+        if (Math.random() < intensity * 0.02) { // 2% chance per intensity unit
+            const worldPos = new THREE.Vector3();
+            berry.getWorldPosition(worldPos);
+            spawnFallingBerry(worldPos, cluster.userData.berryColor || 0xFF6600);
+        }
+    });
+}
+
+/**
+ * Check for player collision with falling berries and collect them
+ * @param {THREE.Vector3} playerPos - Player world position
+ * @param {number} collectRadius - Collection radius around player
+ * @returns {number} Number of berries collected
+ */
+export function collectFallingBerries(playerPos, collectRadius = 1.0) {
+    if (!fallingBerryPool) return 0;
+
+    let collected = 0;
+    const radiusSq = collectRadius * collectRadius;
+
+    fallingBerryPool.forEach(berry => {
+        if (!berry.userData.active) return;
+
+        const distSq = berry.position.distanceToSquared(playerPos);
+        if (distSq < radiusSq) {
+            // Collect this berry
+            berry.userData.active = false;
+            berry.visible = false;
+            collected++;
+        }
+    });
+
+    return collected;
+}
 
 // --- Instancing System (Grass) ---
 /**
@@ -1717,4 +1899,107 @@ export function animateFoliage(foliageObject, time, audioData, isDay, isDeepNigh
             }
         }
     }
+}
+
+// =============================================================================
+// FIREFLY PARTICLE SYSTEM (Deep Night Enhancement)
+// =============================================================================
+
+/**
+ * Creates a firefly particle system for Deep Night ambiance
+ * @param {number} count - Number of fireflies
+ * @param {number} areaSize - Size of spawn area
+ * @returns {THREE.Points}
+ */
+export function createFireflies(count = 80, areaSize = 100) {
+    const geo = new THREE.BufferGeometry();
+    const positions = new Float32Array(count * 3);
+    const phases = new Float32Array(count);
+    const speeds = new Float32Array(count);
+
+    for (let i = 0; i < count; i++) {
+        // Random position in area, near ground
+        positions[i * 3] = (Math.random() - 0.5) * areaSize;
+        positions[i * 3 + 1] = 0.5 + Math.random() * 4; // 0.5 to 4.5 units high
+        positions[i * 3 + 2] = (Math.random() - 0.5) * areaSize;
+
+        // Random phase offset for asynchronous blinking
+        phases[i] = Math.random() * Math.PI * 2;
+
+        // Random blink speed
+        speeds[i] = 0.5 + Math.random() * 1.5;
+    }
+
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geo.setAttribute('phase', new THREE.BufferAttribute(phases, 1));
+    geo.setAttribute('speed', new THREE.BufferAttribute(speeds, 1));
+
+    // TSL-based material with blinking effect
+    const mat = new PointsNodeMaterial({
+        size: 0.2,
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending
+    });
+
+    // Blink pattern: sin wave with phase offset, clamped to create on/off effect
+    const phaseAttr = attribute('phase');
+    const speedAttr = attribute('speed');
+    const blink = sin(time.mul(speedAttr).add(phaseAttr));
+
+    // Sharp blink: only glow when sin > 0.7
+    const glowIntensity = blink.sub(0.7).max(0.0).mul(3.33); // 0 to 1
+
+    // Warm yellow-green firefly color
+    const fireflyColor = mix(
+        color(0x88FF00), // Green
+        color(0xFFFF00), // Yellow
+        glowIntensity
+    );
+
+    mat.colorNode = fireflyColor.mul(glowIntensity.add(0.1)); // Always slightly visible
+    mat.opacityNode = glowIntensity.add(0.05).min(1.0);
+
+    const fireflies = new THREE.Points(geo, mat);
+    fireflies.userData.isFireflies = true;
+    fireflies.visible = false; // Start hidden, show during Deep Night
+
+    return fireflies;
+}
+
+/**
+ * Update firefly positions for gentle drifting motion
+ * @param {THREE.Points} fireflies - The firefly particle system
+ * @param {number} time - Current time
+ * @param {number} delta - Time delta
+ */
+export function updateFireflies(fireflies, time, delta) {
+    if (!fireflies || !fireflies.visible) return;
+
+    const positions = fireflies.geometry.attributes.position.array;
+    const phases = fireflies.geometry.attributes.phase.array;
+
+    for (let i = 0; i < positions.length / 3; i++) {
+        const idx = i * 3;
+        const phase = phases[i];
+
+        // Gentle drift using sin/cos
+        const driftX = Math.sin(time * 0.3 + phase) * 0.02;
+        const driftY = Math.cos(time * 0.5 + phase * 1.3) * 0.01;
+        const driftZ = Math.sin(time * 0.4 + phase * 0.7) * 0.02;
+
+        positions[idx] += driftX;
+        positions[idx + 1] += driftY;
+        positions[idx + 2] += driftZ;
+
+        // Keep within bounds (wrap around)
+        if (positions[idx] > 50) positions[idx] = -50;
+        if (positions[idx] < -50) positions[idx] = 50;
+        if (positions[idx + 1] < 0.3) positions[idx + 1] = 0.3;
+        if (positions[idx + 1] > 5) positions[idx + 1] = 5;
+        if (positions[idx + 2] > 50) positions[idx + 2] = -50;
+        if (positions[idx + 2] < -50) positions[idx + 2] = 50;
+    }
+
+    fireflies.geometry.attributes.position.needsUpdate = true;
 }
