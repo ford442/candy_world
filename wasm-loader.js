@@ -43,13 +43,30 @@ export async function initWasm() {
 
         const wasmBytes = await response.arrayBuffer();
 
-        // Instantiate - AssemblyScript only needs env.abort
+        // WASI stubs (required for some runtime features)
+        const wasiStubs = {
+            fd_close: () => 0,
+            fd_seek: () => 0,
+            fd_write: () => 0,
+            fd_read: () => 0,
+            fd_fdstat_get: () => 0,
+            fd_prestat_get: () => 0,
+            fd_prestat_dir_name: () => 0,
+            path_open: () => 0,
+            environ_sizes_get: () => 0,
+            environ_get: () => 0,
+            proc_exit: () => { },
+            clock_time_get: () => 0,
+        };
+
+        // Instantiate with env AND wasi imports
         const result = await WebAssembly.instantiate(wasmBytes, {
             env: {
-                abort: (messagePtr, fileNamePtr, lineNumber, columnNumber) => {
-                    console.error(`WASM abort at line ${lineNumber}:${columnNumber}`);
+                abort: (msg, file, line, col) => {
+                    console.error(`WASM abort at ${file}:${line}:${col}: ${msg}`);
                 }
-            }
+            },
+            wasi_snapshot_preview1: wasiStubs
         });
 
         wasmInstance = result.instance;
