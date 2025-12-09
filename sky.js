@@ -7,7 +7,7 @@ export const uSkyTopColor = uniform(color(0x87CEEB));
 export const uSkyBottomColor = uniform(color(0xFFB6C1));
 
 function createSky() {
-    const skyGeo = new THREE.SphereGeometry(1000, 32, 15);
+    const skyGeo = new THREE.SphereGeometry(1000, 16, 8); // Reduced segments for performance
 
     // TSL Gradient
     const offset = float(33.0);

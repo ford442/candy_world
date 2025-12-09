@@ -7,7 +7,7 @@ import { PointsNodeMaterial } from 'three/webgpu';
 export const uStarPulse = uniform(0.0); // 0 to 1
 export const uStarColor = uniform(color(0xFFFFFF)); // Current pulse color
 
-export function createStars(count = 2000) {
+export function createStars(count = 1000) { // Reduced from 2000 for better performance
     const geo = new THREE.BufferGeometry();
     const positions = new Float32Array(count * 3);
     const sizes = new Float32Array(count);

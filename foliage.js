@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { color, mix, positionLocal, normalWorld, viewDirection, float, time, sin, cos, vec3, uniform, attribute } from 'three/tsl';
+import { color, mix, positionLocal, normalWorld, float, time, sin, cos, vec3, uniform, attribute } from 'three/tsl';
 import { PointsNodeMaterial } from 'three/webgpu';
 
 // --- Helper: Rim Lighting Effect ---
@@ -65,7 +65,7 @@ const foliageMaterials = {
 export const reactiveMaterials = [];
 
 function registerReactiveMaterial(mat) {
-    if (reactiveMaterials.length < 3000) {
+    if (reactiveMaterials.length < 500) { // Reduced from 3000 for better performance
         reactiveMaterials.push(mat);
     }
 }
@@ -210,7 +210,7 @@ export function createMushroom(options = {}) {
     group.add(stem);
 
     // 2. Cap (Sphere slice)
-    const capGeo = new THREE.SphereGeometry(capR, 32, 32, 0, Math.PI * 2, 0, Math.PI / 1.8);
+    const capGeo = new THREE.SphereGeometry(capR, 16, 16, 0, Math.PI * 2, 0, Math.PI / 1.8); // Reduced segments for performance
     // Determine Material
     let capMat;
     if (colorIndex >= 0 && colorIndex < foliageMaterials.mushroomCap.length) {
@@ -227,7 +227,7 @@ export function createMushroom(options = {}) {
 
     // 3. Gills (Ribbed underside)
     // A cone/disc underneath with texture or ridges
-    const gillGeo = new THREE.ConeGeometry(capR * 0.9, capR * 0.4, 32, 1, true);
+    const gillGeo = new THREE.ConeGeometry(capR * 0.9, capR * 0.4, 16, 1, true); // Reduced segments for performance
     const gillMat = foliageMaterials.mushroomGills;
     const gill = new THREE.Mesh(gillGeo, gillMat);
     gill.position.y = stemH - (capR * 0.2);
@@ -235,8 +235,8 @@ export function createMushroom(options = {}) {
     group.add(gill);
 
     // 4. Spots (Detailed geometry)
-    const spotCount = 5 + Math.floor(Math.random() * 10);
-    const spotGeo = new THREE.SphereGeometry(capR * 0.15, 8, 8);
+    const spotCount = 3 + Math.floor(Math.random() * 5); // Reduced for performance
+    const spotGeo = new THREE.SphereGeometry(capR * 0.15, 6, 6); // Reduced segments for performance
     const spotMat = foliageMaterials.mushroomSpots;
 
     // We place spots on the cap surface
@@ -328,9 +328,9 @@ export function createFlower(options = {}) {
     center.name = 'flowerCenter';
     head.add(center);
 
-    // ADDED DETAIL: Stamens
-    const stamenCount = 5;
-    const stamenGeo = new THREE.CylinderGeometry(0.01, 0.01, 0.15, 4);
+    // ADDED DETAIL: Stamens (reduced for performance)
+    const stamenCount = 3; // Reduced from 5
+    const stamenGeo = new THREE.CylinderGeometry(0.01, 0.01, 0.15, 3); // Reduced segments
     stamenGeo.translate(0, 0.075, 0);
     const stamenMat = createClayMaterial(0xFFFF00);
     for (let i = 0; i < stamenCount; i++) {
@@ -380,8 +380,8 @@ export function createFlower(options = {}) {
             head.add(petal);
         }
     } else if (shape === 'layered') {
-        for (let layer = 0; layer < 3; layer++) { // Increased layers for complexity
-            const petalCount = 6;
+        for (let layer = 0; layer < 2; layer++) { // Reduced from 3 for performance
+            const petalCount = 5; // Reduced from 6
             const petalGeo = new THREE.IcosahedronGeometry(0.12, 0);
             petalGeo.scale(1, 0.5, 1);
             const layerColor = layer === 0 ? petalMat : createClayMaterial(color ? color + 0x111111 : 0xFFD700);
@@ -436,14 +436,14 @@ export function createFloweringTree(options = {}) {
     const bloomMat = createClayMaterial(color);
     registerReactiveMaterial(bloomMat);
 
-    const bloomCount = 5 + Math.floor(Math.random() * 5);
+    const bloomCount = 3 + Math.floor(Math.random() * 3); // Reduced for performance
     for (let i = 0; i < bloomCount; i++) {
         // COMPLEXITY: Blooms are now clusters of spheres, not just one
         const cluster = new THREE.Group();
-        const subBlooms = 3 + Math.floor(Math.random() * 3);
+        const subBlooms = 2 + Math.floor(Math.random() * 2); // Reduced for performance
 
         for (let j = 0; j < subBlooms; j++) {
-            const bloomGeo = new THREE.SphereGeometry(0.4 + Math.random() * 0.3, 16, 16);
+            const bloomGeo = new THREE.SphereGeometry(0.4 + Math.random() * 0.3, 8, 8); // Reduced segments
             const bloom = new THREE.Mesh(bloomGeo, bloomMat);
             bloom.position.set(
                 (Math.random() - 0.5) * 0.5,
@@ -483,9 +483,9 @@ export function createShrub(options = {}) {
     const flowerMat = createClayMaterial(0xFF69B4);
     registerReactiveMaterial(flowerMat);
 
-    const flowerCount = 3 + Math.floor(Math.random() * 3);
+    const flowerCount = 2 + Math.floor(Math.random() * 2); // Reduced for performance
     for (let i = 0; i < flowerCount; i++) {
-        const flowerGeo = new THREE.SphereGeometry(0.2, 8, 8);
+        const flowerGeo = new THREE.SphereGeometry(0.2, 6, 6); // Reduced segments
         const flower = new THREE.Mesh(flowerGeo, flowerMat);
         flower.position.set(
             (Math.random() - 0.5) * 1.5,
@@ -516,7 +516,7 @@ export function createGlowingFlower(options = {}) {
     stem.castShadow = true;
     group.add(stem);
 
-    const headGeo = new THREE.SphereGeometry(0.2, 16, 16);
+    const headGeo = new THREE.SphereGeometry(0.2, 8, 8); // Reduced segments for performance
     const headMat = new THREE.MeshStandardMaterial({
         color,
         emissive: color,
@@ -529,7 +529,7 @@ export function createGlowingFlower(options = {}) {
     head.position.y = stemHeight;
     group.add(head);
 
-    const washGeo = new THREE.SphereGeometry(1.5, 16, 16);
+    const washGeo = new THREE.SphereGeometry(1.5, 8, 8); // Reduced segments for performance
     const wash = new THREE.Mesh(washGeo, foliageMaterials.lightBeam);
     wash.position.y = stemHeight;
     wash.userData.isWash = true;
@@ -548,7 +548,7 @@ export function createGlowingFlower(options = {}) {
 
 export function createFloatingOrb(options = {}) {
     const { color = 0x87CEEB, size = 0.5 } = options;
-    const geo = new THREE.SphereGeometry(size, 16, 16);
+    const geo = new THREE.SphereGeometry(size, 8, 8); // Reduced segments for performance
     const mat = new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.8 });
     registerReactiveMaterial(mat);
 
@@ -717,7 +717,7 @@ export function createBubbleWillow(options = {}) {
     trunk.castShadow = true;
     group.add(trunk);
 
-    const branchCount = 6 + Math.floor(Math.random() * 4);
+    const branchCount = 4 + Math.floor(Math.random() * 2); // Reduced for performance
     const branchMat = createClayMaterial(color);
     registerReactiveMaterial(branchMat);
 
@@ -755,7 +755,7 @@ export function createPuffballFlower(options = {}) {
     group.add(stem);
 
     const headR = 0.4 + Math.random() * 0.2;
-    const headGeo = new THREE.SphereGeometry(headR, 16, 16);
+    const headGeo = new THREE.SphereGeometry(headR, 8, 8); // Reduced segments for performance
     const headMat = createClayMaterial(color);
     registerReactiveMaterial(headMat);
 
@@ -861,10 +861,10 @@ export function createBalloonBush(options = {}) {
 }
 
 export function createRainingCloud(options = {}) {
-    const { color = 0xB0C4DE, rainIntensity = 50 } = options;
+    const { color = 0xB0C4DE, rainIntensity = 30 } = options; // Reduced default from 50
     const group = new THREE.Group();
 
-    const cloudGeo = new THREE.SphereGeometry(1.5, 16, 16);
+    const cloudGeo = new THREE.SphereGeometry(1.5, 12, 12); // Reduced segments for performance
     const cloudMat = createClayMaterial(color);
     const cloud = new THREE.Mesh(cloudGeo, cloudMat);
     cloud.castShadow = true;
@@ -891,7 +891,7 @@ export function createRainingCloud(options = {}) {
 }
 
 export function createWaterfall(height, colorHex = 0x87CEEB) {
-    const particleCount = 2000;
+    const particleCount = 500; // Reduced from 2000 for better performance
     const geo = new THREE.BufferGeometry();
     const positions = new Float32Array(particleCount * 3);
     const speeds = new Float32Array(particleCount);
@@ -1016,12 +1016,12 @@ export function createPrismRoseBush(options = {}) {
         outer.scale.set(1, 0.6, 1);
         roseGroup.add(outer);
 
-        const innerGeo = new THREE.SphereGeometry(0.15, 16, 16);
+        const innerGeo = new THREE.SphereGeometry(0.15, 8, 8); // Reduced segments for performance
         const inner = new THREE.Mesh(innerGeo, petalMat);
         inner.position.y = 0.05;
         roseGroup.add(inner);
 
-        const washGeo = new THREE.SphereGeometry(1.2, 16, 16);
+        const washGeo = new THREE.SphereGeometry(1.2, 8, 8); // Reduced segments for performance
         const washMat = foliageMaterials.lightBeam.clone();
         washMat.color.setHex(color);
         const wash = new THREE.Mesh(washGeo, washMat);
@@ -1152,7 +1152,7 @@ export function createFiberOpticWillow(options = {}) {
     group.add(trunk);
 
     // Cable Branches
-    const branchCount = 12;
+    const branchCount = 8; // Reduced from 12 for performance
     const cableMat = foliageMaterials.opticCable;
 
     // Each tip needs a unique material to flash independently? 
