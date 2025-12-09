@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { color, mix, positionLocal, normalWorld, float, time, sin, cos, vec3, uniform, attribute } from 'three/tsl';
 import { PointsNodeMaterial } from 'three/webgpu';
+import { freqToHue } from './wasm-loader.js';
 
 // --- Helper: Rim Lighting Effect ---
 function addRimLight(material, colorHex) {
@@ -1192,12 +1193,8 @@ export function createFiberOpticWillow(options = {}) {
 }
 
 // --- UPDATED ANIMATION LOGIC ---
+// freqToHue is now imported from wasm-loader.js (WASM with JS fallback)
 
-function freqToHue(freq) {
-    if (!freq || freq < 50) return 0;
-    const logF = Math.log2(freq / 55.0);
-    return (logF * 0.1) % 1.0;
-}
 
 export function updateFoliageMaterials(audioData, isNight) {
     if (!audioData) return;

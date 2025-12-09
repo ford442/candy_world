@@ -16,6 +16,7 @@ import {
 import { createSky, uSkyTopColor, uSkyBottomColor } from './sky.js';
 import { createStars, uStarPulse, uStarColor } from './stars.js';
 import { AudioSystem } from './audio-system.js';
+import { initWasm, getGroundHeight, isWasmReady } from './wasm-loader.js';
 
 // --- Configuration ---
 // Cycle: Sunrise (1m), Day (7m), Sunset (1m), Night (7m) = Total 16m = 960s
@@ -125,10 +126,8 @@ sunGlow.lookAt(0, 0, 0);
 scene.add(sunGlow);
 
 // --- Procedural Generation ---
-function getGroundHeight(x, z) {
-    if (isNaN(x) || isNaN(z)) return 0; // Guard
-    return Math.sin(x * 0.05) * 2 + Math.cos(z * 0.05) * 2 + (Math.sin(x * 0.2) * 0.3 + Math.cos(z * 0.15) * 0.3);
-}
+// getGroundHeight is now provided by WASM module (with JS fallback)
+// Import from wasm-loader.js above
 
 const groundGeo = new THREE.PlaneGeometry(2000, 2000, 128, 128); // Reduced from 256 for better performance
 const posAttribute = groundGeo.attributes.position;
@@ -486,17 +485,17 @@ function animate() {
     if (stars.material) stars.material.opacity = THREE.MathUtils.lerp(stars.material.opacity, starOpacity, delta);
 
     updateFoliageMaterials(audioState, isNight);
-    
+
     // Distance-based animation culling for better performance
     const camPos = camera.position;
     const maxAnimationDistance = 50; // Only animate objects within 50 units
     const maxDistanceSq = maxAnimationDistance * maxAnimationDistance;
-    
+
     animatedFoliage.forEach(f => {
         // Skip animation for objects far from camera
         const distSq = f.position.distanceToSquared(camPos);
         if (distSq > maxDistanceSq) return;
-        
+
         animateFoliage(f, t, audioState, !isNight);
     });
 
@@ -544,7 +543,11 @@ function animate() {
     renderer.render(scene, camera);
 }
 
-renderer.setAnimationLoop(animate);
+// Initialize WASM then start animation loop
+initWasm().then((wasmLoaded) => {
+    console.log(`WASM module ${wasmLoaded ? 'active' : 'using JS fallbacks'}`);
+    renderer.setAnimationLoop(animate);
+});
 
 // --- Music Upload Handler ---
 const musicUpload = document.getElementById('musicUpload');
