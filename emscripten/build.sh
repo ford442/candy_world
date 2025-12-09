@@ -5,7 +5,7 @@
 echo "Building candy_native.wasm (Standalone WASM)..."
 source /content/build_space/emsdk/emsdk_env.sh
 
-emcc candy_native.c -o ../public/candy_native.wasm \
+emcc ./candy_native.c -o ../public/candy_native.wasm \
     -O3 \
     -s STANDALONE_WASM=1 \
     -s WASM=1 \
