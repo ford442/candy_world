@@ -7,6 +7,11 @@ let positionView = null;   // Float32Array for object positions
 let animationView = null;  // Float32Array for animation data
 let outputView = null;     // Float32Array for reading results
 
+// Cached WASM function references (more reliable than accessing exports repeatedly)
+let wasmGetGroundHeight = null;
+let wasmFreqToHue = null;
+let wasmLerp = null;
+
 // Memory layout constants (must match AssemblyScript)
 const POSITION_OFFSET = 0;
 const ANIMATION_OFFSET = 4096;
@@ -65,6 +70,11 @@ export async function initWasm() {
             outputView = new Float32Array(memBuffer, OUTPUT_OFFSET, 1024);
         }
 
+        // Cache function references for reliable access
+        wasmGetGroundHeight = wasmInstance.exports.getGroundHeight;
+        wasmFreqToHue = wasmInstance.exports.freqToHue;
+        wasmLerp = wasmInstance.exports.lerp;
+
         console.log('WASM module loaded successfully');
         console.log('WASM exports:', Object.keys(wasmInstance.exports));
         return true;
@@ -90,8 +100,8 @@ export function isWasmReady() {
  * Get procedural ground height at coordinates
  */
 export function getGroundHeight(x, z) {
-    if (wasmInstance) {
-        return wasmInstance.exports.getGroundHeight(x, z);
+    if (wasmGetGroundHeight) {
+        return wasmGetGroundHeight(x, z);
     }
     // JS fallback
     if (isNaN(x) || isNaN(z)) return 0;
@@ -103,8 +113,8 @@ export function getGroundHeight(x, z) {
  * Convert audio frequency to HSL hue
  */
 export function freqToHue(freq) {
-    if (wasmInstance) {
-        return wasmInstance.exports.freqToHue(freq);
+    if (wasmFreqToHue) {
+        return wasmFreqToHue(freq);
     }
     // JS fallback
     if (!freq || freq < 50) return 0;
@@ -116,8 +126,8 @@ export function freqToHue(freq) {
  * Linear interpolation
  */
 export function lerp(a, b, t) {
-    if (wasmInstance) {
-        return wasmInstance.exports.lerp(a, b, t);
+    if (wasmLerp) {
+        return wasmLerp(a, b, t);
     }
     return a + (b - a) * t;
 }
