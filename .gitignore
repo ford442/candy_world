@@ -19,7 +19,9 @@ Thumbs.db
 *.swp
 *.swo
 *~
-
+*.wasm
+*.map
+*.wat
 # Vite
 .vite/
 verify_mod_player.md
