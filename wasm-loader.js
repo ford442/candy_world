@@ -73,7 +73,10 @@ export async function initWasm() {
         };
 
         // Instantiate with env AND wasi imports
-        console.log('Attempting WebAssembly.compile + new Instance (bypassing potential interception)...');
+        // Use NativeWebAssembly to bypass libopenmpt's WebAssembly override
+        const WA = window.NativeWebAssembly || WebAssembly;
+        console.log('Using WebAssembly API:', WA === WebAssembly ? 'Standard (potentially hijacked)' : 'Native (saved)');
+        console.log('Attempting WebAssembly.instantiate...');
 
         const importObject = {
             env: {
@@ -84,12 +87,10 @@ export async function initWasm() {
             wasi_snapshot_preview1: wasiStubs
         };
 
-        // Use compile + new Instance instead of instantiate to bypass monkey-patching
-        const module = await WebAssembly.compile(wasmBytes);
-        const instance = new WebAssembly.Instance(module, importObject);
+        const result = await WA.instantiate(wasmBytes, importObject);
 
         console.log('Instantiation successful');
-        wasmInstance = instance;
+        wasmInstance = result.instance;
 
         // Log available exports for debugging
         const exportKeys = Object.keys(wasmInstance.exports);

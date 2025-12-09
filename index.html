@@ -1,23 +1,31 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Candy World - 3D Experience</title>
+    <title>Candy World</title>
+    <!-- CRITICAL: Capture native WebAssembly before libopenmpt overrides it -->
+    <script>
+        window.NativeWebAssembly = window.WebAssembly;
+    </script>
     <style>
         body {
             margin: 0;
             overflow: hidden;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #FFD1DC; /* Pastel Pink background fallback */
+            background: #FFD1DC;
+            /* Pastel Pink background fallback */
             user-select: none;
         }
+
         canvas {
             display: block;
             width: 100%;
             height: 100%;
             outline: none;
         }
+
         #instructions {
             position: absolute;
             top: 0;
@@ -28,26 +36,30 @@
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            background: rgba(255, 209, 220, 0.8); /* Fog color with transparency */
+            background: rgba(255, 209, 220, 0.8);
+            /* Fog color with transparency */
             z-index: 200;
             cursor: pointer;
             backdrop-filter: blur(5px);
             transition: opacity 0.3s;
         }
+
         #instructions h1 {
             color: #FF6B6B;
             font-size: 3em;
             margin: 0 0 20px 0;
             text-shadow: 2px 2px 0px #fff;
         }
+
         #instructions p {
             color: #555;
             font-size: 1.2em;
             background: rgba(255, 255, 255, 0.9);
             padding: 15px 30px;
             border-radius: 50px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
         }
+
         .controls {
             margin-top: 20px;
             text-align: left;
@@ -55,6 +67,7 @@
             padding: 20px;
             border-radius: 20px;
         }
+
         .key {
             display: inline-block;
             background: #eee;
@@ -81,7 +94,7 @@
     <script>
         window.libopenmptReady = new Promise(resolve => {
             window.libopenmpt = {
-                onRuntimeInitialized: function() {
+                onRuntimeInitialized: function () {
                     console.log('libopenmpt runtime initialized via pre-load script.');
                     resolve(this);
                 }
@@ -90,18 +103,21 @@
     </script>
     <script src="https://wasm.noahcohn.com/libmpt/libopenmptjs.js"></script>
 </head>
+
 <body>
     <div id="instructions">
         <h1>🍭 Candy World</h1>
         <p>Click anywhere to Explore</p>
 
         <div class="settings" style="margin-bottom: 20px; z-index: 201;">
-            <label for="musicUpload" style="background: #fff; padding: 10px 20px; border-radius: 20px; cursor: pointer; border: 2px solid #FF6B6B; color: #FF6B6B; font-weight: bold; margin-right: 10px; display: inline-block;">
+            <label for="musicUpload"
+                style="background: #fff; padding: 10px 20px; border-radius: 20px; cursor: pointer; border: 2px solid #FF6B6B; color: #FF6B6B; font-weight: bold; margin-right: 10px; display: inline-block;">
                 🎵 Upload Music
             </label>
             <input type="file" id="musicUpload" accept=".mod,.xm,.it,.s3m" multiple style="display: none;">
 
-            <button id="toggleDayNight" style="background: #6A5ACD; border: none; padding: 10px 20px; border-radius: 20px; cursor: pointer; color: white; font-weight: bold; font-size: 1em;">
+            <button id="toggleDayNight"
+                style="background: #6A5ACD; border: none; padding: 10px 20px; border-radius: 20px; cursor: pointer; color: white; font-weight: bold; font-size: 1em;">
                 Toggle Day/Night (N)
             </button>
         </div>
@@ -117,4 +133,5 @@
     <canvas id="glCanvas"></canvas>
     <script type="module" src="main.js"></script>
 </body>
+
 </html>
