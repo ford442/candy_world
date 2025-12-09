@@ -36,7 +36,7 @@ export async function initWasm() {
         });
 
         // Load WASM binary
-        const response = await fetch('/build/optimized.wasm');
+        const response = await fetch('./optimized.wasm');
         if (!response.ok) {
             console.warn('WASM not found, using JS fallbacks');
             return false;
