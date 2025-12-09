@@ -11,6 +11,7 @@ let outputView = null;     // Float32Array for reading results
 let wasmGetGroundHeight = null;
 let wasmFreqToHue = null;
 let wasmLerp = null;
+let wasmBatchMushroomSpawnCandidates = null;
 
 // Emscripten module (native C functions)
 let emscriptenInstance = null;
@@ -121,6 +122,7 @@ export async function initWasm() {
         wasmGetGroundHeight = wasmInstance.exports.getGroundHeight;
         wasmFreqToHue = wasmInstance.exports.freqToHue;
         wasmLerp = wasmInstance.exports.lerp;
+        wasmBatchMushroomSpawnCandidates = wasmInstance.exports.batchMushroomSpawnCandidates || null;
 
         console.log('WASM module loaded successfully');
         console.log('WASM exports:', Object.keys(wasmInstance.exports));
@@ -246,7 +248,8 @@ export function uploadAnimationData(animData) {
         animationView[idx] = data.offset || 0;
         animationView[idx + 1] = data.type || 0;
         animationView[idx + 2] = data.originalY || 0;
-        animationView[idx + 3] = 0; // padding
+        // Store colorIndex in the 4th slot for spawn/candidate logic
+        animationView[idx + 3] = (typeof data.colorIndex === 'number') ? data.colorIndex : 0;
     }
 }
 
@@ -260,12 +263,48 @@ export function uploadAnimationData(animData) {
  * @returns {{visibleCount: number, flags: Float32Array}}
  */
 export function batchDistanceCull(cameraX, cameraY, cameraZ, maxDistance, objectCount) {
+    const maxDistSq = maxDistance * maxDistance;
+    // Prefer Emscripten implementation if available
+    if (emscriptenInstance && emscriptenInstance.exports && emscriptenInstance.exports.batchDistanceCull_c) {
+        try {
+            const em = emscriptenInstance;
+            const bytes = objectCount * 3 * 4; // x,y,z per object (f32)
+            const spos = em.exports._malloc(bytes);
+            const sres = em.exports._malloc(objectCount * 4);
+            try {
+                const emMem = new Float32Array(em.exports.memory.buffer, spos, objectCount * 3);
+                // The input format expected is x,y,z for each object - populate from positionView in assembly memory if present
+                // positionView may live in AssemblyScript memory; if present, we can access JS position array as well.
+                for (let i = 0; i < objectCount; i++) {
+                    // Use AssemblyScript positionView if present; else assume positions in JS
+                    const baseIdx = i * 4; // [x,y,z,radius] in our position upload
+                    emMem[i * 3] = positionView ? positionView[baseIdx] : 0;
+                    emMem[i * 3 + 1] = positionView ? positionView[baseIdx + 1] : 0;
+                    emMem[i * 3 + 2] = positionView ? positionView[baseIdx + 2] : 0;
+                }
+
+                // Call Emscripten function
+                const visibleCount = em.exports.batchDistanceCull_c(spos, sres, objectCount, cameraX, cameraY, cameraZ, maxDistSq);
+                // Read flags into a Float32Array
+                const resultView = new Float32Array(em.exports.memory.buffer, sres, objectCount);
+                // Copy to JS outputView-like array
+                const flags = new Float32Array(objectCount);
+                for (let i = 0; i < objectCount; i++) flags[i] = resultView[i];
+                return { visibleCount, flags };
+            } finally {
+                em.exports._free(spos);
+                em.exports._free(sres);
+            }
+        } catch (e) {
+            console.warn('Emscripten batchDistanceCull failed, falling back to AssemblyScript:', e);
+        }
+    }
+
+    // Fallback to AssemblyScript batchDistanceCull
     if (!wasmInstance) {
-        // JS fallback - return all visible
         return { visibleCount: objectCount, flags: null };
     }
 
-    const maxDistSq = maxDistance * maxDistance;
     const visibleCount = wasmInstance.exports.batchDistanceCull(
         cameraX, cameraY, cameraZ, maxDistSq, objectCount
     );
@@ -274,6 +313,37 @@ export function batchDistanceCull(cameraX, cameraY, cameraZ, maxDistance, object
         visibleCount,
         flags: outputView.slice(0, objectCount)
     };
+}
+
+/**
+ * Run WASM batch function to generate mushroom spawn candidates.
+ * Returns candidateCount and writes candidates into the existing output buffer.
+ */
+export function batchMushroomSpawnCandidates(time, windX, windZ, windSpeed, objectCount, spawnThreshold, minDistance, maxDistance) {
+    if (wasmBatchMushroomSpawnCandidates && wasmInstance) {
+        const count = wasmBatchMushroomSpawnCandidates(time, windX, windZ, windSpeed, objectCount, spawnThreshold, minDistance, maxDistance);
+        return count;
+    }
+    return 0;
+}
+
+/**
+ * Read candidate data from output buffer, each candidate is 4 floats: x,y,z,colorIndex
+ */
+export function readSpawnCandidates(candidateCount) {
+    if (!outputView) return [];
+    const arr = [];
+    const maxCount = Math.min(candidateCount, 128);
+    for (let i = 0; i < maxCount; i++) {
+        const idx = i * 4;
+        const x = outputView[idx];
+        const y = outputView[idx + 1];
+        const z = outputView[idx + 2];
+        const colorIndex = outputView[idx + 3];
+        if (isNaN(x) || isNaN(y) || isNaN(z)) continue;
+        arr.push({ x, y, z, colorIndex: Math.round(colorIndex) });
+    }
+    return arr;
 }
 
 /**

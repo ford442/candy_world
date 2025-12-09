@@ -10,7 +10,7 @@ emcc /content/build_space/candy_world/emscripten/candy_native.c -o /content/buil
     -s STANDALONE_WASM=1 \
     -s WASM=1 \
     --no-entry \
-    -s EXPORTED_FUNCTIONS="['_hash', '_valueNoise2D', '_fbm', '_fastInvSqrt', '_fastDistance', '_batchDistances', '_batchSinWave', '_malloc', '_free']" \
+    -s EXPORTED_FUNCTIONS="['_hash', '_valueNoise2D', '_fbm', '_fastInvSqrt', '_fastDistance', '_batchDistances', '_batchSinWave', '_batchDistanceCull_c', '_malloc', '_free']" \
     -s ERROR_ON_UNDEFINED_SYMBOLS=0
 
 if [ $? -eq 0 ]; then

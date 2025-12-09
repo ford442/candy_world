@@ -643,12 +643,15 @@ export function createMushroom(options = {}) {
 
     // 2. Cap (Sphere slice)
     const capGeo = new THREE.SphereGeometry(capR, 24, 24, 0, Math.PI * 2, 0, Math.PI / 1.8); // Increased segments for smooth cap
-    // Determine Material
+    // Determine Material and record colorIndex used
     let capMat;
+    let chosenColorIndex;
     if (colorIndex >= 0 && colorIndex < foliageMaterials.mushroomCap.length) {
-        capMat = foliageMaterials.mushroomCap[colorIndex];
+        chosenColorIndex = colorIndex;
+        capMat = foliageMaterials.mushroomCap[chosenColorIndex];
     } else {
-        capMat = foliageMaterials.mushroomCap[Math.floor(Math.random() * foliageMaterials.mushroomCap.length)];
+        chosenColorIndex = Math.floor(Math.random() * foliageMaterials.mushroomCap.length);
+        capMat = foliageMaterials.mushroomCap[chosenColorIndex];
     }
 
     const cap = new THREE.Mesh(capGeo, capMat);
@@ -733,6 +736,8 @@ export function createMushroom(options = {}) {
     group.userData.animationType = pickAnimation(['wobble', 'bounce', 'accordion']);
     group.userData.animationOffset = Math.random() * 10;
     group.userData.type = 'mushroom';
+    // Store chosen color index for wind-driven propagation and logic
+    group.userData.colorIndex = typeof chosenColorIndex === 'number' ? chosenColorIndex : -1;
 
     return group;
 }

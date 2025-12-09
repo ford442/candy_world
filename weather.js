@@ -3,8 +3,8 @@
 // Triggers berry charging and plant growth
 
 import * as THREE from 'three';
-import { calcRainDropY } from './wasm-loader.js';
-import { chargeBerries, triggerGrowth, triggerBloom, shakeBerriesLoose, updateBerrySeasons } from './foliage.js';
+import { calcRainDropY, getGroundHeight, uploadPositions, uploadAnimationData, batchMushroomSpawnCandidates, readSpawnCandidates, isWasmReady } from './wasm-loader.js';
+import { chargeBerries, triggerGrowth, triggerBloom, shakeBerriesLoose, updateBerrySeasons, createMushroom } from './foliage.js';
 
 // Weather states
 export const WeatherState = {
@@ -36,6 +36,7 @@ export class WeatherSystem {
         this.trackedTrees = [];
         this.trackedShrubs = [];
         this.trackedFlowers = [];
+        this.trackedMushrooms = [];
 
         // State transition
         this.targetIntensity = 0;
@@ -45,6 +46,8 @@ export class WeatherSystem {
         this.windDirection = new THREE.Vector3(1, 0, 0.3).normalize();
         this.windSpeed = 0; // 0-1, driven by audio
         this.windTargetSpeed = 0;
+        // Callback for spawning foliage into world (main.js should set this to safeAddFoliage)
+        this.onSpawnFoliage = null;
 
         // Fog reference (set from main.js)
         this.fog = scene.fog;
@@ -114,6 +117,15 @@ export class WeatherSystem {
         this.melodicMist = new THREE.Points(mistGeo, mistMat);
         this.melodicMist.visible = false;
         this.scene.add(this.melodicMist);
+    }
+
+    /**
+     * Register a mushroom so weather can affect it (e.g., wind propagation)
+     * @param {THREE.Object3D} mushroom
+     */
+    registerMushroom(mushroom) {
+        if (!mushroom) return;
+        if (!this.trackedMushrooms.includes(mushroom)) this.trackedMushrooms.push(mushroom);
     }
 
     /**
@@ -218,6 +230,65 @@ export class WeatherSystem {
         // Slowly rotate wind direction
         const rotSpeed = (audioData.beatPhase || 0) * 0.001;
         this.windDirection.applyAxisAngle(new THREE.Vector3(0, 1, 0), rotSpeed);
+
+        // Wind can move mushrooms and plant new ones of the same color.
+        // Use WASM-enabled batch generation when available, fallback to JS.
+        const count = this.trackedMushrooms.length;
+        if (this.windSpeed > 0.4 && count > 0) {
+            // JS fallback if WASM not available
+            if (!isWasmReady() || typeof batchMushroomSpawnCandidates !== 'function') {
+                this.trackedMushrooms.forEach(m => {
+                    const colorIndex = m.userData?.colorIndex ?? -1;
+                    const colorWeight = (colorIndex >= 0 && colorIndex <= 3) ? 0.02 : 0.005;
+                    const spawnChance = colorWeight * this.windSpeed;
+                    if (Math.random() < spawnChance) {
+                        const distance = 3 + Math.random() * 8;
+                        const jitter = 2 + Math.random() * 3;
+                        const nx = m.position.x + this.windDirection.x * distance + (Math.random() - 0.5) * jitter;
+                        const nz = m.position.z + this.windDirection.z * distance + (Math.random() - 0.5) * jitter;
+                        const ny = getGroundHeight(nx, nz);
+                        const newM = createMushroom({ size: 'regular', scale: 0.7, colorIndex: colorIndex });
+                        newM.position.set(nx, ny, nz);
+                        newM.rotation.y = Math.random() * Math.PI * 2;
+                        if (this.onSpawnFoliage) {
+                            try { this.onSpawnFoliage(newM, true, 0.5); } catch (e) { console.warn('onSpawnFoliage failed', e); }
+                        } else {
+                            this.scene.add(newM);
+                            this.registerMushroom(newM);
+                        }
+                    }
+                });
+            } else {
+                // WASM path: upload positions and animation data, then call batch generator
+                try {
+                    const objects = this.trackedMushrooms.map(m => ({ x: m.position.x, y: m.position.y, z: m.position.z, radius: m.userData?.radius || 0.5 }));
+                    // Build anim data with colorIndex stored in 4th slot
+                    const animData = this.trackedMushrooms.map(m => ({ offset: 0, type: 0, originalY: m.position.y, colorIndex: m.userData?.colorIndex || 0 }));
+                    uploadPositions(objects);
+                    uploadAnimationData(animData);
+                    const spawnThreshold = 1.0; // Tunable
+                    const minDistance = 3.0;
+                    const maxDistance = 8.0;
+                    const candidateCount = batchMushroomSpawnCandidates(time, this.windDirection.x, this.windDirection.z, this.windSpeed, count, spawnThreshold, minDistance, maxDistance);
+                    if (candidateCount > 0) {
+                        const candidates = readSpawnCandidates(candidateCount);
+                        for (const c of candidates) {
+                            const newM = createMushroom({ size: 'regular', scale: 0.7, colorIndex: c.colorIndex });
+                            newM.position.set(c.x, c.y, c.z);
+                            newM.rotation.y = Math.random() * Math.PI * 2;
+                            if (this.onSpawnFoliage) {
+                                try { this.onSpawnFoliage(newM, true, 0.5); } catch (e) { console.warn('onSpawnFoliage failed', e); }
+                            } else {
+                                this.scene.add(newM);
+                                this.registerMushroom(newM);
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.warn('WASM spawn path failed, falling back to JS:', e);
+                }
+            }
+        }
     }
 
     /**
