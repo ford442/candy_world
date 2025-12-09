@@ -203,6 +203,98 @@ export function batchAnimationCalc(
   }
 }
 
+// =============================================================================
+// BATCH PROCESSING - Mushroom Spawn Candidate Generator
+// =============================================================================
+
+/**
+ * Generate mushroom spawn candidates based on wind and positions
+ * Writes candidate positions (x, y, z, colorIndex) into output buffer sequentially
+ * Returns the number of candidates written
+ */
+export function batchMushroomSpawnCandidates(
+  time: f32,
+  windX: f32,
+  windZ: f32,
+  windSpeed: f32,
+  objectCount: i32,
+  spawnThreshold: f32,
+  minDistance: f32,
+  maxDistance: f32
+): i32 {
+  let candidateCount: i32 = 0;
+
+  // Limit number of candidates to avoid overflow in output buffer
+  const MAX_CANDIDATES: i32 = 128;
+
+  for (let i = 0; i < objectCount; i++) {
+    const ptr = POSITION_OFFSET + i * 16;
+    const objX = load<f32>(ptr);
+    const objY = load<f32>(ptr + 4);
+    const objZ = load<f32>(ptr + 8);
+    const objR = load<f32>(ptr + 12);
+
+    // Read colorIndex from animation data padding (we'll store colorIndex as animData[idx+3])
+    const animPtr = ANIMATION_OFFSET + i * 16;
+    const colorIndex = <i32>load<f32>(animPtr + 12);
+
+    // Pseudo-random values derived from time and index
+    // Pseudo-random values derived from time and index (AssemblyScript lacks fract in Mathf)
+    const seed = Mathf.abs(time * <f32>1000.0 + <f32>i);
+    const r1 = Mathf.sin(seed * <f32>12.9898) * <f32>43758.5453;
+    const r2 = Mathf.sin((seed + <f32>1.2345) * <f32>78.233) * <f32>43758.5453;
+    const rand1 = r1 - Mathf.floor(r1);
+    const rand2 = r2 - Mathf.floor(r2);
+
+    // Weight selection: certain color indices are more likely to travel
+    let colorWeight: f32 = 0.005;
+    if (colorIndex >= 0 && colorIndex <= 3) colorWeight = 0.02;
+    else if (colorIndex == 4) colorWeight = 0.01;
+
+    const spawnProb = windSpeed * colorWeight;
+    if (rand1 > (spawnProb * spawnThreshold)) continue;
+
+    // Distance and jitter
+    const dist = minDistance + rand2 * (maxDistance - minDistance);
+    const jitterX = (rand2 - 0.5) * 2.0; // -1 .. 1
+    const jitterZ = (rand1 - 0.5) * 2.0;
+
+    const nx = objX + windX * dist + jitterX;
+    const nz = objZ + windZ * dist + jitterZ;
+
+    // Get ground height via getGroundHeight
+    const ny = getGroundHeight(nx, nz);
+    // If below threshold (e.g., water or invalid), skip
+    if (ny < -0.5) continue;
+
+    // Collision check: ensure it's not too close to other objects
+    let collides = false;
+    for (let j = 0; j < objectCount; j++) {
+      if (j == i) continue;
+      const optr = POSITION_OFFSET + j * 16;
+      const ox = load<f32>(optr);
+      const oz = load<f32>(optr + 8);
+      const orad = load<f32>(optr + 12);
+      const dx = nx - ox;
+      const dz = nz - oz;
+      const distSq = dx * dx + dz * dz;
+      if (distSq < (orad + objR) * (orad + objR)) { collides = true; break; }
+    }
+    if (collides) continue;
+
+    // Write candidate to output buffer at index candidateCount
+    if (candidateCount >= MAX_CANDIDATES) break;
+    const outPtr = OUTPUT_OFFSET + candidateCount * 16;
+    store<f32>(outPtr, <f32>nx);
+    store<f32>(outPtr + 4, <f32>ny);
+    store<f32>(outPtr + 8, <f32>nz);
+    store<f32>(outPtr + 12, <f32>colorIndex);
+    candidateCount++;
+  }
+
+  return candidateCount;
+}
+
 /**
  * Calculate single bounce Y offset (convenience function)
  */

@@ -17,6 +17,7 @@ import {
 import { createSky, uSkyTopColor, uSkyBottomColor } from './sky.js';
 import { createStars, uStarPulse, uStarColor } from './stars.js';
 import { AudioSystem } from './audio-system.js';
+import { BeatSync } from './src/audio/beat-sync.js';
 import { WeatherSystem } from './weather.js';
 import { initWasm, getGroundHeight, isWasmReady } from './wasm-loader.js';
 
@@ -86,6 +87,21 @@ scene.add(stars);
 
 const audioSystem = new AudioSystem();
 const weatherSystem = new WeatherSystem(scene);
+// BeatSync instance to centralize beat event detection
+const beatSync = new BeatSync(audioSystem);
+// Register a couple of global beat effects using BeatSync
+beatSync.onBeat((state) => {
+    const kickTrigger = state?.kickTrigger || 0;
+    if (kickTrigger > 0.2) {
+        // Visual pulse
+        beatFlashIntensity = Math.max(beatFlashIntensity, 0.4 + kickTrigger * 0.5);
+        cameraZoomPulse = Math.max(cameraZoomPulse, 1 + kickTrigger * 3);
+    }
+    // Pulse stars a bit by updating uniform if available
+    if (typeof uStarPulse !== 'undefined') {
+        uStarPulse.value += 0.5 * (kickTrigger + 0.1);
+    }
+});
 let isNight = false;
 let timeOffset = 0; // Manual time shift for Day/Night toggle
 
@@ -183,7 +199,15 @@ function safeAddFoliage(obj, isObstacle = false, radius = 1.0) {
     } else if (obj.userData.type === 'shrub') {
         weatherSystem.registerShrub(obj);
     }
+    else if (obj.userData.type === 'mushroom') {
+        weatherSystem.registerMushroom(obj);
+    }
 }
+
+// Give WeatherSystem a hook to add foliage into the world (so spawned mushrooms get registered properly)
+weatherSystem.onSpawnFoliage = (obj, isObstacle = false, radius = 1.0) => {
+    safeAddFoliage(obj, isObstacle, radius);
+};
 
 // --- NEW SCENE CLUSTERING SPAWNER ---
 
@@ -546,6 +570,8 @@ function animate() {
     const t = clock.getElapsedTime();
 
     audioState = audioSystem.update();
+    // Update central BeatSync (calls registered callbacks when beat wraps)
+    beatSync.update();
     weatherSystem.update(t, audioState);
 
     // Beat Detection - detect when beatPhase wraps around (new beat)

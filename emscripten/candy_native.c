@@ -125,6 +125,26 @@ void batchDistances(float* positions, float* results, int count, float refX, flo
     }
 }
 
+// Batch distance culling - writes flags (1.0 visible, 0.0 not visible)
+EMSCRIPTEN_KEEPALIVE
+int batchDistanceCull_c(float* positions, float* flags, int count, float refX, float refY, float refZ, float maxDistSq) {
+    int visibleCount = 0;
+    for (int i = 0; i < count; i++) {
+        int idx = i * 3;
+        float dx = positions[idx] - refX;
+        float dy = positions[idx + 1] - refY;
+        float dz = positions[idx + 2] - refZ;
+        float distSq = dx * dx + dy * dy + dz * dz;
+        if (distSq <= maxDistSq) {
+            flags[i] = 1.0f;
+            visibleCount++;
+        } else {
+            flags[i] = 0.0f;
+        }
+    }
+    return visibleCount;
+}
+
 // Batch apply sin wave to Y positions (for animation)
 EMSCRIPTEN_KEEPALIVE
 void batchSinWave(float* yPositions, float* baseY, int count, float time, float frequency, float amplitude) {
