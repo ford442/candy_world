@@ -16,6 +16,7 @@ import {
 import { createSky, uSkyTopColor, uSkyBottomColor } from './sky.js';
 import { createStars, uStarPulse, uStarColor } from './stars.js';
 import { AudioSystem } from './audio-system.js';
+import { WeatherSystem } from './weather.js';
 import { initWasm, getGroundHeight, isWasmReady } from './wasm-loader.js';
 
 // --- Configuration ---
@@ -23,8 +24,10 @@ import { initWasm, getGroundHeight, isWasmReady } from './wasm-loader.js';
 const DURATION_SUNRISE = 60;
 const DURATION_DAY = 420;
 const DURATION_SUNSET = 60;
-const DURATION_NIGHT = 420;
-const CYCLE_DURATION = DURATION_SUNRISE + DURATION_DAY + DURATION_SUNSET + DURATION_NIGHT;
+const DURATION_DUSK_NIGHT = 180; // 3 min
+const DURATION_DEEP_NIGHT = 120; // 2 min
+const DURATION_PRE_DAWN = 120;   // 2 min
+const CYCLE_DURATION = DURATION_SUNRISE + DURATION_DAY + DURATION_SUNSET + DURATION_DUSK_NIGHT + DURATION_DEEP_NIGHT + DURATION_PRE_DAWN; // 960s
 
 const PALETTE = {
     day: {
@@ -81,6 +84,7 @@ const stars = createStars();
 scene.add(stars);
 
 const audioSystem = new AudioSystem();
+const weatherSystem = new WeatherSystem(scene);
 let isNight = false;
 let timeOffset = 0; // Manual time shift for Day/Night toggle
 
@@ -164,6 +168,13 @@ function safeAddFoliage(obj, isObstacle = false, radius = 1.0) {
     foliageGroup.add(obj);
     animatedFoliage.push(obj);
     if (isObstacle) obstacles.push({ position: obj.position.clone(), radius });
+
+    // Register with weather system for berry charging
+    if (obj.userData.type === 'tree') {
+        weatherSystem.registerTree(obj);
+    } else if (obj.userData.type === 'shrub') {
+        weatherSystem.registerShrub(obj);
+    }
 }
 
 // --- NEW SCENE CLUSTERING SPAWNER ---
@@ -370,35 +381,91 @@ const player = {
     gravity: 20.0
 };
 
+// --- Physics Helpers ---
+function checkMushroomBounce(pos) {
+    // Check collision with mushroom caps
+    // They are in animatedFoliage with type 'mushroom'
+    // This is distinct from 'getWalkableHeight' because it adds velocity
+    for (let i = 0; i < animatedFoliage.length; i++) {
+        const obj = animatedFoliage[i];
+        if (obj.userData.type === 'mushroom') {
+            // Cylinder/Capsule check approx
+            const dx = pos.x - obj.position.x;
+            const dz = pos.z - obj.position.z;
+            const dy = pos.y - (obj.position.y + 1.0); // Approx cap height based on stem
+
+            // Check if we are "on" the cap (horizontal dist)
+            // Cap radius is dynamic, but usually around 1.0-3.0
+            if (dx * dx + dz * dz < 2.0) {
+                // Check if we are hitting it from above
+                // HACK: We assume stem height ~ scale * 1.0 + cap offset
+                // Let's use bounding box or rough estimate.
+                // Ideally we'd store exact dimensions in userData.
+                // For now, let's treat any mushroom as a bouncer if we touch it.
+                const distSq = pos.distanceToSquared(obj.position);
+                if (distSq < 5.0) { // Close enough
+                    // Are we falling onto it?
+                    if (player.velocity.y < 0 && pos.y > obj.position.y + 0.5) {
+                        const audioIntensity = audioState?.kickTrigger || 0.5;
+                        return 15 + audioIntensity * 10; // BASE_JUMP + BONUS
+                    }
+                }
+            }
+        }
+    }
+    return 0;
+}
+
 // --- Cycle Interpolation (Corrected for Segments) ---
 function getCycleState(tRaw) {
     const t = tRaw % CYCLE_DURATION;
 
-    // 0 -> Sunrise End (60s)
+    // 1. Sunrise (0-60)
     if (t < DURATION_SUNRISE) {
-        const p = t / DURATION_SUNRISE;
-        return lerpPalette(PALETTE.night, PALETTE.sunrise, p);
+        return lerpPalette(PALETTE.night, PALETTE.sunrise, t / DURATION_SUNRISE);
     }
-    // 60 -> Day End (480s)
-    else if (t < DURATION_SUNRISE + DURATION_DAY) {
-        // Transition from Sunrise to Day quickly at start of Day block? 
-        // Or just hold Day? Let's Lerp from Sunrise to Day over 60s, then hold.
-        const dayTime = t - DURATION_SUNRISE;
-        if (dayTime < 60) return lerpPalette(PALETTE.sunrise, PALETTE.day, dayTime / 60);
+
+    let elapsed = DURATION_SUNRISE;
+
+    // 2. Day (60-480)
+    if (t < elapsed + DURATION_DAY) {
+        const localT = t - elapsed;
+        if (localT < 60) return lerpPalette(PALETTE.sunrise, PALETTE.day, localT / 60);
         return PALETTE.day;
     }
-    // 480 -> Sunset End (540s)
-    else if (t < DURATION_SUNRISE + DURATION_DAY + DURATION_SUNSET) {
-        const p = (t - (DURATION_SUNRISE + DURATION_DAY)) / DURATION_SUNSET;
-        return lerpPalette(PALETTE.day, PALETTE.sunset, p);
+    elapsed += DURATION_DAY;
+
+    // 3. Sunset (480-540)
+    if (t < elapsed + DURATION_SUNSET) {
+        const localT = t - elapsed;
+        return lerpPalette(PALETTE.day, PALETTE.sunset, localT / DURATION_SUNSET);
     }
-    // 540 -> Night End (960s)
-    else {
-        // Night
-        const nightTime = t - (DURATION_SUNRISE + DURATION_DAY + DURATION_SUNSET);
-        if (nightTime < 60) return lerpPalette(PALETTE.sunset, PALETTE.night, nightTime / 60);
+    elapsed += DURATION_SUNSET;
+
+    // 4. Dusk Night (540-720)
+    if (t < elapsed + DURATION_DUSK_NIGHT) {
+        const localT = t - elapsed;
+        // Fade to Night
+        if (localT < 60) return lerpPalette(PALETTE.sunset, PALETTE.night, localT / 60);
         return PALETTE.night;
     }
+    elapsed += DURATION_DUSK_NIGHT;
+
+    // 5. Deep Night (720-840)
+    if (t < elapsed + DURATION_DEEP_NIGHT) {
+        // Darker night? Or just same night palette. 
+        // Use night palette but maybe reduce ambient even more?
+        // For now, stick to standard night palette but we will use the timing for "Sleep" logic
+        return PALETTE.night;
+    }
+    elapsed += DURATION_DEEP_NIGHT;
+
+    // 6. Pre-Dawn (840-960)
+    if (t < elapsed + DURATION_PRE_DAWN) {
+        return PALETTE.night;
+    }
+
+    return PALETTE.night; // Fallback
 }
 
 function lerpPalette(p1, p2, t) {
@@ -423,6 +490,7 @@ function animate() {
     const t = clock.getElapsedTime();
 
     audioState = audioSystem.update();
+    weatherSystem.update(t, audioState);
 
     // Cycle Update
     const effectiveTime = t + timeOffset;
@@ -491,12 +559,18 @@ function animate() {
     const maxAnimationDistance = 50; // Only animate objects within 50 units
     const maxDistanceSq = maxAnimationDistance * maxAnimationDistance;
 
+
+    // Determine Deep Night status
+    const deepNightStart = DURATION_SUNRISE + DURATION_DAY + DURATION_SUNSET + DURATION_DUSK_NIGHT;
+    const deepNightEnd = deepNightStart + DURATION_DEEP_NIGHT;
+    const isDeepNight = (cyclePos >= deepNightStart && cyclePos < deepNightEnd);
+
     animatedFoliage.forEach(f => {
         // Skip animation for objects far from camera
         const distSq = f.position.distanceToSquared(camPos);
         if (distSq > maxDistanceSq) return;
 
-        animateFoliage(f, t, audioState, !isNight);
+        animateFoliage(f, t, audioState, !isNight, isDeepNight);
     });
 
     // Player Movement
@@ -528,13 +602,52 @@ function animate() {
         controls.moveRight(player.velocity.x * delta);
         controls.moveForward(player.velocity.z * delta);
 
+        // --- PHYSICS & COLLISION ---
         const groundY = getGroundHeight(camera.position.x, camera.position.z);
-        const safeGroundY = isNaN(groundY) ? 0 : groundY;
 
-        if (camera.position.y < safeGroundY + 1.8) {
+        // 1. Cloud Walking (Raycast-like check + simple box)
+        let cloudY = -Infinity;
+        const playerPos = camera.position;
+
+        // Optimization: Only check clouds if we are high enough
+        if (playerPos.y > 20) {
+            for (let i = 0; i < animatedFoliage.length; i++) {
+                const obj = animatedFoliage[i];
+                if (obj.userData.type === 'cloud') {
+                    // Simple distance check first
+                    const dx = playerPos.x - obj.position.x;
+                    const dz = playerPos.z - obj.position.z;
+                    if (Math.abs(dx) < 3 && Math.abs(dz) < 3) {
+                        // We are roughly over/under a cloud
+                        // Cloud top is approx position.y + 1.0 (radius approx 1.5)
+                        const topY = obj.position.y + 0.5;
+                        if (playerPos.y >= topY && (playerPos.y - topY) < 2.0) {
+                            cloudY = Math.max(cloudY, topY);
+                        }
+                    }
+                }
+            }
+        }
+
+        // 2. Mushroom Bouncing (Velocity Boost)
+        const bounce = checkMushroomBounce(playerPos);
+        if (bounce > 0) {
+            player.velocity.y = Math.max(player.velocity.y, bounce);
+            keyStates.jump = false; // Consume jump
+        }
+
+        // Determine effective ground
+        const safeGroundY = Math.max(isNaN(groundY) ? 0 : groundY, cloudY);
+
+        // Landing Logic
+        if (camera.position.y < safeGroundY + 1.8 && player.velocity.y <= 0) {
             camera.position.y = safeGroundY + 1.8;
             player.velocity.y = 0;
-            if (keyStates.jump) player.velocity.y = 10;
+            if (keyStates.jump) {
+                player.velocity.y = 10;
+                // Bonus jump height on clouds
+                if (cloudY > groundY) player.velocity.y = 15;
+            }
         } else {
             camera.position.y += player.velocity.y * delta;
         }

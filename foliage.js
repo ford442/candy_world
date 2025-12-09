@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { color, mix, positionLocal, normalWorld, float, time, sin, cos, vec3, uniform, attribute } from 'three/tsl';
 import { PointsNodeMaterial } from 'three/webgpu';
-import { freqToHue } from './wasm-loader.js';
+import { freqToHue, isEmscriptenReady, fbm } from './wasm-loader.js';
 
 // --- Helper: Rim Lighting Effect ---
 function addRimLight(material, colorHex) {
@@ -12,12 +12,51 @@ function addRimLight(material, colorHex) {
 }
 
 // --- Materials for Foliage ---
+// --- SHARED TEXTURES ---
+let globalNoiseTexture = null;
+
+function generateNoiseTexture() {
+    if (globalNoiseTexture) return globalNoiseTexture;
+
+    const size = 256;
+    const data = new Uint8Array(size * size * 4);
+    const useWasm = isEmscriptenReady();
+
+    for (let i = 0; i < size * size; i++) {
+        const x = (i % size) / size;
+        const y = Math.floor(i / size) / size;
+
+        let n = 0;
+        if (useWasm) {
+            n = fbm(x * 4.0, y * 4.0, 4);
+            n = n * 0.5 + 0.5;
+        } else {
+            n = Math.random();
+        }
+
+        const val = Math.floor(n * 255);
+        data[i * 4] = val;
+        data[i * 4 + 1] = val;
+        data[i * 4 + 2] = val;
+        data[i * 4 + 3] = 255;
+    }
+
+    globalNoiseTexture = new THREE.DataTexture(data, size, size);
+    globalNoiseTexture.wrapS = THREE.RepeatWrapping;
+    globalNoiseTexture.wrapT = THREE.RepeatWrapping;
+    globalNoiseTexture.needsUpdate = true;
+    return globalNoiseTexture;
+}
+
 function createClayMaterial(colorHex) {
+    if (!globalNoiseTexture) generateNoiseTexture();
     return new THREE.MeshStandardMaterial({
         color: colorHex,
         metalness: 0.0,
         roughness: 0.8,
         flatShading: false,
+        bumpMap: globalNoiseTexture,
+        bumpScale: 0.02
     });
 }
 
@@ -78,6 +117,192 @@ function pickAnimation(types) {
 
 // Helper Objects
 const eyeGeo = new THREE.SphereGeometry(0.05, 16, 16);
+
+// =============================================================================
+// BERRY & FRUIT SYSTEM
+// =============================================================================
+
+/**
+ * Create a cluster of berries/fruits with SSS materials
+ * @param {object} options - Configuration
+ * @param {number} options.count - Number of berries in cluster
+ * @param {number} options.color - Base color hex
+ * @param {number} options.baseGlow - Base emissive intensity
+ * @param {number} options.size - Berry size multiplier
+ * @param {string} options.shape - 'sphere' or 'pear'
+ * @returns {THREE.Group}
+ */
+export function createBerryCluster(options = {}) {
+    const count = options.count || 5;
+    const color = options.color || 0xFF6600;
+    const baseGlow = options.baseGlow || 0.2;
+    const size = options.size || 0.08;
+    const shape = options.shape || 'sphere';
+
+    const group = new THREE.Group();
+
+    // Geometry based on shape
+    let geometry;
+    if (shape === 'pear') {
+        // Pear-shaped (elongated sphere)
+        geometry = new THREE.SphereGeometry(size, 12, 16);
+        geometry.scale(0.8, 1.3, 0.8);
+    } else {
+        geometry = new THREE.SphereGeometry(size, 16, 16);
+    }
+
+    // SSS Material for translucent glow
+    const baseMaterial = new THREE.MeshPhysicalMaterial({
+        color: color,
+        roughness: 0.3,
+        metalness: 0.0,
+        transmission: 0.6,  // Translucency
+        thickness: 0.4,     // SSS depth
+        emissive: new THREE.Color(color),
+        emissiveIntensity: baseGlow,
+        clearcoat: 0.2,     // Slight waxy coating
+    });
+
+    // Create cluster in organic pattern
+    for (let i = 0; i < count; i++) {
+        const berry = new THREE.Mesh(geometry, baseMaterial.clone());
+
+        // Position in cluster (roughly spherical arrangement)
+        const phi = Math.acos(2 * (i / count) - 1);
+        const theta = Math.PI * (1 + Math.sqrt(5)) * i; // Golden ratio spiral
+        const radius = 0.12;
+
+        berry.position.set(
+            radius * Math.sin(phi) * Math.cos(theta),
+            radius * Math.sin(phi) * Math.sin(theta) * 0.6, // Flatter vertically
+            radius * Math.cos(phi)
+        );
+
+        // Slight size variation
+        const sizeVar = 0.8 + Math.random() * 0.4;
+        berry.scale.setScalar(sizeVar);
+
+        // Slight rotation for organic look
+        berry.rotation.set(
+            Math.random() * Math.PI,
+            Math.random() * Math.PI,
+            Math.random() * Math.PI
+        );
+
+        group.add(berry);
+    }
+
+    // Store metadata for weather system
+    group.userData.berries = group.children;
+    group.userData.baseGlow = baseGlow;
+    group.userData.weatherGlow = 0; // Accumulated glow from storms
+    group.userData.glowDecayRate = 0.01;
+    group.userData.berryColor = color;
+
+    return group;
+}
+
+/**
+ * Update berry glow based on weather and audio
+ * @param {THREE.Group} berryCluster - The berry cluster
+ * @param {number} weatherIntensity - 0-2, accumulated from storms
+ * @param {object} audioData - Current audio state
+ */
+export function updateBerryGlow(berryCluster, weatherIntensity, audioData) {
+    if (!berryCluster.userData.berries) return;
+
+    // Combine weather charge + audio reactivity
+    const groove = audioData?.grooveAmount || 0;
+    const totalGlow = weatherIntensity + groove * 0.5;
+    const glowFactor = Math.max(0, Math.min(2, totalGlow));
+
+    // Lerp color: dim (dark red/brown) -> bright (orange/yellow)
+    const baseColor = new THREE.Color(0x331100); // Dark
+    const targetColor = new THREE.Color(berryCluster.userData.berryColor || 0xFF6600); // Bright
+
+    const currentColor = baseColor.clone().lerp(targetColor, Math.min(1.0, glowFactor));
+
+    berryCluster.userData.berries.forEach((berry, i) => {
+        // Slight offset per berry for organic pulsing
+        const offset = i * 0.1;
+        const pulse = Math.sin((performance.now() * 0.001) + offset) * 0.1 + 1;
+
+        berry.material.emissive.copy(currentColor);
+        berry.material.emissiveIntensity = berryCluster.userData.baseGlow * (1 + glowFactor) * pulse;
+
+        // Also update color if supported
+        berry.material.color.copy(currentColor);
+    });
+
+    // Weather glow decays over time
+    if (berryCluster.userData.weatherGlow > 0) {
+        berryCluster.userData.weatherGlow -= berryCluster.userData.glowDecayRate;
+    }
+}
+
+/**
+ * Charge berries from storm/rain
+ * @param {THREE.Group} berryCluster
+ * @param {number} chargeAmount - How much to add (0-1 per storm event)
+ */
+export function chargeBerries(berryCluster, chargeAmount) {
+    if (!berryCluster.userData) return;
+    berryCluster.userData.weatherGlow = Math.min(
+        2.0,
+        (berryCluster.userData.weatherGlow || 0) + chargeAmount
+    );
+}
+
+
+// --- Instancing System (Grass) ---
+/**
+ * Trigger growth (scale up) for structural plants
+ * @param {Array<THREE.Group>} plants - List of plant groups
+ * @param {number} intensity - Growth increment
+ */
+export function triggerGrowth(plants, intensity) {
+    plants.forEach(plant => {
+        // Only grow if below max scale
+        if (!plant.userData.maxScale) {
+            // Initialize max scale if not present (usually starts at 1.0 or random var)
+            plant.userData.maxScale = plant.scale.x * 1.5;
+        }
+
+        if (plant.scale.x < plant.userData.maxScale) {
+            const growthRate = intensity * 0.01;
+            const newScale = plant.scale.x + growthRate;
+            plant.scale.setScalar(newScale);
+        }
+    });
+}
+
+/**
+ * Trigger bloom (scale up flower heads)
+ * @param {Array<THREE.Group>} flowers - List of flower groups
+ * @param {number} intensity - Bloom increment
+ */
+export function triggerBloom(flowers, intensity) {
+    flowers.forEach(flower => {
+        // Find flower center or petals to pulse
+        // If it's a "Flower" type group, we can scale the whole thing or just the head
+        // Let's scale slightly for a "breathing" effect or actual growth
+
+        // Pulse glow if present
+        if (flower.userData.isFlower) {
+            const head = flower.children.find(c => c.children.find(sub => sub.name === 'flowerCenter'));
+            // If layered flower, just scale the whole group slightly
+
+            if (!flower.userData.maxBloom) {
+                flower.userData.maxBloom = flower.scale.x * 1.3;
+            }
+
+            if (flower.scale.x < flower.userData.maxBloom) {
+                const bloomRate = intensity * 0.02;
+                flower.scale.addScalar(bloomRate);
+            }
+        }
+    });
+}
 
 // --- Instancing System (Grass) ---
 let grassMeshes = [];
@@ -464,6 +689,24 @@ export function createFloweringTree(options = {}) {
         group.add(cluster);
     }
 
+    // Add berries to flowering trees (Magenta Pears)
+    if (Math.random() > 0.4) { // 60% chance of berries
+        const berries = createBerryCluster({
+            color: 0xFF00AA, // Magenta
+            count: 6 + Math.floor(Math.random() * 4),
+            baseGlow: 0.3,
+            shape: 'pear',
+            size: 0.1
+        });
+        berries.position.set(
+            (Math.random() - 0.5) * 1.5,
+            trunkH + 1 + Math.random() * 0.5,
+            (Math.random() - 0.5) * 1.5
+        );
+        group.add(berries);
+        group.userData.berries = berries; // Store reference
+    }
+
     group.userData.animationType = 'gentleSway';
     group.userData.animationOffset = Math.random() * 10;
     group.userData.type = 'tree';
@@ -496,6 +739,24 @@ export function createShrub(options = {}) {
             (Math.random() - 0.5) * 1.5
         );
         group.add(flower);
+    }
+
+    // Add berries to shrubs (Orange Orbs)
+    if (Math.random() > 0.5) { // 50% chance
+        const berries = createBerryCluster({
+            color: 0xFF6600, // Orange
+            count: 4 + Math.floor(Math.random() * 3),
+            baseGlow: 0.25,
+            shape: 'sphere',
+            size: 0.08
+        });
+        berries.position.set(
+            (Math.random() - 0.5) * 1.2,
+            1.2,
+            (Math.random() - 0.5) * 1.2
+        );
+        group.add(berries);
+        group.userData.berries = berries;
     }
 
     // VARIETY: Shrubs can bounce, shiver, or hop
@@ -1240,9 +1501,30 @@ export function updateFoliageMaterials(audioData, isNight) {
     }
 }
 
-export function animateFoliage(foliageObject, time, audioData, isDay) {
+export function animateFoliage(foliageObject, time, audioData, isDay, isDeepNight = false) {
     const offset = foliageObject.userData.animationOffset || 0;
     const type = foliageObject.userData.animationType;
+
+    // Deep Night Sleep Logic
+    if (isDeepNight) {
+        // Special Glowing Flowers stay awake and active
+        const isNightFlower = foliageObject.userData.type === 'flower' && foliageObject.userData.animationType === 'glowPulse';
+
+        if (!isNightFlower) {
+            // Everything else sleeps (slow shiver)
+            // Use calcShiver or JS equivalent
+            // calcShiver(t, speed, amount)
+            const sleepSpeed = 0.5;
+            const sleepAmount = 0.02;
+            const shiver = Math.sin(time * sleepSpeed + offset) * sleepAmount;
+
+            foliageObject.rotation.z = shiver;
+            foliageObject.rotation.x = shiver * 0.5;
+
+            // Return early - no audio reactivity during sleep
+            return;
+        }
+    }
 
     // Audio Data
     let kick = 0, groove = 0, beatPhase = 0, leadVol = 0;
