@@ -156,8 +156,9 @@ export class WeatherSystem {
      * Main update loop - call every frame
      * @param {number} time - Current time
      * @param {object} audioData - Audio analysis data
+     * @param {object} cycleWeatherBias - Optional time-of-day weather bias
      */
-    update(time, audioData) {
+    update(time, audioData, cycleWeatherBias = null) {
         if (!audioData) return;
 
         // Extract audio features
@@ -166,8 +167,8 @@ export class WeatherSystem {
         const channels = audioData.channelData || [];
         const melodyVol = channels[2]?.volume || 0;
 
-        // Determine weather state based on audio
-        this.updateWeatherState(bassIntensity, melodyVol, groove);
+        // Determine weather state based on audio AND time-of-day bias
+        this.updateWeatherState(bassIntensity, melodyVol, groove, cycleWeatherBias);
 
         // Trigger Growth/Bloom based on weather active state
         if (this.state === WeatherState.RAIN) {
@@ -363,23 +364,66 @@ export class WeatherSystem {
     }
 
     /**
-     * Determine weather state from audio
+     * Determine weather state from audio and time-of-day bias
      */
-    updateWeatherState(bass, melody, groove) {
+    updateWeatherState(bass, melody, groove, cycleWeatherBias = null) {
+        // Start with audio-driven state
+        let audioState = WeatherState.CLEAR;
+        let audioIntensity = 0;
+        
         // Storm: High bass + high groove (intense music)
         if (bass > 0.7 && groove > 0.5) {
-            this.state = WeatherState.STORM;
-            this.targetIntensity = 1.0;
+            audioState = WeatherState.STORM;
+            audioIntensity = 1.0;
         }
         // Rain: Moderate bass OR melody presence
         else if (bass > 0.3 || melody > 0.4) {
-            this.state = WeatherState.RAIN;
-            this.targetIntensity = 0.5;
+            audioState = WeatherState.RAIN;
+            audioIntensity = 0.5;
         }
-        // Clear: Low activity
-        else {
-            this.state = WeatherState.CLEAR;
-            this.targetIntensity = 0;
+        
+        // Apply time-of-day bias if provided
+        if (cycleWeatherBias) {
+            const biasWeight = 0.4; // 40% influence from cycle, 60% from audio
+            
+            // Map bias state to enum
+            let biasState = WeatherState.CLEAR;
+            if (cycleWeatherBias.biasState === 'storm') biasState = WeatherState.STORM;
+            else if (cycleWeatherBias.biasState === 'rain') biasState = WeatherState.RAIN;
+            
+            // Blend states (if they differ, lean towards more intense)
+            if (audioState !== biasState) {
+                // Priority: STORM > RAIN > CLEAR
+                const stateValue = {
+                    [WeatherState.CLEAR]: 0,
+                    [WeatherState.RAIN]: 1,
+                    [WeatherState.STORM]: 2
+                };
+                
+                const audioValue = stateValue[audioState];
+                const biasValue = stateValue[biasState];
+                
+                // Take the more intense state with probability based on weights
+                if (Math.random() < biasWeight) {
+                    this.state = biasState;
+                    this.targetIntensity = cycleWeatherBias.biasIntensity;
+                } else {
+                    this.state = audioState;
+                    this.targetIntensity = audioIntensity;
+                }
+            } else {
+                // States match - blend intensities
+                this.state = audioState;
+                this.targetIntensity = audioIntensity * (1 - biasWeight) + cycleWeatherBias.biasIntensity * biasWeight;
+            }
+            
+            // Store current weather type for visual effects
+            this.weatherType = cycleWeatherBias.type || 'default';
+        } else {
+            // No cycle bias - use pure audio state
+            this.state = audioState;
+            this.targetIntensity = audioIntensity;
+            this.weatherType = 'audio';
         }
     }
 
