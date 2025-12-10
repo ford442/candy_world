@@ -18,7 +18,7 @@ import { createSky, uSkyTopColor, uSkyBottomColor } from './sky.js';
 import { createStars, uStarPulse, uStarColor } from './stars.js';
 import { AudioSystem } from './audio-system.js';
 import { BeatSync } from './src/audio/beat-sync.js';
-import { WeatherSystem } from './weather.js';
+import { WeatherSystem, WeatherState } from './weather.js';
 import { initWasm, getGroundHeight, isWasmReady } from './wasm-loader.js';
 
 // --- Configuration ---
@@ -556,6 +556,62 @@ function lerpPalette(p1, p2, t) {
     return _scratchPalette;
 }
 
+// --- Weather-Cycle Integration ---
+/**
+ * Determine natural weather patterns based on time of day
+ * @param {number} cyclePos - Position in day/night cycle (0 to CYCLE_DURATION)
+ * @param {object} audioData - Current audio state (for audio-reactive override)
+ * @returns {object} Weather suggestion { biasState, biasIntensity, type }
+ */
+function getWeatherForTimeOfDay(cyclePos, audioData) {
+    const SUNRISE = DURATION_SUNRISE;
+    const DAY = DURATION_DAY;
+    const SUNSET = DURATION_SUNSET;
+    const DUSK = DURATION_DUSK_NIGHT;
+    
+    // Morning mist during sunrise
+    if (cyclePos < SUNRISE + 60) {
+        const progress = (cyclePos / (SUNRISE + 60));
+        return { 
+            biasState: 'rain', 
+            biasIntensity: 0.3 * (1 - progress), // Fade out as sun rises
+            type: 'mist' 
+        };
+    }
+    
+    // Afternoon storm potential (mid-day, 20% weighted chance)
+    else if (cyclePos > SUNRISE + 120 && cyclePos < SUNRISE + DAY - 60) {
+        // Accumulate storm probability over time
+        const midDayProgress = (cyclePos - SUNRISE - 120) / (DAY - 180);
+        const stormChance = 0.0003; // Per-frame chance
+        
+        if (Math.random() < stormChance) {
+            return { 
+                biasState: 'storm', 
+                biasIntensity: 0.7 + Math.random() * 0.3,
+                type: 'thunderstorm' 
+            };
+        }
+    }
+    
+    // Evening drizzle during sunset and dusk
+    else if (cyclePos > SUNRISE + DAY && cyclePos < SUNRISE + DAY + SUNSET + DUSK / 2) {
+        const progress = (cyclePos - SUNRISE - DAY) / (SUNSET + DUSK / 2);
+        return { 
+            biasState: 'rain', 
+            biasIntensity: 0.3 + progress * 0.2, // Gradually intensify
+            type: 'drizzle' 
+        };
+    }
+    
+    // Clear night (stars visible)
+    return { 
+        biasState: 'clear', 
+        biasIntensity: 0,
+        type: 'clear' 
+    };
+}
+
 // --- Animation ---
 const clock = new THREE.Clock();
 let audioState = null;
@@ -572,7 +628,16 @@ function animate() {
     audioState = audioSystem.update();
     // Update central BeatSync (calls registered callbacks when beat wraps)
     beatSync.update();
-    weatherSystem.update(t, audioState);
+    
+    // Cycle Update
+    const effectiveTime = t + timeOffset;
+    const cyclePos = effectiveTime % CYCLE_DURATION;
+    
+    // Get time-of-day weather bias
+    const cycleWeatherBias = getWeatherForTimeOfDay(cyclePos, audioState);
+    
+    // Update weather with cycle integration
+    weatherSystem.update(t, audioState, cycleWeatherBias);
 
     // Beat Detection - detect when beatPhase wraps around (new beat)
     const currentBeatPhase = audioState?.beatPhase || 0;
@@ -603,12 +668,8 @@ function animate() {
     }
 
 
-    // Cycle Update
-    const effectiveTime = t + timeOffset;
+    // Get current cycle colors
     const currentState = getCycleState(effectiveTime);
-
-    // Determine isNight for foliage logic
-    const cyclePos = effectiveTime % CYCLE_DURATION;
 
     // Update berry seasonal sizes based on cycle phase
     weatherSystem.updateBerrySeasonalSize(cyclePos, CYCLE_DURATION);
@@ -618,9 +679,33 @@ function animate() {
     // Strictly, night is the dark period.
     isNight = (cyclePos > nightStart - 30) || (cyclePos < DURATION_SUNRISE);
 
-    uSkyTopColor.value.copy(currentState.skyTop);
-    uSkyBottomColor.value.copy(currentState.skyBot);
-    scene.fog.color.copy(currentState.fog);
+    // Apply weather-based sky modifications
+    const weatherIntensity = weatherSystem.getIntensity();
+    const weatherState = weatherSystem.getState();
+    
+    // Base sky colors from cycle
+    const baseSkyTop = currentState.skyTop.clone();
+    const baseSkyBot = currentState.skyBot.clone();
+    const baseFog = currentState.fog.clone();
+    
+    // Modify colors based on weather
+    if (weatherState === WeatherState.STORM) {
+        // Darken and desaturate sky during storms
+        const stormColor = new THREE.Color(0x1A1A2E);
+        baseSkyTop.lerp(stormColor, weatherIntensity * 0.6);
+        baseSkyBot.lerp(new THREE.Color(0x2E3A59), weatherIntensity * 0.5);
+        baseFog.lerp(new THREE.Color(0x4A5568), weatherIntensity * 0.4);
+    } else if (weatherState === WeatherState.RAIN) {
+        // Slight gray tint during rain
+        const rainColor = new THREE.Color(0xA0B5C8);
+        baseSkyTop.lerp(rainColor, weatherIntensity * 0.3);
+        baseSkyBot.lerp(rainColor, weatherIntensity * 0.25);
+        baseFog.lerp(new THREE.Color(0xC0D0E0), weatherIntensity * 0.2);
+    }
+    
+    uSkyTopColor.value.copy(baseSkyTop);
+    uSkyBottomColor.value.copy(baseSkyBot);
+    scene.fog.color.copy(baseFog);
 
     // Fog Density
     const targetNear = isNight ? 5 : 20;
@@ -628,10 +713,24 @@ function animate() {
     scene.fog.near += (targetNear - scene.fog.near) * delta * 0.5;
     scene.fog.far += (targetFar - scene.fog.far) * delta * 0.5;
 
+    // Apply weather dimming to lighting
+    let sunIntensity = currentState.sunInt;
+    let ambIntensity = currentState.ambInt;
+    
+    if (weatherState === WeatherState.STORM) {
+        // Significantly dim during storms
+        sunIntensity *= (1 - weatherIntensity * 0.7);
+        ambIntensity *= (1 - weatherIntensity * 0.5);
+    } else if (weatherState === WeatherState.RAIN) {
+        // Slightly dim during rain
+        sunIntensity *= (1 - weatherIntensity * 0.3);
+        ambIntensity *= (1 - weatherIntensity * 0.2);
+    }
+    
     sunLight.color.copy(currentState.sun);
-    sunLight.intensity = currentState.sunInt;
+    sunLight.intensity = sunIntensity;
     ambientLight.color.copy(currentState.amb);
-    ambientLight.intensity = currentState.ambInt + beatFlashIntensity * 0.5; // Beat flash boost
+    ambientLight.intensity = ambIntensity + beatFlashIntensity * 0.5; // Beat flash boost
 
     // Sun Position Animation (Arc over sky)
     // Map cycle to angle. 
