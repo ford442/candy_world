@@ -766,7 +766,12 @@ function animate() {
     else starOpacity = 0;
     if (stars.material) stars.material.opacity = THREE.MathUtils.lerp(stars.material.opacity, starOpacity, delta);
 
-    updateFoliageMaterials(audioState, isNight);
+    // Map weather state enum to string for materials
+    let weatherStateStr = 'clear';
+    if (weatherState === WeatherState.STORM) weatherStateStr = 'storm';
+    else if (weatherState === WeatherState.RAIN) weatherStateStr = 'rain';
+    
+    updateFoliageMaterials(audioState, isNight, weatherStateStr, weatherIntensity);
 
     // Distance-based animation culling for better performance
     const camPos = camera.position;

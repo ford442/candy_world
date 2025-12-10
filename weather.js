@@ -443,6 +443,21 @@ export class WeatherSystem {
         // Size responds to bass
         this.percussionRain.material.size = 0.3 + bassIntensity * 0.5;
         this.percussionRain.material.opacity = 0.4 + this.intensity * 0.6;
+        
+        // Color based on weather type
+        if (this.weatherType === 'mist') {
+            // Morning mist: soft white-blue
+            this.percussionRain.material.color.setHex(0xE0F4FF);
+        } else if (this.weatherType === 'drizzle') {
+            // Evening drizzle: cool gray-blue
+            this.percussionRain.material.color.setHex(0x9AB5C8);
+        } else if (this.weatherType === 'thunderstorm' || this.state === WeatherState.STORM) {
+            // Storm: darker blue with white flashes
+            this.percussionRain.material.color.setHex(0x6090B0);
+        } else {
+            // Default rain
+            this.percussionRain.material.color.setHex(0x88CCFF);
+        }
 
         // Update particle positions using WASM
         for (let i = 0; i < positions.length / 3; i++) {
@@ -467,7 +482,7 @@ export class WeatherSystem {
      * Update melodic mist (melody-triggered fine spray)
      */
     updateMelodicMist(time, melodyVol) {
-        const shouldShow = melodyVol > 0.2;
+        const shouldShow = melodyVol > 0.2 || (this.weatherType === 'mist' && this.state === WeatherState.RAIN);
         this.melodicMist.visible = shouldShow;
 
         if (!shouldShow) return;
@@ -477,12 +492,22 @@ export class WeatherSystem {
         // Mist drifts slowly
         for (let i = 0; i < positions.length / 3; i++) {
             const offset = i * 0.1;
-            positions[i * 3 + 1] = 1 + Math.sin(time + offset) * 2 * melodyVol;
+            positions[i * 3 + 1] = 1 + Math.sin(time + offset) * 2 * Math.max(melodyVol, 0.3);
             positions[i * 3] += Math.sin(time * 0.5 + offset) * 0.01;
             positions[i * 3 + 2] += Math.cos(time * 0.4 + offset) * 0.01;
         }
 
         this.melodicMist.material.opacity = 0.3 + melodyVol * 0.4;
+        
+        // Color based on weather type
+        if (this.weatherType === 'mist') {
+            // Morning mist: pale green-white
+            this.melodicMist.material.color.setHex(0xDDFFDD);
+            this.melodicMist.material.opacity = 0.6; // Thicker for morning effect
+        } else {
+            // Default melodic color
+            this.melodicMist.material.color.setHex(0xAAFFAA);
+        }
         this.melodicMist.geometry.attributes.position.needsUpdate = true;
     }
 
