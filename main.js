@@ -326,7 +326,7 @@ function safeAddFoliage(obj, isObstacle = false, radius = 1.0) {
 
 // --- Spawn Logic ---
 // --- Spawn Logic ---
-const CLUSTER_COUNT = 60;
+const CLUSTER_COUNT = 90;
 for (let i = 0; i < CLUSTER_COUNT; i++) {
     const cx = (Math.random() - 0.5) * 260;
     const cz = (Math.random() - 0.5) * 260;
@@ -436,6 +436,64 @@ function createMushroom(x, z) {
     group.userData.type = 'mushroom';
 
     return { mesh: group, type: 'mushroom' };
+}
+
+// --- Additional Foliage Spawning (from plan.md) ---
+
+// Flowering Trees (40)
+for (let i = 0; i < 40; i++) {
+    const x = (Math.random() - 0.5) * 280;
+    const z = (Math.random() - 0.5) * 280;
+    const y = getGroundHeight(x, z);
+    const colors = [0xFF69B4, 0x87CEEB, 0xDDA0DD, 0xFFD700, 0xFF6EC7];
+    const tree = createFloweringTree({ color: colors[Math.floor(Math.random() * colors.length)] });
+    tree.position.set(x, y, z);
+    safeAddFoliage(tree, true, 2.0);
+}
+
+// Regular Trees (using shrubs for variety, 50)
+for (let i = 0; i < 50; i++) {
+    const x = (Math.random() - 0.5) * 280;
+    const z = (Math.random() - 0.5) * 280;
+    const y = getGroundHeight(x, z);
+    const colors = [0x32CD32, 0x228B22, 0x2E8B57, 0x3CB371];
+    const shrub = createShrub({ color: colors[Math.floor(Math.random() * colors.length)] });
+    shrub.position.set(x, y, z);
+    shrub.scale.set(2, 2, 2);
+    safeAddFoliage(shrub, true, 1.5);
+}
+
+// Glowing Flowers (30)
+for (let i = 0; i < 30; i++) {
+    const x = (Math.random() - 0.5) * 280;
+    const z = (Math.random() - 0.5) * 280;
+    const y = getGroundHeight(x, z);
+    const colors = [0xFFD700, 0xFF69B4, 0x87CEEB, 0x00FFFF];
+    const flower = createGlowingFlower({ color: colors[Math.floor(Math.random() * colors.length)], intensity: 1.5 });
+    flower.position.set(x, y, z);
+    safeAddFoliage(flower);
+}
+
+// Floating Orbs (25)
+for (let i = 0; i < 25; i++) {
+    const x = (Math.random() - 0.5) * 280;
+    const z = (Math.random() - 0.5) * 280;
+    const y = getGroundHeight(x, z) + 3 + Math.random() * 5;
+    const colors = [0x87CEEB, 0xFF69B4, 0xFFD700, 0x00FFFF, 0xDA70D6];
+    const orb = createFloatingOrb({ color: colors[Math.floor(Math.random() * colors.length)], size: 0.3 + Math.random() * 0.3 });
+    orb.position.set(x, y, z);
+    safeAddFoliage(orb);
+}
+
+// Vines (15)
+for (let i = 0; i < 15; i++) {
+    const x = (Math.random() - 0.5) * 280;
+    const z = (Math.random() - 0.5) * 280;
+    const y = getGroundHeight(x, z);
+    const colors = [0x228B22, 0x2E8B57, 0x32CD32];
+    const vine = createVine({ color: colors[Math.floor(Math.random() * colors.length)], length: 3 + Math.floor(Math.random() * 3) });
+    vine.position.set(x, y, z);
+    safeAddFoliage(vine);
 }
 
 const rainingClouds = [];
