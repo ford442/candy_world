@@ -70,7 +70,8 @@ export class AudioSystem {
             kickTrigger: 0,
             grooveAmount: 0,
             activeChannels: 0,
-            channelData: []
+            channelData: [],
+            bpm: 120  // Current estimated BPM
         };
 
         this.init();
@@ -365,6 +366,7 @@ export class AudioSystem {
 
         this.visualState.beatPhase = (this.visualState.beatPhase + (tempo2 / 60) * (1 / 60)) % 1;
         this.visualState.grooveAmount = decayTowards(this.visualState.grooveAmount, speed % 2 === 0 ? 0 : 0.1, 3, 1 / 60);
+        this.visualState.bpm = bpm || 120; // Expose BPM for musical ecosystem effects
 
         const matrix = this.patternMatrices[order];
         const rowData = matrix?.rows[row] || [];

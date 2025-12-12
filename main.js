@@ -715,13 +715,16 @@ function animate() {
     // Update weather with cycle integration
     weatherSystem.update(t, audioState, cycleWeatherBias);
 
+    // Get current beat phase early (needed for BPM Wind and beat detection)
+    const currentBeatPhase = audioState?.beatPhase || 0;
+
     // --- Musical Ecosystem: BPM Wind (from plan.md Category 3) ---
     // Wind strength scales with BPM, direction pulses with beat
     if (audioState) {
-        // Calculate target wind strength from BPM (normalized to 60-180 BPM range)
-        const estimatedBPM = audioState.channelData?.[0]?.freq > 0 ? 120 : 100; // Fallback
-        bpmWind.bpm = estimatedBPM;
-        bpmWind.targetStrength = Math.min(1.0, (estimatedBPM - 60) / 120);
+        // Use actual BPM from audio system (normalized to 60-180 BPM range)
+        const currentBPM = audioState.bpm || 120;
+        bpmWind.bpm = currentBPM;
+        bpmWind.targetStrength = Math.min(1.0, (currentBPM - 60) / 120);
         
         // Wind gusts pulse with beat phase
         const gustPulse = Math.sin(currentBeatPhase * Math.PI * 2) * 0.3;
@@ -753,7 +756,6 @@ function animate() {
     }
 
     // Beat Detection - detect when beatPhase wraps around (new beat)
-    const currentBeatPhase = audioState?.beatPhase || 0;
     if (currentBeatPhase < lastBeatPhase && lastBeatPhase > 0.8) {
         // Beat just happened!
         const kickTrigger = audioState?.kickTrigger || 0;
