@@ -1797,7 +1797,59 @@ export function createFiberOpticWillow(options = {}) {
 // freqToHue is now imported from wasm-loader.js (WASM with JS fallback)
 
 
-export function updateFoliageMaterials(audioData, isNight) {
+/**
+ * Apply wet surface effects to materials during rain/storm
+ * @param {THREE.Material} material - Material to modify
+ * @param {number} wetAmount - Wetness factor (0-1)
+ */
+function applyWetEffect(material, wetAmount) {
+    // Store original values on first application
+    if (material.userData.dryRoughness === undefined) {
+        material.userData.dryRoughness = material.roughness;
+        material.userData.dryMetalness = material.metalness || 0;
+        material.userData.dryColor = material.color.clone();
+    }
+    
+    // Wet surfaces are more reflective (lower roughness)
+    const targetRoughness = THREE.MathUtils.lerp(material.userData.dryRoughness, 0.2, wetAmount);
+    material.roughness = targetRoughness;
+    
+    // Slight metallic sheen when wet
+    const targetMetalness = THREE.MathUtils.lerp(material.userData.dryMetalness, 0.15, wetAmount);
+    if (material.metalness !== undefined) {
+        material.metalness = targetMetalness;
+    }
+    
+    // Darken color when wet
+    if (material.color) {
+        const darkColor = material.userData.dryColor.clone().multiplyScalar(1 - wetAmount * 0.3);
+        material.color.lerp(darkColor, 0.1); // Smooth transition
+    }
+}
+
+/**
+ * Update materials based on weather state
+ * @param {Array} materials - Array of materials to update
+ * @param {string} weatherState - Current weather state ('clear', 'rain', 'storm')
+ * @param {number} weatherIntensity - Weather intensity (0-1)
+ */
+export function updateMaterialsForWeather(materials, weatherState, weatherIntensity) {
+    materials.forEach(mat => {
+        if (!mat || !mat.isMaterial) return;
+        
+        let wetAmount = 0;
+        
+        if (weatherState === 'rain') {
+            wetAmount = weatherIntensity * 0.5; // 0 to 0.5
+        } else if (weatherState === 'storm') {
+            wetAmount = weatherIntensity * 0.8; // 0 to 0.8
+        }
+        
+        applyWetEffect(mat, wetAmount);
+    });
+}
+
+export function updateFoliageMaterials(audioData, isNight, weatherState = null, weatherIntensity = 0) {
     if (!audioData) return;
 
     if (isNight) {
@@ -1836,6 +1888,11 @@ export function updateFoliageMaterials(audioData, isNight) {
                 mat.emissiveIntensity = 0;
             }
         });
+    }
+    
+    // Apply weather effects to all reactive materials
+    if (weatherState && weatherIntensity > 0) {
+        updateMaterialsForWeather(reactiveMaterials, weatherState, weatherIntensity);
     }
 }
 
