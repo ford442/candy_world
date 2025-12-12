@@ -2572,3 +2572,187 @@ export function updateFireflies(fireflies, time, delta) {
 
     fireflies.geometry.attributes.position.needsUpdate = true;
 }
+// =============================================================================
+// VINE SWINGING PHYSICS
+// =============================================================================
+
+export class VineSwing {
+    constructor(vineMesh, length = 8) {
+        this.vine = vineMesh;
+        this.anchorPoint = vineMesh.position.clone(); // Mesh origin is top
+        this.length = length;
+        this.isPlayerAttached = false;
+        this.swingAngle = 0;
+        this.swingAngularVel = 0;
+        this.swingPlane = new THREE.Vector3(1, 0, 0);
+        this.rotationAxis = new THREE.Vector3(0, 0, 1);
+        this.defaultDown = new THREE.Vector3(0, -1, 0);
+    }
+
+    update(player, delta, inputState) {
+        const gravity = 20.0;
+        const damping = 0.99;
+
+        // Physics Update
+        const angularAccel = (-gravity / this.length) * Math.sin(this.swingAngle);
+        this.swingAngularVel += angularAccel * delta;
+        this.swingAngularVel *= damping;
+
+        // Player Input (Pump the swing)
+        if (this.isPlayerAttached && inputState) {
+            if (inputState.forward) {
+                this.swingAngularVel += 2.0 * delta * Math.cos(this.swingAngle);
+            } else if (inputState.backward) {
+                this.swingAngularVel -= 2.0 * delta * Math.cos(this.swingAngle);
+            }
+        }
+
+        this.swingAngle += this.swingAngularVel * delta;
+
+        // Determine Position
+        // Vertical drop/rise
+        const dy = -Math.cos(this.swingAngle) * this.length;
+        // Horizontal displacement
+        const dh = Math.sin(this.swingAngle) * this.length;
+
+        // Target World Position
+        const targetPos = this.anchorPoint.clone();
+        targetPos.y += dy;
+        targetPos.addScaledVector(this.swingPlane, dh);
+
+        // Apply to Player
+        if (this.isPlayerAttached) {
+            player.position.copy(targetPos);
+            // Optional: Rotate player to face swing direction?
+            // player.lookAt(targetPos.clone().add(this.swingPlane));
+
+            // Sync velocity for smooth release
+            // We approximate velocity vector from angular velocity
+            // This isn't perfect "physics" state for Three.js velocity,
+            // but we calc it on detach.
+        }
+
+        // Apply to Vine Mesh (Visuals)
+        const dir = new THREE.Vector3().subVectors(targetPos, this.anchorPoint).normalize();
+        this.vine.quaternion.setFromUnitVectors(this.defaultDown, dir);
+    }
+
+    attach(player, playerVelocity) {
+        this.isPlayerAttached = true;
+
+        // 1. Determine Swing Plane from Entry Velocity
+        const horizVel = new THREE.Vector3(playerVelocity.x, 0, playerVelocity.z);
+        if (horizVel.lengthSq() > 1.0) {
+            this.swingPlane.copy(horizVel.normalize());
+        } else {
+            // Default to direction from anchor to player if stationary
+            const toPlayer = new THREE.Vector3().subVectors(player.position, this.anchorPoint);
+            toPlayer.y = 0;
+            if (toPlayer.lengthSq() > 0.1) {
+                this.swingPlane.copy(toPlayer.normalize());
+            }
+        }
+
+        // 2. Determine Initial Angle
+        // Project current player position onto the swing plane arc to prevent snapping
+        const toPlayer = new THREE.Vector3().subVectors(player.position, this.anchorPoint);
+        const dy = toPlayer.y;
+        const dh = toPlayer.dot(this.swingPlane);
+        this.swingAngle = Math.atan2(dh, -dy);
+
+        // 3. Transfer Velocity (Conserve momentum)
+        // Tangential velocity component
+        // v_tangent = v_linear dot tangent_vector
+        // tangent vector at angle theta is (cos theta, sin theta) relative to (horiz, vert)
+        const cosA = Math.cos(this.swingAngle);
+        const sinA = Math.sin(this.swingAngle);
+
+        // Player V projected onto plane
+        const vH = horizVel.length() * (playerVelocity.dot(this.swingPlane) > 0 ? 1 : -1);
+        const vY = playerVelocity.y;
+
+        // Tangent vec roughly: H component is cosA, Y component is sinA
+        const vTangential = vH * cosA + vY * sinA;
+
+        this.swingAngularVel = vTangential / this.length;
+    }
+
+    detach(player) {
+        this.isPlayerAttached = false;
+
+        // Convert angular velocity to linear velocity
+        const tangentVel = this.swingAngularVel * this.length;
+        const cosA = Math.cos(this.swingAngle);
+        const sinA = Math.sin(this.swingAngle);
+
+        // Tangent direction vectors
+        const vH = tangentVel * cosA;
+        const vY = tangentVel * sinA;
+
+        player.velocity.x = this.swingPlane.x * vH;
+        player.velocity.z = this.swingPlane.z * vH;
+        player.velocity.y = vY;
+
+        // Small jump boost for better feel
+        player.velocity.y += 5.0;
+
+        // Prevent immediate re-attach
+        return Date.now();
+    }
+}
+
+export function createSwingableVine(options = {}) {
+    const { length = 12, color = 0x2E8B57 } = options;
+    const group = new THREE.Group();
+
+    // Visuals: Segmented Vine
+    const segmentCount = 8;
+    const segLen = length / segmentCount;
+
+    // We create a container that will rotate.
+    // The "group" is the anchor object (placed at top).
+    // But we need the mesh to be pivotable.
+    // VineSwing rotates 'this.vine', which is 'group'.
+
+    // Main stem
+    for (let i = 0; i < segmentCount; i++) {
+        const geo = new THREE.CylinderGeometry(0.15, 0.12, segLen, 6);
+        geo.translate(0, -segLen/2, 0); // Pivot at top of segment
+
+        const mat = createClayMaterial(color); // Use helper from file scope?
+        // Note: createClayMaterial is internal to foliage.js but this code is appended.
+        // It is defined in previous scope.
+
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.position.y = -i * segLen;
+
+        // Random twist
+        mesh.rotation.z = (Math.random() - 0.5) * 0.1;
+        mesh.rotation.x = (Math.random() - 0.5) * 0.1;
+
+        group.add(mesh);
+
+        // Add leaves occasionally
+        if (Math.random() > 0.4) {
+             const leaf = createLeafParticle({ color: 0x32CD32 });
+             leaf.position.y = -segLen * 0.5;
+             leaf.position.x = 0.1;
+             leaf.rotation.z = Math.PI / 4;
+             mesh.add(leaf);
+        }
+    }
+
+    // Hitbox marker (visual aid for debugging, invisible normally)
+    const hitGeo = new THREE.CylinderGeometry(0.5, 0.5, length, 8);
+    hitGeo.translate(0, -length/2, 0);
+    const hitMat = new THREE.MeshBasicMaterial({ color: 0xFFFF00, wireframe: true, visible: false });
+    const hitbox = new THREE.Mesh(hitGeo, hitMat);
+    hitbox.userData.isVineHitbox = true;
+    group.add(hitbox);
+
+    group.userData.type = 'vine';
+    group.userData.isSwingable = true;
+    group.userData.vineLength = length;
+
+    return group;
+}

@@ -13,7 +13,8 @@ import {
     createSubwooferLotus, createAccordionPalm, createFiberOpticWillow,
     createMushroom, createWaterfall, createFireflies, updateFireflies,
     initFallingBerries, updateFallingBerries, collectFallingBerries,
-    createVibratoViolet, createTremoloTulip, createKickDrumGeyser
+    createVibratoViolet, createTremoloTulip, createKickDrumGeyser,
+    VineSwing, createSwingableVine
 } from './foliage.js';
 import { createSky, uSkyTopColor, uSkyBottomColor } from './sky.js';
 import { createStars, uStarPulse, uStarColor } from './stars.js';
@@ -175,6 +176,10 @@ const worldGroup = new THREE.Group();
 scene.add(worldGroup);
 const obstacles = [];
 const animatedFoliage = [];
+const vineSwings = []; // Managers for swing physics
+let activeVineSwing = null; // Current vine player is attached to
+let lastVineDetachTime = 0; // Debounce re-attach
+
 const foliageGroup = new THREE.Group();
 worldGroup.add(foliageGroup);
 
@@ -275,6 +280,23 @@ function spawnCluster(cx, cz, type) {
 
             plant.position.set(x, y, z);
             safeAddFoliage(plant, true, 1.0);
+        }
+
+        // Add Swingable Vines hanging from "canopy" (invisible or implied)
+        const vineCount = 3;
+        for (let i = 0; i < vineCount; i++) {
+            const x = cx + (Math.random() - 0.5) * 15;
+            const z = cz + (Math.random() - 0.5) * 15;
+            // High anchor point
+            const y = getGroundHeight(x, z) + 15 + Math.random() * 5;
+
+            const vine = createSwingableVine({ length: 12 + Math.random() * 4 });
+            vine.position.set(x, y, z);
+            safeAddFoliage(vine);
+
+            // Create Physics Manager
+            const swingManager = new VineSwing(vine, vine.userData.vineLength);
+            vineSwings.push(swingManager);
         }
     }
 
@@ -926,43 +948,91 @@ function animate() {
     // Energy decays slowly over time
     player.energy = Math.max(0, player.energy - delta * 0.1);
 
+    // Update all vine visuals (swinging in wind or physics)
+    vineSwings.forEach(v => {
+        if (v !== activeVineSwing) {
+            v.update(camera, delta, null);
+        }
+    });
+
     // Player Movement
     if (controls.isLocked) {
-        let moveSpeed = player.speed;
-        if (keyStates.sprint) moveSpeed = player.sprintSpeed;
-        if (keyStates.sneak) moveSpeed = player.sneakSpeed;
+        // --- VINE SWINGING LOGIC ---
+        if (activeVineSwing) {
+            // Player is attached to a vine
+            activeVineSwing.update(camera, delta, keyStates);
 
-        const targetVelocity = new THREE.Vector3();
-        if (keyStates.forward) targetVelocity.z += moveSpeed;
-        if (keyStates.backward) targetVelocity.z -= moveSpeed;
-        if (keyStates.left) targetVelocity.x -= moveSpeed;
-        if (keyStates.right) targetVelocity.x += moveSpeed;
+            // Detach if Jump is pressed
+            if (keyStates.jump) {
+                lastVineDetachTime = activeVineSwing.detach(player); // Update physics velocity
+                activeVineSwing = null;
+                keyStates.jump = false; // Consume jump
+            }
+        } else {
+            // Check for Vine Attachment
+            // If in air and close to a vine anchor line
+            if (Date.now() - lastVineDetachTime > 500) { // 500ms cooldown
+                const playerPos = camera.position;
+                for (const vineManager of vineSwings) {
+                    // Check horizontal distance to anchor
+                    const dx = playerPos.x - vineManager.anchorPoint.x;
+                    const dz = playerPos.z - vineManager.anchorPoint.z;
+                    const distH = Math.sqrt(dx*dx + dz*dz);
 
-        if (targetVelocity.lengthSq() > 0) {
-            targetVelocity.normalize().multiplyScalar(moveSpeed);
+                    // Check vertical range (between anchor and tip)
+                    const tipY = vineManager.anchorPoint.y - vineManager.length;
+
+                    if (distH < 2.0 && playerPos.y < vineManager.anchorPoint.y && playerPos.y > tipY) {
+                         // Auto-attach if falling or holding jump?
+                         // Let's require holding SPACE or getting very close
+                         if (distH < 1.0) {
+                             vineManager.attach(camera, player.velocity);
+                             activeVineSwing = vineManager;
+                             break;
+                         }
+                    }
+                }
+            }
+
+            // Standard Movement
+            let moveSpeed = player.speed;
+            if (keyStates.sprint) moveSpeed = player.sprintSpeed;
+            if (keyStates.sneak) moveSpeed = player.sneakSpeed;
+
+            const targetVelocity = new THREE.Vector3();
+            if (keyStates.forward) targetVelocity.z += moveSpeed;
+            if (keyStates.backward) targetVelocity.z -= moveSpeed;
+            if (keyStates.left) targetVelocity.x -= moveSpeed;
+            if (keyStates.right) targetVelocity.x += moveSpeed;
+
+            if (targetVelocity.lengthSq() > 0) {
+                targetVelocity.normalize().multiplyScalar(moveSpeed);
+            }
+
+            // Apply BPM Wind effect to player movement (from plan.md - BPM Wind)
+            // Wind affects jump trajectory and horizontal movement
+            const windEffect = bpmWind.strength * 2.0; // Scale wind effect
+            targetVelocity.x += bpmWind.direction.x * windEffect;
+            targetVelocity.z += bpmWind.direction.z * windEffect;
+
+            const smoothing = Math.min(1.0, 15.0 * delta);
+            player.velocity.x += (targetVelocity.x - player.velocity.x) * smoothing;
+            player.velocity.z += (targetVelocity.z - player.velocity.z) * smoothing;
+
+            player.velocity.y -= player.gravity * delta;
+
+            if (isNaN(player.velocity.x) || isNaN(player.velocity.z) || isNaN(player.velocity.y)) {
+                player.velocity.set(0, 0, 0);
+            }
+
+            controls.moveRight(player.velocity.x * delta);
+            controls.moveForward(player.velocity.z * delta);
         }
-
-        // Apply BPM Wind effect to player movement (from plan.md - BPM Wind)
-        // Wind affects jump trajectory and horizontal movement
-        const windEffect = bpmWind.strength * 2.0; // Scale wind effect
-        targetVelocity.x += bpmWind.direction.x * windEffect;
-        targetVelocity.z += bpmWind.direction.z * windEffect;
-
-        const smoothing = Math.min(1.0, 15.0 * delta);
-        player.velocity.x += (targetVelocity.x - player.velocity.x) * smoothing;
-        player.velocity.z += (targetVelocity.z - player.velocity.z) * smoothing;
-
-        player.velocity.y -= player.gravity * delta;
-
-        if (isNaN(player.velocity.x) || isNaN(player.velocity.z) || isNaN(player.velocity.y)) {
-            player.velocity.set(0, 0, 0);
-        }
-
-        controls.moveRight(player.velocity.x * delta);
-        controls.moveForward(player.velocity.z * delta);
 
         // --- PHYSICS & COLLISION ---
-        const groundY = getGroundHeight(camera.position.x, camera.position.z);
+        // Only apply collision if not on vine (vine handles position)
+        if (!activeVineSwing) {
+            const groundY = getGroundHeight(camera.position.x, camera.position.z);
 
         // 1. Cloud Walking (Raycast-like check + simple box)
         let cloudY = -Infinity;
@@ -1005,19 +1075,20 @@ function animate() {
         // Determine effective ground
         const safeGroundY = Math.max(isNaN(groundY) ? 0 : groundY, cloudY);
 
-        // Landing Logic
-        if (camera.position.y < safeGroundY + 1.8 && player.velocity.y <= 0) {
-            camera.position.y = safeGroundY + 1.8;
-            player.velocity.y = 0;
-            if (keyStates.jump) {
-                // Base jump + energy bonus (up to +50% at max energy)
-                const energyBonus = 1 + (player.energy / player.maxEnergy) * 0.5;
-                player.velocity.y = 10 * energyBonus;
-                // Bonus jump height on clouds
-                if (cloudY > groundY) player.velocity.y = 15 * energyBonus;
+            // Landing Logic
+            if (camera.position.y < safeGroundY + 1.8 && player.velocity.y <= 0) {
+                camera.position.y = safeGroundY + 1.8;
+                player.velocity.y = 0;
+                if (keyStates.jump) {
+                    // Base jump + energy bonus (up to +50% at max energy)
+                    const energyBonus = 1 + (player.energy / player.maxEnergy) * 0.5;
+                    player.velocity.y = 10 * energyBonus;
+                    // Bonus jump height on clouds
+                    if (cloudY > groundY) player.velocity.y = 15 * energyBonus;
+                }
+            } else {
+                camera.position.y += player.velocity.y * delta;
             }
-        } else {
-            camera.position.y += player.velocity.y * delta;
         }
     }
 
