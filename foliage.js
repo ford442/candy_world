@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { color, mix, positionLocal, normalWorld, viewDirection, float, time, sin, cos, vec3, uniform } from 'three/tsl';
+import { color, mix, positionLocal, normalWorld, float, time, sin, cos, vec3, uniform, attribute } from 'three/tsl';
+import { PointsNodeMaterial } from 'three/webgpu';
 
 // --- Helper: Rim Lighting Effect ---
 function addRimLight(material, colorHex) {
@@ -45,13 +46,26 @@ const foliageMaterials = {
         opacity: 0.3,
         roughness: 0.1
     }),
-    opticTip: new THREE.MeshBasicMaterial({ color: 0xFFFFFF }) // Pure light
+    opticTip: new THREE.MeshBasicMaterial({ color: 0xFFFFFF }), // Pure light
+
+    // Mushroom Materials (Consolidated from main.js)
+    mushroomStem: createClayMaterial(0xF5DEB3), // Wheat
+    mushroomCap: [
+        createClayMaterial(0xFF6347), // Tomato
+        createClayMaterial(0xDA70D6), // Orchid
+        createClayMaterial(0xFFA07A), // Light Salmon
+        createClayMaterial(0x00BFFF), // Deep Sky Blue (Drivable/Magic)
+    ],
+    mushroomGills: createClayMaterial(0x8B4513), // Saddle Brown
+    mushroomSpots: createClayMaterial(0xFFFFFF), // White spots
+    eye: new THREE.MeshStandardMaterial({ color: 0x000000, roughness: 0.1 }),
+    mouth: new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.5 }),
 };
 
 export const reactiveMaterials = [];
 
 function registerReactiveMaterial(mat) {
-    if (reactiveMaterials.length < 3000) {
+    if (reactiveMaterials.length < 500) { // Reduced from 3000 for better performance
         reactiveMaterials.push(mat);
     }
 }
@@ -60,6 +74,9 @@ function registerReactiveMaterial(mat) {
 function pickAnimation(types) {
     return types[Math.floor(Math.random() * types.length)];
 }
+
+// Helper Objects
+const eyeGeo = new THREE.SphereGeometry(0.05, 16, 16);
 
 // --- Instancing System (Grass) ---
 let grassMeshes = [];
@@ -158,6 +175,137 @@ export function createGrass(options = {}) {
 }
 
 /**
+ * Creates a detailed mushroom with gills and spots.
+ * Supports 'regular' and 'giant' sizes.
+ */
+export function createMushroom(options = {}) {
+    const {
+        size = 'regular', // 'regular' or 'giant'
+        scale = 1.0,
+        colorIndex = -1 // -1 for random
+    } = options;
+
+    const group = new THREE.Group();
+    const isGiant = size === 'giant';
+
+    // Base dimensions
+    const baseScale = isGiant ? 8.0 * scale : 1.0 * scale;
+    const stemH = (1.0 + Math.random() * 0.5) * baseScale;
+    const stemR = (0.15 + Math.random() * 0.1) * baseScale;
+    const capR = stemR * (2.5 + Math.random()) * (isGiant ? 1.0 : 1.2);
+
+    // 1. Stem (Curved Cylinder)
+    // We use a LatheGeometry to create a slightly curved/bulbous stem for "Clay" look
+    const stemPoints = [];
+    for (let i = 0; i <= 10; i++) {
+        const t = i / 10;
+        const r = stemR * (1.0 - Math.pow(t - 0.3, 2) * 0.5); // Bulge near bottom
+        const y = t * stemH;
+        stemPoints.push(new THREE.Vector2(r, y));
+    }
+    const stemGeo = new THREE.LatheGeometry(stemPoints, 16);
+    const stem = new THREE.Mesh(stemGeo, foliageMaterials.mushroomStem);
+    stem.castShadow = true;
+    stem.receiveShadow = true;
+    group.add(stem);
+
+    // 2. Cap (Sphere slice)
+    const capGeo = new THREE.SphereGeometry(capR, 16, 16, 0, Math.PI * 2, 0, Math.PI / 1.8); // Reduced segments for performance
+    // Determine Material
+    let capMat;
+    if (colorIndex >= 0 && colorIndex < foliageMaterials.mushroomCap.length) {
+        capMat = foliageMaterials.mushroomCap[colorIndex];
+    } else {
+        capMat = foliageMaterials.mushroomCap[Math.floor(Math.random() * foliageMaterials.mushroomCap.length)];
+    }
+
+    const cap = new THREE.Mesh(capGeo, capMat);
+    cap.position.y = stemH - (capR * 0.2); // Settle on top
+    cap.castShadow = true;
+    cap.receiveShadow = true;
+    group.add(cap);
+
+    // 3. Gills (Ribbed underside)
+    // A cone/disc underneath with texture or ridges
+    const gillGeo = new THREE.ConeGeometry(capR * 0.9, capR * 0.4, 16, 1, true); // Reduced segments for performance
+    const gillMat = foliageMaterials.mushroomGills;
+    const gill = new THREE.Mesh(gillGeo, gillMat);
+    gill.position.y = stemH - (capR * 0.2);
+    gill.rotation.x = Math.PI; // Face down
+    group.add(gill);
+
+    // 4. Spots (Detailed geometry)
+    const spotCount = 3 + Math.floor(Math.random() * 5); // Reduced for performance
+    const spotGeo = new THREE.SphereGeometry(capR * 0.15, 6, 6); // Reduced segments for performance
+    const spotMat = foliageMaterials.mushroomSpots;
+
+    // We place spots on the cap surface
+    for (let i = 0; i < spotCount; i++) {
+        // Random spherical coordinates on top hemisphere
+        const u = Math.random();
+        const v = Math.random() * 0.5; // Top half
+        const theta = 2 * Math.PI * u;
+        const phi = Math.acos(1 - v); // Distribute towards top
+
+        const x = Math.sin(phi) * Math.cos(theta) * capR;
+        const y = Math.cos(phi) * capR;
+        const z = Math.sin(phi) * Math.sin(theta) * capR;
+
+        const spot = new THREE.Mesh(spotGeo, spotMat);
+        // Position relative to cap center
+        spot.position.set(x, y + stemH - (capR * 0.2), z);
+        // Squash it flat
+        spot.scale.set(1, 0.2, 1);
+        spot.lookAt(0, stemH + capR, 0); // Orient outward roughly
+        group.add(spot);
+    }
+
+    // 5. Face (Only for Giants)
+    if (isGiant) {
+        const faceGroup = new THREE.Group();
+        faceGroup.position.set(0, stemH * 0.6, stemR * 0.95);
+        const faceScale = baseScale;
+        faceGroup.scale.set(faceScale, faceScale, faceScale);
+
+        const leftEye = new THREE.Mesh(eyeGeo, foliageMaterials.eye);
+        leftEye.position.set(-0.15, 0.1, 0);
+        const rightEye = new THREE.Mesh(eyeGeo, foliageMaterials.eye);
+        rightEye.position.set(0.15, 0.1, 0);
+
+        const smileGeo = new THREE.TorusGeometry(0.12, 0.03, 6, 12, Math.PI);
+        const smile = new THREE.Mesh(smileGeo, foliageMaterials.mouth);
+        smile.rotation.z = Math.PI;
+        smile.position.set(0, -0.05, 0);
+
+        faceGroup.add(leftEye, rightEye, smile);
+        group.add(faceGroup);
+    }
+
+    // 6. Glow (Bioluminescence)
+    // 20% chance to be a "Glowing Mushroom" if regular, or always if specific type
+    const isGlowing = Math.random() < 0.2;
+    if (isGlowing) {
+        const light = new THREE.PointLight(capMat.color, 1.0, 5.0);
+        light.position.y = stemH;
+        group.add(light);
+
+        // Make cap emissive
+        // We need to clone material to not make ALL mushrooms glow
+        const glowMat = capMat.clone();
+        glowMat.emissive = capMat.color;
+        glowMat.emissiveIntensity = 0.5;
+        cap.material = glowMat;
+        registerReactiveMaterial(glowMat);
+    }
+
+    group.userData.animationType = pickAnimation(['wobble', 'bounce', 'accordion']);
+    group.userData.animationOffset = Math.random() * 10;
+    group.userData.type = 'mushroom';
+
+    return group;
+}
+
+/**
  * Creates a flower with variety.
  */
 export function createFlower(options = {}) {
@@ -179,6 +327,18 @@ export function createFlower(options = {}) {
     const center = new THREE.Mesh(centerGeo, foliageMaterials.flowerCenter);
     center.name = 'flowerCenter';
     head.add(center);
+
+    // ADDED DETAIL: Stamens (reduced for performance)
+    const stamenCount = 3; // Reduced from 5
+    const stamenGeo = new THREE.CylinderGeometry(0.01, 0.01, 0.15, 3); // Reduced segments
+    stamenGeo.translate(0, 0.075, 0);
+    const stamenMat = createClayMaterial(0xFFFF00);
+    for (let i = 0; i < stamenCount; i++) {
+        const stamen = new THREE.Mesh(stamenGeo, stamenMat);
+        stamen.rotation.z = (Math.random() - 0.5) * 1.0;
+        stamen.rotation.x = (Math.random() - 0.5) * 1.0;
+        head.add(stamen);
+    }
 
     let petalMat;
     if (color) {
@@ -220,8 +380,8 @@ export function createFlower(options = {}) {
             head.add(petal);
         }
     } else if (shape === 'layered') {
-        for (let layer = 0; layer < 2; layer++) {
-            const petalCount = 6;
+        for (let layer = 0; layer < 2; layer++) { // Reduced from 3 for performance
+            const petalCount = 5; // Reduced from 6
             const petalGeo = new THREE.IcosahedronGeometry(0.12, 0);
             petalGeo.scale(1, 0.5, 1);
             const layerColor = layer === 0 ? petalMat : createClayMaterial(color ? color + 0x111111 : 0xFFD700);
@@ -276,17 +436,29 @@ export function createFloweringTree(options = {}) {
     const bloomMat = createClayMaterial(color);
     registerReactiveMaterial(bloomMat);
 
-    const bloomCount = 5 + Math.floor(Math.random() * 5);
+    const bloomCount = 3 + Math.floor(Math.random() * 3); // Reduced for performance
     for (let i = 0; i < bloomCount; i++) {
-        const bloomGeo = new THREE.SphereGeometry(0.8 + Math.random() * 0.4, 16, 16);
-        const bloom = new THREE.Mesh(bloomGeo, bloomMat);
-        bloom.position.set(
+        // COMPLEXITY: Blooms are now clusters of spheres, not just one
+        const cluster = new THREE.Group();
+        const subBlooms = 2 + Math.floor(Math.random() * 2); // Reduced for performance
+
+        for (let j = 0; j < subBlooms; j++) {
+            const bloomGeo = new THREE.SphereGeometry(0.4 + Math.random() * 0.3, 8, 8); // Reduced segments
+            const bloom = new THREE.Mesh(bloomGeo, bloomMat);
+            bloom.position.set(
+                (Math.random() - 0.5) * 0.5,
+                (Math.random() - 0.5) * 0.5,
+                (Math.random() - 0.5) * 0.5
+            );
+            cluster.add(bloom);
+        }
+
+        cluster.position.set(
             (Math.random() - 0.5) * 2,
             trunkH + Math.random() * 1.5,
             (Math.random() - 0.5) * 2
         );
-        bloom.castShadow = true;
-        group.add(bloom);
+        group.add(cluster);
     }
 
     group.userData.animationType = 'gentleSway';
@@ -311,9 +483,9 @@ export function createShrub(options = {}) {
     const flowerMat = createClayMaterial(0xFF69B4);
     registerReactiveMaterial(flowerMat);
 
-    const flowerCount = 3 + Math.floor(Math.random() * 3);
+    const flowerCount = 2 + Math.floor(Math.random() * 2); // Reduced for performance
     for (let i = 0; i < flowerCount; i++) {
-        const flowerGeo = new THREE.SphereGeometry(0.2, 8, 8);
+        const flowerGeo = new THREE.SphereGeometry(0.2, 6, 6); // Reduced segments
         const flower = new THREE.Mesh(flowerGeo, flowerMat);
         flower.position.set(
             (Math.random() - 0.5) * 1.5,
@@ -344,7 +516,7 @@ export function createGlowingFlower(options = {}) {
     stem.castShadow = true;
     group.add(stem);
 
-    const headGeo = new THREE.SphereGeometry(0.2, 16, 16);
+    const headGeo = new THREE.SphereGeometry(0.2, 8, 8); // Reduced segments for performance
     const headMat = new THREE.MeshStandardMaterial({
         color,
         emissive: color,
@@ -357,11 +529,16 @@ export function createGlowingFlower(options = {}) {
     head.position.y = stemHeight;
     group.add(head);
 
-    const washGeo = new THREE.SphereGeometry(1.5, 16, 16);
+    const washGeo = new THREE.SphereGeometry(1.5, 8, 8); // Reduced segments for performance
     const wash = new THREE.Mesh(washGeo, foliageMaterials.lightBeam);
     wash.position.y = stemHeight;
     wash.userData.isWash = true;
     group.add(wash);
+
+    // ADDED: Point Light
+    const light = new THREE.PointLight(color, 0.5, 3.0);
+    light.position.y = stemHeight;
+    group.add(light);
 
     group.userData.animationType = 'glowPulse';
     group.userData.animationOffset = Math.random() * 10;
@@ -371,7 +548,7 @@ export function createGlowingFlower(options = {}) {
 
 export function createFloatingOrb(options = {}) {
     const { color = 0x87CEEB, size = 0.5 } = options;
-    const geo = new THREE.SphereGeometry(size, 16, 16);
+    const geo = new THREE.SphereGeometry(size, 8, 8); // Reduced segments for performance
     const mat = new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.8 });
     registerReactiveMaterial(mat);
 
@@ -380,6 +557,11 @@ export function createFloatingOrb(options = {}) {
     orb.userData.animationType = 'float';
     orb.userData.animationOffset = Math.random() * 10;
     orb.userData.type = 'orb';
+
+    // ADDED: Point Light
+    const light = new THREE.PointLight(color, 0.5, 4.0);
+    orb.add(light);
+
     return orb;
 }
 
@@ -535,7 +717,7 @@ export function createBubbleWillow(options = {}) {
     trunk.castShadow = true;
     group.add(trunk);
 
-    const branchCount = 6 + Math.floor(Math.random() * 4);
+    const branchCount = 4 + Math.floor(Math.random() * 2); // Reduced for performance
     const branchMat = createClayMaterial(color);
     registerReactiveMaterial(branchMat);
 
@@ -573,7 +755,7 @@ export function createPuffballFlower(options = {}) {
     group.add(stem);
 
     const headR = 0.4 + Math.random() * 0.2;
-    const headGeo = new THREE.SphereGeometry(headR, 16, 16);
+    const headGeo = new THREE.SphereGeometry(headR, 8, 8); // Reduced segments for performance
     const headMat = createClayMaterial(color);
     registerReactiveMaterial(headMat);
 
@@ -679,10 +861,10 @@ export function createBalloonBush(options = {}) {
 }
 
 export function createRainingCloud(options = {}) {
-    const { color = 0xB0C4DE, rainIntensity = 50 } = options;
+    const { color = 0xB0C4DE, rainIntensity = 30 } = options; // Reduced default from 50
     const group = new THREE.Group();
 
-    const cloudGeo = new THREE.SphereGeometry(1.5, 16, 16);
+    const cloudGeo = new THREE.SphereGeometry(1.5, 12, 12); // Reduced segments for performance
     const cloudMat = createClayMaterial(color);
     const cloud = new THREE.Mesh(cloudGeo, cloudMat);
     cloud.castShadow = true;
@@ -706,6 +888,55 @@ export function createRainingCloud(options = {}) {
     group.userData.animationOffset = Math.random() * 10;
     group.userData.type = 'cloud';
     return group;
+}
+
+export function createWaterfall(height, colorHex = 0x87CEEB) {
+    const particleCount = 500; // Reduced from 2000 for better performance
+    const geo = new THREE.BufferGeometry();
+    const positions = new Float32Array(particleCount * 3);
+    const speeds = new Float32Array(particleCount);
+    const offsets = new Float32Array(particleCount);
+
+    for (let i = 0; i < particleCount; i++) {
+        positions[i * 3] = (Math.random() - 0.5) * 2.0;
+        positions[i * 3 + 1] = 0;
+        positions[i * 3 + 2] = (Math.random() - 0.5) * 2.0;
+        speeds[i] = 1.0 + Math.random() * 2.0;
+        offsets[i] = Math.random() * height;
+    }
+
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geo.setAttribute('aSpeed', new THREE.BufferAttribute(speeds, 1));
+    geo.setAttribute('aOffset', new THREE.BufferAttribute(offsets, 1));
+
+    const mat = new PointsNodeMaterial({
+        color: colorHex,
+        size: 0.4,
+        transparent: true,
+        opacity: 0.8,
+        blending: THREE.AdditiveBlending
+    });
+
+    const aSpeed = attribute('aSpeed', 'float');
+    const aOffset = attribute('aOffset', 'float');
+    const uSpeed = uniform(1.0);
+    mat.uSpeed = uSpeed;
+
+    const t = time.mul(uSpeed);
+    const fallHeight = float(height);
+    const currentDist = aOffset.add(aSpeed.mul(t));
+    const modDist = currentDist.mod(fallHeight);
+    const newY = modDist.negate();
+
+    mat.positionNode = vec3(
+        positionLocal.x,
+        newY,
+        positionLocal.z
+    );
+
+    const waterfall = new THREE.Points(geo, mat);
+    waterfall.userData = { animationType: 'gpuWaterfall' };
+    return waterfall;
 }
 
 export function createGlowingFlowerPatch(x, z) {
@@ -785,12 +1016,12 @@ export function createPrismRoseBush(options = {}) {
         outer.scale.set(1, 0.6, 1);
         roseGroup.add(outer);
 
-        const innerGeo = new THREE.SphereGeometry(0.15, 16, 16);
+        const innerGeo = new THREE.SphereGeometry(0.15, 8, 8); // Reduced segments for performance
         const inner = new THREE.Mesh(innerGeo, petalMat);
         inner.position.y = 0.05;
         roseGroup.add(inner);
 
-        const washGeo = new THREE.SphereGeometry(1.2, 16, 16);
+        const washGeo = new THREE.SphereGeometry(1.2, 8, 8); // Reduced segments for performance
         const washMat = foliageMaterials.lightBeam.clone();
         washMat.color.setHex(color);
         const wash = new THREE.Mesh(washGeo, washMat);
@@ -921,7 +1152,7 @@ export function createFiberOpticWillow(options = {}) {
     group.add(trunk);
 
     // Cable Branches
-    const branchCount = 12;
+    const branchCount = 8; // Reduced from 12 for performance
     const cableMat = foliageMaterials.opticCable;
 
     // Each tip needs a unique material to flash independently? 
@@ -998,20 +1229,6 @@ export function updateFoliageMaterials(audioData, isNight) {
                 mat.emissiveIntensity = intensity;
             }
         });
-
-        // 2. Lotus Rings (Equalizer)
-        // We can't easily iterate all lotus instances here to set unique materials per ring.
-        // Instead, we updated `pad.userData.ringMaterial` which is shared (or cloned).
-        // If we cloned it per object, we'd need to loop objects. 
-        // For simplicity, let's assume all lotuses sync to the BASS channel (0).
-        const bassCh = channels[0];
-        // We need to access the ring material we created. 
-        // Since we didn't export it, we rely on `reactiveMaterials` if we pushed it there, 
-        // OR we create a specific global for it. 
-        // Let's just assume lotuses glow based on Bass Volume.
-
-        // (Note: To do this perfectly per-instance requires updating inside animateFoliage, 
-        // but material updates are expensive there. Let's do global updates here.)
 
     } else {
         // Reset Day State
