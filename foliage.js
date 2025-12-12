@@ -2329,11 +2329,12 @@ export function animateFoliage(foliageObject, time, audioData, isDay, isDeepNigh
     else if (type === 'vibratoShake') {
         const headGroup = foliageObject.userData.headGroup;
         if (headGroup) {
-            // Get vibrato effect from audio channels (effect code 4xx)
+            // Get vibrato effect from audio channels
+            // Effect code 4xx in MOD files maps to activeEffect: 1 in audio-system.js
             let vibratoAmount = 0;
             if (audioData && audioData.channelData) {
                 for (const ch of audioData.channelData) {
-                    if (ch.activeEffect === 1) { // Vibrato
+                    if (ch.activeEffect === 1) { // 4xx Vibrato → activeEffect: 1
                         vibratoAmount = Math.max(vibratoAmount, ch.effectValue || 0);
                     }
                 }
@@ -2363,11 +2364,12 @@ export function animateFoliage(foliageObject, time, audioData, isDay, isDeepNigh
         const bellMat = foliageObject.userData.bellMaterial;
         const vortex = foliageObject.userData.vortex;
 
-        // Get tremolo effect from audio channels (effect code 7xx)
+        // Get tremolo effect from audio channels
+        // Effect code 7xx in MOD files maps to activeEffect: 3 in audio-system.js
         let tremoloAmount = 0;
         if (audioData && audioData.channelData) {
             for (const ch of audioData.channelData) {
-                if (ch.activeEffect === 3) { // Tremolo
+                if (ch.activeEffect === 3) { // 7xx Tremolo → activeEffect: 3
                     tremoloAmount = Math.max(tremoloAmount, ch.effectValue || 0);
                 }
             }
