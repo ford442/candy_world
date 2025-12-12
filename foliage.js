@@ -1793,6 +1793,232 @@ export function createFiberOpticWillow(options = {}) {
     return group;
 }
 
+/**
+ * 4. Vibrato Violets
+ * Bioluminescent flowers with vibrating membrane petals that shake with audio vibrato.
+ * From plan.md Category 1: Melodic Flora
+ */
+export function createVibratoViolet(options = {}) {
+    const { color = 0x8A2BE2, intensity = 1.0 } = options; // Blue Violet default
+    const group = new THREE.Group();
+
+    // Stem
+    const stemH = 0.5 + Math.random() * 0.3;
+    const stemGeo = new THREE.CylinderGeometry(0.03, 0.04, stemH, 8);
+    stemGeo.translate(0, stemH / 2, 0);
+    const stem = new THREE.Mesh(stemGeo, createClayMaterial(0x228B22));
+    stem.castShadow = true;
+    group.add(stem);
+
+    // Flower head group (will vibrate)
+    const headGroup = new THREE.Group();
+    headGroup.position.y = stemH;
+    group.add(headGroup);
+
+    // Center - bioluminescent core
+    const centerGeo = new THREE.SphereGeometry(0.08, 12, 12);
+    const centerMat = new THREE.MeshStandardMaterial({
+        color: color,
+        emissive: color,
+        emissiveIntensity: 0.8 * intensity,
+        roughness: 0.3
+    });
+    registerReactiveMaterial(centerMat);
+    const center = new THREE.Mesh(centerGeo, centerMat);
+    headGroup.add(center);
+
+    // Membrane petals (thin, translucent, will vibrate)
+    const petalCount = 5;
+    const petalGeo = new THREE.CircleGeometry(0.15, 8);
+    const petalMat = new THREE.MeshStandardMaterial({
+        color: color,
+        emissive: color,
+        emissiveIntensity: 0.4 * intensity,
+        roughness: 0.4,
+        transparent: true,
+        opacity: 0.7,
+        side: THREE.DoubleSide
+    });
+    registerReactiveMaterial(petalMat);
+
+    for (let i = 0; i < petalCount; i++) {
+        const petal = new THREE.Mesh(petalGeo, petalMat);
+        const angle = (i / petalCount) * Math.PI * 2;
+        petal.position.set(Math.cos(angle) * 0.12, 0, Math.sin(angle) * 0.12);
+        petal.rotation.x = -Math.PI / 2 + Math.random() * 0.3;
+        petal.rotation.z = angle;
+        petal.userData.vibratoPhase = Math.random() * Math.PI * 2;
+        headGroup.add(petal);
+    }
+
+    // Add a subtle point light for glow
+    const light = new THREE.PointLight(color, 0.3 * intensity, 2.0);
+    light.position.y = 0;
+    headGroup.add(light);
+
+    group.userData.animationType = 'vibratoShake';
+    group.userData.animationOffset = Math.random() * 10;
+    group.userData.type = 'vibratoViolet';
+    group.userData.headGroup = headGroup;
+
+    return group;
+}
+
+/**
+ * 5. Tremolo Tulips
+ * Tall bell flowers that pulse scale and opacity with audio tremolo.
+ * From plan.md Category 1: Melodic Flora
+ */
+export function createTremoloTulip(options = {}) {
+    const { color = 0xFF6347, size = 1.0 } = options; // Tomato color default
+    const group = new THREE.Group();
+
+    // Stem
+    const stemH = (0.8 + Math.random() * 0.4) * size;
+    const stemGeo = new THREE.CylinderGeometry(0.04, 0.06, stemH, 8);
+    stemGeo.translate(0, stemH / 2, 0);
+    const stem = new THREE.Mesh(stemGeo, createClayMaterial(0x228B22));
+    stem.castShadow = true;
+    group.add(stem);
+
+    // Bell-shaped flower head (will pulse)
+    const headGroup = new THREE.Group();
+    headGroup.position.y = stemH;
+    group.add(headGroup);
+
+    // Bell geometry - inverted cone
+    const bellGeo = new THREE.CylinderGeometry(0.2 * size, 0.05 * size, 0.25 * size, 12, 1, true);
+    bellGeo.translate(0, -0.125 * size, 0);
+    const bellMat = new THREE.MeshStandardMaterial({
+        color: color,
+        emissive: color,
+        emissiveIntensity: 0.3,
+        roughness: 0.5,
+        transparent: true,
+        opacity: 0.9,
+        side: THREE.DoubleSide
+    });
+    registerReactiveMaterial(bellMat);
+    const bell = new THREE.Mesh(bellGeo, bellMat);
+    bell.rotation.x = Math.PI; // Flip to face down
+    headGroup.add(bell);
+
+    // Inner vortex light (stores/expels energy per plan.md)
+    const vortexGeo = new THREE.SphereGeometry(0.08 * size, 8, 8);
+    const vortexMat = new THREE.MeshBasicMaterial({
+        color: 0xFFFFFF,
+        transparent: true,
+        opacity: 0.5,
+        blending: THREE.AdditiveBlending
+    });
+    const vortex = new THREE.Mesh(vortexGeo, vortexMat);
+    vortex.position.y = -0.1 * size;
+    headGroup.add(vortex);
+    group.userData.vortex = vortex;
+
+    // Rim lighting effect - subtle glow ring
+    const rimGeo = new THREE.TorusGeometry(0.2 * size, 0.02, 8, 16);
+    const rimMat = new THREE.MeshBasicMaterial({
+        color: color,
+        transparent: true,
+        opacity: 0.6,
+        blending: THREE.AdditiveBlending
+    });
+    const rim = new THREE.Mesh(rimGeo, rimMat);
+    rim.rotation.x = Math.PI / 2;
+    rim.position.y = -0.02 * size;
+    headGroup.add(rim);
+
+    group.userData.animationType = 'tremeloPulse';
+    group.userData.animationOffset = Math.random() * 10;
+    group.userData.type = 'tremoloTulip';
+    group.userData.headGroup = headGroup;
+    group.userData.bellMaterial = bellMat;
+
+    return group;
+}
+
+/**
+ * 6. Kick-Drum Geysers
+ * Fissures that vent gas/plasma with force scaled by kick drum velocity.
+ * From plan.md Category 2: Rhythmic Structures
+ */
+export function createKickDrumGeyser(options = {}) {
+    const { color = 0xFF4500, maxHeight = 5.0 } = options; // Orange-red default
+    const group = new THREE.Group();
+
+    // Base fissure (crack in ground)
+    const baseGeo = new THREE.RingGeometry(0.1, 0.4, 8, 1);
+    baseGeo.rotateX(-Math.PI / 2);
+    const baseMat = new THREE.MeshStandardMaterial({
+        color: 0x1A0A00,
+        roughness: 0.9,
+        emissive: color,
+        emissiveIntensity: 0.1
+    });
+    const base = new THREE.Mesh(baseGeo, baseMat);
+    group.add(base);
+
+    // Glowing inner core
+    const coreGeo = new THREE.CylinderGeometry(0.08, 0.12, 0.1, 8);
+    coreGeo.translate(0, -0.05, 0);
+    const coreMat = new THREE.MeshStandardMaterial({
+        color: color,
+        emissive: color,
+        emissiveIntensity: 0.8,
+        roughness: 0.3
+    });
+    registerReactiveMaterial(coreMat);
+    const core = new THREE.Mesh(coreGeo, coreMat);
+    group.add(core);
+
+    // Plume particle system (will be animated)
+    const plumeCount = 50;
+    const plumeGeo = new THREE.BufferGeometry();
+    const positions = new Float32Array(plumeCount * 3);
+    const velocities = new Float32Array(plumeCount);
+
+    for (let i = 0; i < plumeCount; i++) {
+        // Start at base
+        positions[i * 3] = (Math.random() - 0.5) * 0.2;
+        positions[i * 3 + 1] = 0;
+        positions[i * 3 + 2] = (Math.random() - 0.5) * 0.2;
+        velocities[i] = 0.5 + Math.random() * 0.5;
+    }
+
+    plumeGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    plumeGeo.setAttribute('velocity', new THREE.BufferAttribute(velocities, 1));
+
+    const plumeMat = new THREE.PointsMaterial({
+        color: color,
+        size: 0.15,
+        transparent: true,
+        opacity: 0.8,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+    });
+
+    const plume = new THREE.Points(plumeGeo, plumeMat);
+    plume.visible = false; // Start hidden, show on kick
+    group.add(plume);
+
+    // Point light for eruption glow
+    const light = new THREE.PointLight(color, 0, 5.0);
+    light.position.y = 1;
+    group.add(light);
+
+    group.userData.animationType = 'geyserErupt';
+    group.userData.animationOffset = Math.random() * 10;
+    group.userData.type = 'geyser';
+    group.userData.plume = plume;
+    group.userData.plumeLight = light;
+    group.userData.coreMaterial = coreMat;
+    group.userData.maxHeight = maxHeight;
+    group.userData.eruptionStrength = 0; // Current eruption power (0-1)
+
+    return group;
+}
+
 // --- UPDATED ANIMATION LOGIC ---
 // freqToHue is now imported from wasm-loader.js (WASM with JS fallback)
 
@@ -2097,6 +2323,150 @@ export function animateFoliage(foliageObject, time, audioData, isDay, isDeepNigh
         foliageObject.position.y = y + Math.sin(time * 0.5 + offset) * 0.3;
         // Slight rotation drift
         foliageObject.rotation.y = Math.sin(time * 0.2 + offset * 0.5) * 0.05;
+    }
+
+    // --- 4. Vibrato Shake (Vibrato Violets) ---
+    else if (type === 'vibratoShake') {
+        const headGroup = foliageObject.userData.headGroup;
+        if (headGroup) {
+            // Get vibrato effect from audio channels
+            // Effect code 4xx in MOD files maps to activeEffect: 1 in audio-system.js
+            let vibratoAmount = 0;
+            if (audioData && audioData.channelData) {
+                for (const ch of audioData.channelData) {
+                    if (ch.activeEffect === 1) { // 4xx Vibrato → activeEffect: 1
+                        vibratoAmount = Math.max(vibratoAmount, ch.effectValue || 0);
+                    }
+                }
+            }
+            // Also react to general audio activity
+            vibratoAmount = Math.max(vibratoAmount, groove * 0.5);
+
+            // High-frequency shake for membrane petals
+            const shakeSpeed = 25 + vibratoAmount * 50;
+            const shakeAmount = 0.02 + vibratoAmount * 0.15;
+            
+            headGroup.children.forEach((child, i) => {
+                if (i === 0) return; // Skip center
+                const phase = child.userData.vibratoPhase || (i * 0.5);
+                child.rotation.x = -Math.PI / 2 + Math.sin(time * shakeSpeed + phase) * shakeAmount;
+                child.rotation.y = Math.cos(time * shakeSpeed * 0.7 + phase) * shakeAmount * 0.5;
+            });
+
+            // Gentle sway for whole head
+            headGroup.rotation.z = Math.sin(time * 2 + offset) * 0.05 * intensity;
+        }
+    }
+
+    // --- 5. Tremolo Pulse (Tremolo Tulips) ---
+    else if (type === 'tremeloPulse') {
+        const headGroup = foliageObject.userData.headGroup;
+        const bellMat = foliageObject.userData.bellMaterial;
+        const vortex = foliageObject.userData.vortex;
+
+        // Get tremolo effect from audio channels
+        // Effect code 7xx in MOD files maps to activeEffect: 3 in audio-system.js
+        let tremoloAmount = 0;
+        if (audioData && audioData.channelData) {
+            for (const ch of audioData.channelData) {
+                if (ch.activeEffect === 3) { // 7xx Tremolo → activeEffect: 3
+                    tremoloAmount = Math.max(tremoloAmount, ch.effectValue || 0);
+                }
+            }
+        }
+        // Also react to beat phase
+        tremoloAmount = Math.max(tremoloAmount, Math.sin(beatPhase * Math.PI * 2) * 0.3);
+
+        if (headGroup) {
+            // Pulse scale with tremolo
+            const pulseSpeed = 8 + tremoloAmount * 15;
+            const pulseAmount = 0.1 + tremoloAmount * 0.3;
+            const pulse = 1.0 + Math.sin(time * pulseSpeed + offset) * pulseAmount;
+            
+            headGroup.scale.set(pulse, pulse, pulse);
+            
+            // Pulse opacity
+            if (bellMat) {
+                bellMat.opacity = 0.7 + Math.sin(time * pulseSpeed + offset) * 0.2 * intensity;
+                bellMat.emissiveIntensity = 0.3 + tremoloAmount * 0.7;
+            }
+
+            // Vortex interior pulses inversely (stores energy at min, expels at max)
+            if (vortex) {
+                vortex.scale.setScalar(1.0 - Math.sin(time * pulseSpeed + offset) * 0.4);
+                vortex.material.opacity = 0.3 + Math.sin(time * pulseSpeed + offset + Math.PI) * 0.4;
+            }
+        }
+
+        // Gentle sway
+        foliageObject.rotation.z = Math.sin(time + offset) * 0.03 * intensity;
+    }
+
+    // --- 6. Geyser Eruption (Kick-Drum Geysers) ---
+    else if (type === 'geyserErupt') {
+        const plume = foliageObject.userData.plume;
+        const plumeLight = foliageObject.userData.plumeLight;
+        const coreMat = foliageObject.userData.coreMaterial;
+        const maxHeight = foliageObject.userData.maxHeight || 5.0;
+
+        // Eruption triggered by kick drum
+        const kickThreshold = 0.3;
+        let eruptionStrength = foliageObject.userData.eruptionStrength || 0;
+
+        if (kick > kickThreshold) {
+            // Trigger eruption based on kick strength
+            eruptionStrength = Math.min(1.0, eruptionStrength + kick * 0.5);
+        } else {
+            // Decay eruption
+            eruptionStrength = Math.max(0, eruptionStrength - 0.03);
+        }
+        foliageObject.userData.eruptionStrength = eruptionStrength;
+
+        // Show/hide plume based on eruption
+        if (plume) {
+            plume.visible = eruptionStrength > 0.05;
+
+            if (plume.visible && plume.geometry.attributes.position) {
+                const positions = plume.geometry.attributes.position.array;
+                const velocities = plume.geometry.attributes.velocity.array;
+                const currentMaxH = maxHeight * eruptionStrength;
+
+                for (let i = 0; i < positions.length / 3; i++) {
+                    const idx = i * 3;
+                    const vel = velocities[i];
+
+                    // Move particles upward
+                    positions[idx + 1] += vel * eruptionStrength * 0.3;
+
+                    // Add horizontal spread at height
+                    const heightRatio = positions[idx + 1] / currentMaxH;
+                    positions[idx] += (Math.random() - 0.5) * 0.02 * heightRatio;
+                    positions[idx + 2] += (Math.random() - 0.5) * 0.02 * heightRatio;
+
+                    // Reset if too high
+                    if (positions[idx + 1] > currentMaxH || positions[idx + 1] < 0) {
+                        positions[idx] = (Math.random() - 0.5) * 0.2;
+                        positions[idx + 1] = 0;
+                        positions[idx + 2] = (Math.random() - 0.5) * 0.2;
+                    }
+                }
+                plume.geometry.attributes.position.needsUpdate = true;
+            }
+
+            // Update plume material opacity
+            plume.material.opacity = 0.5 + eruptionStrength * 0.5;
+        }
+
+        // Update light intensity
+        if (plumeLight) {
+            plumeLight.intensity = eruptionStrength * 2.0;
+            plumeLight.position.y = 1 + eruptionStrength * maxHeight * 0.3;
+        }
+
+        // Core glow pulses with eruption
+        if (coreMat) {
+            coreMat.emissiveIntensity = 0.3 + eruptionStrength * 1.5 + Math.sin(time * 20) * 0.2 * eruptionStrength;
+        }
     }
 }
 

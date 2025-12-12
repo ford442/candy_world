@@ -12,7 +12,8 @@ import {
     createPrismRoseBush, initGrassSystem, addGrassInstance, updateFoliageMaterials,
     createSubwooferLotus, createAccordionPalm, createFiberOpticWillow,
     createMushroom, createWaterfall, createFireflies, updateFireflies,
-    initFallingBerries, updateFallingBerries, collectFallingBerries
+    initFallingBerries, updateFallingBerries, collectFallingBerries,
+    createVibratoViolet, createTremoloTulip, createKickDrumGeyser
 } from './foliage.js';
 import { createSky, uSkyTopColor, uSkyBottomColor } from './sky.js';
 import { createStars, uStarPulse, uStarColor } from './stars.js';
@@ -291,13 +292,72 @@ function spawnCluster(cx, cz, type) {
             safeAddFoliage(plant, true, 0.8);
         }
     }
+
+    // 5. Musical Meadow (Vibrato Violets, Tremolo Tulips, Kick-Drum Geysers)
+    // From plan.md - Musical ecosystem features
+    else if (type === 'musical_meadow') {
+        // Vibrato Violets (bioluminescent flowers with vibrating petals)
+        const violetCount = 8 + Math.floor(Math.random() * 6);
+        for (let i = 0; i < violetCount; i++) {
+            const x = cx + (Math.random() - 0.5) * 25;
+            const z = cz + (Math.random() - 0.5) * 25;
+            const y = getGroundHeight(x, z);
+
+            const violet = createVibratoViolet({
+                color: [0x8A2BE2, 0x9400D3, 0xBA55D3, 0x9932CC][Math.floor(Math.random() * 4)],
+                intensity: 0.8 + Math.random() * 0.4
+            });
+            violet.position.set(x, y, z);
+            violet.rotation.y = Math.random() * Math.PI * 2;
+            safeAddFoliage(violet, false, 0.3);
+        }
+
+        // Tremolo Tulips (pulsing bell flowers)
+        const tulipCount = 6 + Math.floor(Math.random() * 4);
+        for (let i = 0; i < tulipCount; i++) {
+            const x = cx + (Math.random() - 0.5) * 20;
+            const z = cz + (Math.random() - 0.5) * 20;
+            const y = getGroundHeight(x, z);
+
+            const tulip = createTremoloTulip({
+                color: [0xFF6347, 0xFF4500, 0xFFD700, 0xFF69B4][Math.floor(Math.random() * 4)],
+                size: 0.8 + Math.random() * 0.4
+            });
+            tulip.position.set(x, y, z);
+            tulip.rotation.y = Math.random() * Math.PI * 2;
+            safeAddFoliage(tulip, false, 0.4);
+        }
+
+        // Kick-Drum Geysers (rhythmic structures that erupt on kick)
+        const geyserCount = 2 + Math.floor(Math.random() * 2);
+        for (let i = 0; i < geyserCount; i++) {
+            const x = cx + (Math.random() - 0.5) * 15;
+            const z = cz + (Math.random() - 0.5) * 15;
+            const y = getGroundHeight(x, z);
+
+            const geyser = createKickDrumGeyser({
+                color: [0xFF4500, 0xFF6600, 0xFF8C00][Math.floor(Math.random() * 3)],
+                maxHeight: 4 + Math.random() * 3
+            });
+            geyser.position.set(x, y, z);
+            safeAddFoliage(geyser, true, 0.5);
+        }
+
+        // Add some grass for context
+        for (let i = 0; i < 15; i++) {
+            const x = cx + (Math.random() - 0.5) * 30;
+            const z = cz + (Math.random() - 0.5) * 30;
+            const y = getGroundHeight(x, z);
+            addGrassInstance(x, y, z);
+        }
+    }
 }
 
 // Generate the Map
 const SCENE_GRID_SIZE = 40; // Spacing between centers
 const SCENE_ROWS = 4; // Reduced from 6 for better performance
 const SCENE_COLS = 4; // Reduced from 6 for better performance
-const SCENE_TYPES = ['mushroom_forest', 'flower_field', 'weird_jungle', 'crystal_grove'];
+const SCENE_TYPES = ['mushroom_forest', 'flower_field', 'weird_jungle', 'crystal_grove', 'musical_meadow'];
 
 for (let r = -SCENE_ROWS / 2; r < SCENE_ROWS / 2; r++) {
     for (let c = -SCENE_COLS / 2; c < SCENE_COLS / 2; c++) {
@@ -413,6 +473,22 @@ const player = {
     gravity: 20.0,
     energy: 0.0,        // Berry energy (0 to 10)
     maxEnergy: 10.0
+};
+
+// --- Musical Ecosystem: Global Effects (from plan.md Category 3) ---
+// BPM Wind: Global wind vector scaled to BPM affecting particles, foliage, projectiles
+const bpmWind = {
+    direction: new THREE.Vector3(1, 0, 0), // Default wind direction
+    strength: 0,                            // Current wind strength (0-1)
+    targetStrength: 0,
+    bpm: 120                                // Current BPM
+};
+
+// Groove Gravity: Global gravity modulation based on swing/groove factor
+const grooveGravity = {
+    multiplier: 1.0,       // Current gravity multiplier (0.5 = floaty, 1.5 = heavy)
+    targetMultiplier: 1.0,
+    baseGravity: 20.0      // Base gravity value
 };
 
 // --- Physics Helpers ---
@@ -639,8 +715,47 @@ function animate() {
     // Update weather with cycle integration
     weatherSystem.update(t, audioState, cycleWeatherBias);
 
-    // Beat Detection - detect when beatPhase wraps around (new beat)
+    // Get current beat phase early (needed for BPM Wind and beat detection)
     const currentBeatPhase = audioState?.beatPhase || 0;
+
+    // --- Musical Ecosystem: BPM Wind (from plan.md Category 3) ---
+    // Wind strength scales with BPM, direction pulses with beat
+    if (audioState) {
+        // Use actual BPM from audio system (normalized to 60-180 BPM range)
+        const currentBPM = audioState.bpm || 120;
+        bpmWind.bpm = currentBPM;
+        bpmWind.targetStrength = Math.min(1.0, (currentBPM - 60) / 120);
+        
+        // Wind gusts pulse with beat phase
+        const gustPulse = Math.sin(currentBeatPhase * Math.PI * 2) * 0.3;
+        bpmWind.targetStrength += gustPulse;
+        
+        // Smooth wind strength changes
+        bpmWind.strength += (bpmWind.targetStrength - bpmWind.strength) * delta * 2;
+        bpmWind.strength = Math.max(0, Math.min(1, bpmWind.strength));
+        
+        // Rotate wind direction slowly
+        bpmWind.direction.x = Math.sin(t * 0.1);
+        bpmWind.direction.z = Math.cos(t * 0.1);
+        bpmWind.direction.normalize();
+    }
+
+    // --- Musical Ecosystem: Groove Gravity (from plan.md Category 3) ---
+    // Gravity modulation based on groove factor - swing makes things floatier
+    if (audioState) {
+        const groove = audioState.grooveAmount || 0;
+        // Swing/groove reduces gravity (makes things floatier)
+        // 0 groove = 1.0 multiplier, max groove = 0.6 multiplier
+        grooveGravity.targetMultiplier = 1.0 - groove * 0.4;
+        
+        // Smooth gravity changes (ease over ~1s as per plan.md)
+        grooveGravity.multiplier += (grooveGravity.targetMultiplier - grooveGravity.multiplier) * delta;
+        
+        // Apply to player gravity
+        player.gravity = grooveGravity.baseGravity * grooveGravity.multiplier;
+    }
+
+    // Beat Detection - detect when beatPhase wraps around (new beat)
     if (currentBeatPhase < lastBeatPhase && lastBeatPhase > 0.8) {
         // Beat just happened!
         const kickTrigger = audioState?.kickTrigger || 0;
@@ -826,6 +941,12 @@ function animate() {
         if (targetVelocity.lengthSq() > 0) {
             targetVelocity.normalize().multiplyScalar(moveSpeed);
         }
+
+        // Apply BPM Wind effect to player movement (from plan.md - BPM Wind)
+        // Wind affects jump trajectory and horizontal movement
+        const windEffect = bpmWind.strength * 2.0; // Scale wind effect
+        targetVelocity.x += bpmWind.direction.x * windEffect;
+        targetVelocity.z += bpmWind.direction.z * windEffect;
 
         const smoothing = Math.min(1.0, 15.0 * delta);
         player.velocity.x += (targetVelocity.x - player.velocity.x) * smoothing;
