@@ -411,7 +411,30 @@ for (let i = 0; i < 10; i++) { // Reduced from 20 for better performance
 // --- Inputs ---
 const controls = new PointerLockControls(camera, document.body);
 const instructions = document.getElementById('instructions');
-instructions.addEventListener('click', () => controls.lock());
+const startButton = document.getElementById('startButton');
+
+// Lock pointer when Start button is clicked
+startButton.addEventListener('click', () => {
+    controls.lock();
+});
+
+// Also keep the instructions container click for convenience,
+// but ensure we don't trigger it when clicking settings buttons
+instructions.addEventListener('click', (event) => {
+    // If the click target is the container itself (not a child button that bubbled up)
+    if (event.target === instructions) {
+        controls.lock();
+    }
+});
+
+// Prevent clicks on settings container from starting the game
+const settingsContainer = document.querySelector('.settings-container');
+if (settingsContainer) {
+    settingsContainer.addEventListener('click', (event) => {
+        event.stopPropagation();
+    });
+}
+
 controls.addEventListener('lock', () => instructions.style.display = 'none');
 controls.addEventListener('unlock', () => instructions.style.display = 'flex');
 
@@ -429,6 +452,14 @@ const keyStates = {
 // Helper function to toggle day/night
 function toggleDayNight() {
     timeOffset += CYCLE_DURATION / 2;
+    // Update ARIA state for accessibility
+    const btn = document.getElementById('toggleDayNight');
+    if (btn) {
+        // Toggle the state (if night is coming, it's "pressed" in context of "Night Mode"?)
+        // Or simply toggle the state boolean.
+        const isPressed = btn.getAttribute('aria-pressed') === 'true';
+        btn.setAttribute('aria-pressed', !isPressed);
+    }
 }
 
 // Key Handlers

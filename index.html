@@ -51,13 +51,94 @@
             text-shadow: 2px 2px 0px #fff;
         }
 
-        #instructions p {
-            color: #555;
-            font-size: 1.2em;
-            background: rgba(255, 255, 255, 0.9);
-            padding: 15px 30px;
+        .cta-button {
+            font-size: 1.5em;
+            padding: 15px 40px;
+            background: #FF6B6B;
+            color: white;
+            border: none;
             border-radius: 50px;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(255, 107, 107, 0.4);
+            transition: transform 0.2s, background 0.2s, box-shadow 0.2s;
+            font-weight: bold;
+            text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+
+        .cta-button:hover,
+        .cta-button:focus {
+            transform: scale(1.05);
+            background: #FF5252;
+            outline: none;
+        }
+
+        .cta-button:focus-visible {
+            box-shadow: 0 0 0 4px rgba(255, 107, 107, 0.3), 0 5px 15px rgba(255, 107, 107, 0.4);
+        }
+
+        .settings-container {
+            margin-bottom: 20px;
+            z-index: 201;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .visually-hidden {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        .file-label {
+            background: #fff;
+            padding: 10px 20px;
+            border-radius: 20px;
+            cursor: pointer;
+            border: 2px solid #FF6B6B;
+            color: #FF6B6B;
+            font-weight: bold;
+            display: inline-block;
+            transition: background 0.2s, color 0.2s;
+        }
+
+        .file-label:hover {
+            background: #FFF0F5;
+        }
+
+        /* Focus state when the hidden input is focused */
+        input:focus+.file-label {
+            box-shadow: 0 0 0 3px rgba(255, 107, 107, 0.5);
+            background: #FFF0F5;
+        }
+
+        .toggle-button {
+            background: #6A5ACD;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 20px;
+            cursor: pointer;
+            color: white;
+            font-weight: bold;
+            font-size: 1em;
+            transition: background 0.2s;
+        }
+
+        .toggle-button:hover,
+        .toggle-button:focus {
+            background: #584AB8;
+            outline: none;
+        }
+
+        .toggle-button:focus-visible {
+            box-shadow: 0 0 0 3px rgba(106, 90, 205, 0.5);
         }
 
         .controls {
@@ -107,17 +188,15 @@
 <body>
     <div id="instructions">
         <h1>🍭 Candy World</h1>
-        <p>Click anywhere to Explore</p>
+        <button id="startButton" class="cta-button">Start Exploration 🚀</button>
 
-        <div class="settings" style="margin-bottom: 20px; z-index: 201;">
-            <label for="musicUpload"
-                style="background: #fff; padding: 10px 20px; border-radius: 20px; cursor: pointer; border: 2px solid #FF6B6B; color: #FF6B6B; font-weight: bold; margin-right: 10px; display: inline-block;">
+        <div class="settings settings-container">
+            <input type="file" id="musicUpload" accept=".mod,.xm,.it,.s3m" multiple class="visually-hidden">
+            <label for="musicUpload" class="file-label">
                 🎵 Upload Music
             </label>
-            <input type="file" id="musicUpload" accept=".mod,.xm,.it,.s3m" multiple style="display: none;">
 
-            <button id="toggleDayNight"
-                style="background: #6A5ACD; border: none; padding: 10px 20px; border-radius: 20px; cursor: pointer; color: white; font-weight: bold; font-size: 1em;">
+            <button id="toggleDayNight" class="toggle-button" aria-pressed="false">
                 Toggle Day/Night (N)
             </button>
         </div>
