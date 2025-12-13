@@ -176,6 +176,10 @@ const worldGroup = new THREE.Group();
 scene.add(worldGroup);
 const obstacles = [];
 const animatedFoliage = [];
+// Optimization: Separate arrays for faster collision checks
+const foliageMushrooms = [];
+const foliageTrampolines = [];
+const foliageClouds = [];
 const vineSwings = []; // Managers for swing physics
 let activeVineSwing = null; // Current vine player is attached to
 let lastVineDetachTime = 0; // Debounce re-attach
@@ -198,6 +202,11 @@ function safeAddFoliage(obj, isObstacle = false, radius = 1.0) {
     foliageGroup.add(obj);
     animatedFoliage.push(obj);
     if (isObstacle) obstacles.push({ position: obj.position.clone(), radius });
+
+    // Optimization: Categorize for faster collision checks
+    if (obj.userData.type === 'mushroom') foliageMushrooms.push(obj);
+    if (obj.userData.type === 'cloud') foliageClouds.push(obj);
+    if (obj.userData.isTrampoline) foliageTrampolines.push(obj);
 
     // Register with weather system for berry charging
     if (obj.userData.type === 'tree') {
@@ -406,6 +415,7 @@ for (let i = 0; i < 10; i++) { // Reduced from 20 for better performance
     cloud.position.set((Math.random() - 0.5) * 200, 35 + Math.random() * 10, (Math.random() - 0.5) * 200);
     scene.add(cloud);
     animatedFoliage.push(cloud);
+    foliageClouds.push(cloud); // Add to optimized array
 }
 
 // --- Inputs ---
@@ -547,31 +557,24 @@ const grooveGravity = {
 // --- Physics Helpers ---
 function checkMushroomBounce(pos) {
     // Check collision with mushroom caps
-    // They are in animatedFoliage with type 'mushroom'
-    // This is distinct from 'getWalkableHeight' because it adds velocity
-    for (let i = 0; i < animatedFoliage.length; i++) {
-        const obj = animatedFoliage[i];
-        if (obj.userData.type === 'mushroom') {
-            // Cylinder/Capsule check approx
-            const dx = pos.x - obj.position.x;
-            const dz = pos.z - obj.position.z;
-            const dy = pos.y - (obj.position.y + 1.0); // Approx cap height based on stem
+    // Optimized: Use filtered array
+    for (let i = 0; i < foliageMushrooms.length; i++) {
+        const obj = foliageMushrooms[i];
 
-            // Check if we are "on" the cap (horizontal dist)
-            // Cap radius is dynamic, but usually around 1.0-3.0
-            if (dx * dx + dz * dz < 2.0) {
-                // Check if we are hitting it from above
-                // HACK: We assume stem height ~ scale * 1.0 + cap offset
-                // Let's use bounding box or rough estimate.
-                // Ideally we'd store exact dimensions in userData.
-                // For now, let's treat any mushroom as a bouncer if we touch it.
-                const distSq = pos.distanceToSquared(obj.position);
-                if (distSq < 5.0) { // Close enough
-                    // Are we falling onto it?
-                    if (player.velocity.y < 0 && pos.y > obj.position.y + 0.5) {
-                        const audioIntensity = audioState?.kickTrigger || 0.5;
-                        return 15 + audioIntensity * 10; // BASE_JUMP + BONUS
-                    }
+        // Cylinder/Capsule check approx
+        const dx = pos.x - obj.position.x;
+        const dz = pos.z - obj.position.z;
+
+        // Check if we are "on" the cap (horizontal dist)
+        // Cap radius is dynamic, but usually around 1.0-3.0
+        if (dx * dx + dz * dz < 2.0) {
+            // Check if we are hitting it from above
+            const distSq = pos.distanceToSquared(obj.position);
+            if (distSq < 5.0) { // Close enough
+                // Are we falling onto it?
+                if (player.velocity.y < 0 && pos.y > obj.position.y + 0.5) {
+                    const audioIntensity = audioState?.kickTrigger || 0.5;
+                    return 15 + audioIntensity * 10; // BASE_JUMP + BONUS
                 }
             }
         }
@@ -581,30 +584,30 @@ function checkMushroomBounce(pos) {
 
 function checkFlowerTrampoline(pos) {
     // Check collision with trampoline flowers (puffballs etc)
-    for (let i = 0; i < animatedFoliage.length; i++) {
-        const obj = animatedFoliage[i];
-        if (obj.userData.isTrampoline) {
-            const dx = pos.x - obj.position.x;
-            const dz = pos.z - obj.position.z;
-            const bounceTop = obj.position.y + obj.userData.bounceHeight;
-            const dy = pos.y - bounceTop;
+    // Optimized: Use filtered array
+    for (let i = 0; i < foliageTrampolines.length; i++) {
+        const obj = foliageTrampolines[i];
 
-            const distH = Math.sqrt(dx * dx + dz * dz);
-            const radius = obj.userData.bounceRadius || 0.5;
+        const dx = pos.x - obj.position.x;
+        const dz = pos.z - obj.position.z;
+        const bounceTop = obj.position.y + obj.userData.bounceHeight;
+        const dy = pos.y - bounceTop;
 
-            // Check if above the flower and within radius
-            if (distH < radius && dy > -0.5 && dy < 1.5) {
-                // Are we falling onto it?
-                if (player.velocity.y < 0) {
-                    const audioBoost = audioState?.kickTrigger || 0.3;
-                    const force = obj.userData.bounceForce || 12;
+        const distH = Math.sqrt(dx * dx + dz * dz);
+        const radius = obj.userData.bounceRadius || 0.5;
 
-                    // Visual feedback - squash the flower slightly
-                    obj.scale.y = 0.7;
-                    setTimeout(() => { obj.scale.y = 1.0; }, 100);
+        // Check if above the flower and within radius
+        if (distH < radius && dy > -0.5 && dy < 1.5) {
+            // Are we falling onto it?
+            if (player.velocity.y < 0) {
+                const audioBoost = audioState?.kickTrigger || 0.3;
+                const force = obj.userData.bounceForce || 12;
 
-                    return force + audioBoost * 5;
-                }
+                // Visual feedback - squash the flower slightly
+                obj.scale.y = 0.7;
+                setTimeout(() => { obj.scale.y = 1.0; }, 100);
+
+                return force + audioBoost * 5;
             }
         }
     }
@@ -1071,19 +1074,17 @@ function animate() {
 
         // Optimization: Only check clouds if we are high enough
         if (playerPos.y > 20) {
-            for (let i = 0; i < animatedFoliage.length; i++) {
-                const obj = animatedFoliage[i];
-                if (obj.userData.type === 'cloud') {
-                    // Simple distance check first
-                    const dx = playerPos.x - obj.position.x;
-                    const dz = playerPos.z - obj.position.z;
-                    if (Math.abs(dx) < 3 && Math.abs(dz) < 3) {
-                        // We are roughly over/under a cloud
-                        // Cloud top is approx position.y + 1.0 (radius approx 1.5)
-                        const topY = obj.position.y + 0.5;
-                        if (playerPos.y >= topY && (playerPos.y - topY) < 2.0) {
-                            cloudY = Math.max(cloudY, topY);
-                        }
+            for (let i = 0; i < foliageClouds.length; i++) {
+                const obj = foliageClouds[i];
+                // Simple distance check first
+                const dx = playerPos.x - obj.position.x;
+                const dz = playerPos.z - obj.position.z;
+                if (Math.abs(dx) < 3 && Math.abs(dz) < 3) {
+                    // We are roughly over/under a cloud
+                    // Cloud top is approx position.y + 1.0 (radius approx 1.5)
+                    const topY = obj.position.y + 0.5;
+                    if (playerPos.y >= topY && (playerPos.y - topY) < 2.0) {
+                        cloudY = Math.max(cloudY, topY);
                     }
                 }
             }
