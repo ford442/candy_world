@@ -528,6 +528,7 @@ document.addEventListener('mousedown', onMouseDown);
 document.addEventListener('mouseup', onMouseUp);
 
 // Player State
+const _targetVelocity = new THREE.Vector3(); // Reusable vector for movement calculations
 const player = {
     velocity: new THREE.Vector3(),
     speed: 15.0,
@@ -1033,25 +1034,25 @@ function animate() {
             if (keyStates.sprint) moveSpeed = player.sprintSpeed;
             if (keyStates.sneak) moveSpeed = player.sneakSpeed;
 
-            const targetVelocity = new THREE.Vector3();
-            if (keyStates.forward) targetVelocity.z += moveSpeed;
-            if (keyStates.backward) targetVelocity.z -= moveSpeed;
-            if (keyStates.left) targetVelocity.x -= moveSpeed;
-            if (keyStates.right) targetVelocity.x += moveSpeed;
+            _targetVelocity.set(0, 0, 0);
+            if (keyStates.forward) _targetVelocity.z += moveSpeed;
+            if (keyStates.backward) _targetVelocity.z -= moveSpeed;
+            if (keyStates.left) _targetVelocity.x -= moveSpeed;
+            if (keyStates.right) _targetVelocity.x += moveSpeed;
 
-            if (targetVelocity.lengthSq() > 0) {
-                targetVelocity.normalize().multiplyScalar(moveSpeed);
+            if (_targetVelocity.lengthSq() > 0) {
+                _targetVelocity.normalize().multiplyScalar(moveSpeed);
             }
 
             // Apply BPM Wind effect to player movement (from plan.md - BPM Wind)
             // Wind affects jump trajectory and horizontal movement
             const windEffect = bpmWind.strength * 2.0; // Scale wind effect
-            targetVelocity.x += bpmWind.direction.x * windEffect;
-            targetVelocity.z += bpmWind.direction.z * windEffect;
+            _targetVelocity.x += bpmWind.direction.x * windEffect;
+            _targetVelocity.z += bpmWind.direction.z * windEffect;
 
             const smoothing = Math.min(1.0, 15.0 * delta);
-            player.velocity.x += (targetVelocity.x - player.velocity.x) * smoothing;
-            player.velocity.z += (targetVelocity.z - player.velocity.z) * smoothing;
+            player.velocity.x += (_targetVelocity.x - player.velocity.x) * smoothing;
+            player.velocity.z += (_targetVelocity.z - player.velocity.z) * smoothing;
 
             player.velocity.y -= player.gravity * delta;
 
