@@ -1735,6 +1735,102 @@ export function createAccordionPalm(options = {}) {
     return group;
 }
 
+function freqToHue(freq) {
+    if (!freq || freq < 50) return 0;
+    const logF = Math.log2(freq / 55.0);
+    return (logF * 0.1) % 1.0;
+}
+
+export function updateFoliageMaterials(audioData, isNight) {
+    if (!audioData) return;
+
+    if (isNight) {
+        const channels = audioData.channelData;
+        if (!channels || channels.length === 0) return;
+
+        // Helper to update a material list
+        const updateMats = (mats, startCh) => {
+            mats.forEach((mat, i) => {
+                const chIndex = startCh + (i % 4);
+                const ch = channels[Math.min(chIndex, channels.length - 1)];
+
+                const trigger = ch?.trigger || 0;
+                const volume = ch?.volume || 0;
+                const freq = ch?.freq || 0;
+
+                if (freq > 0) {
+                    let targetHue = freqToHue(freq);
+                    targetHue = (targetHue + i * 0.1) % 1.0;
+                    const color = new THREE.Color().setHSL(targetHue, 1.0, 0.5);
+                    mat.emissive.lerp(color, 0.3);
+                } else {
+                    mat.emissive.lerp(new THREE.Color(0x220044), 0.1);
+                }
+
+                const intensity = 0.2 + volume * 0.5 + trigger * 1.5;
+                mat.emissiveIntensity = intensity;
+            });
+        };
+
+        // 1. Update Petals and Custom Reactive Materials
+        updateMats(foliageMaterials.flowerPetal, 1);
+        updateMats(reactiveMaterials, 1);
+
+        // 2. Flower Center (Contrast Blink)
+        const melodyCh = channels[1];
+        if (melodyCh && melodyCh.freq > 0) {
+            let hue = freqToHue(melodyCh.freq);
+            hue = (hue + 0.5) % 1.0; // Complementary color
+            const centerColor = new THREE.Color().setHSL(hue, 1.0, 0.6);
+            foliageMaterials.flowerCenter.emissive.lerp(centerColor, 0.2);
+        } else {
+            foliageMaterials.flowerCenter.emissive.lerp(new THREE.Color(0xFFFACD), 0.1);
+        }
+        foliageMaterials.flowerCenter.emissiveIntensity = 0.5 + audioData.kickTrigger * 2.0;
+
+        // 3. Update Light Beams (Strobe/Wash)
+        const beamMat = foliageMaterials.lightBeam;
+        const kick = audioData.kickTrigger;
+        const pan = channels[1]?.pan || 0;
+        const beamHue = 0.6 + pan * 0.1;
+        beamMat.color.setHSL(beamHue, 0.8, 0.8);
+
+        let effectActive = 0;
+        for (let c of channels) if (c.activeEffect > 0) effectActive = 1;
+
+        let opacity = kick * 0.4;
+        if (effectActive) {
+            opacity += Math.random() * 0.3; // Flicker
+        }
+        beamMat.opacity = Math.max(0, Math.min(0.8, opacity));
+
+        // 4. Grass (Chords)
+        const chordVol = Math.max(channels[3]?.volume || 0, channels[4]?.volume || 0);
+        const grassHue = 0.6 + chordVol * 0.1;
+        foliageMaterials.grass.emissive.setHSL(grassHue, 0.8, 0.2);
+        foliageMaterials.grass.emissiveIntensity = 0.2 + chordVol * 0.8;
+
+    } else {
+        const resetMats = (mats) => {
+            mats.forEach(mat => {
+                mat.emissive.setHex(0x000000);
+                mat.emissiveIntensity = 0;
+            });
+        };
+
+        resetMats(foliageMaterials.flowerPetal);
+        resetMats(reactiveMaterials);
+
+        foliageMaterials.flowerCenter.emissive.setHex(0x000000);
+        foliageMaterials.flowerCenter.emissiveIntensity = 0;
+
+        foliageMaterials.grass.emissive.setHex(0x000000);
+        foliageMaterials.grass.emissiveIntensity = 0;
+
+        foliageMaterials.lightBeam.opacity = 0;
+    }
+}
+
 /**
  * 3. The Fiber-Optic Weeping Willow
  * Glowing cables that whip around.
