@@ -933,12 +933,14 @@ function animate() {
         // Moon logic could go here
     }
 
-    let starOpacity = 0;
-    if (isNight) starOpacity = 1;
-    else starOpacity = 0;
+    // --- FIX: Update the WebGPU Uniform for Star Opacity ---
+    const progress = cyclePos / CYCLE_DURATION;
+    let starOp = 0;
+    if (progress > 0.50 && progress < 0.95) starOp = 1;
+    else if (progress > 0.45 && progress <= 0.50) starOp = (progress - 0.45) / 0.05;
 
     // Update TSL uniform for star opacity instead of material property
-    uStarOpacity.value = THREE.MathUtils.lerp(uStarOpacity.value, starOpacity, delta);
+    uStarOpacity.value = THREE.MathUtils.lerp(uStarOpacity.value, starOp, delta);
 
     // Map weather state enum to string for materials
     let weatherStateStr = 'clear';
