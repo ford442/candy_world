@@ -1,11 +1,12 @@
 import * as THREE from 'three';
-import { color, float, vec3, time, positionLocal, attribute, uniform, mix, length, sin, cos } from 'three/tsl';
+import { color, float, vec3, vec4, time, positionLocal, attribute, uniform, mix, length, sin, cos } from 'three/tsl';
 import { PointsNodeMaterial } from 'three/webgpu';
 
 // Global uniform for star pulse (driven by music)
 // We export this so we can update it in main.js
 export const uStarPulse = uniform(0.0); // 0 to 1
 export const uStarColor = uniform(color(0xFFFFFF)); // Current pulse color
+export const uStarOpacity = uniform(0.0); // Controls visibility (Day/Night)
 
 export function createStars(count = 1000) { // Reduced from 2000 for better performance
     const geo = new THREE.BufferGeometry();
@@ -59,9 +60,11 @@ export function createStars(count = 1000) { // Reduced from 2000 for better perf
     const intensity = twinkle.add(uStarPulse);
 
     // Color: Mix white with uStarColor based on pulse
-    const finalColor = mix(color(0xFFFFFF), uStarColor, uStarPulse.mul(0.8));
+    const finalRGB = mix(color(0xFFFFFF), uStarColor, uStarPulse.mul(0.8));
 
-    mat.colorNode = finalColor.mul(mat.color);
+    // Combine RGB with the Opacity Uniform into a vec4
+    mat.colorNode = vec4(finalRGB, uStarOpacity).mul(mat.color);
+
     // Size attenuation manually or using built-in?
     // PointsNodeMaterial handles size if we set sizeNode
     mat.sizeNode = aSize.mul(intensity.max(0.2)); // Minimum size 0.2
