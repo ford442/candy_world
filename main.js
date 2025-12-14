@@ -70,7 +70,7 @@ const audioSystem = new AudioSystem();
 let isNight = false;
 let timeOffset = 0; // Manual time shift for Day/Night toggle
 
-const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000); // Increased far plane
+const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 4000); // Increased far plane
 camera.position.set(0, 5, 0);
 
 if (!WebGPU.isAvailable()) {
@@ -286,8 +286,8 @@ function getGroundHeight(x, z) {
     return Math.sin(x * 0.05) * 2 + Math.cos(z * 0.05) * 2 + (Math.sin(x * 0.2) * 0.3 + Math.cos(z * 0.15) * 0.3);
 }
 
-// FIX: Increased ground size to prevent falling off into the void
-const groundGeo = new THREE.PlaneGeometry(2000, 2000, 256, 256);
+// FIX: Increased ground size to prevent falling off into the void (4000x4000)
+const groundGeo = new THREE.PlaneGeometry(4000, 4000, 512, 512);
 const posAttribute = groundGeo.attributes.position;
 for (let i = 0; i < posAttribute.count; i++) {
     const x = posAttribute.getX(i);
