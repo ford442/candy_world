@@ -17,7 +17,7 @@ import {
     VineSwing, createSwingableVine
 } from './foliage.js';
 import { createSky, uSkyTopColor, uSkyBottomColor } from './sky.js';
-import { createStars, uStarPulse, uStarColor } from './stars.js';
+import { createStars, uStarPulse, uStarColor, uStarOpacity } from './stars.js';
 import { AudioSystem } from './audio-system.js';
 import { BeatSync } from './src/audio/beat-sync.js';
 import { WeatherSystem, WeatherState } from './weather.js';
@@ -936,7 +936,9 @@ function animate() {
     let starOpacity = 0;
     if (isNight) starOpacity = 1;
     else starOpacity = 0;
-    if (stars.material) stars.material.opacity = THREE.MathUtils.lerp(stars.material.opacity, starOpacity, delta);
+
+    // Update TSL uniform for star opacity instead of material property
+    uStarOpacity.value = THREE.MathUtils.lerp(uStarOpacity.value, starOpacity, delta);
 
     // Map weather state enum to string for materials
     let weatherStateStr = 'clear';
