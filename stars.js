@@ -1,33 +1,34 @@
 import * as THREE from 'three';
-import { color, float, vec3, vec4, time, positionLocal, attribute, uniform, mix, length, sin, cos } from 'three/tsl';
+import { color, float, vec3, time, positionLocal, attribute, uniform, mix, length, sin, cos } from 'three/tsl';
 import { PointsNodeMaterial } from 'three/webgpu';
 
 // Global uniform for star pulse (driven by music)
+// We export this so we can update it in main.js
 export const uStarPulse = uniform(0.0); // 0 to 1
 export const uStarColor = uniform(color(0xFFFFFF)); // Current pulse color
-export const uStarOpacity = uniform(0.0); // <--- NEW: Opacity control
 
-export function createStars(count = 2000) {
+export function createStars(count = 1000) { // Reduced from 2000 for better performance
     const geo = new THREE.BufferGeometry();
     const positions = new Float32Array(count * 3);
     const sizes = new Float32Array(count);
     const offsets = new Float32Array(count);
 
-    const radius = 400;
+    const radius = 400; // Sky dome radius (smaller than sky mesh)
 
     for (let i = 0; i < count; i++) {
+        // Random point on sphere
         const u = Math.random();
         const v = Math.random();
         const theta = 2 * Math.PI * u;
         const phi = Math.acos(2 * v - 1);
 
-        const r = radius * (0.9 + Math.random() * 0.2);
+        const r = radius * (0.9 + Math.random() * 0.2); // slight depth variance
         const x = r * Math.sin(phi) * Math.cos(theta);
         const y = r * Math.sin(phi) * Math.sin(theta);
         const z = r * Math.cos(phi);
 
         positions[i * 3] = x;
-        positions[i * 3 + 1] = Math.abs(y); // Keep mostly above horizon? Or full sphere? Logic says abs(y) keeps it dome-like if y is up.
+        positions[i * 3 + 1] = Math.abs(y); // Keep above horizon mostly
         positions[i * 3 + 2] = z;
 
         sizes[i] = Math.random() * 1.5 + 0.5;
@@ -39,38 +40,45 @@ export function createStars(count = 2000) {
     geo.setAttribute('offset', new THREE.BufferAttribute(offsets, 1));
 
     const mat = new PointsNodeMaterial({
-        size: 1.0,
+        size: 1.0, // base size
         transparent: true,
-        opacity: 1.0, // Set base to 1, we control via node now
+        opacity: 0.0, // Hidden by default (Day)
         blending: THREE.AdditiveBlending,
         depthWrite: false,
-        fog: false
+        fog: false // <--- CRITICAL FIX: Stars are far away, so we must ignore scene fog
     });
 
+    // TSL Logic
     const aOffset = attribute('offset', 'float');
     const aSize = attribute('size', 'float');
 
-    // Twinkle effect
-    const twinkle = time.add(aOffset).sin().mul(0.5).add(0.5);
+    // Twinkle effect (random sine based on time and offset)
+    const twinkle = time.add(aOffset).sin().mul(0.5).add(0.5); // 0..1
+
+    // Music Pulse effect: uStarPulse (0..1) adds intensity
     const intensity = twinkle.add(uStarPulse);
 
-    // Color mixing
-    const finalRGB = mix(color(0xFFFFFF), uStarColor, uStarPulse.mul(0.8));
+    // Color: Mix white with uStarColor based on pulse
+    const finalColor = mix(color(0xFFFFFF), uStarColor, uStarPulse.mul(0.8));
 
-    // --- FIX: Combine RGB with the Opacity Uniform into a vec4 ---
-    mat.colorNode = vec4(finalRGB, uStarOpacity).mul(mat.color);
+    mat.colorNode = finalColor.mul(mat.color);
+    // Size attenuation manually or using built-in?
+    // PointsNodeMaterial handles size if we set sizeNode
+    mat.sizeNode = aSize.mul(intensity.max(0.2)); // Minimum size 0.2
 
-    mat.sizeNode = aSize.mul(intensity.max(0.2));
-
-    // Star Warp / Rotation Logic
+    // --- TSL Star Warp (Idea 2) ---
+    // 1. Warp Effect: Push stars outward based on pulse
     const pos = positionLocal;
-    const warpFactor = uStarPulse.mul(50.0);
+    const warpFactor = uStarPulse.mul(50.0); // Push out by 50 units on beat
     const warpedPos = pos.add(pos.normalize().mul(warpFactor));
 
+    // 2. Rotation Effect: Rotate around Y axis based on time
+    // We can drive this speed via a uniform updated by audioState.bpm if needed, or just time
     const angle = time.mul(0.1);
     const rotatedX = warpedPos.x.mul(cos(angle)).sub(warpedPos.z.mul(sin(angle)));
     const rotatedZ = warpedPos.x.mul(sin(angle)).add(warpedPos.z.mul(cos(angle)));
 
+    // Position
     mat.positionNode = vec3(rotatedX, warpedPos.y, rotatedZ);
 
     const stars = new THREE.Points(geo, mat);
