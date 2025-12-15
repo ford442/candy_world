@@ -14,7 +14,7 @@ import {
     createMushroom, createWaterfall, createFireflies, updateFireflies,
     initFallingBerries, updateFallingBerries, collectFallingBerries,
     createVibratoViolet, createTremoloTulip, createKickDrumGeyser,
-    VineSwing, createSwingableVine
+    VineSwing, createSwingableVine, createMelodyLake
 } from './foliage.js';
 import { createSky, uSkyTopColor, uSkyBottomColor } from './sky.js';
 import { createStars, uStarPulse, uStarColor, uStarOpacity } from './stars.js';
@@ -188,17 +188,22 @@ const foliageGroup = new THREE.Group();
 worldGroup.add(foliageGroup);
 
 // Initialize Grass
-initGrassSystem(scene, 5000); // Reduced to fit WebGPU uniform buffer limits
+initGrassSystem(scene, 8000); // Increased population
 
 // Initialize Fireflies (for Deep Night)
-const fireflies = createFireflies(100, 80);
+const fireflies = createFireflies(150, 100);
 scene.add(fireflies);
+
+// Initialize Melody Lake
+const melodyLake = createMelodyLake(100, 100);
+melodyLake.position.set(0, 2.5, 0); // Slightly above ground
+scene.add(melodyLake);
 
 // Initialize Falling Berry Pool (for storms)
 initFallingBerries(scene);
 
 function safeAddFoliage(obj, isObstacle = false, radius = 1.0) {
-    if (animatedFoliage.length > 1500) return; // Optimized limit for better performance
+    if (animatedFoliage.length > 2500) return; // Increased limit for Vertical Ecosystem
     foliageGroup.add(obj);
     animatedFoliage.push(obj);
     if (isObstacle) obstacles.push({ position: obj.position.clone(), radius });
@@ -231,14 +236,14 @@ function spawnCluster(cx, cz, type) {
 
     // 1. Mushroom Forest (Fixes "0 mushrooms" issue)
     if (type === 'mushroom_forest') {
-        const count = 20 + Math.random() * 10; // Reduced for performance
+        const count = 25 + Math.random() * 10; // Increased count
         for (let i = 0; i < count; i++) {
             const x = cx + (Math.random() - 0.5) * 30;
             const z = cz + (Math.random() - 0.5) * 30;
             const y = getGroundHeight(x, z);
 
             // Mix of sizes
-            const isGiant = Math.random() < 0.1;
+            const isGiant = Math.random() < 0.15; // Increased Giant chance
             const size = isGiant ? 'giant' : 'regular';
             const m = createMushroom({ size: size, scale: 0.8 + Math.random() * 0.5 });
 
@@ -247,6 +252,21 @@ function spawnCluster(cx, cz, type) {
             m.rotation.z = (Math.random() - 0.5) * 0.2; // Slight tilt
 
             safeAddFoliage(m, true, isGiant ? 2.0 : 0.5);
+
+            // Shadow Zone Logic: Spawn glowing flowers under giant mushrooms
+            if (isGiant) {
+                const underCount = 3 + Math.floor(Math.random() * 3);
+                for (let k = 0; k < underCount; k++) {
+                    const gx = x + (Math.random() - 0.5) * 4; // Tight radius under cap
+                    const gz = z + (Math.random() - 0.5) * 4;
+                    const gy = getGroundHeight(gx, gz);
+                    const gf = createGlowingFlower({ intensity: 2.0, color: 0x00FFFF }); // Cyan/Neon glow
+                    gf.position.set(gx, gy, gz);
+                    // Force night-mode logic for these?
+                    // For now just high intensity.
+                    safeAddFoliage(gf);
+                }
+            }
         }
     }
 
@@ -275,7 +295,7 @@ function spawnCluster(cx, cz, type) {
 
     // 3. Weird Jungle (Subwoofers, Palms, Willows)
     else if (type === 'weird_jungle') {
-        const count = 8; // Reduced for performance
+        const count = 12; // Increased from 8
         for (let i = 0; i < count; i++) {
             const x = cx + (Math.random() - 0.5) * 25;
             const z = cz + (Math.random() - 0.5) * 25;
@@ -284,11 +304,18 @@ function spawnCluster(cx, cz, type) {
             const r = Math.random();
             let plant;
             if (r < 0.3) plant = createSubwooferLotus({ color: 0x2E8B57 });
-            else if (r < 0.6) plant = createAccordionPalm({ color: 0xFF6347 });
-            else plant = createFiberOpticWillow();
+            else if (r < 0.6) plant = createAccordionPalm({ color: 0xFF6347 }); // Regular Tree equivalent
+            else plant = createFiberOpticWillow(); // Flowering Tree equivalent
 
             plant.position.set(x, y, z);
             safeAddFoliage(plant, true, 1.0);
+
+            // Spawn attached fruit clusters for density
+            if (Math.random() < 0.3) {
+                 const fruit = createFloatingOrb({ size: 0.2, color: 0xFF00FF });
+                 fruit.position.set(x + (Math.random()-0.5)*1.5, y + 2 + Math.random(), z + (Math.random()-0.5)*1.5);
+                 safeAddFoliage(fruit);
+            }
         }
 
         // Add Swingable Vines hanging from "canopy" (invisible or implied)
@@ -311,7 +338,7 @@ function spawnCluster(cx, cz, type) {
 
     // 4. Crystal Grove (Prisms, Starflowers)
     else if (type === 'crystal_grove') {
-        const count = 15; // Reduced for performance
+        const count = 20; // Increased from 15
         for (let i = 0; i < count; i++) {
             const x = cx + (Math.random() - 0.5) * 20;
             const z = cz + (Math.random() - 0.5) * 20;
@@ -409,10 +436,31 @@ for (let r = -SCENE_ROWS / 2; r < SCENE_ROWS / 2; r++) {
     }
 }
 
-// Rain Clouds
-for (let i = 0; i < 10; i++) { // Reduced from 20 for better performance
-    const cloud = createRainingCloud({ rainIntensity: 30 }); // Reduced from 100 for better performance
-    cloud.position.set((Math.random() - 0.5) * 200, 35 + Math.random() * 10, (Math.random() - 0.5) * 200);
+// Rain Clouds (Vertical Hierarchy: Tier 1 and Tier 2)
+const cloudCount = 25; // Increased from 10
+for (let i = 0; i < cloudCount; i++) {
+    // 30% chance for Tier 1 (Solid, Walkable)
+    const isTier1 = Math.random() < 0.3;
+    const height = isTier1 ? 40 + Math.random() * 15 : 25 + Math.random() * 10; // Tier 1 higher
+
+    // Create cloud
+    const cloud = createRainingCloud({
+        rainIntensity: isTier1 ? 50 : 20, // Heavier rain from top tier
+        size: isTier1 ? 2.0 : 1.2
+    });
+
+    cloud.position.set((Math.random() - 0.5) * 200, height, (Math.random() - 0.5) * 200);
+
+    // Tag for walking if Tier 1
+    if (isTier1) {
+        cloud.userData.isWalkable = true;
+        cloud.userData.tier = 1;
+        // Make it denser visual
+        cloud.scale.multiplyScalar(1.5);
+    } else {
+        cloud.userData.tier = 2;
+    }
+
     scene.add(cloud);
     animatedFoliage.push(cloud);
     foliageClouds.push(cloud); // Add to optimized array
@@ -1073,23 +1121,42 @@ function animate() {
         if (!activeVineSwing) {
             const groundY = getGroundHeight(camera.position.x, camera.position.z);
 
-        // 1. Cloud Walking (Raycast-like check + simple box)
+        // 1. Cloud Walking & Elevator Logic
         let cloudY = -Infinity;
         const playerPos = camera.position;
 
         // Optimization: Only check clouds if we are high enough
-        if (playerPos.y > 20) {
+        if (playerPos.y > 15) {
             for (let i = 0; i < foliageClouds.length; i++) {
                 const obj = foliageClouds[i];
-                // Simple distance check first
+                // Distance check
                 const dx = playerPos.x - obj.position.x;
                 const dz = playerPos.z - obj.position.z;
-                if (Math.abs(dx) < 3 && Math.abs(dz) < 3) {
-                    // We are roughly over/under a cloud
-                    // Cloud top is approx position.y + 1.0 (radius approx 1.5)
-                    const topY = obj.position.y + 0.5;
-                    if (playerPos.y >= topY && (playerPos.y - topY) < 2.0) {
-                        cloudY = Math.max(cloudY, topY);
+                const distH = Math.sqrt(dx*dx + dz*dz);
+
+                // Visual radius approx
+                const radius = (obj.scale.x || 1.0) * 2.0;
+
+                if (distH < radius) {
+                    // Tier 1: Walkable Platform
+                    if (obj.userData.tier === 1) {
+                         const topY = obj.position.y + (obj.scale.y || 1.0) * 0.8;
+                         // Check if we are close to top
+                         if (playerPos.y >= topY - 0.5 && (playerPos.y - topY) < 3.0) {
+                             cloudY = Math.max(cloudY, topY);
+                         }
+                    }
+                    // Tier 2: Elevator / Mist
+                    else if (obj.userData.tier === 2) {
+                        // If inside the cloud volume
+                        const bottomY = obj.position.y - 2.0;
+                        const topY = obj.position.y + 2.0;
+                        if (playerPos.y > bottomY && playerPos.y < topY) {
+                            // Elevator effect: gentle lift
+                            player.velocity.y += 30.0 * delta; // Lift against gravity
+                            // Cap upward velocity
+                            if (player.velocity.y > 8.0) player.velocity.y = 8.0;
+                        }
                     }
                 }
             }
