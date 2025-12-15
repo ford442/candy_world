@@ -223,6 +223,7 @@ export function createBerryCluster(options = {}) {
 const _berryBaseColor = new THREE.Color(0x331100);
 const _berryTargetColor = new THREE.Color();
 const _berryCurrentColor = new THREE.Color();
+const _foliageReactiveColor = new THREE.Color();
 
 /**
  * Update berry glow based on weather and audio
@@ -2088,11 +2089,11 @@ export function updateFoliageMaterials(audioData, isNight, weatherState = null, 
 
             if (ch && ch.freq > 0) {
                 const hue = freqToHue(ch.freq);
-                const color = new THREE.Color().setHSL(hue, 1.0, 0.6);
+                _foliageReactiveColor.setHSL(hue, 1.0, 0.6);
                 if (mat.isMeshBasicMaterial) {
-                    mat.color.lerp(color, 0.3); // Willow tips are basic
+                    mat.color.lerp(_foliageReactiveColor, 0.3); // Willow tips are basic
                 } else {
-                    mat.emissive.lerp(color, 0.3);
+                    mat.emissive.lerp(_foliageReactiveColor, 0.3);
                 }
             }
             // Flash on trigger
