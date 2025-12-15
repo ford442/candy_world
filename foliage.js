@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { color, mix, positionLocal, normalWorld, float, time, sin, cos, vec3, uniform, attribute } from 'three/tsl';
+import { color, mix, positionLocal, normalWorld, float, time, sin, cos, vec3, uniform, attribute, length } from 'three/tsl';
 import { PointsNodeMaterial, MeshStandardNodeMaterial } from 'three/webgpu';
 import { freqToHue, isEmscriptenReady, fbm } from './wasm-loader.js';
 
@@ -718,7 +718,47 @@ export function createMushroom(options = {}) {
     // 6. Glow (Bioluminescence)
     // 20% chance to be a "Glowing Mushroom" if regular, or always if specific type
     const isGlowing = Math.random() < 0.2;
-    if (isGlowing) {
+
+    // TSL "Breathing" Shader for Giant Mushrooms
+    if (isGiant) {
+        // Create TSL material
+        const breathMat = new MeshStandardNodeMaterial({
+            color: capMat.color, // Inherit color
+            roughness: 0.8,
+            metalness: 0.0,
+        });
+
+        // Inherit bump map logic if possible, or just skip for now as TSL MeshStandardNodeMaterial
+        // doesn't automatically inherit the old texture unless we rebuild it as a node.
+        // For simplicity, we stick to color + displacement.
+
+        const pos = positionLocal;
+        const breathSpeed = time.mul(2.0); // Breathing speed
+
+        // Vertex Displacement: Expand outward based on normal
+        // "Breathing" pulse
+        const breath = sin(breathSpeed).mul(0.1).add(1.0); // 0.9 to 1.1
+
+        // Apply to vertex position (expand from center of cap)
+        // Cap center is roughly (0,0,0) in local space because we built it there?
+        // Wait, cap geometry was built centered at (0,0,0) then moved by parent group?
+        // No, cap is a mesh added to group.
+        // Cap geometry is centered.
+
+        breathMat.positionNode = pos.mul(breath);
+
+        // Emissive Pulse
+        const emissivePulse = sin(breathSpeed.mul(2.0)).mul(0.2).add(0.3); // 0.1 to 0.5
+        breathMat.emissiveNode = color(capMat.color).mul(emissivePulse);
+
+        cap.material = breathMat;
+
+        // Note: TSL materials don't work with standard 'registerReactiveMaterial' logic
+        // because that function modifies .emissive property directly on the CPU.
+        // We handle reactivity inside the shader here via uniforms if needed.
+        // For now, it's just a constant "Breathing" effect as requested.
+    }
+    else if (isGlowing) {
         const light = new THREE.PointLight(capMat.color, 1.0, 5.0);
         light.position.y = stemH;
         group.add(light);
@@ -1538,6 +1578,42 @@ export function createWaterfall(height, colorHex = 0x87CEEB) {
     const waterfall = new THREE.Points(geo, mat);
     waterfall.userData = { animationType: 'gpuWaterfall' };
     return waterfall;
+}
+
+export function createMelodyLake(width = 200, depth = 200) {
+    const geo = new THREE.PlaneGeometry(width, depth, 64, 64);
+    geo.rotateX(-Math.PI / 2);
+
+    const mat = new MeshStandardNodeMaterial({
+        color: 0x40E0D0, // Turquoise
+        roughness: 0.1,
+        metalness: 0.5,
+        transparent: true,
+        opacity: 0.8,
+    });
+
+    // TSL Ripple Logic
+    // Simple radial sine waves + noise driven by time
+    // In a real implementation we would bind audio uniforms here
+    const pos = positionLocal;
+    const dist = length(pos.xz);
+
+    // Ripple calculation
+    const ripple = sin(dist.mul(0.5).sub(time.mul(2.0))).mul(0.5);
+    const wave = sin(pos.x.mul(0.2).add(time)).mul(cos(pos.z.mul(0.2).add(time))).mul(0.5);
+
+    // Apply displacement to Y
+    mat.positionNode = vec3(pos.x, pos.y.add(ripple).add(wave), pos.z);
+
+    // Update normals for lighting? (MeshStandardNodeMaterial handles this if we modify positionNode?
+    // Usually need to recalculate normals or use normalMap.
+    // For now, visual displacement is enough for "Melody Lake" prototype)
+
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.receiveShadow = true;
+    mesh.userData.type = 'lake';
+
+    return mesh;
 }
 
 export function createGlowingFlowerPatch(x, z) {
