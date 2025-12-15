@@ -1135,6 +1135,13 @@ function animate() {
 // Initialize WASM then start animation loop
 initWasm().then((wasmLoaded) => {
     console.log(`WASM module ${wasmLoaded ? 'active' : 'using JS fallbacks'}`);
+
+    // Enable start button
+    if (startButton) {
+        startButton.disabled = false;
+        startButton.innerText = 'Start Exploration 🚀';
+    }
+
     renderer.setAnimationLoop(animate);
 });
 
