@@ -18,6 +18,8 @@ import {
 } from './foliage.js';
 import { createSky, uSkyTopColor, uSkyBottomColor } from './sky.js';
 import { createStars, uStarPulse, uStarColor, uStarOpacity } from './stars.js';
+import { createMoon, updateMoon, moonConfig, triggerMoonBlink } from './moon.js';
+import { MusicReactivity, getNoteColor } from './music-reactivity.js';
 import { AudioSystem } from './audio-system.js';
 import { BeatSync } from './src/audio/beat-sync.js';
 import { WeatherSystem, WeatherState } from './weather.js';
@@ -73,7 +75,11 @@ const PALETTE = {
 };
 
 const CONFIG = {
-    colors: { ground: 0x90EE90 }  // Slightly softer light green
+    colors: { ground: 0x90EE90 }, // Slightly softer light green
+    noteColorMap: {
+        // Default mapping used by MusicReactivity, can be overridden here
+        // species -> mapping
+    }
 };
 
 // --- Scene Setup ---
@@ -87,7 +93,13 @@ scene.add(sky);
 const stars = createStars();
 scene.add(stars);
 
+const moon = createMoon();
+// Position moon opposite to sun or in a fixed orbit
+moon.position.set(-50, 60, -30); // High up
+scene.add(moon);
+
 const audioSystem = new AudioSystem();
+const musicReactivity = new MusicReactivity(scene, CONFIG.noteColorMap);
 const weatherSystem = new WeatherSystem(scene);
 // BeatSync instance to centralize beat event detection
 const beatSync = new BeatSync(audioSystem);
@@ -974,6 +986,7 @@ function animate() {
         );
         sunLight.visible = true;
         sunGlow.visible = true;
+        moon.visible = false;
 
         // Update Glow Position
         sunGlow.position.copy(sunLight.position.clone().normalize().multiplyScalar(400));
@@ -981,7 +994,21 @@ function animate() {
     } else {
         sunLight.visible = false;
         sunGlow.visible = false;
-        // Moon logic could go here
+        moon.visible = true;
+
+        // Moon Orbit: Opposite to Sun? Or just high up.
+        // Let's make it rise as sun sets
+        const nightProgress = (cyclePos - 540) / (CYCLE_DURATION - 540); // 0 to 1 over night
+        const moonAngle = nightProgress * Math.PI;
+        const r = 90;
+        moon.position.set(
+            Math.cos(moonAngle) * -r, // East to West logic reversed?
+            Math.sin(moonAngle) * r,
+            -30
+        );
+        moon.lookAt(0,0,0);
+
+        updateMoon(moon, delta, audioState);
     }
 
     // --- FIX: Update the WebGPU Uniform for Star Opacity ---
@@ -1010,6 +1037,40 @@ function animate() {
     const deepNightStart = DURATION_SUNRISE + DURATION_DAY + DURATION_SUNSET + DURATION_DUSK_NIGHT;
     const deepNightEnd = deepNightStart + DURATION_DEEP_NIGHT;
     const isDeepNight = (cyclePos >= deepNightStart && cyclePos < deepNightEnd);
+
+    // --- Music Reactivity: Trigger Notes ---
+    if (audioState && audioState.channelData) {
+        audioState.channelData.forEach(ch => {
+            if (ch.trigger > 0.5) { // Triggered this frame
+                // Determine species mapping (Simple heuristics for now)
+                // Bass (low freq or ch 0-1) -> Mushrooms
+                // Lead (mid/high or ch 2-3) -> Flowers
+                let species = 'flower';
+                if (ch.instrument === 1 || ch.freq < 200) species = 'mushroom';
+                if (ch.instrument === 2) species = 'tree';
+
+                // Broadcast to react objects
+                // We do this by iterating visible objects or using the system
+                // Optimization: Filter animatedFoliage by species?
+                // For this prototype, we just iterate animatedFoliage and check type
+                // But doing this PER NOTE PER FRAME is slow if many notes.
+                // Better: The `MusicReactivity` class handles it if we registered lists.
+                // Here we just call `reactObject` on relevant visible objects.
+
+                animatedFoliage.forEach(f => {
+                    if (f.userData.type === species) {
+                         // Distance check
+                         if (f.position.distanceToSquared(camPos) < maxDistanceSq) {
+                             musicReactivity.reactObject(f, ch.note || 60, ch.volume);
+                         }
+                    }
+                });
+
+                // Blink moon on high notes or specific channel
+                if (species === 'tree' && isNight) triggerMoonBlink(moon);
+            }
+        });
+    }
 
     animatedFoliage.forEach(f => {
         // Skip animation for objects far from camera
