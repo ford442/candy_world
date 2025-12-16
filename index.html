@@ -66,6 +66,14 @@
             margin-bottom: 20px;
         }
 
+        .cta-button:disabled {
+            background: #FFB6C1;
+            cursor: wait;
+            transform: none;
+            box-shadow: none;
+            opacity: 0.8;
+        }
+
         .cta-button:hover,
         .cta-button:focus {
             transform: scale(1.05);
@@ -214,7 +222,7 @@
 <body>
     <div id="instructions">
         <h1>🍭 Candy World</h1>
-        <button id="startButton" class="cta-button" aria-label="Start Exploration and capture mouse cursor">Start Exploration 🚀</button>
+        <button id="startButton" class="cta-button" aria-label="Start Exploration and capture mouse cursor" disabled>Loading World... 🍭</button>
 
         <div class="settings settings-container">
             <input type="file" id="musicUpload" accept=".mod,.xm,.it,.s3m" multiple class="visually-hidden">
