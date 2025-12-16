@@ -35,45 +35,45 @@ const CYCLE_DURATION = DURATION_SUNRISE + DURATION_DAY + DURATION_SUNSET + DURAT
 
 const PALETTE = {
     day: {
-        skyTop: new THREE.Color(0x87CEEB),
-        skyBot: new THREE.Color(0xADD8E6),
-        fog: new THREE.Color(0xFFB6C1),
-        sun: new THREE.Color(0xFFFFFF),
-        amb: new THREE.Color(0xFFFFFF),
-        sunInt: 0.8,
-        ambInt: 0.6
+        skyTop: new THREE.Color(0x7EC8E3),   // Deeper candy-blue sky
+        skyBot: new THREE.Color(0xB8E6F0),   // Softer transition to horizon
+        fog: new THREE.Color(0xFFC5D3),      // Warmer pastel pink fog
+        sun: new THREE.Color(0xFFFAF0),      // Warm white sunlight
+        amb: new THREE.Color(0xFFF5EE),      // Soft seashell ambient
+        sunInt: 0.9,
+        ambInt: 0.65
     },
     sunset: {
-        skyTop: new THREE.Color(0x483D8B),
-        skyBot: new THREE.Color(0xFF4500), // Reflective Glow
-        fog: new THREE.Color(0xDB7093),
-        sun: new THREE.Color(0xFF8C00),
-        amb: new THREE.Color(0x800000),
-        sunInt: 0.5,
-        ambInt: 0.4
+        skyTop: new THREE.Color(0x4B3D8F),   // Rich purple-blue
+        skyBot: new THREE.Color(0xFF6B4A),   // Warm coral-orange glow
+        fog: new THREE.Color(0xE87B9F),      // Candy pink-coral fog
+        sun: new THREE.Color(0xFFA040),      // Golden-orange sun
+        amb: new THREE.Color(0x9B5050),      // Warm reddish ambient
+        sunInt: 0.55,
+        ambInt: 0.45
     },
     night: {
-        skyTop: new THREE.Color(0x020205),
-        skyBot: new THREE.Color(0x050510),
-        fog: new THREE.Color(0x050510),
-        sun: new THREE.Color(0x223355),
-        amb: new THREE.Color(0x050510),
-        sunInt: 0.1,
-        ambInt: 0.05
+        skyTop: new THREE.Color(0x0A0A15),   // Deep night blue
+        skyBot: new THREE.Color(0x101025),   // Slightly lighter horizon
+        fog: new THREE.Color(0x0A0A18),      // Dark blue-tinted fog
+        sun: new THREE.Color(0x334466),      // Moonlight blue tint
+        amb: new THREE.Color(0x080815),      // Very dim ambient
+        sunInt: 0.12,
+        ambInt: 0.08
     },
     sunrise: {
-        skyTop: new THREE.Color(0x40E0D0),
-        skyBot: new THREE.Color(0xFF69B4),
-        fog: new THREE.Color(0xFFDAB9),
-        sun: new THREE.Color(0xFFD700),
-        amb: new THREE.Color(0xFFB6C1),
-        sunInt: 0.6,
-        ambInt: 0.5
+        skyTop: new THREE.Color(0x48D8C8),   // Fresh turquoise
+        skyBot: new THREE.Color(0xFF7BAC),   // Warm candy pink
+        fog: new THREE.Color(0xFFE4CA),      // Peachy-warm fog
+        sun: new THREE.Color(0xFFE066),      // Golden morning light
+        amb: new THREE.Color(0xFFC8D8),      // Soft pink ambient
+        sunInt: 0.65,
+        ambInt: 0.55
     }
 };
 
 const CONFIG = {
-    colors: { ground: 0x98FB98 }
+    colors: { ground: 0x90EE90 }  // Slightly softer light green
 };
 
 // --- Scene Setup ---
@@ -123,22 +123,22 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.0;
 
 // --- Lighting ---
-const ambientLight = new THREE.HemisphereLight(PALETTE.day.skyTop, CONFIG.colors.ground, 1.0);
+// Enhanced hemisphere light for candy-world ambient
+const ambientLight = new THREE.HemisphereLight(PALETTE.day.skyTop, CONFIG.colors.ground, 1.1);
 scene.add(ambientLight);
 
-const sunLight = new THREE.DirectionalLight(PALETTE.day.sun, 0.8);
+const sunLight = new THREE.DirectionalLight(PALETTE.day.sun, 0.9);
 sunLight.position.set(50, 80, 30);
 sunLight.castShadow = true;
 sunLight.shadow.mapSize.width = 1024; // Reduced from 2048 for better performance
 sunLight.shadow.mapSize.height = 1024;
 scene.add(sunLight);
 
-// Mild Shaft Lighting / Sun Glow
-// We attach a large transparent plane to the sunlight direction to create a "bloom" source
+// Mild Shaft Lighting / Sun Glow - enhanced for candy aesthetic
 const sunGlowMat = new THREE.MeshBasicMaterial({
-    color: 0xFFD700,
+    color: 0xFFE599,  // Warmer golden glow
     transparent: true,
-    opacity: 0.3,
+    opacity: 0.25,
     blending: THREE.AdditiveBlending,
     side: THREE.DoubleSide,
     depthWrite: false
@@ -162,9 +162,12 @@ for (let i = 0; i < posAttribute.count; i++) {
     posAttribute.setZ(i, height);
 }
 groundGeo.computeVertexNormals();
-const groundMat = new THREE.MeshStandardMaterial({
+const groundMat = new THREE.MeshPhysicalMaterial({
     color: CONFIG.colors.ground,
-    roughness: 0.8,
+    roughness: 0.4,
+    metalness: 0.0,
+    clearcoat: 0.3,
+    clearcoatRoughness: 0.6,
     flatShading: false,
 });
 const ground = new THREE.Mesh(groundGeo, groundMat);
