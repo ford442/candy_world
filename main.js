@@ -1038,7 +1038,11 @@ function animate() {
     const deepNightEnd = deepNightStart + DURATION_DEEP_NIGHT;
     const isDeepNight = (cyclePos >= deepNightStart && cyclePos < deepNightEnd);
 
-    // --- Music Reactivity: Trigger Notes ---
+    // --- Music Reactivity & Animation Optimization ---
+    // Bolt: Consolidated loops to iterate animatedFoliage only ONCE per frame.
+    // First, collect all triggers for this frame.
+    const frameTriggers = new Map(); // species -> { note, volume }
+
     if (audioState && audioState.channelData) {
         audioState.channelData.forEach(ch => {
             if (ch.trigger > 0.5) { // Triggered this frame
@@ -1049,36 +1053,37 @@ function animate() {
                 if (ch.instrument === 1 || ch.freq < 200) species = 'mushroom';
                 if (ch.instrument === 2) species = 'tree';
 
-                // Broadcast to react objects
-                // We do this by iterating visible objects or using the system
-                // Optimization: Filter animatedFoliage by species?
-                // For this prototype, we just iterate animatedFoliage and check type
-                // But doing this PER NOTE PER FRAME is slow if many notes.
-                // Better: The `MusicReactivity` class handles it if we registered lists.
-                // Here we just call `reactObject` on relevant visible objects.
+                // Store trigger for single-pass application
+                // Last trigger for a species in the frame wins (or could accumulate)
+                frameTriggers.set(species, { note: ch.note || 60, volume: ch.volume });
 
-                animatedFoliage.forEach(f => {
-                    if (f.userData.type === species) {
-                         // Distance check
-                         if (f.position.distanceToSquared(camPos) < maxDistanceSq) {
-                             musicReactivity.reactObject(f, ch.note || 60, ch.volume);
-                         }
-                    }
-                });
-
-                // Blink moon on high notes or specific channel
+                // Blink moon on high notes or specific channel (Global effect)
                 if (species === 'tree' && isNight) triggerMoonBlink(moon);
             }
         });
     }
 
-    animatedFoliage.forEach(f => {
-        // Skip animation for objects far from camera
-        const distSq = f.position.distanceToSquared(camPos);
-        if (distSq > maxDistanceSq) return;
+    // Single pass for Animation and Reactivity
+    // Reduces complexity from O(Channels * Objects) to O(Objects)
+    for (let i = 0, l = animatedFoliage.length; i < l; i++) {
+        const f = animatedFoliage[i];
 
+        // Skip processing for objects far from camera
+        const distSq = f.position.distanceToSquared(camPos);
+        if (distSq > maxDistanceSq) continue;
+
+        // 1. Animation
         animateFoliage(f, t, audioState, !isNight, isDeepNight);
-    });
+
+        // 2. Reactivity (if triggered this frame)
+        // Check if this object's species has a pending trigger
+        if (frameTriggers.size > 0) {
+            const trigger = frameTriggers.get(f.userData.type);
+            if (trigger) {
+                 musicReactivity.reactObject(f, trigger.note, trigger.volume);
+            }
+        }
+    }
 
     // Firefly visibility and update (Deep Night only)
     if (fireflies) {
