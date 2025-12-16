@@ -169,7 +169,6 @@ const groundMat = new THREE.MeshPhysicalMaterial({
     clearcoat: 0.3,
     clearcoatRoughness: 0.6,
     flatShading: false,
-    envMapIntensity: 0.5,
 });
 const ground = new THREE.Mesh(groundGeo, groundMat);
 ground.rotation.x = -Math.PI / 2;
