@@ -3,15 +3,16 @@ import { color, mix, positionWorld, float, uniform } from 'three/tsl';
 import { MeshBasicNodeMaterial } from 'three/webgpu';
 
 // Export uniforms so main.js can drive them
-export const uSkyTopColor = uniform(color(0x87CEEB));
-export const uSkyBottomColor = uniform(color(0xFFB6C1));
+// Enhanced candy-world sky colors with richer pastel tones
+export const uSkyTopColor = uniform(color(0x7EC8E3));     // Soft sky blue with more depth
+export const uSkyBottomColor = uniform(color(0xFFC5D3)); // Warmer pastel pink horizon
 
 function createSky() {
-    const skyGeo = new THREE.SphereGeometry(1000, 16, 8); // Reduced segments for performance
+    const skyGeo = new THREE.SphereGeometry(1000, 24, 12); // Slightly increased for smoother gradient
 
-    // TSL Gradient
-    const offset = float(33.0);
-    const exponent = float(0.6);
+    // TSL Gradient - refined for candy aesthetic
+    const offset = float(40.0);   // Adjusted for better horizon transition
+    const exponent = float(0.5);  // Smoother gradient falloff
 
     // positionWorld is vec3 (x, y, z)
     // h = normalize( vWorldPosition + offset ).y;
