@@ -60,6 +60,22 @@ function createClayMaterial(colorHex) {
     });
 }
 
+// --- Candy Material for glossy, shiny surfaces (candy aesthetic) ---
+function createCandyMaterial(colorHex, glossiness = 0.7) {
+    if (!globalNoiseTexture) generateNoiseTexture();
+    return new THREE.MeshPhysicalMaterial({
+        color: colorHex,
+        metalness: 0.0,
+        roughness: 0.3 - glossiness * 0.1,  // Lower roughness = shinier (0.2-0.3)
+        clearcoat: 0.4 + glossiness * 0.4,   // Clearcoat for candy gloss (0.4-0.8)
+        clearcoatRoughness: 0.2,
+        flatShading: false,
+        bumpMap: globalNoiseTexture,
+        bumpScale: 0.01,
+        envMapIntensity: 0.8
+    });
+}
+
 // --- Gradient Material using TSL (for smooth organic transitions) ---
 
 function createGradientMaterial(topColorHex, bottomColorHex, roughnessVal = 0.7) {
@@ -80,11 +96,11 @@ function createGradientMaterial(topColorHex, bottomColorHex, roughnessVal = 0.7)
 const foliageMaterials = {
     grass: createClayMaterial(0x7CFC00),
     flowerStem: createClayMaterial(0x228B22),
-    flowerCenter: createClayMaterial(0xFFFACD),
+    flowerCenter: createCandyMaterial(0xFFFACD, 0.5), // Candy-like center
     flowerPetal: [
-        createClayMaterial(0xFF69B4),
-        createClayMaterial(0xBA55D3),
-        createClayMaterial(0x87CEFA),
+        createCandyMaterial(0xFF69B4, 0.8), // Glossy pink petals
+        createCandyMaterial(0xBA55D3, 0.8), // Glossy purple petals
+        createCandyMaterial(0x87CEFA, 0.7), // Glossy blue petals
     ],
     lightBeam: new THREE.MeshBasicMaterial({
         color: 0xFFFFFF,
@@ -105,16 +121,16 @@ const foliageMaterials = {
     }),
     opticTip: new THREE.MeshBasicMaterial({ color: 0xFFFFFF }), // Pure light
 
-    // Mushroom Materials (Consolidated from main.js)
-    mushroomStem: createClayMaterial(0xF5DEB3), // Wheat
+    // Mushroom Materials - Candy aesthetic for caps
+    mushroomStem: createClayMaterial(0xF5DEB3), // Wheat - keep matte
     mushroomCap: [
-        createClayMaterial(0xFF6347), // Tomato
-        createClayMaterial(0xDA70D6), // Orchid
-        createClayMaterial(0xFFA07A), // Light Salmon
-        createClayMaterial(0x00BFFF), // Deep Sky Blue (Drivable/Magic)
+        createCandyMaterial(0xFF6347, 0.9), // Glossy Tomato cap
+        createCandyMaterial(0xDA70D6, 0.9), // Glossy Orchid cap
+        createCandyMaterial(0xFFA07A, 0.8), // Glossy Light Salmon cap
+        createCandyMaterial(0x00BFFF, 1.0), // Extra glossy Deep Sky Blue (Magic)
     ],
-    mushroomGills: createClayMaterial(0x8B4513), // Saddle Brown
-    mushroomSpots: createClayMaterial(0xFFFFFF), // White spots
+    mushroomGills: createClayMaterial(0x8B4513), // Saddle Brown - keep matte
+    mushroomSpots: createCandyMaterial(0xFFFFFF, 0.6), // Glossy white spots
     eye: new THREE.MeshStandardMaterial({ color: 0x000000, roughness: 0.1 }),
     mouth: new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.5 }),
 };
