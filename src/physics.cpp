@@ -108,8 +108,3 @@ void checkCollision(uintptr_t dataPtr, int count, float playerX, float playerZ, 
 }
 
 } // extern "C"
-
-// Add main function to satisfy linker when using STANDALONE_WASM without --no-entry (or if checks fail)
-int main() {
-    return 0;
-}
