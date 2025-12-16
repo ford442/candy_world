@@ -38,6 +38,14 @@ export const AnimationType = {
 export async function initWasm() {
     if (wasmInstance) return true;
 
+    // UX: Update button state to indicate loading
+    const startButton = document.getElementById('startButton');
+    if (startButton) {
+        startButton.disabled = true;
+        startButton.textContent = 'Loading World...';
+        startButton.style.cursor = 'wait';
+    }
+
     try {
         // Load WASM binary with cache buster
         const response = await fetch('./candy_physics.wasm?v=' + Date.now());
@@ -45,6 +53,12 @@ export async function initWasm() {
 
         if (!response.ok) {
             console.warn('WASM not found, using JS fallbacks');
+            // UX: Restore button even on failure (fallback mode)
+            if (startButton) {
+                startButton.disabled = false;
+                startButton.textContent = 'Start Exploration 🚀';
+                startButton.style.cursor = 'pointer';
+            }
             return false;
         }
 
@@ -58,6 +72,12 @@ export async function initWasm() {
 
         if (magic !== '0061736d') {
             console.error('Invalid WASM file - not a WebAssembly binary!');
+            // UX: Restore button even on failure
+            if (startButton) {
+                startButton.disabled = false;
+                startButton.textContent = 'Start Exploration 🚀';
+                startButton.style.cursor = 'pointer';
+            }
             return false;
         }
 
@@ -106,6 +126,12 @@ export async function initWasm() {
         if (!wasmInstance.exports.getGroundHeight) {
             console.error('WASM exports missing getGroundHeight. Available:', exportKeys);
             wasmInstance = null;
+            // UX: Restore button even on failure
+            if (startButton) {
+                startButton.disabled = false;
+                startButton.textContent = 'Start Exploration 🚀';
+                startButton.style.cursor = 'pointer';
+            }
             return false;
         }
 
@@ -157,10 +183,23 @@ export async function initWasm() {
             console.warn('Optional Emscripten WASM failed to load:', emError.message);
         }
 
+        // UX: Restore button on success
+        if (startButton) {
+            startButton.disabled = false;
+            startButton.textContent = 'Start Exploration 🚀';
+            startButton.style.cursor = 'pointer';
+        }
+
         return true;
     } catch (error) {
         console.warn('Failed to load WASM:', error);
         wasmInstance = null;
+        // UX: Restore button on failure
+        if (startButton) {
+            startButton.disabled = false;
+            startButton.textContent = 'Start Exploration 🚀';
+            startButton.style.cursor = 'pointer';
+        }
         return false;
     }
 }
