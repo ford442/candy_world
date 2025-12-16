@@ -4,10 +4,11 @@
   "description": "A 3D world of rudimentary, but sharp graphically nature - featuring smooth, glossy shapes in a pastel candy-colored landscape.",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
+    "dev": "npm run build:wasm && vite",
+    "build": "npm run build:wasm && vite build",
     "preview": "vite preview",
-    "build:wasm": "asc assembly/index.ts -b build/optimized.wasm -t build/optimized.wat --sourceMap --validate --optimize"
+    "build:wasm": "asc assembly/index.ts --outFile public/candy_physics.wasm --textFile public/candy_physics.wat --sourceMap --shrinkLevel 0 --optimize --converge --optimizeLevel 3",
+    "test": "python3 verify.py"
   },
   "keywords": [],
   "author": "",
@@ -16,7 +17,7 @@
     "three": "^0.171.0"
   },
   "devDependencies": {
-    "assemblyscript": "^0.27.0",
+    "assemblyscript": "^0.27.37",
     "vite": "^7.2.4"
   }
 }

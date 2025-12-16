@@ -1,33 +1,48 @@
 from playwright.sync_api import sync_playwright
 
-def verify_scene():
+def verify_night_mode():
     with sync_playwright() as p:
-        # Launch browser with swiftshader to emulate WebGPU/WebGL if possible,
-        # though Playwright support for WebGPU is limited.
-        # We'll use standard launch options.
-        # Note: --use-gl=swiftshader might help in some headless envs.
+        # Need WebGPU flags
         browser = p.chromium.launch(
             headless=True,
-            args=["--use-gl=swiftshader", "--enable-webgpu"]
+            args=[
+                "--use-gl=swiftshader",
+                "--enable-unsafe-webgpu"
+            ]
         )
         page = browser.new_page()
+        try:
+            # Navigate to local server (Vite default is 5173, but check log if needed)
+            # Assuming 5173 for now
+            page.goto("http://localhost:5173", timeout=60000)
 
-        # Navigate to the preview server
-        page.goto("http://localhost:4173/")
+            # Wait for instructions overlay
+            page.wait_for_selector("#instructions")
 
-        # Wait for canvas to be present
-        page.wait_for_selector("#glCanvas")
+            # Click to start (pointer lock)
+            page.click("#instructions")
 
-        # Wait a bit for the scene to load/render
-        page.wait_for_timeout(5000)
+            # Wait a bit for initial load
+            page.wait_for_timeout(2000)
 
-        # Check for console errors
-        page.on("console", lambda msg: print(f"Console: {msg.text}"))
+            # Screenshot Day
+            page.screenshot(path="verification_day.png")
+            print("Day screenshot taken.")
 
-        # Take a screenshot
-        page.screenshot(path="verification_screenshot.png")
+            # Press 'N' for Night Mode
+            page.keyboard.press("n")
 
-        browser.close()
+            # Wait for transition (lerp is fast but safe 2s)
+            page.wait_for_timeout(3000)
+
+            # Screenshot Night
+            page.screenshot(path="verification_night.png")
+            print("Night screenshot taken.")
+
+        except Exception as e:
+            print(f"Error: {e}")
+        finally:
+            browser.close()
 
 if __name__ == "__main__":
-    verify_scene()
+    verify_night_mode()
