@@ -1,23 +1,31 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Candy World - 3D Experience</title>
+    <title>Candy World</title>
+    <!-- CRITICAL: Capture native WebAssembly before libopenmpt overrides it -->
+    <script>
+        window.NativeWebAssembly = window.WebAssembly;
+    </script>
     <style>
         body {
             margin: 0;
             overflow: hidden;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #FFD1DC; /* Pastel Pink background fallback */
+            background: #FFD1DC;
+            /* Pastel Pink background fallback */
             user-select: none;
         }
+
         canvas {
             display: block;
             width: 100%;
             height: 100%;
             outline: none;
         }
+
         #instructions {
             position: absolute;
             top: 0;
@@ -28,44 +36,156 @@
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            background: rgba(255, 209, 220, 0.8); /* Fog color with transparency */
+            background: rgba(255, 209, 220, 0.8);
+            /* Fog color with transparency */
             z-index: 200;
             cursor: pointer;
             backdrop-filter: blur(5px);
             transition: opacity 0.3s;
         }
+
         #instructions h1 {
             color: #FF6B6B;
             font-size: 3em;
             margin: 0 0 20px 0;
             text-shadow: 2px 2px 0px #fff;
         }
-        #instructions p {
-            color: #555;
-            font-size: 1.2em;
-            background: rgba(255, 255, 255, 0.9);
-            padding: 15px 30px;
+
+        .cta-button {
+            font-size: 1.5em;
+            padding: 15px 40px;
+            background: #FF6B6B;
+            color: white;
+            border: none;
             border-radius: 50px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(255, 107, 107, 0.4);
+            transition: transform 0.2s, background 0.2s, box-shadow 0.2s;
+            font-weight: bold;
+            text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
         }
-        .controls {
+
+        .cta-button:hover,
+        .cta-button:focus {
+            transform: scale(1.05);
+            background: #FF5252;
+            outline: none;
+        }
+
+        .cta-button:focus-visible {
+            box-shadow: 0 0 0 4px rgba(255, 107, 107, 0.3), 0 5px 15px rgba(255, 107, 107, 0.4);
+        }
+
+        .settings-container {
+            margin-bottom: 20px;
+            z-index: 201;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .visually-hidden {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        .file-label {
+            background: #fff;
+            padding: 10px 20px;
+            border-radius: 20px;
+            cursor: pointer;
+            border: 2px solid #FF6B6B;
+            color: #FF6B6B;
+            font-weight: bold;
+            display: inline-block;
+            transition: background 0.2s, color 0.2s;
+        }
+
+        .file-label:hover {
+            background: #FFF0F5;
+        }
+
+        /* Focus state when the hidden input is focused */
+        input:focus+.file-label {
+            box-shadow: 0 0 0 3px rgba(255, 107, 107, 0.5);
+            background: #FFF0F5;
+        }
+
+        .toggle-button {
+            background: #6A5ACD;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 20px;
+            cursor: pointer;
+            color: white;
+            font-weight: bold;
+            font-size: 1em;
+            transition: background 0.2s;
+        }
+
+        .toggle-button:hover,
+        .toggle-button:focus {
+            background: #584AB8;
+            outline: none;
+        }
+
+        .toggle-button:focus-visible {
+            box-shadow: 0 0 0 3px rgba(106, 90, 205, 0.5);
+        }
+
+        /* Improved Controls List Styles */
+        .controls-container {
             margin-top: 20px;
             text-align: left;
             background: rgba(255, 255, 255, 0.9);
-            padding: 20px;
+            padding: 20px 30px;
             border-radius: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
         }
+
+        .controls-list {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 12px 20px;
+            margin: 0;
+            align-items: center;
+        }
+
+        .controls-list dt {
+            justify-self: end;
+            display: flex;
+            gap: 5px;
+        }
+
+        .controls-list dd {
+            margin: 0;
+            font-size: 1.05em;
+            color: #444;
+            font-weight: 500;
+        }
+
         .key {
             display: inline-block;
-            background: #eee;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-            padding: 2px 8px;
-            font-family: monospace;
+            background: #f0f0f0;
+            border: 1px solid #dcdcdc;
+            border-bottom: 2px solid #cecece;
+            border-radius: 6px;
+            padding: 4px 10px;
+            font-family: 'Consolas', 'Monaco', monospace;
             font-weight: bold;
+            font-size: 0.9em;
             color: #333;
-            margin: 0 3px;
-            box-shadow: 0 2px 0 #ccc;
+            min-width: 20px;
+            text-align: center;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
         }
     </style>
     <script type="importmap">
@@ -78,20 +198,60 @@
             }
         }
     </script>
+    <script>
+        window.libopenmptReady = new Promise(resolve => {
+            window.libopenmpt = {
+                onRuntimeInitialized: function () {
+                    console.log('libopenmpt runtime initialized via pre-load script.');
+                    resolve(this);
+                }
+            };
+        });
+    </script>
+    <script src="https://wasm.noahcohn.com/libmpt/libopenmptjs.js"></script>
 </head>
+
 <body>
     <div id="instructions">
         <h1>🍭 Candy World</h1>
-        <p>Click anywhere to Explore</p>
-        <div class="controls">
-            <div><span class="key">Right Click</span> Move Forward (Run)</div>
-            <div><span class="key">A</span> Left <span class="key">D</span> Right <span class="key">S</span> Back</div>
-            <div><span class="key">Control</span> Hold to Sneak</div>
-            <div><span class="key">Space</span> Jump</div>
-            <div><span class="key">Mouse</span> Look</div>
+        <button id="startButton" class="cta-button" aria-label="Start Exploration and capture mouse cursor">Start Exploration 🚀</button>
+
+        <div class="settings settings-container">
+            <input type="file" id="musicUpload" accept=".mod,.xm,.it,.s3m" multiple class="visually-hidden">
+            <label for="musicUpload" class="file-label">
+                🎵 Upload Music
+            </label>
+
+            <button id="toggleDayNight" class="toggle-button" aria-pressed="false" aria-keyshortcuts="N">
+                Toggle Day/Night (N)
+            </button>
+        </div>
+
+        <div class="controls-container">
+            <dl class="controls-list">
+                <dt><span class="key">Right Click</span></dt>
+                <dd>Move Forward (Run)</dd>
+
+                <dt>
+                    <span class="key" aria-label="A key">A</span>
+                    <span class="key" aria-label="S key">S</span>
+                    <span class="key" aria-label="D key">D</span>
+                </dt>
+                <dd>Move Left / Back / Right</dd>
+
+                <dt><span class="key">Ctrl</span></dt>
+                <dd>Hold to Sneak</dd>
+
+                <dt><span class="key">Space</span></dt>
+                <dd>Jump</dd>
+
+                <dt><span class="key">Mouse</span></dt>
+                <dd>Look Around</dd>
+            </dl>
         </div>
     </div>
     <canvas id="glCanvas"></canvas>
     <script type="module" src="main.js"></script>
 </body>
+
 </html>
