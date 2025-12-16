@@ -1,10 +1,9 @@
 #include <emscripten.h>
 #include <cmath>
-#include <cstdlib> // for rand(), srand()
+#include <cstdlib>
+#include <cstdint>
 
-extern "C" {
-
-// Helper for random float between -0.5 and 0.5
+// Helper for random float [-0.5, 0.5]
 float random_float() {
     return ((float)rand() / RAND_MAX) - 0.5f;
 }
@@ -40,15 +39,33 @@ EMSCRIPTEN_KEEPALIVE
 void updateParticles(float* data, int count, float dt) {
     for (int i = 0; i < count; i++) {
         int offset = i * 8;
+        // 8 floats: x, y, z, life, vx, vy, vz, speed
 
-        // Load values
-        float px = data[offset + 0];
-        float py = data[offset + 1];
-        float pz = data[offset + 2];
-        float life = data[offset + 3];
-        float vx = data[offset + 4];
-        float vy = data[offset + 5];
-        float vz = data[offset + 6];
+        data[offset + 0] = random_float() * 50.0f;     // x: -25 to 25
+        data[offset + 1] = random_float_pos() * 20.0f; // y: 0 to 20
+        data[offset + 2] = random_float() * 50.0f;     // z: -25 to 25
+        data[offset + 3] = random_float_pos();         // life: 0 to 1
+        data[offset + 4] = random_float() * 2.0f;      // vx: -1 to 1
+        data[offset + 5] = random_float_pos() * 5.0f;  // vy: 0 to 5
+        data[offset + 6] = random_float() * 2.0f;      // vz: -1 to 1
+        data[offset + 7] = 1.0f + random_float_pos();  // speed: 1 to 2
+    }
+}
+
+EMSCRIPTEN_KEEPALIVE
+void updateParticles(uintptr_t dataPtr, int count, float dt) {
+    float* data = reinterpret_cast<float*>(dataPtr);
+
+    for (int i = 0; i < count; i++) {
+        int offset = i * 8;
+        
+        float* px = &data[offset + 0];
+        float* py = &data[offset + 1];
+        float* pz = &data[offset + 2];
+        float* life = &data[offset + 3];
+        float* vx = &data[offset + 4];
+        float* vy = &data[offset + 5];
+        float* vz = &data[offset + 6];
         float speed = data[offset + 7];
 
         // Update Physics
