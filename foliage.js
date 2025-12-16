@@ -66,13 +66,12 @@ function createCandyMaterial(colorHex, glossiness = 0.7) {
     return new THREE.MeshPhysicalMaterial({
         color: colorHex,
         metalness: 0.0,
-        roughness: 0.3 - glossiness * 0.1,  // Lower roughness = shinier (0.2-0.3)
+        roughness: Math.max(0.1, 0.3 - glossiness * 0.1),  // Lower roughness = shinier (0.1-0.3)
         clearcoat: 0.4 + glossiness * 0.4,   // Clearcoat for candy gloss (0.4-0.8)
         clearcoatRoughness: 0.2,
         flatShading: false,
         bumpMap: globalNoiseTexture,
-        bumpScale: 0.01,
-        envMapIntensity: 0.8
+        bumpScale: 0.01
     });
 }
 
