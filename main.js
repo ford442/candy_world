@@ -76,6 +76,17 @@ const CONFIG = {
     colors: { ground: 0x98FB98 }
 };
 
+// Foliage color palettes
+const FOLIAGE_COLORS = {
+    floweringTrees: [0xFF69B4, 0x87CEEB, 0xDDA0DD, 0xFFD700, 0xFF6EC7],
+    shrubs: [0x32CD32, 0x228B22, 0x2E8B57, 0x3CB371],
+    glowingFlowers: [0xFFD700, 0xFF69B4, 0x87CEEB, 0x00FFFF],
+    orbs: [0x87CEEB, 0xFF69B4, 0xFFD700, 0x00FFFF, 0xDA70D6],
+    vines: [0x228B22, 0x2E8B57, 0x32CD32]
+};
+
+const CYCLE_DURATION = 420;
+
 // --- Scene Setup ---
 const canvas = document.querySelector('#glCanvas');
 const scene = new THREE.Scene();
@@ -198,7 +209,10 @@ scene.add(fireflies);
 initFallingBerries(scene);
 
 function safeAddFoliage(obj, isObstacle = false, radius = 1.0) {
-    if (animatedFoliage.length > 1500) return; // Optimized limit for better performance
+    if (animatedFoliage.length > 3500) {
+        console.warn('Foliage limit reached:', animatedFoliage.length);
+        return;
+    }
     foliageGroup.add(obj);
     animatedFoliage.push(obj);
     if (isObstacle) obstacles.push({ position: obj.position.clone(), radius });
@@ -219,22 +233,19 @@ function safeAddFoliage(obj, isObstacle = false, radius = 1.0) {
     }
 }
 
-// Give WeatherSystem a hook to add foliage into the world (so spawned mushrooms get registered properly)
-weatherSystem.onSpawnFoliage = (obj, isObstacle = false, radius = 1.0) => {
-    safeAddFoliage(obj, isObstacle, radius);
-};
+// --- Spawn Logic ---
+// --- Spawn Logic ---
+const CLUSTER_COUNT = 90;
+for (let i = 0; i < CLUSTER_COUNT; i++) {
+    const cx = (Math.random() - 0.5) * 260;
+    const cz = (Math.random() - 0.5) * 260;
+    const type = Math.random();
+    const subRoll = Math.random();
 
-// --- NEW SCENE CLUSTERING SPAWNER ---
-
-function spawnCluster(cx, cz, type) {
-    // Each cluster is roughly 30x30 units
-
-    // 1. Mushroom Forest (Fixes "0 mushrooms" issue)
-    if (type === 'mushroom_forest') {
-        const count = 20 + Math.random() * 10; // Reduced for performance
-        for (let i = 0; i < count; i++) {
-            const x = cx + (Math.random() - 0.5) * 30;
-            const z = cz + (Math.random() - 0.5) * 30;
+    if (type < 0.2) { // Swamp
+        for (let j = 0; j < 5; j++) {
+            const x = cx + (Math.random() - 0.5) * 15;
+            const z = cz + (Math.random() - 0.5) * 15;
             const y = getGroundHeight(x, z);
 
             // Mix of sizes
@@ -409,10 +420,64 @@ for (let r = -SCENE_ROWS / 2; r < SCENE_ROWS / 2; r++) {
     }
 }
 
-// Rain Clouds
-for (let i = 0; i < 10; i++) { // Reduced from 20 for better performance
-    const cloud = createRainingCloud({ rainIntensity: 30 }); // Reduced from 100 for better performance
-    cloud.position.set((Math.random() - 0.5) * 200, 35 + Math.random() * 10, (Math.random() - 0.5) * 200);
+// --- Additional Foliage Spawning (from plan.md) ---
+
+// Flowering Trees (40)
+for (let i = 0; i < 40; i++) {
+    const x = (Math.random() - 0.5) * 280;
+    const z = (Math.random() - 0.5) * 280;
+    const y = getGroundHeight(x, z);
+    const tree = createFloweringTree({ color: FOLIAGE_COLORS.floweringTrees[Math.floor(Math.random() * FOLIAGE_COLORS.floweringTrees.length)] });
+    tree.position.set(x, y, z);
+    safeAddFoliage(tree, true, 2.0);
+}
+
+// Regular Trees (using shrubs for variety, 50)
+for (let i = 0; i < 50; i++) {
+    const x = (Math.random() - 0.5) * 280;
+    const z = (Math.random() - 0.5) * 280;
+    const y = getGroundHeight(x, z);
+    const shrub = createShrub({ color: FOLIAGE_COLORS.shrubs[Math.floor(Math.random() * FOLIAGE_COLORS.shrubs.length)] });
+    shrub.position.set(x, y, z);
+    shrub.scale.set(2, 2, 2);
+    safeAddFoliage(shrub, true, 1.5);
+}
+
+// Glowing Flowers (30)
+for (let i = 0; i < 30; i++) {
+    const x = (Math.random() - 0.5) * 280;
+    const z = (Math.random() - 0.5) * 280;
+    const y = getGroundHeight(x, z);
+    const flower = createGlowingFlower({ color: FOLIAGE_COLORS.glowingFlowers[Math.floor(Math.random() * FOLIAGE_COLORS.glowingFlowers.length)], intensity: 1.5 });
+    flower.position.set(x, y, z);
+    safeAddFoliage(flower);
+}
+
+// Floating Orbs (25)
+for (let i = 0; i < 25; i++) {
+    const x = (Math.random() - 0.5) * 280;
+    const z = (Math.random() - 0.5) * 280;
+    const y = getGroundHeight(x, z) + 3 + Math.random() * 5;
+    const orb = createFloatingOrb({ color: FOLIAGE_COLORS.orbs[Math.floor(Math.random() * FOLIAGE_COLORS.orbs.length)], size: 0.3 + Math.random() * 0.3 });
+    orb.position.set(x, y, z);
+    safeAddFoliage(orb);
+}
+
+// Vines (15)
+for (let i = 0; i < 15; i++) {
+    const x = (Math.random() - 0.5) * 280;
+    const z = (Math.random() - 0.5) * 280;
+    const y = getGroundHeight(x, z);
+    const vine = createVine({ color: FOLIAGE_COLORS.vines[Math.floor(Math.random() * FOLIAGE_COLORS.vines.length)], length: 3 + Math.floor(Math.random() * 3) });
+    vine.position.set(x, y, z);
+    safeAddFoliage(vine);
+}
+
+const rainingClouds = [];
+for (let i = 0; i < 25; i++) {
+    const isRaining = Math.random() > 0.6;
+    const cloud = isRaining ? createRainingCloud({ rainIntensity: 100 }) : createCloud();
+    cloud.position.set((Math.random() - 0.5) * 200, 25 + Math.random() * 10, (Math.random() - 0.5) * 200);
     scene.add(cloud);
     animatedFoliage.push(cloud);
     foliageClouds.push(cloud); // Add to optimized array
