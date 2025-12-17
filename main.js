@@ -14,7 +14,8 @@ import {
     createMushroom, createWaterfall, createFireflies, updateFireflies,
     initFallingBerries, updateFallingBerries, collectFallingBerries,
     createVibratoViolet, createTremoloTulip, createKickDrumGeyser,
-    VineSwing, createSwingableVine, createMelodyLake
+    VineSwing, createSwingableVine, createMelodyLake,
+    uWindSpeed, uWindDirection
 } from './foliage.js';
 import { createSky, uSkyTopColor, uSkyBottomColor, uHorizonColor, uAtmosphereIntensity } from './sky.js';
 import { createStars, uStarPulse, uStarColor, uStarOpacity } from './stars.js';
@@ -883,6 +884,10 @@ function animate() {
     
     // Update weather with cycle integration
     weatherSystem.update(t, audioState, cycleWeatherBias);
+
+    // Sync TSL Wind
+    uWindSpeed.value = 1.0 + weatherSystem.windSpeed * 4.0;
+    uWindDirection.value.copy(weatherSystem.windDirection);
 
     // Get current beat phase early (needed for BPM Wind and beat detection)
     const currentBeatPhase = audioState?.beatPhase || 0;
