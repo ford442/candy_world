@@ -37,20 +37,20 @@ export function createStars(count = 1500) { // Increased from 1000 for better ni
         sizes[i] = Math.random() * 2.5 + 0.3;
         offsets[i] = Math.random() * 100;
         
-        // NEW: Assign star colors (mostly white, some blue-white, some yellow-white)
+        // NEW: Assign star colors (mostly white, some blue-white, some yellow-orange)
         const colorType = Math.random();
         if (colorType < 0.7) {
-            // White stars (70%)
+            // White stars (70% - range 0.0 to 0.7)
             colors[i * 3] = 1.0;
             colors[i * 3 + 1] = 1.0;
             colors[i * 3 + 2] = 1.0;
         } else if (colorType < 0.85) {
-            // Blue-white stars (15%)
+            // Blue-white stars (15% - range 0.7 to 0.85)
             colors[i * 3] = 0.8;
             colors[i * 3 + 1] = 0.9;
             colors[i * 3 + 2] = 1.0;
         } else {
-            // Yellow-orange stars (15%)
+            // Yellow-orange stars (15% - range 0.85 to 1.0)
             colors[i * 3] = 1.0;
             colors[i * 3 + 1] = 0.9;
             colors[i * 3 + 2] = 0.7;
