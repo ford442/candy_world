@@ -22,6 +22,7 @@ function createSky() {
     
     // NEW: Create atmospheric scattering near horizon
     // This creates a warm glow band near the horizon line
+    // Using inverted smoothstep creates a bell curve: peaks at h=0.15, fades by h=0.4
     const horizonBand = smoothstep(0.0, 0.15, h).mul(smoothstep(0.4, 0.15, h));
     const atmosphereGlow = horizonBand.mul(uAtmosphereIntensity);
     
