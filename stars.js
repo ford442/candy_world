@@ -8,11 +8,12 @@ export const uStarPulse = uniform(0.0); // 0 to 1
 export const uStarColor = uniform(color(0xFFFFFF)); // Current pulse color
 export const uStarOpacity = uniform(0.0); // Controls visibility (Day/Night)
 
-export function createStars(count = 1000) { // Reduced from 2000 for better performance
+export function createStars(count = 1500) { // Increased from 1000 for better night sky
     const geo = new THREE.BufferGeometry();
     const positions = new Float32Array(count * 3);
     const sizes = new Float32Array(count);
     const offsets = new Float32Array(count);
+    const colors = new Float32Array(count * 3); // NEW: Individual star colors
 
     const radius = 400; // Sky dome radius (smaller than sky mesh)
 
@@ -32,52 +33,76 @@ export function createStars(count = 1000) { // Reduced from 2000 for better perf
         positions[i * 3 + 1] = Math.abs(y); // Keep above horizon mostly
         positions[i * 3 + 2] = z;
 
-        sizes[i] = Math.random() * 1.5 + 0.5;
+        // Vary star sizes more dramatically
+        sizes[i] = Math.random() * 2.5 + 0.3;
         offsets[i] = Math.random() * 100;
+        
+        // NEW: Assign star colors (mostly white, some blue-white, some yellow-white)
+        const colorType = Math.random();
+        if (colorType < 0.7) {
+            // White stars (70%)
+            colors[i * 3] = 1.0;
+            colors[i * 3 + 1] = 1.0;
+            colors[i * 3 + 2] = 1.0;
+        } else if (colorType < 0.85) {
+            // Blue-white stars (15%)
+            colors[i * 3] = 0.8;
+            colors[i * 3 + 1] = 0.9;
+            colors[i * 3 + 2] = 1.0;
+        } else {
+            // Yellow-orange stars (15%)
+            colors[i * 3] = 1.0;
+            colors[i * 3 + 1] = 0.9;
+            colors[i * 3 + 2] = 0.7;
+        }
     }
 
     geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
     geo.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
     geo.setAttribute('offset', new THREE.BufferAttribute(offsets, 1));
+    geo.setAttribute('starColor', new THREE.BufferAttribute(colors, 3)); // NEW
 
     const mat = new PointsNodeMaterial({
-        size: 1.0, // base size
+        size: 1.5, // Increased base size for better visibility
         transparent: true,
         opacity: 0.0, // Hidden by default (Day)
         blending: THREE.AdditiveBlending,
         depthWrite: false,
-        fog: false // <--- CRITICAL FIX: Stars are far away, so we must ignore scene fog
+        fog: false // CRITICAL FIX: Stars are far away, so we must ignore scene fog
     });
 
     // TSL Logic
     const aOffset = attribute('offset', 'float');
     const aSize = attribute('size', 'float');
+    const aStarColor = attribute('starColor', 'vec3'); // NEW
 
-    // Twinkle effect (random sine based on time and offset)
-    const twinkle = time.add(aOffset).sin().mul(0.5).add(0.5); // 0..1
+    // Enhanced twinkle effect with multiple frequencies for more natural variation
+    const twinkle1 = time.add(aOffset).sin().mul(0.3).add(0.5); // Base twinkle
+    const twinkle2 = time.mul(2.3).add(aOffset.mul(0.7)).sin().mul(0.2).add(0.5); // Faster variation
+    const twinkle = twinkle1.mul(twinkle2); // Combined effect
 
     // Music Pulse effect: uStarPulse (0..1) adds intensity
-    const intensity = twinkle.add(uStarPulse);
+    const intensity = twinkle.add(uStarPulse.mul(0.5));
 
-    // Color: Mix white with uStarColor based on pulse
-    const finalRGB = mix(color(0xFFFFFF), uStarColor, uStarPulse.mul(0.8));
+    // Color: Mix star's natural color with music color based on pulse
+    const baseStarColor = vec3(aStarColor.x, aStarColor.y, aStarColor.z);
+    const musicColorVec3 = vec3(uStarColor.r, uStarColor.g, uStarColor.b);
+    const finalRGB = mix(baseStarColor, musicColorVec3, uStarPulse.mul(0.6));
 
     // Combine RGB with the Opacity Uniform into a vec4
     mat.colorNode = vec4(finalRGB, uStarOpacity).mul(mat.color);
 
-    // Size attenuation manually or using built-in?
-    // PointsNodeMaterial handles size if we set sizeNode
-    mat.sizeNode = aSize.mul(intensity.max(0.2)); // Minimum size 0.2
+    // Size attenuation with enhanced brightness for better visibility
+    mat.sizeNode = aSize.mul(intensity.max(0.3)); // Increased minimum size from 0.2 to 0.3
 
     // --- TSL Star Warp (Idea 2) ---
     // 1. Warp Effect: Push stars outward based on pulse
     const pos = positionLocal;
-    const warpFactor = uStarPulse.mul(50.0); // Push out by 50 units on beat
+    const warpFactor = uStarPulse.mul(30.0); // Reduced from 50 for subtler effect
     const warpedPos = pos.add(pos.normalize().mul(warpFactor));
 
-    // 2. Rotation Effect: Rotate around Y axis based on time
-    // We can drive this speed via a uniform updated by audioState.bpm if needed, or just time
-    const angle = time.mul(0.1);
+    // 2. Rotation Effect: Rotate around Y axis based on time (very slow)
+    const angle = time.mul(0.05); // Reduced from 0.1 for slower, more majestic rotation
     const rotatedX = warpedPos.x.mul(cos(angle)).sub(warpedPos.z.mul(sin(angle)));
     const rotatedZ = warpedPos.x.mul(sin(angle)).add(warpedPos.z.mul(cos(angle)));
 

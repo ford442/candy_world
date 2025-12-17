@@ -16,7 +16,7 @@ import {
     createVibratoViolet, createTremoloTulip, createKickDrumGeyser,
     VineSwing, createSwingableVine, createMelodyLake
 } from './foliage.js';
-import { createSky, uSkyTopColor, uSkyBottomColor } from './sky.js';
+import { createSky, uSkyTopColor, uSkyBottomColor, uHorizonColor, uAtmosphereIntensity } from './sky.js';
 import { createStars, uStarPulse, uStarColor, uStarOpacity } from './stars.js';
 import { createMoon, updateMoon, moonConfig, triggerMoonBlink } from './moon.js';
 import { MusicReactivity, getNoteColor } from './music-reactivity.js';
@@ -37,40 +37,48 @@ const CYCLE_DURATION = DURATION_SUNRISE + DURATION_DAY + DURATION_SUNSET + DURAT
 
 const PALETTE = {
     day: {
-        skyTop: new THREE.Color(0x7EC8E3),   // Deeper candy-blue sky
+        skyTop: new THREE.Color(0x87CEEB),   // Brighter sky blue for day
         skyBot: new THREE.Color(0xB8E6F0),   // Softer transition to horizon
+        horizon: new THREE.Color(0xFFE5CC),  // Warm peachy horizon glow
         fog: new THREE.Color(0xFFC5D3),      // Warmer pastel pink fog
         sun: new THREE.Color(0xFFFAF0),      // Warm white sunlight
         amb: new THREE.Color(0xFFF5EE),      // Soft seashell ambient
         sunInt: 0.9,
-        ambInt: 0.65
+        ambInt: 0.65,
+        atmosphereIntensity: 0.3
     },
     sunset: {
         skyTop: new THREE.Color(0x4B3D8F),   // Rich purple-blue
         skyBot: new THREE.Color(0xFF6B4A),   // Warm coral-orange glow
+        horizon: new THREE.Color(0xFFB347),  // Vibrant orange-gold horizon
         fog: new THREE.Color(0xE87B9F),      // Candy pink-coral fog
         sun: new THREE.Color(0xFFA040),      // Golden-orange sun
         amb: new THREE.Color(0x9B5050),      // Warm reddish ambient
         sunInt: 0.55,
-        ambInt: 0.45
+        ambInt: 0.45,
+        atmosphereIntensity: 0.7            // Strong atmospheric effect at sunset
     },
     night: {
-        skyTop: new THREE.Color(0x0A0A15),   // Deep night blue
-        skyBot: new THREE.Color(0x101025),   // Slightly lighter horizon
+        skyTop: new THREE.Color(0x0A0A2E),   // Deeper night blue with slight color
+        skyBot: new THREE.Color(0x1A1A35),   // Slightly lighter horizon at night
+        horizon: new THREE.Color(0x2A2A4A),  // Subtle purple-blue horizon glow
         fog: new THREE.Color(0x0A0A18),      // Dark blue-tinted fog
         sun: new THREE.Color(0x334466),      // Moonlight blue tint
         amb: new THREE.Color(0x080815),      // Very dim ambient
         sunInt: 0.12,
-        ambInt: 0.08
+        ambInt: 0.08,
+        atmosphereIntensity: 0.15           // Subtle night atmosphere
     },
     sunrise: {
-        skyTop: new THREE.Color(0x48D8C8),   // Fresh turquoise
-        skyBot: new THREE.Color(0xFF7BAC),   // Warm candy pink
+        skyTop: new THREE.Color(0x48D8E8),   // Bright turquoise dawn sky
+        skyBot: new THREE.Color(0xFF9BAC),   // Warm rosy pink
+        horizon: new THREE.Color(0xFFD4A3),  // Golden peachy horizon
         fog: new THREE.Color(0xFFE4CA),      // Peachy-warm fog
         sun: new THREE.Color(0xFFE066),      // Golden morning light
         amb: new THREE.Color(0xFFC8D8),      // Soft pink ambient
         sunInt: 0.65,
-        ambInt: 0.55
+        ambInt: 0.55,
+        atmosphereIntensity: 0.6            // Strong morning atmosphere
     }
 };
 
@@ -146,7 +154,7 @@ sunLight.shadow.mapSize.width = 1024; // Reduced from 2048 for better performanc
 sunLight.shadow.mapSize.height = 1024;
 scene.add(sunLight);
 
-// Mild Shaft Lighting / Sun Glow - enhanced for candy aesthetic
+// Enhanced Sun Glow with dynamic corona effect
 const sunGlowMat = new THREE.MeshBasicMaterial({
     color: 0xFFE599,  // Warmer golden glow
     transparent: true,
@@ -159,6 +167,20 @@ const sunGlow = new THREE.Mesh(new THREE.PlaneGeometry(80, 80), sunGlowMat);
 sunGlow.position.copy(sunLight.position.clone().normalize().multiplyScalar(400));
 sunGlow.lookAt(0, 0, 0);
 scene.add(sunGlow);
+
+// Add additional corona layer for more dramatic effect
+const coronaMat = new THREE.MeshBasicMaterial({
+    color: 0xFFF4D6,  // Soft cream white
+    transparent: true,
+    opacity: 0.15,
+    blending: THREE.AdditiveBlending,
+    side: THREE.DoubleSide,
+    depthWrite: false
+});
+const sunCorona = new THREE.Mesh(new THREE.PlaneGeometry(150, 150), coronaMat);
+sunCorona.position.copy(sunLight.position.clone().normalize().multiplyScalar(390));
+sunCorona.lookAt(0, 0, 0);
+scene.add(sunCorona);
 
 // --- Procedural Generation ---
 // getGroundHeight is now provided by WASM module (with JS fallback)
@@ -734,21 +756,25 @@ function getCycleState(tRaw) {
 const _scratchPalette = {
     skyTop: new THREE.Color(),
     skyBot: new THREE.Color(),
+    horizon: new THREE.Color(),
     fog: new THREE.Color(),
     sun: new THREE.Color(),
     amb: new THREE.Color(),
     sunInt: 0,
-    ambInt: 0
+    ambInt: 0,
+    atmosphereIntensity: 0
 };
 
 function lerpPalette(p1, p2, t) {
     _scratchPalette.skyTop.copy(p1.skyTop).lerp(p2.skyTop, t);
     _scratchPalette.skyBot.copy(p1.skyBot).lerp(p2.skyBot, t);
+    _scratchPalette.horizon.copy(p1.horizon).lerp(p2.horizon, t);
     _scratchPalette.fog.copy(p1.fog).lerp(p2.fog, t);
     _scratchPalette.sun.copy(p1.sun).lerp(p2.sun, t);
     _scratchPalette.amb.copy(p1.amb).lerp(p2.amb, t);
     _scratchPalette.sunInt = THREE.MathUtils.lerp(p1.sunInt, p2.sunInt, t);
     _scratchPalette.ambInt = THREE.MathUtils.lerp(p1.ambInt, p2.ambInt, t);
+    _scratchPalette.atmosphereIntensity = THREE.MathUtils.lerp(p1.atmosphereIntensity, p2.atmosphereIntensity, t);
     return _scratchPalette;
 }
 
@@ -940,6 +966,8 @@ function animate() {
     
     uSkyTopColor.value.copy(baseSkyTop);
     uSkyBottomColor.value.copy(baseSkyBot);
+    uHorizonColor.value.copy(currentState.horizon);
+    uAtmosphereIntensity.value = currentState.atmosphereIntensity;
     scene.fog.color.copy(baseFog);
 
     // Fog Density
@@ -986,14 +1014,47 @@ function animate() {
         );
         sunLight.visible = true;
         sunGlow.visible = true;
+        sunCorona.visible = true;
         moon.visible = false;
 
         // Update Glow Position
         sunGlow.position.copy(sunLight.position.clone().normalize().multiplyScalar(400));
         sunGlow.lookAt(camera.position); // Billboard
+        
+        // Update Corona Position
+        sunCorona.position.copy(sunLight.position.clone().normalize().multiplyScalar(390));
+        sunCorona.lookAt(camera.position); // Billboard
+        
+        // Enhanced glow during sunrise/sunset (first and last hour)
+        let glowIntensity = 0.25;
+        let coronaIntensity = 0.15;
+        
+        if (sunProgress < 0.15) {
+            // Sunrise enhancement
+            const factor = 1.0 - (sunProgress / 0.15);
+            glowIntensity = 0.25 + factor * 0.35; // Up to 0.6
+            coronaIntensity = 0.15 + factor * 0.25; // Up to 0.4
+            sunGlowMat.color.setHex(0xFFB366); // Orange tint
+            coronaMat.color.setHex(0xFFD6A3); // Peachy tint
+        } else if (sunProgress > 0.85) {
+            // Sunset enhancement
+            const factor = (sunProgress - 0.85) / 0.15;
+            glowIntensity = 0.25 + factor * 0.45; // Up to 0.7
+            coronaIntensity = 0.15 + factor * 0.35; // Up to 0.5
+            sunGlowMat.color.setHex(0xFF9966); // Deep orange
+            coronaMat.color.setHex(0xFFCC99); // Warm peach
+        } else {
+            // Day - normal glow
+            sunGlowMat.color.setHex(0xFFE599);
+            coronaMat.color.setHex(0xFFF4D6);
+        }
+        
+        sunGlowMat.opacity = glowIntensity;
+        coronaMat.opacity = coronaIntensity;
     } else {
         sunLight.visible = false;
         sunGlow.visible = false;
+        sunCorona.visible = false;
         moon.visible = true;
 
         // Moon Orbit: Opposite to Sun? Or just high up.
@@ -1011,14 +1072,30 @@ function animate() {
         updateMoon(moon, delta, audioState);
     }
 
-    // --- FIX: Update the WebGPU Uniform for Star Opacity ---
+    // --- Enhanced Star Visibility Logic ---
+    // Stars should fade in during dusk, be fully visible at night, and fade out at dawn
     const progress = cyclePos / CYCLE_DURATION;
     let starOp = 0;
-    if (progress > 0.50 && progress < 0.95) starOp = 1;
-    else if (progress > 0.45 && progress <= 0.50) starOp = (progress - 0.45) / 0.05;
-
-    // Update TSL uniform for star opacity instead of material property
-    uStarOpacity.value = THREE.MathUtils.lerp(uStarOpacity.value, starOp, delta);
+    
+    // Night phase: 540s (9min) to 960s (16min) in cycle
+    // Full visibility during deep night: ~11-15 min (660s-900s)
+    const starDuskStart = 0.50;   // 8 min mark - start fading in
+    const starNightStart = 0.60;  // 9.6 min - fully visible
+    const starNightEnd = 0.90;    // 14.4 min - start fading out
+    const starDawnEnd = 0.98;     // 15.7 min - fully faded out
+    
+    if (progress >= starNightStart && progress <= starNightEnd) {
+        starOp = 1.0; // Full visibility during night
+    } else if (progress > starDuskStart && progress < starNightStart) {
+        // Fade in during dusk
+        starOp = (progress - starDuskStart) / (starNightStart - starDuskStart);
+    } else if (progress > starNightEnd && progress < starDawnEnd) {
+        // Fade out during dawn
+        starOp = 1.0 - ((progress - starNightEnd) / (starDawnEnd - starNightEnd));
+    }
+    
+    // Smooth transition with slight boost for better visibility
+    uStarOpacity.value = THREE.MathUtils.lerp(uStarOpacity.value, starOp * 0.95, delta * 2);
 
     // Map weather state enum to string for materials
     let weatherStateStr = 'clear';
