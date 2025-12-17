@@ -1,7 +1,7 @@
 // AudioSystem.js - With Playlist Queue & Stability Fixes
 
 const SAMPLE_RATE = 44100;
-const BUFFER_SIZE = 4096;
+const BUFFER_SIZE = 1024;
 
 // Helper functions
 const lerp = (a, b, t) => a + (b - a) * t;
