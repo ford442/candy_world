@@ -127,6 +127,64 @@ beatSync.onBeat((state) => {
 let isNight = false;
 let timeOffset = 0; // Manual time shift for Day/Night toggle
 
+// --- Music Upload Handler (Initialized early for robustness) ---
+const musicUpload = document.getElementById('musicUpload');
+if (musicUpload) {
+    musicUpload.addEventListener('change', (event) => {
+        const files = event.target.files;
+        if (files && files.length > 0) {
+            console.log(`Selected ${files.length} file(s) for upload`);
+            audioSystem.addToQueue(files);
+
+            // 🎨 Palette: Provide visual feedback
+            const label = document.querySelector('label[for="musicUpload"]');
+            if (label) {
+                // Store original text only if not already stored (to avoid capturing the success message)
+                if (!label.dataset.originalText) {
+                    label.dataset.originalText = label.innerText;
+                }
+
+                const fileCount = files.length;
+                label.innerText = `✅ ${fileCount} Track${fileCount > 1 ? 's' : ''} Added!`;
+                label.style.borderColor = '#4CAF50';
+                label.style.color = '#4CAF50';
+
+                // Clear any existing timeout to avoid race conditions
+                if (label.dataset.timeoutId) {
+                    clearTimeout(Number(label.dataset.timeoutId));
+                }
+
+                const timeoutId = setTimeout(() => {
+                    label.innerText = label.dataset.originalText;
+                    label.style.borderColor = '';
+                    label.style.color = '';
+                    delete label.dataset.timeoutId;
+                }, 2500);
+
+                label.dataset.timeoutId = timeoutId.toString();
+            }
+        }
+    });
+}
+
+// Helper function to toggle day/night
+function toggleDayNight() {
+    timeOffset += CYCLE_DURATION / 2;
+    // Update ARIA state for accessibility
+    const btn = document.getElementById('toggleDayNight');
+    if (btn) {
+        // Toggle the state (if night is coming, it's "pressed" in context of "Night Mode"?)
+        // Or simply toggle the state boolean.
+        const isPressed = btn.getAttribute('aria-pressed') === 'true';
+        btn.setAttribute('aria-pressed', !isPressed);
+    }
+}
+
+const toggleDayNightBtn = document.getElementById('toggleDayNight');
+if (toggleDayNightBtn) {
+    toggleDayNightBtn.addEventListener('click', toggleDayNight);
+}
+
 const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000);
 camera.position.set(0, 5, 0);
 
@@ -526,7 +584,8 @@ for (let i = 0; i < cloudCount; i++) {
     foliageClouds.push(cloud); // Add to optimized array
 }
 
-// --- Inputs ---
+// --- Inputs & UI Handlers ---
+// 🎨 Palette: Initialize UI handlers early to ensure they work even if WebGPU fails
 const controls = new PointerLockControls(camera, document.body);
 const instructions = document.getElementById('instructions');
 const startButton = document.getElementById('startButton');
@@ -553,6 +612,7 @@ if (settingsContainer) {
     });
 }
 
+
 controls.addEventListener('lock', () => instructions.style.display = 'none');
 controls.addEventListener('unlock', () => instructions.style.display = 'flex');
 
@@ -566,19 +626,6 @@ const keyStates = {
     sneak: false,
     sprint: false
 };
-
-// Helper function to toggle day/night
-function toggleDayNight() {
-    timeOffset += CYCLE_DURATION / 2;
-    // Update ARIA state for accessibility
-    const btn = document.getElementById('toggleDayNight');
-    if (btn) {
-        // Toggle the state (if night is coming, it's "pressed" in context of "Night Mode"?)
-        // Or simply toggle the state boolean.
-        const isPressed = btn.getAttribute('aria-pressed') === 'true';
-        btn.setAttribute('aria-pressed', !isPressed);
-    }
-}
 
 // Key Handlers
 const onKeyDown = function (event) {
@@ -1400,23 +1447,6 @@ initWasm().then((wasmLoaded) => {
 
     renderer.setAnimationLoop(animate);
 });
-
-// --- Music Upload Handler ---
-const musicUpload = document.getElementById('musicUpload');
-if (musicUpload) {
-    musicUpload.addEventListener('change', (event) => {
-        const files = event.target.files;
-        if (files && files.length > 0) {
-            console.log(`Selected ${files.length} file(s) for upload`);
-            audioSystem.addToQueue(files);
-        }
-    });
-}
-
-const toggleDayNightBtn = document.getElementById('toggleDayNight');
-if (toggleDayNightBtn) {
-    toggleDayNightBtn.addEventListener('click', toggleDayNight);
-}
 
 window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
