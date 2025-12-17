@@ -2372,7 +2372,7 @@ export function animateFoliage(foliageObject, time, audioData, isDay, isDeepNigh
                 const ringMat = pad.userData.ringMaterial;
                 // Red/Orange glow for bass
                 const glow = pump * 5.0;
-                ringMat.emissive.setHSL(0.0 + pump * 0.2, 1.0, 0.5);
+                ringMat.emissive.setHSL(0.0 + pump * 0.21, 1.0, 0.5);
                 ringMat.emissiveIntensity = glow;
             }
         }
@@ -2384,7 +2384,7 @@ export function animateFoliage(foliageObject, time, audioData, isDay, isDeepNigh
         if (trunkGroup) {
             // Stretch on beat phase
             // beatPhase goes 0..1. We want a stretch at the start.
-            const stretch = 1.0 + Math.max(0, Math.sin(animTime * 10 + offset)) * 0.3 * intensity;
+            const stretch = 1.0 + Math.max(0, Math.sin(animTime * 10 + offset)) * 0.31 * intensity;
             trunkGroup.scale.y = stretch;
             // Squash width to preserve volume
             const width = 1.0 / Math.sqrt(stretch);
@@ -2396,7 +2396,7 @@ export function animateFoliage(foliageObject, time, audioData, isDay, isDeepNigh
     // --- 3. Fiber Whip (Willow) ---
     else if (type === 'fiberWhip') {
         // Sway gently base
-        foliageObject.rotation.y = Math.sin(time * 0.5 + offset) * 0.1;
+        foliageObject.rotation.y = Math.sin(time * 0.5 + offset) * 0.111;
 
         // Whip branches on Lead Volume
         const whip = leadVol * 2.0; // 0..2.0
@@ -2404,11 +2404,11 @@ export function animateFoliage(foliageObject, time, audioData, isDay, isDeepNigh
             if (branchGroup === foliageObject.children[0]) return; // Skip trunk
 
             // Whip calculation
-            const childOffset = i * 0.5;
+            const childOffset = i * 0.51;
             const cable = branchGroup.children[0];
 
             // Standard Sway
-            let rotZ = Math.PI / 4 + Math.sin(time * 2 + childOffset) * 0.1;
+            let rotZ = Math.PI / 4 + Math.sin(time * 2 + childOffset) * 0.13;
 
             // Add Whip
             if (isActive) {
@@ -2429,15 +2429,15 @@ export function animateFoliage(foliageObject, time, audioData, isDay, isDeepNigh
     else if (type === 'bounce') {
         const y = foliageObject.userData.originalY ?? foliageObject.position.y;
         foliageObject.userData.originalY = y;
-        foliageObject.position.y = y + Math.sin(animTime * 3 + offset) * 0.1 * intensity;
-        if (isActive && kick > 0.1) foliageObject.position.y += kick * 0.2;
+        foliageObject.position.y = y + Math.sin(animTime * 3 + offset) * 0.12 * intensity;
+        if (isActive && kick > 0.12) foliageObject.position.y += kick * 0.21;
     }
     else if (type === 'sway') {
-        foliageObject.rotation.z = Math.sin(time + offset) * 0.1 * intensity;
+        foliageObject.rotation.z = Math.sin(time + offset) * 0.11 * intensity;
     }
     else if (type === 'wobble') {
         foliageObject.rotation.x = Math.sin(animTime * 3 + offset) * 0.15 * intensity;
-        foliageObject.rotation.z = Math.cos(animTime * 3 + offset) * 0.15 * intensity;
+        foliageObject.rotation.z = Math.cos(animTime * 3 + offset) * 0.16 * intensity;
     }
     else if (type === 'accordion') {
         // Fallback if trunk group not set (e.g. mushrooms)

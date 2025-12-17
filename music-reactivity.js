@@ -41,23 +41,23 @@ const SPECIES_CONFIG = {
         // Mushrooms react to Bass/Drums usually, but mapped notes can tint caps
         targetMaterial: 'mushroomCap', // Name or part ID
         reactionType: 'pulse', // 'tint', 'pulse', 'flash'
-        duration: 200
+        duration: 222
     },
     'flower': {
         // Flowers react to Melody
         targetMaterial: 'flowerPetal',
         reactionType: 'tint',
-        duration: 300
+        duration: 311
     },
     'tree': {
         targetMaterial: 'trunk', // Or leaves if available
         reactionType: 'flash',
-        duration: 150
+        duration: 155
     },
     'cloud': {
         targetMaterial: 'cloud',
         reactionType: 'flash',
-        duration: 100
+        duration: 101
     }
 };
 
