@@ -182,6 +182,29 @@ sunCorona.position.copy(sunLight.position.clone().normalize().multiplyScalar(390
 sunCorona.lookAt(0, 0, 0);
 scene.add(sunCorona);
 
+// Add light shafts/god rays for sunrise/sunset drama
+const lightShaftGroup = new THREE.Group();
+const shaftCount = 12;
+const shaftGeometry = new THREE.PlaneGeometry(8, 200);
+const shaftMaterial = new THREE.MeshBasicMaterial({
+    color: 0xFFE5A0,
+    transparent: true,
+    opacity: 0.0, // Will be animated
+    blending: THREE.AdditiveBlending,
+    side: THREE.DoubleSide,
+    depthWrite: false
+});
+
+for (let i = 0; i < shaftCount; i++) {
+    const shaft = new THREE.Mesh(shaftGeometry, shaftMaterial.clone());
+    const angle = (i / shaftCount) * Math.PI * 2;
+    shaft.rotation.z = angle;
+    lightShaftGroup.add(shaft);
+}
+lightShaftGroup.position.copy(sunLight.position.clone().normalize().multiplyScalar(380));
+lightShaftGroup.visible = false; // Only visible during sunrise/sunset
+scene.add(lightShaftGroup);
+
 // --- Procedural Generation ---
 // getGroundHeight is now provided by WASM module (with JS fallback)
 // Import from wasm-loader.js above
@@ -1025,36 +1048,56 @@ function animate() {
         sunCorona.position.copy(sunLight.position.clone().normalize().multiplyScalar(390));
         sunCorona.lookAt(camera.position); // Billboard
         
+        // Update Light Shafts Position
+        lightShaftGroup.position.copy(sunLight.position.clone().normalize().multiplyScalar(380));
+        lightShaftGroup.lookAt(camera.position);
+        
         // Enhanced glow during sunrise/sunset (first and last hour)
         let glowIntensity = 0.25;
         let coronaIntensity = 0.15;
+        let shaftIntensity = 0.0;
+        let shaftVisible = false;
         
         if (sunProgress < 0.15) {
-            // Sunrise enhancement
+            // Sunrise enhancement with god rays
             const factor = 1.0 - (sunProgress / 0.15);
             glowIntensity = 0.25 + factor * 0.35; // Up to 0.6
             coronaIntensity = 0.15 + factor * 0.25; // Up to 0.4
+            shaftIntensity = factor * 0.12; // Subtle light shafts
+            shaftVisible = true;
             sunGlowMat.color.setHex(0xFFB366); // Orange tint
             coronaMat.color.setHex(0xFFD6A3); // Peachy tint
         } else if (sunProgress > 0.85) {
-            // Sunset enhancement
+            // Sunset enhancement with dramatic god rays
             const factor = (sunProgress - 0.85) / 0.15;
             glowIntensity = 0.25 + factor * 0.45; // Up to 0.7
             coronaIntensity = 0.15 + factor * 0.35; // Up to 0.5
+            shaftIntensity = factor * 0.18; // More prominent at sunset
+            shaftVisible = true;
             sunGlowMat.color.setHex(0xFF9966); // Deep orange
             coronaMat.color.setHex(0xFFCC99); // Warm peach
         } else {
-            // Day - normal glow
+            // Day - normal glow, no shafts
             sunGlowMat.color.setHex(0xFFE599);
             coronaMat.color.setHex(0xFFF4D6);
         }
         
         sunGlowMat.opacity = glowIntensity;
         coronaMat.opacity = coronaIntensity;
+        lightShaftGroup.visible = shaftVisible;
+        
+        // Animate light shaft opacity and rotation
+        if (shaftVisible) {
+            lightShaftGroup.rotation.z += delta * 0.1; // Slow rotation for dynamic feel
+            lightShaftGroup.children.forEach(shaft => {
+                shaft.material.opacity = shaftIntensity;
+            });
+        }
     } else {
         sunLight.visible = false;
         sunGlow.visible = false;
         sunCorona.visible = false;
+        lightShaftGroup.visible = false;
         moon.visible = true;
 
         // Moon Orbit: Opposite to Sun? Or just high up.
