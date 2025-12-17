@@ -3,6 +3,9 @@ import { color, mix, positionLocal, normalWorld, float, time, sin, cos, vec3, un
 import { PointsNodeMaterial, MeshStandardNodeMaterial } from 'three/webgpu';
 import { freqToHue, isEmscriptenReady, fbm } from './wasm-loader.js';
 
+export const uWindSpeed = uniform(1.0);
+export const uWindDirection = uniform(new THREE.Vector3(1, 0, 0));
+
 // --- Reactivity Mixin ---
 function attachReactivity(group) {
     group.reactToNote = function(note, colorHex, velocity = 1.0) {
@@ -589,12 +592,18 @@ export function initGrassSystem(scene, count = 20000) {
     });
 
     // TSL Wind Shader for Grass
-    // We modify the vertex position based on time and world position
-    const windSpeed = time.mul(2.0);
-    const windWave = positionLocal.x.add(positionLocal.z).add(windSpeed).sin().mul(0.2);
-    // Only sway the top of the blade (y > 0)
-    // const sway = positionLocal.y.mul(windWave); // Unused variable warning fix? The user code computed it but didn't assign.
-    // The user snippet said: "Applying TSL position modification is complex... we stick to static InstancedMesh... but we add Rim Light"
+    // Wind affects speed of sway (uWindSpeed) and direction (uWindDirection)
+    const windTime = time.mul(uWindSpeed.max(0.5));
+    // Simple sway based on position and time
+    const swayPhase = positionLocal.x.add(positionLocal.z).add(windTime);
+    const swayAmt = positionLocal.y.mul(0.3).mul(sin(swayPhase));
+
+    // Apply wind direction to sway (sway along the wind vector)
+    const swayX = swayAmt.mul(uWindDirection.x);
+    const swayZ = swayAmt.mul(uWindDirection.z);
+
+    // Modify local position (before instance matrix)
+    mat.positionNode = positionLocal.add(vec3(swayX, 0, swayZ));
 
     addRimLight(mat, 0xAAFFAA);
 

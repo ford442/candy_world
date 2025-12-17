@@ -580,41 +580,14 @@ export class WeatherSystem {
      * Trigger growth for structural plants (Trees, Mushrooms)
      */
     growPlants(intensity) {
-        // Find trees and mushrooms in tracked objects
-        // We'll emit a custom event or call a global function, 
-        // but since we have direct access to tracked objects, let's use that.
-        // However, foliage.js handles the actual scaling logic usually.
-        // Let's assume we import a handler from foliage.js or handle it here.
-        // For now, let's just use the tracked objects directly if they have a 'grow' method 
-        // or we can manipulate them. But wait, existing trees don't have a 'grow' method on the Group.
-        // Better approach: Import 'triggerGrowth' from foliage.js
-
-        // Actually, let's call the imported function just like chargeBerries.
-        // I will add the import at the top of the file in a separate edit.
-        // For now, let's stub this or use what we have. 
-        // I will rely on `triggerGrowth` and `triggerBloom` being imported.
-
-        // See top of file for imports. I will add them there.
-        // Here is the logic:
-
-
         triggerGrowth(this.trackedTrees, intensity);
-        // Also grow mushrooms if we track them. 
-        // Currently we track trees, shrubs, flowers.
-        // I should also track mushrooms.
+        triggerGrowth(this.trackedMushrooms, intensity);
     }
 
     /**
      * Trigger bloom for flowers
      */
     bloomFlora(intensity) {
-
-        // I will fix imports in a wrap-up step.
-        // For this MultiReplace, I will just add the calls and assume imports exist?
-        // No, I should do it properly. 
-        // I will add the methods here, and update imports in the same tool call if possible?
-        // No, MultiReplace allows multiple chunks.
-
         triggerBloom(this.trackedFlowers, intensity);
     }
 
