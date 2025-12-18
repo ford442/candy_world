@@ -46,6 +46,11 @@ export function initInput(camera, audioSystem, toggleDayNightCallback) {
     });
     controls.addEventListener('unlock', () => {
         if (instructions) instructions.style.display = 'flex';
+        // Palette: Update button text to "Resume" to indicate game state is preserved
+        if (startButton) {
+            startButton.innerText = 'Resume Exploration 🚀';
+            startButton.setAttribute('aria-label', 'Resume Exploration');
+        }
     });
 
     // Key Handlers
