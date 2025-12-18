@@ -6,6 +6,7 @@ export * from './mushrooms.js';
 export * from './flowers.js';
 export * from './trees.js';
 export * from './clouds.js';
+export * from './waterfalls.js';
 export * from './environment.js';
 export * from './fireflies.js';
 export * from './animation.js';
