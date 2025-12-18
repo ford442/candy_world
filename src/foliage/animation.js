@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { freqToHue } from '../../wasm-loader.js';
+import { freqToHue } from '../utils/wasm-loader.js';
 import { reactiveMaterials, _foliageReactiveColor } from './common.js';
 
 export function triggerGrowth(plants, intensity) {

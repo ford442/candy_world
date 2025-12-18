@@ -1,45 +1,39 @@
-import sys
-import time
 from playwright.sync_api import sync_playwright
 
 def verify_scene():
     with sync_playwright() as p:
-        # Launch using SwiftShader for WebGPU support in headless mode
-        # as per memory instructions
+        # Launch browser with specific flags for WebGPU
         browser = p.chromium.launch(
             headless=True,
             args=[
                 "--use-gl=swiftshader",
-                "--enable-unsafe-webgpu"
+                "--enable-unsafe-webgpu",
+                "--enable-features=Vulkan",
+                "--no-sandbox"
             ]
         )
         page = browser.new_page()
 
-        # Navigate to local dev server (default vite port)
+        # Capture console logs to catch JS errors
+        page.on("console", lambda msg: print(f"CONSOLE: {msg.text}"))
+        page.on("pageerror", lambda err: print(f"PAGE ERROR: {err}"))
+
         try:
-            page.goto("http://localhost:5173", timeout=10000)
-            print("Navigated to page")
+            print("Navigating to app...")
+            page.goto("http://localhost:5173", timeout=60000)
 
-            # Wait for key elements that indicate success
-            # The #startButton is present in HTML, let's wait for it
-            page.wait_for_selector("#startButton", state="visible", timeout=10000)
-            print("Start button visible")
+            print("Waiting for start button...")
+            page.wait_for_selector("#startButton", state="visible", timeout=30000)
 
-            # Wait a bit for 3D to init (even if we don't click start)
-            time.sleep(2)
+            # Wait a bit for WASM to initialize (button becomes enabled)
+            page.wait_for_timeout(5000)
 
-            # Check for console errors
-            # We can't easily capture console logs synchronously here without setup,
-            # but if it crashed, screenshot might show it.
-
-            # Take screenshot
+            # Take screenshot of initial state
             page.screenshot(path="verification/refactor_check.png")
-            print("Screenshot taken")
+            print("Screenshot saved to verification/refactor_check.png")
 
         except Exception as e:
-            print(f"Error: {e}")
-            page.screenshot(path="verification/error_state.png")
-
+            print(f"Error during verification: {e}")
         finally:
             browser.close()
 
