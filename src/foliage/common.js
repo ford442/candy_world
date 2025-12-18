@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { color, mix, positionLocal, float, time, sin, cos, vec3, uniform } from 'three/tsl';
 import { MeshStandardNodeMaterial, MeshPhysicalNodeMaterial } from 'three/webgpu';
-import { fbm, isEmscriptenReady } from '../../wasm-loader.js';
+import { fbm, isEmscriptenReady } from '../utils/wasm-loader.js';
 
 // --- Global Uniforms ---
 export const uWindSpeed = uniform(1.0);
