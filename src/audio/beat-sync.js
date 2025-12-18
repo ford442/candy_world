@@ -1,4 +1,4 @@
-import { AudioSystem } from '../../audio-system.js';
+import { AudioSystem } from './audio-system.js';
 
 export class BeatSync {
     constructor(audioSystem) {
