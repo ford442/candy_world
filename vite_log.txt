@@ -1,16 +1,16 @@
 
 > candy_world@1.0.0 dev
-> npm run build:wasm && vite --host
+> npm run build:wasm && vite
 
 
 > candy_world@1.0.0 build:wasm
 > asc assembly/index.ts --outFile public/candy_physics.wasm --textFile public/candy_physics.wat --sourceMap --shrinkLevel 0 --optimize --converge --optimizeLevel 3
 
 
-  VITE v7.3.0  ready in 324 ms
+  VITE v7.3.0  ready in 340 ms
 
   ➜  Local:   http://localhost:5173/
-  ➜  Network: http://192.168.0.2:5173/
+  ➜  Network: use --host to expose
 (!) Failed to run dependency scan. Skipping dependency pre-bundling. Error: The following dependencies are imported but could not be resolved:
 
   loader.mjs (imported by /app/emsdk/upstream/emscripten/test/pthread/main_js_with_loader.html)
@@ -19,4 +19,4 @@ Are they installed?
     at file:///app/node_modules/vite/dist/node/chunks/config.js:31902:33
     at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
     at async file:///app/node_modules/vite/dist/node/chunks/config.js:34110:15
-7:07:25 PM [vite] (client) ✨ new dependencies optimized: three, three/examples/jsm/controls/PointerLockControls.js, three/examples/jsm/capabilities/WebGPU.js, three/webgpu, three/tsl
+4:33:29 PM [vite] (client) ✨ new dependencies optimized: three, three/examples/jsm/controls/PointerLockControls.js, three/examples/jsm/capabilities/WebGPU.js, three/webgpu, three/tsl
