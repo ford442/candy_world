@@ -7,7 +7,7 @@ import {
     createFlower, createSubwooferLotus, createAccordionPalm, createFiberOpticWillow,
     createFloatingOrb, createSwingableVine, VineSwing, createPrismRoseBush,
     createStarflower, createVibratoViolet, createTremoloTulip, createKickDrumGeyser,
-    createRainingCloud, createMelodyLake, createFireflies, initFallingBerries,
+    createRainingCloud, createWaterfall, createMelodyLake, createFireflies, initFallingBerries,
     initGrassSystem, addGrassInstance
 } from '../foliage/index.js';
 import { CONFIG } from '../core/config.js';
@@ -289,8 +289,10 @@ function generateMap(weatherSystem) {
         }
     }
 
-    // Rain Clouds
+    // Rain Clouds & Waterfalls
     const cloudCount = 25;
+    const tier1Clouds = []; // High clouds
+
     for (let i = 0; i < cloudCount; i++) {
         const isTier1 = Math.random() < 0.3;
         const height = isTier1 ? 40 + Math.random() * 15 : 25 + Math.random() * 10;
@@ -306,6 +308,7 @@ function generateMap(weatherSystem) {
             cloud.userData.isWalkable = true;
             cloud.userData.tier = 1;
             cloud.scale.multiplyScalar(1.5);
+            tier1Clouds.push(cloud);
         } else {
             cloud.userData.tier = 2;
         }
@@ -314,5 +317,28 @@ function generateMap(weatherSystem) {
         foliageGroup.add(cloud);
         animatedFoliage.push(cloud);
         foliageClouds.push(cloud);
+    }
+
+    // Generate Waterfalls connecting Tier 1 Clouds to Ground/Lake
+    // Connect 50% of Tier 1 clouds to waterfalls
+    for (const cloud of tier1Clouds) {
+        if (Math.random() < 0.5) {
+            const startPos = cloud.position.clone();
+            // Start slightly below the cloud
+            startPos.y -= 3.0;
+
+            // End at ground/lake level (roughly y=0 to y=5)
+            // We aim for "The Melody Lake" logic (y=2.5) if close to center, or ground otherwise.
+            const endY = getGroundHeight(startPos.x, startPos.z);
+            const endPos = new THREE.Vector3(startPos.x, endY, startPos.z);
+
+            // If near center (lake area), ensure endPos.y is at least lake level
+            if (Math.sqrt(startPos.x*startPos.x + startPos.z*startPos.z) < 100) {
+                 if (endPos.y < 2.5) endPos.y = 2.5;
+            }
+
+            const waterfall = createWaterfall(startPos, endPos, 3.0 + Math.random() * 2.0);
+            safeAddFoliage(waterfall, false, 2.0, weatherSystem);
+        }
     }
 }
