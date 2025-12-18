@@ -1,56 +1,7 @@
 import * as THREE from 'three';
-import { PointsNodeMaterial, MeshStandardNodeMaterial } from 'three/webgpu';
-import { attribute, uniform, time, float, vec3, positionLocal, length, sin, cos } from 'three/tsl';
+import { MeshStandardNodeMaterial } from 'three/webgpu';
+import { time, vec3, positionLocal, length, sin, cos } from 'three/tsl';
 import { registerReactiveMaterial } from './common.js';
-
-export function createWaterfall(height, colorHex = 0x87CEEB) {
-    const particleCount = 500;
-    const geo = new THREE.BufferGeometry();
-    const positions = new Float32Array(particleCount * 3);
-    const speeds = new Float32Array(particleCount);
-    const offsets = new Float32Array(particleCount);
-
-    for (let i = 0; i < particleCount; i++) {
-        positions[i * 3] = (Math.random() - 0.5) * 2.0;
-        positions[i * 3 + 1] = 0;
-        positions[i * 3 + 2] = (Math.random() - 0.5) * 2.0;
-        speeds[i] = 1.0 + Math.random() * 2.0;
-        offsets[i] = Math.random() * height;
-    }
-
-    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    geo.setAttribute('aSpeed', new THREE.BufferAttribute(speeds, 1));
-    geo.setAttribute('aOffset', new THREE.BufferAttribute(offsets, 1));
-
-    const mat = new PointsNodeMaterial({
-        color: colorHex,
-        size: 0.4,
-        transparent: true,
-        opacity: 0.8,
-        blending: THREE.AdditiveBlending
-    });
-
-    const aSpeed = attribute('aSpeed', 'float');
-    const aOffset = attribute('aOffset', 'float');
-    const uSpeed = uniform(1.0);
-    mat.uSpeed = uSpeed;
-
-    const t = time.mul(uSpeed);
-    const fallHeight = float(height);
-    const currentDist = aOffset.add(aSpeed.mul(t));
-    const modDist = currentDist.mod(fallHeight);
-    const newY = modDist.negate();
-
-    mat.positionNode = vec3(
-        positionLocal.x,
-        newY,
-        positionLocal.z
-    );
-
-    const waterfall = new THREE.Points(geo, mat);
-    waterfall.userData = { animationType: 'gpuWaterfall' };
-    return waterfall;
-}
 
 export function createMelodyLake(width = 200, depth = 200) {
     const geo = new THREE.PlaneGeometry(width, depth, 64, 64);

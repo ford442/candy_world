@@ -49,6 +49,7 @@ const controls = inputSystem.controls;
 
 // --- Animation Loop State ---
 const clock = new THREE.Clock();
+let gameTime = 0; // Accumulates based on BPM
 let audioState = null;
 let lastBeatPhase = 0;
 let beatFlashIntensity = 0;
@@ -96,11 +97,18 @@ function getWeatherForTimeOfDay(cyclePos, audioData) {
 function animate() {
     const rawDelta = clock.getDelta();
     const delta = Math.min(rawDelta, 0.1);
-    const t = clock.getElapsedTime();
 
     audioState = audioSystem.update();
     beatSync.update();
+
+    // Time Dilation based on BPM (Inverse: Higher BPM = Slower Time)
+    // Base BPM = 120. At 240 BPM, speed is 0.5. At 60 BPM, speed is 2.0.
+    const currentBPM = audioState?.bpm || 120;
+    const timeFactor = 120 / Math.max(10, currentBPM);
+    gameTime += delta * timeFactor;
     
+    const t = gameTime; // Use gameTime instead of clock.getElapsedTime()
+
     // Cycle Update
     const effectiveTime = t + timeOffset;
     const cyclePos = effectiveTime % CYCLE_DURATION;
