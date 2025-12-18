@@ -20,18 +20,31 @@ export function registerReactiveMaterial(mat) {
 
 // --- Reactivity Mixin ---
 export function attachReactivity(group) {
+    // Optimization: Cache reactive meshes to avoid expensive scene graph traversal on every note trigger
+    const reactiveMeshes = [];
+    group.traverse((child) => {
+        if (child.isMesh && child.material) {
+            // Support both single material and material arrays
+            const materials = Array.isArray(child.material) ? child.material : [child.material];
+            for (const mat of materials) {
+                if (mat && mat.emissive) {
+                    reactiveMeshes.push(child);
+                    break; // Child is reactive if at least one material is reactive
+                }
+            }
+        }
+    });
+
     group.reactToNote = function(note, colorHex, velocity = 1.0) {
         const targetColor = new THREE.Color(colorHex);
 
-        group.traverse((child) => {
-            if (child.isMesh && child.material) {
-                if (child.material.emissive) {
-                    child.userData.flashColor = targetColor;
-                    child.userData.flashIntensity = 1.0 * velocity;
-                    child.userData.flashDecay = 0.05;
-                }
-            }
-        });
+        for (let i = 0, l = reactiveMeshes.length; i < l; i++) {
+            const child = reactiveMeshes[i];
+            // Since we cached the child, we know it has userData (all Object3D do)
+            child.userData.flashColor = targetColor;
+            child.userData.flashIntensity = 1.0 * velocity;
+            child.userData.flashDecay = 0.05;
+        }
 
         if (group.userData.animationType) {
             group.userData.animationOffset += 0.5;
