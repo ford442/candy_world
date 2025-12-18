@@ -15,11 +15,11 @@ import {
     initFallingBerries, updateFallingBerries, collectFallingBerries,
     createVibratoViolet, createTremoloTulip, createKickDrumGeyser,
     VineSwing, createSwingableVine, createMelodyLake,
-    uWindSpeed, uWindDirection
-} from './foliage.js';
-import { createSky, uSkyTopColor, uSkyBottomColor, uHorizonColor, uAtmosphereIntensity } from './sky.js';
-import { createStars, uStarPulse, uStarColor, uStarOpacity } from './stars.js';
-import { createMoon, updateMoon, moonConfig, triggerMoonBlink } from './moon.js';
+    uWindSpeed, uWindDirection,
+    createSky, uSkyTopColor, uSkyBottomColor, uHorizonColor, uAtmosphereIntensity,
+    createStars, uStarPulse, uStarColor, uStarOpacity,
+    createMoon, updateMoon, moonConfig, triggerMoonBlink
+} from './src/foliage/index.js';
 import { MusicReactivity, getNoteColor } from './music-reactivity.js';
 import { AudioSystem } from './audio-system.js';
 import { BeatSync } from './src/audio/beat-sync.js';
