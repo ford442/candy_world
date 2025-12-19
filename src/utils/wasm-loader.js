@@ -181,25 +181,37 @@ export async function initWasm() {
                         const worker = new Worker('/js/emscripten-compile-worker.js', { type: 'module' });
 
                         const compiledModule = await new Promise((resolve, reject) => {
-                            const timeout = setTimeout(() => reject(new Error('Worker compile timed out')), 30000);
-                            worker.addEventListener('message', (ev) => {
+                            const timeout = setTimeout(() => reject(new Error('Worker compile timed out')), 45000);
+
+                            const onMessage = (ev) => {
                                 const m = ev.data;
                                 if (!m) return;
                                 if (m.cmd === 'compiled') {
                                     clearTimeout(timeout);
+                                    cleanup();
                                     resolve(m.module);
                                 } else if (m.cmd === 'error') {
                                     clearTimeout(timeout);
+                                    cleanup();
                                     reject(new Error(m.error));
                                 }
-                            });
-                            worker.addEventListener('error', (err) => {
+                            };
+                            const onError = (err) => {
                                 clearTimeout(timeout);
+                                cleanup();
                                 reject(err || new Error('Worker error'));
-                            });
+                            };
+                            const cleanup = () => {
+                                worker.removeEventListener('message', onMessage);
+                                worker.removeEventListener('error', onError);
+                            };
 
-                            // Send compile request (worker will fetch/compile)
-                            worker.postMessage({ cmd: 'compile', url: './candy_native.wasm?v=' + Date.now() });
+                            worker.addEventListener('message', onMessage);
+                            worker.addEventListener('error', onError);
+
+                            // Send absolute URL to worker to avoid resolution issues
+                            const url = new URL('./candy_native.wasm', window.location.href);
+                            worker.postMessage({ cmd: 'compile', url: url.href + '?v=' + Date.now() });
                         });
 
                         // Instantiate from compiled module on main thread to keep exports accessible synchronously
@@ -207,6 +219,9 @@ export async function initWasm() {
                             wasi_snapshot_preview1: wasiStubs,
                             env: { emscripten_notify_memory_growth: () => {} }
                         });
+
+                        // Terminate worker after successful compile
+                        try { worker.terminate(); } catch(e) {}
 
                         emscriptenInstance = emResult.instance;
                         emscriptenMemory = emscriptenInstance.exports.memory;
