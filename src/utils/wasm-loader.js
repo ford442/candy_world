@@ -17,6 +17,14 @@ let wasmBatchMushroomSpawnCandidates = null;
 let emscriptenInstance = null;
 let emscriptenMemory = null;
 
+/**
+ * Helper to safely get an Emscripten export (handles _ prefix)
+ */
+function getNativeFunc(name) {
+    if (!emscriptenInstance || !emscriptenInstance.exports) return null;
+    return emscriptenInstance.exports[name] || emscriptenInstance.exports['_' + name] || null;
+}
+
 // Memory layout constants (must match AssemblyScript)
 const POSITION_OFFSET = 0;
 const ANIMATION_OFFSET = 4096;
@@ -177,7 +185,7 @@ export async function initWasm() {
                     console.log('Emscripten module loaded:', Object.keys(emResult.instance.exports));
 
                     // Call init if exposed (try both names: init_native and _init_native)
-                    const initFn = emscriptenInstance.exports.init_native || emscriptenInstance.exports._init_native;
+                    const initFn = getNativeFunc('init_native');
                     if (initFn) {
                         try {
                             initFn();
@@ -186,7 +194,7 @@ export async function initWasm() {
                             console.warn('[Emscripten] init_native() threw an error:', e);
                         }
                     } else {
-                        console.warn('Emscripten module loaded, but init_native/_init_native not found.');
+                        console.warn('Emscripten module loaded, but init_native/_init_native not found. Exports:', Object.keys(emscriptenInstance.exports));
                     }
                 }
             } else {
@@ -697,12 +705,11 @@ export function isEmscriptenReady() {
  * @returns {number} Noise value -1 to 1
  */
 export function valueNoise2D(x, y) {
-    if (!emscriptenInstance) {
-        // JS fallback - simple hash-based noise
-        const n = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
-        return n - Math.floor(n);
-    }
-    return emscriptenInstance.exports._valueNoise2D(x, y);
+    const f = getNativeFunc('valueNoise2D');
+    if (f) return f(x, y);
+    // JS fallback - simple hash-based noise
+    const n = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
+    return n - Math.floor(n);
 }
 
 /**
@@ -713,17 +720,17 @@ export function valueNoise2D(x, y) {
  * @returns {number} FBM value
  */
 export function fbm(x, y, octaves = 4) {
-    if (!emscriptenInstance) {
-        // JS fallback
-        let value = 0, amp = 0.5, freq = 1;
-        for (let i = 0; i < octaves; i++) {
-            value += amp * valueNoise2D(x * freq, y * freq);
-            amp *= 0.5;
-            freq *= 2;
-        }
-        return value;
+    const f = getNativeFunc('fbm');
+    if (f) return f(x, y, octaves);
+
+    // JS fallback
+    let value = 0, amp = 0.5, freq = 1;
+    for (let i = 0; i < octaves; i++) {
+        value += amp * valueNoise2D(x * freq, y * freq);
+        amp *= 0.5;
+        freq *= 2;
     }
-    return emscriptenInstance.exports._fbm(x, y, octaves);
+    return value;
 }
 
 /**
@@ -732,30 +739,27 @@ export function fbm(x, y, octaves = 4) {
  * @returns {number} 1/sqrt(x)
  */
 export function fastInvSqrt(x) {
-    if (!emscriptenInstance) {
-        return 1 / Math.sqrt(x);
-    }
-    return emscriptenInstance.exports._fastInvSqrt(x);
+    const f = getNativeFunc('fastInvSqrt');
+    if (f) return f(x);
+    return 1 / Math.sqrt(x);
 }
 
 /**
  * Fast distance calculation
  */
 export function fastDistance(x1, y1, z1, x2, y2, z2) {
-    if (!emscriptenInstance) {
-        const dx = x2 - x1, dy = y2 - y1, dz = z2 - z1;
-        return Math.sqrt(dx * dx + dy * dy + dz * dz);
-    }
-    return emscriptenInstance.exports._fastDistance(x1, y1, z1, x2, y2, z2);
+    const f = getNativeFunc('fastDistance');
+    if (f) return f(x1, y1, z1, x2, y2, z2);
+    const dx = x2 - x1, dy = y2 - y1, dz = z2 - z1;
+    return Math.sqrt(dx * dx + dy * dy + dz * dz);
 }
 
 /**
  * Hash function for procedural generation
  */
 export function hash(x, y) {
-    if (!emscriptenInstance) {
-        const n = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
-        return (n - Math.floor(n)) * 2 - 1;
-    }
-    return emscriptenInstance.exports._hash(x, y);
+    const f = getNativeFunc('hash');
+    if (f) return f(x, y);
+    const n = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
+    return (n - Math.floor(n)) * 2 - 1;
 }

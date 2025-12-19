@@ -1,11 +1,46 @@
 #!/bin/bash
 # Build script for Candy World Emscripten WASM module (Linux/Mac)
-# Run this after activating emsdk: source emsdk_env.sh
+# Tries to source a known emsdk env script if present; otherwise expects emcc in PATH
+
+set -euo pipefail
 
 echo "Building candy_native.wasm (Standalone WASM)..."
-source /content/build_space/emsdk/emsdk_env.sh
 
-emcc /content/build_space/candy_world/emscripten/candy_native.c -o /content/build_space/candy_world/public/candy_native.wasm \
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# Candidate locations for emsdk env script
+CANDIDATES=(
+    "$REPO_ROOT/emsdk/emsdk_env.sh"
+    "$HOME/emsdk/emsdk_env.sh"
+    "/usr/local/emsdk/emsdk_env.sh"
+    "/content/build_space/emsdk/emsdk_env.sh"
+)
+
+sourced=false
+for f in "${CANDIDATES[@]}"; do
+    if [ -f "$f" ]; then
+        echo "Sourcing emsdk env: $f"
+        # shellcheck source=/dev/null
+        source "$f"
+        sourced=true
+        break
+    fi
+done
+
+if ! command -v emcc >/dev/null 2>&1; then
+    if [ "$sourced" = true ]; then
+        echo "emcc still not found after sourcing emsdk. Please ensure emsdk is installed and activated."
+    else
+        echo "emcc not found. Install emsdk and run 'source <emsdk>/emsdk_env.sh' or add emcc to PATH."
+    fi
+    exit 1
+fi
+
+INPUT_C="$SCRIPT_DIR/candy_native.c"
+OUTPUT_WASM="$REPO_ROOT/public/candy_native.wasm"
+
+emcc "$INPUT_C" -o "$OUTPUT_WASM" \
     -O3 \
     -s STANDALONE_WASM=1 \
     -s WASM=1 \

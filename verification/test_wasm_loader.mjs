@@ -1,4 +1,9 @@
-import * as wasm from '../src/utils/wasm-loader.js';
+// Provide a minimal document stub for node tests
+if (typeof globalThis.document === 'undefined') {
+  globalThis.document = { getElementById: (id) => ({ disabled: false, textContent: '', style: {} }) };
+}
+
+const wasm = await import('../src/utils/wasm-loader.js');
 
 (async () => {
   try {
