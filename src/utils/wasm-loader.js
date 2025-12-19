@@ -174,57 +174,78 @@ export async function initWasm() {
         try {
             const emResponse = await fetch('./candy_native.wasm?v=' + Date.now());
             if (emResponse.ok) {
-                // Prefer streaming instantiation to avoid blocking the main thread on large WASM files
+                // Prefer compiling in a worker to avoid main-thread WASM parse/compile stalls
                 try {
-                    let emResult;
-                    if (WA.instantiateStreaming && emResponse.body) {
-                        console.log('Using instantiateStreaming for Emscripten module');
-                        emResult = await WA.instantiateStreaming(emResponse, {
-                            wasi_snapshot_preview1: wasiStubs,
-                            env: { emscripten_notify_memory_growth: () => {} }
-                        });
-                    } else {
-                        // Fallback: download full bytes then instantiate
-                        const emBytes = await emResponse.arrayBuffer();
-                        emResult = await WA.instantiate(emBytes, {
-                            wasi_snapshot_preview1: wasiStubs,
-                            env: { emscripten_notify_memory_growth: () => {} }
-                        });
-                    }
+                    if (typeof Worker !== 'undefined') {
+                        console.log('Spawning compile worker for Emscripten module');
+                        const worker = new Worker('/js/emscripten-compile-worker.js', { type: 'module' });
 
-                    emscriptenInstance = emResult.instance;
-                    emscriptenMemory = emscriptenInstance.exports.memory;
-                    console.log('Emscripten module loaded:', Object.keys(emscriptenInstance.exports));
+                        const compiledModule = await new Promise((resolve, reject) => {
+                            const timeout = setTimeout(() => reject(new Error('Worker compile timed out')), 30000);
+                            worker.addEventListener('message', (ev) => {
+                                const m = ev.data;
+                                if (!m) return;
+                                if (m.cmd === 'compiled') {
+                                    clearTimeout(timeout);
+                                    resolve(m.module);
+                                } else if (m.cmd === 'error') {
+                                    clearTimeout(timeout);
+                                    reject(new Error(m.error));
+                                }
+                            });
+                            worker.addEventListener('error', (err) => {
+                                clearTimeout(timeout);
+                                reject(err || new Error('Worker error'));
+                            });
 
-                    // Call init if exposed (try both names: init_native and _init_native)
-                    const initFn = getNativeFunc('init_native');
-                    if (initFn) {
-                        // Defer the call to yield to the browser and avoid blocking
-                        setTimeout(() => {
-                            try {
-                                initFn();
-                                console.log('[Emscripten] init_native() invoked successfully');
-                            } catch (e) {
-                                console.warn('[Emscripten] init_native() threw an error:', e);
-                            }
-                        }, 0);
-                    } else {
-                        console.warn('Emscripten module loaded, but init_native/_init_native not found. Exports:', Object.keys(emscriptenInstance.exports));
-                    }
-                } catch (streamErr) {
-                    console.warn('Emscripten instantiateStreaming failed, falling back to arrayBuffer + instantiate:', streamErr);
-                    try {
-                        const emBytes = await emResponse.arrayBuffer();
-                        const emResult = await WA.instantiate(emBytes, {
+                            // Send compile request (worker will fetch/compile)
+                            worker.postMessage({ cmd: 'compile', url: './candy_native.wasm?v=' + Date.now() });
+                        });
+
+                        // Instantiate from compiled module on main thread to keep exports accessible synchronously
+                        const emResult = await WebAssembly.instantiate(compiledModule, {
                             wasi_snapshot_preview1: wasiStubs,
                             env: { emscripten_notify_memory_growth: () => {} }
                         });
+
                         emscriptenInstance = emResult.instance;
                         emscriptenMemory = emscriptenInstance.exports.memory;
-                        console.log('Emscripten module loaded (fallback):', Object.keys(emscriptenInstance.exports));
-                    } catch (err2) {
-                        console.warn('Emscripten module failed to instantiate after fallback:', err2);
+                        console.log('Emscripten module compiled in worker and instantiated on main thread:', Object.keys(emscriptenInstance.exports));
+
+                        const initFn = getNativeFunc('init_native');
+                        if (initFn) {
+                            // Defer to avoid blocking the UI
+                            setTimeout(() => {
+                                try { initFn(); console.log('[Emscripten] init_native() invoked successfully'); }
+                                catch (e) { console.warn('[Emscripten] init_native() threw:', e); }
+                            }, 0);
+                        } else {
+                            console.warn('Emscripten module loaded, but init_native/_init_native not found. Exports:', Object.keys(emscriptenInstance.exports));
+                        }
+                    } else {
+                        // Worker not available; fall back to streaming instantiate but defer init
+                        if (WA.instantiateStreaming && emResponse.body) {
+                            console.log('Using instantiateStreaming for Emscripten module (no worker)');
+                            const emResult = await WA.instantiateStreaming(fetch('./candy_native.wasm?v=' + Date.now()), {
+                                wasi_snapshot_preview1: wasiStubs,
+                                env: { emscripten_notify_memory_growth: () => {} }
+                            });
+                            emscriptenInstance = emResult.instance;
+                        } else {
+                            const emBytes = await emResponse.arrayBuffer();
+                            const emResult = await WA.instantiate(emBytes, {
+                                wasi_snapshot_preview1: wasiStubs,
+                                env: { emscripten_notify_memory_growth: () => {} }
+                            });
+                            emscriptenInstance = emResult.instance;
+                        }
+                        emscriptenMemory = emscriptenInstance.exports.memory;
+                        console.log('Emscripten module loaded (no worker):', Object.keys(emscriptenInstance.exports));
+                        const initFn = getNativeFunc('init_native');
+                        if (initFn) setTimeout(() => { try { initFn(); } catch (e) { console.warn(e); }}, 0);
                     }
+                } catch (compileErr) {
+                    console.warn('Emscripten compile/instantiate failed:', compileErr);
                 }
             } else {
                 console.log('Emscripten WASM not found (optional), skipping');
