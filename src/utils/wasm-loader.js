@@ -274,6 +274,21 @@ export function uploadPositions(objects) {
 }
 
 /**
+ * Fast copy from a SharedArrayBuffer-backed Float32Array into WASM position memory.
+ * This avoids creating JS objects for each position and is ideal for large counts.
+ * @param {Float32Array} sharedView Float32Array backed by SharedArrayBuffer
+ * @param {number} objectCount number of objects to copy
+ */
+export function copySharedPositions(sharedView, objectCount) {
+    if (!positionView) return;
+    const maxCount = Math.min(objectCount, Math.floor(positionView.length / 4));
+    // Perform the copy (per-element loop is fast for typed arrays)
+    for (let i = 0; i < maxCount * 4; i++) {
+        positionView[i] = sharedView[i];
+    }
+}
+
+/**
  * Upload animation data to WASM memory
  * @param {Array<{offset: number, type: number, originalY: number}>} animData
  */

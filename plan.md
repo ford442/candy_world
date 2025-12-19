@@ -173,3 +173,96 @@ This document captures feature ideas for the Candy World musical ecosystem. The 
 ---
 
 This plan serves as a master list for implementing musical, visual, and gameplay synergies driven by the tracked music engine. Break these into smaller implementation tasks, and prioritize interactions that yield interesting gameplay emergent behaviors.
+
+---
+
+## Migration Roadmap: JS → TS → AssemblyScript/WASM → C++ → WebGPU 🚀
+
+This phased plan outlines a progressive migration to stronger typing, offloading heavy computation to WASM, and eventually replacing parts of the renderer with raw WebGPU for maximum control and performance.
+
+### Phase 1: The Foundation (JS → TS) ✨
+**Goal:** Establish strict data contracts so we can safely pack JS state into binary buffers later.
+
+- **Setup TypeScript**
+  - Add `tsconfig.json` at project root.
+  - Start with `allowJs: true` to permit incremental migration.
+
+- **Migrate Core Data Structures First**
+  - Convert state/config files to TypeScript types/interfaces (e.g., `src/world/state.js`, `src/core/config.js`).
+  - Reason: These files define the "shapes" of data; typing them clarifies what must be serialized for WASM.
+
+- **Migrate Systems**
+  - Move heavy systems like `src/systems/physics.js` and `src/audio/audio-system.js` to `.ts`.
+  - Benefit: Catch missing properties and implicit type coercions early.
+
+---
+
+### Phase 2: The "Hot Path" Migration (TS → AssemblyScript/WASM) ⚙️
+**Goal:** Push math-heavy, frequent computations off the main thread into WASM.
+
+- **Identify Bottlenecks**
+  - Procedural generation loops (e.g., nested loops in `generation`).
+  - Physics collision checks (iterating `foliageClouds`, `obstacles`).
+
+- **Port to AssemblyScript**
+  - Move deterministic, math-heavy functions (e.g., `getGroundHeight`, collision checks) into `assembly/index.ts`.
+  - Use flat arrays / pointers instead of JS objects for hot data.
+
+- **Shared Memory Strategy**
+  - Use `SharedArrayBuffer` or linear memory for entity positions: `Float32Array(EntityCount * 3)`.
+  - WASM writes positions; JS reads for rendering (no per-frame copies).
+
+---
+
+### Phase 3: The Heavy Lifting (AssemblyScript → C++ / Emscripten) 🛠️
+**Goal:** Use C++ where you need high-performance libraries, SIMD, or mature solvers.
+
+- **When to prefer C++ over ASC**
+  - Use ASC for game logic and easier TS-like code sharing.
+  - Use C++ for complex solvers (rigid body physics, audio DSP, fluid solvers).
+
+- **Example Flow**
+  - Implement a fluid solver in C++ (using `std::vector`, SIMD intrinsics).
+  - Compile with Emscripten to a side-module WASM and write results into the shared buffer the renderer reads.
+
+---
+
+### Phase 4: The Graphics Rewire (Three.js → Raw WebGPU) 🎨🔥
+**Goal:** Gain full control over rendering and compute for particle systems and specialized passes.
+
+- **Hybrid Strategy (Don't delete Three.js yet)**
+  - Keep Three.js as a shell while replacing internals incrementally.
+
+- **Stage A — Compute Shaders (GPGPU)**
+  - Run WGSL compute passes to update particle/physics buffers on a `gpuDevice`.
+  - Use a `THREE.BufferAttribute` pointing to the GPU buffer for rendering.
+
+- **Stage B — Custom Render Passes**
+  - Replace specific materials with `RawShaderMaterial` / WebGPU pipelines (e.g., cloud or terrain draws).
+
+- **Stage C — Scene Graph Replacement**
+  - Once compute + custom render passes are in place, migrate scene hierarchy to an ECS in WASM and call `device.queue.submit()` directly.
+
+---
+
+### Summary Flowchart
+```
+JS src/world/generation.js -> TS (Add Types)
+
+TS generation.ts -> ASC assembly/generation.ts (WASM Logic)
+
+JS src/audio/audio-system.js -> C++ candy_audio.cpp (WASM DSP)
+
+Three.js Particles -> WebGPU ComputeShader.wgsl (Raw Updates)
+
+Three.js Renderer -> WebGPU RenderPipeline (Raw Draw Calls)
+```
+
+---
+
+**Notes & Priorities:**
+- Start small with types and tests around the data shapes that must cross the JS/WASM boundary.
+- Ensure regressions are detectable via unit/integration tests and small deterministic manifests.
+- Prefer incremental changes and keep fallback paths during each phase to reduce risk.
+
+Feel free to ask me to create the initial `tsconfig.json`, add type definitions for `src/world/state.js`, or draft an AssemblyScript skeleton for `getGroundHeight` next.
