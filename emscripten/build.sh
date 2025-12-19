@@ -40,7 +40,7 @@ fi
 INPUT_C="$SCRIPT_DIR/candy_native.c"
 OUTPUT_WASM="$REPO_ROOT/public/candy_native.wasm"
 
-emcc ./candy_native.c -o ./candy_native.wasm \
+emcc "$INPUT_C" -o "$OUTPUT_WASM" \
   -O3 \
   -s WASM=1 \
   -s STANDALONE_WASM=1 \
