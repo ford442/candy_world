@@ -54,6 +54,13 @@ export function attachReactivity(group) {
             child.userData.flashDecay = 0.05;
         }
 
+        // Debug logging of the note/color mapping (toggle with CONFIG.debugNoteReactivity)
+        if (CONFIG.debugNoteReactivity) {
+            try {
+                console.log('reactToNote:', group.userData.type, 'note=', note, 'color=', targetColor.getHexString(), 'velocity=', velocity);
+            } catch (e) { console.log('reactToNote debug error', e); }
+        }
+
         if (group.userData.animationType) {
             group.userData.animationOffset += 0.5;
         }

@@ -97,5 +97,7 @@ export const CONFIG = {
         mushroom: { medianWindow: 5, smoothingRate: 8, scale: 0.6, maxAmplitude: 1.0, minThreshold: 0.02 }
     },
     // Global flash strength scaler
-    flashScale: 2.0
+    flashScale: 2.0,
+    // Debug flags
+    debugNoteReactivity: false
 };
