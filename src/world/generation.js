@@ -15,6 +15,7 @@ import {
     animatedFoliage, obstacles, foliageGroup, foliageMushrooms,
     foliageClouds, foliageTrampolines, vineSwings
 } from './state.js';
+import mapData from '../../assets/map.json';
 
 // --- Scene Setup ---
 
@@ -104,72 +105,51 @@ export function safeAddFoliage(obj, isObstacle = false, radius = 1.0, weatherSys
     }
 }
 
-// --- CLUSTERING SPAWNER ---
-
-function spawnCluster(cx, cz, type, weatherSystem) {
-    const SPREAD = 30; // Radius of cluster
-    let count = 0;
-    
-    // mushroom forest
-    if (type === 'mushroom_forest') {
-        count = 12;
-        for (let i = 0; i < count; i++) {
-            const x = cx + (Math.random()-0.5)*SPREAD;
-            const z = cz + (Math.random()-0.5)*SPREAD;
-            const y = getGroundHeight(x, z);
-            const isGiant = Math.random() < 0.25; // 25% Giant
-            
-            const m = createMushroom({ size: isGiant ? 'giant' : 'regular', scale: 0.8+Math.random() });
-            m.position.set(x, y, z);
-            safeAddFoliage(m, true, isGiant?2:0.5, weatherSystem);
-        }
-    } 
-
-    // flower field
-    else if (type === 'flower_field') {
-        count = 25;
-        for (let i = 0; i < count; i++) {
-            const x = cx + (Math.random()-0.5)*SPREAD;
-            const z = cz + (Math.random()-0.5)*SPREAD;
-            const f = Math.random()>0.3 ? createGlowingFlower() : createFlower();
-            f.position.set(x, getGroundHeight(x,z), z);
-            safeAddFoliage(f, false, 0.5, weatherSystem);
-        }
-    }
-    // other types currently no-op; generateMap focuses on the two above
-}
+// --- MAP GENERATION ---
 
 function generateMap(weatherSystem) {
-    // TIGHT GRID: Overlap ensures no gaps
-    const GRID = 35; // Increased spacing slightly
-    const ROWS = 6; // Reduced rows (was 10)
-    const COLS = 6; // Reduced cols (was 10)
-    
-    const TYPES = ['mushroom_forest', 'flower_field']; // Focus on these for now to test density
+    console.log(`[World] Loading map with ${mapData.length} entities...`);
 
-    for (let r = -ROWS/2; r < ROWS/2; r++) {
-        for (let c = -COLS/2; c < COLS/2; c++) {
-            const cx = r * GRID + (Math.random()-0.5)*10;
-            const cz = c * GRID + (Math.random()-0.5)*10;
-            
-            // 1. Spawn Main Objects
-            const type = TYPES[Math.floor(Math.random()*TYPES.length)];
-            spawnCluster(cx, cz, type, weatherSystem);
+    mapData.forEach(item => {
+        const [x, yInput, z] = item.position;
+        // Recalculate Y based on ground height for most objects to ensure they sit on terrain
+        const groundY = getGroundHeight(x, z);
 
-            // 2. FILLER GRASS (The Glue)
-            // Fills the area between objects so it's not "Just Patches"
-            for(let k=0; k<25; k++) {
-                const gx = cx + (Math.random()-0.5)*GRID;
-                const gz = cz + (Math.random()-0.5)*GRID;
-                addGrassInstance(gx, getGroundHeight(gx, gz), gz);
-            }
+        // Use provided Y if it's significantly different (e.g. cloud), otherwise snap to ground
+        let y = groundY;
+        if (item.type === 'cloud') {
+            y = yInput; // Clouds float
         }
-    }
 
-    // Clouds
-    for (let i = 0; i < 30; i++) {
-        const cloud = createRainingCloud({ size: 1.5 });
-        cloud.position.set((Math.random()-0.5)*300, 40 + Math.random()*20, (Math.random()-0.5)*300);
-        safeAddFoliage(cloud);
-    }
+        try {
+            if (item.type === 'mushroom') {
+                const isGiant = item.variant === 'giant';
+                const scale = item.scale || 1.0;
+                const m = createMushroom({ size: isGiant ? 'giant' : 'regular', scale });
+                m.position.set(x, y, z);
+                // Rotate randomly for variety
+                m.rotation.y = Math.random() * Math.PI * 2;
+                safeAddFoliage(m, true, isGiant ? 2 : 0.5, weatherSystem);
+            }
+            else if (item.type === 'flower') {
+                const isGlowing = item.variant === 'glowing';
+                const f = isGlowing ? createGlowingFlower() : createFlower();
+                f.position.set(x, y, z);
+                f.scale.setScalar(item.scale || 1.0);
+                f.rotation.y = Math.random() * Math.PI * 2;
+                safeAddFoliage(f, false, 0.5, weatherSystem);
+            }
+            else if (item.type === 'cloud') {
+                const cloud = createRainingCloud({ size: item.size || 1.5 });
+                cloud.position.set(x, y, z);
+                safeAddFoliage(cloud);
+            }
+            else if (item.type === 'grass') {
+                // Grass system handles its own instances, no need to add to foliageGroup
+                addGrassInstance(x, y, z);
+            }
+        } catch (e) {
+            console.warn(`[World] Failed to spawn ${item.type} at ${x},${z}`, e);
+        }
+    });
 }
