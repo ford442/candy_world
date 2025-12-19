@@ -174,41 +174,63 @@ export async function initWasm() {
         try {
             const emResponse = await fetch('./candy_native.wasm?v=' + Date.now());
             if (emResponse.ok) {
-                const emBytes = await emResponse.arrayBuffer();
-
-                // Check magic number
-                const emMagic = new Uint8Array(emBytes.slice(0, 4));
-                if (emMagic[0] === 0 && emMagic[1] === 0x61 && emMagic[2] === 0x73 && emMagic[3] === 0x6d) {
-                    const emResult = await WA.instantiate(emBytes, {
-                        wasi_snapshot_preview1: wasiStubs,
-                        env: {
-                            // Emscripten might request this for memory growth
-                            emscripten_notify_memory_growth: () => { }
-                        }
-                    });
+                // Prefer streaming instantiation to avoid blocking the main thread on large WASM files
+                try {
+                    let emResult;
+                    if (WA.instantiateStreaming && emResponse.body) {
+                        console.log('Using instantiateStreaming for Emscripten module');
+                        emResult = await WA.instantiateStreaming(emResponse, {
+                            wasi_snapshot_preview1: wasiStubs,
+                            env: { emscripten_notify_memory_growth: () => {} }
+                        });
+                    } else {
+                        // Fallback: download full bytes then instantiate
+                        const emBytes = await emResponse.arrayBuffer();
+                        emResult = await WA.instantiate(emBytes, {
+                            wasi_snapshot_preview1: wasiStubs,
+                            env: { emscripten_notify_memory_growth: () => {} }
+                        });
+                    }
 
                     emscriptenInstance = emResult.instance;
-                    emscriptenMemory = emResult.instance.exports.memory;
-                    console.log('Emscripten module loaded:', Object.keys(emResult.instance.exports));
+                    emscriptenMemory = emscriptenInstance.exports.memory;
+                    console.log('Emscripten module loaded:', Object.keys(emscriptenInstance.exports));
 
                     // Call init if exposed (try both names: init_native and _init_native)
                     const initFn = getNativeFunc('init_native');
                     if (initFn) {
-                        try {
-                            initFn();
-                            console.log('[Emscripten] init_native() invoked successfully');
-                        } catch (e) {
-                            console.warn('[Emscripten] init_native() threw an error:', e);
-                        }
+                        // Defer the call to yield to the browser and avoid blocking
+                        setTimeout(() => {
+                            try {
+                                initFn();
+                                console.log('[Emscripten] init_native() invoked successfully');
+                            } catch (e) {
+                                console.warn('[Emscripten] init_native() threw an error:', e);
+                            }
+                        }, 0);
                     } else {
                         console.warn('Emscripten module loaded, but init_native/_init_native not found. Exports:', Object.keys(emscriptenInstance.exports));
+                    }
+                } catch (streamErr) {
+                    console.warn('Emscripten instantiateStreaming failed, falling back to arrayBuffer + instantiate:', streamErr);
+                    try {
+                        const emBytes = await emResponse.arrayBuffer();
+                        const emResult = await WA.instantiate(emBytes, {
+                            wasi_snapshot_preview1: wasiStubs,
+                            env: { emscripten_notify_memory_growth: () => {} }
+                        });
+                        emscriptenInstance = emResult.instance;
+                        emscriptenMemory = emscriptenInstance.exports.memory;
+                        console.log('Emscripten module loaded (fallback):', Object.keys(emscriptenInstance.exports));
+                    } catch (err2) {
+                        console.warn('Emscripten module failed to instantiate after fallback:', err2);
                     }
                 }
             } else {
                 console.log('Emscripten WASM not found (optional), skipping');
             }
         } catch (emError) {
-            console.warn('Optional Emscripten WASM failed to load:', emError.message);
+            console.warn('Optional Emscripten WASM failed to load:', emError);
         }
 
         // UX: Restore button on success
