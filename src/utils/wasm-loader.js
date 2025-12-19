@@ -99,6 +99,17 @@ export const AnimationType = {
  * Initialize the WASM module
  * @returns {Promise<boolean>} True if loaded successfully
  */
+// Helper to update UI status and yield to main thread to prevent hanging
+async function updateProgress(msg) {
+    const startButton = document.getElementById('startButton');
+    if (startButton) {
+        startButton.textContent = msg;
+    }
+    console.log('[WASM Progress]', msg);
+    // Yield to browser event loop
+    await new Promise(r => setTimeout(r, 20));
+}
+
 export async function initWasm() {
     if (wasmInstance) return true;
 
@@ -106,11 +117,11 @@ export async function initWasm() {
     const startButton = document.getElementById('startButton');
     if (startButton) {
         startButton.disabled = true;
-        startButton.textContent = 'Loading World...';
         startButton.style.cursor = 'wait';
     }
 
     console.log('[WASM] initWasm started');
+    await updateProgress('Downloading Physics...');
 
     try {
         // Load WASM binary with cache buster
@@ -164,6 +175,8 @@ export async function initWasm() {
             proc_exit: () => { },
             clock_time_get: () => 0,
         };
+
+        await updateProgress('Compiling Physics...');
 
         // Instantiate with env AND wasi imports
         // Use NativeWebAssembly to bypass libopenmpt's WebAssembly override
@@ -224,15 +237,19 @@ export async function initWasm() {
         // Load Emscripten WASM module (optional - for native C functions)
         // =====================================================================
         try {
+            await updateProgress('Loading Native Module...');
             console.log('[WASM] Attempting to load Emscripten module (candy_native.wasm)...');
             const emResponse = await fetch('./candy_native.wasm?v=' + Date.now());
             if (emResponse.ok) {
                 // Prefer compiling in a worker to avoid main-thread WASM parse/compile stalls
                 try {
                     if (typeof Worker !== 'undefined') {
+                        await updateProgress('Compiling Native...');
                         console.log('[WASM] Compiling Emscripten module in worker...');
                         try {
                             const compiledModule = await compileWasmInWorker('./candy_native.wasm?v=' + Date.now());
+
+                            await updateProgress('Instantiating Native...');
 
                             // Instantiate from compiled module on main thread to keep exports accessible synchronously
                             const emResult = await WebAssembly.instantiate(compiledModule, {
