@@ -175,6 +175,19 @@ export async function initWasm() {
                     emscriptenInstance = emResult.instance;
                     emscriptenMemory = emResult.instance.exports.memory;
                     console.log('Emscripten module loaded:', Object.keys(emResult.instance.exports));
+
+                    // Call init if exposed (try both names: init_native and _init_native)
+                    const initFn = emscriptenInstance.exports.init_native || emscriptenInstance.exports._init_native;
+                    if (initFn) {
+                        try {
+                            initFn();
+                            console.log('[Emscripten] init_native() invoked successfully');
+                        } catch (e) {
+                            console.warn('[Emscripten] init_native() threw an error:', e);
+                        }
+                    } else {
+                        console.warn('Emscripten module loaded, but init_native/_init_native not found.');
+                    }
                 }
             } else {
                 console.log('Emscripten WASM not found (optional), skipping');
