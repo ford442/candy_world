@@ -82,7 +82,7 @@ export function initWorld(scene, weatherSystem) {
 }
 
 export function safeAddFoliage(obj, isObstacle = false, radius = 1.0, weatherSystem = null) {
-    if (animatedFoliage.length > 3000) return; // Bumped limit slightly
+    if (animatedFoliage.length > 1000) return; // Reduced limit to prevent WASM/JS hang
     foliageGroup.add(obj);
     animatedFoliage.push(obj);
     if (isObstacle) obstacles.push({ position: obj.position.clone(), radius });
@@ -141,9 +141,9 @@ function spawnCluster(cx, cz, type, weatherSystem) {
 
 function generateMap(weatherSystem) {
     // TIGHT GRID: Overlap ensures no gaps
-    const GRID = 25; 
-    const ROWS = 10; // Covers 250 units (matches fog)
-    const COLS = 10;
+    const GRID = 35; // Increased spacing slightly
+    const ROWS = 6; // Reduced rows (was 10)
+    const COLS = 6; // Reduced cols (was 10)
     
     const TYPES = ['mushroom_forest', 'flower_field']; // Focus on these for now to test density
 
