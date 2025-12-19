@@ -124,12 +124,22 @@ export function animateFoliage(foliageObject, time, audioData, isDay, isDeepNigh
         const mats = Array.isArray(child.material) ? child.material : [child.material];
         for (const mat of mats) {
             if (!mat) continue;
-            const t = Math.min(1, fi) * 0.6;
+            // stronger blend for higher intensity; immediate override when very strong
+            const t = Math.min(1, fi * 1.2) * 0.8;
+            if (CONFIG.debugNoteReactivity && fi > 0.5) {
+                try { console.log('applyFlash pre:', foliageObject.userData.type, child.name || child.uuid, 'mat=', mat.name || mat.type, 'mat.emissive=', mat.emissive?.getHexString?.(), 'target=', fc.getHexString(), 'fi=', fi); } catch (e) {}
+            }
             if (mat.isMeshBasicMaterial) {
-                mat.color.lerp(fc, t);
+                if (fi > 0.7) mat.color.copy(fc);
+                else mat.color.lerp(fc, t);
             } else if (mat.emissive) {
-                mat.emissive.lerp(fc, t);
-                mat.emissiveIntensity = Math.max(mat.emissiveIntensity || 0, fi * (CONFIG.flashScale || 2.0));
+                if (fi > 0.7) mat.emissive.copy(fc);
+                else mat.emissive.lerp(fc, t);
+                // ensure visible intensity (min floor) scaled by global flashScale
+                mat.emissiveIntensity = Math.max(0.2, fi * (CONFIG.flashScale || 2.0));
+            }
+            if (CONFIG.debugNoteReactivity && fi > 0.5) {
+                try { console.log('applyFlash post:', foliageObject.userData.type, child.name || child.uuid, 'mat=', mat.name || mat.type, 'mat.emissive=', mat.emissive?.getHexString?.()); } catch (e) {}
             }
         }
         child.userData.flashIntensity = Math.max(0, fi - decay);

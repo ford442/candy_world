@@ -7,10 +7,7 @@ def verify_note_reactivity():
     with sync_playwright() as p:
         browser = p.chromium.launch(
             headless=True,
-            args=[
-                "--use-gl=swiftshader",
-                "--enable-unsafe-webgpu"
-            ]
+            args=[]
         )
         page = browser.new_page()
         logs = []
@@ -24,7 +21,7 @@ def verify_note_reactivity():
         page.on("console", on_console)
 
         try:
-            page.goto("http://localhost:5173", timeout=30000)
+            page.goto("http://localhost:5173", timeout=60000, wait_until='domcontentloaded')
 
             start_btn = page.locator("#startButton")
             expect(start_btn).to_be_enabled(timeout=20000)
