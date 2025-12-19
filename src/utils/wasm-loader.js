@@ -1,8 +1,8 @@
 // WASM Loader - Candy World Physics & Animation Module
 // Loads and wraps AssemblyScript WASM for easy use from JavaScript
 
-// Import the emscripten compile worker via Vite (?worker) so paths are resolved
-// Note: we dynamically import the worker at runtime (Vite supports ?worker imports) to avoid import-time errors in Node-based tests.
+// Emscripten compile worker is loaded from public/js/emscripten-compile-worker.js as a static Worker
+// This avoids Vite bundling issues for workers in production builds.
 
 let wasmInstance = null;
 let wasmMemory = null;
@@ -38,16 +38,10 @@ let cullScratchSize = 0;  // number of object capacity allocated
 // -----------------------------------------------------------------------------
 // Helper: compile a WASM module in the Emscripten worker (returns WebAssembly.Module)
 async function compileWasmInWorker(url) {
-    // Dynamically import the worker constructor using Vite's ?worker helper.
-    let WorkerCtor;
-    try {
-        const mod = await import('../workers/emscripten.worker.js?worker');
-        WorkerCtor = mod.default || mod;
-    } catch (err) {
-        throw new Error('Could not construct EmscriptenWorker (dynamic import failed): ' + (err && err.message ? err.message : String(err)));
-    }
-
-    const worker = new WorkerCtor();
+    // Use the static public worker file. This is more reliable in production builds
+    // than the dynamic Vite import which can cause "Worker failed to start" errors due to bundling.
+    const workerUrl = './js/emscripten-compile-worker.js';
+    const worker = new Worker(workerUrl);
 
     return await new Promise((resolve, reject) => {
         const cleanup = () => {
