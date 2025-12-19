@@ -25,6 +25,13 @@ function getNativeFunc(name) {
     return emscriptenInstance.exports[name] || emscriptenInstance.exports['_' + name] || null;
 }
 
+// -----------------------------------------------------------------------------
+// Cache for C-side scratch buffers used by culling to avoid repeated malloc/free
+let cullScratchPos = 0;   // pointer to positions buffer in emscripten heap
+let cullScratchRes = 0;   // pointer to results buffer in emscripten heap
+let cullScratchSize = 0;  // number of object capacity allocated
+// -----------------------------------------------------------------------------
+
 // Memory layout constants (must match AssemblyScript)
 const POSITION_OFFSET = 0;
 const ANIMATION_OFFSET = 4096;
@@ -343,33 +350,47 @@ export function batchDistanceCull(cameraX, cameraY, cameraZ, maxDistance, object
     if (emscriptenInstance && emscriptenInstance.exports && emscriptenInstance.exports.batchDistanceCull_c) {
         try {
             const em = emscriptenInstance;
-            const bytes = objectCount * 3 * 4; // x,y,z per object (f32)
-            const spos = em.exports._malloc(bytes);
-            const sres = em.exports._malloc(objectCount * 4);
-            try {
-                const emMem = new Float32Array(em.exports.memory.buffer, spos, objectCount * 3);
-                // The input format expected is x,y,z for each object - populate from positionView in assembly memory if present
-                // positionView may live in AssemblyScript memory; if present, we can access JS position array as well.
-                for (let i = 0; i < objectCount; i++) {
-                    // Use AssemblyScript positionView if present; else assume positions in JS
-                    const baseIdx = i * 4; // [x,y,z,radius] in our position upload
-                    emMem[i * 3] = positionView ? positionView[baseIdx] : 0;
-                    emMem[i * 3 + 1] = positionView ? positionView[baseIdx + 1] : 0;
-                    emMem[i * 3 + 2] = positionView ? positionView[baseIdx + 2] : 0;
-                }
+            // Ensure scratch buffers are allocated and large enough
+            if (cullScratchSize < objectCount) {
+                // free previous buffers if present
+                if (cullScratchPos) em.exports._free(cullScratchPos);
+                if (cullScratchRes) em.exports._free(cullScratchRes);
 
-                // Call Emscripten function
-                const visibleCount = em.exports.batchDistanceCull_c(spos, sres, objectCount, cameraX, cameraY, cameraZ, maxDistSq);
-                // Read flags into a Float32Array
-                const resultView = new Float32Array(em.exports.memory.buffer, sres, objectCount);
-                // Copy to JS outputView-like array
-                const flags = new Float32Array(objectCount);
-                for (let i = 0; i < objectCount; i++) flags[i] = resultView[i];
-                return { visibleCount, flags };
-            } finally {
-                em.exports._free(spos);
-                em.exports._free(sres);
+                // allocate a bit more capacity to avoid frequent resizing
+                const bufferSize = objectCount + 1024;
+                cullScratchPos = em.exports._malloc(bufferSize * 3 * 4); // 3 floats per object
+                cullScratchRes = em.exports._malloc(bufferSize * 4);     // 1 float per object result
+                cullScratchSize = bufferSize;
+                console.log(`[Memory] Resized cull buffers to ${bufferSize} objects`);
             }
+
+            // Copy positions into emscripten heap (x,y,z per object)
+            const emMem = new Float32Array(em.exports.memory.buffer, cullScratchPos, objectCount * 3);
+            if (positionView) {
+                for (let i = 0; i < objectCount; i++) {
+                    const baseIdx = i * 4; // our positionView layout: x,y,z,radius
+                    const targetIdx = i * 3;
+                    emMem[targetIdx] = positionView[baseIdx];
+                    emMem[targetIdx + 1] = positionView[baseIdx + 1];
+                    emMem[targetIdx + 2] = positionView[baseIdx + 2];
+                }
+            } else {
+                // No positions uploaded; zero fill
+                for (let i = 0; i < objectCount * 3; i++) emMem[i] = 0;
+            }
+
+            // Call C function
+            const visibleCount = em.exports.batchDistanceCull_c(
+                cullScratchPos,
+                cullScratchRes,
+                objectCount,
+                cameraX, cameraY, cameraZ,
+                maxDistSq
+            );
+
+            const resultView = new Float32Array(em.exports.memory.buffer, cullScratchRes, objectCount);
+            const flags = resultView.slice(0, objectCount); // copy out for safety
+            return { visibleCount, flags };
         } catch (e) {
             console.warn('Emscripten batchDistanceCull failed, falling back to AssemblyScript:', e);
         }

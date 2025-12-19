@@ -225,3 +225,116 @@ export function createSnareTrap(options = {}) {
     
     return attachReactivity(group);
 }
+
+// --- Musical Flora Manager (Instancing support) ---
+
+import { batchAnimationCalc, uploadPositions } from '../utils/wasm-loader.js';
+
+/**
+ * MANAGER CLASS
+ * Handles batch updates for thousands of instanced objects efficiently.
+ */
+export class MusicalFloraManager {
+    constructor() {
+        this.systems = new Map(); // Stores registered mesh systems
+        this.dummy = new THREE.Object3D();
+        this._position = new THREE.Vector3();
+        this._quaternion = new THREE.Quaternion();
+        this._scale = new THREE.Vector3();
+        
+        // Performance: Reusable arrays
+        this.instanceColors = null; 
+    }
+
+    /**
+     * Register an InstancedMesh to be animated by WASM
+     * @param {string} id - Unique ID (e.g., 'mushrooms')
+     * @param {THREE.InstancedMesh} mesh - The mesh
+     * @param {Array} initialData - Array of {x, y, z, scale} objects
+     */
+    register(id, mesh, initialData) {
+        if (!mesh || !initialData || initialData.length === 0) return;
+
+        console.log(`[MusicalFlora] Registering system: ${id} (${initialData.length} items)`);
+
+        // Upload initial positions to WASM so it knows where they are
+        // Note: If you have multiple systems, we currently share one WASM position buffer.
+        // For a complex game, you'd offset them. For now, we'll just upload the active one or
+        // you can call uploadPositions() right before animate() for that system.
+        uploadPositions(initialData);
+
+        this.systems.set(id, {
+            mesh,
+            data: initialData,
+            count: initialData.length
+        });
+    }
+
+    /**
+     * Main update loop - Call this in your tick/render loop
+     */
+    update(time, deltaTime, audioState) {
+        const kick = audioState?.kickTrigger || 0;
+        const intensity = audioState?.energy || 0;
+
+        for (const [id, system] of this.systems) {
+            this.animateSystem(system, time, intensity, kick);
+        }
+    }
+
+    animateSystem(system, time, intensity, kick) {
+        const { mesh, count, data } = system;
+
+        // 1. Run Physics/Animation in WASM
+        // Returns [yOffset, rotX, rotZ, 0, yOffset, rotX, ...]
+        const results = batchAnimationCalc(time, intensity, kick, count);
+        
+        if (!results) return;
+
+        // 2. Apply results to InstancedMesh
+        for (let i = 0; i < count; i++) {
+            const base = data[i];
+            const idx = i * 4;
+
+            // WASM outputs
+            const animY = results[idx];      // Bounce
+            const animRotX = results[idx+1]; // Wobble
+            const animRotZ = results[idx+2]; // Sway
+
+            // Position (Original + Animation)
+            this._position.set(base.x, base.y + animY, base.z);
+
+            // Rotation (Combine base + Animation)
+            // Assuming base rotation is 0 for simplicity, or store it in 'data'
+            this._quaternion.setFromEuler(new THREE.Euler(
+                animRotX, 
+                0, // Keep Y rotation fixed or add slow spin
+                animRotZ
+            ));
+
+            // Scale (React to kick)
+            const scalePulse = 1.0 + (kick * 0.2 * intensity);
+            const stretch = 1.0 + (animY * 0.5); // Stretch when bouncing up
+            
+            const s = base.scale || 1.0;
+            this._scale.set(
+                s * scalePulse, 
+                s * stretch, 
+                s * scalePulse
+            );
+
+            // Compose Matrix
+            this.dummy.position.copy(this._position);
+            this.dummy.quaternion.copy(this._quaternion);
+            this.dummy.scale.copy(this._scale);
+            this.dummy.updateMatrix();
+
+            mesh.setMatrixAt(i, this.dummy.matrix);
+        }
+
+        mesh.instanceMatrix.needsUpdate = true;
+    }
+}
+
+// Global instance
+export const musicalFlora = new MusicalFloraManager();
