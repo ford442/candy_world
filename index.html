@@ -343,21 +343,24 @@
                 <dt><span class="key">Space</span></dt>
                 <dd>Jump</dd>
 
+                <dt><span class="key">Q</span></dt>
+                <dd>Toggle Jukebox</dd>
+
                 <dt><span class="key">Mouse</span></dt>
                 <dd>Look Around</dd>
             </dl>
         </div>
     </div>
 
-    <div id="playlist-overlay">
-        <h2>🎵 Jukebox</h2>
-        <ul id="playlist-list">
+    <div id="playlist-overlay" role="dialog" aria-modal="true" aria-labelledby="playlist-title" tabindex="-1">
+        <h2 id="playlist-title">🎵 Jukebox</h2>
+        <ul id="playlist-list" aria-label="Current playlist">
         </ul>
         
         <div class="playlist-controls">
-            <label for="playlistUploadInput" class="secondary-button">➕ Add Songs</label>
+            <label for="playlistUploadInput" class="secondary-button" aria-label="Add songs to playlist">➕ Add Songs</label>
             <input type="file" id="playlistUploadInput" multiple accept=".mod,.xm,.it,.s3m" style="display:none">
-            <button id="closePlaylistBtn" class="secondary-button" style="background: #FF6B6B;">Close</button>
+            <button id="closePlaylistBtn" class="secondary-button" style="background: #FF6B6B;" aria-label="Close Jukebox">Close</button>
         </div>
     </div>
 
