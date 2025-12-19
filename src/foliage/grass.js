@@ -6,7 +6,7 @@ let grassMeshes = [];
 const dummy = new THREE.Object3D();
 const MAX_PER_MESH = 1000;
 
-export function initGrassSystem(scene, count = 20000) {
+export function initGrassSystem(scene, count = 5000) {
     grassMeshes = [];
     const height = 0.8;
     const geo = new THREE.BoxGeometry(0.05, height, 0.05);
