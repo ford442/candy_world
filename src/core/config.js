@@ -67,11 +67,20 @@ export const CONFIG = {
             'E': 0x00FF00, 'F': 0x00FF7F, 'F#': 0x00FFFF, 'G': 0x007FFF,
             'G#': 0x0000FF, 'A': 0x7F00FF, 'A#': 0xFF00FF, 'B': 0xFF007F
         },
-        // Species: Mushroom (Earthy + Neon Accents)
+        // Species: Mushroom (Shader-matched palette)
         'mushroom': {
-            'C': 0x8B0000, 'C#': 0xA52A2A, 'D': 0xD2691E, 'D#': 0xFF4500,
-            'E': 0xFF8C00, 'F': 0xFFA500, 'F#': 0xFFD700, 'G': 0xDAA520,
-            'G#': 0xCD853F, 'A': 0x8B4513, 'A#': 0xA0522D, 'B': 0x800000
+            'C':  0xFF4040, // Red
+            'C#': 0xEF1280, // Magenta-Red
+            'D':  0xC020C0, // Magenta
+            'D#': 0x8020EF, // Violet
+            'E':  0x4040FF, // Blue (Peak)
+            'F':  0x1280EF, // Azure
+            'F#': 0x00C0C0, // Cyan
+            'G':  0x12EF80, // Spring Green
+            'G#': 0x40FF40, // Green (Peak)
+            'A':  0x80EF12, // Lime
+            'A#': 0xC0C000, // Yellow
+            'B':  0xEF8012  // Orange
         },
         // Species: Flower (Vibrant Pastels)
         'flower': {
@@ -99,5 +108,5 @@ export const CONFIG = {
     // Global flash strength scaler
     flashScale: 2.0,
     // Debug flags
-    debugNoteReactivity: false
+    debugNoteReactivity: true
 };

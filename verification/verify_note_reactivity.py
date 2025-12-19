@@ -7,7 +7,7 @@ def verify_note_reactivity():
     with sync_playwright() as p:
         browser = p.chromium.launch(
             headless=True,
-            args=[]
+            args=["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu", "--use-gl=swiftshader", "--enable-unsafe-webgpu"]
         )
         page = browser.new_page()
         logs = []
@@ -21,19 +21,18 @@ def verify_note_reactivity():
         page.on("console", on_console)
 
         try:
-            page.goto("http://localhost:5173", timeout=60000, wait_until='domcontentloaded')
+            page.goto("http://127.0.0.1:5173", timeout=90000, wait_until='domcontentloaded')
 
-            start_btn = page.locator("#startButton")
-            expect(start_btn).to_be_enabled(timeout=20000)
-            start_btn.click()
+            # Wait for the scene to be ready (set by main.js)
+            page.wait_for_function('window.__sceneReady === true', timeout=60000)
 
             # Give the scene a moment to initialize
             page.wait_for_timeout(1500)
 
-            # Press G to spawn a flower, then F to trigger C4
-            page.keyboard.press('g')
-            page.wait_for_timeout(300)
-            page.keyboard.press('f')
+            # Press H to spawn a mushroom, then T to trigger C4 on it
+            page.keyboard.press('h')
+            page.wait_for_timeout(500)
+            page.keyboard.press('t')
             page.wait_for_timeout(500)
 
             # Capture a screenshot for human inspection
