@@ -147,7 +147,7 @@ export function createGlowingFlower(options = {}) {
     group.userData.animationType = 'glowPulse';
     group.userData.animationOffset = Math.random() * 10;
     group.userData.type = 'flower';
-    return group;
+    return attachReactivity(group);
 }
 
 export function createStarflower(options = {}) {
@@ -191,7 +191,7 @@ export function createStarflower(options = {}) {
     group.userData.animationType = 'spin';
     group.userData.animationOffset = Math.random() * 10;
     group.userData.type = 'starflower';
-    return group;
+    return attachReactivity(group);
 }
 
 export function createBellBloom(options = {}) {
@@ -221,7 +221,7 @@ export function createBellBloom(options = {}) {
     group.userData.animationType = pickAnimation(['sway', 'wobble']);
     group.userData.animationOffset = Math.random() * 10;
     group.userData.type = 'flower';
-    return group;
+    return attachReactivity(group);
 }
 
 export function createPuffballFlower(options = {}) {
@@ -273,7 +273,7 @@ export function createPuffballFlower(options = {}) {
     group.userData.bounceRadius = headR + 0.3;
     group.userData.bounceForce = 12 + Math.random() * 5;
 
-    return group;
+    return attachReactivity(group);
 }
 
 export function createPrismRoseBush(options = {}) {
@@ -340,7 +340,7 @@ export function createPrismRoseBush(options = {}) {
     group.userData.animationOffset = Math.random() * 10;
     group.userData.type = 'flower';
 
-    return group;
+    return attachReactivity(group);
 }
 
 export function createSubwooferLotus(options = {}) {
@@ -357,6 +357,7 @@ export function createSubwooferLotus(options = {}) {
     const ringMat = foliageMaterials.lotusRing.clone();
     ringMat.emissive.setHex(0x000000);
     pad.userData.ringMaterial = ringMat;
+    registerReactiveMaterial(ringMat);
 
     for (let i = 1; i <= 3; i++) {
         const ringGeo = new THREE.TorusGeometry(i * 0.3, 0.05, 8, 24);
@@ -372,7 +373,7 @@ export function createSubwooferLotus(options = {}) {
     group.userData.animationOffset = Math.random() * 10;
     group.userData.type = 'lotus';
 
-    return group;
+    return attachReactivity(group);
 }
 
 export function createVibratoViolet(options = {}) {
@@ -433,7 +434,7 @@ export function createVibratoViolet(options = {}) {
     group.userData.type = 'vibratoViolet';
     group.userData.headGroup = headGroup;
 
-    return group;
+    return attachReactivity(group);
 }
 
 export function createTremoloTulip(options = {}) {
@@ -497,7 +498,7 @@ export function createTremoloTulip(options = {}) {
     group.userData.headGroup = headGroup;
     group.userData.bellMaterial = bellMat;
 
-    return group;
+    return attachReactivity(group);
 }
 
 export function createGlowingFlowerPatch(x, z) {

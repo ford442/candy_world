@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { freqToHue } from '../utils/wasm-loader.js';
-import { reactiveMaterials, _foliageReactiveColor } from './common.js';
+import { reactiveMaterials, _foliageReactiveColor, median } from './common.js';
+import { CONFIG } from '../core/config.js';
 
 export function triggerGrowth(plants, intensity) {
     plants.forEach(plant => {
@@ -112,6 +113,44 @@ export function animateFoliage(foliageObject, time, audioData, isDay, isDeepNigh
     const offset = foliageObject.userData.animationOffset || 0;
     const type = foliageObject.userData.animationType;
 
+    // --- Per-note flash application (emissive/color) ---
+    const reactive = foliageObject.userData.reactiveMeshes || [];
+    for (let i = 0; i < reactive.length; i++) {
+        const child = reactive[i];
+        const fi = child.userData.flashIntensity || 0;
+        if (fi <= 0) continue;
+        const fc = child.userData.flashColor || new THREE.Color(0xFFFFFF);
+        const decay = child.userData.flashDecay ?? 0.05;
+        const mats = Array.isArray(child.material) ? child.material : [child.material];
+        for (const mat of mats) {
+            if (!mat) continue;
+            const t = Math.min(1, fi) * 0.6;
+            if (mat.isMeshBasicMaterial) {
+                mat.color.lerp(fc, t);
+            } else if (mat.emissive) {
+                mat.emissive.lerp(fc, t);
+                mat.emissiveIntensity = Math.max(mat.emissiveIntensity || 0, fi * (CONFIG.flashScale || 2.0));
+            }
+        }
+        child.userData.flashIntensity = Math.max(0, fi - decay);
+        if (child.userData.flashIntensity === 0) {
+            delete child.userData.flashColor;
+            delete child.userData.flashDecay;
+        }
+    }
+
+    // --- Mushroom wobble smoothing (median + lerp) ---
+    if (foliageObject.userData.type === 'mushroom') {
+        const buf = foliageObject.userData.noteBuffer || [];
+        const medianVel = median(buf);
+        const cfg = CONFIG.reactivity?.mushroom || {};
+        const scale = cfg.scale || 1.0;
+        const target = Math.min(cfg.maxAmplitude ?? 1.0, Math.max(cfg.minThreshold ?? 0.01, medianVel * scale));
+        const cur = foliageObject.userData.wobbleCurrent || 0;
+        const lerpT = Math.min(0.25, (cfg.smoothingRate || 8) * 0.02);
+        foliageObject.userData.wobbleCurrent = THREE.MathUtils.lerp(cur, target, lerpT);
+    }
+
     if (isDeepNight) {
         const isNightFlower = foliageObject.userData.type === 'flower' && foliageObject.userData.animationType === 'glowPulse';
 
@@ -197,8 +236,9 @@ export function animateFoliage(foliageObject, time, audioData, isDay, isDeepNigh
         foliageObject.rotation.z = Math.sin(time + offset) * 0.11 * intensity;
     }
     else if (type === 'wobble') {
-        foliageObject.rotation.x = Math.sin(animTime * 3 + offset) * 0.15 * intensity;
-        foliageObject.rotation.z = Math.cos(animTime * 3 + offset) * 0.16 * intensity;
+        const wobbleBoost = foliageObject.userData.wobbleCurrent || 0;
+        foliageObject.rotation.x = Math.sin(animTime * 3 + offset) * 0.15 * intensity * (1 + wobbleBoost);
+        foliageObject.rotation.z = Math.cos(animTime * 3 + offset) * 0.16 * intensity * (1 + wobbleBoost);
     }
     else if (type === 'accordion') {
         const target = foliageObject.userData.trunk || foliageObject;
