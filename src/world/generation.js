@@ -20,32 +20,38 @@ import {
     foliageClouds, foliageTrampolines, vineSwings
 } from './state.js';
 
-// --- PERFORMANCE TUNED MAP DATA ---
-// Reduced radii to keep object count low (~200 total reactive items)
+// --- DENSITY INCREASED MAP DATA ---
+// Larger radii & slightly more clouds for a fuller vertical ecosystem
 const MAP_ZONES = [
     // Center: Musical Meadow
-    { type: 'musical_meadow', x: 0, z: 0, radius: 25 },
+    { type: 'musical_meadow', x: 0, z: 0, radius: 40 },
 
     // North: Mushroom Forests
-    { type: 'mushroom_forest', x: 0, z: -50, radius: 25 },
-    { type: 'mushroom_forest', x: 30, z: -80, radius: 20 },
+    { type: 'mushroom_forest', x: 0, z: -60, radius: 35 },
+    { type: 'mushroom_forest', x: 30, z: -90, radius: 30 },
 
     // East: Crystal Groves
-    { type: 'crystal_grove', x: 60, z: 0, radius: 20 },
+    { type: 'crystal_grove', x: 70, z: 0, radius: 30 },
 
     // South: Weird Jungle
-    { type: 'weird_jungle', x: 0, z: 70, radius: 30 },
+    { type: 'weird_jungle', x: 0, z: 80, radius: 40 },
     
     // West: Flower Fields
-    { type: 'flower_field', x: -60, z: 0, radius: 25 },
+    { type: 'flower_field', x: -70, z: 0, radius: 35 },
 ];
 
 const MAP_CLOUDS = [
-    // Reduced cloud count to save fill-rate performance
+    // Tier 1 clouds (sources)
     { x: 20, y: 50, z: 20, tier: 1, rain: 50, scale: 2.0, waterfall: true },
     { x: -30, y: 55, z: -30, tier: 1, rain: 40, scale: 2.2, waterfall: true },
     { x: 60, y: 45, z: -10, tier: 1, rain: 60, scale: 1.8, waterfall: false },
-    { x: -20, y: 35, z: -60, tier: 2, rain: 25, scale: 1.3 }, // Decorative
+    { x: 0, y: 60, z: 80, tier: 1, rain: 45, scale: 2.5, waterfall: true },
+
+    // Decorative Tier 2 clouds
+    { x: 0, y: 30, z: 50, tier: 2, rain: 20, scale: 1.2 },
+    { x: -50, y: 25, z: 10, tier: 2, rain: 15, scale: 1.0 },
+    { x: 40, y: 28, z: 60, tier: 2, rain: 10, scale: 1.1 },
+    { x: -20, y: 35, z: -60, tier: 2, rain: 25, scale: 1.3 },
 ];
 
 // --- Scene Setup ---
@@ -140,12 +146,12 @@ export function initWorld(scene, weatherSystem) {
         safeAddFoliage(m, true, 2.0, weatherSystem);
     }
 
-    // 4. SMALL FOLIAGE (Increase to 600; mostly grass with some shrubs)
-    for (let i = 0; i < 600; i++) {
+    // 4. SMALL FOLIAGE (Increase to 900; mostly grass with some shrubs)
+    for (let i = 0; i < 900; i++) {
         const x = (Math.random() - 0.5) * AREA_RANGE * 2;
         const z = (Math.random() - 0.5) * AREA_RANGE * 2;
         const y = getGroundHeight(x, z);
-        if (Math.random() < 0.8) {
+        if (Math.random() < 0.85) {
             addGrassInstance(x + (Math.random() - 0.5) * 1.5, y, z + (Math.random() - 0.5) * 1.5);
         } else {
             const s = createShrub();
@@ -156,7 +162,7 @@ export function initWorld(scene, weatherSystem) {
 
     // 5. CLOUDS (Increase total to ~25 by spawning additional decorative clouds)
     const existingClouds = MAP_CLOUDS.length;
-    const targetCloudCount = 25;
+    const targetCloudCount = 30;
     const extra = Math.max(0, targetCloudCount - existingClouds);
     for (let i = 0; i < extra; i++) {
         const height = 25 + Math.random() * 30;
@@ -208,8 +214,8 @@ function spawnCluster(cx, cz, type, weatherSystem, radius = 30) {
     
     // 1. Mushroom Forest
     if (type === 'mushroom_forest') {
-        // PERFORMANCE: Reduced multiplier from 0.8 to 0.3
-        const count = Math.min(20, Math.floor(radius * 0.3)); 
+        // INCREASED DENSITY: multiplier raised to give more mushrooms per zone
+        const count = Math.min(40, Math.floor(radius * 0.6)); 
         
         for (let i = 0; i < count; i++) {
             const x = cx + (Math.random() - 0.5) * radius * 1.5;
@@ -241,7 +247,7 @@ function spawnCluster(cx, cz, type, weatherSystem, radius = 30) {
 
     // 2. Glowing Flower Field
     else if (type === 'flower_field') {
-        const count = Math.min(25, Math.floor(radius * 0.5));
+        const count = Math.min(35, Math.floor(radius * 0.9));
         for (let i = 0; i < count; i++) {
             const x = cx + (Math.random() - 0.5) * radius * 1.8;
             const z = cz + (Math.random() - 0.5) * radius * 1.8;
@@ -260,7 +266,7 @@ function spawnCluster(cx, cz, type, weatherSystem, radius = 30) {
 
     // 3. Weird Jungle
     else if (type === 'weird_jungle') {
-        const count = Math.min(15, Math.floor(radius * 0.25));
+        const count = Math.min(30, Math.floor(radius * 0.5));
         for (let i = 0; i < count; i++) {
             const x = cx + (Math.random() - 0.5) * radius;
             const z = cz + (Math.random() - 0.5) * radius;
@@ -289,7 +295,7 @@ function spawnCluster(cx, cz, type, weatherSystem, radius = 30) {
 
     // 4. Crystal Grove
     else if (type === 'crystal_grove') {
-        const count = Math.min(15, Math.floor(radius * 0.3));
+        const count = Math.min(30, Math.floor(radius * 0.6));
         for (let i = 0; i < count; i++) {
             const x = cx + (Math.random() - 0.5) * radius;
             const z = cz + (Math.random() - 0.5) * radius;
@@ -308,7 +314,7 @@ function spawnCluster(cx, cz, type, weatherSystem, radius = 30) {
 
     // 5. Musical Meadow
     else if (type === 'musical_meadow') {
-        const count = Math.min(20, Math.floor(radius * 0.4));
+        const count = Math.min(35, Math.floor(radius * 0.8));
         
         for (let i = 0; i < count; i++) {
             const x = cx + (Math.random() - 0.5) * radius;
@@ -331,17 +337,18 @@ function spawnCluster(cx, cz, type, weatherSystem, radius = 30) {
             safeAddFoliage(obj, false, 0.3, weatherSystem);
         }
 
-        // Only 2 geysers
-        for (let i = 0; i < 2; i++) {
+        // Increase geysers to 4
+        for (let i = 0; i < 4; i++) {
             const x = cx + (Math.random() - 0.5) * (radius * 0.6);
             const z = cz + (Math.random() - 0.5) * (radius * 0.6);
-            const geyser = createKickDrumGeyser({ maxHeight: 5 });
+            const geyser = createKickDrumGeyser({ maxHeight: 6 });
             geyser.position.set(x, getGroundHeight(x, z), z);
             safeAddFoliage(geyser, true, 0.5, weatherSystem);
         }
 
-        for (let i = 0; i < 15; i++) {
-            addGrassInstance(cx + (Math.random() - 0.5) * radius, 0, cz + (Math.random() - 0.5) * radius);
+        // More grass
+        for (let i = 0; i < 40; i++) {
+            addGrassInstance(cx + (Math.random() - 0.5) * radius, getGroundHeight(cx + (Math.random() - 0.5) * radius, cz), cz + (Math.random() - 0.5) * radius);
         }
     }
 }
@@ -397,8 +404,8 @@ function generateMap(weatherSystem) {
 }
 
 function fillEmptySpace() {
-    const GRID_SIZE = 25; // Bigger grid = fewer checks
-    const RANGE = 120; 
+    const GRID_SIZE = 15; // Smaller grid = more checks, denser grass
+    const RANGE = 150; 
     
     for (let x = -RANGE; x <= RANGE; x += GRID_SIZE) {
         for (let z = -RANGE; z <= RANGE; z += GRID_SIZE) {
@@ -409,7 +416,7 @@ function fillEmptySpace() {
             for (const zone of MAP_ZONES) {
                 const dx = jx - zone.x;
                 const dz = jz - zone.z;
-                if (Math.sqrt(dx*dx + dz*dz) < zone.radius * 0.9) {
+                if (Math.sqrt(dx*dx + dz*dz) < zone.radius * 1.0) {
                     tooClose = true;
                     break;
                 }
@@ -417,8 +424,8 @@ function fillEmptySpace() {
 
             if (!tooClose) {
                 const y = getGroundHeight(jx, jz);
-                // Reduced grass fill
-                for(let k=0; k<2; k++) {
+                // Increased grass fill
+                for(let k=0; k<5; k++) {
                    addGrassInstance(
                        jx + (Math.random()-0.5)*10, 
                        y, 
