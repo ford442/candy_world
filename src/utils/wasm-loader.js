@@ -1,6 +1,9 @@
 // WASM Loader - Candy World Physics & Animation Module
 // Loads and wraps AssemblyScript WASM for easy use from JavaScript
 
+// Import the emscripten compile worker via Vite (?worker) so paths are resolved
+// Note: we dynamically import the worker at runtime (Vite supports ?worker imports) to avoid import-time errors in Node-based tests.
+
 let wasmInstance = null;
 let wasmMemory = null;
 let positionView = null;   // Float32Array for object positions
@@ -30,6 +33,52 @@ function getNativeFunc(name) {
 let cullScratchPos = 0;   // pointer to positions buffer in emscripten heap
 let cullScratchRes = 0;   // pointer to results buffer in emscripten heap
 let cullScratchSize = 0;  // number of object capacity allocated
+// -----------------------------------------------------------------------------
+
+// -----------------------------------------------------------------------------
+// Helper: compile a WASM module in the Emscripten worker (returns WebAssembly.Module)
+async function compileWasmInWorker(url) {
+    // Dynamically import the worker constructor using Vite's ?worker helper.
+    let WorkerCtor;
+    try {
+        const mod = await import('../workers/emscripten.worker.js?worker');
+        WorkerCtor = mod.default || mod;
+    } catch (err) {
+        throw new Error('Could not construct EmscriptenWorker (dynamic import failed): ' + (err && err.message ? err.message : String(err)));
+    }
+
+    const worker = new WorkerCtor();
+
+    return await new Promise((resolve, reject) => {
+        const cleanup = () => {
+            worker.onmessage = null;
+            worker.onerror = null;
+            try { worker.terminate(); } catch(_) {}
+        };
+
+        worker.onmessage = (e) => {
+            const data = e.data || {};
+            if (data.type === 'SUCCESS') {
+                resolve(data.module);
+                cleanup();
+            } else if (data.type === 'ERROR') {
+                reject(new Error(data.message || 'Worker compile error'));
+                cleanup();
+            } else if (data.type === 'WARN') {
+                console.warn('[EmscriptenWorker] WARN:', data.message);
+            }
+        };
+
+        worker.onerror = (err) => {
+            cleanup();
+            reject(new Error('Worker failed to start or threw an error (see console)'));
+        };
+
+        // Ensure absolute URL so worker fetch works from any base path
+        const absolute = new URL(url, window.location.href).href;
+        worker.postMessage({ url: absolute });
+    });
+}
 // -----------------------------------------------------------------------------
 
 // Memory layout constants (must match AssemblyScript)
@@ -177,67 +226,53 @@ export async function initWasm() {
                 // Prefer compiling in a worker to avoid main-thread WASM parse/compile stalls
                 try {
                     if (typeof Worker !== 'undefined') {
-                        console.log('Spawning compile worker for Emscripten module');
-                        const worker = new Worker('/js/emscripten-compile-worker.js', { type: 'module' });
+                        console.log('Attempting to compile Emscripten module in Vite worker');
+                        try {
+                            const compiledModule = await compileWasmInWorker('./candy_native.wasm?v=' + Date.now());
 
-                        const compiledModule = await new Promise((resolve, reject) => {
-                            const timeout = setTimeout(() => reject(new Error('Worker compile timed out')), 45000);
+                            // Instantiate from compiled module on main thread to keep exports accessible synchronously
+                            const emResult = await WebAssembly.instantiate(compiledModule, {
+                                wasi_snapshot_preview1: wasiStubs,
+                                env: { emscripten_notify_memory_growth: () => {} }
+                            });
 
-                            const onMessage = (ev) => {
-                                const m = ev.data;
-                                if (!m) return;
-                                if (m.cmd === 'compiled') {
-                                    clearTimeout(timeout);
-                                    cleanup();
-                                    resolve(m.module);
-                                } else if (m.cmd === 'error') {
-                                    clearTimeout(timeout);
-                                    cleanup();
-                                    reject(new Error(m.error));
+                            // emResult may be { instance, module } or Instance directly in some browsers
+                            emscriptenInstance = emResult.instance || emResult;
+                            emscriptenMemory = emscriptenInstance.exports && emscriptenInstance.exports.memory;
+
+                            console.log('Emscripten module loaded via worker:', Object.keys(emscriptenInstance.exports || {}));
+
+                            const initFn = getNativeFunc('init_native');
+                            if (initFn) setTimeout(() => { try { initFn(); console.log('[Emscripten] init_native() invoked (worker)'); } catch(e){ console.warn(e); } }, 0);
+                        } catch (workerErr) {
+                            console.warn('Emscripten worker compile failed:', workerErr);
+
+                            // Fallback: try streaming instantiation on main thread (deferred call to yield)
+                            try {
+                                console.log('Falling back to streaming instantiate on main thread (worker failed)');
+                                if (WA.instantiateStreaming && emResponse.body) {
+                                    const emR = await WA.instantiateStreaming(fetch('./candy_native.wasm?v=' + Date.now()), {
+                                        wasi_snapshot_preview1: wasiStubs,
+                                        env: { emscripten_notify_memory_growth: () => {} }
+                                    });
+                                    emscriptenInstance = emR.instance;
+                                } else {
+                                    const emBytes = await emResponse.arrayBuffer();
+                                    const emR = await WA.instantiate(emBytes, {
+                                        wasi_snapshot_preview1: wasiStubs,
+                                        env: { emscripten_notify_memory_growth: () => {} }
+                                    });
+                                    emscriptenInstance = emR.instance;
                                 }
-                            };
-                            const onError = (err) => {
-                                clearTimeout(timeout);
-                                cleanup();
-                                reject(err || new Error('Worker error'));
-                            };
-                            const cleanup = () => {
-                                worker.removeEventListener('message', onMessage);
-                                worker.removeEventListener('error', onError);
-                            };
+                                emscriptenMemory = emscriptenInstance.exports.memory;
+                                console.log('Emscripten module loaded via main-thread fallback:', Object.keys(emscriptenInstance.exports));
 
-                            worker.addEventListener('message', onMessage);
-                            worker.addEventListener('error', onError);
-
-                            // Send absolute URL to worker to avoid resolution issues
-                            const url = new URL('./candy_native.wasm', window.location.href);
-                            worker.postMessage({ cmd: 'compile', url: url.href + '?v=' + Date.now() });
-                        });
-
-                        // Instantiate from compiled module on main thread to keep exports accessible synchronously
-                        const emResult = await WebAssembly.instantiate(compiledModule, {
-                            wasi_snapshot_preview1: wasiStubs,
-                            env: { emscripten_notify_memory_growth: () => {} }
-                        });
-
-                        // Terminate worker after successful compile
-                        try { worker.terminate(); } catch(e) {}
-
-                        emscriptenInstance = emResult.instance;
-                        emscriptenMemory = emscriptenInstance.exports.memory;
-                        console.log('Emscripten module compiled in worker and instantiated on main thread:', Object.keys(emscriptenInstance.exports));
-
-                        const initFn = getNativeFunc('init_native');
-                        if (initFn) {
-                            // Defer to avoid blocking the UI
-                            setTimeout(() => {
-                                try { initFn(); console.log('[Emscripten] init_native() invoked successfully'); }
-                                catch (e) { console.warn('[Emscripten] init_native() threw:', e); }
-                            }, 0);
-                        } else {
-                            console.warn('Emscripten module loaded, but init_native/_init_native not found. Exports:', Object.keys(emscriptenInstance.exports));
-                        }
-                    } else {
+                                const initFn = getNativeFunc('init_native');
+                                if (initFn) setTimeout(() => { try { initFn(); console.log('[Emscripten] init_native() invoked (fallback)'); } catch(e){ console.warn(e); } }, 0);
+                            } catch (fallbackErr) {
+                                console.warn('Main-thread fallback instantiate also failed:', fallbackErr);
+                            }
+                        } } else {
                         // Worker not available; fall back to streaming instantiate but defer init
                         if (WA.instantiateStreaming && emResponse.body) {
                             console.log('Using instantiateStreaming for Emscripten module (no worker)');
