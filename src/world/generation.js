@@ -9,6 +9,8 @@ import {
     createStarflower, createVibratoViolet, createTremoloTulip, createKickDrumGeyser,
     createRainingCloud, createWaterfall, createMelodyLake, createFireflies, initFallingBerries,
     initGrassSystem, addGrassInstance,
+    // Trees & Shrubs
+    createFloweringTree, createShrub, createBubbleWillow,
     // Musical flora
     createArpeggioFern, createPortamentoPine, createCymbalDandelion, createSnareTrap
 } from '../foliage/index.js';
@@ -101,6 +103,71 @@ export function initWorld(scene, weatherSystem) {
     // Falling Berries
     initFallingBerries(scene);
 
+    // --- Vertical Ecosystem Density Increase ---
+    // Note: These are added before the static zone generation; safeAddFoliage enforces caps.
+    const AREA_RANGE = 120;
+
+    // 1. TREES (Increase to 50)
+    for (let i = 0; i < 50; i++) {
+        const x = (Math.random() - 0.5) * AREA_RANGE * 2;
+        const z = (Math.random() - 0.5) * AREA_RANGE * 2;
+        const y = getGroundHeight(x, z);
+        const tree = Math.random() < 0.5 ? createBubbleWillow() : createFloweringTree();
+        tree.position.set(x, y, z);
+        tree.rotation.y = Math.random() * Math.PI * 2;
+        safeAddFoliage(tree, true, 1.2, weatherSystem);
+    }
+
+    // 2. FLOWERING TREES (Increase to 40)
+    for (let i = 0; i < 40; i++) {
+        const x = (Math.random() - 0.5) * AREA_RANGE * 2;
+        const z = (Math.random() - 0.5) * AREA_RANGE * 2;
+        const y = getGroundHeight(x, z);
+        const ft = createFloweringTree({ color: 0xFF69B4 });
+        ft.position.set(x, y, z);
+        ft.rotation.y = Math.random() * Math.PI * 2;
+        safeAddFoliage(ft, true, 1.4, weatherSystem);
+    }
+
+    // 3. GIANT MUSHROOMS (Increase to 30)
+    for (let i = 0; i < 30; i++) {
+        const x = (Math.random() - 0.5) * AREA_RANGE * 2;
+        const z = (Math.random() - 0.5) * AREA_RANGE * 2;
+        const y = getGroundHeight(x, z);
+        const m = createMushroom({ size: 'giant', scale: 1.0 + Math.random() * 1.0 });
+        m.position.set(x, y, z);
+        m.rotation.y = Math.random() * Math.PI * 2;
+        safeAddFoliage(m, true, 2.0, weatherSystem);
+    }
+
+    // 4. SMALL FOLIAGE (Increase to 600; mostly grass with some shrubs)
+    for (let i = 0; i < 600; i++) {
+        const x = (Math.random() - 0.5) * AREA_RANGE * 2;
+        const z = (Math.random() - 0.5) * AREA_RANGE * 2;
+        const y = getGroundHeight(x, z);
+        if (Math.random() < 0.8) {
+            addGrassInstance(x + (Math.random() - 0.5) * 1.5, y, z + (Math.random() - 0.5) * 1.5);
+        } else {
+            const s = createShrub();
+            s.position.set(x, y, z);
+            safeAddFoliage(s, false, 0.7, weatherSystem);
+        }
+    }
+
+    // 5. CLOUDS (Increase total to ~25 by spawning additional decorative clouds)
+    const existingClouds = MAP_CLOUDS.length;
+    const targetCloudCount = 25;
+    const extra = Math.max(0, targetCloudCount - existingClouds);
+    for (let i = 0; i < extra; i++) {
+        const height = 25 + Math.random() * 30;
+        const cloud = createRainingCloud({ rainIntensity: 10 + Math.random() * 30, size: 0.8 + Math.random() * 1.4 });
+        cloud.position.set((Math.random() - 0.5) * AREA_RANGE * 3, height, (Math.random() - 0.5) * AREA_RANGE * 3);
+        cloud.userData.tier = 2;
+        foliageGroup.add(cloud);
+        animatedFoliage.push(cloud);
+        foliageClouds.push(cloud);
+    }
+
     // Generate Map
     generateMap(weatherSystem);
 
@@ -108,9 +175,9 @@ export function initWorld(scene, weatherSystem) {
 }
 
 export function safeAddFoliage(obj, isObstacle = false, radius = 1.0, weatherSystem = null) {
-    // CRITICAL: Hard cap to prevent freezing. 
-    // If we hit 400 objects, stop generating. The game will still run, just slightly emptier.
-    if (animatedFoliage.length > 400) return;
+    // TEMPORARY TESTING CAP: Increased to allow the vertical-ecosystem density to be applied for tests.
+    // Original cap was 400; raise to 5000 for performance experimentation. Revert once testing is complete.
+    if (animatedFoliage.length > 5000) return;
 
     foliageGroup.add(obj);
     animatedFoliage.push(obj);
