@@ -14,8 +14,11 @@ import { getCycleState } from './src/core/cycle.js';
 
 // World & System imports
 import { initWorld } from './src/world/generation.js';
-import { animatedFoliage, foliageGroup, activeVineSwing } from './src/world/state.js';
+import { animatedFoliage, foliageGroup, activeVineSwing, foliageClouds } from './src/world/state.js';
 import { updatePhysics, player, bpmWind } from './src/systems/physics.js';
+import { fireRainbow, updateBlaster } from './src/gameplay/rainbow-blaster.js';
+import { updateFallingClouds } from './src/foliage/clouds.js';
+import { getGroundHeight } from './src/utils/wasm-loader.js';
 
 // --- Initialization ---
 
@@ -110,6 +113,17 @@ window.addEventListener('keydown', (e) => {
         }
     } catch (err) {
         console.warn('Demo trigger error', err);
+    }
+});
+
+// Mouse input: Rainbow Blaster (click while pointer locked)
+window.addEventListener('mousedown', (e) => {
+    if (document.pointerLockElement) {
+        const dir = new THREE.Vector3();
+        camera.getWorldDirection(dir);
+        const origin = camera.position.clone().add(dir.clone().multiplyScalar(1.0));
+        origin.y -= 0.2; // Lower slightly
+        fireRainbow(scene, origin, dir);
     }
 });
 
@@ -417,6 +431,10 @@ function animate() {
 
     // Player Physics
     updatePhysics(delta, camera, controls, keyStates, audioState);
+
+    // Gameplay: Blaster projectiles & falling clouds
+    updateBlaster(delta, scene);
+    updateFallingClouds(delta, foliageClouds, getGroundHeight);
 
     renderer.render(scene, camera);
 }

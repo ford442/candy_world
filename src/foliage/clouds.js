@@ -131,3 +131,46 @@ export function createRainingCloud(options = {}) {
 export function createDecoCloud(options = {}) {
     return createRainingCloud({ ...options, rainIntensity: 0 });
 }
+
+// --- Falling Cloud Helpers ---
+export function updateFallingClouds(dt, clouds, getGroundHeight) {
+    for (let i = clouds.length - 1; i >= 0; i--) {
+        const cloud = clouds[i];
+        if (cloud.userData.isFalling) {
+            // Apply Gravity
+            cloud.userData.velocity.y -= 20.0 * dt; // Gravity
+            
+            // Move
+            cloud.position.addScaledVector(cloud.userData.velocity, dt);
+            cloud.rotation.z += dt; // Spin as it falls
+            cloud.rotation.x += dt * 0.5;
+
+            // Ground Collision
+            const groundY = getGroundHeight(cloud.position.x, cloud.position.z);
+            if (cloud.position.y < groundY - 2.0) {
+                // Sunk into ground - Respawn elsewhere
+                respawnCloud(cloud);
+            }
+        }
+    }
+}
+
+function respawnCloud(cloud) {
+    cloud.userData.isFalling = false;
+    cloud.position.set(
+        (Math.random() - 0.5) * 200,
+        40 + Math.random() * 20,
+        (Math.random() - 0.5) * 200
+    );
+    cloud.rotation.set(0, 0, 0);
+    
+    // Restore colors
+    cloud.traverse(c => {
+        if (c.isMesh) {
+            if (c.material) {
+                c.material.emissive.setHex(0x000000); // Or original color
+                c.material.emissiveIntensity = 0.0;
+            }
+        }
+    });
+}
