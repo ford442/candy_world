@@ -460,7 +460,13 @@ export function uploadAnimationData(animData) {
  */
 export function batchDistanceCull(cameraX, cameraY, cameraZ, maxDistance, objectCount) {
     const maxDistSq = maxDistance * maxDistance;
-    // Prefer Emscripten implementation if available
+
+    // --- REGRESSION FIX: Disable Emscripten Path ---
+    // The overhead of copying data between two WASM modules (malloc/free per frame)
+    // is causing browser hangs. We revert to the AssemblyScript version which
+    // has zero-copy access to the position data.
+
+    /* // Prefer Emscripten implementation if available
     if (emscriptenInstance && emscriptenInstance.exports && emscriptenInstance.exports.batchDistanceCull_c) {
         try {
             const em = emscriptenInstance;
@@ -509,8 +515,9 @@ export function batchDistanceCull(cameraX, cameraY, cameraZ, maxDistance, object
             console.warn('Emscripten batchDistanceCull failed, falling back to AssemblyScript:', e);
         }
     }
+    */
 
-    // Fallback to AssemblyScript batchDistanceCull
+    // Fallback to AssemblyScript batchDistanceCull (Direct Memory Access)
     if (!wasmInstance) {
         return { visibleCount: objectCount, flags: null };
     }
