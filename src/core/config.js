@@ -91,5 +91,11 @@ export const CONFIG = {
             'E': 0x87CEEB, 'F': 0x87CEFA, 'F#': 0x00BFFF, 'G': 0x1E90FF,
             'G#': 0x6495ED, 'A': 0x4682B4, 'A#': 0x5F9EA0, 'B': 0x2F4F4F
         }
-    }
+    },
+    // Per-species reaction tuning
+    reactivity: {
+        mushroom: { medianWindow: 5, smoothingRate: 8, scale: 0.6, maxAmplitude: 1.0, minThreshold: 0.02 }
+    },
+    // Global flash strength scaler
+    flashScale: 2.0
 };
