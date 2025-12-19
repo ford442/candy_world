@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { uWindSpeed, uWindDirection, uSkyTopColor, uSkyBottomColor, uHorizonColor, uAtmosphereIntensity, uStarPulse, uStarOpacity, updateMoon, triggerMoonBlink, animateFoliage, updateFoliageMaterials, updateFireflies, updateFallingBerries, collectFallingBerries } from './src/foliage/index.js';
+import { uWindSpeed, uWindDirection, uSkyTopColor, uSkyBottomColor, uHorizonColor, uAtmosphereIntensity, uStarPulse, uStarOpacity, updateMoon, triggerMoonBlink, animateFoliage, updateFoliageMaterials, updateFireflies, updateFallingBerries, collectFallingBerries, createFlower } from './src/foliage/index.js';
 import { MusicReactivity } from './src/systems/music-reactivity.js';
 import { AudioSystem } from './src/audio/audio-system.js';
 import { BeatSync } from './src/audio/beat-sync.js';
@@ -14,7 +14,7 @@ import { getCycleState } from './src/core/cycle.js';
 
 // World & System imports
 import { initWorld } from './src/world/generation.js';
-import { animatedFoliage, activeVineSwing } from './src/world/state.js';
+import { animatedFoliage, foliageGroup, activeVineSwing } from './src/world/state.js';
 import { updatePhysics, player, bpmWind } from './src/systems/physics.js';
 
 // --- Initialization ---
@@ -46,6 +46,44 @@ function toggleDayNight() {
 
 const inputSystem = initInput(camera, audioSystem, toggleDayNight);
 const controls = inputSystem.controls;
+
+// DEV: Demo triggers — press 'F' to trigger a 'C4' note on nearest flower; 'G' to spawn a flower in front of the camera
+// This is intentionally small and safe for local testing; remove before production
+window.addEventListener('keydown', (e) => {
+    try {
+        if (!e.key) return;
+        const key = e.key.toLowerCase();
+        if (key === 'f') {
+            let nearest = null;
+            let bestDist = Infinity;
+            const camPos = camera.position;
+            for (let i = 0, l = animatedFoliage.length; i < l; i++) {
+                const f = animatedFoliage[i];
+                if (!f || f.userData?.type !== 'flower') continue;
+                const d = f.position.distanceToSquared(camPos);
+                if (d < bestDist) { bestDist = d; nearest = f; }
+            }
+            if (nearest) {
+                musicReactivity.reactObject(nearest, 'C4', 1.0);
+                console.log('Demo: triggered C4 on nearest flower', nearest);
+            } else {
+                console.log('Demo: no flowers found nearby');
+            }
+        } else if (key === 'g') {
+            const dir = new THREE.Vector3();
+            camera.getWorldDirection(dir);
+            const pos = camera.position.clone().add(dir.multiplyScalar(3));
+            const f = createFlower({ shape: 'layered' });
+            f.position.copy(pos);
+            f.rotation.y = Math.random() * Math.PI * 2;
+            foliageGroup.add(f);
+            animatedFoliage.push(f);
+            console.log('Demo: spawned a flower at', f.position);
+        }
+    } catch (err) {
+        console.warn('Demo trigger error', err);
+    }
+});
 
 // --- Animation Loop State ---
 const clock = new THREE.Clock();
