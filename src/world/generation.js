@@ -8,7 +8,9 @@ import {
     createFloatingOrb, createSwingableVine, VineSwing, createPrismRoseBush,
     createStarflower, createVibratoViolet, createTremoloTulip, createKickDrumGeyser,
     createRainingCloud, createWaterfall, createMelodyLake, createFireflies, initFallingBerries,
-    initGrassSystem, addGrassInstance
+    initGrassSystem, addGrassInstance,
+    // Musical flora
+    createArpeggioFern, createPortamentoPine, createCymbalDandelion, createSnareTrap
 } from '../foliage/index.js';
 import { CONFIG } from '../core/config.js';
 import {
@@ -103,35 +105,42 @@ export function safeAddFoliage(obj, isObstacle = false, radius = 1.0, weatherSys
 // --- CLUSTERING SPAWNER ---
 
 function spawnCluster(cx, cz, type, weatherSystem) {
-    // 1. Mushroom Forest
+    // 1. Mushroom Forest (Added Portamento Pines)
     if (type === 'mushroom_forest') {
-        const count = 25 + Math.random() * 10;
+        const count = Math.floor(radius * 0.8);
         for (let i = 0; i < count; i++) {
-            const x = cx + (Math.random() - 0.5) * 30;
-            const z = cz + (Math.random() - 0.5) * 30;
+            const x = cx + (Math.random() - 0.5) * radius * 1.5;
+            const z = cz + (Math.random() - 0.5) * radius * 1.5;
             const y = getGroundHeight(x, z);
 
-            const isGiant = Math.random() < 0.15;
-            const size = isGiant ? 'giant' : 'regular';
-            const m = createMushroom({ size: size, scale: 0.8 + Math.random() * 0.5 });
-
-            m.position.set(x, y, z);
-            m.rotation.y = Math.random() * Math.PI * 2;
-            m.rotation.z = (Math.random() - 0.5) * 0.2;
-
-            safeAddFoliage(m, true, isGiant ? 2.0 : 0.5, weatherSystem);
-
-            if (isGiant) {
-                const underCount = 3 + Math.floor(Math.random() * 3);
+            const r = Math.random();
+            let obj;
+            let isObs = true;
+            
+            if (r < 0.15) {
+                // Giant Mushroom
+                obj = createMushroom({ size: 'giant', scale: 0.8 + Math.random() * 0.5 });
+                // Decorate base
+                const underCount = 3;
                 for (let k = 0; k < underCount; k++) {
                     const gx = x + (Math.random() - 0.5) * 4;
                     const gz = z + (Math.random() - 0.5) * 4;
-                    const gy = getGroundHeight(gx, gz);
                     const gf = createGlowingFlower({ intensity: 2.0, color: 0x00FFFF });
-                    gf.position.set(gx, gy, gz);
+                    gf.position.set(gx, getGroundHeight(gx, gz), gz);
                     safeAddFoliage(gf, false, 1.0, weatherSystem);
                 }
+            } else if (r < 0.3) {
+                // NEW: Portamento Pine
+                obj = createPortamentoPine({ height: 5 + Math.random() * 3 });
+            } else {
+                // Regular Mushroom
+                obj = createMushroom({ size: 'regular', scale: 0.8 + Math.random() * 0.5 });
+                isObs = false;
             }
+
+            obj.position.set(x, y, z);
+            obj.rotation.y = Math.random() * Math.PI * 2;
+            safeAddFoliage(obj, isObs, 1.0, weatherSystem);
         }
     }
 
@@ -156,69 +165,64 @@ function spawnCluster(cx, cz, type, weatherSystem) {
         }
     }
 
-    // 3. Weird Jungle
+    // 3. Weird Jungle (Added Snare Traps)
     else if (type === 'weird_jungle') {
-        const count = 12;
+        const count = Math.floor(radius * 0.5);
         for (let i = 0; i < count; i++) {
-            const x = cx + (Math.random() - 0.5) * 25;
-            const z = cz + (Math.random() - 0.5) * 25;
+            const x = cx + (Math.random() - 0.5) * radius;
+            const z = cz + (Math.random() - 0.5) * radius;
             const y = getGroundHeight(x, z);
 
             const r = Math.random();
             let plant;
-            if (r < 0.3) plant = createSubwooferLotus({ color: 0x2E8B57 });
-            else if (r < 0.6) plant = createAccordionPalm({ color: 0xFF6347 });
-            else plant = createFiberOpticWillow();
+            if (r < 0.25) plant = createSubwooferLotus({ color: 0x2E8B57 });
+            else if (r < 0.5) plant = createAccordionPalm({ color: 0xFF6347 });
+            else if (r < 0.7) plant = createFiberOpticWillow();
+            else plant = createSnareTrap({ scale: 1.5 }); // NEW
 
             plant.position.set(x, y, z);
             safeAddFoliage(plant, true, 1.0, weatherSystem);
-
-            if (Math.random() < 0.3) {
-                 const fruit = createFloatingOrb({ size: 0.2, color: 0xFF00FF });
-                 fruit.position.set(x + (Math.random()-0.5)*1.5, y + 2 + Math.random(), z + (Math.random()-0.5)*1.5);
-                 safeAddFoliage(fruit, false, 1.0, weatherSystem);
-            }
         }
-
-        // Add Swingable Vines
-        const vineCount = 3;
-        for (let i = 0; i < vineCount; i++) {
-            const x = cx + (Math.random() - 0.5) * 15;
-            const z = cz + (Math.random() - 0.5) * 15;
+        
+        // Vines
+        for (let i = 0; i < 3; i++) {
+            const x = cx + (Math.random() - 0.5) * (radius * 0.5);
+            const z = cz + (Math.random() - 0.5) * (radius * 0.5);
             const y = getGroundHeight(x, z) + 15 + Math.random() * 5;
 
             const vine = createSwingableVine({ length: 12 + Math.random() * 4 });
             vine.position.set(x, y, z);
-            safeAddFoliage(vine, false, 1.0, weatherSystem); // Vines are not obstacles usually
-
-            const swingManager = new VineSwing(vine, vine.userData.vineLength);
-            vineSwings.push(swingManager);
+            safeAddFoliage(vine, false, 1.0, weatherSystem); 
+            vineSwings.push(new VineSwing(vine, vine.userData.vineLength));
         }
     }
 
     // 4. Crystal Grove
     else if (type === 'crystal_grove') {
-        const count = 20;
+        const count = Math.floor(radius * 0.7);
         for (let i = 0; i < count; i++) {
-            const x = cx + (Math.random() - 0.5) * 20;
-            const z = cz + (Math.random() - 0.5) * 20;
+            const x = cx + (Math.random() - 0.5) * radius;
+            const z = cz + (Math.random() - 0.5) * radius;
             const y = getGroundHeight(x, z);
 
             const r = Math.random();
-            const plant = r < 0.5 ? createPrismRoseBush() : createStarflower();
+            let plant;
+            if (r < 0.4) plant = createPrismRoseBush();
+            else if (r < 0.7) plant = createStarflower();
+            else plant = createArpeggioFern({ scale: 2.0 }); // NEW
+
             plant.position.set(x, y, z);
             safeAddFoliage(plant, true, 0.8, weatherSystem);
         }
     }
 
-    // 5. Musical Meadow
+    // 5. Musical Meadow (Added Cymbal Dandelions)
     else if (type === 'musical_meadow') {
-        const violetCount = 8 + Math.floor(Math.random() * 6);
-        for (let i = 0; i < violetCount; i++) {
-            const x = cx + (Math.random() - 0.5) * 25;
-            const z = cz + (Math.random() - 0.5) * 25;
+        // Violets
+        for (let i = 0; i < 12; i++) {
+            const x = cx + (Math.random() - 0.5) * radius;
+            const z = cz + (Math.random() - 0.5) * radius;
             const y = getGroundHeight(x, z);
-
             const violet = createVibratoViolet({
                 color: [0x8A2BE2, 0x9400D3, 0xBA55D3, 0x9932CC][Math.floor(Math.random() * 4)],
                 intensity: 0.8 + Math.random() * 0.4
@@ -228,40 +232,38 @@ function spawnCluster(cx, cz, type, weatherSystem) {
             safeAddFoliage(violet, false, 0.3, weatherSystem);
         }
 
-        const tulipCount = 6 + Math.floor(Math.random() * 4);
-        for (let i = 0; i < tulipCount; i++) {
-            const x = cx + (Math.random() - 0.5) * 20;
-            const z = cz + (Math.random() - 0.5) * 20;
-            const y = getGroundHeight(x, z);
-
-            const tulip = createTremoloTulip({
-                color: [0xFF6347, 0xFF4500, 0xFFD700, 0xFF69B4][Math.floor(Math.random() * 4)],
-                size: 0.8 + Math.random() * 0.4
-            });
-            tulip.position.set(x, y, z);
-            tulip.rotation.y = Math.random() * Math.PI * 2;
-            safeAddFoliage(tulip, false, 0.4, weatherSystem);
+        // NEW: Cymbal Dandelions
+        for (let i = 0; i < 15; i++) {
+            const x = cx + (Math.random() - 0.5) * radius;
+            const z = cz + (Math.random() - 0.5) * radius;
+            const dand = createCymbalDandelion({ scale: 1.2 });
+            dand.position.set(x, getGroundHeight(x, z), z);
+            safeAddFoliage(dand, false, 0.3, weatherSystem);
         }
 
-        const geyserCount = 2 + Math.floor(Math.random() * 2);
-        for (let i = 0; i < geyserCount; i++) {
-            const x = cx + (Math.random() - 0.5) * 15;
-            const z = cz + (Math.random() - 0.5) * 15;
-            const y = getGroundHeight(x, z);
-
-            const geyser = createKickDrumGeyser({
-                color: [0xFF4500, 0xFF6600, 0xFF8C00][Math.floor(Math.random() * 3)],
-                maxHeight: 4 + Math.random() * 3
-            });
-            geyser.position.set(x, y, z);
+        // Tulips & Geysers
+        for (let i = 0; i < 8; i++) {
+            const x = cx + (Math.random() - 0.5) * radius;
+            const z = cz + (Math.random() - 0.5) * radius;
+            const tulip = createTremoloTulip();
+            tulip.position.set(x, getGroundHeight(x, z), z);
+            safeAddFoliage(tulip, false, 0.4, weatherSystem);
+        }
+        
+        for (let i = 0; i < 4; i++) {
+            const x = cx + (Math.random() - 0.5) * (radius * 0.6);
+            const z = cz + (Math.random() - 0.5) * (radius * 0.6);
+            const geyser = createKickDrumGeyser({ maxHeight: 6 });
+            geyser.position.set(x, getGroundHeight(x, z), z);
             safeAddFoliage(geyser, true, 0.5, weatherSystem);
         }
 
-        for (let i = 0; i < 15; i++) {
-            const x = cx + (Math.random() - 0.5) * 30;
-            const z = cz + (Math.random() - 0.5) * 30;
-            const y = getGroundHeight(x, z);
-            addGrassInstance(x, y, z);
+        // Grass
+        for (let i = 0; i < 30; i++) {
+            const gx = cx + (Math.random() - 0.5) * radius;
+            const gz = cz + (Math.random() - 0.5) * radius;
+            const gy = getGroundHeight(gx, gz);
+            addGrassInstance(gx, gy, gz);
         }
     }
 }
