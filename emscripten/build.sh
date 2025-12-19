@@ -40,13 +40,25 @@ fi
 INPUT_C="$SCRIPT_DIR/candy_native.c"
 OUTPUT_WASM="$REPO_ROOT/public/candy_native.wasm"
 
-emcc "$INPUT_C" -o "$OUTPUT_WASM" \
-    -O3 \
-    -s STANDALONE_WASM=1 \
-    -s WASM=1 \
-    --no-entry \
-    -s EXPORTED_FUNCTIONS="['_hash', '_valueNoise2D', '_fbm', '_fastInvSqrt', '_fastDistance', '_batchDistances', '_batchSinWave', '_batchDistanceCull_c', '_malloc', '_free', '_init_native']" \
-    -s ERROR_ON_UNDEFINED_SYMBOLS=0
+emcc ./candy_native.c -o ./candy_native.wasm \
+  -O3 \
+  -s WASM=1 \
+  -s STANDALONE_WASM=1 \
+  --no-entry \
+  -s EXPORTED_FUNCTIONS="[ \
+      '_hash', \
+      '_valueNoise2D', \
+      '_fbm', \
+      '_fastInvSqrt', \
+      '_fastDistance', \
+      '_smoothDamp', \
+      '_batchDistances', \
+      '_batchDistanceCull_c', \
+      '_batchSinWave', \
+      '_malloc', \
+      '_free' \
+  ]" \
+  -s ERROR_ON_UNDEFINED_SYMBOLS=1
 
 if [ $? -eq 0 ]; then
     echo "Build successful! Output: public/candy_native.wasm"
