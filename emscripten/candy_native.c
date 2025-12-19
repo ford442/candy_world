@@ -2,7 +2,19 @@
 // Provides additional compute-intensive functions compiled from C
 
 #include <emscripten.h>
+#include <stdio.h> // Required for printf
 #include <math.h>
+
+// =============================================================================
+// INITIALIZATION
+// =============================================================================
+
+// Call this from JS after loading to verify connectivity
+EMSCRIPTEN_KEEPALIVE
+void init_native() {
+    printf("[CandyNative] C module initialized successfully! (Native Output)\n");
+}
+
 
 // =============================================================================
 // NOISE FUNCTIONS - Useful for procedural generation
