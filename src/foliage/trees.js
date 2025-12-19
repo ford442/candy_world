@@ -109,7 +109,7 @@ export function createShrub(options = {}) {
     group.userData.animationType = pickAnimation(['bounce', 'shiver', 'hop']);
     group.userData.animationOffset = Math.random() * 10;
     group.userData.type = 'shrub';
-    return group;
+    return attachReactivity(group);
 }
 
 export function createVine(options = {}) {
@@ -212,7 +212,7 @@ export function createBubbleWillow(options = {}) {
     group.userData.animationType = 'gentleSway';
     group.userData.animationOffset = Math.random() * 10;
     group.userData.type = 'tree';
-    return group;
+    return attachReactivity(group);
 }
 
 export function createHelixPlant(options = {}) {
@@ -255,7 +255,7 @@ export function createHelixPlant(options = {}) {
     group.userData.animationType = pickAnimation(['spring', 'wobble']);
     group.userData.animationOffset = Math.random() * 10;
     group.userData.type = 'shrub';
-    return group;
+    return attachReactivity(group);
 }
 
 export function createBalloonBush(options = {}) {
@@ -283,7 +283,7 @@ export function createBalloonBush(options = {}) {
     group.userData.animationType = pickAnimation(['bounce', 'accordion', 'hop']);
     group.userData.animationOffset = Math.random() * 10;
     group.userData.type = 'shrub';
-    return group;
+    return attachReactivity(group);
 }
 
 export function createVineCluster(x, z) {
@@ -386,7 +386,7 @@ export function createFiberOpticWillow(options = {}) {
     group.userData.animationOffset = Math.random() * 10;
     group.userData.type = 'willow';
 
-    return group;
+    return attachReactivity(group);
 }
 
 // --- Vine Swing Physics ---
