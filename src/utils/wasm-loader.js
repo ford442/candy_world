@@ -165,7 +165,7 @@ export async function initWasm() {
         // Load Emscripten WASM module (optional - for native C functions)
         // =====================================================================
         try {
-            const emResponse = await fetch('./assets/candy_native.wasm?v=' + Date.now());
+            const emResponse = await fetch('./candy_native.wasm?v=' + Date.now());
             if (emResponse.ok) {
                 const emBytes = await emResponse.arrayBuffer();
 
