@@ -8,7 +8,9 @@ import {
     createFloatingOrb, createSwingableVine, VineSwing, createPrismRoseBush,
     createStarflower, createVibratoViolet, createTremoloTulip, createKickDrumGeyser,
     createRainingCloud, createWaterfall, createMelodyLake, createFireflies, initFallingBerries,
-    initGrassSystem, addGrassInstance
+    initGrassSystem, addGrassInstance,
+    createArpeggioFern, createPortamentoPine, createCymbalDandelion, createSnareTrap,
+    createBubbleWillow, createHelixPlant, createBalloonBush, createWisteriaCluster
 } from '../foliage/index.js';
 import { CONFIG } from '../core/config.js';
 import {
@@ -122,32 +124,111 @@ function generateMap(weatherSystem) {
         }
 
         try {
+            let obj = null;
+            let isObstacle = false;
+            let radius = 0.5;
+
+            // --- Basic Types ---
             if (item.type === 'mushroom') {
                 const isGiant = item.variant === 'giant';
                 const scale = item.scale || 1.0;
-                const m = createMushroom({ size: isGiant ? 'giant' : 'regular', scale });
-                m.position.set(x, y, z);
-                // Rotate randomly for variety
-                m.rotation.y = Math.random() * Math.PI * 2;
-                safeAddFoliage(m, true, isGiant ? 2 : 0.5, weatherSystem);
+                obj = createMushroom({ size: isGiant ? 'giant' : 'regular', scale });
+                isObstacle = true;
+                radius = isGiant ? 2.0 : 0.5;
             }
             else if (item.type === 'flower') {
                 const isGlowing = item.variant === 'glowing';
-                const f = isGlowing ? createGlowingFlower() : createFlower();
-                f.position.set(x, y, z);
-                f.scale.setScalar(item.scale || 1.0);
-                f.rotation.y = Math.random() * Math.PI * 2;
-                safeAddFoliage(f, false, 0.5, weatherSystem);
+                obj = isGlowing ? createGlowingFlower() : createFlower();
             }
             else if (item.type === 'cloud') {
-                const cloud = createRainingCloud({ size: item.size || 1.5 });
-                cloud.position.set(x, y, z);
-                safeAddFoliage(cloud);
+                obj = createRainingCloud({ size: item.size || 1.5 });
             }
             else if (item.type === 'grass') {
-                // Grass system handles its own instances, no need to add to foliageGroup
                 addGrassInstance(x, y, z);
+                return; // Grass handled separately
             }
+
+            // --- Advanced Types (New additions) ---
+            else if (item.type === 'subwoofer_lotus') {
+                obj = createSubwooferLotus({ scale: item.scale || 1.0 });
+            }
+            else if (item.type === 'accordion_palm') {
+                obj = createAccordionPalm({ color: 0xFFD700 });
+                isObstacle = true;
+            }
+            else if (item.type === 'fiber_optic_willow') {
+                obj = createFiberOpticWillow();
+                isObstacle = true;
+            }
+            else if (item.type === 'floating_orb') {
+                obj = createFloatingOrb({ size: 0.5 });
+                y += 1.5; // Float above ground
+            }
+            else if (item.type === 'swingable_vine') {
+                // Needs height to dangle
+                obj = createSwingableVine({ length: 8 });
+                y += 8; // Hang from above
+                if (vineSwings) vineSwings.push(new VineSwing(obj, 8));
+            }
+            else if (item.type === 'prism_rose_bush') {
+                obj = createPrismRoseBush();
+                isObstacle = true;
+            }
+            else if (item.type === 'starflower') {
+                obj = createStarflower();
+            }
+            else if (item.type === 'vibrato_violet') {
+                obj = createVibratoViolet();
+            }
+            else if (item.type === 'tremolo_tulip') {
+                obj = createTremoloTulip();
+            }
+            else if (item.type === 'kick_drum_geyser') {
+                obj = createKickDrumGeyser();
+            }
+            // Musical Flora
+            else if (item.type === 'arpeggio_fern') {
+                obj = createArpeggioFern({ scale: item.scale || 1.0 });
+            }
+            else if (item.type === 'portamento_pine') {
+                obj = createPortamentoPine({ height: 4.0 });
+                isObstacle = true;
+            }
+            else if (item.type === 'cymbal_dandelion') {
+                obj = createCymbalDandelion();
+            }
+            else if (item.type === 'snare_trap') {
+                obj = createSnareTrap();
+            }
+            // Trees
+            else if (item.type === 'bubble_willow') {
+                obj = createBubbleWillow();
+                isObstacle = true;
+            }
+            else if (item.type === 'helix_plant') {
+                obj = createHelixPlant();
+            }
+            else if (item.type === 'balloon_bush') {
+                obj = createBalloonBush();
+            }
+            else if (item.type === 'wisteria_cluster') {
+                obj = createWisteriaCluster();
+                y += 4; // Hangs
+            }
+
+            // --- Spawning ---
+            if (obj) {
+                obj.position.set(x, y, z);
+                obj.rotation.y = Math.random() * Math.PI * 2;
+
+                // Apply Scale if provided and object supports it (some have fixed sizes)
+                if (item.scale && item.type !== 'mushroom' && item.type !== 'flower') {
+                    obj.scale.setScalar(item.scale);
+                }
+
+                safeAddFoliage(obj, isObstacle, radius, weatherSystem);
+            }
+
         } catch (e) {
             console.warn(`[World] Failed to spawn ${item.type} at ${x},${z}`, e);
         }
