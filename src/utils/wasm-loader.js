@@ -1,6 +1,9 @@
 // WASM Loader - Candy World Physics & Animation Module
 // Loads and wraps AssemblyScript WASM for easy use from JavaScript
 
+// Import the emscripten compile worker via Vite (?worker) so paths are resolved
+// Note: we dynamically import the worker at runtime (Vite supports ?worker imports) to avoid import-time errors in Node-based tests.
+
 let wasmInstance = null;
 let wasmMemory = null;
 let positionView = null;   // Float32Array for object positions
@@ -16,6 +19,67 @@ let wasmBatchMushroomSpawnCandidates = null;
 // Emscripten module (native C functions)
 let emscriptenInstance = null;
 let emscriptenMemory = null;
+
+/**
+ * Helper to safely get an Emscripten export (handles _ prefix)
+ */
+function getNativeFunc(name) {
+    if (!emscriptenInstance || !emscriptenInstance.exports) return null;
+    return emscriptenInstance.exports[name] || emscriptenInstance.exports['_' + name] || null;
+}
+
+// -----------------------------------------------------------------------------
+// Cache for C-side scratch buffers used by culling to avoid repeated malloc/free
+let cullScratchPos = 0;   // pointer to positions buffer in emscripten heap
+let cullScratchRes = 0;   // pointer to results buffer in emscripten heap
+let cullScratchSize = 0;  // number of object capacity allocated
+// -----------------------------------------------------------------------------
+
+// -----------------------------------------------------------------------------
+// Helper: compile a WASM module in the Emscripten worker (returns WebAssembly.Module)
+async function compileWasmInWorker(url) {
+    // Dynamically import the worker constructor using Vite's ?worker helper.
+    let WorkerCtor;
+    try {
+        const mod = await import('../workers/emscripten.worker.js?worker');
+        WorkerCtor = mod.default || mod;
+    } catch (err) {
+        throw new Error('Could not construct EmscriptenWorker (dynamic import failed): ' + (err && err.message ? err.message : String(err)));
+    }
+
+    const worker = new WorkerCtor();
+
+    return await new Promise((resolve, reject) => {
+        const cleanup = () => {
+            worker.onmessage = null;
+            worker.onerror = null;
+            try { worker.terminate(); } catch(_) {}
+        };
+
+        worker.onmessage = (e) => {
+            const data = e.data || {};
+            if (data.type === 'SUCCESS') {
+                resolve(data.module);
+                cleanup();
+            } else if (data.type === 'ERROR') {
+                reject(new Error(data.message || 'Worker compile error'));
+                cleanup();
+            } else if (data.type === 'WARN') {
+                console.warn('[EmscriptenWorker] WARN:', data.message);
+            }
+        };
+
+        worker.onerror = (err) => {
+            cleanup();
+            reject(new Error('Worker failed to start or threw an error (see console)'));
+        };
+
+        // Ensure absolute URL so worker fetch works from any base path
+        const absolute = new URL(url, window.location.href).href;
+        worker.postMessage({ url: absolute });
+    });
+}
+// -----------------------------------------------------------------------------
 
 // Memory layout constants (must match AssemblyScript)
 const POSITION_OFFSET = 0;
@@ -157,30 +221,87 @@ export async function initWasm() {
         // Load Emscripten WASM module (optional - for native C functions)
         // =====================================================================
         try {
-            const emResponse = await fetch('./assets/candy_native.wasm?v=' + Date.now());
+            const emResponse = await fetch('./candy_native.wasm?v=' + Date.now());
             if (emResponse.ok) {
-                const emBytes = await emResponse.arrayBuffer();
+                // Prefer compiling in a worker to avoid main-thread WASM parse/compile stalls
+                try {
+                    if (typeof Worker !== 'undefined') {
+                        console.log('Attempting to compile Emscripten module in Vite worker');
+                        try {
+                            const compiledModule = await compileWasmInWorker('./candy_native.wasm?v=' + Date.now());
 
-                // Check magic number
-                const emMagic = new Uint8Array(emBytes.slice(0, 4));
-                if (emMagic[0] === 0 && emMagic[1] === 0x61 && emMagic[2] === 0x73 && emMagic[3] === 0x6d) {
-                    const emResult = await WA.instantiate(emBytes, {
-                        wasi_snapshot_preview1: wasiStubs,
-                        env: {
-                            // Emscripten might request this for memory growth
-                            emscripten_notify_memory_growth: () => { }
+                            // Instantiate from compiled module on main thread to keep exports accessible synchronously
+                            const emResult = await WebAssembly.instantiate(compiledModule, {
+                                wasi_snapshot_preview1: wasiStubs,
+                                env: { emscripten_notify_memory_growth: () => {} }
+                            });
+
+                            // emResult may be { instance, module } or Instance directly in some browsers
+                            emscriptenInstance = emResult.instance || emResult;
+                            emscriptenMemory = emscriptenInstance.exports && emscriptenInstance.exports.memory;
+
+                            console.log('Emscripten module loaded via worker:', Object.keys(emscriptenInstance.exports || {}));
+
+                            const initFn = getNativeFunc('init_native');
+                            if (initFn) setTimeout(() => { try { initFn(); console.log('[Emscripten] init_native() invoked (worker)'); } catch(e){ console.warn(e); } }, 0);
+                        } catch (workerErr) {
+                            console.warn('Emscripten worker compile failed:', workerErr);
+
+                            // Fallback: try streaming instantiation on main thread (deferred call to yield)
+                            try {
+                                console.log('Falling back to streaming instantiate on main thread (worker failed)');
+                                if (WA.instantiateStreaming && emResponse.body) {
+                                    const emR = await WA.instantiateStreaming(fetch('./candy_native.wasm?v=' + Date.now()), {
+                                        wasi_snapshot_preview1: wasiStubs,
+                                        env: { emscripten_notify_memory_growth: () => {} }
+                                    });
+                                    emscriptenInstance = emR.instance;
+                                } else {
+                                    const emBytes = await emResponse.arrayBuffer();
+                                    const emR = await WA.instantiate(emBytes, {
+                                        wasi_snapshot_preview1: wasiStubs,
+                                        env: { emscripten_notify_memory_growth: () => {} }
+                                    });
+                                    emscriptenInstance = emR.instance;
+                                }
+                                emscriptenMemory = emscriptenInstance.exports.memory;
+                                console.log('Emscripten module loaded via main-thread fallback:', Object.keys(emscriptenInstance.exports));
+
+                                const initFn = getNativeFunc('init_native');
+                                if (initFn) setTimeout(() => { try { initFn(); console.log('[Emscripten] init_native() invoked (fallback)'); } catch(e){ console.warn(e); } }, 0);
+                            } catch (fallbackErr) {
+                                console.warn('Main-thread fallback instantiate also failed:', fallbackErr);
+                            }
+                        } } else {
+                        // Worker not available; fall back to streaming instantiate but defer init
+                        if (WA.instantiateStreaming && emResponse.body) {
+                            console.log('Using instantiateStreaming for Emscripten module (no worker)');
+                            const emResult = await WA.instantiateStreaming(fetch('./candy_native.wasm?v=' + Date.now()), {
+                                wasi_snapshot_preview1: wasiStubs,
+                                env: { emscripten_notify_memory_growth: () => {} }
+                            });
+                            emscriptenInstance = emResult.instance;
+                        } else {
+                            const emBytes = await emResponse.arrayBuffer();
+                            const emResult = await WA.instantiate(emBytes, {
+                                wasi_snapshot_preview1: wasiStubs,
+                                env: { emscripten_notify_memory_growth: () => {} }
+                            });
+                            emscriptenInstance = emResult.instance;
                         }
-                    });
-
-                    emscriptenInstance = emResult.instance;
-                    emscriptenMemory = emResult.instance.exports.memory;
-                    console.log('Emscripten module loaded:', Object.keys(emResult.instance.exports));
+                        emscriptenMemory = emscriptenInstance.exports.memory;
+                        console.log('Emscripten module loaded (no worker):', Object.keys(emscriptenInstance.exports));
+                        const initFn = getNativeFunc('init_native');
+                        if (initFn) setTimeout(() => { try { initFn(); } catch (e) { console.warn(e); }}, 0);
+                    }
+                } catch (compileErr) {
+                    console.warn('Emscripten compile/instantiate failed:', compileErr);
                 }
             } else {
                 console.log('Emscripten WASM not found (optional), skipping');
             }
         } catch (emError) {
-            console.warn('Optional Emscripten WASM failed to load:', emError.message);
+            console.warn('Optional Emscripten WASM failed to load:', emError);
         }
 
         // UX: Restore button on success
@@ -274,6 +395,21 @@ export function uploadPositions(objects) {
 }
 
 /**
+ * Fast copy from a SharedArrayBuffer-backed Float32Array into WASM position memory.
+ * This avoids creating JS objects for each position and is ideal for large counts.
+ * @param {Float32Array} sharedView Float32Array backed by SharedArrayBuffer
+ * @param {number} objectCount number of objects to copy
+ */
+export function copySharedPositions(sharedView, objectCount) {
+    if (!positionView) return;
+    const maxCount = Math.min(objectCount, Math.floor(positionView.length / 4));
+    // Perform the copy (per-element loop is fast for typed arrays)
+    for (let i = 0; i < maxCount * 4; i++) {
+        positionView[i] = sharedView[i];
+    }
+}
+
+/**
  * Upload animation data to WASM memory
  * @param {Array<{offset: number, type: number, originalY: number}>} animData
  */
@@ -307,33 +443,47 @@ export function batchDistanceCull(cameraX, cameraY, cameraZ, maxDistance, object
     if (emscriptenInstance && emscriptenInstance.exports && emscriptenInstance.exports.batchDistanceCull_c) {
         try {
             const em = emscriptenInstance;
-            const bytes = objectCount * 3 * 4; // x,y,z per object (f32)
-            const spos = em.exports._malloc(bytes);
-            const sres = em.exports._malloc(objectCount * 4);
-            try {
-                const emMem = new Float32Array(em.exports.memory.buffer, spos, objectCount * 3);
-                // The input format expected is x,y,z for each object - populate from positionView in assembly memory if present
-                // positionView may live in AssemblyScript memory; if present, we can access JS position array as well.
-                for (let i = 0; i < objectCount; i++) {
-                    // Use AssemblyScript positionView if present; else assume positions in JS
-                    const baseIdx = i * 4; // [x,y,z,radius] in our position upload
-                    emMem[i * 3] = positionView ? positionView[baseIdx] : 0;
-                    emMem[i * 3 + 1] = positionView ? positionView[baseIdx + 1] : 0;
-                    emMem[i * 3 + 2] = positionView ? positionView[baseIdx + 2] : 0;
-                }
+            // Ensure scratch buffers are allocated and large enough
+            if (cullScratchSize < objectCount) {
+                // free previous buffers if present
+                if (cullScratchPos) em.exports._free(cullScratchPos);
+                if (cullScratchRes) em.exports._free(cullScratchRes);
 
-                // Call Emscripten function
-                const visibleCount = em.exports.batchDistanceCull_c(spos, sres, objectCount, cameraX, cameraY, cameraZ, maxDistSq);
-                // Read flags into a Float32Array
-                const resultView = new Float32Array(em.exports.memory.buffer, sres, objectCount);
-                // Copy to JS outputView-like array
-                const flags = new Float32Array(objectCount);
-                for (let i = 0; i < objectCount; i++) flags[i] = resultView[i];
-                return { visibleCount, flags };
-            } finally {
-                em.exports._free(spos);
-                em.exports._free(sres);
+                // allocate a bit more capacity to avoid frequent resizing
+                const bufferSize = objectCount + 1024;
+                cullScratchPos = em.exports._malloc(bufferSize * 3 * 4); // 3 floats per object
+                cullScratchRes = em.exports._malloc(bufferSize * 4);     // 1 float per object result
+                cullScratchSize = bufferSize;
+                console.log(`[Memory] Resized cull buffers to ${bufferSize} objects`);
             }
+
+            // Copy positions into emscripten heap (x,y,z per object)
+            const emMem = new Float32Array(em.exports.memory.buffer, cullScratchPos, objectCount * 3);
+            if (positionView) {
+                for (let i = 0; i < objectCount; i++) {
+                    const baseIdx = i * 4; // our positionView layout: x,y,z,radius
+                    const targetIdx = i * 3;
+                    emMem[targetIdx] = positionView[baseIdx];
+                    emMem[targetIdx + 1] = positionView[baseIdx + 1];
+                    emMem[targetIdx + 2] = positionView[baseIdx + 2];
+                }
+            } else {
+                // No positions uploaded; zero fill
+                for (let i = 0; i < objectCount * 3; i++) emMem[i] = 0;
+            }
+
+            // Call C function
+            const visibleCount = em.exports.batchDistanceCull_c(
+                cullScratchPos,
+                cullScratchRes,
+                objectCount,
+                cameraX, cameraY, cameraZ,
+                maxDistSq
+            );
+
+            const resultView = new Float32Array(em.exports.memory.buffer, cullScratchRes, objectCount);
+            const flags = resultView.slice(0, objectCount); // copy out for safety
+            return { visibleCount, flags };
         } catch (e) {
             console.warn('Emscripten batchDistanceCull failed, falling back to AssemblyScript:', e);
         }
@@ -669,12 +819,11 @@ export function isEmscriptenReady() {
  * @returns {number} Noise value -1 to 1
  */
 export function valueNoise2D(x, y) {
-    if (!emscriptenInstance) {
-        // JS fallback - simple hash-based noise
-        const n = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
-        return n - Math.floor(n);
-    }
-    return emscriptenInstance.exports._valueNoise2D(x, y);
+    const f = getNativeFunc('valueNoise2D');
+    if (f) return f(x, y);
+    // JS fallback - simple hash-based noise
+    const n = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
+    return n - Math.floor(n);
 }
 
 /**
@@ -685,17 +834,17 @@ export function valueNoise2D(x, y) {
  * @returns {number} FBM value
  */
 export function fbm(x, y, octaves = 4) {
-    if (!emscriptenInstance) {
-        // JS fallback
-        let value = 0, amp = 0.5, freq = 1;
-        for (let i = 0; i < octaves; i++) {
-            value += amp * valueNoise2D(x * freq, y * freq);
-            amp *= 0.5;
-            freq *= 2;
-        }
-        return value;
+    const f = getNativeFunc('fbm');
+    if (f) return f(x, y, octaves);
+
+    // JS fallback
+    let value = 0, amp = 0.5, freq = 1;
+    for (let i = 0; i < octaves; i++) {
+        value += amp * valueNoise2D(x * freq, y * freq);
+        amp *= 0.5;
+        freq *= 2;
     }
-    return emscriptenInstance.exports._fbm(x, y, octaves);
+    return value;
 }
 
 /**
@@ -704,30 +853,27 @@ export function fbm(x, y, octaves = 4) {
  * @returns {number} 1/sqrt(x)
  */
 export function fastInvSqrt(x) {
-    if (!emscriptenInstance) {
-        return 1 / Math.sqrt(x);
-    }
-    return emscriptenInstance.exports._fastInvSqrt(x);
+    const f = getNativeFunc('fastInvSqrt');
+    if (f) return f(x);
+    return 1 / Math.sqrt(x);
 }
 
 /**
  * Fast distance calculation
  */
 export function fastDistance(x1, y1, z1, x2, y2, z2) {
-    if (!emscriptenInstance) {
-        const dx = x2 - x1, dy = y2 - y1, dz = z2 - z1;
-        return Math.sqrt(dx * dx + dy * dy + dz * dz);
-    }
-    return emscriptenInstance.exports._fastDistance(x1, y1, z1, x2, y2, z2);
+    const f = getNativeFunc('fastDistance');
+    if (f) return f(x1, y1, z1, x2, y2, z2);
+    const dx = x2 - x1, dy = y2 - y1, dz = z2 - z1;
+    return Math.sqrt(dx * dx + dy * dy + dz * dz);
 }
 
 /**
  * Hash function for procedural generation
  */
 export function hash(x, y) {
-    if (!emscriptenInstance) {
-        const n = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
-        return (n - Math.floor(n)) * 2 - 1;
-    }
-    return emscriptenInstance.exports._hash(x, y);
+    const f = getNativeFunc('hash');
+    if (f) return f(x, y);
+    const n = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
+    return (n - Math.floor(n)) * 2 - 1;
 }

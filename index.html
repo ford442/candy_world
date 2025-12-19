@@ -195,6 +195,96 @@
             text-align: center;
             box-shadow: 0 1px 2px rgba(0,0,0,0.1);
         }
+
+        /* Playlist Overlay Styles */
+        #playlist-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 400px;
+            max-height: 80vh;
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            border: 4px solid #FF6B6B;
+            padding: 20px;
+            display: none; /* Hidden by default */
+            flex-direction: column;
+            box-shadow: 0 10px 40px rgba(255, 107, 107, 0.3);
+            z-index: 300;
+            font-family: 'Segoe UI', sans-serif;
+        }
+
+        #playlist-overlay h2 {
+            color: #FF6B6B;
+            margin: 0 0 15px 0;
+            text-align: center;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        #playlist-list {
+            list-style: none;
+            padding: 0;
+            margin: 0 0 20px 0;
+            overflow-y: auto;
+            flex-grow: 1;
+            max-height: 300px;
+            border: 2px solid #FFD1DC;
+            border-radius: 10px;
+        }
+
+        .playlist-item {
+            padding: 10px 15px;
+            border-bottom: 1px solid #FFD1DC;
+            cursor: pointer;
+            transition: background 0.2s;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: #555;
+        }
+
+        .playlist-item:hover {
+            background: #FFF0F5;
+        }
+
+        .playlist-item.active {
+            background: #FF6B6B;
+            color: white;
+            font-weight: bold;
+        }
+
+        .playlist-item.active .status-icon {
+            opacity: 1;
+        }
+
+        .status-icon {
+            opacity: 0;
+        }
+
+        .playlist-controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        .secondary-button {
+            background: #6A5ACD;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 50px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: transform 0.1s;
+        }
+        
+        .secondary-button:hover {
+            transform: scale(1.05);
+            background: #584AB8;
+        }
     </style>
     <script type="importmap">
         {
@@ -258,6 +348,19 @@
             </dl>
         </div>
     </div>
+
+    <div id="playlist-overlay">
+        <h2>🎵 Jukebox</h2>
+        <ul id="playlist-list">
+        </ul>
+        
+        <div class="playlist-controls">
+            <label for="playlistUploadInput" class="secondary-button">➕ Add Songs</label>
+            <input type="file" id="playlistUploadInput" multiple accept=".mod,.xm,.it,.s3m" style="display:none">
+            <button id="closePlaylistBtn" class="secondary-button" style="background: #FF6B6B;">Close</button>
+        </div>
+    </div>
+
     <canvas id="glCanvas"></canvas>
     <script type="module" src="main.js"></script>
 </body>

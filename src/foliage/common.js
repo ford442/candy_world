@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { color, mix, positionLocal, float, time, sin, cos, vec3, uniform } from 'three/tsl';
 import { MeshStandardNodeMaterial, MeshPhysicalNodeMaterial } from 'three/webgpu';
+import { CONFIG } from '../core/config.js';
 import { fbm, isEmscriptenReady } from '../utils/wasm-loader.js';
 
 // --- Global Uniforms ---
@@ -35,8 +36,15 @@ export function attachReactivity(group) {
         }
     });
 
+    // Expose cached reactive meshes for efficient per-frame updates
+    group.userData.reactiveMeshes = reactiveMeshes; 
+
     group.reactToNote = function(note, colorHex, velocity = 1.0) {
         const targetColor = new THREE.Color(colorHex);
+
+        // Track recent note velocities for per-species smoothing (e.g., mushrooms)
+        group.userData.noteBuffer = group.userData.noteBuffer || [];
+        pushLimitedBuffer(group.userData.noteBuffer, velocity, CONFIG.reactivity?.mushroom?.medianWindow || 5);
 
         for (let i = 0, l = reactiveMeshes.length; i < l; i++) {
             const child = reactiveMeshes[i];
@@ -46,10 +54,17 @@ export function attachReactivity(group) {
             child.userData.flashDecay = 0.05;
         }
 
+        // Debug logging of the note/color mapping (toggle with CONFIG.debugNoteReactivity)
+        if (CONFIG.debugNoteReactivity) {
+            try {
+                console.log('reactToNote:', group.userData.type, 'note=', note, 'color=', targetColor.getHexString(), 'velocity=', velocity);
+            } catch (e) { console.log('reactToNote debug error', e); }
+        }
+
         if (group.userData.animationType) {
             group.userData.animationOffset += 0.5;
         }
-    };
+    }; 
     return group;
 }
 
@@ -62,6 +77,19 @@ export function addRimLight(material, colorHex) {
 export function pickAnimation(types) {
     return types[Math.floor(Math.random() * types.length)];
 }
+
+// --- Small helpers for reactivity buffers ---
+export function pushLimitedBuffer(buf, val, maxLen = 5) {
+    buf.push(val);
+    while (buf.length > maxLen) buf.shift();
+}
+
+export function median(arr) {
+    if (!arr || arr.length === 0) return 0;
+    const s = arr.slice().sort((a,b)=>a-b);
+    const m = Math.floor(s.length / 2);
+    return (s.length % 2) ? s[m] : (s[m-1] + s[m]) * 0.5;
+} 
 
 // --- Texture Generation ---
 let globalNoiseTexture = null;

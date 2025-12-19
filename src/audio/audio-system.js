@@ -64,6 +64,10 @@ export class AudioSystem {
         this.playlist = []; // Array of File objects
         this.currentIndex = -1;
 
+        // --- NEW: Callbacks for UI ---
+        this.onPlaylistUpdate = null; // Called when songs added
+        this.onTrackChange = null;    // Called when song changes
+
         // Visual state
         this.visualState = {
             beatPhase: 0,
@@ -128,6 +132,9 @@ export class AudioSystem {
             console.log(`Added to queue: ${fileList[i].name}`);
         }
 
+        // Notify UI
+        if (this.onPlaylistUpdate) this.onPlaylistUpdate(this.playlist);
+
         // If we weren't playing anything, start the first new song
         if (this.currentIndex === -1 || !this.isPlaying) {
             this.playNext(initialLength); // Start from the first new file
@@ -145,10 +152,28 @@ export class AudioSystem {
         }
 
         this.currentIndex = nextIndex;
+        
+        // Notify UI of track change
+        if (this.onTrackChange) this.onTrackChange(this.currentIndex);
+        
         const file = this.playlist[this.currentIndex];
-
         console.log(`Loading track ${this.currentIndex + 1}/${this.playlist.length}: ${file.name}`);
         await this.loadModule(file);
+    }
+    
+    // --- NEW: Helper for UI clicking ---
+    playAtIndex(index) {
+        if (index >= 0 && index < this.playlist.length) {
+            this.playNext(index);
+        }
+    }
+    
+    getPlaylist() {
+        return this.playlist;
+    }
+    
+    getCurrentIndex() {
+        return this.currentIndex;
     }
 
     // --- Core Loading ---

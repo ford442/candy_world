@@ -45,6 +45,37 @@ export function getGroundHeight(x: f32, z: f32): f32 {
   return hills + detail;
 }
 
+// -----------------------------------------------------------------------------
+// Shared Memory / Helpers (Example)
+// These helpers demonstrate how JS can write positions into the WASM linear
+// memory area and how AssemblyScript can read them back. Keep these small and
+// explicit for easy testing.
+// -----------------------------------------------------------------------------
+
+/** Return X coordinate from POSITION_OFFSET for object index */
+export function getPositionX(index: i32): f32 {
+  const ptr = POSITION_OFFSET + index * 16; // [x,y,z,radius]
+  return load<f32>(ptr);
+}
+
+/** Return Y coordinate from POSITION_OFFSET for object index */
+export function getPositionY(index: i32): f32 {
+  const ptr = POSITION_OFFSET + index * 16 + 4;
+  return load<f32>(ptr);
+}
+
+/** Return Z coordinate from POSITION_OFFSET for object index */
+export function getPositionZ(index: i32): f32 {
+  const ptr = POSITION_OFFSET + index * 16 + 8;
+  return load<f32>(ptr);
+}
+
+/** Return radius from POSITION_OFFSET for object index */
+export function getPositionRadius(index: i32): f32 {
+  const ptr = POSITION_OFFSET + index * 16 + 12;
+  return load<f32>(ptr);
+}
+
 // =============================================================================
 // AUDIO VISUALIZATION FUNCTIONS
 // =============================================================================

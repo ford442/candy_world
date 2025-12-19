@@ -18,7 +18,28 @@ export function getNoteColor(note, species = 'global') {
     }
 
     // Lookup
-    const map = CONFIG.noteColorMap[species] || CONFIG.noteColorMap['global'];
+    let map = CONFIG.noteColorMap[species];
+
+    // If the species key isn't exact, try some heuristics to map similar types to a known species palette
+    if (!map) {
+        const s = (species || '').toLowerCase();
+        if (s.includes('flower') || s.includes('tulip') || s.includes('violet') || s.includes('rose') || s.includes('bloom') || s.includes('lotus') || s.includes('puff') ) {
+            map = CONFIG.noteColorMap['flower'];
+        } else if (s.includes('mushroom') || s.includes('mush')) {
+            map = CONFIG.noteColorMap['mushroom'];
+        } else if (s.includes('tree') || s.includes('willow') || s.includes('palm') || s.includes('bush')) {
+            map = CONFIG.noteColorMap['tree'];
+        } else if (s.includes('cloud') || s.includes('orb') || s.includes('geyser')) {
+            map = CONFIG.noteColorMap['cloud'] || CONFIG.noteColorMap['global'];
+        } else {
+            map = CONFIG.noteColorMap['global'];
+        }
+    }
+
+    // Debug logging of resolved palette
+    if (CONFIG.debugNoteReactivity) {
+        try { console.log('getNoteColor:', note, 'species=', species, 'resolvedPalette=', Object.keys(CONFIG.noteColorMap).find(k => CONFIG.noteColorMap[k] === map) || 'custom', 'noteName=', noteName, 'color=', (map[noteName] || 0xFFFFFF).toString(16)); } catch(e) {}
+    }
 
     // Return color or fallback to White
     return map[noteName] || 0xFFFFFF;

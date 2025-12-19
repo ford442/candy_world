@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { time, vec3, positionLocal, length, sin, cos } from 'three/tsl';
-import { registerReactiveMaterial } from './common.js';
+import { registerReactiveMaterial, attachReactivity } from './common.js';
 
 export function createMelodyLake(width = 200, depth = 200) {
     const geo = new THREE.PlaneGeometry(width, depth, 64, 64);
@@ -45,7 +45,7 @@ export function createFloatingOrb(options = {}) {
     const light = new THREE.PointLight(color, 0.5, 4.0);
     orb.add(light);
 
-    return orb;
+    return attachReactivity(orb);
 }
 
 export function createFloatingOrbCluster(x, z) {
@@ -127,5 +127,5 @@ export function createKickDrumGeyser(options = {}) {
     group.userData.maxHeight = maxHeight;
     group.userData.eruptionStrength = 0;
 
-    return group;
+    return attachReactivity(group);
 }

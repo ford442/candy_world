@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { uWindSpeed, uWindDirection, uSkyTopColor, uSkyBottomColor, uHorizonColor, uAtmosphereIntensity, uStarPulse, uStarOpacity, updateMoon, triggerMoonBlink, animateFoliage, updateFoliageMaterials, updateFireflies, updateFallingBerries, collectFallingBerries } from './src/foliage/index.js';
+import { uWindSpeed, uWindDirection, uSkyTopColor, uSkyBottomColor, uHorizonColor, uAtmosphereIntensity, uStarPulse, uStarOpacity, updateMoon, triggerMoonBlink, animateFoliage, updateFoliageMaterials, updateFireflies, updateFallingBerries, collectFallingBerries, createFlower, createMushroom } from './src/foliage/index.js';
 import { MusicReactivity } from './src/systems/music-reactivity.js';
 import { AudioSystem } from './src/audio/audio-system.js';
 import { BeatSync } from './src/audio/beat-sync.js';
@@ -14,8 +14,11 @@ import { getCycleState } from './src/core/cycle.js';
 
 // World & System imports
 import { initWorld } from './src/world/generation.js';
-import { animatedFoliage, activeVineSwing } from './src/world/state.js';
+import { animatedFoliage, foliageGroup, activeVineSwing, foliageClouds } from './src/world/state.js';
 import { updatePhysics, player, bpmWind } from './src/systems/physics.js';
+import { fireRainbow, updateBlaster } from './src/gameplay/rainbow-blaster.js';
+import { updateFallingClouds } from './src/foliage/clouds.js';
+import { getGroundHeight } from './src/utils/wasm-loader.js';
 
 // --- Initialization ---
 
@@ -46,6 +49,83 @@ function toggleDayNight() {
 
 const inputSystem = initInput(camera, audioSystem, toggleDayNight);
 const controls = inputSystem.controls;
+
+// DEV: Demo triggers — press 'F' to trigger a 'C4' note on nearest flower; 'G' to spawn a flower in front of the camera
+// This is intentionally small and safe for local testing; remove before production
+window.addEventListener('keydown', (e) => {
+    try {
+        if (!e.key) return;
+        const key = e.key.toLowerCase();
+        if (key === 'f') {
+            let nearest = null;
+            let bestDist = Infinity;
+            const camPos = camera.position;
+            for (let i = 0, l = animatedFoliage.length; i < l; i++) {
+                const f = animatedFoliage[i];
+                if (!f || f.userData?.type !== 'flower') continue;
+                const d = f.position.distanceToSquared(camPos);
+                if (d < bestDist) { bestDist = d; nearest = f; }
+            }
+            if (nearest) {
+                musicReactivity.reactObject(nearest, 'C4', 1.0);
+                console.log('Demo: triggered C4 on nearest flower', nearest);
+            } else {
+                console.log('Demo: no flowers found nearby');
+            }
+        } else if (key === 'g') {
+            const dir = new THREE.Vector3();
+            camera.getWorldDirection(dir);
+            const pos = camera.position.clone().add(dir.multiplyScalar(3));
+            const f = createFlower({ shape: 'layered' });
+            f.position.copy(pos);
+            f.rotation.y = Math.random() * Math.PI * 2;
+            foliageGroup.add(f);
+            animatedFoliage.push(f);
+            console.log('Demo: spawned a flower at', f.position);
+        } else if (key === 'h') {
+            // Spawn a mushroom in front of the camera for mushroom palette testing
+            const dir = new THREE.Vector3();
+            camera.getWorldDirection(dir);
+            const pos = camera.position.clone().add(dir.multiplyScalar(3));
+            const m = createMushroom({ size: 'regular' });
+            m.position.copy(pos);
+            m.rotation.y = Math.random() * Math.PI * 2;
+            foliageGroup.add(m);
+            animatedFoliage.push(m);
+            console.log('Demo: spawned a mushroom at', m.position);
+        } else if (key === 't') {
+            // Trigger C4 on nearest mushroom
+            let nearest = null;
+            let bestDist = Infinity;
+            const camPos = camera.position;
+            for (let i = 0, l = animatedFoliage.length; i < l; i++) {
+                const f = animatedFoliage[i];
+                if (!f || f.userData?.type !== 'mushroom') continue;
+                const d = f.position.distanceToSquared(camPos);
+                if (d < bestDist) { bestDist = d; nearest = f; }
+            }
+            if (nearest) {
+                musicReactivity.reactObject(nearest, 'C4', 1.0);
+                console.log('Demo: triggered C4 on nearest mushroom', nearest);
+            } else {
+                console.log('Demo: no mushrooms found nearby');
+            }
+        }
+    } catch (err) {
+        console.warn('Demo trigger error', err);
+    }
+});
+
+// Mouse input: Rainbow Blaster (click while pointer locked)
+window.addEventListener('mousedown', (e) => {
+    if (document.pointerLockElement) {
+        const dir = new THREE.Vector3();
+        camera.getWorldDirection(dir);
+        const origin = camera.position.clone().add(dir.clone().multiplyScalar(1.0));
+        origin.y -= 0.2; // Lower slightly
+        fireRainbow(scene, origin, dir);
+    }
+});
 
 // --- Animation Loop State ---
 const clock = new THREE.Clock();
@@ -352,6 +432,10 @@ function animate() {
     // Player Physics
     updatePhysics(delta, camera, controls, keyStates, audioState);
 
+    // Gameplay: Blaster projectiles & falling clouds
+    updateBlaster(delta, scene);
+    updateFallingClouds(delta, foliageClouds, getGroundHeight);
+
     renderer.render(scene, camera);
 }
 
@@ -364,4 +448,6 @@ initWasm().then((wasmLoaded) => {
         startButton.innerText = 'Start Exploration 🚀';
     }
     renderer.setAnimationLoop(animate);
+    // Test hook: signal that the scene/animation loop is running
+    try { window.__sceneReady = true; } catch (e) {}
 });
