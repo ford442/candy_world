@@ -4,117 +4,108 @@ import math
 
 OUTPUT_FILE = "assets/map.json"
 MAP_RADIUS = 150
-START_SAFE_RADIUS = 15  # Clear area around 0,0
-SHOWCASE_RADIUS = 20    # Where to place one of each type
-GIANT_MUSHROOM_CLUSTER_CENTER = (40, 0, 40)
-GIANT_MUSHROOM_CLUSTER_RADIUS = 15
+CLUSTER_COUNT = 30  # How many clusters of flora
+ITEMS_PER_CLUSTER = 8 # Average items per cluster
+GRASS_COUNT = 3000  # Explicit grass blades
 
-# All available types
+# Types supported by src/world/generation.js
 TYPES = [
-    "grass", "mushroom", "flower", "cloud",
-    "subwoofer_lotus", "accordion_palm", "fiber_optic_willow",
-    "floating_orb", "swingable_vine", "prism_rose_bush",
-    "starflower", "vibrato_violet", "tremolo_tulip",
-    "kick_drum_geyser", "arpeggio_fern", "portamento_pine",
-    "cymbal_dandelion", "snare_trap", "bubble_willow",
-    "helix_plant", "balloon_bush", "wisteria_cluster"
+    "mushroom",
+    "flower",
+    "subwoofer_lotus",
+    "accordion_palm",
+    "fiber_optic_willow",
+    "floating_orb",
+    "swingable_vine",
+    "prism_rose_bush",
+    "starflower",
+    "vibrato_violet",
+    "tremolo_tulip",
+    "kick_drum_geyser",
+    "arpeggio_fern",
+    "portamento_pine",
+    "cymbal_dandelion",
+    "snare_trap",
+    "bubble_willow",
+    "helix_plant",
+    "balloon_bush",
+    "wisteria_cluster"
 ]
-
-# Types that should be scattered globally
-SCATTER_TYPES = [t for t in TYPES if t != "cloud"] # Clouds handled separately or sparsely
 
 def generate_map():
     items = []
 
-    # 1. Showcase Ring (One of each type near start)
-    print("Generating Showcase Ring...")
-    showcase_types = [t for t in TYPES if t != "grass"] # Grass is boring
-    angle_step = (2 * math.pi) / len(showcase_types)
-    for i, type_name in enumerate(showcase_types):
-        angle = i * angle_step
-        dist = 12 + random.uniform(-2, 2)
-        x = math.cos(angle) * dist
-        z = math.sin(angle) * dist
+    print(f"Generating map with {CLUSTER_COUNT} clusters and {GRASS_COUNT} grass...")
 
-        item = {
-            "type": type_name,
-            "position": [x, 0, z],
-            "scale": 1.0
-        }
+    # 1. Clusters
+    # We place clusters in a loose grid/spiral to ensure coverage but natural feel
+    for i in range(CLUSTER_COUNT):
+        # Pick a random type
+        type_name = random.choice(TYPES)
 
-        # Variants for basic types
-        if type_name == "mushroom":
-            item["variant"] = "regular"
-        elif type_name == "flower":
-            item["variant"] = "glowing"
-
-        items.append(item)
-
-    # 2. Giant Mushroom Stand
-    print("Generating Giant Mushroom Stand...")
-    for _ in range(15):
+        # Pick a random center, avoiding 0,0 slightly
         angle = random.uniform(0, 2 * math.pi)
-        dist = random.uniform(0, GIANT_MUSHROOM_CLUSTER_RADIUS)
-        x = GIANT_MUSHROOM_CLUSTER_CENTER[0] + math.cos(angle) * dist
-        z = GIANT_MUSHROOM_CLUSTER_CENTER[2] + math.sin(angle) * dist
+        dist = random.uniform(10, MAP_RADIUS * 0.9)
+        center_x = math.cos(angle) * dist
+        center_z = math.sin(angle) * dist
 
-        items.append({
-            "type": "mushroom",
-            "variant": "giant",
-            "position": [x, 0, z],
-            "scale": random.uniform(1.2, 1.8)
-        })
+        # Decide counts
+        count = random.randint(3, 12)
+        if "tree" in type_name or "palm" in type_name or "pine" in type_name:
+            count = random.randint(2, 5) # Fewer large trees
 
-    # 3. Global Scatter
-    print("Scattering foliage...")
-    # Add Clouds high up
-    for _ in range(20):
+        for _ in range(count):
+            # Offset from cluster center
+            r = random.uniform(0, 5) # 5 unit radius cluster
+            theta = random.uniform(0, 2 * math.pi)
+            x = center_x + math.cos(theta) * r
+            z = center_z + math.sin(theta) * r
+
+            item = {
+                "type": type_name,
+                "position": [x, 0, z],
+                "scale": random.uniform(0.8, 1.2)
+            }
+
+            # Variants
+            if type_name == "mushroom":
+                item["variant"] = "regular" if random.random() > 0.2 else "giant"
+                if item["variant"] == "giant":
+                     item["scale"] *= 1.5
+            elif type_name == "flower":
+                item["variant"] = "regular" if random.random() > 0.5 else "glowing"
+
+            # Height adjustments for floaters
+            if type_name == "cloud":
+                 item["position"][1] = random.uniform(40, 70)
+
+            items.append(item)
+
+    # 2. Global Clouds (Scatter high up)
+    for _ in range(25):
         x = random.uniform(-MAP_RADIUS, MAP_RADIUS)
         z = random.uniform(-MAP_RADIUS, MAP_RADIUS)
-        y = random.uniform(40, 60)
+        y = random.uniform(50, 80)
         items.append({
             "type": "cloud",
             "position": [x, y, z],
-            "size": random.uniform(1.2, 2.0)
+            "size": random.uniform(1.5, 2.5)
         })
 
-    # Add Foliage
-    for _ in range(800): # Total count
+    # 3. Grass (Scatter)
+    for _ in range(GRASS_COUNT):
         x = random.uniform(-MAP_RADIUS, MAP_RADIUS)
         z = random.uniform(-MAP_RADIUS, MAP_RADIUS)
-        dist_sq = x*x + z*z
 
-        # Avoid start area
-        if dist_sq < START_SAFE_RADIUS**2:
-            continue
+        # Optional: Biased towards clusters?
+        # For now, uniform scatter is fine, or perlin-noise-like clumping.
+        # Simple uniform for now as requested.
 
-        # Avoid Mushroom Cluster slightly
-        dx = x - GIANT_MUSHROOM_CLUSTER_CENTER[0]
-        dz = z - GIANT_MUSHROOM_CLUSTER_CENTER[2]
-        if dx*dx + dz*dz < (GIANT_MUSHROOM_CLUSTER_RADIUS - 5)**2:
-            continue
-
-        type_name = random.choice(SCATTER_TYPES)
-        scale = random.uniform(0.8, 1.2)
-
-        # Weighting: More grass/flowers, fewer complex trees
-        r = random.random()
-        if r < 0.4: type_name = "grass"
-        elif r < 0.6: type_name = "flower"
-        elif r < 0.7: type_name = "mushroom"
-
-        item = {
-            "type": type_name,
+        items.append({
+            "type": "grass",
             "position": [x, 0, z],
-            "scale": scale
-        }
-
-        if type_name == "flower":
-            item["variant"] = random.choice(["regular", "glowing"])
-        elif type_name == "mushroom":
-            item["variant"] = random.choice(["regular", "regular", "giant"]) # Mostly regular
-
-        items.append(item)
+            "scale": random.uniform(0.7, 1.3)
+        })
 
     # Save
     with open(OUTPUT_FILE, 'w') as f:
