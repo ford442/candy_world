@@ -8,7 +8,8 @@
     "build": "npm run build:wasm && vite build",
     "preview": "vite preview",
     "build:wasm": "asc assembly/index.ts --outFile public/candy_physics.wasm --textFile public/candy_physics.wat --sourceMap --shrinkLevel 0 --optimize --converge --optimizeLevel 3",
-    "test": "python3 verify.py"
+    "test": "python3 verify.py",
+    "test:wasm": "node verification/test_wasm_loader.mjs"
   },
   "keywords": [],
   "author": "",
