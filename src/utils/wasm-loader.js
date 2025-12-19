@@ -110,10 +110,14 @@ export async function initWasm() {
         startButton.style.cursor = 'wait';
     }
 
+    console.log('[WASM] initWasm started');
+
     try {
         // Load WASM binary with cache buster
-        const response = await fetch('./candy_physics.wasm?v=' + Date.now());
-        console.log('Fetch response:', response.status, response.url);
+        const wasmUrl = './candy_physics.wasm?v=' + Date.now();
+        console.log('[WASM] Fetching:', wasmUrl);
+        const response = await fetch(wasmUrl);
+        console.log('[WASM] Fetch response:', response.status, response.statusText);
 
         if (!response.ok) {
             console.warn('WASM not found, using JS fallbacks');
@@ -132,10 +136,10 @@ export async function initWasm() {
         // Check if we got HTML instead of WASM (common 404 issue)
         const firstBytes = new Uint8Array(wasmBytes.slice(0, 4));
         const magic = Array.from(firstBytes).map(b => b.toString(16).padStart(2, '0')).join('');
-        console.log('WASM magic number:', magic, '(expected: 0061736d)');
+        console.log('[WASM] Magic number:', magic, '(expected: 0061736d)');
 
         if (magic !== '0061736d') {
-            console.error('Invalid WASM file - not a WebAssembly binary!');
+            console.error('[WASM] Invalid file - not a WebAssembly binary!');
             // UX: Restore button even on failure
             if (startButton) {
                 startButton.disabled = false;
@@ -214,19 +218,19 @@ export async function initWasm() {
         wasmLerp = wasmInstance.exports.lerp;
         wasmBatchMushroomSpawnCandidates = wasmInstance.exports.batchMushroomSpawnCandidates || null;
 
-        console.log('WASM module loaded successfully');
-        console.log('WASM exports:', Object.keys(wasmInstance.exports));
+        console.log('[WASM] AssemblyScript module loaded successfully');
 
         // =====================================================================
         // Load Emscripten WASM module (optional - for native C functions)
         // =====================================================================
         try {
+            console.log('[WASM] Attempting to load Emscripten module (candy_native.wasm)...');
             const emResponse = await fetch('./candy_native.wasm?v=' + Date.now());
             if (emResponse.ok) {
                 // Prefer compiling in a worker to avoid main-thread WASM parse/compile stalls
                 try {
                     if (typeof Worker !== 'undefined') {
-                        console.log('Attempting to compile Emscripten module in Vite worker');
+                        console.log('[WASM] Compiling Emscripten module in worker...');
                         try {
                             const compiledModule = await compileWasmInWorker('./candy_native.wasm?v=' + Date.now());
 
@@ -243,9 +247,9 @@ export async function initWasm() {
                             console.log('Emscripten module loaded via worker:', Object.keys(emscriptenInstance.exports || {}));
 
                             const initFn = getNativeFunc('init_native');
-                            if (initFn) setTimeout(() => { try { initFn(); console.log('[Emscripten] init_native() invoked (worker)'); } catch(e){ console.warn(e); } }, 0);
+                            if (initFn) setTimeout(() => { try { initFn(); console.log('[WASM] init_native() invoked (worker)'); } catch(e){ console.warn(e); } }, 0);
                         } catch (workerErr) {
-                            console.warn('Emscripten worker compile failed:', workerErr);
+                            console.warn('[WASM] Emscripten worker compile failed:', workerErr);
 
                             // Fallback: try streaming instantiation on main thread (deferred call to yield)
                             try {
@@ -492,6 +496,11 @@ export function batchDistanceCull(cameraX, cameraY, cameraZ, maxDistance, object
     // Fallback to AssemblyScript batchDistanceCull
     if (!wasmInstance) {
         return { visibleCount: objectCount, flags: null };
+    }
+
+    if (objectCount > 5000) {
+        console.warn(`[WASM] Object count ${objectCount} exceeds safety limit for batch processing. Skipping WASM cull.`);
+        return { visibleCount: objectCount, flags: null }; // Skip optimization, assume all visible
     }
 
     const visibleCount = wasmInstance.exports.batchDistanceCull(
