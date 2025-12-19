@@ -18,6 +18,44 @@ import {
     foliageClouds, foliageTrampolines, vineSwings
 } from './state.js';
 
+// --- STATIC MAP DATA ---
+// This allows you to layout the world specifically.
+const MAP_ZONES = [
+    // Center: Musical Meadow
+    { type: 'musical_meadow', x: 0, z: 0, radius: 40 },
+
+    // North: Mushroom Forests
+    { type: 'mushroom_forest', x: 0, z: -60, radius: 35 },
+    { type: 'mushroom_forest', x: 30, z: -90, radius: 30 },
+
+    // East: Crystal Groves
+    { type: 'crystal_grove', x: 70, z: 0, radius: 30 },
+    { type: 'crystal_grove', x: 90, z: 40, radius: 25 },
+
+    // South: Weird Jungle
+    { type: 'weird_jungle', x: 0, z: 80, radius: 40 },
+    { type: 'weird_jungle', x: -30, z: 100, radius: 30 },
+    
+    // West: Flower Fields
+    { type: 'flower_field', x: -70, z: 0, radius: 35 },
+    { type: 'flower_field', x: -80, z: 50, radius: 30 },
+];
+
+const MAP_CLOUDS = [
+    // High Tier 1 Clouds (Walkable / Waterfall Sources)
+    { x: 20, y: 50, z: 20, tier: 1, rain: 50, scale: 2.0, waterfall: true },
+    { x: -30, y: 55, z: -30, tier: 1, rain: 40, scale: 2.2, waterfall: true },
+    { x: 60, y: 45, z: -10, tier: 1, rain: 60, scale: 1.8, waterfall: false },
+    { x: 0, y: 60, z: 80, tier: 1, rain: 45, scale: 2.5, waterfall: true },
+
+    // Lower Decorative Clouds (Tier 2)
+    { x: 0, y: 30, z: 50, tier: 2, rain: 20, scale: 1.2 },
+    { x: -50, y: 25, z: 10, tier: 2, rain: 15, scale: 1.0 },
+    { x: 40, y: 28, z: 60, tier: 2, rain: 10, scale: 1.1 },
+    { x: -20, y: 35, z: -60, tier: 2, rain: 25, scale: 1.3 },
+    { x: 80, y: 32, z: -40, tier: 2, rain: 15, scale: 1.4 },
+];
+
 // --- Scene Setup ---
 
 export function initWorld(scene, weatherSystem) {
@@ -104,7 +142,7 @@ export function safeAddFoliage(obj, isObstacle = false, radius = 1.0, weatherSys
 
 // --- CLUSTERING SPAWNER ---
 
-function spawnCluster(cx, cz, type, weatherSystem) {
+function spawnCluster(cx, cz, type, weatherSystem, radius = 30) {
     // 1. Mushroom Forest (Added Portamento Pines)
     if (type === 'mushroom_forest') {
         const count = Math.floor(radius * 0.8);
@@ -269,78 +307,91 @@ function spawnCluster(cx, cz, type, weatherSystem) {
 }
 
 function generateMap(weatherSystem) {
-    const SCENE_GRID_SIZE = 40;
-    const SCENE_ROWS = 4;
-    const SCENE_COLS = 4;
-    const SCENE_TYPES = ['mushroom_forest', 'flower_field', 'weird_jungle', 'crystal_grove', 'musical_meadow'];
+    console.log("Generating World from Static Map Data...");
 
-    for (let r = -SCENE_ROWS / 2; r < SCENE_ROWS / 2; r++) {
-        for (let c = -SCENE_COLS / 2; c < SCENE_COLS / 2; c++) {
-            const cx = r * SCENE_GRID_SIZE + (Math.random() - 0.5) * 10;
-            const cz = c * SCENE_GRID_SIZE + (Math.random() - 0.5) * 10;
+    // 1. Spawn Zones
+    MAP_ZONES.forEach(zone => {
+        spawnCluster(zone.x, zone.z, zone.type, weatherSystem, zone.radius);
+    });
 
-            const typeIndex = Math.floor(Math.random() * SCENE_TYPES.length);
-            spawnCluster(cx, cz, SCENE_TYPES[typeIndex], weatherSystem);
-
-            for (let k = 0; k < 10; k++) {
-                const gx = cx + (Math.random() - 0.5) * 40;
-                const gz = cz + (Math.random() - 0.5) * 40;
-                const gy = getGroundHeight(gx, gz);
-                addGrassInstance(gx, gy, gz);
-            }
-        }
-    }
-
-    // Rain Clouds & Waterfalls
-    const cloudCount = 25;
-    const tier1Clouds = []; // High clouds
-
-    for (let i = 0; i < cloudCount; i++) {
-        const isTier1 = Math.random() < 0.3;
-        const height = isTier1 ? 40 + Math.random() * 15 : 25 + Math.random() * 10;
-
+    // 2. Spawn Clouds & Waterfalls
+    MAP_CLOUDS.forEach(data => {
         const cloud = createRainingCloud({
-            rainIntensity: isTier1 ? 50 : 20,
-            size: isTier1 ? 2.0 : 1.2
+            rainIntensity: data.rain,
+            size: data.scale
         });
-
-        cloud.position.set((Math.random() - 0.5) * 200, height, (Math.random() - 0.5) * 200);
-
-        if (isTier1) {
+        cloud.position.set(data.x, data.y, data.z);
+        
+        // Metadata
+        cloud.userData.tier = data.tier;
+        if (data.tier === 1) {
             cloud.userData.isWalkable = true;
-            cloud.userData.tier = 1;
-            cloud.scale.multiplyScalar(1.5);
-            tier1Clouds.push(cloud);
-        } else {
-            cloud.userData.tier = 2;
+            // Tier 1 scaling is visual; physics needs to know bounds
+            cloud.scale.setScalar(data.scale); 
         }
 
-        // Add cloud directly to groups (clouds are handled specially in physics)
         foliageGroup.add(cloud);
         animatedFoliage.push(cloud);
         foliageClouds.push(cloud);
-    }
 
-    // Generate Waterfalls connecting Tier 1 Clouds to Ground/Lake
-    // Connect 50% of Tier 1 clouds to waterfalls
-    for (const cloud of tier1Clouds) {
-        if (Math.random() < 0.5) {
+        // Waterfall Logic
+        if (data.waterfall) {
             const startPos = cloud.position.clone();
-            // Start slightly below the cloud
-            startPos.y -= 3.0;
-
-            // End at ground/lake level (roughly y=0 to y=5)
-            // We aim for "The Melody Lake" logic (y=2.5) if close to center, or ground otherwise.
-            const endY = getGroundHeight(startPos.x, startPos.z);
-            const endPos = new THREE.Vector3(startPos.x, endY, startPos.z);
-
-            // If near center (lake area), ensure endPos.y is at least lake level
-            if (Math.sqrt(startPos.x*startPos.x + startPos.z*startPos.z) < 100) {
-                 if (endPos.y < 2.5) endPos.y = 2.5;
+            startPos.y -= 3.0; // Start below cloud
+            
+            // Calculate ground hit
+            let endY = getGroundHeight(startPos.x, startPos.z);
+            
+            // Lake Logic: Ensure we don't go below water level at origin
+            if (Math.sqrt(startPos.x**2 + startPos.z**2) < 50) {
+                 endY = Math.max(endY, 2.5);
             }
 
+            const endPos = new THREE.Vector3(startPos.x, endY, startPos.z);
             const waterfall = createWaterfall(startPos, endPos, 3.0 + Math.random() * 2.0);
             safeAddFoliage(waterfall, false, 2.0, weatherSystem);
+        }
+    });
+
+    // 3. Fill Empty Spaces with Grass/Generic Foliage
+    // This ensures the world doesn't look empty between the specific zones
+    fillEmptySpace();
+}
+
+function fillEmptySpace() {
+    // A simple grid check to add grass where no major zones exist
+    const GRID_SIZE = 20;
+    const RANGE = 150; 
+    
+    for (let x = -RANGE; x <= RANGE; x += GRID_SIZE) {
+        for (let z = -RANGE; z <= RANGE; z += GRID_SIZE) {
+            // Jitter
+            const jx = x + (Math.random() - 0.5) * 15;
+            const jz = z + (Math.random() - 0.5) * 15;
+
+            // Check distance to any major zone
+            let tooClose = false;
+            for (const zone of MAP_ZONES) {
+                const dx = jx - zone.x;
+                const dz = jz - zone.z;
+                if (Math.sqrt(dx*dx + dz*dz) < zone.radius * 0.8) {
+                    tooClose = true;
+                    break;
+                }
+            }
+
+            if (!tooClose) {
+                // Add generic grass/flowers in the wild
+                const y = getGroundHeight(jx, jz);
+                // Add a few grass clumps
+                for(let k=0; k<5; k++) {
+                   addGrassInstance(
+                       jx + (Math.random()-0.5)*10, 
+                       y, 
+                       jz + (Math.random()-0.5)*10
+                   );
+                }
+            }
         }
     }
 }
