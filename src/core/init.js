@@ -19,7 +19,7 @@ export function initScene() {
         throw new Error('WebGPU not supported');
     }
 
-    const renderer = new WebGPURenderer({ canvas, antialias: true, outputBufferType: 'FloatType' });
+    const renderer = new WebGPURenderer({ canvas, antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5)); // Cap pixel ratio for better performance
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
