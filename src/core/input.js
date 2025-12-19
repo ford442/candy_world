@@ -67,6 +67,10 @@ export function initInput(camera, audioSystem, toggleDayNightCallback) {
             controls.unlock(); // Unlock mouse so we can click
             playlistOverlay.style.display = 'flex';
             renderPlaylist();
+            // Focus management: focus the overlay or the close button for accessibility
+            requestAnimationFrame(() => {
+                if (closePlaylistBtn) closePlaylistBtn.focus();
+            });
         } else {
             // CLOSING
             playlistOverlay.style.display = 'none';
