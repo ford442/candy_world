@@ -31,8 +31,8 @@ self.onmessage = async (ev) => {
       module = await WebAssembly.compile(bytes);
     }
 
-    // Post compiled Module back to main thread. WebAssembly.Module is structured-cloneable
-    self.postMessage({ type: 'SUCCESS', module }, [module]);
+    // Post compiled Module back to main thread. Use structured clone (no transfer list) since WebAssembly.Module isn't always transferable
+    self.postMessage({ type: 'SUCCESS', module });
   } catch (err) {
     const errMsg = (err && err.stack) ? `${err.message}\n${err.stack}` : String(err);
     self.postMessage({ type: 'ERROR', message: errMsg });
