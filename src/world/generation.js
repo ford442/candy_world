@@ -135,7 +135,18 @@ function generateMap(weatherSystem) {
             if (item.type === 'mushroom') {
                 const isGiant = item.variant === 'giant';
                 const scale = item.scale || 1.0;
-                obj = createMushroom({ size: isGiant ? 'giant' : 'regular', scale });
+
+                // Add faces to giants and some regulars (10% chance)
+                const hasFace = isGiant || Math.random() < 0.1;
+                // Make face mushrooms bouncy
+                const isBouncy = isGiant || hasFace;
+
+                obj = createMushroom({
+                    size: isGiant ? 'giant' : 'regular',
+                    scale,
+                    hasFace,
+                    isBouncy
+                });
                 isObstacle = true;
                 radius = isGiant ? 2.0 : 0.5;
             }
@@ -236,4 +247,62 @@ function generateMap(weatherSystem) {
             console.warn(`[World] Failed to spawn ${item.type} at ${x},${z}`, e);
         }
     });
+
+    populateProceduralExtras(weatherSystem);
+}
+
+function populateProceduralExtras(weatherSystem) {
+    console.log("[World] Populating procedural extras (flowers, face mushrooms, trees, clouds)...");
+    const extrasCount = 80; // Add extra density
+    const range = 150; // Keep within central area
+
+    for (let i = 0; i < extrasCount; i++) {
+        const x = (Math.random() - 0.5) * range;
+        const z = (Math.random() - 0.5) * range;
+        const groundY = getGroundHeight(x, z);
+
+        let obj = null;
+        let isObstacle = false;
+        let radius = 0.5;
+
+        const rand = Math.random();
+
+        if (rand < 0.4) { // 40% Flowers
+             obj = Math.random() < 0.5 ? createFlower() : createGlowingFlower();
+             obj.position.set(x, groundY, z);
+        }
+        else if (rand < 0.6) { // 20% Face Mushrooms (Bouncy!)
+             // Small bouncy face mushrooms like in the concept image
+             obj = createMushroom({
+                 size: 'regular',
+                 scale: 0.8 + Math.random() * 0.5,
+                 hasFace: true,
+                 isBouncy: true
+             });
+             obj.position.set(x, groundY, z);
+             isObstacle = true;
+        }
+        else if (rand < 0.8) { // 20% Trees
+             const treeType = Math.random();
+             if (treeType < 0.33) obj = createBubbleWillow();
+             else if (treeType < 0.66) obj = createBalloonBush();
+             else obj = createHelixPlant();
+
+             obj.position.set(x, groundY, z);
+             isObstacle = true;
+             radius = 1.5;
+        }
+        else { // 20% Clouds
+             const isHigh = Math.random() < 0.5;
+             const y = isHigh ? 35 + Math.random() * 20 : 12 + Math.random() * 10;
+             obj = createRainingCloud({ size: 1.0 + Math.random() });
+             obj.position.set(x, y, z);
+        }
+
+        if (obj) {
+            obj.rotation.y = Math.random() * Math.PI * 2;
+            safeAddFoliage(obj, isObstacle, radius, weatherSystem);
+        }
+    }
+    console.log("[World] Finished populating procedural extras.");
 }
