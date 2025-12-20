@@ -120,17 +120,22 @@ export function animateFoliage(foliageObject, time, audioData, isDay, isDeepNigh
     if (reactive.length === 0) {
         // Fast path: no reactive meshes to update
     } else {
-        // Check if any child has active flash to avoid unnecessary iteration
+        // Check if any child has active flash or needs fade back to avoid unnecessary iteration
         let hasActiveFlash = false;
+        let needsFadeBack = false;
         for (let i = 0; i < reactive.length; i++) {
-            if ((reactive[i].userData.flashIntensity || 0) > 0) {
+            const child = reactive[i];
+            if ((child.userData.flashIntensity || 0) > 0) {
                 hasActiveFlash = true;
-                break;
             }
+            if (child.userData._needsFadeBack) {
+                needsFadeBack = true;
+            }
+            if (hasActiveFlash && needsFadeBack) break; // Early exit if we found both
         }
         
         // Only update materials if there's an active flash or we need to fade back
-        if (hasActiveFlash || foliageObject.userData._needsFadeBack) {
+        if (hasActiveFlash || needsFadeBack) {
             for (let i = 0; i < reactive.length; i++) {
                 const child = reactive[i];
                 let fi = child.userData.flashIntensity || 0;
@@ -166,20 +171,21 @@ export function animateFoliage(foliageObject, time, audioData, isDay, isDeepNigh
                         // keep base colors in place and allow fade-back logic to run next frame
                         delete child.userData.flashColor;
                         delete child.userData.flashDecay;
-                        foliageObject.userData._needsFadeBack = true;
+                        child.userData._needsFadeBack = true; // Mark this specific child for fade-back
                     }
-                } else if (foliageObject.userData._needsFadeBack) {
+                } else if (child.userData._needsFadeBack) {
                     // No active flash: smoothly fade materials back to their stored base colors/emissives
                     const fadeT = CONFIG.reactivity?.fadeSpeed ?? 0.06;
                     const snapThreshold = CONFIG.reactivity?.fadeSnapThreshold ?? 0.06;
+                    const snapThresholdSq = snapThreshold * snapThreshold; // Avoid sqrt in distance check
                     let allFadedBack = true;
                     
                     for (const mat of mats) {
                         if (!mat) continue;
                         if (mat.isMeshBasicMaterial) {
                             if (mat.userData && mat.userData.baseColor) {
-                                const distBefore = mat.color.distanceTo(mat.userData.baseColor);
-                                if (distBefore > snapThreshold) {
+                                const distSq = mat.color.distanceToSquared(mat.userData.baseColor);
+                                if (distSq > snapThresholdSq) {
                                     mat.color.lerp(mat.userData.baseColor, fadeT);
                                     allFadedBack = false;
                                 } else {
@@ -207,7 +213,7 @@ export function animateFoliage(foliageObject, time, audioData, isDay, isDeepNigh
                     
                     // Clear fade back flag when all materials have returned to base
                     if (allFadedBack) {
-                        foliageObject.userData._needsFadeBack = false;
+                        child.userData._needsFadeBack = false;
                     }
                 }
             }
