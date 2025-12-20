@@ -149,6 +149,12 @@
             box-shadow: 0 0 0 3px rgba(106, 90, 205, 0.5);
         }
 
+        /* Focus state for secondary buttons (like Jukebox upload) when their hidden input is focused */
+        input:focus+.secondary-button {
+            box-shadow: 0 0 0 3px rgba(106, 90, 205, 0.5);
+            outline: none;
+        }
+
         /* Improved Controls List Styles */
         .controls-container {
             margin-top: 20px;
@@ -358,8 +364,8 @@
         </ul>
         
         <div class="playlist-controls">
+            <input type="file" id="playlistUploadInput" multiple accept=".mod,.xm,.it,.s3m" class="visually-hidden">
             <label for="playlistUploadInput" class="secondary-button" aria-label="Add songs to playlist">➕ Add Songs</label>
-            <input type="file" id="playlistUploadInput" multiple accept=".mod,.xm,.it,.s3m" style="display:none">
             <button id="closePlaylistBtn" class="secondary-button" style="background: #FF6B6B;" aria-label="Close Jukebox">Close</button>
         </div>
     </div>

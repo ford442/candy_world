@@ -83,10 +83,30 @@ export function initInput(camera, audioSystem, toggleDayNightCallback) {
         closePlaylistBtn.addEventListener('click', togglePlaylist);
     }
 
+    // Helper: Show temporary success feedback on upload buttons
+    const showUploadFeedback = (labelElement, filesCount) => {
+        if (!labelElement) return;
+
+        // Save original text if not already saved
+        if (!labelElement.dataset.originalText) {
+            labelElement.dataset.originalText = labelElement.innerText;
+        }
+
+        const originalText = labelElement.dataset.originalText;
+        labelElement.innerText = `✅ ${filesCount} Song${filesCount > 1 ? 's' : ''} Added!`;
+
+        setTimeout(() => {
+            labelElement.innerText = originalText;
+        }, 2000);
+    };
+
     if (playlistUploadInput) {
         playlistUploadInput.addEventListener('change', (e) => {
-            if (e.target.files.length > 0) {
-                audioSystem.addToQueue(e.target.files);
+            const files = e.target.files;
+            if (files && files.length > 0) {
+                audioSystem.addToQueue(files);
+                const label = document.querySelector('label[for="playlistUploadInput"]');
+                showUploadFeedback(label, files.length);
             }
         });
     }
@@ -190,7 +210,8 @@ export function initInput(camera, audioSystem, toggleDayNightCallback) {
             const files = event.target.files;
             if (files && files.length > 0) {
                 audioSystem.addToQueue(files);
-                // ... (Visual feedback code from original file) ...
+                const label = document.querySelector('label[for="musicUpload"]');
+                showUploadFeedback(label, files.length);
             }
         });
     }
