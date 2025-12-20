@@ -53,9 +53,6 @@ export function attachReactivity(group) {
             child.userData.flashIntensity = 1.0 * velocity;
             child.userData.flashDecay = 0.05;
         }
-        
-        // Set dirty flag to trigger fade back after flash completes
-        group.userData._needsFadeBack = true;
 
         // Debug logging of the note/color mapping (toggle with CONFIG.debugNoteReactivity)
         if (CONFIG.debugNoteReactivity) {
