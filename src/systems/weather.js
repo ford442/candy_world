@@ -60,6 +60,13 @@ export class WeatherSystem {
         // Callback for spawning foliage into world (main.js should set this to safeAddFoliage)
         this.onSpawnFoliage = null;
 
+        // Spawn throttling to avoid occasional main-thread spikes from mass spawn checks
+        this._lastSpawnCheck = 0;           // last time we ran the heavy spawn path
+        this._spawnCapPerFrame = 3;         // maximum mushrooms to spawn per check
+        this._spawnThrottle = 0.5;         // seconds between heavy spawn checks
+        this._spawnQueue = [];
+        
+
         // Fog reference (set from main.js)
         this.fog = scene.fog;
         this.baseFogNear = scene.fog ? scene.fog.near : 20;
@@ -352,43 +359,27 @@ export class WeatherSystem {
         // (Omitted for brevity, assume WASM/JS fallback exists here as in previous file)
         const count = this.trackedMushrooms.length;
         if (this.windSpeed > 0.4 && count > 0) {
-             if (!isWasmReady() || typeof batchMushroomSpawnCandidates !== 'function') {
-                this.trackedMushrooms.forEach(m => {
-                    const colorIndex = m.userData?.colorIndex ?? -1;
-                    const colorWeight = (colorIndex >= 0 && colorIndex <= 3) ? 0.02 : 0.005;
-                    const spawnChance = colorWeight * this.windSpeed;
-                    if (Math.random() < spawnChance) {
-                        const distance = 3 + Math.random() * 8;
-                        const jitter = 2 + Math.random() * 3;
-                        const nx = m.position.x + this.windDirection.x * distance + (Math.random() - 0.5) * jitter;
-                        const nz = m.position.z + this.windDirection.z * distance + (Math.random() - 0.5) * jitter;
-                        const ny = getGroundHeight(nx, nz);
-                        const newM = createMushroom({ size: 'regular', scale: 0.7, colorIndex: colorIndex });
-                        newM.position.set(nx, ny, nz);
-                        newM.rotation.y = Math.random() * Math.PI * 2;
-                        if (this.onSpawnFoliage) {
-                            try { this.onSpawnFoliage(newM, true, 0.5); } catch (e) { console.warn('onSpawnFoliage failed', e); }
-                        } else {
-                            this.scene.add(newM);
-                            this.registerMushroom(newM);
-                        }
-                    }
-                });
-            } else {
-                try {
-                    const objects = this.trackedMushrooms.map(m => ({ x: m.position.x, y: m.position.y, z: m.position.z, radius: m.userData?.radius || 0.5 }));
-                    const animData = this.trackedMushrooms.map(m => ({ offset: 0, type: 0, originalY: m.position.y, colorIndex: m.userData?.colorIndex || 0 }));
-                    uploadPositions(objects);
-                    uploadAnimationData(animData);
-                    const spawnThreshold = 1.0;
-                    const minDistance = 3.0;
-                    const maxDistance = 8.0;
-                    const candidateCount = batchMushroomSpawnCandidates(time, this.windDirection.x, this.windDirection.z, this.windSpeed, count, spawnThreshold, minDistance, maxDistance);
-                    if (candidateCount > 0) {
-                        const candidates = readSpawnCandidates(candidateCount);
-                        for (const c of candidates) {
-                            const newM = createMushroom({ size: 'regular', scale: 0.7, colorIndex: c.colorIndex });
-                            newM.position.set(c.x, c.y, c.z);
+            // Throttle heavy spawn checks to avoid main-thread spikes
+            const now = time;
+            if (now - this._lastSpawnCheck > this._spawnThrottle) {
+                this._lastSpawnCheck = now;
+
+                if (!isWasmReady() || typeof batchMushroomSpawnCandidates !== 'function') {
+                    // JS fallback: iterate but cap number of spawns per frame
+                    let spawned = 0;
+                    for (let i = 0; i < this.trackedMushrooms.length && spawned < this._spawnCapPerFrame; i++) {
+                        const m = this.trackedMushrooms[i];
+                        const colorIndex = m.userData?.colorIndex ?? -1;
+                        const colorWeight = (colorIndex >= 0 && colorIndex <= 3) ? 0.02 : 0.005;
+                        const spawnChance = colorWeight * this.windSpeed;
+                        if (Math.random() < spawnChance) {
+                            const distance = 3 + Math.random() * 8;
+                            const jitter = 2 + Math.random() * 3;
+                            const nx = m.position.x + this.windDirection.x * distance + (Math.random() - 0.5) * jitter;
+                            const nz = m.position.z + this.windDirection.z * distance + (Math.random() - 0.5) * jitter;
+                            const ny = getGroundHeight(nx, nz);
+                            const newM = createMushroom({ size: 'regular', scale: 0.7, colorIndex: colorIndex });
+                            newM.position.set(nx, ny, nz);
                             newM.rotation.y = Math.random() * Math.PI * 2;
                             if (this.onSpawnFoliage) {
                                 try { this.onSpawnFoliage(newM, true, 0.5); } catch (e) { console.warn('onSpawnFoliage failed', e); }
@@ -396,12 +387,43 @@ export class WeatherSystem {
                                 this.scene.add(newM);
                                 this.registerMushroom(newM);
                             }
+                            spawned++;
                         }
                     }
-                } catch (e) {
-                    console.warn('WASM spawn path failed, falling back to JS:', e);
+                } else {
+                    // WASM path: run batch candidate generation but cap how many we instantiate
+                    try {
+                        const objects = this.trackedMushrooms.map(m => ({ x: m.position.x, y: m.position.y, z: m.position.z, radius: m.userData?.radius || 0.5 }));
+                        const animData = this.trackedMushrooms.map(m => ({ offset: 0, type: 0, originalY: m.position.y, colorIndex: m.userData?.colorIndex || 0 }));
+                        uploadPositions(objects);
+                        uploadAnimationData(animData);
+                        const spawnThreshold = 1.0;
+                        const minDistance = 3.0;
+                        const maxDistance = 8.0;
+                        const candidateCount = batchMushroomSpawnCandidates(time, this.windDirection.x, this.windDirection.z, this.windSpeed, count, spawnThreshold, minDistance, maxDistance);
+                        if (candidateCount > 0) {
+                            const candidates = readSpawnCandidates(candidateCount);
+                            let spawned = 0;
+                            for (const c of candidates) {
+                                if (spawned >= this._spawnCapPerFrame) break;
+                                const newM = createMushroom({ size: 'regular', scale: 0.7, colorIndex: c.colorIndex });
+                                newM.position.set(c.x, c.y, c.z);
+                                newM.rotation.y = Math.random() * Math.PI * 2;
+                                if (this.onSpawnFoliage) {
+                                    try { this.onSpawnFoliage(newM, true, 0.5); } catch (e) { console.warn('onSpawnFoliage failed', e); }
+                                } else {
+                                    this.scene.add(newM);
+                                    this.registerMushroom(newM);
+                                }
+                                spawned++;
+                            }
+                        }
+                    } catch (e) {
+                        console.warn('WASM spawn path failed, falling back to JS:', e);
+                    }
                 }
             }
+            // If spawn check is throttled this frame, skip to avoid added load
         }
     }
 
