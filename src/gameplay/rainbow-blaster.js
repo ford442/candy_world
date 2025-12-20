@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { foliageClouds } from '../world/state.js'; // The list of active clouds
 import { createCandyMaterial } from '../foliage/common.js';
+import { getCelestialState } from '../core/cycle.js'; // Import cycle check
 
 const PROJECTILES = [];
 const SPEED = 60.0;
@@ -31,7 +32,10 @@ export function fireRainbow(scene, origin, direction) {
     // playSound('pew'); 
 }
 
-export function updateBlaster(dt, scene) {
+export function updateBlaster(dt, scene, weatherSystem, currentTime) {
+    const celestial = getCelestialState(currentTime);
+    const isDay = celestial.sunIntensity > 0.5;
+
     for (let i = PROJECTILES.length - 1; i >= 0; i--) {
         const p = PROJECTILES[i];
         
@@ -42,48 +46,139 @@ export function updateBlaster(dt, scene) {
         let hit = false;
 
         // Check Collision with Clouds
-        // We iterate backwards through clouds so we can safely remove them from the list if needed
         for (let j = foliageClouds.length - 1; j >= 0; j--) {
             const cloud = foliageClouds[j];
-            
-            // Simple Sphere Collision
-            // Clouds are scaled groups, so we approximate their radius
             const cloudRadius = 3.0 * (cloud.scale.x || 1.0);
             const distSq = p.position.distanceToSquared(cloud.position);
 
             if (distSq < (cloudRadius * cloudRadius)) {
-                // HIT!
                 hit = true;
-                knockDownCloud(cloud);
+                
+                // --- NEW: Trigger Different Effects based on Time ---
+                if (isDay) {
+                    knockDownCloudMist(cloud, scene); // Day: Evaporate into Mist
+                } else {
+                    knockDownCloudDeluge(cloud, scene); // Night: Heavy Rain Burst
+                }
+
+                // Notify Weather System to reduce rain density
+                if (weatherSystem && weatherSystem.notifyCloudShot) {
+                    weatherSystem.notifyCloudShot(isDay);
+                }
+                // ----------------------------------------------------
                 break; 
             }
         }
 
-        // Cleanup
         if (hit || p.userData.life <= 0) {
             scene.remove(p);
             PROJECTILES.splice(i, 1);
         }
     }
+    
+    // Update Burst Effects (Simple particle cleanup)
+    updateBursts(dt, scene);
 }
 
-function knockDownCloud(cloud) {
-    if (cloud.userData.isFalling) return; // Already hit
+// --- NEW: Visual Effects for Cloud Destruction ---
 
-    cloud.userData.isFalling = true;
-    cloud.userData.velocity = new THREE.Vector3(
-        (Math.random() - 0.5) * 5, // Random spin/drift
-        -5.0,                      // Initial drop speed
-        (Math.random() - 0.5) * 5
-    );
+const BURSTS = [];
+
+function createBurst(scene, position, color, type) {
+    const count = 15;
+    const geo = new THREE.BufferGeometry();
+    const posArray = new Float32Array(count * 3);
+    const velArray = [];
     
-    // Flash white to indicate hit
+    for(let i=0; i<count; i++) {
+        posArray[i*3] = position.x + (Math.random()-0.5)*2;
+        posArray[i*3+1] = position.y + (Math.random()-0.5)*2;
+        posArray[i*3+2] = position.z + (Math.random()-0.5)*2;
+        
+        if (type === 'mist') {
+            // Float up/out
+            velArray.push(new THREE.Vector3((Math.random()-0.5)*2, Math.random()*2, (Math.random()-0.5)*2));
+        } else {
+            // Rain down hard
+            velArray.push(new THREE.Vector3((Math.random()-0.5)*1, -10 - Math.random()*5, (Math.random()-0.5)*1));
+        }
+    }
+    
+    geo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+    
+    const mat = new THREE.PointsMaterial({
+        color: color,
+        size: type === 'mist' ? 1.5 : 0.5,
+        transparent: true,
+        opacity: 0.8,
+        blending: THREE.AdditiveBlending
+    });
+    
+    const points = new THREE.Points(geo, mat);
+    points.userData = { velocities: velArray, life: 1.5, type: type };
+    
+    scene.add(points);
+    BURSTS.push(points);
+}
+
+function updateBursts(dt, scene) {
+    for (let i = BURSTS.length - 1; i >= 0; i--) {
+        const b = BURSTS[i];
+        b.userData.life -= dt;
+        
+        const pos = b.geometry.attributes.position.array;
+        const vels = b.userData.velocities;
+        
+        for(let k=0; k<vels.length; k++) {
+            pos[k*3] += vels[k].x * dt;
+            pos[k*3+1] += vels[k].y * dt;
+            pos[k*3+2] += vels[k].z * dt;
+        }
+        b.geometry.attributes.position.needsUpdate = true;
+        b.material.opacity = b.userData.life; // Fade out
+
+        if (b.userData.life <= 0) {
+            scene.remove(b);
+            b.geometry.dispose();
+            b.material.dispose();
+            BURSTS.splice(i, 1);
+        }
+    }
+}
+
+function knockDownCloudMist(cloud, scene) {
+    if (cloud.userData.isFalling) return;
+    cloud.userData.isFalling = true; // Mark as "dead" so we don't hit it again
+    
+    // Visual: Flash then shrinking/fading up
+    cloud.userData.velocity = new THREE.Vector3(0, 5.0, 0); // Float UP (Evaporate)
+    
+    // Create Mist Burst
+    createBurst(scene, cloud.position, 0xFFFFFF, 'mist');
+    
+    // Scale down rapidly in update loop (handled by clouds.js logic mostly, but we can override velocity)
     cloud.traverse(c => {
-        if (c.isMesh) {
-            if (c.material) {
-                c.material.emissive.setHex(0xFFFFFF);
-                c.material.emissiveIntensity = 2.0;
-            }
+        if (c.isMesh && c.material) {
+            c.material.transparent = true;
+            c.material.opacity = 0.5; // Ghostly
+        }
+    });
+}
+
+function knockDownCloudDeluge(cloud, scene) {
+    if (cloud.userData.isFalling) return;
+    cloud.userData.isFalling = true;
+
+    // Visual: Heavy Drop
+    cloud.userData.velocity = new THREE.Vector3(0, -20.0, 0); // Slam down
+    
+    // Create Rain Burst
+    createBurst(scene, cloud.position, 0x0000FF, 'rain');
+
+    cloud.traverse(c => {
+        if (c.isMesh && c.material) {
+            c.material.color.setHex(0x000088); // Turn dark blue
+            c.material.emissive.setHex(0x0000FF);
         }
     });
 }

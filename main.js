@@ -489,7 +489,7 @@ function animate() {
     updatePhysics(delta, camera, controls, keyStates, audioState);
 
     // Gameplay: Blaster projectiles & falling clouds
-    updateBlaster(delta, scene);
+    updateBlaster(delta, scene, weatherSystem, t);
     updateFallingClouds(delta, foliageClouds, getGroundHeight);
 
     renderer.render(scene, camera);

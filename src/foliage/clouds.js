@@ -1,5 +1,13 @@
 import * as THREE from 'three';
-import { attachReactivity, createClayMaterial } from './common.js';
+import { color, mix, positionLocal, float, time, sin, cos, vec3, uniform, smoothstep, normalLocal } from 'three/tsl';
+import { MeshStandardNodeMaterial } from 'three/webgpu';
+import { attachReactivity, generateNoiseTexture } from './common.js';
+
+// --- Global Uniforms for Weather Effects ---
+// We use globals so the weather system can drive the entire sky at once
+export const uCloudRainbowIntensity = uniform(0.0);
+export const uCloudLightningStrength = uniform(0.0);
+export const uCloudLightningColor = uniform(color(0xFFFFFF));
 
 export function createRainingCloud(options = {}) {
     const {
@@ -16,7 +24,8 @@ export function createRainingCloud(options = {}) {
     ];
 
     const cloudColor = color !== null ? color : cloudColors[Math.floor(Math.random() * cloudColors.length)];
-    const cloudMat = createClayMaterial(cloudColor);
+    // USE NEW MATERIAL (TSL driven)
+    const cloudMat = createStormCloudMaterial(cloudColor);
 
     const shapeType = shape === 'random'
         ? ['fluffy', 'long', 'tall', 'puffy'][Math.floor(Math.random() * 4)]
@@ -130,6 +139,41 @@ export function createRainingCloud(options = {}) {
 
 export function createDecoCloud(options = {}) {
     return createRainingCloud({ ...options, rainIntensity: 0 });
+}
+
+// --- TSL Helpers ---
+function getRainbowColor(pos, t) {
+    // Scroll rainbow based on position and time
+    const offset = pos.y.add(pos.x.mul(0.5)).add(t);
+    const r = cos(offset.mul(6.28).add(0.0)).mul(0.5).add(0.5);
+    const g = cos(offset.mul(6.28).add(0.33 * 6.28)).mul(0.5).add(0.5);
+    const b = cos(offset.mul(6.28).add(0.67 * 6.28)).mul(0.5).add(0.5);
+    return vec3(r, g, b);
+}
+
+function createStormCloudMaterial(baseColorHex) {
+    if (!generateNoiseTexture()) return new THREE.MeshStandardMaterial({ color: baseColorHex });
+
+    const material = new MeshStandardNodeMaterial({
+        color: baseColorHex,
+        roughness: 0.8,
+        metalness: 0.1,
+    });
+
+    // 1. Rainbow Effect (melody/highs driven)
+    const rainbowCol = getRainbowColor(positionLocal, time.mul(0.5));
+
+    // 2. Lightning Effect (global flash)
+    const lightningCol = uCloudLightningColor;
+
+    const rainbowMix = rainbowCol.mul(uCloudRainbowIntensity);
+    const lightningMix = lightningCol.mul(uCloudLightningStrength.mul(5.0)); // Super bright flash
+
+    material.emissiveNode = rainbowMix.add(lightningMix);
+
+    // Optionally add subtle normal perturb or rim lighting here
+
+    return material;
 }
 
 // --- Falling Cloud Helpers ---
