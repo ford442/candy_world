@@ -7,11 +7,14 @@ export function createMushroom(options = {}) {
     const {
         size = 'regular',
         scale = 1.0,
-        colorIndex = -1
+        colorIndex = -1,
+        hasFace = false,
+        isBouncy = false
     } = options;
 
     const group = new THREE.Group();
     const isGiant = size === 'giant';
+    const showFace = isGiant || hasFace;
 
     const baseScale = isGiant ? 8.0 * scale : 1.0 * scale;
     const stemH = (1.0 + Math.random() * 0.5) * baseScale;
@@ -76,10 +79,18 @@ export function createMushroom(options = {}) {
         group.add(spot);
     }
 
-    if (isGiant) {
+    if (showFace) {
         const faceGroup = new THREE.Group();
+        // Adjust position based on size
+        // For regular mushrooms, we need to be careful with positioning relative to stemR/H which are calculated above
+        // The original code used stemR * 0.95 which pushes it to the surface of the stem
         faceGroup.position.set(0, stemH * 0.6, stemR * 0.95);
-        const faceScale = baseScale;
+
+        // Scale face: For giants, baseScale is 8.0. For regular, it's 1.0.
+        // However, the original code used 'faceScale = baseScale' which meant for giants (8x), the face was 8x bigger.
+        // But for regular (1x), we might want it slightly larger relative to the stem if the stem is thin?
+        // Let's stick to baseScale first.
+        const faceScale = isGiant ? baseScale : baseScale * 0.6;
         faceGroup.scale.set(faceScale, faceScale, faceScale);
 
         const leftEye = new THREE.Mesh(eyeGeo, foliageMaterials.eye);
@@ -133,6 +144,10 @@ export function createMushroom(options = {}) {
     group.userData.animationOffset = Math.random() * 10;
     group.userData.type = 'mushroom';
     group.userData.colorIndex = typeof chosenColorIndex === 'number' ? chosenColorIndex : -1;
+
+    if (isGiant || isBouncy) {
+        group.userData.isTrampoline = true;
+    }
 
     return attachReactivity(group);
 }
