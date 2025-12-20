@@ -397,13 +397,31 @@ function animate() {
     const camPos = camera.position;
     const maxAnimationDistance = 50;
     const maxDistanceSq = maxAnimationDistance * maxAnimationDistance;
+    
+    // Time budgeting: Limit material updates to avoid audio stutter
+    // Allocate max 2ms per frame for foliage updates (leaves ~14ms for audio processing at 60fps)
+    const maxFoliageUpdateTime = 2; // milliseconds
+    const frameStartTime = performance.now();
+    let foliageUpdatesThisFrame = 0;
+    const maxFoliageUpdates = 50; // Max number of foliage objects to update per frame
 
     for (let i = 0, l = animatedFoliage.length; i < l; i++) {
         const f = animatedFoliage[i];
         const distSq = f.position.distanceToSquared(camPos);
         if (distSq > maxDistanceSq) continue;
+        
+        // Check time budget
+        if (performance.now() - frameStartTime > maxFoliageUpdateTime) {
+            break; // Skip remaining updates this frame to preserve audio performance
+        }
+        
+        // Limit number of updates per frame
+        if (foliageUpdatesThisFrame >= maxFoliageUpdates) {
+            break;
+        }
 
         animateFoliage(f, t, audioState, !isNight, isDeepNight);
+        foliageUpdatesThisFrame++;
 
         if (frameTriggers.size > 0) {
             const trigger = frameTriggers.get(f.userData.type);

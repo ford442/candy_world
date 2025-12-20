@@ -115,67 +115,103 @@ export function animateFoliage(foliageObject, time, audioData, isDay, isDeepNigh
 
     // --- Per-note flash application (emissive/color) with automatic fade-back ---
     const reactive = foliageObject.userData.reactiveMeshes || [];
-    for (let i = 0; i < reactive.length; i++) {
-        const child = reactive[i];
-        let fi = child.userData.flashIntensity || 0;
-        const decay = child.userData.flashDecay ?? 0.05;
-        const mats = Array.isArray(child.material) ? child.material : [child.material];
-
-        if (fi > 0) {
-            const fc = child.userData.flashColor || new THREE.Color(0xFFFFFF);
-            for (const mat of mats) {
-                if (!mat) continue;
-                // stronger blend for higher intensity; immediate override when very strong
-                const t = Math.min(1, fi * 1.2) * 0.8;
-                if (CONFIG.debugNoteReactivity && fi > 0.5) {
-                    try { console.log('applyFlash pre:', foliageObject.userData.type, child.name || child.uuid, 'mat=', mat.name || mat.type, 'mat.emissive=', mat.emissive?.getHexString?.(), 'target=', fc.getHexString(), 'fi=', fi); } catch (e) {}
-                }
-                if (mat.isMeshBasicMaterial) {
-                    if (fi > 0.7) mat.color.copy(fc);
-                    else mat.color.lerp(fc, t);
-                } else if (mat.emissive) {
-                    if (fi > 0.7) mat.emissive.copy(fc);
-                    else mat.emissive.lerp(fc, t);
-                    // ensure visible intensity (min floor) scaled by global flashScale
-                    mat.emissiveIntensity = Math.max(0.2, fi * (CONFIG.flashScale || 2.0));
-                }
-                if (CONFIG.debugNoteReactivity && fi > 0.5) {
-                    try { console.log('applyFlash post:', foliageObject.userData.type, child.name || child.uuid, 'mat=', mat.name || mat.type, 'mat.emissive=', mat.emissive?.getHexString?.()); } catch (e) {}
-                }
+    
+    // Fast path: skip material updates if no reactive meshes
+    if (reactive.length > 0) {
+        // Check if any child has active flash or needs fade back to avoid unnecessary iteration
+        let hasActiveFlash = false;
+        let needsFadeBack = false;
+        for (let i = 0; i < reactive.length; i++) {
+            const child = reactive[i];
+            if ((child.userData.flashIntensity || 0) > 0) {
+                hasActiveFlash = true;
             }
-
-            // decay flash intensity
-            child.userData.flashIntensity = Math.max(0, fi - decay);
-            if (child.userData.flashIntensity === 0) {
-                // keep base colors in place and allow fade-back logic to run next frame
-                delete child.userData.flashColor;
-                delete child.userData.flashDecay;
+            if (child.userData._needsFadeBack) {
+                needsFadeBack = true;
             }
-        } else {
-            // No active flash: smoothly fade materials back to their stored base colors/emissives
-            const fadeT = CONFIG.reactivity?.fadeSpeed ?? 0.06;
-            const snapThreshold = CONFIG.reactivity?.fadeSnapThreshold ?? 0.06;
-            for (const mat of mats) {
-                if (!mat) continue;
-                if (mat.isMeshBasicMaterial) {
-                    if (mat.userData && mat.userData.baseColor) {
-                        mat.color.lerp(mat.userData.baseColor, fadeT);
-                        // snap when close enough to avoid lingering tiny tints
-                        if (mat.color && mat.userData.baseColor && mat.color.distanceTo && mat.color.distanceTo(mat.userData.baseColor) < snapThreshold) {
-                            mat.color.copy(mat.userData.baseColor);
+            if (hasActiveFlash && needsFadeBack) break; // Early exit if we found both
+        }
+        
+        // Only update materials if there's an active flash or we need to fade back
+        if (hasActiveFlash || needsFadeBack) {
+            for (let i = 0; i < reactive.length; i++) {
+                const child = reactive[i];
+                let fi = child.userData.flashIntensity || 0;
+                const decay = child.userData.flashDecay ?? 0.05;
+                const mats = Array.isArray(child.material) ? child.material : [child.material];
+
+                if (fi > 0) {
+                    const fc = child.userData.flashColor || new THREE.Color(0xFFFFFF);
+                    for (const mat of mats) {
+                        if (!mat) continue;
+                        // stronger blend for higher intensity; immediate override when very strong
+                        const t = Math.min(1, fi * 1.2) * 0.8;
+                        if (CONFIG.debugNoteReactivity && fi > 0.5) {
+                            try { console.log('applyFlash pre:', foliageObject.userData.type, child.name || child.uuid, 'mat=', mat.name || mat.type, 'mat.emissive=', mat.emissive?.getHexString?.(), 'target=', fc.getHexString(), 'fi=', fi); } catch (e) {}
+                        }
+                        if (mat.isMeshBasicMaterial) {
+                            if (fi > 0.7) mat.color.copy(fc);
+                            else mat.color.lerp(fc, t);
+                        } else if (mat.emissive) {
+                            if (fi > 0.7) mat.emissive.copy(fc);
+                            else mat.emissive.lerp(fc, t);
+                            // ensure visible intensity (min floor) scaled by global flashScale
+                            mat.emissiveIntensity = Math.max(0.2, fi * (CONFIG.flashScale || 2.0));
+                        }
+                        if (CONFIG.debugNoteReactivity && fi > 0.5) {
+                            try { console.log('applyFlash post:', foliageObject.userData.type, child.name || child.uuid, 'mat=', mat.name || mat.type, 'mat.emissive=', mat.emissive?.getHexString?.()); } catch (e) {}
                         }
                     }
-                } else if (mat.emissive) {
-                    if (mat.userData && mat.userData.baseEmissive) {
-                        mat.emissive.lerp(mat.userData.baseEmissive, fadeT);
+
+                    // decay flash intensity
+                    child.userData.flashIntensity = Math.max(0, fi - decay);
+                    if (child.userData.flashIntensity === 0) {
+                        // keep base colors in place and allow fade-back logic to run next frame
+                        delete child.userData.flashColor;
+                        delete child.userData.flashDecay;
+                        child.userData._needsFadeBack = true; // Mark this specific child for fade-back
                     }
-                    // lerp emissiveIntensity back toward 0
-                    const current = mat.emissiveIntensity || 0;
-                    mat.emissiveIntensity = THREE.MathUtils.lerp(current, 0, fadeT);
-                    // If intensity is very low, snap back to base to avoid residual tint
-                    if (mat.emissiveIntensity < snapThreshold && mat.userData && mat.userData.baseEmissive) {
-                        mat.emissive.copy(mat.userData.baseEmissive);
-                        mat.emissiveIntensity = 0;
+                } else if (child.userData._needsFadeBack) {
+                    // No active flash: smoothly fade materials back to their stored base colors/emissives
+                    const fadeT = CONFIG.reactivity?.fadeSpeed ?? 0.06;
+                    const snapThreshold = CONFIG.reactivity?.fadeSnapThreshold ?? 0.06;
+                    const snapThresholdSq = snapThreshold * snapThreshold; // Avoid sqrt in distance check
+                    let allFadedBack = true;
+                    
+                    for (const mat of mats) {
+                        if (!mat) continue;
+                        if (mat.isMeshBasicMaterial) {
+                            if (mat.userData && mat.userData.baseColor && mat.color) {
+                                const distSq = mat.color.distanceToSquared(mat.userData.baseColor);
+                                if (distSq > snapThresholdSq) {
+                                    mat.color.lerp(mat.userData.baseColor, fadeT);
+                                    allFadedBack = false;
+                                } else {
+                                    mat.color.copy(mat.userData.baseColor);
+                                }
+                            }
+                        } else if (mat.emissive) {
+                            if (mat.userData && mat.userData.baseEmissive) {
+                                mat.emissive.lerp(mat.userData.baseEmissive, fadeT);
+                            }
+                            // lerp emissiveIntensity back toward 0
+                            const current = mat.emissiveIntensity || 0;
+                            if (current > snapThreshold) {
+                                mat.emissiveIntensity = THREE.MathUtils.lerp(current, 0, fadeT);
+                                allFadedBack = false;
+                            } else {
+                                // If intensity is very low, snap back to base to avoid residual tint
+                                if (mat.userData && mat.userData.baseEmissive) {
+                                    mat.emissive.copy(mat.userData.baseEmissive);
+                                }
+                                mat.emissiveIntensity = 0;
+                            }
+                        }
+                    }
+                    
+                    // Clear fade back flag when all materials have returned to base
+                    if (allFadedBack) {
+                        child.userData._needsFadeBack = false;
                     }
                 }
             }
