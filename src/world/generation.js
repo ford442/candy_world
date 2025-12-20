@@ -15,7 +15,7 @@ import {
 import { CONFIG } from '../core/config.js';
 import {
     animatedFoliage, obstacles, foliageGroup, foliageMushrooms,
-    foliageClouds, foliageTrampolines, vineSwings
+    foliageClouds, foliageTrampolines, vineSwings, worldGroup
 } from './state.js';
 import mapData from '../../assets/map.json';
 
@@ -77,6 +77,9 @@ export function initWorld(scene, weatherSystem) {
 
     // Falling Berries
     initFallingBerries(scene);
+
+    // Add the main world group (containing all generated foliage) to the scene
+    scene.add(worldGroup);
 
     // Generate Content
     generateMap(weatherSystem);
