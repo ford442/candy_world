@@ -116,10 +116,8 @@ export function animateFoliage(foliageObject, time, audioData, isDay, isDeepNigh
     // --- Per-note flash application (emissive/color) with automatic fade-back ---
     const reactive = foliageObject.userData.reactiveMeshes || [];
     
-    // Skip material updates if no reactive meshes or no active flashes
-    if (reactive.length === 0) {
-        // Fast path: no reactive meshes to update
-    } else {
+    // Fast path: skip material updates if no reactive meshes
+    if (reactive.length > 0) {
         // Check if any child has active flash or needs fade back to avoid unnecessary iteration
         let hasActiveFlash = false;
         let needsFadeBack = false;
@@ -183,7 +181,7 @@ export function animateFoliage(foliageObject, time, audioData, isDay, isDeepNigh
                     for (const mat of mats) {
                         if (!mat) continue;
                         if (mat.isMeshBasicMaterial) {
-                            if (mat.userData && mat.userData.baseColor) {
+                            if (mat.userData && mat.userData.baseColor && mat.color) {
                                 const distSq = mat.color.distanceToSquared(mat.userData.baseColor);
                                 if (distSq > snapThresholdSq) {
                                     mat.color.lerp(mat.userData.baseColor, fadeT);
