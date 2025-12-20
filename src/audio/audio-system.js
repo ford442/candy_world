@@ -82,42 +82,40 @@ export class AudioSystem {
     }
 
     async init() {
-        if (!window.libopenmptReady) {
-            console.error("libopenmptReady promise not found.");
-            return;
-        }
         try {
-            const lib = await window.libopenmptReady;
-            // Polyfills
-            if (!lib.UTF8ToString) {
-                lib.UTF8ToString = (ptr) => {
-                    let str = '';
-                    if (!ptr) return str;
-                    const heap = lib.HEAPU8;
-                    for (let i = 0; heap[ptr + i] !== 0; i++) {
-                        str += String.fromCharCode(heap[ptr + i]);
-                    }
-                    return str;
-                };
-            }
-            if (!lib.stringToUTF8) {
-                lib.stringToUTF8 = (jsString) => {
-                    const length = (jsString.length << 2) + 1;
-                    const ptr = lib._malloc(length);
-                    const heap = lib.HEAPU8;
-                    let i = 0, j = 0;
-                    while (i < jsString.length) {
-                        heap[ptr + j++] = jsString.charCodeAt(i++);
-                    }
-                    heap[ptr + j] = 0;
-                    return ptr;
-                };
-            }
-            this.libopenmpt = lib;
-            this.isReady = true;
-            console.log("AudioSystem initialized.");
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            this.audioContext = new AudioContext();
+
+            // Load the worklet processor (ensure the path is correct for your build)
+            await this.audioContext.audioWorklet.addModule('./src/audio/audio-processor.js');
+
+            // Create the Worklet node
+            this.workletNode = new AudioWorkletNode(this.audioContext, 'chiptune-processor');
+
+            // Wire up messages from the audio thread
+            this.workletNode.port.onmessage = (event) => {
+                const { type, data } = event.data || {};
+                if (type === 'VISUAL_UPDATE') {
+                    this.handleVisualUpdate(data);
+                } else if (type === 'SONG_END') {
+                    console.log("AudioSystem: Song finished (Worklet).");
+                    this.playNext();
+                } else if (type === 'READY') {
+                    this.isReady = true;
+                    console.log("AudioSystem: Worklet Ready.");
+                }
+            };
+
+            // Connect audio graph
+            this.gainNode = this.audioContext.createGain();
+            this.gainNode.gain.value = this.volume;
+
+            this.workletNode.connect(this.gainNode);
+            this.gainNode.connect(this.audioContext.destination);
+
+            console.log("AudioSystem initialized (AudioWorklet).");
         } catch (err) {
-            console.error("AudioSystem init failed:", err);
+            console.error("AudioSystem init failed (Worklet?)", err);
         }
     }
 
@@ -185,11 +183,26 @@ export class AudioSystem {
 
         try {
             const arrayBuffer = await file.arrayBuffer();
-            const fileData = new Uint8Array(arrayBuffer);
-            this.processModuleData(fileData, file.name);
+            // Send to worklet for loading/decoding (transfer the buffer)
+            if (this.workletNode && this.workletNode.port) {
+                try {
+                    this.workletNode.port.postMessage({ type: 'LOAD', fileData: arrayBuffer, fileName: file.name }, [arrayBuffer]);
+                } catch (e) {
+                    // Some browsers may not accept transferred buffer if already neutered; fall back to structured clone
+                    this.workletNode.port.postMessage({ type: 'LOAD', fileData: arrayBuffer, fileName: file.name });
+                }
+            } else {
+                console.warn('Worklet not ready to receive LOAD message. Attempting to init worklet and retry.');
+                await this.init();
+                if (this.workletNode && this.workletNode.port) {
+                    this.workletNode.port.postMessage({ type: 'LOAD', fileData: arrayBuffer, fileName: file.name }, [arrayBuffer]);
+                }
+            }
+
+            // Start playback (worklet will decode/play once module loaded)
+            await this.play();
         } catch (e) {
-            console.error("Error reading file:", e);
-            // On error, skip to next
+            console.error("Error loading file:", e);
             this.playNext();
         }
     }
@@ -264,178 +277,98 @@ export class AudioSystem {
         }
     }
 
-    play() {
-        if (this.currentModulePtr === 0 || !this.libopenmpt) return;
+    async play() {
+        if (this.isPlaying) return;
 
+        // Ensure audio context is resumed
         if (!this.audioContext) {
             const AudioContext = window.AudioContext || window.webkitAudioContext;
             this.audioContext = new AudioContext({ sampleRate: SAMPLE_RATE });
         }
+        if (this.audioContext.state === 'suspended') await this.audioContext.resume();
 
-        if (this.isPlaying) return;
-
-        try {
-            this.gainNode = this.audioContext.createGain();
-            this.gainNode.gain.value = this.volume;
-            this.gainNode.connect(this.audioContext.destination);
-
-            const lib = this.libopenmpt;
-            const modPtr = this.currentModulePtr;
-
-            // Memory Leak Fix: Re-use and manage buffers properly
-            if (this.leftBufferPtr) lib._free(this.leftBufferPtr);
-            if (this.rightBufferPtr) lib._free(this.rightBufferPtr);
-
-            this.leftBufferPtr = lib._malloc(BUFFER_SIZE * 4);
-            this.rightBufferPtr = lib._malloc(BUFFER_SIZE * 4);
-
-            // Store local consts for closure capture
-            const leftBufferPtr = this.leftBufferPtr;
-            const rightBufferPtr = this.rightBufferPtr;
-
-            this.scriptNode = this.audioContext.createScriptProcessor(BUFFER_SIZE, 0, 2);
-
-            // Capture the current node in closure
-            const currentNode = this.scriptNode;
-
-            this.scriptNode.onaudioprocess = (e) => {
-                // SAFETY GUARD: Check if we are still the active node
-                if (!this.isPlaying || this.scriptNode !== currentNode) return;
-
-                // Check if pointer is valid (rudimentary check)
-                if (modPtr === 0) return;
-
-                const frames = lib._openmpt_module_read_float_stereo(modPtr, SAMPLE_RATE, BUFFER_SIZE, leftBufferPtr, rightBufferPtr);
-
-                // Song End Detection
-                if (frames === 0) {
-                    console.log("Song finished.");
-                    // We must break the synchronous loop to load the next song
-                    // setTimeout puts this on the next event loop tick
-                    setTimeout(() => this.playNext(), 0);
-
-                    // Output silence for this frame
-                    const leftOutput = e.outputBuffer.getChannelData(0);
-                    const rightOutput = e.outputBuffer.getChannelData(1);
-                    leftOutput.fill(0);
-                    rightOutput.fill(0);
-                    return;
-                }
-
-                const leftOutput = e.outputBuffer.getChannelData(0);
-                const rightOutput = e.outputBuffer.getChannelData(1);
-                leftOutput.set(new Float32Array(lib.HEAPF32.buffer, leftBufferPtr, frames));
-                rightOutput.set(new Float32Array(lib.HEAPF32.buffer, rightBufferPtr, frames));
-            };
-
-            this.stereoPanner = this.audioContext.createStereoPanner();
-            this.scriptNode.connect(this.stereoPanner);
-            this.stereoPanner.connect(this.gainNode);
-
-            this.isPlaying = true;
-
-        } catch (e) {
-            console.error("Playback failed:", e);
+        // Ensure worklet is initialized
+        if (!this.workletNode) {
+            try { await this.init(); } catch (e) { console.warn('Worklet init failed in play()', e); }
         }
+
+        this.isPlaying = true;
     }
 
     stop(fullReset = true) {
-        // 1. Kill the audio processing immediately
-        if (this.scriptNode) {
-            this.scriptNode.onaudioprocess = null; // CRITICAL FIX
-            this.scriptNode.disconnect();
-            this.scriptNode = null;
-        }
-        if (this.stereoPanner) {
-            this.stereoPanner.disconnect();
-            this.stereoPanner = null;
+        // Notify worklet to stop and clean up
+        try {
+            if (this.workletNode && this.workletNode.port) this.workletNode.port.postMessage({ type: 'STOP' });
+        } catch (e) {
+            console.warn('Failed to signal STOP to worklet', e);
         }
 
-        // Memory Leak Fix: Free buffers
+        // Disconnect audio graph parts
+        try {
+            if (this.workletNode) {
+                try { this.workletNode.disconnect(); } catch(e) {}
+                this.workletNode = null;
+            }
+            if (this.gainNode) {
+                try { this.gainNode.disconnect(); } catch(e) {}
+                this.gainNode = null;
+            }
+        } catch (e) {
+            console.warn('Error disconnecting audio nodes:', e);
+        }
+
+        // Backwards-compat: free any local WASM buffers if present
         if (this.libopenmpt) {
-            if (this.leftBufferPtr) {
-                this.libopenmpt._free(this.leftBufferPtr);
-                this.leftBufferPtr = 0;
-            }
-            if (this.rightBufferPtr) {
-                this.libopenmpt._free(this.rightBufferPtr);
-                this.rightBufferPtr = 0;
-            }
+            try {
+                if (this.leftBufferPtr) {
+                    this.libopenmpt._free(this.leftBufferPtr);
+                    this.leftBufferPtr = 0;
+                }
+                if (this.rightBufferPtr) {
+                    this.libopenmpt._free(this.rightBufferPtr);
+                    this.rightBufferPtr = 0;
+                }
+            } catch (e) { /* ignore */ }
         }
 
         this.isPlaying = false;
 
-        if (fullReset && this.currentModulePtr && this.libopenmpt) {
-            try {
-                this.libopenmpt._openmpt_module_set_position_order_row(this.currentModulePtr, 0, 0);
-            } catch (e) {
-                console.warn("Failed to reset position:", e);
+        // There's no longer a main-thread module pointer we reset here; Worklet handles its own reset
+    }
+
+    handleVisualUpdate(data) {
+        const { bpm, channelData, anyTrigger } = data;
+        this.visualState.bpm = bpm || 120;
+        if (anyTrigger) this.visualState.kickTrigger = 1.0;
+
+        while (this.visualState.channelData.length < channelData.length) {
+            this.visualState.channelData.push({ volume: 0, pan: 0, trigger: 0, note: '', freq: 0, instrument: 0, activeEffect: 0, effectValue: 0 });
+        }
+
+        for (let i = 0; i < channelData.length; i++) {
+            const src = channelData[i];
+            const dest = this.visualState.channelData[i];
+            dest.volume = src.volume;
+            if (src.note) {
+                dest.trigger = 1.0;
+                dest.note = src.note;
+                dest.freq = noteToFreq(src.note);
             }
+            dest.instrument = src.instrument;
+            dest.activeEffect = src.activeEffect;
+            dest.effectValue = src.effectValue;
         }
     }
 
     update() {
-        if (!this.libopenmpt || this.currentModulePtr === 0 || !this.isPlaying) {
-            this.visualState.kickTrigger = decayTowards(this.visualState.kickTrigger, 0, 8, 1 / 60);
-            return this.visualState;
-        }
-
-        const lib = this.libopenmpt;
-        const modPtr = this.currentModulePtr;
-
-        const order = lib._openmpt_module_get_current_order(modPtr);
-        const row = lib._openmpt_module_get_current_row(modPtr);
-        const bpm = lib._openmpt_module_get_current_estimated_bpm(modPtr);
-        const tempo2 = lib._openmpt_module_get_current_tempo2?.(modPtr) ?? bpm;
-        const speed = lib._openmpt_module_get_current_speed?.(modPtr) ?? 6;
-
-        this.visualState.beatPhase = (this.visualState.beatPhase + (tempo2 / 60) * (1 / 60)) % 1;
+        // Run decay logic on the main thread for smooth animations
+        this.visualState.kickTrigger = decayTowards(this.visualState.kickTrigger, 0, 8, 1 / 60);
+        const speed = 6; // fallback tempo metric
         this.visualState.grooveAmount = decayTowards(this.visualState.grooveAmount, speed % 2 === 0 ? 0 : 0.1, 3, 1 / 60);
-        this.visualState.bpm = bpm || 120; // Expose BPM for musical ecosystem effects
+        this.visualState.beatPhase = (this.visualState.beatPhase + (this.visualState.bpm / 60) * (1 / 60)) % 1;
 
-        const matrix = this.patternMatrices[order];
-        const rowData = matrix?.rows[row] || [];
-        const numChannels = matrix?.numChannels || this.moduleInfo.numChannels;
-
-        while (this.visualState.channelData.length < numChannels) {
-            this.visualState.channelData.push({
-                volume: 0, pan: 0, trigger: 0, note: '', freq: 0, instrument: 0, activeEffect: 0, effectValue: 0
-            });
-        }
-
-        let anyTrigger = false;
-
-        for (let ch = 0; ch < numChannels; ch++) {
-            const vu = lib._openmpt_module_get_current_channel_vu_mono?.(modPtr, ch) ?? 0;
-            const vuL = lib._openmpt_module_get_current_channel_vu_left?.(modPtr, ch) ?? vu;
-            const vuR = lib._openmpt_module_get_current_channel_vu_right?.(modPtr, ch) ?? vu;
-            const pan = Math.max(-1, Math.min(1, vuR - vuL));
-            const volume = Math.min(1, vu);
-
-            const cell = rowData[ch];
-            const noteMatch = extractNote(cell);
-            const trigger = noteMatch ? 1 : 0;
-            const freq = noteToFreq(noteMatch);
-            const instrument = extractInstrument(cell);
-            const { activeEffect, intensity } = decodeEffectCode(cell);
-
-            if (trigger) anyTrigger = true;
-
-            const chState = this.visualState.channelData[ch];
-            chState.volume = volume;
-            chState.pan = pan;
-            chState.trigger = trigger ? 1 : decayTowards(chState.trigger, 0, 10, 1 / 60);
-            chState.note = noteMatch || chState.note;
-            chState.freq = freq || chState.freq;
-            if (trigger && instrument > 0) chState.instrument = instrument;
-            chState.activeEffect = activeEffect;
-            chState.effectValue = intensity;
-        }
-
-        if (anyTrigger) {
-            this.visualState.kickTrigger = 1;
-        } else {
-            this.visualState.kickTrigger = decayTowards(this.visualState.kickTrigger, 0, 8, 1 / 60);
+        for (const ch of this.visualState.channelData) {
+            ch.trigger = decayTowards(ch.trigger, 0, 10, 1 / 60);
         }
 
         return this.visualState;

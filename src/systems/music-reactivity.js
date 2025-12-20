@@ -36,9 +36,18 @@ export function getNoteColor(note, species = 'global') {
         }
     }
 
-    // Debug logging of resolved palette
+    // Debug logging of resolved palette (throttled to 1s)
     if (CONFIG.debugNoteReactivity) {
-        try { console.log('getNoteColor:', note, 'species=', species, 'resolvedPalette=', Object.keys(CONFIG.noteColorMap).find(k => CONFIG.noteColorMap[k] === map) || 'custom', 'noteName=', noteName, 'color=', (map[noteName] || 0xFFFFFF).toString(16)); } catch(e) {}
+        try {
+            // Use performance.now when available for higher resolution timing
+            const now = (typeof performance !== 'undefined') ? performance.now() : Date.now();
+            // Module-level throttle state
+            if (typeof getNoteColor._lastNoteLogTime === 'undefined') getNoteColor._lastNoteLogTime = 0;
+            if (now - getNoteColor._lastNoteLogTime > 1000) {
+                getNoteColor._lastNoteLogTime = now;
+                console.log('getNoteColor:', note, 'species=', species, 'resolvedPalette=', Object.keys(CONFIG.noteColorMap).find(k => CONFIG.noteColorMap[k] === map) || 'custom', 'noteName=', noteName, 'color=', (map[noteName] || 0xFFFFFF).toString(16));
+            }
+        } catch(e) {}
     }
 
     // Return color or fallback to White
