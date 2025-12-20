@@ -80,3 +80,36 @@ export function getCycleState(tRaw) {
 
     return PALETTE.night; // Fallback
 }
+
+
+// --- NEW: Helper to get celestial intensities ---
+export function getCelestialState(tRaw) {
+    const t = tRaw % CYCLE_DURATION;
+    const SUNRISE_END = DURATION_SUNRISE;
+    const SUNSET_START = DURATION_SUNRISE + DURATION_DAY;
+    const SUNSET_END = SUNSET_START + DURATION_SUNSET;
+
+    let sunIntensity = 0;
+    let moonIntensity = 0;
+
+    // Day Logic
+    if (t >= SUNRISE_END && t <= SUNSET_START) {
+        sunIntensity = 1.0;
+        moonIntensity = 0.0;
+    } else if (t < SUNRISE_END) {
+        // Sunrise: Sun fades in, Moon fades out
+        sunIntensity = t / DURATION_SUNRISE;
+        moonIntensity = 1.0 - sunIntensity;
+    } else if (t > SUNSET_START && t < SUNSET_END) {
+        // Sunset: Sun fades out, Moon fades in
+        const fade = (t - SUNSET_START) / DURATION_SUNSET;
+        sunIntensity = 1.0 - fade;
+        moonIntensity = fade;
+    } else {
+        // Night
+        sunIntensity = 0.0;
+        moonIntensity = 1.0;
+    }
+
+    return { sunIntensity, moonIntensity };
+}

@@ -144,6 +144,12 @@ export function createMushroom(options = {}) {
     group.userData.animationOffset = Math.random() * 10;
     group.userData.type = 'mushroom';
     group.userData.colorIndex = typeof chosenColorIndex === 'number' ? chosenColorIndex : -1;
+    group.userData.size = size; // Ensure size is stored
+
+    // --- NEW: Store Cap Radius and Height for Waterfalls ---
+    group.userData.capRadius = capR;
+    group.userData.capHeight = stemH;
+    // -----------------------------------------------------
 
     if (isGiant || isBouncy) {
         group.userData.isTrampoline = true;
