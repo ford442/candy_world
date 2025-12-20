@@ -20,6 +20,21 @@ import { fireRainbow, updateBlaster } from './src/gameplay/rainbow-blaster.js';
 import { updateFallingClouds } from './src/foliage/clouds.js';
 import { getGroundHeight } from './src/utils/wasm-loader.js';
 
+// Optimization: Hoist reusable objects to module scope to prevent GC in animation loop
+const COLOR_STORM_SKY_TOP = new THREE.Color(0x1A1A2E);
+const COLOR_STORM_SKY_BOT = new THREE.Color(0x2E3A59);
+const COLOR_STORM_FOG = new THREE.Color(0x4A5568);
+const COLOR_RAIN = new THREE.Color(0xA0B5C8);
+const COLOR_RAIN_FOG = new THREE.Color(0xC0D0E0);
+const COLOR_WIND_VECTOR = new THREE.Vector3(0, 1, 0);
+
+const _weatherBiasOutput = { biasState: 'clear', biasIntensity: 0, type: 'clear' };
+const _frameTriggerData = {
+    flower: { active: false, note: 60, volume: 0 },
+    mushroom: { active: false, note: 60, volume: 0 },
+    tree: { active: false, note: 60, volume: 0 }
+};
+
 // --- Initialization ---
 
 // 1. Scene & Render Loop Setup
@@ -157,21 +172,33 @@ function getWeatherForTimeOfDay(cyclePos, audioData) {
     const SUNSET = DURATION_SUNSET;
     const DUSK = 180; // DURATION_DUSK_NIGHT
     
+    // Default reset
+    _weatherBiasOutput.biasState = 'clear';
+    _weatherBiasOutput.biasIntensity = 0;
+    _weatherBiasOutput.type = 'clear';
+
     if (cyclePos < SUNRISE + 60) {
         const progress = (cyclePos / (SUNRISE + 60));
-        return { biasState: 'rain', biasIntensity: 0.3 * (1 - progress), type: 'mist' };
+        _weatherBiasOutput.biasState = 'rain';
+        _weatherBiasOutput.biasIntensity = 0.3 * (1 - progress);
+        _weatherBiasOutput.type = 'mist';
     }
     else if (cyclePos > SUNRISE + 120 && cyclePos < SUNRISE + DAY - 60) {
         const stormChance = 0.0003;
         if (Math.random() < stormChance) {
-            return { biasState: 'storm', biasIntensity: 0.7 + Math.random() * 0.3, type: 'thunderstorm' };
+             _weatherBiasOutput.biasState = 'storm';
+             _weatherBiasOutput.biasIntensity = 0.7 + Math.random() * 0.3;
+             _weatherBiasOutput.type = 'thunderstorm';
         }
     }
     else if (cyclePos > SUNRISE + DAY && cyclePos < SUNRISE + DAY + SUNSET + DUSK / 2) {
         const progress = (cyclePos - SUNRISE - DAY) / (SUNSET + DUSK / 2);
-        return { biasState: 'rain', biasIntensity: 0.3 + progress * 0.2, type: 'drizzle' };
+         _weatherBiasOutput.biasState = 'rain';
+         _weatherBiasOutput.biasIntensity = 0.3 + progress * 0.2;
+         _weatherBiasOutput.type = 'drizzle';
     }
-    return { biasState: 'clear', biasIntensity: 0, type: 'clear' };
+
+    return _weatherBiasOutput;
 }
 
 function animate() {
@@ -245,15 +272,13 @@ function animate() {
     const baseFog = currentState.fog.clone();
     
     if (weatherState === WeatherState.STORM) {
-        const stormColor = new THREE.Color(0x1A1A2E);
-        baseSkyTop.lerp(stormColor, weatherIntensity * 0.6);
-        baseSkyBot.lerp(new THREE.Color(0x2E3A59), weatherIntensity * 0.5);
-        baseFog.lerp(new THREE.Color(0x4A5568), weatherIntensity * 0.4);
+        baseSkyTop.lerp(COLOR_STORM_SKY_TOP, weatherIntensity * 0.6);
+        baseSkyBot.lerp(COLOR_STORM_SKY_BOT, weatherIntensity * 0.5);
+        baseFog.lerp(COLOR_STORM_FOG, weatherIntensity * 0.4);
     } else if (weatherState === WeatherState.RAIN) {
-        const rainColor = new THREE.Color(0xA0B5C8);
-        baseSkyTop.lerp(rainColor, weatherIntensity * 0.3);
-        baseSkyBot.lerp(rainColor, weatherIntensity * 0.25);
-        baseFog.lerp(new THREE.Color(0xC0D0E0), weatherIntensity * 0.2);
+        baseSkyTop.lerp(COLOR_RAIN, weatherIntensity * 0.3);
+        baseSkyBot.lerp(COLOR_RAIN, weatherIntensity * 0.25);
+        baseFog.lerp(COLOR_RAIN_FOG, weatherIntensity * 0.2);
     }
     
     uSkyTopColor.value.copy(baseSkyTop);
@@ -381,14 +406,27 @@ function animate() {
     const isDeepNight = (cyclePos >= deepNightStart && cyclePos < deepNightEnd);
 
     // Foliage Animation & Reactivity
-    const frameTriggers = new Map();
+    // Optimization: Reuse trigger data objects to avoid GC
+    _frameTriggerData.flower.active = false;
+    _frameTriggerData.mushroom.active = false;
+    _frameTriggerData.tree.active = false;
+    let hasTriggers = false;
+
     if (audioState && audioState.channelData) {
         audioState.channelData.forEach(ch => {
             if (ch.trigger > 0.5) {
                 let species = 'flower';
                 if (ch.instrument === 1 || ch.freq < 200) species = 'mushroom';
                 if (ch.instrument === 2) species = 'tree';
-                frameTriggers.set(species, { note: ch.note || 60, volume: ch.volume });
+
+                const data = _frameTriggerData[species];
+                if (data) {
+                    data.active = true;
+                    data.note = ch.note || 60;
+                    data.volume = ch.volume;
+                    hasTriggers = true;
+                }
+
                 if (species === 'tree' && isNight) triggerMoonBlink(moon);
             }
         });
@@ -423,9 +461,9 @@ function animate() {
         animateFoliage(f, t, audioState, !isNight, isDeepNight);
         foliageUpdatesThisFrame++;
 
-        if (frameTriggers.size > 0) {
-            const trigger = frameTriggers.get(f.userData.type);
-            if (trigger) {
+        if (hasTriggers) {
+            const trigger = _frameTriggerData[f.userData.type];
+            if (trigger && trigger.active) {
                  musicReactivity.reactObject(f, trigger.note, trigger.volume);
             }
         }
