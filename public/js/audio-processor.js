@@ -1,9 +1,10 @@
-// src/audio/audio-processor.js
+// public/js/audio-processor.js
 
-// We assume libopenmpt.js is available at this path in your public folder.
-importScripts('/js/libopenmpt.js');
+// 1. Use ES Module Import instead of importScripts
+// Note: This expects libopenmpt.js to be accessible at /js/libopenmpt.js
+import '/js/libopenmpt.js'; 
 
-// Helper functions (portions ported from AudioSystem)
+// Helper functions 
 const lerp = (a, b, t) => a + (b - a) * t;
 const decayTowards = (value, target, rate, dt) => lerp(value, target, 1 - Math.exp(-rate * dt));
 const extractNote = (cell) => cell?.text?.match(/[A-G][#-]?\d/)?.[0];
@@ -12,16 +13,6 @@ const extractInstrument = (cell) => {
     const match = cell.text.match(/[A-G\.-][#\.-][\d\.-]\s+(\d+|[0-9A-F]{2})/i);
     if (match) return parseInt(match[1], 10) || parseInt(match[1], 16) || 0;
     return 0;
-};
-const noteToFreq = (note) => {
-    if (!note) return 0;
-    const n = note.toUpperCase();
-    const map = { C: 0, 'C#': 1, DB: 1, D: 2, 'D#': 3, EB: 3, E: 4, F: 5, 'F#': 6, GB: 6, G: 7, 'G#': 8, AB: 8, A: 9, 'A#': 10, BB: 10, B: 11 };
-    const match = n.match(/^([A-G](?:#|B)?)\-?(\d)$/);
-    if (!match) return 0;
-    const semitone = map[match[1]] ?? 0;
-    const midi = (parseInt(match[2], 10) + 1) * 12 + semitone;
-    return 440 * Math.pow(2, (midi - 69) / 12);
 };
 const decodeEffectCode = (cell) => {
     if (!cell?.text) return { activeEffect: 0, intensity: 0 };
@@ -47,27 +38,31 @@ class ChiptuneProcessor extends AudioWorkletProcessor {
         this.libopenmpt = null;
         this.currentModulePtr = 0;
         this.isReady = false;
-
+        
         this.leftBufferPtr = 0;
         this.rightBufferPtr = 0;
-
-        // Internal state for visuals
+        
         this.moduleInfo = { numChannels: 0 };
         this.patternMatrices = {};
-
-        // Message port handling
+        
         this.port.onmessage = this.handleMessage.bind(this);
-
+        
         this.initLib();
     }
-
+    
     async initLib() {
         try {
-            // libopenmpt is loaded via importScripts, so 'libopenmpt' global should exist
-            if (typeof libopenmpt !== 'undefined') {
-                const lib = await libopenmpt({});
+            // 2. Check for the global object
+            // Since we are in a module, we look for it on 'self' or 'globalThis'
+            // NOTE: You must modify libopenmpt.js to ensure it attaches to 'self' (see Step 2 below)
+            const libFactory = self.libopenmpt || globalThis.libopenmpt;
 
-                // Add Polyfills if missing (copied from original system)
+            if (typeof libFactory !== 'undefined') {
+                const lib = await libFactory({
+                    locateFile: (path) => '/js/' + path // Help it find the .wasm file
+                });
+                
+                // Polyfills
                 if (!lib.UTF8ToString) {
                     lib.UTF8ToString = (ptr) => {
                         let str = '';
@@ -79,18 +74,18 @@ class ChiptuneProcessor extends AudioWorkletProcessor {
                         return str;
                     };
                 }
-
+                
                 this.libopenmpt = lib;
                 this.isReady = true;
                 this.port.postMessage({ type: 'READY' });
             } else {
-                console.error("libopenmpt global not found in Worklet");
+                console.error("libopenmpt global not found. Ensure public/js/libopenmpt.js assigns 'self.libopenmpt = ...'");
             }
         } catch (e) {
             console.error("Failed to init libopenmpt in Worklet", e);
         }
     }
-
+    
     handleMessage(event) {
         const { type, data } = event.data;
         if (type === 'LOAD') {
@@ -99,51 +94,49 @@ class ChiptuneProcessor extends AudioWorkletProcessor {
             this.stop();
         }
     }
-
+    
     stop() {
         if (this.currentModulePtr && this.libopenmpt) {
-            try { this.libopenmpt._openmpt_module_destroy(this.currentModulePtr); } catch(e) {}
+            this.libopenmpt._openmpt_module_destroy(this.currentModulePtr);
             this.currentModulePtr = 0;
         }
-        // Free buffers
         if (this.libopenmpt) {
-            if (this.leftBufferPtr) try { this.libopenmpt._free(this.leftBufferPtr); } catch(e) {}
-            if (this.rightBufferPtr) try { this.libopenmpt._free(this.rightBufferPtr); } catch(e) {}
+            if (this.leftBufferPtr) this.libopenmpt._free(this.leftBufferPtr);
+            if (this.rightBufferPtr) this.libopenmpt._free(this.rightBufferPtr);
             this.leftBufferPtr = 0;
             this.rightBufferPtr = 0;
         }
     }
-
+    
     loadModule(fileData, fileName) {
         if (!this.isReady) return;
-        this.stop(); // Cleanup previous
-
+        this.stop(); 
+        
         try {
             const lib = this.libopenmpt;
             const bufferPtr = lib._malloc(fileData.byteLength);
             lib.HEAPU8.set(new Uint8Array(fileData), bufferPtr);
-
+            
             const modPtr = lib._openmpt_module_create_from_memory2(bufferPtr, fileData.byteLength, 0, 0, 0, 0, 0, 0, 0);
             lib._free(bufferPtr);
-
+            
             if (modPtr === 0) {
                 console.error(`Failed to load module ${fileName}`);
-                this.port.postMessage({ type: 'SONG_END' });
+                this.port.postMessage({ type: 'SONG_END' }); 
                 return;
             }
-
+            
             this.currentModulePtr = modPtr;
             this.preCachePatternData(modPtr);
-
-            // Alloc buffers
-            this.leftBufferPtr = lib._malloc(128 * 4);
+            
+            this.leftBufferPtr = lib._malloc(128 * 4); 
             this.rightBufferPtr = lib._malloc(128 * 4);
-
+            
         } catch (e) {
             console.error("Worklet load error:", e);
         }
     }
-
+    
     preCachePatternData(modPtr) {
         const lib = this.libopenmpt;
         this.patternMatrices = {};
@@ -177,23 +170,21 @@ class ChiptuneProcessor extends AudioWorkletProcessor {
     process(inputs, outputs, parameters) {
         const output = outputs[0];
         if (!output) return true;
-
+        
         if (!this.currentModulePtr || !this.isReady) {
-            // Silence
             return true;
         }
 
         const lib = this.libopenmpt;
         const modPtr = this.currentModulePtr;
-        const sampleRate = globalThis.sampleRate; // global in Worklet
-        const bufferSize = output[0].length; // usually 128
+        const sampleRate = globalThis.sampleRate; // Worklet Global
+        const bufferSize = output[0].length;
 
-        // Read Audio
         const frames = lib._openmpt_module_read_float_stereo(
-            modPtr,
-            sampleRate,
-            bufferSize,
-            this.leftBufferPtr,
+            modPtr, 
+            sampleRate, 
+            bufferSize, 
+            this.leftBufferPtr, 
             this.rightBufferPtr
         );
 
@@ -204,17 +195,15 @@ class ChiptuneProcessor extends AudioWorkletProcessor {
 
         const leftChannel = output[0];
         const rightChannel = output[1];
-
         const heap = lib.HEAPF32;
-
+        
+        // Optimize: use subarray if possible, but loop is safe
         for (let i = 0; i < bufferSize; i++) {
             leftChannel[i] = heap[(this.leftBufferPtr >> 2) + i];
             if (rightChannel) rightChannel[i] = heap[(this.rightBufferPtr >> 2) + i];
         }
-
-        // Visual extraction
+        
         this.processVisuals(modPtr);
-
         return true;
     }
 
@@ -223,22 +212,21 @@ class ChiptuneProcessor extends AudioWorkletProcessor {
         const order = lib._openmpt_module_get_current_order(modPtr);
         const row = lib._openmpt_module_get_current_row(modPtr);
         const bpm = lib._openmpt_module_get_current_estimated_bpm(modPtr);
-
+        
         const matrix = this.patternMatrices[order];
         const rowData = matrix?.rows[row] || [];
         const numChannels = this.moduleInfo.numChannels;
-
+        
         const channelData = [];
         let anyTrigger = false;
 
         for (let ch = 0; ch < numChannels; ch++) {
             const vu = lib._openmpt_module_get_current_channel_vu_mono(modPtr, ch);
             const cell = rowData[ch];
-
             const noteMatch = extractNote(cell);
             const instrument = extractInstrument(cell);
             const { activeEffect, intensity } = decodeEffectCode(cell);
-
+            
             if (noteMatch) anyTrigger = true;
 
             channelData.push({
@@ -249,8 +237,11 @@ class ChiptuneProcessor extends AudioWorkletProcessor {
                 effectValue: intensity
             });
         }
-
-        this.port.postMessage({ type: 'VISUAL_UPDATE', data: { bpm, channelData, anyTrigger } });
+        
+        this.port.postMessage({
+            type: 'VISUAL_UPDATE',
+            data: { bpm, channelData, anyTrigger }
+        });
     }
 }
 
