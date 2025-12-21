@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { uWindSpeed, uWindDirection, uSkyTopColor, uSkyBottomColor, uHorizonColor, uAtmosphereIntensity, uStarPulse, uStarOpacity, updateMoon, animateFoliage, updateFoliageMaterials, updateFireflies, updateFallingBerries, collectFallingBerries, createFlower, createMushroom } from './src/foliage/index.js';
 import { initCelestialBodies } from './src/foliage/celestial-bodies.js';
-import { MusicReactivity, updateMusicReactivity } from './src/systems/music-reactivity.js';
+import { MusicReactivitySystem } from './src/systems/music-reactivity.js';
 import { AudioSystem } from './src/audio/audio-system.js';
 import { BeatSync } from './src/audio/beat-sync.js';
 import { WeatherSystem, WeatherState } from './src/systems/weather.js';
