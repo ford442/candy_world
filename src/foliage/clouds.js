@@ -134,7 +134,8 @@ export function createRainingCloud(options = {}) {
     group.userData.shapeType = shapeType;
     group.userData.cloudColor = cloudColor;
 
-    return attachReactivity(group);
+    // Clouds ignore light levels (Always reactive)
+    return attachReactivity(group, { minLight: 0.0, maxLight: 1.0 });
 }
 
 export function createDecoCloud(options = {}) {

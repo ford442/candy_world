@@ -20,7 +20,11 @@ export function registerReactiveMaterial(mat) {
 }
 
 // --- Reactivity Mixin ---
-export function attachReactivity(group) {
+export function attachReactivity(group, options = {}) {
+    // Set Light Preferences (default: always reactive)
+    group.userData.minLight = options.minLight !== undefined ? options.minLight : 0.0;
+    group.userData.maxLight = options.maxLight !== undefined ? options.maxLight : 1.0;
+
     // Optimization: Cache reactive meshes to avoid expensive scene graph traversal on every note trigger
     const reactiveMeshes = [];
     group.traverse((child) => {

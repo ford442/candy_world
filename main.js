@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { uWindSpeed, uWindDirection, uSkyTopColor, uSkyBottomColor, uHorizonColor, uAtmosphereIntensity, uStarPulse, uStarOpacity, updateMoon, triggerMoonBlink, animateFoliage, updateFoliageMaterials, updateFireflies, updateFallingBerries, collectFallingBerries, createFlower, createMushroom } from './src/foliage/index.js';
-import { MusicReactivity } from './src/systems/music-reactivity.js';
+import { uWindSpeed, uWindDirection, uSkyTopColor, uSkyBottomColor, uHorizonColor, uAtmosphereIntensity, uStarPulse, uStarOpacity, updateMoon, updateFoliageMaterials, updateFireflies, updateFallingBerries, collectFallingBerries, createFlower, createMushroom } from './src/foliage/index.js';
+import { MusicReactivitySystem } from './src/systems/music-reactivity.js';
 import { AudioSystem } from './src/audio/audio-system.js';
 import { BeatSync } from './src/audio/beat-sync.js';
 import { WeatherSystem, WeatherState } from './src/systems/weather.js';
@@ -29,11 +29,6 @@ const COLOR_RAIN_FOG = new THREE.Color(0xC0D0E0);
 const COLOR_WIND_VECTOR = new THREE.Vector3(0, 1, 0);
 
 const _weatherBiasOutput = { biasState: 'clear', biasIntensity: 0, type: 'clear' };
-const _frameTriggerData = {
-    flower: { active: false, note: 60, volume: 0 },
-    mushroom: { active: false, note: 60, volume: 0 },
-    tree: { active: false, note: 60, volume: 0 }
-};
 
 // --- Initialization ---
 
@@ -43,7 +38,7 @@ const { scene, camera, renderer, ambientLight, sunLight, sunGlow, sunCorona, lig
 // 2. Audio & Systems
 const audioSystem = new AudioSystem();
 const beatSync = new BeatSync(audioSystem);
-const musicReactivity = new MusicReactivity(scene, {}); // Config moved to internal default or passed if needed
+const musicReactivity = new MusicReactivitySystem(scene, {}); // Config moved to internal default or passed if needed
 const weatherSystem = new WeatherSystem(scene);
 
 // 3. World Generation
@@ -405,69 +400,8 @@ function animate() {
     const deepNightEnd = deepNightStart + DURATION_DEEP_NIGHT;
     const isDeepNight = (cyclePos >= deepNightStart && cyclePos < deepNightEnd);
 
-    // Foliage Animation & Reactivity
-    // Optimization: Reuse trigger data objects to avoid GC
-    _frameTriggerData.flower.active = false;
-    _frameTriggerData.mushroom.active = false;
-    _frameTriggerData.tree.active = false;
-    let hasTriggers = false;
-
-    if (audioState && audioState.channelData) {
-        audioState.channelData.forEach(ch => {
-            if (ch.trigger > 0.5) {
-                let species = 'flower';
-                if (ch.instrument === 1 || ch.freq < 200) species = 'mushroom';
-                if (ch.instrument === 2) species = 'tree';
-
-                const data = _frameTriggerData[species];
-                if (data) {
-                    data.active = true;
-                    data.note = ch.note || 60;
-                    data.volume = ch.volume;
-                    hasTriggers = true;
-                }
-
-                if (species === 'tree' && isNight) triggerMoonBlink(moon);
-            }
-        });
-    }
-
-    const camPos = camera.position;
-    const maxAnimationDistance = 50;
-    const maxDistanceSq = maxAnimationDistance * maxAnimationDistance;
-    
-    // Time budgeting: Limit material updates to avoid audio stutter
-    // Allocate max 2ms per frame for foliage updates (leaves ~14ms for audio processing at 60fps)
-    const maxFoliageUpdateTime = 2; // milliseconds
-    const frameStartTime = performance.now();
-    let foliageUpdatesThisFrame = 0;
-    const maxFoliageUpdates = 50; // Max number of foliage objects to update per frame
-
-    for (let i = 0, l = animatedFoliage.length; i < l; i++) {
-        const f = animatedFoliage[i];
-        const distSq = f.position.distanceToSquared(camPos);
-        if (distSq > maxDistanceSq) continue;
-        
-        // Check time budget
-        if (performance.now() - frameStartTime > maxFoliageUpdateTime) {
-            break; // Skip remaining updates this frame to preserve audio performance
-        }
-        
-        // Limit number of updates per frame
-        if (foliageUpdatesThisFrame >= maxFoliageUpdates) {
-            break;
-        }
-
-        animateFoliage(f, t, audioState, !isNight, isDeepNight);
-        foliageUpdatesThisFrame++;
-
-        if (hasTriggers) {
-            const trigger = _frameTriggerData[f.userData.type];
-            if (trigger && trigger.active) {
-                 musicReactivity.reactObject(f, trigger.note, trigger.volume);
-            }
-        }
-    }
+    // Foliage Animation & Reactivity (Delegated to MusicReactivitySystem)
+    musicReactivity.update(t, audioState, weatherSystem, animatedFoliage, camera, isNight, isDeepNight, moon);
 
     // Fireflies
     if (fireflies) {
