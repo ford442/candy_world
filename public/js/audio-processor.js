@@ -50,33 +50,62 @@ class ChiptuneProcessor extends AudioWorkletProcessor {
     
     async initLib() {
         try {
-            // --- FIX: Use globalThis instead of self ---
-            const libFactory = globalThis.libopenmpt;
-            // -------------------------------------------
+            // --- FIX: Accept both factory and already-initialized Module object ---
+            const libGlobal = globalThis.libopenmpt || globalThis.Module || null;
 
-            if (typeof libFactory !== 'undefined') {
-                const lib = await libFactory({
-                    locateFile: (path) => '/js/' + path 
-                });
-                
-                if (!lib.UTF8ToString) {
-                    lib.UTF8ToString = (ptr) => {
-                        let str = '';
-                        if (!ptr) return str;
-                        const heap = lib.HEAPU8;
-                        for (let i = 0; heap[ptr + i] !== 0; i++) {
-                            str += String.fromCharCode(heap[ptr + i]);
-                        }
-                        return str;
-                    };
+            // Determine a base URL to resolve any locateFile calls. Prefer import.meta.url when it's a normal http(s) URL.
+            const fallbackLocateBase = '/js/';
+            const computedBase = (function() {
+                try {
+                    const u = new URL(import.meta.url);
+                    if (u.protocol === 'http:' || u.protocol === 'https:') {
+                        return u.href.substring(0, u.href.lastIndexOf('/') + 1);
+                    }
+                } catch (err) {
+                    // ignore
                 }
-                
-                this.libopenmpt = lib;
-                this.isReady = true;
-                this.port.postMessage({ type: 'READY' });
+                return fallbackLocateBase;
+            })();
+
+            let lib = null;
+
+            if (typeof libGlobal === 'function') {
+                // Emscripten modularized build - call factory with locateFile pointing at the lib script's folder
+                lib = await libGlobal({ locateFile: (path) => new URL(path, computedBase).href });
+            } else if (libGlobal && typeof libGlobal.then === 'function') {
+                // Promise-like (rare) - await it
+                lib = await libGlobal;
+            } else if (libGlobal && typeof libGlobal === 'object') {
+                // Already-initialized Module object (or in-progress). Wait for it to be ready if necessary.
+                lib = libGlobal;
+                const deadline = Date.now() + 5000;
+                while (!(lib && (lib._malloc || lib.cwrap || lib.HEAPU8)) && Date.now() < deadline) {
+                    await new Promise(r => setTimeout(r, 50));
+                }
+                if (!(lib && (lib._malloc || lib.cwrap || lib.HEAPU8))) {
+                    throw new Error('libopenmpt present but failed to initialize within timeout');
+                }
             } else {
                 console.error("libopenmpt global not found. Ensure public/js/libopenmpt.js assigns 'globalThis.libopenmpt = ...'");
+                return;
             }
+
+            // Polyfills for older builds
+            if (!lib.UTF8ToString) {
+                lib.UTF8ToString = (ptr) => {
+                    let str = '';
+                    if (!ptr) return str;
+                    const heap = lib.HEAPU8;
+                    for (let i = 0; heap[ptr + i] !== 0; i++) {
+                        str += String.fromCharCode(heap[ptr + i]);
+                    }
+                    return str;
+                };
+            }
+
+            this.libopenmpt = lib;
+            this.isReady = true;
+            this.port.postMessage({ type: 'READY' });
         } catch (e) {
             console.error("Failed to init libopenmpt in Worklet", e);
         }
