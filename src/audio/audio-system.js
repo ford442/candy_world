@@ -86,19 +86,69 @@ export class AudioSystem {
             const AudioContext = window.AudioContext || window.webkitAudioContext;
             this.audioContext = new AudioContext();
 
-            // --- PATH DEBUGGING FIX ---
+            // --- PATH DEBUGGING & PRE-FETCH FIX ---
             // Calculate the absolute path to the 'js' folder based on the current page
             // This works for localhost, production, and subdirectories (e.g. GitHub Pages)
             const basePath = window.location.href.substring(0, window.location.href.lastIndexOf('/') + 1);
             const workletUrl = basePath + 'js/audio-processor.js';
-            
+
             console.log(`[AudioSystem] Attempting to load Worklet from: ${workletUrl}`);
 
             try {
-                await this.audioContext.audioWorklet.addModule(workletUrl);
+                // First fetch the file to inspect status and content (helps detect SPA rewrites or HTML 404 responses)
+                const res = await fetch(workletUrl, { cache: 'no-store' });
+                if (!res.ok) {
+                    console.error(`[AudioSystem] Worklet fetch failed with status=${res.status} for ${workletUrl}`);
+                    throw new Error(`Worklet fetch failed: ${res.status}`);
+                }
+
+                const contentType = res.headers.get('content-type') || '';
+                let text = await res.text();
+
+                // If the response looks like HTML (SPA fallback) or is unexpectedly small, try root '/js/' fallback
+                const looksLikeHTML = text.trim().startsWith('<');
+                if (text.trim().length < 20 || looksLikeHTML) {
+                    console.warn(`[AudioSystem] Worklet content at ${workletUrl} looks suspicious (length=${text.length}, looksLikeHTML=${looksLikeHTML}). Trying root '/js/audio-processor.js' as a fallback.`);
+                    try {
+                        const rootRes = await fetch('/js/audio-processor.js', { cache: 'no-store' });
+                        if (rootRes.ok) {
+                            const rootCT = rootRes.headers.get('content-type') || '';
+                            const rootText = await rootRes.text();
+                            if (rootText.trim().length > 20 && (/javascript|ecmascript|module/.test(rootCT) || /\b(import|registerProcessor|class)\b/.test(rootText.slice(0, 200)))) {
+                                console.log('[AudioSystem] Fallback /js/audio-processor.js looks like valid JS. Using it.');
+                                text = rootText;
+                            } else {
+                                console.warn('[AudioSystem] Fallback /js/audio-processor.js did not contain valid JS.');
+                            }
+                        } else {
+                            console.warn(`[AudioSystem] Fallback fetch failed with status=${rootRes.status}`);
+                        }
+                    } catch (fallbackErr) {
+                        console.warn('[AudioSystem] Fallback fetch for /js/audio-processor.js failed', fallbackErr);
+                    }
+
+                    if (text.trim().length < 20 || text.trim().startsWith('<')) {
+                        console.error(`[AudioSystem] Worklet content is invalid after fallback. First chars: ${text.slice(0, 160)}`);
+                        throw new Error('Worklet content invalid or HTML fallback');
+                    }
+                }
+
+                if (!/javascript|ecmascript|module/.test(contentType) && !/\b(import|registerProcessor|class)\b/.test(text.slice(0, 200))) {
+                    console.warn(`[AudioSystem] Worklet content-type="${contentType}" and file does not look like JS. First chars: ${text.slice(0, 120)}`);
+                }
+
+                // Use a blob URL to ensure the exact fetched content is what we pass to addModule
+                const blobUrl = URL.createObjectURL(new Blob([text], { type: 'application/javascript' }));
+                try {
+                    await this.audioContext.audioWorklet.addModule(blobUrl);
+                    URL.revokeObjectURL(blobUrl);
+                } catch (e) {
+                    console.error(`[AudioSystem] addModule failed for blob derived from ${workletUrl}`);
+                    throw e;
+                }
             } catch (e) {
-                console.error(`[AudioSystem] Failed to load worklet at ${workletUrl}. Check the Network tab in DevTools for 404s.`);
-                throw e; 
+                console.error(`[AudioSystem] Failed to load worklet at ${workletUrl}. Check the Network tab in DevTools for 404s or HTML responses.`);
+                throw e;
             }
             // --------------------------
 
