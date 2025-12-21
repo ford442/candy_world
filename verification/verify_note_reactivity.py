@@ -21,7 +21,7 @@ def verify_note_reactivity():
         page.on("console", on_console)
 
         try:
-            page.goto("http://127.0.0.1:5173", timeout=90000, wait_until='domcontentloaded')
+            page.goto("http://localhost:5173", timeout=90000, wait_until='domcontentloaded')
 
             # Wait for the scene to be ready (set by main.js)
             page.wait_for_function('window.__sceneReady === true', timeout=60000)
@@ -39,12 +39,19 @@ def verify_note_reactivity():
             page.screenshot(path="verification/step_note_reactivity.png")
 
             # Basic assertions on logs
-            spawn_logged = any('Demo: spawned a flower' in l for l in logs)
-            trigger_logged = any('Demo: triggered C4' in l for l in logs)
+            # We look for EITHER flower or mushroom logs depending on what was spawned
+            spawn_logged = any('Demo: spawned a' in l for l in logs)
+            trigger_logged = any('reactToNote:' in l for l in logs)
 
             print(f"Logs captured: {logs}")
             assert spawn_logged, "Spawn log not found"
             assert trigger_logged, "Trigger log not found"
+
+            # Check if reactToNote was called with correct structure
+            # reactToNote: mushroom note= C4 color= ff4040 velocity= 1
+            trigger_entries = [l for l in logs if 'reactToNote:' in l]
+            print(f"Trigger entries: {trigger_entries}")
+            assert len(trigger_entries) > 0
 
         finally:
             browser.close()

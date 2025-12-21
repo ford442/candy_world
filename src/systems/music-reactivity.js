@@ -79,6 +79,11 @@ export class MusicReactivitySystem {
         }
     }
 
+    // --- USER CHANGE: Added helper to check if object is currently active ---
+    isObjectActive(object) {
+        return object.visible;
+    }
+
     /**
      * Main update loop for foliage animation and reactivity.
      * Moved from main.js to encapsulate photosensitivity logic.
@@ -153,6 +158,12 @@ export class MusicReactivitySystem {
             if (foliageUpdatesThisFrame >= maxFoliageUpdates) {
                 break;
             }
+
+            // --- USER CHANGE: Added 'wobble' multiplier for extra juice ---
+            if (f.userData.animationType === 'wobble') {
+                f.userData.animationOffset += 0.05; // Make wobbles faster
+            }
+            // -------------------------------------------------------------
 
             // A) Standard Animation (Sway, Bounce, etc.)
             animateFoliage(f, t, audioState, !isNight, isDeepNight);
