@@ -1,21 +1,24 @@
 // src/foliage/common.js
 
 import * as THREE from 'three';
-import { MeshStandardNodeMaterial, MeshBasicNodeMaterial } from 'three/webgpu';
+import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { color, float, texture, uv, positionLocal, sin, time, mix, vec3, vec4, Fn, uniform, normalize, dot, max } from 'three/tsl';
 
-// --- Shared Resources ---
-export const eyeGeo = new THREE.SphereGeometry(0.12, 16, 16);
-export const pupilGeo = new THREE.SphereGeometry(0.05, 12, 12);
-
+// --- Shared Resources & Geometries ---
+// We use "Unit" geometries (size 1) and scale them in the mesh to save memory/draw calls
 export const sharedGeometries = {
-    sphere: new THREE.SphereGeometry(1, 16, 16),
-    sphereLow: new THREE.SphereGeometry(1, 8, 8),
-    cylinder: new THREE.CylinderGeometry(1, 1, 1, 16),
-    cylinderLow: new THREE.CylinderGeometry(1, 1, 1, 8),
-    box: new THREE.BoxGeometry(1, 1, 1),
-    capsule: new THREE.CapsuleGeometry(1, 1, 4, 16)
+    unitSphere: new THREE.SphereGeometry(1, 16, 16),
+    unitCylinder: new THREE.CylinderGeometry(1, 1, 1, 12).translate(0, 0.5, 0), // Pivot at bottom
+    unitCone: new THREE.ConeGeometry(1, 1, 16).translate(0, 0.5, 0), // Pivot at bottom
+    quad: new THREE.PlaneGeometry(1, 1),
+    // Specific legacy ones (kept for compatibility)
+    eye: new THREE.SphereGeometry(0.12, 16, 16),
+    pupil: new THREE.SphereGeometry(0.05, 12, 12)
 };
+
+// Aliases for legacy code
+export const eyeGeo = sharedGeometries.eye;
+export const pupilGeo = sharedGeometries.pupil;
 
 // --- Reactive Objects Registry ---
 export const reactiveObjects = [];
@@ -68,12 +71,14 @@ export function createStandardNodeMaterial(options = {}) {
     if (options.roughness !== undefined) mat.roughnessNode = float(options.roughness);
     if (options.metalness !== undefined) mat.metalnessNode = float(options.metalness);
     if (options.emissive !== undefined) mat.emissiveNode = color(options.emissive);
-    // Handle Emissive Intensity manually via node multiplication if needed, or rely on standard prop
-    if (options.emissiveIntensity !== undefined) mat.emissiveNode = mat.emissiveNode.mul(float(options.emissiveIntensity));
+    if (options.emissiveIntensity !== undefined && options.emissive !== undefined) {
+         mat.emissiveNode = color(options.emissive).mul(float(options.emissiveIntensity));
+    }
     
-    // Explicitly copy standard properties that shouldn't be nodes
+    // Explicitly copy standard properties
     if (options.transparent) mat.transparent = true;
     if (options.opacity !== undefined) mat.opacity = options.opacity;
+    // Fix for "Unknown material.side" error: set side AFTER construction
     if (options.side !== undefined) mat.side = options.side;
     if (options.blending !== undefined) mat.blending = options.blending;
     if (options.depthWrite !== undefined) mat.depthWrite = options.depthWrite;
@@ -84,7 +89,6 @@ export function createStandardNodeMaterial(options = {}) {
 export function createTransparentNodeMaterial(options = {}) {
     const mat = createStandardNodeMaterial(options);
     mat.transparent = true;
-    // Fix for Depth Stencil Warning: explicit depthWrite control
     mat.depthWrite = options.depthWrite !== undefined ? options.depthWrite : false; 
     return mat;
 }
@@ -113,10 +117,10 @@ export const addRimLight = Fn(([baseColorNode, normalNode, viewDirNode]) => {
 const trunkMat = new MeshStandardNodeMaterial({ color: 0x8B4513, roughness: 0.9 });
 const vineMat = new MeshStandardNodeMaterial({ color: 0x558833, roughness: 0.7 });
 
-// Helper to safely create DoubleSide materials
+// Helper for DoubleSide
 function createDoubleSideMat(hexColor) {
     const m = new MeshStandardNodeMaterial({ color: hexColor, roughness: 0.4 });
-    m.side = THREE.DoubleSide; // Set explicitly after construction
+    m.side = THREE.DoubleSide;
     return m;
 }
 
@@ -130,19 +134,19 @@ export const foliageMaterials = {
     trunk: trunkMat,
     petal: createDoubleSideMat(0xFF69B4), 
     
-    // --- Missing Definitions Fixed Here ---
+    // --- Specific Materials ---
     lightBeam: new MeshStandardNodeMaterial({ 
         color: 0xFFFFFF, 
         transparent: true, 
         opacity: 0.2, 
         blending: THREE.AdditiveBlending,
-        depthWrite: false, // Fix depth stencil warning
+        depthWrite: false,
         roughness: 1.0 
     }),
     flowerStem: new MeshStandardNodeMaterial({ color: 0x66AA55, roughness: 0.8 }),
     lotusRing: new MeshStandardNodeMaterial({ color: 0xFFFFFF, roughness: 0.2 }),
     
-    // Fix for fiber_optic_willow
+    // Fiber Optic Willow
     opticCable: new MeshStandardNodeMaterial({ color: 0x111111, roughness: 0.4 }),
     opticTip: new MeshStandardNodeMaterial({ 
         color: 0xFFFFFF, 
@@ -151,7 +155,6 @@ export const foliageMaterials = {
         roughness: 0.2 
     }),
 
-    // --- Specific Materials ---
     mushroomStem: new MeshStandardNodeMaterial({ color: 0xF5F5DC, roughness: 0.9 }),
     mushroomCap: [
         new MeshStandardNodeMaterial({ color: 0xFF0000, roughness: 0.3 }), 
@@ -159,7 +162,6 @@ export const foliageMaterials = {
         new MeshStandardNodeMaterial({ color: 0x00FF00, roughness: 0.3 }), 
         new MeshStandardNodeMaterial({ color: 0xFFFF00, roughness: 0.3 }), 
     ],
-    // Defensive DoubleSide setting for array items or special materials
     mushroomGills: (() => {
         const m = new MeshStandardNodeMaterial({ color: 0x332211, roughness: 1.0 });
         m.side = THREE.DoubleSide;
@@ -181,38 +183,6 @@ export const foliageMaterials = {
     pupil: new MeshStandardNodeMaterial({ color: 0x000000, roughness: 0.0 }),
     mouth: new MeshStandardNodeMaterial({ color: 0x000000, roughness: 0.8 })
 };
-
-export function validateFoliageMaterials(requiredKeys = []) {
-    let hasError = false;
-    const missingKeys = [];
-
-    // Common keys that should always exist (Updated with specific materials)
-    const defaultKeys = [
-        'stem', 'flowerCenter', 'vine', 'wood', 'petal',
-        'lightBeam', 'opticTip', 'flowerStem', 'opticCable',
-        'mushroomStem', 'eye', 'pupil', 'mouth'
-    ];
-    const allKeys = new Set([...defaultKeys, ...requiredKeys]);
-
-    allKeys.forEach(key => {
-        if (!foliageMaterials[key]) {
-            hasError = true;
-            missingKeys.push(key);
-            console.error(`[Material Validation] Missing material: ${key}. Injecting Hot Pink fallback.`);
-
-            // Inject Hot Pink Fallback
-            foliageMaterials[key] = new MeshBasicNodeMaterial({
-                color: 0xFF00FF // Hot Pink
-            });
-        }
-    });
-
-    if (hasError) {
-        console.warn(`[Material Validation] Validation failed for: ${missingKeys.join(', ')}. Check console for details.`);
-    } else {
-        console.log(`[Material Validation] All ${allKeys.size} required materials verified.`);
-    }
-}
 
 export function registerReactiveMaterial(mat) {
     reactiveMaterials.push(mat);
@@ -242,4 +212,19 @@ export function cleanupReactivity(object) {
     if (index > -1) {
         reactiveObjects.splice(index, 1);
     }
+}
+
+// Safety check helper
+export function validateFoliageMaterials() {
+    const required = ['lightBeam', 'opticTip', 'lotusRing', 'flowerStem'];
+    let safe = true;
+    required.forEach(key => {
+        if (!foliageMaterials[key]) {
+            console.error(`[Foliage] Missing material: ${key}. Using fallback.`);
+            // Hot Pink Fallback
+            foliageMaterials[key] = new MeshStandardNodeMaterial({ color: 0xFF00FF });
+            safe = false;
+        }
+    });
+    return safe;
 }
