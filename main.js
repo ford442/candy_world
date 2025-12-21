@@ -39,7 +39,7 @@ const { scene, camera, renderer, ambientLight, sunLight, sunGlow, sunCorona, lig
 // 2. Audio & Systems
 const audioSystem = new AudioSystem();
 const beatSync = new BeatSync(audioSystem);
-const musicReactivity = new MusicReactivity(scene, {}); // Config moved to internal default or passed if needed
+const musicReactivity = new MusicReactivitySystem(scene, {}); // Config moved to internal default or passed if needed
 const weatherSystem = new WeatherSystem(scene);
 
 // 3. World Generation
@@ -404,52 +404,8 @@ function animate() {
     const deepNightEnd = deepNightStart + DURATION_DEEP_NIGHT;
     const isDeepNight = (cyclePos >= deepNightStart && cyclePos < deepNightEnd);
 
-    // Music Reactivity Update (Split-Channel System)
-    musicReactivity.update(audioState);
-
-    // Handle Moon Blink (Visual/Gameplay Effect)
-    // We check specific channels roughly corresponding to "Percussion/Tree" equivalent if possible,
-    // or just check if any low-end (bass/tree-like) channel is active for moon blink.
-    // For now, let's keep it simple: if there is strong bass, blink moon.
-    // Or better: integrate into musicReactivity logic later.
-    // To preserve existing behavior without the old loop:
-    if (isNight && audioState?.channelData) {
-        // Simple check: if channel 2 (often snare/tree in old mapping) is active
-        const treeChannel = audioState.channelData[2] || audioState.channelData[0]; // fallback
-        if (treeChannel && treeChannel.trigger > 0.5) {
-             triggerMoonBlink(moon);
-        }
-    }
-
-    const camPos = camera.position;
-    const maxAnimationDistance = 50;
-    const maxDistanceSq = maxAnimationDistance * maxAnimationDistance;
-    
-    // Time budgeting: Limit material updates to avoid audio stutter
-    // Allocate max 2ms per frame for foliage updates (leaves ~14ms for audio processing at 60fps)
-    const maxFoliageUpdateTime = 2; // milliseconds
-    const frameStartTime = performance.now();
-    let foliageUpdatesThisFrame = 0;
-    const maxFoliageUpdates = 50; // Max number of foliage objects to update per frame
-
-    for (let i = 0, l = animatedFoliage.length; i < l; i++) {
-        const f = animatedFoliage[i];
-        const distSq = f.position.distanceToSquared(camPos);
-        if (distSq > maxDistanceSq) continue;
-        
-        // Check time budget
-        if (performance.now() - frameStartTime > maxFoliageUpdateTime) {
-            break; // Skip remaining updates this frame to preserve audio performance
-        }
-        
-        // Limit number of updates per frame
-        if (foliageUpdatesThisFrame >= maxFoliageUpdates) {
-            break;
-        }
-
-        animateFoliage(f, t, audioState, !isNight, isDeepNight);
-        foliageUpdatesThisFrame++;
-    }
+    // Foliage Animation & Reactivity (Delegated to MusicReactivitySystem)
+    musicReactivity.update(t, audioState, weatherSystem, animatedFoliage, camera, isNight, isDeepNight, moon);
 
     // Fireflies
     if (fireflies) {

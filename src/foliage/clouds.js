@@ -138,7 +138,11 @@ export function createRainingCloud(options = {}) {
     // Explicitly tag as Sky object for upper-channel (drum) reactivity
     group.userData.reactivityType = 'sky';
 
-    return attachReactivity(group);
+    // USER CHANGE: Added a 'stormIntensity' factor to clouds (just a flag for now)
+    group.userData.stormIntensity = 1.0;
+
+    // Clouds ignore light levels (Always reactive)
+    return attachReactivity(group, { minLight: 0.0, maxLight: 1.0 });
 }
 
 export function createDecoCloud(options = {}) {

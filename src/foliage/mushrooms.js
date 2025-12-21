@@ -154,5 +154,6 @@ export function createMushroom(options = {}) {
         group.userData.isTrampoline = true;
     }
 
-    return attachReactivity(group);
+    // Mushrooms prefer darkness (Night, Storms)
+    return attachReactivity(group, { minLight: 0.0, maxLight: 0.35 });
 }
