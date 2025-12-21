@@ -228,3 +228,27 @@ export function validateFoliageMaterials() {
     });
     return safe;
 }
+
+// Helper to validate geometries for TSL usage
+export function validateNodeGeometries(scene) {
+    scene.traverse(obj => {
+        if (obj.isMesh || obj.isPoints) {
+            const geo = obj.geometry;
+            if (geo) {
+                if (!geo.attributes.position) {
+                    console.warn(`[TSL] Geometry missing 'position':`, obj);
+                }
+                if (!geo.attributes.normal) {
+                    // For TSL, normals are often required even for Points if lighting/material nodes access them
+                    // We can patch it with dummy normals
+                    const count = geo.attributes.position ? geo.attributes.position.count : 0;
+                    if (count > 0) {
+                        const normals = new Float32Array(count * 3);
+                        for(let i=0; i<count*3; i+=3) { normals[i] = 0; normals[i+1] = 1; normals[i+2] = 0; }
+                        geo.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
+                    }
+                }
+            }
+        }
+    });
+}
