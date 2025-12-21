@@ -12,6 +12,7 @@ import {
     createArpeggioFern, createPortamentoPine, createCymbalDandelion, createSnareTrap,
     createBubbleWillow, createHelixPlant, createBalloonBush, createWisteriaCluster
 } from '../foliage/index.js';
+import { validateFoliageMaterials } from '../foliage/common.js';
 import { CONFIG } from '../core/config.js';
 import {
     animatedFoliage, obstacles, foliageGroup, foliageMushrooms,
@@ -22,6 +23,9 @@ import mapData from '../../assets/map.json';
 // --- Scene Setup ---
 
 export function initWorld(scene, weatherSystem) {
+    // 0. Pre-flight Check
+    validateFoliageMaterials();
+
     // Sky
     const sky = createSky();
     scene.add(sky);
@@ -109,6 +113,31 @@ export function safeAddFoliage(obj, isObstacle = false, radius = 1.0, weatherSys
         }
     }
 }
+
+// --- HELPER: Position Validation ---
+function isPositionValid(x, z, radius) {
+    // 1. Player Protection (Center Check)
+    // Keep 15 units clear around (0,0)
+    const distFromCenterSq = x * x + z * z;
+    if (distFromCenterSq < 15 * 15) {
+        return false;
+    }
+
+    // 2. Obstacle Overlap Check
+    for (const obs of obstacles) {
+        const dx = x - obs.position.x;
+        const dz = z - obs.position.z;
+        const distSq = dx * dx + dz * dz;
+        const minDistance = obs.radius + radius + 1.5; // Buffer of 1.5 units
+
+        if (distSq < minDistance * minDistance) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 
 // --- MAP GENERATION ---
 
@@ -257,51 +286,75 @@ function populateProceduralExtras(weatherSystem) {
     const range = 150; // Keep within central area
 
     for (let i = 0; i < extrasCount; i++) {
-        const x = (Math.random() - 0.5) * range;
-        const z = (Math.random() - 0.5) * range;
-        const groundY = getGroundHeight(x, z);
-
         let obj = null;
         let isObstacle = false;
         let radius = 0.5;
+        let x = 0, z = 0, y = 0;
+        let attempts = 0;
+        let validPosition = false;
 
-        const rand = Math.random();
+        // Try to find a valid position
+        while (attempts < 10) {
+            x = (Math.random() - 0.5) * range;
+            z = (Math.random() - 0.5) * range;
 
-        if (rand < 0.4) { // 40% Flowers
-             obj = Math.random() < 0.5 ? createFlower() : createGlowingFlower();
-             obj.position.set(x, groundY, z);
-        }
-        else if (rand < 0.6) { // 20% Face Mushrooms (Bouncy!)
-             // Small bouncy face mushrooms like in the concept image
-             obj = createMushroom({
-                 size: 'regular',
-                 scale: 0.8 + Math.random() * 0.5,
-                 hasFace: true,
-                 isBouncy: true
-             });
-             obj.position.set(x, groundY, z);
-             isObstacle = true;
-        }
-        else if (rand < 0.8) { // 20% Trees
-             const treeType = Math.random();
-             if (treeType < 0.33) obj = createBubbleWillow();
-             else if (treeType < 0.66) obj = createBalloonBush();
-             else obj = createHelixPlant();
-
-             obj.position.set(x, groundY, z);
-             isObstacle = true;
-             radius = 1.5;
-        }
-        else { // 20% Clouds
-             const isHigh = Math.random() < 0.5;
-             const y = isHigh ? 35 + Math.random() * 20 : 12 + Math.random() * 10;
-             obj = createRainingCloud({ size: 1.0 + Math.random() });
-             obj.position.set(x, y, z);
+            // Assume max radius of procedural objects (Bubble Willow is ~1.5)
+            // Using 1.5 as a conservative guess for the check
+            if (isPositionValid(x, z, 1.5)) {
+                validPosition = true;
+                break;
+            }
+            attempts++;
         }
 
-        if (obj) {
-            obj.rotation.y = Math.random() * Math.PI * 2;
-            safeAddFoliage(obj, isObstacle, radius, weatherSystem);
+        if (!validPosition) {
+            // console.debug(`[World] Skipped spawning extra after ${attempts} attempts.`);
+            continue;
+        }
+
+        const groundY = getGroundHeight(x, z);
+
+        try {
+            const rand = Math.random();
+
+            if (rand < 0.4) { // 40% Flowers
+                 obj = Math.random() < 0.5 ? createFlower() : createGlowingFlower();
+                 obj.position.set(x, groundY, z);
+            }
+            else if (rand < 0.6) { // 20% Face Mushrooms (Bouncy!)
+                 // Small bouncy face mushrooms like in the concept image
+                 obj = createMushroom({
+                     size: 'regular',
+                     scale: 0.8 + Math.random() * 0.5,
+                     hasFace: true,
+                     isBouncy: true
+                 });
+                 obj.position.set(x, groundY, z);
+                 isObstacle = true;
+            }
+            else if (rand < 0.8) { // 20% Trees
+                 const treeType = Math.random();
+                 if (treeType < 0.33) obj = createBubbleWillow();
+                 else if (treeType < 0.66) obj = createBalloonBush();
+                 else obj = createHelixPlant();
+
+                 obj.position.set(x, groundY, z);
+                 isObstacle = true;
+                 radius = 1.5;
+            }
+            else { // 20% Clouds
+                 const isHigh = Math.random() < 0.5;
+                 y = isHigh ? 35 + Math.random() * 20 : 12 + Math.random() * 10;
+                 obj = createRainingCloud({ size: 1.0 + Math.random() });
+                 obj.position.set(x, y, z);
+            }
+
+            if (obj) {
+                obj.rotation.y = Math.random() * Math.PI * 2;
+                safeAddFoliage(obj, isObstacle, radius, weatherSystem);
+            }
+        } catch (e) {
+            console.warn(`[World] Failed to spawn procedural extra at ${x},${z}`, e);
         }
     }
     console.log("[World] Finished populating procedural extras.");

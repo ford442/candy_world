@@ -1,14 +1,23 @@
 import * as THREE from 'three';
-import { foliageMaterials, registerReactiveMaterial, attachReactivity, pickAnimation, createClayMaterial } from './common.js';
+import { 
+    foliageMaterials, 
+    registerReactiveMaterial, 
+    attachReactivity, 
+    pickAnimation, 
+    createClayMaterial, 
+    createStandardNodeMaterial, // New helper
+    createTransparentNodeMaterial // New helper
+} from './common.js';
 
 export function createFlower(options = {}) {
     const { color = null, shape = 'simple' } = options;
     const group = new THREE.Group();
 
     const stemHeight = 0.6 + Math.random() * 0.4;
-    const stemGeo = new THREE.CylinderGeometry(0.05, 0.05, stemHeight, 12);
-    stemGeo.translate(0, stemHeight / 2, 0);
-    const stem = new THREE.Mesh(stemGeo, foliageMaterials.flowerStem);
+    // Shared geometry: Cylinder
+    const stem = new THREE.Mesh(sharedGeometries.cylinderLow, foliageMaterials.flowerStem);
+    stem.scale.set(0.05, stemHeight, 0.05);
+    stem.position.y = stemHeight / 2;
     stem.castShadow = true;
     group.add(stem);
 
@@ -16,17 +25,19 @@ export function createFlower(options = {}) {
     head.position.y = stemHeight;
     group.add(head);
 
-    const centerGeo = new THREE.SphereGeometry(0.1, 16, 16);
-    const center = new THREE.Mesh(centerGeo, foliageMaterials.flowerCenter);
+    // Shared geometry: Sphere
+    const center = new THREE.Mesh(sharedGeometries.sphere, foliageMaterials.flowerCenter);
+    center.scale.setScalar(0.1);
     center.name = 'flowerCenter';
     head.add(center);
 
     const stamenCount = 3;
-    const stamenGeo = new THREE.CylinderGeometry(0.01, 0.01, 0.15, 3);
-    stamenGeo.translate(0, 0.075, 0);
     const stamenMat = createClayMaterial(0xFFFF00);
     for (let i = 0; i < stamenCount; i++) {
-        const stamen = new THREE.Mesh(stamenGeo, stamenMat);
+        // Shared geometry: Cylinder
+        const stamen = new THREE.Mesh(sharedGeometries.cylinderLow, stamenMat);
+        stamen.scale.set(0.01, 0.15, 0.01);
+        stamen.position.y = 0.075; // Adjust position since scaling is centered
         stamen.rotation.z = (Math.random() - 0.5) * 1.0;
         stamen.rotation.x = (Math.random() - 0.5) * 1.0;
         head.add(stamen);
@@ -35,6 +46,9 @@ export function createFlower(options = {}) {
     let petalMat;
     if (color) {
         petalMat = createClayMaterial(color);
+        // Ensure manual petal materials are also double-sided if needed, though createClayMaterial defaults to front
+        // If we want DoubleSide for custom colors, we should set it:
+        // petalMat.side = THREE.DoubleSide; // Optional: keeping simple for now
         registerReactiveMaterial(petalMat);
     } else {
         petalMat = foliageMaterials.flowerPetal[Math.floor(Math.random() * foliageMaterials.flowerPetal.length)];
@@ -42,6 +56,7 @@ export function createFlower(options = {}) {
 
     if (shape === 'simple') {
         const petalCount = 5 + Math.floor(Math.random() * 2);
+        // Icosahedron is specific enough to keep unique for now unless we add it to shared
         const petalGeo = new THREE.IcosahedronGeometry(0.15, 0);
         petalGeo.scale(1, 0.5, 1);
         for (let i = 0; i < petalCount; i++) {
@@ -53,10 +68,11 @@ export function createFlower(options = {}) {
         }
     } else if (shape === 'multi') {
         const petalCount = 8 + Math.floor(Math.random() * 4);
-        const petalGeo = new THREE.SphereGeometry(0.12, 12, 12);
         for (let i = 0; i < petalCount; i++) {
             const angle = (i / petalCount) * Math.PI * 2;
-            const petal = new THREE.Mesh(petalGeo, petalMat);
+            // Shared geometry: SphereLow (petals are small, low poly is fine)
+            const petal = new THREE.Mesh(sharedGeometries.sphereLow, petalMat);
+            petal.scale.setScalar(0.12);
             petal.position.set(Math.cos(angle) * 0.2, Math.sin(i * 0.5) * 0.1, Math.sin(angle) * 0.2);
             head.add(petal);
         }
@@ -122,14 +138,16 @@ export function createGlowingFlower(options = {}) {
     const group = new THREE.Group();
 
     const stemHeight = 0.6 + Math.random() * 0.4;
-    const stemGeo = new THREE.CylinderGeometry(0.05, 0.05, stemHeight, 6);
-    stemGeo.translate(0, stemHeight / 2, 0);
-    const stem = new THREE.Mesh(stemGeo, foliageMaterials.flowerStem);
+    // Shared geometry: Cylinder
+    const stem = new THREE.Mesh(sharedGeometries.cylinderLow, foliageMaterials.flowerStem);
+    stem.scale.set(0.05, stemHeight, 0.05);
+    stem.position.y = stemHeight / 2;
     stem.castShadow = true;
     group.add(stem);
 
     const headGeo = new THREE.SphereGeometry(0.2, 8, 8);
-    const headMat = new THREE.MeshStandardMaterial({
+    // Use Helper
+    const headMat = createStandardNodeMaterial({
         color,
         emissive: color,
         emissiveIntensity: intensity,
@@ -137,12 +155,15 @@ export function createGlowingFlower(options = {}) {
     });
     registerReactiveMaterial(headMat);
 
-    const head = new THREE.Mesh(headGeo, headMat);
+    // Shared geometry: Sphere (Low poly sufficient for glowing blob)
+    const head = new THREE.Mesh(sharedGeometries.sphereLow, headMat);
+    head.scale.setScalar(0.2);
     head.position.y = stemHeight;
     group.add(head);
 
-    const washGeo = new THREE.SphereGeometry(1.5, 8, 8);
-    const wash = new THREE.Mesh(washGeo, foliageMaterials.lightBeam);
+    // Shared geometry: Sphere (for wash)
+    const wash = new THREE.Mesh(sharedGeometries.sphereLow, foliageMaterials.lightBeam);
+    wash.scale.setScalar(1.5);
     wash.position.y = stemHeight;
     wash.userData.isWash = true;
     group.add(wash);
@@ -163,13 +184,16 @@ export function createStarflower(options = {}) {
     const group = new THREE.Group();
 
     const stemH = 0.7 + Math.random() * 0.4;
-    const stemGeo = new THREE.CylinderGeometry(0.04, 0.04, stemH, 6);
-    stemGeo.translate(0, stemH / 2, 0);
-    const stem = new THREE.Mesh(stemGeo, createClayMaterial(0x228B22));
+    // Shared geometry: Cylinder
+    const stem = new THREE.Mesh(sharedGeometries.cylinderLow, createClayMaterial(0x228B22));
+    stem.scale.set(0.04, stemH, 0.04);
+    stem.position.y = stemH / 2;
     stem.castShadow = true;
     group.add(stem);
 
-    const center = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 8), foliageMaterials.flowerCenter);
+    // Shared geometry: Sphere
+    const center = new THREE.Mesh(sharedGeometries.sphereLow, foliageMaterials.flowerCenter);
+    center.scale.setScalar(0.09);
     center.position.y = stemH;
     group.add(center);
 
@@ -190,7 +214,7 @@ export function createStarflower(options = {}) {
     const beamGeo = new THREE.ConeGeometry(0.02, 8, 8, 1, true);
     beamGeo.translate(0, 4, 0);
     const beamMat = foliageMaterials.lightBeam.clone();
-    beamMat.color.setHex(color);
+    beamMat.colorNode = color(color); // Update color node for clone
     const beam = new THREE.Mesh(beamGeo, beamMat);
     beam.position.y = stemH;
     beam.userData.isBeam = true;
@@ -208,9 +232,11 @@ export function createBellBloom(options = {}) {
     const group = new THREE.Group();
 
     const stemH = 0.4 + Math.random() * 0.2;
-    const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, stemH, 6), createClayMaterial(0x2E8B57));
+    // Shared geometry: Cylinder
+    const stem = new THREE.Mesh(sharedGeometries.cylinderLow, createClayMaterial(0x2E8B57));
+    stem.scale.set(0.03, stemH, 0.03);
+    stem.position.y = stemH / 2; // Fixed position since shared cylinder is centered
     stem.castShadow = true;
-    stem.position.y = 0;
     group.add(stem);
 
     const petalGeo = new THREE.ConeGeometry(0.12, 0.28, 10);
@@ -238,29 +264,29 @@ export function createPuffballFlower(options = {}) {
     const group = new THREE.Group();
 
     const stemH = 1.0 + Math.random() * 0.5;
-    const stemGeo = new THREE.CylinderGeometry(0.1, 0.12, stemH, 8);
-    const stem = new THREE.Mesh(stemGeo, createClayMaterial(0x6B8E23));
+    // Shared geometry: Cylinder
+    const stem = new THREE.Mesh(sharedGeometries.cylinder, createClayMaterial(0x6B8E23));
+    stem.scale.set(0.1, stemH, 0.1);
     stem.position.y = stemH / 2;
     stem.castShadow = true;
     group.add(stem);
 
     const headR = 0.4 + Math.random() * 0.2;
-    const headGeo = new THREE.SphereGeometry(headR, 8, 8);
-    const headMat = createClayMaterial(color);
-    registerReactiveMaterial(headMat);
-
-    const head = new THREE.Mesh(headGeo, headMat);
+    // Shared geometry: Sphere
+    const head = new THREE.Mesh(sharedGeometries.sphere, createClayMaterial(color));
+    registerReactiveMaterial(head.material);
+    head.scale.setScalar(headR);
     head.position.y = stemH;
     head.castShadow = true;
     group.add(head);
 
     const sporeCount = 4 + Math.floor(Math.random() * 4);
-    const sporeGeo = new THREE.SphereGeometry(headR * 0.3, 8, 8);
+    // Shared geometry: SphereLow
     const sporeMat = createClayMaterial(color + 0x111111);
     registerReactiveMaterial(sporeMat);
 
     for (let i = 0; i < sporeCount; i++) {
-        const spore = new THREE.Mesh(sporeGeo, sporeMat);
+        const spore = new THREE.Mesh(sharedGeometries.sphereLow, sporeMat);
         const u = Math.random();
         const v = Math.random();
         const theta = 2 * Math.PI * u;
@@ -269,6 +295,7 @@ export function createPuffballFlower(options = {}) {
         const y = Math.sin(phi) * Math.sin(theta);
         const z = Math.cos(phi);
 
+        spore.scale.setScalar(headR * 0.3);
         spore.position.set(x * headR, stemH + y * headR, z * headR);
         group.add(spore);
     }
@@ -291,9 +318,10 @@ export function createPrismRoseBush(options = {}) {
     const stemsMat = createClayMaterial(0x5D4037);
     const baseHeight = 1.0 + Math.random() * 0.5;
 
-    const trunkGeo = new THREE.CylinderGeometry(0.15, 0.2, baseHeight, 8);
-    trunkGeo.translate(0, baseHeight / 2, 0);
-    const trunk = new THREE.Mesh(trunkGeo, stemsMat);
+    // Shared geometry: Cylinder
+    const trunk = new THREE.Mesh(sharedGeometries.cylinder, stemsMat);
+    trunk.scale.set(0.15, baseHeight, 0.15);
+    trunk.position.y = baseHeight / 2;
     trunk.castShadow = true;
     group.add(trunk);
 
@@ -307,16 +335,19 @@ export function createPrismRoseBush(options = {}) {
         branchGroup.rotation.z = Math.PI / 4;
 
         const branchLen = 0.8 + Math.random() * 0.5;
-        const branchGeo = new THREE.CylinderGeometry(0.08, 0.1, branchLen, 6);
-        branchGeo.translate(0, branchLen / 2, 0);
-        const branch = new THREE.Mesh(branchGeo, stemsMat);
+        // Shared geometry: CylinderLow
+        const branch = new THREE.Mesh(sharedGeometries.cylinderLow, stemsMat);
+        branch.scale.set(0.08, branchLen, 0.08);
+        branch.position.y = branchLen / 2;
         branchGroup.add(branch);
 
         const roseGroup = new THREE.Group();
         roseGroup.position.y = branchLen;
 
         const color = roseColors[Math.floor(Math.random() * roseColors.length)];
-        const petalMat = new THREE.MeshStandardMaterial({
+        
+        // Use Helper
+        const petalMat = createStandardNodeMaterial({
             color: color,
             roughness: 0.7,
             emissive: 0x000000,
@@ -329,15 +360,17 @@ export function createPrismRoseBush(options = {}) {
         outer.scale.set(1, 0.6, 1);
         roseGroup.add(outer);
 
-        const innerGeo = new THREE.SphereGeometry(0.15, 8, 8);
-        const inner = new THREE.Mesh(innerGeo, petalMat);
+        // Shared geometry: SphereLow
+        const inner = new THREE.Mesh(sharedGeometries.sphereLow, petalMat);
+        inner.scale.setScalar(0.15);
         inner.position.y = 0.05;
         roseGroup.add(inner);
 
-        const washGeo = new THREE.SphereGeometry(1.2, 8, 8);
+        // Shared geometry: Sphere (for wash)
         const washMat = foliageMaterials.lightBeam.clone();
         washMat.color.setHex(color);
-        const wash = new THREE.Mesh(washGeo, washMat);
+        const wash = new THREE.Mesh(sharedGeometries.sphere, washMat);
+        wash.scale.setScalar(1.2);
         wash.userData.isWash = true;
         roseGroup.add(wash);
 
@@ -364,7 +397,7 @@ export function createSubwooferLotus(options = {}) {
     pad.receiveShadow = true;
 
     const ringMat = foliageMaterials.lotusRing.clone();
-    ringMat.emissive.setHex(0x000000);
+    ringMat.emissiveNode = color(0x000000); // Reset emissive for safety
     pad.userData.ringMaterial = ringMat;
     registerReactiveMaterial(ringMat);
 
@@ -390,9 +423,10 @@ export function createVibratoViolet(options = {}) {
     const group = new THREE.Group();
 
     const stemH = 0.5 + Math.random() * 0.3;
-    const stemGeo = new THREE.CylinderGeometry(0.03, 0.04, stemH, 8);
-    stemGeo.translate(0, stemH / 2, 0);
-    const stem = new THREE.Mesh(stemGeo, createClayMaterial(0x228B22));
+    // Shared geometry: Cylinder
+    const stem = new THREE.Mesh(sharedGeometries.cylinderLow, createClayMaterial(0x228B22));
+    stem.scale.set(0.03, stemH, 0.03);
+    stem.position.y = stemH / 2;
     stem.castShadow = true;
     group.add(stem);
 
@@ -401,26 +435,30 @@ export function createVibratoViolet(options = {}) {
     group.add(headGroup);
 
     const centerGeo = new THREE.SphereGeometry(0.08, 12, 12);
-    const centerMat = new THREE.MeshStandardMaterial({
+    // Use Helper
+    const centerMat = createStandardNodeMaterial({
         color: color,
         emissive: color,
         emissiveIntensity: 0.8 * intensity,
         roughness: 0.3
     });
     registerReactiveMaterial(centerMat);
-    const center = new THREE.Mesh(centerGeo, centerMat);
+    // Shared geometry: SphereLow
+    const center = new THREE.Mesh(sharedGeometries.sphereLow, centerMat);
+    center.scale.setScalar(0.08);
     headGroup.add(center);
 
     const petalCount = 5;
     const petalGeo = new THREE.CircleGeometry(0.15, 8);
-    const petalMat = new THREE.MeshStandardMaterial({
+    // Use Helper for Transparent Material
+    const petalMat = createTransparentNodeMaterial({
         color: color,
         emissive: color,
         emissiveIntensity: 0.4 * intensity,
         roughness: 0.4,
-        transparent: true,
         opacity: 0.7,
-        side: THREE.DoubleSide
+        side: THREE.DoubleSide,
+        depthWrite: false // Explicitly disable depth write for transparency
     });
     registerReactiveMaterial(petalMat);
 
@@ -451,9 +489,10 @@ export function createTremoloTulip(options = {}) {
     const group = new THREE.Group();
 
     const stemH = (0.8 + Math.random() * 0.4) * size;
-    const stemGeo = new THREE.CylinderGeometry(0.04, 0.06, stemH, 8);
-    stemGeo.translate(0, stemH / 2, 0);
-    const stem = new THREE.Mesh(stemGeo, createClayMaterial(0x228B22));
+    // Shared geometry: Cylinder
+    const stem = new THREE.Mesh(sharedGeometries.cylinderLow, createClayMaterial(0x228B22));
+    stem.scale.set(0.04 * size, stemH, 0.04 * size);
+    stem.position.y = stemH / 2;
     stem.castShadow = true;
     group.add(stem);
 
@@ -463,14 +502,16 @@ export function createTremoloTulip(options = {}) {
 
     const bellGeo = new THREE.CylinderGeometry(0.2 * size, 0.05 * size, 0.25 * size, 12, 1, true);
     bellGeo.translate(0, -0.125 * size, 0);
-    const bellMat = new THREE.MeshStandardMaterial({
+    
+    // Use Helper for Transparent Material
+    const bellMat = createTransparentNodeMaterial({
         color: color,
         emissive: color,
         emissiveIntensity: 0.3,
         roughness: 0.5,
-        transparent: true,
         opacity: 0.9,
-        side: THREE.DoubleSide
+        side: THREE.DoubleSide,
+        depthWrite: false // Fix depth stencil warning
     });
     registerReactiveMaterial(bellMat);
     const bell = new THREE.Mesh(bellGeo, bellMat);
@@ -478,23 +519,27 @@ export function createTremoloTulip(options = {}) {
     headGroup.add(bell);
 
     const vortexGeo = new THREE.SphereGeometry(0.08 * size, 8, 8);
-    const vortexMat = new THREE.MeshBasicMaterial({
+    // Note: BasicMaterial is okay, but let's use NodeMaterial for consistency if possible, 
+    // or keep MeshBasicMaterial as it doesn't have complex pipeline issues usually. 
+    // Converting to NodeMaterial to be safe:
+    const vortexMat = createTransparentNodeMaterial({
         color: 0xFFFFFF,
-        transparent: true,
         opacity: 0.5,
-        blending: THREE.AdditiveBlending
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
     });
-    const vortex = new THREE.Mesh(vortexGeo, vortexMat);
+    const vortex = new THREE.Mesh(sharedGeometries.sphereLow, vortexMat);
+    vortex.scale.setScalar(0.08 * size);
     vortex.position.y = -0.1 * size;
     headGroup.add(vortex);
     group.userData.vortex = vortex;
 
     const rimGeo = new THREE.TorusGeometry(0.2 * size, 0.02, 8, 16);
-    const rimMat = new THREE.MeshBasicMaterial({
+    const rimMat = createTransparentNodeMaterial({
         color: color,
-        transparent: true,
         opacity: 0.6,
-        blending: THREE.AdditiveBlending
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
     });
     const rim = new THREE.Mesh(rimGeo, rimMat);
     rim.rotation.x = Math.PI / 2;

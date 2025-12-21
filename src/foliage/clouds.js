@@ -133,6 +133,10 @@ export function createRainingCloud(options = {}) {
     group.userData.type = 'cloud';
     group.userData.shapeType = shapeType;
     group.userData.cloudColor = cloudColor;
+    group.userData.reactivityType = 'sky';
+
+    // Explicitly tag as Sky object for upper-channel (drum) reactivity
+    group.userData.reactivityType = 'sky';
 
     // USER CHANGE: Added a 'stormIntensity' factor to clouds (just a flag for now)
     group.userData.stormIntensity = 1.0;
