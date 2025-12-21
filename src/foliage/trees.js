@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { foliageMaterials, registerReactiveMaterial, attachReactivity, pickAnimation, createClayMaterial, createGradientMaterial } from './common.js';
+import { foliageMaterials, registerReactiveMaterial, attachReactivity, pickAnimation, createClayMaterial, createGradientMaterial, sharedGeometries } from './common.js';
 import { createBerryCluster } from './berries.js';
 
 export function createFloweringTree(options = {}) {
@@ -7,9 +7,10 @@ export function createFloweringTree(options = {}) {
     const group = new THREE.Group();
 
     const trunkH = 3 + Math.random() * 2;
-    const trunkGeo = new THREE.CylinderGeometry(0.3, 0.5, trunkH, 16);
+    // Shared geometry: Cylinder
     const trunkMat = createGradientMaterial(0xA0724B, 0x6B4226, 0.8);
-    const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+    const trunk = new THREE.Mesh(sharedGeometries.cylinder, trunkMat);
+    trunk.scale.set(0.4, trunkH, 0.4); // Average of 0.3 and 0.5
     trunk.position.y = trunkH / 2;
     trunk.castShadow = true;
     group.add(trunk);
@@ -23,8 +24,10 @@ export function createFloweringTree(options = {}) {
         const subBlooms = 2 + Math.floor(Math.random() * 2);
 
         for (let j = 0; j < subBlooms; j++) {
-            const bloomGeo = new THREE.SphereGeometry(0.4 + Math.random() * 0.3, 12, 12);
-            const bloom = new THREE.Mesh(bloomGeo, bloomMat);
+            // Shared geometry: Sphere
+            const bloom = new THREE.Mesh(sharedGeometries.sphere, bloomMat);
+            const size = 0.4 + Math.random() * 0.3;
+            bloom.scale.setScalar(size);
             bloom.position.set(
                 (Math.random() - 0.5) * 0.5,
                 (Math.random() - 0.5) * 0.5,
@@ -68,9 +71,11 @@ export function createShrub(options = {}) {
     const { color = 0x32CD32 } = options;
     const group = new THREE.Group();
 
-    const baseGeo = new THREE.SphereGeometry(1 + Math.random() * 0.5, 16, 16);
-    const base = new THREE.Mesh(baseGeo, createClayMaterial(color));
-    base.position.y = 0.5;
+    // Shared geometry: Sphere
+    const base = new THREE.Mesh(sharedGeometries.sphere, createClayMaterial(color));
+    const size = 1 + Math.random() * 0.5;
+    base.scale.setScalar(size);
+    base.position.y = 0.5; // Keeping original position, though it might clip ground slightly with generic sphere center at 0
     base.castShadow = true;
     group.add(base);
 
@@ -79,8 +84,9 @@ export function createShrub(options = {}) {
 
     const flowerCount = 2 + Math.floor(Math.random() * 2);
     for (let i = 0; i < flowerCount; i++) {
-        const flowerGeo = new THREE.SphereGeometry(0.2, 6, 6);
-        const flower = new THREE.Mesh(flowerGeo, flowerMat);
+        // Shared geometry: SphereLow
+        const flower = new THREE.Mesh(sharedGeometries.sphereLow, flowerMat);
+        flower.scale.setScalar(0.2);
         flower.position.set(
             (Math.random() - 0.5) * 1.5,
             1 + Math.random() * 0.5,
@@ -117,8 +123,9 @@ export function createVine(options = {}) {
     const group = new THREE.Group();
 
     for (let i = 0; i < length; i++) {
-        const segmentGeo = new THREE.CylinderGeometry(0.05, 0.05, 0.5, 8);
-        const segment = new THREE.Mesh(segmentGeo, createClayMaterial(color));
+        // Shared geometry: CylinderLow
+        const segment = new THREE.Mesh(sharedGeometries.cylinderLow, createClayMaterial(color));
+        segment.scale.set(0.05, 0.5, 0.05);
         segment.position.y = i * 0.5;
         segment.rotation.z = Math.sin(i * 0.5) * 0.2;
         group.add(segment);
@@ -132,6 +139,7 @@ export function createVine(options = {}) {
 
 export function createLeafParticle(options = {}) {
     const { color = 0x00ff00 } = options;
+    // Keeping unique shape geometry for leaf
     const leafShape = new THREE.Shape();
     leafShape.moveTo(0, 0);
     leafShape.quadraticCurveTo(0.1, 0.1, 0, 0.2);
@@ -154,13 +162,17 @@ export function createWisteriaCluster(options = {}) {
         const strand = new THREE.Group();
         const length = 3 + Math.floor(Math.random() * 3);
         for (let i = 0; i < length; i++) {
-            const seg = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.4, 6), createClayMaterial(0x2E8B57));
+            // Shared geometry: CylinderLow
+            const seg = new THREE.Mesh(sharedGeometries.cylinderLow, createClayMaterial(0x2E8B57));
+            seg.scale.set(0.03, 0.4, 0.03);
             seg.position.y = -i * 0.35;
             seg.rotation.z = Math.sin(i * 0.5) * 0.15;
             strand.add(seg);
 
             if (i > 0 && Math.random() > 0.6) {
-                const b = new THREE.Mesh(new THREE.SphereGeometry(0.05, 6, 6), bloomMat);
+                // Shared geometry: SphereLow
+                const b = new THREE.Mesh(sharedGeometries.sphereLow, bloomMat);
+                b.scale.setScalar(0.05);
                 b.position.y = seg.position.y - 0.1;
                 b.position.x = (Math.random() - 0.5) * 0.06;
                 b.position.z = (Math.random() - 0.5) * 0.06;
@@ -183,8 +195,9 @@ export function createBubbleWillow(options = {}) {
     const group = new THREE.Group();
 
     const trunkH = 2.5 + Math.random();
-    const trunkGeo = new THREE.CylinderGeometry(0.4, 0.6, trunkH, 16);
-    const trunk = new THREE.Mesh(trunkGeo, createClayMaterial(0x5D4037));
+    // Shared geometry: Cylinder
+    const trunk = new THREE.Mesh(sharedGeometries.cylinder, createClayMaterial(0x5D4037));
+    trunk.scale.set(0.5, trunkH, 0.5);
     trunk.position.y = trunkH / 2;
     trunk.castShadow = true;
     group.add(trunk);
@@ -199,13 +212,27 @@ export function createBubbleWillow(options = {}) {
         branchGroup.rotation.y = (i / branchCount) * Math.PI * 2;
 
         const length = 1.5 + Math.random();
+        // Shared geometry: Capsule
+        const capsule = new THREE.Mesh(sharedGeometries.capsule, branchMat);
+        capsule.scale.set(0.2, 0.2, 0.2); // Uniform scale for thickness
+        // Note: CapsuleGeometry parameters are radius and length. Shared is (1, 1).
+        // Scaling Y might distort ends if not careful, but for "bubble" willow it might be okay.
+        // Actually, capsule geometry radius is coupled with overall scale.
+        // Let's use scale to approximate.
+        // Or keep unique if precise proportions needed.
+        // Trying to use scale:
+        // shared: radius 1, length 1.
+        // desired: radius 0.2, length 'length'.
+        // scale.x/z = 0.2. scale.y must stretch length?
+        // Capsule length is the middle cylindrical part.
+        // Reverting to unique geometry for capsule to ensure correct proportions without distortion.
         const capsuleGeo = new THREE.CapsuleGeometry(0.2, length, 8, 16);
-        const capsule = new THREE.Mesh(capsuleGeo, branchMat);
+        const capsuleMesh = new THREE.Mesh(capsuleGeo, branchMat);
 
-        capsule.position.set(0.5, -length / 2, 0);
-        capsule.rotation.z = -Math.PI / 6;
+        capsuleMesh.position.set(0.5, -length / 2, 0);
+        capsuleMesh.rotation.z = -Math.PI / 6;
 
-        branchGroup.add(capsule);
+        branchGroup.add(capsuleMesh);
         group.add(branchGroup);
     }
 
@@ -241,13 +268,14 @@ export function createHelixPlant(options = {}) {
     mesh.castShadow = true;
     group.add(mesh);
 
-    const tipGeo = new THREE.SphereGeometry(0.15, 8, 8);
     const tipMat = new THREE.MeshStandardMaterial({
         color: 0xFFFFFF, emissive: 0xFFFACD, emissiveIntensity: 0.5, roughness: 0.5
     });
     registerReactiveMaterial(tipMat);
 
-    const tip = new THREE.Mesh(tipGeo, tipMat);
+    // Shared geometry: SphereLow
+    const tip = new THREE.Mesh(sharedGeometries.sphereLow, tipMat);
+    tip.scale.setScalar(0.15);
     const endPoint = path.getPoint(1);
     tip.position.copy(endPoint);
     group.add(tip);
@@ -268,8 +296,9 @@ export function createBalloonBush(options = {}) {
 
     for (let i = 0; i < sphereCount; i++) {
         const r = 0.3 + Math.random() * 0.4;
-        const geo = new THREE.SphereGeometry(r, 16, 16);
-        const mesh = new THREE.Mesh(geo, mat);
+        // Shared geometry: Sphere
+        const mesh = new THREE.Mesh(sharedGeometries.sphere, mat);
+        mesh.scale.setScalar(r);
 
         mesh.position.set(
             (Math.random() - 0.5) * 0.8,
@@ -349,10 +378,9 @@ export function createFiberOpticWillow(options = {}) {
     const group = new THREE.Group();
 
     const trunkH = 2.5 + Math.random();
-    const trunk = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.2, 0.4, trunkH, 12),
-        createClayMaterial(0x222222)
-    );
+    // Shared geometry: Cylinder
+    const trunk = new THREE.Mesh(sharedGeometries.cylinder, createClayMaterial(0x222222));
+    trunk.scale.set(0.3, trunkH, 0.3);
     trunk.position.y = trunkH / 2;
     trunk.castShadow = true;
     group.add(trunk);
@@ -368,17 +396,32 @@ export function createFiberOpticWillow(options = {}) {
         branchGroup.rotation.y = (i / branchCount) * Math.PI * 2;
 
         const len = 1.5 + Math.random();
-        const cableGeo = new THREE.CylinderGeometry(0.02, 0.02, len, 4);
-        cableGeo.translate(0, -len / 2, 0);
-        const cable = new THREE.Mesh(cableGeo, cableMat);
-
+        // Shared geometry: CylinderLow
+        const cable = new THREE.Mesh(sharedGeometries.cylinderLow, cableMat);
+        cable.scale.set(0.02, len, 0.02);
+        cable.position.y = -len / 2; // Adjust for centered cylinder
         cable.rotation.z = Math.PI / 4;
 
-        const tip = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 8), tipMat);
-        tip.position.y = -len;
-        cable.add(tip);
+        // Shared geometry: SphereLow
+        const tip = new THREE.Mesh(sharedGeometries.sphereLow, tipMat);
+        tip.scale.setScalar(0.08);
+        tip.position.y = -len / 2;
 
-        branchGroup.add(cable);
+        // Let's create a container for the "whip"
+        const whip = new THREE.Group();
+        whip.rotation.z = Math.PI / 4;
+        whip.add(cable);
+
+        // Cable inside whip
+        // cable centered at -len/2
+        cable.position.set(0, -len/2, 0);
+
+        // Tip inside whip
+        // tip at -len
+        tip.position.set(0, -len, 0);
+        whip.add(tip);
+
+        branchGroup.add(whip);
         group.add(branchGroup);
     }
 
@@ -494,26 +537,33 @@ export function createSwingableVine(options = {}) {
     const segLen = length / segmentCount;
 
     for (let i = 0; i < segmentCount; i++) {
-        const geo = new THREE.CylinderGeometry(0.15, 0.12, segLen, 6);
-        geo.translate(0, -segLen/2, 0);
-
+        // Shared geometry: CylinderLow
         const mat = createClayMaterial(color);
 
-        const mesh = new THREE.Mesh(geo, mat);
-        mesh.position.y = -i * segLen;
+        // Container to avoid scaling distortion of children
+        const segmentGroup = new THREE.Group();
+        segmentGroup.position.y = -i * segLen; // Position the segment
 
+        // The mesh itself (scaled)
+        const mesh = new THREE.Mesh(sharedGeometries.cylinderLow, mat);
+        mesh.scale.set(0.15, segLen, 0.15); // radius 0.15
+        mesh.position.y = -segLen/2; // Center of segment relative to group top
         mesh.rotation.z = (Math.random() - 0.5) * 0.1;
         mesh.rotation.x = (Math.random() - 0.5) * 0.1;
 
-        group.add(mesh);
+        segmentGroup.add(mesh);
 
         if (Math.random() > 0.4) {
              const leaf = createLeafParticle({ color: 0x32CD32 });
+             // Position relative to segmentGroup top
              leaf.position.y = -segLen * 0.5;
              leaf.position.x = 0.1;
              leaf.rotation.z = Math.PI / 4;
-             mesh.add(leaf);
+             // Add leaf to segmentGroup (unscaled) instead of mesh (scaled)
+             segmentGroup.add(leaf);
         }
+
+        group.add(segmentGroup);
     }
 
     const hitGeo = new THREE.CylinderGeometry(0.5, 0.5, length, 8);

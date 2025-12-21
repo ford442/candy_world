@@ -1,12 +1,21 @@
 // src/foliage/common.js
 
 import * as THREE from 'three';
-import { MeshStandardNodeMaterial } from 'three/webgpu';
+import { MeshStandardNodeMaterial, MeshBasicNodeMaterial } from 'three/webgpu';
 import { color, float, texture, uv, positionLocal, sin, time, mix, vec3, vec4, Fn, uniform, normalize, dot, max } from 'three/tsl';
 
 // --- Shared Resources ---
 export const eyeGeo = new THREE.SphereGeometry(0.12, 16, 16);
 export const pupilGeo = new THREE.SphereGeometry(0.05, 12, 12);
+
+export const sharedGeometries = {
+    sphere: new THREE.SphereGeometry(1, 16, 16),
+    sphereLow: new THREE.SphereGeometry(1, 8, 8),
+    cylinder: new THREE.CylinderGeometry(1, 1, 1, 16),
+    cylinderLow: new THREE.CylinderGeometry(1, 1, 1, 8),
+    box: new THREE.BoxGeometry(1, 1, 1),
+    capsule: new THREE.CapsuleGeometry(1, 1, 4, 16)
+};
 
 // --- Reactive Objects Registry ---
 export const reactiveObjects = [];
@@ -172,6 +181,38 @@ export const foliageMaterials = {
     pupil: new MeshStandardNodeMaterial({ color: 0x000000, roughness: 0.0 }),
     mouth: new MeshStandardNodeMaterial({ color: 0x000000, roughness: 0.8 })
 };
+
+export function validateFoliageMaterials(requiredKeys = []) {
+    let hasError = false;
+    const missingKeys = [];
+
+    // Common keys that should always exist (Updated with specific materials)
+    const defaultKeys = [
+        'stem', 'flowerCenter', 'vine', 'wood', 'petal',
+        'lightBeam', 'opticTip', 'flowerStem', 'opticCable',
+        'mushroomStem', 'eye', 'pupil', 'mouth'
+    ];
+    const allKeys = new Set([...defaultKeys, ...requiredKeys]);
+
+    allKeys.forEach(key => {
+        if (!foliageMaterials[key]) {
+            hasError = true;
+            missingKeys.push(key);
+            console.error(`[Material Validation] Missing material: ${key}. Injecting Hot Pink fallback.`);
+
+            // Inject Hot Pink Fallback
+            foliageMaterials[key] = new MeshBasicNodeMaterial({
+                color: 0xFF00FF // Hot Pink
+            });
+        }
+    });
+
+    if (hasError) {
+        console.warn(`[Material Validation] Validation failed for: ${missingKeys.join(', ')}. Check console for details.`);
+    } else {
+        console.log(`[Material Validation] All ${allKeys.size} required materials verified.`);
+    }
+}
 
 export function registerReactiveMaterial(mat) {
     reactiveMaterials.push(mat);
