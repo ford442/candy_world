@@ -113,3 +113,44 @@ export function getCelestialState(tRaw) {
 
     return { sunIntensity, moonIntensity };
 }
+
+
+// --- NEW: Seasonal & Yearly Calculations ---
+
+const YEAR_LENGTH = CYCLE_DURATION * 30; // A "Year" is 30 in-game days for shorter loops
+const MOON_CYCLE_LENGTH = CYCLE_DURATION * 5; // Full moon every 5 days
+
+export function getSeasonalState(tRaw) {
+    // 1. Calculate Year Progress (0.0 to 1.0)
+    // 0.0 = Spring Start
+    // 0.25 = Summer Start
+    // 0.5 = Autumn Start
+    // 0.75 = Winter Start
+    const yearProgress = (tRaw % YEAR_LENGTH) / YEAR_LENGTH;
+    
+    let season = 'Spring';
+    if (yearProgress > 0.75) season = 'Winter';
+    else if (yearProgress > 0.5) season = 'Autumn';
+    else if (yearProgress > 0.25) season = 'Summer';
+
+    // 2. Calculate Sun Inclination (Declination)
+    // Summer (0.25) = Highest (+23.5 deg equiv), Winter (0.75) = Lowest (-23.5 deg equiv)
+    // We map this to a factor 0.0 (Winter) to 1.0 (Summer)
+    // Sine wave peaks at 0.25 (Summer Solstice)
+    const sunInclination = (Math.sin((yearProgress * Math.PI * 2) - (Math.PI / 2)) * 0.5) + 0.5;
+
+    // 3. Calculate Moon Phase
+    // 0.0 = New Moon, 0.5 = Full Moon, 1.0 = New Moon
+    const moonProgress = (tRaw % MOON_CYCLE_LENGTH) / MOON_CYCLE_LENGTH;
+    
+    // Simple visual phase (0 = Empty, 1 = Full)
+    // Full at 0.5
+    const moonPhase = 1.0 - Math.abs(moonProgress - 0.5) * 2.0;
+
+    return {
+        season,
+        sunInclination, // 0.0 (Low/Winter) to 1.0 (High/Summer)
+        moonPhase,      // 0.0 (New) to 1.0 (Full)
+        yearProgress
+    };
+}

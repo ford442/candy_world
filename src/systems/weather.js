@@ -5,9 +5,10 @@
 import * as THREE from 'three';
 import { calcRainDropY, getGroundHeight, uploadPositions, uploadAnimationData, batchMushroomSpawnCandidates, readSpawnCandidates, isWasmReady } from '../utils/wasm-loader.js';
 import { chargeBerries, triggerGrowth, triggerBloom, shakeBerriesLoose, updateBerrySeasons, createMushroom, createWaterfall } from '../foliage/index.js';
-import { getCelestialState } from '../core/cycle.js'; // Import new helper
+import { getCelestialState, getSeasonalState } from '../core/cycle.js'; // Import seasonal helper
 import { CYCLE_DURATION, CONFIG } from '../core/config.js'; // Import cycle duration and config
 import { uCloudRainbowIntensity, uCloudLightningStrength, uCloudLightningColor } from '../foliage/clouds.js';
+import { uSkyDarkness } from '../foliage/sky.js';
 
 // Weather states
 export const WeatherState = {
@@ -198,8 +199,13 @@ export class WeatherSystem {
         const melodyVol = channels[2]?.volume || 0;
         const celestial = getCelestialState(time); 
         
-        // 3. Update Weather State (Audio + Time of Day)
-        this.updateWeatherState(bassIntensity, melodyVol, groove, cycleWeatherBias);
+        // --- NEW: Get Seasonal Data ---
+        const seasonal = getSeasonalState(time);
+        this.currentSeason = seasonal.season;
+        // ------------------------------
+
+        // 3. Update Weather State (Audio + Time of Day + Season)
+        this.updateWeatherState(bassIntensity, melodyVol, groove, cycleWeatherBias, seasonal);
 
         // --- NEW: Scale intensity by Player's Cloud Density ---
         this.targetIntensity *= this.cloudDensity;
@@ -241,7 +247,7 @@ export class WeatherSystem {
 
         // --- NEW: Darkness Mechanic ---
         // If it is night (low sun, high moon) AND clouds are dense, darken everything
-        this.applyDarknessLogic(celestial);
+        this.applyDarknessLogic(celestial, seasonal.moonPhase); // Updated to use real moon phase
         // ------------------------------
 
         // Trigger Growth/Bloom based on weather active state
@@ -473,22 +479,22 @@ export class WeatherSystem {
         });
     }
 
-    applyDarknessLogic(celestial) {
+    applyDarknessLogic(celestial, moonPhase) {
         // Darkness Factor: 0 = Normal, 1 = Pitch Black
-        // Only applies at night
-        const nightFactor = celestial.moonIntensity; // 1.0 at deep night
-        const densityFactor = this.cloudDensity;     // 1.0 if full clouds
+        // Night * Clouds * (1 - MoonPhase)
+        // Full Moon (1.0) = Less Dark. New Moon (0.0) = More Dark.
+        
+        const nightFactor = celestial.moonIntensity; 
+        const densityFactor = this.cloudDensity;     
+        const moonDarkness = 1.0 - (moonPhase || 0) * 0.5; // Full moon lights up the night a bit
+        
+        const darkness = nightFactor * densityFactor * moonDarkness * 0.95; 
 
-        // Calculate darkness scalar (0.0 to 1.0)
-        const darkness = nightFactor * densityFactor * 0.8; // Max 80% darker
-
-        // Darken Fog Color (Make it blacker) - lerp towards black
         if (this.scene.fog && this.scene.fog.color) {
             this.scene.fog.color.lerp(new THREE.Color(0x000000), darkness);
         }
-
-        // Store for updateFog
-        this.darknessFactor = darkness;
+        uSkyDarkness.value = darkness;
+        this.darknessFactor = darkness; 
     }
 
     /**
@@ -565,61 +571,55 @@ export class WeatherSystem {
     /**
      * Determine weather state from audio and time-of-day bias
      */
-    updateWeatherState(bass, melody, groove, cycleWeatherBias = null) {
-        // Start with audio-driven state
+    updateWeatherState(bass, melody, groove, cycleWeatherBias = null, seasonal = null) {
         let audioState = WeatherState.CLEAR;
         let audioIntensity = 0;
         
-        // Storm: High bass + high groove (intense music)
         if (bass > 0.7 && groove > 0.5) {
             audioState = WeatherState.STORM;
             audioIntensity = 1.0;
-        }
-        // Rain: Moderate bass OR melody presence
-        else if (bass > 0.3 || melody > 0.4) {
+        } else if (bass > 0.3 || melody > 0.4) {
             audioState = WeatherState.RAIN;
             audioIntensity = 0.5;
         }
-        
-        // Apply time-of-day bias if provided
+
+        // --- Seasonal Bias ---
+        if (seasonal) {
+            const r = Math.random();
+            // Winter: Suppress storms, encourage clear/crisp
+            if (seasonal.season === 'Winter') {
+                if (audioState === WeatherState.STORM && r > 0.3) audioState = WeatherState.RAIN; // Storms become just rain/snow
+            }
+            // Summer: Encourage Storms
+            if (seasonal.season === 'Summer') {
+                if (audioState === WeatherState.RAIN && r > 0.7) audioState = WeatherState.STORM; // Heat storms
+            }
+            // Spring: Encourage Rain
+            if (seasonal.season === 'Spring') {
+                if (audioState === WeatherState.CLEAR && r > 0.9) {
+                    audioState = WeatherState.RAIN; // Random spring showers
+                    audioIntensity = 0.3;
+                }
+            }
+        }
+        // ---------------------
+
+        // Apply time-of-day / cycle bias if provided (same blending as before)
         if (cycleWeatherBias) {
-            const biasWeight = 0.4; // 40% influence from cycle, 60% from audio
-            
-            // Map bias state to enum
+            const biasWeight = 0.4;
             let biasState = WeatherState.CLEAR;
             if (cycleWeatherBias.biasState === 'storm') biasState = WeatherState.STORM;
             else if (cycleWeatherBias.biasState === 'rain') biasState = WeatherState.RAIN;
-            
-            // Blend states (if they differ, lean towards more intense)
+
             if (audioState !== biasState) {
-                // Priority: STORM > RAIN > CLEAR
-                const stateValue = {
-                    [WeatherState.CLEAR]: 0,
-                    [WeatherState.RAIN]: 1,
-                    [WeatherState.STORM]: 2
-                };
-                
-                const audioValue = stateValue[audioState];
-                const biasValue = stateValue[biasState];
-                
-                // Take the more intense state with probability based on weights
-                if (Math.random() < biasWeight) {
-                    this.state = biasState;
-                    this.targetIntensity = cycleWeatherBias.biasIntensity;
-                } else {
-                    this.state = audioState;
-                    this.targetIntensity = audioIntensity;
-                }
+                if (Math.random() < biasWeight) { this.state = biasState; this.targetIntensity = cycleWeatherBias.biasIntensity; }
+                else { this.state = audioState; this.targetIntensity = audioIntensity; }
             } else {
-                // States match - blend intensities
                 this.state = audioState;
                 this.targetIntensity = audioIntensity * (1 - biasWeight) + cycleWeatherBias.biasIntensity * biasWeight;
             }
-            
-            // Store current weather type for visual effects
             this.weatherType = cycleWeatherBias.type || 'default';
         } else {
-            // No cycle bias - use pure audio state
             this.state = audioState;
             this.targetIntensity = audioIntensity;
             this.weatherType = 'audio';
