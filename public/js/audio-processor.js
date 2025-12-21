@@ -2,7 +2,7 @@
 
 // 1. Use ES Module Import instead of importScripts
 // Note: This expects libopenmpt.js to be accessible at /js/libopenmpt.js
-import './libopenmpt.js'; 
+import 'https://test.1ink.us/candy-world/js/libopenmpt.js'; 
 
 // Helper functions 
 const lerp = (a, b, t) => a + (b - a) * t;
