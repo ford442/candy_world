@@ -1,6 +1,7 @@
 import * as THREE from 'three';
-import { time, positionLocal, sin, vec3 } from 'three/tsl';
-import { uWindSpeed, uWindDirection, addRimLight, createClayMaterial } from './common.js';
+import { MeshStandardNodeMaterial } from 'three/webgpu';
+import { time, positionLocal, sin, vec3, color, normalView, dot, float, max } from 'three/tsl';
+import { uWindSpeed, uWindDirection, createClayMaterial } from './common.js';
 
 let grassMeshes = [];
 const dummy = new THREE.Object3D();
@@ -11,8 +12,10 @@ export function initGrassSystem(scene, count = 5000) {
     const height = 0.8;
     const geo = new THREE.BoxGeometry(0.05, height, 0.05);
     geo.translate(0, height / 2, 0);
+    // Ensure normals exist for node materials
+    geo.computeVertexNormals();
 
-    const mat = new THREE.MeshStandardMaterial({
+    const mat = new MeshStandardNodeMaterial({
         color: 0x7CFC00,
         roughness: 0.8,
         metalness: 0.0
@@ -27,7 +30,12 @@ export function initGrassSystem(scene, count = 5000) {
 
     mat.positionNode = positionLocal.add(vec3(swayX, 0, swayZ));
 
-    addRimLight(mat, 0xAAFFAA);
+    // Inline rim-light node logic (safer than calling addRimLight on non-node materials)
+    const NdotV = max(0.0, dot(normalView, vec3(0, 0, 1)));
+    const rimFactor = float(1.0).sub(NdotV).pow(3.0).mul(0.6);
+    const baseColorNode = color(0x7CFC00);
+    const rimColorNode = color(0xAAFFAA);
+    mat.colorNode = baseColorNode.add(rimColorNode.mul(rimFactor));
 
     const meshCount = Math.ceil(count / MAX_PER_MESH);
 
