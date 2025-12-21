@@ -2,6 +2,7 @@
 // Handles Note -> Color mapping and note event routing
 
 import { CONFIG } from '../core/config.js';
+import { reactiveObjects } from '../foliage/common.js';
 
 const CHROMATIC_SCALE = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
@@ -29,63 +30,103 @@ export function getNoteColor(note, species = 'global') {
             map = CONFIG.noteColorMap['mushroom'];
         } else if (s.includes('tree') || s.includes('willow') || s.includes('palm') || s.includes('bush')) {
             map = CONFIG.noteColorMap['tree'];
-        } else if (s.includes('cloud') || s.includes('orb') || s.includes('geyser')) {
+        } else if (s.includes('cloud') || s.includes('orb') || s.includes('geyser') || s.includes('moon')) {
             map = CONFIG.noteColorMap['cloud'] || CONFIG.noteColorMap['global'];
         } else {
             map = CONFIG.noteColorMap['global'];
         }
     }
 
-    // Debug logging of resolved palette (throttled to 1s)
-    if (CONFIG.debugNoteReactivity) {
-        try {
-            // Use performance.now when available for higher resolution timing
-            const now = (typeof performance !== 'undefined') ? performance.now() : Date.now();
-            // Module-level throttle state
-            if (typeof getNoteColor._lastNoteLogTime === 'undefined') getNoteColor._lastNoteLogTime = 0;
-            if (now - getNoteColor._lastNoteLogTime > 1000) {
-                getNoteColor._lastNoteLogTime = now;
-                console.log('getNoteColor:', note, 'species=', species, 'resolvedPalette=', Object.keys(CONFIG.noteColorMap).find(k => CONFIG.noteColorMap[k] === map) || 'custom', 'noteName=', noteName, 'color=', (map[noteName] || 0xFFFFFF).toString(16));
-            }
-        } catch(e) {}
-    }
-
     // Return color or fallback to White
     return map[noteName] || 0xFFFFFF;
+}
+
+/**
+ * Apply reaction to a specific object
+ * @param {THREE.Object3D} object
+ * @param {number|string} note
+ * @param {number} velocity
+ */
+export function reactObject(object, note, velocity) {
+    if (!object.userData.type) return;
+
+    const species = object.userData.type;
+
+    if (typeof object.reactToNote === 'function') {
+        // Get color specifically for this species
+        const color = getNoteColor(note, species);
+        object.reactToNote(note, color, velocity);
+    }
+}
+
+/**
+ * Main Update Loop for Music Reactivity
+ * splits channels between 'flora' (low channels) and 'sky' (high channels/drums)
+ */
+export function updateMusicReactivity(audioState) {
+    if (!audioState || !audioState.channelData) return;
+
+    const channels = audioState.channelData;
+    const totalChannels = channels.length;
+
+    // Split: Flora gets bottom half, Sky gets top half (drums)
+    const splitIndex = Math.ceil(totalChannels / 2);
+
+    // Iterate efficiently
+    for (let i = 0, l = reactiveObjects.length; i < l; i++) {
+        const obj = reactiveObjects[i];
+        const type = obj.userData.reactivityType || 'flora';
+        const id = obj.userData.reactivityId || 0;
+
+        let targetChannelIndex;
+
+        if (type === 'sky') {
+            const skyChannelCount = totalChannels - splitIndex;
+            if (skyChannelCount > 0) {
+                // Map ID to upper channels (e.g. 2, 3 in a 4-ch MOD)
+                targetChannelIndex = splitIndex + (id % skyChannelCount);
+            } else {
+                targetChannelIndex = 0; // Fallback
+            }
+        } else {
+            // Flora
+            const floraChannelCount = splitIndex;
+            if (floraChannelCount > 0) {
+                 // Map ID to lower channels (e.g. 0, 1 in a 4-ch MOD)
+                targetChannelIndex = id % floraChannelCount;
+            } else {
+                targetChannelIndex = 0;
+            }
+        }
+
+        // Safety clamp
+        if (targetChannelIndex >= totalChannels) targetChannelIndex = 0;
+
+        const channelInfo = channels[targetChannelIndex];
+
+        // Trigger check
+        // We use a threshold of 0.1 to avoid noise
+        if (channelInfo && channelInfo.trigger > 0.1) {
+            // Apply visual reaction
+            // Pass the Note so the object picks the right color from its palette
+            // Pass the Trigger as velocity for intensity
+            reactObject(obj, channelInfo.note, channelInfo.trigger);
+        }
+    }
 }
 
 export class MusicReactivity {
     constructor(scene, config = {}) {
         this.scene = scene;
-        this.config = config; // Extra config if needed
+        this.config = config;
     }
 
-    /**
-     * Trigger a reaction on a specific species type
-     * @param {string} species - 'mushroom', 'flower', etc.
-     * @param {number|string} note - MIDI note or name
-     * @param {number} velocity - 0-127 or 0-1
-     */
+    // Deprecated method wrappers to maintain API compatibility if called elsewhere
     triggerNote(species, note, velocity) {
-        // This method is intended for global broadcasting if we had a centralized list of listeners.
-        // Currently, main.js iterates foliage and calls reactObject directly.
+        // No-op or global broadcast if needed later
     }
 
-    /**
-     * Apply reaction to a specific object
-     * @param {THREE.Object3D} object
-     * @param {number|string} note
-     * @param {number} velocity
-     */
     reactObject(object, note, velocity) {
-        if (!object.userData.type) return;
-
-        const species = object.userData.type;
-
-        if (typeof object.reactToNote === 'function') {
-            // Get color specifically for this species
-            const color = getNoteColor(note, species);
-            object.reactToNote(note, color, velocity);
-        }
+        reactObject(object, note, velocity);
     }
 }
