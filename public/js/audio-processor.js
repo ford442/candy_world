@@ -1,6 +1,9 @@
 // public/js/audio-processor.js
 
-import '/candy-world/js/libopenmpt.js'; 
+// --- IMPORT ORDER MATTERS: polyfills first ---
+import './worklet-polyfills.js';
+import './libopenmpt.js';
+
 
 // [Helper functions remain the same: lerp, decayTowards, extractNote, etc.]
 const lerp = (a, b, t) => a + (b - a) * t;
