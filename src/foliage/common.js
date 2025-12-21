@@ -73,12 +73,20 @@ export const addRimLight = Fn(([baseColorNode, normalNode, viewDirNode]) => {
 });
 
 // --- Material Definitions ---
+const trunkMat = new MeshStandardNodeMaterial({ color: 0x8B4513, roughness: 0.9 });
+const vineMat = new MeshStandardNodeMaterial({ color: 0x558833, roughness: 0.7 });
+
 export const foliageMaterials = {
-    // --- Missing Materials Restored Here ---
-    stem: new MeshStandardNodeMaterial({ color: 0x66AA55, roughness: 0.8 }), // Generic green stem
-    flowerCenter: new MeshStandardNodeMaterial({ color: 0x442211, roughness: 0.9 }), // Dark brown/yellow center
+    // --- Generic / Aliases (Fixes 'undefined' errors) ---
+    stem: new MeshStandardNodeMaterial({ color: 0x66AA55, roughness: 0.8 }),
+    flowerCenter: new MeshStandardNodeMaterial({ color: 0x442211, roughness: 0.9 }),
+    vine: vineMat, // Fixes 'fiber_optic_willow'
+    wood: trunkMat, // Common alias
+    bark: trunkMat, // Common alias
+    trunk: trunkMat,
+    petal: new MeshStandardNodeMaterial({ color: 0xFF69B4, roughness: 0.4, side: THREE.DoubleSide }), // Fallback singular petal
     
-    // --- Existing Materials ---
+    // --- Specific Materials ---
     mushroomStem: new MeshStandardNodeMaterial({ color: 0xF5F5DC, roughness: 0.9 }),
     mushroomCap: [
         new MeshStandardNodeMaterial({ color: 0xFF0000, roughness: 0.3 }), 
@@ -89,12 +97,11 @@ export const foliageMaterials = {
     mushroomGills: new MeshStandardNodeMaterial({ color: 0x332211, roughness: 1.0, side: THREE.DoubleSide }),
     mushroomSpots: new MeshStandardNodeMaterial({ color: 0xFFFFFF, roughness: 0.8 }),
     leaf: new MeshStandardNodeMaterial({ color: 0x228B22, roughness: 0.6, side: THREE.DoubleSide }),
-    trunk: new MeshStandardNodeMaterial({ color: 0x8B4513, roughness: 0.9 }),
     flowerPetal: [
-        new MeshStandardNodeMaterial({ color: 0xFF69B4, roughness: 0.4, side: THREE.DoubleSide }), // Pink
-        new MeshStandardNodeMaterial({ color: 0xFFD700, roughness: 0.4, side: THREE.DoubleSide }), // Gold
-        new MeshStandardNodeMaterial({ color: 0xFFFFFF, roughness: 0.4, side: THREE.DoubleSide }), // White
-        new MeshStandardNodeMaterial({ color: 0x9933FF, roughness: 0.4, side: THREE.DoubleSide }), // Purple
+        new MeshStandardNodeMaterial({ color: 0xFF69B4, roughness: 0.4, side: THREE.DoubleSide }), 
+        new MeshStandardNodeMaterial({ color: 0xFFD700, roughness: 0.4, side: THREE.DoubleSide }), 
+        new MeshStandardNodeMaterial({ color: 0xFFFFFF, roughness: 0.4, side: THREE.DoubleSide }), 
+        new MeshStandardNodeMaterial({ color: 0x9933FF, roughness: 0.4, side: THREE.DoubleSide }), 
     ],
     eye: new MeshStandardNodeMaterial({ color: 0xFFFFFF, roughness: 0.2 }),
     pupil: new MeshStandardNodeMaterial({ color: 0x000000, roughness: 0.0 }),
