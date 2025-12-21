@@ -76,7 +76,6 @@ export const addRimLight = Fn(([baseColorNode, normalNode, viewDirNode]) => {
 const trunkMat = new MeshStandardNodeMaterial({ color: 0x8B4513, roughness: 0.9 });
 const vineMat = new MeshStandardNodeMaterial({ color: 0x558833, roughness: 0.7 });
 
-// Fix for Missing Materials: Defines lightBeam, flowerStem, and lotusRing
 export const foliageMaterials = {
     // --- Generic / Aliases ---
     stem: new MeshStandardNodeMaterial({ color: 0x66AA55, roughness: 0.8 }),
@@ -98,6 +97,15 @@ export const foliageMaterials = {
     }),
     flowerStem: new MeshStandardNodeMaterial({ color: 0x66AA55, roughness: 0.8 }),
     lotusRing: new MeshStandardNodeMaterial({ color: 0xFFFFFF, roughness: 0.2 }),
+    
+    // Fix for fiber_optic_willow
+    opticCable: new MeshStandardNodeMaterial({ color: 0x111111, roughness: 0.4 }),
+    opticTip: new MeshStandardNodeMaterial({ 
+        color: 0xFFFFFF, 
+        emissive: 0xFF00FF, 
+        emissiveIntensity: 1.0,
+        roughness: 0.2 
+    }),
 
     // --- Specific Materials ---
     mushroomStem: new MeshStandardNodeMaterial({ color: 0xF5F5DC, roughness: 0.9 }),
