@@ -1,5 +1,13 @@
 import * as THREE from 'three';
-import { foliageMaterials, registerReactiveMaterial, attachReactivity, pickAnimation, createClayMaterial, sharedGeometries } from './common.js';
+import { 
+    foliageMaterials, 
+    registerReactiveMaterial, 
+    attachReactivity, 
+    pickAnimation, 
+    createClayMaterial, 
+    createStandardNodeMaterial, // New helper
+    createTransparentNodeMaterial // New helper
+} from './common.js';
 
 export function createFlower(options = {}) {
     const { color = null, shape = 'simple' } = options;
@@ -38,6 +46,9 @@ export function createFlower(options = {}) {
     let petalMat;
     if (color) {
         petalMat = createClayMaterial(color);
+        // Ensure manual petal materials are also double-sided if needed, though createClayMaterial defaults to front
+        // If we want DoubleSide for custom colors, we should set it:
+        // petalMat.side = THREE.DoubleSide; // Optional: keeping simple for now
         registerReactiveMaterial(petalMat);
     } else {
         petalMat = foliageMaterials.flowerPetal[Math.floor(Math.random() * foliageMaterials.flowerPetal.length)];
@@ -127,7 +138,9 @@ export function createGlowingFlower(options = {}) {
     stem.castShadow = true;
     group.add(stem);
 
-    const headMat = new THREE.MeshStandardMaterial({
+    const headGeo = new THREE.SphereGeometry(0.2, 8, 8);
+    // Use Helper
+    const headMat = createStandardNodeMaterial({
         color,
         emissive: color,
         emissiveIntensity: intensity,
@@ -193,7 +206,7 @@ export function createStarflower(options = {}) {
     const beamGeo = new THREE.ConeGeometry(0.02, 8, 8, 1, true);
     beamGeo.translate(0, 4, 0);
     const beamMat = foliageMaterials.lightBeam.clone();
-    beamMat.color.setHex(color);
+    beamMat.colorNode = color(color); // Update color node for clone
     const beam = new THREE.Mesh(beamGeo, beamMat);
     beam.position.y = stemH;
     beam.userData.isBeam = true;
@@ -323,7 +336,9 @@ export function createPrismRoseBush(options = {}) {
         roseGroup.position.y = branchLen;
 
         const color = roseColors[Math.floor(Math.random() * roseColors.length)];
-        const petalMat = new THREE.MeshStandardMaterial({
+        
+        // Use Helper
+        const petalMat = createStandardNodeMaterial({
             color: color,
             roughness: 0.7,
             emissive: 0x000000,
@@ -373,7 +388,7 @@ export function createSubwooferLotus(options = {}) {
     pad.receiveShadow = true;
 
     const ringMat = foliageMaterials.lotusRing.clone();
-    ringMat.emissive.setHex(0x000000);
+    ringMat.emissiveNode = color(0x000000); // Reset emissive for safety
     pad.userData.ringMaterial = ringMat;
     registerReactiveMaterial(ringMat);
 
@@ -410,7 +425,9 @@ export function createVibratoViolet(options = {}) {
     headGroup.position.y = stemH;
     group.add(headGroup);
 
-    const centerMat = new THREE.MeshStandardMaterial({
+    const centerGeo = new THREE.SphereGeometry(0.08, 12, 12);
+    // Use Helper
+    const centerMat = createStandardNodeMaterial({
         color: color,
         emissive: color,
         emissiveIntensity: 0.8 * intensity,
@@ -424,14 +441,15 @@ export function createVibratoViolet(options = {}) {
 
     const petalCount = 5;
     const petalGeo = new THREE.CircleGeometry(0.15, 8);
-    const petalMat = new THREE.MeshStandardMaterial({
+    // Use Helper for Transparent Material
+    const petalMat = createTransparentNodeMaterial({
         color: color,
         emissive: color,
         emissiveIntensity: 0.4 * intensity,
         roughness: 0.4,
-        transparent: true,
         opacity: 0.7,
-        side: THREE.DoubleSide
+        side: THREE.DoubleSide,
+        depthWrite: false // Explicitly disable depth write for transparency
     });
     registerReactiveMaterial(petalMat);
 
@@ -475,26 +493,31 @@ export function createTremoloTulip(options = {}) {
 
     const bellGeo = new THREE.CylinderGeometry(0.2 * size, 0.05 * size, 0.25 * size, 12, 1, true);
     bellGeo.translate(0, -0.125 * size, 0);
-    const bellMat = new THREE.MeshStandardMaterial({
+    
+    // Use Helper for Transparent Material
+    const bellMat = createTransparentNodeMaterial({
         color: color,
         emissive: color,
         emissiveIntensity: 0.3,
         roughness: 0.5,
-        transparent: true,
         opacity: 0.9,
-        side: THREE.DoubleSide
+        side: THREE.DoubleSide,
+        depthWrite: false // Fix depth stencil warning
     });
     registerReactiveMaterial(bellMat);
     const bell = new THREE.Mesh(bellGeo, bellMat);
     bell.rotation.x = Math.PI;
     headGroup.add(bell);
 
-    // Shared geometry: SphereLow (Vortex)
-    const vortexMat = new THREE.MeshBasicMaterial({
+    const vortexGeo = new THREE.SphereGeometry(0.08 * size, 8, 8);
+    // Note: BasicMaterial is okay, but let's use NodeMaterial for consistency if possible, 
+    // or keep MeshBasicMaterial as it doesn't have complex pipeline issues usually. 
+    // Converting to NodeMaterial to be safe:
+    const vortexMat = createTransparentNodeMaterial({
         color: 0xFFFFFF,
-        transparent: true,
         opacity: 0.5,
-        blending: THREE.AdditiveBlending
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
     });
     const vortex = new THREE.Mesh(sharedGeometries.sphereLow, vortexMat);
     vortex.scale.setScalar(0.08 * size);
@@ -503,11 +526,11 @@ export function createTremoloTulip(options = {}) {
     group.userData.vortex = vortex;
 
     const rimGeo = new THREE.TorusGeometry(0.2 * size, 0.02, 8, 16);
-    const rimMat = new THREE.MeshBasicMaterial({
+    const rimMat = createTransparentNodeMaterial({
         color: color,
-        transparent: true,
         opacity: 0.6,
-        blending: THREE.AdditiveBlending
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
     });
     const rim = new THREE.Mesh(rimGeo, rimMat);
     rim.rotation.x = Math.PI / 2;
