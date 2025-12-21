@@ -52,6 +52,34 @@ export function createGradientMaterial(colorBottom, colorTop) {
     return mat;
 }
 
+// Helper to create a MeshStandardNodeMaterial behaving like MeshStandardMaterial
+export function createStandardNodeMaterial(options = {}) {
+    const mat = new MeshStandardNodeMaterial();
+    if (options.color !== undefined) mat.colorNode = color(options.color);
+    if (options.roughness !== undefined) mat.roughnessNode = float(options.roughness);
+    if (options.metalness !== undefined) mat.metalnessNode = float(options.metalness);
+    if (options.emissive !== undefined) mat.emissiveNode = color(options.emissive);
+    // Handle Emissive Intensity manually via node multiplication if needed, or rely on standard prop
+    if (options.emissiveIntensity !== undefined) mat.emissiveNode = mat.emissiveNode.mul(float(options.emissiveIntensity));
+    
+    // Explicitly copy standard properties that shouldn't be nodes
+    if (options.transparent) mat.transparent = true;
+    if (options.opacity !== undefined) mat.opacity = options.opacity;
+    if (options.side !== undefined) mat.side = options.side;
+    if (options.blending !== undefined) mat.blending = options.blending;
+    if (options.depthWrite !== undefined) mat.depthWrite = options.depthWrite;
+    
+    return mat;
+}
+
+export function createTransparentNodeMaterial(options = {}) {
+    const mat = createStandardNodeMaterial(options);
+    mat.transparent = true;
+    // Fix for Depth Stencil Warning: explicit depthWrite control
+    mat.depthWrite = options.depthWrite !== undefined ? options.depthWrite : false; 
+    return mat;
+}
+
 export function generateNoiseTexture(size = 256) {
     const data = new Uint8Array(size * size * 4);
     for (let i = 0; i < size * size * 4; i++) {
@@ -76,6 +104,13 @@ export const addRimLight = Fn(([baseColorNode, normalNode, viewDirNode]) => {
 const trunkMat = new MeshStandardNodeMaterial({ color: 0x8B4513, roughness: 0.9 });
 const vineMat = new MeshStandardNodeMaterial({ color: 0x558833, roughness: 0.7 });
 
+// Helper to safely create DoubleSide materials
+function createDoubleSideMat(hexColor) {
+    const m = new MeshStandardNodeMaterial({ color: hexColor, roughness: 0.4 });
+    m.side = THREE.DoubleSide; // Set explicitly after construction
+    return m;
+}
+
 export const foliageMaterials = {
     // --- Generic / Aliases ---
     stem: new MeshStandardNodeMaterial({ color: 0x66AA55, roughness: 0.8 }),
@@ -84,7 +119,7 @@ export const foliageMaterials = {
     wood: trunkMat,
     bark: trunkMat,
     trunk: trunkMat,
-    petal: new MeshStandardNodeMaterial({ color: 0xFF69B4, roughness: 0.4, side: THREE.DoubleSide }), 
+    petal: createDoubleSideMat(0xFF69B4), 
     
     // --- Missing Definitions Fixed Here ---
     lightBeam: new MeshStandardNodeMaterial({ 
@@ -92,7 +127,7 @@ export const foliageMaterials = {
         transparent: true, 
         opacity: 0.2, 
         blending: THREE.AdditiveBlending,
-        depthWrite: false,
+        depthWrite: false, // Fix depth stencil warning
         roughness: 1.0 
     }),
     flowerStem: new MeshStandardNodeMaterial({ color: 0x66AA55, roughness: 0.8 }),
@@ -115,14 +150,23 @@ export const foliageMaterials = {
         new MeshStandardNodeMaterial({ color: 0x00FF00, roughness: 0.3 }), 
         new MeshStandardNodeMaterial({ color: 0xFFFF00, roughness: 0.3 }), 
     ],
-    mushroomGills: new MeshStandardNodeMaterial({ color: 0x332211, roughness: 1.0, side: THREE.DoubleSide }),
+    // Defensive DoubleSide setting for array items or special materials
+    mushroomGills: (() => {
+        const m = new MeshStandardNodeMaterial({ color: 0x332211, roughness: 1.0 });
+        m.side = THREE.DoubleSide;
+        return m;
+    })(),
     mushroomSpots: new MeshStandardNodeMaterial({ color: 0xFFFFFF, roughness: 0.8 }),
-    leaf: new MeshStandardNodeMaterial({ color: 0x228B22, roughness: 0.6, side: THREE.DoubleSide }),
+    leaf: (() => {
+        const m = new MeshStandardNodeMaterial({ color: 0x228B22, roughness: 0.6 });
+        m.side = THREE.DoubleSide;
+        return m;
+    })(),
     flowerPetal: [
-        new MeshStandardNodeMaterial({ color: 0xFF69B4, roughness: 0.4, side: THREE.DoubleSide }), 
-        new MeshStandardNodeMaterial({ color: 0xFFD700, roughness: 0.4, side: THREE.DoubleSide }), 
-        new MeshStandardNodeMaterial({ color: 0xFFFFFF, roughness: 0.4, side: THREE.DoubleSide }), 
-        new MeshStandardNodeMaterial({ color: 0x9933FF, roughness: 0.4, side: THREE.DoubleSide }), 
+        createDoubleSideMat(0xFF69B4), 
+        createDoubleSideMat(0xFFD700), 
+        createDoubleSideMat(0xFFFFFF), 
+        createDoubleSideMat(0x9933FF), 
     ],
     eye: new MeshStandardNodeMaterial({ color: 0xFFFFFF, roughness: 0.2 }),
     pupil: new MeshStandardNodeMaterial({ color: 0x000000, roughness: 0.0 }),
