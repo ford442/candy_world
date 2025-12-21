@@ -2,7 +2,7 @@
 
 import * as THREE from 'three';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
-import { color, float, texture, uv, positionLocal, sin, time, mix, vec3, vec4, Fn } from 'three/tsl';
+import { color, float, texture, uv, positionLocal, sin, time, mix, vec3, vec4, Fn, uniform, normalize, dot, max } from 'three/tsl';
 
 // --- Shared Resources ---
 export const eyeGeo = new THREE.SphereGeometry(0.12, 16, 16);
@@ -12,6 +12,31 @@ export const pupilGeo = new THREE.SphereGeometry(0.05, 12, 12);
 export const reactiveObjects = [];
 let reactivityCounter = 0; // For round-robin channel assignment
 
+// --- Global Uniforms (Missing in previous version) ---
+export const uWindSpeed = uniform(0.0);
+export const uWindDirection = uniform(vec3(1, 0, 0));
+
+// --- TSL Helper: Clay Material ---
+// Creates a standard TSL material with a "clay-like" look (low roughness, slight rim light)
+export function createClayMaterial(hexColor) {
+    const mat = new MeshStandardNodeMaterial();
+    mat.colorNode = color(hexColor);
+    mat.roughnessNode = float(0.8);
+    mat.metalnessNode = float(0.0);
+    return mat;
+}
+
+// --- TSL Helper: Rim Light ---
+// Adds a subtle fresnel/rim light effect to a color node
+export const addRimLight = Fn(([baseColorNode, normalNode, viewDirNode]) => {
+    const rimPower = float(3.0);
+    const rimIntensity = float(0.5);
+    const NdotV = max(0.0, dot(normalNode, viewDirNode));
+    const rim = float(1.0).sub(NdotV).pow(rimPower).mul(rimIntensity);
+    return baseColorNode.add(rim);
+});
+
+// --- Material Definitions ---
 export const foliageMaterials = {
     mushroomStem: new MeshStandardNodeMaterial({ color: 0xF5F5DC, roughness: 0.9 }),
     mushroomCap: [
@@ -45,7 +70,7 @@ export function pickAnimation(types) {
 /**
  * attachReactivity
  * Registers an object for Music Reactivity.
- * * @param {THREE.Object3D} group - The object to register.
+ * @param {THREE.Object3D} group - The object to register.
  * @param {Object} options - Config options.
  * @param {String} options.type - 'flora' or 'sky'.
  * @param {Object} options.lightPreference - { min: 0.0, max: 1.0 }.
@@ -58,13 +83,11 @@ export function attachReactivity(group, options = {}) {
     group.userData.reactivityType = options.type || group.userData.reactivityType || 'flora';
 
     // 3. Assign Reactivity ID (Round-Robin)
-    // This ensures objects don't all listen to channel 0
     if (typeof group.userData.reactivityId === 'undefined') {
         group.userData.reactivityId = reactivityCounter++;
     }
 
     // 4. Set Light Preference (Photosensitivity)
-    // Default to always reactive (0.0 - 1.0) unless specified
     const light = options.lightPreference || {};
     group.userData.minLight = (typeof light.min !== 'undefined') ? light.min : (group.userData.minLight ?? 0.0);
     group.userData.maxLight = (typeof light.max !== 'undefined') ? light.max : (group.userData.maxLight ?? 1.0);
