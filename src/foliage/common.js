@@ -8,11 +8,11 @@ import { color, float, texture, uv, positionLocal, sin, time, mix, vec3, vec4, F
 export const eyeGeo = new THREE.SphereGeometry(0.12, 16, 16);
 export const pupilGeo = new THREE.SphereGeometry(0.05, 12, 12);
 
-// --- Reactive Objects Registry (New System) ---
+// --- Reactive Objects Registry ---
 export const reactiveObjects = [];
 let reactivityCounter = 0; // For round-robin channel assignment
 
-// --- Legacy Registry (Fixes animation.js error) ---
+// --- Legacy Registry (For compatibility) ---
 export const reactiveMaterials = []; 
 export const _foliageReactiveColor = new THREE.Color(); 
 export function median(arr) {
@@ -26,12 +26,21 @@ export function median(arr) {
 export const uWindSpeed = uniform(0.0);
 export const uWindDirection = uniform(vec3(1, 0, 0));
 
-// --- TSL Helper: Clay Material ---
+// --- TSL Helper: Clay Material (Matte) ---
 export function createClayMaterial(hexColor) {
     const mat = new MeshStandardNodeMaterial();
     mat.colorNode = color(hexColor);
-    mat.roughnessNode = float(0.8);
+    mat.roughnessNode = float(0.8); // Matte
     mat.metalnessNode = float(0.0);
+    return mat;
+}
+
+// --- TSL Helper: Candy Material (Shiny/Glossy) - NEW FIX ---
+export function createCandyMaterial(hexColor) {
+    const mat = new MeshStandardNodeMaterial();
+    mat.colorNode = color(hexColor);
+    mat.roughnessNode = float(0.15); // Very smooth/shiny
+    mat.metalnessNode = float(0.1);  // Slight reflection
     return mat;
 }
 
@@ -91,7 +100,6 @@ export const foliageMaterials = {
 };
 
 export function registerReactiveMaterial(mat) {
-    // Legacy support: add to both lists just in case
     reactiveMaterials.push(mat);
 }
 
