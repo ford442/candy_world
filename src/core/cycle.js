@@ -117,8 +117,10 @@ export function getCelestialState(tRaw) {
 
 // --- NEW: Seasonal & Yearly Calculations ---
 
-const YEAR_LENGTH = CYCLE_DURATION * 30; // A "Year" is 30 in-game days for shorter loops
-const MOON_CYCLE_LENGTH = CYCLE_DURATION * 5; // Full moon every 5 days
+// Year = 40 Days (10 days per season)
+const YEAR_LENGTH = CYCLE_DURATION * 40; // 40 in-game days per year
+// Moon cycle = 8 days so it slowly drifts against the 10-day seasons
+const MOON_CYCLE_LENGTH = CYCLE_DURATION * 8; // Full moon every 8 days
 
 export function getSeasonalState(tRaw) {
     // 1. Calculate Year Progress (0.0 to 1.0)
