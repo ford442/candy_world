@@ -86,15 +86,23 @@ export class AudioSystem {
             const AudioContext = window.AudioContext || window.webkitAudioContext;
             this.audioContext = new AudioContext();
 
-            // Load the worklet processor (ensure the path is correct for your build)
-            // Use same-origin/local path so browsers can fetch the module without CORS issues in dev
-            await this.audioContext.audioWorklet.addModule('/js/audio-processor.js');
+            // --- PATH FIX ---
+            // Try loading relative to the current page location
+            try {
+                // 'js/audio-processor.js' works if index.html is at root and js/ is a sibling
+                await this.audioContext.audioWorklet.addModule('js/audio-processor.js');
+            } catch (e) {
+                console.warn("Relative load failed, trying absolute /js/ path...", e);
+                // Fallback for some dev environments
+                await this.audioContext.audioWorklet.addModule('/js/audio-processor.js');
+            }
+            // ----------------
 
-            // Create the Worklet node
             this.workletNode = new AudioWorkletNode(this.audioContext, 'chiptune-processor');
 
             // Wire up messages from the audio thread
             this.workletNode.port.onmessage = (event) => {
+                // ... keep existing handler ...
                 const { type, data } = event.data || {};
                 if (type === 'VISUAL_UPDATE') {
                     this.handleVisualUpdate(data);
@@ -104,6 +112,9 @@ export class AudioSystem {
                 } else if (type === 'READY') {
                     this.isReady = true;
                     console.log("AudioSystem: Worklet Ready.");
+                    if (this.playlist.length > 0 && this.currentIndex === -1) {
+                        this.playNext(0);
+                    }
                 }
             };
 
@@ -114,9 +125,8 @@ export class AudioSystem {
             this.workletNode.connect(this.gainNode);
             this.gainNode.connect(this.audioContext.destination);
 
-            console.log("AudioSystem initialized (AudioWorklet).");
-        } catch (err) {
-            console.error("AudioSystem init failed (Worklet?)", err);
+        } catch (e) {
+            console.error("AudioSystem Init Failed:", e);
         }
     }
 
