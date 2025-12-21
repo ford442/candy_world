@@ -181,6 +181,27 @@ export class WeatherSystem {
     }
 
     /**
+     * Calculate global light level based on celestial and seasonal state
+     */
+    getGlobalLightLevel(celestial, seasonal) {
+        // sunIntensity checks daily cycle (Dawn -> Noon -> Dusk)
+        // seasonal.sunInclination checks yearly cycle (Winter -> Summer)
+        const sun = celestial.sunIntensity * (seasonal ? seasonal.sunInclination : 1.0);
+
+        // Moon is dim (max ~0.25)
+        const moon = celestial.moonIntensity * (seasonal ? seasonal.moonPhase : 1.0) * 0.25;
+
+        const stars = 0.05; // Starlight baseline
+
+        const cloudCover = this.cloudDensity; // 0.0 to 1.0
+
+        // Clouds block light
+        const totalLight = (sun + moon + stars) * (1.0 - (cloudCover * 0.8));
+
+        return Math.min(1.0, totalLight);
+    }
+
+    /**
      * Main update loop - call every frame
      * @param {number} time - Current time
      * @param {object} audioData - Audio analysis data
@@ -206,6 +227,10 @@ export class WeatherSystem {
 
         // 3. Update Weather State (Audio + Time of Day + Season)
         this.updateWeatherState(bassIntensity, melodyVol, groove, cycleWeatherBias, seasonal);
+
+        // --- NEW: Calculate Global Light Level ---
+        this.currentLightLevel = this.getGlobalLightLevel(celestial, seasonal);
+        // -----------------------------------------
 
         // --- NEW: Scale intensity by Player's Cloud Density ---
         this.targetIntensity *= this.cloudDensity;

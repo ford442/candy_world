@@ -119,7 +119,14 @@ export function createFlower(options = {}) {
     group.userData.animationType = pickAnimation(['sway', 'wobble', 'accordion']);
     group.userData.type = 'flower';
     group.userData.isFlower = true;
-    return attachReactivity(group);
+
+    // Sun Flower logic (Reacts when bright)
+    if (shape === 'sunflower' || shape === 'multi') {
+        return attachReactivity(group, { minLight: 0.6, maxLight: 1.0 });
+    }
+
+    // Standard Flower logic (Daytime/Dusk)
+    return attachReactivity(group, { minLight: 0.2, maxLight: 1.0 });
 }
 
 export function createGlowingFlower(options = {}) {
@@ -159,7 +166,8 @@ export function createGlowingFlower(options = {}) {
     group.userData.animationType = 'glowPulse';
     group.userData.animationOffset = Math.random() * 10;
     group.userData.type = 'flower';
-    return attachReactivity(group);
+    // Glowing flowers are often Night Dancers
+    return attachReactivity(group, { minLight: 0.0, maxLight: 0.4 });
 }
 
 export function createStarflower(options = {}) {
@@ -202,7 +210,8 @@ export function createStarflower(options = {}) {
     group.userData.animationType = 'spin';
     group.userData.animationOffset = Math.random() * 10;
     group.userData.type = 'starflower';
-    return attachReactivity(group);
+    // Moon Flower logic (Night only)
+    return attachReactivity(group, { minLight: 0.0, maxLight: 0.4 });
 }
 
 export function createBellBloom(options = {}) {
@@ -233,7 +242,7 @@ export function createBellBloom(options = {}) {
     group.userData.animationType = pickAnimation(['sway', 'wobble']);
     group.userData.animationOffset = Math.random() * 10;
     group.userData.type = 'flower';
-    return attachReactivity(group);
+    return attachReactivity(group, { minLight: 0.2, maxLight: 1.0 });
 }
 
 export function createPuffballFlower(options = {}) {
@@ -285,7 +294,7 @@ export function createPuffballFlower(options = {}) {
     group.userData.bounceRadius = headR + 0.3;
     group.userData.bounceForce = 12 + Math.random() * 5;
 
-    return attachReactivity(group);
+    return attachReactivity(group, { minLight: 0.2, maxLight: 1.0 });
 }
 
 export function createPrismRoseBush(options = {}) {
@@ -352,7 +361,7 @@ export function createPrismRoseBush(options = {}) {
     group.userData.animationOffset = Math.random() * 10;
     group.userData.type = 'flower';
 
-    return attachReactivity(group);
+    return attachReactivity(group, { minLight: 0.2, maxLight: 1.0 });
 }
 
 export function createSubwooferLotus(options = {}) {
@@ -384,7 +393,7 @@ export function createSubwooferLotus(options = {}) {
     group.userData.animationOffset = Math.random() * 10;
     group.userData.type = 'lotus';
 
-    return attachReactivity(group);
+    return attachReactivity(group, { minLight: 0.0, maxLight: 1.0 }); // Lotus might be always active
 }
 
 export function createVibratoViolet(options = {}) {
@@ -445,7 +454,7 @@ export function createVibratoViolet(options = {}) {
     group.userData.type = 'vibratoViolet';
     group.userData.headGroup = headGroup;
 
-    return attachReactivity(group);
+    return attachReactivity(group, { minLight: 0.2, maxLight: 1.0 });
 }
 
 export function createTremoloTulip(options = {}) {
@@ -511,7 +520,7 @@ export function createTremoloTulip(options = {}) {
     group.userData.headGroup = headGroup;
     group.userData.bellMaterial = bellMat;
 
-    return attachReactivity(group);
+    return attachReactivity(group, { minLight: 0.2, maxLight: 1.0 });
 }
 
 export function createGlowingFlowerPatch(x, z) {

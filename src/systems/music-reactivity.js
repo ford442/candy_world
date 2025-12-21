@@ -1,8 +1,10 @@
 // Music Reactivity System
 // Handles Note -> Color mapping and note event routing
+// Now manages the main loop iteration for foliage animation and photosensitivity
 
 import { CONFIG } from '../core/config.js';
-import { reactiveObjects } from '../foliage/common.js';
+import * as THREE from 'three';
+import { animateFoliage, triggerMoonBlink } from '../foliage/index.js';
 
 const CHROMATIC_SCALE = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
@@ -41,183 +43,182 @@ export function getNoteColor(note, species = 'global') {
     return map[noteName] || 0xFFFFFF;
 }
 
-/**
- * Apply reaction to a specific object
- * @param {THREE.Object3D} object
- * @param {number|string} note
- * @param {number} velocity
- */
-export function reactObject(object, note, velocity) {
-    if (!object.userData.type) return;
-
-    const species = object.userData.type;
-
-    if (typeof object.reactToNote === 'function') {
-        // Get color specifically for this species
-        const color = getNoteColor(note, species);
-        object.reactToNote(note, color, velocity);
-    }
-
-    // --- NEW: CELESTIAL REACTIONS ---
-    if (object.userData.type === 'pulsar') {
-        // Flash scale and opacity
-        const scale = 1.0 + velocity * 0.5;
-        object.scale.setScalar(scale);
-        // If it has a glow child (index 1), boost opacity
-        if (object.children[1]) {
-            object.children[1].material.opacity = 0.3 + velocity * 0.7;
-        }
-    }
-    else if (object.userData.type === 'planet') {
-        // Pulse the planet slowly
-        const scale = 1.0 + velocity * 0.1;
-        object.scale.setScalar(scale);
-        // Rotate ring faster on beat
-        if (object.children[1]) {
-            object.children[1].rotation.z += velocity * 0.1;
-        }
-    }
-    else if (object.userData.type === 'galaxy') {
-        // Spin Galaxy Faster on Melody intensity
-        // We accumulate rotation, so we need to access the mesh directly
-        object.rotation.y -= (object.userData.baseRotationSpeed + velocity * 0.02);
-    }
-}
-
-/**
- * Main Update Loop for Music Reactivity
- * splits channels between 'flora' (low channels) and 'sky' (high channels/drums)
- */
-export function updateMusicReactivity(audioState) {
-    if (!audioState || !audioState.channelData) return;
-
-    const channels = audioState.channelData;
-    const totalChannels = channels.length;
-
-    // Split: Flora gets bottom half, Sky gets top half (drums)
-    const splitIndex = Math.ceil(totalChannels / 2);
-
-    // Iterate efficiently
-    for (let i = 0, l = reactiveObjects.length; i < l; i++) {
-        const obj = reactiveObjects[i];
-        const type = obj.userData.reactivityType || 'flora';
-        const id = obj.userData.reactivityId || 0;
-
-        let targetChannelIndex;
-
-        if (type === 'sky') {
-            const skyChannelCount = totalChannels - splitIndex;
-            if (skyChannelCount > 0) {
-                // Map ID to upper channels (e.g. 2, 3 in a 4-ch MOD)
-                targetChannelIndex = splitIndex + (id % skyChannelCount);
-            } else {
-                targetChannelIndex = 0; // Fallback
-            }
-        } else {
-            // Flora
-            const floraChannelCount = splitIndex;
-            if (floraChannelCount > 0) {
-                 // Map ID to lower channels (e.g. 0, 1 in a 4-ch MOD)
-                targetChannelIndex = id % floraChannelCount;
-            } else {
-                targetChannelIndex = 0;
-            }
-        }
-
-        // Safety clamp
-        if (targetChannelIndex >= totalChannels) targetChannelIndex = 0;
-
-        const channelInfo = channels[targetChannelIndex];
-
-        // Trigger check
-        // We use a threshold of 0.1 to avoid noise
-        if (channelInfo && channelInfo.trigger > 0.1) {
-            // Apply visual reaction
-            // Pass the Note so the object picks the right color from its palette
-            // Pass the Trigger as velocity for intensity
-            reactObject(obj, channelInfo.note, channelInfo.trigger);
-        }
-    }
-}
-
-export class MusicReactivity {
+export class MusicReactivitySystem {
     constructor(scene, config = {}) {
         this.scene = scene;
         this.config = config;
     }
 
-    // Deprecated method wrappers to maintain API compatibility if called elsewhere
-    triggerNote(species, note, velocity) {
-        // No-op or global broadcast if needed later
-    }
-
-    /**
-     * Update loop to handle music reactivity distribution
-     * @param {Object} audioState - Current state from AudioSystem
-     */
-    update(audioState) {
-        if (!audioState || !audioState.channelData) return;
-
-        const channels = audioState.channelData;
-        const totalChannels = channels.length;
-        const splitIndex = Math.ceil(totalChannels / 2); // Split point
-
-        reactiveObjects.forEach(obj => {
-            const type = obj.userData.reactivityType || 'flora';
-            const id = obj.userData.reactivityId || 0;
-
-            let targetChannelIndex;
-
-            if (type === 'sky') {
-                // Upper half (Drums/Percussion)
-                const skyCount = totalChannels - splitIndex;
-                if (skyCount > 0) {
-                     targetChannelIndex = splitIndex + (id % skyCount);
-                } else {
-                     targetChannelIndex = totalChannels - 1; // Fallback
-                }
-            } else {
-                // Lower half (Melody/Bass)
-                const floraCount = splitIndex;
-                if (floraCount > 0) {
-                     targetChannelIndex = id % floraCount;
-                } else {
-                     targetChannelIndex = 0;
-                }
-            }
-
-            // Wrap safety
-            if (targetChannelIndex >= totalChannels) targetChannelIndex = 0;
-
-            const info = channels[targetChannelIndex];
-            if (info && info.trigger > 0.1) {
-                // Use the object's assigned color palette (visual)
-                // But trigger based on the mapped audio channel (timing)
-                this.applyReaction(obj, info.note, info.trigger);
-            }
-        });
-    }
-
     /**
      * Apply reaction to a specific object
-     * @param {THREE.Object3D} object
-     * @param {number|string} note
-     * @param {number} velocity
+     * Merged: Handles standard foliage AND celestial objects from jules-dev
      */
-    applyReaction(object, note, velocity) {
+    reactObject(object, note, velocity) {
         if (!object.userData.type) return;
 
         const species = object.userData.type;
 
+        // 1. Standard Reactivity (Flora)
         if (typeof object.reactToNote === 'function') {
-            // Get color specifically for this species
             const color = getNoteColor(note, species);
             object.reactToNote(note, color, velocity);
         }
+
+        // 2. Celestial Reactions (from jules-dev)
+        if (object.userData.type === 'pulsar') {
+            // Flash scale and opacity
+            const scale = 1.0 + velocity * 0.5;
+            object.scale.setScalar(scale);
+            // If it has a glow child (index 1), boost opacity
+            if (object.children[1]) {
+                object.children[1].material.opacity = 0.3 + velocity * 0.7;
+            }
+        }
+        else if (object.userData.type === 'planet') {
+            // Pulse the planet slowly
+            const scale = 1.0 + velocity * 0.1;
+            object.scale.setScalar(scale);
+            // Rotate ring faster on beat
+            if (object.children[1]) {
+                object.children[1].rotation.z += velocity * 0.1;
+            }
+        }
+        else if (object.userData.type === 'galaxy') {
+            // Spin Galaxy Faster on Melody intensity
+            // We accumulate rotation, so we need to access the mesh directly
+            object.rotation.y -= (object.userData.baseRotationSpeed + velocity * 0.02);
+        }
     }
 
-    // Alias for backward compatibility if needed, but we are using applyReaction internally now
-    reactObject(object, note, velocity) {
-        this.applyReaction(object, note, velocity);
+    // Helper to check if object is currently active (User Change)
+    isObjectActive(object) {
+        return object.visible;
+    }
+
+    /**
+     * Main update loop for foliage animation and reactivity.
+     * Integrates Photosensitivity (Feature Branch) with Channel Mapping (Jules Dev).
+     *
+     * @param {number} t - Current game time
+     * @param {object} audioState - Current audio analysis state
+     * @param {object} weatherSystem - Reference to weather system (for light level)
+     * @param {Array} animatedFoliage - List of objects to update
+     * @param {THREE.Camera} camera - Camera for distance culling
+     * @param {boolean} isNight - Is it currently night?
+     * @param {boolean} isDeepNight - Is it deep night (for fireflies etc)?
+     * @param {THREE.Object3D} moon - Reference to moon for blinking
+     */
+    update(t, audioState, weatherSystem, animatedFoliage, camera, isNight, isDeepNight, moon) {
+        
+        // 1. Global Events (Moon Blink)
+        // Check specific instruments (e.g. Tree/Drums) for global effects
+        if (audioState && audioState.channelData && isNight && moon) {
+            // Quick check for instrument 2 (Tree/Drums) activity
+            for (const ch of audioState.channelData) {
+                if (ch.trigger > 0.5 && ch.instrument === 2) {
+                    triggerMoonBlink(moon);
+                    break;
+                }
+            }
+        }
+
+        // 2. Get Global Light Level
+        const globalLight = (weatherSystem && typeof weatherSystem.getGlobalLightLevel === 'function')
+            ? weatherSystem.currentLightLevel 
+            : 1.0;
+
+        // 3. Iterate Foliage
+        const camPos = camera.position;
+        const maxAnimationDistance = 50;
+        const maxDistanceSq = maxAnimationDistance * maxAnimationDistance;
+
+        // Time budgeting: Limit material updates to avoid audio stutter
+        const maxFoliageUpdateTime = 2; // milliseconds
+        const frameStartTime = (typeof performance !== 'undefined') ? performance.now() : Date.now();
+        let foliageUpdatesThisFrame = 0;
+        const maxFoliageUpdates = 50; 
+
+        // Audio Channel Info (Pre-calc for loop)
+        const channels = (audioState && audioState.channelData) ? audioState.channelData : null;
+        const totalChannels = channels ? channels.length : 0;
+        const splitIndex = Math.ceil(totalChannels / 2);
+
+        for (let i = 0, l = animatedFoliage.length; i < l; i++) {
+            const f = animatedFoliage[i];
+
+            // Distance Culling
+            const distSq = f.position.distanceToSquared(camPos);
+            if (distSq > maxDistanceSq) continue;
+
+            // Check time budget
+            if ((typeof performance !== 'undefined') && (performance.now() - frameStartTime > maxFoliageUpdateTime)) {
+                break; 
+            }
+
+            // Limit number of updates per frame
+            if (foliageUpdatesThisFrame >= maxFoliageUpdates) {
+                break;
+            }
+
+            // --- USER CHANGE: 'wobble' multiplier ---
+            if (f.userData.animationType === 'wobble') {
+                f.userData.animationOffset += 0.05; 
+            }
+            // ----------------------------------------
+
+            // A) Standard Animation (Sway, Bounce, etc.)
+            animateFoliage(f, t, audioState, !isNight, isDeepNight);
+            foliageUpdatesThisFrame++;
+
+            // B) Music Reactivity (Photosensitive + Channel Mapped)
+            if (channels) {
+                // 1. Check Photosensitivity (Feature Branch Logic)
+                const min = f.userData.minLight !== undefined ? f.userData.minLight : 0.0;
+                const max = f.userData.maxLight !== undefined ? f.userData.maxLight : 1.0;
+                const feather = 0.1;
+                
+                const lowerEdge = (globalLight - min) / feather; 
+                const upperEdge = (max - globalLight) / feather; 
+                const lightFactor = Math.min(Math.max(lowerEdge, 0), Math.max(upperEdge, 0), 1.0);
+
+                // 2. If light allows, check Audio Channel (Jules Dev Logic)
+                if (lightFactor > 0) {
+                    const type = f.userData.reactivityType || 'flora';
+                    const id = f.userData.reactivityId || 0;
+                    let targetChannelIndex = 0;
+
+                    if (type === 'sky') {
+                        // Upper half (Drums/Percussion)
+                        const skyCount = totalChannels - splitIndex;
+                        if (skyCount > 0) {
+                            targetChannelIndex = splitIndex + (id % skyCount);
+                        } else {
+                            targetChannelIndex = totalChannels - 1; 
+                        }
+                    } else {
+                        // Lower half (Melody/Bass)
+                        const floraCount = splitIndex;
+                        if (floraCount > 0) {
+                            targetChannelIndex = id % floraCount;
+                        } else {
+                            targetChannelIndex = 0;
+                        }
+                    }
+
+                    if (targetChannelIndex < totalChannels) {
+                        const info = channels[targetChannelIndex];
+                        if (info && info.trigger > 0.1) {
+                            // Apply reaction scaled by lightFactor
+                            this.reactObject(f, info.note, info.trigger * lightFactor);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    // Alias for backward compatibility if needed
+    applyReaction(object, note, velocity) {
+        this.reactObject(object, note, velocity);
     }
 }
