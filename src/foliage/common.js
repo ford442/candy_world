@@ -25,17 +25,28 @@ export function createClayMaterial(hexColor) {
     return mat;
 }
 
-// --- TSL Helper: Gradient Material (MISSING FIX) ---
-// Creates a material that transitions from colorBottom to colorTop based on UV height
+// --- TSL Helper: Gradient Material ---
 export function createGradientMaterial(colorBottom, colorTop) {
     const mat = new MeshStandardNodeMaterial();
-    // Mix colors based on the Y component of the UV mapping (0 = bottom, 1 = top)
     const gradientNode = mix(color(colorBottom), color(colorTop), uv().y);
-    
     mat.colorNode = gradientNode;
     mat.roughnessNode = float(0.9);
     mat.metalnessNode = float(0.0);
     return mat;
+}
+
+// --- TSL Helper: Noise Texture (MISSING FIX) ---
+// Generates a random noise texture for TSL displacement/clouds
+export function generateNoiseTexture(size = 256) {
+    const data = new Uint8Array(size * size * 4);
+    for (let i = 0; i < size * size * 4; i++) {
+        data[i] = Math.random() * 255;
+    }
+    const tex = new THREE.DataTexture(data, size, size, THREE.RGBAFormat);
+    tex.needsUpdate = true;
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    return tex;
 }
 
 // --- TSL Helper: Rim Light ---
@@ -51,10 +62,10 @@ export const addRimLight = Fn(([baseColorNode, normalNode, viewDirNode]) => {
 export const foliageMaterials = {
     mushroomStem: new MeshStandardNodeMaterial({ color: 0xF5F5DC, roughness: 0.9 }),
     mushroomCap: [
-        new MeshStandardNodeMaterial({ color: 0xFF0000, roughness: 0.3 }), // Red
-        new MeshStandardNodeMaterial({ color: 0x0000FF, roughness: 0.3 }), // Blue
-        new MeshStandardNodeMaterial({ color: 0x00FF00, roughness: 0.3 }), // Green
-        new MeshStandardNodeMaterial({ color: 0xFFFF00, roughness: 0.3 }), // Yellow
+        new MeshStandardNodeMaterial({ color: 0xFF0000, roughness: 0.3 }), 
+        new MeshStandardNodeMaterial({ color: 0x0000FF, roughness: 0.3 }), 
+        new MeshStandardNodeMaterial({ color: 0x00FF00, roughness: 0.3 }), 
+        new MeshStandardNodeMaterial({ color: 0xFFFF00, roughness: 0.3 }), 
     ],
     mushroomGills: new MeshStandardNodeMaterial({ color: 0x332211, roughness: 1.0, side: THREE.DoubleSide }),
     mushroomSpots: new MeshStandardNodeMaterial({ color: 0xFFFFFF, roughness: 0.8 }),
@@ -71,7 +82,7 @@ export const foliageMaterials = {
 };
 
 export function registerReactiveMaterial(mat) {
-    // Legacy support or placeholder if needed
+    // Legacy support or placeholder
 }
 
 export function pickAnimation(types) {
@@ -83,18 +94,14 @@ export function pickAnimation(types) {
  * Registers an object for Music Reactivity.
  */
 export function attachReactivity(group, options = {}) {
-    // 1. Register to the central list
     reactiveObjects.push(group);
 
-    // 2. Set Reactivity Type (flora vs sky)
     group.userData.reactivityType = options.type || group.userData.reactivityType || 'flora';
 
-    // 3. Assign Reactivity ID (Round-Robin)
     if (typeof group.userData.reactivityId === 'undefined') {
         group.userData.reactivityId = reactivityCounter++;
     }
 
-    // 4. Set Light Preference (Photosensitivity)
     const light = options.lightPreference || {};
     group.userData.minLight = (typeof light.min !== 'undefined') ? light.min : (group.userData.minLight ?? 0.0);
     group.userData.maxLight = (typeof light.max !== 'undefined') ? light.max : (group.userData.maxLight ?? 1.0);
