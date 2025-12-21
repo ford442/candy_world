@@ -2,10 +2,11 @@
 
 import * as THREE from 'three';
 import { calcRainDropY, getGroundHeight, uploadPositions, uploadAnimationData, batchMushroomSpawnCandidates, readSpawnCandidates, isWasmReady } from '../utils/wasm-loader.js';
-import { chargeBerries, triggerGrowth, triggerBloom, shakeBerriesLoose, updateBerrySeasons, createMushroom } from '../foliage/index.js';
+import { chargeBerries, triggerGrowth, triggerBloom, shakeBerriesLoose, updateBerrySeasons } from '../foliage/index.js';
 import { createWaterfall } from '../foliage/waterfalls.js';
 import { getCelestialState } from '../core/cycle.js';
 import { CYCLE_DURATION, CONFIG } from '../core/config.js';
+import { foliageMaterials, registerReactiveMaterial, attachReactivity, createClayMaterial, pickAnimation } from './common.js';
 import { uCloudRainbowIntensity, uCloudLightningStrength, uCloudLightningColor } from '../foliage/clouds.js';
 
 export const WeatherState = {
@@ -481,4 +482,33 @@ export class WeatherSystem {
         if (this.melodicMist) { this.scene.remove(this.melodicMist); this.melodicMist.geometry.dispose(); this.melodicMist.material.dispose(); }
         if (this.lightningLight) { this.scene.remove(this.lightningLight); }
     }
+}
+
+export function createMushroom(options = {}) {
+    const { size = 'regular', scale = 1.0, colorIndex = -1 } = options;
+    const group = new THREE.Group();
+
+    const stemH = size === 'giant' ? (2.0 * scale) : (0.3 * scale + Math.random() * 0.2 * scale);
+    const stemGeo = new THREE.CylinderGeometry(0.06 * scale, 0.08 * scale, stemH, 8);
+    stemGeo.translate(0, stemH / 2, 0);
+    const stem = new THREE.Mesh(stemGeo, foliageMaterials.mushroomStem || createClayMaterial(0xF5DEB3));
+    stem.castShadow = true;
+    group.add(stem);
+
+    const capRadius = size === 'giant' ? (4.0 * scale) : (0.25 * scale + Math.random() * 0.15 * scale);
+    const capHeight = size === 'giant' ? (1.5 * scale) : (0.12 * scale + Math.random() * 0.05 * scale);
+    const capGeo = new THREE.SphereGeometry(capRadius, 12, 8);
+    capGeo.scale(1, 0.5, 1);
+    const capMat = (Array.isArray(foliageMaterials.mushroomCap) ? foliageMaterials.mushroomCap[Math.max(0, Math.min(foliageMaterials.mushroomCap.length - 1, colorIndex))] : foliageMaterials.mushroomCap) || createClayMaterial(0xFF6EC7);
+    registerReactiveMaterial(capMat);
+    const cap = new THREE.Mesh(capGeo, capMat);
+    cap.position.y = stemH;
+    cap.castShadow = true;
+    group.add(cap);
+
+    group.userData = { type: 'mushroom', size, capRadius, capHeight, colorIndex, radius: capRadius };
+    group.userData.animationOffset = Math.random() * 10;
+    group.userData.animationType = pickAnimation(['sway', 'pulse', 'float']);
+
+    return attachReactivity(group);
 }
