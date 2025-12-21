@@ -291,7 +291,7 @@ export class WeatherSystem {
         }
 
         // Update wind system
-        this.updateWind(time, audioData);
+        this.updateWind(time, audioData, celestial);
 
         // Update fog density based on weather
         this.updateFog();
