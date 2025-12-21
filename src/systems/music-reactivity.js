@@ -57,6 +57,31 @@ export function reactObject(object, note, velocity) {
         const color = getNoteColor(note, species);
         object.reactToNote(note, color, velocity);
     }
+
+    // --- NEW: CELESTIAL REACTIONS ---
+    if (object.userData.type === 'pulsar') {
+        // Flash scale and opacity
+        const scale = 1.0 + velocity * 0.5;
+        object.scale.setScalar(scale);
+        // If it has a glow child (index 1), boost opacity
+        if (object.children[1]) {
+            object.children[1].material.opacity = 0.3 + velocity * 0.7;
+        }
+    }
+    else if (object.userData.type === 'planet') {
+        // Pulse the planet slowly
+        const scale = 1.0 + velocity * 0.1;
+        object.scale.setScalar(scale);
+        // Rotate ring faster on beat
+        if (object.children[1]) {
+            object.children[1].rotation.z += velocity * 0.1;
+        }
+    }
+    else if (object.userData.type === 'galaxy') {
+        // Spin Galaxy Faster on Melody intensity
+        // We accumulate rotation, so we need to access the mesh directly
+        object.rotation.y -= (object.userData.baseRotationSpeed + velocity * 0.02);
+    }
 }
 
 /**
