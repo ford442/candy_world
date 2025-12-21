@@ -228,3 +228,56 @@ export function validateFoliageMaterials() {
     });
     return safe;
 }
+
+// Ensure geometries used with TSL node materials have required attributes
+export function ensureGeometryHasPositionAndNormals(geometry, label = 'object') {
+    if (!geometry) return false;
+    // BufferGeometry expected
+    const attr = geometry.attributes || {};
+    if (!attr.position) {
+        console.warn(`[TSL] Geometry for ${label} is missing 'position' attribute.`);
+        return false;
+    }
+
+    if (!attr.normal) {
+        // Try computeVertexNormals if available
+        if (typeof geometry.computeVertexNormals === 'function') {
+            try {
+                geometry.computeVertexNormals();
+                console.info(`[TSL] Computed vertex normals for ${label}`);
+            } catch (e) {
+                console.warn(`[TSL] Failed to compute vertex normals for ${label}`, e);
+            }
+        }
+        // If still no normals, create dummy normals pointing up
+        if (!geometry.attributes.normal) {
+            const pos = geometry.attributes.position;
+            const normals = new Float32Array(pos.count * 3);
+            for (let i = 0; i < pos.count; i++) {
+                normals[i * 3] = 0;
+                normals[i * 3 + 1] = 1;
+                normals[i * 3 + 2] = 0;
+            }
+            geometry.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
+            console.info(`[TSL] Added dummy normals for ${label}`);
+        }
+    }
+
+    return true;
+}
+
+export function validateNodeGeometries(scene) {
+    if (!scene || typeof scene.traverse !== 'function') return;
+    scene.traverse((obj) => {
+        if (!obj.isMesh && !obj.isPoints && !obj.isInstancedMesh) return;
+        const mat = obj.material;
+        if (!mat) return;
+        // Heuristic: materials with node-based properties will have 'colorNode' or 'positionNode' etc.
+        if (mat.colorNode === undefined && mat.positionNode === undefined && mat.sizeNode === undefined && mat.emissiveNode === undefined) return;
+        try {
+            ensureGeometryHasPositionAndNormals(obj.geometry, obj.name || obj.userData?.type || obj.type);
+        } catch (e) {
+            console.warn('[TSL] validateNodeGeometries detected an issue with', obj, e);
+        }
+    });
+}
