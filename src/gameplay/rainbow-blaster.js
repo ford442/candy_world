@@ -88,6 +88,7 @@ function createBurst(scene, position, color, type) {
     const count = 15;
     const geo = new THREE.BufferGeometry();
     const posArray = new Float32Array(count * 3);
+    const normArray = new Float32Array(count * 3);
     const velArray = [];
     
     for(let i=0; i<count; i++) {
@@ -95,6 +96,9 @@ function createBurst(scene, position, color, type) {
         posArray[i*3+1] = position.y + (Math.random()-0.5)*2;
         posArray[i*3+2] = position.z + (Math.random()-0.5)*2;
         
+        // Dummy Normal
+        normArray[i*3] = 0; normArray[i*3+1] = 1; normArray[i*3+2] = 0;
+
         if (type === 'mist') {
             // Float up/out
             velArray.push(new THREE.Vector3((Math.random()-0.5)*2, Math.random()*2, (Math.random()-0.5)*2));
@@ -105,6 +109,7 @@ function createBurst(scene, position, color, type) {
     }
     
     geo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+    geo.setAttribute('normal', new THREE.BufferAttribute(normArray, 3));
     
     const mat = new THREE.PointsMaterial({
         color: color,

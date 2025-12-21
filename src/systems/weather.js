@@ -85,6 +85,7 @@ export class WeatherSystem {
         const rainCount = 500;
         const rainGeo = new THREE.BufferGeometry();
         const rainPositions = new Float32Array(rainCount * 3);
+        const rainNormals = new Float32Array(rainCount * 3);
         const rainVelocities = new Float32Array(rainCount);
         const rainOffsets = new Float32Array(rainCount);
 
@@ -93,11 +94,16 @@ export class WeatherSystem {
             rainPositions[i * 3] = (Math.random() - 0.5) * 100;
             rainPositions[i * 3 + 1] = 20 + Math.random() * 30;
             rainPositions[i * 3 + 2] = (Math.random() - 0.5) * 100;
+
+            // Dummy normals
+            rainNormals[i * 3] = 0; rainNormals[i * 3 + 1] = 1; rainNormals[i * 3 + 2] = 0;
+
             rainVelocities[i] = 5 + Math.random() * 5; // Drop speed
             rainOffsets[i] = Math.random() * 50; // Start height variation
         }
 
         rainGeo.setAttribute('position', new THREE.BufferAttribute(rainPositions, 3));
+        rainGeo.setAttribute('normal', new THREE.BufferAttribute(rainNormals, 3));
         rainGeo.userData = { velocities: rainVelocities, offsets: rainOffsets };
 
         const rainMat = new THREE.PointsMaterial({
@@ -116,14 +122,19 @@ export class WeatherSystem {
         const mistCount = 300;
         const mistGeo = new THREE.BufferGeometry();
         const mistPositions = new Float32Array(mistCount * 3);
+        const mistNormals = new Float32Array(mistCount * 3);
 
         for (let i = 0; i < mistCount; i++) {
             mistPositions[i * 3] = (Math.random() - 0.5) * 80;
             mistPositions[i * 3 + 1] = Math.random() * 5;
             mistPositions[i * 3 + 2] = (Math.random() - 0.5) * 80;
+
+            // Dummy normals
+            mistNormals[i * 3] = 0; mistNormals[i * 3 + 1] = 1; mistNormals[i * 3 + 2] = 0;
         }
 
         mistGeo.setAttribute('position', new THREE.BufferAttribute(mistPositions, 3));
+        mistGeo.setAttribute('normal', new THREE.BufferAttribute(mistNormals, 3));
 
         const mistMat = new THREE.PointsMaterial({
             color: 0xAAFFAA,
