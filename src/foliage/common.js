@@ -12,10 +12,19 @@ export const uWindDirection = uniform(new THREE.Vector3(1, 0, 0));
 export const _foliageReactiveColor = new THREE.Color();
 export const eyeGeo = new THREE.SphereGeometry(0.05, 16, 16);
 export const reactiveMaterials = [];
+export const reactiveObjects = [];
+let reactivityCounter = 0;
 
 export function registerReactiveMaterial(mat) {
     if (reactiveMaterials.length < 500) {
         reactiveMaterials.push(mat);
+    }
+}
+
+export function cleanupReactivity(group) {
+    const idx = reactiveObjects.indexOf(group);
+    if (idx !== -1) {
+        reactiveObjects.splice(idx, 1);
     }
 }
 
@@ -38,6 +47,16 @@ export function attachReactivity(group) {
 
     // Expose cached reactive meshes for efficient per-frame updates
     group.userData.reactiveMeshes = reactiveMeshes; 
+
+    // Setup Split-Channel Reactivity Data
+    if (!group.userData.reactivityType) {
+        group.userData.reactivityType = 'flora'; // Default
+    }
+    // Round-robin assignment
+    group.userData.reactivityId = reactivityCounter++;
+
+    // Register
+    reactiveObjects.push(group);
 
     group.reactToNote = function(note, colorHex, velocity = 1.0) {
         const targetColor = new THREE.Color(colorHex);

@@ -133,6 +133,7 @@ export function createRainingCloud(options = {}) {
     group.userData.type = 'cloud';
     group.userData.shapeType = shapeType;
     group.userData.cloudColor = cloudColor;
+    group.userData.reactivityType = 'sky';
 
     return attachReactivity(group);
 }
