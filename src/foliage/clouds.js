@@ -135,6 +135,9 @@ export function createRainingCloud(options = {}) {
     group.userData.cloudColor = cloudColor;
     group.userData.reactivityType = 'sky';
 
+    // Explicitly tag as Sky object for upper-channel (drum) reactivity
+    group.userData.reactivityType = 'sky';
+
     return attachReactivity(group);
 }
 
