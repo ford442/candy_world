@@ -141,6 +141,7 @@ function isPositionValid(x, z, radius) {
 
 // --- MAP GENERATION ---
 
+// @refactor {target: "ts", reason: "logic-complexity", note: "Map generation logic is complex and benefits from strict typing"}
 function generateMap(weatherSystem) {
     console.log(`[World] Loading map with ${mapData.length} entities...`);
 
