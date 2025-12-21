@@ -1,8 +1,8 @@
 // public/js/audio-processor.js
 
 // 1. Use ES Module Import instead of importScripts
-// Note: This expects libopenmpt.js to be accessible at /js/libopenmpt.js
-import '/js/libopenmpt.js'; 
+// Note: Use relative import so the file resolves relative to this worklet file
+import './libopenmpt.js'; 
 
 // Helper functions 
 const lerp = (a, b, t) => a + (b - a) * t;

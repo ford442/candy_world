@@ -86,17 +86,21 @@ export class AudioSystem {
             const AudioContext = window.AudioContext || window.webkitAudioContext;
             this.audioContext = new AudioContext();
 
-            // --- PATH FIX ---
-            // Try loading relative to the current page location
+            // --- PATH DEBUGGING FIX ---
+            // Calculate the absolute path to the 'js' folder based on the current page
+            // This works for localhost, production, and subdirectories (e.g. GitHub Pages)
+            const basePath = window.location.href.substring(0, window.location.href.lastIndexOf('/') + 1);
+            const workletUrl = basePath + 'js/audio-processor.js';
+            
+            console.log(`[AudioSystem] Attempting to load Worklet from: ${workletUrl}`);
+
             try {
-                // 'js/audio-processor.js' works if index.html is at root and js/ is a sibling
-                await this.audioContext.audioWorklet.addModule('js/audio-processor.js');
+                await this.audioContext.audioWorklet.addModule(workletUrl);
             } catch (e) {
-                console.warn("Relative load failed, trying absolute /js/ path...", e);
-                // Fallback for some dev environments
-                await this.audioContext.audioWorklet.addModule('/js/audio-processor.js');
+                console.error(`[AudioSystem] Failed to load worklet at ${workletUrl}. Check the Network tab in DevTools for 404s.`);
+                throw e; 
             }
-            // ----------------
+            // --------------------------
 
             this.workletNode = new AudioWorkletNode(this.audioContext, 'chiptune-processor');
 
