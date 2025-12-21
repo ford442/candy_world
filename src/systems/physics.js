@@ -160,10 +160,11 @@ export function updatePhysics(delta, camera, controls, keyStates, audioState) {
                 _targetVelocity.normalize().multiplyScalar(moveSpeed);
             }
 
-            // Apply BPM Wind
-            const windEffect = bpmWind.strength * 2.0;
-            _targetVelocity.x += bpmWind.direction.x * windEffect;
-            _targetVelocity.z += bpmWind.direction.z * windEffect;
+            // --- CHANGED: Disabled Player Wind Drifting ---
+            // We removed the code that added bpmWind to _targetVelocity here.
+            // This prevents the player from sliding/shaking when music plays.
+            // (bpmWind is still maintained above for use by visual systems like foliage)
+            // ----------------------------------------------
 
             const smoothing = Math.min(1.0, 15.0 * delta);
             player.velocity.x += (_targetVelocity.x - player.velocity.x) * smoothing;
