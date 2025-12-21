@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { uWindSpeed, uWindDirection, uSkyTopColor, uSkyBottomColor, uHorizonColor, uAtmosphereIntensity, uStarPulse, uStarOpacity, updateMoon, animateFoliage, updateFoliageMaterials, updateFireflies, updateFallingBerries, collectFallingBerries, createFlower, createMushroom } from './src/foliage/index.js';
+import { uWindSpeed, uWindDirection, uSkyTopColor, uSkyBottomColor, uHorizonColor, uAtmosphereIntensity, uStarPulse, uStarOpacity, updateMoon, animateFoliage, updateFoliageMaterials, updateFireflies, updateFallingBerries, collectFallingBerries, createFlower, createMushroom, validateNodeGeometries } from './src/foliage/index.js';
 import { initCelestialBodies } from './src/foliage/celestial-bodies.js';
 import { MusicReactivitySystem } from './src/systems/music-reactivity.js';
 import { AudioSystem } from './src/audio/audio-system.js';
@@ -48,6 +48,8 @@ const { moon, fireflies } = initWorld(scene, weatherSystem);
 
 // Add Celestial Bodies
 initCelestialBodies(scene);
+// Validate node material geometries to avoid TSL attribute errors
+validateNodeGeometries(scene);
 // Note: world generation populates animatedFoliage, obstacles, etc. via state.js
 
 // 4. Input Handling
