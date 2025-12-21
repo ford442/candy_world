@@ -60,6 +60,7 @@ function checkFlowerTrampoline(pos, audioState) {
     return 0;
 }
 
+// @perf-migrate {target: "cpp", reason: "collision-heavy-simd", threshold: "8ms", note: "Requires spatial hashing before migration"}
 export function updatePhysics(delta, camera, controls, keyStates, audioState) {
     // Collect falling berries (moved here conceptually, but logic can stay in main if preferred.
     // For now, main.js still calls collectFallingBerries separately, we just handle player movement here.)
