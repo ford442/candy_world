@@ -12,12 +12,11 @@ export const pupilGeo = new THREE.SphereGeometry(0.05, 12, 12);
 export const reactiveObjects = [];
 let reactivityCounter = 0; // For round-robin channel assignment
 
-// --- Global Uniforms (Missing in previous version) ---
+// --- Global Uniforms ---
 export const uWindSpeed = uniform(0.0);
 export const uWindDirection = uniform(vec3(1, 0, 0));
 
 // --- TSL Helper: Clay Material ---
-// Creates a standard TSL material with a "clay-like" look (low roughness, slight rim light)
 export function createClayMaterial(hexColor) {
     const mat = new MeshStandardNodeMaterial();
     mat.colorNode = color(hexColor);
@@ -26,8 +25,20 @@ export function createClayMaterial(hexColor) {
     return mat;
 }
 
+// --- TSL Helper: Gradient Material (MISSING FIX) ---
+// Creates a material that transitions from colorBottom to colorTop based on UV height
+export function createGradientMaterial(colorBottom, colorTop) {
+    const mat = new MeshStandardNodeMaterial();
+    // Mix colors based on the Y component of the UV mapping (0 = bottom, 1 = top)
+    const gradientNode = mix(color(colorBottom), color(colorTop), uv().y);
+    
+    mat.colorNode = gradientNode;
+    mat.roughnessNode = float(0.9);
+    mat.metalnessNode = float(0.0);
+    return mat;
+}
+
 // --- TSL Helper: Rim Light ---
-// Adds a subtle fresnel/rim light effect to a color node
 export const addRimLight = Fn(([baseColorNode, normalNode, viewDirNode]) => {
     const rimPower = float(3.0);
     const rimIntensity = float(0.5);
@@ -70,10 +81,6 @@ export function pickAnimation(types) {
 /**
  * attachReactivity
  * Registers an object for Music Reactivity.
- * @param {THREE.Object3D} group - The object to register.
- * @param {Object} options - Config options.
- * @param {String} options.type - 'flora' or 'sky'.
- * @param {Object} options.lightPreference - { min: 0.0, max: 1.0 }.
  */
 export function attachReactivity(group, options = {}) {
     // 1. Register to the central list
@@ -97,7 +104,7 @@ export function attachReactivity(group, options = {}) {
 
 /**
  * cleanupReactivity
- * Removes an object from the reactive list to prevent memory leaks.
+ * Removes an object from the reactive list.
  */
 export function cleanupReactivity(object) {
     const index = reactiveObjects.indexOf(object);
