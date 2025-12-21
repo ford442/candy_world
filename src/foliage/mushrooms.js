@@ -147,6 +147,7 @@ export function createMushroom(options = {}) {
     group.userData.size = size;          // Must be 'giant' for waterfalls
     group.userData.capRadius = capR;     // Used to position waterfall edge
     group.userData.capHeight = stemH;    // Used to position waterfall start
+    group.userData.stemRadius = stemR;
     // ----------------------------------------------
 
     if (isGiant || isBouncy) {
