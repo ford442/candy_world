@@ -1,3 +1,5 @@
+// src/foliage/grass.js
+
 import * as THREE from 'three';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { time, positionLocal, sin, vec3, color, normalView, dot, float, max } from 'three/tsl';
@@ -12,7 +14,7 @@ export function initGrassSystem(scene, count = 5000) {
     const height = 0.8;
     const geo = new THREE.BoxGeometry(0.05, height, 0.05);
     geo.translate(0, height / 2, 0);
-    // Ensure normals exist for node materials
+    // Ensure normals exist for TSL
     geo.computeVertexNormals();
 
     const mat = new MeshStandardNodeMaterial({
@@ -21,6 +23,7 @@ export function initGrassSystem(scene, count = 5000) {
         metalness: 0.0
     });
 
+    // Wind Logic
     const windTime = time.mul(uWindSpeed.max(0.5));
     const swayPhase = positionLocal.x.add(positionLocal.z).add(windTime);
     const swayAmt = positionLocal.y.mul(0.3).mul(sin(swayPhase));
@@ -30,12 +33,15 @@ export function initGrassSystem(scene, count = 5000) {
 
     mat.positionNode = positionLocal.add(vec3(swayX, 0, swayZ));
 
-    // Inline rim-light node logic (safer than calling addRimLight on non-node materials)
-    const NdotV = max(0.0, dot(normalView, vec3(0, 0, 1)));
+    // Rim Light Logic (Inlined TSL)
+    const viewDir = vec3(0, 0, 1);
+    const NdotV = max(0.0, dot(normalView, viewDir));
     const rimFactor = float(1.0).sub(NdotV).pow(3.0).mul(0.6);
-    const baseColorNode = color(0x7CFC00);
-    const rimColorNode = color(0xAAFFAA);
-    mat.colorNode = baseColorNode.add(rimColorNode.mul(rimFactor));
+
+    // Mix Base Color with Rim Color
+    const baseColor = color(0x7CFC00);
+    const rimColor = color(0xAAFFAA);
+    mat.colorNode = baseColor.add(rimColor.mul(rimFactor));
 
     const meshCount = Math.ceil(count / MAX_PER_MESH);
 
