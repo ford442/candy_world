@@ -87,7 +87,7 @@ export class AudioSystem {
             this.audioContext = new AudioContext();
 
             // Load the worklet processor (ensure the path is correct for your build)
-            await this.audioContext.audioWorklet.addModule('./audio-processor.js');
+            await this.audioContext.audioWorklet.addModule('./js/audio-processor.js');
 
             // Create the Worklet node
             this.workletNode = new AudioWorkletNode(this.audioContext, 'chiptune-processor');
