@@ -123,6 +123,12 @@ function createGalaxy() {
     }
 
     geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+    // TSL Compatibility: Add dummy normals
+    const normals = new Float32Array(particles * 3);
+    for(let i=0; i<particles*3; i+=3) { normals[i] = 0; normals[i+1] = 1; normals[i+2] = 0; }
+    geo.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
+
     geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
     geo.setAttribute('size', new THREE.BufferAttribute(sizes, 1)); // For shader if used, or size attenuation
 
