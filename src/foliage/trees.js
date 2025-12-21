@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { foliageMaterials, registerReactiveMaterial, attachReactivity, pickAnimation, createClayMaterial, createGradientMaterial, sharedGeometries } from './common.js';
 import { createBerryCluster } from './berries.js';
 
+// @refactor {target: "ts", reason: "complex-config", note: "Factory functions prone to undefined option bugs"}
 export function createFloweringTree(options = {}) {
     const { color = 0xFF69B4 } = options;
     const group = new THREE.Group();
