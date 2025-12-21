@@ -37,10 +37,10 @@ if ! command -v emcc >/dev/null 2>&1; then
     exit 1
 fi
 
-INPUT_C="$SCRIPT_DIR/candy_native.c"
+INPUT_FILES="$SCRIPT_DIR/*.c"
 OUTPUT_WASM="$REPO_ROOT/public/candy_native.wasm"
 
-emcc "$INPUT_C" -o "$OUTPUT_WASM" \
+emcc $INPUT_FILES -o "$OUTPUT_WASM" \
   -O3 \
   -s WASM=1 \
   -s STANDALONE_WASM=1 \
@@ -52,6 +52,8 @@ emcc "$INPUT_C" -o "$OUTPUT_WASM" \
       '_fastInvSqrt', \
       '_fastDistance', \
       '_smoothDamp', \
+      '_updateParticles', \
+      '_checkCollision', \
       '_batchDistances', \
       '_batchDistanceCull_c', \
       '_batchSinWave', \
