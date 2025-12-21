@@ -11,6 +11,7 @@ import {
     createTransparentNodeMaterial, // Added import
     sharedGeometries // Added import
 } from './common.js';
+import { color as tslColor } from 'three/tsl';
 
 export function createFlower(options = {}) {
     const { color = null, shape = 'simple' } = options;
@@ -162,7 +163,7 @@ export function createGlowingFlower(options = {}) {
 }
 
 export function createStarflower(options = {}) {
-    const { color = 0xFF6EC7 } = options;
+    const { color: hexColor = 0xFF6EC7 } = options;
     const group = new THREE.Group();
 
     const stemH = 0.7 + Math.random() * 0.4;
@@ -176,7 +177,7 @@ export function createStarflower(options = {}) {
     center.position.y = stemH;
     group.add(center);
 
-    const petalMat = createClayMaterial(color);
+    const petalMat = createClayMaterial(hexColor);
     registerReactiveMaterial(petalMat);
 
     const petalCount = 6 + Math.floor(Math.random() * 3);
@@ -191,7 +192,7 @@ export function createStarflower(options = {}) {
     }
 
     const beamMat = foliageMaterials.lightBeam.clone();
-    beamMat.colorNode = color(color);
+    beamMat.colorNode = tslColor(hexColor);
     const beam = new THREE.Mesh(sharedGeometries.unitCone, beamMat);
     beam.position.y = stemH;
     beam.scale.set(0.02, 4.0, 0.02); // Tall thin beam
@@ -315,11 +316,11 @@ export function createPrismRoseBush(options = {}) {
         const roseGroup = new THREE.Group();
         roseGroup.position.y = branchLen;
 
-        const color = roseColors[Math.floor(Math.random() * roseColors.length)];
+        const hexColor = roseColors[Math.floor(Math.random() * roseColors.length)];
         
         // Use safe helper
         const petalMat = createStandardNodeMaterial({
-            color: color,
+            color: hexColor,
             roughness: 0.7,
             emissive: 0x000000,
             emissiveIntensity: 0.0
@@ -337,7 +338,7 @@ export function createPrismRoseBush(options = {}) {
         roseGroup.add(inner);
 
         const washMat = foliageMaterials.lightBeam.clone();
-        washMat.colorNode = color(color);
+        washMat.colorNode = tslColor(hexColor);
         const wash = new THREE.Mesh(sharedGeometries.unitSphere, washMat);
         wash.scale.setScalar(1.2);
         wash.userData.isWash = true;
@@ -355,17 +356,17 @@ export function createPrismRoseBush(options = {}) {
 }
 
 export function createSubwooferLotus(options = {}) {
-    const { color = 0x2E8B57 } = options;
+    const { color: hexColor = 0x2E8B57 } = options;
     const group = new THREE.Group();
 
-    const pad = new THREE.Mesh(sharedGeometries.unitCylinder, createClayMaterial(color));
+    const pad = new THREE.Mesh(sharedGeometries.unitCylinder, createClayMaterial(hexColor));
     pad.scale.set(1.5, 0.5, 1.5);
     pad.position.y = 0;
     pad.castShadow = true;
     pad.receiveShadow = true;
 
     const ringMat = foliageMaterials.lotusRing.clone();
-    ringMat.emissiveNode = color(0x000000); 
+    ringMat.emissiveNode = tslColor(0x000000); 
     pad.userData.ringMaterial = ringMat;
     registerReactiveMaterial(ringMat);
 
