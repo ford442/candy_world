@@ -404,9 +404,21 @@ function animate() {
     const deepNightEnd = deepNightStart + DURATION_DEEP_NIGHT;
     const isDeepNight = (cyclePos >= deepNightStart && cyclePos < deepNightEnd);
 
-    // Foliage Animation & Reactivity
-    if (audioState) {
-        updateMusicReactivity(audioState);
+    // Music Reactivity Update (Split-Channel System)
+    musicReactivity.update(audioState);
+
+    // Handle Moon Blink (Visual/Gameplay Effect)
+    // We check specific channels roughly corresponding to "Percussion/Tree" equivalent if possible,
+    // or just check if any low-end (bass/tree-like) channel is active for moon blink.
+    // For now, let's keep it simple: if there is strong bass, blink moon.
+    // Or better: integrate into musicReactivity logic later.
+    // To preserve existing behavior without the old loop:
+    if (isNight && audioState?.channelData) {
+        // Simple check: if channel 2 (often snare/tree in old mapping) is active
+        const treeChannel = audioState.channelData[2] || audioState.channelData[0]; // fallback
+        if (treeChannel && treeChannel.trigger > 0.5) {
+             triggerMoonBlink(moon);
+        }
     }
 
     const camPos = camera.position;

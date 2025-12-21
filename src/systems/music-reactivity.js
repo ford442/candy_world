@@ -151,7 +151,73 @@ export class MusicReactivity {
         // No-op or global broadcast if needed later
     }
 
+    /**
+     * Update loop to handle music reactivity distribution
+     * @param {Object} audioState - Current state from AudioSystem
+     */
+    update(audioState) {
+        if (!audioState || !audioState.channelData) return;
+
+        const channels = audioState.channelData;
+        const totalChannels = channels.length;
+        const splitIndex = Math.ceil(totalChannels / 2); // Split point
+
+        reactiveObjects.forEach(obj => {
+            const type = obj.userData.reactivityType || 'flora';
+            const id = obj.userData.reactivityId || 0;
+
+            let targetChannelIndex;
+
+            if (type === 'sky') {
+                // Upper half (Drums/Percussion)
+                const skyCount = totalChannels - splitIndex;
+                if (skyCount > 0) {
+                     targetChannelIndex = splitIndex + (id % skyCount);
+                } else {
+                     targetChannelIndex = totalChannels - 1; // Fallback
+                }
+            } else {
+                // Lower half (Melody/Bass)
+                const floraCount = splitIndex;
+                if (floraCount > 0) {
+                     targetChannelIndex = id % floraCount;
+                } else {
+                     targetChannelIndex = 0;
+                }
+            }
+
+            // Wrap safety
+            if (targetChannelIndex >= totalChannels) targetChannelIndex = 0;
+
+            const info = channels[targetChannelIndex];
+            if (info && info.trigger > 0.1) {
+                // Use the object's assigned color palette (visual)
+                // But trigger based on the mapped audio channel (timing)
+                this.applyReaction(obj, info.note, info.trigger);
+            }
+        });
+    }
+
+    /**
+     * Apply reaction to a specific object
+     * @param {THREE.Object3D} object
+     * @param {number|string} note
+     * @param {number} velocity
+     */
+    applyReaction(object, note, velocity) {
+        if (!object.userData.type) return;
+
+        const species = object.userData.type;
+
+        if (typeof object.reactToNote === 'function') {
+            // Get color specifically for this species
+            const color = getNoteColor(note, species);
+            object.reactToNote(note, color, velocity);
+        }
+    }
+
+    // Alias for backward compatibility if needed, but we are using applyReaction internally now
     reactObject(object, note, velocity) {
-        reactObject(object, note, velocity);
+        this.applyReaction(object, note, velocity);
     }
 }
