@@ -8,9 +8,19 @@ import { color, float, texture, uv, positionLocal, sin, time, mix, vec3, vec4, F
 export const eyeGeo = new THREE.SphereGeometry(0.12, 16, 16);
 export const pupilGeo = new THREE.SphereGeometry(0.05, 12, 12);
 
-// --- Reactive Objects Registry ---
+// --- Reactive Objects Registry (New System) ---
 export const reactiveObjects = [];
 let reactivityCounter = 0; // For round-robin channel assignment
+
+// --- Legacy Registry (Fixes animation.js error) ---
+export const reactiveMaterials = []; 
+export const _foliageReactiveColor = new THREE.Color(); 
+export function median(arr) {
+    if (arr.length === 0) return 0;
+    const sorted = [...arr].sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
 
 // --- Global Uniforms ---
 export const uWindSpeed = uniform(0.0);
@@ -35,8 +45,7 @@ export function createGradientMaterial(colorBottom, colorTop) {
     return mat;
 }
 
-// --- TSL Helper: Noise Texture (MISSING FIX) ---
-// Generates a random noise texture for TSL displacement/clouds
+// --- TSL Helper: Noise Texture ---
 export function generateNoiseTexture(size = 256) {
     const data = new Uint8Array(size * size * 4);
     for (let i = 0; i < size * size * 4; i++) {
@@ -82,7 +91,8 @@ export const foliageMaterials = {
 };
 
 export function registerReactiveMaterial(mat) {
-    // Legacy support or placeholder
+    // Legacy support: add to both lists just in case
+    reactiveMaterials.push(mat);
 }
 
 export function pickAnimation(types) {
