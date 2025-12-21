@@ -2,7 +2,7 @@
 
 import * as THREE from 'three';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
-import { color, float, texture, uv, positionLocal, sin, time, mix, vec3, vec4, Fn, uniform, normalize, dot, max } from 'three/tsl';
+import { color, float, uv, mix, vec3, Fn, uniform, dot, max } from 'three/tsl';
 
 // --- Shared Resources & Geometries ---
 // We use "Unit" geometries (size 1) and scale them in the mesh to save memory/draw calls
@@ -78,7 +78,6 @@ export function createStandardNodeMaterial(options = {}) {
     // Explicitly copy standard properties
     if (options.transparent) mat.transparent = true;
     if (options.opacity !== undefined) mat.opacity = options.opacity;
-    // Fix for "Unknown material.side" error: set side AFTER construction
     if (options.side !== undefined) mat.side = options.side;
     if (options.blending !== undefined) mat.blending = options.blending;
     if (options.depthWrite !== undefined) mat.depthWrite = options.depthWrite;
@@ -105,6 +104,7 @@ export function generateNoiseTexture(size = 256) {
     return tex;
 }
 
+// TSL Function for Node usage (not a material modifier function)
 export const addRimLight = Fn(([baseColorNode, normalNode, viewDirNode]) => {
     const rimPower = float(3.0);
     const rimIntensity = float(0.5);
@@ -227,57 +227,4 @@ export function validateFoliageMaterials() {
         }
     });
     return safe;
-}
-
-// Ensure geometries used with TSL node materials have required attributes
-export function ensureGeometryHasPositionAndNormals(geometry, label = 'object') {
-    if (!geometry) return false;
-    // BufferGeometry expected
-    const attr = geometry.attributes || {};
-    if (!attr.position) {
-        console.warn(`[TSL] Geometry for ${label} is missing 'position' attribute.`);
-        return false;
-    }
-
-    if (!attr.normal) {
-        // Try computeVertexNormals if available
-        if (typeof geometry.computeVertexNormals === 'function') {
-            try {
-                geometry.computeVertexNormals();
-                console.info(`[TSL] Computed vertex normals for ${label}`);
-            } catch (e) {
-                console.warn(`[TSL] Failed to compute vertex normals for ${label}`, e);
-            }
-        }
-        // If still no normals, create dummy normals pointing up
-        if (!geometry.attributes.normal) {
-            const pos = geometry.attributes.position;
-            const normals = new Float32Array(pos.count * 3);
-            for (let i = 0; i < pos.count; i++) {
-                normals[i * 3] = 0;
-                normals[i * 3 + 1] = 1;
-                normals[i * 3 + 2] = 0;
-            }
-            geometry.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
-            console.info(`[TSL] Added dummy normals for ${label}`);
-        }
-    }
-
-    return true;
-}
-
-export function validateNodeGeometries(scene) {
-    if (!scene || typeof scene.traverse !== 'function') return;
-    scene.traverse((obj) => {
-        if (!obj.isMesh && !obj.isPoints && !obj.isInstancedMesh) return;
-        const mat = obj.material;
-        if (!mat) return;
-        // Heuristic: materials with node-based properties will have 'colorNode' or 'positionNode' etc.
-        if (mat.colorNode === undefined && mat.positionNode === undefined && mat.sizeNode === undefined && mat.emissiveNode === undefined) return;
-        try {
-            ensureGeometryHasPositionAndNormals(obj.geometry, obj.name || obj.userData?.type || obj.type);
-        } catch (e) {
-            console.warn('[TSL] validateNodeGeometries detected an issue with', obj, e);
-        }
-    });
 }
