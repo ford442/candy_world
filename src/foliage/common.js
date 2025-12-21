@@ -13,10 +13,18 @@ export const _foliageReactiveColor = new THREE.Color();
 export const eyeGeo = new THREE.SphereGeometry(0.05, 16, 16);
 export const reactiveMaterials = [];
 export const reactiveObjects = [];
+let reactivityCounter = 0;
 
 export function registerReactiveMaterial(mat) {
     if (reactiveMaterials.length < 500) {
         reactiveMaterials.push(mat);
+    }
+}
+
+export function cleanupReactivity(group) {
+    const idx = reactiveObjects.indexOf(group);
+    if (idx !== -1) {
+        reactiveObjects.splice(idx, 1);
     }
 }
 
@@ -40,14 +48,14 @@ export function attachReactivity(group) {
     // Expose cached reactive meshes for efficient per-frame updates
     group.userData.reactiveMeshes = reactiveMeshes; 
 
-    // Add to centralized reactive registry
-    // Default to 'flora' type (bottom half of channels)
-    group.userData.reactivityType = group.userData.reactivityType || 'flora';
-    // Assign a random ID for round-robin channel mapping (0-15 covers typical 32ch tracker files)
-    if (typeof group.userData.reactivityId === 'undefined') {
-        group.userData.reactivityId = Math.floor(Math.random() * 16);
+    // Setup Split-Channel Reactivity Data
+    if (!group.userData.reactivityType) {
+        group.userData.reactivityType = 'flora'; // Default
     }
+    // Round-robin assignment
+    group.userData.reactivityId = reactivityCounter++;
 
+    // Register
     reactiveObjects.push(group);
 
     group.reactToNote = function(note, colorHex, velocity = 1.0) {
