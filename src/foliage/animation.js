@@ -109,6 +109,7 @@ export function updateFoliageMaterials(audioData, isNight, weatherState = null, 
     }
 }
 
+// @perf-migrate {target: "asc", reason: "hot-loop-math", threshold: "3ms", note: "Iterates over thousands of reactive objects every frame"}
 export function animateFoliage(foliageObject, time, audioData, isDay, isDeepNight = false) {
     const offset = foliageObject.userData.animationOffset || 0;
     const type = foliageObject.userData.animationType;
