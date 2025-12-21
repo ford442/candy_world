@@ -137,8 +137,46 @@ export class AudioSystem {
                     console.warn(`[AudioSystem] Worklet content-type="${contentType}" and file does not look like JS. First chars: ${text.slice(0, 120)}`);
                 }
 
-                // Use a blob URL to ensure the exact fetched content is what we pass to addModule
-                const blobUrl = URL.createObjectURL(new Blob([text], { type: 'application/javascript' }));
+                // Before creating the blob, rewrite relative import/export specifiers to absolute URLs
+                // This fixes failures when the module is loaded from a blob URL (blob URLs are not hierarchical)
+                let rewritten = text;
+                try {
+                    const makeAbsolute = (spec) => {
+                        // Leave full URLs and protocol-relative URLs alone
+                        if (/^[a-zA-Z][a-zA-Z0-9+-.]*:\/\//.test(spec) || spec.startsWith('//')) return spec;
+                        // Non-relative bare specifiers (like 'three') should be left unchanged
+                        if (!spec.startsWith('.') && !spec.startsWith('/')) return spec;
+                        try {
+                            return new URL(spec, workletUrl).href;
+                        } catch (err) {
+                            return spec;
+                        }
+                    };
+
+                    // from '...'
+                    rewritten = rewritten.replace(/(from\s+)(['"])([^'"\n]+)\2/g, (m, p1, q, spec) => {
+                        const abs = makeAbsolute(spec);
+                        return `${p1}${q}${abs}${q}`;
+                    });
+                    // import '...'
+                    rewritten = rewritten.replace(/(import\s+)(['"])([^'"\n]+)\2/g, (m, p1, q, spec) => {
+                        const abs = makeAbsolute(spec);
+                        return `${p1}${q}${abs}${q}`;
+                    });
+                    // dynamic import('...')
+                    rewritten = rewritten.replace(/(import\()(['"])([^'"\n]+)\2(\))/g, (m, p1, q, spec, p4) => {
+                        const abs = makeAbsolute(spec);
+                        return `${p1}${q}${abs}${q}${p4}`;
+                    });
+
+                    if (rewritten !== text) {
+                        console.log('[AudioSystem] Rewrote import specifiers in worklet to absolute URLs to avoid blob-relative resolution issues.');
+                    }
+                } catch (err) {
+                    console.warn('[AudioSystem] Failed to rewrite import specifiers, proceeding with original text', err);
+                }
+
+                const blobUrl = URL.createObjectURL(new Blob([rewritten], { type: 'application/javascript' }));
                 try {
                     await this.audioContext.audioWorklet.addModule(blobUrl);
                     URL.revokeObjectURL(blobUrl);
