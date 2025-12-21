@@ -12,6 +12,7 @@ export const uWindDirection = uniform(new THREE.Vector3(1, 0, 0));
 export const _foliageReactiveColor = new THREE.Color();
 export const eyeGeo = new THREE.SphereGeometry(0.05, 16, 16);
 export const reactiveMaterials = [];
+export const reactiveObjects = [];
 
 export function registerReactiveMaterial(mat) {
     if (reactiveMaterials.length < 500) {
@@ -38,6 +39,16 @@ export function attachReactivity(group) {
 
     // Expose cached reactive meshes for efficient per-frame updates
     group.userData.reactiveMeshes = reactiveMeshes; 
+
+    // Add to centralized reactive registry
+    // Default to 'flora' type (bottom half of channels)
+    group.userData.reactivityType = group.userData.reactivityType || 'flora';
+    // Assign a random ID for round-robin channel mapping (0-15 covers typical 32ch tracker files)
+    if (typeof group.userData.reactivityId === 'undefined') {
+        group.userData.reactivityId = Math.floor(Math.random() * 16);
+    }
+
+    reactiveObjects.push(group);
 
     group.reactToNote = function(note, colorHex, velocity = 1.0) {
         const targetColor = new THREE.Color(colorHex);
@@ -66,6 +77,13 @@ export function attachReactivity(group) {
         }
     }; 
     return group;
+}
+
+export function cleanupReactivity(object) {
+    const index = reactiveObjects.indexOf(object);
+    if (index > -1) {
+        reactiveObjects.splice(index, 1);
+    }
 }
 
 // --- Helper: Rim Lighting Effect ---
