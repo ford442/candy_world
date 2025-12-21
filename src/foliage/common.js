@@ -76,16 +76,29 @@ export const addRimLight = Fn(([baseColorNode, normalNode, viewDirNode]) => {
 const trunkMat = new MeshStandardNodeMaterial({ color: 0x8B4513, roughness: 0.9 });
 const vineMat = new MeshStandardNodeMaterial({ color: 0x558833, roughness: 0.7 });
 
+// Fix for Missing Materials: Defines lightBeam, flowerStem, and lotusRing
 export const foliageMaterials = {
-    // --- Generic / Aliases (Fixes 'undefined' errors) ---
+    // --- Generic / Aliases ---
     stem: new MeshStandardNodeMaterial({ color: 0x66AA55, roughness: 0.8 }),
     flowerCenter: new MeshStandardNodeMaterial({ color: 0x442211, roughness: 0.9 }),
-    vine: vineMat, // Fixes 'fiber_optic_willow'
-    wood: trunkMat, // Common alias
-    bark: trunkMat, // Common alias
+    vine: vineMat, 
+    wood: trunkMat,
+    bark: trunkMat,
     trunk: trunkMat,
-    petal: new MeshStandardNodeMaterial({ color: 0xFF69B4, roughness: 0.4, side: THREE.DoubleSide }), // Fallback singular petal
+    petal: new MeshStandardNodeMaterial({ color: 0xFF69B4, roughness: 0.4, side: THREE.DoubleSide }), 
     
+    // --- Missing Definitions Fixed Here ---
+    lightBeam: new MeshStandardNodeMaterial({ 
+        color: 0xFFFFFF, 
+        transparent: true, 
+        opacity: 0.2, 
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        roughness: 1.0 
+    }),
+    flowerStem: new MeshStandardNodeMaterial({ color: 0x66AA55, roughness: 0.8 }),
+    lotusRing: new MeshStandardNodeMaterial({ color: 0xFFFFFF, roughness: 0.2 }),
+
     // --- Specific Materials ---
     mushroomStem: new MeshStandardNodeMaterial({ color: 0xF5F5DC, roughness: 0.9 }),
     mushroomCap: [
