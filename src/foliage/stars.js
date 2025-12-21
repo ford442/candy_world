@@ -14,6 +14,7 @@ export function createStars(count = 1500) { // Increased from 1000 for better ni
     const sizes = new Float32Array(count);
     const offsets = new Float32Array(count);
     const colors = new Float32Array(count * 3); // NEW: Individual star colors
+    const normals = new Float32Array(count * 3); // NEW: Dummy normals to satisfy TSL NormalNode
 
     const radius = 400; // Sky dome radius (smaller than sky mesh)
 
@@ -32,6 +33,11 @@ export function createStars(count = 1500) { // Increased from 1000 for better ni
         positions[i * 3] = x;
         positions[i * 3 + 1] = Math.abs(y); // Keep above horizon mostly
         positions[i * 3 + 2] = z;
+
+        // Dummy normal (points up) — silences TSL NormalNode warning for Points materials
+        normals[i * 3] = 0;
+        normals[i * 3 + 1] = 1;
+        normals[i * 3 + 2] = 0;
 
         // Vary star sizes more dramatically
         sizes[i] = Math.random() * 2.5 + 0.3;
@@ -58,6 +64,7 @@ export function createStars(count = 1500) { // Increased from 1000 for better ni
     }
 
     geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geo.setAttribute('normal', new THREE.BufferAttribute(normals, 3)); // NEW: dummy normals
     geo.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
     geo.setAttribute('offset', new THREE.BufferAttribute(offsets, 1));
     geo.setAttribute('starColor', new THREE.BufferAttribute(colors, 3)); // NEW
