@@ -1,10 +1,8 @@
 // public/js/audio-processor.js
 
-// 1. Use ES Module Import instead of importScripts
-// Note: Use relative import so the file resolves relative to this worklet file
 import './libopenmpt.js'; 
 
-// Helper functions 
+// [Helper functions remain the same: lerp, decayTowards, extractNote, etc.]
 const lerp = (a, b, t) => a + (b - a) * t;
 const decayTowards = (value, target, rate, dt) => lerp(value, target, 1 - Math.exp(-rate * dt));
 const extractNote = (cell) => cell?.text?.match(/[A-G][#-]?\d/)?.[0];
@@ -52,17 +50,15 @@ class ChiptuneProcessor extends AudioWorkletProcessor {
     
     async initLib() {
         try {
-            // 2. Check for the global object
-            // Since we are in a module, we look for it on 'self' or 'globalThis'
-            // NOTE: You must modify libopenmpt.js to ensure it attaches to 'self' (see Step 2 below)
-            const libFactory = self.libopenmpt || globalThis.libopenmpt;
+            // --- FIX: Use globalThis instead of self ---
+            const libFactory = globalThis.libopenmpt;
+            // -------------------------------------------
 
             if (typeof libFactory !== 'undefined') {
                 const lib = await libFactory({
-                    locateFile: (path) => '/js/' + path // Help it find the .wasm file
+                    locateFile: (path) => '/js/' + path 
                 });
                 
-                // Polyfills
                 if (!lib.UTF8ToString) {
                     lib.UTF8ToString = (ptr) => {
                         let str = '';
@@ -79,7 +75,7 @@ class ChiptuneProcessor extends AudioWorkletProcessor {
                 this.isReady = true;
                 this.port.postMessage({ type: 'READY' });
             } else {
-                console.error("libopenmpt global not found. Ensure public/js/libopenmpt.js assigns 'self.libopenmpt = ...'");
+                console.error("libopenmpt global not found. Ensure public/js/libopenmpt.js assigns 'globalThis.libopenmpt = ...'");
             }
         } catch (e) {
             console.error("Failed to init libopenmpt in Worklet", e);
@@ -177,7 +173,7 @@ class ChiptuneProcessor extends AudioWorkletProcessor {
 
         const lib = this.libopenmpt;
         const modPtr = this.currentModulePtr;
-        const sampleRate = globalThis.sampleRate; // Worklet Global
+        const sampleRate = globalThis.sampleRate; 
         const bufferSize = output[0].length;
 
         const frames = lib._openmpt_module_read_float_stereo(
@@ -197,7 +193,6 @@ class ChiptuneProcessor extends AudioWorkletProcessor {
         const rightChannel = output[1];
         const heap = lib.HEAPF32;
         
-        // Optimize: use subarray if possible, but loop is safe
         for (let i = 0; i < bufferSize; i++) {
             leftChannel[i] = heap[(this.leftBufferPtr >> 2) + i];
             if (rightChannel) rightChannel[i] = heap[(this.rightBufferPtr >> 2) + i];
