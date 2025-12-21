@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { color, vec3, time, sin, cos, uniform, mix, positionLocal } from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
+import { attachReactivity } from './common.js';
 
 // Moon Configuration
 export const moonConfig = {
@@ -77,7 +78,11 @@ export function createMoon() {
     group.userData.velocity = new THREE.Vector3();
     group.userData.blinkTimer = 0;
 
-    return group;
+    // Tag as Sky object
+    group.userData.type = 'moon'; // Used for color palette mapping
+    group.userData.reactivityType = 'sky';
+
+    return attachReactivity(group);
 }
 
 /**
@@ -142,9 +147,11 @@ export function updateMoon(moon, delta, audioData) {
             triggerMoonBlink(moon);
         }
 
-        // Blink on strong kick?
-        if (audioData?.kickTrigger > 0.8) {
+        // React to channel trigger via system (flashIntensity set by attachReactivity)
+        if (moon.userData.flashIntensity > 0.1) {
              triggerMoonBlink(moon);
+             // Consume trigger
+             moon.userData.flashIntensity = 0;
         }
     }
 }

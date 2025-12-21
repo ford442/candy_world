@@ -1,6 +1,7 @@
 import * as THREE from 'three';
-import { uWindSpeed, uWindDirection, uSkyTopColor, uSkyBottomColor, uHorizonColor, uAtmosphereIntensity, uStarPulse, uStarOpacity, updateMoon, triggerMoonBlink, animateFoliage, updateFoliageMaterials, updateFireflies, updateFallingBerries, collectFallingBerries, createFlower, createMushroom } from './src/foliage/index.js';
-import { MusicReactivity } from './src/systems/music-reactivity.js';
+import { uWindSpeed, uWindDirection, uSkyTopColor, uSkyBottomColor, uHorizonColor, uAtmosphereIntensity, uStarPulse, uStarOpacity, updateMoon, animateFoliage, updateFoliageMaterials, updateFireflies, updateFallingBerries, collectFallingBerries, createFlower, createMushroom } from './src/foliage/index.js';
+import { initCelestialBodies } from './src/foliage/celestial-bodies.js';
+import { MusicReactivity, updateMusicReactivity } from './src/systems/music-reactivity.js';
 import { AudioSystem } from './src/audio/audio-system.js';
 import { BeatSync } from './src/audio/beat-sync.js';
 import { WeatherSystem, WeatherState } from './src/systems/weather.js';
@@ -29,11 +30,6 @@ const COLOR_RAIN_FOG = new THREE.Color(0xC0D0E0);
 const COLOR_WIND_VECTOR = new THREE.Vector3(0, 1, 0);
 
 const _weatherBiasOutput = { biasState: 'clear', biasIntensity: 0, type: 'clear' };
-const _frameTriggerData = {
-    flower: { active: false, note: 60, volume: 0 },
-    mushroom: { active: false, note: 60, volume: 0 },
-    tree: { active: false, note: 60, volume: 0 }
-};
 
 // --- Initialization ---
 
@@ -49,6 +45,9 @@ const weatherSystem = new WeatherSystem(scene);
 // 3. World Generation
 // We need to pass weatherSystem so foliage can register themselves
 const { moon, fireflies } = initWorld(scene, weatherSystem);
+
+// Add Celestial Bodies
+initCelestialBodies(scene);
 // Note: world generation populates animatedFoliage, obstacles, etc. via state.js
 
 // 4. Input Handling

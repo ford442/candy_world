@@ -87,6 +87,13 @@ export function attachReactivity(group) {
     return group;
 }
 
+export function cleanupReactivity(object) {
+    const index = reactiveObjects.indexOf(object);
+    if (index > -1) {
+        reactiveObjects.splice(index, 1);
+    }
+}
+
 // --- Helper: Rim Lighting Effect ---
 export function addRimLight(material, colorHex) {
     // Placeholder for rim lighting logic
