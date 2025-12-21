@@ -10,9 +10,9 @@ export const pupilGeo = new THREE.SphereGeometry(0.05, 12, 12);
 
 // --- Reactive Objects Registry ---
 export const reactiveObjects = [];
-let reactivityCounter = 0; // For round-robin channel assignment
+let reactivityCounter = 0; 
 
-// --- Legacy Registry (For compatibility) ---
+// --- Legacy Registry ---
 export const reactiveMaterials = []; 
 export const _foliageReactiveColor = new THREE.Color(); 
 export function median(arr) {
@@ -26,25 +26,23 @@ export function median(arr) {
 export const uWindSpeed = uniform(0.0);
 export const uWindDirection = uniform(vec3(1, 0, 0));
 
-// --- TSL Helper: Clay Material (Matte) ---
+// --- TSL Helpers ---
 export function createClayMaterial(hexColor) {
     const mat = new MeshStandardNodeMaterial();
     mat.colorNode = color(hexColor);
-    mat.roughnessNode = float(0.8); // Matte
+    mat.roughnessNode = float(0.8);
     mat.metalnessNode = float(0.0);
     return mat;
 }
 
-// --- TSL Helper: Candy Material (Shiny/Glossy) - NEW FIX ---
 export function createCandyMaterial(hexColor) {
     const mat = new MeshStandardNodeMaterial();
     mat.colorNode = color(hexColor);
-    mat.roughnessNode = float(0.15); // Very smooth/shiny
-    mat.metalnessNode = float(0.1);  // Slight reflection
+    mat.roughnessNode = float(0.15); 
+    mat.metalnessNode = float(0.1);  
     return mat;
 }
 
-// --- TSL Helper: Gradient Material ---
 export function createGradientMaterial(colorBottom, colorTop) {
     const mat = new MeshStandardNodeMaterial();
     const gradientNode = mix(color(colorBottom), color(colorTop), uv().y);
@@ -54,7 +52,6 @@ export function createGradientMaterial(colorBottom, colorTop) {
     return mat;
 }
 
-// --- TSL Helper: Noise Texture ---
 export function generateNoiseTexture(size = 256) {
     const data = new Uint8Array(size * size * 4);
     for (let i = 0; i < size * size * 4; i++) {
@@ -67,7 +64,6 @@ export function generateNoiseTexture(size = 256) {
     return tex;
 }
 
-// --- TSL Helper: Rim Light ---
 export const addRimLight = Fn(([baseColorNode, normalNode, viewDirNode]) => {
     const rimPower = float(3.0);
     const rimIntensity = float(0.5);
@@ -78,6 +74,11 @@ export const addRimLight = Fn(([baseColorNode, normalNode, viewDirNode]) => {
 
 // --- Material Definitions ---
 export const foliageMaterials = {
+    // --- Missing Materials Restored Here ---
+    stem: new MeshStandardNodeMaterial({ color: 0x66AA55, roughness: 0.8 }), // Generic green stem
+    flowerCenter: new MeshStandardNodeMaterial({ color: 0x442211, roughness: 0.9 }), // Dark brown/yellow center
+    
+    // --- Existing Materials ---
     mushroomStem: new MeshStandardNodeMaterial({ color: 0xF5F5DC, roughness: 0.9 }),
     mushroomCap: [
         new MeshStandardNodeMaterial({ color: 0xFF0000, roughness: 0.3 }), 
@@ -90,9 +91,10 @@ export const foliageMaterials = {
     leaf: new MeshStandardNodeMaterial({ color: 0x228B22, roughness: 0.6, side: THREE.DoubleSide }),
     trunk: new MeshStandardNodeMaterial({ color: 0x8B4513, roughness: 0.9 }),
     flowerPetal: [
-        new MeshStandardNodeMaterial({ color: 0xFF69B4, roughness: 0.4, side: THREE.DoubleSide }),
-        new MeshStandardNodeMaterial({ color: 0xFFD700, roughness: 0.4, side: THREE.DoubleSide }),
-        new MeshStandardNodeMaterial({ color: 0xFFFFFF, roughness: 0.4, side: THREE.DoubleSide }),
+        new MeshStandardNodeMaterial({ color: 0xFF69B4, roughness: 0.4, side: THREE.DoubleSide }), // Pink
+        new MeshStandardNodeMaterial({ color: 0xFFD700, roughness: 0.4, side: THREE.DoubleSide }), // Gold
+        new MeshStandardNodeMaterial({ color: 0xFFFFFF, roughness: 0.4, side: THREE.DoubleSide }), // White
+        new MeshStandardNodeMaterial({ color: 0x9933FF, roughness: 0.4, side: THREE.DoubleSide }), // Purple
     ],
     eye: new MeshStandardNodeMaterial({ color: 0xFFFFFF, roughness: 0.2 }),
     pupil: new MeshStandardNodeMaterial({ color: 0x000000, roughness: 0.0 }),
@@ -107,13 +109,8 @@ export function pickAnimation(types) {
     return types[Math.floor(Math.random() * types.length)];
 }
 
-/**
- * attachReactivity
- * Registers an object for Music Reactivity.
- */
 export function attachReactivity(group, options = {}) {
     reactiveObjects.push(group);
-
     group.userData.reactivityType = options.type || group.userData.reactivityType || 'flora';
 
     if (typeof group.userData.reactivityId === 'undefined') {
@@ -127,10 +124,6 @@ export function attachReactivity(group, options = {}) {
     return group;
 }
 
-/**
- * cleanupReactivity
- * Removes an object from the reactive list.
- */
 export function cleanupReactivity(object) {
     const index = reactiveObjects.indexOf(object);
     if (index > -1) {
