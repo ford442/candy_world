@@ -112,11 +112,25 @@ class ChiptuneProcessor extends AudioWorkletProcessor {
     }
     
     handleMessage(event) {
-        const { type, data } = event.data;
+        const payload = event && event.data ? event.data : null;
+        if (!payload) {
+            console.warn('Worklet received message without data:', event);
+            return;
+        }
+
+        const { type } = payload;
         if (type === 'LOAD') {
-            this.loadModule(data.fileData, data.fileName);
+            const { fileData, fileName } = payload;
+            if (!fileData) {
+                console.warn('Worklet LOAD message missing fileData:', payload);
+                return;
+            }
+            this.loadModule(fileData, fileName);
         } else if (type === 'STOP') {
             this.stop();
+        } else {
+            // Unknown message types are ignored but logged for debugging
+            console.warn('Worklet received unknown message type:', type, payload);
         }
     }
     
