@@ -9,6 +9,7 @@ import {
 
 // Reusable vector for movement calculations
 const _targetVelocity = new THREE.Vector3();
+const PLAYER_RADIUS = 0.5; // Approximate width of player capsule
 
 export const player = {
     velocity: new THREE.Vector3(),
@@ -33,25 +34,6 @@ export const grooveGravity = {
     targetMultiplier: 1.0,
     baseGravity: 20.0
 };
-
-function checkMushroomBounce(pos, audioState) {
-    for (let i = 0; i < foliageMushrooms.length; i++) {
-        const obj = foliageMushrooms[i];
-        const dx = pos.x - obj.position.x;
-        const dz = pos.z - obj.position.z;
-
-        if (dx * dx + dz * dz < 2.0) {
-            const distSq = pos.distanceToSquared(obj.position);
-            if (distSq < 5.0) {
-                if (player.velocity.y < 0 && pos.y > obj.position.y + 0.5) {
-                    const audioIntensity = audioState?.kickTrigger || 0.5;
-                    return 15 + audioIntensity * 10;
-                }
-            }
-        }
-    }
-    return 0;
-}
 
 function checkFlowerTrampoline(pos, audioState) {
     for (let i = 0; i < foliageTrampolines.length; i++) {
@@ -178,10 +160,75 @@ export function updatePhysics(delta, camera, controls, keyStates, audioState) {
 
             controls.moveRight(player.velocity.x * delta);
             controls.moveForward(player.velocity.z * delta);
-        }
 
-        // --- PHYSICS & COLLISION ---
-        if (!activeVineSwing) {
+            // --- PHYSICS & COLLISION ---
+
+            // Mushroom Collision (Stem & Cap)
+            const pPos = camera.position;
+
+            for (let i = 0; i < foliageMushrooms.length; i++) {
+                const mush = foliageMushrooms[i];
+                const stemR = mush.userData.stemRadius || 0.5;
+                const capR = mush.userData.capRadius || 2.0;
+                const capH = mush.userData.capHeight || 3.0; // Top of stem, start of cap
+                const mPos = mush.position;
+
+                // 1. Horizontal Distance
+                const dx = pPos.x - mPos.x;
+                const dz = pPos.z - mPos.z;
+                const distH = Math.sqrt(dx * dx + dz * dz);
+
+                // 2. Stem Collision (Blocking)
+                // If we are below the cap and touching the stem...
+                if (pPos.y < mPos.y + capH - 0.5) {
+                    const minDist = stemR + PLAYER_RADIUS;
+                    if (distH < minDist) {
+                        // Push out
+                        const angle = Math.atan2(dz, dx);
+                        const pushX = Math.cos(angle) * minDist;
+                        const pushZ = Math.sin(angle) * minDist;
+
+                        camera.position.x = mPos.x + pushX;
+                        camera.position.z = mPos.z + pushZ;
+                    }
+                }
+
+                // 3. Cap Collision (Platform / Bounce)
+                // Check if we are above the stem top and falling onto the cap
+                else if (player.velocity.y < 0) {
+                    // Check if within cap radius
+                    if (distH < capR) {
+                        // Check vertical overlap (are we hitting the cap surface?)
+                        // Cap surface is approx at mPos.y + capH
+                        const surfaceY = mPos.y + capH;
+
+                        // If we are just above or slightly inside the surface...
+                        if (pPos.y >= surfaceY - 0.5 && pPos.y <= surfaceY + 2.0) {
+
+                            if (mush.userData.isTrampoline) {
+                                // BOUNCE!
+                                const audioBoost = audioState?.kickTrigger || 0.0;
+                                player.velocity.y = 15 + audioBoost * 10;
+
+                                // Visual squash
+                                mush.scale.y = 0.7;
+                                setTimeout(() => { mush.scale.y = 1.0; }, 100);
+                                keyStates.jump = false; // Consume jump
+                            } else {
+                                // PLATFORM (Land)
+                                camera.position.y = surfaceY + 1.8; // Stand on top
+                                player.velocity.y = 0;
+
+                                // Allow jumping off
+                                if (keyStates.jump) {
+                                    player.velocity.y = 10;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             const groundY = getGroundHeight(camera.position.x, camera.position.z);
             const playerPos = camera.position;
 
@@ -213,14 +260,7 @@ export function updatePhysics(delta, camera, controls, keyStates, audioState) {
                 }
             }
 
-            // 2. Mushroom Bounce
-            const bounce = checkMushroomBounce(playerPos, audioState);
-            if (bounce > 0) {
-                player.velocity.y = Math.max(player.velocity.y, bounce);
-                keyStates.jump = false;
-            }
-
-            // 3. Flower Trampoline
+            // 2. Flower Trampoline
             const flowerBounce = checkFlowerTrampoline(playerPos, audioState);
             if (flowerBounce > 0) {
                 player.velocity.y = Math.max(player.velocity.y, flowerBounce);
@@ -229,7 +269,7 @@ export function updatePhysics(delta, camera, controls, keyStates, audioState) {
 
             const safeGroundY = Math.max(isNaN(groundY) ? 0 : groundY, cloudY);
 
-            // Landing
+            // Landing (if not already handled by mushroom platform)
             if (camera.position.y < safeGroundY + 1.8 && player.velocity.y <= 0) {
                 camera.position.y = safeGroundY + 1.8;
                 player.velocity.y = 0;
