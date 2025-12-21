@@ -115,13 +115,16 @@ export function createRainingCloud(options = {}) {
     if (rainIntensity > 0) {
         const rainGeo = new THREE.BufferGeometry();
         const rainCount = rainIntensity;
-        const positions = new Float32Array(rainCount * 3);
+        const normals = new Float32Array(rainCount * 3);
         for (let i = 0; i < rainCount; i++) {
             positions[i * 3] = (Math.random() - 0.5) * 4 * size;
             positions[i * 3 + 1] = Math.random() * -2;
             positions[i * 3 + 2] = (Math.random() - 0.5) * 4 * size;
+            // Dummy normal
+            normals[i * 3] = 0; normals[i * 3 + 1] = 1; normals[i * 3 + 2] = 0;
         }
         rainGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        rainGeo.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
 
         const rainMat = new THREE.PointsMaterial({ color: 0x87CEEB, size: 0.05 });
         const rain = new THREE.Points(rainGeo, rainMat);

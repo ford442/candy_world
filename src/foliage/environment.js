@@ -89,16 +89,22 @@ export function createKickDrumGeyser(options = {}) {
     const plumeCount = 50;
     const plumeGeo = new THREE.BufferGeometry();
     const positions = new Float32Array(plumeCount * 3);
+    const normals = new Float32Array(plumeCount * 3);
     const velocities = new Float32Array(plumeCount);
 
     for (let i = 0; i < plumeCount; i++) {
         positions[i * 3] = (Math.random() - 0.5) * 0.2;
         positions[i * 3 + 1] = 0;
         positions[i * 3 + 2] = (Math.random() - 0.5) * 0.2;
+
+        // Dummy normal
+        normals[i * 3] = 0; normals[i * 3 + 1] = 1; normals[i * 3 + 2] = 0;
+
         velocities[i] = 0.5 + Math.random() * 0.5;
     }
 
     plumeGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    plumeGeo.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
     plumeGeo.setAttribute('velocity', new THREE.BufferAttribute(velocities, 1));
 
     const plumeMat = new THREE.PointsMaterial({
