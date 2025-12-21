@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { uWindSpeed, uWindDirection, uSkyTopColor, uSkyBottomColor, uHorizonColor, uAtmosphereIntensity, uStarPulse, uStarOpacity, updateMoon, triggerMoonBlink, animateFoliage, updateFoliageMaterials, updateFireflies, updateFallingBerries, collectFallingBerries, createFlower, createMushroom } from './src/foliage/index.js';
-import { MusicReactivity } from './src/systems/music-reactivity.js';
+import { uWindSpeed, uWindDirection, uSkyTopColor, uSkyBottomColor, uHorizonColor, uAtmosphereIntensity, uStarPulse, uStarOpacity, updateMoon, animateFoliage, updateFoliageMaterials, updateFireflies, updateFallingBerries, collectFallingBerries, createFlower, createMushroom } from './src/foliage/index.js';
+import { MusicReactivity, updateMusicReactivity } from './src/systems/music-reactivity.js';
 import { AudioSystem } from './src/audio/audio-system.js';
 import { BeatSync } from './src/audio/beat-sync.js';
 import { WeatherSystem, WeatherState } from './src/systems/weather.js';
@@ -29,11 +29,6 @@ const COLOR_RAIN_FOG = new THREE.Color(0xC0D0E0);
 const COLOR_WIND_VECTOR = new THREE.Vector3(0, 1, 0);
 
 const _weatherBiasOutput = { biasState: 'clear', biasIntensity: 0, type: 'clear' };
-const _frameTriggerData = {
-    flower: { active: false, note: 60, volume: 0 },
-    mushroom: { active: false, note: 60, volume: 0 },
-    tree: { active: false, note: 60, volume: 0 }
-};
 
 // --- Initialization ---
 
@@ -406,30 +401,8 @@ function animate() {
     const isDeepNight = (cyclePos >= deepNightStart && cyclePos < deepNightEnd);
 
     // Foliage Animation & Reactivity
-    // Optimization: Reuse trigger data objects to avoid GC
-    _frameTriggerData.flower.active = false;
-    _frameTriggerData.mushroom.active = false;
-    _frameTriggerData.tree.active = false;
-    let hasTriggers = false;
-
-    if (audioState && audioState.channelData) {
-        audioState.channelData.forEach(ch => {
-            if (ch.trigger > 0.5) {
-                let species = 'flower';
-                if (ch.instrument === 1 || ch.freq < 200) species = 'mushroom';
-                if (ch.instrument === 2) species = 'tree';
-
-                const data = _frameTriggerData[species];
-                if (data) {
-                    data.active = true;
-                    data.note = ch.note || 60;
-                    data.volume = ch.volume;
-                    hasTriggers = true;
-                }
-
-                if (species === 'tree' && isNight) triggerMoonBlink(moon);
-            }
-        });
+    if (audioState) {
+        updateMusicReactivity(audioState);
     }
 
     const camPos = camera.position;
@@ -460,13 +433,6 @@ function animate() {
 
         animateFoliage(f, t, audioState, !isNight, isDeepNight);
         foliageUpdatesThisFrame++;
-
-        if (hasTriggers) {
-            const trigger = _frameTriggerData[f.userData.type];
-            if (trigger && trigger.active) {
-                 musicReactivity.reactObject(f, trigger.note, trigger.volume);
-            }
-        }
     }
 
     // Fireflies
