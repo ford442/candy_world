@@ -225,8 +225,17 @@ function animate() {
     // Weather Update
     weatherSystem.update(t, audioState, cycleWeatherBias);
 
-    // Sync TSL Wind
-    uWindSpeed.value = 1.0 + weatherSystem.windSpeed * 4.0;
+    // Sync TSL Wind with BPM modulation
+    // Map BPM (60-180 range approx) to a wind multiplier
+    const activeBPM = audioState?.bpm || 120; // Renamed to avoid confusion and ensure definition
+    const bpmWindFactor = THREE.MathUtils.clamp((activeBPM - 60) / 120, 0, 1.5);
+    const baseWind = 1.0 + weatherSystem.windSpeed * 4.0;
+
+    // Smoothly interpolate wind speed changes to avoid jerky TSL updates
+    const targetWindSpeed = baseWind * (1.0 + bpmWindFactor * 0.5);
+    // Use a simple lerp for smoothing, assuming 60fps
+    uWindSpeed.value = THREE.MathUtils.lerp(uWindSpeed.value, targetWindSpeed, 0.05);
+
     uWindDirection.value.copy(weatherSystem.windDirection);
 
     const currentBeatPhase = audioState?.beatPhase || 0;

@@ -85,9 +85,18 @@ export function updatePhysics(delta, camera, controls, keyStates, audioState) {
 
     // --- Musical Ecosystem: Groove Gravity ---
     if (audioState) {
+        // "Groove" usually comes from beatSync or manual groove detection
+        // Assuming audioState has grooveAmount normalized 0..1
         const groove = audioState.grooveAmount || 0;
-        grooveGravity.targetMultiplier = 1.0 - groove * 0.4;
-        grooveGravity.multiplier += (grooveGravity.targetMultiplier - grooveGravity.multiplier) * delta;
+
+        // When groove is high, gravity decreases slightly to give a "floaty" dance feel
+        // E.g. 1.0 -> 0.6
+        grooveGravity.targetMultiplier = 1.0 - (groove * 0.4);
+
+        // Smoothly interpolate
+        grooveGravity.multiplier += (grooveGravity.targetMultiplier - grooveGravity.multiplier) * delta * 5.0;
+
+        // Apply to player gravity
         player.gravity = grooveGravity.baseGravity * grooveGravity.multiplier;
     }
 
