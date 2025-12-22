@@ -242,21 +242,38 @@
         }
 
         .playlist-item {
-            padding: 10px 15px;
+            padding: 0;
             border-bottom: 1px solid #FFD1DC;
+            display: flex;
+        }
+
+        .playlist-btn {
+            width: 100%;
+            padding: 10px 15px;
+            background: none;
+            border: none;
+            text-align: left;
+            font-family: inherit;
+            font-size: 1em;
+            color: #555;
             cursor: pointer;
-            transition: background 0.2s;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            color: #555;
+            transition: background 0.2s;
         }
 
-        .playlist-item:hover {
+        .playlist-btn:hover {
             background: #FFF0F5;
         }
 
-        .playlist-item.active {
+        .playlist-btn:focus-visible {
+            outline: 2px solid #FF6B6B;
+            outline-offset: -2px;
+            background: #FFF0F5;
+        }
+
+        .playlist-item.active .playlist-btn {
             background: #FF6B6B;
             color: white;
             font-weight: bold;
