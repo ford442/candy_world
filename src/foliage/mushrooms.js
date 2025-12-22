@@ -16,6 +16,7 @@ export function createMushroom(options = {}) {
 
     const group = new THREE.Group();
     const isGiant = size === 'giant';
+    // All mushrooms get faces now if requested, but giants always have them
     const showFace = isGiant || hasFace;
 
     const baseScale = isGiant ? 8.0 * scale : 1.0 * scale;
@@ -49,7 +50,12 @@ export function createMushroom(options = {}) {
         capMat = foliageMaterials.mushroomCap[chosenColorIndex];
     }
 
-    const cap = new THREE.Mesh(capGeo, capMat);
+    // Clone material to allow individual emissive strobing
+    const instanceCapMat = capMat.clone();
+    // Ensure base emissive is set for fade-back
+    instanceCapMat.userData.baseEmissive = new THREE.Color(0x000000);
+
+    const cap = new THREE.Mesh(capGeo, instanceCapMat);
     cap.position.y = stemH - (capR * 0.2);
     cap.castShadow = true;
     cap.receiveShadow = true;
@@ -88,30 +94,51 @@ export function createMushroom(options = {}) {
     // Face
     if (showFace) {
         const faceGroup = new THREE.Group();
-        faceGroup.position.set(0, stemH * 0.6, stemR * 0.95);
+        // Position face on the front of the stem/cap junction
+        faceGroup.position.set(0, stemH * 0.6, stemR * 0.85);
         const faceScale = isGiant ? baseScale : baseScale * 0.6;
         faceGroup.scale.set(faceScale, faceScale, faceScale);
 
+        // Eyes
         const leftEye = new THREE.Mesh(eyeGeo, foliageMaterials.eye);
-        leftEye.position.set(-0.15, 0.1, 0);
+        leftEye.position.set(-0.15, 0.1, 0.1);
         const rightEye = new THREE.Mesh(eyeGeo, foliageMaterials.eye);
-        rightEye.position.set(0.15, 0.1, 0);
+        rightEye.position.set(0.15, 0.1, 0.1);
 
-        const smileGeo = new THREE.TorusGeometry(0.12, 0.03, 6, 12, Math.PI);
-        const smile = new THREE.Mesh(smileGeo, foliageMaterials.mouth);
+        // Pupils
+        const pupilGeo = new THREE.SphereGeometry(0.06, 8, 8);
+        const leftPupil = new THREE.Mesh(pupilGeo, foliageMaterials.pupil);
+        leftPupil.position.set(0, 0, 0.1);
+        leftEye.add(leftPupil);
+
+        const rightPupil = new THREE.Mesh(pupilGeo, foliageMaterials.pupil);
+        rightPupil.position.set(0, 0, 0.1);
+        rightEye.add(rightPupil);
+
+        // Smile
+        const smileGeo = new THREE.TorusGeometry(0.12, 0.04, 6, 12, Math.PI);
+        const smile = new THREE.Mesh(smileGeo, foliageMaterials.clayMouth);
         smile.rotation.z = Math.PI;
-        smile.position.set(0, -0.05, 0);
+        smile.position.set(0, -0.05, 0.1);
 
-        faceGroup.add(leftEye, rightEye, smile);
+        // Cheeks (Rosy!)
+        const cheekGeo = new THREE.SphereGeometry(0.08, 8, 8);
+        const leftCheek = new THREE.Mesh(cheekGeo, foliageMaterials.mushroomCheek);
+        leftCheek.position.set(-0.25, 0.0, 0.05);
+        leftCheek.scale.set(1, 0.6, 0.5);
+
+        const rightCheek = new THREE.Mesh(cheekGeo, foliageMaterials.mushroomCheek);
+        rightCheek.position.set(0.25, 0.0, 0.05);
+        rightCheek.scale.set(1, 0.6, 0.5);
+
+        faceGroup.add(leftEye, rightEye, smile, leftCheek, rightCheek);
         group.add(faceGroup);
     }
 
-    // Giant Breathing Effect
-    const isGlowing = Math.random() < 0.2;
-
+    // Giant Breathing Effect (TSL)
     if (isGiant) {
         const breathMat = new MeshStandardNodeMaterial({
-            color: capMat.color,
+            color: instanceCapMat.color, // Use the clay color
             roughness: 0.8,
             metalness: 0.0,
         });
@@ -119,23 +146,16 @@ export function createMushroom(options = {}) {
         const pos = positionLocal;
         const breathSpeed = time.mul(2.0);
         const breath = sin(breathSpeed).mul(0.1).add(1.0);
+        // Displace vertices
         breathMat.positionNode = pos.mul(breath);
 
-        const emissivePulse = sin(breathSpeed.mul(2.0)).mul(0.2).add(0.3);
-        breathMat.emissiveNode = color(capMat.color).mul(emissivePulse);
+        // Slight emissive pulse
+        const emissivePulse = sin(breathSpeed.mul(2.0)).mul(0.1).add(0.1);
+        breathMat.emissiveNode = color(instanceCapMat.color).mul(emissivePulse);
 
         cap.material = breathMat;
-    }
-    else if (isGlowing) {
-        const light = new THREE.PointLight(capMat.color, 1.0, 5.0);
-        light.position.y = stemH;
-        group.add(light);
-
-        const glowMat = capMat.clone();
-        glowMat.emissive = capMat.color;
-        glowMat.emissiveIntensity = 0.5;
-        cap.material = glowMat;
-        registerReactiveMaterial(glowMat);
+        // Keep reference for reactivity override
+        instanceCapMat.colorNode = breathMat.colorNode;
     }
 
     group.userData.animationType = pickAnimation(['wobble', 'bounce', 'accordion']);
@@ -144,16 +164,41 @@ export function createMushroom(options = {}) {
     group.userData.colorIndex = typeof chosenColorIndex === 'number' ? chosenColorIndex : -1;
     
     // --- IMPORTANT: Metadata for Weather System ---
-    group.userData.size = size;          // Must be 'giant' for waterfalls
-    group.userData.capRadius = capR;     // Used to position waterfall edge
-    group.userData.capHeight = stemH;    // Used to position waterfall start
+    group.userData.size = size;
+    group.userData.capRadius = capR;
+    group.userData.capHeight = stemH;
     group.userData.stemRadius = stemR;
+
+    // Register cap for flash animation system
+    group.userData.reactiveMeshes = [cap];
     // ----------------------------------------------
 
     if (isGiant || isBouncy) {
         group.userData.isTrampoline = true;
     }
 
-    // Mushrooms prefer darkness (Night, Storms)
-    return attachReactivity(group, { minLight: 0.0, maxLight: 0.35 });
+    // Attach Reactivity with Custom Logic
+    attachReactivity(group, { minLight: 0.0, maxLight: 0.6, type: 'flora' });
+
+    // Custom Reactivity Method: Retrigger Strobe & Bounce
+    group.reactToNote = (note, colorVal, velocity) => {
+        // 1. Strobe Effect (via animateFoliage system)
+        cap.userData.flashColor = new THREE.Color(colorVal);
+        cap.userData.flashIntensity = 1.0 + (velocity * 2.0); // High intensity
+        cap.userData.flashDecay = 0.1; // Fast decay for strobe effect
+
+        // 2. Bounce / Retrigger Squish
+        // 'velocity' (0-1) determines squash
+        const squash = 1.0 - (velocity * 0.3);
+        const stretch = 1.0 + (velocity * 0.3);
+
+        group.scale.set(baseScale * stretch, baseScale * squash, baseScale * stretch);
+
+        // Reset scale slowly
+        setTimeout(() => {
+            if (group) group.scale.setScalar(baseScale);
+        }, 80); // Fast snap back
+    };
+
+    return group;
 }

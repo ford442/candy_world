@@ -157,11 +157,12 @@ export const foliageMaterials = {
 
     mushroomStem: new MeshStandardNodeMaterial({ color: 0xF5F5DC, roughness: 0.9 }),
     mushroomCap: [
-        new MeshStandardNodeMaterial({ color: 0xFF0000, roughness: 0.3 }), 
-        new MeshStandardNodeMaterial({ color: 0x0000FF, roughness: 0.3 }), 
-        new MeshStandardNodeMaterial({ color: 0x00FF00, roughness: 0.3 }), 
-        new MeshStandardNodeMaterial({ color: 0xFFFF00, roughness: 0.3 }), 
+        createClayMaterial(0xFF6B6B), // Pastel Red
+        createClayMaterial(0xFF9F43), // Pastel Orange
+        createClayMaterial(0xFDCB6E), // Pastel Yellow
+        createClayMaterial(0x54A0FF), // Pastel Blue
     ],
+    mushroomCheek: createClayMaterial(0xFFAACC), // Pink Cheeks
     mushroomGills: (() => {
         const m = new MeshStandardNodeMaterial({ color: 0x332211, roughness: 1.0 });
         m.side = THREE.DoubleSide;
@@ -181,7 +182,8 @@ export const foliageMaterials = {
     ],
     eye: new MeshStandardNodeMaterial({ color: 0xFFFFFF, roughness: 0.2 }),
     pupil: new MeshStandardNodeMaterial({ color: 0x000000, roughness: 0.0 }),
-    mouth: new MeshStandardNodeMaterial({ color: 0x000000, roughness: 0.8 })
+    mouth: new MeshStandardNodeMaterial({ color: 0x000000, roughness: 0.8 }),
+    clayMouth: createClayMaterial(0x2D3436) // Dark Grey Clay for Mouth
 };
 
 export function registerReactiveMaterial(mat) {
