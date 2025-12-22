@@ -117,7 +117,8 @@ export function createRainingCloud(options = {}) {
         const rainCount = rainIntensity;
         const positions = new Float32Array(rainCount * 3);
         const normals = new Float32Array(rainCount * 3);
-        const positions = new Float32Array(rainCount * 3);
+        // Removed duplicate positions declaration here
+
         for (let i = 0; i < rainCount; i++) {
             positions[i * 3] = (Math.random() - 0.5) * 4 * size;
             positions[i * 3 + 1] = Math.random() * -2;
