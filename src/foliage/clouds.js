@@ -116,6 +116,7 @@ export function createRainingCloud(options = {}) {
         const rainGeo = new THREE.BufferGeometry();
         const rainCount = rainIntensity;
         const normals = new Float32Array(rainCount * 3);
+        const positions = new Float32Array(rainCount * 3);
         for (let i = 0; i < rainCount; i++) {
             positions[i * 3] = (Math.random() - 0.5) * 4 * size;
             positions[i * 3 + 1] = Math.random() * -2;
