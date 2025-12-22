@@ -238,7 +238,9 @@ export function validateNodeGeometries(scene) {
             const geo = obj.geometry;
             if (geo) {
                 if (!geo.attributes.position) {
-                    console.warn(`[TSL] Geometry missing 'position':`, obj);
+                    const name = obj.name || 'Unnamed';
+                    const type = obj.userData?.type || 'Unknown Type';
+                    console.warn(`[TSL] Geometry missing 'position':`, name, type, obj);
                 }
                 if (!geo.attributes.normal) {
                     // For TSL, normals are often required even for Points if lighting/material nodes access them
