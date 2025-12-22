@@ -26,11 +26,14 @@ export function createArpeggioFern(options = {}) {
     const frondMat = createCandyMaterial(color, 0.9);
     registerReactiveMaterial(frondMat);
 
+    group.userData.fronds = []; // Store references for animation
+
     for (let i = 0; i < frondCount; i++) {
         const frondRoot = new THREE.Group();
         frondRoot.rotation.y = (i / frondCount) * Math.PI * 2;
         frondRoot.position.y = 0.4 * scale;
         
+        const frondSegments = [];
         let currentSeg = frondRoot;
         
         // Create chain of segments
@@ -45,13 +48,18 @@ export function createArpeggioFern(options = {}) {
             pivot.position.y = (j === 0) ? 0 : 0.28 * scale; // Pivot at top of prev
             
             // Initial curl state
-            pivot.rotation.x = -0.5; // Curled inward
+            const initialCurl = -0.5;
+            pivot.rotation.x = initialCurl; // Curled inward
             
             pivot.add(seg);
             currentSeg.add(pivot);
             currentSeg = pivot; // Next segment attaches to this pivot
+
+            frondSegments.push({ pivot, initialCurl });
         }
+
         group.add(frondRoot);
+        group.userData.fronds.push(frondSegments);
     }
 
     group.userData.animationType = 'arpeggioUnfurl';

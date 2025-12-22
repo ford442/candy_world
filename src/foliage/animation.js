@@ -273,6 +273,75 @@ export function animateFoliage(foliageObject, time, audioData, isDay, isDeepNigh
             }
         }
     }
+    else if (type === 'arpeggioUnfurl') {
+        // Step-based unfurling logic (Revised for Quantized Steps with Rising Edge)
+        let arpeggioActive = false;
+        let noteTrigger = false;
+        let activeEffect = 0;
+
+        // Scan for arpeggio effect
+        if (audioData && audioData.channelData) {
+            for (const ch of audioData.channelData) {
+                if (ch.activeEffect === 4 || (ch.activeEffect === 0 && ch.effectValue > 0)) {
+                    arpeggioActive = true;
+                    activeEffect = ch.activeEffect;
+                }
+                if (ch.trigger > 0.1) {
+                    noteTrigger = true;
+                }
+            }
+        }
+
+        // State
+        if (!foliageObject.userData.unfurlStep) foliageObject.userData.unfurlStep = 0;
+        if (!foliageObject.userData.targetStep) foliageObject.userData.targetStep = 0;
+        if (foliageObject.userData.lastTrigger === undefined) foliageObject.userData.lastTrigger = false;
+
+        const maxSteps = 12;
+
+        if (arpeggioActive) {
+            // Rising edge detection for trigger
+            // If currently triggered but wasn't last frame, increment
+            if (noteTrigger && !foliageObject.userData.lastTrigger) {
+                foliageObject.userData.targetStep = Math.min(maxSteps, foliageObject.userData.targetStep + 1);
+            }
+        } else {
+            // Decay back to 0 when effect stops
+            foliageObject.userData.targetStep = 0;
+        }
+
+        // Store trigger state for next frame
+        foliageObject.userData.lastTrigger = noteTrigger;
+
+        // Smoothly animate towards the target step
+        const speed = (foliageObject.userData.targetStep > foliageObject.userData.unfurlStep) ? 0.3 : 0.05;
+
+        foliageObject.userData.unfurlStep = THREE.MathUtils.lerp(
+            foliageObject.userData.unfurlStep,
+            foliageObject.userData.targetStep,
+            speed
+        );
+
+        const unfurlFactor = foliageObject.userData.unfurlStep / maxSteps;
+
+        // Apply to segments
+        const fronds = foliageObject.userData.fronds;
+        if (fronds) {
+            fronds.forEach((segments, fIdx) => {
+                segments.forEach((segData, sIdx) => {
+                    const targetRot = THREE.MathUtils.lerp(segData.initialCurl, 0.2, unfurlFactor);
+                    const wave = Math.sin(time * 5 + sIdx * 0.5) * 0.1 * unfurlFactor;
+                    segData.pivot.rotation.x = targetRot + wave;
+                });
+            });
+        }
+
+        // Bob base slightly, but ensure originalY is initialized to prevent snapping
+        if (foliageObject.userData.originalY === undefined) {
+            foliageObject.userData.originalY = foliageObject.position.y;
+        }
+        foliageObject.position.y = foliageObject.userData.originalY + unfurlFactor * 0.2;
+    }
     else if (type === 'accordionStretch') {
         const trunkGroup = foliageObject.userData.trunk;
         if (trunkGroup) {
@@ -407,17 +476,23 @@ export function animateFoliage(foliageObject, time, audioData, isDay, isDeepNigh
             }
             vibratoAmount = Math.max(vibratoAmount, groove * 0.5);
 
-            const shakeSpeed = 25 + vibratoAmount * 50;
-            const shakeAmount = 0.02 + vibratoAmount * 0.15;
+            // Enhance for "frequency distortion field" feel
+            const shakeSpeed = 50 + vibratoAmount * 100; // Increased speed
+            const shakeAmount = 0.05 + vibratoAmount * 0.25; // Increased range
 
             headGroup.children.forEach((child, i) => {
                 if (i === 0) return;
                 const phase = child.userData.vibratoPhase || (i * 0.5);
                 child.rotation.x = -Math.PI / 2 + Math.sin(time * shakeSpeed + phase) * shakeAmount;
-                child.rotation.y = Math.cos(time * shakeSpeed * 0.7 + phase) * shakeAmount * 0.5;
+                child.rotation.y = Math.cos(time * shakeSpeed * 1.3 + phase) * shakeAmount * 0.8;
+
+                // Add a "jitter" scale effect for visual distortion
+                const jitter = 1.0 + Math.random() * vibratoAmount * 0.2;
+                child.scale.setScalar(jitter);
             });
 
-            headGroup.rotation.z = Math.sin(time * 2 + offset) * 0.05 * intensity;
+            // Whole head wobble
+            headGroup.rotation.z = Math.sin(time * 15 + offset) * 0.1 * intensity;
         }
     }
     else if (type === 'tremeloPulse') {

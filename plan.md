@@ -7,6 +7,7 @@ This document captures feature ideas for the Candy World musical ecosystem. The 
 ## Category 1: Melodic Flora (Pitch & Effect Reactive)
 
 ### Arpeggio Ferns
+- **Status: Implemented ✅**
 - Description: Crystalline ferns with segmented, glowing metal fronds that unfurl in quantized ticks synced to arpeggio effect speed (0xy).
 - Gameplay Mechanics: Fully unfurled fronds create temporary platforms or block lasers. Players can ride the unfurl motion to launch upward; shooting during unfurl freezes a frond into a permanent angled platform. Collecting three "Fern Cores" unlocks the "Arpeggio Shield".
 - Visual Design: Skeletal animation with rigid-body physics for each segment. Glow peaks at ticks and decays exponentially. Subtle chromatic aberration on movement edges.
@@ -21,6 +22,7 @@ This document captures feature ideas for the Candy World musical ecosystem. The 
 - Audio: Creaking metallic groan rising/falling with pitch slide.
 
 ### Vibrato Violets
+- **Status: Implemented ✅**
 - Description: Bioluminescent flowers with vibrating membrane petals that shake with vibrato (4xx), driven by a vertex shader.
 - Gameplay Mechanics: Vibration creates a frequency distortion field (20m radius) causing enemy projectiles to zigzag; harvest "Vibrato Nectar" during peak vibrato to craft "Jitter Mines".
 - Visual Design: Vertex shader sine-wave displacement and motion blur post-process; strobing glow with ghostly afterimages.
@@ -35,6 +37,7 @@ This document captures feature ideas for the Candy World musical ecosystem. The 
 - Audio: Sharp percussive "snap" per tick, creating a polyrhythm overlay.
 
 ### Tremolo Tulips
+- **Status: Implemented ✅**
 - Description: Tall bell flowers that pulse scale and opacity with tremolo (7xx), with an interior vortex of light.
 - Gameplay Mechanics: Max pulse turns interior into a portal that stores collectibles/projectiles and expels them at minimum; harvest "Tremolo Bulbs" for a phase-shift ability.
 - Visual Design: Sine-driven scale and opacity lerp; orbital particle vortex; rim-lighting breathes with pulse.
@@ -92,6 +95,7 @@ This document captures feature ideas for the Candy World musical ecosystem. The 
 - Audio: Rising "whoosh" for Dxx, tape-flutter morph for Bxx.
 
 ### BPM Wind
+- **Status: Implemented ✅**
 - Description: Global wind vector scaled to BPM that affects particles, foliage, projectiles, and cloth.
 - Gameplay Mechanics: Wind impacts jump trajectory; players can surf tailwinds; "Wind Anchor" grants wind immunity.
 - Visual Design: Global shader uniform for wind strength driving vertex displacement; dust/snow particle trails and cloth simulation.
@@ -99,6 +103,7 @@ This document captures feature ideas for the Candy World musical ecosystem. The 
 - Audio: Filtered noise layer rising with BPM.
 
 ### Groove Gravity
+- **Status: Implemented ✅**
 - Description: Global gravity modulation based on swing/groove factor, easing over 1s when introduced.
 - Gameplay Mechanics: Reduced gravity during swing makes enemies and objects floatier; "Groove Boots" share effect with player.
 - Visual Design: Gravity multiplier on particle systems; subtle fisheye bottom-of-screen warp during low gravity.
@@ -260,11 +265,11 @@ Three.js Renderer -> WebGPU RenderPipeline (Raw Draw Calls)
 
 ---
 
-**Notes & Priorities:**
-- Start small with types and tests around the data shapes that must cross the JS/WASM boundary.
-- Ensure regressions are detectable via unit/integration tests and small deterministic manifests.
-- Prefer incremental changes and keep fallback paths during each phase to reduce risk.
+## Next Steps
 
+1. **Pattern-Change Seasons**: Implement the global palette shift logic triggered by pattern change events (`Dxx` command). This will require abstracting the palette colors into uniforms or a global state object that the weather/foliage systems observe.
+2. **Crescendo Fog**: Tie fog density to the overall audio energy mix.
+3. **Migrate to TypeScript**: Begin Phase 1 of the migration roadmap to harden the codebase before adding more complex systems.
 Feel free to ask me to create the initial `tsconfig.json`, add type definitions for `src/world/state.js`, or draft an AssemblyScript skeleton for `getGroundHeight` next.
 
 ## Recent Progress & Next Steps
