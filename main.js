@@ -29,6 +29,11 @@ const COLOR_RAIN = new THREE.Color(0xA0B5C8);
 const COLOR_RAIN_FOG = new THREE.Color(0xC0D0E0);
 const COLOR_WIND_VECTOR = new THREE.Vector3(0, 1, 0);
 
+const _scratchBaseSkyTop = new THREE.Color();
+const _scratchBaseSkyBot = new THREE.Color();
+const _scratchBaseFog = new THREE.Color();
+const _scratchSunVector = new THREE.Vector3();
+
 const _weatherBiasOutput = { biasState: 'clear', biasIntensity: 0, type: 'clear' };
 
 // --- Initialization ---
@@ -268,9 +273,10 @@ function animate() {
     const weatherIntensity = weatherSystem.getIntensity();
     const weatherState = weatherSystem.getState();
     
-    const baseSkyTop = currentState.skyTop.clone();
-    const baseSkyBot = currentState.skyBot.clone();
-    const baseFog = currentState.fog.clone();
+    // Bolt: Use scratch objects to prevent GC
+    const baseSkyTop = _scratchBaseSkyTop.copy(currentState.skyTop);
+    const baseSkyBot = _scratchBaseSkyBot.copy(currentState.skyBot);
+    const baseFog = _scratchBaseFog.copy(currentState.fog);
     
     if (weatherState === WeatherState.STORM) {
         baseSkyTop.lerp(COLOR_STORM_SKY_TOP, weatherIntensity * 0.6);
@@ -320,11 +326,14 @@ function animate() {
         sunCorona.visible = true;
         moon.visible = false;
 
-        sunGlow.position.copy(sunLight.position.clone().normalize().multiplyScalar(400));
+        // Bolt: Reuse scratch vector to prevent GC (3 vectors per frame)
+        _scratchSunVector.copy(sunLight.position).normalize();
+
+        sunGlow.position.copy(_scratchSunVector).multiplyScalar(400);
         sunGlow.lookAt(camera.position);
-        sunCorona.position.copy(sunLight.position.clone().normalize().multiplyScalar(390));
+        sunCorona.position.copy(_scratchSunVector).multiplyScalar(390);
         sunCorona.lookAt(camera.position);
-        lightShaftGroup.position.copy(sunLight.position.clone().normalize().multiplyScalar(380));
+        lightShaftGroup.position.copy(_scratchSunVector).multiplyScalar(380);
         lightShaftGroup.lookAt(camera.position);
 
         // Sun Visual Tweaks (Glow/Shafts)
