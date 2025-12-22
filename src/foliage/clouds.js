@@ -115,9 +115,10 @@ export function createRainingCloud(options = {}) {
     if (rainIntensity > 0) {
         const rainGeo = new THREE.BufferGeometry();
         const rainCount = rainIntensity;
+        
+        // --- FIX: Removed duplicate declarations ---
         const positions = new Float32Array(rainCount * 3);
         const normals = new Float32Array(rainCount * 3);
-        // Removed duplicate positions declaration here
 
         for (let i = 0; i < rainCount; i++) {
             positions[i * 3] = (Math.random() - 0.5) * 4 * size;
@@ -131,6 +132,10 @@ export function createRainingCloud(options = {}) {
 
         const rainMat = new THREE.PointsMaterial({ color: 0x87CEEB, size: 0.05 });
         const rain = new THREE.Points(rainGeo, rainMat);
+        
+        // Name the object to help debug "missing position" warnings
+        rain.name = "RainParticles"; 
+        
         group.add(rain);
     }
 
