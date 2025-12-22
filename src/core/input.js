@@ -36,14 +36,35 @@ export function initInput(camera, audioSystem, toggleDayNightCallback) {
         songs.forEach((file, index) => {
             const li = document.createElement('li');
             li.className = `playlist-item ${index === currentIdx ? 'active' : ''}`;
-            li.innerHTML = `
-                <span>${index + 1}. ${file.name}</span>
-                <span class="status-icon">${index === currentIdx ? '🔊' : '▶️'}</span>
+
+            // UX: Use a button for keyboard accessibility
+            const btn = document.createElement('button');
+            btn.className = 'playlist-btn';
+            btn.setAttribute('aria-label', `Play ${file.name}`);
+            if (index === currentIdx) {
+                btn.setAttribute('aria-current', 'true');
+            }
+
+            btn.innerHTML = `
+                <span class="song-title">${index + 1}. ${file.name}</span>
+                <span class="status-icon" aria-hidden="true">${index === currentIdx ? '🔊' : '▶️'}</span>
             `;
-            li.onclick = () => {
+
+            btn.onclick = (e) => {
+                // Prevent bubbling if needed, though li has no click handler now
+                e.stopPropagation();
                 audioSystem.playAtIndex(index);
                 renderPlaylist(); // Re-render to update active state
+
+                // Keep focus on the clicked item (re-rendered)
+                // We need to find the new button after render
+                requestAnimationFrame(() => {
+                    const newItems = playlistList.querySelectorAll('.playlist-btn');
+                    if (newItems[index]) newItems[index].focus();
+                });
             };
+
+            li.appendChild(btn);
             playlistList.appendChild(li);
         });
         

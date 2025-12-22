@@ -242,21 +242,38 @@
         }
 
         .playlist-item {
-            padding: 10px 15px;
+            padding: 0;
             border-bottom: 1px solid #FFD1DC;
+            display: flex;
+        }
+
+        .playlist-btn {
+            width: 100%;
+            padding: 10px 15px;
+            background: none;
+            border: none;
+            text-align: left;
+            font-family: inherit;
+            font-size: 1em;
+            color: #555;
             cursor: pointer;
-            transition: background 0.2s;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            color: #555;
+            transition: background 0.2s;
         }
 
-        .playlist-item:hover {
+        .playlist-btn:hover {
             background: #FFF0F5;
         }
 
-        .playlist-item.active {
+        .playlist-btn:focus-visible {
+            outline: 2px solid #FF6B6B;
+            outline-offset: -2px;
+            background: #FFF0F5;
+        }
+
+        .playlist-item.active .playlist-btn {
             background: #FF6B6B;
             color: white;
             font-weight: bold;
@@ -291,6 +308,25 @@
             transform: scale(1.05);
             background: #584AB8;
         }
+
+        /* Loading Spinner */
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 0.8em;
+            height: 0.8em;
+            border: 3px solid rgba(255, 255, 255, 0.4);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 12px;
+            vertical-align: middle;
+            position: relative;
+            top: -2px;
+        }
     </style>
     <script type="importmap">
         {
@@ -318,7 +354,9 @@
 <body>
     <div id="instructions">
         <h1>🍭 Candy World</h1>
-        <button id="startButton" class="cta-button" aria-label="Start Exploration and capture mouse cursor" disabled>Loading World... 🍭</button>
+        <button id="startButton" class="cta-button" aria-label="Start Exploration and capture mouse cursor" disabled>
+            <span class="spinner"></span>Loading World... 🍭
+        </button>
 
         <div class="settings settings-container">
             <input type="file" id="musicUpload" accept=".mod,.xm,.it,.s3m" multiple class="visually-hidden">
