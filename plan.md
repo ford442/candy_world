@@ -29,10 +29,10 @@ This document captures feature ideas for the Candy World musical ecosystem. The 
 - Behavioral Patterns: Bloom only with vibrato; amplitude increases with vibrato depth; ring-out for 1s after vibrato stops.
 - Audio: Trembling bell-like tone wavers with vibrato.
 
-### Retrigger Mushrooms
+### Retrigger Mushrooms [ACCOMPLISHED]
 - Description: Flat disc fungi with phosphorescent spore pods that strobe on/off with retrigger commands (Rxx/E9x).
 - Gameplay Mechanics: Strobing applies retrigger to player's weapons and reveals cloaked enemies; induces HUD flicker (Strobe Sickness). Shooting strobing mushrooms spawns a spore cloud.
-- Visual Design: Emissive shader with threshold cutoff; spore pods as pulsing point lights; full-screen ghosting effect post-strobe.
+- Visual Design: **[Implemented]** Updated to "Cute Clay" aesthetic (matte pastel colors, rosy cheeks). Implemented audio-reactive squash/stretch (bounce) and emissive strobing (flash intensity) triggered by note events.
 - Behavioral Patterns: Mushrooms dim until retrigger; nearby mushrooms sync strobes; explode into a lingering spore cloud when shot.
 - Audio: Sharp percussive "snap" per tick, creating a polyrhythm overlay.
 
@@ -270,3 +270,16 @@ Three.js Renderer -> WebGPU RenderPipeline (Raw Draw Calls)
 1. **Pattern-Change Seasons**: Implement the global palette shift logic triggered by pattern change events (`Dxx` command). This will require abstracting the palette colors into uniforms or a global state object that the weather/foliage systems observe.
 2. **Crescendo Fog**: Tie fog density to the overall audio energy mix.
 3. **Migrate to TypeScript**: Begin Phase 1 of the migration roadmap to harden the codebase before adding more complex systems.
+Feel free to ask me to create the initial `tsconfig.json`, add type definitions for `src/world/state.js`, or draft an AssemblyScript skeleton for `getGroundHeight` next.
+
+## Recent Progress & Next Steps
+- **Accomplished:**
+  - Integrated "Musical Ecosystem" plan into main documentation.
+  - Analyzed "Cute Clay" concept art and implemented matched visuals for Mushrooms (Pastel palette, Cheeks, Matte finish).
+  - Implemented "Retrigger Mushroom" reactivity (Bounce & Strobe) using the existing `animateFoliage` system for smooth decay.
+  - Verified visual changes via Playwright screenshot.
+
+- **Next Steps:**
+  - **Arpeggio Ferns:** Implement the skeletal animation and "unfurl" logic for ferns.
+  - **Kick-Drum Geysers:** Add particle plumes reactive to the kick channel.
+  - **Migration:** Begin Phase 1 of the Technical Roadmap (JS -> TS for `src/world/state.js`).
