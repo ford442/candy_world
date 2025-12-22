@@ -291,6 +291,25 @@
             transform: scale(1.05);
             background: #584AB8;
         }
+
+        /* Loading Spinner */
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 0.8em;
+            height: 0.8em;
+            border: 3px solid rgba(255, 255, 255, 0.4);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 12px;
+            vertical-align: middle;
+            position: relative;
+            top: -2px;
+        }
     </style>
     <script type="importmap">
         {
@@ -318,7 +337,9 @@
 <body>
     <div id="instructions">
         <h1>🍭 Candy World</h1>
-        <button id="startButton" class="cta-button" aria-label="Start Exploration and capture mouse cursor" disabled>Loading World... 🍭</button>
+        <button id="startButton" class="cta-button" aria-label="Start Exploration and capture mouse cursor" disabled>
+            <span class="spinner"></span>Loading World... 🍭
+        </button>
 
         <div class="settings settings-container">
             <input type="file" id="musicUpload" accept=".mod,.xm,.it,.s3m" multiple class="visually-hidden">
