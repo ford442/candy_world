@@ -86,6 +86,7 @@ export function initInput(camera, audioSystem, toggleDayNightCallback) {
         if (isPlaylistOpen) {
             // OPENING
             controls.unlock(); // Unlock mouse so we can click
+            if (instructions) instructions.style.display = 'none'; // Ensure pause menu is hidden
             playlistOverlay.style.display = 'flex';
             renderPlaylist();
             // Focus management: focus the overlay or the close button for accessibility
@@ -240,6 +241,14 @@ export function initInput(camera, audioSystem, toggleDayNightCallback) {
     const toggleDayNightBtn = document.getElementById('toggleDayNight');
     if (toggleDayNightBtn && toggleDayNightCallback) {
         toggleDayNightBtn.addEventListener('click', toggleDayNightCallback);
+    }
+
+    const openJukeboxBtn = document.getElementById('openJukeboxBtn');
+    if (openJukeboxBtn) {
+        openJukeboxBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            togglePlaylist();
+        });
     }
 
     return {
