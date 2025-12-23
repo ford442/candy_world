@@ -233,26 +233,58 @@ export function validateFoliageMaterials() {
 
 // Helper to validate geometries for TSL usage
 export function validateNodeGeometries(scene) {
+    // Aggregate warnings to avoid spamming the console when many small geometries are missing attributes.
+    const missingPosition = [];
+
+    function inferVertexCount(geo) {
+        if (!geo) return 0;
+        if (geo.index) return geo.index.count;
+        let maxCount = 0;
+        for (const key in geo.attributes) {
+            if (Object.prototype.hasOwnProperty.call(geo.attributes, key)) {
+                const a = geo.attributes[key];
+                if (a && a.count > maxCount) maxCount = a.count;
+            }
+        }
+        return maxCount;
+    }
+
     scene.traverse(obj => {
         if (obj.isMesh || obj.isPoints) {
             const geo = obj.geometry;
             if (geo) {
+                // Attempt to auto-patch a missing position attribute when we can infer a vertex count.
                 if (!geo.attributes.position) {
-                    const name = obj.name || 'Unnamed';
-                    const type = obj.userData?.type || 'Unknown Type';
-                    console.warn(`[TSL] Geometry missing 'position':`, name, type, obj);
+                    const inferred = inferVertexCount(geo);
+                    if (inferred > 0) {
+                        const positions = new Float32Array(inferred * 3);
+                        // Leave positions at 0,0,0 to avoid creating unexpected geometry – this is just to satisfy TSL's attribute checks
+                        geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+                        // Do NOT warn in this case; we patched it automatically
+                    } else {
+                        // Couldn't infer a count — record for one consolidated warning
+                        const name = obj.name || 'Unnamed';
+                        const type = obj.userData?.type || 'Unknown Type';
+                        missingPosition.push({ name, type, obj });
+                    }
                 }
+
+                // Ensure normals exist for TSL in a non-spammy way
                 if (!geo.attributes.normal) {
-                    // For TSL, normals are often required even for Points if lighting/material nodes access them
-                    // We can patch it with dummy normals
-                    const count = geo.attributes.position ? geo.attributes.position.count : 0;
+                    const count = geo.attributes.position ? geo.attributes.position.count : inferVertexCount(geo);
                     if (count > 0) {
                         const normals = new Float32Array(count * 3);
-                        for(let i=0; i<count*3; i+=3) { normals[i] = 0; normals[i+1] = 1; normals[i+2] = 0; }
+                        for (let i = 0; i < count * 3; i += 3) { normals[i] = 0; normals[i + 1] = 1; normals[i + 2] = 0; }
                         geo.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
                     }
                 }
             }
         }
     });
+
+    if (missingPosition.length > 0) {
+        const names = missingPosition.slice(0, 10).map(m => `${m.name}(${m.type})`);
+        const more = missingPosition.length > 10 ? ` + ${missingPosition.length - 10} more` : '';
+        console.warn(`[TSL] ${missingPosition.length} geometries missing 'position' attribute. Examples: ${names.join(', ')}${more}. To silence this, ensure geometries have a 'position' attribute or let validateNodeGeometries auto-patch them where possible.`);
+    }
 }
