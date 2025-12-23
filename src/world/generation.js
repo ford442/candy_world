@@ -318,11 +318,11 @@ function populateProceduralExtras(weatherSystem) {
         try {
             const rand = Math.random();
 
-            if (rand < 0.4) { // 40% Flowers
+            if (rand < 0.3) { // 30% Flowers
                  obj = Math.random() < 0.5 ? createFlower() : createGlowingFlower();
                  obj.position.set(x, groundY, z);
             }
-            else if (rand < 0.6) { // 20% Face Mushrooms (Bouncy!)
+            else if (rand < 0.5) { // 20% Face Mushrooms (Bouncy!)
                  // Small bouncy face mushrooms like in the concept image
                  obj = createMushroom({
                      size: 'regular',
@@ -333,7 +333,7 @@ function populateProceduralExtras(weatherSystem) {
                  obj.position.set(x, groundY, z);
                  isObstacle = true;
             }
-            else if (rand < 0.8) { // 20% Trees
+            else if (rand < 0.65) { // 15% Trees
                  const treeType = Math.random();
                  if (treeType < 0.33) obj = createBubbleWillow();
                  else if (treeType < 0.66) obj = createBalloonBush();
@@ -343,7 +343,21 @@ function populateProceduralExtras(weatherSystem) {
                  isObstacle = true;
                  radius = 1.5;
             }
-            else { // 20% Clouds
+            else if (rand < 0.85) { // 20% Musical Flora (Ferns, Geysers, Traps)
+                 const type = Math.random();
+                 if (type < 0.33) {
+                     obj = createArpeggioFern({ scale: 1.0 + Math.random() * 0.5 });
+                 } else if (type < 0.66) {
+                     obj = createKickDrumGeyser({ maxHeight: 5.0 + Math.random() * 3.0 });
+                     radius = 1.0;
+                 } else {
+                     obj = createSnareTrap({ scale: 0.8 + Math.random() * 0.4 });
+                     isObstacle = true;
+                     radius = 0.8;
+                 }
+                 obj.position.set(x, groundY, z);
+            }
+            else { // 15% Clouds
                  const isHigh = Math.random() < 0.5;
                  y = isHigh ? 35 + Math.random() * 20 : 12 + Math.random() * 10;
                  obj = createRainingCloud({ size: 1.0 + Math.random() });
