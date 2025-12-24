@@ -1,6 +1,6 @@
 #include <emscripten.h>
-#include <math.h>
-#include <stdlib.h>
+#include <cmath>
+#include <cstdlib>
 
 // Forward declare fastInvSqrt if needed, or include math.c header if we had one.
 // Since we compile all .c files together, and fastInvSqrt is EMSCRIPTEN_KEEPALIVE, it should be available.
