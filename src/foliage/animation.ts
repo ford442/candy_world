@@ -163,9 +163,9 @@ export function animateFoliage(foliageObject: FoliageObject, time: number, audio
                         // stronger blend for higher intensity; immediate override when very strong
                         const t = Math.min(1, fi * 1.2) * 0.8;
 
-                        if ((CONFIG as any).debugNoteReactivity && fi > 0.5) {
-                            try { console.log('applyFlash pre:', foliageObject.userData.type, child.name || child.uuid, 'mat=', mat.name || mat.type, 'mat.emissive=', mat.emissive?.getHexString?.(), 'target=', fc.getHexString(), 'fi=', fi); } catch (e) {}
-                        }
+                       // if ((CONFIG as any).debugNoteReactivity && fi > 0.5) {
+                       //     try { console.log('applyFlash pre:', foliageObject.userData.type, child.name || child.uuid, 'mat=', mat.name || mat.type, 'mat.emissive=', mat.emissive?.getHexString?.(), 'target=', fc.getHexString(), 'fi=', fi); } catch (e) {}
+                      //  }
 
                         if ((mat as any).isMeshBasicMaterial && mat.color) {
                             if (fi > 0.7) mat.color.copy(fc);
@@ -177,9 +177,9 @@ export function animateFoliage(foliageObject: FoliageObject, time: number, audio
                             mat.emissiveIntensity = Math.max(0.2, fi * ((CONFIG as any).flashScale || 2.0));
                         }
 
-                        if ((CONFIG as any).debugNoteReactivity && fi > 0.5) {
-                            try { console.log('applyFlash post:', foliageObject.userData.type, child.name || child.uuid, 'mat=', mat.name || mat.type, 'mat.emissive=', mat.emissive?.getHexString?.()); } catch (e) {}
-                        }
+                       // if ((CONFIG as any).debugNoteReactivity && fi > 0.5) {
+                      //      try { console.log('applyFlash post:', foliageObject.userData.type, child.name || child.uuid, 'mat=', mat.name || mat.type, 'mat.emissive=', mat.emissive?.getHexString?.()); } catch (e) {}
+                      //  }
                     }
 
                     // decay flash intensity
