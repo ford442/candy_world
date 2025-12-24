@@ -54,7 +54,7 @@ for src_file in "$SCRIPT_DIR"/*.cpp; do
     
     # Compile (-c) with optimizations (-O3)
     em++ -c "$src_file" -o "$obj_file" -O3 -DSIMD=AVX -msimd128 -mrelaxed-simd -mavx2 -ffast-math \
-    -fforce-enable-int128 -fopenmp-simd -mbulk-memory -flto -fno-exceptions -funroll-loops
+    -fforce-enable-int128 -fopenmp-simd -mbulk-memory -flto -fno-exceptions -funroll-loops -m64 -mtune=wasm64 -s MEMORY64 --target=wasm64 
     
     # Add to list of objects to link
     OBJECT_FILES="$OBJECT_FILES $obj_file"
@@ -68,9 +68,9 @@ echo "Step 2: Linking object files..."
 # We use em++ to link to ensure C++ standard libraries are correctly handled
 em++ $OBJECT_FILES -o "$OUTPUT_WASM" \
   -O3 --enable-simd -msimd128 -mrelaxed-simd -msse -msse2 -msse3 -mssse3 -msse4 -msse4.1 -msse4.2 -mavx -mavx2 \
-  -s WASM=1 -s WASM_BIGINT=1 -std=c++26 -sMALLOC=emmalloc -sWASMFS=1 -fopenmp-simd -ffast-math -mbulk-memory \
-  -s STANDALONE_WASM=1 -s ALLOW_MEMORY_GROWTH=0 -s INITIAL_MEMORY=700mb -sFORCE_FILESYSTEM=1 \
-  --no-entry \
+  -s WASM=1 -s WASM_BIGINT=1 -std=c++26 -s MALLOC=emmalloc -s WASMFS=1 -fopenmp-simd -ffast-math -mbulk-memory \
+  -s STANDALONE_WASM=1 -s ALLOW_MEMORY_GROWTH=0 -s INITIAL_MEMORY=700mb -s FORCE_FILESYSTEM=1 \
+  --no-entry -m64 -s MEMORY64 -s ASSERTIONS=0  -mtune=wasm64 --target=wasm64 -DNDEBUG=1 \
   -s EXPORTED_FUNCTIONS="[ \
       '_hash', \
       '_valueNoise2D', \
