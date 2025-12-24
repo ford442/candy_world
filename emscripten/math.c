@@ -1,6 +1,6 @@
 #include <emscripten.h>
-#include <math.h>
-#include <stdlib.h>
+#include <cmath>
+#include <cstdlib>
 
 EMSCRIPTEN_KEEPALIVE
 float hash(float x, float y) {
