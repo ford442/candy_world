@@ -2,6 +2,17 @@
 #include <cmath>
 #include <cstdlib>
 
+// Static helper functions do not need to be exported, so they can stay as C++
+static float lerp(float a, float b, float t) {
+    return a + (b - a) * t;
+}
+
+static float smoothstep(float t) {
+    return t * t * (3.0f - 2.0f * t);
+}
+
+extern "C" {
+
 EMSCRIPTEN_KEEPALIVE
 float hash(float x, float y) {
     int ix = (int)(x * 1000);
@@ -9,14 +20,6 @@ float hash(float x, float y) {
     int n = ix + iy * 57;
     n = (n << 13) ^ n;
     return (1.0f - ((n * (n * n * 15731 + 789221) + 1376312589) & 0x7fffffff) / 1073741824.0f);
-}
-
-static float lerp(float a, float b, float t) {
-    return a + (b - a) * t;
-}
-
-static float smoothstep(float t) {
-    return t * t * (3.0f - 2.0f * t);
 }
 
 EMSCRIPTEN_KEEPALIVE
@@ -57,4 +60,6 @@ float fastInvSqrt(float x) {
     x = *(float*)&i;
     x = x * (1.5f - xhalf * x * x);
     return x;
+}
+
 }
