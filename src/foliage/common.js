@@ -11,6 +11,14 @@ export const sharedGeometries = {
     unitCylinder: new THREE.CylinderGeometry(1, 1, 1, 12).translate(0, 0.5, 0), // Pivot at bottom
     unitCone: new THREE.ConeGeometry(1, 1, 16).translate(0, 0.5, 0), // Pivot at bottom
     quad: new THREE.PlaneGeometry(1, 1),
+
+    // Common convenience aliases used throughout the foliage factories
+    sphere: new THREE.SphereGeometry(1, 16, 16),
+    sphereLow: new THREE.SphereGeometry(1, 8, 8),
+    cylinder: new THREE.CylinderGeometry(1, 1, 1, 12).translate(0, 0.5, 0),
+    cylinderLow: new THREE.CylinderGeometry(1, 1, 1, 8).translate(0, 0.5, 0),
+    capsule: new THREE.CapsuleGeometry(0.5, 1, 6, 8),
+
     // Specific legacy ones (kept for compatibility)
     eye: new THREE.SphereGeometry(0.12, 16, 16),
     pupil: new THREE.SphereGeometry(0.05, 12, 12)
@@ -249,12 +257,24 @@ export function validateNodeGeometries(scene) {
         return maxCount;
     }
 
+    function getObjectPath(obj) {
+        const parts = [];
+        let cur = obj;
+        while (cur) {
+            const name = cur.name || cur.type || cur.uuid;
+            parts.unshift(name);
+            cur = cur.parent;
+        }
+        return parts.join('/') || obj.uuid;
+    }
+
     scene.traverse(obj => {
         if (obj.isMesh || obj.isPoints) {
             const geo = obj.geometry;
             if (geo) {
                 // Attempt to auto-patch a missing position attribute when we can infer a vertex count.
                 if (!geo.attributes.position) {
+                    const preAttrKeys = Object.keys(geo.attributes || {}).join(', ') || '(none)';
                     const inferred = inferVertexCount(geo);
                     if (inferred > 0) {
                         const positions = new Float32Array(inferred * 3);
@@ -262,10 +282,49 @@ export function validateNodeGeometries(scene) {
                         geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
                         // Do NOT warn in this case; we patched it automatically
                     } else {
-                        // Couldn't infer a count — record for one consolidated warning
-                        const name = obj.name || 'Unnamed';
-                        const type = obj.userData?.type || 'Unknown Type';
-                        missingPosition.push({ name, type, obj });
+                        // Couldn't infer a count — try to create a minimal single-vertex attribute at the object's world position
+                        try {
+                            const worldPos = new THREE.Vector3();
+                            obj.getWorldPosition(worldPos);
+                            const positions = new Float32Array(3);
+                            positions[0] = worldPos.x; positions[1] = worldPos.y; positions[2] = worldPos.z;
+                            geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+                            // Also provide a default normal to satisfy NormalNode
+                            const normals = new Float32Array(3);
+                            normals[0] = 0; normals[1] = 1; normals[2] = 0;
+                            geo.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
+
+                            // Mark as auto-patched for debugging
+                            obj.userData._patchedByValidate = true;
+
+                            // Record as patched (but include when reporting)
+                            const name = obj.name || 'Unnamed';
+                            const type = obj.userData?.type || 'Unknown Type';
+                            const attrKeys = Object.keys(geo.attributes || {}).join(', ') || '(none)';
+                            const geoType = geo.type || geo.constructor?.name || 'UnknownGeo';
+                            // Find nearest ancestor with a meaningful userData.type to aid mapping back to factories
+                        let anc = obj.parent;
+                        let ancestorType = null;
+                        let ancestorName = null;
+                        let depth = 0;
+                        while (anc && depth < 10) {
+                            if (anc.userData && anc.userData.type) {
+                                ancestorType = anc.userData.type;
+                                ancestorName = anc.name || anc.userData.type;
+                                break;
+                            }
+                            anc = anc.parent;
+                            depth++;
+                        }
+                        missingPosition.push({ name, type, obj, geoType, attrKeys, path: getObjectPath(obj), patched: true, ancestorType, ancestorName, preAttrKeys });
+                        } catch (err) {
+                            const name = obj.name || 'Unnamed';
+                            const type = obj.userData?.type || 'Unknown Type';
+                            const attrKeys = Object.keys(geo.attributes || {}).join(', ') || '(none)';
+                            const geoType = geo.type || geo.constructor?.name || 'UnknownGeo';
+                            missingPosition.push({ name, type, obj, geoType, attrKeys, path: getObjectPath(obj), preAttrKeys });
+                        }
                     }
                 }
 
@@ -283,8 +342,27 @@ export function validateNodeGeometries(scene) {
     });
 
     if (missingPosition.length > 0) {
-        const names = missingPosition.slice(0, 10).map(m => `${m.name}(${m.type})`);
+        const header = `[TSL] ${missingPosition.length} geometries missing 'position' attribute.`;
+        const examples = missingPosition.slice(0, 10).map(m => `${m.path} -> ${m.name}(${m.type}) [${m.geoType}] attrs: ${m.attrKeys}${m.patched ? ' (patched)' : ''}${m.ancestorType ? ` ancestor:${m.ancestorType}` : ''}`);
+        const patchedCount = missingPosition.filter(m => m.patched).length;
         const more = missingPosition.length > 10 ? ` + ${missingPosition.length - 10} more` : '';
-        console.warn(`[TSL] ${missingPosition.length} geometries missing 'position' attribute. Examples: ${names.join(', ')}${more}. To silence this, ensure geometries have a 'position' attribute or let validateNodeGeometries auto-patch them where possible.`);
+        let msg = `${header} Examples: ${examples.join('; ')}${more}.`;
+        if (patchedCount > 0) {
+            msg += ` Note: ${patchedCount} were auto-patched with minimal position/normal data; consider fixing the source constructor.`;
+        }
+        msg += ' To fix, ensure these geometries set a `position` attribute before adding to the scene.';
+        console.warn(msg);
+
+        // Extra diagnostics: print a short table for the first patched items to help locate factories
+        const patched = missingPosition.filter(m => m.patched);
+        if (patched.length > 0) {
+            console.group('[TSL] Patched geometry diagnostics (first 20):');
+            patched.slice(0, 20).forEach(m => {
+                const mat = m.obj.material;
+                const matInfo = mat ? (mat.type || mat.constructor?.name || 'Material') : 'none';
+                console.warn(`- ${m.path} -> ${m.name} [${m.geoType}] ancestor:${m.ancestorType || '(none)'} attrs:${m.attrKeys} mat:${matInfo}`);
+            });
+            console.groupEnd();
+        }
     }
 }
