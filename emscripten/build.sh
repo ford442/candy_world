@@ -37,10 +37,10 @@ if ! command -v emcc >/dev/null 2>&1; then
     exit 1
 fi
 
-INPUT_FILES="$SCRIPT_DIR/*.c"
+INPUT_FILES="$SCRIPT_DIR/*.cpp"
 OUTPUT_WASM="$REPO_ROOT/public/candy_native.wasm"
 
-emcc $INPUT_FILES -o "$OUTPUT_WASM" \
+em++ $INPUT_FILES -o "$OUTPUT_WASM" \
   -O3 \
   -s WASM=1 -s WASM_BIGINT=1 \
   -s STANDALONE_WASM=1 -s ALLOW_MEMORY_GROWTH=0 -s INITIAL_MEMORY=512mb \
