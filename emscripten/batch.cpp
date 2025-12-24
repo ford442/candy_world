@@ -1,6 +1,6 @@
 #include <emscripten.h>
-#include <math.h>
-#include <stdlib.h>
+#include <cmath>
+#include <cstdlib>
 
 EMSCRIPTEN_KEEPALIVE
 void batchDistances(float* positions, float* results, int count, float refX, float refY, float refZ) {
