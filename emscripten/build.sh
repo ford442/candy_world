@@ -53,7 +53,8 @@ for src_file in "$SCRIPT_DIR"/*.cpp; do
     echo "  Compiling $(basename "$src_file") -> $(basename "$obj_file")"
     
     # Compile (-c) with optimizations (-O3)
-    em++ -c "$src_file" -o "$obj_file" -O3 -DSIMD=AVX -msimd128 -mrelaxed-simd -mavx2 -ffast-math -fforce-enable-int128 -fopenmp-simd
+    em++ -c "$src_file" -o "$obj_file" -O3 -DSIMD=AVX -msimd128 -mrelaxed-simd -mavx2 -ffast-math \
+    -fforce-enable-int128 -fopenmp-simd -mbulk-memory -flto -fno-exceptions -funroll-loops
     
     # Add to list of objects to link
     OBJECT_FILES="$OBJECT_FILES $obj_file"
@@ -67,7 +68,7 @@ echo "Step 2: Linking object files..."
 # We use em++ to link to ensure C++ standard libraries are correctly handled
 em++ $OBJECT_FILES -o "$OUTPUT_WASM" \
   -O3 --enable-simd -msimd128 -mrelaxed-simd -msse -msse2 -msse3 -mssse3 -msse4 -msse4.1 -msse4.2 -mavx -mavx2 \
-  -s WASM=1 -s WASM_BIGINT=1 -std=c++26 -sMALLOC=mimalloc -sWASMFS=1 -fopenmp-simd -ffast-math \
+  -s WASM=1 -s WASM_BIGINT=1 -std=c++26 -sMALLOC=emmalloc -sWASMFS=1 -fopenmp-simd -ffast-math -mbulk-memory \
   -s STANDALONE_WASM=1 -s ALLOW_MEMORY_GROWTH=0 -s INITIAL_MEMORY=700mb -sFORCE_FILESYSTEM=1 \
   --no-entry \
   -s EXPORTED_FUNCTIONS="[ \
