@@ -9,7 +9,7 @@ export * from './clouds.js';
 export * from './waterfalls.js';
 export * from './environment.js';
 export * from './fireflies.js';
-export * from './animation.js';
+export * from './animation.ts';
 
 // Export moved modules
 export * from './sky.js';
