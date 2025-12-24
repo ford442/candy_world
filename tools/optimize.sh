@@ -40,7 +40,8 @@ wasm-opt "$PHYSICS_WASM" -o "$PHYSICS_WASM" \
   --enable-simd \
   --enable-threads \
   --enable-bulk-memory \
-  --enable-relaxed-simd
+  --enable-relaxed-simd \
+  --enable-nontrapping-float-to-int
 
 echo "🔧 Optimizing Physics WASM (wasmedge)..."
 wasmedge compile --optimize=3 --enable-threads "$PHYSICS_WASM" "$PHYSICS_WASM"
