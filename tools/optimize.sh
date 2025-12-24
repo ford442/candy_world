@@ -54,6 +54,7 @@ wasm-opt "$NATIVE_WASM" -o "$NATIVE_WASM" \
   --converge \
   --strip-debug \
   --enable-simd \
+  --enable-relaxed-simd \
   --enable-bulk-memory \
   --enable-nontrapping-float-to-int
   
