@@ -25,6 +25,7 @@ export function initInput(camera, audioSystem, toggleDayNightCallback) {
     const playlistUploadInput = document.getElementById('playlistUploadInput');
 
     let isPlaylistOpen = false;
+    let lastFocusedElement = null; // Store focus before opening modal
 
     // --- Helper: Render Playlist ---
     function renderPlaylist() {
@@ -85,6 +86,7 @@ export function initInput(camera, audioSystem, toggleDayNightCallback) {
 
         if (isPlaylistOpen) {
             // OPENING
+            lastFocusedElement = document.activeElement;
             controls.unlock(); // Unlock mouse so we can click
             if (instructions) instructions.style.display = 'none'; // Ensure pause menu is hidden
             playlistOverlay.style.display = 'flex';
@@ -97,6 +99,8 @@ export function initInput(camera, audioSystem, toggleDayNightCallback) {
             // CLOSING
             playlistOverlay.style.display = 'none';
             controls.lock(); // Re-lock mouse to play
+            // Note: We don't restore focus here because controls.lock() resumes the game
+            // and hides the previous UI context.
         }
     }
 
@@ -175,6 +179,42 @@ export function initInput(camera, audioSystem, toggleDayNightCallback) {
             event.preventDefault();
         }
 
+        // --- UX: Focus Trap & Control Lock when Playlist is open ---
+        if (isPlaylistOpen) {
+            // Close on Escape or Q
+            if (event.code === 'Escape' || event.code === 'KeyQ') {
+                event.preventDefault();
+                togglePlaylist();
+                return;
+            }
+
+            // Focus Trap Logic for Tab
+            if (event.code === 'Tab') {
+                const focusable = playlistOverlay.querySelectorAll('button, input, [href], select, textarea, [tabindex]:not([tabindex="-1"])');
+                if (focusable.length === 0) return;
+
+                const first = focusable[0];
+                const last = focusable[focusable.length - 1];
+
+                if (event.shiftKey) {
+                    if (document.activeElement === first) {
+                        last.focus();
+                        event.preventDefault();
+                    }
+                } else {
+                    if (document.activeElement === last) {
+                        first.focus();
+                        event.preventDefault();
+                    }
+                }
+                return;
+            }
+
+            // Block game controls while in menu
+            return;
+        }
+        // --------------------------------------------------------
+
         switch (event.code) {
             case 'KeyQ':
                 togglePlaylist();
@@ -213,10 +253,12 @@ export function initInput(camera, audioSystem, toggleDayNightCallback) {
 
     // Standard Mouse State (Right click to move)
     const onMouseDown = function (event) {
+        if (isPlaylistOpen) return; // Block game mouse input
         if (event.button === 2) keyStates.forward = true;
     };
 
     const onMouseUp = function (event) {
+        if (isPlaylistOpen) return; // Block game mouse input
         if (event.button === 2) keyStates.forward = false;
     };
 
