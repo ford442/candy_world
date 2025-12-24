@@ -343,7 +343,7 @@ export class WeatherSystem {
         this.updateWind(time, audioData, celestial);
 
         // Update fog density based on weather
-        this.updateFog();
+        this.updateFog(audioData);
     }
 
     /**
@@ -537,9 +537,10 @@ export class WeatherSystem {
     }
 
     /**
-     * Update fog density based on weather state
+     * Update fog density based on weather state and audio energy (Crescendo Fog)
+     * @param {object} audioData - Audio analysis data
      */
-    updateFog() {
+    updateFog(audioData) {
         if (!this.fog) return;
 
         let fogMultiplier = 1.0;
@@ -554,11 +555,35 @@ export class WeatherSystem {
                 fogMultiplier = 1.0;
         }
 
-        // Combine Weather Intensity AND Darkness Mechanic
-        const visibility = (1.0 - this.intensity * (1.0 - fogMultiplier)) * (1.0 - (this.darknessFactor || 0) * 0.7);
+        // Crescendo Fog Logic: Density ramps with crescendos (average volume)
+        // mixEnergy calculation: active channels * average volume, roughly approximated by average * 2 here
+        let crescendoFactor = 0;
+        if (audioData) {
+            // Use average volume to drive fog density
+            const volume = audioData.average || 0;
+            // Map volume 0.0-1.0 to fog thickness. High volume = thicker fog (lower multiplier).
+            // But "Crescendo Fog" implies it gets denser.
+            // Current logic: visibility multiplier. Lower is thicker.
+            crescendoFactor = volume * 0.3; // Reduce visibility by up to 30% based on volume
+        }
 
-        this.fog.near = this.baseFogNear * visibility;
-        this.fog.far = this.baseFogFar * visibility;
+        // Combine Weather Intensity, Darkness Mechanic, AND Crescendo Fog
+        // fogMultiplier affects how much the weather intensity reduces visibility.
+        // darknessFactor reduces visibility further.
+        // crescendoFactor reduces visibility dynamically.
+
+        const weatherVisibility = (1.0 - this.intensity * (1.0 - fogMultiplier));
+        const darknessVisibility = (1.0 - (this.darknessFactor || 0) * 0.7);
+        const crescendoVisibility = (1.0 - crescendoFactor);
+
+        const totalVisibility = weatherVisibility * darknessVisibility * crescendoVisibility;
+
+        // Smooth transition for fog updates
+        const targetNear = this.baseFogNear * totalVisibility;
+        const targetFar = this.baseFogFar * totalVisibility;
+
+        this.fog.near += (targetNear - this.fog.near) * 0.05;
+        this.fog.far += (targetFar - this.fog.far) * 0.05;
     }
 
     /**

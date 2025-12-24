@@ -32,7 +32,7 @@ This document captures feature ideas for the Candy World musical ecosystem. The 
 ### Retrigger Mushrooms [ACCOMPLISHED]
 - Description: Flat disc fungi with phosphorescent spore pods that strobe on/off with retrigger commands (Rxx/E9x).
 - Gameplay Mechanics: Strobing applies retrigger to player's weapons and reveals cloaked enemies; induces HUD flicker (Strobe Sickness). Shooting strobing mushrooms spawns a spore cloud.
-- Visual Design: **[Implemented]** Updated to "Cute Clay" aesthetic (matte pastel colors, rosy cheeks). Implemented audio-reactive squash/stretch (bounce) and emissive strobing (flash intensity) triggered by note events.
+- Visual Design: **[Implemented]** Updated to "Cute Clay" aesthetic (matte pastel colors, rosy cheeks) matching concept art (`image.png`). Implemented audio-reactive squash/stretch (bounce) and emissive strobing (flash intensity) triggered by note events. Faces (eyes, mouth) implemented.
 - Behavioral Patterns: Mushrooms dim until retrigger; nearby mushrooms sync strobes; explode into a lingering spore cloud when shot.
 - Audio: Sharp percussive "snap" per tick, creating a polyrhythm overlay.
 
@@ -89,6 +89,25 @@ This document captures feature ideas for the Candy World musical ecosystem. The 
 
 ## Category 3: Atmospheric & World (Global State)
 
+### Sky & Celestial Enhancements
+- **Status: Implemented ✅**
+- **Multi-Band Gradient**: Replaced single-color fog with a 3-way gradient (Horizon, Bottom, Top) utilizing `mix` and `smoothstep` in TSL.
+- **Time-of-Day Palettes**: Defined specific palettes for Sunrise, Day, Sunset, and Night in `WeatherSystem`, creating a rich visual progression.
+- **Enhanced Star Field**: 1500 stars with individual `size`, `offset`, and `starColor` attributes. Twinkling driven by `time` and `sin` functions in TSL. Stars fade during the day (`uStarOpacity`).
+- **Sun Layers**: Composition of Glow, Corona, and God Rays (billboarded plane) that tracks sun position.
+- **Atmospheric Scattering**: `atmosphereGlow` calculated based on view angle relative to the horizon.
+
+### Firefly Particles
+- **Status: Implemented ✅**
+- Description: GPU-driven particle system (`PointsNodeMaterial`) simulating firefly movement and blinking.
+- Implementation: Uses TSL for sine-wave blinking logic and drift movement.
+
+### Crescendo Fog
+- **Status: Implemented ✅**
+- Description: Volumetric fog density driven by mix energy (average volume).
+- Implementation: Logic integrated into `WeatherSystem.updateFog()` to reduce fog visibility (increase density) as audio volume increases.
+- Visual Design: Fog thickens (near/far planes contract) during loud sections, creating a claustrophobic but energetic atmosphere.
+
 ### Pattern-Change Seasons
 - Description: Global visual palette changes triggered by pattern commands (Dxx, Bxx), instantly or blending over time.
 - Gameplay Mechanics: Season affects enemy behavior, collectible availability, and can be locked by a "Palette Anchor".
@@ -118,13 +137,6 @@ This document captures feature ideas for the Candy World musical ecosystem. The 
 - Visual Design: Full-screen shader layers, additive blending, sine wave scrolling per layer, shimmer effect.
 - Behavioral Patterns: Fade on muted channels; brightens on new notes; dissonant intervals spark red.
 - Audio: Silent, but shimmer syncs with high-frequency content.
-
-### Crescendo Fog
-- Description: Volumetric fog density driven by mix energy ((active channels × average volume) / 128).
-- Gameplay Mechanics: Fog affects AI sight, provides environment for "Fog Cutter" beam, and hides certain collectibles.
-- Visual Design: Particle-based fog sprites with glowing interior at high density, depth fog, and BPM wind-driven swirl.
-- Behavioral Patterns: Density ramps with crescendos and decays; lightning flashes at snare hits within fog.
-- Audio: Muffled sounds via low-pass filter as density increases.
 
 ---
 
@@ -270,19 +282,20 @@ Three.js Renderer -> WebGPU RenderPipeline (Raw Draw Calls)
 ## Next Steps
 
 1. **Pattern-Change Seasons**: Implement the global palette shift logic triggered by pattern change events (`Dxx` command). This will require abstracting the palette colors into uniforms or a global state object that the weather/foliage systems observe.
-2. **Crescendo Fog**: Tie fog density to the overall audio energy mix.
+2. **Aurora Borealis**: Implement the "Spectrum Aurora" (Phase 6 pending) to visualize melody channels in the sky.
 3. **Migrate to TypeScript**: Begin Phase 1 of the migration roadmap to harden the codebase before adding more complex systems.
-Feel free to ask me to create the initial `tsconfig.json`, add type definitions for `src/world/state.js`, or draft an AssemblyScript skeleton for `getGroundHeight` next.
 
 ## Recent Progress & Next Steps
 - **Accomplished:**
   - Integrated "Musical Ecosystem" plan into main documentation.
   - Analyzed "Cute Clay" concept art and implemented matched visuals for Mushrooms (Pastel palette, Cheeks, Matte finish).
-  - Implemented "Retrigger Mushroom" reactivity (Bounce & Strobe) using the existing `animateFoliage` system for smooth decay.
-  - **Implemented "Arpeggio Ferns" skeletal animation (unfurl) and verified logic.**
-  - **Implemented "Kick-Drum Geysers" particle plumes reactive to kick intensity.**
-  - **Implemented "Snare-Snap Traps" with jaw animation driven by snare channel.**
-  - Added procedural generation logic to spawn Musical Flora (Ferns, Geysers, Traps) in the world.
+  - **Sky Enhancements**: Implemented Multi-Band Gradients, Time-of-Day Palettes, Enhanced Stars (1500 count + Twinkle), and Sun God Rays.
+  - **Environment**: Implemented Fireflies, BPM Wind, and Groove Gravity.
+  - **Crescendo Fog**: Integrated audio-volume-driven fog density into the Weather System.
+  - Implemented "Retrigger Mushroom" reactivity (Bounce & Strobe) using the existing `animateFoliage` system.
+  - Implemented "Arpeggio Ferns" skeletal animation (unfurl).
+  - Implemented "Kick-Drum Geysers" particle plumes reactive to kick intensity.
+  - Implemented "Snare-Snap Traps" with jaw animation driven by snare channel.
 
-- **Next Steps:**
-  - **Migration:** Begin Phase 1 of the Technical Roadmap (JS -> TS for `src/world/state.js`).
+- **Concept Art Alignment**:
+  - Validated codebase against `image.png`, confirming "Cute Clay" aesthetics (rounded forms, pastel colors, face details on flora) are active.
