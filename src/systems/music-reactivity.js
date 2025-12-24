@@ -129,6 +129,11 @@ export class MusicReactivitySystem {
 
         // 3. Iterate Foliage
         const camPos = camera.position;
+        // Optimization: Cache camera coordinates to avoid property access in loop
+        const camX = camPos.x;
+        const camY = camPos.y;
+        const camZ = camPos.z;
+
         const maxAnimationDistance = 50;
         const maxDistanceSq = maxAnimationDistance * maxAnimationDistance;
 
@@ -137,6 +142,7 @@ export class MusicReactivitySystem {
         const frameStartTime = (typeof performance !== 'undefined') ? performance.now() : Date.now();
         let foliageUpdatesThisFrame = 0;
         const maxFoliageUpdates = 50; 
+        const budgetCheckInterval = 10; // Check time budget every 10 items to reduce system call overhead
 
         // Audio Channel Info (Pre-calc for loop)
         const channels = (audioState && audioState.channelData) ? audioState.channelData : null;
@@ -146,12 +152,16 @@ export class MusicReactivitySystem {
         for (let i = 0, l = animatedFoliage.length; i < l; i++) {
             const f = animatedFoliage[i];
 
-            // Distance Culling
-            const distSq = f.position.distanceToSquared(camPos);
+            // Optimization: Inline distance culling to avoid function call overhead
+            const dx = f.position.x - camX;
+            const dy = f.position.y - camY;
+            const dz = f.position.z - camZ;
+            const distSq = dx * dx + dy * dy + dz * dz;
+
             if (distSq > maxDistanceSq) continue;
 
-            // Check time budget
-            if ((typeof performance !== 'undefined') && (performance.now() - frameStartTime > maxFoliageUpdateTime)) {
+            // Check time budget (throttled to avoid expensive performance.now() calls every iteration)
+            if ((i % budgetCheckInterval === 0) && (typeof performance !== 'undefined') && (performance.now() - frameStartTime > maxFoliageUpdateTime)) {
                 break; 
             }
 
