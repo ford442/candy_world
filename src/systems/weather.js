@@ -17,6 +17,13 @@ export const WeatherState = {
     STORM: 'storm'
 };
 
+// Bolt: Scratch objects to prevent GC in animation loop
+const _UP = new THREE.Vector3(0, 1, 0);
+const _scratchSunDir = new THREE.Vector3();
+const _scratchCelestialForce = new THREE.Vector3();
+const _scratchAttraction = new THREE.Vector3();
+const _scratchBlack = new THREE.Color(0x000000);
+
 /**
  * Weather System - Audio-reactive weather effects
  */
@@ -352,30 +359,25 @@ export class WeatherSystem {
 
         // Base rotation from beat
         const rotSpeed = (audioData.beatPhase || 0) * 0.001;
-        this.windDirection.applyAxisAngle(new THREE.Vector3(0, 1, 0), rotSpeed);
+        this.windDirection.applyAxisAngle(_UP, rotSpeed);
 
         // --- NEW: Celestial Wind Tides ---
         // Calculate approximate sun position (rotating around Z or X)
         const dayProgress = (time % CYCLE_DURATION) / CYCLE_DURATION;
         const sunAngle = dayProgress * Math.PI * 2;
         
-        // Sun Vector (approximate)
-        const sunDir = new THREE.Vector3(Math.cos(sunAngle), Math.sin(sunAngle), 0);
+        // Sun Vector (approximate) - Reuse scratch vector
+        _scratchSunDir.set(Math.cos(sunAngle), Math.sin(sunAngle), 0);
         
-        let celestialForce = new THREE.Vector3();
-
-        if (celestial.sunIntensity > 0.5) {
-            // Day: Wind blows AWAY from Sun (Heat push)
-            celestialForce.copy(sunDir).negate(); 
-        } else {
-            // Night: Wind blows TOWARDS Moon (Tidal pull)
-            // Moon is roughly opposite sun
-            const moonDir = sunDir.clone().negate();
-            celestialForce.copy(moonDir);
-        }
+        // Calculate celestial force
+        // Day: Wind blows AWAY from Sun (Heat push) -> -sunDir
+        // Night: Wind blows TOWARDS Moon (Tidal pull). Moon is approx -sunDir.
+        // Towards Moon -> Towards -sunDir -> -sunDir.
+        // In both cases, the force is roughly opposite the sun's position.
+        _scratchCelestialForce.copy(_scratchSunDir).negate();
 
         // Apply celestial bias to wind (10% influence)
-        this.windDirection.lerp(celestialForce, 0.1);
+        this.windDirection.lerp(_scratchCelestialForce, 0.1);
         this.windDirection.normalize();
         // ---------------------------------
 
@@ -392,8 +394,9 @@ export class WeatherSystem {
         if (giantsCount > 0) {
             const centerX = giantsX / giantsCount;
             const centerZ = giantsZ / giantsCount;
-            const attraction = new THREE.Vector3(centerX, 0, centerZ).normalize();
-            this.windDirection.lerp(attraction, 0.05);
+            // Reuse scratch attraction vector
+            _scratchAttraction.set(centerX, 0, centerZ).normalize();
+            this.windDirection.lerp(_scratchAttraction, 0.05);
             this.windDirection.normalize();
         }
 
@@ -527,7 +530,7 @@ export class WeatherSystem {
         const darkness = nightFactor * densityFactor * moonDarkness * 0.95; 
 
         if (this.scene.fog && this.scene.fog.color) {
-            this.scene.fog.color.lerp(new THREE.Color(0x000000), darkness);
+            this.scene.fog.color.lerp(_scratchBlack, darkness);
         }
         uSkyDarkness.value = darkness;
         this.darknessFactor = darkness; 
