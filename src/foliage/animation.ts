@@ -2,8 +2,12 @@ import * as THREE from 'three';
 import { freqToHue } from '../utils/wasm-loader.js';
 import { reactiveMaterials, _foliageReactiveColor, median } from './common.js';
 import { CONFIG } from '../core/config.js';
+import { FoliageObject, AudioData, FoliageMaterial, ChannelData } from './types.js';
+import { updateArpeggio } from './arpeggio.js';
 
-export function triggerGrowth(plants, intensity) {
+export * from './types.js';
+
+export function triggerGrowth(plants: FoliageObject[], intensity: number): void {
     plants.forEach(plant => {
         if (!plant.userData.maxScale) {
             plant.userData.maxScale = plant.scale.x * 1.5;
@@ -17,45 +21,52 @@ export function triggerGrowth(plants, intensity) {
     });
 }
 
-export function triggerBloom(flowers, intensity) {
+export function triggerBloom(flowers: FoliageObject[], intensity: number): void {
     flowers.forEach(flower => {
-        if (flower.userData.isFlower) {
-            if (!flower.userData.maxBloom) {
-                flower.userData.maxBloom = flower.scale.x * 1.3;
-            }
+        if (flower.userData.type === 'flower') {
+             if (flower.userData.isFlower || flower.userData.type === 'flower') {
+                if (!flower.userData.maxBloom) {
+                    flower.userData.maxBloom = flower.scale.x * 1.3;
+                }
 
-            if (flower.scale.x < flower.userData.maxBloom) {
-                const bloomRate = intensity * 0.02;
-                flower.scale.addScalar(bloomRate);
-            }
+                if (flower.scale.x < flower.userData.maxBloom) {
+                    const bloomRate = intensity * 0.02;
+                    flower.scale.addScalar(bloomRate);
+                }
+             }
         }
     });
 }
 
-function applyWetEffect(material, wetAmount) {
+function applyWetEffect(material: FoliageMaterial, wetAmount: number): void {
     if (material.userData.dryRoughness === undefined) {
-        material.userData.dryRoughness = material.roughness;
+        material.userData.dryRoughness = material.roughness || 0.5;
         material.userData.dryMetalness = material.metalness || 0;
-        material.userData.dryColor = material.color.clone();
+        if (material.color) {
+            material.userData.dryColor = material.color.clone();
+        }
     }
 
-    const targetRoughness = THREE.MathUtils.lerp(material.userData.dryRoughness, 0.2, wetAmount);
-    material.roughness = targetRoughness;
+    if (material.roughness !== undefined && material.userData.dryRoughness !== undefined) {
+        const targetRoughness = THREE.MathUtils.lerp(material.userData.dryRoughness, 0.2, wetAmount);
+        material.roughness = targetRoughness;
+    }
 
-    const targetMetalness = THREE.MathUtils.lerp(material.userData.dryMetalness, 0.15, wetAmount);
-    if (material.metalness !== undefined) {
+    if (material.metalness !== undefined && material.userData.dryMetalness !== undefined) {
+        const targetMetalness = THREE.MathUtils.lerp(material.userData.dryMetalness, 0.15, wetAmount);
         material.metalness = targetMetalness;
     }
 
-    if (material.color) {
+    if (material.color && material.userData.dryColor) {
         const darkColor = material.userData.dryColor.clone().multiplyScalar(1 - wetAmount * 0.3);
         material.color.lerp(darkColor, 0.1);
     }
 }
 
-export function updateMaterialsForWeather(materials, weatherState, weatherIntensity) {
+export function updateMaterialsForWeather(materials: FoliageMaterial[], weatherState: string | null, weatherIntensity: number): void {
     materials.forEach(mat => {
-        if (!mat || !mat.isMaterial) return;
+        // Basic check if it's a material
+        if (!mat || !(mat as any).isMaterial) return;
 
         let wetAmount = 0;
 
@@ -69,34 +80,37 @@ export function updateMaterialsForWeather(materials, weatherState, weatherIntens
     });
 }
 
-export function updateFoliageMaterials(audioData, isNight, weatherState = null, weatherIntensity = 0) {
+export function updateFoliageMaterials(audioData: AudioData | null, isNight: boolean, weatherState: string | null = null, weatherIntensity: number = 0): void {
     if (!audioData) return;
 
     if (isNight) {
         const channels = audioData.channelData;
         if (channels && channels.length > 0) {
-            reactiveMaterials.forEach((mat, i) => {
+            // Cast reactiveMaterials to FoliageMaterial[]
+            (reactiveMaterials as unknown as FoliageMaterial[]).forEach((mat, i) => {
                 const chIndex = (i % 4) + 1;
                 const ch = channels[Math.min(chIndex, channels.length - 1)];
 
                 if (ch && ch.freq > 0) {
                     const hue = freqToHue(ch.freq);
                     _foliageReactiveColor.setHSL(hue, 1.0, 0.6);
-                    if (mat.isMeshBasicMaterial) {
+
+                    // Check material type using 'type' string or property presence
+                    if ((mat as any).isMeshBasicMaterial && mat.color) {
                         mat.color.lerp(_foliageReactiveColor, 0.3);
-                    } else {
+                    } else if (mat.emissive) {
                         mat.emissive.lerp(_foliageReactiveColor, 0.3);
                     }
                 }
                 const intensity = 0.2 + (ch?.volume || 0) + (ch?.trigger || 0) * 2.0;
-                if (mat.isMeshBasicMaterial) {
-                } else {
-                    mat.emissiveIntensity = intensity;
+
+                if (!(mat as any).isMeshBasicMaterial && mat.emissiveIntensity !== undefined) {
+                     mat.emissiveIntensity = intensity;
                 }
             });
         }
     } else {
-        reactiveMaterials.forEach(mat => {
+        (reactiveMaterials as unknown as FoliageMaterial[]).forEach(mat => {
             if (mat.emissive) {
                 mat.emissive.setHex(0x000000);
                 mat.emissiveIntensity = 0;
@@ -105,12 +119,12 @@ export function updateFoliageMaterials(audioData, isNight, weatherState = null, 
     }
 
     if (weatherState && weatherIntensity > 0) {
-        updateMaterialsForWeather(reactiveMaterials, weatherState, weatherIntensity);
+        updateMaterialsForWeather(reactiveMaterials as unknown as FoliageMaterial[], weatherState, weatherIntensity);
     }
 }
 
 // @perf-migrate {target: "asc", reason: "hot-loop-math", threshold: "3ms", note: "Iterates over thousands of reactive objects every frame"}
-export function animateFoliage(foliageObject, time, audioData, isDay, isDeepNight = false) {
+export function animateFoliage(foliageObject: FoliageObject, time: number, audioData: AudioData | null, isDay: boolean, isDeepNight: boolean = false): void {
     const offset = foliageObject.userData.animationOffset || 0;
     const type = foliageObject.userData.animationType;
 
@@ -139,7 +153,8 @@ export function animateFoliage(foliageObject, time, audioData, isDay, isDeepNigh
                 const child = reactive[i];
                 let fi = child.userData.flashIntensity || 0;
                 const decay = child.userData.flashDecay ?? 0.05;
-                const mats = Array.isArray(child.material) ? child.material : [child.material];
+                // Normalize materials to array
+                const mats: FoliageMaterial[] = Array.isArray(child.material) ? (child.material as FoliageMaterial[]) : (child.material ? [child.material as FoliageMaterial] : []);
 
                 if (fi > 0) {
                     const fc = child.userData.flashColor || new THREE.Color(0xFFFFFF);
@@ -147,19 +162,22 @@ export function animateFoliage(foliageObject, time, audioData, isDay, isDeepNigh
                         if (!mat) continue;
                         // stronger blend for higher intensity; immediate override when very strong
                         const t = Math.min(1, fi * 1.2) * 0.8;
-                        if (CONFIG.debugNoteReactivity && fi > 0.5) {
+
+                        if ((CONFIG as any).debugNoteReactivity && fi > 0.5) {
                             try { console.log('applyFlash pre:', foliageObject.userData.type, child.name || child.uuid, 'mat=', mat.name || mat.type, 'mat.emissive=', mat.emissive?.getHexString?.(), 'target=', fc.getHexString(), 'fi=', fi); } catch (e) {}
                         }
-                        if (mat.isMeshBasicMaterial) {
+
+                        if ((mat as any).isMeshBasicMaterial && mat.color) {
                             if (fi > 0.7) mat.color.copy(fc);
                             else mat.color.lerp(fc, t);
                         } else if (mat.emissive) {
                             if (fi > 0.7) mat.emissive.copy(fc);
                             else mat.emissive.lerp(fc, t);
                             // ensure visible intensity (min floor) scaled by global flashScale
-                            mat.emissiveIntensity = Math.max(0.2, fi * (CONFIG.flashScale || 2.0));
+                            mat.emissiveIntensity = Math.max(0.2, fi * ((CONFIG as any).flashScale || 2.0));
                         }
-                        if (CONFIG.debugNoteReactivity && fi > 0.5) {
+
+                        if ((CONFIG as any).debugNoteReactivity && fi > 0.5) {
                             try { console.log('applyFlash post:', foliageObject.userData.type, child.name || child.uuid, 'mat=', mat.name || mat.type, 'mat.emissive=', mat.emissive?.getHexString?.()); } catch (e) {}
                         }
                     }
@@ -174,14 +192,14 @@ export function animateFoliage(foliageObject, time, audioData, isDay, isDeepNigh
                     }
                 } else if (child.userData._needsFadeBack) {
                     // No active flash: smoothly fade materials back to their stored base colors/emissives
-                    const fadeT = CONFIG.reactivity?.fadeSpeed ?? 0.06;
-                    const snapThreshold = CONFIG.reactivity?.fadeSnapThreshold ?? 0.06;
+                    const fadeT = (CONFIG as any).reactivity?.fadeSpeed ?? 0.06;
+                    const snapThreshold = (CONFIG as any).reactivity?.fadeSnapThreshold ?? 0.06;
                     const snapThresholdSq = snapThreshold * snapThreshold; // Avoid sqrt in distance check
                     let allFadedBack = true;
                     
                     for (const mat of mats) {
                         if (!mat) continue;
-                        if (mat.isMeshBasicMaterial) {
+                        if ((mat as any).isMeshBasicMaterial) {
                             if (mat.userData && mat.userData.baseColor && mat.color) {
                                 const distSq = mat.color.distanceToSquared(mat.userData.baseColor);
                                 if (distSq > snapThresholdSq) {
@@ -223,7 +241,7 @@ export function animateFoliage(foliageObject, time, audioData, isDay, isDeepNigh
     if (foliageObject.userData.type === 'mushroom') {
         const buf = foliageObject.userData.noteBuffer || [];
         const medianVel = median(buf);
-        const cfg = CONFIG.reactivity?.mushroom || {};
+        const cfg = (CONFIG as any).reactivity?.mushroom || {};
         const scale = cfg.scale || 1.0;
         const target = Math.min(cfg.maxAmplitude ?? 1.0, Math.max(cfg.minThreshold ?? 0.01, medianVel * scale));
         const cur = foliageObject.userData.wobbleCurrent || 0;
@@ -266,81 +284,15 @@ export function animateFoliage(foliageObject, time, audioData, isDay, isDeepNigh
             pad.scale.set(1.0 + pump * 0.2, 1.0 - pump * 0.5, 1.0 + pump * 0.2);
 
             if (isActive && pad.userData.ringMaterial) {
-                const ringMat = pad.userData.ringMaterial;
+                const ringMat = pad.userData.ringMaterial as FoliageMaterial;
                 const glow = pump * 5.0;
-                ringMat.emissive.setHSL(0.0 + pump * 0.21, 1.0, 0.5);
+                ringMat.emissive?.setHSL(0.0 + pump * 0.21, 1.0, 0.5);
                 ringMat.emissiveIntensity = glow;
             }
         }
     }
     else if (type === 'arpeggioUnfurl') {
-        // Step-based unfurling logic (Revised for Quantized Steps with Rising Edge)
-        let arpeggioActive = false;
-        let noteTrigger = false;
-        let activeEffect = 0;
-
-        // Scan for arpeggio effect
-        if (audioData && audioData.channelData) {
-            for (const ch of audioData.channelData) {
-                if (ch.activeEffect === 4 || (ch.activeEffect === 0 && ch.effectValue > 0)) {
-                    arpeggioActive = true;
-                    activeEffect = ch.activeEffect;
-                }
-                if (ch.trigger > 0.1) {
-                    noteTrigger = true;
-                }
-            }
-        }
-
-        // State
-        if (!foliageObject.userData.unfurlStep) foliageObject.userData.unfurlStep = 0;
-        if (!foliageObject.userData.targetStep) foliageObject.userData.targetStep = 0;
-        if (foliageObject.userData.lastTrigger === undefined) foliageObject.userData.lastTrigger = false;
-
-        const maxSteps = 12;
-
-        if (arpeggioActive) {
-            // Rising edge detection for trigger
-            // If currently triggered but wasn't last frame, increment
-            if (noteTrigger && !foliageObject.userData.lastTrigger) {
-                foliageObject.userData.targetStep = Math.min(maxSteps, foliageObject.userData.targetStep + 1);
-            }
-        } else {
-            // Decay back to 0 when effect stops
-            foliageObject.userData.targetStep = 0;
-        }
-
-        // Store trigger state for next frame
-        foliageObject.userData.lastTrigger = noteTrigger;
-
-        // Smoothly animate towards the target step
-        const speed = (foliageObject.userData.targetStep > foliageObject.userData.unfurlStep) ? 0.3 : 0.05;
-
-        foliageObject.userData.unfurlStep = THREE.MathUtils.lerp(
-            foliageObject.userData.unfurlStep,
-            foliageObject.userData.targetStep,
-            speed
-        );
-
-        const unfurlFactor = foliageObject.userData.unfurlStep / maxSteps;
-
-        // Apply to segments
-        const fronds = foliageObject.userData.fronds;
-        if (fronds) {
-            fronds.forEach((segments, fIdx) => {
-                segments.forEach((segData, sIdx) => {
-                    const targetRot = THREE.MathUtils.lerp(segData.initialCurl, 0.2, unfurlFactor);
-                    const wave = Math.sin(time * 5 + sIdx * 0.5) * 0.1 * unfurlFactor;
-                    segData.pivot.rotation.x = targetRot + wave;
-                });
-            });
-        }
-
-        // Bob base slightly, but ensure originalY is initialized to prevent snapping
-        if (foliageObject.userData.originalY === undefined) {
-            foliageObject.userData.originalY = foliageObject.position.y;
-        }
-        foliageObject.position.y = foliageObject.userData.originalY + unfurlFactor * 0.2;
+        updateArpeggio(foliageObject, time, audioData);
     }
     else if (type === 'snareSnap') {
         let snareTrigger = 0;
@@ -469,9 +421,9 @@ export function animateFoliage(foliageObject, time, audioData, isDay, isDeepNigh
         foliageObject.position.y = y + Math.sin(time * 2 + offset) * 0.1;
     }
     else if (type === 'rain') {
-        const rainChild = foliageObject.children.find(c => c.type === 'Points');
+        const rainChild = foliageObject.children.find(c => c.type === 'Points') as THREE.Points;
         if (rainChild && rainChild.geometry && rainChild.geometry.attributes.position) {
-            const positions = rainChild.geometry.attributes.position.array;
+            const positions = rainChild.geometry.attributes.position.array as Float32Array;
             for (let i = 0; i < positions.length; i += 3) {
                 positions[i + 1] -= 0.1;
                 if (positions[i + 1] < -6) positions[i + 1] = 0;
@@ -575,8 +527,8 @@ export function animateFoliage(foliageObject, time, audioData, isDay, isDeepNigh
             plume.visible = eruptionStrength > 0.05;
 
             if (plume.visible && plume.geometry.attributes.position) {
-                const positions = plume.geometry.attributes.position.array;
-                const velocities = plume.geometry.attributes.velocity.array;
+                const positions = plume.geometry.attributes.position.array as Float32Array;
+                const velocities = plume.geometry.attributes.velocity.array as Float32Array;
                 const currentMaxH = maxHeight * eruptionStrength;
 
                 for (let i = 0; i < positions.length / 3; i++) {
@@ -598,7 +550,9 @@ export function animateFoliage(foliageObject, time, audioData, isDay, isDeepNigh
                 plume.geometry.attributes.position.needsUpdate = true;
             }
 
-            plume.material.opacity = 0.5 + eruptionStrength * 0.5;
+            if ((plume.material as any).opacity !== undefined) {
+                 (plume.material as any).opacity = 0.5 + eruptionStrength * 0.5;
+            }
         }
 
         if (plumeLight) {

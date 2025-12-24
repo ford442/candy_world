@@ -58,7 +58,10 @@ emcc $INPUT_FILES -o "$OUTPUT_WASM" \
       '_batchDistanceCull_c', \
       '_batchSinWave', \
       '_malloc', \
-      '_free' \
+      '_free', \
+      '_calcArpeggioStep_c', \
+      '_getArpeggioTargetStep_c', \
+      '_getArpeggioUnfurlStep_c' \
   ]" \
   -s ERROR_ON_UNDEFINED_SYMBOLS=1
 
