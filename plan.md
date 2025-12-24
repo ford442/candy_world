@@ -56,6 +56,7 @@ This document captures feature ideas for the Candy World musical ecosystem. The 
 - Audio: Random high-frequency chimes per seed (C6-C8).
 
 ### Kick-Drum Geysers
+- **Status: Implemented ✅**
 - Description: Fissures that vent gas/plasma with force scaled by kick drum velocity, producing tall plumes and vertical propulsion.
 - Gameplay Mechanics: Players can ride geyser plumes; timing yields "Perfect Launch" multiplier; shooting the base charges the next eruption.
 - Visual Design: Cylindrical plume mesh with flow map and emissive glow; debris particles carried upwards; gradient from red to blue.
@@ -63,6 +64,7 @@ This document captures feature ideas for the Candy World musical ecosystem. The 
 - Audio: Deep concussive "whump" layered with hiss.
 
 ### Snare-Snap Trap
+- **Status: Implemented ✅**
 - Description: Jaw-like wall plants that snap shut on snare triggers, creating a shockwave and reflecting projectiles.
 - Gameplay Mechanics: Memorize patterns for safe passage; snap shockwave can be used defensively; "Snap Core" allows missile ricochet.
 - Visual Design: Spring-damper physics with snap, bounce, and ring-shaped shockwave particle effect.
@@ -277,9 +279,10 @@ Feel free to ask me to create the initial `tsconfig.json`, add type definitions 
   - Integrated "Musical Ecosystem" plan into main documentation.
   - Analyzed "Cute Clay" concept art and implemented matched visuals for Mushrooms (Pastel palette, Cheeks, Matte finish).
   - Implemented "Retrigger Mushroom" reactivity (Bounce & Strobe) using the existing `animateFoliage` system for smooth decay.
-  - Verified visual changes via Playwright screenshot.
+  - **Implemented "Arpeggio Ferns" skeletal animation (unfurl) and verified logic.**
+  - **Implemented "Kick-Drum Geysers" particle plumes reactive to kick intensity.**
+  - **Implemented "Snare-Snap Traps" with jaw animation driven by snare channel.**
+  - Added procedural generation logic to spawn Musical Flora (Ferns, Geysers, Traps) in the world.
 
 - **Next Steps:**
-  - **Arpeggio Ferns:** Implement the skeletal animation and "unfurl" logic for ferns.
-  - **Kick-Drum Geysers:** Add particle plumes reactive to the kick channel.
   - **Migration:** Begin Phase 1 of the Technical Roadmap (JS -> TS for `src/world/state.js`).
