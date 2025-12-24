@@ -74,4 +74,4 @@ wasmedge compile --optimize=3 --enable-relaxed-simd "$NATIVE_WASM" "$NATIVE_WASM
 #terser "$WORKER_JS" -o "$WORKER_JS" --compress --mangle --comments false
 
 echo "✅ Optimization Complete!"
-ls -lh "$PUBLIC_DIR"/*.wasm "$PUBLIC_DIR"/*.js
+#ls -lh "$PUBLIC_DIR"/*.wasm "$PUBLIC_DIR"/*.js
