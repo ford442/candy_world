@@ -64,17 +64,14 @@ wasmedge compile --optimize=3 --enable-relaxed-simd "$NATIVE_WASM" "$NATIVE_WASM
 # 5. Minify Emscripten Loaders (Safety First)
 # We use -c (compress) and -m (mangle) but KEEP function names to avoid breaking
 # Emscripten's dynamic linking if it relies on specific names.
-echo "📦 Minifying JS Loaders..."
-terser "$NATIVE_JS" -o "$NATIVE_JS" \
-  --compress defaults=false,dead_code=true,unused=true,loops=true,conditionals=true \
-  --mangle reserved=['Module','FS','GL'] \
-  --comments false
+#echo "📦 Minifying JS Loaders..."
+#terser "$NATIVE_JS" -o "$NATIVE_JS" \
+#  --compress defaults=false,dead_code=true,unused=true,loops=true,conditionals=true \
+#  --mangle reserved=['Module','FS','GL'] \
+#  --comments false
 
 # Minify the worker file
-terser "$WORKER_JS" -o "$WORKER_JS" \
-  --compress \
-  --mangle \
-  --comments false
+#terser "$WORKER_JS" -o "$WORKER_JS" --compress --mangle --comments false
 
 echo "✅ Optimization Complete!"
 ls -lh "$PUBLIC_DIR"/*.wasm "$PUBLIC_DIR"/*.js
