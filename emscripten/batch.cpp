@@ -2,6 +2,8 @@
 #include <cmath>
 #include <cstdlib>
 
+extern "C" {
+
 EMSCRIPTEN_KEEPALIVE
 void batchDistances(float* positions, float* results, int count, float refX, float refY, float refZ) {
     for (int i = 0; i < count; i++) {
@@ -38,4 +40,6 @@ void batchSinWave(float* yPositions, float* baseY, int count, float time, float 
         float offset = (float)i * 0.1f;
         yPositions[i] = baseY[i] + sinf((time + offset) * frequency) * amplitude;
     }
+}
+
 }
