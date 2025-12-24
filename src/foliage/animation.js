@@ -342,6 +342,31 @@ export function animateFoliage(foliageObject, time, audioData, isDay, isDeepNigh
         }
         foliageObject.position.y = foliageObject.userData.originalY + unfurlFactor * 0.2;
     }
+    else if (type === 'snareSnap') {
+        let snareTrigger = 0;
+        // Heuristic: Check channel 1 (common snare index) for trigger
+        if (audioData && audioData.channelData && audioData.channelData[1]) {
+            snareTrigger = audioData.channelData[1].trigger || 0;
+        }
+
+        const left = foliageObject.userData.leftJaw;
+        const right = foliageObject.userData.rightJaw;
+
+        if (left && right) {
+            // Snap shut fast (on trigger), open slow (decay)
+            if (snareTrigger > 0.2) {
+                foliageObject.userData.snapState = 1.0;
+            } else {
+                foliageObject.userData.snapState = Math.max(0, (foliageObject.userData.snapState || 0) - 0.1);
+            }
+
+            const s = foliageObject.userData.snapState || 0;
+            // Left Jaw: Open -0.5, Closed 0.0
+            left.rotation.x = THREE.MathUtils.lerp(-0.5, 0.0, s);
+            // Right Jaw: Open 0.5+PI, Closed 0.0+PI
+            right.rotation.x = THREE.MathUtils.lerp(0.5 + Math.PI, Math.PI, s);
+        }
+    }
     else if (type === 'accordionStretch') {
         const trunkGroup = foliageObject.userData.trunk;
         if (trunkGroup) {
