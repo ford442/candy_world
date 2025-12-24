@@ -1,4 +1,4 @@
-#include <math.h>
+#include <cmath>
 
 // Global result storage
 float arpeggioResult[2]; // [targetStep, unfurlStep]
