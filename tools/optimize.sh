@@ -22,8 +22,12 @@ if ! command -v terser &> /dev/null; then
 fi
 
 if ! command -v wasmedge &> /dev/null; then
-    echo "⚠️  wasmedge not found! Install via 'curl -sSf https://raw.githubusercontent.com/WasmEdge/WasmEdge/master/utils/install.sh | bash && source $HOME/.wasmedge/env'"
-    exit 1
+    echo "⚠️  wasmedge not found! Installing via 'curl -sSf https://raw.githubusercontent.com/WasmEdge/WasmEdge/master/utils/install.sh | bash && source $HOME/.wasmedge/env'"
+	curl -sSf https://raw.githubusercontent.com/WasmEdge/WasmEdge/master/utils/install.sh | bash && source $HOME/.wasmedge/env
+fi
+
+if ! command -v wasmedge &> /dev/null; then
+    echo "⚠️  wasmedge still not found!"
 fi
 
 # 3. Optimize AssemblyScript WASM (Physics)
