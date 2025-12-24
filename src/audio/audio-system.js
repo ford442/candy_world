@@ -82,6 +82,8 @@ export class AudioSystem {
     }
 
     async init() {
+        if (window.setLoadingStatus) window.setLoadingStatus("Starting Audio System...");
+
         try {
             const AudioContext = window.AudioContext || window.webkitAudioContext;
             this.audioContext = new AudioContext();
@@ -179,6 +181,7 @@ export class AudioSystem {
                 const blobUrl = URL.createObjectURL(new Blob([rewritten], { type: 'application/javascript' }));
                 try {
                     await this.audioContext.audioWorklet.addModule(blobUrl);
+                    if (window.setLoadingStatus) window.setLoadingStatus("Audio Worklet Ready...");
                     URL.revokeObjectURL(blobUrl);
                 } catch (e) {
                     console.error(`[AudioSystem] addModule failed for blob derived from ${workletUrl}`);
