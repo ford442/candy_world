@@ -53,8 +53,9 @@ wasm-opt "$NATIVE_WASM" -o "$NATIVE_WASM" \
   --converge \
   --strip-debug \
   --enable-simd \
-  --enable-bulk-memory
-
+  --enable-bulk-memory \
+  --enable-nontrapping-float-to-int
+  
 echo "🔧 Optimizing Native WASM (wasmedge)..."
 # wasmedge compile --optimize=3 "$NATIVE_WASM" "$NATIVE_WASM"
 
