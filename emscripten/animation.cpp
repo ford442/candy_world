@@ -1,8 +1,12 @@
 #include <cmath>
+#include <emscripten.h>
+
+extern "C" {
 
 // Global result storage
 float arpeggioResult[2]; // [targetStep, unfurlStep]
 
+EMSCRIPTEN_KEEPALIVE
 void calcArpeggioStep_c(float currentUnfurl, float currentTarget, int lastTrigger, int arpeggioActive, int noteTrigger, float maxSteps) {
     float nextTarget = currentTarget;
 
@@ -23,10 +27,14 @@ void calcArpeggioStep_c(float currentUnfurl, float currentTarget, int lastTrigge
     arpeggioResult[1] = nextUnfurl;
 }
 
+EMSCRIPTEN_KEEPALIVE
 float getArpeggioTargetStep_c() {
     return arpeggioResult[0];
 }
 
+EMSCRIPTEN_KEEPALIVE
 float getArpeggioUnfurlStep_c() {
     return arpeggioResult[1];
+}
+
 }
