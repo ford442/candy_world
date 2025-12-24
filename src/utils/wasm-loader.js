@@ -455,62 +455,6 @@ export function uploadAnimationData(animData) {
 export function batchDistanceCull(cameraX, cameraY, cameraZ, maxDistance, objectCount) {
     const maxDistSq = maxDistance * maxDistance;
 
-    // --- REGRESSION FIX: Disable Emscripten Path ---
-    // The overhead of copying data between two WASM modules (malloc/free per frame)
-    // is causing browser hangs. We revert to the AssemblyScript version which
-    // has zero-copy access to the position data.
-
-    /* // Prefer Emscripten implementation if available
-    if (emscriptenInstance && emscriptenInstance.exports && emscriptenInstance.exports.batchDistanceCull_c) {
-        try {
-            const em = emscriptenInstance;
-            // Ensure scratch buffers are allocated and large enough
-            if (cullScratchSize < objectCount) {
-                // free previous buffers if present
-                if (cullScratchPos) em.exports._free(cullScratchPos);
-                if (cullScratchRes) em.exports._free(cullScratchRes);
-
-                // allocate a bit more capacity to avoid frequent resizing
-                const bufferSize = objectCount + 1024;
-                cullScratchPos = em.exports._malloc(bufferSize * 3 * 4); // 3 floats per object
-                cullScratchRes = em.exports._malloc(bufferSize * 4);     // 1 float per object result
-                cullScratchSize = bufferSize;
-                console.log(`[Memory] Resized cull buffers to ${bufferSize} objects`);
-            }
-
-            // Copy positions into emscripten heap (x,y,z per object)
-            const emMem = new Float32Array(em.exports.memory.buffer, cullScratchPos, objectCount * 3);
-            if (positionView) {
-                for (let i = 0; i < objectCount; i++) {
-                    const baseIdx = i * 4; // our positionView layout: x,y,z,radius
-                    const targetIdx = i * 3;
-                    emMem[targetIdx] = positionView[baseIdx];
-                    emMem[targetIdx + 1] = positionView[baseIdx + 1];
-                    emMem[targetIdx + 2] = positionView[baseIdx + 2];
-                }
-            } else {
-                // No positions uploaded; zero fill
-                for (let i = 0; i < objectCount * 3; i++) emMem[i] = 0;
-            }
-
-            // Call C function
-            const visibleCount = em.exports.batchDistanceCull_c(
-                cullScratchPos,
-                cullScratchRes,
-                objectCount,
-                cameraX, cameraY, cameraZ,
-                maxDistSq
-            );
-
-            const resultView = new Float32Array(em.exports.memory.buffer, cullScratchRes, objectCount);
-            const flags = resultView.slice(0, objectCount); // copy out for safety
-            return { visibleCount, flags };
-        } catch (e) {
-            console.warn('Emscripten batchDistanceCull failed, falling back to AssemblyScript:', e);
-        }
-    }
-    */
-
     // Fallback to AssemblyScript batchDistanceCull (Direct Memory Access)
     if (!wasmInstance) {
         return { visibleCount: objectCount, flags: null };
@@ -656,6 +600,7 @@ let shiverResult = { rotX: 0, rotZ: 0 };
 let spiralResult = { rotY: 0, yOffset: 0, scale: 1 };
 let prismResult = { unfurl: 0, spin: 0, pulse: 1, hue: 0 };
 let particleResult = { x: 0, y: 0, z: 0 };
+let arpeggioResult = { targetStep: 0, unfurlStep: 0 }; // New result cache
 
 /**
  * Speaker Pulse animation (Subwoofer Lotus)
@@ -781,6 +726,50 @@ export function calcPrismRose(time, offset, kick, groove, isActive) {
         prismResult.hue = (animTime * 0.1) % 1.0;
     }
     return prismResult;
+}
+
+/**
+ * Arpeggio Animation (WASM wrapper)
+ *
+ * Optimized to prefer C++ Native WASM if available, then AssemblyScript, then JS fallback.
+ */
+export function calcArpeggioStep(currentUnfurl, currentTarget, lastTrigger, arpeggioActive, noteTrigger, maxSteps) {
+    // 1. Try Native C++ (fastest)
+    const calcFn = getNativeFunc('calcArpeggioStep_c');
+    if (calcFn) {
+        calcFn(currentUnfurl, currentTarget, lastTrigger ? 1 : 0, arpeggioActive ? 1 : 0, noteTrigger ? 1 : 0, maxSteps);
+
+        // Retrieve results from C global storage
+        const getTarget = getNativeFunc('getArpeggioTargetStep_c');
+        const getUnfurl = getNativeFunc('getArpeggioUnfurlStep_c');
+
+        if (getTarget && getUnfurl) {
+            arpeggioResult.targetStep = getTarget();
+            arpeggioResult.unfurlStep = getUnfurl();
+            return arpeggioResult;
+        }
+    }
+
+    // 2. Try AssemblyScript (fast)
+    if (wasmInstance && wasmInstance.exports.calcArpeggioStep) {
+        wasmInstance.exports.calcArpeggioStep(currentUnfurl, currentTarget, lastTrigger ? 1 : 0, arpeggioActive ? 1 : 0, noteTrigger ? 1 : 0, maxSteps);
+        arpeggioResult.targetStep = wasmInstance.exports.getArpeggioTargetStep();
+        arpeggioResult.unfurlStep = wasmInstance.exports.getArpeggioUnfurlStep();
+        return arpeggioResult;
+    }
+
+    // 3. JS Fallback (slowest)
+    let nextTarget = currentTarget;
+    if (arpeggioActive) {
+        if (noteTrigger && !lastTrigger) {
+            nextTarget = Math.min(maxSteps, nextTarget + 1);
+        }
+    } else {
+        nextTarget = 0;
+    }
+    const speed = (nextTarget > currentUnfurl) ? 0.3 : 0.05;
+    const nextUnfurl = currentUnfurl + (nextTarget - currentUnfurl) * speed;
+    return { targetStep: nextTarget, unfurlStep: nextUnfurl };
 }
 
 /**
