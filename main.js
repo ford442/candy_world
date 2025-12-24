@@ -49,6 +49,7 @@ const weatherSystem = new WeatherSystem(scene);
 
 // 3. World Generation
 // We need to pass weatherSystem so foliage can register themselves
+if (window.setLoadingStatus) window.setLoadingStatus("Loading World Map...");
 const { moon, fireflies } = initWorld(scene, weatherSystem);
 
 // Add Celestial Bodies
@@ -456,6 +457,14 @@ function animate() {
 // Start
 initWasm().then((wasmLoaded) => {
     console.log(`WASM module ${wasmLoaded ? 'active' : 'using JS fallbacks'}`);
+
+    if (window.setLoadingStatus) window.setLoadingStatus("Entering Candy World...");
+
+    // Small delay to let the user see the "Ready" message before fading
+    setTimeout(() => {
+        if (window.hideLoadingScreen) window.hideLoadingScreen();
+    }, 500);
+
     const startButton = document.getElementById('startButton');
     if (startButton) {
         startButton.disabled = false;
