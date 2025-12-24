@@ -283,6 +283,7 @@ function generateMap(weatherSystem) {
 
 function populateProceduralExtras(weatherSystem) {
     console.log("[World] Populating procedural extras (flowers, face mushrooms, trees, clouds)...");
+    if (window.setLoadingStatus) window.setLoadingStatus("Growing Procedural Flora...");
     const extrasCount = 80; // Add extra density
     const range = 150; // Keep within central area
 
