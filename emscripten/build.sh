@@ -69,7 +69,7 @@ echo "Step 2: Linking object files..."
 em++ $OBJECT_FILES -o "$OUTPUT_WASM" \
   -O3 --enable-simd -msimd128 -mrelaxed-simd -msse -msse2 -msse3 -mssse3 -msse4 -msse4.1 -msse4.2 -mavx -mavx2 \
   -s WASM=1 -s WASM_BIGINT=1 -std=c++26 -s MALLOC=emmalloc -s WASMFS=1 -fopenmp-simd -ffast-math -mbulk-memory \
-  -s STANDALONE_WASM=1 -s ALLOW_MEMORY_GROWTH=0 -s INITIAL_MEMORY=700mb -s FORCE_FILESYSTEM=1 \
+  -s STANDALONE_WASM=1 -s ALLOW_MEMORY_GROWTH=0 -s INITIAL_MEMORY=2048mb -s FORCE_FILESYSTEM=1 \
   --no-entry -m64 -s MEMORY64 -s ASSERTIONS=0  -mtune=wasm64 --target=wasm64 -DNDEBUG=1 \
   -s EXPORTED_FUNCTIONS="[ \
       '_hash', \
