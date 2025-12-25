@@ -53,6 +53,8 @@ export class MusicReactivitySystem {
         this.config = config;
         // Staggered update: Start processing from a different offset each frame
         this.updateStartIndex = 0;
+        // Cache for frustum culling optimization
+        this._lastCameraVersion = -1;
     }
 
     /**
@@ -142,8 +144,13 @@ export class MusicReactivitySystem {
             : 1.0;
 
         // 3. Prepare Frustum Culling (major performance win for 3000+ objects)
-        _projScreenMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
-        _frustum.setFromProjectionMatrix(_projScreenMatrix);
+        // Only recalculate if camera matrix has changed (optimization)
+        const cameraVersion = camera.matrixWorldAutoUpdate ? camera.matrixWorld.elements[0] : this._lastCameraVersion;
+        if (cameraVersion !== this._lastCameraVersion) {
+            _projScreenMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+            _frustum.setFromProjectionMatrix(_projScreenMatrix);
+            this._lastCameraVersion = cameraVersion;
+        }
 
         // 4. Iterate Foliage
         const camPos = camera.position;
@@ -195,9 +202,11 @@ export class MusicReactivitySystem {
 
             // Check time budget (throttled to avoid expensive performance.now() calls every iteration)
             const shouldCheckBudget = (processedCount % budgetCheckInterval === 0);
-            const hasPerformance = (typeof performance !== 'undefined');
-            if (shouldCheckBudget && hasPerformance && (performance.now() - frameStartTime > maxFoliageUpdateTime)) {
-                break; 
+            if (shouldCheckBudget) {
+                const hasPerformance = (typeof performance !== 'undefined');
+                if (hasPerformance && (performance.now() - frameStartTime > maxFoliageUpdateTime)) {
+                    break; 
+                }
             }
 
             // Limit number of updates per frame
@@ -264,8 +273,10 @@ export class MusicReactivitySystem {
         }
 
         // Advance the start index for next frame (staggered processing)
-        // Use processedCount to ensure we don't skip objects that were culled
-        const actualIncrement = Math.min(processedCount, maxFoliageUpdates);
+        // Use a hybrid approach: advance by processed count but ensure minimum progress
+        // This prevents getting stuck when heavy culling occurs
+        const minIncrement = Math.min(10, totalObjects); // Ensure we advance at least 10 objects
+        const actualIncrement = Math.max(processedCount, minIncrement);
         this.updateStartIndex = (startIdx + actualIncrement) % totalObjects;
 
         // Export stats for performance monitoring (if available)

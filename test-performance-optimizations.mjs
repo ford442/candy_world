@@ -8,10 +8,11 @@ const mockCamera = {
     position: new THREE.Vector3(0, 5, 0),
     projectionMatrix: new THREE.Matrix4().makePerspective(75, 1, 0.1, 1000),
     matrixWorldInverse: new THREE.Matrix4(),
+    matrixWorld: new THREE.Matrix4(),
+    matrixWorldAutoUpdate: true,
     updateMatrixWorld: function() {
         this.matrixWorldInverse.copy(this.matrixWorld).invert();
-    },
-    matrixWorld: new THREE.Matrix4()
+    }
 };
 mockCamera.updateMatrixWorld();
 
