@@ -255,6 +255,11 @@ export class MusicReactivitySystem {
 
         // Advance the start index for next frame (staggered processing)
         this.updateStartIndex = (startIdx + maxFoliageUpdates) % totalObjects;
+
+        // Export stats for performance monitoring (if available)
+        if (typeof window !== 'undefined' && window.updatePerfStats) {
+            window.updatePerfStats(totalObjects, processedCount, foliageUpdatesThisFrame);
+        }
     }
     
     // Alias for backward compatibility if needed
