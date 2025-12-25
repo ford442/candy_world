@@ -70,8 +70,8 @@ export function initWorld(scene, weatherSystem) {
     scene.background = fogColor;
 
     // Initialize Vegetation Systems
-    // High count (20k) on small map = Very Lush Grass
-    initGrassSystem(scene, 20000);
+    // Reduced from 20k to 10k for better performance with large object count
+    initGrassSystem(scene, 10000);
     scene.add(createFireflies(150, 100));
 
     // Melody Lake
@@ -284,7 +284,7 @@ function generateMap(weatherSystem) {
 function populateProceduralExtras(weatherSystem) {
     console.log("[World] Populating procedural extras (flowers, face mushrooms, trees, clouds)...");
     if (window.setLoadingStatus) window.setLoadingStatus("Growing Procedural Flora...");
-    const extrasCount = 80; // Add extra density
+    const extrasCount = 40; // Reduced from 80 to improve performance with large map
     const range = 150; // Keep within central area
 
     for (let i = 0; i < extrasCount; i++) {

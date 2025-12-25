@@ -6,6 +6,10 @@ import { CONFIG } from '../core/config.js';
 import * as THREE from 'three';
 import { animateFoliage, triggerMoonBlink } from '../foliage/index.js';
 
+// Reusable frustum for culling (prevent GC)
+const _frustum = new THREE.Frustum();
+const _projScreenMatrix = new THREE.Matrix4();
+
 const CHROMATIC_SCALE = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
 export function getNoteColor(note, species = 'global') {
@@ -47,6 +51,8 @@ export class MusicReactivitySystem {
     constructor(scene, config = {}) {
         this.scene = scene;
         this.config = config;
+        // Staggered update: Start processing from a different offset each frame
+        this.updateStartIndex = 0;
     }
 
     /**
@@ -127,30 +133,49 @@ export class MusicReactivitySystem {
             ? weatherSystem.currentLightLevel 
             : 1.0;
 
-        // 3. Iterate Foliage
+        // 3. Prepare Frustum Culling (major performance win for 3000+ objects)
+        _projScreenMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+        _frustum.setFromProjectionMatrix(_projScreenMatrix);
+
+        // 4. Iterate Foliage
         const camPos = camera.position;
         // Optimization: Cache camera coordinates to avoid property access in loop
         const camX = camPos.x;
         const camY = camPos.y;
         const camZ = camPos.z;
 
-        const maxAnimationDistance = 50;
+        // Reduced from 50 to 30 for better performance with large object count
+        const maxAnimationDistance = 30; // Reduced from 50 for 3k+ objects
         const maxDistanceSq = maxAnimationDistance * maxAnimationDistance;
 
         // Time budgeting: Limit material updates to avoid audio stutter
         const maxFoliageUpdateTime = 2; // milliseconds
         const frameStartTime = (typeof performance !== 'undefined') ? performance.now() : Date.now();
         let foliageUpdatesThisFrame = 0;
-        const maxFoliageUpdates = 50; 
-        const budgetCheckInterval = 10; // Check time budget every 10 items to reduce system call overhead
+        const maxFoliageUpdates = 100; // Increased from 50 since frustum culling reduces candidates
+        const budgetCheckInterval = 20; // Check time budget every 20 items (reduced overhead)
 
         // Audio Channel Info (Pre-calc for loop)
         const channels = (audioState && audioState.channelData) ? audioState.channelData : null;
         const totalChannels = channels ? channels.length : 0;
         const splitIndex = Math.ceil(totalChannels / 2);
 
-        for (let i = 0, l = animatedFoliage.length; i < l; i++) {
+        // Staggered updates: Process objects in a round-robin fashion
+        // This prevents hitches when many objects come into view at once
+        const totalObjects = animatedFoliage.length;
+        const startIdx = this.updateStartIndex;
+        let processedCount = 0;
+
+        for (let offset = 0; offset < totalObjects; offset++) {
+            // Wrap around using modulo for round-robin processing
+            const i = (startIdx + offset) % totalObjects;
             const f = animatedFoliage[i];
+
+            // CRITICAL: Frustum culling - skip objects outside camera view
+            // This is the primary fix for the freeze when viewing many objects
+            if (!_frustum.intersectsObject(f)) {
+                continue;
+            }
 
             // Optimization: Inline distance culling to avoid function call overhead
             const dx = f.position.x - camX;
@@ -161,7 +186,7 @@ export class MusicReactivitySystem {
             if (distSq > maxDistanceSq) continue;
 
             // Check time budget (throttled to avoid expensive performance.now() calls every iteration)
-            if ((i % budgetCheckInterval === 0) && (typeof performance !== 'undefined') && (performance.now() - frameStartTime > maxFoliageUpdateTime)) {
+            if ((processedCount % budgetCheckInterval === 0) && (typeof performance !== 'undefined') && (performance.now() - frameStartTime > maxFoliageUpdateTime)) {
                 break; 
             }
 
@@ -169,6 +194,8 @@ export class MusicReactivitySystem {
             if (foliageUpdatesThisFrame >= maxFoliageUpdates) {
                 break;
             }
+
+            processedCount++;
 
             // --- USER CHANGE: 'wobble' multiplier ---
             if (f.userData.animationType === 'wobble') {
@@ -225,6 +252,9 @@ export class MusicReactivitySystem {
                 }
             }
         }
+
+        // Advance the start index for next frame (staggered processing)
+        this.updateStartIndex = (startIdx + maxFoliageUpdates) % totalObjects;
     }
     
     // Alias for backward compatibility if needed
