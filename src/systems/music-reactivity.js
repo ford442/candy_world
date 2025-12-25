@@ -56,6 +56,14 @@ export class MusicReactivitySystem {
     }
 
     /**
+     * Get the current staggered update index (for testing)
+     * @returns {number} The current start index for round-robin processing
+     */
+    getUpdateStartIndex() {
+        return this.updateStartIndex;
+    }
+
+    /**
      * Apply reaction to a specific object
      * Merged: Handles standard foliage AND celestial objects from jules-dev
      */
@@ -186,7 +194,9 @@ export class MusicReactivitySystem {
             if (distSq > maxDistanceSq) continue;
 
             // Check time budget (throttled to avoid expensive performance.now() calls every iteration)
-            if ((processedCount % budgetCheckInterval === 0) && (typeof performance !== 'undefined') && (performance.now() - frameStartTime > maxFoliageUpdateTime)) {
+            const shouldCheckBudget = (processedCount % budgetCheckInterval === 0);
+            const hasPerformance = (typeof performance !== 'undefined');
+            if (shouldCheckBudget && hasPerformance && (performance.now() - frameStartTime > maxFoliageUpdateTime)) {
                 break; 
             }
 
@@ -254,7 +264,9 @@ export class MusicReactivitySystem {
         }
 
         // Advance the start index for next frame (staggered processing)
-        this.updateStartIndex = (startIdx + maxFoliageUpdates) % totalObjects;
+        // Use processedCount to ensure we don't skip objects that were culled
+        const actualIncrement = Math.min(processedCount, maxFoliageUpdates);
+        this.updateStartIndex = (startIdx + actualIncrement) % totalObjects;
 
         // Export stats for performance monitoring (if available)
         if (typeof window !== 'undefined' && window.updatePerfStats) {
