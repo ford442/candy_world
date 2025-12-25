@@ -1,8 +1,10 @@
+// src/utils/wasm-loader.js
+
+// ... (Keep existing AssemblyScript imports and variables) ...
+// ... (wasmInstance, wasmMemory, etc for AssemblyScript remain unchanged) ...
+
 // WASM Loader - Candy World Physics & Animation Module
 // Loads and wraps AssemblyScript WASM for easy use from JavaScript
-
-// Emscripten compile worker is loaded from public/js/emscripten-compile-worker.js as a static Worker
-// This avoids Vite bundling issues for workers in production builds.
 
 let wasmInstance = null;
 let wasmMemory = null;
@@ -18,62 +20,12 @@ let wasmBatchMushroomSpawnCandidates = null;
 
 // Emscripten module (native C functions)
 let emscriptenInstance = null;
+// With Pthreads/MODULARIZE, the instance itself is the Module object
+// and memory is typically accessed via Module.HEAP8, Module.HEAPF32 etc.
+// or exports if using specific bindings.
+// However, the original code used `emscriptenMemory` which might be irrelevant if we don't access it directly.
+// We will keep the variable for consistency but it might be unused.
 let emscriptenMemory = null;
-
-/**
- * Helper to safely get an Emscripten export (handles _ prefix)
- */
-function getNativeFunc(name) {
-    if (!emscriptenInstance || !emscriptenInstance.exports) return null;
-    return emscriptenInstance.exports[name] || emscriptenInstance.exports['_' + name] || null;
-}
-
-// -----------------------------------------------------------------------------
-// Cache for C-side scratch buffers used by culling to avoid repeated malloc/free
-let cullScratchPos = 0;   // pointer to positions buffer in emscripten heap
-let cullScratchRes = 0;   // pointer to results buffer in emscripten heap
-let cullScratchSize = 0;  // number of object capacity allocated
-// -----------------------------------------------------------------------------
-
-// -----------------------------------------------------------------------------
-// Helper: compile a WASM module in the Emscripten worker (returns WebAssembly.Module)
-async function compileWasmInWorker(url) {
-    // Use the static public worker file. This is more reliable in production builds
-    // than the dynamic Vite import which can cause "Worker failed to start" errors due to bundling.
-    const workerUrl = './js/emscripten-compile-worker.js';
-    const worker = new Worker(workerUrl);
-
-    return await new Promise((resolve, reject) => {
-        const cleanup = () => {
-            worker.onmessage = null;
-            worker.onerror = null;
-            try { worker.terminate(); } catch(_) {}
-        };
-
-        worker.onmessage = (e) => {
-            const data = e.data || {};
-            if (data.type === 'SUCCESS') {
-                resolve(data.module);
-                cleanup();
-            } else if (data.type === 'ERROR') {
-                reject(new Error(data.message || 'Worker compile error'));
-                cleanup();
-            } else if (data.type === 'WARN') {
-                console.warn('[EmscriptenWorker] WARN:', data.message);
-            }
-        };
-
-        worker.onerror = (err) => {
-            cleanup();
-            reject(new Error('Worker failed to start or threw an error (see console)'));
-        };
-
-        // Ensure absolute URL so worker fetch works from any base path
-        const absolute = new URL(url, window.location.href).href;
-        worker.postMessage({ url: absolute });
-    });
-}
-// -----------------------------------------------------------------------------
 
 // Memory layout constants (must match AssemblyScript)
 const POSITION_OFFSET = 0;
@@ -88,6 +40,53 @@ export const AnimationType = {
     WOBBLE: 3,
     HOP: 4
 };
+
+// =============================================================================
+// UPDATED: Load Emscripten Module (Pthreads/Worker Version)
+// =============================================================================
+
+/**
+ * Load the Emscripten-generated JS module which handles WASM & Workers
+ */
+async function loadEmscriptenModule() {
+    try {
+        await updateProgress('Loading Native Engine...');
+
+        // 1. Dynamic Import the generated loader
+        // Note: build.sh now outputs to public/candy_native.js
+        const { default: createCandyNative } = await import('/candy_native.js?v=' + Date.now());
+
+        // 2. Instantiate (This spawns the worker pool automatically)
+        await updateProgress('Spawning Physics Workers...');
+
+        emscriptenInstance = await createCandyNative({
+            locateFile: (path, prefix) => {
+                if (path.endsWith('.wasm')) return '/candy_native.wasm';
+                if (path.endsWith('.worker.js')) return '/candy_native.worker.js';
+                return prefix + path;
+            },
+            print: (text) => console.log('[Native]', text),
+            printErr: (text) => console.warn('[Native Err]', text),
+        });
+
+        console.log('[WASM] Emscripten Pthreads Ready');
+        return true;
+    } catch (e) {
+        console.warn('Failed to load Native Emscripten module:', e);
+        return false;
+    }
+}
+
+/**
+ * Helper to safely get an Emscripten export (handles _ prefix)
+ */
+function getNativeFunc(name) {
+    if (!emscriptenInstance) return null;
+    // Emscripten MODULARIZE puts exports directly on the instance using the underscore name
+    // e.g. Module._valueNoise2D
+    return emscriptenInstance['_' + name] || null;
+}
+
 
 /**
  * Initialize the WASM module
@@ -231,96 +230,9 @@ export async function initWasm() {
         console.log('[WASM] AssemblyScript module loaded successfully');
 
         // =====================================================================
-        // Load Emscripten WASM module (optional - for native C functions)
+        // LOAD EMSCRIPTEN MODULE (Pthreads/Workers)
         // =====================================================================
-        try {
-            await updateProgress('Loading Native Effects...');
-            console.log('[WASM] Attempting to load Emscripten module (candy_native.wasm)...');
-            const emResponse = await fetch('./candy_native.wasm?v=' + Date.now());
-            if (emResponse.ok) {
-                // Prefer compiling in a worker to avoid main-thread WASM parse/compile stalls
-                try {
-                    if (typeof Worker !== 'undefined') {
-                        await updateProgress('Compiling Native Modules...');
-                        console.log('[WASM] Compiling Emscripten module in worker...');
-                        try {
-                            const compiledModule = await compileWasmInWorker('./candy_native.wasm?v=' + Date.now());
-
-                            await updateProgress('Instantiating Native Modules...');
-
-                            // Instantiate from compiled module on main thread to keep exports accessible synchronously
-                            const emResult = await WebAssembly.instantiate(compiledModule, {
-                                wasi_snapshot_preview1: wasiStubs,
-                                env: { emscripten_notify_memory_growth: () => {} }
-                            });
-
-                            // emResult may be { instance, module } or Instance directly in some browsers
-                            emscriptenInstance = emResult.instance || emResult;
-                            emscriptenMemory = emscriptenInstance.exports && emscriptenInstance.exports.memory;
-
-                            console.log('Emscripten module loaded via worker:', Object.keys(emscriptenInstance.exports || {}));
-
-                            const initFn = getNativeFunc('init_native');
-                            if (initFn) setTimeout(() => { try { initFn(); console.log('[WASM] init_native() invoked (worker)'); } catch(e){ console.warn(e); } }, 0);
-                        } catch (workerErr) {
-                            console.warn('[WASM] Emscripten worker compile failed:', workerErr);
-
-                            // Fallback: try streaming instantiation on main thread (deferred call to yield)
-                            try {
-                                console.log('Falling back to streaming instantiate on main thread (worker failed)');
-                                if (WA.instantiateStreaming && emResponse.body) {
-                                    const emR = await WA.instantiateStreaming(fetch('./candy_native.wasm?v=' + Date.now()), {
-                                        wasi_snapshot_preview1: wasiStubs,
-                                        env: { emscripten_notify_memory_growth: () => {} }
-                                    });
-                                    emscriptenInstance = emR.instance;
-                                } else {
-                                    const emBytes = await emResponse.arrayBuffer();
-                                    const emR = await WA.instantiate(emBytes, {
-                                        wasi_snapshot_preview1: wasiStubs,
-                                        env: { emscripten_notify_memory_growth: () => {} }
-                                    });
-                                    emscriptenInstance = emR.instance;
-                                }
-                                emscriptenMemory = emscriptenInstance.exports.memory;
-                                console.log('Emscripten module loaded via main-thread fallback:', Object.keys(emscriptenInstance.exports));
-
-                                const initFn = getNativeFunc('init_native');
-                                if (initFn) setTimeout(() => { try { initFn(); console.log('[Emscripten] init_native() invoked (fallback)'); } catch(e){ console.warn(e); } }, 0);
-                            } catch (fallbackErr) {
-                                console.warn('Main-thread fallback instantiate also failed:', fallbackErr);
-                            }
-                        } } else {
-                        // Worker not available; fall back to streaming instantiate but defer init
-                        if (WA.instantiateStreaming && emResponse.body) {
-                            console.log('Using instantiateStreaming for Emscripten module (no worker)');
-                            const emResult = await WA.instantiateStreaming(fetch('./candy_native.wasm?v=' + Date.now()), {
-                                wasi_snapshot_preview1: wasiStubs,
-                                env: { emscripten_notify_memory_growth: () => {} }
-                            });
-                            emscriptenInstance = emResult.instance;
-                        } else {
-                            const emBytes = await emResponse.arrayBuffer();
-                            const emResult = await WA.instantiate(emBytes, {
-                                wasi_snapshot_preview1: wasiStubs,
-                                env: { emscripten_notify_memory_growth: () => {} }
-                            });
-                            emscriptenInstance = emResult.instance;
-                        }
-                        emscriptenMemory = emscriptenInstance.exports.memory;
-                        console.log('Emscripten module loaded (no worker):', Object.keys(emscriptenInstance.exports));
-                        const initFn = getNativeFunc('init_native');
-                        if (initFn) setTimeout(() => { try { initFn(); } catch (e) { console.warn(e); }}, 0);
-                    }
-                } catch (compileErr) {
-                    console.warn('Emscripten compile/instantiate failed:', compileErr);
-                }
-            } else {
-                console.log('Emscripten WASM not found (optional), skipping');
-            }
-        } catch (emError) {
-            console.warn('Optional Emscripten WASM failed to load:', emError);
-        }
+        await loadEmscriptenModule();
 
         // UX: Restore button on success
         if (startButton) {
@@ -348,6 +260,13 @@ export async function initWasm() {
  */
 export function isWasmReady() {
     return wasmInstance !== null;
+}
+
+/**
+ * Check if Emscripten module is available
+ */
+export function isEmscriptenReady() {
+    return emscriptenInstance !== null;
 }
 
 // =============================================================================
@@ -823,13 +742,6 @@ export function calcFloatingParticle(baseX, baseY, baseZ, time, offset, amplitud
 // =============================================================================
 // EMSCRIPTEN NATIVE FUNCTIONS (from candy_native.c)
 // =============================================================================
-
-/**
- * Check if Emscripten module is available
- */
-export function isEmscriptenReady() {
-    return emscriptenInstance !== null;
-}
 
 /**
  * 2D Value Noise (Emscripten)
