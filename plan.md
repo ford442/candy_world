@@ -296,6 +296,9 @@ Three.js Renderer -> WebGPU RenderPipeline (Raw Draw Calls)
   - Implemented "Arpeggio Ferns" skeletal animation (unfurl).
   - Implemented "Kick-Drum Geysers" particle plumes reactive to kick intensity.
   - Implemented "Snare-Snap Traps" with jaw animation driven by snare channel.
+  - **Rainbow After Storm**: Implemented procedural TSL rainbow arc that appears when storms clear.
+  - **Mushroom Emission**: Added animated pulsing stripes to Giant Mushrooms using TSL.
+  - **Vine Swinging**: Refined physics with "pumping" mechanics and safety clamping.
 
 - **Concept Art Alignment**:
   - Validated codebase against `image.png`, confirming "Cute Clay" aesthetics (rounded forms, pastel colors, face details on flora) are active.
