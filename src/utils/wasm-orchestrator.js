@@ -179,6 +179,17 @@ export async function waitForPhase(phase, timeout = 30000) {
 }
 
 /**
+ * Validate WASM magic number
+ * @param {ArrayBuffer} bytes - The WASM binary data
+ * @returns {boolean} True if valid WASM magic number
+ */
+function isValidWasmMagic(bytes) {
+    if (!bytes || bytes.byteLength < 4) return false;
+    const magic = new Uint8Array(bytes.slice(0, 4));
+    return magic[0] === 0x00 && magic[1] === 0x61 && magic[2] === 0x73 && magic[3] === 0x6d;
+}
+
+/**
  * Parallel WASM Module Loader
  * Loads both AssemblyScript and Emscripten modules simultaneously
  * 
@@ -224,9 +235,7 @@ export async function parallelWasmLoad(options = {}) {
             }
             const bytes = await response.arrayBuffer();
             
-            // Validate WASM magic number
-            const magic = new Uint8Array(bytes.slice(0, 4));
-            if (magic[0] !== 0x00 || magic[1] !== 0x61 || magic[2] !== 0x73 || magic[3] !== 0x6d) {
+            if (!isValidWasmMagic(bytes)) {
                 console.error('[WASMOrchestrator] Invalid ASC WASM file');
                 return null;
             }
@@ -249,9 +258,7 @@ export async function parallelWasmLoad(options = {}) {
             }
             const bytes = await response.arrayBuffer();
             
-            // Validate WASM magic number
-            const magic = new Uint8Array(bytes.slice(0, 4));
-            if (magic[0] !== 0x00 || magic[1] !== 0x61 || magic[2] !== 0x73 || magic[3] !== 0x6d) {
+            if (!isValidWasmMagic(bytes)) {
                 console.warn('[WASMOrchestrator] Invalid EMCC WASM file');
                 return null;
             }
@@ -272,7 +279,8 @@ export async function parallelWasmLoad(options = {}) {
     signalPhaseStart(LOADING_PHASES.ASSET_DECODE);
 
     // Compile both modules in parallel
-    const WA = window.NativeWebAssembly || WebAssembly;
+    // Use NativeWebAssembly if available (for libopenmpt compatibility), otherwise standard WebAssembly
+    const WA = (typeof window !== 'undefined' && window.NativeWebAssembly) || WebAssembly;
     
     const wasiStubs = {
         fd_close: () => 0,
