@@ -97,7 +97,7 @@ class WindSystem {
 }
 ```
 
-#### 2.5 Rainbow After Storm
+#### 2.5 Rainbow After Storm ✅ COMPLETE
 
 - When storm ends → spawn rainbow arc
 - Rainbow colors pulse with beat
@@ -211,24 +211,10 @@ TSL-based vertical gradients.
 
 ### 🚀 Phase 4 Enhancements
 
-#### 4.3 Animated Emission Patterns
+#### 4.3 Animated Emission Patterns ✅ COMPLETE
 
-```javascript
-// Pulsing glow stripes on mushroom caps
-function createPulsingCapMaterial(baseColor) {
-  const mat = new MeshStandardNodeMaterial();
-  mat.color = color(baseColor);
-  mat.roughness = 0.6;
-  
-  // Emission stripes that pulse with time
-  const stripe = sin(positionLocal.y.mul(20.0).add(time.mul(2.0)));
-  const emission = stripe.max(0.0).mul(0.5);
-  
-  mat.emissiveNode = color(baseColor).mul(emission);
-  
-  return mat;
-}
-```
+- Implemented TSL-based pulsing glow stripes on Giant Mushroom caps.
+- Combined with "Breathing" vertex displacement.
 
 #### 4.4 Iridescent Materials
 
@@ -268,48 +254,11 @@ Velocity boost on cap collision.
 
 ### 🚀 Phase 5 Enhancements
 
-#### 5.3 Vine Swinging
+### 5.3 Vine Swinging ✅ COMPLETE
 
-```javascript
-class VineSwing {
-  constructor(vineMesh) {
-    this.vine = vineMesh;
-    this.anchorPoint = vineMesh.position.clone().add(new THREE.Vector3(0, 3, 0));
-    this.length = 3;
-    this.isPlayerAttached = false;
-    this.swingAngle = 0;
-  }
-  
-  update(player, delta) {
-    if (this.isPlayerAttached) {
-      // Pendulum physics
-      const gravity = 9.8;
-      const angularAccel = -gravity / this.length * Math.sin(this.swingAngle);
-      this.swingAngularVel += angularAccel * delta;
-      this.swingAngle += this.swingAngularVel * delta;
-      
-      // Update player position
-      player.position.x = this.anchorPoint.x + Math.sin(this.swingAngle) * this.length;
-      player.position.y = this.anchorPoint.y - Math.cos(this.swingAngle) * this.length;
-    }
-  }
-  
-  attachPlayer(player) {
-    this.isPlayerAttached = true;
-    this.swingAngle = Math.atan2(
-      player.position.x - this.anchorPoint.x,
-      this.anchorPoint.y - player.position.y
-    );
-  }
-  
-  detachPlayer(player) {
-    this.isPlayerAttached = false;
-    // Transfer momentum to player velocity
-    player.velocity.x = this.swingAngularVel * this.length * Math.cos(this.swingAngle);
-    player.velocity.y = this.swingAngularVel * this.length * Math.sin(this.swingAngle);
-  }
-}
-```
+- Implemented in `src/foliage/trees.js` (`VineSwing` class).
+- Includes "pumping" mechanics (forward/back keys) to build momentum.
+- Safety clamping prevents loop-de-loops.
 
 #### 5.4 Flower Trampolines
 
@@ -438,16 +387,17 @@ beatSync.onBeat(state => {
 
 ### 🔄 Week 5-6: Polish & Enhancements
 
-14. [ ] Firefly particles
-15. [ ] Wind system
-16. [ ] Vine swinging
+14. [x] Firefly particles
+15. [x] Wind system
+16. [x] Vine swinging
 17. [ ] Flower trampolines
 18. [ ] Beat synchronization
 19. [ ] Performance optimization
+20. [x] Rainbow After Storm (Visual Reward)
 
 ### 📋 Week 7-8: Advanced Features
 
-20. [ ] Aurora borealis
+21. [ ] Aurora borealis
 21. [ ] Seed collection
 22. [ ] Rare flora discovery
 23. [ ] Iridescent materials
@@ -478,10 +428,11 @@ beatSync.onBeat(state => {
 
 ### Enhancements 🔄
 
-- [ ] Fireflies appear during deep night
-- [ ] Wind affects rain/mist particles
-- [ ] Vines are swingable
+- [x] Fireflies appear during deep night
+- [x] Wind affects rain/mist particles
+- [x] Vines are swingable (with pumping mechanics)
 - [ ] Beat-synced visual pulses work
+- [x] Rainbow appears after storms
 - [ ] Performance stays at 60 FPS
 
 ---

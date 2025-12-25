@@ -5,6 +5,7 @@
 import * as THREE from 'three';
 import { calcRainDropY, getGroundHeight, uploadPositions, uploadAnimationData, batchMushroomSpawnCandidates, readSpawnCandidates, isWasmReady } from '../utils/wasm-loader.js';
 import { chargeBerries, triggerGrowth, triggerBloom, shakeBerriesLoose, updateBerrySeasons, createMushroom, createWaterfall } from '../foliage/index.js';
+import { createRainbow, uRainbowOpacity } from '../foliage/rainbow.js';
 import { getCelestialState, getSeasonalState } from '../core/cycle.js'; // Import seasonal helper
 import { CYCLE_DURATION, CONFIG } from '../core/config.js'; // Import cycle duration and config
 import { uCloudRainbowIntensity, uCloudLightningStrength, uCloudLightningColor } from '../foliage/clouds.js';
@@ -51,6 +52,11 @@ export class WeatherSystem {
         this.lightningTimer = 0;
         this.lightningActive = false;
 
+        // Rainbow
+        this.rainbow = null;
+        this.rainbowTimer = 0;
+        this.lastState = WeatherState.CLEAR;
+
         // Tracked objects for growth/charging
         this.trackedTrees = [];
         this.trackedShrubs = [];
@@ -82,6 +88,17 @@ export class WeatherSystem {
 
         this.initParticles();
         this.initLightning();
+        this.initRainbow();
+    }
+
+    initRainbow() {
+        this.rainbow = createRainbow();
+        // Position arc: distant, rising from horizon
+        // Scale it up so it encompasses the view
+        this.rainbow.position.set(0, -20, -100);
+        this.rainbow.scale.setScalar(2.0);
+        // It's a ring, so rotation needs to be checked. createRainbow returns upright.
+        this.scene.add(this.rainbow);
     }
 
     /**
@@ -228,6 +245,8 @@ export class WeatherSystem {
     update(time, audioData, cycleWeatherBias = null) {
         if (!audioData) return;
 
+        const dt = 0.016; // Approx delta
+
         // 0. Regenerate Cloud Density slowly
         this.cloudDensity = Math.min(1.0, this.cloudDensity + this.cloudRegenRate);
 
@@ -245,6 +264,29 @@ export class WeatherSystem {
 
         // 3. Update Weather State (Audio + Time of Day + Season)
         this.updateWeatherState(bassIntensity, melodyVol, groove, cycleWeatherBias, seasonal);
+
+        // Check for Rainbow Trigger (Storm -> Clear/Rain)
+        if (this.lastState === WeatherState.STORM && this.state !== WeatherState.STORM) {
+            this.rainbowTimer = 45.0; // 45 seconds of rainbow
+            // Also play a sound? (TODO)
+        }
+        this.lastState = this.state;
+
+        // Update Rainbow Opacity
+        if (this.rainbowTimer > 0) {
+            this.rainbowTimer -= dt;
+            // Fade in over 5s, fade out last 5s
+            let opacity = 1.0;
+            if (this.rainbowTimer > 40.0) opacity = (45.0 - this.rainbowTimer) / 5.0;
+            else if (this.rainbowTimer < 5.0) opacity = this.rainbowTimer / 5.0;
+
+            // Pulse with melody/highs
+            const pulse = (melodyVol || 0) * 0.2;
+
+            uRainbowOpacity.value = opacity * 0.6; // Max opacity 0.6
+        } else {
+            uRainbowOpacity.value = 0.0;
+        }
 
         // --- NEW: Calculate Global Light Level ---
         this.currentLightLevel = this.getGlobalLightLevel(celestial, seasonal);
@@ -908,6 +950,10 @@ export class WeatherSystem {
         }
         if (this.lightningLight) {
             this.scene.remove(this.lightningLight);
+        }
+        if (this.rainbow) {
+            this.scene.remove(this.rainbow);
+            this.rainbow.geometry.dispose();
         }
         // Remove any active waterfalls
         if (this.mushroomWaterfalls && this.mushroomWaterfalls.size > 0) {
