@@ -15,11 +15,11 @@ let _uniqueShaderCount: i32 = 0;
  * This pre-processes materials before GPU pipeline creation to identify
  * which shader modules need to be compiled.
  * 
- * Material data layout per material (16 bytes):
- *   [0-3] vertexShaderId: f32
- *   [4-7] fragmentShaderId: f32  
- *   [8-11] blendingMode: f32
- *   [12-15] flags: f32 (bit 0 = doubleSided, bit 1 = transparent, etc.)
+ * Material data layout per material (16 bytes = 4 x i32):
+ *   [0-3]   vertexShaderId: i32
+ *   [4-7]   fragmentShaderId: i32  
+ *   [8-11]  blendingMode: i32
+ *   [12-15] flags: i32 (bit 0 = doubleSided, bit 1 = transparent, etc.)
  * 
  * @param materialPtr - Pointer to material data in WASM memory
  * @param count - Number of materials to analyze
@@ -51,8 +51,7 @@ export function analyzeMaterials(materialPtr: i32, count: i32): i32 {
         const hash = computeShaderHash(vertexId, fragmentId, blendMode, flags);
         const slot = hash % hashTableSize;
         
-        // Linear probe for collision
-        let found = false;
+        // Linear probe for collision - look for empty slot or existing match
         for (let probe = 0; probe < hashTableSize; probe++) {
             const idx = (slot + probe) % hashTableSize;
             if (unchecked(hashTable[idx]) == -1) {
@@ -71,8 +70,7 @@ export function analyzeMaterials(materialPtr: i32, count: i32): i32 {
                 uniqueCount++;
                 break;
             } else if (unchecked(hashTable[idx]) == hash) {
-                // Found existing - not unique
-                found = true;
+                // Found existing match - not unique, skip
                 break;
             }
         }

@@ -618,6 +618,88 @@ export function readSpawnCandidates(candidateCount) {
     return arr;
 }
 
+// =============================================================================
+// MATERIAL ANALYSIS (Strategy 3: Shader Pre-Hashing & Deduplication)
+// =============================================================================
+
+/**
+ * Analyze materials and identify unique shader combinations
+ * This enables compileAsync optimizations by pre-deduplicating shader modules
+ * 
+ * @param {Array<{vertexShaderId: number, fragmentShaderId: number, blendingMode: number, flags: number}>} materials
+ * @returns {{uniqueCount: number, shaders: Array<{vertexId: number, fragmentId: number, blendMode: number, flags: number}>}}
+ */
+export function analyzeMaterials(materials) {
+    if (!wasmInstance || !wasmInstance.exports.analyzeMaterials) {
+        // JS fallback - simple deduplication
+        const seen = new Map();
+        const shaders = [];
+        
+        for (const mat of materials) {
+            const key = `${mat.vertexShaderId}-${mat.fragmentShaderId}-${mat.blendingMode}-${mat.flags || 0}`;
+            if (!seen.has(key)) {
+                seen.set(key, true);
+                shaders.push({
+                    vertexId: mat.vertexShaderId || 0,
+                    fragmentId: mat.fragmentShaderId || 0,
+                    blendMode: mat.blendingMode || 0,
+                    flags: mat.flags || 0
+                });
+            }
+        }
+        
+        return { uniqueCount: shaders.length, shaders };
+    }
+    
+    // Use WASM for analysis (faster for large material counts)
+    const count = Math.min(materials.length, 256);
+    const MATERIAL_OFFSET = 12288; // Must match AssemblyScript constant
+    
+    // Upload material data to WASM memory
+    if (!wasmMemory) return { uniqueCount: 0, shaders: [] };
+    
+    // Each material is 4 x i32 (16 bytes), so we need count * 4 elements
+    const materialView = new Int32Array(wasmMemory.buffer, MATERIAL_OFFSET, count * 4);
+    for (let i = 0; i < count; i++) {
+        const mat = materials[i];
+        const idx = i * 4; // 4 int32 elements per material
+        materialView[idx] = mat.vertexShaderId || 0;
+        materialView[idx + 1] = mat.fragmentShaderId || 0;
+        materialView[idx + 2] = mat.blendingMode || 0;
+        materialView[idx + 3] = mat.flags || 0;
+    }
+    
+    // Run WASM analysis
+    const uniqueCount = wasmInstance.exports.analyzeMaterials(MATERIAL_OFFSET, count);
+    
+    // Read back unique shader configurations from the output area
+    // WASM writes results starting at MATERIAL_OFFSET (same location, overwritten)
+    const outputView = new Int32Array(wasmMemory.buffer, MATERIAL_OFFSET, Math.min(uniqueCount, 64) * 4);
+    const shaders = [];
+    for (let i = 0; i < Math.min(uniqueCount, 64); i++) {
+        const idx = i * 4;
+        shaders.push({
+            vertexId: outputView[idx],
+            fragmentId: outputView[idx + 1],
+            blendMode: outputView[idx + 2],
+            flags: outputView[idx + 3]
+        });
+    }
+    
+    return { uniqueCount, shaders };
+}
+
+/**
+ * Get unique shader count from last material analysis
+ * @returns {number}
+ */
+export function getUniqueShaderCount() {
+    if (wasmInstance && wasmInstance.exports.getUniqueShaderCount) {
+        return wasmInstance.exports.getUniqueShaderCount();
+    }
+    return 0;
+}
+
 /**
  * Batch animation calculations
  * @param {number} time 

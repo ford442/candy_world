@@ -185,15 +185,24 @@ export async function waitForPhase(phase, timeout = 30000) {
  * @param {Object} options
  * @param {Function} options.onProgress - Progress callback (phase, message)
  * @param {string} options.ascWasmUrl - AssemblyScript WASM URL
- * @param {string} options.emccWasmUrl - Emscripten WASM URL  
+ * @param {string} options.emccWasmUrl - Emscripten WASM URL
+ * @param {string} options.cacheVersion - Version string for cache busting (optional, defaults to empty for browser caching)
  * @returns {Promise<{asc: Object|null, emcc: Object|null, sharedBuffer: SharedArrayBuffer|null}>}
  */
 export async function parallelWasmLoad(options = {}) {
     const {
         onProgress = () => {},
         ascWasmUrl = './candy_physics.wasm',
-        emccWasmUrl = './candy_native.wasm'
+        emccWasmUrl = './candy_native.wasm',
+        cacheVersion = '' // Empty string allows browser caching; set to build hash in production
     } = options;
+
+    // Build URL with optional cache version
+    const buildUrl = (baseUrl) => {
+        if (!cacheVersion) return baseUrl;
+        const separator = baseUrl.includes('?') ? '&' : '?';
+        return `${baseUrl}${separator}v=${cacheVersion}`;
+    };
 
     // Initialize shared coordination
     const hasSharedMemory = initSharedBuffer();
@@ -208,7 +217,7 @@ export async function parallelWasmLoad(options = {}) {
     // AssemblyScript module load
     const ascPromise = (async () => {
         try {
-            const response = await fetch(ascWasmUrl + '?v=' + Date.now());
+            const response = await fetch(buildUrl(ascWasmUrl));
             if (!response.ok) {
                 console.warn('[WASMOrchestrator] ASC WASM not found');
                 return null;
@@ -233,7 +242,7 @@ export async function parallelWasmLoad(options = {}) {
     // Emscripten module load
     const emccPromise = (async () => {
         try {
-            const response = await fetch(emccWasmUrl + '?v=' + Date.now());
+            const response = await fetch(buildUrl(emccWasmUrl));
             if (!response.ok) {
                 console.log('[WASMOrchestrator] EMCC WASM not found (optional)');
                 return null;
@@ -327,14 +336,15 @@ export async function parallelWasmLoad(options = {}) {
     await Promise.all(compilePromises);
     
     signalPhaseComplete(LOADING_PHASES.ASSET_DECODE);
-    onProgress(LOADING_PHASES.GPU_UPLOAD, 'Preparing GPU resources...');
+    
+    // GPU_UPLOAD phase - currently a placeholder for future WebGPU buffer allocation
+    // In a full implementation, this phase would pre-allocate GPU buffers using 
+    // WASM-decoded data. For now, we skip directly to warmup.
     signalPhaseStart(LOADING_PHASES.GPU_UPLOAD);
-
-    // GPU resource preparation would happen here
-    // For now, we just signal completion
     signalPhaseComplete(LOADING_PHASES.GPU_UPLOAD);
 
-    onProgress(LOADING_PHASES.PIPELINE_WARMUP, 'Warming up render pipeline...');
+    // PIPELINE_WARMUP phase - signals that caller should run renderer.compileAsync()
+    onProgress(LOADING_PHASES.PIPELINE_WARMUP, 'WASM modules ready...');
     signalPhaseStart(LOADING_PHASES.PIPELINE_WARMUP);
     signalPhaseComplete(LOADING_PHASES.PIPELINE_WARMUP);
 
