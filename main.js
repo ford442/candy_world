@@ -5,7 +5,7 @@ import { MusicReactivitySystem } from './src/systems/music-reactivity.js';
 import { AudioSystem } from './src/audio/audio-system.js';
 import { BeatSync } from './src/audio/beat-sync.js';
 import { WeatherSystem, WeatherState } from './src/systems/weather.js';
-import { initWasm, isWasmReady } from './src/utils/wasm-loader.js';
+import { initWasm, initWasmParallel, isWasmReady, LOADING_PHASES } from './src/utils/wasm-loader.js';
 
 // Core imports
 import { PALETTE, CYCLE_DURATION, DURATION_SUNRISE, DURATION_DAY, DURATION_SUNSET, DURATION_DUSK_NIGHT, DURATION_DEEP_NIGHT } from './src/core/config.js';
@@ -454,8 +454,34 @@ function animate() {
     renderer.render(scene, camera);
 }
 
-// Start
-initWasm().then((wasmLoaded) => {
+// Start - WASM-First Architecture with Parallel Loading
+// Uses parallel WASM orchestration for faster startup (Strategy 1)
+// Falls back to sequential loading if parallel init fails
+
+async function startApplication() {
+    let wasmLoaded = false;
+    
+    try {
+        // Try parallel loading first (WASM-First Architecture)
+        console.log('[Candy World] Starting with WASM-First parallel initialization...');
+        wasmLoaded = await initWasmParallel({
+            onProgress: (phase, msg) => {
+                if (window.setLoadingStatus) window.setLoadingStatus(msg);
+                console.log(`[Loading Phase ${phase}] ${msg}`);
+            }
+        });
+    } catch (parallelError) {
+        console.warn('[Candy World] Parallel WASM init failed, trying sequential:', parallelError);
+        
+        // Fallback to sequential loading
+        try {
+            wasmLoaded = await initWasm();
+        } catch (seqError) {
+            console.error('[Candy World] All WASM init methods failed:', seqError);
+            wasmLoaded = false;
+        }
+    }
+
     console.log(`WASM module ${wasmLoaded ? 'active' : 'using JS fallbacks'}`);
 
     if (window.setLoadingStatus) window.setLoadingStatus("Entering Candy World...");
@@ -470,7 +496,23 @@ initWasm().then((wasmLoaded) => {
         startButton.disabled = false;
         startButton.innerText = 'Start Exploration 🚀';
     }
+    
     renderer.setAnimationLoop(animate);
+    
     // Test hook: signal that the scene/animation loop is running
+    try { window.__sceneReady = true; } catch (e) {}
+}
+
+// Initialize application
+startApplication().catch(err => {
+    console.error('[Candy World] Critical startup error:', err);
+    
+    // Fallback: Start animation loop anyway with JS fallbacks
+    if (window.setLoadingStatus) window.setLoadingStatus("Starting with reduced features...");
+    setTimeout(() => {
+        if (window.hideLoadingScreen) window.hideLoadingScreen();
+    }, 500);
+    
+    renderer.setAnimationLoop(animate);
     try { window.__sceneReady = true; } catch (e) {}
 });

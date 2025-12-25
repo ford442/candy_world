@@ -1,8 +1,19 @@
 // WASM Loader - Candy World Physics & Animation Module
 // Loads and wraps AssemblyScript WASM for easy use from JavaScript
-
+//
+// WASM-First Architecture: This module now supports parallel WASM loading
+// via the WASMOrchestrator for improved startup performance.
+//
 // Emscripten compile worker is loaded from public/js/emscripten-compile-worker.js as a static Worker
 // This avoids Vite bundling issues for workers in production builds.
+
+import { 
+    parallelWasmLoad, 
+    LOADING_PHASES, 
+    initSharedBuffer, 
+    getSharedBuffer,
+    isSharedMemoryAvailable 
+} from './wasm-orchestrator.js';
 
 let wasmInstance = null;
 let wasmMemory = null;
@@ -340,6 +351,104 @@ export async function initWasm() {
             startButton.style.cursor = 'pointer';
         }
         return false;
+    }
+}
+
+/**
+ * WASM-First Parallel Initialization (Strategy 1)
+ * 
+ * Loads both AssemblyScript and Emscripten modules in parallel for faster startup.
+ * Uses SharedArrayBuffer for cross-module coordination when available.
+ * 
+ * @param {Object} options
+ * @param {Function} options.onProgress - Progress callback (phase, message)
+ * @returns {Promise<boolean>} True if at least ASC module loaded successfully
+ */
+export async function initWasmParallel(options = {}) {
+    if (wasmInstance) return true;
+
+    const { onProgress = (phase, msg) => {
+        if (window.setLoadingStatus) window.setLoadingStatus(msg);
+    } } = options;
+
+    const startButton = document.getElementById('startButton');
+    if (startButton) {
+        startButton.disabled = true;
+        startButton.style.cursor = 'wait';
+    }
+
+    console.log('[WASM] initWasmParallel started (WASM-First Architecture)');
+
+    try {
+        // Use the parallel orchestrator for concurrent module loading
+        const result = await parallelWasmLoad({
+            onProgress,
+            ascWasmUrl: './candy_physics.wasm',
+            emccWasmUrl: './candy_native.wasm'
+        });
+
+        // Wire up the ASC module
+        if (result.asc) {
+            wasmInstance = result.asc;
+
+            // Verify exports exist
+            if (!wasmInstance.exports.getGroundHeight) {
+                console.error('[WASM] ASC exports missing getGroundHeight');
+                wasmInstance = null;
+            } else {
+                // Use WASM's exported memory
+                if (wasmInstance.exports.memory) {
+                    wasmMemory = wasmInstance.exports.memory;
+                    const memBuffer = wasmMemory.buffer;
+                    positionView = new Float32Array(memBuffer, POSITION_OFFSET, 1024);
+                    animationView = new Float32Array(memBuffer, ANIMATION_OFFSET, 1024);
+                    outputView = new Float32Array(memBuffer, OUTPUT_OFFSET, 1024);
+                }
+
+                // Cache function references
+                wasmGetGroundHeight = wasmInstance.exports.getGroundHeight;
+                wasmFreqToHue = wasmInstance.exports.freqToHue;
+                wasmLerp = wasmInstance.exports.lerp;
+                wasmBatchMushroomSpawnCandidates = wasmInstance.exports.batchMushroomSpawnCandidates || null;
+
+                console.log('[WASM] AssemblyScript module loaded via parallel orchestrator');
+            }
+        }
+
+        // Wire up the EMCC module
+        if (result.emcc) {
+            emscriptenInstance = result.emcc;
+            emscriptenMemory = emscriptenInstance.exports && emscriptenInstance.exports.memory;
+            console.log('[WASM] Emscripten module loaded via parallel orchestrator');
+
+            // Call init if available
+            const initFn = getNativeFunc('init_native');
+            if (initFn) {
+                setTimeout(() => {
+                    try { initFn(); console.log('[WASM] init_native() invoked'); }
+                    catch (e) { console.warn(e); }
+                }, 0);
+            }
+        }
+
+        // Log shared memory status
+        if (result.sharedBuffer) {
+            console.log('[WASM] SharedArrayBuffer coordination active');
+        }
+
+        // UX: Restore button
+        if (startButton) {
+            startButton.disabled = false;
+            startButton.textContent = 'Start Exploration 🚀';
+            startButton.style.cursor = 'pointer';
+        }
+
+        return wasmInstance !== null;
+    } catch (error) {
+        console.warn('[WASM] Parallel init failed, falling back to sequential:', error);
+        
+        // Fallback to original sequential loading
+        return await initWasm();
     }
 }
 
@@ -896,3 +1005,15 @@ export function hash(x, y) {
     const n = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
     return (n - Math.floor(n)) * 2 - 1;
 }
+
+// =============================================================================
+// RE-EXPORTS FROM WASM ORCHESTRATOR (for convenient access)
+// =============================================================================
+export { 
+    LOADING_PHASES, 
+    isSharedMemoryAvailable,
+    initSharedBuffer,
+    getSharedBuffer,
+    createPlaceholderScene,
+    removePlaceholderScene 
+} from './wasm-orchestrator.js';
