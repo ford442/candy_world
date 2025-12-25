@@ -168,6 +168,7 @@ export function initInput(camera, audioSystem, toggleDayNightCallback) {
             if (instructions) instructions.style.display = 'flex';
             if (startButton) {
                 startButton.innerText = 'Resume Exploration 🚀';
+                requestAnimationFrame(() => startButton.focus());
             }
         }
     });
@@ -219,7 +220,7 @@ export function initInput(camera, audioSystem, toggleDayNightCallback) {
             case 'KeyQ':
                 togglePlaylist();
                 break;
-            case 'KeyW': keyStates.jump = true; break;
+            case 'KeyW': keyStates.forward = true; break;
             case 'KeyA': keyStates.left = true; break;
             case 'KeyS': keyStates.backward = true; break;
             case 'KeyD': keyStates.right = true; break;
@@ -239,7 +240,7 @@ export function initInput(camera, audioSystem, toggleDayNightCallback) {
 
     const onKeyUp = function (event) {
         switch (event.code) {
-            case 'KeyW': keyStates.jump = false; break;
+            case 'KeyW': keyStates.forward = false; break;
             case 'KeyA': keyStates.left = false; break;
             case 'KeyS': keyStates.backward = false; break;
             case 'KeyD': keyStates.right = false; break;
