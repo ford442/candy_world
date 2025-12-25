@@ -187,6 +187,16 @@ export class MusicReactivitySystem {
             const i = (startIdx + offset) % totalObjects;
             const f = animatedFoliage[i];
 
+            // Optimization: Inline distance culling to avoid function call overhead
+            // Bolt: Check distance FIRST. It is much cheaper (3 mults) than Frustum Culling (Matrix Mult + 6 Dot Products).
+            // This quickly rejects objects that are in view but too far to animate.
+            const dx = f.position.x - camX;
+            const dy = f.position.y - camY;
+            const dz = f.position.z - camZ;
+            const distSq = dx * dx + dy * dy + dz * dz;
+
+            if (distSq > maxDistanceSq) continue;
+
             // CRITICAL: Frustum culling - skip objects outside camera view
             // This is the primary fix for the freeze when viewing many objects
             // FIX: Safely handle Groups which lack geometry/boundingSphere
@@ -204,14 +214,6 @@ export class MusicReactivitySystem {
             if (!isVisible) {
                 continue;
             }
-
-            // Optimization: Inline distance culling to avoid function call overhead
-            const dx = f.position.x - camX;
-            const dy = f.position.y - camY;
-            const dz = f.position.z - camZ;
-            const distSq = dx * dx + dy * dy + dz * dz;
-
-            if (distSq > maxDistanceSq) continue;
 
             // Check time budget (throttled to avoid expensive performance.now() calls every iteration)
             const shouldCheckBudget = (processedCount % budgetCheckInterval === 0);
