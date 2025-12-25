@@ -479,6 +479,7 @@ function finishLoadingScreen() {
     if (startButton) {
         startButton.disabled = false;
         startButton.innerText = 'Start Exploration 🚀';
+        startButton.focus();
     }
 }
 
