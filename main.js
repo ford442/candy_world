@@ -458,6 +458,30 @@ function animate() {
 // Uses parallel WASM orchestration for faster startup (Strategy 1)
 // Falls back to sequential loading if parallel init fails
 
+/**
+ * Start the animation loop and signal that the scene is ready
+ */
+function startAnimationLoop() {
+    renderer.setAnimationLoop(animate);
+    // Test hook: signal that the scene/animation loop is running
+    try { window.__sceneReady = true; } catch (e) {}
+}
+
+/**
+ * Hide loading screen after a brief delay
+ */
+function finishLoadingScreen() {
+    setTimeout(() => {
+        if (window.hideLoadingScreen) window.hideLoadingScreen();
+    }, 500);
+    
+    const startButton = document.getElementById('startButton');
+    if (startButton) {
+        startButton.disabled = false;
+        startButton.innerText = 'Start Exploration 🚀';
+    }
+}
+
 async function startApplication() {
     let wasmLoaded = false;
     
@@ -485,22 +509,8 @@ async function startApplication() {
     console.log(`WASM module ${wasmLoaded ? 'active' : 'using JS fallbacks'}`);
 
     if (window.setLoadingStatus) window.setLoadingStatus("Entering Candy World...");
-
-    // Small delay to let the user see the "Ready" message before fading
-    setTimeout(() => {
-        if (window.hideLoadingScreen) window.hideLoadingScreen();
-    }, 500);
-
-    const startButton = document.getElementById('startButton');
-    if (startButton) {
-        startButton.disabled = false;
-        startButton.innerText = 'Start Exploration 🚀';
-    }
-    
-    renderer.setAnimationLoop(animate);
-    
-    // Test hook: signal that the scene/animation loop is running
-    try { window.__sceneReady = true; } catch (e) {}
+    finishLoadingScreen();
+    startAnimationLoop();
 }
 
 // Initialize application
@@ -509,10 +519,6 @@ startApplication().catch(err => {
     
     // Fallback: Start animation loop anyway with JS fallbacks
     if (window.setLoadingStatus) window.setLoadingStatus("Starting with reduced features...");
-    setTimeout(() => {
-        if (window.hideLoadingScreen) window.hideLoadingScreen();
-    }, 500);
-    
-    renderer.setAnimationLoop(animate);
-    try { window.__sceneReady = true; } catch (e) {}
+    finishLoadingScreen();
+    startAnimationLoop();
 });
