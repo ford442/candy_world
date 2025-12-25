@@ -9,6 +9,7 @@ import { animateFoliage, triggerMoonBlink } from '../foliage/index.js';
 // Reusable frustum for culling (prevent GC)
 const _frustum = new THREE.Frustum();
 const _projScreenMatrix = new THREE.Matrix4();
+const _scratchSphere = new THREE.Sphere(); // For Group culling
 
 const CHROMATIC_SCALE = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
@@ -188,7 +189,19 @@ export class MusicReactivitySystem {
 
             // CRITICAL: Frustum culling - skip objects outside camera view
             // This is the primary fix for the freeze when viewing many objects
-            if (!_frustum.intersectsObject(f)) {
+            // FIX: Safely handle Groups which lack geometry/boundingSphere
+            let isVisible = false;
+            if (f.geometry && f.geometry.boundingSphere) {
+                isVisible = _frustum.intersectsObject(f);
+            } else {
+                // Fallback for Groups or objects without geometry
+                // Use a default radius (5.0) or user-defined radius
+                _scratchSphere.center.copy(f.position);
+                _scratchSphere.radius = f.userData.radius || 5.0;
+                isVisible = _frustum.intersectsSphere(_scratchSphere);
+            }
+
+            if (!isVisible) {
                 continue;
             }
 
