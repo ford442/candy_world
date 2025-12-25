@@ -1,5 +1,104 @@
-import { POSITION_OFFSET, ANIMATION_OFFSET } from "./constants";
+import { POSITION_OFFSET, ANIMATION_OFFSET, MATERIAL_DATA_OFFSET } from "./constants";
 import { getGroundHeight } from "./math";
+
+// =============================================================================
+// MATERIAL ANALYSIS CONSTANTS (Strategy 3: Shader Pre-Hashing)
+// =============================================================================
+const MAX_UNIQUE_SHADERS: i32 = 64;
+
+// Cached shader hash map (simulated with linear storage)
+let _uniqueShaderCount: i32 = 0;
+
+/**
+ * Analyze materials and return count of unique shader combinations
+ * This pre-processes materials before GPU pipeline creation to identify
+ * which shader modules need to be compiled.
+ * 
+ * Material data layout per material (16 bytes = 4 x i32):
+ *   [0-3]   vertexShaderId: i32
+ *   [4-7]   fragmentShaderId: i32  
+ *   [8-11]  blendingMode: i32
+ *   [12-15] flags: i32 (bit 0 = doubleSided, bit 1 = transparent, etc.)
+ * 
+ * @param materialPtr - Pointer to material data in WASM memory
+ * @param count - Number of materials to analyze
+ * @returns Number of unique shader combinations found
+ */
+export function analyzeMaterials(materialPtr: i32, count: i32): i32 {
+    if (count <= 0) return 0;
+    
+    // Simple deduplication using a small hash table
+    const hashTableSize: i32 = 128;
+    const hashTable = new StaticArray<i32>(hashTableSize);
+    
+    // Initialize hash table
+    for (let i = 0; i < hashTableSize; i++) {
+        unchecked(hashTable[i] = -1);
+    }
+    
+    let uniqueCount: i32 = 0;
+    
+    for (let i = 0; i < count; i++) {
+        const ptr = materialPtr + i * 16;
+        
+        const vertexId = load<i32>(ptr);
+        const fragmentId = load<i32>(ptr + 4);
+        const blendMode = load<i32>(ptr + 8);
+        const flags = load<i32>(ptr + 12);
+        
+        // Create a simple hash from shader configuration
+        const hash = computeShaderHash(vertexId, fragmentId, blendMode, flags);
+        const slot = hash % hashTableSize;
+        
+        // Linear probe for collision - look for empty slot or existing match
+        for (let probe = 0; probe < hashTableSize; probe++) {
+            const idx = (slot + probe) % hashTableSize;
+            if (unchecked(hashTable[idx]) == -1) {
+                // Empty slot - new unique shader
+                unchecked(hashTable[idx] = hash);
+                
+                // Store shader info in output area for JS to read
+                if (uniqueCount < MAX_UNIQUE_SHADERS) {
+                    const outPtr = MATERIAL_DATA_OFFSET + uniqueCount * 16;
+                    store<i32>(outPtr, vertexId);
+                    store<i32>(outPtr + 4, fragmentId);
+                    store<i32>(outPtr + 8, blendMode);
+                    store<i32>(outPtr + 12, flags);
+                }
+                
+                uniqueCount++;
+                break;
+            } else if (unchecked(hashTable[idx]) == hash) {
+                // Found existing match - not unique, skip
+                break;
+            }
+        }
+    }
+    
+    _uniqueShaderCount = uniqueCount;
+    return uniqueCount;
+}
+
+/**
+ * Get the cached unique shader count from last analysis
+ */
+export function getUniqueShaderCount(): i32 {
+    return _uniqueShaderCount;
+}
+
+/**
+ * Compute a hash for shader configuration
+ * This creates a unique identifier for each shader variant
+ */
+function computeShaderHash(vertexId: i32, fragmentId: i32, blendMode: i32, flags: i32): i32 {
+    // Simple hash combining function
+    let hash: i32 = 17;
+    hash = hash * 31 + vertexId;
+    hash = hash * 31 + fragmentId;
+    hash = hash * 31 + blendMode;
+    hash = hash * 31 + (flags & 0xFF); // Only use low bits of flags
+    return hash & 0x7FFFFFFF; // Keep positive
+}
 
 /**
  * Update animation state for all objects

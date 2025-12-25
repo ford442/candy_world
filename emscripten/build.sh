@@ -36,6 +36,8 @@ OUTPUT_JS="$REPO_ROOT/public/candy_native.js"
 # ---------------------------------------------------------
 # COMPILER FLAGS
 # ---------------------------------------------------------
+# -fopenmp: Enables OpenMP threading pragmas in C++
+# -pthread: Tells compiler to use thread-safe libraries
 # -O3: Max speed
 # -g1: Preserve function names in imports (prevents minification to "a", "b") - CRITICAL for stability
 # -msimd128: SIMD support

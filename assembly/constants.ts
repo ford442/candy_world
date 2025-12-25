@@ -3,5 +3,7 @@
 export const POSITION_OFFSET: i32 = 0;
 // 4096-8191: Animation state (currentY, targetY, velocity, phase)
 export const ANIMATION_OFFSET: i32 = 4096;
-// 8192+: Output buffer for batch operations
+// 8192-12287: Output buffer for batch operations
 export const OUTPUT_OFFSET: i32 = 8192;
+// 12288+: Material data for shader analysis (Strategy 3)
+export const MATERIAL_DATA_OFFSET: i32 = 12288;

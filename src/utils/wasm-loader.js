@@ -5,6 +5,20 @@
 
 // WASM Loader - Candy World Physics & Animation Module
 // Loads and wraps AssemblyScript WASM for easy use from JavaScript
+//
+// WASM-First Architecture: This module now supports parallel WASM loading
+// via the WASMOrchestrator for improved startup performance.
+//
+// Emscripten compile worker is loaded from public/js/emscripten-compile-worker.js as a static Worker
+// This avoids Vite bundling issues for workers in production builds.
+
+import { 
+    parallelWasmLoad, 
+    LOADING_PHASES, 
+    initSharedBuffer, 
+    getSharedBuffer,
+    isSharedMemoryAvailable 
+} from './wasm-orchestrator.js';
 
 let wasmInstance = null;
 let wasmMemory = null;
@@ -278,6 +292,104 @@ export async function initWasm() {
 }
 
 /**
+ * WASM-First Parallel Initialization (Strategy 1)
+ * 
+ * Loads both AssemblyScript and Emscripten modules in parallel for faster startup.
+ * Uses SharedArrayBuffer for cross-module coordination when available.
+ * 
+ * @param {Object} options
+ * @param {Function} options.onProgress - Progress callback (phase, message)
+ * @returns {Promise<boolean>} True if at least ASC module loaded successfully
+ */
+export async function initWasmParallel(options = {}) {
+    if (wasmInstance) return true;
+
+    const { onProgress = (phase, msg) => {
+        if (window.setLoadingStatus) window.setLoadingStatus(msg);
+    } } = options;
+
+    const startButton = document.getElementById('startButton');
+    if (startButton) {
+        startButton.disabled = true;
+        startButton.style.cursor = 'wait';
+    }
+
+    console.log('[WASM] initWasmParallel started (WASM-First Architecture)');
+
+    try {
+        // Use the parallel orchestrator for concurrent module loading
+        const result = await parallelWasmLoad({
+            onProgress,
+            ascWasmUrl: './candy_physics.wasm',
+            emccWasmUrl: './candy_native.wasm'
+        });
+
+        // Wire up the ASC module
+        if (result.asc) {
+            wasmInstance = result.asc;
+
+            // Verify exports exist
+            if (!wasmInstance.exports.getGroundHeight) {
+                console.error('[WASM] ASC exports missing getGroundHeight');
+                wasmInstance = null;
+            } else {
+                // Use WASM's exported memory
+                if (wasmInstance.exports.memory) {
+                    wasmMemory = wasmInstance.exports.memory;
+                    const memBuffer = wasmMemory.buffer;
+                    positionView = new Float32Array(memBuffer, POSITION_OFFSET, 1024);
+                    animationView = new Float32Array(memBuffer, ANIMATION_OFFSET, 1024);
+                    outputView = new Float32Array(memBuffer, OUTPUT_OFFSET, 1024);
+                }
+
+                // Cache function references
+                wasmGetGroundHeight = wasmInstance.exports.getGroundHeight;
+                wasmFreqToHue = wasmInstance.exports.freqToHue;
+                wasmLerp = wasmInstance.exports.lerp;
+                wasmBatchMushroomSpawnCandidates = wasmInstance.exports.batchMushroomSpawnCandidates || null;
+
+                console.log('[WASM] AssemblyScript module loaded via parallel orchestrator');
+            }
+        }
+
+        // Wire up the EMCC module
+        if (result.emcc) {
+            emscriptenInstance = result.emcc;
+            emscriptenMemory = emscriptenInstance.exports && emscriptenInstance.exports.memory;
+            console.log('[WASM] Emscripten module loaded via parallel orchestrator');
+
+            // Call init if available
+            const initFn = getNativeFunc('init_native');
+            if (initFn) {
+                setTimeout(() => {
+                    try { initFn(); console.log('[WASM] init_native() invoked'); }
+                    catch (e) { console.warn(e); }
+                }, 0);
+            }
+        }
+
+        // Log shared memory status
+        if (result.sharedBuffer) {
+            console.log('[WASM] SharedArrayBuffer coordination active');
+        }
+
+        // UX: Restore button
+        if (startButton) {
+            startButton.disabled = false;
+            startButton.textContent = 'Start Exploration 🚀';
+            startButton.style.cursor = 'pointer';
+        }
+
+        return wasmInstance !== null;
+    } catch (error) {
+        console.warn('[WASM] Parallel init failed, falling back to sequential:', error);
+        
+        // Fallback to original sequential loading
+        return await initWasm();
+    }
+}
+
+/**
  * Check if WASM is available
  */
 export function isWasmReady() {
@@ -448,6 +560,89 @@ export function readSpawnCandidates(candidateCount) {
         arr.push({ x, y, z, colorIndex: Math.round(colorIndex) });
     }
     return arr;
+}
+
+// =============================================================================
+// MATERIAL ANALYSIS (Strategy 3: Shader Pre-Hashing & Deduplication)
+// =============================================================================
+
+/**
+ * Analyze materials and identify unique shader combinations
+ * This enables compileAsync optimizations by pre-deduplicating shader modules
+ * 
+ * @param {Array<{vertexShaderId: number, fragmentShaderId: number, blendingMode: number, flags: number}>} materials
+ * @returns {{uniqueCount: number, shaders: Array<{vertexId: number, fragmentId: number, blendMode: number, flags: number}>}}
+ */
+export function analyzeMaterials(materials) {
+    if (!wasmInstance || !wasmInstance.exports.analyzeMaterials) {
+        // JS fallback - simple deduplication
+        const seen = new Map();
+        const shaders = [];
+        
+        for (const mat of materials) {
+            const key = `${mat.vertexShaderId}-${mat.fragmentShaderId}-${mat.blendingMode}-${mat.flags || 0}`;
+            if (!seen.has(key)) {
+                seen.set(key, true);
+                shaders.push({
+                    vertexId: mat.vertexShaderId || 0,
+                    fragmentId: mat.fragmentShaderId || 0,
+                    blendMode: mat.blendingMode || 0,
+                    flags: mat.flags || 0
+                });
+            }
+        }
+        
+        return { uniqueCount: shaders.length, shaders };
+    }
+    
+    // Use WASM for analysis (faster for large material counts)
+    const count = Math.min(materials.length, 256);
+    // MATERIAL_DATA_OFFSET: Must match assembly/constants.ts MATERIAL_DATA_OFFSET (12288)
+    const MATERIAL_OFFSET = 12288;
+    
+    // Upload material data to WASM memory
+    if (!wasmMemory) return { uniqueCount: 0, shaders: [] };
+    
+    // Each material is 4 x i32 (16 bytes), so we need count * 4 elements
+    const materialView = new Int32Array(wasmMemory.buffer, MATERIAL_OFFSET, count * 4);
+    for (let i = 0; i < count; i++) {
+        const mat = materials[i];
+        const idx = i * 4; // 4 int32 elements per material
+        materialView[idx] = mat.vertexShaderId || 0;
+        materialView[idx + 1] = mat.fragmentShaderId || 0;
+        materialView[idx + 2] = mat.blendingMode || 0;
+        materialView[idx + 3] = mat.flags || 0;
+    }
+    
+    // Run WASM analysis
+    const uniqueCount = wasmInstance.exports.analyzeMaterials(MATERIAL_OFFSET, count);
+    
+    // Read back unique shader configurations from the output area
+    // WASM writes results starting at MATERIAL_OFFSET (same location, overwritten)
+    const outputView = new Int32Array(wasmMemory.buffer, MATERIAL_OFFSET, Math.min(uniqueCount, 64) * 4);
+    const shaders = [];
+    for (let i = 0; i < Math.min(uniqueCount, 64); i++) {
+        const idx = i * 4;
+        shaders.push({
+            vertexId: outputView[idx],
+            fragmentId: outputView[idx + 1],
+            blendMode: outputView[idx + 2],
+            flags: outputView[idx + 3]
+        });
+    }
+    
+    return { uniqueCount, shaders };
+}
+
+/**
+ * Get unique shader count from last material analysis
+ * @returns {number}
+ */
+export function getUniqueShaderCount() {
+    if (wasmInstance && wasmInstance.exports.getUniqueShaderCount) {
+        return wasmInstance.exports.getUniqueShaderCount();
+    }
+    return 0;
 }
 
 /**
@@ -830,3 +1025,15 @@ export function hash(x, y) {
     const n = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
     return (n - Math.floor(n)) * 2 - 1;
 }
+
+// =============================================================================
+// RE-EXPORTS FROM WASM ORCHESTRATOR (for convenient access)
+// =============================================================================
+export { 
+    LOADING_PHASES, 
+    isSharedMemoryAvailable,
+    initSharedBuffer,
+    getSharedBuffer,
+    createPlaceholderScene,
+    removePlaceholderScene 
+} from './wasm-orchestrator.js';
