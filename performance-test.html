@@ -115,7 +115,7 @@
             fpsEl.className = 'stat-value ' + (fps >= 50 ? 'good' : fps >= 30 ? 'warning' : 'bad');
 
             const frameTimeEl = document.getElementById('frameTime');
-            frameTime = Math.round((1000 / fps) * 100) / 100;
+            frameTime = fps > 0 ? Math.round((1000 / fps) * 100) / 100 : 0;
             frameTimeEl.textContent = frameTime + ' ms';
             frameTimeEl.className = 'stat-value ' + (frameTime <= 16.67 ? 'good' : frameTime <= 33.33 ? 'warning' : 'bad');
 
