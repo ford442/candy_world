@@ -80,9 +80,9 @@ try {
     passedTests++;
 
     // Test that staggered updates work
-    const initialStartIndex = system.updateStartIndex;
+    const initialStartIndex = system.getUpdateStartIndex();
     system.update(1.0, audioState, mockWeatherSystem, testObjects, mockCamera, false, false, mockMoon);
-    const newStartIndex = system.updateStartIndex;
+    const newStartIndex = system.getUpdateStartIndex();
     if (newStartIndex !== initialStartIndex) {
         console.log('[Test] ✓ Staggered update index advances correctly');
         passedTests++;
