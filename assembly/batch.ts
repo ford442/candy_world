@@ -1,10 +1,9 @@
-import { POSITION_OFFSET, ANIMATION_OFFSET } from "./constants";
+import { POSITION_OFFSET, ANIMATION_OFFSET, MATERIAL_DATA_OFFSET } from "./constants";
 import { getGroundHeight } from "./math";
 
 // =============================================================================
 // MATERIAL ANALYSIS CONSTANTS (Strategy 3: Shader Pre-Hashing)
 // =============================================================================
-const MATERIAL_DATA_OFFSET: i32 = 12288; // After output buffer
 const MAX_UNIQUE_SHADERS: i32 = 64;
 
 // Cached shader hash map (simulated with linear storage)

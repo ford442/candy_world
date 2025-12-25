@@ -653,7 +653,8 @@ export function analyzeMaterials(materials) {
     
     // Use WASM for analysis (faster for large material counts)
     const count = Math.min(materials.length, 256);
-    const MATERIAL_OFFSET = 12288; // Must match AssemblyScript constant
+    // MATERIAL_DATA_OFFSET: Must match assembly/constants.ts MATERIAL_DATA_OFFSET (12288)
+    const MATERIAL_OFFSET = 12288;
     
     // Upload material data to WASM memory
     if (!wasmMemory) return { uniqueCount: 0, shaders: [] };
