@@ -135,7 +135,7 @@ export function createMushroom(options = {}) {
         group.add(faceGroup);
     }
 
-    // Giant Breathing Effect (TSL)
+    // Giant Breathing Effect & Pulsing Stripes (TSL)
     if (isGiant) {
         const breathMat = new MeshStandardNodeMaterial({
             color: instanceCapMat.color, // Use the clay color
@@ -146,12 +146,24 @@ export function createMushroom(options = {}) {
         const pos = positionLocal;
         const breathSpeed = time.mul(2.0);
         const breath = sin(breathSpeed).mul(0.1).add(1.0);
-        // Displace vertices
+        // Displace vertices for breathing
         breathMat.positionNode = pos.mul(breath);
 
-        // Slight emissive pulse
-        const emissivePulse = sin(breathSpeed.mul(2.0)).mul(0.1).add(0.1);
-        breathMat.emissiveNode = color(instanceCapMat.color).mul(emissivePulse);
+        // Animated Emission Stripes
+        // Use positionLocal.y to create horizontal stripes
+        // Use time to move them upwards
+        const stripeFreq = 10.0;
+        const stripeSpeed = 2.0;
+        const stripePattern = sin(pos.y.mul(stripeFreq).sub(time.mul(stripeSpeed)));
+
+        // Clamp to 0-1 and sharpen
+        const stripeIntensity = stripePattern.add(1.0).mul(0.5).pow(2.0);
+
+        // Base color pulse + Stripe overlay
+        const basePulse = sin(breathSpeed.mul(2.0)).mul(0.1).add(0.2);
+        const totalEmission = stripeIntensity.mul(0.3).add(basePulse);
+
+        breathMat.emissiveNode = color(instanceCapMat.color).mul(totalEmission);
 
         cap.material = breathMat;
         // Keep reference for reactivity override

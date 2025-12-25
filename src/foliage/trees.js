@@ -456,14 +456,50 @@ export class VineSwing {
         this.swingAngularVel *= damping;
 
         if (this.isPlayerAttached && inputState) {
+            // "Pumping" the swing: apply force tangential to swing
+            // Forward/Backward keys increase swing amplitude
+            const pumpForce = 3.0; // Increased responsiveness
+
+            // Only effective near the bottom of swing for realism?
+            // Or just generally add energy in direction of movement?
+            // Simple approach: Forward key increases velocity if moving forward (swingAngle increasing?),
+            // or we just map forward key to "positive swing direction" relative to view?
+            // For now: Forward key tries to increase positive swing angle (swing 'forward').
+
             if (inputState.forward) {
-                this.swingAngularVel += 2.0 * delta * Math.cos(this.swingAngle);
+                 // Add velocity in direction of swing
+                 // If moving positive, add more. If moving negative, slow down/reverse?
+                 // Actually, "forward" usually means "swing in the direction I am facing".
+                 // But swingPlane is fixed. Let's simplify: Forward increases amplitude.
+                 // We apply a force in phase with velocity to build energy (resonance).
+
+                 // If velocity is close to zero (at peaks), input is less effective.
+                 // Effective pumping happens near center.
+
+                 // Let's just allow direct influence for better game feel.
+                 // Push in direction of velocity if moving, else push "forward" (positive angle)
+                 if (Math.abs(this.swingAngularVel) > 0.1) {
+                     this.swingAngularVel += Math.sign(this.swingAngularVel) * pumpForce * delta;
+                 } else {
+                     this.swingAngularVel += pumpForce * delta;
+                 }
             } else if (inputState.backward) {
-                this.swingAngularVel -= 2.0 * delta * Math.cos(this.swingAngle);
+                 // Brake or reverse
+                 this.swingAngularVel -= Math.sign(this.swingAngularVel) * pumpForce * delta;
             }
         }
 
         this.swingAngle += this.swingAngularVel * delta;
+
+        // Clamp swing angle to prevent looping over the branch (max 80 degrees)
+        const maxAngle = Math.PI * 0.45;
+        if (this.swingAngle > maxAngle) {
+            this.swingAngle = maxAngle;
+            this.swingAngularVel *= -0.5; // Bounce back
+        } else if (this.swingAngle < -maxAngle) {
+            this.swingAngle = -maxAngle;
+            this.swingAngularVel *= -0.5;
+        }
 
         const dy = -Math.cos(this.swingAngle) * this.length;
         const dh = Math.sin(this.swingAngle) * this.length;
@@ -474,6 +510,8 @@ export class VineSwing {
 
         if (this.isPlayerAttached) {
             player.position.copy(targetPos);
+            // Also rotate player to face swing direction?
+            // Maybe not, allow looking around.
         }
 
         const dir = new THREE.Vector3().subVectors(targetPos, this.anchorPoint).normalize();
