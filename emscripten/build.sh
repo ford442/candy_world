@@ -39,11 +39,16 @@ OUTPUT_JS="$REPO_ROOT/public/candy_native.js"
 # -fopenmp: Enables OpenMP threading pragmas in C++
 # -pthread: Tells compiler to use thread-safe libraries
 # -O3: Max speed
+# -g1: Preserve function names in imports (prevents minification to "a", "b") - CRITICAL for stability
 # -msimd128: SIMD support
 # -mrelaxed-simd: Relaxed SIMD
 # -ffast-math: Fast math
 # -flto: Link Time Optimization (Full)
-COMPILE_FLAGS="-O3 -msimd128 -mrelaxed-simd -ffast-math -flto -fno-exceptions -fno-rtti -funroll-loops -mbulk-memory -fopenmp -pthread"
+# -fno-exceptions: Removes exception handling overhead
+# -mbulk-memory: Fast memory copying
+# -fopenmp: Enables OpenMP threading pragmas
+# -pthread: Tells compiler to use thread-safe libraries
+COMPILE_FLAGS="-O3 -g1 -msimd128 -mrelaxed-simd -ffast-math -flto -fno-exceptions -fno-rtti -funroll-loops -mbulk-memory -fopenmp -pthread"
 
 # ---------------------------------------------------------
 # LINKER FLAGS
@@ -55,7 +60,7 @@ COMPILE_FLAGS="-O3 -msimd128 -mrelaxed-simd -ffast-math -flto -fno-exceptions -f
 # -s ENVIRONMENT='web,worker': Build for browser and workers
 # -s ALLOW_MEMORY_GROWTH=1: Required for Pthreads usually, or flexibility
 # -s INITIAL_MEMORY=256mb: Starting memory
-LINK_FLAGS="-s USE_PTHREADS=1 -s PTHREAD_POOL_SIZE=4 -s WASM=1 -s WASM_BIGINT=1 -s ALLOW_MEMORY_GROWTH=1 -s INITIAL_MEMORY=256mb -s ASSERTIONS=0 -s EXPORT_ES6=1 -s MODULARIZE=1 -s EXPORT_NAME='createCandyNative' -s ENVIRONMENT=web,worker -flto"
+LINK_FLAGS="-s USE_PTHREADS=1 -s PTHREAD_POOL_SIZE=4 -s WASM=1 -s WASM_BIGINT=1 -s ALLOW_MEMORY_GROWTH=1 -s INITIAL_MEMORY=256mb -s ASSERTIONS=0 -s EXPORT_ES6=1 -s MODULARIZE=1 -s EXPORT_NAME='createCandyNative' -s ENVIRONMENT=web,worker -flto -g1"
 
 EXPORTS="[ \
     '_hash', \

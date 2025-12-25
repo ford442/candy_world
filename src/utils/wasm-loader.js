@@ -41,6 +41,11 @@ let emscriptenInstance = null;
 // We will keep the variable for consistency but it might be unused.
 let emscriptenMemory = null;
 
+// Cache for C-side scratch buffers used by culling to avoid repeated malloc/free
+let cullScratchPos = 0;   // pointer to positions buffer in emscripten heap
+let cullScratchRes = 0;   // pointer to results buffer in emscripten heap
+let cullScratchSize = 0;  // number of object capacity allocated
+
 // Memory layout constants (must match AssemblyScript)
 const POSITION_OFFSET = 0;
 const ANIMATION_OFFSET = 4096;
@@ -63,6 +68,15 @@ export const AnimationType = {
  * Load the Emscripten-generated JS module which handles WASM & Workers
  */
 async function loadEmscriptenModule() {
+    // 0. Safety Check for SharedArrayBuffer
+    if (typeof SharedArrayBuffer === 'undefined') {
+        console.error('[Native] SharedArrayBuffer is missing. Pthreads will NOT work.');
+        console.error('[Native] If hosting statically, ensure you have COOP/COEP headers configured.');
+        console.error('[Native] (Cross-Origin-Opener-Policy: same-origin, Cross-Origin-Embedder-Policy: require-corp)');
+        // We return false here to prevent a crash during instantiation
+        return false;
+    }
+
     try {
         await updateProgress('Loading Native Engine...');
 
@@ -84,6 +98,14 @@ async function loadEmscriptenModule() {
         });
 
         console.log('[WASM] Emscripten Pthreads Ready');
+
+        // Expose memory buffer if needed by legacy code (scratch buffers, etc.)
+        if (emscriptenInstance.wasmMemory) {
+            emscriptenMemory = emscriptenInstance.wasmMemory;
+        } else if (emscriptenInstance.HEAP8) {
+            emscriptenMemory = emscriptenInstance.HEAP8.buffer;
+        }
+
         return true;
     } catch (e) {
         console.warn('Failed to load Native Emscripten module:', e);
