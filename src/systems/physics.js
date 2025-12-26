@@ -1,7 +1,9 @@
 // src/systems/physics.js
 
 import * as THREE from 'three';
-import { getGroundHeight } from '../utils/wasm-loader.js';
+import {
+    getGroundHeight, initPhysics, addObstacle, setPlayerState, getPlayerState, updatePhysicsCPP
+} from '../utils/wasm-loader.js';
 import {
     foliageMushrooms, foliageTrampolines, foliageClouds,
     activeVineSwing, setActiveVineSwing, lastVineDetachTime, setLastVineDetachTime, vineSwings
@@ -34,6 +36,53 @@ export const grooveGravity = {
     targetMultiplier: 1.0,
     baseGravity: 20.0
 };
+
+// --- Flag to track if C++ Physics is ready ---
+let cppPhysicsInitialized = false;
+
+// Initialize C++ physics state once
+function initCppPhysics(camera) {
+    if (cppPhysicsInitialized) return;
+
+    // Set initial player state
+    initPhysics(camera.position.x, camera.position.y, camera.position.z);
+
+    // Populate Obstacles
+    // Mushrooms (Type 0)
+    for (const m of foliageMushrooms) {
+        // type=0, x,y,z, stemR, capH, stemR(param1), capR(param2), isTrampoline(param3)
+        // Note: Our C++ addObstacle signature: type, x, y, z, r, h, p1, p2, p3
+        // C++:
+        // Mushroom(0): r=unused?, h=capH, p1=stemR, p2=capR, p3=isTrampoline
+        const stemR = m.userData.stemRadius || 0.5;
+        const capR = m.userData.capRadius || 2.0;
+        const capH = m.userData.capHeight || 3.0;
+        const isTrampoline = m.userData.isTrampoline ? 1 : 0;
+        addObstacle(0, m.position.x, m.position.y, m.position.z, 0, capH, stemR, capR, isTrampoline);
+    }
+
+    // Clouds (Type 1)
+    for (const c of foliageClouds) {
+        // type=1, x,y,z, radius, thickness(h), tier(p2)
+        const radius = (c.scale.x || 1.0) * 2.0;
+        const tier = c.userData.tier || 1;
+        // height? Clouds are roughly flat but have volume. Let's say thickness 1.0
+        const thickness = (c.scale.y || 1.0) * 0.8;
+        addObstacle(1, c.position.x, c.position.y, c.position.z, radius, thickness, 0, tier, 0);
+    }
+
+    // Trampolines (Type 2)
+    for (const t of foliageTrampolines) {
+        // type=2, x,y,z, radius, bounceHeight(h), bounceForce(p1)
+        const radius = t.userData.bounceRadius || 0.5;
+        const bounceHeight = t.userData.bounceHeight || 0.5;
+        const force = t.userData.bounceForce || 12.0;
+        addObstacle(2, t.position.x, t.position.y, t.position.z, radius, bounceHeight, force, 0, 0);
+    }
+
+    cppPhysicsInitialized = true;
+    console.log('[Physics] C++ Physics Initialized with obstacles.');
+}
 
 function checkFlowerTrampoline(pos, audioState) {
     for (let i = 0; i < foliageTrampolines.length; i++) {
@@ -137,11 +186,74 @@ export function updatePhysics(delta, camera, controls, keyStates, audioState) {
                 }
             }
 
-            // Standard Movement
+            // --- TRY C++ PHYSICS ---
+            if (!cppPhysicsInitialized) {
+                 initCppPhysics(camera);
+            }
+
+            let inputX = 0;
+            let inputZ = 0;
+
             let moveSpeed = player.speed;
             if (keyStates.sprint) moveSpeed = player.sprintSpeed;
             if (keyStates.sneak) moveSpeed = player.sneakSpeed;
 
+            if (keyStates.forward) inputZ += 1;
+            if (keyStates.backward) inputZ -= 1;
+            if (keyStates.left) inputX -= 1;
+            if (keyStates.right) inputX += 1;
+
+            // Normalize input
+            const len = Math.sqrt(inputX*inputX + inputZ*inputZ);
+            if (len > 0) {
+                inputX /= len;
+                inputZ /= len;
+            }
+
+            // Sync JS state to C++ (in case vine swing or other things moved us)
+            setPlayerState(camera.position.x, camera.position.y, camera.position.z, player.velocity.x, player.velocity.y, player.velocity.z);
+
+            // CALL C++ UPDATE
+            const onGround = updatePhysicsCPP(
+                delta, inputX, inputZ, moveSpeed,
+                keyStates.jump ? 1 : 0,
+                keyStates.sprint ? 1 : 0,
+                keyStates.sneak ? 1 : 0,
+                grooveGravity.multiplier
+            );
+
+            if (onGround >= 0) { // Success (returns onGround status)
+                // Read back state
+                const newState = getPlayerState();
+                camera.position.x = newState.x;
+                camera.position.y = newState.y;
+                camera.position.z = newState.z;
+                player.velocity.x = newState.vx;
+                player.velocity.y = newState.vy;
+                player.velocity.z = newState.vz;
+
+                // If jumped (was processed in C++), clear key
+                if (keyStates.jump && onGround == 1) { // 1 = landed/grounded
+                     // C++ handles jump impulse if key is set and onGround.
+                     // We just need to clear the key if we are in air now?
+                     // Actually C++ applies jump force immediately if onGround && jump.
+                     // So we should clear it.
+                }
+                // Just clear jump if we are not on ground anymore (jumping)
+                if (player.velocity.y > 0) keyStates.jump = false;
+
+                controls.moveRight(0); // We set position directly, so no need for controls.move* accumulation?
+                // Wait, PointerLockControls usually operates on camera position via moveRight/Forward.
+                // But we just set camera.position directly.
+                // This might desync if PLC maintains internal state?
+                // Three.js PointerLockControls just modifies object.position. So setting object.position is fine.
+
+                return; // SKIP JS FALLBACK
+            }
+
+            // --- END C++ PHYSICS ---
+
+            // Standard Movement (JS Fallback)
             _targetVelocity.set(0, 0, 0);
             if (keyStates.forward) _targetVelocity.z += moveSpeed;
             if (keyStates.backward) _targetVelocity.z -= moveSpeed;
