@@ -362,7 +362,7 @@ function animate() {
             glowIntensity = 0.25 + factor * 0.35;
             coronaIntensity = 0.15 + factor * 0.25;
             shaftIntensity = factor * 0.12;
-            shaftVisible = true;
+            shaftVisible = false; // DISABLED: Light shafts cause performance freeze when viewing sunrays
             sunGlowMat.color.setHex(0xFFB366);
             coronaMat.color.setHex(0xFFD6A3);
         } else if (sunProgress > 0.85) {
@@ -370,7 +370,7 @@ function animate() {
             glowIntensity = 0.25 + factor * 0.45;
             coronaIntensity = 0.15 + factor * 0.35;
             shaftIntensity = factor * 0.18;
-            shaftVisible = true;
+            shaftVisible = false; // DISABLED: Light shafts cause performance freeze when viewing sunrays
             sunGlowMat.color.setHex(0xFF9966);
             coronaMat.color.setHex(0xFFCC99);
         } else {
