@@ -4,7 +4,7 @@ export * from './berries.js';
 export * from './grass.js';
 export * from './mushrooms.js';
 export * from './flowers.js';
-export * from './trees.js';
+export * from './trees.ts';
 export * from './clouds.js';
 export * from './waterfalls.js';
 export * from './environment.js';
