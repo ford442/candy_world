@@ -130,8 +130,8 @@ export async function parallelWasmLoad(options = {}) {
             
             const instance = await createCandyNative({
                 locateFile: (path, prefix) => {
-                    if (path.endsWith('.wasm')) return './candy_native.wasm';
-                    if (path.endsWith('.worker.js')) return './candy_native.worker.js';
+                    if (path.endsWith('.wasm')) return `${locatePrefix}/candy_native.wasm`;
+                    if (path.endsWith('.worker.js')) return `${locatePrefix}/candy_native.worker.js`;
                     return prefix + path;
                 },
                 print: (text) => console.log('[Native]', text),
@@ -164,3 +164,7 @@ export async function parallelWasmLoad(options = {}) {
 
     return results;
 }
+
+// Stub exports for compatibility (required by wasm-loader.js imports)
+export function createPlaceholderScene() { }
+export function removePlaceholderScene() { }
