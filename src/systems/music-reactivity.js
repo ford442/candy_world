@@ -12,6 +12,8 @@ const _projScreenMatrix = new THREE.Matrix4();
 const _scratchSphere = new THREE.Sphere(); // For Group culling
 
 const CHROMATIC_SCALE = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+const _speciesMapCache = {};
+const _noteNameCache = {};
 
 export function getNoteColor(note, species = 'global') {
     let noteName = '';
@@ -22,25 +24,39 @@ export function getNoteColor(note, species = 'global') {
         noteName = CHROMATIC_SCALE[index];
     } else if (typeof note === 'string') {
         // Handle "C4", "F#3" etc.
-        noteName = note.replace(/[0-9-]/g, '');
+        if (_noteNameCache[note]) {
+            noteName = _noteNameCache[note];
+        } else {
+            noteName = note.replace(/[0-9-]/g, '');
+            // Limit cache size to prevent memory leak with arbitrary strings
+            if (Object.keys(_noteNameCache).length < 200) {
+                _noteNameCache[note] = noteName;
+            }
+        }
     }
 
     // Lookup
     let map = CONFIG.noteColorMap[species];
 
-    // If the species key isn't exact, try some heuristics to map similar types to a known species palette
     if (!map) {
-        const s = (species || '').toLowerCase();
-        if (s.includes('flower') || s.includes('tulip') || s.includes('violet') || s.includes('rose') || s.includes('bloom') || s.includes('lotus') || s.includes('puff') ) {
-            map = CONFIG.noteColorMap['flower'];
-        } else if (s.includes('mushroom') || s.includes('mush')) {
-            map = CONFIG.noteColorMap['mushroom'];
-        } else if (s.includes('tree') || s.includes('willow') || s.includes('palm') || s.includes('bush')) {
-            map = CONFIG.noteColorMap['tree'];
-        } else if (s.includes('cloud') || s.includes('orb') || s.includes('geyser') || s.includes('moon')) {
-            map = CONFIG.noteColorMap['cloud'] || CONFIG.noteColorMap['global'];
+        // Optimization: Cache resolved map to avoid repetitive string includes checks
+        if (_speciesMapCache[species]) {
+            map = _speciesMapCache[species];
         } else {
-            map = CONFIG.noteColorMap['global'];
+            // If the species key isn't exact, try some heuristics to map similar types to a known species palette
+            const s = (species || '').toLowerCase();
+            if (s.includes('flower') || s.includes('tulip') || s.includes('violet') || s.includes('rose') || s.includes('bloom') || s.includes('lotus') || s.includes('puff') ) {
+                map = CONFIG.noteColorMap['flower'];
+            } else if (s.includes('mushroom') || s.includes('mush')) {
+                map = CONFIG.noteColorMap['mushroom'];
+            } else if (s.includes('tree') || s.includes('willow') || s.includes('palm') || s.includes('bush')) {
+                map = CONFIG.noteColorMap['tree'];
+            } else if (s.includes('cloud') || s.includes('orb') || s.includes('geyser') || s.includes('moon')) {
+                map = CONFIG.noteColorMap['cloud'] || CONFIG.noteColorMap['global'];
+            } else {
+                map = CONFIG.noteColorMap['global'];
+            }
+            _speciesMapCache[species] = map;
         }
     }
 
