@@ -272,20 +272,10 @@ export function createBubbleWillow(options: BubbleWillowOptions = {}): THREE.Gro
         branchGroup.rotation.y = (i / branchCount) * Math.PI * 2;
 
         const length = 1.5 + Math.random();
-        // Shared geometry: Capsule
-        const capsule = new THREE.Mesh(sharedGeometries.capsule, branchMat);
-        capsule.scale.set(0.2, 0.2, 0.2); // Uniform scale for thickness
-        // Note: CapsuleGeometry parameters are radius and length. Shared is (1, 1).
-        // Scaling Y might distort ends if not careful, but for "bubble" willow it might be okay.
-        // Actually, capsule geometry radius is coupled with overall scale.
-        // Let's use scale to approximate.
-        // Or keep unique if precise proportions needed.
-        // Trying to use scale:
-        // shared: radius 1, length 1.
-        // desired: radius 0.2, length 'length'.
-        // scale.x/z = 0.2. scale.y must stretch length?
-        // Capsule length is the middle cylindrical part.
-        // Reverting to unique geometry for capsule to ensure correct proportions without distortion.
+        // Note: Using unique CapsuleGeometry here instead of shared geometry
+        // because capsule proportions (radius vs length) vary per branch.
+        // Scaling a shared capsule distorts the hemispherical ends, 
+        // whereas we need uniform radius with variable length.
         const capsuleGeo = new THREE.CapsuleGeometry(0.2, length, 8, 16);
         const capsuleMesh = new THREE.Mesh(capsuleGeo, branchMat);
 
@@ -459,29 +449,21 @@ export function createFiberOpticWillow(options: FiberOpticWillowOptions = {}): T
         branchGroup.rotation.y = (i / branchCount) * Math.PI * 2;
 
         const len = 1.5 + Math.random();
-        // Shared geometry: CylinderLow
-        const cable = new THREE.Mesh(sharedGeometries.cylinderLow, cableMat);
-        cable.scale.set(0.02, len, 0.02);
-        cable.position.y = -len / 2; // Adjust for centered cylinder
-        cable.rotation.z = Math.PI / 4;
-
-        // Shared geometry: SphereLow
-        const tip = new THREE.Mesh(sharedGeometries.sphereLow, tipMat);
-        tip.scale.setScalar(0.08);
-        tip.position.y = -len / 2;
-
-        // Let's create a container for the "whip"
+        
+        // Create whip container that rotates around branch attachment point
         const whip = new THREE.Group();
         whip.rotation.z = Math.PI / 4;
+
+        // Cable: centered vertically within whip, extends downward
+        const cable = new THREE.Mesh(sharedGeometries.cylinderLow, cableMat);
+        cable.scale.set(0.02, len, 0.02);
+        cable.position.set(0, -len/2, 0); // Center of cable at -len/2 from whip origin
         whip.add(cable);
 
-        // Cable inside whip
-        // cable centered at -len/2
-        cable.position.set(0, -len/2, 0);
-
-        // Tip inside whip
-        // tip at -len
-        tip.position.set(0, -len, 0);
+        // Tip: positioned at end of cable
+        const tip = new THREE.Mesh(sharedGeometries.sphereLow, tipMat);
+        tip.scale.setScalar(0.08);
+        tip.position.set(0, -len, 0); // End of cable
         whip.add(tip);
 
         branchGroup.add(whip);
