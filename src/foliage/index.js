@@ -15,6 +15,7 @@ export * from './animation.ts';
 export * from './sky.js';
 export * from './stars.js';
 export * from './moon.js';
+export * from './aurora.js'; // Added Aurora
 
 // Musical flora
 export * from './musical_flora.js';
