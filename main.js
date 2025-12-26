@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { uWindSpeed, uWindDirection, uSkyTopColor, uSkyBottomColor, uHorizonColor, uAtmosphereIntensity, uStarPulse, uStarOpacity, updateMoon, animateFoliage, updateFoliageMaterials, updateFireflies, updateFallingBerries, collectFallingBerries, createFlower, createMushroom, validateNodeGeometries } from './src/foliage/index.js';
+import { uWindSpeed, uWindDirection, uSkyTopColor, uSkyBottomColor, uHorizonColor, uAtmosphereIntensity, uStarPulse, uStarOpacity, uAuroraIntensity, uAuroraColor, createAurora, updateMoon, animateFoliage, updateFoliageMaterials, updateFireflies, updateFallingBerries, collectFallingBerries, createFlower, createMushroom, validateNodeGeometries } from './src/foliage/index.js';
 import { initCelestialBodies } from './src/foliage/celestial-bodies.js';
 import { MusicReactivitySystem } from './src/systems/music-reactivity.js';
 import { AudioSystem } from './src/audio/audio-system.js';
@@ -54,6 +54,11 @@ const { moon, fireflies } = initWorld(scene, weatherSystem);
 
 // Add Celestial Bodies
 initCelestialBodies(scene);
+
+// Add Spectrum Aurora
+const aurora = createAurora();
+scene.add(aurora);
+
 // Validate node material geometries to avoid TSL attribute errors
 validateNodeGeometries(scene);
 // Note: world generation populates animatedFoliage, obstacles, etc. via state.js
@@ -413,6 +418,34 @@ function animate() {
         starOp = 1.0 - ((progress - starNightEnd) / (starDawnEnd - starNightEnd));
     }
     uStarOpacity.value = THREE.MathUtils.lerp(uStarOpacity.value, starOp * 0.95, delta * 2);
+
+    // Aurora Update (Visible only at night, intensity driven by high-freq/melody channels if avail)
+    // We'll base it on star opacity for visibility, and mix in some audio reactivity
+    const baseAuroraVis = starOp * 0.8; // Max 0.8 visibility at night
+
+    // Simple audio reactivity for Aurora (using generic audioState.energy or high channels)
+    // If we have channels, grab a high-freq one (e.g. 5 or 6)
+    let auroraAudioBoost = 0.0;
+    if (audioState && audioState.channelData && audioState.channelData.length > 4) {
+        // Use channel 5 (often leads/pads)
+        auroraAudioBoost = audioState.channelData[4].trigger || 0;
+    } else if (audioState) {
+        // Fallback to average energy
+        auroraAudioBoost = (audioState.energy || 0) * 2.0;
+    }
+
+    const targetAuroraInt = baseAuroraVis * (0.3 + auroraAudioBoost * 0.7); // Base glow + reactive boost
+    uAuroraIntensity.value = THREE.MathUtils.lerp(uAuroraIntensity.value, targetAuroraInt, delta * 2);
+
+    // Aurora Color Shift (Slowly rotate hue or react to chords)
+    // For now, let's just shift hue slowly with time
+    const hue = (t * 0.05) % 1.0;
+    const auroraColor = new THREE.Color().setHSL(hue, 1.0, 0.5);
+    // If heavy bass, shift to purple/red?
+    if (beatFlashIntensity > 0.2) {
+        auroraColor.setHSL(0.8 + beatFlashIntensity * 0.1, 1.0, 0.6); // Pink/Red shift
+    }
+    uAuroraColor.value.copy(auroraColor);
 
     // Foliage Materials
     let weatherStateStr = 'clear';
