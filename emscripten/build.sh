@@ -49,6 +49,16 @@ EXPORTS="[ \
     '_batchDistances', \
     '_batchDistanceCull_c', \
     '_batchSinWave', \
+    '_initPhysics', \
+    '_addObstacle', \
+    '_setPlayerState', \
+    '_getPlayerX', \
+    '_getPlayerY', \
+    '_getPlayerZ', \
+    '_getPlayerVX', \
+    '_getPlayerVY', \
+    '_getPlayerVZ', \
+    '_updatePhysicsCPP', \
     '_malloc', \
     '_free' \
 ]"
