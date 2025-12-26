@@ -31,6 +31,7 @@ let wasmGetGroundHeight = null;
 let wasmFreqToHue = null;
 let wasmLerp = null;
 let wasmBatchMushroomSpawnCandidates = null;
+let wasmUpdateFoliageBatch = null;
 
 // Emscripten module (native C functions)
 let emscriptenInstance = null;
@@ -82,15 +83,27 @@ async function loadEmscriptenModule() {
 
         // 1. Dynamic Import the generated loader
         // Note: build.sh now outputs to public/candy_native.js
-        const { default: createCandyNative } = await import('/candy_native.js?v=' + Date.now());
+        // Robust strategy for module loading
+        let createCandyNative;
+        let locatePrefix = '/candy-world';
+
+        try {
+            const module = await import(/* @vite-ignore */ `/candy-world/candy_native.js?v=${Date.now()}`);
+            createCandyNative = module.default;
+        } catch (e) {
+            console.log('[WASM] Production path failed, trying local fallback...');
+            const module = await import(/* @vite-ignore */ `/candy_native.js?v=${Date.now()}`);
+            createCandyNative = module.default;
+            locatePrefix = '';
+        }
 
         // 2. Instantiate (This spawns the worker pool automatically)
         await updateProgress('Spawning Physics Workers...');
 
         emscriptenInstance = await createCandyNative({
             locateFile: (path, prefix) => {
-                if (path.endsWith('.wasm')) return '/candy_native.wasm';
-                if (path.endsWith('.worker.js')) return '/candy_native.worker.js';
+                if (path.endsWith('.wasm')) return `${locatePrefix}/candy_native.wasm`;
+                if (path.endsWith('.worker.js')) return `${locatePrefix}/candy_native.worker.js`;
                 return prefix + path;
             },
             print: (text) => console.log('[Native]', text),
@@ -262,6 +275,7 @@ export async function initWasm() {
         wasmFreqToHue = wasmInstance.exports.freqToHue;
         wasmLerp = wasmInstance.exports.lerp;
         wasmBatchMushroomSpawnCandidates = wasmInstance.exports.batchMushroomSpawnCandidates || null;
+        wasmUpdateFoliageBatch = wasmInstance.exports.updateFoliageBatch || null;
 
         console.log('[WASM] AssemblyScript module loaded successfully');
 
@@ -347,6 +361,7 @@ export async function initWasmParallel(options = {}) {
                 wasmFreqToHue = wasmInstance.exports.freqToHue;
                 wasmLerp = wasmInstance.exports.lerp;
                 wasmBatchMushroomSpawnCandidates = wasmInstance.exports.batchMushroomSpawnCandidates || null;
+                wasmUpdateFoliageBatch = wasmInstance.exports.updateFoliageBatch || null;
 
                 console.log('[WASM] AssemblyScript module loaded via parallel orchestrator');
             }
@@ -959,6 +974,37 @@ export function calcFloatingParticle(baseX, baseY, baseZ, time, offset, amplitud
 // =============================================================================
 // EMSCRIPTEN NATIVE FUNCTIONS (from candy_native.c)
 // =============================================================================
+
+export function updatePhysicsCPP(delta, inputX, inputZ, speed, jump, sprint, sneak, grooveGravity) {
+    const f = getNativeFunc('updatePhysicsCPP');
+    if (f) return f(delta, inputX, inputZ, speed, jump ? 1 : 0, sprint ? 1 : 0, sneak ? 1 : 0, grooveGravity);
+    return -1; // Fallback
+}
+
+export function initPhysics(x, y, z) {
+    const f = getNativeFunc('initPhysics');
+    if (f) f(x, y, z);
+}
+
+export function addObstacle(type, x, y, z, r, h, p1, p2, p3) {
+    const f = getNativeFunc('addObstacle');
+    if (f) f(type, x, y, z, r, h, p1, p2, p3 ? 1.0 : 0.0);
+}
+
+export function setPlayerState(x, y, z, vx, vy, vz) {
+    const f = getNativeFunc('setPlayerState');
+    if (f) f(x, y, z, vx, vy, vz);
+}
+
+export function getPlayerState() {
+    const x = getNativeFunc('getPlayerX')();
+    const y = getNativeFunc('getPlayerY')();
+    const z = getNativeFunc('getPlayerZ')();
+    const vx = getNativeFunc('getPlayerVX')();
+    const vy = getNativeFunc('getPlayerVY')();
+    const vz = getNativeFunc('getPlayerVZ')();
+    return { x, y, z, vx, vy, vz };
+}
 
 /**
  * 2D Value Noise (Emscripten)

@@ -249,3 +249,133 @@ export function calcArpeggioStep(
 
 export function getArpeggioTargetStep(): f32 { return arpeggioTargetStep; }
 export function getArpeggioUnfurlStep(): f32 { return arpeggioUnfurlStep; }
+
+// =============================================================================
+// BATCH FOLIAGE UPDATE (New Migration)
+// =============================================================================
+
+// Stride: 16 floats (64 bytes)
+// 0: posX (in/out)
+// 1: posY (in/out)
+// 2: posZ (in/out)
+// 3: rotX (in/out)
+// 4: rotY (in/out)
+// 5: rotZ (in/out)
+// 6: scaleX (in/out)
+// 7: scaleY (in/out)
+// 8: scaleZ (in/out)
+// 9: originalY (in)
+// 10: animationType (in, int cast to float)
+// 11: animationOffset (in)
+// 12: intensity (in)
+// 13: param1 (in/out - e.g. wobbleCurrent)
+// 14: param2 (in/out)
+// 15: param3 (in/out)
+
+export function updateFoliageBatch(
+    ptr: usize,
+    count: i32,
+    time: f32,
+    beatPhase: f32,
+    kick: f32,
+    groove: f32,
+    isDay: i32
+): void {
+    for (let i = 0; i < count; i++) {
+        let offset = ptr + (<usize>i * 64);
+
+        // Load Input Data
+        let posX = load<f32>(offset + 0);
+        let posY = load<f32>(offset + 4);
+        let posZ = load<f32>(offset + 8);
+        let rotX = load<f32>(offset + 12);
+        let rotY = load<f32>(offset + 16);
+        let rotZ = load<f32>(offset + 20);
+        let scaleX = load<f32>(offset + 24);
+        let scaleY = load<f32>(offset + 28);
+        let scaleZ = load<f32>(offset + 32);
+
+        let originalY = load<f32>(offset + 36);
+        let animType = <i32>load<f32>(offset + 40);
+        let animOffset = load<f32>(offset + 44);
+        let intensity = load<f32>(offset + 48);
+        let param1 = load<f32>(offset + 52); // wobbleCurrent or snapState
+
+        let animTime = time + beatPhase;
+
+        // Apply Logic based on Animation Type
+        // 1: gentleSway
+        // 2: bounce
+        // 3: wobble
+        // 4: hop
+        // 5: shiver
+        // 6: spring
+        // 7: vineSway
+        // 8: spiralWave
+        // 9: float
+        // 10: spin
+        // 11: glowPulse
+        // 12: cloudBob
+        // 13: snareSnap
+        // 14: accordionStretch
+
+        if (animType == 1) { // gentleSway
+             rotZ = Mathf.sin(time * 0.5 + animOffset) * 0.05 * intensity;
+        }
+        else if (animType == 2) { // bounce
+             posY = originalY + Mathf.sin(animTime * 3.0 + animOffset) * 0.12 * intensity;
+             if (isDay == 0 && kick > 0.12) posY += kick * 0.21;
+        }
+        else if (animType == 3) { // wobble
+             // param1 is wobbleCurrent (smoothed median velocity) - usually passed in already smoothed
+             let boost = param1;
+             rotX = Mathf.sin(animTime * 3.0 + animOffset) * 0.15 * intensity * (1.0 + boost);
+             rotZ = Mathf.cos(animTime * 3.0 + animOffset) * 0.16 * intensity * (1.0 + boost);
+        }
+        else if (animType == 4) { // hop
+             let hopTime = animTime * 4.0 + animOffset;
+             let bounce = Mathf.max(0.0, Mathf.sin(hopTime)) * 0.3 * intensity;
+             posY = originalY + bounce;
+             if (isDay == 0 && kick > 0.1) posY += kick * 0.15;
+        }
+        else if (animType == 5) { // shiver
+             let shiver = Mathf.sin(animTime * 20.0 + animOffset) * 0.05 * intensity;
+             rotZ = shiver;
+             rotX = shiver * 0.5;
+        }
+        else if (animType == 6) { // spring
+             let springTime = animTime * 5.0 + animOffset;
+             scaleY = 1.0 + Mathf.sin(springTime) * 0.1 * intensity;
+             scaleX = 1.0 - Mathf.sin(springTime) * 0.05 * intensity;
+             scaleZ = 1.0 - Mathf.sin(springTime) * 0.05 * intensity;
+        }
+        else if (animType == 7) { // vineSway
+             rotZ = Mathf.sin(time * 1.5 + animOffset) * 0.2 * intensity;
+             rotX = Mathf.cos(time * 1.2 + animOffset) * 0.1 * intensity;
+        }
+        else if (animType == 9) { // float
+             posY = originalY + Mathf.sin(time * 2.0 + animOffset) * 0.5 * intensity;
+        }
+        else if (animType == 10) { // spin
+             rotY += 0.01 * intensity;
+        }
+        else if (animType == 11) { // glowPulse
+             posY = originalY + Mathf.sin(time * 2.0 + animOffset) * 0.1;
+        }
+        else if (animType == 12) { // cloudBob
+             posY = originalY + Mathf.sin(time * 0.5 + animOffset) * 0.3;
+             rotY = Mathf.sin(time * 0.2 + animOffset * 0.5) * 0.05;
+        }
+
+        // Store Outputs
+        store<f32>(offset + 0, posX);
+        store<f32>(offset + 4, posY);
+        store<f32>(offset + 8, posZ);
+        store<f32>(offset + 12, rotX);
+        store<f32>(offset + 16, rotY);
+        store<f32>(offset + 20, rotZ);
+        store<f32>(offset + 24, scaleX);
+        store<f32>(offset + 28, scaleY);
+        store<f32>(offset + 32, scaleZ);
+    }
+}
