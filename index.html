@@ -414,7 +414,7 @@ document.body.appendChild(scr);
 <body>
     <div id="loading-overlay">
         <div class="loading-spinner"></div>
-        <div id="loading-text">Initializing Audio Runtime...</div>
+        <div id="loading-text" aria-live="polite" aria-atomic="true">Initializing Audio Runtime...</div>
     </div>
 
     <script>
@@ -437,13 +437,13 @@ document.body.appendChild(scr);
 
     <div id="instructions">
         <h1>🍭 Candy World</h1>
-        <button id="startButton" class="cta-button" aria-label="Start Exploration and capture mouse cursor" disabled>
+        <button id="startButton" class="cta-button" disabled>
             <span class="spinner"></span>Loading World... 🍭
         </button>
 
         <div class="settings settings-container">
             <input type="file" id="musicUpload" accept=".mod,.xm,.it,.s3m" multiple class="visually-hidden">
-            <label for="musicUpload" class="file-label">
+            <label for="musicUpload" class="file-label" aria-live="polite">
                 🎵 Upload Music
             </label>
 
@@ -490,7 +490,7 @@ document.body.appendChild(scr);
         
         <div class="playlist-controls">
             <input type="file" id="playlistUploadInput" multiple accept=".mod,.xm,.it,.s3m" class="visually-hidden">
-            <label for="playlistUploadInput" class="secondary-button" aria-label="Add songs to playlist">➕ Add Songs</label>
+            <label for="playlistUploadInput" class="secondary-button" aria-live="polite">➕ Add Songs</label>
             <button id="closePlaylistBtn" class="secondary-button" style="background: #FF6B6B;" aria-label="Close Jukebox">Close</button>
         </div>
     </div>
