@@ -109,6 +109,20 @@ Each phase now includes dedicated horizon colors and atmosphere intensity:
 - Smooth transitions using THREE.MathUtils.lerp with delta-based timing
 - Efficient TSL shader compilation for GPU-side color mixing
 
+### 6. Spectrum Aurora (aurora.js)
+
+**Audio-Reactive Sky Curtain:**
+- Implemented `src/foliage/aurora.js` using TSL.
+- **Visuals:** Double-sided cylinder geometry (Radius ~800, Height ~400) placed high in the sky.
+- **Shader Effects:**
+  - **Curtains/Folds:** Sine-wave distortion on `uv.x` driven by time to simulate moving drapery.
+  - **Vertical Rays:** High-frequency bands (`sin(distortedX * 60)`) masked by vertical fade.
+  - **Spectral Shift:** Color shifts slightly based on vertical height (`vUv.y`) to map pitch to color.
+- **Reactivity:**
+  - Intensity driven by high-frequency audio channels (or average energy).
+  - Base visibility linked to Star Opacity (visible only at Night).
+  - Hue shifts over time and reacts to heavy bass kicks (Pink/Red shift).
+
 ## Visual Impact
 
 ### Day Cycle
@@ -146,6 +160,5 @@ Each phase now includes dedicated horizon colors and atmosphere intensity:
 - Add clouds that catch sunset/sunrise colors
 - Implement real-time atmospheric scattering (Rayleigh/Mie)
 - Add moon phases with varying brightness
-- Create aurora borealis effect during deep night
 - Add lens flare effects when looking toward sun
 - Implement dynamic star constellations that rotate with seasons
