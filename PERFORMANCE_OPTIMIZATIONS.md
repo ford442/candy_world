@@ -151,8 +151,11 @@ Light shafts were causing severe freezes (2-5 seconds) during sunrise and sunset
 
 **Solution**:
 ```javascript
-// Changed from shaftVisible = true to:
-shaftVisible = false; // DISABLED: Light shafts cause performance freeze when viewing sunrays
+// For sunrise (sunProgress < 0.15):
+shaftVisible = false; // DISABLED: Light shafts cause 2-5s freeze during sunrise when viewing sun directly
+
+// For sunset (sunProgress > 0.85):
+shaftVisible = false; // DISABLED: Light shafts cause 2-5s freeze during sunset when viewing sun directly
 ```
 
 **Impact**: Eliminates freezes during sunrise/sunset transitions. Sun glow and corona effects remain active.
