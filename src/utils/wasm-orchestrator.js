@@ -20,6 +20,10 @@ export const PHASE_STATUS = {
 let syncBuffer = null;
 let syncView = null;
 
+export function getSharedBuffer() {
+    return syncBuffer;
+}
+
 export function isSharedMemoryAvailable() {
     try {
         if (typeof SharedArrayBuffer === 'undefined') return false;
@@ -126,8 +130,8 @@ export async function parallelWasmLoad(options = {}) {
 
             const instance = await createCandyNative({
                 locateFile: (path, prefix) => {
-                    if (path.endsWith('.wasm')) return '../candy_native.wasm';
-                    if (path.endsWith('.worker.js')) return '../candy_native.worker.js';
+                    if (path.endsWith('.wasm')) return './candy_native.wasm';
+                    if (path.endsWith('.worker.js')) return './candy_native.worker.js';
                     return prefix + path;
                 },
                 print: (text) => console.log('[Native]', text),
