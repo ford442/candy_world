@@ -32,8 +32,7 @@ export function initScene() {
     const sunLight = new THREE.DirectionalLight(PALETTE.day.sun, 0.9);
     sunLight.position.set(50, 80, 30);
     
-// PERFORMANCE FIX: Disable shadows to stop the "rays" lag
-    sunLight.castShadow = false;    // <--- SET TO FALSE
+    sunLight.castShadow = true;
     
     sunLight.shadow.mapSize.width = 1024;
     sunLight.shadow.mapSize.height = 1024;
