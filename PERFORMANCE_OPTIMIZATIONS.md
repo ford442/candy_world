@@ -139,12 +139,39 @@ const budgetCheckInterval = 20; // Reduced from 10 (fewer system calls)
 5. **Material Pooling**: Reuse materials across similar objects
 6. **Lazy Loading**: Load/unload objects based on player position
 
+### 7. Disabled Light Shafts (Performance Fix)
+**Files**: `main.js` (lines 365, 373)
+
+Light shafts were causing severe freezes (2-5 seconds) during sunrise and sunset when the camera viewed the sun directly.
+
+**Root Cause**:
+- 12 plane meshes with additive blending
+- `lightShaftGroup.lookAt(camera.position)` every frame
+- `forEach` loop updating all 12 materials' opacity every frame
+
+**Solution**:
+```javascript
+// For sunrise (sunProgress < 0.15):
+shaftVisible = false; // DISABLED: Light shafts cause 2-5s freeze during sunrise when viewing sun directly
+
+// For sunset (sunProgress > 0.85):
+shaftVisible = false; // DISABLED: Light shafts cause 2-5s freeze during sunset when viewing sun directly
+```
+
+**Impact**: Eliminates freezes during sunrise/sunset transitions. Sun glow and corona effects remain active.
+
+**Future Enhancement**: Consider optimizing with:
+- Shared material instance for all shafts (instead of cloned materials)
+- Conditional `lookAt` updates (only when camera direction changes significantly)
+- GPU-based volumetric lighting shader instead of geometry-based approach
+
 ## Notes
 
 - The grass system already uses efficient instanced rendering
 - Three.js's built-in renderer frustum culling is separate from our animation loop culling
 - The staggered update system ensures smooth animation even if objects are updated at 30 FPS instead of 60 FPS
 - Performance improvements are most noticeable on systems with slower CPUs
+- Light shafts are currently disabled due to performance issues but can be re-enabled with optimization
 
 ## References
 
