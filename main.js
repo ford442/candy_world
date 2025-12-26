@@ -14,7 +14,7 @@ import { initInput, keyStates } from './src/core/input.js';
 import { getCycleState } from './src/core/cycle.js';
 
 // World & System imports
-import { initWorld } from './src/world/generation.js';
+import { initWorld } from './src/world/generation.ts';
 import { animatedFoliage, foliageGroup, activeVineSwing, foliageClouds } from './src/world/state.js';
 import { updatePhysics, player, bpmWind } from './src/systems/physics.js';
 import { fireRainbow, updateBlaster } from './src/gameplay/rainbow-blaster.js';
