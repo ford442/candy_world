@@ -132,10 +132,11 @@ This document captures feature ideas for the Candy World musical ecosystem. The 
 - Audio: Slight tape wow effect applied to ambient sounds.
 
 ### Spectrum Aurora
+- **Status: Implemented ✅**
 - Description: Multi-layered aurora representing melody channels; vertical position maps to pitch, color to harmonic function.
 - Gameplay Mechanics: Visual cheat-sheet for upcoming notes; intersecting bands drop "Harmony Orbs" used for Chord Strike superweapon.
-- Visual Design: Full-screen shader layers, additive blending, sine wave scrolling per layer, shimmer effect.
-- Behavioral Patterns: Fade on muted channels; brightens on new notes; dissonant intervals spark red.
+- Visual Design: TSL Shader with curtain/fold distortion, sine-wave scrolling, and spectral color shifting based on height.
+- Behavioral Patterns: Fade on muted channels; brightens on new notes; reacts to audio energy/channels.
 - Audio: Silent, but shimmer syncs with high-frequency content.
 
 ---
@@ -282,11 +283,12 @@ Three.js Renderer -> WebGPU RenderPipeline (Raw Draw Calls)
 ## Next Steps
 
 1. **Pattern-Change Seasons**: Implement the global palette shift logic triggered by pattern change events (`Dxx` command). This will require abstracting the palette colors into uniforms or a global state object that the weather/foliage systems observe.
-2. **Aurora Borealis**: Implement the "Spectrum Aurora" (Phase 6 pending) to visualize melody channels in the sky.
+2. **Instrument-ID Textures**: Implement procedural texture generation based on instrument IDs.
 3. **Migrate to TypeScript**: Begin Phase 1 of the migration roadmap to harden the codebase before adding more complex systems.
 
 ## Recent Progress & Next Steps
 - **Accomplished:**
+  - **Spectrum Aurora**: Implemented `src/foliage/aurora.js` using TSL, featuring audio-reactive intensity and spectral color shifts. Integrated into `main.js`.
   - Integrated "Musical Ecosystem" plan into main documentation.
   - Analyzed "Cute Clay" concept art and implemented matched visuals for Mushrooms (Pastel palette, Cheeks, Matte finish).
   - **Sky Enhancements**: Implemented Multi-Band Gradients, Time-of-Day Palettes, Enhanced Stars (1500 count + Twinkle), and Sun God Rays.
