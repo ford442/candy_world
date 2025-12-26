@@ -28,7 +28,7 @@ OUTPUT_JS="$REPO_ROOT/public/candy_native.js"
 # ---------------------------------------------------------
 # -O2: High optimization but safer than -O3 (avoids aggressive renaming)
 # -g0: Debug info disabled (keeps size down)
-COMPILE_FLAGS="-O2 -msimd128 -mrelaxed-simd -ffast-math -flto -fno-exceptions -fno-rtti -funroll-loops -mbulk-memory -fopenmp -pthread"
+COMPILE_FLAGS="-O3 -msimd128 -mrelaxed-simd -ffast-math -flto -fno-exceptions -fno-rtti -funroll-loops -mbulk-memory -fopenmp -pthread"
 
 # ---------------------------------------------------------
 # LINKER FLAGS
