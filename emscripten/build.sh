@@ -12,6 +12,7 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 # Source Emscripten
 CANDIDATES=(
+    "/content/build_space/emsdk/emsdk_env.sh"
     "$REPO_ROOT/emsdk/emsdk_env.sh"
     "$HOME/emsdk/emsdk_env.sh"
     "/usr/local/emsdk/emsdk_env.sh"
