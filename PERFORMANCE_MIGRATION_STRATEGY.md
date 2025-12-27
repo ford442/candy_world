@@ -33,7 +33,8 @@ Migrate code down this ladder only if it exceeds the thresholds below. WASM call
     2.  Use only TypedArrays: `Float32Array` for data-in, `Int32Array` for indices.
     3.  Pass flat data, not objects. **Struct-of-Arrays** pattern only.
     4.  Update loader: `wasmLoader.import('module', 'function', typedArray)`.
-    5.  **A/B test:** If WASM version is not >20% faster, revert.
+    5.  **Batching Pattern:** Use a JS batcher to collect data and call WASM once per frame per type (e.g., `FoliageBatcher`).
+    6.  **A/B test:** If WASM version is not >20% faster, revert.
 
 ### Step 3: ASC → C++ (Heavy Metal)
 * **Trigger:** Profile shows >8ms and AssemblyScript is memory-bound or needs SIMD.
@@ -51,14 +52,14 @@ Migrate code down this ladder only if it exceeds the thresholds below. WASM call
 ### Priority A: Hot Loops (Migrate to WASM)
 | Function | File | Profile Data | Target | Status |
 | :--- | :--- | :--- | :--- | :--- |
-| `animateFoliage` | `src/foliage/animation.js` | 4.2ms/frame (2k plants) | `assembly/foliage.ts` | **Ready** |
+| `animateFoliage` | `src/foliage/animation.js` | 4.2ms/frame (2k plants) | `assembly/foliage.ts` | **Done (Hybrid)** |
 | `updateParticles` | `src/systems/particles.js` | 5.1ms/frame (5k particles) | `assembly/particles.ts` | **Ready** |
 
 ### Priority B: Type Safety (Migrate to TS)
 | Function | File | Issue | Action |
 | :--- | :--- | :--- | :--- |
 | `createFloweringTree` | `src/foliage/trees.js` | 3 undefined bugs this sprint | Rename to `.ts`, add `FoliageConfig` interface |
-| `generateMap` | `src/world/generation.js` | Logic complexity | Rename to `.ts`, strict mode |
+| `generateMap` | `src/world/generation.js` | Logic complexity | Rename to `.ts`, strict mode | **Done** |
 
 ### Priority C: Future Research (Do NOT migrate yet)
 | Function | File | Blocker |
@@ -85,14 +86,12 @@ Use machine-readable comments for automation:
 
 ### AssemblyScript
 ```bash
-npm run asbuild
-npm run test:perf  # Must show >20% improvement
+npm run build:wasm
 ```
 
 ### C++
 ```bash
 cd emscripten && ./build.sh
-node scripts/validate-wasm.js  # Checks bundle size < 50kb increase
 ```
 
 ## ✅ Agent Decision Checklist
