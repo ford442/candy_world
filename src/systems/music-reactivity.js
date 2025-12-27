@@ -5,6 +5,7 @@
 import { CONFIG } from '../core/config.js';
 import * as THREE from 'three';
 import { animateFoliage, triggerMoonBlink } from '../foliage/index.js';
+import { foliageBatcher } from '../foliage/foliage-batcher.js';
 
 // Reusable frustum for culling (prevent GC)
 const _frustum = new THREE.Frustum();
@@ -254,6 +255,7 @@ export class MusicReactivitySystem {
             // ----------------------------------------
 
             // A) Standard Animation (Sway, Bounce, etc.)
+            // Note: animateFoliage now batches supported types to foliageBatcher internally
             animateFoliage(f, t, audioState, !isNight, isDeepNight);
             foliageUpdatesThisFrame++;
 
@@ -302,6 +304,29 @@ export class MusicReactivitySystem {
                 }
             }
         }
+
+        // --- WASM BATCH FLUSH ---
+        // Execute all queued batched animations for this frame
+        let kick = 0;
+        if (audioState) {
+            kick = audioState.kickTrigger || 0;
+        }
+        // Assuming t already includes beatPhase if needed, but animateFoliage logic used time+beatPhase.
+        // We need to pass the "effective animation time" to flush?
+        // Actually animateFoliage passed `animTime = time + beatPhase`.
+        // We used `animTime` when queuing. So we just pass t (which is ignored by batcher since it used queued times? No)
+        // Wait, foliageBatcher.flush(time) uses `time` argument for the WASM calculation.
+        // But we queued `animTime`. The batcher ignores the queued time if flush overrides it?
+        // Let's check foliageBatcher.ts...
+        // queue() takes `time` but doesn't store it! It stores offset/intensity.
+        // Only `flush` takes `time`.
+        // This is a BUG in my plan. The `time` varies per object if I passed `animTime` which includes global `beatPhase`.
+        // But `beatPhase` is global. So `time + beatPhase` is global.
+        // So passing `time + beatPhase` to flush() is correct.
+
+        const beatPhase = (audioState && audioState.beatPhase) ? audioState.beatPhase : 0;
+        foliageBatcher.flush(t + beatPhase, kick);
+
 
         // Advance the start index for next frame (staggered processing)
         // Use a hybrid approach: advance by processed count but ensure minimum progress
