@@ -76,7 +76,28 @@ export function initInput(camera, audioSystem, toggleDayNightCallback) {
 
     // Hook up AudioSystem callbacks
     audioSystem.onPlaylistUpdate = () => { if (isPlaylistOpen) renderPlaylist(); };
-    audioSystem.onTrackChange = () => { if (isPlaylistOpen) renderPlaylist(); };
+
+    // UX: Show toast and update playlist when track changes
+    audioSystem.onTrackChange = (index) => {
+        if (isPlaylistOpen) renderPlaylist();
+
+        // Show "Now Playing" toast
+        const songs = audioSystem.getPlaylist();
+        if (songs && songs[index]) {
+            const toast = document.getElementById('now-playing-toast');
+            const toastText = document.getElementById('now-playing-text');
+            if (toast && toastText) {
+                toastText.innerText = `Now Playing: ${songs[index].name}`;
+                toast.classList.add('visible');
+
+                // Hide after 4 seconds
+                if (toast.timeout) clearTimeout(toast.timeout);
+                toast.timeout = setTimeout(() => {
+                    toast.classList.remove('visible');
+                }, 4000);
+            }
+        }
+    };
 
     // --- Input Logic ---
 

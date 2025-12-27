@@ -357,6 +357,42 @@
             background: #584AB8;
         }
 
+        /* Now Playing Toast */
+        #now-playing-toast {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-100px);
+            background: rgba(255, 255, 255, 0.95);
+            padding: 12px 25px;
+            border-radius: 50px;
+            box-shadow: 0 5px 20px rgba(255, 107, 107, 0.3);
+            border: 2px solid #FF6B6B;
+            color: #FF6B6B;
+            font-weight: bold;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            pointer-events: none; /* Don't block clicks */
+            font-family: 'Fredoka One', cursive, sans-serif;
+        }
+
+        #now-playing-toast.visible {
+            transform: translateX(-50%) translateY(0);
+        }
+
+        #now-playing-toast .icon {
+            font-size: 1.2em;
+            animation: bounce 1s infinite alternate;
+        }
+
+        @keyframes bounce {
+            from { transform: translateY(0); }
+            to { transform: translateY(-3px); }
+        }
+
         /* Loading Spinner */
         @keyframes spin {
             to { transform: rotate(360deg); }
@@ -412,6 +448,11 @@ document.body.appendChild(scr);
 </head>
 
 <body>
+    <div id="now-playing-toast" role="status" aria-live="polite">
+        <span class="icon">🎵</span>
+        <span id="now-playing-text">Now Playing...</span>
+    </div>
+
     <div id="loading-overlay">
         <div class="loading-spinner"></div>
         <div id="loading-text" aria-live="polite" aria-atomic="true">Initializing Audio Runtime...</div>
