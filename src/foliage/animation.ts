@@ -513,6 +513,43 @@ export function animateFoliage(foliageObject: FoliageObject, time: number, audio
 
         foliageObject.rotation.z = Math.sin(time + offset) * 0.03 * intensity;
     }
+    else if (type === 'cymbalShake') {
+        const head = foliageObject.children[1];
+        if (head) {
+             let highFreq = 0;
+             if (audioData && audioData.channelData) {
+                 // Check higher channels (3 and 4)
+                 const ch3 = audioData.channelData[3]?.volume || 0;
+                 const ch4 = audioData.channelData[4]?.volume || 0;
+                 highFreq = Math.max(ch3, ch4);
+             }
+
+             // Twitch based on high frequency
+             if (highFreq > 0.05) {
+                 const twitch = highFreq * 0.2;
+                 head.rotation.z = (Math.random() - 0.5) * twitch;
+                 head.rotation.x = (Math.random() - 0.5) * twitch;
+
+                 // Shake individual seeds
+                 head.children.forEach(stalk => {
+                     stalk.rotation.z += (Math.random() - 0.5) * twitch * 2.0;
+                     // Dampen back
+                     stalk.rotation.z *= 0.8;
+                 });
+             } else {
+                 head.rotation.z *= 0.9;
+                 head.rotation.x *= 0.9;
+             }
+
+             // Burst effect (scale pulse)
+             if (highFreq > 0.4) {
+                  const s = 1.0 + (highFreq - 0.4) * 0.5;
+                  head.scale.set(s, s, s);
+             } else {
+                  head.scale.lerp(new THREE.Vector3(1,1,1), 0.1);
+             }
+        }
+    }
     else if (type === 'geyserErupt') {
         const plume = foliageObject.userData.plume;
         const plumeLight = foliageObject.userData.plumeLight;
