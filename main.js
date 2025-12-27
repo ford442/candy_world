@@ -6,6 +6,7 @@ import { AudioSystem } from './src/audio/audio-system.js';
 import { BeatSync } from './src/audio/beat-sync.js';
 import { WeatherSystem, WeatherState } from './src/systems/weather.js';
 import { initWasm, initWasmParallel, isWasmReady, LOADING_PHASES } from './src/utils/wasm-loader.js';
+import { profiler } from './src/utils/profiler.js';
 
 // Core imports
 import { PALETTE, CYCLE_DURATION, DURATION_SUNRISE, DURATION_DAY, DURATION_SUNSET, DURATION_DUSK_NIGHT, DURATION_DEEP_NIGHT } from './src/core/config.js';
@@ -83,7 +84,9 @@ window.addEventListener('keydown', (e) => {
     try {
         if (!e.key) return;
         const key = e.key.toLowerCase();
-        if (key === 'f') {
+        if (key === 'p') {
+            profiler.toggle();
+        } else if (key === 'f') {
             let nearest = null;
             let bestDist = Infinity;
             const camPos = camera.position;
@@ -214,11 +217,13 @@ function getWeatherForTimeOfDay(cyclePos, audioData) {
 }
 
 function animate() {
+    profiler.startFrame();
+
     const rawDelta = clock.getDelta();
     const delta = Math.min(rawDelta, 0.1);
 
-    audioState = audioSystem.update();
-    beatSync.update();
+    audioState = profiler.measure('Audio', () => audioSystem.update());
+    profiler.measure('BeatSync', () => beatSync.update());
 
     // Time Dilation based on BPM (Inverse: Higher BPM = Slower Time)
     // Base BPM = 120. At 240 BPM, speed is 0.5. At 60 BPM, speed is 2.0.
@@ -234,7 +239,10 @@ function animate() {
     const cycleWeatherBias = getWeatherForTimeOfDay(cyclePos, audioState);
     
     // Weather Update
-    weatherSystem.update(t, audioState, cycleWeatherBias);
+    profiler.measure('Weather', () => {
+        weatherSystem.update(t, audioState, cycleWeatherBias);
+        weatherSystem.updateBerrySeasonalSize(cyclePos, CYCLE_DURATION);
+    });
 
     // Sync TSL Wind with BPM modulation
     // Map BPM (60-180 range approx) to a wind multiplier
@@ -279,7 +287,7 @@ function animate() {
 
     // Cycle & Visuals
     const currentState = getCycleState(effectiveTime);
-    weatherSystem.updateBerrySeasonalSize(cyclePos, CYCLE_DURATION);
+    // weatherSystem.updateBerrySeasonalSize called earlier in Weather block
 
     const nightStart = DURATION_SUNRISE + DURATION_DAY + DURATION_SUNSET;
     isNight = (cyclePos > nightStart - 30) || (cyclePos < DURATION_SUNRISE);
@@ -459,7 +467,9 @@ function animate() {
     const isDeepNight = (cyclePos >= deepNightStart && cyclePos < deepNightEnd);
 
     // Foliage Animation & Reactivity (Delegated to MusicReactivitySystem)
-    musicReactivity.update(t, audioState, weatherSystem, animatedFoliage, camera, isNight, isDeepNight, moon);
+    profiler.measure('MusicReact', () => {
+        musicReactivity.update(t, audioState, weatherSystem, animatedFoliage, camera, isNight, isDeepNight, moon);
+    });
 
     // Fireflies
     if (fireflies) {
@@ -469,22 +479,28 @@ function animate() {
         }
     }
 
-    // Update Berries & Physics
-    updateFallingBerries(delta);
-    const berriesCollected = collectFallingBerries(camera.position, 1.5);
-    if (berriesCollected > 0) {
-        player.energy = Math.min(player.maxEnergy, player.energy + berriesCollected * 0.5);
-    }
-    player.energy = Math.max(0, player.energy - delta * 0.1);
-
     // Player Physics
-    updatePhysics(delta, camera, controls, keyStates, audioState);
+    profiler.measure('Physics', () => {
+        updatePhysics(delta, camera, controls, keyStates, audioState);
+    });
 
-    // Gameplay: Blaster projectiles & falling clouds
-    updateBlaster(delta, scene, weatherSystem, t);
-    updateFallingClouds(delta, foliageClouds, getGroundHeight);
+    // Gameplay: Blaster projectiles & falling clouds & Berries
+    // Reordered slightly to group them as per profiler instruction
+    profiler.measure('Gameplay', () => {
+        updateFallingBerries(delta);
+        const berriesCollected = collectFallingBerries(camera.position, 1.5);
+        if (berriesCollected > 0) {
+            player.energy = Math.min(player.maxEnergy, player.energy + berriesCollected * 0.5);
+        }
+        player.energy = Math.max(0, player.energy - delta * 0.1);
 
-    renderer.render(scene, camera);
+        updateBlaster(delta, scene, weatherSystem, t);
+        updateFallingClouds(delta, foliageClouds, getGroundHeight);
+    });
+
+    profiler.measure('Render', () => renderer.render(scene, camera));
+
+    profiler.endFrame();
 }
 
 // Start - WASM-First Architecture with Parallel Loading
