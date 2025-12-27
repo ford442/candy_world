@@ -34,6 +34,7 @@ const _scratchBaseSkyTop = new THREE.Color();
 const _scratchBaseSkyBot = new THREE.Color();
 const _scratchBaseFog = new THREE.Color();
 const _scratchSunVector = new THREE.Vector3();
+const _scratchAuroraColor = new THREE.Color();
 
 const _weatherBiasOutput = { biasState: 'clear', biasIntensity: 0, type: 'clear' };
 
@@ -448,12 +449,13 @@ function animate() {
     // Aurora Color Shift (Slowly rotate hue or react to chords)
     // For now, let's just shift hue slowly with time
     const hue = (t * 0.05) % 1.0;
-    const auroraColor = new THREE.Color().setHSL(hue, 1.0, 0.5);
+    // Bolt Optimization: Use scratch color to avoid per-frame GC
+    _scratchAuroraColor.setHSL(hue, 1.0, 0.5);
     // If heavy bass, shift to purple/red?
     if (beatFlashIntensity > 0.2) {
-        auroraColor.setHSL(0.8 + beatFlashIntensity * 0.1, 1.0, 0.6); // Pink/Red shift
+        _scratchAuroraColor.setHSL(0.8 + beatFlashIntensity * 0.1, 1.0, 0.6); // Pink/Red shift
     }
-    uAuroraColor.value.copy(auroraColor);
+    uAuroraColor.value.copy(_scratchAuroraColor);
 
     // Foliage Materials
     let weatherStateStr = 'clear';
