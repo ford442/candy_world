@@ -10,7 +10,7 @@ import { profiler } from './src/utils/profiler.js';
 
 // Core imports
 import { PALETTE, CYCLE_DURATION, DURATION_SUNRISE, DURATION_DAY, DURATION_SUNSET, DURATION_DUSK_NIGHT, DURATION_DEEP_NIGHT } from './src/core/config.js';
-import { initScene } from './src/core/init.js';
+import { initScene, forceFullSceneWarmup } from './src/core/init.js';
 import { initInput, keyStates } from './src/core/input.js';
 import { getCycleState } from './src/core/cycle.js';
 
@@ -506,17 +506,37 @@ function animate() {
 initWasm().then(async (wasmLoaded) => { // Mark as async
     console.log(`WASM module ${wasmLoaded ? 'active' : 'using JS fallbacks'}`);
 
+    // --- NUCLEAR WARMUP: FORCE SHADER COMPILATION ---
+    // Create dummy objects for everything that might spawn later
+    const dummyGroup = new THREE.Group();
+    dummyGroup.position.set(0, -9999, 0); // Hide underground
+    scene.add(dummyGroup);
+
+    // 1. Spawn Dummy Flora
+    const dummyFlower = createFlower({ shape: 'layered' });
+    const dummyMushroom = createMushroom({ size: 'regular' });
+    dummyGroup.add(dummyFlower);
+    dummyGroup.add(dummyMushroom);
+
+    // 2. Fire Dummy Projectile
+    const dummyOrigin = new THREE.Vector3(0, -9999, 0);
+    const dummyDir = new THREE.Vector3(0, 1, 0);
+    fireRainbow(scene, dummyOrigin, dummyDir);
+
     if (window.setLoadingStatus) window.setLoadingStatus("Compiling Shaders... (This may take a moment)");
 
-    // 1. FORCE COMPILATION
+    // 3. FORCE COMPILATION
     // This makes the renderer look at the whole scene and build shaders NOW.
-    // It moves that 35-second freeze to here, so the user just sees "Loading..."
     try {
         await renderer.compileAsync(scene, camera);
-        console.log("✅ Scene shaders pre-compiled.");
+        await forceFullSceneWarmup(renderer, scene, camera);
+        console.log("✅ Scene shaders pre-compiled (Nuclear Warmup complete).");
     } catch (e) {
         console.warn("Shader compile error:", e);
     }
+
+    // 4. Cleanup (Remove from scene, but DO NOT Dispose geometries/materials)
+    scene.remove(dummyGroup);
 
     if (window.setLoadingStatus) window.setLoadingStatus("Entering Candy World...");
 
