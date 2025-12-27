@@ -108,3 +108,42 @@ export function initScene() {
         coronaMat
     };
 }
+
+export async function forceFullSceneWarmup(renderer, scene, camera) {
+    // 1. Save state
+    const originalMask = camera.layers.mask;
+    const originalPos = camera.position.clone();
+    const originalRot = camera.rotation.clone();
+    const originalAutoClear = renderer.autoClear;
+
+    // 2. Force visibility
+    const restoreList = [];
+    scene.traverse((obj) => {
+        if (obj.isMesh && obj.frustumCulled) {
+            obj.frustumCulled = false;
+            restoreList.push(obj);
+        }
+    });
+
+    // 3. Render 1x1 pixel frame
+    const scissor = new THREE.Vector4();
+    renderer.getViewport(scissor);
+    renderer.setViewport(0, 0, 1, 1);
+
+    camera.layers.enableAll();
+    camera.position.set(0, 50, 0);
+    camera.lookAt(0,0,0);
+
+    try {
+        renderer.render(scene, camera);
+    } catch (e) { console.warn("Warmup error", e); }
+
+    // 4. Restore
+    renderer.setViewport(scissor);
+    restoreList.forEach(o => o.frustumCulled = true);
+    camera.layers.mask = originalMask;
+    camera.position.copy(originalPos);
+    camera.rotation.copy(originalRot);
+    renderer.autoClear = originalAutoClear;
+    renderer.clear();
+}
