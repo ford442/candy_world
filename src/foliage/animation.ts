@@ -4,6 +4,7 @@ import { reactiveMaterials, _foliageReactiveColor, median } from './common.js';
 import { CONFIG } from '../core/config.js';
 import { FoliageObject, AudioData, FoliageMaterial, ChannelData } from './types.js';
 import { updateArpeggio } from './arpeggio.js';
+import { foliageBatcher } from './foliage-batcher.js';
 
 export * from './types.js';
 
@@ -163,10 +164,6 @@ export function animateFoliage(foliageObject: FoliageObject, time: number, audio
                         // stronger blend for higher intensity; immediate override when very strong
                         const t = Math.min(1, fi * 1.2) * 0.8;
 
-                       // if ((CONFIG as any).debugNoteReactivity && fi > 0.5) {
-                       //     try { console.log('applyFlash pre:', foliageObject.userData.type, child.name || child.uuid, 'mat=', mat.name || mat.type, 'mat.emissive=', mat.emissive?.getHexString?.(), 'target=', fc.getHexString(), 'fi=', fi); } catch (e) {}
-                      //  }
-
                         if ((mat as any).isMeshBasicMaterial && mat.color) {
                             if (fi > 0.7) mat.color.copy(fc);
                             else mat.color.lerp(fc, t);
@@ -176,10 +173,6 @@ export function animateFoliage(foliageObject: FoliageObject, time: number, audio
                             // ensure visible intensity (min floor) scaled by global flashScale
                             mat.emissiveIntensity = Math.max(0.2, fi * ((CONFIG as any).flashScale || 2.0));
                         }
-
-                       // if ((CONFIG as any).debugNoteReactivity && fi > 0.5) {
-                      //      try { console.log('applyFlash post:', foliageObject.userData.type, child.name || child.uuid, 'mat=', mat.name || mat.type, 'mat.emissive=', mat.emissive?.getHexString?.()); } catch (e) {}
-                      //  }
                     }
 
                     // decay flash intensity
@@ -275,6 +268,17 @@ export function animateFoliage(foliageObject: FoliageObject, time: number, audio
     const intensity = isActive ? (1.0 + groove * 5.0) : 0.2;
     const animTime = time + beatPhase;
 
+    // --- WASM Batching Integration ---
+    if (type && ['sway', 'bounce', 'hop', 'gentleSway', 'wobble'].includes(type)) {
+        // Try to queue for WASM batch processing
+        // Note: For bounce/hop, we pass kick. For others, it's ignored.
+        if (foliageBatcher.queue(foliageObject, type, intensity, animTime, kick)) {
+            return; // Successfully queued, skip JS logic
+        }
+    }
+
+    // --- Fallback JS Logic ---
+
     if (type === 'speakerPulse') {
         foliageObject.position.y = (foliageObject.userData.originalY || 0) + Math.sin(time + offset) * 0.2;
 
@@ -352,6 +356,8 @@ export function animateFoliage(foliageObject: FoliageObject, time: number, audio
             if (cable) cable.rotation.z = rotZ;
         });
     }
+    // Note: bounce, sway, wobble, hop, gentleSway are now handled by WASM batcher above.
+    // Kept here as fallback if batcher fails/overflows.
     else if (type === 'bounce') {
         const y = foliageObject.userData.originalY ?? foliageObject.position.y;
         foliageObject.userData.originalY = y;
