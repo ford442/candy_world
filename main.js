@@ -503,72 +503,33 @@ function animate() {
     profiler.endFrame();
 }
 
-// Start - WASM-First Architecture with Parallel Loading
-// Uses parallel WASM orchestration for faster startup (Strategy 1)
-// Falls back to sequential loading if parallel init fails
+initWasm().then(async (wasmLoaded) => { // Mark as async
+    console.log(`WASM module ${wasmLoaded ? 'active' : 'using JS fallbacks'}`);
 
-/**
- * Start the animation loop and signal that the scene is ready
- */
-function startAnimationLoop() {
-    renderer.setAnimationLoop(animate);
-    // Test hook: signal that the scene/animation loop is running
-    try { window.__sceneReady = true; } catch (e) {}
-}
+    if (window.setLoadingStatus) window.setLoadingStatus("Compiling Shaders... (This may take a moment)");
 
-/**
- * Hide loading screen after a brief delay
- */
-function finishLoadingScreen() {
+    // 1. FORCE COMPILATION
+    // This makes the renderer look at the whole scene and build shaders NOW.
+    // It moves that 35-second freeze to here, so the user just sees "Loading..."
+    try {
+        await renderer.compileAsync(scene, camera);
+        console.log("✅ Scene shaders pre-compiled.");
+    } catch (e) {
+        console.warn("Shader compile error:", e);
+    }
+
+    if (window.setLoadingStatus) window.setLoadingStatus("Entering Candy World...");
+
     setTimeout(() => {
         if (window.hideLoadingScreen) window.hideLoadingScreen();
     }, 500);
-    
+
     const startButton = document.getElementById('startButton');
     if (startButton) {
         startButton.disabled = false;
         startButton.innerText = 'Start Exploration 🚀';
-        startButton.focus();
-    }
-}
-
-async function startApplication() {
-    let wasmLoaded = false;
-    
-    try {
-        // Try parallel loading first (WASM-First Architecture)
-        console.log('[Candy World] Starting with WASM-First parallel initialization...');
-        wasmLoaded = await initWasmParallel({
-            onProgress: (phase, msg) => {
-                if (window.setLoadingStatus) window.setLoadingStatus(msg);
-                console.log(`[Loading Phase ${phase}] ${msg}`);
-            }
-        });
-    } catch (parallelError) {
-        console.warn('[Candy World] Parallel WASM init failed, trying sequential:', parallelError);
-        
-        // Fallback to sequential loading
-        try {
-            wasmLoaded = await initWasm();
-        } catch (seqError) {
-            console.error('[Candy World] All WASM init methods failed:', seqError);
-            wasmLoaded = false;
-        }
     }
 
-    console.log(`WASM module ${wasmLoaded ? 'active' : 'using JS fallbacks'}`);
-
-    if (window.setLoadingStatus) window.setLoadingStatus("Entering Candy World...");
-    finishLoadingScreen();
-    startAnimationLoop();
-}
-
-// Initialize application
-startApplication().catch(err => {
-    console.error('[Candy World] Critical startup error:', err);
-    
-    // Fallback: Start animation loop anyway with JS fallbacks
-    if (window.setLoadingStatus) window.setLoadingStatus("Starting with reduced features...");
-    finishLoadingScreen();
-    startAnimationLoop();
+    renderer.setAnimationLoop(animate);
+    try { window.__sceneReady = true; } catch (e) {}
 });
