@@ -254,6 +254,10 @@ export class FoliageBatcher {
                 const obj = batch.objects[i];
                 obj.rotation.x = F32[outPtr1 + i];
                 obj.rotation.z = F32[outPtr2 + i];
+                // Decay wobble state (logic from JS fallback)
+                if (obj.userData.wobbleCurrent) {
+                    obj.userData.wobbleCurrent *= 0.9;
+                }
                 batch.objects[i] = undefined as any;
             }
         }
