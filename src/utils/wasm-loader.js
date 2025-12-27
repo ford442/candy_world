@@ -418,6 +418,13 @@ export function isEmscriptenReady() {
     return emscriptenInstance !== null;
 }
 
+/**
+ * Get the raw WASM instance (for advanced usage like direct memory access)
+ */
+export function getWasmInstance() {
+    return wasmInstance;
+}
+
 // =============================================================================
 // SIMPLE MATH FUNCTIONS (with JS fallbacks)
 // =============================================================================
