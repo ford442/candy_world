@@ -178,15 +178,15 @@ export class MusicReactivitySystem {
         const camZ = camPos.z;
 
         // Reduced from 50 to 30 for better performance with large object count
-        const maxAnimationDistance = 30; // Reduced from 50 for 3k+ objects
+        const maxAnimationDistance = 300; // Reduced from 50 for 3k+ objects
         const maxDistanceSq = maxAnimationDistance * maxAnimationDistance;
 
         // Time budgeting: Limit material updates to avoid audio stutter
         const maxFoliageUpdateTime = 2; // milliseconds
         const frameStartTime = (typeof performance !== 'undefined') ? performance.now() : Date.now();
         let foliageUpdatesThisFrame = 0;
-        const maxFoliageUpdates = 100; // Increased from 50 since frustum culling reduces candidates
-        const budgetCheckInterval = 20; // Check time budget every 20 items (reduced overhead)
+        const maxFoliageUpdates = 300; // Increased from 50 since frustum culling reduces candidates
+        const budgetCheckInterval = 30; // Check time budget every 20 items (reduced overhead)
 
         // Audio Channel Info (Pre-calc for loop)
         const channels = (audioState && audioState.channelData) ? audioState.channelData : null;
