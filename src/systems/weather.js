@@ -266,6 +266,28 @@ export class WeatherSystem {
         this.currentSeason = seasonal.season;
         // ------------------------------
 
+        // --- NEW: Pattern-Change Seasons ---
+        // Check for pattern change event or current pattern index
+        const currentPattern = audioData.patternIndex || 0;
+        if (currentPattern !== this.lastPatternIndex) {
+            // Pattern changed!
+            // Map pattern index to a "Season" or Palette Mode
+            // D00-D20: Neon/Synthwave
+            // D21+: Glitch/Monochrome
+            // Default: Standard Nature
+
+            // This logic assumes pattern index is mapped somewhat linearly to song sections
+            if (currentPattern >= 20 && currentPattern < 40) {
+                this.targetPaletteMode = 'neon';
+            } else if (currentPattern >= 40) {
+                this.targetPaletteMode = 'glitch';
+            } else {
+                this.targetPaletteMode = 'standard'; // Default
+            }
+            this.lastPatternIndex = currentPattern;
+        }
+        // -----------------------------------
+
         // 3. Update Weather State (Audio + Time of Day + Season)
         this.updateWeatherState(bassIntensity, melodyVol, groove, cycleWeatherBias, seasonal);
 
