@@ -7,11 +7,11 @@ import { FoliageObject } from './types.js';
 const BATCH_SIZE = 4000; // Max objects per type per batch
 
 // Memory layout for batch processing (in bytes)
-// We allocate memory starting after MATERIAL_DATA_OFFSET (12288)
+// We allocate memory starting at 16KB boundary (after MATERIAL_DATA_OFFSET region which is at 12288)
 // Each batch needs space for: offsets, intensities, originalYs, wobbleBoosts, outScalars, outScalars2
 // Each array is BATCH_SIZE * 4 bytes = 16000 bytes
 const BATCH_MEMORY_START = 16384; // Start at 16KB boundary for alignment
-const BATCH_ARRAY_SIZE = BATCH_SIZE * 4; // Size in bytes per array
+const BATCH_ARRAY_SIZE = BATCH_SIZE * 4; // Size in bytes per array (16000 bytes)
 
 interface BatchState {
     count: number;
@@ -139,7 +139,7 @@ export class FoliageBatcher {
         this.initBatchMemory(this.batches.gentleSway, currentOffset);
         currentOffset += BATCH_ARRAY_SIZE * 3;
 
-        // Wobble batch (6 arrays: offsets, intensities, wobbleBoosts, outScalars, outScalars2)
+        // Wobble batch (5 arrays: offsets, intensities, wobbleBoosts, outScalars, outScalars2)
         this.initBatchMemory(this.batches.wobble, currentOffset);
         currentOffset += BATCH_ARRAY_SIZE * 5;
 
