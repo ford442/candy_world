@@ -376,15 +376,19 @@ function populateProceduralExtras(weatherSystem: WeatherSystem): void {
             }
             else if (rand < 0.85) { // 20% Musical Flora (Ferns, Geysers, Traps)
                  const type = Math.random();
-                 if (type < 0.33) {
+                 if (type < 0.20) {
                      obj = createArpeggioFern({ scale: 1.0 + Math.random() * 0.5 });
-                 } else if (type < 0.66) {
+                 } else if (type < 0.40) {
                      obj = createKickDrumGeyser({ maxHeight: 5.0 + Math.random() * 3.0 });
                      radius = 1.0;
-                 } else {
+                 } else if (type < 0.60) {
                      obj = createSnareTrap({ scale: 0.8 + Math.random() * 0.4 });
                      isObstacle = true;
                      radius = 0.8;
+                 } else if (type < 0.80) {
+                     obj = createTremoloTulip({ size: 1.0 + Math.random() * 0.5 });
+                 } else {
+                     obj = createCymbalDandelion({ scale: 0.8 + Math.random() * 0.4 });
                  }
                  obj.position.set(x, groundY, z);
             }

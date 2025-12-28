@@ -301,6 +301,9 @@ Three.js Renderer -> WebGPU RenderPipeline (Raw Draw Calls)
   - **Rainbow After Storm**: Implemented procedural TSL rainbow arc that appears when storms clear.
   - **Mushroom Emission**: Added animated pulsing stripes to Giant Mushrooms using TSL.
   - **Vine Swinging**: Refined physics with "pumping" mechanics and safety clamping.
+  - **Tremolo Tulips**: Implemented `createTremoloTulip` with `tremeloPulse` animation and TSL vortex materials.
+  - **Cymbal Dandelions**: Implemented `createCymbalDandelion` with `cymbalShake` animation and particle explosion logic.
+  - **Procedural Generation**: Added new musical flora (Tulips, Dandelions) to procedural extras spawning logic.
 
 - **Concept Art Alignment**:
   - Validated codebase against `image.png`, confirming "Cute Clay" aesthetics (rounded forms, pastel colors, face details on flora) are active.
