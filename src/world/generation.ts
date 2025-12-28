@@ -10,7 +10,8 @@ import {
     createRainingCloud, createWaterfall, createMelodyLake, createFireflies, initFallingBerries,
     initGrassSystem, addGrassInstance,
     createArpeggioFern, createPortamentoPine, createCymbalDandelion, createSnareTrap,
-    createBubbleWillow, createHelixPlant, createBalloonBush, createWisteriaCluster
+    createBubbleWillow, createHelixPlant, createBalloonBush, createWisteriaCluster,
+    createPanningPad, createSilenceSpirit, createInstrumentShrine
 } from '../foliage/index.js';
 import { validateFoliageMaterials } from '../foliage/common.js';
 import { CONFIG } from '../core/config.js';
@@ -274,6 +275,29 @@ function generateMap(weatherSystem: WeatherSystem): void {
             else if (item.type === 'snare_trap') {
                 obj = createSnareTrap();
             }
+            else if (item.type === 'panning_pad') {
+                // Bias can be inferred from x position (Left < 0 < Right)
+                const panBias = x < 0 ? -1 : 1;
+                obj = createPanningPad({
+                    radius: item.scale || 1.0,
+                    panBias: panBias
+                });
+                // Slightly float on liquid if at ground level, or assume it's placed on water
+                if (y < 2) y = 1.0;
+            }
+            // Spirits (Rare)
+            else if (item.type === 'silence_spirit') {
+                obj = createSilenceSpirit({ scale: item.scale || 1.0 });
+                // Don't mark as obstacle so players can walk through them
+            }
+            // Instrument Shrines
+            else if (item.type === 'instrument_shrine') {
+                // Parse ID from variant or use random
+                const id = parseInt(item.variant || '0', 10);
+                obj = createInstrumentShrine({ instrumentID: id, scale: item.scale || 1.0 });
+                isObstacle = true;
+                radius = 1.0;
+            }
             // Trees
             else if (item.type === 'bubble_willow') {
                 obj = createBubbleWillow();
@@ -387,16 +411,32 @@ function populateProceduralExtras(weatherSystem: WeatherSystem): void {
                      radius = 0.8;
                  } else if (type < 0.80) {
                      obj = createTremoloTulip({ size: 1.0 + Math.random() * 0.5 });
-                 } else {
+                 } else if (type < 0.90) {
                      obj = createCymbalDandelion({ scale: 0.8 + Math.random() * 0.4 });
+                 } else {
+                     // 10% chance of Panning Pads (best near water, but we'll spawn them generally)
+                     const panBias = x < 0 ? -1 : 1;
+                     obj = createPanningPad({ radius: 1.2 + Math.random(), panBias });
+                     // Force height to be slightly above ground to simulate hovering/floating
+                     obj.position.y = groundY + 0.5;
                  }
-                 obj.position.set(x, groundY, z);
+                 if (obj) obj.position.set(x, obj.position.y || groundY, z);
             }
-            else { // 15% Clouds
+             else if (rand < 0.95) { // 15% Clouds
                  const isHigh = Math.random() < 0.5;
                  y = isHigh ? 35 + Math.random() * 20 : 12 + Math.random() * 10;
                  obj = createRainingCloud({ size: 1.0 + Math.random() });
                  obj.position.set(x, y, z);
+             }
+             else if (rand < 0.98) { // 3% Silence Spirits
+                 obj = createSilenceSpirit();
+                 obj.position.set(x, groundY, z);
+             }
+             else { // 2% Instrument Shrines
+                 const id = Math.floor(Math.random() * 16);
+                 obj = createInstrumentShrine({ instrumentID: id });
+                 obj.position.set(x, groundY, z);
+                 isObstacle = true;
             }
 
             if (obj) {

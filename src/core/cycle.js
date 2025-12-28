@@ -33,12 +33,31 @@ export function lerpPalette(p1, p2, t) {
 }
 
 // --- Cycle Interpolation ---
-export function getCycleState(tRaw) {
+export function getCycleState(tRaw, paletteMode = 'standard') {
     const t = tRaw % CYCLE_DURATION;
+
+    // Determine target palettes based on mode
+    let targetDay = PALETTE.day;
+    let targetSunset = PALETTE.sunset;
+    let targetNight = PALETTE.night;
+    let targetSunrise = PALETTE.sunrise;
+
+    if (paletteMode === 'neon') {
+        targetDay = PALETTE.neon; // Neon Day
+        // We could define neon_sunset etc, but for now reuse or mix
+        targetSunset = PALETTE.sunset;
+        targetNight = PALETTE.neon; // Neon Night is same as Day for intense look
+        targetSunrise = PALETTE.neon;
+    } else if (paletteMode === 'glitch') {
+        targetDay = PALETTE.glitch;
+        targetSunset = PALETTE.glitch;
+        targetNight = PALETTE.glitch;
+        targetSunrise = PALETTE.glitch;
+    }
 
     // 1. Sunrise (0-60)
     if (t < DURATION_SUNRISE) {
-        return lerpPalette(PALETTE.night, PALETTE.sunrise, t / DURATION_SUNRISE);
+        return lerpPalette(targetNight, targetSunrise, t / DURATION_SUNRISE);
     }
 
     let elapsed = DURATION_SUNRISE;
@@ -46,15 +65,15 @@ export function getCycleState(tRaw) {
     // 2. Day (60-480)
     if (t < elapsed + DURATION_DAY) {
         const localT = t - elapsed;
-        if (localT < 60) return lerpPalette(PALETTE.sunrise, PALETTE.day, localT / 60);
-        return PALETTE.day;
+        if (localT < 60) return lerpPalette(targetSunrise, targetDay, localT / 60);
+        return targetDay;
     }
     elapsed += DURATION_DAY;
 
     // 3. Sunset (480-540)
     if (t < elapsed + DURATION_SUNSET) {
         const localT = t - elapsed;
-        return lerpPalette(PALETTE.day, PALETTE.sunset, localT / DURATION_SUNSET);
+        return lerpPalette(targetDay, targetSunset, localT / DURATION_SUNSET);
     }
     elapsed += DURATION_SUNSET;
 
@@ -62,23 +81,23 @@ export function getCycleState(tRaw) {
     if (t < elapsed + DURATION_DUSK_NIGHT) {
         const localT = t - elapsed;
         // Fade to Night
-        if (localT < 60) return lerpPalette(PALETTE.sunset, PALETTE.night, localT / 60);
-        return PALETTE.night;
+        if (localT < 60) return lerpPalette(targetSunset, targetNight, localT / 60);
+        return targetNight;
     }
     elapsed += DURATION_DUSK_NIGHT;
 
     // 5. Deep Night (720-840)
     if (t < elapsed + DURATION_DEEP_NIGHT) {
-        return PALETTE.night;
+        return targetNight;
     }
     elapsed += DURATION_DEEP_NIGHT;
 
     // 6. Pre-Dawn (840-960)
     if (t < elapsed + DURATION_PRE_DAWN) {
-        return PALETTE.night;
+        return targetNight;
     }
 
-    return PALETTE.night; // Fallback
+    return targetNight; // Fallback
 }
 
 

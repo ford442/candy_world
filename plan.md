@@ -307,3 +307,14 @@ Three.js Renderer -> WebGPU RenderPipeline (Raw Draw Calls)
 
 - **Concept Art Alignment**:
   - Validated codebase against `image.png`, confirming "Cute Clay" aesthetics (rounded forms, pastel colors, face details on flora) are active.
+  - Aligned "Silence Spirits" design with starlight/ephemeral aesthetic.
+
+- **Accomplished (Latest):**
+  - **Panning Pads**: Implemented `src/foliage/panning-pads.js` with mercury-like TSL materials and stereo-pan driven bobbing animation. Integrated into world generation (near water).
+  - **Silence Spirits**: Implemented `src/foliage/silence-spirits.js` with translucent, fading geometry and volume-reactive AI (fleeing on noise, appearing in silence).
+  - **Pattern-Change Seasons**: Implemented global palette shifts (Neon/Glitch modes) triggered by music pattern changes (detected via `AudioSystem` and propagated to `WeatherSystem`).
+  - **Instrument-ID Textures**: Implemented `createInstrumentShrine` in `src/foliage/instrument.js` using procedural TSL patterns seeded by Instrument ID.
+
+- **Next Steps:**
+  - **Verify Data Flow**: Ensure `AudioSystem` correctly extracts and passes `order`/`row` data from the worklet to drive the Pattern-Change logic reliably.
+  - **Migrate to TypeScript**: Continue Phase 1 of the migration roadmap.

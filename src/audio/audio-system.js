@@ -75,7 +75,8 @@ export class AudioSystem {
             grooveAmount: 0,
             activeChannels: 0,
             channelData: [],
-            bpm: 120  // Current estimated BPM
+            bpm: 120, // Current estimated BPM
+            patternIndex: 0 // Current pattern/order index
         };
 
         this.init();
@@ -443,8 +444,15 @@ export class AudioSystem {
     }
 
     handleVisualUpdate(data) {
-        const { bpm, channelData, anyTrigger } = data;
+        const { bpm, channelData, anyTrigger, order, row } = data; // Ensure Worklet sends order/row!
         this.visualState.bpm = bpm || 120;
+
+        // Update Pattern Index (using order as proxy for global pattern progress)
+        // If 'order' isn't available, we might default to 0, but hopefully worklet sends it.
+        if (order !== undefined) {
+            this.visualState.patternIndex = order;
+        }
+
         if (anyTrigger) this.visualState.kickTrigger = 1.0;
 
         while (this.visualState.channelData.length < channelData.length) {
