@@ -550,6 +550,114 @@ export function animateFoliage(foliageObject: FoliageObject, time: number, audio
              }
         }
     }
+    else if (type === 'panningBob') {
+        const panBias = foliageObject.userData.panBias || 0; // -1 (Left) to 1 (Right)
+
+        let targetBob = 0;
+        let activeGlow = 0;
+
+        if (audioData && audioData.channelData) {
+            // Check all channels for pan activity matching our bias
+            // Or just check the main melody channels (2, 3)
+            // Let's iterate and sum weighted by volume
+            for (const ch of audioData.channelData) {
+                 const vol = ch.volume || 0;
+                 const pan = ch.pan || 0; // -1 to 1
+
+                 // If pad is LEFT (panBias < 0) and sound is LEFT (pan < 0), add up
+                 // If pad is RIGHT (panBias > 0) and sound is RIGHT (pan > 0), add up
+                 if (panBias * pan > 0) {
+                     targetBob += vol * Math.abs(pan);
+                 }
+                 // Also react to center pan slightly
+                 if (Math.abs(pan) < 0.2) {
+                     targetBob += vol * 0.3;
+                 }
+            }
+        }
+
+        // Smooth bob
+        const currentBob = foliageObject.userData.currentBob || 0;
+        const nextBob = THREE.MathUtils.lerp(currentBob, targetBob, 0.1);
+        foliageObject.userData.currentBob = nextBob;
+
+        // Apply visual bob
+        const bobHeight = nextBob * 1.5 * intensity; // Scale bob
+        const baseY = foliageObject.userData.originalY ?? foliageObject.position.y;
+        foliageObject.userData.originalY = baseY;
+
+        foliageObject.position.y = baseY + Math.sin(time * 2 + offset) * 0.1 + bobHeight;
+
+        // Tilt based on bias
+        foliageObject.rotation.z = panBias * bobHeight * 0.2;
+
+        // Update Glow intensity
+        const glowMat = foliageObject.userData.glowMaterial;
+        const glowUni = foliageObject.userData.glowUniform;
+        if (glowUni) {
+             // Update TSL Uniform
+             glowUni.value = 0.6 + bobHeight * 0.8;
+        } else if (glowMat) {
+             // Basic opacity update if supported (fallback)
+             (glowMat as any).opacity = 0.6 + bobHeight * 0.5;
+        }
+    }
+    else if (type === 'spiritFade') {
+        const mat = foliageObject.userData.spiritMaterial;
+        let volume = 1.0;
+        // Calculate master volume proxy
+        if (audioData) {
+            // Average of all channels or just use main meter
+            // audioData.average isn't strictly typed but passed in some contexts
+            // Let's sum active channels
+            let sum = 0;
+            if (audioData.channelData) {
+                for (const ch of audioData.channelData) {
+                    sum += ch.volume || 0;
+                }
+                volume = sum / 4.0; // Normalize roughly
+            }
+        }
+
+        // Logic: If volume < threshold (breakdown/silence), spirit appears.
+        // If volume > threshold, spirit fades/flees.
+        const threshold = 0.1;
+
+        if (volume < threshold) {
+            foliageObject.userData.targetOpacity = 0.8;
+            foliageObject.userData.fleeSpeed = Math.max(0, foliageObject.userData.fleeSpeed - 0.01);
+        } else {
+            foliageObject.userData.targetOpacity = 0.0;
+            if (foliageObject.userData.currentOpacity > 0.1) {
+                // Flee!
+                foliageObject.userData.fleeSpeed = Math.min(0.2, foliageObject.userData.fleeSpeed + 0.01);
+            }
+        }
+
+        // Lerp Opacity
+        const cur = foliageObject.userData.currentOpacity || 0;
+        const target = foliageObject.userData.targetOpacity;
+        const next = THREE.MathUtils.lerp(cur, target, 0.05);
+        foliageObject.userData.currentOpacity = next;
+
+        if (mat) {
+            mat.opacity = next;
+            mat.visible = next > 0.01;
+        }
+
+        // Flee movement (bob away)
+        if (foliageObject.userData.fleeSpeed > 0) {
+             foliageObject.position.z -= foliageObject.userData.fleeSpeed;
+             // Reset if too far? Or just let them run away forever (they get culled eventually)
+        }
+
+        // Hover animation
+        if (next > 0.01) {
+             const baseY = foliageObject.userData.originalY ?? foliageObject.position.y;
+             foliageObject.userData.originalY = baseY;
+             foliageObject.position.y = baseY + Math.sin(time * 1.5 + offset) * 0.2;
+        }
+    }
     else if (type === 'geyserErupt') {
         const plume = foliageObject.userData.plume;
         const plumeLight = foliageObject.userData.plumeLight;

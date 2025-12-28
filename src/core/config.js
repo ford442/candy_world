@@ -12,6 +12,7 @@ export const DURATION_PRE_DAWN = 120;   // 2 min
 export const CYCLE_DURATION = DURATION_SUNRISE + DURATION_DAY + DURATION_SUNSET + DURATION_DUSK_NIGHT + DURATION_DEEP_NIGHT + DURATION_PRE_DAWN; // 960s
 
 export const PALETTE = {
+    // Standard Season (Spring/Default)
     day: {
         skyTop: new THREE.Color(0x87CEEB),   // Brighter sky blue for day
         skyBot: new THREE.Color(0xB8E6F0),   // Softer transition to horizon
@@ -22,6 +23,30 @@ export const PALETTE = {
         sunInt: 0.9,
         ambInt: 0.65,
         atmosphereIntensity: 0.3
+    },
+    // Pattern 1: Neon Synthwave (D01-D20 range)
+    neon: {
+        skyTop: new THREE.Color(0x220044),   // Deep purple
+        skyBot: new THREE.Color(0xFF00FF),   // Neon magenta
+        horizon: new THREE.Color(0x00FFFF),  // Cyan horizon
+        fog: new THREE.Color(0x5500AA),      // Purple fog
+        sun: new THREE.Color(0xFF00AA),      // Pink sun
+        amb: new THREE.Color(0x440088),      // Purple ambient
+        sunInt: 0.8,
+        ambInt: 0.7,
+        atmosphereIntensity: 0.9
+    },
+    // Pattern 2: Glitch/Monochrome (D21+ range)
+    glitch: {
+        skyTop: new THREE.Color(0x000000),   // Black
+        skyBot: new THREE.Color(0x888888),   // Grey
+        horizon: new THREE.Color(0xFFFFFF),  // White
+        fog: new THREE.Color(0xAAAAAA),      // Grey fog
+        sun: new THREE.Color(0xFFFFFF),      // White sun
+        amb: new THREE.Color(0x444444),      // Grey ambient
+        sunInt: 1.0,
+        ambInt: 0.5,
+        atmosphereIntensity: 0.0
     },
     sunset: {
         skyTop: new THREE.Color(0x4B3D8F),   // Rich purple-blue
