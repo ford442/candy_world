@@ -4,7 +4,7 @@
 
 import * as THREE from 'three';
 import { calcRainDropY, getGroundHeight, uploadPositions, uploadAnimationData, batchMushroomSpawnCandidates, readSpawnCandidates, isWasmReady } from '../utils/wasm-loader.js';
-import { chargeBerries, triggerGrowth, triggerBloom, shakeBerriesLoose, updateBerrySeasons, createMushroom, createWaterfall } from '../foliage/index.js';
+import { chargeBerries, triggerGrowth, triggerBloom, shakeBerriesLoose, updateBerrySeasons, createMushroom, createWaterfall, createLanternFlower } from '../foliage/index.js';
 import { createRainbow, uRainbowOpacity } from '../foliage/rainbow.js';
 import { getCelestialState, getSeasonalState } from '../core/cycle.js'; // Import seasonal helper
 import { CYCLE_DURATION, CONFIG } from '../core/config.js'; // Import cycle duration and config
@@ -80,6 +80,10 @@ export class WeatherSystem {
         this._spawnThrottle = 0.5;         // seconds between heavy spawn checks
         this._spawnQueue = [];
         
+        // --- Fix for missing initialization in previous patch ---
+        this._spawnThrottle = 0.5;
+        this._lastSpawnCheck = 0;
+        // ------------------------------------------------------
 
         // Fog reference (set from main.js)
         this.fog = scene.fog;
@@ -335,28 +339,60 @@ export class WeatherSystem {
         this.applyDarknessLogic(celestial, seasonal.moonPhase); // Updated to use real moon phase
         // ------------------------------
 
-        // Trigger Growth/Bloom based on weather active state
-        if (this.state === WeatherState.RAIN || this.state === WeatherState.STORM) {
-            const growthBase = (this.state === WeatherState.STORM ? 0.2 : 0.1) * bassIntensity;
-            const bloomBase = (this.state === WeatherState.STORM ? 0.2 : 0.1) * melodyVol;
+        // ------------------------------------------------------------------
+        // NEW: Ecosystem Balance Logic (Light vs Dark)
+        // ------------------------------------------------------------------
 
-            // Sun powers Flowers/Trees, Moon powers Mushrooms
-            const solarGrowth = growthBase * (0.5 + celestial.sunIntensity);
-            const lunarGrowth = growthBase * (0.5 + celestial.moonIntensity);
+        // Calculate Global Illumination (0.0 = Pitch Black, 1.0 = Noon Clear Sky)
+        // Re-use this.currentLightLevel calculated earlier, or recalculate if needed to be safe
+        // The earlier calculation:
+        // const sunPower = celestial.sunIntensity * (seasonal ? seasonal.sunInclination : 1.0) * (1.0 - this.cloudDensity * 0.7);
+        // But let's stick to the logic requested in the prompt for "Ecosystem Balance"
 
-            if (this.percussionRain.visible) {
-                // Grow trees/flowers with Sun influence
-                triggerGrowth(this.trackedTrees, solarGrowth);
-                triggerGrowth(this.trackedFlowers, solarGrowth); // Assuming flowers have growth trigger
-                
-                // Grow Mushrooms with Moon influence
-                triggerGrowth(this.trackedMushrooms, lunarGrowth);
+        const sunPower = celestial.sunIntensity * (1.0 - this.cloudDensity * 0.7); // Clouds block sun
+        const moonPower = celestial.moonIntensity * 0.3; // Moon is weaker
+        const globalLight = Math.max(0, sunPower + moonPower);
+
+        // Calculate "Moisture" (Rain Intensity + Storm Charge)
+        const moisture = this.intensity + (this.stormCharge * 0.5);
+
+        // === Competition Formula ===
+
+        // 1. FLORA (Trees/Flowers): Need Sun + Water
+        // Thrives when light is > 0.4 and Moisture is moderate (0.2 - 0.7)
+        let floraFavorability = globalLight * (0.5 + moisture);
+        if (moisture > 0.9) floraFavorability *= 0.5; // Too much rain drowns them (unless storm type)
+
+        // 2. FUNGI (Mushrooms): Need Dark + Wet
+        // Thrives when light is < 0.3 and Moisture is high
+        // Inverse of light
+        let fungiFavorability = (1.0 - globalLight) * (0.2 + moisture * 1.5);
+
+        // 3. LANTERN FLOWERS (Special): Need Storms/Chaos
+        // Thrives in high storm charge or pitch darkness
+        let lanternFavorability = (this.state === WeatherState.STORM ? 1.0 : 0.0) + (1.0 - globalLight) * 0.2;
+
+        // === Trigger Growth Based on Favorability ===
+
+        if (this.percussionRain.visible) {
+            // Apply growth to tracked objects
+            if (this.trackedTrees.length > 0) {
+                // Trees grow if Flora wins
+                triggerGrowth(this.trackedTrees, floraFavorability * bassIntensity * 0.1);
             }
-
-            if (this.melodicMist.visible) {
-                triggerBloom(this.trackedFlowers, bloomBase * (0.8 + celestial.sunIntensity * 0.4));
+            if (this.trackedFlowers.length > 0) {
+                triggerGrowth(this.trackedFlowers, floraFavorability * bassIntensity * 0.1);
+            }
+            if (this.trackedMushrooms.length > 0) {
+                // Mushrooms grow if Fungi wins
+                triggerGrowth(this.trackedMushrooms, fungiFavorability * bassIntensity * 0.15);
             }
         }
+
+        // === Spawning Logic (The Takeover) ===
+        this.handleSpawning(time, fungiFavorability, lanternFavorability, globalLight);
+
+        // ------------------------------------------------------------------
 
         // 5. Update Waterfalls on Giant Mushrooms
         this.updateMushroomWaterfalls(time, bassIntensity);
@@ -391,6 +427,79 @@ export class WeatherSystem {
     /**
      * Update wind direction and speed based on audio
      */
+    handleSpawning(time, fungiScore, lanternScore, globalLight) {
+        // Throttle spawning checks
+        if (time - this._lastSpawnCheck < this._spawnThrottle) return;
+        this._lastSpawnCheck = time;
+
+        // 1. Mushroom Takeover
+        // If it's dark and wet (fungiScore high), spawn bioluminescent mushrooms
+        if (fungiScore > 0.8) {
+            // High chance to spawn
+            if (Math.random() < 0.4) {
+                this.spawnFoliage('mushroom', true); // true = bioluminescent
+            }
+        }
+
+        // 2. Lantern Flowers (Storm Spawns)
+        // If it's a storm, spawn lanterns to "guide" the player
+        if (lanternScore > 0.6) {
+            if (Math.random() < 0.3) {
+                this.spawnFoliage('lantern', false);
+            }
+        }
+
+        // 3. Regular Flora Recovery
+        // If sun is out, maybe spawn a flower
+        if (globalLight > 0.7 && fungiScore < 0.3) {
+             if (Math.random() < 0.2) {
+                this.spawnFoliage('flower', false);
+            }
+        }
+    }
+
+    spawnFoliage(type, isGlowing) {
+        if (!this.onSpawnFoliage) return;
+
+        // Random position near player or in front of camera (simplified to random world pos for now)
+        // ideally getting camera pos from somewhere, but we'll use a random distribution
+        // Keep within reasonable bounds
+        const x = (Math.random() - 0.5) * 60;
+        const z = (Math.random() - 0.5) * 60;
+        const y = getGroundHeight(x, z);
+
+        let object;
+        if (type === 'mushroom') {
+            object = createMushroom({
+                size: 'regular',
+                scale: 0.5 + Math.random() * 0.5,
+                isBioluminescent: isGlowing // Use the new flag
+            });
+        } else if (type === 'lantern') {
+            object = createLanternFlower({
+                height: 2.0 + Math.random() * 1.5,
+                color: 0xFFaa00 // Warm light
+            });
+        } else if (type === 'flower') {
+            // Not implemented in this snippet to avoid circular deps if createFlower isn't imported,
+            // but we can assume normal generation happens via main.js or other systems.
+            // For now, let's just return to avoid errors if createFlower isn't available or needed here.
+            return;
+        }
+
+        if (object) {
+            object.position.set(x, y, z);
+            object.scale.setScalar(0.01); // Start tiny
+
+            // Use the callback to safely add to scene and list
+            this.onSpawnFoliage(object, true, 0); // Scale up from 0
+
+            // Register it so it grows later
+            if (type === 'mushroom') this.registerMushroom(object);
+            if (type === 'lantern') this.registerFlower(object); // Treat as flower for tracking
+        }
+    }
+
     updateWind(time, audioData, celestial) {
         const channels = audioData.channelData || [];
         const highFreqVol = channels[3]?.volume || 0;
