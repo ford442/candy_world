@@ -8,6 +8,8 @@ const BATCH_SIZE = 4000; // Max objects per type per batch
 
 // Memory layout for batch processing (in bytes)
 // We allocate memory starting at 16KB boundary (after the WASM's standard memory regions)
+// Standard WASM regions: POSITION_OFFSET (0), ANIMATION_OFFSET (4096), OUTPUT_OFFSET (8192), MATERIAL_DATA_OFFSET (12288)
+// Starting at 16KB (16384) provides safe separation from these regions
 // Each batch needs space for: offsets, intensities, originalYs, wobbleBoosts, outScalars, outScalars2
 // Each array is BATCH_SIZE * 4 bytes = 16000 bytes
 const BATCH_MEMORY_START = 16384; // Start at 16KB boundary for alignment
