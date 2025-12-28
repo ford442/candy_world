@@ -175,6 +175,29 @@ export function createMushroom(options = {}) {
     group.userData.type = 'mushroom';
     group.userData.colorIndex = typeof chosenColorIndex === 'number' ? chosenColorIndex : -1;
     
+    // --- NEW: Bioluminescence Logic ---
+    if (options.isBioluminescent) {
+        // Determine color based on cap material or default
+        const lightColor = (instanceCapMat && instanceCapMat.color) ? instanceCapMat.color : new THREE.Color(0x00FF88);
+
+        // Add a Point Light inside the cap
+        const light = new THREE.PointLight(lightColor, 0.5, 4.0);
+        // Position it under the cap so it lights up the stem and ground
+        light.position.set(0, stemH * 0.5, 0);
+        group.add(light);
+
+        // Make the gills emissive
+        if (gill && gill.material) {
+            // Clone to avoid affecting all mushrooms
+            gill.material = gill.material.clone();
+            gill.material.emissive = lightColor;
+            gill.material.emissiveIntensity = 0.5;
+        }
+
+        group.userData.isBioluminescent = true;
+    }
+    // ----------------------------------
+
     // --- IMPORTANT: Metadata for Weather System ---
     group.userData.size = size;
     group.userData.capRadius = capR;
