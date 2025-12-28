@@ -238,7 +238,7 @@ function animate() {
     const effectiveTime = t + timeOffset;
     const cyclePos = effectiveTime % CYCLE_DURATION;
     const cycleWeatherBias = getWeatherForTimeOfDay(cyclePos, audioState);
-    
+
     // Weather Update
     profiler.measure('Weather', () => {
         weatherSystem.update(t, audioState, cycleWeatherBias);
@@ -287,7 +287,8 @@ function animate() {
     }
 
     // Cycle & Visuals
-    const currentState = getCycleState(effectiveTime);
+    // Use weatherSystem's target palette mode (from pattern)
+    const currentState = getCycleState(effectiveTime, weatherSystem.targetPaletteMode || 'standard');
     // weatherSystem.updateBerrySeasonalSize called earlier in Weather block
 
     const nightStart = DURATION_SUNRISE + DURATION_DAY + DURATION_SUNSET;
