@@ -394,12 +394,14 @@ beatSync.onBeat(state => {
 18. [ ] Beat synchronization
 19. [ ] Performance optimization
 20. [x] Rainbow After Storm (Visual Reward)
+21. [x] Tremolo Tulips (Implemented)
+22. [x] Cymbal Dandelions (Implemented)
 
 ### 📋 Week 7-8: Advanced Features
 
-21. [ ] Aurora borealis
-21. [ ] Seed collection
-22. [ ] Rare flora discovery
+23. [x] Aurora borealis
+24. [ ] Seed collection
+25. [ ] Rare flora discovery
 23. [ ] Iridescent materials
 24. [ ] World evolution system
 
