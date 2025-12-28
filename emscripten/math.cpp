@@ -62,4 +62,16 @@ float fastInvSqrt(float x) {
     return x;
 }
 
+// Ground height calculation matching AssemblyScript/JS implementation
+// y = sin(x * 0.05) * 2.0 + cos(z * 0.05) * 2.0 + sin(x * 0.2) * 0.3 + cos(z * 0.15) * 0.3
+EMSCRIPTEN_KEEPALIVE
+float getGroundHeight(float x, float z) {
+    if (std::isnan(x) || std::isnan(z)) return 0.0f;
+    
+    float hills = sinf(x * 0.05f) * 2.0f + cosf(z * 0.05f) * 2.0f;
+    float detail = sinf(x * 0.2f) * 0.3f + cosf(z * 0.15f) * 0.3f;
+    
+    return hills + detail;
+}
+
 }
