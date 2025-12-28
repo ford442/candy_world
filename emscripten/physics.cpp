@@ -166,20 +166,15 @@ int updatePhysicsCPP(float delta, float inputX, float inputZ, float speed, int j
         }
     }
 
-    // Ground Collision (Fallback)
-    // Note: In C++ we might need to link math.cpp's noise function for this.
-    // For now, assume flat plane at 0 or imported heightmap function.
-    // We'll use a placeholder 0.0f if getGroundHeight isn't linked,
-    // but usually in this project all .cpp are compiled together.
-    // float groundY = getGroundHeight(nextX, nextZ);
-    // ^ If this function is in math.cpp and not shared header, we need extern.
-
-    // Safety check for ground
-    // if (nextY < groundY + 1.8f) {
-    //    nextY = groundY + 1.8f;
-    //    player.vy = 0;
-    //    onGround = 1;
-    // }
+    // Ground Collision - using getGroundHeight from math.cpp
+    float groundY = getGroundHeight(nextX, nextZ);
+    
+    // Check if player is at or below ground level (1.8f is player eye height)
+    if (nextY < groundY + 1.8f && player.vy <= 0) {
+        nextY = groundY + 1.8f;
+        player.vy = 0;
+        onGround = 1;
+    }
 
     // Apply
     player.x = nextX;
