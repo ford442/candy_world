@@ -540,6 +540,11 @@ initWasm().then(async (wasmLoaded) => { // Mark as async
     // 4. Cleanup (Remove from scene, but DO NOT Dispose geometries/materials)
     scene.remove(dummyGroup);
 
+    // 5. Initialize camera position to ground height (ensures player doesn't start in mid-air or underground)
+    const initialGroundY = getGroundHeight(camera.position.x, camera.position.z);
+    camera.position.y = initialGroundY + 1.8; // Player eye height is 1.8 above ground
+    console.log(`[Startup] Camera positioned at ground height: y=${camera.position.y.toFixed(2)}`);
+
     if (window.setLoadingStatus) window.setLoadingStatus("Entering Candy World...");
 
     setTimeout(() => {
