@@ -130,10 +130,10 @@ export function animateFoliage(foliageObject: FoliageObject, time: number, audio
     const type = foliageObject.userData.animationType;
 
     // --- Per-note flash application (emissive/color) with automatic fade-back ---
-    const reactive = foliageObject.userData.reactiveMeshes || [];
+    const reactive = foliageObject.userData.reactiveMeshes;
     
     // Fast path: skip material updates if no reactive meshes
-    if (reactive.length > 0) {
+    if (reactive && reactive.length > 0) {
         // Check if any child has active flash or needs fade back to avoid unnecessary iteration
         let hasActiveFlash = false;
         let needsFadeBack = false;
@@ -269,12 +269,9 @@ export function animateFoliage(foliageObject: FoliageObject, time: number, audio
     const animTime = time + beatPhase;
 
     // --- WASM Batching Integration ---
-    if (type && ['sway', 'bounce', 'hop', 'gentleSway', 'wobble'].includes(type)) {
-        // Try to queue for WASM batch processing
-        // Note: For bounce/hop, we pass kick. For others, it's ignored.
-        if (foliageBatcher.queue(foliageObject, type, intensity, animTime, kick)) {
-            return; // Successfully queued, skip JS logic
-        }
+    // Bolt Optimization: Direct queue attempt avoids array allocation/lookup.
+    if (type && foliageBatcher.queue(foliageObject, type, intensity, animTime, kick)) {
+        return; // Successfully queued, skip JS logic
     }
 
     // --- Fallback JS Logic ---
