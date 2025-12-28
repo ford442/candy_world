@@ -6,6 +6,13 @@ import { FoliageObject } from './types.js';
 // Batch configuration
 const BATCH_SIZE = 4000; // Max objects per type per batch
 
+// Memory layout for batch processing (in bytes)
+// We allocate memory starting after MATERIAL_DATA_OFFSET (12288)
+// Each batch needs space for: offsets, intensities, originalYs, wobbleBoosts, outScalars, outScalars2
+// Each array is BATCH_SIZE * 4 bytes = 16000 bytes
+const BATCH_MEMORY_START = 16384; // Start at 16KB boundary for alignment
+const BATCH_ARRAY_SIZE = BATCH_SIZE * 4; // Size in bytes per array
+
 interface BatchState {
     count: number;
     offsets: Float32Array;
@@ -54,7 +61,7 @@ export class FoliageBatcher {
     }
 
     private createBatch(needsOriginalY = false, needsWobble = false, twoOutputs = false): BatchState {
-        // We will allocate WASM memory lazily in init() because wasmLoader might not be ready in constructor
+        // Memory will be allocated from fixed offsets in WASM linear memory
         return {
             count: 0,
             offsets: new Float32Array(BATCH_SIZE),
@@ -73,36 +80,72 @@ export class FoliageBatcher {
         };
     }
 
-    private initBatchMemory(batch: BatchState) {
-        if (batch.ptrOffsets !== 0) return; // Already alloc
+    private initBatchMemory(batch: BatchState, memoryOffset: number) {
+        if (batch.ptrOffsets !== 0) return; // Already initialized
 
         const instance = getWasmInstance();
         if (!instance) return;
 
-        const { __new, __pin } = instance.exports as any;
+        // Use fixed memory offsets instead of dynamic allocation
+        // This avoids the need for __new and __pin which aren't exported
+        let currentOffset = memoryOffset;
 
-        const alloc = (size: number) => {
-            const ptr = __new(size * 4, 0); // 0 = classId (generic)
-            __pin(ptr); // Pin so GC doesn't reclaim it
-            return ptr;
-        };
+        batch.ptrOffsets = currentOffset;
+        currentOffset += BATCH_ARRAY_SIZE;
 
-        batch.ptrOffsets = alloc(BATCH_SIZE);
-        batch.ptrIntensities = alloc(BATCH_SIZE);
-        batch.ptrOutScalars = alloc(BATCH_SIZE);
+        batch.ptrIntensities = currentOffset;
+        currentOffset += BATCH_ARRAY_SIZE;
 
-        if (batch.originalYs) batch.ptrOriginalYs = alloc(BATCH_SIZE);
-        if (batch.wobbleBoosts) batch.ptrWobbleBoosts = alloc(BATCH_SIZE);
-        if (batch.outScalars2) batch.ptrOutScalars2 = alloc(BATCH_SIZE);
+        batch.ptrOutScalars = currentOffset;
+        currentOffset += BATCH_ARRAY_SIZE;
+
+        if (batch.originalYs) {
+            batch.ptrOriginalYs = currentOffset;
+            currentOffset += BATCH_ARRAY_SIZE;
+        }
+
+        if (batch.wobbleBoosts) {
+            batch.ptrWobbleBoosts = currentOffset;
+            currentOffset += BATCH_ARRAY_SIZE;
+        }
+
+        if (batch.outScalars2) {
+            batch.ptrOutScalars2 = currentOffset;
+            currentOffset += BATCH_ARRAY_SIZE;
+        }
     }
 
     init() {
         const instance = getWasmInstance();
         if (this.initialized || !instance) return;
 
-        Object.values(this.batches).forEach(b => this.initBatchMemory(b));
+        // Allocate memory for each batch type at fixed offsets
+        // Calculate offsets for each batch (6 arrays max per batch)
+        let currentOffset = BATCH_MEMORY_START;
+
+        // Sway batch (3 arrays: offsets, intensities, outScalars)
+        this.initBatchMemory(this.batches.sway, currentOffset);
+        currentOffset += BATCH_ARRAY_SIZE * 3;
+
+        // Bounce batch (4 arrays: offsets, intensities, originalYs, outScalars)
+        this.initBatchMemory(this.batches.bounce, currentOffset);
+        currentOffset += BATCH_ARRAY_SIZE * 4;
+
+        // Hop batch (4 arrays: offsets, intensities, originalYs, outScalars)
+        this.initBatchMemory(this.batches.hop, currentOffset);
+        currentOffset += BATCH_ARRAY_SIZE * 4;
+
+        // GentleSway batch (3 arrays: offsets, intensities, outScalars)
+        this.initBatchMemory(this.batches.gentleSway, currentOffset);
+        currentOffset += BATCH_ARRAY_SIZE * 3;
+
+        // Wobble batch (6 arrays: offsets, intensities, wobbleBoosts, outScalars, outScalars2)
+        this.initBatchMemory(this.batches.wobble, currentOffset);
+        currentOffset += BATCH_ARRAY_SIZE * 5;
+
         this.initialized = true;
-        console.log('[FoliageBatcher] WASM memory allocated and pinned for batching');
+        console.log('[FoliageBatcher] WASM memory allocated using fixed offsets for batching');
+        console.log(`[FoliageBatcher] Total memory used: ${currentOffset - BATCH_MEMORY_START} bytes`);
     }
 
     queue(obj: FoliageObject, type: string, intensity: number, time: number): boolean {
