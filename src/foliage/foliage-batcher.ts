@@ -7,7 +7,7 @@ import { FoliageObject } from './types.js';
 const BATCH_SIZE = 4000; // Max objects per type per batch
 
 // Memory layout for batch processing (in bytes)
-// We allocate memory starting at 16KB boundary (after MATERIAL_DATA_OFFSET region which is at 12288)
+// We allocate memory starting at 16KB boundary (after the WASM's standard memory regions)
 // Each batch needs space for: offsets, intensities, originalYs, wobbleBoosts, outScalars, outScalars2
 // Each array is BATCH_SIZE * 4 bytes = 16000 bytes
 const BATCH_MEMORY_START = 16384; // Start at 16KB boundary for alignment
@@ -120,7 +120,7 @@ export class FoliageBatcher {
         if (this.initialized || !instance) return;
 
         // Allocate memory for each batch type at fixed offsets
-        // Calculate offsets for each batch (6 arrays max per batch)
+        // Calculate offsets for each batch (5 arrays max per batch)
         let currentOffset = BATCH_MEMORY_START;
 
         // Sway batch (3 arrays: offsets, intensities, outScalars)
