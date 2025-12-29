@@ -3,7 +3,7 @@
 // Triggers berry charging and plant growth
 
 import * as THREE from 'three';
-import { calcRainDropY, getGroundHeight, uploadPositions, uploadAnimationData, batchMushroomSpawnCandidates, readSpawnCandidates, isWasmReady } from '../utils/wasm-loader.js';
+import { calcRainDropY, getGroundHeight, uploadPositions, uploadAnimationData, uploadMushroomSpecs, batchMushroomSpawnCandidates, readSpawnCandidates, isWasmReady } from '../utils/wasm-loader.js';
 import { chargeBerries, triggerGrowth, triggerBloom, shakeBerriesLoose, updateBerrySeasons, createMushroom, createWaterfall, createLanternFlower } from '../foliage/index.js';
 import { createRainbow, uRainbowOpacity } from '../foliage/rainbow.js';
 import { getCelestialState, getSeasonalState } from '../core/cycle.js'; // Import seasonal helper
@@ -611,10 +611,9 @@ export class WeatherSystem {
                 } else {
                     // WASM path: run batch candidate generation but cap how many we instantiate
                     try {
-                        const objects = this.trackedMushrooms.map(m => ({ x: m.position.x, y: m.position.y, z: m.position.z, radius: m.userData?.radius || 0.5 }));
-                        const animData = this.trackedMushrooms.map(m => ({ offset: 0, type: 0, originalY: m.position.y, colorIndex: m.userData?.colorIndex || 0 }));
-                        uploadPositions(objects);
-                        uploadAnimationData(animData);
+                        // Bolt: Direct upload to avoid GC pressure (replaces .map allocations)
+                        uploadMushroomSpecs(this.trackedMushrooms);
+
                         const spawnThreshold = 1.0;
                         const minDistance = 3.0;
                         const maxDistance = 8.0;
