@@ -488,6 +488,33 @@ export function uploadPositions(objects) {
 }
 
 /**
+ * Upload mushroom data (positions + animation specs) directly to WASM memory.
+ * Optimized to avoid creating intermediate objects (GC pressure reduction).
+ * @param {Array<THREE.Object3D>} mushrooms Array of mushroom meshes
+ */
+export function uploadMushroomSpecs(mushrooms) {
+    if (!positionView || !animationView) return;
+
+    const count = Math.min(mushrooms.length, 256);
+    for (let i = 0; i < count; i++) {
+        const m = mushrooms[i];
+        const idx = i * 4;
+
+        // Position Data
+        positionView[idx] = m.position.x;
+        positionView[idx + 1] = m.position.y;
+        positionView[idx + 2] = m.position.z;
+        positionView[idx + 3] = m.userData?.radius || 0.5;
+
+        // Animation Data
+        animationView[idx] = 0; // offset
+        animationView[idx + 1] = 0; // type
+        animationView[idx + 2] = m.position.y; // originalY
+        animationView[idx + 3] = m.userData?.colorIndex || 0;
+    }
+}
+
+/**
  * Fast copy from a SharedArrayBuffer-backed Float32Array into WASM position memory.
  * This avoids creating JS objects for each position and is ideal for large counts.
  * @param {Float32Array} sharedView Float32Array backed by SharedArrayBuffer
