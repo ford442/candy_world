@@ -5,13 +5,32 @@ import { color, time, sin, positionLocal } from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { foliageMaterials, registerReactiveMaterial, attachReactivity, pickAnimation, eyeGeo } from './common.js';
 
+// 12 Chromatic Notes with their corresponding colors
+// Colors are defined here to match CONFIG.noteColorMap.mushroom palette
+export const MUSHROOM_NOTES = [
+    { note: 'C',  color: 0xFF4040, name: 'C Red' },       // Red
+    { note: 'C#', color: 0xEF1280, name: 'C# Magenta' },  // Magenta-Red
+    { note: 'D',  color: 0xC020C0, name: 'D Magenta' },   // Magenta
+    { note: 'D#', color: 0x8020EF, name: 'D# Violet' },   // Violet
+    { note: 'E',  color: 0x4040FF, name: 'E Blue' },      // Blue
+    { note: 'F',  color: 0x1280EF, name: 'F Azure' },     // Azure
+    { note: 'F#', color: 0x00C0C0, name: 'F# Cyan' },     // Cyan
+    { note: 'G',  color: 0x12EF80, name: 'G Spring' },    // Spring Green
+    { note: 'G#', color: 0x40FF40, name: 'G# Green' },    // Green
+    { note: 'A',  color: 0x80EF12, name: 'A Lime' },      // Lime
+    { note: 'A#', color: 0xC0C000, name: 'A# Yellow' },   // Yellow
+    { note: 'B',  color: 0xEF8012, name: 'B Orange' }     // Orange
+];
+
 export function createMushroom(options = {}) {
     const {
         size = 'regular',
         scale = 1.0,
         colorIndex = -1,
         hasFace = false,
-        isBouncy = false
+        isBouncy = false,
+        note = null,  // Musical note (e.g., 'C', 'F#', etc.)
+        noteIndex = -1 // Index into MUSHROOM_NOTES array (0-11)
     } = options;
 
     const group = new THREE.Group();
@@ -19,10 +38,37 @@ export function createMushroom(options = {}) {
     // All mushrooms get faces now if requested, but giants always have them
     const showFace = isGiant || hasFace;
 
+    // Determine which musical note this mushroom represents
+    let mushroomNote = null;
+    let noteColor = null;
+    let actualNoteIndex = -1;
+
+    if (noteIndex >= 0 && noteIndex < MUSHROOM_NOTES.length) {
+        actualNoteIndex = noteIndex;
+        mushroomNote = MUSHROOM_NOTES[noteIndex];
+        noteColor = mushroomNote.color;
+    } else if (note) {
+        // Find note by name
+        const found = MUSHROOM_NOTES.find(n => n.note === note);
+        if (found) {
+            mushroomNote = found;
+            noteColor = found.color;
+            actualNoteIndex = MUSHROOM_NOTES.indexOf(found);
+        }
+    }
+
+    // Shape variations based on note (0-11 creates subtle differences)
+    const noteVariation = actualNoteIndex >= 0 ? actualNoteIndex / 11.0 : Math.random();
     const baseScale = isGiant ? 8.0 * scale : 1.0 * scale;
-    const stemH = (1.0 + Math.random() * 0.5) * baseScale;
-    const stemR = (0.15 + Math.random() * 0.1) * baseScale;
-    const capR = stemR * (2.5 + Math.random()) * (isGiant ? 1.0 : 1.2);
+    
+    // Subtle shape variations by note
+    // Lower notes (C, C#, D) = shorter, wider; Higher notes (A, A#, B) = taller, thinner
+    const heightMod = 0.8 + (noteVariation * 0.6); // 0.8 to 1.4
+    const widthMod = 1.2 - (noteVariation * 0.4);  // 1.2 to 0.8
+    
+    const stemH = (1.0 + Math.random() * 0.3) * baseScale * heightMod;
+    const stemR = (0.15 + Math.random() * 0.05) * baseScale * widthMod;
+    const capR = stemR * (2.5 + Math.random() * 0.5) * (isGiant ? 1.0 : 1.2) * widthMod;
 
     // Stem Geometry (Lathe)
     const stemPoints = [];
@@ -42,7 +88,16 @@ export function createMushroom(options = {}) {
     const capGeo = new THREE.SphereGeometry(capR, 24, 24, 0, Math.PI * 2, 0, Math.PI / 1.8);
     let capMat;
     let chosenColorIndex;
-    if (colorIndex >= 0 && colorIndex < foliageMaterials.mushroomCap.length) {
+    
+    // Use note color if available, otherwise use colorIndex or random
+    if (noteColor !== null) {
+        // Create dedicated material with note color for musical mushrooms
+        const baseCapMat = foliageMaterials.mushroomCap[0] || foliageMaterials.mushroomStem;
+        capMat = baseCapMat.clone();
+        capMat.color.setHex(noteColor);
+        capMat.roughness = 0.7;
+        chosenColorIndex = actualNoteIndex;
+    } else if (colorIndex >= 0 && colorIndex < foliageMaterials.mushroomCap.length) {
         chosenColorIndex = colorIndex;
         capMat = foliageMaterials.mushroomCap[chosenColorIndex];
     } else {
@@ -54,6 +109,10 @@ export function createMushroom(options = {}) {
     const instanceCapMat = capMat.clone();
     // Ensure base emissive is set for fade-back
     instanceCapMat.userData.baseEmissive = new THREE.Color(0x000000);
+    // Store note color for reactivity
+    if (noteColor !== null) {
+        instanceCapMat.userData.noteColor = new THREE.Color(noteColor);
+    }
 
     const cap = new THREE.Mesh(capGeo, instanceCapMat);
     cap.position.y = stemH - (capR * 0.2);
@@ -69,10 +128,20 @@ export function createMushroom(options = {}) {
     gill.rotation.x = Math.PI;
     group.add(gill);
 
-    // Spots
-    const spotCount = 3 + Math.floor(Math.random() * 5);
+    // Spots - vary pattern based on note
+    const spotCount = actualNoteIndex >= 0 ? (3 + actualNoteIndex % 5) : (3 + Math.floor(Math.random() * 5));
     const spotGeo = new THREE.SphereGeometry(capR * 0.15, 6, 6);
     const spotMat = foliageMaterials.mushroomSpots;
+    
+    // Add note-colored accent spots if this is a musical mushroom
+    let accentSpotMat = spotMat;
+    if (noteColor !== null) {
+        // Create tinted spot material
+        accentSpotMat = spotMat.clone();
+        const tintColor = new THREE.Color(noteColor);
+        // Blend white with note color for subtle tint
+        accentSpotMat.color.copy(new THREE.Color(0xFFFFFF).lerp(tintColor, 0.4));
+    }
 
     for (let i = 0; i < spotCount; i++) {
         const u = Math.random();
@@ -84,7 +153,9 @@ export function createMushroom(options = {}) {
         const y = Math.cos(phi) * capR;
         const z = Math.sin(phi) * Math.sin(theta) * capR;
 
-        const spot = new THREE.Mesh(spotGeo, spotMat);
+        // Use accent material for some spots on musical mushrooms
+        const useAccent = noteColor !== null && i % 2 === 0;
+        const spot = new THREE.Mesh(spotGeo, useAccent ? accentSpotMat : spotMat);
         spot.position.set(x, y + stemH - (capR * 0.2), z);
         spot.scale.set(1, 0.2, 1);
         spot.lookAt(0, stemH + capR, 0);
@@ -175,23 +246,38 @@ export function createMushroom(options = {}) {
     group.userData.type = 'mushroom';
     group.userData.colorIndex = typeof chosenColorIndex === 'number' ? chosenColorIndex : -1;
     
+    // Store musical note information
+    if (mushroomNote) {
+        group.userData.musicalNote = mushroomNote.note;
+        group.userData.noteColor = noteColor;
+        group.userData.noteIndex = actualNoteIndex;
+    }
+    
     // --- NEW: Bioluminescence Logic ---
-    if (options.isBioluminescent) {
-        // Determine color based on cap material or default
-        const lightColor = (instanceCapMat && instanceCapMat.color) ? instanceCapMat.color : new THREE.Color(0x00FF88);
+    // Musical mushrooms always glow at night with their note color
+    const shouldGlow = mushroomNote !== null || options.isBioluminescent;
+    
+    if (shouldGlow) {
+        // Determine color based on note or cap material
+        const lightColor = noteColor !== null 
+            ? new THREE.Color(noteColor) 
+            : ((instanceCapMat && instanceCapMat.color) ? instanceCapMat.color : new THREE.Color(0x00FF88));
 
-        // Add a Point Light inside the cap
-        const light = new THREE.PointLight(lightColor, 0.5, 4.0);
+        // Add a Point Light inside the cap for night glow
+        const light = new THREE.PointLight(lightColor, 0, 4.0); // Start at 0, will be animated
         // Position it under the cap so it lights up the stem and ground
         light.position.set(0, stemH * 0.5, 0);
         group.add(light);
+        
+        // Store light reference for animation
+        group.userData.glowLight = light;
 
-        // Make the gills emissive
+        // Make the gills emissive for bioluminescence
         if (gill && gill.material) {
             // Clone to avoid affecting all mushrooms
             gill.material = gill.material.clone();
-            gill.material.emissive = lightColor;
-            gill.material.emissiveIntensity = 0.5;
+            gill.material.emissive = lightColor.clone().multiplyScalar(0.3);
+            gill.material.emissiveIntensity = 0.3;
         }
 
         group.userData.isBioluminescent = true;
@@ -215,24 +301,53 @@ export function createMushroom(options = {}) {
     // Attach Reactivity with Custom Logic
     attachReactivity(group, { minLight: 0.0, maxLight: 0.6, type: 'flora' });
 
-    // Custom Reactivity Method: Retrigger Strobe & Bounce
+    // Custom Reactivity Method: Note-specific Blink & Bounce
     group.reactToNote = (note, colorVal, velocity) => {
+        // Only react if this mushroom's note matches the played note
+        if (group.userData.musicalNote) {
+            // Extract base note name (e.g., "C#" from "C#4")
+            let playedNote = note;
+            if (typeof note === 'string') {
+                playedNote = note.replace(/[0-9-]/g, '');
+            } else if (typeof note === 'number') {
+                const CHROMATIC = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+                playedNote = CHROMATIC[note % 12];
+            }
+            
+            // Only react if notes match
+            if (playedNote !== group.userData.musicalNote) {
+                return;
+            }
+        }
+        
         // 1. Strobe Effect (via animateFoliage system)
-        cap.userData.flashColor = new THREE.Color(colorVal);
-        cap.userData.flashIntensity = 1.0 + (velocity * 2.0); // High intensity
-        cap.userData.flashDecay = 0.1; // Fast decay for strobe effect
+        const flashColor = group.userData.noteColor 
+            ? new THREE.Color(group.userData.noteColor)
+            : new THREE.Color(colorVal);
+            
+        cap.userData.flashColor = flashColor;
+        cap.userData.flashIntensity = 1.5 + (velocity * 2.5); // High intensity for blink
+        cap.userData.flashDecay = 0.15; // Fast decay for strobe effect
 
-        // 2. Bounce / Retrigger Squish
-        // 'velocity' (0-1) determines squash
+        // 2. Glow light blink at night
+        if (group.userData.glowLight) {
+            const light = group.userData.glowLight;
+            light.intensity = 2.0 + (velocity * 3.0); // Bright flash
+            // Store original for fade back
+            if (!light.userData.baseIntensity) {
+                light.userData.baseIntensity = 0.8;
+            }
+        }
+
+        // 3. Bounce / Retrigger Squish
         const squash = 1.0 - (velocity * 0.3);
         const stretch = 1.0 + (velocity * 0.3);
-
         group.scale.set(baseScale * stretch, baseScale * squash, baseScale * stretch);
 
-        // Reset scale slowly
-        setTimeout(() => {
-            if (group) group.scale.setScalar(baseScale);
-        }, 80); // Fast snap back
+        // Store scale animation state for frame-based animation
+        group.userData.scaleTarget = baseScale;
+        group.userData.scaleAnimTime = 0.08; // 80ms duration
+        group.userData.scaleAnimStart = Date.now();
     };
 
     return group;

@@ -230,6 +230,44 @@ export function animateFoliage(foliageObject: FoliageObject, time: number, audio
         }
     }
 
+    // --- Mushroom Night Glow Animation (Bioluminescence) ---
+    // Animate the glow light intensity for mushrooms with bioluminescence
+    if (foliageObject.userData.glowLight && foliageObject.userData.isBioluminescent) {
+        const light = foliageObject.userData.glowLight;
+        const baseIntensity = light.userData.baseIntensity || 0.8;
+        
+        // If there was a recent flash (from note trigger), decay back to base
+        if (light.intensity > baseIntensity * 1.2) {
+            light.intensity = THREE.MathUtils.lerp(light.intensity, baseIntensity, 0.08);
+        } else {
+            // Normal gentle pulsing when idle (at night)
+            const pulseSpeed = 2.0 + (foliageObject.userData.animationOffset || 0) * 0.3;
+            const pulse = Math.sin(time * pulseSpeed) * 0.2 + 1.0; // 0.8 to 1.2
+            light.intensity = baseIntensity * pulse;
+        }
+    }
+
+    // --- Mushroom Scale Animation (from note bounce) ---
+    // Animate scale back to base after note trigger (replaces setTimeout)
+    if (foliageObject.userData.scaleAnimStart) {
+        const elapsed = Date.now() - foliageObject.userData.scaleAnimStart;
+        const duration = foliageObject.userData.scaleAnimTime || 0.08;
+        const t = Math.min(1.0, elapsed / (duration * 1000));
+        
+        if (t < 1.0) {
+            const target = foliageObject.userData.scaleTarget || 1.0;
+            const current = foliageObject.scale.x;
+            const newScale = THREE.MathUtils.lerp(current, target, t * 0.5);
+            foliageObject.scale.setScalar(newScale);
+        } else {
+            // Animation complete
+            foliageObject.scale.setScalar(foliageObject.userData.scaleTarget || 1.0);
+            delete foliageObject.userData.scaleAnimStart;
+            delete foliageObject.userData.scaleTarget;
+            delete foliageObject.userData.scaleAnimTime;
+        }
+    }
+
     // --- Mushroom wobble smoothing (median + lerp) ---
     if (foliageObject.userData.type === 'mushroom') {
         const buf = foliageObject.userData.noteBuffer || [];
