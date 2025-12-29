@@ -28,6 +28,9 @@ interface MapEntity {
     variant?: string;
     scale?: number;
     size?: number | string;
+    note?: string;        // Musical note for mushrooms
+    noteIndex?: number;   // Note index (0-11) for mushrooms
+    hasFace?: boolean;    // Whether mushroom has a face
 }
 
 interface ObstacleData {
@@ -198,15 +201,18 @@ function generateMap(weatherSystem: WeatherSystem): void {
                 const scale = item.scale || 1.0;
 
                 // Add faces to giants and some regulars (10% chance)
-                const hasFace = isGiant || Math.random() < 0.1;
+                const hasFace = item.hasFace !== undefined ? item.hasFace : (isGiant || Math.random() < 0.1);
                 // Make face mushrooms bouncy
                 const isBouncy = isGiant || hasFace;
 
+                // Pass note information if provided
                 obj = createMushroom({
                     size: isGiant ? 'giant' : 'regular',
                     scale,
                     hasFace,
-                    isBouncy
+                    isBouncy,
+                    note: item.note,
+                    noteIndex: item.noteIndex
                 });
                 isObstacle = true;
                 radius = isGiant ? 2.0 : 0.5;

@@ -230,6 +230,23 @@ export function animateFoliage(foliageObject: FoliageObject, time: number, audio
         }
     }
 
+    // --- Mushroom Night Glow Animation (Bioluminescence) ---
+    // Animate the glow light intensity for mushrooms with bioluminescence
+    if (foliageObject.userData.glowLight && foliageObject.userData.isBioluminescent) {
+        const light = foliageObject.userData.glowLight;
+        const baseIntensity = light.userData.baseIntensity || 0.8;
+        
+        // If there was a recent flash (from note trigger), decay back to base
+        if (light.intensity > baseIntensity * 1.2) {
+            light.intensity = THREE.MathUtils.lerp(light.intensity, baseIntensity, 0.08);
+        } else {
+            // Normal gentle pulsing when idle (at night)
+            const pulseSpeed = 2.0 + (foliageObject.userData.animationOffset || 0) * 0.3;
+            const pulse = Math.sin(time * pulseSpeed) * 0.2 + 1.0; // 0.8 to 1.2
+            light.intensity = baseIntensity * pulse;
+        }
+    }
+
     // --- Mushroom wobble smoothing (median + lerp) ---
     if (foliageObject.userData.type === 'mushroom') {
         const buf = foliageObject.userData.noteBuffer || [];
