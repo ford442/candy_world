@@ -247,6 +247,27 @@ export function animateFoliage(foliageObject: FoliageObject, time: number, audio
         }
     }
 
+    // --- Mushroom Scale Animation (from note bounce) ---
+    // Animate scale back to base after note trigger (replaces setTimeout)
+    if (foliageObject.userData.scaleAnimStart) {
+        const elapsed = Date.now() - foliageObject.userData.scaleAnimStart;
+        const duration = foliageObject.userData.scaleAnimTime || 0.08;
+        const t = Math.min(1.0, elapsed / (duration * 1000));
+        
+        if (t < 1.0) {
+            const target = foliageObject.userData.scaleTarget || 1.0;
+            const current = foliageObject.scale.x;
+            const newScale = THREE.MathUtils.lerp(current, target, t * 0.5);
+            foliageObject.scale.setScalar(newScale);
+        } else {
+            // Animation complete
+            foliageObject.scale.setScalar(foliageObject.userData.scaleTarget || 1.0);
+            delete foliageObject.userData.scaleAnimStart;
+            delete foliageObject.userData.scaleTarget;
+            delete foliageObject.userData.scaleAnimTime;
+        }
+    }
+
     // --- Mushroom wobble smoothing (median + lerp) ---
     if (foliageObject.userData.type === 'mushroom') {
         const buf = foliageObject.userData.noteBuffer || [];
