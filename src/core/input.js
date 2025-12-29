@@ -210,6 +210,24 @@ export function initInput(camera, audioSystem, toggleDayNightCallback) {
                 return;
             }
 
+            // UX: Arrow Key Navigation for Playlist
+            if (event.code === 'ArrowDown' || event.code === 'ArrowUp') {
+                const playlistBtns = Array.from(playlistOverlay.querySelectorAll('.playlist-btn'));
+                if (playlistBtns.length > 0) {
+                    event.preventDefault(); // Prevent scrolling
+                    const currentIndex = playlistBtns.indexOf(document.activeElement);
+                    let nextIndex;
+
+                    if (event.code === 'ArrowDown') {
+                        nextIndex = currentIndex === -1 ? 0 : (currentIndex + 1) % playlistBtns.length;
+                    } else {
+                        nextIndex = currentIndex === -1 ? playlistBtns.length - 1 : (currentIndex - 1 + playlistBtns.length) % playlistBtns.length;
+                    }
+                    playlistBtns[nextIndex].focus();
+                }
+                return;
+            }
+
             // Focus Trap Logic for Tab
             if (event.code === 'Tab') {
                 const focusable = playlistOverlay.querySelectorAll('button, input, [href], select, textarea, [tabindex]:not([tabindex="-1"])');

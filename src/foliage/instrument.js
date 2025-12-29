@@ -9,8 +9,9 @@ import {
 } from './common.js';
 import {
     color, float, mix, uv, sin, cos, positionLocal,
-    vec3, normalWorld, mx_noise_float, triplanarNoise
+    vec3, normalWorld, mx_noise_float
 } from 'three/tsl';
+import { triplanarNoise } from './common.js';
 
 export function createInstrumentShrine(options = {}) {
     const {
