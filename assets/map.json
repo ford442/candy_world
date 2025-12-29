@@ -2,6 +2,162 @@
   {
     "type": "mushroom",
     "position": [
+      25.0,
+      0,
+      0.0
+    ],
+    "scale": 1.2,
+    "variant": "regular",
+    "note": "C",
+    "noteIndex": 0,
+    "hasFace": false
+  },
+  {
+    "type": "mushroom",
+    "position": [
+      21.65,
+      0,
+      12.5
+    ],
+    "scale": 1.2,
+    "variant": "regular",
+    "note": "C#",
+    "noteIndex": 1,
+    "hasFace": false
+  },
+  {
+    "type": "mushroom",
+    "position": [
+      12.5,
+      0,
+      21.65
+    ],
+    "scale": 1.2,
+    "variant": "regular",
+    "note": "D",
+    "noteIndex": 2,
+    "hasFace": false
+  },
+  {
+    "type": "mushroom",
+    "position": [
+      0.0,
+      0,
+      25.0
+    ],
+    "scale": 1.2,
+    "variant": "regular",
+    "note": "D#",
+    "noteIndex": 3,
+    "hasFace": false
+  },
+  {
+    "type": "mushroom",
+    "position": [
+      -12.5,
+      0,
+      21.65
+    ],
+    "scale": 1.2,
+    "variant": "regular",
+    "note": "E",
+    "noteIndex": 4,
+    "hasFace": false
+  },
+  {
+    "type": "mushroom",
+    "position": [
+      -21.65,
+      0,
+      12.5
+    ],
+    "scale": 1.2,
+    "variant": "regular",
+    "note": "F",
+    "noteIndex": 5,
+    "hasFace": false
+  },
+  {
+    "type": "mushroom",
+    "position": [
+      -25.0,
+      0,
+      0.0
+    ],
+    "scale": 1.2,
+    "variant": "regular",
+    "note": "F#",
+    "noteIndex": 6,
+    "hasFace": false
+  },
+  {
+    "type": "mushroom",
+    "position": [
+      -21.65,
+      0,
+      -12.5
+    ],
+    "scale": 1.2,
+    "variant": "regular",
+    "note": "G",
+    "noteIndex": 7,
+    "hasFace": false
+  },
+  {
+    "type": "mushroom",
+    "position": [
+      -12.5,
+      0,
+      -21.65
+    ],
+    "scale": 1.2,
+    "variant": "regular",
+    "note": "G#",
+    "noteIndex": 8,
+    "hasFace": false
+  },
+  {
+    "type": "mushroom",
+    "position": [
+      -0.0,
+      0,
+      -25.0
+    ],
+    "scale": 1.2,
+    "variant": "regular",
+    "note": "A",
+    "noteIndex": 9,
+    "hasFace": false
+  },
+  {
+    "type": "mushroom",
+    "position": [
+      12.5,
+      0,
+      -21.65
+    ],
+    "scale": 1.2,
+    "variant": "regular",
+    "note": "A#",
+    "noteIndex": 10,
+    "hasFace": false
+  },
+  {
+    "type": "mushroom",
+    "position": [
+      21.65,
+      0,
+      -12.5
+    ],
+    "scale": 1.2,
+    "variant": "regular",
+    "note": "B",
+    "noteIndex": 11,
+    "hasFace": false
+  },
+  {
+    "type": "mushroom",
+    "position": [
       72.0,
       0,
       -40.0
