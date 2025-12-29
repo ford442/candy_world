@@ -5,7 +5,8 @@ import { color, time, sin, positionLocal } from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { foliageMaterials, registerReactiveMaterial, attachReactivity, pickAnimation, eyeGeo } from './common.js';
 
-// 12 Chromatic Notes with their corresponding colors (from CONFIG.noteColorMap.mushroom)
+// 12 Chromatic Notes with their corresponding colors
+// Colors are defined here to match CONFIG.noteColorMap.mushroom palette
 export const MUSHROOM_NOTES = [
     { note: 'C',  color: 0xFF4040, name: 'C Red' },       // Red
     { note: 'C#', color: 0xEF1280, name: 'C# Magenta' },  // Magenta-Red
@@ -90,8 +91,9 @@ export function createMushroom(options = {}) {
     
     // Use note color if available, otherwise use colorIndex or random
     if (noteColor !== null) {
-        // Create material with note color
-        capMat = foliageMaterials.mushroomStem.clone();
+        // Create dedicated material with note color for musical mushrooms
+        const baseCapMat = foliageMaterials.mushroomCap[0] || foliageMaterials.mushroomStem;
+        capMat = baseCapMat.clone();
         capMat.color.setHex(noteColor);
         capMat.roughness = 0.7;
         chosenColorIndex = actualNoteIndex;
@@ -342,10 +344,10 @@ export function createMushroom(options = {}) {
         const stretch = 1.0 + (velocity * 0.3);
         group.scale.set(baseScale * stretch, baseScale * squash, baseScale * stretch);
 
-        // Reset scale slowly
-        setTimeout(() => {
-            if (group) group.scale.setScalar(baseScale);
-        }, 80); // Fast snap back
+        // Store scale animation state for frame-based animation
+        group.userData.scaleTarget = baseScale;
+        group.userData.scaleAnimTime = 0.08; // 80ms duration
+        group.userData.scaleAnimStart = Date.now();
     };
 
     return group;
