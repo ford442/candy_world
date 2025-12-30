@@ -7,7 +7,7 @@ import {
     createFlower, createSubwooferLotus, createAccordionPalm, createFiberOpticWillow,
     createFloatingOrb, createSwingableVine, VineSwing, createPrismRoseBush,
     createStarflower, createVibratoViolet, createTremoloTulip, createKickDrumGeyser,
-    createRainingCloud, createWaterfall, createMelodyLake, createFireflies, initFallingBerries,
+    createRainingCloud, createWaterfall, createWaveformWater, createFireflies, initFallingBerries,
     initGrassSystem, addGrassInstance,
     createArpeggioFern, createPortamentoPine, createCymbalDandelion, createSnareTrap,
     createBubbleWillow, createHelixPlant, createBalloonBush, createWisteriaCluster,
@@ -104,8 +104,8 @@ export function initWorld(scene: THREE.Scene, weatherSystem: WeatherSystem): Wor
     initGrassSystem(scene, 10000);
     scene.add(createFireflies(150, 100));
 
-    // Melody Lake
-    const melodyLake = createMelodyLake(80, 80);
+    // Melody Lake (Waveform Water)
+    const melodyLake = createWaveformWater(400, 400);
     melodyLake.position.set(0, 2.5, 0);
     scene.add(melodyLake);
 
