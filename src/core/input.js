@@ -84,18 +84,9 @@ export function initInput(camera, audioSystem, toggleDayNightCallback) {
         // Show "Now Playing" toast
         const songs = audioSystem.getPlaylist();
         if (songs && songs[index]) {
-            const toast = document.getElementById('now-playing-toast');
-            const toastText = document.getElementById('now-playing-text');
-            if (toast && toastText) {
-                toastText.innerText = `Now Playing: ${songs[index].name}`;
-                toast.classList.add('visible');
-
-                // Hide after 4 seconds
-                if (toast.timeout) clearTimeout(toast.timeout);
-                toast.timeout = setTimeout(() => {
-                    toast.classList.remove('visible');
-                }, 4000);
-            }
+            import('../utils/toast.js').then(({ showToast }) => {
+                showToast(`Now Playing: ${songs[index].name}`, '🎵');
+            });
         }
     };
 
@@ -336,7 +327,13 @@ export function initInput(camera, audioSystem, toggleDayNightCallback) {
     return {
         controls,
         updateDayNightButtonState: (isPressed) => {
-            if (toggleDayNightBtn) toggleDayNightBtn.setAttribute('aria-pressed', isPressed);
+            if (toggleDayNightBtn) {
+                toggleDayNightBtn.setAttribute('aria-pressed', isPressed);
+                import('../utils/toast.js').then(({ showToast }) => {
+                    const mode = isPressed ? "Night Mode Active 🌙" : "Day Mode Active ☀️";
+                    showToast(mode, isPressed ? '🌙' : '☀️');
+                });
+            }
         }
     };
 }
