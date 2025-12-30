@@ -15,10 +15,11 @@ This document captures feature ideas for the Candy World musical ecosystem. The 
 - Audio: Metallic "chink" per tick harmonized with the arpeggio note.
 
 ### Portamento Pines
+- **Status: Implemented ✅**
 - Description: Towering antennae clusters made of copper alloy that bend with portamento (pitch slides), using a spring motion.
 - Gameplay Mechanics: Leaned-back pines act as slingshots for velocity boosts; forward-leaning ramps launch players vertically. Bend angle proportional to portamento speed. Shooting the base while bent causes snap-back shockwave.
-- Visual Design: Verlet integration chain for bending; stress lines glow with sharper bends; fiber-optic needles shift color with tension.
-- Behavioral Patterns: Return to vertical over 1s; nearby pines harmonize bends; sustained slide causes vibration at slide frequency.
+- Visual Design: TSL vertex displacement shader bends the cylinder mesh based on `uBendStrength`. Stress lines (emissive glow) intensify as the bend angle increases, shifting from copper to hot orange.
+- Behavioral Patterns: Reacts to "Melody" channel (Channel 2); bends in random directions on note triggers; returns to upright position using spring physics in update loop.
 - Audio: Creaking metallic groan rising/falling with pitch slide.
 
 ### Vibrato Violets
@@ -314,6 +315,7 @@ Three.js Renderer -> WebGPU RenderPipeline (Raw Draw Calls)
   - **Silence Spirits**: Implemented `src/foliage/silence-spirits.js` with translucent, fading geometry and volume-reactive AI (fleeing on noise, appearing in silence).
   - **Pattern-Change Seasons**: Implemented global palette shifts (Neon/Glitch modes) triggered by music pattern changes (detected via `AudioSystem` and propagated to `WeatherSystem`).
   - **Instrument-ID Textures**: Implemented `createInstrumentShrine` in `src/foliage/instrument.js` using procedural TSL patterns seeded by Instrument ID.
+  - **Portamento Pines**: Implemented `src/foliage/pines.js` featuring TSL-driven vertex displacement (bending) and spring physics animation. Reacts to Melody channel (2).
 
 - **Next Steps:**
   - **Verify Data Flow**: Ensure `AudioSystem` correctly extracts and passes `order`/`row` data from the worklet to drive the Pattern-Change logic reliably.
