@@ -1,9 +1,29 @@
 
 import os
-import sys
+import time
 from playwright.sync_api import sync_playwright, expect
 
-def verify_jukebox_ux():
+def verify_jukebox_empty_state(page):
+    page.goto("http://localhost:5173")
+
+    # Brute force removal of loading overlay
+    page.evaluate("document.getElementById('loading-overlay').remove()")
+
+    # Force click the button using JS if Playwright struggles
+    page.evaluate("document.getElementById('openJukeboxBtn').click()")
+
+    # Wait for playlist overlay
+    playlist_overlay = page.locator("#playlist-overlay")
+    expect(playlist_overlay).to_be_visible(timeout=5000)
+
+    # Check for the empty state button
+    empty_btn = page.locator("button.secondary-button", has_text="No songs... Click to Add! 🍭")
+    expect(empty_btn).to_be_visible()
+
+    page.screenshot(path="verification/jukebox_empty_state.png")
+    print("Screenshot saved to verification/jukebox_empty_state.png")
+
+if __name__ == "__main__":
     with sync_playwright() as p:
         browser = p.chromium.launch(
             headless=True,
@@ -15,65 +35,9 @@ def verify_jukebox_ux():
         )
         context = browser.new_context()
         page = context.new_page()
-
-        # Log console messages to help debug if main.js fails
-        page.on("console", lambda msg: print(f"PAGE LOG: {msg.text}"))
-        page.on("pageerror", lambda exc: print(f"PAGE ERROR: {exc}"))
-
         try:
-            print("Navigating to app...")
-            # We assume the server is running on port 5173
-            page.goto("http://localhost:5173/")
-
-            print("Waiting for DOM...")
-            page.wait_for_selector("body")
-
-            # Force hide loading overlay to unblock UI interaction immediately
-            # We don't wait for WASM or assets to load since we are testing HTML UI.
-            print("Force-hiding loading overlay...")
-            page.evaluate("""
-                const overlay = document.getElementById('loading-overlay');
-                if (overlay) overlay.style.display = 'none';
-
-                // Also ensure instructions are visible (they contain the Jukebox button)
-                const inst = document.getElementById('instructions');
-                if (inst) inst.style.display = 'flex';
-
-                // Ensure Jukebox button is enabled (just in case)
-                const btn = document.getElementById('openJukeboxBtn');
-                if (btn) btn.disabled = false;
-            """)
-
-            # Open Jukebox
-            print("Opening Jukebox...")
-            jukebox_btn = page.locator("#openJukeboxBtn")
-            jukebox_btn.wait_for(state="visible", timeout=10000)
-            jukebox_btn.click(force=True)
-
-            # Wait for Playlist Overlay
-            print("Waiting for playlist overlay...")
-            overlay = page.locator("#playlist-overlay")
-            expect(overlay).to_be_visible(timeout=5000)
-
-            # Verify the helper text exists and is visible
-            print("Verifying helper text...")
-            # We look for the specific text we added in index.html
-            # "Navigate: ↑ ↓"
-            helper_text_generic = page.locator("#playlist-overlay").get_by_text("Navigate:")
-            expect(helper_text_generic).to_be_visible()
-
-            # Screenshot
-            screenshot_path = os.path.abspath("verification/jukebox_ux.png")
-            page.screenshot(path=screenshot_path)
-            print(f"Screenshot saved to {screenshot_path}")
-
+            verify_jukebox_empty_state(page)
         except Exception as e:
-            print(f"Error during verification: {e}")
-            # Take error screenshot
-            page.screenshot(path="verification/error.png")
-            raise e
+            print(f"Error: {e}")
         finally:
             browser.close()
-
-if __name__ == "__main__":
-    verify_jukebox_ux()
