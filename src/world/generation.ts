@@ -383,7 +383,7 @@ function populateProceduralExtras(weatherSystem: WeatherSystem): void {
                  obj = Math.random() < 0.5 ? createFlower() : createGlowingFlower();
                  obj.position.set(x, groundY, z);
             }
-            else if (rand < 0.5) { // 20% Face Mushrooms (Bouncy!)
+            else if (rand < 0.45) { // 15% Face Mushrooms (Bouncy!)
                  // Small bouncy face mushrooms like in the concept image
                  obj = createMushroom({
                      size: 'regular',
@@ -394,7 +394,7 @@ function populateProceduralExtras(weatherSystem: WeatherSystem): void {
                  obj.position.set(x, groundY, z);
                  isObstacle = true;
             }
-            else if (rand < 0.65) { // 15% Trees
+            else if (rand < 0.55) { // 10% Trees
                  const treeType = Math.random();
                  if (treeType < 0.33) obj = createBubbleWillow();
                  else if (treeType < 0.66) obj = createBalloonBush();
@@ -404,41 +404,44 @@ function populateProceduralExtras(weatherSystem: WeatherSystem): void {
                  isObstacle = true;
                  radius = 1.5;
             }
-            else if (rand < 0.85) { // 20% Musical Flora (Ferns, Geysers, Traps)
+            else if (rand < 0.75) { // 20% Musical Flora (Ferns, Geysers, Traps, PINES)
                  const type = Math.random();
                  if (type < 0.20) {
                      obj = createArpeggioFern({ scale: 1.0 + Math.random() * 0.5 });
-                 } else if (type < 0.40) {
+                 } else if (type < 0.35) {
                      obj = createKickDrumGeyser({ maxHeight: 5.0 + Math.random() * 3.0 });
                      radius = 1.0;
-                 } else if (type < 0.60) {
+                 } else if (type < 0.50) {
                      obj = createSnareTrap({ scale: 0.8 + Math.random() * 0.4 });
                      isObstacle = true;
                      radius = 0.8;
-                 } else if (type < 0.80) {
+                 } else if (type < 0.60) {
+                     obj = createPortamentoPine({ height: 4.0 + Math.random() * 2.0 });
+                     isObstacle = true;
+                     radius = 0.5;
+                 } else if (type < 0.75) {
                      obj = createTremoloTulip({ size: 1.0 + Math.random() * 0.5 });
-                 } else if (type < 0.90) {
+                 } else if (type < 0.85) {
                      obj = createCymbalDandelion({ scale: 0.8 + Math.random() * 0.4 });
                  } else {
-                     // 10% chance of Panning Pads (best near water, but we'll spawn them generally)
+                     // Panning Pads
                      const panBias = x < 0 ? -1 : 1;
                      obj = createPanningPad({ radius: 1.2 + Math.random(), panBias });
-                     // Force height to be slightly above ground to simulate hovering/floating
                      obj.position.y = groundY + 0.5;
                  }
                  if (obj) obj.position.set(x, obj.position.y || groundY, z);
             }
-             else if (rand < 0.95) { // 15% Clouds
+             else if (rand < 0.90) { // 15% Clouds
                  const isHigh = Math.random() < 0.5;
                  y = isHigh ? 35 + Math.random() * 20 : 12 + Math.random() * 10;
                  obj = createRainingCloud({ size: 1.0 + Math.random() });
                  obj.position.set(x, y, z);
              }
-             else if (rand < 0.98) { // 3% Silence Spirits
+             else if (rand < 0.95) { // 5% Silence Spirits
                  obj = createSilenceSpirit();
                  obj.position.set(x, groundY, z);
              }
-             else { // 2% Instrument Shrines
+             else { // 5% Instrument Shrines
                  const id = Math.floor(Math.random() * 16);
                  obj = createInstrumentShrine({ instrumentID: id });
                  obj.position.set(x, groundY, z);
