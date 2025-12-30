@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { uWindSpeed, uWindDirection, uSkyTopColor, uSkyBottomColor, uHorizonColor, uAtmosphereIntensity, uStarPulse, uStarOpacity, uAuroraIntensity, uAuroraColor, createAurora, updateMoon, animateFoliage, updateFoliageMaterials, updateFireflies, updateFallingBerries, collectFallingBerries, createFlower, createMushroom, validateNodeGeometries } from './src/foliage/index.js';
+import { uWindSpeed, uWindDirection, uSkyTopColor, uSkyBottomColor, uHorizonColor, uAtmosphereIntensity, uStarPulse, uStarOpacity, uAuroraIntensity, uAuroraColor, uAudioLow, uAudioHigh, createAurora, updateMoon, animateFoliage, updateFoliageMaterials, updateFireflies, updateFallingBerries, collectFallingBerries, createFlower, createMushroom, validateNodeGeometries } from './src/foliage/index.js';
 import { initCelestialBodies } from './src/foliage/celestial-bodies.js';
 import { MusicReactivitySystem } from './src/systems/music-reactivity.js';
 import { AudioSystem } from './src/audio/audio-system.js';
@@ -432,6 +432,20 @@ function animate() {
     // Aurora Update (Visible only at night, intensity driven by high-freq/melody channels if avail)
     // We'll base it on star opacity for visibility, and mix in some audio reactivity
     const baseAuroraVis = starOp * 0.8; // Max 0.8 visibility at night
+
+    // Update Water Uniforms
+    if (audioState) {
+        const kick = audioState.kickTrigger || 0;
+        uAudioLow.value = THREE.MathUtils.lerp(uAudioLow.value, kick, 0.2);
+
+        let high = 0;
+        if (audioState.channelData && audioState.channelData.length > 5) {
+             const ch5 = audioState.channelData[5].trigger || 0;
+             const ch6 = audioState.channelData[6] ? (audioState.channelData[6].trigger || 0) : 0;
+             high = Math.max(ch5, ch6);
+        }
+        uAudioHigh.value = THREE.MathUtils.lerp(uAudioHigh.value, high, 0.2);
+    }
 
     // Simple audio reactivity for Aurora (using generic audioState.energy or high channels)
     // If we have channels, grab a high-freq one (e.g. 5 or 6)
