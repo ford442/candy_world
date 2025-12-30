@@ -70,7 +70,25 @@ export function initInput(camera, audioSystem, toggleDayNightCallback) {
         });
         
         if (songs.length === 0) {
-            playlistList.innerHTML = '<li class="playlist-item" style="justify-content:center; color:#999;">No songs loaded... add some! 🍭</li>';
+            // UX: Make Empty State Actionable
+            const li = document.createElement('li');
+            li.style.listStyle = 'none';
+            li.style.padding = '20px 0';
+            li.style.textAlign = 'center';
+
+            const emptyBtn = document.createElement('button');
+            emptyBtn.className = 'secondary-button'; // Reuse existing class for consistent look
+            emptyBtn.style.fontSize = '1em'; // Make it slightly more prominent if needed
+            emptyBtn.innerText = 'No songs... Click to Add! 🍭';
+            emptyBtn.setAttribute('aria-label', 'Playlist empty. Click to upload music files.');
+
+            emptyBtn.onclick = (e) => {
+                e.stopPropagation();
+                if (playlistUploadInput) playlistUploadInput.click();
+            };
+
+            li.appendChild(emptyBtn);
+            playlistList.appendChild(li);
         }
     }
 
