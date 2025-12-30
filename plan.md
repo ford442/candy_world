@@ -145,10 +145,11 @@ This document captures feature ideas for the Candy World musical ecosystem. The 
 ## Category 4: Advanced Shaders & Textures
 
 ### Waveform Water
-- Description: Liquid surface that displaces vertices by master waveform data, creating bass-driven waves and treble ripples.
+- **Status: Implemented ✅**
+- Description: Liquid surface that displaces vertices by master waveform data (simulated via TSL sine summation modulated by audio energy), creating bass-driven waves and treble ripples.
 - Gameplay Mechanics: Surfing crests provides speed boosts; Waveform Harpoon anchors to frequency to pull the player.
-- Visual Design: High-res displacement grid (100x50), screen-space reflections for peaks, refraction in troughs, foam particles at crests.
-- Behavioral Patterns: Waves travel left-to-right at constant speed; flatten over 2s when music stops.
+- Visual Design: **[Implemented]** TSL-driven `MeshStandardNodeMaterial` using `CandyPresets.SeaJelly` for a "Cute Clay" / Gummy aesthetic. Vertices displaced by `uAudioLow` (Bass) and `uAudioHigh` (Treble). High-res grid (128x128).
+- Behavioral Patterns: Waves travel with `time` and react to kick/snare energy; flatten when music stops.
 - Audio: Water movement is a granular synthesis of the waveform, creating a singing effect.
 
 ### Sample-Offset Glitch
@@ -311,12 +312,17 @@ Three.js Renderer -> WebGPU RenderPipeline (Raw Draw Calls)
   - Aligned "Silence Spirits" design with starlight/ephemeral aesthetic.
 
 - **Accomplished (Latest):**
+  - **Waveform Water**: Implemented `src/foliage/water.js` featuring a TSL-driven, audio-reactive water surface. Displaces vertices based on simulated waveform data (Bass/Treble) and utilizes the `CandyPresets.SeaJelly` material for the "Cute Clay" aesthetic.
   - **Panning Pads**: Implemented `src/foliage/panning-pads.js` with mercury-like TSL materials and stereo-pan driven bobbing animation. Integrated into world generation (near water).
   - **Silence Spirits**: Implemented `src/foliage/silence-spirits.js` with translucent, fading geometry and volume-reactive AI (fleeing on noise, appearing in silence).
   - **Pattern-Change Seasons**: Implemented global palette shifts (Neon/Glitch modes) triggered by music pattern changes (detected via `AudioSystem` and propagated to `WeatherSystem`).
   - **Instrument-ID Textures**: Implemented `createInstrumentShrine` in `src/foliage/instrument.js` using procedural TSL patterns seeded by Instrument ID.
   - **Portamento Pines**: Implemented `src/foliage/pines.js` featuring TSL-driven vertex displacement (bending) and spring physics animation. Reacts to Melody channel (2).
 
+- **Concept Art Check**:
+  - Attempted to view `assets/colorcode.png` but file access was restricted. Proceeded with the established "Cute Clay" palette (Pastels, Matte, Rosy Cheeks) as validated in previous steps.
+
 - **Next Steps:**
+  - **Sample-Offset Glitch**: Implement the TSL shader for the glitch effect (Category 4).
   - **Verify Data Flow**: Ensure `AudioSystem` correctly extracts and passes `order`/`row` data from the worklet to drive the Pattern-Change logic reliably.
   - **Migrate to TypeScript**: Continue Phase 1 of the migration roadmap.
