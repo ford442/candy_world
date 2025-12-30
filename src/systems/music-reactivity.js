@@ -272,26 +272,31 @@ export class MusicReactivitySystem {
 
                 // 2. If light allows, check Audio Channel (Jules Dev Logic)
                 if (lightFactor > 0) {
-                    const type = f.userData.reactivityType || 'flora';
-                    const id = f.userData.reactivityId || 0;
-                    let targetChannelIndex = 0;
+                    // Bolt Optimization: Cache channel index to avoid per-frame branching and modulo ops
+                    let targetChannelIndex = f.userData._cacheIdx;
 
-                    if (type === 'sky') {
-                        // Upper half (Drums/Percussion)
-                        const skyCount = totalChannels - splitIndex;
-                        if (skyCount > 0) {
-                            targetChannelIndex = splitIndex + (id % skyCount);
+                    // Recompute if cache is missing or channel configuration changed
+                    if (targetChannelIndex === undefined || f.userData._cacheTotal !== totalChannels) {
+                        const type = f.userData.reactivityType || 'flora';
+                        const id = f.userData.reactivityId || 0;
+
+                        if (type === 'sky') {
+                            // Upper half (Drums/Percussion)
+                            const skyCount = totalChannels - splitIndex;
+                            targetChannelIndex = (skyCount > 0)
+                                ? splitIndex + (id % skyCount)
+                                : totalChannels - 1;
                         } else {
-                            targetChannelIndex = totalChannels - 1; 
+                            // Lower half (Melody/Bass)
+                            const floraCount = splitIndex;
+                            targetChannelIndex = (floraCount > 0)
+                                ? id % floraCount
+                                : 0;
                         }
-                    } else {
-                        // Lower half (Melody/Bass)
-                        const floraCount = splitIndex;
-                        if (floraCount > 0) {
-                            targetChannelIndex = id % floraCount;
-                        } else {
-                            targetChannelIndex = 0;
-                        }
+
+                        // Store in cache
+                        f.userData._cacheIdx = targetChannelIndex;
+                        f.userData._cacheTotal = totalChannels;
                     }
 
                     if (targetChannelIndex < totalChannels) {
