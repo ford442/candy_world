@@ -296,6 +296,19 @@ export async function initWasm() {
         // =====================================================================
         await loadEmscriptenModule();
 
+        // Start bootstrap loader for terrain pre-computation if Emscripten loaded
+        if (emscriptenInstance) {
+            try {
+                const { startBootstrap } = await import('./bootstrap-loader.js');
+                if (startBootstrap) {
+                    startBootstrap(emscriptenInstance);
+                    console.log('[WASM] Bootstrap terrain pre-computation started');
+                }
+            } catch (e) {
+                console.warn('[WASM] Bootstrap loader error:', e);
+            }
+        }
+
         // UX: Restore button on success
         if (startButton) {
             startButton.disabled = false;
@@ -392,6 +405,17 @@ export async function initWasmParallel(options = {}) {
                     try { initFn(); console.log('[WASM] init_native() invoked'); }
                     catch (e) { console.warn(e); }
                 }, 0);
+            }
+
+            // Start bootstrap loader for terrain pre-computation
+            const { startBootstrap } = await import('./bootstrap-loader.js');
+            if (startBootstrap) {
+                try {
+                    startBootstrap(emscriptenInstance);
+                    console.log('[WASM] Bootstrap terrain pre-computation started');
+                } catch (e) {
+                    console.warn('[WASM] Bootstrap loader error:', e);
+                }
             }
         }
 
