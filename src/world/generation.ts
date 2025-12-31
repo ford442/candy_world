@@ -13,8 +13,10 @@ import {
     createBubbleWillow, createHelixPlant, createBalloonBush, createWisteriaCluster,
     createPanningPad, createSilenceSpirit, createInstrumentShrine
 } from '../foliage/index.js';
+import { createCaveEntrance } from '../foliage/cave.js';
 import { validateFoliageMaterials } from '../foliage/common.js';
 import { CONFIG } from '../core/config.js';
+import { registerPhysicsCave } from '../systems/physics.js';
 import {
     animatedFoliage, obstacles, foliageGroup, foliageMushrooms,
     foliageClouds, foliageTrampolines, vineSwings, worldGroup
@@ -48,6 +50,7 @@ interface WeatherSystem {
     registerTree(obj: THREE.Object3D): void;
     registerShrub(obj: THREE.Object3D): void;
     registerMushroom(obj: THREE.Object3D): void;
+    registerCave(obj: THREE.Object3D): void;
 }
 
 // --- Scene Setup ---
@@ -118,6 +121,23 @@ export function initWorld(scene: THREE.Scene, weatherSystem: WeatherSystem): Wor
     // Generate Content
     generateMap(weatherSystem);
 
+    // --- NEW: Spawn the Mysterious Cave ---
+    // Place it somewhere accessible but distinct
+    const cave = createCaveEntrance({ scale: 1.5 });
+
+    // Position it at a specific spot (e.g., near the edge of the central clearing)
+    const caveX = 25;
+    const caveZ = 25;
+    const caveY = getGroundHeight(caveX, caveZ);
+
+    cave.position.set(caveX, caveY, caveZ);
+
+    // Rotate to face center (approx)
+    cave.lookAt(0, caveY, 0);
+
+    // Add to system
+    safeAddFoliage(cave, false, 0, weatherSystem);
+
     return { sky, moon, ground };
 }
 
@@ -145,6 +165,9 @@ export function safeAddFoliage(
             weatherSystem.registerShrub(obj);
         } else if (obj.userData.type === 'mushroom') {
             weatherSystem.registerMushroom(obj);
+        } else if (obj.userData.type === 'cave') {
+            weatherSystem.registerCave(obj);
+            registerPhysicsCave(obj);
         }
     }
 }

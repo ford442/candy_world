@@ -5,6 +5,7 @@
 import * as THREE from 'three';
 import { calcRainDropY, getGroundHeight, uploadPositions, uploadAnimationData, uploadMushroomSpecs, batchMushroomSpawnCandidates, readSpawnCandidates, isWasmReady } from '../utils/wasm-loader.js';
 import { chargeBerries, triggerGrowth, triggerBloom, shakeBerriesLoose, updateBerrySeasons, createMushroom, createWaterfall, createLanternFlower } from '../foliage/index.js';
+import { updateCaveWaterLevel } from '../foliage/cave.js';
 import { createRainbow, uRainbowOpacity } from '../foliage/rainbow.js';
 import { getCelestialState, getSeasonalState } from '../core/cycle.js'; // Import seasonal helper
 import { CYCLE_DURATION, CONFIG } from '../core/config.js'; // Import cycle duration and config
@@ -40,6 +41,10 @@ export class WeatherSystem {
         this.cloudRegenRate = 0.0005; // Clouds slowly return
         // ----------------------------------
         
+        // --- NEW: Ground Water System ---
+        this.groundWaterLevel = 0.0; // 0.0 = Dry, 1.0 = Flooded
+        this.trackedCaves = [];
+
         // Particle systems
         this.percussionRain = null;  // Fat droplets (bass triggered)
         this.melodicMist = null;     // Fine spray (melody triggered)
@@ -210,6 +215,13 @@ export class WeatherSystem {
         this.trackedFlowers.push(flower);
     }
 
+    // --- NEW: Register Cave ---
+    registerCave(cave) {
+        if (!this.trackedCaves.includes(cave)) {
+            this.trackedCaves.push(cave);
+        }
+    }
+
     // --- NEW: Called when player shoots a cloud ---
     notifyCloudShot(isDaytime) {
         // Reduce density (limiting max rain intensity)
@@ -290,6 +302,28 @@ export class WeatherSystem {
 
         // 3. Update Weather State (Audio + Time of Day + Season)
         this.updateWeatherState(bassIntensity, melodyVol, groove, cycleWeatherBias, seasonal);
+
+        // --- NEW: Update Ground Water Level ---
+        // Fills up during RAIN/STORM, drains during CLEAR
+        if (this.state === WeatherState.RAIN) {
+            this.groundWaterLevel = Math.min(1.0, this.groundWaterLevel + 0.0005);
+        } else if (this.state === WeatherState.STORM) {
+            this.groundWaterLevel = Math.min(1.0, this.groundWaterLevel + 0.0015); // Fills fast
+        } else {
+            this.groundWaterLevel = Math.max(0.0, this.groundWaterLevel - 0.0003); // Drains slowly
+        }
+
+        // Update Caves
+        if (this.trackedCaves.length > 0) {
+            this.trackedCaves.forEach(cave => {
+                updateCaveWaterLevel(cave, this.groundWaterLevel);
+
+                // Also animate the waterfall mesh inside
+                if (cave.userData.waterfall && cave.userData.waterfall.onAnimate) {
+                    cave.userData.waterfall.onAnimate(dt, time);
+                }
+            });
+        }
 
         // Check for Rainbow Trigger (Storm -> Clear/Rain)
         if (this.lastState === WeatherState.STORM && this.state !== WeatherState.STORM) {
