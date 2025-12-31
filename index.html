@@ -461,12 +461,12 @@ document.body.appendChild(scr);
 
 <body>
     <div id="now-playing-toast" role="status" aria-live="polite">
-        <span class="icon">🎵</span>
+        <span class="icon" aria-hidden="true">🎵</span>
         <span id="now-playing-text">Now Playing...</span>
     </div>
 
     <div id="loading-overlay">
-        <div class="loading-spinner"></div>
+        <div class="loading-spinner" aria-hidden="true"></div>
         <div id="loading-text" aria-live="polite" aria-atomic="true">Initializing Audio Runtime...</div>
     </div>
 
@@ -491,7 +491,7 @@ document.body.appendChild(scr);
     <div id="instructions">
         <h1>🍭 Candy World</h1>
         <button id="startButton" class="cta-button" disabled>
-            <span class="spinner"></span>Loading World... 🍭
+            <span class="spinner" aria-hidden="true"></span>Loading World... 🍭
         </button>
 
         <div class="settings settings-container">
@@ -511,26 +511,26 @@ document.body.appendChild(scr);
 
         <div class="controls-container">
             <dl class="controls-list">
-                <dt><span class="key">Right Click</span> / <span class="key">W</span></dt>
+                <dt><span class="key" role="img" aria-label="Right Mouse Button">Right Click</span> / <span class="key" role="img" aria-label="W Key">W</span></dt>
                 <dd>Move Forward (Run)</dd>
 
                 <dt>
-                    <span class="key" aria-label="A key">A</span>
-                    <span class="key" aria-label="S key">S</span>
-                    <span class="key" aria-label="D key">D</span>
+                    <span class="key" role="img" aria-label="A key">A</span>
+                    <span class="key" role="img" aria-label="S key">S</span>
+                    <span class="key" role="img" aria-label="D key">D</span>
                 </dt>
                 <dd>Move Left / Back / Right</dd>
 
-                <dt><span class="key">Ctrl</span></dt>
+                <dt><span class="key" role="img" aria-label="Control Key">Ctrl</span></dt>
                 <dd>Hold to Sneak</dd>
 
-                <dt><span class="key">Space</span></dt>
+                <dt><span class="key" role="img" aria-label="Space Bar">Space</span></dt>
                 <dd>Jump</dd>
 
-                <dt><span class="key">Q</span></dt>
+                <dt><span class="key" role="img" aria-label="Q Key">Q</span></dt>
                 <dd>Toggle Jukebox</dd>
 
-                <dt><span class="key">Mouse</span></dt>
+                <dt><span class="key" role="img" aria-label="Mouse Movement">Mouse</span></dt>
                 <dd>Look Around</dd>
             </dl>
         </div>
