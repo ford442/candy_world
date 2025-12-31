@@ -60,7 +60,7 @@ wasm-opt "$NATIVE_WASM" -o "$NATIVE_WASM" \
   --enable-nontrapping-float-to-int
   
 echo "🔧 Optimizing Native WASM (wasmedge)..."
-wasmedge compile --optimize=3 --enable-threads --enable-relaxed-simd "$NATIVE_WASM" "$NATIVE_WASM"
+wasmedge compile --optimize=3 "$NATIVE_WASM" "$NATIVE_WASM"
 
 # 5. Minify Emscripten Loaders (Safety First)
 # We use -c (compress) and -m (mangle) but KEEP function names to avoid breaking
