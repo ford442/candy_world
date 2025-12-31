@@ -255,9 +255,9 @@ int checkCollision(float px, float py, float pz, float radius) {
     return 0;
 }
 
+}
+
 // Dummy main 
 int main() {
     return 0;
-}
-
 }
