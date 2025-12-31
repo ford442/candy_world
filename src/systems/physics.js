@@ -9,28 +9,38 @@ import {
     activeVineSwing, setActiveVineSwing, lastVineDetachTime, setLastVineDetachTime, vineSwings
 } from '../world/state.js';
 
-// --- NEW: Track Caves ---
-const foliageCaves = [];
+// --- Configuration ---
+const PLAYER_RADIUS = 0.5;
+const GRAVITY = 20.0;
+const SWIMMING_GRAVITY = 2.0; // Much lower gravity in water
+const SWIMMING_DRAG = 4.0;    // High friction in water
+const CLIMB_SPEED = 5.0;
 
-export function registerPhysicsCave(cave) {
-    foliageCaves.push(cave);
-}
+// --- State Definitions ---
+export const PlayerState = {
+    DEFAULT: 'default',   // Grounded or Airborne (Standard Physics)
+    SWIMMING: 'swimming', // Underwater physics
+    CLIMBING: 'climbing', // Wall scaling
+    VINE: 'vine'          // Swinging on a vine
+};
 
-// Reusable vector for movement calculations
-const _targetVelocity = new THREE.Vector3();
-const PLAYER_RADIUS = 0.5; // Approximate width of player capsule
-
+// --- Player State Object ---
 export const player = {
     velocity: new THREE.Vector3(),
     speed: 15.0,
     sprintSpeed: 25.0,
     sneakSpeed: 5.0,
-    gravity: 20.0,
-    energy: 0.0,        // Berry energy (0 to 10)
-    maxEnergy: 10.0
+    gravity: GRAVITY,
+    energy: 0.0,
+    maxEnergy: 10.0,
+    currentState: PlayerState.DEFAULT,
+
+    // Flags for external systems to query
+    isGrounded: false,
+    isUnderwater: false
 };
 
-// Global physics modifiers (from musical ecosystem)
+// Global physics modifiers (Musical Ecosystem)
 export const bpmWind = {
     direction: new THREE.Vector3(1, 0, 0),
     strength: 0,
@@ -44,406 +54,366 @@ export const grooveGravity = {
     baseGravity: 20.0
 };
 
-// --- Flag to track if C++ Physics is ready ---
+// C++ Physics Init Flag
 let cppPhysicsInitialized = false;
+let foliageCaves = []; // Store caves for collision checks
 
-// Initialize C++ physics state once
-function initCppPhysics(camera) {
-    if (cppPhysicsInitialized) return;
+// --- Public API ---
 
-    // Set initial player state
-    initPhysics(camera.position.x, camera.position.y, camera.position.z);
-
-    // Populate Obstacles
-    // Mushrooms (Type 0)
-    for (const m of foliageMushrooms) {
-        // type=0, x,y,z, stemR, capH, stemR(param1), capR(param2), isTrampoline(param3)
-        // Note: Our C++ addObstacle signature: type, x, y, z, r, h, p1, p2, p3
-        // C++:
-        // Mushroom(0): r=unused?, h=capH, p1=stemR, p2=capR, p3=isTrampoline
-        const stemR = m.userData.stemRadius || 0.5;
-        const capR = m.userData.capRadius || 2.0;
-        const capH = m.userData.capHeight || 3.0;
-        const isTrampoline = m.userData.isTrampoline ? 1 : 0;
-        addObstacle(0, m.position.x, m.position.y, m.position.z, 0, capH, stemR, capR, isTrampoline);
-    }
-
-    // Clouds (Type 1)
-    for (const c of foliageClouds) {
-        // type=1, x,y,z, radius, thickness(h), tier(p2)
-        const radius = (c.scale.x || 1.0) * 2.0;
-        const tier = c.userData.tier || 1;
-        // height? Clouds are roughly flat but have volume. Let's say thickness 1.0
-        const thickness = (c.scale.y || 1.0) * 0.8;
-        addObstacle(1, c.position.x, c.position.y, c.position.z, radius, thickness, 0, tier, 0);
-    }
-
-    // Trampolines (Type 2)
-    for (const t of foliageTrampolines) {
-        // type=2, x,y,z, radius, bounceHeight(h), bounceForce(p1)
-        const radius = t.userData.bounceRadius || 0.5;
-        const bounceHeight = t.userData.bounceHeight || 0.5;
-        const force = t.userData.bounceForce || 12.0;
-        addObstacle(2, t.position.x, t.position.y, t.position.z, radius, bounceHeight, force, 0, 0);
-    }
-
-    cppPhysicsInitialized = true;
-    console.log('[Physics] C++ Physics Initialized with obstacles.');
+export function registerPhysicsCave(cave) {
+    foliageCaves.push(cave);
 }
 
-function checkFlowerTrampoline(pos, audioState) {
-    for (let i = 0; i < foliageTrampolines.length; i++) {
-        const obj = foliageTrampolines[i];
-        const dx = pos.x - obj.position.x;
-        const dz = pos.z - obj.position.z;
-        const bounceTop = obj.position.y + obj.userData.bounceHeight;
-        const dy = pos.y - bounceTop;
-        const distH = Math.sqrt(dx * dx + dz * dz);
-        const radius = obj.userData.bounceRadius || 0.5;
-
-        if (distH < radius && dy > -0.5 && dy < 1.5) {
-            if (player.velocity.y < 0) {
-                const audioBoost = audioState?.kickTrigger || 0.3;
-                const force = obj.userData.bounceForce || 12;
-
-                obj.scale.y = 0.7;
-                setTimeout(() => { obj.scale.y = 1.0; }, 100);
-
-                return force + audioBoost * 5;
-            }
-        }
-    }
-    return 0;
-}
-
-// @perf-migrate {target: "cpp", reason: "collision-heavy-simd", threshold: "8ms", note: "Requires spatial hashing before migration"}
+// Main Physics Update Loop
 export function updatePhysics(delta, camera, controls, keyStates, audioState) {
-    // Collect falling berries (moved here conceptually, but logic can stay in main if preferred.
-    // For now, main.js still calls collectFallingBerries separately, we just handle player movement here.)
+    // 1. Update Global Environmental Modifiers (Wind, Groove)
+    updateEnvironmentalModifiers(delta, audioState);
 
-    // --- Musical Ecosystem: BPM Wind ---
+    // 2. Check Triggers & State Transitions
+    updateStateTransitions(camera, keyStates);
+
+    // 3. Execute State Logic
+    switch (player.currentState) {
+        case PlayerState.VINE:
+            updateVineState(delta, camera, keyStates);
+            break;
+        case PlayerState.SWIMMING:
+            updateSwimmingState(delta, camera, controls, keyStates);
+            break;
+        case PlayerState.CLIMBING:
+            updateClimbingState(delta, camera, controls, keyStates);
+            break;
+        case PlayerState.DEFAULT:
+        default:
+            updateDefaultState(delta, camera, controls, keyStates, audioState);
+            break;
+    }
+}
+
+// --- Internal Logic ---
+
+function updateEnvironmentalModifiers(delta, audioState) {
     if (audioState) {
+        // Groove Gravity
+        const groove = audioState.grooveAmount || 0;
+        grooveGravity.targetMultiplier = 1.0 - (groove * 0.4);
+        grooveGravity.multiplier += (grooveGravity.targetMultiplier - grooveGravity.multiplier) * delta * 5.0;
+        player.gravity = grooveGravity.baseGravity * grooveGravity.multiplier;
+
+        // BPM Wind (Visuals only for now)
         const currentBPM = audioState.bpm || 120;
         bpmWind.bpm = currentBPM;
         bpmWind.targetStrength = Math.min(1.0, (currentBPM - 60) / 120);
-
-        const currentBeatPhase = audioState.beatPhase || 0;
-        const gustPulse = Math.sin(currentBeatPhase * Math.PI * 2) * 0.3;
-        bpmWind.targetStrength += gustPulse;
-
         bpmWind.strength += (bpmWind.targetStrength - bpmWind.strength) * delta * 2;
-        bpmWind.strength = Math.max(0, Math.min(1, bpmWind.strength));
-
-        bpmWind.direction.x = Math.sin(Date.now() * 0.0001); // Approx time
-        bpmWind.direction.z = Math.cos(Date.now() * 0.0001);
-        bpmWind.direction.normalize();
     }
+}
 
-    // --- Musical Ecosystem: Groove Gravity ---
-    if (audioState) {
-        // "Groove" usually comes from beatSync or manual groove detection
-        // Assuming audioState has grooveAmount normalized 0..1
-        const groove = audioState.grooveAmount || 0;
+function updateStateTransitions(camera, keyStates) {
+    const playerPos = camera.position;
 
-        // When groove is high, gravity decreases slightly to give a "floaty" dance feel
-        // E.g. 1.0 -> 0.6
-        grooveGravity.targetMultiplier = 1.0 - (groove * 0.4);
+    // A. Check Water Level / Cave Flooding
+    // We check if the player is inside the "Water Gate" zone of a blocked cave
+    let waterLevel = -100;
 
-        // Smoothly interpolate
-        grooveGravity.multiplier += (grooveGravity.targetMultiplier - grooveGravity.multiplier) * delta * 5.0;
-
-        // Apply to player gravity
-        player.gravity = grooveGravity.baseGravity * grooveGravity.multiplier;
-    }
-
-    // Update Vine Visuals
-    vineSwings.forEach(v => {
-        if (v !== activeVineSwing) {
-            v.update(camera, delta, null);
+    foliageCaves.forEach(cave => {
+        // If cave is flooded (isBlocked) AND player is near the gate
+        if (cave.userData.isBlocked) {
+             const gatePos = cave.userData.gatePosition.clone().applyMatrix4(cave.matrixWorld);
+             // 2.5 is approx radius of water gate visual
+             if (playerPos.distanceTo(gatePos) < 2.5) {
+                 waterLevel = gatePos.y + 5; // Water exists here
+             }
         }
     });
 
-    if (controls.isLocked) {
-        // --- VINE SWINGING LOGIC ---
-        if (activeVineSwing) {
-            activeVineSwing.update(camera, delta, keyStates);
+    const wasSwimming = player.currentState === PlayerState.SWIMMING;
+    const isNowUnderwater = playerPos.y < waterLevel;
+    player.isUnderwater = isNowUnderwater;
 
-            if (keyStates.jump) {
-                setLastVineDetachTime(activeVineSwing.detach(player));
-                setActiveVineSwing(null);
-                keyStates.jump = false;
+    // Transition: Enter/Exit Water
+    if (isNowUnderwater && !wasSwimming) {
+        player.currentState = PlayerState.SWIMMING;
+        // Dampen velocity on entry
+        player.velocity.multiplyScalar(0.5);
+    } else if (!isNowUnderwater && wasSwimming) {
+        // Exit water logic
+        if (playerPos.y > waterLevel) {
+            player.currentState = PlayerState.DEFAULT;
+            if (keyStates.jump) player.velocity.y = 8.0; // Boost out
+        }
+    }
+
+    // Transition: Vine Handling
+    if (activeVineSwing) {
+        player.currentState = PlayerState.VINE;
+    } else if (player.currentState === PlayerState.VINE) {
+        player.currentState = PlayerState.DEFAULT;
+    }
+}
+
+// --- State: SWIMMING ---
+function updateSwimmingState(delta, camera, controls, keyStates) {
+    // 1. Buoyancy (Float up slowly)
+    player.velocity.y += (SWIMMING_GRAVITY * delta);
+
+    // 2. Drag (Slow down constantly)
+    player.velocity.multiplyScalar(1.0 - (SWIMMING_DRAG * delta));
+
+    // 3. Movement (3D Movement - Camera Direction)
+    const swimSpeed = player.speed * 0.6; // Slower than running
+    const swimDir = new THREE.Vector3();
+
+    if (keyStates.forward) swimDir.z += 1;
+    if (keyStates.backward) swimDir.z -= 1;
+    if (keyStates.right) swimDir.x += 1;
+    if (keyStates.left) swimDir.x -= 1;
+
+    if (swimDir.lengthSq() > 0) {
+        swimDir.normalize();
+
+        // Get Camera direction
+        const camDir = new THREE.Vector3();
+        camera.getWorldDirection(camDir);
+        const camRight = new THREE.Vector3();
+        camRight.crossVectors(camDir, new THREE.Vector3(0, 1, 0));
+
+        // Apply input relative to camera view
+        const moveVec = new THREE.Vector3()
+            .addScaledVector(camDir, swimDir.z)
+            .addScaledVector(camRight, swimDir.x);
+
+        player.velocity.addScaledVector(moveVec, swimSpeed * delta);
+    }
+
+    // 4. Vertical Input (Jump = Swim Up, Sneak = Swim Down)
+    if (keyStates.jump) player.velocity.y += 10 * delta;
+    if (keyStates.sneak) player.velocity.y -= 10 * delta;
+
+    // 5. Apply
+    controls.moveRight(player.velocity.x * delta);
+    controls.moveForward(player.velocity.z * delta);
+    camera.position.y += player.velocity.y * delta;
+}
+
+// --- State: VINE SWING ---
+function updateVineState(delta, camera, keyStates) {
+    if (activeVineSwing) {
+        activeVineSwing.update(camera, delta, keyStates);
+        if (keyStates.jump) {
+            setLastVineDetachTime(activeVineSwing.detach(player));
+            setActiveVineSwing(null);
+            keyStates.jump = false;
+            player.currentState = PlayerState.DEFAULT;
+        }
+    }
+}
+
+// --- State: CLIMBING (Placeholder for future platforming) ---
+function updateClimbingState(delta, camera, controls, keyStates) {
+    player.velocity.set(0,0,0);
+    player.currentState = PlayerState.DEFAULT; // Fallback for now
+}
+
+// --- State: DEFAULT (Walking/Falling) ---
+function updateDefaultState(delta, camera, controls, keyStates, audioState) {
+    // Initialize C++ Physics if needed
+    if (!cppPhysicsInitialized) {
+        initCppPhysics(camera);
+        cppPhysicsInitialized = true;
+    }
+
+    // Update Vine Visuals (even if not swinging)
+    vineSwings.forEach(v => {
+        if (v !== activeVineSwing) v.update(camera, delta, null);
+    });
+
+    // Vine Attachment Check
+    if (Date.now() - lastVineDetachTime > 500) {
+        checkVineAttachment(camera);
+    }
+
+    // --- C++ MOVEMENT INTEGRATION ---
+
+    let inputX = 0;
+    let inputZ = 0;
+    let moveSpeed = keyStates.sprint ? player.sprintSpeed : (keyStates.sneak ? player.sneakSpeed : player.speed);
+
+    if (keyStates.forward) inputZ += 1;
+    if (keyStates.backward) inputZ -= 1;
+    if (keyStates.left) inputX -= 1;
+    if (keyStates.right) inputX += 1;
+
+    // Normalize
+    const len = Math.sqrt(inputX*inputX + inputZ*inputZ);
+    if (len > 0) { inputX /= len; inputZ /= len; }
+
+    // Sync State
+    setPlayerState(camera.position.x, camera.position.y, camera.position.z, player.velocity.x, player.velocity.y, player.velocity.z);
+
+    // Run C++ Update
+    const onGround = updatePhysicsCPP(
+        delta, inputX, inputZ, moveSpeed,
+        keyStates.jump ? 1 : 0,
+        keyStates.sprint ? 1 : 0,
+        keyStates.sneak ? 1 : 0,
+        grooveGravity.multiplier
+    );
+
+    if (onGround >= 0) {
+        // C++ Success
+        const newState = getPlayerState();
+        camera.position.set(newState.x, newState.y, newState.z);
+        player.velocity.set(newState.vx, newState.vy, newState.vz);
+        if (player.velocity.y > 0) keyStates.jump = false; // Clear jump
+        player.isGrounded = (onGround === 1);
+    } else {
+        // JS Fallback (if C++ fails)
+        updateJSFallbackMovement(delta, camera, controls, keyStates, moveSpeed);
+    }
+
+    // --- ADDITIONAL JS COLLISIONS (Mushrooms, Clouds, Gates) ---
+    resolveSpecialCollisions(delta, camera, keyStates, audioState);
+}
+
+function updateJSFallbackMovement(delta, camera, controls, keyStates, moveSpeed) {
+    const _targetVelocity = new THREE.Vector3();
+    if (keyStates.forward) _targetVelocity.z += moveSpeed;
+    if (keyStates.backward) _targetVelocity.z -= moveSpeed;
+    if (keyStates.left) _targetVelocity.x -= moveSpeed;
+    if (keyStates.right) _targetVelocity.x += moveSpeed;
+
+    if (_targetVelocity.lengthSq() > 0) _targetVelocity.normalize().multiplyScalar(moveSpeed);
+
+    const smoothing = Math.min(1.0, 15.0 * delta);
+    player.velocity.x += (_targetVelocity.x - player.velocity.x) * smoothing;
+    player.velocity.z += (_targetVelocity.z - player.velocity.z) * smoothing;
+    player.velocity.y -= player.gravity * delta;
+
+    controls.moveRight(player.velocity.x * delta);
+    controls.moveForward(player.velocity.z * delta);
+    camera.position.y += player.velocity.y * delta;
+
+    // Simple Ground Check
+    const groundY = getGroundHeight(camera.position.x, camera.position.z);
+    if (camera.position.y < groundY + 1.8 && player.velocity.y <= 0) {
+        camera.position.y = groundY + 1.8;
+        player.velocity.y = 0;
+        player.isGrounded = true;
+    } else {
+        player.isGrounded = false;
+    }
+}
+
+// Resolve collisions with game objects (Mushrooms, Water Gates, etc)
+function resolveSpecialCollisions(delta, camera, keyStates, audioState) {
+    const playerPos = camera.position;
+
+    // 1. Water Gates (Cave Blockers)
+    // If not swimming (meaning we are walking into it), push back
+    foliageCaves.forEach(cave => {
+        if (cave.userData.isBlocked) {
+            const gateWorldPos = cave.userData.gatePosition.clone().applyMatrix4(cave.matrixWorld);
+            const dx = playerPos.x - gateWorldPos.x;
+            const dz = playerPos.z - gateWorldPos.z;
+            const dist = Math.sqrt(dx*dx + dz*dz);
+
+            // If near gate and NOT already inside water (transition state handles inside)
+            if (dist < 2.5 && player.currentState !== PlayerState.SWIMMING) {
+                // Push back force
+                const angle = Math.atan2(dz, dx);
+                const pushForce = 15.0 * delta;
+                camera.position.x += Math.cos(angle) * pushForce;
+                camera.position.z += Math.sin(angle) * pushForce;
+                player.velocity.x *= 0.5;
+                player.velocity.z *= 0.5;
             }
-        } else {
-            // Check for Vine Attachment
-            if (Date.now() - lastVineDetachTime > 500) {
-                const playerPos = camera.position;
-                for (const vineManager of vineSwings) {
-                    const dx = playerPos.x - vineManager.anchorPoint.x;
-                    const dz = playerPos.z - vineManager.anchorPoint.z;
-                    const distH = Math.sqrt(dx*dx + dz*dz);
-                    const tipY = vineManager.anchorPoint.y - vineManager.length;
+        }
+    });
 
-                    if (distH < 2.0 && playerPos.y < vineManager.anchorPoint.y && playerPos.y > tipY) {
-                         if (distH < 1.0) {
-                             vineManager.attach(camera, player.velocity);
-                             setActiveVineSwing(vineManager);
-                             break;
+    // 2. Mushroom Caps (Trampolines/Platforms) - JS Check
+    for (const mush of foliageMushrooms) {
+        if (player.velocity.y < 0) {
+            const capR = mush.userData.capRadius || 2.0;
+            const capH = mush.userData.capHeight || 3.0;
+            const dx = playerPos.x - mush.position.x;
+            const dz = playerPos.z - mush.position.z;
+
+            if (Math.sqrt(dx*dx + dz*dz) < capR) {
+                const surfaceY = mush.position.y + capH;
+                if (playerPos.y >= surfaceY - 0.5 && playerPos.y <= surfaceY + 2.0) {
+                    if (mush.userData.isTrampoline) {
+                        const audioBoost = audioState?.kickTrigger || 0.0;
+                        player.velocity.y = 15 + audioBoost * 10;
+                        mush.scale.y = 0.7;
+                        setTimeout(() => { mush.scale.y = 1.0; }, 100);
+                        keyStates.jump = false;
+                    } else {
+                        // Platform land
+                        camera.position.y = surfaceY + 1.8;
+                        player.velocity.y = 0;
+                        player.isGrounded = true;
+                        if (keyStates.jump) player.velocity.y = 10;
+                    }
+                }
+            }
+        }
+    }
+
+    // 3. Cloud Walking (Simplified)
+    if (playerPos.y > 15) {
+        for (const cloud of foliageClouds) {
+            const dx = playerPos.x - cloud.position.x;
+            const dz = playerPos.z - cloud.position.z;
+            if (Math.sqrt(dx*dx + dz*dz) < (cloud.scale.x || 1.0) * 2.0) {
+                if (cloud.userData.tier === 1) {
+                     const topY = cloud.position.y + (cloud.scale.y || 1.0) * 0.8;
+                     if (playerPos.y >= topY - 0.5 && (playerPos.y - topY) < 3.0) {
+                         if (player.velocity.y <= 0) {
+                             camera.position.y = topY;
+                             player.velocity.y = 0;
+                             player.isGrounded = true;
+                             if (keyStates.jump) player.velocity.y = 15;
                          }
-                    }
+                     }
                 }
             }
+        }
+    }
+}
 
-            // --- TRY C++ PHYSICS ---
-            if (!cppPhysicsInitialized) {
-                 initCppPhysics(camera);
-            }
+// Helper: Initialize C++ obstacles (One-time setup)
+function initCppPhysics(camera) {
+    initPhysics(camera.position.x, camera.position.y, camera.position.z);
 
-            let inputX = 0;
-            let inputZ = 0;
+    // Add Mushrooms
+    for (const m of foliageMushrooms) {
+        addObstacle(0, m.position.x, m.position.y, m.position.z, 0, m.userData.capHeight||3, m.userData.stemRadius||0.5, m.userData.capRadius||2, m.userData.isTrampoline?1:0);
+    }
+    // Add Clouds
+    for (const c of foliageClouds) {
+        addObstacle(1, c.position.x, c.position.y, c.position.z, (c.scale.x||1)*2.0, (c.scale.y||1)*0.8, 0, c.userData.tier||1, 0);
+    }
+    // Add Trampolines
+    for (const t of foliageTrampolines) {
+        addObstacle(2, t.position.x, t.position.y, t.position.z, t.userData.bounceRadius||0.5, t.userData.bounceHeight||0.5, t.userData.bounceForce||12, 0, 0);
+    }
+    console.log('[Physics] C++ Physics Initialized.');
+}
 
-            let moveSpeed = player.speed;
-            if (keyStates.sprint) moveSpeed = player.sprintSpeed;
-            if (keyStates.sneak) moveSpeed = player.sneakSpeed;
+function checkVineAttachment(camera) {
+    const playerPos = camera.position;
+    for (const vineManager of vineSwings) {
+        const dx = playerPos.x - vineManager.anchorPoint.x;
+        const dz = playerPos.z - vineManager.anchorPoint.z;
+        const distH = Math.sqrt(dx*dx + dz*dz);
+        const tipY = vineManager.anchorPoint.y - vineManager.length;
 
-            if (keyStates.forward) inputZ += 1;
-            if (keyStates.backward) inputZ -= 1;
-            if (keyStates.left) inputX -= 1;
-            if (keyStates.right) inputX += 1;
-
-            // Normalize input
-            const len = Math.sqrt(inputX*inputX + inputZ*inputZ);
-            if (len > 0) {
-                inputX /= len;
-                inputZ /= len;
-            }
-
-            // Sync JS state to C++ (in case vine swing or other things moved us)
-            setPlayerState(camera.position.x, camera.position.y, camera.position.z, player.velocity.x, player.velocity.y, player.velocity.z);
-
-            // CALL C++ UPDATE
-            const onGround = updatePhysicsCPP(
-                delta, inputX, inputZ, moveSpeed,
-                keyStates.jump ? 1 : 0,
-                keyStates.sprint ? 1 : 0,
-                keyStates.sneak ? 1 : 0,
-                grooveGravity.multiplier
-            );
-
-            if (onGround >= 0) { // Success (returns onGround status)
-                // Read back state
-                const newState = getPlayerState();
-                camera.position.x = newState.x;
-                camera.position.y = newState.y;
-                camera.position.z = newState.z;
-                player.velocity.x = newState.vx;
-                player.velocity.y = newState.vy;
-                player.velocity.z = newState.vz;
-
-                // If jumped (was processed in C++), clear key
-                if (keyStates.jump && onGround == 1) { // 1 = landed/grounded
-                     // C++ handles jump impulse if key is set and onGround.
-                     // We just need to clear the key if we are in air now?
-                     // Actually C++ applies jump force immediately if onGround && jump.
-                     // So we should clear it.
-                }
-                // Just clear jump if we are not on ground anymore (jumping)
-                if (player.velocity.y > 0) keyStates.jump = false;
-
-                controls.moveRight(0); // We set position directly, so no need for controls.move* accumulation?
-                // Wait, PointerLockControls usually operates on camera position via moveRight/Forward.
-                // But we just set camera.position directly.
-                // This might desync if PLC maintains internal state?
-                // Three.js PointerLockControls just modifies object.position. So setting object.position is fine.
-
-                return; // SKIP JS FALLBACK
-            }
-
-            // --- END C++ PHYSICS ---
-
-            // Standard Movement (JS Fallback)
-            _targetVelocity.set(0, 0, 0);
-            if (keyStates.forward) _targetVelocity.z += moveSpeed;
-            if (keyStates.backward) _targetVelocity.z -= moveSpeed;
-            if (keyStates.left) _targetVelocity.x -= moveSpeed;
-            if (keyStates.right) _targetVelocity.x += moveSpeed;
-
-            if (_targetVelocity.lengthSq() > 0) {
-                _targetVelocity.normalize().multiplyScalar(moveSpeed);
-            }
-
-            // --- CHANGED: Disabled Player Wind Drifting ---
-            // We removed the code that added bpmWind to _targetVelocity here.
-            // This prevents the player from sliding/shaking when music plays.
-            // (bpmWind is still maintained above for use by visual systems like foliage)
-            // ----------------------------------------------
-
-            const smoothing = Math.min(1.0, 15.0 * delta);
-            player.velocity.x += (_targetVelocity.x - player.velocity.x) * smoothing;
-            player.velocity.z += (_targetVelocity.z - player.velocity.z) * smoothing;
-
-            player.velocity.y -= player.gravity * delta;
-
-            if (isNaN(player.velocity.x) || isNaN(player.velocity.z) || isNaN(player.velocity.y)) {
-                player.velocity.set(0, 0, 0);
-            }
-
-            controls.moveRight(player.velocity.x * delta);
-            controls.moveForward(player.velocity.z * delta);
-
-            // --- PHYSICS & COLLISION ---
-
-            // --- NEW: Cave Water Gate Collision ---
-            const playerPos = camera.position;
-
-            for (const cave of foliageCaves) {
-                if (cave.userData.isBlocked) {
-                    // Get world position of the gate
-                    // cave.userData.gatePosition is local to the cave group
-                    const gateWorldPos = cave.userData.gatePosition.clone().applyMatrix4(cave.matrixWorld);
-
-                    // Check distance
-                    const dx = playerPos.x - gateWorldPos.x;
-                    const dz = playerPos.z - gateWorldPos.z;
-                    const dist = Math.sqrt(dx*dx + dz*dz);
-
-                    // If strictly inside the "water curtain" radius
-                    const blockageRadius = 2.5; // Width of the stream influence
-
-                    if (dist < blockageRadius) {
-                        // Determine if we are trying to enter (push back)
-                        // Simple logic: Push player away from center of gate
-                        const angle = Math.atan2(dz, dx);
-                        const pushForce = 15.0 * delta; // Strong current
-
-                        camera.position.x += Math.cos(angle) * pushForce;
-                        camera.position.z += Math.sin(angle) * pushForce;
-
-                        // Nullify velocity towards the gate
-                        player.velocity.x *= 0.5;
-                        player.velocity.z *= 0.5;
-                    }
-                }
-            }
-
-            // Mushroom Collision (Stem & Cap)
-            const pPos = camera.position;
-
-            for (let i = 0; i < foliageMushrooms.length; i++) {
-                const mush = foliageMushrooms[i];
-                const stemR = mush.userData.stemRadius || 0.5;
-                const capR = mush.userData.capRadius || 2.0;
-                const capH = mush.userData.capHeight || 3.0; // Top of stem, start of cap
-                const mPos = mush.position;
-
-                // 1. Horizontal Distance
-                const dx = pPos.x - mPos.x;
-                const dz = pPos.z - mPos.z;
-                const distH = Math.sqrt(dx * dx + dz * dz);
-
-                // 2. Stem Collision (Blocking)
-                // If we are below the cap and touching the stem...
-                if (pPos.y < mPos.y + capH - 0.5) {
-                    const minDist = stemR + PLAYER_RADIUS;
-                    if (distH < minDist) {
-                        // Push out
-                        const angle = Math.atan2(dz, dx);
-                        const pushX = Math.cos(angle) * minDist;
-                        const pushZ = Math.sin(angle) * minDist;
-
-                        camera.position.x = mPos.x + pushX;
-                        camera.position.z = mPos.z + pushZ;
-                    }
-                }
-
-                // 3. Cap Collision (Platform / Bounce)
-                // Check if we are above the stem top and falling onto the cap
-                else if (player.velocity.y < 0) {
-                    // Check if within cap radius
-                    if (distH < capR) {
-                        // Check vertical overlap (are we hitting the cap surface?)
-                        // Cap surface is approx at mPos.y + capH
-                        const surfaceY = mPos.y + capH;
-
-                        // If we are just above or slightly inside the surface...
-                        if (pPos.y >= surfaceY - 0.5 && pPos.y <= surfaceY + 2.0) {
-
-                            if (mush.userData.isTrampoline) {
-                                // BOUNCE!
-                                const audioBoost = audioState?.kickTrigger || 0.0;
-                                player.velocity.y = 15 + audioBoost * 10;
-
-                                // Visual squash
-                                mush.scale.y = 0.7;
-                                setTimeout(() => { mush.scale.y = 1.0; }, 100);
-                                keyStates.jump = false; // Consume jump
-                            } else {
-                                // PLATFORM (Land)
-                                camera.position.y = surfaceY + 1.8; // Stand on top
-                                player.velocity.y = 0;
-
-                                // Allow jumping off
-                                if (keyStates.jump) {
-                                    player.velocity.y = 10;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            const groundY = getGroundHeight(camera.position.x, camera.position.z);
-            // playerPos is already defined above
-            // const playerPos = camera.position;
-
-            // 1. Cloud Walking
-            let cloudY = -Infinity;
-            if (playerPos.y > 15) {
-                for (let i = 0; i < foliageClouds.length; i++) {
-                    const obj = foliageClouds[i];
-                    const dx = playerPos.x - obj.position.x;
-                    const dz = playerPos.z - obj.position.z;
-                    const distH = Math.sqrt(dx*dx + dz*dz);
-                    const radius = (obj.scale.x || 1.0) * 2.0;
-
-                    if (distH < radius) {
-                        if (obj.userData.tier === 1) {
-                             const topY = obj.position.y + (obj.scale.y || 1.0) * 0.8;
-                             if (playerPos.y >= topY - 0.5 && (playerPos.y - topY) < 3.0) {
-                                 cloudY = Math.max(cloudY, topY);
-                             }
-                        } else if (obj.userData.tier === 2) {
-                            const bottomY = obj.position.y - 2.0;
-                            const topY = obj.position.y + 2.0;
-                            if (playerPos.y > bottomY && playerPos.y < topY) {
-                                player.velocity.y += 30.0 * delta;
-                                if (player.velocity.y > 8.0) player.velocity.y = 8.0;
-                            }
-                        }
-                    }
-                }
-            }
-
-            // 2. Flower Trampoline
-            const flowerBounce = checkFlowerTrampoline(playerPos, audioState);
-            if (flowerBounce > 0) {
-                player.velocity.y = Math.max(player.velocity.y, flowerBounce);
-                keyStates.jump = false;
-            }
-
-            const safeGroundY = Math.max(isNaN(groundY) ? 0 : groundY, cloudY);
-
-            // Landing (if not already handled by mushroom platform)
-            if (camera.position.y < safeGroundY + 1.8 && player.velocity.y <= 0) {
-                camera.position.y = safeGroundY + 1.8;
-                player.velocity.y = 0;
-                if (keyStates.jump) {
-                    const energyBonus = 1 + (player.energy / player.maxEnergy) * 0.5;
-                    player.velocity.y = 10 * energyBonus;
-                    if (cloudY > groundY) player.velocity.y = 15 * energyBonus;
-                }
-            } else {
-                camera.position.y += player.velocity.y * delta;
-            }
+        if (distH < 2.0 && playerPos.y < vineManager.anchorPoint.y && playerPos.y > tipY) {
+             if (distH < 1.0) {
+                 vineManager.attach(camera, player.velocity);
+                 setActiveVineSwing(vineManager);
+                 break;
+             }
         }
     }
 }
