@@ -7,6 +7,7 @@
 #include <pthread.h>
 #include <cmath>
 #include <cstdlib>
+#include <cstdint>
 #include <atomic>
 
 extern "C" {
@@ -79,12 +80,12 @@ void computeHeightmapRegion(int startRow, int endRow) {
 
 // Worker thread entry point
 void* bootstrapWorker(void* arg) {
-    int threadId = (int)(long)arg;
+    intptr_t threadId = (intptr_t)arg;
     
     // Divide work among threads
     int rowsPerThread = HEIGHTMAP_SIZE / NUM_THREADS;
-    int startRow = threadId * rowsPerThread;
-    int endRow = (threadId == NUM_THREADS - 1) ? HEIGHTMAP_SIZE : (threadId + 1) * rowsPerThread;
+    int startRow = (int)threadId * rowsPerThread;
+    int endRow = ((int)threadId == NUM_THREADS - 1) ? HEIGHTMAP_SIZE : ((int)threadId + 1) * rowsPerThread;
     
     computeHeightmapRegion(startRow, endRow);
     
@@ -109,8 +110,8 @@ void startBootstrapInit() {
     
     // Spawn worker threads for parallel heightmap computation
     pthread_t threads[NUM_THREADS];
-    for (int i = 0; i < NUM_THREADS; i++) {
-        pthread_create(&threads[i], nullptr, bootstrapWorker, (void*)(long)i);
+    for (intptr_t i = 0; i < NUM_THREADS; i++) {
+        pthread_create(&threads[i], nullptr, bootstrapWorker, (void*)i);
     }
     
     // Detach threads so they clean up automatically

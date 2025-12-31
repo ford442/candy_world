@@ -141,13 +141,15 @@ function getNativeFunc(name) {
  * Helper function to start bootstrap terrain pre-computation
  * @param {Object} instance - The Emscripten module instance
  */
+let bootstrapStarted = false; // Guard to prevent duplicate initialization
+
 async function startBootstrapIfAvailable(instance) {
-    if (!instance) return;
+    if (!instance || bootstrapStarted) return;
     
     try {
         const { startBootstrap } = await import('./bootstrap-loader.js');
-        if (startBootstrap) {
-            startBootstrap(instance);
+        if (startBootstrap && startBootstrap(instance)) {
+            bootstrapStarted = true;
             console.log('[WASM] Bootstrap terrain pre-computation started');
         }
     } catch (e) {
