@@ -97,13 +97,11 @@ export function initWorld(scene: THREE.Scene, weatherSystem: WeatherSystem): Wor
     scene.add(ground);
 
     // 2. OVERRIDE FOG for Compact World
-    // 0.002 was for 2000u world. 0.012 is for 400u world.
     const fogColor = new THREE.Color(CONFIG.colors.fog || 0xFFC5D3);
     scene.fog = new THREE.FogExp2(fogColor, 0.012);
     scene.background = fogColor;
 
     // Initialize Vegetation Systems
-    // Reduced from 20k to 10k for better performance with large object count
     initGrassSystem(scene, 10000);
     scene.add(createFireflies(150, 100));
 
@@ -120,23 +118,6 @@ export function initWorld(scene: THREE.Scene, weatherSystem: WeatherSystem): Wor
 
     // Generate Content
     generateMap(weatherSystem);
-
-    // --- NEW: Spawn the Mysterious Cave ---
-    // Place it somewhere accessible but distinct
-    const cave = createCaveEntrance({ scale: 1.5 });
-
-    // Position it at a specific spot (e.g., near the edge of the central clearing)
-    const caveX = 25;
-    const caveZ = 25;
-    const caveY = getGroundHeight(caveX, caveZ);
-
-    cave.position.set(caveX, caveY, caveZ);
-
-    // Rotate to face center (approx)
-    cave.lookAt(0, caveY, 0);
-
-    // Add to system
-    safeAddFoliage(cave, false, 0, weatherSystem);
 
     return { sky, moon, ground };
 }
@@ -175,24 +156,17 @@ export function safeAddFoliage(
 // --- HELPER: Position Validation ---
 function isPositionValid(x: number, z: number, radius: number): boolean {
     // 1. Player Protection (Center Check)
-    // Keep 15 units clear around (0,0)
     const distFromCenterSq = x * x + z * z;
-    if (distFromCenterSq < 15 * 15) {
-        return false;
-    }
+    if (distFromCenterSq < 15 * 15) return false;
 
     // 2. Obstacle Overlap Check
     for (const obs of obstacles) {
         const dx = x - obs.position.x;
         const dz = z - obs.position.z;
         const distSq = dx * dx + dz * dz;
-        const minDistance = obs.radius + radius + 1.5; // Buffer of 1.5 units
-
-        if (distSq < minDistance * minDistance) {
-            return false;
-        }
+        const minDistance = obs.radius + radius + 1.5;
+        if (distSq < minDistance * minDistance) return false;
     }
-
     return true;
 }
 
@@ -204,14 +178,9 @@ function generateMap(weatherSystem: WeatherSystem): void {
 
     (mapData as MapEntity[]).forEach(item => {
         const [x, yInput, z] = item.position;
-        // Recalculate Y based on ground height for most objects to ensure they sit on terrain
         const groundY = getGroundHeight(x, z);
-
-        // Use provided Y if it's significantly different (e.g. cloud), otherwise snap to ground
         let y = groundY;
-        if (item.type === 'cloud') {
-            y = yInput; // Clouds float
-        }
+        if (item.type === 'cloud') y = yInput;
 
         try {
             let obj: THREE.Object3D | null = null;
@@ -222,13 +191,9 @@ function generateMap(weatherSystem: WeatherSystem): void {
             if (item.type === 'mushroom') {
                 const isGiant = item.variant === 'giant';
                 const scale = item.scale || 1.0;
-
-                // Add faces to giants and some regulars (10% chance)
                 const hasFace = item.hasFace !== undefined ? item.hasFace : (isGiant || Math.random() < 0.1);
-                // Make face mushrooms bouncy
                 const isBouncy = isGiant || hasFace;
 
-                // Pass note information if provided
                 obj = createMushroom({
                     size: isGiant ? 'giant' : 'regular',
                     scale,
@@ -249,10 +214,9 @@ function generateMap(weatherSystem: WeatherSystem): void {
             }
             else if (item.type === 'grass') {
                 addGrassInstance(x, y, z);
-                return; // Grass handled separately
+                return;
             }
-
-            // --- Advanced Types (New additions) ---
+            // --- Advanced Types ---
             else if (item.type === 'subwoofer_lotus') {
                 obj = createSubwooferLotus({ scale: item.scale || 1.0 });
             }
@@ -266,12 +230,11 @@ function generateMap(weatherSystem: WeatherSystem): void {
             }
             else if (item.type === 'floating_orb') {
                 obj = createFloatingOrb({ size: 0.5 });
-                y += 1.5; // Float above ground
+                y += 1.5;
             }
             else if (item.type === 'swingable_vine') {
-                // Needs height to dangle
                 obj = createSwingableVine({ length: 8 });
-                y += 8; // Hang from above
+                y += 8;
                 if (vineSwings) vineSwings.push(new VineSwing(obj, 8));
             }
             else if (item.type === 'prism_rose_bush') {
@@ -305,23 +268,16 @@ function generateMap(weatherSystem: WeatherSystem): void {
                 obj = createSnareTrap();
             }
             else if (item.type === 'panning_pad') {
-                // Bias can be inferred from x position (Left < 0 < Right)
                 const panBias = x < 0 ? -1 : 1;
-                obj = createPanningPad({
-                    radius: item.scale || 1.0,
-                    panBias: panBias
-                });
-                // Slightly float on liquid if at ground level, or assume it's placed on water
+                obj = createPanningPad({ radius: item.scale || 1.0, panBias: panBias });
                 if (y < 2) y = 1.0;
             }
-            // Spirits (Rare)
+            // Spirits
             else if (item.type === 'silence_spirit') {
                 obj = createSilenceSpirit({ scale: item.scale || 1.0 });
-                // Don't mark as obstacle so players can walk through them
             }
             // Instrument Shrines
             else if (item.type === 'instrument_shrine') {
-                // Parse ID from variant or use random
                 const id = parseInt(item.variant || '0', 10);
                 obj = createInstrumentShrine({ instrumentID: id, scale: item.scale || 1.0 });
                 isObstacle = true;
@@ -340,19 +296,16 @@ function generateMap(weatherSystem: WeatherSystem): void {
             }
             else if (item.type === 'wisteria_cluster') {
                 obj = createWisteriaCluster();
-                y += 4; // Hangs
+                y += 4;
             }
 
             // --- Spawning ---
             if (obj) {
                 obj.position.set(x, y, z);
                 obj.rotation.y = Math.random() * Math.PI * 2;
-
-                // Apply Scale if provided and object supports it (some have fixed sizes)
                 if (item.scale && item.type !== 'mushroom' && item.type !== 'flower') {
                     obj.scale.setScalar(item.scale);
                 }
-
                 safeAddFoliage(obj, isObstacle, radius, weatherSystem);
             }
 
@@ -361,14 +314,24 @@ function generateMap(weatherSystem: WeatherSystem): void {
         }
     });
 
+    // --- NEW: Spawn The Cave ---
+    const cave = createCaveEntrance({ scale: 2.0 });
+    const caveX = 25;
+    const caveZ = 25;
+    const caveY = getGroundHeight(caveX, caveZ);
+    cave.position.set(caveX, caveY, caveZ);
+    cave.lookAt(0, caveY, 0);
+    safeAddFoliage(cave, false, 0, weatherSystem);
+    console.log("[World] Cave spawned at ", caveX, caveZ);
+
     populateProceduralExtras(weatherSystem);
 }
 
 function populateProceduralExtras(weatherSystem: WeatherSystem): void {
-    console.log("[World] Populating procedural extras (flowers, face mushrooms, trees, clouds)...");
+    console.log("[World] Populating procedural extras...");
     if ((window as any).setLoadingStatus) (window as any).setLoadingStatus("Growing Procedural Flora...");
-    const extrasCount = 40; // Reduced from 80 to improve performance with large map
-    const range = 150; // Keep within central area
+    const extrasCount = 40;
+    const range = 150;
 
     for (let i = 0; i < extrasCount; i++) {
         let obj: THREE.Object3D | null = null;
@@ -378,13 +341,9 @@ function populateProceduralExtras(weatherSystem: WeatherSystem): void {
         let attempts = 0;
         let validPosition = false;
 
-        // Try to find a valid position
         while (attempts < 10) {
             x = (Math.random() - 0.5) * range;
             z = (Math.random() - 0.5) * range;
-
-            // Assume max radius of procedural objects (Bubble Willow is ~1.5)
-            // Using 1.5 as a conservative guess for the check
             if (isPositionValid(x, z, 1.5)) {
                 validPosition = true;
                 break;
@@ -392,22 +351,17 @@ function populateProceduralExtras(weatherSystem: WeatherSystem): void {
             attempts++;
         }
 
-        if (!validPosition) {
-            // console.debug(`[World] Skipped spawning extra after ${attempts} attempts.`);
-            continue;
-        }
+        if (!validPosition) continue;
 
         const groundY = getGroundHeight(x, z);
 
         try {
             const rand = Math.random();
-
-            if (rand < 0.3) { // 30% Flowers
+            if (rand < 0.3) {
                  obj = Math.random() < 0.5 ? createFlower() : createGlowingFlower();
                  obj.position.set(x, groundY, z);
             }
-            else if (rand < 0.45) { // 15% Face Mushrooms (Bouncy!)
-                 // Small bouncy face mushrooms like in the concept image
+            else if (rand < 0.45) {
                  obj = createMushroom({
                      size: 'regular',
                      scale: 0.8 + Math.random() * 0.5,
@@ -417,7 +371,7 @@ function populateProceduralExtras(weatherSystem: WeatherSystem): void {
                  obj.position.set(x, groundY, z);
                  isObstacle = true;
             }
-            else if (rand < 0.55) { // 10% Trees
+            else if (rand < 0.55) {
                  const treeType = Math.random();
                  if (treeType < 0.33) obj = createBubbleWillow();
                  else if (treeType < 0.66) obj = createBalloonBush();
@@ -427,7 +381,7 @@ function populateProceduralExtras(weatherSystem: WeatherSystem): void {
                  isObstacle = true;
                  radius = 1.5;
             }
-            else if (rand < 0.75) { // 20% Musical Flora (Ferns, Geysers, Traps, PINES)
+            else if (rand < 0.75) {
                  const type = Math.random();
                  if (type < 0.20) {
                      obj = createArpeggioFern({ scale: 1.0 + Math.random() * 0.5 });
@@ -447,24 +401,23 @@ function populateProceduralExtras(weatherSystem: WeatherSystem): void {
                  } else if (type < 0.85) {
                      obj = createCymbalDandelion({ scale: 0.8 + Math.random() * 0.4 });
                  } else {
-                     // Panning Pads
                      const panBias = x < 0 ? -1 : 1;
                      obj = createPanningPad({ radius: 1.2 + Math.random(), panBias });
                      obj.position.y = groundY + 0.5;
                  }
                  if (obj) obj.position.set(x, obj.position.y || groundY, z);
             }
-             else if (rand < 0.90) { // 15% Clouds
+             else if (rand < 0.90) {
                  const isHigh = Math.random() < 0.5;
                  y = isHigh ? 35 + Math.random() * 20 : 12 + Math.random() * 10;
                  obj = createRainingCloud({ size: 1.0 + Math.random() });
                  obj.position.set(x, y, z);
              }
-             else if (rand < 0.95) { // 5% Silence Spirits
+             else if (rand < 0.95) {
                  obj = createSilenceSpirit();
                  obj.position.set(x, groundY, z);
              }
-             else { // 5% Instrument Shrines
+             else {
                  const id = Math.floor(Math.random() * 16);
                  obj = createInstrumentShrine({ instrumentID: id });
                  obj.position.set(x, groundY, z);
