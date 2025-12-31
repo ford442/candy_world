@@ -119,26 +119,48 @@ export function pollBootstrapProgress(emscriptenInstance, onProgress, onComplete
     }
 
     let lastProgress = 0;
-    const intervalId = setInterval(() => {
-        const progress = getBootstrapProgress(emscriptenInstance);
-        
-        if (progress !== lastProgress) {
-            lastProgress = progress;
-            if (onProgress) {
-                onProgress(progress);
-            }
-        }
-
-        if (isBootstrapComplete(emscriptenInstance)) {
+    let intervalId = null;
+    
+    const cleanup = () => {
+        if (intervalId !== null) {
             clearInterval(intervalId);
-            if (onComplete) {
-                onComplete();
+            intervalId = null;
+        }
+    };
+    
+    intervalId = setInterval(() => {
+        try {
+            const progress = getBootstrapProgress(emscriptenInstance);
+            
+            if (progress !== lastProgress) {
+                lastProgress = progress;
+                if (onProgress) {
+                    try {
+                        onProgress(progress);
+                    } catch (e) {
+                        console.error('[Bootstrap] Progress callback error:', e);
+                    }
+                }
             }
+
+            if (isBootstrapComplete(emscriptenInstance)) {
+                cleanup();
+                if (onComplete) {
+                    try {
+                        onComplete();
+                    } catch (e) {
+                        console.error('[Bootstrap] Complete callback error:', e);
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('[Bootstrap] Polling error:', error);
+            cleanup();
         }
     }, pollInterval);
 
     // Return stop function
-    return () => clearInterval(intervalId);
+    return cleanup;
 }
 
 /**
