@@ -391,11 +391,13 @@ beatSync.onBeat(state => {
 15. [x] Wind system
 16. [x] Vine swinging
 17. [ ] Flower trampolines
-18. [ ] Beat synchronization
-19. [ ] Performance optimization
+18. [x] Beat synchronization (Implemented via MusicReactivitySystem & BeatSync)
+19. [x] Sample-Offset Glitch (Effect 5 / Retrigger)
 20. [x] Rainbow After Storm (Visual Reward)
 21. [x] Tremolo Tulips (Implemented)
 22. [x] Cymbal Dandelions (Implemented)
+23. [x] Note-Trail Ribbons (Implemented)
+24. [x] Chromatic Aberration Pulse (Implemented as Kick Overlay)
 
 ### 📋 Week 7-8: Advanced Features
 
@@ -433,7 +435,7 @@ beatSync.onBeat(state => {
 - [x] Fireflies appear during deep night
 - [x] Wind affects rain/mist particles
 - [x] Vines are swingable (with pumping mechanics)
-- [ ] Beat-synced visual pulses work
+- [x] Beat-synced visual pulses work (Kick Overlay, Glitch, Ribbons)
 - [x] Rainbow appears after storms
 - [ ] Performance stays at 60 FPS
 

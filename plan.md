@@ -322,7 +322,13 @@ Three.js Renderer -> WebGPU RenderPipeline (Raw Draw Calls)
 - **Concept Art Check**:
   - Attempted to view `assets/colorcode.png` but file access was restricted. Proceeded with the established "Cute Clay" palette (Pastels, Matte, Rosy Cheeks) as validated in previous steps.
 
+- **Accomplished (Visual FX):**
+  - **Sample-Offset Glitch**: Implemented `src/foliage/glitch.js` providing a global `uGlitchIntensity` uniform and `applyGlitch` TSL function. Integrated into the Unified Material Pipeline to apply pixelation and vertex jitter to all flora. Mapped to Retrigger (Rxx/Effect 5) and high-intensity Arpeggios.
+  - **Note-Trail Ribbons**: Implemented `MelodyRibbon` in `src/foliage/ribbons.js` using a dynamic Triangle Strip geometry that follows the camera/player. Features a TSL material with cycling hue based on UVs and time.
+  - **Chromatic Aberration Pulse**: Implemented `createKickOverlay` in `src/foliage/overlay.js` as a camera-attached lens distortion effect. Uses TSL `transmission` and `ior` modulation driven by `uKickIntensity` to simulate a warping pulse on heavy beats.
+  - **Verified Data Flow**: Confirmed `AudioSystem` extracts `order`/`row` and integrated visual effects triggers in `MusicReactivitySystem`.
+
 - **Next Steps:**
-  - **Sample-Offset Glitch**: Implement the TSL shader for the glitch effect (Category 4).
-  - **Verify Data Flow**: Ensure `AudioSystem` correctly extracts and passes `order`/`row` data from the worklet to drive the Pattern-Change logic reliably.
   - **Migrate to TypeScript**: Continue Phase 1 of the migration roadmap.
+  - **Fine-Tune Glitch Triggers**: Currently mapped to Retrigger/Arpeggio. Explore exposing raw `9xx` commands from `libopenmpt` worklet for precise control.
+  - **Optimize Ribbons**: The ribbon geometry update is CPU-bound. Consider moving to a GPU-based trail renderer using `InstancedMesh` ring buffers if performance drops with multiple ribbons.

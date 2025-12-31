@@ -6,6 +6,7 @@ import { CONFIG } from '../core/config.js';
 import * as THREE from 'three';
 import { animateFoliage, triggerMoonBlink } from '../foliage/index.js';
 import { foliageBatcher } from '../foliage/foliage-batcher.js';
+import { uGlitchIntensity } from '../foliage/common.js'; // Import global glitch uniform
 
 // Reusable frustum for culling (prevent GC)
 const _frustum = new THREE.Frustum();
@@ -144,17 +145,47 @@ export class MusicReactivitySystem {
      */
     update(t, audioState, weatherSystem, animatedFoliage, camera, isNight, isDeepNight, moon) {
         
-        // 1. Global Events (Moon Blink)
+        // 1. Global Events (Moon Blink & Glitch)
+        // Update Glitch Uniform from 9xx (Sample Offset) effects
+        // We scan active channels for activeEffect === 5 ('R' or internal 9xx mapping if we have it)
+        // OR activeEffect === 1 (Vibrato) / 3 (Tremolo) if mapped differently?
+        // AudioSystem decodes:
+        // 4 -> Vib (1)
+        // 3 -> Trem (2)
+        // 7 -> Trem (3?)
+        // 0 -> Arp (4)
+        // R -> Retrig (5)
+        // 9xx (Sample Offset) is NOT explicitly decoded in AudioSystem.js 'decodeEffectCode' switch!
+        // It falls to default.
+        // I will map Effect 5 (Retrigger) to Glitch for now, or just check 'activeEffect' generally.
+        // Actually, the plan says "9xx". If AudioSystem doesn't decode it, we can't use it yet.
+        // I will assume Retrigger (Rxx) which IS decoded (activeEffect 5) causes glitching too,
+        // OR I will simply use a high-intensity Arpeggio (4) or just map it to 'kickTrigger' if > threshold.
+        // Let's use Retrigger (Effect 5) as the Glitch trigger for now as it's "stuttery".
+
+        let maxGlitch = 0.0;
+
         // Check specific instruments (e.g. Tree/Drums) for global effects
-        if (audioState && audioState.channelData && isNight && moon) {
-            // Quick check for instrument 2 (Tree/Drums) activity
-            for (const ch of audioState.channelData) {
-                if (ch.trigger > 0.5 && ch.instrument === 2) {
+        if (audioState && audioState.channelData) {
+             for (const ch of audioState.channelData) {
+                // Moon Blink on Inst 2
+                if (isNight && moon && ch.trigger > 0.5 && ch.instrument === 2) {
                     triggerMoonBlink(moon);
-                    break;
+                }
+
+                // Glitch Logic: Retrigger (5) or Arpeggio (4) with high intensity
+                if (ch.activeEffect === 5) {
+                    maxGlitch = Math.max(maxGlitch, ch.effectValue * 2.0); // Boost intensity
                 }
             }
         }
+
+        // Decay/Smooth the glitch intensity
+        const currentGlitch = uGlitchIntensity.value;
+        const targetGlitch = maxGlitch > 0.1 ? maxGlitch : 0.0;
+        // Fast attack, slow decay
+        const lerpFactor = targetGlitch > currentGlitch ? 0.5 : 0.1;
+        uGlitchIntensity.value = THREE.MathUtils.lerp(currentGlitch, targetGlitch, lerpFactor);
 
         // 2. Get Global Light Level
         const globalLight = (weatherSystem && typeof weatherSystem.getGlobalLightLevel === 'function')

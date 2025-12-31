@@ -9,6 +9,9 @@ import {
     cross, vec2, vec4
 } from 'three/tsl';
 
+import { uGlitchIntensity, applyGlitch } from './glitch.js';
+export { uGlitchIntensity, applyGlitch };
+
 // --- Shared Resources & Geometries ---
 // We use "Unit" geometries (size 1) and scale them in the mesh to save memory/draw calls
 export const sharedGeometries = {
@@ -190,6 +193,26 @@ export function createUnifiedMaterial(hexColor, options = {}) {
         // Mix base color with darker version based on cavity
         material.colorNode = material.colorNode.mul(cavity.mul(0.5).add(0.5));
     }
+
+    // --- APPLY GLITCH (Sample Offset 9xx) ---
+    // We check uGlitchIntensity directly. If it is 0, the effect is skipped in shader.
+    // However, for optimization, we might want to avoid adding the node graph if never used.
+    // But since it's global, we add it. The TSL compiler might optimize if uniform is constant 0?
+    // Probably not at runtime.
+    // We apply it to Position.
+    const glitchRes = applyGlitch(uv(), material.positionNode || positionLocal, uGlitchIntensity);
+    material.positionNode = glitchRes.position;
+
+    // Optional: Use glitchRes.uv for texture sampling if we had textures.
+    // Since we use procedural noise mostly, we should pass glitchRes.position to noise functions?
+    // But noise functions calculate based on 'positionLocal' usually.
+    // If we change positionNode, the fragment shader receives the interpolated glitched position.
+    // So surface noise will "stick" to the glitched geometry correctly.
+
+    // Color shift on glitch
+    const glitchTint = vec3(1.0, 0.0, 1.0);
+    const glitchMix = smoothstep(0.1, 0.3, uGlitchIntensity).mul(0.5);
+    material.colorNode = mix(material.colorNode, glitchTint, glitchMix);
 
     if (animateMoisture) {
         // Vary roughness with noise to look like flowing water/slime
