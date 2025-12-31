@@ -1,12 +1,12 @@
 // Music Reactivity System
 // Handles Note -> Color mapping and note event routing
-// Now manages the main loop iteration for foliage animation and photosensitivity
+// Now manages the main loop iteration for foliage animation and reactivity
 
 import { CONFIG } from '../core/config.js';
 import * as THREE from 'three';
 import { animateFoliage, triggerMoonBlink } from '../foliage/index.js';
 import { foliageBatcher } from '../foliage/foliage-batcher.js';
-import { uGlitchIntensity } from '../foliage/common.js'; // Import global glitch uniform
+import { FoliageObject, AudioData, ChannelData } from '../foliage/types.js';
 
 // Reusable frustum for culling (prevent GC)
 const _frustum = new THREE.Frustum();
@@ -14,10 +14,21 @@ const _projScreenMatrix = new THREE.Matrix4();
 const _scratchSphere = new THREE.Sphere(); // For Group culling
 
 const CHROMATIC_SCALE = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-const _speciesMapCache = {};
-const _noteNameCache = {};
+const _speciesMapCache: Record<string, Record<string, number>> = {};
+const _noteNameCache: Record<string, string> = {};
 
-export function getNoteColor(note, species = 'global') {
+// Define a minimal interface for weather system as used here
+interface WeatherSystem {
+    currentLightLevel: number;
+    getGlobalLightLevel?: () => number;
+}
+
+// Define config interface
+interface ReactivityConfig {
+    [key: string]: any;
+}
+
+export function getNoteColor(note: number | string, species: string = 'global'): number {
     let noteName = '';
 
     // Resolve Note Name
@@ -38,7 +49,7 @@ export function getNoteColor(note, species = 'global') {
     }
 
     // Lookup
-    let map = CONFIG.noteColorMap[species];
+    let map = (CONFIG as any).noteColorMap[species];
 
     if (!map) {
         // Optimization: Cache resolved map to avoid repetitive string includes checks
@@ -48,15 +59,15 @@ export function getNoteColor(note, species = 'global') {
             // If the species key isn't exact, try some heuristics to map similar types to a known species palette
             const s = (species || '').toLowerCase();
             if (s.includes('flower') || s.includes('tulip') || s.includes('violet') || s.includes('rose') || s.includes('bloom') || s.includes('lotus') || s.includes('puff') ) {
-                map = CONFIG.noteColorMap['flower'];
+                map = (CONFIG as any).noteColorMap['flower'];
             } else if (s.includes('mushroom') || s.includes('mush')) {
-                map = CONFIG.noteColorMap['mushroom'];
+                map = (CONFIG as any).noteColorMap['mushroom'];
             } else if (s.includes('tree') || s.includes('willow') || s.includes('palm') || s.includes('bush')) {
-                map = CONFIG.noteColorMap['tree'];
+                map = (CONFIG as any).noteColorMap['tree'];
             } else if (s.includes('cloud') || s.includes('orb') || s.includes('geyser') || s.includes('moon')) {
-                map = CONFIG.noteColorMap['cloud'] || CONFIG.noteColorMap['global'];
+                map = (CONFIG as any).noteColorMap['cloud'] || (CONFIG as any).noteColorMap['global'];
             } else {
-                map = CONFIG.noteColorMap['global'];
+                map = (CONFIG as any).noteColorMap['global'];
             }
             _speciesMapCache[species] = map;
         }
@@ -67,7 +78,12 @@ export function getNoteColor(note, species = 'global') {
 }
 
 export class MusicReactivitySystem {
-    constructor(scene, config = {}) {
+    scene: THREE.Scene;
+    config: ReactivityConfig;
+    updateStartIndex: number;
+    private _lastCameraVersion: number;
+
+    constructor(scene: THREE.Scene, config: ReactivityConfig = {}) {
         this.scene = scene;
         this.config = config;
         // Staggered update: Start processing from a different offset each frame
@@ -80,7 +96,7 @@ export class MusicReactivitySystem {
      * Get the current staggered update index (for testing)
      * @returns {number} The current start index for round-robin processing
      */
-    getUpdateStartIndex() {
+    getUpdateStartIndex(): number {
         return this.updateStartIndex;
     }
 
@@ -88,15 +104,15 @@ export class MusicReactivitySystem {
      * Apply reaction to a specific object
      * Merged: Handles standard foliage AND celestial objects from jules-dev
      */
-    reactObject(object, note, velocity) {
+    reactObject(object: FoliageObject, note: number | string, velocity: number): void {
         if (!object.userData.type) return;
 
         const species = object.userData.type;
 
         // 1. Standard Reactivity (Flora)
-        if (typeof object.reactToNote === 'function') {
+        if (typeof (object as any).reactToNote === 'function') {
             const color = getNoteColor(note, species);
-            object.reactToNote(note, color, velocity);
+            (object as any).reactToNote(note, color, velocity);
         }
 
         // 2. Celestial Reactions (from jules-dev)
@@ -106,7 +122,10 @@ export class MusicReactivitySystem {
             object.scale.setScalar(scale);
             // If it has a glow child (index 1), boost opacity
             if (object.children[1]) {
-                object.children[1].material.opacity = 0.3 + velocity * 0.7;
+                const childMat = (object.children[1] as any).material;
+                if (childMat && childMat.opacity !== undefined) {
+                    childMat.opacity = 0.3 + velocity * 0.7;
+                }
             }
         }
         else if (object.userData.type === 'planet') {
@@ -121,12 +140,13 @@ export class MusicReactivitySystem {
         else if (object.userData.type === 'galaxy') {
             // Spin Galaxy Faster on Melody intensity
             // We accumulate rotation, so we need to access the mesh directly
-            object.rotation.y -= (object.userData.baseRotationSpeed + velocity * 0.02);
+            const baseSpeed = object.userData.baseRotationSpeed || 0;
+            object.rotation.y -= (baseSpeed + velocity * 0.02);
         }
     }
 
     // Helper to check if object is currently active (User Change)
-    isObjectActive(object) {
+    isObjectActive(object: THREE.Object3D): boolean {
         return object.visible;
     }
 
@@ -143,49 +163,19 @@ export class MusicReactivitySystem {
      * @param {boolean} isDeepNight - Is it deep night (for fireflies etc)?
      * @param {THREE.Object3D} moon - Reference to moon for blinking
      */
-    update(t, audioState, weatherSystem, animatedFoliage, camera, isNight, isDeepNight, moon) {
+    update(t: number, audioState: AudioData | null, weatherSystem: WeatherSystem | null, animatedFoliage: FoliageObject[], camera: THREE.Camera, isNight: boolean, isDeepNight: boolean, moon: THREE.Object3D | null): void {
         
-        // 1. Global Events (Moon Blink & Glitch)
-        // Update Glitch Uniform from 9xx (Sample Offset) effects
-        // We scan active channels for activeEffect === 5 ('R' or internal 9xx mapping if we have it)
-        // OR activeEffect === 1 (Vibrato) / 3 (Tremolo) if mapped differently?
-        // AudioSystem decodes:
-        // 4 -> Vib (1)
-        // 3 -> Trem (2)
-        // 7 -> Trem (3?)
-        // 0 -> Arp (4)
-        // R -> Retrig (5)
-        // 9xx (Sample Offset) is NOT explicitly decoded in AudioSystem.js 'decodeEffectCode' switch!
-        // It falls to default.
-        // I will map Effect 5 (Retrigger) to Glitch for now, or just check 'activeEffect' generally.
-        // Actually, the plan says "9xx". If AudioSystem doesn't decode it, we can't use it yet.
-        // I will assume Retrigger (Rxx) which IS decoded (activeEffect 5) causes glitching too,
-        // OR I will simply use a high-intensity Arpeggio (4) or just map it to 'kickTrigger' if > threshold.
-        // Let's use Retrigger (Effect 5) as the Glitch trigger for now as it's "stuttery".
-
-        let maxGlitch = 0.0;
-
+        // 1. Global Events (Moon Blink)
         // Check specific instruments (e.g. Tree/Drums) for global effects
-        if (audioState && audioState.channelData) {
-             for (const ch of audioState.channelData) {
-                // Moon Blink on Inst 2
-                if (isNight && moon && ch.trigger > 0.5 && ch.instrument === 2) {
+        if (audioState && audioState.channelData && isNight && moon) {
+            // Quick check for instrument 2 (Tree/Drums) activity
+            for (const ch of audioState.channelData) {
+                if (ch.trigger > 0.5 && (ch as any).instrument === 2) {
                     triggerMoonBlink(moon);
-                }
-
-                // Glitch Logic: Retrigger (5) or Arpeggio (4) with high intensity
-                if (ch.activeEffect === 5) {
-                    maxGlitch = Math.max(maxGlitch, ch.effectValue * 2.0); // Boost intensity
+                    break;
                 }
             }
         }
-
-        // Decay/Smooth the glitch intensity
-        const currentGlitch = uGlitchIntensity.value;
-        const targetGlitch = maxGlitch > 0.1 ? maxGlitch : 0.0;
-        // Fast attack, slow decay
-        const lerpFactor = targetGlitch > currentGlitch ? 0.5 : 0.1;
-        uGlitchIntensity.value = THREE.MathUtils.lerp(currentGlitch, targetGlitch, lerpFactor);
 
         // 2. Get Global Light Level
         const globalLight = (weatherSystem && typeof weatherSystem.getGlobalLightLevel === 'function')
@@ -249,7 +239,9 @@ export class MusicReactivitySystem {
             // This is the primary fix for the freeze when viewing many objects
             // FIX: Safely handle Groups which lack geometry/boundingSphere
             let isVisible = false;
-            if (f.geometry && f.geometry.boundingSphere) {
+            // Need type guard or casting for geometry
+            const fAny = f as any;
+            if (fAny.geometry && fAny.geometry.boundingSphere) {
                 isVisible = _frustum.intersectsObject(f);
             } else {
                 // Fallback for Groups or objects without geometry
@@ -281,7 +273,7 @@ export class MusicReactivitySystem {
 
             // --- USER CHANGE: 'wobble' multiplier ---
             if (f.userData.animationType === 'wobble') {
-                f.userData.animationOffset += 0.05; 
+                f.userData.animationOffset = (f.userData.animationOffset || 0) + 0.05; 
             }
             // ----------------------------------------
 
@@ -334,7 +326,7 @@ export class MusicReactivitySystem {
                         const info = channels[targetChannelIndex];
                         if (info && info.trigger > 0.1) {
                             // Apply reaction scaled by lightFactor
-                            this.reactObject(f, info.note, info.trigger * lightFactor);
+                            this.reactObject(f, info.note as any, info.trigger * lightFactor);
                         }
                     }
                 }
@@ -347,18 +339,6 @@ export class MusicReactivitySystem {
         if (audioState) {
             kick = audioState.kickTrigger || 0;
         }
-        // Assuming t already includes beatPhase if needed, but animateFoliage logic used time+beatPhase.
-        // We need to pass the "effective animation time" to flush?
-        // Actually animateFoliage passed `animTime = time + beatPhase`.
-        // We used `animTime` when queuing. So we just pass t (which is ignored by batcher since it used queued times? No)
-        // Wait, foliageBatcher.flush(time) uses `time` argument for the WASM calculation.
-        // But we queued `animTime`. The batcher ignores the queued time if flush overrides it?
-        // Let's check foliageBatcher.ts...
-        // queue() takes `time` but doesn't store it! It stores offset/intensity.
-        // Only `flush` takes `time`.
-        // This is a BUG in my plan. The `time` varies per object if I passed `animTime` which includes global `beatPhase`.
-        // But `beatPhase` is global. So `time + beatPhase` is global.
-        // So passing `time + beatPhase` to flush() is correct.
 
         const beatPhase = (audioState && audioState.beatPhase) ? audioState.beatPhase : 0;
         foliageBatcher.flush(t + beatPhase, kick);
@@ -372,13 +352,13 @@ export class MusicReactivitySystem {
         this.updateStartIndex = (startIdx + actualIncrement) % totalObjects;
 
         // Export stats for performance monitoring (if available)
-        if (typeof window !== 'undefined' && window.updatePerfStats) {
-            window.updatePerfStats(totalObjects, processedCount, foliageUpdatesThisFrame);
+        if (typeof window !== 'undefined' && (window as any).updatePerfStats) {
+            (window as any).updatePerfStats(totalObjects, processedCount, foliageUpdatesThisFrame);
         }
     }
     
     // Alias for backward compatibility if needed
-    applyReaction(object, note, velocity) {
+    applyReaction(object: FoliageObject, note: number | string, velocity: number): void {
         this.reactObject(object, note, velocity);
     }
 }
