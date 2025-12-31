@@ -222,11 +222,9 @@ export async function initWasm() {
 
         await updateProgress('Compiling Physics (WASM)...');
 
-        // Instantiate with env AND wasi imports
         // Use NativeWebAssembly to bypass libopenmpt's WebAssembly override
         const WA = window.NativeWebAssembly || WebAssembly;
         console.log('Using WebAssembly API:', WA === WebAssembly ? 'Standard (potentially hijacked)' : 'Native (saved)');
-        console.log('Attempting WebAssembly.instantiate...');
 
         const importObject = {
             env: {
@@ -237,7 +235,21 @@ export async function initWasm() {
             wasi_snapshot_preview1: wasiStubs
         };
 
-        const result = await WA.instantiate(wasmBytes, importObject);
+        // Try streaming instantiation first for faster compilation
+        let result;
+        try {
+            console.log('Attempting WebAssembly.instantiateStreaming...');
+            result = await WA.instantiateStreaming(
+                fetch(wasmUrl),
+                importObject
+            );
+            console.log('Streaming instantiation successful');
+        } catch (streamError) {
+            console.log('Streaming instantiation failed, falling back to buffer method:', streamError);
+            // Fallback to traditional method if streaming fails
+            result = await WA.instantiate(wasmBytes, importObject);
+            console.log('Buffer instantiation successful');
+        }
 
         console.log('Instantiation successful');
         if (window.setLoadingStatus) window.setLoadingStatus("Physics Engine Ready...");

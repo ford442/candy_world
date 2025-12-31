@@ -90,11 +90,6 @@ export async function parallelWasmLoad(options = {}) {
     // ---------------------------------------------------------
     const ascPromise = (async () => {
         try {
-            const response = await fetch(buildUrl(ascWasmUrl));
-            if (!response.ok) return null;
-            
-            const bytes = await response.arrayBuffer();
-            
             // Minimal WASI stubs for AssemblyScript
             const wasiStubs = {
                 fd_write: () => 0,
@@ -110,8 +105,26 @@ export async function parallelWasmLoad(options = {}) {
                 wasi_snapshot_preview1: wasiStubs
             };
 
-            const { instance } = await WebAssembly.instantiate(bytes, importObject);
-            console.log('[WASMOrchestrator] ASC module compiled');
+            // Try streaming instantiation first for faster compilation
+            let instance;
+            try {
+                const result = await WebAssembly.instantiateStreaming(
+                    fetch(buildUrl(ascWasmUrl)),
+                    importObject
+                );
+                instance = result.instance;
+                console.log('[WASMOrchestrator] ASC module compiled (streaming)');
+            } catch (streamError) {
+                console.log('[WASMOrchestrator] Streaming failed, using fallback:', streamError);
+                // Fallback to traditional method
+                const response = await fetch(buildUrl(ascWasmUrl));
+                if (!response.ok) return null;
+                const bytes = await response.arrayBuffer();
+                const result = await WebAssembly.instantiate(bytes, importObject);
+                instance = result.instance;
+                console.log('[WASMOrchestrator] ASC module compiled (buffer)');
+            }
+            
             return instance;
         } catch (e) {
             console.warn('[WASMOrchestrator] ASC load error:', e);
