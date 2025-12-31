@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { uWindSpeed, uWindDirection, uSkyTopColor, uSkyBottomColor, uHorizonColor, uAtmosphereIntensity, uStarPulse, uStarOpacity, uAuroraIntensity, uAuroraColor, uAudioLow, uAudioHigh, createAurora, updateMoon, animateFoliage, updateFoliageMaterials, updateFireflies, updateFallingBerries, collectFallingBerries, createFlower, createMushroom, validateNodeGeometries } from './src/foliage/index.js';
 import { initCelestialBodies } from './src/foliage/celestial-bodies.js';
+import { MelodyRibbon, createKickOverlay, uKickIntensity } from './src/foliage/index.js';
 import { MusicReactivitySystem } from './src/systems/music-reactivity.js';
 import { AudioSystem } from './src/audio/audio-system.js';
 import { BeatSync } from './src/audio/beat-sync.js';
@@ -48,6 +49,14 @@ const audioSystem = new AudioSystem();
 const beatSync = new BeatSync(audioSystem);
 const musicReactivity = new MusicReactivitySystem(scene, {}); // Config moved to internal default or passed if needed
 const weatherSystem = new WeatherSystem(scene);
+
+// Note-Trail Ribbons (Category 4)
+// We need the player camera as the target.
+const melodyRibbon = new MelodyRibbon(scene, camera, 50, 0.2);
+
+// Chromatic Aberration Pulse (Category 4)
+// Creates a lens overlay parented to camera
+const kickOverlay = createKickOverlay(camera);
 
 // 3. World Generation (Critical - load immediately)
 // We need to pass weatherSystem so foliage can register themselves
@@ -253,6 +262,9 @@ function animate() {
     const cyclePos = effectiveTime % CYCLE_DURATION;
     const cycleWeatherBias = getWeatherForTimeOfDay(cyclePos, audioState);
 
+    // Update Melody Ribbon
+    melodyRibbon.update(t);
+
     // Weather Update
     profiler.measure('Weather', () => {
         weatherSystem.update(t, audioState, cycleWeatherBias);
@@ -280,6 +292,8 @@ function animate() {
         if (kickTrigger > 0.3) {
             beatFlashIntensity = 0.5 + kickTrigger * 0.5;
             cameraZoomPulse = 2 + kickTrigger * 3;
+            // Pulse the overlay intensity
+            uKickIntensity.value = 1.0;
         }
     }
     lastBeatPhase = currentBeatPhase;
@@ -289,6 +303,9 @@ function animate() {
         beatFlashIntensity *= 0.9;
         if (beatFlashIntensity < 0.01) beatFlashIntensity = 0;
     }
+    // Decay Kick Overlay
+    uKickIntensity.value = THREE.MathUtils.lerp(uKickIntensity.value, 0.0, delta * 5.0);
+
     if (cameraZoomPulse > 0) {
         camera.fov = baseFOV - cameraZoomPulse;
         camera.updateProjectionMatrix();

@@ -26,3 +26,8 @@ export * from './instrument.js';
 
 // Musical flora
 export * from './musical_flora.js';
+
+// New Effects
+export * from './glitch.js';
+export * from './ribbons.js';
+export * from './overlay.js';
