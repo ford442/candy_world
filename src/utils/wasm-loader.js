@@ -138,6 +138,24 @@ function getNativeFunc(name) {
 
 
 /**
+ * Helper function to start bootstrap terrain pre-computation
+ * @param {Object} instance - The Emscripten module instance
+ */
+async function startBootstrapIfAvailable(instance) {
+    if (!instance) return;
+    
+    try {
+        const { startBootstrap } = await import('./bootstrap-loader.js');
+        if (startBootstrap) {
+            startBootstrap(instance);
+            console.log('[WASM] Bootstrap terrain pre-computation started');
+        }
+    } catch (e) {
+        console.warn('[WASM] Bootstrap loader error:', e);
+    }
+}
+
+/**
  * Initialize the WASM module
  * @returns {Promise<boolean>} True if loaded successfully
  */
@@ -298,15 +316,7 @@ export async function initWasm() {
 
         // Start bootstrap loader for terrain pre-computation if Emscripten loaded
         if (emscriptenInstance) {
-            try {
-                const { startBootstrap } = await import('./bootstrap-loader.js');
-                if (startBootstrap) {
-                    startBootstrap(emscriptenInstance);
-                    console.log('[WASM] Bootstrap terrain pre-computation started');
-                }
-            } catch (e) {
-                console.warn('[WASM] Bootstrap loader error:', e);
-            }
+            await startBootstrapIfAvailable(emscriptenInstance);
         }
 
         // UX: Restore button on success
@@ -408,15 +418,7 @@ export async function initWasmParallel(options = {}) {
             }
 
             // Start bootstrap loader for terrain pre-computation
-            const { startBootstrap } = await import('./bootstrap-loader.js');
-            if (startBootstrap) {
-                try {
-                    startBootstrap(emscriptenInstance);
-                    console.log('[WASM] Bootstrap terrain pre-computation started');
-                } catch (e) {
-                    console.warn('[WASM] Bootstrap loader error:', e);
-                }
-            }
+            await startBootstrapIfAvailable(emscriptenInstance);
         }
 
         // Log shared memory status

@@ -21,11 +21,13 @@ extern float fbm(float x, float y, int octaves);
 
 #define HEIGHTMAP_SIZE 64      // 64x64 grid for spawn area heightmap
 #define SPAWN_AREA_RADIUS 32.0f // Cover -32 to +32 in world coordinates
+#define NUM_THREADS 4          // Must match PTHREAD_POOL_SIZE from build.sh
 
 struct BootstrapState {
     std::atomic<int> progress;      // 0-100
     std::atomic<bool> complete;     // Whether bootstrap is complete
     std::atomic<bool> started;      // Whether bootstrap has started
+    std::atomic<int> completedRows; // Number of completed rows (for progress tracking)
     float heightmap[HEIGHTMAP_SIZE * HEIGHTMAP_SIZE]; // Pre-computed heightmap
 };
 
@@ -33,6 +35,7 @@ static BootstrapState bootstrap = {
     .progress = 0,
     .complete = false,
     .started = false,
+    .completedRows = 0,
     .heightmap = {0}
 };
 
@@ -61,11 +64,15 @@ void computeHeightmapRegion(int startRow, int endRow) {
             bootstrap.heightmap[idx] = height;
         }
         
-        // Update progress (each row is ~1.5% of total work)
-        int rowProgress = (row - startRow + 1) * 100 / (endRow - startRow);
+        // Update global progress counter (atomic increment)
+        int completedCount = bootstrap.completedRows.fetch_add(1) + 1;
+        int newProgress = (completedCount * 100) / HEIGHTMAP_SIZE;
+        
+        // Update progress atomically if it increased
         int oldProgress = bootstrap.progress.load();
-        if (rowProgress > oldProgress) {
-            bootstrap.progress.store(rowProgress);
+        while (newProgress > oldProgress && 
+               !bootstrap.progress.compare_exchange_weak(oldProgress, newProgress)) {
+            // Keep trying until we successfully update or progress is already higher
         }
     }
 }
@@ -73,12 +80,11 @@ void computeHeightmapRegion(int startRow, int endRow) {
 // Worker thread entry point
 void* bootstrapWorker(void* arg) {
     int threadId = (int)(long)arg;
-    int numThreads = 4; // Match PTHREAD_POOL_SIZE from build.sh
     
     // Divide work among threads
-    int rowsPerThread = HEIGHTMAP_SIZE / numThreads;
+    int rowsPerThread = HEIGHTMAP_SIZE / NUM_THREADS;
     int startRow = threadId * rowsPerThread;
-    int endRow = (threadId == numThreads - 1) ? HEIGHTMAP_SIZE : (threadId + 1) * rowsPerThread;
+    int endRow = (threadId == NUM_THREADS - 1) ? HEIGHTMAP_SIZE : (threadId + 1) * rowsPerThread;
     
     computeHeightmapRegion(startRow, endRow);
     
@@ -99,15 +105,16 @@ void startBootstrapInit() {
     bootstrap.started.store(true);
     bootstrap.progress.store(0);
     bootstrap.complete.store(false);
+    bootstrap.completedRows.store(0);
     
     // Spawn worker threads for parallel heightmap computation
-    pthread_t threads[4];
-    for (int i = 0; i < 4; i++) {
+    pthread_t threads[NUM_THREADS];
+    for (int i = 0; i < NUM_THREADS; i++) {
         pthread_create(&threads[i], nullptr, bootstrapWorker, (void*)(long)i);
     }
     
     // Detach threads so they clean up automatically
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < NUM_THREADS; i++) {
         pthread_detach(threads[i]);
     }
     
@@ -167,6 +174,7 @@ void resetBootstrap() {
     bootstrap.started.store(false);
     bootstrap.progress.store(0);
     bootstrap.complete.store(false);
+    bootstrap.completedRows.store(0);
     
     for (int i = 0; i < HEIGHTMAP_SIZE * HEIGHTMAP_SIZE; i++) {
         bootstrap.heightmap[i] = 0.0f;

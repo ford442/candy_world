@@ -604,12 +604,6 @@ initWasm().then(async (wasmLoaded) => { // Mark as async
         initDeferredVisuals();
     }, 300);
 
-    // Defer libopenmpt loading (audio library)
-    // The script tag in index.html loads it with a 500ms delay
-    // We can wait a bit longer after the scene is visible
-    setTimeout(() => {
-        console.log('[Deferred] libopenmpt should be loading or loaded...');
-        // libopenmpt is loaded via script tag with setTimeout in index.html
-        // No additional action needed here, just logging for visibility
-    }, 600);
+    // Note: libopenmpt audio library is loaded via script tag in index.html with a 500ms delay
+    // No additional initialization needed here - it's handled by the index.html script
 });
