@@ -5,7 +5,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Candy World</title>
-    <!-- CRITICAL: Capture native WebAssembly before libopenmpt overrides it -->
     <script>
         window.NativeWebAssembly = window.WebAssembly;
     </script>
@@ -424,6 +423,7 @@
             top: -2px;
         }
     </style>
+    
     <script>
         window.libopenmptReady = new Promise(resolve => {
             window.libopenmpt = {
@@ -433,19 +433,18 @@
                 }
             };
         });
+        
+        let scr=document.createElement("script");
+        scr.async=true;
+        scr.charset='utf-8';
+        scr.type='text/javascript';
+        scr.defer=true;
+        // Use local file served from /public
+        scr.src="/js/libopenmpt.js"; 
+        setTimeout(function(){
+            document.body.appendChild(scr);
+        },500);
     </script>
-    
-<script>
-let scr=document.createElement("script");
-scr.async=true;
-scr.charset='utf-8';
-scr.type='text/javascript';
-scr.defer=true;
-scr.src="https://wasm.noahcohn.com/libmpt/libopenmpt.1ijs";
-    setTimeout(function(){
-document.body.appendChild(scr);
-    },500);
-</script>
     
 </head>
 
@@ -542,7 +541,8 @@ document.body.appendChild(scr);
     </div>
 
     <canvas id="glCanvas"></canvas>
-    <script type="module" src="main.js"></script>
+    
+    <script type="module" src="/main.js"></script>
 </body>
 
 </html>
