@@ -58,6 +58,11 @@ EXPORTS="[ \
     '_getPlayerVY', \
     '_getPlayerVZ', \
     '_updatePhysicsCPP', \
+    '_startBootstrapInit', \
+    '_getBootstrapProgress', \
+    '_isBootstrapComplete', \
+    '_getBootstrapHeight', \
+    '_resetBootstrap', \
     '_malloc', \
     '_free' \
 ]"
