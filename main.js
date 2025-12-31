@@ -43,27 +43,41 @@ const _weatherBiasOutput = { biasState: 'clear', biasIntensity: 0, type: 'clear'
 // 1. Scene & Render Loop Setup
 const { scene, camera, renderer, ambientLight, sunLight, sunGlow, sunCorona, lightShaftGroup, sunGlowMat, coronaMat } = initScene();
 
-// 2. Audio & Systems
+// 2. Audio & Systems (Initialize but defer heavy loading)
 const audioSystem = new AudioSystem();
 const beatSync = new BeatSync(audioSystem);
 const musicReactivity = new MusicReactivitySystem(scene, {}); // Config moved to internal default or passed if needed
 const weatherSystem = new WeatherSystem(scene);
 
-// 3. World Generation
+// 3. World Generation (Critical - load immediately)
 // We need to pass weatherSystem so foliage can register themselves
 if (window.setLoadingStatus) window.setLoadingStatus("Loading World Map...");
 const { moon, fireflies } = initWorld(scene, weatherSystem);
 
-// Add Celestial Bodies
-initCelestialBodies(scene);
-
-// Add Spectrum Aurora
-const aurora = createAurora();
-scene.add(aurora);
-
 // Validate node material geometries to avoid TSL attribute errors
 validateNodeGeometries(scene);
 // Note: world generation populates animatedFoliage, obstacles, etc. via state.js
+
+// Defer non-critical visual elements to load after basic scene is ready
+let aurora = null;
+let celestialBodiesInitialized = false;
+
+// Function to initialize deferred visual elements
+function initDeferredVisuals() {
+    if (!aurora) {
+        // Add Spectrum Aurora
+        aurora = createAurora();
+        scene.add(aurora);
+        console.log('[Deferred] Aurora initialized');
+    }
+    
+    if (!celestialBodiesInitialized) {
+        // Add Celestial Bodies
+        initCelestialBodies(scene);
+        celestialBodiesInitialized = true;
+        console.log('[Deferred] Celestial bodies initialized');
+    }
+}
 
 // 4. Input Handling
 let isNight = false;
@@ -523,48 +537,23 @@ function animate() {
 initWasm().then(async (wasmLoaded) => { // Mark as async
     console.log(`WASM module ${wasmLoaded ? 'active' : 'using JS fallbacks'}`);
 
-    // --- NUCLEAR WARMUP: FORCE SHADER COMPILATION ---
-    // Create dummy objects for everything that might spawn later
-    const dummyGroup = new THREE.Group();
-    dummyGroup.position.set(0, -9999, 0); // Hide underground
-    scene.add(dummyGroup);
-
-    // 1. Spawn Dummy Flora
-    const dummyFlower = createFlower({ shape: 'layered' });
-    const dummyMushroom = createMushroom({ size: 'regular' });
-    dummyGroup.add(dummyFlower);
-    dummyGroup.add(dummyMushroom);
-
-    // 2. Fire Dummy Projectile
-    const dummyOrigin = new THREE.Vector3(0, -9999, 0);
-    const dummyDir = new THREE.Vector3(0, 1, 0);
-    fireRainbow(scene, dummyOrigin, dummyDir);
-
-    if (window.setLoadingStatus) window.setLoadingStatus("Compiling Shaders... (This may take a moment)");
-
-    // 3. FORCE COMPILATION
-    // This makes the renderer look at the whole scene and build shaders NOW.
-    try {
-        await renderer.compileAsync(scene, camera);
-        await forceFullSceneWarmup(renderer, scene, camera);
-        console.log("✅ Scene shaders pre-compiled (Nuclear Warmup complete).");
-    } catch (e) {
-        console.warn("Shader compile error:", e);
-    }
-
-    // 4. Cleanup (Remove from scene, but DO NOT Dispose geometries/materials)
-    scene.remove(dummyGroup);
-
-    // 5. Initialize camera position to ground height (ensures player doesn't start in mid-air or underground)
+    // Initialize camera position to ground height (ensures player doesn't start in mid-air or underground)
     const initialGroundY = getGroundHeight(camera.position.x, camera.position.z);
     camera.position.y = initialGroundY + 1.8; // Player eye height is 1.8 above ground
     console.log(`[Startup] Camera positioned at ground height: y=${camera.position.y.toFixed(2)}`);
 
-    if (window.setLoadingStatus) window.setLoadingStatus("Entering Candy World...");
+    if (window.setLoadingStatus) window.setLoadingStatus("Preparing Scene...");
 
+    // Start animation loop early to show the basic scene
+    renderer.setAnimationLoop(animate);
+    try { window.__sceneReady = true; } catch (e) {}
+
+    // Hide loading screen early - the basic scene is ready
+    if (window.setLoadingStatus) window.setLoadingStatus("Entering Candy World...");
+    
     setTimeout(() => {
         if (window.hideLoadingScreen) window.hideLoadingScreen();
-    }, 500);
+    }, 200); // Shorter delay for faster perceived load
 
     const startButton = document.getElementById('startButton');
     if (startButton) {
@@ -572,6 +561,49 @@ initWasm().then(async (wasmLoaded) => { // Mark as async
         startButton.innerText = 'Start Exploration 🚀';
     }
 
-    renderer.setAnimationLoop(animate);
-    try { window.__sceneReady = true; } catch (e) {}
+    // Defer shader compilation and non-critical initialization
+    setTimeout(async () => {
+        console.log('[Deferred] Starting shader pre-compilation...');
+        
+        // --- NUCLEAR WARMUP: FORCE SHADER COMPILATION ---
+        // Create dummy objects for everything that might spawn later
+        const dummyGroup = new THREE.Group();
+        dummyGroup.position.set(0, -9999, 0); // Hide underground
+        scene.add(dummyGroup);
+
+        // 1. Spawn Dummy Flora
+        const dummyFlower = createFlower({ shape: 'layered' });
+        const dummyMushroom = createMushroom({ size: 'regular' });
+        dummyGroup.add(dummyFlower);
+        dummyGroup.add(dummyMushroom);
+
+        // 2. Fire Dummy Projectile
+        const dummyOrigin = new THREE.Vector3(0, -9999, 0);
+        const dummyDir = new THREE.Vector3(0, 1, 0);
+        fireRainbow(scene, dummyOrigin, dummyDir);
+
+        // 3. FORCE COMPILATION
+        // This makes the renderer look at the whole scene and build shaders NOW.
+        try {
+            await renderer.compileAsync(scene, camera);
+            await forceFullSceneWarmup(renderer, scene, camera);
+            console.log("✅ Scene shaders pre-compiled (Nuclear Warmup complete).");
+        } catch (e) {
+            console.warn("Shader compile error:", e);
+        }
+
+        // 4. Cleanup (Remove from scene, but DO NOT Dispose geometries/materials)
+        scene.remove(dummyGroup);
+        
+        console.log('[Deferred] Shader compilation complete');
+    }, 100); // Defer shader compilation by 100ms
+
+    // Defer celestial bodies and aurora initialization
+    setTimeout(() => {
+        console.log('[Deferred] Loading celestial bodies and aurora...');
+        initDeferredVisuals();
+    }, 300);
+
+    // Note: libopenmpt audio library is loaded via script tag in index.html with a 500ms delay
+    // No additional initialization needed here - it's handled by the index.html script
 });
