@@ -9,6 +9,13 @@ import {
     activeVineSwing, setActiveVineSwing, lastVineDetachTime, setLastVineDetachTime, vineSwings
 } from '../world/state.js';
 
+// --- NEW: Track Caves ---
+const foliageCaves = [];
+
+export function registerPhysicsCave(cave) {
+    foliageCaves.push(cave);
+}
+
 // Reusable vector for movement calculations
 const _targetVelocity = new THREE.Vector3();
 const PLAYER_RADIUS = 0.5; // Approximate width of player capsule
@@ -285,6 +292,39 @@ export function updatePhysics(delta, camera, controls, keyStates, audioState) {
 
             // --- PHYSICS & COLLISION ---
 
+            // --- NEW: Cave Water Gate Collision ---
+            const playerPos = camera.position;
+
+            for (const cave of foliageCaves) {
+                if (cave.userData.isBlocked) {
+                    // Get world position of the gate
+                    // cave.userData.gatePosition is local to the cave group
+                    const gateWorldPos = cave.userData.gatePosition.clone().applyMatrix4(cave.matrixWorld);
+
+                    // Check distance
+                    const dx = playerPos.x - gateWorldPos.x;
+                    const dz = playerPos.z - gateWorldPos.z;
+                    const dist = Math.sqrt(dx*dx + dz*dz);
+
+                    // If strictly inside the "water curtain" radius
+                    const blockageRadius = 2.5; // Width of the stream influence
+
+                    if (dist < blockageRadius) {
+                        // Determine if we are trying to enter (push back)
+                        // Simple logic: Push player away from center of gate
+                        const angle = Math.atan2(dz, dx);
+                        const pushForce = 15.0 * delta; // Strong current
+
+                        camera.position.x += Math.cos(angle) * pushForce;
+                        camera.position.z += Math.sin(angle) * pushForce;
+
+                        // Nullify velocity towards the gate
+                        player.velocity.x *= 0.5;
+                        player.velocity.z *= 0.5;
+                    }
+                }
+            }
+
             // Mushroom Collision (Stem & Cap)
             const pPos = camera.position;
 
@@ -352,7 +392,8 @@ export function updatePhysics(delta, camera, controls, keyStates, audioState) {
             }
 
             const groundY = getGroundHeight(camera.position.x, camera.position.z);
-            const playerPos = camera.position;
+            // playerPos is already defined above
+            // const playerPos = camera.position;
 
             // 1. Cloud Walking
             let cloudY = -Infinity;
