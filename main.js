@@ -16,7 +16,7 @@ import { initInput, keyStates } from './src/core/input.js';
 import { getCycleState } from './src/core/cycle.js';
 
 // World & System imports
-import { initWorld } from './src/world/generation.ts';
+import { initWorld, initWorldAsync } from './src/world/generation.ts';
 import { animatedFoliage, foliageGroup, activeVineSwing, foliageClouds } from './src/world/state.js';
 import { updatePhysics, player, bpmWind } from './src/systems/physics.js';
 import { fireRainbow, updateBlaster } from './src/gameplay/rainbow-blaster.js';
@@ -58,10 +58,41 @@ const melodyRibbon = new MelodyRibbon(scene, camera, 50, 0.2);
 // Creates a lens overlay parented to camera
 const kickOverlay = createKickOverlay(camera);
 
-// 3. World Generation (Critical - load immediately)
+// 3. World Generation (Critical - load asynchronously with progress)
 // We need to pass weatherSystem so foliage can register themselves
 if (window.setLoadingStatus) window.setLoadingStatus("Loading World Map...");
-const { moon, fireflies } = initWorld(scene, weatherSystem);
+
+// Use async world generation with progress updates
+const worldLoadPromise = initWorldAsync(scene, weatherSystem, (phase, loaded, total) => {
+    const percentage = Math.round((loaded / total) * 100);
+    if (phase === 'map') {
+        if (window.setLoadingStatus) {
+            window.setLoadingStatus(`Loading World Map... ${percentage}% (${loaded}/${total})`);
+        }
+    } else if (phase === 'extras') {
+        if (window.setLoadingStatus) {
+            window.setLoadingStatus(`Growing Procedural Flora... ${percentage}% (${loaded}/${total})`);
+        }
+    } else if (phase === 'cave') {
+        if (window.setLoadingStatus) {
+            window.setLoadingStatus("Carving out caves...");
+        }
+    }
+});
+
+// Continue initialization while world loads
+let moon, fireflies;
+worldLoadPromise.then((worldObjects) => {
+    moon = worldObjects.moon;
+    fireflies = scene.children.find(c => c.userData?.type === 'fireflies');
+    console.log('[World] Async world generation complete');
+}).catch(err => {
+    console.error('[World] Failed to load world:', err);
+    // Fallback to synchronous loading
+    const result = initWorld(scene, weatherSystem);
+    moon = result.moon;
+    fireflies = scene.children.find(c => c.userData?.type === 'fireflies');
+});
 
 // Validate node material geometries to avoid TSL attribute errors
 validateNodeGeometries(scene);
@@ -561,11 +592,14 @@ initWasm().then(async (wasmLoaded) => { // Mark as async
 
     if (window.setLoadingStatus) window.setLoadingStatus("Preparing Scene...");
 
-    // Start animation loop early to show the basic scene
+    // Wait for world to load before starting animation
+    await worldLoadPromise;
+    
+    // Start animation loop after world is loaded
     renderer.setAnimationLoop(animate);
     try { window.__sceneReady = true; } catch (e) {}
 
-    // Hide loading screen early - the basic scene is ready
+    // Hide loading screen after world is fully loaded
     if (window.setLoadingStatus) window.setLoadingStatus("Entering Candy World...");
     
     setTimeout(() => {
