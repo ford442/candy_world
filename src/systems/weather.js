@@ -1,16 +1,14 @@
-// Weather System for Candy World
-// Manages audio-reactive weather states: Clear, Rain, Storm
-// Triggers berry charging and plant growth
+// src/systems/weather.js
 
 import * as THREE from 'three';
 import { calcRainDropY, getGroundHeight, uploadPositions, uploadAnimationData, uploadMushroomSpecs, batchMushroomSpawnCandidates, readSpawnCandidates, isWasmReady } from '../utils/wasm-loader.js';
 import { chargeBerries, triggerGrowth, triggerBloom, shakeBerriesLoose, updateBerrySeasons, createMushroom, createWaterfall, createLanternFlower } from '../foliage/index.js';
-import { updateCaveWaterLevel } from '../foliage/cave.js';
 import { createRainbow, uRainbowOpacity } from '../foliage/rainbow.js';
-import { getCelestialState, getSeasonalState } from '../core/cycle.js'; // Import seasonal helper
-import { CYCLE_DURATION, CONFIG } from '../core/config.js'; // Import cycle duration and config
+import { getCelestialState, getSeasonalState } from '../core/cycle.js';
+import { CYCLE_DURATION, CONFIG } from '../core/config.js';
 import { uCloudRainbowIntensity, uCloudLightningStrength, uCloudLightningColor } from '../foliage/clouds.js';
 import { uSkyDarkness } from '../foliage/sky.js';
+import { updateCaveWaterLevel } from '../foliage/cave.js';
 
 // Weather states
 export const WeatherState = {
@@ -19,78 +17,59 @@ export const WeatherState = {
     STORM: 'storm'
 };
 
-// Bolt: Scratch objects to prevent GC in animation loop
 const _UP = new THREE.Vector3(0, 1, 0);
 const _scratchSunDir = new THREE.Vector3();
 const _scratchCelestialForce = new THREE.Vector3();
 const _scratchAttraction = new THREE.Vector3();
 const _scratchBlack = new THREE.Color(0x000000);
 
-/**
- * Weather System - Audio-reactive weather effects
- */
 export class WeatherSystem {
     constructor(scene) {
         this.scene = scene;
         this.state = WeatherState.CLEAR;
         this.intensity = 0;
-        this.stormCharge = 0; // Accumulated storm energy
+        this.stormCharge = 0;
         
-        // --- NEW: Player Control Factor ---
-        this.cloudDensity = 1.0; // 1.0 = Full weather potential, 0.0 = No rain possible
-        this.cloudRegenRate = 0.0005; // Clouds slowly return
-        // ----------------------------------
+        // Player Control Factor
+        this.cloudDensity = 1.0;
+        this.cloudRegenRate = 0.0005;
         
-        // --- NEW: Ground Water System ---
+        // Ground Water Logic
         this.groundWaterLevel = 0.0; // 0.0 = Dry, 1.0 = Flooded
         this.trackedCaves = [];
 
         // Particle systems
-        this.percussionRain = null;  // Fat droplets (bass triggered)
-        this.melodicMist = null;     // Fine spray (melody triggered)
+        this.percussionRain = null;
+        this.melodicMist = null;
 
-        // Track waterfalls attached to giant mushrooms
-        this.mushroomWaterfalls = new Map(); // Store waterfalls: mushroomUuid -> waterfallMesh
+        this.mushroomWaterfalls = new Map();
 
-        // Lightning
         this.lightningLight = null;
         this.lightningTimer = 0;
         this.lightningActive = false;
 
-        // Rainbow
         this.rainbow = null;
         this.rainbowTimer = 0;
         this.lastState = WeatherState.CLEAR;
 
-        // Tracked objects for growth/charging
         this.trackedTrees = [];
         this.trackedShrubs = [];
         this.trackedFlowers = [];
         this.trackedMushrooms = [];
 
-        // State transition
         this.targetIntensity = 0;
         this.transitionSpeed = 0.02;
 
-        // Wind System
         this.windDirection = new THREE.Vector3(1, 0, 0.3).normalize();
-        this.windSpeed = 0; // 0-1, driven by audio
+        this.windSpeed = 0;
         this.windTargetSpeed = 0;
-        // Callback for spawning foliage into world (main.js should set this to safeAddFoliage)
         this.onSpawnFoliage = null;
 
-        // Spawn throttling to avoid occasional main-thread spikes from mass spawn checks
-        this._lastSpawnCheck = 0;           // last time we ran the heavy spawn path
-        this._spawnCapPerFrame = 3;         // maximum mushrooms to spawn per check
-        this._spawnThrottle = 0.5;         // seconds between heavy spawn checks
+        this._lastSpawnCheck = 0;
+        this._spawnCapPerFrame = 3;
+        this._spawnThrottle = 0.5;
         this._spawnQueue = [];
         
-        // --- Fix for missing initialization in previous patch ---
-        this._spawnThrottle = 0.5;
-        this._lastSpawnCheck = 0;
-        // ------------------------------------------------------
-
-        // Fog reference (set from main.js)
         this.fog = scene.fog;
         this.baseFogNear = scene.fog ? scene.fog.near : 20;
         this.baseFogFar = scene.fog ? scene.fog.far : 100;
@@ -102,19 +81,12 @@ export class WeatherSystem {
 
     initRainbow() {
         this.rainbow = createRainbow();
-        // Position arc: distant, rising from horizon
-        // Scale it up so it encompasses the view
         this.rainbow.position.set(0, -20, -100);
         this.rainbow.scale.setScalar(2.0);
-        // It's a ring, so rotation needs to be checked. createRainbow returns upright.
         this.scene.add(this.rainbow);
     }
 
-    /**
-     * Initialize percussion rain particles (fat droplets)
-     */
     initParticles() {
-        // Percussion Rain - Large droplets for bass hits
         const rainCount = 500;
         const rainGeo = new THREE.BufferGeometry();
         const rainPositions = new Float32Array(rainCount * 3);
@@ -123,16 +95,12 @@ export class WeatherSystem {
         const rainOffsets = new Float32Array(rainCount);
 
         for (let i = 0; i < rainCount; i++) {
-            // Spread across world
             rainPositions[i * 3] = (Math.random() - 0.5) * 100;
             rainPositions[i * 3 + 1] = 20 + Math.random() * 30;
             rainPositions[i * 3 + 2] = (Math.random() - 0.5) * 100;
-
-            // Dummy normals
             rainNormals[i * 3] = 0; rainNormals[i * 3 + 1] = 1; rainNormals[i * 3 + 2] = 0;
-
-            rainVelocities[i] = 5 + Math.random() * 5; // Drop speed
-            rainOffsets[i] = Math.random() * 50; // Start height variation
+            rainVelocities[i] = 5 + Math.random() * 5;
+            rainOffsets[i] = Math.random() * 50;
         }
 
         rainGeo.setAttribute('position', new THREE.BufferAttribute(rainPositions, 3));
@@ -151,7 +119,6 @@ export class WeatherSystem {
         this.percussionRain.visible = false;
         this.scene.add(this.percussionRain);
 
-        // Melodic Mist - Fine particles for melody
         const mistCount = 300;
         const mistGeo = new THREE.BufferGeometry();
         const mistPositions = new Float32Array(mistCount * 3);
@@ -161,8 +128,6 @@ export class WeatherSystem {
             mistPositions[i * 3] = (Math.random() - 0.5) * 80;
             mistPositions[i * 3 + 1] = Math.random() * 5;
             mistPositions[i * 3 + 2] = (Math.random() - 0.5) * 80;
-
-            // Dummy normals
             mistNormals[i * 3] = 0; mistNormals[i * 3 + 1] = 1; mistNormals[i * 3 + 2] = 0;
         }
 
@@ -182,344 +147,187 @@ export class WeatherSystem {
         this.scene.add(this.melodicMist);
     }
 
-    /**
-     * Register a mushroom so weather can affect it (e.g., wind propagation)
-     * @param {THREE.Object3D} mushroom
-     */
     registerMushroom(mushroom) {
         if (!mushroom) return;
         if (!this.trackedMushrooms.includes(mushroom)) this.trackedMushrooms.push(mushroom);
     }
 
-    /**
-     * Initialize lightning effect
-     */
-    initLightning() {
-        this.lightningLight = new THREE.PointLight(0xFFFFFF, 0, 200);
-        this.lightningLight.position.set(0, 50, 0);
-        this.scene.add(this.lightningLight);
-    }
-
-    /**
-     * Register objects for weather effects
-     */
-    registerTree(tree) {
-        this.trackedTrees.push(tree);
-    }
-
-    registerShrub(shrub) {
-        this.trackedShrubs.push(shrub);
-    }
-
-    registerFlower(flower) {
-        this.trackedFlowers.push(flower);
-    }
-
-    // --- NEW: Register Cave ---
     registerCave(cave) {
         if (!this.trackedCaves.includes(cave)) {
             this.trackedCaves.push(cave);
         }
     }
 
-    // --- NEW: Called when player shoots a cloud ---
-    notifyCloudShot(isDaytime) {
-        // Reduce density (limiting max rain intensity)
-        this.cloudDensity = Math.max(0.2, this.cloudDensity - 0.05);
-        
-        // Immediate weather reaction?
-        // Maybe a small thunderclap or light flash could happen here
+    initLightning() {
+        this.lightningLight = new THREE.PointLight(0xFFFFFF, 0, 200);
+        this.lightningLight.position.set(0, 50, 0);
+        this.scene.add(this.lightningLight);
     }
 
-    /**
-     * Calculate global light level based on celestial and seasonal state
-     */
+    registerTree(tree) { this.trackedTrees.push(tree); }
+    registerShrub(shrub) { this.trackedShrubs.push(shrub); }
+    registerFlower(flower) { this.trackedFlowers.push(flower); }
+
+    notifyCloudShot(isDaytime) {
+        this.cloudDensity = Math.max(0.2, this.cloudDensity - 0.05);
+    }
+
     getGlobalLightLevel(celestial, seasonal) {
-        // sunIntensity checks daily cycle (Dawn -> Noon -> Dusk)
-        // seasonal.sunInclination checks yearly cycle (Winter -> Summer)
         const sun = celestial.sunIntensity * (seasonal ? seasonal.sunInclination : 1.0);
-
-        // Moon is dim (max ~0.25)
         const moon = celestial.moonIntensity * (seasonal ? seasonal.moonPhase : 1.0) * 0.25;
-
-        const stars = 0.05; // Starlight baseline
-
-        const cloudCover = this.cloudDensity; // 0.0 to 1.0
-
-        // Clouds block light
+        const stars = 0.05;
+        const cloudCover = this.cloudDensity;
         const totalLight = (sun + moon + stars) * (1.0 - (cloudCover * 0.8));
-
         return Math.min(1.0, totalLight);
     }
 
-    /**
-     * Main update loop - call every frame
-     * @param {number} time - Current time
-     * @param {object} audioData - Audio analysis data
-     * @param {object} cycleWeatherBias - Optional time-of-day weather bias
-     */
     update(time, audioData, cycleWeatherBias = null) {
         if (!audioData) return;
+        const dt = 0.016;
 
-        const dt = 0.016; // Approx delta
-
-        // 0. Regenerate Cloud Density slowly
         this.cloudDensity = Math.min(1.0, this.cloudDensity + this.cloudRegenRate);
 
-        // 1. Get Audio Data
         const bassIntensity = audioData.kickTrigger || 0;
         const groove = audioData.grooveAmount || 0;
         const channels = audioData.channelData || [];
         const melodyVol = channels[2]?.volume || 0;
         const celestial = getCelestialState(time); 
-        
-        // --- NEW: Get Seasonal Data ---
         const seasonal = getSeasonalState(time);
         this.currentSeason = seasonal.season;
-        // ------------------------------
 
-        // --- NEW: Pattern-Change Seasons ---
-        // Check for pattern change event or current pattern index
         const currentPattern = audioData.patternIndex || 0;
         if (currentPattern !== this.lastPatternIndex) {
-            // Pattern changed!
-            // Map pattern index to a "Season" or Palette Mode
-            // D00-D20: Neon/Synthwave
-            // D21+: Glitch/Monochrome
-            // Default: Standard Nature
-
-            // This logic assumes pattern index is mapped somewhat linearly to song sections
-            if (currentPattern >= 20 && currentPattern < 40) {
-                this.targetPaletteMode = 'neon';
-            } else if (currentPattern >= 40) {
-                this.targetPaletteMode = 'glitch';
-            } else {
-                this.targetPaletteMode = 'standard'; // Default
-            }
             this.lastPatternIndex = currentPattern;
         }
-        // -----------------------------------
 
-        // 3. Update Weather State (Audio + Time of Day + Season)
         this.updateWeatherState(bassIntensity, melodyVol, groove, cycleWeatherBias, seasonal);
 
-        // --- NEW: Update Ground Water Level ---
-        // Fills up during RAIN/STORM, drains during CLEAR
+        // --- Ground Water Update ---
         if (this.state === WeatherState.RAIN) {
             this.groundWaterLevel = Math.min(1.0, this.groundWaterLevel + 0.0005);
         } else if (this.state === WeatherState.STORM) {
-            this.groundWaterLevel = Math.min(1.0, this.groundWaterLevel + 0.0015); // Fills fast
+            this.groundWaterLevel = Math.min(1.0, this.groundWaterLevel + 0.0015);
         } else {
-            this.groundWaterLevel = Math.max(0.0, this.groundWaterLevel - 0.0003); // Drains slowly
+            this.groundWaterLevel = Math.max(0.0, this.groundWaterLevel - 0.0003);
         }
 
         // Update Caves
         if (this.trackedCaves.length > 0) {
             this.trackedCaves.forEach(cave => {
                 updateCaveWaterLevel(cave, this.groundWaterLevel);
-
-                // Also animate the waterfall mesh inside
-                if (cave.userData.waterfall && cave.userData.waterfall.onAnimate) {
-                    cave.userData.waterfall.onAnimate(dt, time);
-                }
             });
         }
+        // ---------------------------
 
-        // Check for Rainbow Trigger (Storm -> Clear/Rain)
         if (this.lastState === WeatherState.STORM && this.state !== WeatherState.STORM) {
-            this.rainbowTimer = 45.0; // 45 seconds of rainbow
-            // Also play a sound? (TODO)
+            this.rainbowTimer = 45.0;
         }
         this.lastState = this.state;
 
-        // Update Rainbow Opacity
         if (this.rainbowTimer > 0) {
             this.rainbowTimer -= dt;
-            // Fade in over 5s, fade out last 5s
             let opacity = 1.0;
             if (this.rainbowTimer > 40.0) opacity = (45.0 - this.rainbowTimer) / 5.0;
             else if (this.rainbowTimer < 5.0) opacity = this.rainbowTimer / 5.0;
-
-            // Pulse with melody/highs
-            const pulse = (melodyVol || 0) * 0.2;
-
-            uRainbowOpacity.value = opacity * 0.6; // Max opacity 0.6
+            uRainbowOpacity.value = opacity * 0.6;
         } else {
             uRainbowOpacity.value = 0.0;
         }
 
-        // --- NEW: Calculate Global Light Level ---
         this.currentLightLevel = this.getGlobalLightLevel(celestial, seasonal);
-        // -----------------------------------------
-
-        // --- NEW: Scale intensity by Player's Cloud Density ---
         this.targetIntensity *= this.cloudDensity;
-        // -----------------------------------------------------
 
-        // --- NEW: Drive Cloud Visuals (Rainbows & Lightning) ---
-        // 1. Rainbows: Driven by Melody & Highs
-        const highVol = channels[3]?.volume || 0;   // High Hat/FX Channel (already captured above)
+        const highVol = channels[3]?.volume || 0;
         const rainbowTarget = (melodyVol * 0.5 + highVol * 0.5) * this.cloudDensity;
-        // Smooth interpolation
-        try { uCloudRainbowIntensity.value += (rainbowTarget - uCloudRainbowIntensity.value) * 0.05; } catch(e) {}
+        try { if(uCloudRainbowIntensity) uCloudRainbowIntensity.value += (rainbowTarget - uCloudRainbowIntensity.value) * 0.05; } catch(e) {}
 
-        // 2. Lightning: Driven by Bass (Kick) or Random Storm
         if (this.state === WeatherState.STORM && (bassIntensity > 0.8 || Math.random() < 0.01)) {
-            // Flash!
-            try { uCloudLightningStrength.value = 1.0; } catch(e) {}
+            try { if(uCloudLightningStrength) uCloudLightningStrength.value = 1.0; } catch(e) {}
             
-            // Pick a color based on cloud palette in CONFIG
             const paletteKeys = Object.keys((CONFIG.noteColorMap && CONFIG.noteColorMap.cloud) || {});
             if (paletteKeys.length > 0) {
                 const randomKey = paletteKeys[Math.floor(Math.random() * paletteKeys.length)];
                 const colorHex = CONFIG.noteColorMap.cloud[randomKey];
                 try { if (uCloudLightningColor && uCloudLightningColor.value && uCloudLightningColor.value.setHex) uCloudLightningColor.value.setHex(colorHex); } catch(e) {}
-                // Also update the scene light to match
                 this.lightningLight.color.setHex(colorHex);
                 this.lightningLight.intensity = 10 * this.cloudDensity;
                 this.lightningLight.position.set((Math.random()-0.5)*100, 50, (Math.random()-0.5)*100);
                 this.lightningActive = true;
             }
         } else {
-            // Decay lightning
-            try { uCloudLightningStrength.value *= 0.85; } catch(e) {}
+            try { if(uCloudLightningStrength) uCloudLightningStrength.value *= 0.85; } catch(e) {}
             if (this.lightningActive) {
                 this.lightningLight.intensity *= 0.85;
                 if (this.lightningLight.intensity < 0.1) this.lightningActive = false;
             }
         }
-        // --------------------------------------------------------
 
-        // --- NEW: Darkness Mechanic ---
-        // If it is night (low sun, high moon) AND clouds are dense, darken everything
-        this.applyDarknessLogic(celestial, seasonal.moonPhase); // Updated to use real moon phase
-        // ------------------------------
+        this.applyDarknessLogic(celestial, seasonal.moonPhase);
 
-        // ------------------------------------------------------------------
-        // NEW: Ecosystem Balance Logic (Light vs Dark)
-        // ------------------------------------------------------------------
-
-        // Calculate Global Illumination (0.0 = Pitch Black, 1.0 = Noon Clear Sky)
-        // Re-use this.currentLightLevel calculated earlier, or recalculate if needed to be safe
-        // The earlier calculation:
-        // const sunPower = celestial.sunIntensity * (seasonal ? seasonal.sunInclination : 1.0) * (1.0 - this.cloudDensity * 0.7);
-        // But let's stick to the logic requested in the prompt for "Ecosystem Balance"
-
-        const sunPower = celestial.sunIntensity * (1.0 - this.cloudDensity * 0.7); // Clouds block sun
-        const moonPower = celestial.moonIntensity * 0.3; // Moon is weaker
+        const sunPower = celestial.sunIntensity * (1.0 - this.cloudDensity * 0.7);
+        const moonPower = celestial.moonIntensity * 0.3;
         const globalLight = Math.max(0, sunPower + moonPower);
-
-        // Calculate "Moisture" (Rain Intensity + Storm Charge)
         const moisture = this.intensity + (this.stormCharge * 0.5);
 
-        // === Competition Formula ===
-
-        // 1. FLORA (Trees/Flowers): Need Sun + Water
-        // Thrives when light is > 0.4 and Moisture is moderate (0.2 - 0.7)
         let floraFavorability = globalLight * (0.5 + moisture);
-        if (moisture > 0.9) floraFavorability *= 0.5; // Too much rain drowns them (unless storm type)
+        if (moisture > 0.9) floraFavorability *= 0.5;
 
-        // 2. FUNGI (Mushrooms): Need Dark + Wet
-        // Thrives when light is < 0.3 and Moisture is high
-        // Inverse of light
         let fungiFavorability = (1.0 - globalLight) * (0.2 + moisture * 1.5);
-
-        // 3. LANTERN FLOWERS (Special): Need Storms/Chaos
-        // Thrives in high storm charge or pitch darkness
         let lanternFavorability = (this.state === WeatherState.STORM ? 1.0 : 0.0) + (1.0 - globalLight) * 0.2;
 
-        // === Trigger Growth Based on Favorability ===
-
         if (this.percussionRain.visible) {
-            // Apply growth to tracked objects
             if (this.trackedTrees.length > 0) {
-                // Trees grow if Flora wins
                 triggerGrowth(this.trackedTrees, floraFavorability * bassIntensity * 0.1);
             }
             if (this.trackedFlowers.length > 0) {
                 triggerGrowth(this.trackedFlowers, floraFavorability * bassIntensity * 0.1);
             }
             if (this.trackedMushrooms.length > 0) {
-                // Mushrooms grow if Fungi wins
                 triggerGrowth(this.trackedMushrooms, fungiFavorability * bassIntensity * 0.15);
             }
         }
 
-        // === Spawning Logic (The Takeover) ===
         this.handleSpawning(time, fungiFavorability, lanternFavorability, globalLight);
-
-        // ------------------------------------------------------------------
-
-        // 5. Update Waterfalls on Giant Mushrooms
         this.updateMushroomWaterfalls(time, bassIntensity);
 
-        // Smooth intensity transition
         this.intensity += (this.targetIntensity - this.intensity) * this.transitionSpeed;
 
-        // Update particle systems
         this.updatePercussionRain(time, bassIntensity);
         this.updateMelodicMist(time, melodyVol);
 
-        // Handle lightning during storms
         if (this.state === WeatherState.STORM) {
             this.updateLightning(time, bassIntensity);
             this.chargeBerryGlow(bassIntensity);
         }
 
-        // Accumulate storm charge
         if (this.state !== WeatherState.CLEAR) {
             this.stormCharge = Math.min(2.0, this.stormCharge + 0.001);
         } else {
             this.stormCharge = Math.max(0, this.stormCharge - 0.0005);
         }
 
-        // Update wind system
         this.updateWind(time, audioData, celestial);
-
-        // Update fog density based on weather
         this.updateFog(audioData);
     }
 
-    /**
-     * Update wind direction and speed based on audio
-     */
     handleSpawning(time, fungiScore, lanternScore, globalLight) {
-        // Throttle spawning checks
         if (time - this._lastSpawnCheck < this._spawnThrottle) return;
         this._lastSpawnCheck = time;
 
-        // 1. Mushroom Takeover
-        // If it's dark and wet (fungiScore high), spawn bioluminescent mushrooms
         if (fungiScore > 0.8) {
-            // High chance to spawn
-            if (Math.random() < 0.4) {
-                this.spawnFoliage('mushroom', true); // true = bioluminescent
-            }
+            if (Math.random() < 0.4) this.spawnFoliage('mushroom', true);
         }
-
-        // 2. Lantern Flowers (Storm Spawns)
-        // If it's a storm, spawn lanterns to "guide" the player
         if (lanternScore > 0.6) {
-            if (Math.random() < 0.3) {
-                this.spawnFoliage('lantern', false);
-            }
+            if (Math.random() < 0.3) this.spawnFoliage('lantern', false);
         }
-
-        // 3. Regular Flora Recovery
-        // If sun is out, maybe spawn a flower
         if (globalLight > 0.7 && fungiScore < 0.3) {
-             if (Math.random() < 0.2) {
-                this.spawnFoliage('flower', false);
-            }
+             if (Math.random() < 0.2) this.spawnFoliage('flower', false);
         }
     }
 
     spawnFoliage(type, isGlowing) {
         if (!this.onSpawnFoliage) return;
 
-        // Random position near player or in front of camera (simplified to random world pos for now)
-        // ideally getting camera pos from somewhere, but we'll use a random distribution
-        // Keep within reasonable bounds
         const x = (Math.random() - 0.5) * 60;
         const z = (Math.random() - 0.5) * 60;
         const y = getGroundHeight(x, z);
@@ -529,30 +337,21 @@ export class WeatherSystem {
             object = createMushroom({
                 size: 'regular',
                 scale: 0.5 + Math.random() * 0.5,
-                isBioluminescent: isGlowing // Use the new flag
+                isBioluminescent: isGlowing
             });
         } else if (type === 'lantern') {
             object = createLanternFlower({
                 height: 2.0 + Math.random() * 1.5,
-                color: 0xFFaa00 // Warm light
+                color: 0xFFaa00
             });
-        } else if (type === 'flower') {
-            // Not implemented in this snippet to avoid circular deps if createFlower isn't imported,
-            // but we can assume normal generation happens via main.js or other systems.
-            // For now, let's just return to avoid errors if createFlower isn't available or needed here.
-            return;
         }
 
         if (object) {
             object.position.set(x, y, z);
-            object.scale.setScalar(0.01); // Start tiny
-
-            // Use the callback to safely add to scene and list
-            this.onSpawnFoliage(object, true, 0); // Scale up from 0
-
-            // Register it so it grows later
+            object.scale.setScalar(0.01);
+            this.onSpawnFoliage(object, true, 0);
             if (type === 'mushroom') this.registerMushroom(object);
-            if (type === 'lantern') this.registerFlower(object); // Treat as flower for tracking
+            if (type === 'lantern') this.registerFlower(object);
         }
     }
 
@@ -564,31 +363,16 @@ export class WeatherSystem {
         this.windTargetSpeed = Math.max(highFreqVol, melodyVol * 0.5);
         this.windSpeed += (this.windTargetSpeed - this.windSpeed) * 0.02;
 
-        // Base rotation from beat
         const rotSpeed = (audioData.beatPhase || 0) * 0.001;
         this.windDirection.applyAxisAngle(_UP, rotSpeed);
 
-        // --- NEW: Celestial Wind Tides ---
-        // Calculate approximate sun position (rotating around Z or X)
         const dayProgress = (time % CYCLE_DURATION) / CYCLE_DURATION;
         const sunAngle = dayProgress * Math.PI * 2;
-        
-        // Sun Vector (approximate) - Reuse scratch vector
         _scratchSunDir.set(Math.cos(sunAngle), Math.sin(sunAngle), 0);
-        
-        // Calculate celestial force
-        // Day: Wind blows AWAY from Sun (Heat push) -> -sunDir
-        // Night: Wind blows TOWARDS Moon (Tidal pull). Moon is approx -sunDir.
-        // Towards Moon -> Towards -sunDir -> -sunDir.
-        // In both cases, the force is roughly opposite the sun's position.
         _scratchCelestialForce.copy(_scratchSunDir).negate();
-
-        // Apply celestial bias to wind (10% influence)
         this.windDirection.lerp(_scratchCelestialForce, 0.1);
         this.windDirection.normalize();
-        // ---------------------------------
 
-        // Mushroom Gathering (Attraction)
         let giantsX = 0, giantsZ = 0, giantsCount = 0;
         this.trackedMushrooms.forEach(m => {
             if (m.userData.size === 'giant') {
@@ -601,23 +385,18 @@ export class WeatherSystem {
         if (giantsCount > 0) {
             const centerX = giantsX / giantsCount;
             const centerZ = giantsZ / giantsCount;
-            // Reuse scratch attraction vector
             _scratchAttraction.set(centerX, 0, centerZ).normalize();
             this.windDirection.lerp(_scratchAttraction, 0.05);
             this.windDirection.normalize();
         }
 
-        // ... [Spawning logic remains same] ...
-        // (Omitted for brevity, assume WASM/JS fallback exists here as in previous file)
         const count = this.trackedMushrooms.length;
         if (this.windSpeed > 0.4 && count > 0) {
-            // Throttle heavy spawn checks to avoid main-thread spikes
             const now = time;
             if (now - this._lastSpawnCheck > this._spawnThrottle) {
                 this._lastSpawnCheck = now;
 
                 if (!isWasmReady() || typeof batchMushroomSpawnCandidates !== 'function') {
-                    // JS fallback: iterate but cap number of spawns per frame
                     let spawned = 0;
                     for (let i = 0; i < this.trackedMushrooms.length && spawned < this._spawnCapPerFrame; i++) {
                         const m = this.trackedMushrooms[i];
@@ -634,7 +413,7 @@ export class WeatherSystem {
                             newM.position.set(nx, ny, nz);
                             newM.rotation.y = Math.random() * Math.PI * 2;
                             if (this.onSpawnFoliage) {
-                                try { this.onSpawnFoliage(newM, true, 0.5); } catch (e) { console.warn('onSpawnFoliage failed', e); }
+                                try { this.onSpawnFoliage(newM, true, 0.5); } catch (e) {}
                             } else {
                                 this.scene.add(newM);
                                 this.registerMushroom(newM);
@@ -643,11 +422,8 @@ export class WeatherSystem {
                         }
                     }
                 } else {
-                    // WASM path: run batch candidate generation but cap how many we instantiate
                     try {
-                        // Bolt: Direct upload to avoid GC pressure (replaces .map allocations)
                         uploadMushroomSpecs(this.trackedMushrooms);
-
                         const spawnThreshold = 1.0;
                         const minDistance = 3.0;
                         const maxDistance = 8.0;
@@ -661,7 +437,7 @@ export class WeatherSystem {
                                 newM.position.set(c.x, c.y, c.z);
                                 newM.rotation.y = Math.random() * Math.PI * 2;
                                 if (this.onSpawnFoliage) {
-                                    try { this.onSpawnFoliage(newM, true, 0.5); } catch (e) { console.warn('onSpawnFoliage failed', e); }
+                                    try { this.onSpawnFoliage(newM, true, 0.5); } catch (e) {}
                                 } else {
                                     this.scene.add(newM);
                                     this.registerMushroom(newM);
@@ -674,12 +450,10 @@ export class WeatherSystem {
                     }
                 }
             }
-            // If spawn check is throttled this frame, skip to avoid added load
         }
     }
 
     updateMushroomWaterfalls(time, bassIntensity) {
-        // Only active during heavy RAIN or STORM
         const isRaining = this.state !== WeatherState.CLEAR && this.intensity > 0.4;
         
         this.trackedMushrooms.forEach(mushroom => {
@@ -688,32 +462,22 @@ export class WeatherSystem {
                 
                 if (isRaining) {
                     if (!this.mushroomWaterfalls.has(uuid)) {
-                        // Create Waterfall
                         const radius = mushroom.userData.capRadius || 5.0;
                         const height = mushroom.userData.capHeight || 8.0;
                         
-                        // Start point: Edge of cap
-                        // End point: Ground (approx 0) or base
                         const wf = createWaterfall(
                             new THREE.Vector3(mushroom.position.x + radius * 0.8, height * 0.8, mushroom.position.z),
                             new THREE.Vector3(mushroom.position.x + radius * 1.1, 0, mushroom.position.z),
-                            2.0 // Width
+                            2.0
                         );
                         
                         this.scene.add(wf);
                         this.mushroomWaterfalls.set(uuid, wf);
                     }
-
-                    // Animate existing waterfall
                     const wf = this.mushroomWaterfalls.get(uuid);
-                    if (wf.onAnimate) wf.onAnimate(0.016, time); // Update splashes
-                    
-                    // Pulse with bass
-                    if (bassIntensity > 0.5) {
-                        wf.scale.setScalar(1.0 + bassIntensity * 0.1);
-                    }
+                    if (wf.onAnimate) wf.onAnimate(0.016, time);
+                    if (bassIntensity > 0.5) wf.scale.setScalar(1.0 + bassIntensity * 0.1);
                 } else {
-                    // Cleanup if not raining
                     if (this.mushroomWaterfalls.has(uuid)) {
                         const wf = this.mushroomWaterfalls.get(uuid);
                         this.scene.remove(wf);
@@ -725,14 +489,9 @@ export class WeatherSystem {
     }
 
     applyDarknessLogic(celestial, moonPhase) {
-        // Darkness Factor: 0 = Normal, 1 = Pitch Black
-        // Night * Clouds * (1 - MoonPhase)
-        // Full Moon (1.0) = Less Dark. New Moon (0.0) = More Dark.
-        
         const nightFactor = celestial.moonIntensity; 
         const densityFactor = this.cloudDensity;     
-        const moonDarkness = 1.0 - (moonPhase || 0) * 0.5; // Full moon lights up the night a bit
-        
+        const moonDarkness = 1.0 - (moonPhase || 0) * 0.5;
         const darkness = nightFactor * densityFactor * moonDarkness * 0.95; 
 
         if (this.scene.fog && this.scene.fog.color) {
@@ -742,41 +501,21 @@ export class WeatherSystem {
         this.darknessFactor = darkness; 
     }
 
-    /**
-     * Update fog density based on weather state and audio energy (Crescendo Fog)
-     * @param {object} audioData - Audio analysis data
-     */
     updateFog(audioData) {
         if (!this.fog) return;
 
         let fogMultiplier = 1.0;
         switch (this.state) {
-            case WeatherState.RAIN:
-                fogMultiplier = 0.8; // Slightly thicker
-                break;
-            case WeatherState.STORM:
-                fogMultiplier = 0.6; // Much thicker fog
-                break;
-            default:
-                fogMultiplier = 1.0;
+            case WeatherState.RAIN: fogMultiplier = 0.8; break;
+            case WeatherState.STORM: fogMultiplier = 0.6; break;
+            default: fogMultiplier = 1.0;
         }
 
-        // Crescendo Fog Logic: Density ramps with crescendos (average volume)
-        // mixEnergy calculation: active channels * average volume, roughly approximated by average * 2 here
         let crescendoFactor = 0;
         if (audioData) {
-            // Use average volume to drive fog density
             const volume = audioData.average || 0;
-            // Map volume 0.0-1.0 to fog thickness. High volume = thicker fog (lower multiplier).
-            // But "Crescendo Fog" implies it gets denser.
-            // Current logic: visibility multiplier. Lower is thicker.
-            crescendoFactor = volume * 0.3; // Reduce visibility by up to 30% based on volume
+            crescendoFactor = volume * 0.3;
         }
-
-        // Combine Weather Intensity, Darkness Mechanic, AND Crescendo Fog
-        // fogMultiplier affects how much the weather intensity reduces visibility.
-        // darknessFactor reduces visibility further.
-        // crescendoFactor reduces visibility dynamically.
 
         const weatherVisibility = (1.0 - this.intensity * (1.0 - fogMultiplier));
         const darknessVisibility = (1.0 - (this.darknessFactor || 0) * 0.7);
@@ -784,7 +523,6 @@ export class WeatherSystem {
 
         const totalVisibility = weatherVisibility * darknessVisibility * crescendoVisibility;
 
-        // Smooth transition for fog updates
         const targetNear = this.baseFogNear * totalVisibility;
         const targetFar = this.baseFogFar * totalVisibility;
 
@@ -792,16 +530,8 @@ export class WeatherSystem {
         this.fog.far += (targetFar - this.fog.far) * 0.05;
     }
 
-    /**
-     * Update berry sizes based on day/night cycle phase
-     * @param {number} cyclePos - Current position in cycle (0 to CYCLE_DURATION)
-     * @param {number} CYCLE_DURATION - Total cycle duration
-     */
     updateBerrySeasonalSize(cyclePos, CYCLE_DURATION) {
-        // Define phase boundaries (matching main.js)
         const SUNRISE = 60, DAY = 420, SUNSET = 60, DUSK = 180, DEEP = 120, PREDAWN = 120;
-        let elapsed = SUNRISE + DAY;
-
         let phase = 'day';
         let phaseProgress = 0;
 
@@ -825,22 +555,14 @@ export class WeatherSystem {
             phaseProgress = (cyclePos - SUNRISE - DAY - SUNSET - DUSK - DEEP) / PREDAWN;
         }
 
-        // Update all tracked plants with berries
         this.trackedTrees.forEach(tree => {
-            if (tree.userData.berries) {
-                updateBerrySeasons(tree.userData.berries, phase, phaseProgress);
-            }
+            if (tree.userData.berries) updateBerrySeasons(tree.userData.berries, phase, phaseProgress);
         });
         this.trackedShrubs.forEach(shrub => {
-            if (shrub.userData.berries) {
-                updateBerrySeasons(shrub.userData.berries, phase, phaseProgress);
-            }
+            if (shrub.userData.berries) updateBerrySeasons(shrub.userData.berries, phase, phaseProgress);
         });
     }
 
-    /**
-     * Determine weather state from audio and time-of-day bias
-     */
     updateWeatherState(bass, melody, groove, cycleWeatherBias = null, seasonal = null) {
         let audioState = WeatherState.CLEAR;
         let audioIntensity = 0;
@@ -853,28 +575,22 @@ export class WeatherSystem {
             audioIntensity = 0.5;
         }
 
-        // --- Seasonal Bias ---
         if (seasonal) {
             const r = Math.random();
-            // Winter: Suppress storms, encourage clear/crisp
             if (seasonal.season === 'Winter') {
-                if (audioState === WeatherState.STORM && r > 0.3) audioState = WeatherState.RAIN; // Storms become just rain/snow
+                if (audioState === WeatherState.STORM && r > 0.3) audioState = WeatherState.RAIN;
             }
-            // Summer: Encourage Storms
             if (seasonal.season === 'Summer') {
-                if (audioState === WeatherState.RAIN && r > 0.7) audioState = WeatherState.STORM; // Heat storms
+                if (audioState === WeatherState.RAIN && r > 0.7) audioState = WeatherState.STORM;
             }
-            // Spring: Encourage Rain
             if (seasonal.season === 'Spring') {
                 if (audioState === WeatherState.CLEAR && r > 0.9) {
-                    audioState = WeatherState.RAIN; // Random spring showers
+                    audioState = WeatherState.RAIN;
                     audioIntensity = 0.3;
                 }
             }
         }
-        // ---------------------
 
-        // Apply time-of-day / cycle bias if provided (same blending as before)
         if (cycleWeatherBias) {
             const biasWeight = 0.4;
             let biasState = WeatherState.CLEAR;
@@ -896,9 +612,6 @@ export class WeatherSystem {
         }
     }
 
-    /**
-     * Update percussion rain (bass-triggered fat droplets)
-     */
     updatePercussionRain(time, bassIntensity) {
         const shouldShow = bassIntensity > 0.2 || this.state !== WeatherState.CLEAR;
         this.percussionRain.visible = shouldShow;
@@ -909,47 +622,32 @@ export class WeatherSystem {
         const velocities = this.percussionRain.geometry.userData.velocities;
         const offsets = this.percussionRain.geometry.userData.offsets;
 
-        // Size responds to bass
         this.percussionRain.material.size = 0.3 + bassIntensity * 0.5;
         this.percussionRain.material.opacity = 0.4 + this.intensity * 0.6;
         
-        // Color based on weather type
         if (this.weatherType === 'mist') {
-            // Morning mist: soft white-blue
             this.percussionRain.material.color.setHex(0xE0F4FF);
         } else if (this.weatherType === 'drizzle') {
-            // Evening drizzle: cool gray-blue
             this.percussionRain.material.color.setHex(0x9AB5C8);
         } else if (this.weatherType === 'thunderstorm' || this.state === WeatherState.STORM) {
-            // Storm: darker blue with white flashes
             this.percussionRain.material.color.setHex(0x6090B0);
         } else {
-            // Default rain
             this.percussionRain.material.color.setHex(0x88CCFF);
         }
 
-        // Update particle positions using WASM
         for (let i = 0; i < positions.length / 3; i++) {
             const startY = 50 + offsets[i];
             const speed = velocities[i] * (1 + bassIntensity);
-
-            // Use WASM for rain calculation
             const newY = calcRainDropY(startY, time, speed, 50);
             positions[i * 3 + 1] = newY;
-
-            // Reset when hitting ground
             if (newY < 0) {
                 positions[i * 3] = (Math.random() - 0.5) * 100;
                 positions[i * 3 + 2] = (Math.random() - 0.5) * 100;
             }
         }
-
         this.percussionRain.geometry.attributes.position.needsUpdate = true;
     }
 
-    /**
-     * Update melodic mist (melody-triggered fine spray)
-     */
     updateMelodicMist(time, melodyVol) {
         const shouldShow = melodyVol > 0.2 || (this.weatherType === 'mist' && this.state === WeatherState.RAIN);
         this.melodicMist.visible = shouldShow;
@@ -957,8 +655,6 @@ export class WeatherSystem {
         if (!shouldShow) return;
 
         const positions = this.melodicMist.geometry.attributes.position.array;
-
-        // Mist drifts slowly
         for (let i = 0; i < positions.length / 3; i++) {
             const offset = i * 0.1;
             positions[i * 3 + 1] = 1 + Math.sin(time + offset) * 2 * Math.max(melodyVol, 0.3);
@@ -968,31 +664,22 @@ export class WeatherSystem {
 
         this.melodicMist.material.opacity = 0.3 + melodyVol * 0.4;
         
-        // Color based on weather type
         if (this.weatherType === 'mist') {
-            // Morning mist: pale green-white
             this.melodicMist.material.color.setHex(0xDDFFDD);
-            this.melodicMist.material.opacity = 0.6; // Thicker for morning effect
+            this.melodicMist.material.opacity = 0.6;
         } else {
-            // Default melodic color
             this.melodicMist.material.color.setHex(0xAAFFAA);
         }
         this.melodicMist.geometry.attributes.position.needsUpdate = true;
     }
 
-    /**
-     * Lightning effect during storms
-     */
     updateLightning(time, bassIntensity) {
-        this.lightningTimer -= 0.016; // Approx 60fps
+        this.lightningTimer -= 0.016;
 
-        // Trigger lightning on strong bass hits
         if (bassIntensity > 0.8 && this.lightningTimer <= 0 && Math.random() > 0.7) {
             this.lightningActive = true;
-            this.lightningTimer = 0.5 + Math.random() * 1.0; // Cooldown
+            this.lightningTimer = 0.5 + Math.random() * 1.0;
             this.lightningLight.intensity = 5 + Math.random() * 5;
-
-            // Random position
             this.lightningLight.position.set(
                 (Math.random() - 0.5) * 60,
                 40 + Math.random() * 20,
@@ -1000,7 +687,6 @@ export class WeatherSystem {
             );
         }
 
-        // Fade lightning
         if (this.lightningActive) {
             this.lightningLight.intensity *= 0.85;
             if (this.lightningLight.intensity < 0.1) {
@@ -1010,97 +696,37 @@ export class WeatherSystem {
         }
     }
 
-    /**
-     * Charge berries during storms
-     */
     chargeBerryGlow(bassIntensity) {
         const chargeAmount = bassIntensity * 0.05;
+        this.trackedTrees.forEach(tree => { if (tree.userData.berries) chargeBerries(tree.userData.berries, chargeAmount); });
+        this.trackedShrubs.forEach(shrub => { if (shrub.userData.berries) chargeBerries(shrub.userData.berries, chargeAmount); });
 
-        // Charge tree berries
-        this.trackedTrees.forEach(tree => {
-            if (tree.userData.berries) {
-                chargeBerries(tree.userData.berries, chargeAmount);
-            }
-        });
-
-        // Charge shrub berries
-        this.trackedShrubs.forEach(shrub => {
-            if (shrub.userData.berries) {
-                chargeBerries(shrub.userData.berries, chargeAmount);
-            }
-        });
-
-        // Shake berries loose during intense storms
         if (bassIntensity > 0.6) {
-            this.trackedTrees.forEach(tree => {
-                if (tree.userData.berries) {
-                    shakeBerriesLoose(tree.userData.berries, bassIntensity);
-                }
-            });
-            this.trackedShrubs.forEach(shrub => {
-                if (shrub.userData.berries) {
-                    shakeBerriesLoose(shrub.userData.berries, bassIntensity);
-                }
-            });
+            this.trackedTrees.forEach(tree => { if (tree.userData.berries) shakeBerriesLoose(tree.userData.berries, bassIntensity); });
+            this.trackedShrubs.forEach(shrub => { if (shrub.userData.berries) shakeBerriesLoose(shrub.userData.berries, bassIntensity); });
         }
     }
 
-    /**
-     * Trigger growth for structural plants (Trees, Mushrooms)
-     */
     growPlants(intensity) {
         triggerGrowth(this.trackedTrees, intensity);
         triggerGrowth(this.trackedMushrooms, intensity);
     }
-
-    /**
-     * Trigger bloom for flowers
-     */
     bloomFlora(intensity) {
         triggerBloom(this.trackedFlowers, intensity);
     }
+    getState() { return this.state; }
+    getStormCharge() { return this.stormCharge; }
+    getIntensity() { return this.intensity; }
 
-    /**
-     * Get current weather state
-     */
-    getState() {
-        return this.state;
-    }
-
-    /**
-     * Get storm charge for berry glow
-     */
-    getStormCharge() {
-        return this.stormCharge;
-    }
-
-    /**
-     * Get weather intensity (0-1)
-     */
-    getIntensity() {
-        return this.intensity;
-    }
-
-    /**
-     * Force weather state (for testing/debugging)
-     */
     forceState(state) {
         this.state = state;
         switch (state) {
-            case WeatherState.STORM:
-                this.targetIntensity = 1.0;
-                break;
-            case WeatherState.RAIN:
-                this.targetIntensity = 0.5;
-                break;
-            default:
-                this.targetIntensity = 0;
+            case WeatherState.STORM: this.targetIntensity = 1.0; break;
+            case WeatherState.RAIN: this.targetIntensity = 0.5; break;
+            default: this.targetIntensity = 0;
         }
     }
 
-    /**
-     * Cleanup
-     */
     dispose() {
         if (this.percussionRain) {
             this.scene.remove(this.percussionRain);
@@ -1119,11 +745,9 @@ export class WeatherSystem {
             this.scene.remove(this.rainbow);
             this.rainbow.geometry.dispose();
         }
-        // Remove any active waterfalls
         if (this.mushroomWaterfalls && this.mushroomWaterfalls.size > 0) {
             this.mushroomWaterfalls.forEach(wf => {
                 this.scene.remove(wf);
-                // waterfall components will be disposed by GC or by explicit cleanup if added
             });
             this.mushroomWaterfalls.clear();
         }
