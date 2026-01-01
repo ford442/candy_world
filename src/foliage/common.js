@@ -75,9 +75,10 @@ export const triplanarNoise = Fn((pos, scale) => {
     const n = abs(normalWorld);
 
     // Sample noise on three planes
-    const noiseX = mx_noise_float(vec3(p.y, p.z, 0.0));
-    const noiseY = mx_noise_float(vec3(p.x, p.z, 0.0));
-    const noiseZ = mx_noise_float(vec3(p.x, p.y, 0.0));
+    // FIX: Explicit float(0.0) to avoid mixed type errors in TSL
+    const noiseX = mx_noise_float(vec3(p.y, p.z, float(0.0)));
+    const noiseY = mx_noise_float(vec3(p.x, p.z, float(0.0)));
+    const noiseZ = mx_noise_float(vec3(p.x, p.y, float(0.0)));
 
     // Blend based on normal facing
     // Use functional add/div/mul
@@ -103,13 +104,14 @@ export const perturbNormal = Fn((pos, normal, scale, strength) => {
     // Sample noise at offsets using functional ops
     const n0 = mx_noise_float(mul(pos, s));
 
-    const posX = mul(add(pos, vec3(eps, 0.0, 0.0)), s);
+    // FIX: Explicit float(0.0) to avoid mixed type errors in TSL
+    const posX = mul(add(pos, vec3(eps, float(0.0), float(0.0))), s);
     const nX = mx_noise_float(posX);
 
-    const posY = mul(add(pos, vec3(0.0, eps, 0.0)), s);
+    const posY = mul(add(pos, vec3(float(0.0), eps, float(0.0))), s);
     const nY = mx_noise_float(posY);
 
-    const posZ = mul(add(pos, vec3(0.0, 0.0, eps)), s);
+    const posZ = mul(add(pos, vec3(float(0.0), float(0.0), eps)), s);
     const nZ = mx_noise_float(posZ);
 
     // Calculate gradients
@@ -191,7 +193,8 @@ export function createUnifiedMaterial(hexColor, options = {}) {
         let pos = positionLocal;
         if (animateMoisture) {
             // Slide noise over surface for wet look
-            const timeOffset = vec3(0.0, uTime.mul(0.2), 0.0);
+            // FIX: Explicit float(0.0) in vec3 to avoid mixed type errors
+            const timeOffset = vec3(float(0.0), uTime.mul(0.2), float(0.0));
             pos = pos.add(timeOffset);
         }
 
@@ -213,22 +216,9 @@ export function createUnifiedMaterial(hexColor, options = {}) {
     }
 
     // --- APPLY GLITCH (Sample Offset 9xx) ---
-    // We check uGlitchIntensity directly. If it is 0, the effect is skipped in shader.
-    // However, for optimization, we might want to avoid adding the node graph if never used.
-    // But since it's global, we add it. The TSL compiler might optimize if uniform is constant 0?
-    // Probably not at runtime.
-    // We apply it to Position.
-
     // Note: applyGlitch definition needs to match this call.
-    // We pass 3 distinct arguments here.
     const glitchRes = applyGlitch(uv(), material.positionNode || positionLocal, uGlitchIntensity);
     material.positionNode = glitchRes.position;
-
-    // Optional: Use glitchRes.uv for texture sampling if we had textures.
-    // Since we use procedural noise mostly, we should pass glitchRes.position to noise functions?
-    // But noise functions calculate based on 'positionLocal' usually.
-    // If we change positionNode, the fragment shader receives the interpolated glitched position.
-    // So surface noise will "stick" to the glitched geometry correctly.
 
     // Color shift on glitch
     const glitchTint = vec3(1.0, 0.0, 1.0);
@@ -263,6 +253,7 @@ export function createUnifiedMaterial(hexColor, options = {}) {
     // 4. Simulated Subsurface Scattering (Back-lighting)
     if (subsurfaceStrength > 0.0) {
         // Simplified overhead light direction for static SSS calculation
+        // NOTE: Standard vec3(0.5, 1.0, 0.5) is safe here as all args are numbers
         const lightDir = normalize(vec3(0.5, 1.0, 0.5));
 
         // Wrap lighting: light bleeds around the object
