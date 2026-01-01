@@ -17,14 +17,14 @@ export function createSky() {
     const offsetVal = float(40.0);
     const exponent = float(0.6);  
 
-    // --- CRITICAL FIX START ---
-    // 1. Wrap 0.0 in float(0.0)
-    // 2. Use 'offsetVal', not 'offset'
+    // --- FIX IS HERE ---
+    // 1. Wrap 0.0 in float(0.0) so TSL doesn't crash
+    // 2. Use 'offsetVal' (defined above) instead of 'offset' (undefined)
     const offsetVec = vec3(float(0.0), offsetVal, float(0.0));
     
-    // 3. Add to positionWorld
+    // 3. Add to positionWorld safely
     const h = positionWorld.add(offsetVec).normalize().y;
-    // --- CRITICAL FIX END ---
+    // -------------------
 
     const heightFactor = h.max(0.0).pow(exponent);
     
