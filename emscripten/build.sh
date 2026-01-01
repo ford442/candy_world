@@ -28,6 +28,8 @@ for f in "${CANDIDATES[@]}"; do
     if [ -f "$f" ]; then source "$f"; break; fi
 done
 
+source /content/build_space/emsdk/emsdk_env.sh
+
 OUTPUT_JS="$REPO_ROOT/public/candy_native.js"
 
 # ---------------------------------------------------------
