@@ -10,13 +10,6 @@ echo "Building candy_native.js (Safe Pthread Build)..."
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-# Check if emcc is available
-if ! command -v em++ &> /dev/null; then
-    echo "⚠️  Emscripten (em++) not found. Skipping C++ WASM build."
-    echo "✅ This is optional - game will use AssemblyScript WASM fallback."
-    exit 0
-fi
-
 # Source Emscripten
 CANDIDATES=(
     "/content/build_space/emsdk/emsdk_env.sh"
