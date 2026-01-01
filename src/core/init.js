@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import WebGPU from 'three/examples/jsm/capabilities/WebGPU.js';
 import { WebGPURenderer } from 'three/webgpu';
 import { PALETTE, CONFIG } from './config.js';
+import { validateSceneMaterials, enableRendererDebug } from '../utils/debug-helpers.js'; // Import debug tools
 
 export function initScene() {
     const canvas = document.querySelector('#glCanvas');
@@ -21,9 +22,13 @@ export function initScene() {
 
     const renderer = new WebGPURenderer({ canvas, antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5)); // Cap pixel ratio for better performance
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.0;
+
+    // --- ENABLE DEBUGGING ---
+    enableRendererDebug(renderer);
+    // ------------------------
 
     // --- Lighting ---
     const ambientLight = new THREE.HemisphereLight(PALETTE.day.skyTop, CONFIG.colors.ground, 1.1);
@@ -31,9 +36,7 @@ export function initScene() {
 
     const sunLight = new THREE.DirectionalLight(PALETTE.day.sun, 0.9);
     sunLight.position.set(50, 80, 30);
-    
     sunLight.castShadow = true;
-    
     sunLight.shadow.mapSize.width = 1024;
     sunLight.shadow.mapSize.height = 1024;
     scene.add(sunLight);
@@ -110,13 +113,18 @@ export function initScene() {
 }
 
 export async function forceFullSceneWarmup(renderer, scene, camera) {
-    // 1. Save state
+    console.log("🔥 [Warmup] Starting scene compilation...");
+    
+    // 1. RUN VALIDATION BEFORE RENDER ATTEMPT
+    validateSceneMaterials(scene);
+
+    // 2. Save state
     const originalMask = camera.layers.mask;
     const originalPos = camera.position.clone();
     const originalRot = camera.rotation.clone();
     const originalAutoClear = renderer.autoClear;
 
-    // 2. Force visibility
+    // 3. Force visibility
     const restoreList = [];
     scene.traverse((obj) => {
         if (obj.isMesh && obj.frustumCulled) {
@@ -125,7 +133,7 @@ export async function forceFullSceneWarmup(renderer, scene, camera) {
         }
     });
 
-    // 3. Render 1x1 pixel frame
+    // 4. Render 1x1 pixel frame (SAFE WRAP)
     const scissor = new THREE.Vector4();
     renderer.getViewport(scissor);
     renderer.setViewport(0, 0, 1, 1);
@@ -135,10 +143,16 @@ export async function forceFullSceneWarmup(renderer, scene, camera) {
     camera.lookAt(0,0,0);
 
     try {
+        await renderer.compileAsync(scene, camera); // Try explicit compile first
         renderer.render(scene, camera);
-    } catch (e) { console.warn("Warmup error", e); }
+        console.log("✅ [Warmup] Compilation successful.");
+    } catch (e) { 
+        console.error("💥 [Warmup] Critical Render Error during warmup!");
+        console.error("This indicates a broken TSL shader graph in one of the materials.");
+        console.error(e); 
+    }
 
-    // 4. Restore
+    // 5. Restore
     renderer.setViewport(scissor);
     restoreList.forEach(o => o.frustumCulled = true);
     camera.layers.mask = originalMask;
