@@ -659,9 +659,19 @@ initWasmParallel().then(async (wasmLoaded) => { // Using parallel WASM loading f
     // No additional initialization needed here - it's handled by the index.html script
 });
 
-import { installDiagnostics } from './utils/tsl-diagnostics.js';
+import { installDiagnostics } from './src/utils/tsl-diagnostics.js';
 
-installDiagnostics(scene);
+// Wait for scene to be ready, then install
+if (typeof window !== 'undefined') {
+    // Check every 2 seconds if the scene is ready, then install
+    const installInterval = setInterval(() => {
+        if (window.scene && window.renderer) {
+            installDiagnostics(window.scene);
+            clearInterval(installInterval);
+            console.log("✅ TSL Diagnostics installed. Type 'scanForTSLErrors()' in console.");
+        }
+    }, 2000);
+}
 
 // Optional: Run it automatically once after load
 setTimeout(() => window.scanForTSLErrors(), 5000);
