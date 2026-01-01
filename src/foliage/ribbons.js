@@ -2,7 +2,8 @@
 import * as THREE from 'three';
 import {
     color, float, vec3, Fn, uniform, positionLocal, uv,
-    mix, sin, cos, time, timerLocal
+    mix, sin, cos, time, fract, // Removed timerLocal, added fract
+    mul, add, pow // Added functional operators
 } from 'three/tsl';
 import { CandyPresets } from './common.js';
 
@@ -63,19 +64,25 @@ export class MelodyRibbon {
 
         // Dynamic color based on UV.x (length) and Time
         // UV.x will be the segment index normalized
-        const t = timerLocal(1.0);
-        const hue = t.mul(0.2).add(uv().x).fract(); // Cycle colors
+        // Replaced timerLocal(1.0) with global time
+        // functional math: fract(time * 0.2 + uv.x)
+        const hue = fract(add(mul(time, 0.2), uv().x));
+
         // Simple HSL to RGB approximation or just mix
         const col1 = vec3(0.0, 1.0, 1.0); // Cyan
         const col2 = vec3(1.0, 0.0, 1.0); // Magenta
-        const finalColor = mix(col1, col2, sin(hue.mul(6.28)).mul(0.5).add(0.5));
+
+        // mix(col1, col2, sin(hue * 6.28) * 0.5 + 0.5)
+        const mixFactor = add(mul(sin(mul(hue, 6.28)), 0.5), 0.5);
+        const finalColor = mix(col1, col2, mixFactor);
 
         mat.colorNode = finalColor;
-        mat.emissiveNode = finalColor.mul(1.0); // Glow
+        mat.emissiveNode = finalColor; // Glow (implicit 1.0 intensity)
 
         // Fade out at tail (uv.x near 0 assuming we shift UVs, or just based on index)
         // We'll manage UVs manually. Let's say UV.x goes from 0 (tail) to 1 (head).
-        mat.opacityNode = uv().x.pow(2.0).mul(0.8); // Fade tail
+        // uv.x^2 * 0.8
+        mat.opacityNode = mul(pow(uv().x, 2.0), 0.8);
 
         this.mesh = new THREE.Mesh(this.geometry, mat);
         this.mesh.frustumCulled = false; // Always render

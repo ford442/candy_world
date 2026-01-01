@@ -3,7 +3,8 @@ import * as THREE from 'three';
 import {
     uv, vec3, Fn, uniform, positionLocal,
     sin, cos, float, mix, smoothstep,
-    texture, floor, fract, vec2
+    texture, floor, fract, vec2,
+    mul, add, sub, div // Added functional operators
 } from 'three/tsl';
 import { generateNoiseTexture } from './common.js';
 
@@ -20,7 +21,7 @@ export const uGlitchIntensity = uniform(0.0);
  * @param {Node} intensity - Glitch intensity (0-1).
  * @returns {Object} { uv: glitchedUV, position: glitchedPosition }
  */
-export const applyGlitch = Fn(([baseUV, basePosition, intensity]) => {
+export const applyGlitch = Fn((baseUV, basePosition, intensity) => {
     // 1. Pixelation / Blockiness (Sample Offset)
     // Reduce UV resolution based on intensity
     // As intensity increases, blocks get larger (resolution gets smaller)
@@ -29,7 +30,8 @@ export const applyGlitch = Fn(([baseUV, basePosition, intensity]) => {
     const resolution = mix(float(100.0), float(10.0), intensity);
 
     // Pixelate UVs
-    const pixelatedUV = floor(baseUV.mul(resolution)).div(resolution);
+    // Functional ops: floor(baseUV * resolution) / resolution
+    const pixelatedUV = div(floor(mul(baseUV, resolution)), resolution);
 
     // Mix between original and pixelated based on intensity threshold
     // We only glitch when intensity is significant (> 0.1)
@@ -42,18 +44,18 @@ export const applyGlitch = Fn(([baseUV, basePosition, intensity]) => {
     // Let's use a simple pseudo-random offset based on sine waves for now,
     // to avoid heavy texture lookups in vertex shader if possible.
 
-    const jitterAmount = float(0.5).mul(intensity); // Max jitter distance
+    const jitterAmount = mul(float(0.5), intensity); // Max jitter distance
 
     // Pseudo-random offset
     // sin(x * big_number) creates high frequency oscillation
-    const noiseX = sin(basePosition.y.mul(50.0).add(intensity.mul(100.0)));
-    const noiseY = cos(basePosition.x.mul(50.0).add(intensity.mul(100.0)));
-    const noiseZ = sin(basePosition.z.mul(50.0));
+    const noiseX = sin(add(mul(basePosition.y, 50.0), mul(intensity, 100.0)));
+    const noiseY = cos(add(mul(basePosition.x, 50.0), mul(intensity, 100.0)));
+    const noiseZ = sin(mul(basePosition.z, 50.0));
 
-    const offset = vec3(noiseX, noiseY, noiseZ).mul(jitterAmount);
+    const offset = mul(vec3(noiseX, noiseY, noiseZ), jitterAmount);
 
     // Apply jitter only when glitch is active
-    const resultPos = basePosition.add(offset.mul(isGlitchy));
+    const resultPos = add(basePosition, mul(offset, isGlitchy));
 
     return { uv: resultUV, position: resultPos };
 });
@@ -91,6 +93,6 @@ export function enableGlitchOnMaterial(material) {
     // Optional: RGB Split (Chromatic Aberration) on the object itself
     // This is expensive per-fragment, so maybe just a color shift.
     const glitchColor = vec3(1.0, 0.0, 1.0); // Magenta tint on glitch
-    const mixColor = mix(material.colorNode || vec3(1.0), glitchColor, uGlitchIntensity.mul(0.5));
+    const mixColor = mix(material.colorNode || vec3(1.0), glitchColor, mul(uGlitchIntensity, 0.5));
     material.colorNode = mixColor;
 }
