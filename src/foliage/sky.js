@@ -17,14 +17,13 @@ export const uSkyDarkness = uniform(0.0); // 0.0 = Normal, 1.0 = Pitch Black
 export function createSky() {
     const skyGeo = new THREE.SphereGeometry(1000, 32, 24); 
 
-    const offsetVal = float(40.0);
+    const offsetVal = float(40.0);   
     const exponent = float(0.6);  
 
-    // FIX: Add vec3 to vec3.
-    // Assuming you wanted to shift the "center" of the sky gradient calculation down by 40 units
+    // FIX: Add vec3 to vec3 (0.0 -> vec3(0, offsetVal, 0))
     const adjustedPos = positionWorld.add(vec3(0.0, offsetVal, 0.0));
-
-const h = positionWorld.add(vec3(0.0, offset, 0.0)).normalize().y; // NEW FIXED LINE
+    
+    const h = adjustedPos.normalize().y; // Use adjustedPos instead of chaining
     const heightFactor = h.max(0.0).pow(exponent);
     
     // Atmospheric scattering
