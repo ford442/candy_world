@@ -6,9 +6,8 @@ import { PointsNodeMaterial } from 'three/webgpu';
 
 // Global uniform for star pulse (driven by music)
 export const uStarPulse = uniform(0.0); // 0 to 1
-// Re-added: The target color for the pulse (driven by current note/beat)
 export const uStarColor = uniform(new THREE.Color(0xFFFFFF));
-export const uStarOpacity = uniform(0.0); // Controls visibility (Day/Night)
+export const uStarOpacity = uniform(0.0); 
 
 export function createStars(count = 1500) {
     const geo = new THREE.BufferGeometry();
@@ -21,7 +20,6 @@ export function createStars(count = 1500) {
     const radius = 400;
 
     for (let i = 0; i < count; i++) {
-        // Random point on sphere
         const u = Math.random();
         const v = Math.random();
         const theta = 2 * Math.PI * u;
@@ -41,7 +39,6 @@ export function createStars(count = 1500) {
         sizes[i] = Math.random() * 2.5 + 0.3;
         offsets[i] = Math.random() * 100;
         
-        // Base natural star colors (White/Blueish/Yellowish)
         const colorType = Math.random();
         if (colorType < 0.7) {
             colors[i * 3] = 1.0; colors[i * 3 + 1] = 1.0; colors[i * 3 + 2] = 1.0;
@@ -69,33 +66,32 @@ export function createStars(count = 1500) {
 
     const aOffset = attribute('offset', 'float');
     const aSize = attribute('size', 'float');
+    // Attribute 'starColor' is already a vec3 node
     const aStarColor = attribute('starColor', 'vec3');
 
-    // Twinkle logic (independent of music)
+    // Twinkle logic
     const twinkle1 = time.add(aOffset).sin().mul(0.3).add(0.5);
     const twinkle2 = time.mul(2.3).add(aOffset.mul(0.7)).sin().mul(0.2).add(0.5);
     const twinkle = twinkle1.mul(twinkle2);
 
-    // Intensity: Twinkle + Music Pulse
-    const intensity = twinkle.add(uStarPulse.mul(1.5)); // Stronger pulse response
+    const intensity = twinkle.add(uStarPulse.mul(1.5)); 
 
-    // Color Mixing:
-    // When uStarPulse is high (beat), blend the natural star color towards uStarColor (Note Color)
-    const baseStarColor = vec3(aStarColor.x, aStarColor.y, aStarColor.z);
-    const musicColorVec3 = vec3(uStarColor.r, uStarColor.g, uStarColor.b);
+    // FIX: Use nodes directly instead of reconstructing them component-wise
+    // uStarColor is a UniformNode<Color>, which acts as a vec3
+    const musicColorVec3 = uStarColor; 
 
-    // Mix factor: uStarPulse * 0.8 (Never fully replace, keep some star-ness)
-    const finalRGB = mix(baseStarColor, musicColorVec3, uStarPulse.mul(0.8));
+    // Mix factor
+    const finalRGB = mix(aStarColor, musicColorVec3, uStarPulse.mul(0.8));
 
     mat.colorNode = vec4(finalRGB, uStarOpacity).mul(mat.color);
     mat.sizeNode = aSize.mul(intensity.max(0.3));
 
-    // Star Warp/Dance
+    // Star Warp
     const pos = positionLocal;
-    const warpFactor = uStarPulse.mul(20.0); // Warp outwards on beat
+    const warpFactor = uStarPulse.mul(20.0); 
     const warpedPos = pos.add(pos.normalize().mul(warpFactor));
 
-    // Gentle Rotation
+    // Rotation
     const angle = time.mul(0.02);
     const rotatedX = warpedPos.x.mul(cos(angle)).sub(warpedPos.z.mul(sin(angle)));
     const rotatedZ = warpedPos.x.mul(sin(angle)).add(warpedPos.z.mul(cos(angle)));
