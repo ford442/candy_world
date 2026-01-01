@@ -69,6 +69,7 @@ EXPORTS="[ \
     '_resetBootstrap', \
     '_malloc', \
     '_free' \
+    '_main' \
 ]"
 
 echo "Compiling & Linking..."
