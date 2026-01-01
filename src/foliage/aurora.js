@@ -30,8 +30,7 @@ export function createAurora() {
         // Wrap 0.0 in float(0.0)
         const spectralShift = vec3(mul(vUv.y, 0.5), float(0.0), mul(vUv.y, 0.2).negate()); 
         
-        // Use uniform directly
-        const baseColor = vec3(uAuroraColor);
+        const baseColor = vec3(uAuroraColor); // Use uniform directly
         const finalColor = add(baseColor, spectralShift);
 
         const finalAlpha = mul(mul(mul(rayIntensity, verticalFade), uAuroraIntensity), 0.6); 
