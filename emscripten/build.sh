@@ -68,7 +68,7 @@ EXPORTS="[ \
     '_getBootstrapHeight', \
     '_resetBootstrap', \
     '_malloc', \
-    '_free' \
+    '_free', \
     '_main' \
 ]"
 
