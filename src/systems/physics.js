@@ -8,6 +8,7 @@ import {
     foliageMushrooms, foliageTrampolines, foliageClouds,
     activeVineSwing, setActiveVineSwing, lastVineDetachTime, setLastVineDetachTime, vineSwings
 } from '../world/state.js';
+import { profiler } from '../utils/profiler.js';
 
 // --- Configuration ---
 const PLAYER_RADIUS = 0.5;
@@ -239,7 +240,9 @@ function updateDefaultState(delta, camera, controls, keyStates, audioState) {
 
     // Vine Attachment Check
     if (Date.now() - lastVineDetachTime > 500) {
-        checkVineAttachment(camera);
+        profiler.measure('VineAttach', () => {
+            checkVineAttachment(camera);
+        });
     }
 
     // --- C++ MOVEMENT INTEGRATION ---
@@ -285,7 +288,9 @@ function updateDefaultState(delta, camera, controls, keyStates, audioState) {
     }
 
     // --- ADDITIONAL JS COLLISIONS (Mushrooms, Clouds, Gates) ---
-    resolveSpecialCollisions(delta, camera, keyStates, audioState);
+    profiler.measure('Collisions', () => {
+        resolveSpecialCollisions(delta, camera, keyStates, audioState);
+    });
 }
 
 function updateJSFallbackMovement(delta, camera, controls, keyStates, moveSpeed) {
