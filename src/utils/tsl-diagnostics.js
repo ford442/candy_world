@@ -1,4 +1,3 @@
-// src/utils/tsl-diagnostics.js
 import * as THREE from 'three';
 
 /**
@@ -10,35 +9,30 @@ function isNode(val) {
 
 /**
  * Recursively validates a TSL Node tree.
- * Returns an array of error strings.
  */
 function validateNodeTree(node, path = 'root', visited = new Set()) {
     if (!node || typeof node !== 'object') return [];
-    if (visited.has(node)) return []; // Avoid cycles
+    if (visited.has(node)) return []; 
     visited.add(node);
 
     const errors = [];
 
-    // 1. Check generic inputs (common in MathNode, OperatorNode)
-    const inputs = ['a', 'b', 'c', 'x', 'y', 'z', 'value', 'node'];
-    
     // Check specific known node structures that fail with raw numbers
-    // Example: A node that is the result of 'mul' or 'add' usually has 'a' and 'b' inputs
+    // MathNode and OperatorNode expect their inputs (a, b) to be Nodes or specific types, not raw numbers in some contexts
     if (node.isMathNode || node.isOperatorNode) {
-        if (node.a !== undefined && !isNode(node.a) && typeof node.a !== 'string') {
-             // Strings are sometimes allowed for swizzling "xyz", but numbers usually crash generic nodes
-             if (typeof node.a === 'number') errors.push(`${path}.a is a RAW NUMBER (${node.a}). Should be float(${node.a}).`);
+        if (node.a !== undefined && !isNode(node.a) && typeof node.a === 'number') {
+             errors.push(`${path}.a is a RAW NUMBER (${node.a}). Wrap it in float(${node.a}).`);
         }
-        if (node.b !== undefined && !isNode(node.b) && typeof node.b !== 'string') {
-             if (typeof node.b === 'number') errors.push(`${path}.b is a RAW NUMBER (${node.b}). Should be float(${node.b}).`);
+        if (node.b !== undefined && !isNode(node.b) && typeof node.b === 'number') {
+             errors.push(`${path}.b is a RAW NUMBER (${node.b}). Wrap it in float(${node.b}).`);
         }
     }
 
-    // 2. Traversal
+    // Traversal
     for (const key of Object.keys(node)) {
         const val = node[key];
         // Only traverse properties that look like they hold nodes
-        if (inputs.includes(key) || key === 'nodes' || key === 'params') {
+        if (['a', 'b', 'c', 'x', 'y', 'z', 'value', 'node', 'nodes', 'params'].includes(key)) {
             if (Array.isArray(val)) {
                 val.forEach((child, i) => errors.push(...validateNodeTree(child, `${path}.${key}[${i}]`, visited)));
             } else if (isNode(val)) {
@@ -54,7 +48,7 @@ function validateNodeTree(node, path = 'root', visited = new Set()) {
  * Scans a Material for TSL errors.
  */
 export function diagnoseMaterial(material, name = 'Unknown') {
-    if (!material.isNodeMaterial) return [];
+    if (!material || !material.isNodeMaterial) return [];
 
     const criticalSlots = [
         'colorNode', 'positionNode', 'normalNode', 'emissiveNode', 
@@ -77,7 +71,6 @@ export function diagnoseMaterial(material, name = 'Unknown') {
 
 /**
  * GLOBAL DEBUGGER
- * Call window.scanForTSLErrors() in console.
  */
 export function installDiagnostics(scene) {
     window.scanForTSLErrors = () => {
@@ -91,8 +84,7 @@ export function installDiagnostics(scene) {
                     const errs = diagnoseMaterial(mat, `${obj.name || obj.type} (Mat: ${mat.name || mat.type})`);
                     if (errs.length > 0) {
                         foundErrors = true;
-                        console.error(`❌ Issues in object:`, obj);
-                        errs.forEach(e => console.warn(e));
+                        console.error(`❌ Issues in object: ${obj.name || 'Unnamed'}`, errs);
                     }
                 });
             }
@@ -102,5 +94,6 @@ export function installDiagnostics(scene) {
         console.groupEnd();
     };
     
-    console.log("🚑 TSL Diagnostics installed. Run 'window.scanForTSLErrors()' to check materials.");
+    // Auto-run once shortly after install
+    // setTimeout(() => window.scanForTSLErrors(), 1000); 
 }
