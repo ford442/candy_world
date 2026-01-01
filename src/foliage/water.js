@@ -1,8 +1,10 @@
+// src/foliage/water.js
+
 import * as THREE from 'three';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import {
-    color, float, vec3, vec2, Fn, uniform, sin, cos, time, positionLocal,
-    uv, normalize, smoothstep, mix, abs, max, positionWorld
+    color, float, vec3, Fn, uniform, sin, cos, time, positionLocal,
+    smoothstep, mix
 } from 'three/tsl';
 import { CandyPresets } from './common.js';
 
@@ -25,21 +27,20 @@ export function createWaveformWater(width = 400, depth = 400) {
     geometry.rotateX(-Math.PI / 2); // Lay flat
 
     // --- TSL Displacement Logic ---
-    // FIX: Removed array destructuring [pos]. Fn receives arguments directly.
     const waterDisplacement = Fn((pos) => {
         // Base rolling wave (Time dependent)
-        const bigWave = sin(pos.x.mul(0.05).add(time.mul(0.5))).mul(2.0);
+        const bigWave = sin(pos.x.mul(float(0.05)).add(time.mul(float(0.5)))).mul(float(2.0));
 
         // Bass-driven pulses (Low Freq)
         // Modulate amplitude with uAudioLow
-        const bassWave = cos(pos.z.mul(0.1).sub(time.mul(1.0)))
-            .mul(uAudioLow.mul(3.0).add(0.5)); // Base 0.5 + Audio impact
+        const bassWave = cos(pos.z.mul(float(0.1)).sub(time.mul(float(1.0))))
+            .mul(uAudioLow.mul(float(3.0)).add(float(0.5))); // Base 0.5 + Audio impact
 
         // Treble ripples (High Freq)
-        const rippleX = sin(pos.x.mul(0.5).add(time.mul(2.0)));
-        const rippleZ = cos(pos.z.mul(0.4).sub(time.mul(2.5)));
+        const rippleX = sin(pos.x.mul(float(0.5)).add(time.mul(float(2.0))));
+        const rippleZ = cos(pos.z.mul(float(0.4)).sub(time.mul(float(2.5))));
         const trebleRipples = rippleX.mul(rippleZ)
-            .mul(uAudioHigh.mul(1.5));
+            .mul(uAudioHigh.mul(float(1.5)));
 
         // Combine
         return bigWave.add(bassWave).add(trebleRipples).mul(uWaveHeight);
@@ -72,15 +73,15 @@ export function createWaveformWater(width = 400, depth = 400) {
 
     // Add Foam/Highlight at peaks
     // We can change color based on height
-    const heightFactor = smoothstep(2.0, 5.0, displacement); // 0 at low, 1 at high peaks
+    const heightFactor = smoothstep(float(2.0), float(5.0), displacement); // 0 at low, 1 at high peaks
     const foamColor = color(0xFFFFFF);
     const waterColor = material.colorNode; // The base color from SeaJelly
 
     // Mix foam into base color
-    material.colorNode = mix(waterColor, foamColor, heightFactor.mul(0.5));
+    material.colorNode = mix(waterColor, foamColor, heightFactor.mul(float(0.5)));
 
     // Optional: Add emission on beat
-    const beatGlow = uAudioLow.mul(0.2); // Subtle glow on kick
+    const beatGlow = uAudioLow.mul(float(0.2)); // Subtle glow on kick
     material.emissiveNode = vec3(0.1, 0.3, 0.6).mul(beatGlow);
 
     const mesh = new THREE.Mesh(geometry, material);
