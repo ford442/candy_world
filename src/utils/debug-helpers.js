@@ -19,19 +19,21 @@ function isValidTSLNode(node) {
  */
 function validateMaterial(mat, objName) {
     if (!mat || !mat.isNodeMaterial) return [];
-
+    
     const errors = [];
     const criticalProps = [
-        'positionNode', 'colorNode', 'normalNode',
+        'positionNode', 'colorNode', 'normalNode', 
         'roughnessNode', 'metalnessNode', 'emissiveNode'
     ];
 
     criticalProps.forEach(prop => {
         const node = mat[prop];
         if (node !== undefined && node !== null) {
+            // Check for plain objects that aren't nodes
             if (typeof node === 'object' && !isValidTSLNode(node)) {
-                errors.push(`[${objName}] material.${prop} is invalid (Object but not Node).`);
+                errors.push(`[${objName}] material.${prop} is invalid (Found Object/Array but not Node).`);
             }
+            // Check for NaN
             if (typeof node === 'number' && isNaN(node)) {
                 errors.push(`[${objName}] material.${prop} is NaN.`);
             }
@@ -50,8 +52,8 @@ export function validateSceneMaterials(scene) {
     const errors = [];
 
     scene.traverse((obj) => {
-        if (!obj.isMesh) return;
-
+        if (!obj.isMesh && !obj.isPoints) return;
+        
         const mat = obj.material;
         if (Array.isArray(mat)) {
             mat.forEach((m, i) => {
@@ -76,16 +78,15 @@ export function validateSceneMaterials(scene) {
 }
 
 /**
- * Patches the renderer to log generic shader errors more verbosely
- * and exposes debug tools to window.
+ * Patches the renderer to expose debug tools to window.
  */
 export function enableRendererDebug(renderer, scene) {
     renderer.debug.checkShaderErrors = true;
-
+    
     // Expose tools to global window scope for console access
     window.renderer = renderer;
     window.scene = scene;
-
+    
     window.debugScene = () => {
         if (!scene) {
             console.error("Scene not captured. Pass scene to enableRendererDebug.");
