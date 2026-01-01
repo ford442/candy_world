@@ -1,7 +1,10 @@
 // src/foliage/aurora.js
 
 import * as THREE from 'three';
-import { color, float, vec3, vec4, time, uv, sin, cos, mix, smoothstep, uniform, Fn, positionWorld } from 'three/tsl';
+import {
+    color, float, vec3, vec4, time, uv, sin, cos, mix, smoothstep, uniform, Fn, positionWorld,
+    mul, add, sub // Functional operators
+} from 'three/tsl';
 import { MeshBasicNodeMaterial } from 'three/webgpu';
 
 // Global uniforms for Aurora control
@@ -21,29 +24,34 @@ export function createAurora() {
 
         // 1. Curtains / Folds Effect
         // Distort UV.x with sine waves based on time to create "moving folds"
-        const timeScaled = time.mul(uAuroraSpeed);
+        const timeScaled = mul(time, uAuroraSpeed);
 
-        const wave1 = sin(vUv.x.mul(20.0).add(timeScaled)).mul(0.1);
-        const wave2 = sin(vUv.x.mul(45.0).sub(timeScaled.mul(1.5))).mul(0.05);
+        // wave1 = sin(vUv.x * 20.0 + timeScaled) * 0.1
+        const wave1 = mul(sin(add(mul(vUv.x, 20.0), timeScaled)), 0.1);
 
-        const distortedX = vUv.x.add(wave1).add(wave2);
+        // wave2 = sin(vUv.x * 45.0 - timeScaled * 1.5) * 0.05
+        const wave2 = mul(sin(sub(mul(vUv.x, 45.0), mul(timeScaled, 1.5))), 0.05);
+
+        // distortedX = vUv.x + wave1 + wave2
+        const distortedX = add(add(vUv.x, wave1), wave2);
 
         // 2. Vertical Bands (The "Rays")
-        const rayIntensity = sin(distortedX.mul(60.0)).mul(0.5).add(0.5);
+        // sin(distortedX * 60.0) * 0.5 + 0.5
+        const rayIntensity = add(mul(sin(mul(distortedX, 60.0)), 0.5), 0.5);
 
         // 3. Vertical Fade (Soft top and bottom)
         // Fade out at bottom (0.0) and top (1.0)
-        const verticalFade = smoothstep(0.0, 0.2, vUv.y).mul(smoothstep(1.0, 0.6, vUv.y));
+        const verticalFade = mul(smoothstep(0.0, 0.2, vUv.y), smoothstep(1.0, 0.6, vUv.y));
 
         // 4. Spectral Color Shift
         // Shift color slightly based on height (vertical position) to simulate "pitch" mapping
-        const spectralShift = vec3(vUv.y.mul(0.5), 0.0, vUv.y.mul(0.2).negate()); // Shift R up, B down slightly
+        const spectralShift = vec3(mul(vUv.y, 0.5), 0.0, mul(vUv.y, 0.2).negate()); // Shift R up, B down slightly
         const baseColor = vec3(uAuroraColor.r, uAuroraColor.g, uAuroraColor.b);
-        const finalColor = baseColor.add(spectralShift);
+        const finalColor = add(baseColor, spectralShift);
 
         // 5. Combine
         // Rays + Folds + Fade + Global Intensity
-        const finalAlpha = rayIntensity.mul(verticalFade).mul(uAuroraIntensity).mul(0.6); // Base 0.6 max opacity
+        const finalAlpha = mul(mul(mul(rayIntensity, verticalFade), uAuroraIntensity), 0.6); // Base 0.6 max opacity
 
         return vec4(finalColor, finalAlpha);
     });

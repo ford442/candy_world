@@ -6,7 +6,8 @@ import {
     color, float, uv, mix, vec3, Fn, uniform, dot, max, min,
     mx_noise_float, mx_fractal_noise_float, positionLocal, positionWorld, normalWorld,
     cameraPosition, sin, pow, abs, normalize, dFdx, dFdy, smoothstep, exp,
-    cross, vec2, vec4
+    cross, vec2, vec4,
+    mul, add, sub, div // Added functional operators
 } from 'three/tsl';
 
 import { uGlitchIntensity, applyGlitch } from './glitch.js';
@@ -68,9 +69,9 @@ export function generateNoiseTexture(size = 256) {
 /**
  * Generates triplanar noise to avoid UV seams on complex geometry.
  */
-// FIX: Removed array destructuring. Fn receives arguments directly.
 export const triplanarNoise = Fn((pos, scale) => {
-    const p = pos.mul(scale);
+    // Use functional mul(a, b)
+    const p = mul(pos, scale);
     const n = abs(normalWorld);
 
     // Sample noise on three planes
@@ -79,45 +80,59 @@ export const triplanarNoise = Fn((pos, scale) => {
     const noiseZ = mx_noise_float(vec3(p.x, p.y, 0.0));
 
     // Blend based on normal facing
-    const blend = n.div(n.x.add(n.y).add(n.z));
-    return noiseX.mul(blend.x).add(noiseY.mul(blend.y)).add(noiseZ.mul(blend.z));
+    // Use functional add/div/mul
+    const nSum = add(n.x, n.y).add(n.z);
+    const blend = div(n, nSum);
+
+    // blend.x * noiseX + blend.y * noiseY + blend.z * noiseZ
+    const termX = mul(noiseX, blend.x);
+    const termY = mul(noiseY, blend.y);
+    const termZ = mul(noiseZ, blend.z);
+
+    return add(termX, termY).add(termZ);
 });
 
 /**
  * Calculates a perturbed normal using finite difference of a noise function.
  * This creates real physical bumps that react to light.
  */
-// FIX: Removed array destructuring.
 export const perturbNormal = Fn((pos, normal, scale, strength) => {
     const eps = float(0.01);
     const s = scale;
 
-    // Sample noise at offsets
-    const n0 = mx_noise_float(pos.mul(s));
-    const nX = mx_noise_float(pos.add(vec3(eps, 0.0, 0.0)).mul(s));
-    const nY = mx_noise_float(pos.add(vec3(0.0, eps, 0.0)).mul(s));
-    const nZ = mx_noise_float(pos.add(vec3(0.0, 0.0, eps)).mul(s));
+    // Sample noise at offsets using functional ops
+    const n0 = mx_noise_float(mul(pos, s));
+
+    const posX = mul(add(pos, vec3(eps, 0.0, 0.0)), s);
+    const nX = mx_noise_float(posX);
+
+    const posY = mul(add(pos, vec3(0.0, eps, 0.0)), s);
+    const nY = mx_noise_float(posY);
+
+    const posZ = mul(add(pos, vec3(0.0, 0.0, eps)), s);
+    const nZ = mx_noise_float(posZ);
 
     // Calculate gradients
-    const dx = nX.sub(n0).div(eps);
-    const dy = nY.sub(n0).div(eps);
-    const dz = nZ.sub(n0).div(eps);
+    const dx = div(sub(nX, n0), eps);
+    const dy = div(sub(nY, n0), eps);
+    const dz = div(sub(nZ, n0), eps);
 
     // Perturb original normal
     const noiseGrad = vec3(dx, dy, dz);
     // Project gradient onto surface tangent plane roughly
-    const perturbed = normalize(normal.sub(noiseGrad.mul(strength)));
+    // normal - noiseGrad * strength
+    const perturbed = normalize(sub(normal, mul(noiseGrad, strength)));
     return perturbed;
 });
 
 // TSL Function for Node usage (legacy rim light helper)
-// FIX: Removed array destructuring.
 export const addRimLight = Fn((baseColorNode, normalNode, viewDirNode) => {
     const rimPower = float(3.0);
     const rimIntensity = float(0.5);
     const NdotV = max(0.0, dot(normalNode, viewDirNode));
-    const rim = float(1.0).sub(NdotV).pow(rimPower).mul(rimIntensity);
-    return baseColorNode.add(rim);
+    // (1.0 - NdotV)^power * intensity
+    const rim = mul(pow(sub(float(1.0), NdotV), rimPower), rimIntensity);
+    return add(baseColorNode, rim);
 });
 
 // --- UNIFIED MATERIAL PIPELINE ---
@@ -203,6 +218,9 @@ export function createUnifiedMaterial(hexColor, options = {}) {
     // But since it's global, we add it. The TSL compiler might optimize if uniform is constant 0?
     // Probably not at runtime.
     // We apply it to Position.
+
+    // Note: applyGlitch definition needs to match this call.
+    // We pass 3 distinct arguments here.
     const glitchRes = applyGlitch(uv(), material.positionNode || positionLocal, uGlitchIntensity);
     material.positionNode = glitchRes.position;
 

@@ -4,7 +4,8 @@ import * as THREE from 'three';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import {
     color, float, vec3, Fn, uniform, sin, cos, time, positionLocal,
-    smoothstep, mix
+    smoothstep, mix,
+    mul, add, sub // Functional operators
 } from 'three/tsl';
 import { CandyPresets } from './common.js';
 
@@ -29,21 +30,28 @@ export function createWaveformWater(width = 400, depth = 400) {
     // --- TSL Displacement Logic ---
     const waterDisplacement = Fn((pos) => {
         // Base rolling wave (Time dependent)
-        const bigWave = sin(pos.x.mul(float(0.05)).add(time.mul(float(0.5)))).mul(float(2.0));
+        // sin(pos.x * 0.05 + time * 0.5) * 2.0
+        const bigWave = mul(sin(add(mul(pos.x, float(0.05)), mul(time, float(0.5)))), float(2.0));
 
         // Bass-driven pulses (Low Freq)
         // Modulate amplitude with uAudioLow
-        const bassWave = cos(pos.z.mul(float(0.1)).sub(time.mul(float(1.0))))
-            .mul(uAudioLow.mul(float(3.0)).add(float(0.5))); // Base 0.5 + Audio impact
+        // cos(pos.z * 0.1 - time * 1.0) * (uAudioLow * 3.0 + 0.5)
+        const bassWave = mul(
+            cos(sub(mul(pos.z, float(0.1)), mul(time, float(1.0)))),
+            add(mul(uAudioLow, float(3.0)), float(0.5))
+        );
 
         // Treble ripples (High Freq)
-        const rippleX = sin(pos.x.mul(float(0.5)).add(time.mul(float(2.0))));
-        const rippleZ = cos(pos.z.mul(float(0.4)).sub(time.mul(float(2.5))));
-        const trebleRipples = rippleX.mul(rippleZ)
-            .mul(uAudioHigh.mul(float(1.5)));
+        // rippleX * rippleZ * (uAudioHigh * 1.5)
+        const rippleX = sin(add(mul(pos.x, float(0.5)), mul(time, float(2.0))));
+        const rippleZ = cos(sub(mul(pos.z, float(0.4)), mul(time, float(2.5))));
+        const trebleRipples = mul(
+            mul(rippleX, rippleZ),
+            mul(uAudioHigh, float(1.5))
+        );
 
         // Combine
-        return bigWave.add(bassWave).add(trebleRipples).mul(uWaveHeight);
+        return mul(add(add(bigWave, bassWave), trebleRipples), uWaveHeight);
     });
 
     // --- Material Setup ---
@@ -63,7 +71,7 @@ export function createWaveformWater(width = 400, depth = 400) {
     const displacement = waterDisplacement(pos);
 
     // Update Y position
-    const newPos = vec3(pos.x, pos.y.add(displacement), pos.z);
+    const newPos = vec3(pos.x, add(pos.y, displacement), pos.z);
     material.positionNode = newPos;
 
     // Recalculate Normals for correct lighting on waves
@@ -78,11 +86,11 @@ export function createWaveformWater(width = 400, depth = 400) {
     const waterColor = material.colorNode; // The base color from SeaJelly
 
     // Mix foam into base color
-    material.colorNode = mix(waterColor, foamColor, heightFactor.mul(float(0.5)));
+    material.colorNode = mix(waterColor, foamColor, mul(heightFactor, float(0.5)));
 
     // Optional: Add emission on beat
-    const beatGlow = uAudioLow.mul(float(0.2)); // Subtle glow on kick
-    material.emissiveNode = vec3(0.1, 0.3, 0.6).mul(beatGlow);
+    const beatGlow = mul(uAudioLow, float(0.2)); // Subtle glow on kick
+    material.emissiveNode = mul(vec3(0.1, 0.3, 0.6), beatGlow);
 
     const mesh = new THREE.Mesh(geometry, material);
     mesh.userData.type = 'water';
