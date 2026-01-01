@@ -8,7 +8,7 @@ import { MeshStandardNodeMaterial } from 'three/webgpu';
 // These are true TSL uniforms now
 export const uCloudRainbowIntensity = uniform(0.0);
 export const uCloudLightningStrength = uniform(0.0);
-export const uCloudLightningColor = uniform(color(0xFFFFFF));
+export const uCloudLightningColor = uniform(new THREE.Color(0xFFFFFF));
 
 // --- Configuration ---
 const puffGeometry = new THREE.IcosahedronGeometry(1, 1);

@@ -5,9 +5,9 @@ import { color, mix, positionWorld, float, uniform, smoothstep, pow, mul, sub } 
 import { MeshBasicNodeMaterial } from 'three/webgpu';
 
 // Export uniforms so main.js and weather.js can drive them
-export const uSkyTopColor = uniform(color(0x7EC8E3));     
-export const uSkyBottomColor = uniform(color(0xFFC5D3)); 
-export const uHorizonColor = uniform(color(0xFFE5CC));   
+export const uSkyTopColor = uniform(new THREE.Color(0x7EC8E3));     
+export const uSkyBottomColor = uniform(new THREE.Color(0xFFC5D3)); 
+export const uHorizonColor = uniform(new THREE.Color(0xFFE5CC));   
 export const uAtmosphereIntensity = uniform(0.3);        
 
 // --- NEW: Export this missing uniform ---
