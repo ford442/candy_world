@@ -46,9 +46,10 @@ export function createWaveformWater(width = 400, depth = 400) {
     const waterColor = material.colorNode; 
 
     material.colorNode = mix(waterColor, foamColor, heightFactor.mul(0.5));
-
-    // FIX: Wrap numbers in float() to prevent TSL crash
+    
     const beatGlow = uAudioLow.mul(0.2); 
+    
+    // FIX: Wrap numbers in float()
     material.emissiveNode = vec3(float(0.1), float(0.3), float(0.6)).mul(beatGlow);
 
     const mesh = new THREE.Mesh(geometry, material);
