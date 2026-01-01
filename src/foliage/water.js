@@ -1,4 +1,3 @@
-
 import * as THREE from 'three';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import {
@@ -26,7 +25,8 @@ export function createWaveformWater(width = 400, depth = 400) {
     geometry.rotateX(-Math.PI / 2); // Lay flat
 
     // --- TSL Displacement Logic ---
-    const waterDisplacement = Fn(([pos]) => {
+    // FIX: Removed array destructuring `([pos])`. Fn receives arguments directly.
+    const waterDisplacement = Fn((pos) => {
         // Base rolling wave (Time dependent)
         const bigWave = sin(pos.x.mul(0.05).add(time.mul(0.5))).mul(2.0);
 
