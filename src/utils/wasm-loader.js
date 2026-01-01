@@ -81,6 +81,18 @@ async function loadEmscriptenModule() {
     try {
         await updateProgress('Loading Native Engine...');
 
+        // --- FIX START ---
+        // Ensure we are using the Native WebAssembly object for Emscripten.
+        // libopenmpt or other libraries might have hijacked the global WebAssembly object
+        // and stripped instantiateStreaming, causing spurious errors and slower loading.
+        if (typeof window !== 'undefined' && window.NativeWebAssembly) {
+            if (window.WebAssembly !== window.NativeWebAssembly) {
+                console.warn('[WASM] Restoring Native WebAssembly API (was hijacked by third-party lib)');
+                window.WebAssembly = window.NativeWebAssembly;
+            }
+        }
+        // --- FIX END ---
+
         // 1. Dynamic Import the generated loader
         // Note: build.sh now outputs to public/candy_native.js
         // Robust strategy for module loading
@@ -344,11 +356,9 @@ export async function initWasm() {
 
 /**
  * WASM-First Parallel Initialization (Strategy 1)
- * 
- * Loads both AssemblyScript and Emscripten modules in parallel for faster startup.
+ * * Loads both AssemblyScript and Emscripten modules in parallel for faster startup.
  * Uses SharedArrayBuffer for cross-module coordination when available.
- * 
- * @param {Object} options
+ * * @param {Object} options
  * @param {Function} options.onProgress - Progress callback (phase, message)
  * @returns {Promise<boolean>} True if at least ASC module loaded successfully
  */
@@ -658,8 +668,7 @@ export function readSpawnCandidates(candidateCount) {
 /**
  * Analyze materials and identify unique shader combinations
  * This enables compileAsync optimizations by pre-deduplicating shader modules
- * 
- * @param {Array<{vertexShaderId: number, fragmentShaderId: number, blendingMode: number, flags: number}>} materials
+ * * @param {Array<{vertexShaderId: number, fragmentShaderId: number, blendingMode: number, flags: number}>} materials
  * @returns {{uniqueCount: number, shaders: Array<{vertexId: number, fragmentId: number, blendMode: number, flags: number}>}}
  */
 export function analyzeMaterials(materials) {
