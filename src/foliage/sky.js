@@ -24,7 +24,7 @@ export function createSky() {
     // Assuming you wanted to shift the "center" of the sky gradient calculation down by 40 units
     const adjustedPos = positionWorld.add(vec3(0.0, offsetVal, 0.0));
 
-    const h = adjustedPos.normalize().y;
+const h = positionWorld.add(vec3(0.0, offset, 0.0)).normalize().y; // NEW FIXED LINE
     const heightFactor = h.max(0.0).pow(exponent);
     
     // Atmospheric scattering
