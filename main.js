@@ -1,4 +1,7 @@
 import * as THREE from 'three';
+
+import { installDiagnostics } from './src/utils/tsl-diagnostics.js';
+
 import { uWindSpeed, uWindDirection, uSkyTopColor, uSkyBottomColor, uHorizonColor, uAtmosphereIntensity, uStarPulse, uStarOpacity, uAuroraIntensity, uAuroraColor, uAudioLow, uAudioHigh, createAurora, updateMoon, animateFoliage, updateFoliageMaterials, updateFireflies, updateFallingBerries, collectFallingBerries, createFlower, createMushroom, validateNodeGeometries } from './src/foliage/index.js';
 import { initCelestialBodies } from './src/foliage/celestial-bodies.js';
 import { MelodyRibbon, createKickOverlay, uKickIntensity } from './src/foliage/index.js';
@@ -43,6 +46,17 @@ const _weatherBiasOutput = { biasState: 'clear', biasIntensity: 0, type: 'clear'
 
 // 1. Scene & Render Loop Setup
 const { scene, camera, renderer, ambientLight, sunLight, sunGlow, sunCorona, lightShaftGroup, sunGlowMat, coronaMat } = initScene();
+
+// [3] ADD THIS BLOCK immediately after initScene():
+// -----------------------------------------------------
+// Expose for debugging
+window.scene = scene;
+window.renderer = renderer;
+
+// Install the TSL Diagnostic tool immediately using the local 'scene' variable
+installDiagnostics(scene);
+console.log("✅ TSL Diagnostics installed. Call window.scanForTSLErrors() to debug.");
+// -----------------------------------------------------
 
 // 2. Audio & Systems (Initialize but defer heavy loading)
 const audioSystem = new AudioSystem();
