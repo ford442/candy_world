@@ -9,6 +9,7 @@ import {
     activeVineSwing, setActiveVineSwing, lastVineDetachTime, setLastVineDetachTime, vineSwings
 } from '../world/state.js';
 import { profiler } from '../utils/profiler.js';
+import { SpatialHashGrid } from '../utils/spatial-hash.js';
 
 // --- Configuration ---
 const PLAYER_RADIUS = 0.5;
@@ -66,6 +67,14 @@ export const grooveGravity = {
 // C++ Physics Init Flag
 let cppPhysicsInitialized = false;
 let foliageCaves = []; // Store caves for collision checks
+
+// Spatial Hash Grids for Collision Optimization (Tier 1 Optimization)
+// Each grid partitions space into 10x10 unit cells for fast spatial queries
+let caveGrid = null;
+let mushroomGrid = null;
+let cloudGrid = null;
+let vineGrid = null;
+let spatialHashEnabled = false; // Flag to enable/disable optimization
 
 // --- Public API ---
 
@@ -328,7 +337,9 @@ function resolveSpecialCollisions(delta, camera, keyStates, audioState) {
 
     // 1. Water Gates (Cave Blockers)
     // If not swimming (meaning we are walking into it), push back
-    foliageCaves.forEach(cave => {
+    const nearbyCaves = spatialHashEnabled ? caveGrid.query(playerPos.x, playerPos.z) : foliageCaves;
+    
+    nearbyCaves.forEach(cave => {
         if (cave.userData.isBlocked) {
             // Bolt Optimization: Reuse scratch vector
             _scratchGatePos.copy(cave.userData.gatePosition).applyMatrix4(cave.matrixWorld);
@@ -351,8 +362,10 @@ function resolveSpecialCollisions(delta, camera, keyStates, audioState) {
         }
     });
 
-    // 2. Mushroom Caps (Trampolines/Platforms) - JS Check
-    for (const mush of foliageMushrooms) {
+    // 2. Mushroom Caps (Trampolines/Platforms) - JS Check with Spatial Hash Optimization
+    const nearbyMushrooms = spatialHashEnabled ? mushroomGrid.query(playerPos.x, playerPos.z) : foliageMushrooms;
+    
+    for (const mush of nearbyMushrooms) {
         if (player.velocity.y < 0) {
             const capR = mush.userData.capRadius || 2.0;
             const capRSq = capR * capR;
@@ -384,9 +397,11 @@ function resolveSpecialCollisions(delta, camera, keyStates, audioState) {
         }
     }
 
-    // 3. Cloud Walking (Simplified)
+    // 3. Cloud Walking (Simplified) - with Spatial Hash Optimization
     if (playerPos.y > 15) {
-        for (const cloud of foliageClouds) {
+        const nearbyClouds = spatialHashEnabled ? cloudGrid.query(playerPos.x, playerPos.z) : foliageClouds;
+        
+        for (const cloud of nearbyClouds) {
             const dx = playerPos.x - cloud.position.x;
             const dz = playerPos.z - cloud.position.z;
             const radius = (cloud.scale.x || 1.0) * 2.0;
@@ -429,11 +444,46 @@ function initCppPhysics(camera) {
         addObstacle(2, t.position.x, t.position.y, t.position.z, t.userData.bounceRadius||0.5, t.userData.bounceHeight||0.5, t.userData.bounceForce||12, 0, 0);
     }
     console.log('[Physics] C++ Physics Initialized.');
+
+    // Initialize Spatial Hash Grids (Tier 1 Optimization)
+    // Cell size of 10 units chosen based on typical collision radii (2-5 units)
+    caveGrid = new SpatialHashGrid(10);
+    mushroomGrid = new SpatialHashGrid(10);
+    cloudGrid = new SpatialHashGrid(10);
+    vineGrid = new SpatialHashGrid(10);
+
+    // Populate grids with static objects
+    foliageCaves.forEach(cave => {
+        caveGrid.insert(cave, cave.position.x, cave.position.z);
+    });
+
+    foliageMushrooms.forEach(mush => {
+        mushroomGrid.insert(mush, mush.position.x, mush.position.z);
+    });
+
+    foliageClouds.forEach(cloud => {
+        cloudGrid.insert(cloud, cloud.position.x, cloud.position.z);
+    });
+
+    vineSwings.forEach(vine => {
+        vineGrid.insert(vine, vine.anchorPoint.x, vine.anchorPoint.z);
+    });
+
+    spatialHashEnabled = true;
+
+    // Log spatial hash statistics
+    console.log('[Physics] Spatial Hash Grids Initialized:');
+    console.log('  - Caves:', caveGrid.getStats());
+    console.log('  - Mushrooms:', mushroomGrid.getStats());
+    console.log('  - Clouds:', cloudGrid.getStats());
+    console.log('  - Vines:', vineGrid.getStats());
 }
 
 function checkVineAttachment(camera) {
     const playerPos = camera.position;
-    for (const vineManager of vineSwings) {
+    const nearbyVines = spatialHashEnabled ? vineGrid.query(playerPos.x, playerPos.z) : vineSwings;
+    
+    for (const vineManager of nearbyVines) {
         const dx = playerPos.x - vineManager.anchorPoint.x;
         const dz = playerPos.z - vineManager.anchorPoint.z;
 
