@@ -1,11 +1,10 @@
 // src/foliage/clouds.js
 
 import * as THREE from 'three';
-import { color, uniform, mix, vec3 } from 'three/tsl';
+import { color, uniform, mix, vec3, float } from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 
 // --- Global Uniforms (Driven by WeatherSystem) ---
-// These are true TSL uniforms now
 export const uCloudRainbowIntensity = uniform(0.0);
 export const uCloudLightningStrength = uniform(0.0);
 export const uCloudLightningColor = uniform(new THREE.Color(0xFFFFFF));
@@ -14,21 +13,19 @@ export const uCloudLightningColor = uniform(new THREE.Color(0xFFFFFF));
 const puffGeometry = new THREE.IcosahedronGeometry(1, 1);
 
 // Helper: Create the TSL Material
-// This gives us the "Matte White" look BUT with Emissive Lightning support
 function createCloudMaterial() {
     const material = new MeshStandardNodeMaterial({
         color: 0xffffff,     // Pure cotton white base
-        roughness: 1.0,      // Completely matte (cotton)
+        roughness: 1.0,      // Completely matte
         metalness: 0.0,
         flatShading: false,
     });
 
     // TSL Logic:
-    // Emission = Lightning Color * Lightning Strength
-    // This allows the cloud to glow with the Note Color on the beat
-    const lightningGlow = uCloudLightningColor.mul(uCloudLightningStrength.mul(2.0)); // Boosted intensity
+    // Emission = Lightning Color * Lightning Strength * Multiplier
+    // FIX: Explicitly wrap multiplier in float() to prevent any type ambiguity
+    const lightningGlow = uCloudLightningColor.mul(uCloudLightningStrength.mul(float(2.0)));
 
-    // We can also mix in a bit of rainbow if desired, but let's keep it clean for now:
     material.emissiveNode = lightningGlow;
 
     return material;
@@ -37,7 +34,6 @@ function createCloudMaterial() {
 const sharedCloudMaterial = createCloudMaterial();
 
 export function createRainingCloud(options = {}) {
-    // Map old API to new
     const { scale = 1.0, size = 1.0 } = options;
     const finalScale = scale * (typeof size === 'number' ? size : 1.0);
     return createCloud({ scale: finalScale });
@@ -57,7 +53,6 @@ export function createCloud(options = {}) {
 
     // Generate the cloud by clustering "puffs"
     for (let i = 0; i < puffCount; i++) {
-        // Use the TSL Material
         const puff = new THREE.Mesh(puffGeometry, sharedCloudMaterial);
 
         const radiusSpread = (Math.random() * 2.5 + 0.5) * scale;
