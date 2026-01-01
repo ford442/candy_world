@@ -68,7 +68,8 @@ export function generateNoiseTexture(size = 256) {
 /**
  * Generates triplanar noise to avoid UV seams on complex geometry.
  */
-export const triplanarNoise = Fn(([pos, scale]) => {
+// FIX: Removed array destructuring. Fn receives arguments directly.
+export const triplanarNoise = Fn((pos, scale) => {
     const p = pos.mul(scale);
     const n = abs(normalWorld);
 
@@ -86,7 +87,8 @@ export const triplanarNoise = Fn(([pos, scale]) => {
  * Calculates a perturbed normal using finite difference of a noise function.
  * This creates real physical bumps that react to light.
  */
-export const perturbNormal = Fn(([pos, normal, scale, strength]) => {
+// FIX: Removed array destructuring.
+export const perturbNormal = Fn((pos, normal, scale, strength) => {
     const eps = float(0.01);
     const s = scale;
 
@@ -109,7 +111,8 @@ export const perturbNormal = Fn(([pos, normal, scale, strength]) => {
 });
 
 // TSL Function for Node usage (legacy rim light helper)
-export const addRimLight = Fn(([baseColorNode, normalNode, viewDirNode]) => {
+// FIX: Removed array destructuring.
+export const addRimLight = Fn((baseColorNode, normalNode, viewDirNode) => {
     const rimPower = float(3.0);
     const rimIntensity = float(0.5);
     const NdotV = max(0.0, dot(normalNode, viewDirNode));
@@ -598,7 +601,7 @@ export function validateNodeGeometries(scene) {
                             let ancestorName = null;
                             let depth = 0;
                             while (anc && depth < 10) {
-                                if (anc.userData && anc.userData.type) {
+                                if (anc && anc.userData && anc.userData.type) {
                                     ancestorType = anc.userData.type;
                                     ancestorName = anc.name || anc.userData.type;
                                     break;
