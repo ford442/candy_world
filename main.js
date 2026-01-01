@@ -582,7 +582,7 @@ function animate() {
     profiler.endFrame();
 }
 
-initWasmParallel().then(async (wasmLoaded) => { // Mark as async - using parallel loading for faster startup
+initWasmParallel().then(async (wasmLoaded) => { // Using parallel WASM loading for faster startup
     console.log(`WASM modules ${wasmLoaded ? 'active (loaded in parallel)' : 'using JS fallbacks'}`);
 
     // Initialize camera position to ground height (ensures player doesn't start in mid-air or underground)
