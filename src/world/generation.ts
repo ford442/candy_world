@@ -466,7 +466,8 @@ async function populateProceduralExtrasAsync(weatherSystem: WeatherSystem, onPro
     console.log("[World] Populating procedural extras (async)...");
     if ((window as any).setLoadingStatus) (window as any).setLoadingStatus("Growing Procedural Flora...");
     
-    const extrasCount = 40;
+    // Increased from 40 to 200 (Target: 600) to improve density while monitoring performance
+    const extrasCount = 200;
     const range = 150;
     const BATCH_SIZE = 5; // Process 5 extras per batch
     
@@ -595,7 +596,8 @@ function processProceduralExtra(index: number, range: number, weatherSystem: Wea
 function populateProceduralExtras(weatherSystem: WeatherSystem): void {
     console.log("[World] Populating procedural extras...");
     if ((window as any).setLoadingStatus) (window as any).setLoadingStatus("Growing Procedural Flora...");
-    const extrasCount = 40;
+    // Increased from 40 to 200 (Target: 600) to improve density while monitoring performance
+    const extrasCount = 200;
     const range = 150;
 
     for (let i = 0; i < extrasCount; i++) {

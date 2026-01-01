@@ -10,7 +10,8 @@ import { attachReactivity } from './common.js';
 export const moonConfig = {
     blinkDuration: 0.2, // seconds
     danceAmplitude: 0.5,
-    danceSpeed: 2.0
+    danceSpeed: 2.0,
+    blinkOnBeat: true
 };
 
 export function createMoon() {
@@ -100,6 +101,14 @@ export function updateMoon(moon, delta, audioData) {
 
     // Beat bounce
     const beatBounce = Math.max(0, Math.sin(beatPhase * Math.PI * 2)) * groove * 2.0;
+
+    // Blink on Beat: Check if we are on a strong beat (phase near 0 or 1)
+    if (moonConfig.blinkOnBeat && groove > 0.5) {
+        // Trigger blink if near the beat (within 0.1 phase window) and debounce
+        if (beatPhase < 0.1 && moon.userData.blinkTimer <= 0) {
+            triggerMoonBlink(moon);
+        }
+    }
 
     const mesh = moon.children[0];
     if (mesh) {
