@@ -44,9 +44,11 @@ export function createAurora() {
         const verticalFade = mul(smoothstep(0.0, 0.2, vUv.y), smoothstep(1.0, 0.6, vUv.y));
 
         // 4. Spectral Color Shift
-        // Shift color slightly based on height (vertical position) to simulate "pitch" mapping
-        const spectralShift = vec3(mul(vUv.y, 0.5), 0.0, mul(vUv.y, 0.2).negate()); // Shift R up, B down slightly
-        const baseColor = vec3(uAuroraColor.r, uAuroraColor.g, uAuroraColor.b);
+        // FIX: Wrap 0.0 in float(0.0) to prevent mixed-type errors in vec3
+        const spectralShift = vec3(mul(vUv.y, 0.5), float(0.0), mul(vUv.y, 0.2).negate());
+
+        // Convert uniform color to node vec3 explicitly to be safe
+        const baseColor = vec3(uAuroraColor);
         const finalColor = add(baseColor, spectralShift);
 
         // 5. Combine

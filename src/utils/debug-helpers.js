@@ -4,75 +4,95 @@ import * as THREE from 'three';
 
 /**
  * Recursively checks if a value is a valid TSL Node.
- * TSL Nodes usually have isNode=true or a build() method.
  */
 function isValidTSLNode(node) {
     if (node === undefined || node === null) return true; // Optional nodes are fine
-    if (typeof node === 'number') return true; // TSL handles raw numbers (auto-promotes to float/int)
+    if (typeof node === 'number') return true; // TSL handles raw numbers
     if (node.isNode === true) return true; 
     if (typeof node.build === 'function') return true; // Proxy nodes
-    
-    // If it's a vector/color, TSL might accept it, but safer to wrap in vec3/color
     if (node.isVector2 || node.isVector3 || node.isColor) return true; 
-
     return false;
 }
 
 /**
- * Scans the scene for materials with invalid TSL node assignments.
- * Prints detailed errors to the console to help locate the crash source.
+ * Validates a single material.
+ */
+function validateMaterial(mat, objName) {
+    if (!mat || !mat.isNodeMaterial) return [];
+
+    const errors = [];
+    const criticalProps = [
+        'positionNode', 'colorNode', 'normalNode',
+        'roughnessNode', 'metalnessNode', 'emissiveNode'
+    ];
+
+    criticalProps.forEach(prop => {
+        const node = mat[prop];
+        if (node !== undefined && node !== null) {
+            if (typeof node === 'object' && !isValidTSLNode(node)) {
+                errors.push(`[${objName}] material.${prop} is invalid (Object but not Node).`);
+            }
+            if (typeof node === 'number' && isNaN(node)) {
+                errors.push(`[${objName}] material.${prop} is NaN.`);
+            }
+        }
+    });
+    return errors;
+}
+
+/**
+ * Scans the entire scene for TSL errors.
+ * Call this from the browser console via: window.debugScene()
  */
 export function validateSceneMaterials(scene) {
     console.group("🔍 [Debug] Validating Scene Materials...");
     let issuesFound = 0;
+    const errors = [];
 
     scene.traverse((obj) => {
         if (!obj.isMesh) return;
+
         const mat = obj.material;
-        if (!mat || !mat.isNodeMaterial) return;
-
-        const objName = obj.name || obj.userData?.type || 'Unnamed Mesh';
-        const matName = mat.name || 'Unnamed Material';
-
-        // 1. Check for 'undefined' generic nodes which crash the builder
-        const criticalProps = [
-            'positionNode', 'colorNode', 'normalNode', 
-            'roughnessNode', 'metalnessNode', 'emissiveNode'
-        ];
-
-        for (const prop of criticalProps) {
-            const node = mat[prop];
-            if (node !== undefined && node !== null) {
-                // ERROR: Plain Object assignment (Common mistake with applyGlitch)
-                if (typeof node === 'object' && !isValidTSLNode(node)) {
-                    console.error(`❌ [${objName}] material.${prop} is INVALID.`);
-                    console.error(`   Expected TSL Node, got:`, node);
-                    console.error(`   (If this is {uv, position}, you forgot to access .position)`);
-                    issuesFound++;
-                }
-                
-                // WARNING: NaN usage
-                if (typeof node === 'number' && isNaN(node)) {
-                    console.error(`❌ [${objName}] material.${prop} is NaN!`);
-                    issuesFound++;
-                }
-            }
+        if (Array.isArray(mat)) {
+            mat.forEach((m, i) => {
+                const errs = validateMaterial(m, `${obj.name || obj.type}[${i}]`);
+                errors.push(...errs);
+            });
+        } else {
+            const errs = validateMaterial(mat, obj.name || obj.type);
+            errors.push(...errs);
         }
     });
 
-    if (issuesFound === 0) {
-        console.log("✅ No obvious TSL material structure errors found.");
+    if (errors.length === 0) {
+        console.log("✅ No obvious TSL structure errors found.");
     } else {
-        console.warn(`⚠️ Found ${issuesFound} potential material issues. Check console errors above.`);
+        console.warn(`⚠️ Found ${errors.length} issues:`);
+        errors.forEach(e => console.error(e));
+        issuesFound = errors.length;
     }
     console.groupEnd();
+    return issuesFound;
 }
 
 /**
  * Patches the renderer to log generic shader errors more verbosely
+ * and exposes debug tools to window.
  */
-export function enableRendererDebug(renderer) {
+export function enableRendererDebug(renderer, scene) {
     renderer.debug.checkShaderErrors = true;
-    window.renderer = renderer; // Expose to console
-    console.log("🔧 [Debug] Renderer debug mode enabled. Access via 'window.renderer'");
+
+    // Expose tools to global window scope for console access
+    window.renderer = renderer;
+    window.scene = scene;
+
+    window.debugScene = () => {
+        if (!scene) {
+            console.error("Scene not captured. Pass scene to enableRendererDebug.");
+            return;
+        }
+        validateSceneMaterials(scene);
+    };
+
+    console.log("🔧 [Debug] Tools enabled. Run 'window.debugScene()' in console to scan materials.");
 }

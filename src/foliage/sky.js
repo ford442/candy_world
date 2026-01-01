@@ -1,7 +1,7 @@
 // src/foliage/sky.js
 
 import * as THREE from 'three';
-import { color, mix, positionWorld, float, uniform, smoothstep, pow, mul, sub } from 'three/tsl';
+import { color, mix, positionWorld, float, uniform, smoothstep, pow, mul, sub, vec3 } from 'three/tsl';
 import { MeshBasicNodeMaterial } from 'three/webgpu';
 
 // Export uniforms so main.js and weather.js can drive them
@@ -17,10 +17,14 @@ export const uSkyDarkness = uniform(0.0); // 0.0 = Normal, 1.0 = Pitch Black
 export function createSky() {
     const skyGeo = new THREE.SphereGeometry(1000, 32, 24); 
 
-    const offset = float(40.0);   
+    const offsetVal = float(40.0);
     const exponent = float(0.6);  
 
-    const h = positionWorld.add(offset).normalize().y;
+    // FIX: Add vec3 to vec3.
+    // Assuming you wanted to shift the "center" of the sky gradient calculation down by 40 units
+    const adjustedPos = positionWorld.add(vec3(0.0, offsetVal, 0.0));
+
+    const h = adjustedPos.normalize().y;
     const heightFactor = h.max(0.0).pow(exponent);
     
     // Atmospheric scattering
@@ -44,4 +48,3 @@ export function createSky() {
     const sky = new THREE.Mesh(skyGeo, skyMat);
     return sky;
 }
-
