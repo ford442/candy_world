@@ -59,7 +59,9 @@ export function createMushroom(options = {}) {
 
     // Shape variations based on note (0-11 creates subtle differences)
     const noteVariation = actualNoteIndex >= 0 ? actualNoteIndex / 11.0 : Math.random();
-    const baseScale = isGiant ? 8.0 * scale : 1.0 * scale;
+    
+    // REDUCED: Changed from 8.0 to 5.0 to prevent them from covering the map
+    const baseScale = isGiant ? 5.0 * scale : 1.0 * scale;
     
     // Subtle shape variations by note
     // Lower notes (C, C#, D) = shorter, wider; Higher notes (A, A#, B) = taller, thinner
