@@ -658,3 +658,10 @@ initWasmParallel().then(async (wasmLoaded) => { // Using parallel WASM loading f
     // Note: libopenmpt audio library is loaded via script tag in index.html with a 500ms delay
     // No additional initialization needed here - it's handled by the index.html script
 });
+
+import { installDiagnostics } from './utils/tsl-diagnostics.js';
+
+installDiagnostics(scene);
+
+// Optional: Run it automatically once after load
+setTimeout(() => window.scanForTSLErrors(), 5000);
