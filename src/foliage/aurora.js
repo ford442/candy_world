@@ -9,7 +9,7 @@ import { MeshBasicNodeMaterial } from 'three/webgpu';
 
 // Global uniforms for Aurora control
 export const uAuroraIntensity = uniform(0.0); // 0.0 to 1.0
-export const uAuroraColor = uniform(color(0x00FF99)); // Base color (Greenish default)
+export const uAuroraColor = uniform(new THREE.Color(0x00FF99)); // Base color (Greenish default)
 export const uAuroraSpeed = uniform(0.2); // Speed of the wave movement
 
 export function createAurora() {

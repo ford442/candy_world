@@ -40,7 +40,7 @@ let reactivityCounter = 0;
 export const reactiveMaterials = []; 
 export const _foliageReactiveColor = new THREE.Color(); 
 export const uWindSpeed = uniform(0.0);
-export const uWindDirection = uniform(vec3(1, 0, 0));
+export const uWindDirection = uniform(new THREE.Vector3(1, 0, 0));
 export const uTime = uniform(0.0); // Global time uniform for animated materials
 
 // --- UTILITY FUNCTIONS ---

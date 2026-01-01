@@ -7,7 +7,7 @@ import { PointsNodeMaterial } from 'three/webgpu';
 // Global uniform for star pulse (driven by music)
 export const uStarPulse = uniform(0.0); // 0 to 1
 // Re-added: The target color for the pulse (driven by current note/beat)
-export const uStarColor = uniform(color(0xFFFFFF));
+export const uStarColor = uniform(new THREE.Color(0xFFFFFF));
 export const uStarOpacity = uniform(0.0); // Controls visibility (Day/Night)
 
 export function createStars(count = 1500) {

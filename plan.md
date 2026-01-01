@@ -332,3 +332,95 @@ Three.js Renderer -> WebGPU RenderPipeline (Raw Draw Calls)
   - **Migrate to TypeScript**: Continue Phase 1 of the migration roadmap.
   - **Fine-Tune Glitch Triggers**: Currently mapped to Retrigger/Arpeggio. Explore exposing raw `9xx` commands from `libopenmpt` worklet for precise control.
   - **Optimize Ribbons**: The ribbon geometry update is CPU-bound. Consider moving to a GPU-based trail renderer using `InstancedMesh` ring buffers if performance drops with multiple ribbons.
+
+---
+
+## Bug Fix: TSL getNodeType Error (January 2026)
+
+### Problem Summary
+
+The game was failing to start with the console error:
+```
+Uncaught TypeError: i.getNodeType is not a function
+    at Proxy.getNodeType (index-Yt_u6Fib.js:40:106397)
+    at Proxy.setup (index-Yt_u6Fib.js:59:81452)
+    at Proxy.build (index-Yt_u6Fib.js:40:88889)
+```
+
+This error appeared multiple times (426+ occurrences) during startup, preventing the game from loading.
+
+### Root Cause
+
+The error was caused by **incorrect usage of the TSL `uniform()` function** in several foliage modules.
+
+In Three.js TSL (Three Shading Language), the `uniform()` function expects **JavaScript/Three.js objects** as values, not TSL nodes:
+
+**Incorrect Usage:**
+```javascript
+// WRONG: Passing TSL node constructors to uniform()
+export const uWindDirection = uniform(vec3(1, 0, 0));       // vec3 is a TSL node
+export const uSkyTopColor = uniform(color(0x7EC8E3));       // color is a TSL node
+```
+
+**Correct Usage:**
+```javascript
+// CORRECT: Passing Three.js objects to uniform()
+export const uWindDirection = uniform(new THREE.Vector3(1, 0, 0));
+export const uSkyTopColor = uniform(new THREE.Color(0x7EC8E3));
+```
+
+### Technical Explanation
+
+In Three.js TSL:
+
+1. **`uniform(value)`** - Creates a uniform node that wraps a JavaScript value (number, Vector3, Color, etc.)
+   - The `.value` property of the returned uniform can be accessed and modified at runtime
+   - Examples: `uniform(0.5)`, `uniform(new THREE.Vector3())`, `uniform(new THREE.Color())`
+
+2. **`vec3(x, y, z)`** - Creates a TSL vec3 constant/literal node
+   - This is for inline shader values, not for creating uniforms
+   - Example: `vec3(1.0, 0.0, 0.0)` in shader expressions
+
+3. **`color(hex)`** - Creates a TSL color constant node
+   - Similar to vec3, this is for inline shader color literals
+
+When a TSL node (like `vec3()` or `color()`) is passed to `uniform()`, the internal machinery tries to call `.getNodeType()` on the wrapped value, but JavaScript primitives/Three.js objects don't have this method, causing the error.
+
+### Files Fixed
+
+| File | Line | Before | After |
+|------|------|--------|-------|
+| `src/foliage/common.js` | 43 | `uniform(vec3(1, 0, 0))` | `uniform(new THREE.Vector3(1, 0, 0))` |
+| `src/foliage/sky.js` | 8 | `uniform(color(0x7EC8E3))` | `uniform(new THREE.Color(0x7EC8E3))` |
+| `src/foliage/sky.js` | 9 | `uniform(color(0xFFC5D3))` | `uniform(new THREE.Color(0xFFC5D3))` |
+| `src/foliage/sky.js` | 10 | `uniform(color(0xFFE5CC))` | `uniform(new THREE.Color(0xFFE5CC))` |
+| `src/foliage/stars.js` | 10 | `uniform(color(0xFFFFFF))` | `uniform(new THREE.Color(0xFFFFFF))` |
+| `src/foliage/aurora.js` | 12 | `uniform(color(0x00FF99))` | `uniform(new THREE.Color(0x00FF99))` |
+| `src/foliage/clouds.js` | 11 | `uniform(color(0xFFFFFF))` | `uniform(new THREE.Color(0xFFFFFF))` |
+
+### Prevention Guidelines
+
+When working with TSL in this codebase:
+
+1. **Always use Three.js objects for uniforms**:
+   - For numbers: `uniform(0.0)` ✓
+   - For vectors: `uniform(new THREE.Vector3(...))` ✓
+   - For colors: `uniform(new THREE.Color(...))` ✓
+
+2. **Use TSL node constructors only in shader expressions**:
+   - `material.colorNode = vec3(1.0, 0.0, 0.0)` - inline constant
+   - `material.positionNode = positionLocal.add(vec3(0, offset, 0))` - inline calculation
+
+3. **Remember the pattern for existing uniforms**:
+   - `uniform()` wraps Three.js objects
+   - The uniform's `.value` property holds the Three.js object
+   - Runtime updates use: `myUniform.value.set(...)` or `myUniform.value.copy(...)`
+
+### Verification
+
+After the fix, run:
+```bash
+npm run build:wasm && npx vite build
+```
+
+The build should complete without errors, and the game should start without the `getNodeType` console errors.
