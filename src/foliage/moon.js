@@ -22,10 +22,9 @@ export function createMoon() {
     const geo = new THREE.SphereGeometry(15, 32, 32);
 
     // TSL Material for Moon Surface + Blink
-    const mat = new MeshStandardNodeMaterial({
-        roughness: 0.8,
-        metalness: 0.1
-    });
+    const mat = new MeshStandardNodeMaterial();
+    mat.roughnessNode = float(0.8);
+    mat.metalnessNode = float(0.1);
 
     // Base Color (Pale Blue/White)
     const baseColor = color(0xDDEEFF);

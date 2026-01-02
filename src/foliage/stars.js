@@ -86,7 +86,8 @@ export function createStars(count = 1500) {
 
     // FIX: Don't multiply vec4 by color node - just use finalRGB directly with opacity
     // mat.color is a THREE.Color used for fallback/multiplier, already handled by PointsNodeMaterial
-    mat.colorNode = vec4(finalRGB, uStarOpacity);
+    mat.colorNode = finalRGB;
+    mat.opacityNode = uStarOpacity;
     
     // FIX: Wrap 0.3 in float()
     mat.sizeNode = aSize.mul(intensity.max(float(0.3)));
