@@ -34,33 +34,33 @@ fi
 # We must explicitly enable the features we used in compilation.
 echo "🔧 Optimizing Physics WASM..."
 wasm-opt "$PHYSICS_WASM" -o "$PHYSICS_WASM" \
-  -O4 \
+  -O3 \
   --converge \
   --strip-debug \
   --enable-simd \
   --enable-threads \
   --enable-bulk-memory \
   --enable-relaxed-simd \
-  --enable-nontrapping-float-to-int \
-  --enable-exception-handling
+  --enable-nontrapping-float-to-int
+
 echo "🔧 Optimizing Physics WASM (wasmedge)..."
-#wasmedgec --optimize=3 --enable-all "$PHYSICS_WASM" "$PHYSICS_WASM"
+#wasmedge compile --optimize=3 "$PHYSICS_WASM" "$PHYSICS_WASM"
 
 # 4. Optimize Emscripten WASM (Native Effects)
 # Emscripten -O3 does a lot, but wasm-opt can usually squeeze another 5-10%
-#echo "🔧 Optimizing Native WASM..."
-#wasm-opt "$NATIVE_WASM" -o "$NATIVE_WASM" \
-#  -O3 \
-#  --converge \
-#  --strip-debug \
-#  --enable-simd \
-#  --enable-threads \
-#  --enable-relaxed-simd \
-#  --enable-bulk-memory \
-#  --enable-nontrapping-float-to-int \
-#  --enable-exception-handling
+echo "🔧 Optimizing Native WASM..."
+wasm-opt "$NATIVE_WASM" -o "$NATIVE_WASM" \
+  -O3 \
+  --converge \
+  --strip-debug \
+  --enable-simd \
+  --enable-threads \
+  --enable-relaxed-simd \
+  --enable-bulk-memory \
+  --enable-nontrapping-float-to-int
+  
 #echo "🔧 Optimizing Native WASM (wasmedge)..."
-#wasmedge compile --optimize=3 --enable-all "$NATIVE_WASM" "$NATIVE_WASM"
+#wasmedge compile --optimize=3 "$NATIVE_WASM" "$NATIVE_WASM"
 
 # 5. Minify Emscripten Loaders (Safety First)
 # We use -c (compress) and -m (mangle) but KEEP function names to avoid breaking

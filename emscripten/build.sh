@@ -22,7 +22,9 @@ CANDIDATES=(
 for f in "${CANDIDATES[@]}"; do
     if [ -f "$f" ]; then source "$f"; break; fi
 done
-source /content/build_space/emsdk/emsdk_env.sh
+
+# source /content/build_space/emsdk/emsdk_env.sh
+
 OUTPUT_JS="$REPO_ROOT/public/candy_native.js"
 
 # ---------------------------------------------------------
@@ -30,18 +32,14 @@ OUTPUT_JS="$REPO_ROOT/public/candy_native.js"
 # ---------------------------------------------------------
 # -O2: High optimization but safer than -O3 (avoids aggressive renaming)
 # -g0: Debug info disabled (keeps size down)
-COMPILE_FLAGS="-O2 -msimd128 -mrelaxed-simd -ffast-math -flto -flto=thin -fno-exceptions -fno-rtti -funroll-loops -mbulk-memory -fopenmp -pthread"
+COMPILE_FLAGS="-O3 -msimd128 -mrelaxed-simd -ffast-math -flto -flto=thin -fno-exceptions -fno-rtti -funroll-loops -mbulk-memory -fopenmp -pthread"
 
 # ---------------------------------------------------------
 # LINKER FLAGS
 # ---------------------------------------------------------
 # -s MINIFY_WASM_IMPORTS_AND_EXPORTS=0: CRITICAL FIX. Prevents renaming 'env' to 'a'
 # -s SHRINK_LEVEL=0: Disables aggressive shrinking
-LINK_FLAGS="-O2 -std=c++17 -lembind -s USE_PTHREADS=1 -s PTHREAD_POOL_SIZE=4 -s WASM=1 -s WASM_BIGINT=1 \
--s ALLOW_MEMORY_GROWTH=0 -s TOTAL_STACK=16MB -s MEMORY64=1 -s INITIAL_MEMORY=2GB -s ASSERTIONS=1 -s EXPORT_ES6=1 -s EXPORTED_RUNTIME_METHODS=["wasmMemory"] \
--s MODULARIZE=1 -s EXPORT_NAME='createCandyNative' -s ENVIRONMENT='web','worker' \
--flto -flto=thin -fwasm-exceptions -s WASM_WORKERS=1 -matomics -mbulk-memory"
-
+LINK_FLAGS="-O1 -g -s ASSERTIONS=2 -s USE_PTHREADS=1 -s PTHREAD_POOL_SIZE=4 -s WASM=1 -s WASM_BIGINT=1 -s ALLOW_MEMORY_GROWTH=1 -s INITIAL_MEMORY=512mb -s EXPORT_ES6=1 -s MODULARIZE=1 -s EXPORT_NAME='createCandyNative' -s ENVIRONMENT='web','worker' -flto -flto=thin -s DISABLE_EXCEPTION_CATCHING=1 -sEXPORTED_RUNTIME_METHODS=['ccall','cwrap','getValue','setValue']"
 EXPORTS="[ \
     '_hash', \
     '_valueNoise2D', \
@@ -54,9 +52,6 @@ EXPORTS="[ \
     '_batchDistances', \
     '_batchDistanceCull_c', \
     '_batchSinWave', \
-    '_calcArpeggioStep_c', \
-    '_getArpeggioTargetStep_c', \
-    '_getArpeggioUnfurlStep_c', \
     '_initPhysics', \
     '_addObstacle', \
     '_setPlayerState', \
@@ -89,7 +84,7 @@ em++ "$SCRIPT_DIR"/*.cpp -o "$OUTPUT_JS" \
 
 if [ $? -eq 0 ]; then
     echo "Build successful!"
-    echo "Generated: public/candy_native.js and .wasm.worker.js"
+    echo "Generated: public/candy_native.js (and .wasm/.worker.js)"
 else
     echo "Build failed."
     exit 1
