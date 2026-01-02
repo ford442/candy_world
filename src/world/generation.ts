@@ -11,7 +11,8 @@ import {
     initGrassSystem, addGrassInstance,
     createArpeggioFern, createPortamentoPine, createCymbalDandelion, createSnareTrap,
     createBubbleWillow, createHelixPlant, createBalloonBush, createWisteriaCluster,
-    createPanningPad, createSilenceSpirit, createInstrumentShrine
+    createPanningPad, createSilenceSpirit, createInstrumentShrine,
+    createIsland // Added
 } from '../foliage/index.js';
 import { createCaveEntrance } from '../foliage/cave.js';
 import { validateFoliageMaterials } from '../foliage/common.js';
@@ -110,6 +111,12 @@ export function initWorld(scene: THREE.Scene, weatherSystem: WeatherSystem): Wor
     melodyLake.position.set(0, 2.5, 0);
     scene.add(melodyLake);
 
+    // Lake Island
+    const island = createIsland({ radius: 15, height: 2 });
+    island.position.set(-40, 2.5, 40); // Place in the lake
+    // Removed redundant scene.add(island) as safeAddFoliage handles it via foliageGroup
+    safeAddFoliage(island, true, 15, weatherSystem);
+
     // Falling Berries
     initFallingBerries(scene);
 
@@ -186,6 +193,12 @@ export async function initWorldAsync(
     const melodyLake = createWaveformWater(400, 400);
     melodyLake.position.set(0, 2.5, 0);
     scene.add(melodyLake);
+
+    // Lake Island
+    const island = createIsland({ radius: 15, height: 2 });
+    island.position.set(-40, 2.5, 40); // Place in the lake
+    // Removed redundant scene.add(island) as safeAddFoliage handles it via foliageGroup
+    safeAddFoliage(island, true, 15, weatherSystem);
 
     // Falling Berries
     initFallingBerries(scene);
@@ -466,8 +479,8 @@ async function populateProceduralExtrasAsync(weatherSystem: WeatherSystem, onPro
     console.log("[World] Populating procedural extras (async)...");
     if ((window as any).setLoadingStatus) (window as any).setLoadingStatus("Growing Procedural Flora...");
     
-    // Increased from 40 to 200 (Target: 600) to improve density while monitoring performance
-    const extrasCount = 200;
+    // Increased to 400 (Target: 600) to improve density
+    const extrasCount = 400;
     const range = 150;
     const BATCH_SIZE = 5; // Process 5 extras per batch
     
@@ -596,8 +609,8 @@ function processProceduralExtra(index: number, range: number, weatherSystem: Wea
 function populateProceduralExtras(weatherSystem: WeatherSystem): void {
     console.log("[World] Populating procedural extras...");
     if ((window as any).setLoadingStatus) (window as any).setLoadingStatus("Growing Procedural Flora...");
-    // Increased from 40 to 200 (Target: 600) to improve density while monitoring performance
-    const extrasCount = 200;
+    // Increased to 400 (Target: 600) to improve density
+    const extrasCount = 400;
     const range = 150;
 
     for (let i = 0; i < extrasCount; i++) {
