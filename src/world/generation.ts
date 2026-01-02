@@ -106,8 +106,14 @@ export function initWorld(scene: THREE.Scene, weatherSystem: WeatherSystem): Wor
     scene.add(createFireflies(150, 100));
 
     // Melody Lake (Waveform Water)
-    const melodyLake = createWaveformWater(400, 400);
-    melodyLake.position.set(0, 2.5, 0);
+    // Reduce size to create a contained lake instead of flooding the world
+    const lakeWidth = 120;
+    const lakeDepth = 100;
+    const melodyLake = createWaveformWater(lakeWidth, lakeDepth);
+    
+    // Position the lake slightly off-center or in a natural low point
+    // Lowering y slightly (to 1.5) to ensure banks are visible
+    melodyLake.position.set(20, 1.5, 20); 
     scene.add(melodyLake);
 
     // Falling Berries
@@ -167,6 +173,14 @@ function isPositionValid(x: number, z: number, radius: number): boolean {
         const minDistance = obs.radius + radius + 1.5;
         if (distSq < minDistance * minDistance) return false;
     }
+    
+    // 3. Lake Avoidance (Approximate rect for the new lake)
+    // Lake is at 20, 20 with width 120, depth 100
+    // Bounds: x[-40, 80], z[-30, 70]
+    if (x > -40 && x < 80 && z > -30 && z < 70) {
+        return false; // Don't spawn inside the lake
+    }
+
     return true;
 }
 
