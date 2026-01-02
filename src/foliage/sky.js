@@ -11,6 +11,7 @@ export const uHorizonColor = uniform(new THREE.Color(0xFFE5CC));
 export const uAtmosphereIntensity = uniform(0.3);        
 export const uSkyDarkness = uniform(0.0); 
 
+// TSL-FIXED
 export function createSky() {
     const skyGeo = new THREE.SphereGeometry(1000, 32, 24); 
 

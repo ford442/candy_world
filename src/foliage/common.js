@@ -213,7 +213,7 @@ export function createUnifiedMaterial(hexColor, options = {}) {
     const glitchRes = applyGlitch(uv(), material.positionNode || positionLocal, uGlitchIntensity);
     material.positionNode = glitchRes.position;
 
-    const glitchTint = vec3(1.0, 0.0, 1.0);
+    const glitchTint = vec3(float(1.0), float(0.0), float(1.0));
     // FIX: float()
     const glitchMix = smoothstep(float(0.1), float(0.3), uGlitchIntensity).mul(float(0.5));
     material.colorNode = mix(material.colorNode, glitchTint, glitchMix);
@@ -239,7 +239,7 @@ export function createUnifiedMaterial(hexColor, options = {}) {
     }
 
     if (subsurfaceStrength > 0.0) {
-        const lightDir = normalize(vec3(0.5, 1.0, 0.5));
+        const lightDir = normalize(vec3(float(0.5), float(1.0), float(0.5)));
         const NdotL = dot(normalWorld, lightDir);
         const wrap = float(1.0).sub(max(float(0.0), NdotL)).pow(float(2.0)); 
 

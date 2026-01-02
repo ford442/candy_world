@@ -45,25 +45,25 @@ export function createRainbow() {
 
     const t = uv().y;
 
-    let col = mix(cRed, cOrange, smoothstep(0.0, 0.16, t));
-    col = mix(col, cYellow, smoothstep(0.16, 0.33, t));
-    col = mix(col, cGreen, smoothstep(0.33, 0.5, t));
-    col = mix(col, cBlue, smoothstep(0.5, 0.66, t));
-    col = mix(col, cIndigo, smoothstep(0.66, 0.83, t));
-    col = mix(col, cViolet, smoothstep(0.83, 1.0, t));
+    let col = mix(cRed, cOrange, smoothstep(float(0.0), float(0.16), t));
+    col = mix(col, cYellow, smoothstep(float(0.16), float(0.33), t));
+    col = mix(col, cGreen, smoothstep(float(0.33), float(0.5), t));
+    col = mix(col, cBlue, smoothstep(float(0.5), float(0.66), t));
+    col = mix(col, cIndigo, smoothstep(float(0.66), float(0.83), t));
+    col = mix(col, cViolet, smoothstep(float(0.83), float(1.0), t));
 
     // Soften edges
-    const edgeAlpha = smoothstep(0.0, 0.2, t).mul(smoothstep(1.0, 0.8, t));
+    const edgeAlpha = smoothstep(float(0.0), float(0.2), t).mul(smoothstep(float(1.0), float(0.8), t));
 
     // Soften ends of the arc
-    const arcAlpha = smoothstep(0.0, 0.1, uv().x).mul(smoothstep(1.0, 0.9, uv().x));
+    const arcAlpha = smoothstep(float(0.0), float(0.1), uv().x).mul(smoothstep(float(1.0), float(0.9), uv().x));
 
     // Beat pulse?
-    const pulse = sin(time.mul(2.0)).mul(0.1).add(0.9);
+    const pulse = sin(time.mul(float(2.0))).mul(float(0.1)).add(float(0.9));
 
     material.colorNode = col;
     material.opacityNode = uRainbowOpacity.mul(edgeAlpha).mul(arcAlpha).mul(pulse);
-    material.emissiveNode = col.mul(0.5); // Slight glow
+    material.emissiveNode = col.mul(float(0.5)); // Slight glow
 
     const mesh = new THREE.Mesh(geometry, material);
     mesh.name = 'Rainbow';

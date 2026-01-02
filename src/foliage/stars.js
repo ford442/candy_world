@@ -9,6 +9,7 @@ export const uStarPulse = uniform(0.0); // 0 to 1
 export const uStarColor = uniform(new THREE.Color(0xFFFFFF));
 export const uStarOpacity = uniform(0.0); 
 
+// TSL-FIXED
 export function createStars(count = 1500) {
     const geo = new THREE.BufferGeometry();
     const positions = new Float32Array(count * 3);
