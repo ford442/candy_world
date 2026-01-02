@@ -5,3 +5,4 @@ export * from "./physics";
 export * from "./animation";
 export * from "./batch";
 export * from "./foliage";
+export * from "./particles";

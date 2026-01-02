@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import { PointsNodeMaterial } from 'three/webgpu';
 import { attribute, sin, time, mix, color, float } from 'three/tsl';
+import { updateParticles } from '../utils/wasm-loader.js';
 
 export function createFireflies(count = 80, areaSize = 100) {
     const geo = new THREE.BufferGeometry();
@@ -62,26 +63,10 @@ export function updateFireflies(fireflies, time, delta) {
 
     const positions = fireflies.geometry.attributes.position.array;
     const phases = fireflies.geometry.attributes.phase.array;
+    const count = positions.length / 3;
 
-    for (let i = 0; i < positions.length / 3; i++) {
-        const idx = i * 3;
-        const phase = phases[i];
-
-        const driftX = Math.sin(time * 0.3 + phase) * 0.02;
-        const driftY = Math.cos(time * 0.5 + phase * 1.3) * 0.01;
-        const driftZ = Math.sin(time * 0.4 + phase * 0.7) * 0.02;
-
-        positions[idx] += driftX;
-        positions[idx + 1] += driftY;
-        positions[idx + 2] += driftZ;
-
-        if (positions[idx] > 50) positions[idx] = -50;
-        if (positions[idx] < -50) positions[idx] = 50;
-        if (positions[idx + 1] < 0.3) positions[idx + 1] = 0.3;
-        if (positions[idx + 1] > 5) positions[idx + 1] = 5;
-        if (positions[idx + 2] > 50) positions[idx + 2] = -50;
-        if (positions[idx + 2] < -50) positions[idx + 2] = 50;
-    }
+    // Use WASM-optimized particle update
+    updateParticles(positions, phases, count, time);
 
     fireflies.geometry.attributes.position.needsUpdate = true;
 }
