@@ -87,7 +87,7 @@ em++ "$SCRIPT_DIR"/*.cpp -o "$OUTPUT_JS" \
 
 if [ $? -eq 0 ]; then
     echo "Build successful!"
-    echo "Generated: public/candy_native.js (and .wasm/.worker.js)"
+    echo "Generated: public/candy_native.js and .wasm.worker.js"
 else
     echo "Build failed."
     exit 1
