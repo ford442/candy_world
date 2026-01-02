@@ -38,7 +38,6 @@ COMPILE_FLAGS="-O3 -msimd128 -mrelaxed-simd -ffast-math -flto -flto=thin -fno-ex
 LINK_FLAGS="-O3 -std=c++17 -lembind -s USE_PTHREADS=1 -s PTHREAD_POOL_SIZE=4 -s WASM=1 -s WASM_BIGINT=1 \
 -s ALLOW_MEMORY_GROWTH=1 -s INITIAL_MEMORY=512mb -s ASSERTIONS=1 -s EXPORT_ES6=1 \
 -s MODULARIZE=1 -s EXPORT_NAME='createCandyNative' -s ENVIRONMENT='web','worker' \
--s EXPORTED_RUNTIME_METHODS='["addFunction","removeFunction","UTF8ToString","stringToUTF8"]' \
 -flto -flto=thin -fwasm-exceptions"
 
 EXPORTS="[ \
