@@ -1,3 +1,3 @@
-## 2024-05-22 - Actionable Empty States
-**Learning:** Empty states in modal dialogs (like the Jukebox) are often dead ends. Users were forced to scan for a separate "Add" button. Converting the empty state message itself into an actionable button reduces cognitive load and click distance.
-**Action:** Always verify if an "empty state" message can be converted into a direct call-to-action for the primary solution (e.g., "Add Item").
+## 2026-01-01 - Dynamic Toggle Labels
+**Learning:** Static labels on toggle buttons (e.g., "Toggle Day/Night") force users to infer the result. Changing the label and icon to reflect the *current* state (e.g., "☀️ Day Mode") provides immediate confirmation and reduces cognitive load, especially when the visual change (e.g., lighting) might be subtle or delayed.
+**Action:** When implementing toggle buttons, prefer dynamic labels that explicitly state the current mode over generic "Toggle" verbs.

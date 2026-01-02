@@ -334,6 +334,12 @@ export function initInput(camera, audioSystem, toggleDayNightCallback) {
         toggleDayNightBtn.addEventListener('click', toggleDayNightCallback);
     }
 
+    // UX: Initialize Day/Night button state
+    if (toggleDayNightBtn) {
+        // Default to Day Mode ☀️
+        toggleDayNightBtn.innerHTML = '☀️ Day Mode (N)';
+    }
+
     const openJukeboxBtn = document.getElementById('openJukeboxBtn');
     if (openJukeboxBtn) {
         openJukeboxBtn.addEventListener('click', (e) => {
@@ -347,6 +353,12 @@ export function initInput(camera, audioSystem, toggleDayNightCallback) {
         updateDayNightButtonState: (isPressed) => {
             if (toggleDayNightBtn) {
                 toggleDayNightBtn.setAttribute('aria-pressed', isPressed);
+
+                // UX: Update button text to reflect current state
+                toggleDayNightBtn.innerHTML = isPressed
+                    ? '🌙 Night Mode (N)'
+                    : '☀️ Day Mode (N)';
+
                 import('../utils/toast.js').then(({ showToast }) => {
                     const mode = isPressed ? "Night Mode Active 🌙" : "Day Mode Active ☀️";
                     showToast(mode, isPressed ? '🌙' : '☀️');
