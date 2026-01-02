@@ -25,3 +25,7 @@ Thumbs.db
 # Vite
 .vite/
 verify_mod_player.md
+
+# Test files (temporary)
+test-spatial-hash.js
+SUMMARY.txt

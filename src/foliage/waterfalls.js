@@ -39,8 +39,8 @@ export function createWaterfall(startPos, endPos, width = 5.0) {
     // Noise/Texture approximation using sin/cos for ripples
     // Since we don't have a noise texture loaded here easily without async, we use procedural noise.
     // Simple ripple pattern:
-    const ripple = sin(flowUV.y.mul(20.0).add(flowUV.x.mul(10.0))).mul(0.5).add(0.5);
-    const pulse = sin(time.mul(3.0)).mul(0.2).add(0.8);
+    const ripple = sin(flowUV.y.mul(float(20.0)).add(flowUV.x.mul(float(10.0)))).mul(float(0.5)).add(float(0.5));
+    const pulse = sin(time.mul(float(3.0))).mul(float(0.2)).add(float(0.8));
 
     // Color Gradient: Cyan at top -> Purple at bottom
     // We use uv().y (0 at bottom, 1 at top) ? Cylinder UVs: y goes 0 to 1? Check Three.js docs.
@@ -48,7 +48,7 @@ export function createWaterfall(startPos, endPos, width = 5.0) {
     const gradient = mix(color(0xFF00FF), color(0x00FFFF), uv().y);
 
     mat.colorNode = gradient;
-    mat.opacityNode = float(0.7).mul(ripple.add(0.5)); // Semitransparent with ripples
+    mat.opacityNode = float(0.7).mul(ripple.add(float(0.5))); // Semitransparent with ripples
     mat.emissiveNode = gradient.mul(pulse).mul(ripple);
 
     const mesh = new THREE.Mesh(geo, mat);

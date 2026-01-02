@@ -2,7 +2,7 @@
 
 import * as THREE from 'three';
 import { PointsNodeMaterial } from 'three/webgpu';
-import { attribute, sin, time, mix, color } from 'three/tsl';
+import { attribute, sin, time, mix, color, float } from 'three/tsl';
 
 export function createFireflies(count = 80, areaSize = 100) {
     const geo = new THREE.BufferGeometry();
@@ -39,7 +39,7 @@ export function createFireflies(count = 80, areaSize = 100) {
     const speedAttr = attribute('speed');
     const blink = sin(time.mul(speedAttr).add(phaseAttr));
 
-    const glowIntensity = blink.sub(0.7).max(0.0).mul(3.33);
+    const glowIntensity = blink.sub(float(0.7)).max(float(0.0)).mul(float(3.33));
 
     const fireflyColor = mix(
         color(0x88FF00),
@@ -47,8 +47,8 @@ export function createFireflies(count = 80, areaSize = 100) {
         glowIntensity
     );
 
-    mat.colorNode = fireflyColor.mul(glowIntensity.add(0.1));
-    mat.opacityNode = glowIntensity.add(0.05).min(1.0);
+    mat.colorNode = fireflyColor.mul(glowIntensity.add(float(0.1)));
+    mat.opacityNode = glowIntensity.add(float(0.05)).min(float(1.0));
 
     const fireflies = new THREE.Points(geo, mat);
     fireflies.userData.isFireflies = true;

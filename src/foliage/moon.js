@@ -1,5 +1,8 @@
+// src/foliage/moon.js
+
 import * as THREE from 'three';
-import { color, vec3, time, sin, cos, uniform, mix, positionLocal } from 'three/tsl';
+// ADD 'float' to imports
+import { color, vec3, time, sin, cos, uniform, mix, positionLocal, float } from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { attachReactivity } from './common.js';
 
@@ -7,7 +10,8 @@ import { attachReactivity } from './common.js';
 export const moonConfig = {
     blinkDuration: 0.2, // seconds
     danceAmplitude: 0.5,
-    danceSpeed: 2.0
+    danceSpeed: 2.0,
+    blinkOnBeat: true
 };
 
 export function createMoon() {
@@ -18,32 +22,29 @@ export function createMoon() {
     const geo = new THREE.SphereGeometry(15, 32, 32);
 
     // TSL Material for Moon Surface + Blink
-    const mat = new MeshStandardNodeMaterial({
-        roughness: 0.8,
-        metalness: 0.1
-    });
+    const mat = new MeshStandardNodeMaterial();
+    mat.roughnessNode = float(0.8);
+    mat.metalnessNode = float(0.1);
 
     // Base Color (Pale Blue/White)
     const baseColor = color(0xDDEEFF);
 
     // Blink Effect (Emissive Pulse)
-    // We can drive this via a uniform 'uMoonBlink' updated from JS
-    // Or use time-based if generic. For music sync, we use a uniform.
     const uBlink = uniform(0.0); // 0 to 1
     mat.uBlink = uBlink; // Expose to JS
 
     // Emissive node: Base glow + Blink intensity
-    // Blink adds a strong white flash
-    const glow = uBlink.mul(2.0);
+    // FIX: Wrap 2.0 in float() to prevent mixed-type errors
+    const glow = uBlink.mul(float(2.0));
+    
     mat.colorNode = baseColor;
     mat.emissiveNode = color(0xFFFFFF).mul(glow);
 
     const moonMesh = new THREE.Mesh(geo, mat);
-    moonMesh.castShadow = true; // Moon casts shadow (simulated as directional light source usually, but mesh itself can too)
+    moonMesh.castShadow = true; 
     group.add(moonMesh);
 
     // 2. Moon Face (Optional - purely decorative geometry)
-    // Simple eyes and mouth for "Charming Moon"
     const faceGroup = new THREE.Group();
     faceGroup.position.z = 14.5; // Surface
 
@@ -58,8 +59,6 @@ export function createMoon() {
     rightEye.position.set(4, 3, 0);
     rightEye.scale.z = 0.5;
 
-    // Blink Animation (Scale eyes)
-    // We'll handle this in the animate function in main.js or helper here
     group.userData.eyes = [leftEye, rightEye];
 
     const mouthGeo = new THREE.TorusGeometry(3, 0.5, 8, 16, Math.PI);
@@ -79,7 +78,7 @@ export function createMoon() {
     group.userData.blinkTimer = 0;
 
     // Tag as Sky object
-    group.userData.type = 'moon'; // Used for color palette mapping
+    group.userData.type = 'moon'; 
     group.userData.reactivityType = 'sky';
 
     return attachReactivity(group);
@@ -87,9 +86,6 @@ export function createMoon() {
 
 /**
  * Update Moon Animation
- * @param {THREE.Group} moon - Moon group
- * @param {number} delta - Time delta
- * @param {object} audioData - Audio state
  */
 export function updateMoon(moon, delta, audioData) {
     if (!moon || !moon.userData.isMoon) return;
@@ -105,12 +101,13 @@ export function updateMoon(moon, delta, audioData) {
     // Beat bounce
     const beatBounce = Math.max(0, Math.sin(beatPhase * Math.PI * 2)) * groove * 2.0;
 
-    // Apply to local Y (assuming moon is placed in a container or we modify local position relative to orbit)
-    // Since moon moves across sky, we should apply this as a local offset if possible.
-    // However, moon is likely child of scene.
-    // We might need to handle this carefully if moon position is driven by Day/Night cycle.
-    // Recommendation: Add moon mesh to a "MoonContainer" which handles orbit, and animate mesh local position.
-    // For now, let's assume moon.children[0] (the mesh) can be animated locally.
+    // Blink on Beat: Check if we are on a strong beat (phase near 0 or 1)
+    if (moonConfig.blinkOnBeat && groove > 0.5) {
+        // Trigger blink if near the beat (within 0.1 phase window) and debounce
+        if (beatPhase < 0.1 && moon.userData.blinkTimer <= 0) {
+            triggerMoonBlink(moon);
+        }
+    }
 
     const mesh = moon.children[0];
     if (mesh) {
@@ -119,12 +116,10 @@ export function updateMoon(moon, delta, audioData) {
     }
 
     // 2. Blink Logic
-    // Random blink or on beat
     if (moon.userData.blinkTimer > 0) {
         moon.userData.blinkTimer -= delta;
         // Update uniform
         if (mesh.material.uBlink) {
-             // 0..1..0 curve
              const t = 1.0 - (moon.userData.blinkTimer / moonConfig.blinkDuration);
              const val = Math.sin(t * Math.PI);
              mesh.material.uBlink.value = val;
@@ -147,10 +142,9 @@ export function updateMoon(moon, delta, audioData) {
             triggerMoonBlink(moon);
         }
 
-        // React to channel trigger via system (flashIntensity set by attachReactivity)
+        // React to channel trigger via system
         if (moon.userData.flashIntensity > 0.1) {
              triggerMoonBlink(moon);
-             // Consume trigger
              moon.userData.flashIntensity = 0;
         }
     }

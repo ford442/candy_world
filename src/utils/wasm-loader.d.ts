@@ -9,6 +9,14 @@ export const AnimationType: {
   readonly HOP: number;
 };
 
+// Export missing members
+export const LOADING_PHASES: {
+    INIT: string;
+    FETCH_WASM: string;
+    COMPILING: string;
+    READY: string;
+};
+
 export function initWasm(): Promise<boolean>;
 export function initWasmParallel(options?: any): Promise<boolean>;
 export function isWasmReady(): boolean;
@@ -21,6 +29,7 @@ export function lerp(a: number, b: number, t: number): number;
 export function lerpColor(color1: number, color2: number, t: number): number;
 
 export function uploadPositions(objects: Array<{ x: number; y?: number; z: number; radius?: number }>): void;
+export function uploadMushroomSpecs(mushrooms: any[]): void;
 export function copySharedPositions(sharedView: Float32Array, objectCount: number): void;
 export function uploadAnimationData(animData: Array<{ offset: number; type: number; originalY: number; colorIndex?: number }>): void;
 export function uploadMushroomSpecs(mushrooms: any[]): void;
@@ -48,6 +57,9 @@ export function readSpawnCandidates(candidateCount: number): SpawnCandidate[];
 export function analyzeMaterials(materials: any[]): { uniqueCount: number, shaders: any[] };
 export function getUniqueShaderCount(): number;
 
+export function analyzeMaterials(materials: any[]): { uniqueCount: number; shaders: any[] };
+export function getUniqueShaderCount(): number;
+
 export function batchAnimationCalc(time: number, intensity: number, kick: number, objectCount: number): Float32Array | null;
 
 export function calcBounceY(time: number, offset: number, intensity: number, kick: number): number;
@@ -63,6 +75,7 @@ export function calcHopY(time: number, offset: number, intensity: number, kick: 
 export function calcShiver(time: number, offset: number, intensity: number): { rotX: number; rotZ: number };
 export function calcSpiralWave(time: number, offset: number, intensity: number, groove: number): { rotY: number; yOffset: number; scale: number };
 export function calcPrismRose(time: number, offset: number, kick: number, groove: number, isActive: boolean): { unfurl: number; spin: number; pulse: number; hue: number };
+export function calcArpeggioStep(currentUnfurl: number, currentTarget: number, lastTrigger: boolean, arpeggioActive: boolean, noteTrigger: boolean, maxSteps: number): { targetStep: number; unfurlStep: number };
 
 // ADDED MISSING EXPORT:
 export function calcArpeggioStep(

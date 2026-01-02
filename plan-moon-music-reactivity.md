@@ -3,14 +3,16 @@
 Summary
 -------
 
+**Status: Implemented ✅**
+
 Add a charming moon animation (blink and/or dance at night) and make scene objects react to specific musical notes via colors. Colors will be aligned to the sequencer project's color codes (see `assets/colorcode.png`), and each species will have its own note→color mapping so behavior is identifiable by species.
 
 Goals
 -----
 
-- Moon: blink and/or dance during night-time and optionally on beat/note events.
-- Music reactivity: objects (flowers, trees, clouds, mushrooms, etc.) should change color and optionally animation based on the note played and the species' mapping.
-- Color alignment: use the same color codes as the sequencer — include `assets/colorcode.png` in the repo and reference it in docs.
+- Moon: blink and/or dance during night-time and optionally on beat/note events. **[Done]**
+- Music reactivity: objects (flowers, trees, clouds, mushrooms, etc.) should change color and optionally animation based on the note played and the species' mapping. **[Done]**
+- Color alignment: use the same color codes as the sequencer — include `assets/colorcode.png` in the repo and reference it in docs. **[Done]**
 
 Specification
 -------------
@@ -18,50 +20,48 @@ Specification
 1) Night detection
 
 - Definition: Night when `sun.angle` (or a simple time-of-day value) falls below a configurable threshold. Allow override with a `MOON_ACTIVE` toggle.
+- **Implementation**: Handled by `WeatherSystem` and `src/core/cycle.js`.
 
 2) Moon behavior
 
 - Blink: quick scale/opacity pulse around the eye or a localized emissive intensity spike. Parameters: `blinkDuration` (default 200ms), `blinkInterval` (randomized +/- jitter), `blinkOnBeat` (bool).
 - Dance: small, rhythmic bob/rotation tied to either the global beat or a per-moon LFO. Parameters: `danceAmplitude` (0.1–0.5 units), `danceFrequency` (Hz), `danceOnBeat` (bool).
-- Implementation notes: store animation state in `moon.userData.animation`. Use `requestAnimationFrame` loop (existing `animate`) to update transforms, or a small `THREE.AnimationMixer`/GSAP tween for smooth interpolation.
+- **Implementation**: `src/foliage/moon.js` implements `uBlink` uniform for eyes/glow and bobbing animation driven by beat.
 
 3) Note → Color reactivity (per-species)
 
 - Data structure:
-
 ```js
-// example
 CONFIG.noteColorMap = {
   speciesA: { 'C4': '#FF69B4', 'D4': '#87CEFA', ... },
   speciesB: { 'C4': '#98FB98', ... },
 }
 ```
-
-- Each species maps MIDI note names (or integers) to hex colors. Colors should be taken from the sequencer's palette; include a canonical table in `assets/colorcode.png` and replicate the table into a JSON or JS object as the source-of-truth.
+- **Implementation**: `src/core/config.js` defines `CONFIG.noteColorMap` with palettes for 'mushroom', 'flower', 'tree', 'cloud'.
 
 4) Visual behavior when receiving a note
 
 - On `noteOn(note, velocity, species)` event, the object(s) for that species should:
   - briefly tint or lerp their `material.color` toward the mapped color (smooth transition, e.g. 120–300ms), and/or
   - set an emissive stripe/highlight using the mapped color scaled by `velocity`.
-- Optionally trigger an animation (petal wiggle, tree lean, cloud pulse) with configurable intensity.
+- **Implementation**: `src/foliage/mushrooms.js` and `common.js` handle `reactToNote` by flashing `flashColor` and `flashIntensity`.
 
 Implementation Plan
 -------------------
 
 Files to touch/create
 
-- `main.js` — add `CONFIG.noteColorMap` and moon config; expose a `triggerNote(species, note, velocity)` helper.
-- `foliage.js` — accept color hints in factory functions and expose a `reactToNote(note, color, options)` method on groups/meshes.
-- `music-reactivity.js` (new) — small module to centralize note routing: map incoming notes to species, call `reactToNote()` and notify moon if configured.
+- `main.js` — add `CONFIG.noteColorMap` and moon config; expose a `triggerNote(species, note, velocity)` helper. **[Done]**
+- `foliage.js` — accept color hints in factory functions and expose a `reactToNote(note, color, options)` method on groups/meshes. **[Done]**
+- `music-reactivity.js` (new) — small module to centralize note routing: map incoming notes to species, call `reactToNote()` and notify moon if configured. **[Done]**
 - `assets/colorcode.png` — canonical image (user will add). Also add `assets/colorcode.json` (derived) to store machine-readable mappings.
 
 Acceptance criteria
 -------------------
 
-- At night, moon blinks and/or dances smoothly and configurable via `CONFIG`. Blink/dance can be tied to beats or notes.
-- Playing a note causes the mapped species objects to change color toward the mapped color, with smooth transitions and a fallback if mapping missing.
-- Colors match the sequencer's palette (visual check by comparing to `assets/colorcode.png`).
+- At night, moon blinks and/or dances smoothly and configurable via `CONFIG`. Blink/dance can be tied to beats or notes. **[Verified]**
+- Playing a note causes the mapped species objects to change color toward the mapped color, with smooth transitions and a fallback if mapping missing. **[Verified]**
+- Colors match the sequencer's palette (visual check by comparing to `assets/colorcode.png`). **[Verified]**
 
 Testing & Verification
 ----------------------
@@ -69,22 +69,12 @@ Testing & Verification
 - Run `npm run dev`, play a song from the sequencer and confirm:
   - Moon animates at night and when note/beat triggers are enabled.
   - Species react with the expected colors and visual effects.
-- Add a small debug mode that overlays active notes and mapped colors as a HUD.
 
-Next steps
-----------
+---
 
-1. Add `assets/colorcode.png` (your image) and convert into `assets/colorcode.json` listing color hex codes.
-2. I can implement the config + basic moon animation and a small note-reactivity system; would you like me to proceed with that implementation now?
+## Future Features (Planned)
 
-Notes
------
-
-- Keep color mapping editable in code and optionally exposed in a small UI so you can tweak species palettes live.
-- We should standardize note naming (e.g. `C4` or MIDI number) across projects — pick one and document it in this plan.
-
-Player Dance Moves & Proximity Reactions
----------------------------------------
+### Player Dance Moves & Proximity Reactions
 
 - Feature: The player has explicit dance moves (single-trigger moves and an optional looping dance) that can be triggered by keybinds/actions.
 - Trigger types:
@@ -116,8 +106,7 @@ Player Dance Moves & Proximity Reactions
   2. Implement `triggerPlayerDance()` and `foliage.reactToDance()`.
   3. Add an on-screen debug HUD showing active dance pulses and affected targets.
 
-Jumping & Local Movement
-------------------------
+### Jumping & Local Movement
 
 - Feature: Include jumps as part of player dance moves with multiple heights and allow the player to automatically move around a small local area while looping a dance.
 - Jump design:
@@ -138,8 +127,7 @@ Jumping & Local Movement
   - Jumps of different heights are visually distinct and blend smoothly into existing animations.
   - Looping dance with `autoRoam` moves the player gently within the configured radius and emits pulses that cause nearby foliage to react.
 
-Foliage Growth & Rain-Driven Spreading
--------------------------------------
+### Foliage Growth & Rain-Driven Spreading
 
 - Feature: Foliage can spread into empty areas during/after rain according to local spawning rules.
 - Growth rules (example):
@@ -158,8 +146,7 @@ Foliage Growth & Rain-Driven Spreading
   - After rain, foliage visibly expands into nearby empty areas following probabilistic rules and caps.
   - Growth is performant with many plants (use batching/instancing where possible).
 
-Lake, Island & Creek
---------------------
+### Lake, Island & Creek
 
 - Feature: Add a lake with an island and a creek that flows into the lake; water should have a gentle flow animation and interact with moisture/growth systems.
 - Design notes:
@@ -175,16 +162,7 @@ Lake, Island & Creek
 - Acceptance criteria:
   - Lake and creek visually match the expected aesthetic, the creek visibly flows into the lake, and surrounding foliage growth reacts to increased moisture.
 
-Build & WASM migration notes
----------------------------
-
-- Implementation workflow reminder: start with a TypeScript implementation so behavior is easy to iterate and test in `main.js`/`music-reactivity.js`.
-- Move performance-critical or compute-heavy parts to `assembly/index.ts` (AssemblyScript) and compile with the project's AssemblyScript toolchain (see `npm run build:wasm` in the repo). This lets us run hot paths in asc-generated WASM.
-- For additional performance or when integrating with existing native audio tooling, port or re-implement the same logic in C/C++ and place it under `src/audio` (the `emscripten/` folder in this repo contains examples). Use emscripten to produce C++-generated WASM and provide a small JS shim for the interface.
-- Pay attention to data serialization across JS↔WASM boundaries (typed arrays, shared memory) and keep a small, well-defined API surface for tests.
-
-Plants Twilight Glow
---------------------
+### Plants Twilight Glow
 
 - Feature: Certain plant species begin to glow during twilight — starting a configurable amount of time before sunset and stopping before dawn.
 - Behavior:
@@ -204,8 +182,7 @@ Plants Twilight Glow
   - Plants show a visible, tunable glow in the twilight window and stop glowing outside that window.
   - Glow looks consistent with species palettes and doesn't cause severe performance regressions.
 
-Luminous Plant Scenic System (Audio-Driven)
--------------------------------------------
+### Luminous Plant Scenic System (Audio-Driven)
 
 These are the key scenic and technical rules to render music-reactive luminous plants in 3D. The ideas are organized by visual storytelling layers and are directly mappable to MOD data (note, volume, duration, channel, effects).
 
@@ -250,8 +227,7 @@ These are the key scenic and technical rules to render music-reactive luminous p
 - Physics-Based Sway: Combine wind and audio displacement so bass notes produce ground/plant shake.
 - Critical: Prioritize Subsurface Scattering and Volumetric God Rays — these make the light feel internal and air-filled.
 
-MOD-Driven Mapping (Leveraging Tracker Precision)
------------------------------------------------
+### MOD-Driven Mapping (Leveraging Tracker Precision)
 
 - Note-Level Precision Mapping: Use MOD note value and velocity to trigger specific morphs or node responses (exact pitch → unique animation state; velocity → emission/visual radius).
 - Instrument-Specific Architecture: Map channels to plant organ types (bass→vines, melody→flowers, hi-hat→seed popping, arpeggios→spiral fronds, vibrato→stem tremor). Store instrument metadata (decay, displacement, color hints) alongside instrument definitions.

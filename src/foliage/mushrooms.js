@@ -1,7 +1,7 @@
 // src/foliage/mushrooms.js
 
 import * as THREE from 'three';
-import { color, time, sin, positionLocal } from 'three/tsl';
+import { color, time, sin, positionLocal, float } from 'three/tsl'; // Added float
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { foliageMaterials, registerReactiveMaterial, attachReactivity, pickAnimation, eyeGeo } from './common.js';
 
@@ -59,7 +59,9 @@ export function createMushroom(options = {}) {
 
     // Shape variations based on note (0-11 creates subtle differences)
     const noteVariation = actualNoteIndex >= 0 ? actualNoteIndex / 11.0 : Math.random();
-    const baseScale = isGiant ? 8.0 * scale : 1.0 * scale;
+    
+    // REDUCED: Changed from 8.0 to 5.0 to prevent them from covering the map
+    const baseScale = isGiant ? 5.0 * scale : 1.0 * scale;
     
     // Subtle shape variations by note
     // Lower notes (C, C#, D) = shorter, wider; Higher notes (A, A#, B) = taller, thinner
@@ -94,7 +96,7 @@ export function createMushroom(options = {}) {
         // Create dedicated material with note color for musical mushrooms
         const baseCapMat = foliageMaterials.mushroomCap[0] || foliageMaterials.mushroomStem;
         capMat = baseCapMat.clone();
-        capMat.color.setHex(noteColor);
+        capMat.colorNode = color(noteColor); // Ensure Node is set
         capMat.roughness = 0.7;
         chosenColorIndex = actualNoteIndex;
     } else if (colorIndex >= 0 && colorIndex < foliageMaterials.mushroomCap.length) {
@@ -208,33 +210,38 @@ export function createMushroom(options = {}) {
 
     // Giant Breathing Effect & Pulsing Stripes (TSL)
     if (isGiant) {
-        const breathMat = new MeshStandardNodeMaterial({
-            color: instanceCapMat.color, // Use the clay color
-            roughness: 0.8,
-            metalness: 0.0,
-        });
+        // FIX: Using MeshStandardNodeMaterial correctly
+        const breathMat = new MeshStandardNodeMaterial();
+        // Inherit color node from the instance material (CandyPreset)
+        // instanceCapMat.color is likely default white, so we must use colorNode
+        breathMat.colorNode = instanceCapMat.colorNode || color(0xFFFFFF);
+        breathMat.roughness = 0.8;
+        breathMat.metalness = 0.0;
 
         const pos = positionLocal;
-        const breathSpeed = time.mul(2.0);
-        const breath = sin(breathSpeed).mul(0.1).add(1.0);
+        const breathSpeed = time.mul(float(2.0)); // Explicit float
+        const breath = sin(breathSpeed).mul(float(0.1)).add(float(1.0)); // Explicit floats
+        
         // Displace vertices for breathing
         breathMat.positionNode = pos.mul(breath);
 
         // Animated Emission Stripes
         // Use positionLocal.y to create horizontal stripes
         // Use time to move them upwards
-        const stripeFreq = 10.0;
-        const stripeSpeed = 2.0;
+        const stripeFreq = float(10.0);
+        const stripeSpeed = float(2.0);
+        // Explicit floats in chain
         const stripePattern = sin(pos.y.mul(stripeFreq).sub(time.mul(stripeSpeed)));
 
         // Clamp to 0-1 and sharpen
-        const stripeIntensity = stripePattern.add(1.0).mul(0.5).pow(2.0);
+        const stripeIntensity = stripePattern.add(float(1.0)).mul(float(0.5)).pow(float(2.0));
 
         // Base color pulse + Stripe overlay
-        const basePulse = sin(breathSpeed.mul(2.0)).mul(0.1).add(0.2);
-        const totalEmission = stripeIntensity.mul(0.3).add(basePulse);
+        const basePulse = sin(breathSpeed.mul(float(2.0))).mul(float(0.1)).add(float(0.2));
+        const totalEmission = stripeIntensity.mul(float(0.3)).add(basePulse);
 
-        breathMat.emissiveNode = color(instanceCapMat.color).mul(totalEmission);
+        // Use the same base color for emission
+        breathMat.emissiveNode = breathMat.colorNode.mul(totalEmission);
 
         cap.material = breathMat;
         // Keep reference for reactivity override
@@ -259,6 +266,8 @@ export function createMushroom(options = {}) {
     
     if (shouldGlow) {
         // Determine color based on note or cap material
+        // Use colorNode if available for accurate color, otherwise fall back to white
+        // We can't easily get the Hex from a Node, so we rely on noteColor or instanceCapMat props
         const lightColor = noteColor !== null 
             ? new THREE.Color(noteColor) 
             : ((instanceCapMat && instanceCapMat.color) ? instanceCapMat.color : new THREE.Color(0x00FF88));

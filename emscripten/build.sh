@@ -10,6 +10,8 @@ echo "Building candy_native.js (Safe Pthread Build)..."
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
+SOURCES="emscripten/physics.cpp emscripten/math.cpp emscripten/batch.cpp emscripten/animation.cpp emscripten/bootstrap_loader.cpp"
+
 # Source Emscripten
 CANDIDATES=(
     "/content/build_space/emsdk/emsdk_env.sh"

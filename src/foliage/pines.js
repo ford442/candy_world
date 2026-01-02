@@ -7,7 +7,8 @@ import {
     positionLocal,
     uniform,
     mix,
-    Fn
+    Fn,
+    mul, div, pow, add, abs // Added functional operators and abs
 } from 'three/tsl';
 import { attachReactivity } from './common.js';
 
@@ -55,16 +56,19 @@ export function createPortamentoPine(options = {}) {
 
         // Calculate bend amount based on height (y) squared
         // Use uniform uHeight instead of constant to share shader
-        const normalizedHeight = pos.y.div(uHeight);
-        const bendFactor = normalizedHeight.pow(2.0).mul(uBendStrength);
+        // pos.y / uHeight
+        const normalizedHeight = div(pos.y, uHeight);
+
+        // (normalizedHeight ^ 2) * strength
+        const bendFactor = mul(pow(normalizedHeight, 2.0), uBendStrength);
 
         // Displace X and Z based on bend direction
-        const displacement = uBendDirection.mul(bendFactor);
+        const displacement = mul(uBendDirection, bendFactor);
 
         const newPos = vec3(
-            pos.x.add(displacement.x),
+            add(pos.x, displacement.x),
             pos.y,
-            pos.z.add(displacement.z)
+            add(pos.z, displacement.z)
         );
 
         return newPos;
@@ -74,12 +78,14 @@ export function createPortamentoPine(options = {}) {
 
     // Glow Logic: Stress lines
     const glowLogic = Fn(() => {
-        const bendMag = uBendStrength.abs();
+        const bendMag = abs(uBendStrength);
+
         const baseColor = color(new THREE.Color(colorHex));
         const glowColor = color(new THREE.Color(0xFF8844)); // Hot copper
 
         // Mix based on bend strength and height
-        const mixFactor = bendMag.mul(positionLocal.y.div(uHeight)).mul(0.8);
+        // bendMag * (pos.y / uHeight) * 0.8
+        const mixFactor = mul(mul(bendMag, div(positionLocal.y, uHeight)), 0.8);
         return mix(baseColor, glowColor, mixFactor);
     });
 

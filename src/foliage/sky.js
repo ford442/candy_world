@@ -1,40 +1,44 @@
 // src/foliage/sky.js
 
 import * as THREE from 'three';
-import { color, mix, positionWorld, float, uniform, smoothstep, pow, mul, sub } from 'three/tsl';
+import { color, mix, positionWorld, float, uniform, smoothstep, pow, mul, sub, vec3 } from 'three/tsl';
 import { MeshBasicNodeMaterial } from 'three/webgpu';
 
-// Export uniforms so main.js and weather.js can drive them
-export const uSkyTopColor = uniform(color(0x7EC8E3));     
-export const uSkyBottomColor = uniform(color(0xFFC5D3)); 
-export const uHorizonColor = uniform(color(0xFFE5CC));   
+// Export uniforms
+export const uSkyTopColor = uniform(new THREE.Color(0x7EC8E3));     
+export const uSkyBottomColor = uniform(new THREE.Color(0xFFC5D3)); 
+export const uHorizonColor = uniform(new THREE.Color(0xFFE5CC));   
 export const uAtmosphereIntensity = uniform(0.3);        
+export const uSkyDarkness = uniform(0.0); 
 
-// --- NEW: Export this missing uniform ---
-export const uSkyDarkness = uniform(0.0); // 0.0 = Normal, 1.0 = Pitch Black
-// ----------------------------------------
-
+// TSL-FIXED
 export function createSky() {
     const skyGeo = new THREE.SphereGeometry(1000, 32, 24); 
 
-    const offset = float(40.0);   
+    const offsetVal = float(40.0);
     const exponent = float(0.6);  
 
-    const h = positionWorld.add(offset).normalize().y;
-    const heightFactor = h.max(0.0).pow(exponent);
+    // Explicitly wrap 0.0 in float() for vec3 construction
+    const offsetVec = vec3(float(0.0), offsetVal, float(0.0));
     
-    // Atmospheric scattering
-    const horizonBand = smoothstep(0.0, 0.15, h).mul(smoothstep(0.4, 0.15, h));
+    // Add to positionWorld safely
+    const h = positionWorld.add(offsetVec).normalize().y;
+
+    // FIX: Wrap 0.0 in float() for max()
+    const heightFactor = h.max(float(0.0)).pow(exponent);
+    
+    // FIX: Wrap all raw numbers in float() for smoothstep
+    const horizonBand = smoothstep(float(0.0), float(0.15), h).mul(smoothstep(float(0.4), float(0.15), h));
     const atmosphereGlow = horizonBand.mul(uAtmosphereIntensity);
     
     // Gradient Mix
-    const midColor = mix(uHorizonColor, uSkyBottomColor, smoothstep(0.0, 0.3, heightFactor));
-    const skyColor = mix(midColor, uSkyTopColor, smoothstep(0.2, 1.0, heightFactor));
+    // FIX: Wrap 0.0, 0.3, 0.2, 1.0 in float()
+    const midColor = mix(uHorizonColor, uSkyBottomColor, smoothstep(float(0.0), float(0.3), heightFactor));
+    const skyColor = mix(midColor, uSkyTopColor, smoothstep(float(0.2), float(1.0), heightFactor));
     
     const baseColor = mix(skyColor, uHorizonColor, atmosphereGlow);
 
-    // Apply Darkness (Darkness Event Logic)
-    // When uSkyDarkness approaches 1.0, the whole sky fades to black
+    // Apply Darkness
     const finalColor = baseColor.mul(float(1.0).sub(uSkyDarkness));
 
     const skyMat = new MeshBasicNodeMaterial();
@@ -44,4 +48,3 @@ export function createSky() {
     const sky = new THREE.Mesh(skyGeo, skyMat);
     return sky;
 }
-

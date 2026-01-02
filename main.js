@@ -1,7 +1,11 @@
 import * as THREE from 'three';
+
+import { installDiagnostics } from './src/utils/tsl-diagnostics.js';
+
 import { uWindSpeed, uWindDirection, uSkyTopColor, uSkyBottomColor, uHorizonColor, uAtmosphereIntensity, uStarPulse, uStarOpacity, uAuroraIntensity, uAuroraColor, uAudioLow, uAudioHigh, createAurora, updateMoon, animateFoliage, updateFoliageMaterials, updateFireflies, updateFallingBerries, collectFallingBerries, createFlower, createMushroom, validateNodeGeometries } from './src/foliage/index.js';
 import { initCelestialBodies } from './src/foliage/celestial-bodies.js';
-import { MusicReactivitySystem } from './src/systems/music-reactivity.js';
+import { MelodyRibbon, createKickOverlay, uKickIntensity } from './src/foliage/index.js';
+import { MusicReactivitySystem } from './src/systems/music-reactivity.ts';
 import { AudioSystem } from './src/audio/audio-system.js';
 import { BeatSync } from './src/audio/beat-sync.js';
 import { WeatherSystem, WeatherState } from './src/systems/weather.js';
@@ -15,7 +19,7 @@ import { initInput, keyStates } from './src/core/input.js';
 import { getCycleState } from './src/core/cycle.js';
 
 // World & System imports
-import { initWorld } from './src/world/generation.ts';
+import { initWorld, initWorldAsync } from './src/world/generation.ts';
 import { animatedFoliage, foliageGroup, activeVineSwing, foliageClouds } from './src/world/state.js';
 import { updatePhysics, player, bpmWind } from './src/systems/physics.js';
 import { fireRainbow, updateBlaster } from './src/gameplay/rainbow-blaster.js';
@@ -43,16 +47,66 @@ const _weatherBiasOutput = { biasState: 'clear', biasIntensity: 0, type: 'clear'
 // 1. Scene & Render Loop Setup
 const { scene, camera, renderer, ambientLight, sunLight, sunGlow, sunCorona, lightShaftGroup, sunGlowMat, coronaMat } = initScene();
 
+// [3] ADD THIS BLOCK immediately after initScene():
+// -----------------------------------------------------
+// Expose for debugging
+window.scene = scene;
+window.renderer = renderer;
+
+// Install the TSL Diagnostic tool immediately using the local 'scene' variable
+installDiagnostics(scene);
+console.log("✅ TSL Diagnostics installed. Call window.scanForTSLErrors() to debug.");
+// -----------------------------------------------------
+
 // 2. Audio & Systems (Initialize but defer heavy loading)
 const audioSystem = new AudioSystem();
 const beatSync = new BeatSync(audioSystem);
 const musicReactivity = new MusicReactivitySystem(scene, {}); // Config moved to internal default or passed if needed
 const weatherSystem = new WeatherSystem(scene);
 
-// 3. World Generation (Critical - load immediately)
+// Note-Trail Ribbons (Category 4)
+// We need the player camera as the target.
+const melodyRibbon = new MelodyRibbon(scene, camera, 50, 0.2);
+
+// Chromatic Aberration Pulse (Category 4)
+// Creates a lens overlay parented to camera
+const kickOverlay = createKickOverlay(camera);
+
+// 3. World Generation (Critical - load asynchronously with progress)
 // We need to pass weatherSystem so foliage can register themselves
 if (window.setLoadingStatus) window.setLoadingStatus("Loading World Map...");
-const { moon, fireflies } = initWorld(scene, weatherSystem);
+
+// Use async world generation with progress updates
+const worldLoadPromise = initWorldAsync(scene, weatherSystem, (phase, loaded, total) => {
+    const percentage = Math.round((loaded / total) * 100);
+    if (phase === 'map') {
+        if (window.setLoadingStatus) {
+            window.setLoadingStatus(`Loading World Map... ${percentage}% (${loaded}/${total})`);
+        }
+    } else if (phase === 'extras') {
+        if (window.setLoadingStatus) {
+            window.setLoadingStatus(`Growing Procedural Flora... ${percentage}% (${loaded}/${total})`);
+        }
+    } else if (phase === 'cave') {
+        if (window.setLoadingStatus) {
+            window.setLoadingStatus("Carving out caves...");
+        }
+    }
+});
+
+// Continue initialization while world loads
+let moon, fireflies;
+worldLoadPromise.then((worldObjects) => {
+    moon = worldObjects.moon;
+    fireflies = scene.children.find(c => c.userData?.type === 'fireflies');
+    console.log('[World] Async world generation complete');
+}).catch(err => {
+    console.error('[World] Failed to load world:', err);
+    // Fallback to synchronous loading
+    const result = initWorld(scene, weatherSystem);
+    moon = result.moon;
+    fireflies = scene.children.find(c => c.userData?.type === 'fireflies');
+});
 
 // Validate node material geometries to avoid TSL attribute errors
 validateNodeGeometries(scene);
@@ -253,6 +307,9 @@ function animate() {
     const cyclePos = effectiveTime % CYCLE_DURATION;
     const cycleWeatherBias = getWeatherForTimeOfDay(cyclePos, audioState);
 
+    // Update Melody Ribbon
+    melodyRibbon.update(t);
+
     // Weather Update
     profiler.measure('Weather', () => {
         weatherSystem.update(t, audioState, cycleWeatherBias);
@@ -280,6 +337,8 @@ function animate() {
         if (kickTrigger > 0.3) {
             beatFlashIntensity = 0.5 + kickTrigger * 0.5;
             cameraZoomPulse = 2 + kickTrigger * 3;
+            // Pulse the overlay intensity
+            uKickIntensity.value = 1.0;
         }
     }
     lastBeatPhase = currentBeatPhase;
@@ -289,6 +348,9 @@ function animate() {
         beatFlashIntensity *= 0.9;
         if (beatFlashIntensity < 0.01) beatFlashIntensity = 0;
     }
+    // Decay Kick Overlay
+    uKickIntensity.value = THREE.MathUtils.lerp(uKickIntensity.value, 0.0, delta * 5.0);
+
     if (cameraZoomPulse > 0) {
         camera.fov = baseFOV - cameraZoomPulse;
         camera.updateProjectionMatrix();
@@ -534,8 +596,8 @@ function animate() {
     profiler.endFrame();
 }
 
-initWasm().then(async (wasmLoaded) => { // Mark as async
-    console.log(`WASM module ${wasmLoaded ? 'active' : 'using JS fallbacks'}`);
+initWasmParallel().then(async (wasmLoaded) => { // Using parallel WASM loading for faster startup
+    console.log(`WASM modules ${wasmLoaded ? 'active (loaded in parallel)' : 'using JS fallbacks'}`);
 
     // Initialize camera position to ground height (ensures player doesn't start in mid-air or underground)
     const initialGroundY = getGroundHeight(camera.position.x, camera.position.z);
@@ -544,11 +606,14 @@ initWasm().then(async (wasmLoaded) => { // Mark as async
 
     if (window.setLoadingStatus) window.setLoadingStatus("Preparing Scene...");
 
-    // Start animation loop early to show the basic scene
+    // Wait for world to load before starting animation
+    await worldLoadPromise;
+    
+    // Start animation loop after world is loaded
     renderer.setAnimationLoop(animate);
     try { window.__sceneReady = true; } catch (e) {}
 
-    // Hide loading screen early - the basic scene is ready
+    // Hide loading screen after world is fully loaded
     if (window.setLoadingStatus) window.setLoadingStatus("Entering Candy World...");
     
     setTimeout(() => {
@@ -607,3 +672,5 @@ initWasm().then(async (wasmLoaded) => { // Mark as async
     // Note: libopenmpt audio library is loaded via script tag in index.html with a 500ms delay
     // No additional initialization needed here - it's handled by the index.html script
 });
+
+

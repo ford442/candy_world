@@ -8,6 +8,8 @@ import {
     foliageMushrooms, foliageTrampolines, foliageClouds,
     activeVineSwing, setActiveVineSwing, lastVineDetachTime, setLastVineDetachTime, vineSwings
 } from '../world/state.js';
+import { profiler } from '../utils/profiler.js';
+import { SpatialHashGrid } from '../utils/spatial-hash.js';
 
 // --- Configuration ---
 const PLAYER_RADIUS = 0.5;
@@ -15,6 +17,14 @@ const GRAVITY = 20.0;
 const SWIMMING_GRAVITY = 2.0; // Much lower gravity in water
 const SWIMMING_DRAG = 4.0;    // High friction in water
 const CLIMB_SPEED = 5.0;
+
+// Optimization: Scratch variables to prevent GC in hot loops
+const _scratchGatePos = new THREE.Vector3();
+const _scratchSwimDir = new THREE.Vector3();
+const _scratchCamDir = new THREE.Vector3();
+const _scratchCamRight = new THREE.Vector3();
+const _scratchMoveVec = new THREE.Vector3();
+const _scratchTargetVelocity = new THREE.Vector3();
 
 // --- State Definitions ---
 export const PlayerState = {
@@ -57,6 +67,14 @@ export const grooveGravity = {
 // C++ Physics Init Flag
 let cppPhysicsInitialized = false;
 let foliageCaves = []; // Store caves for collision checks
+
+// Spatial Hash Grids for Collision Optimization (Tier 1 Optimization)
+// Each grid partitions space into 10x10 unit cells for fast spatial queries
+let caveGrid = null;
+let mushroomGrid = null;
+let cloudGrid = null;
+let vineGrid = null;
+let spatialHashEnabled = false; // Flag to enable/disable optimization
 
 // --- Public API ---
 
@@ -118,10 +136,13 @@ function updateStateTransitions(camera, keyStates) {
     foliageCaves.forEach(cave => {
         // If cave is flooded (isBlocked) AND player is near the gate
         if (cave.userData.isBlocked) {
-             const gatePos = cave.userData.gatePosition.clone().applyMatrix4(cave.matrixWorld);
+             // Bolt Optimization: Reuse scratch vector
+             _scratchGatePos.copy(cave.userData.gatePosition).applyMatrix4(cave.matrixWorld);
+
+             // Bolt Optimization: distanceToSquared (2.5 * 2.5 = 6.25)
              // 2.5 is approx radius of water gate visual
-             if (playerPos.distanceTo(gatePos) < 2.5) {
-                 waterLevel = gatePos.y + 5; // Water exists here
+             if (playerPos.distanceToSquared(_scratchGatePos) < 6.25) {
+                 waterLevel = _scratchGatePos.y + 5; // Water exists here
              }
         }
     });
@@ -161,28 +182,27 @@ function updateSwimmingState(delta, camera, controls, keyStates) {
 
     // 3. Movement (3D Movement - Camera Direction)
     const swimSpeed = player.speed * 0.6; // Slower than running
-    const swimDir = new THREE.Vector3();
+    _scratchSwimDir.set(0, 0, 0);
 
-    if (keyStates.forward) swimDir.z += 1;
-    if (keyStates.backward) swimDir.z -= 1;
-    if (keyStates.right) swimDir.x += 1;
-    if (keyStates.left) swimDir.x -= 1;
+    if (keyStates.forward) _scratchSwimDir.z += 1;
+    if (keyStates.backward) _scratchSwimDir.z -= 1;
+    if (keyStates.right) _scratchSwimDir.x += 1;
+    if (keyStates.left) _scratchSwimDir.x -= 1;
 
-    if (swimDir.lengthSq() > 0) {
-        swimDir.normalize();
+    if (_scratchSwimDir.lengthSq() > 0) {
+        _scratchSwimDir.normalize();
 
         // Get Camera direction
-        const camDir = new THREE.Vector3();
-        camera.getWorldDirection(camDir);
-        const camRight = new THREE.Vector3();
-        camRight.crossVectors(camDir, new THREE.Vector3(0, 1, 0));
+        camera.getWorldDirection(_scratchCamDir);
+        _scratchCamRight.crossVectors(_scratchCamDir, new THREE.Vector3(0, 1, 0)); // Using temp vec for UP is fine or optimization target? UP is const (0,1,0)
 
         // Apply input relative to camera view
-        const moveVec = new THREE.Vector3()
-            .addScaledVector(camDir, swimDir.z)
-            .addScaledVector(camRight, swimDir.x);
+        // Bolt: Reuse scratch vector
+        _scratchMoveVec.set(0, 0, 0)
+            .addScaledVector(_scratchCamDir, _scratchSwimDir.z)
+            .addScaledVector(_scratchCamRight, _scratchSwimDir.x);
 
-        player.velocity.addScaledVector(moveVec, swimSpeed * delta);
+        player.velocity.addScaledVector(_scratchMoveVec, swimSpeed * delta);
     }
 
     // 4. Vertical Input (Jump = Swim Up, Sneak = Swim Down)
@@ -229,7 +249,9 @@ function updateDefaultState(delta, camera, controls, keyStates, audioState) {
 
     // Vine Attachment Check
     if (Date.now() - lastVineDetachTime > 500) {
-        checkVineAttachment(camera);
+        profiler.measure('VineAttach', () => {
+            checkVineAttachment(camera);
+        });
     }
 
     // --- C++ MOVEMENT INTEGRATION ---
@@ -244,8 +266,11 @@ function updateDefaultState(delta, camera, controls, keyStates, audioState) {
     if (keyStates.right) inputX += 1;
 
     // Normalize
-    const len = Math.sqrt(inputX*inputX + inputZ*inputZ);
-    if (len > 0) { inputX /= len; inputZ /= len; }
+    const lenSq = inputX*inputX + inputZ*inputZ;
+    if (lenSq > 0) {
+        const len = Math.sqrt(lenSq);
+        inputX /= len; inputZ /= len;
+    }
 
     // Sync State
     setPlayerState(camera.position.x, camera.position.y, camera.position.z, player.velocity.x, player.velocity.y, player.velocity.z);
@@ -272,21 +297,23 @@ function updateDefaultState(delta, camera, controls, keyStates, audioState) {
     }
 
     // --- ADDITIONAL JS COLLISIONS (Mushrooms, Clouds, Gates) ---
-    resolveSpecialCollisions(delta, camera, keyStates, audioState);
+    profiler.measure('Collisions', () => {
+        resolveSpecialCollisions(delta, camera, keyStates, audioState);
+    });
 }
 
 function updateJSFallbackMovement(delta, camera, controls, keyStates, moveSpeed) {
-    const _targetVelocity = new THREE.Vector3();
-    if (keyStates.forward) _targetVelocity.z += moveSpeed;
-    if (keyStates.backward) _targetVelocity.z -= moveSpeed;
-    if (keyStates.left) _targetVelocity.x -= moveSpeed;
-    if (keyStates.right) _targetVelocity.x += moveSpeed;
+    _scratchTargetVelocity.set(0, 0, 0);
+    if (keyStates.forward) _scratchTargetVelocity.z += moveSpeed;
+    if (keyStates.backward) _scratchTargetVelocity.z -= moveSpeed;
+    if (keyStates.left) _scratchTargetVelocity.x -= moveSpeed;
+    if (keyStates.right) _scratchTargetVelocity.x += moveSpeed;
 
-    if (_targetVelocity.lengthSq() > 0) _targetVelocity.normalize().multiplyScalar(moveSpeed);
+    if (_scratchTargetVelocity.lengthSq() > 0) _scratchTargetVelocity.normalize().multiplyScalar(moveSpeed);
 
     const smoothing = Math.min(1.0, 15.0 * delta);
-    player.velocity.x += (_targetVelocity.x - player.velocity.x) * smoothing;
-    player.velocity.z += (_targetVelocity.z - player.velocity.z) * smoothing;
+    player.velocity.x += (_scratchTargetVelocity.x - player.velocity.x) * smoothing;
+    player.velocity.z += (_scratchTargetVelocity.z - player.velocity.z) * smoothing;
     player.velocity.y -= player.gravity * delta;
 
     controls.moveRight(player.velocity.x * delta);
@@ -310,15 +337,20 @@ function resolveSpecialCollisions(delta, camera, keyStates, audioState) {
 
     // 1. Water Gates (Cave Blockers)
     // If not swimming (meaning we are walking into it), push back
-    foliageCaves.forEach(cave => {
+    const nearbyCaves = spatialHashEnabled ? caveGrid.query(playerPos.x, playerPos.z) : foliageCaves;
+    
+    nearbyCaves.forEach(cave => {
         if (cave.userData.isBlocked) {
-            const gateWorldPos = cave.userData.gatePosition.clone().applyMatrix4(cave.matrixWorld);
-            const dx = playerPos.x - gateWorldPos.x;
-            const dz = playerPos.z - gateWorldPos.z;
-            const dist = Math.sqrt(dx*dx + dz*dz);
+            // Bolt Optimization: Reuse scratch vector
+            _scratchGatePos.copy(cave.userData.gatePosition).applyMatrix4(cave.matrixWorld);
+            const dx = playerPos.x - _scratchGatePos.x;
+            const dz = playerPos.z - _scratchGatePos.z;
+
+            // Bolt Optimization: Squared distance (2.5^2 = 6.25)
+            const distSq = dx*dx + dz*dz;
 
             // If near gate and NOT already inside water (transition state handles inside)
-            if (dist < 2.5 && player.currentState !== PlayerState.SWIMMING) {
+            if (distSq < 6.25 && player.currentState !== PlayerState.SWIMMING) {
                 // Push back force
                 const angle = Math.atan2(dz, dx);
                 const pushForce = 15.0 * delta;
@@ -330,15 +362,21 @@ function resolveSpecialCollisions(delta, camera, keyStates, audioState) {
         }
     });
 
-    // 2. Mushroom Caps (Trampolines/Platforms) - JS Check
-    for (const mush of foliageMushrooms) {
+    // 2. Mushroom Caps (Trampolines/Platforms) - JS Check with Spatial Hash Optimization
+    const nearbyMushrooms = spatialHashEnabled ? mushroomGrid.query(playerPos.x, playerPos.z) : foliageMushrooms;
+    
+    for (const mush of nearbyMushrooms) {
         if (player.velocity.y < 0) {
             const capR = mush.userData.capRadius || 2.0;
+            const capRSq = capR * capR;
             const capH = mush.userData.capHeight || 3.0;
             const dx = playerPos.x - mush.position.x;
             const dz = playerPos.z - mush.position.z;
 
-            if (Math.sqrt(dx*dx + dz*dz) < capR) {
+            // Bolt Optimization: Squared distance
+            const distSq = dx*dx + dz*dz;
+
+            if (distSq < capRSq) {
                 const surfaceY = mush.position.y + capH;
                 if (playerPos.y >= surfaceY - 0.5 && playerPos.y <= surfaceY + 2.0) {
                     if (mush.userData.isTrampoline) {
@@ -359,12 +397,20 @@ function resolveSpecialCollisions(delta, camera, keyStates, audioState) {
         }
     }
 
-    // 3. Cloud Walking (Simplified)
+    // 3. Cloud Walking (Simplified) - with Spatial Hash Optimization
     if (playerPos.y > 15) {
-        for (const cloud of foliageClouds) {
+        const nearbyClouds = spatialHashEnabled ? cloudGrid.query(playerPos.x, playerPos.z) : foliageClouds;
+        
+        for (const cloud of nearbyClouds) {
             const dx = playerPos.x - cloud.position.x;
             const dz = playerPos.z - cloud.position.z;
-            if (Math.sqrt(dx*dx + dz*dz) < (cloud.scale.x || 1.0) * 2.0) {
+            const radius = (cloud.scale.x || 1.0) * 2.0;
+            const radiusSq = radius * radius;
+
+            // Bolt Optimization: Squared distance
+            const distSq = dx*dx + dz*dz;
+
+            if (distSq < radiusSq) {
                 if (cloud.userData.tier === 1) {
                      const topY = cloud.position.y + (cloud.scale.y || 1.0) * 0.8;
                      if (playerPos.y >= topY - 0.5 && (playerPos.y - topY) < 3.0) {
@@ -398,18 +444,57 @@ function initCppPhysics(camera) {
         addObstacle(2, t.position.x, t.position.y, t.position.z, t.userData.bounceRadius||0.5, t.userData.bounceHeight||0.5, t.userData.bounceForce||12, 0, 0);
     }
     console.log('[Physics] C++ Physics Initialized.');
+
+    // Initialize Spatial Hash Grids (Tier 1 Optimization)
+    // Cell size of 10 units chosen based on typical collision radii (2-5 units)
+    caveGrid = new SpatialHashGrid(10);
+    mushroomGrid = new SpatialHashGrid(10);
+    cloudGrid = new SpatialHashGrid(10);
+    vineGrid = new SpatialHashGrid(10);
+
+    // Populate grids with static objects
+    foliageCaves.forEach(cave => {
+        caveGrid.insert(cave, cave.position.x, cave.position.z);
+    });
+
+    foliageMushrooms.forEach(mush => {
+        mushroomGrid.insert(mush, mush.position.x, mush.position.z);
+    });
+
+    foliageClouds.forEach(cloud => {
+        cloudGrid.insert(cloud, cloud.position.x, cloud.position.z);
+    });
+
+    vineSwings.forEach(vine => {
+        vineGrid.insert(vine, vine.anchorPoint.x, vine.anchorPoint.z);
+    });
+
+    spatialHashEnabled = true;
+
+    // Log spatial hash statistics
+    console.log('[Physics] Spatial Hash Grids Initialized:');
+    console.log('  - Caves:', caveGrid.getStats());
+    console.log('  - Mushrooms:', mushroomGrid.getStats());
+    console.log('  - Clouds:', cloudGrid.getStats());
+    console.log('  - Vines:', vineGrid.getStats());
 }
 
 function checkVineAttachment(camera) {
     const playerPos = camera.position;
-    for (const vineManager of vineSwings) {
+    const nearbyVines = spatialHashEnabled ? vineGrid.query(playerPos.x, playerPos.z) : vineSwings;
+    
+    for (const vineManager of nearbyVines) {
         const dx = playerPos.x - vineManager.anchorPoint.x;
         const dz = playerPos.z - vineManager.anchorPoint.z;
-        const distH = Math.sqrt(dx*dx + dz*dz);
+
+        // Bolt Optimization: Squared distance
+        const distHSq = dx*dx + dz*dz;
         const tipY = vineManager.anchorPoint.y - vineManager.length;
 
-        if (distH < 2.0 && playerPos.y < vineManager.anchorPoint.y && playerPos.y > tipY) {
-             if (distH < 1.0) {
+        // 2.0^2 = 4.0
+        if (distHSq < 4.0 && playerPos.y < vineManager.anchorPoint.y && playerPos.y > tipY) {
+             // 1.0^2 = 1.0
+             if (distHSq < 1.0) {
                  vineManager.attach(camera, player.velocity);
                  setActiveVineSwing(vineManager);
                  break;

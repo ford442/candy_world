@@ -5,6 +5,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Candy World</title>
+    
+    <!-- Resource Preloading for faster startup -->
+    <link rel="preload" href="./candy_physics.wasm" as="fetch" type="application/wasm" crossorigin>
+    <link rel="preload" href="./candy_native.wasm" as="fetch" type="application/wasm" crossorigin>
+    <link rel="preload" href="main.js" as="script">
+    <link rel="preload" href="./assets/splash.png" as="image">
+    
     <!-- CRITICAL: Capture native WebAssembly before libopenmpt overrides it -->
     <script>
         window.NativeWebAssembly = window.WebAssembly;
@@ -501,7 +508,7 @@ document.body.appendChild(scr);
             </label>
 
             <button id="toggleDayNight" class="toggle-button" aria-pressed="false" aria-keyshortcuts="N">
-                Toggle Day/Night (N)
+                ☀️ Day Mode (N)
             </button>
 
             <button id="openJukeboxBtn" class="toggle-button" aria-keyshortcuts="Q" aria-label="Open Jukebox playlist">

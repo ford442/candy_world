@@ -240,8 +240,8 @@ This structure maps to the **WASM Component Model**: adapters become standardize
 ### Priority A — Hot Loops (Promote to ASC/WASM)
 | Function | File | Profile Data | Target | Status |
 | :--- | :--- | :--- | :--- | :--- |
-| `animateFoliage` | `src/foliage/animation.js` | 4.2ms/frame (2k plants) | `assembly/foliage.ts` | **Done (Hybrid)** |
-| `updateParticles` | `src/systems/particles.js` | 5.1ms/frame (5k particles) | `assembly/particles.ts` | **Ready** |
+| `animateFoliage` | `src/foliage/animation.ts` | 4.2ms/frame | `assembly/foliage.ts` | **Done (Hybrid)** |
+| `updateParticles` | `src/foliage/fireflies.js` | 5.1ms/frame | `assembly/particles.ts` | **Pending** |
 
 ### Priority B — Type Safety (Promote to TS)
 | Function | File | Issue | Action |
@@ -252,9 +252,8 @@ This structure maps to the **WASM Component Model**: adapters become standardize
 ### Priority C — Research (Do NOT promote yet)
 | Function | File | Blocker |
 | :--- | :--- | :--- |
-| `updatePhysics` | `src/systems/physics.js` | Needs spatial hashing in JS first; profile after |
-
----
+| `createFloweringTree` | `src/foliage/trees.ts` | **Done** |
+| `generateMap` | `src/world/generation.ts` | **Done** |
 
 ## Agent Annotation Standard (Machine-Readable)
 Use these comments so automation can verify evidence and intent:

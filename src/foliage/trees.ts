@@ -489,6 +489,10 @@ export class VineSwing {
     rotationAxis: THREE.Vector3;
     defaultDown: THREE.Vector3;
 
+    // Scratch variables for zero-allocation updates
+    private _scratchTargetPos: THREE.Vector3;
+    private _scratchDir: THREE.Vector3;
+
     constructor(vineMesh: THREE.Object3D, length = 8) {
         this.vine = vineMesh;
         this.anchorPoint = vineMesh.position.clone();
@@ -499,6 +503,9 @@ export class VineSwing {
         this.swingPlane = new THREE.Vector3(1, 0, 0);
         this.rotationAxis = new THREE.Vector3(0, 0, 1);
         this.defaultDown = new THREE.Vector3(0, -1, 0);
+
+        this._scratchTargetPos = new THREE.Vector3();
+        this._scratchDir = new THREE.Vector3();
     }
 
     update(player: PlayerObject, delta: number, inputState: InputState | null): void {
@@ -558,7 +565,8 @@ export class VineSwing {
         const dy = -Math.cos(this.swingAngle) * this.length;
         const dh = Math.sin(this.swingAngle) * this.length;
 
-        const targetPos = this.anchorPoint.clone();
+        // Bolt Optimization: Reuse scratch vector instead of cloning
+        const targetPos = this._scratchTargetPos.copy(this.anchorPoint);
         targetPos.y += dy;
         targetPos.addScaledVector(this.swingPlane, dh);
 
@@ -568,7 +576,8 @@ export class VineSwing {
             // Maybe not, allow looking around.
         }
 
-        const dir = new THREE.Vector3().subVectors(targetPos, this.anchorPoint).normalize();
+        // Bolt Optimization: Reuse scratch vector
+        const dir = this._scratchDir.subVectors(targetPos, this.anchorPoint).normalize();
         this.vine.quaternion.setFromUnitVectors(this.defaultDown, dir);
     }
 
