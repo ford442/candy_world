@@ -12,6 +12,22 @@ Migrate code down this ladder only if it exceeds the thresholds below. WASM call
 | **3** | **AssemblyScript (WASM)** | Proven hot loops: math on >1k items/frame. | > 3ms/frame and > 500 iterations | `@optimize asc` |
 | **4** | **C++ (Emscripten WASM)** | Extreme scale: >5k entities, SIMD, shared memory. | > 8ms/frame and memory allocation thrash | `@optimize cpp` |
 
+## 🏗️ Architectural Strategy: Interface-First (Component Model Ready)
+**Goal:** Decouple game logic from engine implementation to allow seamless backend swaps (JS → TS → WASM → C++) without rewriting consumers.
+
+1.  **Define the Contract (WIT-Style):**
+    * Create strict TypeScript interfaces (e.g., `src/interfaces/IPhysicsEngine.ts`) defining capabilities (e.g., `getPositions()`, `step()`).
+    * **Rule:** Interfaces must **NOT** expose memory offsets, pointers, or engine-specific glue. Data transfer must be abstract (e.g., returning `Float32Array` views).
+
+2.  **The Adapter Pattern:**
+    * **Stage A (Legacy/JS):** Wrap current logic in a `LegacyAdapter` class that implements the interface. Isolate "glue code" (memory copies, `SharedArrayBuffer` views, offsets) inside this adapter.
+    * **Stage B (WASM/C++):** Implement a `WasmAdapter` that talks to the new backend.
+    * **Stage C (Swap):** Switch adapters at initialization (`const physics = useWasm ? new WasmPhysicsAdapter() : new LegacyPhysicsAdapter()`). Gameplay code remains untouched.
+
+3.  **Future-Proofing:** This aligns with the **WASM Component Model**, where these "Adapters" eventually become standardized bindings (imports/exports) handled by the runtime.
+
+---
+
 ## 🧪 Migration Protocol (Agent Actions)
 
 ### Step 0: Profile First (MANDATORY)
@@ -28,13 +44,15 @@ Migrate code down this ladder only if it exceeds the thresholds below. WASM call
 
 ### Step 2: TS → AssemblyScript (WASM)
 * **Trigger:** Profile shows >3ms self-time in a loop over arrays.
+* **Pre-requisite:** **Interface Defined.** System must be accessed via an `I[System]` interface, not direct imports.
 * **Action:**
-    1.  Measure overhead: Copy function to `assembly/`, wrap in `export function`.
-    2.  Use only TypedArrays: `Float32Array` for data-in, `Int32Array` for indices.
-    3.  Pass flat data, not objects. **Struct-of-Arrays** pattern only.
-    4.  Update loader: `wasmLoader.import('module', 'function', typedArray)`.
-    5.  **Batching Pattern:** Use a JS batcher to collect data and call WASM once per frame per type (e.g., `FoliageBatcher`).
-    6.  **A/B test:** If WASM version is not >20% faster, revert.
+    1.  **Refactor:** Move existing JS logic behind an `Adapter` implementing the Interface.
+    2.  Measure overhead: Copy function to `assembly/`, wrap in `export function`.
+    3.  Use only TypedArrays: `Float32Array` for data-in, `Int32Array` for indices.
+    4.  Pass flat data, not objects. **Struct-of-Arrays** pattern only.
+    5.  Update loader: `wasmLoader.import('module', 'function', typedArray)`.
+    6.  **Batching Pattern:** Use a JS batcher to collect data and call WASM once per frame per type (e.g., `FoliageBatcher`).
+    7.  **A/B test:** If WASM version is not >20% faster, revert.
 
 ### Step 3: ASC → C++ (Heavy Metal)
 * **Trigger:** Profile shows >8ms and AssemblyScript is memory-bound or needs SIMD.
@@ -80,27 +98,3 @@ Use machine-readable comments for automation:
 ```javascript
 // @perf-migrate {target: "asc", reason: "hot-loop", threshold: "3ms"}
 // @perf-profile {selfTime: "4.2ms", frame: "animation", screenshot: "profile-001.png"}
-```
-
-## ⚙️ Build Commands & Verification
-
-### AssemblyScript
-```bash
-npm run build:wasm
-```
-
-### C++
-```bash
-cd emscripten && ./build.sh
-```
-
-## ✅ Agent Decision Checklist
-Before starting migration:
-
-- [ ] Profile shows function self-time > threshold?
-- [ ] Function processes > 500 elements/frame?
-- [ ] A/B test plan written?
-- [ ] Revert command documented (git revert -m 1)?
-- [ ] Bundle size impact calculated?
-
-**Golden Rule:** Profile, migrate the smallest unit possible, measure, then decide.
