@@ -215,7 +215,10 @@ export async function initWasm() {
         const WA = window.NativeWebAssembly || WebAssembly;
         
         const importObject = {
-            env: { abort: (msg, file, line, col) => console.error(`WASM abort: ${msg}`) },
+            env: {
+                abort: (msg, file, line, col) => console.error(`WASM abort: ${msg}`),
+                seed: () => Math.random()
+            },
             wasi_snapshot_preview1: wasiStubs
         };
 
