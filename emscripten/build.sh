@@ -39,7 +39,7 @@ LINK_FLAGS="-O2 -std=c++17 -lembind -s USE_PTHREADS=1 -s PTHREAD_POOL_SIZE=4 -s 
 -s ALLOW_MEMORY_GROWTH=1 -s INITIAL_MEMORY=512mb -s ASSERTIONS=1 -s EXPORT_ES6=1 -s EXPORTED_RUNTIME_METHODS=["wasmMemory"] \
 -s MODULARIZE=1 -s EXPORT_NAME='createCandyNative' -s ENVIRONMENT='web','worker' \
 -flto -flto=thin -fwasm-exceptions \
--s WASM_WORKERS=1 -matomics -mbulk-memory -target wasm32-unknown-emscripten-threads"
+-s WASM_WORKERS=1 -matomics -mbulk-memory"
 
 EXPORTS="[ \
     '_hash', \
