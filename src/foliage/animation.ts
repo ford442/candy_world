@@ -1,3 +1,5 @@
+// src/foliage/animation.ts
+
 import * as THREE from 'three';
 import { freqToHue } from '../utils/wasm-loader.js';
 import { reactiveMaterials, _foliageReactiveColor, median } from './common.js';
@@ -10,14 +12,39 @@ export * from './types.js';
 
 export function triggerGrowth(plants: FoliageObject[], intensity: number): void {
     plants.forEach(plant => {
+        // Initialize baseline scales if not present
+        if (plant.userData.initialScale === undefined) {
+            plant.userData.initialScale = plant.scale.x;
+        }
+        
+        // Set limits if not already defined
         if (!plant.userData.maxScale) {
-            plant.userData.maxScale = plant.scale.x * 1.5;
+            // Mushrooms can grow larger (2.5x), others standard (1.5x)
+            const growthFactor = plant.userData.type === 'mushroom' ? 2.5 : 1.5;
+            plant.userData.maxScale = plant.userData.initialScale * growthFactor;
         }
 
-        if (plant.scale.x < plant.userData.maxScale) {
-            const growthRate = intensity * 0.01;
-            const newScale = plant.scale.x + growthRate;
-            plant.scale.setScalar(newScale);
+        if (!plant.userData.minScale) {
+            // Allow shrinking to 50% of original size
+            plant.userData.minScale = plant.userData.initialScale * 0.5;
+        }
+
+        const currentScale = plant.scale.x;
+        const growthRate = intensity * 0.01;
+        let nextScale = currentScale + growthRate;
+
+        // Apply Limits
+        if (growthRate > 0) {
+            // Growing
+            if (nextScale > plant.userData.maxScale) nextScale = plant.userData.maxScale;
+        } else {
+            // Shrinking
+            if (nextScale < plant.userData.minScale) nextScale = plant.userData.minScale;
+        }
+
+        // Apply scale if changed
+        if (Math.abs(nextScale - currentScale) > 0.0001) {
+            plant.scale.setScalar(nextScale);
         }
     });
 }
