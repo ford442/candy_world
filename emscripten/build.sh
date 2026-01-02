@@ -35,7 +35,12 @@ COMPILE_FLAGS="-O3 -msimd128 -mrelaxed-simd -ffast-math -flto -flto=thin -fno-ex
 # ---------------------------------------------------------
 # -s MINIFY_WASM_IMPORTS_AND_EXPORTS=0: CRITICAL FIX. Prevents renaming 'env' to 'a'
 # -s SHRINK_LEVEL=0: Disables aggressive shrinking
-LINK_FLAGS="-O3 -s USE_PTHREADS=1 -s PTHREAD_POOL_SIZE=4 -s WASM=1 -s WASM_BIGINT=1 -s ALLOW_MEMORY_GROWTH=1 -s INITIAL_MEMORY=512mb -s ASSERTIONS=0 -s EXPORT_ES6=1 -s MODULARIZE=1 -s EXPORT_NAME='createCandyNative' -s ENVIRONMENT='web','worker' -flto -flto=thin -s DISABLE_EXCEPTION_CATCHING=1"
+LINK_FLAGS="-O3 -std=c++17 -lembind -s USE_PTHREADS=1 -s PTHREAD_POOL_SIZE=4 -s WASM=1 -s WASM_BIGINT=1 \
+-s ALLOW_MEMORY_GROWTH=1 -s INITIAL_MEMORY=512mb -s ASSERTIONS=1 -s EXPORT_ES6=1 \
+-s MODULARIZE=1 -s EXPORT_NAME='createCandyNative' -s ENVIRONMENT='web','worker' \
+-s EXPORTED_RUNTIME_METHODS='["addFunction","removeFunction","UTF8ToString","stringToUTF8"]' \
+-flto -flto=thin -s DISABLE_EXCEPTION_CATCHING=0 -s EXCEPTION_HANDLING=1 -fwasm-exceptions"
+
 EXPORTS="[ \
     '_hash', \
     '_valueNoise2D', \
@@ -64,7 +69,8 @@ EXPORTS="[ \
     '_getBootstrapHeight', \
     '_resetBootstrap', \
     '_malloc', \
-    '_free' \
+    '_free', \
+    '_main' \
 ]"
 
 echo "Compiling & Linking..."
