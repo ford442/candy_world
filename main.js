@@ -15,7 +15,7 @@ import { initInput, keyStates } from './src/core/input.js';
 import { getCycleState } from './src/core/cycle.js';
 
 // World & System imports
-import { initWorld } from './src/world/generation.ts';
+import { initWorld, generateMap } from './src/world/generation.ts';
 import { animatedFoliage, foliageGroup, activeVineSwing, foliageClouds } from './src/world/state.js';
 import { updatePhysics, player, bpmWind } from './src/systems/physics.js';
 import { fireRainbow, updateBlaster } from './src/gameplay/rainbow-blaster.js';
@@ -52,7 +52,9 @@ const weatherSystem = new WeatherSystem(scene);
 // 3. World Generation (Critical - load immediately)
 // We need to pass weatherSystem so foliage can register themselves
 if (window.setLoadingStatus) window.setLoadingStatus("Loading World Map...");
-const { moon, fireflies } = initWorld(scene, weatherSystem);
+
+// CHANGE: Load only the base world (sky/ground) initially, defer content
+const { moon, fireflies } = initWorld(scene, weatherSystem, false);
 
 // Validate node material geometries to avoid TSL attribute errors
 validateNodeGeometries(scene);
@@ -548,17 +550,41 @@ initWasm().then(async (wasmLoaded) => { // Mark as async
     renderer.setAnimationLoop(animate);
     try { window.__sceneReady = true; } catch (e) {}
 
+    // --- STARTUP LOGIC ---
     // Hide loading screen early - the basic scene is ready
     if (window.setLoadingStatus) window.setLoadingStatus("Entering Candy World...");
     
     setTimeout(() => {
         if (window.hideLoadingScreen) window.hideLoadingScreen();
-    }, 200); // Shorter delay for faster perceived load
+    }, 200);
+
+    // Create a temporary "Preview" mushroom for the startup scene
+    const previewMushroom = createMushroom({ size: 'giant', scale: 1.5, hasFace: true, isBouncy: true });
+    // Position it clearly in front of the camera (which is at 0, y, 0)
+    previewMushroom.position.set(0, getGroundHeight(0, -10), -10);
+    previewMushroom.rotation.y = Math.PI / 8;
+    scene.add(previewMushroom);
+    animatedFoliage.push(previewMushroom); // Allow it to animate/bounce
 
     const startButton = document.getElementById('startButton');
     if (startButton) {
         startButton.disabled = false;
-        startButton.innerText = 'Start Exploration 🚀';
+        startButton.innerText = 'Enter World 🍭';
+        
+        // Add click listener to load the full world
+        startButton.addEventListener('click', () => {
+            console.log('[Startup] Entering world...');
+            
+            // 1. Remove Preview Mushroom
+            scene.remove(previewMushroom);
+            const idx = animatedFoliage.indexOf(previewMushroom);
+            if (idx > -1) animatedFoliage.splice(idx, 1);
+
+            // 2. Generate Full Map
+            generateMap(weatherSystem);
+            
+            // 3. Optional: Trigger a welcome sound or effect here if desired
+        }, { once: true });
     }
 
     // Defer shader compilation and non-critical initialization
