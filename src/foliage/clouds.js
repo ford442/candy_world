@@ -13,13 +13,14 @@ export const uCloudLightningColor = uniform(new THREE.Color(0xFFFFFF));
 const puffGeometry = new THREE.IcosahedronGeometry(1, 1);
 
 // Helper: Create the TSL Material
+// TSL-FIXED
 function createCloudMaterial() {
     const material = new MeshStandardNodeMaterial({
         color: 0xffffff,     // Pure cotton white base
-        roughness: 1.0,      // Completely matte
-        metalness: 0.0,
         flatShading: false,
     });
+    material.roughnessNode = float(1.0);
+    material.metalnessNode = float(0.0);
 
     // TSL Logic:
     // Emission = Lightning Color * Lightning Strength * Multiplier
