@@ -52,6 +52,9 @@ EXPORTS="[ \
     '_batchDistances', \
     '_batchDistanceCull_c', \
     '_batchSinWave', \
+    '_calcArpeggioStep_c', \   <-- ADD THIS
+    '_getArpeggioTargetStep_c', \ <-- ADD THIS
+    '_getArpeggioUnfurlStep_c', \ <-- ADD THIS
     '_initPhysics', \
     '_addObstacle', \
     '_setPlayerState', \
