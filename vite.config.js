@@ -2,6 +2,7 @@
 import { defineConfig } from 'vite';
 
 export default defineConfig({
+  base: './',
   server: {
     headers: {
       // These headers are REQUIRED for SharedArrayBuffer (Pthreads)
