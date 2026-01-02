@@ -1,8 +1,5 @@
 // src/utils/wasm-loader.js
 
-// ... (Keep existing AssemblyScript imports and variables) ...
-// ... (wasmInstance, wasmMemory, etc for AssemblyScript remain unchanged) ...
-
 // WASM Loader - Candy World Physics & Animation Module
 // Loads and wraps AssemblyScript WASM for easy use from JavaScript
 //
@@ -35,7 +32,7 @@ let wasmUpdateFoliageBatch = null;
 
 // Emscripten module (native C functions)
 let emscriptenInstance = null;
-let wasmBridge = null; // Helper for MEMORY64 BigInt conversion
+let wasmBridge = null; // Bridge helper for MEMORY64 interactions
 
 // With Pthreads/MODULARIZE, the instance itself is the Module object
 let emscriptenMemory = null;
@@ -44,7 +41,6 @@ let emscriptenMemory = null;
 const POSITION_OFFSET = 0;
 const ANIMATION_OFFSET = 4096;
 const OUTPUT_OFFSET = 8192;
-const TOTAL_MEMORY_PAGES = 4; // 256KB total
 
 // Animation type constants (must match AssemblyScript)
 export const AnimationType = {
@@ -60,59 +56,29 @@ export const AnimationType = {
 
 /**
  * Helper class to bridge JavaScript Numbers and WASM BigInt pointers (MEMORY64)
- * This acts like the "Component Model" interface, handling type conversion automatically.
  */
 class WasmBridge {
     constructor(module) {
         this.module = module;
-        // Locate memory buffer source
         this.memory = module.wasmMemory || module.memory || (module.exports && module.exports.memory) || module.HEAP8.buffer;
     }
 
-    /**
-     * Allocate memory in WASM heap
-     * @param {number} size 
-     * @returns {BigInt} Pointer
-     */
     malloc(size) {
         if (!this.module._malloc) return 0n;
         return this.module._malloc(BigInt(size));
     }
 
-    /**
-     * Free memory in WASM heap
-     * @param {BigInt} ptr 
-     */
     free(ptr) {
         if (!this.module._free) return;
         this.module._free(BigInt(ptr));
     }
 
-    /**
-     * Create a Float32 view of a WASM memory region
-     * @param {BigInt} ptr Pointer to start
-     * @param {number} length Number of elements (floats)
-     * @returns {Float32Array}
-     */
     readFloat32Array(ptr, length) {
-        // Safe conversion: BigInt ptr to Number offset. 
-        // Valid for < 9007TB memory (max safe integer), which is always true for WASM (4GB max).
         const offset = Number(ptr);
-        
-        // Access the current buffer (it might have grown/detached)
         const buffer = this.module.HEAPF32 ? this.module.HEAPF32.buffer : this.memory.buffer;
-        
-        return new Float32Array(
-            buffer,
-            offset,
-            length
-        );
+        return new Float32Array(buffer, offset, length);
     }
     
-    /**
-     * Call an exported function, converting relevant args to BigInt if needed
-     * NOTE: This is a simplified bridge. 
-     */
     call(funcName, ...args) {
         const func = this.module['_' + funcName] || this.module[funcName];
         if (!func) return null;
@@ -124,22 +90,16 @@ class WasmBridge {
 // UPDATED: Load Emscripten Module (Pthreads/Worker Version)
 // =============================================================================
 
-/**
- * Load the Emscripten-generated JS module which handles WASM & Workers
- */
 async function loadEmscriptenModule() {
-    // 0. Safety Check for SharedArrayBuffer
     if (typeof SharedArrayBuffer === 'undefined') {
         console.error('[Native] SharedArrayBuffer is missing. Pthreads will NOT work.');
         return false;
     }
 
     // 1. Restore Native WebAssembly to bypass libopenmpt shim
-    // This fixes "TypeError: Cannot mix BigInt..." caused by libopenmpt hijacking WebAssembly
     const hijackedWA = window.WebAssembly;
     const nativeWA = window.NativeWebAssembly || hijackedWA;
     
-    // If libopenmpt or another shim has replaced the global object, temporarily revert it
     if (hijackedWA !== nativeWA) {
         console.log('[WASM] Temporarily restoring Native WebAssembly for 64-bit Engine load...');
         window.WebAssembly = nativeWA;
@@ -148,7 +108,6 @@ async function loadEmscriptenModule() {
     try {
         await updateProgress('Loading Native Engine...');
 
-        // 2. Dynamic Import the generated loader
         let createCandyNative;
         let locatePrefix = '/candy-world';
 
@@ -162,7 +121,6 @@ async function loadEmscriptenModule() {
             locatePrefix = '';
         }
 
-        // 3. Instantiate (This spawns the worker pool automatically)
         await updateProgress('Spawning Physics Workers...');
 
         emscriptenInstance = await createCandyNative({
@@ -176,11 +134,8 @@ async function loadEmscriptenModule() {
         });
 
         console.log('[WASM] Emscripten Pthreads Ready');
-
-        // 4. Initialize Bridge
         wasmBridge = new WasmBridge(emscriptenInstance);
 
-        // Expose memory buffer if needed
         if (emscriptenInstance.wasmMemory) {
             emscriptenMemory = emscriptenInstance.wasmMemory;
         } else if (emscriptenInstance.HEAP8) {
@@ -192,32 +147,21 @@ async function loadEmscriptenModule() {
         console.warn('Failed to load Native Emscripten module:', e);
         return false;
     } finally {
-        // 5. Restore the shim (optional, but good practice if audio lib relies on it)
         if (window.WebAssembly !== hijackedWA) {
             window.WebAssembly = hijackedWA;
-            console.log('[WASM] Restored Audio Engine environment');
         }
     }
 }
 
-/**
- * Helper to safely get an Emscripten export (handles _ prefix)
- */
 function getNativeFunc(name) {
     if (!emscriptenInstance) return null;
     return emscriptenInstance['_' + name] || null;
 }
 
-
-/**
- * Helper function to start bootstrap terrain pre-computation
- * @param {Object} instance - The Emscripten module instance
- */
-let bootstrapStarted = false; // Guard to prevent duplicate initialization
-
+// ... (Bootstrap loader remains the same) ...
+let bootstrapStarted = false;
 async function startBootstrapIfAvailable(instance) {
     if (!instance || bootstrapStarted) return;
-    
     try {
         const { startBootstrap } = await import('./bootstrap-loader.js');
         if (startBootstrap && startBootstrap(instance)) {
@@ -229,68 +173,36 @@ async function startBootstrapIfAvailable(instance) {
     }
 }
 
-/**
- * Initialize the WASM module
- * @returns {Promise<boolean>} True if loaded successfully
- */
-// Helper to update UI status and yield to main thread to prevent hanging
 async function updateProgress(msg) {
     if (window.setLoadingStatus) window.setLoadingStatus(msg);
-
     const startButton = document.getElementById('startButton');
-    if (startButton) {
-        startButton.textContent = msg;
-    }
-    console.log('[WASM Progress]', msg);
-    // Yield to browser event loop
+    if (startButton) startButton.textContent = msg;
     await new Promise(r => setTimeout(r, 20));
 }
 
 export async function initWasm() {
     if (wasmInstance) return true;
 
-    // UX: Update button state to indicate loading
     const startButton = document.getElementById('startButton');
     if (startButton) {
         startButton.disabled = true;
         startButton.style.cursor = 'wait';
     }
 
-    console.log('[WASM] initWasm started');
     await updateProgress('Downloading Physics Engine...');
 
     try {
-        // Load WASM binary with cache buster
         const wasmUrl = './candy_physics.wasm?v=' + Date.now();
-        console.log('[WASM] Fetching:', wasmUrl);
         const response = await fetch(wasmUrl);
         
         if (!response.ok) {
             console.warn('WASM not found, using JS fallbacks');
-            if (startButton) {
-                startButton.disabled = false;
-                startButton.textContent = 'Start Exploration 🚀';
-                startButton.style.cursor = 'pointer';
-            }
+            if (startButton) startButton.disabled = false;
             return false;
         }
 
         const wasmBytes = await response.arrayBuffer();
         
-        // Check Magic
-        const firstBytes = new Uint8Array(wasmBytes.slice(0, 4));
-        const magic = Array.from(firstBytes).map(b => b.toString(16).padStart(2, '0')).join('');
-        if (magic !== '0061736d') {
-            console.error('[WASM] Invalid file - not a WebAssembly binary!');
-            if (startButton) {
-                startButton.disabled = false;
-                startButton.textContent = 'Start Exploration 🚀';
-                startButton.style.cursor = 'pointer';
-            }
-            return false;
-        }
-
-        // WASI stubs
         const wasiStubs = {
             fd_close: () => 0, fd_seek: () => 0, fd_write: () => 0, fd_read: () => 0,
             fd_fdstat_get: () => 0, fd_prestat_get: () => 0, fd_prestat_dir_name: () => 0,
@@ -300,15 +212,10 @@ export async function initWasm() {
 
         await updateProgress('Compiling Physics (WASM)...');
 
-        // Use NativeWebAssembly to bypass libopenmpt's WebAssembly override for ASC load
         const WA = window.NativeWebAssembly || WebAssembly;
         
         const importObject = {
-            env: {
-                abort: (msg, file, line, col) => {
-                    console.error(`WASM abort at ${file}:${line}:${col}: ${msg}`);
-                }
-            },
+            env: { abort: (msg, file, line, col) => console.error(`WASM abort: ${msg}`) },
             wasi_snapshot_preview1: wasiStubs
         };
 
@@ -321,7 +228,6 @@ export async function initWasm() {
 
         wasmInstance = result.instance;
 
-        // Use WASM's exported memory (AssemblyScript manages its own)
         if (wasmInstance.exports.memory) {
             wasmMemory = wasmInstance.exports.memory;
             const memBuffer = wasmMemory.buffer;
@@ -330,26 +236,18 @@ export async function initWasm() {
             outputView = new Float32Array(memBuffer, OUTPUT_OFFSET, 1024);
         }
 
-        // Cache function references
         wasmGetGroundHeight = wasmInstance.exports.getGroundHeight;
         wasmFreqToHue = wasmInstance.exports.freqToHue;
         wasmLerp = wasmInstance.exports.lerp;
         wasmBatchMushroomSpawnCandidates = wasmInstance.exports.batchMushroomSpawnCandidates || null;
         wasmUpdateFoliageBatch = wasmInstance.exports.updateFoliageBatch || null;
 
-        console.log('[WASM] AssemblyScript module loaded successfully');
-
-        // =====================================================================
-        // LOAD EMSCRIPTEN MODULE (Pthreads/Workers)
-        // =====================================================================
         await loadEmscriptenModule();
 
-        // Start bootstrap loader
         if (emscriptenInstance) {
             await startBootstrapIfAvailable(emscriptenInstance);
         }
 
-        // UX: Restore button on success
         if (startButton) {
             startButton.disabled = false;
             startButton.textContent = 'Start Exploration 🚀';
@@ -360,18 +258,11 @@ export async function initWasm() {
     } catch (error) {
         console.warn('Failed to load WASM:', error);
         wasmInstance = null;
-        if (startButton) {
-            startButton.disabled = false;
-            startButton.textContent = 'Start Exploration 🚀';
-            startButton.style.cursor = 'pointer';
-        }
+        if (startButton) startButton.disabled = false;
         return false;
     }
 }
 
-/**
- * WASM-First Parallel Initialization (Strategy 1)
- */
 export async function initWasmParallel(options = {}) {
     if (wasmInstance) return true;
 
@@ -385,12 +276,10 @@ export async function initWasmParallel(options = {}) {
         startButton.style.cursor = 'wait';
     }
 
-    // Capture Native WA before parallel load starts to ensure safety
+    // Capture Native WA before parallel load starts
     const hijackedWA = window.WebAssembly;
     const nativeWA = window.NativeWebAssembly || hijackedWA;
     if (hijackedWA !== nativeWA) window.WebAssembly = nativeWA;
-
-    console.log('[WASM] initWasmParallel started (WASM-First Architecture)');
 
     try {
         const result = await parallelWasmLoad({
@@ -399,7 +288,6 @@ export async function initWasmParallel(options = {}) {
             emccWasmUrl: './candy_native.wasm'
         });
 
-        // Wire up the ASC module
         if (result.asc) {
             wasmInstance = result.asc;
             if (wasmInstance.exports.memory) {
@@ -416,12 +304,10 @@ export async function initWasmParallel(options = {}) {
             wasmUpdateFoliageBatch = wasmInstance.exports.updateFoliageBatch || null;
         }
 
-        // Wire up the EMCC module
         if (result.emcc) {
             emscriptenInstance = result.emcc;
             emscriptenMemory = emscriptenInstance.exports && emscriptenInstance.exports.memory;
             
-            // Initialize Bridge
             wasmBridge = new WasmBridge(emscriptenInstance);
 
             const initFn = getNativeFunc('init_native');
@@ -440,22 +326,20 @@ export async function initWasmParallel(options = {}) {
         return wasmInstance !== null;
     } catch (error) {
         console.warn('[WASM] Parallel init failed, falling back to sequential:', error);
-        // Fallback
         return await initWasm();
     } finally {
-         // Restore hijacked WA if needed
          if (window.WebAssembly !== hijackedWA) window.WebAssembly = hijackedWA;
     }
 }
 
-// ... (Exported checks: isWasmReady, isEmscriptenReady, getWasmInstance remain the same) ...
 export function isWasmReady() { return wasmInstance !== null; }
 export function isEmscriptenReady() { return emscriptenInstance !== null; }
 export function getWasmInstance() { return wasmInstance; }
 
 // =============================================================================
-// SIMPLE MATH FUNCTIONS (ASC - Unchanged)
+// SIMPLE MATH FUNCTIONS
 // =============================================================================
+
 export function getGroundHeight(x, z) {
     if (wasmGetGroundHeight) return wasmGetGroundHeight(x, z);
     if (isNaN(x) || isNaN(z)) return 0;
@@ -528,14 +412,8 @@ export function uploadAnimationData(animData) {
 
 export function batchDistanceCull(cameraX, cameraY, cameraZ, maxDistance, objectCount) {
     const maxDistSq = maxDistance * maxDistance;
-
-    if (!wasmInstance) {
-        return { visibleCount: objectCount, flags: null };
-    }
-
-    if (objectCount > 5000) {
-        return { visibleCount: objectCount, flags: null };
-    }
+    if (!wasmInstance) return { visibleCount: objectCount, flags: null };
+    if (objectCount > 5000) return { visibleCount: objectCount, flags: null };
 
     const visibleCount = wasmInstance.exports.batchDistanceCull(
         cameraX, cameraY, cameraZ, maxDistSq, objectCount
@@ -571,7 +449,6 @@ export function readSpawnCandidates(candidateCount) {
 }
 
 export function analyzeMaterials(materials) {
-    // Falls back to JS if WASM unavailable
     if (!wasmInstance || !wasmInstance.exports.analyzeMaterials) {
         const seen = new Map();
         const shaders = [];
@@ -606,7 +483,6 @@ export function analyzeMaterials(materials) {
     }
     
     const uniqueCount = wasmInstance.exports.analyzeMaterials(MATERIAL_OFFSET, count);
-    
     const outputView = new Int32Array(wasmMemory.buffer, MATERIAL_OFFSET, Math.min(uniqueCount, 64) * 4);
     const shaders = [];
     for (let i = 0; i < Math.min(uniqueCount, 64); i++) {
@@ -618,7 +494,6 @@ export function analyzeMaterials(materials) {
             flags: outputView[idx + 3]
         });
     }
-    
     return { uniqueCount, shaders };
 }
 
@@ -635,9 +510,9 @@ export function batchAnimationCalc(time, intensity, kick, objectCount) {
     return outputView.slice(0, objectCount * 4);
 }
 
-// ... (calcBounceY, calcSwayRotZ, calcWobble, checkCollision, calcSpeakerPulse, calcAccordionStretch, calcFiberWhip, calcHopY, calcShiver, calcSpiralWave, calcPrismRose, calcArpeggioStep, lerpColor, calcRainDropY, calcFloatingParticle remain unchanged) ...
-// (Omitting for brevity as they don't interact with Emscripten heap directly in this context)
-// ... Keep existing logic for these functions ...
+// =============================================================================
+// ANIMATION HELPERS
+// =============================================================================
 
 export function calcBounceY(time, offset, intensity, kick) {
     if (wasmInstance) return wasmInstance.exports.calcBounceY(time, offset, intensity, kick);
@@ -646,10 +521,12 @@ export function calcBounceY(time, offset, intensity, kick) {
     if (kick > 0.1) yOffset += kick * 0.2;
     return yOffset;
 }
+
 export function calcSwayRotZ(time, offset, intensity) {
     if (wasmInstance) return wasmInstance.exports.calcSwayRotZ(time, offset, intensity);
     return Math.sin(time + offset) * 0.1 * intensity;
 }
+
 export function calcWobble(time, offset, intensity) {
     if (wasmInstance) {
         wasmInstance.exports.calcWobble(time, offset, intensity);
@@ -658,12 +535,22 @@ export function calcWobble(time, offset, intensity) {
     const animTime = time + offset;
     return { rotX: Math.sin(animTime * 3) * 0.15 * intensity, rotZ: Math.cos(animTime * 3) * 0.15 * intensity };
 }
+
 export function checkCollision(playerX, playerZ, playerRadius, objectCount) {
     if (!wasmInstance) return false;
     return wasmInstance.exports.checkCollision(playerX, playerZ, playerRadius, objectCount) === 1;
 }
 
+// Result caches
 let speakerResult = { yOffset: 0, scaleX: 1, scaleY: 1, scaleZ: 1 };
+let accordionResult = { stretchY: 1, widthXZ: 1 };
+let fiberResult = { baseRotY: 0, branchRotZ: 0 };
+let shiverResult = { rotX: 0, rotZ: 0 };
+let spiralResult = { rotY: 0, yOffset: 0, scale: 1 };
+let prismResult = { unfurl: 0, spin: 0, pulse: 1, hue: 0 };
+let particleResult = { x: 0, y: 0, z: 0 };
+let arpeggioResult = { targetStep: 0, unfurlStep: 0 };
+
 export function calcSpeakerPulse(time, offset, kick) {
     if (wasmInstance) {
         wasmInstance.exports.calcSpeakerPulse(time, offset, kick);
@@ -681,21 +568,159 @@ export function calcSpeakerPulse(time, offset, kick) {
     return speakerResult;
 }
 
-// ... (Other animation functions omitted for brevity, logic remains identical to original file) ...
-// ... Add back calcAccordionStretch, calcFiberWhip, calcHopY, calcShiver, calcSpiralWave, calcPrismRose, calcArpeggioStep, lerpColor, calcRainDropY, calcFloatingParticle ...
-// (I am including one or two examples above, please retain the rest from your original file)
-
 export function calcAccordionStretch(animTime, offset, intensity) {
     if (wasmInstance) {
         wasmInstance.exports.calcAccordionStretch(animTime, offset, intensity);
-        return { stretchY: wasmInstance.exports.getAccordionStretchY(), widthXZ: wasmInstance.exports.getAccordionWidthXZ() };
+        accordionResult.stretchY = wasmInstance.exports.getAccordionStretchY();
+        accordionResult.widthXZ = wasmInstance.exports.getAccordionWidthXZ();
+    } else {
+        const rawStretch = Math.sin(animTime * 10.0 + offset);
+        accordionResult.stretchY = 1.0 + Math.max(0, rawStretch) * 0.3 * intensity;
+        accordionResult.widthXZ = 1.0 / Math.sqrt(accordionResult.stretchY);
     }
-    return { stretchY: 1, widthXZ: 1 };
+    return accordionResult;
 }
-// ... etc
+
+export function calcFiberWhip(time, offset, leadVol, isActive, branchIndex) {
+    if (wasmInstance) {
+        wasmInstance.exports.calcFiberWhip(time, offset, leadVol, isActive ? 1 : 0, branchIndex);
+        fiberResult.baseRotY = wasmInstance.exports.getFiberBaseRotY();
+        fiberResult.branchRotZ = wasmInstance.exports.getFiberBranchRotZ();
+    } else {
+        fiberResult.baseRotY = Math.sin(time * 0.5 + offset) * 0.1;
+        const whip = leadVol * 2.0;
+        const childOffset = branchIndex * 0.5;
+        fiberResult.branchRotZ = Math.PI / 4 + Math.sin(time * 2.0 + childOffset) * 0.1;
+        if (isActive) fiberResult.branchRotZ += Math.sin(time * 10.0 + childOffset) * whip;
+    }
+    return fiberResult;
+}
+
+export function calcHopY(time, offset, intensity, kick) {
+    if (wasmInstance) return wasmInstance.exports.calcHopY(time, offset, intensity, kick);
+    const animTime = time + offset;
+    let bounce = Math.max(0, Math.sin(animTime * 4.0)) * 0.3 * intensity;
+    if (kick > 0.1) bounce += kick * 0.15;
+    return bounce;
+}
+
+export function calcShiver(time, offset, intensity) {
+    if (wasmInstance) {
+        wasmInstance.exports.calcShiver(time, offset, intensity);
+        shiverResult.rotX = wasmInstance.exports.getShiverRotX();
+        shiverResult.rotZ = wasmInstance.exports.getShiverRotZ();
+    } else {
+        const animTime = time + offset;
+        shiverResult.rotX = Math.sin(animTime * 20.0) * 0.02 * intensity;
+        shiverResult.rotZ = Math.cos(animTime * 20.0) * 0.02 * intensity;
+    }
+    return shiverResult;
+}
+
+export function calcSpiralWave(time, offset, intensity, groove) {
+    if (wasmInstance) {
+        wasmInstance.exports.calcSpiralWave(time, offset, intensity, groove);
+        spiralResult.rotY = wasmInstance.exports.getSpiralRotY();
+        spiralResult.yOffset = wasmInstance.exports.getSpiralYOffset();
+        spiralResult.scale = wasmInstance.exports.getSpiralScale();
+    } else {
+        const animTime = time + offset;
+        spiralResult.rotY = Math.sin(animTime * 2.0) * 0.2 * intensity;
+        spiralResult.yOffset = Math.sin(animTime * 3.0) * 0.1 * (1.0 + groove);
+        spiralResult.scale = 1.0 + Math.sin(animTime * 4.0) * 0.05 * intensity;
+    }
+    return spiralResult;
+}
+
+export function calcPrismRose(time, offset, kick, groove, isActive) {
+    if (wasmInstance) {
+        wasmInstance.exports.calcPrismRose(time, offset, kick, groove, isActive ? 1 : 0);
+        prismResult.unfurl = wasmInstance.exports.getPrismUnfurl();
+        prismResult.spin = wasmInstance.exports.getPrismSpin();
+        prismResult.pulse = wasmInstance.exports.getPrismPulse();
+        prismResult.hue = wasmInstance.exports.getPrismHue();
+    } else {
+        const animTime = time + offset;
+        const intensity = isActive ? (1.0 + groove * 3.0) : 0.3;
+        prismResult.unfurl = Math.sin(animTime * 2.0) * 0.1 * intensity;
+        prismResult.spin = animTime * 0.5 + groove * 2.0;
+        prismResult.pulse = 1.0 + kick * 0.3;
+        prismResult.hue = (animTime * 0.1) % 1.0;
+    }
+    return prismResult;
+}
+
+// THIS WAS MISSING from export!
+export function calcArpeggioStep(currentUnfurl, currentTarget, lastTrigger, arpeggioActive, noteTrigger, maxSteps) {
+    // 1. Try Native C++
+    const calcFn = getNativeFunc('calcArpeggioStep_c');
+    if (calcFn) {
+        calcFn(currentUnfurl, currentTarget, lastTrigger ? 1 : 0, arpeggioActive ? 1 : 0, noteTrigger ? 1 : 0, maxSteps);
+        const getTarget = getNativeFunc('getArpeggioTargetStep_c');
+        const getUnfurl = getNativeFunc('getArpeggioUnfurlStep_c');
+        if (getTarget && getUnfurl) {
+            arpeggioResult.targetStep = getTarget();
+            arpeggioResult.unfurlStep = getUnfurl();
+            return arpeggioResult;
+        }
+    }
+
+    // 2. Try AssemblyScript
+    if (wasmInstance && wasmInstance.exports.calcArpeggioStep) {
+        wasmInstance.exports.calcArpeggioStep(currentUnfurl, currentTarget, lastTrigger ? 1 : 0, arpeggioActive ? 1 : 0, noteTrigger ? 1 : 0, maxSteps);
+        arpeggioResult.targetStep = wasmInstance.exports.getArpeggioTargetStep();
+        arpeggioResult.unfurlStep = wasmInstance.exports.getArpeggioUnfurlStep();
+        return arpeggioResult;
+    }
+
+    // 3. JS Fallback
+    let nextTarget = currentTarget;
+    if (arpeggioActive) {
+        if (noteTrigger && !lastTrigger) {
+            nextTarget = Math.min(maxSteps, nextTarget + 1);
+        }
+    } else {
+        nextTarget = 0;
+    }
+    const speed = (nextTarget > currentUnfurl) ? 0.3 : 0.05;
+    const nextUnfurl = currentUnfurl + (nextTarget - currentUnfurl) * speed;
+    return { targetStep: nextTarget, unfurlStep: nextUnfurl };
+}
+
+export function lerpColor(color1, color2, t) {
+    if (wasmInstance) return wasmInstance.exports.lerpColor(color1, color2, t);
+    const r1 = (color1 >> 16) & 0xFF, g1 = (color1 >> 8) & 0xFF, b1 = color1 & 0xFF;
+    const r2 = (color2 >> 16) & 0xFF, g2 = (color2 >> 8) & 0xFF, b2 = color2 & 0xFF;
+    const r = Math.round(r1 + (r2 - r1) * t);
+    const g = Math.round(g1 + (g2 - g1) * t);
+    const b = Math.round(b1 + (b2 - b1) * t);
+    return (r << 16) | (g << 8) | b;
+}
+
+export function calcRainDropY(startY, time, speed, cycleHeight) {
+    if (wasmInstance) return wasmInstance.exports.calcRainDropY(startY, time, speed, cycleHeight);
+    const totalDrop = time * speed;
+    const cycled = totalDrop % cycleHeight;
+    return startY - cycled;
+}
+
+export function calcFloatingParticle(baseX, baseY, baseZ, time, offset, amplitude) {
+    if (wasmInstance) {
+        wasmInstance.exports.calcFloatingParticle(baseX, baseY, baseZ, time, offset, amplitude);
+        particleResult.x = wasmInstance.exports.getParticleX();
+        particleResult.y = wasmInstance.exports.getParticleY();
+        particleResult.z = wasmInstance.exports.getParticleZ();
+    } else {
+        const t = time + offset;
+        particleResult.x = baseX + Math.sin(t * 0.5) * amplitude;
+        particleResult.y = baseY + Math.sin(t * 0.7) * amplitude * 0.5;
+        particleResult.z = baseZ + Math.cos(t * 0.6) * amplitude;
+    }
+    return particleResult;
+}
 
 // =============================================================================
-// EMSCRIPTEN NATIVE FUNCTIONS (from candy_native.c)
+// EMSCRIPTEN NATIVE EXPORTS
 // =============================================================================
 
 export function updatePhysicsCPP(delta, inputX, inputZ, speed, jump, sprint, sneak, grooveGravity) {
@@ -720,13 +745,15 @@ export function setPlayerState(x, y, z, vx, vy, vz) {
 }
 
 export function getPlayerState() {
-    const x = getNativeFunc('getPlayerX')();
-    const y = getNativeFunc('getPlayerY')();
-    const z = getNativeFunc('getPlayerZ')();
-    const vx = getNativeFunc('getPlayerVX')();
-    const vy = getNativeFunc('getPlayerVY')();
-    const vz = getNativeFunc('getPlayerVZ')();
-    return { x, y, z, vx, vy, vz };
+    if (!emscriptenInstance) return { x:0, y:0, z:0, vx:0, vy:0, vz:0 };
+    return {
+        x: getNativeFunc('getPlayerX')(),
+        y: getNativeFunc('getPlayerY')(),
+        z: getNativeFunc('getPlayerZ')(),
+        vx: getNativeFunc('getPlayerVX')(),
+        vy: getNativeFunc('getPlayerVY')(),
+        vz: getNativeFunc('getPlayerVZ')()
+    };
 }
 
 export function valueNoise2D(x, y) {
@@ -761,9 +788,6 @@ export function hash(x, y) {
     return 0;
 }
 
-// =============================================================================
-// RE-EXPORTS
-// =============================================================================
 export { 
     LOADING_PHASES, 
     isSharedMemoryAvailable,
