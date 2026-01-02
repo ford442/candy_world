@@ -1,3 +1,5 @@
+// src/foliage/water.js
+
 import * as THREE from 'three';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import {
@@ -15,13 +17,14 @@ export function createWaveformWater(width = 400, depth = 400) {
     geometry.rotateX(-Math.PI / 2); 
 
     const waterDisplacement = Fn((pos) => {
-        const bigWave = sin(pos.x.mul(0.05).add(time.mul(0.5))).mul(2.0);
-        const bassWave = cos(pos.z.mul(0.1).sub(time.mul(1.0)))
-            .mul(uAudioLow.mul(3.0).add(0.5)); 
+        // FIX: Wrap all raw numbers in float()
+        const bigWave = sin(pos.x.mul(float(0.05)).add(time.mul(float(0.5)))).mul(float(2.0));
+        const bassWave = cos(pos.z.mul(float(0.1)).sub(time.mul(float(1.0))))
+            .mul(uAudioLow.mul(float(3.0)).add(float(0.5))); 
 
-        const rippleX = sin(pos.x.mul(0.5).add(time.mul(2.0)));
-        const rippleZ = cos(pos.z.mul(0.4).sub(time.mul(2.5)));
-        const trebleRipples = rippleX.mul(rippleZ).mul(uAudioHigh.mul(1.5));
+        const rippleX = sin(pos.x.mul(float(0.5)).add(time.mul(float(2.0))));
+        const rippleZ = cos(pos.z.mul(float(0.4)).sub(time.mul(float(2.5))));
+        const trebleRipples = rippleX.mul(rippleZ).mul(uAudioHigh.mul(float(1.5)));
 
         return bigWave.add(bassWave).add(trebleRipples).mul(uWaveHeight);
     });
@@ -41,15 +44,16 @@ export function createWaveformWater(width = 400, depth = 400) {
     const newPos = vec3(pos.x, pos.y.add(displacement), pos.z);
     material.positionNode = newPos;
 
-    const heightFactor = smoothstep(2.0, 5.0, displacement); 
+    // FIX: smoothstep edges must be nodes (floats)
+    const heightFactor = smoothstep(float(2.0), float(5.0), displacement); 
     const foamColor = color(0xFFFFFF);
     const waterColor = material.colorNode; 
 
-    material.colorNode = mix(waterColor, foamColor, heightFactor.mul(0.5));
+    // FIX: float(0.5)
+    material.colorNode = mix(waterColor, foamColor, heightFactor.mul(float(0.5)));
     
-    const beatGlow = uAudioLow.mul(0.2); 
+    const beatGlow = uAudioLow.mul(float(0.2)); 
     
-    // FIX: Wrap numbers in float()
     material.emissiveNode = vec3(float(0.1), float(0.3), float(0.6)).mul(beatGlow);
 
     const mesh = new THREE.Mesh(geometry, material);
