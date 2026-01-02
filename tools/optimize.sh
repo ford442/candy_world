@@ -35,7 +35,7 @@ fi
 # We must explicitly enable the features we used in compilation.
 echo "🔧 Optimizing Physics WASM..."
 wasm-opt "$PHYSICS_WASM" -o "$PHYSICS_WASM" \
-  -O3 \
+  -O4 \
   --converge \
   --strip-debug \
   --enable-simd \
