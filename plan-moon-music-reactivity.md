@@ -148,6 +148,12 @@ Testing & Verification
 
 ### Lake, Island & Creek
 
+- **Status: Implemented ✅**
+- **Updates**:
+    - Created `src/foliage/lake_features.js`.
+    - Implemented `createIsland` with TSL-driven creek material (SeaJelly preset).
+    - Integrated Island instance into the world generation at (-40, 2.5, 40).
+
 - Feature: Add a lake with an island and a creek that flows into the lake; water should have a gentle flow animation and interact with moisture/growth systems.
 - Design notes:
   - Create a `lake` mesh with a water material that supports flow direction and normal-based reflections.

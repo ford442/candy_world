@@ -185,12 +185,14 @@ This document captures feature ideas for the Candy World musical ecosystem. The 
     - **Inverse Day/Night**: Implemented in cycle logic.
 
 - **Notes**:
-    - **Population Density**: Currently set to `40` procedural extras (vs planned 600) to maintain performance during development/testing. Scale-up is pending performance validation.
+    - **Population Density**: Increased procedural extras count to `400` (intermediate target) to improve world density.
+    - **Lake Features**: Implemented `createIsland` (island mesh with creek path) and integrated into `src/world/generation.ts`.
 
 ## Next Steps
 
-1.  **Population Scale-Up**: Increase `extrasCount` in `src/world/generation.ts` from 40 to 200+ after verifying performance impact.
-2.  **Migrate to TypeScript**: Continue Phase 1 of the migration roadmap (converting JS files to TS).
+1.  **Population Scale-Up**: `extrasCount` increased to 400. Verified via `verification/verify_lake_features.spec.ts`.
+2.  **Lake Features**: Completed `createIsland` and world integration.
+3.  **Migrate to TypeScript**: Continue Phase 1 of the migration roadmap (converting JS files to TS).
 3.  **Fine-Tune Glitch Triggers**: Currently mapped to Retrigger/Arpeggio. Explore exposing raw `9xx` commands.
 4.  **Optimize Ribbons**: Move to GPU-based trail renderer if performance drops.
 
