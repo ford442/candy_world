@@ -25,8 +25,34 @@
 - **Promote:** move code **down** the ladder (toward lower-level).
 - **Revert / Downgrade:** move code **up** the ladder (toward higher-level), restoring simplicity.
 
----
+## Default Iteration Plan (Always / Sometimes / Rarely)
 
+This project improves performance continuously, but **does not** automatically promote code down the ladder. Each iteration should include work from multiple layers **without forcing migration**.
+
+### ALWAYS (every PR / sprint)
+- **Step 0: Profile-first discipline**
+  - Capture a profile trace or screenshot for the area being worked on.
+  - Add/update `@perf-profile` annotations for any hotspot discussed.
+- **Architecture foundation**
+  - Keep/expand the **interface + adapter** boundary so implementations can be swapped cleanly.
+  - Improve batching/orchestration on the JS side (reduce calls/frame, reduce allocations).
+- **Step 1: TS correctness upgrades where relevant**
+  - Convert touched JS modules to TS *when it reduces bugs or clarifies contracts*.
+  - Tighten types, remove `any`, and keep `--strict` passing.
+
+### SOMETIMES (only with evidence)
+- **Step 2: ASC/WASM promotion**
+  - Promote **only** the **top hotspot loop(s)** proven by profiling (>3ms self-time and high iteration count).
+  - Must include batching (≤ 3 WASM calls/frame) and an A/B result.
+  - Revert if <5% win or bundle +150kb.
+
+### RARELY (only when ASC is proven insufficient)
+- **Step 3: C++/WASM spike**
+  - Only after ASC is implemented and still blocked by SIMD/memory-bound constraints.
+  - Do it behind a feature flag with a fast revert path.
+  - Do not debug fragile C++ WASM issues in production—revert to ASC/TS.
+ 
+  
 ## The Migration Ladder (Decision Tree)
 
 ### Quick Decision Checklist
