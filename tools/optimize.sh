@@ -59,8 +59,8 @@ wasmedgec --optimize=3 --enable-all "$PHYSICS_WASM" "$PHYSICS_WASM"
 #  --enable-bulk-memory \
 #  --enable-nontrapping-float-to-int \
 #  --enable-exception-handling
-echo "🔧 Optimizing Native WASM (wasmedge)..."
-wasmedge compile --optimize=3 --enable-all "$NATIVE_WASM" "$NATIVE_WASM"
+#echo "🔧 Optimizing Native WASM (wasmedge)..."
+#wasmedge compile --optimize=3 --enable-all "$NATIVE_WASM" "$NATIVE_WASM"
 
 # 5. Minify Emscripten Loaders (Safety First)
 # We use -c (compress) and -m (mangle) but KEEP function names to avoid breaking
