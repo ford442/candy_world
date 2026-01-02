@@ -9,8 +9,8 @@ Migrate code down this ladder only if it exceeds the thresholds below. WASM call
 | :--- | :--- | :--- | :--- | :--- |
 | **1** | **JavaScript (ES6+)** | Default. DOM, events, orchestration. | < 2ms/frame in profiler | N/A |
 | **2** | **TypeScript (Strict)** | Complex state, config parsing, type safety needed. | Logic errors > 5% of bugs | `@refactor ts` |
-| **3** | **AssemblyScript (WASM)** | Proven hot loops: math on >1k items/frame. | > 3ms/frame and > 500 iterations | `@optimize asc` |
-| **4** | **C++ (Emscripten WASM)** | Extreme scale: >5k entities, SIMD, shared memory. | > 8ms/frame and memory allocation thrash | `@optimize cpp` |
+| **3** | **AssemblyScript (WASM)** | Proven hot loops: math on >100 items/frame. | > 3ms/frame and > 500 iterations | `@optimize asc` |
+| **4** | **C++ (Emscripten WASM)** | Extreme scale: >1k entities, SIMD, shared memory. | > 8ms/frame and memory allocation thrash | `@optimize cpp` |
 
 ## 🏗️ Architectural Strategy: Interface-First (Component Model Ready)
 **Goal:** Decouple game logic from engine implementation to allow seamless backend swaps (JS → TS → WASM → C++) without rewriting consumers.
@@ -52,7 +52,7 @@ Migrate code down this ladder only if it exceeds the thresholds below. WASM call
     4.  Pass flat data, not objects. **Struct-of-Arrays** pattern only.
     5.  Update loader: `wasmLoader.import('module', 'function', typedArray)`.
     6.  **Batching Pattern:** Use a JS batcher to collect data and call WASM once per frame per type (e.g., `FoliageBatcher`).
-    7.  **A/B test:** If WASM version is not >20% faster, revert.
+    7.  **A/B test:** If WASM version is not >5% faster, revert.
 
 ### Step 3: ASC → C++ (Heavy Metal)
 * **Trigger:** Profile shows >8ms and AssemblyScript is memory-bound or needs SIMD.
@@ -88,10 +88,9 @@ Migrate code down this ladder only if it exceeds the thresholds below. WASM call
 
 ## ⚠️ Agent Constraints (Critical)
 * **WASM Call Budget:** Max 3 WASM calls per frame. Batching > multiple calls.
-* **Data Size Floor:** Don't migrate functions processing < 500 elements.
 * **Debugging Cost:** C++ WASM cannot be source-mapped; add extensive logging in JS wrapper.
 * **SharedArrayBuffer:** Requires COOP/COEP headers. Test on production domain before migrating.
-* **Revert Policy:** If migrated code is < 10% faster or increases bundle size > 50kb, revert to TS.
+* **Revert Policy:** If migrated code is < 5% faster and increases bundle size > 150kb, revert to TS.
 
 ## 📝 Agent Annotation Standard
 Use machine-readable comments for automation:
