@@ -1054,6 +1054,60 @@ export function calcFloatingParticle(baseX, baseY, baseZ, time, offset, amplitud
     return particleResult;
 }
 
+/**
+ * Update firefly particles using WASM for performance
+ * 
+ * @param {Float32Array} positions - Particle positions array
+ * @param {Float32Array} phases - Particle phase offsets array  
+ * @param {number} count - Number of particles
+ * @param {number} time - Current animation time
+ * @param {number} areaSize - Boundary size (default 100)
+ */
+export function updateParticles(positions, phases, count, time, areaSize = 100) {
+    if (!wasmInstance) {
+        // JS fallback
+        for (let i = 0; i < count; i++) {
+            const idx = i * 3;
+            const phase = phases[i];
+            
+            const driftX = Math.sin(time * 0.3 + phase) * 0.02;
+            const driftY = Math.cos(time * 0.5 + phase * 1.3) * 0.01;
+            const driftZ = Math.sin(time * 0.4 + phase * 0.7) * 0.02;
+            
+            positions[idx] += driftX;
+            positions[idx + 1] += driftY;
+            positions[idx + 2] += driftZ;
+            
+            const halfArea = areaSize * 0.5;
+            if (positions[idx] > halfArea) positions[idx] = -halfArea;
+            if (positions[idx] < -halfArea) positions[idx] = halfArea;
+            if (positions[idx + 1] < 0.3) positions[idx + 1] = 0.3;
+            if (positions[idx + 1] > 5) positions[idx + 1] = 5;
+            if (positions[idx + 2] > halfArea) positions[idx + 2] = -halfArea;
+            if (positions[idx + 2] < -halfArea) positions[idx + 2] = halfArea;
+        }
+        return;
+    }
+    
+    // Copy data to WASM memory
+    const positionsPtr = POSITION_OFFSET;
+    const phasesPtr = ANIMATION_OFFSET;
+    
+    const memBuffer = wasmMemory.buffer;
+    const wasmPositions = new Float32Array(memBuffer, positionsPtr, count * 3);
+    const wasmPhases = new Float32Array(memBuffer, phasesPtr, count);
+    
+    // Upload to WASM
+    wasmPositions.set(positions.subarray(0, count * 3));
+    wasmPhases.set(phases.subarray(0, count));
+    
+    // Call WASM function
+    wasmInstance.exports.updateParticles(positionsPtr, phasesPtr, count, time, areaSize);
+    
+    // Copy results back
+    positions.set(wasmPositions.subarray(0, count * 3));
+}
+
 // =============================================================================
 // EMSCRIPTEN NATIVE FUNCTIONS (from candy_native.c)
 // =============================================================================
