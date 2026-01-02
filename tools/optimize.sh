@@ -24,7 +24,6 @@ fi
 if ! command -v wasmedge &> /dev/null; then
     echo "⚠️  wasmedge not found! Installing via 'curl -sSf https://raw.githubusercontent.com/WasmEdge/WasmEdge/master/utils/install.sh | bash && source $HOME/.wasmedge/env'"
 	curl -sSf https://raw.githubusercontent.com/WasmEdge/WasmEdge/master/utils/install.sh | bash && source $HOME/.wasmedge/env
-	#curl -sSf https://raw.githubusercontent.com/WasmEdge/WasmEdge/0.13.5/utils/install.sh | bash && source $HOME/.wasmedge/env
 fi
 
 if ! command -v wasmedge &> /dev/null; then
@@ -45,7 +44,7 @@ wasm-opt "$PHYSICS_WASM" -o "$PHYSICS_WASM" \
   --enable-nontrapping-float-to-int \
   --enable-exception-handling
 echo "🔧 Optimizing Physics WASM (wasmedge)..."
-#wasmedgec --optimize=3 "$PHYSICS_WASM" "$PHYSICS_WASM"
+#wasmedgec --optimize=3 --enable-all "$PHYSICS_WASM" "$PHYSICS_WASM"
 
 # 4. Optimize Emscripten WASM (Native Effects)
 # Emscripten -O3 does a lot, but wasm-opt can usually squeeze another 5-10%
@@ -61,7 +60,7 @@ echo "🔧 Optimizing Physics WASM (wasmedge)..."
 #  --enable-nontrapping-float-to-int \
 #  --enable-exception-handling
 #echo "🔧 Optimizing Native WASM (wasmedge)..."
-#wasmedge compile --optimize=3 --enable-threads --enable-relaxed-simd "$NATIVE_WASM" "$NATIVE_WASM"
+#wasmedge compile --optimize=3 --enable-all "$NATIVE_WASM" "$NATIVE_WASM"
 
 # 5. Minify Emscripten Loaders (Safety First)
 # We use -c (compress) and -m (mangle) but KEEP function names to avoid breaking
