@@ -226,10 +226,32 @@ export class WeatherSystem {
             if (this.trackedFlowers.length > 0) {
                 triggerGrowth(this.trackedFlowers, floraFavorability * bassIntensity * 0.1);
             }
-            if (this.trackedMushrooms.length > 0) {
-                triggerGrowth(this.trackedMushrooms, fungiFavorability * bassIntensity * 0.15);
+            // MUSHROOMS removed from here, handled in dedicated logic block below
+        }
+
+        // --- MUSHROOM GROWTH/SHRINK LOGIC ---
+        // Rain = Grow. No Rain + Sun = Shrink.
+        let mushroomRate = 0;
+        const isRaining = this.state === WeatherState.RAIN || this.state === WeatherState.STORM;
+
+        if (isRaining) {
+            // Grow: Base rate + bass boost
+            mushroomRate = 0.5 + (bassIntensity * 0.5);
+        } else {
+            if (globalLight > 0.6 && this.cloudDensity < 0.5) {
+                // Bright Sun + Dry: Shrink
+                mushroomRate = -0.5;
+            } else {
+                // Night or Cloudy: Neutral / slight decay
+                mushroomRate = -0.05;
             }
         }
+
+        if (this.trackedMushrooms.length > 0) {
+            // Trigger with calculated rate (can be negative)
+            triggerGrowth(this.trackedMushrooms, mushroomRate);
+        }
+        // ------------------------------------
 
         this.handleSpawning(time, fungiFavorability, lanternFavorability, globalLight);
         this.updateMushroomWaterfalls(time, bassIntensity);
