@@ -33,6 +33,44 @@ export const sharedGeometries = {
 export const eyeGeo = sharedGeometries.eye;
 export const pupilGeo = sharedGeometries.pupil;
 
+// --- Development Mode Validation ---
+const DEV_MODE = true; // Set to false for production
+
+// Helper to validate TSL nodes during development
+function validateTSLNode(node, context = '') {
+    if (!DEV_MODE) return;
+    
+    if (!node) return;
+    
+    // Check if trying to use THREE.js object directly as a node
+    if (node.isVector2 || node.isVector3 || node.isVector4 || node.isColor) {
+        console.error(`[TSL Validation] ${context}: THREE.js object (${node.constructor.name}) used directly. Use uniform() to wrap it or appropriate TSL constructor.`);
+        console.trace();
+    }
+    
+    // Check if node has required methods
+    if (node.isNode && !node.getNodeType && !node.isUniformNode) {
+        console.warn(`[TSL Validation] ${context}: Node missing getNodeType() method. Type: ${node.type || node.constructor?.name}`);
+    }
+}
+
+// Wrapper for material creation with validation
+export function createValidatedMaterial(MaterialClass, options, debugName = 'Unknown') {
+    const mat = new MaterialClass(options);
+    
+    if (DEV_MODE && mat.isNodeMaterial) {
+        // Validate critical node properties
+        const slots = ['colorNode', 'positionNode', 'normalNode', 'emissiveNode', 'opacityNode'];
+        slots.forEach(slot => {
+            if (mat[slot]) {
+                validateTSLNode(mat[slot], `${debugName}.${slot}`);
+            }
+        });
+    }
+    
+    return mat;
+}
+
 // --- Reactive Objects Registry ---
 export const reactiveObjects = [];
 let reactivityCounter = 0; 

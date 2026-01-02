@@ -32,7 +32,8 @@ export function createAurora() {
         // FIX: Wrap primitives in float() for vec3 and mul
         const spectralShift = vec3(mul(vUv.y, float(0.5)), float(0.0), mul(vUv.y, float(0.2)).negate()); 
         
-        const baseColor = vec3(uAuroraColor); 
+        // FIX: uAuroraColor is already a uniform node (contains THREE.Color), don't wrap in vec3()
+        const baseColor = uAuroraColor; 
         const finalColor = add(baseColor, spectralShift);
 
         const finalAlpha = mul(mul(mul(rayIntensity, verticalFade), uAuroraIntensity), float(0.6)); 

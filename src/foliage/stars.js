@@ -77,14 +77,15 @@ export function createStars(count = 1500) {
 
     const intensity = twinkle.add(uStarPulse.mul(float(1.5))); 
 
-    // Use nodes directly
+    // Use nodes directly - uStarColor is already a uniform node
     const musicColorVec3 = uStarColor; 
 
     // Mix factor
     const finalRGB = mix(aStarColor, musicColorVec3, uStarPulse.mul(float(0.8)));
 
-    // FIX: Wrap mat.color in color() node to make it compatible
-    mat.colorNode = vec4(finalRGB, uStarOpacity).mul(color(mat.color));
+    // FIX: Don't multiply vec4 by color node - just use finalRGB directly with opacity
+    // mat.color is a THREE.Color used for fallback/multiplier, already handled by PointsNodeMaterial
+    mat.colorNode = vec4(finalRGB, uStarOpacity);
     
     // FIX: Wrap 0.3 in float()
     mat.sizeNode = aSize.mul(intensity.max(float(0.3)));
