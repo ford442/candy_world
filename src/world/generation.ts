@@ -55,7 +55,7 @@ interface WeatherSystem {
 
 // --- Scene Setup ---
 
-export function initWorld(scene: THREE.Scene, weatherSystem: WeatherSystem): WorldObjects {
+export function initWorld(scene: THREE.Scene, weatherSystem: WeatherSystem, loadContent: boolean = true): WorldObjects {
     // 0. Pre-flight Check
     validateFoliageMaterials();
 
@@ -122,8 +122,10 @@ export function initWorld(scene: THREE.Scene, weatherSystem: WeatherSystem): Wor
     // Add the main world group (containing all generated foliage) to the scene
     scene.add(worldGroup);
 
-    // Generate Content
-    generateMap(weatherSystem);
+    // Generate Content if requested
+    if (loadContent) {
+        generateMap(weatherSystem);
+    }
 
     return { sky, moon, ground };
 }
@@ -187,7 +189,8 @@ function isPositionValid(x: number, z: number, radius: number): boolean {
 
 // --- MAP GENERATION ---
 
-function generateMap(weatherSystem: WeatherSystem): void {
+// Exported for delayed loading
+export function generateMap(weatherSystem: WeatherSystem): void {
     console.log(`[World] Loading map with ${mapData.length} entities...`);
 
     (mapData as MapEntity[]).forEach(item => {
