@@ -66,7 +66,7 @@ export function updateFireflies(fireflies, time, delta) {
     const count = positions.length / 3;
 
     // Use WASM-optimized particle update
-    updateParticles(positions, phases, count, time, 100);
+    updateParticles(positions, phases, count, time);
 
     fireflies.geometry.attributes.position.needsUpdate = true;
 }

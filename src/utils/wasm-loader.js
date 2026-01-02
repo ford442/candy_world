@@ -1061,11 +1061,11 @@ export function calcFloatingParticle(baseX, baseY, baseZ, time, offset, amplitud
  * @param {Float32Array} phases - Particle phase offsets array  
  * @param {number} count - Number of particles
  * @param {number} time - Current animation time
- * @param {number} areaSize - Boundary size (default 100)
  */
-export function updateParticles(positions, phases, count, time, areaSize = 100) {
+export function updateParticles(positions, phases, count, time) {
     if (!wasmInstance) {
         // JS fallback
+        const halfArea = 50.0; // Match original boundary logic
         for (let i = 0; i < count; i++) {
             const idx = i * 3;
             const phase = phases[i];
@@ -1078,7 +1078,6 @@ export function updateParticles(positions, phases, count, time, areaSize = 100) 
             positions[idx + 1] += driftY;
             positions[idx + 2] += driftZ;
             
-            const halfArea = areaSize * 0.5;
             if (positions[idx] > halfArea) positions[idx] = -halfArea;
             if (positions[idx] < -halfArea) positions[idx] = halfArea;
             if (positions[idx + 1] < 0.3) positions[idx + 1] = 0.3;
@@ -1102,7 +1101,7 @@ export function updateParticles(positions, phases, count, time, areaSize = 100) 
     wasmPhases.set(phases.subarray(0, count));
     
     // Call WASM function
-    wasmInstance.exports.updateParticles(positionsPtr, phasesPtr, count, time, areaSize);
+    wasmInstance.exports.updateParticles(positionsPtr, phasesPtr, count, time);
     
     // Copy results back
     positions.set(wasmPositions.subarray(0, count * 3));
