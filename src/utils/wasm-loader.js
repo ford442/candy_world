@@ -1088,6 +1088,36 @@ export function updateParticles(positions, phases, count, time) {
         return;
     }
     
+    // Bounds checking for WASM memory regions
+    const MAX_POSITION_FLOATS = 1024; // Based on positionView initialization
+    const MAX_PHASE_FLOATS = 1024;    // Based on animationView initialization
+    
+    if (count * 3 > MAX_POSITION_FLOATS) {
+        console.warn(`Particle count ${count} exceeds WASM position buffer capacity. Using JS fallback.`);
+        // Fallback to JS implementation
+        const halfArea = 50.0;
+        for (let i = 0; i < count; i++) {
+            const idx = i * 3;
+            const phase = phases[i];
+            
+            const driftX = Math.sin(time * 0.3 + phase) * 0.02;
+            const driftY = Math.cos(time * 0.5 + phase * 1.3) * 0.01;
+            const driftZ = Math.sin(time * 0.4 + phase * 0.7) * 0.02;
+            
+            positions[idx] += driftX;
+            positions[idx + 1] += driftY;
+            positions[idx + 2] += driftZ;
+            
+            if (positions[idx] > halfArea) positions[idx] = -halfArea;
+            if (positions[idx] < -halfArea) positions[idx] = halfArea;
+            if (positions[idx + 1] < 0.3) positions[idx + 1] = 0.3;
+            if (positions[idx + 1] > 5) positions[idx + 1] = 5;
+            if (positions[idx + 2] > halfArea) positions[idx + 2] = -halfArea;
+            if (positions[idx + 2] < -halfArea) positions[idx + 2] = halfArea;
+        }
+        return;
+    }
+    
     // Copy data to WASM memory
     const positionsPtr = POSITION_OFFSET;
     const phasesPtr = ANIMATION_OFFSET;
