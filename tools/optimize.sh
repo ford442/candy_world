@@ -32,17 +32,17 @@ fi
 
 # 3. Optimize AssemblyScript WASM (Physics)
 # We must explicitly enable the features we used in compilation.
-echo "🔧 Optimizing Physics WASM..."
-wasm-opt "$PHYSICS_WASM" -o "$PHYSICS_WASM" \
-  -O4 \
-  --converge \
-  --strip-debug \
-  --enable-simd \
-  --enable-threads \
-  --enable-bulk-memory \
-  --enable-relaxed-simd \
-  --enable-nontrapping-float-to-int \
-  --enable-exception-handling
+#echo "🔧 Optimizing Physics WASM..."
+#wasm-opt "$PHYSICS_WASM" -o "$PHYSICS_WASM" \
+#  -O4 \
+#  --converge \
+#  --strip-debug \
+#  --enable-simd \
+#  --enable-threads \
+#  --enable-bulk-memory \
+#  --enable-relaxed-simd \
+#  --enable-nontrapping-float-to-int \
+#  --enable-exception-handling
 echo "🔧 Optimizing Physics WASM (wasmedge)..."
 wasmedgec --optimize=3 --enable-all "$PHYSICS_WASM" "$PHYSICS_WASM"
 
