@@ -53,6 +53,9 @@ const ANIMATION_OFFSET = 4096;
 const OUTPUT_OFFSET = 8192;
 const TOTAL_MEMORY_PAGES = 4; // 256KB total
 
+// Particle system constants
+const PARTICLE_HALF_AREA = 50.0; // Firefly boundary limit (±50)
+
 // Animation type constants (must match AssemblyScript)
 export const AnimationType = {
     BOUNCE: 1,
@@ -1055,6 +1058,31 @@ export function calcFloatingParticle(baseX, baseY, baseZ, time, offset, amplitud
 }
 
 /**
+ * JS fallback implementation for particle updates
+ */
+function updateParticlesJS(positions, phases, count, time) {
+    for (let i = 0; i < count; i++) {
+        const idx = i * 3;
+        const phase = phases[i];
+        
+        const driftX = Math.sin(time * 0.3 + phase) * 0.02;
+        const driftY = Math.cos(time * 0.5 + phase * 1.3) * 0.01;
+        const driftZ = Math.sin(time * 0.4 + phase * 0.7) * 0.02;
+        
+        positions[idx] += driftX;
+        positions[idx + 1] += driftY;
+        positions[idx + 2] += driftZ;
+        
+        if (positions[idx] > PARTICLE_HALF_AREA) positions[idx] = -PARTICLE_HALF_AREA;
+        if (positions[idx] < -PARTICLE_HALF_AREA) positions[idx] = PARTICLE_HALF_AREA;
+        if (positions[idx + 1] < 0.3) positions[idx + 1] = 0.3;
+        if (positions[idx + 1] > 5) positions[idx + 1] = 5;
+        if (positions[idx + 2] > PARTICLE_HALF_AREA) positions[idx + 2] = -PARTICLE_HALF_AREA;
+        if (positions[idx + 2] < -PARTICLE_HALF_AREA) positions[idx + 2] = PARTICLE_HALF_AREA;
+    }
+}
+
+/**
  * Update firefly particles using WASM for performance
  * 
  * @param {Float32Array} positions - Particle positions array
@@ -1064,57 +1092,20 @@ export function calcFloatingParticle(baseX, baseY, baseZ, time, offset, amplitud
  */
 export function updateParticles(positions, phases, count, time) {
     if (!wasmInstance) {
-        // JS fallback
-        const halfArea = 50.0; // Match original boundary logic
-        for (let i = 0; i < count; i++) {
-            const idx = i * 3;
-            const phase = phases[i];
-            
-            const driftX = Math.sin(time * 0.3 + phase) * 0.02;
-            const driftY = Math.cos(time * 0.5 + phase * 1.3) * 0.01;
-            const driftZ = Math.sin(time * 0.4 + phase * 0.7) * 0.02;
-            
-            positions[idx] += driftX;
-            positions[idx + 1] += driftY;
-            positions[idx + 2] += driftZ;
-            
-            if (positions[idx] > halfArea) positions[idx] = -halfArea;
-            if (positions[idx] < -halfArea) positions[idx] = halfArea;
-            if (positions[idx + 1] < 0.3) positions[idx + 1] = 0.3;
-            if (positions[idx + 1] > 5) positions[idx + 1] = 5;
-            if (positions[idx + 2] > halfArea) positions[idx + 2] = -halfArea;
-            if (positions[idx + 2] < -halfArea) positions[idx + 2] = halfArea;
-        }
+        // JS fallback when WASM not available
+        updateParticlesJS(positions, phases, count, time);
         return;
     }
     
     // Bounds checking for WASM memory regions
-    const MAX_POSITION_FLOATS = 1024; // Based on positionView initialization
-    const MAX_PHASE_FLOATS = 1024;    // Based on animationView initialization
+    const MAX_POSITION_FLOATS = 1024; // positionView buffer capacity
+    const MAX_PHASE_FLOATS = 1024;    // animationView buffer capacity
     
-    if (count * 3 > MAX_POSITION_FLOATS) {
-        console.warn(`Particle count ${count} exceeds WASM position buffer capacity. Using JS fallback.`);
-        // Fallback to JS implementation
-        const halfArea = 50.0;
-        for (let i = 0; i < count; i++) {
-            const idx = i * 3;
-            const phase = phases[i];
-            
-            const driftX = Math.sin(time * 0.3 + phase) * 0.02;
-            const driftY = Math.cos(time * 0.5 + phase * 1.3) * 0.01;
-            const driftZ = Math.sin(time * 0.4 + phase * 0.7) * 0.02;
-            
-            positions[idx] += driftX;
-            positions[idx + 1] += driftY;
-            positions[idx + 2] += driftZ;
-            
-            if (positions[idx] > halfArea) positions[idx] = -halfArea;
-            if (positions[idx] < -halfArea) positions[idx] = halfArea;
-            if (positions[idx + 1] < 0.3) positions[idx + 1] = 0.3;
-            if (positions[idx + 1] > 5) positions[idx + 1] = 5;
-            if (positions[idx + 2] > halfArea) positions[idx + 2] = -halfArea;
-            if (positions[idx + 2] < -halfArea) positions[idx + 2] = halfArea;
-        }
+    // Positions need 3 floats per particle (x,y,z), max capacity is 341 particles
+    // Phases need 1 float per particle
+    if (count * 3 > MAX_POSITION_FLOATS || count > MAX_PHASE_FLOATS) {
+        console.warn(`Particle count ${count} exceeds WASM buffer capacity (max 341 particles). Using JS fallback.`);
+        updateParticlesJS(positions, phases, count, time);
         return;
     }
     
@@ -1127,14 +1118,20 @@ export function updateParticles(positions, phases, count, time) {
     const wasmPhases = new Float32Array(memBuffer, phasesPtr, count);
     
     // Upload to WASM
-    wasmPositions.set(positions.subarray(0, count * 3));
-    wasmPhases.set(phases.subarray(0, count));
+    for (let i = 0; i < count * 3; i++) {
+        wasmPositions[i] = positions[i];
+    }
+    for (let i = 0; i < count; i++) {
+        wasmPhases[i] = phases[i];
+    }
     
     // Call WASM function
     wasmInstance.exports.updateParticles(positionsPtr, phasesPtr, count, time);
     
     // Copy results back
-    positions.set(wasmPositions.subarray(0, count * 3));
+    for (let i = 0; i < count * 3; i++) {
+        positions[i] = wasmPositions[i];
+    }
 }
 
 // =============================================================================
