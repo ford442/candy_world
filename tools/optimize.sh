@@ -42,8 +42,8 @@ wasm-opt "$PHYSICS_WASM" -o "$PHYSICS_WASM" \
   --enable-threads \
   --enable-bulk-memory \
   --enable-relaxed-simd \
-  --enable-nontrapping-float-to-int
-
+  --enable-nontrapping-float-to-int \
+  --enable-exception-handling
 echo "🔧 Optimizing Physics WASM (wasmedge)..."
 #wasmedge compile --optimize=3 --enable-threads --enable-relaxed-simd "$PHYSICS_WASM" "$PHYSICS_WASM"
 
@@ -58,8 +58,8 @@ wasm-opt "$NATIVE_WASM" -o "$NATIVE_WASM" \
   --enable-threads \
   --enable-relaxed-simd \
   --enable-bulk-memory \
-  --enable-nontrapping-float-to-int
-  
+  --enable-nontrapping-float-to-int \
+  --enable-exception-handling
 echo "🔧 Optimizing Native WASM (wasmedge)..."
 #wasmedge compile --optimize=3 --enable-threads --enable-relaxed-simd "$NATIVE_WASM" "$NATIVE_WASM"
 
