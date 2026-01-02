@@ -49,18 +49,18 @@ echo "🔧 Optimizing Physics WASM (wasmedge)..."
 
 # 4. Optimize Emscripten WASM (Native Effects)
 # Emscripten -O3 does a lot, but wasm-opt can usually squeeze another 5-10%
-echo "🔧 Optimizing Native WASM..."
-wasm-opt "$NATIVE_WASM" -o "$NATIVE_WASM" \
-  -O3 \
-  --converge \
-  --strip-debug \
-  --enable-simd \
-  --enable-threads \
-  --enable-relaxed-simd \
-  --enable-bulk-memory \
-  --enable-nontrapping-float-to-int \
-  --enable-exception-handling
-echo "🔧 Optimizing Native WASM (wasmedge)..."
+#echo "🔧 Optimizing Native WASM..."
+#wasm-opt "$NATIVE_WASM" -o "$NATIVE_WASM" \
+#  -O3 \
+#  --converge \
+#  --strip-debug \
+#  --enable-simd \
+#  --enable-threads \
+#  --enable-relaxed-simd \
+#  --enable-bulk-memory \
+#  --enable-nontrapping-float-to-int \
+#  --enable-exception-handling
+#echo "🔧 Optimizing Native WASM (wasmedge)..."
 #wasmedge compile --optimize=3 --enable-threads --enable-relaxed-simd "$NATIVE_WASM" "$NATIVE_WASM"
 
 # 5. Minify Emscripten Loaders (Safety First)
