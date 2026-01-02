@@ -17,24 +17,23 @@ export function createSky() {
     const offsetVal = float(40.0);
     const exponent = float(0.6);  
 
-    // --- FIX IS HERE ---
-    // 1. Wrap 0.0 in float(0.0) so TSL doesn't crash
-    // 2. Use 'offsetVal' (defined above) instead of 'offset' (undefined)
+    // Explicitly wrap 0.0 in float() for vec3 construction
     const offsetVec = vec3(float(0.0), offsetVal, float(0.0));
     
-    // 3. Add to positionWorld safely
+    // Add to positionWorld safely
     const h = positionWorld.add(offsetVec).normalize().y;
-    // -------------------
 
-    const heightFactor = h.max(0.0).pow(exponent);
+    // FIX: Wrap 0.0 in float() for max()
+    const heightFactor = h.max(float(0.0)).pow(exponent);
     
-    // Atmospheric scattering
-    const horizonBand = smoothstep(0.0, 0.15, h).mul(smoothstep(0.4, 0.15, h));
+    // FIX: Wrap all raw numbers in float() for smoothstep
+    const horizonBand = smoothstep(float(0.0), float(0.15), h).mul(smoothstep(float(0.4), float(0.15), h));
     const atmosphereGlow = horizonBand.mul(uAtmosphereIntensity);
     
     // Gradient Mix
-    const midColor = mix(uHorizonColor, uSkyBottomColor, smoothstep(0.0, 0.3, heightFactor));
-    const skyColor = mix(midColor, uSkyTopColor, smoothstep(0.2, 1.0, heightFactor));
+    // FIX: Wrap 0.0, 0.3, 0.2, 1.0 in float()
+    const midColor = mix(uHorizonColor, uSkyBottomColor, smoothstep(float(0.0), float(0.3), heightFactor));
+    const skyColor = mix(midColor, uSkyTopColor, smoothstep(float(0.2), float(1.0), heightFactor));
     
     const baseColor = mix(skyColor, uHorizonColor, atmosphereGlow);
 
