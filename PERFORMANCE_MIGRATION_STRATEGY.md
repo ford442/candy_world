@@ -1,99 +1,253 @@
-# Performance Migration Strategy & Optimization Formula (Refined)
+# Performance Migration Strategy (JS → TS → ASC/WASM → C++/WASM)
 
-**Goal:** Move performance-critical code down the stack only when proven necessary by profiling data. Avoid premature optimization.
+## Executive Summary (Read First)
+**Primary goal:** migrate performance-critical code down the stack **only when justified by evidence**.
 
-## 🎯 The Optimization Pipeline (Decision Tree)
-Migrate code down this ladder only if it exceeds the thresholds below. WASM calls have overhead (~0.5ms/call); small functions may run slower after migration.
+**Migration ladder (in order):**
+1. **JavaScript (JS)** → default runtime and orchestration
+2. **TypeScript (TS)** → correctness, maintainability, and deopt prevention
+3. **AssemblyScript (ASC → WASM)** → proven hot loops on typed arrays
+4. **C++ (Emscripten → WASM)** → last resort for SIMD/memory-bound workloads at extreme scale
 
-| Tier | Environment | When to Use It | Migration Threshold | Agent Flag |
+**Non-goals:**
+- We are **not** rewriting the codebase in TS/WASM “because faster.”
+- We are **not** moving code to WASM without profiling proof.
+- We are **not** debugging complex C++ WASM issues in production. If it’s fragile, revert.
+
+**Two hard gates:**
+- **Promote only with proof:** a profile capture (screenshot or trace) showing the function’s self-time.
+- **Revert if not worth it:** if migrated code is **< 5% faster** or increases bundle size **> 150kb**, revert to the previous tier.
+
+---
+
+## Terms (Use Consistently)
+- **Tier:** one rung in the ladder (JS, TS, ASC/WASM, C++/WASM).
+- **Promote:** move code **down** the ladder (toward lower-level).
+- **Revert / Downgrade:** move code **up** the ladder (toward higher-level), restoring simplicity.
+
+---
+
+## The Migration Ladder (Decision Tree)
+
+### Quick Decision Checklist
+Stay at the current tier unless **all** promotion criteria for the next tier are met.
+
+1) **JS → TS (correctness gate)**
+- Promote when: repeated runtime bugs / `undefined` issues / complex object shapes causing deopts
+- Evidence: bug count, crash logs, or profiler showing deopt-heavy code (optional)
+
+2) **TS → ASC/WASM (hot loop gate)**
+- Promote when:
+  - profiler shows **> 3ms/frame self-time** in a loop, and
+  - workload is array/number heavy, and
+  - **> 500 iterations/frame** (or equivalent scale)
+- Evidence required: profiler screenshot/trace identifying the function’s self-time
+
+3) **ASC/WASM → C++/WASM (last resort gate)**
+- Promote when:
+  - profiler shows **> 8ms/frame**, and
+  - ASC solution is memory-bound or needs SIMD / tighter control, and/or
+  - memory allocation thrash is present
+- Evidence required: profiler + notes why ASC is insufficient
+
+### Tier Table (Reference)
+WASM calls have overhead (~0.5ms/call). Small functions may run slower after migration.
+
+| Tier | Environment | Default Use | Promote to Next Tier When… | Agent Flag |
 | :--- | :--- | :--- | :--- | :--- |
-| **1** | **JavaScript (ES6+)** | Default. DOM, events, orchestration. | < 2ms/frame in profiler | N/A |
-| **2** | **TypeScript (Strict)** | Complex state, config parsing, type safety needed. | Logic errors > 5% of bugs | `@refactor ts` |
-| **3** | **AssemblyScript (WASM)** | Proven hot loops: math on >100 items/frame. | > 3ms/frame and > 500 iterations | `@optimize asc` |
-| **4** | **C++ (Emscripten WASM)** | Extreme scale: >1k entities, SIMD, shared memory. | > 8ms/frame and memory allocation thrash | `@optimize cpp` |
-
-## 🏗️ Architectural Strategy: Interface-First (Component Model Ready)
-**Goal:** Decouple game logic from engine implementation to allow seamless backend swaps (JS → TS → WASM → C++) without rewriting consumers.
-
-1.  **Define the Contract (WIT-Style):**
-    * Create strict TypeScript interfaces (e.g., `src/interfaces/IPhysicsEngine.ts`) defining capabilities (e.g., `getPositions()`, `step()`).
-    * **Rule:** Interfaces must **NOT** expose memory offsets, pointers, or engine-specific glue. Data transfer must be abstract (e.g., returning `Float32Array` views).
-
-2.  **The Adapter Pattern:**
-    * **Stage A (Legacy/JS):** Wrap current logic in a `LegacyAdapter` class that implements the interface. Isolate "glue code" (memory copies, `SharedArrayBuffer` views, offsets) inside this adapter.
-    * **Stage B (WASM/C++):** Implement a `WasmAdapter` that talks to the new backend.
-    * **Stage C (Swap):** Switch adapters at initialization (`const physics = useWasm ? new WasmPhysicsAdapter() : new LegacyPhysicsAdapter()`). Gameplay code remains untouched.
-
-3.  **Future-Proofing:** This aligns with the **WASM Component Model**, where these "Adapters" eventually become standardized bindings (imports/exports) handled by the runtime.
+| **1** | **JavaScript (ES6+)** | DOM/events/orchestration | correctness or complexity demands TS, or perf still high after JS optimization | N/A |
+| **2** | **TypeScript (Strict)** | complex state/config, safer refactors | **> 3ms/frame** in hot array loop + **> 500 iters/frame** | `@refactor ts` |
+| **3** | **AssemblyScript (WASM)** | proven hot loops on typed arrays | **> 8ms/frame** + SIMD/memory-bound/alloc thrash needs | `@optimize asc` |
+| **4** | **C++ (Emscripten WASM)** | extreme scale + SIMD | stop here (lowest tier) | `@optimize cpp` |
 
 ---
 
-## 🧪 Migration Protocol (Agent Actions)
+## Architecture Rule: Interface-First + Adapters (Mandatory)
+**Goal:** decouple gameplay logic from implementation so we can swap backends (JS ↔ TS ↔ WASM ↔ C++) without rewriting consumers.
 
-### Step 0: Profile First (MANDATORY)
-* **Chrome DevTools → Performance → Start profiling**
-* Look for: Long Task (>50ms), frequent function calls, GC pauses
-* **Rule:** No migration without a profile screenshot showing the function's self-time.
+### 1) Define the Contract (TypeScript Interface)
+- Create strict interfaces (e.g. `src/interfaces/IPhysicsEngine.ts`).
+- Interfaces **must not** expose:
+  - memory offsets
+  - pointers
+  - glue-specific details
+- Data transfer should be abstract and stable (e.g., returning `Float32Array` views).
 
-### Step 1: JS → TS (Safety Net)
-* **Trigger:** Function has complex objects, frequent `undefined` crashes.
-* **Action:**
-    1.  Rename `.js` → `.ts`.
-    2.  Run `tsc --noEmit --strict`; fix all `any` types.
-    3.  Stop here. Re-profile. Type safety alone often fixes V8 deopts.
+### 2) Adapter Pattern (Implementation Isolation)
+- **LegacyAdapter (JS/TS):** wraps current logic and implements the interface.
+- **WasmAdapter (ASC or C++):** talks to the WASM backend.
+- Consumers select at init:
+  - `const physics = useWasm ? new WasmPhysicsAdapter() : new LegacyPhysicsAdapter();`
+- **Rule:** All glue (copies, `SharedArrayBuffer` views, offsets) lives inside adapters.
 
-### Step 2: TS → AssemblyScript (WASM)
-* **Trigger:** Profile shows >3ms self-time in a loop over arrays.
-* **Pre-requisite:** **Interface Defined.** System must be accessed via an `I[System]` interface, not direct imports.
-* **Action:**
-    1.  **Refactor:** Move existing JS logic behind an `Adapter` implementing the Interface.
-    2.  Measure overhead: Copy function to `assembly/`, wrap in `export function`.
-    3.  Use only TypedArrays: `Float32Array` for data-in, `Int32Array` for indices.
-    4.  Pass flat data, not objects. **Struct-of-Arrays** pattern only.
-    5.  Update loader: `wasmLoader.import('module', 'function', typedArray)`.
-    6.  **Batching Pattern:** Use a JS batcher to collect data and call WASM once per frame per type (e.g., `FoliageBatcher`).
-    7.  **A/B test:** If WASM version is not >5% faster, revert.
-
-### Step 3: ASC → C++ (Heavy Metal)
-* **Trigger:** Profile shows >8ms and AssemblyScript is memory-bound or needs SIMD.
-* **Action:**
-    1.  Define one C struct in `emscripten/include/entity.h`.
-    2.  Use `EMSCRIPTEN_KEEPALIVE` and raw pointers (`float* positions`).
-    3.  Enable SIMD: Add `-msimd128` to `build.sh`.
-    4.  Access: `Module.ccall('function', 'number', ['number', 'number'], [ptr, length])`.
-* **Fallback:** If build fails or crashes, return to AssemblyScript. Do not debug C++ in prod.
+### 3) Future-Proofing
+This structure maps to the **WASM Component Model**: adapters become standardized bindings later.
 
 ---
 
-## 🎯 Current Migration Queue (Prioritized by Profile Data)
+## Operating Rules for Jules/Copilot (Agent Contract)
 
-### Priority A: Hot Loops (Migrate to WASM)
+### Agent Must
+- **Profile first** and attach proof before promoting tiers.
+- Keep the **interface + adapter** boundary intact.
+- Prefer **batching** over multiple WASM calls.
+
+### Agent Must Not
+- Migrate code to WASM “just in case.”
+- Introduce object-heavy bridging across JS/WASM boundaries.
+- Leave half-migrated code paths without a clean fallback.
+
+### Performance Constraints (Hard)
+- **WASM call budget:** max **3 WASM calls per frame** (batch when needed).
+- **Revert policy:** revert if < **5%** faster or bundle size grows > **150kb**.
+- **C++ debugging constraint:** if C++ WASM becomes fragile, revert to ASC/TS; do not sink time into production C++ debugging.
+
+### Platform Constraints
+- **SharedArrayBuffer** requires COOP/COEP headers; test on production domain before relying on SAB.
+
+---
+
+## Migration Protocol (Playbook)
+
+### Step 0 — Profile First (MANDATORY)
+**Tools:** Chrome DevTools → Performance  
+**Look for:**
+- Long Task (>50ms)
+- frequent function calls
+- GC pauses
+- self-time hotspots
+
+**Rule:** No promotion without a profile screenshot/trace showing the function’s self-time.
+
+---
+
+### Step 1 — Promote JS → TS (Correctness / Maintainability)
+**Trigger:** complex objects, repeated `undefined` crashes, hard-to-refactor logic.
+
+**Actions:**
+1. Rename `.js` → `.ts`.
+2. Enable strictness (or confirm it): `tsc --noEmit --strict`.
+3. Remove implicit `any`; add types/interfaces (e.g., configs, component shapes).
+4. Re-profile (type safety can reduce V8 deopts).
+
+**Definition of Done:**
+- TS compiles in strict mode
+- consumer API unchanged
+- any performance regressions are measured (or explained)
+
+---
+
+### Step 2 — Promote TS → ASC/WASM (Hot Loops on Typed Arrays)
+**Trigger:** profiler shows **>3ms/frame self-time** in a loop over arrays with **>500 iterations/frame**.
+
+**Pre-requisite (MANDATORY):**
+- System is accessed through an `I[System]` interface.
+- Current implementation is wrapped behind a `LegacyAdapter`.
+
+**Actions:**
+1. **Refactor boundary:** ensure the interface exists and gameplay uses the interface only.
+2. Move compute-heavy logic into `assembly/` as `export function ...`.
+3. Use only flat data:
+   - TypedArrays only (`Float32Array`, `Int32Array`, etc.)
+   - **Struct-of-Arrays** pattern (no objects)
+4. Measure overhead and avoid chatty calls:
+   - batch inputs in JS
+   - call WASM once per frame per type (e.g., `FoliageBatcher`)
+5. Update loader/bindings accordingly.
+
+**A/B Test Rule:**
+- If WASM version is not **> 5% faster**, revert.
+
+**Definition of Done:**
+- Interface + adapters in place
+- batching implemented (≤ 3 calls/frame)
+- benchmark recorded and decision documented (keep or revert)
+
+---
+
+### Step 3 — Promote ASC/WASM → C++/WASM (Last Resort)
+**Trigger:** profiler shows **>8ms/frame**, ASC is memory-bound or needs SIMD / allocation control.
+
+**Actions:**
+1. Define stable C ABI and minimal structs (e.g., `emscripten/include/entity.h`).
+2. Export functions with `EMSCRIPTEN_KEEPALIVE`.
+3. Prefer raw pointers and lengths (flat arrays):
+   - `float* positions`, `int length`
+4. Enable SIMD: add `-msimd128` to build flags/script.
+5. Call from JS via `Module.ccall(...)` or embind (keep it minimal).
+
+**Fallback:**
+- If build becomes fragile or runtime crashes: revert to ASC. Do not debug C++ in prod.
+
+**Definition of Done:**
+- measurable perf win (>5%)
+- stable build + runtime
+- clean fallback path preserved
+
+---
+
+## Deliverables Checklist (By Tier Promotion)
+
+### JS → TS deliverables
+- `.ts` file(s) compiling with `--strict`
+- new interfaces/types for configs and state
+- zero `any` except explicitly justified
+
+### TS → ASC deliverables
+- `src/interfaces/I<Module>.ts`
+- `src/adapters/Legacy<Module>Adapter.ts`
+- `src/adapters/Wasm<Module>Adapter.ts`
+- `assembly/<module>.ts` exports (typed arrays in/out)
+- loader updates + batching
+- A/B result recorded
+
+### ASC → C++ deliverables
+- minimal C header(s) + exported C functions
+- build flags updated (SIMD if needed)
+- JS glue isolated in adapter
+- A/B result recorded + fallback verified
+
+---
+
+## Current Migration Queue (Driven by Profile Data)
+
+### Priority A — Hot Loops (Promote to ASC/WASM)
 | Function | File | Profile Data | Target | Status |
 | :--- | :--- | :--- | :--- | :--- |
 | `animateFoliage` | `src/foliage/animation.js` | 4.2ms/frame (2k plants) | `assembly/foliage.ts` | **Done (Hybrid)** |
 | `updateParticles` | `src/systems/particles.js` | 5.1ms/frame (5k particles) | `assembly/particles.ts` | **Ready** |
 
-### Priority B: Type Safety (Migrate to TS)
+### Priority B — Type Safety (Promote to TS)
 | Function | File | Issue | Action |
 | :--- | :--- | :--- | :--- |
 | `createFloweringTree` | `src/foliage/trees.js` | 3 undefined bugs this sprint | Rename to `.ts`, add `FoliageConfig` interface |
 | `generateMap` | `src/world/generation.js` | Logic complexity | Rename to `.ts`, strict mode | **Done** |
 
-### Priority C: Future Research (Do NOT migrate yet)
+### Priority C — Research (Do NOT promote yet)
 | Function | File | Blocker |
 | :--- | :--- | :--- |
 | `updatePhysics` | `src/systems/physics.js` | Needs spatial hashing in JS first; profile after |
 
 ---
 
-## ⚠️ Agent Constraints (Critical)
-* **WASM Call Budget:** Max 3 WASM calls per frame. Batching > multiple calls.
-* **Debugging Cost:** C++ WASM cannot be source-mapped; add extensive logging in JS wrapper.
-* **SharedArrayBuffer:** Requires COOP/COEP headers. Test on production domain before migrating.
-* **Revert Policy:** If migrated code is < 5% faster and increases bundle size > 150kb, revert to TS.
+## Agent Annotation Standard (Machine-Readable)
+Use these comments so automation can verify evidence and intent:
 
-## 📝 Agent Annotation Standard
-Use machine-readable comments for automation:
 ```javascript
-// @perf-migrate {target: "asc", reason: "hot-loop", threshold: "3ms"}
 // @perf-profile {selfTime: "4.2ms", frame: "animation", screenshot: "profile-001.png"}
+// @perf-migrate {from: "ts", to: "asc", reason: "hot-loop", threshold: "3ms", callsPerFrameBudget: 3}
+// @perf-result {delta: "+7.1%", kept: true, notes: "batched foliage into 1 call/frame"}
+```
+
+---
+
+## Request Template (Copy/Paste for Jules/Copilot)
+When asking an agent to do work, provide this:
+
+- **Target function + file:**
+- **Current tier:** (JS / TS / ASC / C++)
+- **Proposed tier:**
+- **Profiling proof:** (screenshot/trace name + self-time)
+- **Workload scale:** (entities/particles/plants per frame)
+- **Constraints:** (WASM calls/frame, bundle size limits)
+- **Acceptance criteria:** (>5% win, no API break, fallback works)
