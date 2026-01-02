@@ -39,7 +39,7 @@ LINK_FLAGS="-O3 -std=c++17 -lembind -s USE_PTHREADS=1 -s PTHREAD_POOL_SIZE=4 -s 
 -s ALLOW_MEMORY_GROWTH=1 -s INITIAL_MEMORY=512mb -s ASSERTIONS=1 -s EXPORT_ES6=1 \
 -s MODULARIZE=1 -s EXPORT_NAME='createCandyNative' -s ENVIRONMENT='web','worker' \
 -s EXPORTED_RUNTIME_METHODS='["addFunction","removeFunction","UTF8ToString","stringToUTF8"]' \
--flto -flto=thin -s DISABLE_EXCEPTION_CATCHING=0 -fwasm-exceptions"
+-flto -flto=thin -fwasm-exceptions"
 
 EXPORTS="[ \
     '_hash', \
