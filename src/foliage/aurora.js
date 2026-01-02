@@ -19,27 +19,34 @@ export function createAurora() {
         const vUv = uv();
         const timeScaled = mul(time, uAuroraSpeed);
 
-        const wave1 = mul(sin(add(mul(vUv.x, 20.0), timeScaled)), 0.1);
-        const wave2 = mul(sin(sub(mul(vUv.x, 45.0), mul(timeScaled, 1.5))), 0.05);
+        // FIX: Wrap all raw numbers in float()
+        const wave1 = mul(sin(add(mul(vUv.x, float(20.0)), timeScaled)), float(0.1));
+        const wave2 = mul(sin(sub(mul(vUv.x, float(45.0)), mul(timeScaled, float(1.5)))), float(0.05));
         const distortedX = add(add(vUv.x, wave1), wave2);
 
-        const rayIntensity = add(mul(sin(mul(distortedX, 60.0)), 0.5), 0.5);
-        const verticalFade = mul(smoothstep(0.0, 0.2, vUv.y), smoothstep(1.0, 0.6, vUv.y));
-
-        // --- FIX IS HERE ---
-        // Wrap 0.0 in float(0.0)
-        const spectralShift = vec3(mul(vUv.y, 0.5), float(0.0), mul(vUv.y, 0.2).negate()); 
+        const rayIntensity = add(mul(sin(mul(distortedX, float(60.0))), float(0.5)), float(0.5));
         
-        const baseColor = vec3(uAuroraColor); // Use uniform directly
+        // FIX: Wrap primitives in float() for smoothstep
+        const verticalFade = mul(smoothstep(float(0.0), float(0.2), vUv.y), smoothstep(float(1.0), float(0.6), vUv.y));
+
+        // FIX: Wrap primitives in float() for vec3 and mul
+        const spectralShift = vec3(mul(vUv.y, float(0.5)), float(0.0), mul(vUv.y, float(0.2)).negate()); 
+        
+        const baseColor = vec3(uAuroraColor); 
         const finalColor = add(baseColor, spectralShift);
 
-        const finalAlpha = mul(mul(mul(rayIntensity, verticalFade), uAuroraIntensity), 0.6); 
+        const finalAlpha = mul(mul(mul(rayIntensity, verticalFade), uAuroraIntensity), float(0.6)); 
 
         return vec4(finalColor, finalAlpha);
     });
 
     const material = new MeshBasicNodeMaterial();
-    material.colorNode = mainAurora();
+    
+    // FIX: Split the vec4 result into RGB and Alpha
+    const auroraNode = mainAurora();
+    material.colorNode = auroraNode.xyz;    // Use RGB for color
+    material.opacityNode = auroraNode.w;    // Use Alpha for opacity
+    
     material.transparent = true;
     material.blending = THREE.AdditiveBlending;
     material.side = THREE.DoubleSide;
