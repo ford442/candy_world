@@ -70,29 +70,32 @@ export function createStars(count = 1500) {
     const aStarColor = attribute('starColor', 'vec3');
 
     // Twinkle logic
-    const twinkle1 = time.add(aOffset).sin().mul(0.3).add(0.5);
-    const twinkle2 = time.mul(2.3).add(aOffset.mul(0.7)).sin().mul(0.2).add(0.5);
+    // FIX: Wrap numbers in float()
+    const twinkle1 = time.add(aOffset).sin().mul(float(0.3)).add(float(0.5));
+    const twinkle2 = time.mul(float(2.3)).add(aOffset.mul(float(0.7))).sin().mul(float(0.2)).add(float(0.5));
     const twinkle = twinkle1.mul(twinkle2);
 
-    const intensity = twinkle.add(uStarPulse.mul(1.5)); 
+    const intensity = twinkle.add(uStarPulse.mul(float(1.5))); 
 
-    // FIX: Use nodes directly instead of reconstructing them component-wise
-    // uStarColor is a UniformNode<Color>, which acts as a vec3
+    // Use nodes directly
     const musicColorVec3 = uStarColor; 
 
     // Mix factor
-    const finalRGB = mix(aStarColor, musicColorVec3, uStarPulse.mul(0.8));
+    const finalRGB = mix(aStarColor, musicColorVec3, uStarPulse.mul(float(0.8)));
 
-    mat.colorNode = vec4(finalRGB, uStarOpacity).mul(mat.color);
-    mat.sizeNode = aSize.mul(intensity.max(0.3));
+    // FIX: Wrap mat.color in color() node to make it compatible
+    mat.colorNode = vec4(finalRGB, uStarOpacity).mul(color(mat.color));
+    
+    // FIX: Wrap 0.3 in float()
+    mat.sizeNode = aSize.mul(intensity.max(float(0.3)));
 
     // Star Warp
     const pos = positionLocal;
-    const warpFactor = uStarPulse.mul(20.0); 
+    const warpFactor = uStarPulse.mul(float(20.0)); 
     const warpedPos = pos.add(pos.normalize().mul(warpFactor));
 
     // Rotation
-    const angle = time.mul(0.02);
+    const angle = time.mul(float(0.02));
     const rotatedX = warpedPos.x.mul(cos(angle)).sub(warpedPos.z.mul(sin(angle)));
     const rotatedZ = warpedPos.x.mul(sin(angle)).add(warpedPos.z.mul(cos(angle)));
 
