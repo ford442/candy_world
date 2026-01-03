@@ -1,7 +1,7 @@
 #include <emscripten.h>
 #include <cmath>
 #include <cstdlib>
-#include <omp.h>
+#include "./omp.h"
 
 extern "C" {
 
