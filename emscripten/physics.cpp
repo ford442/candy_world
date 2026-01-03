@@ -2,6 +2,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <vector>
+#include <omp.h>
 
 extern "C" float fastInvSqrt(float x);
 
@@ -222,6 +223,7 @@ float particleData[MAX_PARTICLES * 8];
 
 EMSCRIPTEN_KEEPALIVE
 void updateParticles(float deltaTime, float globalTime) {
+    #pragma omp parallel for simd schedule(static)
     for (int i = 0; i < MAX_PARTICLES; i++) {
         int base = i * 8;
         float life = particleData[base + 3];
