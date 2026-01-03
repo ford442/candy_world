@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { uWindSpeed, uWindDirection, uSkyTopColor, uSkyBottomColor, uHorizonColor, uAtmosphereIntensity, uStarPulse, uStarOpacity, uAuroraIntensity, uAuroraColor, uAudioLow, uAudioHigh, createAurora, updateMoon, animateFoliage, updateFoliageMaterials, updateFireflies, updateFallingBerries, collectFallingBerries, createFlower, createMushroom, validateNodeGeometries } from './src/foliage/index.js';
+import { uWindSpeed, uWindDirection, uSkyTopColor, uSkyBottomColor, uHorizonColor, uAtmosphereIntensity, uStarPulse, uStarOpacity, uAuroraIntensity, uAuroraColor, uAudioLow, uAudioHigh, uGlitchIntensity, createAurora, updateMoon, animateFoliage, updateFoliageMaterials, updateFireflies, updateFallingBerries, collectFallingBerries, createFlower, createMushroom, validateNodeGeometries } from './src/foliage/index.js';
 import { initCelestialBodies } from './src/foliage/celestial-bodies.js';
 import { MusicReactivitySystem } from './src/systems/music-reactivity.js';
 import { AudioSystem } from './src/audio/audio-system.js';
@@ -449,18 +449,47 @@ function animate() {
     // We'll base it on star opacity for visibility, and mix in some audio reactivity
     const baseAuroraVis = starOp * 0.8; // Max 0.8 visibility at night
 
-    // Update Water Uniforms
+    // Update Water & Glitch Uniforms
     if (audioState) {
         const kick = audioState.kickTrigger || 0;
         uAudioLow.value = THREE.MathUtils.lerp(uAudioLow.value, kick, 0.2);
 
         let high = 0;
-        if (audioState.channelData && audioState.channelData.length > 5) {
-             const ch5 = audioState.channelData[5].trigger || 0;
-             const ch6 = audioState.channelData[6] ? (audioState.channelData[6].trigger || 0) : 0;
-             high = Math.max(ch5, ch6);
+        let glitchTrigger = 0;
+
+        if (audioState.channelData) {
+             // High frequency for water
+             if (audioState.channelData.length > 5) {
+                const ch5 = audioState.channelData[5].trigger || 0;
+                const ch6 = audioState.channelData[6] ? (audioState.channelData[6].trigger || 0) : 0;
+                high = Math.max(ch5, ch6);
+             }
+
+             // Glitch Trigger: Look for active effects in channels
+             // Specific effect 9xx (Sample Offset) is hard to detect if not explicitly decoded as such,
+             // but we can look for high-intensity retrigger (activeEffect 5) or just map it to a specific channel event for now.
+             // Or we can simulate it on very high intensity hits or specific pattern commands if we had them.
+             // For now, let's map it to "Retrigger" (Code R / activeEffect 5) which is often used for glitches.
+
+             for (const ch of audioState.channelData) {
+                 if (ch.activeEffect === 5 && ch.effectValue > 0) { // Retrigger
+                     glitchTrigger = Math.max(glitchTrigger, ch.effectValue); // Intensity
+                 }
+                 // Also support Effect 9xx if our audio system supported it (currently supports 4, 3, 7, 0, R)
+                 // Plan says "9xx commands"
+             }
         }
         uAudioHigh.value = THREE.MathUtils.lerp(uAudioHigh.value, high, 0.2);
+
+        // Snap glitch to trigger, decay fast
+        if (glitchTrigger > 0) {
+            // Boost visibility of glitch
+            uGlitchIntensity.value = glitchTrigger * 0.5;
+        } else {
+            // Decay
+            uGlitchIntensity.value *= 0.8;
+            if (uGlitchIntensity.value < 0.01) uGlitchIntensity.value = 0;
+        }
     }
 
     // Simple audio reactivity for Aurora (using generic audioState.energy or high channels)
