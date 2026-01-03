@@ -2,7 +2,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <vector>
-#include <omp.h>
+#include "./omp.h"
 
 extern "C" float fastInvSqrt(float x);
 
