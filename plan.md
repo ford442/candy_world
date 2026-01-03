@@ -323,6 +323,6 @@ Three.js Renderer -> WebGPU RenderPipeline (Raw Draw Calls)
   - Attempted to view `assets/colorcode.png` but file access was restricted. Proceeded with the established "Cute Clay" palette (Pastels, Matte, Rosy Cheeks) as validated in previous steps.
 
 - **Next Steps:**
-  - **Sample-Offset Glitch**: Implement the TSL shader for the glitch effect (Category 4).
+  - **Sample-Offset Glitch**: **[Implemented]** TSL shader for glitch effect (`src/foliage/glitch.js`) integrated into Unified Material Pipeline (`src/foliage/common.js`). Driven by Retrigger (activeEffect 5) intensity or simulated via channel triggers.
   - **Verify Data Flow**: Ensure `AudioSystem` correctly extracts and passes `order`/`row` data from the worklet to drive the Pattern-Change logic reliably.
   - **Migrate to TypeScript**: Continue Phase 1 of the migration roadmap.

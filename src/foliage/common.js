@@ -9,6 +9,8 @@ import {
     cross, vec2, vec4
 } from 'three/tsl';
 
+import { applyGlitch } from './glitch.js';
+
 // --- Shared Resources & Geometries ---
 // We use "Unit" geometries (size 1) and scale them in the mesh to save memory/draw calls
 export const sharedGeometries = {
@@ -38,6 +40,7 @@ export const _foliageReactiveColor = new THREE.Color();
 export const uWindSpeed = uniform(0.0);
 export const uWindDirection = uniform(vec3(1, 0, 0));
 export const uTime = uniform(0.0); // Global time uniform for animated materials
+export const uGlitchIntensity = uniform(0.0); // Global glitch intensity
 
 // --- UTILITY FUNCTIONS ---
 
@@ -264,6 +267,23 @@ export function createUnifiedMaterial(hexColor, options = {}) {
         material.sheenColorNode = color(sheenColor);
         material.sheenRoughnessNode = float(sheenRoughness);
     }
+
+    // 8. Global Glitch Effect (Sample Offset / Pixelation)
+    // We apply this last to affect the final position.
+    // Compose with existing positionNode if it exists (e.g. from Wind or animation), otherwise use positionLocal.
+    const basePos = material.positionNode || positionLocal;
+    const glitchRes = applyGlitch(uv(), basePos, uGlitchIntensity);
+
+    // Override position with glitched version
+    material.positionNode = glitchRes.position;
+
+    // We can also affect UVs for texture lookups if we had textures.
+    // Since most materials here are procedural noise, we could pass glitched UV/Position to noise functions
+    // but noise usually takes position.
+
+    // Let's make sure the glitch affects the material color if it uses UVs (like gradients)
+    // But since we are mostly noise based on position...
+    // The vertex displacement `material.positionNode` handles the shape distortion.
 
     material.userData.isUnified = true;
     return material;

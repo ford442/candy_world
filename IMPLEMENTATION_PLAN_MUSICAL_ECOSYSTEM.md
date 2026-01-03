@@ -340,6 +340,12 @@ beatSync.onBeat(state => {
 - Different plant types react to different bands
 - Creates visual "equalizer" effect across the landscape
 
+### 6.4 Glitch Effects (Advanced Shaders) ✅ COMPLETE
+
+- Implemented `src/foliage/glitch.js` with TSL-based vertex jitter and UV pixelation.
+- Integrated into `createUnifiedMaterial` pipeline.
+- Driven by `uGlitchIntensity` reacting to retrigger/strobe effects.
+
 ---
 
 ## Phase 7: Collectibles & Progression (NEW)
