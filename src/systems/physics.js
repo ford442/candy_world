@@ -54,6 +54,15 @@ export const grooveGravity = {
     baseGravity: 20.0
 };
 
+// --- Optimization: Scratch Variables (Zero-Allocation) ---
+const _scratchSwimDir = new THREE.Vector3();
+const _scratchCamDir = new THREE.Vector3();
+const _scratchCamRight = new THREE.Vector3();
+const _scratchMoveVec = new THREE.Vector3();
+const _scratchTargetVel = new THREE.Vector3();
+const _scratchGatePos = new THREE.Vector3();
+const _scratchUp = new THREE.Vector3(0, 1, 0);
+
 // C++ Physics Init Flag
 let cppPhysicsInitialized = false;
 let foliageCaves = []; // Store caves for collision checks
@@ -118,7 +127,8 @@ function updateStateTransitions(camera, keyStates) {
     foliageCaves.forEach(cave => {
         // If cave is flooded (isBlocked) AND player is near the gate
         if (cave.userData.isBlocked) {
-             const gatePos = cave.userData.gatePosition.clone().applyMatrix4(cave.matrixWorld);
+             // ⚡ OPTIMIZATION: Use scratch vector instead of clone()
+             const gatePos = _scratchGatePos.copy(cave.userData.gatePosition).applyMatrix4(cave.matrixWorld);
              // 2.5 is approx radius of water gate visual
              if (playerPos.distanceTo(gatePos) < 2.5) {
                  waterLevel = gatePos.y + 5; // Water exists here
@@ -161,7 +171,8 @@ function updateSwimmingState(delta, camera, controls, keyStates) {
 
     // 3. Movement (3D Movement - Camera Direction)
     const swimSpeed = player.speed * 0.6; // Slower than running
-    const swimDir = new THREE.Vector3();
+    // ⚡ OPTIMIZATION: Use scratch variables
+    const swimDir = _scratchSwimDir.set(0, 0, 0);
 
     if (keyStates.forward) swimDir.z += 1;
     if (keyStates.backward) swimDir.z -= 1;
@@ -172,13 +183,13 @@ function updateSwimmingState(delta, camera, controls, keyStates) {
         swimDir.normalize();
 
         // Get Camera direction
-        const camDir = new THREE.Vector3();
+        const camDir = _scratchCamDir;
         camera.getWorldDirection(camDir);
-        const camRight = new THREE.Vector3();
-        camRight.crossVectors(camDir, new THREE.Vector3(0, 1, 0));
+        const camRight = _scratchCamRight;
+        camRight.crossVectors(camDir, _scratchUp);
 
         // Apply input relative to camera view
-        const moveVec = new THREE.Vector3()
+        const moveVec = _scratchMoveVec.set(0, 0, 0)
             .addScaledVector(camDir, swimDir.z)
             .addScaledVector(camRight, swimDir.x);
 
@@ -276,7 +287,8 @@ function updateDefaultState(delta, camera, controls, keyStates, audioState) {
 }
 
 function updateJSFallbackMovement(delta, camera, controls, keyStates, moveSpeed) {
-    const _targetVelocity = new THREE.Vector3();
+    // ⚡ OPTIMIZATION: Use scratch variable
+    const _targetVelocity = _scratchTargetVel.set(0, 0, 0);
     if (keyStates.forward) _targetVelocity.z += moveSpeed;
     if (keyStates.backward) _targetVelocity.z -= moveSpeed;
     if (keyStates.left) _targetVelocity.x -= moveSpeed;
@@ -312,7 +324,8 @@ function resolveSpecialCollisions(delta, camera, keyStates, audioState) {
     // If not swimming (meaning we are walking into it), push back
     foliageCaves.forEach(cave => {
         if (cave.userData.isBlocked) {
-            const gateWorldPos = cave.userData.gatePosition.clone().applyMatrix4(cave.matrixWorld);
+            // ⚡ OPTIMIZATION: Use scratch vector
+            const gateWorldPos = _scratchGatePos.copy(cave.userData.gatePosition).applyMatrix4(cave.matrixWorld);
             const dx = playerPos.x - gateWorldPos.x;
             const dz = playerPos.z - gateWorldPos.z;
             const dist = Math.sqrt(dx*dx + dz*dz);
