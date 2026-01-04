@@ -12,6 +12,7 @@ export * from './fireflies.js';
 export * from './animation.ts';
 export * from './water.js'; // Added Waveform Water
 export * from './glitch.js'; // Added Glitch Shader
+export * from './chromatic.js'; // Added Chromatic Aberration
 
 // Export lantern flower explicitly if not covered by flowers.js (it is, but let's be safe)
 export { createLanternFlower } from './flowers.js';
