@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { uWindSpeed, uWindDirection, uSkyTopColor, uSkyBottomColor, uHorizonColor, uAtmosphereIntensity, uStarPulse, uStarOpacity, uAuroraIntensity, uAuroraColor, uAudioLow, uAudioHigh, uGlitchIntensity, createAurora, updateMoon, animateFoliage, updateFoliageMaterials, updateFireflies, updateFallingBerries, collectFallingBerries, createFlower, createMushroom, validateNodeGeometries } from './src/foliage/index.js';
+import { uWindSpeed, uWindDirection, uSkyTopColor, uSkyBottomColor, uHorizonColor, uAtmosphereIntensity, uStarPulse, uStarOpacity, uAuroraIntensity, uAuroraColor, uAudioLow, uAudioHigh, uGlitchIntensity, uChromaticIntensity, createAurora, createChromaticPulse, updateMoon, animateFoliage, updateFoliageMaterials, updateFireflies, updateFallingBerries, collectFallingBerries, createFlower, createMushroom, validateNodeGeometries } from './src/foliage/index.js';
 import { initCelestialBodies } from './src/foliage/celestial-bodies.js';
 import { MusicReactivitySystem } from './src/systems/music-reactivity.js';
 import { AudioSystem } from './src/audio/audio-system.js';
@@ -62,6 +62,7 @@ validateNodeGeometries(scene);
 
 // Defer non-critical visual elements to load after basic scene is ready
 let aurora = null;
+let chromaticPulse = null;
 let celestialBodiesInitialized = false;
 
 // Function to initialize deferred visual elements
@@ -73,6 +74,15 @@ function initDeferredVisuals() {
         console.log('[Deferred] Aurora initialized');
     }
     
+    if (!chromaticPulse) {
+        // Add Chromatic Aberration Pulse Overlay
+        chromaticPulse = createChromaticPulse();
+        // Add to camera so it stays screen-locked
+        camera.add(chromaticPulse);
+        // Ensure camera is in scene for children to render? Actually camera is already in scene.
+        console.log('[Deferred] Chromatic Pulse initialized');
+    }
+
     if (!celestialBodiesInitialized) {
         // Add Celestial Bodies
         initCelestialBodies(scene);
@@ -489,6 +499,15 @@ function animate() {
             // Decay
             uGlitchIntensity.value *= 0.8;
             if (uGlitchIntensity.value < 0.01) uGlitchIntensity.value = 0;
+        }
+
+        // Chromatic Aberration Pulse (Driven by Kick / Beat Flash)
+        if (beatFlashIntensity > 0.4) {
+             // If beat is strong, spike chromatic intensity
+             uChromaticIntensity.value = (beatFlashIntensity - 0.4) * 2.0; // Scale 0.4-1.0 to 0.0-1.2
+        } else {
+             uChromaticIntensity.value *= 0.85; // Decay
+             if (uChromaticIntensity.value < 0.01) uChromaticIntensity.value = 0;
         }
     }
 

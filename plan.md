@@ -153,16 +153,18 @@ This document captures feature ideas for the Candy World musical ecosystem. The 
 - Audio: Water movement is a granular synthesis of the waveform, creating a singing effect.
 
 ### Sample-Offset Glitch
+- **Status: Implemented ✅**
 - Description: Pixelation/glitch effect from Sample Offset command (9xx), with texture pixelation and vertex jitter.
 - Gameplay Mechanics: Glitched objects become intangible briefly; Glitch Grenade causes local glitch enabling hidden pathways and double-loot crates.
-- Visual Design: Vertex noise-based jitter, pixelation shader rounding UVs, RGB channel splitting, scanlines, simulated frame drops.
+- Visual Design: **[Implemented]** Vertex noise-based jitter, pixelation shader rounding UVs, RGB channel splitting. Integrated into Unified Material Pipeline (`src/foliage/common.js`).
 - Behavioral Patterns: Cooldown between glitch effects; stacked 9xx commands escalate effect.
 - Audio: Digital crunch with bitcrushed noise.
 
 ### Chromatic Aberration Pulse
+- **Status: Implemented ✅**
 - Description: Full-screen chromatic RGB separation on heavy kicks (kick velocity > 100), with barrel distortion and a short screen freeze.
 - Gameplay Mechanics: Temporal distortion of hitboxes; players can time Dodge Roll for invulnerability and an afterimage.
-- Visual Design: Post-process sampling shifting RGB channels and radial gradient to drive intensity.
+- Visual Design: **[Implemented]** TSL `viewportSharedTexture` sampling with barrel distortion and RGB channel splitting. Implemented as an unlit `MeshBasicNodeMaterial` overlay attached to the camera.
 - Behavioral Patterns: Pulse triggers on heavy kicks, stacks with double kicks; suppressed in menus.
 - Audio: Silent but creates the perception of a subwoofer press.
 
@@ -284,8 +286,8 @@ Three.js Renderer -> WebGPU RenderPipeline (Raw Draw Calls)
 
 ## Next Steps
 
-1. **Pattern-Change Seasons**: Implement the global palette shift logic triggered by pattern change events (`Dxx` command). This will require abstracting the palette colors into uniforms or a global state object that the weather/foliage systems observe.
-2. **Instrument-ID Textures**: Implement procedural texture generation based on instrument IDs.
+1. **Note-Trail Ribbons**: Implement the melody-tracing ribbons.
+2. **Rare Flora Discovery**: Implement the discovery system for rare plants.
 3. **Migrate to TypeScript**: Begin Phase 1 of the migration roadmap to harden the codebase before adding more complex systems.
 
 ## Recent Progress & Next Steps
@@ -318,11 +320,13 @@ Three.js Renderer -> WebGPU RenderPipeline (Raw Draw Calls)
   - **Pattern-Change Seasons**: Implemented global palette shifts (Neon/Glitch modes) triggered by music pattern changes (detected via `AudioSystem` and propagated to `WeatherSystem`).
   - **Instrument-ID Textures**: Implemented `createInstrumentShrine` in `src/foliage/instrument.js` using procedural TSL patterns seeded by Instrument ID.
   - **Portamento Pines**: Implemented `src/foliage/pines.js` featuring TSL-driven vertex displacement (bending) and spring physics animation. Reacts to Melody channel (2).
+  - **Sample-Offset Glitch**: Implemented TSL shader for glitch effect (`src/foliage/glitch.js`) integrated into Unified Material Pipeline.
+  - **Chromatic Aberration Pulse**: Implemented TSL-based full-screen distortion (`src/foliage/chromatic.js`) using `viewportSharedTexture` on an unlit camera-attached overlay mesh. Reacts to kick drum intensity.
 
 - **Concept Art Check**:
   - Attempted to view `assets/colorcode.png` but file access was restricted. Proceeded with the established "Cute Clay" palette (Pastels, Matte, Rosy Cheeks) as validated in previous steps.
 
 - **Next Steps:**
-  - **Sample-Offset Glitch**: **[Implemented]** TSL shader for glitch effect (`src/foliage/glitch.js`) integrated into Unified Material Pipeline (`src/foliage/common.js`). Driven by Retrigger (activeEffect 5) intensity or simulated via channel triggers.
+  - **Note-Trail Ribbons**: Implement 3D ribbons tracing the melody.
   - **Verify Data Flow**: Ensure `AudioSystem` correctly extracts and passes `order`/`row` data from the worklet to drive the Pattern-Change logic reliably.
   - **Migrate to TypeScript**: Continue Phase 1 of the migration roadmap.
