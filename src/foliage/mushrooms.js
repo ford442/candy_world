@@ -1,9 +1,9 @@
 // src/foliage/mushrooms.js
 
 import * as THREE from 'three';
-import { color, time, sin, positionLocal } from 'three/tsl';
+import { color, time, sin, positionLocal, float, uniform } from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
-import { foliageMaterials, registerReactiveMaterial, attachReactivity, pickAnimation, eyeGeo } from './common.js';
+import { foliageMaterials, registerReactiveMaterial, attachReactivity, pickAnimation, eyeGeo, createRimLight } from './common.js';
 
 // 12 Chromatic Notes with their corresponding colors
 // Colors are defined here to match CONFIG.noteColorMap.mushroom palette
@@ -113,6 +113,35 @@ export function createMushroom(options = {}) {
     if (noteColor !== null) {
         instanceCapMat.userData.noteColor = new THREE.Color(noteColor);
     }
+
+    // --- PALETTE UPDATE: Add Rim Light for Depth ---
+    // Apply soft white rim light to make it pop against dark backgrounds
+    // We compose it with existing emissive logic if needed, or just add it
+    // But since this material might be cloned from a shared one, we need to be careful.
+    // However, MeshStandardNodeMaterial's emissiveNode can be assigned a TSL node.
+
+    // Default Emissive (black) + Rim Light
+    // Note: If reactivity updates emissiveNode later, we might lose this.
+    // Ideally, reactivity should modulate a uniform that is PART of this graph.
+    // But for now, let's add it.
+    // Since reactivity usually updates `material.emissive` color property OR `material.emissiveNode`,
+    // and the `animateFoliage` loop often sets `material.emissive` directly for standard materials...
+    // Wait, the project uses TSL. The `reactToNote` method here updates `cap.userData.flashColor`.
+    // The actual update happens in the animation loop.
+
+    // Let's add the rim light to the *emissiveNode* permanently.
+
+    // Fix: We need to preserve the standard emissive behavior so audio reactivity (flashing) works.
+    // Standard materials use `material.emissive * material.emissiveIntensity`.
+    // In TSL, we can bind the material's emissive color property as a uniform so changes on CPU (reactivity) reflect here.
+    const uEmissive = uniform(instanceCapMat.emissive); // Binds to the JS .emissive color object
+
+    // Pass positional arguments to match TSL Fn definition: [color, intensity, power]
+    const rimEffect = createRimLight(color(0xFFFFFF), float(0.4), float(3.0));
+
+    // Compose: Standard Emissive + Rim Light
+    instanceCapMat.emissiveNode = uEmissive.add(rimEffect);
+    // -----------------------------------------------
 
     const cap = new THREE.Mesh(capGeo, instanceCapMat);
     cap.position.y = stemH - (capR * 0.2);
