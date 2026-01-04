@@ -347,6 +347,11 @@ export function initInput(camera, audioSystem, toggleDayNightCallback) {
         updateDayNightButtonState: (isPressed) => {
             if (toggleDayNightBtn) {
                 toggleDayNightBtn.setAttribute('aria-pressed', isPressed);
+                // UX: Update button text to show available action
+                toggleDayNightBtn.innerHTML = isPressed
+                    ? '☀️ Switch to Day (N)'
+                    : '🌙 Switch to Night (N)';
+
                 import('../utils/toast.js').then(({ showToast }) => {
                     const mode = isPressed ? "Night Mode Active 🌙" : "Day Mode Active ☀️";
                     showToast(mode, isPressed ? '🌙' : '☀️');
