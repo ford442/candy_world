@@ -108,13 +108,30 @@ export const perturbNormal = Fn(([pos, normal, scale, strength]) => {
     return perturbed;
 });
 
-// TSL Function for Node usage (legacy rim light helper)
-export const addRimLight = Fn(([baseColorNode, normalNode, viewDirNode]) => {
-    const rimPower = float(3.0);
-    const rimIntensity = float(0.5);
-    const NdotV = max(0.0, dot(normalNode, viewDirNode));
-    const rim = float(1.0).sub(NdotV).pow(rimPower).mul(rimIntensity);
-    return baseColorNode.add(rim);
+/**
+ * Creates a TSL node for Rim Light (Fresnel-like edge glow).
+ * @param {Node} colorNode - Color of the rim light
+ * @param {float|Node} intensity - Intensity multiplier
+ * @param {float|Node} power - Sharpness of the rim (higher = thinner)
+ * @param {Node} [normalNode] - Optional normal override (defaults to normalWorld)
+ * @returns {Node} - The calculated emission color node
+ */
+export const createRimLight = Fn(([colorNode, intensity, power, normalNode]) => {
+    const viewDir = normalize(cameraPosition.sub(positionWorld));
+    // Use supplied normal or default to global world normal
+    const N = normalNode || normalWorld;
+
+    // NdotV can be negative if back-facing, but rim light usually wraps.
+    // However, strictly it's dot(N, V).
+    const NdotV = abs(dot(N, viewDir));
+    const rim = float(1.0).sub(NdotV).pow(power);
+    return colorNode.mul(rim).mul(intensity);
+});
+
+// Legacy helper kept for compatibility
+export const addRimLight = Fn(([baseColorNode, normalNode]) => {
+    // Pass the normalNode if it exists
+    return baseColorNode.add(createRimLight(color(0xFFFFFF), float(0.5), float(3.0), normalNode));
 });
 
 // --- UNIFIED MATERIAL PIPELINE ---
