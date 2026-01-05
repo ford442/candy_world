@@ -53,6 +53,31 @@ interface WeatherSystem {
     registerCave(obj: THREE.Object3D): void;
 }
 
+// --- Lake Configuration (Mirrored in Physics.js) ---
+const LAKE_BOUNDS = { minX: -38, maxX: 78, minZ: -28, maxZ: 68 };
+const LAKE_BOTTOM = -2.0;
+
+// Helper: Calculate Unified Ground Height (WASM + Visual Lake Modifiers)
+// Matches logic in src/systems/physics.js
+function getUnifiedGroundHeight(x: number, z: number): number {
+    let height = getGroundHeight(x, z);
+
+    if (x > LAKE_BOUNDS.minX && x < LAKE_BOUNDS.maxX && z > LAKE_BOUNDS.minZ && z < LAKE_BOUNDS.maxZ) {
+        const distX = Math.min(x - LAKE_BOUNDS.minX, LAKE_BOUNDS.maxX - x);
+        const distZ = Math.min(z - LAKE_BOUNDS.minZ, LAKE_BOUNDS.maxZ - z);
+        const distEdge = Math.min(distX, distZ);
+
+        // Smooth blend area (10 units wide)
+        const blend = Math.min(1.0, distEdge / 10.0);
+        const targetHeight = THREE.MathUtils.lerp(height, LAKE_BOTTOM, blend);
+
+        if (targetHeight < height) {
+            height = targetHeight;
+        }
+    }
+    return height;
+}
+
 // --- Scene Setup ---
 
 export function initWorld(scene: THREE.Scene, weatherSystem: WeatherSystem, loadContent: boolean = true): WorldObjects {
@@ -75,13 +100,17 @@ export function initWorld(scene: THREE.Scene, weatherSystem: WeatherSystem, load
     // Ground - SHRUNK from 2000 to 400 for tighter feel
     const groundGeo = new THREE.PlaneGeometry(400, 400, 128, 128);
     const posAttribute = groundGeo.attributes.position;
+
     for (let i = 0; i < posAttribute.count; i++) {
         const x = posAttribute.getX(i);
-        const y = posAttribute.getY(i);
+        const y = posAttribute.getY(i); // Plane is on XY
         const zWorld = -y;
-        const height = getGroundHeight(x, zWorld);
+
+        // Use the Unified Height that accounts for the Lake
+        const height = getUnifiedGroundHeight(x, zWorld);
         posAttribute.setZ(i, height);
     }
+
     groundGeo.computeVertexNormals();
     const groundMat = new THREE.MeshPhysicalMaterial({
         color: CONFIG.colors.ground,
@@ -106,13 +135,8 @@ export function initWorld(scene: THREE.Scene, weatherSystem: WeatherSystem, load
     scene.add(createFireflies(150, 100));
 
     // Melody Lake (Waveform Water)
-    // Reduce size to create a contained lake instead of flooding the world
-    const lakeWidth = 120;
-    const lakeDepth = 100;
-    const melodyLake = createWaveformWater(lakeWidth, lakeDepth);
-    
-    // Position the lake slightly off-center or in a natural low point
-    // Lowering y slightly (to 1.5) to ensure banks are visible
+    // Lake is at 20, 1.5, 20 with width 120, depth 100
+    const melodyLake = createWaveformWater(120, 100);
     melodyLake.position.set(20, 1.5, 20); 
     scene.add(melodyLake);
 
@@ -163,11 +187,9 @@ export function safeAddFoliage(
 
 // --- HELPER: Position Validation ---
 function isPositionValid(x: number, z: number, radius: number): boolean {
-    // 1. Player Protection (Center Check)
     const distFromCenterSq = x * x + z * z;
     if (distFromCenterSq < 15 * 15) return false;
 
-    // 2. Obstacle Overlap Check
     for (const obs of obstacles) {
         const dx = x - obs.position.x;
         const dz = z - obs.position.z;
@@ -176,11 +198,11 @@ function isPositionValid(x: number, z: number, radius: number): boolean {
         if (distSq < minDistance * minDistance) return false;
     }
     
-    // 3. Lake Avoidance (Approximate rect for the new lake)
-    // Lake is at 20, 20 with width 120, depth 100
-    // Bounds: x[-40, 80], z[-30, 70]
+    // 3. Lake Avoidance for PROCEDURAL content
+    // We specifically prevent random generation in the lake so we don't drown bushes.
+    // However, map.json entities or explicitly placed objects (like the Cave) are allowed.
     if (x > -40 && x < 80 && z > -30 && z < 70) {
-        return false; // Don't spawn inside the lake
+        return false;
     }
 
     return true;
@@ -189,13 +211,13 @@ function isPositionValid(x: number, z: number, radius: number): boolean {
 
 // --- MAP GENERATION ---
 
-// Exported for delayed loading
 export function generateMap(weatherSystem: WeatherSystem): void {
-    console.log(`[World] Loading map with ${mapData.length} entities...`);
+    console.log(\`[World] Loading map with \${mapData.length} entities...\`);
 
     (mapData as MapEntity[]).forEach(item => {
         const [x, yInput, z] = item.position;
-        const groundY = getGroundHeight(x, z);
+        // USE UNIFIED HEIGHT for placement
+        const groundY = getUnifiedGroundHeight(x, z);
         let y = groundY;
         if (item.type === 'cloud') y = yInput;
 
@@ -233,7 +255,7 @@ export function generateMap(weatherSystem: WeatherSystem): void {
                 addGrassInstance(x, y, z);
                 return;
             }
-            // --- Advanced Types ---
+            // ... (Other types elided for brevity, same logic follows) ...
             else if (item.type === 'subwoofer_lotus') {
                 obj = createSubwooferLotus({ scale: item.scale || 1.0 });
             }
@@ -327,7 +349,7 @@ export function generateMap(weatherSystem: WeatherSystem): void {
             }
 
         } catch (e) {
-            console.warn(`[World] Failed to spawn ${item.type} at ${x},${z}`, e);
+            console.warn(\`[World] Failed to spawn \${item.type} at \${x},\${z}\`, e);
         }
     });
 
@@ -335,11 +357,13 @@ export function generateMap(weatherSystem: WeatherSystem): void {
     const cave = createCaveEntrance({ scale: 2.0 });
     const caveX = 25;
     const caveZ = 25;
-    const caveY = getGroundHeight(caveX, caveZ);
+    // USE UNIFIED HEIGHT so Cave doesn't float over the lake
+    const caveY = getUnifiedGroundHeight(caveX, caveZ);
+
     cave.position.set(caveX, caveY, caveZ);
     cave.lookAt(0, caveY, 0);
     safeAddFoliage(cave, false, 0, weatherSystem);
-    console.log("[World] Cave spawned at ", caveX, caveZ);
+    console.log("[World] Cave spawned at ", caveX, caveZ, " Height:", caveY);
 
     populateProceduralExtras(weatherSystem);
 }
@@ -370,9 +394,11 @@ function populateProceduralExtras(weatherSystem: WeatherSystem): void {
 
         if (!validPosition) continue;
 
-        const groundY = getGroundHeight(x, z);
+        // Use Unified Height for placement
+        const groundY = getUnifiedGroundHeight(x, z);
 
         try {
+            // ... (Procedural selection logic same as before) ...
             const rand = Math.random();
             if (rand < 0.3) {
                  obj = Math.random() < 0.5 ? createFlower() : createGlowingFlower();
@@ -446,7 +472,7 @@ function populateProceduralExtras(weatherSystem: WeatherSystem): void {
                 safeAddFoliage(obj, isObstacle, radius, weatherSystem);
             }
         } catch (e) {
-            console.warn(`[World] Failed to spawn procedural extra at ${x},${z}`, e);
+            console.warn(\`[World] Failed to spawn procedural extra at \${x},\${z}\`, e);
         }
     }
     console.log("[World] Finished populating procedural extras.");
