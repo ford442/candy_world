@@ -41,6 +41,7 @@ export function initInput(camera, audioSystem, toggleDayNightCallback) {
             // UX: Use a button for keyboard accessibility
             const btn = document.createElement('button');
             btn.className = 'playlist-btn';
+            btn.title = file.name; // Tooltip for full filename
             btn.setAttribute('aria-label', `Play ${file.name}`);
             if (index === currentIdx) {
                 btn.setAttribute('aria-current', 'true');
