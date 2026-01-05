@@ -58,7 +58,11 @@ export class AudioSystem {
         this.patternMatrices = {};
         this.isPlaying = false;
         this.isReady = false;
+
+        // Volume State
         this.volume = 1.0;
+        this.previousVolume = 1.0;
+        this.isMuted = false;
 
         // Playlist State
         this.playlist = []; // Array of File objects
@@ -224,6 +228,36 @@ export class AudioSystem {
         } catch (e) {
             console.error("AudioSystem Init Failed:", e);
         }
+    }
+
+    // --- Volume Control (UX) ---
+
+    setVolume(value) {
+        this.volume = Math.max(0, Math.min(1, value));
+        if (this.gainNode) {
+            // Use setTargetAtTime for smooth volume transitions (avoids clicking)
+            // If currentTime is not available, fallback to direct assignment
+            const time = this.audioContext ? this.audioContext.currentTime : 0;
+            try {
+                this.gainNode.gain.setTargetAtTime(this.volume, time, 0.1);
+            } catch(e) {
+                this.gainNode.gain.value = this.volume;
+            }
+        }
+    }
+
+    toggleMute() {
+        if (this.isMuted) {
+            // Unmute
+            this.setVolume(this.previousVolume);
+            this.isMuted = false;
+        } else {
+            // Mute
+            this.previousVolume = this.volume > 0 ? this.volume : 1.0; // Remember volume or default to 1
+            this.setVolume(0);
+            this.isMuted = true;
+        }
+        return this.isMuted;
     }
 
     // --- Playlist Management ---

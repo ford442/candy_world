@@ -334,6 +334,22 @@ export function initInput(camera, audioSystem, toggleDayNightCallback) {
         toggleDayNightBtn.addEventListener('click', toggleDayNightCallback);
     }
 
+    const toggleMuteBtn = document.getElementById('toggleMuteBtn');
+    if (toggleMuteBtn) {
+        toggleMuteBtn.addEventListener('click', (e) => {
+            e.stopPropagation(); // Prevent locking/unlocking if that's an issue
+            const isMuted = audioSystem.toggleMute();
+
+            toggleMuteBtn.setAttribute('aria-pressed', isMuted);
+            toggleMuteBtn.innerHTML = isMuted ? '🔇 Unmute' : '🔊 Mute';
+            toggleMuteBtn.setAttribute('aria-label', isMuted ? 'Unmute Audio' : 'Mute Audio');
+
+            import('../utils/toast.js').then(({ showToast }) => {
+                showToast(isMuted ? "Audio Muted 🔇" : "Audio Unmuted 🔊", isMuted ? '🔇' : '🔊');
+            });
+        });
+    }
+
     const openJukeboxBtn = document.getElementById('openJukeboxBtn');
     if (openJukeboxBtn) {
         openJukeboxBtn.addEventListener('click', (e) => {
