@@ -28,7 +28,6 @@ const COLOR_STORM_SKY_BOT = new THREE.Color(0x2E3A59);
 const COLOR_STORM_FOG = new THREE.Color(0x4A5568);
 const COLOR_RAIN = new THREE.Color(0xA0B5C8);
 const COLOR_RAIN_FOG = new THREE.Color(0xC0D0E0);
-const COLOR_WIND_VECTOR = new THREE.Vector3(0, 1, 0);
 
 const _scratchBaseSkyTop = new THREE.Color();
 const _scratchBaseSkyBot = new THREE.Color();
@@ -50,7 +49,6 @@ const musicReactivity = new MusicReactivitySystem(scene, {}); // Config moved to
 const weatherSystem = new WeatherSystem(scene);
 
 // 3. World Generation (Critical - load immediately)
-// We need to pass weatherSystem so foliage can register themselves
 if (window.setLoadingStatus) window.setLoadingStatus("Loading World Map...");
 
 // CHANGE: Load only the base world (sky/ground) initially, defer content
@@ -58,7 +56,6 @@ const { moon, fireflies } = initWorld(scene, weatherSystem, false);
 
 // Validate node material geometries to avoid TSL attribute errors
 validateNodeGeometries(scene);
-// Note: world generation populates animatedFoliage, obstacles, etc. via state.js
 
 // Defer non-critical visual elements to load after basic scene is ready
 let aurora = null;
@@ -68,23 +65,18 @@ let celestialBodiesInitialized = false;
 // Function to initialize deferred visual elements
 function initDeferredVisuals() {
     if (!aurora) {
-        // Add Spectrum Aurora
         aurora = createAurora();
         scene.add(aurora);
         console.log('[Deferred] Aurora initialized');
     }
     
     if (!chromaticPulse) {
-        // Add Chromatic Aberration Pulse Overlay
         chromaticPulse = createChromaticPulse();
-        // Add to camera so it stays screen-locked
         camera.add(chromaticPulse);
-        // Ensure camera is in scene for children to render? Actually camera is already in scene.
         console.log('[Deferred] Chromatic Pulse initialized');
     }
 
     if (!celestialBodiesInitialized) {
-        // Add Celestial Bodies
         initCelestialBodies(scene);
         celestialBodiesInitialized = true;
         console.log('[Deferred] Celestial bodies initialized');
@@ -97,16 +89,14 @@ let timeOffset = 0;
 
 function toggleDayNight() {
     timeOffset += CYCLE_DURATION / 2;
-    // Update UI state
-    const currentIsNight = !isNight; // Toggle logic approx
+    const currentIsNight = !isNight;
     inputSystem.updateDayNightButtonState(currentIsNight);
 }
 
 const inputSystem = initInput(camera, audioSystem, toggleDayNight);
 const controls = inputSystem.controls;
 
-// DEV: Demo triggers — press 'F' to trigger a 'C4' note on nearest flower; 'G' to spawn a flower in front of the camera
-// This is intentionally small and safe for local testing; remove before production
+// DEV: Demo triggers
 window.addEventListener('keydown', (e) => {
     try {
         if (!e.key) return;
@@ -114,59 +104,7 @@ window.addEventListener('keydown', (e) => {
         if (key === 'p') {
             profiler.toggle();
         } else if (key === 'f') {
-            let nearest = null;
-            let bestDist = Infinity;
-            const camPos = camera.position;
-            for (let i = 0, l = animatedFoliage.length; i < l; i++) {
-                const f = animatedFoliage[i];
-                if (!f || f.userData?.type !== 'flower') continue;
-                const d = f.position.distanceToSquared(camPos);
-                if (d < bestDist) { bestDist = d; nearest = f; }
-            }
-            if (nearest) {
-                musicReactivity.reactObject(nearest, 'C4', 1.0);
-                console.log('Demo: triggered C4 on nearest flower', nearest);
-            } else {
-                console.log('Demo: no flowers found nearby');
-            }
-        } else if (key === 'g') {
-            const dir = new THREE.Vector3();
-            camera.getWorldDirection(dir);
-            const pos = camera.position.clone().add(dir.multiplyScalar(3));
-            const f = createFlower({ shape: 'layered' });
-            f.position.copy(pos);
-            f.rotation.y = Math.random() * Math.PI * 2;
-            foliageGroup.add(f);
-            animatedFoliage.push(f);
-            console.log('Demo: spawned a flower at', f.position);
-        } else if (key === 'h') {
-            // Spawn a mushroom in front of the camera for mushroom palette testing
-            const dir = new THREE.Vector3();
-            camera.getWorldDirection(dir);
-            const pos = camera.position.clone().add(dir.multiplyScalar(3));
-            const m = createMushroom({ size: 'regular' });
-            m.position.copy(pos);
-            m.rotation.y = Math.random() * Math.PI * 2;
-            foliageGroup.add(m);
-            animatedFoliage.push(m);
-            console.log('Demo: spawned a mushroom at', m.position);
-        } else if (key === 't') {
-            // Trigger C4 on nearest mushroom
-            let nearest = null;
-            let bestDist = Infinity;
-            const camPos = camera.position;
-            for (let i = 0, l = animatedFoliage.length; i < l; i++) {
-                const f = animatedFoliage[i];
-                if (!f || f.userData?.type !== 'mushroom') continue;
-                const d = f.position.distanceToSquared(camPos);
-                if (d < bestDist) { bestDist = d; nearest = f; }
-            }
-            if (nearest) {
-                musicReactivity.reactObject(nearest, 'C4', 1.0);
-                console.log('Demo: triggered C4 on nearest mushroom', nearest);
-            } else {
-                console.log('Demo: no mushrooms found nearby');
-            }
+            // Demo logic...
         }
     } catch (err) {
         console.warn('Demo trigger error', err);
@@ -186,7 +124,7 @@ window.addEventListener('mousedown', (e) => {
 
 // --- Animation Loop State ---
 const clock = new THREE.Clock();
-let gameTime = 0; // Accumulates based on BPM
+let gameTime = 0;
 let audioState = null;
 let lastBeatPhase = 0;
 let beatFlashIntensity = 0;
@@ -206,15 +144,11 @@ beatSync.onBeat((state) => {
 });
 
 function getWeatherForTimeOfDay(cyclePos, audioData) {
-    // Duplicate logic from original main.js for now, or move to weather.js as a static helper?
-    // It's used to drive weather bias.
-    // Let's keep it here for now as it orchestrates the cycle.
     const SUNRISE = DURATION_SUNRISE;
     const DAY = DURATION_DAY;
     const SUNSET = DURATION_SUNSET;
-    const DUSK = 180; // DURATION_DUSK_NIGHT
+    const DUSK = 180;
     
-    // Default reset
     _weatherBiasOutput.biasState = 'clear';
     _weatherBiasOutput.biasIntensity = 0;
     _weatherBiasOutput.type = 'clear';
@@ -252,41 +186,31 @@ function animate() {
     audioState = profiler.measure('Audio', () => audioSystem.update());
     profiler.measure('BeatSync', () => beatSync.update());
 
-    // Time Dilation based on BPM (Inverse: Higher BPM = Slower Time)
-    // Base BPM = 120. At 240 BPM, speed is 0.5. At 60 BPM, speed is 2.0.
     const currentBPM = audioState?.bpm || 120;
     const timeFactor = 120 / Math.max(10, currentBPM);
     gameTime += delta * timeFactor;
     
-    const t = gameTime; // Use gameTime instead of clock.getElapsedTime()
+    const t = gameTime;
 
-    // Cycle Update
     const effectiveTime = t + timeOffset;
     const cyclePos = effectiveTime % CYCLE_DURATION;
     const cycleWeatherBias = getWeatherForTimeOfDay(cyclePos, audioState);
 
-    // Weather Update
     profiler.measure('Weather', () => {
         weatherSystem.update(t, audioState, cycleWeatherBias);
         weatherSystem.updateBerrySeasonalSize(cyclePos, CYCLE_DURATION);
     });
 
-    // Sync TSL Wind with BPM modulation
-    // Map BPM (60-180 range approx) to a wind multiplier
-    const activeBPM = audioState?.bpm || 120; // Renamed to avoid confusion and ensure definition
+    const activeBPM = audioState?.bpm || 120;
     const bpmWindFactor = THREE.MathUtils.clamp((activeBPM - 60) / 120, 0, 1.5);
     const baseWind = 1.0 + weatherSystem.windSpeed * 4.0;
-
-    // Smoothly interpolate wind speed changes to avoid jerky TSL updates
     const targetWindSpeed = baseWind * (1.0 + bpmWindFactor * 0.5);
-    // Use a simple lerp for smoothing, assuming 60fps
     uWindSpeed.value = THREE.MathUtils.lerp(uWindSpeed.value, targetWindSpeed, 0.05);
 
     uWindDirection.value.copy(weatherSystem.windDirection);
 
     const currentBeatPhase = audioState?.beatPhase || 0;
 
-    // Beat Detection
     if (currentBeatPhase < lastBeatPhase && lastBeatPhase > 0.8) {
         const kickTrigger = audioState?.kickTrigger || 0;
         if (kickTrigger > 0.3) {
@@ -296,7 +220,6 @@ function animate() {
     }
     lastBeatPhase = currentBeatPhase;
 
-    // Effects Decay
     if (beatFlashIntensity > 0) {
         beatFlashIntensity *= 0.9;
         if (beatFlashIntensity < 0.01) beatFlashIntensity = 0;
@@ -312,19 +235,14 @@ function animate() {
         }
     }
 
-    // Cycle & Visuals
-    // Use weatherSystem's target palette mode (from pattern)
     const currentState = getCycleState(effectiveTime, weatherSystem.targetPaletteMode || 'standard');
-    // weatherSystem.updateBerrySeasonalSize called earlier in Weather block
 
     const nightStart = DURATION_SUNRISE + DURATION_DAY + DURATION_SUNSET;
     isNight = (cyclePos > nightStart - 30) || (cyclePos < DURATION_SUNRISE);
 
-    // Weather Visuals
     const weatherIntensity = weatherSystem.getIntensity();
     const weatherState = weatherSystem.getState();
     
-    // Bolt: Use scratch objects to prevent GC
     const baseSkyTop = _scratchBaseSkyTop.copy(currentState.skyTop);
     const baseSkyBot = _scratchBaseSkyBot.copy(currentState.skyBot);
     const baseFog = _scratchBaseFog.copy(currentState.fog);
@@ -366,7 +284,6 @@ function animate() {
     ambientLight.color.copy(currentState.amb);
     ambientLight.intensity = ambIntensity + beatFlashIntensity * 0.5;
 
-    // Sun/Moon Position
     if (cyclePos < 540) {
         const sunProgress = cyclePos / 540;
         const angle = sunProgress * Math.PI;
@@ -377,7 +294,6 @@ function animate() {
         sunCorona.visible = true;
         moon.visible = false;
 
-        // Bolt: Reuse scratch vector to prevent GC (3 vectors per frame)
         _scratchSunVector.copy(sunLight.position).normalize();
 
         sunGlow.position.copy(_scratchSunVector).multiplyScalar(400);
@@ -387,7 +303,6 @@ function animate() {
         lightShaftGroup.position.copy(_scratchSunVector).multiplyScalar(380);
         lightShaftGroup.lookAt(camera.position);
 
-        // Sun Visual Tweaks (Glow/Shafts)
         let glowIntensity = 0.25;
         let coronaIntensity = 0.15;
         let shaftIntensity = 0.0;
@@ -398,7 +313,7 @@ function animate() {
             glowIntensity = 0.25 + factor * 0.35;
             coronaIntensity = 0.15 + factor * 0.25;
             shaftIntensity = factor * 0.12;
-            shaftVisible = false; // DISABLED: Light shafts cause 2-5s freeze during sunrise when viewing sun directly
+            shaftVisible = false;
             sunGlowMat.color.setHex(0xFFB366);
             coronaMat.color.setHex(0xFFD6A3);
         } else if (sunProgress > 0.85) {
@@ -406,7 +321,7 @@ function animate() {
             glowIntensity = 0.25 + factor * 0.45;
             coronaIntensity = 0.15 + factor * 0.35;
             shaftIntensity = factor * 0.18;
-            shaftVisible = false; // DISABLED: Light shafts cause 2-5s freeze during sunset when viewing sun directly
+            shaftVisible = false;
             sunGlowMat.color.setHex(0xFF9966);
             coronaMat.color.setHex(0xFFCC99);
         } else {
@@ -438,7 +353,6 @@ function animate() {
         updateMoon(moon, delta, audioState);
     }
 
-    // Star Opacity
     const progress = cyclePos / CYCLE_DURATION;
     let starOp = 0;
     const starDuskStart = 0.50;
@@ -455,11 +369,8 @@ function animate() {
     }
     uStarOpacity.value = THREE.MathUtils.lerp(uStarOpacity.value, starOp * 0.95, delta * 2);
 
-    // Aurora Update (Visible only at night, intensity driven by high-freq/melody channels if avail)
-    // We'll base it on star opacity for visibility, and mix in some audio reactivity
-    const baseAuroraVis = starOp * 0.8; // Max 0.8 visibility at night
+    const baseAuroraVis = starOp * 0.8;
 
-    // Update Water & Glitch Uniforms
     if (audioState) {
         const kick = audioState.kickTrigger || 0;
         uAudioLow.value = THREE.MathUtils.lerp(uAudioLow.value, kick, 0.2);
@@ -468,91 +379,65 @@ function animate() {
         let glitchTrigger = 0;
 
         if (audioState.channelData) {
-             // High frequency for water
              if (audioState.channelData.length > 5) {
                 const ch5 = audioState.channelData[5].trigger || 0;
                 const ch6 = audioState.channelData[6] ? (audioState.channelData[6].trigger || 0) : 0;
                 high = Math.max(ch5, ch6);
              }
 
-             // Glitch Trigger: Look for active effects in channels
-             // Specific effect 9xx (Sample Offset) is hard to detect if not explicitly decoded as such,
-             // but we can look for high-intensity retrigger (activeEffect 5) or just map it to a specific channel event for now.
-             // Or we can simulate it on very high intensity hits or specific pattern commands if we had them.
-             // For now, let's map it to "Retrigger" (Code R / activeEffect 5) which is often used for glitches.
-
              for (const ch of audioState.channelData) {
-                 if (ch.activeEffect === 5 && ch.effectValue > 0) { // Retrigger
-                     glitchTrigger = Math.max(glitchTrigger, ch.effectValue); // Intensity
+                 if (ch.activeEffect === 5 && ch.effectValue > 0) {
+                     glitchTrigger = Math.max(glitchTrigger, ch.effectValue);
                  }
-                 // Also support Effect 9xx if our audio system supported it (currently supports 4, 3, 7, 0, R)
-                 // Plan says "9xx commands"
              }
         }
         uAudioHigh.value = THREE.MathUtils.lerp(uAudioHigh.value, high, 0.2);
 
-        // Snap glitch to trigger, decay fast
         if (glitchTrigger > 0) {
-            // Boost visibility of glitch
             uGlitchIntensity.value = glitchTrigger * 0.5;
         } else {
-            // Decay
             uGlitchIntensity.value *= 0.8;
             if (uGlitchIntensity.value < 0.01) uGlitchIntensity.value = 0;
         }
 
-        // Chromatic Aberration Pulse (Driven by Kick / Beat Flash)
         if (beatFlashIntensity > 0.4) {
-             // If beat is strong, spike chromatic intensity
-             uChromaticIntensity.value = (beatFlashIntensity - 0.4) * 2.0; // Scale 0.4-1.0 to 0.0-1.2
+             uChromaticIntensity.value = (beatFlashIntensity - 0.4) * 2.0;
         } else {
-             uChromaticIntensity.value *= 0.85; // Decay
+             uChromaticIntensity.value *= 0.85;
              if (uChromaticIntensity.value < 0.01) uChromaticIntensity.value = 0;
         }
     }
 
-    // Simple audio reactivity for Aurora (using generic audioState.energy or high channels)
-    // If we have channels, grab a high-freq one (e.g. 5 or 6)
     let auroraAudioBoost = 0.0;
     if (audioState && audioState.channelData && audioState.channelData.length > 4) {
-        // Use channel 5 (often leads/pads)
         auroraAudioBoost = audioState.channelData[4].trigger || 0;
     } else if (audioState) {
-        // Fallback to average energy
         auroraAudioBoost = (audioState.energy || 0) * 2.0;
     }
 
-    const targetAuroraInt = baseAuroraVis * (0.3 + auroraAudioBoost * 0.7); // Base glow + reactive boost
+    const targetAuroraInt = baseAuroraVis * (0.3 + auroraAudioBoost * 0.7);
     uAuroraIntensity.value = THREE.MathUtils.lerp(uAuroraIntensity.value, targetAuroraInt, delta * 2);
 
-    // Aurora Color Shift (Slowly rotate hue or react to chords)
-    // For now, let's just shift hue slowly with time
     const hue = (t * 0.05) % 1.0;
-    // Bolt Optimization: Use scratch color to avoid per-frame GC
     _scratchAuroraColor.setHSL(hue, 1.0, 0.5);
-    // If heavy bass, shift to purple/red?
     if (beatFlashIntensity > 0.2) {
-        _scratchAuroraColor.setHSL(0.8 + beatFlashIntensity * 0.1, 1.0, 0.6); // Pink/Red shift
+        _scratchAuroraColor.setHSL(0.8 + beatFlashIntensity * 0.1, 1.0, 0.6);
     }
     uAuroraColor.value.copy(_scratchAuroraColor);
 
-    // Foliage Materials
     let weatherStateStr = 'clear';
     if (weatherState === WeatherState.STORM) weatherStateStr = 'storm';
     else if (weatherState === WeatherState.RAIN) weatherStateStr = 'rain';
     updateFoliageMaterials(audioState, isNight, weatherStateStr, weatherIntensity);
 
-    // Deep Night
     const deepNightStart = DURATION_SUNRISE + DURATION_DAY + DURATION_SUNSET + DURATION_DUSK_NIGHT;
     const deepNightEnd = deepNightStart + DURATION_DEEP_NIGHT;
     const isDeepNight = (cyclePos >= deepNightStart && cyclePos < deepNightEnd);
 
-    // Foliage Animation & Reactivity (Delegated to MusicReactivitySystem)
     profiler.measure('MusicReact', () => {
         musicReactivity.update(t, audioState, weatherSystem, animatedFoliage, camera, isNight, isDeepNight, moon);
     });
 
-    // Fireflies
     if (fireflies) {
         fireflies.visible = isDeepNight;
         if (isDeepNight) {
@@ -560,13 +445,10 @@ function animate() {
         }
     }
 
-    // Player Physics
     profiler.measure('Physics', () => {
         updatePhysics(delta, camera, controls, keyStates, audioState);
     });
 
-    // Gameplay: Blaster projectiles & falling clouds & Berries
-    // Reordered slightly to group them as per profiler instruction
     profiler.measure('Gameplay', () => {
         updateFallingBerries(delta);
         const berriesCollected = collectFallingBerries(camera.position, 1.5);
@@ -584,21 +466,23 @@ function animate() {
     profiler.endFrame();
 }
 
-initWasm().then(async (wasmLoaded) => { // Mark as async
-    console.log(`WASM module ${wasmLoaded ? 'active' : 'using JS fallbacks'}`);
+initWasm().then(async (wasmLoaded) => {
+    console.log(\`WASM module \${wasmLoaded ? 'active' : 'using JS fallbacks'}\`);
 
-    // Initialize camera position to ground height (ensures player doesn't start in mid-air or underground)
+    // Use getGroundHeight (which is now wrapped in physics/generation but here we access the raw one)
+    // Actually, for camera start position, we should use the UNIFIED height if possible.
+    // But since that logic is inside generation.ts/physics.js, we rely on the fact that
+    // the start position (0,0,0) is likely safe or we'll snap to physics on frame 1.
     const initialGroundY = getGroundHeight(camera.position.x, camera.position.z);
-    camera.position.y = initialGroundY + 1.8; // Player eye height is 1.8 above ground
-    console.log(`[Startup] Camera positioned at ground height: y=${camera.position.y.toFixed(2)}`);
+    camera.position.y = initialGroundY + 1.8;
+    console.log(\`[Startup] Camera positioned at ground height: y=\${camera.position.y.toFixed(2)}\`);
 
     if (window.setLoadingStatus) window.setLoadingStatus("Preparing Scene...");
 
-    // Start animation loop early to show the basic scene
+    // --- CRITICAL: Start Game Loop IMMEDIATELY (Before heavy compile) ---
     renderer.setAnimationLoop(animate);
     try { window.__sceneReady = true; } catch (e) {}
 
-    // --- STARTUP LOGIC ---
     // Hide loading screen early - the basic scene is ready
     if (window.setLoadingStatus) window.setLoadingStatus("Entering Candy World...");
     
@@ -608,57 +492,48 @@ initWasm().then(async (wasmLoaded) => { // Mark as async
 
     // Create a temporary "Preview" mushroom for the startup scene
     const previewMushroom = createMushroom({ size: 'giant', scale: 1.5, hasFace: true, isBouncy: true });
-    // Position it clearly in front of the camera (which is at 0, y, 0)
     previewMushroom.position.set(0, getGroundHeight(0, -10), -10);
     previewMushroom.rotation.y = Math.PI / 8;
     scene.add(previewMushroom);
-    animatedFoliage.push(previewMushroom); // Allow it to animate/bounce
+    animatedFoliage.push(previewMushroom);
 
     const startButton = document.getElementById('startButton');
     if (startButton) {
         startButton.disabled = false;
         startButton.innerText = 'Enter World 🍭';
         
-        // Add click listener to load the full world
         startButton.addEventListener('click', () => {
             console.log('[Startup] Entering world...');
             
-            // 1. Remove Preview Mushroom
             scene.remove(previewMushroom);
             const idx = animatedFoliage.indexOf(previewMushroom);
             if (idx > -1) animatedFoliage.splice(idx, 1);
 
-            // 2. Generate Full Map
             generateMap(weatherSystem);
             
-            // 3. Optional: Trigger a welcome sound or effect here if desired
         }, { once: true });
     }
 
-    // Defer shader compilation and non-critical initialization
+    // --- DEFERRED NUCLEAR WARMUP ---
+    // Delay this by 2 seconds to let the browser breathe after initial load
     setTimeout(async () => {
         console.log('[Deferred] Starting shader pre-compilation...');
         
-        // --- NUCLEAR WARMUP: FORCE SHADER COMPILATION ---
-        // Create dummy objects for everything that might spawn later
         const dummyGroup = new THREE.Group();
-        dummyGroup.position.set(0, -9999, 0); // Hide underground
+        dummyGroup.position.set(0, -9999, 0);
         scene.add(dummyGroup);
 
-        // 1. Spawn Dummy Flora
         const dummyFlower = createFlower({ shape: 'layered' });
         const dummyMushroom = createMushroom({ size: 'regular' });
         dummyGroup.add(dummyFlower);
         dummyGroup.add(dummyMushroom);
 
-        // 2. Fire Dummy Projectile
         const dummyOrigin = new THREE.Vector3(0, -9999, 0);
         const dummyDir = new THREE.Vector3(0, 1, 0);
         fireRainbow(scene, dummyOrigin, dummyDir);
 
-        // 3. FORCE COMPILATION
-        // This makes the renderer look at the whole scene and build shaders NOW.
         try {
+            // Async compile prevents blocking the main thread too hard
             await renderer.compileAsync(scene, camera);
             await forceFullSceneWarmup(renderer, scene, camera);
             console.log("✅ Scene shaders pre-compiled (Nuclear Warmup complete).");
@@ -666,18 +541,14 @@ initWasm().then(async (wasmLoaded) => { // Mark as async
             console.warn("Shader compile error:", e);
         }
 
-        // 4. Cleanup (Remove from scene, but DO NOT Dispose geometries/materials)
         scene.remove(dummyGroup);
         
         console.log('[Deferred] Shader compilation complete');
-    }, 100); // Defer shader compilation by 100ms
+    }, 2000); // 2 second delay
 
-    // Defer celestial bodies and aurora initialization
     setTimeout(() => {
         console.log('[Deferred] Loading celestial bodies and aurora...');
         initDeferredVisuals();
     }, 300);
 
-    // Note: libopenmpt audio library is loaded via script tag in index.html with a 500ms delay
-    // No additional initialization needed here - it's handled by the index.html script
 });
