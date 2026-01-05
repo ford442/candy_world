@@ -4,6 +4,7 @@ import * as THREE from 'three';
 const _berryBaseColor = new THREE.Color(0x331100);
 const _berryTargetColor = new THREE.Color();
 const _berryCurrentColor = new THREE.Color();
+const _scratchWorldPos = new THREE.Vector3();
 
 /**
  * Create a cluster of berries/fruits with SSS materials
@@ -213,9 +214,8 @@ export function shakeBerriesLoose(cluster, intensity) {
 
     cluster.userData.berries.forEach(berry => {
         if (Math.random() < intensity * 0.02) {
-            const worldPos = new THREE.Vector3();
-            berry.getWorldPosition(worldPos);
-            spawnFallingBerry(worldPos, cluster.userData.berryColor || 0xFF6600);
+            berry.getWorldPosition(_scratchWorldPos);
+            spawnFallingBerry(_scratchWorldPos, cluster.userData.berryColor || 0xFF6600);
         }
     });
 }
