@@ -25,6 +25,7 @@ export * from './aurora.js'; // Added Aurora
 export * from './panning-pads.js';
 export * from './silence-spirits.js';
 export * from './instrument.js';
+export * from './ribbons.js'; // Added Melody Ribbons
 
 // Musical flora
 export * from './musical_flora.js';
