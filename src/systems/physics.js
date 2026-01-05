@@ -16,6 +16,10 @@ const SWIMMING_GRAVITY = 2.0; // Much lower gravity in water
 const SWIMMING_DRAG = 4.0;    // High friction in water
 const CLIMB_SPEED = 5.0;
 
+// --- Lake Configuration (Must match Generation.ts) ---
+const LAKE_BOUNDS = { minX: -38, maxX: 78, minZ: -28, maxZ: 68 };
+const LAKE_BOTTOM = -2.0;
+
 // --- State Definitions ---
 export const PlayerState = {
     DEFAULT: 'default',   // Grounded or Airborne (Standard Physics)
@@ -66,6 +70,29 @@ const _scratchUp = new THREE.Vector3(0, 1, 0);
 // C++ Physics Init Flag
 let cppPhysicsInitialized = false;
 let foliageCaves = []; // Store caves for collision checks
+
+// --- Helper: Unified Ground Height (WASM + Lake Modifiers) ---
+// This prevents the player from floating on "invisible" ground over the lake
+function getUnifiedGroundHeight(x, z) {
+    let height = getGroundHeight(x, z);
+
+    // Apply Lake Carving (Mirroring Generation.ts)
+    if (x > LAKE_BOUNDS.minX && x < LAKE_BOUNDS.maxX && z > LAKE_BOUNDS.minZ && z < LAKE_BOUNDS.maxZ) {
+        const distX = Math.min(x - LAKE_BOUNDS.minX, LAKE_BOUNDS.maxX - x);
+        const distZ = Math.min(z - LAKE_BOUNDS.minZ, LAKE_BOUNDS.maxZ - z);
+        const distEdge = Math.min(distX, distZ);
+
+        // Smooth blend area (10 units wide)
+        const blend = Math.min(1.0, distEdge / 10.0);
+        const targetHeight = THREE.MathUtils.lerp(height, LAKE_BOTTOM, blend);
+
+        // Only lower, never raise
+        if (targetHeight < height) {
+            height = targetHeight;
+        }
+    }
+    return height;
+}
 
 // --- Public API ---
 
@@ -125,16 +152,20 @@ function updateStateTransitions(camera, keyStates) {
     let waterLevel = -100;
 
     foliageCaves.forEach(cave => {
-        // If cave is flooded (isBlocked) AND player is near the gate
         if (cave.userData.isBlocked) {
-             // ⚡ OPTIMIZATION: Use scratch vector instead of clone()
              const gatePos = _scratchGatePos.copy(cave.userData.gatePosition).applyMatrix4(cave.matrixWorld);
-             // 2.5 is approx radius of water gate visual
              if (playerPos.distanceTo(gatePos) < 2.5) {
                  waterLevel = gatePos.y + 5; // Water exists here
              }
         }
     });
+
+    // Also check standard Lake Water Level (Y=1.5) if inside lake bounds
+    if (playerPos.x > LAKE_BOUNDS.minX && playerPos.x < LAKE_BOUNDS.maxX &&
+        playerPos.z > LAKE_BOUNDS.minZ && playerPos.z < LAKE_BOUNDS.maxZ) {
+        // If we are below water level (1.5), we are swimming
+        waterLevel = Math.max(waterLevel, 1.5);
+    }
 
     const wasSwimming = player.currentState === PlayerState.SWIMMING;
     const isNowUnderwater = playerPos.y < waterLevel;
@@ -163,15 +194,10 @@ function updateStateTransitions(camera, keyStates) {
 
 // --- State: SWIMMING ---
 function updateSwimmingState(delta, camera, controls, keyStates) {
-    // 1. Buoyancy (Float up slowly)
     player.velocity.y += (SWIMMING_GRAVITY * delta);
-
-    // 2. Drag (Slow down constantly)
     player.velocity.multiplyScalar(1.0 - (SWIMMING_DRAG * delta));
 
-    // 3. Movement (3D Movement - Camera Direction)
-    const swimSpeed = player.speed * 0.6; // Slower than running
-    // ⚡ OPTIMIZATION: Use scratch variables
+    const swimSpeed = player.speed * 0.6;
     const swimDir = _scratchSwimDir.set(0, 0, 0);
 
     if (keyStates.forward) swimDir.z += 1;
@@ -181,14 +207,11 @@ function updateSwimmingState(delta, camera, controls, keyStates) {
 
     if (swimDir.lengthSq() > 0) {
         swimDir.normalize();
-
-        // Get Camera direction
         const camDir = _scratchCamDir;
         camera.getWorldDirection(camDir);
         const camRight = _scratchCamRight;
         camRight.crossVectors(camDir, _scratchUp);
 
-        // Apply input relative to camera view
         const moveVec = _scratchMoveVec.set(0, 0, 0)
             .addScaledVector(camDir, swimDir.z)
             .addScaledVector(camRight, swimDir.x);
@@ -196,11 +219,9 @@ function updateSwimmingState(delta, camera, controls, keyStates) {
         player.velocity.addScaledVector(moveVec, swimSpeed * delta);
     }
 
-    // 4. Vertical Input (Jump = Swim Up, Sneak = Swim Down)
     if (keyStates.jump) player.velocity.y += 10 * delta;
     if (keyStates.sneak) player.velocity.y -= 10 * delta;
 
-    // 5. Apply
     controls.moveRight(player.velocity.x * delta);
     controls.moveForward(player.velocity.z * delta);
     camera.position.y += player.velocity.y * delta;
@@ -219,80 +240,103 @@ function updateVineState(delta, camera, keyStates) {
     }
 }
 
-// --- State: CLIMBING (Placeholder for future platforming) ---
+// --- State: CLIMBING ---
 function updateClimbingState(delta, camera, controls, keyStates) {
     player.velocity.set(0,0,0);
-    player.currentState = PlayerState.DEFAULT; // Fallback for now
+    player.currentState = PlayerState.DEFAULT;
 }
 
 // --- State: DEFAULT (Walking/Falling) ---
 function updateDefaultState(delta, camera, controls, keyStates, audioState) {
-    // Initialize C++ Physics if needed
     if (!cppPhysicsInitialized) {
         initCppPhysics(camera);
         cppPhysicsInitialized = true;
     }
 
-    // Update Vine Visuals (even if not swinging)
     vineSwings.forEach(v => {
         if (v !== activeVineSwing) v.update(camera, delta, null);
     });
 
-    // Vine Attachment Check
     if (Date.now() - lastVineDetachTime > 500) {
         checkVineAttachment(camera);
     }
 
-    // --- C++ MOVEMENT INTEGRATION ---
-
-    let inputX = 0;
-    let inputZ = 0;
+    // --- MOVEMENT INTEGRATION ---
     let moveSpeed = keyStates.sprint ? player.sprintSpeed : (keyStates.sneak ? player.sneakSpeed : player.speed);
 
-    if (keyStates.forward) inputZ += 1;
-    if (keyStates.backward) inputZ -= 1;
-    if (keyStates.left) inputX -= 1;
-    if (keyStates.right) inputX += 1;
+    // 1. Get Camera Orientation (Projected to XZ plane)
+    const camDir = _scratchCamDir;
+    camera.getWorldDirection(camDir);
+    camDir.y = 0;
+    if (camDir.lengthSq() > 0.001) camDir.normalize();
+    else camDir.set(0, 0, -1);
 
-    // Normalize
-    const len = Math.sqrt(inputX*inputX + inputZ*inputZ);
-    if (len > 0) { inputX /= len; inputZ /= len; }
+    const camRight = _scratchCamRight;
+    camRight.crossVectors(camDir, _scratchUp);
 
-    // Sync State
+    // 2. Construct World-Space Move Vector based on Inputs
+    const moveInput = _scratchMoveVec.set(0,0,0);
+    if (keyStates.forward) moveInput.add(camDir);
+    if (keyStates.backward) moveInput.sub(camDir);
+    if (keyStates.right) moveInput.add(camRight);
+    if (keyStates.left) moveInput.sub(camRight);
+
+    if (moveInput.lengthSq() > 1.0) moveInput.normalize();
+
+    // 3. Sync State with C++
     setPlayerState(camera.position.x, camera.position.y, camera.position.z, player.velocity.x, player.velocity.y, player.velocity.z);
 
-    // Run C++ Update
-    const onGround = updatePhysicsCPP(
-        delta, inputX, inputZ, moveSpeed,
-        keyStates.jump ? 1 : 0,
-        keyStates.sprint ? 1 : 0,
-        keyStates.sneak ? 1 : 0,
-        grooveGravity.multiplier
-    );
+    // 4. Run C++ Update (Pass World Space Vectors)
+    // CRITICAL FIX: If we are in the Lake Basin, we MUST use JS Physics.
+    // The C++ WASM engine does not know about the visual carving and will return the wrong ground height (floating player).
+    const px = camera.position.x;
+    const pz = camera.position.z;
+    const inLakeBasin = (px > LAKE_BOUNDS.minX && px < LAKE_BOUNDS.maxX && pz > LAKE_BOUNDS.minZ && pz < LAKE_BOUNDS.maxZ);
+
+    let onGround = -1; // Default to failure/fallback
+
+    if (!inLakeBasin) {
+        onGround = updatePhysicsCPP(
+            delta,
+            moveInput.x,
+            moveInput.z,
+            moveSpeed,
+            keyStates.jump ? 1 : 0,
+            keyStates.sprint ? 1 : 0,
+            keyStates.sneak ? 1 : 0,
+            grooveGravity.multiplier
+        );
+    }
 
     if (onGround >= 0) {
         // C++ Success
         const newState = getPlayerState();
         camera.position.set(newState.x, newState.y, newState.z);
         player.velocity.set(newState.vx, newState.vy, newState.vz);
-        if (player.velocity.y > 0) keyStates.jump = false; // Clear jump
+        if (player.velocity.y > 0) keyStates.jump = false;
         player.isGrounded = (onGround === 1);
     } else {
-        // JS Fallback (if C++ fails)
+        // JS Fallback (Used for Lake Basin or C++ Failure)
         updateJSFallbackMovement(delta, camera, controls, keyStates, moveSpeed);
     }
 
-    // --- ADDITIONAL JS COLLISIONS (Mushrooms, Clouds, Gates) ---
+    // --- ADDITIONAL JS COLLISIONS ---
     resolveSpecialCollisions(delta, camera, keyStates, audioState);
 }
 
 function updateJSFallbackMovement(delta, camera, controls, keyStates, moveSpeed) {
-    // ⚡ OPTIMIZATION: Use scratch variable
+    // Same Camera-Relative Logic
+    const camDir = _scratchCamDir;
+    camera.getWorldDirection(camDir);
+    camDir.y = 0;
+    camDir.normalize();
+    const camRight = _scratchCamRight.crossVectors(camDir, _scratchUp);
+
     const _targetVelocity = _scratchTargetVel.set(0, 0, 0);
-    if (keyStates.forward) _targetVelocity.z += moveSpeed;
-    if (keyStates.backward) _targetVelocity.z -= moveSpeed;
-    if (keyStates.left) _targetVelocity.x -= moveSpeed;
-    if (keyStates.right) _targetVelocity.x += moveSpeed;
+    if (keyStates.forward) _targetVelocity.add(camDir);
+    if (keyStates.backward) _targetVelocity.sub(camDir);
+    if (keyStates.right) _targetVelocity.add(camRight);
+    if (keyStates.left) _targetVelocity.sub(camRight);
 
     if (_targetVelocity.lengthSq() > 0) _targetVelocity.normalize().multiplyScalar(moveSpeed);
 
@@ -301,12 +345,13 @@ function updateJSFallbackMovement(delta, camera, controls, keyStates, moveSpeed)
     player.velocity.z += (_targetVelocity.z - player.velocity.z) * smoothing;
     player.velocity.y -= player.gravity * delta;
 
-    controls.moveRight(player.velocity.x * delta);
-    controls.moveForward(player.velocity.z * delta);
+    camera.position.x += player.velocity.x * delta;
+    camera.position.z += player.velocity.z * delta;
     camera.position.y += player.velocity.y * delta;
 
-    // Simple Ground Check
-    const groundY = getGroundHeight(camera.position.x, camera.position.z);
+    // Corrected Ground Check using Unified Height (Accounts for Lake)
+    const groundY = getUnifiedGroundHeight(camera.position.x, camera.position.z);
+
     if (camera.position.y < groundY + 1.8 && player.velocity.y <= 0) {
         camera.position.y = groundY + 1.8;
         player.velocity.y = 0;
@@ -321,18 +366,14 @@ function resolveSpecialCollisions(delta, camera, keyStates, audioState) {
     const playerPos = camera.position;
 
     // 1. Water Gates (Cave Blockers)
-    // If not swimming (meaning we are walking into it), push back
     foliageCaves.forEach(cave => {
         if (cave.userData.isBlocked) {
-            // ⚡ OPTIMIZATION: Use scratch vector
             const gateWorldPos = _scratchGatePos.copy(cave.userData.gatePosition).applyMatrix4(cave.matrixWorld);
             const dx = playerPos.x - gateWorldPos.x;
             const dz = playerPos.z - gateWorldPos.z;
             const dist = Math.sqrt(dx*dx + dz*dz);
 
-            // If near gate and NOT already inside water (transition state handles inside)
             if (dist < 2.5 && player.currentState !== PlayerState.SWIMMING) {
-                // Push back force
                 const angle = Math.atan2(dz, dx);
                 const pushForce = 15.0 * delta;
                 camera.position.x += Math.cos(angle) * pushForce;
@@ -343,7 +384,7 @@ function resolveSpecialCollisions(delta, camera, keyStates, audioState) {
         }
     });
 
-    // 2. Mushroom Caps (Trampolines/Platforms) - JS Check
+    // 2. Mushroom Caps
     for (const mush of foliageMushrooms) {
         if (player.velocity.y < 0) {
             const capR = mush.userData.capRadius || 2.0;
@@ -361,7 +402,6 @@ function resolveSpecialCollisions(delta, camera, keyStates, audioState) {
                         setTimeout(() => { mush.scale.y = 1.0; }, 100);
                         keyStates.jump = false;
                     } else {
-                        // Platform land
                         camera.position.y = surfaceY + 1.8;
                         player.velocity.y = 0;
                         player.isGrounded = true;
@@ -372,7 +412,7 @@ function resolveSpecialCollisions(delta, camera, keyStates, audioState) {
         }
     }
 
-    // 3. Cloud Walking (Simplified)
+    // 3. Cloud Walking
     if (playerPos.y > 15) {
         for (const cloud of foliageClouds) {
             const dx = playerPos.x - cloud.position.x;
@@ -397,16 +437,13 @@ function resolveSpecialCollisions(delta, camera, keyStates, audioState) {
 // Helper: Initialize C++ obstacles (One-time setup)
 function initCppPhysics(camera) {
     initPhysics(camera.position.x, camera.position.y, camera.position.z);
-
-    // Add Mushrooms
+    // ... same obstacle init ...
     for (const m of foliageMushrooms) {
         addObstacle(0, m.position.x, m.position.y, m.position.z, 0, m.userData.capHeight||3, m.userData.stemRadius||0.5, m.userData.capRadius||2, m.userData.isTrampoline?1:0);
     }
-    // Add Clouds
     for (const c of foliageClouds) {
         addObstacle(1, c.position.x, c.position.y, c.position.z, (c.scale.x||1)*2.0, (c.scale.y||1)*0.8, 0, c.userData.tier||1, 0);
     }
-    // Add Trampolines
     for (const t of foliageTrampolines) {
         addObstacle(2, t.position.x, t.position.y, t.position.z, t.userData.bounceRadius||0.5, t.userData.bounceHeight||0.5, t.userData.bounceForce||12, 0, 0);
     }
