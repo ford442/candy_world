@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { uWindSpeed, uWindDirection, uSkyTopColor, uSkyBottomColor, uHorizonColor, uAtmosphereIntensity, uStarPulse, uStarOpacity, uAuroraIntensity, uAuroraColor, uAudioLow, uAudioHigh, uGlitchIntensity, uChromaticIntensity, createAurora, createChromaticPulse, updateMoon, animateFoliage, updateFoliageMaterials, updateFireflies, updateFallingBerries, collectFallingBerries, createFlower, createMushroom, validateNodeGeometries } from './src/foliage/index.js';
+import { uWindSpeed, uWindDirection, uSkyTopColor, uSkyBottomColor, uHorizonColor, uAtmosphereIntensity, uStarPulse, uStarOpacity, uAuroraIntensity, uAuroraColor, uAudioLow, uAudioHigh, uGlitchIntensity, uChromaticIntensity, createAurora, createChromaticPulse, updateMoon, animateFoliage, updateFoliageMaterials, updateFireflies, updateFallingBerries, collectFallingBerries, createFlower, createMushroom, validateNodeGeometries, createMelodyRibbon, updateMelodyRibbons } from './src/foliage/index.js';
 import { initCelestialBodies } from './src/foliage/celestial-bodies.js';
 import { MusicReactivitySystem } from './src/systems/music-reactivity.js';
 import { AudioSystem } from './src/audio/audio-system.js';
@@ -61,6 +61,7 @@ validateNodeGeometries(scene);
 let aurora = null;
 let chromaticPulse = null;
 let celestialBodiesInitialized = false;
+let melodyRibbon = null;
 
 // Function to initialize deferred visual elements
 function initDeferredVisuals() {
@@ -80,6 +81,11 @@ function initDeferredVisuals() {
         initCelestialBodies(scene);
         celestialBodiesInitialized = true;
         console.log('[Deferred] Celestial bodies initialized');
+    }
+
+    if (!melodyRibbon) {
+        melodyRibbon = createMelodyRibbon(scene);
+        console.log('[Deferred] Melody Ribbon initialized');
     }
 }
 
@@ -436,6 +442,7 @@ function animate() {
 
     profiler.measure('MusicReact', () => {
         musicReactivity.update(t, audioState, weatherSystem, animatedFoliage, camera, isNight, isDeepNight, moon);
+        if (melodyRibbon) updateMelodyRibbons(melodyRibbon, delta, audioState);
     });
 
     if (fireflies) {
@@ -467,7 +474,7 @@ function animate() {
 }
 
 initWasm().then(async (wasmLoaded) => {
-    console.log(\`WASM module \${wasmLoaded ? 'active' : 'using JS fallbacks'}\`);
+    console.log(`WASM module ${wasmLoaded ? 'active' : 'using JS fallbacks'}`);
 
     // Use getGroundHeight (which is now wrapped in physics/generation but here we access the raw one)
     // Actually, for camera start position, we should use the UNIFIED height if possible.
@@ -475,7 +482,7 @@ initWasm().then(async (wasmLoaded) => {
     // the start position (0,0,0) is likely safe or we'll snap to physics on frame 1.
     const initialGroundY = getGroundHeight(camera.position.x, camera.position.z);
     camera.position.y = initialGroundY + 1.8;
-    console.log(\`[Startup] Camera positioned at ground height: y=\${camera.position.y.toFixed(2)}\`);
+    console.log(`[Startup] Camera positioned at ground height: y=${camera.position.y.toFixed(2)}`);
 
     if (window.setLoadingStatus) window.setLoadingStatus("Preparing Scene...");
 
