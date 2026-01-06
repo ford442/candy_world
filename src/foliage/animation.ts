@@ -10,6 +10,10 @@ import { foliageBatcher } from './foliage-batcher.js';
 
 export * from './types.js';
 
+// ⚡ OPTIMIZATION: Shared scratch variables to prevent GC in hot loops
+const _scratchOne = new THREE.Vector3(1, 1, 1);
+const _scratchWhite = new THREE.Color(0xFFFFFF);
+
 export function triggerGrowth(plants: FoliageObject[], intensity: number): void {
     plants.forEach(plant => {
         // Initialize baseline scales if not present
@@ -185,7 +189,7 @@ export function animateFoliage(foliageObject: FoliageObject, time: number, audio
                 const mats: FoliageMaterial[] = Array.isArray(child.material) ? (child.material as FoliageMaterial[]) : (child.material ? [child.material as FoliageMaterial] : []);
 
                 if (fi > 0) {
-                    const fc = child.userData.flashColor || new THREE.Color(0xFFFFFF);
+                    const fc = child.userData.flashColor || _scratchWhite;
                     for (const mat of mats) {
                         if (!mat) continue;
                         // stronger blend for higher intensity; immediate override when very strong
@@ -608,7 +612,8 @@ export function animateFoliage(foliageObject: FoliageObject, time: number, audio
                   const s = 1.0 + (highFreq - 0.4) * 0.5;
                   head.scale.set(s, s, s);
              } else {
-                  head.scale.lerp(new THREE.Vector3(1,1,1), 0.1);
+                  // ⚡ OPTIMIZATION: Use shared vector to avoid allocation
+                  head.scale.lerp(_scratchOne, 0.1);
              }
         }
     }
