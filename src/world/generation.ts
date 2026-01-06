@@ -212,7 +212,7 @@ function isPositionValid(x: number, z: number, radius: number): boolean {
 // --- MAP GENERATION ---
 
 export function generateMap(weatherSystem: WeatherSystem): void {
-    console.log(\`[World] Loading map with \${mapData.length} entities...\`);
+    console.log(`[World] Loading map with ${mapData.length} entities...`);
 
     (mapData as MapEntity[]).forEach(item => {
         const [x, yInput, z] = item.position;
@@ -349,7 +349,7 @@ export function generateMap(weatherSystem: WeatherSystem): void {
             }
 
         } catch (e) {
-            console.warn(\`[World] Failed to spawn \${item.type} at \${x},\${z}\`, e);
+            console.warn(`[World] Failed to spawn ${item.type} at ${x},${z}`, e);
         }
     });
 
@@ -472,7 +472,7 @@ function populateProceduralExtras(weatherSystem: WeatherSystem): void {
                 safeAddFoliage(obj, isObstacle, radius, weatherSystem);
             }
         } catch (e) {
-            console.warn(\`[World] Failed to spawn procedural extra at \${x},\${z}\`, e);
+            console.warn(`[World] Failed to spawn procedural extra at ${x},${z}`, e);
         }
     }
     console.log("[World] Finished populating procedural extras.");
