@@ -287,9 +287,11 @@ export function animateFoliage(foliageObject: FoliageObject, time: number, audio
         
         if (t < 1.0) {
             const target = foliageObject.userData.scaleTarget || 1.0;
-            const current = foliageObject.scale.x;
-            const newScale = THREE.MathUtils.lerp(current, target, t * 0.5);
-            foliageObject.scale.setScalar(newScale);
+            // Lerp each axis independently to handle non-uniform squash/stretch smoothly
+            // (e.g. restoring aspect ratio from flattened state)
+            foliageObject.scale.x = THREE.MathUtils.lerp(foliageObject.scale.x, target, t * 0.5);
+            foliageObject.scale.y = THREE.MathUtils.lerp(foliageObject.scale.y, target, t * 0.5);
+            foliageObject.scale.z = THREE.MathUtils.lerp(foliageObject.scale.z, target, t * 0.5);
         } else {
             // Animation complete
             foliageObject.scale.setScalar(foliageObject.userData.scaleTarget || 1.0);
