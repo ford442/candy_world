@@ -1,8 +1,9 @@
 // src/foliage/clouds.js
 
 import * as THREE from 'three';
-import { color, uniform, mix, vec3 } from 'three/tsl';
+import { color, uniform, mix, vec3, positionLocal, normalLocal, mx_noise_float, float } from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
+import { uTime, createRimLight } from './common.js';
 
 // --- Global Uniforms (Driven by WeatherSystem) ---
 // These are true TSL uniforms now
@@ -15,6 +16,7 @@ const puffGeometry = new THREE.IcosahedronGeometry(1, 1);
 
 // Helper: Create the TSL Material
 // This gives us the "Matte White" look BUT with Emissive Lightning support
+// 🎨 Palette Upgrade: Added Vertex Displacement (Fluff) and Rim Light (Silver Lining)
 function createCloudMaterial() {
     const material = new MeshStandardNodeMaterial({
         color: 0xffffff,     // Pure cotton white base
@@ -23,13 +25,34 @@ function createCloudMaterial() {
         flatShading: false,
     });
 
-    // TSL Logic:
-    // Emission = Lightning Color * Lightning Strength
-    // This allows the cloud to glow with the Note Color on the beat
-    const lightningGlow = uCloudLightningColor.mul(uCloudLightningStrength.mul(2.0)); // Boosted intensity
+    // 1. Vertex Displacement (Breathing/Fluffiness)
+    // We scroll noise through the cloud to simulate slow internal convection
+    const noiseScale = float(1.5);
+    const noiseSpeed = float(0.15);
+    const timeOffset = vec3(0.0, uTime.mul(noiseSpeed), 0.0);
 
-    // We can also mix in a bit of rainbow if desired, but let's keep it clean for now:
-    material.emissiveNode = lightningGlow;
+    // Position-based noise
+    const noisePos = positionLocal.mul(noiseScale).add(timeOffset);
+    const fluffNoise = mx_noise_float(noisePos);
+
+    // Displace along the normal vector
+    // This makes the cloud surface undulate gently
+    const displacementStrength = float(0.15);
+    material.positionNode = positionLocal.add(normalLocal.mul(fluffNoise.mul(displacementStrength)));
+
+    // 2. Lighting Logic
+    // Lightning: Existing logic (flash on beat/storm)
+    const lightningGlow = uCloudLightningColor.mul(uCloudLightningStrength.mul(2.0));
+
+    // Rim Light: New "Silver Lining" logic
+    // A warm/soft light to separate clouds from the sky
+    const rimColor = color(0xFFF8E7); // Cosmic Latte / Soft Cream
+    const rimIntensity = float(0.4);
+    const rimPower = float(1.5); // Soft falloff
+    const rimEffect = createRimLight(rimColor, rimIntensity, rimPower);
+
+    // Combine Emissive: Lightning (Dynamic) + Rim (Static/Ambient)
+    material.emissiveNode = lightningGlow.add(rimEffect);
 
     return material;
 }
