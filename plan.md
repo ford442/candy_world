@@ -10,13 +10,14 @@
 
 ## Next Steps
 
-1. **Rare Flora Discovery**: Implement the discovery system for rare plants.
-2. **Migrate to TypeScript**: Begin Phase 1 of the migration roadmap to harden the codebase before adding more complex systems.
+1. **Migrate to TypeScript**: Begin Phase 1 of the migration roadmap to harden the codebase before adding more complex systems.
+2. **Advanced Collision**: Implement WASM-based narrow phase collision detection.
 
 ---
 
 ## Recent Progress
 - **Accomplished:**
+  - **Rare Flora Discovery**: Implemented `src/systems/discovery.js` and integrated with `src/systems/physics.js`. Tracks player interactions with environmental features (Vine Swing, Trampoline, Cloud Platform) and triggers a toast notification on first discovery. Persistence handled via localStorage.
   - **Spectrum Aurora**: Implemented `src/foliage/aurora.js` using TSL, featuring audio-reactive intensity and spectral color shifts. Integrated into `main.js`.
   - Integrated "Musical Ecosystem" plan into main documentation.
   - Analyzed "Cute Clay" concept art and implemented matched visuals for Mushrooms (Pastel palette, Cheeks, Matte finish).
@@ -59,7 +60,7 @@
 ### Category 5: Physics & Interaction
 - **Status:** Pending
 - **Tasks:**
-  - [ ] Rare Flora Discovery (Unlock system)
+  - [x] Rare Flora Discovery (Unlock system)
   - [ ] Advanced Collision (WASM-based narrow phase)
   - [ ] Player Abilities (Dash, Double Jump extensions)
 
