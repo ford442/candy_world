@@ -304,6 +304,7 @@ export function createHelixPlant(options: HelixPlantOptions = {}): THREE.Group {
             this.scale = scale;
         }
         
+        // ⚡ OPTIMIZATION: Use optional target or create new only if needed
         getPoint(t: number, optionalTarget = new THREE.Vector3()): THREE.Vector3 {
             const tx = Math.cos(t * Math.PI * 4) * 0.2 * t * this.scale;
             const ty = t * 2.0 * this.scale;
@@ -477,6 +478,10 @@ export function createFiberOpticWillow(options: FiberOpticWillowOptions = {}): T
     return attachReactivity(group);
 }
 
+// ⚡ OPTIMIZATION: Module-level scratch vectors for physics
+const _scratchPhysicsVec1 = new THREE.Vector3();
+const _scratchPhysicsVec2 = new THREE.Vector3();
+
 // --- Vine Swing Physics ---
 export class VineSwing {
     vine: THREE.Object3D;
@@ -510,46 +515,27 @@ export class VineSwing {
         this.swingAngularVel *= damping;
 
         if (this.isPlayerAttached && inputState) {
-            // "Pumping" the swing: apply force tangential to swing
-            // Forward/Backward keys increase swing amplitude
-            const pumpForce = 3.0; // Increased responsiveness
-
-            // Only effective near the bottom of swing for realism?
-            // Or just generally add energy in direction of movement?
-            // Simple approach: Forward key increases velocity if moving forward (swingAngle increasing?),
-            // or we just map forward key to "positive swing direction" relative to view?
-            // For now: Forward key tries to increase positive swing angle (swing 'forward').
+            // "Pumping" the swing
+            const pumpForce = 3.0;
 
             if (inputState.forward) {
-                 // Add velocity in direction of swing
-                 // If moving positive, add more. If moving negative, slow down/reverse?
-                 // Actually, "forward" usually means "swing in the direction I am facing".
-                 // But swingPlane is fixed. Let's simplify: Forward increases amplitude.
-                 // We apply a force in phase with velocity to build energy (resonance).
-
-                 // If velocity is close to zero (at peaks), input is less effective.
-                 // Effective pumping happens near center.
-
-                 // Let's just allow direct influence for better game feel.
-                 // Push in direction of velocity if moving, else push "forward" (positive angle)
                  if (Math.abs(this.swingAngularVel) > 0.1) {
                      this.swingAngularVel += Math.sign(this.swingAngularVel) * pumpForce * delta;
                  } else {
                      this.swingAngularVel += pumpForce * delta;
                  }
             } else if (inputState.backward) {
-                 // Brake or reverse
                  this.swingAngularVel -= Math.sign(this.swingAngularVel) * pumpForce * delta;
             }
         }
 
         this.swingAngle += this.swingAngularVel * delta;
 
-        // Clamp swing angle to prevent looping over the branch (max 80 degrees)
+        // Clamp swing angle
         const maxAngle = Math.PI * 0.45;
         if (this.swingAngle > maxAngle) {
             this.swingAngle = maxAngle;
-            this.swingAngularVel *= -0.5; // Bounce back
+            this.swingAngularVel *= -0.5;
         } else if (this.swingAngle < -maxAngle) {
             this.swingAngle = -maxAngle;
             this.swingAngularVel *= -0.5;
@@ -558,35 +544,34 @@ export class VineSwing {
         const dy = -Math.cos(this.swingAngle) * this.length;
         const dh = Math.sin(this.swingAngle) * this.length;
 
-        const targetPos = this.anchorPoint.clone();
+        // Use scratch variable for target calculation
+        const targetPos = _scratchPhysicsVec1.copy(this.anchorPoint);
         targetPos.y += dy;
         targetPos.addScaledVector(this.swingPlane, dh);
 
         if (this.isPlayerAttached) {
             player.position.copy(targetPos);
-            // Also rotate player to face swing direction?
-            // Maybe not, allow looking around.
         }
 
-        const dir = new THREE.Vector3().subVectors(targetPos, this.anchorPoint).normalize();
+        const dir = _scratchPhysicsVec2.subVectors(targetPos, this.anchorPoint).normalize();
         this.vine.quaternion.setFromUnitVectors(this.defaultDown, dir);
     }
 
     attach(player: PlayerObject, playerVelocity: THREE.Vector3): void {
         this.isPlayerAttached = true;
 
-        const horizVel = new THREE.Vector3(playerVelocity.x, 0, playerVelocity.z);
+        const horizVel = _scratchPhysicsVec1.set(playerVelocity.x, 0, playerVelocity.z);
         if (horizVel.lengthSq() > 1.0) {
             this.swingPlane.copy(horizVel.normalize());
         } else {
-            const toPlayer = new THREE.Vector3().subVectors(player.position, this.anchorPoint);
+            const toPlayer = _scratchPhysicsVec2.subVectors(player.position, this.anchorPoint);
             toPlayer.y = 0;
             if (toPlayer.lengthSq() > 0.1) {
                 this.swingPlane.copy(toPlayer.normalize());
             }
         }
 
-        const toPlayer = new THREE.Vector3().subVectors(player.position, this.anchorPoint);
+        const toPlayer = _scratchPhysicsVec2.subVectors(player.position, this.anchorPoint);
         const dy = toPlayer.y;
         const dh = toPlayer.dot(this.swingPlane);
         this.swingAngle = Math.atan2(dh, -dy);
