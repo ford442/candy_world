@@ -64,7 +64,8 @@ export function createArpeggioFern(options = {}) {
 
     group.userData.animationType = 'arpeggioUnfurl';
     group.userData.type = 'fern';
-    return attachReactivity(group);
+    const reactiveGroup = attachReactivity(group);
+    return makeInteractive(reactiveGroup);
 }
 
 export function createPortamentoPine(options = {}) {
@@ -114,7 +115,7 @@ export function createPortamentoPine(options = {}) {
 
     group.userData.animationType = 'portamentoBend';
     group.userData.type = 'tree';
-    return group;
+    return makeInteractive(group);
 }
 
 // --- Category 2: Rhythmic Structures ---
@@ -173,7 +174,8 @@ export function createCymbalDandelion(options = {}) {
 
     group.userData.animationType = 'cymbalShake'; // Needs high freq trigger
     group.userData.type = 'flower';
-    return attachReactivity(group);
+    const reactiveGroup = attachReactivity(group);
+    return makeInteractive(reactiveGroup);
 }
 
 export function createSnareTrap(options = {}) {
@@ -231,7 +233,8 @@ export function createSnareTrap(options = {}) {
     group.userData.animationType = 'snareSnap';
     group.userData.type = 'trap'; // Reacts to snare
     
-    return attachReactivity(group);
+    const reactiveGroup = attachReactivity(group);
+    return makeInteractive(reactiveGroup);
 }
 
 // --- Musical Flora Manager (Instancing support) ---
@@ -346,3 +349,102 @@ export class MusicalFloraManager {
 
 // Global instance
 export const musicalFlora = new MusicalFloraManager();
+
+/**
+ * Adds "Sense" behaviors to a plant Group.
+ * Defines reactions for Proximity (Walk near), Gaze (Look at), and Interact (Click).
+ */
+export function makeInteractive(group) {
+    // 1. Setup State
+    if (!group.userData.originalScale) group.userData.originalScale = group.scale.clone();
+    group.userData.isHovered = false;
+
+    // --- REACTION: PROXIMITY (Walk Near) ---
+    // The plant "wakes up" - slight glow or rotation
+    group.userData.onProximityEnter = (dist) => {
+        // Example: Enable a dim emission so it stands out slightly
+        group.traverse(child => {
+            if (child.isMesh && child.material) {
+                if (child.material.emissive) {
+                    child.userData.baseEmissive = child.material.emissive.getHex();
+                    // Set a very low base glow to show it's "alive"
+                    child.material.emissive.setHex(0x111111);
+                }
+            }
+        });
+    };
+
+    group.userData.onProximityLeave = () => {
+        // Reset everything
+        group.scale.copy(group.userData.originalScale);
+        group.traverse(child => {
+            if (child.isMesh && child.material && child.material.emissive) {
+                // Restore original color (likely black/no emission)
+                if (child.userData.baseEmissive !== undefined) {
+                    child.material.emissive.setHex(child.userData.baseEmissive);
+                }
+            }
+        });
+    };
+
+    // --- REACTION: GAZE (Point Cursor) ---
+    // The plant "pops" - gets bigger and brighter
+    group.userData.onGazeEnter = () => {
+        group.userData.isHovered = true;
+
+        // 1. Physical reaction: Pop up size
+        const targetScale = group.userData.originalScale.clone().multiplyScalar(1.2);
+        group.scale.copy(targetScale);
+
+        // 2. Visual reaction: Brighten up
+        group.traverse(child => {
+            if (child.isMesh && child.material && child.material.emissive) {
+                child.material.emissiveIntensity = 0.5; // Glow brighter
+                child.material.emissive.setHex(0x444444); // White-ish glow
+            }
+        });
+    };
+
+    group.userData.onGazeLeave = () => {
+        group.userData.isHovered = false;
+
+        // Reset to "Proximity" state (not "Off", because we are still nearby)
+        group.scale.copy(group.userData.originalScale);
+         group.traverse(child => {
+            if (child.isMesh && child.material && child.material.emissive) {
+                child.material.emissiveIntensity = 0.0; // Stop glowing bright
+                child.material.emissive.setHex(0x111111); // Return to dim proximity glow
+            }
+        });
+    };
+
+    // --- REACTION: INTERACT (Click) ---
+    // The plant performs an action (Spin, Jump, etc)
+    group.userData.onInteract = () => {
+        console.log("Interacted with:", group.userData.type || "Object");
+
+        // Example: 360 Spin
+        const startRot = group.rotation.y;
+        const startTime = performance.now();
+
+        // Simple animation loop for the spin (or use a tween library if available)
+        const animateSpin = () => {
+            const now = performance.now();
+            const progress = Math.min((now - startTime) / 500, 1); // 500ms duration
+
+            // Easing (EaseOutQuad)
+            const ease = 1 - (1 - progress) * (1 - progress);
+
+            group.rotation.y = startRot + (ease * Math.PI * 2);
+
+            if (progress < 1) {
+                requestAnimationFrame(animateSpin);
+            } else {
+                group.rotation.y = startRot; // Reset exactly
+            }
+        };
+        animateSpin();
+    };
+
+    return group;
+}

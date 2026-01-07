@@ -27,6 +27,53 @@ export function initInput(camera, audioSystem, toggleDayNightCallback) {
     let isPlaylistOpen = false;
     let lastFocusedElement = null; // Store focus before opening modal
 
+    // --- NEW: Visual Reticle (Crosshair) ---
+    // Check if it exists; if not, create it
+    if (!document.getElementById('game-reticle')) {
+        const reticle = document.createElement('div');
+        reticle.id = 'game-reticle';
+        Object.assign(reticle.style, {
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            width: '6px',
+            height: '6px',
+            backgroundColor: 'rgba(255, 255, 255, 0.8)',
+            border: '1px solid rgba(0, 0, 0, 0.2)',
+            borderRadius: '50%',
+            transform: 'translate(-50%, -50%)',
+            pointerEvents: 'none', // Allow clicks to pass through
+            zIndex: '1000',
+            transition: 'transform 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275), background-color 0.2s ease', // Bouncy transition
+            mixBlendMode: 'difference' // Ensures visibility on bright backgrounds
+        });
+        document.body.appendChild(reticle);
+    }
+
+    // Function to animate reticle based on state
+    function updateReticleState(state) {
+        const reticle = document.getElementById('game-reticle');
+        if (!reticle) return;
+
+        switch(state) {
+            case 'hover':
+                // Big pink circle when looking at something interactive
+                reticle.style.transform = 'translate(-50%, -50%) scale(3.0)';
+                reticle.style.backgroundColor = 'rgba(255, 105, 180, 0.8)';
+                reticle.style.border = '1px solid white';
+                break;
+            case 'interact':
+                // Quick shrink on click
+                reticle.style.transform = 'translate(-50%, -50%) scale(0.5)';
+                reticle.style.backgroundColor = '#FFF';
+                break;
+            default: // idle
+                reticle.style.transform = 'translate(-50%, -50%) scale(1)';
+                reticle.style.backgroundColor = 'rgba(255, 255, 255, 0.8)';
+                reticle.style.border = '1px solid rgba(0, 0, 0, 0.2)';
+        }
+    }
+
     // --- Helper: Render Playlist ---
     function renderPlaylist() {
         if (!playlistList) return;
@@ -361,6 +408,7 @@ export function initInput(camera, audioSystem, toggleDayNightCallback) {
 
     return {
         controls,
+        updateReticleState, // <--- EXPORT THIS
         updateDayNightButtonState: (isPressed) => {
             if (toggleDayNightBtn) {
                 toggleDayNightBtn.setAttribute('aria-pressed', isPressed);
