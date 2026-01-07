@@ -275,6 +275,7 @@ export function initInput(camera, audioSystem, toggleDayNightCallback) {
             case 'KeyD': keyStates.right = true; break;
             case 'Space': keyStates.jump = true; break;
             case 'KeyN': if(toggleDayNightCallback) toggleDayNightCallback(); break;
+            case 'KeyM': toggleMute(); break;
             case 'ControlLeft':
             case 'ControlRight':
                 keyStates.sneak = true;
@@ -336,18 +337,26 @@ export function initInput(camera, audioSystem, toggleDayNightCallback) {
     }
 
     const toggleMuteBtn = document.getElementById('toggleMuteBtn');
+
+    // Helper: Mute Toggle Logic
+    const toggleMute = () => {
+        const isMuted = audioSystem.toggleMute();
+
+        if (toggleMuteBtn) {
+            toggleMuteBtn.setAttribute('aria-pressed', isMuted);
+            toggleMuteBtn.innerHTML = isMuted ? '🔇 Unmute (M)' : '🔊 Mute (M)';
+            toggleMuteBtn.setAttribute('aria-label', isMuted ? 'Unmute Audio' : 'Mute Audio');
+        }
+
+        import('../utils/toast.js').then(({ showToast }) => {
+            showToast(isMuted ? "Audio Muted 🔇" : "Audio Unmuted 🔊", isMuted ? '🔇' : '🔊');
+        });
+    };
+
     if (toggleMuteBtn) {
         toggleMuteBtn.addEventListener('click', (e) => {
             e.stopPropagation(); // Prevent locking/unlocking if that's an issue
-            const isMuted = audioSystem.toggleMute();
-
-            toggleMuteBtn.setAttribute('aria-pressed', isMuted);
-            toggleMuteBtn.innerHTML = isMuted ? '🔇 Unmute' : '🔊 Mute';
-            toggleMuteBtn.setAttribute('aria-label', isMuted ? 'Unmute Audio' : 'Mute Audio');
-
-            import('../utils/toast.js').then(({ showToast }) => {
-                showToast(isMuted ? "Audio Muted 🔇" : "Audio Unmuted 🔊", isMuted ? '🔇' : '🔊');
-            });
+            toggleMute();
         });
     }
 
