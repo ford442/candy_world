@@ -1,9 +1,9 @@
 // src/foliage/mushrooms.js
 
 import * as THREE from 'three';
-import { color, time, sin, positionLocal, float, uniform } from 'three/tsl';
+import { color, time, sin, positionLocal, float, uniform, vec3 } from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
-import { foliageMaterials, registerReactiveMaterial, attachReactivity, pickAnimation, eyeGeo, createRimLight } from './common.js';
+import { foliageMaterials, registerReactiveMaterial, attachReactivity, pickAnimation, eyeGeo, createRimLight, uAudioLow, uAudioHigh } from './common.js';
 
 // 12 Chromatic Notes with their corresponding colors
 // Colors are defined here to match CONFIG.noteColorMap.mushroom palette
@@ -105,7 +105,7 @@ export function createMushroom(options = {}) {
         capMat = foliageMaterials.mushroomCap[chosenColorIndex];
     }
 
-    // Clone material to allow individual emissive strobing
+    // Clone material to allow individual emissive strobing and TSL modification
     const instanceCapMat = capMat.clone();
     // Ensure base emissive is set for fade-back
     instanceCapMat.userData.baseEmissive = new THREE.Color(0x000000);
@@ -114,33 +114,67 @@ export function createMushroom(options = {}) {
         instanceCapMat.userData.noteColor = new THREE.Color(noteColor);
     }
 
-    // --- PALETTE UPDATE: Add Rim Light for Depth ---
-    // Apply soft white rim light to make it pop against dark backgrounds
-    // We compose it with existing emissive logic if needed, or just add it
-    // But since this material might be cloned from a shared one, we need to be careful.
-    // However, MeshStandardNodeMaterial's emissiveNode can be assigned a TSL node.
+    // --- PALETTE UPDATE: Jelly Squish & Audio Reactivity ---
+    // Make ALL mushrooms "alive" with TSL animations
 
-    // Default Emissive (black) + Rim Light
-    // Note: If reactivity updates emissiveNode later, we might lose this.
-    // Ideally, reactivity should modulate a uniform that is PART of this graph.
-    // But for now, let's add it.
-    // Since reactivity usually updates `material.emissive` color property OR `material.emissiveNode`,
-    // and the `animateFoliage` loop often sets `material.emissive` directly for standard materials...
-    // Wait, the project uses TSL. The `reactToNote` method here updates `cap.userData.flashColor`.
-    // The actual update happens in the animation loop.
+    // 1. TSL Squish Animation (Vertex Position)
+    // Combine idle breathing + kick-drum reaction
+    const pos = positionLocal;
 
-    // Let's add the rim light to the *emissiveNode* permanently.
+    // Idle Breathing (Slower for giants)
+    const breathSpeed = time.mul(isGiant ? 2.0 : 3.0);
+    const breathAmount = float(isGiant ? 0.05 : 0.02);
+    const breathCycle = sin(breathSpeed);
 
-    // Fix: We need to preserve the standard emissive behavior so audio reactivity (flashing) works.
-    // Standard materials use `material.emissive * material.emissiveIntensity`.
-    // In TSL, we can bind the material's emissive color property as a uniform so changes on CPU (reactivity) reflect here.
-    const uEmissive = uniform(instanceCapMat.emissive); // Binds to the JS .emissive color object
+    // Audio Reaction (Kick Drum Squish)
+    // uAudioLow is global 0-1 kick intensity
+    const kickSquish = uAudioLow.mul(0.15); // Max 15% deformation on kick
 
-    // Pass positional arguments to match TSL Fn definition: [color, intensity, power]
-    const rimEffect = createRimLight(color(0xFFFFFF), float(0.4), float(3.0));
+    // Total Vertical Scale (1.0 +/- variation)
+    // As Y expands, X/Z shrink to preserve volume (approx)
+    const totalScaleY = float(1.0).add(breathCycle.mul(breathAmount)).sub(kickSquish);
+    const totalScaleXZ = float(1.0).sub(breathCycle.mul(breathAmount).mul(0.5)).add(kickSquish.mul(0.5));
 
-    // Compose: Standard Emissive + Rim Light
-    instanceCapMat.emissiveNode = uEmissive.add(rimEffect);
+    const newPos = vec3(
+        pos.x.mul(totalScaleXZ),
+        pos.y.mul(totalScaleY),
+        pos.z.mul(totalScaleXZ)
+    );
+
+    // If existing material has position logic (e.g. unified material), we should ideally chain it.
+    // But since we are cloning presets, we can override or use if/else logic if needed.
+    // For now, we apply the Jelly Squish to all mushrooms.
+    instanceCapMat.positionNode = newPos;
+
+    // 2. Audio-Reactive Rim Light & Emission
+    // Bind base properties to uniforms so CPU animation loop works
+    const uEmissive = uniform(instanceCapMat.emissive);
+
+    // Reactive Rim Light: Pulses with High Frequency (Hi-hats/Melody)
+    const rimIntensity = float(0.4).add(uAudioHigh.mul(0.5));
+    const rimEffect = createRimLight(color(0xFFFFFF), rimIntensity, float(3.0));
+
+    let finalEmissiveNode = uEmissive.add(rimEffect);
+
+    // 3. Giant Features (Stripes) - Integrated into same material
+    if (isGiant) {
+        // Animated Emission Stripes
+        const stripeFreq = 10.0;
+        const stripeSpeed = 2.0;
+        const stripePattern = sin(newPos.y.mul(stripeFreq).sub(time.mul(stripeSpeed)));
+        const stripeIntensity = stripePattern.add(1.0).mul(0.5).pow(2.0);
+
+        // Base Pulse
+        const basePulse = sin(breathSpeed.mul(2.0)).mul(0.1).add(0.2);
+
+        // Mix stripe color (lighter version of cap color)
+        const stripeColor = color(instanceCapMat.color).mul(0.5); // Additive
+
+        // Compose: Existing (Base + Rim) + Stripes
+        finalEmissiveNode = finalEmissiveNode.add(stripeColor.mul(stripeIntensity.mul(0.5).add(basePulse)));
+    }
+
+    instanceCapMat.emissiveNode = finalEmissiveNode;
     // -----------------------------------------------
 
     const cap = new THREE.Mesh(capGeo, instanceCapMat);
@@ -235,40 +269,8 @@ export function createMushroom(options = {}) {
         group.add(faceGroup);
     }
 
-    // Giant Breathing Effect & Pulsing Stripes (TSL)
-    if (isGiant) {
-        const breathMat = new MeshStandardNodeMaterial({
-            color: instanceCapMat.color, // Use the clay color
-            roughness: 0.8,
-            metalness: 0.0,
-        });
-
-        const pos = positionLocal;
-        const breathSpeed = time.mul(2.0);
-        const breath = sin(breathSpeed).mul(0.1).add(1.0);
-        // Displace vertices for breathing
-        breathMat.positionNode = pos.mul(breath);
-
-        // Animated Emission Stripes
-        // Use positionLocal.y to create horizontal stripes
-        // Use time to move them upwards
-        const stripeFreq = 10.0;
-        const stripeSpeed = 2.0;
-        const stripePattern = sin(pos.y.mul(stripeFreq).sub(time.mul(stripeSpeed)));
-
-        // Clamp to 0-1 and sharpen
-        const stripeIntensity = stripePattern.add(1.0).mul(0.5).pow(2.0);
-
-        // Base color pulse + Stripe overlay
-        const basePulse = sin(breathSpeed.mul(2.0)).mul(0.1).add(0.2);
-        const totalEmission = stripeIntensity.mul(0.3).add(basePulse);
-
-        breathMat.emissiveNode = color(instanceCapMat.color).mul(totalEmission);
-
-        cap.material = breathMat;
-        // Keep reference for reactivity override
-        instanceCapMat.colorNode = breathMat.colorNode;
-    }
+    // Giant specific logic moved to shared material setup above to preserve preset visual properties (like SSS/Gummy)
+    // while adding the giant animation effects.
 
     group.userData.animationType = pickAnimation(['wobble', 'bounce', 'accordion']);
     group.userData.animationOffset = Math.random() * 10;
