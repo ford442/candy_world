@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { uWindSpeed, uWindDirection, uSkyTopColor, uSkyBottomColor, uHorizonColor, uAtmosphereIntensity, uStarPulse, uStarOpacity, uAuroraIntensity, uAuroraColor, uAudioLow, uAudioHigh, uGlitchIntensity, uChromaticIntensity, uTime, createAurora, createChromaticPulse, updateMoon, animateFoliage, updateFoliageMaterials, updateFireflies, updateFallingBerries, collectFallingBerries, createFlower, createMushroom, validateNodeGeometries, createMelodyRibbon, updateMelodyRibbons } from './src/foliage/index.js';
 import { initCelestialBodies } from './src/foliage/celestial-bodies.js';
+import { InteractionSystem } from './src/systems/interaction.js';
 import { MusicReactivitySystem } from './src/systems/music-reactivity.js';
 import { AudioSystem } from './src/audio/audio-system.js';
 import { BeatSync } from './src/audio/beat-sync.js';
@@ -102,6 +103,9 @@ function toggleDayNight() {
 const inputSystem = initInput(camera, audioSystem, toggleDayNight);
 const controls = inputSystem.controls;
 
+// Initialize Interaction System
+const interactionSystem = new InteractionSystem(camera, inputSystem.updateReticleState);
+
 // DEV: Demo triggers
 window.addEventListener('keydown', (e) => {
     try {
@@ -120,11 +124,20 @@ window.addEventListener('keydown', (e) => {
 // Mouse input: Rainbow Blaster (click while pointer locked)
 window.addEventListener('mousedown', (e) => {
     if (document.pointerLockElement) {
-        const dir = new THREE.Vector3();
-        camera.getWorldDirection(dir);
-        const origin = camera.position.clone().add(dir.clone().multiplyScalar(1.0));
-        origin.y -= 0.2; // Lower slightly
-        fireRainbow(scene, origin, dir);
+        // Left Click (0) -> Standard Interaction
+        if (e.button === 0) {
+            // First check if we are interacting with an object
+            const handled = interactionSystem.triggerClick();
+
+            // If interaction didn't handle it, fire rainbow blaster
+            if (!handled) {
+                const dir = new THREE.Vector3();
+                camera.getWorldDirection(dir);
+                const origin = camera.position.clone().add(dir.clone().multiplyScalar(1.0));
+                origin.y -= 0.2; // Lower slightly
+                fireRainbow(scene, origin, dir);
+            }
+        }
     }
 });
 
@@ -208,6 +221,10 @@ function animate() {
     profiler.measure('Weather', () => {
         weatherSystem.update(t, audioState, cycleWeatherBias);
         weatherSystem.updateBerrySeasonalSize(cyclePos, CYCLE_DURATION);
+    });
+
+    profiler.measure('Interaction', () => {
+        interactionSystem.update(delta, camera.position, animatedFoliage);
     });
 
     const activeBPM = audioState?.bpm || 120;
