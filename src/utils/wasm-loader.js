@@ -1,5 +1,5 @@
 import { CONFIG } from '../core/config.js';
-import { toast } from './toast.js';
+import { showToast } from './toast.js'; // FIX: Corrected import name
 
 let wasmInstance = null;
 let wasmMemory = null;
@@ -8,7 +8,7 @@ let heapU32 = null;
 let heapF32 = null;
 let heapU64 = null; // Add heap for BigInt64 if needed
 
-const WASM_PATH = './candy_physics.wasm'; // Ensure this points to your AS or C++ module
+const WASM_PATH = './candy_physics.wasm'; 
 
 // Safe helper to read BigInt pointer
 function safePtr(ptr) {
@@ -37,15 +37,12 @@ export async function initWasm() {
                     console.error(`WASM Abort: ${msg} @ ${file}:${line}:${column}`);
                 },
                 seed: () => Math.random(),
-                now: () => Date.now(), // If WASM expects i64, this might fail without adapter
-                
-                // Fix for BigInt mixing: Ensure time is passed as Number (unless WASM explicitly asks for BigInt)
-                // If you get "signature mismatch", we might need to wrap this.
+                now: () => Date.now(), 
             },
-            // Emscripten specific imports usually go here
+            // Emscripten specific imports
             wasi_snapshot_preview1: {
                 clock_time_get: (id, precision, outPtr) => {
-                    // Example shim: write current time to memory
+                    // Shim: write current time to memory
                     const now = BigInt(Date.now()) * 1000000n; // Nanoseconds
                     if (heapU64) {
                          // Use BigInt for index calculation if outPtr is BigInt
@@ -79,7 +76,7 @@ export async function initWasm() {
         // Expose to global for debugging/main loop
         window.CandyPhysics = wasmInstance.exports;
         
-        // Run explicit initializer if it exists (AssemblyScript often has this)
+        // Run explicit initializer if it exists
         if (wasmInstance.exports._start) wasmInstance.exports._start();
         if (wasmInstance.exports.__init) wasmInstance.exports.__init();
 
@@ -88,8 +85,8 @@ export async function initWasm() {
 
     } catch (e) {
         console.error("Failed to load WASM module:", e);
-        // Try fallback or just fail gracefully
-        toast("Physics Engine Failed to Load", "error");
+        // FIX: Use showToast with appropriate icon
+        showToast("Physics Engine Failed to Load", "❌");
         return false;
     }
 }
