@@ -209,7 +209,14 @@ export function initInput(camera, audioSystem, toggleDayNightCallback) {
     }
 
     controls.addEventListener('lock', () => {
-        instructions.style.display = 'none';
+        // UX: If generating the world, keep the "Generating..." message visible
+        // The main.js logic will hide it when done.
+        const currentStartButton = document.getElementById('startButton');
+        if (currentStartButton && currentStartButton.disabled) {
+            return;
+        }
+
+        if (instructions) instructions.style.display = 'none';
         
         // If we locked, force playlist closed just in case
         isPlaylistOpen = false; 
