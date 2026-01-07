@@ -540,11 +540,25 @@ initWasm().then(async (wasmLoaded) => {
         startButton.addEventListener('click', () => {
             console.log('[Startup] Entering world...');
             
-            scene.remove(previewMushroom);
-            const idx = animatedFoliage.indexOf(previewMushroom);
-            if (idx > -1) animatedFoliage.splice(idx, 1);
+            // UX: Show loading state immediately to prevent "freeze" feeling
+            startButton.disabled = true;
+            startButton.innerHTML = '<span class="spinner" aria-hidden="true"></span>Generating... 🍭';
 
-            generateMap(weatherSystem);
+            // Defer execution slightly to let the UI update
+            setTimeout(() => {
+                scene.remove(previewMushroom);
+                const idx = animatedFoliage.indexOf(previewMushroom);
+                if (idx > -1) animatedFoliage.splice(idx, 1);
+
+                generateMap(weatherSystem);
+
+                // UX: Now that generation is done, hide the instructions
+                // (We delayed this in input.js to keep the "Generating..." message visible)
+                const instructions = document.getElementById('instructions');
+                if (instructions) instructions.style.display = 'none';
+
+                // Note: The pointer lock will happen automatically via input system
+            }, 50);
             
         }, { once: true });
     }
