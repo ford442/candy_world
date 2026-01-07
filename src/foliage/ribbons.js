@@ -35,10 +35,6 @@ export function createMelodyRibbon(scene) {
 
     // 1. Create BufferGeometry
     // We use a Triangle Strip-like structure but built with indexed triangles for better control
-    // Or just a simple PlaneGeometry that we manually update.
-    // Let's use a dynamic BufferGeometry.
-
-    // Vertices: (MAX_SEGMENTS + 1) * 2 (Left and Right points)
     const vertexCount = (MAX_SEGMENTS + 1) * 2;
     const geometry = new THREE.BufferGeometry();
 
@@ -89,9 +85,6 @@ export function createMelodyRibbon(scene) {
     });
 
     // Custom TSL logic for the ribbon
-    // Fade out based on UV.y (tail is 0, head is 1 or vice-versa)
-    // Here UV.y goes 0 to 1 along the strip. We will manage the logic so that UV 0 is the oldest tail.
-
     const vUv = uv();
 
     // Sparkle effect
@@ -105,12 +98,9 @@ export function createMelodyRibbon(scene) {
     // Opacity: Fade at the tail (UV.y near 0)
     const fade = smoothstep(0.0, 0.2, vUv.y);
 
-    // Pulse with music volume (passed via uniform or just internal time)
-    // We can add a specialized uniform for volume later, but for now let's use the color intensity.
-
     material.colorNode = gradientColor;
     material.emissiveNode = gradientColor.mul(sparkle.mul(2.0).add(0.5)); // Base glow + sparkle
-    material.opacityNode = fade; // Note: createUnifiedMaterial handles transmission, but we override opacity here for the fade out
+    material.opacityNode = fade;
     material.transparent = true;
 
     // Create Mesh
@@ -119,8 +109,6 @@ export function createMelodyRibbon(scene) {
     group.add(mesh);
 
     // Initial State
-    // We keep a history of "Heads" {x, y, z, width}
-    // For simplicity, we initialize them all at 0,0,0
     const pathHistory = [];
     for (let i = 0; i <= MAX_SEGMENTS; i++) {
         pathHistory.push({ x: 0, y: -100, z: 0, width: 0 }); // Start hidden
@@ -150,17 +138,24 @@ export function updateMelodyRibbons(group, deltaTime, audioData) {
     uRibbonTime.value += deltaTime;
 
     // 1. Get Audio Data (Melody Channel - usually Channel 2)
-    // We'll use a specific channel or average of high channels
-    const melodyChannel = audioData.channels[2] || { volume: 0, note: 0 };
-    const hasNote = melodyChannel.volume > 0.05;
+    // FIX: Access channelData safely
+    let volume = 0;
+    let note = 0;
+
+    if (audioData && audioData.channelData) {
+        // Use Channel 2 (Melody) or fallback to active channels
+        const ch = audioData.channelData[2];
+        if (ch) {
+            volume = ch.trigger || 0; // 'trigger' is the volume/intensity value
+            note = ch.note || 0;
+        }
+    }
+
+    const hasNote = volume > 0.05;
 
     // 2. Update Head Logic
 
-    // Move forward
-    // For a simple demo, let's make it fly in a circle or sine wave if no player input,
-    // but better: follow a path relative to the world center or spiral.
-    // Let's make it circle around the center (0,0,0) at radius 30
-
+    // Move forward (Circle path)
     const time = uRibbonTime.value;
     const radius = 30.0;
     const speed = 0.5;
@@ -176,7 +171,7 @@ export function updateMelodyRibbons(group, deltaTime, audioData) {
     if (hasNote) {
         // Map MIDI note (e.g. 48 to 84) to height
         // Standard range approx C3 to C6
-        const n = melodyChannel.note;
+        const n = note;
         const normalizedPitch = (n % 24) / 24.0; // simple modulation
         group.userData.targetPitchHeight = MIN_PITCH_HEIGHT + normalizedPitch * (MAX_PITCH_HEIGHT - MIN_PITCH_HEIGHT);
     } else {
@@ -188,17 +183,13 @@ export function updateMelodyRibbons(group, deltaTime, audioData) {
     headPosition.y += (group.userData.targetPitchHeight - headPosition.y) * deltaTime * 5.0;
 
     // 3. Update Path History
-    // Push new head, shift old ones
-    // We only update the ribbon geometry if enough distance moved or every frame?
-    // Every frame is smoothest for this style.
-
     // Shift everything down
     pathHistory.shift();
     pathHistory.push({
         x: headPosition.x,
         y: headPosition.y,
         z: headPosition.z,
-        width: SEGMENT_WIDTH + melodyChannel.volume * 2.0 // Modulate width by volume
+        width: SEGMENT_WIDTH + volume * 2.0 // Modulate width by volume
     });
 
     // 4. Update Geometry
@@ -206,11 +197,6 @@ export function updateMelodyRibbons(group, deltaTime, audioData) {
 
     for (let i = 0; i <= MAX_SEGMENTS; i++) {
         const point = pathHistory[i];
-
-        // Calculate a "normal" vector for the strip width
-        // Ideally perpendicular to the path direction.
-        // For simplicity, we assume the path is mostly horizontal so we expand in X/Z perpendicular to movement,
-        // but since we are circling, we can just point to center or use previous point.
 
         let dirX = 0, dirZ = 1;
         if (i < MAX_SEGMENTS) {
@@ -242,7 +228,5 @@ export function updateMelodyRibbons(group, deltaTime, audioData) {
     }
 
     mesh.geometry.attributes.position.needsUpdate = true;
-
-    // Recompute normals for lighting (optional, but good for clay look)
     mesh.geometry.computeVertexNormals();
 }
