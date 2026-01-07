@@ -1,45 +1,49 @@
-// src/systems/interaction.js
 import * as THREE from 'three';
+import { CONFIG } from '../core/config.js';
 
 export class InteractionSystem {
     constructor(camera, reticleCallback) {
         this.camera = camera;
         this.raycaster = new THREE.Raycaster();
-        this.raycaster.far = 50; // Max interact distance
 
-        // Track states
+        // Use CONFIG if available, otherwise fallback
+        this.raycaster.far = CONFIG?.interaction?.maxDistance || 50;
+
         this.hoveredObject = null;
         this.nearbyObjects = new Set();
+        this.reticleCallback = reticleCallback;
 
-        this.reticleCallback = reticleCallback; // Function to update UI cursor
-
-        // Configuration
-        this.proximityRadius = 10.0; // Distance for "waking up"
-        this.interactionDistance = 6.0; // Max distance to gaze/click
+        // Load settings
+        this.proximityRadius = CONFIG?.interaction?.proximityRadius || 12.0;
+        this.interactionDistance = CONFIG?.interaction?.interactionDistance || 8.0;
     }
 
     update(dt, playerPosition, interactables) {
-        // 1. PROXIMITY CHECK (Are you close?)
+        // Safety: Check if interactables is valid
+        if (!interactables || !Array.isArray(interactables)) return;
+
+        // 1. PROXIMITY CHECK
         const currentNearby = new Set();
 
         interactables.forEach(obj => {
-            if (!obj.visible) return;
+            // Safety: Skip invalid objects or those without position
+            if (!obj || !obj.position || !obj.visible) return;
 
             const dist = playerPosition.distanceTo(obj.position);
 
             if (dist < this.proximityRadius) {
                 currentNearby.add(obj);
 
-                // Trigger 'Enter Proximity'
                 if (!this.nearbyObjects.has(obj)) {
-                    if (obj.userData.onProximityEnter) obj.userData.onProximityEnter(dist);
+                    if (obj.userData?.onProximityEnter) {
+                        try { obj.userData.onProximityEnter(dist); } catch(e) { console.warn('Proximity Error:', e); }
+                    }
                 }
             } else {
-                // Trigger 'Leave Proximity'
                 if (this.nearbyObjects.has(obj)) {
-                    if (obj.userData.onProximityLeave) obj.userData.onProximityLeave();
-
-                    // Safety: If we walk away while looking at it, cancel the gaze too
+                    if (obj.userData?.onProximityLeave) {
+                        try { obj.userData.onProximityLeave(); } catch(e) { console.warn('Proximity Leave Error:', e); }
+                    }
                     if (this.hoveredObject === obj) this.handleHover(null);
                 }
             }
@@ -47,78 +51,81 @@ export class InteractionSystem {
 
         this.nearbyObjects = currentNearby;
 
-        // 2. GAZE CHECK (Are you pointing at it?)
-        // Only check objects that are already nearby (Optimization)
+        // 2. GAZE CHECK
         const candidates = Array.from(this.nearbyObjects);
 
         if (candidates.length > 0) {
             this.raycaster.setFromCamera(new THREE.Vector2(0, 0), this.camera);
 
-            // recursive: true ensures we hit child meshes of the Group
-            const intersects = this.raycaster.intersectObjects(candidates, true);
+            try {
+                // Recursive raycast can crash on malformed geometry.
+                // We wrap it to prevent game loop termination.
+                const intersects = this.raycaster.intersectObjects(candidates, true);
 
-            if (intersects.length > 0) {
-                // We likely hit a mesh inside a Group. Bubble up to find the main object.
-                let hitObj = intersects[0].object;
-                let rootObj = null;
-                const hitDist = intersects[0].distance;
+                if (intersects.length > 0) {
+                    let hitObj = intersects[0].object;
+                    let rootObj = null;
+                    const hitDist = intersects[0].distance;
 
-                // Traverse up until we find one of our candidate objects
-                while (hitObj) {
-                    if (candidates.includes(hitObj)) {
-                        rootObj = hitObj;
-                        break;
+                    // Bubble up to find the logic root (the Group with userData)
+                    let depth = 0;
+                    while (hitObj && depth < 10) {
+                        if (candidates.includes(hitObj)) {
+                            rootObj = hitObj;
+                            break;
+                        }
+                        hitObj = hitObj.parent;
+                        depth++;
                     }
-                    hitObj = hitObj.parent;
-                }
 
-                if (rootObj && hitDist < this.interactionDistance) {
-                    this.handleHover(rootObj);
-                    return;
+                    if (rootObj && hitDist < this.interactionDistance) {
+                        this.handleHover(rootObj);
+                        return;
+                    }
                 }
+            } catch (err) {
+                // Suppress specific Raycaster errors to keep game running
+                if (Math.random() < 0.01) console.warn("Interaction Raycast Warning:", err);
             }
         }
 
-        // If we hit nothing, clear hover
         this.handleHover(null);
     }
 
     handleHover(object) {
-        if (this.hoveredObject === object) return; // No change
+        if (this.hoveredObject === object) return;
 
-        // 1. Un-hover previous
-        if (this.hoveredObject) {
-            if (this.hoveredObject.userData.onGazeLeave) {
-                this.hoveredObject.userData.onGazeLeave();
-            }
+        // Leave old
+        if (this.hoveredObject && this.hoveredObject.userData?.onGazeLeave) {
+            try { this.hoveredObject.userData.onGazeLeave(); } catch(e) {}
         }
 
-        // 2. Hover new
+        // Enter new
         this.hoveredObject = object;
 
         if (this.hoveredObject) {
-            if (this.hoveredObject.userData.onGazeEnter) {
-                this.hoveredObject.userData.onGazeEnter();
+            if (this.hoveredObject.userData?.onGazeEnter) {
+                try { this.hoveredObject.userData.onGazeEnter(); } catch(e) {}
             }
-            // Visual feedback: Cursor gets big
             if (this.reticleCallback) this.reticleCallback('hover');
         } else {
-            // Visual feedback: Cursor back to normal
             if (this.reticleCallback) this.reticleCallback('idle');
         }
     }
 
     triggerClick() {
-        if (this.hoveredObject && this.hoveredObject.userData.onInteract) {
-            this.hoveredObject.userData.onInteract();
-
-            // Visual feedback: Cursor click animation
-            if (this.reticleCallback) {
-                this.reticleCallback('interact');
-                setTimeout(() => this.reticleCallback('hover'), 150);
+        if (this.hoveredObject && this.hoveredObject.userData?.onInteract) {
+            try {
+                this.hoveredObject.userData.onInteract();
+                if (this.reticleCallback) {
+                    this.reticleCallback('interact');
+                    setTimeout(() => this.reticleCallback('hover'), 150);
+                }
+                return true;
+            } catch(e) {
+                console.warn("Interact Error", e);
             }
-            return true; // Handled
         }
-        return false; // Not handled
+        return false;
     }
 }
