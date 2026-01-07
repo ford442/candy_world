@@ -5,7 +5,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Candy World</title>
-    <!-- CRITICAL: Capture native WebAssembly before libopenmpt overrides it -->
     <script>
         window.NativeWebAssembly = window.WebAssembly;
     </script>
@@ -19,7 +18,7 @@
             width: 100%;
             height: 100%;
             background: #ffecf5; /* Candy pink background */
-            /* Custom splash image support - override with inline style or CSS variable */
+            /* Custom splash image support */
             background-image: url('assets/splash.png');
             background-size: cover;
             background-position: center;
@@ -42,7 +41,6 @@
             animation: loading-spin 1s linear infinite;
             margin-bottom: 20px;
             box-shadow: 0 0 15px rgba(255, 64, 176, 0.3);
-            /* Add backdrop for better visibility over custom splash images */
             background: rgba(255, 255, 255, 0.9);
         }
 
@@ -52,7 +50,6 @@
             font-weight: bold;
             text-transform: uppercase;
             letter-spacing: 1px;
-            /* Add backdrop for better visibility over custom splash images */
             background: rgba(255, 255, 255, 0.9);
             padding: 10px 20px;
             border-radius: 10px;
@@ -64,7 +61,6 @@
             100% { transform: rotate(360deg); }
         }
 
-        /* Hide class for when done */
         .loaded {
             opacity: 0;
             pointer-events: none;
@@ -75,7 +71,6 @@
             overflow: hidden;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: #FFD1DC;
-            /* Pastel Pink background fallback */
             user-select: none;
         }
 
@@ -97,7 +92,6 @@
             justify-content: center;
             align-items: center;
             background: rgba(255, 209, 220, 0.8);
-            /* Fog color with transparency */
             z-index: 200;
             cursor: pointer;
             backdrop-filter: blur(5px);
@@ -141,10 +135,6 @@
             outline: none;
         }
 
-        .cta-button:focus-visible {
-            box-shadow: 0 0 0 4px rgba(255, 107, 107, 0.3), 0 5px 15px rgba(255, 107, 107, 0.4);
-        }
-
         .settings-container {
             margin-bottom: 20px;
             z-index: 201;
@@ -181,12 +171,6 @@
             background: #FFF0F5;
         }
 
-        /* Focus state when the hidden input is focused */
-        input:focus+.file-label {
-            box-shadow: 0 0 0 3px rgba(255, 107, 107, 0.5);
-            background: #FFF0F5;
-        }
-
         .toggle-button {
             background: #6A5ACD;
             border: none;
@@ -199,23 +183,10 @@
             transition: background 0.2s;
         }
 
-        .toggle-button:hover,
-        .toggle-button:focus {
+        .toggle-button:hover {
             background: #584AB8;
-            outline: none;
         }
 
-        .toggle-button:focus-visible {
-            box-shadow: 0 0 0 3px rgba(106, 90, 205, 0.5);
-        }
-
-        /* Focus state for secondary buttons (like Jukebox upload) when their hidden input is focused */
-        input:focus+.secondary-button {
-            box-shadow: 0 0 0 3px rgba(106, 90, 205, 0.5);
-            outline: none;
-        }
-
-        /* Improved Controls List Styles */
         .controls-container {
             margin-top: 20px;
             text-align: left;
@@ -233,19 +204,6 @@
             align-items: center;
         }
 
-        .controls-list dt {
-            justify-self: end;
-            display: flex;
-            gap: 5px;
-        }
-
-        .controls-list dd {
-            margin: 0;
-            font-size: 1.05em;
-            color: #444;
-            font-weight: 500;
-        }
-
         .key {
             display: inline-block;
             background: #f0f0f0;
@@ -259,7 +217,6 @@
             color: #333;
             min-width: 20px;
             text-align: center;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
         }
 
         /* Playlist Overlay Styles */
@@ -275,7 +232,7 @@
             border-radius: 20px;
             border: 4px solid #FF6B6B;
             padding: 20px;
-            display: none; /* Hidden by default */
+            display: none;
             flex-direction: column;
             box-shadow: 0 10px 40px rgba(255, 107, 107, 0.3);
             z-index: 300;
@@ -287,7 +244,6 @@
             margin: 0 0 15px 0;
             text-align: center;
             text-transform: uppercase;
-            letter-spacing: 2px;
         }
 
         #playlist-list {
@@ -327,24 +283,10 @@
             background: #FFF0F5;
         }
 
-        .playlist-btn:focus-visible {
-            outline: 2px solid #FF6B6B;
-            outline-offset: -2px;
-            background: #FFF0F5;
-        }
-
         .playlist-item.active .playlist-btn {
             background: #FF6B6B;
             color: white;
             font-weight: bold;
-        }
-
-        .playlist-item.active .status-icon {
-            opacity: 1;
-        }
-
-        .status-icon {
-            opacity: 0;
         }
 
         .playlist-controls {
@@ -387,27 +329,12 @@
             align-items: center;
             gap: 10px;
             transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            pointer-events: none; /* Don't block clicks */
+            pointer-events: none;
             font-family: 'Fredoka One', cursive, sans-serif;
         }
 
         #now-playing-toast.visible {
             transform: translateX(-50%) translateY(0);
-        }
-
-        #now-playing-toast .icon {
-            font-size: 1.2em;
-            animation: bounce 1s infinite alternate;
-        }
-
-        @keyframes bounce {
-            from { transform: translateY(0); }
-            to { transform: translateY(-3px); }
-        }
-
-        /* Loading Spinner */
-        @keyframes spin {
-            to { transform: rotate(360deg); }
         }
 
         .spinner {
@@ -424,6 +351,7 @@
             top: -2px;
         }
     </style>
+    
     <script type="importmap">
         {
             "imports": {
@@ -434,29 +362,25 @@
             }
         }
     </script>
+
     <script>
+        // Use a Promise to notify the app when libopenmpt is ready
         window.libopenmptReady = new Promise(resolve => {
             window.libopenmpt = {
+                // FIX: Limit memory to prevent "Array buffer allocation failed"
+                // 32MB should be enough for most MOD/XM files
+                INITIAL_MEMORY: 33554432, 
+                // ALLOW_MEMORY_GROWTH: true, // Optional, depending on how libopenmpt was compiled
+                
                 onRuntimeInitialized: function () {
-                    console.log('libopenmpt runtime initialized via pre-load script.');
+                    console.log('libopenmpt runtime initialized via local script.');
                     resolve(this);
                 }
             };
         });
     </script>
-    
-<script>
-let scr=document.createElement("script");
-scr.async=true;
-scr.charset='utf-8';
-scr.type='text/javascript';
-scr.defer=true;
-scr.src="https://wasm.noahcohn.com/libmpt/libopenmpt.1ijs";
-    setTimeout(function(){
-document.body.appendChild(scr);
-    },500);
-</script>
-    
+
+    <script src="js/libopenmpt.js"></script>
 </head>
 
 <body>
@@ -475,7 +399,7 @@ document.body.appendChild(scr);
         window.setLoadingStatus = function (text) {
             const el = document.getElementById('loading-text');
             if (el) el.innerText = text;
-            console.log('[Splash]', text); // Keep console sync
+            console.log('[Splash]', text); 
         };
 
         // Global function to hide the screen
@@ -483,7 +407,7 @@ document.body.appendChild(scr);
             const el = document.getElementById('loading-overlay');
             if (el) {
                 el.classList.add('loaded');
-                setTimeout(() => el.remove(), 600); // Remove from DOM after fade
+                setTimeout(() => el.remove(), 600); 
             }
         };
     </script>
@@ -504,8 +428,8 @@ document.body.appendChild(scr);
                 🌙 Switch to Night (N)
             </button>
 
-            <button id="toggleMuteBtn" class="toggle-button" aria-pressed="false" aria-keyshortcuts="M" aria-label="Mute Audio">
-                🔊 Mute (M)
+            <button id="toggleMuteBtn" class="toggle-button" aria-pressed="false" aria-label="Mute Audio">
+                🔊 Mute
             </button>
 
             <button id="openJukeboxBtn" class="toggle-button" aria-keyshortcuts="Q" aria-label="Open Jukebox playlist">
