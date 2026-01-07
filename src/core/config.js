@@ -84,7 +84,18 @@ export const PALETTE = {
 };
 
 export const CONFIG = {
-    colors: { ground: 0x90EE90 },
+    colors: {
+        ground: 0x222222,
+        fog: 0x1A1A2E
+    },
+
+    // --- NEW INTERACTION SETTINGS ---
+    interaction: {
+        maxDistance: 60,         // Raycast max range
+        proximityRadius: 12.0,   // Object "wakes up"
+        interactionDistance: 8.0 // Object becomes clickable
+    },
+
     noteColorMap: {
         // Standard Global Palette (Fallback)
         'global': {
