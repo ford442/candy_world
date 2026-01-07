@@ -8,6 +8,7 @@ import {
     foliageMushrooms, foliageTrampolines, foliageClouds,
     activeVineSwing, setActiveVineSwing, lastVineDetachTime, setLastVineDetachTime, vineSwings
 } from '../world/state.js';
+import { discoverySystem } from './discovery.js';
 
 // --- Configuration ---
 const PLAYER_RADIUS = 0.5;
@@ -187,6 +188,7 @@ function updateStateTransitions(camera, keyStates) {
     // Transition: Vine Handling
     if (activeVineSwing) {
         player.currentState = PlayerState.VINE;
+        discoverySystem.discover('vine_swing', 'Swingable Vine', '🪜');
     } else if (player.currentState === PlayerState.VINE) {
         player.currentState = PlayerState.DEFAULT;
     }
@@ -401,6 +403,7 @@ function resolveSpecialCollisions(delta, camera, keyStates, audioState) {
                         mush.scale.y = 0.7;
                         setTimeout(() => { mush.scale.y = 1.0; }, 100);
                         keyStates.jump = false;
+                        discoverySystem.discover('trampoline_shroom', 'Trampoline Mushroom', '🍄');
                     } else {
                         camera.position.y = surfaceY + 1.8;
                         player.velocity.y = 0;
@@ -426,6 +429,7 @@ function resolveSpecialCollisions(delta, camera, keyStates, audioState) {
                              player.velocity.y = 0;
                              player.isGrounded = true;
                              if (keyStates.jump) player.velocity.y = 15;
+                             discoverySystem.discover('cloud_platform', 'Solid Cloud', '☁️');
                          }
                      }
                 }
