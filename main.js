@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import './style.css';
 import { uWindSpeed, uWindDirection, uSkyTopColor, uSkyBottomColor, uHorizonColor, uAtmosphereIntensity, uStarPulse, uStarOpacity, uAuroraIntensity, uAuroraColor, uAudioLow, uAudioHigh, uGlitchIntensity, uChromaticIntensity, uTime, createAurora, createChromaticPulse, updateMoon, animateFoliage, updateFoliageMaterials, updateFireflies, updateFallingBerries, collectFallingBerries, createFlower, createMushroom, validateNodeGeometries, createMelodyRibbon, updateMelodyRibbons } from './src/foliage/index.js';
 import { initCelestialBodies } from './src/foliage/celestial-bodies.js';
 import { InteractionSystem } from './src/systems/interaction.js';
@@ -17,7 +18,7 @@ import { getCycleState } from './src/core/cycle.js';
 
 // World & System imports
 import { initWorld, generateMap } from './src/world/generation.ts';
-import { animatedFoliage, foliageGroup, activeVineSwing, foliageClouds } from './src/world/state.js';
+import { animatedFoliage, foliageGroup, activeVineSwing, foliageClouds, foliageMushrooms } from './src/world/state.js';
 import { updatePhysics, player, bpmWind } from './src/systems/physics.js';
 import { fireRainbow, updateBlaster } from './src/gameplay/rainbow-blaster.js';
 import { updateFallingClouds } from './src/foliage/clouds.js';
@@ -224,7 +225,14 @@ function animate() {
     });
 
     profiler.measure('Interaction', () => {
-        interactionSystem.update(delta, camera.position, animatedFoliage);
+        // Collect all interactive elements safely
+        const activeFoliage = animatedFoliage || [];
+        const activeMushrooms = foliageMushrooms || [];
+        const activeClouds = foliageClouds || [];
+
+        const allInteractables = [...activeFoliage, ...activeMushrooms, ...activeClouds];
+
+        interactionSystem.update(delta, camera.position, allInteractables);
     });
 
     const activeBPM = audioState?.bpm || 120;
