@@ -56,6 +56,8 @@
   - [x] Chromatic Aberration Pulse (Lens distortion on heavy kicks)
   - [x] Instrument-ID Textures (Procedural noise patterns)
   - [x] Note-Trail Ribbons (Melody tracing geometry)
+  - [x] Melody Mirrors (Fake reflection shaders)
+    - *Implementation Details:* TSL-driven faux reflection using a procedural environment texture, with UV distortion driven by audio intensity (`uAudioHigh`) and time. Geometry consists of floating shard clusters integrated into `src/world/generation.ts`.
 
 ### Category 5: Physics & Interaction
 - **Status:** Pending
