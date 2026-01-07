@@ -41,6 +41,8 @@ export const uWindSpeed = uniform(0.0);
 export const uWindDirection = uniform(vec3(1, 0, 0));
 export const uTime = uniform(0.0); // Global time uniform for animated materials
 export const uGlitchIntensity = uniform(0.0); // Global glitch intensity
+export const uAudioLow = uniform(0.0);   // Bass energy (Kick)
+export const uAudioHigh = uniform(0.0);  // Treble energy (Hi-hats/Cymbals)
 
 // --- UTILITY FUNCTIONS ---
 
