@@ -11,7 +11,7 @@ import {
     initGrassSystem, addGrassInstance,
     createArpeggioFern, createPortamentoPine, createCymbalDandelion, createSnareTrap,
     createBubbleWillow, createHelixPlant, createBalloonBush, createWisteriaCluster,
-    createPanningPad, createSilenceSpirit, createInstrumentShrine
+    createPanningPad, createSilenceSpirit, createInstrumentShrine, createMelodyMirror
 } from '../foliage/index.js';
 import { createCaveEntrance } from '../foliage/cave.js';
 import { validateFoliageMaterials } from '../foliage/common.js';
@@ -459,6 +459,11 @@ function populateProceduralExtras(weatherSystem: WeatherSystem): void {
              else if (rand < 0.95) {
                  obj = createSilenceSpirit();
                  obj.position.set(x, groundY, z);
+             }
+             else if (rand < 0.97) {
+                 obj = createMelodyMirror({ scale: 2.0 });
+                 // Float high up
+                 obj.position.set(x, groundY + 15 + Math.random() * 10, z);
              }
              else {
                  const id = Math.floor(Math.random() * 16);

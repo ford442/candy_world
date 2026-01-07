@@ -5,11 +5,8 @@ import {
     color, float, vec3, vec2, Fn, uniform, sin, cos, time, positionLocal,
     uv, normalize, smoothstep, mix, abs, max, positionWorld
 } from 'three/tsl';
-import { CandyPresets } from './common.js';
+import { CandyPresets, uAudioLow, uAudioHigh } from './common.js';
 
-// Global Audio Uniforms for Water Reactivity
-export const uAudioLow = uniform(0.0);   // Bass energy (Kick)
-export const uAudioHigh = uniform(0.0);  // Treble energy (Hi-hats/Cymbals)
 export const uWaveHeight = uniform(1.0); // Base wave height scaler
 
 /**
