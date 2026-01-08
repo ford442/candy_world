@@ -2,7 +2,8 @@
 
 import * as THREE from 'three';
 import {
-    getGroundHeight, initPhysics, addObstacle, setPlayerState, getPlayerState, updatePhysicsCPP
+    getGroundHeight, initPhysics, addObstacle, setPlayerState, getPlayerState, updatePhysicsCPP,
+    uploadCollisionObjects, resolveGameCollisionsWASM
 } from '../utils/wasm-loader.js';
 import {
     foliageMushrooms, foliageTrampolines, foliageClouds,
@@ -31,6 +32,7 @@ export const PlayerState = {
 
 // --- Player State Object ---
 export const player = {
+    position: new THREE.Vector3(), // Shadowing camera position for WASM sync
     velocity: new THREE.Vector3(),
     speed: 15.0,
     sprintSpeed: 25.0,
@@ -103,6 +105,9 @@ export function registerPhysicsCave(cave) {
 
 // Main Physics Update Loop
 export function updatePhysics(delta, camera, controls, keyStates, audioState) {
+    // 0. Sync Player State with Camera
+    player.position.copy(camera.position);
+
     // 1. Update Global Environmental Modifiers (Wind, Groove)
     updateEnvironmentalModifiers(delta, audioState);
 
@@ -125,6 +130,9 @@ export function updatePhysics(delta, camera, controls, keyStates, audioState) {
             updateDefaultState(delta, camera, controls, keyStates, audioState);
             break;
     }
+
+    // Sync back
+    camera.position.copy(player.position);
 }
 
 // --- Internal Logic ---
@@ -146,7 +154,7 @@ function updateEnvironmentalModifiers(delta, audioState) {
 }
 
 function updateStateTransitions(camera, keyStates) {
-    const playerPos = camera.position;
+    const playerPos = player.position;
 
     // A. Check Water Level / Cave Flooding
     // We check if the player is inside the "Water Gate" zone of a blocked cave
@@ -224,15 +232,21 @@ function updateSwimmingState(delta, camera, controls, keyStates) {
     if (keyStates.jump) player.velocity.y += 10 * delta;
     if (keyStates.sneak) player.velocity.y -= 10 * delta;
 
-    controls.moveRight(player.velocity.x * delta);
-    controls.moveForward(player.velocity.z * delta);
-    camera.position.y += player.velocity.y * delta;
+    // controls.moveRight/Forward applies to the camera object directly, which we synced to player.position
+    // But Three.js PointerLockControls uses its own internal object.
+    // We update position manually here instead.
+
+    player.position.x += player.velocity.x * delta;
+    player.position.z += player.velocity.z * delta;
+    player.position.y += player.velocity.y * delta;
 }
 
 // --- State: VINE SWING ---
 function updateVineState(delta, camera, keyStates) {
     if (activeVineSwing) {
         activeVineSwing.update(camera, delta, keyStates);
+        // Sync velocity back to player for detach momentum
+        // (Managed inside VineSwing class mostly)
         if (keyStates.jump) {
             setLastVineDetachTime(activeVineSwing.detach(player));
             setActiveVineSwing(null);
@@ -286,13 +300,13 @@ function updateDefaultState(delta, camera, controls, keyStates, audioState) {
     if (moveInput.lengthSq() > 1.0) moveInput.normalize();
 
     // 3. Sync State with C++
-    setPlayerState(camera.position.x, camera.position.y, camera.position.z, player.velocity.x, player.velocity.y, player.velocity.z);
+    setPlayerState(player.position.x, player.position.y, player.position.z, player.velocity.x, player.velocity.y, player.velocity.z);
 
     // 4. Run C++ Update (Pass World Space Vectors)
     // CRITICAL FIX: If we are in the Lake Basin, we MUST use JS Physics.
     // The C++ WASM engine does not know about the visual carving and will return the wrong ground height (floating player).
-    const px = camera.position.x;
-    const pz = camera.position.z;
+    const px = player.position.x;
+    const pz = player.position.z;
     const inLakeBasin = (px > LAKE_BOUNDS.minX && px < LAKE_BOUNDS.maxX && pz > LAKE_BOUNDS.minZ && pz < LAKE_BOUNDS.maxZ);
 
     let onGround = -1; // Default to failure/fallback
@@ -313,7 +327,7 @@ function updateDefaultState(delta, camera, controls, keyStates, audioState) {
     if (onGround >= 0) {
         // C++ Success
         const newState = getPlayerState();
-        camera.position.set(newState.x, newState.y, newState.z);
+        player.position.set(newState.x, newState.y, newState.z);
         player.velocity.set(newState.vx, newState.vy, newState.vz);
         if (player.velocity.y > 0) keyStates.jump = false;
         player.isGrounded = (onGround === 1);
@@ -322,8 +336,33 @@ function updateDefaultState(delta, camera, controls, keyStates, audioState) {
         updateJSFallbackMovement(delta, camera, controls, keyStates, moveSpeed);
     }
 
-    // --- ADDITIONAL JS COLLISIONS ---
-    resolveSpecialCollisions(delta, camera, keyStates, audioState);
+    // --- WASM COLLISION RESOLVER (New) ---
+    // Try WASM resolution first
+    const kickTrigger = audioState?.kickTrigger || 0.0;
+    const wasmResolved = resolveGameCollisionsWASM(player, kickTrigger);
+
+    // If WASM didn't handle something critical (or wasn't ready), we might need fallback,
+    // but the goal is to replace it.
+    // However, for safety during migration, we can keep the JS logic as a backup if WASM fails?
+    // No, if WASM returns true, it modified state. If false, it didn't collide.
+    // But we need to ensure WASM *has* the objects.
+
+    // Check discovery flags based on what happened?
+    // The WASM function modifies velocity (e.g. bounce).
+    // We can check if velocity.y spiked > 10 to infer trampoline?
+    if (wasmResolved) {
+         if (player.velocity.y > 12.0) {
+              discoverySystem.discover('trampoline_shroom', 'Trampoline Mushroom', '🍄');
+              keyStates.jump = false;
+         }
+         // Check if we landed on a cloud (isGrounded=true at High Y)
+         if (player.isGrounded && player.position.y > 10.0) {
+              discoverySystem.discover('cloud_platform', 'Solid Cloud', '☁️');
+         }
+    } else {
+        // Fallback or Legacy check (if WASM not loaded or empty)
+        // resolveSpecialCollisions(delta, camera, keyStates, audioState);
+    }
 }
 
 function updateJSFallbackMovement(delta, camera, controls, keyStates, moveSpeed) {
@@ -347,15 +386,15 @@ function updateJSFallbackMovement(delta, camera, controls, keyStates, moveSpeed)
     player.velocity.z += (_targetVelocity.z - player.velocity.z) * smoothing;
     player.velocity.y -= player.gravity * delta;
 
-    camera.position.x += player.velocity.x * delta;
-    camera.position.z += player.velocity.z * delta;
-    camera.position.y += player.velocity.y * delta;
+    player.position.x += player.velocity.x * delta;
+    player.position.z += player.velocity.z * delta;
+    player.position.y += player.velocity.y * delta;
 
     // Corrected Ground Check using Unified Height (Accounts for Lake)
-    const groundY = getUnifiedGroundHeight(camera.position.x, camera.position.z);
+    const groundY = getUnifiedGroundHeight(player.position.x, player.position.z);
 
-    if (camera.position.y < groundY + 1.8 && player.velocity.y <= 0) {
-        camera.position.y = groundY + 1.8;
+    if (player.position.y < groundY + 1.8 && player.velocity.y <= 0) {
+        player.position.y = groundY + 1.8;
         player.velocity.y = 0;
         player.isGrounded = true;
     } else {
@@ -363,85 +402,13 @@ function updateJSFallbackMovement(delta, camera, controls, keyStates, moveSpeed)
     }
 }
 
-// Resolve collisions with game objects (Mushrooms, Water Gates, etc)
-function resolveSpecialCollisions(delta, camera, keyStates, audioState) {
-    const playerPos = camera.position;
-
-    // 1. Water Gates (Cave Blockers)
-    foliageCaves.forEach(cave => {
-        if (cave.userData.isBlocked) {
-            const gateWorldPos = _scratchGatePos.copy(cave.userData.gatePosition).applyMatrix4(cave.matrixWorld);
-            const dx = playerPos.x - gateWorldPos.x;
-            const dz = playerPos.z - gateWorldPos.z;
-            const dist = Math.sqrt(dx*dx + dz*dz);
-
-            if (dist < 2.5 && player.currentState !== PlayerState.SWIMMING) {
-                const angle = Math.atan2(dz, dx);
-                const pushForce = 15.0 * delta;
-                camera.position.x += Math.cos(angle) * pushForce;
-                camera.position.z += Math.sin(angle) * pushForce;
-                player.velocity.x *= 0.5;
-                player.velocity.z *= 0.5;
-            }
-        }
-    });
-
-    // 2. Mushroom Caps
-    for (const mush of foliageMushrooms) {
-        if (player.velocity.y < 0) {
-            const capR = mush.userData.capRadius || 2.0;
-            const capH = mush.userData.capHeight || 3.0;
-            const dx = playerPos.x - mush.position.x;
-            const dz = playerPos.z - mush.position.z;
-
-            if (Math.sqrt(dx*dx + dz*dz) < capR) {
-                const surfaceY = mush.position.y + capH;
-                if (playerPos.y >= surfaceY - 0.5 && playerPos.y <= surfaceY + 2.0) {
-                    if (mush.userData.isTrampoline) {
-                        const audioBoost = audioState?.kickTrigger || 0.0;
-                        player.velocity.y = 15 + audioBoost * 10;
-                        mush.scale.y = 0.7;
-                        setTimeout(() => { mush.scale.y = 1.0; }, 100);
-                        keyStates.jump = false;
-                        discoverySystem.discover('trampoline_shroom', 'Trampoline Mushroom', '🍄');
-                    } else {
-                        camera.position.y = surfaceY + 1.8;
-                        player.velocity.y = 0;
-                        player.isGrounded = true;
-                        if (keyStates.jump) player.velocity.y = 10;
-                    }
-                }
-            }
-        }
-    }
-
-    // 3. Cloud Walking
-    if (playerPos.y > 15) {
-        for (const cloud of foliageClouds) {
-            const dx = playerPos.x - cloud.position.x;
-            const dz = playerPos.z - cloud.position.z;
-            if (Math.sqrt(dx*dx + dz*dz) < (cloud.scale.x || 1.0) * 2.0) {
-                if (cloud.userData.tier === 1) {
-                     const topY = cloud.position.y + (cloud.scale.y || 1.0) * 0.8;
-                     if (playerPos.y >= topY - 0.5 && (playerPos.y - topY) < 3.0) {
-                         if (player.velocity.y <= 0) {
-                             camera.position.y = topY;
-                             player.velocity.y = 0;
-                             player.isGrounded = true;
-                             if (keyStates.jump) player.velocity.y = 15;
-                             discoverySystem.discover('cloud_platform', 'Solid Cloud', '☁️');
-                         }
-                     }
-                }
-            }
-        }
-    }
-}
-
 // Helper: Initialize C++ obstacles (One-time setup)
 function initCppPhysics(camera) {
     initPhysics(camera.position.x, camera.position.y, camera.position.z);
-    // ... same obstacle init ...
+
+    // 1. Upload to C++ Engine (Emscripten) - For Standard Terrain/Obstacles
+    // (This might be redundant if we use the new ASC system, but C++ handles ground physics well)
+    // We keep it for now.
     for (const m of foliageMushrooms) {
         addObstacle(0, m.position.x, m.position.y, m.position.z, 0, m.userData.capHeight||3, m.userData.stemRadius||0.5, m.userData.capRadius||2, m.userData.isTrampoline?1:0);
     }
@@ -451,11 +418,15 @@ function initCppPhysics(camera) {
     for (const t of foliageTrampolines) {
         addObstacle(2, t.position.x, t.position.y, t.position.z, t.userData.bounceRadius||0.5, t.userData.bounceHeight||0.5, t.userData.bounceForce||12, 0, 0);
     }
-    console.log('[Physics] C++ Physics Initialized.');
+
+    // 2. Upload to AssemblyScript Engine (ASC) - For Narrow Phase Interactivity
+    uploadCollisionObjects(foliageCaves, foliageMushrooms, foliageClouds, foliageTrampolines);
+
+    console.log('[Physics] Engines Initialized (C++ & ASC).');
 }
 
 function checkVineAttachment(camera) {
-    const playerPos = camera.position;
+    const playerPos = player.position;
     for (const vineManager of vineSwings) {
         const dx = playerPos.x - vineManager.anchorPoint.x;
         const dz = playerPos.z - vineManager.anchorPoint.z;
