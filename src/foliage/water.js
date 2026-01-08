@@ -3,9 +3,10 @@ import * as THREE from 'three';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import {
     color, float, vec3, vec2, Fn, uniform, sin, cos, time, positionLocal,
-    uv, normalize, smoothstep, mix, abs, max, positionWorld
+    uv, normalize, smoothstep, mix, abs, max, positionWorld,
+    mx_noise_float, normalLocal
 } from 'three/tsl';
-import { CandyPresets, uAudioLow, uAudioHigh } from './common.js';
+import { CandyPresets, uAudioLow, uAudioHigh, createRimLight } from './common.js';
 
 export const uWaveHeight = uniform(1.0); // Base wave height scaler
 
@@ -76,9 +77,35 @@ export function createWaveformWater(width = 400, depth = 400) {
     // Mix foam into base color
     material.colorNode = mix(waterColor, foamColor, heightFactor.mul(0.5));
 
-    // Optional: Add emission on beat
+    // --- PALETTE Polish: Melody Sparkles & Rim Light ---
+
+    // 1. Sparkles (Audio Reactive Glitter)
+    // Create a high-frequency noise field that moves
+    const sparkleScale = positionWorld.mul(0.5);
+    const sparkleTime = time.mul(0.5);
+    const noiseVal = mx_noise_float(sparkleScale.add(sparkleTime));
+
+    // Threshold to create distinct "glitter" points (top 20% of noise)
+    const sparkleMask = smoothstep(0.8, 1.0, noiseVal);
+
+    // Drive intensity with High Frequency audio (Melody/Hi-Hats)
+    // "Bioluminescent" look: Cyan/White mix
+    const sparkleColor = vec3(0.6, 1.0, 1.0);
+    const sparkleIntensity = uAudioHigh.mul(sparkleMask).mul(3.0); // Boosted brightness
+
+    // 2. Rim Light (Edge Definition)
+    // Helps the water separate from the dark background/sky
+    // Note: We use normalLocal because displacement modifies the surface,
+    // but for simple rim lighting on a plane, the varying view angle provides enough falloff.
+    // For better results, we'd need perturbed normals, but this adds a subtle "moonlight sheen".
+    const rim = createRimLight(color(0xAAEEFF), float(0.5), float(2.0), normalLocal);
+
+    // 3. Beat Glow (Bass)
     const beatGlow = uAudioLow.mul(0.2); // Subtle glow on kick
-    material.emissiveNode = vec3(0.1, 0.3, 0.6).mul(beatGlow);
+    const baseEmissive = vec3(0.1, 0.3, 0.6).mul(beatGlow);
+
+    // Combine all emissive sources
+    material.emissiveNode = baseEmissive.add(sparkleColor.mul(sparkleIntensity)).add(rim);
 
     const mesh = new THREE.Mesh(geometry, material);
     mesh.userData.type = 'water';
