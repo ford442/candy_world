@@ -27,7 +27,7 @@ OUTPUT_JS="$REPO_ROOT/public/candy_native.js"
 # ---------------------------------------------------------
 # FIX: Removed -flto / -flto=thin to fix linker symbol stripping
 # FIX: Using -fopenmp (Standard flag)
-COMPILE_FLAGS="-O2 -msimd128 -flto -flto=thin -mrelaxed-simd -ffast-math -fno-exceptions -fno-rtti -funroll-loops -mbulk-memory -fopenmp=libomp -pthread"
+COMPILE_FLAGS="-O2 -msimd128 -flto -flto=thin -mrelaxed-simd -ffast-math -fno-exceptions -fno-rtti -funroll-loops -mbulk-memory -fopenmp -pthread"
 
 # ---------------------------------------------------------
 # LINKER FLAGS
@@ -38,7 +38,7 @@ COMPILE_FLAGS="-O2 -msimd128 -flto -flto=thin -mrelaxed-simd -ffast-math -fno-ex
 LINK_FLAGS="-O2 -std=c++17 -lembind -s USE_PTHREADS=1 -s PTHREAD_POOL_SIZE=4 -s WASM=1 -s WASM_BIGINT=0 \
 -s ALLOW_MEMORY_GROWTH=1 -s TOTAL_STACK=16MB -s INITIAL_MEMORY=64MB -s ASSERTIONS=1 -s EXPORT_ES6=1 -s EXPORTED_RUNTIME_METHODS=[\"wasmMemory\"] \
 -s MODULARIZE=1 -s EXPORT_NAME=createCandyNative -s ENVIRONMENT=web,worker \
--flto -flto=thin -fwasm-exceptions -matomics -mbulk-memory -fopenmp=libomp -pthread"
+-flto -flto=thin -fwasm-exceptions -matomics -mbulk-memory -fopenmp -pthread"
 
 EXPORTS="[ \
     '_hash', \
