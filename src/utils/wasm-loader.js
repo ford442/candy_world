@@ -54,7 +54,7 @@ export const AnimationType = {
 
 async function loadEmscriptenModule() {
     if (typeof SharedArrayBuffer === 'undefined') {
-        console.error('[Native] SharedArrayBuffer is missing. Pthreads will NOT work.');
+        console.warn('[Native] SharedArrayBuffer is missing. Pthreads will NOT work. Using JS fallback.');
         return false;
     }
 
@@ -63,15 +63,44 @@ async function loadEmscriptenModule() {
 
         let createCandyNative;
         let locatePrefix = '/candy-world';
+        let wasmPath = `${locatePrefix}/candy_native.wasm`;
 
+        // First, check if the WASM file exists
+        try {
+            const wasmCheck = await fetch(wasmPath, { method: 'HEAD' });
+            if (!wasmCheck.ok) {
+                throw new Error('WASM file not found at production path');
+            }
+        } catch (headError) {
+            // Try local path
+            locatePrefix = '';
+            wasmPath = './candy_native.wasm';
+            try {
+                const localWasmCheck = await fetch(wasmPath, { method: 'HEAD' });
+                if (!localWasmCheck.ok) {
+                    console.log('[WASM] candy_native.wasm not found. Using JS fallback.');
+                    return false;
+                }
+            } catch (localError) {
+                console.log('[WASM] candy_native.wasm not available. Using JS fallback.');
+                return false;
+            }
+        }
+
+        // Try to load the JS loader
         try {
             const module = await import(/* @vite-ignore */ `/candy-world/candy_native.js?v=${Date.now()}`);
             createCandyNative = module.default;
         } catch (e) {
             console.log('[WASM] Production path failed, trying local fallback...');
-            const module = await import(/* @vite-ignore */ `/candy_native.js?v=${Date.now()}`);
-            createCandyNative = module.default;
-            locatePrefix = '';
+            try {
+                const module = await import(/* @vite-ignore */ `/candy_native.js?v=${Date.now()}`);
+                createCandyNative = module.default;
+                locatePrefix = '';
+            } catch (localError) {
+                console.log('[WASM] candy_native.js not found. Using JS fallback.');
+                return false;
+            }
         }
 
         await updateProgress('Spawning Physics Workers...');
@@ -96,7 +125,7 @@ async function loadEmscriptenModule() {
 
         return true;
     } catch (e) {
-        console.warn('Failed to load Native Emscripten module:', e);
+        console.warn('[WASM] Native module unavailable, using JS fallback:', e);
         return false;
     }
 }
