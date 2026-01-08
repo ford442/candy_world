@@ -25,13 +25,14 @@ OUTPUT_JS="$REPO_ROOT/public/candy_native.js"
 # ---------------------------------------------------------
 # COMPILER FLAGS
 # ---------------------------------------------------------
-# FIX: Use -fopenmp to ENABLE threading (ignoring it makes the build pass but kills performance)
+# FIX: Removed -flto / -flto=thin to fix linker symbol stripping
+# FIX: Using -fopenmp (Standard flag)
 COMPILE_FLAGS="-O2 -msimd128 -mrelaxed-simd -ffast-math -fno-exceptions -fno-rtti -funroll-loops -mbulk-memory -fopenmp -pthread"
 
 # ---------------------------------------------------------
 # LINKER FLAGS
 # ---------------------------------------------------------
-# FIX: Removed -s WASM_WORKERS=1 (Incompatible with OpenMP)
+# FIX: Removed -flto / -flto=thin
 # FIX: Added -pthread to LINK_FLAGS (Critical for OpenMP linking & Shared Memory)
 # FIX: Reduced INITIAL_MEMORY to 64MB
 LINK_FLAGS="-O2 -std=c++17 -lembind -s USE_PTHREADS=1 -s PTHREAD_POOL_SIZE=4 -s WASM=1 -s WASM_BIGINT=0 \
@@ -76,10 +77,10 @@ EXPORTS="[ \
 
 echo "Compiling & Linking..."
 
-# Clean old files to prevent caching/naming conflicts
+# Clean old files (including temp object files if possible, though 'em++' handles most)
 rm -f "$OUTPUT_JS" "$REPO_ROOT/public/candy_native.wasm" "$REPO_ROOT/public/candy_native.worker.js" "penmp" "penmp.wasm"
 
-# Output flag (-o) at the end prevents flag ambiguity
+# Output flag (-o) at the end prevents ambiguity
 em++ "$SCRIPT_DIR"/*.cpp \
   $COMPILE_FLAGS \
   $LINK_FLAGS \
