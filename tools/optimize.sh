@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e  # Exit on error, but use || true for optional commands
+set -e  # Exit on error for critical operations
 
 echo "🚀 Starting Post-Build Optimization..."
 
@@ -48,7 +48,7 @@ if [ "$WASM_OPT_AVAILABLE" = true ] && [ -f "$PHYSICS_WASM" ]; then
       --enable-bulk-memory \
       --enable-relaxed-simd \
       --enable-nontrapping-float-to-int \
-      --enable-exception-handling || { echo "⚠️  wasm-opt failed, continuing..."; true; }
+      --enable-exception-handling || true
 else
     echo "⏭️  Skipping WASM optimization (tool or file not available)"
 fi
@@ -56,7 +56,7 @@ fi
 # Try wasmedge optimization if available
 if [ "$WASMEDGE_AVAILABLE" = true ] && [ -f "$PHYSICS_WASM" ]; then
     echo "🔧 Optimizing Physics WASM (wasmedge)..."
-    wasmedgec --optimize=3 --enable-all "$PHYSICS_WASM" "$PHYSICS_WASM" || { echo "⚠️  wasmedge failed, continuing..."; true; }
+    wasmedgec --optimize=3 --enable-all "$PHYSICS_WASM" "$PHYSICS_WASM" || true
 fi
 
 # 4. Optimize Emscripten WASM (Native Effects) - commented out as files may not exist
