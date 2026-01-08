@@ -28,7 +28,7 @@ OUTPUT_JS="$REPO_ROOT/public/candy_native.js"
 # ---------------------------------------------------------
 # -O2: High optimization but safer than -O3 (avoids aggressive renaming)
 # -g0: Debug info disabled (keeps size down)
-COMPILE_FLAGS="-O2 -msimd128 -mrelaxed-simd -ffast-math -flto -flto=thin -fno-exceptions -fno-rtti -funroll-loops -mbulk-memory -openmp -pthread"
+COMPILE_FLAGS="-O2 -msimd128 -mrelaxed-simd -ffast-math -flto -flto=thin -fno-exceptions -fno-rtti -funroll-loops -mbulk-memory -pthread"
 
 # ---------------------------------------------------------
 # LINKER FLAGS
@@ -38,7 +38,7 @@ COMPILE_FLAGS="-O2 -msimd128 -mrelaxed-simd -ffast-math -flto -flto=thin -fno-ex
 LINK_FLAGS="-O2 -std=c++17 -lembind -s USE_PTHREADS=1 -s PTHREAD_POOL_SIZE=4 -s WASM=1 -s WASM_BIGINT=0 \
 -s ALLOW_MEMORY_GROWTH=0 -s TOTAL_STACK=16MB -s INITIAL_MEMORY=512MB -s ASSERTIONS=1 -s EXPORT_ES6=1 -s EXPORTED_RUNTIME_METHODS=["wasmMemory"] \
 -s MODULARIZE=1 -s EXPORT_NAME='createCandyNative' -s ENVIRONMENT=web,worker \
--flto -flto=thin -fwasm-exceptions -s WASM_WORKERS=1 -matomics -mbulk-memory -fopenmp"
+-flto -flto=thin -fwasm-exceptions -s WASM_WORKERS=1 -matomics -mbulk-memory"
 
 EXPORTS="[ \
     '_hash', \
