@@ -35,10 +35,10 @@ COMPILE_FLAGS="-O2 -msimd128 -mrelaxed-simd -ffast-math -flto -flto=thin -fno-ex
 # FIX: Removed -s WASM_WORKERS=1 (Incompatible with OpenMP/Pthreads)
 # FIX: Reduced INITIAL_MEMORY to 64MB
 # FIX: Ensure -fopenmp is passed to linker to pull in libomp
-LINK_FLAGS="-O2 -std=c++17 -lembind -s USE_PTHREADS=1 -s PTHREAD_POOL_SIZE=4 -s WASM=1 -s WASM_BIGINT=0 \
+LINK_FLAGS="-O2 -std=c++17 -lembind -s USE_PTHREADS=1 -pthread -s PTHREAD_POOL_SIZE=4 -s WASM=1 -s WASM_BIGINT=1 \
 -s ALLOW_MEMORY_GROWTH=1 -s TOTAL_STACK=16MB -s INITIAL_MEMORY=64MB -s ASSERTIONS=1 -s EXPORT_ES6=1 -s EXPORTED_RUNTIME_METHODS=[\"wasmMemory\"] \
 -s MODULARIZE=1 -s EXPORT_NAME=createCandyNative -s ENVIRONMENT=web,worker \
--flto -flto=thin -fwasm-exceptions -matomics -mbulk-memory -fopenmp"
+-flto -flto=thin -fwasm-exceptions -matomics -mbulk-memory -fopenmp -o "$OUTPUT_JS""
 
 EXPORTS="[ \
     '_hash', \
