@@ -97,8 +97,8 @@ export function resolveGameCollisions(kickTrigger: f32): i32 {
         if (dist > 0.001) {
           const pushX = (dx / dist) * 0.2; // Push force
           const pushZ = (dz / dist) * 0.2;
-          px += pushX;
-          pz += pushZ;
+          px += <f32>pushX;
+          pz += <f32>pushZ;
           vx *= 0.5; // Dampen velocity
           vz *= 0.5;
           modified = true;
