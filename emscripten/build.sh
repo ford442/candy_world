@@ -15,44 +15,32 @@ CANDIDATES=(
     "$REPO_ROOT/emsdk/emsdk_env.sh"
     "$HOME/emsdk/emsdk_env.sh"
     "/usr/local/emsdk/emsdk_env.sh"
-    "/app/emsdk/emsdk_env.sh"
 )
-
-EMSDK_FOUND=0
 for f in "${CANDIDATES[@]}"; do
-    if [ -f "$f" ]; then
-        source "$f"
-        EMSDK_FOUND=1
-        break
-    fi
+    if [ -f "$f" ]; then source "$f"; break; fi
 done
-
-if [ $EMSDK_FOUND -eq 0 ]; then
-    echo "Error: emsdk_env.sh not found in any candidate location."
-    echo "Please ensure Emscripten SDK is installed and accessible."
-    exit 1
-fi
-
+source /content/build_space/emsdk/emsdk_env.sh
 OUTPUT_JS="$REPO_ROOT/public/candy_native.js"
 
 # ---------------------------------------------------------
 # COMPILER FLAGS
 # ---------------------------------------------------------
-# FIX: Removed -flto / -flto=thin to fix linker symbol stripping
-# FIX: Using -fopenmp (Standard flag)
+# FIX: Use -fopenmp-simd (SIMD only, no threading runtime required)
+# FIX: Removed -flto to prevent symbol stripping issues
 COMPILE_FLAGS="-O2 -msimd128 -mrelaxed-simd -ffast-math -fno-exceptions -fno-rtti -funroll-loops -mbulk-memory -fopenmp-simd -pthread"
 
 # ---------------------------------------------------------
 # LINKER FLAGS
 # ---------------------------------------------------------
-# FIX: Removed -flto / -flto=thin
-# FIX: Added -pthread to LINK_FLAGS (Critical for OpenMP linking & Shared Memory)
-# FIX: Reduced INITIAL_MEMORY to 64MB
+# FIX: Use -fopenmp-simd
+# FIX: Keep -pthread for SharedArrayBuffer (Audio support)
+# FIX: Removed -s WASM_WORKERS=1 (Incompatible with this mode)
 LINK_FLAGS="-O2 -std=c++17 -lembind -s USE_PTHREADS=1 -s PTHREAD_POOL_SIZE=4 -s WASM=1 -s WASM_BIGINT=0 \
 -s ALLOW_MEMORY_GROWTH=1 -s TOTAL_STACK=16MB -s INITIAL_MEMORY=64MB -s ASSERTIONS=1 -s EXPORT_ES6=1 -s EXPORTED_RUNTIME_METHODS=[\"wasmMemory\"] \
 -s MODULARIZE=1 -s EXPORT_NAME=createCandyNative -s ENVIRONMENT=web,worker \
 -fwasm-exceptions -matomics -mbulk-memory -fopenmp-simd -pthread"
 
+# FIX: Added ALL animation exports explicitly to prevent "missing Wasm export" errors
 EXPORTS="[ \
     '_hash', \
     '_valueNoise2D', \
@@ -65,9 +53,6 @@ EXPORTS="[ \
     '_batchDistances', \
     '_batchDistanceCull_c', \
     '_batchSinWave', \
-    '_calcArpeggioStep_c', \
-    '_getArpeggioTargetStep_c', \
-    '_getArpeggioUnfurlStep_c', \
     '_initPhysics', \
     '_addObstacle', \
     '_setPlayerState', \
@@ -85,15 +70,23 @@ EXPORTS="[ \
     '_resetBootstrap', \
     '_malloc', \
     '_free', \
-    '_main' \
+    '_main', \
+    '_calcArpeggioStep_c', '_getArpeggioTargetStep_c', '_getArpeggioUnfurlStep_c', \
+    '_calcSpeakerPulse', '_getSpeakerYOffset', '_getSpeakerScaleX', '_getSpeakerScaleY', '_getSpeakerScaleZ', \
+    '_calcAccordionStretch', '_getAccordionStretchY', '_getAccordionWidthXZ', \
+    '_calcFiberWhip', '_getFiberBaseRotY', '_getFiberBranchRotZ', \
+    '_calcHopY', \
+    '_calcShiver', '_getShiverRotX', '_getShiverRotZ', \
+    '_calcSpiralWave', '_getSpiralRotY', '_getSpiralYOffset', '_getSpiralScale', \
+    '_calcPrismRose', '_getPrismUnfurl', '_getPrismSpin', '_getPrismPulse', '_getPrismHue', \
+    '_calcFloatingParticle', '_getParticleX', '_getParticleY', '_getParticleZ' \
 ]"
 
 echo "Compiling & Linking..."
 
-# Clean old files (including temp object files if possible, though 'em++' handles most)
+# Clean old files
 rm -f "$OUTPUT_JS" "$REPO_ROOT/public/candy_native.wasm" "$REPO_ROOT/public/candy_native.worker.js" "penmp" "penmp.wasm"
 
-# Output flag (-o) at the end prevents ambiguity
 em++ "$SCRIPT_DIR"/*.cpp \
   $COMPILE_FLAGS \
   $LINK_FLAGS \
