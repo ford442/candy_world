@@ -27,7 +27,7 @@ OUTPUT_JS="$REPO_ROOT/public/candy_native.js"
 # ---------------------------------------------------------
 # FIX: Using -fopenmp (OpenMP requires Pthreads)
 # -O2: High optimization but safer than -O3
-COMPILE_FLAGS="-O2 -msimd128 -mrelaxed-simd -ffast-math -flto -flto=thin -fno-exceptions -fno-rtti -funroll-loops -mbulk-memory -fopenmp -pthread"
+COMPILE_FLAGS="-O2 -msimd128 -mrelaxed-simd -ffast-math -flto -flto=thin -fno-exceptions -fno-rtti -funroll-loops -mbulk-memory -openmp -pthread"
 
 # ---------------------------------------------------------
 # LINKER FLAGS
