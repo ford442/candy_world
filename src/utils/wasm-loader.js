@@ -8,6 +8,8 @@ import {
     isSharedMemoryAvailable 
 } from './wasm-orchestrator.js';
 
+import { checkWasmFileExists } from './wasm-utils.js';
+
 // FIX: Correct import for toast
 import { showToast } from './toast.js';
 
@@ -61,46 +63,23 @@ async function loadEmscriptenModule() {
     try {
         await updateProgress('Loading Native Engine...');
 
-        let createCandyNative;
-        let locatePrefix = '/candy-world';
-        let wasmPath = `${locatePrefix}/candy_native.wasm`;
-
-        // First, check if the WASM file exists
-        try {
-            const wasmCheck = await fetch(wasmPath, { method: 'HEAD' });
-            if (!wasmCheck.ok) {
-                throw new Error('WASM file not found at production path');
-            }
-        } catch (headError) {
-            // Try local path
-            locatePrefix = '';
-            wasmPath = './candy_native.wasm';
-            try {
-                const localWasmCheck = await fetch(wasmPath, { method: 'HEAD' });
-                if (!localWasmCheck.ok) {
-                    console.log('[WASM] candy_native.wasm not found. Using JS fallback.');
-                    return false;
-                }
-            } catch (localError) {
-                console.log('[WASM] candy_native.wasm not available. Using JS fallback.');
-                return false;
-            }
+        // Check if WASM file exists first
+        const wasmCheck = await checkWasmFileExists('candy_native.wasm');
+        if (!wasmCheck.exists) {
+            console.log('[WASM] candy_native.wasm not found. Using JS fallback.');
+            return false;
         }
+
+        const locatePrefix = wasmCheck.path;
+        let createCandyNative;
 
         // Try to load the JS loader
         try {
-            const module = await import(/* @vite-ignore */ `/candy-world/candy_native.js?v=${Date.now()}`);
+            const module = await import(/* @vite-ignore */ `${locatePrefix}/candy_native.js?v=${Date.now()}`);
             createCandyNative = module.default;
         } catch (e) {
-            console.log('[WASM] Production path failed, trying local fallback...');
-            try {
-                const module = await import(/* @vite-ignore */ `/candy_native.js?v=${Date.now()}`);
-                createCandyNative = module.default;
-                locatePrefix = '';
-            } catch (localError) {
-                console.log('[WASM] candy_native.js not found. Using JS fallback.');
-                return false;
-            }
+            console.log('[WASM] candy_native.js not found. Using JS fallback.');
+            return false;
         }
 
         await updateProgress('Spawning Physics Workers...');
