@@ -10,14 +10,14 @@
     </script>
     <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap" rel="stylesheet">
     <style>
-        /* ... (Keep existing styles) ... */
+        /* ... (Styles preserved) ... */
         #loading-overlay {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background: #ffecf5;
+            background: #ffecf5; 
             background-image: url('assets/splash.png');
             background-size: cover;
             background-position: center;
@@ -30,7 +30,6 @@
             transition: opacity 0.5s ease-out;
             font-family: 'Fredoka One', cursive, sans-serif;
         }
-        /* ... (Rest of CSS) ... */
         .loading-spinner {
             width: 60px;
             height: 60px;
@@ -344,7 +343,7 @@
         });
     </script>
 
-    <script src="js/libopenmpt.js"></script>
+    <script src="/js/libopenmpt.js"></script>
 </head>
 
 <body>
@@ -390,8 +389,8 @@
                 🌙 Switch to Night (N)
             </button>
 
-            <button id="toggleMuteBtn" class="toggle-button" aria-pressed="false" aria-keyshortcuts="M" aria-label="Mute Audio">
-                🔊 Mute (M)
+            <button id="toggleMuteBtn" class="toggle-button" aria-pressed="false" aria-label="Mute Audio">
+                🔊 Mute
             </button>
 
             <button id="openJukeboxBtn" class="toggle-button" aria-keyshortcuts="Q" aria-label="Open Jukebox playlist">
