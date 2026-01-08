@@ -1,13 +1,10 @@
 #include <emscripten.h>
 #include <cmath>
 #include <algorithm>
-// #include "omp.h"
 
 // =================================================================================
 // GLOBAL STATE FOR RESULTS
 // =================================================================================
-// We use global variables to store results, which are then retrieved by JS
-// via getter functions. This avoids complex struct passing across the WASM boundary.
 
 // Speaker Results
 float speakerYOffset = 0.0f;
@@ -76,11 +73,9 @@ float getSpeakerScaleZ() { return speakerScaleZ; }
 EMSCRIPTEN_KEEPALIVE
 void calcAccordionStretch(float animTime, float offset, float intensity) {
     float rawStretch = sin(animTime * 10.0f + offset);
-    // fmaxf is the float version of max
     float stretch = fmaxf(0.0f, rawStretch); 
     
     accordionStretchY = 1.0f + stretch * 0.3f * intensity;
-    // Volume preservation (approximate)
     accordionWidthXZ = 1.0f / sqrt(accordionStretchY);
 }
 
@@ -113,7 +108,7 @@ EMSCRIPTEN_KEEPALIVE
 float getFiberBranchRotZ() { return fiberBranchRotZ; }
 
 // =================================================================================
-// HOP (Returns float directly)
+// HOP
 // =================================================================================
 EMSCRIPTEN_KEEPALIVE
 float calcHopY(float time, float offset, float intensity, float kick) {
@@ -132,7 +127,6 @@ float calcHopY(float time, float offset, float intensity, float kick) {
 EMSCRIPTEN_KEEPALIVE
 void calcShiver(float time, float offset, float intensity) {
     float animTime = time + offset;
-    // High frequency vibration
     shiverRotX = sin(animTime * 20.0f) * 0.02f * intensity;
     shiverRotZ = cos(animTime * 20.0f) * 0.02f * intensity;
 }
@@ -172,7 +166,6 @@ void calcPrismRose(float time, float offset, float kick, float groove, int isAct
     prismSpin = animTime * 0.5f + groove * 2.0f;
     prismPulse = 1.0f + kick * 0.3f;
     
-    // Hue cycle (0.0 to 1.0)
     float hueRaw = animTime * 0.1f;
     prismHue = hueRaw - floor(hueRaw);
 }
@@ -205,30 +198,25 @@ EMSCRIPTEN_KEEPALIVE
 float getParticleZ() { return particleZ; }
 
 // =================================================================================
-// ARPEGGIO LOGIC (The Missing Functions)
+// ARPEGGIO LOGIC
 // =================================================================================
 EMSCRIPTEN_KEEPALIVE
 void calcArpeggioStep_c(float currentUnfurl, int currentTarget, int lastTrigger, int arpeggioActive, int noteTrigger, int maxSteps) {
     int nextTarget = currentTarget;
     
     if (arpeggioActive) {
-        // If note triggered this frame and wasn't triggered last frame
         if (noteTrigger && !lastTrigger) {
             nextTarget = nextTarget + 1;
             if (nextTarget > maxSteps) nextTarget = maxSteps;
         }
     } else {
-        // Reset if inactive
         nextTarget = 0;
     }
 
-    // Smooth interpolation (Lerp)
-    // Unfurl faster (0.3) when growing, slower (0.05) when shrinking
     float speed = (float(nextTarget) > currentUnfurl) ? 0.3f : 0.05f;
     float diff = float(nextTarget) - currentUnfurl;
     float nextUnfurl = currentUnfurl + diff * speed;
 
-    // Store in global state
     arpeggioTargetStep = nextTarget;
     arpeggioUnfurlStep = nextUnfurl;
 }
