@@ -8,6 +8,8 @@ import {
     isSharedMemoryAvailable 
 } from './wasm-orchestrator.js';
 
+import { checkWasmFileExists } from './wasm-utils.js';
+
 // FIX: Correct import for toast
 import { showToast } from './toast.js';
 
@@ -54,24 +56,30 @@ export const AnimationType = {
 
 async function loadEmscriptenModule() {
     if (typeof SharedArrayBuffer === 'undefined') {
-        console.error('[Native] SharedArrayBuffer is missing. Pthreads will NOT work.');
+        console.warn('[Native] SharedArrayBuffer is missing. Pthreads will NOT work. Using JS fallback.');
         return false;
     }
 
     try {
         await updateProgress('Loading Native Engine...');
 
-        let createCandyNative;
-        let locatePrefix = '/candy-world';
+        // Check if WASM file exists first
+        const wasmCheck = await checkWasmFileExists('candy_native.wasm');
+        if (!wasmCheck.exists) {
+            console.log('[WASM] candy_native.wasm not found. Using JS fallback.');
+            return false;
+        }
 
+        const locatePrefix = wasmCheck.path;
+        let createCandyNative;
+
+        // Try to load the JS loader
         try {
-            const module = await import(/* @vite-ignore */ `/candy-world/candy_native.js?v=${Date.now()}`);
+            const module = await import(/* @vite-ignore */ `${locatePrefix}/candy_native.js?v=${Date.now()}`);
             createCandyNative = module.default;
         } catch (e) {
-            console.log('[WASM] Production path failed, trying local fallback...');
-            const module = await import(/* @vite-ignore */ `/candy_native.js?v=${Date.now()}`);
-            createCandyNative = module.default;
-            locatePrefix = '';
+            console.log('[WASM] candy_native.js not found. Using JS fallback.');
+            return false;
         }
 
         await updateProgress('Spawning Physics Workers...');
@@ -96,7 +104,7 @@ async function loadEmscriptenModule() {
 
         return true;
     } catch (e) {
-        console.warn('Failed to load Native Emscripten module:', e);
+        console.warn('[WASM] Native module unavailable, using JS fallback:', e);
         return false;
     }
 }
