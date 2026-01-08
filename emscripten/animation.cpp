@@ -1,7 +1,7 @@
 #include <emscripten.h>
 #include <cmath>
 #include <algorithm>
-#include "omp.h"
+// #include "omp.h"
 
 // =================================================================================
 // GLOBAL STATE FOR RESULTS
