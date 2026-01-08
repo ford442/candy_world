@@ -5,6 +5,7 @@
 // =================================================================================
 // GLOBAL STATE FOR RESULTS
 // =================================================================================
+// We use global variables to store results to avoid complex struct passing.
 
 // Speaker Results
 float speakerYOffset = 0.0f;
@@ -41,8 +42,7 @@ float particleY = 0.0f;
 float particleZ = 0.0f;
 
 // Arpeggio Results
-int arpeggioTargetStep = 0;
-float arpeggioUnfurlStep = 0.0f;
+float arpeggioResult[2]; // [targetStep, unfurlStep]
 
 extern "C" {
 
@@ -108,7 +108,7 @@ EMSCRIPTEN_KEEPALIVE
 float getFiberBranchRotZ() { return fiberBranchRotZ; }
 
 // =================================================================================
-// HOP
+// HOP (Returns float directly)
 // =================================================================================
 EMSCRIPTEN_KEEPALIVE
 float calcHopY(float time, float offset, float intensity, float kick) {
@@ -201,34 +201,34 @@ float getParticleZ() { return particleZ; }
 // ARPEGGIO LOGIC
 // =================================================================================
 EMSCRIPTEN_KEEPALIVE
-void calcArpeggioStep_c(float currentUnfurl, int currentTarget, int lastTrigger, int arpeggioActive, int noteTrigger, int maxSteps) {
-    int nextTarget = currentTarget;
-    
-    if (arpeggioActive) {
-        if (noteTrigger && !lastTrigger) {
-            nextTarget = nextTarget + 1;
+void calcArpeggioStep_c(float currentUnfurl, float currentTarget, int lastTrigger, int arpeggioActive, int noteTrigger, float maxSteps) {
+    float nextTarget = currentTarget;
+
+    if (arpeggioActive != 0) {
+        if (noteTrigger != 0 && lastTrigger == 0) {
+            nextTarget += 1.0f;
             if (nextTarget > maxSteps) nextTarget = maxSteps;
         }
     } else {
-        nextTarget = 0;
+        nextTarget = 0.0f;
     }
 
-    float speed = (float(nextTarget) > currentUnfurl) ? 0.3f : 0.05f;
-    float diff = float(nextTarget) - currentUnfurl;
-    float nextUnfurl = currentUnfurl + diff * speed;
+    float speed = (nextTarget > currentUnfurl) ? 0.3f : 0.05f;
+    float diff = nextTarget - currentUnfurl;
+    float nextUnfurl = currentUnfurl + (diff * speed);
 
-    arpeggioTargetStep = nextTarget;
-    arpeggioUnfurlStep = nextUnfurl;
+    arpeggioResult[0] = nextTarget;
+    arpeggioResult[1] = nextUnfurl;
 }
 
 EMSCRIPTEN_KEEPALIVE
-int getArpeggioTargetStep_c() {
-    return arpeggioTargetStep;
+float getArpeggioTargetStep_c() {
+    return arpeggioResult[0];
 }
 
 EMSCRIPTEN_KEEPALIVE
 float getArpeggioUnfurlStep_c() {
-    return arpeggioUnfurlStep;
+    return arpeggioResult[1];
 }
 
 } // extern "C"
