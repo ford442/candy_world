@@ -16,6 +16,7 @@ let wasmMemory = null;
 let positionView = null;   // Float32Array for object positions
 let animationView = null;  // Float32Array for animation data
 let outputView = null;     // Float32Array for reading results
+let playerStateView = null; // Float32Array for player physics state
 
 // Cached WASM function references
 let wasmGetGroundHeight = null;
@@ -23,6 +24,11 @@ let wasmFreqToHue = null;
 let wasmLerp = null;
 let wasmBatchMushroomSpawnCandidates = null;
 let wasmUpdateFoliageBatch = null;
+
+// New Physics exports
+let wasmInitCollisionSystem = null;
+let wasmAddCollisionObject = null;
+let wasmResolveGameCollisions = null;
 
 // Emscripten module (native C functions)
 let emscriptenInstance = null;
@@ -32,6 +38,7 @@ let emscriptenMemory = null;
 const POSITION_OFFSET = 0;
 const ANIMATION_OFFSET = 4096;
 const OUTPUT_OFFSET = 8192;
+const PLAYER_STATE_OFFSET = 16384;
 
 // Animation type constants
 export const AnimationType = {
@@ -166,12 +173,9 @@ export async function initWasm() {
             // Robust clock_time_get handling BigInt mixing
             clock_time_get: (id, precision, outPtr) => {
                 const now = BigInt(Date.now()) * 1000000n;
-                // Check if we have memory to write to (Emscripten vs AssemblyScript)
-                // For AssemblyScript (which this loader primarily targets), memory is usually flat
                 if (wasmMemory) {
                     const idx = typeof outPtr === 'bigint' ? Number(outPtr) : outPtr;
                     const view = new BigInt64Array(wasmMemory.buffer);
-                    // Bounds check
                     if (idx >= 0 && (idx >> 3) < view.length) {
                         view[idx >> 3] = now;
                     }
@@ -190,7 +194,6 @@ export async function initWasm() {
                     console.error(`WASM abort at ${file}:${line}:${col}: ${msg}`);
                 },
                 seed: () => Date.now() * Math.random(),
-                // Add 'now' if expected by AS
                 now: () => Date.now() 
             },
             wasi_snapshot_preview1: wasiStubs
@@ -219,6 +222,7 @@ export async function initWasm() {
             positionView = new Float32Array(memBuffer, POSITION_OFFSET, 1024);
             animationView = new Float32Array(memBuffer, ANIMATION_OFFSET, 1024);
             outputView = new Float32Array(memBuffer, OUTPUT_OFFSET, 1024);
+            playerStateView = new Float32Array(memBuffer, PLAYER_STATE_OFFSET, 8);
         }
 
         // Cache references
@@ -227,6 +231,11 @@ export async function initWasm() {
         wasmLerp = wasmInstance.exports.lerp;
         wasmBatchMushroomSpawnCandidates = wasmInstance.exports.batchMushroomSpawnCandidates || null;
         wasmUpdateFoliageBatch = wasmInstance.exports.updateFoliageBatch || null;
+
+        // Physics collision
+        wasmInitCollisionSystem = wasmInstance.exports.initCollisionSystem || null;
+        wasmAddCollisionObject = wasmInstance.exports.addCollisionObject || null;
+        wasmResolveGameCollisions = wasmInstance.exports.resolveGameCollisions || null;
 
         await loadEmscriptenModule();
 
@@ -243,7 +252,6 @@ export async function initWasm() {
         return true;
     } catch (error) {
         console.warn('Failed to load WASM:', error);
-        // FIX: Use showToast safely
         showToast("Physics Engine Failed to Load", "❌");
         if (startButton) startButton.disabled = false;
         return false;
@@ -279,6 +287,7 @@ export async function initWasmParallel(options = {}) {
                 positionView = new Float32Array(memBuffer, POSITION_OFFSET, 1024);
                 animationView = new Float32Array(memBuffer, ANIMATION_OFFSET, 1024);
                 outputView = new Float32Array(memBuffer, OUTPUT_OFFSET, 1024);
+                playerStateView = new Float32Array(memBuffer, PLAYER_STATE_OFFSET, 8);
             }
 
             wasmGetGroundHeight = wasmInstance.exports.getGroundHeight;
@@ -286,6 +295,10 @@ export async function initWasmParallel(options = {}) {
             wasmLerp = wasmInstance.exports.lerp;
             wasmBatchMushroomSpawnCandidates = wasmInstance.exports.batchMushroomSpawnCandidates || null;
             wasmUpdateFoliageBatch = wasmInstance.exports.updateFoliageBatch || null;
+
+            wasmInitCollisionSystem = wasmInstance.exports.initCollisionSystem || null;
+            wasmAddCollisionObject = wasmInstance.exports.addCollisionObject || null;
+            wasmResolveGameCollisions = wasmInstance.exports.resolveGameCollisions || null;
         }
 
         if (result.emcc) {
@@ -314,6 +327,85 @@ export async function initWasmParallel(options = {}) {
 export function isWasmReady() { return wasmInstance !== null; }
 export function isEmscriptenReady() { return emscriptenInstance !== null; }
 export function getWasmInstance() { return wasmInstance; }
+
+// =============================================================================
+// COLLISION WRAPPERS
+// =============================================================================
+
+export function uploadCollisionObjects(caves, mushrooms, clouds, trampolines) {
+    if (!wasmInitCollisionSystem || !wasmAddCollisionObject) return false;
+
+    wasmInitCollisionSystem();
+
+    // TYPE_MUSHROOM = 1, TYPE_CLOUD = 2, TYPE_GATE = 3, TYPE_TRAMPOLINE = 4
+
+    // 1. Gates
+    if (caves) {
+        caves.forEach(cave => {
+            if (cave.userData.isBlocked) {
+                const gatePos = cave.userData.gatePosition.clone().applyMatrix4(cave.matrixWorld);
+                wasmAddCollisionObject(3, gatePos.x, gatePos.y, gatePos.z, 2.5, 5.0, 0, 0); // Radius 2.5
+            }
+        });
+    }
+
+    // 2. Mushrooms
+    if (mushrooms) {
+        mushrooms.forEach(m => {
+            if (m.userData.isTrampoline) {
+                 wasmAddCollisionObject(4, m.position.x, m.position.y, m.position.z,
+                    m.userData.capRadius || 2.0, m.userData.capHeight || 3.0, 0, 0);
+            } else {
+                 wasmAddCollisionObject(1, m.position.x, m.position.y, m.position.z,
+                    m.userData.capRadius || 2.0, m.userData.capHeight || 3.0, 0, 0);
+            }
+        });
+    }
+
+    // 3. Clouds
+    if (clouds) {
+        clouds.forEach(c => {
+             // Cloud Tier 1 only
+             if (c.userData.tier === 1) {
+                 wasmAddCollisionObject(2, c.position.x, c.position.y, c.position.z,
+                    c.scale.x || 1.0, c.scale.y || 1.0, 0, 0);
+             }
+        });
+    }
+
+    console.log('[WASM] Uploaded collision objects to ASC.');
+    return true;
+}
+
+export function resolveGameCollisionsWASM(player, kickTrigger) {
+    if (!wasmResolveGameCollisions || !playerStateView) return false;
+
+    // Write State
+    playerStateView[0] = player.position.x;
+    playerStateView[1] = player.position.y;
+    playerStateView[2] = player.position.z;
+    playerStateView[3] = player.velocity.x;
+    playerStateView[4] = player.velocity.y;
+    playerStateView[5] = player.velocity.z;
+    playerStateView[6] = player.isGrounded ? 1.0 : 0.0;
+
+    const result = wasmResolveGameCollisions(kickTrigger);
+
+    if (result === 1) {
+        // Read Back
+        player.position.x = playerStateView[0];
+        player.position.y = playerStateView[1];
+        player.position.z = playerStateView[2];
+        player.velocity.x = playerStateView[3];
+        player.velocity.y = playerStateView[4];
+        player.velocity.z = playerStateView[5];
+        player.isGrounded = playerStateView[6] > 0.5;
+        return true;
+    }
+    return false;
+}
+
+// ... Rest of the file unchanged ... (I will re-add the math helpers below)
 
 // =============================================================================
 // SIMPLE MATH FUNCTIONS
