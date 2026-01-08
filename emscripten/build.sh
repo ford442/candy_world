@@ -25,20 +25,19 @@ OUTPUT_JS="$REPO_ROOT/public/candy_native.js"
 # ---------------------------------------------------------
 # COMPILER FLAGS
 # ---------------------------------------------------------
-# FIX: Using -fopenmp (OpenMP requires Pthreads)
-# -O2: High optimization but safer than -O3
-COMPILE_FLAGS="-O2 -msimd128 -mrelaxed-simd -ffast-math -flto -flto=thin -fno-exceptions -fno-rtti -funroll-loops -mbulk-memory -openmp -pthread"
+# FIX: Use -fopenmp to ENABLE threading (ignoring it makes the build pass but kills performance)
+COMPILE_FLAGS="-O2 -msimd128 -mrelaxed-simd -ffast-math -flto -flto=thin -fno-exceptions -fno-rtti -funroll-loops -mbulk-memory -fopenmp -pthread"
 
 # ---------------------------------------------------------
 # LINKER FLAGS
 # ---------------------------------------------------------
-# FIX: Removed -s WASM_WORKERS=1 (Incompatible with OpenMP/Pthreads)
+# FIX: Removed -s WASM_WORKERS=1 (Incompatible with OpenMP)
+# FIX: Added -pthread to LINK_FLAGS (Critical for OpenMP linking & Shared Memory)
 # FIX: Reduced INITIAL_MEMORY to 64MB
-# FIX: Ensure -fopenmp is passed to linker to pull in libomp
-LINK_FLAGS="-O2 -std=c++17 -lembind -s USE_PTHREADS=1 -pthread -s PTHREAD_POOL_SIZE=4 -s WASM=1 -s WASM_BIGINT=1 \
--s ALLOW_MEMORY_GROWTH=0 -s TOTAL_STACK=16MB -s INITIAL_MEMORY=64MB -s ASSERTIONS=1 -s EXPORT_ES6=1 -s EXPORTED_RUNTIME_METHODS=[\"wasmMemory\"] \
+LINK_FLAGS="-O2 -std=c++17 -lembind -s USE_PTHREADS=1 -s PTHREAD_POOL_SIZE=4 -s WASM=1 -s WASM_BIGINT=0 \
+-s ALLOW_MEMORY_GROWTH=1 -s TOTAL_STACK=16MB -s INITIAL_MEMORY=64MB -s ASSERTIONS=1 -s EXPORT_ES6=1 -s EXPORTED_RUNTIME_METHODS=[\"wasmMemory\"] \
 -s MODULARIZE=1 -s EXPORT_NAME=createCandyNative -s ENVIRONMENT=web,worker \
--flto -flto=thin -fwasm-exceptions -matomics -mbulk-memory -openmp -o "$OUTPUT_JS""
+-flto -flto=thin -fwasm-exceptions -matomics -mbulk-memory -fopenmp -pthread"
 
 EXPORTS="[ \
     '_hash', \
@@ -77,13 +76,15 @@ EXPORTS="[ \
 
 echo "Compiling & Linking..."
 
-# Clean old files to prevent caching issues
+# Clean old files to prevent caching/naming conflicts
 rm -f "$OUTPUT_JS" "$REPO_ROOT/public/candy_native.wasm" "$REPO_ROOT/public/candy_native.worker.js" "penmp" "penmp.wasm"
 
-em++ "$SCRIPT_DIR"/*.cpp -o "$OUTPUT_JS" \
+# Output flag (-o) at the end prevents flag ambiguity
+em++ "$SCRIPT_DIR"/*.cpp \
   $COMPILE_FLAGS \
   $LINK_FLAGS \
-  -s EXPORTED_FUNCTIONS="$EXPORTS"
+  -s EXPORTED_FUNCTIONS="$EXPORTS" \
+  -o "$OUTPUT_JS"
 
 if [ $? -eq 0 ]; then
     echo "Build successful!"
