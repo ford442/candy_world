@@ -40,47 +40,8 @@ LINK_FLAGS="-O2 -std=c++17 -lembind -s USE_PTHREADS=1 -s PTHREAD_POOL_SIZE=4 -s 
 -s MODULARIZE=1 -s EXPORT_NAME=createCandyNative -s ENVIRONMENT=web,worker \
 -fwasm-exceptions -matomics -mbulk-memory -fopenmp-simd -pthread"
 
-# FIX: Added ALL animation exports explicitly to prevent "missing Wasm export" errors
-EXPORTS="[ \
-    '_hash', \
-    '_valueNoise2D', \
-    '_fbm', \
-    '_fastInvSqrt', \
-    '_fastDistance', \
-    '_smoothDamp', \
-    '_updateParticles', \
-    '_checkCollision', \
-    '_batchDistances', \
-    '_batchDistanceCull_c', \
-    '_batchSinWave', \
-    '_initPhysics', \
-    '_addObstacle', \
-    '_setPlayerState', \
-    '_getPlayerX', \
-    '_getPlayerY', \
-    '_getPlayerZ', \
-    '_getPlayerVX', \
-    '_getPlayerVY', \
-    '_getPlayerVZ', \
-    '_updatePhysicsCPP', \
-    '_startBootstrapInit', \
-    '_getBootstrapProgress', \
-    '_isBootstrapComplete', \
-    '_getBootstrapHeight', \
-    '_resetBootstrap', \
-    '_malloc', \
-    '_free', \
-    '_main', \
-    '_calcArpeggioStep_c', '_getArpeggioTargetStep_c', '_getArpeggioUnfurlStep_c', \
-    '_calcSpeakerPulse', '_getSpeakerYOffset', '_getSpeakerScaleX', '_getSpeakerScaleY', '_getSpeakerScaleZ', \
-    '_calcAccordionStretch', '_getAccordionStretchY', '_getAccordionWidthXZ', \
-    '_calcFiberWhip', '_getFiberBaseRotY', '_getFiberBranchRotZ', \
-    '_calcHopY', \
-    '_calcShiver', '_getShiverRotX', '_getShiverRotZ', \
-    '_calcSpiralWave', '_getSpiralRotY', '_getSpiralYOffset', '_getSpiralScale', \
-    '_calcPrismRose', '_getPrismUnfurl', '_getPrismSpin', '_getPrismPulse', '_getPrismHue', \
-    '_calcFloatingParticle', '_getParticleX', '_getParticleY', '_getParticleZ' \
-]"
+# FIX: Flatted EXPORTS string to ensure no functions are lost due to shell formatting
+EXPORTS="['_hash','_valueNoise2D','_fbm','_fastInvSqrt','_fastDistance','_smoothDamp','_updateParticles','_checkCollision','_batchDistances','_batchDistanceCull_c','_batchSinWave','_initPhysics','_addObstacle','_setPlayerState','_getPlayerX','_getPlayerY','_getPlayerZ','_getPlayerVX','_getPlayerVY','_getPlayerVZ','_updatePhysicsCPP','_startBootstrapInit','_getBootstrapProgress','_isBootstrapComplete','_getBootstrapHeight','_resetBootstrap','_malloc','_free','_main','_calcArpeggioStep_c','_getArpeggioTargetStep_c','_getArpeggioUnfurlStep_c','_calcSpeakerPulse','_getSpeakerYOffset','_getSpeakerScaleX','_getSpeakerScaleY','_getSpeakerScaleZ','_calcAccordionStretch','_getAccordionStretchY','_getAccordionWidthXZ','_calcFiberWhip','_getFiberBaseRotY','_getFiberBranchRotZ','_calcHopY','_calcShiver','_getShiverRotX','_getShiverRotZ','_calcSpiralWave','_getSpiralRotY','_getSpiralYOffset','_getSpiralScale','_calcPrismRose','_getPrismUnfurl','_getPrismSpin','_getPrismPulse','_getPrismHue','_calcFloatingParticle','_getParticleX','_getParticleY','_getParticleZ']"
 
 echo "Compiling & Linking..."
 
