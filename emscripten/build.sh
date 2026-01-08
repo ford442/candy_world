@@ -29,8 +29,9 @@ for f in "${CANDIDATES[@]}"; do
 done
 
 if [ $EMSDK_FOUND -eq 0 ]; then
-    echo "Error: emsdk_env.sh not found in any standard location."
-    exit 1
+    echo "Warning: emsdk_env.sh not found in any standard location."
+    echo "Skipping Emscripten build. JavaScript fallbacks will be used."
+    exit 0
 fi
 
 OUTPUT_JS="$REPO_ROOT/public/candy_native.js"
