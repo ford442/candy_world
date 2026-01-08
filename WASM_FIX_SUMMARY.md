@@ -93,9 +93,17 @@ These fallbacks ensure the application works correctly even without the optimize
 ## Files Modified
 
 1. `emscripten/build.sh` - Made emcc optional
-2. `src/utils/wasm-loader.js` - Added file existence checks and better error handling
-3. `src/utils/wasm-orchestrator.js` - Added file existence checks and better error handling
-4. `tools/optimize.sh` - Made optimization tools optional
+2. `src/utils/wasm-loader.js` - Use shared utility for file existence checks
+3. `src/utils/wasm-orchestrator.js` - Use shared utility for file existence checks
+4. `src/utils/wasm-utils.js` - **NEW**: Shared utility for WASM file checking
+5. `tools/optimize.sh` - Made optimization tools optional with clean error handling
+
+## Code Quality Improvements
+
+- **Eliminated code duplication**: Extracted common file checking logic into reusable utility
+- **Improved maintainability**: Hardcoded paths extracted as constants
+- **Clean error handling**: Simplified approach using `|| true` for optional operations
+- **Better separation of concerns**: Utility functions isolated in dedicated module
 
 ## Testing
 
