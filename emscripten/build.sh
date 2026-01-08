@@ -1,7 +1,6 @@
 #!/bin/bash
 # Build script for Candy World Emscripten WASM module
 # Optimized for: Multithreading (Pthreads) + SIMD + Reliability
-# FIX: Downgraded to -O2 and disabled minification to prevent "Import #0 'a'" errors
 
 set -euo pipefail
 
@@ -20,25 +19,26 @@ CANDIDATES=(
 for f in "${CANDIDATES[@]}"; do
     if [ -f "$f" ]; then source "$f"; break; fi
 done
-# source /content/build_space/emsdk/emsdk_env.sh
+source /content/build_space/emsdk/emsdk_env.sh
 OUTPUT_JS="$REPO_ROOT/public/candy_native.js"
 
 # ---------------------------------------------------------
 # COMPILER FLAGS
 # ---------------------------------------------------------
-# -O2: High optimization but safer than -O3 (avoids aggressive renaming)
-# -g0: Debug info disabled (keeps size down)
-COMPILE_FLAGS="-O2 -msimd128 -mrelaxed-simd -ffast-math -flto -flto=thin -fno-exceptions -fno-rtti -funroll-loops -mbulk-memory -openmp -pthread"
+# FIX: Using -fopenmp (OpenMP requires Pthreads)
+# -O2: High optimization but safer than -O3
+COMPILE_FLAGS="-O2 -msimd128 -mrelaxed-simd -ffast-math -flto -flto=thin -fno-exceptions -fno-rtti -funroll-loops -mbulk-memory -fopenmp -pthread"
 
 # ---------------------------------------------------------
 # LINKER FLAGS
 # ---------------------------------------------------------
-# -s MINIFY_WASM_IMPORTS_AND_EXPORTS=0: CRITICAL FIX. Prevents renaming 'env' to 'a'
-# -s SHRINK_LEVEL=0: Disables aggressive shrinking
+# FIX: Removed -s WASM_WORKERS=1 (Incompatible with OpenMP/Pthreads)
+# FIX: Reduced INITIAL_MEMORY to 64MB
+# FIX: Ensure -fopenmp is passed to linker to pull in libomp
 LINK_FLAGS="-O2 -std=c++17 -lembind -s USE_PTHREADS=1 -s PTHREAD_POOL_SIZE=4 -s WASM=1 -s WASM_BIGINT=0 \
--s ALLOW_MEMORY_GROWTH=0 -s TOTAL_STACK=16MB -s INITIAL_MEMORY=512MB -s ASSERTIONS=1 -s EXPORT_ES6=1 -s EXPORTED_RUNTIME_METHODS=["wasmMemory"] \
--s MODULARIZE=1 -s EXPORT_NAME='createCandyNative' -s ENVIRONMENT=web,worker \
--flto -flto=thin -fwasm-exceptions -s WASM_WORKERS=1 -matomics -mbulk-memory -fopenmp"
+-s ALLOW_MEMORY_GROWTH=1 -s TOTAL_STACK=16MB -s INITIAL_MEMORY=64MB -s ASSERTIONS=1 -s EXPORT_ES6=1 -s EXPORTED_RUNTIME_METHODS=[\"wasmMemory\"] \
+-s MODULARIZE=1 -s EXPORT_NAME=createCandyNative -s ENVIRONMENT=web,worker \
+-flto -flto=thin -fwasm-exceptions -matomics -mbulk-memory -fopenmp"
 
 EXPORTS="[ \
     '_hash', \
@@ -77,8 +77,8 @@ EXPORTS="[ \
 
 echo "Compiling & Linking..."
 
-# Clean old files to force full rebuild (prevents caching issues)
-rm -f "$OUTPUT_JS" "$REPO_ROOT/public/candy_native.wasm" "$REPO_ROOT/public/candy_native.worker.js"
+# Clean old files to prevent caching issues
+rm -f "$OUTPUT_JS" "$REPO_ROOT/public/candy_native.wasm" "$REPO_ROOT/public/candy_native.worker.js" "penmp" "penmp.wasm"
 
 em++ "$SCRIPT_DIR"/*.cpp -o "$OUTPUT_JS" \
   $COMPILE_FLAGS \
