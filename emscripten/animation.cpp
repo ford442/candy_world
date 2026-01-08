@@ -5,7 +5,6 @@
 // =================================================================================
 // GLOBAL STATE FOR RESULTS
 // =================================================================================
-// We use global variables to store results to avoid complex struct passing.
 
 // Speaker Results
 float speakerYOffset = 0.0f;
@@ -108,7 +107,7 @@ EMSCRIPTEN_KEEPALIVE
 float getFiberBranchRotZ() { return fiberBranchRotZ; }
 
 // =================================================================================
-// HOP (Returns float directly)
+// HOP
 // =================================================================================
 EMSCRIPTEN_KEEPALIVE
 float calcHopY(float time, float offset, float intensity, float kick) {
