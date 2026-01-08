@@ -50,7 +50,7 @@ COMPILE_FLAGS="-O2 -msimd128 -mrelaxed-simd -ffast-math -fno-exceptions -fno-rtt
 # FIX: Keep -pthread for SharedArrayBuffer (Audio support)
 # FIX: Removed -s WASM_WORKERS=1 (Incompatible with this mode)
 # FIX: Removed LTO to ensure exports persist
-LINK_FLAGS="-O2 -std=c++17 -lembind -s USE_PTHREADS=1 -s PTHREAD_POOL_SIZE=4 -s WASM=1 -s WASM_BIGINT=1 \
+LINK_FLAGS="-O2 -std=c++17 -lembind -s USE_PTHREADS=1 -s PTHREAD_POOL_SIZE=4 -s WASM=1 -s WASM_BIGINT=0 \
 -s ALLOW_MEMORY_GROWTH=1 -s TOTAL_STACK=16MB -s INITIAL_MEMORY=64MB -s ASSERTIONS=1 -s EXPORT_ES6=1 -s EXPORTED_RUNTIME_METHODS=[\"wasmMemory\"] \
 -s MODULARIZE=1 -s EXPORT_NAME=createCandyNative -s ENVIRONMENT=web,worker \
 -fwasm-exceptions -matomics -mbulk-memory -sWASM_WORKERS=1 -fopenmp-simd"
