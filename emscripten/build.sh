@@ -11,15 +11,28 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 # Source Emscripten
 CANDIDATES=(
+    "/app/emsdk/emsdk_env.sh"
     "/content/build_space/emsdk/emsdk_env.sh"
     "$REPO_ROOT/emsdk/emsdk_env.sh"
     "$HOME/emsdk/emsdk_env.sh"
     "/usr/local/emsdk/emsdk_env.sh"
 )
+
+EMSDK_FOUND=0
 for f in "${CANDIDATES[@]}"; do
-    if [ -f "$f" ]; then source "$f"; break; fi
+    if [ -f "$f" ]; then
+        echo "Sourcing EMSDK from: $f"
+        source "$f"
+        EMSDK_FOUND=1
+        break
+    fi
 done
-source /content/build_space/emsdk/emsdk_env.sh
+
+if [ $EMSDK_FOUND -eq 0 ]; then
+    echo "Error: emsdk_env.sh not found in any standard location."
+    exit 1
+fi
+
 OUTPUT_JS="$REPO_ROOT/public/candy_native.js"
 
 # ---------------------------------------------------------
