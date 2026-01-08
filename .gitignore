@@ -12,7 +12,8 @@ package-lock.json
 # OS files
 .DS_Store
 Thumbs.db
-
+public/candy_native*
+public/candy_physics*
 # IDE
 .vscode/
 .idea/
