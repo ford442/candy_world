@@ -1,4 +1,6 @@
 // src/systems/weather.js
+// Orchestrator file - delegates hot paths to weather.core.ts (TypeScript)
+// Following PERFORMANCE_MIGRATION_STRATEGY.md - Keep JS as "Drafting Ground"
 
 import * as THREE from 'three';
 import { getGroundHeight, uploadPositions, uploadAnimationData, uploadMushroomSpecs, batchMushroomSpawnCandidates, readSpawnCandidates, isWasmReady } from '../utils/wasm-loader.js';
@@ -13,6 +15,15 @@ import { LegacyParticleSystem } from './adapters/LegacyParticleSystem.js';
 import { WasmParticleSystem } from './adapters/WasmParticleSystem.js';
 import { foliageClouds } from '../world/state.js';
 import { replaceMushroomWithGiant } from '../foliage/mushrooms.js';
+// Import TypeScript core functions (Phase 1 Migration)
+import {
+    calculateGlobalLightLevel,
+    calculateFavorability,
+    calculateMushroomGrowthRate,
+    calculateWeatherStateTransition,
+    calculateGroundWaterLevel,
+    calculateRainbowOpacity
+} from './weather.core.js';
 
 // Weather states
 export const WeatherState = {
