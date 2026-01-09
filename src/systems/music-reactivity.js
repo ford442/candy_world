@@ -1,11 +1,22 @@
 // Music Reactivity System
+// Orchestrator file - delegates hot paths to music-reactivity.core.ts (TypeScript)
 // Handles Note -> Color mapping and note event routing
 // Now manages the main loop iteration for foliage animation and photosensitivity
+// Following PERFORMANCE_MIGRATION_STRATEGY.md - Keep JS as "Drafting Ground"
 
 import { CONFIG } from '../core/config.js';
 import * as THREE from 'three';
 import { animateFoliage, triggerMoonBlink } from '../foliage/index.js';
 import { foliageBatcher } from '../foliage/foliage-batcher.js';
+// Import TypeScript core functions (Phase 1 Migration)
+import {
+    calculateLightFactor,
+    calculateChannelIndex,
+    getNoteColorTyped,
+    calculateSplitIndex,
+    shouldCheckTimeBudget,
+    calculateNextStartIndex
+} from './music-reactivity.core.js';
 
 // Reusable frustum for culling (prevent GC)
 const _frustum = new THREE.Frustum();
@@ -16,53 +27,9 @@ const CHROMATIC_SCALE = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', '
 const _speciesMapCache = {};
 const _noteNameCache = {};
 
+// MIGRATED: Now uses TypeScript version from music-reactivity.core.ts
 export function getNoteColor(note, species = 'global') {
-    let noteName = '';
-
-    // Resolve Note Name
-    if (typeof note === 'number') {
-        const index = note % 12;
-        noteName = CHROMATIC_SCALE[index];
-    } else if (typeof note === 'string') {
-        // Handle "C4", "F#3" etc.
-        if (_noteNameCache[note]) {
-            noteName = _noteNameCache[note];
-        } else {
-            noteName = note.replace(/[0-9-]/g, '');
-            // Limit cache size to prevent memory leak with arbitrary strings
-            if (Object.keys(_noteNameCache).length < 200) {
-                _noteNameCache[note] = noteName;
-            }
-        }
-    }
-
-    // Lookup
-    let map = CONFIG.noteColorMap[species];
-
-    if (!map) {
-        // Optimization: Cache resolved map to avoid repetitive string includes checks
-        if (_speciesMapCache[species]) {
-            map = _speciesMapCache[species];
-        } else {
-            // If the species key isn't exact, try some heuristics to map similar types to a known species palette
-            const s = (species || '').toLowerCase();
-            if (s.includes('flower') || s.includes('tulip') || s.includes('violet') || s.includes('rose') || s.includes('bloom') || s.includes('lotus') || s.includes('puff') ) {
-                map = CONFIG.noteColorMap['flower'];
-            } else if (s.includes('mushroom') || s.includes('mush')) {
-                map = CONFIG.noteColorMap['mushroom'];
-            } else if (s.includes('tree') || s.includes('willow') || s.includes('palm') || s.includes('bush')) {
-                map = CONFIG.noteColorMap['tree'];
-            } else if (s.includes('cloud') || s.includes('orb') || s.includes('geyser') || s.includes('moon')) {
-                map = CONFIG.noteColorMap['cloud'] || CONFIG.noteColorMap['global'];
-            } else {
-                map = CONFIG.noteColorMap['global'];
-            }
-            _speciesMapCache[species] = map;
-        }
-    }
-
-    // Return color or fallback to White
-    return map[noteName] || 0xFFFFFF;
+    return getNoteColorTyped(note, species, CONFIG.noteColorMap);
 }
 
 export class MusicReactivitySystem {
@@ -191,7 +158,8 @@ export class MusicReactivitySystem {
         // Audio Channel Info (Pre-calc for loop)
         const channels = (audioState && audioState.channelData) ? audioState.channelData : null;
         const totalChannels = channels ? channels.length : 0;
-        const splitIndex = Math.ceil(totalChannels / 2);
+        // MIGRATED: Uses TypeScript helper from music-reactivity.core.ts
+        const splitIndex = calculateSplitIndex(totalChannels);
 
         // Staggered updates: Process objects in a round-robin fashion
         // This prevents hitches when many objects come into view at once
@@ -233,8 +201,9 @@ export class MusicReactivitySystem {
             }
 
             // Check time budget (throttled to avoid expensive performance.now() calls every iteration)
-            const shouldCheckBudget = (processedCount % budgetCheckInterval === 0);
-            if (shouldCheckBudget) {
+            // MIGRATED: Uses TypeScript helper from music-reactivity.core.ts
+            const shouldCheck = shouldCheckTimeBudget(processedCount, budgetCheckInterval);
+            if (shouldCheck) {
                 const hasPerformance = (typeof performance !== 'undefined');
                 if (hasPerformance && (performance.now() - frameStartTime > maxFoliageUpdateTime)) {
                     break; 
@@ -262,42 +231,13 @@ export class MusicReactivitySystem {
             // B) Music Reactivity (Photosensitive + Channel Mapped)
             if (channels) {
                 // 1. Check Photosensitivity (Feature Branch Logic)
-                const min = f.userData.minLight !== undefined ? f.userData.minLight : 0.0;
-                const max = f.userData.maxLight !== undefined ? f.userData.maxLight : 1.0;
-                const feather = 0.1;
-                
-                const lowerEdge = (globalLight - min) / feather; 
-                const upperEdge = (max - globalLight) / feather; 
-                const lightFactor = Math.min(Math.max(lowerEdge, 0), Math.max(upperEdge, 0), 1.0);
+                // MIGRATED: Uses TypeScript helper from music-reactivity.core.ts
+                const { lightFactor, shouldReact } = calculateLightFactor(f, globalLight);
 
                 // 2. If light allows, check Audio Channel (Jules Dev Logic)
-                if (lightFactor > 0) {
-                    // Bolt Optimization: Cache channel index to avoid per-frame branching and modulo ops
-                    let targetChannelIndex = f.userData._cacheIdx;
-
-                    // Recompute if cache is missing or channel configuration changed
-                    if (targetChannelIndex === undefined || f.userData._cacheTotal !== totalChannels) {
-                        const type = f.userData.reactivityType || 'flora';
-                        const id = f.userData.reactivityId || 0;
-
-                        if (type === 'sky') {
-                            // Upper half (Drums/Percussion)
-                            const skyCount = totalChannels - splitIndex;
-                            targetChannelIndex = (skyCount > 0)
-                                ? splitIndex + (id % skyCount)
-                                : totalChannels - 1;
-                        } else {
-                            // Lower half (Melody/Bass)
-                            const floraCount = splitIndex;
-                            targetChannelIndex = (floraCount > 0)
-                                ? id % floraCount
-                                : 0;
-                        }
-
-                        // Store in cache
-                        f.userData._cacheIdx = targetChannelIndex;
-                        f.userData._cacheTotal = totalChannels;
-                    }
+                if (shouldReact) {
+                    // MIGRATED: Uses TypeScript helper from music-reactivity.core.ts
+                    const targetChannelIndex = calculateChannelIndex(f, totalChannels, splitIndex);
 
                     if (targetChannelIndex < totalChannels) {
                         const info = channels[targetChannelIndex];
@@ -334,11 +274,8 @@ export class MusicReactivitySystem {
 
 
         // Advance the start index for next frame (staggered processing)
-        // Use a hybrid approach: advance by processed count but ensure minimum progress
-        // This prevents getting stuck when heavy culling occurs
-        const minIncrement = Math.min(10, totalObjects); // Ensure we advance at least 10 objects
-        const actualIncrement = Math.max(processedCount, minIncrement);
-        this.updateStartIndex = (startIdx + actualIncrement) % totalObjects;
+        // MIGRATED: Uses TypeScript helper from music-reactivity.core.ts
+        this.updateStartIndex = calculateNextStartIndex(startIdx, processedCount, totalObjects);
 
         // Export stats for performance monitoring (if available)
         if (typeof window !== 'undefined' && window.updatePerfStats) {

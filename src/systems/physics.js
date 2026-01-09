@@ -1,4 +1,6 @@
 // src/systems/physics.js
+// Orchestrator file - delegates hot paths to physics.core.ts (TypeScript)
+// Following PERFORMANCE_MIGRATION_STRATEGY.md - Keep JS as "Drafting Ground"
 
 import * as THREE from 'three';
 import {
@@ -10,6 +12,13 @@ import {
     activeVineSwing, setActiveVineSwing, lastVineDetachTime, setLastVineDetachTime, vineSwings
 } from '../world/state.js';
 import { discoverySystem } from './discovery.js';
+// Import TypeScript core functions (Phase 1 Migration)
+import {
+    calculateMovementInput,
+    isInLakeBasin,
+    getUnifiedGroundHeightTyped,
+    calculateWaterLevel
+} from './physics.core.js';
 
 // --- Configuration ---
 const PLAYER_RADIUS = 0.5;
@@ -76,25 +85,9 @@ let foliageCaves = []; // Store caves for collision checks
 
 // --- Helper: Unified Ground Height (WASM + Lake Modifiers) ---
 // This prevents the player from floating on "invisible" ground over the lake
+// MIGRATED: Now uses TypeScript version from physics.core.ts
 function getUnifiedGroundHeight(x, z) {
-    let height = getGroundHeight(x, z);
-
-    // Apply Lake Carving (Mirroring Generation.ts)
-    if (x > LAKE_BOUNDS.minX && x < LAKE_BOUNDS.maxX && z > LAKE_BOUNDS.minZ && z < LAKE_BOUNDS.maxZ) {
-        const distX = Math.min(x - LAKE_BOUNDS.minX, LAKE_BOUNDS.maxX - x);
-        const distZ = Math.min(z - LAKE_BOUNDS.minZ, LAKE_BOUNDS.maxZ - z);
-        const distEdge = Math.min(distX, distZ);
-
-        // Smooth blend area (10 units wide)
-        const blend = Math.min(1.0, distEdge / 10.0);
-        const targetHeight = THREE.MathUtils.lerp(height, LAKE_BOTTOM, blend);
-
-        // Only lower, never raise
-        if (targetHeight < height) {
-            height = targetHeight;
-        }
-    }
-    return height;
+    return getUnifiedGroundHeightTyped(x, z, getGroundHeight);
 }
 
 // --- Public API ---
@@ -157,24 +150,8 @@ function updateStateTransitions(camera, keyStates) {
     const playerPos = player.position;
 
     // A. Check Water Level / Cave Flooding
-    // We check if the player is inside the "Water Gate" zone of a blocked cave
-    let waterLevel = -100;
-
-    foliageCaves.forEach(cave => {
-        if (cave.userData.isBlocked) {
-             const gatePos = _scratchGatePos.copy(cave.userData.gatePosition).applyMatrix4(cave.matrixWorld);
-             if (playerPos.distanceTo(gatePos) < 2.5) {
-                 waterLevel = gatePos.y + 5; // Water exists here
-             }
-        }
-    });
-
-    // Also check standard Lake Water Level (Y=1.5) if inside lake bounds
-    if (playerPos.x > LAKE_BOUNDS.minX && playerPos.x < LAKE_BOUNDS.maxX &&
-        playerPos.z > LAKE_BOUNDS.minZ && playerPos.z < LAKE_BOUNDS.maxZ) {
-        // If we are below water level (1.5), we are swimming
-        waterLevel = Math.max(waterLevel, 1.5);
-    }
+    // MIGRATED: Now uses TypeScript version from physics.core.ts
+    const waterLevel = calculateWaterLevel(playerPos, foliageCaves);
 
     const wasSwimming = player.currentState === PlayerState.SWIMMING;
     const isNowUnderwater = playerPos.y < waterLevel;
@@ -278,26 +255,8 @@ function updateDefaultState(delta, camera, controls, keyStates, audioState) {
     }
 
     // --- MOVEMENT INTEGRATION ---
-    let moveSpeed = keyStates.sprint ? player.sprintSpeed : (keyStates.sneak ? player.sneakSpeed : player.speed);
-
-    // 1. Get Camera Orientation (Projected to XZ plane)
-    const camDir = _scratchCamDir;
-    camera.getWorldDirection(camDir);
-    camDir.y = 0;
-    if (camDir.lengthSq() > 0.001) camDir.normalize();
-    else camDir.set(0, 0, -1);
-
-    const camRight = _scratchCamRight;
-    camRight.crossVectors(camDir, _scratchUp);
-
-    // 2. Construct World-Space Move Vector based on Inputs
-    const moveInput = _scratchMoveVec.set(0,0,0);
-    if (keyStates.forward) moveInput.add(camDir);
-    if (keyStates.backward) moveInput.sub(camDir);
-    if (keyStates.right) moveInput.add(camRight);
-    if (keyStates.left) moveInput.sub(camRight);
-
-    if (moveInput.lengthSq() > 1.0) moveInput.normalize();
+    // MIGRATED: Now uses TypeScript version from physics.core.ts
+    const { moveVec: moveInput, moveSpeed } = calculateMovementInput(camera, keyStates, player);
 
     // 3. Sync State with C++
     setPlayerState(player.position.x, player.position.y, player.position.z, player.velocity.x, player.velocity.y, player.velocity.z);
@@ -307,7 +266,8 @@ function updateDefaultState(delta, camera, controls, keyStates, audioState) {
     // The C++ WASM engine does not know about the visual carving and will return the wrong ground height (floating player).
     const px = player.position.x;
     const pz = player.position.z;
-    const inLakeBasin = (px > LAKE_BOUNDS.minX && px < LAKE_BOUNDS.maxX && pz > LAKE_BOUNDS.minZ && pz < LAKE_BOUNDS.maxZ);
+    // MIGRATED: Now uses TypeScript version from physics.core.ts
+    const inLakeBasin = isInLakeBasin(px, pz);
 
     let onGround = -1; // Default to failure/fallback
 
