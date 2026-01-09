@@ -56,6 +56,7 @@ const _scratchCamDir = new THREE.Vector3();
 const _scratchCamRight = new THREE.Vector3();
 const _scratchMoveVec = new THREE.Vector3();
 const _scratchUp = new THREE.Vector3(0, 1, 0);
+const _scratchGatePos = new THREE.Vector3(); // For cave gate calculations
 
 // --- Core Physics Functions ---
 
@@ -164,10 +165,10 @@ export function calculateWaterLevel(
 ): number {
     let waterLevel = -100;
 
-    // Check cave water gates
+    // Check cave water gates (using scratch vector to avoid GC)
     foliageCaves.forEach(cave => {
         if (cave.userData.isBlocked) {
-            const gatePos = new THREE.Vector3()
+            const gatePos = _scratchGatePos
                 .copy(cave.userData.gatePosition)
                 .applyMatrix4(cave.matrixWorld);
             if (playerPos.distanceTo(gatePos) < 2.5) {
