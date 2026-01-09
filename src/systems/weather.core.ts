@@ -4,6 +4,9 @@
 
 import * as THREE from 'three';
 
+// --- Constants ---
+const DEFAULT_FRAME_TIME = 0.016; // 60 FPS (1/60 second)
+
 // --- Type Definitions ---
 
 export interface WeatherState {
@@ -246,7 +249,7 @@ export function calculateWindParameters(
 export function calculateGroundWaterLevel(
     currentLevel: number,
     weatherState: 'clear' | 'rain' | 'storm',
-    delta: number = 0.016
+    delta: number = DEFAULT_FRAME_TIME
 ): number {
     let newLevel = currentLevel;
     
@@ -267,7 +270,7 @@ export function calculateGroundWaterLevel(
  */
 export function calculateRainbowOpacity(
     rainbowTimer: number,
-    delta: number = 0.016
+    delta: number = DEFAULT_FRAME_TIME
 ): { timer: number; opacity: number } {
     let newTimer = rainbowTimer;
     let opacity = 0.0;

@@ -3,7 +3,7 @@
 // Following PERFORMANCE_MIGRATION_STRATEGY.md - Extract only hot functions (~15%)
 
 import * as THREE from 'three';
-import type { FoliageObject, ChannelData } from '../foliage/types.js';
+import type { FoliageObject } from '../foliage/types.js';
 
 // --- Type Definitions ---
 
@@ -31,6 +31,7 @@ const CHROMATIC_SCALE = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', '
 // Caches to prevent repeated lookups
 const _noteNameCache: Record<string, string> = {};
 const _speciesMapCache: Record<string, any> = {};
+const _scratchSphere = new THREE.Sphere(); // Reusable for culling checks
 
 // --- Core Calculation Functions ---
 
@@ -126,15 +127,13 @@ export function isObjectVisible(
     }
 
     // Frustum culling
-    // Handle Groups or objects without geometry using a bounding sphere
+    // Handle Groups or objects without geometry using a bounding sphere (reuse scratch sphere)
     if (object.geometry && object.geometry.boundingSphere) {
         return frustum.intersectsObject(object);
     } else {
-        const sphere = new THREE.Sphere(
-            object.position,
-            object.userData.radius || 5.0
-        );
-        return frustum.intersectsSphere(sphere);
+        _scratchSphere.center.copy(object.position);
+        _scratchSphere.radius = object.userData.radius || 5.0;
+        return frustum.intersectsSphere(_scratchSphere);
     }
 }
 
