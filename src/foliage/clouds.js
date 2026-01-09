@@ -129,6 +129,49 @@ export function createDecoCloud(options = {}) {
 }
 
 // Helper for 'falling clouds' physics logic
+// --- NEW STEERING LOGIC ---
+
+export function updateCloudAttraction(cloud, targetPos, dt) {
+    if (!cloud || !targetPos) return;
+
+    // 1. Calculate Vector to Target
+    const toTarget = new THREE.Vector3().subVectors(targetPos, cloud.position);
+
+    // Flatten Y: Clouds should stay in the sky, just move over the target
+    toTarget.y = 0;
+
+    const distSq = toTarget.lengthSq();
+
+    // 2. Movement Logic
+    if (distSq > 1.0) {
+        toTarget.normalize();
+
+        // Acceleration: Clouds are heavy, they move deliberately
+        const speed = 4.0;
+        cloud.position.addScaledVector(toTarget, speed * dt);
+
+        // Bank/Lean into the turn for visual flair
+        const leanAmount = 0.1;
+        cloud.rotation.z = -toTarget.x * leanAmount;
+        cloud.rotation.x = toTarget.z * leanAmount;
+    } else {
+        // 3. Anchored State
+        // Stop moving and level out
+        cloud.rotation.z *= 0.95;
+        cloud.rotation.x *= 0.95;
+
+        // Snap X/Z to perfectly center over time
+        cloud.position.x += (targetPos.x - cloud.position.x) * 2.0 * dt;
+        cloud.position.z += (targetPos.z - cloud.position.z) * 2.0 * dt;
+    }
+}
+
+export function isCloudOverTarget(cloud, targetPos, threshold = 3.0) {
+    const dx = cloud.position.x - targetPos.x;
+    const dz = cloud.position.z - targetPos.z;
+    return (dx*dx + dz*dz) < (threshold * threshold);
+}
+
 export function updateFallingClouds(dt, clouds, getGroundHeight) {
     for (let i = clouds.length - 1; i >= 0; i--) {
         const cloud = clouds[i];
