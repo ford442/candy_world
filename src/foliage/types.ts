@@ -42,11 +42,18 @@ export interface FoliageObject extends THREE.Object3D {
         maxBloom?: number;
 
         // Reactivity
+        reactivityType?: string; // 'flora' or 'sky'
+        reactivityId?: number;
+        minLight?: number;
+        maxLight?: number;
+        radius?: number;
         reactiveMeshes?: FoliageObject[]; // Recursive definition
         flashIntensity?: number;
         flashDecay?: number;
         flashColor?: THREE.Color;
         _needsFadeBack?: boolean;
+        _cacheIdx?: number; // Cached channel index
+        _cacheTotal?: number; // Cached total channels
 
         // Arpeggio / Unfurl
         unfurlStep?: number;
