@@ -10,7 +10,15 @@ export class InteractionSystem {
         this.raycaster.far = CONFIG?.interaction?.maxDistance || 50;
 
         this.hoveredObject = null;
-        this.nearbyObjects = new Set();
+
+        // ⚡ OPTIMIZATION: Double-buffered Sets to avoid 'new Set()' every frame
+        this._nearbySetA = new Set();
+        this._nearbySetB = new Set();
+        this.nearbyObjects = this._nearbySetA; // Points to the "Previous Frame" set initially
+
+        // ⚡ OPTIMIZATION: Reusable scratch array for raycast candidates
+        this._candidatesScratch = [];
+
         this.reticleCallback = reticleCallback;
 
         // Load settings
@@ -18,41 +26,68 @@ export class InteractionSystem {
         this.interactionDistance = CONFIG?.interaction?.interactionDistance || 8.0;
     }
 
-    update(dt, playerPosition, interactables) {
-        // Safety: Check if interactables is valid
-        if (!interactables || !Array.isArray(interactables)) return;
+    // ⚡ OPTIMIZATION: Accepts multiple arrays to avoid [...a, ...b] allocation in main loop
+    update(dt, playerPosition, ...interactableLists) {
+        // Swap sets: 'nearbyObjects' becomes 'prevNearby', and we fill 'nextNearby'
+        const prevNearby = this.nearbyObjects;
+        const nextNearby = (prevNearby === this._nearbySetA) ? this._nearbySetB : this._nearbySetA;
+        nextNearby.clear();
 
         // 1. PROXIMITY CHECK
-        const currentNearby = new Set();
+        // Populate nextNearby with ALL close objects from all input lists
+        for (let i = 0; i < interactableLists.length; i++) {
+            const list = interactableLists[i];
+            if (!list || !Array.isArray(list)) continue;
 
-        interactables.forEach(obj => {
-            // Safety: Skip invalid objects or those without position
-            if (!obj || !obj.position || !obj.visible) return;
+            const len = list.length;
+            for (let j = 0; j < len; j++) {
+                const obj = list[j];
+                // Safety: Skip invalid objects or those without position
+                if (!obj || !obj.position || !obj.visible) continue;
 
-            const dist = playerPosition.distanceTo(obj.position);
+                // ⚡ OPTIMIZATION: Calculate distance once per object
+                // We use standard distanceTo for strict parity with legacy logic.
+                // (distanceToSquared is faster but requires squaring the radius)
+                const dist = playerPosition.distanceTo(obj.position);
 
-            if (dist < this.proximityRadius) {
-                currentNearby.add(obj);
-
-                if (!this.nearbyObjects.has(obj)) {
-                    if (obj.userData?.onProximityEnter) {
-                        try { obj.userData.onProximityEnter(dist); } catch(e) { console.warn('Proximity Error:', e); }
-                    }
-                }
-            } else {
-                if (this.nearbyObjects.has(obj)) {
-                    if (obj.userData?.onProximityLeave) {
-                        try { obj.userData.onProximityLeave(); } catch(e) { console.warn('Proximity Leave Error:', e); }
-                    }
-                    if (this.hoveredObject === obj) this.handleHover(null);
+                if (dist < this.proximityRadius) {
+                    nextNearby.add(obj);
                 }
             }
-        });
+        }
 
-        this.nearbyObjects = currentNearby;
+        // Check for Enters (Object is in Next but was not in Prev)
+        for (const obj of nextNearby) {
+            if (!prevNearby.has(obj)) {
+                 if (obj.userData?.onProximityEnter) {
+                     // Re-calculate distance or pass 0? Legacy code passed distance.
+                     // Since we didn't store it, we re-calc. This only happens on ENTER (rare event), so it's fine.
+                     try { obj.userData.onProximityEnter(playerPosition.distanceTo(obj.position)); } catch(e) { console.warn('Proximity Enter Error:', e); }
+                 }
+            }
+        }
+
+        // Check for Leaves (Object was in Prev but is not in Next)
+        for (const obj of prevNearby) {
+            if (!nextNearby.has(obj)) {
+                if (obj.userData?.onProximityLeave) {
+                    try { obj.userData.onProximityLeave(); } catch(e) { console.warn('Proximity Leave Error:', e); }
+                }
+                if (this.hoveredObject === obj) this.handleHover(null);
+            }
+        }
+
+        // Update pointer for next frame
+        this.nearbyObjects = nextNearby;
 
         // 2. GAZE CHECK
-        const candidates = Array.from(this.nearbyObjects);
+        // Populate scratch array from the Set
+        this._candidatesScratch.length = 0;
+        for (const obj of this.nearbyObjects) {
+            this._candidatesScratch.push(obj);
+        }
+
+        const candidates = this._candidatesScratch;
 
         if (candidates.length > 0) {
             this.raycaster.setFromCamera(new THREE.Vector2(0, 0), this.camera);
@@ -69,8 +104,10 @@ export class InteractionSystem {
 
                     // Bubble up to find the logic root (the Group with userData)
                     let depth = 0;
+
                     while (hitObj && depth < 10) {
-                        if (candidates.includes(hitObj)) {
+                        // We check if this ancestor is one of our tracked interactables
+                        if (this.nearbyObjects.has(hitObj)) {
                             rootObj = hitObj;
                             break;
                         }
