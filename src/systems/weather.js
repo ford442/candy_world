@@ -6,11 +6,13 @@ import { chargeBerries, triggerGrowth, triggerBloom, shakeBerriesLoose, updateBe
 import { createRainbow, uRainbowOpacity } from '../foliage/rainbow.js';
 import { getCelestialState, getSeasonalState } from '../core/cycle.js';
 import { CYCLE_DURATION, CONFIG } from '../core/config.js';
-import { uCloudRainbowIntensity, uCloudLightningStrength, uCloudLightningColor } from '../foliage/clouds.js';
+import { uCloudRainbowIntensity, uCloudLightningStrength, uCloudLightningColor, updateCloudAttraction, isCloudOverTarget } from '../foliage/clouds.js';
 import { uSkyDarkness } from '../foliage/sky.js';
 import { updateCaveWaterLevel } from '../foliage/cave.js';
 import { LegacyParticleSystem } from './adapters/LegacyParticleSystem.js';
 import { WasmParticleSystem } from './adapters/WasmParticleSystem.js';
+import { foliageClouds } from '../world/state.js';
+import { replaceMushroomWithGiant } from '../foliage/mushrooms.js';
 
 // Weather states
 export const WeatherState = {
@@ -125,11 +127,121 @@ export class WeatherSystem {
         return Math.min(1.0, totalLight);
     }
 
+    updateEcosystem(dt) {
+        // Only run if we have active entities
+        if (!foliageClouds || foliageClouds.length === 0 || this.trackedMushrooms.length === 0) return;
+
+        // TRACKING SET: Prevents multiple clouds from picking the same mushroom
+        // We rebuild this every frame based on active cloud assignments
+        const claimedMushrooms = new Set();
+
+        // 1. Register existing locks first
+        foliageClouds.forEach(cloud => {
+            if (cloud.userData.targetMushroom) {
+                claimedMushrooms.add(cloud.userData.targetMushroom.uuid);
+            }
+        });
+
+        // 2. Process Clouds
+        foliageClouds.forEach(cloud => {
+            // Skip dead/falling clouds
+            if (cloud.userData.isFalling) {
+                // If it had a target, we implicitly release it by not moving towards it
+                cloud.userData.targetMushroom = null;
+                return;
+            }
+
+            // A. Find Target (if none)
+            if (!cloud.userData.targetMushroom) {
+                let minDist = 1000;
+                let candidate = null;
+
+                for (const m of this.trackedMushrooms) {
+                    // Rule: Don't target if already claimed by another cloud
+                    if (claimedMushrooms.has(m.uuid)) continue;
+
+                    // Rule: Favor Small mushrooms initially to grow them
+                    // But if it's already Giant, we can still latch on if we are close (permanent barrier logic)
+
+                    const dist = cloud.position.distanceTo(m.position);
+                    if (dist < 50 && dist < minDist) { // 50m scan range
+                        minDist = dist;
+                        candidate = m;
+                    }
+                }
+
+                if (candidate) {
+                    cloud.userData.targetMushroom = candidate;
+                    claimedMushrooms.add(candidate.uuid); // Claim it immediately
+                }
+            }
+
+            // B. Execute Behavior
+            if (cloud.userData.targetMushroom) {
+                const target = cloud.userData.targetMushroom;
+
+                // Safety check: Mushroom might have been deleted/replaced
+                if (!target.parent) {
+                    cloud.userData.targetMushroom = null;
+                    return;
+                }
+
+                // Steer
+                updateCloudAttraction(cloud, target.position, dt);
+
+                // Rain Logic
+                if (isCloudOverTarget(cloud, target.position)) {
+                    // Only effective if it's actually raining in the world
+                    // OR: Do we want these anchored clouds to rain even if global weather is clear?
+                    // User said "tied to right there", implies localized rain.
+                    // Let's assume if the cloud is there, it's raining on the mushroom.
+
+                    // Increase Wetness
+                    if (!target.userData.wetness) target.userData.wetness = 0;
+                    target.userData.wetness += dt * 1.5;
+
+                    // Growth Threshold (~3 seconds of dedicated rain)
+                    if (target.userData.wetness > 3.0 && target.userData.size !== 'giant') {
+                        this.transformMushroom(target);
+                    }
+                }
+            }
+        });
+    }
+
+    transformMushroom(oldMushroom) {
+        const index = this.trackedMushrooms.indexOf(oldMushroom);
+        if (index === -1) return;
+
+        // Perform the Swap
+        const newGiant = replaceMushroomWithGiant(this.scene, oldMushroom);
+
+        if (newGiant) {
+            // Update WeatherSystem Registry
+            this.trackedMushrooms[index] = newGiant;
+
+            // Critical: Update the Cloud's reference!
+            // Find the cloud that was targeting the old mushroom
+            foliageClouds.forEach(c => {
+                if (c.userData.targetMushroom === oldMushroom) {
+                    c.userData.targetMushroom = newGiant;
+
+                    // Lift the cloud up! Giants are tall.
+                    // Smoothly animate y would be better, but immediate jump prevents clipping
+                    c.position.y = Math.max(c.position.y, newGiant.position.y + 25);
+                }
+            });
+        }
+    }
+
     update(time, audioData, cycleWeatherBias = null) {
         if (!audioData) return;
         const dt = 0.016;
 
         this.cloudDensity = Math.min(1.0, this.cloudDensity + this.cloudRegenRate);
+
+        // ECOSYSTEM UPDATE
+        this.updateEcosystem(dt);
 
         const bassIntensity = audioData.kickTrigger || 0;
         const groove = audioData.grooveAmount || 0;
