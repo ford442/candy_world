@@ -226,13 +226,12 @@ function animate() {
 
     profiler.measure('Interaction', () => {
         // Collect all interactive elements safely
+        // ⚡ OPTIMIZATION: Pass arrays directly to avoid GC from spread syntax [...a, ...b]
         const activeFoliage = animatedFoliage || [];
         const activeMushrooms = foliageMushrooms || [];
         const activeClouds = foliageClouds || [];
 
-        const allInteractables = [...activeFoliage, ...activeMushrooms, ...activeClouds];
-
-        interactionSystem.update(delta, camera.position, allInteractables);
+        interactionSystem.update(delta, camera.position, activeFoliage, activeMushrooms, activeClouds);
     });
 
     const activeBPM = audioState?.bpm || 120;
