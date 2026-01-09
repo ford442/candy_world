@@ -383,3 +383,62 @@ export function createMushroom(options = {}) {
 
     return group;
 }
+
+// --- NEW FUNCTION ---
+export function replaceMushroomWithGiant(scene, oldMushroom) {
+    if (!oldMushroom || !oldMushroom.parent) return null;
+
+    // 1. Capture State from Old Mushroom
+    const position = oldMushroom.position.clone();
+    const rotation = oldMushroom.rotation.clone();
+
+    // Critical: Preserve Musical Identity
+    const colorIndex = oldMushroom.userData.colorIndex;
+    const noteIndex = oldMushroom.userData.noteIndex;
+    const musicalNote = oldMushroom.userData.musicalNote;
+    const noteColor = oldMushroom.userData.noteColor;
+
+    // 2. Remove Old
+    oldMushroom.parent.remove(oldMushroom);
+    // Best practice: dispose geometry/material if not shared (omitted for brevity)
+
+    // 3. Create Giant Version
+    // Giants are always trampolines and have faces
+    const newGiant = createMushroom({
+        size: 'giant',
+        scale: 1.0, // Giants calculate their own base scale
+        colorIndex: colorIndex,
+        noteIndex: noteIndex,
+        hasFace: true,
+        isBouncy: true
+    });
+
+    // Restore Musical Data explicitly if createMushroom didn't catch it from index
+    if (musicalNote) newGiant.userData.musicalNote = musicalNote;
+    if (noteColor) newGiant.userData.noteColor = noteColor;
+
+    // 4. Restore Transform
+    newGiant.position.copy(position);
+    newGiant.rotation.copy(rotation);
+
+    // 5. Add to Scene
+    scene.add(newGiant);
+
+    // 6. Visual "Pop" Animation
+    newGiant.scale.set(0.1, 0.1, 0.1);
+    const targetScale = 1.0;
+
+    // Attach a temporary render callback for the pop effect
+    newGiant.userData.popTime = 0;
+    newGiant.userData.onBeforeRender = (renderer, scene, camera, geometry, material, group) => {
+        if (newGiant.userData.popTime < 1.0) {
+            newGiant.userData.popTime += 0.04;
+            const t = Math.min(1.0, newGiant.userData.popTime);
+            // Elastic bounce ease-out
+            const s = targetScale * (1 + 0.5 * Math.sin(t * 18) * (1-t));
+            newGiant.scale.setScalar(Math.max(0.1, s));
+        }
+    };
+
+    return newGiant;
+}
