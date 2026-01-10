@@ -11,12 +11,13 @@
 ## Next Steps
 
 1. **Migrate to TypeScript**: Begin Phase 1 of the migration roadmap to harden the codebase before adding more complex systems.
-2. **Advanced Collision**: Implement WASM-based narrow phase collision detection.
+2. **Player Abilities**: Implement Dash and Double Jump extensions.
 
 ---
 
 ## Recent Progress
 - **Accomplished:**
+  - **Advanced Collision**: Implemented WASM-based narrow phase collision detection using a Spatial Grid (Linked List) optimization to handle 2000+ objects efficiently.
   - **Rare Flora Discovery**: Implemented `src/systems/discovery.js` and integrated with `src/systems/physics.js`. Tracks player interactions with environmental features (Vine Swing, Trampoline, Cloud Platform) and triggers a toast notification on first discovery. Persistence handled via localStorage.
   - **Spectrum Aurora**: Implemented `src/foliage/aurora.js` using TSL, featuring audio-reactive intensity and spectral color shifts. Integrated into `main.js`.
   - Integrated "Musical Ecosystem" plan into main documentation.
@@ -63,7 +64,8 @@
 - **Status:** Pending
 - **Tasks:**
   - [x] Rare Flora Discovery (Unlock system)
-  - [ ] Advanced Collision (WASM-based narrow phase)
+  - [x] Advanced Collision (WASM-based narrow phase)
+     - *Implementation Details:* Implemented Spatial Grid (16x16) in AssemblyScript to optimize collision detection from O(N) to O(1) for nearby objects. Handles Mushrooms, Clouds, Gates, and Trampolines.
   - [ ] Player Abilities (Dash, Double Jump extensions)
 
 ---
