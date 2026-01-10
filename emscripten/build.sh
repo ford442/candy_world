@@ -9,30 +9,8 @@ echo "Building candy_native.js (Safe Pthread Build)..."
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-# Source Emscripten
-CANDIDATES=(
-    "/app/emsdk/emsdk_env.sh"
-    "/content/build_space/emsdk/emsdk_env.sh"
-    "$REPO_ROOT/emsdk/emsdk_env.sh"
-    "$HOME/emsdk/emsdk_env.sh"
-    "/usr/local/emsdk/emsdk_env.sh"
-)
+source /content/build_space/emsdk/emsdk_env.sh
 
-EMSDK_FOUND=0
-for f in "${CANDIDATES[@]}"; do
-    if [ -f "$f" ]; then
-        echo "Sourcing EMSDK from: $f"
-        source "$f"
-        EMSDK_FOUND=1
-        break
-    fi
-done
-
-if [ $EMSDK_FOUND -eq 0 ]; then
-    echo "Warning: emsdk_env.sh not found in any standard location."
-    echo "Skipping Emscripten build. JavaScript fallbacks will be used."
-    exit 0
-fi
 
 OUTPUT_JS="$REPO_ROOT/public/candy_native.js"
 
@@ -41,7 +19,7 @@ OUTPUT_JS="$REPO_ROOT/public/candy_native.js"
 # ---------------------------------------------------------
 # FIX: Use -fopenmp-simd (SIMD only, no threading runtime required)
 # FIX: Removed -flto to prevent symbol stripping issues
-COMPILE_FLAGS="-O2 -msimd128 -mrelaxed-simd -ffast-math -fwasm-exceptions -fno-rtti -funroll-loops -mbulk-memory -fopenmp-simd -pthread"
+COMPILE_FLAGS="-O2 -msimd128 -mrelaxed-simd -ffast-math -fwasm-exceptions -fno-rtti -funroll-loops -mbulk-memory -fopenmp-simd -pthread -matomics"
 
 # ---------------------------------------------------------
 # LINKER FLAGS
@@ -51,7 +29,7 @@ COMPILE_FLAGS="-O2 -msimd128 -mrelaxed-simd -ffast-math -fwasm-exceptions -fno-r
 # FIX: Removed -s WASM_WORKERS=1 (Incompatible with this mode)
 # FIX: Removed LTO to ensure exports persist
 LINK_FLAGS="-O2 -std=c++17 -lembind -s USE_PTHREADS=1 -s PTHREAD_POOL_SIZE=4 -s WASM=1 -s WASM_BIGINT=0 \
--s ALLOW_MEMORY_GROWTH=1 -s TOTAL_STACK=16MB -s INITIAL_MEMORY=64MB -s ASSERTIONS=1 -s EXPORT_ES6=1 -s EXPORTED_RUNTIME_METHODS=[\"wasmMemory\"] \
+-s ALLOW_MEMORY_GROWTH=1 -s TOTAL_STACK=16MB -s INITIAL_MEMORY=256MB -s ASSERTIONS=1 -s EXPORT_ES6=1 -s EXPORTED_RUNTIME_METHODS=[\"wasmMemory\"] \
 -s MODULARIZE=1 -s EXPORT_NAME=createCandyNative -s ENVIRONMENT=web,worker \
 -fwasm-exceptions -matomics -mbulk-memory -s WASM_WORKERS=1 -fopenmp-simd"
 
