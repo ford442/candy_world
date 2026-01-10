@@ -9,7 +9,27 @@ echo "Building candy_native.js (Safe Pthread Build)..."
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-source /content/build_space/emsdk/emsdk_env.sh
+# Try to find emsdk_env.sh in common locations
+EMSDK_ENV_LOCATIONS=(
+    "/app/emsdk/emsdk_env.sh"
+    "/content/build_space/emsdk/emsdk_env.sh"
+    "$HOME/emsdk/emsdk_env.sh"
+    "../emsdk/emsdk_env.sh"
+)
+
+FOUND_EMSDK=0
+for LOC in "${EMSDK_ENV_LOCATIONS[@]}"; do
+    if [ -f "$LOC" ]; then
+        echo "Sourcing emsdk_env.sh from $LOC"
+        source "$LOC"
+        FOUND_EMSDK=1
+        break
+    fi
+done
+
+if [ $FOUND_EMSDK -eq 0 ]; then
+    echo "Warning: emsdk_env.sh not found in common locations. Assuming em++ is in PATH."
+fi
 
 # Ensure em++ (emcc) is available; if not, skip the EMCC build and remove stale artifacts
 if ! command -v em++ >/dev/null 2>&1; then
@@ -37,7 +57,7 @@ COMPILE_FLAGS="-O2 -msimd128 -mrelaxed-simd -ffast-math -fwasm-exceptions -fno-r
 LINK_FLAGS="-O2 -std=c++17 -lembind -s USE_PTHREADS=1 -s PTHREAD_POOL_SIZE=4 -s WASM=1 -s WASM_BIGINT=0 \
 -s ALLOW_MEMORY_GROWTH=1 -s TOTAL_STACK=16MB -s INITIAL_MEMORY=256MB -s ASSERTIONS=1 -s EXPORT_ES6=1 -s EXPORTED_RUNTIME_METHODS=[\"wasmMemory\"] \
 -s MODULARIZE=1 -s EXPORT_NAME=createCandyNative -s ENVIRONMENT=web,worker \
--fwasm-exceptions -matomics -mbulk-memory -s WASM_WORKERS=1 -fopenmp-simd -msimd128 -mrelaxed-simd -ffast-math -pthread"
+-fwasm-exceptions -matomics -mbulk-memory -fopenmp-simd -msimd128 -mrelaxed-simd -ffast-math -pthread"
 
 # FIX: Flatted EXPORTS string to ensure no functions are lost due to shell formatting
 EXPORTS="['_main','_hash','_valueNoise2D','_fbm','_fastInvSqrt','_fastDistance','_smoothDamp','_updateParticles','_checkCollision','_batchDistances','_batchDistanceCull_c','_batchSinWave','_initPhysics','_addObstacle','_setPlayerState','_getPlayerX','_getPlayerY','_getPlayerZ','_getPlayerVX','_getPlayerVY','_getPlayerVZ','_updatePhysicsCPP','_startBootstrapInit','_getBootstrapProgress','_isBootstrapComplete','_getBootstrapHeight','_resetBootstrap','_malloc','_free','_main','_calcArpeggioStep_c','_getArpeggioTargetStep_c','_getArpeggioUnfurlStep_c','_calcSpeakerPulse','_getSpeakerYOffset','_getSpeakerScaleX','_getSpeakerScaleY','_getSpeakerScaleZ','_calcAccordionStretch','_getAccordionStretchY','_getAccordionWidthXZ','_calcFiberWhip','_getFiberBaseRotY','_getFiberBranchRotZ','_calcHopY','_calcShiver','_getShiverRotX','_getShiverRotZ','_calcSpiralWave','_getSpiralRotY','_getSpiralYOffset','_getSpiralScale','_calcPrismRose','_getPrismUnfurl','_getPrismSpin','_getPrismPulse','_getPrismHue','_calcFloatingParticle','_getParticleX','_getParticleY','_getParticleZ']"
@@ -64,7 +84,7 @@ if [ $? -eq 0 ]; then
         echo "Patching $OUTPUT_JS to alias underscore exports to non-underscore names..."
         node - "${OUTPUT_JS}" <<'NODE'
 const fs = require('fs');
-const p = process.argv[1];
+const p = process.argv[2];
 let s = fs.readFileSync(p, 'utf8');
 if (s.includes('function assignWasmExports(wasmExports)')) {
   s = s.replace('function assignWasmExports(wasmExports) {', `function assignWasmExports(wasmExports) {
@@ -82,7 +102,7 @@ NODE
         echo "Verifying important exports are available in the WASM binary (if node supports WebAssembly.Module.exports)..."
         node - "${REPO_ROOT}/public/candy_native.wasm" <<'NODE'
 const fs = require('fs');
-const p = process.argv[1];
+const p = process.argv[2];
 if (!fs.existsSync(p)) {
   console.log('Missing wasm binary:', p);
   process.exit(0);
@@ -91,10 +111,12 @@ try {
   const bytes = fs.readFileSync(p);
   const m = new WebAssembly.Module(bytes);
   const ex = WebAssembly.Module.exports(m).map(e => e.name);
-  const expected = ['calcSpeakerPulse', '_calcSpeakerPulse', 'getSpeakerYOffset', '_getSpeakerYOffset'];
+  // FIX: Emscripten 4.x with current settings exports without underscores
+  const expected = ['calcSpeakerPulse', 'getSpeakerYOffset'];
   const missing = expected.filter(x => !ex.includes(x));
   if (missing.length > 0) {
     console.warn('Missing expected exports in', p, missing);
+    process.exit(1);
   } else {
     console.log('All expected exports present in', p);
   }
