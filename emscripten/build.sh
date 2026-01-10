@@ -62,9 +62,9 @@ if [ $? -eq 0 ]; then
     # ---------------------------------------------------------
     if [ -f "$OUTPUT_JS" ]; then
         echo "Patching $OUTPUT_JS to alias underscore exports to non-underscore names..."
-        node <<'NODE'
+        node "${OUTPUT_JS}" <<'NODE'
 const fs = require('fs');
-const p = '${OUTPUT_JS}';
+const p = process.argv[1];
 let s = fs.readFileSync(p, 'utf8');
 if (s.includes('function assignWasmExports(wasmExports)')) {
   s = s.replace('function assignWasmExports(wasmExports) {', `function assignWasmExports(wasmExports) {
@@ -80,9 +80,9 @@ if (s.includes('function assignWasmExports(wasmExports)')) {
 NODE
 
         echo "Verifying important exports are available in the WASM binary (if node supports WebAssembly.Module.exports)..."
-        node <<'NODE'
+        node "${REPO_ROOT}/public/candy_native.wasm" <<'NODE'
 const fs = require('fs');
-const p = '${REPO_ROOT}/public/candy_native.wasm';
+const p = process.argv[1];
 if (!fs.existsSync(p)) {
   console.log('Missing wasm binary:', p);
   process.exit(0);
