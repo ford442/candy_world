@@ -50,6 +50,19 @@ em++ "$SCRIPT_DIR"/*.cpp \
 if [ $? -eq 0 ]; then
     echo "Build successful!"
     echo "Generated: public/candy_native.js and .wasm.worker.js"
+
+    # ---------------------------------------------------------
+    # POST-BUILD: ensure JS loader tolerates underscore exports
+    # ---------------------------------------------------------
+    if [ -f "$OUTPUT_JS" ]; then
+        echo "Patching $OUTPUT_JS to alias underscore exports to non-underscore names..."
+        node -e "const fs=require('fs');const p='${OUTPUT_JS}';let s=fs.readFileSync(p,'utf8');if(s.includes('function assignWasmExports(wasmExports)')){s=s.replace('function assignWasmExports(wasmExports) {','function assignWasmExports(wasmExports) {\n  // Patch: expose non-underscore aliases for all underscore exports\n  try {\n    Object.keys(wasmExports).forEach(k => { if (k.startsWith('_') && !(k.slice(1) in wasmExports)) wasmExports[k.slice(1)] = wasmExports[k]; });\n  } catch(e) { console.warn("Failed to apply underscore alias patch",e); }');fs.writeFileSync(p,s,'utf8');console.log('Patched assignWasmExports in',p);} else {console.log('assignWasmExports not found in',p);}"
+
+        echo "Verifying important exports are available in the WASM binary (if node supports WebAssembly.Module.exports)..."
+        node -e "const fs=require('fs');const p='${REPO_ROOT}/public/candy_native.wasm';if(!fs.existsSync(p)){console.log('Missing wasm binary:',p);process.exit(0);}try{const bytes=fs.readFileSync(p);const m=new WebAssembly.Module(bytes);const ex=WebAssembly.Module.exports(m).map(e=>e.name);const expected=['calcSpeakerPulse','_calcSpeakerPulse','getSpeakerYOffset','_getSpeakerYOffset'];const missing=expected.filter(x=>!ex.includes(x));if(missing.length>0){console.warn('Missing expected exports in',p,missing);}else{console.log('All expected exports present in',p);} }catch(e){console.warn('Unable to inspect wasm exports (node env may not support it):',e)}"
+    else
+        echo "Warning: $OUTPUT_JS not found for post-build patching"
+    fi
 else
     echo "Build failed."
     exit 1
