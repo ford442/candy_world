@@ -8,7 +8,7 @@ import {
     isSharedMemoryAvailable 
 } from './wasm-orchestrator.js';
 
-import { checkWasmFileExists, inspectWasmExports } from './wasm-utils.js';
+import { checkWasmFileExists, inspectWasmExports, patchWasmInstantiateAliases } from './wasm-utils.js';
 
 // FIX: Correct import for toast
 import { showToast } from './toast.js';
@@ -99,17 +99,23 @@ async function loadEmscriptenModule() {
 
         await updateProgress('Spawning Physics Workers...');
 
-        emscriptenInstance = await createCandyNative({
-            locateFile: (path, prefix) => {
-                if (path.endsWith('.wasm')) return `${locatePrefix}/candy_native.wasm`;
-                if (path.endsWith('.worker.js')) return `${locatePrefix}/candy_native.worker.js`;
-                return prefix + path;
-            },
-            print: (text) => console.log('[Native]', text),
-            printErr: (text) => console.warn('[Native Err]', text),
-        });
+        // Apply instantiate alias patch to prevent aborts when only underscored exports exist
+        const restore = patchWasmInstantiateAliases();
+        try {
+            emscriptenInstance = await createCandyNative({
+                locateFile: (path, prefix) => {
+                    if (path.endsWith('.wasm')) return `${locatePrefix}/candy_native.wasm`;
+                    if (path.endsWith('.worker.js')) return `${locatePrefix}/candy_native.worker.js`;
+                    return prefix + path;
+                },
+                print: (text) => console.log('[Native]', text),
+                printErr: (text) => console.warn('[Native Err]', text),
+            });
 
-        console.log('[WASM] Emscripten Pthreads Ready');
+            console.log('[WASM] Emscripten Pthreads Ready');
+        } finally {
+            restore();
+        }
 
         if (emscriptenInstance.wasmMemory) {
             emscriptenMemory = emscriptenInstance.wasmMemory;

@@ -1,7 +1,7 @@
 // WASM-First GPU Pipeline Orchestrator
 // Updated for Emscripten Pthreads Support
 
-import { checkWasmFileExists, inspectWasmExports } from './wasm-utils.js';
+import { checkWasmFileExists, inspectWasmExports, patchWasmInstantiateAliases } from './wasm-utils.js';
 
 export const LOADING_PHASES = {
     WASM_INIT: 0,
@@ -172,20 +172,26 @@ export async function parallelWasmLoad(options = {}) {
                 return null;
             }
             
-            const instance = await createCandyNative({
-                locateFile: (path, prefix) => {
-                    if (path.endsWith('.wasm')) return `${locatePrefix}/candy_native.wasm`;
-                    if (path.endsWith('.worker.js')) return `${locatePrefix}/candy_native.worker.js`;
-                    return prefix + path;
-                },
-                print: (text) => console.log('[Native]', text),
-                printErr: (text) => console.warn('[Native Err]', text),
-                // IMPORTANT: Pass our coordination buffer to C++ if needed
-                // orchestratorBuffer: syncBuffer 
-            });
+            // Patch instantiate() so Emscripten's assignWasmExports won't abort when only underscore names exist
+            const restore = patchWasmInstantiateAliases();
+            try {
+                const instance = await createCandyNative({
+                    locateFile: (path, prefix) => {
+                        if (path.endsWith('.wasm')) return `${locatePrefix}/candy_native.wasm`;
+                        if (path.endsWith('.worker.js')) return `${locatePrefix}/candy_native.worker.js`;
+                        return prefix + path;
+                    },
+                    print: (text) => console.log('[Native]', text),
+                    printErr: (text) => console.warn('[Native Err]', text),
+                    // IMPORTANT: Pass our coordination buffer to C++ if needed
+                    // orchestratorBuffer: syncBuffer 
+                });
 
-            console.log('[WASMOrchestrator] EMCC Pthreads module ready');
-            return instance;
+                console.log('[WASMOrchestrator] EMCC Pthreads module ready');
+                return instance;
+            } finally {
+                restore();
+            }
         } catch (e) {
             console.warn('[WASMOrchestrator] EMCC unavailable, using JS fallback:', e);
             return null;
