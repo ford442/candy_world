@@ -34,3 +34,26 @@ export async function checkWasmFileExists(filename) {
 
     return { exists: false, path: null };
 }
+
+/**
+ * Inspect exports in a WASM file by compiling it and returning the exported symbol names
+ * @param {string} filename - The WASM filename to inspect (e.g., 'candy_native.wasm')
+ * @returns {Promise<string[]|null>} - Array of export names, or null if file not found/inspect fails
+ */
+export async function inspectWasmExports(filename) {
+    const wasmCheck = await checkWasmFileExists(filename);
+    if (!wasmCheck.exists) return null;
+
+    const url = wasmCheck.path ? `${wasmCheck.path}/${filename}` : `./${filename}`;
+    try {
+        const resp = await fetch(url);
+        if (!resp.ok) return null;
+        const bytes = await resp.arrayBuffer();
+        const module = await WebAssembly.compile(bytes);
+        const exports = WebAssembly.Module.exports(module).map(e => e.name);
+        return exports;
+    } catch (e) {
+        console.warn('[WASM Utils] Failed to inspect wasm exports for', filename, e);
+        return null;
+    }
+}

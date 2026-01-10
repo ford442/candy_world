@@ -8,7 +8,7 @@ import {
     isSharedMemoryAvailable 
 } from './wasm-orchestrator.js';
 
-import { checkWasmFileExists } from './wasm-utils.js';
+import { checkWasmFileExists, inspectWasmExports } from './wasm-utils.js';
 
 // FIX: Correct import for toast
 import { showToast } from './toast.js';
@@ -71,6 +71,21 @@ async function loadEmscriptenModule() {
         }
 
         const locatePrefix = wasmCheck.path;
+
+        // Preflight: inspect wasm exports to ensure it contains the expected symbols
+        try {
+            const exports = await inspectWasmExports('candy_native.wasm');
+            console.log('[WASM] candy_native.wasm exports:', exports);
+            const expected = ['calcSpeakerPulse','_calcSpeakerPulse','getSpeakerYOffset','_getSpeakerYOffset'];
+            const has = exports && expected.some(n => exports.includes(n));
+            if (!has) {
+                console.warn('[WASM] candy_native.wasm missing expected exports; using JS fallback.');
+                return false;
+            }
+        } catch (inspectErr) {
+            console.warn('[WASM] Unable to inspect candy_native.wasm before load:', inspectErr);
+        }
+
         let createCandyNative;
 
         // Try to load the JS loader
