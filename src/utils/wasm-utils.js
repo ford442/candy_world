@@ -144,4 +144,3 @@ export function patchWasmInstantiateAliases() {
         try { WA.instantiateStreaming = origInstantiateStreaming; } catch (e) {}
     };
 }
-}
