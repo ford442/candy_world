@@ -49,8 +49,47 @@ export async function inspectWasmExports(filename) {
         const resp = await fetch(url);
         if (!resp.ok) return null;
         const bytes = await resp.arrayBuffer();
-        const module = await WebAssembly.compile(bytes);
-        const exports = WebAssembly.Module.exports(module).map(e => e.name);
+
+        // Use available WebAssembly API (try compile, Module ctor, or instantiate fallback)
+        const WA = window.NativeWebAssembly || WebAssembly;
+        let module = null;
+
+        // Prefer synchronous Module constructor if present
+        try {
+            if (typeof WA.Module === 'function') {
+                module = new WA.Module(bytes);
+            }
+        } catch (e) {
+            // Module ctor may not be available or may throw; continue to other approaches
+            module = null;
+        }
+
+        // Try compile() (async) if available
+        try {
+            if (!module && typeof WA.compile === 'function') {
+                module = await WA.compile(bytes);
+            }
+        } catch (e) {
+            module = null;
+        }
+
+        // Fallback: instantiate to get module from result
+        if (!module) {
+            try {
+                const inst = await WA.instantiate(bytes, {});
+                module = inst.module || (inst.instance && inst.instance.constructor && inst.instance.constructor.module) || null;
+            } catch (e) {
+                module = null;
+            }
+        }
+
+        if (!module) {
+            console.warn('[WASM Utils] Unable to produce a WebAssembly.Module for', filename);
+            return null;
+        }
+
+        const exporter = (WA.Module && WA.Module.exports) ? WA.Module.exports : WebAssembly.Module.exports;
+        const exports = exporter(module).map(e => e.name);
         return exports;
     } catch (e) {
         console.warn('[WASM Utils] Failed to inspect wasm exports for', filename, e);
