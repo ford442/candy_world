@@ -26,7 +26,15 @@ export const sharedGeometries = {
     cylinderLow: new THREE.CylinderGeometry(1, 1, 1, 8).translate(0, 0.5, 0),
     capsule: new THREE.CapsuleGeometry(0.5, 1, 6, 8),
     eye: new THREE.SphereGeometry(0.12, 16, 16),
-    pupil: new THREE.SphereGeometry(0.05, 12, 12)
+    pupil: new THREE.SphereGeometry(0.05, 12, 12),
+
+    // Mushroom parts
+    mushroomCap: new THREE.SphereGeometry(1, 24, 24, 0, Math.PI * 2, 0, Math.PI / 1.8),
+    mushroomGillCenter: new THREE.ConeGeometry(1, 1, 24, 1, true),
+
+    // Explicit definitions for missing units
+    unitCylinder: new THREE.CylinderGeometry(1, 1, 1, 12).translate(0, 0.5, 0),
+    unitSphere: new THREE.SphereGeometry(1, 16, 16)
 };
 
 export const eyeGeo = sharedGeometries.eye;
@@ -487,7 +495,22 @@ export const foliageMaterials = {
         roughness: 1.0 
     }),
     
-    mushroomStem: CandyPresets.Clay(0xF5F5DC),
+    mushroomStem: (() => {
+        const mat = CandyPresets.Clay(0xF5F5DC);
+        // ⚡ TSL Shaping: Apply curved profile to standard cylinder
+        // Profile: r = 1.0 - (t - 0.3)^2 * 0.5
+        const t = positionLocal.y; // unitCylinder is 0..1 in Y
+        const curve = float(1.0).sub( pow(t.sub(0.3), 2.0).mul(0.5) );
+        const newPos = vec3(positionLocal.x.mul(curve), positionLocal.y, positionLocal.z.mul(curve));
+        mat.positionNode = newPos;
+
+        // Recalculate Normal: N = (x, -r'(y), z) -> (x, y-0.3, z)
+        const ny = t.sub(0.3);
+        const newNormal = vec3(positionLocal.x, ny, positionLocal.z).normalize();
+        mat.normalNode = newNormal;
+
+        return mat;
+    })(),
 
     // Diverse Mushroom Caps
     mushroomCap: [
