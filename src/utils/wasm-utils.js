@@ -96,3 +96,52 @@ export async function inspectWasmExports(filename) {
         return null;
     }
 }
+
+/**
+ * Monkey-patch WebAssembly.instantiate / instantiateStreaming to alias underscore exports
+ * Returns a function to restore the originals.
+ */
+export function patchWasmInstantiateAliases() {
+    const WA = window.NativeWebAssembly || WebAssembly;
+    const origInstantiate = WA.instantiate;
+    const origInstantiateStreaming = WA.instantiateStreaming;
+
+    function aliasExports(result) {
+        try {
+            const inst = result && result.instance ? result.instance : result;
+            const exports = inst && inst.exports;
+            if (!exports) return result;
+            Object.keys(exports).forEach(k => {
+                if (k && k.startsWith('_')) {
+                    const short = k.slice(1);
+                    if (!(short in exports)) {
+                        try { exports[short] = exports[k]; } catch (e) { /* ignore */ }
+                    }
+                }
+            });
+        } catch (e) {
+            console.warn('[WASM Utils] Failed to alias exports', e);
+        }
+        return result;
+    }
+
+    if (typeof WA.instantiate === 'function') {
+        WA.instantiate = async function(...args) {
+            const res = await origInstantiate.apply(this, args);
+            return aliasExports(res);
+        };
+    }
+
+    if (typeof WA.instantiateStreaming === 'function') {
+        WA.instantiateStreaming = async function(...args) {
+            const res = await origInstantiateStreaming.apply(this, args);
+            return aliasExports(res);
+        };
+    }
+
+    return function restore() {
+        try { WA.instantiate = origInstantiate; } catch (e) {}
+        try { WA.instantiateStreaming = origInstantiateStreaming; } catch (e) {}
+    };
+}
+}
