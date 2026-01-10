@@ -2,8 +2,9 @@
 
 import * as THREE from 'three';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
-import { time, positionLocal, sin, vec3, color, normalView, dot, float, max } from 'three/tsl';
-import { uWindSpeed, uWindDirection, createClayMaterial } from './common.js';
+import { time, positionLocal, positionWorld, sin, cos, vec3, color, normalView, dot, float, max, mix, sign } from 'three/tsl';
+import { uWindSpeed, uWindDirection, createClayMaterial, uAudioLow, uAudioHigh } from './common.js';
+import { uSkyDarkness } from './sky.js';
 
 let grassMeshes = [];
 const dummy = new THREE.Object3D();
@@ -23,25 +24,66 @@ export function initGrassSystem(scene, count = 5000) {
         metalness: 0.0
     });
 
-    // Wind Logic
+    // --- PALETTE UPDATE: Dancing Grass ---
+    // 1. Wind (Base Layer) - Slow, sweeping waves across the world
+    // We use positionWorld to make the wind field continuous across instances
     const windTime = time.mul(uWindSpeed.max(0.5));
-    const swayPhase = positionLocal.x.add(positionLocal.z).add(windTime);
-    const swayAmt = positionLocal.y.mul(0.3).mul(sin(swayPhase));
+    const windFreq = float(0.1); // Scale of wind waves
+    const windPhase = positionWorld.x.mul(windFreq).add(positionWorld.z.mul(windFreq)).add(windTime);
+    const windSway = sin(windPhase).mul(positionLocal.y).mul(0.3);
 
-    const swayX = swayAmt.mul(uWindDirection.x);
-    const swayZ = swayAmt.mul(uWindDirection.z);
+    // 2. Dance (Audio Layer) - Fast, twitchy reaction to Hi-Hats/Melody
+    const dancePhase = time.mul(15.0).add(positionWorld.x.mul(0.5)).add(positionWorld.z.mul(0.5));
+    // "Shiver" effect: High frequency shake, scaled by uAudioHigh
+    const danceSway = sin(dancePhase).mul(uAudioHigh).mul(0.15).mul(positionLocal.y);
 
-    mat.positionNode = positionLocal.add(vec3(swayX, 0, swayZ));
+    // Combine Sway
+    const totalSway = windSway.add(danceSway);
 
-    // Rim Light Logic (Inlined TSL)
-    const viewDir = vec3(0, 0, 1);
+    // Apply Direction
+    const swayX = totalSway.mul(uWindDirection.x);
+    const swayZ = totalSway.mul(uWindDirection.z);
+
+    // 3. Bounce (Kick Drum) - Squash the grass vertically on the beat
+    // When uAudioLow is high, scale Y down and X/Z up slightly (volume preservation)
+    const squashFactor = uAudioLow.mul(0.2); // Max 20% squash
+    const scaleY = float(1.0).sub(squashFactor);
+    // Apply squash relative to pivot (y=0)
+    const newY = positionLocal.y.mul(scaleY);
+
+    // Bulge X/Z slightly when squashed (simple linear bulge)
+    // Only bulge the middle/top
+    const bulge = squashFactor.mul(0.5).mul(positionLocal.y);
+    const newX = positionLocal.x.add(swayX).add(sign(positionLocal.x).mul(bulge));
+    const newZ = positionLocal.z.add(swayZ).add(sign(positionLocal.z).mul(bulge));
+
+    mat.positionNode = vec3(newX, newY, newZ);
+
+    // --- Material Colors ---
+    // Rim Light Logic
+    const viewDir = vec3(0, 0, 1); // Approximation for simple rim
     const NdotV = max(0.0, dot(normalView, viewDir));
     const rimFactor = float(1.0).sub(NdotV).pow(3.0).mul(0.6);
 
-    // Mix Base Color with Rim Color
+    // Base Colors
     const baseColor = color(0x7CFC00);
     const rimColor = color(0xAAFFAA);
-    mat.colorNode = baseColor.add(rimColor.mul(rimFactor));
+
+    // 4. Night Glow (Bioluminescence)
+    // Grass tips glow Cyan/Green when it's dark AND there is high-freq audio
+    // Glow Strength = Darkness * AudioHigh * Height (tips only)
+    const tipFactor = positionLocal.y.div(float(height)); // 0 at bottom, 1 at top
+    const glowStrength = uSkyDarkness.mul(uAudioHigh).mul(tipFactor).mul(2.0); // Boost intensity
+    const glowColor = color(0x00FFAA); // Cyan-Green Magic
+
+    // Mix: Base + Rim + NightGlow
+    // We add NightGlow to Emissive for bloom, or just mix it into color
+    const mixedColor = baseColor.add(rimColor.mul(rimFactor));
+
+    mat.colorNode = mixedColor;
+
+    // Add Glow to Emissive Node (so it blooms)
+    mat.emissiveNode = glowColor.mul(glowStrength);
 
     const meshCount = Math.ceil(count / MAX_PER_MESH);
 
