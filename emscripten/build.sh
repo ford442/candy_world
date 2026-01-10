@@ -41,7 +41,7 @@ OUTPUT_JS="$REPO_ROOT/public/candy_native.js"
 # ---------------------------------------------------------
 # FIX: Use -fopenmp-simd (SIMD only, no threading runtime required)
 # FIX: Removed -flto to prevent symbol stripping issues
-COMPILE_FLAGS="-O2 -msimd128 -mrelaxed-simd -ffast-math -fno-exceptions -fno-rtti -funroll-loops -mbulk-memory -fopenmp-simd -pthread"
+COMPILE_FLAGS="-O2 -msimd128 -mrelaxed-simd -ffast-math -fwasm-exceptions -fno-rtti -funroll-loops -mbulk-memory -fopenmp-simd -pthread"
 
 # ---------------------------------------------------------
 # LINKER FLAGS
