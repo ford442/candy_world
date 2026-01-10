@@ -11,6 +11,12 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 source /content/build_space/emsdk/emsdk_env.sh
 
+# Ensure em++ (emcc) is available; if not, skip the EMCC build and remove stale artifacts
+if ! command -v em++ >/dev/null 2>&1; then
+    echo "Warning: em++ not found in PATH. Skipping EMCC build and removing stale artifacts."
+    rm -f "$REPO_ROOT/public/candy_native.js" "$REPO_ROOT/public/candy_native.wasm" "$REPO_ROOT/public/candy_native.worker.js"
+    exit 0
+fi
 
 OUTPUT_JS="$REPO_ROOT/public/candy_native.js"
 
