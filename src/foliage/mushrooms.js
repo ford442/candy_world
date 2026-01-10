@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { color, time, sin, positionLocal, float, uniform, vec3 } from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
-import { foliageMaterials, registerReactiveMaterial, attachReactivity, pickAnimation, eyeGeo, createRimLight, uAudioLow, uAudioHigh } from './common.js';
+import { foliageMaterials, registerReactiveMaterial, attachReactivity, pickAnimation, eyeGeo, createRimLight, uAudioLow, uAudioHigh, sharedGeometries } from './common.js';
 
 // 12 Chromatic Notes with their corresponding colors
 // Colors are defined here to match CONFIG.noteColorMap.mushroom palette
@@ -70,22 +70,16 @@ export function createMushroom(options = {}) {
     const stemR = (0.15 + Math.random() * 0.05) * baseScale * widthMod;
     const capR = stemR * (2.5 + Math.random() * 0.5) * (isGiant ? 1.0 : 1.2) * widthMod;
 
-    // Stem Geometry (Lathe)
-    const stemPoints = [];
-    for (let i = 0; i <= 10; i++) {
-        const t = i / 10;
-        const r = stemR * (1.0 - Math.pow(t - 0.3, 2) * 0.5);
-        const y = t * stemH;
-        stemPoints.push(new THREE.Vector2(r, y));
-    }
-    const stemGeo = new THREE.LatheGeometry(stemPoints, 16);
-    const stem = new THREE.Mesh(stemGeo, foliageMaterials.mushroomStem);
+    // Stem Geometry (Shared Unit Cylinder + TSL Shaping)
+    // The curve logic (r = 1.0 - (t - 0.3)^2 * 0.5) is now applied in the material's vertex shader.
+    // We just scale the unit cylinder (radius 1, height 1) to the desired dimensions.
+    const stem = new THREE.Mesh(sharedGeometries.unitCylinder, foliageMaterials.mushroomStem);
+    stem.scale.set(stemR, stemH, stemR);
     stem.castShadow = true;
     stem.receiveShadow = true;
     group.add(stem);
 
-    // Cap Geometry (Sphere)
-    const capGeo = new THREE.SphereGeometry(capR, 24, 24, 0, Math.PI * 2, 0, Math.PI / 1.8);
+    // Cap Geometry (Shared Sphere with Cuts)
     let capMat;
     let chosenColorIndex;
     
@@ -177,23 +171,27 @@ export function createMushroom(options = {}) {
     instanceCapMat.emissiveNode = finalEmissiveNode;
     // -----------------------------------------------
 
-    const cap = new THREE.Mesh(capGeo, instanceCapMat);
+    // Cap Mesh
+    const cap = new THREE.Mesh(sharedGeometries.mushroomCap, instanceCapMat);
+    cap.scale.setScalar(capR);
     cap.position.y = stemH - (capR * 0.2);
     cap.castShadow = true;
     cap.receiveShadow = true;
     group.add(cap);
 
-    // Gills (Cone)
-    const gillGeo = new THREE.ConeGeometry(capR * 0.9, capR * 0.4, 24, 1, true);
+    // Gills (Shared Cone)
     const gillMat = foliageMaterials.mushroomGills;
-    const gill = new THREE.Mesh(gillGeo, gillMat);
+    const gill = new THREE.Mesh(sharedGeometries.mushroomGillCenter, gillMat);
+    // Scale Unit Cone (R=1, H=1) to desired dimensions
+    gill.scale.set(capR * 0.9, capR * 0.4, capR * 0.9);
     gill.position.y = stemH - (capR * 0.2);
     gill.rotation.x = Math.PI;
     group.add(gill);
 
     // Spots - vary pattern based on note
     const spotCount = actualNoteIndex >= 0 ? (3 + actualNoteIndex % 5) : (3 + Math.floor(Math.random() * 5));
-    const spotGeo = new THREE.SphereGeometry(capR * 0.15, 6, 6);
+    // Use shared Unit Sphere for spots
+    const spotRadius = capR * 0.15;
     const spotMat = foliageMaterials.mushroomSpots;
     
     // Add note-colored accent spots if this is a musical mushroom
@@ -218,9 +216,12 @@ export function createMushroom(options = {}) {
 
         // Use accent material for some spots on musical mushrooms
         const useAccent = noteColor !== null && i % 2 === 0;
-        const spot = new THREE.Mesh(spotGeo, useAccent ? accentSpotMat : spotMat);
+        const spot = new THREE.Mesh(sharedGeometries.unitSphere, useAccent ? accentSpotMat : spotMat);
         spot.position.set(x, y + stemH - (capR * 0.2), z);
-        spot.scale.set(1, 0.2, 1);
+        // Combine base radius with flattening scale
+        // Original: radius=spotRadius, scale=(1, 0.2, 1)
+        // New: radius=1, scale=(spotRadius, spotRadius*0.2, spotRadius)
+        spot.scale.set(spotRadius, spotRadius * 0.2, spotRadius);
         spot.lookAt(0, stemH + capR, 0);
         group.add(spot);
     }
