@@ -29,11 +29,13 @@ else
     echo "⚠️  terser not found - skipping JS minification"
 fi
 
-if command -v wasmedge &> /dev/null; then
-    WASMEDGE_AVAILABLE=true
-    echo "✓ wasmedge found"
-else
-    echo "⚠️  wasmedge not found - skipping wasmedge optimization"
+if ! command -v wasmedge &> /dev/null; then
+    echo "⚠️  wasmedge not found! Installing via 'curl -sSf https://raw.githubusercontent.com/WasmEdge/WasmEdge/master/utils/install.sh | bash && source $HOME/.wasmedge/env'"
+	curl -sSf https://raw.githubusercontent.com/WasmEdge/WasmEdge/master/utils/install.sh | bash && source $HOME/.wasmedge/env
+fi
+
+if ! command -v wasmedge &> /dev/null; then
+    echo "⚠️  wasmedge still not found!"
 fi
 
 # 3. Optimize AssemblyScript WASM (Physics) if wasm-opt is available
