@@ -13,7 +13,6 @@ WORKER_JS="$PUBLIC_DIR/candy_native.worker.js"
 # 2. Check for Tools (but don't fail if missing)
 WASM_OPT_AVAILABLE=false
 TERSER_AVAILABLE=false
-WASMEDGE_AVAILABLE=false
 
 if command -v wasm-opt &> /dev/null; then
     WASM_OPT_AVAILABLE=true
@@ -36,6 +35,9 @@ fi
 
 if ! command -v wasmedge &> /dev/null; then
     echo "⚠️  wasmedge still not found!"
+else
+    WASMEDGE_AVAILABLE=true
+    echo "✓ wasmedge found"
 fi
 
 # 3. Optimize AssemblyScript WASM (Physics) if wasm-opt is available
