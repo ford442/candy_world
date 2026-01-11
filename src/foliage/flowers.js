@@ -389,7 +389,7 @@ export function createSubwooferLotus(options = {}) {
 
     group.add(pad);
 
-    group.userData.animationType = 'speakerPulse';
+    group.userData.animationType = 'sway';
     group.userData.animationOffset = Math.random() * 10;
     group.userData.type = 'lotus';
 

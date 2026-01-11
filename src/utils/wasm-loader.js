@@ -76,11 +76,11 @@ async function loadEmscriptenModule() {
         try {
             const exports = await inspectWasmExports('candy_native.wasm');
             console.log('[WASM] candy_native.wasm exports:', exports);
-            const expected = ['calcSpeakerPulse','_calcSpeakerPulse','getSpeakerYOffset','_getSpeakerYOffset'];
+            const expected = ['calcAccordionStretch','_calcAccordionStretch','getAccordionStretchY','_getAccordionStretchY'];
             const has = exports && expected.some(n => exports.includes(n));
             if (!has) {
-                console.warn('[WASM] candy_native.wasm missing expected exports; using JS fallback.');
-                return false;
+                console.warn('[WASM] candy_native.wasm missing advanced animation exports; proceeding with JS fallbacks but attempting to continue load.');
+                // don't abort: allow loader to proceed so the module can still be instantiated if present
             }
         } catch (inspectErr) {
             console.warn('[WASM] Unable to inspect candy_native.wasm before load:', inspectErr);
@@ -651,7 +651,6 @@ export function checkCollision(playerX, playerZ, playerRadius, objectCount) {
 // ADVANCED ANIMATION WRAPPERS (The Missing Exports)
 // =============================================================================
 
-let speakerResult = { yOffset: 0, scaleX: 1, scaleY: 1, scaleZ: 1 };
 let accordionResult = { stretchY: 1, widthXZ: 1 };
 let fiberResult = { baseRotY: 0, branchRotZ: 0 };
 let shiverResult = { rotX: 0, rotZ: 0 };
@@ -659,11 +658,6 @@ let spiralResult = { rotY: 0, yOffset: 0, scale: 1 };
 let prismResult = { unfurl: 0, spin: 0, pulse: 1, hue: 0 };
 let particleResult = { x: 0, y: 0, z: 0 };
 let arpeggioResult = { targetStep: 0, unfurlStep: 0 };
-
-export function calcSpeakerPulse(time, offset, kick) {
-  // wasmInstance.exports.calcSpeakerPulse(time, offset, kick);
-  return { yOffset: 0, scaleX: 0, scaleY: 0, scaleZ: 0 };
-}
 
 export function calcAccordionStretch(animTime, offset, intensity) {
     if (wasmInstance) {

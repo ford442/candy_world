@@ -347,23 +347,7 @@ export function animateFoliage(foliageObject: FoliageObject, time: number, audio
 
     // --- Fallback JS Logic ---
 
-    if (type === 'speakerPulse') {
-        foliageObject.position.y = (foliageObject.userData.originalY || 0) + Math.sin(time + offset) * 0.2;
-
-        const pump = kick * 0.5;
-        const pad = foliageObject.children[0];
-        if (pad) {
-            pad.scale.set(1.0 + pump * 0.2, 1.0 - pump * 0.5, 1.0 + pump * 0.2);
-
-            if (isActive && pad.userData.ringMaterial) {
-                const ringMat = pad.userData.ringMaterial as FoliageMaterial;
-                const glow = pump * 5.0;
-                ringMat.emissive?.setHSL(0.0 + pump * 0.21, 1.0, 0.5);
-                ringMat.emissiveIntensity = glow;
-            }
-        }
-    }
-    else if (type === 'arpeggioUnfurl') {
+    if (type === 'arpeggioUnfurl') {
         updateArpeggio(foliageObject, time, audioData);
     }
     else if (type === 'snareSnap') {
