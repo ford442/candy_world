@@ -46,23 +46,6 @@ export function getWobbleZ(): f32 { return wobbleResultZ; }
  * Speaker Pulse animation (Subwoofer Lotus)
  * Returns values via getter functions
  */
-let speakerYOffset: f32 = 0.0;
-let speakerScaleX: f32 = 1.0;
-let speakerScaleY: f32 = 1.0;
-let speakerScaleZ: f32 = 1.0;
-
-export function calcSpeakerPulse(time: f32, offset: f32, kick: f32): void {
-  speakerYOffset = Mathf.sin(time + offset) * 0.2;
-  const pump = kick * 0.5;
-  speakerScaleX = 1.0 + pump * 0.2;
-  speakerScaleY = 1.0 - pump * 0.5;
-  speakerScaleZ = 1.0 + pump * 0.2;
-}
-
-export function getSpeakerYOffset(): f32 { return speakerYOffset; }
-export function getSpeakerScaleX(): f32 { return speakerScaleX; }
-export function getSpeakerScaleY(): f32 { return speakerScaleY; }
-export function getSpeakerScaleZ(): f32 { return speakerScaleZ; }
 
 /**
  * Accordion Stretch animation (Accordion Palm)

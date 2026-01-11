@@ -6,11 +6,7 @@
 // GLOBAL STATE FOR RESULTS
 // =================================================================================
 
-// Speaker Results
-float speakerYOffset = 0.0f;
-float speakerScaleX = 1.0f;
-float speakerScaleY = 1.0f;
-float speakerScaleZ = 1.0f;
+
 
 // Accordion Results
 float accordionStretchY = 1.0f;
@@ -44,27 +40,6 @@ float particleZ = 0.0f;
 float arpeggioResult[2]; // [targetStep, unfurlStep]
 
 extern "C" {
-
-// =================================================================================
-// SPEAKER PULSE
-// =================================================================================
-EMSCRIPTEN_KEEPALIVE
-void calcSpeakerPulse(float time, float offset, float kick) {
-    speakerYOffset = sin(time + offset) * 0.2f;
-    float pump = kick * 0.5f;
-    speakerScaleX = 1.0f + pump * 0.2f;
-    speakerScaleY = 1.0f - pump * 0.5f;
-    speakerScaleZ = 1.0f + pump * 0.2f;
-}
-
-EMSCRIPTEN_KEEPALIVE
-float getSpeakerYOffset() { return speakerYOffset; }
-EMSCRIPTEN_KEEPALIVE
-float getSpeakerScaleX() { return speakerScaleX; }
-EMSCRIPTEN_KEEPALIVE
-float getSpeakerScaleY() { return speakerScaleY; }
-EMSCRIPTEN_KEEPALIVE
-float getSpeakerScaleZ() { return speakerScaleZ; }
 
 // =================================================================================
 // ACCORDION STRETCH

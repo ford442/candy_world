@@ -78,7 +78,7 @@ The issue was that:
 ## JavaScript Fallbacks
 
 All animation functions have JavaScript implementations that are used when the C++ WASM module is not available:
-- `calcSpeakerPulse()` - Speaker animation
+- Speaker-specific advanced animations removed (e.g., speaker pulse)
 - `calcAccordionStretch()` - Accordion animation
 - `calcFiberWhip()` - Fiber animation
 - `calcHopY()` - Hop animation

@@ -5,8 +5,7 @@ const fs = require('fs');
 
 const wasmPath = `${__dirname}/../public/candy_native.wasm`;
 const expected = [
-  'calcSpeakerPulse', '_calcSpeakerPulse',
-  'getSpeakerYOffset', '_getSpeakerYOffset'
+  // Speaker exports removed; no longer required.
 ];
 
 function main() {

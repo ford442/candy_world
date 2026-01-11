@@ -56,7 +56,6 @@ export function calcWobble(time: number, offset: number, intensity: number): { r
 
 export function checkCollision(playerX: number, playerZ: number, playerRadius: number, objectCount: number): boolean;
 
-export function calcSpeakerPulse(time: number, offset: number, kick: number): { yOffset: number; scaleX: number; scaleY: number; scaleZ: number };
 export function calcAccordionStretch(time: number, offset: number, intensity: number): { stretchY: number; widthXZ: number };
 export function calcFiberWhip(time: number, offset: number, leadVol: number, isActive: boolean, branchIndex: number): { baseRotY: number; branchRotZ: number };
 export function calcHopY(time: number, offset: number, intensity: number, kick: number): number;
