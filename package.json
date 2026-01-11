@@ -7,7 +7,6 @@
     "dev": "bash dev.sh",
     "preview": "vite preview",
     "build:wasm": "asc assembly/index.ts --outFile public/candy_physics.wasm --textFile public/candy_physics.wat --sourceMap --shrinkLevel 0 --optimize --converge --optimizeLevel 3 --enable simd --enable relaxed-simd --enable bulk-memory --initialMemory 384 --target wasm-gc --enable reference-types --enable gc --exportRuntime --bindings esm",
-    "prebuild:emcc": "source emsdk/emsdk_env.sh",
     "build:emcc": "bash emscripten/build.sh",
     "optimize": "bash tools/optimize.sh",
     "build": "npm run build:wasm && npm run build:emcc && npm run optimize && vite build",
