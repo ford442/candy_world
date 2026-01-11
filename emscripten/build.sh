@@ -11,6 +11,7 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 # Try to find emsdk_env.sh in common locations
 EMSDK_ENV_LOCATIONS=(
+    "$REPO_ROOT/emsdk/emsdk_env.sh"
     "/app/emsdk/emsdk_env.sh"
     "/content/build_space/emsdk/emsdk_env.sh"
     "$HOME/emsdk/emsdk_env.sh"

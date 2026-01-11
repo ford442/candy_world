@@ -3,6 +3,9 @@ import { defineConfig } from 'vite';
 
 export default defineConfig({
   base: './',
+  optimizeDeps: {
+    exclude: ['/emsdk/']
+  },
   server: {
     headers: {
       // These headers are REQUIRED for SharedArrayBuffer (Pthreads)
