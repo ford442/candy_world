@@ -17,26 +17,7 @@ EMSDK_ENV_LOCATIONS=(
     "../emsdk/emsdk_env.sh"
 )
 
-FOUND_EMSDK=0
-for LOC in "${EMSDK_ENV_LOCATIONS[@]}"; do
-    if [ -f "$LOC" ]; then
-        echo "Sourcing emsdk_env.sh from $LOC"
-        source "$LOC"
-        FOUND_EMSDK=1
-        break
-    fi
-done
-
-if [ $FOUND_EMSDK -eq 0 ]; then
-    echo "Warning: emsdk_env.sh not found in common locations. Assuming em++ is in PATH."
-fi
-
-# Ensure em++ (emcc) is available; if not, skip the EMCC build and remove stale artifacts
-if ! command -v em++ >/dev/null 2>&1; then
-    echo "Warning: em++ not found in PATH. Skipping EMCC build and removing stale artifacts."
-    rm -f "$REPO_ROOT/public/candy_native.js" "$REPO_ROOT/public/candy_native.wasm" "$REPO_ROOT/public/candy_native.worker.js"
-    exit 0
-fi
+source /content/build_space/emsdk/emsdk_env.sh
 
 OUTPUT_JS="$REPO_ROOT/public/candy_native.js"
 
