@@ -8,10 +8,6 @@
 
 
 
-// Accordion Results
-float accordionStretchY = 1.0f;
-float accordionWidthXZ = 1.0f;
-
 // Fiber Results
 float fiberBaseRotY = 0.0f;
 float fiberBranchRotZ = 0.0f;
@@ -40,23 +36,6 @@ float particleZ = 0.0f;
 float arpeggioResult[2]; // [targetStep, unfurlStep]
 
 extern "C" {
-
-// =================================================================================
-// ACCORDION STRETCH
-// =================================================================================
-EMSCRIPTEN_KEEPALIVE
-void calcAccordionStretch(float animTime, float offset, float intensity) {
-    float rawStretch = sin(animTime * 10.0f + offset);
-    float stretch = fmaxf(0.0f, rawStretch); 
-    
-    accordionStretchY = 1.0f + stretch * 0.3f * intensity;
-    accordionWidthXZ = 1.0f / sqrt(accordionStretchY);
-}
-
-EMSCRIPTEN_KEEPALIVE
-float getAccordionStretchY() { return accordionStretchY; }
-EMSCRIPTEN_KEEPALIVE
-float getAccordionWidthXZ() { return accordionWidthXZ; }
 
 // =================================================================================
 // FIBER WHIP

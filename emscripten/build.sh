@@ -60,7 +60,7 @@ LINK_FLAGS="-O2 -std=c++17 -lembind -s USE_PTHREADS=1 -s PTHREAD_POOL_SIZE=4 -s 
 -fwasm-exceptions -matomics -mbulk-memory -fopenmp-simd -msimd128 -mrelaxed-simd -ffast-math -pthread"
 
 # FIX: Flatted EXPORTS string to ensure no functions are lost due to shell formatting
-EXPORTS="['_main','_hash','_valueNoise2D','_fbm','_fastInvSqrt','_fastDistance','_smoothDamp','_updateParticles','_checkCollision','_batchDistances','_batchDistanceCull_c','_batchSinWave','_initPhysics','_addObstacle','_setPlayerState','_getPlayerX','_getPlayerY','_getPlayerZ','_getPlayerVX','_getPlayerVY','_getPlayerVZ','_updatePhysicsCPP','_startBootstrapInit','_getBootstrapProgress','_isBootstrapComplete','_getBootstrapHeight','_resetBootstrap','_malloc','_free','_main','_calcArpeggioStep_c','_getArpeggioTargetStep_c','_getArpeggioUnfurlStep_c','_calcAccordionStretch','_getAccordionStretchY','_getAccordionWidthXZ','_calcFiberWhip','_getFiberBaseRotY','_getFiberBranchRotZ','_calcHopY','_calcShiver','_getShiverRotX','_getShiverRotZ','_calcSpiralWave','_getSpiralRotY','_getSpiralYOffset','_getSpiralScale','_calcPrismRose','_getPrismUnfurl','_getPrismSpin','_getPrismPulse','_getPrismHue','_calcFloatingParticle','_getParticleX','_getParticleY','_getParticleZ']"
+EXPORTS="['_main','_hash','_valueNoise2D','_fbm','_fastInvSqrt','_fastDistance','_smoothDamp','_updateParticles','_checkCollision','_batchDistances','_batchDistanceCull_c','_batchSinWave','_initPhysics','_addObstacle','_setPlayerState','_getPlayerX','_getPlayerY','_getPlayerZ','_getPlayerVX','_getPlayerVY','_getPlayerVZ','_updatePhysicsCPP','_startBootstrapInit','_getBootstrapProgress','_isBootstrapComplete','_getBootstrapHeight','_resetBootstrap','_malloc','_free','_main','_calcArpeggioStep_c','_getArpeggioTargetStep_c','_getArpeggioUnfurlStep_c','_calcFiberWhip','_getFiberBaseRotY','_getFiberBranchRotZ','_calcHopY','_calcShiver','_getShiverRotX','_getShiverRotZ','_calcSpiralWave','_getSpiralRotY','_getSpiralYOffset','_getSpiralScale','_calcPrismRose','_getPrismUnfurl','_getPrismSpin','_getPrismPulse','_getPrismHue','_calcFloatingParticle','_getParticleX','_getParticleY','_getParticleZ']"
 
 echo "Compiling & Linking..."
 
@@ -112,7 +112,7 @@ try {
   const m = new WebAssembly.Module(bytes);
   const ex = WebAssembly.Module.exports(m).map(e => e.name);
   // FIX: Emscripten 4.x with current settings exports without underscores
-  const expected = ['calcAccordionStretch','_calcAccordionStretch','getAccordionStretchY','_getAccordionStretchY'];
+  const expected = [];
   const missing = expected.filter(x => !ex.includes(x));
   if (missing.length > 0) {
     console.warn('Missing expected advanced animation exports in', p, missing);
