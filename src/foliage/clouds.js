@@ -14,6 +14,10 @@ export const uCloudLightningColor = uniform(color(0xFFFFFF));
 // --- Configuration ---
 const puffGeometry = new THREE.IcosahedronGeometry(1, 1);
 
+// Optimization: Shared scratch variables
+const _scratchVec3 = new THREE.Vector3();
+const _scratchObject3D = new THREE.Object3D();
+
 // Helper: Create the TSL Material
 // This gives us the "Matte White" look BUT with Emissive Lightning support
 // 🎨 Palette Upgrade: Added Vertex Displacement (Fluff) and Rim Light (Silver Lining)
@@ -78,36 +82,42 @@ export function createCloud(options = {}) {
     group.userData.tier = tier;
     group.userData.isRainCloud = false;
 
-    // Generate the cloud by clustering "puffs"
-    for (let i = 0; i < puffCount; i++) {
-        // Use the TSL Material
-        const puff = new THREE.Mesh(puffGeometry, sharedCloudMaterial);
+    // ⚡ OPTIMIZATION: Use InstancedMesh for cloud puffs
+    // This reduces draw calls from ~15 per cloud to 1 per cloud.
+    // For 100 clouds, this saves ~1400 draw calls.
+    const puffs = new THREE.InstancedMesh(puffGeometry, sharedCloudMaterial, puffCount);
+    puffs.castShadow = true;
+    puffs.receiveShadow = true;
 
+    for (let i = 0; i < puffCount; i++) {
         const radiusSpread = (Math.random() * 2.5 + 0.5) * scale;
         const theta = Math.random() * Math.PI * 2;
         const phi = Math.acos(2 * Math.random() - 1);
 
-        puff.position.set(
-            radiusSpread * Math.sin(phi) * Math.cos(theta),
-            radiusSpread * Math.sin(phi) * Math.sin(theta),
-            radiusSpread * Math.cos(phi)
-        );
+        const x = radiusSpread * Math.sin(phi) * Math.cos(theta);
+        const z = radiusSpread * Math.sin(phi) * Math.sin(theta);
+        let y = radiusSpread * Math.cos(phi);
 
-        puff.position.y *= 0.6; // Flatten bottom
+        y *= 0.6; // Flatten bottom
 
-        const distFromCenter = puff.position.length();
+        _scratchObject3D.position.set(x, y, z);
+
+        const distFromCenter = _scratchObject3D.position.length();
         const sizeBase = 1.0 - (distFromCenter / (3.5 * scale)) * 0.5;
         const puffScaleRandom = 0.5 + Math.random() * 1.0;
         const finalPuffScale = Math.max(0.2, sizeBase * puffScaleRandom * scale);
 
-        puff.scale.setScalar(finalPuffScale);
-        puff.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
+        _scratchObject3D.scale.setScalar(finalPuffScale);
+        _scratchObject3D.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
+        _scratchObject3D.updateMatrix();
 
-        puff.castShadow = true;
-        puff.receiveShadow = true;
-
-        group.add(puff);
+        puffs.setMatrixAt(i, _scratchObject3D.matrix);
     }
+
+    // Explicitly compute bounding sphere for correct culling
+    puffs.computeBoundingSphere();
+
+    group.add(puffs);
 
     group.scale.set(1.4, 1.0, 1.2);
     group.userData.originalScale = group.scale.clone();
@@ -134,8 +144,9 @@ export function createDecoCloud(options = {}) {
 export function updateCloudAttraction(cloud, targetPos, dt) {
     if (!cloud || !targetPos) return;
 
+    // ⚡ OPTIMIZATION: Use shared vector to avoid allocation
     // 1. Calculate Vector to Target
-    const toTarget = new THREE.Vector3().subVectors(targetPos, cloud.position);
+    const toTarget = _scratchVec3.subVectors(targetPos, cloud.position);
 
     // Flatten Y: Clouds should stay in the sky, just move over the target
     toTarget.y = 0;
