@@ -72,19 +72,7 @@ async function loadEmscriptenModule() {
 
         const locatePrefix = wasmCheck.path;
 
-        // Preflight: inspect wasm exports to ensure it contains the expected symbols
-        try {
-            const exports = await inspectWasmExports('candy_native.wasm');
-            console.log('[WASM] candy_native.wasm exports:', exports);
-            const expected = ['calcAccordionStretch','_calcAccordionStretch','getAccordionStretchY','_getAccordionStretchY'];
-            const has = exports && expected.some(n => exports.includes(n));
-            if (!has) {
-                console.warn('[WASM] candy_native.wasm missing advanced animation exports; proceeding with JS fallbacks but attempting to continue load.');
-                // don't abort: allow loader to proceed so the module can still be instantiated if present
-            }
-        } catch (inspectErr) {
-            console.warn('[WASM] Unable to inspect candy_native.wasm before load:', inspectErr);
-        }
+   
 
         let createCandyNative;
 
@@ -105,7 +93,6 @@ async function loadEmscriptenModule() {
             emscriptenInstance = await createCandyNative({
                 locateFile: (path, prefix) => {
                     if (path.endsWith('.wasm')) return `${locatePrefix}/candy_native.wasm`;
-                    if (path.endsWith('.worker.js')) return `${locatePrefix}/candy_native.worker.js`;
                     return prefix + path;
                 },
                 print: (text) => console.log('[Native]', text),
