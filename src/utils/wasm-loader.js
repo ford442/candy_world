@@ -661,20 +661,8 @@ let particleResult = { x: 0, y: 0, z: 0 };
 let arpeggioResult = { targetStep: 0, unfurlStep: 0 };
 
 export function calcSpeakerPulse(time, offset, kick) {
-    if (wasmInstance) {
-        wasmInstance.exports.calcSpeakerPulse(time, offset, kick);
-        speakerResult.yOffset = wasmInstance.exports.getSpeakerYOffset();
-        speakerResult.scaleX = wasmInstance.exports.getSpeakerScaleX();
-        speakerResult.scaleY = wasmInstance.exports.getSpeakerScaleY();
-        speakerResult.scaleZ = wasmInstance.exports.getSpeakerScaleZ();
-    } else {
-        speakerResult.yOffset = Math.sin(time + offset) * 0.2;
-        const pump = kick * 0.5;
-        speakerResult.scaleX = 1.0 + pump * 0.2;
-        speakerResult.scaleY = 1.0 - pump * 0.5;
-        speakerResult.scaleZ = 1.0 + pump * 0.2;
-    }
-    return speakerResult;
+  // wasmInstance.exports.calcSpeakerPulse(time, offset, kick);
+  return { yOffset: 0, scaleX: 0, scaleY: 0, scaleZ: 0 };
 }
 
 export function calcAccordionStretch(animTime, offset, intensity) {
