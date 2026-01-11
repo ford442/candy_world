@@ -9,13 +9,8 @@ echo "Building candy_native.js (Safe Pthread Build)..."
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-# Try to find emsdk_env.sh in common locations
-EMSDK_ENV_LOCATIONS=(
-    "/app/emsdk/emsdk_env.sh"
-    "/content/build_space/emsdk/emsdk_env.sh"
-    "$HOME/emsdk/emsdk_env.sh"
-    "../emsdk/emsdk_env.sh"
-)
+
+source /content/build_space/emsdk/emsdk_env.sh
 
 OUTPUT_JS="$REPO_ROOT/public/candy_native.js"
 
