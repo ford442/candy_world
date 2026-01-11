@@ -149,6 +149,7 @@ export async function parallelWasmLoad(options = {}) {
             const locatePrefix = wasmCheck.path;
 
             // Inspect the wasm exports first to detect mismatches or stale artifacts
+            /*
             try {
                 const exports = await inspectWasmExports('candy_native.wasm');
                 console.log('[WASMOrchestrator] candy_native.wasm exports:', exports);
@@ -161,6 +162,7 @@ export async function parallelWasmLoad(options = {}) {
             } catch (inspectErr) {
                 console.warn('[WASMOrchestrator] Failed to inspect candy_native.wasm exports, continuing with loader:', inspectErr);
             }
+            */
 
             // Import the generated JS loader
             let createCandyNative;
