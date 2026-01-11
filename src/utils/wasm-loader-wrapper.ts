@@ -46,7 +46,10 @@ export function calcWobble(time: number, offset: number, intensity: number): { r
 
 export function checkCollision(playerX: number, playerZ: number, playerRadius: number, objectCount: number): boolean { return wasm.checkCollision(playerX, playerZ, playerRadius, objectCount); }
 
-export function calcSpeakerPulse(time: number, offset: number, kick: number) { return wasm.calcSpeakerPulse(time, offset, kick); }
+export function calcSpeakerPulse(time: number, offset: number, kick: number) { 
+  // return wasm.calcSpeakerPulse(time, offset, kick); 
+  return { yOffset: 0, scaleX: 0, scaleY: 0, scaleZ: 0 };
+}
 export function calcAccordionStretch(time: number, offset: number, intensity: number) { return wasm.calcAccordionStretch(time, offset, intensity); }
 export function calcFiberWhip(time: number, offset: number, leadVol: number, isActive: boolean, branchIndex: number) { return wasm.calcFiberWhip(time, offset, leadVol, isActive, branchIndex); }
 export function calcHopY(time: number, offset: number, intensity: number, kick: number): number { return wasm.calcHopY(time, offset, intensity, kick); }
