@@ -71,7 +71,6 @@
             display: block;
             width: 100%;
             height: 100%;
-            outline: none;
         }
         #instructions {
             position: absolute;
@@ -121,7 +120,6 @@
         .cta-button:focus {
             transform: scale(1.05);
             background: #FF5252;
-            outline: none;
         }
         .settings-container {
             margin-bottom: 20px;
@@ -316,6 +314,25 @@
             vertical-align: middle;
             position: relative;
             top: -2px;
+        }
+
+        /* 🎨 Palette: "Sugar Glaze" Focus Rings */
+        /* Replaces generic outlines with high-contrast, theme-aware rings */
+        :focus-visible {
+            outline: 3px solid #FF4081;
+            outline-offset: 2px;
+        }
+
+        .cta-button:focus-visible,
+        .toggle-button:focus-visible,
+        .secondary-button:focus-visible,
+        .playlist-btn:focus-visible,
+        .file-label:focus-visible,
+        input:focus-visible + label {
+            outline: none;
+            box-shadow: 0 0 0 3px #ffffff, 0 0 0 6px #FF4081;
+            position: relative;
+            z-index: 10;
         }
     </style>
     
