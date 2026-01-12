@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import './style.css';
-import { uWindSpeed, uWindDirection, uSkyTopColor, uSkyBottomColor, uHorizonColor, uAtmosphereIntensity, uStarPulse, uStarOpacity, uAuroraIntensity, uAuroraColor, uAudioLow, uAudioHigh, uGlitchIntensity, uChromaticIntensity, uTime, createAurora, createChromaticPulse, updateMoon, animateFoliage, updateFoliageMaterials, updateFireflies, updateFallingBerries, collectFallingBerries, createFlower, createMushroom, validateNodeGeometries, createMelodyRibbon, updateMelodyRibbons, createMelodyMirror, createSparkleTrail, updateSparkleTrail } from './src/foliage/index.js';
+import { uWindSpeed, uWindDirection, uSkyTopColor, uSkyBottomColor, uHorizonColor, uAtmosphereIntensity, uStarPulse, uStarOpacity, uAuroraIntensity, uAuroraColor, uAudioLow, uAudioHigh, uGlitchIntensity, uChromaticIntensity, uTime, createAurora, createChromaticPulse, updateMoon, animateFoliage, updateFoliageMaterials, updateFireflies, updateFallingBerries, collectFallingBerries, createFlower, createMushroom, validateNodeGeometries, createMelodyRibbon, updateMelodyRibbons, createMelodyMirror, createSparkleTrail, updateSparkleTrail, createImpactSystem } from './src/foliage/index.js';
 import { initCelestialBodies } from './src/foliage/celestial-bodies.js';
 import { InteractionSystem } from './src/systems/interaction.js';
 import { MusicReactivitySystem } from './src/systems/music-reactivity.js';
@@ -65,6 +65,7 @@ let chromaticPulse = null;
 let celestialBodiesInitialized = false;
 let melodyRibbon = null;
 let sparkleTrail = null;
+let impactSystem = null;
 
 // Function to initialize deferred visual elements
 function initDeferredVisuals() {
@@ -95,6 +96,12 @@ function initDeferredVisuals() {
         sparkleTrail = createSparkleTrail();
         scene.add(sparkleTrail);
         console.log('[Deferred] Sparkle Trail initialized');
+    }
+
+    if (!impactSystem) {
+        impactSystem = createImpactSystem();
+        scene.add(impactSystem);
+        console.log('[Deferred] Impact System initialized');
     }
 }
 

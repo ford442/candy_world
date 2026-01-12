@@ -20,6 +20,7 @@ import {
     calculateWaterLevel
 } from './physics.core.js';
 import { uChromaticIntensity } from '../foliage/chromatic.js';
+import { spawnImpact } from '../foliage/impacts.js';
 
 // --- Configuration ---
 const PLAYER_RADIUS = 0.5;
@@ -278,21 +279,13 @@ function handleAbilities(delta, camera, keyStates) {
         player.airJumpsLeft--;
 
         // Visual / Feedback
+        spawnImpact(player.position, 'jump');
+
         // Small chromatic aberration bump
         if (uChromaticIntensity) {
              // We can't set node directly? uChromaticIntensity is a UniformNode.
              // .value property updates the uniform value.
              uChromaticIntensity.value = 0.2;
-             // We need to decay it elsewhere?
-             // Ideally physics shouldn't manage visual decay, but for now we set a spike.
-             // The chromatic shader reads this. We need a decay system.
-             // Usually main.js or the shader logic handles decay.
-             // For now, let's assume manual reset isn't needed if we had a decay loop,
-             // but checking chromatic.js, it just reads the uniform.
-             // Let's modify main.js later to decay this?
-             // Or just set it and let it stay? No, it needs to be a pulse.
-             // I'll add a decay logic to 'updateDefaultState' or main loop.
-             // For this task, I'll set it here and let the decay I'll add handle it.
         }
 
         discoverySystem.discover('ability_double_jump', 'Double Jump', '🦘');
@@ -323,6 +316,8 @@ function handleAbilities(delta, camera, keyStates) {
         player.dashCooldown = 1.0; // 1 Second Cooldown
 
         // Visual Feedback
+        spawnImpact(player.position, 'dash');
+
         if (uChromaticIntensity) {
             uChromaticIntensity.value = 0.5; // Stronger pulse for dash
         }
@@ -404,7 +399,12 @@ function updateDefaultState(delta, camera, controls, keyStates, audioState) {
         // But only if we were grounded before (normal jump)
         if (player.velocity.y > 0 && player.isGrounded) keyStates.jump = false;
 
+        const wasGrounded = player.isGrounded;
         player.isGrounded = (onGround === 1);
+
+        if (!wasGrounded && player.isGrounded && player.velocity.y < -1.0) {
+            spawnImpact(player.position, 'land');
+        }
     } else {
         // JS Fallback (Used for Lake Basin or C++ Failure)
         updateJSFallbackMovement(delta, camera, controls, keyStates, moveSpeed);
@@ -467,10 +467,15 @@ function updateJSFallbackMovement(delta, camera, controls, keyStates, moveSpeed)
     // Corrected Ground Check using Unified Height (Accounts for Lake)
     const groundY = getUnifiedGroundHeight(player.position.x, player.position.z);
 
+    const wasGrounded = player.isGrounded;
     if (player.position.y < groundY + 1.8 && player.velocity.y <= 0) {
         player.position.y = groundY + 1.8;
         player.velocity.y = 0;
         player.isGrounded = true;
+
+        if (!wasGrounded) {
+             spawnImpact(player.position, 'land');
+        }
     } else {
         player.isGrounded = false;
     }
