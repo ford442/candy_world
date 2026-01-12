@@ -799,6 +799,23 @@ export function calcFloatingParticle(baseX, baseY, baseZ, time, offset, amplitud
     return particleResult;
 }
 
+export function calcSpeakerPulse(time, kick, intensity) {
+    if (wasmInstance) {
+        // Try native wrapper
+        const f = getNativeFunc('calcSpeakerPulse');
+        if (f) {
+            f(time, kick, intensity);
+            const getScale = getNativeFunc('getSpeakerScale');
+            return getScale ? getScale() : 1.0;
+        }
+    }
+
+    // JS Fallback
+    const pulse = kick * 0.4 * intensity;
+    const breathe = Math.sin(time * 2.0) * 0.05;
+    return 1.0 + pulse + breathe;
+}
+
 // =============================================================================
 // NATIVE C++ WRAPPERS
 // =============================================================================
