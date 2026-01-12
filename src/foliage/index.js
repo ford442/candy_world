@@ -28,6 +28,7 @@ export * from './instrument.js';
 export * from './ribbons.js'; // Added Melody Ribbons
 export * from './mirrors.js'; // Added Melody Mirrors
 export * from './sparkle-trail.js'; // Added Sparkle Trail
+export * from './lotus.js'; // Added Subwoofer Lotus
 
 // Musical flora
 export * from './musical_flora.js';
