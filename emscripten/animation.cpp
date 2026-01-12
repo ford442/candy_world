@@ -184,4 +184,21 @@ float getArpeggioUnfurlStep_c() {
     return arpeggioResult[1];
 }
 
+// =================================================================================
+// SPEAKER PULSE
+// =================================================================================
+float speakerScale = 1.0f;
+
+EMSCRIPTEN_KEEPALIVE
+void calcSpeakerPulse(float time, float kick, float intensity) {
+    float pulse = kick * 0.4f * intensity;
+    float breathe = sin(time * 2.0f) * 0.05f;
+    speakerScale = 1.0f + pulse + breathe;
+}
+
+EMSCRIPTEN_KEEPALIVE
+float getSpeakerScale() {
+    return speakerScale;
+}
+
 } // extern "C"
