@@ -19,6 +19,7 @@ import {
     getUnifiedGroundHeightTyped,
     calculateWaterLevel
 } from './physics.core.js';
+import { uChromaticIntensity } from '../foliage/chromatic.js';
 
 // --- Configuration ---
 const PLAYER_RADIUS = 0.5;
@@ -51,9 +52,20 @@ export const player = {
     maxEnergy: 10.0,
     currentState: PlayerState.DEFAULT,
 
+    // Ability State
+    airJumpsLeft: 1,
+    dashCooldown: 0.0,
+    canDash: true,
+
     // Flags for external systems to query
     isGrounded: false,
     isUnderwater: false
+};
+
+// Internal input tracking for edge detection
+const _lastInputState = {
+    jump: false,
+    dash: false
 };
 
 // Global physics modifiers (Musical Ecosystem)
@@ -123,6 +135,10 @@ export function updatePhysics(delta, camera, controls, keyStates, audioState) {
             updateDefaultState(delta, camera, controls, keyStates, audioState);
             break;
     }
+
+    // 4. Update Input History (for next frame edge detection)
+    _lastInputState.jump = keyStates.jump;
+    _lastInputState.dash = keyStates.dash;
 
     // Sync back
     camera.position.copy(player.position);
@@ -239,6 +255,83 @@ function updateClimbingState(delta, camera, controls, keyStates) {
     player.currentState = PlayerState.DEFAULT;
 }
 
+// --- Ability Handler ---
+function handleAbilities(delta, camera, keyStates) {
+    // 1. Cooldown Management
+    if (player.dashCooldown > 0) {
+        player.dashCooldown -= delta;
+    }
+
+    // 2. Ground Reset
+    if (player.isGrounded) {
+        player.airJumpsLeft = 1; // Reset Double Jump
+    }
+
+    // 3. Double Jump (Air Jump)
+    // Trigger on Rising Edge of Jump Key AND Not Grounded AND Jumps Left
+    const isJumpPressed = keyStates.jump;
+    const isJumpTriggered = isJumpPressed && !_lastInputState.jump;
+
+    if (isJumpTriggered && !player.isGrounded && player.airJumpsLeft > 0) {
+        // Apply Jump Force
+        player.velocity.y = 12.0;
+        player.airJumpsLeft--;
+
+        // Visual / Feedback
+        // Small chromatic aberration bump
+        if (uChromaticIntensity) {
+             // We can't set node directly? uChromaticIntensity is a UniformNode.
+             // .value property updates the uniform value.
+             uChromaticIntensity.value = 0.2;
+             // We need to decay it elsewhere?
+             // Ideally physics shouldn't manage visual decay, but for now we set a spike.
+             // The chromatic shader reads this. We need a decay system.
+             // Usually main.js or the shader logic handles decay.
+             // For now, let's assume manual reset isn't needed if we had a decay loop,
+             // but checking chromatic.js, it just reads the uniform.
+             // Let's modify main.js later to decay this?
+             // Or just set it and let it stay? No, it needs to be a pulse.
+             // I'll add a decay logic to 'updateDefaultState' or main loop.
+             // For this task, I'll set it here and let the decay I'll add handle it.
+        }
+
+        discoverySystem.discover('ability_double_jump', 'Double Jump', '🦘');
+    }
+
+    // 4. Dash
+    // Trigger on Rising Edge of Dash Key AND Cooldown Ready
+    const isDashPressed = keyStates.dash;
+    const isDashTriggered = isDashPressed && !_lastInputState.dash;
+
+    if (isDashTriggered && player.dashCooldown <= 0) {
+        // Calculate Dash Direction (Camera Forward, flattened)
+        camera.getWorldDirection(_scratchCamDir);
+        _scratchCamDir.y = 0;
+        _scratchCamDir.normalize();
+
+        // Apply Impulse (25 units/sec instant boost)
+        // We add to existing velocity? Or set it?
+        // Setting it gives a "snappy" feel. Adding preserves momentum.
+        // Let's Add, but clamp Y.
+        player.velocity.addScaledVector(_scratchCamDir, 25.0);
+
+        // Cancel vertical momentum for "Air Dash" feel
+        if (!player.isGrounded) {
+            player.velocity.y = 0;
+        }
+
+        player.dashCooldown = 1.0; // 1 Second Cooldown
+
+        // Visual Feedback
+        if (uChromaticIntensity) {
+            uChromaticIntensity.value = 0.5; // Stronger pulse for dash
+        }
+
+        discoverySystem.discover('ability_dash', 'Dash', '💨');
+    }
+}
+
+
 // --- State: DEFAULT (Walking/Falling) ---
 function updateDefaultState(delta, camera, controls, keyStates, audioState) {
     if (!cppPhysicsInitialized) {
@@ -254,7 +347,14 @@ function updateDefaultState(delta, camera, controls, keyStates, audioState) {
         checkVineAttachment(camera);
     }
 
-    // --- MOVEMENT INTEGRATION ---
+    // --- ABILITIES & MOVEMENT ---
+    handleAbilities(delta, camera, keyStates);
+
+    // Decay Chromatic Pulse (Hack for now, ideally moved to a proper FX system)
+    if (uChromaticIntensity && uChromaticIntensity.value > 0) {
+        uChromaticIntensity.value = Math.max(0, uChromaticIntensity.value - delta * 2.0);
+    }
+
     // MIGRATED: Now uses TypeScript version from physics.core.ts
     const { moveVec: moveInput, moveSpeed } = calculateMovementInput(camera, keyStates, player);
 
@@ -271,13 +371,23 @@ function updateDefaultState(delta, camera, controls, keyStates, audioState) {
 
     let onGround = -1; // Default to failure/fallback
 
+    // Prevent C++ from applying jump force if we are doing an Air Jump (which isn't grounded)
+    // But C++ checks ground internally. If we pass jump=1 and it's not ground, it does nothing.
+    // However, if we just air-jumped, we might want to tell C++ we are jumping?
+    // Actually, we modified velocity in handleAbilities. C++ will integrate that velocity.
+    // We should pass jump=0 to C++ if we are air-jumping, so it doesn't double-dip if it mistakenly thinks we are grounded.
+    // Only pass jump=1 if we WANT a ground jump.
+    // Ground jump logic is handled by C++ when on ground.
+    // So: if isGrounded, pass keyStates.jump. If not, pass 0.
+    const effectiveJumpInput = (player.isGrounded && keyStates.jump) ? 1 : 0;
+
     if (!inLakeBasin) {
         onGround = updatePhysicsCPP(
             delta,
             moveInput.x,
             moveInput.z,
             moveSpeed,
-            keyStates.jump ? 1 : 0,
+            effectiveJumpInput,
             keyStates.sprint ? 1 : 0,
             keyStates.sneak ? 1 : 0,
             grooveGravity.multiplier
@@ -289,7 +399,11 @@ function updateDefaultState(delta, camera, controls, keyStates, audioState) {
         const newState = getPlayerState();
         player.position.set(newState.x, newState.y, newState.z);
         player.velocity.set(newState.vx, newState.vy, newState.vz);
-        if (player.velocity.y > 0) keyStates.jump = false;
+
+        // Reset jump key if we successfully jumped (velocity.y > 0)
+        // But only if we were grounded before (normal jump)
+        if (player.velocity.y > 0 && player.isGrounded) keyStates.jump = false;
+
         player.isGrounded = (onGround === 1);
     } else {
         // JS Fallback (Used for Lake Basin or C++ Failure)
@@ -358,6 +472,14 @@ function updateJSFallbackMovement(delta, camera, controls, keyStates, moveSpeed)
         player.velocity.y = 0;
         player.isGrounded = true;
     } else {
+        player.isGrounded = false;
+    }
+
+    // JS Logic doesn't auto-handle jump, so we add it here for consistency if needed?
+    // But JS fallback is mostly for lake where we swim.
+    // If walking on lake bottom:
+    if (player.isGrounded && keyStates.jump) {
+        player.velocity.y = 8.0;
         player.isGrounded = false;
     }
 }
