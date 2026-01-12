@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import './style.css';
-import { uWindSpeed, uWindDirection, uSkyTopColor, uSkyBottomColor, uHorizonColor, uAtmosphereIntensity, uStarPulse, uStarOpacity, uAuroraIntensity, uAuroraColor, uAudioLow, uAudioHigh, uGlitchIntensity, uChromaticIntensity, uTime, createAurora, createChromaticPulse, updateMoon, animateFoliage, updateFoliageMaterials, updateFireflies, updateFallingBerries, collectFallingBerries, createFlower, createMushroom, validateNodeGeometries, createMelodyRibbon, updateMelodyRibbons, createMelodyMirror } from './src/foliage/index.js';
+import { uWindSpeed, uWindDirection, uSkyTopColor, uSkyBottomColor, uHorizonColor, uAtmosphereIntensity, uStarPulse, uStarOpacity, uAuroraIntensity, uAuroraColor, uAudioLow, uAudioHigh, uGlitchIntensity, uChromaticIntensity, uTime, createAurora, createChromaticPulse, updateMoon, animateFoliage, updateFoliageMaterials, updateFireflies, updateFallingBerries, collectFallingBerries, createFlower, createMushroom, validateNodeGeometries, createMelodyRibbon, updateMelodyRibbons, createMelodyMirror, createSparkleTrail, updateSparkleTrail } from './src/foliage/index.js';
 import { initCelestialBodies } from './src/foliage/celestial-bodies.js';
 import { InteractionSystem } from './src/systems/interaction.js';
 import { MusicReactivitySystem } from './src/systems/music-reactivity.js';
@@ -64,6 +64,7 @@ let aurora = null;
 let chromaticPulse = null;
 let celestialBodiesInitialized = false;
 let melodyRibbon = null;
+let sparkleTrail = null;
 
 // Function to initialize deferred visual elements
 function initDeferredVisuals() {
@@ -88,6 +89,12 @@ function initDeferredVisuals() {
     if (!melodyRibbon) {
         melodyRibbon = createMelodyRibbon(scene);
         console.log('[Deferred] Melody Ribbon initialized');
+    }
+
+    if (!sparkleTrail) {
+        sparkleTrail = createSparkleTrail();
+        scene.add(sparkleTrail);
+        console.log('[Deferred] Sparkle Trail initialized');
     }
 }
 
@@ -481,6 +488,7 @@ function animate() {
 
     profiler.measure('Physics', () => {
         updatePhysics(delta, camera, controls, keyStates, audioState);
+        if (sparkleTrail) updateSparkleTrail(sparkleTrail, player.position, player.velocity, gameTime);
     });
 
     profiler.measure('Gameplay', () => {

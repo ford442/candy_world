@@ -27,6 +27,7 @@ export * from './silence-spirits.js';
 export * from './instrument.js';
 export * from './ribbons.js'; // Added Melody Ribbons
 export * from './mirrors.js'; // Added Melody Mirrors
+export * from './sparkle-trail.js'; // Added Sparkle Trail
 
 // Musical flora
 export * from './musical_flora.js';
