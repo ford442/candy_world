@@ -364,38 +364,6 @@ export function createPrismRoseBush(options = {}) {
     return attachReactivity(group, { minLight: 0.2, maxLight: 1.0 });
 }
 
-export function createSubwooferLotus(options = {}) {
-    const { color: hexColor = 0x2E8B57 } = options;
-    const group = new THREE.Group();
-
-    const pad = new THREE.Mesh(sharedGeometries.unitCylinder, createClayMaterial(hexColor));
-    pad.scale.set(1.5, 0.5, 1.5);
-    pad.position.y = 0;
-    pad.castShadow = true;
-    pad.receiveShadow = true;
-
-    const ringMat = foliageMaterials.lotusRing.clone();
-    ringMat.emissiveNode = tslColor(0x000000); 
-    pad.userData.ringMaterial = ringMat;
-    registerReactiveMaterial(ringMat);
-
-    for (let i = 1; i <= 3; i++) {
-        const ringGeo = new THREE.TorusGeometry(i * 0.3, 0.05, 8, 24);
-        const ring = new THREE.Mesh(ringGeo, ringMat);
-        ring.rotation.x = -Math.PI / 2;
-        ring.position.y = 0.51; // Just above pad
-        pad.add(ring);
-    }
-
-    group.add(pad);
-
-    group.userData.animationType = 'sway';
-    group.userData.animationOffset = Math.random() * 10;
-    group.userData.type = 'lotus';
-
-    return attachReactivity(group, { minLight: 0.0, maxLight: 1.0 }); // Lotus might be always active
-}
-
 export function createVibratoViolet(options = {}) {
     const { color = 0x8A2BE2, intensity = 1.0 } = options;
     const group = new THREE.Group();
