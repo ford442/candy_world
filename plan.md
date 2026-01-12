@@ -11,7 +11,7 @@
 ## Next Steps
 
 1. **Migrate to TypeScript**: Begin Phase 1 of the migration roadmap to harden the codebase before adding more complex systems.
-2. **Player Abilities**: Implement Dash and Double Jump extensions.
+2. **Verify Data Flow**: Ensure `AudioSystem` correctly extracts and passes `order`/`row` data from the worklet to drive the Pattern-Change logic reliably.
 
 ---
 
@@ -44,6 +44,7 @@
   - **Sample-Offset Glitch**: Implemented TSL shader for glitch effect (`src/foliage/glitch.js`).
   - **Chromatic Aberration Pulse**: Implemented TSL-based full-screen distortion (`src/foliage/chromatic.js`).
   - **Note-Trail Ribbons**: Implemented `src/foliage/ribbons.js` featuring dynamic 3D ribbons that trace the melody (channel 2). The ribbon extrusion height is driven by pitch, and width by volume. Rendered with TSL gradient and sparkle effects.
+  - **Player Abilities**: Implemented Dash ('E') and Double Jump mechanics in `src/systems/physics.js` with visual feedback (chromatic pulse) and discovery tracking.
 
 ---
 
@@ -66,7 +67,11 @@
   - [x] Rare Flora Discovery (Unlock system)
   - [x] Advanced Collision (WASM-based narrow phase)
      - *Implementation Details:* Implemented Spatial Grid (16x16) in AssemblyScript to optimize collision detection from O(N) to O(1) for nearby objects. Handles Mushrooms, Clouds, Gates, and Trampolines.
-  - [ ] Player Abilities (Dash, Double Jump extensions)
+  - [x] Player Abilities (Dash, Double Jump extensions)
+    - *Implementation Details:* Added Double Jump (air jump) and Dash (horizontal impulse) abilities to `src/systems/physics.js`.
+      - **Double Jump:** Allows one extra jump in mid-air (reset on ground). Triggers `ability_double_jump` discovery.
+      - **Dash:** Instant velocity boost in camera direction (mapped to 'E'). Cooldown 1s. Triggers `ability_dash` discovery.
+      - **Visuals:** Triggers a chromatic aberration pulse (`uChromaticIntensity`) on use.
 
 ---
 
