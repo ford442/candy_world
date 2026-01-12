@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { color, time, sin, positionLocal, float, uniform, vec3 } from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
-import { foliageMaterials, registerReactiveMaterial, attachReactivity, pickAnimation, eyeGeo, createRimLight, uAudioLow, uAudioHigh, sharedGeometries } from './common.js';
+import { foliageMaterials, registerReactiveMaterial, attachReactivity, pickAnimation, eyeGeo, createRimLight, uAudioLow, uAudioHigh, sharedGeometries, _foliageReactiveColor } from './common.js';
 
 // 12 Chromatic Notes with their corresponding colors
 // Colors are defined here to match CONFIG.noteColorMap.mushroom palette
@@ -353,11 +353,19 @@ export function createMushroom(options = {}) {
         }
         
         // 1. Strobe Effect (via animateFoliage system)
-        const flashColor = group.userData.noteColor 
-            ? new THREE.Color(group.userData.noteColor)
-            : new THREE.Color(colorVal);
+        // ⚡ OPTIMIZATION: Use shared color object to prevent GC spike
+        if (group.userData.noteColor) {
+            _foliageReactiveColor.setHex(group.userData.noteColor);
+        } else {
+            _foliageReactiveColor.setHex(colorVal);
+        }
             
-        cap.userData.flashColor = flashColor;
+        // Copy to flashColor (which might be new property on userData if not initialized)
+        if (!cap.userData.flashColor) {
+            cap.userData.flashColor = new THREE.Color();
+        }
+        cap.userData.flashColor.copy(_foliageReactiveColor);
+
         cap.userData.flashIntensity = 1.5 + (velocity * 2.5); // High intensity for blink
         cap.userData.flashDecay = 0.15; // Fast decay for strobe effect
 
