@@ -88,6 +88,9 @@ export class WeatherSystem {
         this.baseFogNear = scene.fog ? scene.fog.near : 20;
         this.baseFogFar = scene.fog ? scene.fog.far : 100;
 
+        // ⚡ OPTIMIZATION: Scratch set for ecosystem locking
+        this._claimedMushroomsScratch = new Set();
+
         this.initParticles();
         this.initLightning();
         this.initRainbow();
@@ -143,8 +146,9 @@ export class WeatherSystem {
         if (!foliageClouds || foliageClouds.length === 0 || this.trackedMushrooms.length === 0) return;
 
         // TRACKING SET: Prevents multiple clouds from picking the same mushroom
-        // We rebuild this every frame based on active cloud assignments
-        const claimedMushrooms = new Set();
+        // ⚡ OPTIMIZATION: Use scratch set + clear() instead of allocating new Set() every frame
+        const claimedMushrooms = this._claimedMushroomsScratch;
+        claimedMushrooms.clear();
 
         // 1. Register existing locks first
         foliageClouds.forEach(cloud => {
