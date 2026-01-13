@@ -1,9 +1,9 @@
 // src/foliage/clouds.js
 
 import * as THREE from 'three';
-import { color, uniform, mix, vec3, positionLocal, normalLocal, mx_noise_float, float } from 'three/tsl';
+import { color, uniform, mix, vec3, positionLocal, normalLocal, mx_noise_float, float, normalize, positionWorld, normalWorld, cameraPosition, dot, abs, sin, pow } from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
-import { uTime, createRimLight } from './common.js';
+import { uTime, createRimLight, uAudioLow } from './common.js';
 
 // --- Global Uniforms (Driven by WeatherSystem) ---
 // These are true TSL uniforms now
@@ -29,7 +29,7 @@ function createCloudMaterial() {
         flatShading: false,
     });
 
-    // 1. Vertex Displacement (Breathing/Fluffiness)
+    // 1. Vertex Displacement (Breathing/Fluffiness + Bass Squish)
     // We scroll noise through the cloud to simulate slow internal convection
     const noiseScale = float(1.5);
     const noiseSpeed = float(0.15);
@@ -40,8 +40,10 @@ function createCloudMaterial() {
     const fluffNoise = mx_noise_float(noisePos);
 
     // Displace along the normal vector
-    // This makes the cloud surface undulate gently
-    const displacementStrength = float(0.15);
+    // Squish on Beat: Multiply strength by (1 + Bass) to puff out
+    const squishFactor = float(1.0).add(uAudioLow.mul(1.5)); // React to kick
+    const displacementStrength = float(0.15).mul(squishFactor);
+
     material.positionNode = positionLocal.add(normalLocal.mul(fluffNoise.mul(displacementStrength)));
 
     // 2. Lighting Logic
@@ -49,14 +51,26 @@ function createCloudMaterial() {
     const lightningGlow = uCloudLightningColor.mul(uCloudLightningStrength.mul(2.0));
 
     // Rim Light: New "Silver Lining" logic
-    // A warm/soft light to separate clouds from the sky
     const rimColor = color(0xFFF8E7); // Cosmic Latte / Soft Cream
     const rimIntensity = float(0.4);
     const rimPower = float(1.5); // Soft falloff
     const rimEffect = createRimLight(rimColor, rimIntensity, rimPower);
 
-    // Combine Emissive: Lightning (Dynamic) + Rim (Static/Ambient)
-    material.emissiveNode = lightningGlow.add(rimEffect);
+    // Rainbow Sheen (Pearlescence)
+    // Driven by uCloudRainbowIntensity (Melody/Highs)
+    const viewDir = normalize(cameraPosition.sub(positionWorld));
+    const NdotV = abs(dot(normalWorld, viewDir));
+    const fresnel = float(1.0).sub(NdotV).pow(float(2.0)); // Broad fresnel for sheen
+
+    const irisR = sin(fresnel.mul(10.0));
+    const irisG = sin(fresnel.mul(10.0).add(2.0));
+    const irisB = sin(fresnel.mul(10.0).add(4.0));
+    const rainbowColor = vec3(irisR, irisG, irisB).mul(0.5).add(0.5);
+
+    const rainbowSheen = rainbowColor.mul(uCloudRainbowIntensity).mul(fresnel);
+
+    // Combine Emissive: Lightning + Rim + Rainbow
+    material.emissiveNode = lightningGlow.add(rimEffect).add(rainbowSheen);
 
     return material;
 }
