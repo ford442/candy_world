@@ -19,6 +19,9 @@ export class InteractionSystem {
         // ⚡ OPTIMIZATION: Reusable scratch array for raycast candidates
         this._candidatesScratch = [];
 
+        // ⚡ OPTIMIZATION: Reusable Vector2 for raycasting to avoid per-frame allocation
+        this._scratchVec2 = new THREE.Vector2(0, 0);
+
         this.reticleCallback = reticleCallback;
 
         // Load settings
@@ -90,7 +93,9 @@ export class InteractionSystem {
         const candidates = this._candidatesScratch;
 
         if (candidates.length > 0) {
-            this.raycaster.setFromCamera(new THREE.Vector2(0, 0), this.camera);
+            // ⚡ OPTIMIZATION: Use scratch vector
+            this._scratchVec2.set(0, 0);
+            this.raycaster.setFromCamera(this._scratchVec2, this.camera);
 
             try {
                 // Recursive raycast can crash on malformed geometry.
