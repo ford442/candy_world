@@ -281,7 +281,7 @@ class ChiptuneProcessor extends AudioWorkletProcessor {
         
         this.port.postMessage({
             type: 'VISUAL_UPDATE',
-            data: { bpm, channelData, anyTrigger }
+            data: { bpm, channelData, anyTrigger, order, row }
         });
     }
 }
