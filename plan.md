@@ -11,12 +11,14 @@
 ## Next Steps
 
 1. **Migrate to TypeScript**: Begin Phase 1 of the migration roadmap to harden the codebase before adding more complex systems.
-2. **Verify Data Flow**: Ensure `AudioSystem` correctly extracts and passes `order`/`row` data from the worklet to drive the Pattern-Change logic reliably.
+2. **Plants Twilight Glow**: Implement logic for plants to glow during twilight hours (pre-dawn/dusk) as described in `plan-moon-music-reactivity.md`.
 
 ---
 
 ## Recent Progress
 - **Accomplished:**
+  - **Verify Data Flow**: **Status: Implemented ✅**
+    - *Implementation Details:* Fixed `public/js/audio-processor.js` to correctly send `order` and `row` data from the audio worklet to the main thread, and updated `AudioSystem` to store this data for use by the Weather/Pattern systems.
   - **Subwoofer Lotus**: Implemented `src/foliage/lotus.js` featuring TSL-driven bass-reactive "Speaker Rings" that pulse with `uAudioLow` and a "Glitch Portal" center that activates with `uGlitchIntensity`.
   - **Advanced Collision**: Implemented WASM-based narrow phase collision detection using a Spatial Grid (Linked List) optimization to handle 2000+ objects efficiently.
   - **Rare Flora Discovery**: Implemented `src/systems/discovery.js` and integrated with `src/systems/physics.js`. Tracks player interactions with environmental features (Vine Swing, Trampoline, Cloud Platform) and triggers a toast notification on first discovery. Persistence handled via localStorage.

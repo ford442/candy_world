@@ -80,7 +80,8 @@ export class AudioSystem {
             activeChannels: 0,
             channelData: [],
             bpm: 120, // Current estimated BPM
-            patternIndex: 0 // Current pattern/order index
+            patternIndex: 0, // Current pattern/order index
+            row: 0
         };
 
         this.init();
@@ -485,6 +486,10 @@ export class AudioSystem {
         // If 'order' isn't available, we might default to 0, but hopefully worklet sends it.
         if (order !== undefined) {
             this.visualState.patternIndex = order;
+        }
+
+        if (row !== undefined) {
+            this.visualState.row = row;
         }
 
         if (anyTrigger) this.visualState.kickTrigger = 1.0;
