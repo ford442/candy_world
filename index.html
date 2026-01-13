@@ -334,6 +334,61 @@
             position: relative;
             z-index: 10;
         }
+
+        /* 🎨 Palette: Drag & Drop Overlay */
+        #drag-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 236, 245, 0.95);
+            z-index: 10000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+            backdrop-filter: blur(5px);
+            border: 8px dashed #FF6B6B;
+            box-sizing: border-box;
+        }
+        #drag-overlay.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+        .drag-content {
+            text-align: center;
+            color: #FF6B6B;
+            font-family: 'Fredoka One', cursive, sans-serif;
+            transform: scale(0.9);
+            transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        #drag-overlay.active .drag-content {
+            transform: scale(1);
+        }
+        .drag-icon {
+            font-size: 5em;
+            margin-bottom: 20px;
+            animation: bounce 1s infinite alternate;
+        }
+        #drag-overlay h2 {
+            font-size: 3em;
+            margin: 0;
+            text-shadow: 2px 2px 0 #fff;
+        }
+        #drag-overlay p {
+            font-size: 1.2em;
+            color: #d65db1;
+            margin-top: 10px;
+            font-family: 'Segoe UI', sans-serif;
+            font-weight: bold;
+        }
+        @keyframes bounce {
+            from { transform: translateY(0); }
+            to { transform: translateY(-10px); }
+        }
     </style>
     
     <script type="importmap">
@@ -370,6 +425,14 @@
     <div id="now-playing-toast" role="status" aria-live="polite">
         <span class="icon">🎵</span>
         <span id="now-playing-text">Now Playing...</span>
+    </div>
+
+    <div id="drag-overlay" aria-hidden="true">
+        <div class="drag-content">
+            <div class="drag-icon">📂</div>
+            <h2>Drop Music Here!</h2>
+            <p>Add .mod, .xm, .it, .s3m files to playlist</p>
+        </div>
     </div>
 
     <div id="loading-overlay">

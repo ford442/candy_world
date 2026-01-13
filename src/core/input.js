@@ -14,6 +14,23 @@ export const keyStates = {
 };
 
 // Controls and Event Listeners
+// Helper: Show temporary success feedback on upload buttons
+const showUploadFeedback = (labelElement, filesCount) => {
+    if (!labelElement) return;
+
+    // Save original text if not already saved
+    if (!labelElement.dataset.originalText) {
+        labelElement.dataset.originalText = labelElement.innerText;
+    }
+
+    const originalText = labelElement.dataset.originalText;
+    labelElement.innerText = `✅ ${filesCount} Song${filesCount > 1 ? 's' : ''} Added!`;
+
+    setTimeout(() => {
+        labelElement.innerText = originalText;
+    }, 2000);
+};
+
 export function initInput(camera, audioSystem, toggleDayNightCallback) {
     const controls = new PointerLockControls(camera, document.body);
     const instructions = document.getElementById('instructions');
@@ -164,23 +181,6 @@ export function initInput(camera, audioSystem, toggleDayNightCallback) {
     if (closePlaylistBtn) {
         closePlaylistBtn.addEventListener('click', togglePlaylist);
     }
-
-    // Helper: Show temporary success feedback on upload buttons
-    const showUploadFeedback = (labelElement, filesCount) => {
-        if (!labelElement) return;
-
-        // Save original text if not already saved
-        if (!labelElement.dataset.originalText) {
-            labelElement.dataset.originalText = labelElement.innerText;
-        }
-
-        const originalText = labelElement.dataset.originalText;
-        labelElement.innerText = `✅ ${filesCount} Song${filesCount > 1 ? 's' : ''} Added!`;
-
-        setTimeout(() => {
-            labelElement.innerText = originalText;
-        }, 2000);
-    };
 
     if (playlistUploadInput) {
         playlistUploadInput.addEventListener('change', (e) => {
@@ -399,6 +399,54 @@ export function initInput(camera, audioSystem, toggleDayNightCallback) {
         openJukeboxBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             togglePlaylist();
+        });
+    }
+
+    // --- UX: Drag & Drop Support ---
+    const dragOverlay = document.getElementById('drag-overlay');
+    let dragCounter = 0;
+
+    if (dragOverlay) {
+        window.addEventListener('dragenter', (e) => {
+            e.preventDefault();
+            dragCounter++;
+            dragOverlay.classList.add('active');
+            dragOverlay.setAttribute('aria-hidden', 'false');
+        });
+
+        window.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            dragCounter--;
+            if (dragCounter <= 0) {
+                dragCounter = 0;
+                dragOverlay.classList.remove('active');
+                dragOverlay.setAttribute('aria-hidden', 'true');
+            }
+        });
+
+        window.addEventListener('dragover', (e) => {
+            e.preventDefault(); // Necessary to allow dropping
+        });
+
+        window.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dragCounter = 0;
+            dragOverlay.classList.remove('active');
+            dragOverlay.setAttribute('aria-hidden', 'true');
+
+            const files = e.dataTransfer.files;
+            if (files && files.length > 0) {
+                audioSystem.addToQueue(files);
+
+                // Show feedback via Toast
+                import('../utils/toast.js').then(({ showToast }) => {
+                    showToast(`Added ${files.length} Song${files.length > 1 ? 's' : ''}! 🎶`, '📂');
+                });
+
+                // Also trigger label feedback if available
+                const label = document.querySelector('label[for="musicUpload"]');
+                if (label) showUploadFeedback(label, files.length);
+            }
         });
     }
 
