@@ -8,6 +8,8 @@ import { CandyPresets, uAudioLow, uTime } from './common.js';
 
 // --- Reusable Scratch Variables ---
 const _scratchWorldPos = new THREE.Vector3();
+const _scratchMatrix = new THREE.Matrix4();
+const _scratchObject3D = new THREE.Object3D();
 
 /**
  * Creates a "Heartbeat Gummy" TSL Material
@@ -86,37 +88,64 @@ export function createBerryCluster(options = {}) {
     const uClusterGlow = uniform(float(baseGlow));
     const material = createHeartbeatMaterial(colorHex, uClusterGlow);
 
-    for (let i = 0; i < count; i++) {
-        // Reuse the same material instance for performance (batching friendly)
-        const berry = new THREE.Mesh(geometry, material);
+    // ⚡ OPTIMIZATION: Use InstancedMesh instead of individual Meshes
+    // Reduced draw calls from N to 1 per cluster.
+    const mesh = new THREE.InstancedMesh(geometry, material, count);
+    mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
 
+    // Store transform data for later updates (seasons, etc)
+    const initialTransforms = {
+        positions: [],
+        quaternions: [],
+        scales: []
+    };
+
+    for (let i = 0; i < count; i++) {
         const phi = Math.acos(2 * (i / count) - 1);
         const theta = Math.PI * (1 + Math.sqrt(5)) * i;
         const radius = 0.12;
 
-        berry.position.set(
-            radius * Math.sin(phi) * Math.cos(theta),
-            radius * Math.sin(phi) * Math.sin(theta) * 0.6,
-            radius * Math.cos(phi)
-        );
+        const px = radius * Math.sin(phi) * Math.cos(theta);
+        const py = radius * Math.sin(phi) * Math.sin(theta) * 0.6;
+        const pz = radius * Math.cos(phi);
 
         const sizeVar = 0.8 + Math.random() * 0.4;
-        berry.scale.setScalar(sizeVar);
 
-        berry.rotation.set(
+        _scratchObject3D.position.set(px, py, pz);
+        _scratchObject3D.scale.setScalar(sizeVar);
+        _scratchObject3D.rotation.set(
             Math.random() * Math.PI,
             Math.random() * Math.PI,
             Math.random() * Math.PI
         );
+        _scratchObject3D.updateMatrix();
 
-        // Tag for identification/physics
-        berry.userData.isBerry = true;
+        mesh.setMatrixAt(i, _scratchObject3D.matrix);
 
-        group.add(berry);
+        // Store initial data
+        initialTransforms.positions.push(px, py, pz);
+        initialTransforms.quaternions.push(
+            _scratchObject3D.quaternion.x,
+            _scratchObject3D.quaternion.y,
+            _scratchObject3D.quaternion.z,
+            _scratchObject3D.quaternion.w
+        );
+        initialTransforms.scales.push(sizeVar);
     }
 
+    mesh.userData.initialTransforms = initialTransforms;
+    mesh.userData.isBerry = true; // Tag for raycasting (if needed)
+
+    group.add(mesh);
+
     // Store data for systems
-    group.userData.berries = group.children;
+    group.userData.berryMesh = mesh; // New way to access
+    group.userData.berries = null;   // Explicitly nullify to catch legacy usage errors
+
+    // Store metadata
+    group.userData.count = count;
     group.userData.baseGlow = baseGlow;
     group.userData.weatherGlow = 0;
     group.userData.glowDecayRate = 0.01;
@@ -163,38 +192,54 @@ export function chargeBerries(berryCluster, chargeAmount) {
 }
 
 export function updateBerrySeasons(berryCluster, phase, phaseProgress) {
-    if (!berryCluster.userData.berries) return;
+    // ⚡ OPTIMIZATION: Updated for InstancedMesh
+    // If the cluster has old array structure (legacy), ignore it or fallback?
+    // We assume all berries are now InstancedMesh.
+    const mesh = berryCluster.userData.berryMesh;
+    if (!mesh || !mesh.userData.initialTransforms) return;
 
-    // Initialize original scales if missing
-    if (!berryCluster.userData.originalBerryScales) {
-        berryCluster.userData.originalBerryScales = berryCluster.userData.berries.map(b => b.scale.x);
-    }
+    const { positions, quaternions, scales } = mesh.userData.initialTransforms;
+    const count = mesh.count;
 
-    let targetScale = 1.0;
+    let targetScaleFactor = 1.0;
     switch (phase) {
         case 'sunset':
-            targetScale = 1.0 + phaseProgress * 0.3; // Plump up
+            targetScaleFactor = 1.0 + phaseProgress * 0.3; // Plump up
             break;
         case 'dusk':
-            targetScale = 1.3 - phaseProgress * 0.1;
+            targetScaleFactor = 1.3 - phaseProgress * 0.1;
             break;
         case 'deepNight':
-            targetScale = 1.2 - phaseProgress * 0.4; // Shrivel slightly
+            targetScaleFactor = 1.2 - phaseProgress * 0.4; // Shrivel slightly
             break;
         case 'preDawn':
-            targetScale = 0.8 + phaseProgress * 0.2;
+            targetScaleFactor = 0.8 + phaseProgress * 0.2;
             break;
         default:
-            targetScale = 1.0;
+            targetScaleFactor = 1.0;
     }
 
-    // TSL Note: positionNode modifies the vertex relative to the mesh scale.
-    // So changing mesh.scale here still correctly sizes the berry.
-    berryCluster.userData.berries.forEach((berry, i) => {
-        const origScale = berryCluster.userData.originalBerryScales[i];
-        const newScale = origScale * targetScale;
-        berry.scale.setScalar(newScale);
-    });
+    for (let i = 0; i < count; i++) {
+        const px = positions[i * 3];
+        const py = positions[i * 3 + 1];
+        const pz = positions[i * 3 + 2];
+
+        const qx = quaternions[i * 4];
+        const qy = quaternions[i * 4 + 1];
+        const qz = quaternions[i * 4 + 2];
+        const qw = quaternions[i * 4 + 3];
+
+        const initialScale = scales[i];
+
+        _scratchObject3D.position.set(px, py, pz);
+        _scratchObject3D.quaternion.set(qx, qy, qz, qw);
+        _scratchObject3D.scale.setScalar(initialScale * targetScaleFactor);
+        _scratchObject3D.updateMatrix();
+
+        mesh.setMatrixAt(i, _scratchObject3D.matrix);
+    }
+
+    mesh.instanceMatrix.needsUpdate = true;
 }
 
 // --- Falling Berry Particle System ---
@@ -217,19 +262,7 @@ export function initFallingBerries(scene) {
     sharedFallingMaterial = createHeartbeatMaterial(0xFF6600, uFallingGlow);
 
     for (let i = 0; i < MAX_FALLING_BERRIES; i++) {
-        // We clone the material only to set individual colors if needed,
-        // but for now we share it to be efficient.
-        // Actually, spawnFallingBerry allows changing color.
-        // To support dynamic colors with TSL without creating 50 materials,
-        // we should ideally use an instance color or a uniform.
-        // For simplicity in this polish pass, we'll clone per particle or limit colors.
-
-        // Let's create a clone per berry to allow unique colors via TSL?
-        // No, standard TSL material.colorNode = color(...)
-        // If we want to change color at runtime, we need a uniform OR update the node.
-
         // Optimized: Create one material per pool item.
-        // This is 50 materials. Totally fine for WebGPU.
         const uColor = uniform(color(0xFF6600));
         const mat = createHeartbeatMaterial(0xFF6600, uFallingGlow);
         mat.colorNode = uColor; // Override color with uniform
@@ -267,10 +300,6 @@ export function spawnFallingBerry(position, colorHex = 0xFF6600) {
     berry.userData.active = true;
     berry.userData.age = 0;
     berry.visible = true;
-
-    // Reset opacity (handled via scale or transmission in TSL?)
-    // Our TSL Gummy material handles transparency via transmission.
-    // For fading out, we might want to shrink them.
     berry.scale.setScalar(1.0);
 }
 
@@ -302,15 +331,23 @@ export function updateFallingBerries(delta) {
 }
 
 export function shakeBerriesLoose(cluster, intensity) {
-    if (!cluster.userData.berries) return;
+    // ⚡ OPTIMIZATION: Updated for InstancedMesh
+    const mesh = cluster.userData.berryMesh;
+    if (!mesh) return;
 
-    cluster.userData.berries.forEach(berry => {
+    const count = mesh.count;
+
+    for (let i = 0; i < count; i++) {
         if (Math.random() < intensity * 0.02) {
-            berry.getWorldPosition(_scratchWorldPos);
-            // Use the cluster's color
+            // Compute World Position of the berry
+            // WorldPos = ClusterWorldMatrix * BerryLocalMatrix
+            mesh.getMatrixAt(i, _scratchMatrix);
+            _scratchMatrix.premultiply(cluster.matrixWorld);
+            _scratchWorldPos.setFromMatrixPosition(_scratchMatrix);
+
             spawnFallingBerry(_scratchWorldPos, cluster.userData.berryColor || 0xFF6600);
         }
-    });
+    }
 }
 
 export function collectFallingBerries(playerPos, collectRadius = 1.0) {
