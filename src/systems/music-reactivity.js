@@ -1,290 +1,257 @@
-// Music Reactivity System
-// Orchestrator file - delegates hot paths to music-reactivity.core.ts (TypeScript)
-// Handles Note -> Color mapping and note event routing
-// Now manages the main loop iteration for foliage animation and photosensitivity
-// Following PERFORMANCE_MIGRATION_STRATEGY.md - Keep JS as "Drafting Ground"
-
-import { CONFIG } from '../core/config.js';
+// src/systems/music-reactivity.js
 import * as THREE from 'three';
-import { animateFoliage, triggerMoonBlink } from '../foliage/index.js';
-import { foliageBatcher } from '../foliage/foliage-batcher.js';
-// Import TypeScript core functions (Phase 1 Migration)
-import {
-    calculateLightFactor,
-    calculateChannelIndex,
-    getNoteColorTyped,
-    calculateSplitIndex,
-    shouldCheckTimeBudget,
-    calculateNextStartIndex
-} from './music-reactivity.core.js';
+import { CONFIG, CYCLE_DURATION } from '../core/config.js';
+import { animateFoliage } from '../foliage/animation.ts';
+import { foliageBatcher } from '../foliage/foliage-batcher.ts';
 
-// Reusable frustum for culling (prevent GC)
+// ⚡ OPTIMIZATION: Reusable Frustum
 const _frustum = new THREE.Frustum();
 const _projScreenMatrix = new THREE.Matrix4();
-const _scratchSphere = new THREE.Sphere(); // For Group culling
 
-const CHROMATIC_SCALE = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-const _speciesMapCache = {};
-const _noteNameCache = {};
+class MusicReactivitySystem {
+    constructor() {
+        this.moon = null;
+        this.weatherSystem = null;
+        this.registeredObjects = new Map(); // Map<species, Set<Object3D>>
 
-// MIGRATED: Now uses TypeScript version from music-reactivity.core.ts
-export function getNoteColor(note, species = 'global') {
-    return getNoteColorTyped(note, species, CONFIG.noteColorMap);
-}
+        // Moon animation state
+        this.moonState = {
+            isBlinking: false,
+            blinkStartTime: 0,
+            nextBlinkTime: 0,
+            baseScale: new THREE.Vector3(1, 1, 1),
+            dancePhase: 0
+        };
 
-export class MusicReactivitySystem {
-    constructor(scene, config = {}) {
-        this.scene = scene;
-        this.config = config;
-        // Staggered update: Start processing from a different offset each frame
-        this.updateStartIndex = 0;
-        // Cache for frustum culling optimization
-        this._lastCameraVersion = -1;
+        this.scheduleNextBlink();
     }
 
-    /**
-     * Get the current staggered update index (for testing)
-     * @returns {number} The current start index for round-robin processing
-     */
-    getUpdateStartIndex() {
-        return this.updateStartIndex;
+    init(scene, weatherSystem) {
+        this.weatherSystem = weatherSystem;
+        // Moon registration is now handled explicitly via registerMoon() from main.js
     }
 
-    /**
-     * Apply reaction to a specific object
-     * Merged: Handles standard foliage AND celestial objects from jules-dev
-     */
-    reactObject(object, note, velocity) {
-        if (!object.userData.type) return;
-
-        const species = object.userData.type;
-
-        // 1. Standard Reactivity (Flora)
-        if (typeof object.reactToNote === 'function') {
-            const color = getNoteColor(note, species);
-            object.reactToNote(note, color, velocity);
-        }
-
-        // 2. Celestial Reactions (from jules-dev)
-        if (object.userData.type === 'pulsar') {
-            // Flash scale and opacity
-            const scale = 1.0 + velocity * 0.5;
-            object.scale.setScalar(scale);
-            // If it has a glow child (index 1), boost opacity
-            if (object.children[1]) {
-                object.children[1].material.opacity = 0.3 + velocity * 0.7;
-            }
-        }
-        else if (object.userData.type === 'planet') {
-            // Pulse the planet slowly
-            const scale = 1.0 + velocity * 0.1;
-            object.scale.setScalar(scale);
-            // Rotate ring faster on beat
-            if (object.children[1]) {
-                object.children[1].rotation.z += velocity * 0.1;
-            }
-        }
-        else if (object.userData.type === 'galaxy') {
-            // Spin Galaxy Faster on Melody intensity
-            // We accumulate rotation, so we need to access the mesh directly
-            object.rotation.y -= (object.userData.baseRotationSpeed + velocity * 0.02);
-        }
+    registerMoon(moonMesh) {
+        if (!moonMesh) return;
+        this.moon = moonMesh;
+        this.moonState.baseScale.copy(moonMesh.scale);
+        // Ensure moon has userData for animation if needed
+        if (!this.moon.userData) this.moon.userData = {};
     }
 
-    // Helper to check if object is currently active (User Change)
-    isObjectActive(object) {
-        return object.visible;
-    }
-
-    /**
-     * Main update loop for foliage animation and reactivity.
-     * Integrates Photosensitivity (Feature Branch) with Channel Mapping (Jules Dev).
-     *
-     * @param {number} t - Current game time
-     * @param {object} audioState - Current audio analysis state
-     * @param {object} weatherSystem - Reference to weather system (for light level)
-     * @param {Array} animatedFoliage - List of objects to update
-     * @param {THREE.Camera} camera - Camera for distance culling
-     * @param {boolean} isNight - Is it currently night?
-     * @param {boolean} isDeepNight - Is it deep night (for fireflies etc)?
-     * @param {THREE.Object3D} moon - Reference to moon for blinking
-     */
-    update(t, audioState, weatherSystem, animatedFoliage, camera, isNight, isDeepNight, moon) {
+    registerObject(object, species) {
+        if (!object || !species) return;
         
-        // 1. Global Events (Moon Blink)
-        // Check specific instruments (e.g. Tree/Drums) for global effects
-        if (audioState && audioState.channelData && isNight && moon) {
-            // Quick check for instrument 2 (Tree/Drums) activity
-            for (const ch of audioState.channelData) {
-                if (ch.trigger > 0.5 && ch.instrument === 2) {
-                    triggerMoonBlink(moon);
-                    break;
+        if (!this.registeredObjects.has(species)) {
+            this.registeredObjects.set(species, new Set());
+        }
+        this.registeredObjects.get(species).add(object);
+
+        // Add minimal reactToNote method if it doesn't exist (as a fallback)
+        if (!object.reactToNote) {
+            object.reactToNote = (note, color, velocity) => {
+                if (object.material && object.material.emissive) {
+                    const originalEmissive = object.userData.originalEmissive || object.material.emissive.clone();
+                    if (!object.userData.originalEmissive) object.userData.originalEmissive = originalEmissive;
+
+                    // Simple flash
+                    object.material.emissive.setHex(color);
                 }
-            }
+            };
+        }
+    }
+
+    unregisterObject(object, species) {
+        if (this.registeredObjects.has(species)) {
+            this.registeredObjects.get(species).delete(object);
+        }
+    }
+
+    // Called by AudioSystem or Main loop
+    handleNoteOn(note, velocity, channelIndex) {
+        // Normalize note to A-G# format if needed, or assume 'note' is string like "C4"
+        // If note is MIDI number, convert to string
+        let noteName = note;
+        if (typeof note === 'number') {
+            const notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+            noteName = notes[note % 12];
+        } else if (typeof note === 'string') {
+            // Strip octave if present "C4" -> "C"
+            noteName = note.replace(/[0-9-]/g, '');
         }
 
-        // 2. Get Global Light Level
-        const globalLight = (weatherSystem && typeof weatherSystem.getGlobalLightLevel === 'function')
-            ? weatherSystem.currentLightLevel 
-            : 1.0;
+        // Determine species to trigger based on channel or other logic
+        // For now, let's trigger 'mushroom' for bass/drums, 'flower' for melody
+        // This mapping logic can be expanded
+        let speciesList = [];
 
-        // 3. Prepare Frustum Culling (major performance win for 3000+ objects)
-        // Only recalculate if camera matrix has changed (optimization)
-        const cameraVersion = camera.matrixWorldAutoUpdate ? camera.matrixWorld.elements[0] : this._lastCameraVersion;
-        if (cameraVersion !== this._lastCameraVersion) {
+        // Example mapping logic
+        if (channelIndex === 0) speciesList.push('mushroom'); // Kick/Bass
+        if (channelIndex === 1) speciesList.push('flower');   // Melody
+        if (channelIndex === 2) speciesList.push('tree');     // Chords
+        if (channelIndex === 3) speciesList.push('cloud');    // FX
+
+        // Also trigger global listeners if any
+        speciesList.push('global');
+
+        speciesList.forEach(species => {
+            const colorMap = CONFIG.noteColorMap[species] || CONFIG.noteColorMap['global'];
+            const color = colorMap[noteName] || 0xFFFFFF;
+
+            this.triggerReaction(species, noteName, color, velocity);
+        });
+
+        // Moon reaction (optional, e.g. blink on specific notes)
+        if (this.moon && CONFIG.moon.blinkOnBeat && velocity > 100) {
+            this.triggerMoonBlink();
+        }
+    }
+
+    triggerReaction(species, noteName, color, velocity) {
+        const objects = this.registeredObjects.get(species);
+        if (objects) {
+            objects.forEach(obj => {
+                if (obj.reactToNote) {
+                    obj.reactToNote(noteName, color, velocity);
+                }
+            });
+        }
+    }
+
+    scheduleNextBlink() {
+        this.moonState.nextBlinkTime = performance.now() + CONFIG.moon.blinkInterval + (Math.random() * 2000 - 1000);
+    }
+
+    triggerMoonBlink() {
+        if (this.moonState.isBlinking) return;
+        this.moonState.isBlinking = true;
+        this.moonState.blinkStartTime = performance.now();
+    }
+
+    update(time, deltaTime, audioState, weatherSystem, animatedFoliage, camera, isNight, isDeepNight) {
+        // 1. Update Moon Animation
+        this.updateMoon(time, deltaTime);
+
+        // 2. Update Twilight Glow
+        this.updateTwilightGlow(time);
+
+        // 3. Update Foliage Animation Loop (Restored)
+        // This handles wind, wiggles, bounces, etc.
+        if (animatedFoliage && camera) {
+            // Update Frustum for Culling
             _projScreenMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
             _frustum.setFromProjectionMatrix(_projScreenMatrix);
-            this._lastCameraVersion = cameraVersion;
-        }
 
-        // 4. Iterate Foliage
-        const camPos = camera.position;
-        // Optimization: Cache camera coordinates to avoid property access in loop
-        const camX = camPos.x;
-        const camY = camPos.y;
-        const camZ = camPos.z;
+            const isDay = !isNight;
 
-        // Reduced from 50 to 30 for better performance with large object count
-        const maxAnimationDistance = 300; // Reduced from 50 for 3k+ objects
-        const maxDistanceSq = maxAnimationDistance * maxAnimationDistance;
+            for (let i = 0; i < animatedFoliage.length; i++) {
+                const obj = animatedFoliage[i];
+                if (!obj) continue;
 
-        // Time budgeting: Limit material updates to avoid audio stutter
-        const maxFoliageUpdateTime = 2; // milliseconds
-        const frameStartTime = (typeof performance !== 'undefined') ? performance.now() : Date.now();
-        let foliageUpdatesThisFrame = 0;
-        const maxFoliageUpdates = 300; // Increased from 50 since frustum culling reduces candidates
-        const budgetCheckInterval = 30; // Check time budget every 20 items (reduced overhead)
+                // Frustum Culling (Performance)
+                // Skip if not visible, but allow some margin for large objects
+                // Simple check: distance to camera < 150 (render distance)
+                // Or use frustum check
+                const distSq = obj.position.distanceToSquared(camera.position);
+                if (distSq > 150 * 150) { // 150m cull distance
+                    continue;
+                }
 
-        // Audio Channel Info (Pre-calc for loop)
-        const channels = (audioState && audioState.channelData) ? audioState.channelData : null;
-        const totalChannels = channels ? channels.length : 0;
-        // MIGRATED: Uses TypeScript helper from music-reactivity.core.ts
-        const splitIndex = calculateSplitIndex(totalChannels);
-
-        // Staggered updates: Process objects in a round-robin fashion
-        // This prevents hitches when many objects come into view at once
-        const totalObjects = animatedFoliage.length;
-        const startIdx = this.updateStartIndex;
-        let processedCount = 0;
-
-        for (let offset = 0; offset < totalObjects; offset++) {
-            // Wrap around using modulo for round-robin processing
-            const i = (startIdx + offset) % totalObjects;
-            const f = animatedFoliage[i];
-
-            // Optimization: Inline distance culling to avoid function call overhead
-            // Bolt: Check distance FIRST. It is much cheaper (3 mults) than Frustum Culling (Matrix Mult + 6 Dot Products).
-            // This quickly rejects objects that are in view but too far to animate.
-            const dx = f.position.x - camX;
-            const dy = f.position.y - camY;
-            const dz = f.position.z - camZ;
-            const distSq = dx * dx + dy * dy + dz * dz;
-
-            if (distSq > maxDistanceSq) continue;
-
-            // CRITICAL: Frustum culling - skip objects outside camera view
-            // This is the primary fix for the freeze when viewing many objects
-            // FIX: Safely handle Groups which lack geometry/boundingSphere
-            let isVisible = false;
-            if (f.geometry && f.geometry.boundingSphere) {
-                isVisible = _frustum.intersectsObject(f);
-            } else {
-                // Fallback for Groups or objects without geometry
-                // Use a default radius (5.0) or user-defined radius
-                _scratchSphere.center.copy(f.position);
-                _scratchSphere.radius = f.userData.radius || 5.0;
-                isVisible = _frustum.intersectsSphere(_scratchSphere);
-            }
-
-            if (!isVisible) {
-                continue;
-            }
-
-            // Check time budget (throttled to avoid expensive performance.now() calls every iteration)
-            // MIGRATED: Uses TypeScript helper from music-reactivity.core.ts
-            const shouldCheck = shouldCheckTimeBudget(processedCount, budgetCheckInterval);
-            if (shouldCheck) {
-                const hasPerformance = (typeof performance !== 'undefined');
-                if (hasPerformance && (performance.now() - frameStartTime > maxFoliageUpdateTime)) {
-                    break; 
+                // If in frustum (approx)
+                if (_frustum.intersectsObject(obj)) {
+                    animateFoliage(obj, time, audioState, isDay, isDeepNight);
                 }
             }
 
-            // Limit number of updates per frame
-            if (foliageUpdatesThisFrame >= maxFoliageUpdates) {
-                break;
-            }
+            // Flush batched updates to GPU
+            foliageBatcher.flush(camera, time);
+        }
+    }
 
-            processedCount++;
+    updateTwilightGlow(time) {
+        if (!this.weatherSystem) return;
 
-            // --- USER CHANGE: 'wobble' multiplier ---
-            if (f.userData.animationType === 'wobble') {
-                f.userData.animationOffset += 0.05; 
-            }
-            // ----------------------------------------
+        // Get smooth twilight intensity (0 = day, 1 = night peak)
+        // We use weatherSystem.getTwilightGlowIntensity if available, or fallback
+        const cyclePos = time % CYCLE_DURATION;
+        const glowIntensity = this.weatherSystem.getTwilightGlowIntensity
+            ? this.weatherSystem.getTwilightGlowIntensity(cyclePos)
+            : 0.0;
 
-            // A) Standard Animation (Sway, Bounce, etc.)
-            // Note: animateFoliage now batches supported types to foliageBatcher internally
-            animateFoliage(f, t, audioState, !isNight, isDeepNight);
-            foliageUpdatesThisFrame++;
+        // Iterate over registered objects that might have glow capabilities
+        // For now, specifically handling Mushrooms with 'glowLight'
+        const mushrooms = this.registeredObjects.get('mushroom');
+        if (mushrooms) {
+            mushrooms.forEach(mushroom => {
+                if (mushroom.userData.isBioluminescent && mushroom.userData.glowLight) {
+                    const light = mushroom.userData.glowLight;
+                    // Base target intensity for night glow
+                    const baseTarget = 0.8 * glowIntensity;
 
-            // B) Music Reactivity (Photosensitive + Channel Mapped)
-            if (channels) {
-                // 1. Check Photosensitivity (Feature Branch Logic)
-                // MIGRATED: Uses TypeScript helper from music-reactivity.core.ts
-                const { lightFactor, shouldReact } = calculateLightFactor(f, globalLight);
+                    const current = light.intensity;
 
-                // 2. If light allows, check Audio Channel (Jules Dev Logic)
-                if (shouldReact) {
-                    // MIGRATED: Uses TypeScript helper from music-reactivity.core.ts
-                    const targetChannelIndex = calculateChannelIndex(f, totalChannels, splitIndex);
-
-                    if (targetChannelIndex < totalChannels) {
-                        const info = channels[targetChannelIndex];
-                        if (info && info.trigger > 0.1) {
-                            // Apply reaction scaled by lightFactor
-                            this.reactObject(f, info.note, info.trigger * lightFactor);
-                        }
+                    if (current > baseTarget) {
+                        // Decay down to base
+                        light.intensity = THREE.MathUtils.lerp(current, baseTarget, 0.1);
+                    } else {
+                        // Ramp up to base
+                        light.intensity = THREE.MathUtils.lerp(current, baseTarget, 0.05);
                     }
                 }
+            });
+        }
+    }
+
+    updateMoon(time, deltaTime) {
+        if (!this.moon) return;
+
+        // Only animate moon at night
+        const isNight = this.weatherSystem ? this.weatherSystem.isNight() : true;
+
+        if (!isNight) {
+            // Reset to base state if day
+            this.moon.scale.copy(this.moonState.baseScale);
+            return;
+        }
+
+        const now = performance.now();
+
+        // Handle Blinking
+        if (!this.moonState.isBlinking && now > this.moonState.nextBlinkTime) {
+            this.triggerMoonBlink();
+        }
+
+        if (this.moonState.isBlinking) {
+            const elapsed = now - this.moonState.blinkStartTime;
+            const progress = elapsed / CONFIG.moon.blinkDuration;
+
+            if (progress >= 1) {
+                this.moonState.isBlinking = false;
+                this.moon.scale.copy(this.moonState.baseScale);
+                this.scheduleNextBlink();
+            } else {
+                // Simple scale blink (squash Y)
+                // 0 -> 0.1 -> 1.0 (squash down then up)
+                // A quick blink might be a scale down on Y
+                const blinkCurve = Math.sin(progress * Math.PI);
+                const scaleY = 1.0 - (blinkCurve * 0.8); // Squash to 20% height
+
+                this.moon.scale.set(
+                    this.moonState.baseScale.x,
+                    this.moonState.baseScale.y * scaleY,
+                    this.moonState.baseScale.z
+                );
             }
         }
 
-        // --- WASM BATCH FLUSH ---
-        // Execute all queued batched animations for this frame
-        let kick = 0;
-        if (audioState) {
-            kick = audioState.kickTrigger || 0;
+        // Handle Dancing
+        if (CONFIG.moon.danceAmplitude > 0) {
+            this.moonState.dancePhase += deltaTime * CONFIG.moon.danceFrequency;
+            const danceOffset = Math.sin(this.moonState.dancePhase) * CONFIG.moon.danceAmplitude;
+            this.moon.rotation.z = danceOffset * 0.2; // Tilt
+            // Optionally bob position if needed, but rotation is safer for simple mesh
         }
-        // Assuming t already includes beatPhase if needed, but animateFoliage logic used time+beatPhase.
-        // We need to pass the "effective animation time" to flush?
-        // Actually animateFoliage passed `animTime = time + beatPhase`.
-        // We used `animTime` when queuing. So we just pass t (which is ignored by batcher since it used queued times? No)
-        // Wait, foliageBatcher.flush(time) uses `time` argument for the WASM calculation.
-        // But we queued `animTime`. The batcher ignores the queued time if flush overrides it?
-        // Let's check foliageBatcher.ts...
-        // queue() takes `time` but doesn't store it! It stores offset/intensity.
-        // Only `flush` takes `time`.
-        // This is a BUG in my plan. The `time` varies per object if I passed `animTime` which includes global `beatPhase`.
-        // But `beatPhase` is global. So `time + beatPhase` is global.
-        // So passing `time + beatPhase` to flush() is correct.
-
-        const beatPhase = (audioState && audioState.beatPhase) ? audioState.beatPhase : 0;
-        foliageBatcher.flush(t + beatPhase, kick);
-
-
-        // Advance the start index for next frame (staggered processing)
-        // MIGRATED: Uses TypeScript helper from music-reactivity.core.ts
-        this.updateStartIndex = calculateNextStartIndex(startIdx, processedCount, totalObjects);
-
-        // Export stats for performance monitoring (if available)
-        if (typeof window !== 'undefined' && window.updatePerfStats) {
-            window.updatePerfStats(totalObjects, processedCount, foliageUpdatesThisFrame);
-        }
-    }
-    
-    // Alias for backward compatibility if needed
-    applyReaction(object, note, velocity) {
-        this.reactObject(object, note, velocity);
     }
 }
+
+export const musicReactivitySystem = new MusicReactivitySystem();

@@ -1,3 +1,4 @@
+// src/foliage/index.js
 // Export all foliage sub-modules
 export * from './common.js';
 export * from './berries.js';
@@ -30,6 +31,9 @@ export * from './mirrors.js'; // Added Melody Mirrors
 export * from './sparkle-trail.js'; // Added Sparkle Trail
 export * from './impacts.js'; // Added Impact Particles
 export * from './lotus.js'; // Added Subwoofer Lotus
+
+// Export Music Reactivity System (New)
+export { musicReactivitySystem } from '../systems/music-reactivity.js';
 
 // Musical flora
 export * from './musical_flora.js';

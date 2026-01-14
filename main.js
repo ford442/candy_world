@@ -3,7 +3,7 @@ import './style.css';
 import { uWindSpeed, uWindDirection, uSkyTopColor, uSkyBottomColor, uHorizonColor, uAtmosphereIntensity, uStarPulse, uStarOpacity, uAuroraIntensity, uAuroraColor, uAudioLow, uAudioHigh, uGlitchIntensity, uChromaticIntensity, uTime, createAurora, createChromaticPulse, updateMoon, animateFoliage, updateFoliageMaterials, updateFireflies, updateFallingBerries, collectFallingBerries, createFlower, createMushroom, validateNodeGeometries, createMelodyRibbon, updateMelodyRibbons, createMelodyMirror, createSparkleTrail, updateSparkleTrail, createImpactSystem } from './src/foliage/index.js';
 import { initCelestialBodies } from './src/foliage/celestial-bodies.js';
 import { InteractionSystem } from './src/systems/interaction.js';
-import { MusicReactivitySystem } from './src/systems/music-reactivity.js';
+import { musicReactivitySystem } from './src/systems/music-reactivity.js';
 import { AudioSystem } from './src/audio/audio-system.js';
 import { BeatSync } from './src/audio/beat-sync.js';
 import { WeatherSystem, WeatherState } from './src/systems/weather.js';
@@ -47,7 +47,6 @@ const { scene, camera, renderer, ambientLight, sunLight, sunGlow, sunCorona, lig
 // 2. Audio & Systems (Initialize but defer heavy loading)
 const audioSystem = new AudioSystem();
 const beatSync = new BeatSync(audioSystem);
-const musicReactivity = new MusicReactivitySystem(scene, {}); // Config moved to internal default or passed if needed
 const weatherSystem = new WeatherSystem(scene);
 
 // 3. World Generation (Critical - load immediately)
@@ -55,6 +54,25 @@ if (window.setLoadingStatus) window.setLoadingStatus("Loading World Map...");
 
 // CHANGE: Load only the base world (sky/ground) initially, defer content
 const { moon, fireflies } = initWorld(scene, weatherSystem, false);
+
+// Initialize Music Reactivity with dependencies
+musicReactivitySystem.init(scene, weatherSystem);
+// Explicitly register moon (cleaner than traversing scene later)
+musicReactivitySystem.registerMoon(moon);
+
+// Hook up audio system note events to music reactivity
+if (audioSystem.onNote) {
+    audioSystem.onNote((note, velocity, channel) => {
+        musicReactivitySystem.handleNoteOn(note, velocity, channel);
+    });
+} else {
+    // If not, we might need to modify AudioSystem or use a polling approach in animate()
+    // For now, let's assume we will add setNoteCallback to AudioSystem
+    audioSystem.setNoteCallback((note, velocity, channel) => {
+         musicReactivitySystem.handleNoteOn(note, velocity, channel);
+    });
+}
+
 
 // Validate node material geometries to avoid TSL attribute errors
 validateNodeGeometries(scene);
@@ -397,7 +415,9 @@ function animate() {
         const r = 90;
         moon.position.set(Math.cos(moonAngle) * -r, Math.sin(moonAngle) * r, -30);
         moon.lookAt(0,0,0);
-        updateMoon(moon, delta, audioState);
+        // updateMoon is now handled by musicReactivitySystem for animation, but positioning is here.
+        // We should consolidate, but for now musicReactivitySystem handles animation state.
+        // Note: musicReactivitySystem.updateMoon is called in the reactivity block below.
     }
 
     const progress = cyclePos / CYCLE_DURATION;
@@ -482,7 +502,7 @@ function animate() {
     const isDeepNight = (cyclePos >= deepNightStart && cyclePos < deepNightEnd);
 
     profiler.measure('MusicReact', () => {
-        musicReactivity.update(t, audioState, weatherSystem, animatedFoliage, camera, isNight, isDeepNight, moon);
+        musicReactivitySystem.update(t, delta, audioState, weatherSystem, animatedFoliage, camera, isNight, isDeepNight);
         if (melodyRibbon) updateMelodyRibbons(melodyRibbon, delta, audioState);
     });
 
