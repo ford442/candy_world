@@ -7,7 +7,7 @@ import { getGroundHeight, uploadPositions, uploadAnimationData, uploadMushroomSp
 import { chargeBerries, triggerGrowth, triggerBloom, shakeBerriesLoose, updateBerrySeasons, createMushroom, createWaterfall, createLanternFlower } from '../foliage/index.js';
 import { createRainbow, uRainbowOpacity } from '../foliage/rainbow.js';
 import { getCelestialState, getSeasonalState } from '../core/cycle.js';
-import { CYCLE_DURATION, CONFIG } from '../core/config.js';
+import { CYCLE_DURATION, CONFIG, DURATION_SUNRISE, DURATION_DAY, DURATION_SUNSET, DURATION_PRE_DAWN } from '../core/config.js';
 import { uCloudRainbowIntensity, uCloudLightningStrength, uCloudLightningColor, updateCloudAttraction, isCloudOverTarget } from '../foliage/clouds.js';
 import { uSkyDarkness } from '../foliage/sky.js';
 import { updateCaveWaterLevel } from '../foliage/cave.js';
@@ -88,6 +88,9 @@ export class WeatherSystem {
         this.baseFogNear = scene.fog ? scene.fog.near : 20;
         this.baseFogFar = scene.fog ? scene.fog.far : 100;
 
+        // Twilight calculation helpers
+        this.lastTwilightProgress = 0;
+
         // ⚡ OPTIMIZATION: Scratch set for ecosystem locking
         this._claimedMushroomsScratch = new Set();
 
@@ -140,6 +143,84 @@ export class WeatherSystem {
         const totalLight = (sun + moon + stars) * (1.0 - (cloudCover * 0.8));
         return Math.min(1.0, totalLight);
     }
+
+    // --- NEW: Twilight Calculation ---
+    // Returns 0.0 (Day), ramp to 1.0 (Night), ramp down to 0.0 (Day)
+    // Specifically focused on twilight window for glow
+    getTwilightGlowIntensity(cyclePos) {
+        const sunsetStart = DURATION_SUNRISE + DURATION_DAY;
+        const sunsetEnd = sunsetStart + DURATION_SUNSET;
+
+        // Define twilight windows (30m before sunset -> full night -> 30m after sunrise? No, stop before dawn)
+        // Plan says: "starting a configurable amount of time before sunset and stopping before dawn."
+        // Let's use CONFIG values.
+
+        const glowStartMinutes = CONFIG.glow ? CONFIG.glow.startOffsetMinutes : 30; // Minutes before sunset
+        const glowStartSeconds = glowStartMinutes; // Mapping 1 min = 1 sec in this simulation roughly?
+        // Wait, DURATION_DAY is 420s (7m). So 1 min in real life concept is 60s in simulation.
+        // CONFIG says startOffsetMinutes = 30. Assuming simulation seconds for now based on DURATION_DAY.
+        // If DURATION_DAY = 420 (7m), then 30 "minutes" might be relative to a 24h cycle mapped to 16m?
+        // Let's assume the CONFIG values are in simulation seconds for simplicity, OR scale them.
+        // Actually, let's treat them as seconds offset in the cycle for now.
+
+        const twilightStart = sunsetStart - 30; // Start glowing 30s before sunset starts
+
+        // Ramp up during twilightStart -> sunsetEnd
+        // Full intensity during Night
+        // Ramp down during pre-dawn
+
+        const nightStart = sunsetEnd;
+        const nightEnd = CYCLE_DURATION - DURATION_PRE_DAWN - DURATION_SUNRISE; // Rough calc
+
+        // Simple logic:
+        // 1. If Day (Sunrise -> Sunset-30s): 0
+        // 2. If Transition (Sunset-30s -> SunsetEnd): Ramp 0->1
+        // 3. If Night (SunsetEnd -> PreDawn): 1
+        // 4. If Dawn (PreDawn -> Sunrise): Ramp 1->0
+
+        if (cyclePos < twilightStart && cyclePos > DURATION_SUNRISE) return 0.0; // Day
+
+        if (cyclePos >= twilightStart && cyclePos < nightStart) {
+            // Ramp Up
+            const duration = nightStart - twilightStart;
+            return (cyclePos - twilightStart) / duration;
+        }
+
+        if (cyclePos >= nightStart && cyclePos < CYCLE_DURATION - DURATION_SUNRISE) {
+            // Night (roughly) - Check for pre-dawn fade
+            // Dawn starts at CYCLE_DURATION - DURATION_PRE_DAWN? No, cycle wraps.
+            // Let's look at config:
+            // CYCLE = SUNRISE(60) + DAY(420) + SUNSET(60) + DUSK(180) + DEEP(120) + PREDAWN(120) = 960
+            // Night starts after Sunset.
+
+            const preDawnStart = CYCLE_DURATION - DURATION_PRE_DAWN - DURATION_SUNRISE; // Just before end of cycle?
+            // Actually, cycle ends with PreDawn, then wraps to Sunrise.
+            const dawnStart = CYCLE_DURATION - DURATION_PRE_DAWN;
+
+            if (cyclePos >= dawnStart) {
+                // Ramp Down
+                const progress = (cyclePos - dawnStart) / DURATION_PRE_DAWN;
+                return 1.0 - progress;
+            }
+
+            return 1.0; // Full Night Glow
+        }
+
+        // Sunrise buffer
+        if (cyclePos < DURATION_SUNRISE) {
+            // Should be off or fading if we wrapped?
+            // Let's assume off by sunrise
+            return 0.0;
+        }
+
+        return 0.0;
+    }
+
+    isNight() {
+        // Simple helper for other systems
+        return this.lastTwilightProgress > 0.5;
+    }
+    // ---------------------------------
 
     updateEcosystem(dt) {
         // Only run if we have active entities
@@ -289,6 +370,12 @@ export class WeatherSystem {
             });
         }
         // ---------------------------
+
+        // --- Twilight Glow Update ---
+        const cyclePos = time % CYCLE_DURATION;
+        const twilightIntensity = this.getTwilightGlowIntensity(cyclePos);
+        this.lastTwilightProgress = twilightIntensity;
+        // ----------------------------
 
         if (this.lastState === WeatherState.STORM && this.state !== WeatherState.STORM) {
             this.rainbowTimer = 45.0;

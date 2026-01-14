@@ -197,11 +197,11 @@ export function createMushroom(options = {}) {
     // Add note-colored accent spots if this is a musical mushroom
     let accentSpotMat = spotMat;
     if (noteColor !== null) {
-        // Create tinted spot material
-        accentSpotMat = spotMat.clone();
-        const tintColor = new THREE.Color(noteColor);
-        // Blend white with note color for subtle tint
-        accentSpotMat.color.copy(new THREE.Color(0xFFFFFF).lerp(tintColor, 0.4));
+        // Create dedicated material with note color for musical mushrooms
+        const baseCapMat = foliageMaterials.mushroomCap[0] || foliageMaterials.mushroomStem;
+        accentSpotMat = baseCapMat.clone();
+        accentSpotMat.color.setHex(noteColor);
+        accentSpotMat.roughness = 0.7;
     }
 
     for (let i = 0; i < spotCount; i++) {
@@ -389,6 +389,11 @@ export function createMushroom(options = {}) {
         group.userData.scaleAnimTime = 0.08; // 80ms duration
         group.userData.scaleAnimStart = Date.now();
     };
+
+    // Register with music reactivity system
+    import('../systems/music-reactivity.js').then(module => {
+        module.musicReactivitySystem.registerObject(group, 'mushroom');
+    });
 
     return group;
 }
