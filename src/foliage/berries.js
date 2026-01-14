@@ -5,6 +5,8 @@ import {
     sin, cos, pow, mix, dot, time
 } from 'three/tsl';
 import { CandyPresets, uAudioLow, uTime } from './common.js';
+import { spawnImpact } from './impacts.js';
+import { uChromaticIntensity } from './chromatic.js';
 
 // --- Reusable Scratch Variables ---
 const _scratchWorldPos = new THREE.Vector3();
@@ -361,6 +363,17 @@ export function collectFallingBerries(playerPos, collectRadius = 1.0) {
 
         const distSq = berry.position.distanceToSquared(playerPos);
         if (distSq < radiusSq) {
+            // 🎨 Palette: Visual "Juice" for collection
+            spawnImpact(berry.position, 'berry');
+
+            // Screen Shake / Pop (Visual only)
+            if (uChromaticIntensity) {
+                // Add a quick chromatic pulse (decay handled in main loop)
+                uChromaticIntensity.value += 0.3;
+                // Clamp to prevent visual chaos
+                if (uChromaticIntensity.value > 1.0) uChromaticIntensity.value = 1.0;
+            }
+
             berry.userData.active = false;
             berry.visible = false;
             collected++;
