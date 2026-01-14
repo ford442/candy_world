@@ -7,6 +7,13 @@ const MAX_PARTICLES = 1500;
 let _impactMesh = null;
 let _head = 0;
 
+const IMPACT_CONFIG = {
+    jump: { count: 20 },
+    land: { count: 40 },
+    dash: { count: 30 },
+    berry: { count: 15 }
+};
+
 export function createImpactSystem() {
     const geo = new THREE.BufferGeometry();
     const positions = new Float32Array(MAX_PARTICLES * 3);
@@ -82,7 +89,8 @@ export function spawnImpact(pos, type = 'jump') {
     const colAttr = geo.attributes.color;
     const sizeAttr = geo.attributes.size;
 
-    const count = type === 'land' ? 40 : (type === 'dash' ? 30 : 20);
+    const config = IMPACT_CONFIG[type] || IMPACT_CONFIG.jump;
+    const count = config.count;
     const now = uTime.value;
 
     for (let i = 0; i < count; i++) {
@@ -120,6 +128,14 @@ export function spawnImpact(pos, type = 'jump') {
              vx = Math.sin(phi) * Math.cos(theta) * speed;
              vy = Math.cos(phi) * speed;
              vz = Math.sin(phi) * Math.sin(theta) * speed;
+        } else if (type === 'berry') {
+             // Small implosion-then-explosion feel (simulated by just explosion for now)
+             const theta = Math.random() * Math.PI * 2;
+             const phi = Math.random() * Math.PI;
+             const speed = 1.0 + Math.random() * 3.0;
+             vx = Math.sin(phi) * Math.cos(theta) * speed;
+             vy = Math.cos(phi) * speed;
+             vz = Math.sin(phi) * Math.sin(theta) * speed;
         }
 
         velAttr.setXYZ(idx, vx, vy, vz);
@@ -135,6 +151,13 @@ export function spawnImpact(pos, type = 'jump') {
             colAttr.setXYZ(idx, 0.9, 0.85, 0.8); // Dust
         } else if (type === 'dash') {
             colAttr.setXYZ(idx, 0.0, 1.0, 1.0); // Cyan
+        } else if (type === 'berry') {
+            // Juicy Orange/Magenta mix
+            if (Math.random() > 0.5) {
+                colAttr.setXYZ(idx, 1.0, 0.4, 0.0); // Orange
+            } else {
+                colAttr.setXYZ(idx, 1.0, 0.0, 0.5); // Red-Pink
+            }
         }
 
         // Size
