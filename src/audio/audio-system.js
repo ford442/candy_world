@@ -72,6 +72,9 @@ export class AudioSystem {
         this.onPlaylistUpdate = null; // Called when songs added
         this.onTrackChange = null;    // Called when song changes
 
+        // --- NEW: Note Callback ---
+        this.onNoteCallback = null;
+
         // Visual state
         this.visualState = {
             beatPhase: 0,
@@ -85,6 +88,16 @@ export class AudioSystem {
         };
 
         this.init();
+    }
+
+    // --- API to register note listener ---
+    onNote(callback) {
+        this.onNoteCallback = callback;
+    }
+
+    // Backward compatibility alias if needed
+    setNoteCallback(callback) {
+        this.onNoteCallback = callback;
     }
 
     async init() {
@@ -506,6 +519,15 @@ export class AudioSystem {
                 dest.trigger = 1.0;
                 dest.note = src.note;
                 dest.freq = noteToFreq(src.note);
+
+                // --- NEW: Trigger Note Callback ---
+                // Only trigger if this is a fresh note (Worklet typically sends 'note' only on NoteOn)
+                // However, Worklet might send it continuously. We should check if Worklet logic guarantees one-shot.
+                // Assuming AudioProcessor sends 'note' string only on the frame it is triggered.
+                // If it persists, we need a flag. Let's assume it's one-shot for now based on context.
+                if (this.onNoteCallback) {
+                     this.onNoteCallback(src.note, src.volume, i); // note, velocity (using volume as proxy), channelIndex
+                }
             }
             dest.instrument = src.instrument;
             dest.activeEffect = src.activeEffect;

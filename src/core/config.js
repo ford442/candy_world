@@ -96,6 +96,14 @@ export const CONFIG = {
         interactionDistance: 8.0 // Object becomes clickable
     },
 
+    // --- TWILIGHT GLOW SETTINGS ---
+    glow: {
+        startOffsetMinutes: 30, // Start glowing 30 min before sunset
+        endOffsetMinutes: 30,   // Stop glowing 30 min after sunrise (or before? usually before dawn, but let's stick to plan)
+        // Plan says "stop before dawn". Let's say it fades out during pre-dawn.
+    },
+
+    // --- NOTE COLOR MAPPING ---
     noteColorMap: {
         // Standard Global Palette (Fallback)
         'global': {
@@ -144,5 +152,13 @@ export const CONFIG = {
     // Global flash strength scaler
     flashScale: 2.0,
     // Debug flags
-    debugNoteReactivity: true
+    debugNoteReactivity: false,
+
+    // Moon animation settings
+    moon: {
+        blinkDuration: 200, // ms
+        blinkInterval: 5000, // ms (average)
+        danceAmplitude: 0.2,
+        danceFrequency: 1.0 // Hz
+    }
 };
