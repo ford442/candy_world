@@ -326,8 +326,6 @@ if [ $BUILD_SUCCESS -eq 1 ] && [ -f "$OUTPUT_WASM" ]; then
             echo "[WARN] Node.js not found. Skipping verification."
         fi
     fi
-    
-    exit 0
 else
     echo ""
     echo "=========================================="
@@ -341,5 +339,37 @@ else
     rm -f "$OUTPUT_JS" "$OUTPUT_WASM" "$REPO_ROOT/public/candy_native.worker.js" 2>/dev/null || true
     
     # Don't fail the overall build - JS fallbacks will work
+    # But we won't try to build the ST version if the compiler failed completely
     exit 0
+fi
+
+# ---------------------------------------------------------
+# STEP 5b: Compile Single-Threaded Fallback
+# ---------------------------------------------------------
+echo ""
+echo "[INFO] Compiling C++ to Single-Threaded WebAssembly (Fallback)..."
+
+OUTPUT_JS_ST="$REPO_ROOT/public/candy_native_st.js"
+OUTPUT_WASM_ST="$REPO_ROOT/public/candy_native_st.wasm"
+
+# Compiler flags for ST (remove pthread, atomics, etc)
+COMPILE_FLAGS_ST="-O2 -msimd128 -ffast-math -fwasm-exceptions -fno-rtti -funroll-loops -mbulk-memory"
+
+# Linker flags for ST (remove pthread, shared memory)
+LINK_FLAGS_ST="-O2 -std=c++17 -lembind -s WASM=1 -s WASM_BIGINT=0 \
+-s ALLOW_MEMORY_GROWTH=1 -s TOTAL_STACK=16MB -s INITIAL_MEMORY=256MB $ASSERTION_FLAG -s EXPORT_ES6=1 \
+-s EXPORTED_RUNTIME_METHODS=[\"wasmMemory\"] -s MODULARIZE=1 -s EXPORT_NAME=createCandyNative \
+-s ENVIRONMENT=web -s ERROR_ON_UNDEFINED_SYMBOLS=0 \
+-fwasm-exceptions -mbulk-memory -msimd128 -ffast-math"
+
+if em++ "$SCRIPT_DIR"/*.cpp \
+  $COMPILE_FLAGS_ST \
+  $LINK_FLAGS_ST \
+  -s EXPORTED_FUNCTIONS="$EXPORTS" \
+  -o "$OUTPUT_JS_ST" 2>&1; then
+    echo "[OK] Single-threaded build successful!"
+    echo "  - public/candy_native_st.js"
+    echo "  - public/candy_native_st.wasm"
+else
+    echo "[WARN] Single-threaded build failed!"
 fi
