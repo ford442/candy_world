@@ -2,7 +2,7 @@
 // Used by wasm-loader.js and wasm-orchestrator.js
 
 // Production deployment path prefix
-const PRODUCTION_PATH_PREFIX = '/candy-world';
+const PRODUCTION_PATH_PREFIX = '/';
 
 /**
  * Check if a WASM file exists by attempting HEAD requests at different paths
