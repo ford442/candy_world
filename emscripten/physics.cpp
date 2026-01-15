@@ -257,26 +257,9 @@ int checkCollision(float px, float py, float pz, float radius) {
     return 0;
 }
 
-// --- Fiber Whip Animation State (exports used by JS glue) ---
-static float fiberBaseRotY = 0.0f;
-static float fiberBranchRotZ = 0.0f;
+// Fiber whip functions consolidated into emscripten/animation.cpp to avoid duplicate symbols
+// See: emscripten/animation.cpp for the implementation and exports
 
-EMSCRIPTEN_KEEPALIVE
-void calcFiberWhip(float time, float offset, float leadVol, int isActive, int branchIndex) {
-    // Stable, lightweight whip animation used by the JS glue
-    fiberBaseRotY = std::sin(time * 0.5f + offset) * 0.1f;
-    float whip = leadVol * 2.0f;
-    float childOffset = branchIndex * 0.5f;
-    fiberBranchRotZ = 0.78539816339f + std::sin(time * 2.0f + childOffset) * 0.1f; // ~PI/4
-    if (isActive) {
-        fiberBranchRotZ += std::sin(time * 10.0f + childOffset) * whip;
-    }
-}
-
-EMSCRIPTEN_KEEPALIVE
-float getFiberBaseRotY() { return fiberBaseRotY; }
-EMSCRIPTEN_KEEPALIVE
-float getFiberBranchRotZ() { return fiberBranchRotZ; }
 
 // Dummy main
 int main() {
