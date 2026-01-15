@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { foliageMaterials, registerReactiveMaterial, attachReactivity, pickAnimation, createClayMaterial, createGradientMaterial, sharedGeometries } from './common.js';
+import { color as tslColor, mix, float } from 'three/tsl';
+import { uTwilight } from './sky.js';
 import { createBerryCluster } from './berries.js';
 import { FoliageObject } from './types.js';
 
@@ -442,6 +444,12 @@ export function createFiberOpticWillow(options: FiberOpticWillowOptions = {}): T
     const branchCount = 8;
     const cableMat = foliageMaterials.opticCable;
     const tipMat = foliageMaterials.opticTip.clone();
+
+    // Twilight Boost for Fiber Optics
+    const baseEmissive = tslColor(color).mul(0.8);
+    const twilightBoost = baseEmissive.mul(uTwilight).mul(2.0); // Boost significantly at night
+    tipMat.emissiveNode = baseEmissive.add(twilightBoost);
+
     registerReactiveMaterial(tipMat);
 
     for (let i = 0; i < branchCount; i++) {

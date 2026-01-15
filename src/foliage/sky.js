@@ -10,9 +10,12 @@ export const uSkyBottomColor = uniform(color(0xFFC5D3));
 export const uHorizonColor = uniform(color(0xFFE5CC));   
 export const uAtmosphereIntensity = uniform(0.3);        
 
-// --- NEW: Export this missing uniform ---
 export const uSkyDarkness = uniform(0.0); // 0.0 = Normal, 1.0 = Pitch Black
-// ----------------------------------------
+
+// --- NEW: Twilight Uniform for Plant Bioluminescence ---
+// 0.0 = Day (No Glow), 1.0 = Night/Twilight (Full Glow)
+export const uTwilight = uniform(0.0);
+// -------------------------------------------------------
 
 export function createSky() {
     const skyGeo = new THREE.SphereGeometry(1000, 32, 24); 
@@ -44,4 +47,3 @@ export function createSky() {
     const sky = new THREE.Mesh(skyGeo, skyMat);
     return sky;
 }
-
