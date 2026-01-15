@@ -35,6 +35,14 @@ float particleZ = 0.0f;
 // Arpeggio Results
 float arpeggioResult[2]; // [targetStep, unfurlStep]
 
+// Wobble Results
+float wobbleRotX = 0.0f;
+float wobbleRotZ = 0.0f;
+
+// Accordion Results
+float accordionStretchY = 1.0f;
+float accordionWidthXZ = 1.0f;
+
 extern "C" {
 
 // =================================================================================
@@ -199,6 +207,75 @@ void calcSpeakerPulse(float time, float kick, float intensity) {
 EMSCRIPTEN_KEEPALIVE
 float getSpeakerScale() {
     return speakerScale;
+}
+
+// =================================================================================
+// BOUNCE Y (Simple vertical bounce)
+// =================================================================================
+EMSCRIPTEN_KEEPALIVE
+float calcBounceY(float time, float offset, float intensity, float kick) {
+    float animTime = time + offset;
+    float yOffset = sin(animTime * 3.0f) * 0.1f * intensity;
+    if (kick > 0.1f) {
+        yOffset += kick * 0.2f;
+    }
+    return yOffset;
+}
+
+// =================================================================================
+// SWAY ROT Z (Rotation Z sway)
+// =================================================================================
+EMSCRIPTEN_KEEPALIVE
+float calcSwayRotZ(float time, float offset, float intensity) {
+    return sin(time + offset) * 0.1f * intensity;
+}
+
+// =================================================================================
+// WOBBLE (X and Z rotation)
+// =================================================================================
+EMSCRIPTEN_KEEPALIVE
+void calcWobble(float time, float offset, float intensity) {
+    float animTime = time + offset;
+    wobbleRotX = sin(animTime * 3.0f) * 0.15f * intensity;
+    wobbleRotZ = cos(animTime * 3.0f) * 0.15f * intensity;
+}
+
+EMSCRIPTEN_KEEPALIVE
+float getWobbleX() { return wobbleRotX; }
+EMSCRIPTEN_KEEPALIVE
+float getWobbleZ() { return wobbleRotZ; }
+
+// =================================================================================
+// ACCORDION STRETCH
+// =================================================================================
+EMSCRIPTEN_KEEPALIVE
+void calcAccordionStretch(float animTime, float offset, float intensity) {
+    float rawStretch = sin(animTime * 10.0f + offset);
+    accordionStretchY = 1.0f + fmaxf(0.0f, rawStretch) * 0.3f * intensity;
+    accordionWidthXZ = 1.0f / sqrtf(accordionStretchY);
+}
+
+EMSCRIPTEN_KEEPALIVE
+float getAccordionStretchY() { return accordionStretchY; }
+EMSCRIPTEN_KEEPALIVE
+float getAccordionWidthXZ() { return accordionWidthXZ; }
+
+// =================================================================================
+// RAIN DROP Y (Cycling fall)
+// =================================================================================
+EMSCRIPTEN_KEEPALIVE
+float calcRainDropY(float startY, float time, float speed, float cycleHeight) {
+    float totalDrop = time * speed;
+    float cycled = fmodf(totalDrop, cycleHeight);
+    return startY - cycled;
+}
+
+// =================================================================================
+// FLOATING Y (Simple sine wave float)
+// =================================================================================
+EMSCRIPTEN_KEEPALIVE
+float calcFloatingY(float time, float offset, float baseHeight) {
+    return baseHeight + sin(time + offset) * 0.5f;
 }
 
 } // extern "C"
