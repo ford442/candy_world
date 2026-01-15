@@ -110,52 +110,131 @@ export const AnimationType = {
 // UPDATED: Load Emscripten Module (Pthreads/Worker Version)
 // =============================================================================
 
-async function loadEmscriptenModule() {
-    if (typeof SharedArrayBuffer === 'undefined') {
-        console.warn('[Native] SharedArrayBuffer is missing. Pthreads will NOT work. Using JS fallback.');
-        return false;
-    }
+async function loadEmscriptenModule(forceSingleThreaded = false) {
+    // SINGLE-THREADED FALLBACK STRATEGY:
+    // 1. If SharedArrayBuffer is missing, forcing ST.
+    // 2. If forceSingleThreaded=true is passed (recursive fallback), use ST.
+    // 3. We attempt to load 'candy_native.wasm' (threaded).
+    // 4. If that fails (file missing, instantiation error, worker error), we recursively call loadEmscriptenModule(true).
+
+    // 1. Check for SharedArrayBuffer (required for threads)
+    const canUseThreads = typeof SharedArrayBuffer !== 'undefined' && !forceSingleThreaded;
 
     try {
         await updateProgress('Loading Native Engine...');
 
-        // Check if WASM file exists first
-        const wasmCheck = await checkWasmFileExists('candy_native.wasm');
+        let wasmFilename = 'candy_native.wasm';
+        let jsFilename = 'candy_native.js';
+        let isThreaded = true;
+
+        if (!canUseThreads) {
+            console.warn('[Native] Using Single-Threaded Fallback (No SharedArrayBuffer or forced ST)');
+            wasmFilename = 'candy_native_st.wasm';
+            jsFilename = 'candy_native_st.js';
+            isThreaded = false;
+        }
+
+        // Check if WASM file exists
+        const wasmCheck = await checkWasmFileExists(wasmFilename);
         if (!wasmCheck.exists) {
-            console.log('[WASM] candy_native.wasm not found. Using JS fallback.');
+            console.log(`[WASM] ${wasmFilename} not found. Using JS fallback.`);
+            // If threaded failed (e.g. file missing), try ST if we haven't already
+            if (isThreaded) {
+                 return loadEmscriptenModule(true);
+            }
             return false;
         }
 
         const locatePrefix = wasmCheck.path;
 
-   
-
+        // Load the JS factory
         let createCandyNative;
-
-        // Try to load the JS loader
         try {
-            const module = await import(/* @vite-ignore */ `${locatePrefix}/candy_native.js?v=${Date.now()}`);
+            const module = await import(/* @vite-ignore */ `${locatePrefix}/${jsFilename}?v=${Date.now()}`);
             createCandyNative = module.default;
         } catch (e) {
-            console.log('[WASM] candy_native.js not found. Using JS fallback.');
+            console.log(`[WASM] ${jsFilename} not found. Fallback?`, e);
+            if (isThreaded) return loadEmscriptenModule(true);
             return false;
         }
 
-        await updateProgress('Spawning Physics Workers...');
+        if (isThreaded) {
+            await updateProgress('Spawning Physics Workers...');
+        } else {
+            await updateProgress('Initializing Physics (ST)...');
+        }
 
-        // Apply instantiate alias patch to prevent aborts when only underscored exports exist
+        // Apply aliases
         const restore = patchWasmInstantiateAliases();
+
+        // Manual binary fetch to bypass instantiateStreaming issues
+        let wasmBinary = null;
         try {
-            emscriptenInstance = await createCandyNative({
+             const resp = await fetch(`${locatePrefix}/${wasmFilename}`);
+             if (resp.ok) {
+                 wasmBinary = await resp.arrayBuffer();
+             }
+        } catch(e) {
+            console.warn("[WASM] Failed to pre-fetch binary:", e);
+        }
+
+        try {
+            const config = {
                 locateFile: (path, prefix) => {
-                    if (path.endsWith('.wasm')) return `${locatePrefix}/candy_native.wasm`;
+                    if (path.endsWith('.wasm')) return `${locatePrefix}/${wasmFilename}`;
                     return prefix + path;
                 },
                 print: (text) => console.log('[Native]', text),
                 printErr: (text) => console.warn('[Native Err]', text),
-            });
+            };
 
-            console.log('[WASM] Emscripten Pthreads Ready');
+            // If we have binary, pass it to avoid internal fetching
+            if (wasmBinary) {
+                config.wasmBinary = wasmBinary;
+            }
+
+            // Bypass internal instantiation logic completely by providing instantiateWasm hook
+            // This fixes the "instantiateStreaming is not a function" error and ensures
+            // valid Module objects are passed to workers.
+            config.instantiateWasm = (imports, successCallback) => {
+                console.log('[Native] Manual instantiation hook triggered');
+
+                let promise;
+                if (wasmBinary) {
+                    promise = WebAssembly.instantiate(wasmBinary, imports);
+                } else {
+                    // Fallback fetch if pre-fetch failed (e.g. partial download)
+                    promise = fetch(`${locatePrefix}/${wasmFilename}`)
+                        .then(response => {
+                            if (!response.ok) throw new Error(`Fetch failed: ${response.status}`);
+                            return response.arrayBuffer();
+                        })
+                        .then(bytes => WebAssembly.instantiate(bytes, imports));
+                }
+
+                promise.then(result => {
+                    console.log('[Native] Manual instantiation success');
+                    // result is { module, instance }
+                    successCallback(result.instance, result.module);
+                }).catch(e => {
+                    console.error('[Native] Manual instantiation failed:', e);
+                });
+
+                return {}; // Async indicates to Emscripten we are handling it
+            };
+
+            emscriptenInstance = await createCandyNative(config);
+
+            console.log(`[WASM] Emscripten ${isThreaded ? 'Pthreads' : 'Single-Threaded'} Ready`);
+        } catch (e) {
+            console.warn('[WASM] Instantiation failed:', e);
+            restore();
+            // If threaded failed, try ST
+            if (isThreaded) {
+                console.log('[WASM] Falling back to Single-Threaded build...');
+                return loadEmscriptenModule(true);
+            }
+            return false;
         } finally {
             restore();
         }
@@ -168,7 +247,7 @@ async function loadEmscriptenModule() {
 
         return true;
     } catch (e) {
-        console.warn('[WASM] Native module unavailable, using JS fallback:', e);
+        console.warn('[WASM] Native module unavailable:', e);
         return false;
     }
 }
