@@ -131,7 +131,8 @@ export class AudioSystem {
                 if (text.trim().length < 20 || looksLikeHTML) {
                     console.warn(`[AudioSystem] Worklet content at ${workletUrl} looks suspicious (length=${text.length}, looksLikeHTML=${looksLikeHTML}). Trying root '/js/audio-processor.js' as a fallback.`);
                     try {
-                        const rootRes = await fetch('/js/audio-processor.js', { cache: 'no-store' });
+                        const jsUrl = new URL('./js/audio-processor.js', import.meta.url).href;
+                        const rootRes = await fetch(jsUrl, { cache: 'no-store' });
                         if (rootRes.ok) {
                             const rootCT = rootRes.headers.get('content-type') || '';
                             const rootText = await rootRes.text();

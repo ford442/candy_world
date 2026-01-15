@@ -3,6 +3,10 @@ import { defineConfig } from 'vite';
 
 export default defineConfig({
   base: './',
+  build: {
+    // Ensures assets don't get lost in complex folder structures
+    assetsDir: 'assets',
+  },
   server: {
     headers: {
       // These headers are REQUIRED for SharedArrayBuffer (Pthreads)
