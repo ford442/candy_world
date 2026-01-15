@@ -101,6 +101,7 @@ export function createMushroom(options = {}) {
 
     // Clone material to allow individual emissive strobing and TSL modification
     const instanceCapMat = capMat.clone();
+    instanceCapMat.userData.isClone = true;
     // Ensure base emissive is set for fade-back
     instanceCapMat.userData.baseEmissive = new THREE.Color(0x000000);
     // Store note color for reactivity
@@ -200,6 +201,7 @@ export function createMushroom(options = {}) {
         // Create dedicated material with note color for musical mushrooms
         const baseCapMat = foliageMaterials.mushroomCap[0] || foliageMaterials.mushroomStem;
         accentSpotMat = baseCapMat.clone();
+        accentSpotMat.userData.isClone = true;
         accentSpotMat.color.setHex(noteColor);
         accentSpotMat.roughness = 0.7;
     }
@@ -251,20 +253,19 @@ export function createMushroom(options = {}) {
         rightEye.add(rightPupil);
 
         // Smile
-        const smileGeo = new THREE.TorusGeometry(0.12, 0.04, 6, 12, Math.PI);
-        const smile = new THREE.Mesh(smileGeo, foliageMaterials.clayMouth);
+        const smile = new THREE.Mesh(sharedGeometries.mushroomSmile, foliageMaterials.clayMouth);
         smile.rotation.z = Math.PI;
         smile.position.set(0, -0.05, 0.1);
 
         // Cheeks (Rosy!)
-        const cheekGeo = new THREE.SphereGeometry(0.08, 8, 8);
-        const leftCheek = new THREE.Mesh(cheekGeo, foliageMaterials.mushroomCheek);
+        // ⚡ OPTIMIZATION: Use shared sphere geometry scaled down
+        const leftCheek = new THREE.Mesh(sharedGeometries.sphereLow, foliageMaterials.mushroomCheek);
         leftCheek.position.set(-0.25, 0.0, 0.05);
-        leftCheek.scale.set(1, 0.6, 0.5);
+        leftCheek.scale.set(0.08, 0.048, 0.04); // Scaled from radius 1.0 to 0.08
 
-        const rightCheek = new THREE.Mesh(cheekGeo, foliageMaterials.mushroomCheek);
+        const rightCheek = new THREE.Mesh(sharedGeometries.sphereLow, foliageMaterials.mushroomCheek);
         rightCheek.position.set(0.25, 0.0, 0.05);
-        rightCheek.scale.set(1, 0.6, 0.5);
+        rightCheek.scale.set(0.08, 0.048, 0.04);
 
         faceGroup.add(leftEye, rightEye, smile, leftCheek, rightCheek);
         group.add(faceGroup);
@@ -308,6 +309,7 @@ export function createMushroom(options = {}) {
         if (gill && gill.material) {
             // Clone to avoid affecting all mushrooms
             gill.material = gill.material.clone();
+            gill.material.userData.isClone = true;
             gill.material.emissive = lightColor.clone().multiplyScalar(0.3);
             gill.material.emissiveIntensity = 0.3;
         }

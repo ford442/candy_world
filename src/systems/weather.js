@@ -4,7 +4,7 @@
 
 import * as THREE from 'three';
 import { getGroundHeight, uploadPositions, uploadAnimationData, uploadMushroomSpecs, batchMushroomSpawnCandidates, readSpawnCandidates, isWasmReady } from '../utils/wasm-loader.js';
-import { chargeBerries, triggerGrowth, triggerBloom, shakeBerriesLoose, updateBerrySeasons, createMushroom, createWaterfall, createLanternFlower } from '../foliage/index.js';
+import { chargeBerries, triggerGrowth, triggerBloom, shakeBerriesLoose, updateBerrySeasons, createMushroom, createWaterfall, createLanternFlower, cleanupReactivity, musicReactivitySystem } from '../foliage/index.js';
 import { createRainbow, uRainbowOpacity } from '../foliage/rainbow.js';
 import { getCelestialState, getSeasonalState } from '../core/cycle.js';
 import { CYCLE_DURATION, CONFIG, DURATION_SUNRISE, DURATION_DAY, DURATION_SUNSET, DURATION_PRE_DAWN } from '../core/config.js';
@@ -529,7 +529,10 @@ export class WeatherSystem {
             object.position.set(x, y, z);
             object.scale.setScalar(0.01);
             this.onSpawnFoliage(object, true, 0);
-            if (type === 'mushroom') this.registerMushroom(object);
+            if (type === 'mushroom') {
+                this.registerMushroom(object);
+                this.manageMushroomCount();
+            }
             if (type === 'lantern') this.registerFlower(object);
         }
     }
@@ -597,6 +600,7 @@ export class WeatherSystem {
                                 this.scene.add(newM);
                                 this.registerMushroom(newM);
                             }
+                            this.manageMushroomCount();
                             spawned++;
                         }
                     }
@@ -621,6 +625,7 @@ export class WeatherSystem {
                                     this.scene.add(newM);
                                     this.registerMushroom(newM);
                                 }
+                                this.manageMushroomCount();
                                 spawned++;
                             }
                         }
@@ -842,6 +847,38 @@ export class WeatherSystem {
             case WeatherState.STORM: this.targetIntensity = 1.0; break;
             case WeatherState.RAIN: this.targetIntensity = 0.5; break;
             default: this.targetIntensity = 0;
+        }
+    }
+
+    manageMushroomCount() {
+        const MAX_MUSHROOMS = 150;
+        // ⚡ OPTIMIZATION: Prevent unbounded growth of mushrooms
+        if (this.trackedMushrooms.length > MAX_MUSHROOMS) {
+            const toRemove = this.trackedMushrooms.shift(); // FIFO: Remove oldest
+
+            if (toRemove) {
+                // Remove from Scene
+                if (toRemove.parent) toRemove.parent.remove(toRemove);
+
+                // Cleanup Reactivity Systems
+                cleanupReactivity(toRemove);
+                if (musicReactivitySystem && musicReactivitySystem.unregisterObject) {
+                    musicReactivitySystem.unregisterObject(toRemove, 'mushroom');
+                }
+
+                // Dispose Materials (to free GPU memory)
+                toRemove.traverse(child => {
+                    if (child.material) {
+                        if (Array.isArray(child.material)) {
+                            child.material.forEach(m => m.userData?.isClone && m.dispose && m.dispose());
+                        } else if (child.material.userData?.isClone && child.material.dispose) {
+                            child.material.dispose();
+                        }
+                    }
+                    // Geometries are mostly shared, but if not, one could dispose them here too.
+                    // Since we optimized mushrooms to use shared geometries, we skip geometry disposal to be safe.
+                });
+            }
         }
     }
 
