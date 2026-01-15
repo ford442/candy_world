@@ -31,6 +31,24 @@ const showUploadFeedback = (labelElement, filesCount) => {
     }, 2000);
 };
 
+// Helper: Validate and filter files by extension
+const filterValidMusicFiles = (files) => {
+    const validExtensions = ['.mod', '.xm', '.it', '.s3m'];
+    const validFiles = [];
+    const invalidFiles = [];
+
+    for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const lowerName = file.name.toLowerCase();
+        if (validExtensions.some(ext => lowerName.endsWith(ext))) {
+            validFiles.push(file);
+        } else {
+            invalidFiles.push(file);
+        }
+    }
+    return { validFiles, invalidFiles };
+};
+
 export function initInput(camera, audioSystem, toggleDayNightCallback) {
     const controls = new PointerLockControls(camera, document.body);
     const instructions = document.getElementById('instructions');
@@ -186,9 +204,12 @@ export function initInput(camera, audioSystem, toggleDayNightCallback) {
         playlistUploadInput.addEventListener('change', (e) => {
             const files = e.target.files;
             if (files && files.length > 0) {
-                audioSystem.addToQueue(files);
-                const label = document.querySelector('label[for="playlistUploadInput"]');
-                showUploadFeedback(label, files.length);
+                const { validFiles } = filterValidMusicFiles(files);
+                if (validFiles.length > 0) {
+                    audioSystem.addToQueue(validFiles);
+                    const label = document.querySelector('label[for="playlistUploadInput"]');
+                    showUploadFeedback(label, validFiles.length);
+                }
             }
         });
     }
@@ -358,9 +379,24 @@ export function initInput(camera, audioSystem, toggleDayNightCallback) {
         musicUpload.addEventListener('change', (event) => {
             const files = event.target.files;
             if (files && files.length > 0) {
-                audioSystem.addToQueue(files);
-                const label = document.querySelector('label[for="musicUpload"]');
-                showUploadFeedback(label, files.length);
+                const { validFiles, invalidFiles } = filterValidMusicFiles(files);
+
+                if (validFiles.length > 0) {
+                    audioSystem.addToQueue(validFiles);
+                    const label = document.querySelector('label[for="musicUpload"]');
+                    showUploadFeedback(label, validFiles.length);
+
+                    if (invalidFiles.length > 0) {
+                        import('../utils/toast.js').then(({ showToast }) => {
+                            showToast(`Added ${validFiles.length} song${validFiles.length > 1 ? 's' : ''}. (${invalidFiles.length} ignored)`, '⚠️');
+                        });
+                    }
+                } else {
+                     // All files were invalid
+                    import('../utils/toast.js').then(({ showToast }) => {
+                        showToast("❌ Only .mod, .xm, .it, .s3m allowed!", '🚫');
+                    });
+                }
             }
         });
     }
@@ -436,16 +472,29 @@ export function initInput(camera, audioSystem, toggleDayNightCallback) {
 
             const files = e.dataTransfer.files;
             if (files && files.length > 0) {
-                audioSystem.addToQueue(files);
+                const { validFiles, invalidFiles } = filterValidMusicFiles(files);
 
-                // Show feedback via Toast
-                import('../utils/toast.js').then(({ showToast }) => {
-                    showToast(`Added ${files.length} Song${files.length > 1 ? 's' : ''}! 🎶`, '📂');
-                });
+                if (validFiles.length > 0) {
+                    audioSystem.addToQueue(validFiles);
 
-                // Also trigger label feedback if available
-                const label = document.querySelector('label[for="musicUpload"]');
-                if (label) showUploadFeedback(label, files.length);
+                    // Show feedback via Toast
+                    import('../utils/toast.js').then(({ showToast }) => {
+                        if (invalidFiles.length > 0) {
+                            showToast(`Added ${validFiles.length} song${validFiles.length > 1 ? 's' : ''}. (${invalidFiles.length} ignored)`, '⚠️');
+                        } else {
+                            showToast(`Added ${validFiles.length} Song${validFiles.length > 1 ? 's' : ''}! 🎶`, '📂');
+                        }
+                    });
+
+                    // Also trigger label feedback if available
+                    const label = document.querySelector('label[for="musicUpload"]');
+                    if (label) showUploadFeedback(label, validFiles.length);
+                } else {
+                    // All files were invalid
+                    import('../utils/toast.js').then(({ showToast }) => {
+                        showToast("❌ Only .mod, .xm, .it, .s3m allowed!", '🚫');
+                    });
+                }
             }
         });
     }
