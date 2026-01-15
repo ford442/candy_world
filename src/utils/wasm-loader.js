@@ -123,14 +123,14 @@ async function loadEmscriptenModule(forceSingleThreaded = false) {
     try {
         await updateProgress('Loading Native Engine...');
 
-        let wasmFilename = 'https://test.1ink.us/candy-world/candy_native.wasm';
-        let jsFilename = 'https://test.1ink.us/candy-world/candy_native.js';
+        let wasmFilename = 'candy_native.wasm';
+        let jsFilename = 'candy_native.js';
         let isThreaded = true;
 
         if (!canUseThreads) {
             console.warn('[Native] Using Single-Threaded Fallback (No SharedArrayBuffer or forced ST)');
-            wasmFilename = 'https://test.1ink.us/candy-world/candy_native_st.wasm';
-            jsFilename = 'https://test.1ink.us/candy-world/candy_native_st.js';
+            wasmFilename = 'candy_native_st.wasm';
+            jsFilename = 'candy_native_st.js';
             isThreaded = false;
         }
 
