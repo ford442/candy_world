@@ -27,6 +27,8 @@ Inspired by low-poly nature scenes with a candy twist!
 
 ## How to Run
 
+> **Note**: For detailed setup instructions including native module compilation with Emscripten, see [SETUP_GUIDE.md](./SETUP_GUIDE.md)
+
 ### Development
 
 1. Install dependencies:
