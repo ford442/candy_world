@@ -1,9 +1,47 @@
+/**
+ * @file animation.cpp
+ * @brief Candy World Animation Functions - C++/Emscripten WASM Module
+ * 
+ * This file contains all animation calculation functions exported to JavaScript via
+ * Emscripten/WebAssembly. Each function uses EMSCRIPTEN_KEEPALIVE to ensure the
+ * function is not stripped during optimization and remains available as an export.
+ * 
+ * ## EXPORT MECHANISM
+ * 
+ * EMSCRIPTEN_KEEPALIVE:
+ * - Prevents DCE (Dead Code Elimination) from removing the function
+ * - Ensures the function appears in the WASM module's export table
+ * - Functions are exported with a leading underscore (e.g., _calcFiberWhip)
+ * - The wasm-loader.js uses getNativeFunc('calcFiberWhip') which prepends '_'
+ * 
+ * ## FALLBACK SYSTEM
+ * 
+ * If a function is NOT exported (e.g., due to build issues or missing implementation),
+ * the JavaScript wasm-loader.js will automatically use a pure JavaScript fallback.
+ * This ensures the application never crashes due to missing WASM exports.
+ * 
+ * ## ADDING NEW FUNCTIONS
+ * 
+ * 1. Implement the function in this file with EMSCRIPTEN_KEEPALIVE
+ * 2. Add the export name (with leading underscore) to EXPORTS in build.sh
+ * 3. Add a corresponding JS fallback in wasm-loader.js
+ * 4. Run the build and verify with: node emscripten/verify_build.js
+ * 
+ * @author Candy World Team
+ * @see build.sh for the build configuration
+ * @see src/utils/wasm-loader.js for JavaScript wrappers and fallbacks
+ */
+
 #include <emscripten.h>
 #include <cmath>
 #include <algorithm>
 
 // =================================================================================
 // GLOBAL STATE FOR RESULTS
+// 
+// These global variables store computed results from multi-return functions.
+// The pattern is: call a calc*() function, then read individual values via get*() functions.
+// This avoids complex memory management for returning structs to JavaScript.
 // =================================================================================
 
 
