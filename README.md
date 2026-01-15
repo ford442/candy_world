@@ -82,8 +82,5 @@ npm run preview
 - 300x300 unit terrain with fog effects
 - OrbitControls for smooth camera movement
 - Vite build system for fast development and optimized production builds
-- **Hybrid WASM Backend**:
-  - `candy_physics.wasm` (AssemblyScript): Core physics engine.
-  - `candy_native.wasm` (C++): Optional high-performance math and effects. The build process generates `public/candy_native.js` and `public/candy_native.wasm`. Ensure your deployment includes these files and not other old build artifacts (like `test.js`).
 
 Enjoy wandering through this memorable 3D candy nature world!

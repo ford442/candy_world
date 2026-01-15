@@ -515,16 +515,23 @@ function initCppPhysics(camera) {
 function checkVineAttachment(camera) {
     const playerPos = player.position;
     for (const vineManager of vineSwings) {
-        const dx = playerPos.x - vineManager.anchorPoint.x;
-        const dz = playerPos.z - vineManager.anchorPoint.z;
-        const distH = Math.sqrt(dx*dx + dz*dz);
-        const tipY = vineManager.anchorPoint.y - vineManager.length;
+        // SAFETY: Ensure vineManager and anchorPoint exist before accessing properties
+        if (!vineManager || !vineManager.anchorPoint) continue;
+        const anchor = vineManager.anchorPoint;
+        if (typeof anchor.x !== 'number' || typeof anchor.y !== 'number' || typeof anchor.z !== 'number') continue;
 
-        if (distH < 2.0 && playerPos.y < vineManager.anchorPoint.y && playerPos.y > tipY) {
+        const dx = playerPos.x - anchor.x;
+        const dz = playerPos.z - anchor.z;
+        const distH = Math.sqrt(dx*dx + dz*dz);
+        const tipY = anchor.y - (typeof vineManager.length === 'number' ? vineManager.length : 0);
+
+        if (distH < 2.0 && playerPos.y < anchor.y && playerPos.y > tipY) {
              if (distH < 1.0) {
-                 vineManager.attach(camera, player.velocity);
-                 setActiveVineSwing(vineManager);
-                 break;
+                 if (typeof vineManager.attach === 'function') {
+                     vineManager.attach(camera, player.velocity);
+                     setActiveVineSwing(vineManager);
+                     break;
+                 }
              }
         }
     }
