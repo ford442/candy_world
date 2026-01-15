@@ -31,6 +31,7 @@ export const sharedGeometries = {
     // Mushroom parts
     mushroomCap: new THREE.SphereGeometry(1, 24, 24, 0, Math.PI * 2, 0, Math.PI / 1.8),
     mushroomGillCenter: new THREE.ConeGeometry(1, 1, 24, 1, true),
+    mushroomSmile: new THREE.TorusGeometry(0.12, 0.04, 6, 12, Math.PI),
 
     // Explicit definitions for missing units
     unitCylinder: new THREE.CylinderGeometry(1, 1, 1, 12).translate(0, 0.5, 0),
