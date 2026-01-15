@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { color, time, sin, positionLocal, float, uniform, vec3 } from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { foliageMaterials, registerReactiveMaterial, attachReactivity, pickAnimation, eyeGeo, createRimLight, uAudioLow, uAudioHigh, sharedGeometries, _foliageReactiveColor } from './common.js';
+import { uTwilight } from './sky.js';
 
 // 12 Chromatic Notes with their corresponding colors
 // Colors are defined here to match CONFIG.noteColorMap.mushroom palette
@@ -149,7 +150,14 @@ export function createMushroom(options = {}) {
     const rimIntensity = float(0.4).add(uAudioHigh.mul(0.5));
     const rimEffect = createRimLight(color(0xFFFFFF), rimIntensity, float(3.0));
 
-    let finalEmissiveNode = uEmissive.add(rimEffect);
+    // Twilight Glow Logic:
+    // Boost emission during twilight/night
+    // If the mushroom has a note color, we can mix that in, otherwise use base color.
+    // For TSL simplicity, we boost the current emissive color (which might be black, so careful).
+    // Better: Add the diffuse color as emissive during twilight.
+    const twilightGlow = color(instanceCapMat.color).mul(uTwilight).mul(0.4); // 40% glow at night
+
+    let finalEmissiveNode = uEmissive.add(rimEffect).add(twilightGlow);
 
     // 3. Giant Features (Stripes) - Integrated into same material
     if (isGiant) {

@@ -9,7 +9,7 @@ import { createRainbow, uRainbowOpacity } from '../foliage/rainbow.js';
 import { getCelestialState, getSeasonalState } from '../core/cycle.js';
 import { CYCLE_DURATION, CONFIG, DURATION_SUNRISE, DURATION_DAY, DURATION_SUNSET, DURATION_PRE_DAWN } from '../core/config.js';
 import { uCloudRainbowIntensity, uCloudLightningStrength, uCloudLightningColor, updateCloudAttraction, isCloudOverTarget } from '../foliage/clouds.js';
-import { uSkyDarkness } from '../foliage/sky.js';
+import { uSkyDarkness, uTwilight } from '../foliage/sky.js';
 import { updateCaveWaterLevel } from '../foliage/cave.js';
 import { LegacyParticleSystem } from './adapters/LegacyParticleSystem.js';
 import { WasmParticleSystem } from './adapters/WasmParticleSystem.js';
@@ -375,6 +375,7 @@ export class WeatherSystem {
         const cyclePos = time % CYCLE_DURATION;
         const twilightIntensity = this.getTwilightGlowIntensity(cyclePos);
         this.lastTwilightProgress = twilightIntensity;
+        try { uTwilight.value = twilightIntensity; } catch(e) {}
         // ----------------------------
 
         if (this.lastState === WeatherState.STORM && this.state !== WeatherState.STORM) {

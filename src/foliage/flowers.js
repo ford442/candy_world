@@ -11,7 +11,8 @@ import {
     createTransparentNodeMaterial, // Added import
     sharedGeometries // Added import
 } from './common.js';
-import { color as tslColor } from 'three/tsl';
+import { color as tslColor, mix, float } from 'three/tsl';
+import { uTwilight } from './sky.js';
 
 export function createFlower(options = {}) {
     const { color = null, shape = 'simple' } = options;
@@ -146,6 +147,13 @@ export function createGlowingFlower(options = {}) {
         emissiveIntensity: intensity,
         roughness: 0.8
     });
+
+    // Twilight Boost: Increase emission during twilight/night
+    // Base intensity (intensity) + Twilight Boost (intensity * 1.5 * uTwilight)
+    const baseEmissive = tslColor(color).mul(float(intensity));
+    const twilightBoost = baseEmissive.mul(uTwilight).mul(1.5);
+    headMat.emissiveNode = baseEmissive.add(twilightBoost);
+
     registerReactiveMaterial(headMat);
 
     const head = new THREE.Mesh(sharedGeometries.unitSphere, headMat);
