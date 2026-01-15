@@ -49,17 +49,17 @@ extern "C" {
 // FIBER WHIP
 // =================================================================================
 EMSCRIPTEN_KEEPALIVE
-void calcFiberWhip(float time, float offset, float leadVol, int isActive, float branchIndex) {
-    fiberBaseRotY = sin(time * 0.5f + offset) * 0.1f;
+void calcFiberWhip(float time, float offset, float leadVol, int isActive, int branchIndex) {
+    fiberBaseRotY = std::sin(time * 0.5f + offset) * 0.1f;
     
     float whip = leadVol * 2.0f;
     float childOffset = branchIndex * 0.5f;
-    float baseAngle = 0.785398f; // PI/4 approx
     
-    fiberBranchRotZ = baseAngle + sin(time * 2.0f + childOffset) * 0.1f;
+    // Default rotation ~PI/4
+    fiberBranchRotZ = 0.785f + std::sin(time * 2.0f + childOffset) * 0.1f; 
     
     if (isActive) {
-        fiberBranchRotZ += sin(time * 10.0f + childOffset) * whip;
+        fiberBranchRotZ += std::sin(time * 10.0f + childOffset) * whip;
     }
 }
 
