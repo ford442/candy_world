@@ -1,1 +1,0 @@
-function c(i,n="✨",s=4e3){const t=document.getElementById("now-playing-toast"),e=document.getElementById("now-playing-text");if(t&&e){const o=t.querySelector(".icon");e.innerText=i,o&&(o.innerText=n),t.classList.add("visible"),t.timeout&&clearTimeout(t.timeout),t.timeout=setTimeout(()=>{t.classList.remove("visible")},s)}}export{c as showToast};
