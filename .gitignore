@@ -26,3 +26,4 @@ public/candy_physics*
 # Vite
 .vite/
 verify_mod_player.md
+test_build/
