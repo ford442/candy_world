@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Candy World</title>
+    <script>
+        window.NativeWebAssembly = window.WebAssembly;
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap" rel="stylesheet">
+    <style>
+        /* ... (Styles preserved) ... */
+        #loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #ffecf5; 
+            background-image: url('./assets/splash-XugLlQp2.png');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            transition: opacity 0.5s ease-out;
+            font-family: 'Fredoka One', cursive, sans-serif;
+        }
+        .loading-spinner {
+            width: 60px;
+            height: 60px;
+            border: 6px solid #ffb7e6;
+            border-top: 6px solid #ff40b0;
+            border-radius: 50%;
+            animation: loading-spin 1s linear infinite;
+            margin-bottom: 20px;
+            box-shadow: 0 0 15px rgba(255, 64, 176, 0.3);
+            background: rgba(255, 255, 255, 0.9);
+        }
+        #loading-text {
+            color: #d65db1;
+            font-size: 1.2rem;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 10px 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        @keyframes loading-spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .loaded {
+            opacity: 0;
+            pointer-events: none;
+        }
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #FFD1DC;
+            user-select: none;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+        #instructions {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: rgba(255, 209, 220, 0.8);
+            z-index: 200;
+            cursor: pointer;
+            backdrop-filter: blur(5px);
+            transition: opacity 0.3s;
+        }
+        #instructions h1 {
+            color: #FF6B6B;
+            font-size: 3em;
+            margin: 0 0 20px 0;
+            text-shadow: 2px 2px 0px #fff;
+            font-family: 'Fredoka One', cursive, sans-serif;
+        }
+        .cta-button {
+            font-size: 1.5em;
+            padding: 15px 40px;
+            background: #FF6B6B;
+            color: white;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(255, 107, 107, 0.4);
+            transition: transform 0.2s, background 0.2s, box-shadow 0.2s;
+            font-weight: bold;
+            text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+        .cta-button:disabled {
+            background: #FFB6C1;
+            cursor: wait;
+            transform: none;
+            box-shadow: none;
+            opacity: 0.8;
+        }
+        .cta-button:hover,
+        .cta-button:focus {
+            transform: scale(1.05);
+            background: #FF5252;
+        }
+        .settings-container {
+            margin-bottom: 20px;
+            z-index: 201;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .visually-hidden {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+        .file-label {
+            background: #fff;
+            padding: 10px 20px;
+            border-radius: 20px;
+            cursor: pointer;
+            border: 2px solid #FF6B6B;
+            color: #FF6B6B;
+            font-weight: bold;
+            display: inline-block;
+            transition: background 0.2s, color 0.2s;
+        }
+        .file-label:hover {
+            background: #FFF0F5;
+        }
+        .toggle-button {
+            background: #6A5ACD;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 20px;
+            cursor: pointer;
+            color: white;
+            font-weight: bold;
+            font-size: 1em;
+            transition: background 0.2s;
+        }
+        .toggle-button:hover {
+            background: #584AB8;
+        }
+        .controls-container {
+            margin-top: 20px;
+            text-align: left;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 20px 30px;
+            border-radius: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+        .controls-list {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 12px 20px;
+            margin: 0;
+            align-items: center;
+        }
+        kbd.key {
+            display: inline-block;
+            background: #f0f0f0;
+            border: 1px solid #dcdcdc;
+            border-bottom: 2px solid #cecece;
+            border-radius: 6px;
+            padding: 4px 10px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-weight: bold;
+            font-size: 0.9em;
+            color: #333;
+            min-width: 20px;
+            text-align: center;
+        }
+        #playlist-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 400px;
+            max-height: 80vh;
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            border: 4px solid #FF6B6B;
+            padding: 20px;
+            display: none;
+            flex-direction: column;
+            box-shadow: 0 10px 40px rgba(255, 107, 107, 0.3);
+            z-index: 300;
+            font-family: 'Segoe UI', sans-serif;
+        }
+        #playlist-overlay h2 {
+            color: #FF6B6B;
+            margin: 0 0 15px 0;
+            text-align: center;
+            text-transform: uppercase;
+            font-family: 'Fredoka One', cursive, sans-serif;
+            letter-spacing: 1px;
+        }
+        #playlist-list {
+            list-style: none;
+            padding: 0;
+            margin: 0 0 20px 0;
+            overflow-y: auto;
+            flex-grow: 1;
+            max-height: 300px;
+            border: 2px solid #FFD1DC;
+            border-radius: 10px;
+        }
+        .playlist-item {
+            padding: 0;
+            border-bottom: 1px solid #FFD1DC;
+            display: flex;
+        }
+        .playlist-btn {
+            width: 100%;
+            padding: 10px 15px;
+            background: none;
+            border: none;
+            text-align: left;
+            font-family: inherit;
+            font-size: 1em;
+            color: #555;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background 0.2s;
+        }
+        .playlist-btn:hover {
+            background: #FFF0F5;
+        }
+        .playlist-item.active .playlist-btn {
+            background: #FF6B6B;
+            color: white;
+            font-weight: bold;
+        }
+        .playlist-controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+        .secondary-button {
+            background: #6A5ACD;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 50px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: transform 0.1s;
+        }
+        .secondary-button:hover {
+            transform: scale(1.05);
+            background: #584AB8;
+        }
+        #now-playing-toast {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-100px);
+            background: rgba(255, 255, 255, 0.95);
+            padding: 12px 25px;
+            border-radius: 50px;
+            box-shadow: 0 5px 20px rgba(255, 107, 107, 0.3);
+            border: 2px solid #FF6B6B;
+            color: #FF6B6B;
+            font-weight: bold;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            pointer-events: none;
+            font-family: 'Fredoka One', cursive, sans-serif;
+        }
+        #now-playing-toast.visible {
+            transform: translateX(-50%) translateY(0);
+        }
+        .spinner {
+            display: inline-block;
+            width: 0.8em;
+            height: 0.8em;
+            border: 3px solid rgba(255, 255, 255, 0.4);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 12px;
+            vertical-align: middle;
+            position: relative;
+            top: -2px;
+        }
+
+        /* 🎨 Palette: "Sugar Glaze" Focus Rings */
+        /* Replaces generic outlines with high-contrast, theme-aware rings */
+        :focus-visible {
+            outline: 3px solid #FF4081;
+            outline-offset: 2px;
+        }
+
+        .cta-button:focus-visible,
+        .toggle-button:focus-visible,
+        .secondary-button:focus-visible,
+        .playlist-btn:focus-visible,
+        .file-label:focus-visible,
+        input:focus-visible + label {
+            outline: none;
+            box-shadow: 0 0 0 3px #ffffff, 0 0 0 6px #FF4081;
+            position: relative;
+            z-index: 10;
+        }
+
+        /* 🎨 Palette: Drag & Drop Overlay */
+        #drag-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 236, 245, 0.95);
+            z-index: 10000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+            backdrop-filter: blur(5px);
+            border: 8px dashed #FF6B6B;
+            box-sizing: border-box;
+        }
+        #drag-overlay.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+        .drag-content {
+            text-align: center;
+            color: #FF6B6B;
+            font-family: 'Fredoka One', cursive, sans-serif;
+            transform: scale(0.9);
+            transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        #drag-overlay.active .drag-content {
+            transform: scale(1);
+        }
+        .drag-icon {
+            font-size: 5em;
+            margin-bottom: 20px;
+            animation: bounce 1s infinite alternate;
+        }
+        #drag-overlay h2 {
+            font-size: 3em;
+            margin: 0;
+            text-shadow: 2px 2px 0 #fff;
+        }
+        #drag-overlay p {
+            font-size: 1.2em;
+            color: #d65db1;
+            margin-top: 10px;
+            font-family: 'Segoe UI', sans-serif;
+            font-weight: bold;
+        }
+        @keyframes bounce {
+            from { transform: translateY(0); }
+            to { transform: translateY(-10px); }
+        }
+    </style>
+    
+
+
+    <script>
+        // Use a Promise to notify the app when libopenmpt is ready
+        window.libopenmptReady = new Promise(resolve => {
+            window.libopenmpt = {
+                // Limit memory to 32MB to prevent "Array buffer allocation failed"
+                // The library file has been patched to handle this Number without BigInt errors.
+                INITIAL_MEMORY: 33554432, 
+                
+                onRuntimeInitialized: function () {
+                    console.log('libopenmpt runtime initialized via local script.');
+                    resolve(this);
+                }
+            };
+        });
+    </script>
+
+    <script src="./js/libopenmpt.js"></script>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "./node_modules/three/build/three.module.js",
+                "three/webgpu": "./node_modules/three/build/three.webgpu.js",
+                "three/tsl": "./node_modules/three/build/three.tsl.js",
+                "three/examples/jsm/": "./node_modules/three/examples/jsm/"
+            }
+        }
+    </script>
+  <script type="module" crossorigin src="./assets/index-Cov_PVbq.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-BZnLtwvH.css">
+</head>
+
+<body>
+    <div id="now-playing-toast" role="status" aria-live="polite">
+        <span class="icon">🎵</span>
+        <span id="now-playing-text">Now Playing...</span>
+    </div>
+
+    <div id="drag-overlay" aria-hidden="true">
+        <div class="drag-content">
+            <div class="drag-icon">📂</div>
+            <h2>Drop Music Here!</h2>
+            <p>Add .mod, .xm, .it, .s3m files to playlist</p>
+        </div>
+    </div>
+
+    <div id="loading-overlay">
+        <div class="loading-spinner"></div>
+        <div id="loading-text" aria-live="polite" aria-atomic="true">Initializing Audio Runtime...</div>
+    </div>
+
+    <script>
+        window.setLoadingStatus = function (text) {
+            const el = document.getElementById('loading-text');
+            if (el) el.innerText = text;
+            console.log('[Splash]', text); 
+        };
+
+        window.hideLoadingScreen = function () {
+            const el = document.getElementById('loading-overlay');
+            if (el) {
+                el.classList.add('loaded');
+                setTimeout(() => el.remove(), 600); 
+            }
+        };
+    </script>
+
+    <div id="instructions">
+        <h1>🍭 Candy World</h1>
+        <button id="startButton" class="cta-button" disabled>
+            <span class="spinner" aria-hidden="true"></span>Loading World... 🍭
+        </button>
+
+        <div class="settings settings-container">
+            <input type="file" id="musicUpload" accept=".mod,.xm,.it,.s3m" multiple class="visually-hidden">
+            <label for="musicUpload" class="file-label" aria-live="polite">
+                🎵 Upload Music
+            </label>
+
+            <button id="toggleDayNight" class="toggle-button" aria-pressed="false" aria-keyshortcuts="N">
+                🌙 Switch to Night (N)
+            </button>
+
+            <button id="toggleMuteBtn" class="toggle-button" aria-pressed="false" aria-keyshortcuts="M" aria-label="Mute Audio">
+                🔊 Mute (M)
+            </button>
+
+            <button id="openJukeboxBtn" class="toggle-button" aria-keyshortcuts="Q" aria-label="Open Jukebox playlist">
+                Open Jukebox (Q)
+            </button>
+        </div>
+
+        <div class="controls-container">
+            <dl class="controls-list">
+                <dt>
+                    <kbd class="key">Right Click</kbd> /
+                    <kbd class="key">W</kbd>
+                </dt>
+                <dd>Move Forward (Run)</dd>
+
+                <dt>
+                    <kbd class="key">A</kbd>
+                    <kbd class="key">S</kbd>
+                    <kbd class="key">D</kbd>
+                </dt>
+                <dd>Move Left / Back / Right</dd>
+
+                <dt><kbd class="key">Ctrl</kbd></dt>
+                <dd>Hold to Sneak</dd>
+
+                <dt><kbd class="key" aria-label="Space bar">Space</kbd></dt>
+                <dd>Jump</dd>
+
+                <dt><kbd class="key">Q</kbd></dt>
+                <dd>Toggle Jukebox</dd>
+
+                <dt><kbd class="key">Mouse</kbd></dt>
+                <dd>Look Around</dd>
+            </dl>
+        </div>
+    </div>
+
+    <div id="playlist-overlay" role="dialog" aria-modal="true" aria-labelledby="playlist-title" tabindex="-1">
+        <h2 id="playlist-title">🎵 Jukebox</h2>
+        <ul id="playlist-list" aria-label="Current playlist">
+        </ul>
+        
+        <div class="playlist-controls">
+            <input type="file" id="playlistUploadInput" multiple accept=".mod,.xm,.it,.s3m" class="visually-hidden">
+            <label for="playlistUploadInput" class="secondary-button" aria-live="polite">➕ Add Songs</label>
+            <button id="closePlaylistBtn" class="secondary-button" style="background: #FF6B6B;" aria-label="Close Jukebox (Escape)">Close (Esc)</button>
+        </div>
+        <div style="text-align: center; margin-top: 15px; font-size: 0.85em; color: #666;" aria-hidden="true">
+            Navigate: <kbd class="key" aria-label="Up Arrow">↑</kbd> <kbd class="key" aria-label="Down Arrow">↓</kbd> &nbsp; Select: <kbd class="key">Enter</kbd>
+        </div>
+    </div>
+
+    <canvas id="glCanvas" role="region" aria-label="Game World: Use mouse and keyboard to navigate"></canvas>
+</body>
+
+</html>
