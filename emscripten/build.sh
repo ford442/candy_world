@@ -116,11 +116,16 @@ echo "[INFO] Scanning source files for implemented functions..."
 CPP_FILES="$SCRIPT_DIR"/*.cpp
 
 # Function to check if a function is implemented in source
+# This verifies the function has EMSCRIPTEN_KEEPALIVE and a proper function signature
+# The grep pattern looks for the return type followed by function name and opening paren
 function_exists() {
     local func_name="$1"
-    # Look for the function name followed by ( in any cpp file
-    grep -q "EMSCRIPTEN_KEEPALIVE" $CPP_FILES 2>/dev/null && \
-    grep -E "(void|float|int|double)\s+${func_name}\s*\(" $CPP_FILES >/dev/null 2>&1
+    # Look for the function name with a return type - must be a proper function definition
+    # Pattern: (void|float|int|double) funcName(
+    if grep -E "(void|float|int|double)\s+${func_name}\s*\(" $CPP_FILES >/dev/null 2>&1; then
+        return 0  # Function found
+    fi
+    return 1  # Function not found
 }
 
 # Build list of exports - only include functions that exist

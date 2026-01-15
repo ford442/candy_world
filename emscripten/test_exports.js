@@ -125,10 +125,14 @@ async function loadWasmModule(wasmPath) {
         const buffer = fs.readFileSync(wasmPath);
         
         // Minimal import object for Emscripten modules
+        // Note: This is a simplified import object for testing. The actual Emscripten
+        // loader provides more complete stubs. This may not instantiate complex modules.
         const importObject = {
             env: {
-                abort: (msg, file, line, col) => {
-                    console.error(`WASM abort at ${file}:${line}:${col}: ${msg}`);
+                // Emscripten abort function - called on runtime errors
+                // The signature varies by Emscripten version, so we accept any arguments
+                abort: (...args) => {
+                    console.error('WASM abort:', ...args);
                 },
                 emscripten_notify_memory_growth: () => {},
                 __cxa_throw: () => {},
