@@ -1,4 +1,60 @@
-// src/utils/wasm-loader.js
+/**
+ * @file wasm-loader.js
+ * @brief WASM Module Loader with Graceful JavaScript Fallbacks
+ * 
+ * This module provides a robust interface for loading and using WebAssembly
+ * modules in Candy World. It implements a multi-tier fallback system:
+ * 
+ * ## FALLBACK HIERARCHY
+ * 
+ * 1. **Emscripten C++ Module** (candy_native.wasm)
+ *    - Highest performance via native C++ compiled to WASM
+ *    - Supports pthreads for parallel physics computation
+ *    - Functions accessed via getNativeFunc('functionName')
+ * 
+ * 2. **AssemblyScript Module** (candy_physics.wasm)
+ *    - Good performance via TypeScript-like syntax compiled to WASM
+ *    - Simpler deployment (no pthread requirements)
+ *    - Functions accessed via wasmInstance.exports.functionName
+ * 
+ * 3. **JavaScript Fallback**
+ *    - Always available, guaranteed to work
+ *    - Slightly lower performance but identical behavior
+ *    - Implemented inline in each wrapper function
+ * 
+ * ## HOW FALLBACKS WORK
+ * 
+ * Each exported function (e.g., calcFiberWhip) follows this pattern:
+ * 
+ * ```javascript
+ * export function calcFiberWhip(time, offset, leadVol, isActive, branchIndex) {
+ *     // Try WASM first
+ *     if (wasmInstance && wasmInstance.exports.calcFiberWhip) {
+ *         wasmInstance.exports.calcFiberWhip(time, offset, ...);
+ *         return { ... }; // Read results from getter functions
+ *     }
+ *     
+ *     // JavaScript fallback - identical algorithm
+ *     return { 
+ *         baseRotY: Math.sin(time * 0.5 + offset) * 0.1,
+ *         ...
+ *     };
+ * }
+ * ```
+ * 
+ * ## PREVENTING ABORTS
+ * 
+ * The patchWasmInstantiateAliases() function from wasm-utils.js patches
+ * WebAssembly.instantiate to create aliases for underscore-prefixed exports.
+ * This prevents Emscripten from aborting when it can't find expected exports.
+ * 
+ * The build.sh uses -s ASSERTIONS=0 to disable runtime assertions that would
+ * otherwise abort when exports are missing.
+ * 
+ * @see emscripten/build.sh for WASM compilation settings
+ * @see emscripten/animation.cpp for C++ animation implementations
+ * @see wasm-utils.js for the instantiate alias patch
+ */
 
 import { 
     parallelWasmLoad, 
@@ -117,9 +173,41 @@ async function loadEmscriptenModule() {
     }
 }
 
+/**
+ * Get a native C++ function from the Emscripten module.
+ * 
+ * Emscripten exports functions with a leading underscore (e.g., _calcFiberWhip).
+ * This helper handles the underscore prefix and returns null if the function
+ * doesn't exist, allowing callers to gracefully fall back to JavaScript.
+ * 
+ * @param {string} name - Function name without underscore (e.g., 'calcFiberWhip')
+ * @returns {Function|null} The native function, or null if not available
+ * 
+ * @example
+ * const calcFn = getNativeFunc('calcFiberWhip');
+ * if (calcFn) {
+ *     calcFn(time, offset, leadVol, isActive ? 1 : 0, branchIndex);
+ * } else {
+ *     // Use JavaScript fallback
+ * }
+ */
 function getNativeFunc(name) {
+    // Return null if Emscripten module isn't loaded
     if (!emscriptenInstance) return null;
-    return emscriptenInstance['_' + name] || null;
+    
+    // Try underscore-prefixed name first (standard Emscripten export format)
+    const underscoreName = '_' + name;
+    if (typeof emscriptenInstance[underscoreName] === 'function') {
+        return emscriptenInstance[underscoreName];
+    }
+    
+    // Try non-prefixed name as fallback (in case of aliasing)
+    if (typeof emscriptenInstance[name] === 'function') {
+        return emscriptenInstance[name];
+    }
+    
+    // Function not found - caller should use JavaScript fallback
+    return null;
 }
 
 let bootstrapStarted = false;
@@ -600,28 +688,76 @@ export function batchAnimationCalc(time, intensity, kick, objectCount) {
 // =============================================================================
 // SINGLE ANIMATION HELPERS
 // =============================================================================
+// 
+// These functions wrap WASM animation calculations with JavaScript fallbacks.
+// The pattern is: check if WASM export exists, call it if available, else use JS.
+//
+// IMPORTANT: We check for export existence using typeof to prevent runtime errors
+// when specific functions are missing from the WASM build.
+// =============================================================================
 
+/**
+ * Calculate vertical bounce offset for an object.
+ * Uses WASM if available, otherwise falls back to JavaScript.
+ * 
+ * @param {number} time - Current animation time
+ * @param {number} offset - Phase offset for desynchronization
+ * @param {number} intensity - Animation intensity multiplier
+ * @param {number} kick - Audio kick trigger value (0-1)
+ * @returns {number} Vertical offset value
+ */
 export function calcBounceY(time, offset, intensity, kick) {
-    if (wasmInstance) return wasmInstance.exports.calcBounceY(time, offset, intensity, kick);
+    // Check if WASM export exists before calling
+    if (wasmInstance && typeof wasmInstance.exports.calcBounceY === 'function') {
+        return wasmInstance.exports.calcBounceY(time, offset, intensity, kick);
+    }
+    // JavaScript fallback - identical algorithm to C++ implementation
     const animTime = time + offset;
     let yOffset = Math.sin(animTime * 3) * 0.1 * intensity;
     if (kick > 0.1) yOffset += kick * 0.2;
     return yOffset;
 }
 
+/**
+ * Calculate rotation Z sway for an object.
+ * Uses WASM if available, otherwise falls back to JavaScript.
+ * 
+ * @param {number} time - Current animation time
+ * @param {number} offset - Phase offset for desynchronization
+ * @param {number} intensity - Animation intensity multiplier
+ * @returns {number} Rotation Z value in radians
+ */
 export function calcSwayRotZ(time, offset, intensity) {
-    if (wasmInstance) return wasmInstance.exports.calcSwayRotZ(time, offset, intensity);
+    // Check if WASM export exists before calling
+    if (wasmInstance && typeof wasmInstance.exports.calcSwayRotZ === 'function') {
+        return wasmInstance.exports.calcSwayRotZ(time, offset, intensity);
+    }
+    // JavaScript fallback
     return Math.sin(time + offset) * 0.1 * intensity;
 }
 
+/**
+ * Calculate wobble rotation (X and Z axes) for an object.
+ * Uses WASM if available, otherwise falls back to JavaScript.
+ * 
+ * @param {number} time - Current animation time
+ * @param {number} offset - Phase offset for desynchronization
+ * @param {number} intensity - Animation intensity multiplier
+ * @returns {{rotX: number, rotZ: number}} Rotation values in radians
+ */
 export function calcWobble(time, offset, intensity) {
-    if (wasmInstance) {
+    // Check if all required WASM exports exist
+    if (wasmInstance && 
+        typeof wasmInstance.exports.calcWobble === 'function' &&
+        typeof wasmInstance.exports.getWobbleX === 'function' &&
+        typeof wasmInstance.exports.getWobbleZ === 'function') {
         wasmInstance.exports.calcWobble(time, offset, intensity);
         return {
             rotX: wasmInstance.exports.getWobbleX(),
             rotZ: wasmInstance.exports.getWobbleZ()
         };
     }
+    // JavaScript fallback
     const animTime = time + offset;
     return {
         rotX: Math.sin(animTime * 3) * 0.15 * intensity,
@@ -635,9 +771,27 @@ export function checkCollision(playerX, playerZ, playerRadius, objectCount) {
 }
 
 // =============================================================================
-// ADVANCED ANIMATION WRAPPERS (The Missing Exports)
+// ADVANCED ANIMATION WRAPPERS
+// =============================================================================
+//
+// These functions implement the animation calculations that were migrated from
+// JavaScript to C++ for better performance. Each function:
+//
+// 1. Checks if the WASM export exists using typeof before calling
+// 2. Calls the WASM function if available
+// 3. Falls back to JavaScript implementation if WASM is unavailable
+//
+// The JavaScript fallbacks are identical to the C++ implementations to ensure
+// consistent behavior regardless of which implementation is used.
+//
+// ADDING NEW FUNCTIONS:
+// 1. Add the C++ implementation in emscripten/animation.cpp with EMSCRIPTEN_KEEPALIVE
+// 2. Add the export name to build.sh EXPORTS list
+// 3. Add a wrapper function here with JavaScript fallback
+// 4. Run: npm run build:emcc && node emscripten/verify_build.js
 // =============================================================================
 
+// Result objects for multi-return functions (reused to avoid allocation)
 let accordionResult = { stretchY: 1, widthXZ: 1 };
 let fiberResult = { baseRotY: 0, branchRotZ: 0 };
 let shiverResult = { rotX: 0, rotZ: 0 };
@@ -646,12 +800,24 @@ let prismResult = { unfurl: 0, spin: 0, pulse: 1, hue: 0 };
 let particleResult = { x: 0, y: 0, z: 0 };
 let arpeggioResult = { targetStep: 0, unfurlStep: 0 };
 
+/**
+ * Calculate accordion stretch animation for instruments.
+ * @param {number} animTime - Current animation time
+ * @param {number} offset - Phase offset
+ * @param {number} intensity - Animation intensity
+ * @returns {{stretchY: number, widthXZ: number}} Stretch values
+ */
 export function calcAccordionStretch(animTime, offset, intensity) {
-    if (wasmInstance) {
+    // Check if all required WASM exports exist
+    if (wasmInstance && 
+        typeof wasmInstance.exports.calcAccordionStretch === 'function' &&
+        typeof wasmInstance.exports.getAccordionStretchY === 'function' &&
+        typeof wasmInstance.exports.getAccordionWidthXZ === 'function') {
         wasmInstance.exports.calcAccordionStretch(animTime, offset, intensity);
         accordionResult.stretchY = wasmInstance.exports.getAccordionStretchY();
         accordionResult.widthXZ = wasmInstance.exports.getAccordionWidthXZ();
     } else {
+        // JavaScript fallback - matches C++ implementation in animation.cpp
         const rawStretch = Math.sin(animTime * 10.0 + offset);
         accordionResult.stretchY = 1.0 + Math.max(0, rawStretch) * 0.3 * intensity;
         accordionResult.widthXZ = 1.0 / Math.sqrt(accordionResult.stretchY);
@@ -659,12 +825,28 @@ export function calcAccordionStretch(animTime, offset, intensity) {
     return accordionResult;
 }
 
+/**
+ * Calculate fiber whip animation for fiber optic-style trees.
+ * This is a key animation function that was often missing from exports.
+ * 
+ * @param {number} time - Current animation time
+ * @param {number} offset - Phase offset for desynchronization
+ * @param {number} leadVol - Audio lead volume (0-1)
+ * @param {boolean} isActive - Whether audio is currently active
+ * @param {number} branchIndex - Index of the branch being animated
+ * @returns {{baseRotY: number, branchRotZ: number}} Rotation values in radians
+ */
 export function calcFiberWhip(time, offset, leadVol, isActive, branchIndex) {
-    if (wasmInstance) {
+    // Check if all required WASM exports exist before calling
+    if (wasmInstance && 
+        typeof wasmInstance.exports.calcFiberWhip === 'function' &&
+        typeof wasmInstance.exports.getFiberBaseRotY === 'function' &&
+        typeof wasmInstance.exports.getFiberBranchRotZ === 'function') {
         wasmInstance.exports.calcFiberWhip(time, offset, leadVol, isActive ? 1 : 0, branchIndex);
         fiberResult.baseRotY = wasmInstance.exports.getFiberBaseRotY();
         fiberResult.branchRotZ = wasmInstance.exports.getFiberBranchRotZ();
     } else {
+        // JavaScript fallback - matches C++ implementation in animation.cpp
         fiberResult.baseRotY = Math.sin(time * 0.5 + offset) * 0.1;
         const whip = leadVol * 2.0;
         const childOffset = branchIndex * 0.5;
@@ -676,8 +858,20 @@ export function calcFiberWhip(time, offset, leadVol, isActive, branchIndex) {
     return fiberResult;
 }
 
+/**
+ * Calculate hop Y offset for bouncing objects.
+ * @param {number} time - Current animation time
+ * @param {number} offset - Phase offset
+ * @param {number} intensity - Animation intensity
+ * @param {number} kick - Audio kick trigger (0-1)
+ * @returns {number} Vertical offset
+ */
 export function calcHopY(time, offset, intensity, kick) {
-    if (wasmInstance) return wasmInstance.exports.calcHopY(time, offset, intensity, kick);
+    // Check if WASM export exists
+    if (wasmInstance && typeof wasmInstance.exports.calcHopY === 'function') {
+        return wasmInstance.exports.calcHopY(time, offset, intensity, kick);
+    }
+    // JavaScript fallback
     const animTime = time + offset;
     const hopVal = Math.sin(animTime * 4.0);
     let bounce = Math.max(0, hopVal) * 0.3 * intensity;
@@ -685,12 +879,24 @@ export function calcHopY(time, offset, intensity, kick) {
     return bounce;
 }
 
+/**
+ * Calculate shiver animation for small rapid movements.
+ * @param {number} time - Current animation time
+ * @param {number} offset - Phase offset
+ * @param {number} intensity - Animation intensity
+ * @returns {{rotX: number, rotZ: number}} Rotation values
+ */
 export function calcShiver(time, offset, intensity) {
-    if (wasmInstance) {
+    // Check if all required WASM exports exist
+    if (wasmInstance && 
+        typeof wasmInstance.exports.calcShiver === 'function' &&
+        typeof wasmInstance.exports.getShiverRotX === 'function' &&
+        typeof wasmInstance.exports.getShiverRotZ === 'function') {
         wasmInstance.exports.calcShiver(time, offset, intensity);
         shiverResult.rotX = wasmInstance.exports.getShiverRotX();
         shiverResult.rotZ = wasmInstance.exports.getShiverRotZ();
     } else {
+        // JavaScript fallback
         const animTime = time + offset;
         shiverResult.rotX = Math.sin(animTime * 20.0) * 0.02 * intensity;
         shiverResult.rotZ = Math.cos(animTime * 20.0) * 0.02 * intensity;
@@ -698,13 +904,27 @@ export function calcShiver(time, offset, intensity) {
     return shiverResult;
 }
 
+/**
+ * Calculate spiral wave animation for rotating objects.
+ * @param {number} time - Current animation time
+ * @param {number} offset - Phase offset
+ * @param {number} intensity - Animation intensity
+ * @param {number} groove - Audio groove value
+ * @returns {{rotY: number, yOffset: number, scale: number}} Animation values
+ */
 export function calcSpiralWave(time, offset, intensity, groove) {
-    if (wasmInstance) {
+    // Check if all required WASM exports exist
+    if (wasmInstance && 
+        typeof wasmInstance.exports.calcSpiralWave === 'function' &&
+        typeof wasmInstance.exports.getSpiralRotY === 'function' &&
+        typeof wasmInstance.exports.getSpiralYOffset === 'function' &&
+        typeof wasmInstance.exports.getSpiralScale === 'function') {
         wasmInstance.exports.calcSpiralWave(time, offset, intensity, groove);
         spiralResult.rotY = wasmInstance.exports.getSpiralRotY();
         spiralResult.yOffset = wasmInstance.exports.getSpiralYOffset();
         spiralResult.scale = wasmInstance.exports.getSpiralScale();
     } else {
+        // JavaScript fallback
         const animTime = time + offset;
         spiralResult.rotY = Math.sin(animTime * 2.0) * 0.2 * intensity;
         spiralResult.yOffset = Math.sin(animTime * 3.0) * 0.1 * (1.0 + groove);
@@ -713,14 +933,30 @@ export function calcSpiralWave(time, offset, intensity, groove) {
     return spiralResult;
 }
 
+/**
+ * Calculate prism rose animation for color-shifting effects.
+ * @param {number} time - Current animation time
+ * @param {number} offset - Phase offset
+ * @param {number} kick - Audio kick trigger
+ * @param {number} groove - Audio groove value
+ * @param {boolean} isActive - Whether audio is active
+ * @returns {{unfurl: number, spin: number, pulse: number, hue: number}} Animation values
+ */
 export function calcPrismRose(time, offset, kick, groove, isActive) {
-    if (wasmInstance) {
+    // Check if all required WASM exports exist
+    if (wasmInstance && 
+        typeof wasmInstance.exports.calcPrismRose === 'function' &&
+        typeof wasmInstance.exports.getPrismUnfurl === 'function' &&
+        typeof wasmInstance.exports.getPrismSpin === 'function' &&
+        typeof wasmInstance.exports.getPrismPulse === 'function' &&
+        typeof wasmInstance.exports.getPrismHue === 'function') {
         wasmInstance.exports.calcPrismRose(time, offset, kick, groove, isActive ? 1 : 0);
         prismResult.unfurl = wasmInstance.exports.getPrismUnfurl();
         prismResult.spin = wasmInstance.exports.getPrismSpin();
         prismResult.pulse = wasmInstance.exports.getPrismPulse();
         prismResult.hue = wasmInstance.exports.getPrismHue();
     } else {
+        // JavaScript fallback
         const animTime = time + offset;
         const intensity = isActive ? (1.0 + groove * 3.0) : 0.3;
         prismResult.unfurl = Math.sin(animTime * 2.0) * 0.1 * intensity;
@@ -731,8 +967,20 @@ export function calcPrismRose(time, offset, kick, groove, isActive) {
     return prismResult;
 }
 
+/**
+ * Calculate arpeggio step for musical animation.
+ * Uses a three-tier fallback: Native C++ -> AssemblyScript -> JavaScript
+ * 
+ * @param {number} currentUnfurl - Current unfurl value
+ * @param {number} currentTarget - Current target step
+ * @param {boolean} lastTrigger - Previous trigger state
+ * @param {boolean} arpeggioActive - Whether arpeggio is active
+ * @param {boolean} noteTrigger - Current note trigger
+ * @param {number} maxSteps - Maximum number of steps
+ * @returns {{targetStep: number, unfurlStep: number}} Arpeggio values
+ */
 export function calcArpeggioStep(currentUnfurl, currentTarget, lastTrigger, arpeggioActive, noteTrigger, maxSteps) {
-    // 1. Try Native C++ (fastest)
+    // 1. Try Native C++ (fastest) - uses getNativeFunc which handles null checks
     const calcFn = getNativeFunc('calcArpeggioStep_c');
     if (calcFn) {
         calcFn(currentUnfurl, currentTarget, lastTrigger ? 1 : 0, arpeggioActive ? 1 : 0, noteTrigger ? 1 : 0, maxSteps);
@@ -745,15 +993,18 @@ export function calcArpeggioStep(currentUnfurl, currentTarget, lastTrigger, arpe
         }
     }
 
-    // 2. Try AssemblyScript
-    if (wasmInstance && wasmInstance.exports.calcArpeggioStep) {
+    // 2. Try AssemblyScript - check for export existence
+    if (wasmInstance && 
+        typeof wasmInstance.exports.calcArpeggioStep === 'function' &&
+        typeof wasmInstance.exports.getArpeggioTargetStep === 'function' &&
+        typeof wasmInstance.exports.getArpeggioUnfurlStep === 'function') {
         wasmInstance.exports.calcArpeggioStep(currentUnfurl, currentTarget, lastTrigger ? 1 : 0, arpeggioActive ? 1 : 0, noteTrigger ? 1 : 0, maxSteps);
         arpeggioResult.targetStep = wasmInstance.exports.getArpeggioTargetStep();
         arpeggioResult.unfurlStep = wasmInstance.exports.getArpeggioUnfurlStep();
         return arpeggioResult;
     }
 
-    // 3. JS Fallback
+    // 3. JavaScript Fallback - identical algorithm
     let nextTarget = currentTarget;
     if (arpeggioActive) {
         if (noteTrigger && !lastTrigger) {
@@ -767,8 +1018,19 @@ export function calcArpeggioStep(currentUnfurl, currentTarget, lastTrigger, arpe
     return { targetStep: nextTarget, unfurlStep: nextUnfurl };
 }
 
+/**
+ * Linearly interpolate between two colors.
+ * @param {number} color1 - First color (0xRRGGBB)
+ * @param {number} color2 - Second color (0xRRGGBB)
+ * @param {number} t - Interpolation factor (0-1)
+ * @returns {number} Interpolated color
+ */
 export function lerpColor(color1, color2, t) {
-    if (wasmInstance) return wasmInstance.exports.lerpColor(color1, color2, t);
+    // Check for WASM export
+    if (wasmInstance && typeof wasmInstance.exports.lerpColor === 'function') {
+        return wasmInstance.exports.lerpColor(color1, color2, t);
+    }
+    // JavaScript fallback
     const r1 = (color1 >> 16) & 0xFF, g1 = (color1 >> 8) & 0xFF, b1 = color1 & 0xFF;
     const r2 = (color2 >> 16) & 0xFF, g2 = (color2 >> 8) & 0xFF, b2 = color2 & 0xFF;
     const r = Math.round(r1 + (r2 - r1) * t);
@@ -777,20 +1039,48 @@ export function lerpColor(color1, color2, t) {
     return (r << 16) | (g << 8) | b;
 }
 
+/**
+ * Calculate rain drop Y position with cycling.
+ * @param {number} startY - Starting Y position
+ * @param {number} time - Current time
+ * @param {number} speed - Fall speed
+ * @param {number} cycleHeight - Height before cycling
+ * @returns {number} Current Y position
+ */
 export function calcRainDropY(startY, time, speed, cycleHeight) {
-    if (wasmInstance) return wasmInstance.exports.calcRainDropY(startY, time, speed, cycleHeight);
+    // Check for WASM export
+    if (wasmInstance && typeof wasmInstance.exports.calcRainDropY === 'function') {
+        return wasmInstance.exports.calcRainDropY(startY, time, speed, cycleHeight);
+    }
+    // JavaScript fallback
     const totalDrop = time * speed;
     const cycled = totalDrop % cycleHeight;
     return startY - cycled;
 }
 
+/**
+ * Calculate floating particle position.
+ * @param {number} baseX - Base X position
+ * @param {number} baseY - Base Y position
+ * @param {number} baseZ - Base Z position
+ * @param {number} time - Current time
+ * @param {number} offset - Phase offset
+ * @param {number} amplitude - Movement amplitude
+ * @returns {{x: number, y: number, z: number}} Particle position
+ */
 export function calcFloatingParticle(baseX, baseY, baseZ, time, offset, amplitude) {
-    if (wasmInstance) {
+    // Check for all required WASM exports
+    if (wasmInstance && 
+        typeof wasmInstance.exports.calcFloatingParticle === 'function' &&
+        typeof wasmInstance.exports.getParticleX === 'function' &&
+        typeof wasmInstance.exports.getParticleY === 'function' &&
+        typeof wasmInstance.exports.getParticleZ === 'function') {
         wasmInstance.exports.calcFloatingParticle(baseX, baseY, baseZ, time, offset, amplitude);
         particleResult.x = wasmInstance.exports.getParticleX();
         particleResult.y = wasmInstance.exports.getParticleY();
         particleResult.z = wasmInstance.exports.getParticleZ();
     } else {
+        // JavaScript fallback
         const t = time + offset;
         particleResult.x = baseX + Math.sin(t * 0.5) * amplitude;
         particleResult.y = baseY + Math.sin(t * 0.7) * amplitude * 0.5;
@@ -799,18 +1089,25 @@ export function calcFloatingParticle(baseX, baseY, baseZ, time, offset, amplitud
     return particleResult;
 }
 
+/**
+ * Calculate speaker pulse animation.
+ * @param {number} time - Current time
+ * @param {number} kick - Audio kick value
+ * @param {number} intensity - Animation intensity
+ * @returns {number} Scale value
+ */
 export function calcSpeakerPulse(time, kick, intensity) {
-    if (wasmInstance) {
-        // Try native wrapper
-        const f = getNativeFunc('calcSpeakerPulse');
-        if (f) {
-            f(time, kick, intensity);
-            const getScale = getNativeFunc('getSpeakerScale');
-            return getScale ? getScale() : 1.0;
+    // Try native C++ wrapper first
+    const f = getNativeFunc('calcSpeakerPulse');
+    if (f) {
+        f(time, kick, intensity);
+        const getScale = getNativeFunc('getSpeakerScale');
+        if (getScale) {
+            return getScale();
         }
     }
 
-    // JS Fallback
+    // JavaScript Fallback
     const pulse = kick * 0.4 * intensity;
     const breathe = Math.sin(time * 2.0) * 0.05;
     return 1.0 + pulse + breathe;
