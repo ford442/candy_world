@@ -5,7 +5,7 @@ export default defineConfig({
   base: './',
   build: {
     // Ensures assets don't get lost in complex folder structures
-    assetsDir: 'assets',
+    assetsDir: './',
   },
   server: {
     headers: {
