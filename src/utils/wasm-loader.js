@@ -26,7 +26,7 @@
  * return { ... }; // Read results from getter functions
  * }
  * * // JavaScript fallback - identical algorithm
- * return {
+ * return { 
  * baseRotY: Math.sin(time * 0.5 + offset) * 0.1,
  * ...
  * };
@@ -102,9 +102,13 @@ async function loadEmscriptenModule(forceSingleThreaded = false) {
     // 3. We attempt to load 'candy_native.wasm' (threaded).
     // 4. If that fails (file missing, instantiation error, worker error), we recursively call loadEmscriptenModule(true).
 
-    // Consistency: Use NativeWebAssembly if available (e.g. tests), else standard
-    const WA = window.NativeWebAssembly || window.WebAssembly;
-
+    // CRITICAL FIX: Always use window.WebAssembly for Emscripten modules.
+    // Emscripten's glue code (candy_native.js) uses the global window.WebAssembly to create
+    // the Memory object. We MUST use the same WebAssembly implementation to instantiate
+    // the module, otherwise we get a LinkError ("memory import must be a WebAssembly.Memory object")
+    // if window.NativeWebAssembly is different from window.WebAssembly.
+    const WA = window.WebAssembly;
+    
     // 1. Check for SharedArrayBuffer (required for threads)
     const canUseThreads = typeof SharedArrayBuffer !== 'undefined' && !forceSingleThreaded;
 
@@ -182,9 +186,9 @@ async function loadEmscriptenModule(forceSingleThreaded = false) {
                 print: (text) => console.log('[Native]', text),
                 printErr: (text) => console.warn('[Native Err]', text),
                 
-                // IMPORTANT: Do NOT set wasmBinary in config.
+                // IMPORTANT: Do NOT set wasmBinary in config. 
                 // Providing it alongside instantiateWasm can cause the "Argument 0 must be a Module" error.
-
+                
                 // Bypass internal instantiation logic completely
                 instantiateWasm: (imports, successCallback) => {
                     console.log('[Native] Manual instantiation hook triggered');
@@ -266,18 +270,18 @@ async function loadEmscriptenModule(forceSingleThreaded = false) {
 function getNativeFunc(name) {
     // Return null if Emscripten module isn't loaded
     if (!emscriptenInstance) return null;
-
+    
     // Try underscore-prefixed name first (standard Emscripten export format)
     const underscoreName = '_' + name;
     if (typeof emscriptenInstance[underscoreName] === 'function') {
         return emscriptenInstance[underscoreName];
     }
-
+    
     // Try non-prefixed name as fallback (in case of aliasing)
     if (typeof emscriptenInstance[name] === 'function') {
         return emscriptenInstance[name];
     }
-
+    
     // Function not found - caller should use JavaScript fallback
     return null;
 }
@@ -286,7 +290,7 @@ let bootstrapStarted = false;
 
 async function startBootstrapIfAvailable(instance) {
     if (!instance || bootstrapStarted) return;
-
+    
     try {
         const { startBootstrap } = await import('./bootstrap-loader.js');
         if (startBootstrap && startBootstrap(instance)) {
@@ -364,7 +368,7 @@ export async function initWasm() {
 
         // Use NativeWebAssembly if available (e.g. tests), else standard
         const WA = window.NativeWebAssembly || window.WebAssembly;
-
+        
         const importObject = {
             env: {
                 abort: (msg, file, line, col) => {
@@ -713,11 +717,11 @@ export function analyzeMaterials(materials) {
         }
         return { uniqueCount: shaders.length, shaders };
     }
-
+    
     const count = Math.min(materials.length, 256);
     const MATERIAL_OFFSET = 12288;
     if (!wasmMemory) return { uniqueCount: 0, shaders: [] };
-
+    
     const materialView = new Int32Array(wasmMemory.buffer, MATERIAL_OFFSET, count * 4);
     for (let i = 0; i < count; i++) {
         const mat = materials[i];
@@ -727,7 +731,7 @@ export function analyzeMaterials(materials) {
         materialView[idx + 2] = mat.blendingMode || 0;
         materialView[idx + 3] = mat.flags || 0;
     }
-
+    
     const uniqueCount = wasmInstance.exports.analyzeMaterials(MATERIAL_OFFSET, count);
     const outputView = new Int32Array(wasmMemory.buffer, MATERIAL_OFFSET, Math.min(uniqueCount, 64) * 4);
     const shaders = [];
@@ -759,7 +763,7 @@ export function batchAnimationCalc(time, intensity, kick, objectCount) {
 // =============================================================================
 // SINGLE ANIMATION HELPERS
 // =============================================================================
-//
+// 
 // These functions wrap WASM animation calculations with JavaScript fallbacks.
 // The pattern is: check if WASM export exists, call it if available, else use JS.
 //
@@ -815,7 +819,7 @@ export function calcSwayRotZ(time, offset, intensity) {
  */
 export function calcWobble(time, offset, intensity) {
     // Check if all required WASM exports exist
-    if (wasmInstance &&
+    if (wasmInstance && 
         typeof wasmInstance.exports.calcWobble === 'function' &&
         typeof wasmInstance.exports.getWobbleX === 'function' &&
         typeof wasmInstance.exports.getWobbleZ === 'function') {
@@ -877,7 +881,7 @@ let arpeggioResult = { targetStep: 0, unfurlStep: 0 };
  */
 export function calcAccordionStretch(animTime, offset, intensity) {
     // Check if all required WASM exports exist
-    if (wasmInstance &&
+    if (wasmInstance && 
         typeof wasmInstance.exports.calcAccordionStretch === 'function' &&
         typeof wasmInstance.exports.getAccordionStretchY === 'function' &&
         typeof wasmInstance.exports.getAccordionWidthXZ === 'function') {
@@ -905,7 +909,7 @@ export function calcAccordionStretch(animTime, offset, intensity) {
  */
 export function calcFiberWhip(time, offset, leadVol, isActive, branchIndex) {
     // Check if all required WASM exports exist before calling
-    if (wasmInstance &&
+    if (wasmInstance && 
         typeof wasmInstance.exports.calcFiberWhip === 'function' &&
         typeof wasmInstance.exports.getFiberBaseRotY === 'function' &&
         typeof wasmInstance.exports.getFiberBranchRotZ === 'function') {
@@ -955,7 +959,7 @@ export function calcHopY(time, offset, intensity, kick) {
  */
 export function calcShiver(time, offset, intensity) {
     // Check if all required WASM exports exist
-    if (wasmInstance &&
+    if (wasmInstance && 
         typeof wasmInstance.exports.calcShiver === 'function' &&
         typeof wasmInstance.exports.getShiverRotX === 'function' &&
         typeof wasmInstance.exports.getShiverRotZ === 'function') {
@@ -981,7 +985,7 @@ export function calcShiver(time, offset, intensity) {
  */
 export function calcSpiralWave(time, offset, intensity, groove) {
     // Check if all required WASM exports exist
-    if (wasmInstance &&
+    if (wasmInstance && 
         typeof wasmInstance.exports.calcSpiralWave === 'function' &&
         typeof wasmInstance.exports.getSpiralRotY === 'function' &&
         typeof wasmInstance.exports.getSpiralYOffset === 'function' &&
@@ -1011,7 +1015,7 @@ export function calcSpiralWave(time, offset, intensity, groove) {
  */
 export function calcPrismRose(time, offset, kick, groove, isActive) {
     // Check if all required WASM exports exist
-    if (wasmInstance &&
+    if (wasmInstance && 
         typeof wasmInstance.exports.calcPrismRose === 'function' &&
         typeof wasmInstance.exports.getPrismUnfurl === 'function' &&
         typeof wasmInstance.exports.getPrismSpin === 'function' &&
@@ -1060,7 +1064,7 @@ export function calcArpeggioStep(currentUnfurl, currentTarget, lastTrigger, arpe
     }
 
     // 2. Try AssemblyScript - check for export existence
-    if (wasmInstance &&
+    if (wasmInstance && 
         typeof wasmInstance.exports.calcArpeggioStep === 'function' &&
         typeof wasmInstance.exports.getArpeggioTargetStep === 'function' &&
         typeof wasmInstance.exports.getArpeggioUnfurlStep === 'function') {
@@ -1136,7 +1140,7 @@ export function calcRainDropY(startY, time, speed, cycleHeight) {
  */
 export function calcFloatingParticle(baseX, baseY, baseZ, time, offset, amplitude) {
     // Check for all required WASM exports
-    if (wasmInstance &&
+    if (wasmInstance && 
         typeof wasmInstance.exports.calcFloatingParticle === 'function' &&
         typeof wasmInstance.exports.getParticleX === 'function' &&
         typeof wasmInstance.exports.getParticleY === 'function' &&
@@ -1205,12 +1209,12 @@ export function setPlayerState(x, y, z, vx, vy, vz) {
 }
 
 export function getPlayerState() {
-    const x = getNativeFunc('getPlayerX') ? getNativeFunc('getPlayerX')() : 0;
-    const y = getNativeFunc('getPlayerY') ? getNativeFunc('getPlayerY')() : 0;
-    const z = getNativeFunc('getPlayerZ') ? getNativeFunc('getPlayerZ')() : 0;
-    const vx = getNativeFunc('getPlayerVX') ? getNativeFunc('getPlayerVX')() : 0;
-    const vy = getNativeFunc('getPlayerVY') ? getNativeFunc('getPlayerVY')() : 0;
-    const vz = getNativeFunc('getPlayerVZ') ? getNativeFunc('getPlayerVZ')() : 0;
+    const x = getNativeFunc('getPlayerX')();
+    const y = getNativeFunc('getPlayerY')();
+    const z = getNativeFunc('getPlayerZ')();
+    const vx = getNativeFunc('getPlayerVX')();
+    const vy = getNativeFunc('getPlayerVY')();
+    const vz = getNativeFunc('getPlayerVZ')();
     return { x, y, z, vx, vy, vz };
 }
 
