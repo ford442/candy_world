@@ -53,7 +53,7 @@ export async function inspectWasmExports(filename) {
     const wasmCheck = await checkWasmFileExists(filename);
     if (!wasmCheck.exists) return null;
 
-    const url = wasmCheck.path ? `${wasmCheck.path}/${filename}` : `./${filename}`;
+    const url = (wasmCheck.path ? (wasmCheck.path.endsWith('/') ? wasmCheck.path : wasmCheck.path + '/') : './') + filename;
     try {
         const resp = await fetch(url);
         if (!resp.ok) return null;
