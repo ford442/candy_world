@@ -3,12 +3,11 @@
  * @brief Utilities for WASM path resolution and checking
  */
 
-// Production deployment path prefix. 
-// Use '/' if your assets are at the domain root.
-const PRODUCTION_PATH_PREFIX = '/'; 
+// CHANGED: Use relative path './' instead of root '/' to support non-root deployments
+const PRODUCTION_PATH_PREFIX = './';
 
 /**
- * Check if a WASM file exists by attempting HEAD requests.
+ * Check if a WASM file exists by attempting HEAD requests
  * @param {string} filename - The WASM filename to check
  * @returns {Promise<{exists: boolean, path: string}>}
  */
@@ -22,32 +21,34 @@ export async function checkWasmFileExists(filename) {
         return { exists: false, path: null };
     }
 
-    // Helper to join paths safely without creating '//'
+    // Helper to join paths safely
     const joinPath = (prefix, file) => {
         if (!prefix) return file;
         const cleanPrefix = prefix.endsWith('/') ? prefix.slice(0, -1) : prefix;
         return `${cleanPrefix}/${file}`;
     };
 
-    // 2. Try Production Path (Root)
+    // 2. Try Production/Relative Path
     const prodPath = joinPath(PRODUCTION_PATH_PREFIX, filename);
     try {
         const prodCheck = await fetch(prodPath, { method: 'HEAD' });
         if (prodCheck.ok) {
-            // Return the prefix with a trailing slash for the loader
+            // Return the prefix detected
             const foundPrefix = PRODUCTION_PATH_PREFIX.endsWith('/') ? PRODUCTION_PATH_PREFIX : `${PRODUCTION_PATH_PREFIX}/`;
             return { exists: true, path: foundPrefix };
         }
     } catch (prodError) {}
 
-    // 3. Try Local/Relative Path
-    const localPath = `./${filename}`;
-    try {
-        const localCheck = await fetch(localPath, { method: 'HEAD' });
-        if (localCheck.ok) {
-            return { exists: true, path: './' };
-        }
-    } catch (localError) {}
+    // 3. Fallback: Try local path explicitly if different
+    if (PRODUCTION_PATH_PREFIX !== './') {
+        const localPath = `./${filename}`;
+        try {
+            const localCheck = await fetch(localPath, { method: 'HEAD' });
+            if (localCheck.ok) {
+                return { exists: true, path: './' };
+            }
+        } catch (localError) {}
+    }
 
     return { exists: false, path: null };
 }
@@ -98,9 +99,6 @@ export async function inspectWasmExports(filename) {
     }
 }
 
-/**
- * Monkey-patch WebAssembly.instantiate
- */
 export function patchWasmInstantiateAliases() {
     const WA = window.NativeWebAssembly || WebAssembly;
     const origInstantiate = WA.instantiate;
