@@ -13,6 +13,36 @@ const _scratchWorldPos = new THREE.Vector3();
 const _scratchMatrix = new THREE.Matrix4();
 const _scratchObject3D = new THREE.Object3D();
 
+// ⚡ OPTIMIZATION: Global uniform for seasonal berry scaling
+// This replaces per-instance matrix updates on the CPU
+export const uBerrySeasonScale = uniform(float(1.0));
+
+/**
+ * Update global berry scale based on season phase
+ * @param {string} phase - Current season phase
+ * @param {number} phaseProgress - Progress through the phase (0-1)
+ */
+export function updateGlobalBerryScale(phase, phaseProgress) {
+    let targetScaleFactor = 1.0;
+    switch (phase) {
+        case 'sunset':
+            targetScaleFactor = 1.0 + phaseProgress * 0.3; // Plump up
+            break;
+        case 'dusk':
+            targetScaleFactor = 1.3 - phaseProgress * 0.1;
+            break;
+        case 'deepNight':
+            targetScaleFactor = 1.2 - phaseProgress * 0.4; // Shrivel slightly
+            break;
+        case 'preDawn':
+            targetScaleFactor = 0.8 + phaseProgress * 0.2;
+            break;
+        default:
+            targetScaleFactor = 1.0;
+    }
+    uBerrySeasonScale.value = targetScaleFactor;
+}
+
 /**
  * Creates a "Heartbeat Gummy" TSL Material
  * @param {number} colorHex - Base color
@@ -43,7 +73,9 @@ function createHeartbeatMaterial(colorHex, uGlowIntensity) {
     // Expansion factor: Base 1.0 + Audio Kick * Pulse
     // uAudioLow is 0..1 based on Kick Drum analysis
     const kickForce = uAudioLow.mul(0.25); // Max 25% expansion
-    const scaleFactor = float(1.0).add(heartbeat.mul(kickForce));
+
+    // ⚡ OPTIMIZATION: Multiply by global season scale here
+    const scaleFactor = float(1.0).add(heartbeat.mul(kickForce)).mul(uBerrySeasonScale);
 
     // Apply to vertex position (inflate from center)
     material.positionNode = positionLocal.mul(scaleFactor);
@@ -193,55 +225,9 @@ export function chargeBerries(berryCluster, chargeAmount) {
     );
 }
 
+// Deprecated: No longer used as we use global uniform
 export function updateBerrySeasons(berryCluster, phase, phaseProgress) {
-    // ⚡ OPTIMIZATION: Updated for InstancedMesh
-    // If the cluster has old array structure (legacy), ignore it or fallback?
-    // We assume all berries are now InstancedMesh.
-    const mesh = berryCluster.userData.berryMesh;
-    if (!mesh || !mesh.userData.initialTransforms) return;
-
-    const { positions, quaternions, scales } = mesh.userData.initialTransforms;
-    const count = mesh.count;
-
-    let targetScaleFactor = 1.0;
-    switch (phase) {
-        case 'sunset':
-            targetScaleFactor = 1.0 + phaseProgress * 0.3; // Plump up
-            break;
-        case 'dusk':
-            targetScaleFactor = 1.3 - phaseProgress * 0.1;
-            break;
-        case 'deepNight':
-            targetScaleFactor = 1.2 - phaseProgress * 0.4; // Shrivel slightly
-            break;
-        case 'preDawn':
-            targetScaleFactor = 0.8 + phaseProgress * 0.2;
-            break;
-        default:
-            targetScaleFactor = 1.0;
-    }
-
-    for (let i = 0; i < count; i++) {
-        const px = positions[i * 3];
-        const py = positions[i * 3 + 1];
-        const pz = positions[i * 3 + 2];
-
-        const qx = quaternions[i * 4];
-        const qy = quaternions[i * 4 + 1];
-        const qz = quaternions[i * 4 + 2];
-        const qw = quaternions[i * 4 + 3];
-
-        const initialScale = scales[i];
-
-        _scratchObject3D.position.set(px, py, pz);
-        _scratchObject3D.quaternion.set(qx, qy, qz, qw);
-        _scratchObject3D.scale.setScalar(initialScale * targetScaleFactor);
-        _scratchObject3D.updateMatrix();
-
-        mesh.setMatrixAt(i, _scratchObject3D.matrix);
-    }
-
-    mesh.instanceMatrix.needsUpdate = true;
+    // No-op: handled via uBerrySeasonScale global uniform
 }
 
 // --- Falling Berry Particle System ---
