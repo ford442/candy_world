@@ -3,18 +3,17 @@
  * @brief Utilities for WASM path resolution and checking
  */
 
-// Changed to relative path to align with vite.config.js base: './'
-// You can change this to '/' if you are deploying to domain root, 
-// but we will fix the joining logic to be safe regardless.
-const PRODUCTION_PATH_PREFIX = './'; 
+// Production deployment path prefix. 
+// Use '/' if your assets are at the domain root.
+const PRODUCTION_PATH_PREFIX = '/'; 
 
 /**
- * Check if a WASM file exists by attempting HEAD requests at different paths
+ * Check if a WASM file exists by attempting HEAD requests.
  * @param {string} filename - The WASM filename to check
  * @returns {Promise<{exists: boolean, path: string}>}
  */
 export async function checkWasmFileExists(filename) {
-    // Handle absolute URLs directly
+    // 1. Handle absolute URLs directly
     if (filename.includes('://')) {
         try {
             const check = await fetch(filename, { method: 'HEAD' });
@@ -23,38 +22,32 @@ export async function checkWasmFileExists(filename) {
         return { exists: false, path: null };
     }
 
-    // Helper to join paths safely without creating '//' (protocol relative URL)
+    // Helper to join paths safely without creating '//'
     const joinPath = (prefix, file) => {
         if (!prefix) return file;
         const cleanPrefix = prefix.endsWith('/') ? prefix.slice(0, -1) : prefix;
         return `${cleanPrefix}/${file}`;
     };
 
-    // 1. Try production/configured path
+    // 2. Try Production Path (Root)
     const prodPath = joinPath(PRODUCTION_PATH_PREFIX, filename);
     try {
         const prodCheck = await fetch(prodPath, { method: 'HEAD' });
         if (prodCheck.ok) {
-            // Return the prefix including the slash if needed for concatenation later
-            return { exists: true, path: PRODUCTION_PATH_PREFIX };
+            // Return the prefix with a trailing slash for the loader
+            const foundPrefix = PRODUCTION_PATH_PREFIX.endsWith('/') ? PRODUCTION_PATH_PREFIX : `${PRODUCTION_PATH_PREFIX}/`;
+            return { exists: true, path: foundPrefix };
         }
-    } catch (prodError) {
-        // Continue to local/fallback check
-    }
+    } catch (prodError) {}
 
-    // 2. Try local relative path explicitly
+    // 3. Try Local/Relative Path
     const localPath = `./${filename}`;
     try {
-        // Avoid re-checking if prodPath was already ./filename
-        if (localPath !== prodPath) {
-            const localCheck = await fetch(localPath, { method: 'HEAD' });
-            if (localCheck.ok) {
-                return { exists: true, path: './' };
-            }
+        const localCheck = await fetch(localPath, { method: 'HEAD' });
+        if (localCheck.ok) {
+            return { exists: true, path: './' };
         }
-    } catch (localError) {
-        // File not found
-    }
+    } catch (localError) {}
 
     return { exists: false, path: null };
 }
@@ -66,11 +59,9 @@ export async function inspectWasmExports(filename) {
     const wasmCheck = await checkWasmFileExists(filename);
     if (!wasmCheck.exists) return null;
 
-    // Construct full path safely
     const prefix = wasmCheck.path || '';
-    const cleanPrefix = prefix.endsWith('/') ? prefix : `${prefix}/`;
-    // If prefix is empty or relative, ensure we don't accidentally create a root path if not intended
-    const url = prefix ? `${cleanPrefix}${filename}` : filename;
+    const cleanPrefix = prefix.endsWith('/') ? prefix : (prefix ? `${prefix}/` : '');
+    const url = `${cleanPrefix}${filename}`;
 
     try {
         const resp = await fetch(url);
@@ -84,9 +75,7 @@ export async function inspectWasmExports(filename) {
             if (typeof WA.Module === 'function') {
                 module = new WA.Module(bytes);
             }
-        } catch (e) {
-            module = null;
-        }
+        } catch (e) {}
 
         if (!module && typeof WA.compile === 'function') {
             try { module = await WA.compile(bytes); } catch(e) {}
@@ -104,7 +93,7 @@ export async function inspectWasmExports(filename) {
         const exporter = (WA.Module && WA.Module.exports) ? WA.Module.exports : WebAssembly.Module.exports;
         return exporter(module).map(e => e.name);
     } catch (e) {
-        console.warn('[WASM Utils] Failed to inspect wasm exports for', filename, e);
+        console.warn('[WASM Utils] Failed to inspect wasm exports', e);
         return null;
     }
 }
