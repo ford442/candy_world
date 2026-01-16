@@ -174,6 +174,22 @@
             padding: 20px 30px;
             border-radius: 20px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            max-width: 600px;
+            width: 90%;
+        }
+        .controls-section {
+            margin-bottom: 10px;
+        }
+        .controls-section:last-child {
+            margin-bottom: 0;
+        }
+        .controls-header {
+            font-family: 'Fredoka One', cursive, sans-serif;
+            color: #FF6B6B;
+            font-size: 1.1em;
+            margin: 0 0 8px 0;
+            padding-bottom: 5px;
+            border-bottom: 2px dashed #FFD1DC;
         }
         .controls-list {
             display: grid;
@@ -482,32 +498,54 @@
         </div>
 
         <div class="controls-container">
-            <dl class="controls-list">
-                <dt>
-                    <kbd class="key">Right Click</kbd> /
-                    <kbd class="key">W</kbd>
-                </dt>
-                <dd>Move Forward (Run)</dd>
+            <div class="controls-section">
+                <h3 class="controls-header">Movement</h3>
+                <dl class="controls-list">
+                    <dt>
+                        <kbd class="key">W</kbd> / <kbd class="key">A</kbd> / <kbd class="key">S</kbd> / <kbd class="key">D</kbd>
+                        <span style="font-size: 0.9em; margin: 0 5px; color: #888;">or</span>
+                        <kbd class="key">Right Click</kbd>
+                    </dt>
+                    <dd>Move Forward / Walk</dd>
 
-                <dt>
-                    <kbd class="key">A</kbd>
-                    <kbd class="key">S</kbd>
-                    <kbd class="key">D</kbd>
-                </dt>
-                <dd>Move Left / Back / Right</dd>
+                    <dt><kbd class="key">Shift</kbd></dt>
+                    <dd>Hold to Sprint</dd>
 
-                <dt><kbd class="key">Ctrl</kbd></dt>
-                <dd>Hold to Sneak</dd>
+                    <dt><kbd class="key">Space</kbd></dt>
+                    <dd>Jump</dd>
 
-                <dt><kbd class="key" aria-label="Space bar">Space</kbd></dt>
-                <dd>Jump</dd>
+                    <dt><kbd class="key">Ctrl</kbd></dt>
+                    <dd>Hold to Sneak</dd>
+                </dl>
+            </div>
 
-                <dt><kbd class="key">Q</kbd></dt>
-                <dd>Toggle Jukebox</dd>
+            <div class="controls-section">
+                <h3 class="controls-header">Abilities</h3>
+                <dl class="controls-list">
+                    <dt><kbd class="key">E</kbd></dt>
+                    <dd>Dash (Requires Energy)</dd>
 
-                <dt><kbd class="key">Mouse</kbd></dt>
-                <dd>Look Around</dd>
-            </dl>
+                    <dt><kbd class="key">Double Space</kbd></dt>
+                    <dd>Double Jump</dd>
+                </dl>
+            </div>
+
+            <div class="controls-section">
+                <h3 class="controls-header">System</h3>
+                <dl class="controls-list">
+                    <dt><kbd class="key">Q</kbd></dt>
+                    <dd>Toggle Jukebox</dd>
+
+                    <dt><kbd class="key">N</kbd></dt>
+                    <dd>Toggle Day/Night</dd>
+
+                    <dt><kbd class="key">M</kbd></dt>
+                    <dd>Mute Audio</dd>
+
+                    <dt><kbd class="key">Mouse</kbd></dt>
+                    <dd>Look Around</dd>
+                </dl>
+            </div>
         </div>
     </div>
 
