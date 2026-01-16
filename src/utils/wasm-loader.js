@@ -150,7 +150,8 @@ async function loadEmscriptenModule(forceSingleThreaded = false) {
         // Load the JS factory
         let createCandyNative;
         try {
-            const module = await import(/* @vite-ignore */ `./${jsFilename}?v=${Date.now()}`);
+            const jsPath = jsFilename.includes('://') ? jsFilename : `./${jsFilename}`;
+            const module = await import(/* @vite-ignore */ `${jsPath}?v=${Date.now()}`);
             createCandyNative = module.default;
         } catch (e) {
             console.log(`[WASM] ${jsFilename} not found. Fallback?`, e);
@@ -170,7 +171,7 @@ async function loadEmscriptenModule(forceSingleThreaded = false) {
         // Manual binary fetch to bypass instantiateStreaming issues
         let wasmBinary = null;
         try {
-             const resp = await fetch(`./${wasmFilename}`);
+             const resp = await fetch(wasmFilename);
              if (resp.ok) {
                  wasmBinary = await resp.arrayBuffer();
              }
@@ -181,7 +182,7 @@ async function loadEmscriptenModule(forceSingleThreaded = false) {
         try {
             const config = {
                 locateFile: (path, prefix) => {
-                    if (path.endsWith('.wasm')) return `./${wasmFilename}`;
+                    if (path.endsWith('.wasm')) return wasmFilename;
                     return prefix + path;
                 },
                 print: (text) => console.log('[Native]', text),
@@ -204,7 +205,7 @@ async function loadEmscriptenModule(forceSingleThreaded = false) {
                     promise = WebAssembly.instantiate(wasmBinary, imports);
                 } else {
                     // Fallback fetch if pre-fetch failed (e.g. partial download)
-                    promise = fetch(`./${wasmFilename}`)
+                    promise = fetch(wasmFilename)
                         .then(response => {
                             if (!response.ok) throw new Error(`Fetch failed: ${response.status}`);
                             return response.arrayBuffer();
