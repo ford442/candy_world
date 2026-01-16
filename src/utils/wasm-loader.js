@@ -1,6 +1,46 @@
 /**
  * @file wasm-loader.js
- * @brief WASM Module Loader with Robust Pthreads Support
+ * @brief WASM Module Loader with Graceful JavaScript Fallbacks
+ * * This module provides a robust interface for loading and using WebAssembly
+ * modules in Candy World. It implements a multi-tier fallback system:
+ * * ## FALLBACK HIERARCHY
+ * * 1. **Emscripten C++ Module** (candy_native.wasm)
+ * - Highest performance via native C++ compiled to WASM
+ * - Supports pthreads for parallel physics computation
+ * - Functions accessed via getNativeFunc('functionName')
+ * * 2. **AssemblyScript Module** (candy_physics.wasm)
+ * - Good performance via TypeScript-like syntax compiled to WASM
+ * - Simpler deployment (no pthread requirements)
+ * - Functions accessed via wasmInstance.exports.functionName
+ * * 3. **JavaScript Fallback**
+ * - Always available, guaranteed to work
+ * - Slightly lower performance but identical behavior
+ * - Implemented inline in each wrapper function
+ * * ## HOW FALLBACKS WORK
+ * * Each exported function (e.g., calcFiberWhip) follows this pattern:
+ * * ```javascript
+ * export function calcFiberWhip(time, offset, leadVol, isActive, branchIndex) {
+ * // Try WASM first
+ * if (wasmInstance && wasmInstance.exports.calcFiberWhip) {
+ * wasmInstance.exports.calcFiberWhip(time, offset, ...);
+ * return { ... }; // Read results from getter functions
+ * }
+ * * // JavaScript fallback - identical algorithm
+ * return {
+ * baseRotY: Math.sin(time * 0.5 + offset) * 0.1,
+ * ...
+ * };
+ * }
+ * ```
+ * * ## PREVENTING ABORTS
+ * * The patchWasmInstantiateAliases() function from wasm-utils.js patches
+ * WebAssembly.instantiate to create aliases for underscore-prefixed exports.
+ * This prevents Emscripten from aborting when it can't find expected exports.
+ * * The build.sh uses -s ASSERTIONS=0 to disable runtime assertions that would
+ * otherwise abort when exports are missing.
+ * * @see emscripten/build.sh for WASM compilation settings
+ * @see emscripten/animation.cpp for C++ animation implementations
+ * @see wasm-utils.js for the instantiate alias patch
  */
 
 import { 
@@ -11,11 +51,29 @@ import {
     isSharedMemoryAvailable 
 } from './wasm-orchestrator.js';
 
-import { checkWasmFileExists, patchWasmInstantiateAliases } from './wasm-utils.js';
+import { checkWasmFileExists, inspectWasmExports, patchWasmInstantiateAliases } from './wasm-utils.js';
 import { showToast } from './toast.js';
 
 let wasmInstance = null;
 let wasmMemory = null;
+let positionView = null;   // Float32Array for object positions
+let animationView = null;  // Float32Array for animation data
+let outputView = null;     // Float32Array for reading results
+let playerStateView = null; // Float32Array for player physics state
+
+// Cached WASM function references
+let wasmGetGroundHeight = null;
+let wasmFreqToHue = null;
+let wasmLerp = null;
+let wasmBatchMushroomSpawnCandidates = null;
+let wasmUpdateFoliageBatch = null;
+
+// New Physics exports
+let wasmInitCollisionSystem = null;
+let wasmAddCollisionObject = null;
+let wasmResolveGameCollisions = null;
+
+// Emscripten module (native C functions)
 let emscriptenInstance = null;
 let emscriptenMemory = null;
 
@@ -25,33 +83,29 @@ const ANIMATION_OFFSET = 4096;
 const OUTPUT_OFFSET = 8192;
 const PLAYER_STATE_OFFSET = 16384;
 
-// Memory Configuration (Must match build.sh)
-const INITIAL_MEMORY_PAGES = 4096; // 256MB
-const MAX_MEMORY_PAGES = 65536;    // 4GB
-
-// --- Views ---
-let positionView = null;
-let animationView = null;
-let outputView = null;
-let playerStateView = null;
-
-// --- Cached Functions ---
-let wasmGetGroundHeight = null;
-let wasmFreqToHue = null;
-let wasmLerp = null;
-let wasmBatchMushroomSpawnCandidates = null;
-let wasmUpdateFoliageBatch = null;
-let wasmInitCollisionSystem = null;
-let wasmAddCollisionObject = null;
-let wasmResolveGameCollisions = null;
-
-export const AnimationType = { BOUNCE: 1, SWAY: 2, WOBBLE: 3, HOP: 4 };
+// Animation type constants
+export const AnimationType = {
+    BOUNCE: 1,
+    SWAY: 2,
+    WOBBLE: 3,
+    HOP: 4
+};
 
 // =============================================================================
-// LOADER LOGIC
+// UPDATED: Load Emscripten Module (Pthreads/Worker Version)
 // =============================================================================
 
 async function loadEmscriptenModule(forceSingleThreaded = false) {
+    // SINGLE-THREADED FALLBACK STRATEGY:
+    // 1. If SharedArrayBuffer is missing, forcing ST.
+    // 2. If forceSingleThreaded=true is passed (recursive fallback), use ST.
+    // 3. We attempt to load 'candy_native.wasm' (threaded).
+    // 4. If that fails (file missing, instantiation error, worker error), we recursively call loadEmscriptenModule(true).
+
+    // Consistency: Use NativeWebAssembly if available (e.g. tests), else standard
+    const WA = window.NativeWebAssembly || window.WebAssembly;
+
+    // 1. Check for SharedArrayBuffer (required for threads)
     const canUseThreads = typeof SharedArrayBuffer !== 'undefined' && !forceSingleThreaded;
 
     try {
@@ -68,127 +122,124 @@ async function loadEmscriptenModule(forceSingleThreaded = false) {
             isThreaded = false;
         }
 
-        // 1. Resolve Path
+        // 2. Check if WASM file exists and RESOLVE THE CORRECT PATH
         const wasmCheck = await checkWasmFileExists(wasmFilename);
         if (!wasmCheck.exists) {
             console.log(`[WASM] ${wasmFilename} not found. Using JS fallback.`);
-            if (isThreaded) return loadEmscriptenModule(true);
+            // If threaded failed (e.g. file missing), try ST if we haven't already
+            if (isThreaded) {
+                 return loadEmscriptenModule(true);
+            }
             return false;
         }
 
+        // Construct the full resolved path based on checkWasmFileExists result
         const prefix = wasmCheck.path || '';
         const cleanPrefix = prefix.endsWith('/') ? prefix : (prefix ? `${prefix}/` : '');
         const resolvedWasmPath = `${cleanPrefix}${wasmFilename}`;
         const resolvedJsPath = jsFilename.includes('://') ? jsFilename : `${cleanPrefix}${jsFilename}`;
 
-        // 2. Load JS Factory
+        // Load the JS factory
         let createCandyNative;
         try {
             const module = await import(/* @vite-ignore */ `${resolvedJsPath}?v=${Date.now()}`);
             createCandyNative = module.default;
         } catch (e) {
-            console.log(`[WASM] Failed to import ${resolvedJsPath}`, e);
+            console.log(`[WASM] ${jsFilename} not found. Fallback?`, e);
             if (isThreaded) return loadEmscriptenModule(true);
             return false;
         }
 
-        if (isThreaded) await updateProgress('Spawning Physics Workers...');
-        else await updateProgress('Initializing Physics (ST)...');
-
-        // 3. Prepare Memory
-        let customMemory = null;
         if (isThreaded) {
-            try {
-                customMemory = new WebAssembly.Memory({
-                    initial: INITIAL_MEMORY_PAGES,
-                    maximum: MAX_MEMORY_PAGES,
-                    shared: true
-                });
-                console.log('[Native] Created Shared Memory manually.');
-            } catch (e) {
-                console.warn('[Native] Failed to create Shared Memory. Fallback to ST.', e);
-                return loadEmscriptenModule(true);
-            }
+            await updateProgress('Spawning Physics Workers...');
+        } else {
+            await updateProgress('Initializing Physics (ST)...');
         }
 
-        // 4. Pre-fetch Binary
+        // Apply aliases
+        const restore = patchWasmInstantiateAliases();
+
+        // Manual binary fetch
         let wasmBinary = null;
         try {
              const resp = await fetch(resolvedWasmPath);
-             if (resp.ok) wasmBinary = await resp.arrayBuffer();
+             if (resp.ok) {
+                 wasmBinary = await resp.arrayBuffer();
+             } else {
+                 console.warn(`[WASM] Pre-fetch failed with status: ${resp.status}`);
+             }
         } catch(e) {
             console.warn("[WASM] Failed to pre-fetch binary:", e);
         }
 
-        const restore = patchWasmInstantiateAliases();
-
-        // 5. Instantiate
         try {
             const config = {
-                wasmMemory: customMemory,
-                locateFile: (path) => {
+                // Critical: Explicitly tell Emscripten where to find the file
+                locateFile: (path, scriptDirectory) => {
                     if (path.endsWith('.wasm')) return resolvedWasmPath;
-                    return prefix + path;
+                    return scriptDirectory + path;
                 },
                 print: (text) => console.log('[Native]', text),
                 printErr: (text) => console.warn('[Native Err]', text),
                 
+                // IMPORTANT: Do NOT set wasmBinary in config.
+                // Providing it alongside instantiateWasm can cause the "Argument 0 must be a Module" error.
+
+                // Bypass internal instantiation logic completely
                 instantiateWasm: (imports, successCallback) => {
+                    console.log('[Native] Manual instantiation hook triggered');
+
                     const run = async () => {
                         try {
                             let bytes = wasmBinary;
+                            
+                            // Fallback fetch if pre-fetch failed
                             if (!bytes) {
-                                const r = await fetch(resolvedWasmPath);
-                                if (!r.ok) throw new Error(r.statusText);
-                                bytes = await r.arrayBuffer();
-                            }
-                            
-                            const WA = window.NativeWebAssembly || WebAssembly;
-
-                            // CLEAN IMPORTS STRATEGY
-                            // Create a shallow copy to remove any getters/setters/frozen properties
-                            // from Emscripten's import object.
-                            let finalImports = { ...imports };
-
-                            if (isThreaded && customMemory) {
-                                // Reconstruct 'env' cleanly
-                                finalImports.env = {
-                                    ...(imports.env || {}),
-                                    memory: customMemory
-                                };
-                                console.log('[Native] Enforced shared memory in CLEAN imports object');
+                                console.log('[Native] Fetching binary inside hook...');
+                                const response = await fetch(resolvedWasmPath);
+                                if (!response.ok) throw new Error(`Fetch failed: ${response.status}`);
+                                bytes = await response.arrayBuffer();
                             }
 
-                            const result = await WA.instantiate(bytes, finalImports);
-                            successCallback(result.instance, result.module);
+                            // Explicitly Compile first, then Instantiate using the consistent WA object
+                            // This ensures we have a valid Module object to pass to successCallback.
+                            const module = await WA.compile(bytes);
+                            const instance = await WA.instantiate(module, imports);
                             
+                            console.log('[Native] Manual instantiation success');
+                            successCallback(instance, module);
                         } catch (e) {
                             console.error('[Native] Manual instantiation failed:', e);
-                            if (isThreaded) {
-                                console.warn('[Native] Retrying with ST fallback...');
-                                loadEmscriptenModule(true).then(() => {});
-                            }
+                            // We can't easily reject the outer promise from here, but logging helps.
                         }
                     };
+
                     run();
-                    return {};
+                    return {}; // Async indicates to Emscripten we are handling it
                 }
             };
 
             emscriptenInstance = await createCandyNative(config);
-            console.log(`[WASM] Emscripten ${isThreaded ? 'Pthreads' : 'Single-Threaded'} Ready`);
 
+            console.log(`[WASM] Emscripten ${isThreaded ? 'Pthreads' : 'Single-Threaded'} Ready`);
         } catch (e) {
             console.warn('[WASM] Instantiation failed:', e);
             restore();
-            if (isThreaded) return loadEmscriptenModule(true);
+            // If threaded failed, try ST
+            if (isThreaded) {
+                console.log('[WASM] Falling back to Single-Threaded build...');
+                return loadEmscriptenModule(true);
+            }
             return false;
         } finally {
             restore();
         }
 
-        if (emscriptenInstance.wasmMemory) emscriptenMemory = emscriptenInstance.wasmMemory;
-        else if (emscriptenInstance.HEAP8) emscriptenMemory = emscriptenInstance.HEAP8.buffer;
+        if (emscriptenInstance.wasmMemory) {
+            emscriptenMemory = emscriptenInstance.wasmMemory;
+        } else if (emscriptenInstance.HEAP8) {
+            emscriptenMemory = emscriptenInstance.HEAP8.buffer;
+        }
 
         return true;
     } catch (e) {
@@ -197,145 +248,316 @@ async function loadEmscriptenModule(forceSingleThreaded = false) {
     }
 }
 
-// ... Helper Functions ...
-
+/**
+ * Get a native C++ function from the Emscripten module.
+ * * Emscripten exports functions with a leading underscore (e.g., _calcFiberWhip).
+ * This helper handles the underscore prefix and returns null if the function
+ * doesn't exist, allowing callers to gracefully fall back to JavaScript.
+ * * @param {string} name - Function name without underscore (e.g., 'calcFiberWhip')
+ * @returns {Function|null} The native function, or null if not available
+ * * @example
+ * const calcFn = getNativeFunc('calcFiberWhip');
+ * if (calcFn) {
+ * calcFn(time, offset, leadVol, isActive ? 1 : 0, branchIndex);
+ * } else {
+ * // Use JavaScript fallback
+ * }
+ */
 function getNativeFunc(name) {
+    // Return null if Emscripten module isn't loaded
     if (!emscriptenInstance) return null;
-    const uName = '_' + name;
-    if (typeof emscriptenInstance[uName] === 'function') return emscriptenInstance[uName];
-    if (typeof emscriptenInstance[name] === 'function') return emscriptenInstance[name];
+
+    // Try underscore-prefixed name first (standard Emscripten export format)
+    const underscoreName = '_' + name;
+    if (typeof emscriptenInstance[underscoreName] === 'function') {
+        return emscriptenInstance[underscoreName];
+    }
+
+    // Try non-prefixed name as fallback (in case of aliasing)
+    if (typeof emscriptenInstance[name] === 'function') {
+        return emscriptenInstance[name];
+    }
+
+    // Function not found - caller should use JavaScript fallback
     return null;
 }
 
-async function updateProgress(msg) {
-    if (window.setLoadingStatus) window.setLoadingStatus(msg);
-    const btn = document.getElementById('startButton');
-    if (btn) btn.textContent = msg;
-    await new Promise(r => setTimeout(r, 20));
-}
-
 let bootstrapStarted = false;
+
 async function startBootstrapIfAvailable(instance) {
     if (!instance || bootstrapStarted) return;
+
     try {
         const { startBootstrap } = await import('./bootstrap-loader.js');
         if (startBootstrap && startBootstrap(instance)) {
             bootstrapStarted = true;
-            console.log('[WASM] Bootstrap started');
+            console.log('[WASM] Bootstrap terrain pre-computation started');
         }
-    } catch (e) {}
+    } catch (e) {
+        console.warn('[WASM] Bootstrap loader error:', e);
+    }
 }
 
-// =============================================================================
-// PUBLIC API
-// =============================================================================
+async function updateProgress(msg) {
+    if (window.setLoadingStatus) window.setLoadingStatus(msg);
+
+    const startButton = document.getElementById('startButton');
+    if (startButton) {
+        startButton.textContent = msg;
+    }
+    console.log('[WASM Progress]', msg);
+    await new Promise(r => setTimeout(r, 20));
+}
 
 export async function initWasm() {
     if (wasmInstance) return true;
 
+    const startButton = document.getElementById('startButton');
+    if (startButton) {
+        startButton.disabled = true;
+        startButton.style.cursor = 'wait';
+    }
+
+    console.log('[WASM] initWasm started');
     await updateProgress('Downloading Physics Engine...');
+
     try {
-        // Use relative path matching wasm-utils fix
         const wasmUrl = './candy_physics.wasm?v=' + Date.now();
         const response = await fetch(wasmUrl);
-        if (!response.ok) throw new Error("404");
+
+        if (!response.ok) {
+            console.warn('WASM not found, using JS fallbacks');
+            if (startButton) startButton.disabled = false;
+            return false;
+        }
 
         const wasmBytes = await response.arrayBuffer();
         
-        const wasi = {
-            clock_time_get: () => 0,
+        // WASI stubs with BigInt Safety
+        const wasiStubs = {
+            fd_close: () => 0,
+            fd_seek: () => 0,
             fd_write: () => 0,
-            proc_exit: () => {},
+            fd_read: () => 0,
+            fd_fdstat_get: () => 0,
+            fd_prestat_get: () => 0,
+            fd_prestat_dir_name: () => 0,
+            path_open: () => 0,
             environ_sizes_get: () => 0,
-            environ_get: () => 0
+            environ_get: () => 0,
+            proc_exit: () => { },
+            // Robust clock_time_get handling BigInt mixing
+            clock_time_get: (id, precision, outPtr) => {
+                const now = BigInt(Date.now()) * 1000000n;
+                if (wasmMemory) {
+                    const idx = typeof outPtr === 'bigint' ? Number(outPtr) : outPtr;
+                    const view = new BigInt64Array(wasmMemory.buffer);
+                    if (idx >= 0 && (idx >> 3) < view.length) {
+                        view[idx >> 3] = now;
+                    }
+                }
+                return 0;
+            },
         };
 
-        const imports = {
+        await updateProgress('Compiling Physics (WASM)...');
+
+        // Use NativeWebAssembly if available (e.g. tests), else standard
+        const WA = window.NativeWebAssembly || window.WebAssembly;
+
+        const importObject = {
             env: {
-                abort: () => {},
-                seed: () => Math.random(),
+                abort: (msg, file, line, col) => {
+                    console.error(`WASM abort at ${file}:${line}:${col}: ${msg}`);
+                },
+                seed: () => Date.now() * Math.random(),
                 now: () => Date.now() 
             },
-            wasi_snapshot_preview1: wasi
+            wasi_snapshot_preview1: wasiStubs
         };
 
-        const WA = window.NativeWebAssembly || WebAssembly;
-        const result = await WA.instantiate(wasmBytes, imports);
-        wasmInstance = result.instance;
-
-        // Setup Views
-        if (wasmInstance.exports.memory) {
-            wasmMemory = wasmInstance.exports.memory;
-            const b = wasmMemory.buffer;
-            positionView = new Float32Array(b, POSITION_OFFSET, 1024);
-            animationView = new Float32Array(b, ANIMATION_OFFSET, 1024);
-            outputView = new Float32Array(b, OUTPUT_OFFSET, 1024);
-            playerStateView = new Float32Array(b, PLAYER_STATE_OFFSET, 8);
+        let result;
+        try {
+            result = await WA.instantiateStreaming(fetch(wasmUrl), importObject);
+        } catch (streamError) {
+            result = await WA.instantiate(wasmBytes, importObject);
         }
 
-        // Cache Exports
+        if (window.setLoadingStatus) window.setLoadingStatus("Physics Engine Ready...");
+        wasmInstance = result.instance;
+
+        // Verify exports
+        if (!wasmInstance.exports.getGroundHeight) {
+            console.error('WASM exports missing getGroundHeight');
+            if (startButton) startButton.disabled = false;
+            return false;
+        }
+
+        if (wasmInstance.exports.memory) {
+            wasmMemory = wasmInstance.exports.memory;
+            const memBuffer = wasmMemory.buffer;
+            positionView = new Float32Array(memBuffer, POSITION_OFFSET, 1024);
+            animationView = new Float32Array(memBuffer, ANIMATION_OFFSET, 1024);
+            outputView = new Float32Array(memBuffer, OUTPUT_OFFSET, 1024);
+            playerStateView = new Float32Array(memBuffer, PLAYER_STATE_OFFSET, 8);
+        }
+
+        // Cache references
         wasmGetGroundHeight = wasmInstance.exports.getGroundHeight;
         wasmFreqToHue = wasmInstance.exports.freqToHue;
         wasmLerp = wasmInstance.exports.lerp;
-        wasmBatchMushroomSpawnCandidates = wasmInstance.exports.batchMushroomSpawnCandidates;
-        wasmUpdateFoliageBatch = wasmInstance.exports.updateFoliageBatch;
-        wasmInitCollisionSystem = wasmInstance.exports.initCollisionSystem;
-        wasmAddCollisionObject = wasmInstance.exports.addCollisionObject;
-        wasmResolveGameCollisions = wasmInstance.exports.resolveGameCollisions;
+        wasmBatchMushroomSpawnCandidates = wasmInstance.exports.batchMushroomSpawnCandidates || null;
+        wasmUpdateFoliageBatch = wasmInstance.exports.updateFoliageBatch || null;
 
-        // Load Native
+        // Physics collision
+        wasmInitCollisionSystem = wasmInstance.exports.initCollisionSystem || null;
+        wasmAddCollisionObject = wasmInstance.exports.addCollisionObject || null;
+        wasmResolveGameCollisions = wasmInstance.exports.resolveGameCollisions || null;
+
         await loadEmscriptenModule();
-        if (emscriptenInstance) await startBootstrapIfAvailable(emscriptenInstance);
+
+        if (emscriptenInstance) {
+            await startBootstrapIfAvailable(emscriptenInstance);
+        }
+
+        if (startButton) {
+            startButton.disabled = false;
+            startButton.textContent = 'Start Exploration 🚀';
+            startButton.style.cursor = 'pointer';
+        }
 
         return true;
-    } catch (e) {
-        console.warn("WASM init failed", e);
-        showToast("Physics Engine Failed", "❌");
+    } catch (error) {
+        console.warn('Failed to load WASM:', error);
+        showToast("Physics Engine Failed to Load", "❌");
+        if (startButton) startButton.disabled = false;
         return false;
     }
 }
 
 export async function initWasmParallel(options = {}) {
-     return await initWasm();
+    if (wasmInstance) return true;
+
+    const { onProgress = (phase, msg) => {
+        if (window.setLoadingStatus) window.setLoadingStatus(msg);
+    } } = options;
+
+    const startButton = document.getElementById('startButton');
+    if (startButton) {
+        startButton.disabled = true;
+        startButton.style.cursor = 'wait';
+    }
+
+    try {
+        const result = await parallelWasmLoad({
+            onProgress,
+            ascWasmUrl: './candy_physics.wasm',
+            emccWasmUrl: './candy_native.wasm'
+        });
+
+        if (result.asc) {
+            wasmInstance = result.asc;
+
+            if (wasmInstance.exports.memory) {
+                wasmMemory = wasmInstance.exports.memory;
+                const memBuffer = wasmMemory.buffer;
+                positionView = new Float32Array(memBuffer, POSITION_OFFSET, 1024);
+                animationView = new Float32Array(memBuffer, ANIMATION_OFFSET, 1024);
+                outputView = new Float32Array(memBuffer, OUTPUT_OFFSET, 1024);
+                playerStateView = new Float32Array(memBuffer, PLAYER_STATE_OFFSET, 8);
+            }
+
+            wasmGetGroundHeight = wasmInstance.exports.getGroundHeight;
+            wasmFreqToHue = wasmInstance.exports.freqToHue;
+            wasmLerp = wasmInstance.exports.lerp;
+            wasmBatchMushroomSpawnCandidates = wasmInstance.exports.batchMushroomSpawnCandidates || null;
+            wasmUpdateFoliageBatch = wasmInstance.exports.updateFoliageBatch || null;
+
+            wasmInitCollisionSystem = wasmInstance.exports.initCollisionSystem || null;
+            wasmAddCollisionObject = wasmInstance.exports.addCollisionObject || null;
+            wasmResolveGameCollisions = wasmInstance.exports.resolveGameCollisions || null;
+        }
+
+        if (result.emcc) {
+            emscriptenInstance = result.emcc;
+            emscriptenMemory = emscriptenInstance.exports && emscriptenInstance.exports.memory;
+
+            const initFn = getNativeFunc('init_native');
+            if (initFn) setTimeout(initFn, 0);
+
+            await startBootstrapIfAvailable(emscriptenInstance);
+        }
+
+        if (startButton) {
+            startButton.disabled = false;
+            startButton.textContent = 'Start Exploration 🚀';
+            startButton.style.cursor = 'pointer';
+        }
+
+        return wasmInstance !== null;
+    } catch (error) {
+        console.warn('[WASM] Parallel init failed, falling back to sequential:', error);
+        return await initWasm();
+    }
 }
 
-// CRITICAL EXPORTS
 export function isWasmReady() { return wasmInstance !== null; }
 export function isEmscriptenReady() { return emscriptenInstance !== null; }
 export function getWasmInstance() { return wasmInstance; }
 
 // =============================================================================
-// WRAPPERS & BATCHERS
+// COLLISION WRAPPERS
 // =============================================================================
 
 export function uploadCollisionObjects(caves, mushrooms, clouds, trampolines) {
     if (!wasmInitCollisionSystem || !wasmAddCollisionObject) return false;
+
     wasmInitCollisionSystem();
 
-    if (caves) caves.forEach(cave => {
-        if (cave.userData.isBlocked) {
-            const p = cave.userData.gatePosition.clone().applyMatrix4(cave.matrixWorld);
-            wasmAddCollisionObject(3, p.x, p.y, p.z, 2.5, 5.0, 0, 0);
-        }
-    });
+    // TYPE_MUSHROOM = 1, TYPE_CLOUD = 2, TYPE_GATE = 3, TYPE_TRAMPOLINE = 4
 
-    if (mushrooms) mushrooms.forEach(m => {
-        const type = m.userData.isTrampoline ? 4 : 1;
-        wasmAddCollisionObject(type, m.position.x, m.position.y, m.position.z,
-            m.userData.capRadius || 2.0, m.userData.capHeight || 3.0, 0, 0);
-    });
+    // 1. Gates
+    if (caves) {
+        caves.forEach(cave => {
+            if (cave.userData.isBlocked) {
+                const gatePos = cave.userData.gatePosition.clone().applyMatrix4(cave.matrixWorld);
+                wasmAddCollisionObject(3, gatePos.x, gatePos.y, gatePos.z, 2.5, 5.0, 0, 0); // Radius 2.5
+            }
+        });
+    }
 
-    if (clouds) clouds.forEach(c => {
-         if (c.userData.tier === 1) {
-             wasmAddCollisionObject(2, c.position.x, c.position.y, c.position.z,
-                c.scale.x || 1.0, c.scale.y || 1.0, 0, 0);
-         }
-    });
+    // 2. Mushrooms
+    if (mushrooms) {
+        mushrooms.forEach(m => {
+            if (m.userData.isTrampoline) {
+                 wasmAddCollisionObject(4, m.position.x, m.position.y, m.position.z,
+                    m.userData.capRadius || 2.0, m.userData.capHeight || 3.0, 0, 0);
+            } else {
+                 wasmAddCollisionObject(1, m.position.x, m.position.y, m.position.z,
+                    m.userData.capRadius || 2.0, m.userData.capHeight || 3.0, 0, 0);
+            }
+        });
+    }
+
+    // 3. Clouds
+    if (clouds) {
+        clouds.forEach(c => {
+             // Cloud Tier 1 only
+             if (c.userData.tier === 1) {
+                 wasmAddCollisionObject(2, c.position.x, c.position.y, c.position.z,
+                    c.scale.x || 1.0, c.scale.y || 1.0, 0, 0);
+             }
+        });
+    }
+
+    console.log('[WASM] Uploaded collision objects to ASC.');
     return true;
 }
 
 export function resolveGameCollisionsWASM(player, kickTrigger) {
     if (!wasmResolveGameCollisions || !playerStateView) return false;
+
+    // Write State
     playerStateView[0] = player.position.x;
     playerStateView[1] = player.position.y;
     playerStateView[2] = player.position.z;
@@ -347,6 +569,7 @@ export function resolveGameCollisionsWASM(player, kickTrigger) {
     const result = wasmResolveGameCollisions(kickTrigger);
 
     if (result === 1) {
+        // Read Back
         player.position.x = playerStateView[0];
         player.position.y = playerStateView[1];
         player.position.z = playerStateView[2];
@@ -359,18 +582,32 @@ export function resolveGameCollisionsWASM(player, kickTrigger) {
     return false;
 }
 
+// =============================================================================
+// SIMPLE MATH FUNCTIONS
+// =============================================================================
+
 export function getGroundHeight(x, z) {
     if (wasmGetGroundHeight) return wasmGetGroundHeight(x, z);
-    return 0;
+    if (isNaN(x) || isNaN(z)) return 0;
+    return Math.sin(x * 0.05) * 2 + Math.cos(z * 0.05) * 2 +
+        Math.sin(x * 0.2) * 0.3 + Math.cos(z * 0.15) * 0.3;
 }
+
 export function freqToHue(freq) {
     if (wasmFreqToHue) return wasmFreqToHue(freq);
-    return 0;
+    if (!freq || freq < 50) return 0;
+    const logF = Math.log2(freq / 55.0);
+    return (logF * 0.1) % 1.0;
 }
+
 export function lerp(a, b, t) {
     if (wasmLerp) return wasmLerp(a, b, t);
     return a + (b - a) * t;
 }
+
+// =============================================================================
+// BATCH PROCESSING
+// =============================================================================
 
 export function uploadPositions(objects) {
     if (!positionView) return;
@@ -424,9 +661,14 @@ export function uploadAnimationData(animData) {
 }
 
 export function batchDistanceCull(cameraX, cameraY, cameraZ, maxDistance, objectCount) {
-    if (!wasmInstance) return { visibleCount: objectCount, flags: null };
     const maxDistSq = maxDistance * maxDistance;
-    const visibleCount = wasmInstance.exports.batchDistanceCull(cameraX, cameraY, cameraZ, maxDistSq, objectCount);
+    if (!wasmInstance) return { visibleCount: objectCount, flags: null };
+    if (objectCount > 5000) return { visibleCount: objectCount, flags: null };
+
+    const visibleCount = wasmInstance.exports.batchDistanceCull(
+        cameraX, cameraY, cameraZ, maxDistSq, objectCount
+    );
+
     return { visibleCount, flags: outputView.slice(0, objectCount) };
 }
 
@@ -455,19 +697,50 @@ export function readSpawnCandidates(candidateCount) {
 
 export function analyzeMaterials(materials) {
     if (!wasmInstance || !wasmInstance.exports.analyzeMaterials) {
+        const seen = new Map();
         const shaders = [];
-        const seen = new Set();
-        materials.forEach(mat => {
-            const key = `${mat.vertexShaderId}-${mat.fragmentShaderId}`;
-            if(!seen.has(key)) {
-                seen.add(key);
-                shaders.push({ vertexId: mat.vertexShaderId || 0, fragmentId: mat.fragmentShaderId || 0, blendMode: mat.blendingMode||0, flags: mat.flags||0 });
+        for (const mat of materials) {
+            const key = `${mat.vertexShaderId}-${mat.fragmentShaderId}-${mat.blendingMode}-${mat.flags || 0}`;
+            if (!seen.has(key)) {
+                seen.set(key, true);
+                shaders.push({
+                    vertexId: mat.vertexShaderId || 0,
+                    fragmentId: mat.fragmentShaderId || 0,
+                    blendMode: mat.blendingMode || 0,
+                    flags: mat.flags || 0
+                });
             }
-        });
+        }
         return { uniqueCount: shaders.length, shaders };
     }
-    // ... Wasm implementation omitted for brevity, fallback is fine ...
-    return { uniqueCount: 0, shaders: [] };
+
+    const count = Math.min(materials.length, 256);
+    const MATERIAL_OFFSET = 12288;
+    if (!wasmMemory) return { uniqueCount: 0, shaders: [] };
+
+    const materialView = new Int32Array(wasmMemory.buffer, MATERIAL_OFFSET, count * 4);
+    for (let i = 0; i < count; i++) {
+        const mat = materials[i];
+        const idx = i * 4;
+        materialView[idx] = mat.vertexShaderId || 0;
+        materialView[idx + 1] = mat.fragmentShaderId || 0;
+        materialView[idx + 2] = mat.blendingMode || 0;
+        materialView[idx + 3] = mat.flags || 0;
+    }
+
+    const uniqueCount = wasmInstance.exports.analyzeMaterials(MATERIAL_OFFSET, count);
+    const outputView = new Int32Array(wasmMemory.buffer, MATERIAL_OFFSET, Math.min(uniqueCount, 64) * 4);
+    const shaders = [];
+    for (let i = 0; i < Math.min(uniqueCount, 64); i++) {
+        const idx = i * 4;
+        shaders.push({
+            vertexId: outputView[idx],
+            fragmentId: outputView[idx + 1],
+            blendMode: outputView[idx + 2],
+            flags: outputView[idx + 3]
+        });
+    }
+    return { uniqueCount, shaders };
 }
 
 export function getUniqueShaderCount() {
@@ -483,7 +756,110 @@ export function batchAnimationCalc(time, intensity, kick, objectCount) {
     return outputView.slice(0, objectCount * 4);
 }
 
-// Result objects
+// =============================================================================
+// SINGLE ANIMATION HELPERS
+// =============================================================================
+//
+// These functions wrap WASM animation calculations with JavaScript fallbacks.
+// The pattern is: check if WASM export exists, call it if available, else use JS.
+//
+// IMPORTANT: We check for export existence using typeof to prevent runtime errors
+// when specific functions are missing from the WASM build.
+// =============================================================================
+
+/**
+ * Calculate vertical bounce offset for an object.
+ * Uses WASM if available, otherwise falls back to JavaScript.
+ * * @param {number} time - Current animation time
+ * @param {number} offset - Phase offset for desynchronization
+ * @param {number} intensity - Animation intensity multiplier
+ * @param {number} kick - Audio kick trigger value (0-1)
+ * @returns {number} Vertical offset value
+ */
+export function calcBounceY(time, offset, intensity, kick) {
+    // Check if WASM export exists before calling
+    if (wasmInstance && typeof wasmInstance.exports.calcBounceY === 'function') {
+        return wasmInstance.exports.calcBounceY(time, offset, intensity, kick);
+    }
+    // JavaScript fallback - identical algorithm to C++ implementation
+    const animTime = time + offset;
+    let yOffset = Math.sin(animTime * 3) * 0.1 * intensity;
+    if (kick > 0.1) yOffset += kick * 0.2;
+    return yOffset;
+}
+
+/**
+ * Calculate rotation Z sway for an object.
+ * Uses WASM if available, otherwise falls back to JavaScript.
+ * * @param {number} time - Current animation time
+ * @param {number} offset - Phase offset for desynchronization
+ * @param {number} intensity - Animation intensity multiplier
+ * @returns {number} Rotation Z value in radians
+ */
+export function calcSwayRotZ(time, offset, intensity) {
+    // Check if WASM export exists before calling
+    if (wasmInstance && typeof wasmInstance.exports.calcSwayRotZ === 'function') {
+        return wasmInstance.exports.calcSwayRotZ(time, offset, intensity);
+    }
+    // JavaScript fallback
+    return Math.sin(time + offset) * 0.1 * intensity;
+}
+
+/**
+ * Calculate wobble rotation (X and Z axes) for an object.
+ * Uses WASM if available, otherwise falls back to JavaScript.
+ * * @param {number} time - Current animation time
+ * @param {number} offset - Phase offset for desynchronization
+ * @param {number} intensity - Animation intensity multiplier
+ * @returns {{rotX: number, rotZ: number}} Rotation values in radians
+ */
+export function calcWobble(time, offset, intensity) {
+    // Check if all required WASM exports exist
+    if (wasmInstance &&
+        typeof wasmInstance.exports.calcWobble === 'function' &&
+        typeof wasmInstance.exports.getWobbleX === 'function' &&
+        typeof wasmInstance.exports.getWobbleZ === 'function') {
+        wasmInstance.exports.calcWobble(time, offset, intensity);
+        return {
+            rotX: wasmInstance.exports.getWobbleX(),
+            rotZ: wasmInstance.exports.getWobbleZ()
+        };
+    }
+    // JavaScript fallback
+    const animTime = time + offset;
+    return {
+        rotX: Math.sin(animTime * 3) * 0.15 * intensity,
+        rotZ: Math.cos(animTime * 3) * 0.15 * intensity
+    };
+}
+
+export function checkCollision(playerX, playerZ, playerRadius, objectCount) {
+    if (!wasmInstance) return false;
+    return wasmInstance.exports.checkCollision(playerX, playerZ, playerRadius, objectCount) === 1;
+}
+
+// =============================================================================
+// ADVANCED ANIMATION WRAPPERS
+// =============================================================================
+//
+// These functions implement the animation calculations that were migrated from
+// JavaScript to C++ for better performance. Each function:
+//
+// 1. Checks if the WASM export exists using typeof before calling
+// 2. Calls the WASM function if available
+// 3. Falls back to JavaScript implementation if WASM is unavailable
+//
+// The JavaScript fallbacks are identical to the C++ implementations to ensure
+// consistent behavior regardless of which implementation is used.
+//
+// ADDING NEW FUNCTIONS:
+// 1. Add the C++ implementation in emscripten/animation.cpp with EMSCRIPTEN_KEEPALIVE
+// 2. Add the export name to build.sh EXPORTS list
+// 3. Add a wrapper function here with JavaScript fallback
+// 4. Run: npm run build:emcc && node emscripten/verify_build.js
+// =============================================================================
+
+// Result objects for multi-return functions (reused to avoid allocation)
 let accordionResult = { stretchY: 1, widthXZ: 1 };
 let fiberResult = { baseRotY: 0, branchRotZ: 0 };
 let shiverResult = { rotX: 0, rotZ: 0 };
@@ -492,44 +868,24 @@ let prismResult = { unfurl: 0, spin: 0, pulse: 1, hue: 0 };
 let particleResult = { x: 0, y: 0, z: 0 };
 let arpeggioResult = { targetStep: 0, unfurlStep: 0 };
 
-export function calcBounceY(time, offset, intensity, kick) {
-    if (wasmInstance && typeof wasmInstance.exports.calcBounceY === 'function') {
-        return wasmInstance.exports.calcBounceY(time, offset, intensity, kick);
-    }
-    const animTime = time + offset;
-    let yOffset = Math.sin(animTime * 3) * 0.1 * intensity;
-    if (kick > 0.1) yOffset += kick * 0.2;
-    return yOffset;
-}
-
-export function calcSwayRotZ(time, offset, intensity) {
-    if (wasmInstance && typeof wasmInstance.exports.calcSwayRotZ === 'function') {
-        return wasmInstance.exports.calcSwayRotZ(time, offset, intensity);
-    }
-    return Math.sin(time + offset) * 0.1 * intensity;
-}
-
-export function calcWobble(time, offset, intensity) {
-    if (wasmInstance && typeof wasmInstance.exports.calcWobble === 'function') {
-        wasmInstance.exports.calcWobble(time, offset, intensity);
-        return {
-            rotX: wasmInstance.exports.getWobbleX(),
-            rotZ: wasmInstance.exports.getWobbleZ()
-        };
-    }
-    const animTime = time + offset;
-    return {
-        rotX: Math.sin(animTime * 3) * 0.15 * intensity,
-        rotZ: Math.cos(animTime * 3) * 0.15 * intensity
-    };
-}
-
+/**
+ * Calculate accordion stretch animation for instruments.
+ * @param {number} animTime - Current animation time
+ * @param {number} offset - Phase offset
+ * @param {number} intensity - Animation intensity
+ * @returns {{stretchY: number, widthXZ: number}} Stretch values
+ */
 export function calcAccordionStretch(animTime, offset, intensity) {
-    if (wasmInstance && typeof wasmInstance.exports.calcAccordionStretch === 'function') {
+    // Check if all required WASM exports exist
+    if (wasmInstance &&
+        typeof wasmInstance.exports.calcAccordionStretch === 'function' &&
+        typeof wasmInstance.exports.getAccordionStretchY === 'function' &&
+        typeof wasmInstance.exports.getAccordionWidthXZ === 'function') {
         wasmInstance.exports.calcAccordionStretch(animTime, offset, intensity);
         accordionResult.stretchY = wasmInstance.exports.getAccordionStretchY();
         accordionResult.widthXZ = wasmInstance.exports.getAccordionWidthXZ();
     } else {
+        // JavaScript fallback - matches C++ implementation in animation.cpp
         const rawStretch = Math.sin(animTime * 10.0 + offset);
         accordionResult.stretchY = 1.0 + Math.max(0, rawStretch) * 0.3 * intensity;
         accordionResult.widthXZ = 1.0 / Math.sqrt(accordionResult.stretchY);
@@ -537,25 +893,52 @@ export function calcAccordionStretch(animTime, offset, intensity) {
     return accordionResult;
 }
 
+/**
+ * Calculate fiber whip animation for fiber optic-style trees.
+ * This is a key animation function that was often missing from exports.
+ * * @param {number} time - Current animation time
+ * @param {number} offset - Phase offset for desynchronization
+ * @param {number} leadVol - Audio lead volume (0-1)
+ * @param {boolean} isActive - Whether audio is currently active
+ * @param {number} branchIndex - Index of the branch being animated
+ * @returns {{baseRotY: number, branchRotZ: number}} Rotation values in radians
+ */
 export function calcFiberWhip(time, offset, leadVol, isActive, branchIndex) {
-    if (wasmInstance && typeof wasmInstance.exports.calcFiberWhip === 'function') {
+    // Check if all required WASM exports exist before calling
+    if (wasmInstance &&
+        typeof wasmInstance.exports.calcFiberWhip === 'function' &&
+        typeof wasmInstance.exports.getFiberBaseRotY === 'function' &&
+        typeof wasmInstance.exports.getFiberBranchRotZ === 'function') {
         wasmInstance.exports.calcFiberWhip(time, offset, leadVol, isActive ? 1 : 0, branchIndex);
         fiberResult.baseRotY = wasmInstance.exports.getFiberBaseRotY();
         fiberResult.branchRotZ = wasmInstance.exports.getFiberBranchRotZ();
     } else {
+        // JavaScript fallback - matches C++ implementation in animation.cpp
         fiberResult.baseRotY = Math.sin(time * 0.5 + offset) * 0.1;
         const whip = leadVol * 2.0;
         const childOffset = branchIndex * 0.5;
         fiberResult.branchRotZ = Math.PI / 4 + Math.sin(time * 2.0 + childOffset) * 0.1;
-        if (isActive) fiberResult.branchRotZ += Math.sin(time * 10.0 + childOffset) * whip;
+        if (isActive) {
+            fiberResult.branchRotZ += Math.sin(time * 10.0 + childOffset) * whip;
+        }
     }
     return fiberResult;
 }
 
+/**
+ * Calculate hop Y offset for bouncing objects.
+ * @param {number} time - Current animation time
+ * @param {number} offset - Phase offset
+ * @param {number} intensity - Animation intensity
+ * @param {number} kick - Audio kick trigger (0-1)
+ * @returns {number} Vertical offset
+ */
 export function calcHopY(time, offset, intensity, kick) {
+    // Check if WASM export exists
     if (wasmInstance && typeof wasmInstance.exports.calcHopY === 'function') {
         return wasmInstance.exports.calcHopY(time, offset, intensity, kick);
     }
+    // JavaScript fallback
     const animTime = time + offset;
     const hopVal = Math.sin(animTime * 4.0);
     let bounce = Math.max(0, hopVal) * 0.3 * intensity;
@@ -563,12 +946,24 @@ export function calcHopY(time, offset, intensity, kick) {
     return bounce;
 }
 
+/**
+ * Calculate shiver animation for small rapid movements.
+ * @param {number} time - Current animation time
+ * @param {number} offset - Phase offset
+ * @param {number} intensity - Animation intensity
+ * @returns {{rotX: number, rotZ: number}} Rotation values
+ */
 export function calcShiver(time, offset, intensity) {
-    if (wasmInstance && typeof wasmInstance.exports.calcShiver === 'function') {
+    // Check if all required WASM exports exist
+    if (wasmInstance &&
+        typeof wasmInstance.exports.calcShiver === 'function' &&
+        typeof wasmInstance.exports.getShiverRotX === 'function' &&
+        typeof wasmInstance.exports.getShiverRotZ === 'function') {
         wasmInstance.exports.calcShiver(time, offset, intensity);
         shiverResult.rotX = wasmInstance.exports.getShiverRotX();
         shiverResult.rotZ = wasmInstance.exports.getShiverRotZ();
     } else {
+        // JavaScript fallback
         const animTime = time + offset;
         shiverResult.rotX = Math.sin(animTime * 20.0) * 0.02 * intensity;
         shiverResult.rotZ = Math.cos(animTime * 20.0) * 0.02 * intensity;
@@ -576,13 +971,27 @@ export function calcShiver(time, offset, intensity) {
     return shiverResult;
 }
 
+/**
+ * Calculate spiral wave animation for rotating objects.
+ * @param {number} time - Current animation time
+ * @param {number} offset - Phase offset
+ * @param {number} intensity - Animation intensity
+ * @param {number} groove - Audio groove value
+ * @returns {{rotY: number, yOffset: number, scale: number}} Animation values
+ */
 export function calcSpiralWave(time, offset, intensity, groove) {
-    if (wasmInstance && typeof wasmInstance.exports.calcSpiralWave === 'function') {
+    // Check if all required WASM exports exist
+    if (wasmInstance &&
+        typeof wasmInstance.exports.calcSpiralWave === 'function' &&
+        typeof wasmInstance.exports.getSpiralRotY === 'function' &&
+        typeof wasmInstance.exports.getSpiralYOffset === 'function' &&
+        typeof wasmInstance.exports.getSpiralScale === 'function') {
         wasmInstance.exports.calcSpiralWave(time, offset, intensity, groove);
         spiralResult.rotY = wasmInstance.exports.getSpiralRotY();
         spiralResult.yOffset = wasmInstance.exports.getSpiralYOffset();
         spiralResult.scale = wasmInstance.exports.getSpiralScale();
     } else {
+        // JavaScript fallback
         const animTime = time + offset;
         spiralResult.rotY = Math.sin(animTime * 2.0) * 0.2 * intensity;
         spiralResult.yOffset = Math.sin(animTime * 3.0) * 0.1 * (1.0 + groove);
@@ -591,14 +1000,30 @@ export function calcSpiralWave(time, offset, intensity, groove) {
     return spiralResult;
 }
 
+/**
+ * Calculate prism rose animation for color-shifting effects.
+ * @param {number} time - Current animation time
+ * @param {number} offset - Phase offset
+ * @param {number} kick - Audio kick trigger
+ * @param {number} groove - Audio groove value
+ * @param {boolean} isActive - Whether audio is active
+ * @returns {{unfurl: number, spin: number, pulse: number, hue: number}} Animation values
+ */
 export function calcPrismRose(time, offset, kick, groove, isActive) {
-    if (wasmInstance && typeof wasmInstance.exports.calcPrismRose === 'function') {
+    // Check if all required WASM exports exist
+    if (wasmInstance &&
+        typeof wasmInstance.exports.calcPrismRose === 'function' &&
+        typeof wasmInstance.exports.getPrismUnfurl === 'function' &&
+        typeof wasmInstance.exports.getPrismSpin === 'function' &&
+        typeof wasmInstance.exports.getPrismPulse === 'function' &&
+        typeof wasmInstance.exports.getPrismHue === 'function') {
         wasmInstance.exports.calcPrismRose(time, offset, kick, groove, isActive ? 1 : 0);
         prismResult.unfurl = wasmInstance.exports.getPrismUnfurl();
         prismResult.spin = wasmInstance.exports.getPrismSpin();
         prismResult.pulse = wasmInstance.exports.getPrismPulse();
         prismResult.hue = wasmInstance.exports.getPrismHue();
     } else {
+        // JavaScript fallback
         const animTime = time + offset;
         const intensity = isActive ? (1.0 + groove * 3.0) : 0.3;
         prismResult.unfurl = Math.sin(animTime * 2.0) * 0.1 * intensity;
@@ -609,32 +1034,69 @@ export function calcPrismRose(time, offset, kick, groove, isActive) {
     return prismResult;
 }
 
+/**
+ * Calculate arpeggio step for musical animation.
+ * Uses a three-tier fallback: Native C++ -> AssemblyScript -> JavaScript
+ * * @param {number} currentUnfurl - Current unfurl value
+ * @param {number} currentTarget - Current target step
+ * @param {boolean} lastTrigger - Previous trigger state
+ * @param {boolean} arpeggioActive - Whether arpeggio is active
+ * @param {boolean} noteTrigger - Current note trigger
+ * @param {number} maxSteps - Maximum number of steps
+ * @returns {{targetStep: number, unfurlStep: number}} Arpeggio values
+ */
 export function calcArpeggioStep(currentUnfurl, currentTarget, lastTrigger, arpeggioActive, noteTrigger, maxSteps) {
+    // 1. Try Native C++ (fastest) - uses getNativeFunc which handles null checks
     const calcFn = getNativeFunc('calcArpeggioStep_c');
     if (calcFn) {
         calcFn(currentUnfurl, currentTarget, lastTrigger ? 1 : 0, arpeggioActive ? 1 : 0, noteTrigger ? 1 : 0, maxSteps);
-        arpeggioResult.targetStep = getNativeFunc('getArpeggioTargetStep_c')();
-        arpeggioResult.unfurlStep = getNativeFunc('getArpeggioUnfurlStep_c')();
-        return arpeggioResult;
+        const getTarget = getNativeFunc('getArpeggioTargetStep_c');
+        const getUnfurl = getNativeFunc('getArpeggioUnfurlStep_c');
+        if (getTarget && getUnfurl) {
+            arpeggioResult.targetStep = getTarget();
+            arpeggioResult.unfurlStep = getUnfurl();
+            return arpeggioResult;
+        }
     }
-    if (wasmInstance && typeof wasmInstance.exports.calcArpeggioStep === 'function') {
+
+    // 2. Try AssemblyScript - check for export existence
+    if (wasmInstance &&
+        typeof wasmInstance.exports.calcArpeggioStep === 'function' &&
+        typeof wasmInstance.exports.getArpeggioTargetStep === 'function' &&
+        typeof wasmInstance.exports.getArpeggioUnfurlStep === 'function') {
         wasmInstance.exports.calcArpeggioStep(currentUnfurl, currentTarget, lastTrigger ? 1 : 0, arpeggioActive ? 1 : 0, noteTrigger ? 1 : 0, maxSteps);
         arpeggioResult.targetStep = wasmInstance.exports.getArpeggioTargetStep();
         arpeggioResult.unfurlStep = wasmInstance.exports.getArpeggioUnfurlStep();
         return arpeggioResult;
     }
+
+    // 3. JavaScript Fallback - identical algorithm
     let nextTarget = currentTarget;
-    if (arpeggioActive && noteTrigger && !lastTrigger) nextTarget = Math.min(maxSteps, nextTarget + 1);
-    else if (!arpeggioActive) nextTarget = 0;
+    if (arpeggioActive) {
+        if (noteTrigger && !lastTrigger) {
+            nextTarget = Math.min(maxSteps, nextTarget + 1);
+        }
+    } else {
+        nextTarget = 0;
+    }
     const speed = (nextTarget > currentUnfurl) ? 0.3 : 0.05;
     const nextUnfurl = currentUnfurl + (nextTarget - currentUnfurl) * speed;
     return { targetStep: nextTarget, unfurlStep: nextUnfurl };
 }
 
+/**
+ * Linearly interpolate between two colors.
+ * @param {number} color1 - First color (0xRRGGBB)
+ * @param {number} color2 - Second color (0xRRGGBB)
+ * @param {number} t - Interpolation factor (0-1)
+ * @returns {number} Interpolated color
+ */
 export function lerpColor(color1, color2, t) {
+    // Check for WASM export
     if (wasmInstance && typeof wasmInstance.exports.lerpColor === 'function') {
         return wasmInstance.exports.lerpColor(color1, color2, t);
     }
+    // JavaScript fallback
     const r1 = (color1 >> 16) & 0xFF, g1 = (color1 >> 8) & 0xFF, b1 = color1 & 0xFF;
     const r2 = (color2 >> 16) & 0xFF, g2 = (color2 >> 8) & 0xFF, b2 = color2 & 0xFF;
     const r = Math.round(r1 + (r2 - r1) * t);
@@ -643,22 +1105,48 @@ export function lerpColor(color1, color2, t) {
     return (r << 16) | (g << 8) | b;
 }
 
+/**
+ * Calculate rain drop Y position with cycling.
+ * @param {number} startY - Starting Y position
+ * @param {number} time - Current time
+ * @param {number} speed - Fall speed
+ * @param {number} cycleHeight - Height before cycling
+ * @returns {number} Current Y position
+ */
 export function calcRainDropY(startY, time, speed, cycleHeight) {
+    // Check for WASM export
     if (wasmInstance && typeof wasmInstance.exports.calcRainDropY === 'function') {
         return wasmInstance.exports.calcRainDropY(startY, time, speed, cycleHeight);
     }
+    // JavaScript fallback
     const totalDrop = time * speed;
     const cycled = totalDrop % cycleHeight;
     return startY - cycled;
 }
 
+/**
+ * Calculate floating particle position.
+ * @param {number} baseX - Base X position
+ * @param {number} baseY - Base Y position
+ * @param {number} baseZ - Base Z position
+ * @param {number} time - Current time
+ * @param {number} offset - Phase offset
+ * @param {number} amplitude - Movement amplitude
+ * @returns {{x: number, y: number, z: number}} Particle position
+ */
 export function calcFloatingParticle(baseX, baseY, baseZ, time, offset, amplitude) {
-    if (wasmInstance && typeof wasmInstance.exports.calcFloatingParticle === 'function') {
+    // Check for all required WASM exports
+    if (wasmInstance &&
+        typeof wasmInstance.exports.calcFloatingParticle === 'function' &&
+        typeof wasmInstance.exports.getParticleX === 'function' &&
+        typeof wasmInstance.exports.getParticleY === 'function' &&
+        typeof wasmInstance.exports.getParticleZ === 'function') {
         wasmInstance.exports.calcFloatingParticle(baseX, baseY, baseZ, time, offset, amplitude);
         particleResult.x = wasmInstance.exports.getParticleX();
         particleResult.y = wasmInstance.exports.getParticleY();
         particleResult.z = wasmInstance.exports.getParticleZ();
     } else {
+        // JavaScript fallback
         const t = time + offset;
         particleResult.x = baseX + Math.sin(t * 0.5) * amplitude;
         particleResult.y = baseY + Math.sin(t * 0.7) * amplitude * 0.5;
@@ -667,20 +1155,32 @@ export function calcFloatingParticle(baseX, baseY, baseZ, time, offset, amplitud
     return particleResult;
 }
 
+/**
+ * Calculate speaker pulse animation.
+ * @param {number} time - Current time
+ * @param {number} kick - Audio kick value
+ * @param {number} intensity - Animation intensity
+ * @returns {number} Scale value
+ */
 export function calcSpeakerPulse(time, kick, intensity) {
+    // Try native C++ wrapper first
     const f = getNativeFunc('calcSpeakerPulse');
     if (f) {
         f(time, kick, intensity);
         const getScale = getNativeFunc('getSpeakerScale');
-        if (getScale) return getScale();
+        if (getScale) {
+            return getScale();
+        }
     }
+
+    // JavaScript Fallback
     const pulse = kick * 0.4 * intensity;
     const breathe = Math.sin(time * 2.0) * 0.05;
     return 1.0 + pulse + breathe;
 }
 
 // =============================================================================
-// NATIVE WRAPPERS
+// NATIVE C++ WRAPPERS
 // =============================================================================
 
 export function updatePhysicsCPP(delta, inputX, inputZ, speed, jump, sprint, sneak, grooveGravity) {
