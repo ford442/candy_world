@@ -149,3 +149,71 @@ async function loadEmscriptenModule(forceSingleThreaded = false) {
         return false;
     }
 }
+
+/**
+ * Calculate arpeggio step for musical animation.
+ * Uses a three-tier fallback: Native C++ -> AssemblyScript -> JavaScript
+ * @param {number} currentUnfurl - Current unfurl value
+ * @param {number} currentTarget - Current target step
+ * @param {boolean} lastTrigger - Previous trigger state
+ * @param {boolean} arpeggioActive - Whether arpeggio is active
+ * @param {boolean} noteTrigger - Current note trigger
+ * @param {number} maxSteps - Maximum number of steps
+ * @returns {{targetStep: number, unfurlStep: number}} Arpeggio values
+ */
+export function calcArpeggioStep(currentUnfurl, currentTarget, lastTrigger, arpeggioActive, noteTrigger, maxSteps) {
+    const arpeggioResult = { targetStep: 0, unfurlStep: 0 };
+
+    // 1. Try Native C++ (fastest)
+    try {
+        const getNative = (name) => {
+            if (typeof emscriptenInstance !== 'undefined' && emscriptenInstance) {
+                return emscriptenInstance['_' + name] || null;
+            }
+            return null;
+        };
+
+        const calcFn = getNative('calcArpeggioStep_c');
+        if (calcFn) {
+            calcFn(currentUnfurl, currentTarget, lastTrigger ? 1 : 0, arpeggioActive ? 1 : 0, noteTrigger ? 1 : 0, maxSteps);
+            const getTarget = getNative('getArpeggioTargetStep_c');
+            const getUnfurl = getNative('getArpeggioUnfurlStep_c');
+            if (getTarget && getUnfurl) {
+                arpeggioResult.targetStep = getTarget();
+                arpeggioResult.unfurlStep = getUnfurl();
+                return arpeggioResult;
+            }
+        }
+    } catch (e) {
+        console.warn('[WASM] Native arpeggio failed:', e);
+    }
+
+    // 2. Try AssemblyScript
+    try {
+        const assembly = (typeof wasmInstance !== 'undefined' && wasmInstance) ? wasmInstance : (typeof getWasmInstance === 'function' ? getWasmInstance() : null);
+        if (assembly && assembly.exports &&
+            typeof assembly.exports.calcArpeggioStep === 'function' &&
+            typeof assembly.exports.getArpeggioTargetStep === 'function' &&
+            typeof assembly.exports.getArpeggioUnfurlStep === 'function') {
+            assembly.exports.calcArpeggioStep(currentUnfurl, currentTarget, lastTrigger ? 1 : 0, arpeggioActive ? 1 : 0, noteTrigger ? 1 : 0, maxSteps);
+            arpeggioResult.targetStep = assembly.exports.getArpeggioTargetStep();
+            arpeggioResult.unfurlStep = assembly.exports.getArpeggioUnfurlStep();
+            return arpeggioResult;
+        }
+    } catch (e) {
+        console.warn('[WASM] AssemblyScript arpeggio failed:', e);
+    }
+
+    // 3. JavaScript fallback - identical algorithm
+    let nextTarget = currentTarget;
+    if (arpeggioActive) {
+        if (noteTrigger && !lastTrigger) {
+            nextTarget = Math.min(maxSteps, nextTarget + 1);
+        }
+    } else {
+        nextTarget = 0;
+    }
+    const speed = (nextTarget > currentUnfurl) ? 0.3 : 0.05;
+    const nextUnfurl = currentUnfurl + (nextTarget - currentUnfurl) * speed;
+    return { targetStep: nextTarget, unfurlStep: nextUnfurl };
+}
