@@ -102,14 +102,6 @@ async function loadEmscriptenModule(forceSingleThreaded = false) {
     // 3. We attempt to load 'candy_native.wasm' (threaded).
     // 4. If that fails (file missing, instantiation error, worker error), we recursively call loadEmscriptenModule(true).
 
-    // CRITICAL FIX: Always use window.WebAssembly for Emscripten modules.
-    // Emscripten's glue code (candy_native.js) uses the global window.WebAssembly to create
-    // the Memory object. We MUST use the same WebAssembly implementation to instantiate
-    // the module, otherwise we get a LinkError ("memory import must be a WebAssembly.Memory object")
-    // if window.NativeWebAssembly is different from window.WebAssembly.
-    const WA = window.WebAssembly;
-    
-    // 1. Check for SharedArrayBuffer (required for threads)
     const canUseThreads = typeof SharedArrayBuffer !== 'undefined' && !forceSingleThreaded;
 
     try {
@@ -160,10 +152,10 @@ async function loadEmscriptenModule(forceSingleThreaded = false) {
             await updateProgress('Initializing Physics (ST)...');
         }
 
-        // Apply aliases
+        // Apply aliases (patches NativeWA if available)
         const restore = patchWasmInstantiateAliases();
 
-        // Manual binary fetch
+        // MANUAL FETCH: Pre-fetch binary
         let wasmBinary = null;
         try {
              const resp = await fetch(resolvedWasmPath);
@@ -174,6 +166,20 @@ async function loadEmscriptenModule(forceSingleThreaded = false) {
              }
         } catch(e) {
             console.warn("[WASM] Failed to pre-fetch binary:", e);
+        }
+
+        // POLYFILL BYPASS: 
+        // If the environment has a NativeWebAssembly object that differs from window.WebAssembly (polyfill),
+        // we MUST swap it in. This ensures Emscripten creates a valid native Memory object and
+        // that the Module we compile is a real WebAssembly.Module, transferable to the Worker.
+        const originalWA = window.WebAssembly;
+        const nativeWA = window.NativeWebAssembly;
+        let swapped = false;
+
+        if (nativeWA && nativeWA !== originalWA) {
+            console.log('[WASM] Swapping to Native WebAssembly for Emscripten init');
+            window.WebAssembly = nativeWA;
+            swapped = true;
         }
 
         try {
@@ -187,8 +193,6 @@ async function loadEmscriptenModule(forceSingleThreaded = false) {
                 printErr: (text) => console.warn('[Native Err]', text),
                 
                 // IMPORTANT: Do NOT set wasmBinary in config. 
-                // Providing it alongside instantiateWasm can cause the "Argument 0 must be a Module" error.
-                
                 // Bypass internal instantiation logic completely
                 instantiateWasm: (imports, successCallback) => {
                     console.log('[Native] Manual instantiation hook triggered');
@@ -205,24 +209,26 @@ async function loadEmscriptenModule(forceSingleThreaded = false) {
                                 bytes = await response.arrayBuffer();
                             }
 
-                            // FIX: Use instantiate directly instead of compile + instantiate.
-                            // Some polyfills or environments might not implement WA.compile(),
-                            // but WA.instantiate(bytes) is universally supported.
+                            // Use the CURRENT global WebAssembly (which should be Native if swapped)
+                            const WA = window.WebAssembly;
+
+                            // We use instantiate() directly instead of compile() + instantiate().
+                            // This works around missing compile() in some polyfills and ensures 
+                            // we get a valid Module/Instance pair from the native implementation.
                             const result = await WA.instantiate(bytes, imports);
                             
                             console.log('[Native] Manual instantiation success');
                             
-                            // Handle both return signatures of instantiate
-                            if (result.instance) {
-                                successCallback(result.instance, result.module);
-                            } else {
-                                // Old WebAssembly spec or some polyfills return instance directly
-                                // although explicit window.WebAssembly should return {instance, module}
-                                successCallback(result, null);
-                            }
+                            // Standardize result
+                            const instance = result.instance || result;
+                            const module = result.module || null; // Some polyfills might not return module
+
+                            // We must pass a valid Module object if Pthreads are used, 
+                            // so the worker can receive it.
+                            successCallback(instance, module);
+
                         } catch (e) {
                             console.error('[Native] Manual instantiation failed:', e);
-                            // We can't easily reject the outer promise from here, but logging helps.
                         }
                     };
 
@@ -231,19 +237,26 @@ async function loadEmscriptenModule(forceSingleThreaded = false) {
                 }
             };
 
+            // Initialize Emscripten (will use Native WA for Memory creation)
             emscriptenInstance = await createCandyNative(config);
 
             console.log(`[WASM] Emscripten ${isThreaded ? 'Pthreads' : 'Single-Threaded'} Ready`);
         } catch (e) {
             console.warn('[WASM] Instantiation failed:', e);
-            restore();
-            // If threaded failed, try ST
+            
+            // If threaded failed, try ST (recursive call will handle clean up/restore via finally)
             if (isThreaded) {
                 console.log('[WASM] Falling back to Single-Threaded build...');
-                return loadEmscriptenModule(true);
+                // We must restore before recursing, which finally block does
+                return loadEmscriptenModule(true); 
             }
             return false;
         } finally {
+            // Restore original environment
+            if (swapped) {
+                window.WebAssembly = originalWA;
+                console.log('[WASM] Restored original WebAssembly');
+            }
             restore();
         }
 
