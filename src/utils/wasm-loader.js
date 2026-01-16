@@ -1,8 +1,6 @@
 /**
  * @file wasm-loader.js
  * @brief WASM Module Loader with Graceful JavaScript Fallbacks
- * * This module provides a robust interface for loading and using WebAssembly
- * modules in Candy World. It implements a multi-tier fallback system.
  */
 
 import { 
@@ -18,24 +16,6 @@ import { showToast } from './toast.js';
 
 let wasmInstance = null;
 let wasmMemory = null;
-let positionView = null;   // Float32Array for object positions
-let animationView = null;  // Float32Array for animation data
-let outputView = null;     // Float32Array for reading results
-let playerStateView = null; // Float32Array for player physics state
-
-// Cached WASM function references
-let wasmGetGroundHeight = null;
-let wasmFreqToHue = null;
-let wasmLerp = null;
-let wasmBatchMushroomSpawnCandidates = null;
-let wasmUpdateFoliageBatch = null;
-
-// New Physics exports
-let wasmInitCollisionSystem = null;
-let wasmAddCollisionObject = null;
-let wasmResolveGameCollisions = null;
-
-// Emscripten module (native C functions)
 let emscriptenInstance = null;
 let emscriptenMemory = null;
 
@@ -45,25 +25,33 @@ const ANIMATION_OFFSET = 4096;
 const OUTPUT_OFFSET = 8192;
 const PLAYER_STATE_OFFSET = 16384;
 
-// Animation type constants
-export const AnimationType = {
-    BOUNCE: 1,
-    SWAY: 2,
-    WOBBLE: 3,
-    HOP: 4
-};
+// Memory Configuration (Must match build.sh)
+const INITIAL_MEMORY_PAGES = 4096; // 256MB (256 * 1024 * 1024 / 65536)
+const MAX_MEMORY_PAGES = 65536;    // 4GB (required for shared memory growth)
+
+// --- Views ---
+let positionView = null;
+let animationView = null;
+let outputView = null;
+let playerStateView = null;
+
+// --- Cached Functions ---
+let wasmGetGroundHeight = null;
+let wasmFreqToHue = null;
+let wasmLerp = null;
+let wasmBatchMushroomSpawnCandidates = null;
+let wasmUpdateFoliageBatch = null;
+let wasmInitCollisionSystem = null;
+let wasmAddCollisionObject = null;
+let wasmResolveGameCollisions = null;
+
+export const AnimationType = { BOUNCE: 1, SWAY: 2, WOBBLE: 3, HOP: 4 };
 
 // =============================================================================
-// UPDATED: Load Emscripten Module (Pthreads/Worker Version)
+// LOADER LOGIC
 // =============================================================================
 
 async function loadEmscriptenModule(forceSingleThreaded = false) {
-    // SINGLE-THREADED FALLBACK STRATEGY:
-    // 1. If SharedArrayBuffer is missing, forcing ST.
-    // 2. If forceSingleThreaded=true is passed (recursive fallback), use ST.
-    // 3. We attempt to load 'candy_native.wasm' (threaded).
-    // 4. If that fails (file missing, instantiation error, worker error), we recursively call loadEmscriptenModule(true).
-
     const canUseThreads = typeof SharedArrayBuffer !== 'undefined' && !forceSingleThreaded;
 
     try {
@@ -74,79 +62,113 @@ async function loadEmscriptenModule(forceSingleThreaded = false) {
         let isThreaded = true;
 
         if (!canUseThreads) {
-            console.warn('[Native] Using Single-Threaded Fallback (No SharedArrayBuffer or forced ST)');
+            console.warn('[Native] Using Single-Threaded Fallback');
             wasmFilename = 'candy_native_st.wasm';
             jsFilename = 'candy_native_st.js';
             isThreaded = false;
         }
 
-        // Check if WASM file exists
+        // 1. Resolve Path
         const wasmCheck = await checkWasmFileExists(wasmFilename);
         if (!wasmCheck.exists) {
-            console.log(`[WASM] ${wasmFilename} not found. Using JS fallback.`);
+            console.log(`[WASM] ${wasmFilename} not found.`);
             if (isThreaded) return loadEmscriptenModule(true);
             return false;
         }
 
-        const locatePrefix = wasmCheck.path || '';
-        const cleanPrefix = locatePrefix.endsWith('/') ? locatePrefix : (locatePrefix ? `${locatePrefix}/` : '');
+        const prefix = wasmCheck.path || '';
+        const cleanPrefix = prefix.endsWith('/') ? prefix : (prefix ? `${prefix}/` : '');
         const resolvedWasmPath = `${cleanPrefix}${wasmFilename}`;
         const resolvedJsPath = jsFilename.includes('://') ? jsFilename : `${cleanPrefix}${jsFilename}`;
 
-        // Load the JS factory
+        // 2. Load JS Factory
         let createCandyNative;
         try {
+            // Adding date to bypass cache if needed
             const module = await import(/* @vite-ignore */ `${resolvedJsPath}?v=${Date.now()}`);
             createCandyNative = module.default;
         } catch (e) {
-            console.log(`[WASM] ${jsFilename} not found. Fallback?`, e);
+            console.log(`[WASM] Failed to import ${resolvedJsPath}`, e);
             if (isThreaded) return loadEmscriptenModule(true);
             return false;
         }
 
+        if (isThreaded) await updateProgress('Spawning Physics Workers...');
+        else await updateProgress('Initializing Physics (ST)...');
+
+        // Prepare Shared Memory for pthreads builds to avoid LinkError
+        let customMemory = null;
         if (isThreaded) {
-            await updateProgress('Spawning Physics Workers...');
-        } else {
-            await updateProgress('Initializing Physics (ST)...');
+            try {
+                customMemory = new WebAssembly.Memory({
+                    initial: INITIAL_MEMORY_PAGES,
+                    maximum: MAX_MEMORY_PAGES,
+                    shared: true
+                });
+                console.log('[Native] Created Shared Memory manually.');
+            } catch (e) {
+                console.warn('[Native] Failed to create Shared Memory. Falling back to ST.', e);
+                return loadEmscriptenModule(true);
+            }
         }
 
         const restore = patchWasmInstantiateAliases();
         let wasmBinary = null;
+
+        // 3. Pre-fetch Binary
         try {
              const resp = await fetch(resolvedWasmPath);
-             if (resp.ok) {
-                 wasmBinary = await resp.arrayBuffer();
-             }
+             if (resp.ok) wasmBinary = await resp.arrayBuffer();
         } catch(e) {
             console.warn("[WASM] Failed to pre-fetch binary:", e);
         }
 
+        // 4. Instantiate
         try {
             const config = {
-                locateFile: (path, prefix) => {
+                // Provide the explicit memory object for threaded builds
+                wasmMemory: customMemory,
+
+                locateFile: (path) => {
                     if (path.endsWith('.wasm')) return resolvedWasmPath;
                     return prefix + path;
                 },
                 print: (text) => console.log('[Native]', text),
                 printErr: (text) => console.warn('[Native Err]', text),
                 
-                // IMPORTANT: Manual instantiation hook to fix "Argument 0" TypeError
+                // IMPORTANT: Manual instantiation hook
+                // Using standard WebAssembly.instantiate(bytes, imports) handles
+                // both compilation and instantiation, avoiding "compile is not a function"
                 instantiateWasm: (imports, successCallback) => {
-                    console.log('[Native] Manual instantiation hook triggered');
                     const run = async () => {
                         try {
                             let bytes = wasmBinary;
                             if (!bytes) {
-                                const response = await fetch(resolvedWasmPath);
-                                if (!response.ok) throw new Error(`Fetch failed: ${response.status}`);
-                                bytes = await response.arrayBuffer();
+                                const r = await fetch(resolvedWasmPath);
+                                if (!r.ok) throw new Error(r.statusText);
+                                bytes = await r.arrayBuffer();
                             }
-                            // Explicit compile + instantiate to ensure valid Module object
-                            const module = await WebAssembly.compile(bytes);
-                            const instance = await WebAssembly.instantiate(module, imports);
-                            successCallback(instance, module);
+                            
+                            const WA = window.NativeWebAssembly || WebAssembly;
+
+                            // CRITICAL: Forcefully ensure imports.env.memory is the correct shared memory object
+                            if (isThreaded && customMemory) {
+                                if (!imports.env) imports.env = {};
+                                console.log('[Native] ENFORCING SHARED MEMORY IN IMPORTS'); // Debug Log
+                                // Overwrite any placeholder memory with our Shared WebAssembly.Memory
+                                imports.env.memory = customMemory;
+                            }
+
+                            // Instantiate directly with bytes (handles compile+instantiate)
+                            const result = await WA.instantiate(bytes, imports);
+                            successCallback(result.instance, result.module);
+                            
                         } catch (e) {
                             console.error('[Native] Manual instantiation failed:', e);
+                            if (isThreaded) {
+                                console.warn('[Native] Retrying with ST fallback...');
+                                loadEmscriptenModule(true).then(() => {});
+                            }
                         }
                     };
                     run();
@@ -160,20 +182,14 @@ async function loadEmscriptenModule(forceSingleThreaded = false) {
         } catch (e) {
             console.warn('[WASM] Instantiation failed:', e);
             restore();
-            if (isThreaded) {
-                console.log('[WASM] Falling back to Single-Threaded build...');
-                return loadEmscriptenModule(true);
-            }
+            if (isThreaded) return loadEmscriptenModule(true);
             return false;
         } finally {
             restore();
         }
 
-        if (emscriptenInstance.wasmMemory) {
-            emscriptenMemory = emscriptenInstance.wasmMemory;
-        } else if (emscriptenInstance.HEAP8) {
-            emscriptenMemory = emscriptenInstance.HEAP8.buffer;
-        }
+        if (emscriptenInstance.wasmMemory) emscriptenMemory = emscriptenInstance.wasmMemory;
+        else if (emscriptenInstance.HEAP8) emscriptenMemory = emscriptenInstance.HEAP8.buffer;
 
         return true;
     } catch (e) {
@@ -184,13 +200,9 @@ async function loadEmscriptenModule(forceSingleThreaded = false) {
 
 function getNativeFunc(name) {
     if (!emscriptenInstance) return null;
-    const underscoreName = '_' + name;
-    if (typeof emscriptenInstance[underscoreName] === 'function') {
-        return emscriptenInstance[underscoreName];
-    }
-    if (typeof emscriptenInstance[name] === 'function') {
-        return emscriptenInstance[name];
-    }
+    const uName = '_' + name;
+    if (typeof emscriptenInstance[uName] === 'function') return emscriptenInstance[uName];
+    if (typeof emscriptenInstance[name] === 'function') return emscriptenInstance[name];
     return null;
 }
 
