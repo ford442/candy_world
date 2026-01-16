@@ -50,7 +50,6 @@ export class InteractionSystem {
 
                 // ⚡ OPTIMIZATION: Calculate distance once per object
                 // We use standard distanceTo for strict parity with legacy logic.
-                // (distanceToSquared is faster but requires squaring the radius)
                 const dist = playerPosition.distanceTo(obj.position);
 
                 if (dist < this.proximityRadius) {
@@ -63,8 +62,6 @@ export class InteractionSystem {
         for (const obj of nextNearby) {
             if (!prevNearby.has(obj)) {
                  if (obj.userData?.onProximityEnter) {
-                     // Re-calculate distance or pass 0? Legacy code passed distance.
-                     // Since we didn't store it, we re-calc. This only happens on ENTER (rare event), so it's fine.
                      try { obj.userData.onProximityEnter(playerPosition.distanceTo(obj.position)); } catch(e) { console.warn('Proximity Enter Error:', e); }
                  }
             }
@@ -87,7 +84,10 @@ export class InteractionSystem {
         // Populate scratch array from the Set
         this._candidatesScratch.length = 0;
         for (const obj of this.nearbyObjects) {
-            this._candidatesScratch.push(obj);
+            // Extra Safety: Ensure root object is valid before raycasting
+            if (obj && obj.visible !== false) {
+                this._candidatesScratch.push(obj);
+            }
         }
 
         const candidates = this._candidatesScratch;
@@ -97,9 +97,11 @@ export class InteractionSystem {
             this._scratchVec2.set(0, 0);
             this.raycaster.setFromCamera(this._scratchVec2, this.camera);
 
+            // CRITICAL: Wrap raycast in try/catch to handle malformed geometry.
+            // When using recursive=true, Raycaster visits all children.
+            // If any child is a Mesh with undefined geometry (e.g., loading state),
+            // accessing 'boundingSphere' will throw a TypeError.
             try {
-                // Recursive raycast can crash on malformed geometry.
-                // We wrap it to prevent game loop termination.
                 const intersects = this.raycaster.intersectObjects(candidates, true);
 
                 if (intersects.length > 0) {
@@ -126,8 +128,13 @@ export class InteractionSystem {
                     }
                 }
             } catch (err) {
-                // Suppress specific Raycaster errors to keep game running
-                if (Math.random() < 0.01) console.warn("Interaction Raycast Warning:", err);
+                // Suppress "boundingSphere of undefined" errors caused by uninitialized meshes
+                // This keeps the game loop running even if one object is glitches.
+                if (err instanceof TypeError && err.message.includes('boundingSphere')) {
+                    // Known safe error, ignore
+                } else {
+                    if (Math.random() < 0.01) console.warn("Interaction Raycast Warning:", err);
+                }
             }
         }
 
