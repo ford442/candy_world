@@ -10,13 +10,16 @@
 
 ## Next Steps
 
-1. **Migrate to TypeScript**: Begin Phase 1 of the migration roadmap to harden the codebase before adding more complex systems.
-2. **Plants Twilight Glow**: Implement logic for plants to glow during twilight hours (pre-dawn/dusk) as described in `plan-moon-music-reactivity.md`.
+1. **Migrate Systems (Phase 1)**: Continue migrating key systems to TypeScript (e.g., `src/systems/physics.js` or `src/world/state.js`) to improve type safety.
 
 ---
 
 ## Recent Progress
 - **Accomplished:**
+  - **Migrate Core Data Structures (Phase 1)**: **Status: Implemented ✅**
+    - *Implementation Details:* Converted `src/core/config.js` to `src/core/config.ts` and defined comprehensive TypeScript interfaces (`ConfigType`, `PaletteEntry`) for configuration objects. Updated all import references to use standard module resolution.
+  - **Plants Twilight Glow**: **Status: Implemented ✅**
+    - *Implementation Details:* Implemented `uTwilight` global uniform in `src/foliage/sky.js` driven by `WeatherSystem`. Updated TSL materials for Flowers, Mushrooms, and Fiber Optic Trees to accept this uniform and boost emissive intensity during twilight hours.
   - **Verify Data Flow**: **Status: Implemented ✅**
     - *Implementation Details:* Fixed `public/js/audio-processor.js` to correctly send `order` and `row` data from the audio worklet to the main thread, and updated `AudioSystem` to store this data for use by the Weather/Pattern systems.
   - **Subwoofer Lotus**: Implemented `src/foliage/lotus.js` featuring TSL-driven bass-reactive "Speaker Rings" that pulse with `uAudioLow` and a "Glitch Portal" center that activates with `uGlitchIntensity`.
