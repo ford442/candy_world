@@ -1,13 +1,17 @@
-// Shared utility for checking WASM file existence
-// Used by wasm-loader.js and wasm-orchestrator.js
+/**
+ * @file src/utils/wasm-utils.js
+ * @brief Utilities for WASM path resolution and checking
+ */
 
-// Production deployment path prefix
-const PRODUCTION_PATH_PREFIX = '/';
+// Changed to relative path to align with vite.config.js base: './'
+// You can change this to '/' if you are deploying to domain root, 
+// but we will fix the joining logic to be safe regardless.
+const PRODUCTION_PATH_PREFIX = './'; 
 
 /**
  * Check if a WASM file exists by attempting HEAD requests at different paths
- * @param {string} filename - The WASM filename to check (e.g., 'candy_native.wasm')
- * @returns {Promise<{exists: boolean, path: string}>} - Result with existence status and resolved path
+ * @param {string} filename - The WASM filename to check
+ * @returns {Promise<{exists: boolean, path: string}>}
  */
 export async function checkWasmFileExists(filename) {
     // Handle absolute URLs directly
@@ -19,23 +23,34 @@ export async function checkWasmFileExists(filename) {
         return { exists: false, path: null };
     }
 
-    // Try production path first
-    const prodPath = `${PRODUCTION_PATH_PREFIX}/${filename}`;
+    // Helper to join paths safely without creating '//' (protocol relative URL)
+    const joinPath = (prefix, file) => {
+        if (!prefix) return file;
+        const cleanPrefix = prefix.endsWith('/') ? prefix.slice(0, -1) : prefix;
+        return `${cleanPrefix}/${file}`;
+    };
+
+    // 1. Try production/configured path
+    const prodPath = joinPath(PRODUCTION_PATH_PREFIX, filename);
     try {
         const prodCheck = await fetch(prodPath, { method: 'HEAD' });
         if (prodCheck.ok) {
+            // Return the prefix including the slash if needed for concatenation later
             return { exists: true, path: PRODUCTION_PATH_PREFIX };
         }
     } catch (prodError) {
-        // Continue to local path check
+        // Continue to local/fallback check
     }
 
-    // Try local path
+    // 2. Try local relative path explicitly
     const localPath = `./${filename}`;
     try {
-        const localCheck = await fetch(localPath, { method: 'HEAD' });
-        if (localCheck.ok) {
-            return { exists: true, path: '' };
+        // Avoid re-checking if prodPath was already ./filename
+        if (localPath !== prodPath) {
+            const localCheck = await fetch(localPath, { method: 'HEAD' });
+            if (localCheck.ok) {
+                return { exists: true, path: './' };
+            }
         }
     } catch (localError) {
         // File not found
@@ -45,61 +60,49 @@ export async function checkWasmFileExists(filename) {
 }
 
 /**
- * Inspect exports in a WASM file by compiling it and returning the exported symbol names
- * @param {string} filename - The WASM filename to inspect (e.g., 'candy_native.wasm')
- * @returns {Promise<string[]|null>} - Array of export names, or null if file not found/inspect fails
+ * Inspect exports in a WASM file
  */
 export async function inspectWasmExports(filename) {
     const wasmCheck = await checkWasmFileExists(filename);
     if (!wasmCheck.exists) return null;
 
-    const url = (wasmCheck.path ? (wasmCheck.path.endsWith('/') ? wasmCheck.path : wasmCheck.path + '/') : './') + filename;
+    // Construct full path safely
+    const prefix = wasmCheck.path || '';
+    const cleanPrefix = prefix.endsWith('/') ? prefix : `${prefix}/`;
+    // If prefix is empty or relative, ensure we don't accidentally create a root path if not intended
+    const url = prefix ? `${cleanPrefix}${filename}` : filename;
+
     try {
         const resp = await fetch(url);
         if (!resp.ok) return null;
         const bytes = await resp.arrayBuffer();
 
-        // Use available WebAssembly API (try compile, Module ctor, or instantiate fallback)
         const WA = window.NativeWebAssembly || WebAssembly;
         let module = null;
 
-        // Prefer synchronous Module constructor if present
         try {
             if (typeof WA.Module === 'function') {
                 module = new WA.Module(bytes);
             }
         } catch (e) {
-            // Module ctor may not be available or may throw; continue to other approaches
             module = null;
         }
 
-        // Try compile() (async) if available
-        try {
-            if (!module && typeof WA.compile === 'function') {
-                module = await WA.compile(bytes);
-            }
-        } catch (e) {
-            module = null;
+        if (!module && typeof WA.compile === 'function') {
+            try { module = await WA.compile(bytes); } catch(e) {}
         }
 
-        // Fallback: instantiate to get module from result
         if (!module) {
             try {
                 const inst = await WA.instantiate(bytes, {});
-                module = inst.module || (inst.instance && inst.instance.constructor && inst.instance.constructor.module) || null;
-            } catch (e) {
-                module = null;
-            }
+                module = inst.module || (inst.instance && inst.instance.constructor && inst.instance.constructor.module);
+            } catch (e) {}
         }
 
-        if (!module) {
-            console.warn('[WASM Utils] Unable to produce a WebAssembly.Module for', filename);
-            return null;
-        }
+        if (!module) return null;
 
         const exporter = (WA.Module && WA.Module.exports) ? WA.Module.exports : WebAssembly.Module.exports;
-        const exports = exporter(module).map(e => e.name);
-        return exports;
+        return exporter(module).map(e => e.name);
     } catch (e) {
         console.warn('[WASM Utils] Failed to inspect wasm exports for', filename, e);
         return null;
@@ -107,8 +110,7 @@ export async function inspectWasmExports(filename) {
 }
 
 /**
- * Monkey-patch WebAssembly.instantiate / instantiateStreaming to alias underscore exports
- * Returns a function to restore the originals.
+ * Monkey-patch WebAssembly.instantiate
  */
 export function patchWasmInstantiateAliases() {
     const WA = window.NativeWebAssembly || WebAssembly;
@@ -124,13 +126,11 @@ export function patchWasmInstantiateAliases() {
                 if (k && k.startsWith('_')) {
                     const short = k.slice(1);
                     if (!(short in exports)) {
-                        try { exports[short] = exports[k]; } catch (e) { /* ignore */ }
+                        try { exports[short] = exports[k]; } catch (e) {}
                     }
                 }
             });
-        } catch (e) {
-            console.warn('[WASM Utils] Failed to alias exports', e);
-        }
+        } catch (e) {}
         return result;
     }
 
