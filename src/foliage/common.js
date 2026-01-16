@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import {
     color, float, uv, mix, vec3, Fn, uniform, dot, max, min,
-    mx_noise_float, mx_fractal_noise_float, positionLocal, positionWorld, normalWorld,
+    mx_noise_float, mx_fractal_noise_float, positionLocal, positionWorld, normalWorld, normalLocal,
     cameraPosition, sin, pow, abs, normalize, dFdx, dFdy, smoothstep, exp,
     cross, vec2, vec4
 } from 'three/tsl';
@@ -182,7 +182,10 @@ export function createUnifiedMaterial(hexColor, options = {}) {
 
         // Animation
         animateMoisture = false,
-        animatePulse = false
+        animatePulse = false,
+
+        // Audio Reactivity (Juice)
+        audioReactStrength = 0.0
     } = options;
 
     const material = new MeshStandardNodeMaterial();
@@ -312,6 +315,37 @@ export function createUnifiedMaterial(hexColor, options = {}) {
     // Let's make sure the glitch affects the material color if it uses UVs (like gradients)
     // But since we are mostly noise based on position...
     // The vertex displacement `material.positionNode` handles the shape distortion.
+
+    // 9. Audio Reactivity (Juice) - "Singing Materials"
+    if (audioReactStrength > 0.0) {
+        // A. Visual "Singing" (Emissive Pulse)
+        // We use High Frequency (Melody) for flowers/delicate objects
+        const singPulse = uAudioHigh.mul(audioReactStrength);
+
+        // Pulse the base color into the emissive channel
+        // Factor 0.5 ensures it's a glow, not a blinding flash
+        const singGlow = material.colorNode.mul(singPulse).mul(0.5);
+        material.emissiveNode = (material.emissiveNode || color(0x000000)).add(singGlow);
+
+        // B. Physical "Vibration" (Vertex Flutter)
+        // Add subtle noise displacement to simulate sound waves vibrating the surface
+        // Ensure we have a starting position node
+        let currentPos = material.positionNode || positionLocal;
+
+        // High frequency noise based on position and fast time
+        const vibrationScale = float(20.0);
+        const vibrationSpeed = float(10.0);
+        const flutterNoise = mx_noise_float(positionLocal.mul(vibrationScale).add(uTime.mul(vibrationSpeed)));
+
+        // Amplitude: Small (0.02) scaled by audio volume
+        const flutterAmp = singPulse.mul(0.02);
+
+        // Displace along local normal
+        // Use normalLocal if available in scope, otherwise recalculate or use normalWorld (less accurate for local vibration)
+        const vibration = normalLocal.mul(flutterNoise).mul(flutterAmp);
+
+        material.positionNode = currentPos.add(vibration);
+    }
 
     material.userData.isUnified = true;
     return material;
@@ -470,7 +504,7 @@ export function createTransparentNodeMaterial(options = {}) {
 export const foliageMaterials = {
     // Basic organics
     stem: CandyPresets.Clay(0x66AA55),
-    flowerCenter: CandyPresets.Velvet(0x442211),
+    flowerCenter: CandyPresets.Velvet(0x442211, { audioReactStrength: 0.5 }),
     vine: CandyPresets.Clay(0x558833),
     wood: createUnifiedMaterial(0x8B4513, { roughness: 0.9, bumpStrength: 0.3, noiseScale: 3.0 }),
     leaf: createUnifiedMaterial(0x228B22, { roughness: 0.6, side: THREE.DoubleSide, bumpStrength: 0.1 }),
@@ -529,10 +563,10 @@ export const foliageMaterials = {
     mushroomSpots: CandyPresets.Sugar(0xFFFFFF),
 
     flowerPetal: [
-        CandyPresets.Velvet(0xFF69B4, { side: THREE.DoubleSide }),
-        CandyPresets.Gummy(0xFFD700, { side: THREE.DoubleSide }),
-        CandyPresets.Crystal(0xFFFFFF, { side: THREE.DoubleSide }),
-        CandyPresets.Sugar(0x9933FF, { side: THREE.DoubleSide }),
+        CandyPresets.Velvet(0xFF69B4, { side: THREE.DoubleSide, audioReactStrength: 1.0 }),
+        CandyPresets.Gummy(0xFFD700, { side: THREE.DoubleSide, audioReactStrength: 0.8 }),
+        CandyPresets.Crystal(0xFFFFFF, { side: THREE.DoubleSide, audioReactStrength: 0.5 }),
+        CandyPresets.Sugar(0x9933FF, { side: THREE.DoubleSide, audioReactStrength: 1.0 }),
     ],
 
     // Faces
