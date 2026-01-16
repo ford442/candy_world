@@ -10,6 +10,15 @@ const PRODUCTION_PATH_PREFIX = '/';
  * @returns {Promise<{exists: boolean, path: string}>} - Result with existence status and resolved path
  */
 export async function checkWasmFileExists(filename) {
+    // Handle absolute URLs directly
+    if (filename.includes('://')) {
+        try {
+            const check = await fetch(filename, { method: 'HEAD' });
+            if (check.ok) return { exists: true, path: '' };
+        } catch (e) {}
+        return { exists: false, path: null };
+    }
+
     // Try production path first
     const prodPath = `${PRODUCTION_PATH_PREFIX}/${filename}`;
     try {
