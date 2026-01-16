@@ -1,5 +1,3 @@
-// src/core/config.js
-
 import * as THREE from 'three';
 
 // Cycle: Sunrise (1m), Day (7m), Sunset (1m), Night (7m) = Total 16m = 960s
@@ -11,7 +9,19 @@ export const DURATION_DEEP_NIGHT = 120; // 2 min
 export const DURATION_PRE_DAWN = 120;   // 2 min
 export const CYCLE_DURATION = DURATION_SUNRISE + DURATION_DAY + DURATION_SUNSET + DURATION_DUSK_NIGHT + DURATION_DEEP_NIGHT + DURATION_PRE_DAWN; // 960s
 
-export const PALETTE = {
+export interface PaletteEntry {
+    skyTop: THREE.Color;
+    skyBot: THREE.Color;
+    horizon: THREE.Color;
+    fog: THREE.Color;
+    sun: THREE.Color;
+    amb: THREE.Color;
+    sunInt: number;
+    ambInt: number;
+    atmosphereIntensity: number;
+}
+
+export const PALETTE: Record<string, PaletteEntry> = {
     // Standard Season (Spring/Default)
     day: {
         skyTop: new THREE.Color(0x87CEEB),   // Brighter sky blue for day
@@ -83,7 +93,48 @@ export const PALETTE = {
     }
 };
 
-export const CONFIG = {
+export interface ConfigType {
+    colors: {
+        ground: number;
+        fog: number;
+    };
+    interaction: {
+        maxDistance: number;
+        proximityRadius: number;
+        interactionDistance: number;
+    };
+    glow: {
+        startOffsetMinutes: number;
+        endOffsetMinutes: number;
+    };
+    noteColorMap: {
+        global: Record<string, number>;
+        mushroom: Record<string, number>;
+        flower: Record<string, number>;
+        tree: Record<string, number>;
+        cloud: Record<string, number>;
+        [key: string]: Record<string, number>; // Allow for dynamic access if needed
+    };
+    reactivity: {
+        [key: string]: {
+            medianWindow?: number;
+            smoothingRate?: number;
+            scale?: number;
+            maxAmplitude?: number;
+            minThreshold?: number;
+        };
+    };
+    flashScale: number;
+    debugNoteReactivity: boolean;
+    moon: {
+        blinkDuration: number;
+        blinkInterval: number;
+        danceAmplitude: number;
+        danceFrequency: number;
+    };
+}
+
+export const CONFIG: ConfigType = {
     colors: {
         ground: 0x222222,
         fog: 0x1A1A2E
