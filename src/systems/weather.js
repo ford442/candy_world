@@ -4,7 +4,7 @@
 
 import * as THREE from 'three';
 import { getGroundHeight, uploadPositions, uploadAnimationData, uploadMushroomSpecs, batchMushroomSpawnCandidates, readSpawnCandidates, isWasmReady } from '../utils/wasm-loader.js';
-import { chargeBerries, triggerGrowth, triggerBloom, shakeBerriesLoose, updateBerrySeasons, createMushroom, createWaterfall, createLanternFlower, cleanupReactivity, musicReactivitySystem } from '../foliage/index.js';
+import { chargeBerries, triggerGrowth, triggerBloom, shakeBerriesLoose, createMushroom, createWaterfall, createLanternFlower, cleanupReactivity, musicReactivitySystem, updateGlobalBerryScale } from '../foliage/index.js';
 import { createRainbow, uRainbowOpacity } from '../foliage/rainbow.js';
 import { getCelestialState, getSeasonalState } from '../core/cycle.js';
 import { CYCLE_DURATION, CONFIG, DURATION_SUNRISE, DURATION_DAY, DURATION_SUNSET, DURATION_PRE_DAWN } from '../core/config.js';
@@ -740,12 +740,9 @@ export class WeatherSystem {
             phaseProgress = (cyclePos - SUNRISE - DAY - SUNSET - DUSK - DEEP) / PREDAWN;
         }
 
-        this.trackedTrees.forEach(tree => {
-            if (tree.userData.berries) updateBerrySeasons(tree.userData.berries, phase, phaseProgress);
-        });
-        this.trackedShrubs.forEach(shrub => {
-            if (shrub.userData.berries) updateBerrySeasons(shrub.userData.berries, phase, phaseProgress);
-        });
+        // ⚡ OPTIMIZATION: Removed loop over thousands of berry instances.
+        // Instead, we update a single global uniform that all berry shaders read.
+        updateGlobalBerryScale(phase, phaseProgress);
     }
 
     updateWeatherState(bass, melody, groove, cycleWeatherBias = null, seasonal = null) {
