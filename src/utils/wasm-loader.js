@@ -205,13 +205,21 @@ async function loadEmscriptenModule(forceSingleThreaded = false) {
                                 bytes = await response.arrayBuffer();
                             }
 
-                            // Explicitly Compile first, then Instantiate using the consistent WA object
-                            // This ensures we have a valid Module object to pass to successCallback.
-                            const module = await WA.compile(bytes);
-                            const instance = await WA.instantiate(module, imports);
+                            // FIX: Use instantiate directly instead of compile + instantiate.
+                            // Some polyfills or environments might not implement WA.compile(),
+                            // but WA.instantiate(bytes) is universally supported.
+                            const result = await WA.instantiate(bytes, imports);
                             
                             console.log('[Native] Manual instantiation success');
-                            successCallback(instance, module);
+                            
+                            // Handle both return signatures of instantiate
+                            if (result.instance) {
+                                successCallback(result.instance, result.module);
+                            } else {
+                                // Old WebAssembly spec or some polyfills return instance directly
+                                // although explicit window.WebAssembly should return {instance, module}
+                                successCallback(result, null);
+                            }
                         } catch (e) {
                             console.error('[Native] Manual instantiation failed:', e);
                             // We can't easily reject the outer promise from here, but logging helps.
