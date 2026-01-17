@@ -505,6 +505,7 @@ export function initInput(camera, audioSystem, toggleDayNightCallback) {
         updateDayNightButtonState: (isPressed) => {
             if (toggleDayNightBtn) {
                 toggleDayNightBtn.setAttribute('aria-pressed', isPressed);
+                toggleDayNightBtn.setAttribute('aria-label', isPressed ? 'Switch to Day' : 'Switch to Night');
                 // UX: Update button text to show available action
                 toggleDayNightBtn.innerHTML = isPressed
                     ? '☀️ Switch to Day (N)'
