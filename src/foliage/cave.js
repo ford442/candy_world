@@ -1,6 +1,15 @@
 // src/foliage/cave.js
 
 import * as THREE from 'three';
+import { MeshStandardNodeMaterial } from 'three/webgpu';
+import {
+    color, float, vec3, mix, positionLocal, positionWorld, normalWorld,
+    mx_noise_float, step, smoothstep, sin, mul, add, abs, max
+} from 'three/tsl';
+import {
+    uAudioLow, createRimLight, triplanarNoise, perturbNormal
+} from './common.js';
+import { uTwilight } from './sky.js';
 import { createWaterfall } from './waterfalls.js';
 
 export function createCaveEntrance(options = {}) {
@@ -15,13 +24,47 @@ export function createCaveEntrance(options = {}) {
     group.userData.type = 'cave';
     group.userData.isBlocked = false;
 
-    // 1. Create the Tunnel Structure (Procedural Rocks)
-    const rockMat = new THREE.MeshStandardMaterial({
-        color: 0x4a4a4a,
-        roughness: 0.9,
-        flatShading: true,
-        side: THREE.DoubleSide
-    });
+    // --- PALETTE UPGRADE: Living Cave Material ---
+    const rockMat = new MeshStandardNodeMaterial();
+
+    // 1. Base Rock Texture (Triplanar)
+    const noiseScale = float(0.5);
+    const rockNoise = triplanarNoise(positionLocal, noiseScale);
+
+    // Dark Organic Rock Colors
+    const colorDeep = color(0x1a1a1a); // Black/Grey
+    const colorHighlight = color(0x2d2d3a); // Blue-ish Grey
+
+    // Mix based on noise
+    const baseColor = mix(colorDeep, colorHighlight, rockNoise);
+
+    // 2. Bioluminescent Veins (Audio Reactive)
+    // Create thin lines where noise is close to 0
+    const veinScale = float(2.5);
+    const veinNoise = triplanarNoise(positionLocal, veinScale);
+    // Create a narrow band around 0.0
+    const veinMask = float(1.0).sub(smoothstep(0.01, 0.08, abs(veinNoise)));
+
+    // Pulse with Bass (AudioLow)
+    // Glows stronger at night (Twilight)
+    const pulse = uAudioLow.mul(0.8).add(0.2); // Always some glow, pulse harder on beat
+    const glowStrength = veinMask.mul(pulse).mul(uTwilight).mul(3.0);
+    const veinColor = color(0x00FFFF); // Cyan glow
+
+    // 3. Rim Light (Edge Definition)
+    const rim = createRimLight(color(0x444455), float(0.5), float(2.0));
+
+    // Combine Colors
+    rockMat.colorNode = baseColor.add(rim);
+    rockMat.emissiveNode = veinColor.mul(glowStrength);
+
+    // 4. Surface Detail (Bump & Roughness)
+    // Wet spots where noise is high
+    rockMat.roughnessNode = float(0.9).sub(rockNoise.mul(0.4)); // 0.5 to 0.9
+    rockMat.metalnessNode = float(0.1);
+
+    // Bump Map for detail
+    rockMat.normalNode = perturbNormal(positionLocal, normalWorld, float(8.0), float(0.5));
 
     // IMPROVED: A 4-point curve for a better tunnel shape
     const tunnelCurve = new THREE.CatmullRomCurve3([
