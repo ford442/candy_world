@@ -45,16 +45,22 @@ export function updateArpeggio(foliageObject: FoliageObject, time: number, audio
 
     const unfurlFactor = (foliageObject.userData.unfurlStep || 0) / maxSteps;
 
-    // Apply to segments (Three.js Object3D operations remain in JS/TS as they touch scene graph)
-    const fronds = foliageObject.userData.fronds;
-    if (fronds) {
-        fronds.forEach((segments, fIdx) => {
-            segments.forEach((segData: any, sIdx: number) => {
-                const targetRot = THREE.MathUtils.lerp(segData.initialCurl, 0.2, unfurlFactor);
-                const wave = Math.sin(time * 5 + sIdx * 0.5) * 0.1 * unfurlFactor;
-                segData.pivot.rotation.x = targetRot + wave;
+    // ⚡ OPTIMIZATION: Update TSL Uniform instead of traversing mesh hierarchy
+    // This replaces 200+ draw calls and Matrix updates per fern with a single uniform update.
+    if (foliageObject.userData.uUnfurl) {
+        foliageObject.userData.uUnfurl.value = unfurlFactor;
+    } else {
+        // Fallback for legacy objects (if any)
+        const fronds = foliageObject.userData.fronds;
+        if (fronds) {
+            fronds.forEach((segments: any, fIdx: number) => {
+                segments.forEach((segData: any, sIdx: number) => {
+                    const targetRot = THREE.MathUtils.lerp(segData.initialCurl, 0.2, unfurlFactor);
+                    const wave = Math.sin(time * 5 + sIdx * 0.5) * 0.1 * unfurlFactor;
+                    segData.pivot.rotation.x = targetRot + wave;
+                });
             });
-        });
+        }
     }
 
     // Bob base slightly
