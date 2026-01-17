@@ -10,7 +10,7 @@
 
 ## Next Steps
 
-1. **Migrate Systems (Phase 1)**: Continue migrating key systems to TypeScript (e.g., `src/systems/physics.js` or `src/world/state.js`) to improve type safety.
+1. **Migrate Systems (Phase 1)**: Continue migrating key systems to TypeScript (e.g., `src/systems/interaction.js` or `src/audio/audio-system.js`) to improve type safety.
 
 ---
 
@@ -18,6 +18,8 @@
 - **Accomplished:**
   - **Migrate Core Data Structures (Phase 1)**: **Status: Implemented ✅**
     - *Implementation Details:* Converted `src/core/config.js` to `src/core/config.ts` and defined comprehensive TypeScript interfaces (`ConfigType`, `PaletteEntry`) for configuration objects. Updated all import references to use standard module resolution.
+  - **Migrate Physics System (Phase 1)**: **Status: Implemented ✅**
+    - *Implementation Details:* Migrated `src/world/state.js` to `src/world/state.ts` and `src/systems/physics.js` to `src/systems/physics.ts`. Added strict typing for player state, key states, and foliage objects. Preserved logic for C++/WASM physics integration and fixed potential regression in Vine Swing camera synchronization.
   - **Plants Twilight Glow**: **Status: Implemented ✅**
     - *Implementation Details:* Implemented `uTwilight` global uniform in `src/foliage/sky.js` driven by `WeatherSystem`. Updated TSL materials for Flowers, Mushrooms, and Fiber Optic Trees to accept this uniform and boost emissive intensity during twilight hours.
   - **Verify Data Flow**: **Status: Implemented ✅**
@@ -88,7 +90,7 @@
 ---
 
 ## Migration Roadmap (Summary)
-1. **Phase 1 (JS -> TS):** Typing core data structures and systems. [NEXT]
+1. **Phase 1 (JS -> TS):** Typing core data structures and systems. [IN PROGRESS]
 2. **Phase 2 (TS -> ASC):** Offloading hot paths to WASM.
 3. **Phase 3 (ASC -> C++):** Specialized solvers.
 4. **Phase 4 (Three.js -> WebGPU):** Raw compute and render pipelines.
