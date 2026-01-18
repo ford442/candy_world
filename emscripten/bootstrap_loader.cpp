@@ -5,7 +5,7 @@
 #include <emscripten.h>
 #include <emscripten/threading.h>
 #include <pthread.h>
-#include <omp.h>
+#include "omp.h"
 #include <cmath>
 #include <cstdlib>
 #include <cstdint>
