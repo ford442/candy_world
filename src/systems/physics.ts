@@ -52,6 +52,8 @@ export interface PlayerExtended extends CorePlayerState {
 const GRAVITY = 20.0;
 const SWIMMING_GRAVITY = 2.0; // Much lower gravity in water
 const SWIMMING_DRAG = 4.0;    // High friction in water
+const PLAYER_HEIGHT_OFFSET = 1.8; // Height above ground
+const DANCE_KICK_THRESHOLD = 0.5; // Threshold for kick-triggered camera roll
 
 // --- State Definitions ---
 export const PlayerState = {
@@ -318,7 +320,7 @@ function updateClimbingState(delta: number, camera: THREE.Camera, controls: any,
 }
 
 // --- State: DANCING ---
-function updateDancingState(delta: number, camera: THREE.Camera, controls: any, keyStates: KeyStates, audioState: AudioState) {
+function updateDancingState(delta: number, camera: THREE.Camera, controls: any, keyStates: KeyStates, audioState: AudioState | null) {
     // Unlock pointer if locked
     if (document.pointerLockElement === document.body) {
         controls.unlock();
@@ -327,10 +329,10 @@ function updateDancingState(delta: number, camera: THREE.Camera, controls: any, 
     // Update dance time
     player.danceTime += delta;
     
-    // Get BPM and beat info from audio
-    const bpm = audioState?.bpm || 120;
-    const beatPhase = audioState?.beatPhase || 0;
-    const kickTrigger = audioState?.kickTrigger || 0;
+    // Get BPM and beat info from audio (with fallbacks for when no music is playing)
+    const bpm = audioState?.bpm ?? 120;
+    const beatPhase = audioState?.beatPhase ?? 0;
+    const kickTrigger = audioState?.kickTrigger ?? 0;
     
     // Calculate beat duration in seconds
     const beatDuration = 60.0 / bpm;
@@ -344,7 +346,7 @@ function updateDancingState(delta: number, camera: THREE.Camera, controls: any, 
     // Store initial position on first frame
     if (!player.danceStartPos) {
         player.danceStartPos = player.position.clone();
-        player.danceStartY = getUnifiedGroundHeight(player.position.x, player.position.z) + 1.8;
+        player.danceStartY = getUnifiedGroundHeight(player.position.x, player.position.z) + PLAYER_HEIGHT_OFFSET;
     }
     
     // Move in a circle around starting position
@@ -375,7 +377,7 @@ function updateDancingState(delta: number, camera: THREE.Camera, controls: any, 
     camera.rotation.y = player.danceStartRotation.y + yawAmount;
     
     // Extra bounce on kick
-    if (kickTrigger > 0.5) {
+    if (kickTrigger > DANCE_KICK_THRESHOLD) {
         camera.rotation.z = Math.sin(player.danceTime * 10) * 0.05;
     } else {
         camera.rotation.z *= 0.9; // Dampen roll
