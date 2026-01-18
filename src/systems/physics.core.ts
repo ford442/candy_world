@@ -28,6 +28,8 @@ export interface KeyStates {
     jump: boolean;
     sprint: boolean;
     sneak: boolean;
+    dash: boolean;
+    dance: boolean;
 }
 
 export interface MovementInput {
