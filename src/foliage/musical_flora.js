@@ -12,6 +12,7 @@ import {
     color, float, uniform, vec3, positionLocal, sin, cos, mix, uv
 } from 'three/tsl';
 import { applyGlitch } from './glitch.js';
+import { arpeggioFernBatcher } from './arpeggio-batcher.ts';
 
 // --- Category 1: Melodic Flora ---
 
@@ -19,88 +20,76 @@ export function createArpeggioFern(options = {}) {
     const { color = 0x00FF88, scale = 1.0 } = options;
     const group = new THREE.Group();
 
-    // Base
-    const baseGeo = new THREE.ConeGeometry(0.2 * scale, 0.5 * scale, 6);
-    const baseMat = createClayMaterial(0x2E8B57);
-    const base = new THREE.Mesh(baseGeo, baseMat);
-    base.position.y = 0.25 * scale;
-    group.add(base);
-
-    // Fronds - ⚡ OPTIMIZED: Single mesh per frond with TSL bending
-    const frondCount = 5;
-
-    // Geometry for ONE frond (High segment count for bending)
-    // Width=0.1, Height=2.4 (8 * 0.3), Depth=0.02
-    // Reduced height slightly to match original overlap ~2.3
-    const frondHeight = 2.3 * scale;
-    const frondGeo = new THREE.BoxGeometry(0.1 * scale, frondHeight, 0.02 * scale, 1, 16, 1);
-    frondGeo.translate(0, frondHeight / 2, 0); // Pivot at bottom
-
-    // Create Material with TSL Bending
-    // We create a new material instance for each fern so it can have its own uUnfurl state
-    const frondMat = createCandyMaterial(color, 0.9);
-    registerReactiveMaterial(frondMat);
-
-    // Uniform for Unfurl State (0.0 = Curled, 1.0 = Straight)
-    // We start at 0.0 (Curled)
-    const uUnfurl = uniform(float(0.0));
-
-    // TSL Vertex Shader Logic
-    const pos = positionLocal;
-
-    // Normalized height (0.0 at base, 1.0 at tip)
-    const yNorm = pos.y.div(float(frondHeight));
-
-    // Calculate Curl Angle
-    // When uUnfurl is 0, we want max curl (-4.0 radians ~ 230 deg).
-    // When uUnfurl is 1, we want slight curl (-0.2 radians).
-    const maxCurl = float(-4.0);
-    const minCurl = float(-0.2);
-    const currentTotalCurl = mix(maxCurl, minCurl, uUnfurl);
-
-    // Angle increases with height (Cumulative rotation)
-    const theta = currentTotalCurl.mul(yNorm);
-
-    // Add Wave Animation (Simulate wind/life)
-    // Wave stronger at tip (yNorm), stronger when unfurled (uUnfurl)
-    const wavePhase = uTime.mul(5.0).add(yNorm.mul(4.0));
-    const wave = sin(wavePhase).mul(0.1).mul(uUnfurl).mul(yNorm);
-
-    const finalAngle = theta.add(wave);
-
-    // Apply Rotation around X axis
-    // Standard rotation matrix for X-axis:
-    // y' = y*cos(a) - z*sin(a)
-    // z' = y*sin(a) + z*cos(a)
-    const c = cos(finalAngle);
-    const s = sin(finalAngle);
-
-    // We rotate position relative to pivot (0,0,0) (since we translated geometry)
-    const newY = pos.y.mul(c).sub(pos.z.mul(s));
-    const newZ = pos.y.mul(s).add(pos.z.mul(c));
-    const newPos = vec3(pos.x, newY, newZ);
-
-    // Apply Glitch (Standard Pipeline)
-    const glitched = applyGlitch(uv(), newPos, uGlitchIntensity);
-    frondMat.positionNode = glitched.position;
-
-    // Attach uniform to userData for update loop
-    group.userData.uUnfurl = uUnfurl;
-
-    for (let i = 0; i < frondCount; i++) {
-        const frond = new THREE.Mesh(frondGeo, frondMat);
-        frond.rotation.y = (i / frondCount) * Math.PI * 2;
-        frond.position.y = 0.4 * scale;
-        // Tilt out slightly
-        frond.rotation.x = 0.2;
-        
-        group.add(frond);
-    }
+    // ⚡ OPTIMIZATION: Logic Object only (visuals are batched)
+    // Hit Volume for interaction
+    const hitGeo = new THREE.CylinderGeometry(0.5 * scale, 0.5 * scale, 2.0 * scale);
+    const hitMat = new THREE.MeshBasicMaterial({ visible: false });
+    const hitMesh = new THREE.Mesh(hitGeo, hitMat);
+    hitMesh.position.y = 1.0 * scale;
+    group.add(hitMesh);
 
     group.userData.animationType = 'arpeggioUnfurl';
     group.userData.type = 'fern';
-    const reactiveGroup = attachReactivity(group);
-    return makeInteractive(reactiveGroup);
+
+    // Register with Batcher
+    // We pass the group so the batcher can read position/rotation later if needed (initially set here)
+    // Note: The position/rotation of 'group' must be set by the caller (generation.ts)
+    // BUT generation.ts sets it AFTER creation.
+    // So we can't register immediately with correct transform!
+
+    // Solution: Register a "deferred init" or update batcher when placed.
+    // Since generation.ts sets position immediately after creation:
+    // obj.position.set(x, y, z);
+
+    // We'll use a onBeforeRender hack or similar? No.
+    // We'll expose a `finalize()` method? No standard API.
+
+    // ⚡ HACK: We register a "Placement Callback" or we assume generation sets position and we hook it?
+    // Actually, `arpeggioFernBatcher.register` reads position.
+    // If position is 0,0,0 at registration, the fern is at 0,0,0.
+    // We need to defer registration until it's placed.
+
+    // We can add a method `obj.onPlacement` that `safeAddFoliage` calls?
+    // `safeAddFoliage` doesn't call that.
+
+    // Alternative: We create a proxy that registers itself on the first frame of animation/update?
+    group.userData.needsRegistration = true;
+    group.userData.batchOptions = options;
+
+    // Callback for generation system to invoke after setting position
+    group.userData.onPlacement = () => {
+        arpeggioFernBatcher.register(group, options);
+    };
+
+    // Attach basic reactivity metadata
+    attachReactivity(group);
+
+    const interactive = makeInteractive(group);
+
+    // Override interaction handlers to support InstancedMesh updates
+    const originalEnter = group.userData.onGazeEnter;
+    const originalLeave = group.userData.onGazeLeave;
+
+    group.userData.onGazeEnter = () => {
+        if (originalEnter) originalEnter(); // Handles logic state (isHovered)
+        // Physical pop handled by updating batcher matrix
+        const batchIdx = group.userData.batchIndex;
+        if (batchIdx !== undefined) {
+             // We need to scale the group (Logic) then update Batcher
+             // makeInteractive already scaled the group in originalEnter!
+             arpeggioFernBatcher.updateInstance(batchIdx, group);
+        }
+    };
+
+    group.userData.onGazeLeave = () => {
+        if (originalLeave) originalLeave();
+        const batchIdx = group.userData.batchIndex;
+        if (batchIdx !== undefined) {
+             arpeggioFernBatcher.updateInstance(batchIdx, group);
+        }
+    };
+
+    return interactive;
 }
 
 export function createPortamentoPine(options = {}) {
