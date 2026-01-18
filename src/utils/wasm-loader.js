@@ -1,46 +1,6 @@
 /**
  * @file wasm-loader.js
  * @brief WASM Module Loader with Graceful JavaScript Fallbacks
- * * This module provides a robust interface for loading and using WebAssembly
- * modules in Candy World. It implements a multi-tier fallback system:
- * * ## FALLBACK HIERARCHY
- * * 1. **Emscripten C++ Module** (candy_native.wasm)
- * - Highest performance via native C++ compiled to WASM
- * - Supports pthreads for parallel physics computation
- * - Functions accessed via getNativeFunc('functionName')
- * * 2. **AssemblyScript Module** (candy_physics.wasm)
- * - Good performance via TypeScript-like syntax compiled to WASM
- * - Simpler deployment (no pthread requirements)
- * - Functions accessed via wasmInstance.exports.functionName
- * * 3. **JavaScript Fallback**
- * - Always available, guaranteed to work
- * - Slightly lower performance but identical behavior
- * - Implemented inline in each wrapper function
- * * ## HOW FALLBACKS WORK
- * * Each exported function (e.g., calcFiberWhip) follows this pattern:
- * * ```javascript
- * export function calcFiberWhip(time, offset, leadVol, isActive, branchIndex) {
- * // Try WASM first
- * if (wasmInstance && wasmInstance.exports.calcFiberWhip) {
- * wasmInstance.exports.calcFiberWhip(time, offset, ...);
- * return { ... }; // Read results from getter functions
- * }
- * * // JavaScript fallback - identical algorithm
- * return { 
- * baseRotY: Math.sin(time * 0.5 + offset) * 0.1,
- * ...
- * };
- * }
- * ```
- * * ## PREVENTING ABORTS
- * * The patchWasmInstantiateAliases() function from wasm-utils.js patches
- * WebAssembly.instantiate to create aliases for underscore-prefixed exports.
- * This prevents Emscripten from aborting when it can't find expected exports.
- * * The build.sh uses -s ASSERTIONS=0 to disable runtime assertions that would
- * otherwise abort when exports are missing.
- * * @see emscripten/build.sh for WASM compilation settings
- * @see emscripten/animation.cpp for C++ animation implementations
- * @see wasm-utils.js for the instantiate alias patch
  */
 
 import { 
@@ -53,6 +13,9 @@ import {
 
 import { checkWasmFileExists, inspectWasmExports, patchWasmInstantiateAliases } from './wasm-utils.js';
 import { showToast } from './toast.js';
+
+// Import WASM initialization function (Vite + vite-plugin-wasm)
+import initCandyPhysics from '../wasm/candy_physics.wasm?init';
 
 let wasmInstance = null;
 let wasmMemory = null;
@@ -90,6 +53,85 @@ export const AnimationType = {
     WOBBLE: 3,
     HOP: 4
 };
+
+// =============================================================================
+// INITIALIZATION: TOP-LEVEL AWAIT
+// =============================================================================
+
+// WASI stubs with BigInt Safety (Required for AS environment)
+const wasiStubs = {
+    fd_close: () => 0,
+    fd_seek: () => 0,
+    fd_write: () => 0,
+    fd_read: () => 0,
+    fd_fdstat_get: () => 0,
+    fd_prestat_get: () => 0,
+    fd_prestat_dir_name: () => 0,
+    path_open: () => 0,
+    environ_sizes_get: () => 0,
+    environ_get: () => 0,
+    proc_exit: () => { },
+    clock_time_get: (id, precision, outPtr) => {
+        // Robust clock_time_get handling BigInt mixing
+        const now = BigInt(Date.now()) * 1000000n;
+        if (wasmMemory) {
+            const idx = typeof outPtr === 'bigint' ? Number(outPtr) : outPtr;
+            const view = new BigInt64Array(wasmMemory.buffer);
+            if (idx >= 0 && (idx >> 3) < view.length) {
+                view[idx >> 3] = now;
+            }
+        }
+        return 0;
+    },
+};
+
+const importObject = {
+    env: {
+        abort: (msg, file, line, col) => {
+            console.error(`WASM abort at ${file}:${line}:${col}: ${msg}`);
+        },
+        seed: () => Date.now() * Math.random(),
+        now: () => Date.now()
+    },
+    wasi_snapshot_preview1: wasiStubs
+};
+
+// Immediately initialize the AssemblyScript WASM module
+// This blocks module execution until the WASM is ready (Vite handles this via top-level await wrapper)
+try {
+    const instance = await initCandyPhysics(importObject);
+
+    // Store global instance
+    wasmInstance = instance;
+
+    // Setup Memory Views
+    if (wasmInstance.exports.memory) {
+        wasmMemory = wasmInstance.exports.memory;
+        const memBuffer = wasmMemory.buffer;
+        positionView = new Float32Array(memBuffer, POSITION_OFFSET, 1024);
+        animationView = new Float32Array(memBuffer, ANIMATION_OFFSET, 1024);
+        outputView = new Float32Array(memBuffer, OUTPUT_OFFSET, 1024);
+        playerStateView = new Float32Array(memBuffer, PLAYER_STATE_OFFSET, 8);
+    }
+
+    // Cache function references
+    wasmGetGroundHeight = wasmInstance.exports.getGroundHeight;
+    wasmFreqToHue = wasmInstance.exports.freqToHue;
+    wasmLerp = wasmInstance.exports.lerp;
+    wasmBatchMushroomSpawnCandidates = wasmInstance.exports.batchMushroomSpawnCandidates || null;
+    wasmUpdateFoliageBatch = wasmInstance.exports.updateFoliageBatch || null;
+
+    // Physics collision
+    wasmInitCollisionSystem = wasmInstance.exports.initCollisionSystem || null;
+    wasmAddCollisionObject = wasmInstance.exports.addCollisionObject || null;
+    wasmResolveGameCollisions = wasmInstance.exports.resolveGameCollisions || null;
+
+    console.log('[WASM] AssemblyScript module initialized via Top-Level Await');
+
+} catch (e) {
+    console.error('[WASM] Failed to initialize AssemblyScript module:', e);
+    // JS Fallbacks will automatically kick in because function pointers are null
+}
 
 // =============================================================================
 // UPDATED: Load Emscripten Module (Pthreads/Worker Version)
@@ -275,35 +317,16 @@ async function loadEmscriptenModule(forceSingleThreaded = false) {
 
 /**
  * Get a native C++ function from the Emscripten module.
- * * Emscripten exports functions with a leading underscore (e.g., _calcFiberWhip).
- * This helper handles the underscore prefix and returns null if the function
- * doesn't exist, allowing callers to gracefully fall back to JavaScript.
- * * @param {string} name - Function name without underscore (e.g., 'calcFiberWhip')
- * @returns {Function|null} The native function, or null if not available
- * * @example
- * const calcFn = getNativeFunc('calcFiberWhip');
- * if (calcFn) {
- * calcFn(time, offset, leadVol, isActive ? 1 : 0, branchIndex);
- * } else {
- * // Use JavaScript fallback
- * }
  */
 function getNativeFunc(name) {
-    // Return null if Emscripten module isn't loaded
     if (!emscriptenInstance) return null;
-    
-    // Try underscore-prefixed name first (standard Emscripten export format)
     const underscoreName = '_' + name;
     if (typeof emscriptenInstance[underscoreName] === 'function') {
         return emscriptenInstance[underscoreName];
     }
-    
-    // Try non-prefixed name as fallback (in case of aliasing)
     if (typeof emscriptenInstance[name] === 'function') {
         return emscriptenInstance[name];
     }
-    
-    // Function not found - caller should use JavaScript fallback
     return null;
 }
 
@@ -311,7 +334,6 @@ let bootstrapStarted = false;
 
 async function startBootstrapIfAvailable(instance) {
     if (!instance || bootstrapStarted) return;
-    
     try {
         const { startBootstrap } = await import('./bootstrap-loader.js');
         if (startBootstrap && startBootstrap(instance)) {
@@ -325,7 +347,6 @@ async function startBootstrapIfAvailable(instance) {
 
 async function updateProgress(msg) {
     if (window.setLoadingStatus) window.setLoadingStatus(msg);
-
     const startButton = document.getElementById('startButton');
     if (startButton) {
         startButton.textContent = msg;
@@ -334,8 +355,13 @@ async function updateProgress(msg) {
     await new Promise(r => setTimeout(r, 20));
 }
 
+// NOTE: This function is now just a wrapper for Emscripten loading.
+// The main AssemblyScript WASM is already loaded via Top-Level Await.
 export async function initWasm() {
-    if (wasmInstance) return true;
+    // If we already have the AS instance (which we should), we just proceed to Emscripten
+    if (!wasmInstance) {
+        console.warn('[WASM] AS instance missing even after TLA?');
+    }
 
     const startButton = document.getElementById('startButton');
     if (startButton) {
@@ -343,187 +369,32 @@ export async function initWasm() {
         startButton.style.cursor = 'wait';
     }
 
-    console.log('[WASM] initWasm started');
-    await updateProgress('Downloading Physics Engine...');
+    console.log('[WASM] initWasm called - checking Emscripten');
 
-    try {
-        const wasmUrl = './candy_physics.wasm?v=' + Date.now();
-        const response = await fetch(wasmUrl);
+    // Load Emscripten (Complex/Threaded)
+    await loadEmscriptenModule();
 
-        if (!response.ok) {
-            console.warn('WASM not found, using JS fallbacks');
-            if (startButton) startButton.disabled = false;
-            return false;
-        }
-
-        const wasmBytes = await response.arrayBuffer();
-        
-        // WASI stubs with BigInt Safety
-        const wasiStubs = {
-            fd_close: () => 0,
-            fd_seek: () => 0,
-            fd_write: () => 0,
-            fd_read: () => 0,
-            fd_fdstat_get: () => 0,
-            fd_prestat_get: () => 0,
-            fd_prestat_dir_name: () => 0,
-            path_open: () => 0,
-            environ_sizes_get: () => 0,
-            environ_get: () => 0,
-            proc_exit: () => { },
-            // Robust clock_time_get handling BigInt mixing
-            clock_time_get: (id, precision, outPtr) => {
-                const now = BigInt(Date.now()) * 1000000n;
-                if (wasmMemory) {
-                    const idx = typeof outPtr === 'bigint' ? Number(outPtr) : outPtr;
-                    const view = new BigInt64Array(wasmMemory.buffer);
-                    if (idx >= 0 && (idx >> 3) < view.length) {
-                        view[idx >> 3] = now;
-                    }
-                }
-                return 0;
-            },
-        };
-
-        await updateProgress('Compiling Physics (WASM)...');
-
-        // Use NativeWebAssembly if available (e.g. tests), else standard
-        const WA = window.NativeWebAssembly || window.WebAssembly;
-        
-        const importObject = {
-            env: {
-                abort: (msg, file, line, col) => {
-                    console.error(`WASM abort at ${file}:${line}:${col}: ${msg}`);
-                },
-                seed: () => Date.now() * Math.random(),
-                now: () => Date.now() 
-            },
-            wasi_snapshot_preview1: wasiStubs
-        };
-
-        let result;
-        try {
-            result = await WA.instantiateStreaming(fetch(wasmUrl), importObject);
-        } catch (streamError) {
-            result = await WA.instantiate(wasmBytes, importObject);
-        }
-
-        if (window.setLoadingStatus) window.setLoadingStatus("Physics Engine Ready...");
-        wasmInstance = result.instance;
-
-        // Verify exports
-        if (!wasmInstance.exports.getGroundHeight) {
-            console.error('WASM exports missing getGroundHeight');
-            if (startButton) startButton.disabled = false;
-            return false;
-        }
-
-        if (wasmInstance.exports.memory) {
-            wasmMemory = wasmInstance.exports.memory;
-            const memBuffer = wasmMemory.buffer;
-            positionView = new Float32Array(memBuffer, POSITION_OFFSET, 1024);
-            animationView = new Float32Array(memBuffer, ANIMATION_OFFSET, 1024);
-            outputView = new Float32Array(memBuffer, OUTPUT_OFFSET, 1024);
-            playerStateView = new Float32Array(memBuffer, PLAYER_STATE_OFFSET, 8);
-        }
-
-        // Cache references
-        wasmGetGroundHeight = wasmInstance.exports.getGroundHeight;
-        wasmFreqToHue = wasmInstance.exports.freqToHue;
-        wasmLerp = wasmInstance.exports.lerp;
-        wasmBatchMushroomSpawnCandidates = wasmInstance.exports.batchMushroomSpawnCandidates || null;
-        wasmUpdateFoliageBatch = wasmInstance.exports.updateFoliageBatch || null;
-
-        // Physics collision
-        wasmInitCollisionSystem = wasmInstance.exports.initCollisionSystem || null;
-        wasmAddCollisionObject = wasmInstance.exports.addCollisionObject || null;
-        wasmResolveGameCollisions = wasmInstance.exports.resolveGameCollisions || null;
-
-        await loadEmscriptenModule();
-
-        if (emscriptenInstance) {
-            await startBootstrapIfAvailable(emscriptenInstance);
-        }
-
-        if (startButton) {
-            startButton.disabled = false;
-            startButton.textContent = 'Start Exploration 🚀';
-            startButton.style.cursor = 'pointer';
-        }
-
-        return true;
-    } catch (error) {
-        console.warn('Failed to load WASM:', error);
-        showToast("Physics Engine Failed to Load", "❌");
-        if (startButton) startButton.disabled = false;
-        return false;
+    if (emscriptenInstance) {
+        await startBootstrapIfAvailable(emscriptenInstance);
     }
+
+    if (startButton) {
+        startButton.disabled = false;
+        startButton.textContent = 'Start Exploration 🚀';
+        startButton.style.cursor = 'pointer';
+    }
+
+    return true;
 }
 
+// Deprecated: Parallel loading is no longer needed as AS is bundled synchronously (via TLA)
 export async function initWasmParallel(options = {}) {
-    if (wasmInstance) return true;
-
-    const { onProgress = (phase, msg) => {
-        if (window.setLoadingStatus) window.setLoadingStatus(msg);
-    } } = options;
-
-    const startButton = document.getElementById('startButton');
-    if (startButton) {
-        startButton.disabled = true;
-        startButton.style.cursor = 'wait';
+    console.log('[WASM] initWasmParallel routed to standard initWasm');
+    if (options.onProgress) {
+        // Simple shim for progress
+        options.onProgress('start', 'Initializing...');
     }
-
-    try {
-        const result = await parallelWasmLoad({
-            onProgress,
-            ascWasmUrl: './candy_physics.wasm',
-            emccWasmUrl: './candy_native.wasm'
-        });
-
-        if (result.asc) {
-            wasmInstance = result.asc;
-
-            if (wasmInstance.exports.memory) {
-                wasmMemory = wasmInstance.exports.memory;
-                const memBuffer = wasmMemory.buffer;
-                positionView = new Float32Array(memBuffer, POSITION_OFFSET, 1024);
-                animationView = new Float32Array(memBuffer, ANIMATION_OFFSET, 1024);
-                outputView = new Float32Array(memBuffer, OUTPUT_OFFSET, 1024);
-                playerStateView = new Float32Array(memBuffer, PLAYER_STATE_OFFSET, 8);
-            }
-
-            wasmGetGroundHeight = wasmInstance.exports.getGroundHeight;
-            wasmFreqToHue = wasmInstance.exports.freqToHue;
-            wasmLerp = wasmInstance.exports.lerp;
-            wasmBatchMushroomSpawnCandidates = wasmInstance.exports.batchMushroomSpawnCandidates || null;
-            wasmUpdateFoliageBatch = wasmInstance.exports.updateFoliageBatch || null;
-
-            wasmInitCollisionSystem = wasmInstance.exports.initCollisionSystem || null;
-            wasmAddCollisionObject = wasmInstance.exports.addCollisionObject || null;
-            wasmResolveGameCollisions = wasmInstance.exports.resolveGameCollisions || null;
-        }
-
-        if (result.emcc) {
-            emscriptenInstance = result.emcc;
-            emscriptenMemory = emscriptenInstance.exports && emscriptenInstance.exports.memory;
-
-            const initFn = getNativeFunc('init_native');
-            if (initFn) setTimeout(initFn, 0);
-
-            await startBootstrapIfAvailable(emscriptenInstance);
-        }
-
-        if (startButton) {
-            startButton.disabled = false;
-            startButton.textContent = 'Start Exploration 🚀';
-            startButton.style.cursor = 'pointer';
-        }
-
-        return wasmInstance !== null;
-    } catch (error) {
-        console.warn('[WASM] Parallel init failed, falling back to sequential:', error);
-        return await initWasm();
-    }
+    return initWasm();
 }
 
 export function isWasmReady() { return wasmInstance !== null; }
