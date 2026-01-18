@@ -16,6 +16,8 @@
 
 ## Recent Progress
 - **Accomplished:**
+  - **Rare Flora Discovery (Unlock system)**: **Status: Implemented ✅**
+    - *Implementation Details:* Integrated discovery logic into `src/systems/physics.ts`. Checks player proximity (radius 5.0) to registered `animatedFoliage` objects every 10 frames. Triggers `discoverySystem.discover()` using a separated mapping file (`src/systems/discovery_map.ts`) which defines display names and icons for all rare flora types. Verified via `verification/test_discovery.js`.
   - **Migrate Core Data Structures (Phase 1)**: **Status: Implemented ✅**
     - *Implementation Details:* Converted `src/core/config.js` to `src/core/config.ts` and defined comprehensive TypeScript interfaces (`ConfigType`, `PaletteEntry`) for configuration objects. Updated all import references to use standard module resolution.
   - **Migrate Physics System (Phase 1)**: **Status: Implemented ✅**
@@ -26,7 +28,7 @@
     - *Implementation Details:* Fixed `public/js/audio-processor.js` to correctly send `order` and `row` data from the audio worklet to the main thread, and updated `AudioSystem` to store this data for use by the Weather/Pattern systems.
   - **Subwoofer Lotus**: Implemented `src/foliage/lotus.js` featuring TSL-driven bass-reactive "Speaker Rings" that pulse with `uAudioLow` and a "Glitch Portal" center that activates with `uGlitchIntensity`.
   - **Advanced Collision**: Implemented WASM-based narrow phase collision detection using a Spatial Grid (Linked List) optimization to handle 2000+ objects efficiently.
-  - **Rare Flora Discovery**: Implemented `src/systems/discovery.js` and integrated with `src/systems/physics.js`. Tracks player interactions with environmental features (Vine Swing, Trampoline, Cloud Platform) and triggers a toast notification on first discovery. Persistence handled via localStorage.
+  - **Rare Flora Discovery (Initial)**: Implemented `src/systems/discovery.js` and integrated with `src/systems/physics.js`. Tracks player interactions with environmental features (Vine Swing, Trampoline, Cloud Platform) and triggers a toast notification on first discovery. Persistence handled via localStorage.
   - **Spectrum Aurora**: Implemented `src/foliage/aurora.js` using TSL, featuring audio-reactive intensity and spectral color shifts. Integrated into `main.js`.
   - Integrated "Musical Ecosystem" plan into main documentation.
   - Analyzed "Cute Clay" concept art and implemented matched visuals for Mushrooms (Pastel palette, Cheeks, Matte finish).
@@ -77,6 +79,7 @@
 - **Status:** Pending
 - **Tasks:**
   - [x] Rare Flora Discovery (Unlock system)
+    - *Implementation Details:* Implemented proximity-based discovery logic in `src/systems/physics.ts` using a throttled check against `animatedFoliage` objects and a decoupled data map in `src/systems/discovery_map.ts`.
   - [x] Advanced Collision (WASM-based narrow phase)
      - *Implementation Details:* Implemented Spatial Grid (16x16) in AssemblyScript to optimize collision detection from O(N) to O(1) for nearby objects. Handles Mushrooms, Clouds, Gates, and Trampolines.
   - [x] Player Abilities (Dash, Double Jump extensions)
