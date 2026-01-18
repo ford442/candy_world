@@ -10,10 +10,11 @@ import {
 } from '../utils/wasm-loader.js';
 import {
     foliageMushrooms, foliageTrampolines, foliageClouds,
-    activeVineSwing, setActiveVineSwing, lastVineDetachTime, setLastVineDetachTime, vineSwings
+    activeVineSwing, setActiveVineSwing, lastVineDetachTime, setLastVineDetachTime, vineSwings, animatedFoliage
 } from '../world/state.js';
 // @ts-ignore - Importing JS module
 import { discoverySystem } from './discovery.js';
+import { DISCOVERY_MAP } from './discovery_map.js';
 import {
     calculateMovementInput,
     isInLakeBasin,
@@ -169,8 +170,42 @@ export function updatePhysics(delta: number, camera: THREE.Camera, controls: any
     _lastInputState.dash = keyStates.dash;
     _lastInputState.dance = keyStates.dance;
 
+    // 5. Check Flora Discovery (Throttled)
+    const frameCount = Math.floor(Date.now() / 16);
+    if (frameCount % 10 === 0) {
+        checkFloraDiscovery(player.position);
+    }
+
     // Sync back
     camera.position.copy(player.position);
+}
+
+function checkFloraDiscovery(playerPos: THREE.Vector3) {
+    const DISCOVERY_RADIUS_SQ = 5.0 * 5.0; // 5 meters
+
+    for (let i = 0; i < animatedFoliage.length; i++) {
+        const obj = animatedFoliage[i];
+        if (!obj.userData || !obj.userData.type) continue;
+
+        const type = obj.userData.type;
+        const discoveryInfo = DISCOVERY_MAP[type];
+
+        if (discoveryInfo) {
+            // Already discovered? Skip distance check
+            // @ts-ignore
+            if (discoverySystem.isDiscovered(type)) continue;
+
+            const dx = playerPos.x - obj.position.x;
+            const dy = playerPos.y - obj.position.y;
+            const dz = playerPos.z - obj.position.z;
+            const distSq = dx*dx + dy*dy + dz*dz;
+
+            if (distSq < DISCOVERY_RADIUS_SQ) {
+                // @ts-ignore
+                discoverySystem.discover(type, discoveryInfo.name, discoveryInfo.icon);
+            }
+        }
+    }
 }
 
 // --- Internal Logic ---
