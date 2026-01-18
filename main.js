@@ -591,6 +591,9 @@ initWasm().then(async (wasmLoaded) => {
                 const instructions = document.getElementById('instructions');
                 if (instructions) instructions.style.display = 'none';
 
+                // CRITICAL: Re-enable the button so that "Resume" works later (and checks in input.js pass)
+                startButton.disabled = false;
+
                 // Note: The pointer lock will happen automatically via input system
             }, 50);
             
