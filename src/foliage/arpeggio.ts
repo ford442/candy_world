@@ -45,6 +45,9 @@ export function updateArpeggio(foliageObject: FoliageObject, time: number, audio
 
     const unfurlFactor = (foliageObject.userData.unfurlStep || 0) / maxSteps;
 
+    // Update state for Batcher
+    foliageObject.userData.unfurlFactor = unfurlFactor;
+
     // ⚡ OPTIMIZATION: Update TSL Uniform instead of traversing mesh hierarchy
     // This replaces 200+ draw calls and Matrix updates per fern with a single uniform update.
     if (foliageObject.userData.uUnfurl) {
