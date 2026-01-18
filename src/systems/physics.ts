@@ -41,19 +41,27 @@ export interface PlayerExtended extends CorePlayerState {
     airJumpsLeft: number;
     dashCooldown: number;
     canDash: boolean;
+    isDancing: boolean;
+    danceTime: number;
+    danceStartPos?: THREE.Vector3;
+    danceStartY?: number;
+    danceStartRotation?: { x: number; y: number; z: number };
 }
 
 // --- Configuration ---
 const GRAVITY = 20.0;
 const SWIMMING_GRAVITY = 2.0; // Much lower gravity in water
 const SWIMMING_DRAG = 4.0;    // High friction in water
+const PLAYER_HEIGHT_OFFSET = 1.8; // Height above ground
+const DANCE_KICK_THRESHOLD = 0.5; // Threshold for kick-triggered camera roll
 
 // --- State Definitions ---
 export const PlayerState = {
     DEFAULT: 'default',   // Grounded or Airborne (Standard Physics)
     SWIMMING: 'swimming', // Underwater physics
     CLIMBING: 'climbing', // Wall scaling
-    VINE: 'vine'          // Swinging on a vine
+    VINE: 'vine',         // Swinging on a vine
+    DANCING: 'dancing'    // Dance mode with unlocked cursor
 };
 
 // --- Player State Object ---
@@ -72,6 +80,8 @@ export const player: PlayerExtended = {
     airJumpsLeft: 1,
     dashCooldown: 0.0,
     canDash: true,
+    isDancing: false,
+    danceTime: 0.0,
 
     // Flags for external systems to query
     isGrounded: false,
@@ -81,7 +91,8 @@ export const player: PlayerExtended = {
 // Internal input tracking for edge detection
 const _lastInputState = {
     jump: false,
-    dash: false
+    dash: false,
+    dance: false
 };
 
 // Global physics modifiers (Musical Ecosystem)
@@ -135,6 +146,9 @@ export function updatePhysics(delta: number, camera: THREE.Camera, controls: any
 
     // 3. Execute State Logic
     switch (player.currentState) {
+        case PlayerState.DANCING:
+            updateDancingState(delta, camera, controls, keyStates, audioState);
+            break;
         case PlayerState.VINE:
             updateVineState(delta, camera, keyStates);
             break;
@@ -153,6 +167,7 @@ export function updatePhysics(delta: number, camera: THREE.Camera, controls: any
     // 4. Update Input History (for next frame edge detection)
     _lastInputState.jump = keyStates.jump;
     _lastInputState.dash = keyStates.dash;
+    _lastInputState.dance = keyStates.dance;
 
     // Sync back
     camera.position.copy(player.position);
@@ -179,7 +194,36 @@ function updateEnvironmentalModifiers(delta: number, audioState: AudioState) {
 function updateStateTransitions(camera: THREE.Camera, keyStates: KeyStates) {
     const playerPos = player.position;
 
-    // A. Check Water Level / Cave Flooding
+    // A. Check Dance Mode Toggle (Toggle on/off with R key)
+    const isDancePressed = keyStates.dance;
+    const isDanceTriggered = isDancePressed && !_lastInputState.dance;
+    
+    if (isDanceTriggered) {
+        if (player.currentState === PlayerState.DANCING) {
+            // Exit dance mode
+            player.currentState = PlayerState.DEFAULT;
+            player.isDancing = false;
+            player.danceTime = 0;
+            // Clean up dance state
+            player.danceStartPos = undefined;
+            player.danceStartY = undefined;
+            player.danceStartRotation = undefined;
+            // Reset camera rotation
+            camera.rotation.z = 0;
+        } else if (player.currentState === PlayerState.DEFAULT) {
+            // Enter dance mode
+            player.currentState = PlayerState.DANCING;
+            player.isDancing = true;
+            player.danceTime = 0;
+        }
+    }
+
+    // Skip other state transitions when dancing
+    if (player.currentState === PlayerState.DANCING) {
+        return;
+    }
+
+    // B. Check Water Level / Cave Flooding
     // MIGRATED: Now uses TypeScript version from physics.core.ts
     const waterLevel = calculateWaterLevel(playerPos, foliageCaves);
 
@@ -273,6 +317,79 @@ function updateVineState(delta: number, camera: THREE.Camera, keyStates: KeyStat
 function updateClimbingState(delta: number, camera: THREE.Camera, controls: any, keyStates: KeyStates) {
     player.velocity.set(0,0,0);
     player.currentState = PlayerState.DEFAULT;
+}
+
+// --- State: DANCING ---
+function updateDancingState(delta: number, camera: THREE.Camera, controls: any, keyStates: KeyStates, audioState: AudioState | null) {
+    // Unlock pointer if locked
+    if (document.pointerLockElement === document.body) {
+        controls.unlock();
+    }
+
+    // Update dance time
+    player.danceTime += delta;
+    
+    // Get BPM and beat info from audio (with fallbacks for when no music is playing)
+    const bpm = audioState?.bpm ?? 120;
+    const beatPhase = audioState?.beatPhase ?? 0;
+    const kickTrigger = audioState?.kickTrigger ?? 0;
+    
+    // Calculate beat duration in seconds
+    const beatDuration = 60.0 / bpm;
+    const danceSpeed = 1.0 + (bpm / 120.0); // Faster dance at higher BPMs
+    
+    // Position movement: Small circular pattern
+    const circleRadius = 0.5 + (kickTrigger * 0.3); // Bigger circle on kicks
+    const circleSpeed = danceSpeed * 2.0;
+    const angle = player.danceTime * circleSpeed;
+    
+    // Store initial position on first frame
+    if (!player.danceStartPos) {
+        player.danceStartPos = player.position.clone();
+        player.danceStartY = getUnifiedGroundHeight(player.position.x, player.position.z) + PLAYER_HEIGHT_OFFSET;
+    }
+    
+    // Move in a circle around starting position
+    player.position.x = player.danceStartPos.x + Math.sin(angle) * circleRadius;
+    player.position.z = player.danceStartPos.z + Math.cos(angle) * circleRadius;
+    
+    // Bob up and down with the beat
+    const bobAmount = 0.3 + (kickTrigger * 0.2);
+    const bobPhase = beatPhase * Math.PI * 2;
+    player.position.y = player.danceStartY + Math.sin(bobPhase) * bobAmount;
+    
+    // Camera view movement: Rotate and tilt based on music
+    // Get current camera rotation
+    const pitchAmount = Math.sin(player.danceTime * danceSpeed * 1.5) * 0.15; // Tilt up/down
+    const yawAmount = Math.cos(player.danceTime * danceSpeed) * 0.3; // Turn left/right
+    
+    // Apply rotation relative to initial orientation
+    if (!player.danceStartRotation) {
+        player.danceStartRotation = {
+            x: camera.rotation.x,
+            y: camera.rotation.y,
+            z: camera.rotation.z
+        };
+    }
+    
+    // Smooth rotation animation
+    camera.rotation.x = player.danceStartRotation.x + pitchAmount;
+    camera.rotation.y = player.danceStartRotation.y + yawAmount;
+    
+    // Extra bounce on kick
+    if (kickTrigger > DANCE_KICK_THRESHOLD) {
+        camera.rotation.z = Math.sin(player.danceTime * 10) * 0.05;
+    } else {
+        camera.rotation.z *= 0.9; // Dampen roll
+    }
+    
+    // Zero velocity while dancing
+    player.velocity.set(0, 0, 0);
+    
+    // Discovery
+    if (player.danceTime < 0.1) {
+        discoverySystem.discover('ability_dance', 'Dance Mode', '💃');
+    }
 }
 
 // --- Ability Handler ---

@@ -10,7 +10,8 @@ export const keyStates = {
     jump: false,
     sneak: false,
     sprint: false,
-    dash: false // New ability
+    dash: false, // Dash ability
+    dance: false // Dance ability
 };
 
 // Controls and Event Listeners
@@ -327,6 +328,7 @@ export function initInput(camera, audioSystem, toggleDayNightCallback) {
             case 'KeyS': keyStates.backward = true; break;
             case 'KeyD': keyStates.right = true; break;
             case 'KeyE': keyStates.dash = true; break; // Dash Ability
+            case 'KeyR': keyStates.dance = true; break; // Dance Ability
             case 'Space': keyStates.jump = true; break;
             case 'KeyN': if(toggleDayNightCallback) toggleDayNightCallback(); break;
             case 'KeyM': toggleMute(); break;
@@ -349,6 +351,7 @@ export function initInput(camera, audioSystem, toggleDayNightCallback) {
             case 'KeyS': keyStates.backward = false; break;
             case 'KeyD': keyStates.right = false; break;
             case 'KeyE': keyStates.dash = false; break;
+            case 'KeyR': keyStates.dance = false; break;
             case 'Space': keyStates.jump = false; break;
             case 'ControlLeft':
             case 'ControlRight': keyStates.sneak = false; break;
