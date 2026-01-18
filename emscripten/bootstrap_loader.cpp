@@ -1,10 +1,11 @@
 // bootstrap_loader.cpp
-// Pthread-based Bootstrap Loader for Candy World
+// Pthread & OpenMP-based Bootstrap Loader for Candy World
 // Pre-computes terrain heightmap and pre-warms physics system initialization
 
 #include <emscripten.h>
 #include <emscripten/threading.h>
 #include <pthread.h>
+#include <omp.h>
 #include <cmath>
 #include <cstdlib>
 #include <cstdint>
@@ -22,7 +23,6 @@ extern float fbm(float x, float y, int octaves);
 
 #define HEIGHTMAP_SIZE 64      // 64x64 grid for spawn area heightmap
 #define SPAWN_AREA_RADIUS 32.0f // Cover -32 to +32 in world coordinates
-#define NUM_THREADS 4          // Must match PTHREAD_POOL_SIZE from build.sh
 
 struct BootstrapState {
     std::atomic<int> progress;      // 0-100
@@ -41,21 +41,43 @@ static BootstrapState bootstrap = {
 };
 
 // =============================================================================
-// TERRAIN HEIGHTMAP PRE-COMPUTATION
+// WARMUP STATE (Simulated Shader Compilation)
 // =============================================================================
 
-// Compute heightmap for a region (used by worker threads)
-void computeHeightmapRegion(int startRow, int endRow) {
+struct WarmupState {
+    std::atomic<int> progress;
+    std::atomic<bool> complete;
+    std::atomic<bool> started;
+    std::atomic<int> completedChunks;
+};
+
+static WarmupState warmup = {
+    .progress = 0,
+    .complete = false,
+    .started = false,
+    .completedChunks = 0
+};
+
+// =============================================================================
+// WORKER FUNCTIONS
+// =============================================================================
+
+// Master worker that uses OpenMP to parallelize heightmap generation
+void* bootstrapMasterWorker(void* arg) {
     const float cellSize = (2.0f * SPAWN_AREA_RADIUS) / HEIGHTMAP_SIZE;
     
-    for (int row = startRow; row < endRow; row++) {
+    // Reset counters
+    bootstrap.completedRows.store(0);
+    bootstrap.progress.store(0);
+
+    #pragma omp parallel for schedule(dynamic)
+    for (int row = 0; row < HEIGHTMAP_SIZE; row++) {
         for (int col = 0; col < HEIGHTMAP_SIZE; col++) {
             // Convert grid coordinates to world coordinates
             float worldX = -SPAWN_AREA_RADIUS + col * cellSize;
             float worldZ = -SPAWN_AREA_RADIUS + row * cellSize;
             
             // Compute height using terrain generation algorithm
-            // This should match the terrain generation in the main game
             float height = fbm(worldX * 0.05f, worldZ * 0.05f, 4);
             height += valueNoise2D(worldX * 0.1f, worldZ * 0.1f) * 0.5f;
             height *= 3.0f; // Scale factor
@@ -73,22 +95,46 @@ void computeHeightmapRegion(int startRow, int endRow) {
         int oldProgress = bootstrap.progress.load();
         while (newProgress > oldProgress && 
                !bootstrap.progress.compare_exchange_weak(oldProgress, newProgress)) {
-            // Keep trying until we successfully update or progress is already higher
+            // CAS loop
         }
     }
+
+    bootstrap.progress.store(100);
+    bootstrap.complete.store(true);
+    return nullptr;
 }
 
-// Worker thread entry point
-void* bootstrapWorker(void* arg) {
-    intptr_t threadId = (intptr_t)arg;
+// Master worker for shader warmup simulation
+void* warmupMasterWorker(void* arg) {
+    const int total_iterations = 1000000;
+    const int chunk_size = 1000;
+    const int num_chunks = total_iterations / chunk_size;
     
-    // Divide work among threads
-    int rowsPerThread = HEIGHTMAP_SIZE / NUM_THREADS;
-    int startRow = (int)threadId * rowsPerThread;
-    int endRow = ((int)threadId == NUM_THREADS - 1) ? HEIGHTMAP_SIZE : ((int)threadId + 1) * rowsPerThread;
+    warmup.completedChunks.store(0);
+    warmup.progress.store(0);
     
-    computeHeightmapRegion(startRow, endRow);
+    #pragma omp parallel for schedule(dynamic)
+    for (int c = 0; c < num_chunks; c++) {
+        // Perform a chunk of heavy work
+        for (int i = 0; i < chunk_size; i++) {
+            float x = (float)(c * chunk_size + i) * 0.001f;
+            volatile float y = sinf(x) * cosf(x * 1.5f) + tanf(x * 0.1f);
+            (void)y;
+        }
+
+        // Atomically update completed chunks count
+        int finished = warmup.completedChunks.fetch_add(1) + 1;
+
+        // Update progress percentage monotonically
+        int p = (finished * 100) / num_chunks;
+        int oldP = warmup.progress.load();
+        while (p > oldP && !warmup.progress.compare_exchange_weak(oldP, p)) {
+            // spin until updated or p <= oldP
+        }
+    }
     
+    warmup.progress.store(100);
+    warmup.complete.store(true);
     return nullptr;
 }
 
@@ -96,7 +142,7 @@ void* bootstrapWorker(void* arg) {
 // PUBLIC API
 // =============================================================================
 
-// Start bootstrap initialization (spawns worker threads)
+// Start bootstrap initialization (spawns one master thread which uses OpenMP)
 EMSCRIPTEN_KEEPALIVE
 void startBootstrapInit() {
     if (bootstrap.started.load()) {
@@ -108,31 +154,38 @@ void startBootstrapInit() {
     bootstrap.complete.store(false);
     bootstrap.completedRows.store(0);
     
-    // Spawn worker threads for parallel heightmap computation
-    pthread_t threads[NUM_THREADS];
-    for (intptr_t i = 0; i < NUM_THREADS; i++) {
-        pthread_create(&threads[i], nullptr, bootstrapWorker, (void*)i);
-    }
+    // Spawn ONE master thread to manage OpenMP pool
+    pthread_t thread;
+    pthread_create(&thread, nullptr, bootstrapMasterWorker, nullptr);
+    pthread_detach(thread);
+}
+
+// Start shader warmup (spawns one master thread which uses OpenMP)
+EMSCRIPTEN_KEEPALIVE
+void startShaderWarmup() {
+    if (warmup.started.load()) return;
     
-    // Detach threads so they clean up automatically
-    for (int i = 0; i < NUM_THREADS; i++) {
-        pthread_detach(threads[i]);
-    }
+    warmup.started.store(true);
+    warmup.progress.store(0);
+    warmup.complete.store(false);
     
-    // Mark completion in a separate callback after all threads finish
-    // For simplicity, we'll poll progress in JS instead of using a join thread
+    pthread_t thread;
+    pthread_create(&thread, nullptr, warmupMasterWorker, nullptr);
+    pthread_detach(thread);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int getShaderWarmupProgress() {
+    return warmup.progress.load();
 }
 
 // Get current bootstrap progress (0-100)
 EMSCRIPTEN_KEEPALIVE
 int getBootstrapProgress() {
     int progress = bootstrap.progress.load();
-    
-    // Mark complete when progress reaches 100
     if (progress >= 100 && !bootstrap.complete.load()) {
         bootstrap.complete.store(true);
     }
-    
     return progress;
 }
 
@@ -142,24 +195,20 @@ int isBootstrapComplete() {
     return bootstrap.complete.load() ? 1 : 0;
 }
 
-// Get pre-computed height at a specific point (faster than recalculating)
+// Get pre-computed height at a specific point
 EMSCRIPTEN_KEEPALIVE
 float getBootstrapHeight(float x, float z) {
-    // Check if point is within pre-computed region
     if (std::abs(x) > SPAWN_AREA_RADIUS || std::abs(z) > SPAWN_AREA_RADIUS) {
-        // Outside cached region, compute on the fly
         float height = fbm(x * 0.05f, z * 0.05f, 4);
         height += valueNoise2D(x * 0.1f, z * 0.1f) * 0.5f;
         height *= 3.0f;
         return height;
     }
     
-    // Convert world coordinates to grid coordinates
     const float cellSize = (2.0f * SPAWN_AREA_RADIUS) / HEIGHTMAP_SIZE;
     int col = (int)((x + SPAWN_AREA_RADIUS) / cellSize);
     int row = (int)((z + SPAWN_AREA_RADIUS) / cellSize);
     
-    // Clamp to valid range
     if (col < 0) col = 0;
     if (col >= HEIGHTMAP_SIZE) col = HEIGHTMAP_SIZE - 1;
     if (row < 0) row = 0;
@@ -169,7 +218,6 @@ float getBootstrapHeight(float x, float z) {
     return bootstrap.heightmap[idx];
 }
 
-// Reset bootstrap state (useful for testing)
 EMSCRIPTEN_KEEPALIVE
 void resetBootstrap() {
     bootstrap.started.store(false);
@@ -177,6 +225,11 @@ void resetBootstrap() {
     bootstrap.complete.store(false);
     bootstrap.completedRows.store(0);
     
+    warmup.started.store(false);
+    warmup.progress.store(0);
+    warmup.complete.store(false);
+    warmup.completedChunks.store(0);
+
     for (int i = 0; i < HEIGHTMAP_SIZE * HEIGHTMAP_SIZE; i++) {
         bootstrap.heightmap[i] = 0.0f;
     }
