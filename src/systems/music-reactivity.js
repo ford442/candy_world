@@ -8,6 +8,7 @@ import { arpeggioFernBatcher } from '../foliage/arpeggio-batcher.ts';
 // ⚡ OPTIMIZATION: Reusable Frustum
 const _frustum = new THREE.Frustum();
 const _projScreenMatrix = new THREE.Matrix4();
+const _scratchSphere = new THREE.Sphere(); // Reusable for Group culling checks
 
 class MusicReactivitySystem {
     constructor() {
@@ -159,7 +160,19 @@ class MusicReactivitySystem {
                 }
 
                 // If in frustum (approx)
-                if (_frustum.intersectsObject(obj)) {
+                // Fix: Handle Groups or objects without geometry using a bounding sphere
+                let isVisible = false;
+                if (obj.geometry && obj.geometry.boundingSphere) {
+                    isVisible = _frustum.intersectsObject(obj);
+                } else {
+                    _scratchSphere.center.copy(obj.position);
+                    _scratchSphere.radius = obj.userData.radius || 2.0;
+                    // Apply approximate scale
+                    if (obj.scale.x > 1.0) _scratchSphere.radius *= obj.scale.x;
+                    isVisible = _frustum.intersectsSphere(_scratchSphere);
+                }
+
+                if (isVisible) {
                     animateFoliage(obj, time, audioState, isDay, isDeepNight);
                 }
             }
