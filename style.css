@@ -28,3 +28,23 @@
     transform: translate(-50%, -50%) scale(0.5);
     background-color: #ffffff;
 }
+
+/* 🎨 Palette: Accessibility - Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+    /* Global transition reset */
+    *, *::before, *::after {
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+
+    /* Disable decorative animations */
+    .drag-icon {
+        animation: none !important;
+    }
+
+    /* Slow down necessary status indicators instead of removing them */
+    .loading-spinner,
+    .spinner {
+        animation-duration: 5s !important;
+    }
+}
