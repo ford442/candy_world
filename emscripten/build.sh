@@ -278,7 +278,7 @@ LINK_FLAGS="-O2 -std=c++17 -lembind -s USE_PTHREADS=1 -s PTHREAD_POOL_SIZE=4 -s 
 -s ALLOW_MEMORY_GROWTH=1 -s TOTAL_STACK=16MB -s INITIAL_MEMORY=256MB $ASSERTION_FLAG -s EXPORT_ES6=1 \
 -s EXPORTED_RUNTIME_METHODS=[\"wasmMemory\"] -s MODULARIZE=1 -s EXPORT_NAME=createCandyNative \
 -s ENVIRONMENT=web,worker -s ERROR_ON_UNDEFINED_SYMBOLS=0 \
--fwasm-exceptions -matomics -mbulk-memory -fopenmp -msimd128 -ffast-math -pthread -L. -lomp"
+-fwasm-exceptions -matomics -mbulk-memory -fopenmp -msimd128 -ffast-math -pthread -L$SCRIPT_DIR -lomp"
 
 # ---------------------------------------------------------
 # STEP 5: Compile and Link
