@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { CONFIG, CYCLE_DURATION } from '../core/config.js';
 import { animateFoliage } from '../foliage/animation.ts';
 import { foliageBatcher } from '../foliage/foliage-batcher.ts';
+import { arpeggioFernBatcher } from '../foliage/arpeggio-batcher.ts';
 
 // ⚡ OPTIMIZATION: Reusable Frustum
 const _frustum = new THREE.Frustum();
@@ -165,6 +166,9 @@ class MusicReactivitySystem {
 
             // Flush batched updates to GPU
             foliageBatcher.flush(camera, time);
+
+            // Update Arpeggio Batcher
+            arpeggioFernBatcher.update();
         }
     }
 

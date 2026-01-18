@@ -170,6 +170,11 @@ export function safeAddFoliage(
     if (obj.userData.type === 'cloud') foliageClouds.push(obj);
     if (obj.userData.isTrampoline) foliageTrampolines.push(obj);
 
+    // Invoke deferred placement logic (e.g. for batching)
+    if (obj.userData.onPlacement) {
+        obj.userData.onPlacement();
+    }
+
     // Register with weather system
     if (weatherSystem) {
         if (obj.userData.type === 'tree') {
