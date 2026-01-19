@@ -183,9 +183,19 @@ export function initInput(camera, audioSystem, toggleDayNightCallback) {
             if (instructions) instructions.style.display = 'none'; // Ensure pause menu is hidden
             playlistOverlay.style.display = 'flex';
             renderPlaylist();
-            // Focus management: focus the overlay or the close button for accessibility
+            // UX: Auto-focus the currently playing track for immediate context
             requestAnimationFrame(() => {
-                if (closePlaylistBtn) closePlaylistBtn.focus();
+                const currentIdx = audioSystem.getCurrentIndex();
+                const playlistBtns = playlistList.querySelectorAll('.playlist-btn');
+
+                if (currentIdx >= 0 && playlistBtns[currentIdx]) {
+                    const activeBtn = playlistBtns[currentIdx];
+                    activeBtn.focus();
+                    // Ensure the active song is visible in the scrollable list
+                    activeBtn.scrollIntoView({ block: 'center' });
+                } else if (closePlaylistBtn) {
+                    closePlaylistBtn.focus();
+                }
             });
         } else {
             // CLOSING
