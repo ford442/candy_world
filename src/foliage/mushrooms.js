@@ -23,6 +23,25 @@ export const MUSHROOM_NOTES = [
     { note: 'B',  color: 0xEF8012, name: 'B Orange' }     // Orange
 ];
 
+// ⚡ PERFORMANCE: Material cache to prevent ~3000 shader compilations
+// Create one material per note (12 total) instead of one per mushroom
+const _mushroomCapMaterialCache = new Map();
+
+function getOrCreateNoteMaterial(noteIndex, noteColor) {
+    if (!_mushroomCapMaterialCache.has(noteIndex)) {
+        const baseCapMat = foliageMaterials.mushroomCap[0] || foliageMaterials.mushroomStem;
+        const cached = baseCapMat.clone();
+        cached.color.setHex(noteColor);
+        cached.roughness = 0.7;
+        cached.userData.isClone = true;
+        cached.userData.baseEmissive = new THREE.Color(0x000000);
+        cached.userData.noteColor = new THREE.Color(noteColor);
+        _mushroomCapMaterialCache.set(noteIndex, cached);
+        console.log(`[Mushroom Cache] Created material for note ${MUSHROOM_NOTES[noteIndex].note} (${noteIndex}/12)`);
+    }
+    return _mushroomCapMaterialCache.get(noteIndex);
+}
+
 export function createMushroom(options = {}) {
     const {
         size = 'regular',
@@ -86,11 +105,8 @@ export function createMushroom(options = {}) {
     
     // Use note color if available, otherwise use colorIndex or random
     if (noteColor !== null) {
-        // Create dedicated material with note color for musical mushrooms
-        const baseCapMat = foliageMaterials.mushroomCap[0] || foliageMaterials.mushroomStem;
-        capMat = baseCapMat.clone();
-        capMat.color.setHex(noteColor);
-        capMat.roughness = 0.7;
+        // ⚡ PERFORMANCE: Use cached material instead of cloning
+        capMat = getOrCreateNoteMaterial(actualNoteIndex, noteColor);
         chosenColorIndex = actualNoteIndex;
     } else if (colorIndex >= 0 && colorIndex < foliageMaterials.mushroomCap.length) {
         chosenColorIndex = colorIndex;
@@ -100,14 +116,12 @@ export function createMushroom(options = {}) {
         capMat = foliageMaterials.mushroomCap[chosenColorIndex];
     }
 
-    // Clone material to allow individual emissive strobing and TSL modification
-    const instanceCapMat = capMat.clone();
-    instanceCapMat.userData.isClone = true;
-    // Ensure base emissive is set for fade-back
-    instanceCapMat.userData.baseEmissive = new THREE.Color(0x000000);
-    // Store note color for reactivity
-    if (noteColor !== null) {
-        instanceCapMat.userData.noteColor = new THREE.Color(noteColor);
+    // For non-musical mushrooms, still clone material to allow individual emissive strobing
+    const instanceCapMat = noteColor !== null ? capMat : capMat.clone();
+    if (noteColor === null) {
+        instanceCapMat.userData.isClone = true;
+        // Ensure base emissive is set for fade-back
+        instanceCapMat.userData.baseEmissive = new THREE.Color(0x000000);
     }
 
     // --- PALETTE UPDATE: Jelly Squish & Audio Reactivity ---
@@ -204,15 +218,8 @@ export function createMushroom(options = {}) {
     const spotMat = foliageMaterials.mushroomSpots;
     
     // Add note-colored accent spots if this is a musical mushroom
-    let accentSpotMat = spotMat;
-    if (noteColor !== null) {
-        // Create dedicated material with note color for musical mushrooms
-        const baseCapMat = foliageMaterials.mushroomCap[0] || foliageMaterials.mushroomStem;
-        accentSpotMat = baseCapMat.clone();
-        accentSpotMat.userData.isClone = true;
-        accentSpotMat.color.setHex(noteColor);
-        accentSpotMat.roughness = 0.7;
-    }
+    // ⚡ PERFORMANCE: Reuse the same cached material as the cap
+    const accentSpotMat = noteColor !== null ? capMat : spotMat;
 
     for (let i = 0; i < spotCount; i++) {
         const u = Math.random();
@@ -331,6 +338,10 @@ export function createMushroom(options = {}) {
     group.userData.capRadius = capR;
     group.userData.capHeight = stemH;
     group.userData.stemRadius = stemR;
+    
+    // ⚡ PERFORMANCE: Set accurate bounding radius for frustum culling
+    // Radius is the maximum extent from the center (cap radius is the dominant dimension)
+    group.userData.radius = capR * 1.2; // Add 20% margin for safety
 
     // Register cap for flash animation system
     group.userData.reactiveMeshes = [cap];
