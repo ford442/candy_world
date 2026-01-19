@@ -1,8 +1,42 @@
 import * as THREE from 'three';
 import { CONFIG } from '../core/config.js';
 
+// Define interface for interactive objects with userdata
+export interface InteractiveObject extends THREE.Object3D {
+    userData: {
+        onProximityEnter?: (distance: number) => void;
+        onProximityLeave?: () => void;
+        onGazeEnter?: () => void;
+        onGazeLeave?: () => void;
+        onInteract?: () => void;
+        // Other possible userData properties
+        [key: string]: any;
+    };
+    visible: boolean;
+    parent: THREE.Object3D | null;
+}
+
+// Callback type for reticle updates
+export type ReticleCallback = (state: 'idle' | 'hover' | 'interact') => void;
+
 export class InteractionSystem {
-    constructor(camera, reticleCallback) {
+    camera: THREE.Camera;
+    raycaster: THREE.Raycaster;
+    hoveredObject: InteractiveObject | null;
+
+    // Using Set<InteractiveObject> but we might need to cast from Object3D
+    _nearbySetA: Set<InteractiveObject>;
+    _nearbySetB: Set<InteractiveObject>;
+    nearbyObjects: Set<InteractiveObject>;
+
+    _candidatesScratch: InteractiveObject[];
+    _scratchVec2: THREE.Vector2;
+    reticleCallback: ReticleCallback | null;
+
+    proximityRadius: number;
+    interactionDistance: number;
+
+    constructor(camera: THREE.Camera, reticleCallback: ReticleCallback | null) {
         this.camera = camera;
         this.raycaster = new THREE.Raycaster();
 
@@ -30,7 +64,7 @@ export class InteractionSystem {
     }
 
     // ⚡ OPTIMIZATION: Accepts multiple arrays to avoid [...a, ...b] allocation in main loop
-    update(dt, playerPosition, ...interactableLists) {
+    update(dt: number, playerPosition: THREE.Vector3, ...interactableLists: (THREE.Object3D[] | undefined)[]) {
         // Swap sets: 'nearbyObjects' becomes 'prevNearby', and we fill 'nextNearby'
         const prevNearby = this.nearbyObjects;
         const nextNearby = (prevNearby === this._nearbySetA) ? this._nearbySetB : this._nearbySetA;
@@ -44,7 +78,7 @@ export class InteractionSystem {
 
             const len = list.length;
             for (let j = 0; j < len; j++) {
-                const obj = list[j];
+                const obj = list[j] as InteractiveObject;
                 // Safety: Skip invalid objects or those without position
                 if (!obj || !obj.position || !obj.visible) continue;
 
@@ -102,11 +136,13 @@ export class InteractionSystem {
             // If any child is a Mesh with undefined geometry (e.g., loading state),
             // accessing 'boundingSphere' will throw a TypeError.
             try {
+                // Raycaster.intersectObjects accepts Object3D[], but candidates is InteractiveObject[].
+                // InteractiveObject extends Object3D, so this is valid.
                 const intersects = this.raycaster.intersectObjects(candidates, true);
 
                 if (intersects.length > 0) {
-                    let hitObj = intersects[0].object;
-                    let rootObj = null;
+                    let hitObj = intersects[0].object as unknown as InteractiveObject; // Start with the mesh hit
+                    let rootObj: InteractiveObject | null = null;
                     const hitDist = intersects[0].distance;
 
                     // Bubble up to find the logic root (the Group with userData)
@@ -118,7 +154,7 @@ export class InteractionSystem {
                             rootObj = hitObj;
                             break;
                         }
-                        hitObj = hitObj.parent;
+                        hitObj = hitObj.parent as InteractiveObject;
                         depth++;
                     }
 
@@ -127,7 +163,7 @@ export class InteractionSystem {
                         return;
                     }
                 }
-            } catch (err) {
+            } catch (err: any) {
                 // Suppress "boundingSphere of undefined" errors caused by uninitialized meshes
                 // This keeps the game loop running even if one object is glitches.
                 if (err instanceof TypeError && err.message.includes('boundingSphere')) {
@@ -141,7 +177,7 @@ export class InteractionSystem {
         this.handleHover(null);
     }
 
-    handleHover(object) {
+    handleHover(object: InteractiveObject | null) {
         if (this.hoveredObject === object) return;
 
         // Leave old
@@ -162,13 +198,13 @@ export class InteractionSystem {
         }
     }
 
-    triggerClick() {
+    triggerClick(): boolean {
         if (this.hoveredObject && this.hoveredObject.userData?.onInteract) {
             try {
                 this.hoveredObject.userData.onInteract();
                 if (this.reticleCallback) {
                     this.reticleCallback('interact');
-                    setTimeout(() => this.reticleCallback('hover'), 150);
+                    setTimeout(() => this.reticleCallback && this.reticleCallback('hover'), 150);
                 }
                 return true;
             } catch(e) {
