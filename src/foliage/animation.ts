@@ -96,9 +96,11 @@ function applyWetEffect(material: FoliageMaterial, wetAmount: number): void {
 }
 
 export function updateMaterialsForWeather(materials: FoliageMaterial[], weatherState: string | null, weatherIntensity: number): void {
-    materials.forEach(mat => {
+    // ⚡ OPTIMIZATION: Use for-loop to avoid closure
+    for (let i = 0; i < materials.length; i++) {
+        const mat = materials[i];
         // Basic check if it's a material
-        if (!mat || !(mat as any).isMaterial) return;
+        if (!mat || !(mat as any).isMaterial) continue;
 
         let wetAmount = 0;
 
@@ -109,7 +111,7 @@ export function updateMaterialsForWeather(materials: FoliageMaterial[], weatherS
         }
 
         applyWetEffect(mat, wetAmount);
-    });
+    }
 }
 
 export function updateFoliageMaterials(audioData: AudioData | null, isNight: boolean, weatherState: string | null = null, weatherIntensity: number = 0): void {
@@ -118,8 +120,10 @@ export function updateFoliageMaterials(audioData: AudioData | null, isNight: boo
     if (isNight) {
         const channels = audioData.channelData;
         if (channels && channels.length > 0) {
-            // Cast reactiveMaterials to FoliageMaterial[]
-            (reactiveMaterials as unknown as FoliageMaterial[]).forEach((mat, i) => {
+            // ⚡ OPTIMIZATION: Cast and use for-loop to avoid closure
+            const mats = reactiveMaterials as unknown as FoliageMaterial[];
+            for (let i = 0; i < mats.length; i++) {
+                const mat = mats[i];
                 const chIndex = (i % 4) + 1;
                 const ch = channels[Math.min(chIndex, channels.length - 1)];
 
@@ -139,15 +143,18 @@ export function updateFoliageMaterials(audioData: AudioData | null, isNight: boo
                 if (!(mat as any).isMeshBasicMaterial && mat.emissiveIntensity !== undefined) {
                      mat.emissiveIntensity = intensity;
                 }
-            });
+            }
         }
     } else {
-        (reactiveMaterials as unknown as FoliageMaterial[]).forEach(mat => {
+        // ⚡ OPTIMIZATION: Cast and use for-loop to avoid closure
+        const mats = reactiveMaterials as unknown as FoliageMaterial[];
+        for (let i = 0; i < mats.length; i++) {
+            const mat = mats[i];
             if (mat.emissive) {
                 mat.emissive.setHex(0x000000);
                 mat.emissiveIntensity = 0;
             }
-        });
+        }
     }
 
     if (weatherState && weatherIntensity > 0) {
