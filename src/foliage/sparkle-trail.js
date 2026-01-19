@@ -1,15 +1,16 @@
 import * as THREE from 'three';
 import { PointsNodeMaterial } from 'three/webgpu';
 import { attribute, float, mix, color, vec3, smoothstep, sin, positionLocal, cos } from 'three/tsl';
-import { uTime, uAudioHigh } from './common.js';
+import { uTime, uAudioHigh, uAudioLow } from './common.js';
 
-const TRAIL_SIZE = 1000; // Increased buffer size for richer trails
+const TRAIL_SIZE = 1500; // Increased buffer size for richer trails
 
 export function createSparkleTrail() {
     const geo = new THREE.BufferGeometry();
     const positions = new Float32Array(TRAIL_SIZE * 3);
     const birthTimes = new Float32Array(TRAIL_SIZE);
     const lifeSpans = new Float32Array(TRAIL_SIZE);
+    const spawnSpeeds = new Float32Array(TRAIL_SIZE);
 
     // Fill with initial data to avoid empty buffer issues
     birthTimes.fill(-1000);
@@ -17,10 +18,11 @@ export function createSparkleTrail() {
     geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
     geo.setAttribute('birthTime', new THREE.BufferAttribute(birthTimes, 1));
     geo.setAttribute('lifeSpan', new THREE.BufferAttribute(lifeSpans, 1));
+    geo.setAttribute('spawnSpeed', new THREE.BufferAttribute(spawnSpeeds, 1));
 
     // Material
     const mat = new PointsNodeMaterial({
-        size: 0.4, // Slightly larger base size
+        size: 0.5,
         transparent: true,
         depthWrite: false,
         blending: THREE.AdditiveBlending
@@ -28,17 +30,25 @@ export function createSparkleTrail() {
 
     const birthTime = attribute('birthTime');
     const lifeSpan = attribute('lifeSpan');
+    const spawnSpeed = attribute('spawnSpeed');
 
     const age = uTime.sub(birthTime);
-    const lifeProgress = age.div(lifeSpan); // 0.0 to 1.0 (clamped by lifespan usually)
+    const lifeProgress = age.div(lifeSpan); // 0.0 to 1.0
 
     // --- TSL PHYSICS (Juice) ---
+
+    // Speed Factor (0.0 at walking, 1.0 at sprint/dash)
+    // Helps modulate effects based on how fast player was moving when particle spawned
+    const speedFactor = smoothstep(5.0, 25.0, spawnSpeed);
+
     // 1. Drift Upwards (Magic Dust rises)
-    const driftUp = vec3(0.0, age.mul(1.5), 0.0);
+    // Faster movement = Higher drift
+    const driftUp = vec3(0.0, age.mul(1.5).add(age.mul(speedFactor).mul(1.0)), 0.0);
 
     // 2. Swirl Effect (Spiral out as they rise)
-    const swirlFreq = float(5.0);
-    const swirlAmp = age.mul(0.2); // Expands over time
+    const swirlFreq = float(5.0).add(speedFactor.mul(5.0)); // Faster swirl when running
+    const swirlAmp = age.mul(0.2).add(age.mul(speedFactor).mul(0.3)); // Wider swirl when running
+
     const swirl = vec3(
         sin(age.mul(swirlFreq)).mul(swirlAmp),
         float(0.0),
@@ -51,40 +61,40 @@ export function createSparkleTrail() {
     // --- VISUALS ---
 
     // Opacity: Fade in quickly, fade out smoothly
-    // smoothstep(0, 0.1, p) * (1 - smoothstep(0.4, 1, p))
-    // We let them fade out earlier (at 0.4 progress) to avoid hard pops if lifespan varies
     const fadeIn = smoothstep(0.0, 0.1, lifeProgress);
     const fadeOut = float(1.0).sub(smoothstep(0.4, 1.0, lifeProgress));
     const opacity = fadeIn.mul(fadeOut);
 
-    // Audio Reactivity: Pulse size with High Frequencies (Hi-hats/Magic)
-    // Base 1.0 + Audio Boost
-    const audioScale = float(1.0).add(uAudioHigh.mul(2.0));
+    // Audio Reactivity: Pulse size with High Frequencies (Hi-hats) AND Low (Kick)
+    // Adding Kick (uAudioLow) gives it that "heartbeat" feel
+    const audioScale = float(1.0).add(uAudioHigh.mul(2.0)).add(uAudioLow.mul(0.5));
 
-    // Size: Shrink over time, scale by Audio
-    const sizeNode = float(0.4).mul(float(1.0).sub(lifeProgress)).mul(audioScale);
+    // Size: Shrink over time, scale by Audio, scale by Speed
+    const baseSize = float(0.4).add(speedFactor.mul(0.3));
+    const sizeNode = baseSize.mul(float(1.0).sub(lifeProgress)).mul(audioScale);
     mat.sizeNode = sizeNode;
 
     // Color: Cycle Gold -> Pink -> Cyan based on age
-    // We can use age or lifeProgress.
-    // Gold: 0xFFD700
-    // Pink: 0xFF69B4
-    // Cyan: 0x00FFFF
-
     const colorGold = color(0xFFD700);
     const colorPink = color(0xFF69B4);
     const colorCyan = color(0x00FFFF);
+    const colorHot = color(0xFF4500); // Red-Orange for high speed
 
     // Mix 1: Gold -> Pink (First half)
     const mix1 = mix(colorGold, colorPink, smoothstep(0.0, 0.5, lifeProgress));
     // Mix 2: Result -> Cyan (Second half)
-    const finalColor = mix(mix1, colorCyan, smoothstep(0.5, 1.0, lifeProgress));
+    const coolMix = mix(mix1, colorCyan, smoothstep(0.5, 1.0, lifeProgress));
 
-    // Twinkle: High frequency sine flicker
+    // Final Color: Mix Cool -> Hot based on Speed
+    // If sprinting, shift towards fiery/energetic colors
+    const finalColor = mix(coolMix, colorHot, speedFactor.mul(0.6));
+
+    // Twinkle: High frequency sine flicker to simulate glitter
     const twinkle = sin(age.mul(30.0)).mul(0.5).add(0.5);
 
     // Emission Boost
-    mat.colorNode = finalColor.mul(twinkle.add(0.5)).mul(3.0);
+    const intensity = float(3.0).add(speedFactor.mul(2.0));
+    mat.colorNode = finalColor.mul(twinkle.add(0.5)).mul(intensity);
     mat.opacityNode = opacity;
 
     const points = new THREE.Points(geo, mat);
@@ -104,8 +114,8 @@ export function updateSparkleTrail(trail, playerPos, playerVel, time) {
     if (!trail || !trail.userData.isSparkleTrail) return;
 
     const speed = playerVel.length();
-    // Only spawn if moving fast (run speed is ~15.0, sneak is 5.0)
-    if (speed < 8.0) return;
+    // Only spawn if moving (lowered threshold to 4.0 for walking visibility)
+    if (speed < 4.0) return;
 
     // Scale particle count by speed
     // More particles for better trails
@@ -114,6 +124,7 @@ export function updateSparkleTrail(trail, playerPos, playerVel, time) {
     const positions = trail.geometry.attributes.position;
     const birthTimes = trail.geometry.attributes.birthTime;
     const lifeSpans = trail.geometry.attributes.lifeSpan;
+    const spawnSpeeds = trail.geometry.attributes.spawnSpeed;
 
     const size = trail.userData.bufferSize;
     let currentHead = trail.userData.head;
@@ -133,7 +144,8 @@ export function updateSparkleTrail(trail, playerPos, playerVel, time) {
         );
 
         birthTimes.setX(currentHead, time);
-        lifeSpans.setX(currentHead, 0.8 + Math.random() * 0.6); // Longer life (0.8s - 1.4s)
+        lifeSpans.setX(currentHead, 0.8 + Math.random() * 0.6); // 0.8s - 1.4s life
+        spawnSpeeds.setX(currentHead, speed);
 
         currentHead = (currentHead + 1) % size;
     }
@@ -143,4 +155,5 @@ export function updateSparkleTrail(trail, playerPos, playerVel, time) {
     positions.needsUpdate = true;
     birthTimes.needsUpdate = true;
     lifeSpans.needsUpdate = true;
+    spawnSpeeds.needsUpdate = true;
 }
