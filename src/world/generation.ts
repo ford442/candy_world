@@ -160,7 +160,7 @@ export function safeAddFoliage(
     radius: number = 1.0,
     weatherSystem: WeatherSystem | null = null
 ): void {
-    if (animatedFoliage.length > 1000) return; // Reduced limit to prevent WASM/JS hang
+    if (animatedFoliage.length > 3000) return; // ⚡ PERFORMANCE: Raised limit from 1000 to 3000 for more musical objects
     foliageGroup.add(obj);
     animatedFoliage.push(obj);
     if (isObstacle) obstacles.push({ position: obj.position.clone(), radius });
@@ -376,7 +376,7 @@ export function generateMap(weatherSystem: WeatherSystem): void {
 function populateProceduralExtras(weatherSystem: WeatherSystem): void {
     console.log("[World] Populating procedural extras...");
     if ((window as any).setLoadingStatus) (window as any).setLoadingStatus("Growing Procedural Flora...");
-    const extrasCount = 40;
+    const extrasCount = 20; // ⚡ PERFORMANCE: Reduced from 40 to 20 to maintain ~2000-3000 total objects
     const range = 150;
 
     for (let i = 0; i < extrasCount; i++) {

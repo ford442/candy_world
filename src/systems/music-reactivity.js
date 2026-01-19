@@ -153,36 +153,72 @@ class MusicReactivitySystem {
             _frustum.setFromProjectionMatrix(_projScreenMatrix);
 
             const isDay = !isNight;
+            
+            // ⚡ PERFORMANCE: Debug counters for culling statistics
+            let totalObjects = 0;
+            let culledByDistance = 0;
+            let culledByFrustum = 0;
+            let rendered = 0;
 
             for (let i = 0; i < animatedFoliage.length; i++) {
                 const obj = animatedFoliage[i];
                 if (!obj) continue;
+                totalObjects++;
 
-                // Frustum Culling (Performance)
-                // Skip if not visible, but allow some margin for large objects
-                // Simple check: distance to camera < 150 (render distance)
-                // Or use frustum check
+                // ⚡ PERFORMANCE: Size-based culling distances
+                // Determine cull distance based on object type and size
+                let cullDistance = 150; // Default
+                
+                const objType = obj.userData.type;
+                const objSize = obj.userData.size;
+                const objRadius = obj.userData.radius || 2.0;
+                
+                if (objType === 'flower') {
+                    cullDistance = 80; // Flowers are small, 80m render distance
+                } else if (objType === 'mushroom') {
+                    if (objSize === 'giant') {
+                        cullDistance = 200; // Giants visible from far away
+                    } else {
+                        cullDistance = 120; // Regular mushrooms
+                    }
+                } else if (objType === 'tree' || objType === 'shrub') {
+                    cullDistance = 150; // Trees/shrubs at medium distance
+                } else if (objType === 'cloud') {
+                    cullDistance = 250; // Clouds visible from very far
+                }
+
+                // Distance Culling
                 const distSq = obj.position.distanceToSquared(camera.position);
-                if (distSq > 150 * 150) { // 150m cull distance
+                if (distSq > cullDistance * cullDistance) {
+                    culledByDistance++;
                     continue;
                 }
 
-                // If in frustum (approx)
+                // Frustum Culling
                 // Fix: Handle Groups or objects without geometry using a bounding sphere
                 let isVisible = false;
                 if (obj.geometry && obj.geometry.boundingSphere) {
                     isVisible = _frustum.intersectsObject(obj);
                 } else {
                     _scratchSphere.center.copy(obj.position);
-                    _scratchSphere.radius = obj.userData.radius || 2.0;
+                    _scratchSphere.radius = objRadius;
                     // Apply approximate scale
                     if (obj.scale.x > 1.0) _scratchSphere.radius *= obj.scale.x;
                     isVisible = _frustum.intersectsSphere(_scratchSphere);
                 }
 
                 if (isVisible) {
+                    rendered++;
                     animateFoliage(obj, time, audioState, isDay, isDeepNight);
+                } else {
+                    culledByFrustum++;
                 }
+            }
+            
+            // ⚡ PERFORMANCE: Debug logging every 5 seconds
+            if (!this._lastLogTime || (Date.now() - this._lastLogTime) > 5000) {
+                console.log(`[MusicReactivity] Objects: ${totalObjects} | Rendered: ${rendered} | Culled (Distance): ${culledByDistance} | Culled (Frustum): ${culledByFrustum}`);
+                this._lastLogTime = Date.now();
             }
 
             // Flush batched updates to GPU
