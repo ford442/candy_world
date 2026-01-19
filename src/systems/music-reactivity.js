@@ -10,6 +10,9 @@ const _frustum = new THREE.Frustum();
 const _projScreenMatrix = new THREE.Matrix4();
 const _scratchSphere = new THREE.Sphere(); // Reusable for Group culling checks
 
+// ⚡ OPTIMIZATION: Reusable scratch array for species list
+const _scratchSpeciesList = [];
+
 class MusicReactivitySystem {
     constructor() {
         this.moon = null;
@@ -85,7 +88,10 @@ class MusicReactivitySystem {
         // Determine species to trigger based on channel or other logic
         // For now, let's trigger 'mushroom' for bass/drums, 'flower' for melody
         // This mapping logic can be expanded
-        let speciesList = [];
+
+        // ⚡ OPTIMIZATION: Use scratch array to avoid GC
+        const speciesList = _scratchSpeciesList;
+        speciesList.length = 0;
 
         // Example mapping logic
         if (channelIndex === 0) speciesList.push('mushroom'); // Kick/Bass
@@ -96,12 +102,13 @@ class MusicReactivitySystem {
         // Also trigger global listeners if any
         speciesList.push('global');
 
-        speciesList.forEach(species => {
+        // ⚡ OPTIMIZATION: Use for..of loop to avoid closure creation
+        for (const species of speciesList) {
             const colorMap = CONFIG.noteColorMap[species] || CONFIG.noteColorMap['global'];
             const color = colorMap[noteName] || 0xFFFFFF;
 
             this.triggerReaction(species, noteName, color, velocity);
-        });
+        }
 
         // Moon reaction (optional, e.g. blink on specific notes)
         if (this.moon && CONFIG.moon.blinkOnBeat && velocity > 100) {
@@ -112,11 +119,12 @@ class MusicReactivitySystem {
     triggerReaction(species, noteName, color, velocity) {
         const objects = this.registeredObjects.get(species);
         if (objects) {
-            objects.forEach(obj => {
+            // ⚡ OPTIMIZATION: Use for..of loop to avoid closure creation
+            for (const obj of objects) {
                 if (obj.reactToNote) {
                     obj.reactToNote(noteName, color, velocity);
                 }
-            });
+            }
         }
     }
 
@@ -199,7 +207,8 @@ class MusicReactivitySystem {
         // For now, specifically handling Mushrooms with 'glowLight'
         const mushrooms = this.registeredObjects.get('mushroom');
         if (mushrooms) {
-            mushrooms.forEach(mushroom => {
+            // ⚡ OPTIMIZATION: Use for..of loop to avoid closure creation
+            for (const mushroom of mushrooms) {
                 if (mushroom.userData.isBioluminescent && mushroom.userData.glowLight) {
                     const light = mushroom.userData.glowLight;
                     // Base target intensity for night glow
@@ -215,7 +224,7 @@ class MusicReactivitySystem {
                         light.intensity = THREE.MathUtils.lerp(current, baseTarget, 0.05);
                     }
                 }
-            });
+            }
         }
     }
 
