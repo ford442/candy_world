@@ -133,7 +133,7 @@ function toggleDayNight() {
     inputSystem.updateDayNightButtonState(currentIsNight);
 }
 
-const inputSystem = initInput(camera, audioSystem, toggleDayNight);
+const inputSystem = initInput(camera, audioSystem, toggleDayNight, () => player.isDancing);
 const controls = inputSystem.controls;
 
 // Initialize Interaction System
