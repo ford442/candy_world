@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import './style.css';
 import { uWindSpeed, uWindDirection, uSkyTopColor, uSkyBottomColor, uHorizonColor, uAtmosphereIntensity, uStarPulse, uStarOpacity, uAuroraIntensity, uAuroraColor, uAudioLow, uAudioHigh, uGlitchIntensity, uChromaticIntensity, uTime, createAurora, createChromaticPulse, updateMoon, animateFoliage, updateFoliageMaterials, updateFireflies, updateFallingBerries, collectFallingBerries, createFlower, createMushroom, validateNodeGeometries, createMelodyRibbon, updateMelodyRibbons, createMelodyMirror, createSparkleTrail, updateSparkleTrail, createImpactSystem } from './src/foliage/index.js';
 import { initCelestialBodies } from './src/foliage/celestial-bodies.js';
-import { InteractionSystem } from './src/systems/interaction.js';
+import { InteractionSystem } from './src/systems/interaction.ts';
 import { musicReactivitySystem } from './src/systems/music-reactivity.js';
 import { AudioSystem } from './src/audio/audio-system.js';
 import { BeatSync } from './src/audio/beat-sync.js';

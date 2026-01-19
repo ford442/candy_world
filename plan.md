@@ -55,6 +55,8 @@
   - **Chromatic Aberration Pulse**: Implemented TSL-based full-screen distortion (`src/foliage/chromatic.js`).
   - **Note-Trail Ribbons**: Implemented `src/foliage/ribbons.js` featuring dynamic 3D ribbons that trace the melody (channel 2). The ribbon extrusion height is driven by pitch, and width by volume. Rendered with TSL gradient and sparkle effects.
   - **Player Abilities**: Implemented Dash ('E') and Double Jump mechanics in `src/systems/physics.js` with visual feedback (chromatic pulse) and discovery tracking.
+  - **Migrate InteractionSystem (Phase 1)**: **Status: Implemented ✅**
+    - *Implementation Details:* Migrated `src/systems/interaction.js` to `src/systems/interaction.ts`. Added strict typing for `InteractiveObject`, `ReticleCallback`, and system logic. Replaced legacy Sets with typed `Set<InteractiveObject>` and optimized double-buffered update loop. Updated `main.js` to import the new TypeScript module.
 
 ---
 
