@@ -1,6 +1,6 @@
 // src/systems/music-reactivity.js
 import * as THREE from 'three';
-import { CONFIG, CYCLE_DURATION } from '../core/config.js';
+import { CONFIG, CYCLE_DURATION } from '../core/config.ts';
 import { animateFoliage } from '../foliage/animation.ts';
 import { foliageBatcher } from '../foliage/foliage-batcher.ts';
 import { arpeggioFernBatcher } from '../foliage/arpeggio-batcher.ts';

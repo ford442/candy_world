@@ -15,12 +15,12 @@ import {
 } from '../foliage/index.js';
 import { createCaveEntrance } from '../foliage/cave.js';
 import { validateFoliageMaterials } from '../foliage/common.js';
-import { CONFIG } from '../core/config.js';
-import { registerPhysicsCave } from '../systems/physics.js';
+import { CONFIG } from '../core/config.ts';
+import { registerPhysicsCave } from '../systems/physics.ts';
 import {
     animatedFoliage, obstacles, foliageGroup, foliageMushrooms,
     foliageClouds, foliageTrampolines, vineSwings, worldGroup
-} from './state.js';
+} from './state.ts';
 import mapData from '../../assets/map.json';
 
 // Type definitions for map data
