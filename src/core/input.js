@@ -50,7 +50,7 @@ const filterValidMusicFiles = (files) => {
     return { validFiles, invalidFiles };
 };
 
-export function initInput(camera, audioSystem, toggleDayNightCallback) {
+export function initInput(camera, audioSystem, toggleDayNightCallback, shouldPreventMenuOnUnlock) {
     const controls = new PointerLockControls(camera, document.body);
     const instructions = document.getElementById('instructions');
     const startButton = document.getElementById('startButton');
@@ -260,11 +260,36 @@ export function initInput(camera, audioSystem, toggleDayNightCallback) {
         // CRITICAL: Only show Main Menu if Playlist ISN'T open.
         // If Playlist is open, we *want* to be unlocked, but seeing the Playlist, not the start screen.
         if (!isPlaylistOpen) {
+            // Check if external condition (like dancing) prevents showing the menu
+            if (shouldPreventMenuOnUnlock && shouldPreventMenuOnUnlock()) {
+                return;
+            }
+
             if (instructions) instructions.style.display = 'flex';
             if (startButton) {
                 startButton.innerText = 'Resume Exploration 🚀';
                 requestAnimationFrame(() => startButton.focus());
             }
+        }
+    });
+
+    // Click to Resume behavior when menu is hidden but controls are unlocked (e.g. after dancing)
+    document.body.addEventListener('click', () => {
+        // Only trigger if:
+        // 1. Controls are unlocked
+        // 2. Playlist is closed
+        // 3. Instructions (Pause Menu) are hidden
+        // 4. We are NOT currently prevented from locking (i.e. not dancing)
+        if (!controls.isLocked &&
+            !isPlaylistOpen &&
+            instructions && instructions.style.display === 'none') {
+
+            if (shouldPreventMenuOnUnlock && shouldPreventMenuOnUnlock()) {
+                // Still dancing/prevented? Do nothing, keep cursor free.
+                return;
+            }
+
+            controls.lock();
         }
     });
 
@@ -275,10 +300,28 @@ export function initInput(camera, audioSystem, toggleDayNightCallback) {
             event.preventDefault();
         }
 
+        // Escape: Special Handling to FORCE menu open if it was suppressed (e.g. by dancing)
+        if (event.code === 'Escape') {
+            if (isPlaylistOpen) {
+                event.preventDefault();
+                togglePlaylist();
+                return;
+            } else if (shouldPreventMenuOnUnlock && shouldPreventMenuOnUnlock()) {
+                // If we are dancing, the unlock event fired but menu was suppressed.
+                // Pressing Escape again should manually bring up the menu.
+                if (instructions) instructions.style.display = 'flex';
+                if (startButton) {
+                    startButton.innerText = 'Resume Exploration 🚀';
+                    startButton.focus();
+                }
+                return;
+            }
+        }
+
         // --- UX: Focus Trap & Control Lock when Playlist is open ---
         if (isPlaylistOpen) {
-            // Close on Escape or Q
-            if (event.code === 'Escape' || event.code === 'KeyQ') {
+            // Close on Q
+            if (event.code === 'KeyQ') {
                 event.preventDefault();
                 togglePlaylist();
                 return;
