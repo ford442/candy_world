@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import WebGPU from 'three/examples/jsm/capabilities/WebGPU.js';
 import { WebGPURenderer } from 'three/webgpu';
-import { PALETTE, CONFIG } from './config.js';
+import { PALETTE, CONFIG } from './config.ts';
 
 export function initScene() {
     const canvas = document.querySelector('#glCanvas');

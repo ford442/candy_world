@@ -11,10 +11,10 @@ import {
 import {
     foliageMushrooms, foliageTrampolines, foliageClouds,
     activeVineSwing, setActiveVineSwing, lastVineDetachTime, setLastVineDetachTime, vineSwings, animatedFoliage
-} from '../world/state.js';
+} from '../world/state.ts';
 // @ts-ignore - Importing JS module
 import { discoverySystem } from './discovery.js';
-import { DISCOVERY_MAP } from './discovery_map.js';
+import { DISCOVERY_MAP } from './discovery_map.ts';
 import {
     calculateMovementInput,
     isInLakeBasin,
@@ -27,7 +27,7 @@ import {
 import { uChromaticIntensity } from '../foliage/chromatic.js';
 // @ts-ignore - Importing JS module
 import { spawnImpact } from '../foliage/impacts.js';
-import { VineSwing } from '../foliage/trees.js';
+import { VineSwing } from '../foliage/trees.ts';
 
 // --- Types ---
 

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { foliageGroup } from '../world/state.js';
+import { foliageGroup } from '../world/state.ts';
 import {
     createCandyMaterial,
     registerReactiveMaterial,
