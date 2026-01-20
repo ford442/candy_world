@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { foliageMaterials, registerReactiveMaterial, attachReactivity, pickAnimation, createClayMaterial, createGradientMaterial, sharedGeometries } from './common.js';
-import { color as tslColor, mix, float } from 'three/tsl';
+import { foliageMaterials, registerReactiveMaterial, attachReactivity, pickAnimation, createClayMaterial, createGradientMaterial, sharedGeometries, uAudioLow, uWindSpeed } from './common.js';
+import { color as tslColor, mix, float, sin, cos, vec3, positionLocal, positionWorld, time } from 'three/tsl';
 import { uTwilight } from './sky.js';
 import { createBerryCluster } from './berries.js';
 import { FoliageObject } from './types.js';
@@ -63,6 +63,29 @@ export interface PlayerObject extends THREE.Object3D {
     velocity: THREE.Vector3;
 }
 
+// --- PALETTE HELPER: Enhance materials with TSL Juice ---
+function enhanceWithFloralJuice(material: any) {
+    if (material.isNodeMaterial) {
+        // 1. Audio Pulse (Squash/Stretch on Beat)
+        // Scale moves from 1.0 to 1.3 based on Bass
+        const pulse = float(1.0).add(uAudioLow.mul(0.3));
+
+        // 2. Wind Flutter (High Frequency Shiver)
+        // Offset based on position and time
+        const flutterFreq = float(15.0);
+        const flutterAmp = float(0.05).mul(uWindSpeed.add(0.5)); // Wind increases flutter
+        const flutter = sin(time.mul(flutterFreq).add(positionWorld.x).add(positionWorld.z)).mul(flutterAmp);
+
+        // Combine: Scale position then add flutter offset
+        // We act on positionLocal (the vertex position relative to mesh center)
+        const newPos = positionLocal.mul(pulse).add(vec3(flutter, flutter, flutter));
+
+        // Apply
+        material.positionNode = newPos;
+    }
+    return material;
+}
+
 // @refactor {target: "ts", reason: "complex-config", note: "Factory functions prone to undefined option bugs"}
 export function createFloweringTree(options: TreeOptions = {}): THREE.Group {
     const { color = 0xFF69B4 } = options;
@@ -78,6 +101,9 @@ export function createFloweringTree(options: TreeOptions = {}): THREE.Group {
     group.add(trunk);
 
     const bloomMat = createClayMaterial(color);
+    // --- PALETTE UPGRADE: Add Juice ---
+    enhanceWithFloralJuice(bloomMat);
+    // ----------------------------------
     registerReactiveMaterial(bloomMat);
 
     const bloomCount = 3 + Math.floor(Math.random() * 3);
@@ -142,6 +168,9 @@ export function createShrub(options: ShrubOptions = {}): THREE.Group {
     group.add(base);
 
     const flowerMat = createClayMaterial(0xFF69B4);
+    // --- PALETTE UPGRADE: Add Juice ---
+    enhanceWithFloralJuice(flowerMat);
+    // ----------------------------------
     registerReactiveMaterial(flowerMat);
 
     const flowerCount = 2 + Math.floor(Math.random() * 2);
@@ -218,6 +247,9 @@ export function createWisteriaCluster(options: WisteriaOptions = {}): THREE.Grou
     const group = new THREE.Group();
 
     const bloomMat = createClayMaterial(color);
+    // --- PALETTE UPGRADE: Add Juice ---
+    enhanceWithFloralJuice(bloomMat);
+    // ----------------------------------
     registerReactiveMaterial(bloomMat);
 
     for (let s = 0; s < strands; s++) {
