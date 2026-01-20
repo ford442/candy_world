@@ -10,12 +10,14 @@
 
 ## Next Steps
 
-1. **Migrate Systems (Phase 1)**: Continue migrating key systems to TypeScript (e.g., `src/systems/interaction.js` or `src/audio/audio-system.js`) to improve type safety.
+1. **Migrate Systems (Phase 1)**: Continue migrating key systems to TypeScript (e.g., `src/systems/weather.js` or `src/systems/music-reactivity.js`) to improve type safety.
 
 ---
 
 ## Recent Progress
 - **Accomplished:**
+  - **Migrate AudioSystem (Phase 1)**: **Status: Implemented ✅**
+    - *Implementation Details:* Converted `src/audio/audio-system.js` to `src/audio/audio-system.ts`. Defined strict interfaces (`VisualState`, `ChannelData`, `ModuleInfo`) and typed class properties. Preserved audio worklet loading logic and legacy helper functions. Updated `main.js` and `src/audio/beat-sync.ts` to use the new TypeScript module.
   - **Rare Flora Discovery (Unlock system)**: **Status: Implemented ✅**
     - *Implementation Details:* Integrated discovery logic into `src/systems/physics.ts`. Checks player proximity (radius 5.0) to registered `animatedFoliage` objects every 10 frames. Triggers `discoverySystem.discover()` using a separated mapping file (`src/systems/discovery_map.ts`) which defines display names and icons for all rare flora types. Verified via `verification/test_discovery.js`.
   - **Migrate Core Data Structures (Phase 1)**: **Status: Implemented ✅**
