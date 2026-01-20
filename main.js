@@ -4,8 +4,8 @@ import { uWindSpeed, uWindDirection, uSkyTopColor, uSkyBottomColor, uHorizonColo
 import { initCelestialBodies } from './src/foliage/celestial-bodies.js';
 import { InteractionSystem } from './src/systems/interaction.ts';
 import { musicReactivitySystem } from './src/systems/music-reactivity.js';
-import { AudioSystem } from './src/audio/audio-system.js';
-import { BeatSync } from './src/audio/beat-sync.js';
+import { AudioSystem } from './src/audio/audio-system.ts';
+import { BeatSync } from './src/audio/beat-sync.ts';
 import { WeatherSystem, WeatherState } from './src/systems/weather.js';
 import { initWasm, initWasmParallel, isWasmReady, LOADING_PHASES } from './src/utils/wasm-loader.js';
 import { profiler } from './src/utils/profiler.js';
