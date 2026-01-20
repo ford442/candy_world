@@ -192,13 +192,18 @@ export function animateFoliage(foliageObject: FoliageObject, time: number, audio
                 const child = reactive[i];
                 let fi = child.userData.flashIntensity || 0;
                 const decay = child.userData.flashDecay ?? 0.05;
-                // Normalize materials to array
-                const mats: FoliageMaterial[] = Array.isArray(child.material) ? (child.material as FoliageMaterial[]) : (child.material ? [child.material as FoliageMaterial] : []);
+
+                // ⚡ OPTIMIZATION: Removed Array Allocation [child.material]
+                const isArray = Array.isArray(child.material);
+                // Use a loop that handles both array and single material without creating new array
+                const materialCount = isArray ? (child.material as FoliageMaterial[]).length : (child.material ? 1 : 0);
 
                 if (fi > 0) {
                     const fc = child.userData.flashColor || _scratchWhite;
-                    for (const mat of mats) {
+                    for (let m = 0; m < materialCount; m++) {
+                        const mat = isArray ? (child.material as FoliageMaterial[])[m] : (child.material as FoliageMaterial);
                         if (!mat) continue;
+
                         // stronger blend for higher intensity; immediate override when very strong
                         const t = Math.min(1, fi * 1.2) * 0.8;
 
@@ -228,8 +233,10 @@ export function animateFoliage(foliageObject: FoliageObject, time: number, audio
                     const snapThresholdSq = snapThreshold * snapThreshold; // Avoid sqrt in distance check
                     let allFadedBack = true;
                     
-                    for (const mat of mats) {
+                    for (let m = 0; m < materialCount; m++) {
+                        const mat = isArray ? (child.material as FoliageMaterial[])[m] : (child.material as FoliageMaterial);
                         if (!mat) continue;
+
                         if ((mat as any).isMeshBasicMaterial) {
                             if (mat.userData && mat.userData.baseColor && mat.color) {
                                 const distSq = mat.color.distanceToSquared(mat.userData.baseColor);
@@ -396,8 +403,12 @@ export function animateFoliage(foliageObject: FoliageObject, time: number, audio
         foliageObject.rotation.y = Math.sin(time * 0.5 + offset) * 0.111;
 
         const whip = leadVol * 2.0;
-        foliageObject.children.forEach((branchGroup, i) => {
-            if (branchGroup === foliageObject.children[0]) return;
+
+        // ⚡ OPTIMIZATION: Replaced .forEach loop with indexed for loop to avoid closure allocation
+        const children = foliageObject.children;
+        for (let i = 0; i < children.length; i++) {
+            const branchGroup = children[i];
+            if (i === 0) continue; // Skip trunk (index 0) assuming trunk is always first
 
             const childOffset = i * 0.51;
             const cable = branchGroup.children[0];
@@ -413,7 +424,7 @@ export function animateFoliage(foliageObject: FoliageObject, time: number, audio
             }
 
             if (cable) cable.rotation.z = rotZ;
-        });
+        }
     }
     // Note: bounce, sway, wobble, hop, gentleSway are now handled by WASM batcher above.
     // Kept here as fallback if batcher fails/overflows.
@@ -468,9 +479,11 @@ export function animateFoliage(foliageObject: FoliageObject, time: number, audio
         foliageObject.rotation.x = Math.cos(time * 1.2 + offset) * 0.1 * intensity;
     }
     else if (type === 'spiralWave') {
-        foliageObject.children.forEach((child, i) => {
-            child.rotation.y = Math.sin(time * 2 + offset + i * 0.5) * 0.3 * intensity;
-        });
+        // ⚡ OPTIMIZATION: Replaced .forEach loop with indexed for loop
+        const children = foliageObject.children;
+        for (let i = 0; i < children.length; i++) {
+            children[i].rotation.y = Math.sin(time * 2 + offset + i * 0.5) * 0.3 * intensity;
+        }
     }
     else if (type === 'float') {
         const y = foliageObject.userData.originalY ?? foliageObject.position.y;
@@ -522,8 +535,11 @@ export function animateFoliage(foliageObject: FoliageObject, time: number, audio
             const shakeSpeed = 50 + vibratoAmount * 100; // Increased speed
             const shakeAmount = 0.05 + vibratoAmount * 0.25; // Increased range
 
-            headGroup.children.forEach((child, i) => {
-                if (i === 0) return;
+            // ⚡ OPTIMIZATION: Replaced .forEach loop with indexed for loop
+            const children = headGroup.children;
+            for (let i = 0; i < children.length; i++) {
+                if (i === 0) continue;
+                const child = children[i];
                 const phase = child.userData.vibratoPhase || (i * 0.5);
                 child.rotation.x = -Math.PI / 2 + Math.sin(time * shakeSpeed + phase) * shakeAmount;
                 child.rotation.y = Math.cos(time * shakeSpeed * 1.3 + phase) * shakeAmount * 0.8;
@@ -531,7 +547,7 @@ export function animateFoliage(foliageObject: FoliageObject, time: number, audio
                 // Add a "jitter" scale effect for visual distortion
                 const jitter = 1.0 + Math.random() * vibratoAmount * 0.2;
                 child.scale.setScalar(jitter);
-            });
+            }
 
             // Whole head wobble
             headGroup.rotation.z = Math.sin(time * 15 + offset) * 0.1 * intensity;
@@ -590,11 +606,14 @@ export function animateFoliage(foliageObject: FoliageObject, time: number, audio
                  head.rotation.x = (Math.random() - 0.5) * twitch;
 
                  // Shake individual seeds
-                 head.children.forEach(stalk => {
+                 // ⚡ OPTIMIZATION: Replaced .forEach loop with indexed for loop
+                 const children = head.children;
+                 for (let i = 0; i < children.length; i++) {
+                     const stalk = children[i];
                      stalk.rotation.z += (Math.random() - 0.5) * twitch * 2.0;
                      // Dampen back
                      stalk.rotation.z *= 0.8;
-                 });
+                 }
              } else {
                  head.rotation.z *= 0.9;
                  head.rotation.x *= 0.9;
