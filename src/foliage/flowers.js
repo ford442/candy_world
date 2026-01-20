@@ -120,6 +120,9 @@ export function createFlower(options = {}) {
     group.userData.animationType = pickAnimation(['sway', 'wobble', 'accordion']);
     group.userData.type = 'flower';
     group.userData.isFlower = true;
+    
+    // ⚡ PERFORMANCE: Set accurate bounding radius for frustum culling (flowers are small)
+    group.userData.radius = 0.3; // Flowers have ~0.3m radius
 
     // Sun Flower logic (Reacts when bright)
     if (shape === 'sunflower' || shape === 'multi') {
@@ -174,6 +177,10 @@ export function createGlowingFlower(options = {}) {
     group.userData.animationType = 'glowPulse';
     group.userData.animationOffset = Math.random() * 10;
     group.userData.type = 'flower';
+    
+    // ⚡ PERFORMANCE: Set accurate bounding radius for frustum culling
+    group.userData.radius = 0.3; // Similar size to regular flowers
+    
     // Glowing flowers are often Night Dancers
     return attachReactivity(group, { minLight: 0.0, maxLight: 0.4 });
 }
@@ -250,6 +257,10 @@ export function createBellBloom(options = {}) {
     group.userData.animationType = pickAnimation(['sway', 'wobble']);
     group.userData.animationOffset = Math.random() * 10;
     group.userData.type = 'flower';
+    
+    // ⚡ PERFORMANCE: Set accurate bounding radius for frustum culling
+    group.userData.radius = 0.3;
+    
     return attachReactivity(group, { minLight: 0.2, maxLight: 1.0 });
 }
 
@@ -296,6 +307,9 @@ export function createPuffballFlower(options = {}) {
     group.userData.animationType = pickAnimation(['sway', 'accordion']);
     group.userData.animationOffset = Math.random() * 10;
     group.userData.type = 'flower';
+    
+    // ⚡ PERFORMANCE: Set accurate bounding radius for frustum culling
+    group.userData.radius = headR * 1.5; // Spore ball radius
 
     group.userData.isTrampoline = true;
     group.userData.bounceHeight = stemH;
@@ -368,6 +382,9 @@ export function createPrismRoseBush(options = {}) {
     group.userData.animationType = pickAnimation(['sway', 'wobble']);
     group.userData.animationOffset = Math.random() * 10;
     group.userData.type = 'flower';
+    
+    // ⚡ PERFORMANCE: Set accurate bounding radius for frustum culling
+    group.userData.radius = 1.5; // Prism rose bush is larger
 
     return attachReactivity(group, { minLight: 0.2, maxLight: 1.0 });
 }
