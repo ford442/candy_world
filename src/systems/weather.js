@@ -7,13 +7,13 @@ import { getGroundHeight, uploadPositions, uploadAnimationData, uploadMushroomSp
 import { chargeBerries, triggerGrowth, triggerBloom, shakeBerriesLoose, createMushroom, createWaterfall, createLanternFlower, cleanupReactivity, musicReactivitySystem, updateGlobalBerryScale } from '../foliage/index.js';
 import { createRainbow, uRainbowOpacity } from '../foliage/rainbow.js';
 import { getCelestialState, getSeasonalState } from '../core/cycle.js';
-import { CYCLE_DURATION, CONFIG, DURATION_SUNRISE, DURATION_DAY, DURATION_SUNSET, DURATION_PRE_DAWN } from '../core/config.js';
+import { CYCLE_DURATION, CONFIG, DURATION_SUNRISE, DURATION_DAY, DURATION_SUNSET, DURATION_PRE_DAWN } from '../core/config.ts';
 import { uCloudRainbowIntensity, uCloudLightningStrength, uCloudLightningColor, updateCloudAttraction, isCloudOverTarget } from '../foliage/clouds.js';
 import { uSkyDarkness, uTwilight } from '../foliage/sky.js';
 import { updateCaveWaterLevel } from '../foliage/cave.js';
 import { LegacyParticleSystem } from './adapters/LegacyParticleSystem.js';
 import { WasmParticleSystem } from './adapters/WasmParticleSystem.js';
-import { foliageClouds } from '../world/state.js';
+import { foliageClouds } from '../world/state.ts';
 import { replaceMushroomWithGiant } from '../foliage/mushrooms.js';
 // Import TypeScript core functions (Phase 1 Migration)
 import {
@@ -23,7 +23,7 @@ import {
     calculateWeatherStateTransition,
     calculateGroundWaterLevel,
     calculateRainbowOpacity
-} from './weather.core.js';
+} from './weather.core.ts';
 
 // Weather states
 export const WeatherState = {

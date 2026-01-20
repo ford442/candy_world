@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import {
     PALETTE, CYCLE_DURATION, DURATION_SUNRISE, DURATION_DAY,
     DURATION_SUNSET, DURATION_DUSK_NIGHT, DURATION_DEEP_NIGHT, DURATION_PRE_DAWN
-} from './config.js';
+} from './config.ts';
 
 // --- Reusable Color Pool for Render Loop (prevents GC pressure) ---
 export const _scratchPalette = {

@@ -11,15 +11,15 @@ import { initWasm, initWasmParallel, isWasmReady, LOADING_PHASES } from './src/u
 import { profiler } from './src/utils/profiler.js';
 
 // Core imports
-import { PALETTE, CYCLE_DURATION, DURATION_SUNRISE, DURATION_DAY, DURATION_SUNSET, DURATION_DUSK_NIGHT, DURATION_DEEP_NIGHT } from './src/core/config.js';
+import { PALETTE, CYCLE_DURATION, DURATION_SUNRISE, DURATION_DAY, DURATION_SUNSET, DURATION_DUSK_NIGHT, DURATION_DEEP_NIGHT } from './src/core/config.ts';
 import { initScene, forceFullSceneWarmup } from './src/core/init.js';
 import { initInput, keyStates } from './src/core/input.js';
 import { getCycleState } from './src/core/cycle.js';
 
 // World & System imports
 import { initWorld, generateMap } from './src/world/generation.ts';
-import { animatedFoliage, foliageGroup, activeVineSwing, foliageClouds, foliageMushrooms } from './src/world/state.js';
-import { updatePhysics, player, bpmWind } from './src/systems/physics.js';
+import { animatedFoliage, foliageGroup, activeVineSwing, foliageClouds, foliageMushrooms } from './src/world/state.ts';
+import { updatePhysics, player, bpmWind } from './src/systems/physics.ts';
 import { fireRainbow, updateBlaster } from './src/gameplay/rainbow-blaster.js';
 import { updateFallingClouds } from './src/foliage/clouds.js';
 import { getGroundHeight } from './src/utils/wasm-loader.js';

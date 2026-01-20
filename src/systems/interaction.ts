@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { CONFIG } from '../core/config.js';
+import { CONFIG } from '../core/config.ts';
 
 // Define interface for interactive objects with userdata
 export interface InteractiveObject extends THREE.Object3D {
