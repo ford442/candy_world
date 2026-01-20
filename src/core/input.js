@@ -60,6 +60,7 @@ export function initInput(camera, audioSystem, toggleDayNightCallback, shouldPre
     const playlistList = document.getElementById('playlist-list');
     const closePlaylistBtn = document.getElementById('closePlaylistBtn');
     const playlistUploadInput = document.getElementById('playlistUploadInput');
+    const openJukeboxBtn = document.getElementById('openJukeboxBtn');
 
     let isPlaylistOpen = false;
     let lastFocusedElement = null; // Store focus before opening modal
@@ -154,8 +155,24 @@ export function initInput(camera, audioSystem, toggleDayNightCallback, shouldPre
         }
     }
 
+    // UX: Update Jukebox Button text with song count
+    function updateJukeboxButtonState(count) {
+        if (!openJukeboxBtn) return;
+        const countText = count > 0 ? ` (${count})` : '';
+        openJukeboxBtn.innerText = `Open Jukebox${countText} (Q)`;
+        openJukeboxBtn.setAttribute('aria-label', `Open Jukebox playlist${count > 0 ? `, ${count} songs` : ''}`);
+    }
+
+    // Initialize state
+    if (audioSystem.getPlaylist) {
+        updateJukeboxButtonState(audioSystem.getPlaylist().length);
+    }
+
     // Hook up AudioSystem callbacks
-    audioSystem.onPlaylistUpdate = () => { if (isPlaylistOpen) renderPlaylist(); };
+    audioSystem.onPlaylistUpdate = (playlist) => {
+        if (isPlaylistOpen) renderPlaylist();
+        updateJukeboxButtonState(playlist ? playlist.length : 0);
+    };
 
     // UX: Show toast and update playlist when track changes
     audioSystem.onTrackChange = (index) => {
@@ -486,7 +503,6 @@ export function initInput(camera, audioSystem, toggleDayNightCallback, shouldPre
         });
     }
 
-    const openJukeboxBtn = document.getElementById('openJukeboxBtn');
     if (openJukeboxBtn) {
         openJukeboxBtn.addEventListener('click', (e) => {
             e.stopPropagation();
