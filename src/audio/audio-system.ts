@@ -1,29 +1,33 @@
-// AudioSystem.js - With Playlist Queue & Stability Fixes
+// AudioSystem.ts - With Playlist Queue & Stability Fixes
 
 const SAMPLE_RATE = 44100;
-const BUFFER_SIZE = 1024;
 
 // Helper functions
-const lerp = (a, b, t) => a + (b - a) * t;
-const decayTowards = (value, target, rate, dt) => lerp(value, target, 1 - Math.exp(-rate * dt));
-const extractNote = (cell) => cell?.text?.match(/[A-G][#-]?\d/)?.[0];
-const extractInstrument = (cell) => {
-    if (!cell || !cell.text) return 0;
-    const match = cell.text.match(/[A-G\.-][#\.-][\d\.-]\s+(\d+|[0-9A-F]{2})/i);
-    if (match) return parseInt(match[1], 10) || parseInt(match[1], 16) || 0;
-    return 0;
-};
-const noteToFreq = (note) => {
+const lerp = (a: number, b: number, t: number): number => a + (b - a) * t;
+const decayTowards = (value: number, target: number, rate: number, dt: number): number => lerp(value, target, 1 - Math.exp(-rate * dt));
+
+const noteToFreq = (note: string | null): number => {
     if (!note) return 0;
     const n = note.toUpperCase();
-    const map = { C: 0, 'C#': 1, DB: 1, D: 2, 'D#': 3, EB: 3, E: 4, F: 5, 'F#': 6, GB: 6, G: 7, 'G#': 8, AB: 8, A: 9, 'A#': 10, BB: 10, B: 11 };
+    const map: Record<string, number> = { C: 0, 'C#': 1, DB: 1, D: 2, 'D#': 3, EB: 3, E: 4, F: 5, 'F#': 6, GB: 6, G: 7, 'G#': 8, AB: 8, A: 9, 'A#': 10, BB: 10, B: 11 };
     const match = n.match(/^([A-G](?:#|B)?)\-?(\d)$/);
     if (!match) return 0;
     const semitone = map[match[1]] ?? 0;
     const midi = (parseInt(match[2], 10) + 1) * 12 + semitone;
     return 440 * Math.pow(2, (midi - 69) / 12);
 };
-const decodeEffectCode = (cell) => {
+
+// Unused helper functions preserved for compatibility/future use
+const extractNote = (cell: PatternRowCell | null): string | undefined => cell?.text?.match(/[A-G][#-]?\d/)?.[0];
+
+const extractInstrument = (cell: PatternRowCell | null): number => {
+    if (!cell || !cell.text) return 0;
+    const match = cell.text.match(/[A-G\.-][#\.-][\d\.-]\s+(\d+|[0-9A-F]{2})/i);
+    if (match) return parseInt(match[1], 10) || parseInt(match[1], 16) || 0;
+    return 0;
+};
+
+const decodeEffectCode = (cell: PatternRowCell | null): { activeEffect: number, intensity: number } => {
     if (!cell?.text) return { activeEffect: 0, intensity: 0 };
     const text = cell.text.trim().toUpperCase();
     const match = text.match(/([0-9A-F])([0-9A-F]{2})/);
@@ -41,13 +45,114 @@ const decodeEffectCode = (cell) => {
     return { activeEffect: 0, intensity: value };
 };
 
+// Interfaces
+interface ChannelData {
+    volume: number;
+    pan: number;
+    trigger: number;
+    note: string;
+    freq: number;
+    instrument: number;
+    activeEffect: number;
+    effectValue: number;
+}
+
+interface VisualState {
+    beatPhase: number;
+    kickTrigger: number;
+    grooveAmount: number;
+    activeChannels: number;
+    channelData: ChannelData[];
+    bpm: number;
+    patternIndex: number;
+    row: number;
+}
+
+interface ModuleInfo {
+    title: string;
+    order: number;
+    row: number;
+    bpm: number;
+    numChannels: number;
+}
+
+interface PatternRowCell {
+    text: string;
+}
+
+interface PatternMatrix {
+    rows: PatternRowCell[][];
+    numRows: number;
+    numChannels: number;
+}
+
+interface LibOpenMPT {
+    _malloc(size: number): number;
+    _free(ptr: number): void;
+    _openmpt_module_create_from_memory2(ptr: number, size: number, logfunc: number, errfunc: number, errqual: number, errorfunc: number, errorqual: number, error_count_ptr: number, info_ptr: number): number;
+    _openmpt_module_destroy(modPtr: number): void;
+    stringToUTF8(str: string): number;
+    UTF8ToString(ptr: number): string;
+    _openmpt_free_string(ptr: number): void;
+    _openmpt_module_get_metadata(modPtr: number, keyPtr: number): number;
+    _openmpt_module_get_num_orders(modPtr: number): number;
+    _openmpt_module_get_num_channels(modPtr: number): number;
+    _openmpt_module_get_num_patterns(modPtr: number): number;
+    _openmpt_module_get_order_pattern(modPtr: number, order: number): number;
+    _openmpt_module_get_pattern_num_rows(modPtr: number, pattern: number): number;
+    _openmpt_module_format_pattern_row_channel(modPtr: number, pattern: number, row: number, channel: number, format: number, detail: number): number;
+    HEAPU8: Uint8Array;
+}
+
+// Extend Window interface for global libopenmpt
+declare global {
+    interface Window {
+        setLoadingStatus?: (text: string) => void;
+        libopenmpt?: LibOpenMPT;
+        webkitAudioContext?: typeof AudioContext;
+    }
+}
+
 export class AudioSystem {
+    libopenmpt: LibOpenMPT | null;
+    currentModulePtr: number;
+    audioContext: AudioContext | null;
+    workletNode: AudioWorkletNode | null;
+    gainNode: GainNode | null;
+
+    // Memory management for WASM buffers
+    leftBufferPtr: number;
+    rightBufferPtr: number;
+
+    moduleInfo: ModuleInfo;
+    patternMatrices: Record<number, PatternMatrix>;
+    isPlaying: boolean;
+    isReady: boolean;
+
+    // Volume State
+    volume: number;
+    previousVolume: number;
+    isMuted: boolean;
+
+    // Playlist State
+    playlist: File[]; // Array of File objects
+    currentIndex: number;
+
+    // Callbacks for UI
+    onPlaylistUpdate: ((playlist: File[]) => void) | null;
+    onTrackChange: ((index: number) => void) | null;
+
+    // Note Callback
+    onNoteCallback: ((note: string, volume: number, channelIndex: number) => void) | null;
+
+    // Visual state
+    visualState: VisualState;
+
     constructor() {
         this.libopenmpt = null;
         this.currentModulePtr = 0;
         this.audioContext = null;
-        this.scriptNode = null;
-        this.stereoPanner = null;
+        this.workletNode = null;
         this.gainNode = null;
 
         // Memory management for WASM buffers
@@ -68,11 +173,11 @@ export class AudioSystem {
         this.playlist = []; // Array of File objects
         this.currentIndex = -1;
 
-        // --- NEW: Callbacks for UI ---
+        // Callbacks for UI
         this.onPlaylistUpdate = null; // Called when songs added
         this.onTrackChange = null;    // Called when song changes
 
-        // --- NEW: Note Callback ---
+        // Note Callback
         this.onNoteCallback = null;
 
         // Visual state
@@ -91,16 +196,16 @@ export class AudioSystem {
     }
 
     // --- API to register note listener ---
-    onNote(callback) {
+    onNote(callback: (note: string, volume: number, channelIndex: number) => void): void {
         this.onNoteCallback = callback;
     }
 
     // Backward compatibility alias if needed
-    setNoteCallback(callback) {
+    setNoteCallback(callback: (note: string, volume: number, channelIndex: number) => void): void {
         this.onNoteCallback = callback;
     }
 
-    async init() {
+    async init(): Promise<void> {
         if (window.setLoadingStatus) window.setLoadingStatus("Starting Audio System...");
 
         try {
@@ -163,7 +268,7 @@ export class AudioSystem {
                 // This fixes failures when the module is loaded from a blob URL (blob URLs are not hierarchical)
                 let rewritten = text;
                 try {
-                    const makeAbsolute = (spec) => {
+                    const makeAbsolute = (spec: string): string => {
                         // Leave full URLs and protocol-relative URLs alone
                         if (/^[a-zA-Z][a-zA-Z0-9+-.]*:\/\//.test(spec) || spec.startsWith('//')) return spec;
                         // Non-relative bare specifiers (like 'three') should be left unchanged
@@ -217,7 +322,6 @@ export class AudioSystem {
 
             // Wire up messages from the audio thread
             this.workletNode.port.onmessage = (event) => {
-                // ... keep existing handler ...
                 const { type, data } = event.data || {};
                 if (type === 'VISUAL_UPDATE') {
                     this.handleVisualUpdate(data);
@@ -247,7 +351,7 @@ export class AudioSystem {
 
     // --- Volume Control (UX) ---
 
-    setVolume(value) {
+    setVolume(value: number): void {
         this.volume = Math.max(0, Math.min(1, value));
         if (this.gainNode) {
             // Use setTargetAtTime for smooth volume transitions (avoids clicking)
@@ -261,7 +365,7 @@ export class AudioSystem {
         }
     }
 
-    toggleMute() {
+    toggleMute(): boolean {
         if (this.isMuted) {
             // Unmute
             this.setVolume(this.previousVolume);
@@ -277,7 +381,7 @@ export class AudioSystem {
 
     // --- Playlist Management ---
 
-    async addToQueue(fileList) {
+    async addToQueue(fileList: File[] | FileList): Promise<void> {
         if (!this.isReady) return;
 
         const initialLength = this.playlist.length;
@@ -295,7 +399,7 @@ export class AudioSystem {
         }
     }
 
-    async playNext(forceIndex = null) {
+    async playNext(forceIndex: number | null = null): Promise<void> {
         if (this.playlist.length === 0) return;
 
         let nextIndex = (forceIndex !== null) ? forceIndex : this.currentIndex + 1;
@@ -316,23 +420,23 @@ export class AudioSystem {
     }
     
     // --- NEW: Helper for UI clicking ---
-    playAtIndex(index) {
+    playAtIndex(index: number): void {
         if (index >= 0 && index < this.playlist.length) {
             this.playNext(index);
         }
     }
     
-    getPlaylist() {
+    getPlaylist(): File[] {
         return this.playlist;
     }
     
-    getCurrentIndex() {
+    getCurrentIndex(): number {
         return this.currentIndex;
     }
 
     // --- Core Loading ---
 
-    async loadModule(file) {
+    async loadModule(file: File): Promise<void> {
         if (this.audioContext && this.audioContext.state === 'suspended') {
             await this.audioContext.resume();
         }
@@ -363,7 +467,7 @@ export class AudioSystem {
         }
     }
 
-    processModuleData(fileData, fileName) {
+    processModuleData(fileData: Uint8Array, fileName: string): void {
         if (!this.libopenmpt) return;
 
         // CRITICAL FIX: Stop cleanly before destroying memory
@@ -403,8 +507,10 @@ export class AudioSystem {
         }
     }
 
-    preCachePatternData(modPtr) {
+    preCachePatternData(modPtr: number): void {
         const lib = this.libopenmpt;
+        if (!lib) return;
+
         this.patternMatrices = {};
         try {
             const numOrders = lib._openmpt_module_get_num_orders(modPtr);
@@ -415,9 +521,9 @@ export class AudioSystem {
                 const pattern = lib._openmpt_module_get_order_pattern(modPtr, o);
                 if (pattern >= lib._openmpt_module_get_num_patterns(modPtr)) continue;
                 const numRows = lib._openmpt_module_get_pattern_num_rows(modPtr, pattern);
-                const matrixRows = [];
+                const matrixRows: PatternRowCell[][] = [];
                 for (let r = 0; r < numRows; r++) {
-                    const rowCells = [];
+                    const rowCells: PatternRowCell[] = [];
                     for (let c = 0; c < numChannels; c++) {
                         const commandPtr = lib._openmpt_module_format_pattern_row_channel(modPtr, pattern, r, c, 12, 1);
                         const commandStr = lib.UTF8ToString(commandPtr);
@@ -433,7 +539,7 @@ export class AudioSystem {
         }
     }
 
-    async play() {
+    async play(): Promise<void> {
         if (this.isPlaying) return;
 
         // Ensure audio context is resumed
@@ -451,7 +557,7 @@ export class AudioSystem {
         this.isPlaying = true;
     }
 
-    stop(fullReset = true) {
+    stop(fullReset: boolean = true): void {
         // Notify worklet to stop and clean up
         try {
             if (this.workletNode && this.workletNode.port) this.workletNode.port.postMessage({ type: 'STOP' });
@@ -492,7 +598,7 @@ export class AudioSystem {
         // There's no longer a main-thread module pointer we reset here; Worklet handles its own reset
     }
 
-    handleVisualUpdate(data) {
+    handleVisualUpdate(data: any): void {
         const { bpm, channelData, anyTrigger, order, row } = data; // Ensure Worklet sends order/row!
         this.visualState.bpm = bpm || 120;
 
@@ -536,7 +642,7 @@ export class AudioSystem {
         }
     }
 
-    update() {
+    update(): VisualState {
         // Run decay logic on the main thread for smooth animations
         this.visualState.kickTrigger = decayTowards(this.visualState.kickTrigger, 0, 8, 1 / 60);
         const speed = 6; // fallback tempo metric

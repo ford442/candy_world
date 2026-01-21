@@ -1,6 +1,6 @@
 // BeatSync - TypeScript wrapper to expose beat events from AudioSystem
 
-import { AudioSystem } from '../../audio-system.js';
+import { AudioSystem } from './audio-system.ts';
 
 export type BeatCallback = (state: any) => void;
 
