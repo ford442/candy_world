@@ -1,94 +1,109 @@
-// src/systems/music-reactivity.js
 import * as THREE from 'three';
 import { CONFIG, CYCLE_DURATION } from '../core/config.ts';
 import { animateFoliage } from '../foliage/animation.ts';
 import { foliageBatcher } from '../foliage/foliage-batcher.ts';
 import { arpeggioFernBatcher } from '../foliage/arpeggio-batcher.ts';
+import type { AudioData, FoliageObject } from '../foliage/types.ts';
 
-// ⚡ OPTIMIZATION: Reusable Frustum
+// ⚡ OPTIMIZATION: Reusable Frustum & Matrices
 const _frustum = new THREE.Frustum();
 const _projScreenMatrix = new THREE.Matrix4();
 const _scratchSphere = new THREE.Sphere(); // Reusable for Group culling checks
 
 // ⚡ OPTIMIZATION: Reusable scratch array for species list
-const _scratchSpeciesList = [];
+const _scratchSpeciesList: string[] = [];
 
-class MusicReactivitySystem {
+// --- Type Definitions ---
+
+interface MoonState {
+    isBlinking: boolean;
+    blinkStartTime: number;
+    nextBlinkTime: number;
+    baseScale: THREE.Vector3;
+    dancePhase: number;
+}
+
+// Minimal interface for WeatherSystem based on usage
+export interface IWeatherSystem {
+    getTwilightGlowIntensity?(cyclePos: number): number;
+    isNight(): boolean;
+}
+
+// Caches to prevent repeated lookups (migrated from core idea)
+const _noteNameCache: Record<string | number, string> = {};
+const CHROMATIC_SCALE = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+
+export class MusicReactivitySystem {
+    moon: THREE.Object3D | null = null;
+    weatherSystem: IWeatherSystem | null = null;
+    registeredObjects: Map<string, Set<FoliageObject>> = new Map();
+
+    // Moon animation state
+    moonState: MoonState = {
+        isBlinking: false,
+        blinkStartTime: 0,
+        nextBlinkTime: 0,
+        baseScale: new THREE.Vector3(1, 1, 1),
+        dancePhase: 0
+    };
+
+    private _lastLogTime: number = 0;
+
     constructor() {
-        this.moon = null;
-        this.weatherSystem = null;
-        this.registeredObjects = new Map(); // Map<species, Set<Object3D>>
-
-        // Moon animation state
-        this.moonState = {
-            isBlinking: false,
-            blinkStartTime: 0,
-            nextBlinkTime: 0,
-            baseScale: new THREE.Vector3(1, 1, 1),
-            dancePhase: 0
-        };
-
         this.scheduleNextBlink();
     }
 
-    init(scene, weatherSystem) {
+    init(scene: THREE.Scene, weatherSystem: IWeatherSystem) {
         this.weatherSystem = weatherSystem;
-        // Moon registration is now handled explicitly via registerMoon() from main.js
+        // Moon registration is handled explicitly via registerMoon()
     }
 
-    registerMoon(moonMesh) {
+    registerMoon(moonMesh: THREE.Object3D) {
         if (!moonMesh) return;
         this.moon = moonMesh;
         this.moonState.baseScale.copy(moonMesh.scale);
-        // Ensure moon has userData for animation if needed
         if (!this.moon.userData) this.moon.userData = {};
     }
 
-    registerObject(object, species) {
+    registerObject(object: FoliageObject, species: string) {
         if (!object || !species) return;
         
         if (!this.registeredObjects.has(species)) {
             this.registeredObjects.set(species, new Set());
         }
-        this.registeredObjects.get(species).add(object);
+        this.registeredObjects.get(species)!.add(object);
 
-        // Add minimal reactToNote method if it doesn't exist (as a fallback)
-        if (!object.reactToNote) {
-            object.reactToNote = (note, color, velocity) => {
-                if (object.material && object.material.emissive) {
-                    const originalEmissive = object.userData.originalEmissive || object.material.emissive.clone();
+        // Add minimal reactToNote method if it doesn't exist (fallback)
+        if (!object.userData.reactToNote) {
+            // Note: We assign to userData.reactToNote as a convention for some objects,
+            // or directly to the object if it's a method.
+            // In JS version it was `object.reactToNote`.
+            // We'll stick to attaching it to the object instance, but TS might complain if it's not in FoliageObject type.
+            // FoliageObject extends Object3D, which is dynamic.
+            (object as any).reactToNote = (note: string, color: number, velocity: number) => {
+                if (object.material && !Array.isArray(object.material) && (object.material as THREE.MeshStandardMaterial).emissive) {
+                    const mat = object.material as THREE.MeshStandardMaterial;
+                    const originalEmissive = object.userData.originalEmissive || mat.emissive.clone();
                     if (!object.userData.originalEmissive) object.userData.originalEmissive = originalEmissive;
 
                     // Simple flash
-                    object.material.emissive.setHex(color);
+                    mat.emissive.setHex(color);
                 }
             };
         }
     }
 
-    unregisterObject(object, species) {
+    unregisterObject(object: FoliageObject, species: string) {
         if (this.registeredObjects.has(species)) {
-            this.registeredObjects.get(species).delete(object);
+            this.registeredObjects.get(species)!.delete(object);
         }
     }
 
     // Called by AudioSystem or Main loop
-    handleNoteOn(note, velocity, channelIndex) {
-        // Normalize note to A-G# format if needed, or assume 'note' is string like "C4"
-        // If note is MIDI number, convert to string
-        let noteName = note;
-        if (typeof note === 'number') {
-            const notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-            noteName = notes[note % 12];
-        } else if (typeof note === 'string') {
-            // Strip octave if present "C4" -> "C"
-            noteName = note.replace(/[0-9-]/g, '');
-        }
+    handleNoteOn(note: number | string, velocity: number, channelIndex: number) {
+        const noteName = this.resolveNoteName(note);
 
-        // Determine species to trigger based on channel or other logic
-        // For now, let's trigger 'mushroom' for bass/drums, 'flower' for melody
-        // This mapping logic can be expanded
-
+        // Determine species to trigger based on channel
         // ⚡ OPTIMIZATION: Use scratch array to avoid GC
         const speciesList = _scratchSpeciesList;
         speciesList.length = 0;
@@ -102,7 +117,7 @@ class MusicReactivitySystem {
         // Also trigger global listeners if any
         speciesList.push('global');
 
-        // ⚡ OPTIMIZATION: Use for..of loop to avoid closure creation
+        // ⚡ OPTIMIZATION: Use for..of loop
         for (const species of speciesList) {
             const colorMap = CONFIG.noteColorMap[species] || CONFIG.noteColorMap['global'];
             const color = colorMap[noteName] || 0xFFFFFF;
@@ -110,19 +125,38 @@ class MusicReactivitySystem {
             this.triggerReaction(species, noteName, color, velocity);
         }
 
-        // Moon reaction (optional, e.g. blink on specific notes)
+        // Moon reaction
         if (this.moon && CONFIG.moon.blinkOnBeat && velocity > 100) {
             this.triggerMoonBlink();
         }
     }
 
-    triggerReaction(species, noteName, color, velocity) {
+    resolveNoteName(note: number | string): string {
+        // Check cache first (string/number key)
+        if (_noteNameCache[note]) {
+            return _noteNameCache[note];
+        }
+
+        let result = '';
+        if (typeof note === 'number') {
+            result = CHROMATIC_SCALE[note % 12];
+        } else if (typeof note === 'string') {
+             // Strip octave if present "C4" -> "C"
+            result = note.replace(/[0-9-]/g, '');
+        }
+
+        // Cache result (limit size loosely)
+        _noteNameCache[note] = result;
+        return result;
+    }
+
+    triggerReaction(species: string, noteName: string, color: number, velocity: number) {
         const objects = this.registeredObjects.get(species);
         if (objects) {
-            // ⚡ OPTIMIZATION: Use for..of loop to avoid closure creation
             for (const obj of objects) {
-                if (obj.reactToNote) {
-                    obj.reactToNote(noteName, color, velocity);
+                // Check for method on object (legacy/dynamic)
+                if ((obj as any).reactToNote) {
+                    (obj as any).reactToNote(noteName, color, velocity);
                 }
             }
         }
@@ -138,15 +172,23 @@ class MusicReactivitySystem {
         this.moonState.blinkStartTime = performance.now();
     }
 
-    update(time, deltaTime, audioState, weatherSystem, animatedFoliage, camera, isNight, isDeepNight) {
+    update(
+        time: number,
+        deltaTime: number,
+        audioState: AudioData | null,
+        weatherSystem: IWeatherSystem,
+        animatedFoliage: FoliageObject[],
+        camera: THREE.Camera,
+        isNight: boolean,
+        isDeepNight: boolean
+    ) {
         // 1. Update Moon Animation
         this.updateMoon(time, deltaTime);
 
         // 2. Update Twilight Glow
         this.updateTwilightGlow(time);
 
-        // 3. Update Foliage Animation Loop (Restored)
-        // This handles wind, wiggles, bounces, etc.
+        // 3. Update Foliage Animation Loop
         if (animatedFoliage && camera) {
             // Update Frustum for Culling
             _projScreenMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
@@ -154,7 +196,7 @@ class MusicReactivitySystem {
 
             const isDay = !isNight;
             
-            // ⚡ PERFORMANCE: Debug counters for culling statistics
+            // ⚡ PERFORMANCE: Debug counters
             let totalObjects = 0;
             let culledByDistance = 0;
             let culledByFrustum = 0;
@@ -166,7 +208,6 @@ class MusicReactivitySystem {
                 totalObjects++;
 
                 // ⚡ PERFORMANCE: Size-based culling distances
-                // Determine cull distance based on object type and size
                 let cullDistance = 150; // Default
                 
                 const objType = obj.userData.type;
@@ -174,17 +215,17 @@ class MusicReactivitySystem {
                 const objRadius = obj.userData.radius || 2.0;
                 
                 if (objType === 'flower') {
-                    cullDistance = 80; // Flowers are small, 80m render distance
+                    cullDistance = 80;
                 } else if (objType === 'mushroom') {
                     if (objSize === 'giant') {
-                        cullDistance = 200; // Giants visible from far away
+                        cullDistance = 200;
                     } else {
-                        cullDistance = 120; // Regular mushrooms
+                        cullDistance = 120;
                     }
                 } else if (objType === 'tree' || objType === 'shrub') {
-                    cullDistance = 150; // Trees/shrubs at medium distance
+                    cullDistance = 150;
                 } else if (objType === 'cloud') {
-                    cullDistance = 250; // Clouds visible from very far
+                    cullDistance = 250;
                 }
 
                 // Distance Culling
@@ -195,7 +236,6 @@ class MusicReactivitySystem {
                 }
 
                 // Frustum Culling
-                // Fix: Handle Groups or objects without geometry using a bounding sphere
                 let isVisible = false;
                 if (obj.geometry && obj.geometry.boundingSphere) {
                     isVisible = _frustum.intersectsObject(obj);
@@ -209,7 +249,8 @@ class MusicReactivitySystem {
 
                 if (isVisible) {
                     rendered++;
-                    animateFoliage(obj, time, audioState, isDay, isDeepNight);
+                    // Using animateFoliage (assumed typed correctly in animation.ts)
+                    animateFoliage(obj, time, audioState || {}, isDay, isDeepNight);
                 } else {
                     culledByFrustum++;
                 }
@@ -229,24 +270,21 @@ class MusicReactivitySystem {
         }
     }
 
-    updateTwilightGlow(time) {
+    updateTwilightGlow(time: number) {
         if (!this.weatherSystem) return;
 
         // Get smooth twilight intensity (0 = day, 1 = night peak)
-        // We use weatherSystem.getTwilightGlowIntensity if available, or fallback
         const cyclePos = time % CYCLE_DURATION;
-        const glowIntensity = this.weatherSystem.getTwilightGlowIntensity
+        const glowIntensity = (this.weatherSystem.getTwilightGlowIntensity)
             ? this.weatherSystem.getTwilightGlowIntensity(cyclePos)
             : 0.0;
 
-        // Iterate over registered objects that might have glow capabilities
-        // For now, specifically handling Mushrooms with 'glowLight'
+        // Iterate over registered mushrooms
         const mushrooms = this.registeredObjects.get('mushroom');
         if (mushrooms) {
-            // ⚡ OPTIMIZATION: Use for..of loop to avoid closure creation
             for (const mushroom of mushrooms) {
                 if (mushroom.userData.isBioluminescent && mushroom.userData.glowLight) {
-                    const light = mushroom.userData.glowLight;
+                    const light = mushroom.userData.glowLight as THREE.PointLight;
                     // Base target intensity for night glow
                     const baseTarget = 0.8 * glowIntensity;
 
@@ -264,14 +302,13 @@ class MusicReactivitySystem {
         }
     }
 
-    updateMoon(time, deltaTime) {
+    updateMoon(time: number, deltaTime: number) {
         if (!this.moon) return;
 
         // Only animate moon at night
         const isNight = this.weatherSystem ? this.weatherSystem.isNight() : true;
 
         if (!isNight) {
-            // Reset to base state if day
             this.moon.scale.copy(this.moonState.baseScale);
             return;
         }
@@ -293,10 +330,8 @@ class MusicReactivitySystem {
                 this.scheduleNextBlink();
             } else {
                 // Simple scale blink (squash Y)
-                // 0 -> 0.1 -> 1.0 (squash down then up)
-                // A quick blink might be a scale down on Y
                 const blinkCurve = Math.sin(progress * Math.PI);
-                const scaleY = 1.0 - (blinkCurve * 0.8); // Squash to 20% height
+                const scaleY = 1.0 - (blinkCurve * 0.8);
 
                 this.moon.scale.set(
                     this.moonState.baseScale.x,
@@ -311,7 +346,6 @@ class MusicReactivitySystem {
             this.moonState.dancePhase += deltaTime * CONFIG.moon.danceFrequency;
             const danceOffset = Math.sin(this.moonState.dancePhase) * CONFIG.moon.danceAmplitude;
             this.moon.rotation.z = danceOffset * 0.2; // Tilt
-            // Optionally bob position if needed, but rotation is safer for simple mesh
         }
     }
 }

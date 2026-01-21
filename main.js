@@ -3,7 +3,7 @@ import './style.css';
 import { uWindSpeed, uWindDirection, uSkyTopColor, uSkyBottomColor, uHorizonColor, uAtmosphereIntensity, uStarPulse, uStarOpacity, uAuroraIntensity, uAuroraColor, uAudioLow, uAudioHigh, uGlitchIntensity, uChromaticIntensity, uTime, createAurora, createChromaticPulse, updateMoon, animateFoliage, updateFoliageMaterials, updateFireflies, updateFallingBerries, collectFallingBerries, createFlower, createMushroom, validateNodeGeometries, createMelodyRibbon, updateMelodyRibbons, createMelodyMirror, createSparkleTrail, updateSparkleTrail, createImpactSystem } from './src/foliage/index.js';
 import { initCelestialBodies } from './src/foliage/celestial-bodies.js';
 import { InteractionSystem } from './src/systems/interaction.ts';
-import { musicReactivitySystem } from './src/systems/music-reactivity.js';
+import { musicReactivitySystem } from './src/systems/music-reactivity.ts';
 import { AudioSystem } from './src/audio/audio-system.ts';
 import { BeatSync } from './src/audio/beat-sync.ts';
 import { WeatherSystem, WeatherState } from './src/systems/weather.js';
