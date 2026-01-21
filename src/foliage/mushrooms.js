@@ -412,7 +412,7 @@ export function createMushroom(options = {}) {
     };
 
     // Register with music reactivity system
-    import('../systems/music-reactivity.js').then(module => {
+    import('../systems/music-reactivity.ts').then(module => {
         module.musicReactivitySystem.registerObject(group, 'mushroom');
     });
 
