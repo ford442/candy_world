@@ -7,6 +7,7 @@ import { CONFIG } from '../core/config.js';
 import { FoliageObject, AudioData, FoliageMaterial, ChannelData } from './types.js';
 import { updateArpeggio } from './arpeggio.js';
 import { foliageBatcher } from './foliage-batcher.js';
+import { spawnImpact } from './impacts.js';
 
 export * from './types.js';
 
@@ -377,6 +378,11 @@ export function animateFoliage(foliageObject: FoliageObject, time: number, audio
         if (left && right) {
             // Snap shut fast (on trigger), open slow (decay)
             if (snareTrigger > 0.2) {
+                // ⚡ PALETTE: Trigger Juice on rising edge
+                const oldState = foliageObject.userData.snapState || 0;
+                if (oldState < 0.2) {
+                    spawnImpact(foliageObject.position, 'snare');
+                }
                 foliageObject.userData.snapState = 1.0;
             } else {
                 foliageObject.userData.snapState = Math.max(0, (foliageObject.userData.snapState || 0) - 0.1);
