@@ -11,3 +11,7 @@
 ## 2024-10-27 - Reduced Motion for Loaders
 **Learning:** When implementing `prefers-reduced-motion: reduce`, simply removing animations from loading spinners (`animation: none`) can make the app appear frozen or broken.
 **Action:** For status indicators like spinners, slow down the animation significantly (e.g., 5s duration) instead of removing it completely. This respects the user's preference while still communicating active processing.
+
+## 2024-11-20 - Focus Traps in Game Overlays
+**Learning:** In pointer-locked games, unlocking the cursor for menus often leaves keyboard focus undefined, leading to tabbing into hidden elements or out of the game entirely.
+**Action:** Implement explicit "Focus Traps" (cycling Tab navigation) for all in-game overlays to ensure users stay within the intended UI context.
