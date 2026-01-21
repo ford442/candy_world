@@ -13,6 +13,7 @@ import {
 } from 'three/tsl';
 import { applyGlitch } from './glitch.js';
 import { arpeggioFernBatcher } from './arpeggio-batcher.ts';
+import { dandelionBatcher } from './dandelion-batcher.ts';
 
 // --- Category 1: Melodic Flora ---
 
@@ -148,56 +149,23 @@ export function createCymbalDandelion(options = {}) {
     const { scale = 1.0 } = options;
     const group = new THREE.Group();
 
-    // Stem
-    const stem = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.02 * scale, 0.02 * scale, 1.5 * scale),
-        createClayMaterial(0x556B2F)
-    );
-    stem.position.y = 0.75 * scale;
-    group.add(stem);
+    // ⚡ OPTIMIZATION: Logic Object only (visuals are batched)
+    // Hit Volume for interaction
+    // Stem Height 1.5, Head at 1.5
+    const hitGeo = new THREE.CylinderGeometry(0.2 * scale, 0.2 * scale, 1.8 * scale);
+    const hitMat = new THREE.MeshBasicMaterial({ visible: false });
+    const hitMesh = new THREE.Mesh(hitGeo, hitMat);
+    hitMesh.position.y = 0.9 * scale;
+    group.add(hitMesh);
 
-    // Head (The Cymbal Seeds)
-    const head = new THREE.Group();
-    head.position.y = 1.5 * scale;
-    group.add(head);
-
-    const seedCount = 24;
-    const seedGeo = new THREE.CylinderGeometry(0.01, 0.01, 0.4 * scale);
-    seedGeo.translate(0, 0.2 * scale, 0);
-    const tipGeo = new THREE.SphereGeometry(0.04 * scale);
-    const seedMat = createCandyMaterial(0xFFD700, 1.0); // Gold
-    registerReactiveMaterial(seedMat);
-
-    for(let i=0; i<seedCount; i++) {
-        const seedGroup = new THREE.Group();
-        const phi = Math.acos(-1 + (2 * i) / seedCount);
-        const theta = Math.sqrt(seedCount * Math.PI) * phi;
-        
-        seedGroup.rotation.setFromVector3(new THREE.Vector3(
-            Math.sin(phi) * Math.cos(theta),
-            Math.sin(phi) * Math.sin(theta),
-            Math.cos(phi)
-        ).normalize().multiplyScalar(1.5)); // Direction
-        
-        seedGroup.lookAt(seedGroup.position.clone().add(new THREE.Vector3(0,1,0))); // Hacky alignment
-
-        const stalk = new THREE.Mesh(seedGeo, createClayMaterial(0xFFFFFF));
-        const tip = new THREE.Mesh(tipGeo, seedMat);
-        tip.position.y = 0.4 * scale;
-        
-        stalk.add(tip);
-        head.add(stalk);
-        
-        // Distribute spherically
-        stalk.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), new THREE.Vector3(
-             Math.sin(phi) * Math.cos(theta),
-             Math.cos(phi),
-             Math.sin(phi) * Math.sin(theta)
-        ));
-    }
-
-    group.userData.animationType = 'cymbalShake'; // Needs high freq trigger
+    group.userData.animationType = 'batchedCymbal'; // Use batched type to avoid CPU animation
     group.userData.type = 'flower';
+
+    // Callback for generation system to invoke after setting position
+    group.userData.onPlacement = () => {
+        dandelionBatcher.register(group, options);
+    };
+
     const reactiveGroup = attachReactivity(group);
     return makeInteractive(reactiveGroup);
 }
