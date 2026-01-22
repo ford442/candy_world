@@ -33,7 +33,7 @@ export * from './impacts.js'; // Added Impact Particles
 export * from './lotus.js'; // Added Subwoofer Lotus
 
 // Export Music Reactivity System (New)
-export { musicReactivitySystem } from '../systems/music-reactivity.js';
+export { musicReactivitySystem } from '../systems/music-reactivity.ts';
 
 // Musical flora
 export * from './musical_flora.js';
