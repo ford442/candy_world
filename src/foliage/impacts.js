@@ -11,7 +11,8 @@ const IMPACT_CONFIG = {
     jump: { count: 20 },
     land: { count: 40 },
     dash: { count: 30 },
-    berry: { count: 15 }
+    berry: { count: 15 },
+    snare: { count: 25 }
 };
 
 export function createImpactSystem() {
@@ -136,6 +137,15 @@ export function spawnImpact(pos, type = 'jump') {
              vx = Math.sin(phi) * Math.cos(theta) * speed;
              vy = Math.cos(phi) * speed;
              vz = Math.sin(phi) * Math.sin(theta) * speed;
+        } else if (type === 'snare') {
+            // Aggressive snap burst
+            // Ring shape + Upward spike
+            const theta = Math.random() * Math.PI * 2;
+            const r = 1.5 + Math.random() * 2.0;
+            // Mostly horizontal
+            vx = Math.cos(theta) * r;
+            vy = 1.0 + Math.random() * 4.0; // Strong upward spike
+            vz = Math.sin(theta) * r;
         }
 
         velAttr.setXYZ(idx, vx, vy, vz);
@@ -158,6 +168,9 @@ export function spawnImpact(pos, type = 'jump') {
             } else {
                 colAttr.setXYZ(idx, 1.0, 0.0, 0.5); // Red-Pink
             }
+        } else if (type === 'snare') {
+            // Danger Red/Orange
+            colAttr.setXYZ(idx, 1.0, 0.2, 0.0);
         }
 
         // Size
