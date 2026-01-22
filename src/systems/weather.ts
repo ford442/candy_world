@@ -1,36 +1,38 @@
-// src/systems/weather.js
+// src/systems/weather.ts
 // Orchestrator file - delegates hot paths to weather.core.ts (TypeScript)
-// Following PERFORMANCE_MIGRATION_STRATEGY.md - Keep JS as "Drafting Ground"
+// Migrated from src/systems/weather.js
 
 import * as THREE from 'three';
+// @ts-ignore
 import { getGroundHeight, uploadPositions, uploadAnimationData, uploadMushroomSpecs, batchMushroomSpawnCandidates, readSpawnCandidates, isWasmReady } from '../utils/wasm-loader.js';
+// @ts-ignore
 import { chargeBerries, triggerGrowth, triggerBloom, shakeBerriesLoose, createMushroom, createWaterfall, createLanternFlower, cleanupReactivity, musicReactivitySystem, updateGlobalBerryScale } from '../foliage/index.js';
+// @ts-ignore
 import { createRainbow, uRainbowOpacity } from '../foliage/rainbow.js';
+// @ts-ignore
 import { getCelestialState, getSeasonalState } from '../core/cycle.js';
 import { CYCLE_DURATION, CONFIG, DURATION_SUNRISE, DURATION_DAY, DURATION_SUNSET, DURATION_PRE_DAWN } from '../core/config.ts';
+// @ts-ignore
 import { uCloudRainbowIntensity, uCloudLightningStrength, uCloudLightningColor, updateCloudAttraction, isCloudOverTarget } from '../foliage/clouds.js';
+// @ts-ignore
 import { uSkyDarkness, uTwilight } from '../foliage/sky.js';
+// @ts-ignore
 import { updateCaveWaterLevel } from '../foliage/cave.js';
+// @ts-ignore
 import { LegacyParticleSystem } from './adapters/LegacyParticleSystem.js';
+// @ts-ignore
 import { WasmParticleSystem } from './adapters/WasmParticleSystem.js';
 import { foliageClouds } from '../world/state.ts';
+// @ts-ignore
 import { replaceMushroomWithGiant } from '../foliage/mushrooms.js';
-// Import TypeScript core functions (Phase 1 Migration)
-import {
-    calculateGlobalLightLevel,
-    calculateFavorability,
-    calculateMushroomGrowthRate,
-    calculateWeatherStateTransition,
-    calculateGroundWaterLevel,
-    calculateRainbowOpacity
-} from './weather.core.ts';
+import { VisualState } from '../audio/audio-system.ts';
 
 // Weather states
-export const WeatherState = {
-    CLEAR: 'clear',
-    RAIN: 'rain',
-    STORM: 'storm'
-};
+export enum WeatherState {
+    CLEAR = 'clear',
+    RAIN = 'rain',
+    STORM = 'storm'
+}
 
 const _UP = new THREE.Vector3(0, 1, 0);
 const _scratchSunDir = new THREE.Vector3();
@@ -39,16 +41,77 @@ const _scratchAttraction = new THREE.Vector3();
 const _scratchBlack = new THREE.Color(0x000000);
 
 export class WeatherSystem {
-    constructor(scene) {
+    scene: THREE.Scene;
+    state: WeatherState;
+    intensity: number;
+    stormCharge: number;
+
+    // Player Control Factor
+    cloudDensity: number;
+    cloudRegenRate: number;
+
+    // Ground Water Logic
+    groundWaterLevel: number; // 0.0 = Dry, 1.0 = Flooded
+    trackedCaves: any[]; // Using any for foliage objects
+
+    // Particle systems
+    particles: any; // WasmParticleSystem
+
+    mushroomWaterfalls: Map<string, any>;
+
+    lightningLight: THREE.PointLight;
+    lightningTimer: number;
+    lightningActive: boolean;
+
+    rainbow: any; // Mesh
+    rainbowTimer: number;
+    lastState: WeatherState;
+
+    trackedTrees: any[];
+    trackedShrubs: any[];
+    trackedFlowers: any[];
+    trackedMushrooms: any[];
+
+    targetIntensity: number;
+    transitionSpeed: number;
+
+    windDirection: THREE.Vector3;
+    windSpeed: number;
+    windTargetSpeed: number;
+    onSpawnFoliage: ((object: any, isNew: boolean, duration: number) => void) | null;
+
+    _lastSpawnCheck: number;
+    _spawnCapPerFrame: number;
+    _spawnThrottle: number;
+    _spawnQueue: any[];
+
+    fog: THREE.Fog | THREE.FogExp2 | null;
+    baseFogNear: number;
+    baseFogFar: number;
+
+    // Twilight calculation helpers
+    lastTwilightProgress: number;
+
+    // ⚡ OPTIMIZATION: Scratch set for ecosystem locking
+    _claimedMushroomsScratch: Set<string>;
+
+    currentSeason: string = 'Spring';
+    lastPatternIndex: number = -1;
+    currentLightLevel: number = 0;
+    weatherType: string = 'audio';
+    darknessFactor: number = 0;
+    targetPaletteMode: string | null = null; // Used in main.js
+
+    constructor(scene: THREE.Scene) {
         this.scene = scene;
         this.state = WeatherState.CLEAR;
         this.intensity = 0;
         this.stormCharge = 0;
-        
+
         // Player Control Factor
         this.cloudDensity = 1.0;
         this.cloudRegenRate = 0.0005;
-        
+
         // Ground Water Logic
         this.groundWaterLevel = 0.0; // 0.0 = Dry, 1.0 = Flooded
         this.trackedCaves = [];
@@ -58,7 +121,7 @@ export class WeatherSystem {
 
         this.mushroomWaterfalls = new Map();
 
-        this.lightningLight = null;
+        this.lightningLight = new THREE.PointLight(0xFFFFFF, 0, 200);
         this.lightningTimer = 0;
         this.lightningActive = false;
 
@@ -83,10 +146,10 @@ export class WeatherSystem {
         this._spawnCapPerFrame = 3;
         this._spawnThrottle = 0.5;
         this._spawnQueue = [];
-        
-        this.fog = scene.fog;
-        this.baseFogNear = scene.fog ? scene.fog.near : 20;
-        this.baseFogFar = scene.fog ? scene.fog.far : 100;
+
+        this.fog = scene.fog as THREE.Fog | null;
+        this.baseFogNear = (scene.fog as THREE.Fog) ? (scene.fog as THREE.Fog).near : 20;
+        this.baseFogFar = (scene.fog as THREE.Fog) ? (scene.fog as THREE.Fog).far : 100;
 
         // Twilight calculation helpers
         this.lastTwilightProgress = 0;
@@ -110,32 +173,35 @@ export class WeatherSystem {
         this.particles.init(this.scene);
     }
 
-    registerMushroom(mushroom) {
+    registerMushroom(mushroom: any) {
         if (!mushroom) return;
         if (!this.trackedMushrooms.includes(mushroom)) this.trackedMushrooms.push(mushroom);
     }
 
-    registerCave(cave) {
+    registerCave(cave: any) {
         if (!this.trackedCaves.includes(cave)) {
             this.trackedCaves.push(cave);
         }
     }
 
     initLightning() {
-        this.lightningLight = new THREE.PointLight(0xFFFFFF, 0, 200);
+        // Light created in constructor, just adding to scene here if not already added?
+        // JS version initialized 'lightningLight' in constructor as null, then assigned here.
+        // TS version initialized in constructor.
+        // We need to set position and add to scene.
         this.lightningLight.position.set(0, 50, 0);
         this.scene.add(this.lightningLight);
     }
 
-    registerTree(tree) { this.trackedTrees.push(tree); }
-    registerShrub(shrub) { this.trackedShrubs.push(shrub); }
-    registerFlower(flower) { this.trackedFlowers.push(flower); }
+    registerTree(tree: any) { this.trackedTrees.push(tree); }
+    registerShrub(shrub: any) { this.trackedShrubs.push(shrub); }
+    registerFlower(flower: any) { this.trackedFlowers.push(flower); }
 
-    notifyCloudShot(isDaytime) {
+    notifyCloudShot(isDaytime: boolean) {
         this.cloudDensity = Math.max(0.2, this.cloudDensity - 0.05);
     }
 
-    getGlobalLightLevel(celestial, seasonal) {
+    getGlobalLightLevel(celestial: any, seasonal: any) {
         const sun = celestial.sunIntensity * (seasonal ? seasonal.sunInclination : 1.0);
         const moon = celestial.moonIntensity * (seasonal ? seasonal.moonPhase : 1.0) * 0.25;
         const stars = 0.05;
@@ -146,31 +212,15 @@ export class WeatherSystem {
 
     // --- NEW: Twilight Calculation ---
     // Returns 0.0 (Day), ramp to 1.0 (Night), ramp down to 0.0 (Day)
-    // Specifically focused on twilight window for glow
-    getTwilightGlowIntensity(cyclePos) {
+    getTwilightGlowIntensity(cyclePos: number): number {
         const sunsetStart = DURATION_SUNRISE + DURATION_DAY;
         const sunsetEnd = sunsetStart + DURATION_SUNSET;
 
-        // Define twilight windows (30m before sunset -> full night -> 30m after sunrise? No, stop before dawn)
-        // Plan says: "starting a configurable amount of time before sunset and stopping before dawn."
-        // Let's use CONFIG values.
-
-        const glowStartMinutes = CONFIG.glow ? CONFIG.glow.startOffsetMinutes : 30; // Minutes before sunset
-        const glowStartSeconds = glowStartMinutes; // Mapping 1 min = 1 sec in this simulation roughly?
-        // Wait, DURATION_DAY is 420s (7m). So 1 min in real life concept is 60s in simulation.
-        // CONFIG says startOffsetMinutes = 30. Assuming simulation seconds for now based on DURATION_DAY.
-        // If DURATION_DAY = 420 (7m), then 30 "minutes" might be relative to a 24h cycle mapped to 16m?
-        // Let's assume the CONFIG values are in simulation seconds for simplicity, OR scale them.
-        // Actually, let's treat them as seconds offset in the cycle for now.
-
+        const glowStartMinutes = CONFIG.glow ? CONFIG.glow.startOffsetMinutes : 30;
         const twilightStart = sunsetStart - 30; // Start glowing 30s before sunset starts
 
-        // Ramp up during twilightStart -> sunsetEnd
-        // Full intensity during Night
-        // Ramp down during pre-dawn
-
         const nightStart = sunsetEnd;
-        const nightEnd = CYCLE_DURATION - DURATION_PRE_DAWN - DURATION_SUNRISE; // Rough calc
+        // const nightEnd = CYCLE_DURATION - DURATION_PRE_DAWN - DURATION_SUNRISE;
 
         // Simple logic:
         // 1. If Day (Sunrise -> Sunset-30s): 0
@@ -188,13 +238,6 @@ export class WeatherSystem {
 
         if (cyclePos >= nightStart && cyclePos < CYCLE_DURATION - DURATION_SUNRISE) {
             // Night (roughly) - Check for pre-dawn fade
-            // Dawn starts at CYCLE_DURATION - DURATION_PRE_DAWN? No, cycle wraps.
-            // Let's look at config:
-            // CYCLE = SUNRISE(60) + DAY(420) + SUNSET(60) + DUSK(180) + DEEP(120) + PREDAWN(120) = 960
-            // Night starts after Sunset.
-
-            const preDawnStart = CYCLE_DURATION - DURATION_PRE_DAWN - DURATION_SUNRISE; // Just before end of cycle?
-            // Actually, cycle ends with PreDawn, then wraps to Sunrise.
             const dawnStart = CYCLE_DURATION - DURATION_PRE_DAWN;
 
             if (cyclePos >= dawnStart) {
@@ -208,21 +251,19 @@ export class WeatherSystem {
 
         // Sunrise buffer
         if (cyclePos < DURATION_SUNRISE) {
-            // Should be off or fading if we wrapped?
-            // Let's assume off by sunrise
             return 0.0;
         }
 
         return 0.0;
     }
 
-    isNight() {
+    isNight(): boolean {
         // Simple helper for other systems
         return this.lastTwilightProgress > 0.5;
     }
     // ---------------------------------
 
-    updateEcosystem(dt) {
+    updateEcosystem(dt: number) {
         // Only run if we have active entities
         if (!foliageClouds || foliageClouds.length === 0 || this.trackedMushrooms.length === 0) return;
 
@@ -232,14 +273,14 @@ export class WeatherSystem {
         claimedMushrooms.clear();
 
         // 1. Register existing locks first
-        foliageClouds.forEach(cloud => {
+        foliageClouds.forEach((cloud: any) => {
             if (cloud.userData.targetMushroom) {
                 claimedMushrooms.add(cloud.userData.targetMushroom.uuid);
             }
         });
 
         // 2. Process Clouds
-        foliageClouds.forEach(cloud => {
+        foliageClouds.forEach((cloud: any) => {
             // Skip dead/falling clouds
             if (cloud.userData.isFalling) {
                 // If it had a target, we implicitly release it by not moving towards it
@@ -287,11 +328,6 @@ export class WeatherSystem {
 
                 // Rain Logic
                 if (isCloudOverTarget(cloud, target.position)) {
-                    // Only effective if it's actually raining in the world
-                    // OR: Do we want these anchored clouds to rain even if global weather is clear?
-                    // User said "tied to right there", implies localized rain.
-                    // Let's assume if the cloud is there, it's raining on the mushroom.
-
                     // Increase Wetness
                     if (!target.userData.wetness) target.userData.wetness = 0;
                     target.userData.wetness += dt * 1.5;
@@ -305,7 +341,7 @@ export class WeatherSystem {
         });
     }
 
-    transformMushroom(oldMushroom) {
+    transformMushroom(oldMushroom: any) {
         const index = this.trackedMushrooms.indexOf(oldMushroom);
         if (index === -1) return;
 
@@ -318,19 +354,18 @@ export class WeatherSystem {
 
             // Critical: Update the Cloud's reference!
             // Find the cloud that was targeting the old mushroom
-            foliageClouds.forEach(c => {
+            foliageClouds.forEach((c: any) => {
                 if (c.userData.targetMushroom === oldMushroom) {
                     c.userData.targetMushroom = newGiant;
 
                     // Lift the cloud up! Giants are tall.
-                    // Smoothly animate y would be better, but immediate jump prevents clipping
                     c.position.y = Math.max(c.position.y, newGiant.position.y + 25);
                 }
             });
         }
     }
 
-    update(time, audioData, cycleWeatherBias = null) {
+    update(time: number, audioData: VisualState | null, cycleWeatherBias: any = null) {
         if (!audioData) return;
         const dt = 0.016;
 
@@ -342,8 +377,8 @@ export class WeatherSystem {
         const bassIntensity = audioData.kickTrigger || 0;
         const groove = audioData.grooveAmount || 0;
         const channels = audioData.channelData || [];
-        const melodyVol = channels[2]?.volume || 0;
-        const celestial = getCelestialState(time); 
+        const melodyVol = (channels[2] as any)?.volume || 0;
+        const celestial = getCelestialState(time);
         const seasonal = getSeasonalState(time);
         this.currentSeason = seasonal.season;
 
@@ -375,7 +410,7 @@ export class WeatherSystem {
         const cyclePos = time % CYCLE_DURATION;
         const twilightIntensity = this.getTwilightGlowIntensity(cyclePos);
         this.lastTwilightProgress = twilightIntensity;
-        try { uTwilight.value = twilightIntensity; } catch(e) {}
+        try { if(uTwilight) uTwilight.value = twilightIntensity; } catch(e) {}
         // ----------------------------
 
         if (this.lastState === WeatherState.STORM && this.state !== WeatherState.STORM) {
@@ -388,21 +423,21 @@ export class WeatherSystem {
             let opacity = 1.0;
             if (this.rainbowTimer > 40.0) opacity = (45.0 - this.rainbowTimer) / 5.0;
             else if (this.rainbowTimer < 5.0) opacity = this.rainbowTimer / 5.0;
-            uRainbowOpacity.value = opacity * 0.6;
+            if(uRainbowOpacity) uRainbowOpacity.value = opacity * 0.6;
         } else {
-            uRainbowOpacity.value = 0.0;
+            if(uRainbowOpacity) uRainbowOpacity.value = 0.0;
         }
 
         this.currentLightLevel = this.getGlobalLightLevel(celestial, seasonal);
         this.targetIntensity *= this.cloudDensity;
 
-        const highVol = channels[3]?.volume || 0;
+        const highVol = (channels[3] as any)?.volume || 0;
         const rainbowTarget = (melodyVol * 0.5 + highVol * 0.5) * this.cloudDensity;
         try { if(uCloudRainbowIntensity) uCloudRainbowIntensity.value += (rainbowTarget - uCloudRainbowIntensity.value) * 0.05; } catch(e) {}
 
         if (this.state === WeatherState.STORM && (bassIntensity > 0.8 || Math.random() < 0.01)) {
             try { if(uCloudLightningStrength) uCloudLightningStrength.value = 1.0; } catch(e) {}
-            
+
             const paletteKeys = Object.keys((CONFIG.noteColorMap && CONFIG.noteColorMap.cloud) || {});
             if (paletteKeys.length > 0) {
                 const randomKey = paletteKeys[Math.floor(Math.random() * paletteKeys.length)];
@@ -490,7 +525,7 @@ export class WeatherSystem {
         this.updateFog(audioData);
     }
 
-    handleSpawning(time, fungiScore, lanternScore, globalLight) {
+    handleSpawning(time: number, fungiScore: number, lanternScore: number, globalLight: number) {
         if (time - this._lastSpawnCheck < this._spawnThrottle) return;
         this._lastSpawnCheck = time;
 
@@ -505,7 +540,7 @@ export class WeatherSystem {
         }
     }
 
-    spawnFoliage(type, isGlowing) {
+    spawnFoliage(type: string, isGlowing: boolean) {
         if (!this.onSpawnFoliage) return;
 
         const x = (Math.random() - 0.5) * 60;
@@ -538,10 +573,10 @@ export class WeatherSystem {
         }
     }
 
-    updateWind(time, audioData, celestial) {
+    updateWind(time: number, audioData: VisualState, celestial: any) {
         const channels = audioData.channelData || [];
-        const highFreqVol = channels[3]?.volume || 0;
-        const melodyVol = channels[2]?.volume || 0;
+        const highFreqVol = (channels[3] as any)?.volume || 0;
+        const melodyVol = (channels[2] as any)?.volume || 0;
 
         this.windTargetSpeed = Math.max(highFreqVol, melodyVol * 0.5);
         this.windSpeed += (this.windTargetSpeed - this.windSpeed) * 0.02;
@@ -638,24 +673,24 @@ export class WeatherSystem {
         }
     }
 
-    updateMushroomWaterfalls(time, bassIntensity) {
+    updateMushroomWaterfalls(time: number, bassIntensity: number) {
         const isRaining = this.state !== WeatherState.CLEAR && this.intensity > 0.4;
-        
+
         this.trackedMushrooms.forEach(mushroom => {
             if (mushroom.userData.size === 'giant') {
                 const uuid = mushroom.uuid;
-                
+
                 if (isRaining) {
                     if (!this.mushroomWaterfalls.has(uuid)) {
                         const radius = mushroom.userData.capRadius || 5.0;
                         const height = mushroom.userData.capHeight || 8.0;
-                        
+
                         const wf = createWaterfall(
                             new THREE.Vector3(mushroom.position.x + radius * 0.8, height * 0.8, mushroom.position.z),
                             new THREE.Vector3(mushroom.position.x + radius * 1.1, 0, mushroom.position.z),
                             2.0
                         );
-                        
+
                         this.scene.add(wf);
                         this.mushroomWaterfalls.set(uuid, wf);
                     }
@@ -673,20 +708,20 @@ export class WeatherSystem {
         });
     }
 
-    applyDarknessLogic(celestial, moonPhase) {
-        const nightFactor = celestial.moonIntensity; 
-        const densityFactor = this.cloudDensity;     
+    applyDarknessLogic(celestial: any, moonPhase: number) {
+        const nightFactor = celestial.moonIntensity;
+        const densityFactor = this.cloudDensity;
         const moonDarkness = 1.0 - (moonPhase || 0) * 0.5;
-        const darkness = nightFactor * densityFactor * moonDarkness * 0.95; 
+        const darkness = nightFactor * densityFactor * moonDarkness * 0.95;
 
-        if (this.scene.fog && this.scene.fog.color) {
-            this.scene.fog.color.lerp(_scratchBlack, darkness);
+        if (this.scene.fog && (this.scene.fog as THREE.Fog).color) {
+            (this.scene.fog as THREE.Fog).color.lerp(_scratchBlack, darkness);
         }
-        uSkyDarkness.value = darkness;
-        this.darknessFactor = darkness; 
+        if (uSkyDarkness) uSkyDarkness.value = darkness;
+        this.darknessFactor = darkness;
     }
 
-    updateFog(audioData) {
+    updateFog(audioData: VisualState) {
         if (!this.fog) return;
 
         let fogMultiplier = 1.0;
@@ -698,7 +733,8 @@ export class WeatherSystem {
 
         let crescendoFactor = 0;
         if (audioData) {
-            const volume = audioData.average || 0;
+            // VisualState doesn't define 'average' explicitly, check usage
+            const volume = (audioData as any).average || 0;
             crescendoFactor = volume * 0.3;
         }
 
@@ -711,11 +747,13 @@ export class WeatherSystem {
         const targetNear = this.baseFogNear * totalVisibility;
         const targetFar = this.baseFogFar * totalVisibility;
 
-        this.fog.near += (targetNear - this.fog.near) * 0.05;
-        this.fog.far += (targetFar - this.fog.far) * 0.05;
+        if (this.fog instanceof THREE.Fog) {
+            this.fog.near += (targetNear - this.fog.near) * 0.05;
+            this.fog.far += (targetFar - this.fog.far) * 0.05;
+        }
     }
 
-    updateBerrySeasonalSize(cyclePos, CYCLE_DURATION) {
+    updateBerrySeasonalSize(cyclePos: number, CYCLE_DURATION: number) {
         const SUNRISE = 60, DAY = 420, SUNSET = 60, DUSK = 180, DEEP = 120, PREDAWN = 120;
         let phase = 'day';
         let phaseProgress = 0;
@@ -745,10 +783,10 @@ export class WeatherSystem {
         updateGlobalBerryScale(phase, phaseProgress);
     }
 
-    updateWeatherState(bass, melody, groove, cycleWeatherBias = null, seasonal = null) {
+    updateWeatherState(bass: number, melody: number, groove: number, cycleWeatherBias: any = null, seasonal: any = null) {
         let audioState = WeatherState.CLEAR;
         let audioIntensity = 0;
-        
+
         if (bass > 0.7 && groove > 0.5) {
             audioState = WeatherState.STORM;
             audioIntensity = 1.0;
@@ -794,7 +832,7 @@ export class WeatherSystem {
         }
     }
 
-    updateLightning(time, bassIntensity) {
+    updateLightning(time: number, bassIntensity: number) {
         this.lightningTimer -= 0.016;
 
         if (bassIntensity > 0.8 && this.lightningTimer <= 0 && Math.random() > 0.7) {
@@ -817,7 +855,7 @@ export class WeatherSystem {
         }
     }
 
-    chargeBerryGlow(bassIntensity) {
+    chargeBerryGlow(bassIntensity: number) {
         const chargeAmount = bassIntensity * 0.05;
         this.trackedTrees.forEach(tree => { if (tree.userData.berries) chargeBerries(tree.userData.berries, chargeAmount); });
         this.trackedShrubs.forEach(shrub => { if (shrub.userData.berries) chargeBerries(shrub.userData.berries, chargeAmount); });
@@ -828,18 +866,18 @@ export class WeatherSystem {
         }
     }
 
-    growPlants(intensity) {
+    growPlants(intensity: number) {
         triggerGrowth(this.trackedTrees, intensity);
         triggerGrowth(this.trackedMushrooms, intensity);
     }
-    bloomFlora(intensity) {
+    bloomFlora(intensity: number) {
         triggerBloom(this.trackedFlowers, intensity);
     }
     getState() { return this.state; }
     getStormCharge() { return this.stormCharge; }
     getIntensity() { return this.intensity; }
 
-    forceState(state) {
+    forceState(state: WeatherState) {
         this.state = state;
         switch (state) {
             case WeatherState.STORM: this.targetIntensity = 1.0; break;
@@ -865,16 +903,14 @@ export class WeatherSystem {
                 }
 
                 // Dispose Materials (to free GPU memory)
-                toRemove.traverse(child => {
+                toRemove.traverse((child: any) => {
                     if (child.material) {
                         if (Array.isArray(child.material)) {
-                            child.material.forEach(m => m.userData?.isClone && m.dispose && m.dispose());
+                            child.material.forEach((m: any) => m.userData?.isClone && m.dispose && m.dispose());
                         } else if (child.material.userData?.isClone && child.material.dispose) {
                             child.material.dispose();
                         }
                     }
-                    // Geometries are mostly shared, but if not, one could dispose them here too.
-                    // Since we optimized mushrooms to use shared geometries, we skip geometry disposal to be safe.
                 });
             }
         }
@@ -889,7 +925,7 @@ export class WeatherSystem {
         }
         if (this.rainbow) {
             this.scene.remove(this.rainbow);
-            this.rainbow.geometry.dispose();
+            if (this.rainbow.geometry) this.rainbow.geometry.dispose();
         }
         if (this.mushroomWaterfalls && this.mushroomWaterfalls.size > 0) {
             this.mushroomWaterfalls.forEach(wf => {

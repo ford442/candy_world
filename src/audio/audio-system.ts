@@ -46,7 +46,7 @@ const decodeEffectCode = (cell: PatternRowCell | null): { activeEffect: number, 
 };
 
 // Interfaces
-interface ChannelData {
+export interface ChannelData {
     volume: number;
     pan: number;
     trigger: number;
@@ -57,7 +57,7 @@ interface ChannelData {
     effectValue: number;
 }
 
-interface VisualState {
+export interface VisualState {
     beatPhase: number;
     kickTrigger: number;
     grooveAmount: number;
