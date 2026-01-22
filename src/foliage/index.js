@@ -38,3 +38,4 @@ export { musicReactivitySystem } from '../systems/music-reactivity.js';
 // Musical flora
 export * from './musical_flora.js';
 export * from './arpeggio-batcher.ts';
+export * from './portamento-batcher.ts';

@@ -14,6 +14,7 @@ import {
 import { applyGlitch } from './glitch.js';
 import { arpeggioFernBatcher } from './arpeggio-batcher.ts';
 import { dandelionBatcher } from './dandelion-batcher.ts';
+import { portamentoPineBatcher } from './portamento-batcher.ts';
 
 // --- Category 1: Melodic Flora ---
 
@@ -94,53 +95,55 @@ export function createArpeggioFern(options = {}) {
 }
 
 export function createPortamentoPine(options = {}) {
-    const { color = 0xCD7F32, height = 4.0 } = options;
+    const { height = 4.0 } = options;
     const group = new THREE.Group();
 
-    // Trunk (Segmented for bending)
-    const segments = 6;
-    const segHeight = height / segments;
-    const trunkMat = createClayMaterial(0x8B4513); // Copper-ish
-    const needleMat = createCandyMaterial(0x2E8B57, 0.5);
+    // ⚡ OPTIMIZATION: Logic Object only (visuals are batched)
+    // Hit Volume for interaction
+    // Base height of geometry is 4.0.
+    const scaleFactor = height / 4.0;
 
-    let currentParent = group;
+    // Scale logic object so physics/interaction matches visual size
+    group.scale.setScalar(scaleFactor);
 
-    for (let i = 0; i < segments; i++) {
-        const pivot = new THREE.Group();
-        pivot.position.y = (i === 0) ? 0 : segHeight;
-        
-        const rBot = 0.4 * (1 - i/segments) + 0.1;
-        const rTop = 0.4 * (1 - (i+1)/segments) + 0.1;
-        
-        const geo = new THREE.CylinderGeometry(rTop, rBot, segHeight, 8);
-        geo.translate(0, segHeight/2, 0);
-        const mesh = new THREE.Mesh(geo, trunkMat);
-        
-        // Needles
-        if (i > 1) {
-            const needleCount = 8;
-            for(let n=0; n<needleCount; n++) {
-                const needle = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.6, 4), needleMat);
-                needle.position.y = segHeight * 0.5;
-                needle.rotation.y = (n/needleCount) * Math.PI * 2;
-                needle.rotation.z = 1.5;
-                needle.position.x = rBot;
-                mesh.add(needle);
-            }
-        }
+    // Hitbox (Cylinder approx)
+    const hitGeo = new THREE.CylinderGeometry(0.5, 0.5, 4.0);
+    const hitMat = new THREE.MeshBasicMaterial({ visible: false });
+    const hitMesh = new THREE.Mesh(hitGeo, hitMat);
+    hitMesh.position.y = 2.0; // Center at 2.0 (half of 4.0)
+    group.add(hitMesh);
 
-        pivot.add(mesh);
-        currentParent.add(pivot);
-        currentParent = pivot;
-        
-        // Store reference to pivots for animation
-        if (!group.userData.segments) group.userData.segments = [];
-        group.userData.segments.push(pivot);
-    }
-
-    group.userData.animationType = 'portamentoBend';
+    group.userData.animationType = 'batchedPortamento'; // Batched logic
     group.userData.type = 'tree';
-    return makeInteractive(group);
+
+    // Register with Batcher
+    group.userData.onPlacement = () => {
+        portamentoPineBatcher.register(group, options);
+    };
+
+    const interactive = makeInteractive(group);
+
+    // Sync interactions to batched instance
+    const originalEnter = group.userData.onGazeEnter;
+    const originalLeave = group.userData.onGazeLeave;
+
+    group.userData.onGazeEnter = () => {
+        if (originalEnter) originalEnter();
+        const batchIdx = group.userData.batchIndex;
+        if (batchIdx !== undefined) {
+             portamentoPineBatcher.updateInstance(batchIdx, group);
+        }
+    };
+
+    group.userData.onGazeLeave = () => {
+        if (originalLeave) originalLeave();
+        const batchIdx = group.userData.batchIndex;
+        if (batchIdx !== undefined) {
+             portamentoPineBatcher.updateInstance(batchIdx, group);
+        }
+    };
+
+    return interactive;
 }
 
 // --- Category 2: Rhythmic Structures ---
