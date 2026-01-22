@@ -15,3 +15,7 @@
 ## 2024-11-20 - Focus Traps in Game Overlays
 **Learning:** In pointer-locked games, unlocking the cursor for menus often leaves keyboard focus undefined, leading to tabbing into hidden elements or out of the game entirely.
 **Action:** Implement explicit "Focus Traps" (cycling Tab navigation) for all in-game overlays to ensure users stay within the intended UI context.
+
+## 2024-11-25 - Visualizing Control Combinations
+**Learning:** Text-based control instructions (e.g., "Right Click", "Double Space") are harder to scan quickly than visual representations, especially in a game context where players need to reference them at a glance.
+**Action:** Replace verbose text descriptions with CSS-only visual icons (like a mouse silhouette or badges) to create a more scannable and visually polished HUD, while preserving accessibility via `aria-label`.

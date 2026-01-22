@@ -407,6 +407,49 @@
             from { transform: translateY(0); }
             to { transform: translateY(-10px); }
         }
+
+        /* 🎨 Palette: Input Icons */
+        .mouse-icon {
+            display: inline-block;
+            width: 12px;
+            height: 18px;
+            border: 2px solid #555;
+            border-radius: 6px;
+            position: relative;
+            vertical-align: text-bottom;
+            margin: 0 4px 1px 2px;
+            background: rgba(255,255,255,0.8);
+        }
+        .mouse-icon::before { /* Scroll wheel */
+            content: '';
+            position: absolute;
+            top: 3px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 2px;
+            height: 4px;
+            background: #555;
+            border-radius: 1px;
+        }
+        .mouse-icon.right {
+            background: linear-gradient(90deg, transparent 50%, #FFB6C1 50%);
+        }
+
+        .combo-badge {
+            display: inline-block;
+            background: #FF6B6B;
+            color: white;
+            border-radius: 4px;
+            padding: 1px 5px;
+            font-size: 0.75em;
+            font-weight: bold;
+            margin-left: 2px;
+            vertical-align: middle;
+            font-family: 'Fredoka One', cursive, sans-serif;
+            text-shadow: 1px 1px 0 rgba(0,0,0,0.1);
+            position: relative;
+            top: -1px;
+        }
     </style>
     
     <script type="importmap">
@@ -506,7 +549,7 @@
                     <dt>
                         <kbd class="key">W</kbd> / <kbd class="key">A</kbd> / <kbd class="key">S</kbd> / <kbd class="key">D</kbd>
                         <span style="font-size: 0.9em; margin: 0 5px; color: #555;">or</span>
-                        <kbd class="key">Right Click</kbd>
+                        <span class="mouse-icon right" aria-hidden="true"></span>Right Click
                     </dt>
                     <dd>Move Forward / Walk</dd>
 
@@ -530,7 +573,7 @@
                     <dt><kbd class="key">R</kbd></dt>
                     <dd>Dance Mode (Unlocks Cursor)</dd>
 
-                    <dt><kbd class="key">Double Space</kbd></dt>
+                    <dt><kbd class="key">Space</kbd><span class="combo-badge" aria-label="Double Press">×2</span></dt>
                     <dd>Double Jump</dd>
                 </dl>
             </div>
@@ -547,7 +590,7 @@
                     <dt><kbd class="key">M</kbd></dt>
                     <dd>Mute Audio</dd>
 
-                    <dt><kbd class="key">Mouse</kbd></dt>
+                    <dt><span class="mouse-icon" aria-hidden="true"></span>Mouse</dt>
                     <dd>Look Around</dd>
                 </dl>
             </div>
