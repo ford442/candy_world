@@ -283,6 +283,11 @@ export function initInput(camera, audioSystem, toggleDayNightCallback, shouldPre
             }
 
             if (instructions) instructions.style.display = 'flex';
+
+            // UX: Update Title to "Paused" to give context
+            const title = instructions.querySelector('h1');
+            if (title) title.innerText = 'Game Paused ⏸️';
+
             if (startButton) {
                 startButton.innerText = 'Resume Exploration 🚀';
                 requestAnimationFrame(() => startButton.focus());
@@ -331,6 +336,31 @@ export function initInput(camera, audioSystem, toggleDayNightCallback, shouldPre
                     startButton.innerText = 'Resume Exploration 🚀';
                     startButton.focus();
                 }
+                return;
+            }
+        }
+
+        // --- UX: Focus Trap for Main Menu (Pause Screen) ---
+        if (!isPlaylistOpen && instructions && instructions.style.display !== 'none') {
+            if (event.code === 'Tab') {
+                const focusable = instructions.querySelectorAll('button, input, [href], select, textarea, [tabindex]:not([tabindex="-1"])');
+                if (focusable.length > 0) {
+                    const first = focusable[0];
+                    const last = focusable[focusable.length - 1];
+
+                    if (event.shiftKey) {
+                        if (document.activeElement === first) {
+                            last.focus();
+                            event.preventDefault();
+                        }
+                    } else {
+                        if (document.activeElement === last) {
+                            first.focus();
+                            event.preventDefault();
+                        }
+                    }
+                }
+                // Allow Tab to work normally inside the trap
                 return;
             }
         }
