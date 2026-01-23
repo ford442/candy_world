@@ -10,12 +10,14 @@
 
 ## Next Steps
 
-1. **Migrate Systems (Phase 1)**: Continue migrating key systems to TypeScript (e.g., `src/systems/weather.js` or `src/systems/music-reactivity.js`) to improve type safety.
+1. **Phase 2 (TS -> ASC)**: Begin identifying hot paths in `src/world/generation.ts` or `src/systems/physics.ts` for migration to AssemblyScript/WASM to improve performance.
 
 ---
 
 ## Recent Progress
 - **Accomplished:**
+  - **Migrate WeatherSystem (Phase 1)**: **Status: Implemented ✅**
+    - *Implementation Details:* Migrated `src/systems/weather.js` to `src/systems/weather.ts`. Defined strict interfaces (`WeatherState`) and typed class properties. Utilized `VisualState` from `src/audio/audio-system.ts` for type-safe audio data handling. Updated `main.js` to import the new TypeScript module.
   - **Migrate AudioSystem (Phase 1)**: **Status: Implemented ✅**
     - *Implementation Details:* Converted `src/audio/audio-system.js` to `src/audio/audio-system.ts`. Defined strict interfaces (`VisualState`, `ChannelData`, `ModuleInfo`) and typed class properties. Preserved audio worklet loading logic and legacy helper functions. Updated `main.js` and `src/audio/beat-sync.ts` to use the new TypeScript module.
   - **Rare Flora Discovery (Unlock system)**: **Status: Implemented ✅**
