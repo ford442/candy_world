@@ -194,6 +194,10 @@ export const applyPlayerInteraction = (basePosNode) => {
  */
 export function createUnifiedMaterial(hexColor, options = {}) {
     const {
+        // Material Overrides
+        colorNode = null,
+        deformationNode = null,
+
         // Surface Basics
         roughness = 0.5,
         metalness = 0.0,
@@ -232,7 +236,11 @@ export function createUnifiedMaterial(hexColor, options = {}) {
     const material = new MeshStandardNodeMaterial();
 
     // 1. Base Properties
-    material.colorNode = color(hexColor);
+    if (colorNode) {
+        material.colorNode = colorNode;
+    } else {
+        material.colorNode = color(hexColor);
+    }
     material.roughnessNode = float(roughness);
     material.metalnessNode = float(metalness);
     material.side = side;
@@ -343,7 +351,8 @@ export function createUnifiedMaterial(hexColor, options = {}) {
     // 8. Global Glitch Effect (Sample Offset / Pixelation)
     // We apply this last to affect the final position.
     // Compose with existing positionNode if it exists (e.g. from Wind or animation), otherwise use positionLocal.
-    const basePos = material.positionNode || positionLocal;
+    // PALETTE UPDATE: Support external deformation node (e.g. for Sway)
+    const basePos = deformationNode || material.positionNode || positionLocal;
     const glitchRes = applyGlitch(uv(), basePos, uGlitchIntensity);
 
     // Override position with glitched version
@@ -502,14 +511,43 @@ export function createSugaredMaterial(hexColor, options={}) {
     });
 }
 
-// Legacy Gradient Material (Kept as is)
-export function createGradientMaterial(colorBottom, colorTop) {
-    const mat = new MeshStandardNodeMaterial();
+// Juicy Bark Material (Replaces Legacy Gradient)
+export function createGradientMaterial(colorBottom, colorTop, roughness = 0.9) {
+    // 1. TSL Sway + Interaction Logic
+    const windTime = uTime.mul(uWindSpeed.add(0.5));
+    // Continuous phase field for wind
+    const swayPhase = positionWorld.x.mul(0.5).add(positionWorld.z.mul(0.5)).add(windTime);
+    const swayAmount = sin(swayPhase).mul(0.1).mul(uWindSpeed.add(0.2));
+
+    // Height factor (0 at bottom, 1 at top for unit cylinder translated up)
+    const heightFactor = positionLocal.y.max(0.0);
+
+    // Cantilever bend: Bending increases with height squared
+    const windBend = vec3(
+        uWindDirection.x.mul(swayAmount).mul(heightFactor.pow(2.0)),
+        float(0.0),
+        uWindDirection.z.mul(swayAmount).mul(heightFactor.pow(2.0))
+    );
+
+    // Player Push: Bends away from player
+    const pushOffset = calculatePlayerPush(positionLocal);
+
+    // Total Vertex Deformation
+    const totalDeformation = positionLocal.add(windBend).add(pushOffset);
+
+    // 2. Gradient Color
     const gradientNode = mix(color(colorBottom), color(colorTop), uv().y);
-    mat.colorNode = gradientNode;
-    mat.roughnessNode = float(0.9);
-    mat.metalnessNode = float(0.0);
-    return mat;
+
+    // 3. Create Unified Material with Bark presets
+    return createUnifiedMaterial(colorBottom, {
+        colorNode: gradientNode,
+        deformationNode: totalDeformation,
+        roughness: roughness,
+        bumpStrength: 0.2,   // Bark texture
+        noiseScale: 4.0,     // Scale of bark details
+        triplanar: true,     // Avoid UV seams on cylinder
+        metalness: 0.0
+    });
 }
 
 // Helper to create a MeshStandardNodeMaterial behaving like MeshStandardMaterial

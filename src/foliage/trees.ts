@@ -295,7 +295,7 @@ export function createBubbleWillow(options: BubbleWillowOptions = {}): THREE.Gro
 
     const trunkH = 2.5 + Math.random();
     // Shared geometry: Cylinder
-    const trunk = new THREE.Mesh(sharedGeometries.cylinder, createClayMaterial(0x5D4037));
+    const trunk = new THREE.Mesh(sharedGeometries.cylinder, createGradientMaterial(0x5D4037, 0x4A3025, 0.9));
     trunk.scale.set(0.5, trunkH, 0.5);
     trunk.position.y = trunkH / 2;
     trunk.castShadow = true;
@@ -472,7 +472,7 @@ export function createFiberOpticWillow(options: FiberOpticWillowOptions = {}): T
 
     const trunkH = 2.5 + Math.random();
     // Shared geometry: Cylinder
-    const trunk = new THREE.Mesh(sharedGeometries.cylinder, createClayMaterial(0x222222));
+    const trunk = new THREE.Mesh(sharedGeometries.cylinder, createGradientMaterial(0x222222, 0x111111, 0.9));
     trunk.scale.set(0.3, trunkH, 0.3);
     trunk.position.y = trunkH / 2;
     trunk.castShadow = true;
