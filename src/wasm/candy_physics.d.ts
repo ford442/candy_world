@@ -168,6 +168,14 @@ export declare function addCollisionObject(type: number, x: number, y: number, z
  */
 export declare function checkCollision(playerX: number, playerZ: number, playerRadius: number, objectCount: number): number;
 /**
+ * assembly/physics/checkPositionValidity
+ * @param x `f32`
+ * @param z `f32`
+ * @param radius `f32`
+ * @returns `i32`
+ */
+export declare function checkPositionValidity(x: number, z: number, radius: number): number;
+/**
  * assembly/physics/resolveGameCollisions
  * @param kickTrigger `f32`
  * @returns `i32`

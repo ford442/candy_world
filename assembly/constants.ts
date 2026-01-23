@@ -13,10 +13,11 @@ export const MATERIAL_DATA_OFFSET: i32 = 12288;
 export const PLAYER_STATE_OFFSET: i32 = 16384;
 
 // Physics Collision Memory Layout
-export const MAX_COLLISION_OBJECTS: i32 = 2048;
+// INCREASED to 4096 to support full world generation (3000+ objects)
+export const MAX_COLLISION_OBJECTS: i32 = 4096;
 export const COLLISION_STRIDE: i32 = 32; // bytes
 
-// 16416 - 81952: Collision Object Data (64KB)
+// 16416 - 147488: Collision Object Data (128KB)
 export const COLLISION_OFFSET: i32 = 16416;
 
 // Spatial Grid Constants
@@ -26,8 +27,9 @@ export const GRID_ROWS: i32 = 16;
 export const GRID_ORIGIN_X: f32 = -128.0;
 export const GRID_ORIGIN_Z: f32 = -128.0;
 
-// 81952 - 82976: Grid Heads (16*16 * 4 bytes = 1KB)
+// Grid Heads (16*16 * 4 bytes = 1KB)
+// Automatically calculated based on COLLISION_OFFSET + (MAX * STRIDE)
 export const GRID_HEADS_OFFSET: i32 = COLLISION_OFFSET + (MAX_COLLISION_OBJECTS * COLLISION_STRIDE);
 
-// 82976 - 91168: Grid Next Pointers (2048 * 4 bytes = 8KB)
+// Grid Next Pointers (MAX * 4 bytes = 16KB)
 export const GRID_NEXT_OFFSET: i32 = GRID_HEADS_OFFSET + (GRID_COLS * GRID_ROWS * 4);
