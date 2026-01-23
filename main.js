@@ -6,7 +6,7 @@ import { InteractionSystem } from './src/systems/interaction.ts';
 import { musicReactivitySystem } from './src/systems/music-reactivity.ts';
 import { AudioSystem } from './src/audio/audio-system.ts';
 import { BeatSync } from './src/audio/beat-sync.ts';
-import { WeatherSystem, WeatherState } from './src/systems/weather.js';
+import { WeatherSystem, WeatherState } from './src/systems/weather.ts';
 import { initWasm, initWasmParallel, isWasmReady, LOADING_PHASES } from './src/utils/wasm-loader.js';
 import { profiler } from './src/utils/profiler.js';
 
