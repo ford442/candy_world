@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { time, positionLocal, positionWorld, sin, cos, vec3, color, normalView, dot, float, max, mix, sign } from 'three/tsl';
-import { uWindSpeed, uWindDirection, createClayMaterial, uAudioLow, uAudioHigh } from './common.js';
+import { uWindSpeed, uWindDirection, createClayMaterial, uAudioLow, uAudioHigh, uPlayerPosition } from './common.js';
 import { uSkyDarkness } from './sky.js';
 
 let grassMeshes = [];
@@ -54,8 +54,36 @@ export function initGrassSystem(scene, count = 5000) {
     // Bulge X/Z slightly when squashed (simple linear bulge)
     // Only bulge the middle/top
     const bulge = squashFactor.mul(0.5).mul(positionLocal.y);
-    const newX = positionLocal.x.add(swayX).add(sign(positionLocal.x).mul(bulge));
-    const newZ = positionLocal.z.add(swayZ).add(sign(positionLocal.z).mul(bulge));
+    let newX = positionLocal.x.add(swayX).add(sign(positionLocal.x).mul(bulge));
+    let newZ = positionLocal.z.add(swayZ).add(sign(positionLocal.z).mul(bulge));
+
+    // --- PALETTE UPDATE: Player Interaction (Bending) ---
+    // Push grass away from uPlayerPosition
+    const playerDistVector = positionWorld.sub(uPlayerPosition);
+    // We only care about X/Z distance (cylinder interaction)
+    const playerDistH = vec3(playerDistVector.x, float(0.0), playerDistVector.z);
+    const distSq = dot(playerDistH, playerDistH);
+
+    // Interaction Radius = 2.0
+    const interactRadiusSq = float(4.0);
+
+    // Force falls off with distance
+    // smoothstep(radiusSq, 0, distSq) -> 1 at center, 0 at edge
+    const pushStrength = smoothstep(interactRadiusSq, float(0.0), distSq);
+
+    // Direction to push (away from player)
+    const pushDir = normalize(playerDistH);
+
+    // Only affect the top of the grass (positionLocal.y)
+    // Bending factor increases with height
+    const bendAmount = pushStrength.mul(2.0).mul(positionLocal.y); // Max push 2.0 units at tip
+
+    newX = newX.add(pushDir.x.mul(bendAmount));
+    newZ = newZ.add(pushDir.z.mul(bendAmount));
+
+    // Also push Y down slightly to simulate bending over?
+    // For simple shear, X/Z is enough, but physically it should lower.
+    // Let's keep it simple for now to avoid ground clipping issues.
 
     mat.positionNode = vec3(newX, newY, newZ);
 
