@@ -57,6 +57,7 @@ export function initInput(camera, audioSystem, toggleDayNightCallback, shouldPre
     
     // Playlist Elements
     const playlistOverlay = document.getElementById('playlist-overlay');
+    const playlistBackdrop = document.getElementById('playlist-backdrop');
     const playlistList = document.getElementById('playlist-list');
     const closePlaylistBtn = document.getElementById('closePlaylistBtn');
     const playlistUploadInput = document.getElementById('playlistUploadInput');
@@ -199,6 +200,7 @@ export function initInput(camera, audioSystem, toggleDayNightCallback, shouldPre
             controls.unlock(); // Unlock mouse so we can click
             if (instructions) instructions.style.display = 'none'; // Ensure pause menu is hidden
             playlistOverlay.style.display = 'flex';
+            if (playlistBackdrop) playlistBackdrop.style.display = 'block';
             renderPlaylist();
             // UX: Auto-focus the currently playing track for immediate context
             requestAnimationFrame(() => {
@@ -217,6 +219,7 @@ export function initInput(camera, audioSystem, toggleDayNightCallback, shouldPre
         } else {
             // CLOSING
             playlistOverlay.style.display = 'none';
+            if (playlistBackdrop) playlistBackdrop.style.display = 'none';
             controls.lock(); // Re-lock mouse to play
             // Note: We don't restore focus here because controls.lock() resumes the game
             // and hides the previous UI context.
@@ -226,6 +229,10 @@ export function initInput(camera, audioSystem, toggleDayNightCallback, shouldPre
     // Event Listeners for UI
     if (closePlaylistBtn) {
         closePlaylistBtn.addEventListener('click', togglePlaylist);
+    }
+
+    if (playlistBackdrop) {
+        playlistBackdrop.addEventListener('click', togglePlaylist);
     }
 
     if (playlistUploadInput) {
@@ -271,6 +278,7 @@ export function initInput(camera, audioSystem, toggleDayNightCallback, shouldPre
         // If we locked, force playlist closed just in case
         isPlaylistOpen = false; 
         if (playlistOverlay) playlistOverlay.style.display = 'none';
+        if (playlistBackdrop) playlistBackdrop.style.display = 'none';
     });
 
     controls.addEventListener('unlock', () => {
