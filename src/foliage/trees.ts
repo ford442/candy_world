@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { foliageMaterials, registerReactiveMaterial, attachReactivity, pickAnimation, createClayMaterial, createGradientMaterial, sharedGeometries, uAudioLow, uWindSpeed } from './common.js';
+import { foliageMaterials, registerReactiveMaterial, attachReactivity, pickAnimation, createClayMaterial, createGradientMaterial, sharedGeometries, uAudioLow, uWindSpeed, calculatePlayerPush } from './common.js';
 import { color as tslColor, mix, float, sin, cos, vec3, positionLocal, positionWorld, time } from 'three/tsl';
 import { uTwilight } from './sky.js';
 import { createBerryCluster } from './berries.js';
@@ -78,7 +78,12 @@ function enhanceWithFloralJuice(material: any) {
 
         // Combine: Scale position then add flutter offset
         // We act on positionLocal (the vertex position relative to mesh center)
-        const newPos = positionLocal.mul(pulse).add(vec3(flutter, flutter, flutter));
+        let newPos = positionLocal.mul(pulse).add(vec3(flutter, flutter, flutter));
+
+        // 3. Player Interaction (Push Away)
+        // Add push displacement to current position
+        const pushOffset = calculatePlayerPush(newPos);
+        newPos = newPos.add(pushOffset);
 
         // Apply
         material.positionNode = newPos;
