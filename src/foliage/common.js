@@ -53,6 +53,10 @@ export const uGlitchIntensity = uniform(0.0); // Global glitch intensity
 export const uAudioLow = uniform(0.0);   // Bass energy (Kick)
 export const uAudioHigh = uniform(0.0);  // Treble energy (Hi-hats/Cymbals)
 
+// --- PALETTE UPDATE: New Uniforms for Player Interaction ---
+export const uPlayerPosition = uniform(vec3(0, 0, 0)); // Player position in world space
+// -----------------------------------------------------------
+
 // --- UTILITY FUNCTIONS ---
 
 export function median(arr) {
@@ -146,6 +150,43 @@ export const addRimLight = Fn(([baseColorNode, normalNode]) => {
 });
 
 // --- UNIFIED MATERIAL PIPELINE ---
+
+// --- PALETTE HELPER: Player Interaction ---
+// Calculates displacement vector based on player proximity
+export const calculatePlayerPush = Fn(([currentPos]) => {
+    const playerDistVector = positionWorld.sub(uPlayerPosition);
+    // We only care about X/Z distance for most vertical foliage (cylinder interaction)
+    const playerDistH = vec3(playerDistVector.x, float(0.0), playerDistVector.z);
+    const distSq = dot(playerDistH, playerDistH);
+
+    // Interaction Radius = 2.0 (Sq = 4.0)
+    const interactRadiusSq = float(4.0);
+
+    // Force falls off with distance
+    const pushStrength = smoothstep(interactRadiusSq, float(0.0), distSq);
+
+    // Direction to push (away from player)
+    // Handle zero length case implicitly (tsl handles safe normalize?)
+    // TSL normalize might output NaN if length is 0.
+    // We add a tiny epsilon to avoid NaN or use a condition.
+    // Simpler: assume player never EXACTLY on vertex XZ.
+    const pushDir = normalize(playerDistH);
+
+    // Bend amount based on height (more bend at top)
+    // Use positionLocal.y as a proxy for height from pivot (assuming pivot at bottom)
+    const heightFactor = positionLocal.y.max(0.0);
+    const bendAmount = pushStrength.mul(1.5).mul(heightFactor);
+
+    // Return offset vector
+    return vec3(pushDir.x.mul(bendAmount), float(0.0), pushDir.z.mul(bendAmount));
+});
+
+export const applyPlayerInteraction = (basePosNode) => {
+    // basePosNode should be current position (could be mutated by other effects)
+    // We pass it to TSL function if needed, or just add
+    return basePosNode.add(calculatePlayerPush(basePosNode));
+};
+// ------------------------------------------
 
 /**
  * Creates a highly configurable procedural material using TSL.
@@ -503,14 +544,26 @@ export function createTransparentNodeMaterial(options = {}) {
 
 export const foliageMaterials = {
     // Basic organics
-    stem: CandyPresets.Clay(0x66AA55),
+    // PALETTE UPDATE: Apply Interaction to standard Stem
+    stem: (() => {
+        const mat = CandyPresets.Clay(0x66AA55);
+        mat.positionNode = applyPlayerInteraction(positionLocal);
+        return mat;
+    })(),
+
     flowerCenter: CandyPresets.Velvet(0x442211, { audioReactStrength: 0.5 }),
     vine: CandyPresets.Clay(0x558833),
     wood: createUnifiedMaterial(0x8B4513, { roughness: 0.9, bumpStrength: 0.3, noiseScale: 3.0 }),
     leaf: createUnifiedMaterial(0x228B22, { roughness: 0.6, side: THREE.DoubleSide, bumpStrength: 0.1 }),
     
     // Restored/Upgraded Materials
-    flowerStem: CandyPresets.Clay(0x66AA55),
+    // PALETTE UPDATE: Apply Interaction to Flower Stem
+    flowerStem: (() => {
+        const mat = CandyPresets.Clay(0x66AA55);
+        mat.positionNode = applyPlayerInteraction(positionLocal);
+        return mat;
+    })(),
+
     lotusRing: CandyPresets.Gummy(0xFFFFFF),
     opticCable: createUnifiedMaterial(0x111111, { roughness: 0.4 }),
     opticTip: createStandardNodeMaterial({
@@ -537,7 +590,9 @@ export const foliageMaterials = {
         const t = positionLocal.y; // unitCylinder is 0..1 in Y
         const curve = float(1.0).sub( pow(t.sub(0.3), 2.0).mul(0.5) );
         const newPos = vec3(positionLocal.x.mul(curve), positionLocal.y, positionLocal.z.mul(curve));
-        mat.positionNode = newPos;
+
+        // PALETTE UPDATE: Apply Interaction to Shaped Stem
+        mat.positionNode = applyPlayerInteraction(newPos);
 
         // Recalculate Normal: N = (x, -r'(y), z) -> (x, y-0.3, z)
         const ny = t.sub(0.3);
@@ -672,12 +727,12 @@ export function validateNodeGeometries(scene) {
                             let ancestorName = null;
                             let depth = 0;
                             while (anc && depth < 10) {
-                                if (anc.userData && anc.userData.type) {
+                                if (anc && anc.userData && anc.userData.type) {
                                     ancestorType = anc.userData.type;
                                     ancestorName = anc.name || anc.userData.type;
                                     break;
                                 }
-                                anc = anc.parent;
+                                anc = anc && anc.parent;
                                 depth++;
                             }
                             missingPosition.push({ name, type, obj, geoType, attrKeys, path: getObjectPath(obj), patched: true, ancestorType, ancestorName, preAttrKeys });
