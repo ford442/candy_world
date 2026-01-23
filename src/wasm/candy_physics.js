@@ -76,6 +76,7 @@ export const {
   initCollisionSystem,
   addCollisionObject,
   checkCollision,
+  checkPositionValidity,
   resolveGameCollisions,
   calcBounceY,
   calcSwayRotZ,
