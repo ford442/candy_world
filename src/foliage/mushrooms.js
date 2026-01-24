@@ -283,6 +283,7 @@ export function createMushroom(options = {}) {
     group.userData.animationType = pickAnimation(['wobble', 'bounce', 'accordion']);
     group.userData.animationOffset = Math.random() * 10;
     group.userData.type = 'mushroom';
+    group.userData.interactionText = "Bounce!";
     group.userData.colorIndex = typeof chosenColorIndex === 'number' ? chosenColorIndex : -1;
     
     if (mushroomNote) {

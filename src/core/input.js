@@ -75,9 +75,10 @@ export function initInput(camera, audioSystem, toggleDayNightCallback, shouldPre
     }
 
     // Function to animate reticle based on state using CSS classes
-    function updateReticleState(state) {
+    function updateReticleState(state, label) {
         const reticle = document.getElementById('game-reticle');
         if (!reticle) return;
+        const reticleLabel = document.getElementById('reticle-label');
 
         // Reset classes
         reticle.classList.remove('hover', 'interact');
@@ -87,6 +88,17 @@ export function initInput(camera, audioSystem, toggleDayNightCallback, shouldPre
             reticle.classList.add('hover');
         } else if (state === 'interact') {
             reticle.classList.add('interact');
+        }
+
+        // Handle Label
+        if (reticleLabel) {
+            if (state === 'hover' && label) {
+                reticleLabel.innerText = label;
+                reticleLabel.classList.add('visible');
+            } else if (state === 'idle') {
+                reticleLabel.classList.remove('visible');
+            }
+            // Note: On 'interact', we keep the label visible if it was already there
         }
     }
 
