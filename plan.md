@@ -10,12 +10,14 @@
 
 ## Next Steps
 
-1. **Phase 3 (ASC -> C++)**: Explore moving heavy simulation logic (e.g. fluid solver or advanced audio analysis) to C++ (Emscripten) to leverage SIMD and mature libraries.
+1. **Phase 4 (Three.js -> WebGPU)**: Explore raw WebGPU compute pipelines for heavy particle systems, replacing Three.js abstractions where necessary for performance.
 
 ---
 
 ## Recent Progress
 - **Accomplished:**
+  - **Phase 3 (ASC -> C++): Fluid Simulation**: **Status: Implemented ✅**
+    - *Implementation Details:* Implemented a 2D "Stable Fluids" solver in C++ (`emscripten/fluid.cpp`) compiled to WASM via Emscripten. Created `FluidSystem` in TypeScript to bridge the WASM simulation with the render loop, injecting audio energy (Kick/Highs) into density/velocity fields. Visualized via `FluidFog` (`src/foliage/fluid_fog.js`) using a TSL `MeshBasicNodeMaterial` that samples the simulation density texture.
   - **Phase 2 (TS -> ASC)**: **Status: Implemented ✅**
     - *Implementation Details:* Optimized procedural world generation by moving collision/placement validation to AssemblyScript (WASM). Implemented `checkPositionValidity` in `assembly/physics.ts` using a spatial grid (O(1) lookup) to replace the legacy O(N) JavaScript loop. Increased `MAX_COLLISION_OBJECTS` to 4096 to support larger worlds. Updated `src/world/generation.ts` to utilize the new WASM pipeline.
   - **Migrate WeatherSystem (Phase 1)**: **Status: Implemented ✅**
@@ -82,6 +84,8 @@
     - *Implementation Details:* TSL material logic for bass-driven vertex displacement (rings) and a swirling vortex portal that activates via `uGlitchIntensity` or high bass.
   - [x] Plants Twilight Glow (Bioluminescence)
     - *Implementation Details:* Implemented `uTwilight` global uniform in `src/foliage/sky.js` driven by `WeatherSystem`'s day/night cycle. Updated TSL materials for Flowers, Mushrooms, and Fiber Optic Trees to accept this uniform and boost emissive intensity during twilight hours.
+  - [x] Fluid Fog (C++ Simulation)
+    - *Implementation Details:* Implemented C++ Stable Fluids solver coupled with TSL fog visualization.
 
 ### Category 5: Physics & Interaction
 - **Status:** Pending
