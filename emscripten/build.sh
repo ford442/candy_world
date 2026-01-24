@@ -122,7 +122,7 @@ function_exists() {
     local func_name="$1"
     # Look for the function name with a return type - must be a proper function definition
     # Pattern: (void|float|int|double) funcName(
-    if grep -E "(void|float|int|double)\s+${func_name}\s*\(" $CPP_FILES >/dev/null 2>&1; then
+    if grep -E "(void|float|int|double|char|long|unsigned|uintptr_t)\s*\*?\s*${func_name}\s*\(" $CPP_FILES >/dev/null 2>&1; then
         return 0  # Function found
     fi
     return 1  # Function not found
@@ -216,6 +216,13 @@ declare -A ANIMATION_FUNCTIONS=(
     ["getAccordionWidthXZ"]="animation"
     ["calcRainDropY"]="animation"
     ["calcFloatingY"]="animation"
+
+    # Fluid functions (fluid.cpp)
+    ["fluidInit"]="fluid"
+    ["fluidStep"]="fluid"
+    ["fluidAddDensity"]="fluid"
+    ["fluidAddVelocity"]="fluid"
+    ["fluidGetDensityPtr"]="fluid"
 )
 
 # Check each function and add to export list if it exists
