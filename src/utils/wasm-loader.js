@@ -1172,6 +1172,39 @@ export function hash(x, y) {
     return (n - Math.floor(n)) * 2 - 1;
 }
 
+// =============================================================================
+// FLUID SIMULATION WRAPPERS
+// =============================================================================
+
+export function fluidInit(size) {
+    const f = getNativeFunc('fluidInit');
+    if (f) f(size);
+}
+
+export function fluidStep(dt, visc, diff) {
+    const f = getNativeFunc('fluidStep');
+    if (f) f(dt, visc, diff);
+}
+
+export function fluidAddDensity(x, y, amount) {
+    const f = getNativeFunc('fluidAddDensity');
+    if (f) f(x, y, amount);
+}
+
+export function fluidAddVelocity(x, y, amountX, amountY) {
+    const f = getNativeFunc('fluidAddVelocity');
+    if (f) f(x, y, amountX, amountY);
+}
+
+export function getFluidDensityView(size = 128) {
+    const f = getNativeFunc('fluidGetDensityPtr');
+    if (f && emscriptenMemory) {
+        const ptr = f();
+        return new Float32Array(emscriptenMemory, ptr, size * size);
+    }
+    return null;
+}
+
 // Re-exports
 export { 
     LOADING_PHASES, 
