@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import './style.css';
-import { uWindSpeed, uWindDirection, uSkyTopColor, uSkyBottomColor, uHorizonColor, uAtmosphereIntensity, uStarPulse, uStarOpacity, uAuroraIntensity, uAuroraColor, uAudioLow, uAudioHigh, uGlitchIntensity, uChromaticIntensity, uTime, uPlayerPosition, createAurora, createChromaticPulse, updateMoon, animateFoliage, updateFoliageMaterials, updateFireflies, updateFallingBerries, collectFallingBerries, createFlower, createMushroom, validateNodeGeometries, createMelodyRibbon, updateMelodyRibbons, createMelodyMirror, createSparkleTrail, updateSparkleTrail, createImpactSystem } from './src/foliage/index.js';
+import { uWindSpeed, uWindDirection, uSkyTopColor, uSkyBottomColor, uHorizonColor, uAtmosphereIntensity, uStarOpacity, uAuroraIntensity, uAuroraColor, uAudioLow, uAudioHigh, uGlitchIntensity, uChromaticIntensity, uTime, uPlayerPosition, createAurora, createChromaticPulse, updateMoon, animateFoliage, updateFoliageMaterials, updateFireflies, updateFallingBerries, collectFallingBerries, createFlower, createMushroom, validateNodeGeometries, createMelodyRibbon, updateMelodyRibbons, createMelodyMirror, createSparkleTrail, updateSparkleTrail, createImpactSystem } from './src/foliage/index.js';
 import { initCelestialBodies } from './src/foliage/celestial-bodies.js';
 import { InteractionSystem } from './src/systems/interaction.ts';
 import { musicReactivitySystem } from './src/systems/music-reactivity.ts';
@@ -198,9 +198,6 @@ beatSync.onBeat((state) => {
     if (kickTrigger > 0.2) {
         beatFlashIntensity = Math.max(beatFlashIntensity, 0.4 + kickTrigger * 0.5);
         cameraZoomPulse = Math.max(cameraZoomPulse, 1 + kickTrigger * 3);
-    }
-    if (typeof uStarPulse !== 'undefined') {
-        uStarPulse.value += 0.5 * (kickTrigger + 0.1);
     }
 });
 
