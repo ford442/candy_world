@@ -3,6 +3,7 @@ import { CONFIG, CYCLE_DURATION } from '../core/config.ts';
 import { animateFoliage } from '../foliage/animation.ts';
 import { foliageBatcher } from '../foliage/foliage-batcher.ts';
 import { arpeggioFernBatcher } from '../foliage/arpeggio-batcher.ts';
+import { portamentoPineBatcher } from '../foliage/portamento-batcher.ts';
 import type { AudioData, FoliageObject } from '../foliage/types.ts';
 
 // ⚡ OPTIMIZATION: Reusable Frustum & Matrices
@@ -267,6 +268,9 @@ export class MusicReactivitySystem {
 
             // Update Arpeggio Batcher
             arpeggioFernBatcher.update();
+
+            // Update Portamento Batcher
+            portamentoPineBatcher.update(time, audioState);
         }
     }
 

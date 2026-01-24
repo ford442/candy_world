@@ -14,6 +14,7 @@ import {
 import { applyGlitch } from './glitch.js';
 import { arpeggioFernBatcher } from './arpeggio-batcher.ts';
 import { dandelionBatcher } from './dandelion-batcher.ts';
+import { portamentoPineBatcher } from './portamento-batcher.ts';
 
 // --- Category 1: Melodic Flora ---
 
@@ -32,28 +33,6 @@ export function createArpeggioFern(options = {}) {
     group.userData.animationType = 'arpeggioUnfurl';
     group.userData.type = 'fern';
 
-    // Register with Batcher
-    // We pass the group so the batcher can read position/rotation later if needed (initially set here)
-    // Note: The position/rotation of 'group' must be set by the caller (generation.ts)
-    // BUT generation.ts sets it AFTER creation.
-    // So we can't register immediately with correct transform!
-
-    // Solution: Register a "deferred init" or update batcher when placed.
-    // Since generation.ts sets position immediately after creation:
-    // obj.position.set(x, y, z);
-
-    // We'll use a onBeforeRender hack or similar? No.
-    // We'll expose a `finalize()` method? No standard API.
-
-    // ⚡ HACK: We register a "Placement Callback" or we assume generation sets position and we hook it?
-    // Actually, `arpeggioFernBatcher.register` reads position.
-    // If position is 0,0,0 at registration, the fern is at 0,0,0.
-    // We need to defer registration until it's placed.
-
-    // We can add a method `obj.onPlacement` that `safeAddFoliage` calls?
-    // `safeAddFoliage` doesn't call that.
-
-    // Alternative: We create a proxy that registers itself on the first frame of animation/update?
     group.userData.needsRegistration = true;
     group.userData.batchOptions = options;
 
@@ -97,49 +76,47 @@ export function createPortamentoPine(options = {}) {
     const { color = 0xCD7F32, height = 4.0 } = options;
     const group = new THREE.Group();
 
-    // Trunk (Segmented for bending)
-    const segments = 6;
-    const segHeight = height / segments;
-    const trunkMat = createClayMaterial(0x8B4513); // Copper-ish
-    const needleMat = createCandyMaterial(0x2E8B57, 0.5);
-
-    let currentParent = group;
-
-    for (let i = 0; i < segments; i++) {
-        const pivot = new THREE.Group();
-        pivot.position.y = (i === 0) ? 0 : segHeight;
-        
-        const rBot = 0.4 * (1 - i/segments) + 0.1;
-        const rTop = 0.4 * (1 - (i+1)/segments) + 0.1;
-        
-        const geo = new THREE.CylinderGeometry(rTop, rBot, segHeight, 8);
-        geo.translate(0, segHeight/2, 0);
-        const mesh = new THREE.Mesh(geo, trunkMat);
-        
-        // Needles
-        if (i > 1) {
-            const needleCount = 8;
-            for(let n=0; n<needleCount; n++) {
-                const needle = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.6, 4), needleMat);
-                needle.position.y = segHeight * 0.5;
-                needle.rotation.y = (n/needleCount) * Math.PI * 2;
-                needle.rotation.z = 1.5;
-                needle.position.x = rBot;
-                mesh.add(needle);
-            }
-        }
-
-        pivot.add(mesh);
-        currentParent.add(pivot);
-        currentParent = pivot;
-        
-        // Store reference to pivots for animation
-        if (!group.userData.segments) group.userData.segments = [];
-        group.userData.segments.push(pivot);
-    }
+    // ⚡ OPTIMIZATION: Logic Object only (visuals are batched)
+    const hitGeo = new THREE.CylinderGeometry(0.4, 0.4, height);
+    const hitMat = new THREE.MeshBasicMaterial({ visible: false });
+    const hitMesh = new THREE.Mesh(hitGeo, hitMat);
+    hitMesh.position.y = height / 2;
+    group.add(hitMesh);
 
     group.userData.animationType = 'portamentoBend';
     group.userData.type = 'tree';
+
+    // Reactivity State (for Batcher update loop)
+    group.userData.reactivityState = {
+        currentBend: 0,
+        velocity: 0
+    };
+
+    // React to Note
+    group.userData.reactToNote = (noteInfo) => {
+        if (noteInfo.channel === 2 || noteInfo.channel === 3) {
+             group.userData.reactivityState.velocity += 15.0 * (noteInfo.velocity || 0.5);
+             // Audio trigger
+             if (window.AudioSystem && typeof window.AudioSystem.playSound === 'function') {
+                 // Determine pitch based on note if available, else random
+                 const pitch = noteInfo.note ? 1.0 : 0.8 + Math.random() * 0.4;
+                 window.AudioSystem.playSound('creak', {
+                     position: group.position,
+                     pitch: pitch,
+                     volume: 0.3
+                 });
+             }
+        }
+    };
+
+    // Placement Callback
+    group.userData.onPlacement = () => {
+        portamentoPineBatcher.register(group, options);
+    };
+
+    // Add custom update logic
+    // We rely on portamentoPineBatcher.update() iterating over logic objects
+
     return makeInteractive(group);
 }
 
