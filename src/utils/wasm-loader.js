@@ -35,6 +35,7 @@ let wasmUpdateFoliageBatch = null;
 let wasmInitCollisionSystem = null;
 let wasmAddCollisionObject = null;
 let wasmResolveGameCollisions = null;
+let wasmCheckPositionValidity = null;
 
 // Emscripten module (native C functions)
 let emscriptenInstance = null;
@@ -125,6 +126,7 @@ try {
     wasmInitCollisionSystem = wasmInstance.exports.initCollisionSystem || null;
     wasmAddCollisionObject = wasmInstance.exports.addCollisionObject || null;
     wasmResolveGameCollisions = wasmInstance.exports.resolveGameCollisions || null;
+    wasmCheckPositionValidity = wasmInstance.exports.checkPositionValidity || null;
 
     console.log('[WASM] AssemblyScript module initialized via Top-Level Await');
 
@@ -732,6 +734,27 @@ export function calcWobble(time, offset, intensity) {
 export function checkCollision(playerX, playerZ, playerRadius, objectCount) {
     if (!wasmInstance) return false;
     return wasmInstance.exports.checkCollision(playerX, playerZ, playerRadius, objectCount) === 1;
+}
+
+// =============================================================================
+// GENERATION & PHYSICS HELPERS (WASM)
+// =============================================================================
+
+export function initCollisionSystem() {
+    if (wasmInitCollisionSystem) wasmInitCollisionSystem();
+}
+
+export function addCollisionObject(type, x, y, z, r, h, p1, p2, p3) {
+    if (wasmAddCollisionObject) {
+        wasmAddCollisionObject(type, x, y, z, r, h, p1, p2, p3 ? 1.0 : 0.0);
+    }
+}
+
+export function checkPositionValidity(x, z, radius) {
+    if (wasmCheckPositionValidity) {
+        return wasmCheckPositionValidity(x, z, radius);
+    }
+    return 0; // Default to valid if WASM not ready
 }
 
 // =============================================================================

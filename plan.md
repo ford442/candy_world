@@ -10,12 +10,14 @@
 
 ## Next Steps
 
-1. **Phase 2 (TS -> ASC)**: Begin identifying hot paths in `src/world/generation.ts` or `src/systems/physics.ts` for migration to AssemblyScript/WASM to improve performance.
+1. **Phase 3 (ASC -> C++)**: Explore moving heavy simulation logic (e.g. fluid solver or advanced audio analysis) to C++ (Emscripten) to leverage SIMD and mature libraries.
 
 ---
 
 ## Recent Progress
 - **Accomplished:**
+  - **Phase 2 (TS -> ASC)**: **Status: Implemented ✅**
+    - *Implementation Details:* Optimized procedural world generation by moving collision/placement validation to AssemblyScript (WASM). Implemented `checkPositionValidity` in `assembly/physics.ts` using a spatial grid (O(1) lookup) to replace the legacy O(N) JavaScript loop. Increased `MAX_COLLISION_OBJECTS` to 4096 to support larger worlds. Updated `src/world/generation.ts` to utilize the new WASM pipeline.
   - **Migrate WeatherSystem (Phase 1)**: **Status: Implemented ✅**
     - *Implementation Details:* Migrated `src/systems/weather.js` to `src/systems/weather.ts`. Defined strict interfaces (`WeatherState`) and typed class properties. Utilized `VisualState` from `src/audio/audio-system.ts` for type-safe audio data handling. Updated `main.js` to import the new TypeScript module.
   - **Migrate AudioSystem (Phase 1)**: **Status: Implemented ✅**
@@ -100,6 +102,6 @@
 
 ## Migration Roadmap (Summary)
 1. **Phase 1 (JS -> TS):** Typing core data structures and systems. [IN PROGRESS]
-2. **Phase 2 (TS -> ASC):** Offloading hot paths to WASM.
+2. **Phase 2 (TS -> ASC):** Offloading hot paths to WASM. [DONE]
 3. **Phase 3 (ASC -> C++):** Specialized solvers.
 4. **Phase 4 (Three.js -> WebGPU):** Raw compute and render pipelines.

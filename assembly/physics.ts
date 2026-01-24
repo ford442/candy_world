@@ -103,6 +103,40 @@ export function checkCollision(playerX: f32, playerZ: f32, playerRadius: f32, ob
   return 0;
 }
 
+export function checkPositionValidity(x: f32, z: f32, radius: f32): i32 {
+  const centerCol = i32(Math.floor((x - GRID_ORIGIN_X) / GRID_CELL_SIZE));
+  const centerRow = i32(Math.floor((z - GRID_ORIGIN_Z) / GRID_CELL_SIZE));
+
+  for (let row = centerRow - 1; row <= centerRow + 1; row++) {
+    for (let col = centerCol - 1; col <= centerCol + 1; col++) {
+      if (col < 0 || col >= GRID_COLS || row < 0 || row >= GRID_ROWS) continue;
+
+      const gridIdx = row * GRID_COLS + col;
+      let objId = load<i32>(GRID_HEADS_OFFSET + (gridIdx * 4));
+
+      while (objId != -1) {
+        const ptr = COLLISION_OFFSET + (objId * COLLISION_STRIDE);
+        // We only care about position (offsets 4, 12) and radius (offset 16)
+        // Format: type(0), x(4), y(8), z(12), r(16), h(20)...
+        const ox = load<f32>(ptr + 4);
+        const oz = load<f32>(ptr + 12);
+        const or = load<f32>(ptr + 16);
+
+        const dx = x - ox;
+        const dz = z - oz;
+        const distSq = dx * dx + dz * dz;
+        const minDistance = or + radius + 1.5; // Matches generation.ts logic
+
+        if (distSq < minDistance * minDistance) {
+          return 1;
+        }
+        objId = load<i32>(GRID_NEXT_OFFSET + (objId * 4));
+      }
+    }
+  }
+  return 0;
+}
+
 // Main Narrow Phase Resolver
 // Reads player state from PLAYER_STATE_OFFSET, modifies it, and writes back.
 // Returns a status code (1 = collision/modification occurred, 0 = none)

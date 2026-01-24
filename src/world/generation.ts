@@ -1,7 +1,7 @@
 // src/world/generation.ts
 
 import * as THREE from 'three';
-import { getGroundHeight } from '../utils/wasm-loader.js';
+import { getGroundHeight, initCollisionSystem, addCollisionObject, checkPositionValidity } from '../utils/wasm-loader.js';
 import {
     createSky, createStars, createMoon, createMushroom, createGlowingFlower,
     createFlower, createSubwooferLotus, createAccordionPalm, createFiberOpticWillow,
@@ -163,7 +163,15 @@ export function safeAddFoliage(
     if (animatedFoliage.length > 3000) return; // ⚡ PERFORMANCE: Raised limit from 1000 to 3000 for more musical objects
     foliageGroup.add(obj);
     animatedFoliage.push(obj);
-    if (isObstacle) obstacles.push({ position: obj.position.clone(), radius });
+
+    // Add to JS obstacles (legacy/backup)
+    if (isObstacle) {
+        obstacles.push({ position: obj.position.clone(), radius });
+
+        // ⚡ PERFORMANCE: Add to WASM Spatial Grid for O(1) validity checks
+        // Type 5 = Generic Obstacle (Radius Check Only)
+        addCollisionObject(5, obj.position.x, obj.position.y, obj.position.z, radius, 0, 0, 0, 0);
+    }
 
     // Optimization
     if (obj.userData.type === 'mushroom') foliageMushrooms.push(obj);
@@ -195,6 +203,11 @@ function isPositionValid(x: number, z: number, radius: number): boolean {
     const distFromCenterSq = x * x + z * z;
     if (distFromCenterSq < 15 * 15) return false;
 
+    // ⚡ PERFORMANCE: Use WASM Spatial Grid for O(1) check instead of O(N) loop
+    const isValidWasm = checkPositionValidity(x, z, radius);
+    if (isValidWasm === 1) return false; // 1 = Collision
+
+    /* Legacy O(N) Loop - Kept for reference
     for (const obs of obstacles) {
         const dx = x - obs.position.x;
         const dz = z - obs.position.z;
@@ -202,6 +215,7 @@ function isPositionValid(x: number, z: number, radius: number): boolean {
         const minDistance = obs.radius + radius + 1.5;
         if (distSq < minDistance * minDistance) return false;
     }
+    */
     
     // 3. Lake Avoidance for PROCEDURAL content
     // We specifically prevent random generation in the lake so we don't drown bushes.
@@ -218,6 +232,9 @@ function isPositionValid(x: number, z: number, radius: number): boolean {
 
 export function generateMap(weatherSystem: WeatherSystem): void {
     console.log(`[World] Loading map with ${mapData.length} entities...`);
+
+    // Reset WASM Collision System for Generation Phase
+    initCollisionSystem();
 
     (mapData as MapEntity[]).forEach(item => {
         const [x, yInput, z] = item.position;
