@@ -32,6 +32,7 @@ export function createArpeggioFern(options = {}) {
 
     group.userData.animationType = 'arpeggioUnfurl';
     group.userData.type = 'fern';
+    group.userData.interactionText = "Play Arpeggio";
 
     group.userData.needsRegistration = true;
     group.userData.batchOptions = options;
@@ -85,6 +86,7 @@ export function createPortamentoPine(options = {}) {
 
     group.userData.animationType = 'portamentoBend';
     group.userData.type = 'tree';
+    group.userData.interactionText = "Bend Tree";
 
     // Reactivity State (for Batcher update loop)
     group.userData.reactivityState = {
@@ -137,6 +139,7 @@ export function createCymbalDandelion(options = {}) {
 
     group.userData.animationType = 'batchedCymbal'; // Use batched type to avoid CPU animation
     group.userData.type = 'flower';
+    group.userData.interactionText = "Shake Flower";
 
     // Callback for generation system to invoke after setting position
     group.userData.onPlacement = () => {
@@ -201,6 +204,7 @@ export function createSnareTrap(options = {}) {
     group.userData.rightJaw = rightJaw;
     group.userData.animationType = 'snareSnap';
     group.userData.type = 'trap'; // Reacts to snare
+    group.userData.interactionText = "Trigger Trap";
     
     const reactiveGroup = attachReactivity(group);
     return makeInteractive(reactiveGroup);
