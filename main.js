@@ -4,6 +4,8 @@ import { uWindSpeed, uWindDirection, uSkyTopColor, uSkyBottomColor, uHorizonColo
 import { initCelestialBodies } from './src/foliage/celestial-bodies.js';
 import { InteractionSystem } from './src/systems/interaction.ts';
 import { musicReactivitySystem } from './src/systems/music-reactivity.ts';
+import { fluidSystem } from './src/systems/fluid_system.ts';
+import { createFluidFog } from './src/foliage/fluid_fog.js';
 import { AudioSystem } from './src/audio/audio-system.ts';
 import { BeatSync } from './src/audio/beat-sync.ts';
 import { WeatherSystem, WeatherState } from './src/systems/weather.ts';
@@ -84,9 +86,16 @@ let celestialBodiesInitialized = false;
 let melodyRibbon = null;
 let sparkleTrail = null;
 let impactSystem = null;
+let fluidFog = null;
 
 // Function to initialize deferred visual elements
 function initDeferredVisuals() {
+    if (!fluidFog) {
+        fluidFog = createFluidFog(200, 200); // 200x200 patch at center
+        scene.add(fluidFog);
+        console.log('[Deferred] Fluid Fog initialized');
+    }
+
     if (!aurora) {
         aurora = createAurora();
         scene.add(aurora);
@@ -504,6 +513,7 @@ function animate() {
     profiler.measure('MusicReact', () => {
         musicReactivitySystem.update(t, delta, audioState, weatherSystem, animatedFoliage, camera, isNight, isDeepNight);
         if (melodyRibbon) updateMelodyRibbons(melodyRibbon, delta, audioState);
+        if (fluidFog && audioState) fluidSystem.update(delta, audioState);
     });
 
     if (fireflies) {
@@ -539,6 +549,9 @@ function animate() {
 
 initWasm().then(async (wasmLoaded) => {
     console.log(`WASM module ${wasmLoaded ? 'active' : 'using JS fallbacks'}`);
+
+    // Initialize C++ Fluid System (Phase 3)
+    fluidSystem.init();
 
     // Use getGroundHeight (which is now wrapped in physics/generation but here we access the raw one)
     // Actually, for camera start position, we should use the UNIFIED height if possible.
