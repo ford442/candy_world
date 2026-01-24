@@ -13,19 +13,32 @@ import { applyGlitch } from './glitch.js';
 
 const MAX_FERNS = 2000; // Cap at 2000 ferns (10,000 fronds)
 const FRONDS_PER_FERN = 5;
+// Chunk size to avoid Uniform Buffer overflow (64KB limit).
+const CHUNK_SIZE = 1000;
 
 export class ArpeggioFernBatcher {
+    initialized: boolean;
+    count: number;
+    logicFerns: any[];
+
+    // GPU Buffers
+    frondMeshes: THREE.InstancedMesh[];
+    unfurlAttributes: THREE.InstancedBufferAttribute[];
+    baseMeshes: THREE.InstancedMesh[];
+
+    // Scratch
+    dummy: THREE.Object3D;
+    _color: THREE.Color;
+
     constructor() {
         this.initialized = false;
         this.count = 0;
-        this.logicFerns = []; // Stores the dummy objects
+        this.logicFerns = [];
 
-        // GPU Buffers
-        this.frondMesh = null;
-        this.baseMesh = null;
-        this.unfurlAttribute = null;
+        this.frondMeshes = [];
+        this.unfurlAttributes = [];
+        this.baseMeshes = [];
 
-        // Scratch
         this.dummy = new THREE.Object3D();
         this._color = new THREE.Color();
     }
@@ -34,7 +47,6 @@ export class ArpeggioFernBatcher {
         if (this.initialized) return;
 
         // 1. Frond Geometry (Base Scale 1.0)
-        // Width=0.1, Height=2.3, Depth=0.02
         const frondHeight = 2.3;
         const frondGeo = new THREE.BoxGeometry(0.1, frondHeight, 0.02, 1, 16, 1);
         frondGeo.translate(0, frondHeight / 2, 0); // Pivot at bottom
@@ -43,12 +55,8 @@ export class ArpeggioFernBatcher {
         const frondMat = createCandyMaterial(0x00FF88, 0.9);
         registerReactiveMaterial(frondMat);
 
-        // Instance Attribute for Unfurl (0.0 to 1.0)
-        // Default 0.0 (Curled)
-        this.unfurlAttribute = new THREE.InstancedBufferAttribute(new Float32Array(MAX_FERNS * FRONDS_PER_FERN), 1);
-        frondGeo.setAttribute('instanceUnfurl', this.unfurlAttribute);
-
         // TSL Logic
+        // Reads 'instanceUnfurl' from geometry attribute
         const instanceUnfurl = attribute('instanceUnfurl', 'float');
 
         const pos = positionLocal;
@@ -71,37 +79,66 @@ export class ArpeggioFernBatcher {
         const newZ = pos.y.mul(s).add(pos.z.mul(c));
         const newPos = vec3(pos.x, newY, newZ);
 
-        // Add Bob (Unfurl * 0.2)
         const bob = instanceUnfurl.mul(0.2);
         const bobbedPos = newPos.add(vec3(0, bob, 0));
 
         const glitched = applyGlitch(uv(), bobbedPos, uGlitchIntensity);
         frondMat.positionNode = glitched.position;
 
-        // 3. Create InstancedMesh for Fronds
-        this.frondMesh = new THREE.InstancedMesh(frondGeo, frondMat, MAX_FERNS * FRONDS_PER_FERN);
-        this.frondMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage); // Static mostly, but initial setup is dynamic
-        this.frondMesh.castShadow = true;
-        this.frondMesh.receiveShadow = true;
-        this.frondMesh.frustumCulled = false; // Manually culled via logic objects if needed, or let GPU handle it (it's one mesh)
-        // Note: For InstancedMesh, frustum culling checks the bounding sphere of ALL instances.
-        // Since they span the map, it will always be rendered. This is fine for 10k tris.
+        // 3. Create InstancedMeshes (Chunks)
+        const totalFronds = MAX_FERNS * FRONDS_PER_FERN;
+        const numChunks = Math.ceil(totalFronds / CHUNK_SIZE);
+
+        for(let i=0; i<numChunks; i++) {
+            const remaining = totalFronds - (i * CHUNK_SIZE);
+            const count = Math.min(CHUNK_SIZE, remaining);
+
+            // Clone geometry to attach unique attribute
+            const chunkGeo = frondGeo.clone();
+            const chunkAttr = new THREE.InstancedBufferAttribute(new Float32Array(count), 1);
+            chunkGeo.setAttribute('instanceUnfurl', chunkAttr);
+            this.unfurlAttributes.push(chunkAttr);
+
+            const mesh = new THREE.InstancedMesh(chunkGeo, frondMat, count);
+            mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+            mesh.frustumCulled = false;
+            mesh.count = 0;
+
+            this.frondMeshes.push(mesh);
+            foliageGroup.add(mesh);
+        }
 
         // 4. Base Geometry & Mesh
-        // Cone: 0.2, 0.5, 6
+        // Base fits in one batch (2000 instances < 1000? No, 2000 > 1000).
+        // Wait, 2000 * 64 = 128,000 bytes. This also exceeds 64KB!
+        // We must chunk baseMesh too!
+        // MAX_FERNS = 2000.
+        // Base mesh logic:
+
         const baseGeo = new THREE.ConeGeometry(0.2, 0.5, 6);
         baseGeo.translate(0, 0.25, 0);
-        const baseMat = createCandyMaterial(0x2E8B57); // Dark Green
-        this.baseMesh = new THREE.InstancedMesh(baseGeo, baseMat, MAX_FERNS);
-        this.baseMesh.castShadow = true;
-        this.baseMesh.receiveShadow = true;
+        const baseMat = createCandyMaterial(0x2E8B57);
 
-        // Add to scene
-        foliageGroup.add(this.frondMesh);
-        foliageGroup.add(this.baseMesh);
+        // Split Base Mesh (2000 instances)
+        this.baseMeshes = [];
+        const baseChunks = Math.ceil(MAX_FERNS / CHUNK_SIZE);
+        for(let i=0; i<baseChunks; i++) {
+            const remaining = MAX_FERNS - (i * CHUNK_SIZE);
+            const count = Math.min(CHUNK_SIZE, remaining);
+
+            const mesh = new THREE.InstancedMesh(baseGeo, baseMat, count);
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+            mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+            mesh.count = 0;
+            this.baseMeshes.push(mesh);
+            foliageGroup.add(mesh);
+        }
 
         this.initialized = true;
-        console.log('[ArpeggioBatcher] Initialized');
+        console.log(`[ArpeggioBatcher] Initialized with ${numChunks} frond chunks and ${baseChunks} base chunks`);
     }
 
     register(dummy, options = {}) {
@@ -117,61 +154,82 @@ export class ArpeggioFernBatcher {
 
         // Store reference
         dummy.userData.batchIndex = i;
-        dummy.userData.unfurlFactor = 0; // Init state
+        dummy.userData.unfurlFactor = 0;
         this.logicFerns.push(dummy);
 
         // 1. Setup Base Instance
-        // Base is at dummy position
+        const baseChunkIdx = Math.floor(i / CHUNK_SIZE);
+        const baseLocalIdx = i % CHUNK_SIZE;
+
         this.dummy.position.copy(dummy.position);
-        this.dummy.position.y += 0.25 * scale; // Offset as in original
+        this.dummy.position.y += 0.25 * scale;
         this.dummy.rotation.copy(dummy.rotation);
         this.dummy.scale.setScalar(scale);
         this.dummy.updateMatrix();
-        this.baseMesh.setMatrixAt(i, this.dummy.matrix);
 
-        // 2. Setup Frond Instances (5 per fern)
+        const baseMesh = this.baseMeshes[baseChunkIdx];
+        baseMesh.setMatrixAt(baseLocalIdx, this.dummy.matrix);
+        // Update count
+        if (baseMesh.count < baseLocalIdx + 1) baseMesh.count = baseLocalIdx + 1;
+        baseMesh.instanceMatrix.needsUpdate = true;
+
+
+        // 2. Setup Frond Instances
         const startIdx = i * FRONDS_PER_FERN;
         const frondYOffset = 0.4 * scale;
-
-        // Precompute color
         this._color.setHex(color);
 
         for (let f = 0; f < FRONDS_PER_FERN; f++) {
             const idx = startIdx + f;
+            const chunkIdx = Math.floor(idx / CHUNK_SIZE);
+            const localIdx = idx % CHUNK_SIZE;
+
+            const mesh = this.frondMeshes[chunkIdx];
+            const attr = this.unfurlAttributes[chunkIdx];
 
             // Transform
             this.dummy.position.copy(dummy.position);
             this.dummy.position.y += frondYOffset;
             this.dummy.rotation.copy(dummy.rotation);
-            // Add local rotation for frond distribution
             this.dummy.rotateY((f / FRONDS_PER_FERN) * Math.PI * 2);
-            this.dummy.rotateX(0.2); // Tilt out
+            this.dummy.rotateX(0.2);
             this.dummy.scale.setScalar(scale);
             this.dummy.updateMatrix();
 
-            this.frondMesh.setMatrixAt(idx, this.dummy.matrix);
-            this.frondMesh.setColorAt(idx, this._color);
+            mesh.setMatrixAt(localIdx, this.dummy.matrix);
+            mesh.setColorAt(localIdx, this._color);
+
+            // Update count
+            if (mesh.count < localIdx + 1) mesh.count = localIdx + 1;
 
             // Init Attribute
-            this.unfurlAttribute.setX(idx, 0);
-        }
+            attr.setX(localIdx, 0);
 
-        this.baseMesh.instanceMatrix.needsUpdate = true;
-        this.frondMesh.instanceMatrix.needsUpdate = true;
-        if (this.frondMesh.instanceColor) this.frondMesh.instanceColor.needsUpdate = true;
+            // Mark updates
+            // (We'll optimize by setting needsUpdate once at end if batching multiple registers,
+            // but here register is called one by one)
+            mesh.instanceMatrix.needsUpdate = true;
+            if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+            attr.needsUpdate = true;
+        }
     }
 
     updateInstance(index, dummy) {
         if (!this.initialized) return;
 
         // Update Base
-        // Base Matrix
+        const baseChunkIdx = Math.floor(index / CHUNK_SIZE);
+        const baseLocalIdx = index % CHUNK_SIZE;
+
         this.dummy.position.copy(dummy.position);
         this.dummy.position.y += 0.25 * dummy.scale.x;
         this.dummy.rotation.copy(dummy.rotation);
         this.dummy.scale.copy(dummy.scale);
         this.dummy.updateMatrix();
-        this.baseMesh.setMatrixAt(index, this.dummy.matrix);
+
+        const baseMesh = this.baseMeshes[baseChunkIdx];
+        baseMesh.setMatrixAt(baseLocalIdx, this.dummy.matrix);
+        baseMesh.instanceMatrix.needsUpdate = true;
 
         // Update Fronds
         const startIdx = index * FRONDS_PER_FERN;
@@ -179,6 +237,8 @@ export class ArpeggioFernBatcher {
 
         for (let f = 0; f < FRONDS_PER_FERN; f++) {
             const idx = startIdx + f;
+            const chunkIdx = Math.floor(idx / CHUNK_SIZE);
+            const localIdx = idx % CHUNK_SIZE;
 
             this.dummy.position.copy(dummy.position);
             this.dummy.position.y += frondYOffset;
@@ -188,50 +248,33 @@ export class ArpeggioFernBatcher {
             this.dummy.scale.copy(dummy.scale);
             this.dummy.updateMatrix();
 
-            this.frondMesh.setMatrixAt(idx, this.dummy.matrix);
+            const mesh = this.frondMeshes[chunkIdx];
+            mesh.setMatrixAt(localIdx, this.dummy.matrix);
+            mesh.instanceMatrix.needsUpdate = true;
         }
-
-        this.baseMesh.instanceMatrix.needsUpdate = true;
-        this.frondMesh.instanceMatrix.needsUpdate = true;
     }
 
     update() {
         if (!this.initialized || this.count === 0) return;
-
-        let needsUpdate = false;
 
         // Loop through active ferns and sync unfurl state
         for (let i = 0; i < this.count; i++) {
             const dummy = this.logicFerns[i];
             const unfurl = dummy.userData.unfurlFactor || 0;
 
-            // Check if changed (optimization: could store last value)
             if (Math.abs(unfurl - dummy.userData._lastUnfurl) > 0.001 || dummy.userData._lastUnfurl === undefined) {
                 dummy.userData._lastUnfurl = unfurl;
 
                 const startIdx = i * FRONDS_PER_FERN;
                 for (let f = 0; f < FRONDS_PER_FERN; f++) {
-                    this.unfurlAttribute.setX(startIdx + f, unfurl);
+                    const idx = startIdx + f;
+                    const chunkIdx = Math.floor(idx / CHUNK_SIZE);
+                    const localIdx = idx % CHUNK_SIZE;
+
+                    this.unfurlAttributes[chunkIdx].setX(localIdx, unfurl);
+                    this.unfurlAttributes[chunkIdx].needsUpdate = true;
                 }
-                needsUpdate = true;
             }
-
-            // Also sync scale/position if they are bouncing via other systems
-            // The arpeggio system sets position.y for bobbing
-            // Original: foliageObject.position.y = foliageObject.userData.originalY + unfurlFactor * 0.2;
-            // Since we baked position into matrix, we need to update matrix if Y changes.
-            // This is expensive (matrix update).
-            // ⚡ OPTIMIZATION DECISION: Skip the "bob" on Y axis for batched ferns to save matrix uploads.
-            // Or implement it via Vertex Shader if critical (using instanceUnfurl to drive Y offset).
-
-            // Update: We can just use the instanceUnfurl in shader to add Y offset!
-            // Shader: newPos.y += instanceUnfurl * 0.2;
-            // Wait, TSL code: newPos is calculated. I can add offset there.
-            // Let's modify the TSL in init() to include the bob.
-        }
-
-        if (needsUpdate) {
-            this.unfurlAttribute.needsUpdate = true;
         }
     }
 }

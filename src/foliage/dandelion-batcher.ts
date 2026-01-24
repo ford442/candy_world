@@ -15,6 +15,10 @@ import {
 
 const MAX_DANDELIONS = 500;
 const SEEDS_PER_HEAD = 24;
+// InstancedMesh Uniform Buffer Limit (64KB).
+// Each matrix is 64 bytes. 65536 / 64 = 1024.
+// We use 1000 to be safe and clean.
+const CHUNK_SIZE = 1000;
 
 export class CymbalDandelionBatcher {
     initialized: boolean;
@@ -23,8 +27,9 @@ export class CymbalDandelionBatcher {
 
     // Meshes
     stemMesh: THREE.InstancedMesh | null;
-    stalkMesh: THREE.InstancedMesh | null;
-    tipMesh: THREE.InstancedMesh | null;
+    // Stalks and Tips are chunked to avoid Uniform Buffer overflow
+    stalkMeshes: THREE.InstancedMesh[];
+    tipMeshes: THREE.InstancedMesh[];
 
     // Scratch
     dummy: THREE.Object3D;
@@ -37,8 +42,8 @@ export class CymbalDandelionBatcher {
         this.count = 0;
         this.logicObjects = [];
         this.stemMesh = null;
-        this.stalkMesh = null;
-        this.tipMesh = null;
+        this.stalkMeshes = [];
+        this.tipMeshes = [];
 
         this.dummy = new THREE.Object3D();
         this._position = new THREE.Vector3();
@@ -49,7 +54,7 @@ export class CymbalDandelionBatcher {
     init() {
         if (this.initialized) return;
 
-        // 1. Stem (Clay Green)
+        // 1. Stem (Clay Green) - 500 instances fits in one batch (32KB)
         const stemGeo = new THREE.CylinderGeometry(0.02, 0.02, 1.5, 6);
         stemGeo.translate(0, 0.75, 0); // Pivot at bottom
         const stemMat = createClayMaterial(0x556B2F);
@@ -60,64 +65,67 @@ export class CymbalDandelionBatcher {
         this.stemMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
         this.stemMesh.count = 0;
 
-        // 2. Stalk (Clay White)
-        // Base scale is 1.0, geometry matches original
+        if (foliageGroup) {
+            foliageGroup.add(this.stemMesh);
+        }
+
+        // 2. Stalk (Clay White) & 3. Tip (Candy Gold)
+        // These need chunking (12,000 instances total)
+        const totalStalks = MAX_DANDELIONS * SEEDS_PER_HEAD;
+        const numChunks = Math.ceil(totalStalks / CHUNK_SIZE);
+
         const stalkGeo = new THREE.CylinderGeometry(0.01, 0.01, 0.4, 4);
         stalkGeo.translate(0, 0.2, 0); // Pivot at bottom
         const stalkMat = createClayMaterial(0xFFFFFF);
 
         // TSL Animation for Stalks (Shake)
-        // Shake based on AudioHigh
         const shakeIntensity = uAudioHigh.mul(0.5);
-        // Unique phase per instance
         const phase = float(instanceIndex).mul(13.0);
-        const fastTime = uTime.mul(30.0); // Fast vibration
-
-        const shakeX = sin(fastTime.add(phase)).mul(shakeIntensity).mul(0.2); // Radian amount
+        const fastTime = uTime.mul(30.0);
+        const shakeX = sin(fastTime.add(phase)).mul(shakeIntensity).mul(0.2);
         const shakeZ = cos(fastTime.add(phase.mul(0.7))).mul(shakeIntensity).mul(0.2);
-
-        // Apply rotation to position
-        // Since geometry pivots at bottom (y=0), displacement scales with y.
-        const yNorm = positionLocal.y.div(0.4); // 0 to 1
+        const yNorm = positionLocal.y.div(0.4);
         const dispX = yNorm.mul(shakeX);
         const dispZ = yNorm.mul(shakeZ);
-
         stalkMat.positionNode = positionLocal.add(vec3(dispX, float(0.0), dispZ));
 
-        this.stalkMesh = new THREE.InstancedMesh(stalkGeo, stalkMat, MAX_DANDELIONS * SEEDS_PER_HEAD);
-        this.stalkMesh.castShadow = true;
-        this.stalkMesh.receiveShadow = true;
-        this.stalkMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-        this.stalkMesh.count = 0;
-
-        // 3. Tip (Candy Gold)
         const tipGeo = new THREE.SphereGeometry(0.04, 8, 8);
         const tipMat = createCandyMaterial(0xFFD700, 1.0);
         registerReactiveMaterial(tipMat);
-
-        // Tip Shake Logic (Same phase/freq)
-        // Tip is a sphere, so we just translate it.
-        const tipShakeX = shakeX; // Full shake amount
+        const tipShakeX = shakeX;
         const tipShakeZ = shakeZ;
         tipMat.positionNode = positionLocal.add(vec3(tipShakeX, float(0.0), tipShakeZ));
 
-        this.tipMesh = new THREE.InstancedMesh(tipGeo, tipMat, MAX_DANDELIONS * SEEDS_PER_HEAD);
-        this.tipMesh.castShadow = true;
-        this.tipMesh.receiveShadow = true;
-        this.tipMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-        this.tipMesh.count = 0;
+        for (let i = 0; i < numChunks; i++) {
+            // Calculate size for this chunk (last one might be smaller)
+            const remaining = totalStalks - (i * CHUNK_SIZE);
+            const limit = Math.min(CHUNK_SIZE, remaining);
 
-        // Add to scene
-        if (foliageGroup) {
-            foliageGroup.add(this.stemMesh);
-            foliageGroup.add(this.stalkMesh);
-            foliageGroup.add(this.tipMesh);
-        } else {
+            // Stalk Chunk
+            const sMesh = new THREE.InstancedMesh(stalkGeo, stalkMat, limit);
+            sMesh.castShadow = true;
+            sMesh.receiveShadow = true;
+            sMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+            sMesh.count = 0;
+            this.stalkMeshes.push(sMesh);
+            if (foliageGroup) foliageGroup.add(sMesh);
+
+            // Tip Chunk
+            const tMesh = new THREE.InstancedMesh(tipGeo, tipMat, limit);
+            tMesh.castShadow = true;
+            tMesh.receiveShadow = true;
+            tMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+            tMesh.count = 0;
+            this.tipMeshes.push(tMesh);
+            if (foliageGroup) foliageGroup.add(tMesh);
+        }
+
+        if (!foliageGroup) {
             console.warn('[DandelionBatcher] foliageGroup missing!');
         }
 
         this.initialized = true;
-        console.log('[DandelionBatcher] Initialized');
+        console.log(`[DandelionBatcher] Initialized with ${numChunks} chunks for 12,000 seeds`);
     }
 
     register(dummy: THREE.Object3D, options: any = {}) {
@@ -127,10 +135,34 @@ export class CymbalDandelionBatcher {
         const i = this.count;
         this.count++;
 
-        // Update counts to show new instance
+        // Update stem count
         this.stemMesh!.count = this.count;
-        this.stalkMesh!.count = this.count * SEEDS_PER_HEAD;
-        this.tipMesh!.count = this.count * SEEDS_PER_HEAD;
+
+        // Update counts for chunks
+        const currentTotalSeeds = this.count * SEEDS_PER_HEAD;
+
+        // Update mesh counts based on total populated seeds
+        // We iterate all chunks to set their .count property correctly
+        for(let c=0; c < this.stalkMeshes.length; c++) {
+            const chunkStart = c * CHUNK_SIZE;
+            const chunkEnd = chunkStart + CHUNK_SIZE;
+
+            // How many seeds in this chunk are active?
+            if (currentTotalSeeds > chunkEnd) {
+                // Full chunk
+                this.stalkMeshes[c].count = CHUNK_SIZE;
+                this.tipMeshes[c].count = CHUNK_SIZE;
+            } else if (currentTotalSeeds > chunkStart) {
+                // Partial chunk
+                const partial = currentTotalSeeds - chunkStart;
+                this.stalkMeshes[c].count = partial;
+                this.tipMeshes[c].count = partial;
+            } else {
+                // Empty chunk
+                this.stalkMeshes[c].count = 0;
+                this.tipMeshes[c].count = 0;
+            }
+        }
 
         this.logicObjects.push(dummy);
         dummy.userData.batchIndex = i;
@@ -154,7 +186,11 @@ export class CymbalDandelionBatcher {
 
         // Replicate spherical distribution
         for (let s = 0; s < SEEDS_PER_HEAD; s++) {
-            const idx = seedStartIdx + s;
+            const globalIdx = seedStartIdx + s;
+
+            // Determine Chunk
+            const chunkIdx = Math.floor(globalIdx / CHUNK_SIZE);
+            const localIdx = globalIdx % CHUNK_SIZE;
 
             // Calc rotation
             const phi = Math.acos(-1 + (2 * s) / SEEDS_PER_HEAD);
@@ -183,7 +219,8 @@ export class CymbalDandelionBatcher {
             this.dummy.quaternion.copy(worldQuat);
             this.dummy.scale.copy(this._scale);
             this.dummy.updateMatrix();
-            this.stalkMesh!.setMatrixAt(idx, this.dummy.matrix);
+
+            this.stalkMeshes[chunkIdx].setMatrixAt(localIdx, this.dummy.matrix);
 
             // Matrix for Tip
             const tipOffset = new THREE.Vector3(0, 0.4 * scale, 0);
@@ -194,12 +231,16 @@ export class CymbalDandelionBatcher {
             this.dummy.quaternion.copy(worldQuat);
             this.dummy.scale.copy(this._scale);
             this.dummy.updateMatrix();
-            this.tipMesh!.setMatrixAt(idx, this.dummy.matrix);
+
+            this.tipMeshes[chunkIdx].setMatrixAt(localIdx, this.dummy.matrix);
         }
 
         this.stemMesh!.instanceMatrix.needsUpdate = true;
-        this.stalkMesh!.instanceMatrix.needsUpdate = true;
-        this.tipMesh!.instanceMatrix.needsUpdate = true;
+        // Mark chunks as needing update
+        // Optimization: Only update the chunks that were touched?
+        // With 12000 total, updating all 12 matrices (12k elements) is fine.
+        this.stalkMeshes.forEach(m => m.instanceMatrix.needsUpdate = true);
+        this.tipMeshes.forEach(m => m.instanceMatrix.needsUpdate = true);
     }
 }
 
