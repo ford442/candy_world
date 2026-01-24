@@ -3,10 +3,10 @@
 import * as THREE from 'three';
 import { color, float, vec3, vec4, time, positionLocal, attribute, uniform, mix, length, sin, cos } from 'three/tsl';
 import { PointsNodeMaterial } from 'three/webgpu';
+import { uAudioLow, uAudioHigh } from './common.js';
 
-// Global uniform for star pulse (driven by music)
-export const uStarPulse = uniform(0.0); // 0 to 1
-// Re-added: The target color for the pulse (driven by current note/beat)
+// Global uniforms
+// Removed uStarPulse to fix unison pulsing bug and use direct audio reactivity
 export const uStarColor = uniform(color(0xFFFFFF));
 export const uStarOpacity = uniform(0.0); // Controls visibility (Day/Night)
 
@@ -61,7 +61,7 @@ export function createStars(count = 1500) {
     const mat = new PointsNodeMaterial({
         size: 1.5,
         transparent: true,
-        opacity: 0.0,
+        opacity: 0.0, // Driven by uStarOpacity in TSL
         blending: THREE.AdditiveBlending,
         depthWrite: false,
         fog: false
@@ -71,32 +71,59 @@ export function createStars(count = 1500) {
     const aSize = attribute('size', 'float');
     const aStarColor = attribute('starColor', 'vec3');
 
-    // Twinkle logic (independent of music)
-    const twinkle1 = time.add(aOffset).sin().mul(0.3).add(0.5);
-    const twinkle2 = time.mul(2.3).add(aOffset.mul(0.7)).sin().mul(0.2).add(0.5);
-    const twinkle = twinkle1.mul(twinkle2);
+    // --- PALETTE: Juicy Star Logic ---
 
-    // Intensity: Twinkle + Music Pulse
-    const intensity = twinkle.add(uStarPulse.mul(1.5)); // Stronger pulse response
+    // 1. Twinkle (High Frequency / Hi-Hats)
+    // Driven by Time + Offset + AudioHigh
+    // This creates the "glitter" effect
+    const twinkleSpeed = time.mul(3.0).add(aOffset); // Faster twinkle
+    const baseTwinkle = sin(twinkleSpeed).mul(0.5).add(0.5); // 0..1 sine wave
 
-    // Color Mixing:
-    // When uStarPulse is high (beat), blend the natural star color towards uStarColor (Note Color)
-    const baseStarColor = vec3(aStarColor.x, aStarColor.y, aStarColor.z);
-    const musicColorVec3 = vec3(uStarColor.r, uStarColor.g, uStarColor.b);
+    // Scale twinkle intensity by Audio Highs (Cymbals/Melody)
+    // When music is quiet, they twinkle softly. When loud, they flash.
+    const activeTwinkle = baseTwinkle.mul(float(0.8).add(uAudioHigh.mul(4.0)));
 
-    // Mix factor: uStarPulse * 0.8 (Never fully replace, keep some star-ness)
-    const finalRGB = mix(baseStarColor, musicColorVec3, uStarPulse.mul(0.8));
+    // 2. Pulse Wave (Low Frequency / Kick)
+    // Decorrelated Pulse: A wave traveling across the sky
+    // positionLocal is roughly sphere radius (400), so we scale it down
+    const waveFreq = float(0.02);
+    const wavePhase = positionLocal.x.mul(waveFreq).add(positionLocal.z.mul(waveFreq)).add(time.mul(0.5));
+    const wave = sin(wavePhase).mul(0.5).add(0.5); // 0..1
 
+    // Apply Kick energy to the wave
+    // Stars in the "active" part of the wave boost significantly on Kick
+    const kickPulse = uAudioLow.mul(wave).mul(1.5);
+
+    // Total Intensity = Base + Twinkle + Pulse
+    const intensity = float(0.5).add(activeTwinkle).add(kickPulse);
+
+    // 3. Color Shift (Neon/Magic)
+    // Shift towards Cyan/Magenta on high energy (Highs)
+    const baseColorVec = vec3(aStarColor.x, aStarColor.y, aStarColor.z);
+
+    // Magic colors
+    const colorCyan = vec3(0.0, 1.0, 1.0);
+    const colorMagenta = vec3(1.0, 0.0, 1.0);
+
+    // Pick target color based on star's unique offset (50% cyan, 50% magenta)
+    const targetColor = mix(colorCyan, colorMagenta, sin(aOffset).mul(0.5).add(0.5));
+
+    // Mix based on audio high (energy)
+    // Stronger highs = More neon color
+    const finalRGB = mix(baseColorVec, targetColor, uAudioHigh.mul(0.8));
+
+    // Final Output
     mat.colorNode = vec4(finalRGB, uStarOpacity).mul(mat.color);
-    mat.sizeNode = aSize.mul(intensity.max(0.3));
+    mat.sizeNode = aSize.mul(intensity.max(0.4)); // Keep min size 0.4 so they don't disappear
 
-    // Star Warp/Dance
+    // 4. Star Warp/Dance (Existing logic preserved but tuned)
     const pos = positionLocal;
-    const warpFactor = uStarPulse.mul(20.0); // Warp outwards on beat
+    // Warp outwards on Kick (Low)
+    const warpFactor = uAudioLow.mul(10.0);
     const warpedPos = pos.add(pos.normalize().mul(warpFactor));
 
     // Gentle Rotation
-    const angle = time.mul(0.02);
+    const angle = time.mul(0.015); // Slightly slower rotation
     const rotatedX = warpedPos.x.mul(cos(angle)).sub(warpedPos.z.mul(sin(angle)));
     const rotatedZ = warpedPos.x.mul(sin(angle)).add(warpedPos.z.mul(cos(angle)));
 
