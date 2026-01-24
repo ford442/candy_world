@@ -29,6 +29,29 @@
     background-color: #ffffff;
 }
 
+/* 🎨 Palette: Reticle Label */
+#reticle-label {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, 40px);
+    font-family: 'Fredoka One', cursive, sans-serif;
+    color: white;
+    font-size: 1.2rem;
+    text-shadow: 2px 2px 0px #FF6B6B, 0 0 10px rgba(0,0,0,0.2);
+    pointer-events: none;
+    z-index: 1000;
+    opacity: 0;
+    transition: opacity 0.2s ease, transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    white-space: nowrap;
+    text-align: center;
+}
+
+#reticle-label.visible {
+    opacity: 1;
+    transform: translate(-50%, 30px);
+}
+
 /* 🎨 Palette: Accessibility - Reduced Motion */
 @media (prefers-reduced-motion: reduce) {
     /* Global transition reset */

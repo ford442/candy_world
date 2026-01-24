@@ -17,7 +17,7 @@ export interface InteractiveObject extends THREE.Object3D {
 }
 
 // Callback type for reticle updates
-export type ReticleCallback = (state: 'idle' | 'hover' | 'interact') => void;
+export type ReticleCallback = (state: 'idle' | 'hover' | 'interact', label?: string) => void;
 
 export class InteractionSystem {
     camera: THREE.Camera;
@@ -192,11 +192,24 @@ export class InteractionSystem {
             if (this.hoveredObject.userData?.onGazeEnter) {
                 try { this.hoveredObject.userData.onGazeEnter(); } catch(e) {}
             }
-            if (this.reticleCallback) this.reticleCallback('hover');
+            if (this.reticleCallback) {
+                const label = this.getLabel(this.hoveredObject);
+                this.reticleCallback('hover', label);
+            }
         } else {
             if (this.reticleCallback) this.reticleCallback('idle');
         }
     }
+
+    private getLabel(object: InteractiveObject): string {
+        if (object.userData?.interactionText) return object.userData.interactionText;
+        if (object.userData?.type) {
+            const type = object.userData.type;
+            // Simple fallback formatting
+            return type.charAt(0).toUpperCase() + type.slice(1);
+        }
+        return '';
+   }
 
     triggerClick(): boolean {
         if (this.hoveredObject && this.hoveredObject.userData?.onInteract) {
@@ -204,7 +217,13 @@ export class InteractionSystem {
                 this.hoveredObject.userData.onInteract();
                 if (this.reticleCallback) {
                     this.reticleCallback('interact');
-                    setTimeout(() => this.reticleCallback && this.reticleCallback('hover'), 150);
+                    // Restore hover state with label
+                    setTimeout(() => {
+                        if (this.reticleCallback && this.hoveredObject) {
+                            const label = this.getLabel(this.hoveredObject);
+                            this.reticleCallback('hover', label);
+                        }
+                    }, 150);
                 }
                 return true;
             } catch(e) {
