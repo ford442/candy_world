@@ -267,7 +267,7 @@ export class MusicReactivitySystem {
             foliageBatcher.flush(camera, time);
 
             // Update Arpeggio Batcher
-            arpeggioFernBatcher.update();
+            arpeggioFernBatcher.update(audioState);
 
             // Update Portamento Batcher
             portamentoPineBatcher.update(time, audioState);
