@@ -186,6 +186,42 @@ export const applyPlayerInteraction = (basePosNode) => {
     // We pass it to TSL function if needed, or just add
     return basePosNode.add(calculatePlayerPush(basePosNode));
 };
+
+// --- PALETTE HELPER: Wind & Bloom ---
+
+export const calculateWindSway = Fn(([posNode]) => {
+    const windTime = uTime.mul(uWindSpeed.add(0.5));
+    // Continuous phase field for wind
+    const swayPhase = positionWorld.x.mul(0.5).add(positionWorld.z.mul(0.5)).add(windTime);
+    const swayAmount = sin(swayPhase).mul(0.1).mul(uWindSpeed.add(0.2));
+
+    // Cantilever bend: Bending increases with height squared
+    // Assumes pivot at bottom (y=0)
+    const heightFactor = posNode.y.max(0.0);
+
+    const windBend = vec3(
+        uWindDirection.x.mul(swayAmount).mul(heightFactor.pow(2.0)),
+        float(0.0),
+        uWindDirection.z.mul(swayAmount).mul(heightFactor.pow(2.0))
+    );
+
+    return windBend;
+});
+
+export const calculateFlowerBloom = Fn(([posNode]) => {
+    // 1. Breathing (Idle) - Slow pulse
+    const breath = sin(uTime.mul(2.0)).mul(0.05);
+
+    // 2. Audio Bloom (Kick/Bass) - Punchy expansion
+    const bloom = uAudioLow.mul(0.3);
+
+    // Total Scale
+    const scale = float(1.0).add(breath).add(bloom);
+
+    // Scale position from center (0,0,0) - Assumes local space
+    return posNode.mul(scale);
+});
+
 // ------------------------------------------
 
 /**
@@ -482,8 +518,8 @@ export const CandyPresets = {
 
 // --- LEGACY WRAPPERS (Backward Compatibility) ---
 
-export function createClayMaterial(hexColor) {
-    return CandyPresets.Clay(hexColor);
+export function createClayMaterial(hexColor, opts={}) {
+    return CandyPresets.Clay(hexColor, opts);
 }
 
 export function createCandyMaterial(hexColor) {
@@ -582,10 +618,12 @@ export function createTransparentNodeMaterial(options = {}) {
 
 export const foliageMaterials = {
     // Basic organics
-    // PALETTE UPDATE: Apply Interaction to standard Stem
+    // PALETTE UPDATE: Apply Interaction + Wind to standard Stem
     stem: (() => {
         const mat = CandyPresets.Clay(0x66AA55);
-        mat.positionNode = applyPlayerInteraction(positionLocal);
+        // Combine Player Push + Wind Sway
+        const withPush = applyPlayerInteraction(positionLocal);
+        mat.positionNode = withPush.add(calculateWindSway(positionLocal));
         return mat;
     })(),
 
@@ -595,10 +633,12 @@ export const foliageMaterials = {
     leaf: createUnifiedMaterial(0x228B22, { roughness: 0.6, side: THREE.DoubleSide, bumpStrength: 0.1 }),
     
     // Restored/Upgraded Materials
-    // PALETTE UPDATE: Apply Interaction to Flower Stem
+    // PALETTE UPDATE: Apply Interaction + Wind to Flower Stem
     flowerStem: (() => {
         const mat = CandyPresets.Clay(0x66AA55);
-        mat.positionNode = applyPlayerInteraction(positionLocal);
+        // Combine Player Push + Wind Sway
+        const withPush = applyPlayerInteraction(positionLocal);
+        mat.positionNode = withPush.add(calculateWindSway(positionLocal));
         return mat;
     })(),
 
@@ -656,10 +696,10 @@ export const foliageMaterials = {
     mushroomSpots: CandyPresets.Sugar(0xFFFFFF),
 
     flowerPetal: [
-        CandyPresets.Velvet(0xFF69B4, { side: THREE.DoubleSide, audioReactStrength: 1.0 }),
-        CandyPresets.Gummy(0xFFD700, { side: THREE.DoubleSide, audioReactStrength: 0.8 }),
-        CandyPresets.Crystal(0xFFFFFF, { side: THREE.DoubleSide, audioReactStrength: 0.5 }),
-        CandyPresets.Sugar(0x9933FF, { side: THREE.DoubleSide, audioReactStrength: 1.0 }),
+        CandyPresets.Velvet(0xFF69B4, { side: THREE.DoubleSide, audioReactStrength: 1.0, deformationNode: calculateFlowerBloom(positionLocal) }),
+        CandyPresets.Gummy(0xFFD700, { side: THREE.DoubleSide, audioReactStrength: 0.8, deformationNode: calculateFlowerBloom(positionLocal) }),
+        CandyPresets.Crystal(0xFFFFFF, { side: THREE.DoubleSide, audioReactStrength: 0.5, deformationNode: calculateFlowerBloom(positionLocal) }),
+        CandyPresets.Sugar(0x9933FF, { side: THREE.DoubleSide, audioReactStrength: 1.0, deformationNode: calculateFlowerBloom(positionLocal) }),
     ],
 
     // Faces
