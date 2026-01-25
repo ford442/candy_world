@@ -9,7 +9,7 @@ export * from './trees.ts';
 export * from './clouds.js';
 export * from './waterfalls.js';
 export * from './environment.js';
-export * from './fireflies.js';
+export * from './fireflies.ts';
 export * from './animation.ts';
 export * from './water.js'; // Added Waveform Water
 export * from './glitch.js'; // Added Glitch Shader
