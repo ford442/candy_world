@@ -10,12 +10,14 @@
 
 ## Next Steps
 
-1. **Phase 4 (Three.js -> WebGPU)**: Explore raw WebGPU compute pipelines for heavy particle systems, replacing Three.js abstractions where necessary for performance.
+1. **Phase 1 (JS -> TS)**: Continue migrating core systems and foliage modules to TypeScript to enforce type safety across the project.
 
 ---
 
 ## Recent Progress
 - **Accomplished:**
+  - **Phase 4 (Three.js -> WebGPU): Fireflies Compute Shader**: **Status: Implemented ✅**
+    - *Implementation Details:* Replaced legacy CPU/Vertex-shader fireflies with a raw WebGPU Compute Pipeline (`src/foliage/fireflies.ts`). Utilized `StorageBufferAttribute` for position/velocity/anchor state and a TSL Compute Node for physics (Spring force, Noise wander, Audio repulsion, Player interaction). Integrated `renderer.compute()` into the main render loop.
   - **Phase 3 (ASC -> C++): Fluid Simulation**: **Status: Implemented ✅**
     - *Implementation Details:* Implemented a 2D "Stable Fluids" solver in C++ (`emscripten/fluid.cpp`) compiled to WASM via Emscripten. Created `FluidSystem` in TypeScript to bridge the WASM simulation with the render loop, injecting audio energy (Kick/Highs) into density/velocity fields. Visualized via `FluidFog` (`src/foliage/fluid_fog.js`) using a TSL `MeshBasicNodeMaterial` that samples the simulation density texture.
   - **Phase 2 (TS -> ASC)**: **Status: Implemented ✅**
