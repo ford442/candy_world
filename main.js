@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import './style.css';
-import { uWindSpeed, uWindDirection, uSkyTopColor, uSkyBottomColor, uHorizonColor, uAtmosphereIntensity, uStarOpacity, uAuroraIntensity, uAuroraColor, uAudioLow, uAudioHigh, uGlitchIntensity, uChromaticIntensity, uTime, uPlayerPosition, createAurora, createChromaticPulse, updateMoon, animateFoliage, updateFoliageMaterials, updateFireflies, updateFallingBerries, collectFallingBerries, createFlower, createMushroom, validateNodeGeometries, createMelodyRibbon, updateMelodyRibbons, createMelodyMirror, createSparkleTrail, updateSparkleTrail, createImpactSystem } from './src/foliage/index.js';
+import { uWindSpeed, uWindDirection, uSkyTopColor, uSkyBottomColor, uHorizonColor, uAtmosphereIntensity, uStarOpacity, uAuroraIntensity, uAuroraColor, uAudioLow, uAudioHigh, uGlitchIntensity, uChromaticIntensity, uTime, uPlayerPosition, createAurora, createChromaticPulse, updateMoon, animateFoliage, updateFoliageMaterials, updateFallingBerries, collectFallingBerries, createFlower, createMushroom, validateNodeGeometries, createMelodyRibbon, updateMelodyRibbons, createMelodyMirror, createSparkleTrail, updateSparkleTrail, createImpactSystem } from './src/foliage/index.js';
 import { initCelestialBodies } from './src/foliage/celestial-bodies.js';
 import { InteractionSystem } from './src/systems/interaction.ts';
 import { musicReactivitySystem } from './src/systems/music-reactivity.ts';
@@ -515,8 +515,8 @@ function animate() {
 
     if (fireflies) {
         fireflies.visible = isDeepNight;
-        if (isDeepNight) {
-            updateFireflies(fireflies, t, delta);
+        if (isDeepNight && fireflies.userData.computeNode) {
+            renderer.compute(fireflies.userData.computeNode);
         }
     }
 
