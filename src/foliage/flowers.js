@@ -9,9 +9,10 @@ import {
     createClayMaterial, 
     createStandardNodeMaterial, // Added import
     createTransparentNodeMaterial, // Added import
-    sharedGeometries // Added import
+    sharedGeometries, // Added import
+    calculateFlowerBloom // Added export
 } from './common.js';
-import { color as tslColor, mix, float } from 'three/tsl';
+import { color as tslColor, mix, float, positionLocal } from 'three/tsl';
 import { uTwilight } from './sky.js';
 
 export function createFlower(options = {}) {
@@ -48,7 +49,8 @@ export function createFlower(options = {}) {
 
     let petalMat;
     if (color) {
-        petalMat = createClayMaterial(color);
+        // PALETTE UPDATE: Add Bloom TSL to custom flowers
+        petalMat = createClayMaterial(color, { deformationNode: calculateFlowerBloom(positionLocal) });
         registerReactiveMaterial(petalMat);
     } else {
         petalMat = foliageMaterials.flowerPetal[Math.floor(Math.random() * foliageMaterials.flowerPetal.length)];
