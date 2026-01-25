@@ -254,15 +254,55 @@ export class ArpeggioFernBatcher {
         }
     }
 
-    update() {
+    update(audioState: any = null) {
         if (!this.initialized || this.count === 0) return;
+
+        // ⚡ OPTIMIZATION: Logic moved from WASM/Per-Object to Batch Loop
+        let arpeggioActive = false;
+        let noteTrigger = false;
+        if (audioState && audioState.channelData) {
+            for (const ch of audioState.channelData) {
+                if (ch.activeEffect === 4 || (ch.activeEffect === 0 && ch.effectValue && ch.effectValue > 0)) {
+                    arpeggioActive = true;
+                }
+                if (ch.trigger > 0.1) {
+                    noteTrigger = true;
+                }
+            }
+        }
+
+        const maxSteps = 12;
 
         // Loop through active ferns and sync unfurl state
         for (let i = 0; i < this.count; i++) {
             const dummy = this.logicFerns[i];
-            const unfurl = dummy.userData.unfurlFactor || 0;
 
-            if (Math.abs(unfurl - dummy.userData._lastUnfurl) > 0.001 || dummy.userData._lastUnfurl === undefined) {
+            // 1. Update State Machine
+            let nextTarget = dummy.userData.targetStep || 0;
+            const lastTrigger = dummy.userData.lastTrigger || false;
+
+            if (arpeggioActive) {
+                if (noteTrigger && !lastTrigger) {
+                    nextTarget += 1;
+                    if (nextTarget > maxSteps) nextTarget = maxSteps;
+                }
+            } else {
+                nextTarget = 0;
+            }
+
+            dummy.userData.targetStep = nextTarget;
+            dummy.userData.lastTrigger = noteTrigger;
+
+            let currentUnfurl = dummy.userData.unfurlStep || 0;
+            const speed = (nextTarget > currentUnfurl) ? 0.3 : 0.05;
+            currentUnfurl += (nextTarget - currentUnfurl) * speed;
+            dummy.userData.unfurlStep = currentUnfurl;
+
+            const unfurl = currentUnfurl / maxSteps;
+            dummy.userData.unfurlFactor = unfurl;
+
+            // 2. Update Attribute if changed
+            if (Math.abs(unfurl - (dummy.userData._lastUnfurl || 0)) > 0.001 || dummy.userData._lastUnfurl === undefined) {
                 dummy.userData._lastUnfurl = unfurl;
 
                 const startIdx = i * FRONDS_PER_FERN;

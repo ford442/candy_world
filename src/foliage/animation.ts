@@ -5,7 +5,6 @@ import { freqToHue } from '../utils/wasm-loader.js';
 import { reactiveMaterials, _foliageReactiveColor, median } from './common.js';
 import { CONFIG } from '../core/config.js';
 import { FoliageObject, AudioData, FoliageMaterial, ChannelData } from './types.js';
-import { updateArpeggio } from './arpeggio.js';
 import { foliageBatcher } from './foliage-batcher.js';
 import { spawnImpact } from './impacts.js';
 
@@ -362,10 +361,7 @@ export function animateFoliage(foliageObject: FoliageObject, time: number, audio
 
     // --- Fallback JS Logic ---
 
-    if (type === 'arpeggioUnfurl') {
-        updateArpeggio(foliageObject, time, audioData);
-    }
-    else if (type === 'snareSnap') {
+    if (type === 'snareSnap') {
         let snareTrigger = 0;
         // Heuristic: Check channel 1 (common snare index) for trigger
         if (audioData && audioData.channelData && audioData.channelData[1]) {
