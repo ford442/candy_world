@@ -202,12 +202,19 @@ export function initInput(camera, audioSystem, toggleDayNightCallback, shouldPre
 
     // --- Input Logic ---
 
+    let wasPausedBeforePlaylist = false;
+
     // Toggle Function
     function togglePlaylist() {
         isPlaylistOpen = !isPlaylistOpen;
 
         if (isPlaylistOpen) {
             // OPENING
+
+            // 🎨 Palette: Smart Context Preservation
+            // Check if we are opening from the Pause Menu (instructions visible)
+            wasPausedBeforePlaylist = instructions && instructions.style.display !== 'none';
+
             lastFocusedElement = document.activeElement;
             controls.unlock(); // Unlock mouse so we can click
             if (instructions) instructions.style.display = 'none'; // Ensure pause menu is hidden
@@ -232,9 +239,20 @@ export function initInput(camera, audioSystem, toggleDayNightCallback, shouldPre
             // CLOSING
             playlistOverlay.style.display = 'none';
             if (playlistBackdrop) playlistBackdrop.style.display = 'none';
-            controls.lock(); // Re-lock mouse to play
-            // Note: We don't restore focus here because controls.lock() resumes the game
-            // and hides the previous UI context.
+
+            // 🎨 Palette: Smart Context Restoration
+            if (wasPausedBeforePlaylist) {
+                // Return to Pause Menu
+                if (instructions) instructions.style.display = 'flex';
+                // Restore focus to the button that opened the jukebox (e.g. Open Jukebox button)
+                if (lastFocusedElement) {
+                    lastFocusedElement.focus();
+                }
+                // Do NOT lock controls, stay unlocked
+            } else {
+                // Return to Game
+                controls.lock(); // Re-lock mouse to play
+            }
         }
     }
 
