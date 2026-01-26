@@ -4,6 +4,7 @@ import { animateFoliage } from '../foliage/animation.ts';
 import { foliageBatcher } from '../foliage/foliage-batcher.ts';
 import { arpeggioFernBatcher } from '../foliage/arpeggio-batcher.ts';
 import { portamentoPineBatcher } from '../foliage/portamento-batcher.ts';
+import { mushroomBatcher } from '../foliage/mushroom-batcher.ts';
 import type { AudioData, FoliageObject } from '../foliage/types.ts';
 
 // ⚡ OPTIMIZATION: Reusable Frustum & Matrices
@@ -118,6 +119,13 @@ export class MusicReactivitySystem {
         // Also trigger global listeners if any
         speciesList.push('global');
 
+        // ⚡ OPTIMIZATION: Trigger Batched Systems directly
+        // Mushroom Batcher handles visual reaction via InstancedMesh attributes
+        const noteIdx = CHROMATIC_SCALE.indexOf(noteName);
+        if (noteIdx >= 0) {
+            mushroomBatcher.handleNote(noteIdx, velocity);
+        }
+
         // ⚡ OPTIMIZATION: Use for..of loop
         for (const species of speciesList) {
             const colorMap = CONFIG.noteColorMap[species] || CONFIG.noteColorMap['global'];
@@ -208,6 +216,14 @@ export class MusicReactivitySystem {
                 if (!obj) continue;
                 totalObjects++;
 
+                // ⚡ OPTIMIZATION: Skip Batched Objects
+                // Mushrooms are now handled by MushroomBatcher via TSL
+                if (obj.userData.type === 'mushroom') {
+                    // We treat them as rendered for metrics, but skip CPU animation logic
+                    rendered++; // Technically batched, so rendered
+                    continue;
+                }
+
                 // ⚡ PERFORMANCE: Size-based culling distances
                 let cullDistance = 150; // Default
                 
@@ -218,6 +234,7 @@ export class MusicReactivitySystem {
                 if (objType === 'flower') {
                     cullDistance = 80;
                 } else if (objType === 'mushroom') {
+                    // Unreachable if we skip above, but kept for logic safety
                     if (objSize === 'giant') {
                         cullDistance = 200;
                     } else {
@@ -283,27 +300,9 @@ export class MusicReactivitySystem {
             ? this.weatherSystem.getTwilightGlowIntensity(cyclePos)
             : 0.0;
 
-        // Iterate over registered mushrooms
-        const mushrooms = this.registeredObjects.get('mushroom');
-        if (mushrooms) {
-            for (const mushroom of mushrooms) {
-                if (mushroom.userData.isBioluminescent && mushroom.userData.glowLight) {
-                    const light = mushroom.userData.glowLight as THREE.PointLight;
-                    // Base target intensity for night glow
-                    const baseTarget = 0.8 * glowIntensity;
-
-                    const current = light.intensity;
-
-                    if (current > baseTarget) {
-                        // Decay down to base
-                        light.intensity = THREE.MathUtils.lerp(current, baseTarget, 0.1);
-                    } else {
-                        // Ramp up to base
-                        light.intensity = THREE.MathUtils.lerp(current, baseTarget, 0.05);
-                    }
-                }
-            }
-        }
+        // ⚡ OPTIMIZATION: Removed mushroom loop.
+        // TSL handles global uTwilight uniform for glow base.
+        // Bioluminescence logic is now in MushroomBatcher material.
     }
 
     updateMoon(time: number, deltaTime: number) {
