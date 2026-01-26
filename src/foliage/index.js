@@ -11,7 +11,7 @@ export * from './waterfalls.js';
 export * from './environment.js';
 export * from './fireflies.ts';
 export * from './animation.ts';
-export * from './water.js'; // Added Waveform Water
+export * from './water.ts'; // Added Waveform Water
 export * from './glitch.js'; // Added Glitch Shader
 export * from './chromatic.js'; // Added Chromatic Aberration
 
@@ -19,7 +19,7 @@ export * from './chromatic.js'; // Added Chromatic Aberration
 export { createLanternFlower } from './flowers.js';
 
 // Export moved modules
-export * from './sky.js';
+export * from './sky.ts';
 export * from './stars.js';
 export * from './moon.js';
 export * from './aurora.js'; // Added Aurora
@@ -27,7 +27,7 @@ export * from './panning-pads.js';
 export * from './silence-spirits.js';
 export * from './instrument.js';
 export * from './ribbons.js'; // Added Melody Ribbons
-export * from './mirrors.js'; // Added Melody Mirrors
+export * from './mirrors.ts'; // Added Melody Mirrors
 export * from './sparkle-trail.js'; // Added Sparkle Trail
 export * from './impacts.js'; // Added Impact Particles
 export * from './lotus.js'; // Added Subwoofer Lotus

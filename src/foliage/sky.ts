@@ -1,7 +1,7 @@
-// src/foliage/sky.js
+// src/foliage/sky.ts
 
 import * as THREE from 'three';
-import { color, mix, positionWorld, float, uniform, smoothstep, pow, mul, sub } from 'three/tsl';
+import { color, mix, positionWorld, float, uniform, smoothstep, UniformNode } from 'three/tsl';
 import { MeshBasicNodeMaterial } from 'three/webgpu';
 
 // Export uniforms so main.js and weather.js can drive them
@@ -17,7 +17,7 @@ export const uSkyDarkness = uniform(0.0); // 0.0 = Normal, 1.0 = Pitch Black
 export const uTwilight = uniform(0.0);
 // -------------------------------------------------------
 
-export function createSky() {
+export function createSky(): THREE.Mesh {
     const skyGeo = new THREE.SphereGeometry(1000, 32, 24); 
 
     const offset = float(40.0);   
