@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { PointsNodeMaterial } from 'three/webgpu';
-import { attribute, float, mix, color, vec3, smoothstep, sin, positionLocal } from 'three/tsl';
-import { uTime } from './common.js';
+import { attribute, float, mix, color, vec3, smoothstep, sin, positionLocal, pointUV, length, exp } from 'three/tsl';
+import { uTime, uAudioHigh } from './common.js';
 
 const MAX_PARTICLES = 1500;
 let _impactMesh = null;
@@ -54,20 +54,33 @@ export function createImpactSystem() {
     // Is Alive? (0.0 to 1.0)
     const isAlive = lifeProgress.greaterThan(0.0).and(lifeProgress.lessThan(1.0));
 
-    // Movement: pos + vel * age + gravity?
-    // Let's add simple gravity: -y * age^2
+    // Explosive Drag Physics
+    const drag = float(2.0);
+    // Integral of v*exp(-drag*t) -> (v/drag)*(1 - exp(-drag*t))
+    const explosiveDist = velocity.mul(float(1.0).sub(exp(age.mul(drag).negate()))).div(drag);
+
+    // Gravity: standard 0.5 * g * t^2
     const gravity = vec3(0.0, -10.0, 0.0);
-    const movement = velocity.mul(age).add(gravity.mul(age.mul(age).mul(0.5)));
+    const gravityDrop = gravity.mul(age.mul(age).mul(0.5));
+
+    const movement = explosiveDist.add(gravityDrop);
 
     // Position
     mat.positionNode = positionLocal.add(movement);
 
+    // Shape: Soft Circle (Juice)
+    const dist = length(pointUV.sub(0.5));
+    const circle = float(1.0).sub(smoothstep(0.3, 0.5, dist));
+
     // Opacity: Fade out linearly or with a curve
     const opacity = float(1.0).sub(smoothstep(0.0, 1.0, lifeProgress));
-    mat.opacityNode = opacity.mul(isAlive);
+    mat.opacityNode = opacity.mul(isAlive).mul(circle);
+
+    // Shimmer (Audio Reactivity)
+    const shimmer = sin(age.mul(20.0).add(uAudioHigh.mul(10.0))).mul(0.2).add(1.0);
 
     // Color
-    mat.colorNode = colorAttr;
+    mat.colorNode = colorAttr.mul(shimmer);
 
     // Size: Shrink over time
     mat.sizeNode = sizeAttr.mul(float(1.0).sub(lifeProgress));
