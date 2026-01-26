@@ -1,3 +1,4 @@
+// src/foliage/water.ts
 
 import * as THREE from 'three';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
@@ -6,6 +7,7 @@ import {
     uv, normalize, smoothstep, mix, abs, max, positionWorld,
     mx_noise_float, normalLocal
 } from 'three/tsl';
+// @ts-ignore: common.js is not yet migrated
 import { CandyPresets, uAudioLow, uAudioHigh, createRimLight } from './common.js';
 
 export const uWaveHeight = uniform(1.0); // Base wave height scaler
@@ -18,13 +20,13 @@ export const uWaveHeight = uniform(1.0); // Base wave height scaler
  * @param {number} depth
  * @returns {THREE.Mesh}
  */
-export function createWaveformWater(width = 400, depth = 400) {
+export function createWaveformWater(width: number = 400, depth: number = 400): THREE.Mesh {
     // High segment count for smooth vertex displacement
     const geometry = new THREE.PlaneGeometry(width, depth, 128, 128);
     geometry.rotateX(-Math.PI / 2); // Lay flat
 
     // --- TSL Displacement Logic ---
-    const waterDisplacement = Fn(([pos]) => {
+    const waterDisplacement = Fn(([pos]: any) => {
         // Base rolling wave (Time dependent)
         const bigWave = sin(pos.x.mul(0.05).add(time.mul(0.5))).mul(2.0);
 

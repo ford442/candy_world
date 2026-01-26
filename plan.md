@@ -16,6 +16,8 @@
 
 ## Recent Progress
 - **Accomplished:**
+  - **Phase 1 (JS -> TS): Foliage Migration**: **Status: Implemented ✅**
+    - *Implementation Details:* Migrated `src/foliage/sky.js`, `src/foliage/water.js`, and `src/foliage/mirrors.js` to TypeScript (`.ts`). Added strict typing for uniforms, function arguments, and return types. Updated `src/foliage/index.js` exports.
   - **Phase 4 (Three.js -> WebGPU): Fireflies Compute Shader**: **Status: Implemented ✅**
     - *Implementation Details:* Replaced legacy CPU/Vertex-shader fireflies with a raw WebGPU Compute Pipeline (`src/foliage/fireflies.ts`). Utilized `StorageBufferAttribute` for position/velocity/anchor state and a TSL Compute Node for physics (Spring force, Noise wander, Audio repulsion, Player interaction). Integrated `renderer.compute()` into the main render loop.
   - **Phase 3 (ASC -> C++): Fluid Simulation**: **Status: Implemented ✅**
