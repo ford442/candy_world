@@ -1,3 +1,4 @@
+// src/foliage/mirrors.ts
 
 import * as THREE from 'three';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
@@ -6,13 +7,14 @@ import {
     reflect, sin, abs, dot,
     texture, uniform
 } from 'three/tsl';
+// @ts-ignore: common.js is not yet migrated
 import { attachReactivity, createRimLight, uAudioHigh, uTime } from './common.js';
 
 // Global texture for the "Dream Reflection"
 // Since we don't have a real cubemap, we generate a static noise/gradient texture
-let _dreamEnvTexture = null;
+let _dreamEnvTexture: THREE.DataTexture | null = null;
 
-function getDreamEnvTexture() {
+function getDreamEnvTexture(): THREE.DataTexture {
     if (_dreamEnvTexture) return _dreamEnvTexture;
 
     const size = 512;
@@ -35,9 +37,9 @@ function getDreamEnvTexture() {
 
             skyColor.lerp(cloudColor, noise * 0.3 * (1.0 - v)); // More clouds at bottom
 
-            data[idx] = skyColor.r * 255;
-            data[idx + 1] = skyColor.g * 255;
-            data[idx + 2] = skyColor.b * 255;
+            data[idx] = Math.floor(skyColor.r * 255);
+            data[idx + 1] = Math.floor(skyColor.g * 255);
+            data[idx + 2] = Math.floor(skyColor.b * 255);
             data[idx + 3] = 255;
         }
     }
@@ -52,15 +54,20 @@ function getDreamEnvTexture() {
     return _dreamEnvTexture;
 }
 
+export interface MirrorOptions {
+    scale?: number;
+    shards?: number;
+}
+
 /**
  * Creates a "Melody Mirror" - A floating shard that reflects a dream world.
  * The reflection distorts based on audio pitch (Channel 2 Note).
  *
- * @param {Object} options
+ * @param {MirrorOptions} options
  * @param {number} options.scale - Size of the mirror
  * @param {number} options.shards - Number of shards in the cluster (1 = single mirror)
  */
-export function createMelodyMirror(options = {}) {
+export function createMelodyMirror(options: MirrorOptions = {}): THREE.Group {
     const scale = options.scale || 1.0;
     const shardCount = options.shards || 3;
 
@@ -173,7 +180,7 @@ export function createMelodyMirror(options = {}) {
     attachReactivity(group, { type: 'sky', lightPreference: { min: 0.0, max: 1.0 } });
 
     // Custom update method for rotation
-    group.userData.onUpdate = (delta, audioData) => {
+    group.userData.onUpdate = (delta: number, audioData: any) => {
         // Slowly rotate shards
         group.children.forEach(child => {
             child.rotation.x += child.userData.rotSpeed.x * delta;
