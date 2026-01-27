@@ -2,11 +2,13 @@ import * as THREE from 'three';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import {
     color, float, uniform, vec3, positionLocal, positionWorld,
-    sin, cos, pow, mix, dot, time
+    sin, cos, pow, mix, dot, time, attribute
 } from 'three/tsl';
 import { CandyPresets, uAudioLow, uTime } from './common.js';
 import { spawnImpact } from './impacts.js';
 import { uChromaticIntensity } from './chromatic.js';
+
+const instanceColor = attribute('instanceColor', 'vec3');
 
 // --- Reusable Scratch Variables ---
 const _scratchWorldPos = new THREE.Vector3();
@@ -45,20 +47,39 @@ export function updateGlobalBerryScale(phase, phaseProgress) {
 
 /**
  * Creates a "Heartbeat Gummy" TSL Material
- * @param {number} colorHex - Base color
+ * @param {number|Node} colorInput - Base color (Hex or Node like instanceColor)
  * @param {UniformNode} uGlowIntensity - Control uniform for external updates (weather/seasons)
  * @returns {MeshStandardNodeMaterial}
  */
-function createHeartbeatMaterial(colorHex, uGlowIntensity) {
+function createHeartbeatMaterial(colorInput, uGlowIntensity) {
+    let material;
+    const isNode = (typeof colorInput !== 'number');
+
     // 1. Base Gummy Material (Translucent, SSS)
-    const material = CandyPresets.Gummy(colorHex, {
-        transmission: 0.6,
-        thickness: 0.8,
-        roughness: 0.2,
-        ior: 1.4,
-        subsurfaceStrength: 1.0, // Very juicy
-        subsurfaceColor: colorHex
-    });
+    if (!isNode) {
+        material = CandyPresets.Gummy(colorInput, {
+            transmission: 0.6,
+            thickness: 0.8,
+            roughness: 0.2,
+            ior: 1.4,
+            subsurfaceStrength: 1.0, // Very juicy
+            subsurfaceColor: colorInput
+        });
+    } else {
+        // Instanced Color path
+        // We use a dummy hex for presets, but override colorNode
+        // Note: Subsurface color must be fixed (or we need a more complex SSS setup),
+        // we default to a generic orange-red for falling berries
+        material = CandyPresets.Gummy(0xFF6600, {
+            colorNode: colorInput,
+            transmission: 0.6,
+            thickness: 0.8,
+            roughness: 0.2,
+            ior: 1.4,
+            subsurfaceStrength: 1.0,
+            subsurfaceColor: 0xFF6600 // Fallback SSS color
+        });
+    }
 
     // 2. Heartbeat Logic (Vertex Displacement)
     // Calculate a unique phase based on world position so berries don't pulse in unison
@@ -82,7 +103,7 @@ function createHeartbeatMaterial(colorHex, uGlowIntensity) {
 
     // 3. Reactive Glow (Emissive)
     // Base Glow (Weather/DayNight) + Kick Flash
-    const baseColor = color(colorHex);
+    const baseColor = isNode ? colorInput : color(colorInput);
     const flashColor = color(0xFFFFFF); // Flash white/bright on strong beats
 
     // Mix flash based on heartbeat strength
@@ -233,89 +254,122 @@ export function updateBerrySeasons(berryCluster, phase, phaseProgress) {
 // --- Falling Berry Particle System ---
 let fallingBerryPool = [];
 const MAX_FALLING_BERRIES = 50;
-let fallingBerryGroup = null;
-
-// Shared material for falling berries
-let sharedFallingMaterial = null;
+let fallingBerryMesh = null;
+const _scratchColor = new THREE.Color();
 
 export function initFallingBerries(scene) {
-    fallingBerryGroup = new THREE.Group();
-    fallingBerryGroup.name = 'fallingBerries';
+    // ⚡ OPTIMIZATION: Use InstancedMesh (Draw Call: 50 -> 1)
 
     const berryGeo = new THREE.SphereGeometry(0.06, 16, 16);
 
-    // Create a TSL material for falling berries
-    // They are "active" so they should glow/pulse
+    // Create a TSL material for falling berries with Instance Color support
     const uFallingGlow = uniform(float(0.8)); // Bright when falling
-    sharedFallingMaterial = createHeartbeatMaterial(0xFF6600, uFallingGlow);
+    const material = createHeartbeatMaterial(instanceColor, uFallingGlow);
+
+    fallingBerryMesh = new THREE.InstancedMesh(berryGeo, material, MAX_FALLING_BERRIES);
+    fallingBerryMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    fallingBerryMesh.castShadow = true;
+    fallingBerryMesh.receiveShadow = true;
+    fallingBerryMesh.name = 'fallingBerries';
+
+    // Initialize pool and instances
+    const dummy = new THREE.Object3D();
+    dummy.scale.setScalar(0); // Hidden by default
+    dummy.updateMatrix();
+
+    fallingBerryPool = [];
 
     for (let i = 0; i < MAX_FALLING_BERRIES; i++) {
-        // Optimized: Create one material per pool item.
-        const uColor = uniform(color(0xFF6600));
-        const mat = createHeartbeatMaterial(0xFF6600, uFallingGlow);
-        mat.colorNode = uColor; // Override color with uniform
-        mat.userData.uColor = uColor; // Store reference
+        fallingBerryMesh.setMatrixAt(i, dummy.matrix);
+        fallingBerryMesh.setColorAt(i, _scratchColor.setHex(0xFF6600));
 
-        const berry = new THREE.Mesh(berryGeo, mat);
-        berry.visible = false;
-        berry.userData.velocity = new THREE.Vector3();
-        berry.userData.active = false;
-        berry.userData.age = 0;
-
-        fallingBerryGroup.add(berry);
-        fallingBerryPool.push(berry);
+        // Logic Object (Struct-like)
+        fallingBerryPool.push({
+            active: false,
+            age: 0,
+            velocity: new THREE.Vector3(),
+            position: new THREE.Vector3()
+        });
     }
 
-    scene.add(fallingBerryGroup);
+    scene.add(fallingBerryMesh);
 }
 
 export function spawnFallingBerry(position, colorHex = 0xFF6600) {
-    const berry = fallingBerryPool.find(b => !b.userData.active);
-    if (!berry) return;
+    if (!fallingBerryMesh) return;
 
-    berry.position.copy(position);
-
-    // Update TSL Uniform for color
-    if (berry.material.userData.uColor) {
-        berry.material.userData.uColor.value.setHex(colorHex);
+    // ⚡ OPTIMIZATION: Loop prevents closure allocation from .find()
+    let index = -1;
+    for (let i = 0; i < MAX_FALLING_BERRIES; i++) {
+        if (!fallingBerryPool[i].active) {
+            index = i;
+            break;
+        }
     }
 
-    berry.userData.velocity.set(
+    if (index === -1) return;
+
+    const berry = fallingBerryPool[index];
+
+    berry.position.copy(position);
+    berry.velocity.set(
         (Math.random() - 0.5) * 2,
         -2 - Math.random() * 3,
         (Math.random() - 0.5) * 2
     );
-    berry.userData.active = true;
-    berry.userData.age = 0;
-    berry.visible = true;
-    berry.scale.setScalar(1.0);
+    berry.active = true;
+    berry.age = 0;
+
+    // Update Instance
+    _scratchObject3D.position.copy(position);
+    _scratchObject3D.scale.setScalar(1.0);
+    _scratchObject3D.updateMatrix();
+
+    fallingBerryMesh.setMatrixAt(index, _scratchObject3D.matrix);
+    fallingBerryMesh.setColorAt(index, _scratchColor.setHex(colorHex));
+
+    fallingBerryMesh.instanceMatrix.needsUpdate = true;
+    if (fallingBerryMesh.instanceColor) fallingBerryMesh.instanceColor.needsUpdate = true;
 }
 
 export function updateFallingBerries(delta) {
-    if (!fallingBerryGroup) return;
+    if (!fallingBerryMesh) return;
 
     const gravity = -9.8;
     const maxAge = 3.0;
+    let needsUpdate = false;
 
-    fallingBerryPool.forEach(berry => {
-        if (!berry.userData.active) return;
+    // ⚡ OPTIMIZATION: For loop prevents closure allocation
+    for (let i = 0; i < MAX_FALLING_BERRIES; i++) {
+        const berry = fallingBerryPool[i];
+        if (!berry.active) continue;
 
-        berry.userData.age += delta;
-        berry.userData.velocity.y += gravity * delta;
+        berry.age += delta;
+        berry.velocity.y += gravity * delta;
 
-        berry.position.x += berry.userData.velocity.x * delta;
-        berry.position.y += berry.userData.velocity.y * delta;
-        berry.position.z += berry.userData.velocity.z * delta;
+        berry.position.x += berry.velocity.x * delta;
+        berry.position.y += berry.velocity.y * delta;
+        berry.position.z += berry.velocity.z * delta;
 
-        // Shrink as they age/die
-        const lifeLeft = 1.0 - (berry.userData.age / maxAge);
-        berry.scale.setScalar(lifeLeft);
+        const lifeLeft = 1.0 - (berry.age / maxAge);
 
-        if (berry.position.y < 0 || berry.userData.age > maxAge) {
-            berry.userData.active = false;
-            berry.visible = false;
+        if (berry.position.y < 0 || berry.age > maxAge) {
+            berry.active = false;
+            // Hide
+            _scratchObject3D.scale.setScalar(0);
+        } else {
+             _scratchObject3D.position.copy(berry.position);
+             _scratchObject3D.scale.setScalar(lifeLeft);
         }
-    });
+
+        _scratchObject3D.updateMatrix();
+        fallingBerryMesh.setMatrixAt(i, _scratchObject3D.matrix);
+        needsUpdate = true;
+    }
+
+    if (needsUpdate) {
+        fallingBerryMesh.instanceMatrix.needsUpdate = true;
+    }
 }
 
 export function shakeBerriesLoose(cluster, intensity) {
@@ -339,13 +393,15 @@ export function shakeBerriesLoose(cluster, intensity) {
 }
 
 export function collectFallingBerries(playerPos, collectRadius = 1.0) {
-    if (!fallingBerryPool) return 0;
+    if (!fallingBerryMesh) return 0;
 
     let collected = 0;
     const radiusSq = collectRadius * collectRadius;
+    let needsUpdate = false;
 
-    fallingBerryPool.forEach(berry => {
-        if (!berry.userData.active) return;
+    for (let i = 0; i < MAX_FALLING_BERRIES; i++) {
+        const berry = fallingBerryPool[i];
+        if (!berry.active) continue;
 
         const distSq = berry.position.distanceToSquared(playerPos);
         if (distSq < radiusSq) {
@@ -360,11 +416,22 @@ export function collectFallingBerries(playerPos, collectRadius = 1.0) {
                 if (uChromaticIntensity.value > 1.0) uChromaticIntensity.value = 1.0;
             }
 
-            berry.userData.active = false;
-            berry.visible = false;
+            berry.active = false;
+
+            // Hide instance
+            _scratchObject3D.position.copy(berry.position);
+            _scratchObject3D.scale.setScalar(0);
+            _scratchObject3D.updateMatrix();
+            fallingBerryMesh.setMatrixAt(i, _scratchObject3D.matrix);
+
+            needsUpdate = true;
             collected++;
         }
-    });
+    }
+
+    if (needsUpdate) {
+        fallingBerryMesh.instanceMatrix.needsUpdate = true;
+    }
 
     return collected;
 }
