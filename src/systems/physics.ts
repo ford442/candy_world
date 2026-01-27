@@ -12,7 +12,6 @@ import {
     foliageMushrooms, foliageTrampolines, foliageClouds,
     activeVineSwing, setActiveVineSwing, lastVineDetachTime, setLastVineDetachTime, vineSwings, animatedFoliage
 } from '../world/state.ts';
-// @ts-ignore - Importing JS module
 import { discoverySystem } from './discovery.js';
 import { DISCOVERY_MAP } from './discovery_map.ts';
 import {
@@ -192,7 +191,6 @@ function checkFloraDiscovery(playerPos: THREE.Vector3) {
 
         if (discoveryInfo) {
             // Already discovered? Skip distance check
-            // @ts-ignore
             if (discoverySystem.isDiscovered(type)) continue;
 
             const dx = playerPos.x - obj.position.x;
@@ -201,7 +199,6 @@ function checkFloraDiscovery(playerPos: THREE.Vector3) {
             const distSq = dx*dx + dy*dy + dz*dz;
 
             if (distSq < DISCOVERY_RADIUS_SQ) {
-                // @ts-ignore
                 discoverySystem.discover(type, discoveryInfo.name, discoveryInfo.icon);
             }
         }

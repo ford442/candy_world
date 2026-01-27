@@ -13,7 +13,7 @@ import {
     calculateFlowerBloom // Added export
 } from './common.js';
 import { color as tslColor, mix, float, positionLocal } from 'three/tsl';
-import { uTwilight } from './sky.js';
+import { uTwilight } from './sky.ts';
 
 export function createFlower(options = {}) {
     const { color = null, shape = 'simple' } = options;
