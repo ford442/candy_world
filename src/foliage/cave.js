@@ -9,7 +9,7 @@ import {
 import {
     uAudioLow, createRimLight, triplanarNoise, perturbNormal
 } from './common.js';
-import { uTwilight } from './sky.js';
+import { uTwilight } from './sky.ts';
 import { createWaterfall } from './waterfalls.js';
 
 export function createCaveEntrance(options = {}) {

@@ -134,12 +134,44 @@ function initDeferredVisuals() {
 
 // 4. Input Handling
 let isNight = false;
+let lastIsNight = null; // Track previous state (null forces initial update)
 let timeOffset = 0;
+
+function updateTheme(isNightMode) {
+    const nightColor = '#0A0A2E'; // Deep Night Blue
+    const dayColor = '#FFD1DC';   // Candy Pink
+
+    const newColor = isNightMode ? nightColor : dayColor;
+
+    // 1. Update Meta Theme Color (Mobile/Browser UI)
+    const themeColorMeta = document.querySelector('meta[name="theme-color"]');
+    if (themeColorMeta) {
+        themeColorMeta.setAttribute('content', newColor);
+    }
+
+    // 2. Update Body Background (Bleed/Loading)
+    document.body.style.background = newColor;
+
+    // 3. Update Instructions Overlay Background (Immersive Pause Menu)
+    const instructions = document.getElementById('instructions');
+    if (instructions) {
+        // Use rgba to keep transparency
+        instructions.style.background = isNightMode
+            ? 'rgba(10, 10, 46, 0.8)'   // Night: Dark Blue
+            : 'rgba(255, 209, 220, 0.8)'; // Day: Pink
+    }
+
+    // 4. Sync Button State
+    if (inputSystem) {
+        inputSystem.updateDayNightButtonState(isNightMode);
+    }
+}
 
 function toggleDayNight() {
     timeOffset += CYCLE_DURATION / 2;
-    const currentIsNight = !isNight;
-    inputSystem.updateDayNightButtonState(currentIsNight);
+    // Note: We no longer update button state here.
+    // The animate loop detects the time shift, updates 'isNight',
+    // and triggers 'updateTheme()' automatically.
 }
 
 const inputSystem = initInput(camera, audioSystem, toggleDayNight, () => player.isDancing);
@@ -310,6 +342,12 @@ function animate() {
 
     const nightStart = DURATION_SUNRISE + DURATION_DAY + DURATION_SUNSET;
     isNight = (cyclePos > nightStart - 30) || (cyclePos < DURATION_SUNRISE);
+
+    // 🎨 Palette: Reactive Theme Update
+    if (isNight !== lastIsNight) {
+        updateTheme(isNight);
+        lastIsNight = isNight;
+    }
 
     const weatherIntensity = weatherSystem.getIntensity();
     const weatherState = weatherSystem.getState();
