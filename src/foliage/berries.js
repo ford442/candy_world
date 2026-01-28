@@ -4,7 +4,7 @@ import {
     color, float, uniform, vec3, positionLocal, positionWorld,
     sin, cos, pow, mix, dot, time, attribute
 } from 'three/tsl';
-import { CandyPresets, uAudioLow, uTime } from './common.js';
+import { CandyPresets, uAudioLow, uTime } from './common.ts';
 import { spawnImpact } from './impacts.js';
 import { uChromaticIntensity } from './chromatic.js';
 

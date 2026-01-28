@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { foliageMaterials, registerReactiveMaterial, attachReactivity, pickAnimation, createClayMaterial, createGradientMaterial, sharedGeometries } from './common.js';
+import { foliageMaterials, registerReactiveMaterial, attachReactivity, pickAnimation, createClayMaterial, createGradientMaterial, sharedGeometries } from './common.ts';
 import { createBerryCluster } from './berries.js';
 
 // @refactor {target: "ts", reason: "complex-config", note: "Factory functions prone to undefined option bugs"}

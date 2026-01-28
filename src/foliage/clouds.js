@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { color, uniform, mix, vec3, positionLocal, normalLocal, mx_noise_float, float, normalize, positionWorld, normalWorld, cameraPosition, dot, abs, sin, pow } from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
-import { uTime, createRimLight, uAudioLow } from './common.js';
+import { uTime, createRimLight, uAudioLow } from './common.ts';
 
 // --- Global Uniforms (Driven by WeatherSystem) ---
 // These are true TSL uniforms now

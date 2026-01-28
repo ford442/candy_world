@@ -2,8 +2,8 @@
 
 import * as THREE from 'three';
 import { mushroomBatcher } from './mushroom-batcher.ts';
-import { sharedGeometries } from './common.js';
-import { uTime } from './common.js'; // Check if we need this, probably not for registration
+import { sharedGeometries } from './common.ts';
+import { uTime } from './common.ts'; // Check if we need this, probably not for registration
 
 // 12 Chromatic Notes with their corresponding colors
 // Colors are defined here to match CONFIG.noteColorMap.mushroom palette

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { foliageMaterials, registerReactiveMaterial, attachReactivity, pickAnimation, createClayMaterial, createGradientMaterial, sharedGeometries, uAudioLow, uWindSpeed, calculatePlayerPush } from './common.js';
+import { foliageMaterials, registerReactiveMaterial, attachReactivity, pickAnimation, createClayMaterial, createGradientMaterial, sharedGeometries, uAudioLow, uWindSpeed, calculatePlayerPush } from './common.ts';
 import { color as tslColor, mix, float, sin, cos, vec3, positionLocal, positionWorld, time } from 'three/tsl';
 import { uTwilight } from './sky.ts';
 import { createBerryCluster } from './berries.js';

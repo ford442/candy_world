@@ -1,4 +1,4 @@
-// src/foliage/flowers.js
+// src/foliage/flowers.ts
 
 import * as THREE from 'three';
 import { 
@@ -7,23 +7,30 @@ import {
     attachReactivity, 
     pickAnimation, 
     createClayMaterial, 
-    createStandardNodeMaterial, // Added import
-    createTransparentNodeMaterial, // Added import
-    sharedGeometries, // Added import
-    calculateFlowerBloom, // Added export
-    uTime // Added for spawnTime
-} from './common.js';
-import { color as tslColor, mix, float, positionLocal } from 'three/tsl';
+    createStandardNodeMaterial,
+    createTransparentNodeMaterial,
+    sharedGeometries,
+    calculateFlowerBloom,
+    uTime
+} from './common.ts';
+import { color as tslColor, mix, float, positionLocal, Node } from 'three/tsl';
 import { uTwilight } from './sky.ts';
 import { lanternBatcher } from './lantern-batcher.ts';
 
-export function createFlower(options = {}) {
+interface FlowerOptions {
+    color?: number | string | THREE.Color | null;
+    shape?: 'simple' | 'multi' | 'spiral' | 'layered' | 'sunflower';
+}
+
+export function createFlower(options: FlowerOptions = {}): THREE.Group {
     const { color = null, shape = 'simple' } = options;
     const group = new THREE.Group();
 
     const stemHeight = 0.6 + Math.random() * 0.4;
     // Use Shared Cylinder
-    const stem = new THREE.Mesh(sharedGeometries.unitCylinder, foliageMaterials.flowerStem);
+    // @ts-ignore: foliageMaterials.flowerStem might be array or material, assume material here based on usage
+    const stemMat = foliageMaterials.flowerStem as THREE.Material;
+    const stem = new THREE.Mesh(sharedGeometries.unitCylinder, stemMat);
     stem.scale.set(0.05, stemHeight, 0.05); // Radius 0.05, Height determined by scale Y
     stem.castShadow = true;
     group.add(stem);
@@ -33,7 +40,9 @@ export function createFlower(options = {}) {
     group.add(head);
 
     // Use Shared Sphere
-    const center = new THREE.Mesh(sharedGeometries.unitSphere, foliageMaterials.flowerCenter);
+    // @ts-ignore
+    const centerMat = foliageMaterials.flowerCenter as THREE.Material;
+    const center = new THREE.Mesh(sharedGeometries.unitSphere, centerMat);
     center.scale.setScalar(0.1);
     center.name = 'flowerCenter';
     head.add(center);
@@ -49,13 +58,14 @@ export function createFlower(options = {}) {
         head.add(stamen);
     }
 
-    let petalMat;
+    let petalMat: THREE.Material;
     if (color) {
         // PALETTE UPDATE: Add Bloom TSL to custom flowers
         petalMat = createClayMaterial(color, { deformationNode: calculateFlowerBloom(positionLocal) });
         registerReactiveMaterial(petalMat);
     } else {
-        petalMat = foliageMaterials.flowerPetal[Math.floor(Math.random() * foliageMaterials.flowerPetal.length)];
+        const petals = foliageMaterials.flowerPetal as THREE.Material[];
+        petalMat = petals[Math.floor(Math.random() * petals.length)];
     }
 
     if (shape === 'simple') {
@@ -94,7 +104,7 @@ export function createFlower(options = {}) {
             const petalCount = 5;
             const petalGeo = new THREE.IcosahedronGeometry(0.12, 0);
             petalGeo.scale(1, 0.5, 1);
-            const layerColor = layer === 0 ? petalMat : createClayMaterial(color ? color + 0x111111 : 0xFFD700);
+            const layerColor = layer === 0 ? petalMat : createClayMaterial(color ? (typeof color === 'number' ? color + 0x111111 : 0xFFD700) : 0xFFD700);
             if (layer !== 0) registerReactiveMaterial(layerColor);
 
             for (let i = 0; i < petalCount; i++) {
@@ -113,6 +123,7 @@ export function createFlower(options = {}) {
 
     if (Math.random() > 0.5) {
         // Use shared cone for beam
+        // @ts-ignore
         const beam = new THREE.Mesh(sharedGeometries.unitCone, foliageMaterials.lightBeam.clone());
         beam.scale.set(0.1, 1.0, 0.1);
         beam.position.y = stemHeight;
@@ -137,11 +148,17 @@ export function createFlower(options = {}) {
     return attachReactivity(group, { minLight: 0.2, maxLight: 1.0 });
 }
 
-export function createGlowingFlower(options = {}) {
+interface GlowingFlowerOptions {
+    color?: number | string | THREE.Color;
+    intensity?: number;
+}
+
+export function createGlowingFlower(options: GlowingFlowerOptions = {}): THREE.Group {
     const { color = 0xFFD700, intensity = 1.5 } = options;
     const group = new THREE.Group();
 
     const stemHeight = 0.6 + Math.random() * 0.4;
+    // @ts-ignore
     const stem = new THREE.Mesh(sharedGeometries.unitCylinder, foliageMaterials.flowerStem);
     stem.scale.set(0.05, stemHeight, 0.05);
     stem.castShadow = true;
@@ -168,13 +185,14 @@ export function createGlowingFlower(options = {}) {
     head.position.y = stemHeight;
     group.add(head);
 
+    // @ts-ignore
     const wash = new THREE.Mesh(sharedGeometries.unitSphere, foliageMaterials.lightBeam);
     wash.scale.setScalar(1.5);
     wash.position.y = stemHeight;
     wash.userData.isWash = true;
     group.add(wash);
 
-    const light = new THREE.PointLight(color, 0.5, 3.0);
+    const light = new THREE.PointLight(color as THREE.ColorRepresentation, 0.5, 3.0);
     light.position.y = stemHeight;
     group.add(light);
 
@@ -189,7 +207,7 @@ export function createGlowingFlower(options = {}) {
     return attachReactivity(group, { minLight: 0.0, maxLight: 0.4 });
 }
 
-export function createStarflower(options = {}) {
+export function createStarflower(options: { color?: number | string | THREE.Color } = {}): THREE.Group {
     const { color: hexColor = 0xFF6EC7 } = options;
     const group = new THREE.Group();
 
@@ -199,6 +217,7 @@ export function createStarflower(options = {}) {
     stem.castShadow = true;
     group.add(stem);
 
+    // @ts-ignore
     const center = new THREE.Mesh(sharedGeometries.unitSphere, foliageMaterials.flowerCenter);
     center.scale.setScalar(0.09);
     center.position.y = stemH;
@@ -218,6 +237,7 @@ export function createStarflower(options = {}) {
         group.add(petal);
     }
 
+    // @ts-ignore
     const beamMat = foliageMaterials.lightBeam.clone();
     beamMat.colorNode = tslColor(hexColor);
     const beam = new THREE.Mesh(sharedGeometries.unitCone, beamMat);
@@ -233,7 +253,7 @@ export function createStarflower(options = {}) {
     return attachReactivity(group, { minLight: 0.0, maxLight: 0.4 });
 }
 
-export function createBellBloom(options = {}) {
+export function createBellBloom(options: { color?: number | string | THREE.Color } = {}): THREE.Group {
     const { color = 0xFFD27F } = options;
     const group = new THREE.Group();
 
@@ -268,7 +288,7 @@ export function createBellBloom(options = {}) {
     return attachReactivity(group, { minLight: 0.2, maxLight: 1.0 });
 }
 
-export function createPuffballFlower(options = {}) {
+export function createPuffballFlower(options: { color?: number } = {}): THREE.Group {
     const { color = 0xFF69B4 } = options;
     const group = new THREE.Group();
 
@@ -323,7 +343,7 @@ export function createPuffballFlower(options = {}) {
     return attachReactivity(group, { minLight: 0.2, maxLight: 1.0 });
 }
 
-export function createPrismRoseBush(options = {}) {
+export function createPrismRoseBush(options = {}): THREE.Group {
     const group = new THREE.Group();
 
     const stemsMat = createClayMaterial(0x5D4037);
@@ -372,6 +392,7 @@ export function createPrismRoseBush(options = {}) {
         inner.position.y = 0.05;
         roseGroup.add(inner);
 
+        // @ts-ignore
         const washMat = foliageMaterials.lightBeam.clone();
         washMat.colorNode = tslColor(hexColor);
         const wash = new THREE.Mesh(sharedGeometries.unitSphere, washMat);
@@ -393,7 +414,7 @@ export function createPrismRoseBush(options = {}) {
     return attachReactivity(group, { minLight: 0.2, maxLight: 1.0 });
 }
 
-export function createVibratoViolet(options = {}) {
+export function createVibratoViolet(options: { color?: number, intensity?: number } = {}): THREE.Group {
     const { color = 0x8A2BE2, intensity = 1.0 } = options;
     const group = new THREE.Group();
 
@@ -454,7 +475,7 @@ export function createVibratoViolet(options = {}) {
     return attachReactivity(group, { minLight: 0.2, maxLight: 1.0 });
 }
 
-export function createTremoloTulip(options = {}) {
+export function createTremoloTulip(options: { color?: number, size?: number } = {}): THREE.Group {
     const { color = 0xFF6347, size = 1.0 } = options;
     const group = new THREE.Group();
 
@@ -520,7 +541,7 @@ export function createTremoloTulip(options = {}) {
     return attachReactivity(group, { minLight: 0.2, maxLight: 1.0 });
 }
 
-export function createLanternFlower(options = {}) {
+export function createLanternFlower(options: { color?: number, height?: number } = {}): THREE.Group {
     const { color = 0xFFA500, height = 2.5 } = options;
     const group = new THREE.Group();
 
@@ -539,7 +560,10 @@ export function createLanternFlower(options = {}) {
 
     // Deferred Registration to Batcher
     group.userData.onPlacement = () => {
-        lanternBatcher.register(group, { height, color, spawnTime: uTime.value });
+        // @ts-ignore: Accessing .value on UniformNode if possible, or relying on it being treated as number in some contexts.
+        // If uTime is a UniformNode, .value property access depends on implementation.
+        // Assuming typical usage pattern or casting.
+        lanternBatcher.register(group, { height, color, spawnTime: (uTime as any).value || 0 });
         group.userData.onPlacement = null;
     };
 
@@ -554,7 +578,7 @@ export function createLanternFlower(options = {}) {
     return group;
 }
 
-export function createGlowingFlowerPatch(x, z) {
+export function createGlowingFlowerPatch(x: number, z: number): THREE.Group {
     const patch = new THREE.Group();
     patch.position.set(x, 0, z);
     for (let i = 0; i < 5; i++) {

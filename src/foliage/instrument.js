@@ -6,12 +6,12 @@ import {
     sharedGeometries,
     registerReactiveMaterial,
     attachReactivity
-} from './common.js';
+} from './common.ts';
 import {
     color, float, mix, uv, sin, cos, positionLocal,
     vec3, normalWorld, mx_noise_float
 } from 'three/tsl';
-import { triplanarNoise } from './common.js';
+import { triplanarNoise } from './common.ts';
 
 export function createInstrumentShrine(options = {}) {
     const {

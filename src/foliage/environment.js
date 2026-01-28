@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { time, vec3, positionLocal, length, sin, cos } from 'three/tsl';
-import { registerReactiveMaterial, attachReactivity } from './common.js';
+import { registerReactiveMaterial, attachReactivity } from './common.ts';
 
 export function createMelodyLake(width = 200, depth = 200) {
     const geo = new THREE.PlaneGeometry(width, depth, 64, 64);

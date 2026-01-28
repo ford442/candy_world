@@ -2,7 +2,7 @@
 
 import * as THREE from 'three';
 import { freqToHue } from '../utils/wasm-loader.js';
-import { reactiveMaterials, _foliageReactiveColor, median } from './common.js';
+import { reactiveMaterials, _foliageReactiveColor, median } from './common.ts';
 import { CONFIG } from '../core/config.js';
 import { FoliageObject, AudioData, FoliageMaterial, ChannelData } from './types.js';
 import { foliageBatcher } from './foliage-batcher.js';

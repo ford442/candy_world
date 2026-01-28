@@ -10,12 +10,14 @@
 
 ## Next Steps
 
-1. **Phase 1 (JS -> TS)**: Continue migrating core systems and foliage modules to TypeScript to enforce type safety across the project.
+1. **Phase 1 (JS -> TS)**: Continue migrating remaining foliage modules (`trees.legacy.js`, `mushrooms.js`, `berries.js`) and gameplay systems to TypeScript.
 
 ---
 
 ## Recent Progress
 - **Accomplished:**
+  - **Phase 1 (JS -> TS): Foliage Core Migration**: **Status: Implemented ✅**
+    - *Implementation Details:* Migrated `src/foliage/common.js` (the central TSL material factory), `src/foliage/grass.js`, and `src/foliage/flowers.js` to TypeScript (`.ts`). Added strict typing for TSL nodes, material options, and geometry helpers. Updated 35+ dependent files to import from the new `.ts` modules. Verified build integrity via `vite build`.
   - **Phase 1 (JS -> TS): Foliage Migration**: **Status: Implemented ✅**
     - *Implementation Details:* Migrated `src/foliage/sky.js`, `src/foliage/water.js`, and `src/foliage/mirrors.js` to TypeScript (`.ts`). Added strict typing for uniforms, function arguments, and return types. Updated `src/foliage/index.js` exports.
   - **Phase 4 (Three.js -> WebGPU): Fireflies Compute Shader**: **Status: Implemented ✅**

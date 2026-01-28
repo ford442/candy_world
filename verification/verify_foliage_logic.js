@@ -1,8 +1,8 @@
 import fs from 'fs';
 import path from 'path';
 
-const commonPath = path.resolve('src/foliage/common.js');
-const flowersPath = path.resolve('src/foliage/flowers.js');
+const commonPath = path.resolve('src/foliage/common.ts');
+const flowersPath = path.resolve('src/foliage/flowers.ts');
 
 console.log('Verifying Foliage Logic...');
 

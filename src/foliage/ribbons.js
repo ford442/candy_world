@@ -7,7 +7,7 @@ import {
     cameraPosition, sin, abs, smoothstep, uv,
     mx_noise_float
 } from 'three/tsl';
-import { createUnifiedMaterial } from './common.js';
+import { createUnifiedMaterial } from './common.ts';
 
 /**
  * Melody Ribbon System

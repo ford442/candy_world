@@ -5,7 +5,7 @@ import {
     mix, sin, cos, normalize, color,
     mx_noise_float, vertexIndex, max, length, min
 } from 'three/tsl';
-import { uTime, uAudioLow, uAudioHigh, uPlayerPosition } from './common.js';
+import { uTime, uAudioLow, uAudioHigh, uPlayerPosition } from './common.ts';
 
 export function createFireflies(count = 150, areaSize = 100) {
     // 1. Setup Buffers

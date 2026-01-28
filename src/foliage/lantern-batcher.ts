@@ -9,7 +9,7 @@ import {
     sharedGeometries, foliageMaterials, uTime,
     uAudioLow, uAudioHigh, createRimLight, calculateWindSway, applyPlayerInteraction,
     createStandardNodeMaterial, createUnifiedMaterial
-} from './common.js';
+} from './common.ts';
 import { foliageGroup } from '../world/state.ts';
 
 const MAX_LANTERNS = 1000;
@@ -166,7 +166,7 @@ export class LanternBatcher {
         // We need to calculate sway at height.
         // Re-use calculateWindSway but using the Offset Position
         // Note: calculateWindSway uses positionWorld usually?
-        // In common.js: `const swayPhase = positionWorld.x...`
+        // In common.ts: `const swayPhase = positionWorld.x...`
         // But `posNode.y` (local) is used for bending factor.
         // Here `posNode` is local. `posNode.y` is relative to Top Center.
         // The effective height for bending is `height + pos.y`.

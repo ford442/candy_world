@@ -14,7 +14,7 @@ import {
     uAudioLow,
     uGlitchIntensity,
     uTime
-} from './common.js';
+} from './common.ts';
 
 /**
  * Creates a "Subwoofer Lotus" - A bass-reactive flora with a "Speaker" center.
