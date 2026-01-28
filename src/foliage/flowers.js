@@ -10,10 +10,12 @@ import {
     createStandardNodeMaterial, // Added import
     createTransparentNodeMaterial, // Added import
     sharedGeometries, // Added import
-    calculateFlowerBloom // Added export
+    calculateFlowerBloom, // Added export
+    uTime // Added for spawnTime
 } from './common.js';
 import { color as tslColor, mix, float, positionLocal } from 'three/tsl';
 import { uTwilight } from './sky.ts';
+import { lanternBatcher } from './lantern-batcher.ts';
 
 export function createFlower(options = {}) {
     const { color = null, shape = 'simple' } = options;
@@ -519,82 +521,37 @@ export function createTremoloTulip(options = {}) {
 }
 
 export function createLanternFlower(options = {}) {
-    const { color = 0xFFA500, height = 2.5 } = options; // Orange glow by default
+    const { color = 0xFFA500, height = 2.5 } = options;
     const group = new THREE.Group();
 
-    // 1. Tall Curved Stem (Streetlamp shape)
-    // Base Stem
-    const stemMat = createClayMaterial(0x2F4F4F); // Dark slate grey/green
-    const stemBase = new THREE.Mesh(sharedGeometries.unitCylinder, stemMat);
-    stemBase.scale.set(0.1, height, 0.1);
-    stemBase.position.y = height * 0.5;
-    stemBase.castShadow = true;
-    group.add(stemBase);
+    // ⚡ OPTIMIZATION: Use Batcher for Lanterns
+    // 1. Create a lightweight proxy object for logic/physics
+    // HitBox for interactions (invisible)
+    const hitBox = new THREE.Mesh(sharedGeometries.unitCylinder, new THREE.MeshBasicMaterial({ visible: false }));
+    hitBox.scale.set(0.5, height, 0.5);
+    hitBox.position.y = height * 0.5;
+    group.add(hitBox);
 
-    // Curved Top (The "Hook")
-    const hookGroup = new THREE.Group();
-    hookGroup.position.set(0, height, 0);
-
-    // We construct a simple curve using a torus segment
-    const hookGeo = new THREE.TorusGeometry(0.5, 0.08, 6, 8, Math.PI);
-    const hook = new THREE.Mesh(hookGeo, stemMat);
-    hook.rotation.z = -Math.PI / 2; // Arch over
-    hook.position.set(0.5, 0, 0); // Offset so it curves out
-    hookGroup.add(hook);
-    group.add(hookGroup);
-
-    // 2. The Lantern Bulb (Hanging from the hook)
-    const bulbGroup = new THREE.Group();
-    bulbGroup.position.set(1.0, height - 0.2, 0); // End of the hook (0.5 radius + 0.5 offset)
-    group.add(bulbGroup);
-
-    // Cap
-    const capGeo = new THREE.ConeGeometry(0.2, 0.2, 6);
-    const cap = new THREE.Mesh(capGeo, stemMat);
-    bulbGroup.add(cap);
-
-    // Glowing Bulb
-    const bulbMat = createStandardNodeMaterial({
-        color: 0xFFFFFF,
-        emissive: color,
-        emissiveIntensity: 2.0,
-        roughness: 0.2
-    });
-    registerReactiveMaterial(bulbMat);
-
-    // Elongated sphere for bulb
-    const bulb = new THREE.Mesh(sharedGeometries.unitSphere, bulbMat);
-    bulb.scale.set(0.25, 0.4, 0.25);
-    bulb.position.y = -0.3;
-    bulbGroup.add(bulb);
-
-    // Actual Light Source
-    const light = new THREE.PointLight(color, 1.0, 8.0);
-    light.position.y = -0.5;
-    light.castShadow = true;
-    bulbGroup.add(light);
-
-    // 3. Animation & Reactivity
-    group.userData.animationType = 'sway'; // Gentle swaying in wind
-    group.userData.animationOffset = Math.random() * 10;
+    // Metadata
     group.userData.type = 'lanternFlower';
+    group.userData.height = height;
+    group.userData.color = color;
 
-    // Reactive logic:
-    // It should pulse with the music (lanterns flickering)
-    // We attach reactivity but with high minLight so it's always somewhat visible (or rather, consistent visibility)
-    // minLight: 0.0 means it works even in pitch black.
-    const reactiveGroup = attachReactivity(group, { minLight: 0.0, maxLight: 1.0 });
-
-    // Custom logic: Add "flicker" on kick drum
-    reactiveGroup.reactToNote = (note, colorVal, velocity) => {
-        bulbMat.emissiveIntensity = 2.0 + velocity * 3.0;
-        light.intensity = 1.0 + velocity * 2.0;
-        // Reset handled by material decay usually, but light intensity needs manual decay or just set it
-        // Since reactToNote is one-shot, we rely on the loop or just let it pop.
-        // For smoother flicker we might need update logic, but this is a good start.
+    // Deferred Registration to Batcher
+    group.userData.onPlacement = () => {
+        lanternBatcher.register(group, { height, color, spawnTime: uTime.value });
+        group.userData.onPlacement = null;
     };
 
-    return reactiveGroup;
+    // Reactivity Metadata for WeatherSystem
+    // We manually set userData props that attachReactivity would set, but skip the material array logic
+    group.userData.reactivityType = 'flora';
+    group.userData.minLight = 0.0;
+    group.userData.maxLight = 1.0;
+
+    // We don't need reactToNote callback because TSL handles the flicker.
+
+    return group;
 }
 
 export function createGlowingFlowerPatch(x, z) {
