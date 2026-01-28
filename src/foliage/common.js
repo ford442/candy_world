@@ -681,14 +681,45 @@ export const foliageMaterials = {
     }),
 
     // Special Effects
-    lightBeam: new MeshStandardNodeMaterial({ 
-        color: 0xFFFFFF, 
-        transparent: true, 
-        opacity: 0.2, 
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-        roughness: 1.0 
-    }),
+    // PALETTE UPDATE: Volumetric God Ray (TSL)
+    lightBeam: (() => {
+        const mat = new MeshStandardNodeMaterial({
+            color: 0xFFFFFF,
+            transparent: true,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+            roughness: 1.0,
+            side: THREE.DoubleSide
+        });
+
+        // 1. Edge Fade (Cylinder UV x wraps 0..1)
+        // Center (0.5) is bright, Edges (0.0/1.0) are transparent
+        const beamCore = float(1.0).sub(abs(uv().x.sub(0.5)).mul(2.0));
+        const softBeam = smoothstep(0.0, 0.5, beamCore);
+
+        // 2. Vertical Fade (Top/Bottom)
+        const verticalFade = smoothstep(0.0, 0.2, uv().y).mul(float(1.0).sub(smoothstep(0.8, 1.0, uv().y)));
+
+        // 3. Dust Motes (Rising Noise)
+        const dustSpeed = vec3(0.0, uTime.mul(0.2), 0.0);
+        const dustPos = positionLocal.mul(2.0).add(dustSpeed);
+        const dust = mx_noise_float(dustPos).mul(0.5).add(0.5); // 0..1
+
+        // 4. Audio Pulse (Breathing)
+        const pulse = sin(uTime.mul(2.0)).mul(0.1).add(0.9); // Idle breath
+        const audioBoost = uAudioLow.mul(0.5); // Bass boost
+        const totalPulse = pulse.add(audioBoost);
+
+        // Combine
+        const opacity = softBeam.mul(verticalFade).mul(dust).mul(totalPulse).mul(0.3);
+
+        mat.opacityNode = opacity;
+        // Use Node Color (can be overridden by instance color)
+        mat.colorNode = color(0xFFFFFF);
+        mat.emissiveNode = color(0xFFFFFF).mul(opacity);
+
+        return mat;
+    })(),
     
     mushroomStem: (() => {
         const mat = CandyPresets.Clay(0xF5F5DC);
