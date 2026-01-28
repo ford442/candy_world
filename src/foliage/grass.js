@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { time, positionLocal, positionWorld, sin, cos, vec3, color, normalView, dot, float, max, mix, sign, smoothstep, normalize } from 'three/tsl';
 import { uWindSpeed, uWindDirection, createClayMaterial, uAudioLow, uAudioHigh, uPlayerPosition } from './common.js';
-import { uSkyDarkness } from './sky.js';
+import { uSkyDarkness } from './sky.ts';
 
 let grassMeshes = [];
 const dummy = new THREE.Object3D();
