@@ -143,6 +143,35 @@ export const createRimLight = Fn(([colorNode, intensity, power, normalNode]) => 
     return colorNode.mul(rim).mul(intensity);
 });
 
+/**
+ * Creates a "Juicy" Rim Light with audio reactivity and color shifting.
+ * @param {Node} baseColor - Base rim color
+ * @param {float|Node} intensity - Intensity multiplier
+ * @param {float|Node} power - Sharpness of the rim
+ * @param {Node} [normalNode] - Optional normal override
+ * @returns {Node} - The calculated emission color node
+ */
+export const createJuicyRimLight = Fn(([baseColor, intensity, power, normalNode]) => {
+    const viewDir = normalize(cameraPosition.sub(positionWorld));
+    const N = normalNode || normalWorld;
+    const NdotV = abs(dot(N, viewDir));
+    const rim = float(1.0).sub(NdotV).pow(power);
+
+    // 1. Audio Pulse (Juice)
+    const pulse = sin(uTime.mul(3.0)).mul(0.2).add(0.8); // 0.6 to 1.0
+    const audioBoost = uAudioHigh.mul(2.0); // Boost on high freq (melody)
+
+    // 2. Color Shift (Neon Magic)
+    const magicColor = color(0x00FFFF); // Cyan
+    // Mix Magic color at the very edge (rim > 0.5) and when audio is loud
+    const colorMix = rim.mul(0.5).add(audioBoost.mul(0.2)).min(1.0);
+    const finalColor = mix(baseColor, magicColor, colorMix);
+
+    const finalIntensity = intensity.mul(pulse).add(audioBoost);
+
+    return finalColor.mul(rim).mul(finalIntensity);
+});
+
 // Legacy helper kept for compatibility
 export const addRimLight = Fn(([baseColorNode, normalNode]) => {
     // Pass the normalNode if it exists
