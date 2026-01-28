@@ -69,6 +69,8 @@
   - **Player Abilities**: Implemented Dash ('E') and Double Jump mechanics in `src/systems/physics.js` with visual feedback (chromatic pulse) and discovery tracking.
   - **Migrate InteractionSystem (Phase 1)**: **Status: Implemented ✅**
     - *Implementation Details:* Migrated `src/systems/interaction.js` to `src/systems/interaction.ts`. Added strict typing for `InteractiveObject`, `ReticleCallback`, and system logic. Replaced legacy Sets with typed `Set<InteractiveObject>` and optimized double-buffered update loop. Updated `main.js` to import the new TypeScript module.
+  - **Migrate DiscoverySystem (Phase 1)**: **Status: Implemented ✅**
+    - *Implementation Details:* Migrated `src/systems/discovery.js` to `src/systems/discovery.ts`. Added strict typing for discovered items and storage keys. Updated `src/systems/physics.ts` to import the typed module correctly, removing legacy `@ts-ignore` directives. Confirmed build stability by fixing unrelated broken imports in foliage modules (`sky.js` -> `sky.ts`).
 
 ---
 

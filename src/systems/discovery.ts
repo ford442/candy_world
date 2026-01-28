@@ -1,4 +1,6 @@
-// src/systems/discovery.js
+// src/systems/discovery.ts
+
+// @ts-ignore
 import { showToast } from '../utils/toast.js';
 
 /**
@@ -6,8 +8,11 @@ import { showToast } from '../utils/toast.js';
  * Tracks discovered items in localStorage (optional) and triggers UI notifications.
  */
 class DiscoverySystem {
+    private discoveredItems: Set<string>;
+    private storageKey: string;
+
     constructor() {
-        this.discoveredItems = new Set();
+        this.discoveredItems = new Set<string>();
         this.storageKey = 'candy_world_discovery';
         this.loadDiscovery();
     }
@@ -15,13 +20,13 @@ class DiscoverySystem {
     /**
      * Load discovered items from local storage.
      */
-    loadDiscovery() {
+    private loadDiscovery(): void {
         try {
             const data = localStorage.getItem(this.storageKey);
             if (data) {
                 const items = JSON.parse(data);
                 if (Array.isArray(items)) {
-                    items.forEach(item => this.discoveredItems.add(item));
+                    items.forEach((item: string) => this.discoveredItems.add(item));
                 }
             }
         } catch (e) {
@@ -32,7 +37,7 @@ class DiscoverySystem {
     /**
      * Save discovered items to local storage.
      */
-    saveDiscovery() {
+    private saveDiscovery(): void {
         try {
             localStorage.setItem(this.storageKey, JSON.stringify(Array.from(this.discoveredItems)));
         } catch (e) {
@@ -47,7 +52,7 @@ class DiscoverySystem {
      * @param {string} icon - Emoji or icon to display.
      * @returns {boolean} - True if this is a new discovery.
      */
-    discover(id, displayName, icon = '🌿') {
+    public discover(id: string, displayName: string, icon: string = '🌿'): boolean {
         if (!id) return false;
 
         if (!this.discoveredItems.has(id)) {
@@ -66,14 +71,14 @@ class DiscoverySystem {
      * @param {string} id
      * @returns {boolean}
      */
-    isDiscovered(id) {
+    public isDiscovered(id: string): boolean {
         return this.discoveredItems.has(id);
     }
 
     /**
      * Reset discovery progress (for debug).
      */
-    reset() {
+    public reset(): void {
         this.discoveredItems.clear();
         this.saveDiscovery();
         console.log('[Discovery] Progress reset.');
