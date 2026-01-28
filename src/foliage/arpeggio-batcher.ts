@@ -4,11 +4,11 @@ import {
     createCandyMaterial,
     registerReactiveMaterial,
     sharedGeometries
-} from './common.js';
+} from './common.ts';
 import {
     color, float, uniform, vec3, positionLocal, sin, cos, mix, uv, attribute, varying
 } from 'three/tsl';
-import { uTime, uGlitchIntensity } from './common.js';
+import { uTime, uGlitchIntensity } from './common.ts';
 import { applyGlitch } from './glitch.js';
 
 const MAX_FERNS = 2000; // Cap at 2000 ferns (10,000 fronds)

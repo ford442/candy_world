@@ -1,19 +1,20 @@
-// src/foliage/common.js
+// src/foliage/common.ts
 
 import * as THREE from 'three';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import {
     color, float, uv, mix, vec3, Fn, uniform, dot, max, min,
-    mx_noise_float, mx_fractal_noise_float, positionLocal, positionWorld, normalWorld, normalLocal,
-    cameraPosition, sin, pow, abs, normalize, dFdx, dFdy, smoothstep, exp,
-    cross, vec2, vec4
+    mx_noise_float, positionLocal, positionWorld, normalWorld, normalLocal,
+    cameraPosition, sin, pow, abs, normalize, smoothstep, exp,
+    Node
 } from 'three/tsl';
 
+// @ts-ignore
 import { applyGlitch } from './glitch.js';
+import { FoliageMaterial } from './types';
 
 // --- Shared Resources & Geometries ---
-// We use "Unit" geometries (size 1) and scale them in the mesh to save memory/draw calls
-export const sharedGeometries = {
+export const sharedGeometries: { [key: string]: THREE.BufferGeometry } = {
     unitSphere: new THREE.SphereGeometry(1, 16, 16),
     unitCylinder: new THREE.CylinderGeometry(1, 1, 1, 12).translate(0, 0.5, 0), // Pivot at bottom
     unitCone: new THREE.ConeGeometry(1, 1, 16).translate(0, 0.5, 0), // Pivot at bottom
@@ -32,19 +33,15 @@ export const sharedGeometries = {
     mushroomCap: new THREE.SphereGeometry(1, 24, 24, 0, Math.PI * 2, 0, Math.PI / 1.8),
     mushroomGillCenter: new THREE.ConeGeometry(1, 1, 24, 1, true),
     mushroomSmile: new THREE.TorusGeometry(0.12, 0.04, 6, 12, Math.PI),
-
-    // Explicit definitions for missing units
-    unitCylinder: new THREE.CylinderGeometry(1, 1, 1, 12).translate(0, 0.5, 0),
-    unitSphere: new THREE.SphereGeometry(1, 16, 16)
 };
 
 export const eyeGeo = sharedGeometries.eye;
 export const pupilGeo = sharedGeometries.pupil;
 
 // --- Reactive Objects Registry ---
-export const reactiveObjects = [];
+export const reactiveObjects: THREE.Object3D[] = [];
 let reactivityCounter = 0; 
-export const reactiveMaterials = []; 
+export const reactiveMaterials: THREE.Material[] = [];
 export const _foliageReactiveColor = new THREE.Color(); 
 export const uWindSpeed = uniform(0.0);
 export const uWindDirection = uniform(vec3(1, 0, 0));
@@ -59,14 +56,14 @@ export const uPlayerPosition = uniform(vec3(0, 0, 0)); // Player position in wor
 
 // --- UTILITY FUNCTIONS ---
 
-export function median(arr) {
+export function median(arr: number[]): number {
     if (arr.length === 0) return 0;
     const sorted = [...arr].sort((a, b) => a - b);
     const mid = Math.floor(sorted.length / 2);
     return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 }
 
-export function generateNoiseTexture(size = 256) {
+export function generateNoiseTexture(size = 256): THREE.DataTexture {
     const data = new Uint8Array(size * size * 4);
     for (let i = 0; i < size * size * 4; i++) {
         data[i] = Math.random() * 255;
@@ -125,11 +122,6 @@ export const perturbNormal = Fn(([pos, normal, scale, strength]) => {
 
 /**
  * Creates a TSL node for Rim Light (Fresnel-like edge glow).
- * @param {Node} colorNode - Color of the rim light
- * @param {float|Node} intensity - Intensity multiplier
- * @param {float|Node} power - Sharpness of the rim (higher = thinner)
- * @param {Node} [normalNode] - Optional normal override (defaults to normalWorld)
- * @returns {Node} - The calculated emission color node
  */
 export const createRimLight = Fn(([colorNode, intensity, power, normalNode]) => {
     const viewDir = normalize(cameraPosition.sub(positionWorld));
@@ -145,11 +137,6 @@ export const createRimLight = Fn(([colorNode, intensity, power, normalNode]) => 
 
 /**
  * Creates a "Juicy" Rim Light with audio reactivity and color shifting.
- * @param {Node} baseColor - Base rim color
- * @param {float|Node} intensity - Intensity multiplier
- * @param {float|Node} power - Sharpness of the rim
- * @param {Node} [normalNode] - Optional normal override
- * @returns {Node} - The calculated emission color node
  */
 export const createJuicyRimLight = Fn(([baseColor, intensity, power, normalNode]) => {
     const viewDir = normalize(cameraPosition.sub(positionWorld));
@@ -195,10 +182,6 @@ export const calculatePlayerPush = Fn(([currentPos]) => {
     const pushStrength = smoothstep(interactRadiusSq, float(0.0), distSq);
 
     // Direction to push (away from player)
-    // Handle zero length case implicitly (tsl handles safe normalize?)
-    // TSL normalize might output NaN if length is 0.
-    // We add a tiny epsilon to avoid NaN or use a condition.
-    // Simpler: assume player never EXACTLY on vertex XZ.
     const pushDir = normalize(playerDistH);
 
     // Bend amount based on height (more bend at top)
@@ -210,7 +193,7 @@ export const calculatePlayerPush = Fn(([currentPos]) => {
     return vec3(pushDir.x.mul(bendAmount), float(0.0), pushDir.z.mul(bendAmount));
 });
 
-export const applyPlayerInteraction = (basePosNode) => {
+export const applyPlayerInteraction = (basePosNode: any) => {
     // basePosNode should be current position (could be mutated by other effects)
     // We pass it to TSL function if needed, or just add
     return basePosNode.add(calculatePlayerPush(basePosNode));
@@ -253,11 +236,36 @@ export const calculateFlowerBloom = Fn(([posNode]) => {
 
 // ------------------------------------------
 
+interface UnifiedMaterialOptions {
+    colorNode?: Node;
+    deformationNode?: Node;
+    roughness?: number;
+    metalness?: number;
+    bumpStrength?: number;
+    noiseScale?: number;
+    triplanar?: boolean;
+    side?: THREE.Side;
+    transmission?: number;
+    thickness?: number;
+    ior?: number;
+    thicknessDistortion?: number;
+    subsurfaceStrength?: number;
+    subsurfaceColor?: number | THREE.Color;
+    iridescenceStrength?: number;
+    iridescenceFresnelPower?: number;
+    sheen?: number;
+    sheenColor?: number | THREE.Color;
+    sheenRoughness?: number;
+    animateMoisture?: boolean;
+    animatePulse?: boolean;
+    audioReactStrength?: number;
+}
+
 /**
  * Creates a highly configurable procedural material using TSL.
  * Supports: Micro-bumps, Transmission, SSS, Iridescence, Sheen, and Animation.
  */
-export function createUnifiedMaterial(hexColor, options = {}) {
+export function createUnifiedMaterial(hexColor: number | string | THREE.Color, options: UnifiedMaterialOptions = {}) {
     const {
         // Material Overrides
         colorNode = null,
@@ -311,7 +319,7 @@ export function createUnifiedMaterial(hexColor, options = {}) {
     material.side = side;
 
     // 2. Procedural Surface Noise (Micro-geometry)
-    let surfaceNoise = float(0.0);
+    let surfaceNoise: any = float(0.0);
 
     if (bumpStrength > 0.0 || thicknessDistortion > 0.0 || animateMoisture) {
         // Handle animation time offset
@@ -414,22 +422,11 @@ export function createUnifiedMaterial(hexColor, options = {}) {
     }
 
     // 8. Global Glitch Effect (Sample Offset / Pixelation)
-    // We apply this last to affect the final position.
-    // Compose with existing positionNode if it exists (e.g. from Wind or animation), otherwise use positionLocal.
-    // PALETTE UPDATE: Support external deformation node (e.g. for Sway)
     const basePos = deformationNode || material.positionNode || positionLocal;
     const glitchRes = applyGlitch(uv(), basePos, uGlitchIntensity);
 
     // Override position with glitched version
     material.positionNode = glitchRes.position;
-
-    // We can also affect UVs for texture lookups if we had textures.
-    // Since most materials here are procedural noise, we could pass glitched UV/Position to noise functions
-    // but noise usually takes position.
-
-    // Let's make sure the glitch affects the material color if it uses UVs (like gradients)
-    // But since we are mostly noise based on position...
-    // The vertex displacement `material.positionNode` handles the shape distortion.
 
     // 9. Audio Reactivity (Juice) - "Singing Materials"
     if (audioReactStrength > 0.0) {
@@ -445,7 +442,7 @@ export function createUnifiedMaterial(hexColor, options = {}) {
         // B. Physical "Vibration" (Vertex Flutter)
         // Add subtle noise displacement to simulate sound waves vibrating the surface
         // Ensure we have a starting position node
-        let currentPos = material.positionNode || positionLocal;
+        const currentPos = material.positionNode || positionLocal;
 
         // High frequency noise based on position and fast time
         const vibrationScale = float(20.0);
@@ -468,7 +465,9 @@ export function createUnifiedMaterial(hexColor, options = {}) {
 
 // --- PRESETS (The "Beauty" Collection) ---
 
-export const CandyPresets = {
+type PresetFn = (hex: number | string | THREE.Color, opts?: UnifiedMaterialOptions) => MeshStandardNodeMaterial;
+
+export const CandyPresets: { [key: string]: PresetFn } = {
     // 1. Standard Clay: Tactile, slightly bumpy, matte
     Clay: (hex, opts={}) => createUnifiedMaterial(hex, {
         roughness: 0.8,
@@ -547,15 +546,15 @@ export const CandyPresets = {
 
 // --- LEGACY WRAPPERS (Backward Compatibility) ---
 
-export function createClayMaterial(hexColor, opts={}) {
+export function createClayMaterial(hexColor: number | string | THREE.Color, opts: UnifiedMaterialOptions={}) {
     return CandyPresets.Clay(hexColor, opts);
 }
 
-export function createCandyMaterial(hexColor) {
+export function createCandyMaterial(hexColor: number | string | THREE.Color) {
     return CandyPresets.Gummy(hexColor); // Upgrade old candy to Gummy
 }
 
-export function createTexturedClay(hexColor, options={}) {
+export function createTexturedClay(hexColor: number | string | THREE.Color, options: any={}) {
     return createUnifiedMaterial(hexColor, {
         roughness: options.roughness || 0.6,
         bumpStrength: options.bumpStrength || 0.1,
@@ -564,7 +563,7 @@ export function createTexturedClay(hexColor, options={}) {
     });
 }
 
-export function createSugaredMaterial(hexColor, options={}) {
+export function createSugaredMaterial(hexColor: number | string | THREE.Color, options: any={}) {
     // Wrapper for specific sugar tweaking
     return createUnifiedMaterial(hexColor, {
         roughness: 0.5,
@@ -577,7 +576,7 @@ export function createSugaredMaterial(hexColor, options={}) {
 }
 
 // Juicy Bark Material (Replaces Legacy Gradient)
-export function createGradientMaterial(colorBottom, colorTop, roughness = 0.9) {
+export function createGradientMaterial(colorBottom: number | string | THREE.Color, colorTop: number | string | THREE.Color, roughness = 0.9) {
     // 1. TSL Sway + Interaction Logic
     const windTime = uTime.mul(uWindSpeed.add(0.5));
     // Continuous phase field for wind
@@ -616,7 +615,7 @@ export function createGradientMaterial(colorBottom, colorTop, roughness = 0.9) {
 }
 
 // Helper to create a MeshStandardNodeMaterial behaving like MeshStandardMaterial
-export function createStandardNodeMaterial(options = {}) {
+export function createStandardNodeMaterial(options: any = {}) {
     const mat = new MeshStandardNodeMaterial();
     if (options.color !== undefined) mat.colorNode = color(options.color);
     if (options.roughness !== undefined) mat.roughnessNode = float(options.roughness);
@@ -636,7 +635,7 @@ export function createStandardNodeMaterial(options = {}) {
     return mat;
 }
 
-export function createTransparentNodeMaterial(options = {}) {
+export function createTransparentNodeMaterial(options: any = {}) {
     const mat = createStandardNodeMaterial(options);
     mat.transparent = true;
     mat.depthWrite = options.depthWrite !== undefined ? options.depthWrite : false; 
@@ -645,7 +644,7 @@ export function createTransparentNodeMaterial(options = {}) {
 
 // --- MATERIAL DEFINITIONS ---
 
-export const foliageMaterials = {
+export const foliageMaterials: { [key: string]: THREE.Material | THREE.Material[] } = {
     // Basic organics
     // PALETTE UPDATE: Apply Interaction + Wind to standard Stem
     stem: (() => {
@@ -740,10 +739,10 @@ export const foliageMaterials = {
 
 // --- REACTIVITY & VALIDATION HELPERS ---
 
-export function registerReactiveMaterial(mat) { reactiveMaterials.push(mat); }
-export function pickAnimation(types) { return types[Math.floor(Math.random() * types.length)]; }
+export function registerReactiveMaterial(mat: THREE.Material) { reactiveMaterials.push(mat); }
+export function pickAnimation(types: string[]) { return types[Math.floor(Math.random() * types.length)]; }
 
-export function attachReactivity(group, options = {}) {
+export function attachReactivity(group: THREE.Object3D, options: any = {}) {
     reactiveObjects.push(group);
     group.userData.reactivityType = options.type || group.userData.reactivityType || 'flora';
     if (typeof group.userData.reactivityId === 'undefined') group.userData.reactivityId = reactivityCounter++;
@@ -753,7 +752,7 @@ export function attachReactivity(group, options = {}) {
     return group;
 }
 
-export function cleanupReactivity(object) {
+export function cleanupReactivity(object: THREE.Object3D) {
     const index = reactiveObjects.indexOf(object);
     if (index > -1) reactiveObjects.splice(index, 1);
 }
@@ -771,11 +770,11 @@ export function validateFoliageMaterials() {
     return safe;
 }
 
-export function validateNodeGeometries(scene) {
+export function validateNodeGeometries(scene: THREE.Object3D) {
     // Aggregate warnings to avoid spamming the console when many small geometries are missing attributes.
-    const missingPosition = [];
+    const missingPosition: any[] = [];
 
-    function inferVertexCount(geo) {
+    function inferVertexCount(geo: THREE.BufferGeometry) {
         if (!geo) return 0;
         if (geo.index) return geo.index.count;
         let maxCount = 0;
@@ -788,7 +787,7 @@ export function validateNodeGeometries(scene) {
         return maxCount;
     }
 
-    function getObjectPath(obj) {
+    function getObjectPath(obj: THREE.Object3D | null) {
         const parts = [];
         let cur = obj;
         while (cur) {
@@ -796,12 +795,12 @@ export function validateNodeGeometries(scene) {
             parts.unshift(name);
             cur = cur.parent;
         }
-        return parts.join('/') || obj.uuid;
+        return parts.join('/') || (obj ? obj.uuid : '');
     }
 
-    scene.traverse(obj => {
-        if (obj.isMesh || obj.isPoints) {
-            const geo = obj.geometry;
+    scene.traverse((obj: THREE.Object3D) => {
+        if ((obj as THREE.Mesh).isMesh || (obj as THREE.Points).isPoints) {
+            const geo = (obj as THREE.Mesh).geometry;
             if (geo) {
                 // Attempt to auto-patch a missing position attribute when we can infer a vertex count.
                 if (!geo.attributes.position) {

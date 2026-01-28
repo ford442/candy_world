@@ -7,7 +7,7 @@ import {
     foliageMaterials,
     uTime,
     uGlitchIntensity
-} from './common.js';
+} from './common.ts';
 import {
     color, float, uniform, vec3, positionLocal, sin, cos, mix, uv
 } from 'three/tsl';

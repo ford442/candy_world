@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { color, time, uv, texture, float, positionLocal, vec2, mix, sin, vec3, uniform } from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
-import { foliageMaterials, registerReactiveMaterial, attachReactivity, CandyPresets, createUnifiedMaterial } from './common.js';
+import { foliageMaterials, registerReactiveMaterial, attachReactivity, CandyPresets, createUnifiedMaterial } from './common.ts';
 
 /**
  * Creates a bioluminescent waterfall connecting two points.

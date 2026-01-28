@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { PointsNodeMaterial } from 'three/webgpu';
 import { attribute, float, mix, color, vec3, smoothstep, sin, positionLocal, pointUV, length, exp } from 'three/tsl';
-import { uTime, uAudioHigh } from './common.js';
+import { uTime, uAudioHigh } from './common.ts';
 
 const MAX_PARTICLES = 1500;
 let _impactMesh = null;

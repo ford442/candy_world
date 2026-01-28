@@ -1,7 +1,7 @@
 // src/foliage/celestial-bodies.js
 
 import * as THREE from 'three';
-import { attachReactivity } from './common.js';
+import { attachReactivity } from './common.ts';
 
 // Helper to place objects on a distant sky sphere
 function getRandomSkyPosition(radius) {
