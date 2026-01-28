@@ -9,7 +9,7 @@ import {
     sharedGeometries, foliageMaterials, uTime,
     uAudioLow, uAudioHigh, createRimLight
 } from './common.js';
-import { uTwilight } from './sky.js';
+import { uTwilight } from './sky.ts';
 import { foliageGroup } from '../world/state.js'; // Assuming state.js exports foliageGroup
 
 const MAX_MUSHROOMS = 4000;
