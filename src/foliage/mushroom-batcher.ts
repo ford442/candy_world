@@ -7,7 +7,7 @@ import {
 } from 'three/tsl';
 import {
     sharedGeometries, foliageMaterials, uTime,
-    uAudioLow, uAudioHigh, createRimLight
+    uAudioLow, uAudioHigh, createRimLight, createJuicyRimLight
 } from './common.js';
 import { uTwilight } from './sky.ts';
 import { foliageGroup } from '../world/state.js'; // Assuming state.js exports foliageGroup
@@ -412,7 +412,8 @@ export class MushroomBatcher {
         const totalGlow = baseGlow.add(flashIntensity);
 
         // Rim Light
-        const rim = createRimLight(instanceColor, float(0.5), float(3.0));
+        // PALETTE: Upgrade to Juicy Rim Light for Neon/Magic feel
+        const rim = createJuicyRimLight(instanceColor, float(0.5), float(2.5));
         capMat.emissiveNode = instanceColor.mul(totalGlow).add(rim);
 
         // 2. Gills
