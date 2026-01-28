@@ -172,7 +172,7 @@ export function initInput(camera, audioSystem, toggleDayNightCallback, shouldPre
     function updateJukeboxButtonState(count) {
         if (!openJukeboxBtn) return;
         const countText = count > 0 ? ` (${count})` : '';
-        openJukeboxBtn.innerText = `Open Jukebox${countText} (Q)`;
+        openJukeboxBtn.innerHTML = `Open Jukebox${countText} <span class="key-badge">Q</span>`;
         openJukeboxBtn.setAttribute('aria-label', `Open Jukebox playlist${count > 0 ? `, ${count} songs` : ''}`);
     }
 
@@ -555,7 +555,7 @@ export function initInput(camera, audioSystem, toggleDayNightCallback, shouldPre
 
         if (toggleMuteBtn) {
             toggleMuteBtn.setAttribute('aria-pressed', isMuted);
-            toggleMuteBtn.innerHTML = isMuted ? '🔇 Unmute (M)' : '🔊 Mute (M)';
+            toggleMuteBtn.innerHTML = isMuted ? '🔇 Unmute <span class="key-badge">M</span>' : '🔊 Mute <span class="key-badge">M</span>';
             toggleMuteBtn.setAttribute('aria-label', isMuted ? 'Unmute Audio' : 'Mute Audio');
         }
 
@@ -648,8 +648,8 @@ export function initInput(camera, audioSystem, toggleDayNightCallback, shouldPre
                 toggleDayNightBtn.setAttribute('aria-label', isPressed ? 'Switch to Day' : 'Switch to Night');
                 // UX: Update button text to show available action
                 toggleDayNightBtn.innerHTML = isPressed
-                    ? '☀️ Switch to Day (N)'
-                    : '🌙 Switch to Night (N)';
+                    ? '☀️ Switch to Day <span class="key-badge">N</span>'
+                    : '🌙 Switch to Night <span class="key-badge">N</span>';
 
                 import('../utils/toast.js').then(({ showToast }) => {
                     const mode = isPressed ? "Night Mode Active 🌙" : "Day Mode Active ☀️";
