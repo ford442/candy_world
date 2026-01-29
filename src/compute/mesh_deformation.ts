@@ -47,6 +47,11 @@ export interface DeformationConfig {
     readonly frequency?: number;
     /** Enable audio reactivity (default: true) */
     readonly audioReactive?: boolean;
+    /** 
+     * Recompute vertex normals after deformation (default: true).
+     * Set to false for better performance when accurate lighting isn't critical.
+     */
+    readonly recomputeNormals?: boolean;
 }
 
 /**
@@ -88,6 +93,9 @@ export class MeshDeformationCompute {
     /** Whether audio reactivity is enabled */
     private audioReactive: boolean;
 
+    /** Whether to recompute normals after deformation */
+    private recomputeNormals: boolean;
+
     /**
      * Creates a new mesh deformation system.
      * 
@@ -113,12 +121,14 @@ export class MeshDeformationCompute {
         const {
             strength = 1.0,
             frequency = 1.0,
-            audioReactive = true
+            audioReactive = true,
+            recomputeNormals = true
         } = config;
 
         this.uStrength.value = strength;
         this.uFrequency.value = frequency;
         this.audioReactive = audioReactive;
+        this.recomputeNormals = recomputeNormals;
     }
 
     /**
@@ -143,6 +153,15 @@ export class MeshDeformationCompute {
      */
     public setAudioReactive(enabled: boolean): void {
         this.audioReactive = enabled;
+    }
+
+    /**
+     * Enable or disable vertex normal recomputation.
+     * Disabling can improve performance when accurate lighting isn't needed.
+     * @param enabled - Whether to recompute normals after deformation
+     */
+    public setRecomputeNormals(enabled: boolean): void {
+        this.recomputeNormals = enabled;
     }
 
     /**
@@ -184,7 +203,11 @@ export class MeshDeformationCompute {
 
         // Mark position attribute as needing update
         this.geometry.attributes.position.needsUpdate = true;
-        this.geometry.computeVertexNormals();
+        
+        // Only recompute normals if enabled (expensive operation)
+        if (this.recomputeNormals) {
+            this.geometry.computeVertexNormals();
+        }
     }
 
     /**

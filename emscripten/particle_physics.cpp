@@ -10,7 +10,7 @@
  * - SIMD-optimized particle updates (when available)
  * - OpenMP parallelization for multi-threaded builds
  * - Audio-reactive physics
- * - Automatic particle respawning
+ * - Automatic particle respawning with time-based variation
  */
 
 #include <emscripten.h>
@@ -20,6 +20,9 @@
 
 // Simple xorshift random number generator
 static uint32_t randState = 12345;
+
+// Global time accumulator for respawn variation
+static float globalTime = 0.0f;
 
 inline float randFloat() {
     randState ^= randState << 13;
@@ -37,6 +40,7 @@ extern "C" {
 EMSCRIPTEN_KEEPALIVE
 void initParticleRandom(uint32_t seed) {
     randState = seed > 0 ? seed : 12345;
+    globalTime = 0.0f;
 }
 
 EMSCRIPTEN_KEEPALIVE
@@ -59,6 +63,9 @@ void updateParticlesWASM(
 ) {
     // Clamp delta time to prevent physics explosions
     if (deltaTime > 0.1f) deltaTime = 0.1f;
+    
+    // Accumulate global time for respawn variation
+    globalTime += deltaTime;
     
     // Pre-compute constants
     const float gravityDt = gravityY * deltaTime;
@@ -101,9 +108,9 @@ void updateParticlesWASM(
             // Reset life
             life = 1.0f;
             
-            // Respawn at center with random offset
-            // Use particle index for deterministic randomness
-            const float seed = static_cast<float>(i) * 0.123f;
+            // Respawn at center with time-varied offset
+            // Use particle index AND global time for variation between respawns
+            const float seed = static_cast<float>(i) * 0.123f + globalTime * 0.1f;
             const float offsetX = sinf(seed * 12.9898f) * 10.0f;
             const float offsetZ = cosf(seed * 78.233f) * 10.0f;
             
@@ -111,10 +118,11 @@ void updateParticlesWASM(
             py = spawnY;
             pz = spawnZ + offsetZ;
             
-            // Reset velocity with upward burst
-            vy = 5.0f + cosf(seed) * 2.0f;
-            vx = sinf(seed) * 2.0f;
-            vz = cosf(seed) * 2.0f;
+            // Reset velocity with time-varied upward burst
+            const float velSeed = seed + static_cast<float>(i) * 0.456f;
+            vy = 5.0f + cosf(velSeed) * 2.0f;
+            vx = sinf(velSeed) * 2.0f;
+            vz = cosf(velSeed * 1.5f) * 2.0f;
             speed = 1.0f;
         }
         

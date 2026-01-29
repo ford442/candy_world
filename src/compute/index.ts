@@ -4,14 +4,14 @@
  */
 
 // Compute particle system
-export { ComputeParticleSystem } from './particle_compute.ts';
+export { ComputeParticleSystem } from './particle_compute.js';
 
 // Procedural noise generation
 export {
     ProceduralNoiseCompute,
     createCandySwirlTexture
-} from './noise_generator.ts';
-export type { NoiseConfig } from './noise_generator.ts';
+} from './noise_generator.js';
+export type { NoiseConfig } from './noise_generator.js';
 
 // Mesh deformation
 export {
@@ -20,9 +20,9 @@ export {
     createWaveDeformation,
     createJiggleDeformation,
     createWobbleDeformation
-} from './mesh_deformation.ts';
+} from './mesh_deformation.js';
 export type {
     DeformationTypeValue,
     DeformationConfig,
     DeformationAudioState
-} from './mesh_deformation.ts';
+} from './mesh_deformation.js';
