@@ -44,6 +44,15 @@ export interface LakeBounds {
     maxZ: number;
 }
 
+export interface LakeIslandConfig {
+    centerX: number;
+    centerZ: number;
+    radius: number;
+    peakHeight: number;
+    falloffRadius: number;
+    enabled: boolean;
+}
+
 // --- Constants ---
 const LAKE_BOUNDS: LakeBounds = { 
     minX: -38, 
@@ -52,6 +61,16 @@ const LAKE_BOUNDS: LakeBounds = {
     maxZ: 68 
 };
 const LAKE_BOTTOM = -2.0;
+
+// Lake Island Configuration (must match generation.ts)
+const LAKE_ISLAND: LakeIslandConfig = {
+    centerX: 20,
+    centerZ: 20,
+    radius: 12,
+    peakHeight: 3.0,
+    falloffRadius: 4,
+    enabled: true
+};
 
 // Scratch vectors (reused to prevent GC)
 const _scratchCamDir = new THREE.Vector3();
@@ -116,7 +135,21 @@ export function isInLakeBasin(x: number, z: number): boolean {
 }
 
 /**
- * Get unified ground height with lake carving applied
+ * Check if position is on the Lake Island
+ * Returns true if the position is on solid ground above water
+ */
+export function isOnLakeIsland(x: number, z: number): boolean {
+    if (!LAKE_ISLAND.enabled) return false;
+    
+    const dx = x - LAKE_ISLAND.centerX;
+    const dz = z - LAKE_ISLAND.centerZ;
+    const distFromCenter = Math.sqrt(dx * dx + dz * dz);
+    
+    return distFromCenter < LAKE_ISLAND.radius;
+}
+
+/**
+ * Get unified ground height with lake carving and island applied
  * Must match the logic in generation.ts
  */
 export function getUnifiedGroundHeightTyped(
@@ -128,6 +161,33 @@ export function getUnifiedGroundHeightTyped(
 
     // Apply Lake Carving (Mirroring Generation.ts)
     if (isInLakeBasin(x, z)) {
+        // Check if we're on the island first
+        if (LAKE_ISLAND.enabled) {
+            const dx = x - LAKE_ISLAND.centerX;
+            const dz = z - LAKE_ISLAND.centerZ;
+            const distFromIslandCenter = Math.sqrt(dx * dx + dz * dz);
+            
+            if (distFromIslandCenter < LAKE_ISLAND.radius) {
+                // On the island - calculate height above water
+                const normalizedDist = distFromIslandCenter / LAKE_ISLAND.radius;
+                
+                // Smooth falloff using cosine curve for natural hill shape
+                const islandHeight = LAKE_ISLAND.peakHeight * Math.cos(normalizedDist * Math.PI / 2);
+                
+                // Blend at the edge of the island
+                const edgeDist = LAKE_ISLAND.radius - distFromIslandCenter;
+                const edgeBlend = Math.min(1.0, edgeDist / LAKE_ISLAND.falloffRadius);
+                
+                // Island height above water level (water is at ~1.5)
+                const waterLevel = 1.5;
+                const finalIslandHeight = waterLevel + (islandHeight * edgeBlend);
+                
+                // Return island height (don't apply lake depression)
+                return Math.max(height, finalIslandHeight);
+            }
+        }
+        
+        // Not on island - apply lake depression
         const distX = Math.min(x - LAKE_BOUNDS.minX, LAKE_BOUNDS.maxX - x);
         const distZ = Math.min(z - LAKE_BOUNDS.minZ, LAKE_BOUNDS.maxZ - z);
         const distEdge = Math.min(distX, distZ);
@@ -180,7 +240,8 @@ export function calculateWaterLevel(
     });
 
     // Check standard Lake Water Level (Y=1.5) if inside lake bounds
-    if (isInLakeBasin(playerPos.x, playerPos.z)) {
+    // BUT NOT if on the island (island is above water)
+    if (isInLakeBasin(playerPos.x, playerPos.z) && !isOnLakeIsland(playerPos.x, playerPos.z)) {
         waterLevel = Math.max(waterLevel, 1.5);
     }
 
