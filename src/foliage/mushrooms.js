@@ -127,6 +127,22 @@ export function createMushroom(options = {}) {
 
     // However, collision/gameplay might expect `userData` properties. We set those above.
 
+    // 🎨 Palette: Contextual Interaction Hints
+    if (isGiant || isBouncy) {
+        group.userData.interactionText = "🚀 Jump!";
+    } else if (actualNoteIndex >= 0) {
+        group.userData.interactionText = "🎵 Play Note";
+        group.userData.onInteract = () => {
+             // Visual & Audio Feedback
+             if (mushroomBatcher) {
+                 mushroomBatcher.handleNote(actualNoteIndex, 127);
+             }
+             // Optional: Play sound directly?
+             // Currently audio system plays sound from sequence, but we can perhaps trigger it?
+             // For now, visual feedback is enough "Play Note" implies triggering the visual.
+        };
+    }
+
     return group;
 }
 
