@@ -7,7 +7,7 @@ import {
     registerReactiveMaterial,
     uAudioHigh,
     uTime
-} from './common.js';
+} from './common.ts';
 // @ts-ignore
 import {
     float, vec3, positionLocal, sin, cos, mix, instanceIndex, normalLocal, timerLocal

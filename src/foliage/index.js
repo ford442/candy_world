@@ -1,10 +1,10 @@
 // src/foliage/index.js
 // Export all foliage sub-modules
-export * from './common.js';
+export * from './common.ts';
 export * from './berries.js';
-export * from './grass.js';
+export * from './grass.ts';
 export * from './mushrooms.js';
-export * from './flowers.js';
+export * from './flowers.ts';
 export * from './trees.ts';
 export * from './clouds.js';
 export * from './waterfalls.js';
@@ -15,8 +15,8 @@ export * from './water.ts'; // Added Waveform Water
 export * from './glitch.js'; // Added Glitch Shader
 export * from './chromatic.js'; // Added Chromatic Aberration
 
-// Export lantern flower explicitly if not covered by flowers.js (it is, but let's be safe)
-export { createLanternFlower } from './flowers.js';
+// Export lantern flower explicitly if not covered by flowers.ts (it is, but let's be safe)
+export { createLanternFlower } from './flowers.ts';
 
 // Export moved modules
 export * from './sky.ts';

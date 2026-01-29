@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { PointsNodeMaterial } from 'three/webgpu';
 import { attribute, sin, cos, mix, color, positionLocal, vec3, float } from 'three/tsl';
-import { uTime, uAudioLow, uAudioHigh } from './common.js';
+import { uTime, uAudioLow, uAudioHigh } from './common.ts';
 
 export function createFireflies(count = 80, areaSize = 100) {
     const geo = new THREE.BufferGeometry();

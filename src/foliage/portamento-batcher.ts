@@ -4,11 +4,11 @@ import {
     createClayMaterial,
     createCandyMaterial,
     registerReactiveMaterial
-} from './common.js';
+} from './common.ts';
 import {
     color, float, uniform, vec3, positionLocal, sin, cos, mix, uv, attribute, varying, normalize
 } from 'three/tsl';
-import { uTime } from './common.js';
+import { uTime } from './common.ts';
 
 const MAX_PINES = 1000;
 

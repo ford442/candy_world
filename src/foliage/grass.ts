@@ -1,16 +1,16 @@
-// src/foliage/grass.js
+// src/foliage/grass.ts
 
 import * as THREE from 'three';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
-import { time, positionLocal, positionWorld, sin, cos, vec3, color, normalView, dot, float, max, mix, sign, smoothstep, normalize } from 'three/tsl';
-import { uWindSpeed, uWindDirection, createClayMaterial, uAudioLow, uAudioHigh, uPlayerPosition } from './common.js';
+import { time, positionLocal, positionWorld, sin, vec3, color, normalView, dot, float, max, sign, smoothstep, normalize } from 'three/tsl';
+import { uWindSpeed, uWindDirection, createClayMaterial, uAudioLow, uAudioHigh, uPlayerPosition } from './common.ts';
 import { uSkyDarkness } from './sky.ts';
 
-let grassMeshes = [];
+let grassMeshes: THREE.InstancedMesh[] = [];
 const dummy = new THREE.Object3D();
 const MAX_PER_MESH = 1000;
 
-export function initGrassSystem(scene, count = 5000) {
+export function initGrassSystem(scene: THREE.Scene, count = 5000): THREE.InstancedMesh[] {
     grassMeshes = [];
     const height = 0.8;
     const geo = new THREE.BoxGeometry(0.05, height, 0.05);
@@ -128,7 +128,7 @@ export function initGrassSystem(scene, count = 5000) {
     return grassMeshes;
 }
 
-export function addGrassInstance(x, y, z) {
+export function addGrassInstance(x: number, y: number, z: number) {
     const mesh = grassMeshes.find(m => m.count < m.instanceMatrix.count);
     if (!mesh) return;
 
@@ -145,7 +145,7 @@ export function addGrassInstance(x, y, z) {
     mesh.instanceMatrix.needsUpdate = true;
 }
 
-export function createGrass(options = {}) {
+export function createGrass(options: { color?: number | string | THREE.Color, shape?: 'tall' | 'bushy' } = {}) {
     const { color = 0x7CFC00, shape = 'tall' } = options;
     const material = createClayMaterial(color);
     let geo;
@@ -165,7 +165,12 @@ export function createGrass(options = {}) {
         const height = 0.2 + Math.random() * 0.3;
         geo = new THREE.CylinderGeometry(0.1, 0.05, height, 8);
         geo.translate(0, height / 2, 0);
+    } else {
+        // Fallback for types
+        const height = 0.5;
+        geo = new THREE.BoxGeometry(0.05, height, 0.05);
     }
+
     geo.computeVertexNormals();
 
     const blade = new THREE.Mesh(geo, material);
