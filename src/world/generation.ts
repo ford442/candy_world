@@ -11,7 +11,8 @@ import {
     initGrassSystem, addGrassInstance,
     createArpeggioFern, createPortamentoPine, createCymbalDandelion, createSnareTrap,
     createBubbleWillow, createHelixPlant, createBalloonBush, createWisteriaCluster,
-    createPanningPad, createSilenceSpirit, createInstrumentShrine, createMelodyMirror
+    createPanningPad, createSilenceSpirit, createInstrumentShrine, createMelodyMirror,
+    createRetriggerMushroom
 } from '../foliage/index.js';
 import { createCaveEntrance } from '../foliage/cave.js';
 import { validateFoliageMaterials } from '../foliage/common.ts';
@@ -57,17 +58,56 @@ interface WeatherSystem {
 const LAKE_BOUNDS = { minX: -38, maxX: 78, minZ: -28, maxZ: 68 };
 const LAKE_BOTTOM = -2.0;
 
-// Helper: Calculate Unified Ground Height (WASM + Visual Lake Modifiers)
+// --- Lake Island Configuration ---
+// Central island within the lake for musical flora focal point
+const LAKE_ISLAND = {
+    centerX: 20,           // Center X position (middle of lake)
+    centerZ: 20,           // Center Z position (middle of lake)
+    radius: 12,            // Island radius
+    peakHeight: 3.0,       // Height at center above water
+    falloffRadius: 4,      // Smooth blend at edges
+    enabled: true          // Toggle island generation
+};
+
+// Helper: Calculate Unified Ground Height (WASM + Visual Lake Modifiers + Island)
 // Matches logic in src/systems/physics.js
 function getUnifiedGroundHeight(x: number, z: number): number {
     let height = getGroundHeight(x, z);
 
+    // Check if we're in the lake bounds
     if (x > LAKE_BOUNDS.minX && x < LAKE_BOUNDS.maxX && z > LAKE_BOUNDS.minZ && z < LAKE_BOUNDS.maxZ) {
+        // Calculate distance from lake edges
         const distX = Math.min(x - LAKE_BOUNDS.minX, LAKE_BOUNDS.maxX - x);
         const distZ = Math.min(z - LAKE_BOUNDS.minZ, LAKE_BOUNDS.maxZ - z);
         const distEdge = Math.min(distX, distZ);
 
-        // Smooth blend area (10 units wide)
+        // Check if we're on the island
+        if (LAKE_ISLAND.enabled) {
+            const dx = x - LAKE_ISLAND.centerX;
+            const dz = z - LAKE_ISLAND.centerZ;
+            const distFromIslandCenter = Math.sqrt(dx * dx + dz * dz);
+            
+            if (distFromIslandCenter < LAKE_ISLAND.radius) {
+                // On the island - calculate height above water
+                const normalizedDist = distFromIslandCenter / LAKE_ISLAND.radius;
+                
+                // Smooth falloff using cosine curve for natural hill shape
+                const islandHeight = LAKE_ISLAND.peakHeight * Math.cos(normalizedDist * Math.PI / 2);
+                
+                // Blend at the edge of the island
+                const edgeDist = LAKE_ISLAND.radius - distFromIslandCenter;
+                const edgeBlend = Math.min(1.0, edgeDist / LAKE_ISLAND.falloffRadius);
+                
+                // Island height above water level (water is at ~1.5)
+                const waterLevel = 1.5;
+                const finalIslandHeight = waterLevel + (islandHeight * edgeBlend);
+                
+                // Return island height (don't apply lake depression)
+                return Math.max(height, finalIslandHeight);
+            }
+        }
+
+        // Not on island - apply lake depression
         const blend = Math.min(1.0, distEdge / 10.0);
         const targetHeight = THREE.MathUtils.lerp(height, LAKE_BOTTOM, blend);
 
@@ -328,6 +368,9 @@ export function generateMap(weatherSystem: WeatherSystem): void {
             else if (item.type === 'snare_trap') {
                 obj = createSnareTrap();
             }
+            else if (item.type === 'retrigger_mushroom') {
+                obj = createRetriggerMushroom({ scale: item.scale || 1.0 });
+            }
             else if (item.type === 'panning_pad') {
                 const panBias = x < 0 ? -1 : 1;
                 obj = createPanningPad({ radius: item.scale || 1.0, panBias: panBias });
@@ -387,7 +430,114 @@ export function generateMap(weatherSystem: WeatherSystem): void {
     safeAddFoliage(cave, false, 0, weatherSystem);
     console.log("[World] Cave spawned at ", caveX, caveZ, " Height:", caveY);
 
+    // --- NEW: Populate Lake Island with Musical Flora ---
+    populateLakeIsland(weatherSystem);
+
     populateProceduralExtras(weatherSystem);
+}
+
+/**
+ * Populates the Lake Island with a curated selection of musical flora.
+ * The island serves as a focal point for audio-reactive elements.
+ */
+function populateLakeIsland(weatherSystem: WeatherSystem): void {
+    if (!LAKE_ISLAND.enabled) return;
+    
+    console.log("[World] Populating Lake Island with musical flora...");
+    
+    const { centerX, centerZ, radius, peakHeight } = LAKE_ISLAND;
+    
+    // Central feature: Large Retrigger Mushroom
+    const centralMushroom = createRetriggerMushroom({ 
+        scale: 1.5, 
+        retriggerSpeed: 4,
+        color: 0x00FFFF 
+    });
+    const centralY = getUnifiedGroundHeight(centerX, centerZ);
+    centralMushroom.position.set(centerX, centralY, centerZ);
+    safeAddFoliage(centralMushroom, false, 0, weatherSystem);
+    
+    // Ring of Kick Drum Geysers around the perimeter
+    const geyserCount = 6;
+    const geyserRadius = radius * 0.7;
+    for (let i = 0; i < geyserCount; i++) {
+        const angle = (i / geyserCount) * Math.PI * 2;
+        const gx = centerX + Math.cos(angle) * geyserRadius;
+        const gz = centerZ + Math.sin(angle) * geyserRadius;
+        const gy = getUnifiedGroundHeight(gx, gz);
+        
+        const geyser = createKickDrumGeyser({ maxHeight: 4.0 + Math.random() * 2.0 });
+        geyser.position.set(gx, gy, gz);
+        geyser.rotation.y = angle + Math.PI; // Face outward
+        safeAddFoliage(geyser, false, 1.0, weatherSystem);
+    }
+    
+    // Inner ring: Alternating Vibrato Violets and Tremolo Tulips
+    const flowerCount = 8;
+    const flowerRadius = radius * 0.45;
+    for (let i = 0; i < flowerCount; i++) {
+        const angle = (i / flowerCount) * Math.PI * 2 + 0.3; // Offset from geysers
+        const fx = centerX + Math.cos(angle) * flowerRadius;
+        const fz = centerZ + Math.sin(angle) * flowerRadius;
+        const fy = getUnifiedGroundHeight(fx, fz);
+        
+        const flower = i % 2 === 0 
+            ? createVibratoViolet({ intensity: 1.2 })
+            : createTremoloTulip({ size: 1.2 });
+        flower.position.set(fx, fy, fz);
+        flower.rotation.y = Math.random() * Math.PI * 2;
+        safeAddFoliage(flower, false, 0, weatherSystem);
+    }
+    
+    // Scattered Arpeggio Ferns
+    const fernCount = 5;
+    for (let i = 0; i < fernCount; i++) {
+        // Random position within island
+        const randAngle = Math.random() * Math.PI * 2;
+        const randRadius = Math.random() * (radius * 0.6);
+        const fx = centerX + Math.cos(randAngle) * randRadius;
+        const fz = centerZ + Math.sin(randAngle) * randRadius;
+        const fy = getUnifiedGroundHeight(fx, fz);
+        
+        const fern = createArpeggioFern({ scale: 0.8 + Math.random() * 0.4 });
+        fern.position.set(fx, fy, fz);
+        fern.rotation.y = Math.random() * Math.PI * 2;
+        safeAddFoliage(fern, false, 0, weatherSystem);
+    }
+    
+    // Edge decorations: Cymbal Dandelions
+    const dandelionCount = 10;
+    for (let i = 0; i < dandelionCount; i++) {
+        const angle = (i / dandelionCount) * Math.PI * 2 + Math.random() * 0.2;
+        const edgeOffset = radius * 0.85 + Math.random() * (radius * 0.1);
+        const dx = centerX + Math.cos(angle) * edgeOffset;
+        const dz = centerZ + Math.sin(angle) * edgeOffset;
+        const dy = getUnifiedGroundHeight(dx, dz);
+        
+        // Only place if we're still above water
+        if (dy > 1.6) {
+            const dandelion = createCymbalDandelion({ scale: 0.7 + Math.random() * 0.3 });
+            dandelion.position.set(dx, dy, dz);
+            dandelion.rotation.y = Math.random() * Math.PI * 2;
+            safeAddFoliage(dandelion, false, 0, weatherSystem);
+        }
+    }
+    
+    // Corner accent: Snare Traps near the edges
+    const trapCount = 3;
+    for (let i = 0; i < trapCount; i++) {
+        const angle = (i / trapCount) * Math.PI * 2 + Math.PI / 6;
+        const tx = centerX + Math.cos(angle) * (radius * 0.55);
+        const tz = centerZ + Math.sin(angle) * (radius * 0.55);
+        const ty = getUnifiedGroundHeight(tx, tz);
+        
+        const trap = createSnareTrap({ scale: 0.9 });
+        trap.position.set(tx, ty, tz);
+        trap.rotation.y = angle;
+        safeAddFoliage(trap, true, 0.8, weatherSystem);
+    }
+    
+    console.log(`[World] Lake Island populated with musical flora at (${centerX}, ${centerZ})`);
 }
 
 function populateProceduralExtras(weatherSystem: WeatherSystem): void {
@@ -448,15 +598,17 @@ function populateProceduralExtras(weatherSystem: WeatherSystem): void {
             }
             else if (rand < 0.75) {
                  const type = Math.random();
-                 if (type < 0.20) {
+                 if (type < 0.15) {
                      obj = createArpeggioFern({ scale: 1.0 + Math.random() * 0.5 });
-                 } else if (type < 0.35) {
+                 } else if (type < 0.28) {
                      obj = createKickDrumGeyser({ maxHeight: 5.0 + Math.random() * 3.0 });
                      radius = 1.0;
-                 } else if (type < 0.50) {
+                 } else if (type < 0.40) {
                      obj = createSnareTrap({ scale: 0.8 + Math.random() * 0.4 });
                      isObstacle = true;
                      radius = 0.8;
+                 } else if (type < 0.50) {
+                     obj = createRetriggerMushroom({ scale: 0.8 + Math.random() * 0.4, retriggerSpeed: 2 + Math.floor(Math.random() * 6) });
                  } else if (type < 0.60) {
                      obj = createPortamentoPine({ height: 4.0 + Math.random() * 2.0 });
                      isObstacle = true;

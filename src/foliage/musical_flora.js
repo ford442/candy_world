@@ -228,6 +228,146 @@ export function createSnareTrap(options = {}) {
     return makeInteractive(reactiveGroup);
 }
 
+// --- Category 3: Audio Effect Flora ---
+
+/**
+ * Creates a Retrigger Mushroom - a glitchy, audio-reactive mushroom that creates
+ * stutter/retrigger effects when interacted with.
+ * 
+ * Visual: A compact mushroom with a pixelated, glitchy cap that shimmers with
+ * retrigger patterns. The cap has concentric ring segments that pulse independently.
+ * 
+ * Audio Behavior: When activated (by player proximity or kick trigger), it applies
+ * a stutter/retrigger effect to the visual representation and triggers a callback
+ * that can be used to affect audio playback.
+ * 
+ * @param {Object} options - Configuration options
+ * @param {number} options.color - Cap color (default: 0x00FFFF cyan)
+ * @param {number} options.scale - Overall scale (default: 1.0)
+ * @param {number} options.retriggerSpeed - Speed of retrigger effect (default: 4)
+ * @returns {THREE.Group} The retrigger mushroom group
+ */
+export function createRetriggerMushroom(options = {}) {
+    const { 
+        color: capColor = 0x00FFFF, 
+        scale = 1.0,
+        retriggerSpeed = 4  // Number of retriggers per beat
+    } = options;
+    const group = new THREE.Group();
+
+    // Stem - short and chunky for stability
+    const stemHeight = 0.4 * scale;
+    const stemGeo = new THREE.CylinderGeometry(0.12 * scale, 0.15 * scale, stemHeight, 8);
+    stemGeo.translate(0, stemHeight / 2, 0);
+    const stemMat = createClayMaterial(0x8B4513);
+    const stem = new THREE.Mesh(stemGeo, stemMat);
+    stem.castShadow = true;
+    group.add(stem);
+
+    // Cap - segmented ring design for retrigger visual effect
+    const capRadius = 0.35 * scale;
+    const capHeight = 0.15 * scale;
+    
+    // Main cap dome
+    const capGeo = new THREE.SphereGeometry(capRadius, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2);
+    capGeo.translate(0, stemHeight, 0);
+    
+    const capMat = createCandyMaterial(capColor, 0.3);
+    registerReactiveMaterial(capMat);
+    const cap = new THREE.Mesh(capGeo, capMat);
+    cap.castShadow = true;
+    group.add(cap);
+
+    // Concentric ring segments (for stutter visual effect)
+    const ringCount = 4;
+    const rings = [];
+    for (let i = 0; i < ringCount; i++) {
+        const innerR = (capRadius * 0.2) + (capRadius * 0.2 * i);
+        const outerR = innerR + (capRadius * 0.15);
+        const ringGeo = new THREE.RingGeometry(innerR, outerR, 16);
+        ringGeo.rotateX(-Math.PI / 2);
+        ringGeo.translate(0, stemHeight + 0.01 + (i * 0.005), 0);
+        
+        // Alternate colors for visual interest
+        const ringColor = i % 2 === 0 ? capColor : 0xFFFFFF;
+        const ringMat = createCandyMaterial(ringColor, 0.5);
+        registerReactiveMaterial(ringMat);
+        
+        const ring = new THREE.Mesh(ringGeo, ringMat);
+        ring.userData.ringIndex = i;
+        ring.userData.baseY = stemHeight + 0.01 + (i * 0.005);
+        rings.push(ring);
+        group.add(ring);
+    }
+
+    // Glitch particles around the mushroom
+    const particleCount = 20;
+    const particleGeo = new THREE.BufferGeometry();
+    const positions = new Float32Array(particleCount * 3);
+    const colors = new Float32Array(particleCount * 3);
+    
+    for (let i = 0; i < particleCount; i++) {
+        const angle = (i / particleCount) * Math.PI * 2;
+        const radius = capRadius * (0.8 + Math.random() * 0.4);
+        positions[i * 3] = Math.cos(angle) * radius;
+        positions[i * 3 + 1] = stemHeight + (Math.random() - 0.5) * 0.3;
+        positions[i * 3 + 2] = Math.sin(angle) * radius;
+        
+        // Cyan to white color
+        const brightness = 0.5 + Math.random() * 0.5;
+        colors[i * 3] = brightness * 0.5;
+        colors[i * 3 + 1] = brightness;
+        colors[i * 3 + 2] = brightness;
+    }
+    
+    particleGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    particleGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    
+    const particleMat = new THREE.PointsMaterial({
+        size: 0.05 * scale,
+        vertexColors: true,
+        transparent: true,
+        opacity: 0.6,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+    });
+    
+    const particles = new THREE.Points(particleGeo, particleMat);
+    particles.visible = false; // Only visible during retrigger
+    group.add(particles);
+
+    // Glow light
+    const light = new THREE.PointLight(capColor, 0, 3.0);
+    light.position.y = stemHeight;
+    group.add(light);
+
+    // Store references for animation
+    group.userData.cap = cap;
+    group.userData.capMaterial = capMat;
+    group.userData.rings = rings;
+    group.userData.particles = particles;
+    group.userData.light = light;
+    group.userData.stemHeight = stemHeight;
+    group.userData.retriggerSpeed = retriggerSpeed;
+    
+    // Retrigger state
+    group.userData.retriggerActive = false;
+    group.userData.retriggerPhase = 0;
+    group.userData.retriggerIntensity = 0;
+    
+    // Animation type for the animation system
+    group.userData.animationType = 'retriggerPulse';
+    group.userData.animationOffset = Math.random() * 10;
+    group.userData.type = 'retriggerMushroom';
+    group.userData.interactionText = "Trigger Retrigger";
+
+    // Interaction callback - called when player interacts
+    group.userData.onRetrigger = null; // Can be set externally to trigger audio effects
+
+    const reactiveGroup = attachReactivity(group);
+    return makeInteractive(reactiveGroup);
+}
+
 // --- Musical Flora Manager (Instancing support) ---
 
 import { batchAnimationCalc, uploadPositions } from '../utils/wasm-loader.js';

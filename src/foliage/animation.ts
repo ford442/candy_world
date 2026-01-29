@@ -796,4 +796,100 @@ export function animateFoliage(foliageObject: FoliageObject, time: number, audio
             coreMat.emissiveIntensity = 0.3 + eruptionStrength * 1.5 + Math.sin(time * 20) * 0.2 * eruptionStrength;
         }
     }
+    else if (type === 'retriggerPulse') {
+        // Retrigger Mushroom Animation - creates stutter/glitch visual effects
+        const cap = foliageObject.userData.cap;
+        const capMat = foliageObject.userData.capMaterial;
+        const rings = foliageObject.userData.rings;
+        const particles = foliageObject.userData.particles;
+        const light = foliageObject.userData.light;
+        const stemHeight = foliageObject.userData.stemHeight || 0.4;
+        const retriggerSpeed = foliageObject.userData.retriggerSpeed || 4;
+
+        // Trigger retrigger effect on kick (bass hits)
+        const kickThreshold = 0.25;
+        let retriggerIntensity = foliageObject.userData.retriggerIntensity || 0;
+        
+        if (kick > kickThreshold) {
+            retriggerIntensity = Math.min(1.0, retriggerIntensity + kick * 0.8);
+            foliageObject.userData.retriggerActive = true;
+            
+            // Trigger callback if set (for audio system integration)
+            if (foliageObject.userData.onRetrigger && retriggerIntensity > 0.5) {
+                foliageObject.userData.onRetrigger(retriggerSpeed, retriggerIntensity);
+            }
+        } else {
+            retriggerIntensity = Math.max(0, retriggerIntensity - 0.05);
+            if (retriggerIntensity < 0.1) {
+                foliageObject.userData.retriggerActive = false;
+            }
+        }
+        foliageObject.userData.retriggerIntensity = retriggerIntensity;
+        
+        // Retrigger phase (creates the "stutter" timing)
+        const phase = (time * retriggerSpeed * 10) % 1.0;
+        foliageObject.userData.retriggerPhase = phase;
+        
+        // Cap animation - quick scale pulses during retrigger
+        if (cap && retriggerIntensity > 0) {
+            const stutterPulse = phase < 0.5 ? 1.0 : 0.8;
+            const scaleMultiplier = 1.0 + (stutterPulse - 1.0) * retriggerIntensity * 0.3;
+            cap.scale.setScalar(scaleMultiplier);
+        } else if (cap) {
+            cap.scale.setScalar(1.0);
+        }
+        
+        // Ring animation - sequential flashes
+        if (rings && rings.length > 0) {
+            for (let i = 0; i < rings.length; i++) {
+                const ring = rings[i];
+                const ringPhase = (phase + (i / rings.length)) % 1.0;
+                const ringActive = ringPhase < 0.3 && retriggerIntensity > 0.2;
+                
+                // Vertical jitter
+                const baseY = ring.userData.baseY || stemHeight;
+                ring.position.y = baseY + (ringActive ? 0.02 * retriggerIntensity : 0);
+                
+                // Material intensity
+                if (ring.material && ring.material.emissiveIntensity !== undefined) {
+                    ring.material.emissiveIntensity = ringActive ? 0.8 * retriggerIntensity : 0.1;
+                }
+            }
+        }
+        
+        // Particles - visible and jittering during retrigger
+        if (particles) {
+            particles.visible = retriggerIntensity > 0.3;
+            
+            if (particles.visible && particles.geometry.attributes.position) {
+                const positions = particles.geometry.attributes.position.array as Float32Array;
+                for (let i = 0; i < positions.length / 3; i++) {
+                    // Random jitter based on retrigger phase
+                    if (phase < 0.2) {
+                        positions[i * 3] += (Math.random() - 0.5) * 0.02 * retriggerIntensity;
+                        positions[i * 3 + 2] += (Math.random() - 0.5) * 0.02 * retriggerIntensity;
+                    }
+                }
+                particles.geometry.attributes.position.needsUpdate = true;
+            }
+            
+            if (particles.material && (particles.material as any).opacity !== undefined) {
+                (particles.material as any).opacity = 0.3 + retriggerIntensity * 0.5;
+            }
+        }
+        
+        // Light - flashes with retrigger
+        if (light) {
+            const lightPulse = phase < 0.3 ? 1.0 : 0.2;
+            light.intensity = lightPulse * retriggerIntensity * 1.5;
+        }
+        
+        // Cap material glow
+        if (capMat && capMat.emissiveIntensity !== undefined) {
+            capMat.emissiveIntensity = 0.2 + retriggerIntensity * 0.8 * (phase < 0.3 ? 1.0 : 0.5);
+        }
+        
+        // Subtle wobble
+        foliageObject.rotation.z = Math.sin(time * 3 + offset) * 0.02 * (1 + retriggerIntensity);
+    }
 }

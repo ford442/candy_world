@@ -17,6 +17,7 @@ import { DISCOVERY_MAP } from './discovery_map.ts';
 import {
     calculateMovementInput,
     isInLakeBasin,
+    isOnLakeIsland,
     getUnifiedGroundHeightTyped,
     calculateWaterLevel,
     PlayerState as CorePlayerState,
