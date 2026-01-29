@@ -24,6 +24,7 @@ import { animatedFoliage, foliageGroup, activeVineSwing, foliageClouds, foliageM
 import { updatePhysics, player, bpmWind } from './src/systems/physics.ts';
 import { fireRainbow, updateBlaster } from './src/gameplay/rainbow-blaster.js';
 import { updateFallingClouds } from './src/foliage/clouds.js';
+import { cloudBatcher } from './src/foliage/cloud-batcher.ts';
 import { getGroundHeight } from './src/utils/wasm-loader.js';
 
 // Optimization: Hoist reusable objects to module scope to prevent GC in animation loop
@@ -575,6 +576,7 @@ function animate() {
 
         updateBlaster(delta, scene, weatherSystem, t);
         updateFallingClouds(delta, foliageClouds, getGroundHeight);
+        cloudBatcher.update(delta);
     });
 
     profiler.measure('Render', () => renderer.render(scene, camera));
