@@ -1,7 +1,7 @@
 // src/world/generation.ts
 
 import * as THREE from 'three';
-import { getGroundHeight } from '../utils/wasm-loader.js';
+import { getGroundHeight, initCollisionSystem, addCollisionObject, checkPositionValidity } from '../utils/wasm-loader.js';
 import {
     createSky, createStars, createMoon, createMushroom, createGlowingFlower,
     createFlower, createSubwooferLotus, createAccordionPalm, createFiberOpticWillow,
@@ -11,17 +11,18 @@ import {
     initGrassSystem, addGrassInstance,
     createArpeggioFern, createPortamentoPine, createCymbalDandelion, createSnareTrap,
     createBubbleWillow, createHelixPlant, createBalloonBush, createWisteriaCluster,
-    createPanningPad, createSilenceSpirit, createInstrumentShrine,
+    createPanningPad, createSilenceSpirit, createInstrumentShrine, createMelodyMirror,
+    createRetriggerMushroom,
     createIsland // Added
 } from '../foliage/index.js';
 import { createCaveEntrance } from '../foliage/cave.js';
-import { validateFoliageMaterials } from '../foliage/common.js';
-import { CONFIG } from '../core/config.js';
-import { registerPhysicsCave } from '../systems/physics.js';
+import { validateFoliageMaterials } from '../foliage/common.ts';
+import { CONFIG } from '../core/config.ts';
+import { registerPhysicsCave } from '../systems/physics.ts';
 import {
     animatedFoliage, obstacles, foliageGroup, foliageMushrooms,
     foliageClouds, foliageTrampolines, vineSwings, worldGroup
-} from './state.js';
+} from './state.ts';
 import mapData from '../../assets/map.json';
 
 // Type definitions for map data
