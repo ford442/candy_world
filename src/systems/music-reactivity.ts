@@ -284,10 +284,17 @@ export class MusicReactivitySystem {
             foliageBatcher.flush(camera, time);
 
             // Update Arpeggio Batcher
+<<<<<<< HEAD:src/systems/music-reactivity.ts
             arpeggioFernBatcher.update(audioState);
 
             // Update Portamento Batcher
             portamentoPineBatcher.update(time, audioState);
+=======
+            arpeggioFernBatcher.update();
+
+            // Update Portamento Batcher
+            portamentoPineBatcher.update();
+>>>>>>> pr-281:src/systems/music-reactivity.js
         }
     }
 
