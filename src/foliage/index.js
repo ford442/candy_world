@@ -12,6 +12,7 @@ export * from './environment.js';
 export * from './fireflies.ts';
 export * from './animation.ts';
 export * from './water.ts'; // Added Waveform Water
+export * from './lake_features.js'; // Added Island/Creek
 export * from './glitch.js'; // Added Glitch Shader
 export * from './chromatic.js'; // Added Chromatic Aberration
 
