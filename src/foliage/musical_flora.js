@@ -74,52 +74,70 @@ export function createArpeggioFern(options = {}) {
 }
 
 export function createPortamentoPine(options = {}) {
-    const { color = 0xCD7F32, height = 4.0 } = options;
+    const { height = 4.0 } = options;
     const group = new THREE.Group();
 
     // ⚡ OPTIMIZATION: Logic Object only (visuals are batched)
-    const hitGeo = new THREE.CylinderGeometry(0.4, 0.4, height);
+
+    // Use pr-281's batched, scaled logic object (keeps visuals instanced) but preserve
+    // HEAD's audio/reactivity behaviour so interactions still sound and affect bend state.
+    const scaleFactor = height / 4.0;
+
+    // Scale logic object so physics/interaction matches visual size
+    group.scale.setScalar(scaleFactor);
+
+    // Hitbox (Cylinder approx)
+    const hitGeo = new THREE.CylinderGeometry(0.5 * scaleFactor, 0.5 * scaleFactor, 4.0 * scaleFactor);
     const hitMat = new THREE.MeshBasicMaterial({ visible: false });
     const hitMesh = new THREE.Mesh(hitGeo, hitMat);
-    hitMesh.position.y = height / 2;
+    hitMesh.position.y = 2.0 * scaleFactor; // Center at half-height
     group.add(hitMesh);
 
-    group.userData.animationType = 'portamentoBend';
+    group.userData.animationType = 'batchedPortamento'; // Batched logic (matches batcher)
     group.userData.type = 'tree';
-    group.userData.interactionText = "Bend Tree";
+    group.userData.interactionText = 'Bend Tree';
 
-    // Reactivity State (for Batcher update loop)
-    group.userData.reactivityState = {
-        currentBend: 0,
-        velocity: 0
-    };
+    // Reactivity State (kept from HEAD so audio triggers still update logic)
+    group.userData.reactivityState = { currentBend: 0, velocity: 0 };
 
-    // React to Note
     group.userData.reactToNote = (noteInfo) => {
         if (noteInfo.channel === 2 || noteInfo.channel === 3) {
-             group.userData.reactivityState.velocity += 15.0 * (noteInfo.velocity || 0.5);
-             // Audio trigger
-             if (window.AudioSystem && typeof window.AudioSystem.playSound === 'function') {
-                 // Determine pitch based on note if available, else random
-                 const pitch = noteInfo.note ? 1.0 : 0.8 + Math.random() * 0.4;
-                 window.AudioSystem.playSound('creak', {
-                     position: group.position,
-                     pitch: pitch,
-                     volume: 0.3
-                 });
-             }
+            group.userData.reactivityState.velocity += 15.0 * (noteInfo.velocity || 0.5);
+            if (window.AudioSystem && typeof window.AudioSystem.playSound === 'function') {
+                const pitch = noteInfo.note ? 1.0 : 0.8 + Math.random() * 0.4;
+                window.AudioSystem.playSound('creak', { position: group.position, pitch, volume: 0.3 });
+            }
+            // Inform the batcher of reactive bend (batcher provides helper)
+            const idx = group.userData.batchIndex;
+            if (idx !== undefined && portamentoPineBatcher && typeof portamentoPineBatcher.setBendForIndex === 'function') {
+                portamentoPineBatcher.setBendForIndex(idx, group.userData.reactivityState.velocity);
+            }
         }
     };
 
-    // Placement Callback
     group.userData.onPlacement = () => {
         portamentoPineBatcher.register(group, options);
     };
 
-    // Add custom update logic
-    // We rely on portamentoPineBatcher.update() iterating over logic objects
+    const interactive = makeInteractive(group);
 
-    return makeInteractive(group);
+    // Sync interactions to batched instance
+    const originalEnter = group.userData.onGazeEnter;
+    const originalLeave = group.userData.onGazeLeave;
+
+    group.userData.onGazeEnter = () => {
+        if (originalEnter) originalEnter();
+        const batchIdx = group.userData.batchIndex;
+        if (batchIdx !== undefined) portamentoPineBatcher.updateInstance(batchIdx, group);
+    };
+
+    group.userData.onGazeLeave = () => {
+        if (originalLeave) originalLeave();
+        const batchIdx = group.userData.batchIndex;
+        if (batchIdx !== undefined) portamentoPineBatcher.updateInstance(batchIdx, group);
+    };
+
+    return interactive;
 }
 
 // --- Category 2: Rhythmic Structures ---
