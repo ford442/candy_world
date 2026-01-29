@@ -71,3 +71,19 @@
         animation-duration: 5s !important;
     }
 }
+
+/* 🎨 Palette: Button Keyboard Badges */
+.key-badge {
+    display: inline-block;
+    background: #ffffff;
+    color: #555;
+    border-radius: 6px;
+    padding: 1px 6px;
+    font-size: 0.85em;
+    font-weight: bold;
+    margin-left: 6px;
+    vertical-align: middle;
+    font-family: 'Consolas', monospace;
+    box-shadow: 0 2px 0 rgba(0,0,0,0.1);
+    border-bottom: 2px solid #e0e0e0;
+}
