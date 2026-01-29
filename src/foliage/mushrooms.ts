@@ -1,13 +1,19 @@
-// src/foliage/mushrooms.js
+// src/foliage/mushrooms.ts
 
 import * as THREE from 'three';
 import { mushroomBatcher } from './mushroom-batcher.ts';
 import { sharedGeometries } from './common.ts';
-import { uTime } from './common.ts'; // Check if we need this, probably not for registration
+
+// Interface for Note Definition
+export interface MushroomNote {
+    note: string;
+    color: number;
+    name: string;
+}
 
 // 12 Chromatic Notes with their corresponding colors
 // Colors are defined here to match CONFIG.noteColorMap.mushroom palette
-export const MUSHROOM_NOTES = [
+export const MUSHROOM_NOTES: MushroomNote[] = [
     { note: 'C',  color: 0xFF4040, name: 'C Red' },       // Red
     { note: 'C#', color: 0xEF1280, name: 'C# Magenta' },  // Magenta-Red
     { note: 'D',  color: 0xC020C0, name: 'D Magenta' },   // Magenta
@@ -23,11 +29,23 @@ export const MUSHROOM_NOTES = [
 ];
 
 // ⚡ PERFORMANCE: Material cache size (Mocked as we use Batcher now)
-export function getMaterialCacheSize() {
+export function getMaterialCacheSize(): number {
     return 1;
 }
 
-export function createMushroom(options = {}) {
+export interface MushroomOptions {
+    size?: 'regular' | 'giant';
+    scale?: number;
+    colorIndex?: number;
+    hasFace?: boolean;
+    isBouncy?: boolean;
+    note?: string | null;
+    noteIndex?: number;
+    spawnTime?: number;
+    isBioluminescent?: boolean;
+}
+
+export function createMushroom(options: MushroomOptions = {}): THREE.Group {
     const {
         size = 'regular',
         scale = 1.0,
@@ -36,7 +54,8 @@ export function createMushroom(options = {}) {
         isBouncy = false,
         note = null,
         noteIndex = -1,
-        spawnTime = -100.0 // Allow overriding spawn time (for pop-in)
+        spawnTime = -100.0, // Allow overriding spawn time (for pop-in)
+        isBioluminescent = false
     } = options;
 
     const group = new THREE.Group();
@@ -44,8 +63,8 @@ export function createMushroom(options = {}) {
 
     // Determine properties for batcher
     let actualNoteIndex = -1;
-    let noteColor = null;
-    let musicalNote = null;
+    let noteColor: number | null = null;
+    let musicalNote: string | null = null;
 
     if (noteIndex >= 0 && noteIndex < MUSHROOM_NOTES.length) {
         actualNoteIndex = noteIndex;
@@ -106,31 +125,10 @@ export function createMushroom(options = {}) {
         group.userData.onPlacement = null;
     };
 
-    // Reactivity Registration
-    // We still register with system for LOGIC (collision, maybe sound triggers?),
-    // but visuals are handled by TSL.
-    // Actually, MusicReactivitySystem handles sound triggers? No, AudioSystem does.
-    // MusicReactivitySystem handles visual response.
-    // MushroomBatcher.handleNote handles the visual response now.
-    // So do we need to register this group with MusicReactivitySystem?
-    // MusicReactivitySystem.updateTwilightGlow iterated mushrooms. We moved that to TSL.
-    // MusicReactivitySystem.update iterated mushrooms. We moved that to TSL.
-    // So we DON'T need to register with MusicReactivitySystem anymore!
-    // UNLESS there is non-visual logic there?
-    // checking music-reactivity.ts...
-    // handleNoteOn -> triggerReaction -> obj.reactToNote()
-    // createMushroom had `group.reactToNote`.
-    // We can move `reactToNote` logic (if any remains) to batcher?
-    // Old logic: set flashColor, intensity, scale animation.
-    // New logic: handled by TSL via attributes.
-    // So `reactToNote` on the group is DEAD.
-
-    // However, collision/gameplay might expect `userData` properties. We set those above.
-
     return group;
 }
 
-export function replaceMushroomWithGiant(scene, oldMushroom) {
+export function replaceMushroomWithGiant(scene: THREE.Scene, oldMushroom: THREE.Object3D): THREE.Object3D | null {
     if (!oldMushroom || !oldMushroom.parent) return null;
 
     const position = oldMushroom.position.clone();
@@ -160,6 +158,7 @@ export function replaceMushroomWithGiant(scene, oldMushroom) {
 
     // Manually trigger placement since we bypass safeAddFoliage
     if (newGiant.userData.onPlacement) {
+        // @ts-ignore - Dynamic property
         newGiant.userData.onPlacement();
     }
 

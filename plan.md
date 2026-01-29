@@ -10,12 +10,14 @@
 
 ## Next Steps
 
-1. **Phase 1 (JS -> TS)**: Continue migrating remaining foliage modules (`trees.legacy.js`, `mushrooms.js`, `berries.js`) and gameplay systems to TypeScript.
+1. **Phase 1 (JS -> TS)**: Migrate Core Modules (`src/core/input.js`, `src/core/cycle.js`) to TypeScript.
 
 ---
 
 ## Recent Progress
 - **Accomplished:**
+  - **Phase 1 (JS -> TS): Foliage Cleanup**: **Status: Implemented ✅**
+    - *Implementation Details:* Migrated `src/foliage/berries.js` and `src/foliage/mushrooms.js` to TypeScript (`.ts`). Added strict typing for `BerryClusterOptions` and `MushroomOptions`. Deleted dead code `src/foliage/trees.legacy.js` as its functionality is fully superseded by `src/foliage/trees.ts`. Updated `MushroomOptions` to support `isBioluminescent` for compatibility with WeatherSystem.
   - **Phase 1 (JS -> TS): Foliage Core Migration**: **Status: Implemented ✅**
     - *Implementation Details:* Migrated `src/foliage/common.js` (the central TSL material factory), `src/foliage/grass.js`, and `src/foliage/flowers.js` to TypeScript (`.ts`). Added strict typing for TSL nodes, material options, and geometry helpers. Updated 35+ dependent files to import from the new `.ts` modules. Verified build integrity via `vite build`.
   - **Phase 1 (JS -> TS): Foliage Migration**: **Status: Implemented ✅**
