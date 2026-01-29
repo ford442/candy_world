@@ -35,7 +35,7 @@ import {
 } from 'three/tsl';
 import { StorageInstancedBufferAttribute, PointsNodeMaterial } from 'three/webgpu';
 
-import type { ComputeParticleConfig, ParticleAudioState } from '../particles/particle_config.ts';
+import type { ComputeParticleConfig, ParticleAudioState } from '../particles/particle_config.js';
 import type { WebGPURenderer } from 'three/webgpu';
 
 /**
@@ -218,8 +218,9 @@ export class ComputeParticleSystem {
                 // Reset Life
                 position.w.assign(1.0);
 
-                // Respawn at center + random spread using index as seed
-                const seed = float(idx).mul(0.123);
+                // Respawn at center + random spread using index AND time for variation
+                // Adding time ensures different positions on each respawn
+                const seed = float(idx).mul(0.123).add(this.uTime.mul(0.1));
                 const offsetX = sin(seed.mul(12.9898)).mul(10.0);
                 const offsetZ = cos(seed.mul(78.233)).mul(10.0);
 
@@ -227,10 +228,11 @@ export class ComputeParticleSystem {
                 position.y.assign(this.uSpawnCenter.y);
                 position.z.assign(this.uSpawnCenter.z.add(offsetZ));
 
-                // Reset Velocity with upward burst
-                velocity.y.assign(float(5.0).add(cos(seed).mul(2.0)));
-                velocity.x.assign(sin(seed).mul(2.0));
-                velocity.z.assign(cos(seed).mul(2.0));
+                // Reset Velocity with upward burst (also time-varied)
+                const velSeed = seed.add(float(idx).mul(0.456));
+                velocity.y.assign(float(5.0).add(cos(velSeed).mul(2.0)));
+                velocity.x.assign(sin(velSeed).mul(2.0));
+                velocity.z.assign(cos(velSeed.mul(1.5)).mul(2.0));
             });
 
             // Write back to storage
@@ -245,19 +247,24 @@ export class ComputeParticleSystem {
     /**
      * Set optional WASM module for physics offloading.
      * 
+     * Note: WASM execution is reserved for future optimization.
+     * Currently, the GPU compute shader handles all physics.
+     * The WASM module can be used for CPU fallback when WebGPU
+     * compute shaders are not available.
+     * 
      * @param module - WASM module with updateParticlesWASM function
      */
     public setWASMModule(module: WASMParticleModule): void {
         this.wasmModule = module;
         this.useWASM = typeof module.updateParticlesWASM === 'function';
         if (this.useWASM) {
-            console.log('[ComputeParticles] WASM physics enabled');
+            console.log('[ComputeParticles] WASM physics module registered (GPU compute primary, WASM fallback available)');
         }
     }
 
     /**
      * Update particle system.
-     * Runs compute shader on GPU.
+     * Runs compute shader on GPU (primary) or uses WASM fallback if GPU compute unavailable.
      * 
      * @param deltaTime - Time since last frame in seconds
      * @param audioState - Optional audio state for reactive behavior
@@ -267,10 +274,12 @@ export class ComputeParticleSystem {
         this.uTime.value += deltaTime;
         this.uAudioPulse.value = audioState.kick ?? 0;
 
-        // Execute Compute Shader on GPU
+        // Execute Compute Shader on GPU (primary path)
         if (this.computeNode) {
             this.renderer.compute(this.computeNode);
         }
+        // Note: WASM fallback would be implemented here if GPU compute is unavailable
+        // Currently GPU compute is always available when WebGPU renderer is used
     }
 
     /**

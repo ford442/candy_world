@@ -4,7 +4,7 @@
  */
 
 // Material types and interfaces
-export * from './material_types.ts';
+export * from './material_types.js';
 
 // Material creation functions and factory
 export {
@@ -27,4 +27,4 @@ export {
     uAudioPulse,
     uAudioColor,
     updateAudioReactiveMaterials
-} from './materials.ts';
+} from './materials.js';
