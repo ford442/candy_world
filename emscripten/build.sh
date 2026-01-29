@@ -223,6 +223,11 @@ declare -A ANIMATION_FUNCTIONS=(
     ["fluidAddDensity"]="fluid"
     ["fluidAddVelocity"]="fluid"
     ["fluidGetDensityPtr"]="fluid"
+    
+    # Particle physics functions (particle_physics.cpp)
+    ["updateParticlesWASM"]="particle_physics"
+    ["getParticlePhysicsVersion"]="particle_physics"
+    ["initParticleRandom"]="particle_physics"
 )
 
 # Check each function and add to export list if it exists

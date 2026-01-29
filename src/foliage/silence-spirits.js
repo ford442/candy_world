@@ -13,7 +13,6 @@ import {
     uTime,
     uPlayerPosition
 } from './common.ts';
-import { color, float, mix, sin, cos, positionLocal, positionWorld, vec3, normalWorld, mx_noise_float, distance, smoothstep, max, min } from 'three/tsl';
 
 export function createSilenceSpirit(options = {}) {
     const group = new THREE.Group();
