@@ -1,7 +1,7 @@
 // src/world/generation.ts
 
 import * as THREE from 'three';
-import { getGroundHeight, initCollisionSystem, addCollisionObject, checkPositionValidity } from '../utils/wasm-loader.js';
+import { getGroundHeight } from '../utils/wasm-loader.js';
 import {
     createSky, createStars, createMoon, createMushroom, createGlowingFlower,
     createFlower, createSubwooferLotus, createAccordionPalm, createFiberOpticWillow,
@@ -11,17 +11,17 @@ import {
     initGrassSystem, addGrassInstance,
     createArpeggioFern, createPortamentoPine, createCymbalDandelion, createSnareTrap,
     createBubbleWillow, createHelixPlant, createBalloonBush, createWisteriaCluster,
-    createPanningPad, createSilenceSpirit, createInstrumentShrine, createMelodyMirror,
-    createRetriggerMushroom
+    createPanningPad, createSilenceSpirit, createInstrumentShrine,
+    createIsland // Added
 } from '../foliage/index.js';
 import { createCaveEntrance } from '../foliage/cave.js';
-import { validateFoliageMaterials } from '../foliage/common.ts';
-import { CONFIG } from '../core/config.ts';
-import { registerPhysicsCave } from '../systems/physics.ts';
+import { validateFoliageMaterials } from '../foliage/common.js';
+import { CONFIG } from '../core/config.js';
+import { registerPhysicsCave } from '../systems/physics.js';
 import {
     animatedFoliage, obstacles, foliageGroup, foliageMushrooms,
     foliageClouds, foliageTrampolines, vineSwings, worldGroup
-} from './state.ts';
+} from './state.js';
 import mapData from '../../assets/map.json';
 
 // Type definitions for map data
@@ -179,6 +179,11 @@ export function initWorld(scene: THREE.Scene, weatherSystem: WeatherSystem, load
     const melodyLake = createWaveformWater(120, 100);
     melodyLake.position.set(20, 1.5, 20); 
     scene.add(melodyLake);
+
+    // Lake Island
+    const island = createIsland({ radius: 15, height: 2 });
+    island.position.set(-40, 2.5, 40); // Place in the lake
+    safeAddFoliage(island, true, 15, weatherSystem);
 
     // Falling Berries
     initFallingBerries(scene);
@@ -543,7 +548,7 @@ function populateLakeIsland(weatherSystem: WeatherSystem): void {
 function populateProceduralExtras(weatherSystem: WeatherSystem): void {
     console.log("[World] Populating procedural extras...");
     if ((window as any).setLoadingStatus) (window as any).setLoadingStatus("Growing Procedural Flora...");
-    const extrasCount = 20; // ⚡ PERFORMANCE: Reduced from 40 to 20 to maintain ~2000-3000 total objects
+    const extrasCount = 400;
     const range = 150;
 
     for (let i = 0; i < extrasCount; i++) {
