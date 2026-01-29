@@ -8,7 +8,7 @@ import {
 import {
     sharedGeometries, foliageMaterials, uTime,
     uAudioLow, uAudioHigh, createRimLight, createJuicyRimLight
-} from './common.js';
+} from './common.ts';
 import { uTwilight } from './sky.ts';
 import { foliageGroup } from '../world/state.js'; // Assuming state.js exports foliageGroup
 
@@ -508,7 +508,7 @@ export class MushroomBatcher {
         if (indices) {
             // Get current time from uniform wrapper if possible, or pass it in.
             // But we need the CPU time to write to attribute.
-            // common.js exports `uTime` (node) but we need JS time.
+            // common.ts exports `uTime` (node) but we need JS time.
             // Using performance.now() / 1000 or a global time tracker?
             // `foliageBatcher` gets passed time.
             // We can approximate or use a Date.now().

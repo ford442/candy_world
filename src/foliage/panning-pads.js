@@ -8,7 +8,7 @@ import {
     attachReactivity,
     sharedGeometries,
     createStandardNodeMaterial
-} from './common.js';
+} from './common.ts';
 import { color, float, mix, uv, distance, vec2, smoothstep, uniform } from 'three/tsl';
 
 export function createPanningPad(options = {}) {

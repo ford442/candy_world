@@ -8,7 +8,7 @@ import {
 } from 'three/tsl';
 import {
     uAudioLow, createRimLight, triplanarNoise, perturbNormal
-} from './common.js';
+} from './common.ts';
 import { uTwilight } from './sky.ts';
 import { createWaterfall } from './waterfalls.js';
 

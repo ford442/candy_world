@@ -7,7 +7,7 @@ import {
     registerReactiveMaterial,
     attachReactivity,
     uTime
-} from './common.js';
+} from './common.ts';
 import { color, float, mix, sin, cos, positionLocal, vec3, normalWorld } from 'three/tsl';
 
 export function createSilenceSpirit(options = {}) {

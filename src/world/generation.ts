@@ -14,7 +14,7 @@ import {
     createPanningPad, createSilenceSpirit, createInstrumentShrine, createMelodyMirror
 } from '../foliage/index.js';
 import { createCaveEntrance } from '../foliage/cave.js';
-import { validateFoliageMaterials } from '../foliage/common.js';
+import { validateFoliageMaterials } from '../foliage/common.ts';
 import { CONFIG } from '../core/config.ts';
 import { registerPhysicsCave } from '../systems/physics.ts';
 import {

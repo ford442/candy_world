@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { foliageClouds } from '../world/state.ts'; // The list of active clouds
-import { createCandyMaterial } from '../foliage/common.js';
+import { createCandyMaterial } from '../foliage/common.ts';
 import { getCelestialState } from '../core/cycle.js'; // Import cycle check
 
 const PROJECTILES = [];

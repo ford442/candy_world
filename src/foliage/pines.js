@@ -9,7 +9,7 @@ import {
     mix,
     Fn
 } from 'three/tsl';
-import { attachReactivity } from './common.js';
+import { attachReactivity } from './common.ts';
 
 /**
  * Creates a "Portamento Pine" - A towering antenna cluster made of copper alloy.

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { color, vec3, time, sin, cos, uniform, mix, positionLocal } from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
-import { attachReactivity } from './common.js';
+import { attachReactivity } from './common.ts';
 
 // Moon Configuration
 export const moonConfig = {
