@@ -3,11 +3,11 @@ import { MeshStandardNodeMaterial } from 'three/webgpu';
 import {
     color, float, vec3, vec4, attribute, positionLocal,
     sin, cos, mix, smoothstep, uniform, If, time,
-    varying, dot, normalize, normalLocal, step
+    varying, dot, normalize, normalLocal, step, Fn, positionWorld
 } from 'three/tsl';
 import {
     sharedGeometries, foliageMaterials, uTime,
-    uAudioLow, uAudioHigh, createRimLight, createJuicyRimLight
+    uAudioLow, uAudioHigh, createRimLight, createJuicyRimLight, uPlayerPosition
 } from './common.ts';
 import { uTwilight } from './sky.ts';
 import { foliageGroup } from '../world/state.js'; // Assuming state.js exports foliageGroup
@@ -382,16 +382,62 @@ export class MushroomBatcher {
         const squashY = float(1.0).sub(bounceAmount.mul(0.3));
         const stretchXZ = float(1.0).add(bounceAmount.mul(0.3));
 
-        // 3. Combined Scale
+        // 3. Combined Scale (Audio)
         const totalScaleY = popScale.mul(squashY);
         const totalScaleXZ = popScale.mul(stretchXZ);
 
+        // --- PALETTE: Player Interaction (Squash) ---
+        const calculatePlayerSquash = Fn(() => {
+            const playerDist = positionWorld.sub(uPlayerPosition);
+            // Ignore Y distance (cylinder interaction)
+            const distSq = dot(playerDist.xz, playerDist.xz);
+
+            // Interaction Radius = 1.5m (Squash Zone)
+            const radiusSq = float(2.25);
+
+            // Normalized distance (0 to 1 inside radius)
+            const distFactor = distSq.div(radiusSq).min(1.0);
+
+            // Strength: 1.0 at center, 0.0 at edge
+            const strength = float(1.0).sub(smoothstep(0.0, 1.0, distFactor));
+
+            // Squash Y down, Bulge XZ out
+            const squashAmount = strength.mul(0.6); // Max 60% squash (strong feedback)
+
+            const scaleY = float(1.0).sub(squashAmount);
+            // Volume preservation approximation: XZ scales up
+            const scaleXZ = float(1.0).add(squashAmount.mul(0.5));
+
+            return vec3(scaleXZ, scaleY, scaleXZ);
+        });
+
+        // --- PALETTE: Idle Breathing (Life) ---
+        const calculateIdleBreathing = Fn(() => {
+            // Sine wave based on time + random offset (using positionWorld.x/z as seed)
+            // Note: positionWorld is expensive if used in vertex shader repeatedly?
+            // It's a varying or attribute. Safe to use.
+            const phase = uTime.mul(2.0).add(positionWorld.x).add(positionWorld.z);
+            const breath = sin(phase).mul(0.05); // +/- 5% scale
+
+            const scaleY = float(1.0).add(breath);
+            const scaleXZ = float(1.0).sub(breath.mul(0.5)); // Inverse breath
+
+            return vec3(scaleXZ, scaleY, scaleXZ);
+        });
+
         // Deformation Function
         const deform = (pos: any) => {
+            const squashScale = calculatePlayerSquash();
+            const breathScale = calculateIdleBreathing();
+
+            // Combine scales (Multiplicative)
+            const finalScaleY = totalScaleY.mul(squashScale.y).mul(breathScale.y);
+            const finalScaleXZ = totalScaleXZ.mul(squashScale.x).mul(breathScale.x);
+
             return vec3(
-                pos.x.mul(totalScaleXZ),
-                pos.y.mul(totalScaleY),
-                pos.z.mul(totalScaleXZ)
+                pos.x.mul(finalScaleXZ),
+                pos.y.mul(finalScaleY),
+                pos.z.mul(finalScaleXZ)
             );
         };
 
