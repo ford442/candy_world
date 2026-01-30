@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import {
     CandyPresets, attachReactivity, foliageMaterials
-} from './common.js';
+} from './common.ts';
 import {
     // positionLocal, vec3, float, mix, normalWorld, color, sin, time, uv, texture, mul, add
 } from 'three/tsl';
