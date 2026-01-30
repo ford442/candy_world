@@ -15,7 +15,10 @@ const _scratchOne = new THREE.Vector3(1, 1, 1);
 const _scratchWhite = new THREE.Color(0xFFFFFF);
 
 export function triggerGrowth(plants: FoliageObject[], intensity: number): void {
-    plants.forEach(plant => {
+    // ⚡ OPTIMIZATION: Use cached for-loop to avoid closure allocation
+    for (let i = 0, len = plants.length; i < len; i++) {
+        const plant = plants[i];
+
         // Initialize baseline scales if not present
         if (plant.userData.initialScale === undefined) {
             plant.userData.initialScale = plant.scale.x;
@@ -50,11 +53,13 @@ export function triggerGrowth(plants: FoliageObject[], intensity: number): void 
         if (Math.abs(nextScale - currentScale) > 0.0001) {
             plant.scale.setScalar(nextScale);
         }
-    });
+    }
 }
 
 export function triggerBloom(flowers: FoliageObject[], intensity: number): void {
-    flowers.forEach(flower => {
+    // ⚡ OPTIMIZATION: Use cached for-loop to avoid closure allocation
+    for (let i = 0, len = flowers.length; i < len; i++) {
+        const flower = flowers[i];
         if (flower.userData.type === 'flower') {
              if (flower.userData.isFlower || flower.userData.type === 'flower') {
                 if (!flower.userData.maxBloom) {
@@ -67,7 +72,7 @@ export function triggerBloom(flowers: FoliageObject[], intensity: number): void 
                 }
              }
         }
-    });
+    }
 }
 
 function applyWetEffect(material: FoliageMaterial, wetAmount: number): void {
