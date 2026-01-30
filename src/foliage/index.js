@@ -1,9 +1,9 @@
 // src/foliage/index.js
 // Export all foliage sub-modules
 export * from './common.ts';
-export * from './berries.js';
+export * from './berries.ts';
 export * from './grass.ts';
-export * from './mushrooms.js';
+export * from './mushrooms.ts';
 export * from './flowers.ts';
 export * from './trees.ts';
 export * from './clouds.js';

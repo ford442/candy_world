@@ -273,19 +273,21 @@ export class WeatherSystem {
         claimedMushrooms.clear();
 
         // 1. Register existing locks first
-        foliageClouds.forEach((cloud: any) => {
+        for (let i = 0, len = foliageClouds.length; i < len; i++) {
+            const cloud: any = foliageClouds[i];
             if (cloud.userData.targetMushroom) {
                 claimedMushrooms.add(cloud.userData.targetMushroom.uuid);
             }
-        });
+        }
 
         // 2. Process Clouds
-        foliageClouds.forEach((cloud: any) => {
+        for (let i = 0, len = foliageClouds.length; i < len; i++) {
+            const cloud: any = foliageClouds[i];
             // Skip dead/falling clouds
             if (cloud.userData.isFalling) {
                 // If it had a target, we implicitly release it by not moving towards it
                 cloud.userData.targetMushroom = null;
-                return;
+                continue;
             }
 
             // A. Find Target (if none)
@@ -293,7 +295,8 @@ export class WeatherSystem {
                 let minDist = 1000;
                 let candidate = null;
 
-                for (const m of this.trackedMushrooms) {
+                for (let j = 0, mLen = this.trackedMushrooms.length; j < mLen; j++) {
+                    const m = this.trackedMushrooms[j];
                     // Rule: Don't target if already claimed by another cloud
                     if (claimedMushrooms.has(m.uuid)) continue;
 
@@ -320,7 +323,7 @@ export class WeatherSystem {
                 // Safety check: Mushroom might have been deleted/replaced
                 if (!target.parent) {
                     cloud.userData.targetMushroom = null;
-                    return;
+                    continue;
                 }
 
                 // Steer
@@ -338,7 +341,7 @@ export class WeatherSystem {
                     }
                 }
             }
-        });
+        }
     }
 
     transformMushroom(oldMushroom: any) {
@@ -354,14 +357,15 @@ export class WeatherSystem {
 
             // Critical: Update the Cloud's reference!
             // Find the cloud that was targeting the old mushroom
-            foliageClouds.forEach((c: any) => {
+            for (let i = 0, len = foliageClouds.length; i < len; i++) {
+                const c: any = foliageClouds[i];
                 if (c.userData.targetMushroom === oldMushroom) {
                     c.userData.targetMushroom = newGiant;
 
                     // Lift the cloud up! Giants are tall.
                     c.position.y = Math.max(c.position.y, newGiant.position.y + 25);
                 }
-            });
+            }
         }
     }
 
@@ -592,13 +596,14 @@ export class WeatherSystem {
         this.windDirection.normalize();
 
         let giantsX = 0, giantsZ = 0, giantsCount = 0;
-        this.trackedMushrooms.forEach(m => {
+        for (let i = 0, len = this.trackedMushrooms.length; i < len; i++) {
+            const m = this.trackedMushrooms[i];
             if (m.userData.size === 'giant') {
                 giantsX += m.position.x;
                 giantsZ += m.position.z;
                 giantsCount++;
             }
-        });
+        }
 
         if (giantsCount > 0) {
             const centerX = giantsX / giantsCount;
@@ -676,7 +681,8 @@ export class WeatherSystem {
     updateMushroomWaterfalls(time: number, bassIntensity: number) {
         const isRaining = this.state !== WeatherState.CLEAR && this.intensity > 0.4;
 
-        this.trackedMushrooms.forEach(mushroom => {
+        for (let i = 0, len = this.trackedMushrooms.length; i < len; i++) {
+            const mushroom = this.trackedMushrooms[i];
             if (mushroom.userData.size === 'giant') {
                 const uuid = mushroom.uuid;
 
@@ -705,7 +711,7 @@ export class WeatherSystem {
                     }
                 }
             }
-        });
+        }
     }
 
     applyDarknessLogic(celestial: any, moonPhase: number) {
@@ -857,12 +863,25 @@ export class WeatherSystem {
 
     chargeBerryGlow(bassIntensity: number) {
         const chargeAmount = bassIntensity * 0.05;
-        this.trackedTrees.forEach(tree => { if (tree.userData.berries) chargeBerries(tree.userData.berries, chargeAmount); });
-        this.trackedShrubs.forEach(shrub => { if (shrub.userData.berries) chargeBerries(shrub.userData.berries, chargeAmount); });
+
+        for (let i = 0, len = this.trackedTrees.length; i < len; i++) {
+            const tree = this.trackedTrees[i];
+            if (tree.userData.berries) chargeBerries(tree.userData.berries, chargeAmount);
+        }
+        for (let i = 0, len = this.trackedShrubs.length; i < len; i++) {
+            const shrub = this.trackedShrubs[i];
+            if (shrub.userData.berries) chargeBerries(shrub.userData.berries, chargeAmount);
+        }
 
         if (bassIntensity > 0.6) {
-            this.trackedTrees.forEach(tree => { if (tree.userData.berries) shakeBerriesLoose(tree.userData.berries, bassIntensity); });
-            this.trackedShrubs.forEach(shrub => { if (shrub.userData.berries) shakeBerriesLoose(shrub.userData.berries, bassIntensity); });
+            for (let i = 0, len = this.trackedTrees.length; i < len; i++) {
+                const tree = this.trackedTrees[i];
+                if (tree.userData.berries) shakeBerriesLoose(tree.userData.berries, bassIntensity);
+            }
+            for (let i = 0, len = this.trackedShrubs.length; i < len; i++) {
+                const shrub = this.trackedShrubs[i];
+                if (shrub.userData.berries) shakeBerriesLoose(shrub.userData.berries, bassIntensity);
+            }
         }
     }
 
