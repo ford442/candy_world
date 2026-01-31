@@ -2,14 +2,20 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { foliageGroup } from '../world/state.ts';
 import {
-  createClayMaterial,
-  createCandyMaterial,
+  createUnifiedMaterial,
   registerReactiveMaterial,
-  uGlitchIntensity
+  calculateWindSway,
+  calculatePlayerPush
 } from './common.ts';
-import { vec3, positionLocal, sin, attribute, uv } from 'three/tsl';
-import { uTime } from './common.ts';
-import { applyGlitch } from './glitch.js';
+import {
+  vec3,
+  positionLocal,
+  attribute,
+  uv,
+  mix,
+  color,
+  float
+} from 'three/tsl';
 
 const MAX_PINES = 200; // conservative default for performance
 
@@ -69,29 +75,54 @@ export class PortamentoPineBatcher {
       return;
     }
 
-    const trunkMat = createClayMaterial(0x8b4513);
-    const needleMat = createCandyMaterial(0x2e8b57, 0.5);
+    // --- TSL ANIMATION LOGIC ---
+    // Combined deformation: Note Bend + Wind Sway + Player Push
+    const animatedPosition = (basePos) => {
+        // 1. Instance Bend (Note Play)
+        const instanceBend = attribute('instanceBend', 'float');
+        // Quadratic bend: more at top
+        const bendDisplace = vec3(instanceBend.mul(basePos.y.pow(2.0)), float(0.0), float(0.0));
+
+        // 2. Wind Sway (Ambient)
+        const windDisplace = calculateWindSway(basePos);
+
+        // 3. Player Push (Interaction)
+        const pushDisplace = calculatePlayerPush(basePos);
+
+        return basePos.add(bendDisplace).add(windDisplace).add(pushDisplace);
+    };
+
+    const animPos = animatedPosition(positionLocal);
+
+    // --- MATERIALS ---
+
+    // 1. Trunk: Magic Copper with Patina
+    const trunkMat = createUnifiedMaterial(0xB87333, {
+        metalness: 0.8,
+        roughness: 0.4,
+        bumpStrength: 0.2, // Oxidation texture
+        noiseScale: 4.0,
+        triplanar: true,
+        iridescenceStrength: 0.3, // Oil slick look
+        colorNode: mix(color(0xB87333), color(0x2E8B57), positionLocal.y.mul(0.25).min(1.0)), // Green at bottom
+        deformationNode: animPos
+    });
+
+    // 2. Needles: Glowing Emerald Glass
+    const needleMat = createUnifiedMaterial(0x2E8B57, {
+        transmission: 0.4,
+        roughness: 0.2,
+        sheen: 1.0,
+        sheenColor: 0x00FF00,
+        audioReactStrength: 1.0, // Pulse with music
+        deformationNode: animPos
+    });
+
     registerReactiveMaterial(needleMat);
 
     this.bendAttribute = new THREE.InstancedBufferAttribute(new Float32Array(MAX_PINES), 1);
     trunkGeo.setAttribute('instanceBend', this.bendAttribute);
     needleGeo.setAttribute('instanceBend', this.bendAttribute);
-
-    // TSL bending logic (audio-reactive hook left via instanceBend)
-    const applyBend = (material) => {
-      const instanceBend = attribute('instanceBend', 'float');
-      const pos = positionLocal;
-      const bendFactor = pos.y.mul(0.2);
-      const bendCurve = bendFactor.mul(bendFactor);
-      const wobble = sin(uTime.mul(3.0).add(pos.y)).mul(0.1).mul(instanceBend);
-      const bendOffset = bendCurve.mul(instanceBend).add(wobble);
-      const newPos = pos.add(vec3(bendOffset, 0, 0));
-      const glitched = applyGlitch(uv(), newPos, uGlitchIntensity || 0.0);
-      material.positionNode = glitched.position;
-    };
-
-    applyBend(trunkMat);
-    applyBend(needleMat);
 
     this.trunkMesh = new THREE.InstancedMesh(trunkGeo, trunkMat, MAX_PINES);
     this.needleMesh = new THREE.InstancedMesh(needleGeo, needleMat, MAX_PINES);
@@ -104,7 +135,7 @@ export class PortamentoPineBatcher {
     foliageGroup.add(this.needleMesh);
 
     this.initialized = true;
-    console.log('[PortamentoPineBatcher] Initialized');
+    console.log('[PortamentoPineBatcher] Initialized (Magic Copper Edition)');
   }
 
   register(dummy: THREE.Object3D, options = {}) {
@@ -112,6 +143,11 @@ export class PortamentoPineBatcher {
     if (this.count >= MAX_PINES) {
       console.warn('[PortamentoBatcher] Max limit reached');
       return;
+    }
+
+    // Safety: Ensure physics state exists if not initialized by logic object factory
+    if (!dummy.userData.reactivityState) {
+        dummy.userData.reactivityState = { currentBend: 0, velocity: 0 };
     }
 
     const i = this.count++;
@@ -151,30 +187,47 @@ export class PortamentoPineBatcher {
   }
 
   setBendForIndex(idx: number, value: number) {
-    if (!this.bendAttribute) return;
-    this.bendAttribute.array[idx] = value;
-    this.bendAttribute.needsUpdate = true;
+    // Legacy support for musical_flora.js:
+    // This function is called with 'velocity' by the logic object logic.
+    // However, the logic object updates its own shared state (dummy.userData.reactivityState).
+    // The physics loop in update() below reads that state directly.
+    // So we don't need to manually update the attribute here; the loop handles it
+    // including the spring physics integration.
   }
 
-  update() {
+  update(time: number, audioState: any) {
     if (!this.initialized || this.count === 0) return;
-    const time = performance.now() * 0.001;
+
     let needsUpdate = false;
+    const dt = 0.016; // Fixed physics step
 
     for (let i = 0; i < this.count; i++) {
-      const dummy = this.logicPines[i];
-      if (!dummy) continue;
-      let targetBend = Math.sin(time + i) * 0.2;
-      if (dummy.userData?.isHovered) targetBend += 0.5;
-      const last = (dummy.userData && dummy.userData._lastBend) || 0;
-      if (Math.abs(targetBend - last) > 0.01) {
-        dummy.userData._lastBend = targetBend;
-        this.bendAttribute!.setX(i, targetBend);
-        needsUpdate = true;
-      }
+        const pine = this.logicPines[i];
+        if (!pine || !pine.userData.reactivityState) continue;
+
+        const state = pine.userData.reactivityState; // { currentBend, velocity }
+
+        // Spring Physics (Hooke's Law + Damping)
+        const k = 10.0;     // Stiffness
+        const damp = 0.92;  // Friction
+
+        const force = -k * state.currentBend;
+        state.velocity += force * dt;
+        state.velocity *= damp;
+        state.currentBend += state.velocity * dt;
+
+        // If significant change, update attribute
+        const last = pine.userData._lastUploadedBend || 0;
+        if (Math.abs(state.currentBend - last) > 0.001) {
+             this.bendAttribute!.setX(i, state.currentBend);
+             pine.userData._lastUploadedBend = state.currentBend;
+             needsUpdate = true;
+        }
     }
 
-    if (needsUpdate) this.bendAttribute!.needsUpdate = true;
+    if (needsUpdate) {
+        this.bendAttribute!.needsUpdate = true;
+    }
   }
 }
 
