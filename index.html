@@ -245,6 +245,30 @@
             z-index: 300;
             font-family: 'Segoe UI', sans-serif;
         }
+        #playlistCloseX {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            color: #FF6B6B;
+            cursor: pointer;
+            padding: 5px;
+            line-height: 1;
+            border-radius: 50%;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s, transform 0.2s;
+        }
+        #playlistCloseX:hover {
+            background: #FFF0F5;
+            transform: scale(1.1);
+        }
+
         #playlist-overlay h2 {
             color: #FF6B6B;
             margin: 0 0 15px 0;
@@ -613,6 +637,7 @@
     <div id="playlist-backdrop" aria-hidden="true"></div>
 
     <div id="playlist-overlay" role="dialog" aria-modal="true" aria-labelledby="playlist-title" tabindex="-1">
+        <button id="playlistCloseX" aria-label="Close Jukebox">×</button>
         <h2 id="playlist-title">🎵 Jukebox</h2>
         <ul id="playlist-list" aria-label="Current playlist">
         </ul>

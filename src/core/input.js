@@ -60,6 +60,7 @@ export function initInput(camera, audioSystem, toggleDayNightCallback, shouldPre
     const playlistBackdrop = document.getElementById('playlist-backdrop');
     const playlistList = document.getElementById('playlist-list');
     const closePlaylistBtn = document.getElementById('closePlaylistBtn');
+    const playlistCloseX = document.getElementById('playlistCloseX');
     const playlistUploadInput = document.getElementById('playlistUploadInput');
     const openJukeboxBtn = document.getElementById('openJukeboxBtn');
 
@@ -259,6 +260,10 @@ export function initInput(camera, audioSystem, toggleDayNightCallback, shouldPre
     // Event Listeners for UI
     if (closePlaylistBtn) {
         closePlaylistBtn.addEventListener('click', togglePlaylist);
+    }
+
+    if (playlistCloseX) {
+        playlistCloseX.addEventListener('click', togglePlaylist);
     }
 
     if (playlistBackdrop) {
