@@ -15,8 +15,8 @@ import { profiler } from './src/utils/profiler.js';
 // Core imports
 import { PALETTE, CYCLE_DURATION, DURATION_SUNRISE, DURATION_DAY, DURATION_SUNSET, DURATION_DUSK_NIGHT, DURATION_DEEP_NIGHT } from './src/core/config.ts';
 import { initScene, forceFullSceneWarmup } from './src/core/init.js';
-import { initInput, keyStates } from './src/core/input.js';
-import { getCycleState } from './src/core/cycle.js';
+import { initInput, keyStates } from './src/core/input.ts';
+import { getCycleState } from './src/core/cycle.ts';
 
 // World & System imports
 import { initWorld, generateMap } from './src/world/generation.ts';

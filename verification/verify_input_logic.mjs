@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 
-const inputFilePath = path.join(process.cwd(), 'src/core/input.js');
+const inputFilePath = path.join(process.cwd(), 'src/core/input.ts');
 
 console.log(`Checking ${inputFilePath}...`);
 
@@ -16,7 +16,8 @@ try {
         },
         {
             name: "State Capture Logic",
-            pattern: /wasPausedBeforePlaylist = instructions && instructions\.style\.display !== 'none';/,
+            // Allow for JS (&&) or TS (ternary with null check) styles
+            pattern: /wasPausedBeforePlaylist = instructions.*display !== 'none'/,
             error: "Missing logic to capture pause state."
         },
         {
@@ -26,7 +27,8 @@ try {
         },
         {
             name: "Focus Restoration",
-            pattern: /if \(lastFocusedElement\) \{[\s\S]*?lastFocusedElement\.focus\(\);/,
+            // Allow for TS casting (lastFocusedElement as HTMLElement).focus()
+            pattern: /if \(lastFocusedElement\) \{[\s\S]*?(\(lastFocusedElement as HTMLElement\)|lastFocusedElement)\.focus\(\);/,
             error: "Missing logic to restore focus."
         }
     ];

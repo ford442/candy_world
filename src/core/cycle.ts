@@ -1,13 +1,14 @@
-// src/core/cycle.js
+// src/core/cycle.ts
 
 import * as THREE from 'three';
 import {
     PALETTE, CYCLE_DURATION, DURATION_SUNRISE, DURATION_DAY,
-    DURATION_SUNSET, DURATION_DUSK_NIGHT, DURATION_DEEP_NIGHT, DURATION_PRE_DAWN
-} from './config.ts';
+    DURATION_SUNSET, DURATION_DUSK_NIGHT, DURATION_DEEP_NIGHT, DURATION_PRE_DAWN,
+    PaletteEntry
+} from './config'; // Assuming config is also migrated or resolves correctly
 
 // --- Reusable Color Pool for Render Loop (prevents GC pressure) ---
-export const _scratchPalette = {
+export const _scratchPalette: PaletteEntry = {
     skyTop: new THREE.Color(),
     skyBot: new THREE.Color(),
     horizon: new THREE.Color(),
@@ -19,7 +20,7 @@ export const _scratchPalette = {
     atmosphereIntensity: 0
 };
 
-export function lerpPalette(p1, p2, t) {
+export function lerpPalette(p1: PaletteEntry, p2: PaletteEntry, t: number): PaletteEntry {
     _scratchPalette.skyTop.copy(p1.skyTop).lerp(p2.skyTop, t);
     _scratchPalette.skyBot.copy(p1.skyBot).lerp(p2.skyBot, t);
     _scratchPalette.horizon.copy(p1.horizon).lerp(p2.horizon, t);
@@ -33,7 +34,7 @@ export function lerpPalette(p1, p2, t) {
 }
 
 // --- Cycle Interpolation ---
-export function getCycleState(tRaw, paletteMode = 'standard') {
+export function getCycleState(tRaw: number, paletteMode: string = 'standard'): PaletteEntry {
     const t = tRaw % CYCLE_DURATION;
 
     // Determine target palettes based on mode
@@ -102,7 +103,7 @@ export function getCycleState(tRaw, paletteMode = 'standard') {
 
 
 // --- NEW: Helper to get celestial intensities ---
-export function getCelestialState(tRaw) {
+export function getCelestialState(tRaw: number): { sunIntensity: number, moonIntensity: number } {
     const t = tRaw % CYCLE_DURATION;
     const SUNRISE_END = DURATION_SUNRISE;
     const SUNSET_START = DURATION_SUNRISE + DURATION_DAY;
@@ -141,7 +142,14 @@ const YEAR_LENGTH = CYCLE_DURATION * 40; // 40 in-game days per year
 // Moon cycle = 8 days so it slowly drifts against the 10-day seasons
 const MOON_CYCLE_LENGTH = CYCLE_DURATION * 8; // Full moon every 8 days
 
-export function getSeasonalState(tRaw) {
+export interface SeasonalState {
+    season: string;
+    sunInclination: number;
+    moonPhase: number;
+    yearProgress: number;
+}
+
+export function getSeasonalState(tRaw: number): SeasonalState {
     // 1. Calculate Year Progress (0.0 to 1.0)
     // 0.0 = Spring Start
     // 0.25 = Summer Start
