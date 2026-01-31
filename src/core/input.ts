@@ -1,8 +1,22 @@
-// src/core/input.js
+// src/core/input.ts
 
+import * as THREE from 'three';
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js';
+import { AudioSystem } from '../audio/audio-system';
 
-export const keyStates = {
+export interface KeyStates {
+    forward: boolean;
+    backward: boolean;
+    left: boolean;
+    right: boolean;
+    jump: boolean;
+    sprint: boolean;
+    sneak: boolean;
+    dash: boolean;
+    dance: boolean;
+}
+
+export const keyStates: KeyStates = {
     forward: false,
     backward: false,
     left: false,
@@ -16,7 +30,7 @@ export const keyStates = {
 
 // Controls and Event Listeners
 // Helper: Show temporary success feedback on upload buttons
-const showUploadFeedback = (labelElement, filesCount) => {
+const showUploadFeedback = (labelElement: HTMLElement | null, filesCount: number) => {
     if (!labelElement) return;
 
     // Save original text if not already saved
@@ -24,7 +38,7 @@ const showUploadFeedback = (labelElement, filesCount) => {
         labelElement.dataset.originalText = labelElement.innerText;
     }
 
-    const originalText = labelElement.dataset.originalText;
+    const originalText = labelElement.dataset.originalText || '';
     labelElement.innerText = `✅ ${filesCount} Song${filesCount > 1 ? 's' : ''} Added!`;
 
     setTimeout(() => {
@@ -33,10 +47,10 @@ const showUploadFeedback = (labelElement, filesCount) => {
 };
 
 // Helper: Validate and filter files by extension
-const filterValidMusicFiles = (files) => {
+const filterValidMusicFiles = (files: FileList | File[]) => {
     const validExtensions = ['.mod', '.xm', '.it', '.s3m'];
-    const validFiles = [];
-    const invalidFiles = [];
+    const validFiles: File[] = [];
+    const invalidFiles: File[] = [];
 
     for (let i = 0; i < files.length; i++) {
         const file = files[i];
@@ -50,7 +64,18 @@ const filterValidMusicFiles = (files) => {
     return { validFiles, invalidFiles };
 };
 
-export function initInput(camera, audioSystem, toggleDayNightCallback, shouldPreventMenuOnUnlock) {
+export interface InitInputReturn {
+    controls: PointerLockControls;
+    updateReticleState: (state: 'idle' | 'hover' | 'interact', label?: string) => void;
+    updateDayNightButtonState: (isPressed: boolean) => void;
+}
+
+export function initInput(
+    camera: THREE.Camera,
+    audioSystem: AudioSystem,
+    toggleDayNightCallback?: () => void,
+    shouldPreventMenuOnUnlock?: () => boolean
+): InitInputReturn {
     const controls = new PointerLockControls(camera, document.body);
     const instructions = document.getElementById('instructions');
     const startButton = document.getElementById('startButton');
@@ -64,7 +89,7 @@ export function initInput(camera, audioSystem, toggleDayNightCallback, shouldPre
     const openJukeboxBtn = document.getElementById('openJukeboxBtn');
 
     let isPlaylistOpen = false;
-    let lastFocusedElement = null; // Store focus before opening modal
+    let lastFocusedElement: Element | null = null; // Store focus before opening modal
 
     // --- NEW: Visual Reticle (Crosshair) ---
     // Check if it exists; if not, create it
@@ -75,7 +100,7 @@ export function initInput(camera, audioSystem, toggleDayNightCallback, shouldPre
     }
 
     // Function to animate reticle based on state using CSS classes
-    function updateReticleState(state, label) {
+    function updateReticleState(state: 'idle' | 'hover' | 'interact', label?: string) {
         const reticle = document.getElementById('game-reticle');
         if (!reticle) return;
         const reticleLabel = document.getElementById('reticle-label');
@@ -109,7 +134,7 @@ export function initInput(camera, audioSystem, toggleDayNightCallback, shouldPre
         const songs = audioSystem.getPlaylist();
         const currentIdx = audioSystem.getCurrentIndex();
 
-        songs.forEach((file, index) => {
+        songs.forEach((file: File, index: number) => {
             const li = document.createElement('li');
             li.className = `playlist-item ${index === currentIdx ? 'active' : ''}`;
 
@@ -136,7 +161,7 @@ export function initInput(camera, audioSystem, toggleDayNightCallback, shouldPre
                 // Keep focus on the clicked item (re-rendered)
                 // We need to find the new button after render
                 requestAnimationFrame(() => {
-                    const newItems = playlistList.querySelectorAll('.playlist-btn');
+                    const newItems = playlistList.querySelectorAll('.playlist-btn') as NodeListOf<HTMLElement>;
                     if (newItems[index]) newItems[index].focus();
                 });
             };
@@ -169,7 +194,7 @@ export function initInput(camera, audioSystem, toggleDayNightCallback, shouldPre
     }
 
     // UX: Update Jukebox Button text with song count
-    function updateJukeboxButtonState(count) {
+    function updateJukeboxButtonState(count: number) {
         if (!openJukeboxBtn) return;
         const countText = count > 0 ? ` (${count})` : '';
         openJukeboxBtn.innerHTML = `Open Jukebox${countText} <span class="key-badge">Q</span>`;
@@ -182,13 +207,13 @@ export function initInput(camera, audioSystem, toggleDayNightCallback, shouldPre
     }
 
     // Hook up AudioSystem callbacks
-    audioSystem.onPlaylistUpdate = (playlist) => {
+    audioSystem.onPlaylistUpdate = (playlist: File[]) => {
         if (isPlaylistOpen) renderPlaylist();
         updateJukeboxButtonState(playlist ? playlist.length : 0);
     };
 
     // UX: Show toast and update playlist when track changes
-    audioSystem.onTrackChange = (index) => {
+    audioSystem.onTrackChange = (index: number) => {
         if (isPlaylistOpen) renderPlaylist();
 
         // Show "Now Playing" toast
@@ -213,31 +238,33 @@ export function initInput(camera, audioSystem, toggleDayNightCallback, shouldPre
 
             // 🎨 Palette: Smart Context Preservation
             // Check if we are opening from the Pause Menu (instructions visible)
-            wasPausedBeforePlaylist = instructions && instructions.style.display !== 'none';
+            wasPausedBeforePlaylist = instructions ? (instructions.style.display !== 'none') : false;
 
             lastFocusedElement = document.activeElement;
             controls.unlock(); // Unlock mouse so we can click
             if (instructions) instructions.style.display = 'none'; // Ensure pause menu is hidden
-            playlistOverlay.style.display = 'flex';
+            if (playlistOverlay) playlistOverlay.style.display = 'flex';
             if (playlistBackdrop) playlistBackdrop.style.display = 'block';
             renderPlaylist();
             // UX: Auto-focus the currently playing track for immediate context
             requestAnimationFrame(() => {
                 const currentIdx = audioSystem.getCurrentIndex();
-                const playlistBtns = playlistList.querySelectorAll('.playlist-btn');
+                if (playlistList) {
+                    const playlistBtns = playlistList.querySelectorAll('.playlist-btn') as NodeListOf<HTMLElement>;
 
-                if (currentIdx >= 0 && playlistBtns[currentIdx]) {
-                    const activeBtn = playlistBtns[currentIdx];
-                    activeBtn.focus();
-                    // Ensure the active song is visible in the scrollable list
-                    activeBtn.scrollIntoView({ block: 'center' });
-                } else if (closePlaylistBtn) {
-                    closePlaylistBtn.focus();
+                    if (currentIdx >= 0 && playlistBtns[currentIdx]) {
+                        const activeBtn = playlistBtns[currentIdx];
+                        activeBtn.focus();
+                        // Ensure the active song is visible in the scrollable list
+                        activeBtn.scrollIntoView({ block: 'center' });
+                    } else if (closePlaylistBtn) {
+                        closePlaylistBtn.focus();
+                    }
                 }
             });
         } else {
             // CLOSING
-            playlistOverlay.style.display = 'none';
+            if (playlistOverlay) playlistOverlay.style.display = 'none';
             if (playlistBackdrop) playlistBackdrop.style.display = 'none';
 
             // 🎨 Palette: Smart Context Restoration
@@ -246,7 +273,7 @@ export function initInput(camera, audioSystem, toggleDayNightCallback, shouldPre
                 if (instructions) instructions.style.display = 'flex';
                 // Restore focus to the button that opened the jukebox (e.g. Open Jukebox button)
                 if (lastFocusedElement) {
-                    lastFocusedElement.focus();
+                    (lastFocusedElement as HTMLElement).focus();
                 }
                 // Do NOT lock controls, stay unlocked
             } else {
@@ -266,14 +293,15 @@ export function initInput(camera, audioSystem, toggleDayNightCallback, shouldPre
     }
 
     if (playlistUploadInput) {
-        playlistUploadInput.addEventListener('change', (e) => {
-            const files = e.target.files;
+        playlistUploadInput.addEventListener('change', (e: Event) => {
+            const target = e.target as HTMLInputElement;
+            const files = target.files;
             if (files && files.length > 0) {
                 const { validFiles } = filterValidMusicFiles(files);
                 if (validFiles.length > 0) {
                     audioSystem.addToQueue(validFiles);
                     const label = document.querySelector('label[for="playlistUploadInput"]');
-                    showUploadFeedback(label, validFiles.length);
+                    showUploadFeedback(label as HTMLElement, validFiles.length);
                 }
             }
         });
@@ -298,7 +326,7 @@ export function initInput(camera, audioSystem, toggleDayNightCallback, shouldPre
     controls.addEventListener('lock', () => {
         // UX: If generating the world, keep the "Generating..." message visible
         // The main.js logic will hide it when done.
-        const currentStartButton = document.getElementById('startButton');
+        const currentStartButton = document.getElementById('startButton') as HTMLButtonElement | null;
         if (currentStartButton && currentStartButton.disabled) {
             return;
         }
@@ -323,7 +351,7 @@ export function initInput(camera, audioSystem, toggleDayNightCallback, shouldPre
             if (instructions) instructions.style.display = 'flex';
 
             // UX: Update Title to "Paused" to give context
-            const title = instructions.querySelector('h1');
+            const title = instructions ? instructions.querySelector('h1') : null;
             if (title) title.innerText = 'Game Paused ⏸️';
 
             if (startButton) {
@@ -354,7 +382,7 @@ export function initInput(camera, audioSystem, toggleDayNightCallback, shouldPre
     });
 
     // Key Handlers
-    const onKeyDown = function (event) {
+    const onKeyDown = function (event: KeyboardEvent) {
         // Prevent default browser actions (like Ctrl+S)
         if (event.ctrlKey && event.code !== 'ControlLeft' && event.code !== 'ControlRight') {
             event.preventDefault();
@@ -381,7 +409,7 @@ export function initInput(camera, audioSystem, toggleDayNightCallback, shouldPre
         // --- UX: Focus Trap for Main Menu (Pause Screen) ---
         if (!isPlaylistOpen && instructions && instructions.style.display !== 'none') {
             if (event.code === 'Tab') {
-                const focusable = instructions.querySelectorAll('button, input, [href], select, textarea, [tabindex]:not([tabindex="-1"])');
+                const focusable = instructions.querySelectorAll('button, input, [href], select, textarea, [tabindex]:not([tabindex="-1"])') as NodeListOf<HTMLElement>;
                 if (focusable.length > 0) {
                     const first = focusable[0];
                     const last = focusable[focusable.length - 1];
@@ -404,7 +432,7 @@ export function initInput(camera, audioSystem, toggleDayNightCallback, shouldPre
         }
 
         // --- UX: Focus Trap & Control Lock when Playlist is open ---
-        if (isPlaylistOpen) {
+        if (isPlaylistOpen && playlistOverlay) {
             // Close on Q
             if (event.code === 'KeyQ') {
                 event.preventDefault();
@@ -414,10 +442,10 @@ export function initInput(camera, audioSystem, toggleDayNightCallback, shouldPre
 
             // UX: Arrow Key Navigation for Playlist
             if (event.code === 'ArrowDown' || event.code === 'ArrowUp') {
-                const playlistBtns = Array.from(playlistOverlay.querySelectorAll('.playlist-btn'));
+                const playlistBtns = Array.from(playlistOverlay.querySelectorAll('.playlist-btn')) as HTMLElement[];
                 if (playlistBtns.length > 0) {
                     event.preventDefault(); // Prevent scrolling
-                    const currentIndex = playlistBtns.indexOf(document.activeElement);
+                    const currentIndex = playlistBtns.indexOf(document.activeElement as HTMLElement);
                     let nextIndex;
 
                     if (event.code === 'ArrowDown') {
@@ -432,7 +460,7 @@ export function initInput(camera, audioSystem, toggleDayNightCallback, shouldPre
 
             // Focus Trap Logic for Tab
             if (event.code === 'Tab') {
-                const focusable = playlistOverlay.querySelectorAll('button, input, [href], select, textarea, [tabindex]:not([tabindex="-1"])');
+                const focusable = playlistOverlay.querySelectorAll('button, input, [href], select, textarea, [tabindex]:not([tabindex="-1"])') as NodeListOf<HTMLElement>;
                 if (focusable.length === 0) return;
 
                 const first = focusable[0];
@@ -482,7 +510,7 @@ export function initInput(camera, audioSystem, toggleDayNightCallback, shouldPre
         }
     };
 
-    const onKeyUp = function (event) {
+    const onKeyUp = function (event: KeyboardEvent) {
         switch (event.code) {
             case 'KeyW': keyStates.forward = false; break;
             case 'KeyA': keyStates.left = false; break;
@@ -499,12 +527,12 @@ export function initInput(camera, audioSystem, toggleDayNightCallback, shouldPre
     };
 
     // Standard Mouse State (Right click to move)
-    const onMouseDown = function (event) {
+    const onMouseDown = function (event: MouseEvent) {
         if (isPlaylistOpen) return; // Block game mouse input
         if (event.button === 2) keyStates.forward = true;
     };
 
-    const onMouseUp = function (event) {
+    const onMouseUp = function (event: MouseEvent) {
         if (isPlaylistOpen) return; // Block game mouse input
         if (event.button === 2) keyStates.forward = false;
     };
@@ -517,15 +545,16 @@ export function initInput(camera, audioSystem, toggleDayNightCallback, shouldPre
     // Existing Music Upload Handler (Main Menu) - Kept for compatibility
     const musicUpload = document.getElementById('musicUpload');
     if (musicUpload) {
-        musicUpload.addEventListener('change', (event) => {
-            const files = event.target.files;
+        musicUpload.addEventListener('change', (event: Event) => {
+            const target = event.target as HTMLInputElement;
+            const files = target.files;
             if (files && files.length > 0) {
                 const { validFiles, invalidFiles } = filterValidMusicFiles(files);
 
                 if (validFiles.length > 0) {
                     audioSystem.addToQueue(validFiles);
                     const label = document.querySelector('label[for="musicUpload"]');
-                    showUploadFeedback(label, validFiles.length);
+                    showUploadFeedback(label as HTMLElement, validFiles.length);
 
                     if (invalidFiles.length > 0) {
                         import('../utils/toast.js').then(({ showToast }) => {
@@ -554,7 +583,7 @@ export function initInput(camera, audioSystem, toggleDayNightCallback, shouldPre
         const isMuted = audioSystem.toggleMute();
 
         if (toggleMuteBtn) {
-            toggleMuteBtn.setAttribute('aria-pressed', isMuted);
+            toggleMuteBtn.setAttribute('aria-pressed', String(isMuted));
             toggleMuteBtn.innerHTML = isMuted ? '🔇 Unmute <span class="key-badge">M</span>' : '🔊 Mute <span class="key-badge">M</span>';
             toggleMuteBtn.setAttribute('aria-label', isMuted ? 'Unmute Audio' : 'Mute Audio');
         }
@@ -610,7 +639,7 @@ export function initInput(camera, audioSystem, toggleDayNightCallback, shouldPre
             dragOverlay.classList.remove('active');
             dragOverlay.setAttribute('aria-hidden', 'true');
 
-            const files = e.dataTransfer.files;
+            const files = e.dataTransfer?.files;
             if (files && files.length > 0) {
                 const { validFiles, invalidFiles } = filterValidMusicFiles(files);
 
@@ -628,7 +657,7 @@ export function initInput(camera, audioSystem, toggleDayNightCallback, shouldPre
 
                     // Also trigger label feedback if available
                     const label = document.querySelector('label[for="musicUpload"]');
-                    if (label) showUploadFeedback(label, validFiles.length);
+                    if (label) showUploadFeedback(label as HTMLElement, validFiles.length);
                 } else {
                     // All files were invalid
                     import('../utils/toast.js').then(({ showToast }) => {
@@ -642,9 +671,9 @@ export function initInput(camera, audioSystem, toggleDayNightCallback, shouldPre
     return {
         controls,
         updateReticleState, // <--- EXPORT THIS
-        updateDayNightButtonState: (isPressed) => {
+        updateDayNightButtonState: (isPressed: boolean) => {
             if (toggleDayNightBtn) {
-                toggleDayNightBtn.setAttribute('aria-pressed', isPressed);
+                toggleDayNightBtn.setAttribute('aria-pressed', String(isPressed));
                 toggleDayNightBtn.setAttribute('aria-label', isPressed ? 'Switch to Day' : 'Switch to Night');
                 // UX: Update button text to show available action
                 toggleDayNightBtn.innerHTML = isPressed
