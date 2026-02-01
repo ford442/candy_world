@@ -1,0 +1,18 @@
+# WASM Configuration for Candy World
+# 1. Correct MIME Type
+<IfModule mod_mime.c>
+  AddType application/wasm .wasm
+</IfModule>
+
+# 2. Disable Compression for WASM (fixes ERR_CONTENT_DECODING_FAILED)
+# This prevents the server from gzipping files that might already be compressed
+# or confusing the browser if the Content-Encoding header is mismatched.
+<IfModule mod_deflate.c>
+  SetEnvIfNoCase Request_URI \.wasm$ no-gzip dont-vary
+</IfModule>
+
+# 3. Security Headers for SharedArrayBuffer (Required for Native Physics/Pthreads)
+<IfModule mod_headers.c>
+    Header set Cross-Origin-Opener-Policy "same-origin"
+    Header set Cross-Origin-Embedder-Policy "require-corp"
+</IfModule>
