@@ -671,17 +671,13 @@ initWasm().then(async (wasmLoaded) => {
         const dummyDir = new THREE.Vector3(0, 1, 0);
         fireRainbow(scene, dummyOrigin, dummyDir);
 
-        // FIX: Ensure clipping planes are defined before compilation
-        // WebGPURenderer 0.171.0+ can crash in setupHardwareClipping if this is undefined
-        if (renderer) {
-            console.log('[Deferred] Checking renderer state for clipping fix. Planes:', renderer.clippingPlanes ? 'Defined' : 'Undefined');
-        }
-
-        if (!renderer.clippingPlanes) {
-             renderer.clippingPlanes = [];
-             renderer.localClippingEnabled = false;
-             console.log('[Deferred] Re-applied clipping planes fix.');
-        }
+        // FIX: UNCONDITIONALLY force clipping planes reset.
+        // The check (!renderer.clippingPlanes) returned false (it was defined), 
+        // but the internal state was still causing a crash.
+        // We force it to [] and disable local clipping to ensure safety.
+        console.log('[Deferred] Forcing clipping planes reset...');
+        renderer.clippingPlanes = [];
+        renderer.localClippingEnabled = false;
 
         // FIX: Initialize clippingPlanes on scene, objects, and materials
         // This prevents "Cannot read properties of undefined (reading 'length')" errors

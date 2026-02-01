@@ -12,19 +12,32 @@ This happens when the renderer tries to check the length of `clippingPlanes` arr
 
 ## Solution
 
-The fix ensures that `clippingPlanes` is initialized as an empty array on:
+The fix **unconditionally resets** `clippingPlanes` to ensure a clean state:
 
-1. **The scene itself** - `scene.clippingPlanes = []`
-2. **All objects in the scene** - via `scene.traverse()`
-3. **All materials** - both single materials and multi-material arrays
+1. **The renderer** - Force reset `renderer.clippingPlanes = []` and `renderer.localClippingEnabled = false`
+2. **The scene itself** - `scene.clippingPlanes = []`
+3. **All objects in the scene** - via `scene.traverse()`
+4. **All materials** - both single materials and multi-material arrays
+
+### Key Insight
+
+The critical fix is to **unconditionally** reset the renderer's clipping planes. The original code checked `if (!renderer.clippingPlanes)`, but this check would fail if the property was defined (even in an invalid state), preventing the fix from being applied. By removing the conditional check and forcing the reset, we ensure the renderer's internal state is clean before compilation.
 
 ### Implementation Location
 
-The fix is implemented in `main.js` in the deferred shader pre-compilation section, right before the call to `renderer.compileAsync(scene, camera)` (around line 686-715).
+The fix is implemented in `main.js` in the deferred shader pre-compilation section, right before the call to `renderer.compileAsync(scene, camera)` (around line 674-711).
 
 ### Code Changes
 
 ```javascript
+// FIX: UNCONDITIONALLY force clipping planes reset.
+// The check (!renderer.clippingPlanes) returned false (it was defined), 
+// but the internal state was still causing a crash.
+// We force it to [] and disable local clipping to ensure safety.
+console.log('[Deferred] Forcing clipping planes reset...');
+renderer.clippingPlanes = [];
+renderer.localClippingEnabled = false;
+
 // FIX: Initialize clippingPlanes on scene, objects, and materials
 // This prevents "Cannot read properties of undefined (reading 'length')" errors
 // in setupHardwareClipping during shader compilation
