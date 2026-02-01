@@ -13,8 +13,6 @@ import { applyGlitch } from './glitch.js';
 
 const MAX_FERNS = 2000; // Cap at 2000 ferns (10,000 fronds)
 const FRONDS_PER_FERN = 5;
-// Chunk size to avoid Uniform Buffer overflow (64KB limit).
-const CHUNK_SIZE = 1000;
 
 export class ArpeggioFernBatcher {
     initialized: boolean;
@@ -22,9 +20,9 @@ export class ArpeggioFernBatcher {
     logicFerns: any[];
 
     // GPU Buffers
-    frondMeshes: THREE.InstancedMesh[];
-    unfurlAttributes: THREE.InstancedBufferAttribute[];
-    baseMeshes: THREE.InstancedMesh[];
+    frondMesh: THREE.InstancedMesh | null;
+    unfurlAttribute: THREE.InstancedBufferAttribute | null;
+    baseMesh: THREE.InstancedMesh | null;
 
     // Scratch
     dummy: THREE.Object3D;
@@ -35,9 +33,9 @@ export class ArpeggioFernBatcher {
         this.count = 0;
         this.logicFerns = [];
 
-        this.frondMeshes = [];
-        this.unfurlAttributes = [];
-        this.baseMeshes = [];
+        this.frondMesh = null;
+        this.unfurlAttribute = null;
+        this.baseMesh = null;
 
         this.dummy = new THREE.Object3D();
         this._color = new THREE.Color();
@@ -85,60 +83,36 @@ export class ArpeggioFernBatcher {
         const glitched = applyGlitch(uv(), bobbedPos, uGlitchIntensity);
         frondMat.positionNode = glitched.position;
 
-        // 3. Create InstancedMeshes (Chunks)
+        // 3. Create InstancedMeshes (Single)
         const totalFronds = MAX_FERNS * FRONDS_PER_FERN;
-        const numChunks = Math.ceil(totalFronds / CHUNK_SIZE);
 
-        for(let i=0; i<numChunks; i++) {
-            const remaining = totalFronds - (i * CHUNK_SIZE);
-            const count = Math.min(CHUNK_SIZE, remaining);
+        const chunkGeo = frondGeo.clone();
+        this.unfurlAttribute = new THREE.InstancedBufferAttribute(new Float32Array(totalFronds), 1);
+        chunkGeo.setAttribute('instanceUnfurl', this.unfurlAttribute);
 
-            // Clone geometry to attach unique attribute
-            const chunkGeo = frondGeo.clone();
-            const chunkAttr = new THREE.InstancedBufferAttribute(new Float32Array(count), 1);
-            chunkGeo.setAttribute('instanceUnfurl', chunkAttr);
-            this.unfurlAttributes.push(chunkAttr);
+        this.frondMesh = new THREE.InstancedMesh(chunkGeo, frondMat, totalFronds);
+        this.frondMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+        this.frondMesh.castShadow = true;
+        this.frondMesh.receiveShadow = true;
+        this.frondMesh.frustumCulled = false;
+        this.frondMesh.count = 0;
 
-            const mesh = new THREE.InstancedMesh(chunkGeo, frondMat, count);
-            mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-            mesh.castShadow = true;
-            mesh.receiveShadow = true;
-            mesh.frustumCulled = false;
-            mesh.count = 0;
-
-            this.frondMeshes.push(mesh);
-            foliageGroup.add(mesh);
-        }
+        foliageGroup.add(this.frondMesh);
 
         // 4. Base Geometry & Mesh
-        // Base fits in one batch (2000 instances < 1000? No, 2000 > 1000).
-        // Wait, 2000 * 64 = 128,000 bytes. This also exceeds 64KB!
-        // We must chunk baseMesh too!
-        // MAX_FERNS = 2000.
-        // Base mesh logic:
-
         const baseGeo = new THREE.ConeGeometry(0.2, 0.5, 6);
         baseGeo.translate(0, 0.25, 0);
         const baseMat = createCandyMaterial(0x2E8B57);
 
-        // Split Base Mesh (2000 instances)
-        this.baseMeshes = [];
-        const baseChunks = Math.ceil(MAX_FERNS / CHUNK_SIZE);
-        for(let i=0; i<baseChunks; i++) {
-            const remaining = MAX_FERNS - (i * CHUNK_SIZE);
-            const count = Math.min(CHUNK_SIZE, remaining);
-
-            const mesh = new THREE.InstancedMesh(baseGeo, baseMat, count);
-            mesh.castShadow = true;
-            mesh.receiveShadow = true;
-            mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-            mesh.count = 0;
-            this.baseMeshes.push(mesh);
-            foliageGroup.add(mesh);
-        }
+        this.baseMesh = new THREE.InstancedMesh(baseGeo, baseMat, MAX_FERNS);
+        this.baseMesh.castShadow = true;
+        this.baseMesh.receiveShadow = true;
+        this.baseMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+        this.baseMesh.count = 0;
+        foliageGroup.add(this.baseMesh);
 
         this.initialized = true;
-        console.log(`[ArpeggioBatcher] Initialized with ${numChunks} frond chunks and ${baseChunks} base chunks`);
+        console.log(`[ArpeggioBatcher] Initialized single-mesh system (Cap: ${MAX_FERNS})`);
     }
 
     register(dummy, options = {}) {
@@ -158,20 +132,16 @@ export class ArpeggioFernBatcher {
         this.logicFerns.push(dummy);
 
         // 1. Setup Base Instance
-        const baseChunkIdx = Math.floor(i / CHUNK_SIZE);
-        const baseLocalIdx = i % CHUNK_SIZE;
-
         this.dummy.position.copy(dummy.position);
         this.dummy.position.y += 0.25 * scale;
         this.dummy.rotation.copy(dummy.rotation);
         this.dummy.scale.setScalar(scale);
         this.dummy.updateMatrix();
 
-        const baseMesh = this.baseMeshes[baseChunkIdx];
-        baseMesh.setMatrixAt(baseLocalIdx, this.dummy.matrix);
+        this.baseMesh!.setMatrixAt(i, this.dummy.matrix);
         // Update count
-        if (baseMesh.count < baseLocalIdx + 1) baseMesh.count = baseLocalIdx + 1;
-        baseMesh.instanceMatrix.needsUpdate = true;
+        this.baseMesh!.count = this.count;
+        this.baseMesh!.instanceMatrix.needsUpdate = true;
 
 
         // 2. Setup Frond Instances
@@ -181,11 +151,6 @@ export class ArpeggioFernBatcher {
 
         for (let f = 0; f < FRONDS_PER_FERN; f++) {
             const idx = startIdx + f;
-            const chunkIdx = Math.floor(idx / CHUNK_SIZE);
-            const localIdx = idx % CHUNK_SIZE;
-
-            const mesh = this.frondMeshes[chunkIdx];
-            const attr = this.unfurlAttributes[chunkIdx];
 
             // Transform
             this.dummy.position.copy(dummy.position);
@@ -196,40 +161,32 @@ export class ArpeggioFernBatcher {
             this.dummy.scale.setScalar(scale);
             this.dummy.updateMatrix();
 
-            mesh.setMatrixAt(localIdx, this.dummy.matrix);
-            mesh.setColorAt(localIdx, this._color);
-
-            // Update count
-            if (mesh.count < localIdx + 1) mesh.count = localIdx + 1;
+            this.frondMesh!.setMatrixAt(idx, this.dummy.matrix);
+            this.frondMesh!.setColorAt(idx, this._color);
 
             // Init Attribute
-            attr.setX(localIdx, 0);
-
-            // Mark updates
-            // (We'll optimize by setting needsUpdate once at end if batching multiple registers,
-            // but here register is called one by one)
-            mesh.instanceMatrix.needsUpdate = true;
-            if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-            attr.needsUpdate = true;
+            this.unfurlAttribute!.setX(idx, 0);
         }
+
+        // Update count
+        this.frondMesh!.count = this.count * FRONDS_PER_FERN;
+        this.frondMesh!.instanceMatrix.needsUpdate = true;
+        if (this.frondMesh!.instanceColor) this.frondMesh!.instanceColor.needsUpdate = true;
+        this.unfurlAttribute!.needsUpdate = true;
     }
 
     updateInstance(index, dummy) {
         if (!this.initialized) return;
 
         // Update Base
-        const baseChunkIdx = Math.floor(index / CHUNK_SIZE);
-        const baseLocalIdx = index % CHUNK_SIZE;
-
         this.dummy.position.copy(dummy.position);
         this.dummy.position.y += 0.25 * dummy.scale.x;
         this.dummy.rotation.copy(dummy.rotation);
         this.dummy.scale.copy(dummy.scale);
         this.dummy.updateMatrix();
 
-        const baseMesh = this.baseMeshes[baseChunkIdx];
-        baseMesh.setMatrixAt(baseLocalIdx, this.dummy.matrix);
-        baseMesh.instanceMatrix.needsUpdate = true;
+        this.baseMesh!.setMatrixAt(index, this.dummy.matrix);
+        this.baseMesh!.instanceMatrix.needsUpdate = true;
 
         // Update Fronds
         const startIdx = index * FRONDS_PER_FERN;
@@ -237,8 +194,6 @@ export class ArpeggioFernBatcher {
 
         for (let f = 0; f < FRONDS_PER_FERN; f++) {
             const idx = startIdx + f;
-            const chunkIdx = Math.floor(idx / CHUNK_SIZE);
-            const localIdx = idx % CHUNK_SIZE;
 
             this.dummy.position.copy(dummy.position);
             this.dummy.position.y += frondYOffset;
@@ -248,10 +203,9 @@ export class ArpeggioFernBatcher {
             this.dummy.scale.copy(dummy.scale);
             this.dummy.updateMatrix();
 
-            const mesh = this.frondMeshes[chunkIdx];
-            mesh.setMatrixAt(localIdx, this.dummy.matrix);
-            mesh.instanceMatrix.needsUpdate = true;
+            this.frondMesh!.setMatrixAt(idx, this.dummy.matrix);
         }
+        this.frondMesh!.instanceMatrix.needsUpdate = true;
     }
 
     update(audioState: any = null) {
@@ -308,12 +262,9 @@ export class ArpeggioFernBatcher {
                 const startIdx = i * FRONDS_PER_FERN;
                 for (let f = 0; f < FRONDS_PER_FERN; f++) {
                     const idx = startIdx + f;
-                    const chunkIdx = Math.floor(idx / CHUNK_SIZE);
-                    const localIdx = idx % CHUNK_SIZE;
-
-                    this.unfurlAttributes[chunkIdx].setX(localIdx, unfurl);
-                    this.unfurlAttributes[chunkIdx].needsUpdate = true;
+                    this.unfurlAttribute!.setX(idx, unfurl);
                 }
+                this.unfurlAttribute!.needsUpdate = true;
             }
         }
     }

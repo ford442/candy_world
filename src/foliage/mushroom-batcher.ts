@@ -28,6 +28,11 @@ export class MushroomBatcher {
     // Mapping: Note Index (0-11) -> Array of Instance Indices
     private noteToInstances: Map<number, number[]> = new Map();
 
+    // Mapping: Logic ID -> Instance Index (for removal)
+    private logicIdToInstance: Map<number, number> = new Map();
+    // Mapping: Instance Index -> Logic ID
+    private instanceToLogicId: number[] = [];
+
     private constructor() {}
 
     static getInstance(): MushroomBatcher {
@@ -507,6 +512,10 @@ export class MushroomBatcher {
         const i = this.count;
         this.count++;
 
+        // Track ID for removal
+        this.logicIdToInstance.set(dummy.id, i);
+        this.instanceToLogicId[i] = dummy.id;
+
         // 1. Set Matrix
         dummy.updateMatrix();
         this.mesh!.setMatrixAt(i, dummy.matrix);
@@ -547,19 +556,97 @@ export class MushroomBatcher {
         this.instanceAnim!.needsUpdate = true;
     }
 
+    removeInstance(logicObject: THREE.Object3D) {
+        if (!this.initialized || !logicObject) return;
+
+        const id = logicObject.id;
+        if (!this.logicIdToInstance.has(id)) return;
+
+        const indexToRemove = this.logicIdToInstance.get(id)!;
+        const lastIndex = this.count - 1;
+
+        // 1. Remove from Note Mapping
+        const removedNoteIndex = this.instanceParams!.getY(indexToRemove);
+        if (removedNoteIndex >= 0) {
+            const list = this.noteToInstances.get(removedNoteIndex);
+            if (list) {
+                const idx = list.indexOf(indexToRemove);
+                if (idx > -1) list.splice(idx, 1);
+            }
+        }
+
+        // 2. Perform Swap (if not last)
+        if (indexToRemove !== lastIndex) {
+            const lastId = this.instanceToLogicId[lastIndex];
+            const movedNoteIndex = this.instanceParams!.getY(lastIndex);
+
+            // A. Copy Attributes from Last to Removed
+            // Matrix
+            const m = new THREE.Matrix4();
+            this.mesh!.getMatrixAt(lastIndex, m);
+            this.mesh!.setMatrixAt(indexToRemove, m);
+
+            // Params
+            this.instanceParams!.setXYZW(
+                indexToRemove,
+                this.instanceParams!.getX(lastIndex),
+                this.instanceParams!.getY(lastIndex),
+                this.instanceParams!.getZ(lastIndex),
+                this.instanceParams!.getW(lastIndex)
+            );
+
+            // Note Color
+            this.instanceNoteColor!.setXYZ(
+                indexToRemove,
+                this.instanceNoteColor!.getX(lastIndex),
+                this.instanceNoteColor!.getY(lastIndex),
+                this.instanceNoteColor!.getZ(lastIndex)
+            );
+
+            // Anim
+            this.instanceAnim!.setXYZW(
+                indexToRemove,
+                this.instanceAnim!.getX(lastIndex),
+                this.instanceAnim!.getY(lastIndex),
+                this.instanceAnim!.getZ(lastIndex),
+                this.instanceAnim!.getW(lastIndex)
+            );
+
+            // B. Update Note Mapping for the MOVED instance
+            if (movedNoteIndex >= 0) {
+                const list = this.noteToInstances.get(movedNoteIndex);
+                if (list) {
+                    const idx = list.indexOf(lastIndex);
+                    if (idx > -1) list[idx] = indexToRemove;
+                }
+            }
+
+            // C. Update ID Maps
+            this.logicIdToInstance.set(lastId, indexToRemove);
+            this.instanceToLogicId[indexToRemove] = lastId;
+        }
+
+        // 3. Cleanup
+        this.logicIdToInstance.delete(id);
+        this.instanceToLogicId[lastIndex] = -1;
+        this.count--;
+
+        // 4. Mark Updates
+        this.mesh!.count = this.count;
+        this.mesh!.instanceMatrix.needsUpdate = true;
+        this.instanceParams!.needsUpdate = true;
+        this.instanceNoteColor!.needsUpdate = true;
+        this.instanceAnim!.needsUpdate = true;
+    }
+
     handleNote(noteIndex: number, velocity: number) {
         if (!this.initialized) return;
 
         const indices = this.noteToInstances.get(noteIndex);
         if (indices) {
-            // Get current time from uniform wrapper if possible, or pass it in.
-            // But we need the CPU time to write to attribute.
-            // common.ts exports `uTime` (node) but we need JS time.
-            // Using performance.now() / 1000 or a global time tracker?
-            // `foliageBatcher` gets passed time.
-            // We can approximate or use a Date.now().
-            // Ideally we accept time as arg.
-            const now = performance.now() / 1000.0;
+            // PALETTE FIX: Use uTime.value for sync with TSL shader
+            // Cast to any to access .value on UniformNode
+            const now = ((uTime as any).value !== undefined) ? (uTime as any).value : performance.now() / 1000.0;
 
             for (const i of indices) {
                 this.instanceAnim!.setX(i, now);

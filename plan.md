@@ -10,12 +10,14 @@
 
 ## Next Steps
 
-1. **Phase 1 (JS -> TS)**: Migrate Core Modules (`src/core/input.js`, `src/core/cycle.js`) to TypeScript.
+1. **Phase 1 (JS -> TS)**: Migrate remaining Foliage Modules (`clouds.js`, `cave.js`, `stars.js`, `rainbow.js`) to TypeScript.
 
 ---
 
 ## Recent Progress
 - **Accomplished:**
+  - **Phase 1 (JS -> TS): Core Modules (`src/core/input.ts`, `src/core/cycle.ts`)**: **Status: Implemented ✅**
+    - *Implementation Details:* Migrated `src/core/input.js` and `src/core/cycle.js` to TypeScript. Added strict typing for `KeyStates`, `PaletteEntry`, `SeasonalState`, and system interaction callbacks. Updated dependent files (`main.js`, `weather.ts`, `rainbow-blaster.js`) to use correct imports. Verified logic with `verification/verify_input_logic.mjs`.
   - **Phase 1 (JS -> TS): Foliage Cleanup**: **Status: Implemented ✅**
     - *Implementation Details:* Migrated `src/foliage/berries.js` and `src/foliage/mushrooms.js` to TypeScript (`.ts`). Added strict typing for `BerryClusterOptions` and `MushroomOptions`. Deleted dead code `src/foliage/trees.legacy.js` as its functionality is fully superseded by `src/foliage/trees.ts`. Updated `MushroomOptions` to support `isBioluminescent` for compatibility with WeatherSystem.
   - **Phase 1 (JS -> TS): Foliage Core Migration**: **Status: Implemented ✅**
