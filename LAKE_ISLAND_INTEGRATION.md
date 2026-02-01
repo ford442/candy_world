@@ -11,7 +11,7 @@ This document describes the integration of the Lake Island terrain feature from 
 **Key Function**: `createIsland(options)`
 - **Parameters**:
   - `radius` (default: 15.0) - Island radius
-  - `height` (default: 3.0) - Island height  
+  - `height` (default: 3.0) - Island height
   - `hasCreek` (default: true) - Include creek path
 
 **Components**:

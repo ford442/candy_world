@@ -644,14 +644,9 @@ export class MushroomBatcher {
 
         const indices = this.noteToInstances.get(noteIndex);
         if (indices) {
-            // Get current time from uniform wrapper if possible, or pass it in.
-            // But we need the CPU time to write to attribute.
-            // common.ts exports `uTime` (node) but we need JS time.
-            // Using performance.now() / 1000 or a global time tracker?
-            // `foliageBatcher` gets passed time.
-            // We can approximate or use a Date.now().
-            // Ideally we accept time as arg.
-            const now = performance.now() / 1000.0;
+            // PALETTE FIX: Use uTime.value for sync with TSL shader
+            // Cast to any to access .value on UniformNode
+            const now = ((uTime as any).value !== undefined) ? (uTime as any).value : performance.now() / 1000.0;
 
             for (const i of indices) {
                 this.instanceAnim!.setX(i, now);
