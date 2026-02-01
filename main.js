@@ -683,6 +683,37 @@ initWasm().then(async (wasmLoaded) => {
              console.log('[Deferred] Re-applied clipping planes fix.');
         }
 
+        // FIX: Initialize clippingPlanes on scene, objects, and materials
+        // This prevents "Cannot read properties of undefined (reading 'length')" errors
+        // in setupHardwareClipping during shader compilation
+        if (!scene.clippingPlanes) {
+            scene.clippingPlanes = [];
+        }
+        
+        scene.traverse((object) => {
+            // Set clippingPlanes on all objects
+            if (!object.clippingPlanes) {
+                object.clippingPlanes = [];
+            }
+            
+            // Set clippingPlanes on all materials
+            if (object.material) {
+                if (Array.isArray(object.material)) {
+                    // Handle multi-material objects
+                    object.material.forEach((mat) => {
+                        if (mat && !mat.clippingPlanes) {
+                            mat.clippingPlanes = [];
+                        }
+                    });
+                } else if (!object.material.clippingPlanes) {
+                    // Handle single material
+                    object.material.clippingPlanes = [];
+                }
+            }
+        });
+        
+        console.log('[Deferred] Initialized clippingPlanes on scene, objects, and materials');
+
         try {
             // Async compile prevents blocking the main thread too hard
             await renderer.compileAsync(scene, camera);
