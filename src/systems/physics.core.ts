@@ -79,6 +79,12 @@ const _scratchMoveVec = new THREE.Vector3();
 const _scratchUp = new THREE.Vector3(0, 1, 0);
 const _scratchGatePos = new THREE.Vector3(); // For cave gate calculations
 
+// ⚡ OPTIMIZATION: Reusable result object to avoid allocation
+const _movementInputResult: MovementInput = {
+    moveVec: new THREE.Vector3(),
+    moveSpeed: 0
+};
+
 // --- Core Physics Functions ---
 
 /**
@@ -118,7 +124,11 @@ export function calculateMovementInput(
         moveVec.normalize();
     }
 
-    return { moveVec, moveSpeed };
+    // Reuse result object
+    _movementInputResult.moveVec.copy(moveVec);
+    _movementInputResult.moveSpeed = moveSpeed;
+
+    return _movementInputResult;
 }
 
 /**

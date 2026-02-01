@@ -1,9 +1,9 @@
 // src/foliage/index.js
 // Export all foliage sub-modules
 export * from './common.ts';
-export * from './berries.js';
+export * from './berries.ts';
 export * from './grass.ts';
-export * from './mushrooms.js';
+export * from './mushrooms.ts';
 export * from './flowers.ts';
 export * from './trees.ts';
 export * from './clouds.js';
@@ -12,6 +12,7 @@ export * from './environment.js';
 export * from './fireflies.ts';
 export * from './animation.ts';
 export * from './water.ts'; // Added Waveform Water
+export * from './lake_features.js'; // Added Island/Creek
 export * from './glitch.js'; // Added Glitch Shader
 export * from './chromatic.js'; // Added Chromatic Aberration
 

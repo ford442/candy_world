@@ -3,11 +3,11 @@ import { MeshStandardNodeMaterial } from 'three/webgpu';
 import {
     color, float, vec3, vec4, attribute, positionLocal,
     sin, cos, mix, smoothstep, uniform, If, time,
-    varying, dot, normalize, normalLocal, step
+    varying, dot, normalize, normalLocal, step, Fn, positionWorld
 } from 'three/tsl';
 import {
     sharedGeometries, foliageMaterials, uTime,
-    uAudioLow, uAudioHigh, createRimLight, createJuicyRimLight
+    uAudioLow, uAudioHigh, createRimLight, createJuicyRimLight, uPlayerPosition
 } from './common.ts';
 import { uTwilight } from './sky.ts';
 import { foliageGroup } from '../world/state.js'; // Assuming state.js exports foliageGroup
@@ -27,6 +27,11 @@ export class MushroomBatcher {
 
     // Mapping: Note Index (0-11) -> Array of Instance Indices
     private noteToInstances: Map<number, number[]> = new Map();
+
+    // Mapping: Logic ID -> Instance Index (for removal)
+    private logicIdToInstance: Map<number, number> = new Map();
+    // Mapping: Instance Index -> Logic ID
+    private instanceToLogicId: number[] = [];
 
     private constructor() {}
 
@@ -382,16 +387,62 @@ export class MushroomBatcher {
         const squashY = float(1.0).sub(bounceAmount.mul(0.3));
         const stretchXZ = float(1.0).add(bounceAmount.mul(0.3));
 
-        // 3. Combined Scale
+        // 3. Combined Scale (Audio)
         const totalScaleY = popScale.mul(squashY);
         const totalScaleXZ = popScale.mul(stretchXZ);
 
+        // --- PALETTE: Player Interaction (Squash) ---
+        const calculatePlayerSquash = Fn(() => {
+            const playerDist = positionWorld.sub(uPlayerPosition);
+            // Ignore Y distance (cylinder interaction)
+            const distSq = dot(playerDist.xz, playerDist.xz);
+
+            // Interaction Radius = 1.5m (Squash Zone)
+            const radiusSq = float(2.25);
+
+            // Normalized distance (0 to 1 inside radius)
+            const distFactor = distSq.div(radiusSq).min(1.0);
+
+            // Strength: 1.0 at center, 0.0 at edge
+            const strength = float(1.0).sub(smoothstep(0.0, 1.0, distFactor));
+
+            // Squash Y down, Bulge XZ out
+            const squashAmount = strength.mul(0.6); // Max 60% squash (strong feedback)
+
+            const scaleY = float(1.0).sub(squashAmount);
+            // Volume preservation approximation: XZ scales up
+            const scaleXZ = float(1.0).add(squashAmount.mul(0.5));
+
+            return vec3(scaleXZ, scaleY, scaleXZ);
+        });
+
+        // --- PALETTE: Idle Breathing (Life) ---
+        const calculateIdleBreathing = Fn(() => {
+            // Sine wave based on time + random offset (using positionWorld.x/z as seed)
+            // Note: positionWorld is expensive if used in vertex shader repeatedly?
+            // It's a varying or attribute. Safe to use.
+            const phase = uTime.mul(2.0).add(positionWorld.x).add(positionWorld.z);
+            const breath = sin(phase).mul(0.05); // +/- 5% scale
+
+            const scaleY = float(1.0).add(breath);
+            const scaleXZ = float(1.0).sub(breath.mul(0.5)); // Inverse breath
+
+            return vec3(scaleXZ, scaleY, scaleXZ);
+        });
+
         // Deformation Function
         const deform = (pos: any) => {
+            const squashScale = calculatePlayerSquash();
+            const breathScale = calculateIdleBreathing();
+
+            // Combine scales (Multiplicative)
+            const finalScaleY = totalScaleY.mul(squashScale.y).mul(breathScale.y);
+            const finalScaleXZ = totalScaleXZ.mul(squashScale.x).mul(breathScale.x);
+
             return vec3(
-                pos.x.mul(totalScaleXZ),
-                pos.y.mul(totalScaleY),
-                pos.z.mul(totalScaleXZ)
+                pos.x.mul(finalScaleXZ),
+                pos.y.mul(finalScaleY),
+                pos.z.mul(finalScaleXZ)
             );
         };
 
@@ -461,6 +512,10 @@ export class MushroomBatcher {
         const i = this.count;
         this.count++;
 
+        // Track ID for removal
+        this.logicIdToInstance.set(dummy.id, i);
+        this.instanceToLogicId[i] = dummy.id;
+
         // 1. Set Matrix
         dummy.updateMatrix();
         this.mesh!.setMatrixAt(i, dummy.matrix);
@@ -495,6 +550,89 @@ export class MushroomBatcher {
             this.noteToInstances.get(noteIndex)!.push(i);
         }
 
+        this.mesh!.instanceMatrix.needsUpdate = true;
+        this.instanceParams!.needsUpdate = true;
+        this.instanceNoteColor!.needsUpdate = true;
+        this.instanceAnim!.needsUpdate = true;
+    }
+
+    removeInstance(logicObject: THREE.Object3D) {
+        if (!this.initialized || !logicObject) return;
+
+        const id = logicObject.id;
+        if (!this.logicIdToInstance.has(id)) return;
+
+        const indexToRemove = this.logicIdToInstance.get(id)!;
+        const lastIndex = this.count - 1;
+
+        // 1. Remove from Note Mapping
+        const removedNoteIndex = this.instanceParams!.getY(indexToRemove);
+        if (removedNoteIndex >= 0) {
+            const list = this.noteToInstances.get(removedNoteIndex);
+            if (list) {
+                const idx = list.indexOf(indexToRemove);
+                if (idx > -1) list.splice(idx, 1);
+            }
+        }
+
+        // 2. Perform Swap (if not last)
+        if (indexToRemove !== lastIndex) {
+            const lastId = this.instanceToLogicId[lastIndex];
+            const movedNoteIndex = this.instanceParams!.getY(lastIndex);
+
+            // A. Copy Attributes from Last to Removed
+            // Matrix
+            const m = new THREE.Matrix4();
+            this.mesh!.getMatrixAt(lastIndex, m);
+            this.mesh!.setMatrixAt(indexToRemove, m);
+
+            // Params
+            this.instanceParams!.setXYZW(
+                indexToRemove,
+                this.instanceParams!.getX(lastIndex),
+                this.instanceParams!.getY(lastIndex),
+                this.instanceParams!.getZ(lastIndex),
+                this.instanceParams!.getW(lastIndex)
+            );
+
+            // Note Color
+            this.instanceNoteColor!.setXYZ(
+                indexToRemove,
+                this.instanceNoteColor!.getX(lastIndex),
+                this.instanceNoteColor!.getY(lastIndex),
+                this.instanceNoteColor!.getZ(lastIndex)
+            );
+
+            // Anim
+            this.instanceAnim!.setXYZW(
+                indexToRemove,
+                this.instanceAnim!.getX(lastIndex),
+                this.instanceAnim!.getY(lastIndex),
+                this.instanceAnim!.getZ(lastIndex),
+                this.instanceAnim!.getW(lastIndex)
+            );
+
+            // B. Update Note Mapping for the MOVED instance
+            if (movedNoteIndex >= 0) {
+                const list = this.noteToInstances.get(movedNoteIndex);
+                if (list) {
+                    const idx = list.indexOf(lastIndex);
+                    if (idx > -1) list[idx] = indexToRemove;
+                }
+            }
+
+            // C. Update ID Maps
+            this.logicIdToInstance.set(lastId, indexToRemove);
+            this.instanceToLogicId[indexToRemove] = lastId;
+        }
+
+        // 3. Cleanup
+        this.logicIdToInstance.delete(id);
+        this.instanceToLogicId[lastIndex] = -1;
+        this.count--;
+
+        // 4. Mark Updates
+        this.mesh!.count = this.count;
         this.mesh!.instanceMatrix.needsUpdate = true;
         this.instanceParams!.needsUpdate = true;
         this.instanceNoteColor!.needsUpdate = true;

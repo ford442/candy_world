@@ -2,12 +2,14 @@ import * as THREE from 'three';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import {
     color, float, uniform, vec3, positionLocal, positionWorld,
-    sin, cos, pow, mix, dot, time, attribute
+    sin, dot, time, attribute, Node, UniformNode, ShaderNodeObject
 } from 'three/tsl';
 import { CandyPresets, uAudioLow, uTime } from './common.ts';
 import { spawnImpact } from './impacts.js';
 import { uChromaticIntensity } from './chromatic.js';
 
+// Define StorageBufferAttribute locally if it's missing from types or not exported
+// In this case, we use `attribute` helper from TSL which returns a Node.
 const instanceColor = attribute('instanceColor', 'vec3');
 
 // --- Reusable Scratch Variables ---
@@ -19,12 +21,45 @@ const _scratchObject3D = new THREE.Object3D();
 // This replaces per-instance matrix updates on the CPU
 export const uBerrySeasonScale = uniform(float(1.0));
 
+// Interfaces
+export interface BerryClusterOptions {
+    count?: number;
+    color?: number;
+    baseGlow?: number;
+    size?: number;
+    shape?: 'sphere' | 'pear';
+}
+
+export interface BerryClusterUserData {
+    initialTransforms: {
+        positions: number[];
+        quaternions: number[];
+        scales: number[];
+    };
+    isBerry: boolean;
+    berryMesh: THREE.InstancedMesh;
+    berries: null; // Legacy
+    count: number;
+    baseGlow: number;
+    weatherGlow: number;
+    glowDecayRate: number;
+    berryColor: number;
+    uClusterGlow: ShaderNodeObject<UniformNode<number>>;
+}
+
+export interface FallingBerry {
+    active: boolean;
+    age: number;
+    velocity: THREE.Vector3;
+    position: THREE.Vector3;
+}
+
 /**
  * Update global berry scale based on season phase
  * @param {string} phase - Current season phase
  * @param {number} phaseProgress - Progress through the phase (0-1)
  */
-export function updateGlobalBerryScale(phase, phaseProgress) {
+export function updateGlobalBerryScale(phase: string, phaseProgress: number): void {
     let targetScaleFactor = 1.0;
     switch (phase) {
         case 'sunset':
@@ -51,33 +86,30 @@ export function updateGlobalBerryScale(phase, phaseProgress) {
  * @param {UniformNode} uGlowIntensity - Control uniform for external updates (weather/seasons)
  * @returns {MeshStandardNodeMaterial}
  */
-function createHeartbeatMaterial(colorInput, uGlowIntensity) {
-    let material;
+function createHeartbeatMaterial(colorInput: number | ShaderNodeObject<Node>, uGlowIntensity: ShaderNodeObject<UniformNode<number>>): MeshStandardNodeMaterial {
+    let material: MeshStandardNodeMaterial;
     const isNode = (typeof colorInput !== 'number');
 
     // 1. Base Gummy Material (Translucent, SSS)
     if (!isNode) {
-        material = CandyPresets.Gummy(colorInput, {
-            transmission: 0.6,
-            thickness: 0.8,
-            roughness: 0.2,
-            ior: 1.4,
-            subsurfaceStrength: 1.0, // Very juicy
-            subsurfaceColor: colorInput
-        });
-    } else {
         // Instanced Color path
-        // We use a dummy hex for presets, but override colorNode
-        // Note: Subsurface color must be fixed (or we need a more complex SSS setup),
-        // we default to a generic orange-red for falling berries
         material = CandyPresets.Gummy(0xFF6600, {
-            colorNode: colorInput,
+            colorNode: colorInput as ShaderNodeObject<Node>,
             transmission: 0.6,
             thickness: 0.8,
             roughness: 0.2,
             ior: 1.4,
             subsurfaceStrength: 1.0,
             subsurfaceColor: 0xFF6600 // Fallback SSS color
+        });
+    } else {
+        material = CandyPresets.Gummy(colorInput as number, {
+            transmission: 0.6,
+            thickness: 0.8,
+            roughness: 0.2,
+            ior: 1.4,
+            subsurfaceStrength: 1.0, // Very juicy
+            subsurfaceColor: colorInput as number
         });
     }
 
@@ -103,11 +135,12 @@ function createHeartbeatMaterial(colorInput, uGlowIntensity) {
 
     // 3. Reactive Glow (Emissive)
     // Base Glow (Weather/DayNight) + Kick Flash
-    const baseColor = isNode ? colorInput : color(colorInput);
+    const baseColor = isNode ? (colorInput as ShaderNodeObject<Node>) : color(colorInput as number);
     const flashColor = color(0xFFFFFF); // Flash white/bright on strong beats
 
     // Mix flash based on heartbeat strength
-    const glowColor = mix(baseColor, flashColor, heartbeat.mul(uAudioLow).mul(0.5));
+    // @ts-ignore - mix overload complexity
+    const glowColor = baseColor.mix(flashColor, heartbeat.mul(uAudioLow).mul(0.5));
 
     // Final Intensity
     const totalIntensity = uGlowIntensity.add(heartbeat.mul(uAudioLow));
@@ -120,7 +153,7 @@ function createHeartbeatMaterial(colorInput, uGlowIntensity) {
 /**
  * Create a cluster of berries/fruits with TSL "Juice"
  */
-export function createBerryCluster(options = {}) {
+export function createBerryCluster(options: BerryClusterOptions = {}): THREE.Group {
     const count = options.count || 5;
     const colorHex = options.color || 0xFF6600;
     const baseGlow = options.baseGlow || 0.2;
@@ -130,7 +163,7 @@ export function createBerryCluster(options = {}) {
     const group = new THREE.Group();
 
     // Setup Geometry
-    let geometry;
+    let geometry: THREE.BufferGeometry;
     if (shape === 'pear') {
         geometry = new THREE.SphereGeometry(size, 16, 16); // Increased polycount for smooth deformation
         geometry.scale(0.8, 1.3, 0.8);
@@ -151,7 +184,7 @@ export function createBerryCluster(options = {}) {
     mesh.receiveShadow = true;
 
     // Store transform data for later updates (seasons, etc)
-    const initialTransforms = {
+    const initialTransforms: BerryClusterUserData['initialTransforms'] = {
         positions: [],
         quaternions: [],
         scales: []
@@ -222,7 +255,7 @@ export function createBerryCluster(options = {}) {
  * Update berry glow based on weather and audio
  * Optimized: Updates a single uniform value instead of looping over materials
  */
-export function updateBerryGlow(berryCluster, weatherIntensity, audioData) {
+export function updateBerryGlow(berryCluster: THREE.Group, weatherIntensity: number, audioData: any): void {
     if (!berryCluster.userData.uClusterGlow) return;
 
     // Decay weather glow
@@ -244,7 +277,7 @@ export function updateBerryGlow(berryCluster, weatherIntensity, audioData) {
     berryCluster.userData.uClusterGlow.value = targetIntensity;
 }
 
-export function chargeBerries(berryCluster, chargeAmount) {
+export function chargeBerries(berryCluster: THREE.Group, chargeAmount: number): void {
     if (!berryCluster.userData) return;
     berryCluster.userData.weatherGlow = Math.min(
         2.0,
@@ -253,17 +286,17 @@ export function chargeBerries(berryCluster, chargeAmount) {
 }
 
 // Deprecated: No longer used as we use global uniform
-export function updateBerrySeasons(berryCluster, phase, phaseProgress) {
+export function updateBerrySeasons(berryCluster: THREE.Group, phase: string, phaseProgress: number): void {
     // No-op: handled via uBerrySeasonScale global uniform
 }
 
 // --- Falling Berry Particle System ---
-let fallingBerryPool = [];
+let fallingBerryPool: FallingBerry[] = [];
 const MAX_FALLING_BERRIES = 50;
-let fallingBerryMesh = null;
+let fallingBerryMesh: THREE.InstancedMesh | null = null;
 const _scratchColor = new THREE.Color();
 
-export function initFallingBerries(scene) {
+export function initFallingBerries(scene: THREE.Scene): void {
     // ⚡ OPTIMIZATION: Use InstancedMesh (Draw Call: 50 -> 1)
 
     const berryGeo = new THREE.SphereGeometry(0.06, 16, 16);
@@ -301,7 +334,7 @@ export function initFallingBerries(scene) {
     scene.add(fallingBerryMesh);
 }
 
-export function spawnFallingBerry(position, colorHex = 0xFF6600) {
+export function spawnFallingBerry(position: THREE.Vector3, colorHex: number = 0xFF6600): void {
     if (!fallingBerryMesh) return;
 
     // ⚡ OPTIMIZATION: Loop prevents closure allocation from .find()
@@ -338,7 +371,7 @@ export function spawnFallingBerry(position, colorHex = 0xFF6600) {
     if (fallingBerryMesh.instanceColor) fallingBerryMesh.instanceColor.needsUpdate = true;
 }
 
-export function updateFallingBerries(delta) {
+export function updateFallingBerries(delta: number): void {
     if (!fallingBerryMesh) return;
 
     const gravity = -9.8;
@@ -378,9 +411,9 @@ export function updateFallingBerries(delta) {
     }
 }
 
-export function shakeBerriesLoose(cluster, intensity) {
+export function shakeBerriesLoose(cluster: THREE.Group, intensity: number): void {
     // ⚡ OPTIMIZATION: Updated for InstancedMesh
-    const mesh = cluster.userData.berryMesh;
+    const mesh = cluster.userData.berryMesh as THREE.InstancedMesh;
     if (!mesh) return;
 
     const count = mesh.count;
@@ -398,7 +431,7 @@ export function shakeBerriesLoose(cluster, intensity) {
     }
 }
 
-export function collectFallingBerries(playerPos, collectRadius = 1.0) {
+export function collectFallingBerries(playerPos: THREE.Vector3, collectRadius: number = 1.0): number {
     if (!fallingBerryMesh) return 0;
 
     let collected = 0;
