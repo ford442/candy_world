@@ -1,8 +1,6 @@
-// src/core/input.ts
-
-import * as THREE from 'three';
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js';
 import { AudioSystem } from '../audio/audio-system';
+import * as THREE from 'three';
 
 export interface KeyStates {
     forward: boolean;
@@ -10,8 +8,8 @@ export interface KeyStates {
     left: boolean;
     right: boolean;
     jump: boolean;
-    sprint: boolean;
     sneak: boolean;
+    sprint: boolean;
     dash: boolean;
     dance: boolean;
 }
@@ -24,13 +22,13 @@ export const keyStates: KeyStates = {
     jump: false,
     sneak: false,
     sprint: false,
-    dash: false, // Dash ability
-    dance: false // Dance ability
+    dash: false,
+    dance: false
 };
 
 // Controls and Event Listeners
 // Helper: Show temporary success feedback on upload buttons
-const showUploadFeedback = (labelElement: HTMLElement | null, filesCount: number) => {
+const showUploadFeedback = (labelElement: HTMLElement | null, filesCount: number): void => {
     if (!labelElement) return;
 
     // Save original text if not already saved
@@ -38,16 +36,16 @@ const showUploadFeedback = (labelElement: HTMLElement | null, filesCount: number
         labelElement.dataset.originalText = labelElement.innerText;
     }
 
-    const originalText = labelElement.dataset.originalText || '';
+    const originalText = labelElement.dataset.originalText;
     labelElement.innerText = `✅ ${filesCount} Song${filesCount > 1 ? 's' : ''} Added!`;
 
     setTimeout(() => {
-        labelElement.innerText = originalText;
+        labelElement.innerText = originalText || '';
     }, 2000);
 };
 
 // Helper: Validate and filter files by extension
-const filterValidMusicFiles = (files: FileList | File[]) => {
+const filterValidMusicFiles = (files: FileList): { validFiles: File[]; invalidFiles: File[] } => {
     const validExtensions = ['.mod', '.xm', '.it', '.s3m'];
     const validFiles: File[] = [];
     const invalidFiles: File[] = [];
@@ -64,7 +62,7 @@ const filterValidMusicFiles = (files: FileList | File[]) => {
     return { validFiles, invalidFiles };
 };
 
-export interface InitInputReturn {
+export interface InitInputResult {
     controls: PointerLockControls;
     updateReticleState: (state: 'idle' | 'hover' | 'interact', label?: string) => void;
     updateDayNightButtonState: (isPressed: boolean) => void;
@@ -73,19 +71,19 @@ export interface InitInputReturn {
 export function initInput(
     camera: THREE.Camera,
     audioSystem: AudioSystem,
-    toggleDayNightCallback?: () => void,
-    shouldPreventMenuOnUnlock?: () => boolean
-): InitInputReturn {
+    toggleDayNightCallback: (() => void) | null,
+    shouldPreventMenuOnUnlock: (() => boolean) | null
+): InitInputResult {
     const controls = new PointerLockControls(camera, document.body);
     const instructions = document.getElementById('instructions');
-    const startButton = document.getElementById('startButton');
+    const startButton = document.getElementById('startButton') as HTMLButtonElement | null;
     
     // Playlist Elements
     const playlistOverlay = document.getElementById('playlist-overlay');
     const playlistBackdrop = document.getElementById('playlist-backdrop');
     const playlistList = document.getElementById('playlist-list');
     const closePlaylistBtn = document.getElementById('closePlaylistBtn');
-    const playlistUploadInput = document.getElementById('playlistUploadInput');
+    const playlistUploadInput = document.getElementById('playlistUploadInput') as HTMLInputElement | null;
     const openJukeboxBtn = document.getElementById('openJukeboxBtn');
 
     let isPlaylistOpen = false;
@@ -100,7 +98,7 @@ export function initInput(
     }
 
     // Function to animate reticle based on state using CSS classes
-    function updateReticleState(state: 'idle' | 'hover' | 'interact', label?: string) {
+    function updateReticleState(state: 'idle' | 'hover' | 'interact', label?: string): void {
         const reticle = document.getElementById('game-reticle');
         if (!reticle) return;
         const reticleLabel = document.getElementById('reticle-label');
@@ -128,7 +126,7 @@ export function initInput(
     }
 
     // --- Helper: Render Playlist ---
-    function renderPlaylist() {
+    function renderPlaylist(): void {
         if (!playlistList) return;
         playlistList.innerHTML = '';
         const songs = audioSystem.getPlaylist();
@@ -161,8 +159,10 @@ export function initInput(
                 // Keep focus on the clicked item (re-rendered)
                 // We need to find the new button after render
                 requestAnimationFrame(() => {
-                    const newItems = playlistList.querySelectorAll('.playlist-btn') as NodeListOf<HTMLElement>;
-                    if (newItems[index]) newItems[index].focus();
+                    const newItems = playlistList.querySelectorAll('.playlist-btn');
+                    if (newItems[index] && newItems[index] instanceof HTMLElement) {
+                        (newItems[index] as HTMLElement).focus();
+                    }
                 });
             };
 
@@ -194,7 +194,7 @@ export function initInput(
     }
 
     // UX: Update Jukebox Button text with song count
-    function updateJukeboxButtonState(count: number) {
+    function updateJukeboxButtonState(count: number): void {
         if (!openJukeboxBtn) return;
         const countText = count > 0 ? ` (${count})` : '';
         openJukeboxBtn.innerHTML = `Open Jukebox${countText} <span class="key-badge">Q</span>`;
@@ -219,6 +219,7 @@ export function initInput(
         // Show "Now Playing" toast
         const songs = audioSystem.getPlaylist();
         if (songs && songs[index]) {
+            // @ts-ignore
             import('../utils/toast.js').then(({ showToast }) => {
                 showToast(`Now Playing: ${songs[index].name}`, '🎵');
             });
@@ -230,7 +231,7 @@ export function initInput(
     let wasPausedBeforePlaylist = false;
 
     // Toggle Function
-    function togglePlaylist() {
+    function togglePlaylist(): void {
         isPlaylistOpen = !isPlaylistOpen;
 
         if (isPlaylistOpen) {
@@ -249,17 +250,16 @@ export function initInput(
             // UX: Auto-focus the currently playing track for immediate context
             requestAnimationFrame(() => {
                 const currentIdx = audioSystem.getCurrentIndex();
-                if (playlistList) {
-                    const playlistBtns = playlistList.querySelectorAll('.playlist-btn') as NodeListOf<HTMLElement>;
+                if (!playlistList) return;
+                const playlistBtns = playlistList.querySelectorAll('.playlist-btn');
 
-                    if (currentIdx >= 0 && playlistBtns[currentIdx]) {
-                        const activeBtn = playlistBtns[currentIdx];
-                        activeBtn.focus();
-                        // Ensure the active song is visible in the scrollable list
-                        activeBtn.scrollIntoView({ block: 'center' });
-                    } else if (closePlaylistBtn) {
-                        closePlaylistBtn.focus();
-                    }
+                if (currentIdx >= 0 && playlistBtns[currentIdx]) {
+                    const activeBtn = playlistBtns[currentIdx] as HTMLElement;
+                    activeBtn.focus();
+                    // Ensure the active song is visible in the scrollable list
+                    activeBtn.scrollIntoView({ block: 'center' });
+                } else if (closePlaylistBtn) {
+                    closePlaylistBtn.focus();
                 }
             });
         } else {
@@ -272,8 +272,8 @@ export function initInput(
                 // Return to Pause Menu
                 if (instructions) instructions.style.display = 'flex';
                 // Restore focus to the button that opened the jukebox (e.g. Open Jukebox button)
-                if (lastFocusedElement) {
-                    (lastFocusedElement as HTMLElement).focus();
+                if (lastFocusedElement && lastFocusedElement instanceof HTMLElement) {
+                    lastFocusedElement.focus();
                 }
                 // Do NOT lock controls, stay unlocked
             } else {
@@ -300,8 +300,8 @@ export function initInput(
                 const { validFiles } = filterValidMusicFiles(files);
                 if (validFiles.length > 0) {
                     audioSystem.addToQueue(validFiles);
-                    const label = document.querySelector('label[for="playlistUploadInput"]');
-                    showUploadFeedback(label as HTMLElement, validFiles.length);
+                    const label = document.querySelector('label[for="playlistUploadInput"]') as HTMLElement;
+                    showUploadFeedback(label, validFiles.length);
                 }
             }
         });
@@ -316,7 +316,7 @@ export function initInput(
     }
 
     if (instructions) {
-        instructions.addEventListener('click', (event) => {
+        instructions.addEventListener('click', (event: MouseEvent) => {
             if (event.target === instructions) {
                 controls.lock();
             }
@@ -409,10 +409,10 @@ export function initInput(
         // --- UX: Focus Trap for Main Menu (Pause Screen) ---
         if (!isPlaylistOpen && instructions && instructions.style.display !== 'none') {
             if (event.code === 'Tab') {
-                const focusable = instructions.querySelectorAll('button, input, [href], select, textarea, [tabindex]:not([tabindex="-1"])') as NodeListOf<HTMLElement>;
+                const focusable = instructions.querySelectorAll('button, input, [href], select, textarea, [tabindex]:not([tabindex="-1"])');
                 if (focusable.length > 0) {
-                    const first = focusable[0];
-                    const last = focusable[focusable.length - 1];
+                    const first = focusable[0] as HTMLElement;
+                    const last = focusable[focusable.length - 1] as HTMLElement;
 
                     if (event.shiftKey) {
                         if (document.activeElement === first) {
@@ -460,11 +460,11 @@ export function initInput(
 
             // Focus Trap Logic for Tab
             if (event.code === 'Tab') {
-                const focusable = playlistOverlay.querySelectorAll('button, input, [href], select, textarea, [tabindex]:not([tabindex="-1"])') as NodeListOf<HTMLElement>;
+                const focusable = playlistOverlay.querySelectorAll('button, input, [href], select, textarea, [tabindex]:not([tabindex="-1"])');
                 if (focusable.length === 0) return;
 
-                const first = focusable[0];
-                const last = focusable[focusable.length - 1];
+                const first = focusable[0] as HTMLElement;
+                const last = focusable[focusable.length - 1] as HTMLElement;
 
                 if (event.shiftKey) {
                     if (document.activeElement === first) {
@@ -543,7 +543,7 @@ export function initInput(
     document.addEventListener('mouseup', onMouseUp);
 
     // Existing Music Upload Handler (Main Menu) - Kept for compatibility
-    const musicUpload = document.getElementById('musicUpload');
+    const musicUpload = document.getElementById('musicUpload') as HTMLInputElement | null;
     if (musicUpload) {
         musicUpload.addEventListener('change', (event: Event) => {
             const target = event.target as HTMLInputElement;
@@ -553,16 +553,18 @@ export function initInput(
 
                 if (validFiles.length > 0) {
                     audioSystem.addToQueue(validFiles);
-                    const label = document.querySelector('label[for="musicUpload"]');
-                    showUploadFeedback(label as HTMLElement, validFiles.length);
+                    const label = document.querySelector('label[for="musicUpload"]') as HTMLElement | null;
+                    showUploadFeedback(label, validFiles.length);
 
                     if (invalidFiles.length > 0) {
+                        // @ts-ignore
                         import('../utils/toast.js').then(({ showToast }) => {
                             showToast(`Added ${validFiles.length} song${validFiles.length > 1 ? 's' : ''}. (${invalidFiles.length} ignored)`, '⚠️');
                         });
                     }
                 } else {
                      // All files were invalid
+                    // @ts-ignore
                     import('../utils/toast.js').then(({ showToast }) => {
                         showToast("❌ Only .mod, .xm, .it, .s3m allowed!", '🚫');
                     });
@@ -588,6 +590,7 @@ export function initInput(
             toggleMuteBtn.setAttribute('aria-label', isMuted ? 'Unmute Audio' : 'Mute Audio');
         }
 
+        // @ts-ignore
         import('../utils/toast.js').then(({ showToast }) => {
             showToast(isMuted ? "Audio Muted 🔇" : "Audio Unmuted 🔊", isMuted ? '🔇' : '🔊');
         });
@@ -647,6 +650,7 @@ export function initInput(
                     audioSystem.addToQueue(validFiles);
 
                     // Show feedback via Toast
+                    // @ts-ignore
                     import('../utils/toast.js').then(({ showToast }) => {
                         if (invalidFiles.length > 0) {
                             showToast(`Added ${validFiles.length} song${validFiles.length > 1 ? 's' : ''}. (${invalidFiles.length} ignored)`, '⚠️');
@@ -656,10 +660,11 @@ export function initInput(
                     });
 
                     // Also trigger label feedback if available
-                    const label = document.querySelector('label[for="musicUpload"]');
-                    if (label) showUploadFeedback(label as HTMLElement, validFiles.length);
+                    const label = document.querySelector('label[for="musicUpload"]') as HTMLElement | null;
+                    if (label) showUploadFeedback(label, validFiles.length);
                 } else {
                     // All files were invalid
+                    // @ts-ignore
                     import('../utils/toast.js').then(({ showToast }) => {
                         showToast("❌ Only .mod, .xm, .it, .s3m allowed!", '🚫');
                     });
@@ -680,6 +685,7 @@ export function initInput(
                     ? '☀️ Switch to Day <span class="key-badge">N</span>'
                     : '🌙 Switch to Night <span class="key-badge">N</span>';
 
+                // @ts-ignore
                 import('../utils/toast.js').then(({ showToast }) => {
                     const mode = isPressed ? "Night Mode Active 🌙" : "Day Mode Active ☀️";
                     showToast(mode, isPressed ? '🌙' : '☀️');

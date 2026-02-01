@@ -19,3 +19,7 @@
 ## 2024-11-25 - Visualizing Control Combinations
 **Learning:** Text-based control instructions (e.g., "Right Click", "Double Space") are harder to scan quickly than visual representations, especially in a game context where players need to reference them at a glance.
 **Action:** Replace verbose text descriptions with CSS-only visual icons (like a mouse silhouette or badges) to create a more scannable and visually polished HUD, while preserving accessibility via `aria-label`.
+
+## 2024-12-05 - Time Synchronization in GPU Animations
+**Learning:** When driving shader animations via a global uniform (`uTime`) but triggering them from JavaScript events (like clicks), using `performance.now()` in JS creates a desync if the shader time is based on accumulated frame deltas (`gameTime`). This results in animations playing at the wrong time or not at all (negative age).
+**Action:** Always use the same time source for JS logic and GPU uniforms. If `uTime` is driven by a custom game loop, access its value in JS (`uTime.value`) instead of using system time (`performance.now()`) for synchronization.

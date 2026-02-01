@@ -1,6 +1,8 @@
 // src/foliage/flowers.ts
 
 import * as THREE from 'three';
+// @ts-ignore
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { 
     foliageMaterials, 
     registerReactiveMaterial, 
@@ -11,6 +13,8 @@ import {
     createTransparentNodeMaterial,
     sharedGeometries,
     calculateFlowerBloom,
+    calculateWindSway,
+    applyPlayerInteraction,
     uTime
 } from './common.ts';
 import { color as tslColor, mix, float, positionLocal, Node } from 'three/tsl';
@@ -22,132 +26,262 @@ interface FlowerOptions {
     shape?: 'simple' | 'multi' | 'spiral' | 'layered' | 'sunflower';
 }
 
-export function createFlower(options: FlowerOptions = {}): THREE.Group {
+// ⚡ OPTIMIZATION: Merged Geometry Flower (Single Draw Call per Flower)
+export function createFlower(options: FlowerOptions = {}): THREE.Object3D {
     const { color = null, shape = 'simple' } = options;
-    const group = new THREE.Group();
 
+    // Material -> Geometries Map for Merging
+    const parts = new Map<THREE.Material, THREE.BufferGeometry[]>();
+
+    // Helper: Add geometry part
+    const addPart = (geo: THREE.BufferGeometry, mat: THREE.Material, matrix?: THREE.Matrix4) => {
+        const clone = geo.clone();
+        if (matrix) clone.applyMatrix4(matrix);
+
+        if (!parts.has(mat)) {
+            parts.set(mat, []);
+        }
+        parts.get(mat)!.push(clone);
+    };
+
+    // Helper: Create TSL-ready material
+    // We need to ensure ALL parts of the flower move together (Wind + Player Push)
+    // Petals also get Bloom. Center/Stamens get Bloom?
+    // Original: `center` was child of `head`. `head` had `flower.userData.type === 'flower'`?
+    // In `animation.ts`: `triggerBloom` scales `flower` (the whole group).
+    // So Center and Stamens SHOULD Bloom too if we want to match `triggerBloom` logic (which scales root).
+    // My TSL `calculateFlowerBloom` scales from 0.
+    // If I apply it to `positionLocal`, it scales relative to the mesh origin (0,0,0).
+    // But `center` is at (0, stemHeight, 0).
+    // If I scale (0, stemHeight, 0) by 1.2, it moves UP to (0, 1.2*stemHeight, 0).
+    // This effectively scales the "Stem Length" too?
+    // Wait, `flowerStem` material uses `applyPlayerInteraction(positionLocal) + calculateWindSway`.
+    // It does NOT use Bloom.
+    // Bloom (in TSL) creates a "pulsing flower head".
+    // If I apply Bloom to Center/Petals (which are at Y=H), they will move up/down.
+    // This looks like the flower is growing/shrinking on the stem. That's cool.
+    // So YES, apply Bloom -> Wind -> Player to ALL head parts.
+
+    // TSL Chain Construction
+    const posBloom = calculateFlowerBloom(positionLocal);
+    const posWind = posBloom.add(calculateWindSway(posBloom));
+    const posFinal = applyPlayerInteraction(posWind);
+
+    // 1. Stem
     const stemHeight = 0.6 + Math.random() * 0.4;
-    // Use Shared Cylinder
-    // @ts-ignore: foliageMaterials.flowerStem might be array or material, assume material here based on usage
-    const stemMat = foliageMaterials.flowerStem as THREE.Material;
-    const stem = new THREE.Mesh(sharedGeometries.unitCylinder, stemMat);
-    stem.scale.set(0.05, stemHeight, 0.05); // Radius 0.05, Height determined by scale Y
-    stem.castShadow = true;
-    group.add(stem);
-
-    const head = new THREE.Group();
-    head.position.y = stemHeight;
-    group.add(head);
-
-    // Use Shared Sphere
     // @ts-ignore
-    const centerMat = foliageMaterials.flowerCenter as THREE.Material;
-    const center = new THREE.Mesh(sharedGeometries.unitSphere, centerMat);
-    center.scale.setScalar(0.1);
-    center.name = 'flowerCenter';
-    head.add(center);
+    const stemMat = foliageMaterials.flowerStem as THREE.Material;
+    // StemMat already has Wind+Player. It does NOT have Bloom.
+    // That's correct. Stem shouldn't pulse size usually.
 
+    const stemGeo = sharedGeometries.unitCylinder; // Will be cloned in addPart
+    const stemMatrix = new THREE.Matrix4().makeScale(0.05, stemHeight, 0.05);
+    addPart(stemGeo, stemMat, stemMatrix);
+
+    // 2. Head Setup
+    const headMatrix = new THREE.Matrix4().makeTranslation(0, stemHeight, 0);
+
+    // 3. Center
+    // @ts-ignore
+    let centerMat = foliageMaterials.flowerCenter as THREE.Material;
+    // We need to clone to add TSL
+    centerMat = centerMat.clone();
+    (centerMat as any).positionNode = posFinal;
+
+    const centerMatrix = headMatrix.clone();
+    centerMatrix.scale(new THREE.Vector3(0.1, 0.1, 0.1));
+    addPart(sharedGeometries.unitSphere, centerMat, centerMatrix);
+
+    // 4. Stamens
     const stamenCount = 3;
-    const stamenMat = createClayMaterial(0xFFFF00);
+    const stamenMat = createClayMaterial(0xFFFF00, { deformationNode: posFinal });
+
     for (let i = 0; i < stamenCount; i++) {
-        const stamen = new THREE.Mesh(sharedGeometries.unitCylinder, stamenMat);
-        stamen.position.y = 0.075;
-        stamen.scale.set(0.01, 0.15, 0.01);
-        stamen.rotation.z = (Math.random() - 0.5) * 1.0;
-        stamen.rotation.x = (Math.random() - 0.5) * 1.0;
-        head.add(stamen);
+        const m = headMatrix.clone();
+        // Stamen transform relative to head
+        // stamen.position.y = 0.075;
+        // stamen.rotation.z/x...
+        // We need to compose the matrix: Head * StamenLocal
+
+        const stamenLocal = new THREE.Matrix4();
+        stamenLocal.makeTranslation(0, 0.075, 0);
+
+        const rot = new THREE.Matrix4();
+        const rz = (Math.random() - 0.5) * 1.0;
+        const rx = (Math.random() - 0.5) * 1.0;
+        rot.makeRotationFromEuler(new THREE.Euler(rx, 0, rz));
+
+        stamenLocal.multiply(rot); // Rotate then Translate? No, rotation is usually local.
+        // Original: stamen.rotation set. stamen.position set.
+        // Order: Scale, Rotate, Translate.
+        // stamen.scale.set(0.01, 0.15, 0.01);
+
+        const scale = new THREE.Matrix4().makeScale(0.01, 0.15, 0.01);
+
+        // Final Local: Translate * Rotate * Scale
+        // Actually Three.js order: T * R * S
+        const local = new THREE.Matrix4().compose(
+            new THREE.Vector3(0, 0.075, 0),
+            new THREE.Quaternion().setFromEuler(new THREE.Euler(rx, 0, rz)),
+            new THREE.Vector3(0.01, 0.15, 0.01)
+        );
+
+        const finalMat = headMatrix.clone().multiply(local);
+        addPart(sharedGeometries.unitCylinder, stamenMat, finalMat);
     }
 
+    // 5. Petals
     let petalMat: THREE.Material;
     if (color) {
-        // PALETTE UPDATE: Add Bloom TSL to custom flowers
-        petalMat = createClayMaterial(color, { deformationNode: calculateFlowerBloom(positionLocal) });
+        petalMat = createClayMaterial(color, { deformationNode: posFinal });
         registerReactiveMaterial(petalMat);
     } else {
         const petals = foliageMaterials.flowerPetal as THREE.Material[];
-        petalMat = petals[Math.floor(Math.random() * petals.length)];
+        const base = petals[Math.floor(Math.random() * petals.length)];
+        // Clone and apply TSL
+        petalMat = base.clone();
+        (petalMat as any).positionNode = posFinal;
     }
+
+    const addPetal = (geo: THREE.BufferGeometry, localMatrix: THREE.Matrix4, mat: THREE.Material) => {
+        const final = headMatrix.clone().multiply(localMatrix);
+        addPart(geo, mat, final);
+    };
 
     if (shape === 'simple') {
         const petalCount = 5 + Math.floor(Math.random() * 2);
-        const petalGeo = new THREE.IcosahedronGeometry(0.15, 0); // Keep Ico for style, or use sphere
-        petalGeo.scale(1, 0.5, 1);
+        const basePetalGeo = new THREE.IcosahedronGeometry(0.15, 0);
+        basePetalGeo.scale(1, 0.5, 1);
+
         for (let i = 0; i < petalCount; i++) {
             const angle = (i / petalCount) * Math.PI * 2;
-            const petal = new THREE.Mesh(petalGeo, petalMat);
-            petal.position.set(Math.cos(angle) * 0.18, 0, Math.sin(angle) * 0.18);
-            petal.rotation.z = Math.PI / 4;
-            head.add(petal);
+            const m = new THREE.Matrix4();
+            m.makeRotationZ(Math.PI / 4);
+            m.setPosition(Math.cos(angle) * 0.18, 0, Math.sin(angle) * 0.18);
+            addPetal(basePetalGeo, m, petalMat);
         }
     } else if (shape === 'multi') {
         const petalCount = 8 + Math.floor(Math.random() * 4);
+        const basePetalGeo = sharedGeometries.unitSphere; // We will scale in matrix
+
         for (let i = 0; i < petalCount; i++) {
             const angle = (i / petalCount) * Math.PI * 2;
-            const petal = new THREE.Mesh(sharedGeometries.unitSphere, petalMat);
-            petal.scale.setScalar(0.12);
-            petal.position.set(Math.cos(angle) * 0.2, Math.sin(i * 0.5) * 0.1, Math.sin(angle) * 0.2);
-            head.add(petal);
+            const m = new THREE.Matrix4();
+            m.makeScale(0.12, 0.12, 0.12); // Pre-scale
+            // Position: (Math.cos(angle) * 0.2, Math.sin(i * 0.5) * 0.1, Math.sin(angle) * 0.2)
+            // But wait, Three.js matrix composition needs correct order.
+            // S, R, T.
+            const pos = new THREE.Vector3(
+                Math.cos(angle) * 0.2,
+                Math.sin(i * 0.5) * 0.1,
+                Math.sin(angle) * 0.2
+            );
+            // We can just construct T * S
+            const t = new THREE.Matrix4().setPosition(pos);
+            const s = new THREE.Matrix4().makeScale(0.12, 0.12, 0.12);
+            m.copy(t).multiply(s);
+
+            addPetal(basePetalGeo, m, petalMat);
         }
     } else if (shape === 'spiral') {
         const petalCount = 10;
+        const basePetalGeo = sharedGeometries.unitCone;
+
         for (let i = 0; i < petalCount; i++) {
             const angle = (i / petalCount) * Math.PI * 4;
             const radius = 0.05 + (i / petalCount) * 0.15;
-            const petal = new THREE.Mesh(sharedGeometries.unitCone, petalMat);
-            petal.scale.set(0.1, 0.2, 0.1);
-            petal.position.set(Math.cos(angle) * radius, (i / petalCount) * 0.1, Math.sin(angle) * radius);
-            petal.rotation.z = angle;
-            head.add(petal);
+
+            // scale(0.1, 0.2, 0.1)
+            // pos(...)
+            // rot.z = angle
+
+            const m = new THREE.Matrix4().compose(
+                new THREE.Vector3(Math.cos(angle) * radius, (i / petalCount) * 0.1, Math.sin(angle) * radius),
+                new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, angle)),
+                new THREE.Vector3(0.1, 0.2, 0.1)
+            );
+            addPetal(basePetalGeo, m, petalMat);
         }
     } else if (shape === 'layered') {
         for (let layer = 0; layer < 2; layer++) {
             const petalCount = 5;
-            const petalGeo = new THREE.IcosahedronGeometry(0.12, 0);
-            petalGeo.scale(1, 0.5, 1);
-            const layerColor = layer === 0 ? petalMat : createClayMaterial(color ? (typeof color === 'number' ? color + 0x111111 : 0xFFD700) : 0xFFD700);
-            if (layer !== 0) registerReactiveMaterial(layerColor);
+            const basePetalGeo = new THREE.IcosahedronGeometry(0.12, 0);
+            basePetalGeo.scale(1, 0.5, 1);
+
+            // Layer Color logic
+            let currentMat = petalMat;
+            if (layer !== 0) {
+                // Layer 1 gets new color
+                const c = color ? (typeof color === 'number' ? color + 0x111111 : 0xFFD700) : 0xFFD700;
+                currentMat = createClayMaterial(c, { deformationNode: posFinal });
+                registerReactiveMaterial(currentMat);
+            }
 
             for (let i = 0; i < petalCount; i++) {
                 const angle = (i / petalCount) * Math.PI * 2 + (layer * Math.PI / petalCount);
-                const petal = new THREE.Mesh(petalGeo, layerColor);
-                petal.position.set(
-                    Math.cos(angle) * (0.15 + layer * 0.05),
-                    layer * 0.05,
-                    Math.sin(angle) * (0.15 + layer * 0.05)
+
+                // pos: (cos * (0.15 + layer*0.05), layer*0.05, sin...)
+                // rot.z = PI/4
+
+                const r = 0.15 + layer * 0.05;
+                const m = new THREE.Matrix4().compose(
+                    new THREE.Vector3(Math.cos(angle) * r, layer * 0.05, Math.sin(angle) * r),
+                    new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, Math.PI / 4)),
+                    new THREE.Vector3(1, 1, 1) // Geometry already scaled
                 );
-                petal.rotation.z = Math.PI / 4;
-                head.add(petal);
+
+                addPetal(basePetalGeo, m, currentMat);
             }
         }
     }
+    // Sunflower falls through (no petals), matching original logic.
 
+    // 6. Merge Everything
+    const finalGeos: THREE.BufferGeometry[] = [];
+    const finalMats: THREE.Material[] = [];
+
+    parts.forEach((geos, mat) => {
+        if (geos.length > 0) {
+            const merged = mergeGeometries(geos, false);
+            finalGeos.push(merged);
+            finalMats.push(mat);
+        }
+    });
+
+    const mergedGeometry = mergeGeometries(finalGeos, true);
+    const mesh = new THREE.Mesh(mergedGeometry, finalMats);
+
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+
+    // Metadata
+    mesh.userData.animationOffset = Math.random() * 10;
+    mesh.userData.animationType = pickAnimation(['sway', 'wobble', 'accordion']);
+    mesh.userData.type = 'flower';
+    mesh.userData.isFlower = true;
+    mesh.userData.radius = 0.3;
+
+    // 🎨 Palette: Interaction Hint (Added to mesh.userData)
+    mesh.userData.interactionText = "🌸 Flower";
+
+    // Beam Logic (Child)
     if (Math.random() > 0.5) {
-        // Use shared cone for beam
         // @ts-ignore
         const beam = new THREE.Mesh(sharedGeometries.unitCone, foliageMaterials.lightBeam.clone());
         beam.scale.set(0.1, 1.0, 0.1);
         beam.position.y = stemHeight;
         beam.userData.isBeam = true;
-        group.add(beam);
+        mesh.add(beam);
     }
 
-    group.userData.animationOffset = Math.random() * 10;
-    group.userData.animationType = pickAnimation(['sway', 'wobble', 'accordion']);
-    group.userData.type = 'flower';
-    group.userData.isFlower = true;
-    
-    // ⚡ PERFORMANCE: Set accurate bounding radius for frustum culling (flowers are small)
-    group.userData.radius = 0.3; // Flowers have ~0.3m radius
-
-    // Sun Flower logic (Reacts when bright)
     if (shape === 'sunflower' || shape === 'multi') {
-        return attachReactivity(group, { minLight: 0.6, maxLight: 1.0 });
+        return attachReactivity(mesh, { minLight: 0.6, maxLight: 1.0 });
     }
 
-    // Standard Flower logic (Daytime/Dusk)
-    return attachReactivity(group, { minLight: 0.2, maxLight: 1.0 });
+    return attachReactivity(mesh, { minLight: 0.2, maxLight: 1.0 });
 }
 
+// ... Rest of the file unchanged ...
 interface GlowingFlowerOptions {
     color?: number | string | THREE.Color;
     intensity?: number;
@@ -339,6 +473,9 @@ export function createPuffballFlower(options: { color?: number } = {}): THREE.Gr
     group.userData.bounceHeight = stemH;
     group.userData.bounceRadius = headR + 0.3;
     group.userData.bounceForce = 12 + Math.random() * 5;
+
+    // 🎨 Palette: Interaction Hint
+    group.userData.interactionText = "🚀 Bounce";
 
     return attachReactivity(group, { minLight: 0.2, maxLight: 1.0 });
 }
@@ -555,6 +692,7 @@ export function createLanternFlower(options: { color?: number, height?: number }
 
     // Metadata
     group.userData.type = 'lanternFlower';
+    group.userData.interactionText = "🏮 Lantern";
     group.userData.height = height;
     group.userData.color = color;
 

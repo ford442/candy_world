@@ -16,8 +16,7 @@ try {
         },
         {
             name: "State Capture Logic",
-            // Allow for JS (&&) or TS (ternary with null check) styles
-            pattern: /wasPausedBeforePlaylist = instructions.*display !== 'none'/,
+            pattern: /wasPausedBeforePlaylist = instructions \? \(instructions\.style\.display !== 'none'\) : false;/,
             error: "Missing logic to capture pause state."
         },
         {
@@ -27,8 +26,7 @@ try {
         },
         {
             name: "Focus Restoration",
-            // Allow for TS casting (lastFocusedElement as HTMLElement).focus()
-            pattern: /if \(lastFocusedElement\) \{[\s\S]*?(\(lastFocusedElement as HTMLElement\)|lastFocusedElement)\.focus\(\);/,
+            pattern: /if \(lastFocusedElement && lastFocusedElement instanceof HTMLElement\) \{[\s\S]*?lastFocusedElement\.focus\(\);/,
             error: "Missing logic to restore focus."
         }
     ];

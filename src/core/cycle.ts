@@ -1,11 +1,9 @@
-// src/core/cycle.ts
-
 import * as THREE from 'three';
 import {
     PALETTE, CYCLE_DURATION, DURATION_SUNRISE, DURATION_DAY,
     DURATION_SUNSET, DURATION_DUSK_NIGHT, DURATION_DEEP_NIGHT, DURATION_PRE_DAWN,
     PaletteEntry
-} from './config'; // Assuming config is also migrated or resolves correctly
+} from './config.ts';
 
 // --- Reusable Color Pool for Render Loop (prevents GC pressure) ---
 export const _scratchPalette: PaletteEntry = {
@@ -103,7 +101,7 @@ export function getCycleState(tRaw: number, paletteMode: string = 'standard'): P
 
 
 // --- NEW: Helper to get celestial intensities ---
-export function getCelestialState(tRaw: number): { sunIntensity: number, moonIntensity: number } {
+export function getCelestialState(tRaw: number): { sunIntensity: number; moonIntensity: number } {
     const t = tRaw % CYCLE_DURATION;
     const SUNRISE_END = DURATION_SUNRISE;
     const SUNSET_START = DURATION_SUNRISE + DURATION_DAY;
@@ -143,7 +141,7 @@ const YEAR_LENGTH = CYCLE_DURATION * 40; // 40 in-game days per year
 const MOON_CYCLE_LENGTH = CYCLE_DURATION * 8; // Full moon every 8 days
 
 export interface SeasonalState {
-    season: string;
+    season: 'Spring' | 'Summer' | 'Autumn' | 'Winter';
     sunInclination: number;
     moonPhase: number;
     yearProgress: number;
@@ -157,7 +155,7 @@ export function getSeasonalState(tRaw: number): SeasonalState {
     // 0.75 = Winter Start
     const yearProgress = (tRaw % YEAR_LENGTH) / YEAR_LENGTH;
     
-    let season = 'Spring';
+    let season: 'Spring' | 'Summer' | 'Autumn' | 'Winter' = 'Spring';
     if (yearProgress > 0.75) season = 'Winter';
     else if (yearProgress > 0.5) season = 'Autumn';
     else if (yearProgress > 0.25) season = 'Summer';
