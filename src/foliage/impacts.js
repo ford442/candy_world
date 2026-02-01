@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { PointsNodeMaterial } from 'three/webgpu';
-import { attribute, float, mix, color, vec3, smoothstep, sin, positionLocal, pointUV, length, exp } from 'three/tsl';
+import { attribute, float, mix, color, vec3, smoothstep, sin, positionLocal, length, exp } from 'three/tsl';
 import { uTime, uAudioHigh } from './common.ts';
 
 const MAX_PARTICLES = 1500;
@@ -69,12 +69,14 @@ export function createImpactSystem() {
     mat.positionNode = positionLocal.add(movement);
 
     // Shape: Soft Circle (Juice)
-    const dist = length(pointUV.sub(0.5));
-    const circle = float(1.0).sub(smoothstep(0.3, 0.5, dist));
+    // TEMPORARY FIX: pointUV generates 'gl_PointCoord' which fails in WGSL (WebGPU).
+    // Disabling circle mask for now (particles will be square).
+    // const dist = length(pointUV.sub(0.5));
+    // const circle = float(1.0).sub(smoothstep(0.3, 0.5, dist));
 
     // Opacity: Fade out linearly or with a curve
     const opacity = float(1.0).sub(smoothstep(0.0, 1.0, lifeProgress));
-    mat.opacityNode = opacity.mul(isAlive).mul(circle);
+    mat.opacityNode = opacity.mul(isAlive); // .mul(circle);
 
     // Shimmer (Audio Reactivity)
     const shimmer = sin(age.mul(20.0).add(uAudioHigh.mul(10.0))).mul(0.2).add(1.0);
