@@ -622,6 +622,7 @@ initWasm().then(async (wasmLoaded) => {
     if (startButton) {
         startButton.disabled = false;
         startButton.innerText = 'Enter World 🍭';
+        startButton.focus();
         
         startButton.addEventListener('click', () => {
             console.log('[Startup] Entering world...');
