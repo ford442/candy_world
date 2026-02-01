@@ -9,8 +9,7 @@ import { getGroundHeight, uploadPositions, uploadAnimationData, uploadMushroomSp
 import { chargeBerries, triggerGrowth, triggerBloom, shakeBerriesLoose, createMushroom, createWaterfall, createLanternFlower, cleanupReactivity, musicReactivitySystem, updateGlobalBerryScale } from '../foliage/index.js';
 // @ts-ignore
 import { createRainbow, uRainbowOpacity } from '../foliage/rainbow.js';
-// @ts-ignore
-import { getCelestialState, getSeasonalState } from '../core/cycle.js';
+import { getCelestialState, getSeasonalState } from '../core/cycle.ts';
 import { CYCLE_DURATION, CONFIG, DURATION_SUNRISE, DURATION_DAY, DURATION_SUNSET, DURATION_PRE_DAWN } from '../core/config.ts';
 // @ts-ignore
 import { uCloudRainbowIntensity, uCloudLightningStrength, uCloudLightningColor, updateCloudAttraction, isCloudOverTarget } from '../foliage/clouds.js';
