@@ -2,7 +2,7 @@
 
 import * as THREE from 'three';
 // @ts-ignore
-import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { 
     foliageMaterials, 
     registerReactiveMaterial, 
@@ -150,7 +150,10 @@ export function createFlower(options: FlowerOptions = {}): THREE.Object3D {
 
     if (shape === 'simple') {
         const petalCount = 5 + Math.floor(Math.random() * 2);
-        const basePetalGeo = new THREE.IcosahedronGeometry(0.15, 0);
+        let basePetalGeo = new THREE.IcosahedronGeometry(0.15, 0);
+        // Fix: Icosahedron(detail=0) is non-indexed, while others are indexed.
+        // Convert to indexed to match.
+        basePetalGeo = mergeVertices(basePetalGeo);
         basePetalGeo.scale(1, 0.5, 1);
 
         for (let i = 0; i < petalCount; i++) {
@@ -205,7 +208,8 @@ export function createFlower(options: FlowerOptions = {}): THREE.Object3D {
     } else if (shape === 'layered') {
         for (let layer = 0; layer < 2; layer++) {
             const petalCount = 5;
-            const basePetalGeo = new THREE.IcosahedronGeometry(0.12, 0);
+            let basePetalGeo = new THREE.IcosahedronGeometry(0.12, 0);
+            basePetalGeo = mergeVertices(basePetalGeo); // Fix: Ensure indexed
             basePetalGeo.scale(1, 0.5, 1);
 
             // Layer Color logic
