@@ -671,6 +671,14 @@ initWasm().then(async (wasmLoaded) => {
         const dummyDir = new THREE.Vector3(0, 1, 0);
         fireRainbow(scene, dummyOrigin, dummyDir);
 
+        // FIX: Ensure clipping planes are defined before compilation
+        // WebGPURenderer 0.171.0+ can crash in setupHardwareClipping if this is undefined
+        if (!renderer.clippingPlanes) {
+             renderer.clippingPlanes = [];
+             renderer.localClippingEnabled = false;
+             console.log('[Deferred] Re-applied clipping planes fix.');
+        }
+
         try {
             // Async compile prevents blocking the main thread too hard
             await renderer.compileAsync(scene, camera);
