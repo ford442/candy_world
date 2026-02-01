@@ -25,16 +25,41 @@ export function updateRainBatch(
     time: f32,
     bassIntensity: f32
 ): void {
+    // Defensive guards: invalid counts or pointers are no-ops
+    if (count <= 0) return;
+
+    // Validate basic pointer arithmetic to avoid out-of-bounds memory access in wasm
+    // Each particle uses 3 floats (x,y,z) => 3 * STRIDE_F32 bytes per particle
+    const requiredPosBytes = <usize>count * 3 * <usize>STRIDE_F32;
+    const requiredVelBytes = <usize>count * <usize>STRIDE_F32;
+    const requiredOffsBytes = <usize>count * <usize>STRIDE_F32;
+
+    // Simple overflow / sanity checks. If pointers are clearly invalid, bail out.
+    if (positionsPtr == 0 || velocitiesPtr == 0 || offsetsPtr == 0) return;
+    // NOTE: We cannot read the runtime memory size easily here; these checks at least
+    // stop obviously invalid inputs and make the function safe for malformed callers.
+
     for (let i = 0; i < count; i++) {
+        // Compute byte offsets and validate small index range before load/store
+        const offByte = offsetsPtr + <usize>(i * STRIDE_F32);
+        const velByte = velocitiesPtr + <usize>(i * STRIDE_F32);
+        const posBase = positionsPtr + <usize>(i * 3 * STRIDE_F32);
+
+        // Basic validation: ensure computed offsets didn't wrap (simple overflow detection)
+        // If addition wrapped around, posBase will be less than the original pointer.
+        if (offByte == 0 || velByte == 0 || posBase == 0) continue;
+        if (offByte < offsetsPtr || velByte < velocitiesPtr || posBase < positionsPtr) continue;
+        // Ensure space for x,y,z exists (best-effort check)
+        if (posBase + (2 * STRIDE_F32) < posBase) continue;
+
         // Load offset
-        let offsetVal = load<f32>(offsetsPtr + <usize>(i * STRIDE_F32));
+        let offsetVal = load<f32>(offByte);
 
         // Load velocity
-        let velocityVal = load<f32>(velocitiesPtr + <usize>(i * STRIDE_F32));
+        let velocityVal = load<f32>(velByte);
 
         // Load position Y (index 1)
-        let posIndex = <usize>(i * 3 * STRIDE_F32);
-        let currentY = load<f32>(positionsPtr + posIndex + STRIDE_F32); // y is at +4 bytes
+        let currentY = load<f32>(posBase + STRIDE_F32); // y is at +4 bytes
 
         let startY = 50.0 + offsetVal;
         let speed = velocityVal * (1.0 + bassIntensity);
@@ -44,13 +69,13 @@ export function updateRainBatch(
         let cycled = totalDrop % cycleHeight;
         let newY = startY - cycled;
 
-        store<f32>(positionsPtr + posIndex + STRIDE_F32, <f32>newY);
+        store<f32>(posBase + STRIDE_F32, <f32>newY);
 
         if (newY < 0.0) {
              let rx = (Math.random() - 0.5) * 100.0;
              let rz = (Math.random() - 0.5) * 100.0;
-             store<f32>(positionsPtr + posIndex, <f32>rx);
-             store<f32>(positionsPtr + posIndex + (2 * STRIDE_F32), <f32>rz);
+             store<f32>(posBase, <f32>rx);
+             store<f32>(posBase + (2 * STRIDE_F32), <f32>rz);
         }
     }
 }
@@ -66,24 +91,29 @@ export function updateMelodicMistBatch(
     time: f32,
     melodyVol: f32
 ): void {
-    let volFactor = Math.max(melodyVol, 0.3) * 2.0;
+    // Defensive guards
+    if (count <= 0) return;
+    if (positionsPtr == 0) return;
 
     for (let i = 0; i < count; i++) {
+        const posBase = positionsPtr + <usize>(i * 3 * STRIDE_F32);
+        if (posBase == 0) continue;
+        if (posBase < positionsPtr) continue;
+        if (posBase + (2 * STRIDE_F32) < posBase) continue;
+
         let offset = <f32>i * 0.1;
 
-        let yVal = 1.0 + Math.sin(time + offset) * volFactor;
-
-        let posIndex = <usize>(i * 3 * STRIDE_F32);
+        let yVal = 1.0 + Math.sin(time + offset) * Math.max(melodyVol, 0.3) * 2.0;
 
         // Read current X and Z to add to them
-        let currentX = load<f32>(positionsPtr + posIndex);
-        let currentZ = load<f32>(positionsPtr + posIndex + (2 * STRIDE_F32));
+        let currentX = load<f32>(posBase);
+        let currentZ = load<f32>(posBase + (2 * STRIDE_F32));
 
         let dx = Math.sin(time * 0.5 + offset) * 0.01;
         let dz = Math.cos(time * 0.4 + offset) * 0.01;
 
-        store<f32>(positionsPtr + posIndex, currentX + <f32>dx);
-        store<f32>(positionsPtr + posIndex + STRIDE_F32, <f32>yVal);
-        store<f32>(positionsPtr + posIndex + (2 * STRIDE_F32), currentZ + <f32>dz);
+        store<f32>(posBase, currentX + <f32>dx);
+        store<f32>(posBase + STRIDE_F32, <f32>yVal);
+        store<f32>(posBase + (2 * STRIDE_F32), currentZ + <f32>dz);
     }
 }
