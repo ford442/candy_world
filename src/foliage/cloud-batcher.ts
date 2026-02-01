@@ -4,7 +4,7 @@ import {
     color, uniform, mix, vec3, positionLocal, normalLocal, mx_noise_float,
     float, normalize, positionWorld, normalWorld, cameraPosition, dot, abs, sin, pow
 } from 'three/tsl';
-import { uTime, createRimLight, uAudioLow } from './common.js';
+import { uTime, createRimLight, uAudioLow } from './common.ts';
 import { foliageGroup } from '../world/state.ts';
 
 // --- Global Uniforms (Moved from clouds.js) ---
