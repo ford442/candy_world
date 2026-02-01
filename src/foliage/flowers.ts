@@ -261,6 +261,9 @@ export function createFlower(options: FlowerOptions = {}): THREE.Object3D {
     mesh.userData.isFlower = true;
     mesh.userData.radius = 0.3;
 
+    // 🎨 Palette: Interaction Hint (Added to mesh.userData)
+    mesh.userData.interactionText = "🌸 Flower";
+
     // Beam Logic (Child)
     if (Math.random() > 0.5) {
         // @ts-ignore
@@ -470,6 +473,9 @@ export function createPuffballFlower(options: { color?: number } = {}): THREE.Gr
     group.userData.bounceHeight = stemH;
     group.userData.bounceRadius = headR + 0.3;
     group.userData.bounceForce = 12 + Math.random() * 5;
+
+    // 🎨 Palette: Interaction Hint
+    group.userData.interactionText = "🚀 Bounce";
 
     return attachReactivity(group, { minLight: 0.2, maxLight: 1.0 });
 }
@@ -686,6 +692,7 @@ export function createLanternFlower(options: { color?: number, height?: number }
 
     // Metadata
     group.userData.type = 'lanternFlower';
+    group.userData.interactionText = "🏮 Lantern";
     group.userData.height = height;
     group.userData.color = color;
 

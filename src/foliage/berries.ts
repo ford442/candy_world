@@ -239,6 +239,12 @@ export function createBerryCluster(options: BerryClusterOptions = {}): THREE.Gro
     group.userData.glowDecayRate = 0.01;
     group.userData.berryColor = colorHex;
 
+    // 🎨 Palette: Interaction
+    group.userData.interactionText = "🍓 Shake";
+    group.userData.onInteract = () => {
+        shakeBerriesLoose(group, 1.5); // Strong shake!
+    };
+
     // Store the control uniform so we can update it later
     group.userData.uClusterGlow = uClusterGlow;
 

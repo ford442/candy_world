@@ -125,6 +125,43 @@ export function createMushroom(options: MushroomOptions = {}): THREE.Group {
         group.userData.onPlacement = null;
     };
 
+    // Reactivity Registration
+    // We still register with system for LOGIC (collision, maybe sound triggers?),
+    // but visuals are handled by TSL.
+    // Actually, MusicReactivitySystem handles sound triggers? No, AudioSystem does.
+    // MusicReactivitySystem handles visual response.
+    // MushroomBatcher.handleNote handles the visual response now.
+    // So do we need to register this group with MusicReactivitySystem?
+    // MusicReactivitySystem.updateTwilightGlow iterated mushrooms. We moved that to TSL.
+    // MusicReactivitySystem.update iterated mushrooms. We moved that to TSL.
+    // So we DON'T need to register with MusicReactivitySystem anymore!
+    // UNLESS there is non-visual logic there?
+    // checking music-reactivity.ts...
+    // handleNoteOn -> triggerReaction -> obj.reactToNote()
+    // createMushroom had `group.reactToNote`.
+    // We can move `reactToNote` logic (if any remains) to batcher?
+    // Old logic: set flashColor, intensity, scale animation.
+    // New logic: handled by TSL via attributes.
+    // So `reactToNote` on the group is DEAD.
+
+    // However, collision/gameplay might expect `userData` properties. We set those above.
+
+    // 🎨 Palette: Contextual Interaction Hints
+    if (isGiant || isBouncy) {
+        group.userData.interactionText = "🚀 Jump!";
+    } else if (actualNoteIndex >= 0) {
+        group.userData.interactionText = "🎵 Play Note";
+        group.userData.onInteract = () => {
+             // Visual & Audio Feedback
+             if (mushroomBatcher) {
+                 mushroomBatcher.handleNote(actualNoteIndex, 127);
+             }
+             // Optional: Play sound directly?
+             // Currently audio system plays sound from sequence, but we can perhaps trigger it?
+             // For now, visual feedback is enough "Play Note" implies triggering the visual.
+        };
+    }
+
     return group;
 }
 
