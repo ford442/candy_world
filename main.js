@@ -673,6 +673,10 @@ initWasm().then(async (wasmLoaded) => {
 
         // FIX: Ensure clipping planes are defined before compilation
         // WebGPURenderer 0.171.0+ can crash in setupHardwareClipping if this is undefined
+        if (renderer) {
+            console.log('[Deferred] Checking renderer state for clipping fix. Planes:', renderer.clippingPlanes ? 'Defined' : 'Undefined');
+        }
+
         if (!renderer.clippingPlanes) {
              renderer.clippingPlanes = [];
              renderer.localClippingEnabled = false;
