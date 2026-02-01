@@ -20,6 +20,8 @@ export function initScene() {
     }
 
     const renderer = new WebGPURenderer({ canvas, antialias: true });
+    // Fix: WebGPURenderer 0.171.0+ can crash in setupHardwareClipping if this is undefined
+    renderer.clippingPlanes = [];
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5)); // Cap pixel ratio for better performance
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
