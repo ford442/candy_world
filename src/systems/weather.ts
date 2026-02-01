@@ -24,6 +24,8 @@ import { WasmParticleSystem } from './adapters/WasmParticleSystem.js';
 import { foliageClouds } from '../world/state.ts';
 // @ts-ignore
 import { replaceMushroomWithGiant } from '../foliage/mushrooms.js';
+// @ts-ignore
+import { mushroomBatcher } from '../foliage/mushroom-batcher.ts';
 import { VisualState } from '../audio/audio-system.ts';
 
 // Weather states
@@ -913,6 +915,11 @@ export class WeatherSystem {
             if (toRemove) {
                 // Remove from Scene
                 if (toRemove.parent) toRemove.parent.remove(toRemove);
+
+                // ⚡ OPTIMIZATION: Remove from Batcher (prevents visual leak)
+                if (mushroomBatcher && mushroomBatcher.removeInstance) {
+                    mushroomBatcher.removeInstance(toRemove);
+                }
 
                 // Cleanup Reactivity Systems
                 cleanupReactivity(toRemove);
