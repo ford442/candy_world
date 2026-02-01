@@ -224,6 +224,12 @@ export class MusicReactivitySystem {
                     continue;
                 }
 
+                // ⚡ OPTIMIZATION: Standard Flowers are now TSL-driven (merged geometry)
+                if (obj.userData.isFlower) {
+                     rendered++;
+                     continue;
+                }
+
                 // ⚡ PERFORMANCE: Size-based culling distances
                 let cullDistance = 150; // Default
                 
