@@ -210,6 +210,10 @@ async function loadEmscriptenModule(forceSingleThreaded = false) {
              }
         } catch(e) {
             console.warn("[WASM] Failed to pre-fetch binary:", e);
+            // Help diagnose common server configuration issues
+            if (e.message && e.message.toLowerCase().includes("content decoding")) {
+                console.error("[WASM] CRITICAL: Content Decoding Failed! The server is likely sending 'Content-Encoding: gzip' for an uncompressed .wasm file. This is a common issue with Vite preview/dev servers.");
+            }
         }
 
         // POLYFILL BYPASS: 
