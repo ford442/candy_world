@@ -11,7 +11,8 @@
     "optimize": "bash tools/optimize.sh",
     "build": "npm run build:wasm && npm run build:emcc && npm run optimize && vite build",
     "test": "python3 verify.py",
-    "test:wasm": "node verification/test_wasm_loader.mjs",
+    "test:wasm": "node verification/verify_wasm_particle_bounds.js",
+    "test:integration": "npm run build:wasm && npm run test:wasm",
     "verify:emcc": "node verification/verify_emcc_exports.js"
   },
   "keywords": [],
