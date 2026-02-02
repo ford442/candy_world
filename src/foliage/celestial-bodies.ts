@@ -1,10 +1,10 @@
-// src/foliage/celestial-bodies.js
+// src/foliage/celestial-bodies.ts
 
 import * as THREE from 'three';
 import { attachReactivity } from './common.ts';
 
 // Helper to place objects on a distant sky sphere
-function getRandomSkyPosition(radius) {
+function getRandomSkyPosition(radius: number): THREE.Vector3 {
     const phi = Math.acos((Math.random() * 2) - 1); // 0 to PI
     const theta = Math.random() * Math.PI * 2;       // 0 to 2PI
 
@@ -17,7 +17,7 @@ function getRandomSkyPosition(radius) {
 }
 
 // --- 1. THE PULSAR (High Freq / Sky Reactivity) ---
-function createPulsar() {
+function createPulsar(): THREE.Group {
     const group = new THREE.Group();
 
     // Core Star
@@ -49,7 +49,7 @@ function createPulsar() {
 }
 
 // --- 2. THE BASS PLANET (Low Freq / Flora Reactivity) ---
-function createBassPlanet() {
+function createBassPlanet(): THREE.Group {
     const group = new THREE.Group();
 
     // Planet Body
@@ -83,7 +83,7 @@ function createBassPlanet() {
 }
 
 // --- 3. THE SPIRAL GALAXY (Melody Reactivity) ---
-function createGalaxy() {
+function createGalaxy(): THREE.Points {
     const particles = 1000;
     const geo = new THREE.BufferGeometry();
     const positions = new Float32Array(particles * 3);
@@ -150,8 +150,8 @@ function createGalaxy() {
     return attachReactivity(galaxy);
 }
 
-export function initCelestialBodies(scene) {
-    const bodies = [];
+export function initCelestialBodies(scene: THREE.Scene): THREE.Object3D[] {
+    const bodies: THREE.Object3D[] = [];
 
     // Create 1 Galaxy
     const galaxy = createGalaxy();
