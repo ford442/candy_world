@@ -1,18 +1,25 @@
-// src/foliage/cave.js
+// src/foliage/cave.ts
 
 import * as THREE from 'three';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import {
-    color, float, vec3, mix, positionLocal, positionWorld, normalWorld,
-    mx_noise_float, step, smoothstep, sin, mul, add, abs, max
+    color, float, mix, positionLocal, normalWorld,
+    smoothstep, abs
 } from 'three/tsl';
 import {
     uAudioLow, createRimLight, triplanarNoise, perturbNormal
 } from './common.ts';
 import { uTwilight } from './sky.ts';
-import { createWaterfall } from './waterfalls.js';
+import { createWaterfall } from './waterfalls.ts';
 
-export function createCaveEntrance(options = {}) {
+export interface CaveOptions {
+    scale?: number;
+    depth?: number;
+    width?: number;
+    height?: number;
+}
+
+export function createCaveEntrance(options: CaveOptions = {}): THREE.Group {
     const {
         scale = 1.0,
         depth = 20.0,
@@ -111,7 +118,7 @@ export function createCaveEntrance(options = {}) {
     return group;
 }
 
-export function updateCaveWaterLevel(caveGroup, waterLevel) {
+export function updateCaveWaterLevel(caveGroup: THREE.Group, waterLevel: number): void {
     const waterfall = caveGroup.userData.waterfall;
     const threshold = 0.2;
 
@@ -128,7 +135,9 @@ export function updateCaveWaterLevel(caveGroup, waterLevel) {
         caveGroup.userData.isBlocked = false;
     }
 
+    // @ts-ignore
     if (waterfall.visible && waterfall.onAnimate) {
+         // @ts-ignore
         waterfall.onAnimate(0.016, Date.now() / 1000);
     }
 }

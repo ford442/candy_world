@@ -1,7 +1,7 @@
-// src/foliage/stars.js
+// src/foliage/stars.ts
 
 import * as THREE from 'three';
-import { color, float, vec3, vec4, time, positionLocal, attribute, uniform, mix, length, sin, cos } from 'three/tsl';
+import { color, float, vec3, vec4, time, positionLocal, attribute, uniform, mix, sin, cos, UniformNode } from 'three/tsl';
 import { PointsNodeMaterial } from 'three/webgpu';
 import { uAudioLow, uAudioHigh } from './common.ts';
 
@@ -10,7 +10,7 @@ import { uAudioLow, uAudioHigh } from './common.ts';
 export const uStarColor = uniform(color(0xFFFFFF));
 export const uStarOpacity = uniform(0.0); // Controls visibility (Day/Night)
 
-export function createStars(count = 1500) {
+export function createStars(count: number = 1500): THREE.Points {
     const geo = new THREE.BufferGeometry();
     const positions = new Float32Array(count * 3);
     const sizes = new Float32Array(count);
@@ -67,6 +67,7 @@ export function createStars(count = 1500) {
         fog: false
     });
 
+    // We assign TSL nodes to properties of PointsNodeMaterial
     const aOffset = attribute('offset', 'float');
     const aSize = attribute('size', 'float');
     const aStarColor = attribute('starColor', 'vec3');

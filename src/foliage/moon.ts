@@ -1,7 +1,8 @@
 import * as THREE from 'three';
-import { color, vec3, time, sin, cos, uniform, mix, positionLocal } from 'three/tsl';
+import { color, vec3, time, sin, cos, uniform, mix, positionLocal, UniformNode } from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { attachReactivity } from './common.ts';
+import { VisualState } from '../audio/audio-system.ts';
 
 // Moon Configuration
 export const moonConfig = {
@@ -10,7 +11,7 @@ export const moonConfig = {
     danceSpeed: 2.0
 };
 
-export function createMoon() {
+export function createMoon(): THREE.Group {
     const group = new THREE.Group();
     group.name = 'Moon';
 
@@ -30,6 +31,7 @@ export function createMoon() {
     // We can drive this via a uniform 'uMoonBlink' updated from JS
     // Or use time-based if generic. For music sync, we use a uniform.
     const uBlink = uniform(0.0); // 0 to 1
+    // @ts-ignore - Expose custom property
     mat.uBlink = uBlink; // Expose to JS
 
     // Emissive node: Base glow + Blink intensity
@@ -91,7 +93,7 @@ export function createMoon() {
  * @param {number} delta - Time delta
  * @param {object} audioData - Audio state
  */
-export function updateMoon(moon, delta, audioData) {
+export function updateMoon(moon: THREE.Group, delta: number, audioData: VisualState): void {
     if (!moon || !moon.userData.isMoon) return;
 
     // 1. Dance (Bobbing to beat)
@@ -112,7 +114,7 @@ export function updateMoon(moon, delta, audioData) {
     // Recommendation: Add moon mesh to a "MoonContainer" which handles orbit, and animate mesh local position.
     // For now, let's assume moon.children[0] (the mesh) can be animated locally.
 
-    const mesh = moon.children[0];
+    const mesh = moon.children[0] as THREE.Mesh;
     if (mesh) {
         mesh.position.y = bob + beatBounce;
         mesh.rotation.z = Math.sin(timeVal) * 0.05; // Gentle tilt
@@ -123,24 +125,27 @@ export function updateMoon(moon, delta, audioData) {
     if (moon.userData.blinkTimer > 0) {
         moon.userData.blinkTimer -= delta;
         // Update uniform
+        // @ts-ignore
         if (mesh.material.uBlink) {
              // 0..1..0 curve
              const t = 1.0 - (moon.userData.blinkTimer / moonConfig.blinkDuration);
              const val = Math.sin(t * Math.PI);
-             mesh.material.uBlink.value = val;
+             // @ts-ignore
+             (mesh.material.uBlink as UniformNode<number>).value = val;
         }
 
         // Squash eyes
-        const eyes = moon.userData.eyes;
+        const eyes = moon.userData.eyes as THREE.Object3D[];
         if (eyes) {
             eyes.forEach(eye => eye.scale.y = 0.1 + (1.0 - Math.sin(Math.PI * (1.0 - moon.userData.blinkTimer/moonConfig.blinkDuration))) * 0.9);
         }
     } else {
         // Reset eyes
-        const eyes = moon.userData.eyes;
+        const eyes = moon.userData.eyes as THREE.Object3D[];
         if (eyes) eyes.forEach(eye => eye.scale.y = 1.0);
 
-        if (mesh.material.uBlink) mesh.material.uBlink.value = 0;
+        // @ts-ignore
+        if (mesh.material.uBlink) (mesh.material.uBlink as UniformNode<number>).value = 0;
 
         // Random chance to blink
         if (Math.random() < 0.005) {
@@ -156,6 +161,6 @@ export function updateMoon(moon, delta, audioData) {
     }
 }
 
-export function triggerMoonBlink(moon) {
+export function triggerMoonBlink(moon: THREE.Group): void {
     moon.userData.blinkTimer = moonConfig.blinkDuration;
 }

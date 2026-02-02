@@ -1,7 +1,6 @@
 import * as THREE from 'three';
-import { color, time, uv, texture, float, positionLocal, vec2, mix, sin, vec3, uniform } from 'three/tsl';
-import { MeshStandardNodeMaterial } from 'three/webgpu';
-import { foliageMaterials, registerReactiveMaterial, attachReactivity, CandyPresets, createUnifiedMaterial } from './common.ts';
+import { color, time, uv, float, vec2, mix, sin, uniform, UniformNode } from 'three/tsl';
+import { registerReactiveMaterial, attachReactivity, CandyPresets } from './common.ts';
 
 /**
  * Creates a bioluminescent waterfall connecting two points.
@@ -9,7 +8,7 @@ import { foliageMaterials, registerReactiveMaterial, attachReactivity, CandyPres
  * @param {THREE.Vector3} endPos - Bottom position
  * @param {number} width - Width of the waterfall
  */
-export function createWaterfall(startPos, endPos, width = 5.0) {
+export function createWaterfall(startPos: THREE.Vector3, endPos: THREE.Vector3, width: number = 5.0): THREE.Group {
     const group = new THREE.Group();
     group.name = 'Waterfall';
 
@@ -61,7 +60,9 @@ export function createWaterfall(startPos, endPos, width = 5.0) {
 
     // Modify roughness based on foam (foam is rougher)
     // Safety check: wrap in float() if roughnessNode is missing or primitive
-    mat.roughnessNode = (mat.roughnessNode || float(mat.roughness)).add(foam.mul(0.5));
+    // In TSL, roughnessNode is usually a Node. If undefined, we can default.
+    const currentRoughness = mat.roughnessNode || float(mat.roughness);
+    mat.roughnessNode = currentRoughness.add(foam.mul(0.5));
 
     // -----------------------------------------------------------
 
@@ -102,14 +103,15 @@ export function createWaterfall(startPos, endPos, width = 5.0) {
     // --- AUDIO REACTIVITY ---
     attachReactivity(group, { minLight: 0.0, maxLight: 1.0, type: 'flora' }); // Reacts to lower channels (Bass/Melody)
 
-    group.reactToNote = (note, colorVal, velocity) => {
+    // @ts-ignore - dynamic property assignment
+    group.reactToNote = (note: any, colorVal: any, velocity: number) => {
         // 1. Visual Pulse (TSL Uniform)
         // Bump intensity: base 0.0 -> adds up to 2.0 based on velocity
-        mesh.userData.uPulseIntensity.value = 0.5 + (velocity * 2.0);
+        (mesh.userData.uPulseIntensity as UniformNode<number>).value = 0.5 + (velocity * 2.0);
 
         // 2. Splash Explosion (Particle "Juice")
         if (velocity > 0.5) {
-            group.userData.splashes.forEach(s => {
+            group.userData.splashes.forEach((s: THREE.Object3D) => {
                 if (Math.random() > 0.5) return; // Only affect some particles
                 s.userData.velocity.y += velocity * 5.0; // Shoot up
                 s.userData.velocity.x += (Math.random()-0.5) * velocity;
@@ -119,14 +121,16 @@ export function createWaterfall(startPos, endPos, width = 5.0) {
     };
 
     // Custom animate function to decay pulse and move particles
-    group.onAnimate = (delta, time) => {
+    // @ts-ignore
+    group.onAnimate = (delta: number, time: number) => {
         // Decay pulse
-        if (mesh.userData.uPulseIntensity.value > 0.01) {
-            mesh.userData.uPulseIntensity.value = THREE.MathUtils.lerp(mesh.userData.uPulseIntensity.value, 0.0, delta * 5.0);
+        const pulse = mesh.userData.uPulseIntensity as UniformNode<number>;
+        if (pulse.value > 0.01) {
+            pulse.value = THREE.MathUtils.lerp(pulse.value, 0.0, delta * 5.0);
         }
 
         // Animate splashes
-        group.userData.splashes.forEach(s => {
+        group.userData.splashes.forEach((s: THREE.Object3D) => {
             s.position.addScaledVector(s.userData.velocity, delta);
             s.userData.velocity.y -= 20.0 * delta; // Heavy gravity
 
