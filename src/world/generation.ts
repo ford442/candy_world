@@ -14,7 +14,8 @@ import {
     createPanningPad, createSilenceSpirit, createInstrumentShrine, createMelodyMirror,
     createRetriggerMushroom,
     createIsland, // Added
-    createCaveEntrance
+    createCaveEntrance,
+    createNeonPollen // Added
 } from '../foliage/index.ts';
 import { validateFoliageMaterials } from '../foliage/common.ts';
 import { CONFIG } from '../core/config.ts';
@@ -542,6 +543,11 @@ function populateLakeIsland(weatherSystem: WeatherSystem): void {
         trap.rotation.y = angle;
         safeAddFoliage(trap, true, 0.8, weatherSystem);
     }
+
+    // ⚡ JUICE: Neon Pollen Cloud
+    // Audio-reactive magic dust covering the island
+    const pollen = createNeonPollen(3000, 25, new THREE.Vector3(centerX, 5, centerZ));
+    safeAddFoliage(pollen, false, 0, null);
     
     console.log(`[World] Lake Island populated with musical flora at (${centerX}, ${centerZ})`);
 }
