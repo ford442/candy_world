@@ -1,10 +1,7 @@
-// src/foliage/clouds.js
+// src/foliage/clouds.ts
 
 import * as THREE from 'three';
-import { color, uniform, mix, vec3, positionLocal, normalLocal, mx_noise_float, float, normalize, positionWorld, normalWorld, cameraPosition, dot, abs, sin, pow } from 'three/tsl';
-import { uTime, createRimLight, uAudioLow } from './common.ts';
 import { cloudBatcher, uCloudRainbowIntensity, uCloudLightningStrength, uCloudLightningColor, sharedCloudMaterial } from './cloud-batcher.ts';
-
 
 // Re-export for compatibility with weather.ts
 export { uCloudRainbowIntensity, uCloudLightningStrength, uCloudLightningColor, sharedCloudMaterial };
@@ -12,14 +9,21 @@ export { uCloudRainbowIntensity, uCloudLightningStrength, uCloudLightningColor, 
 // Optimization: Shared scratch variables
 const _scratchVec3 = new THREE.Vector3();
 
+export interface CloudOptions {
+    scale?: number;
+    size?: number; // legacy alias for scale multiplier
+    tier?: number;
+    puffCount?: number;
+}
+
 // Wrapper for createCloud
-export function createRainingCloud(options = {}) {
+export function createRainingCloud(options: CloudOptions = {}): THREE.Group {
     const { scale = 1.0, size = 1.0 } = options;
     const finalScale = scale * (typeof size === 'number' ? size : 1.0);
     return createCloud({ scale: finalScale });
 }
 
-export function createCloud(options = {}) {
+export function createCloud(options: CloudOptions = {}): THREE.Group {
     const {
         scale = 1.0,
         tier = 1,
@@ -40,14 +44,15 @@ export function createCloud(options = {}) {
     group.userData.animOffset = Math.random() * 100;
 
     // Animation Logic (Called by Batcher or Physics)
-    group.onAnimate = (delta, time) => {
+    // @ts-ignore
+    group.onAnimate = (delta: number, time: number) => {
         const t = time + group.userData.animOffset;
         // Float animation logic
         // We modify the group's local transform, which the Batcher then reads
         group.position.y += Math.sin(t * 0.5) * 0.05 * delta;
         group.rotation.y += Math.cos(t * 0.1) * 0.02 * delta;
     };
-    group.userData.onAnimate = group.onAnimate;
+    group.userData.onAnimate = (group as any).onAnimate;
 
     // Register with Batcher on Placement (World Generation)
     group.userData.onPlacement = () => {
@@ -57,14 +62,14 @@ export function createCloud(options = {}) {
     return group;
 }
 
-export function createDecoCloud(options = {}) {
+export function createDecoCloud(options: CloudOptions = {}): THREE.Group {
     return createCloud(options);
 }
 
 // Helper for 'falling clouds' physics logic
 // --- NEW STEERING LOGIC ---
 
-export function updateCloudAttraction(cloud, targetPos, dt) {
+export function updateCloudAttraction(cloud: THREE.Object3D, targetPos: THREE.Vector3, dt: number): void {
     if (!cloud || !targetPos) return;
 
     // ⚡ OPTIMIZATION: Use shared vector to avoid allocation
@@ -100,13 +105,13 @@ export function updateCloudAttraction(cloud, targetPos, dt) {
     }
 }
 
-export function isCloudOverTarget(cloud, targetPos, threshold = 3.0) {
+export function isCloudOverTarget(cloud: THREE.Object3D, targetPos: THREE.Vector3, threshold: number = 3.0): boolean {
     const dx = cloud.position.x - targetPos.x;
     const dz = cloud.position.z - targetPos.z;
     return (dx*dx + dz*dz) < (threshold * threshold);
 }
 
-export function updateFallingClouds(dt, clouds, getGroundHeight) {
+export function updateFallingClouds(dt: number, clouds: THREE.Object3D[], getGroundHeight: (x: number, z: number) => number): void {
     for (let i = clouds.length - 1; i >= 0; i--) {
         const cloud = clouds[i];
         if (cloud.userData.isFalling) {
@@ -121,7 +126,7 @@ export function updateFallingClouds(dt, clouds, getGroundHeight) {
     }
 }
 
-function respawnCloud(cloud) {
+function respawnCloud(cloud: THREE.Object3D): void {
     cloud.userData.isFalling = false;
     cloud.position.set(
         (Math.random() - 0.5) * 200,

@@ -10,12 +10,14 @@
 
 ## Next Steps
 
-1. **Phase 1 (JS -> TS)**: Migrate remaining Foliage Modules (`clouds.js`, `cave.js`, `stars.js`, `rainbow.js`) to TypeScript.
+1. **Phase 1 (JS -> TS)**: Migrate remaining Logic and Gameplay Modules (`src/foliage/musical_flora.js`, `src/foliage/environment.js`, `src/gameplay/rainbow-blaster.js`) to TypeScript.
 
 ---
 
 ## Recent Progress
 - **Accomplished:**
+  - **Phase 1 (JS -> TS): Foliage Modules (`clouds`, `cave`, `stars`, `rainbow`, `moon`, `waterfalls`, `celestial-bodies`)**: **Status: Implemented ✅**
+    - *Implementation Details:* Migrated 7 foliage modules from JavaScript to TypeScript (`.ts`). Renamed `src/foliage/index.js` to `index.ts` and updated exports. Consolidated imports in `src/systems/weather.ts`, `src/world/generation.ts`, and `main.js`. Added strict typing for creation options and TSL uniforms. Verified build integrity via `vite build`.
   - **Phase 1 (JS -> TS): Core Modules (`src/core/input.ts`, `src/core/cycle.ts`)**: **Status: Implemented ✅**
     - *Implementation Details:* Migrated `src/core/input.js` and `src/core/cycle.js` to TypeScript. Added strict typing for `KeyStates`, `PaletteEntry`, `SeasonalState`, and system interaction callbacks. Updated dependent files (`main.js`, `weather.ts`, `rainbow-blaster.js`) to use correct imports. Verified logic with `verification/verify_input_logic.mjs`.
   - **Phase 1 (JS -> TS): Foliage Cleanup**: **Status: Implemented ✅**
