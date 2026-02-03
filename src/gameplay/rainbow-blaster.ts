@@ -3,7 +3,7 @@ import { foliageClouds } from '../world/state.ts'; // The list of active clouds
 import { createCandyMaterial } from '../foliage/common.ts';
 import { getCelestialState } from '../core/cycle.ts'; // Import cycle check
 
-const PROJECTILES = [];
+const PROJECTILES: THREE.Mesh[] = [];
 const SPEED = 60.0;
 const RADIUS = 0.5;
 
@@ -11,7 +11,11 @@ const RADIUS = 0.5;
 const projectileGeo = new THREE.SphereGeometry(RADIUS, 8, 8);
 const projectileMat = createCandyMaterial(0xFFFFFF, 1.0); // Base white, we'll color it per shot
 
-export function fireRainbow(scene, origin, direction) {
+interface WeatherSystem {
+    notifyCloudShot?: (isDay: boolean) => void;
+}
+
+export function fireRainbow(scene: THREE.Scene, origin: THREE.Vector3, direction: THREE.Vector3) {
     const mesh = new THREE.Mesh(projectileGeo, projectileMat.clone());
     
     // Rainbow Colors!
@@ -32,7 +36,7 @@ export function fireRainbow(scene, origin, direction) {
     // playSound('pew'); 
 }
 
-export function updateBlaster(dt, scene, weatherSystem, currentTime) {
+export function updateBlaster(dt: number, scene: THREE.Scene, weatherSystem: WeatherSystem, currentTime: number) {
     const celestial = getCelestialState(currentTime);
     const isDay = celestial.sunIntensity > 0.5;
 
@@ -82,14 +86,14 @@ export function updateBlaster(dt, scene, weatherSystem, currentTime) {
 
 // --- NEW: Visual Effects for Cloud Destruction ---
 
-const BURSTS = [];
+const BURSTS: THREE.Points[] = [];
 
-function createBurst(scene, position, color, type) {
+function createBurst(scene: THREE.Scene, position: THREE.Vector3, color: number, type: string) {
     const count = 15;
     const geo = new THREE.BufferGeometry();
     const posArray = new Float32Array(count * 3);
     const normArray = new Float32Array(count * 3);
-    const velArray = [];
+    const velArray: THREE.Vector3[] = [];
     
     for(let i=0; i<count; i++) {
         posArray[i*3] = position.x + (Math.random()-0.5)*2;
@@ -126,12 +130,12 @@ function createBurst(scene, position, color, type) {
     BURSTS.push(points);
 }
 
-function updateBursts(dt, scene) {
+function updateBursts(dt: number, scene: THREE.Scene) {
     for (let i = BURSTS.length - 1; i >= 0; i--) {
         const b = BURSTS[i];
         b.userData.life -= dt;
         
-        const pos = b.geometry.attributes.position.array;
+        const pos = (b.geometry.attributes.position as THREE.BufferAttribute).array as Float32Array;
         const vels = b.userData.velocities;
         
         for(let k=0; k<vels.length; k++) {
@@ -140,18 +144,18 @@ function updateBursts(dt, scene) {
             pos[k*3+2] += vels[k].z * dt;
         }
         b.geometry.attributes.position.needsUpdate = true;
-        b.material.opacity = b.userData.life; // Fade out
+        (b.material as THREE.PointsMaterial).opacity = b.userData.life; // Fade out
 
         if (b.userData.life <= 0) {
             scene.remove(b);
             b.geometry.dispose();
-            b.material.dispose();
+            (b.material as THREE.PointsMaterial).dispose();
             BURSTS.splice(i, 1);
         }
     }
 }
 
-function knockDownCloudMist(cloud, scene) {
+function knockDownCloudMist(cloud: THREE.Object3D, scene: THREE.Scene) {
     if (cloud.userData.isFalling) return;
     cloud.userData.isFalling = true; // Mark as "dead" so we don't hit it again
     
@@ -162,7 +166,7 @@ function knockDownCloudMist(cloud, scene) {
     createBurst(scene, cloud.position, 0xFFFFFF, 'mist');
     
     // Scale down rapidly in update loop (handled by clouds.js logic mostly, but we can override velocity)
-    cloud.traverse(c => {
+    cloud.traverse((c: any) => {
         if (c.isMesh && c.material) {
             c.material.transparent = true;
             c.material.opacity = 0.5; // Ghostly
@@ -170,7 +174,7 @@ function knockDownCloudMist(cloud, scene) {
     });
 }
 
-function knockDownCloudDeluge(cloud, scene) {
+function knockDownCloudDeluge(cloud: THREE.Object3D, scene: THREE.Scene) {
     if (cloud.userData.isFalling) return;
     cloud.userData.isFalling = true;
 
@@ -180,7 +184,7 @@ function knockDownCloudDeluge(cloud, scene) {
     // Create Rain Burst
     createBurst(scene, cloud.position, 0x0000FF, 'rain');
 
-    cloud.traverse(c => {
+    cloud.traverse((c: any) => {
         if (c.isMesh && c.material) {
             c.material.color.setHex(0x000088); // Turn dark blue
             c.material.emissive.setHex(0x0000FF);

@@ -22,7 +22,7 @@ import { getCycleState } from './src/core/cycle.ts';
 import { initWorld, generateMap } from './src/world/generation.ts';
 import { animatedFoliage, foliageGroup, activeVineSwing, foliageClouds, foliageMushrooms } from './src/world/state.ts';
 import { updatePhysics, player, bpmWind } from './src/systems/physics.ts';
-import { fireRainbow, updateBlaster } from './src/gameplay/rainbow-blaster.js';
+import { fireRainbow, updateBlaster } from './src/gameplay/rainbow-blaster.ts';
 import { updateFallingClouds } from './src/foliage/clouds.ts';
 import { cloudBatcher } from './src/foliage/cloud-batcher.ts';
 import { getGroundHeight } from './src/utils/wasm-loader.js';
