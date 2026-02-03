@@ -498,6 +498,14 @@ export function initInput(
             case 'Space': keyStates.jump = true; break;
             case 'KeyN': if(toggleDayNightCallback) toggleDayNightCallback(); break;
             case 'KeyM': toggleMute(); break;
+            case 'Equal':
+            case 'NumpadAdd':
+                adjustVolume(0.1);
+                break;
+            case 'Minus':
+            case 'NumpadSubtract':
+                adjustVolume(-0.1);
+                break;
             case 'ControlLeft':
             case 'ControlRight':
                 keyStates.sneak = true;
@@ -580,19 +588,43 @@ export function initInput(
 
     const toggleMuteBtn = document.getElementById('toggleMuteBtn');
 
-    // Helper: Mute Toggle Logic
-    const toggleMute = () => {
-        const isMuted = audioSystem.toggleMute();
-
+    // Helper: Update Mute UI
+    const updateMuteUI = (isMuted: boolean) => {
         if (toggleMuteBtn) {
             toggleMuteBtn.setAttribute('aria-pressed', String(isMuted));
             toggleMuteBtn.innerHTML = isMuted ? '🔇 Unmute <span class="key-badge">M</span>' : '🔊 Mute <span class="key-badge">M</span>';
             toggleMuteBtn.setAttribute('aria-label', isMuted ? 'Unmute Audio' : 'Mute Audio');
         }
+    };
+
+    // Helper: Mute Toggle Logic
+    const toggleMute = () => {
+        const isMuted = audioSystem.toggleMute();
+        updateMuteUI(isMuted);
 
         // @ts-ignore
         import('../utils/toast.js').then(({ showToast }) => {
             showToast(isMuted ? "Audio Muted 🔇" : "Audio Unmuted 🔊", isMuted ? '🔇' : '🔊');
+        });
+    };
+
+    // Helper: Adjust Volume
+    const adjustVolume = (delta: number) => {
+        let newVol = audioSystem.volume + delta;
+        newVol = Math.max(0, Math.min(1, newVol));
+        audioSystem.setVolume(newVol);
+
+        if (newVol > 0 && audioSystem.isMuted) {
+            audioSystem.isMuted = false;
+            updateMuteUI(false);
+        }
+
+        const percentage = Math.round(newVol * 100);
+        const icon = newVol === 0 ? '🔇' : newVol < 0.5 ? '🔉' : '🔊';
+
+        // @ts-ignore
+        import('../utils/toast.js').then(({ showToast }) => {
+            showToast(`Volume: ${percentage}% ${icon}`, icon);
         });
     };
 
