@@ -40,3 +40,4 @@ export { musicReactivitySystem } from '../systems/music-reactivity.ts';
 export * from './musical_flora.js';
 export * from './arpeggio-batcher.ts';
 export * from './portamento-batcher.ts';
+export * from './simple-flower-batcher.ts';

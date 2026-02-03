@@ -20,6 +20,7 @@ import {
 import { color as tslColor, mix, float, positionLocal, Node } from 'three/tsl';
 import { uTwilight } from './sky.ts';
 import { lanternBatcher } from './lantern-batcher.ts';
+import { simpleFlowerBatcher } from './simple-flower-batcher.ts';
 
 interface FlowerOptions {
     color?: number | string | THREE.Color | null;
@@ -29,6 +30,52 @@ interface FlowerOptions {
 // ⚡ OPTIMIZATION: Merged Geometry Flower (Single Draw Call per Flower)
 export function createFlower(options: FlowerOptions = {}): THREE.Object3D {
     const { color = null, shape = 'simple' } = options;
+
+    if (shape === 'simple') {
+        // ⚡ OPTIMIZATION: Use Batcher for Simple Flowers
+        const group = new THREE.Group();
+        const stemHeight = 0.6 + Math.random() * 0.4;
+
+        // Hit Volume
+        // Approx cylinder for interaction
+        const hitGeo = new THREE.CylinderGeometry(0.2, 0.2, stemHeight, 8);
+        hitGeo.translate(0, stemHeight / 2, 0);
+        const hitMat = new THREE.MeshBasicMaterial({ visible: false });
+        const hitMesh = new THREE.Mesh(hitGeo, hitMat);
+        group.add(hitMesh);
+
+        group.userData.type = 'flower';
+        group.userData.interactionText = "🌸 Flower";
+
+        // Determine Color
+        let batchColor = 0xFFFFFF;
+        if (color) {
+            batchColor = (typeof color === 'number') ? color : new THREE.Color(color).getHex();
+        } else {
+            // Pick random color from a palette (matches flowerPetal presets roughly)
+            const palette = [0xFF69B4, 0xFFD700, 0xFFFFFF, 0x9933FF];
+            batchColor = palette[Math.floor(Math.random() * palette.length)];
+        }
+
+        const hasBeam = Math.random() > 0.5;
+
+        group.userData.onPlacement = () => {
+             simpleFlowerBatcher.register(group, {
+                 height: stemHeight,
+                 color: batchColor,
+                 hasBeam: hasBeam,
+                 spawnTime: (uTime as any).value || 0
+             });
+             group.userData.onPlacement = null;
+        };
+
+        // Reactivity metadata
+        group.userData.reactivityType = 'flora';
+        group.userData.minLight = 0.2;
+        group.userData.maxLight = 1.0;
+
+        return group;
+    }
 
     // Material -> Geometries Map for Merging
     const parts = new Map<THREE.Material, THREE.BufferGeometry[]>();
@@ -148,22 +195,7 @@ export function createFlower(options: FlowerOptions = {}): THREE.Object3D {
         addPart(geo, mat, final);
     };
 
-    if (shape === 'simple') {
-        const petalCount = 5 + Math.floor(Math.random() * 2);
-        let basePetalGeo = new THREE.IcosahedronGeometry(0.15, 0);
-        // Fix: Icosahedron(detail=0) is non-indexed, while others are indexed.
-        // Convert to indexed to match.
-        basePetalGeo = mergeVertices(basePetalGeo);
-        basePetalGeo.scale(1, 0.5, 1);
-
-        for (let i = 0; i < petalCount; i++) {
-            const angle = (i / petalCount) * Math.PI * 2;
-            const m = new THREE.Matrix4();
-            m.makeRotationZ(Math.PI / 4);
-            m.setPosition(Math.cos(angle) * 0.18, 0, Math.sin(angle) * 0.18);
-            addPetal(basePetalGeo, m, petalMat);
-        }
-    } else if (shape === 'multi') {
+    if (shape === 'multi') {
         const petalCount = 8 + Math.floor(Math.random() * 4);
         const basePetalGeo = sharedGeometries.unitSphere; // We will scale in matrix
 
