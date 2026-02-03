@@ -13,9 +13,9 @@ import {
     createBubbleWillow, createHelixPlant, createBalloonBush, createWisteriaCluster,
     createPanningPad, createSilenceSpirit, createInstrumentShrine, createMelodyMirror,
     createRetriggerMushroom,
-    createIsland // Added
-} from '../foliage/index.js';
-import { createCaveEntrance } from '../foliage/cave.js';
+    createIsland, // Added
+    createCaveEntrance
+} from '../foliage/index.ts';
 import { validateFoliageMaterials } from '../foliage/common.ts';
 import { CONFIG } from '../core/config.ts';
 import { registerPhysicsCave } from '../systems/physics.ts';

@@ -1,10 +1,10 @@
 import * as THREE from 'three';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
-import { color, float, uv, mix, vec3, Fn, uniform, sin, time, positionWorld, smoothstep } from 'three/tsl';
+import { color, uv, mix, Fn, uniform, sin, time, smoothstep, UniformNode } from 'three/tsl';
 
 export const uRainbowOpacity = uniform(0.0);
 
-export function createRainbow() {
+export function createRainbow(): THREE.Mesh {
     // Large Ring Geometry
     const innerRadius = 80;
     const outerRadius = 90;
