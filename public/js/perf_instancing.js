@@ -1,6 +1,6 @@
 import * as THREE from '/node_modules/three/build/three.module.js';
 import { initWasm } from '/src/utils/wasm-loader.js';
-import { musicalFlora } from '/src/foliage/musical_flora.js';
+import { musicalFlora } from '/src/foliage/musical_flora.ts';
 
 const logEl = id('log');
 function id(n){return document.getElementById(n)}
