@@ -1,7 +1,18 @@
 import * as THREE from 'three';
+// @ts-ignore
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { time, vec3, positionLocal, length, sin, cos } from 'three/tsl';
 import { registerReactiveMaterial, attachReactivity } from './common.ts';
+
+export interface FloatingOrbOptions {
+    color?: number;
+    size?: number;
+}
+
+export interface KickDrumGeyserOptions {
+    color?: number;
+    maxHeight?: number;
+}
 
 export function createMelodyLake(width = 200, depth = 200) {
     const geo = new THREE.PlaneGeometry(width, depth, 64, 64);
@@ -30,7 +41,7 @@ export function createMelodyLake(width = 200, depth = 200) {
     return mesh;
 }
 
-export function createFloatingOrb(options = {}) {
+export function createFloatingOrb(options: FloatingOrbOptions = {}) {
     const { color = 0x87CEEB, size = 0.5 } = options;
     const geo = new THREE.SphereGeometry(size, 8, 8);
     const mat = new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.8 });
@@ -48,7 +59,7 @@ export function createFloatingOrb(options = {}) {
     return attachReactivity(orb);
 }
 
-export function createFloatingOrbCluster(x, z) {
+export function createFloatingOrbCluster(x: number, z: number) {
     const cluster = new THREE.Group();
     cluster.position.set(x, 5, z);
     for (let i = 0; i < 3; i++) {
@@ -59,7 +70,7 @@ export function createFloatingOrbCluster(x, z) {
     return cluster;
 }
 
-export function createKickDrumGeyser(options = {}) {
+export function createKickDrumGeyser(options: KickDrumGeyserOptions = {}) {
     const { color = 0xFF4500, maxHeight = 5.0 } = options;
     const group = new THREE.Group();
 

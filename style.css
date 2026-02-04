@@ -87,3 +87,37 @@
     box-shadow: 0 2px 0 rgba(0,0,0,0.1);
     border-bottom: 2px solid #e0e0e0;
 }
+
+/* 🎨 Palette: Playlist Close Button */
+.close-icon-btn {
+    position: absolute;
+    top: 10px;
+    right: 15px;
+    background: none;
+    border: none;
+    font-size: 2em;
+    color: #FF6B6B;
+    cursor: pointer;
+    line-height: 1;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    transition: transform 0.2s, background 0.2s, color 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Fredoka One', cursive, sans-serif;
+    z-index: 10;
+}
+
+.close-icon-btn:hover {
+    background: #FFF0F5;
+    transform: scale(1.1);
+    color: #FF4081;
+}
+
+.close-icon-btn:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px #ffffff, 0 0 0 6px #FF4081;
+}

@@ -3,22 +3,50 @@ import {
     createClayMaterial, 
     createCandyMaterial, 
     registerReactiveMaterial, 
-    attachReactivity,
-    foliageMaterials,
-    uTime,
-    uGlitchIntensity
+    attachReactivity
 } from './common.ts';
-import {
-    color, float, uniform, vec3, positionLocal, sin, cos, mix, uv
-} from 'three/tsl';
-import { applyGlitch } from './glitch.js';
+
+// @ts-ignore
+import { batchAnimationCalc, uploadPositions } from '../utils/wasm-loader.js';
 import { arpeggioFernBatcher } from './arpeggio-batcher.ts';
 import { dandelionBatcher } from './dandelion-batcher.ts';
 import { portamentoPineBatcher } from './portamento-batcher.ts';
 
+// Interfaces for options
+export interface ArpeggioFernOptions {
+    color?: number;
+    scale?: number;
+}
+
+export interface PortamentoPineOptions {
+    height?: number;
+}
+
+export interface CymbalDandelionOptions {
+    scale?: number;
+}
+
+export interface SnareTrapOptions {
+    color?: number;
+    scale?: number;
+}
+
+export interface RetriggerMushroomOptions {
+    color?: number;
+    scale?: number;
+    retriggerSpeed?: number;
+}
+
+// Interfaces for internal structures
+interface SystemData {
+    mesh: THREE.InstancedMesh;
+    data: any[];
+    count: number;
+}
+
 // --- Category 1: Melodic Flora ---
 
-export function createArpeggioFern(options = {}) {
+export function createArpeggioFern(options: ArpeggioFernOptions = {}) {
     const { color = 0x00FF88, scale = 1.0 } = options;
     const group = new THREE.Group();
 
@@ -73,7 +101,7 @@ export function createArpeggioFern(options = {}) {
     return interactive;
 }
 
-export function createPortamentoPine(options = {}) {
+export function createPortamentoPine(options: PortamentoPineOptions = {}) {
     const { height = 4.0 } = options;
     const group = new THREE.Group();
 
@@ -100,12 +128,12 @@ export function createPortamentoPine(options = {}) {
     // Reactivity State (kept from HEAD so audio triggers still update logic)
     group.userData.reactivityState = { currentBend: 0, velocity: 0 };
 
-    group.userData.reactToNote = (noteInfo) => {
+    group.userData.reactToNote = (noteInfo: any) => {
         if (noteInfo.channel === 2 || noteInfo.channel === 3) {
             group.userData.reactivityState.velocity += 15.0 * (noteInfo.velocity || 0.5);
-            if (window.AudioSystem && typeof window.AudioSystem.playSound === 'function') {
+            if ((window as any).AudioSystem && typeof (window as any).AudioSystem.playSound === 'function') {
                 const pitch = noteInfo.note ? 1.0 : 0.8 + Math.random() * 0.4;
-                window.AudioSystem.playSound('creak', { position: group.position, pitch, volume: 0.3 });
+                (window as any).AudioSystem.playSound('creak', { position: group.position, pitch, volume: 0.3 });
             }
             // Inform the batcher of reactive bend (batcher provides helper)
             const idx = group.userData.batchIndex;
@@ -142,7 +170,7 @@ export function createPortamentoPine(options = {}) {
 
 // --- Category 2: Rhythmic Structures ---
 
-export function createCymbalDandelion(options = {}) {
+export function createCymbalDandelion(options: CymbalDandelionOptions = {}) {
     const { scale = 1.0 } = options;
     const group = new THREE.Group();
 
@@ -168,7 +196,7 @@ export function createCymbalDandelion(options = {}) {
     return makeInteractive(reactiveGroup);
 }
 
-export function createSnareTrap(options = {}) {
+export function createSnareTrap(options: SnareTrapOptions = {}) {
     const { color = 0xFF4500, scale = 1.0 } = options;
     const group = new THREE.Group();
 
@@ -247,7 +275,7 @@ export function createSnareTrap(options = {}) {
  * @param {number} options.retriggerSpeed - Speed of retrigger effect (default: 4)
  * @returns {THREE.Group} The retrigger mushroom group
  */
-export function createRetriggerMushroom(options = {}) {
+export function createRetriggerMushroom(options: RetriggerMushroomOptions = {}) {
     const { 
         color: capColor = 0x00FFFF, 
         scale = 1.0,
@@ -280,7 +308,7 @@ export function createRetriggerMushroom(options = {}) {
 
     // Concentric ring segments (for stutter visual effect)
     const ringCount = 4;
-    const rings = [];
+    const rings: THREE.Mesh[] = [];
     for (let i = 0; i < ringCount; i++) {
         const innerR = (capRadius * 0.2) + (capRadius * 0.2 * i);
         const outerR = innerR + (capRadius * 0.15);
@@ -370,13 +398,18 @@ export function createRetriggerMushroom(options = {}) {
 
 // --- Musical Flora Manager (Instancing support) ---
 
-import { batchAnimationCalc, uploadPositions } from '../utils/wasm-loader.js';
-
 /**
  * MANAGER CLASS
  * Handles batch updates for thousands of instanced objects efficiently.
  */
 export class MusicalFloraManager {
+    systems: Map<string, SystemData>;
+    dummy: THREE.Object3D;
+    _position: THREE.Vector3;
+    _quaternion: THREE.Quaternion;
+    _scale: THREE.Vector3;
+    instanceColors: Float32Array | null;
+
     constructor() {
         this.systems = new Map(); // Stores registered mesh systems
         this.dummy = new THREE.Object3D();
@@ -394,7 +427,7 @@ export class MusicalFloraManager {
      * @param {THREE.InstancedMesh} mesh - The mesh
      * @param {Array} initialData - Array of {x, y, z, scale} objects
      */
-    register(id, mesh, initialData) {
+    register(id: string, mesh: THREE.InstancedMesh, initialData: any[]) {
         if (!mesh || !initialData || initialData.length === 0) return;
 
         console.log(`[MusicalFlora] Registering system: ${id} (${initialData.length} items)`);
@@ -415,7 +448,7 @@ export class MusicalFloraManager {
     /**
      * Main update loop - Call this in your tick/render loop
      */
-    update(time, deltaTime, audioState) {
+    update(time: number, deltaTime: number, audioState: any) {
         const kick = audioState?.kickTrigger || 0;
         const intensity = audioState?.energy || 0;
 
@@ -424,7 +457,7 @@ export class MusicalFloraManager {
         }
     }
 
-    animateSystem(system, time, intensity, kick) {
+    animateSystem(system: SystemData, time: number, intensity: number, kick: number) {
         const { mesh, count, data } = system;
 
         // 1. Run Physics/Animation in WASM
@@ -485,16 +518,16 @@ export const musicalFlora = new MusicalFloraManager();
  * Adds "Sense" behaviors to a plant Group.
  * Defines reactions for Proximity (Walk near), Gaze (Look at), and Interact (Click).
  */
-export function makeInteractive(group) {
+export function makeInteractive(group: THREE.Group) {
     // 1. Setup State
     if (!group.userData.originalScale) group.userData.originalScale = group.scale.clone();
     group.userData.isHovered = false;
 
     // --- REACTION: PROXIMITY (Walk Near) ---
     // The plant "wakes up" - slight glow or rotation
-    group.userData.onProximityEnter = (dist) => {
+    group.userData.onProximityEnter = (dist: number) => {
         // Example: Enable a dim emission so it stands out slightly
-        group.traverse(child => {
+        group.traverse((child: any) => {
             if (child.isMesh && child.material) {
                 if (child.material.emissive) {
                     child.userData.baseEmissive = child.material.emissive.getHex();
@@ -508,7 +541,7 @@ export function makeInteractive(group) {
     group.userData.onProximityLeave = () => {
         // Reset everything
         group.scale.copy(group.userData.originalScale);
-        group.traverse(child => {
+        group.traverse((child: any) => {
             if (child.isMesh && child.material && child.material.emissive) {
                 // Restore original color (likely black/no emission)
                 if (child.userData.baseEmissive !== undefined) {
@@ -528,7 +561,7 @@ export function makeInteractive(group) {
         group.scale.copy(targetScale);
 
         // 2. Visual reaction: Brighten up
-        group.traverse(child => {
+        group.traverse((child: any) => {
             if (child.isMesh && child.material && child.material.emissive) {
                 child.material.emissiveIntensity = 0.5; // Glow brighter
                 child.material.emissive.setHex(0x444444); // White-ish glow
@@ -541,7 +574,7 @@ export function makeInteractive(group) {
 
         // Reset to "Proximity" state (not "Off", because we are still nearby)
         group.scale.copy(group.userData.originalScale);
-         group.traverse(child => {
+         group.traverse((child: any) => {
             if (child.isMesh && child.material && child.material.emissive) {
                 child.material.emissiveIntensity = 0.0; // Stop glowing bright
                 child.material.emissive.setHex(0x111111); // Return to dim proximity glow
