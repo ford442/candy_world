@@ -6,7 +6,7 @@ import {
 } from 'three/tsl';
 import { uTime, uAudioHigh } from './common.ts';
 
-const MAX_PARTICLES = 2000; // Increased capacity for juice
+const MAX_PARTICLES = 4000; // Increased capacity for juice
 let _impactMesh = null;
 let _head = 0;
 
@@ -15,7 +15,9 @@ const IMPACT_CONFIG = {
     land: { count: 40 },
     dash: { count: 30 },
     berry: { count: 15 },
-    snare: { count: 25 }
+    snare: { count: 25 },
+    mist: { count: 20 },
+    rain: { count: 30 }
 };
 
 export function createImpactSystem() {
@@ -31,6 +33,7 @@ export function createImpactSystem() {
     const colors = new Float32Array(MAX_PARTICLES * 3);
     const sizes = new Float32Array(MAX_PARTICLES);
     const rotationAxes = new Float32Array(MAX_PARTICLES * 3);
+    const gravityScales = new Float32Array(MAX_PARTICLES);
 
     birthTimes.fill(-1000);
 
@@ -42,6 +45,7 @@ export function createImpactSystem() {
     geometry.setAttribute('color', new THREE.InstancedBufferAttribute(colors, 3));
     geometry.setAttribute('size', new THREE.InstancedBufferAttribute(sizes, 1));
     geometry.setAttribute('rotationAxis', new THREE.InstancedBufferAttribute(rotationAxes, 3));
+    geometry.setAttribute('gravityScale', new THREE.InstancedBufferAttribute(gravityScales, 1));
 
     // 3. Material (TSL)
     const mat = new MeshStandardNodeMaterial({
@@ -61,6 +65,7 @@ export function createImpactSystem() {
     const colorAttr = attribute('color', 'vec3');
     const sizeAttr = attribute('size', 'float');
     const rotAxis = attribute('rotationAxis', 'vec3');
+    const gravityScale = attribute('gravityScale', 'float');
 
     // Age & Progress
     const age = uTime.sub(birthTime);
@@ -73,7 +78,7 @@ export function createImpactSystem() {
     const explosiveDist = velocity.mul(float(1.0).sub(exp(age.mul(drag).negate()))).div(drag);
 
     const gravity = vec3(0.0, -12.0, 0.0); // Slightly heavier gravity for chunks
-    const gravityDrop = gravity.mul(age.mul(age).mul(0.5));
+    const gravityDrop = gravity.mul(gravityScale).mul(age.mul(age).mul(0.5));
 
     const particleWorldPos = spawnPos.add(explosiveDist).add(gravityDrop);
 
@@ -129,6 +134,7 @@ export function spawnImpact(pos, type = 'jump') {
     const colAttr = geo.attributes.color;
     const sizeAttr = geo.attributes.size;
     const rotAttr = geo.attributes.rotationAxis;
+    const gravAttr = geo.attributes.gravityScale;
 
     const config = IMPACT_CONFIG[type] || IMPACT_CONFIG.jump;
     const count = config.count;
@@ -154,6 +160,8 @@ export function spawnImpact(pos, type = 'jump') {
 
         // Velocity Logic
         let vx, vy, vz;
+        let gScale = 1.0;
+
         if (type === 'jump') {
              const theta = Math.random() * Math.PI * 2;
              const r = Math.random() * 2.0;
@@ -188,9 +196,26 @@ export function spawnImpact(pos, type = 'jump') {
             vx = Math.cos(theta) * r;
             vy = 2.0 + Math.random() * 5.0; // Upward spike
             vz = Math.sin(theta) * r;
+        } else if (type === 'mist') {
+            // Float up
+            const theta = Math.random() * Math.PI * 2;
+            const r = Math.random() * 1.5;
+            vx = Math.cos(theta) * r;
+            vy = 2.0 + Math.random() * 3.0; // Float up
+            vz = Math.sin(theta) * r;
+            gScale = -0.5; // Negative gravity (float)
+        } else if (type === 'rain') {
+            // Fall down fast
+            const theta = Math.random() * Math.PI * 2;
+            const r = Math.random() * 1.0;
+            vx = Math.cos(theta) * r;
+            vy = -5.0 - Math.random() * 5.0; // Slam down
+            vz = Math.sin(theta) * r;
+            gScale = 2.0; // Heavy gravity
         }
 
         velAttr.setXYZ(idx, vx, vy, vz);
+        gravAttr.setX(idx, gScale);
 
         // Rotation Axis (Random)
         rotAttr.setXYZ(idx, Math.random()-0.5, Math.random()-0.5, Math.random()-0.5);
@@ -212,6 +237,10 @@ export function spawnImpact(pos, type = 'jump') {
             else colAttr.setXYZ(idx, 1.0, 0.6, 0.0); // Orange
         } else if (type === 'snare') {
             colAttr.setXYZ(idx, 1.0, 0.1, 0.1); // Red
+        } else if (type === 'mist') {
+            colAttr.setXYZ(idx, 0.9, 0.9, 1.0); // Pale Blue/White
+        } else if (type === 'rain') {
+            colAttr.setXYZ(idx, 0.2, 0.2, 1.0); // Deep Blue
         }
 
         // Size scale (Attribute mult)
@@ -228,4 +257,5 @@ export function spawnImpact(pos, type = 'jump') {
     colAttr.needsUpdate = true;
     sizeAttr.needsUpdate = true;
     rotAttr.needsUpdate = true;
+    gravAttr.needsUpdate = true;
 }
