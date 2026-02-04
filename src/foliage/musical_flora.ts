@@ -6,6 +6,8 @@ import {
     attachReactivity
 } from './common.ts';
 
+import { unlockSystem } from '../systems/unlocks.ts';
+
 // @ts-ignore
 import { batchAnimationCalc, uploadPositions } from '../utils/wasm-loader.js';
 import { arpeggioFernBatcher } from './arpeggio-batcher.ts';
@@ -78,8 +80,24 @@ export function createArpeggioFern(options: ArpeggioFernOptions = {}) {
     // Override interaction handlers to support InstancedMesh updates
     const originalEnter = group.userData.onGazeEnter;
     const originalLeave = group.userData.onGazeLeave;
+    const originalInteract = group.userData.onInteract;
+
+    // Helper to update text based on state
+    group.userData.updateInteractionState = () => {
+        const unfurl = group.userData.unfurlFactor || 0;
+        const harvested = group.userData.harvested || false;
+
+        if (harvested) {
+            group.userData.interactionText = "Harvested";
+        } else if (unfurl > 0.8) {
+            group.userData.interactionText = "Harvest Core";
+        } else {
+            group.userData.interactionText = "Play Arpeggio";
+        }
+    };
 
     group.userData.onGazeEnter = () => {
+        group.userData.updateInteractionState();
         if (originalEnter) originalEnter(); // Handles logic state (isHovered)
         // Physical pop handled by updating batcher matrix
         const batchIdx = group.userData.batchIndex;
@@ -87,6 +105,17 @@ export function createArpeggioFern(options: ArpeggioFernOptions = {}) {
              // We need to scale the group (Logic) then update Batcher
              // makeInteractive already scaled the group in originalEnter!
              arpeggioFernBatcher.updateInstance(batchIdx, group);
+        }
+    };
+
+    group.userData.onInteract = () => {
+        if (originalInteract) originalInteract(); // Visual spin
+
+        const unfurl = group.userData.unfurlFactor || 0;
+        if (!group.userData.harvested && unfurl > 0.8) {
+            unlockSystem.harvest('fern_core', 1, 'Fern Core');
+            group.userData.harvested = true;
+            group.userData.updateInteractionState();
         }
     };
 

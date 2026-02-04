@@ -10,12 +10,16 @@
 
 ## Next Steps
 
-1. **Rare Flora Discovery**: Implement the discovery system for rare plants (unlocking mechanics).
+1. **Arpeggio Shield**: Implement the "Arpeggio Shield" ability that is unlocked by collecting Fern Cores.
+   - *Visuals*: Crystalline barrier shader.
+   - *Mechanics*: Damage reduction or projectile reflection.
 
 ---
 
 ## Recent Progress
 - **Accomplished:**
+  - **Rare Flora Unlocks (Harvesting System)**: **Status: Implemented ✅**
+    - *Implementation Details:* Created `src/systems/unlocks.ts` to manage inventory ("Fern Cores") and persistent unlocks ("Arpeggio Shield"). Integrated with `src/foliage/musical_flora.ts` to allow harvesting Arpeggio Ferns when they are fully unfurled. Added visual/UI feedback via `showToast` and updated interaction text.
   - **Phase 1 (JS -> TS): Gameplay Modules (`musical_flora`, `environment`, `rainbow-blaster`)**: **Status: Implemented ✅**
     - *Implementation Details:* Migrated `src/foliage/musical_flora.js`, `src/foliage/environment.js`, and `src/gameplay/rainbow-blaster.js` to TypeScript. Added strict typing for options interfaces and TSL nodes. Updated imports in `main.js`, `src/foliage/index.ts`, and `public/js/perf_instancing.js`. Verified build via `vite build`.
   - **Phase 1 (JS -> TS): Foliage Modules (`clouds`, `cave`, `stars`, `rainbow`, `moon`, `waterfalls`, `celestial-bodies`)**: **Status: Implemented ✅**
