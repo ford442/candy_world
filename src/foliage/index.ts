@@ -9,7 +9,7 @@ export * from './trees.ts';
 export * from './clouds.ts';
 export * from './waterfalls.ts';
 export * from './cave.ts';
-export * from './environment.js';
+export * from './environment.ts';
 export * from './fireflies.ts';
 export * from './animation.ts';
 export * from './water.ts';
@@ -41,7 +41,7 @@ export * from './pollen.ts'; // Added Pollen
 export { musicReactivitySystem } from '../systems/music-reactivity.ts';
 
 // Musical flora
-export * from './musical_flora.js';
+export * from './musical_flora.ts';
 export * from './arpeggio-batcher.ts';
 export * from './portamento-batcher.ts';
 

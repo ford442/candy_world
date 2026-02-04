@@ -23,3 +23,7 @@
 ## 2024-12-05 - Time Synchronization in GPU Animations
 **Learning:** When driving shader animations via a global uniform (`uTime`) but triggering them from JavaScript events (like clicks), using `performance.now()` in JS creates a desync if the shader time is based on accumulated frame deltas (`gameTime`). This results in animations playing at the wrong time or not at all (negative age).
 **Action:** Always use the same time source for JS logic and GPU uniforms. If `uTime` is driven by a custom game loop, access its value in JS (`uTime.value`) instead of using system time (`performance.now()`) for synchronization.
+
+## 2026-02-03 - Close Affordance in Modals
+**Learning:** While a "Close" button at the bottom of a modal is functional, users instinctively look for an "X" icon in the top-right corner to dismiss overlays. Missing this pattern increases cognitive load.
+**Action:** Always include a top-right "X" dismiss action in modal dialogs, even if a bottom button exists, to support standard user behavior patterns.

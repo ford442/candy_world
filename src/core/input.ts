@@ -83,6 +83,7 @@ export function initInput(
     const playlistBackdrop = document.getElementById('playlist-backdrop');
     const playlistList = document.getElementById('playlist-list');
     const closePlaylistBtn = document.getElementById('closePlaylistBtn');
+    const playlistCloseX = document.getElementById('playlistCloseX');
     const playlistUploadInput = document.getElementById('playlistUploadInput') as HTMLInputElement | null;
     const openJukeboxBtn = document.getElementById('openJukeboxBtn');
 
@@ -286,6 +287,10 @@ export function initInput(
     // Event Listeners for UI
     if (closePlaylistBtn) {
         closePlaylistBtn.addEventListener('click', togglePlaylist);
+    }
+
+    if (playlistCloseX) {
+        playlistCloseX.addEventListener('click', togglePlaylist);
     }
 
     if (playlistBackdrop) {
