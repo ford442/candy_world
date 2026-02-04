@@ -682,9 +682,7 @@ initWasm().then(async (wasmLoaded) => {
         // FIX: Initialize clippingPlanes on scene, objects, and materials
         // This prevents "Cannot read properties of undefined (reading 'length')" errors
         // in setupHardwareClipping during shader compilation
-        if (!scene.clippingPlanes) {
-            scene.clippingPlanes = [];
-        }
+        scene.clippingPlanes = [];
         
         scene.traverse((object) => {
             // Set clippingPlanes on all objects
