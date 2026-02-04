@@ -10,12 +10,14 @@
 
 ## Next Steps
 
-1. **Phase 1 (JS -> TS)**: Migrate remaining Logic and Gameplay Modules (`src/foliage/musical_flora.js`, `src/foliage/environment.js`, `src/gameplay/rainbow-blaster.js`) to TypeScript.
+1. **Rare Flora Discovery**: Implement the discovery system for rare plants (unlocking mechanics).
 
 ---
 
 ## Recent Progress
 - **Accomplished:**
+  - **Phase 1 (JS -> TS): Gameplay Modules (`musical_flora`, `environment`, `rainbow-blaster`)**: **Status: Implemented ✅**
+    - *Implementation Details:* Migrated `src/foliage/musical_flora.js`, `src/foliage/environment.js`, and `src/gameplay/rainbow-blaster.js` to TypeScript. Added strict typing for options interfaces and TSL nodes. Updated imports in `main.js`, `src/foliage/index.ts`, and `public/js/perf_instancing.js`. Verified build via `vite build`.
   - **Phase 1 (JS -> TS): Foliage Modules (`clouds`, `cave`, `stars`, `rainbow`, `moon`, `waterfalls`, `celestial-bodies`)**: **Status: Implemented ✅**
     - *Implementation Details:* Migrated 7 foliage modules from JavaScript to TypeScript (`.ts`). Renamed `src/foliage/index.js` to `index.ts` and updated exports. Consolidated imports in `src/systems/weather.ts`, `src/world/generation.ts`, and `main.js`. Added strict typing for creation options and TSL uniforms. Verified build integrity via `vite build`.
   - **Phase 1 (JS -> TS): Core Modules (`src/core/input.ts`, `src/core/cycle.ts`)**: **Status: Implemented ✅**
