@@ -1,40 +1,33 @@
 // src/systems/weather.ts
 // Orchestrator file - delegates hot paths to weather.core.ts (TypeScript)
-// Migrated from src/systems/weather.js
 
 import * as THREE from 'three';
 // @ts-ignore
 import { getGroundHeight, uploadPositions, uploadAnimationData, uploadMushroomSpecs, batchMushroomSpawnCandidates, readSpawnCandidates, isWasmReady } from '../utils/wasm-loader.js';
-import {
-    chargeBerries,
-    triggerGrowth,
-    triggerBloom,
-    shakeBerriesLoose,
-    createMushroom,
-    createWaterfall,
-    createLanternFlower,
-    cleanupReactivity,
-    musicReactivitySystem,
-    updateGlobalBerryScale,
-    createRainbow,
-    uRainbowOpacity,
-    uCloudRainbowIntensity,
-    uCloudLightningStrength,
-    uCloudLightningColor,
-    updateCloudAttraction,
-    isCloudOverTarget,
-    uSkyDarkness,
-    uTwilight,
-    updateCaveWaterLevel,
-    replaceMushroomWithGiant,
-    mushroomBatcher
-} from '../foliage/index.ts';
+// @ts-ignore
+import { chargeBerries, triggerGrowth, triggerBloom, shakeBerriesLoose, createMushroom, createWaterfall, createLanternFlower, cleanupReactivity, musicReactivitySystem, updateGlobalBerryScale } from '../foliage/index.js';
+// @ts-ignore
+import { createRainbow, uRainbowOpacity } from '../foliage/rainbow.js';
 
+// FIX: Namespace import prevents ReferenceError if bundling logic is mixing CJS/ESM
+import * as Cycle from '../core/cycle.ts';
+
+import { CYCLE_DURATION, CONFIG, DURATION_SUNRISE, DURATION_DAY, DURATION_SUNSET, DURATION_PRE_DAWN } from '../core/config.ts';
+// @ts-ignore
+import { uCloudRainbowIntensity, uCloudLightningStrength, uCloudLightningColor, updateCloudAttraction, isCloudOverTarget } from '../foliage/clouds.js';
+// @ts-ignore
+import { uSkyDarkness, uTwilight } from '../foliage/sky.js';
+// @ts-ignore
+import { updateCaveWaterLevel } from '../foliage/cave.js';
 // @ts-ignore
 import { LegacyParticleSystem } from './adapters/LegacyParticleSystem.js';
 // @ts-ignore
 import { WasmParticleSystem } from './adapters/WasmParticleSystem.js';
 import { foliageClouds } from '../world/state.ts';
+// @ts-ignore
+import { replaceMushroomWithGiant } from '../foliage/mushrooms.js';
+// @ts-ignore
+import { mushroomBatcher } from '../foliage/mushroom-batcher.ts';
 import { VisualState } from '../audio/audio-system.ts';
 
 // Weather states
@@ -392,8 +385,11 @@ export class WeatherSystem {
         const groove = audioData.grooveAmount || 0;
         const channels = audioData.channelData || [];
         const melodyVol = (channels[2] as any)?.volume || 0;
-        const celestial = getCelestialState(time);
-        const seasonal = getSeasonalState(time);
+
+        // FIX: Use Namespace for cycle calls
+        const celestial = Cycle.getCelestialState(time);
+        const seasonal = Cycle.getSeasonalState(time);
+
         this.currentSeason = seasonal.season;
 
         const currentPattern = audioData.patternIndex || 0;
