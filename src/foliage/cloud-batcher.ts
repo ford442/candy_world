@@ -2,9 +2,13 @@ import * as THREE from 'three';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import {
     color, uniform, mix, vec3, positionLocal, normalLocal, mx_noise_float,
-    float, normalize, positionWorld, normalWorld, cameraPosition, dot, abs, sin, pow
+    float, normalize, positionWorld, normalWorld, cameraPosition, dot, abs, sin, pow,
+    uv, smoothstep
 } from 'three/tsl';
-import { uTime, createRimLight, uAudioLow } from './common.ts';
+import {
+    uTime, createJuicyRimLight, uAudioLow, uAudioHigh,
+    uWindSpeed, uWindDirection, triplanarNoise
+} from './common.ts';
 import { foliageGroup } from '../world/state.ts';
 
 // --- Global Uniforms (Moved from clouds.js) ---
@@ -16,32 +20,79 @@ export const uCloudLightningColor = uniform(color(0xFFFFFF));
 function createCloudMaterial() {
     const material = new MeshStandardNodeMaterial({
         color: 0xffffff,     // Pure cotton white base
-        roughness: 1.0,      // Completely matte (cotton)
+        roughness: 0.9,      // Mostly matte but allows some sheen
         metalness: 0.0,
         flatShading: false,
     });
 
-    // 1. Vertex Displacement (Breathing/Fluffiness + Bass Squish)
-    const noiseScale = float(1.5);
-    const noiseSpeed = float(0.15);
-    const timeOffset = vec3(0.0, uTime.mul(noiseSpeed), 0.0);
+    // --- PALETTE: Juicy Cloud Logic ---
+
+    // 1. Wind Shearing (Clouds drift faster at the top)
+    // We use positionLocal.y (approx height) to shear along Wind Direction
+    // Shearing Factor = Height * WindSpeed * 0.5
+    const shearHeight = positionLocal.y.max(0.0); // Clamp to 0 to keep bottom fixed-ish
+    const shearAmount = shearHeight.mul(uWindSpeed).mul(0.5);
+    const windShear = vec3(
+        uWindDirection.x.mul(shearAmount),
+        float(0.0), // No vertical shear
+        uWindDirection.z.mul(shearAmount)
+    );
+
+    // 2. Internal Turbulence (Boiling Effect)
+    // Use 3D noise that scrolls with time
+    const noiseScale = float(1.2);
+    const boilSpeed = float(0.3); // Slow boiling
+    const timeOffset = vec3(0.0, uTime.mul(boilSpeed), 0.0);
 
     const noisePos = positionLocal.mul(noiseScale).add(timeOffset);
-    const fluffNoise = mx_noise_float(noisePos);
+    // Standard noise for shape
+    const shapeNoise = mx_noise_float(noisePos);
 
-    const squishFactor = float(1.0).add(uAudioLow.mul(1.5));
-    const displacementStrength = float(0.15).mul(squishFactor);
+    // 3. Audio Reactivity (Squish + Pulse)
+    // Bass Squish: Squashes the cloud vertically on Kick
+    const bassSquish = uAudioLow.mul(0.3);
+    const verticalSquish = vec3(1.0, float(1.0).sub(bassSquish), 1.0);
 
-    material.positionNode = positionLocal.add(normalLocal.mul(fluffNoise.mul(displacementStrength)));
+    // Melody Puff: Expands the cloud slightly on Highs
+    const melodyPuff = uAudioHigh.mul(0.2);
 
-    // 2. Lighting Logic
-    const lightningGlow = uCloudLightningColor.mul(uCloudLightningStrength.mul(2.0));
+    // Total Displacement Magnitude
+    // Base fluff + Melody expansion
+    const displacementStrength = float(0.2).add(melodyPuff);
 
-    const rimColor = color(0xFFF8E7);
-    const rimIntensity = float(0.4);
-    const rimPower = float(1.5);
-    const rimEffect = createRimLight(rimColor, rimIntensity, rimPower);
+    // Calculate final position
+    // Start with shearing
+    const shearedPos = positionLocal.add(windShear);
+    // Apply squish scale
+    const squishedPos = shearedPos.mul(verticalSquish);
 
+    // Apply Fluff Displacement along Normal
+    const fluffOffset = normalLocal.mul(shapeNoise.mul(displacementStrength));
+
+    material.positionNode = squishedPos.add(fluffOffset);
+
+    // 4. Surface Detail (Triplanar Noise for "Cotton" Texture)
+    // Adds high-frequency noise to Roughness and slightly to Color
+    // Scale 10.0 for micro-detail
+    const cottonDetail = triplanarNoise(positionLocal, float(10.0));
+
+    // Modulate roughness: Valleys are rougher (shadowy), Peaks are smoother
+    material.roughnessNode = float(0.8).add(cottonDetail.mul(0.2));
+
+    // 5. Lighting & Juice
+    // Lightning Flash (Global Event)
+    const lightningGlow = uCloudLightningColor.mul(uCloudLightningStrength.mul(3.0));
+
+    // Juicy Rim Light (Replaces standard rim)
+    // Reacts to Melody (AudioHigh)
+    const rimColor = color(0xFFF8E7); // Warm white
+    const rimIntensity = float(0.5);
+    const rimPower = float(2.0);
+    // Note: createJuicyRimLight adds its own audio pulse and color shift
+    const juicyRim = createJuicyRimLight(rimColor, rimIntensity, rimPower, normalWorld);
+
+    // Fake Rainbow Sheen (Optical effect)
+    // Only visible when looking at grazing angles (Fresnel)
     const viewDir = normalize(cameraPosition.sub(positionWorld));
     const NdotV = abs(dot(normalWorld, viewDir));
     const fresnel = float(1.0).sub(NdotV).pow(float(2.0));
@@ -53,7 +104,19 @@ function createCloudMaterial() {
 
     const rainbowSheen = rainbowColor.mul(uCloudRainbowIntensity).mul(fresnel);
 
-    material.emissiveNode = lightningGlow.add(rimEffect).add(rainbowSheen);
+    // Ambient Occlusion Approximation
+    // Darken the bottom of the cloud (y < 0)
+    // We use positionLocal.y from before displacement for stability
+    const aoGradient = smoothstep(-1.0, 1.0, positionLocal.y); // 0 at bottom, 1 at top
+    // Mix shadow color (Blue-Grey) with White
+    const shadowColor = color(0x8899AA);
+    const baseColor = mix(shadowColor, color(0xFFFFFF), aoGradient);
+
+    // Apply cotton detail to base color (subtle dirtying)
+    const texturedColor = baseColor.mul(float(0.95).add(cottonDetail.mul(0.05)));
+
+    material.colorNode = texturedColor;
+    material.emissiveNode = lightningGlow.add(juicyRim).add(rainbowSheen);
 
     return material;
 }
@@ -84,7 +147,8 @@ export class CloudBatcher {
     init() {
         if (this.initialized) return;
 
-        const puffGeometry = new THREE.IcosahedronGeometry(1, 1);
+        // PALETTE: Increased detail for smoother TSL displacement (1 -> 2)
+        const puffGeometry = new THREE.IcosahedronGeometry(1, 2);
 
         this.mesh = new THREE.InstancedMesh(puffGeometry, sharedCloudMaterial, MAX_PUFFS);
         this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
