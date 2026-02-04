@@ -92,7 +92,10 @@ const checks = [
     'rotationAxis',
     'rotate(',
     'spawnPosition',
-    'spawnImpact'
+    'spawnImpact',
+    'gravityScale',
+    'mist',
+    'rain'
 ];
 
 let errors = [];
