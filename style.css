@@ -121,3 +121,13 @@
     outline: none;
     box-shadow: 0 0 0 3px #ffffff, 0 0 0 6px #FF4081;
 }
+
+/* 🎨 Palette: Playlist Layout */
+.song-title {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex-grow: 1;
+    margin-right: 10px;
+    min-width: 0;
+}
