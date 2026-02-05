@@ -36,6 +36,7 @@ export * from './sparkle-trail.js';
 export * from './impacts.js';
 export * from './lotus.js';
 export * from './pollen.ts'; // Added Pollen
+export * from './shield.ts'; // Added Shield
 
 // Export Music Reactivity System (New)
 export { musicReactivitySystem } from '../systems/music-reactivity.ts';
