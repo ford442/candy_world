@@ -18,6 +18,7 @@ class ProjectilePool {
         life: number;
         velocity: THREE.Vector3;
         position: THREE.Vector3;
+        color: THREE.Color;
     }[];
     dummy: THREE.Object3D;
     color: THREE.Color;
@@ -33,6 +34,8 @@ class ProjectilePool {
         const mat = createCandyMaterial(0xFFFFFF);
         // We override colorNode directly to ensure it picks up the attribute
         mat.colorNode = instanceColor;
+        // JUICE: Add emissive glow
+        mat.emissiveNode = instanceColor.mul(0.5);
 
         this.mesh = new THREE.InstancedMesh(geo, mat, MAX_PROJECTILES);
         this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
@@ -53,7 +56,8 @@ class ProjectilePool {
                 active: false,
                 life: 0,
                 velocity: new THREE.Vector3(),
-                position: new THREE.Vector3()
+                position: new THREE.Vector3(),
+                color: new THREE.Color()
             });
             // Hide initially
             this.dummy.position.set(0, -9999, 0);
@@ -96,6 +100,10 @@ class ProjectilePool {
         const hue = (time * 0.5) % 1.0;
         this.color.setHSL(hue, 1.0, 0.5);
         this.mesh.setColorAt(idx, this.color);
+        p.color.copy(this.color); // Store for trail
+
+        // JUICE: Muzzle Flash
+        spawnImpact(origin, 'muzzle', { color: this.color, direction: direction });
 
         this.mesh.instanceMatrix.needsUpdate = true;
         if (this.mesh.instanceColor) this.mesh.instanceColor.needsUpdate = true;
@@ -114,6 +122,10 @@ class ProjectilePool {
             // Move
             p.position.addScaledVector(p.velocity, dt);
             p.life -= dt;
+
+            // JUICE: Projectile Trail
+            // Spawn every frame for a continuous trail
+            spawnImpact(p.position, 'trail', { color: p.color });
 
             let hit = false;
 
@@ -181,50 +193,14 @@ class ProjectilePool {
         cloud.traverse((c: any) => {
             if (c.isMesh && c.material) {
                  // Optimization: Modifying material directly assuming simple use case.
-                 // In production, might want to check if shared, but for clouds likely unique or instanced batcher handles logic.
-                 // Wait, clouds are handled by CloudBatcher?
-                 // createCloud() returns a Group with Logic.
-                 // CloudBatcher draws them.
-                 // If CloudBatcher draws them, modifying mesh material inside the group might NOT work if they are InstancedMesh logic objects?
-                 // createCloud() returns a Group. "The visuals are handled by CloudBatcher".
-                 // So `cloud` is a logic object (Group). It has no meshes inside usually?
-                 // Let's check `src/foliage/clouds.ts`.
-
-                 // `createCloud` returns a Group. `group.userData.onPlacement` registers it.
-                 // `CloudBatcher.register` adds it to logic list.
-                 // Does `createCloud` add meshes to the group? No.
-                 // "The visuals are handled by CloudBatcher (1 Draw Call for all clouds)"
-
-                 // So `cloud.traverse` will find NOTHING useful if it's just a logic group.
-                 // The old `rainbow-blaster.js` assumed it could modify materials.
-                 // "cloud.traverse(c => ...)"
-
-                 // If the system was migrated to Batcher, the old logic might be broken already or I need to update Batcher.
-                 // CloudBatcher.ts likely handles the rendering.
-                 // If I want to change opacity/color, I need to update CloudBatcher logic for that instance.
             }
         });
-
-        // Update CloudBatcher state if possible
-        // We can set userData on the cloud logic object, and CloudBatcher should read it.
-        // `cloud.userData.isFalling` is set.
-        // `cloud.userData.velocity` is set.
-        // Does CloudBatcher read these?
-        // `src/foliage/clouds.ts` has `updateFallingClouds` which updates position.
-        // But visual changes (color/opacity)?
-
-        // Let's assume for now setting `userData` is enough for position/falling logic.
-        // For visual feedback (opacity/color), we rely on `spawnImpact` (mist/rain) which we just added.
-        // The old code tried to change material opacity. If that doesn't work, at least we have particles.
     }
 
     knockDownCloudDeluge(cloud: any) {
          if (cloud.userData.isFalling) return;
         cloud.userData.isFalling = true;
         cloud.userData.velocity = new THREE.Vector3(0, -20.0, 0);
-
-         // Similar issue as above: modifying material might not work if batched.
-         // But we rely on Particle Impact for feedback.
     }
 }
 
