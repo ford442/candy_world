@@ -20,6 +20,7 @@ import {
 import { color as tslColor, mix, float, positionLocal, Node } from 'three/tsl';
 import { uTwilight } from './sky.ts';
 import { lanternBatcher } from './lantern-batcher.ts';
+import { simpleFlowerBatcher } from './simple-flower-batcher.ts';
 
 interface FlowerOptions {
     color?: number | string | THREE.Color | null;
@@ -29,6 +30,22 @@ interface FlowerOptions {
 // ⚡ OPTIMIZATION: Merged Geometry Flower (Single Draw Call per Flower)
 export function createFlower(options: FlowerOptions = {}): THREE.Object3D {
     const { color = null, shape = 'simple' } = options;
+
+    // ⚡ OPTIMIZATION: Delegate 'simple' flowers to Batcher
+    if (shape === 'simple') {
+        const group = new THREE.Group();
+        group.userData.type = 'flower';
+        group.userData.interactionText = "🌸 Flower";
+
+        // Deferred Placement
+        group.userData.onPlacement = () => {
+             simpleFlowerBatcher.register(group, options);
+             group.userData.onPlacement = null;
+        };
+
+        // Attach Reactivity Metadata
+        return attachReactivity(group, { minLight: 0.2, maxLight: 1.0 });
+    }
 
     // Material -> Geometries Map for Merging
     const parts = new Map<THREE.Material, THREE.BufferGeometry[]>();
