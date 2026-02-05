@@ -10,14 +10,16 @@
 
 ## Next Steps
 
-1. **Arpeggio Shield**: Implement the "Arpeggio Shield" ability that is unlocked by collecting Fern Cores.
-   - *Visuals*: Crystalline barrier shader.
-   - *Mechanics*: Damage reduction or projectile reflection.
+1. **Jitter Mines**: Implement the "Jitter Mines" ability that is unlocked by collecting Vibrato Nectar.
+   - *Visuals*: Unstable, vibrating particle clusters.
+   - *Mechanics*: Proximity-based explosion that applies a "glitch" effect to nearby entities (or the player if testing).
 
 ---
 
 ## Recent Progress
 - **Accomplished:**
+  - **Arpeggio Shield**: **Status: Implemented ✅**
+    - *Implementation Details:* Created `src/foliage/shield.ts` using TSL for a crystalline, audio-reactive icosahedron (transmission, iridescence). Integrated with `src/systems/unlocks.ts` to instantiate the shield on the player when unlocked.
   - **Rare Flora Unlocks (Harvesting System)**: **Status: Implemented ✅**
     - *Implementation Details:* Created `src/systems/unlocks.ts` to manage inventory ("Fern Cores") and persistent unlocks ("Arpeggio Shield"). Integrated with `src/foliage/musical_flora.ts` to allow harvesting Arpeggio Ferns when they are fully unfurled. Added visual/UI feedback via `showToast` and updated interaction text.
   - **Phase 1 (JS -> TS): Gameplay Modules (`musical_flora`, `environment`, `rainbow-blaster`)**: **Status: Implemented ✅**

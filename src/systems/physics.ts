@@ -47,6 +47,7 @@ export interface PlayerExtended extends CorePlayerState {
     danceStartPos?: THREE.Vector3;
     danceStartY?: number;
     danceStartRotation?: { x: number; y: number; z: number };
+    hasShield: boolean;
 }
 
 // --- Configuration ---
@@ -83,6 +84,7 @@ export const player: PlayerExtended = {
     canDash: true,
     isDancing: false,
     danceTime: 0.0,
+    hasShield: false,
 
     // Flags for external systems to query
     isGrounded: false,

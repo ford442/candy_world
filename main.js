@@ -3,9 +3,10 @@
 import * as THREE from 'three';
 import './style.css';
 // CHANGE: Preserved .ts extension as requested to match local file structure
-import { uWindSpeed, uWindDirection, uSkyTopColor, uSkyBottomColor, uHorizonColor, uAtmosphereIntensity, uStarOpacity, uAuroraIntensity, uAuroraColor, uAudioLow, uAudioHigh, uGlitchIntensity, uChromaticIntensity, uTime, uPlayerPosition, createAurora, createChromaticPulse, updateMoon, animateFoliage, updateFoliageMaterials, updateFallingBerries, collectFallingBerries, createFlower, createMushroom, validateNodeGeometries, createMelodyRibbon, updateMelodyRibbons, createMelodyMirror, createSparkleTrail, updateSparkleTrail, createImpactSystem } from './src/foliage/index.ts';
+import { uWindSpeed, uWindDirection, uSkyTopColor, uSkyBottomColor, uHorizonColor, uAtmosphereIntensity, uStarOpacity, uAuroraIntensity, uAuroraColor, uAudioLow, uAudioHigh, uGlitchIntensity, uChromaticIntensity, uTime, uPlayerPosition, createAurora, createChromaticPulse, updateMoon, animateFoliage, updateFoliageMaterials, updateFallingBerries, collectFallingBerries, createFlower, createMushroom, validateNodeGeometries, createMelodyRibbon, updateMelodyRibbons, createMelodyMirror, createSparkleTrail, updateSparkleTrail, createImpactSystem, createShield } from './src/foliage/index.ts';
 import { initCelestialBodies } from './src/foliage/celestial-bodies.ts';
 import { InteractionSystem } from './src/systems/interaction.ts';
+import { unlockSystem } from './src/systems/unlocks.ts';
 import { musicReactivitySystem } from './src/systems/music-reactivity.ts';
 import { fluidSystem } from './src/systems/fluid_system.ts';
 import { createFluidFog } from './src/foliage/fluid_fog.js';
@@ -91,6 +92,7 @@ let melodyRibbon = null;
 let sparkleTrail = null;
 let impactSystem = null;
 let fluidFog = null;
+let playerShieldMesh = null;
 
 // Function to initialize deferred visual elements
 function initDeferredVisuals() {
@@ -567,6 +569,21 @@ function animate() {
         // Update TSL Uniform for Player Position (Interactive Grass/Foliage)
         uPlayerPosition.value.copy(player.position);
         if (sparkleTrail) updateSparkleTrail(sparkleTrail, player.position, player.velocity, gameTime);
+
+        // --- Arpeggio Shield Logic ---
+        if (unlockSystem.isUnlocked('arpeggio_shield')) {
+             if (!playerShieldMesh) {
+                 playerShieldMesh = createShield();
+                 scene.add(playerShieldMesh);
+                 player.hasShield = true;
+                 console.log('[Shield] Activated Arpeggio Shield');
+             }
+             if (playerShieldMesh) {
+                 // Follow player (centered)
+                 playerShieldMesh.position.copy(player.position);
+                 playerShieldMesh.position.y += 1.0;
+             }
+        }
     });
 
     profiler.measure('Gameplay', () => {
