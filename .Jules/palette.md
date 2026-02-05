@@ -27,3 +27,7 @@
 ## 2026-02-03 - Close Affordance in Modals
 **Learning:** While a "Close" button at the bottom of a modal is functional, users instinctively look for an "X" icon in the top-right corner to dismiss overlays. Missing this pattern increases cognitive load.
 **Action:** Always include a top-right "X" dismiss action in modal dialogs, even if a bottom button exists, to support standard user behavior patterns.
+
+## 2026-03-12 - Handling Text Overflow in User Content
+**Learning:** When displaying user-generated filenames (like in a playlist), long strings without spaces can break flexbox layouts or push UI controls off-screen.
+**Action:** Always apply `text-overflow: ellipsis`, `overflow: hidden`, and `white-space: nowrap` (along with `min-width: 0` in flex containers) to text elements that display variable content, ensuring layout integrity.

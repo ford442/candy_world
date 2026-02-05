@@ -258,7 +258,7 @@ export function initInput(
                     const activeBtn = playlistBtns[currentIdx] as HTMLElement;
                     activeBtn.focus();
                     // Ensure the active song is visible in the scrollable list
-                    activeBtn.scrollIntoView({ block: 'center' });
+                    activeBtn.scrollIntoView({ block: 'center', behavior: 'smooth' });
                 } else if (closePlaylistBtn) {
                     closePlaylistBtn.focus();
                 }
