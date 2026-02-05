@@ -592,6 +592,8 @@ export function initInput(
     }
 
     const toggleMuteBtn = document.getElementById('toggleMuteBtn');
+    const volDownBtn = document.getElementById('volDownBtn') as HTMLButtonElement | null;
+    const volUpBtn = document.getElementById('volUpBtn') as HTMLButtonElement | null;
 
     // Helper: Update Mute UI
     const updateMuteUI = (isMuted: boolean) => {
@@ -624,6 +626,11 @@ export function initInput(
             updateMuteUI(false);
         }
 
+        // UX: Update Button States (Visual Polish)
+        // Use epsilon for float comparison safety
+        if (volDownBtn) volDownBtn.disabled = (newVol <= 0.01);
+        if (volUpBtn) volUpBtn.disabled = (newVol >= 0.99);
+
         const percentage = Math.round(newVol * 100);
         const icon = newVol === 0 ? '🔇' : newVol < 0.5 ? '🔉' : '🔊';
 
@@ -632,6 +639,24 @@ export function initInput(
             showToast(`Volume: ${percentage}% ${icon}`, icon);
         });
     };
+
+    // Initialize Volume Buttons State
+    if (volDownBtn) volDownBtn.disabled = (audioSystem.volume <= 0.01);
+    if (volUpBtn) volUpBtn.disabled = (audioSystem.volume >= 0.99);
+
+    if (volDownBtn) {
+        volDownBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            adjustVolume(-0.1);
+        });
+    }
+
+    if (volUpBtn) {
+        volUpBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            adjustVolume(0.1);
+        });
+    }
 
     if (toggleMuteBtn) {
         toggleMuteBtn.addEventListener('click', (e) => {
