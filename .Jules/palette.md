@@ -31,3 +31,7 @@
 ## 2026-03-12 - Handling Text Overflow in User Content
 **Learning:** When displaying user-generated filenames (like in a playlist), long strings without spaces can break flexbox layouts or push UI controls off-screen.
 **Action:** Always apply `text-overflow: ellipsis`, `overflow: hidden`, and `white-space: nowrap` (along with `min-width: 0` in flex containers) to text elements that display variable content, ensuring layout integrity.
+
+## 2026-06-25 - Mouse Parity for System Controls
+**Learning:** Key system controls (like Volume) often get relegated to keyboard shortcuts, excluding mouse-only or touch users. Reliance on "standard" shortcuts (like +/-) excludes devices without those keys visible (e.g. some tablets).
+**Action:** Ensure every system toggle/adjustment has a visible UI equivalent in the settings menu, using accessible buttons with clear visual states (e.g., disabled when min/max reached).
