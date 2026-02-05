@@ -17,7 +17,9 @@ const IMPACT_CONFIG = {
     berry: { count: 15 },
     snare: { count: 25 },
     mist: { count: 20 },
-    rain: { count: 30 }
+    rain: { count: 30 },
+    trail: { count: 1 },
+    muzzle: { count: 10 }
 };
 
 export function createImpactSystem() {
@@ -123,7 +125,7 @@ export function createImpactSystem() {
     return _impactMesh;
 }
 
-export function spawnImpact(pos, type = 'jump') {
+export function spawnImpact(pos, type = 'jump', options = {}) {
     if (!_impactMesh) return;
 
     const geo = _impactMesh.geometry;
@@ -138,15 +140,10 @@ export function spawnImpact(pos, type = 'jump') {
 
     const config = IMPACT_CONFIG[type] || IMPACT_CONFIG.jump;
     const count = config.count;
-    // Use uTime.value if available (it's a UniformNode, usually has .value in JS context if set)
-    // Or just use performance.now() / 1000.0 if uTime matches that.
-    // In common.ts, uTime is updated in animate loop.
-    // Ideally we read it from the UniformNode? No, that's not reliable for CPU side.
-    // We assume standard time sync.
-    // Let's use Date.now() / 1000 or logic from main loop.
-    // To be safe, we can read (uTime as any).value if accessible, or passed in.
-    // For now, simple approximation:
     const now = (uTime.value !== undefined) ? uTime.value : performance.now() / 1000;
+
+    const colorOverride = options.color;
+    const direction = options.direction;
 
     for (let i = 0; i < count; i++) {
         const idx = _head;
@@ -212,6 +209,32 @@ export function spawnImpact(pos, type = 'jump') {
             vy = -5.0 - Math.random() * 5.0; // Slam down
             vz = Math.sin(theta) * r;
             gScale = 2.0; // Heavy gravity
+        } else if (type === 'trail') {
+            // Stationary relative to spawn (drag), floaty
+            vx = (Math.random() - 0.5) * 0.5;
+            vy = (Math.random() - 0.5) * 0.5;
+            vz = (Math.random() - 0.5) * 0.5;
+            gScale = 0.0;
+        } else if (type === 'muzzle') {
+            // Directional or Radial
+            if (direction) {
+                // Cone spray along direction
+                // Add some randomness
+                const speed = 10.0 + Math.random() * 5.0;
+                const spread = 2.0;
+                vx = direction.x * speed + (Math.random() - 0.5) * spread;
+                vy = direction.y * speed + (Math.random() - 0.5) * spread;
+                vz = direction.z * speed + (Math.random() - 0.5) * spread;
+            } else {
+                // Radial
+                const theta = Math.random() * Math.PI * 2;
+                const phi = Math.random() * Math.PI;
+                const speed = 5.0 + Math.random() * 5.0;
+                vx = Math.sin(phi) * Math.cos(theta) * speed;
+                vy = Math.cos(phi) * speed;
+                vz = Math.sin(phi) * Math.sin(theta) * speed;
+            }
+            gScale = 0.5;
         }
 
         velAttr.setXYZ(idx, vx, vy, vz);
@@ -222,10 +245,20 @@ export function spawnImpact(pos, type = 'jump') {
 
         // Time
         birthAttr.setX(idx, now);
-        lifeAttr.setX(idx, 0.5 + Math.random() * 0.5);
+
+        // Life
+        if (type === 'trail') {
+            lifeAttr.setX(idx, 0.3 + Math.random() * 0.2); // Short life
+        } else if (type === 'muzzle') {
+            lifeAttr.setX(idx, 0.15 + Math.random() * 0.15); // Very short flash
+        } else {
+            lifeAttr.setX(idx, 0.5 + Math.random() * 0.5);
+        }
 
         // Color
-        if (type === 'jump') {
+        if (colorOverride) {
+            colAttr.setXYZ(idx, colorOverride.r, colorOverride.g, colorOverride.b);
+        } else if (type === 'jump') {
             colAttr.setXYZ(idx, 1.0, 0.8, 0.2); // Gold
         } else if (type === 'land') {
             colAttr.setXYZ(idx, 0.6, 0.5, 0.4); // Dust
@@ -246,7 +279,13 @@ export function spawnImpact(pos, type = 'jump') {
         // Size scale (Attribute mult)
         // Icosahedron radius 0.15 is base.
         // We want range 0.5x to 1.5x of that.
-        sizeAttr.setX(idx, 0.5 + Math.random() * 1.0);
+        if (type === 'trail') {
+            sizeAttr.setX(idx, 0.3 + Math.random() * 0.2); // Small
+        } else if (type === 'muzzle') {
+            sizeAttr.setX(idx, 0.5 + Math.random() * 0.5); // Medium
+        } else {
+            sizeAttr.setX(idx, 0.5 + Math.random() * 1.0);
+        }
     }
 
     // Flag Updates
