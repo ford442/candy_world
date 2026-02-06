@@ -11,6 +11,9 @@ const RADIUS = 0.5;
 const MAX_PROJECTILES = 100;
 const MAX_LIFE = 3.0;
 
+// ⚡ OPTIMIZATION: Scratch objects to prevent GC in hot loops
+const _scratchImpactOptions = { color: new THREE.Color(), direction: new THREE.Vector3() };
+
 class ProjectilePool {
     mesh: THREE.InstancedMesh;
     projectiles: {
@@ -125,7 +128,9 @@ class ProjectilePool {
 
             // JUICE: Projectile Trail
             // Spawn every frame for a continuous trail
-            spawnImpact(p.position, 'trail', { color: p.color });
+            // ⚡ OPTIMIZATION: Use shared options object
+            _scratchImpactOptions.color.copy(p.color);
+            spawnImpact(p.position, 'trail', _scratchImpactOptions);
 
             let hit = false;
 
@@ -188,7 +193,9 @@ class ProjectilePool {
     knockDownCloudMist(cloud: any) {
         if (cloud.userData.isFalling) return;
         cloud.userData.isFalling = true;
-        cloud.userData.velocity = new THREE.Vector3(0, 5.0, 0);
+        // ⚡ OPTIMIZATION: Reuse vector
+        if (!cloud.userData.velocity) cloud.userData.velocity = new THREE.Vector3();
+        cloud.userData.velocity.set(0, 5.0, 0);
 
         cloud.traverse((c: any) => {
             if (c.isMesh && c.material) {
@@ -200,7 +207,9 @@ class ProjectilePool {
     knockDownCloudDeluge(cloud: any) {
          if (cloud.userData.isFalling) return;
         cloud.userData.isFalling = true;
-        cloud.userData.velocity = new THREE.Vector3(0, -20.0, 0);
+        // ⚡ OPTIMIZATION: Reuse vector
+        if (!cloud.userData.velocity) cloud.userData.velocity = new THREE.Vector3();
+        cloud.userData.velocity.set(0, -20.0, 0);
     }
 }
 
