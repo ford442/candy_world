@@ -165,6 +165,21 @@ export const addRimLight = Fn(([baseColorNode, normalNode]) => {
     return baseColorNode.add(createRimLight(color(0xFFFFFF), float(0.5), float(3.0), normalNode));
 });
 
+/**
+ * Derives color from note index (0-11) for musical elements.
+ * Reduces vertex buffer count by eliminating per-instance color attributes.
+ */
+export const colorFromNote = Fn(([noteIndex]) => {
+    // Simple rainbow color mapping using sine waves
+    const angle = noteIndex.div(12.0).mul(6.28318); // 2*PI
+
+    const r = sin(angle).mul(0.5).add(0.5);
+    const g = sin(angle.add(2.0944)).mul(0.5).add(0.5); // 120 degrees
+    const b = sin(angle.add(4.1888)).mul(0.5).add(0.5); // 240 degrees
+
+    return vec3(r, g, b);
+});
+
 // --- UNIFIED MATERIAL PIPELINE ---
 
 // --- PALETTE HELPER: Player Interaction ---
