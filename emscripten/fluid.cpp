@@ -41,6 +41,7 @@ void set_bnd(int b, std::vector<float>& x) {
 void lin_solve(int b, std::vector<float>& x, std::vector<float>& x0, float a, float c) {
     float cRecip = 1.0f / c;
     for (int k = 0; k < 20; k++) { // Gauss-Seidel iterations
+        #pragma omp parallel for collapse(2) schedule(static)
         for (int j = 1; j < GRID_SIZE - 1; j++) {
             for (int i = 1; i < GRID_SIZE - 1; i++) {
                 x[IX(i, j)] = (x0[IX(i, j)] + a * (
@@ -62,29 +63,28 @@ void diffuse(int b, std::vector<float>& x, std::vector<float>& x0, float diff, f
 }
 
 void advect(int b, std::vector<float>& d, std::vector<float>& d0, std::vector<float>& u, std::vector<float>& v, float dt) {
-    float i0, j0, i1, j1;
-    float x, y, s0, t0, s1, t1;
     float dt0 = dt * (GRID_SIZE - 2);
 
+    #pragma omp parallel for collapse(2) schedule(static)
     for (int j = 1; j < GRID_SIZE - 1; j++) {
         for (int i = 1; i < GRID_SIZE - 1; i++) {
-            x = i - dt0 * u[IX(i, j)];
-            y = j - dt0 * v[IX(i, j)];
+            float x = i - dt0 * u[IX(i, j)];
+            float y = j - dt0 * v[IX(i, j)];
 
             if (x < 0.5f) x = 0.5f;
             if (x > GRID_SIZE - 1.5f) x = GRID_SIZE - 1.5f;
-            i0 = floorf(x);
-            i1 = i0 + 1.0f;
+            float i0 = floorf(x);
+            float i1 = i0 + 1.0f;
 
             if (y < 0.5f) y = 0.5f;
             if (y > GRID_SIZE - 1.5f) y = GRID_SIZE - 1.5f;
-            j0 = floorf(y);
-            j1 = j0 + 1.0f;
+            float j0 = floorf(y);
+            float j1 = j0 + 1.0f;
 
-            s1 = x - i0;
-            s0 = 1.0f - s1;
-            t1 = y - j0;
-            t0 = 1.0f - t1;
+            float s1 = x - i0;
+            float s0 = 1.0f - s1;
+            float t1 = y - j0;
+            float t0 = 1.0f - t1;
 
             int i0i = (int)i0;
             int i1i = (int)i1;
@@ -102,6 +102,7 @@ void advect(int b, std::vector<float>& d, std::vector<float>& d0, std::vector<fl
 void project(std::vector<float>& u, std::vector<float>& v, std::vector<float>& p, std::vector<float>& div) {
     float h = 1.0f / GRID_SIZE;
 
+    #pragma omp parallel for collapse(2) schedule(static)
     for (int j = 1; j < GRID_SIZE - 1; j++) {
         for (int i = 1; i < GRID_SIZE - 1; i++) {
             div[IX(i, j)] = -0.5f * h * (
@@ -116,6 +117,7 @@ void project(std::vector<float>& u, std::vector<float>& v, std::vector<float>& p
 
     lin_solve(0, p, div, 1, 4);
 
+    #pragma omp parallel for collapse(2) schedule(static)
     for (int j = 1; j < GRID_SIZE - 1; j++) {
         for (int i = 1; i < GRID_SIZE - 1; i++) {
             u[IX(i, j)] -= 0.5f * (p[IX(i + 1, j)] - p[IX(i - 1, j)]) / h;
@@ -178,6 +180,7 @@ void fluidStep(float dt, float visc, float diff) {
     advect(0, dens, dens_prev, u, v, dt);
 
     // Decay
+    #pragma omp parallel for schedule(static)
     for (int i = 0; i < GRID_SIZE_SQ; i++) {
         dens[i] *= 0.99f; // Fade out
     }
