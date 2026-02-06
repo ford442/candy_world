@@ -47,21 +47,27 @@ const _scratchAuroraColor = new THREE.Color();
 
 const _weatherBiasOutput = { biasState: 'clear', biasIntensity: 0, type: 'clear' };
 
-// --- Initialization ---
+// --- Initialization Pipeline ---
 
-// 1. Scene & Render Loop Setup
+// Phase 1: Core Scene Setup (Immediate)
+console.time('Core Scene Setup');
 const { scene, camera, renderer, ambientLight, sunLight, sunGlow, sunCorona, lightShaftGroup, sunGlowMat, coronaMat } = initScene();
+console.timeEnd('Core Scene Setup');
 
-// 2. Audio & Systems (Initialize but defer heavy loading)
+// Phase 2: Audio & Weather Systems (Lightweight)
+console.time('Audio & Systems Init');
 const audioSystem = new AudioSystem();
 const beatSync = new BeatSync(audioSystem);
 const weatherSystem = new WeatherSystem(scene);
+console.timeEnd('Audio & Systems Init');
 
-// 3. World Generation (Critical - load immediately)
+// Phase 3: World Generation (Critical Path)
+console.time('World Generation');
 if (window.setLoadingStatus) window.setLoadingStatus("Loading World Map...");
 
 // CHANGE: Load only the base world (sky/ground) initially, defer content
 const { moon, fireflies } = initWorld(scene, weatherSystem, false);
+console.timeEnd('World Generation');
 
 // Initialize Music Reactivity with dependencies
 musicReactivitySystem.init(scene, weatherSystem);
@@ -95,8 +101,12 @@ let impactSystem = null;
 let fluidFog = null;
 let playerShieldMesh = null;
 
-// Function to initialize deferred visual elements
+// Function to initialize deferred visual elements with better organization and timing
 function initDeferredVisuals() {
+    console.time('Deferred Visuals Init');
+
+    // Group 1: Environmental effects (order matters for layering)
+    console.time('Environmental Effects');
     if (!fluidFog) {
         fluidFog = createFluidFog(200, 200); // 200x200 patch at center
         scene.add(fluidFog);
@@ -108,19 +118,25 @@ function initDeferredVisuals() {
         scene.add(aurora);
         console.log('[Deferred] Aurora initialized');
     }
-    
+
     if (!chromaticPulse) {
         chromaticPulse = createChromaticPulse();
         camera.add(chromaticPulse);
         console.log('[Deferred] Chromatic Pulse initialized');
     }
+    console.timeEnd('Environmental Effects');
 
+    // Group 2: Celestial and world elements
+    console.time('Celestial Elements');
     if (!celestialBodiesInitialized) {
         initCelestialBodies(scene);
         celestialBodiesInitialized = true;
         console.log('[Deferred] Celestial bodies initialized');
     }
+    console.timeEnd('Celestial Elements');
 
+    // Group 3: Interactive musical elements
+    console.time('Musical Elements');
     if (!melodyRibbon) {
         melodyRibbon = createMelodyRibbon(scene);
         console.log('[Deferred] Melody Ribbon initialized');
@@ -142,6 +158,9 @@ function initDeferredVisuals() {
         scene.add(jitterMineSystem.mesh);
         console.log('[Deferred] Jitter Mine System initialized');
     }
+    console.timeEnd('Musical Elements');
+
+    console.timeEnd('Deferred Visuals Init');
 }
 
 // 4. Input Handling
