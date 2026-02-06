@@ -12,6 +12,7 @@ export interface KeyStates {
     sprint: boolean;
     dash: boolean;
     dance: boolean;
+    action: boolean;
 }
 
 export const keyStates: KeyStates = {
@@ -23,7 +24,8 @@ export const keyStates: KeyStates = {
     sneak: false,
     sprint: false,
     dash: false,
-    dance: false
+    dance: false,
+    action: false
 };
 
 // Controls and Event Listeners
@@ -498,6 +500,7 @@ export function initInput(
             case 'KeyA': keyStates.left = true; break;
             case 'KeyS': keyStates.backward = true; break;
             case 'KeyD': keyStates.right = true; break;
+            case 'KeyF': keyStates.action = true; break; // Jitter Mine Ability
             case 'KeyE': keyStates.dash = true; break; // Dash Ability
             case 'KeyR': keyStates.dance = true; break; // Dance Ability
             case 'Space': keyStates.jump = true; break;
@@ -529,6 +532,7 @@ export function initInput(
             case 'KeyA': keyStates.left = false; break;
             case 'KeyS': keyStates.backward = false; break;
             case 'KeyD': keyStates.right = false; break;
+            case 'KeyF': keyStates.action = false; break;
             case 'KeyE': keyStates.dash = false; break;
             case 'KeyR': keyStates.dance = false; break;
             case 'Space': keyStates.jump = false; break;
