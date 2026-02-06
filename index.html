@@ -546,7 +546,7 @@
 
         <div class="settings settings-container">
             <input type="file" id="musicUpload" accept=".mod,.xm,.it,.s3m" multiple class="visually-hidden">
-            <label for="musicUpload" class="file-label" aria-live="polite">
+            <label for="musicUpload" class="file-label" aria-live="polite" title="Supported formats: .mod, .xm, .it, .s3m">
                 🎵 Upload Music
             </label>
 
@@ -554,11 +554,15 @@
                 🌙 Switch to Night <span class="key-badge">N</span>
             </button>
 
-            <button id="volDownBtn" class="toggle-button" aria-label="Decrease Volume" aria-keyshortcuts="-">&minus;</button>
+            <button id="volDownBtn" class="toggle-button" aria-label="Decrease Volume" aria-keyshortcuts="-" title="Decrease Volume (-)">
+                &minus;
+            </button>
             <button id="toggleMuteBtn" class="toggle-button" aria-pressed="false" aria-keyshortcuts="M" aria-label="Mute Audio">
                 🔊 Mute <span class="key-badge">M</span>
             </button>
-            <button id="volUpBtn" class="toggle-button" aria-label="Increase Volume" aria-keyshortcuts="+">&plus;</button>
+            <button id="volUpBtn" class="toggle-button" aria-label="Increase Volume" aria-keyshortcuts="+" title="Increase Volume (+)">
+                &plus;
+            </button>
 
             <button id="openJukeboxBtn" class="toggle-button" aria-keyshortcuts="Q" aria-label="Open Jukebox playlist">
                 Open Jukebox <span class="key-badge">Q</span>
@@ -626,14 +630,14 @@
     <div id="playlist-backdrop" aria-hidden="true"></div>
 
     <div id="playlist-overlay" role="dialog" aria-modal="true" aria-labelledby="playlist-title" tabindex="-1">
-        <button id="playlistCloseX" class="close-icon-btn" aria-label="Close Jukebox">×</button>
+        <button id="playlistCloseX" class="close-icon-btn" aria-label="Close Jukebox" title="Close Jukebox (Esc)">×</button>
         <h2 id="playlist-title">🎵 Jukebox</h2>
         <ul id="playlist-list" aria-label="Current playlist">
         </ul>
         
         <div class="playlist-controls">
             <input type="file" id="playlistUploadInput" multiple accept=".mod,.xm,.it,.s3m" class="visually-hidden">
-            <label for="playlistUploadInput" class="secondary-button" aria-live="polite">➕ Add Songs</label>
+            <label for="playlistUploadInput" class="secondary-button" aria-live="polite" title="Supported formats: .mod, .xm, .it, .s3m">➕ Add Songs</label>
             <button id="closePlaylistBtn" class="secondary-button" style="background: #FF6B6B;" aria-label="Close Jukebox (Escape)">Close <span class="key-badge">Esc</span></button>
         </div>
         <div style="text-align: center; margin-top: 15px; font-size: 0.85em; color: #666;" aria-hidden="true">

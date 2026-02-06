@@ -35,3 +35,7 @@
 ## 2026-06-25 - Mouse Parity for System Controls
 **Learning:** Key system controls (like Volume) often get relegated to keyboard shortcuts, excluding mouse-only or touch users. Reliance on "standard" shortcuts (like +/-) excludes devices without those keys visible (e.g. some tablets).
 **Action:** Ensure every system toggle/adjustment has a visible UI equivalent in the settings menu, using accessible buttons with clear visual states (e.g., disabled when min/max reached).
+
+## 2026-07-15 - Tooltips for Shortcut Discoverability
+**Learning:** In a keyboard-heavy 3D application, users often miss available shortcuts for UI controls (like volume) when the buttons only display icons. While `aria-label` helps screen readers, sighted mouse users have no way to discover these shortcuts without guessing.
+**Action:** Add `title` attributes to all icon-only control buttons that include both the action name and the keyboard shortcut (e.g., "Decrease Volume (-)"), bridging the gap between mouse and keyboard interaction.
