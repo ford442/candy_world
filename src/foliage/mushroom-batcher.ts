@@ -7,7 +7,7 @@ import {
 } from 'three/tsl';
 import {
     sharedGeometries, foliageMaterials, uTime,
-    uAudioLow, uAudioHigh, createRimLight, createJuicyRimLight, uPlayerPosition
+    uAudioLow, uAudioHigh, createRimLight, createJuicyRimLight, uPlayerPosition, colorFromNote
 } from './common.ts';
 import { uTwilight } from './sky.ts';
 import { foliageGroup } from '../world/state.js'; // Assuming state.js exports foliageGroup
@@ -21,7 +21,6 @@ export class MushroomBatcher {
 
     // Mesh & Attributes
     public mesh: THREE.InstancedMesh | null = null;
-    private instanceNoteColor: THREE.InstancedBufferAttribute | null = null;
     private instanceParams: THREE.InstancedBufferAttribute | null = null; // [hasFace, noteIndex, isGiant, spawnTime]
     private instanceAnim: THREE.InstancedBufferAttribute | null = null;   // [triggerTime, velocity, unused, unused]
 
@@ -49,11 +48,9 @@ export class MushroomBatcher {
         const geometry = this.createMergedGeometry();
 
         // 2. Attributes
-        this.instanceNoteColor = new THREE.InstancedBufferAttribute(new Float32Array(MAX_MUSHROOMS * 3), 3);
         this.instanceParams = new THREE.InstancedBufferAttribute(new Float32Array(MAX_MUSHROOMS * 4), 4);
         this.instanceAnim = new THREE.InstancedBufferAttribute(new Float32Array(MAX_MUSHROOMS * 4), 4);
 
-        geometry.setAttribute('instanceNoteColor', this.instanceNoteColor);
         geometry.setAttribute('instanceParams', this.instanceParams);
         geometry.setAttribute('instanceAnim', this.instanceAnim);
 
@@ -357,9 +354,9 @@ export class MushroomBatcher {
 
     private createMaterials(): MeshStandardNodeMaterial[] {
         // TSL Logic
-        const instanceColor = attribute('instanceNoteColor', 'vec3');
         const instanceParams = attribute('instanceParams', 'vec4'); // x: hasFace, y: noteIndex, z: isGiant, w: spawnTime
         const instanceAnim = attribute('instanceAnim', 'vec4');     // x: triggerTime, y: velocity
+        const instanceColor = colorFromNote(instanceParams.y);
 
         const hasFace = instanceParams.x;
         const isGiant = instanceParams.z;
@@ -530,15 +527,6 @@ export class MushroomBatcher {
 
         this.instanceParams!.setXYZW(i, hasFace, noteIndex, isGiant, spawnTime);
 
-        // Color
-        if (options.noteColor) {
-            const c = new THREE.Color(options.noteColor);
-            this.instanceNoteColor!.setXYZ(i, c.r, c.g, c.b);
-        } else {
-             // Random or default
-             this.instanceNoteColor!.setXYZ(i, 1.0, 0.5, 0.5);
-        }
-
         // Anim (Reset)
         this.instanceAnim!.setXYZW(i, -100.0, 0, 0, 0);
 
@@ -552,7 +540,6 @@ export class MushroomBatcher {
 
         this.mesh!.instanceMatrix.needsUpdate = true;
         this.instanceParams!.needsUpdate = true;
-        this.instanceNoteColor!.needsUpdate = true;
         this.instanceAnim!.needsUpdate = true;
     }
 
@@ -595,14 +582,6 @@ export class MushroomBatcher {
                 this.instanceParams!.getW(lastIndex)
             );
 
-            // Note Color
-            this.instanceNoteColor!.setXYZ(
-                indexToRemove,
-                this.instanceNoteColor!.getX(lastIndex),
-                this.instanceNoteColor!.getY(lastIndex),
-                this.instanceNoteColor!.getZ(lastIndex)
-            );
-
             // Anim
             this.instanceAnim!.setXYZW(
                 indexToRemove,
@@ -635,7 +614,6 @@ export class MushroomBatcher {
         this.mesh!.count = this.count;
         this.mesh!.instanceMatrix.needsUpdate = true;
         this.instanceParams!.needsUpdate = true;
-        this.instanceNoteColor!.needsUpdate = true;
         this.instanceAnim!.needsUpdate = true;
     }
 
