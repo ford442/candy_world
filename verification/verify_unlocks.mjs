@@ -60,7 +60,7 @@ checkFile(unlocksPath, [
 checkFile(floraPath, [
     {
         name: "UnlockSystem Import",
-        pattern: /import \{ unlockSystem \} from '\.\.\/systems\/unlocks\.js'/,
+        pattern: /import \{ unlockSystem \} from '\.\.\/systems\/unlocks\.(ts|js)'/,
         error: "UnlockSystem not imported in musical_flora.ts"
     },
     {

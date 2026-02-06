@@ -27,6 +27,7 @@ import { initWorld, generateMap } from './src/world/generation.ts';
 import { animatedFoliage, foliageGroup, activeVineSwing, foliageClouds, foliageMushrooms } from './src/world/state.ts';
 import { updatePhysics, player, bpmWind } from './src/systems/physics.ts';
 import { fireRainbow, updateBlaster } from './src/gameplay/rainbow-blaster.ts';
+import { jitterMineSystem } from './src/gameplay/jitter-mines.ts';
 import { updateFallingClouds } from './src/foliage/clouds.ts';
 import { cloudBatcher } from './src/foliage/cloud-batcher.ts';
 import { getGroundHeight } from './src/utils/wasm-loader.js';
@@ -135,6 +136,11 @@ function initDeferredVisuals() {
         impactSystem = createImpactSystem();
         scene.add(impactSystem);
         console.log('[Deferred] Impact System initialized');
+    }
+
+    if (!jitterMineSystem.mesh.parent) {
+        scene.add(jitterMineSystem.mesh);
+        console.log('[Deferred] Jitter Mine System initialized');
     }
 }
 
@@ -595,6 +601,13 @@ function animate() {
         player.energy = Math.max(0, player.energy - delta * 0.1);
 
         updateBlaster(delta, scene, weatherSystem, t);
+
+        // Jitter Mines
+        jitterMineSystem.update(delta, player.position);
+        if (keyStates.action) {
+            jitterMineSystem.spawnMine(player.position);
+        }
+
         updateFallingClouds(delta, foliageClouds, getGroundHeight);
         cloudBatcher.update(delta);
     });
