@@ -10,14 +10,16 @@
 
 ## Next Steps
 
-1. **Jitter Mines**: Implement the "Jitter Mines" ability that is unlocked by collecting Vibrato Nectar.
-   - *Visuals*: Unstable, vibrating particle clusters.
-   - *Mechanics*: Proximity-based explosion that applies a "glitch" effect to nearby entities (or the player if testing).
+1. **Panning Pads**: Implement the "Panning Pads" platforming element.
+   - *Visuals*: Holographic lily pads floating on mercury pools.
+   - *Mechanics*: Bobbing animation driven by stereo pan (8xx). Landing at peak gives boost.
 
 ---
 
 ## Recent Progress
 - **Accomplished:**
+  - **Jitter Mines**: **Status: Implemented ✅**
+    - *Implementation Details:* Created `src/gameplay/jitter-mines.ts` utilizing `THREE.InstancedMesh` for efficient rendering of unstable, glitching mines. Mines are spawned via the 'F' key (Action) and explode on proximity, triggering a global TSL-driven chromatic aberration and glitch pulse (`uChromaticIntensity`, `uGlitchIntensity`). Integrated with `UnlockSystem` (consumes "Vibrato Nectar") and `src/foliage/flowers.ts` (harvesting logic for Vibrato Violets).
   - **Arpeggio Shield**: **Status: Implemented ✅**
     - *Implementation Details:* Created `src/foliage/shield.ts` using TSL for a crystalline, audio-reactive icosahedron (transmission, iridescence). Integrated with `src/systems/unlocks.ts` to instantiate the shield on the player when unlocked.
   - **Rare Flora Unlocks (Harvesting System)**: **Status: Implemented ✅**

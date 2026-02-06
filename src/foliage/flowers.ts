@@ -21,6 +21,7 @@ import { color as tslColor, mix, float, positionLocal, Node } from 'three/tsl';
 import { uTwilight } from './sky.ts';
 import { lanternBatcher } from './lantern-batcher.ts';
 import { simpleFlowerBatcher } from './simple-flower-batcher.ts';
+import { unlockSystem } from '../systems/unlocks.ts';
 
 interface FlowerOptions {
     color?: number | string | THREE.Color | null;
@@ -629,6 +630,29 @@ export function createVibratoViolet(options: { color?: number, intensity?: numbe
     group.userData.animationOffset = Math.random() * 10;
     group.userData.type = 'vibratoViolet';
     group.userData.headGroup = headGroup;
+    group.userData.interactionText = "Harvest Nectar";
+
+    // Interaction Logic for Harvesting
+    group.userData.onInteract = () => {
+        if (!group.userData.harvested) {
+             unlockSystem.harvest('vibrato_nectar', 1, 'Vibrato Nectar');
+             group.userData.harvested = true;
+
+             // Visual feedback
+             if (group.userData.headGroup) {
+                 group.userData.headGroup.scale.multiplyScalar(0.8);
+                 // Dim light
+                 const light = group.userData.headGroup.children.find((c:any) => c.isPointLight);
+                 if (light) light.intensity *= 0.2;
+             }
+             group.userData.interactionText = "Harvested";
+
+             // Play sound if available via audioSystem
+             if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
+                 (window as any).AudioSystem.playSound('pickup', { position: group.position, pitch: 1.5 });
+             }
+        }
+    };
 
     return attachReactivity(group, { minLight: 0.2, maxLight: 1.0 });
 }
