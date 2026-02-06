@@ -1,11 +1,15 @@
 import * as THREE from 'three';
-import { PointsNodeMaterial, StorageBufferAttribute } from 'three/webgpu';
+import { MeshStandardNodeMaterial, StorageBufferAttribute } from 'three/webgpu';
 import {
     Fn, uniform, storage, instanceIndex, float, vec3,
     mix, sin, cos, normalize, color,
-    mx_noise_float, vertexIndex, max, length, min
+    mx_noise_float, positionLocal, max, length, min,
+    vec4, positionWorld, normalLocal
 } from 'three/tsl';
-import { uTime, uAudioLow, uAudioHigh, uPlayerPosition } from './common.ts';
+import {
+    uTime, uAudioLow, uAudioHigh, uPlayerPosition,
+    sharedGeometries, createJuicyRimLight
+} from './common.ts';
 
 export function createFireflies(count = 150, areaSize = 100) {
     // 1. Setup Buffers
@@ -62,7 +66,6 @@ export function createFireflies(count = 150, areaSize = 100) {
 
         // 3. Audio Repulsion / Turbulence (Bass Kick)
         // If uAudioLow is high, push particles away from their current direction or center
-        // Let's make them jitter/explode slightly
         const audioForce = normalize(v).mul(uAudioLow).mul(5.0);
 
         // 4. Player Interaction (Repulsion)
@@ -87,9 +90,6 @@ export function createFireflies(count = 150, areaSize = 100) {
         p.assign(p.add(dampedVel.mul(dt)));
 
         // Floor constraint (bounce or clamp)
-        // Soft clamp: if y < 0.5, push up
-        // Simple conditional assignment isn't always easy in TSL without 'If',
-        // but we can use mix or max.
         // p.y = max(p.y, 0.5)
         p.y.assign(max(p.y, float(0.5)));
 
@@ -97,52 +97,91 @@ export function createFireflies(count = 150, areaSize = 100) {
 
     const computeNode = computeFireflies().compute(count);
 
-    // 3. Create Visualization Material
-    const material = new PointsNodeMaterial({
-        size: 0.15,
-        transparent: true,
-        depthWrite: false,
+    // 3. Create Visualization (InstancedMesh)
+    // Use low-poly sphere for performance
+    const geometry = sharedGeometries.sphereLow;
+
+    // TSL Material
+    const material = new MeshStandardNodeMaterial({
+        roughness: 0.4,
+        metalness: 0.1,
+        transparent: true, // Needed for opacity fade
+        depthWrite: false, // Don't occlude other fireflies
         blending: THREE.AdditiveBlending
     });
 
-    // Read from storage using vertexIndex (since we are rendering points)
-    // Note: storage(...).element(node) reads the buffer at that index.
-    const particlePos = positionStorage.element(vertexIndex);
-    const particlePhase = storage(phaseBuffer, 'float', count).element(vertexIndex);
+    // --- TSL Vertex Logic ---
+    const instancePos = positionStorage.element(instanceIndex);
+    const instanceVel = velocityStorage.element(instanceIndex);
+    const instancePhase = storage(phaseBuffer, 'float', count).element(instanceIndex);
 
-    material.positionNode = particlePos;
+    // Scaling & Squash/Stretch
+    const baseScale = float(0.15); // Base size
 
-    // Color Logic (Audio Reactive Blink)
+    // Stretch based on velocity magnitude
+    const speed = length(instanceVel);
+    const stretchFactor = min(speed.mul(2.0), float(1.0)); // Cap stretch
+
+    // Y-axis aligns with movement?
+    // For simplicity, we just stretch Y and squash XZ based on speed,
+    // assuming they move mostly vertically or we don't care about perfect alignment for tiny dots.
+    // Ideally we align to velocity, but that's complex rotation.
+    // Let's just pulse-scale instead for "Juice".
+
+    // Pulse on Audio High (Excitement)
+    const audioPulse = uAudioHigh.mul(0.5);
+    const scalePulse = sin(uTime.mul(5.0).add(instancePhase)).mul(0.1);
+
+    const finalScale = baseScale.add(scalePulse).add(audioPulse.mul(0.2));
+
+    // Simple squash: when moving fast up/down (Y velocity), stretch Y
+    const yVelAbs = instanceVel.y.abs();
+    const squashY = float(1.0).add(yVelAbs.mul(2.0)); // Stretch Y
+    const squashXZ = float(1.0).div(squashY.sqrt()); // Preserve volume approx
+
+    // Apply position & scale
+    const scaledVertex = positionLocal.mul(finalScale).mul(vec3(squashXZ, squashY, squashXZ));
+    material.positionNode = instancePos.add(scaledVertex);
+
+    // Recalculate normal for lighting (spheres need this or they look flat)
+    // Since we squashed, normals are distorted.
+    // Approximate: Just use original local normal (good enough for tiny glowing orbs)
+    material.normalNode = normalLocal;
+
+    // --- TSL Color/Emissive Logic ---
+
+    // Blink Logic
     const blinkSpeed = float(2.0);
-    const blink = sin(uTime.mul(blinkSpeed).add(particlePhase)); // -1 to 1
+    const blink = sin(uTime.mul(blinkSpeed).add(instancePhase)); // -1 to 1
     const sharpBlink = max(float(0.0), blink); // 0 to 1
 
-    // Color Palette: Green/Gold
+    // Colors
     const colorA = color(0x88FF00); // Green
     const colorB = color(0xFFFF00); // Gold
 
-    // Treble boost
-    const intensity = sharpBlink.add(uAudioHigh.mul(3.0)); // Audio makes them super bright
-
-    // Mix color based on intensity
+    // Mix based on intensity/blink
+    const intensity = sharpBlink.add(uAudioHigh.mul(3.0)); // Audio boost
     const mixFactor = min(float(1.0), intensity.mul(0.5));
-    const finalColor = mix(colorA, colorB, mixFactor);
+    const baseColor = mix(colorA, colorB, mixFactor);
 
-    material.colorNode = finalColor.mul(intensity);
+    material.colorNode = baseColor;
+
+    // Juicy Rim Light (The "Palette" Polish)
+    // Makes them look like magical glass orbs
+    const rim = createJuicyRimLight(baseColor, float(2.0), float(3.0));
+
+    // Emissive = Base Glow + Rim
+    const glow = baseColor.mul(intensity);
+    material.emissiveNode = glow.add(rim);
+
+    // Opacity
     material.opacityNode = min(float(1.0), intensity.add(0.2));
 
-    // 4. Create Mesh
-    // We need a geometry with a 'position' attribute to determine draw count,
-    // even though we overwrite positionNode.
-    // Ideally we use a buffer with 'count' vertices.
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', positionBuffer); // Attach as attribute too (standard requirement for Points)
-    geometry.drawRange.count = count;
-
-    const fireflies = new THREE.Points(geometry, material);
-    fireflies.frustumCulled = false; // Always update/draw as they move procedurally
+    // 4. Instantiate
+    const fireflies = new THREE.InstancedMesh(geometry, material, count);
     fireflies.userData.computeNode = computeNode;
     fireflies.userData.isFireflies = true;
+    fireflies.frustumCulled = false; // Always update
 
     return fireflies;
 }
