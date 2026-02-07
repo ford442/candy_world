@@ -131,3 +131,77 @@
     margin-right: 10px;
     min-width: 0;
 }
+
+/* 🎨 Palette: Ability HUD */
+#ability-hud {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    display: flex;
+    gap: 15px;
+    z-index: 100;
+}
+
+.ability-slot {
+    width: 50px;
+    height: 50px;
+    background: rgba(255, 255, 255, 0.85);
+    border-radius: 12px;
+    border: 3px solid #FFD1DC;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    transition: transform 0.1s, border-color 0.2s, box-shadow 0.2s;
+}
+
+.ability-key {
+    position: absolute;
+    top: 2px;
+    left: 4px;
+    font-size: 10px;
+    font-weight: bold;
+    color: #FF6B6B;
+    font-family: 'Fredoka One', cursive, sans-serif;
+    text-shadow: 1px 1px 0 #fff;
+    z-index: 2;
+}
+
+.ability-icon {
+    z-index: 1;
+    filter: grayscale(100%);
+    opacity: 0.6;
+    transition: filter 0.2s, opacity 0.2s;
+}
+
+.cooldown-overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 0%;
+    background: rgba(100, 100, 100, 0.6);
+    transition: height 0.1s linear;
+    pointer-events: none;
+    z-index: 3;
+}
+
+/* Ready State */
+.ability-slot.ready {
+    border-color: #4CAF50;
+    box-shadow: 0 0 15px rgba(76, 175, 80, 0.5);
+    background: #ffffff;
+}
+
+.ability-slot.ready .ability-icon {
+    filter: grayscale(0%);
+    opacity: 1;
+    transform: scale(1.1);
+}
+
+.ability-slot.ready:active {
+    transform: scale(0.9);
+}
