@@ -19,7 +19,8 @@ const IMPACT_CONFIG = {
     mist: { count: 20 },
     rain: { count: 30 },
     trail: { count: 1 },
-    muzzle: { count: 10 }
+    muzzle: { count: 10 },
+    spore: { count: 12 }
 };
 
 export function createImpactSystem() {
@@ -209,6 +210,14 @@ export function spawnImpact(pos, type = 'jump', options = {}) {
             vy = -5.0 - Math.random() * 5.0; // Slam down
             vz = Math.sin(theta) * r;
             gScale = 2.0; // Heavy gravity
+        } else if (type === 'spore') {
+            // Floaty, swirl
+            const theta = Math.random() * Math.PI * 2;
+            const r = Math.random() * 2.0;
+            vx = Math.cos(theta) * r;
+            vy = 1.0 + Math.random() * 2.0; // Drift up
+            vz = Math.sin(theta) * r;
+            gScale = -0.2; // Slight upward float (negative gravity)
         } else if (type === 'trail') {
             // Stationary relative to spawn (drag), floaty
             vx = (Math.random() - 0.5) * 0.5;
@@ -251,6 +260,8 @@ export function spawnImpact(pos, type = 'jump', options = {}) {
             lifeAttr.setX(idx, 0.3 + Math.random() * 0.2); // Short life
         } else if (type === 'muzzle') {
             lifeAttr.setX(idx, 0.15 + Math.random() * 0.15); // Very short flash
+        } else if (type === 'spore') {
+            lifeAttr.setX(idx, 1.5 + Math.random() * 1.5); // Long floaty life
         } else {
             lifeAttr.setX(idx, 0.5 + Math.random() * 0.5);
         }
@@ -274,6 +285,12 @@ export function spawnImpact(pos, type = 'jump', options = {}) {
             colAttr.setXYZ(idx, 0.9, 0.9, 1.0); // Pale Blue/White
         } else if (type === 'rain') {
             colAttr.setXYZ(idx, 0.2, 0.2, 1.0); // Deep Blue
+        } else if (type === 'spore') {
+            // Neon Random
+            const rand = Math.random();
+            if (rand < 0.33) colAttr.setXYZ(idx, 0.0, 1.0, 1.0); // Cyan
+            else if (rand < 0.66) colAttr.setXYZ(idx, 1.0, 0.0, 1.0); // Magenta
+            else colAttr.setXYZ(idx, 0.5, 1.0, 0.0); // Lime
         }
 
         // Size scale (Attribute mult)
@@ -283,6 +300,8 @@ export function spawnImpact(pos, type = 'jump', options = {}) {
             sizeAttr.setX(idx, 0.3 + Math.random() * 0.2); // Small
         } else if (type === 'muzzle') {
             sizeAttr.setX(idx, 0.5 + Math.random() * 0.5); // Medium
+        } else if (type === 'spore') {
+            sizeAttr.setX(idx, 0.2 + Math.random() * 0.3); // Tiny specks
         } else {
             sizeAttr.setX(idx, 0.5 + Math.random() * 1.0);
         }
