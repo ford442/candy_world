@@ -1,129 +1,48 @@
 /**
  * @file animation_batch.cpp
  * @brief SIMD-optimized batch animation processing - C++/Emscripten
- * 
- * This module provides high-performance batch processing for additional
- * animation types using SIMD intrinsics.
- * 
- * @perf-migrate {target: "cpp", reason: "SIMD-vectorized-hot-loops", note: "4-8x speedup over JS"}
  */
 
 #include <emscripten.h>
 #include <cmath>
 #include <cstdint>
 #include <algorithm>
-
-// SIMD intrinsics (WebAssembly SIMD)
-#include <wasm_simd128.h>
+#include "omp.h"
 
 extern "C" {
 
-// =============================================================================
-// BATCH CONFIGURATION
-// =============================================================================
-
-/** Maximum objects per batch */
 constexpr int BATCH_SIZE = 4000;
-
-/** Entry stride: 6 floats (offset, intensity, originalY, wobbleBoost, param1, param2) */
 constexpr int ENTRY_STRIDE = 6;
-
-/** Result stride: 4 floats */
 constexpr int RESULT_STRIDE = 4;
 
-// =============================================================================
-// SIMD HELPER FUNCTIONS
-// =============================================================================
-
-/**
- * SIMD-optimized sin approximation for 4 lanes
- * Uses polynomial approximation for faster computation
- */
-inline v128_t simd_sin(v128_t x) {
-    // Reduce to [-PI, PI]
-    const v128_t PI = wasm_f32x4_splat(3.14159265f);
-    const v128_t TWO_PI = wasm_f32x4_splat(6.28318531f);
-    const v128_t INV_TWO_PI = wasm_f32x4_splat(0.15915494f);
-    
-    // x = x - round(x / 2PI) * 2PI
-    v128_t k = wasm_f32x4_mul(x, INV_TWO_PI);
-    k = wasm_f32x4_convert_i32x4(wasm_i32x4_trunc_sat_f32x4(k));
-    k = wasm_f32x4_sub(x, wasm_f32x4_mul(k, TWO_PI));
-    
-    // Polynomial: sin(x) ≈ x - x^3/6 + x^5/120
-    const v128_t x2 = wasm_f32x4_mul(x, x);
-    const v128_t x3 = wasm_f32x4_mul(x2, x);
-    const v128_t x5 = wasm_f32x4_mul(x3, x2);
-    
-    const v128_t c1 = wasm_f32x4_splat(1.0f / 6.0f);
-    const v128_t c2 = wasm_f32x4_splat(1.0f / 120.0f);
-    
-    v128_t result = wasm_f32x4_sub(x, wasm_f32x4_mul(x3, c1));
-    result = wasm_f32x4_add(result, wasm_f32x4_mul(x5, c2));
-    
-    return result;
-}
-
-/**
- * SIMD max for 4 floats
- */
-inline v128_t simd_max(v128_t a, v128_t b) {
-    return wasm_f32x4_max(a, b);
-}
-
-/**
- * SIMD sqrt approximation for 4 floats
- */
-inline v128_t simd_sqrt(v128_t x) {
-    return wasm_f32x4_sqrt(x);
-}
-
-// =============================================================================
-// BATCH PROCESSING FUNCTIONS
-// =============================================================================
-
-/**
- * Process batch of snare snap animations
- * @param input - Input buffer [offset, intensity, ..., param1, param2]
- * @param count - Number of objects
- * @param time - Current time
- * @param snareTrigger - Snare trigger intensity
- * @param output - Output buffer [posY, rotX, rotY, rotZ]
- */
 EMSCRIPTEN_KEEPALIVE
 void batchSnareSnap_c(float* input, int count, float time, float snareTrigger, float* output) {
+    #pragma omp parallel for schedule(static) if(count > 500)
     for (int i = 0; i < count; i++) {
         int inBase = i * ENTRY_STRIDE;
         int outBase = i * RESULT_STRIDE;
         
         float offset = input[inBase];
-        float snapState = input[inBase + 4]; // param1
+        float snapState = input[inBase + 4];
         
-        // Snap logic
         if (snareTrigger > 0.2f) {
-            if (snapState < 0.2f) {
-                snapState = 1.0f;
-            }
+            if (snapState < 0.2f) snapState = 1.0f;
         } else {
             snapState = fmaxf(0.0f, snapState - 0.1f);
         }
         
-        // Store state back to input for persistence
         input[inBase + 4] = snapState;
         
-        // Output results
-        output[outBase] = 0.0f;      // posY
-        output[outBase + 1] = snapState; // rotX
-        output[outBase + 2] = 0.0f;  // rotY
-        output[outBase + 3] = 0.0f;  // rotZ
+        output[outBase] = 0.0f;
+        output[outBase + 1] = snapState;
+        output[outBase + 2] = 0.0f;
+        output[outBase + 3] = 0.0f;
     }
 }
 
-/**
- * Process batch of accordion stretch animations
- */
 EMSCRIPTEN_KEEPALIVE
 void batchAccordion_c(float* input, int count, float time, float intensity, float* output) {
+    #pragma omp parallel for schedule(static) if(count > 500)
     for (int i = 0; i < count; i++) {
         int inBase = i * ENTRY_STRIDE;
         int outBase = i * RESULT_STRIDE;
@@ -141,22 +60,19 @@ void batchAccordion_c(float* input, int count, float time, float intensity, floa
     }
 }
 
-/**
- * Process batch of fiber whip animations
- */
 EMSCRIPTEN_KEEPALIVE
 void batchFiberWhip_c(float* input, int count, float time, float leadVol, int isActive, float* output) {
     float whip = leadVol * 2.0f;
     
+    #pragma omp parallel for schedule(static) if(count > 500)
     for (int i = 0; i < count; i++) {
         int inBase = i * ENTRY_STRIDE;
         int outBase = i * RESULT_STRIDE;
         
         float offset = input[inBase];
-        float branchIndex = input[inBase + 4]; // param1
+        float branchIndex = input[inBase + 4];
         
         float baseRotY = sinf(time * 0.5f + offset) * 0.1f;
-        
         float childOffset = branchIndex * 0.5f;
         float branchRotZ = 0.785398f + sinf(time * 2.0f + childOffset) * 0.1f;
         
@@ -171,11 +87,9 @@ void batchFiberWhip_c(float* input, int count, float time, float leadVol, int is
     }
 }
 
-/**
- * Process batch of spiral wave animations
- */
 EMSCRIPTEN_KEEPALIVE
 void batchSpiralWave_c(float* input, int count, float time, float intensity, float groove, float* output) {
+    #pragma omp parallel for schedule(static) if(count > 500)
     for (int i = 0; i < count; i++) {
         int inBase = i * ENTRY_STRIDE;
         int outBase = i * RESULT_STRIDE;
@@ -195,14 +109,12 @@ void batchSpiralWave_c(float* input, int count, float time, float intensity, flo
     }
 }
 
-/**
- * Process batch of vibrato shake animations
- */
 EMSCRIPTEN_KEEPALIVE
 void batchVibratoShake_c(float* input, int count, float time, float vibratoAmount, float intensity, float* output) {
     float shakeSpeed = 50.0f + vibratoAmount * 100.0f;
     float shakeAmount = 0.05f + vibratoAmount * 0.25f;
     
+    #pragma omp parallel for schedule(static) if(count > 500)
     for (int i = 0; i < count; i++) {
         int inBase = i * ENTRY_STRIDE;
         int outBase = i * RESULT_STRIDE;
@@ -220,11 +132,9 @@ void batchVibratoShake_c(float* input, int count, float time, float vibratoAmoun
     }
 }
 
-/**
- * Process batch of tremolo pulse animations
- */
 EMSCRIPTEN_KEEPALIVE
 void batchTremoloPulse_c(float* input, int count, float time, float tremoloAmount, float intensity, float* output) {
+    #pragma omp parallel for schedule(static) if(count > 500)
     for (int i = 0; i < count; i++) {
         int inBase = i * ENTRY_STRIDE;
         int outBase = i * RESULT_STRIDE;
@@ -245,16 +155,13 @@ void batchTremoloPulse_c(float* input, int count, float time, float tremoloAmoun
     }
 }
 
-/**
- * Process batch of cymbal shake animations
- */
 EMSCRIPTEN_KEEPALIVE
 void batchCymbalShake_c(float* input, int count, float time, float highFreq, float intensity, float* output) {
+    #pragma omp parallel for schedule(static) if(count > 500)
     for (int i = 0; i < count; i++) {
         int inBase = i * ENTRY_STRIDE;
         int outBase = i * RESULT_STRIDE;
         
-        // Load previous state
         float rotZ = input[inBase + 4];
         float rotX = input[inBase + 5];
         
@@ -270,11 +177,9 @@ void batchCymbalShake_c(float* input, int count, float time, float highFreq, flo
             rotX *= 0.9f;
         }
         
-        // Store state back
         input[inBase + 4] = rotZ;
         input[inBase + 5] = rotX;
         
-        // Calculate scale
         float scale = 1.0f;
         if (highFreq > 0.4f) {
             scale = 1.0f + (highFreq - 0.4f) * 0.5f;
@@ -287,11 +192,9 @@ void batchCymbalShake_c(float* input, int count, float time, float highFreq, flo
     }
 }
 
-/**
- * Process batch of panning bob animations
- */
 EMSCRIPTEN_KEEPALIVE
 void batchPanningBob_c(float* input, int count, float time, float panActivity, float intensity, float* output) {
+    #pragma omp parallel for schedule(static) if(count > 500)
     for (int i = 0; i < count; i++) {
         int inBase = i * ENTRY_STRIDE;
         int outBase = i * RESULT_STRIDE;
@@ -299,7 +202,6 @@ void batchPanningBob_c(float* input, int count, float time, float panActivity, f
         float offset = input[inBase];
         float panBias = input[inBase + 4];
         
-        // Smooth bob
         float currentBob = input[inBase + 5];
         float nextBob = currentBob + (panActivity - currentBob) * 0.1f;
         input[inBase + 5] = nextBob;
@@ -316,13 +218,11 @@ void batchPanningBob_c(float* input, int count, float time, float panActivity, f
     }
 }
 
-/**
- * Process batch of spirit fade animations
- */
 EMSCRIPTEN_KEEPALIVE
 void batchSpiritFade_c(float* input, int count, float time, float volume, float delta, float* output) {
     constexpr float threshold = 0.1f;
     
+    #pragma omp parallel for schedule(static) if(count > 500)
     for (int i = 0; i < count; i++) {
         int inBase = i * ENTRY_STRIDE;
         int outBase = i * RESULT_STRIDE;
@@ -333,7 +233,6 @@ void batchSpiritFade_c(float* input, int count, float time, float volume, float 
         float currentOpacity = input[inBase + 4];
         float fleeSpeed = input[inBase + 5];
         
-        // Calculate target
         float targetOpacity = 0.0f;
         if (volume < threshold) {
             targetOpacity = 0.8f;
@@ -345,10 +244,8 @@ void batchSpiritFade_c(float* input, int count, float time, float volume, float 
             }
         }
         
-        // Lerp
         currentOpacity = currentOpacity + (targetOpacity - currentOpacity) * 0.05f;
         
-        // Store state
         input[inBase + 4] = currentOpacity;
         input[inBase + 5] = fleeSpeed;
         
@@ -361,9 +258,6 @@ void batchSpiritFade_c(float* input, int count, float time, float volume, float 
     }
 }
 
-/**
- * Universal batch processor - routes to specific animation type
- */
 EMSCRIPTEN_KEEPALIVE
 void processBatchUniversal_c(
     int animType,
@@ -380,34 +274,34 @@ void processBatchUniversal_c(
     float intensity = 1.0f + groove * 5.0f;
     
     switch (animType) {
-        case 13: // SNARE_SNAP
+        case 13:
             batchSnareSnap_c(input, count, time, audioParam, output);
             break;
-        case 14: // ACCORDION
+        case 14:
             batchAccordion_c(input, count, time, intensity, output);
             break;
-        case 15: // FIBER_WHIP
+        case 15:
             batchFiberWhip_c(input, count, time, audioParam, 1, output);
             break;
-        case 16: // SPIRAL_WAVE
+        case 16:
             batchSpiralWave_c(input, count, time, intensity, groove, output);
             break;
-        case 17: // VIBRATO_SHAKE
+        case 17:
             batchVibratoShake_c(input, count, time, audioParam, intensity, output);
             break;
-        case 18: // TREMOLO_PULSE
+        case 18:
             batchTremoloPulse_c(input, count, time, audioParam, intensity, output);
             break;
-        case 19: // CYMBAL_SHAKE
+        case 19:
             batchCymbalShake_c(input, count, time, audioParam, intensity, output);
             break;
-        case 20: // PANNING_BOB
+        case 20:
             batchPanningBob_c(input, count, time, audioParam, intensity, output);
             break;
-        case 21: // SPIRIT_FADE
+        case 21:
             batchSpiritFade_c(input, count, time, audioParam, 0.016f, output);
             break;
     }
 }
 
-} // extern "C"
+}
