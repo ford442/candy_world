@@ -707,9 +707,9 @@ async function populateProceduralExtras(
         }
         
         // Report progress and yield every chunkSize items
-        if (i % chunkSize === 0 && i > 0) {
+        if ((i + 1) % chunkSize === 0 && i > 0) {
             if (onProgress) {
-                onProgress(i, extrasCount);
+                onProgress(Math.min(i + 1, extrasCount), extrasCount);
             }
             // Yield control back to browser
             await new Promise(resolve => setTimeout(resolve, 0));
@@ -718,5 +718,11 @@ async function populateProceduralExtras(
         console.warn(`[World] Failed to spawn procedural extra at ${x},${z}`, e);
     }
 }
+
+// Report final progress if we didn't just report it
+if (onProgress && extrasCount % chunkSize !== 0) {
+    onProgress(extrasCount, extrasCount);
+}
+
 console.log("[World] Finished populating procedural extras.");
 }
