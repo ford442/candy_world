@@ -23,7 +23,7 @@ import { initInput, keyStates } from './src/core/input.ts';
 import { getCycleState } from './src/core/cycle.ts';
 
 // World & System imports
-import { initWorld, generateMap } from './src/world/generation.ts';
+import { initWorld, generateMap, DEFAULT_MAP_CHUNK_SIZE } from './src/world/generation.ts';
 import { animatedFoliage, foliageGroup, activeVineSwing, foliageClouds, foliageMushrooms } from './src/world/state.ts';
 import { updatePhysics, player, bpmWind } from './src/systems/physics.ts';
 import { fireRainbow, updateBlaster } from './src/gameplay/rainbow-blaster.ts';
@@ -690,7 +690,7 @@ initWasm().then(async (wasmLoaded) => {
                 if (idx > -1) animatedFoliage.splice(idx, 1);
 
                 // Use async map generation with progress updates
-                await generateMap(weatherSystem, 100, (current, total) => {
+                await generateMap(weatherSystem, DEFAULT_MAP_CHUNK_SIZE, (current, total) => {
                     const percent = Math.floor((current / total) * 100);
                     startButton.innerHTML = `<span class="spinner" aria-hidden="true"></span>Generating ${percent}%... 🍭`;
                 });
