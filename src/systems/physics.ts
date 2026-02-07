@@ -8,7 +8,7 @@ import {
     uploadCollisionObjects, resolveGameCollisionsWASM
 } from '../utils/wasm-loader.js';
 import {
-    foliageMushrooms, foliageTrampolines, foliageClouds,
+    foliageMushrooms, foliageTrampolines, foliageClouds, foliagePanningPads,
     activeVineSwing, setActiveVineSwing, lastVineDetachTime, setLastVineDetachTime, vineSwings, animatedFoliage
 } from '../world/state.ts';
 import { discoverySystem } from './discovery.ts';
@@ -585,6 +585,62 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
          if (player.isGrounded && player.position.y > 10.0) {
               discoverySystem.discover('cloud_platform', 'Solid Cloud', '☁️');
          }
+    }
+
+    // --- Panning Pads (JS Physics) ---
+    // Explicit check for dynamic panning pads (bobbing platforms)
+    checkPanningPads();
+}
+
+function checkPanningPads() {
+    // Panning Pads are flat cylinders created with createPanningPad
+    // We treat them as dynamic platforms that boost the player if landed on at peak bob.
+
+    for (const pad of foliagePanningPads) {
+        // Simple Cylinder Collision (XZ Check)
+        const dx = player.position.x - pad.position.x;
+        const dz = player.position.z - pad.position.z;
+        const distSq = dx*dx + dz*dz;
+
+        // Estimate radius (base 1.2 roughly, scaled)
+        // Note: createPanningPad uses radius to scale inner mesh, and generation might scale group.
+        // We assume effective radius is ~1.5 * scale for lenient gameplay feel.
+        const radius = 1.5 * (pad.scale.x || 1.0);
+
+        if (distSq < (radius * radius)) {
+            // Vertical Check
+            // The pad's visual Y is driven by animation.ts (panningBob)
+            const padY = pad.position.y;
+            // Visual top is roughly padY + thickness (0.1 scaled)
+            // We give a generous vertical capture window
+            const topY = padY + (0.1 * (pad.scale.y || 1.0));
+
+            // Check if player is landing on it (falling or standing near top)
+            if (player.velocity.y <= 0 &&
+                player.position.y >= topY - 0.2 &&
+                player.position.y <= topY + 0.5) {
+
+                const currentBob = pad.userData.currentBob || 0;
+
+                // Logic: High bob (>0.5) = Boost
+                if (currentBob > 0.5) {
+                     // Boost!
+                     player.velocity.y = 20.0;
+                     player.airJumpsLeft = 1; // Reset double jump
+                     spawnImpact(pad.position, 'jump');
+                     discoverySystem.discover('panning_pad', 'Panning Pad', '🪷');
+                } else {
+                     // Solid Platform (Land)
+                     player.position.y = topY;
+                     player.velocity.y = 0;
+                     player.isGrounded = true;
+
+                     // If we just landed, maybe spawn a small effect?
+                     // But prevent spamming
+                }
+                return; // Handled collision
+            }
+        }
     }
 }
 

@@ -22,7 +22,7 @@ import { CONFIG } from '../core/config.ts';
 import { registerPhysicsCave } from '../systems/physics.ts';
 import {
     animatedFoliage, obstacles, foliageGroup, foliageMushrooms,
-    foliageClouds, foliageTrampolines, vineSwings, worldGroup
+    foliageClouds, foliageTrampolines, foliagePanningPads, vineSwings, worldGroup
 } from './state.ts';
 import mapData from '../../assets/map.json';
 
@@ -232,6 +232,7 @@ export function safeAddFoliage(
     if (obj.userData.type === 'mushroom') foliageMushrooms.push(obj);
     if (obj.userData.type === 'cloud') foliageClouds.push(obj);
     if (obj.userData.isTrampoline) foliageTrampolines.push(obj);
+    if (obj.userData.type === 'panningPad') foliagePanningPads.push(obj);
 
     // Invoke deferred placement logic (e.g. for batching)
     if (obj.userData.onPlacement) {
