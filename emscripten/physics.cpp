@@ -2,13 +2,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <vector>
-
-
-// Define OMP pragmas as no-ops when not available
-#ifndef _OPENMP
-#define omp_get_thread_num() 0
-#define omp_get_num_threads() 1
-#endif
+#include "omp.h"
 
 extern "C" float fastInvSqrt(float x);
 
@@ -28,21 +22,17 @@ struct Player {
 };
 
 struct Obstacle {
-    int type; // 0: Mushroom, 1: Cloud, 2: Trampoline
+    int type;
     float x, y, z;
     float radius;
-    float height; // For mushrooms (stem height) or cloud thickness
-    float param1; // Stem Radius (mush) or Bounce Height
-    float param2; // Cap Radius (mush) or Tier (cloud)
-    float param3; // isTrampoline (bool)
+    float height;
+    float param1;
+    float param2;
+    float param3;
 };
 
-// Global State
 Player player = {0, 0, 0, 0, 0, 0, 0.5f, 20.0f, 0, 10.0f};
 std::vector<Obstacle> obstacles;
-// Simple grid for spatial hashing could be added here
-// For now, vector iteration is O(N) but N is small (1000ish) which is fine for C++
-// compared to JS overhead.
 
 EMSCRIPTEN_KEEPALIVE
 void initPhysics(float x, float y, float z) {
@@ -80,50 +70,38 @@ float getPlayerVY() { return player.vy; }
 EMSCRIPTEN_KEEPALIVE
 float getPlayerVZ() { return player.vz; }
 
-// Helper for ground height (simple flat plane for now, or imported)
-// In real app, we might pass a pointer to heightmap or call JS.
-// For now, assuming ground is at Y=0 (or we call out).
-// Actually, `getGroundHeight` is WASM exported from here usually!
-// But math.cpp likely has the noise function.
-// We'll declare it:
 extern float getGroundHeight(float x, float z);
 
 EMSCRIPTEN_KEEPALIVE
 int updatePhysicsCPP(float delta, float inputX, float inputZ, float speed, int jump, int sprint, int sneak, float grooveGravity) {
-    // Apply Gravity (scaled by groove)
     float currentGravity = player.gravity * grooveGravity;
     player.vy -= currentGravity * delta;
 
-    // Movement
     float targetVX = inputX * speed;
     float targetVZ = inputZ * speed;
 
-    // Smoothing
     float smooth = 15.0f * delta;
     if (smooth > 1.0f) smooth = 1.0f;
     player.vx += (targetVX - player.vx) * smooth;
     player.vz += (targetVZ - player.vz) * smooth;
 
-    // Predicted position
     float nextX = player.x + player.vx * delta;
     float nextY = player.y + player.vy * delta;
     float nextZ = player.z + player.vz * delta;
 
     int onGround = 0;
 
-    // Obstacle Collision
     for (const auto& obj : obstacles) {
         float dx = nextX - obj.x;
         float dz = nextZ - obj.z;
         float distH = std::sqrt(dx*dx + dz*dz);
 
-        if (obj.type == 0) { // Mushroom
+        if (obj.type == 0) {
             float stemR = obj.param1;
             float capR = obj.param2;
-            float capH = obj.height; // Height of stem top relative to pos.y (which is base)
+            float capH = obj.height;
             float surfaceY = obj.y + capH;
 
-            // Stem Collision
             if (nextY < surfaceY - 0.5f) {
                  float minDist = stemR + player.radius;
                  if (distH < minDist) {
@@ -134,24 +112,22 @@ int updatePhysicsCPP(float delta, float inputX, float inputZ, float speed, int j
                      nextZ = obj.z + pushZ;
                  }
             }
-            // Cap Collision (Landing)
             else if (player.vy < 0 && distH < capR) {
                  if (nextY >= surfaceY - 0.5f && nextY <= surfaceY + 2.0f) {
-                     if (obj.param3 > 0.5f) { // Trampoline
-                         player.vy = 15.0f; // Bounce
-                         onGround = 2; // Special Bounce State
+                     if (obj.param3 > 0.5f) {
+                         player.vy = 15.0f;
+                         onGround = 2;
                      } else {
-                         nextY = surfaceY + 1.8f; // Land
+                         nextY = surfaceY + 1.8f;
                          player.vy = 0;
                          onGround = 1;
                      }
                  }
             }
         }
-        else if (obj.type == 1) { // Cloud
-            // Simple cloud floor logic
-            if (obj.param2 < 1.5f) { // Tier 1
-                float topY = obj.y + obj.height; // approximate
+        else if (obj.type == 1) {
+            if (obj.param2 < 1.5f) {
+                float topY = obj.y + obj.height;
                 float radius = obj.radius;
                 if (distH < radius) {
                     if (player.vy < 0 && nextY >= topY - 0.5f && nextY < topY + 3.0f) {
@@ -162,33 +138,29 @@ int updatePhysicsCPP(float delta, float inputX, float inputZ, float speed, int j
                 }
             }
         }
-        else if (obj.type == 2) { // Trampoline (Flower)
+        else if (obj.type == 2) {
             float bounceTop = obj.y + obj.height;
             if (distH < obj.radius && nextY > bounceTop - 0.5f && nextY < bounceTop + 1.5f) {
                 if (player.vy < 0) {
-                     player.vy = obj.param1; // bounce force
+                     player.vy = obj.param1;
                      onGround = 2;
                 }
             }
         }
     }
 
-    // Ground Collision - using getGroundHeight from math.cpp
     float groundY = getGroundHeight(nextX, nextZ);
     
-    // Check if player is at or below ground level (1.8f is player eye height)
     if (nextY < groundY + 1.8f && player.vy <= 0) {
         nextY = groundY + 1.8f;
         player.vy = 0;
         onGround = 1;
     }
 
-    // Apply
     player.x = nextX;
     player.y = nextY;
     player.z = nextZ;
 
-    // Jump
     if (onGround == 1 && jump) {
         player.vy = 10.0f;
     }
@@ -196,9 +168,8 @@ int updatePhysicsCPP(float delta, float inputX, float inputZ, float speed, int j
     return onGround;
 }
 
-
 // =============================================================================
-// LEGACY PARTICLE SYSTEM (Kept for compatibility)
+// LEGACY PARTICLE SYSTEM
 // =============================================================================
 
 EMSCRIPTEN_KEEPALIVE
@@ -222,25 +193,20 @@ float smoothDamp(float current, float target, float* velocity, float smoothTime,
     return target + (change + temp) * exp;
 }
 
-// Particle system constants
 #define MAX_PARTICLES 10000
-// Data layout: x, y, z, life, vx, vy, vz, speed (8 floats per particle)
 float particleData[MAX_PARTICLES * 8];
 
 EMSCRIPTEN_KEEPALIVE
 void updateParticles(float deltaTime, float globalTime) {
-    
+    #pragma omp parallel for schedule(static)
     for (int i = 0; i < MAX_PARTICLES; i++) {
         int base = i * 8;
         float life = particleData[base + 3];
 
         if (life > 0.0f) {
-            // Update position
-            particleData[base] += particleData[base + 4] * deltaTime;     // x += vx
-            particleData[base + 1] += particleData[base + 5] * deltaTime; // y += vy
-            particleData[base + 2] += particleData[base + 6] * deltaTime; // z += vz
-
-            // Decrease life
+            particleData[base] += particleData[base + 4] * deltaTime;
+            particleData[base + 1] += particleData[base + 5] * deltaTime;
+            particleData[base + 2] += particleData[base + 6] * deltaTime;
             particleData[base + 3] -= deltaTime;
         }
     }
@@ -263,11 +229,6 @@ int checkCollision(float px, float py, float pz, float radius) {
     return 0;
 }
 
-// Fiber whip functions consolidated into emscripten/animation.cpp to avoid duplicate symbols
-// See: emscripten/animation.cpp for the implementation and exports
-
-
-// Dummy main
 int main() {
     return 0;
 }
