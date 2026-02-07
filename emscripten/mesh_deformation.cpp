@@ -21,9 +21,11 @@
 // WebAssembly SIMD intrinsics
 #include <wasm_simd128.h>
 
-// OpenMP for parallelization
-#ifdef _OPENMP
-#include <omp.h>
+
+// Define OMP pragmas as no-ops when not available
+#ifndef _OPENMP
+#define omp_get_thread_num() 0
+#define omp_get_num_threads() 1
 #endif
 
 extern "C" {
@@ -124,7 +126,7 @@ void deformMeshWave(
     // Process 4 vertices at a time (12 floats)
     int simdCount = count & ~3;
     
-    #pragma omp parallel for schedule(static) if(count > 500)
+    
     for (int i = 0; i < simdCount; i += 4) {
         // Load 4 x coordinates
         v128_t x0 = wasm_v128_load(&originalPositions[(i + 0) * 3]);
@@ -179,7 +181,7 @@ void deformMeshWave(
     }
     
     // Handle remaining vertices
-    #pragma omp parallel for schedule(static) if(count - simdCount > 50)
+    
     for (int i = simdCount; i < count; i++) {
         float x = originalPositions[i * 3];
         float z = originalPositions[i * 3 + 2];
@@ -219,7 +221,7 @@ void deformMeshJiggle(
     const float time5 = time * 5.0f;
     const float effectiveStrength = strength * 0.1f * (1.0f + audioPulse);
     
-    #pragma omp parallel for schedule(static) if(count > 500)
+    
     for (int i = 0; i < count; i++) {
         float x = originalPositions[i * 3];
         float y = originalPositions[i * 3 + 1];
@@ -263,7 +265,7 @@ void deformMeshWobble(
     const float baseStrength = strength * 0.05f;
     const float audioScale = 1.0f + audioPulse * 0.3f;
     
-    #pragma omp parallel for schedule(static) if(count > 500)
+    
     for (int i = 0; i < count; i++) {
         float x = originalPositions[i * 3];
         float y = originalPositions[i * 3 + 1];
@@ -298,13 +300,13 @@ void recomputeNormals(
 ) {
     // Zero out normals
     int vertexCount = indexCount; // Conservative estimate
-    #pragma omp parallel for schedule(static)
+    
     for (int i = 0; i < vertexCount * 3; i++) {
         normals[i] = 0.0f;
     }
     
     // Accumulate face normals
-    #pragma omp parallel for schedule(static) if(indexCount > 300)
+    
     for (int i = 0; i < indexCount; i += 3) {
         uint16_t i0 = indices[i];
         uint16_t i1 = indices[i + 1];
@@ -338,30 +340,30 @@ void recomputeNormals(
         float nz = ex1 * ey2 - ey1 * ex2;
         
         // Accumulate
-        #pragma omp atomic
+        
         normals[i0 * 3] += nx;
-        #pragma omp atomic
+        
         normals[i0 * 3 + 1] += ny;
-        #pragma omp atomic
+        
         normals[i0 * 3 + 2] += nz;
         
-        #pragma omp atomic
+        
         normals[i1 * 3] += nx;
-        #pragma omp atomic
+        
         normals[i1 * 3 + 1] += ny;
-        #pragma omp atomic
+        
         normals[i1 * 3 + 2] += nz;
         
-        #pragma omp atomic
+        
         normals[i2 * 3] += nx;
-        #pragma omp atomic
+        
         normals[i2 * 3 + 1] += ny;
-        #pragma omp atomic
+        
         normals[i2 * 3 + 2] += nz;
     }
     
     // Normalize
-    #pragma omp parallel for schedule(static) if(vertexCount > 500)
+    
     for (int i = 0; i < vertexCount; i++) {
         float nx = normals[i * 3];
         float ny = normals[i * 3 + 1];
@@ -401,7 +403,7 @@ struct MeshDeformData {
  */
 EMSCRIPTEN_KEEPALIVE
 void batchDeformMeshes(MeshDeformData* meshes, int meshCount) {
-    #pragma omp parallel for schedule(dynamic, 1)
+    
     for (int m = 0; m < meshCount; m++) {
         MeshDeformData& mesh = meshes[m];
         

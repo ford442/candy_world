@@ -2,7 +2,13 @@
 #include <cmath>
 #include <cstdlib>
 #include <vector>
-#include "omp.h"
+
+
+// Define OMP pragmas as no-ops when not available
+#ifndef _OPENMP
+#define omp_get_thread_num() 0
+#define omp_get_num_threads() 1
+#endif
 
 extern "C" float fastInvSqrt(float x);
 
@@ -223,7 +229,7 @@ float particleData[MAX_PARTICLES * 8];
 
 EMSCRIPTEN_KEEPALIVE
 void updateParticles(float deltaTime, float globalTime) {
-    #pragma omp parallel for schedule(static)
+    
     for (int i = 0; i < MAX_PARTICLES; i++) {
         int base = i * 8;
         float life = particleData[base + 3];

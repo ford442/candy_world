@@ -1,13 +1,11 @@
 #include <emscripten.h>
 #include <cmath>
 #include <cstdlib>
-#include "omp.h"
 
 extern "C" {
 
 EMSCRIPTEN_KEEPALIVE
 void batchDistances(float* positions, float* results, int count, float refX, float refY, float refZ) {
-    #pragma omp parallel for schedule(static) if(count > 500)
     for (int i = 0; i < count; i++) {
         int idx = i * 3;
         float dx = positions[idx] - refX;
@@ -20,7 +18,6 @@ void batchDistances(float* positions, float* results, int count, float refX, flo
 EMSCRIPTEN_KEEPALIVE
 int batchDistanceCull_c(float* positions, float* flags, int count, float refX, float refY, float refZ, float maxDistSq) {
     int visibleCount = 0;
-    #pragma omp parallel for reduction(+:visibleCount) schedule(static) if(count > 500)
     for (int i = 0; i < count; i++) {
         int idx = i * 3;
         float dx = positions[idx] - refX;
@@ -39,7 +36,6 @@ int batchDistanceCull_c(float* positions, float* flags, int count, float refX, f
 
 EMSCRIPTEN_KEEPALIVE
 void batchSinWave(float* yPositions, float* baseY, int count, float time, float frequency, float amplitude) {
-    #pragma omp parallel for schedule(static) if(count > 500)
     for (int i = 0; i < count; i++) {
         float offset = (float)i * 0.1f;
         yPositions[i] = baseY[i] + sinf((time + offset) * frequency) * amplitude;
@@ -52,7 +48,6 @@ void batchSinWave(float* yPositions, float* baseY, int count, float time, float 
 
 EMSCRIPTEN_KEEPALIVE
 void batchCalcFiberWhip(float* baseRotY, float* branchRotZ, int count, float time, float* offsets, float leadVol, int* isActive, int* branchIndices) {
-    #pragma omp parallel for schedule(static) if(count > 500)
     for (int i = 0; i < count; i++) {
         baseRotY[i] = sinf(time * 0.5f + offsets[i]) * 0.1f;
 
@@ -70,7 +65,6 @@ void batchCalcFiberWhip(float* baseRotY, float* branchRotZ, int count, float tim
 
 EMSCRIPTEN_KEEPALIVE
 void batchCalcSpiralWave(float* rotY, float* yOffset, float* scale, int count, float time, float* offsets, float intensity, float groove) {
-    #pragma omp parallel for schedule(static) if(count > 500)
     for (int i = 0; i < count; i++) {
         float animTime = time + offsets[i];
         rotY[i] = sinf(animTime * 2.0f) * 0.2f * intensity;
@@ -81,7 +75,6 @@ void batchCalcSpiralWave(float* rotY, float* yOffset, float* scale, int count, f
 
 EMSCRIPTEN_KEEPALIVE
 void batchCalcWobble(float* rotX, float* rotZ, int count, float time, float* offsets, float intensity) {
-    #pragma omp parallel for schedule(static) if(count > 500)
     for (int i = 0; i < count; i++) {
         float animTime = time + offsets[i];
         rotX[i] = sinf(animTime * 3.0f) * 0.15f * intensity;
