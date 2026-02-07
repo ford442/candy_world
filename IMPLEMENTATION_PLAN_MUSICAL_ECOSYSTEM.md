@@ -73,8 +73,9 @@ This document captures feature ideas for the Candy World musical ecosystem. The 
 - Audio: Sharp whip-crack snap with metallic reverb.
 
 ### Panning Pads
+- **Status: Implemented ✅**
 - Description: Holographic lily pads floating on mercury pools that respond to stereo pan (8xx) and channel volume.
-- Gameplay Mechanics: Jump on pads only when glowing; landing at bob peak gives horizontal boost; collect "Panning Pollen" for homing shots.
+- Gameplay Mechanics: Jump on pads only when glowing; landing at bob peak gives vertical boost (implemented).
 - Visual Design: Sine-wave bob with pan-driven amplitude; radial glow shader with additive blending; reflective mercury.
 - Behavioral Patterns: Pads in a stereo field; simultaneous pans can create seesaw effects.
 - Audio: Subtle blip when pad bobs, panned to position.
@@ -287,7 +288,7 @@ Three.js Renderer -> WebGPU RenderPipeline (Raw Draw Calls)
 
 ## Next Steps
 
-1. **Rare Flora Discovery**: Implement the discovery system for rare plants.
+1. **Instrument Shrine Puzzle Mechanics**: Implement interactive puzzles where shrine patterns must be matched to bassline instrument IDs.
 2. **Migrate to TypeScript**: Begin Phase 1 of the migration roadmap to harden the codebase before adding more complex systems.
 
 ## Recent Progress & Next Steps
