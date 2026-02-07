@@ -27,8 +27,8 @@ import {
 import mapData from '../../assets/map.json';
 
 // Performance constants for async generation
-const DEFAULT_MAP_CHUNK_SIZE = 100;        // Map entities per chunk
-const DEFAULT_PROCEDURAL_CHUNK_SIZE = 100; // Procedural extras per chunk
+export const DEFAULT_MAP_CHUNK_SIZE = 100;        // Map entities per chunk
+export const DEFAULT_PROCEDURAL_CHUNK_SIZE = 100; // Procedural extras per chunk
 
 // Type definitions for map data
 interface MapEntity {
@@ -723,10 +723,10 @@ async function populateProceduralExtras(
     }
 }
 
-// Report final progress if we didn't just report it
-if (onProgress && extrasCount % chunkSize !== 0) {
-    onProgress(extrasCount, extrasCount);
-}
+    // Report final progress if we didn't just report it
+    if (onProgress && extrasCount % chunkSize !== 0) {
+        onProgress(extrasCount, extrasCount);
+    }
 
-console.log("[World] Finished populating procedural extras.");
+    console.log("[World] Finished populating procedural extras.");
 }
