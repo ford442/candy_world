@@ -39,3 +39,7 @@
 ## 2026-07-15 - Tooltips for Shortcut Discoverability
 **Learning:** In a keyboard-heavy 3D application, users often miss available shortcuts for UI controls (like volume) when the buttons only display icons. While `aria-label` helps screen readers, sighted mouse users have no way to discover these shortcuts without guessing.
 **Action:** Add `title` attributes to all icon-only control buttons that include both the action name and the keyboard shortcut (e.g., "Decrease Volume (-)"), bridging the gap between mouse and keyboard interaction.
+
+## 2026-07-28 - Visualizing Ability Cooldowns
+**Learning:** Players often fail to use abilities like Dash or Mines because they lack visual feedback on when they are ready. Relying solely on internal timers or audio cues creates cognitive load and frustration.
+**Action:** Implement always-visible HUD elements for key abilities that include both iconographic representation and dynamic cooldown overlays, synchronized with the game loop state.
