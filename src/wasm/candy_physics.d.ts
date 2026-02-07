@@ -402,6 +402,212 @@ export declare function getArpeggioUnfurlStep(): number;
  * @param isDay `i32`
  */
 export declare function updateFoliageBatch(ptr: number, count: number, time: number, beatPhase: number, kick: number, groove: number, isDay: number): void;
+/** assembly/animation_batch/BATCH_SIZE */
+export declare const BATCH_SIZE: {
+  /** @type `i32` */
+  get value(): number
+};
+/** assembly/animation_batch/ANIM_TYPE_GENTLE_SWAY */
+export declare const ANIM_TYPE_GENTLE_SWAY: {
+  /** @type `i32` */
+  get value(): number
+};
+/** assembly/animation_batch/ANIM_TYPE_BOUNCE */
+export declare const ANIM_TYPE_BOUNCE: {
+  /** @type `i32` */
+  get value(): number
+};
+/** assembly/animation_batch/ANIM_TYPE_WOBBLE */
+export declare const ANIM_TYPE_WOBBLE: {
+  /** @type `i32` */
+  get value(): number
+};
+/** assembly/animation_batch/ANIM_TYPE_HOP */
+export declare const ANIM_TYPE_HOP: {
+  /** @type `i32` */
+  get value(): number
+};
+/** assembly/animation_batch/ANIM_TYPE_SHIVER */
+export declare const ANIM_TYPE_SHIVER: {
+  /** @type `i32` */
+  get value(): number
+};
+/** assembly/animation_batch/ANIM_TYPE_SPRING */
+export declare const ANIM_TYPE_SPRING: {
+  /** @type `i32` */
+  get value(): number
+};
+/** assembly/animation_batch/ANIM_TYPE_VINE_SWAY */
+export declare const ANIM_TYPE_VINE_SWAY: {
+  /** @type `i32` */
+  get value(): number
+};
+/** assembly/animation_batch/ANIM_TYPE_FLOAT */
+export declare const ANIM_TYPE_FLOAT: {
+  /** @type `i32` */
+  get value(): number
+};
+/** assembly/animation_batch/ANIM_TYPE_SPIN */
+export declare const ANIM_TYPE_SPIN: {
+  /** @type `i32` */
+  get value(): number
+};
+/** assembly/animation_batch/ANIM_TYPE_GLOW_PULSE */
+export declare const ANIM_TYPE_GLOW_PULSE: {
+  /** @type `i32` */
+  get value(): number
+};
+/** assembly/animation_batch/ANIM_TYPE_CLOUD_BOB */
+export declare const ANIM_TYPE_CLOUD_BOB: {
+  /** @type `i32` */
+  get value(): number
+};
+/** assembly/animation_batch/ANIM_TYPE_SNARE_SNAP */
+export declare const ANIM_TYPE_SNARE_SNAP: {
+  /** @type `i32` */
+  get value(): number
+};
+/** assembly/animation_batch/ANIM_TYPE_ACCORDION */
+export declare const ANIM_TYPE_ACCORDION: {
+  /** @type `i32` */
+  get value(): number
+};
+/** assembly/animation_batch/ANIM_TYPE_FIBER_WHIP */
+export declare const ANIM_TYPE_FIBER_WHIP: {
+  /** @type `i32` */
+  get value(): number
+};
+/** assembly/animation_batch/ANIM_TYPE_SPIRAL_WAVE */
+export declare const ANIM_TYPE_SPIRAL_WAVE: {
+  /** @type `i32` */
+  get value(): number
+};
+/** assembly/animation_batch/ANIM_TYPE_VIBRATO_SHAKE */
+export declare const ANIM_TYPE_VIBRATO_SHAKE: {
+  /** @type `i32` */
+  get value(): number
+};
+/** assembly/animation_batch/ANIM_TYPE_TREMOLO_PULSE */
+export declare const ANIM_TYPE_TREMOLO_PULSE: {
+  /** @type `i32` */
+  get value(): number
+};
+/** assembly/animation_batch/ANIM_TYPE_CYMBAL_SHAKE */
+export declare const ANIM_TYPE_CYMBAL_SHAKE: {
+  /** @type `i32` */
+  get value(): number
+};
+/** assembly/animation_batch/ANIM_TYPE_PANNING_BOB */
+export declare const ANIM_TYPE_PANNING_BOB: {
+  /** @type `i32` */
+  get value(): number
+};
+/** assembly/animation_batch/ANIM_TYPE_SPIRIT_FADE */
+export declare const ANIM_TYPE_SPIRIT_FADE: {
+  /** @type `i32` */
+  get value(): number
+};
+/**
+ * assembly/animation_batch/batchSnareSnap
+ * @param ptr `i32`
+ * @param count `i32`
+ * @param time `f32`
+ * @param snareTrigger `f32`
+ * @param outPtr `i32`
+ */
+export declare function batchSnareSnap(ptr: number, count: number, time: number, snareTrigger: number, outPtr: number): void;
+/**
+ * assembly/animation_batch/batchAccordion
+ * @param ptr `i32`
+ * @param count `i32`
+ * @param time `f32`
+ * @param intensity `f32`
+ * @param outPtr `i32`
+ */
+export declare function batchAccordion(ptr: number, count: number, time: number, intensity: number, outPtr: number): void;
+/**
+ * assembly/animation_batch/batchFiberWhip
+ * @param ptr `i32`
+ * @param count `i32`
+ * @param time `f32`
+ * @param leadVol `f32`
+ * @param isActive `i32`
+ * @param outPtr `i32`
+ */
+export declare function batchFiberWhip(ptr: number, count: number, time: number, leadVol: number, isActive: number, outPtr: number): void;
+/**
+ * assembly/animation_batch/batchSpiralWave
+ * @param ptr `i32`
+ * @param count `i32`
+ * @param time `f32`
+ * @param intensity `f32`
+ * @param groove `f32`
+ * @param outPtr `i32`
+ */
+export declare function batchSpiralWave(ptr: number, count: number, time: number, intensity: number, groove: number, outPtr: number): void;
+/**
+ * assembly/animation_batch/batchVibratoShake
+ * @param ptr `i32`
+ * @param count `i32`
+ * @param time `f32`
+ * @param vibratoAmount `f32`
+ * @param intensity `f32`
+ * @param outPtr `i32`
+ */
+export declare function batchVibratoShake(ptr: number, count: number, time: number, vibratoAmount: number, intensity: number, outPtr: number): void;
+/**
+ * assembly/animation_batch/batchTremoloPulse
+ * @param ptr `i32`
+ * @param count `i32`
+ * @param time `f32`
+ * @param tremoloAmount `f32`
+ * @param intensity `f32`
+ * @param outPtr `i32`
+ */
+export declare function batchTremoloPulse(ptr: number, count: number, time: number, tremoloAmount: number, intensity: number, outPtr: number): void;
+/**
+ * assembly/animation_batch/batchCymbalShake
+ * @param ptr `i32`
+ * @param count `i32`
+ * @param time `f32`
+ * @param highFreq `f32`
+ * @param intensity `f32`
+ * @param outPtr `i32`
+ */
+export declare function batchCymbalShake(ptr: number, count: number, time: number, highFreq: number, intensity: number, outPtr: number): void;
+/**
+ * assembly/animation_batch/batchPanningBob
+ * @param ptr `i32`
+ * @param count `i32`
+ * @param time `f32`
+ * @param panActivity `f32`
+ * @param intensity `f32`
+ * @param outPtr `i32`
+ */
+export declare function batchPanningBob(ptr: number, count: number, time: number, panActivity: number, intensity: number, outPtr: number): void;
+/**
+ * assembly/animation_batch/batchSpiritFade
+ * @param ptr `i32`
+ * @param count `i32`
+ * @param time `f32`
+ * @param volume `f32`
+ * @param delta `f32`
+ * @param outPtr `i32`
+ */
+export declare function batchSpiritFade(ptr: number, count: number, time: number, volume: number, delta: number, outPtr: number): void;
+/**
+ * assembly/animation_batch/processBatchUniversal
+ * @param animType `i32`
+ * @param ptr `i32`
+ * @param count `i32`
+ * @param time `f32`
+ * @param beatPhase `f32`
+ * @param kick `f32`
+ * @param groove `f32`
+ * @param audioParam `f32`
+ * @param outPtr `i32`
+ */
+export declare function processBatchUniversal(animType: number, ptr: number, count: number, time: number, beatPhase: number, kick: number, groove: number, audioParam: number, outPtr: number): void;
 /**
  * assembly/batch/analyzeMaterials
  * @param materialPtr `i32`

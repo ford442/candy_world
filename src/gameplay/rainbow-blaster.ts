@@ -29,25 +29,30 @@ class ProjectilePool {
     constructor() {
         const geo = new THREE.SphereGeometry(RADIUS, 8, 8);
 
+        // FIX: Setup instanceColor attribute BEFORE creating TSL material
+        // This prevents "instanceColor not found" warnings
+        const colors = new Float32Array(MAX_PROJECTILES * 3);
+        geo.setAttribute('instanceColor', new THREE.InstancedBufferAttribute(colors, 3));
+
         // TSL: Use instanceColor for the rainbow effect
-        const instanceColor = attribute('instanceColor', 'vec3');
+        // Note: Now the attribute exists on the geometry when the shader is compiled
+        const instanceColorNode = attribute('instanceColor', 'vec3');
 
         // Use Gummy preset (Candy) but with instanceColor
         // 0xFFFFFF is fallback
         const mat = createCandyMaterial(0xFFFFFF);
         // We override colorNode directly to ensure it picks up the attribute
-        mat.colorNode = instanceColor;
+        mat.colorNode = instanceColorNode;
         // JUICE: Add emissive glow
-        mat.emissiveNode = instanceColor.mul(0.5);
+        mat.emissiveNode = instanceColorNode.mul(0.5);
 
         this.mesh = new THREE.InstancedMesh(geo, mat, MAX_PROJECTILES);
         this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
         this.mesh.castShadow = true;
         this.mesh.receiveShadow = false;
 
-        // Initialize instanceColor attribute
-        const colors = new Float32Array(MAX_PROJECTILES * 3);
-        this.mesh.instanceColor = new THREE.InstancedBufferAttribute(colors, 3);
+        // Reference the instanceColor from geometry for updates
+        this.mesh.instanceColor = geo.attributes.instanceColor as THREE.InstancedBufferAttribute;
 
         this.projectiles = [];
         this.dummy = new THREE.Object3D();

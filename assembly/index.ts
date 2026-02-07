@@ -3,6 +3,7 @@ export * from "./math";
 export * from "./memory";
 export * from "./physics";
 export * from "./animation";
+export * from "./animation_batch";
 export * from "./batch";
 export * from "./foliage";
 export * from "./particles";

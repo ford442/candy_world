@@ -26,3 +26,13 @@ export type {
     DeformationConfig,
     DeformationAudioState
 } from './mesh_deformation.ts';
+
+// WASM-accelerated mesh deformation
+export {
+    WasmMeshDeformation,
+    BatchMeshDeformation,
+    createWasmWaveDeformation,
+    createWasmJiggleDeformation,
+    createWasmWobbleDeformation
+} from './mesh_deformation_wasm.ts';
+export type { WasmDeformationConfig } from './mesh_deformation_wasm.ts';

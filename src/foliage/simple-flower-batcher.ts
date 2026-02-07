@@ -114,14 +114,15 @@ export class SimpleFlowerBatcher {
         const posWind = posBloom.add(calculateWindSway(posBloom));
         const posFinal = applyPlayerInteraction(posWind);
 
-        const instanceColorNode = attribute('instanceColor', 'vec3');
-
+        // FIX: Don't use attribute('instanceColor') directly as it causes WebGPU warnings
+        // InstancedMesh.instanceColor is managed internally by Three.js
+        // Use a uniform color that we can update, or use the standard material color
         const petalMat = CandyPresets.Velvet(0xFFFFFF, {
             deformationNode: posFinal,
             audioReactStrength: 1.0
         });
-        // Override color with instance color
-        petalMat.colorNode = instanceColorNode;
+        // Note: We use setColorAt on the InstancedMesh instead of TSL attribute
+        // This avoids the "instanceColor not found" warning
 
         // Center: Velvet (Brown) + Chain
         const centerMat = (foliageMaterials as any).flowerCenter.clone();
