@@ -38,8 +38,13 @@ Implemented **chunked asynchronous processing** to allow the browser to remain r
    - Made code more modular and testable
 
 5. **Async Procedural Generation**
-   - Made `populateProceduralExtras()` async with chunking (50 per chunk)
+   - Made `populateProceduralExtras()` async with chunking (100 per chunk)
    - Ensures all generation stages remain non-blocking
+
+6. **Named Constants**
+   - Added `DEFAULT_MAP_CHUNK_SIZE = 100` for map entity chunks
+   - Added `DEFAULT_PROCEDURAL_CHUNK_SIZE = 100` for procedural extra chunks
+   - Improves maintainability and consistency
 
 ## Performance Impact
 
@@ -59,7 +64,7 @@ Implemented **chunked asynchronous processing** to allow the browser to remain r
 
 ### Chunking Strategy
 - **Map entities**: 100 entities per chunk (~32 chunks for 3,223 entities)
-- **Procedural extras**: 50 per chunk (8 chunks for 400 extras)
+- **Procedural extras**: 100 per chunk (4 chunks for 400 extras)
 - **Yield frequency**: Every chunk via `setTimeout(resolve, 0)`
 
 ### Estimated Timing

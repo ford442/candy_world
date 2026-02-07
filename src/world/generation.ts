@@ -26,6 +26,10 @@ import {
 } from './state.ts';
 import mapData from '../../assets/map.json';
 
+// Performance constants for async generation
+const DEFAULT_MAP_CHUNK_SIZE = 100;        // Map entities per chunk
+const DEFAULT_PROCEDURAL_CHUNK_SIZE = 100; // Procedural extras per chunk
+
 // Type definitions for map data
 interface MapEntity {
     type: string;
@@ -289,7 +293,7 @@ function isPositionValid(x: number, z: number, radius: number): boolean {
  */
 export async function generateMap(
     weatherSystem: WeatherSystem, 
-    chunkSize: number = 100,
+    chunkSize: number = DEFAULT_MAP_CHUNK_SIZE,
     onProgress?: (current: number, total: number) => void
 ): Promise<void> {
     console.log(`[World] Loading map with ${mapData.length} entities...`);
@@ -593,7 +597,7 @@ function populateLakeIsland(weatherSystem: WeatherSystem): void {
 
 async function populateProceduralExtras(
     weatherSystem: WeatherSystem,
-    chunkSize: number = 50,
+    chunkSize: number = DEFAULT_PROCEDURAL_CHUNK_SIZE,
     onProgress?: (current: number, total: number) => void
 ): Promise<void> {
     console.log("[World] Populating procedural extras...");
@@ -707,7 +711,7 @@ async function populateProceduralExtras(
         }
         
         // Report progress and yield every chunkSize items
-        if ((i + 1) % chunkSize === 0 && i > 0) {
+        if ((i + 1) % chunkSize === 0) {
             if (onProgress) {
                 onProgress(Math.min(i + 1, extrasCount), extrasCount);
             }
