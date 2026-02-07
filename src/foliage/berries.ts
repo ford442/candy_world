@@ -121,7 +121,8 @@ function createHeartbeatMaterial(colorInput: number | ShaderNodeObject<Node>, uG
 
     // 3. Reactive Glow (Emissive)
     // Base Glow (Weather/DayNight) + Kick Flash
-    const baseColor = isNode ? (colorInput as ShaderNodeObject<Node>) : color(colorInput as number);
+    const isNodeInput = typeof colorInput !== 'number';
+    const baseColor = isNodeInput ? (colorInput as ShaderNodeObject<Node>) : color(colorInput as number);
     const flashColor = color(0xFFFFFF); // Flash white/bright on strong beats
 
     // Mix flash based on heartbeat strength
