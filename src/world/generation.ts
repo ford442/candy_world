@@ -193,9 +193,13 @@ export function initWorld(scene: THREE.Scene, weatherSystem: WeatherSystem, load
     // Add the main world group (containing all generated foliage) to the scene
     scene.add(worldGroup);
 
-    // Generate Content if requested
+    // Generate Content if requested (Note: currently disabled in main.js, generation happens on button click)
     if (loadContent) {
-        generateMap(weatherSystem);
+        // This is now async but we're not awaiting it here
+        // If this code path is used in the future, consider making initWorld async
+        generateMap(weatherSystem).catch(err => {
+            console.error('[World] Failed to generate map:', err);
+        });
     }
 
     return { sky, moon, ground };
@@ -277,23 +281,76 @@ function isPositionValid(x: number, z: number, radius: number): boolean {
 
 // --- MAP GENERATION ---
 
-export function generateMap(weatherSystem: WeatherSystem): void {
+/**
+ * Async map generation that processes entities in chunks to prevent UI freeze
+ * @param weatherSystem The weather system to register entities with
+ * @param chunkSize Number of entities to process per frame (default: 100)
+ * @param onProgress Optional callback for progress updates
+ */
+export async function generateMap(
+    weatherSystem: WeatherSystem, 
+    chunkSize: number = 100,
+    onProgress?: (current: number, total: number) => void
+): Promise<void> {
     console.log(`[World] Loading map with ${mapData.length} entities...`);
 
     // Reset WASM Collision System for Generation Phase
     initCollisionSystem();
 
-    (mapData as MapEntity[]).forEach(item => {
-        const [x, yInput, z] = item.position;
-        // USE UNIFIED HEIGHT for placement
-        const groundY = getUnifiedGroundHeight(x, z);
-        let y = groundY;
-        if (item.type === 'cloud') y = yInput;
+    const entities = mapData as MapEntity[];
+    const total = entities.length;
+    
+    // Process entities in chunks to prevent blocking
+    for (let i = 0; i < total; i += chunkSize) {
+        const chunk = entities.slice(i, Math.min(i + chunkSize, total));
+        
+        // Process this chunk
+        chunk.forEach(item => {
+            processMapEntity(item, weatherSystem);
+        });
+        
+        // Report progress
+        if (onProgress) {
+            onProgress(Math.min(i + chunkSize, total), total);
+        }
+        
+        // Yield control back to browser
+        await new Promise(resolve => setTimeout(resolve, 0));
+    }
 
-        try {
-            let obj: THREE.Object3D | null = null;
-            let isObstacle = false;
-            let radius = 0.5;
+    // --- Spawn The Cave (after map entities) ---
+    const cave = createCaveEntrance({ scale: 2.0 });
+    const caveX = 25;
+    const caveZ = 25;
+    const caveY = getUnifiedGroundHeight(caveX, caveZ);
+    cave.position.set(caveX, caveY, caveZ);
+    cave.lookAt(0, caveY, 0);
+    safeAddFoliage(cave, false, 0, weatherSystem);
+    console.log("[World] Cave spawned at ", caveX, caveZ, " Height:", caveY);
+
+    // --- Populate Lake Island with Musical Flora ---
+    populateLakeIsland(weatherSystem);
+
+    // --- Populate Procedural Extras ---
+    await populateProceduralExtras(weatherSystem, chunkSize, onProgress);
+    
+    console.log("[World] Map generation complete!");
+}
+
+/**
+ * Process a single map entity (extracted from forEach loop for chunking)
+ */
+function processMapEntity(item: MapEntity, weatherSystem: WeatherSystem): void {
+    const [x, yInput, z] = item.position;
+    // USE UNIFIED HEIGHT for placement
+    const groundY = getUnifiedGroundHeight(x, z);
+    let y = groundY;
+    if (item.type === 'cloud') y = yInput;
+
+    try {
+        let obj: THREE.Object3D | null = null;
+        let isObstacle = false;
+        let radius = 0.5;
 
             // --- Basic Types ---
             if (item.type === 'mushroom') {
@@ -410,37 +467,19 @@ export function generateMap(weatherSystem: WeatherSystem): void {
                 y += 4;
             }
 
-            // --- Spawning ---
-            if (obj) {
-                obj.position.set(x, y, z);
-                obj.rotation.y = Math.random() * Math.PI * 2;
-                if (item.scale && item.type !== 'mushroom' && item.type !== 'flower') {
-                    obj.scale.setScalar(item.scale);
-                }
-                safeAddFoliage(obj, isObstacle, radius, weatherSystem);
+        // --- Spawning ---
+        if (obj) {
+            obj.position.set(x, y, z);
+            obj.rotation.y = Math.random() * Math.PI * 2;
+            if (item.scale && item.type !== 'mushroom' && item.type !== 'flower') {
+                obj.scale.setScalar(item.scale);
             }
-
-        } catch (e) {
-            console.warn(`[World] Failed to spawn ${item.type} at ${x},${z}`, e);
+            safeAddFoliage(obj, isObstacle, radius, weatherSystem);
         }
-    });
 
-    // --- NEW: Spawn The Cave ---
-    const cave = createCaveEntrance({ scale: 2.0 });
-    const caveX = 25;
-    const caveZ = 25;
-    // USE UNIFIED HEIGHT so Cave doesn't float over the lake
-    const caveY = getUnifiedGroundHeight(caveX, caveZ);
-
-    cave.position.set(caveX, caveY, caveZ);
-    cave.lookAt(0, caveY, 0);
-    safeAddFoliage(cave, false, 0, weatherSystem);
-    console.log("[World] Cave spawned at ", caveX, caveZ, " Height:", caveY);
-
-    // --- NEW: Populate Lake Island with Musical Flora ---
-    populateLakeIsland(weatherSystem);
-
-    populateProceduralExtras(weatherSystem);
+    } catch (e) {
+        console.warn(`[World] Failed to spawn ${item.type} at ${x},${z}`, e);
+    }
 }
 
 /**
@@ -552,7 +591,11 @@ function populateLakeIsland(weatherSystem: WeatherSystem): void {
     console.log(`[World] Lake Island populated with musical flora at (${centerX}, ${centerZ})`);
 }
 
-function populateProceduralExtras(weatherSystem: WeatherSystem): void {
+async function populateProceduralExtras(
+    weatherSystem: WeatherSystem,
+    chunkSize: number = 50,
+    onProgress?: (current: number, total: number) => void
+): Promise<void> {
     console.log("[World] Populating procedural extras...");
     if ((window as any).setLoadingStatus) (window as any).setLoadingStatus("Growing Procedural Flora...");
     const extrasCount = 400;
@@ -651,20 +694,29 @@ function populateProceduralExtras(weatherSystem: WeatherSystem): void {
                  // Float high up
                  obj.position.set(x, groundY + 15 + Math.random() * 10, z);
              }
-             else {
-                 const id = Math.floor(Math.random() * 16);
-                 obj = createInstrumentShrine({ instrumentID: id });
-                 obj.position.set(x, groundY, z);
-                 isObstacle = true;
-            }
-
-            if (obj) {
-                obj.rotation.y = Math.random() * Math.PI * 2;
-                safeAddFoliage(obj, isObstacle, radius, weatherSystem);
-            }
-        } catch (e) {
-            console.warn(`[World] Failed to spawn procedural extra at ${x},${z}`, e);
+         else {
+             const id = Math.floor(Math.random() * 16);
+             obj = createInstrumentShrine({ instrumentID: id });
+             obj.position.set(x, groundY, z);
+             isObstacle = true;
         }
+
+        if (obj) {
+            obj.rotation.y = Math.random() * Math.PI * 2;
+            safeAddFoliage(obj, isObstacle, radius, weatherSystem);
+        }
+        
+        // Report progress and yield every chunkSize items
+        if (i % chunkSize === 0 && i > 0) {
+            if (onProgress) {
+                onProgress(i, extrasCount);
+            }
+            // Yield control back to browser
+            await new Promise(resolve => setTimeout(resolve, 0));
+        }
+    } catch (e) {
+        console.warn(`[World] Failed to spawn procedural extra at ${x},${z}`, e);
     }
-    console.log("[World] Finished populating procedural extras.");
+}
+console.log("[World] Finished populating procedural extras.");
 }

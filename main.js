@@ -684,12 +684,16 @@ initWasm().then(async (wasmLoaded) => {
             startButton.innerHTML = '<span class="spinner" aria-hidden="true"></span>Generating... 🍭';
 
             // Defer execution slightly to let the UI update
-            setTimeout(() => {
+            setTimeout(async () => {
                 scene.remove(previewMushroom);
                 const idx = animatedFoliage.indexOf(previewMushroom);
                 if (idx > -1) animatedFoliage.splice(idx, 1);
 
-                generateMap(weatherSystem);
+                // Use async map generation with progress updates
+                await generateMap(weatherSystem, 100, (current, total) => {
+                    const percent = Math.floor((current / total) * 100);
+                    startButton.innerHTML = `<span class="spinner" aria-hidden="true"></span>Generating ${percent}%... 🍭`;
+                });
 
                 // UX: Now that generation is done, hide the instructions
                 // (We delayed this in input.js to keep the "Generating..." message visible)
