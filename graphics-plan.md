@@ -471,6 +471,12 @@ if (weatherSystem.state === WeatherState.STORM && lightningActive) {
 
 ---
 
+## WebGPU Compatibility Constraints
+
+**Vertex Buffer Limits:** We are staying under the 8 maximum vertex buffers to support GPUs like the GTX 1060, but not demanding above that. This ensures broad compatibility across hardware while maintaining complex shader pipelines for candy aesthetics.
+
+---
+
 ## Conclusion
 
 This plan provides a clear path from the current baseline quality to the next level of visual fidelity. By focusing on weather-cycle integration, enhanced sky rendering, material quality, and lighting improvements, Candy World will achieve a more cohesive and immersive visual experience while maintaining its unique candy aesthetic and 60 FPS performance target.

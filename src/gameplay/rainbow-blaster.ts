@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import { attribute } from 'three/tsl';
 import { foliageClouds } from '../world/state.ts';
 import { createCandyMaterial } from '../foliage/common.ts';
 import { getCelestialState } from '../core/cycle.ts';
@@ -29,30 +28,16 @@ class ProjectilePool {
     constructor() {
         const geo = new THREE.SphereGeometry(RADIUS, 8, 8);
 
-        // FIX: Setup instanceColor attribute BEFORE creating TSL material
-        // This prevents "instanceColor not found" warnings
-        const colors = new Float32Array(MAX_PROJECTILES * 3);
-        geo.setAttribute('instanceColor', new THREE.InstancedBufferAttribute(colors, 3));
-
-        // TSL: Use instanceColor for the rainbow effect
-        // Note: Now the attribute exists on the geometry when the shader is compiled
-        const instanceColorNode = attribute('instanceColor', 'vec3');
-
-        // Use Gummy preset (Candy) but with instanceColor
-        // 0xFFFFFF is fallback
+        // OPTIMIZED: Removed instanceColor attribute to reduce vertex buffer count
+        // Projectile colors are tracked in JS and used for impact effects
         const mat = createCandyMaterial(0xFFFFFF);
-        // We override colorNode directly to ensure it picks up the attribute
-        mat.colorNode = instanceColorNode;
-        // JUICE: Add emissive glow
-        mat.emissiveNode = instanceColorNode.mul(0.5);
+        // JUICE: Add emissive glow (white glow for all projectiles)
+        mat.emissiveNode = mat.colorNode?.mul(0.5) ?? null;
 
         this.mesh = new THREE.InstancedMesh(geo, mat, MAX_PROJECTILES);
         this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
         this.mesh.castShadow = true;
         this.mesh.receiveShadow = false;
-
-        // Reference the instanceColor from geometry for updates
-        this.mesh.instanceColor = geo.attributes.instanceColor as THREE.InstancedBufferAttribute;
 
         this.projectiles = [];
         this.dummy = new THREE.Object3D();
