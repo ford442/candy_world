@@ -103,8 +103,7 @@ export function createWaterfall(startPos: THREE.Vector3, endPos: THREE.Vector3, 
     // --- AUDIO REACTIVITY ---
     attachReactivity(group, { minLight: 0.0, maxLight: 1.0, type: 'flora' }); // Reacts to lower channels (Bass/Melody)
 
-    // @ts-ignore - dynamic property assignment
-    group.reactToNote = (note: any, colorVal: any, velocity: number) => {
+    (group as any).reactToNote = (note: any, colorVal: any, velocity: number) => {
         // 1. Visual Pulse (TSL Uniform)
         // Bump intensity: base 0.0 -> adds up to 2.0 based on velocity
         (mesh.userData.uPulseIntensity as UniformNode<number>).value = 0.5 + (velocity * 2.0);
@@ -121,8 +120,7 @@ export function createWaterfall(startPos: THREE.Vector3, endPos: THREE.Vector3, 
     };
 
     // Custom animate function to decay pulse and move particles
-    // @ts-ignore
-    group.onAnimate = (delta: number, time: number) => {
+    (group as any).onAnimate = (delta: number, time: number) => {
         // Decay pulse
         const pulse = mesh.userData.uPulseIntensity as UniformNode<number>;
         if (pulse.value > 0.01) {

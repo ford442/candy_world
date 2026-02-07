@@ -52,9 +52,9 @@ import type {
     PulseRingConfig,
     ParticleAudioState,
     ParticleBounds
-} from './particle_config.js';
-import { ParticleSystemType } from './particle_config.js';
-import { uPulseStrength, uPulseColor } from './audio_reactive.js';
+} from './particle_config.ts';
+import { ParticleSystemType } from './particle_config.ts';
+import { uPulseStrength, uPulseColor } from './audio_reactive.ts';
 
 // =============================================================================
 // SHIMMER PARTICLES (Floating Sparkles)

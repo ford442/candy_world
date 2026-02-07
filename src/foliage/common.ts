@@ -9,7 +9,6 @@ import {
     Node
 } from 'three/tsl';
 
-// @ts-ignore
 import { applyGlitch } from './glitch.js';
 import { FoliageMaterial } from './types';
 

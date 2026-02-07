@@ -44,8 +44,7 @@ export function createCloud(options: CloudOptions = {}): THREE.Group {
     group.userData.animOffset = Math.random() * 100;
 
     // Animation Logic (Called by Batcher or Physics)
-    // @ts-ignore
-    group.onAnimate = (delta: number, time: number) => {
+    (group as any).onAnimate = (delta: number, time: number) => {
         const t = time + group.userData.animOffset;
         // Float animation logic
         // We modify the group's local transform, which the Batcher then reads

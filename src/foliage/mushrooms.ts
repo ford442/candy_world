@@ -195,8 +195,7 @@ export function replaceMushroomWithGiant(scene: THREE.Scene, oldMushroom: THREE.
 
     // Manually trigger placement since we bypass safeAddFoliage
     if (newGiant.userData.onPlacement) {
-        // @ts-ignore - Dynamic property
-        newGiant.userData.onPlacement();
+        (newGiant.userData.onPlacement as Function)();
     }
 
     scene.add(newGiant);

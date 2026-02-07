@@ -222,7 +222,6 @@ export function initInput(
         // Show "Now Playing" toast
         const songs = audioSystem.getPlaylist();
         if (songs && songs[index]) {
-            // @ts-ignore
             import('../utils/toast.js').then(({ showToast }) => {
                 showToast(`Now Playing: ${songs[index].name}`, '🎵');
             });
@@ -574,14 +573,12 @@ export function initInput(
                     showUploadFeedback(label, validFiles.length);
 
                     if (invalidFiles.length > 0) {
-                        // @ts-ignore
                         import('../utils/toast.js').then(({ showToast }) => {
                             showToast(`Added ${validFiles.length} song${validFiles.length > 1 ? 's' : ''}. (${invalidFiles.length} ignored)`, '⚠️');
                         });
                     }
                 } else {
                      // All files were invalid
-                    // @ts-ignore
                     import('../utils/toast.js').then(({ showToast }) => {
                         showToast("❌ Only .mod, .xm, .it, .s3m allowed!", '🚫');
                     });
@@ -613,7 +610,6 @@ export function initInput(
         const isMuted = audioSystem.toggleMute();
         updateMuteUI(isMuted);
 
-        // @ts-ignore
         import('../utils/toast.js').then(({ showToast }) => {
             showToast(isMuted ? "Audio Muted 🔇" : "Audio Unmuted 🔊", isMuted ? '🔇' : '🔊');
         });
@@ -638,7 +634,6 @@ export function initInput(
         const percentage = Math.round(newVol * 100);
         const icon = newVol === 0 ? '🔇' : newVol < 0.5 ? '🔉' : '🔊';
 
-        // @ts-ignore
         import('../utils/toast.js').then(({ showToast }) => {
             showToast(`Volume: ${percentage}% ${icon}`, icon);
         });
@@ -716,7 +711,6 @@ export function initInput(
                     audioSystem.addToQueue(validFiles);
 
                     // Show feedback via Toast
-                    // @ts-ignore
                     import('../utils/toast.js').then(({ showToast }) => {
                         if (invalidFiles.length > 0) {
                             showToast(`Added ${validFiles.length} song${validFiles.length > 1 ? 's' : ''}. (${invalidFiles.length} ignored)`, '⚠️');
@@ -730,7 +724,6 @@ export function initInput(
                     if (label) showUploadFeedback(label, validFiles.length);
                 } else {
                     // All files were invalid
-                    // @ts-ignore
                     import('../utils/toast.js').then(({ showToast }) => {
                         showToast("❌ Only .mod, .xm, .it, .s3m allowed!", '🚫');
                     });
@@ -751,7 +744,6 @@ export function initInput(
                     ? '☀️ Switch to Day <span class="key-badge">N</span>'
                     : '🌙 Switch to Night <span class="key-badge">N</span>';
 
-                // @ts-ignore
                 import('../utils/toast.js').then(({ showToast }) => {
                     const mode = isPressed ? "Night Mode Active 🌙" : "Day Mode Active ☀️";
                     showToast(mode, isPressed ? '🌙' : '☀️');

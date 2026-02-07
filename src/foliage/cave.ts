@@ -135,9 +135,7 @@ export function updateCaveWaterLevel(caveGroup: THREE.Group, waterLevel: number)
         caveGroup.userData.isBlocked = false;
     }
 
-    // @ts-ignore
-    if (waterfall.visible && waterfall.onAnimate) {
-         // @ts-ignore
-        waterfall.onAnimate(0.016, Date.now() / 1000);
+    if (waterfall.visible && (waterfall as any).onAnimate) {
+        (waterfall as any).onAnimate(0.016, Date.now() / 1000);
     }
 }

@@ -31,8 +31,7 @@ export function createMoon(): THREE.Group {
     // We can drive this via a uniform 'uMoonBlink' updated from JS
     // Or use time-based if generic. For music sync, we use a uniform.
     const uBlink = uniform(0.0); // 0 to 1
-    // @ts-ignore - Expose custom property
-    mat.uBlink = uBlink; // Expose to JS
+    (mat as any).uBlink = uBlink; // Expose to JS
 
     // Emissive node: Base glow + Blink intensity
     // Blink adds a strong white flash
@@ -125,13 +124,11 @@ export function updateMoon(moon: THREE.Group, delta: number, audioData: VisualSt
     if (moon.userData.blinkTimer > 0) {
         moon.userData.blinkTimer -= delta;
         // Update uniform
-        // @ts-ignore
-        if (mesh.material.uBlink) {
+        if ((mesh.material as any).uBlink) {
              // 0..1..0 curve
              const t = 1.0 - (moon.userData.blinkTimer / moonConfig.blinkDuration);
              const val = Math.sin(t * Math.PI);
-             // @ts-ignore
-             (mesh.material.uBlink as UniformNode<number>).value = val;
+             (mesh.material as any).uBlink.value = val;
         }
 
         // Squash eyes
@@ -144,8 +141,7 @@ export function updateMoon(moon: THREE.Group, delta: number, audioData: VisualSt
         const eyes = moon.userData.eyes as THREE.Object3D[];
         if (eyes) eyes.forEach(eye => eye.scale.y = 1.0);
 
-        // @ts-ignore
-        if (mesh.material.uBlink) (mesh.material.uBlink as UniformNode<number>).value = 0;
+        if ((mesh.material as any).uBlink) (mesh.material as any).uBlink.value = 0;
 
         // Random chance to blink
         if (Math.random() < 0.005) {

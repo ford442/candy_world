@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import {
     fluidInit, fluidStep, fluidAddDensity, fluidAddVelocity, getFluidDensityView
 } from '../utils/wasm-loader.js';
-import { VisualState } from '../audio/audio-system.js';
+import { VisualState } from '../audio/audio-system.ts';
 
 export class FluidSystem {
     private size: number = 128;

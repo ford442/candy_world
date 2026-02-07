@@ -8,7 +8,6 @@ import {
 
 import { unlockSystem } from '../systems/unlocks.ts';
 
-// @ts-ignore
 import { batchAnimationCalc, uploadPositions } from '../utils/wasm-loader.js';
 import { arpeggioFernBatcher } from './arpeggio-batcher.ts';
 import { dandelionBatcher } from './dandelion-batcher.ts';

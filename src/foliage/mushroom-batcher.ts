@@ -10,7 +10,7 @@ import {
     uAudioLow, uAudioHigh, createRimLight, createJuicyRimLight, uPlayerPosition, colorFromNote
 } from './common.ts';
 import { uTwilight } from './sky.ts';
-import { foliageGroup } from '../world/state.js'; // Assuming state.js exports foliageGroup
+import { foliageGroup } from '../world/state.ts'; // Assuming state.ts exports foliageGroup
 import { spawnImpact } from './impacts.js';
 
 const MAX_MUSHROOMS = 4000;

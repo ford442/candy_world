@@ -3,7 +3,7 @@
 // Following PERFORMANCE_MIGRATION_STRATEGY.md - Extract only hot functions (~15%)
 
 import * as THREE from 'three';
-import type { FoliageObject } from '../foliage/types.js';
+import type { FoliageObject } from '../foliage/types.ts';
 
 // --- Type Definitions ---
 

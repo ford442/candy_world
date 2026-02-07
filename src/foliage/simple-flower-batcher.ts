@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-// @ts-ignore
 import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import {
     foliageMaterials,
@@ -104,8 +103,7 @@ export class SimpleFlowerBatcher {
         // 2. Prepare Materials
 
         // Stem: Reuse existing logic (Wind + Player Push)
-        // @ts-ignore
-        const stemMat = foliageMaterials.flowerStem.clone();
+        const stemMat = (foliageMaterials as any).flowerStem.clone();
 
         // Petal: Velvet with Instance Color + Bloom + Wind + Push
         // We need to apply the full deformation chain: Bloom -> Wind -> Push
@@ -126,8 +124,7 @@ export class SimpleFlowerBatcher {
         petalMat.colorNode = instanceColorNode;
 
         // Center: Velvet (Brown) + Chain
-        // @ts-ignore
-        const centerMat = foliageMaterials.flowerCenter.clone();
+        const centerMat = (foliageMaterials as any).flowerCenter.clone();
         (centerMat as any).positionNode = posFinal;
 
         // Stamens: Clay (Yellow) + Chain
@@ -135,8 +132,7 @@ export class SimpleFlowerBatcher {
 
         // Beam: LightBeam + Color Tint?
         // Beam usually is white/tinted. Let's use generic white beam.
-        // @ts-ignore
-        const beamMat = foliageMaterials.lightBeam.clone();
+        const beamMat = (foliageMaterials as any).lightBeam.clone();
 
         // 3. Create InstancedMeshes
 

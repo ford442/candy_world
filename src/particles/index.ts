@@ -4,7 +4,7 @@
  */
 
 // Configuration types
-export * from './particle_config.js';
+export * from './particle_config.ts';
 
 // Audio integration
 export {
@@ -15,7 +15,7 @@ export {
     updateParticleAudioUniforms,
     getParticleAudioState,
     resetParticleAudioUniforms
-} from './audio_reactive.js';
+} from './audio_reactive.ts';
 
 // GPU particle systems
 export {
@@ -29,4 +29,4 @@ export {
     // Helper functions
     addAmbientParticles,
     disposeParticleSystems
-} from './gpu_particles.js';
+} from './gpu_particles.ts';
