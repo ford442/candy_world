@@ -28,8 +28,10 @@ export class MushroomBatcher {
 
     // Mesh & Attributes
     public mesh: THREE.InstancedMesh | null = null;
-    private instanceParams: THREE.InstancedBufferAttribute | null = null; // [hasFace, noteIndex, isGiant, spawnTime]
-    private instanceAnim: THREE.InstancedBufferAttribute | null = null;   // [triggerTime, velocity, unused, unused]
+    // OPTIMIZED: Packed into single vec4 to reduce vertex buffers from 11 to 8
+    // instanceData: x=packedFlags, y=spawnTime, z=triggerTime, w=velocity
+    // packedFlags encoding: noteIndex+1 + hasFace*20 + isGiant*40
+    private instanceData: THREE.InstancedBufferAttribute | null = null;
 
     // Mapping: Note Index (0-11) -> Array of Instance Indices
     private noteToInstances: Map<number, number[]> = new Map();
@@ -54,12 +56,9 @@ export class MushroomBatcher {
         // 1. Create Merged Geometry
         const geometry = this.createMergedGeometry();
 
-        // 2. Attributes
-        this.instanceParams = new THREE.InstancedBufferAttribute(new Float32Array(MAX_MUSHROOMS * 4), 4);
-        this.instanceAnim = new THREE.InstancedBufferAttribute(new Float32Array(MAX_MUSHROOMS * 4), 4);
-
-        geometry.setAttribute('instanceParams', this.instanceParams);
-        geometry.setAttribute('instanceAnim', this.instanceAnim);
+        // 2. Attributes - SINGLE packed attribute to stay within WebGPU 8 buffer limit
+        this.instanceData = new THREE.InstancedBufferAttribute(new Float32Array(MAX_MUSHROOMS * 4), 4);
+        geometry.setAttribute('instanceData', this.instanceData);
 
         // 3. Materials with TSL
         const materials = this.createMaterials();
@@ -360,18 +359,20 @@ export class MushroomBatcher {
     }
 
     private createMaterials(): MeshStandardNodeMaterial[] {
-        // TSL Logic - OPTIMIZED: Removed instanceColor to reduce vertex buffer count
-        // Using setColorAt on InstancedMesh instead of TSL colorNode
-        const instanceParams = attribute('instanceParams', 'vec4'); // x: hasFace, y: noteIndex, z: isGiant, w: spawnTime
-        const instanceAnim = attribute('instanceAnim', 'vec4');     // x: triggerTime, y: velocity
+        // TSL Logic - OPTIMIZED: Consolidated to single instanceData attribute
+        // Packed format: x=packedFlags, y=spawnTime, z=triggerTime, w=velocity
+        // packedFlags: noteIndex+1 + hasFace*20 + isGiant*40
+        const instanceData = attribute('instanceData', 'vec4');
         
-        // Note: We compute color from note in JavaScript and use setColorAt
-        // instead of using TSL colorNode which adds vertex buffer requirements
-        const hasFace = instanceParams.x;
-        const isGiant = instanceParams.z;
-        const spawnTime = instanceParams.w;
-        const triggerTime = instanceAnim.x;
-        const velocity = instanceAnim.y;
+        // Unpack the flags
+        const packedFlags = instanceData.x;
+        const hasFace = floor(packedFlags.div(20.0)).mod(2.0);
+        const isGiant = floor(packedFlags.div(40.0)).mod(2.0);
+        // noteIndex = (packed % 20) - 1, but we don't need it in shader since color is set via setColorAt
+        
+        const spawnTime = instanceData.y;
+        const triggerTime = instanceData.z;
+        const velocity = instanceData.w;
 
         // --- Animations ---
         // 1. Pop-In (Spawn)
@@ -525,18 +526,16 @@ export class MushroomBatcher {
         dummy.updateMatrix();
         this.mesh!.setMatrixAt(i, dummy.matrix);
 
-        // 2. Set Attributes
-
-        // Params
+        // 2. Set Attributes - Packed into single vec4
+        // packedFlags: noteIndex+1 + hasFace*20 + isGiant*40
         const hasFace = options.hasFace ? 1.0 : 0.0;
         const noteIndex = options.noteIndex !== undefined ? options.noteIndex : -1;
         const isGiant = options.size === 'giant' ? 1.0 : 0.0;
-        const spawnTime = options.spawnTime || -100.0; // Default old time
-
-        this.instanceParams!.setXYZW(i, hasFace, noteIndex, isGiant, spawnTime);
-
-        // Anim (Reset)
-        this.instanceAnim!.setXYZW(i, -100.0, 0, 0, 0);
+        const spawnTime = options.spawnTime || -100.0;
+        const packedFlags = (noteIndex + 1) + hasFace * 20 + isGiant * 40;
+        
+        // instanceData: x=packedFlags, y=spawnTime, z=triggerTime, w=velocity
+        this.instanceData!.setXYZW(i, packedFlags, spawnTime, -100.0, 0);
 
         // 3. Update Mapping
         if (noteIndex >= 0) {
@@ -547,8 +546,7 @@ export class MushroomBatcher {
         }
 
         this.mesh!.instanceMatrix.needsUpdate = true;
-        this.instanceParams!.needsUpdate = true;
-        this.instanceAnim!.needsUpdate = true;
+        this.instanceData!.needsUpdate = true;
     }
 
     removeInstance(logicObject: THREE.Object3D) {
@@ -561,7 +559,9 @@ export class MushroomBatcher {
         const lastIndex = this.count - 1;
 
         // 1. Remove from Note Mapping
-        const removedNoteIndex = this.instanceParams!.getY(indexToRemove);
+        // Decode noteIndex from packedFlags: noteIndex = (packed % 20) - 1
+        const removedPackedFlags = this.instanceData!.getX(indexToRemove);
+        const removedNoteIndex = (removedPackedFlags % 20) - 1;
         if (removedNoteIndex >= 0) {
             const list = this.noteToInstances.get(removedNoteIndex);
             if (list) {
@@ -573,7 +573,9 @@ export class MushroomBatcher {
         // 2. Perform Swap (if not last)
         if (indexToRemove !== lastIndex) {
             const lastId = this.instanceToLogicId[lastIndex];
-            const movedNoteIndex = this.instanceParams!.getY(lastIndex);
+            // Decode noteIndex from packedFlags
+            const lastPackedFlags = this.instanceData!.getX(lastIndex);
+            const movedNoteIndex = (lastPackedFlags % 20) - 1;
 
             // A. Copy Attributes from Last to Removed
             // Matrix
@@ -581,22 +583,13 @@ export class MushroomBatcher {
             this.mesh!.getMatrixAt(lastIndex, m);
             this.mesh!.setMatrixAt(indexToRemove, m);
 
-            // Params
-            this.instanceParams!.setXYZW(
+            // Single packed attribute
+            this.instanceData!.setXYZW(
                 indexToRemove,
-                this.instanceParams!.getX(lastIndex),
-                this.instanceParams!.getY(lastIndex),
-                this.instanceParams!.getZ(lastIndex),
-                this.instanceParams!.getW(lastIndex)
-            );
-
-            // Anim
-            this.instanceAnim!.setXYZW(
-                indexToRemove,
-                this.instanceAnim!.getX(lastIndex),
-                this.instanceAnim!.getY(lastIndex),
-                this.instanceAnim!.getZ(lastIndex),
-                this.instanceAnim!.getW(lastIndex)
+                this.instanceData!.getX(lastIndex),
+                this.instanceData!.getY(lastIndex),
+                this.instanceData!.getZ(lastIndex),
+                this.instanceData!.getW(lastIndex)
             );
 
             // B. Update Note Mapping for the MOVED instance
@@ -621,8 +614,7 @@ export class MushroomBatcher {
         // 4. Mark Updates
         this.mesh!.count = this.count;
         this.mesh!.instanceMatrix.needsUpdate = true;
-        this.instanceParams!.needsUpdate = true;
-        this.instanceAnim!.needsUpdate = true;
+        this.instanceData!.needsUpdate = true;
     }
 
     handleNote(noteIndex: number, velocity: number) {
@@ -635,8 +627,9 @@ export class MushroomBatcher {
             const now = ((uTime as any).value !== undefined) ? (uTime as any).value : performance.now() / 1000.0;
 
             for (const i of indices) {
-                this.instanceAnim!.setX(i, now);
-                this.instanceAnim!.setY(i, velocity / 127.0); // Normalize velocity
+                // Update triggerTime (z) and velocity (w) in packed attribute
+                this.instanceData!.setZ(i, now);
+                this.instanceData!.setW(i, velocity / 127.0); // Normalize velocity
 
                 // PALETTE: Spawn Spores!
                 if (this.mesh) {
@@ -650,7 +643,7 @@ export class MushroomBatcher {
                     spawnImpact(_scratchPos, 'spore');
                 }
             }
-            this.instanceAnim!.needsUpdate = true;
+            this.instanceData!.needsUpdate = true;
             // Optim: Use addUpdateRange if indices are contiguous?
             // Likely not contiguous. Partial update might be slower than full upload if fragmented.
             // Just flag needsUpdate.

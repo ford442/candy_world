@@ -24,9 +24,8 @@ export class LanternBatcher {
     public topMesh: THREE.InstancedMesh | null = null;
 
     // Attributes
-    private stemParams: THREE.InstancedBufferAttribute | null = null; // [height, unused, unused, unused]
-    private topParams: THREE.InstancedBufferAttribute | null = null;  // [height, unused, unused, unused]
-    private instanceColor: THREE.InstancedBufferAttribute | null = null; // [r, g, b]
+    private stemParams: THREE.InstancedBufferAttribute | null = null; // [height, unused, unused, spawnTime]
+    private topParams: THREE.InstancedBufferAttribute | null = null;  // [height, unused, unused, spawnTime]
 
     private constructor() {}
 
@@ -121,12 +120,10 @@ export class LanternBatcher {
 
         const geometry = this.createTopGeometry();
 
-        // Attributes
+        // Attributes - SINGLE packed attribute to stay within WebGPU 8 buffer limit
         this.topParams = new THREE.InstancedBufferAttribute(new Float32Array(MAX_LANTERNS * 4), 4);
-        this.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAX_LANTERNS * 3), 3);
-
         geometry.setAttribute('instanceParams', this.topParams);
-        geometry.setAttribute('instanceColor', this.instanceColor);
+        // OPTIMIZED: Removed instanceColor attribute - using setColorAt on InstancedMesh instead
 
         // Materials
         // 0: Dark Metal (Hook/Cap)
@@ -353,13 +350,15 @@ export class LanternBatcher {
 
         this.stemParams!.setXYZW(i, height, 0, 0, spawnTime);
         this.topParams!.setXYZW(i, height, 0, 0, spawnTime);
-        this.instanceColor!.setXYZ(i, c.r, c.g, c.b);
+        
+        // OPTIMIZED: Use setColorAt instead of instanceColor attribute to save vertex buffer
+        this.topMesh!.setColorAt(i, c);
 
         this.stemMesh!.instanceMatrix.needsUpdate = true;
         this.topMesh!.instanceMatrix.needsUpdate = true;
         this.stemParams!.needsUpdate = true;
         this.topParams!.needsUpdate = true;
-        this.instanceColor!.needsUpdate = true;
+        if (this.topMesh!.instanceColor) this.topMesh!.instanceColor.needsUpdate = true;
     }
 }
 

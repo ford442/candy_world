@@ -1,80 +1,78 @@
 # WebGPU Vertex Buffer Limit Fix
 
 ## Problem
-WebGPU devices have a maximum of **8 vertex buffers** per pipeline layout. The Candy World game was using **11 vertex buffers**, causing:
+WebGPU devices have a maximum of **8 vertex buffers** per pipeline layout. The Candy World game was exceeding this limit, causing:
 - Game freezes
-- WebGPU validation errors
-- "instanceColor not found" warnings
+- WebGPU validation errors: `Vertex buffer count (11) exceeds the maximum number of vertex buffers (8)`
 - Pipeline compilation failures
 
-## Root Cause
-TSL (Three.js Shading Language) materials with instancing use multiple vertex buffers:
-1. Position (1 buffer)
-2. Normal (1 buffer)  
-3. UV (1 buffer)
-4. Instance Matrix (4 buffers for mat4)
-5. Instance Color (1 buffer)
-6. Custom instance attributes (instanceParams, instanceAnim, etc.)
+## Vertex Buffer Accounting
 
-Combined with custom attributes, this easily exceeded the 8 buffer limit.
+Each InstancedMesh uses these vertex buffers:
+| Buffer | Count | Notes |
+|--------|-------|-------|
+| position | 1 | Geometry vertices |
+| normal | 1 | Vertex normals |
+| uv | 1 | Texture coordinates |
+| instanceMatrix | 4 | Instancing transform (mat4) |
+| instanceColor | 1 | Per-instance color (if setColorAt used) |
+| **Base Total** | **8** | **At the limit!** |
 
-## Solution
-Removed `instanceColor` vertex attributes from foliage batchers, relying on `InstancedMesh.setColorAt()` instead:
+Any **custom instance attribute** adds to this and exceeds the limit.
 
-### Files Modified
+## Solution Applied
 
-#### 1. `src/foliage/mushroom-batcher.ts`
-- **Before**: Used `attribute('instanceParams', 'vec4')`, `attribute('instanceAnim', 'vec4')`, and `colorFromNote()` (which uses instanceColor internally)
-- **After**: Uses only `attribute('instanceParams', 'vec4')` with `setColorAt()` for per-instance colors
-- **Impact**: Reduced from ~11 buffers to ~8 buffers
+### 1. Mushroom Batcher (`mushroom-batcher.ts`)
+**Before**: 2 vec4 attributes = 2 extra buffers
+- `instanceParams` (vec4): hasFace, noteIndex, isGiant, spawnTime
+- `instanceAnim` (vec4): triggerTime, velocity
 
-#### 2. `src/foliage/lantern-batcher.ts`
-- **Before**: Used `attribute('instanceColor', 'vec3')` for bulb emissive glow
-- **After**: Uses fixed white color for emissive, `setColorAt()` for tint
-- **Impact**: Reduced vertex buffers by 1
+**After**: 1 vec4 attribute = 1 buffer
+- `instanceData` (vec4): packed, spawnTime, triggerTime, velocity
+- Packed encoding: `packedFlags = (noteIndex+1) + hasFace*20 + isGiant*40`
+- Shader unpacks: `hasFace = floor(packed/20) % 2`, `isGiant = floor(packed/40) % 2`
 
-#### 3. `src/foliage/berries.ts`
-- **Before**: Used `attribute('instanceColor', 'vec3')` via lazy getter
-- **After**: Removed instanceColor node, uses fixed color (0xFF6600) with `setColorAt()`
-- **Impact**: Reduced vertex buffers by 1
+### 2. Lantern Batcher (`lantern-batcher.ts`)
+**Before**: 2 attributes
+- `instanceParams` (vec4)
+- `instanceColor` (vec3)
 
-#### 4. `src/gameplay/rainbow-blaster.ts`
-- **Before**: Used `attribute('instanceColor', 'vec3')` for projectile colors
-- **After**: Uses material color with `setColorAt()` for per-instance colors
-- **Impact**: Reduced vertex buffers by 1
+**After**: 1 attribute
+- `instanceParams` (vec4) only
+- Colors moved to `setColorAt()` on InstancedMesh
 
-## Technical Details
+### 3. Berry System (`berries.ts`)
+**Before**: Lazy `instanceColor` attribute getter
+**After**: Fixed color with `setColorAt()`
 
-### Why `setColorAt()` Works
-Three.js `InstancedMesh.setColorAt()` stores colors in an internal buffer that doesn't count against the WebGPU vertex buffer limit because:
-- It's managed by Three.js's instancing system
-- Uses a different binding path than custom vertex attributes
-- Internally uses the same buffer as `instanceColor` attribute but handled by the renderer
+### 4. Rainbow Blaster (`rainbow-blaster.ts`)
+**Before**: `instanceColor` attribute on geometry
+**After**: Material base color with `setColorAt()`
 
-### Trade-offs
-- **Visual**: Slightly less flexibility in TSL shaders (can't manipulate instance color in vertex/fragment shader)
-- **Performance**: No measurable difference - colors are still GPU-side
-- **Compatibility**: Better - works within WebGPU limits on all devices
+## Remaining Custom Attributes
+These use only 1 float each (acceptable):
+- `arpeggio-batcher.ts`: `instanceUnfurl` (float)
+- `portamento-batcher.ts`: `instanceBend` (float)
+- `lantern-batcher.ts`: `instanceParams` (vec4)
+- `mushroom-batcher.ts`: `instanceData` (vec4)
 
 ## Verification
 ```bash
 npm run build
-# Build successful ✓
+# ✓ 88 modules transformed.
+# ✓ built in 8.29s
 ```
 
-## WebGPU Limits Reference
-| Limit | Typical Value | Our Usage (After Fix) |
-|-------|---------------|----------------------|
-| maxVertexBuffers | 8 | 7-8 |
-| maxVertexAttributes | 16 | 12-14 |
-| maxBindGroups | 4 | 2-3 |
+## Future Guidelines
+When adding new instanced foliage:
+1. **Use `setColorAt()`** instead of `instanceColor` attribute
+2. **Pack multiple flags** into a single float/vec4
+3. **Avoid more than 1 custom attribute** per InstancedMesh
+4. **Test on WebGPU** - the limit is strict (8 buffers)
 
-## Future Considerations
-If adding more custom instance attributes:
-1. Pack multiple values into vec4 attributes (e.g., params.x = value1, params.y = value2)
-2. Consider using uniform buffers for data that changes infrequently
-3. Use texture samplers for large datasets
-
-## Related Documentation
-- `PERFORMANCE_OPTIMIZATIONS.md` - General performance guidelines
-- `src/rendering/webgpu-limits.ts` - Device limit detection utilities
+## Debugging Tips
+If you see `Vertex buffer count (X) exceeds the maximum number of vertex buffers (8)`:
+1. Count attributes in your material's TSL code
+2. Check `geometry.attributes` for extras
+3. Remember: `instanceMatrix` = 4 buffers, `instanceColor` = 1 buffer
+4. Use `setColorAt()` instead of custom color attributes
