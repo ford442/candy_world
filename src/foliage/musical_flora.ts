@@ -46,6 +46,9 @@ interface SystemData {
     count: number;
 }
 
+// ⚡ OPTIMIZATION: Shared scratch variables to avoid GC in animation loops
+const _scratchEuler = new THREE.Euler();
+
 // --- Category 1: Melodic Flora ---
 
 export function createArpeggioFern(options: ArpeggioFernOptions = {}) {
@@ -510,11 +513,9 @@ export class MusicalFloraManager {
 
             // Rotation (Combine base + Animation)
             // Assuming base rotation is 0 for simplicity, or store it in 'data'
-            this._quaternion.setFromEuler(new THREE.Euler(
-                animRotX, 
-                0, // Keep Y rotation fixed or add slow spin
-                animRotZ
-            ));
+            // ⚡ OPTIMIZATION: Use shared scratch Euler instead of allocating new one per instance
+            _scratchEuler.set(animRotX, 0, animRotZ);
+            this._quaternion.setFromEuler(_scratchEuler);
 
             // Scale (React to kick)
             const scalePulse = 1.0 + (kick * 0.2 * intensity);
