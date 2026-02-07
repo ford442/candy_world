@@ -287,8 +287,9 @@ function updateStateTransitions(camera: THREE.Camera, keyStates: KeyStates) {
 
 // --- State: SWIMMING ---
 function updateSwimmingState(delta: number, camera: THREE.Camera, controls: any, keyStates: KeyStates) {
-    player.velocity.y += (SWIMMING_GRAVITY * delta);
-    player.velocity.multiplyScalar(1.0 - (SWIMMING_DRAG * delta));
+    player.velocity.y -= (SWIMMING_GRAVITY * delta);
+    // Clamp drag factor to [0,1] to prevent velocity reversal on large delta (e.g., tab switch)
+    player.velocity.multiplyScalar(Math.max(0, 1.0 - (SWIMMING_DRAG * delta)));
 
     const swimSpeed = player.speed * 0.6;
     const swimDir = _scratchSwimDir.set(0, 0, 0);
