@@ -85,31 +85,19 @@ export function updateGlobalBerryScale(phase: string, phaseProgress: number): vo
  * @returns {THREE.MeshStandardNodeMaterial}
  */
 function createHeartbeatMaterial(colorInput: number | ShaderNodeObject<Node>, uGlowIntensity: ShaderNodeObject<UniformNode<number>>): THREE.MeshStandardNodeMaterial {
-    let material: THREE.MeshStandardNodeMaterial;
-    const isNode = (typeof colorInput !== 'number');
-
-    // 1. Base Gummy Material (Translucent, SSS)
-    if (!isNode) {
-        // Instanced Color path
-        material = CandyPresets.Gummy(0xFF6600, {
-            colorNode: colorInput as ShaderNodeObject<Node>,
-            transmission: 0.6,
-            thickness: 0.8,
-            roughness: 0.2,
-            ior: 1.4,
-            subsurfaceStrength: 1.0,
-            subsurfaceColor: 0xFF6600 // Fallback SSS color
-        });
-    } else {
-        material = CandyPresets.Gummy(colorInput as number, {
-            transmission: 0.6,
-            thickness: 0.8,
-            roughness: 0.2,
-            ior: 1.4,
-            subsurfaceStrength: 1.0, // Very juicy
-            subsurfaceColor: colorInput as number
-        });
+    const baseHex = typeof colorInput === 'number' ? colorInput : 0xFF6600;
+    const opts = {
+        transmission: 0.6,
+        thickness: 0.8,
+        roughness: 0.2,
+        ior: 1.4,
+        subsurfaceStrength: 1.0,
+        subsurfaceColor: baseHex
+    };
+    if (typeof colorInput !== 'number') {
+        (opts as any).colorNode = colorInput as ShaderNodeObject<Node>;
     }
+    let material = CandyPresets.Gummy(baseHex, opts);
 
     // 2. Heartbeat Logic (Vertex Displacement)
     // Calculate a unique phase based on world position so berries don't pulse in unison
