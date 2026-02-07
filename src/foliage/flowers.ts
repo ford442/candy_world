@@ -1,7 +1,6 @@
 // src/foliage/flowers.ts
 
 import * as THREE from 'three';
-// @ts-ignore
 import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { 
     foliageMaterials, 
@@ -87,8 +86,7 @@ export function createFlower(options: FlowerOptions = {}): THREE.Object3D {
 
     // 1. Stem
     const stemHeight = 0.6 + Math.random() * 0.4;
-    // @ts-ignore
-    const stemMat = foliageMaterials.flowerStem as THREE.Material;
+    const stemMat = (foliageMaterials as any).flowerStem as THREE.Material;
     // StemMat already has Wind+Player. It does NOT have Bloom.
     // That's correct. Stem shouldn't pulse size usually.
 
@@ -100,8 +98,7 @@ export function createFlower(options: FlowerOptions = {}): THREE.Object3D {
     const headMatrix = new THREE.Matrix4().makeTranslation(0, stemHeight, 0);
 
     // 3. Center
-    // @ts-ignore
-    let centerMat = foliageMaterials.flowerCenter as THREE.Material;
+    let centerMat = (foliageMaterials as any).flowerCenter as THREE.Material;
     // We need to clone to add TSL
     centerMat = centerMat.clone();
     (centerMat as any).positionNode = posFinal;
@@ -288,8 +285,7 @@ export function createFlower(options: FlowerOptions = {}): THREE.Object3D {
 
     // Beam Logic (Child)
     if (Math.random() > 0.5) {
-        // @ts-ignore
-        const beam = new THREE.Mesh(sharedGeometries.unitCone, foliageMaterials.lightBeam.clone());
+        const beam = new THREE.Mesh(sharedGeometries.unitCone, (foliageMaterials as any).lightBeam.clone());
         beam.scale.set(0.1, 1.0, 0.1);
         beam.position.y = stemHeight;
         beam.userData.isBeam = true;
@@ -314,8 +310,7 @@ export function createGlowingFlower(options: GlowingFlowerOptions = {}): THREE.G
     const group = new THREE.Group();
 
     const stemHeight = 0.6 + Math.random() * 0.4;
-    // @ts-ignore
-    const stem = new THREE.Mesh(sharedGeometries.unitCylinder, foliageMaterials.flowerStem);
+    const stem = new THREE.Mesh(sharedGeometries.unitCylinder, (foliageMaterials as any).flowerStem);
     stem.scale.set(0.05, stemHeight, 0.05);
     stem.castShadow = true;
     group.add(stem);
@@ -341,8 +336,7 @@ export function createGlowingFlower(options: GlowingFlowerOptions = {}): THREE.G
     head.position.y = stemHeight;
     group.add(head);
 
-    // @ts-ignore
-    const wash = new THREE.Mesh(sharedGeometries.unitSphere, foliageMaterials.lightBeam);
+    const wash = new THREE.Mesh(sharedGeometries.unitSphere, (foliageMaterials as any).lightBeam);
     wash.scale.setScalar(1.5);
     wash.position.y = stemHeight;
     wash.userData.isWash = true;
@@ -373,8 +367,7 @@ export function createStarflower(options: { color?: number | string | THREE.Colo
     stem.castShadow = true;
     group.add(stem);
 
-    // @ts-ignore
-    const center = new THREE.Mesh(sharedGeometries.unitSphere, foliageMaterials.flowerCenter);
+    const center = new THREE.Mesh(sharedGeometries.unitSphere, (foliageMaterials as any).flowerCenter);
     center.scale.setScalar(0.09);
     center.position.y = stemH;
     group.add(center);
@@ -393,8 +386,7 @@ export function createStarflower(options: { color?: number | string | THREE.Colo
         group.add(petal);
     }
 
-    // @ts-ignore
-    const beamMat = foliageMaterials.lightBeam.clone();
+    const beamMat = (foliageMaterials as any).lightBeam.clone();
     beamMat.colorNode = tslColor(hexColor);
     const beam = new THREE.Mesh(sharedGeometries.unitCone, beamMat);
     beam.position.y = stemH;
@@ -551,8 +543,7 @@ export function createPrismRoseBush(options = {}): THREE.Group {
         inner.position.y = 0.05;
         roseGroup.add(inner);
 
-        // @ts-ignore
-        const washMat = foliageMaterials.lightBeam.clone();
+        const washMat = (foliageMaterials as any).lightBeam.clone();
         washMat.colorNode = tslColor(hexColor);
         const wash = new THREE.Mesh(sharedGeometries.unitSphere, washMat);
         wash.scale.setScalar(1.2);
@@ -743,9 +734,6 @@ export function createLanternFlower(options: { color?: number, height?: number }
 
     // Deferred Registration to Batcher
     group.userData.onPlacement = () => {
-        // @ts-ignore: Accessing .value on UniformNode if possible, or relying on it being treated as number in some contexts.
-        // If uTime is a UniformNode, .value property access depends on implementation.
-        // Assuming typical usage pattern or casting.
         lanternBatcher.register(group, { height, color, spawnTime: (uTime as any).value || 0 });
         group.userData.onPlacement = null;
     };

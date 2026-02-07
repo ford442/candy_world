@@ -1,6 +1,5 @@
 // src/systems/discovery.ts
 
-// @ts-ignore
 import { showToast } from '../utils/toast.js';
 
 /**

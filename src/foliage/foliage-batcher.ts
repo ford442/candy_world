@@ -1,7 +1,7 @@
 // src/foliage/foliage-batcher.ts
 import { getWasmInstance } from '../utils/wasm-loader.js';
 import * as THREE from 'three';
-import { FoliageObject } from './types.js';
+import { FoliageObject } from './types.ts';
 
 // Batch configuration
 const BATCH_SIZE = 4000; // Max objects per type per batch

@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-// @ts-ignore
 import { foliageGroup } from '../world/state.ts';
 import {
     createClayMaterial,
@@ -8,7 +7,6 @@ import {
     uAudioHigh,
     uTime
 } from './common.ts';
-// @ts-ignore
 import {
     float, vec3, positionLocal, sin, cos, mix, instanceIndex, normalLocal, timerLocal
 } from 'three/tsl';

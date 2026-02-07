@@ -139,8 +139,7 @@ function createHeartbeatMaterial(colorInput: number | ShaderNodeObject<Node>, uG
     const flashColor = color(0xFFFFFF); // Flash white/bright on strong beats
 
     // Mix flash based on heartbeat strength
-    // @ts-ignore - mix overload complexity
-    const glowColor = baseColor.mix(flashColor, heartbeat.mul(uAudioLow).mul(0.5));
+    const glowColor = (baseColor as any).mix(flashColor, heartbeat.mul(uAudioLow).mul(0.5));
 
     // Final Intensity
     const totalIntensity = uGlowIntensity.add(heartbeat.mul(uAudioLow));

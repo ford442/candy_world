@@ -7,7 +7,6 @@ import {
     uv, normalize, smoothstep, mix, abs, max, positionWorld,
     mx_noise_float, normalLocal
 } from 'three/tsl';
-// @ts-ignore: common.ts is not yet migrated
 import { CandyPresets, uAudioLow, uAudioHigh, createRimLight } from './common.ts';
 
 export const uWaveHeight = uniform(1.0); // Base wave height scaler

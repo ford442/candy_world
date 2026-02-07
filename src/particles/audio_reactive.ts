@@ -7,7 +7,7 @@
 
 import * as THREE from 'three';
 import { uniform, color } from 'three/tsl';
-import type { ParticleAudioState } from './particle_config.js';
+import type { ParticleAudioState } from './particle_config.ts';
 
 // =============================================================================
 // GLOBAL AUDIO UNIFORMS FOR PARTICLES

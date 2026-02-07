@@ -51,9 +51,9 @@ import type {
     AudioState,
     MaterialCreateResult,
     AudioUniforms
-} from './material_types.js';
+} from './material_types.ts';
 
-import { MaterialType } from './material_types.js';
+import { MaterialType } from './material_types.ts';
 
 // =============================================================================
 // GLOBAL AUDIO UNIFORMS

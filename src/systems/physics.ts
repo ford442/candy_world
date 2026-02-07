@@ -3,7 +3,6 @@
 // MIGRATED to TypeScript
 
 import * as THREE from 'three';
-// @ts-ignore - Importing JS module
 import {
     getGroundHeight, initPhysics, addObstacle, setPlayerState, getPlayerState, updatePhysicsCPP,
     uploadCollisionObjects, resolveGameCollisionsWASM
@@ -12,7 +11,7 @@ import {
     foliageMushrooms, foliageTrampolines, foliageClouds,
     activeVineSwing, setActiveVineSwing, lastVineDetachTime, setLastVineDetachTime, vineSwings, animatedFoliage
 } from '../world/state.ts';
-import { discoverySystem } from './discovery.js';
+import { discoverySystem } from './discovery.ts';
 import { DISCOVERY_MAP } from './discovery_map.ts';
 import {
     calculateMovementInput,
@@ -22,10 +21,8 @@ import {
     calculateWaterLevel,
     PlayerState as CorePlayerState,
     KeyStates
-} from './physics.core.js';
-// @ts-ignore - Importing JS module
+} from './physics.core.ts';
 import { uChromaticIntensity } from '../foliage/chromatic.js';
-// @ts-ignore - Importing JS module
 import { spawnImpact } from '../foliage/impacts.js';
 import { VineSwing } from '../foliage/trees.ts';
 
@@ -330,17 +327,17 @@ function updateSwimmingState(delta: number, camera: THREE.Camera, controls: any,
 // --- State: VINE SWING ---
 function updateVineState(delta: number, camera: THREE.Camera, keyStates: KeyStates) {
     if (activeVineSwing) {
-        // @ts-ignore - VineSwing expects PlayerObject (Object3D)
-        // Camera IS an Object3D, so we pass it for visual updates (positioning)
-        activeVineSwing.update(camera, delta, keyStates);
+        // VineSwing.update expects PlayerObject, but Camera is an Object3D
+        // We pass camera for visual updates (positioning) - it's compatible enough
+        activeVineSwing.update(camera as any, delta, keyStates);
 
         // CRITICAL: Sync player position to match camera immediately
         // because VineSwing modified camera.position
         player.position.copy(camera.position);
 
         if (keyStates.jump) {
-            // @ts-ignore - detach modifies velocity, pass player (has velocity)
-            setLastVineDetachTime(activeVineSwing.detach(player));
+            // detach modifies velocity, pass player (has velocity)
+            setLastVineDetachTime(activeVineSwing.detach(player as any));
             setActiveVineSwing(null);
             keyStates.jump = false;
             player.currentState = PlayerState.DEFAULT;
@@ -506,8 +503,7 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
     }
 
     vineSwings.forEach(v => {
-        // @ts-ignore
-        if (v !== activeVineSwing) v.update(player, delta, null);
+        if (v !== activeVineSwing) v.update(player as any, delta, null);
     });
 
     if (Date.now() - lastVineDetachTime > 500) {
@@ -647,16 +643,13 @@ function initCppPhysics(camera: THREE.Camera) {
 
     // 1. Upload to C++ Engine (Emscripten) - For Standard Terrain/Obstacles
     for (const m of foliageMushrooms) {
-        // @ts-ignore
-        addObstacle(0, m.position.x, m.position.y, m.position.z, 0, m.userData.capHeight||3, m.userData.stemRadius||0.5, m.userData.capRadius||2, m.userData.isTrampoline?1:0);
+        addObstacle(0, m.position.x, m.position.y, m.position.z, 0, (m.userData as any).capHeight||3, (m.userData as any).stemRadius||0.5, (m.userData as any).capRadius||2, (m.userData as any).isTrampoline?1:0);
     }
     for (const c of foliageClouds) {
-        // @ts-ignore
-        addObstacle(1, c.position.x, c.position.y, c.position.z, (c.scale.x||1)*2.0, (c.scale.y||1)*0.8, 0, c.userData.tier||1, 0);
+        addObstacle(1, c.position.x, c.position.y, c.position.z, (c.scale.x||1)*2.0, (c.scale.y||1)*0.8, 0, (c.userData as any).tier||1, 0);
     }
     for (const t of foliageTrampolines) {
-        // @ts-ignore
-        addObstacle(2, t.position.x, t.position.y, t.position.z, t.userData.bounceRadius||0.5, t.userData.bounceHeight||0.5, t.userData.bounceForce||12, 0, 0);
+        addObstacle(2, t.position.x, t.position.y, t.position.z, (t.userData as any).bounceRadius||0.5, (t.userData as any).bounceHeight||0.5, (t.userData as any).bounceForce||12, 0, 0);
     }
 
     // 2. Upload to AssemblyScript Engine (ASC) - For Narrow Phase Interactivity
@@ -671,8 +664,7 @@ function checkVineAttachment(camera: THREE.Camera) {
         // SAFETY: Ensure vineManager and anchorPoint exist before accessing properties
         if (!vineManager || !vineManager.anchorPoint) continue;
         const anchor = vineManager.anchorPoint;
-        // @ts-ignore
-        if (typeof anchor.x !== 'number' || typeof anchor.y !== 'number' || typeof anchor.z !== 'number') continue;
+        if (typeof (anchor as any).x !== 'number' || typeof (anchor as any).y !== 'number' || typeof (anchor as any).z !== 'number') continue;
 
         const dx = playerPos.x - anchor.x;
         const dz = playerPos.z - anchor.z;
@@ -682,8 +674,7 @@ function checkVineAttachment(camera: THREE.Camera) {
         if (distH < 2.0 && playerPos.y < anchor.y && playerPos.y > tipY) {
              if (distH < 1.0) {
                  if (typeof vineManager.attach === 'function') {
-                     // @ts-ignore
-                     vineManager.attach(player, player.velocity);
+                     vineManager.attach(player as any, player.velocity);
                      setActiveVineSwing(vineManager);
                      break;
                  }

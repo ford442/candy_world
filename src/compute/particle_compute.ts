@@ -35,7 +35,7 @@ import {
 } from 'three/tsl';
 import { StorageInstancedBufferAttribute, PointsNodeMaterial } from 'three/webgpu';
 
-import type { ComputeParticleConfig, ParticleAudioState } from '../particles/particle_config.js';
+import type { ComputeParticleConfig, ParticleAudioState } from '../particles/particle_config.ts';
 import type { WebGPURenderer } from 'three/webgpu';
 
 /**

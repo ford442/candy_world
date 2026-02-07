@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-// @ts-ignore
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { time, vec3, positionLocal, length, sin, cos } from 'three/tsl';
 import { registerReactiveMaterial, attachReactivity } from './common.ts';

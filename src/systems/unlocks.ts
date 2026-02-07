@@ -1,6 +1,5 @@
 // src/systems/unlocks.ts
 
-// @ts-ignore
 import { showToast } from '../utils/toast.js';
 
 export interface UnlockRequirement {
