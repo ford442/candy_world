@@ -10,14 +10,16 @@
 
 ## Next Steps
 
-1. **Panning Pads**: Implement the "Panning Pads" platforming element.
-   - *Visuals*: Holographic lily pads floating on mercury pools.
-   - *Mechanics*: Bobbing animation driven by stereo pan (8xx). Landing at peak gives boost.
+1. **Instrument Shrine Puzzle Mechanics**: Implement interactive puzzles for Instrument Shrines.
+   - *Visuals*: Patterns on shrines match instrument IDs.
+   - *Mechanics*: Matching patterns to the bassline instrument opens shrines and enables puzzles.
 
 ---
 
 ## Recent Progress
 - **Accomplished:**
+  - **Panning Pads**: **Status: Implemented ✅**
+    - *Implementation Details:* Created `src/foliage/panning-pads.js` with TSL mercury materials and stereo-pan driven bobbing animation (`panningBob` in `src/foliage/animation.ts`). Implemented physics interaction in `src/systems/physics.ts` to provide a vertical boost when landing on a pad at the peak of its bob (driven by audio pan/volume). Added to world generation in `src/world/generation.ts`.
   - **Jitter Mines**: **Status: Implemented ✅**
     - *Implementation Details:* Created `src/gameplay/jitter-mines.ts` utilizing `THREE.InstancedMesh` for efficient rendering of unstable, glitching mines. Mines are spawned via the 'F' key (Action) and explode on proximity, triggering a global TSL-driven chromatic aberration and glitch pulse (`uChromaticIntensity`, `uGlitchIntensity`). Integrated with `UnlockSystem` (consumes "Vibrato Nectar") and `src/foliage/flowers.ts` (harvesting logic for Vibrato Violets).
   - **Arpeggio Shield**: **Status: Implemented ✅**

@@ -8,6 +8,7 @@ export const obstacles: THREE.Object3D[] = [];
 // Optimization: Categorized arrays for faster collision/logic
 export const foliageMushrooms: FoliageObject[] = [];
 export const foliageTrampolines: FoliageObject[] = [];
+export const foliagePanningPads: FoliageObject[] = [];
 export const foliageClouds: FoliageObject[] = [];
 export const vineSwings: VineSwing[] = []; // Managers for swing physics
 
