@@ -142,17 +142,12 @@ export class LanternBatcher {
         });
 
         // TSL for Top
+        // OPTIMIZED: Removed instanceColor attribute to reduce vertex buffer count
+        // Colors are applied via setColorAt on InstancedMesh instead
         // 1. Offset Y by Height
         const params = attribute('instanceParams', 'vec4');
         const height = params.x;
         const spawnTime = params.w;
-        // FIX: Use conditional attribute to avoid "instanceColor not found" warning
-        // The attribute() function throws warnings if the attribute doesn't exist
-        // We use a uniform fallback when instanceColor is not available
-        const hasInstanceColor = this.instanceColor && this.instanceColor.count > 0;
-        const colorAttr = hasInstanceColor 
-            ? attribute('instanceColor', 'vec3')
-            : vec3(1.0, 1.0, 1.0); // Default white if no instance color
 
         // Pop-In Logic (Scale from 0)
         const age = uTime.sub(spawnTime);
@@ -197,14 +192,14 @@ export class LanternBatcher {
         bulbMat.positionNode = finalPos;
 
         // Bulb Emissive Logic (Beat Reactivity)
-        // Base Emissive from Instance Color
+        // OPTIMIZED: Removed instanceColor attribute - using uniform glow
         // Pulse on Kick (uAudioLow)
         const pulse = uAudioLow.mul(2.0); // Strong flicker
         const baseIntensity = float(2.0);
         const totalIntensity = baseIntensity.add(pulse);
 
-        bulbMat.emissiveNode = colorAttr.mul(totalIntensity);
-        bulbMat.colorNode = colorAttr; // Tint the glass
+        bulbMat.emissiveNode = vec3(1.0, 1.0, 1.0).mul(totalIntensity);
+        // Removed colorNode tint - colors set via setColorAt on InstancedMesh
 
         // Create Mesh
         this.topMesh = new THREE.InstancedMesh(geometry, [darkMat, bulbMat], MAX_LANTERNS);

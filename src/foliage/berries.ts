@@ -1,28 +1,14 @@
 import * as THREE from 'three';
-import { MeshStandardNodeMaterial } from 'three/webgpu';
 import {
     color, float, uniform, vec3, positionLocal, positionWorld,
-    sin, dot, time, attribute, Node, UniformNode, ShaderNodeObject
+    sin, dot, time, Node, UniformNode, ShaderNodeObject
 } from 'three/tsl';
 import { CandyPresets, uAudioLow, uTime } from './common.ts';
 import { spawnImpact } from './impacts.js';
 import { uChromaticIntensity } from './chromatic.js';
 
-// Define StorageBufferAttribute locally if it's missing from types or not exported
-// In this case, we use `attribute` helper from TSL which returns a Node.
-// FIX: Make instanceColor lazy to avoid "attribute not found" warning at module load
-let _instanceColorNode: Node | null = null;
-function getInstanceColorNode(): Node {
-    if (!_instanceColorNode) {
-        try {
-            _instanceColorNode = attribute('instanceColor', 'vec3');
-        } catch (e) {
-            // Fallback to white if attribute doesn't exist
-            _instanceColorNode = vec3(1.0, 1.0, 1.0);
-        }
-    }
-    return _instanceColorNode;
-}
+// OPTIMIZED: Removed instanceColor attribute to reduce vertex buffer count
+// Colors are set via setColorAt on InstancedMesh instead
 
 // --- Reusable Scratch Variables ---
 const _scratchWorldPos = new THREE.Vector3();
@@ -96,10 +82,10 @@ export function updateGlobalBerryScale(phase: string, phaseProgress: number): vo
  * Creates a "Heartbeat Gummy" TSL Material
  * @param {number|Node} colorInput - Base color (Hex or Node like instanceColor)
  * @param {UniformNode} uGlowIntensity - Control uniform for external updates (weather/seasons)
- * @returns {MeshStandardNodeMaterial}
+ * @returns {THREE.MeshStandardNodeMaterial}
  */
-function createHeartbeatMaterial(colorInput: number | ShaderNodeObject<Node>, uGlowIntensity: ShaderNodeObject<UniformNode<number>>): MeshStandardNodeMaterial {
-    let material: MeshStandardNodeMaterial;
+function createHeartbeatMaterial(colorInput: number | ShaderNodeObject<Node>, uGlowIntensity: ShaderNodeObject<UniformNode<number>>): THREE.MeshStandardNodeMaterial {
+    let material: THREE.MeshStandardNodeMaterial;
     const isNode = (typeof colorInput !== 'number');
 
     // 1. Base Gummy Material (Translucent, SSS)
@@ -312,9 +298,10 @@ export function initFallingBerries(scene: THREE.Scene): void {
 
     const berryGeo = new THREE.SphereGeometry(0.06, 16, 16);
 
-    // Create a TSL material for falling berries with Instance Color support
+    // OPTIMIZED: Use fixed color instead of instanceColor attribute
+    // Per-instance colors set via setColorAt instead
     const uFallingGlow = uniform(float(0.8)); // Bright when falling
-    const material = createHeartbeatMaterial(getInstanceColorNode(), uFallingGlow);
+    const material = createHeartbeatMaterial(0xFF6600, uFallingGlow);
 
     fallingBerryMesh = new THREE.InstancedMesh(berryGeo, material, MAX_FALLING_BERRIES);
     fallingBerryMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);

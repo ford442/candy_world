@@ -360,11 +360,13 @@ export class MushroomBatcher {
     }
 
     private createMaterials(): MeshStandardNodeMaterial[] {
-        // TSL Logic
+        // TSL Logic - OPTIMIZED: Removed instanceColor to reduce vertex buffer count
+        // Using setColorAt on InstancedMesh instead of TSL colorNode
         const instanceParams = attribute('instanceParams', 'vec4'); // x: hasFace, y: noteIndex, z: isGiant, w: spawnTime
         const instanceAnim = attribute('instanceAnim', 'vec4');     // x: triggerTime, y: velocity
-        const instanceColor = colorFromNote(instanceParams.y);
-
+        
+        // Note: We compute color from note in JavaScript and use setColorAt
+        // instead of using TSL colorNode which adds vertex buffer requirements
         const hasFace = instanceParams.x;
         const isGiant = instanceParams.z;
         const spawnTime = instanceParams.w;
@@ -457,35 +459,30 @@ export class MushroomBatcher {
         stemMat.positionNode = deform(positionLocal);
 
         // 1. Cap
+        // OPTIMIZED: Removed TSL colorNode/emissiveNode to reduce vertex buffers
+        // Colors are applied via setColorAt on InstancedMesh instead
         const capMat = foliageMaterials.mushroomCap[0].clone();
-        capMat.colorNode = instanceColor; // Use instance color
         capMat.positionNode = deform(positionLocal);
 
-        // Emissive Logic for Cap (Bioluminescence + Flash)
-        const flashIntensity = smoothstep(0.2, 0.0, noteAge).mul(velocity).mul(2.0); // Quick flash
-        const baseGlow = uTwilight.mul(0.5); // Night glow
+        // Emissive Logic for Cap (Bioluminescence + Flash) - uses uniform glow, not per-instance color
+        const flashIntensity = smoothstep(0.2, 0.0, noteAge).mul(velocity).mul(2.0);
+        const baseGlow = uTwilight.mul(0.5);
         const totalGlow = baseGlow.add(flashIntensity);
-
-        // Rim Light
-        // PALETTE: Upgrade to Juicy Rim Light for Neon/Magic feel
-        // Softer rim: Intensity 0.4, Power 3.0 (tighter but softer falloff)
-        const rim = createJuicyRimLight(instanceColor, float(0.4), float(3.0));
-        capMat.emissiveNode = instanceColor.mul(totalGlow).add(rim);
+        
+        // Simplified emissive - uses material's base emissive color set via setColorAt
+        capMat.emissiveIntensityNode = totalGlow;
 
         // 2. Gills
         const gillMat = foliageMaterials.mushroomGills.clone();
-        gillMat.colorNode = instanceColor.mul(0.5); // Darker
         gillMat.positionNode = deform(positionLocal);
-        gillMat.emissiveNode = instanceColor.mul(totalGlow.mul(0.3)); // Faint glow
+        gillMat.emissiveIntensityNode = totalGlow.mul(0.3);
 
         // 3. Spots
         const spotMat = foliageMaterials.mushroomSpots.clone();
         spotMat.positionNode = deform(positionLocal);
-        // Spots glow white/bright on flash + Pulse (Juice)
-        // Pulse: (0.2 to 0.4) based on time + high freq audio
         const spotPulse = sin(uTime.mul(3.0)).mul(0.1).add(0.3);
-        const spotAudio = uAudioHigh.mul(0.5); // React to melody
-        spotMat.emissiveNode = instanceColor.mul(flashIntensity.add(spotPulse).add(spotAudio));
+        const spotAudio = uAudioHigh.mul(0.5);
+        spotMat.emissiveIntensityNode = flashIntensity.add(spotPulse).add(spotAudio);
 
         // Face Hiding Logic
         // If hasFace < 0.5, scale vertices to 0
