@@ -13,6 +13,7 @@ import {
 } from '../world/state.ts';
 import { discoverySystem } from './discovery.ts';
 import { DISCOVERY_MAP } from './discovery_map.ts';
+import { optimizedDiscovery, checkPlayerDiscovery } from './discovery-optimized.ts';
 import {
     calculateMovementInput,
     isInLakeBasin,
@@ -180,26 +181,33 @@ export function updatePhysics(delta: number, camera: THREE.Camera, controls: any
 }
 
 function checkFloraDiscovery(playerPos: THREE.Vector3) {
-    const DISCOVERY_RADIUS_SQ = 5.0 * 5.0; // 5 meters
+    // OPTIMIZATION: Use WASM spatial grid if available
+    // Falls back to JS O(N) loop if WASM not available
+    if (optimizedDiscovery.isUsingWasm()) {
+        checkPlayerDiscovery(playerPos);
+    } else {
+        // Legacy O(N) distance check (fallback)
+        const DISCOVERY_RADIUS_SQ = 5.0 * 5.0; // 5 meters
 
-    for (let i = 0; i < animatedFoliage.length; i++) {
-        const obj = animatedFoliage[i];
-        if (!obj.userData || !obj.userData.type) continue;
+        for (let i = 0; i < animatedFoliage.length; i++) {
+            const obj = animatedFoliage[i];
+            if (!obj.userData || !obj.userData.type) continue;
 
-        const type = obj.userData.type;
-        const discoveryInfo = DISCOVERY_MAP[type];
+            const type = obj.userData.type;
+            const discoveryInfo = DISCOVERY_MAP[type];
 
-        if (discoveryInfo) {
-            // Already discovered? Skip distance check
-            if (discoverySystem.isDiscovered(type)) continue;
+            if (discoveryInfo) {
+                // Already discovered? Skip distance check
+                if (discoverySystem.isDiscovered(type)) continue;
 
-            const dx = playerPos.x - obj.position.x;
-            const dy = playerPos.y - obj.position.y;
-            const dz = playerPos.z - obj.position.z;
-            const distSq = dx*dx + dy*dy + dz*dz;
+                const dx = playerPos.x - obj.position.x;
+                const dy = playerPos.y - obj.position.y;
+                const dz = playerPos.z - obj.position.z;
+                const distSq = dx*dx + dy*dy + dz*dz;
 
-            if (distSq < DISCOVERY_RADIUS_SQ) {
-                discoverySystem.discover(type, discoveryInfo.name, discoveryInfo.icon);
+                if (distSq < DISCOVERY_RADIUS_SQ) {
+                    discoverySystem.discover(type, discoveryInfo.name, discoveryInfo.icon);
+                }
             }
         }
     }
