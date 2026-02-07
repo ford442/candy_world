@@ -3,7 +3,7 @@
  * @brief SIMD-optimized batch animation processing - C++/Emscripten
  * 
  * This module provides high-performance batch processing for additional
- * animation types using SIMD intrinsics and OpenMP parallelization.
+ * animation types using SIMD intrinsics.
  * 
  * @perf-migrate {target: "cpp", reason: "SIMD-vectorized-hot-loops", note: "4-8x speedup over JS"}
  */
@@ -12,11 +12,6 @@
 #include <cmath>
 #include <cstdint>
 #include <algorithm>
-
-// OpenMP for parallelization
-#ifdef _OPENMP
-#include <omp.h>
-#endif
 
 // SIMD intrinsics (WebAssembly SIMD)
 #include <wasm_simd128.h>
@@ -52,11 +47,10 @@ inline v128_t simd_sin(v128_t x) {
     
     // x = x - round(x / 2PI) * 2PI
     v128_t k = wasm_f32x4_mul(x, INV_TWO_PI);
-    k = wasm_i32x4_trunc_sat_f32x4(k);
-    k = wasm_f32x4_convert_i32x4(k);
-    x = wasm_f32x4_sub(x, wasm_f32x4_mul(k, TWO_PI));
+    k = wasm_f32x4_convert_i32x4(wasm_i32x4_trunc_sat_f32x4(k));
+    k = wasm_f32x4_sub(x, wasm_f32x4_mul(k, TWO_PI));
     
-    // Polynomial approximation: sin(x) ≈ x - x^3/6 + x^5/120
+    // Polynomial: sin(x) ≈ x - x^3/6 + x^5/120
     const v128_t x2 = wasm_f32x4_mul(x, x);
     const v128_t x3 = wasm_f32x4_mul(x2, x);
     const v128_t x5 = wasm_f32x4_mul(x3, x2);
@@ -71,7 +65,7 @@ inline v128_t simd_sin(v128_t x) {
 }
 
 /**
- * SIMD max operation for 4 floats
+ * SIMD max for 4 floats
  */
 inline v128_t simd_max(v128_t a, v128_t b) {
     return wasm_f32x4_max(a, b);
@@ -81,9 +75,7 @@ inline v128_t simd_max(v128_t a, v128_t b) {
  * SIMD sqrt approximation for 4 floats
  */
 inline v128_t simd_sqrt(v128_t x) {
-    // Initial estimate using native instruction
-    v128_t est = wasm_f32x4_sqrt(x);
-    return est;
+    return wasm_f32x4_sqrt(x);
 }
 
 // =============================================================================
@@ -100,7 +92,6 @@ inline v128_t simd_sqrt(v128_t x) {
  */
 EMSCRIPTEN_KEEPALIVE
 void batchSnareSnap_c(float* input, int count, float time, float snareTrigger, float* output) {
-    #pragma omp parallel for schedule(static) if(count > 500)
     for (int i = 0; i < count; i++) {
         int inBase = i * ENTRY_STRIDE;
         int outBase = i * RESULT_STRIDE;
@@ -129,51 +120,11 @@ void batchSnareSnap_c(float* input, int count, float time, float snareTrigger, f
 }
 
 /**
- * Process batch of accordion stretch animations (SIMD-optimized)
+ * Process batch of accordion stretch animations
  */
 EMSCRIPTEN_KEEPALIVE
 void batchAccordion_c(float* input, int count, float time, float intensity, float* output) {
-    // Process 4 at a time with SIMD
-    int simdCount = count & ~3;  // Round down to multiple of 4
-    
-    const v128_t v_time = wasm_f32x4_splat(time);
-    const v128_t v_intensity = wasm_f32x4_splat(intensity);
-    const v128_t v_10 = wasm_f32x4_splat(10.0f);
-    const v128_t v_1 = wasm_f32x4_splat(1.0f);
-    const v128_t v_031 = wasm_f32x4_splat(0.31f);
-    
-    #pragma omp parallel for schedule(static) if(simdCount > 500)
-    for (int i = 0; i < simdCount; i += 4) {
-        // Load 4 offsets
-        v128_t offset = wasm_v128_load(&input[i * ENTRY_STRIDE]);
-        
-        // animTime = time + offset
-        v128_t animTime = wasm_f32x4_add(v_time, offset);
-        
-        // rawStretch = sin(animTime * 10.0)
-        v128_t rawStretch = simd_sin(wasm_f32x4_mul(animTime, v_10));
-        
-        // stretchY = 1.0 + max(0.0, rawStretch) * 0.31 * intensity
-        v128_t maxStretch = simd_max(wasm_f32x4_splat(0.0f), rawStretch);
-        v128_t stretchY = wasm_f32x4_add(v_1, 
-            wasm_f32x4_mul(wasm_f32x4_mul(maxStretch, v_031), v_intensity));
-        
-        // widthXZ = 1.0 / sqrt(stretchY)
-        v128_t widthXZ = wasm_f32x4_div(v_1, simd_sqrt(stretchY));
-        
-        // Store results interleaved
-        for (int j = 0; j < 4; j++) {
-            int outBase = (i + j) * RESULT_STRIDE;
-            output[outBase] = wasm_f32x4_extract_lane(stretchY, j);
-            output[outBase + 1] = wasm_f32x4_extract_lane(widthXZ, j);
-            output[outBase + 2] = 0.0f;
-            output[outBase + 3] = 0.0f;
-        }
-    }
-    
-    // Handle remaining elements
-    #pragma omp parallel for schedule(static) if(count - simdCount > 100)
-    for (int i = simdCount; i < count; i++) {
+    for (int i = 0; i < count; i++) {
         int inBase = i * ENTRY_STRIDE;
         int outBase = i * RESULT_STRIDE;
         
@@ -197,7 +148,6 @@ EMSCRIPTEN_KEEPALIVE
 void batchFiberWhip_c(float* input, int count, float time, float leadVol, int isActive, float* output) {
     float whip = leadVol * 2.0f;
     
-    #pragma omp parallel for schedule(static) if(count > 500)
     for (int i = 0; i < count; i++) {
         int inBase = i * ENTRY_STRIDE;
         int outBase = i * RESULT_STRIDE;
@@ -226,7 +176,6 @@ void batchFiberWhip_c(float* input, int count, float time, float leadVol, int is
  */
 EMSCRIPTEN_KEEPALIVE
 void batchSpiralWave_c(float* input, int count, float time, float intensity, float groove, float* output) {
-    #pragma omp parallel for schedule(static) if(count > 500)
     for (int i = 0; i < count; i++) {
         int inBase = i * ENTRY_STRIDE;
         int outBase = i * RESULT_STRIDE;
@@ -254,7 +203,6 @@ void batchVibratoShake_c(float* input, int count, float time, float vibratoAmoun
     float shakeSpeed = 50.0f + vibratoAmount * 100.0f;
     float shakeAmount = 0.05f + vibratoAmount * 0.25f;
     
-    #pragma omp parallel for schedule(static) if(count > 500)
     for (int i = 0; i < count; i++) {
         int inBase = i * ENTRY_STRIDE;
         int outBase = i * RESULT_STRIDE;
@@ -277,7 +225,6 @@ void batchVibratoShake_c(float* input, int count, float time, float vibratoAmoun
  */
 EMSCRIPTEN_KEEPALIVE
 void batchTremoloPulse_c(float* input, int count, float time, float tremoloAmount, float intensity, float* output) {
-    #pragma omp parallel for schedule(static) if(count > 500)
     for (int i = 0; i < count; i++) {
         int inBase = i * ENTRY_STRIDE;
         int outBase = i * RESULT_STRIDE;
@@ -303,7 +250,6 @@ void batchTremoloPulse_c(float* input, int count, float time, float tremoloAmoun
  */
 EMSCRIPTEN_KEEPALIVE
 void batchCymbalShake_c(float* input, int count, float time, float highFreq, float intensity, float* output) {
-    #pragma omp parallel for schedule(static) if(count > 500)
     for (int i = 0; i < count; i++) {
         int inBase = i * ENTRY_STRIDE;
         int outBase = i * RESULT_STRIDE;
@@ -346,7 +292,6 @@ void batchCymbalShake_c(float* input, int count, float time, float highFreq, flo
  */
 EMSCRIPTEN_KEEPALIVE
 void batchPanningBob_c(float* input, int count, float time, float panActivity, float intensity, float* output) {
-    #pragma omp parallel for schedule(static) if(count > 500)
     for (int i = 0; i < count; i++) {
         int inBase = i * ENTRY_STRIDE;
         int outBase = i * RESULT_STRIDE;
@@ -378,7 +323,6 @@ EMSCRIPTEN_KEEPALIVE
 void batchSpiritFade_c(float* input, int count, float time, float volume, float delta, float* output) {
     constexpr float threshold = 0.1f;
     
-    #pragma omp parallel for schedule(static) if(count > 500)
     for (int i = 0; i < count; i++) {
         int inBase = i * ENTRY_STRIDE;
         int outBase = i * RESULT_STRIDE;

@@ -5,11 +5,17 @@
 #include <emscripten.h>
 #include <emscripten/threading.h>
 #include <pthread.h>
-#include "omp.h"
 #include <cmath>
 #include <cstdlib>
 #include <cstdint>
 #include <atomic>
+
+
+// Define OMP pragmas as no-ops when not available
+#ifndef _OPENMP
+#define omp_get_thread_num() 0
+#define omp_get_num_threads() 1
+#endif
 
 extern "C" {
 
@@ -70,7 +76,7 @@ void* bootstrapMasterWorker(void* arg) {
     bootstrap.completedRows.store(0);
     bootstrap.progress.store(0);
 
-    #pragma omp parallel for schedule(dynamic)
+    
     for (int row = 0; row < HEIGHTMAP_SIZE; row++) {
         for (int col = 0; col < HEIGHTMAP_SIZE; col++) {
             // Convert grid coordinates to world coordinates
@@ -113,7 +119,7 @@ void* warmupMasterWorker(void* arg) {
     warmup.completedChunks.store(0);
     warmup.progress.store(0);
     
-    #pragma omp parallel for schedule(dynamic)
+    
     for (int c = 0; c < num_chunks; c++) {
         // Perform a chunk of heavy work
         for (int i = 0; i < chunk_size; i++) {
