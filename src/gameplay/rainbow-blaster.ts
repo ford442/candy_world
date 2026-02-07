@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { vec3 } from 'three/tsl';
 import { foliageClouds } from '../world/state.ts';
 import { createCandyMaterial } from '../foliage/common.ts';
 import { getCelestialState } from '../core/cycle.ts';
@@ -32,7 +33,7 @@ class ProjectilePool {
         // Projectile colors are tracked in JS and used for impact effects
         const mat = createCandyMaterial(0xFFFFFF);
         // JUICE: Add emissive glow (white glow for all projectiles)
-        mat.emissiveNode = mat.colorNode?.mul(0.5) ?? null;
+        mat.emissiveNode = vec3(0.5, 0.5, 0.5);
 
         this.mesh = new THREE.InstancedMesh(geo, mat, MAX_PROJECTILES);
         this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
