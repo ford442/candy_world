@@ -352,8 +352,8 @@ function processMapEntity(item: MapEntity, weatherSystem: WeatherSystem): void {
         let isObstacle = false;
         let radius = 0.5;
 
-            // --- Basic Types ---
-            if (item.type === 'mushroom') {
+        // --- Basic Types ---
+        if (item.type === 'mushroom') {
                 const isGiant = item.variant === 'giant';
                 const scale = item.scale || 1.0;
                 const hasFace = item.hasFace !== undefined ? item.hasFace : (isGiant || Math.random() < 0.1);
@@ -370,102 +370,102 @@ function processMapEntity(item: MapEntity, weatherSystem: WeatherSystem): void {
                 isObstacle = true;
                 radius = isGiant ? 2.0 : 0.5;
             }
-            else if (item.type === 'flower') {
-                const isGlowing = item.variant === 'glowing';
-                obj = isGlowing ? createGlowingFlower() : createFlower();
-            }
-            else if (item.type === 'cloud') {
-                obj = createRainingCloud({ size: item.size as number || 1.5 });
-            }
-            else if (item.type === 'grass') {
-                addGrassInstance(x, y, z);
-                return;
-            }
-            // ... (Other types elided for brevity, same logic follows) ...
-            else if (item.type === 'subwoofer_lotus') {
-                obj = createSubwooferLotus({ scale: item.scale || 1.0 });
-            }
-            else if (item.type === 'accordion_palm') {
-                obj = createAccordionPalm({ color: 0xFFD700 });
-                isObstacle = true;
-            }
-            else if (item.type === 'fiber_optic_willow') {
-                obj = createFiberOpticWillow();
-                isObstacle = true;
-            }
-            else if (item.type === 'floating_orb') {
-                obj = createFloatingOrb({ size: 0.5 });
-                y += 1.5;
-            }
-            else if (item.type === 'swingable_vine') {
-                obj = createSwingableVine({ length: 8 });
-                y += 8;
-                if (vineSwings) vineSwings.push(new VineSwing(obj, 8));
-            }
-            else if (item.type === 'prism_rose_bush') {
-                obj = createPrismRoseBush();
-                isObstacle = true;
-            }
-            else if (item.type === 'starflower') {
-                obj = createStarflower();
-            }
-            else if (item.type === 'vibrato_violet') {
-                obj = createVibratoViolet();
-            }
-            else if (item.type === 'tremolo_tulip') {
-                obj = createTremoloTulip();
-            }
-            else if (item.type === 'kick_drum_geyser') {
-                obj = createKickDrumGeyser();
-            }
-            // Musical Flora
-            else if (item.type === 'arpeggio_fern') {
-                obj = createArpeggioFern({ scale: item.scale || 1.0 });
-            }
-            else if (item.type === 'portamento_pine') {
-                obj = createPortamentoPine({ height: 4.0 });
-                isObstacle = true;
-            }
-            else if (item.type === 'cymbal_dandelion') {
-                obj = createCymbalDandelion();
-            }
-            else if (item.type === 'snare_trap') {
-                obj = createSnareTrap();
-            }
-            else if (item.type === 'retrigger_mushroom') {
-                obj = createRetriggerMushroom({ scale: item.scale || 1.0 });
-            }
-            else if (item.type === 'panning_pad') {
-                const panBias = x < 0 ? -1 : 1;
-                obj = createPanningPad({ radius: item.scale || 1.0, panBias: panBias });
-                if (y < 2) y = 1.0;
-            }
-            // Spirits
-            else if (item.type === 'silence_spirit') {
-                obj = createSilenceSpirit({ scale: item.scale || 1.0 });
-            }
-            // Instrument Shrines
-            else if (item.type === 'instrument_shrine') {
-                const id = parseInt(item.variant || '0', 10);
-                obj = createInstrumentShrine({ instrumentID: id, scale: item.scale || 1.0 });
-                isObstacle = true;
-                radius = 1.0;
-            }
-            // Trees
-            else if (item.type === 'bubble_willow') {
-                obj = createBubbleWillow();
-                isObstacle = true;
-            }
-            else if (item.type === 'helix_plant') {
-                obj = createHelixPlant();
-            }
-            else if (item.type === 'balloon_bush') {
-                obj = createBalloonBush();
-            }
-            else if (item.type === 'wisteria_cluster') {
-                obj = createWisteriaCluster();
-                y += 4;
-            }
+        else if (item.type === 'flower') {
+            const isGlowing = item.variant === 'glowing';
+            obj = isGlowing ? createGlowingFlower() : createFlower();
+        }
+        else if (item.type === 'cloud') {
+            obj = createRainingCloud({ size: item.size as number || 1.5 });
+        }
+        else if (item.type === 'grass') {
+            addGrassInstance(x, y, z);
+            return;
+        }
+        // ... (Other types elided for brevity, same logic follows) ...
+        else if (item.type === 'subwoofer_lotus') {
+            obj = createSubwooferLotus({ scale: item.scale || 1.0 });
+        }
+        else if (item.type === 'accordion_palm') {
+            obj = createAccordionPalm({ color: 0xFFD700 });
+            isObstacle = true;
+        }
+        else if (item.type === 'fiber_optic_willow') {
+            obj = createFiberOpticWillow();
+            isObstacle = true;
+        }
+        else if (item.type === 'floating_orb') {
+            obj = createFloatingOrb({ size: 0.5 });
+            y += 1.5;
+        }
+        else if (item.type === 'swingable_vine') {
+            obj = createSwingableVine({ length: 8 });
+            y += 8;
+            if (vineSwings) vineSwings.push(new VineSwing(obj, 8));
+        }
+        else if (item.type === 'prism_rose_bush') {
+            obj = createPrismRoseBush();
+            isObstacle = true;
+        }
+        else if (item.type === 'starflower') {
+            obj = createStarflower();
+        }
+        else if (item.type === 'vibrato_violet') {
+            obj = createVibratoViolet();
+        }
+        else if (item.type === 'tremolo_tulip') {
+            obj = createTremoloTulip();
+        }
+        else if (item.type === 'kick_drum_geyser') {
+            obj = createKickDrumGeyser();
+        }
+        // Musical Flora
+        else if (item.type === 'arpeggio_fern') {
+            obj = createArpeggioFern({ scale: item.scale || 1.0 });
+        }
+        else if (item.type === 'portamento_pine') {
+            obj = createPortamentoPine({ height: 4.0 });
+            isObstacle = true;
+        }
+        else if (item.type === 'cymbal_dandelion') {
+            obj = createCymbalDandelion();
+        }
+        else if (item.type === 'snare_trap') {
+            obj = createSnareTrap();
+        }
+        else if (item.type === 'retrigger_mushroom') {
+            obj = createRetriggerMushroom({ scale: item.scale || 1.0 });
+        }
+        else if (item.type === 'panning_pad') {
+            const panBias = x < 0 ? -1 : 1;
+            obj = createPanningPad({ radius: item.scale || 1.0, panBias: panBias });
+            if (y < 2) y = 1.0;
+        }
+        // Spirits
+        else if (item.type === 'silence_spirit') {
+            obj = createSilenceSpirit({ scale: item.scale || 1.0 });
+        }
+        // Instrument Shrines
+        else if (item.type === 'instrument_shrine') {
+            const id = parseInt(item.variant || '0', 10);
+            obj = createInstrumentShrine({ instrumentID: id, scale: item.scale || 1.0 });
+            isObstacle = true;
+            radius = 1.0;
+        }
+        // Trees
+        else if (item.type === 'bubble_willow') {
+            obj = createBubbleWillow();
+            isObstacle = true;
+        }
+        else if (item.type === 'helix_plant') {
+            obj = createHelixPlant();
+        }
+        else if (item.type === 'balloon_bush') {
+            obj = createBalloonBush();
+        }
+        else if (item.type === 'wisteria_cluster') {
+            obj = createWisteriaCluster();
+            y += 4;
+        }
 
         // --- Spawning ---
         if (obj) {
