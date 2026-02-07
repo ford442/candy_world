@@ -298,6 +298,16 @@ function getWeatherForTimeOfDay(cyclePos, audioData) {
     return _weatherBiasOutput;
 }
 
+// 🎨 Palette: Cache HUD Elements
+const hudDash = document.getElementById('ability-dash');
+const hudDashOverlay = hudDash ? hudDash.querySelector('.cooldown-overlay') : null;
+const hudMine = document.getElementById('ability-mine');
+const hudMineOverlay = hudMine ? hudMine.querySelector('.cooldown-overlay') : null;
+
+// Track previous states to avoid DOM thrashing
+let _lastDashReady = null;
+let _lastMineReady = null;
+
 function animate() {
     profiler.startFrame();
 
@@ -629,6 +639,46 @@ function animate() {
 
         updateFallingClouds(delta, foliageClouds, getGroundHeight);
         cloudBatcher.update(delta);
+
+        // 🎨 Palette: Update Ability HUD
+        if (hudDash && hudDashOverlay) {
+            const dashCooldown = player.dashCooldown; // 0..1
+            const dashPct = Math.min(1, Math.max(0, dashCooldown));
+
+            // Only update height if it changed significantly?
+            // Browser optimizes this well, but we can verify.
+            hudDashOverlay.style.height = `${dashPct * 100}%`;
+
+            const isReady = dashPct <= 0;
+            if (isReady !== _lastDashReady) {
+                if (isReady) {
+                    hudDash.classList.add('ready');
+                    hudDash.setAttribute('aria-disabled', 'false');
+                } else {
+                    hudDash.classList.remove('ready');
+                    hudDash.setAttribute('aria-disabled', 'true');
+                }
+                _lastDashReady = isReady;
+            }
+        }
+
+        if (hudMine && hudMineOverlay) {
+            const mineCooldown = jitterMineSystem.cooldownTimer; // 0..1
+            const minePct = Math.min(1, Math.max(0, mineCooldown));
+            hudMineOverlay.style.height = `${minePct * 100}%`;
+
+            const isReady = minePct <= 0;
+            if (isReady !== _lastMineReady) {
+                if (isReady) {
+                    hudMine.classList.add('ready');
+                    hudMine.setAttribute('aria-disabled', 'false');
+                } else {
+                    hudMine.classList.remove('ready');
+                    hudMine.setAttribute('aria-disabled', 'true');
+                }
+                _lastMineReady = isReady;
+            }
+        }
     });
 
     profiler.measure('Render', () => renderer.render(scene, camera));
