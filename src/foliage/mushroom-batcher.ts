@@ -11,8 +11,15 @@ import {
 } from './common.ts';
 import { uTwilight } from './sky.ts';
 import { foliageGroup } from '../world/state.js'; // Assuming state.js exports foliageGroup
+import { spawnImpact } from './impacts.js';
 
 const MAX_MUSHROOMS = 4000;
+
+// Scratch variables to prevent GC
+const _scratchMatrix = new THREE.Matrix4();
+const _scratchPos = new THREE.Vector3();
+const _scratchScale = new THREE.Vector3();
+const _scratchQuat = new THREE.Quaternion();
 
 export class MushroomBatcher {
     private static instance: MushroomBatcher;
@@ -461,7 +468,8 @@ export class MushroomBatcher {
 
         // Rim Light
         // PALETTE: Upgrade to Juicy Rim Light for Neon/Magic feel
-        const rim = createJuicyRimLight(instanceColor, float(0.5), float(2.5));
+        // Softer rim: Intensity 0.4, Power 3.0 (tighter but softer falloff)
+        const rim = createJuicyRimLight(instanceColor, float(0.4), float(3.0));
         capMat.emissiveNode = instanceColor.mul(totalGlow).add(rim);
 
         // 2. Gills
@@ -473,8 +481,11 @@ export class MushroomBatcher {
         // 3. Spots
         const spotMat = foliageMaterials.mushroomSpots.clone();
         spotMat.positionNode = deform(positionLocal);
-        // Spots glow white/bright on flash
-        spotMat.emissiveNode = instanceColor.mul(flashIntensity.add(0.2));
+        // Spots glow white/bright on flash + Pulse (Juice)
+        // Pulse: (0.2 to 0.4) based on time + high freq audio
+        const spotPulse = sin(uTime.mul(3.0)).mul(0.1).add(0.3);
+        const spotAudio = uAudioHigh.mul(0.5); // React to melody
+        spotMat.emissiveNode = instanceColor.mul(flashIntensity.add(spotPulse).add(spotAudio));
 
         // Face Hiding Logic
         // If hasFace < 0.5, scale vertices to 0
@@ -629,6 +640,18 @@ export class MushroomBatcher {
             for (const i of indices) {
                 this.instanceAnim!.setX(i, now);
                 this.instanceAnim!.setY(i, velocity / 127.0); // Normalize velocity
+
+                // PALETTE: Spawn Spores!
+                if (this.mesh) {
+                    this.mesh.getMatrixAt(i, _scratchMatrix);
+                    _scratchMatrix.decompose(_scratchPos, _scratchQuat, _scratchScale);
+
+                    // Offset slightly up (cap height approx 1.0 * scale.y)
+                    _scratchPos.y += 0.8 * _scratchScale.y;
+
+                    // Spawn impact
+                    spawnImpact(_scratchPos, 'spore');
+                }
             }
             this.instanceAnim!.needsUpdate = true;
             // Optim: Use addUpdateRange if indices are contiguous?
