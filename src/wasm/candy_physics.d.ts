@@ -608,6 +608,142 @@ export declare function batchSpiritFade(ptr: number, count: number, time: number
  * @param outPtr `i32`
  */
 export declare function processBatchUniversal(animType: number, ptr: number, count: number, time: number, beatPhase: number, kick: number, groove: number, audioParam: number, outPtr: number): void;
+/** assembly/material_batch/MAX_MATERIALS */
+export declare const MAX_MATERIALS: {
+  /** @type `i32` */
+  get value(): number
+};
+/**
+ * assembly/material_batch/batchMaterialFlash
+ * @param count `i32`
+ * @param fadeSpeed `f32`
+ * @param snapThreshold `f32`
+ * @param flashScale `f32`
+ * @returns `i32`
+ */
+export declare function batchMaterialFlash(count: number, fadeSpeed: number, snapThreshold: number, flashScale: number): number;
+/**
+ * assembly/material_batch/initMaterialEntry
+ * @param index `i32`
+ * @param currentR `f32`
+ * @param currentG `f32`
+ * @param currentB `f32`
+ * @param baseR `f32`
+ * @param baseG `f32`
+ * @param baseB `f32`
+ * @param isBasicMaterial `i32`
+ * @param hasEmissive `i32`
+ */
+export declare function initMaterialEntry(index: number, currentR: number, currentG: number, currentB: number, baseR: number, baseG: number, baseB: number, isBasicMaterial: number, hasEmissive: number): void;
+/**
+ * assembly/material_batch/triggerMaterialFlash
+ * @param index `i32`
+ * @param flashR `f32`
+ * @param flashG `f32`
+ * @param flashB `f32`
+ * @param intensity `f32`
+ */
+export declare function triggerMaterialFlash(index: number, flashR: number, flashG: number, flashB: number, intensity: number): void;
+/**
+ * assembly/material_batch/getMaterialResult
+ * @param index `i32`
+ * @param outPtr `i32`
+ */
+export declare function getMaterialResult(index: number, outPtr: number): void;
+/**
+ * assembly/material_batch/materialNeedsFadeBack
+ * @param index `i32`
+ * @returns `i32`
+ */
+export declare function materialNeedsFadeBack(index: number): number;
+/**
+ * assembly/material_batch/getMaterialFlashIntensity
+ * @param index `i32`
+ * @returns `f32`
+ */
+export declare function getMaterialFlashIntensity(index: number): number;
+/** assembly/discovery/MAX_DISCOVERY_OBJECTS */
+export declare const MAX_DISCOVERY_OBJECTS: {
+  /** @type `i32` */
+  get value(): number
+};
+/** assembly/discovery/DISCOVERY_RADIUS_SQ */
+export declare const DISCOVERY_RADIUS_SQ: {
+  /** @type `f32` */
+  get value(): number
+};
+/**
+ * assembly/discovery/initDiscoverySystem
+ */
+export declare function initDiscoverySystem(): void;
+/**
+ * assembly/discovery/registerDiscoveryObject
+ * @param x `f32`
+ * @param y `f32`
+ * @param z `f32`
+ * @param typeId `i32`
+ * @returns `i32`
+ */
+export declare function registerDiscoveryObject(x: number, y: number, z: number, typeId: number): number;
+/**
+ * assembly/discovery/updateDiscoveryPosition
+ * @param id `i32`
+ * @param x `f32`
+ * @param y `f32`
+ * @param z `f32`
+ */
+export declare function updateDiscoveryPosition(id: number, x: number, y: number, z: number): void;
+/**
+ * assembly/discovery/checkDiscoverySpatial
+ * @param playerX `f32`
+ * @param playerY `f32`
+ * @param playerZ `f32`
+ * @param typeIdFilter `i32`
+ * @returns `i32`
+ */
+export declare function checkDiscoverySpatial(playerX: number, playerY: number, playerZ: number, typeIdFilter: number): number;
+/**
+ * assembly/discovery/batchDiscoveryCheck
+ * @param positionsPtr `i32`
+ * @param count `i32`
+ * @param resultsPtr `i32`
+ */
+export declare function batchDiscoveryCheck(positionsPtr: number, count: number, resultsPtr: number): void;
+/**
+ * assembly/discovery/markDiscovered
+ * @param id `i32`
+ */
+export declare function markDiscovered(id: number): void;
+/**
+ * assembly/discovery/isObjectDiscovered
+ * @param id `i32`
+ * @returns `i32`
+ */
+export declare function isObjectDiscovered(id: number): number;
+/**
+ * assembly/discovery/getDiscoveryTypeId
+ * @param id `i32`
+ * @returns `i32`
+ */
+export declare function getDiscoveryTypeId(id: number): number;
+/**
+ * assembly/discovery/resetAllDiscoveries
+ */
+export declare function resetAllDiscoveries(): void;
+/**
+ * assembly/discovery/getDiscoveryObjectCount
+ * @returns `i32`
+ */
+export declare function getDiscoveryObjectCount(): number;
+/**
+ * assembly/discovery/getUndiscoveredCount
+ * @returns `i32`
+ */
+export declare function getUndiscoveredCount(): number;
+/**
+ * assembly/discovery/incrementDiscoveryFrame
+ */
+export declare function incrementDiscoveryFrame(): void;
 /**
  * assembly/batch/analyzeMaterials
  * @param materialPtr `i32`

@@ -20,6 +20,7 @@ import {
 import { validateFoliageMaterials } from '../foliage/common.ts';
 import { CONFIG } from '../core/config.ts';
 import { registerPhysicsCave } from '../systems/physics.ts';
+import { initDiscoveryForFoliage } from '../systems/discovery-optimized.ts';
 import {
     animatedFoliage, obstacles, foliageGroup, foliageMushrooms,
     foliageClouds, foliageTrampolines, foliagePanningPads, vineSwings, worldGroup
@@ -338,6 +339,10 @@ export async function generateMap(
 
     // --- Populate Procedural Extras ---
     await populateProceduralExtras(weatherSystem, chunkSize, onProgress);
+    
+    // --- Initialize Discovery System with Spatial Grid ---
+    // OPTIMIZATION: O(1) spatial lookups instead of O(N) distance checks
+    initDiscoveryForFoliage(animatedFoliage);
     
     console.log("[World] Map generation complete!");
 }
