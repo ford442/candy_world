@@ -26,6 +26,10 @@ import {
 } from './state.ts';
 import mapData from '../../assets/map.json';
 
+// Performance constants for async generation
+export const DEFAULT_MAP_CHUNK_SIZE = 100;        // Map entities per chunk
+export const DEFAULT_PROCEDURAL_CHUNK_SIZE = 100; // Procedural extras per chunk
+
 // Type definitions for map data
 interface MapEntity {
     type: string;
@@ -193,9 +197,13 @@ export function initWorld(scene: THREE.Scene, weatherSystem: WeatherSystem, load
     // Add the main world group (containing all generated foliage) to the scene
     scene.add(worldGroup);
 
-    // Generate Content if requested
+    // Generate Content if requested (Note: currently disabled in main.js, generation happens on button click)
     if (loadContent) {
-        generateMap(weatherSystem);
+        // This is now async but we're not awaiting it here
+        // If this code path is used in the future, consider making initWorld async
+        generateMap(weatherSystem).catch(err => {
+            console.error('[World] Failed to generate map:', err);
+        });
     }
 
     return { sky, moon, ground };
@@ -277,26 +285,79 @@ function isPositionValid(x: number, z: number, radius: number): boolean {
 
 // --- MAP GENERATION ---
 
-export function generateMap(weatherSystem: WeatherSystem): void {
+/**
+ * Async map generation that processes entities in chunks to prevent UI freeze
+ * @param weatherSystem The weather system to register entities with
+ * @param chunkSize Number of entities to process per frame (default: 100)
+ * @param onProgress Optional callback for progress updates
+ */
+export async function generateMap(
+    weatherSystem: WeatherSystem, 
+    chunkSize: number = DEFAULT_MAP_CHUNK_SIZE,
+    onProgress?: (current: number, total: number) => void
+): Promise<void> {
     console.log(`[World] Loading map with ${mapData.length} entities...`);
 
     // Reset WASM Collision System for Generation Phase
     initCollisionSystem();
 
-    (mapData as MapEntity[]).forEach(item => {
-        const [x, yInput, z] = item.position;
-        // USE UNIFIED HEIGHT for placement
-        const groundY = getUnifiedGroundHeight(x, z);
-        let y = groundY;
-        if (item.type === 'cloud') y = yInput;
+    const entities = mapData as MapEntity[];
+    const total = entities.length;
+    
+    // Process entities in chunks to prevent blocking
+    for (let i = 0; i < total; i += chunkSize) {
+        const chunk = entities.slice(i, Math.min(i + chunkSize, total));
+        
+        // Process this chunk
+        chunk.forEach(item => {
+            processMapEntity(item, weatherSystem);
+        });
+        
+        // Report progress
+        if (onProgress) {
+            onProgress(Math.min(i + chunkSize, total), total);
+        }
+        
+        // Yield control back to browser
+        await new Promise(resolve => setTimeout(resolve, 0));
+    }
 
-        try {
-            let obj: THREE.Object3D | null = null;
-            let isObstacle = false;
-            let radius = 0.5;
+    // --- Spawn The Cave (after map entities) ---
+    const cave = createCaveEntrance({ scale: 2.0 });
+    const caveX = 25;
+    const caveZ = 25;
+    const caveY = getUnifiedGroundHeight(caveX, caveZ);
+    cave.position.set(caveX, caveY, caveZ);
+    cave.lookAt(0, caveY, 0);
+    safeAddFoliage(cave, false, 0, weatherSystem);
+    console.log("[World] Cave spawned at ", caveX, caveZ, " Height:", caveY);
 
-            // --- Basic Types ---
-            if (item.type === 'mushroom') {
+    // --- Populate Lake Island with Musical Flora ---
+    populateLakeIsland(weatherSystem);
+
+    // --- Populate Procedural Extras ---
+    await populateProceduralExtras(weatherSystem, chunkSize, onProgress);
+    
+    console.log("[World] Map generation complete!");
+}
+
+/**
+ * Process a single map entity (extracted from forEach loop for chunking)
+ */
+function processMapEntity(item: MapEntity, weatherSystem: WeatherSystem): void {
+    const [x, yInput, z] = item.position;
+    // USE UNIFIED HEIGHT for placement
+    const groundY = getUnifiedGroundHeight(x, z);
+    let y = groundY;
+    if (item.type === 'cloud') y = yInput;
+
+    try {
+        let obj: THREE.Object3D | null = null;
+        let isObstacle = false;
+        let radius = 0.5;
+
+        // --- Basic Types ---
+        if (item.type === 'mushroom') {
                 const isGiant = item.variant === 'giant';
                 const scale = item.scale || 1.0;
                 const hasFace = item.hasFace !== undefined ? item.hasFace : (isGiant || Math.random() < 0.1);
@@ -313,134 +374,116 @@ export function generateMap(weatherSystem: WeatherSystem): void {
                 isObstacle = true;
                 radius = isGiant ? 2.0 : 0.5;
             }
-            else if (item.type === 'flower') {
-                const isGlowing = item.variant === 'glowing';
-                obj = isGlowing ? createGlowingFlower() : createFlower();
-            }
-            else if (item.type === 'cloud') {
-                obj = createRainingCloud({ size: item.size as number || 1.5 });
-            }
-            else if (item.type === 'grass') {
-                addGrassInstance(x, y, z);
-                return;
-            }
-            // ... (Other types elided for brevity, same logic follows) ...
-            else if (item.type === 'subwoofer_lotus') {
-                obj = createSubwooferLotus({ scale: item.scale || 1.0 });
-            }
-            else if (item.type === 'accordion_palm') {
-                obj = createAccordionPalm({ color: 0xFFD700 });
-                isObstacle = true;
-            }
-            else if (item.type === 'fiber_optic_willow') {
-                obj = createFiberOpticWillow();
-                isObstacle = true;
-            }
-            else if (item.type === 'floating_orb') {
-                obj = createFloatingOrb({ size: 0.5 });
-                y += 1.5;
-            }
-            else if (item.type === 'swingable_vine') {
-                obj = createSwingableVine({ length: 8 });
-                y += 8;
-                if (vineSwings) vineSwings.push(new VineSwing(obj, 8));
-            }
-            else if (item.type === 'prism_rose_bush') {
-                obj = createPrismRoseBush();
-                isObstacle = true;
-            }
-            else if (item.type === 'starflower') {
-                obj = createStarflower();
-            }
-            else if (item.type === 'vibrato_violet') {
-                obj = createVibratoViolet();
-            }
-            else if (item.type === 'tremolo_tulip') {
-                obj = createTremoloTulip();
-            }
-            else if (item.type === 'kick_drum_geyser') {
-                obj = createKickDrumGeyser();
-            }
-            // Musical Flora
-            else if (item.type === 'arpeggio_fern') {
-                obj = createArpeggioFern({ scale: item.scale || 1.0 });
-            }
-            else if (item.type === 'portamento_pine') {
-                obj = createPortamentoPine({ height: 4.0 });
-                isObstacle = true;
-            }
-            else if (item.type === 'cymbal_dandelion') {
-                obj = createCymbalDandelion();
-            }
-            else if (item.type === 'snare_trap') {
-                obj = createSnareTrap();
-            }
-            else if (item.type === 'retrigger_mushroom') {
-                obj = createRetriggerMushroom({ scale: item.scale || 1.0 });
-            }
-            else if (item.type === 'panning_pad') {
-                const panBias = x < 0 ? -1 : 1;
-                obj = createPanningPad({ radius: item.scale || 1.0, panBias: panBias });
-                if (y < 2) y = 1.0;
-            }
-            // Spirits
-            else if (item.type === 'silence_spirit') {
-                obj = createSilenceSpirit({ scale: item.scale || 1.0 });
-            }
-            // Instrument Shrines
-            else if (item.type === 'instrument_shrine') {
-                const id = parseInt(item.variant || '0', 10);
-                obj = createInstrumentShrine({ instrumentID: id, scale: item.scale || 1.0 });
-                isObstacle = true;
-                radius = 1.0;
-            }
-            // Trees
-            else if (item.type === 'bubble_willow') {
-                obj = createBubbleWillow();
-                isObstacle = true;
-            }
-            else if (item.type === 'helix_plant') {
-                obj = createHelixPlant();
-            }
-            else if (item.type === 'balloon_bush') {
-                obj = createBalloonBush();
-            }
-            else if (item.type === 'wisteria_cluster') {
-                obj = createWisteriaCluster();
-                y += 4;
-            }
-
-            // --- Spawning ---
-            if (obj) {
-                obj.position.set(x, y, z);
-                obj.rotation.y = Math.random() * Math.PI * 2;
-                if (item.scale && item.type !== 'mushroom' && item.type !== 'flower') {
-                    obj.scale.setScalar(item.scale);
-                }
-                safeAddFoliage(obj, isObstacle, radius, weatherSystem);
-            }
-
-        } catch (e) {
-            console.warn(`[World] Failed to spawn ${item.type} at ${x},${z}`, e);
+        else if (item.type === 'flower') {
+            const isGlowing = item.variant === 'glowing';
+            obj = isGlowing ? createGlowingFlower() : createFlower();
         }
-    });
+        else if (item.type === 'cloud') {
+            obj = createRainingCloud({ size: item.size as number || 1.5 });
+        }
+        else if (item.type === 'grass') {
+            addGrassInstance(x, y, z);
+            return;
+        }
+        // ... (Other types elided for brevity, same logic follows) ...
+        else if (item.type === 'subwoofer_lotus') {
+            obj = createSubwooferLotus({ scale: item.scale || 1.0 });
+        }
+        else if (item.type === 'accordion_palm') {
+            obj = createAccordionPalm({ color: 0xFFD700 });
+            isObstacle = true;
+        }
+        else if (item.type === 'fiber_optic_willow') {
+            obj = createFiberOpticWillow();
+            isObstacle = true;
+        }
+        else if (item.type === 'floating_orb') {
+            obj = createFloatingOrb({ size: 0.5 });
+            y += 1.5;
+        }
+        else if (item.type === 'swingable_vine') {
+            obj = createSwingableVine({ length: 8 });
+            y += 8;
+            if (vineSwings) vineSwings.push(new VineSwing(obj, 8));
+        }
+        else if (item.type === 'prism_rose_bush') {
+            obj = createPrismRoseBush();
+            isObstacle = true;
+        }
+        else if (item.type === 'starflower') {
+            obj = createStarflower();
+        }
+        else if (item.type === 'vibrato_violet') {
+            obj = createVibratoViolet();
+        }
+        else if (item.type === 'tremolo_tulip') {
+            obj = createTremoloTulip();
+        }
+        else if (item.type === 'kick_drum_geyser') {
+            obj = createKickDrumGeyser();
+        }
+        // Musical Flora
+        else if (item.type === 'arpeggio_fern') {
+            obj = createArpeggioFern({ scale: item.scale || 1.0 });
+        }
+        else if (item.type === 'portamento_pine') {
+            obj = createPortamentoPine({ height: 4.0 });
+            isObstacle = true;
+        }
+        else if (item.type === 'cymbal_dandelion') {
+            obj = createCymbalDandelion();
+        }
+        else if (item.type === 'snare_trap') {
+            obj = createSnareTrap();
+        }
+        else if (item.type === 'retrigger_mushroom') {
+            obj = createRetriggerMushroom({ scale: item.scale || 1.0 });
+        }
+        else if (item.type === 'panning_pad') {
+            const panBias = x < 0 ? -1 : 1;
+            obj = createPanningPad({ radius: item.scale || 1.0, panBias: panBias });
+            if (y < 2) y = 1.0;
+        }
+        // Spirits
+        else if (item.type === 'silence_spirit') {
+            obj = createSilenceSpirit({ scale: item.scale || 1.0 });
+        }
+        // Instrument Shrines
+        else if (item.type === 'instrument_shrine') {
+            const id = parseInt(item.variant || '0', 10);
+            obj = createInstrumentShrine({ instrumentID: id, scale: item.scale || 1.0 });
+            isObstacle = true;
+            radius = 1.0;
+        }
+        // Trees
+        else if (item.type === 'bubble_willow') {
+            obj = createBubbleWillow();
+            isObstacle = true;
+        }
+        else if (item.type === 'helix_plant') {
+            obj = createHelixPlant();
+        }
+        else if (item.type === 'balloon_bush') {
+            obj = createBalloonBush();
+        }
+        else if (item.type === 'wisteria_cluster') {
+            obj = createWisteriaCluster();
+            y += 4;
+        }
 
-    // --- NEW: Spawn The Cave ---
-    const cave = createCaveEntrance({ scale: 2.0 });
-    const caveX = 25;
-    const caveZ = 25;
-    // USE UNIFIED HEIGHT so Cave doesn't float over the lake
-    const caveY = getUnifiedGroundHeight(caveX, caveZ);
+        // --- Spawning ---
+        if (obj) {
+            obj.position.set(x, y, z);
+            obj.rotation.y = Math.random() * Math.PI * 2;
+            if (item.scale && item.type !== 'mushroom' && item.type !== 'flower') {
+                obj.scale.setScalar(item.scale);
+            }
+            safeAddFoliage(obj, isObstacle, radius, weatherSystem);
+        }
 
-    cave.position.set(caveX, caveY, caveZ);
-    cave.lookAt(0, caveY, 0);
-    safeAddFoliage(cave, false, 0, weatherSystem);
-    console.log("[World] Cave spawned at ", caveX, caveZ, " Height:", caveY);
-
-    // --- NEW: Populate Lake Island with Musical Flora ---
-    populateLakeIsland(weatherSystem);
-
-    populateProceduralExtras(weatherSystem);
+    } catch (e) {
+        console.warn(`[World] Failed to spawn ${item.type} at ${x},${z}`, e);
+    }
 }
 
 /**
@@ -552,7 +595,11 @@ function populateLakeIsland(weatherSystem: WeatherSystem): void {
     console.log(`[World] Lake Island populated with musical flora at (${centerX}, ${centerZ})`);
 }
 
-function populateProceduralExtras(weatherSystem: WeatherSystem): void {
+async function populateProceduralExtras(
+    weatherSystem: WeatherSystem,
+    chunkSize: number = DEFAULT_PROCEDURAL_CHUNK_SIZE,
+    onProgress?: (current: number, total: number) => void
+): Promise<void> {
     console.log("[World] Populating procedural extras...");
     if ((window as any).setLoadingStatus) (window as any).setLoadingStatus("Growing Procedural Flora...");
     const extrasCount = 400;
@@ -651,20 +698,35 @@ function populateProceduralExtras(weatherSystem: WeatherSystem): void {
                  // Float high up
                  obj.position.set(x, groundY + 15 + Math.random() * 10, z);
              }
-             else {
-                 const id = Math.floor(Math.random() * 16);
-                 obj = createInstrumentShrine({ instrumentID: id });
-                 obj.position.set(x, groundY, z);
-                 isObstacle = true;
-            }
-
-            if (obj) {
-                obj.rotation.y = Math.random() * Math.PI * 2;
-                safeAddFoliage(obj, isObstacle, radius, weatherSystem);
-            }
-        } catch (e) {
-            console.warn(`[World] Failed to spawn procedural extra at ${x},${z}`, e);
+         else {
+             const id = Math.floor(Math.random() * 16);
+             obj = createInstrumentShrine({ instrumentID: id });
+             obj.position.set(x, groundY, z);
+             isObstacle = true;
         }
+
+        if (obj) {
+            obj.rotation.y = Math.random() * Math.PI * 2;
+            safeAddFoliage(obj, isObstacle, radius, weatherSystem);
+        }
+        
+        // Report progress and yield every chunkSize items
+        if ((i + 1) % chunkSize === 0) {
+            if (onProgress) {
+                onProgress(Math.min(i + 1, extrasCount), extrasCount);
+            }
+            // Yield control back to browser
+            await new Promise(resolve => setTimeout(resolve, 0));
+        }
+    } catch (e) {
+        console.warn(`[World] Failed to spawn procedural extra at ${x},${z}`, e);
     }
+}
+
+    // Report final progress if we didn't just report it
+    if (onProgress && extrasCount % chunkSize !== 0) {
+        onProgress(extrasCount, extrasCount);
+    }
+
     console.log("[World] Finished populating procedural extras.");
 }
