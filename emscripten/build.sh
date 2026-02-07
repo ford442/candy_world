@@ -171,6 +171,27 @@ declare -A ANIMATION_FUNCTIONS=(
     ["batchCalcSpiralWave"]="batch"
     ["batchCalcWobble"]="batch"
     
+    # New batch animation functions (animation_batch.cpp)
+    ["batchSnareSnap_c"]="animation_batch"
+    ["batchAccordion_c"]="animation_batch"
+    ["batchFiberWhip_c"]="animation_batch"
+    ["batchSpiralWave_c"]="animation_batch"
+    ["batchVibratoShake_c"]="animation_batch"
+    ["batchTremoloPulse_c"]="animation_batch"
+    ["batchCymbalShake_c"]="animation_batch"
+    ["batchPanningBob_c"]="animation_batch"
+    ["batchSpiritFade_c"]="animation_batch"
+    ["processBatchUniversal_c"]="animation_batch"
+    
+    # Mesh deformation functions (mesh_deformation.cpp)
+    ["deformMeshWave"]="mesh_deformation"
+    ["deformMeshJiggle"]="mesh_deformation"
+    ["deformMeshWobble"]="mesh_deformation"
+    ["recomputeNormals"]="mesh_deformation"
+    ["batchDeformMeshes"]="mesh_deformation"
+    ["getDeformBatchSize"]="mesh_deformation"
+    ["hasSIMDSupport"]="mesh_deformation"
+    
     # Bootstrap functions (bootstrap_loader.cpp)
     ["startBootstrapInit"]="bootstrap"
     ["getBootstrapProgress"]="bootstrap"

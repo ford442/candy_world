@@ -146,7 +146,13 @@ export class LanternBatcher {
         const params = attribute('instanceParams', 'vec4');
         const height = params.x;
         const spawnTime = params.w;
-        const colorAttr = attribute('instanceColor', 'vec3');
+        // FIX: Use conditional attribute to avoid "instanceColor not found" warning
+        // The attribute() function throws warnings if the attribute doesn't exist
+        // We use a uniform fallback when instanceColor is not available
+        const hasInstanceColor = this.instanceColor && this.instanceColor.count > 0;
+        const colorAttr = hasInstanceColor 
+            ? attribute('instanceColor', 'vec3')
+            : vec3(1.0, 1.0, 1.0); // Default white if no instance color
 
         // Pop-In Logic (Scale from 0)
         const age = uTime.sub(spawnTime);

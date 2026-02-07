@@ -287,7 +287,9 @@ export class MusicReactivitySystem {
             }
 
             // Flush batched updates to GPU
-            foliageBatcher.flush(camera, time);
+            // Pass audioState for extended animation batching (Phase 1 migration)
+            const kick = audioState?.kickTrigger || 0;
+            foliageBatcher.flush(time, kick, audioState);
 
             // Update Arpeggio Batcher
             arpeggioFernBatcher.update(audioState);

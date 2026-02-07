@@ -28,3 +28,20 @@ export {
     uAudioColor,
     updateAudioReactiveMaterials
 } from './materials.ts';
+
+// WebGPU limits and fallback handling
+export {
+    getWebGPULimits,
+    clearWebGPULimitsCache,
+    supportsComplexInstancing,
+    supportsBasicInstancing,
+    createMaterialWithFallback,
+    simplifyMaterial,
+    isVertexBufferLimitError,
+    WebGPUPipelineErrorHandler,
+    pipelineErrorHandler,
+    estimateVertexBufferUsage,
+    logVertexBufferUsage,
+    type WebGPULimits,
+    type MaterialFallbackOptions
+} from './webgpu-limits.ts';

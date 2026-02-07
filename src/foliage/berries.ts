@@ -10,7 +10,19 @@ import { uChromaticIntensity } from './chromatic.js';
 
 // Define StorageBufferAttribute locally if it's missing from types or not exported
 // In this case, we use `attribute` helper from TSL which returns a Node.
-const instanceColor = attribute('instanceColor', 'vec3');
+// FIX: Make instanceColor lazy to avoid "attribute not found" warning at module load
+let _instanceColorNode: Node | null = null;
+function getInstanceColorNode(): Node {
+    if (!_instanceColorNode) {
+        try {
+            _instanceColorNode = attribute('instanceColor', 'vec3');
+        } catch (e) {
+            // Fallback to white if attribute doesn't exist
+            _instanceColorNode = vec3(1.0, 1.0, 1.0);
+        }
+    }
+    return _instanceColorNode;
+}
 
 // --- Reusable Scratch Variables ---
 const _scratchWorldPos = new THREE.Vector3();
@@ -302,7 +314,7 @@ export function initFallingBerries(scene: THREE.Scene): void {
 
     // Create a TSL material for falling berries with Instance Color support
     const uFallingGlow = uniform(float(0.8)); // Bright when falling
-    const material = createHeartbeatMaterial(instanceColor, uFallingGlow);
+    const material = createHeartbeatMaterial(getInstanceColorNode(), uFallingGlow);
 
     fallingBerryMesh = new THREE.InstancedMesh(berryGeo, material, MAX_FALLING_BERRIES);
     fallingBerryMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
