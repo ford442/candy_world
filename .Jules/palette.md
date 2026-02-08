@@ -43,3 +43,7 @@
 ## 2026-07-28 - Visualizing Ability Cooldowns
 **Learning:** Players often fail to use abilities like Dash or Mines because they lack visual feedback on when they are ready. Relying solely on internal timers or audio cues creates cognitive load and frustration.
 **Action:** Implement always-visible HUD elements for key abilities that include both iconographic representation and dynamic cooldown overlays, synchronized with the game loop state.
+
+## 2026-08-01 - Volume Button Focus Preservation
+**Learning:** The native `disabled` attribute removes elements from the focus order, causing disorientation for keyboard users when a button (like Volume Down) becomes disabled after activation.
+**Action:** Use `aria-disabled="true"` with custom CSS styling to create a "soft disabled" state that preserves focus. Ensure associated click handlers explicitly check this attribute to prevent unwanted actions.
