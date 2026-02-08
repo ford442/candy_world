@@ -41,17 +41,9 @@ export function createCloud(options: CloudOptions = {}): THREE.Group {
     group.userData.originalScale = new THREE.Vector3(1.4, 1.0, 1.2);
     group.scale.copy(group.userData.originalScale);
 
-    group.userData.animOffset = Math.random() * 100;
-
-    // Animation Logic (Called by Batcher or Physics)
-    (group as any).onAnimate = (delta: number, time: number) => {
-        const t = time + group.userData.animOffset;
-        // Float animation logic
-        // We modify the group's local transform, which the Batcher then reads
-        group.position.y += Math.sin(t * 0.5) * 0.05 * delta;
-        group.rotation.y += Math.cos(t * 0.1) * 0.02 * delta;
-    };
-    group.userData.onAnimate = (group as any).onAnimate;
+    // ⚡ OPTIMIZATION: Removed CPU-side floating animation
+    // Floating is now handled by TSL vertex shader in cloud-batcher.ts
+    // This allows the CloudBatcher to skip matrix updates for static clouds
 
     // Register with Batcher on Placement (World Generation)
     group.userData.onPlacement = () => {
