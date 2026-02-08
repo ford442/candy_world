@@ -69,7 +69,15 @@ function createCloudMaterial() {
     // Apply Fluff Displacement along Normal
     const fluffOffset = normalLocal.mul(shapeNoise.mul(displacementStrength));
 
-    material.positionNode = squishedPos.add(fluffOffset);
+    // ⚡ OPTIMIZATION: TSL Floating Animation (Replaces CPU update)
+    // Use world X/Z as phase seed for coherent bobbing
+    const floatSpeed = float(0.5);
+    const floatAmp = float(0.5);
+    const worldPhase = positionWorld.x.mul(0.05).add(positionWorld.z.mul(0.05));
+    const floatOffset = sin(uTime.mul(floatSpeed).add(worldPhase)).mul(floatAmp);
+    const floatDisp = vec3(0.0, floatOffset, 0.0);
+
+    material.positionNode = squishedPos.add(fluffOffset).add(floatDisp);
 
     // 4. Surface Detail (Triplanar Noise for "Cotton" Texture)
     // Adds high-frequency noise to Roughness and slightly to Color
@@ -209,6 +217,10 @@ export class CloudBatcher {
         cloudGroup.userData.batchStart = startIndex;
         cloudGroup.userData.batchCount = puffCount;
 
+        // ⚡ OPTIMIZATION: Pre-allocate state for dirty checking
+        cloudGroup.userData.lastPos = new THREE.Vector3().copy(cloudGroup.position);
+        cloudGroup.userData.lastRot = new THREE.Euler().copy(cloudGroup.rotation);
+
         this.clouds.push(cloudGroup);
 
         // Initial Update
@@ -238,8 +250,8 @@ export class CloudBatcher {
         let needsUpdate = false;
 
         // Iterate over clouds
-        // ⚡ OPTIMIZATION: Only update moving clouds?
-        // For now, update all as they all have sine animation or physics
+        // ⚡ OPTIMIZATION: Only update moving clouds (e.g. falling or dragged)
+        // Static clouds are now animated via TSL (Vertex Shader)
         for (const cloud of this.clouds) {
             // Run Cloud Logic (Sine Wave / Falling)
             // Note: updateFallingClouds in clouds.js handles falling physics on cloud.position externally.
@@ -248,9 +260,23 @@ export class CloudBatcher {
                 cloud.userData.onAnimate(delta, uTime.value);
             }
 
-            // Sync Visuals
-            this.updateCloudInstance(cloud);
-            needsUpdate = true;
+            // Check for Movement
+            // ⚡ OPTIMIZATION: Dirty check against last frame's transform
+            // Only update matrix buffer if cloud actually moved (physics/drag)
+            // Floating animation is handled by TSL Vertex Shader
+            if (cloud.userData.lastPos) {
+                 const moved = cloud.position.distanceToSquared(cloud.userData.lastPos) > 0.0001;
+                 const rotated = Math.abs(cloud.rotation.x - cloud.userData.lastRot.x) > 0.001 ||
+                                 Math.abs(cloud.rotation.y - cloud.userData.lastRot.y) > 0.001 ||
+                                 Math.abs(cloud.rotation.z - cloud.userData.lastRot.z) > 0.001;
+
+                 if (moved || rotated) {
+                     cloud.userData.lastPos.copy(cloud.position);
+                     cloud.userData.lastRot.copy(cloud.rotation);
+                     this.updateCloudInstance(cloud);
+                     needsUpdate = true;
+                 }
+            }
         }
 
         if (needsUpdate) {
