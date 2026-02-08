@@ -18,25 +18,20 @@ const IMPACT_CONFIG = {
     snare: { count: 25 },
     mist: { count: 20 },
     rain: { count: 30 },
+    spore: { count: 10 },
     trail: { count: 1 },
-    muzzle: { count: 10 },
-    spore: { count: 12 }
+    muzzle: { count: 5 } // Fast burst
 };
 
 export function createImpactSystem() {
-    // 1. Geometry: "Candy Crumb" (Low Poly Sphere)
-    // Icosahedron with detail 0 = 20 faces. Perfect for crunchy particles.
-    const geometry = new THREE.IcosahedronGeometry(0.15, 0);
+    if (_impactMesh) return _impactMesh;
 
-    // 2. Material (TSL)
-    // OPTIMIZATION: Pack all attributes into 'instanceMatrix' to save buffers
-    // instanceMatrix is 4x4, giving us 4 vec4 columns (16 floats per instance).
-    // Layout:
-    // Col 0: spawnPosition.xyz, birthTime
-    // Col 1: velocity.xyz, lifeSpan
-    // Col 2: color.rgb, size
-    // Col 3: rotationAxis.xyz, gravityScale
+    // Candy Crumbs Geometry
+    // OPTIMIZATION: Use Icosahedron (low poly) instead of Sphere
+    // Fixes WebGPU pointUV issue and allows rotation
+    const geometry = new THREE.IcosahedronGeometry(0.1, 0);
 
+    // JUICE: Custom TSL Material for particles
     const mat = new MeshStandardNodeMaterial({
         color: 0xFFFFFF,
         roughness: 0.4,
@@ -46,28 +41,25 @@ export function createImpactSystem() {
     });
 
     // --- TSL LOGIC ---
-    // Retrieve the matrix attribute. Note: This assumes the material doesn't apply
-    // the default instance transform because we override positionNode below.
-    const instanceMat = attribute('instanceMatrix', 'mat4');
-
-    // Extract columns using basis vectors
-    const col0 = instanceMat.mul(vec4(1, 0, 0, 0));
-    const col1 = instanceMat.mul(vec4(0, 1, 0, 0));
-    const col2 = instanceMat.mul(vec4(0, 0, 1, 0));
-    const col3 = instanceMat.mul(vec4(0, 0, 0, 1));
+    // Use dedicated attributes instead of packing into instanceMatrix
+    // This fixes "AttributeNode: Vertex attribute 'instanceMatrix' not found" error
+    const aSpawn = attribute('aSpawn', 'vec4');
+    const aVelocity = attribute('aVelocity', 'vec4');
+    const aColor = attribute('aColor', 'vec4');
+    const aMisc = attribute('aMisc', 'vec4');
 
     // Map to logic variables
-    const spawnPos = col0.xyz;
-    const birthTime = col0.w;
+    const spawnPos = aSpawn.xyz;
+    const birthTime = aSpawn.w;
     
-    const velocity = col1.xyz;
-    const lifeSpan = col1.w;
+    const velocity = aVelocity.xyz;
+    const lifeSpan = aVelocity.w;
 
-    const colorAttr = col2.rgb;
-    const sizeAttr = col2.w;
+    const colorAttr = aColor.rgb;
+    const sizeAttr = aColor.w;
 
-    const rotAxis = col3.xyz;
-    const gravityScale = col3.w;
+    const rotAxis = aMisc.xyz;
+    const gravityScale = aMisc.w;
 
     // Age & Progress
     const age = uTime.sub(birthTime);
@@ -117,18 +109,33 @@ export function createImpactSystem() {
     _impactMesh.receiveShadow = false;
     _impactMesh.frustumCulled = false;
     _impactMesh.userData.isImpactSystem = true;
+
+    // Custom Attributes for TSL
+    const spawnArray = new Float32Array(MAX_PARTICLES * 4);
+    const velArray = new Float32Array(MAX_PARTICLES * 4);
+    const colorArray = new Float32Array(MAX_PARTICLES * 4);
+    const miscArray = new Float32Array(MAX_PARTICLES * 4);
+
+    _impactMesh.geometry.setAttribute('aSpawn', new THREE.InstancedBufferAttribute(spawnArray, 4));
+    _impactMesh.geometry.setAttribute('aVelocity', new THREE.InstancedBufferAttribute(velArray, 4));
+    _impactMesh.geometry.setAttribute('aColor', new THREE.InstancedBufferAttribute(colorArray, 4));
+    _impactMesh.geometry.setAttribute('aMisc', new THREE.InstancedBufferAttribute(miscArray, 4));
+
+    // Set usage
+    _impactMesh.geometry.getAttribute('aSpawn').setUsage(THREE.DynamicDrawUsage);
+    _impactMesh.geometry.getAttribute('aVelocity').setUsage(THREE.DynamicDrawUsage);
+    _impactMesh.geometry.getAttribute('aColor').setUsage(THREE.DynamicDrawUsage);
+    _impactMesh.geometry.getAttribute('aMisc').setUsage(THREE.DynamicDrawUsage);
     
     // Disable raycasting as the geometry doesn't match the matrix
     _impactMesh.raycast = () => {};
 
     // Initialize Birth Times to -1000 (Dead)
-    // Layout: Col 0 W component (Index 3, 19, 35...)
-    const array = _impactMesh.instanceMatrix.array;
     for (let i = 0; i < MAX_PARTICLES; i++) {
-        // Stride 16. BirthTime is at offset 3.
-        array[i * 16 + 3] = -1000.0;
+        spawnArray[i * 4 + 3] = -1000.0;
     }
-    _impactMesh.instanceMatrix.needsUpdate = true;
+    _impactMesh.geometry.getAttribute('aSpawn').needsUpdate = true;
+    _impactMesh.instanceMatrix.needsUpdate = true; // Still needed for internal consistency
 
     return _impactMesh;
 }
@@ -136,8 +143,16 @@ export function createImpactSystem() {
 export function spawnImpact(pos, type = 'jump', options = {}) {
     if (!_impactMesh) return;
 
-    // Use the single instanceMatrix buffer
-    const array = _impactMesh.instanceMatrix.array;
+    const spawnAttr = _impactMesh.geometry.getAttribute('aSpawn');
+    const velAttr = _impactMesh.geometry.getAttribute('aVelocity');
+    const colorAttr = _impactMesh.geometry.getAttribute('aColor');
+    const miscAttr = _impactMesh.geometry.getAttribute('aMisc');
+
+    const spawnArray = spawnAttr.array;
+    const velArray = velAttr.array;
+    const colorArray = colorAttr.array;
+    const miscArray = miscAttr.array;
+
     const config = IMPACT_CONFIG[type] || IMPACT_CONFIG.jump;
     const count = config.count;
     const now = (uTime.value !== undefined) ? uTime.value : performance.now() / 1000;
@@ -148,18 +163,18 @@ export function spawnImpact(pos, type = 'jump', options = {}) {
     for (let i = 0; i < count; i++) {
         const idx = _head;
         _head = (_head + 1) % MAX_PARTICLES;
-        const offset = idx * 16;
+        const offset = idx * 4;
 
         // Spawn Position (Randomized slightly)
         const ox = (Math.random() - 0.5) * 0.5;
         const oy = (Math.random() - 0.5) * 0.5;
         const oz = (Math.random() - 0.5) * 0.5;
         
-        // Write Col 0: SpawnPos (xyz), BirthTime (w)
-        array[offset + 0] = pos.x + ox;
-        array[offset + 1] = pos.y + oy;
-        array[offset + 2] = pos.z + oz;
-        array[offset + 3] = now;
+        // Write aSpawn: SpawnPos (xyz), BirthTime (w)
+        spawnArray[offset + 0] = pos.x + ox;
+        spawnArray[offset + 1] = pos.y + oy;
+        spawnArray[offset + 2] = pos.z + oz;
+        spawnArray[offset + 3] = now;
 
         // Velocity Logic
         let vx, vy, vz;
@@ -247,11 +262,11 @@ export function spawnImpact(pos, type = 'jump', options = {}) {
         else if (type === 'muzzle') life = 0.15 + Math.random() * 0.15;
         else if (type === 'spore') life = 1.5 + Math.random() * 1.5;
 
-        // Write Col 1: Velocity (xyz), LifeSpan (w)
-        array[offset + 4] = vx;
-        array[offset + 5] = vy;
-        array[offset + 6] = vz;
-        array[offset + 7] = life;
+        // Write aVelocity: Velocity (xyz), LifeSpan (w)
+        velArray[offset + 0] = vx;
+        velArray[offset + 1] = vy;
+        velArray[offset + 2] = vz;
+        velArray[offset + 3] = life;
 
         // Color
         let r=1, g=1, b=1;
@@ -280,20 +295,23 @@ export function spawnImpact(pos, type = 'jump', options = {}) {
         else if (type === 'muzzle') size = 0.5 + Math.random() * 0.5;
         else if (type === 'spore') size = 0.2 + Math.random() * 0.3;
 
-        // Write Col 2: Color (rgb), Size (w)
-        array[offset + 8] = r;
-        array[offset + 9] = g;
-        array[offset + 10] = b;
-        array[offset + 11] = size;
+        // Write aColor: Color (rgb), Size (w)
+        colorArray[offset + 0] = r;
+        colorArray[offset + 1] = g;
+        colorArray[offset + 2] = b;
+        colorArray[offset + 3] = size;
 
         // Rotation & Gravity
-        // Write Col 3: RotAxis (xyz), GravityScale (w)
-        array[offset + 12] = Math.random()-0.5;
-        array[offset + 13] = Math.random()-0.5;
-        array[offset + 14] = Math.random()-0.5;
-        array[offset + 15] = gScale;
+        // Write aMisc: RotAxis (xyz), GravityScale (w)
+        miscArray[offset + 0] = Math.random()-0.5;
+        miscArray[offset + 1] = Math.random()-0.5;
+        miscArray[offset + 2] = Math.random()-0.5;
+        miscArray[offset + 3] = gScale;
     }
 
     // Flag Update
-    _impactMesh.instanceMatrix.needsUpdate = true;
+    spawnAttr.needsUpdate = true;
+    velAttr.needsUpdate = true;
+    colorAttr.needsUpdate = true;
+    miscAttr.needsUpdate = true;
 }
