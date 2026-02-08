@@ -7,10 +7,17 @@ import {
     createClayMaterial,
     calculateFlowerBloom,
     calculateWindSway,
-    applyPlayerInteraction
+    applyPlayerInteraction,
+    createJuicyRimLight,
+    uTime,
+    uAudioHigh,
+    uAudioLow
 } from './common.ts';
-import { attribute, color as tslColor, positionLocal, vec3, float } from 'three/tsl';
+import { attribute, color as tslColor, positionLocal, vec3, float, mx_noise_float, mix } from 'three/tsl';
 import { foliageGroup } from '../world/state.ts';
+
+// Manually define instanceColor if not exported by three/tsl
+const instanceColor = attribute('instanceColor', 'vec3');
 
 const MAX_FLOWERS = 5000;
 const _scratchMat = new THREE.Matrix4();
@@ -114,15 +121,29 @@ export class SimpleFlowerBatcher {
         const posWind = posBloom.add(calculateWindSway(posBloom));
         const posFinal = applyPlayerInteraction(posWind);
 
-        // FIX: Don't use attribute('instanceColor') directly as it causes WebGPU warnings
-        // InstancedMesh.instanceColor is managed internally by Three.js
-        // Use a uniform color that we can update, or use the standard material color
+        // PALETTE: Enhance Petal Material with "Juice"
+        // 1. Use Velvet preset as base
         const petalMat = CandyPresets.Velvet(0xFFFFFF, {
             deformationNode: posFinal,
-            audioReactStrength: 1.0
+            audioReactStrength: 1.0 // Adds subtle vibration/pulse
         });
-        // Note: We use setColorAt on the InstancedMesh instead of TSL attribute
-        // This avoids the "instanceColor not found" warning
+
+        // 2. Override Color with Instance Color
+        // This ensures the setColorAt logic actually affects the material visual
+        petalMat.colorNode = instanceColor;
+        petalMat.sheenColorNode = instanceColor;
+
+        // 3. Add Juicy Rim Light (Neon Edge)
+        // Mix instance color with magic cyan for the rim
+        const rim = createJuicyRimLight(instanceColor, float(1.0), float(3.0));
+
+        // 4. Add Audio-Reactive Glitter
+        // High frequency noise that sparkles on audio high notes
+        const glitterNoise = mx_noise_float(positionLocal.mul(float(50.0)).add(uTime.mul(5.0)));
+        const glitter = glitterNoise.mul(uAudioHigh).mul(0.5);
+
+        // Combine Emissive: Base Emissive (if any) + Rim + Glitter
+        petalMat.emissiveNode = (petalMat.emissiveNode || tslColor(0x000000)).add(rim).add(glitter);
 
         // Center: Velvet (Brown) + Chain
         const centerMat = (foliageMaterials as any).flowerCenter.clone();
@@ -131,9 +152,20 @@ export class SimpleFlowerBatcher {
         // Stamens: Clay (Yellow) + Chain
         const stamenMat = createClayMaterial(0xFFFF00, { deformationNode: posFinal });
 
-        // Beam: LightBeam + Color Tint?
-        // Beam usually is white/tinted. Let's use generic white beam.
+        // Beam: Enhanced LightBeam
         const beamMat = (foliageMaterials as any).lightBeam.clone();
+
+        // PALETTE: Tint Beam with Instance Color (Subtle)
+        // Mix white (0xFFFFFF) with instance color (30% strength)
+        beamMat.colorNode = mix(tslColor(0xFFFFFF), instanceColor, float(0.3));
+
+        // PALETTE: Pulse Opacity with Bass (Kick)
+        // Multiply existing opacity by a pulse factor
+        // Base 1.0 + Audio Low * 0.5 -> 1.0 to 1.5 multiplier?
+        // Or modulation: 0.5 + AudioLow -> Pulse from dim to bright
+        // Let's multiply: opacity * (0.8 + uAudioLow * 1.0)
+        const bassPulse = float(0.8).add(uAudioLow);
+        beamMat.opacityNode = beamMat.opacityNode.mul(bassPulse);
 
         // 3. Create InstancedMeshes
 
