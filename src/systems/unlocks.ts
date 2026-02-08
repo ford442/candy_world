@@ -29,6 +29,13 @@ export const UNLOCK_DEFINITIONS: Record<string, UnlockDefinition> = {
         description: 'Proximity mines crafted from unstable vibrato nectar.',
         requirements: [{ itemId: 'vibrato_nectar', count: 5 }],
         icon: '💣'
+    },
+    'shrine_master': {
+        id: 'shrine_master',
+        name: 'Shrine Master',
+        description: 'Unlock the secrets of the ancients.',
+        requirements: [{ itemId: 'shrine_token', count: 3 }],
+        icon: '🏛️'
     }
 };
 
