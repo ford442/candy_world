@@ -205,3 +205,20 @@
 .ability-slot.ready:active {
     transform: scale(0.9);
 }
+
+/* 🎨 Palette: Soft Disabled State */
+/* Maintains focusability for keyboard users while indicating unavailability */
+.toggle-button[aria-disabled="true"] {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background: #6A5ACD; /* Reset hover color */
+}
+
+.toggle-button[aria-disabled="true"]:hover {
+    background: #6A5ACD;
+    transform: none;
+}
+
+.toggle-button[aria-disabled="true"]:active {
+    transform: none;
+}
