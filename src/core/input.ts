@@ -628,8 +628,8 @@ export function initInput(
 
         // UX: Update Button States (Visual Polish)
         // Use epsilon for float comparison safety
-        if (volDownBtn) volDownBtn.disabled = (newVol <= 0.01);
-        if (volUpBtn) volUpBtn.disabled = (newVol >= 0.99);
+        if (volDownBtn) volDownBtn.setAttribute('aria-disabled', String(newVol <= 0.01));
+        if (volUpBtn) volUpBtn.setAttribute('aria-disabled', String(newVol >= 0.99));
 
         const percentage = Math.round(newVol * 100);
         const icon = newVol === 0 ? '🔇' : newVol < 0.5 ? '🔉' : '🔊';
@@ -640,12 +640,13 @@ export function initInput(
     };
 
     // Initialize Volume Buttons State
-    if (volDownBtn) volDownBtn.disabled = (audioSystem.volume <= 0.01);
-    if (volUpBtn) volUpBtn.disabled = (audioSystem.volume >= 0.99);
+    if (volDownBtn) volDownBtn.setAttribute('aria-disabled', String(audioSystem.volume <= 0.01));
+    if (volUpBtn) volUpBtn.setAttribute('aria-disabled', String(audioSystem.volume >= 0.99));
 
     if (volDownBtn) {
         volDownBtn.addEventListener('click', (e) => {
             e.stopPropagation();
+            if (volDownBtn.getAttribute('aria-disabled') === 'true') return;
             adjustVolume(-0.1);
         });
     }
@@ -653,6 +654,7 @@ export function initInput(
     if (volUpBtn) {
         volUpBtn.addEventListener('click', (e) => {
             e.stopPropagation();
+            if (volUpBtn.getAttribute('aria-disabled') === 'true') return;
             adjustVolume(0.1);
         });
     }
