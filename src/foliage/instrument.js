@@ -12,6 +12,9 @@ import {
     vec3, normalWorld, mx_noise_float
 } from 'three/tsl';
 import { triplanarNoise } from './common.ts';
+import { makeInteractive } from './musical_flora.ts';
+import { unlockSystem } from '../systems/unlocks.ts';
+import { spawnImpact } from './impacts.js';
 
 export function createInstrumentShrine(options = {}) {
     const {
@@ -80,15 +83,68 @@ export function createInstrumentShrine(options = {}) {
     orb.scale.setScalar(0.5 * scale);
     group.add(orb);
 
+    // Store orb for animation
+    group.userData.orb = orb;
+    group.userData.orbMat = orbMat;
+
     group.userData.type = 'instrumentShrine';
     group.userData.instrumentID = instrumentID;
 
-    // Simple float animation
-    group.userData.animationType = 'float';
+    // Use specific animation type for logic
+    group.userData.animationType = 'instrumentShrine';
     group.userData.animationOffset = Math.random() * 100;
+
+    // Puzzle State
+    group.userData.isActive = false; // Is matching instrument playing?
+    group.userData.isSolved = false; // Has player activated it?
+    group.userData.interactionText = `Locked (Need Inst ${instrumentID})`; // Shortened for UI fit
 
     // Reactivity
     attachReactivity(group, { minLight: 0.0, maxLight: 1.0 });
 
-    return group;
+    const interactive = makeInteractive(group);
+
+    // Override interaction
+    const originalInteract = group.userData.onInteract;
+    group.userData.onInteract = () => {
+        if (group.userData.isSolved) {
+            // Already solved feedback
+            // Maybe toggle something else or just show sparkle
+             if (window.AudioSystem) {
+                // Play a small 'already done' sound if available, or just generic click
+            }
+            return;
+        }
+
+        if (group.userData.isActive) {
+            // Solve!
+            group.userData.isSolved = true;
+            group.userData.interactionText = "Shrine Activated";
+
+            // Visual feedback
+            spawnImpact(group.position.clone().add(new THREE.Vector3(0, 3, 0)), 'muzzle', { color: jsColor.getHex(), count: 20 });
+
+            // Audio feedback
+            if (window.AudioSystem && window.AudioSystem.playSound) {
+                 window.AudioSystem.playSound('chime', { position: group.position, pitch: 1.0, volume: 0.8 });
+            }
+
+            // Reward
+            unlockSystem.harvest('shrine_token', 1, 'Shrine Token');
+
+            // Update visual state immediately
+            orbMat.emissive.set(0xFFD700); // Turn Gold
+            orbMat.emissiveIntensity = 2.0;
+
+        } else {
+             // Locked feedback
+             if (window.AudioSystem && window.AudioSystem.playSound) {
+                 window.AudioSystem.playSound('click', { position: group.position, pitch: 0.5, volume: 0.5 });
+            }
+        }
+
+        if (originalInteract) originalInteract();
+    };
+
+    return interactive;
 }

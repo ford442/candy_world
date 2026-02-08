@@ -897,4 +897,86 @@ export function animateFoliage(foliageObject: FoliageObject, time: number, audio
         // Subtle wobble
         foliageObject.rotation.z = Math.sin(time * 3 + offset) * 0.02 * (1 + retriggerIntensity);
     }
+    else if (type === 'instrumentShrine') {
+        // --- Instrument Shrine Logic ---
+        const targetID = foliageObject.userData.instrumentID;
+        const orb = foliageObject.userData.orb;
+        const orbMat = foliageObject.userData.orbMat;
+        const isSolved = foliageObject.userData.isSolved;
+
+        let isActive = false;
+        let matchedVolume = 0;
+
+        // Check audio channels for matching instrument
+        if (audioData && audioData.channelData) {
+            for (const ch of audioData.channelData) {
+                // Check if instrument matches and is playing
+                // Note: ch.instrument is 1-based usually in MODs, but our ID is likely 0-based or direct match
+                // We'll assume direct match for now.
+                if (ch.instrument === targetID && (ch.volume || 0) > 0.1) {
+                    isActive = true;
+                    matchedVolume = Math.max(matchedVolume, ch.volume || 0);
+                }
+            }
+        }
+
+        // Update State
+        foliageObject.userData.isActive = isActive;
+
+        // Update Text
+        if (!isSolved) {
+            if (isActive) {
+                foliageObject.userData.interactionText = "Activate Shrine";
+            } else {
+                foliageObject.userData.interactionText = `Locked (Need Inst ${targetID})`;
+            }
+        } else {
+             foliageObject.userData.interactionText = "Shrine Activated";
+        }
+
+        // Animation
+        const baseY = foliageObject.userData.originalY ?? foliageObject.position.y;
+        foliageObject.userData.originalY = baseY;
+
+        if (isSolved) {
+            // Solved: Steady, glorious float
+            foliageObject.position.y = baseY + Math.sin(time * 1.0 + offset) * 0.2;
+            foliageObject.rotation.y += 0.01; // Slow spin
+
+            // Orb: Gold Pulse
+            if (orb) {
+                 orb.position.y = 3.5 + Math.sin(time * 2.0) * 0.5;
+                 orb.scale.setScalar(0.8);
+            }
+            if (orbMat) {
+                orbMat.emissiveIntensity = 2.0 + Math.sin(time * 3.0) * 0.5;
+                // Color set to Gold in onInteract
+            }
+        } else if (isActive) {
+            // Active: Excited, fast float/pulse
+            foliageObject.position.y = baseY + Math.sin(time * 5.0) * 0.5; // Fast bob
+            foliageObject.rotation.y += 0.05 + matchedVolume * 0.1; // Fast spin
+
+            if (orb) {
+                orb.scale.setScalar(0.5 + Math.sin(time * 10.0) * 0.2);
+            }
+            if (orbMat) {
+                orbMat.emissiveIntensity = 1.0 + matchedVolume * 2.0; // Bright flash
+                // Color white/default
+                orbMat.emissive.setHex(0xFFFFFF);
+            }
+        } else {
+            // Dormant: Slow float
+            foliageObject.position.y = baseY + Math.sin(time * 0.5 + offset) * 0.1;
+            foliageObject.rotation.y = Math.sin(time * 0.2 + offset) * 0.1; // Gentle sway
+
+            if (orb) {
+                orb.scale.setScalar(0.5);
+            }
+            if (orbMat) {
+                orbMat.emissiveIntensity = 0.2;
+                orbMat.emissive.setHex(0x444444); // Dim
+            }
+        }
+    }
 }

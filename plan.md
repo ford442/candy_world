@@ -10,14 +10,15 @@
 
 ## Next Steps
 
-1. **Instrument Shrine Puzzle Mechanics**: Implement interactive puzzles for Instrument Shrines.
-   - *Visuals*: Patterns on shrines match instrument IDs.
-   - *Mechanics*: Matching patterns to the bassline instrument opens shrines and enables puzzles.
+1. **Migrate to TypeScript (Phase 1)**: Continue migrating core foliage and system modules to TypeScript to harden the codebase.
+   - *Target Modules*: `src/foliage/cloud-batcher.ts`, `src/foliage/impacts.js` (-> .ts), `src/foliage/instrument.js` (-> .ts).
 
 ---
 
 ## Recent Progress
 - **Accomplished:**
+  - **Instrument Shrine Puzzle Mechanics**: **Status: Implemented ✅**
+    - *Implementation Details:* Implemented interactive puzzle logic for Instrument Shrines in `src/foliage/instrument.js` and `src/foliage/animation.ts`. Shrines now detect active audio channels and "unlock" (with visual feedback and rewards) when the matching instrument ID is playing. Added 'Shrine Master' unlock to `src/systems/unlocks.ts` requiring collected shrine tokens.
   - **Panning Pads**: **Status: Implemented ✅**
     - *Implementation Details:* Created `src/foliage/panning-pads.js` with TSL mercury materials and stereo-pan driven bobbing animation (`panningBob` in `src/foliage/animation.ts`). Implemented physics interaction in `src/systems/physics.ts` to provide a vertical boost when landing on a pad at the peak of its bob (driven by audio pan/volume). Added to world generation in `src/world/generation.ts`.
   - **Jitter Mines**: **Status: Implemented ✅**
@@ -114,7 +115,7 @@
     - *Implementation Details:* Implemented C++ Stable Fluids solver coupled with TSL fog visualization.
 
 ### Category 5: Physics & Interaction
-- **Status:** Pending
+- **Status:** Active
 - **Tasks:**
   - [x] Rare Flora Discovery (Unlock system)
     - *Implementation Details:* Implemented proximity-based discovery logic in `src/systems/physics.ts` using a throttled check against `animatedFoliage` objects and a decoupled data map in `src/systems/discovery_map.ts`.
@@ -125,6 +126,8 @@
       - **Double Jump:** Allows one extra jump in mid-air (reset on ground). Triggers `ability_double_jump` discovery.
       - **Dash:** Instant velocity boost in camera direction (mapped to 'E'). Cooldown 1s. Triggers `ability_dash` discovery.
       - **Visuals:** Triggers a chromatic aberration pulse (`uChromaticIntensity`) on use.
+  - [x] Instrument Shrine Puzzles
+    - *Implementation Details:* Implemented interactive logic where shrines detect if their matching instrument ID is active in the audio mix. Unlocking triggers a visual burst and rewards a 'Shrine Token'.
   - **Plants Twilight Glow**: Implemented logic for plants to glow during twilight hours (pre-dawn/dusk).
     - *Implementation Details:* Added `uTwilight` global uniform to `src/foliage/sky.js` and integrated it into the TSL material pipeline for Flowers, Mushrooms, and Trees. The glow intensity ramps up at dusk and down at dawn, driven by the `WeatherSystem`.
 
