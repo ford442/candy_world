@@ -52,3 +52,4 @@ export * from './cloud-batcher.ts';
 export * from './dandelion-batcher.ts';
 export * from './lantern-batcher.ts';
 export * from './simple-flower-batcher.ts';
+export * from './glowing-flower-batcher.ts';
