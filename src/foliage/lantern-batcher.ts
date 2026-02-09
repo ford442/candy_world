@@ -3,11 +3,12 @@ import { MeshStandardNodeMaterial } from 'three/webgpu';
 import {
     color, float, vec3, vec4, attribute, positionLocal, positionWorld,
     sin, cos, mix, smoothstep, uniform, If, time,
-    varying, dot, normalize, normalLocal, step, uv
+    varying, dot, normalize, normalLocal, step, uv,
+    instanceColor, mx_noise_float
 } from 'three/tsl';
 import {
     sharedGeometries, foliageMaterials, uTime,
-    uAudioLow, uAudioHigh, createRimLight, calculateWindSway, applyPlayerInteraction,
+    uAudioLow, uAudioHigh, createRimLight, createJuicyRimLight, calculateWindSway, applyPlayerInteraction,
     createStandardNodeMaterial, createUnifiedMaterial
 } from './common.ts';
 import { foliageGroup } from '../world/state.ts';
@@ -25,7 +26,7 @@ export class LanternBatcher {
 
     // Attributes
     private stemParams: THREE.InstancedBufferAttribute | null = null; // [height, unused, unused, spawnTime]
-    private topParams: THREE.InstancedBufferAttribute | null = null;  // [height, unused, unused, spawnTime]
+    private topParams: THREE.InstancedBufferAttribute | null = null;  // [height, randomPhase, unused, spawnTime]
 
     private constructor() {}
 
@@ -73,11 +74,6 @@ export class LanternBatcher {
         const spawnTime = params.w;
 
         // Pop-In Logic
-        // If spawnTime is 0 or negative, we assume instant show (or old object)
-        // Actually uTime starts at 0. So spawnTime should be valid.
-        // We handle case where spawnTime might be undefined (default 0).
-        // If spawnTime > uTime, it shouldn't show?
-
         const age = uTime.sub(spawnTime);
         const popProgress = smoothstep(0.0, 1.0, age.mul(2.0)); // 0.5s pop
         // Elastic overshoot
@@ -108,22 +104,11 @@ export class LanternBatcher {
     }
 
     private initTop() {
-        // Merged Geometry for Top (Hook + Cap + Bulb)
-        // We build this relative to (0,0,0) which will be placed at (0, Height, 0) via Instance Matrix?
-        // NO. InstancedMesh matrix handles position.
-        // But the Stem scales. The Top just translates.
-        // If we use the SAME instance matrix (Position/Rot), we need to Offset the Top by Height in TSL.
-        // Because the InstanceMatrix is for the ROOT.
-        // So:
-        // Stem: Scale Y in TSL.
-        // Top: Translate Y in TSL.
-
         const geometry = this.createTopGeometry();
 
         // Attributes - SINGLE packed attribute to stay within WebGPU 8 buffer limit
         this.topParams = new THREE.InstancedBufferAttribute(new Float32Array(MAX_LANTERNS * 4), 4);
         geometry.setAttribute('instanceParams', this.topParams);
-        // OPTIMIZED: Removed instanceColor attribute - using setColorAt on InstancedMesh instead
 
         // Materials
         // 0: Dark Metal (Hook/Cap)
@@ -134,16 +119,13 @@ export class LanternBatcher {
 
         // Mat 1 (Bulb)
         const bulbMat = createStandardNodeMaterial({
-            color: 0xFFFFFF,
             roughness: 0.2
         });
 
         // TSL for Top
-        // OPTIMIZED: Removed instanceColor attribute to reduce vertex buffer count
-        // Colors are applied via setColorAt on InstancedMesh instead
-        // 1. Offset Y by Height
         const params = attribute('instanceParams', 'vec4');
         const height = params.x;
+        const randomPhase = params.y; // Used for swing physics
         const spawnTime = params.w;
 
         // Pop-In Logic (Scale from 0)
@@ -157,50 +139,60 @@ export class LanternBatcher {
 
         // Then Offset
         const offsetPos = scaledPos.add(vec3(0, height.mul(popScale), 0));
-        // Note: height also scales up so it grows from bottom!
 
         // 2. Apply Sway (Top sways fully)
         // Wind at top is max
-        // We need to calculate sway at height.
-        // Re-use calculateWindSway but using the Offset Position
-        // Note: calculateWindSway uses positionWorld usually?
-        // In common.ts: `const swayPhase = positionWorld.x...`
-        // But `posNode.y` (local) is used for bending factor.
-        // Here `posNode` is local. `posNode.y` is relative to Top Center.
-        // The effective height for bending is `height + pos.y`.
-        // Let's approximate: Sway amount based on `height`.
 
-        // Sway Logic tailored for Top
-        const windTime = uTime.mul(uWindSpeed.add(0.5));
-        // Use Instance Position (from Matrix) for phase?
-        // positionWorld is available.
-        // We want the whole Top to move as a rigid body attached to stem tip.
-        // Stem tip offset = calculateWindSway(vec3(0, height, 0))
+        // --- PALETTE: Physics Swing ---
+        // A pendulum-like motion lagging behind or independent of the stem
+        // Seed phase with instance-specific random value to make it rigid per instance
+        const swingPhase = uTime.mul(3.0).add(randomPhase);
+        const swingAmp = float(0.1); // Swing amplitude
+        const swingX = sin(swingPhase).mul(swingAmp);
+        const swingZ = cos(swingPhase.mul(0.8)).mul(swingAmp); // Different freq for chaos
+        const swingOffset = vec3(swingX, float(0.0), swingZ);
 
-        // We can just apply the same wind function with y=height
+        // Apply global wind sway (tip of stem)
         const stemTipPos = vec3(0, height, 0);
         const tipSway = calculateWindSway(stemTipPos);
         const tipPush = applyPlayerInteraction(stemTipPos);
 
-        const finalPos = offsetPos.add(tipSway).add(tipPush);
+        const finalPos = offsetPos.add(tipSway).add(tipPush).add(swingOffset);
 
         // Apply to both materials
         darkMat.positionNode = finalPos;
         bulbMat.positionNode = finalPos;
 
-        // Bulb Emissive Logic (Beat Reactivity)
-        // OPTIMIZED: Removed instanceColor attribute - using uniform glow
-        // Pulse on Kick (uAudioLow)
-        const pulse = uAudioLow.mul(2.0); // Strong flicker
-        const baseIntensity = float(2.0);
-        const totalIntensity = baseIntensity.add(pulse);
+        // --- PALETTE: Juicy Bulb Material ---
+        // Plasma Effect
+        const noiseScale = float(5.0);
+        const noiseSpeed = uTime.mul(2.0);
+        const plasmaNoise = mx_noise_float(positionLocal.add(vec3(0, noiseSpeed, 0)).mul(noiseScale));
 
-        bulbMat.emissiveNode = vec3(1.0, 1.0, 1.0).mul(totalIntensity);
-        // Removed colorNode tint - colors set via setColorAt on InstancedMesh
+        // Mix Colors
+        // Base is instanceColor. Hot is slightly yellow/white.
+        // instanceColor is a node representing the color set via setColorAt
+        const baseColor = instanceColor;
+        const hotColor = vec3(1.0, 1.0, 0.8);
+        const mixFactor = plasmaNoise.mul(0.5).add(0.5); // 0..1
+
+        // Audio Boost (Pulse)
+        const audioBoost = uAudioLow.mul(2.0);
+        const totalIntensity = float(1.5).add(audioBoost).add(plasmaNoise.mul(0.5));
+
+        const finalColor = mix(baseColor, hotColor, mixFactor);
+
+        // Juicy Rim Light
+        const rim = createJuicyRimLight(finalColor, float(2.0), float(3.0));
+
+        bulbMat.emissiveNode = finalColor.mul(totalIntensity).add(rim);
+        bulbMat.colorNode = finalColor; // Also set base color
 
         // Create Mesh
         this.topMesh = new THREE.InstancedMesh(geometry, [darkMat, bulbMat], MAX_LANTERNS);
         this.topMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+        // Explicitly create instanceColor buffer for use with setColorAt
+        this.topMesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAX_LANTERNS * 3), 3);
         this.topMesh.count = 0;
         this.topMesh.castShadow = true;
         this.topMesh.receiveShadow = true;
@@ -213,7 +205,7 @@ export class LanternBatcher {
         const positions: number[] = [];
         const normals: number[] = [];
         const indices: number[] = [];
-        const uvs: number[] = []; // Needed? Maybe for default attr
+        const uvs: number[] = [];
 
         let vertexOffset = 0;
         const groups: { start: number, count: number, materialIndex: number }[] = [];
@@ -258,33 +250,12 @@ export class LanternBatcher {
 
         // Hook Geometry: Torus segment
         const hookGeo = new THREE.TorusGeometry(0.5, 0.08, 6, 8, Math.PI);
-        // Rotate to arch over: Z -90deg.
         m.makeRotationZ(-Math.PI/2);
-        // Translate to offset (0.5, 0, 0)
         m.setPosition(0.5, 0, 0);
         addPart(hookGeo, 0, m);
 
         // Cap (Cone)
         const capGeo = new THREE.ConeGeometry(0.2, 0.2, 6);
-        // Position: End of hook is at (1.0, -0.2 approx?)
-        // Torus R=0.5. Center at 0.5,0,0.
-        // Arc goes from top (0.5, 0.5, 0) to side (1.0, 0, 0)?
-        // Wait, Torus center is 0,0,0. Radius 0.5.
-        // Rotated Z -90:
-        // Start (angle 0) is at (0.5, 0, 0) -> (0, -0.5, 0) relative to torus center?
-        // Let's visualize: Torus in XY plane.
-        // makeRotationZ(-PI/2) -> X becomes -Y, Y becomes X.
-        // Original Torus (Radius 0.5): ring in XY.
-        // Arc PI (half circle).
-        // Positioned at (0.5, 0, 0).
-        // Let's assume the hook works like the original code:
-        // hook.rotation.z = -Math.PI / 2;
-        // hook.position.set(0.5, 0, 0);
-        // bulbGroup.position.set(1.0, height - 0.2, 0);
-
-        // We are relative to (0, Height, 0).
-        // So Bulb is at (1.0, -0.2, 0).
-
         m.makeTranslation(1.0, -0.2, 0);
         addPart(capGeo, 0, m);
 
@@ -295,19 +266,6 @@ export class LanternBatcher {
 
         // Bulb Sphere
         const bulbGeo = sharedGeometries.unitSphere; // R=1
-        m.makeScale(0.25, 0.4, 0.25);
-        // Position: Cap is at (1.0, -0.2, 0).
-        // Bulb below cap. Original: bulb.position.y = -0.3 (local to bulbGroup)
-        // bulbGroup was at (1.0, height-0.2).
-        // So Bulb is at (1.0, -0.5, 0).
-        const posMat = new THREE.Matrix4().makeTranslation(1.0, -0.5, 0);
-        m.premultiply(posMat);
-        // Wait, order: Scale, then Translate.
-        // makeScale resets matrix.
-        m.makeTranslation(1.0, -0.5, 0);
-        m.scale(new THREE.Vector3(0.25, 0.4, 0.25)); // Scale applies first? No, ThreeJS m.scale() applies Post-Multiply?
-        // m.scale() multiplies current m by scale matrix?
-        // Actually safe way: compose.
         m.compose(new THREE.Vector3(1.0, -0.5, 0), new THREE.Quaternion(), new THREE.Vector3(0.25, 0.4, 0.25));
 
         addPart(bulbGeo, 1, m);
@@ -348,10 +306,13 @@ export class LanternBatcher {
         const spawnTime = options.spawnTime !== undefined ? options.spawnTime : -100.0;
         const c = new THREE.Color(colorHex);
 
+        // Generate Random Phase for this instance
+        const randomPhase = Math.random() * Math.PI * 2;
+
         this.stemParams!.setXYZW(i, height, 0, 0, spawnTime);
-        this.topParams!.setXYZW(i, height, 0, 0, spawnTime);
+        this.topParams!.setXYZW(i, height, randomPhase, 0, spawnTime);
         
-        // OPTIMIZED: Use setColorAt instead of instanceColor attribute to save vertex buffer
+        // Use setColorAt
         this.topMesh!.setColorAt(i, c);
 
         this.stemMesh!.instanceMatrix.needsUpdate = true;
