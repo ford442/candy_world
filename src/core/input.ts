@@ -414,6 +414,28 @@ export function initInput(
 
         // --- UX: Focus Trap for Main Menu (Pause Screen) ---
         if (!isPlaylistOpen && instructions && instructions.style.display !== 'none') {
+            // 🎨 Palette: Interactive Key Hints
+            // Highlight the visual key in the help menu when pressed
+            const keyChar = event.key.toUpperCase();
+            const code = event.code;
+            const keys = instructions.querySelectorAll('kbd.key');
+
+            keys.forEach(k => {
+                const text = (k as HTMLElement).innerText.toUpperCase();
+                // Match by text content or specific codes
+                let match = false;
+                if (text === keyChar) match = true;
+                if (text === 'SPACE' && code === 'Space') match = true;
+                if (text === 'SHIFT' && (code === 'ShiftLeft' || code === 'ShiftRight')) match = true;
+                if (text === 'CTRL' && (code === 'ControlLeft' || code === 'ControlRight')) match = true;
+                if (text === '+' && (code === 'Equal' || code === 'NumpadAdd')) match = true;
+                if (text === '-' && (code === 'Minus' || code === 'NumpadSubtract')) match = true;
+
+                if (match) {
+                    k.classList.add('key-highlight');
+                }
+            });
+
             if (event.code === 'Tab') {
                 const focusable = instructions.querySelectorAll('button, input, [href], select, textarea, [tabindex]:not([tabindex="-1"])');
                 if (focusable.length > 0) {
@@ -526,6 +548,28 @@ export function initInput(
     };
 
     const onKeyUp = function (event: KeyboardEvent) {
+        // 🎨 Palette: Remove Key Hints
+        if (instructions && instructions.style.display !== 'none') {
+            const keyChar = event.key.toUpperCase();
+            const code = event.code;
+            const keys = instructions.querySelectorAll('kbd.key');
+
+            keys.forEach(k => {
+                const text = (k as HTMLElement).innerText.toUpperCase();
+                let match = false;
+                if (text === keyChar) match = true;
+                if (text === 'SPACE' && code === 'Space') match = true;
+                if (text === 'SHIFT' && (code === 'ShiftLeft' || code === 'ShiftRight')) match = true;
+                if (text === 'CTRL' && (code === 'ControlLeft' || code === 'ControlRight')) match = true;
+                if (text === '+' && (code === 'Equal' || code === 'NumpadAdd')) match = true;
+                if (text === '-' && (code === 'Minus' || code === 'NumpadSubtract')) match = true;
+
+                if (match) {
+                    k.classList.remove('key-highlight');
+                }
+            });
+        }
+
         switch (event.code) {
             case 'KeyW': keyStates.forward = false; break;
             case 'KeyA': keyStates.left = false; break;
