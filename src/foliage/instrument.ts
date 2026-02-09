@@ -1,22 +1,23 @@
-// src/foliage/instrument.js
-
 import * as THREE from 'three';
 import {
     createUnifiedMaterial,
     sharedGeometries,
-    registerReactiveMaterial,
     attachReactivity
 } from './common.ts';
 import {
-    color, float, mix, uv, sin, cos, positionLocal,
-    vec3, normalWorld, mx_noise_float
+    color, float, mix, uv, sin, cos,
+    vec3, mx_noise_float
 } from 'three/tsl';
-import { triplanarNoise } from './common.ts';
 import { makeInteractive } from './musical_flora.ts';
 import { unlockSystem } from '../systems/unlocks.ts';
-import { spawnImpact } from './impacts.js';
+import { spawnImpact } from './impacts.ts';
 
-export function createInstrumentShrine(options = {}) {
+export interface InstrumentShrineOptions {
+    instrumentID?: number;
+    scale?: number;
+}
+
+export function createInstrumentShrine(options: InstrumentShrineOptions = {}): THREE.Group {
     const {
         instrumentID = 0,
         scale = 1.0
@@ -110,7 +111,7 @@ export function createInstrumentShrine(options = {}) {
         if (group.userData.isSolved) {
             // Already solved feedback
             // Maybe toggle something else or just show sparkle
-             if (window.AudioSystem) {
+             if ((window as any).AudioSystem) {
                 // Play a small 'already done' sound if available, or just generic click
             }
             return;
@@ -122,11 +123,11 @@ export function createInstrumentShrine(options = {}) {
             group.userData.interactionText = "Shrine Activated";
 
             // Visual feedback
-            spawnImpact(group.position.clone().add(new THREE.Vector3(0, 3, 0)), 'muzzle', { color: jsColor.getHex(), count: 20 });
+            spawnImpact(group.position.clone().add(new THREE.Vector3(0, 3, 0)), 'muzzle', { color: {r:jsColor.r, g:jsColor.g, b:jsColor.b}, direction: new THREE.Vector3(0,1,0) });
 
             // Audio feedback
-            if (window.AudioSystem && window.AudioSystem.playSound) {
-                 window.AudioSystem.playSound('chime', { position: group.position, pitch: 1.0, volume: 0.8 });
+            if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
+                 (window as any).AudioSystem.playSound('chime', { position: group.position, pitch: 1.0, volume: 0.8 });
             }
 
             // Reward
@@ -138,8 +139,8 @@ export function createInstrumentShrine(options = {}) {
 
         } else {
              // Locked feedback
-             if (window.AudioSystem && window.AudioSystem.playSound) {
-                 window.AudioSystem.playSound('click', { position: group.position, pitch: 0.5, volume: 0.5 });
+             if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
+                 (window as any).AudioSystem.playSound('click', { position: group.position, pitch: 0.5, volume: 0.5 });
             }
         }
 

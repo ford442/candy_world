@@ -24,7 +24,7 @@ import {
     KeyStates
 } from './physics.core.ts';
 import { uChromaticIntensity } from '../foliage/chromatic.js';
-import { spawnImpact } from '../foliage/impacts.js';
+import { spawnImpact } from '../foliage/impacts.ts';
 import { VineSwing } from '../foliage/trees.ts';
 
 // --- Types ---

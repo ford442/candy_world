@@ -11,7 +11,7 @@ import {
 } from './common.ts';
 import { uTwilight } from './sky.ts';
 import { foliageGroup } from '../world/state.ts'; // Assuming state.ts exports foliageGroup
-import { spawnImpact } from './impacts.js';
+import { spawnImpact } from './impacts.ts';
 
 const MAX_MUSHROOMS = 4000;
 
