@@ -6,7 +6,7 @@ import { reactiveMaterials, _foliageReactiveColor, median } from './common.ts';
 import { CONFIG } from '../core/config.ts';
 import { FoliageObject, AudioData, FoliageMaterial, ChannelData } from './types.ts';
 import { foliageBatcher } from './foliage-batcher.ts';
-import { spawnImpact } from './impacts.js';
+import { spawnImpact } from './impacts.ts';
 
 export * from './types.ts';
 
