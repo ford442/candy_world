@@ -1,16 +1,32 @@
 import * as THREE from 'three';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import {
-    attribute, float, mix, color, vec3, smoothstep, sin, positionLocal,
-    exp, rotate, normalize, time, vec4
+    attribute, float, sin, positionLocal,
+    exp, rotate, normalize, vec4, vec3, smoothstep
 } from 'three/tsl';
 import { uTime, uAudioHigh } from './common.ts';
 
 const MAX_PARTICLES = 4000; // Increased capacity for juice
-let _impactMesh = null;
+let _impactMesh: THREE.InstancedMesh | null = null;
 let _head = 0;
 
-const IMPACT_CONFIG = {
+export type ImpactType =
+  | 'jump'
+  | 'land'
+  | 'dash'
+  | 'berry'
+  | 'snare'
+  | 'mist'
+  | 'rain'
+  | 'spore'
+  | 'trail'
+  | 'muzzle';
+
+interface ImpactConfigItem {
+    count: number;
+}
+
+const IMPACT_CONFIG: Record<ImpactType, ImpactConfigItem> = {
     jump: { count: 20 },
     land: { count: 40 },
     dash: { count: 30 },
@@ -23,7 +39,12 @@ const IMPACT_CONFIG = {
     muzzle: { count: 5 } // Fast burst
 };
 
-export function createImpactSystem() {
+export interface SpawnOptions {
+    color?: { r: number; g: number; b: number };
+    direction?: THREE.Vector3 | { x: number; y: number; z: number };
+}
+
+export function createImpactSystem(): THREE.InstancedMesh {
     if (_impactMesh) return _impactMesh;
 
     // Candy Crumbs Geometry
@@ -122,10 +143,10 @@ export function createImpactSystem() {
     _impactMesh.geometry.setAttribute('aMisc', new THREE.InstancedBufferAttribute(miscArray, 4));
 
     // Set usage
-    _impactMesh.geometry.getAttribute('aSpawn').setUsage(THREE.DynamicDrawUsage);
-    _impactMesh.geometry.getAttribute('aVelocity').setUsage(THREE.DynamicDrawUsage);
-    _impactMesh.geometry.getAttribute('aColor').setUsage(THREE.DynamicDrawUsage);
-    _impactMesh.geometry.getAttribute('aMisc').setUsage(THREE.DynamicDrawUsage);
+    (_impactMesh.geometry.getAttribute('aSpawn') as THREE.InstancedBufferAttribute).setUsage(THREE.DynamicDrawUsage);
+    (_impactMesh.geometry.getAttribute('aVelocity') as THREE.InstancedBufferAttribute).setUsage(THREE.DynamicDrawUsage);
+    (_impactMesh.geometry.getAttribute('aColor') as THREE.InstancedBufferAttribute).setUsage(THREE.DynamicDrawUsage);
+    (_impactMesh.geometry.getAttribute('aMisc') as THREE.InstancedBufferAttribute).setUsage(THREE.DynamicDrawUsage);
     
     // Disable raycasting as the geometry doesn't match the matrix
     _impactMesh.raycast = () => {};
@@ -134,24 +155,24 @@ export function createImpactSystem() {
     for (let i = 0; i < MAX_PARTICLES; i++) {
         spawnArray[i * 4 + 3] = -1000.0;
     }
-    _impactMesh.geometry.getAttribute('aSpawn').needsUpdate = true;
+    (_impactMesh.geometry.getAttribute('aSpawn') as THREE.InstancedBufferAttribute).needsUpdate = true;
     _impactMesh.instanceMatrix.needsUpdate = true; // Still needed for internal consistency
 
     return _impactMesh;
 }
 
-export function spawnImpact(pos, type = 'jump', options = {}) {
+export function spawnImpact(pos: THREE.Vector3 | {x:number, y:number, z:number}, type: ImpactType = 'jump', options: SpawnOptions = {}) {
     if (!_impactMesh) return;
 
-    const spawnAttr = _impactMesh.geometry.getAttribute('aSpawn');
-    const velAttr = _impactMesh.geometry.getAttribute('aVelocity');
-    const colorAttr = _impactMesh.geometry.getAttribute('aColor');
-    const miscAttr = _impactMesh.geometry.getAttribute('aMisc');
+    const spawnAttr = _impactMesh.geometry.getAttribute('aSpawn') as THREE.InstancedBufferAttribute;
+    const velAttr = _impactMesh.geometry.getAttribute('aVelocity') as THREE.InstancedBufferAttribute;
+    const colorAttr = _impactMesh.geometry.getAttribute('aColor') as THREE.InstancedBufferAttribute;
+    const miscAttr = _impactMesh.geometry.getAttribute('aMisc') as THREE.InstancedBufferAttribute;
 
-    const spawnArray = spawnAttr.array;
-    const velArray = velAttr.array;
-    const colorArray = colorAttr.array;
-    const miscArray = miscAttr.array;
+    const spawnArray = spawnAttr.array as Float32Array;
+    const velArray = velAttr.array as Float32Array;
+    const colorArray = colorAttr.array as Float32Array;
+    const miscArray = miscAttr.array as Float32Array;
 
     const config = IMPACT_CONFIG[type] || IMPACT_CONFIG.jump;
     const count = config.count;
@@ -310,8 +331,8 @@ export function spawnImpact(pos, type = 'jump', options = {}) {
     }
 
     // Flag Update
-    spawnAttr.needsUpdate = true;
-    velAttr.needsUpdate = true;
-    colorAttr.needsUpdate = true;
-    miscAttr.needsUpdate = true;
+    (spawnAttr as THREE.InstancedBufferAttribute).needsUpdate = true;
+    (velAttr as THREE.InstancedBufferAttribute).needsUpdate = true;
+    (colorAttr as THREE.InstancedBufferAttribute).needsUpdate = true;
+    (miscAttr as THREE.InstancedBufferAttribute).needsUpdate = true;
 }

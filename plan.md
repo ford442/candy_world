@@ -10,13 +10,15 @@
 
 ## Next Steps
 
-1. **Migrate to TypeScript (Phase 1)**: Continue migrating core foliage and system modules to TypeScript to harden the codebase.
-   - *Target Modules*: `src/foliage/cloud-batcher.ts`, `src/foliage/impacts.js` (-> .ts), `src/foliage/instrument.js` (-> .ts).
+1. **Migrate to TypeScript (Phase 1)**: Migrate remaining visual effect modules to TypeScript.
+   - *Target Modules*: `src/foliage/ribbons.js`, `src/foliage/sparkle-trail.js`, `src/foliage/lotus.js`, `src/foliage/aurora.js`.
 
 ---
 
 ## Recent Progress
 - **Accomplished:**
+  - **Migrate to TypeScript (Phase 1): Core Effects (`impacts`, `instrument`)**: **Status: Implemented ✅**
+    - *Implementation Details:* Migrated `src/foliage/impacts.js` and `src/foliage/instrument.js` to TypeScript (`.ts`). Added strict typing for `ImpactConfig`, `ImpactType`, and `InstrumentShrineOptions`. Updated imports in dependent files (`berries.ts`, `animation.ts`, `rainbow-blaster.ts`, etc.) to point to the new TypeScript modules.
   - **Instrument Shrine Puzzle Mechanics**: **Status: Implemented ✅**
     - *Implementation Details:* Implemented interactive puzzle logic for Instrument Shrines in `src/foliage/instrument.js` and `src/foliage/animation.ts`. Shrines now detect active audio channels and "unlock" (with visual feedback and rewards) when the matching instrument ID is playing. Added 'Shrine Master' unlock to `src/systems/unlocks.ts` requiring collected shrine tokens.
   - **Panning Pads**: **Status: Implemented ✅**

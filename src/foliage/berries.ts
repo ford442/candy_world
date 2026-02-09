@@ -4,7 +4,7 @@ import {
     sin, dot, time, Node, UniformNode, ShaderNodeObject
 } from 'three/tsl';
 import { CandyPresets, uAudioLow, uTime } from './common.ts';
-import { spawnImpact } from './impacts.js';
+import { spawnImpact } from './impacts.ts';
 import { uChromaticIntensity } from './chromatic.js';
 
 // OPTIMIZED: Removed instanceColor attribute to reduce vertex buffer count

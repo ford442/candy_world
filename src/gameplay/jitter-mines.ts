@@ -5,7 +5,7 @@ import {
     uTime
 } from '../foliage/common.ts';
 import { uChromaticIntensity } from '../foliage/chromatic.js';
-import { spawnImpact } from '../foliage/impacts.js';
+import { spawnImpact } from '../foliage/impacts.ts';
 import { unlockSystem } from '../systems/unlocks.ts';
 import { applyGlitch } from '../foliage/glitch.js';
 import { positionLocal, uv, float, sin, vec3 } from 'three/tsl';
