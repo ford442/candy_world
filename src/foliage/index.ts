@@ -29,11 +29,11 @@ export * from './rainbow.ts'; // Added Rainbow
 export * from './aurora.js';
 export * from './panning-pads.js';
 export * from './silence-spirits.js';
-export * from './instrument.js';
+export * from './instrument.ts';
 export * from './ribbons.js';
 export * from './mirrors.ts';
 export * from './sparkle-trail.js';
-export * from './impacts.js';
+export * from './impacts.ts';
 export * from './lotus.js';
 export * from './pollen.ts'; // Added Pollen
 export * from './shield.ts'; // Added Shield

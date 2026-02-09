@@ -3,7 +3,7 @@ import { vec3 } from 'three/tsl';
 import { foliageClouds } from '../world/state.ts';
 import { createCandyMaterial } from '../foliage/common.ts';
 import { getCelestialState } from '../core/cycle.ts';
-import { spawnImpact } from '../foliage/impacts.js';
+import { spawnImpact } from '../foliage/impacts.ts';
 
 // Projectile Configuration
 const SPEED = 60.0;

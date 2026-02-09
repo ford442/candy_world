@@ -11,7 +11,7 @@ import {
     uPlayerPosition,
     uTime
 } from './common.ts';
-import { spawnImpact } from './impacts.js';
+import { spawnImpact } from './impacts.ts';
 import {
     color, float, mix, uv, distance, vec2, smoothstep, uniform,
     positionLocal, positionWorld, vec3
