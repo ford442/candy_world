@@ -20,6 +20,7 @@ import { color as tslColor, mix, float, positionLocal, Node } from 'three/tsl';
 import { uTwilight } from './sky.ts';
 import { lanternBatcher } from './lantern-batcher.ts';
 import { simpleFlowerBatcher } from './simple-flower-batcher.ts';
+import { glowingFlowerBatcher } from './glowing-flower-batcher.ts';
 import { unlockSystem } from '../systems/unlocks.ts';
 
 interface FlowerOptions {
@@ -305,56 +306,37 @@ interface GlowingFlowerOptions {
     intensity?: number;
 }
 
+// ⚡ OPTIMIZATION: Instanced Glowing Flower (Batched)
 export function createGlowingFlower(options: GlowingFlowerOptions = {}): THREE.Group {
-    const { color = 0xFFD700, intensity = 1.5 } = options;
+    const { color = 0xFFD700 } = options;
     const group = new THREE.Group();
 
-    const stemHeight = 0.6 + Math.random() * 0.4;
-    const stem = new THREE.Mesh(sharedGeometries.unitCylinder, (foliageMaterials as any).flowerStem);
-    stem.scale.set(0.05, stemHeight, 0.05);
-    stem.castShadow = true;
-    group.add(stem);
+    // 1. Create Proxy Logic Object
+    // Invisible hit volume (Stem Size approx)
+    const hitBox = new THREE.Mesh(sharedGeometries.unitCylinder, new THREE.MeshBasicMaterial({ visible: false }));
+    hitBox.scale.set(0.2, 0.8, 0.2); // Approx size
+    hitBox.position.y = 0.4;
+    group.add(hitBox);
 
-    // Use Safe Material Helper
-    const headMat = createStandardNodeMaterial({
-        color,
-        emissive: color,
-        emissiveIntensity: intensity,
-        roughness: 0.8
-    });
-
-    // Twilight Boost: Increase emission during twilight/night
-    // Base intensity (intensity) + Twilight Boost (intensity * 1.5 * uTwilight)
-    const baseEmissive = tslColor(color).mul(float(intensity));
-    const twilightBoost = baseEmissive.mul(uTwilight).mul(1.5);
-    headMat.emissiveNode = baseEmissive.add(twilightBoost);
-
-    registerReactiveMaterial(headMat);
-
-    const head = new THREE.Mesh(sharedGeometries.unitSphere, headMat);
-    head.scale.setScalar(0.2);
-    head.position.y = stemHeight;
-    group.add(head);
-
-    const wash = new THREE.Mesh(sharedGeometries.unitSphere, (foliageMaterials as any).lightBeam);
-    wash.scale.setScalar(1.5);
-    wash.position.y = stemHeight;
-    wash.userData.isWash = true;
-    group.add(wash);
-
-    const light = new THREE.PointLight(color as THREE.ColorRepresentation, 0.5, 3.0);
-    light.position.y = stemHeight;
-    group.add(light);
-
-    group.userData.animationType = 'glowPulse';
-    group.userData.animationOffset = Math.random() * 10;
+    // Metadata
     group.userData.type = 'flower';
-    
-    // ⚡ PERFORMANCE: Set accurate bounding radius for frustum culling
-    group.userData.radius = 0.3; // Similar size to regular flowers
-    
-    // Glowing flowers are often Night Dancers
-    return attachReactivity(group, { minLight: 0.0, maxLight: 0.4 });
+    group.userData.isFlower = true; // Signals MusicReactivitySystem to skip CPU updates
+    group.userData.radius = 0.3;
+    group.userData.interactionText = "✨ Glow Flower";
+
+    // Deferred Registration to Batcher
+    group.userData.onPlacement = () => {
+        glowingFlowerBatcher.register(group, options);
+        group.userData.onPlacement = null;
+    };
+
+    // Reactivity Metadata for WeatherSystem/Others
+    // We manually set userData props that attachReactivity would set
+    group.userData.reactivityType = 'flora';
+    group.userData.minLight = 0.0;
+    group.userData.maxLight = 0.4; // Night only logic (handled by TSL)
+
+    return group;
 }
 
 export function createStarflower(options: { color?: number | string | THREE.Color } = {}): THREE.Group {
