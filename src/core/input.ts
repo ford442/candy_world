@@ -646,6 +646,7 @@ export function initInput(
             toggleMuteBtn.setAttribute('aria-pressed', String(isMuted));
             toggleMuteBtn.innerHTML = isMuted ? '🔇 Unmute <span class="key-badge">M</span>' : '🔊 Mute <span class="key-badge">M</span>';
             toggleMuteBtn.setAttribute('aria-label', isMuted ? 'Unmute Audio' : 'Mute Audio');
+            toggleMuteBtn.title = isMuted ? 'Unmute Audio (M)' : 'Mute Audio (M)';
         }
     };
 
@@ -670,12 +671,19 @@ export function initInput(
             updateMuteUI(false);
         }
 
+        const percentage = Math.round(newVol * 100);
+
         // UX: Update Button States (Visual Polish)
         // Use epsilon for float comparison safety
-        if (volDownBtn) volDownBtn.setAttribute('aria-disabled', String(newVol <= 0.01));
-        if (volUpBtn) volUpBtn.setAttribute('aria-disabled', String(newVol >= 0.99));
+        if (volDownBtn) {
+            volDownBtn.setAttribute('aria-disabled', String(newVol <= 0.01));
+            volDownBtn.title = `Decrease Volume (-) • ${percentage}%`;
+        }
+        if (volUpBtn) {
+            volUpBtn.setAttribute('aria-disabled', String(newVol >= 0.99));
+            volUpBtn.title = `Increase Volume (+) • ${percentage}%`;
+        }
 
-        const percentage = Math.round(newVol * 100);
         const icon = newVol === 0 ? '🔇' : newVol < 0.5 ? '🔉' : '🔊';
 
         import('../utils/toast.js').then(({ showToast }) => {
@@ -686,6 +694,12 @@ export function initInput(
     // Initialize Volume Buttons State
     if (volDownBtn) volDownBtn.setAttribute('aria-disabled', String(audioSystem.volume <= 0.01));
     if (volUpBtn) volUpBtn.setAttribute('aria-disabled', String(audioSystem.volume >= 0.99));
+
+    // NEW: Initialize Tooltips
+    const initialVolPct = Math.round(audioSystem.volume * 100);
+    if (volDownBtn) volDownBtn.title = `Decrease Volume (-) • ${initialVolPct}%`;
+    if (volUpBtn) volUpBtn.title = `Increase Volume (+) • ${initialVolPct}%`;
+    if (toggleMuteBtn) toggleMuteBtn.title = audioSystem.isMuted ? 'Unmute Audio (M)' : 'Mute Audio (M)';
 
     if (volDownBtn) {
         volDownBtn.addEventListener('click', (e) => {
