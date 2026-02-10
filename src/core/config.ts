@@ -132,6 +132,9 @@ export interface ConfigType {
         danceAmplitude: number;
         danceFrequency: number;
     };
+    audio: {
+        useScriptProcessorNode: boolean;
+    };
 }
 
 export const CONFIG: ConfigType = {
@@ -211,5 +214,10 @@ export const CONFIG: ConfigType = {
         blinkInterval: 5000, // ms (average)
         danceAmplitude: 0.2,
         danceFrequency: 1.0 // Hz
+    },
+
+    // Audio processing settings
+    audio: {
+        useScriptProcessorNode: false // Default to AudioWorkletNode (false = use AudioWorkletNode, true = use ScriptProcessorNode)
     }
 };

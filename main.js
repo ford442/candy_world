@@ -17,7 +17,7 @@ import { initWasm, initWasmParallel, isWasmReady, LOADING_PHASES } from './src/u
 import { profiler } from './src/utils/profiler.js';
 
 // Core imports
-import { PALETTE, CYCLE_DURATION, DURATION_SUNRISE, DURATION_DAY, DURATION_SUNSET, DURATION_DUSK_NIGHT, DURATION_DEEP_NIGHT } from './src/core/config.ts';
+import { CONFIG, PALETTE, CYCLE_DURATION, DURATION_SUNRISE, DURATION_DAY, DURATION_SUNSET, DURATION_DUSK_NIGHT, DURATION_DEEP_NIGHT } from './src/core/config.ts';
 import { initScene, forceFullSceneWarmup } from './src/core/init.js';
 import { initInput, keyStates } from './src/core/input.ts';
 import { getCycleState } from './src/core/cycle.ts';
@@ -56,7 +56,7 @@ console.timeEnd('Core Scene Setup');
 
 // Phase 2: Audio & Weather Systems (Lightweight)
 console.time('Audio & Systems Init');
-const audioSystem = new AudioSystem();
+const audioSystem = new AudioSystem(CONFIG.audio.useScriptProcessorNode);
 const beatSync = new BeatSync(audioSystem);
 const weatherSystem = new WeatherSystem(scene);
 console.timeEnd('Audio & Systems Init');
