@@ -161,7 +161,7 @@ export function createImpactSystem(): THREE.InstancedMesh {
     return _impactMesh;
 }
 
-export function spawnImpact(pos: THREE.Vector3 | {x:number, y:number, z:number}, type: ImpactType = 'jump', options: SpawnOptions = {}) {
+export function spawnImpact(pos: THREE.Vector3 | {x:number, y:number, z:number}, type: ImpactType = 'jump', options?: SpawnOptions) {
     if (!_impactMesh) return;
 
     const spawnAttr = _impactMesh.geometry.getAttribute('aSpawn') as THREE.InstancedBufferAttribute;
@@ -178,8 +178,8 @@ export function spawnImpact(pos: THREE.Vector3 | {x:number, y:number, z:number},
     const count = config.count;
     const now = (uTime.value !== undefined) ? uTime.value : performance.now() / 1000;
 
-    const colorOverride = options.color;
-    const direction = options.direction;
+    const colorOverride = options ? options.color : undefined;
+    const direction = options ? options.direction : undefined;
 
     for (let i = 0; i < count; i++) {
         const idx = _head;
@@ -292,7 +292,7 @@ export function spawnImpact(pos: THREE.Vector3 | {x:number, y:number, z:number},
         // Color
         let r=1, g=1, b=1;
         if (colorOverride) {
-            r = colorOverride.r; g = colorOverride.g; b = colorOverride.b;
+            r = colorOverride.r!; g = colorOverride.g!; b = colorOverride.b!;
         } else if (type === 'jump') { r=1.0; g=0.8; b=0.2; }
         else if (type === 'land') { r=0.6; g=0.5; b=0.4; }
         else if (type === 'dash') { r=0.0; g=1.0; b=1.0; }
