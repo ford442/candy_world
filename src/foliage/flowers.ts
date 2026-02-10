@@ -14,9 +14,11 @@ import {
     calculateFlowerBloom,
     calculateWindSway,
     applyPlayerInteraction,
-    uTime
+    uTime,
+    uAudioHigh,
+    uAudioLow
 } from './common.ts';
-import { color as tslColor, mix, float, positionLocal, Node } from 'three/tsl';
+import { color as tslColor, mix, float, positionLocal, Node, uv, vec2, sub, mul, add, sin, length, atan, smoothstep, vec3 } from 'three/tsl';
 import { uTwilight } from './sky.ts';
 import { lanternBatcher } from './lantern-batcher.ts';
 import { simpleFlowerBatcher } from './simple-flower-batcher.ts';
@@ -662,15 +664,40 @@ export function createTremoloTulip(options: { color?: number, size?: number } = 
     bell.rotation.x = Math.PI;
     headGroup.add(bell);
 
-    // Use TransparentNodeMaterial Helper for vortex
-    const vortexMat = createTransparentNodeMaterial({
-        color: 0xFFFFFF,
-        opacity: 0.5,
+    // --- PALETTE: Juicy TSL Vortex ---
+    const vortexMat = new THREE.MeshStandardNodeMaterial({
         blending: THREE.AdditiveBlending,
-        depthWrite: false
+        depthWrite: false,
+        transparent: true,
+        side: THREE.DoubleSide
     });
-    const vortex = new THREE.Mesh(sharedGeometries.unitSphere, vortexMat);
-    vortex.scale.setScalar(0.08 * size);
+
+    // Vortex Shader Logic
+    const uvCentered = uv().sub(vec2(0.5));
+    const dist = length(uvCentered);
+    const angle = atan(uvCentered.y, uvCentered.x);
+
+    // Swirling motion: Rotates faster in center and with audio
+    const spinSpeed = uTime.mul(2.0).add(uAudioHigh.mul(10.0));
+    const twist = dist.mul(20.0);
+    const spiral = sin(angle.mul(5.0).sub(spinSpeed).add(twist));
+
+    // Soft circle mask
+    const spiralMask = smoothstep(0.4, 0.6, spiral);
+    const edgeFade = float(1.0).sub(smoothstep(0.3, 0.5, dist));
+
+    // Audio Reactive Color (Cyan <-> Magenta)
+    const baseColor = mix(tslColor(0x00FFFF), tslColor(0xFF00FF), dist.mul(2.0));
+    const pulseIntensity = float(1.0).add(uAudioHigh.mul(3.0));
+
+    vortexMat.colorNode = baseColor;
+    vortexMat.opacityNode = spiralMask.mul(edgeFade).mul(0.6);
+    vortexMat.emissiveNode = baseColor.mul(pulseIntensity).mul(2.0);
+
+    // Use a quad for the portal effect instead of a sphere
+    const vortex = new THREE.Mesh(sharedGeometries.quad, vortexMat);
+    vortex.scale.setScalar(0.25 * size); // Slightly larger than the sphere was
+    vortex.rotation.x = -Math.PI / 2;
     vortex.position.y = -0.1 * size;
     headGroup.add(vortex);
     group.userData.vortex = vortex;
