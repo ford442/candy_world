@@ -97,7 +97,9 @@ class ProjectilePool {
         p.color.copy(this.color); // Store for trail
 
         // JUICE: Muzzle Flash
-        spawnImpact(origin, 'muzzle', { color: this.color, direction: direction });
+        _scratchImpactOptions.color.copy(this.color);
+        _scratchImpactOptions.direction.copy(direction);
+        spawnImpact(origin, 'muzzle', _scratchImpactOptions);
 
         this.mesh.instanceMatrix.needsUpdate = true;
         if (this.mesh.instanceColor) this.mesh.instanceColor.needsUpdate = true;
