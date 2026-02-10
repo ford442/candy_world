@@ -101,7 +101,13 @@ interface LibOpenMPT {
     _openmpt_module_get_order_pattern(modPtr: number, order: number): number;
     _openmpt_module_get_pattern_num_rows(modPtr: number, pattern: number): number;
     _openmpt_module_format_pattern_row_channel(modPtr: number, pattern: number, row: number, channel: number, format: number, detail: number): number;
+    _openmpt_module_read_float_stereo(modPtr: number, sampleRate: number, count: number, leftPtr: number, rightPtr: number): number;
+    _openmpt_module_get_current_order(modPtr: number): number;
+    _openmpt_module_get_current_row(modPtr: number): number;
+    _openmpt_module_get_current_estimated_bpm(modPtr: number): number;
+    _openmpt_module_get_current_channel_vu_mono(modPtr: number, channel: number): number;
     HEAPU8: Uint8Array;
+    HEAPF32: Float32Array;
 }
 
 // Extend Window interface for global libopenmpt
@@ -109,6 +115,7 @@ declare global {
     interface Window {
         setLoadingStatus?: (text: string) => void;
         libopenmpt?: LibOpenMPT;
+        libopenmptReady?: Promise<LibOpenMPT>;
         webkitAudioContext?: typeof AudioContext;
     }
 }
