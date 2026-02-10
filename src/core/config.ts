@@ -218,6 +218,10 @@ export const CONFIG: ConfigType = {
 
     // Audio processing settings
     audio: {
-        useScriptProcessorNode: false // Default to AudioWorkletNode (false = use AudioWorkletNode, true = use ScriptProcessorNode)
+        // Use ScriptProcessorNode for compatibility mode (deprecated but more reliable in some cases)
+        // Set to true if experiencing AudioWorkletNode performance issues or slow loading
+        // Default: false (uses modern AudioWorkletNode)
+        // See AUDIO_COMPATIBILITY_MODE.md for more information
+        useScriptProcessorNode: false
     }
 };
