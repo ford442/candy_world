@@ -1,6 +1,7 @@
 // AudioSystem.ts - With Playlist Queue & Stability Fixes
 
 const SAMPLE_RATE = 44100;
+const SCRIPT_PROCESSOR_VISUAL_UPDATE_FREQUENCY = 10; // Process visuals every Nth callback to reduce overhead
 
 // Helper functions
 const lerp = (a: number, b: number, t: number): number => a + (b - a) * t;
@@ -161,6 +162,9 @@ export class AudioSystem {
     
     // ScriptProcessor visual update counter
     private scriptProcessorCallbackCount: number;
+    
+    // Stop guard flag to prevent concurrent calls
+    private isStopping: boolean;
 
     constructor(useScriptProcessorNode: boolean = false) {
         this.libopenmpt = null;
@@ -210,6 +214,7 @@ export class AudioSystem {
         // Audio mode
         this.useScriptProcessorNode = useScriptProcessorNode;
         this.scriptProcessorCallbackCount = 0;
+        this.isStopping = false;
 
         this.init();
     }
@@ -453,9 +458,9 @@ export class AudioSystem {
             outputR[i] = heap[(this.rightBufferPtr >> 2) + i];
         }
 
-        // Process visuals every 10th callback to reduce overhead
+        // Process visuals every Nth callback to reduce overhead
         this.scriptProcessorCallbackCount++;
-        if (this.scriptProcessorCallbackCount >= 10) {
+        if (this.scriptProcessorCallbackCount >= SCRIPT_PROCESSOR_VISUAL_UPDATE_FREQUENCY) {
             this.scriptProcessorCallbackCount = 0;
             this.processVisualsScriptProcessor(modPtr);
         }
@@ -717,6 +722,15 @@ export class AudioSystem {
     }
 
     stop(fullReset: boolean = true): void {
+        // Guard against concurrent calls
+        if (this.isStopping) {
+            return;
+        }
+        this.isStopping = true;
+
+        // Set isPlaying to false before cleanup to prevent audio callbacks from processing
+        this.isPlaying = false;
+
         // Notify worklet to stop and clean up
         try {
             if (this.workletNode && this.workletNode.port) this.workletNode.port.postMessage({ type: 'STOP' });
@@ -775,8 +789,8 @@ export class AudioSystem {
             } catch (e) { /* ignore */ }
         }
 
-        // Set isPlaying to false after cleanup to prevent race conditions
-        this.isPlaying = false;
+        // Release the stopping guard
+        this.isStopping = false;
 
         // There's no longer a main-thread module pointer we reset here in AudioWorkletNode mode; Worklet handles its own reset
     }
