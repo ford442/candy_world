@@ -26,15 +26,15 @@ export * from './stars.ts';
 export * from './moon.ts';
 export * from './celestial-bodies.ts';
 export * from './rainbow.ts'; // Added Rainbow
-export * from './aurora.js';
+export * from './aurora.ts'; // .js -> .ts
 export * from './panning-pads.js';
 export * from './silence-spirits.js';
 export * from './instrument.ts';
-export * from './ribbons.js';
+export * from './ribbons.ts'; // .js -> .ts
 export * from './mirrors.ts';
-export * from './sparkle-trail.js';
+export * from './sparkle-trail.ts'; // .js -> .ts
 export * from './impacts.ts';
-export * from './lotus.js';
+export * from './lotus.ts'; // .js -> .ts
 export * from './pollen.ts'; // Added Pollen
 export * from './shield.ts'; // Added Shield
 

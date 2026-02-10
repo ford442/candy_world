@@ -1,4 +1,4 @@
-// src/foliage/aurora.js
+// src/foliage/aurora.ts
 
 import * as THREE from 'three';
 import { color, float, vec3, vec4, time, uv, sin, cos, mix, smoothstep, uniform, Fn, positionWorld } from 'three/tsl';
@@ -9,7 +9,7 @@ export const uAuroraIntensity = uniform(0.0); // 0.0 to 1.0
 export const uAuroraColor = uniform(color(0x00FF99)); // Base color (Greenish default)
 export const uAuroraSpeed = uniform(0.2); // Speed of the wave movement
 
-export function createAurora() {
+export function createAurora(): THREE.Mesh {
     // Create a tall cylinder for the aurora curtain
     // Radius ~800, Height ~400
     const geometry = new THREE.CylinderGeometry(800, 800, 400, 64, 16, true);
@@ -37,7 +37,7 @@ export function createAurora() {
 
         // 4. Spectral Color Shift
         // Shift color slightly based on height (vertical position) to simulate "pitch" mapping
-        const spectralShift = vec3(vUv.y.mul(0.5), 0.0, vUv.y.mul(0.2).negate()); // Shift R up, B down slightly
+        const spectralShift = vec3(vUv.y.mul(0.5), float(0.0), vUv.y.mul(0.2).negate()); // Shift R up, B down slightly
         const baseColor = vec3(uAuroraColor.r, uAuroraColor.g, uAuroraColor.b);
         const finalColor = baseColor.add(spectralShift);
 
