@@ -222,6 +222,9 @@ export class AudioSystem {
 
     async init(): Promise<void> {
         if (window.setLoadingStatus) window.setLoadingStatus("Starting Audio System...");
+        
+        // Log the audio mode being used
+        console.log(`[AudioSystem] Initializing with ${this.useScriptProcessorNode ? 'ScriptProcessorNode (Compatibility Mode)' : 'AudioWorkletNode (Default Mode)'}`);
 
         try {
             const AudioContext = window.AudioContext || window.webkitAudioContext;
