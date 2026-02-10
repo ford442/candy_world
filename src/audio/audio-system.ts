@@ -158,6 +158,9 @@ export class AudioSystem {
 
     // Audio mode
     useScriptProcessorNode: boolean;
+    
+    // ScriptProcessor visual update counter
+    private scriptProcessorCallbackCount: number;
 
     constructor(useScriptProcessorNode: boolean = false) {
         this.libopenmpt = null;
@@ -206,6 +209,7 @@ export class AudioSystem {
 
         // Audio mode
         this.useScriptProcessorNode = useScriptProcessorNode;
+        this.scriptProcessorCallbackCount = 0;
 
         this.init();
     }
@@ -449,8 +453,10 @@ export class AudioSystem {
             outputR[i] = heap[(this.rightBufferPtr >> 2) + i];
         }
 
-        // Process visuals (call less frequently to reduce overhead)
-        if (Math.random() < 0.1) { // Process visuals roughly every 10th callback
+        // Process visuals every 10th callback to reduce overhead
+        this.scriptProcessorCallbackCount++;
+        if (this.scriptProcessorCallbackCount >= 10) {
+            this.scriptProcessorCallbackCount = 0;
             this.processVisualsScriptProcessor(modPtr);
         }
     }
@@ -711,8 +717,6 @@ export class AudioSystem {
     }
 
     stop(fullReset: boolean = true): void {
-        this.isPlaying = false;
-
         // Notify worklet to stop and clean up
         try {
             if (this.workletNode && this.workletNode.port) this.workletNode.port.postMessage({ type: 'STOP' });
@@ -770,6 +774,9 @@ export class AudioSystem {
                 }
             } catch (e) { /* ignore */ }
         }
+
+        // Set isPlaying to false after cleanup to prevent race conditions
+        this.isPlaying = false;
 
         // There's no longer a main-thread module pointer we reset here in AudioWorkletNode mode; Worklet handles its own reset
     }
