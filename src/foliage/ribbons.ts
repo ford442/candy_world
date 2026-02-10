@@ -1,4 +1,3 @@
-
 import * as THREE from 'three';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import {
@@ -29,7 +28,33 @@ const SEGMENT_LENGTH = 1.0; // Distance between segments updates if we were dist
 const uRibbonTime = uniform(0.0);
 const uRibbonColor = uniform(vec3(0.0, 1.0, 1.0)); // Default cyan
 
-export function createMelodyRibbon(scene) {
+interface PathPoint {
+    x: number;
+    y: number;
+    z: number;
+    width: number;
+}
+
+interface RibbonUserData {
+    mesh: THREE.Mesh;
+    pathHistory: PathPoint[];
+    headPosition: THREE.Vector3;
+    headDirection: THREE.Vector3;
+    currentPitchHeight: number;
+    targetPitchHeight: number;
+    isActive: boolean;
+}
+
+interface AudioChannelData {
+    trigger: number;
+    note: number;
+}
+
+interface AudioData {
+    channelData?: { [key: number]: AudioChannelData };
+}
+
+export function createMelodyRibbon(scene: THREE.Scene): THREE.Group {
     const group = new THREE.Group();
     group.name = 'MelodyRibbonSystem';
 
@@ -40,7 +65,7 @@ export function createMelodyRibbon(scene) {
 
     const positions = new Float32Array(vertexCount * 3);
     const uvs = new Float32Array(vertexCount * 2);
-    const indices = [];
+    const indices: number[] = [];
 
     // Initialize flat strip along Z
     for (let i = 0; i <= MAX_SEGMENTS; i++) {
@@ -109,7 +134,7 @@ export function createMelodyRibbon(scene) {
     group.add(mesh);
 
     // Initial State
-    const pathHistory = [];
+    const pathHistory: PathPoint[] = [];
     for (let i = 0; i <= MAX_SEGMENTS; i++) {
         pathHistory.push({ x: 0, y: -100, z: 0, width: 0 }); // Start hidden
     }
@@ -123,16 +148,17 @@ export function createMelodyRibbon(scene) {
         currentPitchHeight: 5.0,
         targetPitchHeight: 5.0,
         isActive: false
-    };
+    } as RibbonUserData;
 
     scene.add(group);
     return group;
 }
 
-export function updateMelodyRibbons(group, deltaTime, audioData) {
+export function updateMelodyRibbons(group: THREE.Group, deltaTime: number, audioData: AudioData | null) {
     if (!group || !group.userData.mesh) return;
 
-    const { mesh, pathHistory, headPosition, headDirection } = group.userData;
+    const data = group.userData as RibbonUserData;
+    const { mesh, pathHistory, headPosition, headDirection } = data;
 
     // Update Uniforms
     uRibbonTime.value += deltaTime;
@@ -173,14 +199,14 @@ export function updateMelodyRibbons(group, deltaTime, audioData) {
         // Standard range approx C3 to C6
         const n = note;
         const normalizedPitch = (n % 24) / 24.0; // simple modulation
-        group.userData.targetPitchHeight = MIN_PITCH_HEIGHT + normalizedPitch * (MAX_PITCH_HEIGHT - MIN_PITCH_HEIGHT);
+        data.targetPitchHeight = MIN_PITCH_HEIGHT + normalizedPitch * (MAX_PITCH_HEIGHT - MIN_PITCH_HEIGHT);
     } else {
         // Return to base height
-        group.userData.targetPitchHeight = MIN_PITCH_HEIGHT + (MAX_PITCH_HEIGHT - MIN_PITCH_HEIGHT) * 0.5;
+        data.targetPitchHeight = MIN_PITCH_HEIGHT + (MAX_PITCH_HEIGHT - MIN_PITCH_HEIGHT) * 0.5;
     }
 
     // Lerp height
-    headPosition.y += (group.userData.targetPitchHeight - headPosition.y) * deltaTime * 5.0;
+    headPosition.y += (data.targetPitchHeight - headPosition.y) * deltaTime * 5.0;
 
     // 3. Update Path History
     // Shift everything down
@@ -193,7 +219,8 @@ export function updateMelodyRibbons(group, deltaTime, audioData) {
     });
 
     // 4. Update Geometry
-    const positions = mesh.geometry.attributes.position.array;
+    const positionAttr = mesh.geometry.attributes.position;
+    const positions = positionAttr.array as Float32Array;
 
     for (let i = 0; i <= MAX_SEGMENTS; i++) {
         const point = pathHistory[i];
@@ -227,6 +254,6 @@ export function updateMelodyRibbons(group, deltaTime, audioData) {
         positions[i * 6 + 5] = point.z + perpZ * w;
     }
 
-    mesh.geometry.attributes.position.needsUpdate = true;
+    positionAttr.needsUpdate = true;
     mesh.geometry.computeVertexNormals();
 }
