@@ -1,4 +1,3 @@
-
 import * as THREE from 'three';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import {
@@ -16,6 +15,11 @@ import {
     uTime
 } from './common.ts';
 
+interface LotusOptions {
+    color?: number | string | THREE.Color;
+    scale?: number;
+}
+
 /**
  * Creates a "Subwoofer Lotus" - A bass-reactive flora with a "Speaker" center.
  *
@@ -24,7 +28,7 @@ import {
  * - Rings: "Speaker Cone" rings that pulse vertically with Bass (uAudioLow).
  * - Center: A "Portal" that activates when Glitched (uGlitchIntensity > 0.5).
  */
-export function createSubwooferLotus(options = {}) {
+export function createSubwooferLotus(options: LotusOptions = {}): THREE.Group {
     const { color: hexColor = 0x2E8B57, scale = 1.0 } = options;
     const group = new THREE.Group();
     group.scale.setScalar(scale);
@@ -52,7 +56,7 @@ export function createSubwooferLotus(options = {}) {
     const bassPulse = uAudioLow.mul(0.8); // 0.0 to 0.8
 
     // Glitch Distortion: Random jerky movement
-    const glitchShake = mx_noise_float(vec3(uTime.mul(20.0), 0.0, 0.0)).mul(uGlitchIntensity).mul(0.5);
+    const glitchShake = mx_noise_float(vec3(uTime.mul(20.0), float(0.0), float(0.0))).mul(uGlitchIntensity).mul(0.5);
 
     // Total vertical displacement
     const displacement = bassPulse.add(glitchShake);

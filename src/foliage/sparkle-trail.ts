@@ -5,7 +5,13 @@ import { uTime, uAudioHigh, uAudioLow } from './common.ts';
 
 const TRAIL_SIZE = 1500; // Increased buffer size for richer trails
 
-export function createSparkleTrail() {
+interface SparkleTrailUserData {
+    head: number;
+    isSparkleTrail: boolean;
+    bufferSize: number;
+}
+
+export function createSparkleTrail(): THREE.Points {
     const geo = new THREE.BufferGeometry();
     const positions = new Float32Array(TRAIL_SIZE * 3);
     const birthTimes = new Float32Array(TRAIL_SIZE);
@@ -101,16 +107,18 @@ export function createSparkleTrail() {
     points.frustumCulled = false;
 
     // Custom data for JS update loop
-    points.userData.head = 0;
-    points.userData.isSparkleTrail = true;
-    points.userData.bufferSize = TRAIL_SIZE;
+    points.userData = {
+        head: 0,
+        isSparkleTrail: true,
+        bufferSize: TRAIL_SIZE
+    } as SparkleTrailUserData;
 
     return points;
 }
 
 const _offset = new THREE.Vector3();
 
-export function updateSparkleTrail(trail, playerPos, playerVel, time) {
+export function updateSparkleTrail(trail: THREE.Points, playerPos: THREE.Vector3, playerVel: THREE.Vector3, time: number) {
     if (!trail || !trail.userData.isSparkleTrail) return;
 
     const speed = playerVel.length();
@@ -121,13 +129,15 @@ export function updateSparkleTrail(trail, playerPos, playerVel, time) {
     // More particles for better trails
     const count = Math.min(Math.floor(speed / 2.0), 20);
 
-    const positions = trail.geometry.attributes.position;
-    const birthTimes = trail.geometry.attributes.birthTime;
-    const lifeSpans = trail.geometry.attributes.lifeSpan;
-    const spawnSpeeds = trail.geometry.attributes.spawnSpeed;
+    const geometry = trail.geometry;
+    const positions = geometry.attributes.position;
+    const birthTimes = geometry.attributes.birthTime;
+    const lifeSpans = geometry.attributes.lifeSpan;
+    const spawnSpeeds = geometry.attributes.spawnSpeed;
 
-    const size = trail.userData.bufferSize;
-    let currentHead = trail.userData.head;
+    const userData = trail.userData as SparkleTrailUserData;
+    const size = userData.bufferSize;
+    let currentHead = userData.head;
 
     for (let i = 0; i < count; i++) {
         // Random offset behind player (low to ground)
@@ -150,7 +160,7 @@ export function updateSparkleTrail(trail, playerPos, playerVel, time) {
         currentHead = (currentHead + 1) % size;
     }
 
-    trail.userData.head = currentHead;
+    userData.head = currentHead;
 
     positions.needsUpdate = true;
     birthTimes.needsUpdate = true;
