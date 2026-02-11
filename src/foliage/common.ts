@@ -250,7 +250,7 @@ export const calculateFlowerBloom = Fn(([posNode]) => {
 
 // ------------------------------------------
 
-interface UnifiedMaterialOptions {
+export interface UnifiedMaterialOptions {
     colorNode?: Node;
     deformationNode?: Node;
     roughness?: number;
