@@ -10,13 +10,15 @@
 
 ## Next Steps
 
-1. **Migrate to TypeScript (Phase 1)**: Migrate remaining visual effect modules to TypeScript.
-   - *Target Modules*: `src/foliage/panning-pads.js`, `src/foliage/silence-spirits.js`.
+1. **Migrate to TypeScript (Phase 1)**: Migrate remaining foliage modules to TypeScript.
+   - *Target Modules*: `src/foliage/pines.js`, `src/foliage/glitch.js`, `src/foliage/chromatic.js`.
 
 ---
 
 ## Recent Progress
 - **Accomplished:**
+  - **Migrate to TypeScript (Phase 1): Visual Effects (`panning-pads`, `silence-spirits`)**: **Status: Implemented ✅**
+    - *Implementation Details:* Migrated `src/foliage/panning-pads.js` and `src/foliage/silence-spirits.js` to TypeScript (`.ts`). Added strict typing for `PanningPadOptions`, `SilenceSpiritOptions`, and exported `UnifiedMaterialOptions` from `src/foliage/common.ts` for better type reuse. Updated `src/foliage/index.ts` exports.
   - **Migrate to TypeScript (Phase 1): Visual Effects (`ribbons`, `sparkle-trail`, `lotus`, `aurora`)**: **Status: Implemented ✅**
     - *Implementation Details:* Migrated `src/foliage/ribbons.js`, `src/foliage/sparkle-trail.js`, `src/foliage/lotus.js`, and `src/foliage/aurora.js` to TypeScript (`.ts`). Added strict typing for `RibbonUserData`, `SparkleTrailUserData`, `LotusOptions` and TSL nodes. Updated `src/foliage/index.ts` exports. Verified file presence and imports.
   - **Migrate to TypeScript (Phase 1): Core Effects (`impacts`, `instrument`)**: **Status: Implemented ✅**

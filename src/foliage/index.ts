@@ -27,8 +27,8 @@ export * from './moon.ts';
 export * from './celestial-bodies.ts';
 export * from './rainbow.ts'; // Added Rainbow
 export * from './aurora.ts'; // .js -> .ts
-export * from './panning-pads.js';
-export * from './silence-spirits.js';
+export * from './panning-pads.ts';
+export * from './silence-spirits.ts';
 export * from './instrument.ts';
 export * from './ribbons.ts'; // .js -> .ts
 export * from './mirrors.ts';
