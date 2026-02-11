@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { getGroundHeight, uploadPositions, uploadAnimationData, uploadMushroomSpecs, batchMushroomSpawnCandidates, readSpawnCandidates, isWasmReady } from '../utils/wasm-loader.js';
 import { chargeBerries, triggerGrowth, triggerBloom, shakeBerriesLoose, createMushroom, createWaterfall, createLanternFlower, cleanupReactivity, musicReactivitySystem, updateGlobalBerryScale } from '../foliage/index.ts';
 import { createRainbow, uRainbowOpacity } from '../foliage/rainbow.ts';
+import { createAurora, uAuroraIntensity } from '../foliage/aurora.ts';
 
 // FIX: Namespace import prevents ReferenceError if bundling logic is mixing CJS/ESM
 import * as Cycle from '../core/cycle.ts';
@@ -57,6 +58,7 @@ export class WeatherSystem {
     lightningActive: boolean;
 
     rainbow: any; // Mesh
+    aurora: any; // Mesh
     rainbowTimer: number;
     lastState: WeatherState;
 
@@ -153,6 +155,7 @@ export class WeatherSystem {
         this.initParticles();
         this.initLightning();
         this.initRainbow();
+        this.initAurora();
     }
 
     initRainbow() {
@@ -160,6 +163,11 @@ export class WeatherSystem {
         this.rainbow.position.set(0, -20, -100);
         this.rainbow.scale.setScalar(2.0);
         this.scene.add(this.rainbow);
+    }
+
+    initAurora() {
+        this.aurora = createAurora();
+        this.scene.add(this.aurora);
     }
 
     initParticles() {
@@ -412,6 +420,22 @@ export class WeatherSystem {
         this.lastTwilightProgress = twilightIntensity;
         try { if(uTwilight) uTwilight.value = twilightIntensity; } catch(e) {}
         // ----------------------------
+
+        // --- Aurora Update ---
+        // Aurora appears at Night (twilightIntensity > 0.8) and when Clear or Storm
+        let targetAurora = 0.0;
+        if (twilightIntensity > 0.8) {
+            if (this.state === WeatherState.CLEAR) targetAurora = 0.8;
+            else if (this.state === WeatherState.STORM) targetAurora = 1.0; // Magic Storm
+            else targetAurora = 0.0; // Rain hides it
+        }
+
+        // Lerp Intensity
+        if (uAuroraIntensity) {
+             const current = uAuroraIntensity.value as number;
+             uAuroraIntensity.value = current + (targetAurora - current) * 0.02; // Smooth fade
+        }
+        // ---------------------
 
         if (this.lastState === WeatherState.STORM && this.state !== WeatherState.STORM) {
             this.rainbowTimer = 45.0;
