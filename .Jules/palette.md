@@ -47,3 +47,7 @@
 ## 2026-08-01 - Volume Button Focus Preservation
 **Learning:** The native `disabled` attribute removes elements from the focus order, causing disorientation for keyboard users when a button (like Volume Down) becomes disabled after activation.
 **Action:** Use `aria-disabled="true"` with custom CSS styling to create a "soft disabled" state that preserves focus. Ensure associated click handlers explicitly check this attribute to prevent unwanted actions.
+
+## 2026-08-04 - In-Context Shortcut Visualization
+**Learning:** While `title` tooltips help discoverability, they require hover interaction. For frequently used controls like Volume, users benefit significantly from seeing the shortcut key directly on the button surface, reducing cognitive load and reinforcing muscle memory.
+**Action:** Append visual key badges (e.g., `<span class="key-badge">+</span>`) to the label of primary control buttons where space permits, ensuring the badge style is consistent with other HUD elements.
