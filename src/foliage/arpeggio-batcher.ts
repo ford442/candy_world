@@ -6,7 +6,7 @@ import {
     sharedGeometries
 } from './common.ts';
 import {
-    color, float, uniform, vec3, positionLocal, sin, cos, mix, uv, attribute, varying
+    color, float, uniform, vec3, positionLocal, sin, cos, mix, uv, varying
 } from 'three/tsl';
 import { uTime, uGlitchIntensity } from './common.ts';
 import { applyGlitch } from './glitch.js';
@@ -28,6 +28,15 @@ export class ArpeggioFernBatcher {
     dummy: THREE.Object3D;
     _color: THREE.Color;
 
+    // GLOBAL TSL Uniform
+    public globalUnfurl: number = 0;
+    public uFernUnfurl: any;
+
+    // Global Logic State
+    private currentTargetStep: number = 0;
+    private currentUnfurlValue: number = 0;
+    private lastTrigger: boolean = false;
+
     constructor() {
         this.initialized = false;
         this.count = 0;
@@ -39,6 +48,9 @@ export class ArpeggioFernBatcher {
 
         this.dummy = new THREE.Object3D();
         this._color = new THREE.Color();
+
+        // Initialize global uniform
+        this.uFernUnfurl = uniform(float(0.0));
     }
 
     init() {
@@ -54,8 +66,8 @@ export class ArpeggioFernBatcher {
         registerReactiveMaterial(frondMat);
 
         // TSL Logic
-        // Reads 'instanceUnfurl' from geometry attribute
-        const instanceUnfurl = attribute('instanceUnfurl', 'float');
+        // Reads 'instanceUnfurl' from GLOBAL UNIFORM
+        const instanceUnfurl = this.uFernUnfurl;
 
         const pos = positionLocal;
         const yNorm = pos.y.div(float(frondHeight));
@@ -87,8 +99,7 @@ export class ArpeggioFernBatcher {
         const totalFronds = MAX_FERNS * FRONDS_PER_FERN;
 
         const chunkGeo = frondGeo.clone();
-        this.unfurlAttribute = new THREE.InstancedBufferAttribute(new Float32Array(totalFronds), 1);
-        chunkGeo.setAttribute('instanceUnfurl', this.unfurlAttribute);
+        // Removed instanceUnfurl attribute
 
         this.frondMesh = new THREE.InstancedMesh(chunkGeo, frondMat, totalFronds);
         this.frondMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
@@ -163,16 +174,12 @@ export class ArpeggioFernBatcher {
 
             this.frondMesh!.setMatrixAt(idx, this.dummy.matrix);
             this.frondMesh!.setColorAt(idx, this._color);
-
-            // Init Attribute
-            this.unfurlAttribute!.setX(idx, 0);
         }
 
         // Update count
         this.frondMesh!.count = this.count * FRONDS_PER_FERN;
         this.frondMesh!.instanceMatrix.needsUpdate = true;
         if (this.frondMesh!.instanceColor) this.frondMesh!.instanceColor.needsUpdate = true;
-        this.unfurlAttribute!.needsUpdate = true;
     }
 
     updateInstance(index, dummy) {
@@ -227,46 +234,36 @@ export class ArpeggioFernBatcher {
 
         const maxSteps = 12;
 
-        // Loop through active ferns and sync unfurl state
-        for (let i = 0; i < this.count; i++) {
-            const dummy = this.logicFerns[i];
+        // --- GLOBAL LOGIC ---
+        // Replacing the per-instance loop with global state tracking
 
-            // 1. Update State Machine
-            let nextTarget = dummy.userData.targetStep || 0;
-            const lastTrigger = dummy.userData.lastTrigger || false;
+        let nextTarget = this.currentTargetStep;
 
-            if (arpeggioActive) {
-                if (noteTrigger && !lastTrigger) {
-                    nextTarget += 1;
-                    if (nextTarget > maxSteps) nextTarget = maxSteps;
-                }
-            } else {
-                nextTarget = 0;
+        if (arpeggioActive) {
+            // Check for trigger edge (noteTrigger && !lastTrigger)
+            if (noteTrigger && !this.lastTrigger) {
+                nextTarget += 1;
+                if (nextTarget > maxSteps) nextTarget = maxSteps;
             }
-
-            dummy.userData.targetStep = nextTarget;
-            dummy.userData.lastTrigger = noteTrigger;
-
-            let currentUnfurl = dummy.userData.unfurlStep || 0;
-            const speed = (nextTarget > currentUnfurl) ? 0.3 : 0.05;
-            currentUnfurl += (nextTarget - currentUnfurl) * speed;
-            dummy.userData.unfurlStep = currentUnfurl;
-
-            const unfurl = currentUnfurl / maxSteps;
-            dummy.userData.unfurlFactor = unfurl;
-
-            // 2. Update Attribute if changed
-            if (Math.abs(unfurl - (dummy.userData._lastUnfurl || 0)) > 0.001 || dummy.userData._lastUnfurl === undefined) {
-                dummy.userData._lastUnfurl = unfurl;
-
-                const startIdx = i * FRONDS_PER_FERN;
-                for (let f = 0; f < FRONDS_PER_FERN; f++) {
-                    const idx = startIdx + f;
-                    this.unfurlAttribute!.setX(idx, unfurl);
-                }
-                this.unfurlAttribute!.needsUpdate = true;
-            }
+        } else {
+            // Reset if arpeggio stops
+            nextTarget = 0;
         }
+
+        // Store state for next frame
+        this.currentTargetStep = nextTarget;
+        this.lastTrigger = noteTrigger;
+
+        // Smooth Interpolation
+        const speed = (nextTarget > this.currentUnfurlValue) ? 0.3 : 0.05;
+        this.currentUnfurlValue += (nextTarget - this.currentUnfurlValue) * speed;
+
+        // Normalized 0..1
+        const unfurl = this.currentUnfurlValue / maxSteps;
+
+        // Update Global State
+        this.globalUnfurl = unfurl;
+        this.uFernUnfurl.value = unfurl;
     }
 }
 
