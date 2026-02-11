@@ -1,4 +1,4 @@
-// src/foliage/silence-spirits.js
+// src/foliage/silence-spirits.ts
 
 import * as THREE from 'three';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
@@ -14,7 +14,11 @@ import {
     uPlayerPosition
 } from './common.ts';
 
-export function createSilenceSpirit(options = {}) {
+export interface SilenceSpiritOptions {
+    scale?: number;
+}
+
+export function createSilenceSpirit(options: SilenceSpiritOptions = {}): THREE.Group {
     const group = new THREE.Group();
     const { scale = 1.0 } = options;
 

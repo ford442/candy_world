@@ -1,4 +1,4 @@
-// src/foliage/panning-pads.js
+// src/foliage/panning-pads.ts
 
 import * as THREE from 'three';
 import {
@@ -9,15 +9,24 @@ import {
     sharedGeometries,
     createStandardNodeMaterial,
     uPlayerPosition,
-    uTime
+    uTime,
+    UnifiedMaterialOptions
 } from './common.ts';
 import { spawnImpact } from './impacts.ts';
 import {
     color, float, mix, uv, distance, vec2, smoothstep, uniform,
-    positionLocal, positionWorld, vec3
+    positionLocal, positionWorld, vec3,
+    ShaderNodeObject, Node
 } from 'three/tsl';
 
-export function createPanningPad(options = {}) {
+export interface PanningPadOptions {
+    radius?: number;
+    baseColor?: THREE.ColorRepresentation;
+    glowColor?: THREE.ColorRepresentation;
+    panBias?: number;
+}
+
+export function createPanningPad(options: PanningPadOptions = {}): THREE.Group {
     const {
         radius = 1.0,
         baseColor = 0x2E8B57,
@@ -57,7 +66,7 @@ export function createPanningPad(options = {}) {
     // 1. The Pad (Flattened Cylinder)
     // We want a mercury/holographic look.
     // Use OilSlick preset but tweak for "mercury" (high metalness, high smoothness)
-    const padMat = createUnifiedMaterial(0xCCCCCC, {
+    const padMatOpts: UnifiedMaterialOptions = {
         roughness: 0.1,
         metalness: 0.9,
         iridescenceStrength: 0.8,
@@ -65,9 +74,11 @@ export function createPanningPad(options = {}) {
         bumpStrength: 0.05,
         noiseScale: 4.0,
         sheen: 0.5,
-        sheenColor: glowColor,
+        sheenColor: glowColor instanceof THREE.Color ? glowColor : new THREE.Color(glowColor),
         deformationNode: squashDeformation // ⚡ JUICE: Apply TSL Squash
-    });
+    };
+
+    const padMat = createUnifiedMaterial(0xCCCCCC, padMatOpts);
     registerReactiveMaterial(padMat);
 
     const pad = new THREE.Mesh(sharedGeometries.unitCylinder, padMat);
