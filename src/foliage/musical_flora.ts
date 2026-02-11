@@ -86,7 +86,7 @@ export function createArpeggioFern(options: ArpeggioFernOptions = {}) {
 
     // Helper to update text based on state
     group.userData.updateInteractionState = () => {
-        const unfurl = group.userData.unfurlFactor || 0;
+        const unfurl = arpeggioFernBatcher.globalUnfurl || 0;
         const harvested = group.userData.harvested || false;
 
         if (harvested) {
@@ -113,7 +113,7 @@ export function createArpeggioFern(options: ArpeggioFernOptions = {}) {
     group.userData.onInteract = () => {
         if (originalInteract) originalInteract(); // Visual spin
 
-        const unfurl = group.userData.unfurlFactor || 0;
+        const unfurl = arpeggioFernBatcher.globalUnfurl || 0;
         if (!group.userData.harvested && unfurl > 0.8) {
             unlockSystem.harvest('fern_core', 1, 'Fern Core');
             group.userData.harvested = true;
