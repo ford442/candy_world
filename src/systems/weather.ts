@@ -3,7 +3,7 @@
 
 import * as THREE from 'three';
 import { getGroundHeight, uploadPositions, uploadAnimationData, uploadMushroomSpecs, batchMushroomSpawnCandidates, readSpawnCandidates, isWasmReady } from '../utils/wasm-loader.js';
-import { chargeBerries, triggerGrowth, triggerBloom, shakeBerriesLoose, createMushroom, createWaterfall, createLanternFlower, cleanupReactivity, musicReactivitySystem, updateGlobalBerryScale } from '../foliage/index.ts';
+import { chargeBerries, triggerGrowth, triggerBloom, shakeBerriesLoose, createMushroom, createWaterfall, createLanternFlower, cleanupReactivity, musicReactivitySystem, updateGlobalBerryScale, berryBatcher } from '../foliage/index.ts';
 import { createRainbow, uRainbowOpacity } from '../foliage/rainbow.ts';
 import { createAurora, uAuroraIntensity } from '../foliage/aurora.ts';
 
@@ -529,6 +529,9 @@ export class WeatherSystem {
 
         this.handleSpawning(time, fungiFavorability, lanternFavorability, globalLight);
         this.updateMushroomWaterfalls(time, bassIntensity);
+
+        // ⚡ OPTIMIZATION: Update BerryBatcher (Global InstancedMesh)
+        berryBatcher.update(time, audioData);
 
         this.intensity += (this.targetIntensity - this.intensity) * this.transitionSpeed;
 
