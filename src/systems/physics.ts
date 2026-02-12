@@ -23,7 +23,7 @@ import {
     PlayerState as CorePlayerState,
     KeyStates
 } from './physics.core.ts';
-import { uChromaticIntensity } from '../foliage/chromatic.js';
+import { uChromaticIntensity } from '../foliage/chromatic.ts';
 import { spawnImpact } from '../foliage/impacts.ts';
 import { VineSwing } from '../foliage/trees.ts';
 
