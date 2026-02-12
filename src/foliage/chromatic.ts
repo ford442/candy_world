@@ -3,20 +3,12 @@ import * as THREE from 'three';
 import { MeshBasicNodeMaterial } from 'three/webgpu';
 import {
     Fn,
-    vec2,
     vec3,
     vec4,
     float,
-    uv,
-    mix,
-    sin,
-    cos,
     uniform,
     viewportSharedTexture,
     screenUV,
-    positionLocal,
-    positionWorld,
-    cameraPosition
 } from 'three/tsl';
 
 // Global uniform for Chromatic Pulse intensity
@@ -31,7 +23,7 @@ export const uChromaticIntensity = uniform(0.0);
  *
  * @returns {THREE.Mesh} The full-screen quad mesh.
  */
-export function createChromaticPulse() {
+export function createChromaticPulse(): THREE.Mesh {
     // Create a full-screen quad geometry
     const geometry = new THREE.PlaneGeometry(2, 2);
 

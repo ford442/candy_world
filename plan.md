@@ -10,13 +10,14 @@
 
 ## Next Steps
 
-1. **Migrate to TypeScript (Phase 1)**: Migrate remaining foliage modules to TypeScript.
-   - *Target Modules*: `src/foliage/pines.js`, `src/foliage/glitch.js`, `src/foliage/chromatic.js`.
+1. **Rare Flora Discovery**: Implement the discovery system for rare plants (Next Priority).
 
 ---
 
 ## Recent Progress
 - **Accomplished:**
+  - **Migrate to TypeScript (Phase 1): Remaining Foliage Modules (`glitch`, `chromatic`)**: **Status: Implemented ✅**
+    - *Implementation Details:* Migrated `src/foliage/glitch.js` and `src/foliage/chromatic.js` to TypeScript. Added strict typing for TSL nodes and shader uniforms. Updated `UnifiedMaterialOptions` in `src/foliage/common.ts` to support `emissive` properties, fixing a regression in Jitter Mines. Removed `src/foliage/pines.js` as it was dead code superseded by `src/foliage/portamento-batcher.ts`.
   - **Migrate to TypeScript (Phase 1): Visual Effects (`panning-pads`, `silence-spirits`)**: **Status: Implemented ✅**
     - *Implementation Details:* Migrated `src/foliage/panning-pads.js` and `src/foliage/silence-spirits.js` to TypeScript (`.ts`). Added strict typing for `PanningPadOptions`, `SilenceSpiritOptions`, and exported `UnifiedMaterialOptions` from `src/foliage/common.ts` for better type reuse. Updated `src/foliage/index.ts` exports.
   - **Migrate to TypeScript (Phase 1): Visual Effects (`ribbons`, `sparkle-trail`, `lotus`, `aurora`)**: **Status: Implemented ✅**

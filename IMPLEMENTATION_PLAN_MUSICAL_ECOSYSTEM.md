@@ -21,6 +21,7 @@ This document captures feature ideas for the Candy World musical ecosystem. The 
 - Visual Design: TSL vertex displacement shader bends the cylinder mesh based on `uBendStrength`. Stress lines (emissive glow) intensify as the bend angle increases, shifting from copper to hot orange.
 - Behavioral Patterns: Reacts to "Melody" channel (Channel 2); bends in random directions on note triggers; returns to upright position using spring physics in update loop.
 - Audio: Creaking metallic groan rising/falling with pitch slide.
+- *Note:* Refactored to `src/foliage/portamento-batcher.ts` for performance (InstancedMesh).
 
 ### Vibrato Violets
 - **Status: Implemented ✅**
@@ -157,7 +158,7 @@ This document captures feature ideas for the Candy World musical ecosystem. The 
 - **Status: Implemented ✅**
 - Description: Pixelation/glitch effect from Sample Offset command (9xx), with texture pixelation and vertex jitter.
 - Gameplay Mechanics: Glitched objects become intangible briefly; Glitch Grenade causes local glitch enabling hidden pathways and double-loot crates.
-- Visual Design: **[Implemented]** Vertex noise-based jitter, pixelation shader rounding UVs, RGB channel splitting. Integrated into Unified Material Pipeline (`src/foliage/common.js`).
+- Visual Design: **[Implemented]** Vertex noise-based jitter, pixelation shader rounding UVs, RGB channel splitting. Integrated into Unified Material Pipeline (`src/foliage/common.ts` via `src/foliage/glitch.ts`).
 - Behavioral Patterns: Cooldown between glitch effects; stacked 9xx commands escalate effect.
 - Audio: Digital crunch with bitcrushed noise.
 
@@ -165,7 +166,7 @@ This document captures feature ideas for the Candy World musical ecosystem. The 
 - **Status: Implemented ✅**
 - Description: Full-screen chromatic RGB separation on heavy kicks (kick velocity > 100), with barrel distortion and a short screen freeze.
 - Gameplay Mechanics: Temporal distortion of hitboxes; players can time Dodge Roll for invulnerability and an afterimage.
-- Visual Design: **[Implemented]** TSL `viewportSharedTexture` sampling with barrel distortion and RGB channel splitting. Implemented as an unlit `MeshBasicNodeMaterial` overlay attached to the camera.
+- Visual Design: **[Implemented]** TSL `viewportSharedTexture` sampling with barrel distortion and RGB channel splitting. Implemented as an unlit `MeshBasicNodeMaterial` overlay attached to the camera (`src/foliage/chromatic.ts`).
 - Behavioral Patterns: Pulse triggers on heavy kicks, stacks with double kicks; suppressed in menus.
 - Audio: Silent but creates the perception of a subwoofer press.
 
@@ -319,11 +320,11 @@ Three.js Renderer -> WebGPU RenderPipeline (Raw Draw Calls)
   - **Panning Pads**: Implemented `src/foliage/panning-pads.js` with mercury-like TSL materials and stereo-pan driven bobbing animation. Integrated into world generation (near water).
   - **Silence Spirits**: Implemented `src/foliage/silence-spirits.js` with translucent, fading geometry and volume-reactive AI (fleeing on noise, appearing in silence).
   - **Pattern-Change Seasons**: Implemented global palette shifts (Neon/Glitch modes) triggered by music pattern changes (detected via `AudioSystem` and propagated to `WeatherSystem`).
-  - **Instrument-ID Textures**: Implemented `createInstrumentShrine` in `src/foliage/instrument.js` using procedural TSL patterns seeded by Instrument ID.
-  - **Portamento Pines**: Implemented `src/foliage/pines.js` featuring TSL-driven vertex displacement (bending) and spring physics animation. Reacts to Melody channel (2).
-  - **Sample-Offset Glitch**: Implemented TSL shader for glitch effect (`src/foliage/glitch.js`) integrated into Unified Material Pipeline.
-  - **Chromatic Aberration Pulse**: Implemented TSL-based full-screen distortion (`src/foliage/chromatic.js`) using `viewportSharedTexture` on an unlit camera-attached overlay mesh. Reacts to kick drum intensity.
-  - **Note-Trail Ribbons**: Implemented `src/foliage/ribbons.js` featuring dynamic 3D ribbons that trace the melody (channel 2). The ribbon extrusion height is driven by pitch, and width by volume. Rendered with TSL gradient and sparkle effects.
+  - **Instrument-ID Textures**: Implemented `createInstrumentShrine` in `src/foliage/instrument.ts` using procedural TSL patterns seeded by Instrument ID.
+  - **Portamento Pines**: Implemented TSL-driven vertex displacement (bending) and spring physics animation. Reacts to Melody channel (2). Refactored to `src/foliage/portamento-batcher.ts`.
+  - **Sample-Offset Glitch**: Implemented TSL shader for glitch effect (`src/foliage/glitch.ts`) integrated into Unified Material Pipeline.
+  - **Chromatic Aberration Pulse**: Implemented TSL-based full-screen distortion (`src/foliage/chromatic.ts`) using `viewportSharedTexture` on an unlit camera-attached overlay mesh. Reacts to kick drum intensity.
+  - **Note-Trail Ribbons**: Implemented `src/foliage/ribbons.ts` featuring dynamic 3D ribbons that trace the melody (channel 2). The ribbon extrusion height is driven by pitch, and width by volume. Rendered with TSL gradient and sparkle effects.
 
 - **Concept Art Check**:
   - Attempted to view `assets/colorcode.png` but file access was restricted. Proceeded with the established "Cute Clay" palette (Pastels, Matte, Rosy Cheeks) as validated in previous steps.
@@ -331,4 +332,3 @@ Three.js Renderer -> WebGPU RenderPipeline (Raw Draw Calls)
 - **Next Steps:**
   - **Rare Flora Discovery**: Implement the discovery system for rare plants.
   - **Verify Data Flow**: Ensure `AudioSystem` correctly extracts and passes `order`/`row` data from the worklet to drive the Pattern-Change logic reliably.
-  - **Migrate to TypeScript**: Continue Phase 1 of the migration roadmap.

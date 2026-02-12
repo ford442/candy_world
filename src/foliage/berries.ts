@@ -5,7 +5,7 @@ import {
 } from 'three/tsl';
 import { CandyPresets, uAudioLow, uTime } from './common.ts';
 import { spawnImpact } from './impacts.ts';
-import { uChromaticIntensity } from './chromatic.js';
+import { uChromaticIntensity } from './chromatic.ts';
 import { foliageGroup } from '../world/state.ts';
 
 // OPTIMIZED: BerryBatcher replaces thousands of individual InstancedMeshes
