@@ -20,6 +20,7 @@ const _scratchMatrix = new THREE.Matrix4();
 const _scratchPos = new THREE.Vector3();
 const _scratchScale = new THREE.Vector3();
 const _scratchQuat = new THREE.Quaternion();
+const _scratchColor = new THREE.Color();
 
 export class MushroomBatcher {
     private static instance: MushroomBatcher;
@@ -65,6 +66,11 @@ export class MushroomBatcher {
 
         // 4. InstancedMesh
         this.mesh = new THREE.InstancedMesh(geometry, materials, MAX_MUSHROOMS);
+
+        // PALETTE: Initialize instanceColor manually since we use TSL
+        const colors = new Float32Array(MAX_MUSHROOMS * 3);
+        this.mesh.instanceColor = new THREE.InstancedBufferAttribute(colors, 3);
+
         this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
         this.mesh.count = 0;
         this.mesh.castShadow = true;
@@ -460,17 +466,25 @@ export class MushroomBatcher {
         stemMat.positionNode = deform(positionLocal);
 
         // 1. Cap
-        // OPTIMIZED: Removed TSL colorNode/emissiveNode to reduce vertex buffers
-        // Colors are applied via setColorAt on InstancedMesh instead
+        // PALETTE: Upgraded to use instanceColor + Juicy Rim Light
         const capMat = foliageMaterials.mushroomCap[0].clone();
         capMat.positionNode = deform(positionLocal);
 
-        // Emissive Logic for Cap (Bioluminescence + Flash) - uses uniform glow, not per-instance color
+        // Base color from instance (set via register/setColorAt)
+        // Fallback to Red if instanceColor is missing (should not happen if initialized)
+        const baseColor = attribute('instanceColor', 'vec3');
+
+        // Add Juicy Rim Light! (Pop against background)
+        const rimLight = createJuicyRimLight(baseColor, float(1.5), float(3.0), null);
+
+        // Final Color: Base + Rim
+        capMat.colorNode = baseColor.add(rimLight);
+
+        // Emissive Logic for Cap (Bioluminescence + Flash)
         const flashIntensity = smoothstep(0.2, 0.0, noteAge).mul(velocity).mul(2.0);
         const baseGlow = uTwilight.mul(0.5);
         const totalGlow = baseGlow.add(flashIntensity);
         
-        // Simplified emissive - uses material's base emissive color set via setColorAt
         capMat.emissiveIntensityNode = totalGlow;
 
         // 2. Gills
@@ -526,6 +540,12 @@ export class MushroomBatcher {
         dummy.updateMatrix();
         this.mesh!.setMatrixAt(i, dummy.matrix);
 
+        // PALETTE: Set Color
+        // Default to Red (0xFF6B6B) if no note color provided
+        const colorHex = options.noteColor !== undefined ? options.noteColor : 0xFF6B6B;
+        _scratchColor.setHex(colorHex);
+        this.mesh!.setColorAt(i, _scratchColor);
+
         // 2. Set Attributes - Packed into single vec4
         // packedFlags: noteIndex+1 + hasFace*20 + isGiant*40
         const hasFace = options.hasFace ? 1.0 : 0.0;
@@ -546,6 +566,7 @@ export class MushroomBatcher {
         }
 
         this.mesh!.instanceMatrix.needsUpdate = true;
+        if (this.mesh!.instanceColor) this.mesh!.instanceColor.needsUpdate = true;
         this.instanceData!.needsUpdate = true;
     }
 
@@ -583,6 +604,10 @@ export class MushroomBatcher {
             this.mesh!.getMatrixAt(lastIndex, m);
             this.mesh!.setMatrixAt(indexToRemove, m);
 
+            // Color
+            this.mesh!.getColorAt(lastIndex, _scratchColor);
+            this.mesh!.setColorAt(indexToRemove, _scratchColor);
+
             // Single packed attribute
             this.instanceData!.setXYZW(
                 indexToRemove,
@@ -614,6 +639,7 @@ export class MushroomBatcher {
         // 4. Mark Updates
         this.mesh!.count = this.count;
         this.mesh!.instanceMatrix.needsUpdate = true;
+        if (this.mesh!.instanceColor) this.mesh!.instanceColor.needsUpdate = true;
         this.instanceData!.needsUpdate = true;
     }
 
