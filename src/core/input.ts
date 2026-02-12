@@ -636,6 +636,55 @@ export function initInput(
         toggleDayNightBtn.addEventListener('click', toggleDayNightCallback);
     }
 
+    // --- UX: Interactive Ability HUD ---
+    const hudDash = document.getElementById('ability-dash');
+    const hudMine = document.getElementById('ability-mine');
+
+    // Helper to simulate key press for abilities
+    const triggerAbility = (ability: 'dash' | 'action') => {
+        keyStates[ability] = true;
+        setTimeout(() => {
+            keyStates[ability] = false;
+        }, 100);
+    };
+
+    if (hudDash) {
+        hudDash.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (hudDash.getAttribute('aria-disabled') !== 'true') {
+                triggerAbility('dash');
+            }
+        });
+        // Add keyboard activation for accessibility (Enter/Space)
+        hudDash.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                e.stopPropagation();
+                if (hudDash.getAttribute('aria-disabled') !== 'true') {
+                    triggerAbility('dash');
+                }
+            }
+        });
+    }
+
+    if (hudMine) {
+        hudMine.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (hudMine.getAttribute('aria-disabled') !== 'true') {
+                triggerAbility('action'); // 'action' corresponds to Jitter Mine (KeyF)
+            }
+        });
+        hudMine.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                e.stopPropagation();
+                if (hudMine.getAttribute('aria-disabled') !== 'true') {
+                    triggerAbility('action');
+                }
+            }
+        });
+    }
+
     const toggleMuteBtn = document.getElementById('toggleMuteBtn');
     const volDownBtn = document.getElementById('volDownBtn') as HTMLButtonElement | null;
     const volUpBtn = document.getElementById('volUpBtn') as HTMLButtonElement | null;
