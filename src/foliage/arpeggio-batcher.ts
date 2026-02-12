@@ -9,7 +9,7 @@ import {
     color, float, uniform, vec3, positionLocal, sin, cos, mix, uv, varying
 } from 'three/tsl';
 import { uTime, uGlitchIntensity } from './common.ts';
-import { applyGlitch } from './glitch.js';
+import { applyGlitch } from './glitch.ts';
 
 const MAX_FERNS = 2000; // Cap at 2000 ferns (10,000 fronds)
 const FRONDS_PER_FERN = 5;

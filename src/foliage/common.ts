@@ -9,7 +9,7 @@ import {
     Node
 } from 'three/tsl';
 
-import { applyGlitch } from './glitch.js';
+import { applyGlitch } from './glitch.ts';
 import { FoliageMaterial } from './types';
 
 // --- Shared Resources & Geometries ---
@@ -273,6 +273,8 @@ export interface UnifiedMaterialOptions {
     animateMoisture?: boolean;
     animatePulse?: boolean;
     audioReactStrength?: number;
+    emissive?: number | string | THREE.Color;
+    emissiveIntensity?: number;
 }
 
 /**
@@ -292,6 +294,10 @@ export function createUnifiedMaterial(hexColor: number | string | THREE.Color, o
         noiseScale = 5.0,
         triplanar = false,      // Use triplanar mapping for bumps?
         side = THREE.FrontSide, // Render side
+
+        // Emissive
+        emissive = null,
+        emissiveIntensity = 1.0,
 
         // Translucency (Glass / Jelly)
         transmission = 0.0,     // 0.0 to 1.0
@@ -331,6 +337,10 @@ export function createUnifiedMaterial(hexColor: number | string | THREE.Color, o
     material.roughnessNode = float(roughness);
     material.metalnessNode = float(metalness);
     material.side = side;
+
+    if (emissive !== null) {
+        material.emissiveNode = color(emissive).mul(float(emissiveIntensity));
+    }
 
     // 2. Procedural Surface Noise (Micro-geometry)
     let surfaceNoise: any = float(0.0);
