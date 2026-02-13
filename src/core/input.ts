@@ -33,16 +33,17 @@ export const keyStates: KeyStates = {
 const showUploadFeedback = (labelElement: HTMLElement | null, filesCount: number): void => {
     if (!labelElement) return;
 
-    // Save original text if not already saved
-    if (!labelElement.dataset.originalText) {
-        labelElement.dataset.originalText = labelElement.innerText;
+    // Save original HTML if not already saved (Preserves formatting/spans)
+    if (!labelElement.dataset.originalHtml) {
+        labelElement.dataset.originalHtml = labelElement.innerHTML;
     }
 
-    const originalText = labelElement.dataset.originalText;
+    const originalHtml = labelElement.dataset.originalHtml;
+    // We can use innerText for the temporary message, or innerHTML if we wanted icons/styles
     labelElement.innerText = `✅ ${filesCount} Song${filesCount > 1 ? 's' : ''} Added!`;
 
     setTimeout(() => {
-        labelElement.innerText = originalText || '';
+        labelElement.innerHTML = originalHtml || '';
     }, 2000);
 };
 
