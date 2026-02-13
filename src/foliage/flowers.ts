@@ -719,6 +719,30 @@ export function createTremoloTulip(options: { color?: number, size?: number } = 
     group.userData.type = 'tremoloTulip';
     group.userData.headGroup = headGroup;
     group.userData.bellMaterial = bellMat;
+    group.userData.interactionText = "Harvest Tremolo Bulb";
+
+    // Interaction Logic for Harvesting
+    group.userData.onInteract = () => {
+        if (!group.userData.harvested) {
+             unlockSystem.harvest('tremolo_bulb', 1, 'Tremolo Bulb');
+             group.userData.harvested = true;
+
+             // Visual feedback
+             if (group.userData.headGroup) {
+                 group.userData.headGroup.scale.multiplyScalar(0.5);
+                 // Dim material
+                 if (group.userData.bellMaterial) {
+                     group.userData.bellMaterial.emissiveIntensity = 0.1;
+                 }
+             }
+             group.userData.interactionText = "Harvested";
+
+             // Play sound if available via audioSystem
+             if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
+                 (window as any).AudioSystem.playSound('pickup', { position: group.position, pitch: 1.2 });
+             }
+        }
+    };
 
     return attachReactivity(group, { minLight: 0.2, maxLight: 1.0 });
 }

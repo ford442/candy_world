@@ -13,6 +13,7 @@ export interface KeyStates {
     dash: boolean;
     dance: boolean;
     action: boolean;
+    phase: boolean;
 }
 
 export const keyStates: KeyStates = {
@@ -25,7 +26,8 @@ export const keyStates: KeyStates = {
     sprint: false,
     dash: false,
     dance: false,
-    action: false
+    action: false,
+    phase: false
 };
 
 // Controls and Event Listeners
@@ -523,6 +525,7 @@ export function initInput(
             case 'KeyD': keyStates.right = true; break;
             case 'KeyF': keyStates.action = true; break; // Jitter Mine Ability
             case 'KeyE': keyStates.dash = true; break; // Dash Ability
+            case 'KeyZ': keyStates.phase = true; break; // Phase Shift Ability
             case 'KeyR': keyStates.dance = true; break; // Dance Ability
             case 'Space': keyStates.jump = true; break;
             case 'KeyN': if(toggleDayNightCallback) toggleDayNightCallback(); break;
@@ -577,6 +580,7 @@ export function initInput(
             case 'KeyD': keyStates.right = false; break;
             case 'KeyF': keyStates.action = false; break;
             case 'KeyE': keyStates.dash = false; break;
+            case 'KeyZ': keyStates.phase = false; break;
             case 'KeyR': keyStates.dance = false; break;
             case 'Space': keyStates.jump = false; break;
             case 'ControlLeft':
