@@ -26,6 +26,8 @@ import {
 import { uChromaticIntensity } from '../foliage/chromatic.ts';
 import { spawnImpact } from '../foliage/impacts.ts';
 import { VineSwing } from '../foliage/trees.ts';
+import { unlockSystem } from './unlocks.ts';
+import { showToast } from '../utils/toast.js';
 
 // --- Types ---
 
@@ -46,6 +48,8 @@ export interface PlayerExtended extends CorePlayerState {
     danceStartY?: number;
     danceStartRotation?: { x: number; y: number; z: number };
     hasShield: boolean;
+    isPhasing: boolean;
+    phaseTimer: number;
 }
 
 // --- Configuration ---
@@ -83,6 +87,8 @@ export const player: PlayerExtended = {
     isDancing: false,
     danceTime: 0.0,
     hasShield: false,
+    isPhasing: false,
+    phaseTimer: 0.0,
 
     // Flags for external systems to query
     isGrounded: false,
@@ -93,7 +99,8 @@ export const player: PlayerExtended = {
 const _lastInputState = {
     jump: false,
     dash: false,
-    dance: false
+    dance: false,
+    phase: false
 };
 
 // Global physics modifiers (Musical Ecosystem)
@@ -169,6 +176,7 @@ export function updatePhysics(delta: number, camera: THREE.Camera, controls: any
     _lastInputState.jump = keyStates.jump;
     _lastInputState.dash = keyStates.dash;
     _lastInputState.dance = keyStates.dance;
+    _lastInputState.phase = keyStates.phase;
 
     // 5. Check Flora Discovery (Throttled)
     const frameCount = Math.floor(Date.now() / 16);
@@ -501,6 +509,35 @@ function handleAbilities(delta: number, camera: THREE.Camera, keyStates: KeyStat
 
         discoverySystem.discover('ability_dash', 'Dash', '💨');
     }
+
+    // 5. Phase Shift
+    // Trigger on Rising Edge of Phase Key
+    const isPhasePressed = keyStates.phase;
+    const isPhaseTriggered = isPhasePressed && !_lastInputState.phase;
+
+    if (isPhaseTriggered) {
+        if (player.isPhasing) {
+            // Cancel Phase Shift early? Or just ignore.
+        } else {
+            // Attempt to activate
+            if (unlockSystem.consume('tremolo_bulb', 1)) {
+                player.isPhasing = true;
+                player.phaseTimer = 5.0; // 5 Seconds Duration
+
+                // Visuals
+                if (uChromaticIntensity) {
+                    uChromaticIntensity.value = 0.8; // Strong distortion
+                }
+                spawnImpact(player.position, 'land'); // Reuse land impact for now
+                showToast("Phase Shift Active! 👻", "👻");
+
+                // Note: Collision logic would need to check player.isPhasing
+                // to ignore obstacles, but for now it's just a status effect + visual.
+            } else {
+                showToast("Need Tremolo Bulb! 🌷", "❌");
+            }
+        }
+    }
 }
 
 
@@ -522,9 +559,23 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
     // --- ABILITIES & MOVEMENT ---
     handleAbilities(delta, camera, keyStates);
 
+    // Update Phase Shift Timer
+    if (player.isPhasing) {
+        player.phaseTimer -= delta;
+        if (player.phaseTimer <= 0) {
+            player.isPhasing = false;
+            showToast("Phase Shift Ended", "👻");
+        }
+    }
+
     // Decay Chromatic Pulse (Hack for now, ideally moved to a proper FX system)
-    if (uChromaticIntensity && uChromaticIntensity.value > 0) {
-        uChromaticIntensity.value = Math.max(0, uChromaticIntensity.value - delta * 2.0);
+    // If Phasing, keep intensity high
+    if (player.isPhasing) {
+        if (uChromaticIntensity) uChromaticIntensity.value = 0.8 + Math.sin(Date.now() * 0.01) * 0.1;
+    } else {
+        if (uChromaticIntensity && uChromaticIntensity.value > 0) {
+            uChromaticIntensity.value = Math.max(0, uChromaticIntensity.value - delta * 2.0);
+        }
     }
 
     const { moveVec: moveInput, moveSpeed } = calculateMovementInput(camera, keyStates, player);
