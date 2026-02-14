@@ -13,6 +13,7 @@ import * as Cycle from '../core/cycle.ts';
 import { CYCLE_DURATION, CONFIG, DURATION_SUNRISE, DURATION_DAY, DURATION_SUNSET, DURATION_PRE_DAWN } from '../core/config.ts';
 import { uCloudRainbowIntensity, uCloudLightningStrength, uCloudLightningColor, updateCloudAttraction, isCloudOverTarget } from '../foliage/clouds.ts';
 import { uSkyDarkness, uTwilight } from '../foliage/sky.ts';
+import { uChromaticIntensity } from '../foliage/chromatic.ts';
 import { updateCaveWaterLevel } from '../foliage/cave.ts';
 import { LegacyParticleSystem } from './adapters/LegacyParticleSystem.js';
 import { WasmParticleSystem } from './adapters/WasmParticleSystem.js';
@@ -95,7 +96,7 @@ export class WeatherSystem {
     currentLightLevel: number = 0;
     weatherType: string = 'audio';
     darknessFactor: number = 0;
-    targetPaletteMode: string | null = null; // Used in main.js
+    targetPaletteMode: string | null = 'standard'; // Used in main.js
 
     constructor(scene: THREE.Scene) {
         this.scene = scene;
@@ -391,8 +392,33 @@ export class WeatherSystem {
         this.currentSeason = seasonal.season;
 
         const currentPattern = audioData.patternIndex || 0;
+
+        // --- Pattern-Change Seasons Logic ---
         if (currentPattern !== this.lastPatternIndex) {
             this.lastPatternIndex = currentPattern;
+
+            // Determine Target Palette based on Pattern Index (Order)
+            // 0-3: Standard (Spring/Summer)
+            // 4-7: Neon (Night/Party)
+            // 8-11: Glitch (Chaos)
+            // 12+: Loop back to Standard or keep Glitch? Standard for now.
+            let nextMode = 'standard';
+
+            // We can use modulo logic if we want it to cycle indefinitely
+            // or fixed ranges. Fixed ranges are more controllable for level design.
+            if (currentPattern >= 4 && currentPattern <= 7) nextMode = 'neon';
+            else if (currentPattern >= 8 && currentPattern <= 11) nextMode = 'glitch';
+
+            // Check if season changed
+            if (nextMode !== this.targetPaletteMode) {
+                this.targetPaletteMode = nextMode;
+                console.log(`[Weather] Season Changed: Pattern ${currentPattern} -> Mode ${nextMode}`);
+
+                // Visual Pulse (Transition Effect)
+                if (uChromaticIntensity) {
+                    uChromaticIntensity.value = 1.0; // Sharp pulse
+                }
+            }
         }
 
         this.updateWeatherState(bassIntensity, melodyVol, groove, cycleWeatherBias, seasonal);

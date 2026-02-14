@@ -10,12 +10,14 @@
 
 ## Next Steps
 
-1. **Rare Flora Discovery**: Implement the discovery system for rare plants (Next Priority).
+1. **WebGPU Migration (Phase 4)**: Begin replacing standard materials with TSL-driven NodeMaterials for remaining foliage types.
 
 ---
 
 ## Recent Progress
 - **Accomplished:**
+  - **Pattern-Change Seasons & Audio Data Flow**: **Status: Implemented ✅**
+    - *Implementation Details:* Implemented logic in `src/systems/weather.ts` to switch global palette modes (Standard, Neon, Glitch) based on the current audio pattern index. Updated `src/foliage/types.ts` to include `pan`, `instrument`, and `patternIndex` in `ChannelData`/`AudioData` interfaces, fixing type compatibility issues. Updated `public/js/audio-processor.js` to calculate stereo pan for 4-channel MODs using a heuristic (L-R-R-L).
   - **Migrate to TypeScript (Phase 1): Remaining Foliage Modules (`glitch`, `chromatic`)**: **Status: Implemented ✅**
     - *Implementation Details:* Migrated `src/foliage/glitch.js` and `src/foliage/chromatic.js` to TypeScript. Added strict typing for TSL nodes and shader uniforms. Updated `UnifiedMaterialOptions` in `src/foliage/common.ts` to support `emissive` properties, fixing a regression in Jitter Mines. Removed `src/foliage/pines.js` as it was dead code superseded by `src/foliage/portamento-batcher.ts`.
   - **Migrate to TypeScript (Phase 1): Visual Effects (`panning-pads`, `silence-spirits`)**: **Status: Implemented ✅**
