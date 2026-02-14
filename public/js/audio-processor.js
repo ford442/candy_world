@@ -270,10 +270,18 @@ class ChiptuneProcessor extends AudioWorkletProcessor {
             
             if (noteMatch) anyTrigger = true;
 
+            // Simple Pan Heuristic for 4-channel MODs (Standard Amiga Panning: L R R L)
+            let pan = 0;
+            if (numChannels === 4) {
+                 if (ch === 0 || ch === 3) pan = -0.5; // Left
+                 else pan = 0.5; // Right
+            }
+
             channelData.push({
                 volume: vu,
                 note: noteMatch,
                 instrument: instrument,
+                pan: pan,
                 activeEffect: activeEffect,
                 effectValue: intensity
             });
