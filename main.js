@@ -654,9 +654,11 @@ function animate() {
                 if (isReady) {
                     hudDash.classList.add('ready');
                     hudDash.setAttribute('aria-disabled', 'false');
+                    hudDash.title = "Dash (E) - Ready!";
                 } else {
                     hudDash.classList.remove('ready');
                     hudDash.setAttribute('aria-disabled', 'true');
+                    hudDash.title = "Dash (E) - Recharging...";
                 }
                 _lastDashReady = isReady;
             }
@@ -672,9 +674,11 @@ function animate() {
                 if (isReady) {
                     hudMine.classList.add('ready');
                     hudMine.setAttribute('aria-disabled', 'false');
+                    hudMine.title = "Jitter Mine (F) - Ready!";
                 } else {
                     hudMine.classList.remove('ready');
                     hudMine.setAttribute('aria-disabled', 'true');
+                    hudMine.title = "Jitter Mine (F) - Recharging...";
                 }
                 _lastMineReady = isReady;
             }
@@ -749,6 +753,11 @@ initWasm().then(async (wasmLoaded) => {
                 // (We delayed this in input.js to keep the "Generating..." message visible)
                 const instructions = document.getElementById('instructions');
                 if (instructions) instructions.style.display = 'none';
+
+                // 🎨 Palette: Welcome Toast
+                import('./src/utils/toast.js').then(({ showToast }) => {
+                    showToast("Press [ESC] for Controls", "🎮", 4000);
+                });
 
                 // CRITICAL: Re-enable the button so that "Resume" works later (and checks in input.js pass)
                 startButton.disabled = false;
