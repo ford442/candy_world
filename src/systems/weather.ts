@@ -293,7 +293,7 @@ export class WeatherSystem {
 
             // A. Find Target (if none)
             if (!cloud.userData.targetMushroom) {
-                let minDist = 1000;
+                let minDistSq = 1000000;
                 let candidate = null;
 
                 for (let j = 0, mLen = this.trackedMushrooms.length; j < mLen; j++) {
@@ -304,9 +304,9 @@ export class WeatherSystem {
                     // Rule: Favor Small mushrooms initially to grow them
                     // But if it's already Giant, we can still latch on if we are close (permanent barrier logic)
 
-                    const dist = cloud.position.distanceTo(m.position);
-                    if (dist < 50 && dist < minDist) { // 50m scan range
-                        minDist = dist;
+                    const distSq = cloud.position.distanceToSquared(m.position);
+                    if (distSq < 2500 && distSq < minDistSq) { // 50m scan range (50*50 = 2500)
+                        minDistSq = distSq;
                         candidate = m;
                     }
                 }
