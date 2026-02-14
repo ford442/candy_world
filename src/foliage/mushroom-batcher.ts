@@ -3,11 +3,12 @@ import { MeshStandardNodeMaterial } from 'three/webgpu';
 import {
     color, float, vec3, vec4, attribute, positionLocal,
     sin, cos, mix, smoothstep, uniform, If, time,
-    varying, dot, normalize, normalLocal, step, Fn, positionWorld
+    varying, dot, normalize, normalLocal, step, Fn, positionWorld, normalWorld
 } from 'three/tsl';
 import {
     sharedGeometries, foliageMaterials, uTime,
-    uAudioLow, uAudioHigh, createRimLight, createJuicyRimLight, uPlayerPosition, colorFromNote
+    uAudioLow, uAudioHigh, createRimLight, createJuicyRimLight, uPlayerPosition, colorFromNote,
+    createSugarSparkle
 } from './common.ts';
 import { uTwilight } from './sky.ts';
 import { foliageGroup } from '../world/state.ts'; // Assuming state.ts exports foliageGroup
@@ -477,13 +478,19 @@ export class MushroomBatcher {
         // Add Juicy Rim Light! (Pop against background)
         const rimLight = createJuicyRimLight(baseColor, float(1.5), float(3.0), null);
 
+        // Add Sugar Sparkle! (Palette Polish)
+        // Scale 15.0 for fine grain, Density 0.3 for sparse twinkle, Intensity 2.0
+        const sugarSparkle = createSugarSparkle(normalWorld, float(15.0), float(0.3), float(2.0));
+
         // Final Color: Base + Rim
         capMat.colorNode = baseColor.add(rimLight);
 
         // Emissive Logic for Cap (Bioluminescence + Flash)
         const flashIntensity = smoothstep(0.2, 0.0, noteAge).mul(velocity).mul(2.0);
         const baseGlow = uTwilight.mul(0.5);
-        const totalGlow = baseGlow.add(flashIntensity);
+
+        // Combine Glow + Flash + Sparkle
+        const totalGlow = baseGlow.add(flashIntensity).add(sugarSparkle);
         
         capMat.emissiveIntensityNode = totalGlow;
 
