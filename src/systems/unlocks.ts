@@ -98,6 +98,22 @@ class UnlockSystem {
     }
 
     /**
+     * Consume an item from the inventory.
+     * @param itemId The ID of the item
+     * @param amount Amount to consume
+     * @returns True if successful (enough items), False otherwise
+     */
+    public consume(itemId: string, amount: number = 1): boolean {
+        if (!this.inventory[itemId] || this.inventory[itemId] < amount) {
+            return false;
+        }
+        this.inventory[itemId] -= amount;
+        this.save();
+        console.log(`[UnlockSystem] Consumed ${amount}x ${itemId}. Remaining: ${this.inventory[itemId]}`);
+        return true;
+    }
+
+    /**
      * Check if any new abilities should be unlocked based on current inventory.
      */
     public checkUnlocks(): void {

@@ -3,7 +3,7 @@
 
 import * as THREE from 'three';
 import { getGroundHeight, uploadPositions, uploadAnimationData, uploadMushroomSpecs, batchMushroomSpawnCandidates, readSpawnCandidates, isWasmReady } from '../utils/wasm-loader.js';
-import { chargeBerries, triggerGrowth, triggerBloom, shakeBerriesLoose, createMushroom, createWaterfall, createLanternFlower, cleanupReactivity, musicReactivitySystem, updateGlobalBerryScale, berryBatcher } from '../foliage/index.ts';
+import { chargeBerries, triggerGrowth, triggerBloom, shakeBerriesLoose, createMushroom, createLanternFlower, cleanupReactivity, musicReactivitySystem, updateGlobalBerryScale, berryBatcher, waterfallBatcher } from '../foliage/index.ts';
 import { createRainbow, uRainbowOpacity } from '../foliage/rainbow.ts';
 import { createAurora, uAuroraIntensity } from '../foliage/aurora.ts';
 
@@ -52,7 +52,7 @@ export class WeatherSystem {
     // Particle systems
     particles: any; // WasmParticleSystem
 
-    mushroomWaterfalls: Map<string, any>;
+    mushroomWaterfalls: Set<string>;
 
     lightningLight: THREE.PointLight;
     lightningTimer: number;
@@ -115,7 +115,7 @@ export class WeatherSystem {
         // Particle systems
         this.particles = new WasmParticleSystem();
 
-        this.mushroomWaterfalls = new Map();
+        this.mushroomWaterfalls = new Set();
 
         this.lightningLight = new THREE.PointLight(0xFFFFFF, 0, 200);
         this.lightningTimer = 0;
@@ -294,7 +294,7 @@ export class WeatherSystem {
 
             // A. Find Target (if none)
             if (!cloud.userData.targetMushroom) {
-                let minDist = 1000;
+                let minDistSq = 1000000;
                 let candidate = null;
 
                 for (let j = 0, mLen = this.trackedMushrooms.length; j < mLen; j++) {
@@ -305,9 +305,9 @@ export class WeatherSystem {
                     // Rule: Favor Small mushrooms initially to grow them
                     // But if it's already Giant, we can still latch on if we are close (permanent barrier logic)
 
-                    const dist = cloud.position.distanceTo(m.position);
-                    if (dist < 50 && dist < minDist) { // 50m scan range
-                        minDist = dist;
+                    const distSq = cloud.position.distanceToSquared(m.position);
+                    if (distSq < 2500 && distSq < minDistSq) { // 50m scan range (50*50 = 2500)
+                        minDistSq = distSq;
                         candidate = m;
                     }
                 }
@@ -736,26 +736,23 @@ export class WeatherSystem {
                 const uuid = mushroom.uuid;
 
                 if (isRaining) {
+                    // ⚡ OPTIMIZATION: Use Batcher
                     if (!this.mushroomWaterfalls.has(uuid)) {
                         const radius = mushroom.userData.capRadius || 5.0;
                         const height = mushroom.userData.capHeight || 8.0;
+                        const pos = new THREE.Vector3(mushroom.position.x + radius * 0.8, height * 0.8, mushroom.position.z);
 
-                        const wf = createWaterfall(
-                            new THREE.Vector3(mushroom.position.x + radius * 0.8, height * 0.8, mushroom.position.z),
-                            new THREE.Vector3(mushroom.position.x + radius * 1.1, 0, mushroom.position.z),
-                            2.0
-                        );
-
-                        this.scene.add(wf);
-                        this.mushroomWaterfalls.set(uuid, wf);
+                        // Add to batcher
+                        waterfallBatcher.add(uuid, pos, height * 0.8, 2.0);
+                        this.mushroomWaterfalls.add(uuid);
                     }
-                    const wf = this.mushroomWaterfalls.get(uuid);
-                    if (wf.onAnimate) wf.onAnimate(0.016, time);
-                    if (bassIntensity > 0.5) wf.scale.setScalar(1.0 + bassIntensity * 0.1);
+
+                    if (bassIntensity > 0.5) {
+                        waterfallBatcher.updateInstance(uuid, 1.0 + bassIntensity * 0.1);
+                    }
                 } else {
                     if (this.mushroomWaterfalls.has(uuid)) {
-                        const wf = this.mushroomWaterfalls.get(uuid);
-                        this.scene.remove(wf);
+                        waterfallBatcher.remove(uuid);
                         this.mushroomWaterfalls.delete(uuid);
                     }
                 }
@@ -1001,8 +998,8 @@ export class WeatherSystem {
             if (this.rainbow.geometry) this.rainbow.geometry.dispose();
         }
         if (this.mushroomWaterfalls && this.mushroomWaterfalls.size > 0) {
-            this.mushroomWaterfalls.forEach(wf => {
-                this.scene.remove(wf);
+            this.mushroomWaterfalls.forEach(uuid => {
+                waterfallBatcher.remove(uuid);
             });
             this.mushroomWaterfalls.clear();
         }

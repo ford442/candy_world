@@ -158,6 +158,42 @@ export const createJuicyRimLight = Fn(([baseColor, intensity, power, normalNode]
     return finalColor.mul(rim).mul(finalIntensity);
 });
 
+/**
+ * Creates a "Sugar Sparkle" effect for candy aesthetics.
+ * View-dependent, audio-reactive glitter.
+ */
+export const createSugarSparkle = Fn(([normalNode, scale, density, intensity]) => {
+    const viewDir = normalize(cameraPosition.sub(positionWorld));
+
+    // View-dependent shift: Sparkles "twinkle" as you move around
+    // We add the view direction to the noise coordinates so the pattern shifts with the camera angle.
+    const noiseCoord = positionLocal.mul(scale).add(viewDir.mul(2.0));
+
+    // High frequency noise for the glitter grains
+    const noiseVal = mx_noise_float(noiseCoord);
+
+    // Threshold: Only the peaks of the noise become sparkles.
+    // increasing density lowers the threshold (more sparkles).
+    // density 0.1 -> threshold 0.9 (few)
+    // density 0.5 -> threshold 0.5 (many)
+    const threshold = float(1.0).sub(density);
+
+    // Hard cutoff for sharp glitter, or smoothstep for soft glow?
+    // Glitter should be sharp.
+    const sparkle = smoothstep(threshold, float(1.0), noiseVal);
+
+    // Audio Reactivity: Sparkles flare up on High Frequencies (Melody)
+    // Base intensity + Audio boost
+    const audioBoost = uAudioHigh.mul(3.0).add(1.0);
+
+    // Fresnel Fade: Glitter is often more visible at grazing angles or facing?
+    // Let's make it uniform but slightly boosted at edges for "magic dust" feel
+    const NdotV = abs(dot(normalNode, viewDir));
+    const fresnel = float(1.0).sub(NdotV).pow(2.0).add(0.5); // Always visible but brighter at edge
+
+    return sparkle.mul(intensity).mul(audioBoost).mul(fresnel);
+});
+
 // Legacy helper kept for compatibility
 export const addRimLight = Fn(([baseColorNode, normalNode]) => {
     // Pass the normalNode if it exists

@@ -11,6 +11,8 @@
 ## Next Steps
 
 1. **WebGPU Migration (Phase 4)**: Begin replacing standard materials with TSL-driven NodeMaterials for remaining foliage types.
+1. **Cymbal Dandelion Harvesting**: Implement collecting seeds ("Chime Shards") from Cymbal Dandelions.
+2. **Rare Flora Discovery**: Implement the discovery system for rare plants (Next Priority).
 
 ---
 
@@ -135,6 +137,8 @@
       - **Double Jump:** Allows one extra jump in mid-air (reset on ground). Triggers `ability_double_jump` discovery.
       - **Dash:** Instant velocity boost in camera direction (mapped to 'E'). Cooldown 1s. Triggers `ability_dash` discovery.
       - **Visuals:** Triggers a chromatic aberration pulse (`uChromaticIntensity`) on use.
+  - [x] Phase Shift Ability & Tremolo Harvesting
+    - *Implementation Details:* Implemented `Phase Shift` ability (invulnerability/speed boost) in `src/systems/physics.ts` triggered by 'Z' key. Requires and consumes 'Tremolo Bulb'. Added harvesting logic to `Tremolo Tulips` in `src/foliage/flowers.ts`.
   - [x] Instrument Shrine Puzzles
     - *Implementation Details:* Implemented interactive logic where shrines detect if their matching instrument ID is active in the audio mix. Unlocking triggers a visual burst and rewards a 'Shrine Token'.
   - **Plants Twilight Glow**: Implemented logic for plants to glow during twilight hours (pre-dawn/dusk).
