@@ -1,0 +1,285 @@
+src/compute/mesh_deformation.ts(22,25): error TS2307: Cannot find module 'three/tsl' or its corresponding type declarations.
+  There are types at '/app/node_modules/@types/three/build/three.tsl.d.ts', but this result could not be resolved under your current 'moduleResolution' setting. Consider updating to 'node16', 'nodenext', or 'bundler'.
+src/compute/mesh_deformation_wasm.ts(21,10): error TS2305: Module '"../utils/wasm-loader.js"' has no exported member 'getNativeFunc'.
+src/compute/mesh_deformation_wasm.ts(21,25): error TS2305: Module '"../utils/wasm-loader.js"' has no exported member 'getWasmMemory'.
+src/compute/noise_generator.ts(22,25): error TS2307: Cannot find module 'three/tsl' or its corresponding type declarations.
+  There are types at '/app/node_modules/@types/three/build/three.tsl.d.ts', but this result could not be resolved under your current 'moduleResolution' setting. Consider updating to 'node16', 'nodenext', or 'bundler'.
+src/compute/noise_generator.ts(232,13): error TS2345: Argument of type 'Float32Array<ArrayBufferLike>' is not assignable to parameter of type 'BufferSource | null | undefined'.
+  Type 'Float32Array<ArrayBufferLike>' is not assignable to type 'ArrayBufferView<ArrayBuffer>'.
+    Types of property 'buffer' are incompatible.
+      Type 'ArrayBufferLike' is not assignable to type 'ArrayBuffer'.
+        Type 'SharedArrayBuffer' is not assignable to type 'ArrayBuffer'.
+          Types of property '[Symbol.toStringTag]' are incompatible.
+            Type '"SharedArrayBuffer"' is not assignable to type '"ArrayBuffer"'.
+src/compute/particle_compute.ts(35,8): error TS2307: Cannot find module 'three/tsl' or its corresponding type declarations.
+  There are types at '/app/node_modules/@types/three/build/three.tsl.d.ts', but this result could not be resolved under your current 'moduleResolution' setting. Consider updating to 'node16', 'nodenext', or 'bundler'.
+src/compute/particle_compute.ts(36,69): error TS2307: Cannot find module 'three/webgpu' or its corresponding type declarations.
+  There are types at '/app/node_modules/@types/three/build/three.webgpu.d.ts', but this result could not be resolved under your current 'moduleResolution' setting. Consider updating to 'node16', 'nodenext', or 'bundler'.
+src/compute/particle_compute.ts(39,37): error TS2307: Cannot find module 'three/webgpu' or its corresponding type declarations.
+  There are types at '/app/node_modules/@types/three/build/three.webgpu.d.ts', but this result could not be resolved under your current 'moduleResolution' setting. Consider updating to 'node16', 'nodenext', or 'bundler'.
+src/foliage/animation.ts(247,58): error TS2339: Property 'distanceToSquared' does not exist on type 'Color'.
+src/foliage/animation.ts(651,33): error TS2339: Property 'pan' does not exist on type 'ChannelData'.
+src/foliage/animation.ts(916,24): error TS2339: Property 'instrument' does not exist on type 'ChannelData'.
+src/foliage/arpeggio-batcher.ts(10,8): error TS2307: Cannot find module 'three/tsl' or its corresponding type declarations.
+  There are types at '/app/node_modules/@types/three/build/three.tsl.d.ts', but this result could not be resolved under your current 'moduleResolution' setting. Consider updating to 'node16', 'nodenext', or 'bundler'.
+src/foliage/arpeggio-batcher.ts(65,56): error TS2554: Expected 1 arguments, but got 2.
+src/foliage/arpeggio-batcher.ts(129,14): error TS7006: Parameter 'dummy' implicitly has an 'any' type.
+src/foliage/arpeggio-batcher.ts(136,17): error TS2339: Property 'color' does not exist on type '{}'.
+src/foliage/arpeggio-batcher.ts(136,35): error TS2339: Property 'scale' does not exist on type '{}'.
+src/foliage/arpeggio-batcher.ts(185,20): error TS7006: Parameter 'index' implicitly has an 'any' type.
+src/foliage/arpeggio-batcher.ts(185,27): error TS7006: Parameter 'dummy' implicitly has an 'any' type.
+src/foliage/aurora.ts(4,98): error TS2307: Cannot find module 'three/tsl' or its corresponding type declarations.
+  There are types at '/app/node_modules/@types/three/build/three.tsl.d.ts', but this result could not be resolved under your current 'moduleResolution' setting. Consider updating to 'node16', 'nodenext', or 'bundler'.
+src/foliage/aurora.ts(5,39): error TS2307: Cannot find module 'three/webgpu' or its corresponding type declarations.
+  There are types at '/app/node_modules/@types/three/build/three.webgpu.d.ts', but this result could not be resolved under your current 'moduleResolution' setting. Consider updating to 'node16', 'nodenext', or 'bundler'.
+src/foliage/berries.ts(5,8): error TS2307: Cannot find module 'three/tsl' or its corresponding type declarations.
+  There are types at '/app/node_modules/@types/three/build/three.tsl.d.ts', but this result could not be resolved under your current 'moduleResolution' setting. Consider updating to 'node16', 'nodenext', or 'bundler'.
+src/foliage/cave.ts(4,42): error TS2307: Cannot find module 'three/webgpu' or its corresponding type declarations.
+  There are types at '/app/node_modules/@types/three/build/three.webgpu.d.ts', but this result could not be resolved under your current 'moduleResolution' setting. Consider updating to 'node16', 'nodenext', or 'bundler'.
+src/foliage/cave.ts(8,8): error TS2307: Cannot find module 'three/tsl' or its corresponding type declarations.
+  There are types at '/app/node_modules/@types/three/build/three.tsl.d.ts', but this result could not be resolved under your current 'moduleResolution' setting. Consider updating to 'node16', 'nodenext', or 'bundler'.
+src/foliage/celestial-bodies.ts(48,5): error TS2741: Property 'isGroup' is missing in type 'Object3D<Object3DEventMap>' but required in type 'Group<Object3DEventMap>'.
+src/foliage/celestial-bodies.ts(82,5): error TS2741: Property 'isGroup' is missing in type 'Object3D<Object3DEventMap>' but required in type 'Group<Object3DEventMap>'.
+src/foliage/celestial-bodies.ts(150,5): error TS2739: Type 'Object3D<Object3DEventMap>' is missing the following properties from type 'Points<BufferGeometry<NormalBufferAttributes>, Material | Material[], Object3DEventMap>': isPoints, geometry, material, updateMorphTargets
+src/foliage/chromatic.ts(3,39): error TS2307: Cannot find module 'three/webgpu' or its corresponding type declarations.
+  There are types at '/app/node_modules/@types/three/build/three.webgpu.d.ts', but this result could not be resolved under your current 'moduleResolution' setting. Consider updating to 'node16', 'nodenext', or 'bundler'.
+src/foliage/chromatic.ts(12,8): error TS2307: Cannot find module 'three/tsl' or its corresponding type declarations.
+  There are types at '/app/node_modules/@types/three/build/three.tsl.d.ts', but this result could not be resolved under your current 'moduleResolution' setting. Consider updating to 'node16', 'nodenext', or 'bundler'.
+src/foliage/cloud-batcher.ts(2,42): error TS2307: Cannot find module 'three/webgpu' or its corresponding type declarations.
+  There are types at '/app/node_modules/@types/three/build/three.webgpu.d.ts', but this result could not be resolved under your current 'moduleResolution' setting. Consider updating to 'node16', 'nodenext', or 'bundler'.
+src/foliage/cloud-batcher.ts(7,8): error TS2307: Cannot find module 'three/tsl' or its corresponding type declarations.
+  There are types at '/app/node_modules/@types/three/build/three.tsl.d.ts', but this result could not be resolved under your current 'moduleResolution' setting. Consider updating to 'node16', 'nodenext', or 'bundler'.
+src/foliage/common.ts(4,42): error TS2307: Cannot find module 'three/webgpu' or its corresponding type declarations.
+  There are types at '/app/node_modules/@types/three/build/three.webgpu.d.ts', but this result could not be resolved under your current 'moduleResolution' setting. Consider updating to 'node16', 'nodenext', or 'bundler'.
+src/foliage/common.ts(10,8): error TS2307: Cannot find module 'three/tsl' or its corresponding type declarations.
+  There are types at '/app/node_modules/@types/three/build/three.tsl.d.ts', but this result could not be resolved under your current 'moduleResolution' setting. Consider updating to 'node16', 'nodenext', or 'bundler'.
+src/foliage/common.ts(82,36): error TS7031: Binding element 'pos' implicitly has an 'any' type.
+src/foliage/common.ts(82,41): error TS7031: Binding element 'scale' implicitly has an 'any' type.
+src/foliage/common.ts(100,35): error TS7031: Binding element 'pos' implicitly has an 'any' type.
+src/foliage/common.ts(100,40): error TS7031: Binding element 'normal' implicitly has an 'any' type.
+src/foliage/common.ts(100,48): error TS7031: Binding element 'scale' implicitly has an 'any' type.
+src/foliage/common.ts(100,55): error TS7031: Binding element 'strength' implicitly has an 'any' type.
+src/foliage/common.ts(125,36): error TS7031: Binding element 'colorNode' implicitly has an 'any' type.
+src/foliage/common.ts(125,47): error TS7031: Binding element 'intensity' implicitly has an 'any' type.
+src/foliage/common.ts(125,58): error TS7031: Binding element 'power' implicitly has an 'any' type.
+src/foliage/common.ts(125,65): error TS7031: Binding element 'normalNode' implicitly has an 'any' type.
+src/foliage/common.ts(140,41): error TS7031: Binding element 'baseColor' implicitly has an 'any' type.
+src/foliage/common.ts(140,52): error TS7031: Binding element 'intensity' implicitly has an 'any' type.
+src/foliage/common.ts(140,63): error TS7031: Binding element 'power' implicitly has an 'any' type.
+src/foliage/common.ts(140,70): error TS7031: Binding element 'normalNode' implicitly has an 'any' type.
+src/foliage/common.ts(162,33): error TS7031: Binding element 'baseColorNode' implicitly has an 'any' type.
+src/foliage/common.ts(162,48): error TS7031: Binding element 'normalNode' implicitly has an 'any' type.
+src/foliage/common.ts(171,35): error TS7031: Binding element 'noteIndex' implicitly has an 'any' type.
+src/foliage/common.ts(186,41): error TS7031: Binding element 'currentPos' implicitly has an 'any' type.
+src/foliage/common.ts(218,39): error TS7031: Binding element 'posNode' implicitly has an 'any' type.
+src/foliage/common.ts(237,42): error TS7031: Binding element 'posNode' implicitly has an 'any' type.
+src/foliage/common.ts(522,9): error TS2322: Type 'string | number | Color' is not assignable to type 'number | Color | undefined'.
+  Type 'string' is not assignable to type 'number | Color | undefined'.
+src/foliage/common.ts(555,9): error TS2322: Type 'string | number | Color' is not assignable to type 'number | Color | undefined'.
+  Type 'string' is not assignable to type 'number | Color | undefined'.
+src/foliage/common.ts(772,22): error TS2554: Expected 1-2 arguments, but got 0.
+src/foliage/dandelion-batcher.ts(12,8): error TS2307: Cannot find module 'three/tsl' or its corresponding type declarations.
+  There are types at '/app/node_modules/@types/three/build/three.tsl.d.ts', but this result could not be resolved under your current 'moduleResolution' setting. Consider updating to 'node16', 'nodenext', or 'bundler'.
+src/foliage/dandelion-batcher.ts(91,54): error TS2554: Expected 1 arguments, but got 2.
+src/foliage/environment.ts(2,42): error TS2307: Cannot find module 'three/webgpu' or its corresponding type declarations.
+  There are types at '/app/node_modules/@types/three/build/three.webgpu.d.ts', but this result could not be resolved under your current 'moduleResolution' setting. Consider updating to 'node16', 'nodenext', or 'bundler'.
+src/foliage/environment.ts(3,61): error TS2307: Cannot find module 'three/tsl' or its corresponding type declarations.
+  There are types at '/app/node_modules/@types/three/build/three.tsl.d.ts', but this result could not be resolved under your current 'moduleResolution' setting. Consider updating to 'node16', 'nodenext', or 'bundler'.
+src/foliage/fireflies.ts(2,66): error TS2307: Cannot find module 'three/webgpu' or its corresponding type declarations.
+  There are types at '/app/node_modules/@types/three/build/three.webgpu.d.ts', but this result could not be resolved under your current 'moduleResolution' setting. Consider updating to 'node16', 'nodenext', or 'bundler'.
+src/foliage/fireflies.ts(8,8): error TS2307: Cannot find module 'three/tsl' or its corresponding type declarations.
+  There are types at '/app/node_modules/@types/three/build/three.tsl.d.ts', but this result could not be resolved under your current 'moduleResolution' setting. Consider updating to 'node16', 'nodenext', or 'bundler'.
+src/foliage/flowers.ts(4,48): error TS2307: Cannot find module 'three/addons/utils/BufferGeometryUtils.js' or its corresponding type declarations.
+  There are types at '/app/node_modules/@types/three/examples/jsm/utils/BufferGeometryUtils.d.ts', but this result could not be resolved under your current 'moduleResolution' setting. Consider updating to 'node16', 'nodenext', or 'bundler'.
+src/foliage/flowers.ts(21,130): error TS2307: Cannot find module 'three/tsl' or its corresponding type declarations.
+  There are types at '/app/node_modules/@types/three/build/three.tsl.d.ts', but this result could not be resolved under your current 'moduleResolution' setting. Consider updating to 'node16', 'nodenext', or 'bundler'.
+src/foliage/flowers.ts(169,9): error TS2367: This comparison appears to be unintentional because the types '"multi" | "spiral" | "layered" | "sunflower"' and '"simple"' have no overlap.
+src/foliage/flowers.ts(385,5): error TS2741: Property 'isGroup' is missing in type 'Object3D<Object3DEventMap>' but required in type 'Group<Object3DEventMap>'.
+src/foliage/flowers.ts(420,5): error TS2741: Property 'isGroup' is missing in type 'Object3D<Object3DEventMap>' but required in type 'Group<Object3DEventMap>'.
+src/foliage/flowers.ts(478,5): error TS2741: Property 'isGroup' is missing in type 'Object3D<Object3DEventMap>' but required in type 'Group<Object3DEventMap>'.
+src/foliage/flowers.ts(548,5): error TS2741: Property 'isGroup' is missing in type 'Object3D<Object3DEventMap>' but required in type 'Group<Object3DEventMap>'.
+src/foliage/flowers.ts(632,5): error TS2741: Property 'isGroup' is missing in type 'Object3D<Object3DEventMap>' but required in type 'Group<Object3DEventMap>'.
+src/foliage/flowers.ts(668,33): error TS2551: Property 'MeshStandardNodeMaterial' does not exist on type 'typeof import("/app/node_modules/@types/three/index")'. Did you mean 'MeshStandardMaterial'?
+src/foliage/flowers.ts(723,5): error TS2741: Property 'isGroup' is missing in type 'Object3D<Object3DEventMap>' but required in type 'Group<Object3DEventMap>'.
+src/foliage/glitch.ts(8,8): error TS2307: Cannot find module 'three/tsl' or its corresponding type declarations.
+  There are types at '/app/node_modules/@types/three/build/three.tsl.d.ts', but this result could not be resolved under your current 'moduleResolution' setting. Consider updating to 'node16', 'nodenext', or 'bundler'.
+src/foliage/glowing-flower-batcher.ts(3,42): error TS2307: Cannot find module 'three/webgpu' or its corresponding type declarations.
+  There are types at '/app/node_modules/@types/three/build/three.webgpu.d.ts', but this result could not be resolved under your current 'moduleResolution' setting. Consider updating to 'node16', 'nodenext', or 'bundler'.
+src/foliage/glowing-flower-batcher.ts(8,8): error TS2307: Cannot find module 'three/tsl' or its corresponding type declarations.
+  There are types at '/app/node_modules/@types/three/build/three.tsl.d.ts', but this result could not be resolved under your current 'moduleResolution' setting. Consider updating to 'node16', 'nodenext', or 'bundler'.
+src/foliage/grass.ts(4,42): error TS2307: Cannot find module 'three/webgpu' or its corresponding type declarations.
+  There are types at '/app/node_modules/@types/three/build/three.webgpu.d.ts', but this result could not be resolved under your current 'moduleResolution' setting. Consider updating to 'node16', 'nodenext', or 'bundler'.
+src/foliage/grass.ts(5,128): error TS2307: Cannot find module 'three/tsl' or its corresponding type declarations.
+  There are types at '/app/node_modules/@types/three/build/three.tsl.d.ts', but this result could not be resolved under your current 'moduleResolution' setting. Consider updating to 'node16', 'nodenext', or 'bundler'.
+src/foliage/impacts.ts(2,42): error TS2307: Cannot find module 'three/webgpu' or its corresponding type declarations.
+  There are types at '/app/node_modules/@types/three/build/three.webgpu.d.ts', but this result could not be resolved under your current 'moduleResolution' setting. Consider updating to 'node16', 'nodenext', or 'bundler'.
+src/foliage/impacts.ts(6,8): error TS2307: Cannot find module 'three/tsl' or its corresponding type declarations.
+  There are types at '/app/node_modules/@types/three/build/three.tsl.d.ts', but this result could not be resolved under your current 'moduleResolution' setting. Consider updating to 'node16', 'nodenext', or 'bundler'.
+src/foliage/impacts.ts(287,9): error TS2322: Type 'number | undefined' is not assignable to type 'number'.
+  Type 'undefined' is not assignable to type 'number'.
+src/foliage/impacts.ts(288,9): error TS2322: Type 'number | undefined' is not assignable to type 'number'.
+  Type 'undefined' is not assignable to type 'number'.
+src/foliage/impacts.ts(289,9): error TS2322: Type 'number | undefined' is not assignable to type 'number'.
+  Type 'undefined' is not assignable to type 'number'.
+src/foliage/instrument.ts(10,8): error TS2307: Cannot find module 'three/tsl' or its corresponding type declarations.
+  There are types at '/app/node_modules/@types/three/build/three.tsl.d.ts', but this result could not be resolved under your current 'moduleResolution' setting. Consider updating to 'node16', 'nodenext', or 'bundler'.
+src/foliage/lantern-batcher.ts(2,42): error TS2307: Cannot find module 'three/webgpu' or its corresponding type declarations.
+  There are types at '/app/node_modules/@types/three/build/three.webgpu.d.ts', but this result could not be resolved under your current 'moduleResolution' setting. Consider updating to 'node16', 'nodenext', or 'bundler'.
+src/foliage/lantern-batcher.ts(8,8): error TS2307: Cannot find module 'three/tsl' or its corresponding type declarations.
+  There are types at '/app/node_modules/@types/three/build/three.tsl.d.ts', but this result could not be resolved under your current 'moduleResolution' setting. Consider updating to 'node16', 'nodenext', or 'bundler'.
+src/foliage/lantern-batcher.ts(67,43): error TS2339: Property 'clone' does not exist on type 'Material | Material[]'.
+  Property 'clone' does not exist on type 'Material[]'.
+src/foliage/lotus.ts(2,42): error TS2307: Cannot find module 'three/webgpu' or its corresponding type declarations.
+  There are types at '/app/node_modules/@types/three/build/three.webgpu.d.ts', but this result could not be resolved under your current 'moduleResolution' setting. Consider updating to 'node16', 'nodenext', or 'bundler'.
+src/foliage/lotus.ts(7,8): error TS2307: Cannot find module 'three/tsl' or its corresponding type declarations.
+  There are types at '/app/node_modules/@types/three/build/three.tsl.d.ts', but this result could not be resolved under your current 'moduleResolution' setting. Consider updating to 'node16', 'nodenext', or 'bundler'.
+src/foliage/lotus.ts(140,5): error TS2741: Property 'isGroup' is missing in type 'Object3D<Object3DEventMap>' but required in type 'Group<Object3DEventMap>'.
+src/foliage/mirrors.ts(4,42): error TS2307: Cannot find module 'three/webgpu' or its corresponding type declarations.
+  There are types at '/app/node_modules/@types/three/build/three.webgpu.d.ts', but this result could not be resolved under your current 'moduleResolution' setting. Consider updating to 'node16', 'nodenext', or 'bundler'.
+src/foliage/mirrors.ts(9,8): error TS2307: Cannot find module 'three/tsl' or its corresponding type declarations.
+  There are types at '/app/node_modules/@types/three/build/three.tsl.d.ts', but this result could not be resolved under your current 'moduleResolution' setting. Consider updating to 'node16', 'nodenext', or 'bundler'.
+src/foliage/moon.ts(2,87): error TS2307: Cannot find module 'three/tsl' or its corresponding type declarations.
+  There are types at '/app/node_modules/@types/three/build/three.tsl.d.ts', but this result could not be resolved under your current 'moduleResolution' setting. Consider updating to 'node16', 'nodenext', or 'bundler'.
+src/foliage/moon.ts(3,42): error TS2307: Cannot find module 'three/webgpu' or its corresponding type declarations.
+  There are types at '/app/node_modules/@types/three/build/three.webgpu.d.ts', but this result could not be resolved under your current 'moduleResolution' setting. Consider updating to 'node16', 'nodenext', or 'bundler'.
+src/foliage/moon.ts(86,5): error TS2741: Property 'isGroup' is missing in type 'Object3D<Object3DEventMap>' but required in type 'Group<Object3DEventMap>'.
+src/foliage/mushroom-batcher.ts(2,42): error TS2307: Cannot find module 'three/webgpu' or its corresponding type declarations.
+  There are types at '/app/node_modules/@types/three/build/three.webgpu.d.ts', but this result could not be resolved under your current 'moduleResolution' setting. Consider updating to 'node16', 'nodenext', or 'bundler'.
+src/foliage/mushroom-batcher.ts(7,8): error TS2307: Cannot find module 'three/tsl' or its corresponding type declarations.
+  There are types at '/app/node_modules/@types/three/build/three.tsl.d.ts', but this result could not be resolved under your current 'moduleResolution' setting. Consider updating to 'node16', 'nodenext', or 'bundler'.
+src/foliage/mushroom-batcher.ts(375,25): error TS2304: Cannot find name 'floor'.
+src/foliage/mushroom-batcher.ts(376,25): error TS2304: Cannot find name 'floor'.
+src/foliage/mushroom-batcher.ts(465,55): error TS2339: Property 'clone' does not exist on type 'Material | Material[]'.
+  Property 'clone' does not exist on type 'Material[]'.
+src/foliage/mushroom-batcher.ts(470,24): error TS7053: Element implicitly has an 'any' type because expression of type '0' can't be used to index type 'Material | Material[]'.
+  Property '0' does not exist on type 'Material | Material[]'.
+src/foliage/mushroom-batcher.ts(491,56): error TS2339: Property 'clone' does not exist on type 'Material | Material[]'.
+  Property 'clone' does not exist on type 'Material[]'.
+src/foliage/mushroom-batcher.ts(496,56): error TS2339: Property 'clone' does not exist on type 'Material | Material[]'.
+  Property 'clone' does not exist on type 'Material[]'.
+src/foliage/mushroom-batcher.ts(510,45): error TS2339: Property 'clone' does not exist on type 'Material | Material[]'.
+  Property 'clone' does not exist on type 'Material[]'.
+src/foliage/mushroom-batcher.ts(514,49): error TS2339: Property 'clone' does not exist on type 'Material | Material[]'.
+  Property 'clone' does not exist on type 'Material[]'.
+src/foliage/mushroom-batcher.ts(518,53): error TS2339: Property 'clone' does not exist on type 'Material | Material[]'.
+  Property 'clone' does not exist on type 'Material[]'.
+src/foliage/mushroom-batcher.ts(522,57): error TS2339: Property 'clone' does not exist on type 'Material | Material[]'.
+  Property 'clone' does not exist on type 'Material[]'.
+src/foliage/musical_flora.ts(227,28): error TS2345: Argument of type 'Object3D<Object3DEventMap>' is not assignable to parameter of type 'Group<Object3DEventMap>'.
+  Property 'isGroup' is missing in type 'Object3D<Object3DEventMap>' but required in type 'Group<Object3DEventMap>'.
+src/foliage/musical_flora.ts(239,47): error TS2554: Expected 1 arguments, but got 2.
+src/foliage/musical_flora.ts(287,28): error TS2345: Argument of type 'Object3D<Object3DEventMap>' is not assignable to parameter of type 'Group<Object3DEventMap>'.
+  Property 'isGroup' is missing in type 'Object3D<Object3DEventMap>' but required in type 'Group<Object3DEventMap>'.
+src/foliage/musical_flora.ts(334,50): error TS2554: Expected 1 arguments, but got 2.
+src/foliage/musical_flora.ts(352,56): error TS2554: Expected 1 arguments, but got 2.
+src/foliage/musical_flora.ts(427,28): error TS2345: Argument of type 'Object3D<Object3DEventMap>' is not assignable to parameter of type 'Group<Object3DEventMap>'.
+  Property 'isGroup' is missing in type 'Object3D<Object3DEventMap>' but required in type 'Group<Object3DEventMap>'.
+src/foliage/panning-pads.ts(20,8): error TS2307: Cannot find module 'three/tsl' or its corresponding type declarations.
+  There are types at '/app/node_modules/@types/three/build/three.tsl.d.ts', but this result could not be resolved under your current 'moduleResolution' setting. Consider updating to 'node16', 'nodenext', or 'bundler'.
+src/foliage/pollen.ts(2,60): error TS2307: Cannot find module 'three/webgpu' or its corresponding type declarations.
+  There are types at '/app/node_modules/@types/three/build/three.webgpu.d.ts', but this result could not be resolved under your current 'moduleResolution' setting. Consider updating to 'node16', 'nodenext', or 'bundler'.
+src/foliage/pollen.ts(8,8): error TS2307: Cannot find module 'three/tsl' or its corresponding type declarations.
+  There are types at '/app/node_modules/@types/three/build/three.tsl.d.ts', but this result could not be resolved under your current 'moduleResolution' setting. Consider updating to 'node16', 'nodenext', or 'bundler'.
+src/foliage/portamento-batcher.ts(2,33): error TS2307: Cannot find module 'three/addons/utils/BufferGeometryUtils.js' or its corresponding type declarations.
+  There are types at '/app/node_modules/@types/three/examples/jsm/utils/BufferGeometryUtils.d.ts', but this result could not be resolved under your current 'moduleResolution' setting. Consider updating to 'node16', 'nodenext', or 'bundler'.
+src/foliage/portamento-batcher.ts(18,8): error TS2307: Cannot find module 'three/tsl' or its corresponding type declarations.
+  There are types at '/app/node_modules/@types/three/build/three.tsl.d.ts', but this result could not be resolved under your current 'moduleResolution' setting. Consider updating to 'node16', 'nodenext', or 'bundler'.
+src/foliage/portamento-batcher.ts(80,31): error TS7006: Parameter 'basePos' implicitly has an 'any' type.
+src/foliage/rainbow.ts(2,42): error TS2307: Cannot find module 'three/webgpu' or its corresponding type declarations.
+  There are types at '/app/node_modules/@types/three/build/three.webgpu.d.ts', but this result could not be resolved under your current 'moduleResolution' setting. Consider updating to 'node16', 'nodenext', or 'bundler'.
+src/foliage/rainbow.ts(3,81): error TS2307: Cannot find module 'three/tsl' or its corresponding type declarations.
+  There are types at '/app/node_modules/@types/three/build/three.tsl.d.ts', but this result could not be resolved under your current 'moduleResolution' setting. Consider updating to 'node16', 'nodenext', or 'bundler'.
+src/foliage/ribbons.ts(2,42): error TS2307: Cannot find module 'three/webgpu' or its corresponding type declarations.
+  There are types at '/app/node_modules/@types/three/build/three.webgpu.d.ts', but this result could not be resolved under your current 'moduleResolution' setting. Consider updating to 'node16', 'nodenext', or 'bundler'.
+src/foliage/ribbons.ts(8,8): error TS2307: Cannot find module 'three/tsl' or its corresponding type declarations.
+  There are types at '/app/node_modules/@types/three/build/three.tsl.d.ts', but this result could not be resolved under your current 'moduleResolution' setting. Consider updating to 'node16', 'nodenext', or 'bundler'.
+src/foliage/shield.ts(14,8): error TS2307: Cannot find module 'three/tsl' or its corresponding type declarations.
+  There are types at '/app/node_modules/@types/three/build/three.tsl.d.ts', but this result could not be resolved under your current 'moduleResolution' setting. Consider updating to 'node16', 'nodenext', or 'bundler'.
+src/foliage/silence-spirits.ts(4,42): error TS2307: Cannot find module 'three/webgpu' or its corresponding type declarations.
+  There are types at '/app/node_modules/@types/three/build/three.webgpu.d.ts', but this result could not be resolved under your current 'moduleResolution' setting. Consider updating to 'node16', 'nodenext', or 'bundler'.
+src/foliage/silence-spirits.ts(8,8): error TS2307: Cannot find module 'three/tsl' or its corresponding type declarations.
+  There are types at '/app/node_modules/@types/three/build/three.tsl.d.ts', but this result could not be resolved under your current 'moduleResolution' setting. Consider updating to 'node16', 'nodenext', or 'bundler'.
+src/foliage/simple-flower-batcher.ts(2,48): error TS2307: Cannot find module 'three/addons/utils/BufferGeometryUtils.js' or its corresponding type declarations.
+  There are types at '/app/node_modules/@types/three/examples/jsm/utils/BufferGeometryUtils.d.ts', but this result could not be resolved under your current 'moduleResolution' setting. Consider updating to 'node16', 'nodenext', or 'bundler'.
+src/foliage/simple-flower-batcher.ts(16,95): error TS2307: Cannot find module 'three/tsl' or its corresponding type declarations.
+  There are types at '/app/node_modules/@types/three/build/three.tsl.d.ts', but this result could not be resolved under your current 'moduleResolution' setting. Consider updating to 'node16', 'nodenext', or 'bundler'.
+src/foliage/sky.ts(4,84): error TS2307: Cannot find module 'three/tsl' or its corresponding type declarations.
+  There are types at '/app/node_modules/@types/three/build/three.tsl.d.ts', but this result could not be resolved under your current 'moduleResolution' setting. Consider updating to 'node16', 'nodenext', or 'bundler'.
+src/foliage/sky.ts(5,39): error TS2307: Cannot find module 'three/webgpu' or its corresponding type declarations.
+  There are types at '/app/node_modules/@types/three/build/three.webgpu.d.ts', but this result could not be resolved under your current 'moduleResolution' setting. Consider updating to 'node16', 'nodenext', or 'bundler'.
+src/foliage/sparkle-trail.ts(2,36): error TS2307: Cannot find module 'three/webgpu' or its corresponding type declarations.
+  There are types at '/app/node_modules/@types/three/build/three.webgpu.d.ts', but this result could not be resolved under your current 'moduleResolution' setting. Consider updating to 'node16', 'nodenext', or 'bundler'.
+src/foliage/sparkle-trail.ts(3,89): error TS2307: Cannot find module 'three/tsl' or its corresponding type declarations.
+  There are types at '/app/node_modules/@types/three/build/three.tsl.d.ts', but this result could not be resolved under your current 'moduleResolution' setting. Consider updating to 'node16', 'nodenext', or 'bundler'.
+src/foliage/stars.ts(4,111): error TS2307: Cannot find module 'three/tsl' or its corresponding type declarations.
+  There are types at '/app/node_modules/@types/three/build/three.tsl.d.ts', but this result could not be resolved under your current 'moduleResolution' setting. Consider updating to 'node16', 'nodenext', or 'bundler'.
+src/foliage/stars.ts(5,36): error TS2307: Cannot find module 'three/webgpu' or its corresponding type declarations.
+  There are types at '/app/node_modules/@types/three/build/three.webgpu.d.ts', but this result could not be resolved under your current 'moduleResolution' setting. Consider updating to 'node16', 'nodenext', or 'bundler'.
+src/foliage/trees.ts(3,99): error TS2307: Cannot find module 'three/tsl' or its corresponding type declarations.
+  There are types at '/app/node_modules/@types/three/build/three.tsl.d.ts', but this result could not be resolved under your current 'moduleResolution' setting. Consider updating to 'node16', 'nodenext', or 'bundler'.
+src/foliage/trees.ts(160,5): error TS2741: Property 'isGroup' is missing in type 'FoliageObject' but required in type 'Group<Object3DEventMap>'.
+src/foliage/trees.ts(214,5): error TS2741: Property 'isGroup' is missing in type 'Object3D<Object3DEventMap>' but required in type 'Group<Object3DEventMap>'.
+src/foliage/trees.ts(331,5): error TS2741: Property 'isGroup' is missing in type 'FoliageObject' but required in type 'Group<Object3DEventMap>'.
+src/foliage/trees.ts(379,5): error TS2741: Property 'isGroup' is missing in type 'Object3D<Object3DEventMap>' but required in type 'Group<Object3DEventMap>'.
+src/foliage/trees.ts(408,5): error TS2741: Property 'isGroup' is missing in type 'Object3D<Object3DEventMap>' but required in type 'Group<Object3DEventMap>'.
+src/foliage/trees.ts(483,46): error TS2339: Property 'clone' does not exist on type 'Material | Material[]'.
+  Property 'clone' does not exist on type 'Material[]'.
+src/foliage/trees.ts(523,5): error TS2741: Property 'isGroup' is missing in type 'Object3D<Object3DEventMap>' but required in type 'Group<Object3DEventMap>'.
+src/foliage/water.ts(4,42): error TS2307: Cannot find module 'three/webgpu' or its corresponding type declarations.
+  There are types at '/app/node_modules/@types/three/build/three.webgpu.d.ts', but this result could not be resolved under your current 'moduleResolution' setting. Consider updating to 'node16', 'nodenext', or 'bundler'.
+src/foliage/water.ts(9,8): error TS2307: Cannot find module 'three/tsl' or its corresponding type declarations.
+  There are types at '/app/node_modules/@types/three/build/three.tsl.d.ts', but this result could not be resolved under your current 'moduleResolution' setting. Consider updating to 'node16', 'nodenext', or 'bundler'.
+src/foliage/waterfalls.ts(2,78): error TS2307: Cannot find module 'three/tsl' or its corresponding type declarations.
+  There are types at '/app/node_modules/@types/three/build/three.tsl.d.ts', but this result could not be resolved under your current 'moduleResolution' setting. Consider updating to 'node16', 'nodenext', or 'bundler'.
+src/gameplay/jitter-mines.ts(11,53): error TS2307: Cannot find module 'three/tsl' or its corresponding type declarations.
+  There are types at '/app/node_modules/@types/three/build/three.tsl.d.ts', but this result could not be resolved under your current 'moduleResolution' setting. Consider updating to 'node16', 'nodenext', or 'bundler'.
+src/gameplay/jitter-mines.ts(200,36): error TS2345: Argument of type '"explosion"' is not assignable to parameter of type 'ImpactType | undefined'.
+src/gameplay/rainbow-blaster.ts(2,22): error TS2307: Cannot find module 'three/tsl' or its corresponding type declarations.
+  There are types at '/app/node_modules/@types/three/build/three.tsl.d.ts', but this result could not be resolved under your current 'moduleResolution' setting. Consider updating to 'node16', 'nodenext', or 'bundler'.
+src/particles/audio_reactive.ts(9,32): error TS2307: Cannot find module 'three/tsl' or its corresponding type declarations.
+  There are types at '/app/node_modules/@types/three/build/three.tsl.d.ts', but this result could not be resolved under your current 'moduleResolution' setting. Consider updating to 'node16', 'nodenext', or 'bundler'.
+src/particles/gpu_particles.ts(43,8): error TS2307: Cannot find module 'three/tsl' or its corresponding type declarations.
+  There are types at '/app/node_modules/@types/three/build/three.tsl.d.ts', but this result could not be resolved under your current 'moduleResolution' setting. Consider updating to 'node16', 'nodenext', or 'bundler'.
+src/particles/gpu_particles.ts(44,36): error TS2307: Cannot find module 'three/webgpu' or its corresponding type declarations.
+  There are types at '/app/node_modules/@types/three/build/three.webgpu.d.ts', but this result could not be resolved under your current 'moduleResolution' setting. Consider updating to 'node16', 'nodenext', or 'bundler'.
+src/rendering/material_types.ts(7,45): error TS2307: Cannot find module 'three/tsl' or its corresponding type declarations.
+  There are types at '/app/node_modules/@types/three/build/three.tsl.d.ts', but this result could not be resolved under your current 'moduleResolution' setting. Consider updating to 'node16', 'nodenext', or 'bundler'.
+src/rendering/materials.ts(42,8): error TS2307: Cannot find module 'three/tsl' or its corresponding type declarations.
+  There are types at '/app/node_modules/@types/three/build/three.tsl.d.ts', but this result could not be resolved under your current 'moduleResolution' setting. Consider updating to 'node16', 'nodenext', or 'bundler'.
+src/rendering/materials.ts(43,42): error TS2307: Cannot find module 'three/webgpu' or its corresponding type declarations.
+  There are types at '/app/node_modules/@types/three/build/three.webgpu.d.ts', but this result could not be resolved under your current 'moduleResolution' setting. Consider updating to 'node16', 'nodenext', or 'bundler'.
+src/rendering/webgpu-limits.ts(25,42): error TS2307: Cannot find module 'three/webgpu' or its corresponding type declarations.
+  There are types at '/app/node_modules/@types/three/build/three.webgpu.d.ts', but this result could not be resolved under your current 'moduleResolution' setting. Consider updating to 'node16', 'nodenext', or 'bundler'.
+src/rendering/webgpu-limits.ts(322,13): error TS18048: 'material' is possibly 'undefined'.
+src/rendering/webgpu-limits.ts(322,22): error TS2339: Property 'colorNode' does not exist on type 'Material'.
+src/rendering/webgpu-limits.ts(323,13): error TS18048: 'material' is possibly 'undefined'.
+src/rendering/webgpu-limits.ts(323,22): error TS2339: Property 'normalNode' does not exist on type 'Material'.
+src/systems/fluid_system.ts(3,5): error TS2305: Module '"../utils/wasm-loader.js"' has no exported member 'fluidInit'.
+src/systems/fluid_system.ts(3,16): error TS2305: Module '"../utils/wasm-loader.js"' has no exported member 'fluidStep'.
+src/systems/fluid_system.ts(3,27): error TS2305: Module '"../utils/wasm-loader.js"' has no exported member 'fluidAddDensity'.
+src/systems/fluid_system.ts(3,44): error TS2305: Module '"../utils/wasm-loader.js"' has no exported member 'fluidAddVelocity'.
+src/systems/fluid_system.ts(3,62): error TS2305: Module '"../utils/wasm-loader.js"' has no exported member 'getFluidDensityView'.
+src/systems/fluid_system.ts(55,19): error TS2339: Property 'kick' does not exist on type 'VisualState'.
+src/systems/fluid_system.ts(65,63): error TS2339: Property 'kick' does not exist on type 'VisualState'.
+src/systems/fluid_system.ts(68,87): error TS2339: Property 'kick' does not exist on type 'VisualState'.
+src/systems/fluid_system.ts(73,19): error TS2339: Property 'high' does not exist on type 'VisualState'.
+src/systems/fluid_system.ts(76,47): error TS2339: Property 'high' does not exist on type 'VisualState'.
+src/systems/music-reactivity.core.ts(131,16): error TS2339: Property 'geometry' does not exist on type 'FoliageObject'.
+src/systems/music-reactivity.core.ts(131,35): error TS2339: Property 'geometry' does not exist on type 'FoliageObject'.
+src/systems/music-reactivity.ts(138,38): error TS2339: Property 'blinkOnBeat' does not exist on type '{ blinkDuration: number; blinkInterval: number; danceAmplitude: number; danceFrequency: number; }'.
+src/systems/music-reactivity.ts(264,25): error TS2339: Property 'geometry' does not exist on type 'FoliageObject'.
+src/systems/music-reactivity.ts(264,41): error TS2339: Property 'geometry' does not exist on type 'FoliageObject'.
+src/systems/physics.ts(8,5): error TS2305: Module '"../utils/wasm-loader.js"' has no exported member 'uploadCollisionObjects'.
+src/systems/physics.ts(8,29): error TS2305: Module '"../utils/wasm-loader.js"' has no exported member 'resolveGameCollisionsWASM'.
+src/systems/physics.ts(400,25): error TS18048: 'player.danceStartY' is possibly 'undefined'.
+src/systems/physics.ts(553,13): error TS2345: Argument of type 'number' is not assignable to parameter of type 'boolean'.
+  Type 'number' is not assignable to type 'boolean'.
+src/systems/physics.ts(711,174): error TS2345: Argument of type 'number' is not assignable to parameter of type 'boolean'.
+  Type 'number' is not assignable to type 'boolean'.
+src/systems/physics.ts(714,138): error TS2345: Argument of type 'number' is not assignable to parameter of type 'boolean'.
+src/systems/physics.ts(717,184): error TS2345: Argument of type 'number' is not assignable to parameter of type 'boolean'.
+src/utils/shared-buffer-example.ts(1,112): error TS2724: '"./shared-buffer-example.ts"' has no exported member named 'copySharedToWasm'. Did you mean 'copySharedToWasmFast'?
+src/world/generation.ts(4,27): error TS2305: Module '"../utils/wasm-loader.js"' has no exported member 'initCollisionSystem'.
+src/world/generation.ts(4,48): error TS2305: Module '"../utils/wasm-loader.js"' has no exported member 'addCollisionObject'.
+src/world/generation.ts(4,68): error TS2305: Module '"../utils/wasm-loader.js"' has no exported member 'checkPositionValidity'.
+src/world/generation.ts(225,58): error TS2353: Object literal may only specify known properties, and 'radius' does not exist in type 'Object3D<Object3DEventMap>'.
