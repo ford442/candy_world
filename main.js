@@ -46,6 +46,7 @@ const _scratchSunVector = new THREE.Vector3();
 const _scratchAuroraColor = new THREE.Color();
 
 const _weatherBiasOutput = { biasState: 'clear', biasIntensity: 0, type: 'clear' };
+const _interactionLists = [null, null, null]; // Reusable array for interaction lists
 
 // --- Initialization Pipeline ---
 
@@ -337,12 +338,12 @@ function animate() {
 
     profiler.measure('Interaction', () => {
         // Collect all interactive elements safely
-        // ⚡ OPTIMIZATION: Pass arrays directly to avoid GC from spread syntax [...a, ...b]
-        const activeFoliage = animatedFoliage || [];
-        const activeMushrooms = foliageMushrooms || [];
-        const activeClouds = foliageClouds || [];
+        // ⚡ OPTIMIZATION: Pass reusable array directly to avoid GC
+        _interactionLists[0] = animatedFoliage || [];
+        _interactionLists[1] = foliageMushrooms || [];
+        _interactionLists[2] = foliageClouds || [];
 
-        interactionSystem.update(delta, camera.position, activeFoliage, activeMushrooms, activeClouds);
+        interactionSystem.update(delta, camera.position, _interactionLists);
     });
 
     const activeBPM = audioState?.bpm || 120;

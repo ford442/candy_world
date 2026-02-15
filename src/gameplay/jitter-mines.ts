@@ -56,6 +56,7 @@ class JitterMineSystem {
         for (let i = 0; i < MAX_MINES; i++) {
             this.mines.push({
                 active: false,
+                visible: false,
                 position: new THREE.Vector3(),
                 time: 0
             });
@@ -93,6 +94,7 @@ class JitterMineSystem {
 
         const mine = this.mines[index];
         mine.active = true;
+        mine.visible = true;
         mine.position.copy(position);
         mine.time = 0;
 
@@ -122,26 +124,19 @@ class JitterMineSystem {
         for (let i = 0; i < MAX_MINES; i++) {
             const mine = this.mines[i];
 
-            // Get current matrix to check scale
-            this.mesh.getMatrixAt(i, this.dummy.matrix);
-
             if (!mine.active) {
-                // Ensure hidden if not already
-                 const elements = this.dummy.matrix.elements;
-                 // Scale 0 check (approx, element 0 is Scale X * Rotation...)
-                 // Just checking scale component from decomposition is safer but slower.
-                 // Checking diagonal 0, 5, 10 usually enough if no rotation... but we have rotation.
-                 // Let's just decompose.
-                 this.dummy.matrix.decompose(this.dummy.position, this.dummy.quaternion, this.dummy.scale);
-
-                 if (this.dummy.scale.lengthSq() > 0.0001) {
+                if (mine.visible) {
                     this.dummy.scale.set(0,0,0);
                     this.dummy.updateMatrix();
                     this.mesh.setMatrixAt(i, this.dummy.matrix);
+                    mine.visible = false;
                     needsUpdate = true;
-                 }
-                 continue;
+                }
+                continue;
             }
+
+            // Get current matrix to check scale/rotation
+            this.mesh.getMatrixAt(i, this.dummy.matrix);
 
             mine.time += delta;
 
@@ -197,7 +192,7 @@ class JitterMineSystem {
         mine.active = false; // Will be hidden next update
 
         // Visuals
-        spawnImpact(mine.position, 'explosion', { color: 0xFF00FF });
+        spawnImpact(mine.position, 'explosion', 0xFF00FF);
 
         // Glitch Effect
         // Trigger screen trauma
