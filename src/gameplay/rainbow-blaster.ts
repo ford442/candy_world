@@ -99,7 +99,7 @@ class ProjectilePool {
         // JUICE: Muzzle Flash
         _scratchImpactOptions.color.copy(this.color);
         _scratchImpactOptions.direction.copy(direction);
-        spawnImpact(origin, 'muzzle', _scratchImpactOptions);
+        spawnImpact(origin, 'muzzle', _scratchImpactOptions.color, _scratchImpactOptions.direction);
 
         this.mesh.instanceMatrix.needsUpdate = true;
         if (this.mesh.instanceColor) this.mesh.instanceColor.needsUpdate = true;
@@ -123,7 +123,7 @@ class ProjectilePool {
             // Spawn every frame for a continuous trail
             // ⚡ OPTIMIZATION: Use shared options object
             _scratchImpactOptions.color.copy(p.color);
-            spawnImpact(p.position, 'trail', _scratchImpactOptions);
+            spawnImpact(p.position, 'trail', _scratchImpactOptions.color);
 
             let hit = false;
 
