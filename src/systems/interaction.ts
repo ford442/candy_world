@@ -63,8 +63,8 @@ export class InteractionSystem {
         this.interactionDistance = CONFIG?.interaction?.interactionDistance || 8.0;
     }
 
-    // ⚡ OPTIMIZATION: Accepts multiple arrays to avoid [...a, ...b] allocation in main loop
-    update(dt: number, playerPosition: THREE.Vector3, ...interactableLists: (THREE.Object3D[] | undefined)[]) {
+    // ⚡ OPTIMIZATION: Accepts array of lists to avoid argument spreading allocation
+    update(dt: number, playerPosition: THREE.Vector3, interactableLists: (THREE.Object3D[] | undefined)[]) {
         // Swap sets: 'nearbyObjects' becomes 'prevNearby', and we fill 'nextNearby'
         const prevNearby = this.nearbyObjects;
         const nextNearby = (prevNearby === this._nearbySetA) ? this._nearbySetB : this._nearbySetA;
