@@ -7,6 +7,7 @@ import {
 } from './common.ts';
 
 import { unlockSystem } from '../systems/unlocks.ts';
+import { spawnImpact } from './impacts.ts';
 
 import { batchAnimationCalc, uploadPositions } from '../utils/wasm-loader.js';
 import { arpeggioFernBatcher } from './arpeggio-batcher.ts';
@@ -216,7 +217,7 @@ export function createCymbalDandelion(options: CymbalDandelionOptions = {}) {
 
     group.userData.animationType = 'batchedCymbal'; // Use batched type to avoid CPU animation
     group.userData.type = 'flower';
-    group.userData.interactionText = "Shake Flower";
+    group.userData.interactionText = "Harvest Seeds";
 
     // Callback for generation system to invoke after setting position
     group.userData.onPlacement = () => {
@@ -224,7 +225,34 @@ export function createCymbalDandelion(options: CymbalDandelionOptions = {}) {
     };
 
     const reactiveGroup = attachReactivity(group);
-    return makeInteractive(reactiveGroup);
+    const interactive = makeInteractive(reactiveGroup);
+
+    // Override interaction logic for harvesting
+    const originalInteract = group.userData.onInteract;
+    group.userData.onInteract = () => {
+        if (!group.userData.harvested) {
+            dandelionBatcher.harvest(group.userData.batchIndex);
+            unlockSystem.harvest('chime_shard', 3, 'Chime Shards');
+
+            // Visual FX
+            const headOffset = new THREE.Vector3(0, 1.5 * scale, 0);
+            headOffset.applyQuaternion(group.quaternion);
+            const headPos = group.position.clone().add(headOffset);
+            spawnImpact(headPos, 'spore', 0xFFD700);
+
+            // Audio
+            if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
+                (window as any).AudioSystem.playSound('pickup', { position: group.position, pitch: 2.0 });
+            }
+
+            group.userData.harvested = true;
+            group.userData.interactionText = "Harvested";
+        }
+
+        if (originalInteract) originalInteract();
+    };
+
+    return interactive;
 }
 
 export function createSnareTrap(options: SnareTrapOptions = {}) {
