@@ -1,7 +1,7 @@
 // src/foliage/stars.ts
 
 import * as THREE from 'three';
-import { color, float, vec3, vec4, time, positionLocal, attribute, uniform, mix, sin, cos, UniformNode } from 'three/tsl';
+import { color, float, vec3, vec4, time, positionLocal, attribute, uniform, mix, sin, cos, UniformNode, pow, step } from 'three/tsl';
 import { PointsNodeMaterial } from 'three/webgpu';
 import { uAudioLow, uAudioHigh } from './common.ts';
 
@@ -78,17 +78,20 @@ export function createStars(count: number = 1500): THREE.Points {
     // Driven by Time + Offset + AudioHigh
     // This creates the "glitter" effect
     const twinkleSpeed = time.mul(3.0).add(aOffset); // Faster twinkle
-    const baseTwinkle = sin(twinkleSpeed).mul(0.5).add(0.5); // 0..1 sine wave
+    const rawTwinkle = sin(twinkleSpeed).mul(0.5).add(0.5); // 0..1 sine wave
+
+    // Sharpen the twinkle (Power curve) -> Spikes of brightness
+    const sharpTwinkle = pow(rawTwinkle, float(4.0));
 
     // Scale twinkle intensity by Audio Highs (Cymbals/Melody)
     // When music is quiet, they twinkle softly. When loud, they flash.
-    const activeTwinkle = baseTwinkle.mul(float(0.8).add(uAudioHigh.mul(4.0)));
+    const activeTwinkle = sharpTwinkle.mul(float(0.8).add(uAudioHigh.mul(4.0)));
 
     // 2. Pulse Wave (Low Frequency / Kick)
     // Decorrelated Pulse: A wave traveling across the sky
-    // positionLocal is roughly sphere radius (400), so we scale it down
+    // Added random offset (aOffset * 0.1) to break unison pulsing!
     const waveFreq = float(0.02);
-    const wavePhase = positionLocal.x.mul(waveFreq).add(positionLocal.z.mul(waveFreq)).add(time.mul(0.5));
+    const wavePhase = positionLocal.x.mul(waveFreq).add(positionLocal.z.mul(waveFreq)).add(time.mul(0.5)).add(aOffset.mul(0.1));
     const wave = sin(wavePhase).mul(0.5).add(0.5); // 0..1
 
     // Apply Kick energy to the wave
@@ -99,15 +102,23 @@ export function createStars(count: number = 1500): THREE.Points {
     const intensity = float(0.5).add(activeTwinkle).add(kickPulse);
 
     // 3. Color Shift (Neon/Magic)
-    // Shift towards Cyan/Magenta on high energy (Highs)
+    // Shift towards Cyan/Magenta/Gold on high energy
     const baseColorVec = vec3(aStarColor.x, aStarColor.y, aStarColor.z);
 
     // Magic colors
     const colorCyan = vec3(0.0, 1.0, 1.0);
     const colorMagenta = vec3(1.0, 0.0, 1.0);
+    const colorGold = vec3(1.0, 0.8, 0.0);
 
-    // Pick target color based on star's unique offset (50% cyan, 50% magenta)
-    const targetColor = mix(colorCyan, colorMagenta, sin(aOffset).mul(0.5).add(0.5));
+    // Pick target color based on star's unique offset
+    // Sine of offset gives -1..1. Map to mix factors.
+    const selector = sin(aOffset);
+    // Mix Cyan vs Magenta/Gold
+    // If selector > 0 use Cyan/Magenta, else Gold
+    const magicMix = mix(colorCyan, colorMagenta, selector.mul(0.5).add(0.5));
+    // Add rare gold sparkles
+    const isGold = step(0.9, sin(aOffset.mul(2.0))); // Occasional gold
+    const targetColor = mix(magicMix, colorGold, isGold);
 
     // Mix based on audio high (energy)
     // Stronger highs = More neon color
