@@ -1,244 +1,256 @@
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { foliageGroup } from '../world/state.ts';
 import {
-    createClayMaterial,
-    createCandyMaterial,
-    registerReactiveMaterial,
+    createStandardNodeMaterial,
+    calculateWindSway,
+    applyPlayerInteraction,
+    uAudioLow,
     uAudioHigh,
-    uTime
+    uTime,
+    createSugarSparkle
 } from './common.ts';
 import {
-    float, vec3, positionLocal, sin, cos, mix, instanceIndex, normalLocal, timerLocal
+    float, vec3, positionLocal, attribute, mix, sin,
+    instanceIndex, normalLocal, step, length
 } from 'three/tsl';
 
 const MAX_DANDELIONS = 500;
 const SEEDS_PER_HEAD = 24;
-// InstancedMesh Uniform Buffer Limit (64KB).
-// Each matrix is 64 bytes. 65536 / 64 = 1024.
-// We use 1000 to be safe and clean.
-const CHUNK_SIZE = 1000;
 
-export class CymbalDandelionBatcher {
+// Scratch variables
+const _scratchMat = new THREE.Matrix4();
+const _scratchScale = new THREE.Vector3();
+
+// Colors
+const COLOR_STEM = new THREE.Color(0x556B2F); // Olive Drab
+const COLOR_STALK = new THREE.Color(0xFFFFFF); // White
+const COLOR_TIP = new THREE.Color(0xFFD700);   // Gold
+
+export class DandelionBatcher {
     initialized: boolean;
     count: number;
-    logicObjects: THREE.Object3D[];
 
-    // Meshes
-    stemMesh: THREE.InstancedMesh | null;
-    // Stalks and Tips are chunked to avoid Uniform Buffer overflow
-    stalkMeshes: THREE.InstancedMesh[];
-    tipMeshes: THREE.InstancedMesh[];
-
-    // Scratch
-    dummy: THREE.Object3D;
-    _position: THREE.Vector3;
-    _quaternion: THREE.Quaternion;
-    _scale: THREE.Vector3;
+    mesh: THREE.InstancedMesh | null;
 
     constructor() {
         this.initialized = false;
         this.count = 0;
-        this.logicObjects = [];
-        this.stemMesh = null;
-        this.stalkMeshes = [];
-        this.tipMeshes = [];
-
-        this.dummy = new THREE.Object3D();
-        this._position = new THREE.Vector3();
-        this._quaternion = new THREE.Quaternion();
-        this._scale = new THREE.Vector3();
+        this.mesh = null;
     }
 
     init() {
         if (this.initialized) return;
 
-        // 1. Stem (Clay Green) - 500 instances fits in one batch (32KB)
-        const stemGeo = new THREE.CylinderGeometry(0.02, 0.02, 1.5, 6);
-        stemGeo.translate(0, 0.75, 0); // Pivot at bottom
-        const stemMat = createClayMaterial(0x556B2F);
+        // --- 1. Geometry Construction (Unified) ---
 
-        this.stemMesh = new THREE.InstancedMesh(stemGeo, stemMat, MAX_DANDELIONS);
-        this.stemMesh.castShadow = true;
-        this.stemMesh.receiveShadow = true;
-        this.stemMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-        this.stemMesh.count = 0;
+        const geometries: THREE.BufferGeometry[] = [];
 
-        if (foliageGroup) {
-            foliageGroup.add(this.stemMesh);
+        // A. Stem
+        // Cylinder radius 0.02, height 1.5. Pivot at bottom (translate y=0.75)
+        const stemGeo = new THREE.CylinderGeometry(0.02, 0.03, 1.5, 6);
+        stemGeo.translate(0, 0.75, 0);
+
+        // Add Attributes for Stem
+        const stemCount = stemGeo.attributes.position.count;
+        const stemColors = new Float32Array(stemCount * 3);
+        const stemPuff = new Float32Array(stemCount * 3); // Zeros (no puff)
+
+        for(let i=0; i<stemCount; i++) {
+            stemColors[i*3] = COLOR_STEM.r;
+            stemColors[i*3+1] = COLOR_STEM.g;
+            stemColors[i*3+2] = COLOR_STEM.b;
+            // Puff Dir remains 0,0,0
         }
+        stemGeo.setAttribute('color', new THREE.BufferAttribute(stemColors, 3));
+        stemGeo.setAttribute('aPuffDir', new THREE.BufferAttribute(stemPuff, 3));
+        geometries.push(stemGeo);
 
-        // 2. Stalk (Clay White) & 3. Tip (Candy Gold)
-        // These need chunking (12,000 instances total)
-        const totalStalks = MAX_DANDELIONS * SEEDS_PER_HEAD;
-        const numChunks = Math.ceil(totalStalks / CHUNK_SIZE);
+        // B. Seeds (Stalk + Tip)
+        // Reusable Base Geometries for seeds
+        const baseStalkGeo = new THREE.CylinderGeometry(0.005, 0.005, 0.4, 3);
+        baseStalkGeo.translate(0, 0.2, 0); // Pivot at bottom
 
-        const stalkGeo = new THREE.CylinderGeometry(0.01, 0.01, 0.4, 4);
-        stalkGeo.translate(0, 0.2, 0); // Pivot at bottom
-        const stalkMat = createClayMaterial(0xFFFFFF);
+        const baseTipGeo = new THREE.SphereGeometry(0.04, 6, 6);
+        // Tip is at the end of the stalk (y=0.4)
+        baseTipGeo.translate(0, 0.4, 0);
 
-        // TSL Animation for Stalks (Shake)
-        const shakeIntensity = uAudioHigh.mul(0.5);
-        const phase = float(instanceIndex).mul(13.0);
-        const fastTime = uTime.mul(30.0);
-        const shakeX = sin(fastTime.add(phase)).mul(shakeIntensity).mul(0.2);
-        const shakeZ = cos(fastTime.add(phase.mul(0.7))).mul(shakeIntensity).mul(0.2);
-        const yNorm = positionLocal.y.div(0.4);
-        const dispX = yNorm.mul(shakeX);
-        const dispZ = yNorm.mul(shakeZ);
-        stalkMat.positionNode = positionLocal.add(vec3(dispX, float(0.0), dispZ));
+        // Head Center relative to Stem Pivot
+        // Stem is 1.5 high. Head center is at y=1.5
+        const headCenterY = 1.5;
 
-        const tipGeo = new THREE.SphereGeometry(0.04, 8, 8);
-        const tipMat = createCandyMaterial(0xFFD700, 1.0);
-        registerReactiveMaterial(tipMat);
-        const tipShakeX = shakeX;
-        const tipShakeZ = shakeZ;
-        tipMat.positionNode = positionLocal.add(vec3(tipShakeX, float(0.0), tipShakeZ));
-
-        for (let i = 0; i < numChunks; i++) {
-            // Calculate size for this chunk (last one might be smaller)
-            const remaining = totalStalks - (i * CHUNK_SIZE);
-            const limit = Math.min(CHUNK_SIZE, remaining);
-
-            // Stalk Chunk
-            const sMesh = new THREE.InstancedMesh(stalkGeo, stalkMat, limit);
-            sMesh.castShadow = true;
-            sMesh.receiveShadow = true;
-            sMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-            sMesh.count = 0;
-            this.stalkMeshes.push(sMesh);
-            if (foliageGroup) foliageGroup.add(sMesh);
-
-            // Tip Chunk
-            const tMesh = new THREE.InstancedMesh(tipGeo, tipMat, limit);
-            tMesh.castShadow = true;
-            tMesh.receiveShadow = true;
-            tMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-            tMesh.count = 0;
-            this.tipMeshes.push(tMesh);
-            if (foliageGroup) foliageGroup.add(tMesh);
-        }
-
-        if (!foliageGroup) {
-            console.warn('[DandelionBatcher] foliageGroup missing!');
-        }
-
-        this.initialized = true;
-        console.log(`[DandelionBatcher] Initialized with ${numChunks} chunks for 12,000 seeds`);
-    }
-
-    register(dummy: THREE.Object3D, options: any = {}) {
-        if (!this.initialized) this.init();
-        if (this.count >= MAX_DANDELIONS) return;
-
-        const i = this.count;
-        this.count++;
-
-        // Update stem count
-        this.stemMesh!.count = this.count;
-
-        // Update counts for chunks
-        const currentTotalSeeds = this.count * SEEDS_PER_HEAD;
-
-        // Update mesh counts based on total populated seeds
-        // We iterate all chunks to set their .count property correctly
-        for(let c=0; c < this.stalkMeshes.length; c++) {
-            const chunkStart = c * CHUNK_SIZE;
-            const chunkEnd = chunkStart + CHUNK_SIZE;
-
-            // How many seeds in this chunk are active?
-            if (currentTotalSeeds > chunkEnd) {
-                // Full chunk
-                this.stalkMeshes[c].count = CHUNK_SIZE;
-                this.tipMeshes[c].count = CHUNK_SIZE;
-            } else if (currentTotalSeeds > chunkStart) {
-                // Partial chunk
-                const partial = currentTotalSeeds - chunkStart;
-                this.stalkMeshes[c].count = partial;
-                this.tipMeshes[c].count = partial;
-            } else {
-                // Empty chunk
-                this.stalkMeshes[c].count = 0;
-                this.tipMeshes[c].count = 0;
-            }
-        }
-
-        this.logicObjects.push(dummy);
-        dummy.userData.batchIndex = i;
-
-        const scale = options.scale || 1.0;
-
-        // 1. Setup Stem
-        this.dummy.position.copy(dummy.position);
-        this.dummy.rotation.copy(dummy.rotation);
-        this.dummy.scale.setScalar(scale);
-        this.dummy.updateMatrix();
-        this.stemMesh!.setMatrixAt(i, this.dummy.matrix);
-
-        // 2. Setup Seeds (Stalk + Tip)
-        const seedStartIdx = i * SEEDS_PER_HEAD;
-
-        // Head center position (relative to dummy)
-        const headOffset = new THREE.Vector3(0, 1.5 * scale, 0);
-        headOffset.applyEuler(dummy.rotation);
-        const headCenter = dummy.position.clone().add(headOffset);
-
-        // Replicate spherical distribution
         for (let s = 0; s < SEEDS_PER_HEAD; s++) {
-            const globalIdx = seedStartIdx + s;
-
-            // Determine Chunk
-            const chunkIdx = Math.floor(globalIdx / CHUNK_SIZE);
-            const localIdx = globalIdx % CHUNK_SIZE;
-
-            // Calc rotation
+            // 1. Calculate Seed Direction
             const phi = Math.acos(-1 + (2 * s) / SEEDS_PER_HEAD);
             const theta = Math.sqrt(SEEDS_PER_HEAD * Math.PI) * phi;
 
-            // Direction vector
             const dir = new THREE.Vector3(
                 Math.sin(phi) * Math.cos(theta),
                 Math.sin(phi) * Math.sin(theta),
                 Math.cos(phi)
             ).normalize();
 
-            // Align stalk
-            this._quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+            // 2. Align Seed (Y-up aligns with Dir)
+            const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+            const m = new THREE.Matrix4().makeRotationFromQuaternion(q);
+            // Translate to Head Center
+            m.setPosition(0, headCenterY, 0); // All seeds start from head center
 
-            // Also apply the Dandelion's main rotation
-            const worldQuat = dummy.quaternion.clone().multiply(this._quaternion);
+            // 3. Transform & Clone Stalk
+            const sGeo = baseStalkGeo.clone();
+            sGeo.applyMatrix4(m);
 
-            // Position: Head Center
-            this._position.copy(headCenter);
+            // Attributes for Stalk
+            const sCount = sGeo.attributes.position.count;
+            const sColors = new Float32Array(sCount * 3);
+            const sPuff = new Float32Array(sCount * 3);
 
-            this._scale.setScalar(scale);
+            for(let k=0; k<sCount; k++) {
+                sColors[k*3] = COLOR_STALK.r;
+                sColors[k*3+1] = COLOR_STALK.g;
+                sColors[k*3+2] = COLOR_STALK.b;
 
-            // Matrix for Stalk
-            this.dummy.position.copy(this._position);
-            this.dummy.quaternion.copy(worldQuat);
-            this.dummy.scale.copy(this._scale);
-            this.dummy.updateMatrix();
+                sPuff[k*3] = dir.x;
+                sPuff[k*3+1] = dir.y;
+                sPuff[k*3+2] = dir.z;
+            }
+            sGeo.setAttribute('color', new THREE.BufferAttribute(sColors, 3));
+            sGeo.setAttribute('aPuffDir', new THREE.BufferAttribute(sPuff, 3));
+            geometries.push(sGeo);
 
-            this.stalkMeshes[chunkIdx].setMatrixAt(localIdx, this.dummy.matrix);
+            // 4. Transform & Clone Tip
+            const tGeo = baseTipGeo.clone();
+            tGeo.applyMatrix4(m); // Transforms to head center + rotation
 
-            // Matrix for Tip
-            const tipOffset = new THREE.Vector3(0, 0.4 * scale, 0);
-            tipOffset.applyQuaternion(worldQuat);
-            const tipPos = headCenter.clone().add(tipOffset);
+            // Attributes for Tip
+            const tCount = tGeo.attributes.position.count;
+            const tColors = new Float32Array(tCount * 3);
+            const tPuff = new Float32Array(tCount * 3);
 
-            this.dummy.position.copy(tipPos);
-            this.dummy.quaternion.copy(worldQuat);
-            this.dummy.scale.copy(this._scale);
-            this.dummy.updateMatrix();
+            for(let k=0; k<tCount; k++) {
+                tColors[k*3] = COLOR_TIP.r;
+                tColors[k*3+1] = COLOR_TIP.g;
+                tColors[k*3+2] = COLOR_TIP.b;
 
-            this.tipMeshes[chunkIdx].setMatrixAt(localIdx, this.dummy.matrix);
+                tPuff[k*3] = dir.x;
+                tPuff[k*3+1] = dir.y;
+                tPuff[k*3+2] = dir.z;
+            }
+            tGeo.setAttribute('color', new THREE.BufferAttribute(tColors, 3));
+            tGeo.setAttribute('aPuffDir', new THREE.BufferAttribute(tPuff, 3));
+            geometries.push(tGeo);
         }
 
-        this.stemMesh!.instanceMatrix.needsUpdate = true;
-        // Mark chunks as needing update
-        // Optimization: Only update the chunks that were touched?
-        // With 12000 total, updating all 12 matrices (12k elements) is fine.
-        this.stalkMeshes.forEach(m => m.instanceMatrix.needsUpdate = true);
-        this.tipMeshes.forEach(m => m.instanceMatrix.needsUpdate = true);
+        // Merge all
+        const unifiedGeo = mergeGeometries(geometries);
+        // Ensure bounds are correct for culling
+        unifiedGeo.computeBoundingSphere();
+
+
+        // --- 2. Material (TSL Juice) ---
+
+        const mat = createStandardNodeMaterial({
+            side: THREE.FrontSide,
+            vertexColors: true, // Use attribute('color')
+            roughness: 0.8,
+            metalness: 0.0
+        });
+
+        // Inputs
+        const vColor = attribute('color', 'vec3');
+        const vPuffDir = attribute('aPuffDir', 'vec3');
+
+        // 1. Base Color logic
+        mat.colorNode = vColor;
+
+        // 2. Emission & Roughness Logic
+        // Detect Gold Tip: Red > 0.5 (Stalk/Tip) AND Blue < 0.1 (Stem/Tip has low blue? No Stem has 0.18, Stalk has 1.0)
+        // Tip: R=1.0, G=0.84, B=0.0
+        // Stalk: R=1.0, G=1.0, B=1.0
+        // Stem: R=0.33, G=0.42, B=0.18
+
+        // Gold check: High Red, Low Blue.
+        const highRed = step(0.5, vColor.r);
+        const lowBlue = float(1.0).sub(step(0.1, vColor.b));
+        const isGold = highRed.mul(lowBlue);
+
+        // Audio Pulse for Gold
+        const pulse = uAudioHigh.mul(3.0);
+        // Reduce sugar sparkle density/scale for tips
+        const sparkle = createSugarSparkle(normalLocal, float(40.0), float(0.5), float(2.0));
+
+        // Emission: Only on Gold Tips
+        const goldEmission = vColor.mul(float(0.2).add(pulse)).add(sparkle);
+
+        // Mix: If Gold, use Emission. Else Black.
+        mat.emissiveNode = mix(vec3(0.0), goldEmission, isGold);
+
+        // Roughness: Gold is shiny (0.2), others are matte (0.8)
+        mat.roughnessNode = mix(float(0.8), float(0.2), isGold);
+
+
+        // 3. Animation Logic (Puff + Shake + Sway + Push)
+
+        // A. Puff (Breathing) - Expand along aPuffDir
+        const puffOffset = vPuffDir.mul(uAudioLow).mul(0.3);
+
+        // B. Shake (High Freq Vibration) - Only for seeds
+        // Use length(vPuffDir) to detect seeds (non-zero puff dir)
+        const seedFactor = step(0.1, length(vPuffDir)); // 1.0 if seed, 0.0 if stem
+
+        const shakePhase = instanceIndex.add(uTime.mul(20.0));
+        const shakeAmt = sin(shakePhase).mul(0.02).mul(uAudioHigh);
+        const shakeOffset = vPuffDir.mul(shakeAmt).mul(seedFactor);
+
+        // Apply Local Deformations
+        const posPuffed = positionLocal.add(puffOffset).add(shakeOffset);
+
+        // C. Global Sway & Player Interaction
+        // Apply to the *entire* geometry (Stem + Seeds)
+        // This makes the stem bend, and seeds (being part of same geo) move with it.
+        const posSwayed = posPuffed.add(calculateWindSway(posPuffed));
+        const posFinal = applyPlayerInteraction(posSwayed);
+
+        mat.positionNode = posFinal;
+
+
+        // --- 3. InstancedMesh Setup ---
+
+        this.mesh = new THREE.InstancedMesh(unifiedGeo, mat, MAX_DANDELIONS);
+        this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+        this.mesh.castShadow = true;
+        this.mesh.receiveShadow = true;
+        this.mesh.count = 0;
+
+        if (foliageGroup) {
+            foliageGroup.add(this.mesh);
+        }
+
+        this.initialized = true;
+        console.log(`[DandelionBatcher] Unified Initialized. 1 Draw Call.`);
+    }
+
+    register(logicObject: THREE.Object3D, options: any = {}) {
+        if (!this.initialized) this.init();
+        if (this.count >= MAX_DANDELIONS) return;
+
+        const i = this.count;
+        this.count++;
+
+        // Scale logic
+        const scale = options.scale || 1.0;
+
+        // Copy transform from logic object
+        logicObject.updateMatrix();
+        _scratchMat.copy(logicObject.matrix);
+
+        // Apply Scale to the matrix
+        _scratchScale.setScalar(scale);
+        _scratchMat.scale(_scratchScale);
+
+        this.mesh!.setMatrixAt(i, _scratchMat);
+        this.mesh!.instanceMatrix.needsUpdate = true;
+        this.mesh!.count = this.count;
     }
 
     harvest(batchIndex: number) {
@@ -280,4 +292,4 @@ export class CymbalDandelionBatcher {
     }
 }
 
-export const dandelionBatcher = new CymbalDandelionBatcher();
+export const dandelionBatcher = new DandelionBatcher();
