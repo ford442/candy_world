@@ -88,7 +88,7 @@ export class CymbalDandelionBatcher {
         stalkMat.positionNode = positionLocal.add(vec3(dispX, float(0.0), dispZ));
 
         const tipGeo = new THREE.SphereGeometry(0.04, 8, 8);
-        const tipMat = createCandyMaterial(0xFFD700, 1.0);
+        const tipMat = createCandyMaterial(0xFFD700, { roughness: 1.0 });
         registerReactiveMaterial(tipMat);
         const tipShakeX = shakeX;
         const tipShakeZ = shakeZ;
@@ -239,6 +239,41 @@ export class CymbalDandelionBatcher {
         // With 12000 total, updating all 12 matrices (12k elements) is fine.
         this.stalkMeshes.forEach(m => m.instanceMatrix.needsUpdate = true);
         this.tipMeshes.forEach(m => m.instanceMatrix.needsUpdate = true);
+    }
+
+    harvest(batchIndex: number) {
+        if (!this.initialized) return;
+
+        // Seeds range
+        const startSeed = batchIndex * SEEDS_PER_HEAD;
+        const endSeed = startSeed + SEEDS_PER_HEAD;
+
+        // Scratch matrix with 0 scale
+        const zeroMatrix = new THREE.Matrix4().set(
+            0, 0, 0, 0,
+            0, 0, 0, 0,
+            0, 0, 0, 0,
+            0, 0, 0, 1
+        );
+
+        // Track dirty chunks to avoid redundant updates
+        const dirtyChunks = new Set<number>();
+
+        for (let globalIdx = startSeed; globalIdx < endSeed; globalIdx++) {
+            const chunkIdx = Math.floor(globalIdx / CHUNK_SIZE);
+            const localIdx = globalIdx % CHUNK_SIZE;
+
+            if (chunkIdx < this.stalkMeshes.length) {
+                this.stalkMeshes[chunkIdx].setMatrixAt(localIdx, zeroMatrix);
+                this.tipMeshes[chunkIdx].setMatrixAt(localIdx, zeroMatrix);
+                dirtyChunks.add(chunkIdx);
+            }
+        }
+
+        dirtyChunks.forEach(chunkIdx => {
+             this.stalkMeshes[chunkIdx].instanceMatrix.needsUpdate = true;
+             this.tipMeshes[chunkIdx].instanceMatrix.needsUpdate = true;
+        });
     }
 }
 

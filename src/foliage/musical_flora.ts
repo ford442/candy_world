@@ -7,6 +7,7 @@ import {
 } from './common.ts';
 
 import { unlockSystem } from '../systems/unlocks.ts';
+import { spawnImpact } from './impacts.ts';
 
 import { batchAnimationCalc, uploadPositions } from '../utils/wasm-loader.js';
 import { arpeggioFernBatcher } from './arpeggio-batcher.ts';
@@ -224,7 +225,31 @@ export function createCymbalDandelion(options: CymbalDandelionOptions = {}) {
     };
 
     const reactiveGroup = attachReactivity(group);
-    return makeInteractive(reactiveGroup);
+    const interactive = makeInteractive(reactiveGroup);
+
+    const originalInteract = group.userData.onInteract;
+
+    group.userData.onInteract = () => {
+        if (originalInteract) originalInteract();
+
+        if (group.userData.harvested) return;
+
+        const batchIdx = group.userData.batchIndex;
+        if (batchIdx !== undefined) {
+             dandelionBatcher.harvest(batchIdx);
+        }
+
+        unlockSystem.harvest('chime_shard', 1, 'Chime Shard');
+
+        const headOffset = new THREE.Vector3(0, 1.5 * scale, 0);
+        const worldPos = group.localToWorld(headOffset.clone());
+        spawnImpact(worldPos, 'spore', {r:1, g:0.8, b:0}); // Goldish
+
+        group.userData.harvested = true;
+        group.userData.interactionText = "Harvested";
+    };
+
+    return interactive;
 }
 
 export function createSnareTrap(options: SnareTrapOptions = {}) {
@@ -236,7 +261,7 @@ export function createSnareTrap(options: SnareTrapOptions = {}) {
     group.add(base);
 
     // Jaws
-    const jawMat = createCandyMaterial(color, 0.5);
+    const jawMat = createCandyMaterial(color, { roughness: 0.5 });
     registerReactiveMaterial(jawMat);
     const toothMat = createClayMaterial(0xFFFFFF);
 
@@ -331,7 +356,7 @@ export function createRetriggerMushroom(options: RetriggerMushroomOptions = {}) 
     const capGeo = new THREE.SphereGeometry(capRadius, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2);
     capGeo.translate(0, stemHeight, 0);
     
-    const capMat = createCandyMaterial(capColor, 0.3);
+    const capMat = createCandyMaterial(capColor, { roughness: 0.3 });
     registerReactiveMaterial(capMat);
     const cap = new THREE.Mesh(capGeo, capMat);
     cap.castShadow = true;
@@ -349,7 +374,7 @@ export function createRetriggerMushroom(options: RetriggerMushroomOptions = {}) 
         
         // Alternate colors for visual interest
         const ringColor = i % 2 === 0 ? capColor : 0xFFFFFF;
-        const ringMat = createCandyMaterial(ringColor, 0.5);
+        const ringMat = createCandyMaterial(ringColor, { roughness: 0.5 });
         registerReactiveMaterial(ringMat);
         
         const ring = new THREE.Mesh(ringGeo, ringMat);
