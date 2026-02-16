@@ -610,8 +610,8 @@ export function createClayMaterial(hexColor: number | string | THREE.Color, opts
     return CandyPresets.Clay(hexColor, opts);
 }
 
-export function createCandyMaterial(hexColor: number | string | THREE.Color) {
-    return CandyPresets.Gummy(hexColor); // Upgrade old candy to Gummy
+export function createCandyMaterial(hexColor: number | string | THREE.Color, opts: UnifiedMaterialOptions={}) {
+    return CandyPresets.Gummy(hexColor, opts); // Upgrade old candy to Gummy
 }
 
 export function createTexturedClay(hexColor: number | string | THREE.Color, options: any={}) {
@@ -833,7 +833,7 @@ export const foliageMaterials: { [key: string]: THREE.Material | THREE.Material[
 export function registerReactiveMaterial(mat: THREE.Material) { reactiveMaterials.push(mat); }
 export function pickAnimation(types: string[]) { return types[Math.floor(Math.random() * types.length)]; }
 
-export function attachReactivity(group: THREE.Object3D, options: any = {}) {
+export function attachReactivity<T extends THREE.Object3D>(group: T, options: any = {}): T {
     reactiveObjects.push(group);
     group.userData.reactivityType = options.type || group.userData.reactivityType || 'flora';
     if (typeof group.userData.reactivityId === 'undefined') group.userData.reactivityId = reactivityCounter++;

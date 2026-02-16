@@ -10,13 +10,15 @@
 
 ## Next Steps
 
-1. **Cymbal Dandelion Harvesting**: Implement collecting seeds ("Chime Shards") from Cymbal Dandelions.
-2. **Rare Flora Discovery**: Implement the discovery system for rare plants (Next Priority).
+1. **Rare Flora Discovery**: Implement the discovery system for rare plants (Next Priority).
+2. **Verify Data Flow**: Ensure `AudioSystem` correctly extracts and passes `order`/`row` data from the worklet to drive the Pattern-Change logic reliably.
 
 ---
 
 ## Recent Progress
 - **Accomplished:**
+  - **Cymbal Dandelion Harvesting**: **Status: Implemented ✅**
+    - *Implementation Details:* Implemented `harvest(batchIndex)` in `src/foliage/dandelion-batcher.ts` to hide seeds of harvested dandelions. Updated `src/foliage/musical_flora.ts` to trigger harvesting on interaction, awarding 'chime_shard' items and spawning 'spore' impact particles. Enhanced `createCandyMaterial` type safety.
   - **Migrate to TypeScript (Phase 1): Remaining Foliage Modules (`glitch`, `chromatic`)**: **Status: Implemented ✅**
     - *Implementation Details:* Migrated `src/foliage/glitch.js` and `src/foliage/chromatic.js` to TypeScript. Added strict typing for TSL nodes and shader uniforms. Updated `UnifiedMaterialOptions` in `src/foliage/common.ts` to support `emissive` properties, fixing a regression in Jitter Mines. Removed `src/foliage/pines.js` as it was dead code superseded by `src/foliage/portamento-batcher.ts`.
   - **Migrate to TypeScript (Phase 1): Visual Effects (`panning-pads`, `silence-spirits`)**: **Status: Implemented ✅**
