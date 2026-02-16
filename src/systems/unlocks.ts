@@ -36,6 +36,13 @@ export const UNLOCK_DEFINITIONS: Record<string, UnlockDefinition> = {
         description: 'Unlock the secrets of the ancients.',
         requirements: [{ itemId: 'shrine_token', count: 3 }],
         icon: '🏛️'
+    },
+    'resonance_tuner': {
+        id: 'resonance_tuner',
+        name: 'Resonance Tuner',
+        description: 'Fine-tune your frequency perception to detect hidden harmonics.',
+        requirements: [{ itemId: 'chime_shard', count: 10 }],
+        icon: '🎵'
     }
 };
 
