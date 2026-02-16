@@ -413,6 +413,12 @@ export function initInput(
                 }
                 return;
             }
+
+            // Resume if in pause menu
+            if (instructions && instructions.style.display !== 'none') {
+                controls.lock();
+                return;
+            }
         }
 
         // --- UX: Focus Trap for Main Menu (Pause Screen) ---
