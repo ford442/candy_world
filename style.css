@@ -202,8 +202,11 @@
     transform: scale(1.1);
 }
 
-.ability-slot.ready:active {
+.ability-slot.ready:active,
+.ability-slot.pressed {
     transform: scale(0.9);
+    border-color: #FF4081; /* High contrast feedback */
+    box-shadow: 0 0 10px rgba(255, 64, 129, 0.5);
 }
 
 /* 🎨 Palette: Soft Disabled State */
