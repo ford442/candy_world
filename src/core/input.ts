@@ -92,6 +92,10 @@ export function initInput(
     const playlistUploadInput = document.getElementById('playlistUploadInput') as HTMLInputElement | null;
     const openJukeboxBtn = document.getElementById('openJukeboxBtn');
 
+    // Ability HUD Elements
+    const hudDash = document.getElementById('ability-dash');
+    const hudMine = document.getElementById('ability-mine');
+
     let isPlaylistOpen = false;
     let lastFocusedElement: Element | null = null; // Store focus before opening modal
 
@@ -530,8 +534,14 @@ export function initInput(
             case 'KeyA': keyStates.left = true; break;
             case 'KeyS': keyStates.backward = true; break;
             case 'KeyD': keyStates.right = true; break;
-            case 'KeyF': keyStates.action = true; break; // Jitter Mine Ability
-            case 'KeyE': keyStates.dash = true; break; // Dash Ability
+            case 'KeyF':
+                keyStates.action = true;
+                if (hudMine) hudMine.classList.add('pressed');
+                break; // Jitter Mine Ability
+            case 'KeyE':
+                keyStates.dash = true;
+                if (hudDash) hudDash.classList.add('pressed');
+                break; // Dash Ability
             case 'KeyZ': keyStates.phase = true; break; // Phase Shift Ability
             case 'KeyR': keyStates.dance = true; break; // Dance Ability
             case 'Space': keyStates.jump = true; break;
@@ -585,8 +595,14 @@ export function initInput(
             case 'KeyA': keyStates.left = false; break;
             case 'KeyS': keyStates.backward = false; break;
             case 'KeyD': keyStates.right = false; break;
-            case 'KeyF': keyStates.action = false; break;
-            case 'KeyE': keyStates.dash = false; break;
+            case 'KeyF':
+                keyStates.action = false;
+                if (hudMine) hudMine.classList.remove('pressed');
+                break;
+            case 'KeyE':
+                keyStates.dash = false;
+                if (hudDash) hudDash.classList.remove('pressed');
+                break;
             case 'KeyZ': keyStates.phase = false; break;
             case 'KeyR': keyStates.dance = false; break;
             case 'Space': keyStates.jump = false; break;
@@ -648,8 +664,7 @@ export function initInput(
     }
 
     // --- UX: Interactive Ability HUD ---
-    const hudDash = document.getElementById('ability-dash');
-    const hudMine = document.getElementById('ability-mine');
+    // (Variables moved to top of initInput)
 
     // Helper to simulate key press for abilities
     const triggerAbility = (ability: 'dash' | 'action') => {

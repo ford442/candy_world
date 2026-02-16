@@ -51,3 +51,7 @@
 ## 2026-08-04 - In-Context Shortcut Visualization
 **Learning:** While `title` tooltips help discoverability, they require hover interaction. For frequently used controls like Volume, users benefit significantly from seeing the shortcut key directly on the button surface, reducing cognitive load and reinforcing muscle memory.
 **Action:** Append visual key badges (e.g., `<span class="key-badge">+</span>`) to the label of primary control buttons where space permits, ensuring the badge style is consistent with other HUD elements.
+
+## 2026-08-05 - Keyboard Feedback for HUD Elements
+**Learning:** While cooldown indicators show *availability*, they don't confirm *input*. Players pressing keys for abilities (like Dash) often wonder if the game registered the press, especially if the action fails due to other constraints (e.g. energy).
+**Action:** Add immediate visual feedback (e.g., a "pressed" style with scale/border change) to HUD elements when the corresponding physical key is pressed, decoupling the input confirmation from the game logic execution.
