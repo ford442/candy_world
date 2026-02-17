@@ -748,6 +748,8 @@ initWasm().then(async (wasmLoaded) => {
                 await generateMap(weatherSystem, DEFAULT_MAP_CHUNK_SIZE, (current, total) => {
                     const percent = Math.floor((current / total) * 100);
                     startButton.innerHTML = `<span class="spinner" aria-hidden="true"></span>Generating ${percent}%... 🍭`;
+                    // 🎨 Palette: Visual Progress Bar
+                    startButton.style.background = `linear-gradient(90deg, #FF6B6B ${percent}%, #FFB6C1 ${percent}%)`;
                 });
 
                 // UX: Now that generation is done, hide the instructions
@@ -762,6 +764,7 @@ initWasm().then(async (wasmLoaded) => {
 
                 // CRITICAL: Re-enable the button so that "Resume" works later (and checks in input.js pass)
                 startButton.disabled = false;
+                startButton.style.background = ''; // Reset style
 
                 // Note: The pointer lock will happen automatically via input system
             }, 50);
