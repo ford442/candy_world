@@ -753,8 +753,15 @@ export function animateFoliage(foliageObject: FoliageObject, time: number, audio
         const kickThreshold = 0.3;
         let eruptionStrength = foliageObject.userData.eruptionStrength || 0;
 
+        // Charge Logic (from Rainbow Blaster)
+        let charge = foliageObject.userData.chargeLevel || 0;
+        if (charge > 0) {
+            foliageObject.userData.chargeLevel = Math.max(0, charge - 0.01);
+        }
+        const chargeBoost = 1.0 + charge; // Multiplier
+
         if (kick > kickThreshold) {
-            eruptionStrength = Math.min(1.0, eruptionStrength + kick * 0.5);
+            eruptionStrength = Math.min(1.0, eruptionStrength + kick * 0.5 * chargeBoost);
         } else {
             eruptionStrength = Math.max(0, eruptionStrength - 0.03);
         }

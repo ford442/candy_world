@@ -8,7 +8,7 @@ import {
     uploadCollisionObjects, resolveGameCollisionsWASM
 } from '../utils/wasm-loader.js';
 import {
-    foliageMushrooms, foliageTrampolines, foliageClouds, foliagePanningPads,
+    foliageMushrooms, foliageTrampolines, foliageClouds, foliagePanningPads, foliageGeysers,
     activeVineSwing, setActiveVineSwing, lastVineDetachTime, setLastVineDetachTime, vineSwings, animatedFoliage
 } from '../world/state.ts';
 import { discoverySystem } from './discovery.ts';
@@ -649,6 +649,51 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
     // --- Panning Pads (JS Physics) ---
     // Explicit check for dynamic panning pads (bobbing platforms)
     checkPanningPads();
+
+    // --- Kick-Drum Geysers (Riding the Plume) ---
+    checkGeysers(delta);
+}
+
+function checkGeysers(delta: number) {
+    for (const geyser of foliageGeysers) {
+        // Distance check (Cylinder)
+        const dx = player.position.x - geyser.position.x;
+        const dz = player.position.z - geyser.position.z;
+        const distSq = dx * dx + dz * dz;
+
+        // Radius ~1.5 for leniency
+        if (distSq < 2.25) {
+             const eruptionStrength = geyser.userData.eruptionStrength || 0;
+             const maxHeight = geyser.userData.maxHeight || 5.0;
+             const activeHeight = maxHeight * eruptionStrength;
+             const baseHeight = 0.5; // Height of the ring base
+
+             // Check vertical overlap
+             // Player must be above base and within plume height
+             if (player.position.y >= geyser.position.y + baseHeight - 0.5 &&
+                 player.position.y <= geyser.position.y + activeHeight + 1.0) {
+
+                 // If eruption is strong enough to lift (and visible)
+                 if (eruptionStrength > 0.1) {
+                     // Apply Lift
+                     // Target velocity is proportional to eruption strength
+                     const targetVel = 15.0 * eruptionStrength;
+
+                     // Smoothly interpolate velocity upwards
+                     if (player.velocity.y < targetVel) {
+                         player.velocity.y += (targetVel - player.velocity.y) * 5.0 * delta;
+                     }
+
+                     // Reset Air Jumps (Player can jump out of the stream)
+                     player.airJumpsLeft = 1;
+                     player.isGrounded = false;
+
+                     // Discovery
+                     discoverySystem.discover('kick_drum_geyser', 'Kick-Drum Geyser', '⛲');
+                 }
+             }
+        }
+    }
 }
 
 function checkPanningPads() {
