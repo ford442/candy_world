@@ -10,8 +10,8 @@
 
 ## Next Steps
 
-1. **Rare Flora Discovery**: Implement the discovery system for rare plants (Next Priority).
-2. **Verify Data Flow**: Ensure `AudioSystem` correctly extracts and passes `order`/`row` data.
+1. **Snare-Snap Trap Physics**: Implement interaction logic for Snare-Snap Traps (e.g., snapping shut, reflecting projectiles).
+2. **Cymbal Dandelion Explosion**: Enhance visual effects for Cymbal Dandelion explosion (spawn actual floating seeds).
 
 ---
 
@@ -25,6 +25,8 @@
     - *Implementation Details:* Migrated `src/foliage/ribbons.js`, `src/foliage/sparkle-trail.js`, `src/foliage/lotus.js`, and `src/foliage/aurora.js` to TypeScript (`.ts`). Added strict typing for `RibbonUserData`, `SparkleTrailUserData`, `LotusOptions` and TSL nodes. Updated `src/foliage/index.ts` exports. Verified file presence and imports.
   - **Migrate to TypeScript (Phase 1): Core Effects (`impacts`, `instrument`)**: **Status: Implemented ✅**
     - *Implementation Details:* Migrated `src/foliage/impacts.js` and `src/foliage/instrument.js` to TypeScript (`.ts`). Added strict typing for `ImpactConfig`, `ImpactType`, and `InstrumentShrineOptions`. Updated imports in dependent files (`berries.ts`, `animation.ts`, `rainbow-blaster.ts`, etc.) to point to the new TypeScript modules.
+  - **Kick-Drum Geyser Physics**: **Status: Implemented ✅**
+    - *Implementation Details:* Implemented physics interaction for Kick-Drum Geysers in `src/systems/physics.ts`. Players can now "ride" the active plume for a vertical boost. Added gameplay mechanic to charge the eruption by shooting the base (handled in `src/gameplay/rainbow-blaster.ts`), which boosts the plume height and intensity via `chargeLevel` in `src/foliage/animation.ts`.
   - **Instrument Shrine Puzzle Mechanics**: **Status: Implemented ✅**
     - *Implementation Details:* Implemented interactive puzzle logic for Instrument Shrines in `src/foliage/instrument.js` and `src/foliage/animation.ts`. Shrines now detect active audio channels and "unlock" (with visual feedback and rewards) when the matching instrument ID is playing. Added 'Shrine Master' unlock to `src/systems/unlocks.ts` requiring collected shrine tokens.
   - **Panning Pads**: **Status: Implemented ✅**
@@ -140,6 +142,8 @@
     - *Implementation Details:* Implemented seed harvesting for Cymbal Dandelions. Interacting with the flower head triggers a 'spore' explosion, hides the seeds (batcher update), collects 'Chime Shards', and plays a sound. Added 'Resonance Tuner' unlock requiring Chime Shards.
   - [x] Instrument Shrine Puzzles
     - *Implementation Details:* Implemented interactive logic where shrines detect if their matching instrument ID is active in the audio mix. Unlocking triggers a visual burst and rewards a 'Shrine Token'.
+  - [x] Kick-Drum Geyser Physics & Charging
+    - *Implementation Details:* Implemented "Riding the Plume" mechanic in `src/systems/physics.ts` (vertical velocity boost). Added charging mechanic: shooting the base increases `eruptionStrength` via `chargeLevel`.
   - **Plants Twilight Glow**: Implemented logic for plants to glow during twilight hours (pre-dawn/dusk).
     - *Implementation Details:* Added `uTwilight` global uniform to `src/foliage/sky.js` and integrated it into the TSL material pipeline for Flowers, Mushrooms, and Trees. The glow intensity ramps up at dusk and down at dawn, driven by the `WeatherSystem`.
 

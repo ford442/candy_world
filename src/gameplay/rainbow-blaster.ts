@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { vec3 } from 'three/tsl';
-import { foliageClouds } from '../world/state.ts';
+import { foliageClouds, foliageGeysers } from '../world/state.ts';
 import { createCandyMaterial } from '../foliage/common.ts';
 import { getCelestialState } from '../core/cycle.ts';
 import { spawnImpact } from '../foliage/impacts.ts';
@@ -144,6 +144,27 @@ class ProjectilePool {
                      if (weatherSystem && weatherSystem.notifyCloudShot) {
                         weatherSystem.notifyCloudShot(isDay);
                     }
+                    break;
+                }
+            }
+
+            // Collision with Geysers (Charging)
+            const geysers = foliageGeysers || [];
+            for (let j = geysers.length - 1; j >= 0; j--) {
+                const geyser = geysers[j];
+                // Check if hit the base (radius ~1.0)
+                // Geyser is at y=ground. Check distSq to base.
+                const distSq = p.position.distanceToSquared(geyser.position);
+                const hitRadius = 1.5;
+
+                if (distSq < (hitRadius * hitRadius) && Math.abs(p.position.y - geyser.position.y) < 2.0) {
+                    hit = true;
+                    // Trigger Charge
+                    geyser.userData.chargeLevel = (geyser.userData.chargeLevel || 0) + 0.5;
+                    // Clamp charge? Let it go high for super boost!
+
+                    // Visuals
+                    spawnImpact(geyser.position, 'jump');
                     break;
                 }
             }
