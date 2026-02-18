@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import './style.css';
 // CHANGE: Preserved .ts extension as requested to match local file structure
-import { uWindSpeed, uWindDirection, uSkyTopColor, uSkyBottomColor, uHorizonColor, uAtmosphereIntensity, uStarOpacity, uAuroraIntensity, uAuroraColor, uAudioLow, uAudioHigh, uGlitchIntensity, uChromaticIntensity, uTime, uPlayerPosition, createAurora, createChromaticPulse, updateMoon, animateFoliage, updateFoliageMaterials, updateFallingBerries, collectFallingBerries, createFlower, createMushroom, validateNodeGeometries, createMelodyRibbon, updateMelodyRibbons, createMelodyMirror, createSparkleTrail, updateSparkleTrail, createImpactSystem, createShield } from './src/foliage/index.ts';
+import { uWindSpeed, uWindDirection, uSkyTopColor, uSkyBottomColor, uHorizonColor, uAtmosphereIntensity, uStarOpacity, uAuroraIntensity, uAuroraColor, uAudioLow, uAudioHigh, uGlitchIntensity, uChromaticIntensity, uTime, uPlayerPosition, createAurora, createChromaticPulse, updateMoon, animateFoliage, updateFoliageMaterials, updateFallingBerries, collectFallingBerries, createFlower, createMushroom, validateNodeGeometries, createMelodyRibbon, updateMelodyRibbons, createMelodyMirror, createSparkleTrail, updateSparkleTrail, createImpactSystem, createShield, createDandelionSeedSystem } from './src/foliage/index.ts';
 import { initCelestialBodies } from './src/foliage/celestial-bodies.ts';
 import { InteractionSystem } from './src/systems/interaction.ts';
 import { unlockSystem } from './src/systems/unlocks.ts';
@@ -101,6 +101,7 @@ let sparkleTrail = null;
 let impactSystem = null;
 let fluidFog = null;
 let playerShieldMesh = null;
+let dandelionSeedSystem = null;
 
 // Function to initialize deferred visual elements with better organization and timing
 function initDeferredVisuals() {
@@ -153,6 +154,12 @@ function initDeferredVisuals() {
         impactSystem = createImpactSystem();
         scene.add(impactSystem);
         console.log('[Deferred] Impact System initialized');
+    }
+
+    if (!dandelionSeedSystem) {
+        dandelionSeedSystem = createDandelionSeedSystem();
+        scene.add(dandelionSeedSystem);
+        console.log('[Deferred] Dandelion Seed System initialized');
     }
 
     if (!jitterMineSystem.mesh.parent) {

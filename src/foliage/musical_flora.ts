@@ -13,6 +13,7 @@ import { batchAnimationCalc, uploadPositions } from '../utils/wasm-loader.js';
 import { arpeggioFernBatcher } from './arpeggio-batcher.ts';
 import { dandelionBatcher } from './dandelion-batcher.ts';
 import { portamentoPineBatcher } from './portamento-batcher.ts';
+import { spawnDandelionExplosion } from './dandelion-seeds.ts';
 
 // Interfaces for options
 export interface ArpeggioFernOptions {
@@ -239,6 +240,7 @@ export function createCymbalDandelion(options: CymbalDandelionOptions = {}) {
             headOffset.applyQuaternion(group.quaternion);
             const headPos = group.position.clone().add(headOffset);
             spawnImpact(headPos, 'spore', 0xFFD700);
+            spawnDandelionExplosion(headPos, 24);
 
             // Audio
             if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
