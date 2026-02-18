@@ -294,6 +294,7 @@ Three.js Renderer -> WebGPU RenderPipeline (Raw Draw Calls)
 
 ## Recent Progress & Next Steps
 - **Accomplished:**
+  - **Cymbal Dandelion Explosion**: Implemented `src/foliage/dandelion-seeds.ts` with floating seeds physics (drag, wind, sway) driven by TSL. Integrated into `src/foliage/musical_flora.ts` on harvest.
   - **Spectrum Aurora**: Implemented `src/foliage/aurora.js` using TSL, featuring audio-reactive intensity and spectral color shifts. Integrated into `main.js`.
   - Integrated "Musical Ecosystem" plan into main documentation.
   - Analyzed "Cute Clay" concept art and implemented matched visuals for Mushrooms (Pastel palette, Cheeks, Matte finish).

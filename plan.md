@@ -11,12 +11,13 @@
 ## Next Steps
 
 1. **Snare-Snap Trap Physics**: Implement interaction logic for Snare-Snap Traps (e.g., snapping shut, reflecting projectiles).
-2. **Cymbal Dandelion Explosion**: Enhance visual effects for Cymbal Dandelion explosion (spawn actual floating seeds).
 
 ---
 
 ## Recent Progress
 - **Accomplished:**
+  - **Cymbal Dandelion Explosion**: **Status: Implemented ✅**
+    - *Implementation Details:* Created `src/foliage/dandelion-seeds.ts` using `InstancedMesh` and TSL `MeshStandardNodeMaterial` to render floating seeds (Stalk + Tip). Seeds explode outward with drag, wind influence (`uWindDirection`), and sinusoidal sway. Integrated into `src/foliage/musical_flora.ts` to trigger on harvest.
   - **Migrate to TypeScript (Phase 1): Remaining Foliage Modules (`glitch`, `chromatic`)**: **Status: Implemented ✅**
     - *Implementation Details:* Migrated `src/foliage/glitch.js` and `src/foliage/chromatic.js` to TypeScript. Added strict typing for TSL nodes and shader uniforms. Updated `UnifiedMaterialOptions` in `src/foliage/common.ts` to support `emissive` properties, fixing a regression in Jitter Mines. Removed `src/foliage/pines.js` as it was dead code superseded by `src/foliage/portamento-batcher.ts`.
   - **Migrate to TypeScript (Phase 1): Visual Effects (`panning-pads`, `silence-spirits`)**: **Status: Implemented ✅**
@@ -138,8 +139,8 @@
       - **Visuals:** Triggers a chromatic aberration pulse (`uChromaticIntensity`) on use.
   - [x] Phase Shift Ability & Tremolo Harvesting
     - *Implementation Details:* Implemented `Phase Shift` ability (invulnerability/speed boost) in `src/systems/physics.ts` triggered by 'Z' key. Requires and consumes 'Tremolo Bulb'. Added harvesting logic to `Tremolo Tulips` in `src/foliage/flowers.ts`.
-  - [x] Cymbal Dandelion Harvesting
-    - *Implementation Details:* Implemented seed harvesting for Cymbal Dandelions. Interacting with the flower head triggers a 'spore' explosion, hides the seeds (batcher update), collects 'Chime Shards', and plays a sound. Added 'Resonance Tuner' unlock requiring Chime Shards.
+  - [x] Cymbal Dandelion Harvesting & Explosion
+    - *Implementation Details:* Implemented seed harvesting for Cymbal Dandelions. Interacting with the flower head triggers a `spawnDandelionExplosion` (floating seeds with drag/wind) alongside a 'spore' particle burst. The seeds are rendered efficiently using `InstancedMesh` in `src/foliage/dandelion-seeds.ts`.
   - [x] Instrument Shrine Puzzles
     - *Implementation Details:* Implemented interactive logic where shrines detect if their matching instrument ID is active in the audio mix. Unlocking triggers a visual burst and rewards a 'Shrine Token'.
   - [x] Kick-Drum Geyser Physics & Charging
