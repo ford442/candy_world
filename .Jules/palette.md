@@ -59,3 +59,7 @@
 ## 2026-08-08 - Unified Progress Feedback
 **Learning:** When multiple async processes contribute to a single 'Loading' state (e.g. map generation + procedural extras), treating them as separate 0-100% bars confuses the user as the progress jumps back to 0.
 **Action:** Calculate a global total for all phases upfront and report cumulative progress to provide a single, continuous timeline. Reinforce this with a visual progress bar (e.g. gradient background) on the CTA button itself for better glanceability.
+
+## 2026-08-12 - Throttled Progress Announcements
+**Learning:** Rapidly updating text content for visual smoothness (e.g., "Loading 1%... 2%... 3%") creates an unusable experience for screen reader users, who hear a constant torrent of numbers.
+**Action:** Decouple visual progress (smooth gradients/animations) from semantic progress. Throttle text updates and ARIA announcements to significant milestones (e.g., every 10%) and use `aria-busy="true"` to indicate ongoing processing.
