@@ -775,12 +775,24 @@ initWasm().then(async (wasmLoaded) => {
                 if (idx > -1) animatedFoliage.splice(idx, 1);
 
                 // Use async map generation with progress updates
+                // 🎨 Palette: Throttle announcements to prevent SR spam
+                let lastAnnounced = -1;
+                startButton.setAttribute('aria-busy', 'true');
+
                 await generateMap(weatherSystem, DEFAULT_MAP_CHUNK_SIZE, (current, total) => {
                     const percent = Math.floor((current / total) * 100);
-                    startButton.innerHTML = `<span class="spinner" aria-hidden="true"></span>Generating ${percent}%... 🍭`;
-                    // 🎨 Palette: Visual Progress Bar
+
+                    // Always update visual gradient for smoothness
                     startButton.style.background = `linear-gradient(90deg, #FF6B6B ${percent}%, #FFB6C1 ${percent}%)`;
+
+                    // Throttle text updates to every 10% or completion
+                    if (percent - lastAnnounced >= 10 || percent === 100) {
+                        startButton.innerHTML = `<span class="spinner" aria-hidden="true"></span>Generating ${percent}%... 🍭`;
+                        lastAnnounced = percent;
+                    }
                 });
+
+                startButton.removeAttribute('aria-busy');
 
                 // UX: Now that generation is done, hide the instructions
                 // (We delayed this in input.js to keep the "Generating..." message visible)
