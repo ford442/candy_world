@@ -155,7 +155,19 @@
     position: relative;
     overflow: hidden;
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-    transition: transform 0.1s, border-color 0.2s, box-shadow 0.2s;
+    /* PALETTE: Removed transform transition to allow smooth JS beat pulsing */
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+/* PALETTE: Fallback beat bounce animation */
+@keyframes hud-bounce {
+    0% { transform: scale(1.0); }
+    50% { transform: scale(1.15); }
+    100% { transform: scale(1.0); }
+}
+
+.hud-beat-bounce {
+    animation: hud-bounce 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
 .ability-key {

@@ -623,6 +623,7 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
 
         if (!wasGrounded && player.isGrounded && player.velocity.y < -1.0) {
             spawnImpact(player.position, 'land');
+            if (uChromaticIntensity) uChromaticIntensity.value = 0.5;
         }
     } else {
         // JS Fallback (Used for Lake Basin or C++ Failure)
@@ -784,6 +785,7 @@ function updateJSFallbackMovement(delta: number, camera: THREE.Camera, controls:
 
         if (!wasGrounded) {
              spawnImpact(player.position, 'land');
+             if (uChromaticIntensity) uChromaticIntensity.value = 0.5;
         }
     } else {
         player.isGrounded = false;
