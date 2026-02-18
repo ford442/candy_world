@@ -10,6 +10,7 @@ export const foliageMushrooms: FoliageObject[] = [];
 export const foliageTrampolines: FoliageObject[] = [];
 export const foliagePanningPads: FoliageObject[] = [];
 export const foliageClouds: FoliageObject[] = [];
+export const foliageGeysers: FoliageObject[] = []; // Added for physics interaction
 export const vineSwings: VineSwing[] = []; // Managers for swing physics
 
 // Groups
