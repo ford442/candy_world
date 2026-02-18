@@ -663,6 +663,18 @@ function animate() {
                 }
                 _lastDashReady = isReady;
             }
+
+            // PALETTE: Pulse to the beat when ready!
+            if (isReady) {
+                const kick = audioState?.kickTrigger || 0;
+                const scale = 1.0 + kick * 0.15;
+                const pressed = hudDash.classList.contains('pressed');
+                // Multiply by 0.9 if pressed (mimics CSS active state)
+                const finalScale = pressed ? scale * 0.9 : scale;
+                hudDash.style.transform = `scale(${finalScale.toFixed(3)})`;
+            } else {
+                hudDash.style.transform = ''; // Reset to CSS
+            }
         }
 
         if (hudMine && hudMineOverlay) {
@@ -682,6 +694,17 @@ function animate() {
                     hudMine.title = "Jitter Mine (F) - Recharging...";
                 }
                 _lastMineReady = isReady;
+            }
+
+            // PALETTE: Pulse to the beat when ready!
+            if (isReady) {
+                const kick = audioState?.kickTrigger || 0;
+                const scale = 1.0 + kick * 0.15;
+                const pressed = hudMine.classList.contains('pressed');
+                const finalScale = pressed ? scale * 0.9 : scale;
+                hudMine.style.transform = `scale(${finalScale.toFixed(3)})`;
+            } else {
+                hudMine.style.transform = '';
             }
         }
     });
