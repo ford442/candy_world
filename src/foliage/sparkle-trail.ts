@@ -3,7 +3,7 @@ import { PointsNodeMaterial } from 'three/webgpu';
 import { attribute, float, mix, color, vec3, smoothstep, sin, positionLocal, cos } from 'three/tsl';
 import { uTime, uAudioHigh, uAudioLow } from './common.ts';
 
-const TRAIL_SIZE = 1500; // Increased buffer size for richer trails
+const TRAIL_SIZE = 2000; // Increased buffer size for richer trails
 
 interface SparkleTrailUserData {
     head: number;
@@ -45,7 +45,8 @@ export function createSparkleTrail(): THREE.Points {
 
     // Speed Factor (0.0 at walking, 1.0 at sprint/dash)
     // Helps modulate effects based on how fast player was moving when particle spawned
-    const speedFactor = smoothstep(5.0, 25.0, spawnSpeed);
+    // PALETTE: Lowered threshold to 4.0 so even walking generates sparkles
+    const speedFactor = smoothstep(4.0, 25.0, spawnSpeed);
 
     // 1. Drift Upwards (Magic Dust rises)
     // Faster movement = Higher drift
@@ -81,10 +82,11 @@ export function createSparkleTrail(): THREE.Points {
     mat.sizeNode = sizeNode;
 
     // Color: Cycle Gold -> Pink -> Cyan based on age
+    // PALETTE: Tuned colors for maximum candy vibe
     const colorGold = color(0xFFD700);
     const colorPink = color(0xFF69B4);
     const colorCyan = color(0x00FFFF);
-    const colorHot = color(0xFF4500); // Red-Orange for high speed
+    const colorHot = color(0xFF00AA); // Magenta (Hot Pink) for high speed
 
     // Mix 1: Gold -> Pink (First half)
     const mix1 = mix(colorGold, colorPink, smoothstep(0.0, 0.5, lifeProgress));
@@ -93,7 +95,7 @@ export function createSparkleTrail(): THREE.Points {
 
     // Final Color: Mix Cool -> Hot based on Speed
     // If sprinting, shift towards fiery/energetic colors
-    const finalColor = mix(coolMix, colorHot, speedFactor.mul(0.6));
+    const finalColor = mix(coolMix, colorHot, speedFactor.mul(0.8)); // Increased mix strength to 0.8
 
     // Twinkle: High frequency sine flicker to simulate glitter
     const twinkle = sin(age.mul(30.0)).mul(0.5).add(0.5);
