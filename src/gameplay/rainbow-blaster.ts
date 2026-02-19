@@ -1,7 +1,11 @@
 import * as THREE from 'three';
-import { vec3 } from 'three/tsl';
+import { MeshStandardNodeMaterial } from 'three/webgpu';
+import {
+    vec3, float, positionLocal, normalLocal, mx_noise_float,
+    mix, sin, smoothstep, normalize, positionWorld, color, instanceColor
+} from 'three/tsl';
 import { foliageClouds, foliageGeysers } from '../world/state.ts';
-import { createCandyMaterial } from '../foliage/common.ts';
+import { createCandyMaterial, uTime, uAudioHigh, createJuicyRimLight } from '../foliage/common.ts';
 import { getCelestialState } from '../core/cycle.ts';
 import { spawnImpact } from '../foliage/impacts.ts';
 
@@ -27,18 +31,55 @@ class ProjectilePool {
     color: THREE.Color;
 
     constructor() {
-        const geo = new THREE.SphereGeometry(RADIUS, 8, 8);
+        const geo = new THREE.SphereGeometry(RADIUS, 16, 16); // Increased detail for displacement
 
-        // OPTIMIZED: Removed instanceColor attribute to reduce vertex buffer count
-        // Projectile colors are tracked in JS and used for impact effects
-        const mat = createCandyMaterial(0xFFFFFF);
-        // JUICE: Add emissive glow (white glow for all projectiles)
-        mat.emissiveNode = vec3(0.5, 0.5, 0.5);
+        // --- PALETTE UPGRADE: Plasma Material (TSL) ---
+        const mat = new MeshStandardNodeMaterial({
+            roughness: 0.4,
+            metalness: 0.1,
+        });
+
+        // 1. Base Color from Instance
+        // Use imported instanceColor node
+        const baseColor = instanceColor || color(0xFFFFFF);
+        mat.colorNode = baseColor;
+
+        // 2. Plasma Displacement (Wobble)
+        // Scroll noise vertically + rotate?
+        const plasmaTime = uTime.mul(float(3.0));
+        const noisePos = positionLocal.mul(float(2.0)).add(vec3(0.0, plasmaTime, 0.0));
+        const plasmaNoise = mx_noise_float(noisePos);
+
+        // Displace along normal
+        const displacement = normalLocal.mul(plasmaNoise.mul(float(0.15)));
+
+        // 3. Audio Pulse (Size)
+        // Expand on high frequencies (melody/snare)
+        const audioPulse = uAudioHigh.mul(float(0.3)).add(float(1.0));
+
+        // Apply Total Deformation
+        mat.positionNode = positionLocal.add(displacement).mul(audioPulse);
+
+        // 4. Juicy Rim Light & Glow
+        // Strong rim light for energy feel
+        const rim = createJuicyRimLight(baseColor, float(2.0), float(3.0), null);
+
+        // Inner Glow (Emissive)
+        // Pulsate the core brightness with audio
+        const coreGlow = baseColor.mul(float(0.5).add(uAudioHigh.mul(0.5)));
+
+        mat.emissiveNode = coreGlow.add(rim);
 
         this.mesh = new THREE.InstancedMesh(geo, mat, MAX_PROJECTILES);
         this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
         this.mesh.castShadow = true;
         this.mesh.receiveShadow = false;
+
+        // Initialize Instance Colors Buffer
+        // Crucial for the TSL material to read per-instance colors
+        const colors = new Float32Array(MAX_PROJECTILES * 3);
+        this.mesh.instanceColor = new THREE.InstancedBufferAttribute(colors, 3);
+        this.mesh.instanceColor.setUsage(THREE.DynamicDrawUsage);
 
         this.projectiles = [];
         this.dummy = new THREE.Object3D();
@@ -58,6 +99,9 @@ class ProjectilePool {
             this.dummy.scale.setScalar(0);
             this.dummy.updateMatrix();
             this.mesh.setMatrixAt(i, this.dummy.matrix);
+
+            // Set initial white
+            this.mesh.setColorAt(i, new THREE.Color(0xFFFFFF));
         }
     }
 
@@ -89,12 +133,14 @@ class ProjectilePool {
         this.dummy.updateMatrix();
         this.mesh.setMatrixAt(idx, this.dummy.matrix);
 
-        // Rainbow Color
+        // Rainbow Color Logic
         const time = performance.now() / 1000;
         const hue = (time * 0.5) % 1.0;
         this.color.setHSL(hue, 1.0, 0.5);
+
+        // Update Instance Color
         this.mesh.setColorAt(idx, this.color);
-        p.color.copy(this.color); // Store for trail
+        p.color.copy(this.color); // Store for trail logic
 
         // JUICE: Muzzle Flash
         _scratchImpactOptions.color.copy(this.color);
@@ -108,9 +154,6 @@ class ProjectilePool {
     update(dt: number, scene: THREE.Scene, weatherSystem: any, isDay: boolean) {
         let needsUpdate = false;
 
-        // TSL Materials might need manual update if not handled by renderer automatically
-        // But InstancedMesh instanceMatrix needs explicit flag
-
         for (let i = 0; i < MAX_PROJECTILES; i++) {
             const p = this.projectiles[i];
             if (!p.active) continue;
@@ -121,7 +164,6 @@ class ProjectilePool {
 
             // JUICE: Projectile Trail
             // Spawn every frame for a continuous trail
-            // ⚡ OPTIMIZATION: Use shared options object
             _scratchImpactOptions.color.copy(p.color);
             spawnImpact(p.position, 'trail', _scratchImpactOptions.color);
 
@@ -178,7 +220,8 @@ class ProjectilePool {
                 needsUpdate = true;
             } else {
                 this.dummy.position.copy(p.position);
-                this.dummy.rotation.x += dt * 5.0; // Spin for fun
+                // Spin for fun (visible due to noise displacement)
+                this.dummy.rotation.x += dt * 5.0;
                 this.dummy.rotation.z += dt * 5.0;
                 this.dummy.scale.setScalar(1.0);
                 this.dummy.updateMatrix();
