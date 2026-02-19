@@ -15,6 +15,9 @@ let _velAttr: THREE.InstancedBufferAttribute | null = null;
 let _miscAttr: THREE.InstancedBufferAttribute | null = null;
 let _head = 0;
 
+// ⚡ OPTIMIZATION: Scratch variables
+const _scratchVec3 = new THREE.Vector3();
+
 // Colors
 const COLOR_STALK = new THREE.Color(0xFFFFFF); // White
 const COLOR_TIP = new THREE.Color(0xFFD700);   // Gold
@@ -215,11 +218,13 @@ export function spawnDandelionExplosion(
         // Velocity: Explode outward from center
         // Add some randomness
         const speed = 2.0 + Math.random() * 3.0;
-        const dir = new THREE.Vector3(dx, dy, dz).normalize();
 
-        velArray[offset + 0] = dir.x * speed;
-        velArray[offset + 1] = dir.y * speed;
-        velArray[offset + 2] = dir.z * speed;
+        // ⚡ OPTIMIZATION: Use scratch vector to avoid allocation in loop
+        _scratchVec3.set(dx, dy, dz).normalize();
+
+        velArray[offset + 0] = _scratchVec3.x * speed;
+        velArray[offset + 1] = _scratchVec3.y * speed;
+        velArray[offset + 2] = _scratchVec3.z * speed;
         velArray[offset + 3] = 4.0 + Math.random() * 4.0; // Life span (4-8s)
 
         // Misc: Rotation Axis & Phase
