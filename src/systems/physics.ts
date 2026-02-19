@@ -8,7 +8,7 @@ import {
     uploadCollisionObjects, resolveGameCollisionsWASM
 } from '../utils/wasm-loader.js';
 import {
-    foliageMushrooms, foliageTrampolines, foliageClouds, foliagePanningPads, foliageGeysers,
+    foliageMushrooms, foliageTrampolines, foliageClouds, foliagePanningPads, foliageGeysers, foliageTraps,
     activeVineSwing, setActiveVineSwing, lastVineDetachTime, setLastVineDetachTime, vineSwings, animatedFoliage
 } from '../world/state.ts';
 import { discoverySystem } from './discovery.ts';
@@ -653,6 +653,61 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
 
     // --- Kick-Drum Geysers (Riding the Plume) ---
     checkGeysers(delta);
+
+    // --- Snare Traps (Knockback) ---
+    checkSnareTraps(delta);
+}
+
+function checkSnareTraps(delta: number) {
+    for (const trap of foliageTraps) {
+        // Distance Check
+        const dx = player.position.x - trap.position.x;
+        const dz = player.position.z - trap.position.z;
+        const distSq = dx * dx + dz * dz;
+        const radius = 0.8 * (trap.scale.x || 1.0); // Approx trigger radius
+
+        if (distSq < radius * radius) {
+            // Height Check
+            const dy = player.position.y - trap.position.y;
+            if (dy > -0.5 && dy < 1.5) { // Inside jaws
+                const snapState = trap.userData.snapState || 0;
+
+                // Trigger Logic (If open and player steps inside)
+                if (snapState < 0.2) {
+                     // Snap Shut!
+                     trap.userData.snapState = 1.0;
+                     spawnImpact(trap.position, 'snare');
+                }
+
+                // If closing or closed (> 0.5)
+                // Note: We check current state. If we just triggered it (above), it's 1.0 now.
+                if (trap.userData.snapState > 0.5) {
+                    // KNOCKBACK
+                    // Calculate direction away from trap center
+                    // Reuse scratch vector safely
+                    const pushDir = _scratchMoveVec.set(dx, 0, dz).normalize();
+                    if (pushDir.lengthSq() === 0) pushDir.set(1, 0, 0); // Fallback
+
+                    // Apply impulse (Force = Mass * Accel, but we modify velocity directly)
+                    // High force to eject player
+                    player.velocity.addScaledVector(pushDir, 60.0 * delta * snapState); // Push horiz
+                    player.velocity.y = Math.max(player.velocity.y, 15.0 * snapState); // Launch up
+
+                    // Reset ground state to allow air movement
+                    player.isGrounded = false;
+
+                    // Visuals (Throttled?)
+                    // Logic runs every frame, so we need to prevent spamming impacts?
+                    // But if we launch the player, they leave the zone quickly.
+                    if (Math.random() < 0.2) {
+                        if (uChromaticIntensity) uChromaticIntensity.value = 0.8;
+                        spawnImpact(player.position, 'snare');
+                        showToast("Snared! 🪤", "⚠️");
+                    }
+                }
+            }
+        }
+    }
 }
 
 function checkGeysers(delta: number) {

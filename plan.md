@@ -10,12 +10,14 @@
 
 ## Next Steps
 
-1. **Snare-Snap Trap Physics**: Implement interaction logic for Snare-Snap Traps (e.g., snapping shut, reflecting projectiles).
+1. **Portamento Pine Slingshot Physics**: Implement interaction logic for Portamento Pines (e.g., pulling back and launching the player like a slingshot).
 
 ---
 
 ## Recent Progress
 - **Accomplished:**
+  - **Snare-Snap Trap Physics**: **Status: Implemented ✅**
+    - *Implementation Details:* Implemented interaction logic in `src/systems/physics.ts` using `foliageTraps` global list. Traps trigger (snap shut) when the player steps inside (radius < 0.8, open state). If the player is inside when the trap is closing/closed, a strong knockback impulse is applied along with visual/audio feedback. Integrated projectile reflection in `src/gameplay/rainbow-blaster.ts`: projectiles reflect off traps and force them to snap shut.
   - **Cymbal Dandelion Explosion**: **Status: Implemented ✅**
     - *Implementation Details:* Created `src/foliage/dandelion-seeds.ts` using `InstancedMesh` and TSL `MeshStandardNodeMaterial` to render floating seeds (Stalk + Tip). Seeds explode outward with drag, wind influence (`uWindDirection`), and sinusoidal sway. Integrated into `src/foliage/musical_flora.ts` to trigger on harvest.
   - **Migrate to TypeScript (Phase 1): Remaining Foliage Modules (`glitch`, `chromatic`)**: **Status: Implemented ✅**
@@ -145,6 +147,8 @@
     - *Implementation Details:* Implemented interactive logic where shrines detect if their matching instrument ID is active in the audio mix. Unlocking triggers a visual burst and rewards a 'Shrine Token'.
   - [x] Kick-Drum Geyser Physics & Charging
     - *Implementation Details:* Implemented "Riding the Plume" mechanic in `src/systems/physics.ts` (vertical velocity boost). Added charging mechanic: shooting the base increases `eruptionStrength` via `chargeLevel`.
+  - [x] Snare-Snap Trap Physics
+    - *Implementation Details:* Implemented player interaction (trigger on step, knockback on close) and projectile reflection in `src/systems/physics.ts` and `src/gameplay/rainbow-blaster.ts`.
   - **Plants Twilight Glow**: Implemented logic for plants to glow during twilight hours (pre-dawn/dusk).
     - *Implementation Details:* Added `uTwilight` global uniform to `src/foliage/sky.js` and integrated it into the TSL material pipeline for Flowers, Mushrooms, and Trees. The glow intensity ramps up at dusk and down at dawn, driven by the `WeatherSystem`.
 
