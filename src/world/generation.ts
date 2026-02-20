@@ -23,7 +23,7 @@ import { registerPhysicsCave } from '../systems/physics.ts';
 import { initDiscoveryForFoliage } from '../systems/discovery-optimized.ts';
 import {
     animatedFoliage, obstacles, foliageGroup, foliageMushrooms,
-    foliageClouds, foliageTrampolines, foliagePanningPads, foliageGeysers, vineSwings, worldGroup
+    foliageClouds, foliageTrampolines, foliagePanningPads, foliageGeysers, foliageTraps, vineSwings, worldGroup
 } from './state.ts';
 import mapData from '../../assets/map.json';
 
@@ -236,6 +236,10 @@ export function safeAddFoliage(
     if (obj.userData.isTrampoline) foliageTrampolines.push(obj);
     if (obj.userData.type === 'panningPad') foliagePanningPads.push(obj);
     if (obj.userData.type === 'geyser') foliageGeysers.push(obj);
+    if (obj.userData.type === 'trap') {
+        foliageTraps.push(obj);
+        console.log('[World] Registered Snare Trap. Total:', foliageTraps.length);
+    }
 
     // Invoke deferred placement logic (e.g. for batching)
     if (obj.userData.onPlacement) {
