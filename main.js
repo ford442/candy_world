@@ -758,7 +758,7 @@ initWasm().then(async (wasmLoaded) => {
     const startButton = document.getElementById('startButton');
     if (startButton) {
         startButton.disabled = false;
-        startButton.innerText = 'Enter World 🍭';
+        startButton.innerHTML = 'Enter World 🍭 <span class="key-badge">Enter</span>';
         startButton.focus();
         
         startButton.addEventListener('click', () => {
