@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import { mushroomBatcher } from './mushroom-batcher.ts';
 import { sharedGeometries } from './common.ts';
+import { makeInteractiveCylinder } from '../utils/interaction-utils.ts';
 
 // Interface for Note Definition
 export interface MushroomNote {
@@ -80,16 +81,20 @@ export function createMushroom(options: MushroomOptions = {}): THREE.Group {
     }
 
     // HitBox for Physics/Collision (Invisible)
-    // Scale Cylinder to approximate mushroom bounds
-    // Base Scale * Giant Scale
-    // Giant ~ 8.0, Reg ~ 1.0
+    // ⚡ OPTIMIZATION: Use analytic raycast instead of Mesh/Material to save memory.
     const baseScale = isGiant ? 8.0 * scale : 1.0 * scale;
-    const hitBox = new THREE.Mesh(sharedGeometries.unitCylinder, new THREE.MeshBasicMaterial({ visible: false }));
-    // Cylinder is 1x1x1 centered at 0.5Y.
-    // Mushroom is roughly width 0.4 to 1.2 * baseScale, height 1.2 * baseScale.
-    hitBox.scale.set(baseScale * 0.5, baseScale * 1.2, baseScale * 0.5);
-    // HitBox is child of group, so transform is local.
-    group.add(hitBox);
+    // Cylinder dimensions matching the old mesh logic:
+    // Radius = baseScale * 0.5 (Scale X/Z was 0.5)
+    // Height = baseScale * 1.2 (Scale Y was 1.2)
+    // Note: sharedGeometries.unitCylinder is diameter 1 (radius 0.5), height 1.
+    // So if we scaled X by baseScale*0.5, the actual radius was (0.5 * baseScale * 0.5) = 0.25 * baseScale?
+    // Let's check unitCylinder: new THREE.CylinderGeometry(1, 1, 1, 12).
+    // RadiusTop = 1, RadiusBottom = 1.
+    // So X Scale * 1 = Radius.
+    // Old logic: hitBox.scale.set(baseScale * 0.5, ...)
+    // So Radius = baseScale * 0.5.
+    // Height = baseScale * 1.2.
+    makeInteractiveCylinder(group, baseScale * 1.2, baseScale * 0.5);
 
     // Metadata
     group.userData.type = 'mushroom';

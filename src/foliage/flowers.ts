@@ -24,6 +24,7 @@ import { lanternBatcher } from './lantern-batcher.ts';
 import { simpleFlowerBatcher } from './simple-flower-batcher.ts';
 import { glowingFlowerBatcher } from './glowing-flower-batcher.ts';
 import { unlockSystem } from '../systems/unlocks.ts';
+import { makeInteractiveCylinder } from '../utils/interaction-utils.ts';
 
 interface FlowerOptions {
     color?: number | string | THREE.Color | null;
@@ -39,6 +40,9 @@ export function createFlower(options: FlowerOptions = {}): THREE.Object3D {
         const group = new THREE.Group();
         group.userData.type = 'flower';
         group.userData.interactionText = "🌸 Flower";
+
+        // ⚡ OPTIMIZATION: Add hitbox for interaction (Batcher handles visuals)
+        makeInteractiveCylinder(group, 1.0, 0.3);
 
         // Deferred Placement
         group.userData.onPlacement = () => {
@@ -314,11 +318,9 @@ export function createGlowingFlower(options: GlowingFlowerOptions = {}): THREE.G
     const group = new THREE.Group();
 
     // 1. Create Proxy Logic Object
-    // Invisible hit volume (Stem Size approx)
-    const hitBox = new THREE.Mesh(sharedGeometries.unitCylinder, new THREE.MeshBasicMaterial({ visible: false }));
-    hitBox.scale.set(0.2, 0.8, 0.2); // Approx size
-    hitBox.position.y = 0.4;
-    group.add(hitBox);
+    // ⚡ OPTIMIZATION: Use analytic raycast instead of Mesh/Material
+    // Cover 0 to 1.2m height, 0.2m radius
+    makeInteractiveCylinder(group, 1.2, 0.2);
 
     // Metadata
     group.userData.type = 'flower';
@@ -753,11 +755,8 @@ export function createLanternFlower(options: { color?: number, height?: number }
 
     // ⚡ OPTIMIZATION: Use Batcher for Lanterns
     // 1. Create a lightweight proxy object for logic/physics
-    // HitBox for interactions (invisible)
-    const hitBox = new THREE.Mesh(sharedGeometries.unitCylinder, new THREE.MeshBasicMaterial({ visible: false }));
-    hitBox.scale.set(0.5, height, 0.5);
-    hitBox.position.y = height * 0.5;
-    group.add(hitBox);
+    // ⚡ OPTIMIZATION: Use analytic raycast (0 to height)
+    makeInteractiveCylinder(group, height, 0.5);
 
     // Metadata
     group.userData.type = 'lanternFlower';

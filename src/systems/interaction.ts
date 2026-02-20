@@ -34,6 +34,7 @@ export class InteractionSystem {
     reticleCallback: ReticleCallback | null;
 
     proximityRadius: number;
+    proximityRadiusSq: number;
     interactionDistance: number;
 
     constructor(camera: THREE.Camera, reticleCallback: ReticleCallback | null) {
@@ -60,6 +61,7 @@ export class InteractionSystem {
 
         // Load settings
         this.proximityRadius = CONFIG?.interaction?.proximityRadius || 12.0;
+        this.proximityRadiusSq = this.proximityRadius * this.proximityRadius;
         this.interactionDistance = CONFIG?.interaction?.interactionDistance || 8.0;
     }
 
@@ -83,10 +85,10 @@ export class InteractionSystem {
                 if (!obj || !obj.position || !obj.visible) continue;
 
                 // ⚡ OPTIMIZATION: Calculate distance once per object
-                // We use standard distanceTo for strict parity with legacy logic.
-                const dist = playerPosition.distanceTo(obj.position);
+                // Use distanceToSquared to avoid sqrt
+                const distSq = playerPosition.distanceToSquared(obj.position);
 
-                if (dist < this.proximityRadius) {
+                if (distSq < this.proximityRadiusSq) {
                     nextNearby.add(obj);
                 }
             }
