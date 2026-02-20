@@ -368,7 +368,7 @@ export function initInput(
             if (title) title.innerText = 'Game Paused ⏸️';
 
             if (startButton) {
-                startButton.innerText = 'Resume Exploration 🚀';
+                startButton.innerHTML = 'Resume Exploration 🚀 <span class="key-badge">Enter</span>';
                 requestAnimationFrame(() => startButton.focus());
             }
         }
@@ -412,7 +412,7 @@ export function initInput(
                 // Pressing Escape again should manually bring up the menu.
                 if (instructions) instructions.style.display = 'flex';
                 if (startButton) {
-                    startButton.innerText = 'Resume Exploration 🚀';
+                    startButton.innerHTML = 'Resume Exploration 🚀 <span class="key-badge">Enter</span>';
                     startButton.focus();
                 }
                 return;
@@ -422,6 +422,16 @@ export function initInput(
             if (instructions && instructions.style.display !== 'none') {
                 controls.lock();
                 return;
+            }
+        }
+
+        // Enter: Resume/Start if menu is visible and button is active
+        if (event.code === 'Enter') {
+            if (!isPlaylistOpen && instructions && instructions.style.display !== 'none') {
+                if (startButton && !startButton.disabled && document.activeElement !== startButton) {
+                    startButton.click();
+                    event.preventDefault();
+                }
             }
         }
 
