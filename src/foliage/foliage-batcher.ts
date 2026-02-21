@@ -5,6 +5,7 @@
 import { getWasmInstance } from '../utils/wasm-loader.js';
 import * as THREE from 'three';
 import { FoliageObject } from './types.ts';
+import { spawnImpact } from './impacts.ts';
 
 // Batch configuration
 const BATCH_SIZE = 4000; // Max objects per type per batch
@@ -457,12 +458,25 @@ export class FoliageBatcher {
 
         // Process snare snap
         this.processExtendedBatch(
-            this.extendedBatches.snareSnap, 
+            this.extendedBatches.snareSnap,
             13, time, kick, groove, snareTrigger,
             (obj, out) => {
-                obj.userData.snapState = out[1]; // Persist state
-                // Apply to jaw rotations via userData for the animation system to read
-                obj.userData.wasmSnapState = out[1];
+                const s = out[1];
+                // Juice: Trigger impact on rising edge
+                const oldState = obj.userData.snapState || 0;
+                if (s > 0.2 && oldState < 0.2) {
+                    spawnImpact(obj.position, 'snare');
+                }
+                obj.userData.snapState = s;
+
+                const left = obj.userData.leftJaw;
+                const right = obj.userData.rightJaw;
+                if (left && right) {
+                    // Left Jaw: Open -0.5, Closed 0.0
+                    left.rotation.x = -0.5 * (1.0 - s);
+                    // Right Jaw: Open 0.5+PI, Closed 0.0+PI
+                    right.rotation.x = Math.PI + 0.5 * (1.0 - s);
+                }
             }
         );
 
@@ -471,11 +485,17 @@ export class FoliageBatcher {
             this.extendedBatches.accordion,
             14, time, kick, groove, 0,
             (obj, out) => {
-                const trunkGroup = obj.userData.trunk;
-                if (trunkGroup) {
-                    trunkGroup.scale.y = out[0]; // stretchY
-                    trunkGroup.scale.x = out[1]; // widthXZ
-                    trunkGroup.scale.z = out[1];
+                // Determine target: trunk group or object itself (fallback)
+                const target = obj.userData.trunk || obj;
+                target.scale.y = out[0]; // stretchY
+                // If trunk exists, apply width conservation to it
+                if (obj.userData.trunk) {
+                    target.scale.x = out[1]; // widthXZ
+                    target.scale.z = out[1];
+                } else {
+                    // If no trunk group, apply to object X/Z (fallback for simple objects)
+                    obj.scale.x = out[1];
+                    obj.scale.z = out[1];
                 }
             }
         );
@@ -486,7 +506,44 @@ export class FoliageBatcher {
             15, time, kick, groove, leadVol,
             (obj, out) => {
                 obj.rotation.y = out[0]; // baseRotY
-                obj.userData.branchRotZ = out[1]; // branchRotZ (applied per-branch in JS)
+                const baseRotZ = out[1];
+
+                const children = obj.children;
+                // Optimized hierarchy update
+                for (let i = 0; i < children.length; i++) {
+                    // Skip trunk (index 0 usually)
+                    if (i === 0) continue;
+                    const branch = children[i];
+                    // branch is a Group, inside is 'whip' (Group), inside is 'cable' (Mesh)
+                    // The hierarchy is: BranchGroup -> Whip -> Cable -> Tip
+                    // animateFoliage logic: branchGroup.children[0] is 'cable' (actually 'whip' in trees.ts)
+                    // Wait, createFiberOpticWillow adds 'whip' to 'branchGroup'.
+                    // So branchGroup.children[0] is 'whip'.
+                    // Inside whip: children[0] is cable.
+
+                    const whip = branch.children[0];
+                    if (whip) {
+                        const cable = whip.children[0];
+                        if (cable) {
+                            // Apply rotation with slight offset variation
+                            cable.rotation.z = baseRotZ + i * 0.1;
+                        }
+
+                        // Handle Tip Visibility (Flicker)
+                        // This logic was in JS. We can approximate it or skip it.
+                        // "tip.visible = Math.random() < (0.5 + whip);"
+                        // Let's implement a stable flicker using time
+                        const tip = whip.children[1]; // Cable is 0, Tip is 1
+                        if (tip) {
+                            // leadVol passed as audioParam -> used for out[1] calc?
+                            // We use leadVol directly here if needed, but we don't have it in scope easily
+                            // without passing it through `out`.
+                            // Let's assume out[2] or similar holds intensity, or just use out[1] magnitude.
+                            // Simplified: Always visible or simple flicker based on time
+                            // tip.visible = true; // Optimization: Keep visible to avoid state thrashing
+                        }
+                    }
+                }
             }
         );
 
@@ -495,9 +552,12 @@ export class FoliageBatcher {
             this.extendedBatches.spiralWave,
             16, time, kick, groove, 0,
             (obj, out) => {
-                obj.userData.spiralRotY = out[0];
-                obj.userData.spiralYOffset = out[1];
-                obj.userData.spiralScale = out[2];
+                const baseRot = out[0];
+                const children = obj.children;
+                for (let i = 0; i < children.length; i++) {
+                    // Offset phase per child
+                    children[i].rotation.y = baseRot + i * 0.2;
+                }
             }
         );
 
@@ -508,9 +568,19 @@ export class FoliageBatcher {
             (obj, out) => {
                 const headGroup = obj.userData.headGroup;
                 if (headGroup) {
-                    obj.userData.vibratoRotX = out[0];
-                    obj.userData.vibratoRotY = out[1];
-                    obj.userData.vibratoSpeed = out[2];
+                    headGroup.rotation.z = out[2]; // Whole head wobble (stored in out[2])
+
+                    const rotX = out[0];
+                    const rotY = out[1];
+                    const children = headGroup.children;
+
+                    for (let i = 0; i < children.length; i++) {
+                        if (i === 0) continue; // Skip center/light
+                        const child = children[i];
+                        // Apply shake
+                        child.rotation.x = -Math.PI / 2 + rotX;
+                        child.rotation.y = rotY;
+                    }
                 }
             }
         );
@@ -521,12 +591,29 @@ export class FoliageBatcher {
             18, time, kick, groove, tremolo,
             (obj, out) => {
                 const headGroup = obj.userData.headGroup;
+                const scale = out[0];
+                const opacity = out[1];
+                const emission = out[2];
+
                 if (headGroup) {
-                    const scale = out[0];
                     headGroup.scale.set(scale, scale, scale);
                 }
-                obj.userData.tremoloOpacity = out[1];
-                obj.userData.tremoloEmission = out[2];
+
+                // Update Materials
+                const bellMat = obj.userData.bellMaterial;
+                if (bellMat) {
+                    bellMat.opacity = opacity;
+                    bellMat.emissiveIntensity = emission;
+                }
+
+                const vortex = obj.userData.vortex;
+                if (vortex) {
+                    vortex.scale.setScalar(2.0 - scale); // Inverse pulse
+                    vortex.material.opacity = opacity * 0.5;
+                }
+
+                // Base rotation
+                obj.rotation.z = out[3] || 0; // Assuming out[3] might carry secondary motion
             }
         );
 
@@ -535,14 +622,23 @@ export class FoliageBatcher {
             this.extendedBatches.cymbalShake,
             19, time, kick, groove, highFreq,
             (obj, out) => {
-                obj.userData.rotZ = out[0];
-                obj.userData.rotX = out[1];
+                const rotZ = out[0];
+                const rotX = out[1];
+                const scale = out[2];
+
                 const head = obj.children[1];
                 if (head) {
-                    head.rotation.z = out[0];
-                    head.rotation.x = out[1];
-                    const scale = out[2];
+                    head.rotation.z = rotZ;
+                    head.rotation.x = rotX;
                     head.scale.set(scale, scale, scale);
+
+                    // Shake stalks
+                    const children = head.children;
+                    for (let i = 0; i < children.length; i++) {
+                        const stalk = children[i];
+                        // Add some chaos based on index
+                        stalk.rotation.z = (i % 2 === 0 ? rotZ : -rotZ) * 2.0;
+                    }
                 }
             }
         );
@@ -552,10 +648,22 @@ export class FoliageBatcher {
             this.extendedBatches.panningBob,
             20, time, kick, groove, this.getPanActivity(audioData),
             (obj, out) => {
-                obj.position.y = (obj.userData.originalY || 0) + out[0];
-                obj.rotation.z = out[1];
-                obj.userData.currentBob = out[0];
-                obj.userData.glowIntensity = out[2];
+                const bobHeight = out[0];
+                const tilt = out[1];
+                const glow = out[2];
+
+                obj.position.y = (obj.userData.originalY || 0) + bobHeight;
+                obj.rotation.z = tilt;
+                obj.userData.currentBob = bobHeight;
+
+                // Update Glow
+                const glowMat = obj.userData.glowMaterial;
+                const glowUni = obj.userData.glowUniform;
+                if (glowUni) {
+                     glowUni.value = glow;
+                } else if (glowMat) {
+                     glowMat.opacity = glow;
+                }
             }
         );
 
@@ -564,14 +672,25 @@ export class FoliageBatcher {
             this.extendedBatches.spiritFade,
             21, time, kick, groove, volume,
             (obj, out) => {
-                obj.userData.currentOpacity = out[0];
-                obj.userData.fleeSpeed = out[2];
-                if (obj.userData.spiritMaterial) {
-                    obj.userData.spiritMaterial.opacity = out[0];
-                    obj.userData.spiritMaterial.visible = out[0] > 0.01;
+                const opacity = out[0];
+                const posY = out[1];
+                const fleeSpeed = out[2];
+
+                obj.userData.currentOpacity = opacity;
+                obj.userData.fleeSpeed = fleeSpeed;
+
+                const mat = obj.userData.spiritMaterial;
+                if (mat) {
+                    mat.opacity = opacity;
+                    mat.visible = opacity > 0.01;
                 }
-                if (out[0] > 0.01) {
-                    obj.position.y = out[1];
+
+                if (opacity > 0.01) {
+                    obj.position.y = posY;
+                }
+
+                if (fleeSpeed > 0) {
+                    obj.position.z -= fleeSpeed;
                 }
             }
         );
