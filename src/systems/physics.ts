@@ -8,7 +8,7 @@ import {
     uploadCollisionObjects, resolveGameCollisionsWASM
 } from '../utils/wasm-loader.js';
 import {
-    foliageMushrooms, foliageTrampolines, foliageClouds, foliagePanningPads, foliageGeysers, foliageTraps,
+    foliageMushrooms, foliageTrampolines, foliageClouds, foliagePanningPads, foliageGeysers, foliageTraps, foliagePortamentoPines,
     activeVineSwing, setActiveVineSwing, lastVineDetachTime, setLastVineDetachTime, vineSwings, animatedFoliage
 } from '../world/state.ts';
 import { discoverySystem } from './discovery.ts';
@@ -656,6 +656,95 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
 
     // --- Snare Traps (Knockback) ---
     checkSnareTraps(delta);
+
+    // --- Portamento Pines (Slingshot/Ramp) ---
+    checkPortamentoPines(delta);
+}
+
+function checkPortamentoPines(delta: number) {
+    const playerPos = player.position;
+    const now = performance.now();
+
+    for (const pine of foliagePortamentoPines) {
+        // Distance check
+        const dx = playerPos.x - pine.position.x;
+        const dz = playerPos.z - pine.position.z;
+        const distSq = dx*dx + dz*dz;
+        const interactRadius = 1.2;
+
+        if (distSq < interactRadius * interactRadius) {
+            // Height check (Pine is tall, ~4.0m)
+            const dy = playerPos.y - pine.position.y;
+            if (dy > 0 && dy < 4.0) {
+                const state = pine.userData.reactivityState;
+                if (!state) continue;
+
+                // 1. Calculate Bend Direction in World Space (Local X axis)
+                // Reuse scratch vector safely
+                const bendDir = _scratchCamDir.set(1, 0, 0).applyQuaternion(pine.quaternion);
+
+                // Current physical bend amount
+                const bend = state.currentBend || 0;
+
+                // 2. Player Push Logic (Bend the tree)
+                // Project player-to-pine vector onto Bend Axis
+                // Reuse scratch vector safely
+                const pushDir = _scratchMoveVec.set(dx, 0, dz).normalize();
+                const pushAlignment = pushDir.dot(bendDir); // -1 to 1
+
+                // If player is pushing along the bend axis (e.g. pushing forward), add force
+                // Alignment +1 = Pushing towards +X (Bend Positive)
+                // Alignment -1 = Pushing towards -X (Bend Negative)
+
+                const pushStrength = 60.0; // Strong enough to fight spring
+                state.velocity += pushAlignment * pushStrength * delta;
+
+                // 3. Launch Logic (Slingshot / Ramp)
+                // Debounce check
+                if (now - (pine.userData.lastLaunchTime || 0) < 1000) continue;
+
+                // RAMP: If bent forward (+X) significantly
+                if (bend > 0.5) {
+                    // Launch UP
+                    // "Forward-leaning ramps launch players vertically."
+                    if (player.velocity.y < 5.0) {
+                         // Apply Impulse (Instant velocity change)
+                         player.velocity.y = 25.0 * (Math.abs(bend) / 1.0); // Minimum 12.5 boost
+                         player.velocity.addScaledVector(bendDir, 10.0); // Forward nudge (Instant)
+
+                         // Visuals
+                         spawnImpact(playerPos, 'jump');
+                         discoverySystem.discover('portamento_pine', 'Portamento Pine', '🌲');
+
+                         player.airJumpsLeft = 1;
+                         player.isGrounded = false;
+                         pine.userData.lastLaunchTime = now;
+                    }
+                }
+
+                // SLINGSHOT: If bent Backward (-X) significantly and snapping back
+                else if (bend < -0.5) {
+                    // Tree is bent Backward (-X). It wants to go to 0 (+Velocity).
+                    // If it's moving fast towards 0 (+Velocity > 0), launch player!
+                    // "Leaned-back pines act as slingshots"
+
+                    if (state.velocity > 5.0) { // Snapping forward
+                        // Launch Forward (+X direction, which is bendDir)
+                        // Apply Impulse (Instant velocity change)
+                        player.velocity.addScaledVector(bendDir, 40.0 * Math.abs(bend));
+                        player.velocity.y = 15.0; // Lift (Instant)
+
+                        spawnImpact(playerPos, 'dash');
+                        discoverySystem.discover('portamento_pine', 'Portamento Pine', '🌲');
+
+                        player.airJumpsLeft = 1;
+                        player.isGrounded = false;
+                        pine.userData.lastLaunchTime = now;
+                    }
+                }
+            }
+        }
+    }
 }
 
 function checkSnareTraps(delta: number) {

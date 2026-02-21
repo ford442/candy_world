@@ -10,12 +10,14 @@
 
 ## Next Steps
 
-1. **Portamento Pine Slingshot Physics**: Implement interaction logic for Portamento Pines (e.g., pulling back and launching the player like a slingshot).
+1. **Audio System Data Flow Verification**: Ensure `AudioSystem` correctly extracts and passes `order`/`row` data from the worklet to drive the Pattern-Change logic reliably.
 
 ---
 
 ## Recent Progress
 - **Accomplished:**
+  - **Portamento Pine Slingshot Physics**: **Status: Implemented ✅**
+    - *Implementation Details:* Implemented interaction logic in `src/systems/physics.ts`. Players can "push" the pine to bend it (modifying its velocity state). If the tree is bent forward, running into it launches the player up (Ramp). If the tree is bent backward and snaps forward, it launches the player forward (Slingshot). Added debounce and visual impacts.
   - **Snare-Snap Trap Physics**: **Status: Implemented ✅**
     - *Implementation Details:* Implemented interaction logic in `src/systems/physics.ts` using `foliageTraps` global list. Traps trigger (snap shut) when the player steps inside (radius < 0.8, open state). If the player is inside when the trap is closing/closed, a strong knockback impulse is applied along with visual/audio feedback. Integrated projectile reflection in `src/gameplay/rainbow-blaster.ts`: projectiles reflect off traps and force them to snap shut.
   - **Cymbal Dandelion Explosion**: **Status: Implemented ✅**
