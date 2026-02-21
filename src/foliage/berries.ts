@@ -326,7 +326,7 @@ function createHeartbeatMaterial(): THREE.Material {
     // Base color from instanceColor
     const material = CandyPresets.Gummy(0xFF6600, opts);
     // Force use of instanceColor
-    material.colorNode = (THREE as any).instanceColor || color(0xFF6600);
+    material.colorNode = attribute('instanceColor', 'vec3') || color(0xFF6600);
 
     // 2. Heartbeat Logic (Vertex Displacement)
     const phase = dot(positionWorld, vec3(0.5)).mul(5.0);
@@ -338,7 +338,7 @@ function createHeartbeatMaterial(): THREE.Material {
 
     // 3. Reactive Glow (Emissive)
     const aGlow = attribute('aGlow', 'float'); // FROM BATCHER
-    const baseColor = (THREE as any).instanceColor || color(0xFF6600);
+    const baseColor = attribute('instanceColor', 'vec3') || color(0xFF6600);
     const flashColor = color(0xFFFFFF);
 
     // Mix flash based on heartbeat strength
@@ -418,12 +418,12 @@ export function initFallingBerries(scene: THREE.Scene): void {
         transmission: 0.6, roughness: 0.2, ior: 1.4, subsurfaceStrength: 1.0, subsurfaceColor: 0xFF6600
     };
     const material = CandyPresets.Gummy(0xFF6600, opts);
-    material.colorNode = (THREE as any).instanceColor;
+    material.colorNode = attribute('instanceColor', 'vec3');
 
     // Simple pulse
     const phase = dot(positionWorld, vec3(0.5)).mul(5.0);
     const heartbeat = sin(uTime.mul(8.0).add(phase)).pow(4.0);
-    material.emissiveNode = (THREE as any).instanceColor.mul(uFallingGlow.add(heartbeat.mul(0.3)));
+    material.emissiveNode = attribute('instanceColor', 'vec3').mul(uFallingGlow.add(heartbeat.mul(0.3)));
 
     fallingBerryMesh = new THREE.InstancedMesh(berryGeo, material, MAX_FALLING_BERRIES);
     fallingBerryMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
