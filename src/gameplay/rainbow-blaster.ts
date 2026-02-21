@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import {
     vec3, float, positionLocal, normalLocal, mx_noise_float,
-    mix, sin, smoothstep, normalize, positionWorld, color, instanceColor
+    mix, sin, smoothstep, normalize, positionWorld, color, attribute
 } from 'three/tsl';
 import { foliageClouds, foliageGeysers, foliageTraps } from '../world/state.ts';
 import { createCandyMaterial, uTime, uAudioHigh, createJuicyRimLight } from '../foliage/common.ts';
@@ -42,7 +42,7 @@ class ProjectilePool {
 
         // 1. Base Color from Instance
         // Use imported instanceColor node
-        const baseColor = instanceColor || color(0xFFFFFF);
+        const baseColor = attribute('instanceColor', 'vec3') || color(0xFFFFFF);
         mat.colorNode = baseColor;
 
         // 2. Plasma Displacement (Wobble)
