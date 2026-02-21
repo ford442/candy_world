@@ -667,7 +667,7 @@ export function createTremoloTulip(options: { color?: number, size?: number } = 
     headGroup.add(bell);
 
     // --- PALETTE: Juicy TSL Vortex ---
-    const vortexMat = new THREE.MeshStandardNodeMaterial({
+    const vortexMat = new MeshStandardNodeMaterial({
         blending: THREE.AdditiveBlending,
         depthWrite: false,
         transparent: true,
