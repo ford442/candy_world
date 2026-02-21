@@ -95,6 +95,7 @@ export function initInput(
     // Ability HUD Elements
     const hudDash = document.getElementById('ability-dash');
     const hudMine = document.getElementById('ability-mine');
+    const hudPhase = document.getElementById('ability-phase');
 
     let isPlaylistOpen = false;
     let lastFocusedElement: Element | null = null; // Store focus before opening modal
@@ -552,7 +553,10 @@ export function initInput(
                 keyStates.dash = true;
                 if (hudDash) hudDash.classList.add('pressed');
                 break; // Dash Ability
-            case 'KeyZ': keyStates.phase = true; break; // Phase Shift Ability
+            case 'KeyZ':
+                keyStates.phase = true;
+                if (hudPhase) hudPhase.classList.add('pressed');
+                break; // Phase Shift Ability
             case 'KeyR': keyStates.dance = true; break; // Dance Ability
             case 'Space': keyStates.jump = true; break;
             case 'KeyN': if(toggleDayNightCallback) toggleDayNightCallback(); break;
@@ -613,7 +617,10 @@ export function initInput(
                 keyStates.dash = false;
                 if (hudDash) hudDash.classList.remove('pressed');
                 break;
-            case 'KeyZ': keyStates.phase = false; break;
+            case 'KeyZ':
+                keyStates.phase = false;
+                if (hudPhase) hudPhase.classList.remove('pressed');
+                break;
             case 'KeyR': keyStates.dance = false; break;
             case 'Space': keyStates.jump = false; break;
             case 'ControlLeft':
@@ -677,7 +684,7 @@ export function initInput(
     // (Variables moved to top of initInput)
 
     // Helper to simulate key press for abilities
-    const triggerAbility = (ability: 'dash' | 'action') => {
+    const triggerAbility = (ability: 'dash' | 'action' | 'phase') => {
         keyStates[ability] = true;
         setTimeout(() => {
             keyStates[ability] = false;
@@ -716,6 +723,24 @@ export function initInput(
                 e.stopPropagation();
                 if (hudMine.getAttribute('aria-disabled') !== 'true') {
                     triggerAbility('action');
+                }
+            }
+        });
+    }
+
+    if (hudPhase) {
+        hudPhase.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (hudPhase.getAttribute('aria-disabled') !== 'true') {
+                triggerAbility('phase');
+            }
+        });
+        hudPhase.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                e.stopPropagation();
+                if (hudPhase.getAttribute('aria-disabled') !== 'true') {
+                    triggerAbility('phase');
                 }
             }
         });
