@@ -10,12 +10,14 @@
 
 ## Next Steps
 
-1. **Migrate `main.js` to TypeScript**: Convert the main entry point to TypeScript to complete the Phase 1 migration and ensure full type safety across the core loop.
+1. **Weather-Cycle Integration**: Implement time-of-day weather patterns (morning mist, afternoon storms) in `src/systems/weather.ts` and `src/main.ts` to fully synchronize the weather system with the day/night cycle.
 
 ---
 
 ## Recent Progress
 - **Accomplished:**
+  - **Migrate `main.js` to TypeScript**: **Status: Implemented ✅**
+    - *Implementation Details:* Converted the main entry point to `src/main.ts`. Defined global type definitions in `src/types/global.d.ts` for window augmentations and untyped JS modules. Updated `index.html` to point to the new TypeScript entry file and verified the build. This completes the core Phase 1 migration.
   - **Pattern-Change Seasons Logic**: **Status: Implemented ✅**
     - *Implementation Details:* Verified data flow of `order`/`row` from AudioWorklet to `AudioSystem`. Implemented logic in `src/systems/weather.ts` to cycle `targetPaletteMode` (Standard -> Neon -> Standard -> Glitch) based on the music pattern index (`patternIndex`), driving the global visual theme.
   - **Portamento Pine Slingshot Physics**: **Status: Implemented ✅**
@@ -159,7 +161,7 @@
 ---
 
 ## Migration Roadmap (Summary)
-1. **Phase 1 (JS -> TS):** Typing core data structures and systems. [IN PROGRESS]
+1. **Phase 1 (JS -> TS):** Typing core data structures and systems. [DONE]
 2. **Phase 2 (TS -> ASC):** Offloading hot paths to WASM. [DONE]
 3. **Phase 3 (ASC -> C++):** Specialized solvers.
 4. **Phase 4 (Three.js -> WebGPU):** Raw compute and render pipelines.
