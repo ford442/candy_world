@@ -1,36 +1,34 @@
-// main.js
+// src/main.ts
 
 import * as THREE from 'three';
-import './style.css';
-// CHANGE: Preserved .ts extension as requested to match local file structure
-import { uWindSpeed, uWindDirection, uSkyTopColor, uSkyBottomColor, uHorizonColor, uAtmosphereIntensity, uStarOpacity, uAuroraIntensity, uAuroraColor, uAudioLow, uAudioHigh, uGlitchIntensity, uChromaticIntensity, uTime, uPlayerPosition, createAurora, createChromaticPulse, updateMoon, animateFoliage, updateFoliageMaterials, updateFallingBerries, collectFallingBerries, createFlower, createMushroom, validateNodeGeometries, createMelodyRibbon, updateMelodyRibbons, createMelodyMirror, createSparkleTrail, updateSparkleTrail, createImpactSystem, createShield, createDandelionSeedSystem } from './src/foliage/index.ts';
-import { initCelestialBodies } from './src/foliage/celestial-bodies.ts';
-import { InteractionSystem } from './src/systems/interaction.ts';
-import { unlockSystem } from './src/systems/unlocks.ts';
-import { musicReactivitySystem } from './src/systems/music-reactivity.ts';
-import { fluidSystem } from './src/systems/fluid_system.ts';
-import { createFluidFog } from './src/foliage/fluid_fog.js';
-import { AudioSystem } from './src/audio/audio-system.ts';
-import { BeatSync } from './src/audio/beat-sync.ts';
-import { WeatherSystem, WeatherState } from './src/systems/weather.ts';
-import { initWasm, initWasmParallel, isWasmReady, LOADING_PHASES } from './src/utils/wasm-loader.js';
-import { profiler } from './src/utils/profiler.js';
+import '../style.css';
+import { uWindSpeed, uWindDirection, uSkyTopColor, uSkyBottomColor, uHorizonColor, uAtmosphereIntensity, uStarOpacity, uAuroraIntensity, uAuroraColor, uAudioLow, uAudioHigh, uGlitchIntensity, uChromaticIntensity, uTime, uPlayerPosition, createAurora, createChromaticPulse, animateFoliage, updateFoliageMaterials, updateFallingBerries, collectFallingBerries, createMushroom, validateNodeGeometries, createMelodyRibbon, updateMelodyRibbons, createSparkleTrail, createImpactSystem, createShield, createDandelionSeedSystem } from './foliage/index.ts';
+import { initCelestialBodies } from './foliage/celestial-bodies.ts';
+import { InteractionSystem } from './systems/interaction.ts';
+import { unlockSystem } from './systems/unlocks.ts';
+import { musicReactivitySystem } from './systems/music-reactivity.ts';
+import { fluidSystem } from './systems/fluid_system.ts';
+import { createFluidFog } from './foliage/fluid_fog.js';
+import { AudioSystem } from './audio/audio-system.ts';
+import { BeatSync } from './audio/beat-sync.ts';
+import { WeatherSystem, WeatherState } from './systems/weather.ts';
+import { initWasm, getGroundHeight } from './utils/wasm-loader.js';
+import { profiler } from './utils/profiler.js';
 
 // Core imports
-import { CONFIG, PALETTE, CYCLE_DURATION, DURATION_SUNRISE, DURATION_DAY, DURATION_SUNSET, DURATION_DUSK_NIGHT, DURATION_DEEP_NIGHT } from './src/core/config.ts';
-import { initScene, forceFullSceneWarmup } from './src/core/init.js';
-import { initInput, keyStates } from './src/core/input.ts';
-import { getCycleState } from './src/core/cycle.ts';
+import { CONFIG, CYCLE_DURATION, DURATION_SUNRISE, DURATION_DAY, DURATION_SUNSET, DURATION_DUSK_NIGHT, DURATION_DEEP_NIGHT } from './core/config.ts';
+import { initScene, forceFullSceneWarmup } from './core/init.js';
+import { initInput, keyStates } from './core/input.ts';
+import { getCycleState } from './core/cycle.ts';
 
 // World & System imports
-import { initWorld, generateMap, DEFAULT_MAP_CHUNK_SIZE } from './src/world/generation.ts';
-import { animatedFoliage, foliageGroup, activeVineSwing, foliageClouds, foliageMushrooms } from './src/world/state.ts';
-import { updatePhysics, player, bpmWind } from './src/systems/physics.ts';
-import { fireRainbow, updateBlaster } from './src/gameplay/rainbow-blaster.ts';
-import { jitterMineSystem } from './src/gameplay/jitter-mines.ts';
-import { updateFallingClouds } from './src/foliage/clouds.ts';
-import { cloudBatcher } from './src/foliage/cloud-batcher.ts';
-import { getGroundHeight } from './src/utils/wasm-loader.js';
+import { initWorld, generateMap, DEFAULT_MAP_CHUNK_SIZE } from './world/generation.ts';
+import { animatedFoliage, foliageClouds, foliageMushrooms } from './world/state.ts';
+import { updatePhysics, player } from './systems/physics.ts';
+import { fireRainbow, updateBlaster } from './gameplay/rainbow-blaster.ts';
+import { jitterMineSystem } from './gameplay/jitter-mines.ts';
+import { updateFallingClouds } from './foliage/clouds.ts';
+import { cloudBatcher } from './foliage/cloud-batcher.ts';
 
 // Optimization: Hoist reusable objects to module scope to prevent GC in animation loop
 const COLOR_STORM_SKY_TOP = new THREE.Color(0x1A1A2E);
@@ -46,7 +44,7 @@ const _scratchSunVector = new THREE.Vector3();
 const _scratchAuroraColor = new THREE.Color();
 
 const _weatherBiasOutput = { biasState: 'clear', biasIntensity: 0, type: 'clear' };
-const _interactionLists = [null, null, null]; // Reusable array for interaction lists
+const _interactionLists: (any[] | null)[] = [null, null, null]; // Reusable array for interaction lists
 
 // --- Initialization Pipeline ---
 
@@ -93,15 +91,15 @@ if (audioSystem.onNote) {
 validateNodeGeometries(scene);
 
 // Defer non-critical visual elements to load after basic scene is ready
-let aurora = null;
-let chromaticPulse = null;
+let aurora: THREE.Object3D | null = null;
+let chromaticPulse: THREE.Object3D | null = null;
 let celestialBodiesInitialized = false;
-let melodyRibbon = null;
-let sparkleTrail = null;
-let impactSystem = null;
-let fluidFog = null;
-let playerShieldMesh = null;
-let dandelionSeedSystem = null;
+let melodyRibbon: any = null;
+let sparkleTrail: any = null;
+let impactSystem: any = null;
+let fluidFog: THREE.Mesh | null = null;
+let playerShieldMesh: THREE.Object3D | null = null;
+let dandelionSeedSystem: THREE.Object3D | null = null;
 
 // Function to initialize deferred visual elements with better organization and timing
 function initDeferredVisuals() {
@@ -173,10 +171,10 @@ function initDeferredVisuals() {
 
 // 4. Input Handling
 let isNight = false;
-let lastIsNight = null; // Track previous state (null forces initial update)
+let lastIsNight: boolean | null = null; // Track previous state (null forces initial update)
 let timeOffset = 0;
 
-function updateTheme(isNightMode) {
+function updateTheme(isNightMode: boolean) {
     const nightColor = '#0A0A2E'; // Deep Night Blue
     const dayColor = '#FFD1DC';   // Candy Pink
 
@@ -257,7 +255,7 @@ window.addEventListener('mousedown', (e) => {
 // --- Animation Loop State ---
 const clock = new THREE.Clock();
 let gameTime = 0;
-let audioState = null;
+let audioState: any = null;
 let lastBeatPhase = 0;
 let beatFlashIntensity = 0;
 let cameraZoomPulse = 0;
@@ -272,7 +270,7 @@ beatSync.onBeat((state) => {
     }
 });
 
-function getWeatherForTimeOfDay(cyclePos, audioData) {
+function getWeatherForTimeOfDay(cyclePos: number, audioData: any) {
     const SUNRISE = DURATION_SUNRISE;
     const DAY = DURATION_DAY;
     const SUNSET = DURATION_SUNSET;
@@ -308,13 +306,13 @@ function getWeatherForTimeOfDay(cyclePos, audioData) {
 
 // 🎨 Palette: Cache HUD Elements
 const hudDash = document.getElementById('ability-dash');
-const hudDashOverlay = hudDash ? hudDash.querySelector('.cooldown-overlay') : null;
+const hudDashOverlay = hudDash ? hudDash.querySelector('.cooldown-overlay') as HTMLElement : null;
 const hudMine = document.getElementById('ability-mine');
-const hudMineOverlay = hudMine ? hudMine.querySelector('.cooldown-overlay') : null;
+const hudMineOverlay = hudMine ? hudMine.querySelector('.cooldown-overlay') as HTMLElement : null;
 
 // Track previous states to avoid DOM thrashing
-let _lastDashReady = null;
-let _lastMineReady = null;
+let _lastDashReady: boolean | null = null;
+let _lastMineReady: boolean | null = null;
 
 function animate() {
     profiler.startFrame();
@@ -492,7 +490,7 @@ function animate() {
         lightShaftGroup.visible = shaftVisible;
         if (shaftVisible) {
             lightShaftGroup.rotation.z += delta * 0.1;
-            lightShaftGroup.children.forEach(shaft => {
+            lightShaftGroup.children.forEach((shaft: any) => {
                 shaft.material.opacity = shaftIntensity;
             });
         }
@@ -755,7 +753,7 @@ initWasm().then(async (wasmLoaded) => {
     scene.add(previewMushroom);
     animatedFoliage.push(previewMushroom);
 
-    const startButton = document.getElementById('startButton');
+    const startButton = document.getElementById('startButton') as HTMLButtonElement | null;
     if (startButton) {
         startButton.disabled = false;
         startButton.innerHTML = 'Enter World 🍭 <span class="key-badge">Enter</span>';
@@ -800,7 +798,7 @@ initWasm().then(async (wasmLoaded) => {
                 if (instructions) instructions.style.display = 'none';
 
                 // 🎨 Palette: Welcome Toast
-                import('./src/utils/toast.js').then(({ showToast }) => {
+                import('./utils/toast.js').then(({ showToast }) => {
                     showToast("Press [ESC] for Controls", "🎮", 4000);
                 });
 
