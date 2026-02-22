@@ -51,11 +51,15 @@ export function initGrassSystem(scene: THREE.Scene, count = 5000): THREE.Instanc
     // Apply squash relative to pivot (y=0)
     const newY = positionLocal.y.mul(scaleY);
 
-    // Bulge X/Z slightly when squashed (simple linear bulge)
-    // Only bulge the middle/top
-    const bulge = squashFactor.mul(0.5).mul(positionLocal.y);
-    let newX = positionLocal.x.add(swayX).add(sign(positionLocal.x).mul(bulge));
-    let newZ = positionLocal.z.add(swayZ).add(sign(positionLocal.z).mul(bulge));
+    // PALETTE JUICE: Squash & Stretch Volume Preservation
+    // When Y squashes (scaleY < 1), X and Z must bulge (scaleXZ > 1)
+    // scaleXZ = 1.0 + squashFactor * 0.1 (Simple approximation)
+    const scaleXZ = float(1.0).add(squashFactor.mul(0.1));
+
+    // Apply sway AND bulge
+    // Bulge scales the local X/Z relative to center (0,0)
+    let newX = positionLocal.x.mul(scaleXZ).add(swayX);
+    let newZ = positionLocal.z.mul(scaleXZ).add(swayZ);
 
     // --- PALETTE UPDATE: Player Interaction (Bending) ---
     // Push grass away from uPlayerPosition
@@ -104,6 +108,11 @@ export function initGrassSystem(scene: THREE.Scene, count = 5000): THREE.Instanc
     const glowStrength = uSkyDarkness.mul(uAudioHigh).mul(tipFactor).mul(2.0); // Boost intensity
     const glowColor = color(0x00FFAA); // Cyan-Green Magic
 
+    // PALETTE JUICE: Touch Glow (Player Interaction)
+    // When player pushes grass, it glows Neon Pink
+    const touchGlowColor = color(0xFF00FF);
+    const touchGlowStrength = pushStrength.mul(2.0); // Bright flash on touch
+
     // Mix: Base + Rim + NightGlow
     // We add NightGlow to Emissive for bloom, or just mix it into color
     const mixedColor = baseColor.add(rimColor.mul(rimFactor));
@@ -111,7 +120,9 @@ export function initGrassSystem(scene: THREE.Scene, count = 5000): THREE.Instanc
     mat.colorNode = mixedColor;
 
     // Add Glow to Emissive Node (so it blooms)
-    mat.emissiveNode = glowColor.mul(glowStrength);
+    // Combine Audio Glow + Touch Glow
+    const totalEmissive = glowColor.mul(glowStrength).add(touchGlowColor.mul(touchGlowStrength));
+    mat.emissiveNode = totalEmissive;
 
     const meshCount = Math.ceil(count / MAX_PER_MESH);
 
