@@ -460,8 +460,8 @@ export class FoliageBatcher {
         this.processExtendedBatch(
             this.extendedBatches.snareSnap,
             13, time, kick, groove, snareTrigger,
-            (obj, out) => {
-                const s = out[1];
+            (obj, data, offset) => {
+                const s = data[offset + 1];
                 // Juice: Trigger impact on rising edge
                 const oldState = obj.userData.snapState || 0;
                 if (s > 0.2 && oldState < 0.2) {
@@ -484,18 +484,18 @@ export class FoliageBatcher {
         this.processExtendedBatch(
             this.extendedBatches.accordion,
             14, time, kick, groove, 0,
-            (obj, out) => {
+            (obj, data, offset) => {
                 // Determine target: trunk group or object itself (fallback)
                 const target = obj.userData.trunk || obj;
-                target.scale.y = out[0]; // stretchY
+                target.scale.y = data[offset + 0]; // stretchY
                 // If trunk exists, apply width conservation to it
                 if (obj.userData.trunk) {
-                    target.scale.x = out[1]; // widthXZ
-                    target.scale.z = out[1];
+                    target.scale.x = data[offset + 1]; // widthXZ
+                    target.scale.z = data[offset + 1];
                 } else {
                     // If no trunk group, apply to object X/Z (fallback for simple objects)
-                    obj.scale.x = out[1];
-                    obj.scale.z = out[1];
+                    obj.scale.x = data[offset + 1];
+                    obj.scale.z = data[offset + 1];
                 }
             }
         );
@@ -504,9 +504,9 @@ export class FoliageBatcher {
         this.processExtendedBatch(
             this.extendedBatches.fiberWhip,
             15, time, kick, groove, leadVol,
-            (obj, out) => {
-                obj.rotation.y = out[0]; // baseRotY
-                const baseRotZ = out[1];
+            (obj, data, offset) => {
+                obj.rotation.y = data[offset + 0]; // baseRotY
+                const baseRotZ = data[offset + 1];
 
                 const children = obj.children;
                 // Optimized hierarchy update
@@ -551,8 +551,8 @@ export class FoliageBatcher {
         this.processExtendedBatch(
             this.extendedBatches.spiralWave,
             16, time, kick, groove, 0,
-            (obj, out) => {
-                const baseRot = out[0];
+            (obj, data, offset) => {
+                const baseRot = data[offset + 0];
                 const children = obj.children;
                 for (let i = 0; i < children.length; i++) {
                     // Offset phase per child
@@ -565,13 +565,13 @@ export class FoliageBatcher {
         this.processExtendedBatch(
             this.extendedBatches.vibratoShake,
             17, time, kick, groove, vibrato,
-            (obj, out) => {
+            (obj, data, offset) => {
                 const headGroup = obj.userData.headGroup;
                 if (headGroup) {
-                    headGroup.rotation.z = out[2]; // Whole head wobble (stored in out[2])
+                    headGroup.rotation.z = data[offset + 2]; // Whole head wobble (stored in out[2])
 
-                    const rotX = out[0];
-                    const rotY = out[1];
+                    const rotX = data[offset + 0];
+                    const rotY = data[offset + 1];
                     const children = headGroup.children;
 
                     for (let i = 0; i < children.length; i++) {
@@ -589,11 +589,11 @@ export class FoliageBatcher {
         this.processExtendedBatch(
             this.extendedBatches.tremoloPulse,
             18, time, kick, groove, tremolo,
-            (obj, out) => {
+            (obj, data, offset) => {
                 const headGroup = obj.userData.headGroup;
-                const scale = out[0];
-                const opacity = out[1];
-                const emission = out[2];
+                const scale = data[offset + 0];
+                const opacity = data[offset + 1];
+                const emission = data[offset + 2];
 
                 if (headGroup) {
                     headGroup.scale.set(scale, scale, scale);
@@ -613,7 +613,7 @@ export class FoliageBatcher {
                 }
 
                 // Base rotation
-                obj.rotation.z = out[3] || 0; // Assuming out[3] might carry secondary motion
+                obj.rotation.z = data[offset + 3] || 0; // Assuming out[3] might carry secondary motion
             }
         );
 
@@ -621,10 +621,10 @@ export class FoliageBatcher {
         this.processExtendedBatch(
             this.extendedBatches.cymbalShake,
             19, time, kick, groove, highFreq,
-            (obj, out) => {
-                const rotZ = out[0];
-                const rotX = out[1];
-                const scale = out[2];
+            (obj, data, offset) => {
+                const rotZ = data[offset + 0];
+                const rotX = data[offset + 1];
+                const scale = data[offset + 2];
 
                 const head = obj.children[1];
                 if (head) {
@@ -647,10 +647,10 @@ export class FoliageBatcher {
         this.processExtendedBatch(
             this.extendedBatches.panningBob,
             20, time, kick, groove, this.getPanActivity(audioData),
-            (obj, out) => {
-                const bobHeight = out[0];
-                const tilt = out[1];
-                const glow = out[2];
+            (obj, data, offset) => {
+                const bobHeight = data[offset + 0];
+                const tilt = data[offset + 1];
+                const glow = data[offset + 2];
 
                 obj.position.y = (obj.userData.originalY || 0) + bobHeight;
                 obj.rotation.z = tilt;
@@ -671,10 +671,10 @@ export class FoliageBatcher {
         this.processExtendedBatch(
             this.extendedBatches.spiritFade,
             21, time, kick, groove, volume,
-            (obj, out) => {
-                const opacity = out[0];
-                const posY = out[1];
-                const fleeSpeed = out[2];
+            (obj, data, offset) => {
+                const opacity = data[offset + 0];
+                const posY = data[offset + 1];
+                const fleeSpeed = data[offset + 2];
 
                 obj.userData.currentOpacity = opacity;
                 obj.userData.fleeSpeed = fleeSpeed;
@@ -704,7 +704,7 @@ export class FoliageBatcher {
         kick: number,
         groove: number,
         audioParam: number,
-        apply: (obj: FoliageObject, output: Float32Array) => void
+        apply: (obj: FoliageObject, data: Float32Array, offset: number) => void
     ) {
         if (batch.count === 0) return;
 
@@ -739,10 +739,11 @@ export class FoliageBatcher {
             const results = F32.subarray(outPtr, outPtr + batch.count * RESULT_STRIDE);
 
             // Apply results to objects
+            // ⚡ OPTIMIZATION: Removed 'results.subarray' allocation in loop
             for (let i = 0; i < batch.count; i++) {
                 const obj = batch.objects[i];
                 const outOffset = i * RESULT_STRIDE;
-                apply(obj, results.subarray(outOffset, outOffset + RESULT_STRIDE));
+                apply(obj, results, outOffset);
                 batch.objects[i] = undefined as any;
             }
         }
