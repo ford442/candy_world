@@ -45,8 +45,8 @@ export function createSparkleTrail(): THREE.Points {
 
     // Speed Factor (0.0 at walking, 1.0 at sprint/dash)
     // Helps modulate effects based on how fast player was moving when particle spawned
-    // PALETTE: Lowered threshold to 4.0 so even walking generates sparkles
-    const speedFactor = smoothstep(4.0, 25.0, spawnSpeed);
+    // PALETTE: Lowered threshold to 0.5 so even slow walking generates sparkles
+    const speedFactor = smoothstep(0.5, 15.0, spawnSpeed);
 
     // 1. Drift Upwards (Magic Dust rises)
     // Faster movement = Higher drift
@@ -77,7 +77,8 @@ export function createSparkleTrail(): THREE.Points {
     const audioScale = float(1.0).add(uAudioHigh.mul(2.0)).add(uAudioLow.mul(0.5));
 
     // Size: Shrink over time, scale by Audio, scale by Speed
-    const baseSize = float(0.4).add(speedFactor.mul(0.3));
+    // PALETTE: Smaller base size when walking slow to avoid clutter
+    const baseSize = float(0.2).add(speedFactor.mul(0.5));
     const sizeNode = baseSize.mul(float(1.0).sub(lifeProgress)).mul(audioScale);
     mat.sizeNode = sizeNode;
 
@@ -124,12 +125,12 @@ export function updateSparkleTrail(trail: THREE.Points, playerPos: THREE.Vector3
     if (!trail || !trail.userData.isSparkleTrail) return;
 
     const speed = playerVel.length();
-    // Only spawn if moving (lowered threshold to 4.0 for walking visibility)
-    if (speed < 4.0) return;
+    // Only spawn if moving (lowered threshold to 0.5 for walking visibility)
+    if (speed < 0.5) return;
 
     // Scale particle count by speed
-    // More particles for better trails
-    const count = Math.min(Math.floor(speed / 2.0), 20);
+    // More particles for better trails, but ensure at least 1 when moving slow
+    const count = Math.max(1, Math.min(Math.floor(speed / 1.5), 20));
 
     const geometry = trail.geometry;
     const positions = geometry.attributes.position;
