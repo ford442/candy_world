@@ -10,12 +10,14 @@
 
 ## Next Steps
 
-1. **Audio System Data Flow Verification**: Ensure `AudioSystem` correctly extracts and passes `order`/`row` data from the worklet to drive the Pattern-Change logic reliably.
+1. **Migrate `main.js` to TypeScript**: Convert the main entry point to TypeScript to complete the Phase 1 migration and ensure full type safety across the core loop.
 
 ---
 
 ## Recent Progress
 - **Accomplished:**
+  - **Pattern-Change Seasons Logic**: **Status: Implemented ✅**
+    - *Implementation Details:* Verified data flow of `order`/`row` from AudioWorklet to `AudioSystem`. Implemented logic in `src/systems/weather.ts` to cycle `targetPaletteMode` (Standard -> Neon -> Standard -> Glitch) based on the music pattern index (`patternIndex`), driving the global visual theme.
   - **Portamento Pine Slingshot Physics**: **Status: Implemented ✅**
     - *Implementation Details:* Implemented interaction logic in `src/systems/physics.ts`. Players can "push" the pine to bend it (modifying its velocity state). If the tree is bent forward, running into it launches the player up (Ramp). If the tree is bent backward and snaps forward, it launches the player forward (Slingshot). Added debounce and visual impacts.
   - **Snare-Snap Trap Physics**: **Status: Implemented ✅**
