@@ -393,6 +393,20 @@ export class WeatherSystem {
         const currentPattern = audioData.patternIndex || 0;
         if (currentPattern !== this.lastPatternIndex) {
             this.lastPatternIndex = currentPattern;
+
+            // --- Pattern-Change Seasons ---
+            // Cycle: Standard -> Neon -> Standard -> Glitch
+            const cycle = currentPattern % 4;
+            if (cycle === 1) {
+                this.targetPaletteMode = 'neon';
+                console.log(`[Weather] Season Change: NEON (Pattern ${currentPattern})`);
+            } else if (cycle === 3) {
+                this.targetPaletteMode = 'glitch';
+                console.log(`[Weather] Season Change: GLITCH (Pattern ${currentPattern})`);
+            } else {
+                this.targetPaletteMode = 'standard';
+                console.log(`[Weather] Season Change: STANDARD (Pattern ${currentPattern})`);
+            }
         }
 
         this.updateWeatherState(bassIntensity, melodyVol, groove, cycleWeatherBias, seasonal);
