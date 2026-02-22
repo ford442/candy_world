@@ -309,10 +309,14 @@ const hudDash = document.getElementById('ability-dash');
 const hudDashOverlay = hudDash ? hudDash.querySelector('.cooldown-overlay') as HTMLElement : null;
 const hudMine = document.getElementById('ability-mine');
 const hudMineOverlay = hudMine ? hudMine.querySelector('.cooldown-overlay') as HTMLElement : null;
+const hudPhase = document.getElementById('ability-phase');
+const hudPhaseOverlay = hudPhase ? hudPhase.querySelector('.cooldown-overlay') as HTMLElement : null;
 
 // Track previous states to avoid DOM thrashing
 let _lastDashReady: boolean | null = null;
 let _lastMineReady: boolean | null = null;
+let _lastPhaseCount: number | null = null;
+let _lastPhaseActive: boolean | null = null;
 
 function animate() {
     profiler.startFrame();
@@ -710,6 +714,68 @@ function animate() {
                 hudMine.style.transform = `scale(${finalScale.toFixed(3)})`;
             } else {
                 hudMine.style.transform = '';
+            }
+        }
+
+        // 🎨 Palette: Update Phase Shift HUD (Ammo + Duration)
+        if (hudPhase && hudPhaseOverlay) {
+            const count = unlockSystem.getItemCount('tremolo_bulb');
+            const isActive = player.isPhasing;
+            let countChanged = false;
+
+            // Update Badge Count (Throttled by value check)
+            if (count !== _lastPhaseCount) {
+                const badge = hudPhase.querySelector('.ability-count');
+                if (badge) badge.textContent = count.toString();
+                _lastPhaseCount = count;
+                countChanged = true;
+            }
+
+            // Handle State
+            if (isActive) {
+                const duration = 5.0; // From physics.ts
+                const remaining = Math.max(0, player.phaseTimer);
+                const pct = remaining / duration;
+
+                // Show duration depleting
+                hudPhaseOverlay.style.height = `${pct * 100}%`;
+
+                if (isActive !== _lastPhaseActive) {
+                     hudPhase.classList.add('active');
+                     hudPhase.classList.remove('ready');
+                     hudPhase.setAttribute('aria-disabled', 'false');
+                     _lastPhaseActive = isActive;
+                }
+
+                // Dynamic ARIA label for screen readers (maybe throttle this?)
+                // For now, let's update title for hover
+                hudPhase.title = `Phase Shift Active: ${remaining.toFixed(1)}s left`;
+
+            } else {
+                // Not Active - Show Availability
+                hudPhaseOverlay.style.height = '0%'; // Clear overlay
+
+                const stateChanged = (isActive !== _lastPhaseActive);
+                if (stateChanged) {
+                    hudPhase.classList.remove('active');
+                    _lastPhaseActive = isActive;
+                }
+
+                // Check Availability (Ammo) - Update only on state change or count change
+                if (stateChanged || countChanged) {
+                    const isReady = count > 0;
+                    if (isReady) {
+                        hudPhase.classList.add('ready');
+                        hudPhase.setAttribute('aria-disabled', 'false');
+                        hudPhase.title = `Phase Shift (Z) - ${count} Bulb${count!==1?'s':''} Available`;
+                        hudPhase.setAttribute('aria-label', `Phase Shift (Z) - ${count} Bulbs Available`);
+                    } else {
+                        hudPhase.classList.remove('ready');
+                        hudPhase.setAttribute('aria-disabled', 'true');
+                        hudPhase.title = "Phase Shift (Z) - Need Tremolo Bulb";
+                        hudPhase.setAttribute('aria-label', "Phase Shift (Z) - Empty (Need Tremolo Bulb)");
+                    }
+                }
             }
         }
     });
