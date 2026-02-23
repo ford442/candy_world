@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import { foliageGroup } from '../world/state.ts';
 import {
+    CandyPresets,
     createStandardNodeMaterial,
     sharedGeometries,
     applyPlayerInteraction,
@@ -10,10 +11,13 @@ import {
     createJuicyRimLight,
     uTime,
     uAudioHigh,
+    uAudioLow,
+    uWindSpeed,
     uGlitchIntensity
 } from './common.ts';
 import {
-    color, float, vec3, positionLocal, mix, attribute, uv, sin, cos, positionWorld, smoothstep
+    color, float, vec3, positionLocal, mix, attribute, uv, sin, cos, positionWorld, smoothstep,
+    mx_noise_float
 } from 'three/tsl';
 import { applyGlitch } from './glitch.ts';
 
@@ -55,68 +59,125 @@ export class TreeBatcher {
         if (this.initialized) return;
 
         // --- 1. Trunk Batch (Cylinder) ---
-        const trunkGeo = sharedGeometries.unitCylinder;
-        const trunkMat = createStandardNodeMaterial({ roughness: 0.9, metalness: 0.0 });
+        // PALETTE: Upgrade to "Clay Bark"
+        // Use instanceColor but darken bottom for grounding
         const instanceColor = attribute('instanceColor', 'vec3');
-        trunkMat.colorNode = mix(instanceColor.mul(0.6), instanceColor, positionLocal.y);
-        const trunkPos = applyPlayerInteraction(positionLocal);
-        const trunkFinal = trunkPos.add(calculateWindSway(trunkPos));
-        trunkMat.positionNode = applyGlitch(uv(), trunkFinal, uGlitchIntensity).position;
+        const trunkColor = mix(instanceColor.mul(0.6), instanceColor, positionLocal.y);
 
-        this.trunks = new THREE.InstancedMesh(trunkGeo, trunkMat, MAX_INSTANCES);
+        // Combined Deformation: Interaction + Wind
+        const trunkDeform = applyPlayerInteraction(positionLocal).add(calculateWindSway(positionLocal));
+
+        // Create Material using CandyPresets.Clay for nice bump/rim
+        const trunkMat = CandyPresets.Clay(0x8B4513, {
+            colorNode: trunkColor,
+            roughness: 0.8,
+            bumpStrength: 0.2, // Bark texture
+            rimStrength: 0.3,  // Subtle separation
+            deformationNode: trunkDeform,
+            triplanar: true    // Avoid UV seams on cylinder
+        });
+
+        this.trunks = new THREE.InstancedMesh(sharedGeometries.unitCylinder, trunkMat, MAX_INSTANCES);
         this.trunks.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAX_INSTANCES * 3), 3);
         this.trunks.castShadow = true;
         this.trunks.receiveShadow = true;
         this.trunks.count = 0;
         foliageGroup.add(this.trunks);
 
-        // --- 2. Sphere Batch ---
-        const sphereGeo = sharedGeometries.unitSphere;
-        const sphereMat = createStandardNodeMaterial({ roughness: 0.8, metalness: 0.0 });
+        // --- 2. Sphere Batch (Leaves/Blooms) ---
+        // PALETTE: "Flutter" + "Squash" Juice
         const sphereColor = attribute('instanceColor', 'vec3');
-        sphereMat.colorNode = sphereColor;
-        const audioBoost = uAudioHigh.mul(0.5);
-        sphereMat.emissiveNode = createJuicyRimLight(sphereColor, float(1.0), float(3.0), null).add(sphereColor.mul(audioBoost));
-        const spherePos = applyPlayerInteraction(positionLocal);
-        const sphereFinal = spherePos.add(calculateWindSway(spherePos));
-        sphereMat.positionNode = applyGlitch(uv(), sphereFinal, uGlitchIntensity).position;
 
-        this.spheres = new THREE.InstancedMesh(sphereGeo, sphereMat, MAX_SPHERES);
+        // Flutter: High frequency vertex displacement driven by wind
+        const flutterSpeed = float(15.0);
+        const flutterAmp = float(0.08).mul(uWindSpeed.add(0.5));
+        // Use world position to decorrelate instances
+        const flutterPhase = uTime.mul(flutterSpeed).add(positionWorld.x).add(positionWorld.z);
+        const flutter = sin(flutterPhase).mul(flutterAmp);
+        // Apply jitter to positionLocal
+        const flutterOffset = vec3(flutter, flutter.mul(0.5), flutter.mul(0.8));
+
+        // Squash: React to Kick (Low Freq)
+        const kickSquash = uAudioLow.mul(0.25);
+        // Squash Y, Bulge XZ (Volume preservation approximation)
+        const squashScale = vec3(
+            float(1.0).add(kickSquash.mul(0.5)), // X bulge
+            float(1.0).sub(kickSquash),          // Y squash
+            float(1.0).add(kickSquash.mul(0.5))  // Z bulge
+        );
+
+        // Base deform (Interaction + Wind)
+        const sphereBaseDeform = applyPlayerInteraction(positionLocal).add(calculateWindSway(positionLocal));
+        // Add Flutter
+        const sphereFluttered = sphereBaseDeform.add(flutterOffset);
+        // Apply Squash (Multiplicative scale)
+        const sphereFinalDeform = sphereFluttered.mul(squashScale);
+
+        // Material: Gummy for slight translucency/juice
+        const sphereMat = CandyPresets.Gummy(0x228B22, {
+            colorNode: sphereColor,
+            roughness: 0.4,
+            transmission: 0.3, // Semi-opaque
+            thickness: 1.0,
+            deformationNode: sphereFinalDeform,
+            rimStrength: 0.6, // Strong rim for pop
+            audioReactStrength: 0.5 // Inner glow pulse
+        });
+
+        this.spheres = new THREE.InstancedMesh(sharedGeometries.unitSphere, sphereMat, MAX_SPHERES);
         this.spheres.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAX_SPHERES * 3), 3);
         this.spheres.castShadow = true;
         this.spheres.receiveShadow = true;
         this.spheres.count = 0;
         foliageGroup.add(this.spheres);
 
-        // --- 3. Capsule Batch ---
-        const capsuleGeo = sharedGeometries.capsule;
-        const capsuleMat = createStandardNodeMaterial({ roughness: 0.8 });
+        // --- 3. Capsule Batch (Branches) ---
         const capsuleColor = attribute('instanceColor', 'vec3');
-        capsuleMat.colorNode = capsuleColor;
-        capsuleMat.emissiveNode = createJuicyRimLight(capsuleColor, float(1.0), float(3.0), null);
-        const capsulePos = applyPlayerInteraction(positionLocal);
-        const capsuleFinal = capsulePos.add(calculateWindSway(capsulePos));
-        capsuleMat.positionNode = applyGlitch(uv(), capsuleFinal, uGlitchIntensity).position;
+        const capsuleDeform = applyPlayerInteraction(positionLocal).add(calculateWindSway(positionLocal));
 
-        this.capsules = new THREE.InstancedMesh(capsuleGeo, capsuleMat, MAX_CAPSULES);
+        const capsuleMat = CandyPresets.Clay(0x8B4513, {
+            colorNode: capsuleColor,
+            roughness: 0.7,
+            deformationNode: capsuleDeform,
+            rimStrength: 0.4
+        });
+
+        this.capsules = new THREE.InstancedMesh(sharedGeometries.capsule, capsuleMat, MAX_CAPSULES);
         this.capsules.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAX_CAPSULES * 3), 3);
         this.capsules.castShadow = true;
         this.capsules.receiveShadow = true;
         this.capsules.count = 0;
         foliageGroup.add(this.capsules);
 
-        // --- 4. Helix Batch ---
-        const helixGeo = new THREE.CylinderGeometry(1, 1, 1, 16, 20).translate(0, 0.5, 0);
-        const helixMat = createStandardNodeMaterial({ roughness: 0.6 });
+        // --- 4. Helix Batch (Vines/Strange Plants) ---
+        // PALETTE: Neon Pulse
         const helixColor = attribute('instanceColor', 'vec3');
-        helixMat.colorNode = helixColor;
-        const t = positionLocal.y;
-        const angle = t.mul(float(Math.PI * 4.0));
-        const radius = t.mul(0.2);
-        const spiralPos = vec3(cos(angle).mul(radius), positionLocal.y, sin(angle).mul(radius));
-        const helixFinal = applyPlayerInteraction(spiralPos).add(calculateWindSway(spiralPos));
-        helixMat.positionNode = applyGlitch(uv(), helixFinal, uGlitchIntensity).position;
-        helixMat.emissiveNode = mix(vec3(0.0), vec3(1.0, 1.0, 0.8), smoothstep(0.9, 1.0, t));
+
+        // Spiral Math for Geometry (applied in vertex shader)
+        const t = positionLocal.y; // 0 to 1
+        const angle = t.mul(float(Math.PI * 6.0)); // More twists
+        const radius = t.mul(0.3).add(sin(uTime.mul(2.0).add(t.mul(10.0))).mul(0.05)); // Breathing radius
+
+        const spiralPos = vec3(cos(angle).mul(radius), t, sin(angle).mul(radius));
+        const helixDeform = applyPlayerInteraction(spiralPos).add(calculateWindSway(spiralPos));
+
+        // Emissive Pulse (Scrolling light)
+        const pulseSpeed = float(2.0);
+        const pulsePhase = t.mul(10.0).sub(uTime.mul(pulseSpeed));
+        const pulse = sin(pulsePhase).mul(0.5).add(0.5); // 0..1
+        const audioBoost = uAudioHigh.mul(1.5);
+
+        const helixMat = CandyPresets.Gummy(0x00FA9A, {
+            colorNode: helixColor,
+            roughness: 0.2,
+            deformationNode: helixDeform,
+            emissive: 0xFFFFFF,
+            emissiveIntensity: pulse.mul(0.5).add(audioBoost), // Dynamic glow
+            rimStrength: 0.8
+        });
+
+        // Geometry: Use simple cylinder, deformed by shader to spiral
+        const helixGeo = new THREE.CylinderGeometry(1, 1, 1, 16, 30).translate(0, 0.5, 0);
 
         this.helices = new THREE.InstancedMesh(helixGeo, helixMat, MAX_INSTANCES);
         this.helices.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAX_INSTANCES * 3), 3);
@@ -126,13 +187,20 @@ export class TreeBatcher {
         foliageGroup.add(this.helices);
 
         // --- 5. Rose Batch (TorusKnot) ---
-        const roseGeo = new THREE.TorusKnotGeometry(0.25, 0.08, 64, 8, 2, 3);
-        const roseMat = createStandardNodeMaterial({ roughness: 0.7 });
+        // PALETTE: Velvet/Sugar Look
         const roseColor = attribute('instanceColor', 'vec3');
-        roseMat.colorNode = roseColor;
-        const rosePos = applyPlayerInteraction(positionLocal);
-        roseMat.positionNode = applyGlitch(uv(), rosePos.add(calculateWindSway(rosePos)), uGlitchIntensity).position;
+        const roseDeform = applyPlayerInteraction(positionLocal).add(calculateWindSway(positionLocal));
 
+        // Use Sugar preset for crystalline/sparkly look
+        const roseMat = CandyPresets.Sugar(0xFF69B4, {
+            colorNode: roseColor,
+            roughness: 0.4,
+            deformationNode: roseDeform,
+            sheen: 1.0,
+            audioReactStrength: 0.8 // Strong glow response
+        });
+
+        const roseGeo = new THREE.TorusKnotGeometry(0.25, 0.08, 64, 8, 2, 3);
         this.roses = new THREE.InstancedMesh(roseGeo, roseMat, MAX_ROSES);
         this.roses.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAX_ROSES * 3), 3);
         this.roses.castShadow = true;
@@ -141,7 +209,7 @@ export class TreeBatcher {
         foliageGroup.add(this.roses);
 
         this.initialized = true;
-        console.log('[TreeBatcher] Initialized tree batching system');
+        console.log('[TreeBatcher] Initialized tree batching system with Juicy Materials');
     }
 
     register(group: THREE.Group, type: string) {
