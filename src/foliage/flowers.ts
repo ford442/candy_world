@@ -25,6 +25,7 @@ import { simpleFlowerBatcher } from './simple-flower-batcher.ts';
 import { glowingFlowerBatcher } from './glowing-flower-batcher.ts';
 import { unlockSystem } from '../systems/unlocks.ts';
 import { makeInteractiveCylinder } from '../utils/interaction-utils.ts';
+import { treeBatcher } from './tree-batcher.ts'; // ⚡ OPTIMIZATION: Import Batcher
 
 interface FlowerOptions {
     color?: number | string | THREE.Color | null;
@@ -546,6 +547,12 @@ export function createPrismRoseBush(options = {}): THREE.Group {
     
     // ⚡ PERFORMANCE: Set accurate bounding radius for frustum culling
     group.userData.radius = 1.5; // Prism rose bush is larger
+
+    // ⚡ OPTIMIZATION: Register to Batcher
+    group.userData.onPlacement = () => {
+        treeBatcher.register(group, 'prismRoseBush');
+        group.userData.onPlacement = null;
+    };
 
     return attachReactivity(group, { minLight: 0.2, maxLight: 1.0 });
 }
