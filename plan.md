@@ -3,19 +3,21 @@
 **Objective:** Create an immersive, audio-reactive 3D world with a "Cute Clay" aesthetic, featuring a robust musical ecosystem and advanced WebGPU visuals.
 
 ## Current Focus
-**Phase:** Feature Implementation (Musical Ecosystem)
+**Phase:** Feature Implementation (Musical Ecosystem / Graphics Polish)
 **Priority:** High (Category 4: Advanced Shaders / Category 1-3 Wrap-up)
 
 ---
 
 ## Next Steps
 
-1. **Weather-Cycle Integration**: Implement time-of-day weather patterns (morning mist, afternoon storms) in `src/systems/weather.ts` and `src/main.ts` to fully synchronize the weather system with the day/night cycle.
+1. **Procedural Cloud Layer**: Implement a volumetric-style cloud layer using TSL noise and instancing to enhance the skybox, as outlined in the Graphics Quality Enhancement Plan (Phase 2).
 
 ---
 
 ## Recent Progress
 - **Accomplished:**
+  - **Weather-Cycle Integration**: **Status: Implemented ✅**
+    - *Implementation Details:* Implemented `calculateTimeOfDayBias` in `src/systems/weather-utils.ts` to drive weather changes (Morning Mist, Afternoon Storms, Evening Drizzle) based on cycle position. Integrated this into `WeatherSystem.update()` and `WeatherSystem.updateFog()`, enhancing visual feedback for time-of-day weather.
   - **Migrate `main.js` to TypeScript**: **Status: Implemented ✅**
     - *Implementation Details:* Converted the main entry point to `src/main.ts`. Defined global type definitions in `src/types/global.d.ts` for window augmentations and untyped JS modules. Updated `index.html` to point to the new TypeScript entry file and verified the build. This completes the core Phase 1 migration.
   - **Pattern-Change Seasons Logic**: **Status: Implemented ✅**
