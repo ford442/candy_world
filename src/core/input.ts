@@ -492,6 +492,13 @@ export function initInput(
                 return;
             }
 
+            // Upload on U
+            if (event.code === 'KeyU') {
+                const playlistInput = document.getElementById('playlistUploadInput') as HTMLInputElement;
+                if (playlistInput) playlistInput.click();
+                return;
+            }
+
             // UX: Arrow Key Navigation for Playlist
             if (event.code === 'ArrowDown' || event.code === 'ArrowUp') {
                 const playlistBtns = Array.from(playlistOverlay.querySelectorAll('.playlist-btn')) as HTMLElement[];
@@ -561,6 +568,10 @@ export function initInput(
             case 'Space': keyStates.jump = true; break;
             case 'KeyN': if(toggleDayNightCallback) toggleDayNightCallback(); break;
             case 'KeyM': toggleMute(); break;
+            case 'KeyU':
+                const uploadInput = document.getElementById('musicUpload') as HTMLInputElement;
+                if (uploadInput) uploadInput.click();
+                break;
             case 'Equal':
             case 'NumpadAdd':
                 adjustVolume(0.1);

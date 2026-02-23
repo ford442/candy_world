@@ -426,7 +426,7 @@ export class WeatherSystem {
         // ---------------------------
 
         // --- Twilight Glow Update ---
-        const cyclePos = time % CYCLE_DURATION;
+        // const cyclePos = time % CYCLE_DURATION; // Already declared above
         const twilightIntensity = this.getTwilightGlowIntensity(cyclePos);
         this.lastTwilightProgress = twilightIntensity;
         try { if(uTwilight) uTwilight.value = twilightIntensity; } catch(e) {}
