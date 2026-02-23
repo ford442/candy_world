@@ -11,7 +11,8 @@ import { fluidSystem } from './systems/fluid_system.ts';
 import { createFluidFog } from './foliage/fluid_fog.js';
 import { AudioSystem } from './audio/audio-system.ts';
 import { BeatSync } from './audio/beat-sync.ts';
-import { WeatherSystem, WeatherState } from './systems/weather.ts';
+import { WeatherSystem } from './systems/weather.ts';
+import { WeatherState } from './systems/weather-types.ts';
 import { initWasm, getGroundHeight } from './utils/wasm-loader.js';
 import { profiler } from './utils/profiler.js';
 
@@ -43,7 +44,6 @@ const _scratchBaseFog = new THREE.Color();
 const _scratchSunVector = new THREE.Vector3();
 const _scratchAuroraColor = new THREE.Color();
 
-const _weatherBiasOutput = { biasState: 'clear', biasIntensity: 0, type: 'clear' };
 const _interactionLists: (any[] | null)[] = [null, null, null]; // Reusable array for interaction lists
 
 // --- Initialization Pipeline ---
@@ -270,39 +270,6 @@ beatSync.onBeat((state) => {
     }
 });
 
-function getWeatherForTimeOfDay(cyclePos: number, audioData: any) {
-    const SUNRISE = DURATION_SUNRISE;
-    const DAY = DURATION_DAY;
-    const SUNSET = DURATION_SUNSET;
-    const DUSK = 180;
-    
-    _weatherBiasOutput.biasState = 'clear';
-    _weatherBiasOutput.biasIntensity = 0;
-    _weatherBiasOutput.type = 'clear';
-
-    if (cyclePos < SUNRISE + 60) {
-        const progress = (cyclePos / (SUNRISE + 60));
-        _weatherBiasOutput.biasState = 'rain';
-        _weatherBiasOutput.biasIntensity = 0.3 * (1 - progress);
-        _weatherBiasOutput.type = 'mist';
-    }
-    else if (cyclePos > SUNRISE + 120 && cyclePos < SUNRISE + DAY - 60) {
-        const stormChance = 0.0003;
-        if (Math.random() < stormChance) {
-             _weatherBiasOutput.biasState = 'storm';
-             _weatherBiasOutput.biasIntensity = 0.7 + Math.random() * 0.3;
-             _weatherBiasOutput.type = 'thunderstorm';
-        }
-    }
-    else if (cyclePos > SUNRISE + DAY && cyclePos < SUNRISE + DAY + SUNSET + DUSK / 2) {
-        const progress = (cyclePos - SUNRISE - DAY) / (SUNSET + DUSK / 2);
-         _weatherBiasOutput.biasState = 'rain';
-         _weatherBiasOutput.biasIntensity = 0.3 + progress * 0.2;
-         _weatherBiasOutput.type = 'drizzle';
-    }
-
-    return _weatherBiasOutput;
-}
 
 // 🎨 Palette: Cache HUD Elements
 const hudDash = document.getElementById('ability-dash');
@@ -338,10 +305,9 @@ function animate() {
 
     const effectiveTime = t + timeOffset;
     const cyclePos = effectiveTime % CYCLE_DURATION;
-    const cycleWeatherBias = getWeatherForTimeOfDay(cyclePos, audioState);
 
     profiler.measure('Weather', () => {
-        weatherSystem.update(t, audioState, cycleWeatherBias);
+        weatherSystem.update(t, audioState);
         weatherSystem.updateBerrySeasonalSize(cyclePos, CYCLE_DURATION);
     });
 
