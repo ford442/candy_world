@@ -4,6 +4,7 @@ import { color as tslColor, mix, float, sin, cos, vec3, positionLocal, positionW
 import { uTwilight } from './sky.ts';
 import { createBerryCluster } from './berries.ts';
 import { FoliageObject } from './types.ts';
+import { treeBatcher } from './tree-batcher.ts'; // ⚡ OPTIMIZATION: Import Batcher
 
 // Configuration interfaces for tree creation options
 export interface TreeOptions {
@@ -67,25 +68,19 @@ export interface PlayerObject extends THREE.Object3D {
 function enhanceWithFloralJuice(material: any) {
     if (material.isNodeMaterial) {
         // 1. Audio Pulse (Squash/Stretch on Beat)
-        // Scale moves from 1.0 to 1.3 based on Bass
         const pulse = float(1.0).add(uAudioLow.mul(0.3));
 
         // 2. Wind Flutter (High Frequency Shiver)
-        // Offset based on position and time
         const flutterFreq = float(15.0);
-        const flutterAmp = float(0.05).mul(uWindSpeed.add(0.5)); // Wind increases flutter
+        const flutterAmp = float(0.05).mul(uWindSpeed.add(0.5));
         const flutter = sin(time.mul(flutterFreq).add(positionWorld.x).add(positionWorld.z)).mul(flutterAmp);
 
-        // Combine: Scale position then add flutter offset
-        // We act on positionLocal (the vertex position relative to mesh center)
         let newPos = positionLocal.mul(pulse).add(vec3(flutter, flutter, flutter));
 
         // 3. Player Interaction (Push Away)
-        // Add push displacement to current position
         const pushOffset = calculatePlayerPush(newPos);
         newPos = newPos.add(pushOffset);
 
-        // Apply
         material.positionNode = newPos;
     }
     return material;
@@ -100,15 +95,13 @@ export function createFloweringTree(options: TreeOptions = {}): THREE.Group {
     // Shared geometry: Cylinder
     const trunkMat = createGradientMaterial(0xA0724B, 0x6B4226, 0.8);
     const trunk = new THREE.Mesh(sharedGeometries.cylinder, trunkMat);
-    trunk.scale.set(0.4, trunkH, 0.4); // Average of 0.3 and 0.5
+    trunk.scale.set(0.4, trunkH, 0.4);
     trunk.position.y = trunkH / 2;
     trunk.castShadow = true;
     group.add(trunk);
 
     const bloomMat = createClayMaterial(color);
-    // --- PALETTE UPGRADE: Add Juice ---
     enhanceWithFloralJuice(bloomMat);
-    // ----------------------------------
     registerReactiveMaterial(bloomMat);
 
     const bloomCount = 3 + Math.floor(Math.random() * 3);
@@ -117,7 +110,6 @@ export function createFloweringTree(options: TreeOptions = {}): THREE.Group {
         const subBlooms = 2 + Math.floor(Math.random() * 2);
 
         for (let j = 0; j < subBlooms; j++) {
-            // Shared geometry: Sphere
             const bloom = new THREE.Mesh(sharedGeometries.sphere, bloomMat);
             const size = 0.4 + Math.random() * 0.3;
             bloom.scale.setScalar(size);
@@ -157,6 +149,13 @@ export function createFloweringTree(options: TreeOptions = {}): THREE.Group {
     group.userData.animationType = 'gentleSway';
     group.userData.animationOffset = Math.random() * 10;
     group.userData.type = 'tree';
+
+    // ⚡ OPTIMIZATION: Register to Batcher on Placement
+    group.userData.onPlacement = () => {
+        treeBatcher.register(group, 'floweringTree');
+        group.userData.onPlacement = null;
+    };
+
     return attachReactivity(group) as FoliageObject;
 }
 
@@ -168,19 +167,16 @@ export function createShrub(options: ShrubOptions = {}): THREE.Group {
     const base = new THREE.Mesh(sharedGeometries.sphere, createClayMaterial(color));
     const size = 1 + Math.random() * 0.5;
     base.scale.setScalar(size);
-    base.position.y = 0.5; // Keeping original position, though it might clip ground slightly with generic sphere center at 0
+    base.position.y = 0.5;
     base.castShadow = true;
     group.add(base);
 
     const flowerMat = createClayMaterial(0xFF69B4);
-    // --- PALETTE UPGRADE: Add Juice ---
     enhanceWithFloralJuice(flowerMat);
-    // ----------------------------------
     registerReactiveMaterial(flowerMat);
 
     const flowerCount = 2 + Math.floor(Math.random() * 2);
     for (let i = 0; i < flowerCount; i++) {
-        // Shared geometry: SphereLow
         const flower = new THREE.Mesh(sharedGeometries.sphereLow, flowerMat);
         flower.scale.setScalar(0.2);
         flower.position.set(
@@ -211,6 +207,13 @@ export function createShrub(options: ShrubOptions = {}): THREE.Group {
     group.userData.animationType = pickAnimation(['bounce', 'shiver', 'hop']);
     group.userData.animationOffset = Math.random() * 10;
     group.userData.type = 'shrub';
+
+    // ⚡ OPTIMIZATION: Register to Batcher
+    group.userData.onPlacement = () => {
+        treeBatcher.register(group, 'shrub');
+        group.userData.onPlacement = null;
+    };
+
     return attachReactivity(group);
 }
 
@@ -219,7 +222,6 @@ export function createVine(options: VineOptions = {}): THREE.Group {
     const group = new THREE.Group();
 
     for (let i = 0; i < length; i++) {
-        // Shared geometry: CylinderLow
         const segment = new THREE.Mesh(sharedGeometries.cylinderLow, createClayMaterial(color));
         segment.scale.set(0.05, 0.5, 0.05);
         segment.position.y = i * 0.5;
@@ -235,7 +237,6 @@ export function createVine(options: VineOptions = {}): THREE.Group {
 
 export function createLeafParticle(options: LeafOptions = {}): THREE.Mesh {
     const { color = 0x00ff00 } = options;
-    // Keeping unique shape geometry for leaf
     const leafShape = new THREE.Shape();
     leafShape.moveTo(0, 0);
     leafShape.quadraticCurveTo(0.1, 0.1, 0, 0.2);
@@ -252,16 +253,13 @@ export function createWisteriaCluster(options: WisteriaOptions = {}): THREE.Grou
     const group = new THREE.Group();
 
     const bloomMat = createClayMaterial(color);
-    // --- PALETTE UPGRADE: Add Juice ---
     enhanceWithFloralJuice(bloomMat);
-    // ----------------------------------
     registerReactiveMaterial(bloomMat);
 
     for (let s = 0; s < strands; s++) {
         const strand = new THREE.Group();
         const length = 3 + Math.floor(Math.random() * 3);
         for (let i = 0; i < length; i++) {
-            // Shared geometry: CylinderLow
             const seg = new THREE.Mesh(sharedGeometries.cylinderLow, createClayMaterial(0x2E8B57));
             seg.scale.set(0.03, 0.4, 0.03);
             seg.position.y = -i * 0.35;
@@ -269,7 +267,6 @@ export function createWisteriaCluster(options: WisteriaOptions = {}): THREE.Grou
             strand.add(seg);
 
             if (i > 0 && Math.random() > 0.6) {
-                // Shared geometry: SphereLow
                 const b = new THREE.Mesh(sharedGeometries.sphereLow, bloomMat);
                 b.scale.setScalar(0.05);
                 b.position.y = seg.position.y - 0.1;
@@ -294,7 +291,6 @@ export function createBubbleWillow(options: BubbleWillowOptions = {}): THREE.Gro
     const group = new THREE.Group();
 
     const trunkH = 2.5 + Math.random();
-    // Shared geometry: Cylinder
     const trunk = new THREE.Mesh(sharedGeometries.cylinder, createGradientMaterial(0x5D4037, 0x4A3025, 0.9));
     trunk.scale.set(0.5, trunkH, 0.5);
     trunk.position.y = trunkH / 2;
@@ -311,10 +307,6 @@ export function createBubbleWillow(options: BubbleWillowOptions = {}): THREE.Gro
         branchGroup.rotation.y = (i / branchCount) * Math.PI * 2;
 
         const length = 1.5 + Math.random();
-        // Note: Using unique CapsuleGeometry here instead of shared geometry
-        // because capsule proportions (radius vs length) vary per branch.
-        // Scaling a shared capsule distorts the hemispherical ends, 
-        // whereas we need uniform radius with variable length.
         const capsuleGeo = new THREE.CapsuleGeometry(0.2, length, 8, 16);
         const capsuleMesh = new THREE.Mesh(capsuleGeo, branchMat);
 
@@ -328,6 +320,13 @@ export function createBubbleWillow(options: BubbleWillowOptions = {}): THREE.Gro
     group.userData.animationType = 'gentleSway';
     group.userData.animationOffset = Math.random() * 10;
     group.userData.type = 'tree';
+
+    // ⚡ OPTIMIZATION: Register to Batcher
+    group.userData.onPlacement = () => {
+        treeBatcher.register(group, 'bubbleWillow');
+        group.userData.onPlacement = null;
+    };
+
     return attachReactivity(group) as FoliageObject;
 }
 
@@ -337,13 +336,10 @@ export function createHelixPlant(options: HelixPlantOptions = {}): THREE.Group {
 
     class SpiralCurve extends THREE.Curve<THREE.Vector3> {
         scale: number;
-        
         constructor(scale = 1) {
             super();
             this.scale = scale;
         }
-        
-        // ⚡ OPTIMIZATION: Use optional target or create new only if needed
         getPoint(t: number, optionalTarget = new THREE.Vector3()): THREE.Vector3 {
             const tx = Math.cos(t * Math.PI * 4) * 0.2 * t * this.scale;
             const ty = t * 2.0 * this.scale;
@@ -366,7 +362,6 @@ export function createHelixPlant(options: HelixPlantOptions = {}): THREE.Group {
     });
     registerReactiveMaterial(tipMat);
 
-    // Shared geometry: SphereLow
     const tip = new THREE.Mesh(sharedGeometries.sphereLow, tipMat);
     tip.scale.setScalar(0.15);
     const endPoint = path.getPoint(1);
@@ -376,6 +371,13 @@ export function createHelixPlant(options: HelixPlantOptions = {}): THREE.Group {
     group.userData.animationType = pickAnimation(['spring', 'wobble']);
     group.userData.animationOffset = Math.random() * 10;
     group.userData.type = 'shrub';
+
+    // ⚡ OPTIMIZATION: Register to Batcher
+    group.userData.onPlacement = () => {
+        treeBatcher.register(group, 'helixPlant');
+        group.userData.onPlacement = null;
+    };
+
     return attachReactivity(group);
 }
 
@@ -389,7 +391,6 @@ export function createBalloonBush(options: BalloonBushOptions = {}): THREE.Group
 
     for (let i = 0; i < sphereCount; i++) {
         const r = 0.3 + Math.random() * 0.4;
-        // Shared geometry: Sphere
         const mesh = new THREE.Mesh(sharedGeometries.sphere, mat);
         mesh.scale.setScalar(r);
 
@@ -405,6 +406,13 @@ export function createBalloonBush(options: BalloonBushOptions = {}): THREE.Group
     group.userData.animationType = pickAnimation(['bounce', 'accordion', 'hop']);
     group.userData.animationOffset = Math.random() * 10;
     group.userData.type = 'shrub';
+
+    // ⚡ OPTIMIZATION: Register to Batcher
+    group.userData.onPlacement = () => {
+        treeBatcher.register(group, 'balloonBush');
+        group.userData.onPlacement = null;
+    };
+
     return attachReactivity(group);
 }
 
@@ -471,7 +479,6 @@ export function createFiberOpticWillow(options: FiberOpticWillowOptions = {}): T
     const group = new THREE.Group();
 
     const trunkH = 2.5 + Math.random();
-    // Shared geometry: Cylinder
     const trunk = new THREE.Mesh(sharedGeometries.cylinder, createGradientMaterial(0x222222, 0x111111, 0.9));
     trunk.scale.set(0.3, trunkH, 0.3);
     trunk.position.y = trunkH / 2;
@@ -480,11 +487,10 @@ export function createFiberOpticWillow(options: FiberOpticWillowOptions = {}): T
 
     const branchCount = 8;
     const cableMat = foliageMaterials.opticCable;
-    const tipMat = foliageMaterials.opticTip.clone();
+    const tipMat = foliageMaterials.opticTip.clone() as THREE.MeshStandardNodeMaterial;
 
-    // Twilight Boost for Fiber Optics
     const baseEmissive = tslColor(color).mul(0.8);
-    const twilightBoost = baseEmissive.mul(uTwilight).mul(2.0); // Boost significantly at night
+    const twilightBoost = baseEmissive.mul(uTwilight).mul(2.0);
     tipMat.emissiveNode = baseEmissive.add(twilightBoost);
 
     registerReactiveMaterial(tipMat);
@@ -496,20 +502,17 @@ export function createFiberOpticWillow(options: FiberOpticWillowOptions = {}): T
 
         const len = 1.5 + Math.random();
         
-        // Create whip container that rotates around branch attachment point
         const whip = new THREE.Group();
         whip.rotation.z = Math.PI / 4;
 
-        // Cable: centered vertically within whip, extends downward
         const cable = new THREE.Mesh(sharedGeometries.cylinderLow, cableMat);
         cable.scale.set(0.02, len, 0.02);
-        cable.position.set(0, -len/2, 0); // Center of cable at -len/2 from whip origin
+        cable.position.set(0, -len/2, 0);
         whip.add(cable);
 
-        // Tip: positioned at end of cable
         const tip = new THREE.Mesh(sharedGeometries.sphereLow, tipMat);
         tip.scale.setScalar(0.08);
-        tip.position.set(0, -len, 0); // End of cable
+        tip.position.set(0, -len, 0);
         whip.add(tip);
 
         branchGroup.add(whip);
@@ -523,11 +526,9 @@ export function createFiberOpticWillow(options: FiberOpticWillowOptions = {}): T
     return attachReactivity(group);
 }
 
-// ⚡ OPTIMIZATION: Module-level scratch vectors for physics
 const _scratchPhysicsVec1 = new THREE.Vector3();
 const _scratchPhysicsVec2 = new THREE.Vector3();
 
-// --- Vine Swing Physics ---
 export class VineSwing {
     vine: THREE.Object3D;
     anchorPoint: THREE.Vector3;
@@ -560,7 +561,6 @@ export class VineSwing {
         this.swingAngularVel *= damping;
 
         if (this.isPlayerAttached && inputState) {
-            // "Pumping" the swing
             const pumpForce = 3.0;
 
             if (inputState.forward) {
@@ -576,7 +576,6 @@ export class VineSwing {
 
         this.swingAngle += this.swingAngularVel * delta;
 
-        // Clamp swing angle
         const maxAngle = Math.PI * 0.45;
         if (this.swingAngle > maxAngle) {
             this.swingAngle = maxAngle;
@@ -589,7 +588,6 @@ export class VineSwing {
         const dy = -Math.cos(this.swingAngle) * this.length;
         const dh = Math.sin(this.swingAngle) * this.length;
 
-        // Use scratch variable for target calculation
         const targetPos = _scratchPhysicsVec1.copy(this.anchorPoint);
         targetPos.y += dy;
         targetPos.addScaledVector(this.swingPlane, dh);
@@ -660,17 +658,13 @@ export function createSwingableVine(options: SwingableVineOptions = {}): THREE.G
     const segLen = length / segmentCount;
 
     for (let i = 0; i < segmentCount; i++) {
-        // Shared geometry: CylinderLow
         const mat = createClayMaterial(color);
-
-        // Container to avoid scaling distortion of children
         const segmentGroup = new THREE.Group();
-        segmentGroup.position.y = -i * segLen; // Position the segment
+        segmentGroup.position.y = -i * segLen;
 
-        // The mesh itself (scaled)
         const mesh = new THREE.Mesh(sharedGeometries.cylinderLow, mat);
-        mesh.scale.set(0.15, segLen, 0.15); // radius 0.15
-        mesh.position.y = -segLen/2; // Center of segment relative to group top
+        mesh.scale.set(0.15, segLen, 0.15);
+        mesh.position.y = -segLen/2;
         mesh.rotation.z = (Math.random() - 0.5) * 0.1;
         mesh.rotation.x = (Math.random() - 0.5) * 0.1;
 
@@ -678,11 +672,9 @@ export function createSwingableVine(options: SwingableVineOptions = {}): THREE.G
 
         if (Math.random() > 0.4) {
              const leaf = createLeafParticle({ color: 0x32CD32 });
-             // Position relative to segmentGroup top
              leaf.position.y = -segLen * 0.5;
              leaf.position.x = 0.1;
              leaf.rotation.z = Math.PI / 4;
-             // Add leaf to segmentGroup (unscaled) instead of mesh (scaled)
              segmentGroup.add(leaf);
         }
 
