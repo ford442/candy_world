@@ -10,6 +10,8 @@
 
 ## Next Steps
 
+1. **Rare Flora Discovery**: Implement the discovery system for rare plants (Next Priority).
+2. **Verify Data Flow**: Ensure `AudioSystem` correctly extracts and passes `order`/`row` data from the worklet to drive the Pattern-Change logic reliably.
 1. **WebGPU Migration (Phase 4)**: Begin replacing standard materials with TSL-driven NodeMaterials for remaining foliage types.
 1. **Cymbal Dandelion Harvesting**: Implement collecting seeds ("Chime Shards") from Cymbal Dandelions.
 2. **Rare Flora Discovery**: Implement the discovery system for rare plants (Next Priority).
@@ -19,6 +21,8 @@
 
 ## Recent Progress
 - **Accomplished:**
+  - **Cymbal Dandelion Harvesting**: **Status: Implemented ✅**
+    - *Implementation Details:* Implemented `harvest(batchIndex)` in `src/foliage/dandelion-batcher.ts` to hide seeds of harvested dandelions. Updated `src/foliage/musical_flora.ts` to trigger harvesting on interaction, awarding 'chime_shard' items and spawning 'spore' impact particles. Enhanced `createCandyMaterial` type safety.
   - **Pattern-Change Seasons & Audio Data Flow**: **Status: Implemented ✅**
     - *Implementation Details:* Implemented logic in `src/systems/weather.ts` to switch global palette modes (Standard, Neon, Glitch) based on the current audio pattern index. Updated `src/foliage/types.ts` to include `pan`, `instrument`, and `patternIndex` in `ChannelData`/`AudioData` interfaces, fixing type compatibility issues. Updated `public/js/audio-processor.js` to calculate stereo pan for 4-channel MODs using a heuristic (L-R-R-L).
   - **Weather-Cycle Integration**: **Status: Implemented ✅**
