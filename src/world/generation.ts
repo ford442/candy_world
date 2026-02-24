@@ -23,13 +23,14 @@ import { registerPhysicsCave } from '../systems/physics.ts';
 import { initDiscoveryForFoliage } from '../systems/discovery-optimized.ts';
 import {
     animatedFoliage, obstacles, foliageGroup, foliageMushrooms,
-    foliageClouds, foliageTrampolines, foliagePanningPads, vineSwings, worldGroup
+    foliageClouds, foliageTrampolines, foliagePanningPads, foliageGeysers, foliageTraps, foliagePortamentoPines, vineSwings, worldGroup
 } from './state.ts';
 import mapData from '../../assets/map.json';
 
 // Performance constants for async generation
 export const DEFAULT_MAP_CHUNK_SIZE = 100;        // Map entities per chunk
 export const DEFAULT_PROCEDURAL_CHUNK_SIZE = 100; // Procedural extras per chunk
+export const PROCEDURAL_ENTITY_COUNT = 400;       // Number of random procedural items
 
 // Type definitions for map data
 interface MapEntity {
@@ -234,6 +235,14 @@ export function safeAddFoliage(
     if (obj.userData.type === 'cloud') foliageClouds.push(obj);
     if (obj.userData.isTrampoline) foliageTrampolines.push(obj);
     if (obj.userData.type === 'panningPad') foliagePanningPads.push(obj);
+    if (obj.userData.type === 'geyser') foliageGeysers.push(obj);
+    if (obj.userData.type === 'trap') {
+        foliageTraps.push(obj);
+        console.log('[World] Registered Snare Trap. Total:', foliageTraps.length);
+    }
+    if (obj.userData.type === 'tree' && obj.userData.animationType === 'batchedPortamento') {
+        foliagePortamentoPines.push(obj);
+    }
 
     // Invoke deferred placement logic (e.g. for batching)
     if (obj.userData.onPlacement) {
@@ -304,11 +313,12 @@ export async function generateMap(
     initCollisionSystem();
 
     const entities = mapData as MapEntity[];
-    const total = entities.length;
+    const mapTotal = entities.length;
+    const globalTotal = mapTotal + PROCEDURAL_ENTITY_COUNT;
     
     // Process entities in chunks to prevent blocking
-    for (let i = 0; i < total; i += chunkSize) {
-        const chunk = entities.slice(i, Math.min(i + chunkSize, total));
+    for (let i = 0; i < mapTotal; i += chunkSize) {
+        const chunk = entities.slice(i, Math.min(i + chunkSize, mapTotal));
         
         // Process this chunk
         chunk.forEach(item => {
@@ -317,7 +327,7 @@ export async function generateMap(
         
         // Report progress
         if (onProgress) {
-            onProgress(Math.min(i + chunkSize, total), total);
+            onProgress(Math.min(i + chunkSize, mapTotal), globalTotal);
         }
         
         // Yield control back to browser
@@ -338,7 +348,12 @@ export async function generateMap(
     populateLakeIsland(weatherSystem);
 
     // --- Populate Procedural Extras ---
-    await populateProceduralExtras(weatherSystem, chunkSize, onProgress);
+    // 🎨 Palette: Wrap progress to continue from mapTotal (0-100% unified progress)
+    await populateProceduralExtras(weatherSystem, chunkSize, (curr, tot) => {
+        if (onProgress) {
+            onProgress(mapTotal + curr, globalTotal);
+        }
+    });
     
     // --- Initialize Discovery System with Spatial Grid ---
     // OPTIMIZATION: O(1) spatial lookups instead of O(N) distance checks
@@ -608,7 +623,7 @@ async function populateProceduralExtras(
 ): Promise<void> {
     console.log("[World] Populating procedural extras...");
     if ((window as any).setLoadingStatus) (window as any).setLoadingStatus("Growing Procedural Flora...");
-    const extrasCount = 400;
+    const extrasCount = PROCEDURAL_ENTITY_COUNT;
     const range = 150;
 
     for (let i = 0; i < extrasCount; i++) {

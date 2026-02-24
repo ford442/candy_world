@@ -8,7 +8,7 @@ import {
     uploadCollisionObjects, resolveGameCollisionsWASM
 } from '../utils/wasm-loader.js';
 import {
-    foliageMushrooms, foliageTrampolines, foliageClouds, foliagePanningPads,
+    foliageMushrooms, foliageTrampolines, foliageClouds, foliagePanningPads, foliageGeysers, foliageTraps, foliagePortamentoPines,
     activeVineSwing, setActiveVineSwing, lastVineDetachTime, setLastVineDetachTime, vineSwings, animatedFoliage
 } from '../world/state.ts';
 import { discoverySystem } from './discovery.ts';
@@ -623,6 +623,7 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
 
         if (!wasGrounded && player.isGrounded && player.velocity.y < -1.0) {
             spawnImpact(player.position, 'land');
+            if (uChromaticIntensity) uChromaticIntensity.value = 0.5;
         }
     } else {
         // JS Fallback (Used for Lake Basin or C++ Failure)
@@ -649,6 +650,195 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
     // --- Panning Pads (JS Physics) ---
     // Explicit check for dynamic panning pads (bobbing platforms)
     checkPanningPads();
+
+    // --- Kick-Drum Geysers (Riding the Plume) ---
+    checkGeysers(delta);
+
+    // --- Snare Traps (Knockback) ---
+    checkSnareTraps(delta);
+
+    // --- Portamento Pines (Slingshot/Ramp) ---
+    checkPortamentoPines(delta);
+}
+
+function checkPortamentoPines(delta: number) {
+    const playerPos = player.position;
+    const now = performance.now();
+
+    for (const pine of foliagePortamentoPines) {
+        // Distance check
+        const dx = playerPos.x - pine.position.x;
+        const dz = playerPos.z - pine.position.z;
+        const distSq = dx*dx + dz*dz;
+        const interactRadius = 1.2;
+
+        if (distSq < interactRadius * interactRadius) {
+            // Height check (Pine is tall, ~4.0m)
+            const dy = playerPos.y - pine.position.y;
+            if (dy > 0 && dy < 4.0) {
+                const state = pine.userData.reactivityState;
+                if (!state) continue;
+
+                // 1. Calculate Bend Direction in World Space (Local X axis)
+                // Reuse scratch vector safely
+                const bendDir = _scratchCamDir.set(1, 0, 0).applyQuaternion(pine.quaternion);
+
+                // Current physical bend amount
+                const bend = state.currentBend || 0;
+
+                // 2. Player Push Logic (Bend the tree)
+                // Project player-to-pine vector onto Bend Axis
+                // Reuse scratch vector safely
+                const pushDir = _scratchMoveVec.set(dx, 0, dz).normalize();
+                const pushAlignment = pushDir.dot(bendDir); // -1 to 1
+
+                // If player is pushing along the bend axis (e.g. pushing forward), add force
+                // Alignment +1 = Pushing towards +X (Bend Positive)
+                // Alignment -1 = Pushing towards -X (Bend Negative)
+
+                const pushStrength = 60.0; // Strong enough to fight spring
+                state.velocity += pushAlignment * pushStrength * delta;
+
+                // 3. Launch Logic (Slingshot / Ramp)
+                // Debounce check
+                if (now - (pine.userData.lastLaunchTime || 0) < 1000) continue;
+
+                // RAMP: If bent forward (+X) significantly
+                if (bend > 0.5) {
+                    // Launch UP
+                    // "Forward-leaning ramps launch players vertically."
+                    if (player.velocity.y < 5.0) {
+                         // Apply Impulse (Instant velocity change)
+                         player.velocity.y = 25.0 * (Math.abs(bend) / 1.0); // Minimum 12.5 boost
+                         player.velocity.addScaledVector(bendDir, 10.0); // Forward nudge (Instant)
+
+                         // Visuals
+                         spawnImpact(playerPos, 'jump');
+                         discoverySystem.discover('portamento_pine', 'Portamento Pine', '🌲');
+
+                         player.airJumpsLeft = 1;
+                         player.isGrounded = false;
+                         pine.userData.lastLaunchTime = now;
+                    }
+                }
+
+                // SLINGSHOT: If bent Backward (-X) significantly and snapping back
+                else if (bend < -0.5) {
+                    // Tree is bent Backward (-X). It wants to go to 0 (+Velocity).
+                    // If it's moving fast towards 0 (+Velocity > 0), launch player!
+                    // "Leaned-back pines act as slingshots"
+
+                    if (state.velocity > 5.0) { // Snapping forward
+                        // Launch Forward (+X direction, which is bendDir)
+                        // Apply Impulse (Instant velocity change)
+                        player.velocity.addScaledVector(bendDir, 40.0 * Math.abs(bend));
+                        player.velocity.y = 15.0; // Lift (Instant)
+
+                        spawnImpact(playerPos, 'dash');
+                        discoverySystem.discover('portamento_pine', 'Portamento Pine', '🌲');
+
+                        player.airJumpsLeft = 1;
+                        player.isGrounded = false;
+                        pine.userData.lastLaunchTime = now;
+                    }
+                }
+            }
+        }
+    }
+}
+
+function checkSnareTraps(delta: number) {
+    for (const trap of foliageTraps) {
+        // Distance Check
+        const dx = player.position.x - trap.position.x;
+        const dz = player.position.z - trap.position.z;
+        const distSq = dx * dx + dz * dz;
+        const radius = 0.8 * (trap.scale.x || 1.0); // Approx trigger radius
+
+        if (distSq < radius * radius) {
+            // Height Check
+            const dy = player.position.y - trap.position.y;
+            if (dy > -0.5 && dy < 1.5) { // Inside jaws
+                const snapState = trap.userData.snapState || 0;
+
+                // Trigger Logic (If open and player steps inside)
+                if (snapState < 0.2) {
+                     // Snap Shut!
+                     trap.userData.snapState = 1.0;
+                     spawnImpact(trap.position, 'snare');
+                }
+
+                // If closing or closed (> 0.5)
+                // Note: We check current state. If we just triggered it (above), it's 1.0 now.
+                if (trap.userData.snapState > 0.5) {
+                    // KNOCKBACK
+                    // Calculate direction away from trap center
+                    // Reuse scratch vector safely
+                    const pushDir = _scratchMoveVec.set(dx, 0, dz).normalize();
+                    if (pushDir.lengthSq() === 0) pushDir.set(1, 0, 0); // Fallback
+
+                    // Apply impulse (Force = Mass * Accel, but we modify velocity directly)
+                    // High force to eject player
+                    player.velocity.addScaledVector(pushDir, 60.0 * delta * snapState); // Push horiz
+                    player.velocity.y = Math.max(player.velocity.y, 15.0 * snapState); // Launch up
+
+                    // Reset ground state to allow air movement
+                    player.isGrounded = false;
+
+                    // Visuals (Throttled?)
+                    // Logic runs every frame, so we need to prevent spamming impacts?
+                    // But if we launch the player, they leave the zone quickly.
+                    if (Math.random() < 0.2) {
+                        if (uChromaticIntensity) uChromaticIntensity.value = 0.8;
+                        spawnImpact(player.position, 'snare');
+                        showToast("Snared! 🪤", "⚠️");
+                    }
+                }
+            }
+        }
+    }
+}
+
+function checkGeysers(delta: number) {
+    for (const geyser of foliageGeysers) {
+        // Distance check (Cylinder)
+        const dx = player.position.x - geyser.position.x;
+        const dz = player.position.z - geyser.position.z;
+        const distSq = dx * dx + dz * dz;
+
+        // Radius ~1.5 for leniency
+        if (distSq < 2.25) {
+             const eruptionStrength = geyser.userData.eruptionStrength || 0;
+             const maxHeight = geyser.userData.maxHeight || 5.0;
+             const activeHeight = maxHeight * eruptionStrength;
+             const baseHeight = 0.5; // Height of the ring base
+
+             // Check vertical overlap
+             // Player must be above base and within plume height
+             if (player.position.y >= geyser.position.y + baseHeight - 0.5 &&
+                 player.position.y <= geyser.position.y + activeHeight + 1.0) {
+
+                 // If eruption is strong enough to lift (and visible)
+                 if (eruptionStrength > 0.1) {
+                     // Apply Lift
+                     // Target velocity is proportional to eruption strength
+                     const targetVel = 15.0 * eruptionStrength;
+
+                     // Smoothly interpolate velocity upwards
+                     if (player.velocity.y < targetVel) {
+                         player.velocity.y += (targetVel - player.velocity.y) * 5.0 * delta;
+                     }
+
+                     // Reset Air Jumps (Player can jump out of the stream)
+                     player.airJumpsLeft = 1;
+                     player.isGrounded = false;
+
+                     // Discovery
+                     discoverySystem.discover('kick_drum_geyser', 'Kick-Drum Geyser', '⛲');
+                 }
+             }
+        }
+    }
 }
 
 function checkPanningPads() {
@@ -739,6 +929,7 @@ function updateJSFallbackMovement(delta: number, camera: THREE.Camera, controls:
 
         if (!wasGrounded) {
              spawnImpact(player.position, 'land');
+             if (uChromaticIntensity) uChromaticIntensity.value = 0.5;
         }
     } else {
         player.isGrounded = false;

@@ -51,3 +51,15 @@
 ## 2026-08-04 - In-Context Shortcut Visualization
 **Learning:** While `title` tooltips help discoverability, they require hover interaction. For frequently used controls like Volume, users benefit significantly from seeing the shortcut key directly on the button surface, reducing cognitive load and reinforcing muscle memory.
 **Action:** Append visual key badges (e.g., `<span class="key-badge">+</span>`) to the label of primary control buttons where space permits, ensuring the badge style is consistent with other HUD elements.
+
+## 2026-08-05 - Keyboard Feedback for HUD Elements
+**Learning:** While cooldown indicators show *availability*, they don't confirm *input*. Players pressing keys for abilities (like Dash) often wonder if the game registered the press, especially if the action fails due to other constraints (e.g. energy).
+**Action:** Add immediate visual feedback (e.g., a "pressed" style with scale/border change) to HUD elements when the corresponding physical key is pressed, decoupling the input confirmation from the game logic execution.
+
+## 2026-08-08 - Unified Progress Feedback
+**Learning:** When multiple async processes contribute to a single 'Loading' state (e.g. map generation + procedural extras), treating them as separate 0-100% bars confuses the user as the progress jumps back to 0.
+**Action:** Calculate a global total for all phases upfront and report cumulative progress to provide a single, continuous timeline. Reinforce this with a visual progress bar (e.g. gradient background) on the CTA button itself for better glanceability.
+
+## 2026-08-12 - Throttled Progress Announcements
+**Learning:** Rapidly updating text content for visual smoothness (e.g., "Loading 1%... 2%... 3%") creates an unusable experience for screen reader users, who hear a constant torrent of numbers.
+**Action:** Decouple visual progress (smooth gradients/animations) from semantic progress. Throttle text updates and ARIA announcements to significant milestones (e.g., every 10%) and use `aria-busy="true"` to indicate ongoing processing.

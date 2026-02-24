@@ -1,36 +1,35 @@
-// main.js
+// src/main.ts
 
 import * as THREE from 'three';
-import './style.css';
-// CHANGE: Preserved .ts extension as requested to match local file structure
-import { uWindSpeed, uWindDirection, uSkyTopColor, uSkyBottomColor, uHorizonColor, uAtmosphereIntensity, uStarOpacity, uAuroraIntensity, uAuroraColor, uAudioLow, uAudioHigh, uGlitchIntensity, uChromaticIntensity, uTime, uPlayerPosition, createAurora, createChromaticPulse, updateMoon, animateFoliage, updateFoliageMaterials, updateFallingBerries, collectFallingBerries, createFlower, createMushroom, validateNodeGeometries, createMelodyRibbon, updateMelodyRibbons, createMelodyMirror, createSparkleTrail, updateSparkleTrail, createImpactSystem, createShield } from './src/foliage/index.ts';
-import { initCelestialBodies } from './src/foliage/celestial-bodies.ts';
-import { InteractionSystem } from './src/systems/interaction.ts';
-import { unlockSystem } from './src/systems/unlocks.ts';
-import { musicReactivitySystem } from './src/systems/music-reactivity.ts';
-import { fluidSystem } from './src/systems/fluid_system.ts';
-import { createFluidFog } from './src/foliage/fluid_fog.js';
-import { AudioSystem } from './src/audio/audio-system.ts';
-import { BeatSync } from './src/audio/beat-sync.ts';
-import { WeatherSystem, WeatherState } from './src/systems/weather.ts';
-import { initWasm, initWasmParallel, isWasmReady, LOADING_PHASES } from './src/utils/wasm-loader.js';
-import { profiler } from './src/utils/profiler.js';
+import '../style.css';
+import { uWindSpeed, uWindDirection, uSkyTopColor, uSkyBottomColor, uHorizonColor, uAtmosphereIntensity, uStarOpacity, uAuroraIntensity, uAuroraColor, uAudioLow, uAudioHigh, uGlitchIntensity, uChromaticIntensity, uTime, uPlayerPosition, createAurora, createChromaticPulse, animateFoliage, updateFoliageMaterials, updateFallingBerries, collectFallingBerries, createMushroom, validateNodeGeometries, createMelodyRibbon, updateMelodyRibbons, createSparkleTrail, createImpactSystem, createShield, createDandelionSeedSystem } from './foliage/index.ts';
+import { initCelestialBodies } from './foliage/celestial-bodies.ts';
+import { InteractionSystem } from './systems/interaction.ts';
+import { unlockSystem } from './systems/unlocks.ts';
+import { musicReactivitySystem } from './systems/music-reactivity.ts';
+import { fluidSystem } from './systems/fluid_system.ts';
+import { createFluidFog } from './foliage/fluid_fog.js';
+import { AudioSystem } from './audio/audio-system.ts';
+import { BeatSync } from './audio/beat-sync.ts';
+import { WeatherSystem } from './systems/weather.ts';
+import { WeatherState } from './systems/weather-types.ts';
+import { initWasm, getGroundHeight } from './utils/wasm-loader.js';
+import { profiler } from './utils/profiler.js';
 
 // Core imports
-import { CONFIG, PALETTE, CYCLE_DURATION, DURATION_SUNRISE, DURATION_DAY, DURATION_SUNSET, DURATION_DUSK_NIGHT, DURATION_DEEP_NIGHT } from './src/core/config.ts';
-import { initScene, forceFullSceneWarmup } from './src/core/init.js';
-import { initInput, keyStates } from './src/core/input.ts';
-import { getCycleState } from './src/core/cycle.ts';
+import { CONFIG, CYCLE_DURATION, DURATION_SUNRISE, DURATION_DAY, DURATION_SUNSET, DURATION_DUSK_NIGHT, DURATION_DEEP_NIGHT } from './core/config.ts';
+import { initScene, forceFullSceneWarmup } from './core/init.js';
+import { initInput, keyStates } from './core/input.ts';
+import { getCycleState } from './core/cycle.ts';
 
 // World & System imports
-import { initWorld, generateMap, DEFAULT_MAP_CHUNK_SIZE } from './src/world/generation.ts';
-import { animatedFoliage, foliageGroup, activeVineSwing, foliageClouds, foliageMushrooms } from './src/world/state.ts';
-import { updatePhysics, player, bpmWind } from './src/systems/physics.ts';
-import { fireRainbow, updateBlaster } from './src/gameplay/rainbow-blaster.ts';
-import { jitterMineSystem } from './src/gameplay/jitter-mines.ts';
-import { updateFallingClouds } from './src/foliage/clouds.ts';
-import { cloudBatcher } from './src/foliage/cloud-batcher.ts';
-import { getGroundHeight } from './src/utils/wasm-loader.js';
+import { initWorld, generateMap, DEFAULT_MAP_CHUNK_SIZE } from './world/generation.ts';
+import { animatedFoliage, foliageClouds, foliageMushrooms } from './world/state.ts';
+import { updatePhysics, player } from './systems/physics.ts';
+import { fireRainbow, updateBlaster } from './gameplay/rainbow-blaster.ts';
+import { jitterMineSystem } from './gameplay/jitter-mines.ts';
+import { updateFallingClouds } from './foliage/clouds.ts';
+import { cloudBatcher } from './foliage/cloud-batcher.ts';
 
 // Optimization: Hoist reusable objects to module scope to prevent GC in animation loop
 const COLOR_STORM_SKY_TOP = new THREE.Color(0x1A1A2E);
@@ -45,8 +44,7 @@ const _scratchBaseFog = new THREE.Color();
 const _scratchSunVector = new THREE.Vector3();
 const _scratchAuroraColor = new THREE.Color();
 
-const _weatherBiasOutput = { biasState: 'clear', biasIntensity: 0, type: 'clear' };
-const _interactionLists = [null, null, null]; // Reusable array for interaction lists
+const _interactionLists: (any[] | null)[] = [null, null, null]; // Reusable array for interaction lists
 
 // --- Initialization Pipeline ---
 
@@ -93,14 +91,15 @@ if (audioSystem.onNote) {
 validateNodeGeometries(scene);
 
 // Defer non-critical visual elements to load after basic scene is ready
-let aurora = null;
-let chromaticPulse = null;
+let aurora: THREE.Object3D | null = null;
+let chromaticPulse: THREE.Object3D | null = null;
 let celestialBodiesInitialized = false;
-let melodyRibbon = null;
-let sparkleTrail = null;
-let impactSystem = null;
-let fluidFog = null;
-let playerShieldMesh = null;
+let melodyRibbon: any = null;
+let sparkleTrail: any = null;
+let impactSystem: any = null;
+let fluidFog: THREE.Mesh | null = null;
+let playerShieldMesh: THREE.Object3D | null = null;
+let dandelionSeedSystem: THREE.Object3D | null = null;
 
 // Function to initialize deferred visual elements with better organization and timing
 function initDeferredVisuals() {
@@ -155,6 +154,12 @@ function initDeferredVisuals() {
         console.log('[Deferred] Impact System initialized');
     }
 
+    if (!dandelionSeedSystem) {
+        dandelionSeedSystem = createDandelionSeedSystem();
+        scene.add(dandelionSeedSystem);
+        console.log('[Deferred] Dandelion Seed System initialized');
+    }
+
     if (!jitterMineSystem.mesh.parent) {
         scene.add(jitterMineSystem.mesh);
         console.log('[Deferred] Jitter Mine System initialized');
@@ -166,10 +171,10 @@ function initDeferredVisuals() {
 
 // 4. Input Handling
 let isNight = false;
-let lastIsNight = null; // Track previous state (null forces initial update)
+let lastIsNight: boolean | null = null; // Track previous state (null forces initial update)
 let timeOffset = 0;
 
-function updateTheme(isNightMode) {
+function updateTheme(isNightMode: boolean) {
     const nightColor = '#0A0A2E'; // Deep Night Blue
     const dayColor = '#FFD1DC';   // Candy Pink
 
@@ -250,7 +255,7 @@ window.addEventListener('mousedown', (e) => {
 // --- Animation Loop State ---
 const clock = new THREE.Clock();
 let gameTime = 0;
-let audioState = null;
+let audioState: any = null;
 let lastBeatPhase = 0;
 let beatFlashIntensity = 0;
 let cameraZoomPulse = 0;
@@ -265,49 +270,20 @@ beatSync.onBeat((state) => {
     }
 });
 
-function getWeatherForTimeOfDay(cyclePos, audioData) {
-    const SUNRISE = DURATION_SUNRISE;
-    const DAY = DURATION_DAY;
-    const SUNSET = DURATION_SUNSET;
-    const DUSK = 180;
-    
-    _weatherBiasOutput.biasState = 'clear';
-    _weatherBiasOutput.biasIntensity = 0;
-    _weatherBiasOutput.type = 'clear';
-
-    if (cyclePos < SUNRISE + 60) {
-        const progress = (cyclePos / (SUNRISE + 60));
-        _weatherBiasOutput.biasState = 'rain';
-        _weatherBiasOutput.biasIntensity = 0.3 * (1 - progress);
-        _weatherBiasOutput.type = 'mist';
-    }
-    else if (cyclePos > SUNRISE + 120 && cyclePos < SUNRISE + DAY - 60) {
-        const stormChance = 0.0003;
-        if (Math.random() < stormChance) {
-             _weatherBiasOutput.biasState = 'storm';
-             _weatherBiasOutput.biasIntensity = 0.7 + Math.random() * 0.3;
-             _weatherBiasOutput.type = 'thunderstorm';
-        }
-    }
-    else if (cyclePos > SUNRISE + DAY && cyclePos < SUNRISE + DAY + SUNSET + DUSK / 2) {
-        const progress = (cyclePos - SUNRISE - DAY) / (SUNSET + DUSK / 2);
-         _weatherBiasOutput.biasState = 'rain';
-         _weatherBiasOutput.biasIntensity = 0.3 + progress * 0.2;
-         _weatherBiasOutput.type = 'drizzle';
-    }
-
-    return _weatherBiasOutput;
-}
 
 // 🎨 Palette: Cache HUD Elements
 const hudDash = document.getElementById('ability-dash');
-const hudDashOverlay = hudDash ? hudDash.querySelector('.cooldown-overlay') : null;
+const hudDashOverlay = hudDash ? hudDash.querySelector('.cooldown-overlay') as HTMLElement : null;
 const hudMine = document.getElementById('ability-mine');
-const hudMineOverlay = hudMine ? hudMine.querySelector('.cooldown-overlay') : null;
+const hudMineOverlay = hudMine ? hudMine.querySelector('.cooldown-overlay') as HTMLElement : null;
+const hudPhase = document.getElementById('ability-phase');
+const hudPhaseOverlay = hudPhase ? hudPhase.querySelector('.cooldown-overlay') as HTMLElement : null;
 
 // Track previous states to avoid DOM thrashing
-let _lastDashReady = null;
-let _lastMineReady = null;
+let _lastDashReady: boolean | null = null;
+let _lastMineReady: boolean | null = null;
+let _lastPhaseCount: number | null = null;
+let _lastPhaseActive: boolean | null = null;
 
 function animate() {
     profiler.startFrame();
@@ -329,10 +305,9 @@ function animate() {
 
     const effectiveTime = t + timeOffset;
     const cyclePos = effectiveTime % CYCLE_DURATION;
-    const cycleWeatherBias = getWeatherForTimeOfDay(cyclePos, audioState);
 
     profiler.measure('Weather', () => {
-        weatherSystem.update(t, audioState, cycleWeatherBias);
+        weatherSystem.update(t, audioState);
         weatherSystem.updateBerrySeasonalSize(cyclePos, CYCLE_DURATION);
     });
 
@@ -485,7 +460,7 @@ function animate() {
         lightShaftGroup.visible = shaftVisible;
         if (shaftVisible) {
             lightShaftGroup.rotation.z += delta * 0.1;
-            lightShaftGroup.children.forEach(shaft => {
+            lightShaftGroup.children.forEach((shaft: any) => {
                 shaft.material.opacity = shaftIntensity;
             });
         }
@@ -663,6 +638,18 @@ function animate() {
                 }
                 _lastDashReady = isReady;
             }
+
+            // PALETTE: Pulse to the beat when ready!
+            if (isReady) {
+                const kick = audioState?.kickTrigger || 0;
+                const scale = 1.0 + kick * 0.15;
+                const pressed = hudDash.classList.contains('pressed');
+                // Multiply by 0.9 if pressed (mimics CSS active state)
+                const finalScale = pressed ? scale * 0.9 : scale;
+                hudDash.style.transform = `scale(${finalScale.toFixed(3)})`;
+            } else {
+                hudDash.style.transform = ''; // Reset to CSS
+            }
         }
 
         if (hudMine && hudMineOverlay) {
@@ -682,6 +669,79 @@ function animate() {
                     hudMine.title = "Jitter Mine (F) - Recharging...";
                 }
                 _lastMineReady = isReady;
+            }
+
+            // PALETTE: Pulse to the beat when ready!
+            if (isReady) {
+                const kick = audioState?.kickTrigger || 0;
+                const scale = 1.0 + kick * 0.15;
+                const pressed = hudMine.classList.contains('pressed');
+                const finalScale = pressed ? scale * 0.9 : scale;
+                hudMine.style.transform = `scale(${finalScale.toFixed(3)})`;
+            } else {
+                hudMine.style.transform = '';
+            }
+        }
+
+        // 🎨 Palette: Update Phase Shift HUD (Ammo + Duration)
+        if (hudPhase && hudPhaseOverlay) {
+            const count = unlockSystem.getItemCount('tremolo_bulb');
+            const isActive = player.isPhasing;
+            let countChanged = false;
+
+            // Update Badge Count (Throttled by value check)
+            if (count !== _lastPhaseCount) {
+                const badge = hudPhase.querySelector('.ability-count');
+                if (badge) badge.textContent = count.toString();
+                _lastPhaseCount = count;
+                countChanged = true;
+            }
+
+            // Handle State
+            if (isActive) {
+                const duration = 5.0; // From physics.ts
+                const remaining = Math.max(0, player.phaseTimer);
+                const pct = remaining / duration;
+
+                // Show duration depleting
+                hudPhaseOverlay.style.height = `${pct * 100}%`;
+
+                if (isActive !== _lastPhaseActive) {
+                     hudPhase.classList.add('active');
+                     hudPhase.classList.remove('ready');
+                     hudPhase.setAttribute('aria-disabled', 'false');
+                     _lastPhaseActive = isActive;
+                }
+
+                // Dynamic ARIA label for screen readers (maybe throttle this?)
+                // For now, let's update title for hover
+                hudPhase.title = `Phase Shift Active: ${remaining.toFixed(1)}s left`;
+
+            } else {
+                // Not Active - Show Availability
+                hudPhaseOverlay.style.height = '0%'; // Clear overlay
+
+                const stateChanged = (isActive !== _lastPhaseActive);
+                if (stateChanged) {
+                    hudPhase.classList.remove('active');
+                    _lastPhaseActive = isActive;
+                }
+
+                // Check Availability (Ammo) - Update only on state change or count change
+                if (stateChanged || countChanged) {
+                    const isReady = count > 0;
+                    if (isReady) {
+                        hudPhase.classList.add('ready');
+                        hudPhase.setAttribute('aria-disabled', 'false');
+                        hudPhase.title = `Phase Shift (Z) - ${count} Bulb${count!==1?'s':''} Available`;
+                        hudPhase.setAttribute('aria-label', `Phase Shift (Z) - ${count} Bulbs Available`);
+                    } else {
+                        hudPhase.classList.remove('ready');
+                        hudPhase.setAttribute('aria-disabled', 'true');
+                        hudPhase.title = "Phase Shift (Z) - Need Tremolo Bulb";
+                        hudPhase.setAttribute('aria-label', "Phase Shift (Z) - Empty (Need Tremolo Bulb)");
+                    }
+                }
             }
         }
     });
@@ -725,10 +785,10 @@ initWasm().then(async (wasmLoaded) => {
     scene.add(previewMushroom);
     animatedFoliage.push(previewMushroom);
 
-    const startButton = document.getElementById('startButton');
+    const startButton = document.getElementById('startButton') as HTMLButtonElement | null;
     if (startButton) {
         startButton.disabled = false;
-        startButton.innerText = 'Enter World 🍭';
+        startButton.innerHTML = 'Enter World 🍭 <span class="key-badge">Enter</span>';
         startButton.focus();
         
         startButton.addEventListener('click', () => {
@@ -745,10 +805,24 @@ initWasm().then(async (wasmLoaded) => {
                 if (idx > -1) animatedFoliage.splice(idx, 1);
 
                 // Use async map generation with progress updates
+                // 🎨 Palette: Throttle announcements to prevent SR spam
+                let lastAnnounced = -1;
+                startButton.setAttribute('aria-busy', 'true');
+
                 await generateMap(weatherSystem, DEFAULT_MAP_CHUNK_SIZE, (current, total) => {
                     const percent = Math.floor((current / total) * 100);
-                    startButton.innerHTML = `<span class="spinner" aria-hidden="true"></span>Generating ${percent}%... 🍭`;
+
+                    // Always update visual gradient for smoothness
+                    startButton.style.background = `linear-gradient(90deg, #FF6B6B ${percent}%, #FFB6C1 ${percent}%)`;
+
+                    // Throttle text updates to every 10% or completion
+                    if (percent - lastAnnounced >= 10 || percent === 100) {
+                        startButton.innerHTML = `<span class="spinner" aria-hidden="true"></span>Generating ${percent}%... 🍭`;
+                        lastAnnounced = percent;
+                    }
                 });
+
+                startButton.removeAttribute('aria-busy');
 
                 // UX: Now that generation is done, hide the instructions
                 // (We delayed this in input.js to keep the "Generating..." message visible)
@@ -756,12 +830,13 @@ initWasm().then(async (wasmLoaded) => {
                 if (instructions) instructions.style.display = 'none';
 
                 // 🎨 Palette: Welcome Toast
-                import('./src/utils/toast.js').then(({ showToast }) => {
+                import('./utils/toast.js').then(({ showToast }) => {
                     showToast("Press [ESC] for Controls", "🎮", 4000);
                 });
 
                 // CRITICAL: Re-enable the button so that "Resume" works later (and checks in input.js pass)
                 startButton.disabled = false;
+                startButton.style.background = ''; // Reset style
 
                 // Note: The pointer lock will happen automatically via input system
             }, 50);
