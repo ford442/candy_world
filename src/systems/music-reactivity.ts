@@ -217,17 +217,17 @@ export class MusicReactivitySystem {
                 totalObjects++;
 
                 // ⚡ OPTIMIZATION: Skip Batched Objects
-                // Mushrooms are now handled by MushroomBatcher via TSL
-                if (obj.userData.type === 'mushroom') {
+                // These types are handled by specific batchers (InstancedMesh) with TSL
+                if (obj.userData.isBatched ||
+                    obj.userData.type === 'mushroom' ||
+                    obj.userData.type === 'lanternFlower' ||
+                    obj.userData.type === 'arpeggio_fern' ||
+                    obj.userData.type === 'portamento_pine' ||
+                    obj.userData.type === 'prismRoseBush' ||
+                    obj.userData.isFlower) {
                     // We treat them as rendered for metrics, but skip CPU animation logic
-                    rendered++; // Technically batched, so rendered
+                    rendered++;
                     continue;
-                }
-
-                // ⚡ OPTIMIZATION: Standard Flowers are now TSL-driven (merged geometry)
-                if (obj.userData.isFlower) {
-                     rendered++;
-                     continue;
                 }
 
                 // ⚡ PERFORMANCE: Size-based culling distances
