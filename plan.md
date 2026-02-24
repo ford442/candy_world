@@ -10,12 +10,17 @@
 
 ## Next Steps
 
+1. **WebGPU Migration (Phase 4)**: Begin replacing standard materials with TSL-driven NodeMaterials for remaining foliage types.
+1. **Cymbal Dandelion Harvesting**: Implement collecting seeds ("Chime Shards") from Cymbal Dandelions.
+2. **Rare Flora Discovery**: Implement the discovery system for rare plants (Next Priority).
 1. **Procedural Cloud Layer**: Implement a volumetric-style cloud layer using TSL noise and instancing to enhance the skybox, as outlined in the Graphics Quality Enhancement Plan (Phase 2).
 
 ---
 
 ## Recent Progress
 - **Accomplished:**
+  - **Pattern-Change Seasons & Audio Data Flow**: **Status: Implemented ✅**
+    - *Implementation Details:* Implemented logic in `src/systems/weather.ts` to switch global palette modes (Standard, Neon, Glitch) based on the current audio pattern index. Updated `src/foliage/types.ts` to include `pan`, `instrument`, and `patternIndex` in `ChannelData`/`AudioData` interfaces, fixing type compatibility issues. Updated `public/js/audio-processor.js` to calculate stereo pan for 4-channel MODs using a heuristic (L-R-R-L).
   - **Weather-Cycle Integration**: **Status: Implemented ✅**
     - *Implementation Details:* Implemented `calculateTimeOfDayBias` in `src/systems/weather-utils.ts` to drive weather changes (Morning Mist, Afternoon Storms, Evening Drizzle) based on cycle position. Integrated this into `WeatherSystem.update()` and `WeatherSystem.updateFog()`, enhancing visual feedback for time-of-day weather.
   - **Migrate `main.js` to TypeScript**: **Status: Implemented ✅**
