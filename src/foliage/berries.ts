@@ -43,6 +43,7 @@ export interface BerryClusterUserData {
     glowDecayRate: number;
     berryColor: number;
     // uClusterGlow removed, replaced by attribute
+    lastMatrixWorld?: THREE.Matrix4; // ⚡ OPTIMIZATION: Cache for static check
 }
 
 export interface FallingBerry {
@@ -166,6 +167,9 @@ export class BerryBatcher {
         }
 
         group.userData.initialTransforms = initialTransforms;
+        // ⚡ OPTIMIZATION: Cache initial matrix world (clone)
+        group.userData.lastMatrixWorld = group.matrixWorld.clone();
+
         this.mesh.instanceColor!.needsUpdate = true;
         this.glowAttribute.needsUpdate = true;
 
@@ -218,35 +222,44 @@ export class BerryBatcher {
                 if (group.userData.weatherGlow < 0) group.userData.weatherGlow = 0;
             }
 
-            // Optimization: Only update if parent matrixWorld changed?
-            // Hard to detect cheapy. We just do the mul.
-            // But we must ensure parent world matrix is up to date.
-            // Usually Three.js updates parents before children in render loop.
-            // Since this runs in WeatherSystem (update), it might be before or after render.
-            // Relying on previous frame matrix is usually fine for foliage.
-
+            // ⚡ OPTIMIZATION: Only update matrix if parent moved
             const parentMatrix = group.matrixWorld;
+            let skipMatrixUpdate = false;
+
+            if (group.userData.lastMatrixWorld) {
+                if (group.userData.lastMatrixWorld.equals(parentMatrix)) {
+                    skipMatrixUpdate = true;
+                } else {
+                    group.userData.lastMatrixWorld.copy(parentMatrix);
+                }
+            } else {
+                 group.userData.lastMatrixWorld = parentMatrix.clone();
+            }
+
+            // Always update glow (audio/weather dependent)
+            // But matrix update is heavy, so skip if possible
 
             for (let i = 0; i < count; i++) {
                 const idx = start + i;
 
-                // Reconstruct local matrix
-                _scratchObject3D.position.set(transforms.positions[i*3], transforms.positions[i*3+1], transforms.positions[i*3+2]);
-                _scratchObject3D.quaternion.set(transforms.quaternions[i*4], transforms.quaternions[i*4+1], transforms.quaternions[i*4+2], transforms.quaternions[i*4+3]);
-                _scratchObject3D.scale.setScalar(transforms.scales[i]);
-                _scratchObject3D.updateMatrix();
+                if (!skipMatrixUpdate) {
+                    // Reconstruct local matrix
+                    _scratchObject3D.position.set(transforms.positions[i*3], transforms.positions[i*3+1], transforms.positions[i*3+2]);
+                    _scratchObject3D.quaternion.set(transforms.quaternions[i*4], transforms.quaternions[i*4+1], transforms.quaternions[i*4+2], transforms.quaternions[i*4+3]);
+                    _scratchObject3D.scale.setScalar(transforms.scales[i]);
+                    _scratchObject3D.updateMatrix();
 
-                // World = Parent * Local
-                _scratchMatrix.multiplyMatrices(parentMatrix, _scratchObject3D.matrix);
+                    // World = Parent * Local
+                    _scratchMatrix.multiplyMatrices(parentMatrix, _scratchObject3D.matrix);
 
-                this.mesh.setMatrixAt(idx, _scratchMatrix);
+                    this.mesh.setMatrixAt(idx, _scratchMatrix);
+                }
 
                 // Update Glow
-                // We only update if significant change to avoid buffer traffic?
-                // But float buffer is fast.
                 this.glowAttribute.setX(idx, targetIntensity);
             }
-            meshNeedsUpdate = true;
+
+            if (!skipMatrixUpdate) meshNeedsUpdate = true;
             glowNeedsUpdate = true;
         }
 
@@ -313,7 +326,7 @@ function createHeartbeatMaterial(): THREE.Material {
     // Base color from instanceColor
     const material = CandyPresets.Gummy(0xFF6600, opts);
     // Force use of instanceColor
-    material.colorNode = (THREE as any).instanceColor || color(0xFF6600);
+    material.colorNode = attribute('instanceColor', 'vec3') || color(0xFF6600);
 
     // 2. Heartbeat Logic (Vertex Displacement)
     const phase = dot(positionWorld, vec3(0.5)).mul(5.0);
@@ -325,7 +338,7 @@ function createHeartbeatMaterial(): THREE.Material {
 
     // 3. Reactive Glow (Emissive)
     const aGlow = attribute('aGlow', 'float'); // FROM BATCHER
-    const baseColor = (THREE as any).instanceColor || color(0xFF6600);
+    const baseColor = attribute('instanceColor', 'vec3') || color(0xFF6600);
     const flashColor = color(0xFFFFFF);
 
     // Mix flash based on heartbeat strength
@@ -405,12 +418,12 @@ export function initFallingBerries(scene: THREE.Scene): void {
         transmission: 0.6, roughness: 0.2, ior: 1.4, subsurfaceStrength: 1.0, subsurfaceColor: 0xFF6600
     };
     const material = CandyPresets.Gummy(0xFF6600, opts);
-    material.colorNode = (THREE as any).instanceColor;
+    material.colorNode = attribute('instanceColor', 'vec3');
 
     // Simple pulse
     const phase = dot(positionWorld, vec3(0.5)).mul(5.0);
     const heartbeat = sin(uTime.mul(8.0).add(phase)).pow(4.0);
-    material.emissiveNode = (THREE as any).instanceColor.mul(uFallingGlow.add(heartbeat.mul(0.3)));
+    material.emissiveNode = attribute('instanceColor', 'vec3').mul(uFallingGlow.add(heartbeat.mul(0.3)));
 
     fallingBerryMesh = new THREE.InstancedMesh(berryGeo, material, MAX_FALLING_BERRIES);
     fallingBerryMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);

@@ -50,7 +50,9 @@ export * from './portamento-batcher.ts';
 export * from './mushroom-batcher.ts';
 export * from './cloud-batcher.ts';
 export * from './dandelion-batcher.ts';
+export * from './dandelion-seeds.ts'; // Added Dandelion Seeds
 export * from './lantern-batcher.ts';
 export * from './simple-flower-batcher.ts';
 export * from './glowing-flower-batcher.ts';
 export * from './waterfall-batcher.ts';
+export * from './tree-batcher.ts'; // Added Tree Batcher

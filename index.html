@@ -117,6 +117,8 @@
             transform: none;
             box-shadow: none;
             opacity: 0.8;
+            /* 🎨 Palette: Improve text contrast */
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
         }
         .cta-button:hover,
         .cta-button:focus {
@@ -546,8 +548,8 @@
 
         <div class="settings settings-container">
             <input type="file" id="musicUpload" accept=".mod,.xm,.it,.s3m" multiple class="visually-hidden">
-            <label for="musicUpload" class="file-label" aria-live="polite" title="Supported formats: .mod, .xm, .it, .s3m">
-                🎵 Upload Music
+            <label for="musicUpload" class="file-label" aria-live="polite" title="Supported formats: .mod, .xm, .it, .s3m" aria-keyshortcuts="U">
+                🎵 Upload Music <span class="key-badge">U</span>
                 <span style="display:block; font-size:0.7em; font-weight:normal; margin-top:2px; opacity:0.9;">.mod .xm .it .s3m</span>
             </label>
 
@@ -598,6 +600,12 @@
                     <dt><kbd class="key">E</kbd></dt>
                     <dd>Dash (Requires Energy)</dd>
 
+                    <dt><kbd class="key">F</kbd></dt>
+                    <dd>Jitter Mine (Cooldown)</dd>
+
+                    <dt><kbd class="key">Z</kbd></dt>
+                    <dd>Phase Shift (Requires Bulb)</dd>
+
                     <dt><kbd class="key">R</kbd></dt>
                     <dd>Dance Mode (Unlocks Cursor)</dd>
 
@@ -638,8 +646,8 @@
         
         <div class="playlist-controls">
             <input type="file" id="playlistUploadInput" multiple accept=".mod,.xm,.it,.s3m" class="visually-hidden">
-            <label for="playlistUploadInput" class="secondary-button" aria-live="polite" title="Supported formats: .mod, .xm, .it, .s3m">
-                ➕ Add Songs
+            <label for="playlistUploadInput" class="secondary-button" aria-live="polite" title="Supported formats: .mod, .xm, .it, .s3m" aria-keyshortcuts="U">
+                ➕ Add Songs <span class="key-badge">U</span>
                 <span style="display:block; font-size:0.7em; font-weight:normal; margin-top:2px; opacity:0.9;">.mod .xm .it .s3m</span>
             </label>
             <button id="closePlaylistBtn" class="secondary-button" style="background: #FF6B6B;" aria-label="Close Jukebox (Escape)">Close <span class="key-badge">Esc</span></button>
@@ -652,20 +660,26 @@
     <div id="reticle-label" aria-live="polite"></div>
 
     <div id="ability-hud" role="region" aria-label="Abilities">
-        <div class="ability-slot" id="ability-dash" title="Dash (E)" role="button" tabindex="0" aria-label="Dash Ability (E)">
+        <div class="ability-slot" id="ability-dash" title="Dash (E)" role="button" tabindex="0" aria-label="Dash Ability (E)" aria-keyshortcuts="E">
             <span class="ability-key">E</span>
             <span class="ability-icon" aria-hidden="true">💨</span>
             <div class="cooldown-overlay"></div>
         </div>
-        <div class="ability-slot" id="ability-mine" title="Jitter Mine (F)" role="button" tabindex="0" aria-label="Jitter Mine Ability (F)">
+        <div class="ability-slot" id="ability-mine" title="Jitter Mine (F)" role="button" tabindex="0" aria-label="Jitter Mine Ability (F)" aria-keyshortcuts="F">
             <span class="ability-key">F</span>
             <span class="ability-icon" aria-hidden="true">👾</span>
+            <div class="cooldown-overlay"></div>
+        </div>
+        <div class="ability-slot" id="ability-phase" title="Phase Shift (Z)" role="button" tabindex="0" aria-label="Phase Shift Ability (Z)" aria-keyshortcuts="Z">
+            <span class="ability-key">Z</span>
+            <span class="ability-icon" aria-hidden="true">👻</span>
+            <span class="ability-count" aria-hidden="true">0</span>
             <div class="cooldown-overlay"></div>
         </div>
     </div>
 
     <canvas id="glCanvas" role="region" aria-label="Game World: Use mouse and keyboard to navigate"></canvas>
-    <script type="module" src="main.js"></script>
+    <script type="module" src="src/main.ts"></script>
 </body>
 
 </html>

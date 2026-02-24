@@ -311,6 +311,11 @@ export interface UnifiedMaterialOptions {
     audioReactStrength?: number;
     emissive?: number | string | THREE.Color;
     emissiveIntensity?: number;
+
+    // Rim Light (Juicy Edge)
+    rimStrength?: number;
+    rimColor?: number | string | THREE.Color;
+    rimPower?: number;
 }
 
 /**
@@ -359,7 +364,12 @@ export function createUnifiedMaterial(hexColor: number | string | THREE.Color, o
         animatePulse = false,
 
         // Audio Reactivity (Juice)
-        audioReactStrength = 0.0
+        audioReactStrength = 0.0,
+
+        // Rim Light (Palette Polish)
+        rimStrength = 0.0,
+        rimColor = 0xFFFFFF,
+        rimPower = 3.0
     } = options;
 
     const material = new MeshStandardNodeMaterial();
@@ -519,6 +529,17 @@ export function createUnifiedMaterial(hexColor: number | string | THREE.Color, o
         material.positionNode = currentPos.add(vibration);
     }
 
+    // 10. Rim Light (Palette Polish)
+    // Adds a subtle edge glow to define the shape against dark backgrounds
+    if (rimStrength > 0.0) {
+        const rimColorNode = color(rimColor);
+        // Use current material normal (might be perturbed by bumps)
+        const rimEffect = createRimLight(rimColorNode, float(rimStrength), float(rimPower), material.normalNode);
+
+        // Add to existing emissive
+        material.emissiveNode = (material.emissiveNode || color(0x000000)).add(rimEffect);
+    }
+
     material.userData.isUnified = true;
     return material;
 }
@@ -534,6 +555,9 @@ export const CandyPresets: { [key: string]: PresetFn } = {
         bumpStrength: 0.15,
         noiseScale: 8.0,
         triplanar: true,
+        // PALETTE: Subtle Rim Light by default
+        rimStrength: 0.3,
+        rimPower: 3.0,
         ...opts
     }),
 
@@ -670,7 +694,10 @@ export function createGradientMaterial(colorBottom: number | string | THREE.Colo
         bumpStrength: 0.2,   // Bark texture
         noiseScale: 4.0,     // Scale of bark details
         triplanar: true,     // Avoid UV seams on cylinder
-        metalness: 0.0
+        metalness: 0.0,
+        // PALETTE: Subtle Rim Light for trunks too
+        rimStrength: 0.3,
+        rimPower: 3.0
     });
 }
 

@@ -21,13 +21,8 @@ import { foliageClouds } from '../world/state.ts';
 import { replaceMushroomWithGiant } from '../foliage/mushrooms.ts';
 import { mushroomBatcher } from '../foliage/mushroom-batcher.ts';
 import { VisualState } from '../audio/audio-system.ts';
-
-// Weather states
-export enum WeatherState {
-    CLEAR = 'clear',
-    RAIN = 'rain',
-    STORM = 'storm'
-}
+import { WeatherState } from './weather-types.ts';
+import { calculateTimeOfDayBias } from './weather-utils.ts';
 
 const _UP = new THREE.Vector3(0, 1, 0);
 const _scratchSunDir = new THREE.Vector3();
@@ -371,7 +366,7 @@ export class WeatherSystem {
         }
     }
 
-    update(time: number, audioData: VisualState | null, cycleWeatherBias: any = null) {
+    update(time: number, audioData: VisualState | null) {
         if (!audioData) return;
         const dt = 0.016;
 
@@ -418,9 +413,23 @@ export class WeatherSystem {
                 if (uChromaticIntensity) {
                     uChromaticIntensity.value = 1.0; // Sharp pulse
                 }
+            // --- Pattern-Change Seasons ---
+            // Cycle: Standard -> Neon -> Standard -> Glitch
+            const cycle = currentPattern % 4;
+            if (cycle === 1) {
+                this.targetPaletteMode = 'neon';
+                console.log(`[Weather] Season Change: NEON (Pattern ${currentPattern})`);
+            } else if (cycle === 3) {
+                this.targetPaletteMode = 'glitch';
+                console.log(`[Weather] Season Change: GLITCH (Pattern ${currentPattern})`);
+            } else {
+                this.targetPaletteMode = 'standard';
+                console.log(`[Weather] Season Change: STANDARD (Pattern ${currentPattern})`);
             }
         }
 
+        const cyclePos = time % CYCLE_DURATION;
+        const cycleWeatherBias = calculateTimeOfDayBias(cyclePos);
         this.updateWeatherState(bassIntensity, melodyVol, groove, cycleWeatherBias, seasonal);
 
         // --- Ground Water Update ---
@@ -441,7 +450,7 @@ export class WeatherSystem {
         // ---------------------------
 
         // --- Twilight Glow Update ---
-        const cyclePos = time % CYCLE_DURATION;
+        // const cyclePos = time % CYCLE_DURATION; // Already declared above
         const twilightIntensity = this.getTwilightGlowIntensity(cyclePos);
         this.lastTwilightProgress = twilightIntensity;
         try { if(uTwilight) uTwilight.value = twilightIntensity; } catch(e) {}
@@ -777,10 +786,21 @@ export class WeatherSystem {
         if (!this.fog) return;
 
         let fogMultiplier = 1.0;
+        let nearModifier = 1.0;
+
         switch (this.state) {
             case WeatherState.RAIN: fogMultiplier = 0.8; break;
             case WeatherState.STORM: fogMultiplier = 0.6; break;
             default: fogMultiplier = 1.0;
+        }
+
+        // Special Fog Types (Time-of-Day)
+        if (this.weatherType === 'mist') {
+            // Mist is dense but bright. Pull 'near' closer.
+            nearModifier = 0.3;
+        } else if (this.weatherType === 'drizzle') {
+             // Drizzle slightly closer
+             nearModifier = 0.8;
         }
 
         let crescendoFactor = 0;
@@ -796,7 +816,7 @@ export class WeatherSystem {
 
         const totalVisibility = weatherVisibility * darknessVisibility * crescendoVisibility;
 
-        const targetNear = this.baseFogNear * totalVisibility;
+        const targetNear = (this.baseFogNear * nearModifier) * totalVisibility;
         const targetFar = this.baseFogFar * totalVisibility;
 
         if (this.fog instanceof THREE.Fog) {

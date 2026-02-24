@@ -13,6 +13,8 @@ let _velAttr: THREE.InstancedBufferAttribute | null = null;
 let _colorAttr: THREE.InstancedBufferAttribute | null = null;
 let _miscAttr: THREE.InstancedBufferAttribute | null = null;
 let _head = 0;
+let _minUpdate = MAX_PARTICLES;
+let _maxUpdate = -1;
 
 export type ImpactType =
   | 'jump'
@@ -43,10 +45,8 @@ const IMPACT_CONFIG: Record<ImpactType, ImpactConfigItem> = {
     muzzle: { count: 5 } // Fast burst
 };
 
-export interface SpawnOptions {
-    color?: { r: number; g: number; b: number };
-    direction?: THREE.Vector3 | { x: number; y: number; z: number };
-}
+// Deprecated: SpawnOptions removed in favor of direct arguments
+// export interface SpawnOptions { ... }
 
 export function createImpactSystem(): THREE.InstancedMesh {
     if (_impactMesh) return _impactMesh;
@@ -160,6 +160,30 @@ export function createImpactSystem(): THREE.InstancedMesh {
     // Disable raycasting as the geometry doesn't match the matrix
     _impactMesh.raycast = () => {};
 
+    // ⚡ OPTIMIZATION: Update only modified ranges
+    _impactMesh.onBeforeRender = () => {
+        if (_maxUpdate >= _minUpdate && _spawnAttr && _velAttr && _colorAttr && _miscAttr) {
+            const start = _minUpdate;
+            const count = _maxUpdate - _minUpdate + 1;
+            const itemSize = 4; // vec4
+            const updateProps = { offset: start * itemSize, count: count * itemSize };
+
+            _spawnAttr.updateRange = updateProps;
+            _velAttr.updateRange = updateProps;
+            _colorAttr.updateRange = updateProps;
+            _miscAttr.updateRange = updateProps;
+
+            _spawnAttr.needsUpdate = true;
+            _velAttr.needsUpdate = true;
+            _colorAttr.needsUpdate = true;
+            _miscAttr.needsUpdate = true;
+
+            // Reset range
+            _minUpdate = MAX_PARTICLES;
+            _maxUpdate = -1;
+        }
+    };
+
     // Initialize Birth Times to -1000 (Dead)
     for (let i = 0; i < MAX_PARTICLES; i++) {
         spawnArray[i * 4 + 3] = -1000.0;
@@ -170,7 +194,12 @@ export function createImpactSystem(): THREE.InstancedMesh {
     return _impactMesh;
 }
 
-export function spawnImpact(pos: THREE.Vector3 | {x:number, y:number, z:number}, type: ImpactType = 'jump', options?: SpawnOptions) {
+export function spawnImpact(
+    pos: THREE.Vector3 | {x:number, y:number, z:number},
+    type: ImpactType = 'jump',
+    color?: number | {r:number, g:number, b:number} | THREE.Color,
+    direction?: THREE.Vector3 | {x:number, y:number, z:number}
+) {
     if (!_impactMesh || !_spawnAttr || !_velAttr || !_colorAttr || !_miscAttr) return;
 
     const spawnArray = _spawnAttr.array as Float32Array;
@@ -180,14 +209,16 @@ export function spawnImpact(pos: THREE.Vector3 | {x:number, y:number, z:number},
 
     const config = IMPACT_CONFIG[type] || IMPACT_CONFIG.jump;
     const count = config.count;
-    const now = (uTime.value !== undefined) ? uTime.value : performance.now() / 1000;
-
-    const colorOverride = options ? options.color : undefined;
-    const direction = options ? options.direction : undefined;
+    const now = ((uTime as any).value !== undefined) ? (uTime as any).value : performance.now() / 1000;
 
     for (let i = 0; i < count; i++) {
         const idx = _head;
         _head = (_head + 1) % MAX_PARTICLES;
+
+        // Track dirty range
+        if (idx < _minUpdate) _minUpdate = idx;
+        if (idx > _maxUpdate) _maxUpdate = idx;
+
         const offset = idx * 4;
 
         // Spawn Position (Randomized slightly)
@@ -295,8 +326,19 @@ export function spawnImpact(pos: THREE.Vector3 | {x:number, y:number, z:number},
 
         // Color
         let r=1, g=1, b=1;
-        if (colorOverride) {
-            r = colorOverride.r!; g = colorOverride.g!; b = colorOverride.b!;
+        if (color !== undefined) {
+            if (typeof color === 'number') {
+                r = ((color >> 16) & 255) / 255;
+                g = ((color >> 8) & 255) / 255;
+                b = (color & 255) / 255;
+            } else if ((color as any).isColor) {
+                r = (color as THREE.Color).r;
+                g = (color as THREE.Color).g;
+                b = (color as THREE.Color).b;
+            } else {
+                const c = color as {r:number, g:number, b:number};
+                r = c.r; g = c.g; b = c.b;
+            }
         } else if (type === 'jump') { r=1.0; g=0.8; b=0.2; }
         else if (type === 'land') { r=0.6; g=0.5; b=0.4; }
         else if (type === 'dash') { r=0.0; g=1.0; b=1.0; }
@@ -334,9 +376,5 @@ export function spawnImpact(pos: THREE.Vector3 | {x:number, y:number, z:number},
         miscArray[offset + 3] = gScale;
     }
 
-    // Flag Update
-    _spawnAttr.needsUpdate = true;
-    _velAttr.needsUpdate = true;
-    _colorAttr.needsUpdate = true;
-    _miscAttr.needsUpdate = true;
+    // Note: needsUpdate flag is set in onBeforeRender based on dirty range
 }
