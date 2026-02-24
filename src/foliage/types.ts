@@ -4,6 +4,8 @@ export interface ChannelData {
     freq: number;
     volume: number;
     trigger: number;
+    pan?: number;
+    instrument?: number;
     activeEffect?: number;
     effectValue?: number;
 }
@@ -13,6 +15,7 @@ export interface AudioData {
     kickTrigger?: number;
     grooveAmount?: number;
     beatPhase?: number;
+    patternIndex?: number;
 }
 
 export interface FoliageMaterial extends THREE.Material {
