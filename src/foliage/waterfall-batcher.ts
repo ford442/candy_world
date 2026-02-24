@@ -4,11 +4,11 @@ import {
     color, float, vec3, vec2, attribute, positionLocal,
     sin, cos, mix, smoothstep, uniform, If, time, uv,
     varying, dot, normalize, normalLocal, step, Fn, positionWorld,
-    instanceIndex, storage
+    instanceIndex, storage, mx_noise_float, normalWorld
 } from 'three/tsl';
 import {
     sharedGeometries, foliageMaterials, uTime,
-    uAudioLow, uAudioHigh, CandyPresets, registerReactiveMaterial
+    uAudioLow, uAudioHigh, CandyPresets, registerReactiveMaterial, createJuicyRimLight
 } from './common.ts';
 import { foliageGroup } from '../world/state.ts';
 
@@ -72,30 +72,61 @@ export class WaterfallBatcher {
             side: THREE.DoubleSide
         });
 
-        // Custom TSL Logic for Column
-        const speed = float(2.0);
+        // Custom TSL Logic for Column (Juicy Upgrade)
+        // 1. Flow & Foam (Accelerated by Highs)
+        const speed = float(2.0).add(uAudioHigh.mul(2.0));
         const flowUV = uv().add(vec2(0, uTime.mul(speed).negate()));
 
         const ripple1 = sin(flowUV.y.mul(15.0).add(flowUV.x.mul(5.0))).mul(0.5).add(0.5);
         const ripple2 = sin(flowUV.y.mul(25.0).sub(flowUV.x.mul(10.0)).add(uTime)).mul(0.5).add(0.5);
-        const foam = ripple1.mul(ripple2);
+        const foamNoise = ripple1.mul(ripple2);
 
-        // Audio Pulse (Global)
+        // 2. Bottom Foam Gradient (Pivot is center Y=0, Height=1, so range -0.5 to 0.5)
+        // Strong foam at bottom (-0.5) fading out by -0.2
+        const yPos = positionLocal.y;
+        const bottomGradient = float(1.0).sub(smoothstep(-0.5, -0.2, yPos));
+        const totalFoam = foamNoise.add(bottomGradient.mul(2.0)).min(1.0);
+
+        // 3. Jelly Wobble (Vertex Displacement)
+        // Wobble based on position and time
+        const wobbleTime = uTime.mul(3.0);
+        const noiseInput = positionLocal.mul(2.0).add(vec3(0, wobbleTime, 0));
+        const wobbleX = mx_noise_float(noiseInput);
+        const wobbleZ = mx_noise_float(noiseInput.add(vec3(10.0)));
+
+        // Audio Impact on wobble (Bass Kick makes it bulge)
+        const wobbleAmp = float(0.1).add(uAudioLow.mul(0.2));
+        const displacement = vec3(wobbleX, float(0.0), wobbleZ).mul(wobbleAmp);
+
+        // Apply Displacement
+        colMat.positionNode = positionLocal.add(displacement);
+
+        // 4. Color & Emission
         const uPulseIntensity = uAudioLow.mul(2.0); // Amplified bass
         const uBaseEmission = float(0.2);
 
+        // Gradient: Cyan (Top) to Purple (Bottom)
+        // UV.y 0 (Bottom) -> 1 (Top)
         const gradient = mix(color(0xFF00FF), color(0x00FFFF), uv().y);
 
-        // Mix gradient into base color
+        // Mix gradient into base color (Base is Cyan from SeaJelly)
         colMat.colorNode = mix(colMat.colorNode, gradient, 0.5);
 
-        // Emission
-        const emission = gradient.mul(uBaseEmission.add(uPulseIntensity)).mul(foam.add(0.2));
-        colMat.emissiveNode = emission;
+        // Juicy Rim Light (The "Palette" Polish)
+        // Makes the edges glow with energy
+        const rimColor = color(0x00FFFF);
+        const rim = createJuicyRimLight(rimColor, float(2.0), float(3.0), normalWorld);
 
-        // Roughness
+        // Total Emission = Gradient + Foam + Rim + Pulse
+        // Foam makes it white/bright
+        const foamEmission = color(0xFFFFFF).mul(totalFoam.mul(uBaseEmission.add(uPulseIntensity)));
+
+        // Combine: Base Emission + Foam + Rim
+        colMat.emissiveNode = gradient.mul(uBaseEmission).add(foamEmission).add(rim);
+
+        // Roughness: Foam makes it rougher
         const currentRoughness = colMat.roughnessNode || float(colMat.roughness);
-        colMat.roughnessNode = currentRoughness.add(foam.mul(0.5));
+        colMat.roughnessNode = currentRoughness.add(totalFoam.mul(0.5));
 
         this.mesh = new THREE.InstancedMesh(colGeo, colMat, MAX_WATERFALLS);
         this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
@@ -126,8 +157,7 @@ export class WaterfallBatcher {
 
         // Physics
         // Pos = Origin + Vel * t - 0.5 * g * t^2
-        // Initial Velocity:
-        // Upward surge: V_y = 5.0 + uAudioLow * 10.0
+        // Initial Velocity (Boosted by Bass)
         const vUp = float(5.0).add(uAudioLow.mul(10.0));
 
         // Random horizontal spread
@@ -140,52 +170,32 @@ export class WaterfallBatcher {
             aOrigin.z.add(vZ.mul(t))
         );
 
-        // Bounce check?
-        // Just let it fall through floor, it resets.
-        // Scale down at end of life
-        const scaleLife = sin(t.mul(Math.PI)); // 0 -> 1 -> 0
+        // Scale down at end of life (Sine curve 0->1->0)
+        const scaleLife = sin(t.mul(Math.PI));
 
-        splashMat.positionNode = pos;
+        // TSL Scale Logic (Juicy Upgrade)
+        // Scale up with Melody (uAudioHigh) for explosive sparkles
+        const audioScale = float(1.0).add(uAudioHigh.mul(2.0));
 
-        // Adjust scale
-        // Base splash size is ~0.15 * width.
-        // We'll set the base scale in the matrix to (width*0.15), then modulate here?
-        // Actually, since width varies per waterfall, we must set the base scale in JS via matrix.
-        // Then we multiply by life scale in TSL.
+        // Base splash size (0.5) * Life * Audio
+        const splashSize = float(0.5).mul(scaleLife).mul(audioScale);
 
-        // TSL Scale Logic
-        // scaleNode affects the local vertex position *before* matrix transform.
-        // So `positionLocal` is scaled.
-        // BUT `splashMat.positionNode` overrides the World Position calculation if not careful.
-        // `positionNode` usually replaces the Vertex Stage output.
-        // If we want to modify the vertex position relative to the instance matrix, we should use `vertexPositionNode`?
-        // In `MeshStandardNodeMaterial`, `positionNode` is the final world position.
-        // We calculated `pos` as World Position (using `aOrigin` which is world space).
-        // So we don't use the instance matrix for position, only for scale reference?
-        // Actually, if we use `positionNode = pos`, the instance matrix is ignored for position.
-        // But we want to use the instance matrix to control the *size* (scale) of the splash.
-        // We can extract scale from matrix? Or just set it.
-        // `MeshStandardNodeMaterial` doesn't automatically apply instance matrix if `positionNode` is set explicitly to a world value.
-        // UNLESS we add it.
-        // `pos` is absolute world position.
-        // We need to apply the size scaling.
-        // `splashGeo` is radius 1.
-        // If we want radius R, we scale local vertex by R.
-        // `positionLocal` * scale.
-
-        // The `pos` we calculated is the *center* of the sphere.
-        // The vertex position is `pos + positionLocal * scale`.
-
-        // Get scale from instance matrix?
-        // Accessing instance matrix in TSL is possible but complex.
-        // Simpler: Just pass `width` as an attribute or use a fixed size.
-        // Waterfalls are usually similar size.
-        // Let's assume a fixed splash size for optimization, or use `aVelocity.w` if we had it.
-        // Let's use `aVelocity`'s magnitude or similar? No.
-        // Let's just use a constant size of 0.5.
-        const splashSize = float(0.5).mul(scaleLife);
-
+        // Apply position: Center (pos) + Local Vertex (positionLocal * Size)
         splashMat.positionNode = pos.add(positionLocal.mul(splashSize));
+
+        // Color Logic (Juicy Upgrade)
+        // Mix from White (Foam) to Cyan/Magenta based on life or randomness
+        // Use aVelocity.y (phase seed) to randomize color
+        const randomColor = mix(color(0x00FFFF), color(0xFF00FF), sin(aVelocity.y.mul(10.0)).mul(0.5).add(0.5));
+
+        // Flash white at birth (t < 0.2)
+        const flash = float(1.0).sub(smoothstep(0.0, 0.2, t));
+        const finalColor = mix(randomColor, color(0xFFFFFF), flash);
+
+        splashMat.colorNode = finalColor;
+
+        // Add emission for glow (Bioluminescent splash)
+        splashMat.emissiveNode = finalColor.mul(0.5).add(flash.mul(0.5));
 
         this.splashMesh = new THREE.InstancedMesh(splashGeo, splashMat, MAX_SPLASHES);
         this.splashMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
