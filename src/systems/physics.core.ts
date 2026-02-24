@@ -30,6 +30,8 @@ export interface KeyStates {
     sneak: boolean;
     dash: boolean;
     dance: boolean;
+    action: boolean;
+    phase: boolean;
 }
 
 export interface MovementInput {

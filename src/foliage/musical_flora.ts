@@ -1,3 +1,208 @@
+import * as THREE from 'three';
+import { 
+    createClayMaterial, 
+    createCandyMaterial, 
+    registerReactiveMaterial, 
+    attachReactivity
+} from './common.ts';
+
+import { unlockSystem } from '../systems/unlocks.ts';
+import { spawnImpact } from './impacts.ts';
+
+import { batchAnimationCalc, uploadPositions } from '../utils/wasm-loader.js';
+import { arpeggioFernBatcher } from './arpeggio-batcher.ts';
+import { dandelionBatcher } from './dandelion-batcher.ts';
+import { portamentoPineBatcher } from './portamento-batcher.ts';
+import { spawnDandelionExplosion } from './dandelion-seeds.ts';
+
+// Interfaces for options
+export interface ArpeggioFernOptions {
+    color?: number;
+    scale?: number;
+}
+
+export interface PortamentoPineOptions {
+    height?: number;
+}
+
+export interface CymbalDandelionOptions {
+    scale?: number;
+}
+
+export interface SnareTrapOptions {
+    color?: number;
+    scale?: number;
+}
+
+export interface RetriggerMushroomOptions {
+    color?: number;
+    scale?: number;
+    retriggerSpeed?: number;
+}
+
+// Interfaces for internal structures
+interface SystemData {
+    mesh: THREE.InstancedMesh;
+    data: any[];
+    count: number;
+}
+
+// ⚡ OPTIMIZATION: Shared scratch variables to avoid GC in animation loops
+const _scratchEuler = new THREE.Euler();
+
+// --- Category 1: Melodic Flora ---
+
+export function createArpeggioFern(options: ArpeggioFernOptions = {}) {
+    const { color = 0x00FF88, scale = 1.0 } = options;
+    const group = new THREE.Group();
+
+    // ⚡ OPTIMIZATION: Logic Object only (visuals are batched)
+    // Hit Volume for interaction
+    const hitGeo = new THREE.CylinderGeometry(0.5 * scale, 0.5 * scale, 2.0 * scale);
+    const hitMat = new THREE.MeshBasicMaterial({ visible: false });
+    const hitMesh = new THREE.Mesh(hitGeo, hitMat);
+    hitMesh.position.y = 1.0 * scale;
+    group.add(hitMesh);
+
+    group.userData.animationType = 'arpeggioUnfurl';
+    group.userData.type = 'fern';
+    group.userData.interactionText = "Play Arpeggio";
+
+    group.userData.needsRegistration = true;
+    group.userData.batchOptions = options;
+
+    // Callback for generation system to invoke after setting position
+    group.userData.onPlacement = () => {
+        arpeggioFernBatcher.register(group, options);
+    };
+
+    // Attach basic reactivity metadata
+    attachReactivity(group);
+
+    const interactive = makeInteractive(group);
+
+    // Override interaction handlers to support InstancedMesh updates
+    const originalEnter = group.userData.onGazeEnter;
+    const originalLeave = group.userData.onGazeLeave;
+    const originalInteract = group.userData.onInteract;
+
+    // Helper to update text based on state
+    group.userData.updateInteractionState = () => {
+        const unfurl = arpeggioFernBatcher.globalUnfurl || 0;
+        const harvested = group.userData.harvested || false;
+
+        if (harvested) {
+            group.userData.interactionText = "Harvested";
+        } else if (unfurl > 0.8) {
+            group.userData.interactionText = "Harvest Core";
+        } else {
+            group.userData.interactionText = "Play Arpeggio";
+        }
+    };
+
+    group.userData.onGazeEnter = () => {
+        group.userData.updateInteractionState();
+        if (originalEnter) originalEnter(); // Handles logic state (isHovered)
+        // Physical pop handled by updating batcher matrix
+        const batchIdx = group.userData.batchIndex;
+        if (batchIdx !== undefined) {
+             // We need to scale the group (Logic) then update Batcher
+             // makeInteractive already scaled the group in originalEnter!
+             arpeggioFernBatcher.updateInstance(batchIdx, group);
+        }
+    };
+
+    group.userData.onInteract = () => {
+        if (originalInteract) originalInteract(); // Visual spin
+
+        const unfurl = arpeggioFernBatcher.globalUnfurl || 0;
+        if (!group.userData.harvested && unfurl > 0.8) {
+            unlockSystem.harvest('fern_core', 1, 'Fern Core');
+            group.userData.harvested = true;
+            group.userData.updateInteractionState();
+        }
+    };
+
+    group.userData.onGazeLeave = () => {
+        if (originalLeave) originalLeave();
+        const batchIdx = group.userData.batchIndex;
+        if (batchIdx !== undefined) {
+             arpeggioFernBatcher.updateInstance(batchIdx, group);
+        }
+    };
+
+    return interactive;
+}
+
+export function createPortamentoPine(options: PortamentoPineOptions = {}) {
+    const { height = 4.0 } = options;
+    const group = new THREE.Group();
+
+    // ⚡ OPTIMIZATION: Logic Object only (visuals are batched)
+
+    // Use pr-281's batched, scaled logic object (keeps visuals instanced) but preserve
+    // HEAD's audio/reactivity behaviour so interactions still sound and affect bend state.
+    const scaleFactor = height / 4.0;
+
+    // Scale logic object so physics/interaction matches visual size
+    group.scale.setScalar(scaleFactor);
+
+    // Hitbox (Cylinder approx)
+    const hitGeo = new THREE.CylinderGeometry(0.5 * scaleFactor, 0.5 * scaleFactor, 4.0 * scaleFactor);
+    const hitMat = new THREE.MeshBasicMaterial({ visible: false });
+    const hitMesh = new THREE.Mesh(hitGeo, hitMat);
+    hitMesh.position.y = 2.0 * scaleFactor; // Center at half-height
+    group.add(hitMesh);
+
+    group.userData.animationType = 'batchedPortamento'; // Batched logic (matches batcher)
+    group.userData.type = 'tree';
+    group.userData.interactionText = 'Bend Tree';
+
+    // Reactivity State (kept from HEAD so audio triggers still update logic)
+    group.userData.reactivityState = { currentBend: 0, velocity: 0 };
+
+    group.userData.reactToNote = (noteInfo: any) => {
+        if (noteInfo.channel === 2 || noteInfo.channel === 3) {
+            group.userData.reactivityState.velocity += 15.0 * (noteInfo.velocity || 0.5);
+            if ((window as any).AudioSystem && typeof (window as any).AudioSystem.playSound === 'function') {
+                const pitch = noteInfo.note ? 1.0 : 0.8 + Math.random() * 0.4;
+                (window as any).AudioSystem.playSound('creak', { position: group.position, pitch, volume: 0.3 });
+            }
+            // Inform the batcher of reactive bend (batcher provides helper)
+            const idx = group.userData.batchIndex;
+            if (idx !== undefined && portamentoPineBatcher && typeof portamentoPineBatcher.setBendForIndex === 'function') {
+                portamentoPineBatcher.setBendForIndex(idx, group.userData.reactivityState.velocity);
+            }
+        }
+    };
+
+    group.userData.onPlacement = () => {
+        portamentoPineBatcher.register(group, options);
+    };
+
+    const interactive = makeInteractive(group);
+
+    // Sync interactions to batched instance
+    const originalEnter = group.userData.onGazeEnter;
+    const originalLeave = group.userData.onGazeLeave;
+
+    group.userData.onGazeEnter = () => {
+        if (originalEnter) originalEnter();
+        const batchIdx = group.userData.batchIndex;
+        if (batchIdx !== undefined) portamentoPineBatcher.updateInstance(batchIdx, group);
+    };
+
+    group.userData.onGazeLeave = () => {
+        if (originalLeave) originalLeave();
+        const batchIdx = group.userData.batchIndex;
+        if (batchIdx !== undefined) portamentoPineBatcher.updateInstance(batchIdx, group);
+    };
+
+    return interactive;
+}
+
+// --- Category 2: Rhythmic Structures ---
+
 export function createCymbalDandelion(options: CymbalDandelionOptions = {}) {
     const { scale = 1.0 } = options;
     const group = new THREE.Group();
@@ -35,6 +240,7 @@ export function createCymbalDandelion(options: CymbalDandelionOptions = {}) {
             headOffset.applyQuaternion(group.quaternion);
             const headPos = group.position.clone().add(headOffset);
             spawnImpact(headPos, 'spore', 0xFFD700);
+            spawnDandelionExplosion(headPos, 24);
 
             // Audio
             if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {

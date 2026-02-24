@@ -3,7 +3,7 @@
 **Objective:** Create an immersive, audio-reactive 3D world with a "Cute Clay" aesthetic, featuring a robust musical ecosystem and advanced WebGPU visuals.
 
 ## Current Focus
-**Phase:** Feature Implementation (Musical Ecosystem)
+**Phase:** Feature Implementation (Musical Ecosystem / Graphics Polish)
 **Priority:** High (Category 4: Advanced Shaders / Category 1-3 Wrap-up)
 
 ---
@@ -12,6 +12,10 @@
 
 1. **Rare Flora Discovery**: Implement the discovery system for rare plants (Next Priority).
 2. **Verify Data Flow**: Ensure `AudioSystem` correctly extracts and passes `order`/`row` data from the worklet to drive the Pattern-Change logic reliably.
+1. **WebGPU Migration (Phase 4)**: Begin replacing standard materials with TSL-driven NodeMaterials for remaining foliage types.
+1. **Cymbal Dandelion Harvesting**: Implement collecting seeds ("Chime Shards") from Cymbal Dandelions.
+2. **Rare Flora Discovery**: Implement the discovery system for rare plants (Next Priority).
+1. **Procedural Cloud Layer**: Implement a volumetric-style cloud layer using TSL noise and instancing to enhance the skybox, as outlined in the Graphics Quality Enhancement Plan (Phase 2).
 
 ---
 
@@ -19,6 +23,20 @@
 - **Accomplished:**
   - **Cymbal Dandelion Harvesting**: **Status: Implemented ✅**
     - *Implementation Details:* Implemented `harvest(batchIndex)` in `src/foliage/dandelion-batcher.ts` to hide seeds of harvested dandelions. Updated `src/foliage/musical_flora.ts` to trigger harvesting on interaction, awarding 'chime_shard' items and spawning 'spore' impact particles. Enhanced `createCandyMaterial` type safety.
+  - **Pattern-Change Seasons & Audio Data Flow**: **Status: Implemented ✅**
+    - *Implementation Details:* Implemented logic in `src/systems/weather.ts` to switch global palette modes (Standard, Neon, Glitch) based on the current audio pattern index. Updated `src/foliage/types.ts` to include `pan`, `instrument`, and `patternIndex` in `ChannelData`/`AudioData` interfaces, fixing type compatibility issues. Updated `public/js/audio-processor.js` to calculate stereo pan for 4-channel MODs using a heuristic (L-R-R-L).
+  - **Weather-Cycle Integration**: **Status: Implemented ✅**
+    - *Implementation Details:* Implemented `calculateTimeOfDayBias` in `src/systems/weather-utils.ts` to drive weather changes (Morning Mist, Afternoon Storms, Evening Drizzle) based on cycle position. Integrated this into `WeatherSystem.update()` and `WeatherSystem.updateFog()`, enhancing visual feedback for time-of-day weather.
+  - **Migrate `main.js` to TypeScript**: **Status: Implemented ✅**
+    - *Implementation Details:* Converted the main entry point to `src/main.ts`. Defined global type definitions in `src/types/global.d.ts` for window augmentations and untyped JS modules. Updated `index.html` to point to the new TypeScript entry file and verified the build. This completes the core Phase 1 migration.
+  - **Pattern-Change Seasons Logic**: **Status: Implemented ✅**
+    - *Implementation Details:* Verified data flow of `order`/`row` from AudioWorklet to `AudioSystem`. Implemented logic in `src/systems/weather.ts` to cycle `targetPaletteMode` (Standard -> Neon -> Standard -> Glitch) based on the music pattern index (`patternIndex`), driving the global visual theme.
+  - **Portamento Pine Slingshot Physics**: **Status: Implemented ✅**
+    - *Implementation Details:* Implemented interaction logic in `src/systems/physics.ts`. Players can "push" the pine to bend it (modifying its velocity state). If the tree is bent forward, running into it launches the player up (Ramp). If the tree is bent backward and snaps forward, it launches the player forward (Slingshot). Added debounce and visual impacts.
+  - **Snare-Snap Trap Physics**: **Status: Implemented ✅**
+    - *Implementation Details:* Implemented interaction logic in `src/systems/physics.ts` using `foliageTraps` global list. Traps trigger (snap shut) when the player steps inside (radius < 0.8, open state). If the player is inside when the trap is closing/closed, a strong knockback impulse is applied along with visual/audio feedback. Integrated projectile reflection in `src/gameplay/rainbow-blaster.ts`: projectiles reflect off traps and force them to snap shut.
+  - **Cymbal Dandelion Explosion**: **Status: Implemented ✅**
+    - *Implementation Details:* Created `src/foliage/dandelion-seeds.ts` using `InstancedMesh` and TSL `MeshStandardNodeMaterial` to render floating seeds (Stalk + Tip). Seeds explode outward with drag, wind influence (`uWindDirection`), and sinusoidal sway. Integrated into `src/foliage/musical_flora.ts` to trigger on harvest.
   - **Migrate to TypeScript (Phase 1): Remaining Foliage Modules (`glitch`, `chromatic`)**: **Status: Implemented ✅**
     - *Implementation Details:* Migrated `src/foliage/glitch.js` and `src/foliage/chromatic.js` to TypeScript. Added strict typing for TSL nodes and shader uniforms. Updated `UnifiedMaterialOptions` in `src/foliage/common.ts` to support `emissive` properties, fixing a regression in Jitter Mines. Removed `src/foliage/pines.js` as it was dead code superseded by `src/foliage/portamento-batcher.ts`.
   - **Migrate to TypeScript (Phase 1): Visual Effects (`panning-pads`, `silence-spirits`)**: **Status: Implemented ✅**
@@ -27,6 +45,8 @@
     - *Implementation Details:* Migrated `src/foliage/ribbons.js`, `src/foliage/sparkle-trail.js`, `src/foliage/lotus.js`, and `src/foliage/aurora.js` to TypeScript (`.ts`). Added strict typing for `RibbonUserData`, `SparkleTrailUserData`, `LotusOptions` and TSL nodes. Updated `src/foliage/index.ts` exports. Verified file presence and imports.
   - **Migrate to TypeScript (Phase 1): Core Effects (`impacts`, `instrument`)**: **Status: Implemented ✅**
     - *Implementation Details:* Migrated `src/foliage/impacts.js` and `src/foliage/instrument.js` to TypeScript (`.ts`). Added strict typing for `ImpactConfig`, `ImpactType`, and `InstrumentShrineOptions`. Updated imports in dependent files (`berries.ts`, `animation.ts`, `rainbow-blaster.ts`, etc.) to point to the new TypeScript modules.
+  - **Kick-Drum Geyser Physics**: **Status: Implemented ✅**
+    - *Implementation Details:* Implemented physics interaction for Kick-Drum Geysers in `src/systems/physics.ts`. Players can now "ride" the active plume for a vertical boost. Added gameplay mechanic to charge the eruption by shooting the base (handled in `src/gameplay/rainbow-blaster.ts`), which boosts the plume height and intensity via `chargeLevel` in `src/foliage/animation.ts`.
   - **Instrument Shrine Puzzle Mechanics**: **Status: Implemented ✅**
     - *Implementation Details:* Implemented interactive puzzle logic for Instrument Shrines in `src/foliage/instrument.js` and `src/foliage/animation.ts`. Shrines now detect active audio channels and "unlock" (with visual feedback and rewards) when the matching instrument ID is playing. Added 'Shrine Master' unlock to `src/systems/unlocks.ts` requiring collected shrine tokens.
   - **Panning Pads**: **Status: Implemented ✅**
@@ -138,17 +158,21 @@
       - **Visuals:** Triggers a chromatic aberration pulse (`uChromaticIntensity`) on use.
   - [x] Phase Shift Ability & Tremolo Harvesting
     - *Implementation Details:* Implemented `Phase Shift` ability (invulnerability/speed boost) in `src/systems/physics.ts` triggered by 'Z' key. Requires and consumes 'Tremolo Bulb'. Added harvesting logic to `Tremolo Tulips` in `src/foliage/flowers.ts`.
-  - [x] Cymbal Dandelion Harvesting
-    - *Implementation Details:* Implemented seed harvesting for Cymbal Dandelions. Interacting with the flower head triggers a 'spore' explosion, hides the seeds (batcher update), collects 'Chime Shards', and plays a sound. Added 'Resonance Tuner' unlock requiring Chime Shards.
+  - [x] Cymbal Dandelion Harvesting & Explosion
+    - *Implementation Details:* Implemented seed harvesting for Cymbal Dandelions. Interacting with the flower head triggers a `spawnDandelionExplosion` (floating seeds with drag/wind) alongside a 'spore' particle burst. The seeds are rendered efficiently using `InstancedMesh` in `src/foliage/dandelion-seeds.ts`.
   - [x] Instrument Shrine Puzzles
     - *Implementation Details:* Implemented interactive logic where shrines detect if their matching instrument ID is active in the audio mix. Unlocking triggers a visual burst and rewards a 'Shrine Token'.
+  - [x] Kick-Drum Geyser Physics & Charging
+    - *Implementation Details:* Implemented "Riding the Plume" mechanic in `src/systems/physics.ts` (vertical velocity boost). Added charging mechanic: shooting the base increases `eruptionStrength` via `chargeLevel`.
+  - [x] Snare-Snap Trap Physics
+    - *Implementation Details:* Implemented player interaction (trigger on step, knockback on close) and projectile reflection in `src/systems/physics.ts` and `src/gameplay/rainbow-blaster.ts`.
   - **Plants Twilight Glow**: Implemented logic for plants to glow during twilight hours (pre-dawn/dusk).
     - *Implementation Details:* Added `uTwilight` global uniform to `src/foliage/sky.js` and integrated it into the TSL material pipeline for Flowers, Mushrooms, and Trees. The glow intensity ramps up at dusk and down at dawn, driven by the `WeatherSystem`.
 
 ---
 
 ## Migration Roadmap (Summary)
-1. **Phase 1 (JS -> TS):** Typing core data structures and systems. [IN PROGRESS]
+1. **Phase 1 (JS -> TS):** Typing core data structures and systems. [DONE]
 2. **Phase 2 (TS -> ASC):** Offloading hot paths to WASM. [DONE]
 3. **Phase 3 (ASC -> C++):** Specialized solvers.
 4. **Phase 4 (Three.js -> WebGPU):** Raw compute and render pipelines.

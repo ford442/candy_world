@@ -15,16 +15,27 @@ const MINE_RADIUS = 0.5;
 const TRIGGER_RADIUS = 2.0;
 const COOLDOWN = 1.0;
 
+// ⚡ OPTIMIZATION: Shared scratch variables to avoid GC in animation loops
+const _scratchDummy = new THREE.Object3D();
+
+// Type Definition for Pool Object
+interface Mine {
+    active: boolean;
+    visible: boolean;
+    position: THREE.Vector3;
+    rotation: THREE.Euler; // Store rotation state
+    scale: number;        // Store scale state
+    time: number;
+}
+
 class JitterMineSystem {
     mesh: THREE.InstancedMesh;
-    mines: any[]; // Using any for pool objects to simplify
-    dummy: THREE.Object3D;
+    mines: Mine[];
     cooldownTimer: number;
     trauma: number;
 
     constructor() {
         this.mines = [];
-        this.dummy = new THREE.Object3D();
         this.cooldownTimer = 0;
         this.trauma = 0;
 
@@ -58,12 +69,15 @@ class JitterMineSystem {
                 active: false,
                 visible: false,
                 position: new THREE.Vector3(),
+                rotation: new THREE.Euler(), // Initialize
+                scale: 0,                   // Initialize
                 time: 0
             });
             // Init to scale 0
-            this.dummy.scale.set(0,0,0);
-            this.dummy.updateMatrix();
-            this.mesh.setMatrixAt(i, this.dummy.matrix);
+            _scratchDummy.position.set(0,0,0);
+            _scratchDummy.scale.set(0,0,0);
+            _scratchDummy.updateMatrix();
+            this.mesh.setMatrixAt(i, _scratchDummy.matrix);
         }
     }
 
@@ -77,8 +91,7 @@ class JitterMineSystem {
         // Find free slot
         let index = this.mines.findIndex(m => !m.active);
 
-        // If pool full, recycle oldest (first one usually if we push/shift, but here index order)
-        // Simple recycle: just pick index 0 if all active? Or random?
+        // If pool full, recycle oldest
         if (index === -1) {
              // Find oldest (largest time)
              let maxTime = -1;
@@ -96,14 +109,18 @@ class JitterMineSystem {
         mine.active = true;
         mine.visible = true;
         mine.position.copy(position);
+
+        // Reset rotation and scale state
+        mine.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, 0);
+        mine.scale = 1.0;
         mine.time = 0;
 
         // Update Instance
-        this.dummy.position.copy(position);
-        this.dummy.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, 0);
-        this.dummy.scale.setScalar(1.0);
-        this.dummy.updateMatrix();
-        this.mesh.setMatrixAt(index, this.dummy.matrix);
+        _scratchDummy.position.copy(position);
+        _scratchDummy.rotation.copy(mine.rotation);
+        _scratchDummy.scale.setScalar(1.0);
+        _scratchDummy.updateMatrix();
+        this.mesh.setMatrixAt(index, _scratchDummy.matrix);
         this.mesh.instanceMatrix.needsUpdate = true;
 
         this.cooldownTimer = COOLDOWN;
@@ -126,36 +143,33 @@ class JitterMineSystem {
 
             if (!mine.active) {
                 if (mine.visible) {
-                    this.dummy.scale.set(0,0,0);
-                    this.dummy.updateMatrix();
-                    this.mesh.setMatrixAt(i, this.dummy.matrix);
+                    _scratchDummy.position.copy(mine.position);
+                    _scratchDummy.scale.set(0,0,0);
+                    _scratchDummy.updateMatrix();
+                    this.mesh.setMatrixAt(i, _scratchDummy.matrix);
                     mine.visible = false;
                     needsUpdate = true;
                 }
                 continue;
             }
 
-            // Get current matrix to check scale/rotation
-            this.mesh.getMatrixAt(i, this.dummy.matrix);
-
+            // ⚡ OPTIMIZATION: Update Rotation State (No Decompose!)
+            // Avoid getMatrixAt() and decompose() by using stored state
             mine.time += delta;
-
-            // Vibrate visuals
-            this.dummy.matrix.decompose(this.dummy.position, this.dummy.quaternion, this.dummy.scale);
-
-            const euler = new THREE.Euler().setFromQuaternion(this.dummy.quaternion);
-            euler.x += delta * 2.0;
-            euler.y += delta * 1.5;
-            this.dummy.quaternion.setFromEuler(euler);
+            mine.rotation.x += delta * 2.0;
+            mine.rotation.y += delta * 1.5;
 
             // Pulse scale
             const pulse = 1.0 + Math.sin(mine.time * 10.0) * 0.1;
-            this.dummy.scale.setScalar(pulse);
+            mine.scale = pulse;
 
-            this.dummy.updateMatrix();
-            this.mesh.setMatrixAt(i, this.dummy.matrix);
-            // FIX: Set needsUpdate for active mines too!
-            // Wait, needsUpdate is a flag for the loop to set instanceMatrix.needsUpdate = true at end.
+            // Recompose Matrix using Scratch Object
+            _scratchDummy.position.copy(mine.position);
+            _scratchDummy.rotation.copy(mine.rotation);
+            _scratchDummy.scale.setScalar(pulse);
+            _scratchDummy.updateMatrix();
+
+            this.mesh.setMatrixAt(i, _scratchDummy.matrix);
             needsUpdate = true;
 
             // Proximity Check
