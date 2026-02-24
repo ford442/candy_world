@@ -14,6 +14,8 @@ let _spawnAttr: THREE.InstancedBufferAttribute | null = null;
 let _velAttr: THREE.InstancedBufferAttribute | null = null;
 let _miscAttr: THREE.InstancedBufferAttribute | null = null;
 let _head = 0;
+let _minUpdate = MAX_SEEDS;
+let _maxUpdate = -1;
 
 // ⚡ OPTIMIZATION: Scratch variables
 const _scratchVec3 = new THREE.Vector3();
@@ -180,6 +182,28 @@ export function createDandelionSeedSystem(): THREE.InstancedMesh {
     // Dummy matrix update
     _seedMesh.instanceMatrix.needsUpdate = true;
 
+    // ⚡ OPTIMIZATION: Update only modified ranges
+    _seedMesh.onBeforeRender = () => {
+        if (_maxUpdate >= _minUpdate && _spawnAttr && _velAttr && _miscAttr) {
+            const start = _minUpdate;
+            const count = _maxUpdate - _minUpdate + 1;
+            const itemSize = 4; // vec4
+            const updateProps = { offset: start * itemSize, count: count * itemSize };
+
+            _spawnAttr.updateRange = updateProps;
+            _velAttr.updateRange = updateProps;
+            _miscAttr.updateRange = updateProps;
+
+            _spawnAttr.needsUpdate = true;
+            _velAttr.needsUpdate = true;
+            _miscAttr.needsUpdate = true;
+
+            // Reset range
+            _minUpdate = MAX_SEEDS;
+            _maxUpdate = -1;
+        }
+    };
+
     return _seedMesh;
 }
 
@@ -198,6 +222,11 @@ export function spawnDandelionExplosion(
     for(let i=0; i<count; i++) {
         const idx = _head;
         _head = (_head + 1) % MAX_SEEDS;
+
+        // Track dirty range
+        if (idx < _minUpdate) _minUpdate = idx;
+        if (idx > _maxUpdate) _maxUpdate = idx;
+
         const offset = idx * 4;
 
         // Spread out start position slightly (radius of head)
@@ -233,8 +262,4 @@ export function spawnDandelionExplosion(
         miscArray[offset + 2] = Math.random() - 0.5;
         miscArray[offset + 3] = Math.random() * Math.PI * 2;
     }
-
-    _spawnAttr.needsUpdate = true;
-    _velAttr.needsUpdate = true;
-    _miscAttr.needsUpdate = true;
 }
