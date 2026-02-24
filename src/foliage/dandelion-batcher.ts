@@ -32,11 +32,13 @@ export class DandelionBatcher {
     count: number;
 
     mesh: THREE.InstancedMesh | null;
+    dummy: THREE.Object3D; // For matrix calculations
 
     constructor() {
         this.initialized = false;
         this.count = 0;
         this.mesh = null;
+        this.dummy = new THREE.Object3D();
     }
 
     init() {
@@ -51,56 +53,6 @@ export class DandelionBatcher {
         const stemGeo = new THREE.CylinderGeometry(0.02, 0.03, 1.5, 6);
         stemGeo.translate(0, 0.75, 0);
 
-        // 2. Stalk (Clay White) & 3. Tip (Candy Gold)
-        // These need chunking (12,000 instances total)
-        const totalStalks = MAX_DANDELIONS * SEEDS_PER_HEAD;
-        const numChunks = Math.ceil(totalStalks / CHUNK_SIZE);
-
-        const stalkGeo = new THREE.CylinderGeometry(0.01, 0.01, 0.4, 4);
-        stalkGeo.translate(0, 0.2, 0); // Pivot at bottom
-        const stalkMat = createClayMaterial(0xFFFFFF);
-
-        // TSL Animation for Stalks (Shake)
-        const shakeIntensity = uAudioHigh.mul(0.5);
-        const phase = float(instanceIndex).mul(13.0);
-        const fastTime = uTime.mul(30.0);
-        const shakeX = sin(fastTime.add(phase)).mul(shakeIntensity).mul(0.2);
-        const shakeZ = cos(fastTime.add(phase.mul(0.7))).mul(shakeIntensity).mul(0.2);
-        const yNorm = positionLocal.y.div(0.4);
-        const dispX = yNorm.mul(shakeX);
-        const dispZ = yNorm.mul(shakeZ);
-        stalkMat.positionNode = positionLocal.add(vec3(dispX, float(0.0), dispZ));
-
-        const tipGeo = new THREE.SphereGeometry(0.04, 8, 8);
-        const tipMat = createCandyMaterial(0xFFD700, { roughness: 1.0 });
-        registerReactiveMaterial(tipMat);
-        const tipShakeX = shakeX;
-        const tipShakeZ = shakeZ;
-        tipMat.positionNode = positionLocal.add(vec3(tipShakeX, float(0.0), tipShakeZ));
-
-        for (let i = 0; i < numChunks; i++) {
-            // Calculate size for this chunk (last one might be smaller)
-            const remaining = totalStalks - (i * CHUNK_SIZE);
-            const limit = Math.min(CHUNK_SIZE, remaining);
-
-            // Stalk Chunk
-            const sMesh = new THREE.InstancedMesh(stalkGeo, stalkMat, limit);
-            sMesh.castShadow = true;
-            sMesh.receiveShadow = true;
-            sMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-            sMesh.count = 0;
-            this.stalkMeshes.push(sMesh);
-            if (foliageGroup) foliageGroup.add(sMesh);
-
-            // Tip Chunk
-            const tMesh = new THREE.InstancedMesh(tipGeo, tipMat, limit);
-            tMesh.castShadow = true;
-            tMesh.receiveShadow = true;
-            tMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-            tMesh.count = 0;
-            this.tipMeshes.push(tMesh);
-            if (foliageGroup) foliageGroup.add(tMesh);
-        }
         // Add Attributes for Stem
         const stemCount = stemGeo.attributes.position.count;
         const stemColors = new Float32Array(stemCount * 3);
@@ -301,79 +253,23 @@ export class DandelionBatcher {
         this.mesh!.setMatrixAt(i, _scratchMat);
         this.mesh!.instanceMatrix.needsUpdate = true;
         this.mesh!.count = this.count;
+
+        // Store batch index on logic object for later updates (like harvesting)
+        logicObject.userData.batchIndex = i;
     }
 
     harvest(batchIndex: number) {
-        if (!this.initialized) return;
+        if (!this.initialized || !this.mesh) return;
         if (batchIndex < 0 || batchIndex >= this.count) return;
 
-        // Hide all seeds for this dandelion
-        const seedStartIdx = batchIndex * SEEDS_PER_HEAD;
-
-        // Zero scale matrix to hide instances
+        // Just hide it by scaling to zero
         this.dummy.scale.set(0, 0, 0);
         this.dummy.updateMatrix();
 
-        const touchedChunks = new Set<number>();
-
-        for (let s = 0; s < SEEDS_PER_HEAD; s++) {
-            const globalIdx = seedStartIdx + s;
-            const chunkIdx = Math.floor(globalIdx / CHUNK_SIZE);
-            const localIdx = globalIdx % CHUNK_SIZE;
-
-            // Update both Stalk and Tip
-            if (this.stalkMeshes[chunkIdx]) {
-                this.stalkMeshes[chunkIdx].setMatrixAt(localIdx, this.dummy.matrix);
-            }
-            if (this.tipMeshes[chunkIdx]) {
-                this.tipMeshes[chunkIdx].setMatrixAt(localIdx, this.dummy.matrix);
-            }
-
-            touchedChunks.add(chunkIdx);
-        }
-
-        // Mark chunks for update
-        touchedChunks.forEach(chunkIdx => {
-            if (this.stalkMeshes[chunkIdx]) this.stalkMeshes[chunkIdx].instanceMatrix.needsUpdate = true;
-            if (this.tipMeshes[chunkIdx]) this.tipMeshes[chunkIdx].instanceMatrix.needsUpdate = true;
-        });
+        this.mesh.setMatrixAt(batchIndex, this.dummy.matrix);
+        this.mesh.instanceMatrix.needsUpdate = true;
 
         console.log(`[DandelionBatcher] Harvested dandelion #${batchIndex}`);
-    }
-
-    harvest(batchIndex: number) {
-        if (!this.initialized) return;
-
-        // Seeds range
-        const startSeed = batchIndex * SEEDS_PER_HEAD;
-        const endSeed = startSeed + SEEDS_PER_HEAD;
-
-        // Scratch matrix with 0 scale
-        const zeroMatrix = new THREE.Matrix4().set(
-            0, 0, 0, 0,
-            0, 0, 0, 0,
-            0, 0, 0, 0,
-            0, 0, 0, 1
-        );
-
-        // Track dirty chunks to avoid redundant updates
-        const dirtyChunks = new Set<number>();
-
-        for (let globalIdx = startSeed; globalIdx < endSeed; globalIdx++) {
-            const chunkIdx = Math.floor(globalIdx / CHUNK_SIZE);
-            const localIdx = globalIdx % CHUNK_SIZE;
-
-            if (chunkIdx < this.stalkMeshes.length) {
-                this.stalkMeshes[chunkIdx].setMatrixAt(localIdx, zeroMatrix);
-                this.tipMeshes[chunkIdx].setMatrixAt(localIdx, zeroMatrix);
-                dirtyChunks.add(chunkIdx);
-            }
-        }
-
-        dirtyChunks.forEach(chunkIdx => {
-             this.stalkMeshes[chunkIdx].instanceMatrix.needsUpdate = true;
-             this.tipMeshes[chunkIdx].instanceMatrix.needsUpdate = true;
-        });
     }
 }
 
