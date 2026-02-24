@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { color, vec3, time, sin, cos, uniform, mix, positionLocal, UniformNode } from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
-import { attachReactivity } from './common.ts';
+import { attachReactivity, CandyPresets } from './common.ts';
 import { VisualState } from '../audio/audio-system.ts';
 
 // Moon Configuration
@@ -49,7 +49,7 @@ export function createMoon(): THREE.Group {
     faceGroup.position.z = 14.5; // Surface
 
     const eyeGeo = new THREE.SphereGeometry(1.5, 16, 16);
-    const eyeMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.2 });
+    const eyeMat = CandyPresets.Clay(0x111111, { roughness: 0.2 });
 
     const leftEye = new THREE.Mesh(eyeGeo, eyeMat);
     leftEye.position.set(-4, 3, 0);
@@ -64,7 +64,7 @@ export function createMoon(): THREE.Group {
     group.userData.eyes = [leftEye, rightEye];
 
     const mouthGeo = new THREE.TorusGeometry(3, 0.5, 8, 16, Math.PI);
-    const mouthMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.5 });
+    const mouthMat = CandyPresets.Clay(0x111111, { roughness: 0.5 });
     const mouth = new THREE.Mesh(mouthGeo, mouthMat);
     mouth.rotation.z = Math.PI;
     mouth.position.set(0, -2, 0);

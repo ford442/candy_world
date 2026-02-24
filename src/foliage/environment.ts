@@ -1,7 +1,7 @@
 import * as THREE from 'three';
-import { MeshStandardNodeMaterial } from 'three/webgpu';
-import { time, vec3, positionLocal, length, sin, cos } from 'three/tsl';
-import { registerReactiveMaterial, attachReactivity } from './common.ts';
+import { MeshStandardNodeMaterial, PointsNodeMaterial } from 'three/webgpu';
+import { time, vec3, positionLocal, length, sin, cos, color as tslColor } from 'three/tsl';
+import { registerReactiveMaterial, attachReactivity, CandyPresets } from './common.ts';
 
 export interface FloatingOrbOptions {
     color?: number;
@@ -43,7 +43,7 @@ export function createMelodyLake(width = 200, depth = 200) {
 export function createFloatingOrb(options: FloatingOrbOptions = {}) {
     const { color = 0x87CEEB, size = 0.5 } = options;
     const geo = new THREE.SphereGeometry(size, 8, 8);
-    const mat = new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.8 });
+    const mat = CandyPresets.Gummy(color, { emissive: color, emissiveIntensity: 0.8 });
     registerReactiveMaterial(mat);
 
     const orb = new THREE.Mesh(geo, mat);
@@ -75,8 +75,7 @@ export function createKickDrumGeyser(options: KickDrumGeyserOptions = {}) {
 
     const baseGeo = new THREE.RingGeometry(0.1, 0.4, 8, 1);
     baseGeo.rotateX(-Math.PI / 2);
-    const baseMat = new THREE.MeshStandardMaterial({
-        color: 0x1A0A00,
+    const baseMat = CandyPresets.Clay(0x1A0A00, {
         roughness: 0.9,
         emissive: color,
         emissiveIntensity: 0.1
@@ -86,11 +85,10 @@ export function createKickDrumGeyser(options: KickDrumGeyserOptions = {}) {
 
     const coreGeo = new THREE.CylinderGeometry(0.08, 0.12, 0.1, 8);
     coreGeo.translate(0, -0.05, 0);
-    const coreMat = new THREE.MeshStandardMaterial({
-        color: color,
+    const coreMat = CandyPresets.Gummy(color, {
+        roughness: 0.3,
         emissive: color,
-        emissiveIntensity: 0.8,
-        roughness: 0.3
+        emissiveIntensity: 0.8
     });
     registerReactiveMaterial(coreMat);
     const core = new THREE.Mesh(coreGeo, coreMat);
@@ -117,7 +115,7 @@ export function createKickDrumGeyser(options: KickDrumGeyserOptions = {}) {
     plumeGeo.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
     plumeGeo.setAttribute('velocity', new THREE.BufferAttribute(velocities, 1));
 
-    const plumeMat = new THREE.PointsMaterial({
+    const plumeMat = new PointsNodeMaterial({
         color: color,
         size: 0.15,
         transparent: true,

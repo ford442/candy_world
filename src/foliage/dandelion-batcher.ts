@@ -305,44 +305,6 @@ export class DandelionBatcher {
 
     harvest(batchIndex: number) {
         if (!this.initialized) return;
-        if (batchIndex < 0 || batchIndex >= this.count) return;
-
-        // Hide all seeds for this dandelion
-        const seedStartIdx = batchIndex * SEEDS_PER_HEAD;
-
-        // Zero scale matrix to hide instances
-        this.dummy.scale.set(0, 0, 0);
-        this.dummy.updateMatrix();
-
-        const touchedChunks = new Set<number>();
-
-        for (let s = 0; s < SEEDS_PER_HEAD; s++) {
-            const globalIdx = seedStartIdx + s;
-            const chunkIdx = Math.floor(globalIdx / CHUNK_SIZE);
-            const localIdx = globalIdx % CHUNK_SIZE;
-
-            // Update both Stalk and Tip
-            if (this.stalkMeshes[chunkIdx]) {
-                this.stalkMeshes[chunkIdx].setMatrixAt(localIdx, this.dummy.matrix);
-            }
-            if (this.tipMeshes[chunkIdx]) {
-                this.tipMeshes[chunkIdx].setMatrixAt(localIdx, this.dummy.matrix);
-            }
-
-            touchedChunks.add(chunkIdx);
-        }
-
-        // Mark chunks for update
-        touchedChunks.forEach(chunkIdx => {
-            if (this.stalkMeshes[chunkIdx]) this.stalkMeshes[chunkIdx].instanceMatrix.needsUpdate = true;
-            if (this.tipMeshes[chunkIdx]) this.tipMeshes[chunkIdx].instanceMatrix.needsUpdate = true;
-        });
-
-        console.log(`[DandelionBatcher] Harvested dandelion #${batchIndex}`);
-    }
-
-    harvest(batchIndex: number) {
-        if (!this.initialized) return;
 
         // Seeds range
         const startSeed = batchIndex * SEEDS_PER_HEAD;

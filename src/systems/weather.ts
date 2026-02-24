@@ -413,18 +413,6 @@ export class WeatherSystem {
                 if (uChromaticIntensity) {
                     uChromaticIntensity.value = 1.0; // Sharp pulse
                 }
-            // --- Pattern-Change Seasons ---
-            // Cycle: Standard -> Neon -> Standard -> Glitch
-            const cycle = currentPattern % 4;
-            if (cycle === 1) {
-                this.targetPaletteMode = 'neon';
-                console.log(`[Weather] Season Change: NEON (Pattern ${currentPattern})`);
-            } else if (cycle === 3) {
-                this.targetPaletteMode = 'glitch';
-                console.log(`[Weather] Season Change: GLITCH (Pattern ${currentPattern})`);
-            } else {
-                this.targetPaletteMode = 'standard';
-                console.log(`[Weather] Season Change: STANDARD (Pattern ${currentPattern})`);
             }
         }
 

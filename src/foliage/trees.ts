@@ -1,10 +1,11 @@
 import * as THREE from 'three';
-import { foliageMaterials, registerReactiveMaterial, attachReactivity, pickAnimation, createClayMaterial, createGradientMaterial, sharedGeometries, uAudioLow, uWindSpeed, calculatePlayerPush } from './common.ts';
+import { foliageMaterials, registerReactiveMaterial, attachReactivity, pickAnimation, createClayMaterial, createGradientMaterial, sharedGeometries, uAudioLow, uWindSpeed, calculatePlayerPush, createStandardNodeMaterial } from './common.ts';
 import { color as tslColor, mix, float, sin, cos, vec3, positionLocal, positionWorld, time } from 'three/tsl';
 import { uTwilight } from './sky.ts';
 import { createBerryCluster } from './berries.ts';
 import { FoliageObject } from './types.ts';
 import { treeBatcher } from './tree-batcher.ts'; // ⚡ OPTIMIZATION: Import Batcher
+import { MeshStandardNodeMaterial } from 'three/webgpu'; // Import explicit type for cast
 
 // Configuration interfaces for tree creation options
 export interface TreeOptions {
@@ -357,7 +358,7 @@ export function createHelixPlant(options: HelixPlantOptions = {}): THREE.Group {
     mesh.castShadow = true;
     group.add(mesh);
 
-    const tipMat = new THREE.MeshStandardMaterial({
+    const tipMat = createStandardNodeMaterial({
         color: 0xFFFFFF, emissive: 0xFFFACD, emissiveIntensity: 0.5, roughness: 0.5
     });
     registerReactiveMaterial(tipMat);

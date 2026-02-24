@@ -8,7 +8,7 @@ import {
     color, float, mix, uv, sin, cos,
     vec3, mx_noise_float
 } from 'three/tsl';
-import { makeInteractive } from './musical_flora.ts';
+import { makeInteractive } from '../utils/interaction-utils.ts';
 import { unlockSystem } from '../systems/unlocks.ts';
 import { spawnImpact } from './impacts.ts';
 
