@@ -3,7 +3,8 @@ import { MeshStandardNodeMaterial } from 'three/webgpu';
 import {
     color, float, vec3, vec4, attribute, positionLocal,
     sin, cos, mix, smoothstep, uniform, If, time,
-    varying, dot, normalize, normalLocal, step, Fn, positionWorld, normalWorld
+    varying, dot, normalize, normalLocal, step, Fn, positionWorld, normalWorld,
+    max, pow, min, cameraPosition, uv, floor
 } from 'three/tsl';
 import {
     sharedGeometries, foliageMaterials, uTime,
@@ -444,14 +445,35 @@ export class MushroomBatcher {
             return vec3(scaleXZ, scaleY, scaleXZ);
         });
 
+        // --- PALETTE: Jelly Wobble (Audio Reaction) ---
+        const calculateJellyWobble = Fn(([pos]) => {
+            // Only wobble when bouncing (triggered by note)
+            // Frequency 10.0, Speed 15.0
+            const wobbleFreq = float(10.0);
+            const wobbleSpeed = float(15.0);
+
+            // Phase based on height (pos.y) to create a wave traveling up
+            const phase = pos.y.mul(wobbleFreq).sub(uTime.mul(wobbleSpeed));
+
+            // Amplitude modulated by bounce state and velocity
+            // isBouncing is 1.0 during the 0.5s window
+            const wobbleAmp = isBouncing.mul(sin(phase)).mul(velocity).mul(0.08); // 8% wobble max
+
+            // Apply wobble to radius (XZ expansion/contraction)
+            // This creates a peristaltic motion
+            return wobbleAmp;
+        });
+
         // Deformation Function
         const deform = (pos: any) => {
             const squashScale = calculatePlayerSquash();
             const breathScale = calculateIdleBreathing();
+            const wobble = calculateJellyWobble(pos);
 
             // Combine scales (Multiplicative)
+            // Add wobble to XZ scale
             const finalScaleY = totalScaleY.mul(squashScale.y).mul(breathScale.y);
-            const finalScaleXZ = totalScaleXZ.mul(squashScale.x).mul(breathScale.x);
+            const finalScaleXZ = totalScaleXZ.mul(squashScale.x).mul(breathScale.x).add(wobble);
 
             return vec3(
                 pos.x.mul(finalScaleXZ),
@@ -463,12 +485,14 @@ export class MushroomBatcher {
         // --- Material Definitions ---
 
         // 0. Stem
-        const stemMat = foliageMaterials.mushroomStem.clone();
+        const stemMat = (foliageMaterials.mushroomStem as MeshStandardNodeMaterial).clone();
         stemMat.positionNode = deform(positionLocal);
 
         // 1. Cap
         // PALETTE: Upgraded to use instanceColor + Juicy Rim Light
-        const capMat = foliageMaterials.mushroomCap[0].clone();
+        // mushroomCap is an array of materials in common.ts
+        const capList = foliageMaterials.mushroomCap as MeshStandardNodeMaterial[];
+        const capMat = capList[0].clone();
         capMat.positionNode = deform(positionLocal);
 
         // Base color from instance (set via register/setColorAt)
@@ -482,25 +506,41 @@ export class MushroomBatcher {
         // Scale 15.0 for fine grain, Density 0.3 for sparse twinkle, Intensity 2.0
         const sugarSparkle = createSugarSparkle(normalWorld, float(15.0), float(0.3), float(2.0));
 
-        // Final Color: Base + Rim
-        capMat.colorNode = baseColor.add(rimLight);
+        // --- PALETTE: Bioluminescent Inner Glow (Fake SSS) ---
+        // Simulates light scattering inside the gummy cap
+        const viewDir = normalize(cameraPosition.sub(positionWorld));
+        const NdotV = dot(normalWorld, viewDir).abs(); // 1.0 at center, 0.0 at edge
+
+        // Glow is strongest at center (thickest looking part) and driven by High Freq Audio
+        const sssIntensity = uAudioHigh.mul(0.8).add(0.2); // Base glow + Audio boost
+        const innerGlowFactor = NdotV.pow(2.0).mul(sssIntensity);
+
+        // Warm/Pink tint for the inner light
+        const innerGlowColor = mix(baseColor, color(0xFFDDDD), 0.5).mul(innerGlowFactor);
+
+        // Final Color: Base + Rim + Inner Glow
+        capMat.colorNode = baseColor.add(rimLight).add(innerGlowColor);
 
         // Emissive Logic for Cap (Bioluminescence + Flash)
         const flashIntensity = smoothstep(0.2, 0.0, noteAge).mul(velocity).mul(2.0);
         const baseGlow = uTwilight.mul(0.5);
 
         // Combine Glow + Flash + Sparkle
-        const totalGlow = baseGlow.add(flashIntensity).add(sugarSparkle);
+        // Note: innerGlowColor is added to diffuse colorNode, so it responds to light but also self-illuminates if unlit?
+        // Actually, adding to colorNode makes it appear as surface color.
+        // To make it truly glow in dark, we should add some of it to emissive too?
+        // Yes, let's add a fraction of inner glow to emissive for night visibility.
+        const totalGlow = baseGlow.add(flashIntensity).add(sugarSparkle).add(innerGlowFactor.mul(0.3));
         
         capMat.emissiveIntensityNode = totalGlow;
 
         // 2. Gills
-        const gillMat = foliageMaterials.mushroomGills.clone();
+        const gillMat = (foliageMaterials.mushroomGills as MeshStandardNodeMaterial).clone();
         gillMat.positionNode = deform(positionLocal);
         gillMat.emissiveIntensityNode = totalGlow.mul(0.3);
 
         // 3. Spots
-        const spotMat = foliageMaterials.mushroomSpots.clone();
+        const spotMat = (foliageMaterials.mushroomSpots as MeshStandardNodeMaterial).clone();
         spotMat.positionNode = deform(positionLocal);
         const spotPulse = sin(uTime.mul(3.0)).mul(0.1).add(0.3);
         const spotAudio = uAudioHigh.mul(0.5);
@@ -514,19 +554,19 @@ export class MushroomBatcher {
         };
 
         // 4. Eye
-        const eyeMat = foliageMaterials.eye.clone();
+        const eyeMat = (foliageMaterials.eye as MeshStandardNodeMaterial).clone();
         eyeMat.positionNode = faceDeform(positionLocal);
 
         // 5. Pupil
-        const pupilMat = foliageMaterials.pupil.clone();
+        const pupilMat = (foliageMaterials.pupil as MeshStandardNodeMaterial).clone();
         pupilMat.positionNode = faceDeform(positionLocal);
 
         // 6. Mouth
-        const mouthMat = foliageMaterials.clayMouth.clone();
+        const mouthMat = (foliageMaterials.clayMouth as MeshStandardNodeMaterial).clone();
         mouthMat.positionNode = faceDeform(positionLocal);
 
         // 7. Cheek
-        const cheekMat = foliageMaterials.mushroomCheek.clone();
+        const cheekMat = (foliageMaterials.mushroomCheek as MeshStandardNodeMaterial).clone();
         cheekMat.positionNode = faceDeform(positionLocal);
 
         return [stemMat, capMat, gillMat, spotMat, eyeMat, pupilMat, mouthMat, cheekMat];

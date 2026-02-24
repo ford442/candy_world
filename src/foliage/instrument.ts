@@ -12,6 +12,9 @@ import { makeInteractive } from './musical_flora.ts';
 import { unlockSystem } from '../systems/unlocks.ts';
 import { spawnImpact } from './impacts.ts';
 
+const _scratchPos = new THREE.Vector3();
+const _scratchUp = new THREE.Vector3(0, 1, 0);
+
 export interface InstrumentShrineOptions {
     instrumentID?: number;
     scale?: number;
@@ -123,7 +126,8 @@ export function createInstrumentShrine(options: InstrumentShrineOptions = {}): T
             group.userData.interactionText = "Shrine Activated";
 
             // Visual feedback
-            spawnImpact(group.position.clone().add(new THREE.Vector3(0, 3, 0)), 'muzzle', { color: {r:jsColor.r, g:jsColor.g, b:jsColor.b}, direction: new THREE.Vector3(0,1,0) });
+            _scratchPos.copy(group.position).y += 3.0;
+            spawnImpact(_scratchPos, 'muzzle', jsColor, _scratchUp);
 
             // Audio feedback
             if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {

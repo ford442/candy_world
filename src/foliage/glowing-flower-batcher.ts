@@ -165,6 +165,11 @@ export class GlowingFlowerBatcher {
         this.headMesh = this.createInstancedMesh(headGeo, headMat, MAX_FLOWERS, 'GlowingFlower_Head');
         this.washMesh = this.createInstancedMesh(washGeo, washMat, MAX_FLOWERS, 'GlowingFlower_Wash');
 
+        // TSL Safety: Initialize instanceColor manually to prevent runtime errors with TSL attributes
+        this.stemMesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAX_FLOWERS * 3), 3);
+        this.headMesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAX_FLOWERS * 3), 3);
+        this.washMesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAX_FLOWERS * 3), 3);
+
         // Add to Scene
         foliageGroup.add(this.stemMesh);
         foliageGroup.add(this.headMesh);
