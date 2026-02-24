@@ -156,3 +156,40 @@ export function makeInteractiveSphere(group: THREE.Object3D, radius: number, hei
         }
     };
 }
+
+/**
+ * Standard interactive mixin.
+ * Initializes userData for hover/interact states and adds basic visual feedback.
+ */
+export function makeInteractive(group: THREE.Object3D) {
+    if (!group.userData) group.userData = {};
+
+    // Store original scale if not already stored
+    if (!group.userData.originalScale) {
+        group.userData.originalScale = group.scale.clone();
+    }
+    const originalScale = group.userData.originalScale;
+
+    // Standard visual feedback: Scale up on hover
+    // Users can override these handlers by overwriting userData.onGazeEnter
+    // but typically they chain them.
+
+    group.userData.onGazeEnter = () => {
+        group.scale.copy(originalScale).multiplyScalar(1.1);
+        group.userData.isHovered = true;
+    };
+
+    group.userData.onGazeLeave = () => {
+        group.scale.copy(originalScale);
+        group.userData.isHovered = false;
+    };
+
+    group.userData.onInteract = () => {
+        // Simple visual feedback (spin or pulse)
+        // Since we don't have tweening here easily, we rely on system updates
+        // or just a momentary scale bump
+        // group.scale.multiplyScalar(1.2); // Just for a frame, logic loop will reset it if using lerp
+    };
+
+    return group;
+}
