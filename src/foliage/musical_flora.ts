@@ -6,6 +6,7 @@ import {
     attachReactivity
 } from './common.ts';
 
+import { makeInteractive } from '../utils/interaction-utils.ts';
 import { unlockSystem } from '../systems/unlocks.ts';
 import { spawnImpact } from './impacts.ts';
 
@@ -132,6 +133,67 @@ export function createArpeggioFern(options: ArpeggioFernOptions = {}) {
     };
 
     return interactive;
+}
+
+export function createSnareTrap(options: SnareTrapOptions = {}) {
+    const { scale = 1.0, color = 0xFF4444 } = options;
+    const group = new THREE.Group();
+
+    // Visuals: Jaw-like structure
+    // Lower Jaw
+    const lowerJaw = new THREE.Mesh(
+        new THREE.BoxGeometry(1, 0.2, 1),
+        createClayMaterial(color)
+    );
+    lowerJaw.position.y = 0.1;
+    group.add(lowerJaw);
+
+    // Upper Jaw (Pivots)
+    const upperJaw = new THREE.Mesh(
+        new THREE.BoxGeometry(1, 0.2, 1),
+        createClayMaterial(color)
+    );
+    upperJaw.position.y = 0.5;
+    upperJaw.rotation.x = -Math.PI / 4; // Open
+    // Pivot helper
+    const pivot = new THREE.Group();
+    pivot.position.y = 0.1;
+    pivot.position.z = -0.5;
+    pivot.add(upperJaw);
+    upperJaw.position.z = 0.5; // Offset from pivot
+    group.add(pivot);
+
+    group.userData.upperJaw = pivot;
+    group.userData.snapState = 0; // 0=Open, 1=Closed
+    group.userData.type = 'trap';
+    group.userData.reactivityType = 'snare'; // Reacts to Snare
+
+    // Scale
+    group.scale.setScalar(scale);
+
+    return attachReactivity(group);
+}
+
+export function createRetriggerMushroom(options: RetriggerMushroomOptions = {}) {
+    const { scale = 1.0, color = 0xFF6B6B, retriggerSpeed = 4 } = options;
+    const group = new THREE.Group();
+
+    const mat = createClayMaterial(color);
+
+    const cap = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 16, 0, Math.PI * 2, 0, Math.PI / 2), mat);
+    cap.position.y = 0.8;
+    group.add(cap);
+
+    const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.4, 0.8, 8), createClayMaterial(0xF5F5DC));
+    stem.position.y = 0.4;
+    group.add(stem);
+
+    group.scale.setScalar(scale);
+    group.userData.type = 'retrigger_mushroom';
+    group.userData.retriggerSpeed = retriggerSpeed;
+    group.userData.reactivityType = 'retrigger';
+
+    return attachReactivity(group);
 }
 
 export function createPortamentoPine(options: PortamentoPineOptions = {}) {

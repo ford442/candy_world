@@ -1,7 +1,8 @@
 // src/foliage/celestial-bodies.ts
 
 import * as THREE from 'three';
-import { attachReactivity } from './common.ts';
+import { MeshBasicNodeMaterial, PointsNodeMaterial } from 'three/webgpu';
+import { attachReactivity, CandyPresets } from './common.ts';
 
 // Helper to place objects on a distant sky sphere
 function getRandomSkyPosition(radius: number): THREE.Vector3 {
@@ -22,13 +23,13 @@ function createPulsar(): THREE.Group {
 
     // Core Star
     const geo = new THREE.SphereGeometry(4, 16, 16);
-    const mat = new THREE.MeshBasicMaterial({ color: 0xAAFFFF });
+    const mat = new MeshBasicNodeMaterial({ color: 0xAAFFFF });
     const core = new THREE.Mesh(geo, mat);
     group.add(core);
 
     // Glow Halo (Billboard Sprite logic or simple transparent sphere)
     const glowGeo = new THREE.SphereGeometry(8, 16, 16);
-    const glowMat = new THREE.MeshBasicMaterial({
+    const glowMat = new MeshBasicNodeMaterial({
         color: 0x00FFFF,
         transparent: true,
         opacity: 0.3,
@@ -54,9 +55,7 @@ function createBassPlanet(): THREE.Group {
 
     // Planet Body
     const planetGeo = new THREE.IcosahedronGeometry(15, 2);
-    const planetMat = new THREE.MeshStandardMaterial({
-        color: 0xFF4444,
-        flatShading: true,
+    const planetMat = CandyPresets.Clay(0xFF4444, {
         roughness: 0.8
     });
     const planet = new THREE.Mesh(planetGeo, planetMat);
@@ -64,7 +63,7 @@ function createBassPlanet(): THREE.Group {
 
     // Rings
     const ringGeo = new THREE.RingGeometry(20, 35, 32);
-    const ringMat = new THREE.MeshBasicMaterial({
+    const ringMat = new MeshBasicNodeMaterial({
         color: 0xFFAA88,
         side: THREE.DoubleSide,
         transparent: true,
@@ -132,7 +131,7 @@ function createGalaxy(): THREE.Points {
     geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
     geo.setAttribute('size', new THREE.BufferAttribute(sizes, 1)); // For shader if used, or size attenuation
 
-    const mat = new THREE.PointsMaterial({
+    const mat = new PointsNodeMaterial({
         size: 0.8,
         vertexColors: true,
         blending: THREE.AdditiveBlending,
