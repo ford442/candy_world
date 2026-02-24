@@ -13,6 +13,8 @@ let _velAttr: THREE.InstancedBufferAttribute | null = null;
 let _colorAttr: THREE.InstancedBufferAttribute | null = null;
 let _miscAttr: THREE.InstancedBufferAttribute | null = null;
 let _head = 0;
+let _minUpdate = MAX_PARTICLES;
+let _maxUpdate = -1;
 
 export type ImpactType =
   | 'jump'
@@ -158,6 +160,30 @@ export function createImpactSystem(): THREE.InstancedMesh {
     // Disable raycasting as the geometry doesn't match the matrix
     _impactMesh.raycast = () => {};
 
+    // ⚡ OPTIMIZATION: Update only modified ranges
+    _impactMesh.onBeforeRender = () => {
+        if (_maxUpdate >= _minUpdate && _spawnAttr && _velAttr && _colorAttr && _miscAttr) {
+            const start = _minUpdate;
+            const count = _maxUpdate - _minUpdate + 1;
+            const itemSize = 4; // vec4
+            const updateProps = { offset: start * itemSize, count: count * itemSize };
+
+            _spawnAttr.updateRange = updateProps;
+            _velAttr.updateRange = updateProps;
+            _colorAttr.updateRange = updateProps;
+            _miscAttr.updateRange = updateProps;
+
+            _spawnAttr.needsUpdate = true;
+            _velAttr.needsUpdate = true;
+            _colorAttr.needsUpdate = true;
+            _miscAttr.needsUpdate = true;
+
+            // Reset range
+            _minUpdate = MAX_PARTICLES;
+            _maxUpdate = -1;
+        }
+    };
+
     // Initialize Birth Times to -1000 (Dead)
     for (let i = 0; i < MAX_PARTICLES; i++) {
         spawnArray[i * 4 + 3] = -1000.0;
@@ -188,6 +214,11 @@ export function spawnImpact(
     for (let i = 0; i < count; i++) {
         const idx = _head;
         _head = (_head + 1) % MAX_PARTICLES;
+
+        // Track dirty range
+        if (idx < _minUpdate) _minUpdate = idx;
+        if (idx > _maxUpdate) _maxUpdate = idx;
+
         const offset = idx * 4;
 
         // Spawn Position (Randomized slightly)
@@ -345,9 +376,5 @@ export function spawnImpact(
         miscArray[offset + 3] = gScale;
     }
 
-    // Flag Update
-    _spawnAttr.needsUpdate = true;
-    _velAttr.needsUpdate = true;
-    _colorAttr.needsUpdate = true;
-    _miscAttr.needsUpdate = true;
+    // Note: needsUpdate flag is set in onBeforeRender based on dirty range
 }
