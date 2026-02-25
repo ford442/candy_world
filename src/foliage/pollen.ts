@@ -4,17 +4,16 @@ import {
     Fn, uniform, storage, instanceIndex, float, vec3,
     mix, sin, cos, normalize, color,
     mx_noise_float, vertexIndex, max, min, length,
-    positionLocal, time
+    positionLocal, time, uv, distance, smoothstep, discard,
+    vec2
 } from 'three/tsl';
-import { uTime, uAudioLow, uAudioHigh, uWindSpeed, uWindDirection } from './common.ts';
+import { uTime, uAudioLow, uAudioHigh, uWindSpeed, uWindDirection, uPlayerPosition } from './common.ts';
 
 export function createNeonPollen(count = 2000, areaSize = 30, center = new THREE.Vector3(0, 5, 0)) {
     // 1. Setup Buffers
     const positionBuffer = new StorageBufferAttribute(count, 3);
     const velocityBuffer = new StorageBufferAttribute(count, 3);
     const lifeBuffer = new StorageBufferAttribute(count, 1);
-
-    const initialPositions = new Float32Array(count * 3);
 
     // Initialize with random data
     for (let i = 0; i < count; i++) {
@@ -32,7 +31,7 @@ export function createNeonPollen(count = 2000, areaSize = 30, center = new THREE
         // Random small velocity
         velocityBuffer.setXYZ(i, (Math.random() - 0.5) * 0.05, (Math.random() - 0.5) * 0.05, (Math.random() - 0.5) * 0.05);
 
-        // Life offset
+        // Life offset / Random seed
         lifeBuffer.setX(i, Math.random() * 100.0);
     }
 
@@ -76,9 +75,19 @@ export function createNeonPollen(count = 2000, areaSize = 30, center = new THREE
         const pullStrength = max(float(0.0), dist.sub(areaRadius)).mul(0.1);
         const centerForce = normalize(toCenter).mul(pullStrength);
 
+        // --- PALETTE UPDATE: Player Repulsion (Interaction) ---
+        // Push pollen away if player is close
+        const toPlayer = p.sub(uPlayerPosition);
+        const distToPlayer = length(toPlayer);
+        // Repel Radius = 5.0
+        const repelRadius = float(5.0);
+        const repelFactor = max(float(0.0), repelRadius.sub(distToPlayer));
+        // Force increases as distance decreases (Linear falloff)
+        const repelForce = normalize(toPlayer).mul(repelFactor).mul(2.0);
+
         // Integration
         const dt = float(0.016);
-        const acceleration = windForce.add(wanderForce).add(audioJitter).add(centerForce);
+        const acceleration = windForce.add(wanderForce).add(audioJitter).add(centerForce).add(repelForce);
 
         const newVel = v.add(acceleration.mul(dt));
 
@@ -90,8 +99,7 @@ export function createNeonPollen(count = 2000, areaSize = 30, center = new THREE
         p.assign(p.add(dampedVel.mul(dt)));
 
         // Floor constraint
-        // If hit ground (approx y=0 for Lake Island, but it's an island so y>1.5)
-        // Let's just keep them above water level ~1.5
+        // Keep above water level ~1.8
         p.y.assign(max(p.y, float(1.8)));
     });
 
@@ -99,37 +107,57 @@ export function createNeonPollen(count = 2000, areaSize = 30, center = new THREE
 
     // 3. Visualization Material
     const material = new PointsNodeMaterial({
-        size: 0.1, // Small specs
+        size: 0.1, // Will be overridden by sizeNode
         transparent: true,
         depthWrite: false,
         blending: THREE.AdditiveBlending
     });
 
     const particlePos = positionStorage.element(vertexIndex);
-    const particleLife = lifeStorage.element(vertexIndex);
+    const particleSeed = lifeStorage.element(vertexIndex);
 
     material.positionNode = particlePos;
 
-    // Color Logic (Neon)
-    // Mix Cyan (0x00FFFF) and Magenta (0xFF00FF) based on position/noise
+    // --- PALETTE UPDATE: Soft Circular Particle Shape ---
+    // Use uv() which maps 0..1 across the point sprite
+    const distFromCenter = distance(uv(), vec2(0.5));
+    // Smooth circle: 0.5 (edge) -> 0.0 (center)
+    // Alpha falls off: 1.0 at center, 0.0 at edge
+    const alpha = smoothstep(0.5, 0.2, distFromCenter);
+
+    // Discard pixels outside circle for performance (reduce overdraw?)
+    // Or just let alpha handle it. Discard is good for depth buffer but here we are transparent/no-depth-write.
+    // Let's just use alpha.
+
+    // --- PALETTE UPDATE: Twinkle & Sparkle ---
+    // Random offset based on particleSeed
+    const twinkleSpeed = float(5.0);
+    const twinkle = sin(uTime.mul(twinkleSpeed).add(particleSeed)).mul(0.5).add(0.5); // 0..1
+
+    // Audio Boost (Highs = Sparkle)
+    // When melody plays, sparkles flare up
+    const audioBoost = uAudioHigh.mul(3.0);
+    const brightness = float(1.0).add(twinkle).add(audioBoost);
+
+    // Color Logic (Neon Gradient)
+    // Mix Cyan (0x00FFFF) and Magenta (0xFF00FF) based on position
     const hueMix = sin(particlePos.x.mul(0.1).add(particlePos.z.mul(0.1)).add(uTime)).mul(0.5).add(0.5);
     const cyan = color(0x00FFFF);
     const magenta = color(0xFF00FF);
     const baseColor = mix(cyan, magenta, hueMix);
 
-    // Audio Pulse
-    // Highs make them brighter and slightly larger
-    const pulse = uAudioHigh.mul(3.0);
-    const intensity = float(1.0).add(pulse);
+    // Hot Core (White center)
+    // Mix White at center (dist < 0.2)
+    const coreMix = smoothstep(0.3, 0.0, distFromCenter);
+    const finalColor = mix(baseColor, color(0xFFFFFF), coreMix.mul(0.5)); // 50% white core
 
-    // Opacity fade at edges of area?
-    // Let's just keep them glowing.
-
-    material.colorNode = baseColor.mul(intensity);
+    material.colorNode = finalColor.mul(brightness);
+    material.opacityNode = alpha; // Apply circular mask
 
     // Size modulation
     // Base size + audio boost
-    material.sizeNode = float(0.1).add(uAudioHigh.mul(0.2));
+    // Make them slightly larger so the soft edge is visible
+    material.sizeNode = float(0.15).add(uAudioHigh.mul(0.1));
 
     // 4. Mesh
     const geometry = new THREE.BufferGeometry();

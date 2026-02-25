@@ -319,3 +319,28 @@ export function createCymbalDandelion(options: CymbalDandelionOptions = {}) {
     return interactive;
 }
 
+// Duplicate exports removed.
+
+// --- UTILITY ---
+
+export function makeInteractive(group: THREE.Group): THREE.Group {
+    // Simple wrapper to flag the group as interactive.
+    // The actual raycasting often relies on child meshes (like hitMesh).
+    group.userData.isInteractive = true;
+
+    // Add default hover behavior if not present
+    if (!group.userData.onGazeEnter) {
+        group.userData.onGazeEnter = () => {
+            // Default scale pop
+            group.scale.multiplyScalar(1.1);
+        };
+    }
+    if (!group.userData.onGazeLeave) {
+        group.userData.onGazeLeave = () => {
+            // Default scale return
+            group.scale.multiplyScalar(1 / 1.1);
+        };
+    }
+
+    return group;
+}
