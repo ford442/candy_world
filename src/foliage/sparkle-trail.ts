@@ -5,7 +5,8 @@ import { uTime, uAudioHigh, uAudioLow } from './common.ts';
 
 const TRAIL_SIZE = 2000; // Increased buffer size for richer trails
 
-interface SparkleTrailUserData {
+// Exporting interface for better type safety if needed elsewhere
+export interface SparkleTrailUserData {
     head: number;
     isSparkleTrail: boolean;
     bufferSize: number;
@@ -21,10 +22,21 @@ export function createSparkleTrail(): THREE.Points {
     // Fill with initial data to avoid empty buffer issues
     birthTimes.fill(-1000);
 
-    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    geo.setAttribute('birthTime', new THREE.BufferAttribute(birthTimes, 1));
-    geo.setAttribute('lifeSpan', new THREE.BufferAttribute(lifeSpans, 1));
-    geo.setAttribute('spawnSpeed', new THREE.BufferAttribute(spawnSpeeds, 1));
+    const posAttr = new THREE.BufferAttribute(positions, 3);
+    const birthAttr = new THREE.BufferAttribute(birthTimes, 1);
+    const lifeAttr = new THREE.BufferAttribute(lifeSpans, 1);
+    const speedAttr = new THREE.BufferAttribute(spawnSpeeds, 1);
+
+    // ⚡ OPTIMIZATION: Hint driver that these buffers change frequently
+    posAttr.setUsage(THREE.DynamicDrawUsage);
+    birthAttr.setUsage(THREE.DynamicDrawUsage);
+    lifeAttr.setUsage(THREE.DynamicDrawUsage);
+    speedAttr.setUsage(THREE.DynamicDrawUsage);
+
+    geo.setAttribute('position', posAttr);
+    geo.setAttribute('birthTime', birthAttr);
+    geo.setAttribute('lifeSpan', lifeAttr);
+    geo.setAttribute('spawnSpeed', speedAttr);
 
     // Material
     const mat = new PointsNodeMaterial({
@@ -142,6 +154,9 @@ export function updateSparkleTrail(trail: THREE.Points, playerPos: THREE.Vector3
     const size = userData.bufferSize;
     let currentHead = userData.head;
 
+    // Capture start index for range update
+    const startIndex = currentHead;
+
     for (let i = 0; i < count; i++) {
         // Random offset behind player (low to ground)
         _offset.set(
@@ -164,6 +179,43 @@ export function updateSparkleTrail(trail: THREE.Points, playerPos: THREE.Vector3
     }
 
     userData.head = currentHead;
+
+    // ⚡ OPTIMIZATION: Partial Buffer Update
+    // Only upload the range we touched. If it wraps, upload everything (fallback).
+    const wrapped = (startIndex + count) > size;
+
+    if (!wrapped) {
+        // Contiguous update
+        const updateOffset = startIndex;
+        const updateCount = count;
+
+        positions.updateRange.offset = updateOffset * 3;
+        positions.updateRange.count = updateCount * 3;
+
+        birthTimes.updateRange.offset = updateOffset;
+        birthTimes.updateRange.count = updateCount;
+
+        lifeSpans.updateRange.offset = updateOffset;
+        lifeSpans.updateRange.count = updateCount;
+
+        spawnSpeeds.updateRange.offset = updateOffset;
+        spawnSpeeds.updateRange.count = updateCount;
+    } else {
+        // Wrapped: Fallback to full update (simple) or implement split update if critical.
+        // Given trail size 2000 and count ~20, wrap happens <1% of frames.
+        // Full update is acceptable here.
+        positions.updateRange.offset = 0;
+        positions.updateRange.count = -1;
+
+        birthTimes.updateRange.offset = 0;
+        birthTimes.updateRange.count = -1;
+
+        lifeSpans.updateRange.offset = 0;
+        lifeSpans.updateRange.count = -1;
+
+        spawnSpeeds.updateRange.offset = 0;
+        spawnSpeeds.updateRange.count = -1;
+    }
 
     positions.needsUpdate = true;
     birthTimes.needsUpdate = true;
