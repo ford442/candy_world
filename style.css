@@ -290,3 +290,29 @@ kbd.key.key-highlight {
     min-width: 140px;
     text-align: center;
 }
+
+/* 🎨 Palette: Now Playing Info (Pause Menu) */
+.now-playing-info {
+    font-family: 'Fredoka One', cursive, sans-serif;
+    color: #FF6B6B;
+    background: rgba(255, 255, 255, 0.9);
+    padding: 8px 20px;
+    border-radius: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    font-size: 1.1em;
+    text-shadow: 1px 1px 0 rgba(255,255,255,0.5);
+    border: 2px solid #FFD1DC;
+    max-width: 80%;
+    text-align: center;
+}
+
+.now-playing-info .music-note {
+    font-size: 1.2em;
+    animation: bounce 1s infinite alternate;
+    display: inline-block;
+}

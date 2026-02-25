@@ -92,6 +92,10 @@ export function initInput(
     const playlistUploadInput = document.getElementById('playlistUploadInput') as HTMLInputElement | null;
     const openJukeboxBtn = document.getElementById('openJukeboxBtn');
 
+    // Now Playing Elements
+    const nowPlayingContainer = document.getElementById('nowPlayingContainer');
+    const nowPlayingText = document.getElementById('nowPlayingText');
+
     // Ability HUD Elements
     const hudDash = document.getElementById('ability-dash');
     const hudMine = document.getElementById('ability-mine');
@@ -214,7 +218,19 @@ export function initInput(
 
     // Initialize state
     if (audioSystem.getPlaylist) {
-        updateJukeboxButtonState(audioSystem.getPlaylist().length);
+        const playlist = audioSystem.getPlaylist();
+        updateJukeboxButtonState(playlist.length);
+
+        // 🎨 Palette: Restore Now Playing info if music is already running
+        const currentIdx = audioSystem.getCurrentIndex();
+        if (currentIdx >= 0 && playlist[currentIdx]) {
+            if (nowPlayingContainer && nowPlayingText) {
+                const trackName = playlist[currentIdx].name;
+                nowPlayingText.innerText = trackName;
+                nowPlayingContainer.style.display = 'flex';
+                nowPlayingContainer.setAttribute('aria-label', `Now Playing: ${trackName}`);
+            }
+        }
     }
 
     // Hook up AudioSystem callbacks
@@ -230,9 +246,17 @@ export function initInput(
         // Show "Now Playing" toast
         const songs = audioSystem.getPlaylist();
         if (songs && songs[index]) {
+            const trackName = songs[index].name;
             import('../utils/toast.js').then(({ showToast }) => {
-                showToast(`Now Playing: ${songs[index].name}`, '🎵');
+                showToast(`Now Playing: ${trackName}`, '🎵');
             });
+
+            // 🎨 Palette: Update "Now Playing" in Pause Menu
+            if (nowPlayingContainer && nowPlayingText) {
+                nowPlayingText.innerText = trackName;
+                nowPlayingContainer.style.display = 'flex';
+                nowPlayingContainer.setAttribute('aria-label', `Now Playing: ${trackName}`);
+            }
         }
     };
 
@@ -799,10 +823,12 @@ export function initInput(
         if (volDownBtn) {
             volDownBtn.setAttribute('aria-disabled', String(newVol <= 0.01));
             volDownBtn.title = `Decrease Volume (-) • ${percentage}%`;
+            volDownBtn.setAttribute('aria-label', `Decrease Volume (Current: ${percentage}%)`);
         }
         if (volUpBtn) {
             volUpBtn.setAttribute('aria-disabled', String(newVol >= 0.99));
             volUpBtn.title = `Increase Volume (+) • ${percentage}%`;
+            volUpBtn.setAttribute('aria-label', `Increase Volume (Current: ${percentage}%)`);
         }
 
         const icon = newVol === 0 ? '🔇' : newVol < 0.5 ? '🔉' : '🔊';
@@ -818,8 +844,14 @@ export function initInput(
 
     // NEW: Initialize Tooltips
     const initialVolPct = Math.round(audioSystem.volume * 100);
-    if (volDownBtn) volDownBtn.title = `Decrease Volume (-) • ${initialVolPct}%`;
-    if (volUpBtn) volUpBtn.title = `Increase Volume (+) • ${initialVolPct}%`;
+    if (volDownBtn) {
+        volDownBtn.title = `Decrease Volume (-) • ${initialVolPct}%`;
+        volDownBtn.setAttribute('aria-label', `Decrease Volume (Current: ${initialVolPct}%)`);
+    }
+    if (volUpBtn) {
+        volUpBtn.title = `Increase Volume (+) • ${initialVolPct}%`;
+        volUpBtn.setAttribute('aria-label', `Increase Volume (Current: ${initialVolPct}%)`);
+    }
     if (toggleMuteBtn) toggleMuteBtn.title = audioSystem.isMuted ? 'Unmute Audio (M)' : 'Mute Audio (M)';
 
     if (volDownBtn) {
