@@ -742,6 +742,18 @@ function animate() {
                         hudPhase.setAttribute('aria-label', "Phase Shift (Z) - Empty (Need Tremolo Bulb)");
                     }
                 }
+
+                // PALETTE: Pulse to the beat when ready (Ammo > 0)!
+                const isReady = count > 0;
+                if (isReady) {
+                    const kick = audioState?.kickTrigger || 0;
+                    const scale = 1.0 + kick * 0.15;
+                    const pressed = hudPhase.classList.contains('pressed');
+                    const finalScale = pressed ? scale * 0.9 : scale;
+                    hudPhase.style.transform = `scale(${finalScale.toFixed(3)})`;
+                } else {
+                    hudPhase.style.transform = '';
+                }
             }
         }
     });
