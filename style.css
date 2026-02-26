@@ -132,6 +132,47 @@
     min-width: 0;
 }
 
+/* 🎨 Palette: Playlist Remove Button */
+.playlist-remove-btn {
+    background: none;
+    border: none;
+    color: #FFB6C1;
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 0 12px;
+    margin-left: 4px;
+    transition: color 0.2s, transform 0.1s;
+    font-family: 'Fredoka One', cursive, sans-serif;
+    line-height: 1;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+}
+
+.playlist-remove-btn:hover {
+    color: #FF5252;
+    background: #FFF0F5;
+    transform: scale(1.1);
+}
+
+.playlist-remove-btn:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px #ffffff, 0 0 0 6px #FF4081;
+    z-index: 5;
+}
+
+/* 🎨 Palette: Active Item Remove Style */
+.playlist-item.active .playlist-remove-btn {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.playlist-item.active .playlist-remove-btn:hover {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.2);
+}
+
 /* 🎨 Palette: Ability HUD */
 #ability-hud {
     position: fixed;
