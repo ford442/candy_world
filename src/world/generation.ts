@@ -15,7 +15,8 @@ import {
     createRetriggerMushroom,
     createIsland, // Added
     createCaveEntrance,
-    createNeonPollen // Added
+    createNeonPollen, // Added
+    createTerrainMaterial // Added
 } from '../foliage/index.ts';
 import { generateCloudLayer } from '../foliage/procedural-sky.ts';
 import { validateFoliageMaterials } from '../foliage/common.ts';
@@ -161,14 +162,14 @@ export function initWorld(scene: THREE.Scene, weatherSystem: WeatherSystem, load
     }
 
     groundGeo.computeVertexNormals();
-    const groundMat = new THREE.MeshPhysicalMaterial({
-        color: CONFIG.colors.ground,
-        roughness: 0.4,
-        metalness: 0.0,
-        clearcoat: 0.3,
-        clearcoatRoughness: 0.6,
-        flatShading: false,
+
+    // Replaced MeshPhysicalMaterial with Audio-Reactive TSL Material
+    const groundMat = createTerrainMaterial(CONFIG.colors.ground, {
+        roughness: 0.9,
+        bumpStrength: 0.15,
+        noiseScale: 20.0
     });
+
     const ground = new THREE.Mesh(groundGeo, groundMat);
     ground.rotation.x = -Math.PI / 2;
     ground.receiveShadow = true;

@@ -10,13 +10,14 @@
 
 ## Next Steps
 
-1. **Audio-Reactive Terrain**: Implement vertex displacement for terrain chunks based on audio zones or global bass.
-2. **Post-Processing Pipeline**: Implement bloom and color correction using WebGPU post-processing nodes.
+1. **Post-Processing Pipeline**: Implement bloom and color correction using WebGPU post-processing nodes.
 
 ---
 
 ## Recent Progress
 - **Accomplished:**
+  - **Audio-Reactive Terrain**: **Status: Implemented ✅**
+    - *Implementation Details:* Implemented `createTerrainMaterial` in `src/foliage/terrain.ts` using TSL for bass-driven vertex displacement (breathing) and treble-driven sparkles (magic dust). Replaced static MeshPhysicalMaterial in `src/world/generation.ts`.
   - **Procedural Cloud Layer**: **Status: Implemented ✅**
     - *Implementation Details:* Implemented `src/foliage/procedural-sky.ts` to generate a dense, noise-based cloud layer using `CloudBatcher`. Updated `CloudBatcher` to support 20k puffs and dynamic day/night/storm lighting via `uSkyDarkness` and `uTwilight`.
   - **WebGPU Migration (Phase 4): Remaining Foliage Materials**: **Status: Implemented ✅**
