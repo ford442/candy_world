@@ -13,6 +13,7 @@ export * from './environment.ts';
 export * from './fireflies.ts';
 export * from './animation.ts';
 export * from './water.ts';
+export * from './terrain.ts'; // Added Terrain Material
 export * from './lake_features.js';
 export * from './glitch.ts';
 export * from './chromatic.ts';
