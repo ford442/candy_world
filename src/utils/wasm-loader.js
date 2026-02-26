@@ -790,6 +790,7 @@ let spiralResult = { rotY: 0, yOffset: 0, scale: 1 };
 let prismResult = { unfurl: 0, spin: 0, pulse: 1, hue: 0 };
 let particleResult = { x: 0, y: 0, z: 0 };
 let arpeggioResult = { targetStep: 0, unfurlStep: 0 };
+let wobbleResult = { rotX: 0, rotZ: 0 };
 
 /**
  * Calculate accordion stretch animation for instruments.
@@ -1004,7 +1005,10 @@ export function calcArpeggioStep(currentUnfurl, currentTarget, lastTrigger, arpe
     }
     const speed = (nextTarget > currentUnfurl) ? 0.3 : 0.05;
     const nextUnfurl = currentUnfurl + (nextTarget - currentUnfurl) * speed;
-    return { targetStep: nextTarget, unfurlStep: nextUnfurl };
+
+    arpeggioResult.targetStep = nextTarget;
+    arpeggioResult.unfurlStep = nextUnfurl;
+    return arpeggioResult;
 }
 
 /**

@@ -341,11 +341,12 @@ export function createHelixPlant(options: HelixPlantOptions = {}): THREE.Group {
             super();
             this.scale = scale;
         }
-        getPoint(t: number, optionalTarget = new THREE.Vector3()): THREE.Vector3 {
+        getPoint(t: number, optionalTarget?: THREE.Vector3): THREE.Vector3 {
+            const point = optionalTarget || new THREE.Vector3();
             const tx = Math.cos(t * Math.PI * 4) * 0.2 * t * this.scale;
             const ty = t * 2.0 * this.scale;
             const tz = Math.sin(t * Math.PI * 4) * 0.2 * t * this.scale;
-            return optionalTarget.set(tx, ty, tz);
+            return point.set(tx, ty, tz);
         }
     }
 
