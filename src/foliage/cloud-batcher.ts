@@ -10,6 +10,7 @@ import {
     uWindSpeed, uWindDirection, triplanarNoise
 } from './common.ts';
 import { foliageGroup } from '../world/state.ts';
+import { uSkyDarkness, uTwilight } from './sky.ts';
 
 // --- Global Uniforms (Moved from clouds.js) ---
 export const uCloudRainbowIntensity = uniform(0.0);
@@ -123,8 +124,23 @@ function createCloudMaterial() {
     // Apply cotton detail to base color (subtle dirtying)
     const texturedColor = baseColor.mul(float(0.95).add(cottonDetail.mul(0.05)));
 
-    material.colorNode = texturedColor;
-    material.emissiveNode = lightningGlow.add(juicyRim).add(rainbowSheen);
+    // --- INTEGRATED: Day/Night & Storm Logic ---
+    // 1. Darken during storms (uSkyDarkness -> 1.0)
+    const stormDarkness = float(1.0).sub(uSkyDarkness.mul(0.8)); // Never fully black, keep some form
+
+    // 2. Tint during Twilight/Night (uTwilight -> 1.0)
+    // Shift towards deep blue-grey at night
+    const nightTint = color(0x223355);
+    const dayTint = color(0xFFFFFF);
+    const ambientTint = mix(dayTint, nightTint, uTwilight.mul(0.7)); // 0.7 intensity
+
+    // Final Color Composition
+    const finalColor = texturedColor.mul(ambientTint).mul(stormDarkness);
+
+    material.colorNode = finalColor;
+
+    // Dim emissive effects during storms too, except lightning
+    material.emissiveNode = lightningGlow.add(juicyRim.mul(stormDarkness)).add(rainbowSheen.mul(stormDarkness));
 
     return material;
 }
@@ -132,7 +148,7 @@ function createCloudMaterial() {
 export const sharedCloudMaterial = createCloudMaterial();
 
 // --- Cloud Batcher ---
-const MAX_PUFFS = 5000;
+const MAX_PUFFS = 20000; // Increased capacity for procedural cloud layers
 const _scratchMat = new THREE.Matrix4();
 const _scratchPos = new THREE.Vector3();
 const _scratchQuat = new THREE.Quaternion();
@@ -178,7 +194,7 @@ export class CloudBatcher {
         const { scale = 1.0, puffCount = 12 + Math.floor(Math.random() * 8) } = options;
 
         if (this.count + puffCount > MAX_PUFFS) {
-            console.warn('[CloudBatcher] Max capacity reached');
+            console.warn(`[CloudBatcher] Max capacity reached (${this.count} / ${MAX_PUFFS})`);
             return;
         }
 

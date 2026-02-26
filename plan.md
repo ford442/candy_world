@@ -10,13 +10,15 @@
 
 ## Next Steps
 
-1. **Procedural Cloud Layer**: Implement a volumetric-style cloud layer using TSL noise and instancing to enhance the skybox, as outlined in the Graphics Quality Enhancement Plan (Phase 2).
-2. **Audio-Reactive Terrain**: Implement vertex displacement for terrain chunks based on audio zones or global bass.
+1. **Audio-Reactive Terrain**: Implement vertex displacement for terrain chunks based on audio zones or global bass.
+2. **Post-Processing Pipeline**: Implement bloom and color correction using WebGPU post-processing nodes.
 
 ---
 
 ## Recent Progress
 - **Accomplished:**
+  - **Procedural Cloud Layer**: **Status: Implemented ✅**
+    - *Implementation Details:* Implemented `src/foliage/procedural-sky.ts` to generate a dense, noise-based cloud layer using `CloudBatcher`. Updated `CloudBatcher` to support 20k puffs and dynamic day/night/storm lighting via `uSkyDarkness` and `uTwilight`.
   - **WebGPU Migration (Phase 4): Remaining Foliage Materials**: **Status: Implemented ✅**
     - *Implementation Details:* Migrated `src/foliage/environment.ts`, `src/foliage/celestial-bodies.ts`, `src/foliage/moon.ts`, and `src/foliage/trees.ts` to use TSL `MeshStandardNodeMaterial`, `MeshBasicNodeMaterial`, and `PointsNodeMaterial`. Replaced legacy `MeshStandardMaterial` with `CandyPresets` (Clay, Gummy) for consistent "Cute Clay" aesthetic. Updated logic to use TSL nodes for colors and emissions.
   - **Cymbal Dandelion Harvesting**: **Status: Implemented ✅**
