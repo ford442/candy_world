@@ -77,7 +77,9 @@ export function createStars(count: number = 1500): THREE.Points {
     // 1. Twinkle (High Frequency / Hi-Hats)
     // Driven by Time + Offset + AudioHigh
     // This creates the "glitter" effect
-    const twinkleSpeed = time.mul(3.0).add(aOffset); // Faster twinkle
+    // PALETTE: Vary speed per star for natural feel
+    const speedVar = float(3.0).add(sin(aOffset.mul(0.5)).mul(1.5)); // 1.5 to 4.5 speed
+    const twinkleSpeed = time.mul(speedVar).add(aOffset);
     const rawTwinkle = sin(twinkleSpeed).mul(0.5).add(0.5); // 0..1 sine wave
 
     // Sharpen the twinkle (Power curve) -> Spikes of brightness
@@ -87,16 +89,16 @@ export function createStars(count: number = 1500): THREE.Points {
     // When music is quiet, they twinkle softly. When loud, they flash.
     const activeTwinkle = sharpTwinkle.mul(float(0.8).add(uAudioHigh.mul(4.0)));
 
-    // 2. Pulse Wave (Low Frequency / Kick)
-    // Decorrelated Pulse: A wave traveling across the sky
-    // Added random offset (aOffset * 0.1) to break unison pulsing!
-    const waveFreq = float(0.02);
-    const wavePhase = positionLocal.x.mul(waveFreq).add(positionLocal.z.mul(waveFreq)).add(time.mul(0.5)).add(aOffset.mul(0.1));
-    const wave = sin(wavePhase).mul(0.5).add(0.5); // 0..1
+    // 2. Randomized Pulse (Low Frequency / Kick)
+    // Replaced wave with purely random phase based on offset to break unison
+    // This creates a "twinkle chaos" instead of a sweeping wave
+    const pulseSpeed = float(0.5).add(sin(aOffset).mul(0.2)); // Slight speed variation
+    const pulsePhase = time.mul(pulseSpeed).add(aOffset); // Offset is large (0-100)
+    const randomPulse = sin(pulsePhase).mul(0.5).add(0.5); // 0..1
 
-    // Apply Kick energy to the wave
-    // Stars in the "active" part of the wave boost significantly on Kick
-    const kickPulse = uAudioLow.mul(wave).mul(1.5);
+    // Apply Kick energy to the random pulse
+    // Stars pulse individually to the beat
+    const kickPulse = uAudioLow.mul(randomPulse).mul(1.5);
 
     // Total Intensity = Base + Twinkle + Pulse
     const intensity = float(0.5).add(activeTwinkle).add(kickPulse);
