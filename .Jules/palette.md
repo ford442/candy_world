@@ -63,3 +63,7 @@
 ## 2026-08-12 - Throttled Progress Announcements
 **Learning:** Rapidly updating text content for visual smoothness (e.g., "Loading 1%... 2%... 3%") creates an unusable experience for screen reader users, who hear a constant torrent of numbers.
 **Action:** Decouple visual progress (smooth gradients/animations) from semantic progress. Throttle text updates and ARIA announcements to significant milestones (e.g., every 10%) and use `aria-busy="true"` to indicate ongoing processing.
+
+## 2026-08-15 - Live Region Context in Pause Menus
+**Learning:** Players often check the pause menu to see "What is playing?", but audio status (like the current track) is typically hidden in transient toasts or separate menus. This disconnects the audio experience from the game state.
+**Action:** When appropriate, elevate critical "ambient" information (like the current music track) to a persistent spot in the Pause Menu. Ensure this element is accessible via `aria-live` regions but only populated when relevant to avoid clutter.
