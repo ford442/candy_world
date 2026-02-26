@@ -17,6 +17,7 @@ import {
     createCaveEntrance,
     createNeonPollen // Added
 } from '../foliage/index.ts';
+import { generateCloudLayer } from '../foliage/procedural-sky.ts';
 import { validateFoliageMaterials } from '../foliage/common.ts';
 import { CONFIG } from '../core/config.ts';
 import { registerPhysicsCave } from '../systems/physics.ts';
@@ -181,6 +182,9 @@ export function initWorld(scene: THREE.Scene, weatherSystem: WeatherSystem, load
     // Initialize Vegetation Systems
     initGrassSystem(scene, 10000);
     scene.add(createFireflies(150, 100));
+
+    // Procedural Cloud Layer (Background)
+    generateCloudLayer(scene);
 
     // Melody Lake (Waveform Water)
     // Lake is at 20, 1.5, 20 with width 120, depth 100
