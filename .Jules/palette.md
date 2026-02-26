@@ -67,3 +67,7 @@
 ## 2026-08-15 - Live Region Context in Pause Menus
 **Learning:** Players often check the pause menu to see "What is playing?", but audio status (like the current track) is typically hidden in transient toasts or separate menus. This disconnects the audio experience from the game state.
 **Action:** When appropriate, elevate critical "ambient" information (like the current music track) to a persistent spot in the Pause Menu. Ensure this element is accessible via `aria-live` regions but only populated when relevant to avoid clutter.
+
+## 2026-08-20 - Focus Management in Dynamic Lists
+**Learning:** When removing an item from a list (like a playlist track) that currently contains the active focus, the browser resets focus to the `body` or a parent, causing keyboard users to lose their place.
+**Action:** Explicitly implementing a "Focus Recovery" strategy is critical for destructive list operations. After removal, programmatically move focus to the nearest logical sibling (next or previous item) or the list container itself to maintain navigation flow.
