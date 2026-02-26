@@ -181,7 +181,39 @@ export function initInput(
                 });
             };
 
+            // Remove Button (UX Improvement)
+            const removeBtn = document.createElement('button');
+            removeBtn.className = 'playlist-remove-btn';
+            removeBtn.innerHTML = '×';
+            removeBtn.title = `Remove ${file.name}`;
+            removeBtn.setAttribute('aria-label', `Remove ${file.name} from playlist`);
+
+            removeBtn.onclick = (e) => {
+                e.stopPropagation();
+                const wasActive = document.activeElement === removeBtn;
+                audioSystem.removeTrack(index);
+                renderPlaylist();
+
+                // UX: Restore Focus to an appropriate element
+                requestAnimationFrame(() => {
+                    const removeBtns = playlistList.querySelectorAll('.playlist-remove-btn');
+                    const playBtns = playlistList.querySelectorAll('.playlist-btn');
+
+                    // Try focusing the next remove button (at same index, since list shifted)
+                    if (removeBtns[index]) {
+                        (removeBtns[index] as HTMLElement).focus();
+                    } else if (removeBtns[index - 1]) {
+                        // Or the previous one
+                        (removeBtns[index - 1] as HTMLElement).focus();
+                    } else if (playBtns[0]) {
+                        // Or the first song
+                        (playBtns[0] as HTMLElement).focus();
+                    }
+                });
+            };
+
             li.appendChild(btn);
+            li.appendChild(removeBtn);
             playlistList.appendChild(li);
         });
         

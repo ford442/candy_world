@@ -576,6 +576,44 @@ export class AudioSystem {
             this.playNext(index);
         }
     }
+
+    removeTrack(index: number): void {
+        if (index < 0 || index >= this.playlist.length) return;
+
+        console.log(`[AudioSystem] Removing track ${index}: ${this.playlist[index].name}`);
+
+        const isCurrent = (index === this.currentIndex);
+
+        if (isCurrent) {
+            this.stop(false); // Clean stop
+        }
+
+        // Remove from array
+        this.playlist.splice(index, 1);
+
+        // Adjust index
+        if (this.playlist.length === 0) {
+            this.currentIndex = -1;
+        } else {
+            if (isCurrent) {
+                // Determine new index (wrap if needed, though behavior is usually "play next")
+                let newIndex = index;
+                if (newIndex >= this.playlist.length) {
+                    newIndex = 0; // Loop to start
+                }
+                // Play the track at the new/same index
+                this.playNext(newIndex);
+            } else if (index < this.currentIndex) {
+                // Removed a track before current, shift index down
+                this.currentIndex--;
+            }
+            // If removed after, current index stays same
+        }
+
+        if (this.onPlaylistUpdate) {
+            this.onPlaylistUpdate(this.playlist);
+        }
+    }
     
     getPlaylist(): File[] {
         return this.playlist;
