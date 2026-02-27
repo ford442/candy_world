@@ -579,6 +579,9 @@ export class MushroomBatcher {
         const i = this.count;
         this.count++;
 
+        // ⚡ OPTIMIZATION: Mark as batched
+        dummy.userData.isBatched = true;
+
         // Track ID for removal
         this.logicIdToInstance.set(dummy.id, i);
         this.instanceToLogicId[i] = dummy.id;

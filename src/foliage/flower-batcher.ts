@@ -142,6 +142,9 @@ export class FlowerBatcher {
     register(group: THREE.Group, type: string, options: any = {}) {
         if (!this.initialized) this.init();
 
+        // ⚡ OPTIMIZATION: Mark as batched
+        group.userData.isBatched = true;
+
         // Ensure world matrix is up to date
         group.updateMatrixWorld(true);
         const rootMatrix = group.matrixWorld;
