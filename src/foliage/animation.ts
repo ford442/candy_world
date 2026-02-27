@@ -13,6 +13,7 @@ export * from './types.ts';
 // ⚡ OPTIMIZATION: Shared scratch variables to prevent GC in hot loops
 const _scratchOne = new THREE.Vector3(1, 1, 1);
 const _scratchWhite = new THREE.Color(0xFFFFFF);
+const _scratchDarkColor = new THREE.Color(); // For applyWetEffect
 
 export function triggerGrowth(plants: FoliageObject[], intensity: number): void {
     // ⚡ OPTIMIZATION: Use cached for-loop to avoid closure allocation
@@ -95,8 +96,9 @@ function applyWetEffect(material: FoliageMaterial, wetAmount: number): void {
     }
 
     if (material.color && material.userData.dryColor) {
-        const darkColor = material.userData.dryColor.clone().multiplyScalar(1 - wetAmount * 0.3);
-        material.color.lerp(darkColor, 0.1);
+        // ⚡ OPTIMIZATION: Avoid clone() by using scratch variable
+        _scratchDarkColor.copy(material.userData.dryColor).multiplyScalar(1 - wetAmount * 0.3);
+        material.color.lerp(_scratchDarkColor, 0.1);
     }
 }
 
@@ -173,6 +175,7 @@ export function animateFoliage(foliageObject: FoliageObject, time: number, audio
     const type = foliageObject.userData.animationType;
 
     // --- Per-note flash application (emissive/color) with automatic fade-back ---
+    // This logic handles visual color flashes. It needs to run even if physics/motion is batched.
     const reactive = foliageObject.userData.reactiveMeshes;
     
     // Fast path: skip material updates if no reactive meshes
@@ -332,20 +335,6 @@ export function animateFoliage(foliageObject: FoliageObject, time: number, audio
         foliageObject.userData.wobbleCurrent = THREE.MathUtils.lerp(cur, target, lerpT);
     }
 
-    if (isDeepNight) {
-        const isNightFlower = foliageObject.userData.type === 'flower' && foliageObject.userData.animationType === 'glowPulse';
-
-        if (!isNightFlower) {
-            const sleepSpeed = 0.5;
-            const sleepAmount = 0.02;
-            const shiver = Math.sin(time * sleepSpeed + offset) * sleepAmount;
-
-            foliageObject.rotation.z = shiver;
-            foliageObject.rotation.x = shiver * 0.5;
-            return;
-        }
-    }
-
     let kick = 0, groove = 0, beatPhase = 0, leadVol = 0;
     if (audioData) {
         kick = audioData.kickTrigger || 0;
@@ -359,15 +348,31 @@ export function animateFoliage(foliageObject: FoliageObject, time: number, audio
     const animTime = time + beatPhase;
 
     // --- WASM Batching Integration ---
-    // Bolt Optimization: Direct queue attempt avoids array allocation/lookup.
-    if (type && foliageBatcher.queue(foliageObject, type, intensity, animTime, kick)) {
-        return; // Successfully queued, skip JS logic
+    // ⚡ OPTIMIZATION: Try to queue deeply batched animation first
+    // If queued, we skip the CPU transform logic below.
+    // NOTE: Material Flash logic (above) still runs because TSL doesn't handle that yet for all types.
+    if (foliageObject.userData.animationType && foliageBatcher.queue(foliageObject, foliageObject.userData.animationType, intensity, animTime, kick)) {
+        return; // Handled by batcher
     }
 
     // --- Fallback JS Logic ---
     // Note: Types handled by FoliageBatcher (sway, bounce, wobble, fiberWhip, etc.)
     // are skipped if the batcher successfully queued them.
     // The logic below handles types NOT yet migrated or if the batcher is full.
+
+    if (isDeepNight) {
+        const isNightFlower = foliageObject.userData.type === 'flower' && foliageObject.userData.animationType === 'glowPulse';
+
+        if (!isNightFlower) {
+            const sleepSpeed = 0.5;
+            const sleepAmount = 0.02;
+            const shiver = Math.sin(time * sleepSpeed + offset) * sleepAmount;
+
+            foliageObject.rotation.z = shiver;
+            foliageObject.rotation.x = shiver * 0.5;
+            return;
+        }
+    }
 
     if (type === 'shiver') {
         const shiver = Math.sin(animTime * 20 + offset) * 0.05 * intensity;

@@ -216,8 +216,9 @@ export class MusicReactivitySystem {
                 if (!obj) continue;
                 totalObjects++;
 
-                // ⚡ OPTIMIZATION: Skip Batched Objects
-                // These types are handled by specific batchers (InstancedMesh) with TSL
+                // ⚡ OPTIMIZATION: Skip Batched Objects (Corrected Implementation)
+                // If isBatched is true, we rely on the Batcher (InstancedMesh + TSL) to handle animations.
+                // We skip CPU-side animateFoliage call to save cycles.
                 if (obj.userData.isBatched ||
                     obj.userData.type === 'mushroom' ||
                     obj.userData.type === 'lanternFlower' ||
