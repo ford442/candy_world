@@ -1,12 +1,21 @@
 import * as THREE from 'three';
+import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { 
     createClayMaterial, 
     createCandyMaterial, 
     registerReactiveMaterial, 
-    attachReactivity
+    attachReactivity,
+    CandyPresets,
+    uAudioLow,
+    uTime,
+    uGlitchIntensity
 } from './common.ts';
+import {
+    color, float, vec3, sin, cos, mix, uv, positionLocal, time, smoothstep, uniform, vec2, step, abs
+} from 'three/tsl';
+import { applyGlitch } from './glitch.ts';
 
-import { makeInteractive } from '../utils/interaction-utils.ts';
+import { makeInteractive as makeInteractiveUtils } from '../utils/interaction-utils.ts';
 import { unlockSystem } from '../systems/unlocks.ts';
 import { spawnImpact } from './impacts.ts';
 
@@ -50,6 +59,45 @@ interface SystemData {
 
 // ⚡ OPTIMIZATION: Shared scratch variables to avoid GC in animation loops
 const _scratchEuler = new THREE.Euler();
+
+// --- Helper: Glitch Material ---
+function createGlitchyMaterial(hexColor: number): MeshStandardNodeMaterial {
+    // 1. Base Material (Clay preset)
+    const material = CandyPresets.Clay(hexColor, {
+        roughness: 0.8,
+        bumpStrength: 0.1,
+    });
+
+    // 2. Glitch Logic (Position)
+    // We want the mushroom to glitch (stutter/jitter) when the Bass (Retrigger) hits.
+    // uAudioLow is the driver.
+    // We combine global glitch intensity with local audio reactivity.
+    const glitchTrigger = uAudioLow.mul(0.5).add(uGlitchIntensity);
+    const glitchResult = applyGlitch(uv(), positionLocal, glitchTrigger);
+
+    material.positionNode = glitchResult.position;
+
+    // 3. Scanline Logic (Emissive)
+    // Scrolling sine wave
+    const scanSpeed = float(5.0);
+    const scanFreq = float(20.0);
+    const scanPhase = uv().y.mul(scanFreq).sub(time.mul(scanSpeed));
+    // Sharp scanline: pow(sin, high_power)
+    const scanline = sin(scanPhase).add(1.0).mul(0.5).pow(4.0);
+
+    // Color Shift: Mix base color with Cyan based on scanline strength
+    // PRESERVE: Use existing colorNode (Clay preset AO) as base
+    const baseColorNode = material.colorNode || color(hexColor);
+    const glitchColor = color(0x00FFFF); // Cyan
+
+    // Emissive boost on scanline
+    const emissiveIntensity = scanline.mul(glitchTrigger.add(0.2)).mul(2.0); // Base visibility + Kick
+
+    material.colorNode = mix(baseColorNode, glitchColor, scanline.mul(glitchTrigger));
+    material.emissiveNode = glitchColor.mul(emissiveIntensity);
+
+    return material;
+}
 
 // --- Category 1: Melodic Flora ---
 
@@ -178,9 +226,10 @@ export function createRetriggerMushroom(options: RetriggerMushroomOptions = {}) 
     const { scale = 1.0, color = 0xFF6B6B, retriggerSpeed = 4 } = options;
     const group = new THREE.Group();
 
-    const mat = createClayMaterial(color);
+    // Use Glitchy Material for Cap
+    const capMat = createGlitchyMaterial(color);
 
-    const cap = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 16, 0, Math.PI * 2, 0, Math.PI / 2), mat);
+    const cap = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 16, 0, Math.PI * 2, 0, Math.PI / 2), capMat);
     cap.position.y = 0.8;
     group.add(cap);
 
@@ -318,8 +367,6 @@ export function createCymbalDandelion(options: CymbalDandelionOptions = {}) {
 
     return interactive;
 }
-
-// Duplicate exports removed.
 
 // --- UTILITY ---
 
