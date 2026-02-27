@@ -292,6 +292,9 @@ export class LanternBatcher {
         const i = this.count;
         this.count++;
 
+        // ⚡ OPTIMIZATION: Mark as batched
+        dummy.userData.isBatched = true;
+
         // Transforms
         dummy.updateMatrix();
 
