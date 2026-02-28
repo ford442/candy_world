@@ -548,9 +548,10 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
         cppPhysicsInitialized = true;
     }
 
-    vineSwings.forEach(v => {
+    for (let i = 0; i < vineSwings.length; i++) {
+        const v = vineSwings[i];
         if (v !== activeVineSwing) v.update(player as any, delta, null);
-    });
+    }
 
     if (Date.now() - lastVineDetachTime > 500) {
         checkVineAttachment(camera);

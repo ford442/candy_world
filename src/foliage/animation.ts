@@ -403,7 +403,13 @@ export function animateFoliage(foliageObject: FoliageObject, time: number, audio
         foliageObject.position.y = y + Math.sin(time * 2 + offset) * 0.1;
     }
     else if (type === 'rain') {
-        const rainChild = foliageObject.children.find(c => c.type === 'Points') as THREE.Points;
+        let rainChild: THREE.Points | null = null;
+        for (let i = 0; i < foliageObject.children.length; i++) {
+            if (foliageObject.children[i].type === 'Points') {
+                rainChild = foliageObject.children[i] as THREE.Points;
+                break;
+            }
+        }
         if (rainChild && rainChild.geometry && rainChild.geometry.attributes.position) {
             const positions = rainChild.geometry.attributes.position.array as Float32Array;
             for (let i = 0; i < positions.length; i += 3) {
@@ -448,28 +454,9 @@ export function animateFoliage(foliageObject: FoliageObject, time: number, audio
         if (plume) {
             plume.visible = eruptionStrength > 0.05;
 
-            if (plume.visible && plume.geometry.attributes.position) {
-                const positions = plume.geometry.attributes.position.array as Float32Array;
-                const velocities = plume.geometry.attributes.velocity.array as Float32Array;
-                const currentMaxH = maxHeight * eruptionStrength;
-
-                for (let i = 0; i < positions.length / 3; i++) {
-                    const idx = i * 3;
-                    const vel = velocities[i];
-
-                    positions[idx + 1] += vel * eruptionStrength * 0.3;
-
-                    const heightRatio = positions[idx + 1] / currentMaxH;
-                    positions[idx] += (Math.random() - 0.5) * 0.02 * heightRatio;
-                    positions[idx + 2] += (Math.random() - 0.5) * 0.02 * heightRatio;
-
-                    if (positions[idx + 1] > currentMaxH || positions[idx + 1] < 0) {
-                        positions[idx] = (Math.random() - 0.5) * 0.2;
-                        positions[idx + 1] = 0;
-                        positions[idx + 2] = (Math.random() - 0.5) * 0.2;
-                    }
-                }
-                plume.geometry.attributes.position.needsUpdate = true;
+            // ⚡ OPTIMIZATION: Plume position logic replaced by TSL in environment.ts
+            if (foliageObject.userData.uEruptionStrength) {
+                foliageObject.userData.uEruptionStrength.value = eruptionStrength;
             }
 
             if ((plume.material as any).opacity !== undefined) {
