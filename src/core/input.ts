@@ -199,7 +199,7 @@ export function initInput(
             // Remove Button (UX Improvement)
             const removeBtn = document.createElement('button');
             removeBtn.className = 'playlist-remove-btn';
-            removeBtn.innerHTML = '×';
+            removeBtn.innerHTML = '<span aria-hidden="true">×</span>';
             removeBtn.title = `Remove ${file.name}`;
             removeBtn.setAttribute('aria-label', `Remove ${file.name} from playlist`);
 
