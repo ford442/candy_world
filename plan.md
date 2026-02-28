@@ -10,12 +10,14 @@
 
 ## Next Steps
 
-1. **Rare Flora Discovery**: Implement the discovery system for rare plants (Category 5).
+1. **Instrument Shrine Puzzle Mechanics**: Implement interactive puzzles where shrine patterns must be matched to bassline instrument IDs.
 
 ---
 
 ## Recent Progress
 - **Accomplished:**
+  - **Rare Flora Discovery Visuals**: **Status: Implemented ✅**
+    - *Implementation Details:* Added `src/foliage/discovery-effect.ts` to render a TSL-driven magical particle burst (expanding, color-shifting, twinkling) upon rare plant discovery. Hooked into `checkPlayerDiscovery` and instantiated as a deferred visual in `src/main.ts`.
   - **Post-Processing Pipeline (Bloom & Color Correction)**: **Status: Implemented ✅**
     - *Implementation Details:* Implemented `src/foliage/post-processing.ts` using `three/webgpu` `PostProcessing` with TSL. Added audio-reactive `BloomNode` (driven by `uAudioLow` for kick drums) and custom color correction logic (saturation & contrast). Integrated into `src/main.ts` replacing standard renderer.
   - **Audio-Reactive Terrain**: **Status: Implemented ✅**
@@ -169,7 +171,7 @@
     - *Implementation Details:* Implemented "Riding the Plume" mechanic in `src/systems/physics.ts` (vertical velocity boost). Added charging mechanic: shooting the base increases `eruptionStrength` via `chargeLevel`.
   - [x] Snare-Snap Trap Physics
     - *Implementation Details:* Implemented player interaction (trigger on step, knockback on close) and projectile reflection in `src/systems/physics.ts` and `src/gameplay/rainbow-blaster.ts`.
-  - **Plants Twilight Glow**: Implemented logic for plants to glow during twilight hours (pre-dawn/dusk).
+  - [x] **Plants Twilight Glow**: Implemented logic for plants to glow during twilight hours (pre-dawn/dusk).
     - *Implementation Details:* Added `uTwilight` global uniform to `src/foliage/sky.js` and integrated it into the TSL material pipeline for Flowers, Mushrooms, and Trees. The glow intensity ramps up at dusk and down at dawn, driven by the `WeatherSystem`.
 
 ---

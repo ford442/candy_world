@@ -347,4 +347,11 @@ export function initDiscoveryForFoliage(foliageObjects: any[]): void {
 export function checkPlayerDiscovery(playerPos: THREE.Vector3): void {
     const discovery = optimizedDiscovery.checkDiscovery(playerPos);
     // The discovery system automatically shows toast notifications
+
+    // Trigger visual effect
+    if (discovery) {
+        if (typeof window !== 'undefined' && (window as any).triggerDiscoveryEffect) {
+            (window as any).triggerDiscoveryEffect(playerPos);
+        }
+    }
 }
