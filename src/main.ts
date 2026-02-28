@@ -20,6 +20,7 @@ import { profiler } from './utils/profiler.js';
 import { CONFIG, CYCLE_DURATION, DURATION_SUNRISE, DURATION_DAY, DURATION_SUNSET, DURATION_DUSK_NIGHT, DURATION_DEEP_NIGHT } from './core/config.ts';
 import { initScene, forceFullSceneWarmup } from './core/init.js';
 import { initInput, keyStates } from './core/input.ts';
+import { initPostProcessing } from './foliage/post-processing.ts';
 import { getCycleState } from './core/cycle.ts';
 
 // World & System imports
@@ -51,7 +52,11 @@ const _interactionLists: (any[] | null)[] = [null, null, null]; // Reusable arra
 // Phase 1: Core Scene Setup (Immediate)
 console.time('Core Scene Setup');
 const { scene, camera, renderer, ambientLight, sunLight, sunGlow, sunCorona, lightShaftGroup, sunGlowMat, coronaMat } = initScene();
-console.timeEnd('Core Scene Setup');
+
+// Initialize Post Processing Pipeline
+const postProcessing = initPostProcessing(renderer, scene, camera);
+
+console.timeEnd('Core Setup');
 
 // Phase 2: Audio & Weather Systems (Lightweight)
 console.time('Audio & Systems Init');
@@ -758,7 +763,14 @@ function animate() {
         }
     });
 
-    profiler.measure('Render', () => renderer.render(scene, camera));
+    // Update Post-Processing audio reactivity (Kick drum/Low drives bloom)
+    if (audioState) {
+        postProcessing.uniforms.bloomStrength.value = 0.5 + (uAudioLow.value * 1.5); // Base 0.5 glow + up to 2.0 on kick
+    } else {
+        postProcessing.uniforms.bloomStrength.value = 0.5;
+    }
+
+    profiler.measure('Render', () => postProcessing.render());
 
     profiler.endFrame();
 }

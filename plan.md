@@ -10,12 +10,14 @@
 
 ## Next Steps
 
-1. **Post-Processing Pipeline**: Implement bloom and color correction using WebGPU post-processing nodes.
+1. **Rare Flora Discovery**: Implement the discovery system for rare plants (Category 5).
 
 ---
 
 ## Recent Progress
 - **Accomplished:**
+  - **Post-Processing Pipeline (Bloom & Color Correction)**: **Status: Implemented ✅**
+    - *Implementation Details:* Implemented `src/foliage/post-processing.ts` using `three/webgpu` `PostProcessing` with TSL. Added audio-reactive `BloomNode` (driven by `uAudioLow` for kick drums) and custom color correction logic (saturation & contrast). Integrated into `src/main.ts` replacing standard renderer.
   - **Audio-Reactive Terrain**: **Status: Implemented ✅**
     - *Implementation Details:* Implemented `createTerrainMaterial` in `src/foliage/terrain.ts` using TSL for bass-driven vertex displacement (breathing) and treble-driven sparkles (magic dust). Replaced static MeshPhysicalMaterial in `src/world/generation.ts`.
   - **Procedural Cloud Layer**: **Status: Implemented ✅**
