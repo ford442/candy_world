@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { MeshStandardNodeMaterial, PointsNodeMaterial } from 'three/webgpu';
-import { time, vec3, positionLocal, length, sin, cos, color as tslColor } from 'three/tsl';
-import { registerReactiveMaterial, attachReactivity, CandyPresets } from './common.ts';
+import { time, vec3, positionLocal, length, sin, cos, color as tslColor, attribute, float, uniform } from 'three/tsl';
+import { registerReactiveMaterial, attachReactivity, CandyPresets, uTime } from './common.ts';
 
 export interface FloatingOrbOptions {
     color?: number;
@@ -115,6 +115,8 @@ export function createKickDrumGeyser(options: KickDrumGeyserOptions = {}) {
     plumeGeo.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
     plumeGeo.setAttribute('velocity', new THREE.BufferAttribute(velocities, 1));
 
+    const uEruptionStrength = uniform(float(0.0));
+
     const plumeMat = new PointsNodeMaterial({
         color: color,
         size: 0.15,
@@ -123,6 +125,25 @@ export function createKickDrumGeyser(options: KickDrumGeyserOptions = {}) {
         blending: THREE.AdditiveBlending,
         depthWrite: false
     });
+
+    // ⚡ OPTIMIZATION: TSL Node for Plume Animation
+    const velocityAttr = attribute('velocity', 'float');
+    const yOffset = uTime.mul(velocityAttr).mul(5.0).mod(float(maxHeight));
+
+    // Add jitter
+    const jitterX = sin(uTime.mul(10.0).add(velocityAttr.mul(100.0))).mul(0.1);
+    const jitterZ = cos(uTime.mul(12.0).add(velocityAttr.mul(100.0))).mul(0.1);
+
+    const activeMaxH = float(maxHeight).mul(uEruptionStrength);
+
+    // Scale height by eruption strength, and loop within active height
+    const finalY = yOffset.mul(uEruptionStrength);
+
+    plumeMat.positionNode = vec3(
+        positionLocal.x.add(jitterX).mul(uEruptionStrength),
+        finalY,
+        positionLocal.z.add(jitterZ).mul(uEruptionStrength)
+    );
 
     const plume = new THREE.Points(plumeGeo, plumeMat);
     plume.visible = false;
@@ -140,6 +161,7 @@ export function createKickDrumGeyser(options: KickDrumGeyserOptions = {}) {
     group.userData.coreMaterial = coreMat;
     group.userData.maxHeight = maxHeight;
     group.userData.eruptionStrength = 0;
+    group.userData.uEruptionStrength = uEruptionStrength;
 
     return attachReactivity(group);
 }

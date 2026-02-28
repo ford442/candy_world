@@ -128,7 +128,8 @@ export function createWaterfall(startPos: THREE.Vector3, endPos: THREE.Vector3, 
         }
 
         // Animate splashes
-        group.userData.splashes.forEach((s: THREE.Object3D) => {
+        for (let i = 0; i < group.userData.splashes.length; i++) {
+            const s = group.userData.splashes[i];
             s.position.addScaledVector(s.userData.velocity, delta);
             s.userData.velocity.y -= 20.0 * delta; // Heavy gravity
 
@@ -145,7 +146,7 @@ export function createWaterfall(startPos: THREE.Vector3, endPos: THREE.Vector3, 
                      s.userData.velocity.set((Math.random()-0.5)*2, Math.random()*8 + 2, (Math.random()-0.5)*2);
                 }
             }
-        });
+        }
     };
 
     return group;
