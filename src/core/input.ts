@@ -49,6 +49,19 @@ const showUploadFeedback = (labelElement: HTMLElement | null, filesCount: number
     }, 2000);
 };
 
+// Helper: Format song title for display
+const formatSongTitle = (filename: string): string => {
+    // Remove extension
+    let name = filename.replace(/\.[^/.]+$/, "");
+    // Replace underscores and hyphens with spaces
+    name = name.replace(/[_-]/g, " ");
+    // Capitalize words
+    name = name.replace(/\w\S*/g, (txt) => {
+        return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();
+    });
+    return name;
+};
+
 // Helper: Validate and filter files by extension
 const filterValidMusicFiles = (files: FileList): { validFiles: File[]; invalidFiles: File[] } => {
     const validExtensions = ['.mod', '.xm', '.it', '.s3m'];
@@ -160,8 +173,10 @@ export function initInput(
                 btn.setAttribute('aria-current', 'true');
             }
 
+            const displayName = formatSongTitle(file.name);
+
             btn.innerHTML = `
-                <span class="song-title">${index + 1}. ${file.name}</span>
+                <span class="song-title">${index + 1}. ${displayName}</span>
                 <span class="status-icon" aria-hidden="true">${index === currentIdx ? '🔊' : '▶️'}</span>
             `;
 
@@ -257,10 +272,11 @@ export function initInput(
         const currentIdx = audioSystem.getCurrentIndex();
         if (currentIdx >= 0 && playlist[currentIdx]) {
             if (nowPlayingContainer && nowPlayingText) {
-                const trackName = playlist[currentIdx].name;
+                const trackName = formatSongTitle(playlist[currentIdx].name);
                 nowPlayingText.innerText = trackName;
                 nowPlayingContainer.style.display = 'flex';
                 nowPlayingContainer.setAttribute('aria-label', `Now Playing: ${trackName}`);
+                document.title = `🎵 ${trackName} - Candy World`;
             }
         }
     }
@@ -269,6 +285,10 @@ export function initInput(
     audioSystem.onPlaylistUpdate = (playlist: File[]) => {
         if (isPlaylistOpen) renderPlaylist();
         updateJukeboxButtonState(playlist ? playlist.length : 0);
+
+        if (!playlist || playlist.length === 0) {
+            document.title = "Candy World";
+        }
     };
 
     // UX: Show toast and update playlist when track changes
@@ -278,7 +298,7 @@ export function initInput(
         // Show "Now Playing" toast
         const songs = audioSystem.getPlaylist();
         if (songs && songs[index]) {
-            const trackName = songs[index].name;
+            const trackName = formatSongTitle(songs[index].name);
             import('../utils/toast.js').then(({ showToast }) => {
                 showToast(`Now Playing: ${trackName}`, '🎵');
             });
@@ -289,6 +309,9 @@ export function initInput(
                 nowPlayingContainer.style.display = 'flex';
                 nowPlayingContainer.setAttribute('aria-label', `Now Playing: ${trackName}`);
             }
+
+            // 🎨 Palette: Update Browser Tab Title
+            document.title = `🎵 ${trackName} - Candy World`;
         }
     };
 
