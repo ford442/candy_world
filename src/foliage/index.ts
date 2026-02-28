@@ -35,6 +35,7 @@ export * from './ribbons.ts'; // .js -> .ts
 export * from './mirrors.ts';
 export * from './sparkle-trail.ts'; // .js -> .ts
 export * from './impacts.ts';
+export * from './discovery-effect.ts'; // Added Discovery Effect
 export * from './lotus.ts'; // .js -> .ts
 export * from './pollen.ts'; // Added Pollen
 export * from './shield.ts'; // Added Shield

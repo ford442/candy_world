@@ -2,7 +2,7 @@
 
 import * as THREE from 'three';
 import '../style.css';
-import { uWindSpeed, uWindDirection, uSkyTopColor, uSkyBottomColor, uHorizonColor, uAtmosphereIntensity, uStarOpacity, uAuroraIntensity, uAuroraColor, uAudioLow, uAudioHigh, uGlitchIntensity, uChromaticIntensity, uTime, uPlayerPosition, createAurora, createChromaticPulse, animateFoliage, updateFoliageMaterials, updateFallingBerries, collectFallingBerries, createMushroom, validateNodeGeometries, createMelodyRibbon, updateMelodyRibbons, createSparkleTrail, createImpactSystem, createShield, createDandelionSeedSystem } from './foliage/index.ts';
+import { uWindSpeed, uWindDirection, uSkyTopColor, uSkyBottomColor, uHorizonColor, uAtmosphereIntensity, uStarOpacity, uAuroraIntensity, uAuroraColor, uAudioLow, uAudioHigh, uGlitchIntensity, uChromaticIntensity, uTime, uPlayerPosition, createAurora, createChromaticPulse, animateFoliage, updateFoliageMaterials, updateFallingBerries, collectFallingBerries, createMushroom, validateNodeGeometries, createMelodyRibbon, updateMelodyRibbons, createSparkleTrail, createImpactSystem, createShield, createDandelionSeedSystem, createDiscoveryEffect } from './foliage/index.ts';
 import { initCelestialBodies } from './foliage/celestial-bodies.ts';
 import { InteractionSystem } from './systems/interaction.ts';
 import { unlockSystem } from './systems/unlocks.ts';
@@ -105,6 +105,7 @@ let impactSystem: any = null;
 let fluidFog: THREE.Mesh | null = null;
 let playerShieldMesh: THREE.Object3D | null = null;
 let dandelionSeedSystem: THREE.Object3D | null = null;
+let discoveryEffect: any = null;
 
 // Function to initialize deferred visual elements with better organization and timing
 function initDeferredVisuals() {
@@ -163,6 +164,20 @@ function initDeferredVisuals() {
         dandelionSeedSystem = createDandelionSeedSystem();
         scene.add(dandelionSeedSystem);
         console.log('[Deferred] Dandelion Seed System initialized');
+    }
+
+    if (!discoveryEffect) {
+        discoveryEffect = createDiscoveryEffect();
+        scene.add(discoveryEffect.mesh);
+        console.log('[Deferred] Discovery Effect initialized');
+
+        // Export to global for easy triggering from discovery-optimized.ts
+        (window as any).triggerDiscoveryEffect = (position: THREE.Vector3) => {
+            if (discoveryEffect && discoveryEffect.trigger) {
+                // Ensure we use the current global shader time
+                discoveryEffect.trigger(position, uTime.value);
+            }
+        };
     }
 
     if (!jitterMineSystem.mesh.parent) {
