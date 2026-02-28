@@ -240,7 +240,8 @@ export function calculateWaterLevel(
     let waterLevel = -100;
 
     // Check cave water gates (using scratch vector to avoid GC)
-    foliageCaves.forEach(cave => {
+    for (let i = 0; i < foliageCaves.length; i++) {
+        const cave = foliageCaves[i];
         if (cave.userData.isBlocked) {
             const gatePos = _scratchGatePos
                 .copy(cave.userData.gatePosition)
@@ -249,7 +250,7 @@ export function calculateWaterLevel(
                 waterLevel = gatePos.y + 5; // Water exists here
             }
         }
-    });
+    }
 
     // Check standard Lake Water Level (Y=1.5) if inside lake bounds
     // BUT NOT if on the island (island is above water)
