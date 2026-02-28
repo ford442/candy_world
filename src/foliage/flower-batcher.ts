@@ -8,9 +8,11 @@ import {
     calculateWindSway,
     applyPlayerInteraction,
     CandyPresets,
-    createStandardNodeMaterial
+    createStandardNodeMaterial,
+    createJuicyRimLight,
+    uAudioHigh
 } from './common.ts';
-import { attribute, positionLocal, mix, color } from 'three/tsl';
+import { attribute, positionLocal, mix, color, float } from 'three/tsl';
 
 const MAX_FLOWERS = 5000;
 const MAX_PETALS = MAX_FLOWERS * 15; // Up to 15 petals per flower
@@ -103,6 +105,10 @@ export class FlowerBatcher {
             audioReactStrength: 1.0,
             rimStrength: 0.5
         });
+
+        // Add Audio-Reactive Rim Light to petals
+        const audioRim = createJuicyRimLight(instanceColor, float(1.0).add(uAudioHigh.mul(2.0)), float(3.0));
+        petalMat.emissiveNode = audioRim;
 
         // Simple Petals (Icosahedron)
         let simpleGeo = new THREE.IcosahedronGeometry(0.15, 0);
