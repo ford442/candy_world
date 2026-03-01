@@ -185,10 +185,10 @@ export function updateSparkleTrail(trail: THREE.Points, playerPos: THREE.Vector3
     // Only upload the range we touched. If it wraps, upload everything (fallback).
     const wrapped = (startIndex + count) > size;
 
-    const hasUpdateRange =
+    const allAttributesHaveUpdateRange =
         positions.updateRange && birthTimes.updateRange && lifeSpans.updateRange && spawnSpeeds.updateRange;
 
-    if (!wrapped && hasUpdateRange) {
+    if (!wrapped && allAttributesHaveUpdateRange) {
         // Contiguous update
         const updateOffset = startIndex;
         const updateCount = count;
@@ -204,7 +204,7 @@ export function updateSparkleTrail(trail: THREE.Points, playerPos: THREE.Vector3
 
         spawnSpeeds.updateRange.offset = updateOffset;
         spawnSpeeds.updateRange.count = updateCount;
-    } else if (hasUpdateRange) {
+    } else if (allAttributesHaveUpdateRange) {
         // Wrapped: Fallback to full update (simple) or implement split update if critical.
         // Given trail size 2000 and count ~20, wrap happens <1% of frames.
         // Full update is acceptable here.
