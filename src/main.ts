@@ -45,6 +45,10 @@ const _scratchBaseFog = new THREE.Color();
 const _scratchSunVector = new THREE.Vector3();
 const _scratchAuroraColor = new THREE.Color();
 
+// ⚡ OPTIMIZATION: Scratch vectors to prevent GC spikes on mouse click
+const _scratchClickDir = new THREE.Vector3();
+const _scratchClickOrigin = new THREE.Vector3();
+
 const _interactionLists: (any[] | null)[] = [null, null, null]; // Reusable array for interaction lists
 
 // --- Initialization Pipeline ---
@@ -262,11 +266,10 @@ window.addEventListener('mousedown', (e) => {
 
             // If interaction didn't handle it, fire rainbow blaster
             if (!handled) {
-                const dir = new THREE.Vector3();
-                camera.getWorldDirection(dir);
-                const origin = camera.position.clone().add(dir.clone().multiplyScalar(1.0));
-                origin.y -= 0.2; // Lower slightly
-                fireRainbow(scene, origin, dir);
+                camera.getWorldDirection(_scratchClickDir);
+                _scratchClickOrigin.copy(camera.position).addScaledVector(_scratchClickDir, 1.0);
+                _scratchClickOrigin.y -= 0.2; // Lower slightly
+                fireRainbow(scene, _scratchClickOrigin, _scratchClickDir);
             }
         }
     }

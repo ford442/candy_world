@@ -124,6 +124,8 @@ const _scratchCamRight = new THREE.Vector3();
 const _scratchMoveVec = new THREE.Vector3();
 const _scratchTargetVel = new THREE.Vector3();
 const _scratchUp = new THREE.Vector3(0, 1, 0);
+// ⚡ OPTIMIZATION: Shared scratch object for WASM state reads to avoid GC spikes
+const _scratchPlayerState = { x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0 };
 
 // C++ Physics Init Flag
 let cppPhysicsInitialized = false;
@@ -611,9 +613,9 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
 
     if (onGround >= 0) {
         // C++ Success
-        const newState = getPlayerState();
-        player.position.set(newState.x, newState.y, newState.z);
-        player.velocity.set(newState.vx, newState.vy, newState.vz);
+        getPlayerState(_scratchPlayerState);
+        player.position.set(_scratchPlayerState.x, _scratchPlayerState.y, _scratchPlayerState.z);
+        player.velocity.set(_scratchPlayerState.vx, _scratchPlayerState.vy, _scratchPlayerState.vz);
 
         // Reset jump key if we successfully jumped (velocity.y > 0)
         // But only if we were grounded before (normal jump)
