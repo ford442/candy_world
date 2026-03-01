@@ -81,7 +81,7 @@ export function updatePhysicsCPP(delta: number, inputX: number, inputZ: number, 
 export function initPhysics(x: number, y: number, z: number): void;
 export function addObstacle(type: number, x: number, y: number, z: number, r: number, h: number, p1: number, p2: number, p3: boolean): void;
 export function setPlayerState(x: number, y: number, z: number, vx: number, vy: number, vz: number): void;
-export function getPlayerState(): { x: number, y: number, z: number, vx: number, vy: number, vz: number };
+export function getPlayerState(out?: { x: number, y: number, z: number, vx: number, vy: number, vz: number }): { x: number, y: number, z: number, vx: number, vy: number, vz: number };
 
 export function valueNoise2D(x: number, y: number): number;
 export function fbm(x: number, y: number, octaves?: number): number;

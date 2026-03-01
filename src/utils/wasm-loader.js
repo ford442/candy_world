@@ -1131,14 +1131,15 @@ export function setPlayerState(x, y, z, vx, vy, vz) {
     if (f) f(x, y, z, vx, vy, vz);
 }
 
-export function getPlayerState() {
-    const x = getNativeFunc('getPlayerX')();
-    const y = getNativeFunc('getPlayerY')();
-    const z = getNativeFunc('getPlayerZ')();
-    const vx = getNativeFunc('getPlayerVX')();
-    const vy = getNativeFunc('getPlayerVY')();
-    const vz = getNativeFunc('getPlayerVZ')();
-    return { x, y, z, vx, vy, vz };
+// ⚡ OPTIMIZATION: Pass a scratch object to prevent allocating `{ x, y, z, vx, vy, vz }` every frame
+export function getPlayerState(out = {}) {
+    out.x = getNativeFunc('getPlayerX')();
+    out.y = getNativeFunc('getPlayerY')();
+    out.z = getNativeFunc('getPlayerZ')();
+    out.vx = getNativeFunc('getPlayerVX')();
+    out.vy = getNativeFunc('getPlayerVY')();
+    out.vz = getNativeFunc('getPlayerVZ')();
+    return out;
 }
 
 export function valueNoise2D(x, y) {
