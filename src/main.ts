@@ -308,12 +308,19 @@ let _lastMineReady: boolean | null = null;
 let _lastPhaseCount: number | null = null;
 let _lastPhaseActive: boolean | null = null;
 let _loggedWebGPULimits = false;
+type WebGPURendererWithDeviceLimits = THREE.Renderer & {
+    backend?: {
+        device?: {
+            limits?: GPUSupportedLimits;
+        };
+    };
+};
 
 function animate() {
     profiler.startFrame();
 
     if (!_loggedWebGPULimits) {
-        const limits = (renderer as any)?.backend?.device?.limits;
+        const limits = (renderer as WebGPURendererWithDeviceLimits).backend?.device?.limits;
         if (limits) {
             console.log(
                 `[WebGPU] Buffer limits: maxUniformBufferBindingSize=${limits.maxUniformBufferBindingSize}, maxStorageBufferBindingSize=${limits.maxStorageBufferBindingSize}, maxBufferSize=${limits.maxBufferSize}`
