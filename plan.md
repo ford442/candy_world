@@ -10,12 +10,14 @@
 
 ## Next Steps
 
-1. **Instrument Shrine Puzzle Mechanics**: Implement interactive puzzles where shrine patterns must be matched to bassline instrument IDs.
+1. **Silence Spirits Gameplay Mechanics**: Implement the 5s invisibility buff granted by communing with Silence Spirits during breakdowns.
 
 ---
 
 ## Recent Progress
 - **Accomplished:**
+  - **Instrument Shrine Puzzle Mechanics**: **Status: Implemented ✅**
+    - *Implementation Details:* Updated `src/foliage/instrument.ts` to use TSL uniforms for dynamic pattern generation. Shrines can now be cycled via interaction to "tune" them to different patterns. The logic in `src/foliage/animation.ts` specifically verifies if the tuned ID matches the active bassline instrument (channel 1), fulfilling the puzzle mechanic.
   - **Rare Flora Discovery Visuals**: **Status: Implemented ✅**
     - *Implementation Details:* Added `src/foliage/discovery-effect.ts` to render a TSL-driven magical particle burst (expanding, color-shifting, twinkling) upon rare plant discovery. Hooked into `checkPlayerDiscovery` and instantiated as a deferred visual in `src/main.ts`.
   - **Post-Processing Pipeline (Bloom & Color Correction)**: **Status: Implemented ✅**
