@@ -170,6 +170,8 @@ export class SimpleFlowerBatcher {
         this.centerMesh = this.createInstancedMesh(centerGeo, centerMat, MAX_FLOWERS, 'SimpleFlower_Center');
         this.stamenMesh = this.createInstancedMesh(mergedStamens, stamenMat, MAX_FLOWERS, 'SimpleFlower_Stamen');
         this.beamMesh = this.createInstancedMesh(beamGeo, beamMat, MAX_FLOWERS, 'SimpleFlower_Beam');
+        this.petalMesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAX_FLOWERS * 3), 3);
+        this.beamMesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAX_FLOWERS * 3), 3);
 
         // Add to Scene
         foliageGroup.add(this.stemMesh);
@@ -325,6 +327,7 @@ export class SimpleFlowerBatcher {
             _scratchMat.premultiply(headWorld);
             this.beamMesh!.setMatrixAt(i, _scratchMat);
         }
+        this.beamMesh!.setColorAt(i, _scratchColor);
 
         // --- POLLEN REGISTRATION ---
         if (this.pollenPositions && this.pollenOffsets && this.pollenColors) {
@@ -375,6 +378,7 @@ export class SimpleFlowerBatcher {
         this.stamenMesh!.count = this.count;
 
         this.beamMesh!.instanceMatrix.needsUpdate = true;
+        if (this.beamMesh!.instanceColor) this.beamMesh!.instanceColor.needsUpdate = true;
         this.beamMesh!.count = this.count;
 
         // Update Pollen
