@@ -60,7 +60,7 @@ const { scene, camera, renderer, ambientLight, sunLight, sunGlow, sunCorona, lig
 // Initialize Post Processing Pipeline
 const postProcessing = initPostProcessing(renderer, scene, camera);
 
-console.timeEnd('Core Setup');
+console.timeEnd('Core Scene Setup');
 
 // Phase 2: Audio & Weather Systems (Lightweight)
 console.time('Audio & Systems Init');
@@ -307,9 +307,27 @@ let _lastDashReady: boolean | null = null;
 let _lastMineReady: boolean | null = null;
 let _lastPhaseCount: number | null = null;
 let _lastPhaseActive: boolean | null = null;
+let _loggedWebGPULimits = false;
+type WebGPURendererWithDeviceLimits = THREE.Renderer & {
+    backend?: {
+        device?: {
+            limits?: GPUSupportedLimits;
+        };
+    };
+};
 
 function animate() {
     profiler.startFrame();
+
+    if (!_loggedWebGPULimits) {
+        const limits = (renderer as WebGPURendererWithDeviceLimits).backend?.device?.limits;
+        if (limits) {
+            console.log(
+                `[WebGPU] Buffer limits: maxUniformBufferBindingSize=${limits.maxUniformBufferBindingSize}, maxStorageBufferBindingSize=${limits.maxStorageBufferBindingSize}, maxBufferSize=${limits.maxBufferSize}`
+            );
+            _loggedWebGPULimits = true;
+        }
+    }
 
     const rawDelta = clock.getDelta();
     const delta = Math.min(rawDelta, 0.1);
