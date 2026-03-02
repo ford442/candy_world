@@ -6,3 +6,4 @@
 **Learning:** Found an opportunity to improve the accessibility of the decorative emojis in `index.html`. They were being read out by screen readers which is redundant since the surrounding context is already clear.
 **Action:** Enhance the HTML by adding `aria-hidden="true"` to these decorative elements.
 To prevent GC spikes during Three.js matrix operations, use `matrixA.multiplyMatrices(matrixB, matrixC)` instead of allocating new matrices via `matrixB.clone().multiply(matrixC)`.
+For visual feedback and 'juice' in interactions, utilize spawnImpact from src/foliage/impacts.ts for particles and createJuicyRimLight from src/foliage/common.ts for TSL-based material highlighting. Avoid using setTimeout for animations.
