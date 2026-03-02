@@ -17,6 +17,17 @@ import { attribute, positionLocal, mix, color, float } from 'three/tsl';
 const MAX_FLOWERS = 5000;
 const MAX_PETALS = MAX_FLOWERS * 15; // Up to 15 petals per flower
 
+// ⚡ OPTIMIZATION: Scratch variables to prevent GC spikes during registration
+const _scratchMatrix = new THREE.Matrix4();
+const _scratchMatrix2 = new THREE.Matrix4();
+const _scratchMatrix3 = new THREE.Matrix4();
+const _scratchPos = new THREE.Vector3();
+const _scratchQuat = new THREE.Quaternion();
+const _scratchScale = new THREE.Vector3();
+const _scratchEuler = new THREE.Euler();
+const _scratchColor = new THREE.Color();
+const _scratchHsl = { h: 0, s: 0, l: 0 };
+
 export class FlowerBatcher {
     private static instance: FlowerBatcher;
     private initialized = false;
@@ -164,29 +175,31 @@ export class FlowerBatcher {
         }
 
         // --- Logic mirroring createFlower ---
+        // ⚡ OPTIMIZATION: Using scratch variables to avoid GC stutter during large generations
+
         // 1. Stem
         const stemHeight = 0.6 + Math.random() * 0.4;
-        const stemScale = new THREE.Vector3(0.05, stemHeight, 0.05);
-        const stemMatrix = new THREE.Matrix4().compose(
-            new THREE.Vector3(0, 0, 0), // Local pos 0 (pivot is bottom)
-            new THREE.Quaternion(),
-            stemScale
-        );
+        _scratchScale.set(0.05, stemHeight, 0.05);
+        _scratchPos.set(0, 0, 0); // Local pos 0 (pivot is bottom)
+        _scratchQuat.identity();
+
+        _scratchMatrix2.compose(_scratchPos, _scratchQuat, _scratchScale);
+
         // Transform to world
-        const finalStemMatrix = rootMatrix.clone().multiply(stemMatrix);
-        this.addInstance(this.stems, finalStemMatrix, null, 'stemCount');
+        _scratchMatrix.multiplyMatrices(rootMatrix, _scratchMatrix2);
+        this.addInstance(this.stems, _scratchMatrix, null, 'stemCount');
 
         // 2. Head Setup
         // Head pivot is at (0, stemHeight, 0)
         // We construct a head root matrix in world space
-        const headLocal = new THREE.Matrix4().makeTranslation(0, stemHeight, 0);
-        const headMatrix = rootMatrix.clone().multiply(headLocal);
+        _scratchMatrix2.makeTranslation(0, stemHeight, 0);
+        // Using _scratchMatrix3 as the new headMatrix
+        _scratchMatrix3.multiplyMatrices(rootMatrix, _scratchMatrix2);
 
         // 3. Center
-        const centerScale = new THREE.Vector3(0.1, 0.1, 0.1);
-        const centerLocal = new THREE.Matrix4().makeScale(0.1, 0.1, 0.1);
-        const finalCenterMatrix = headMatrix.clone().multiply(centerLocal);
-        this.addInstance(this.centers, finalCenterMatrix, null, 'centerCount');
+        _scratchMatrix2.makeScale(0.1, 0.1, 0.1);
+        _scratchMatrix.multiplyMatrices(_scratchMatrix3, _scratchMatrix2);
+        this.addInstance(this.centers, _scratchMatrix, null, 'centerCount');
 
         // 4. Stamens
         const stamenCount = 3;
@@ -195,17 +208,14 @@ export class FlowerBatcher {
             const rx = (Math.random() - 0.5) * 1.0;
 
             // Compose: Translate(0, 0.075, 0) * Rotate * Scale
-            // Note: Original code logic was Head * Local.
-            // Local: Translate(0, 0.075, 0) * Rotation * Scale(0.01, 0.15, 0.01)
+            _scratchPos.set(0, 0.075, 0);
+            _scratchEuler.set(rx, 0, rz);
+            _scratchQuat.setFromEuler(_scratchEuler);
+            _scratchScale.set(0.01, 0.15, 0.01);
 
-            const stamenLocal = new THREE.Matrix4().compose(
-                new THREE.Vector3(0, 0.075, 0),
-                new THREE.Quaternion().setFromEuler(new THREE.Euler(rx, 0, rz)),
-                new THREE.Vector3(0.01, 0.15, 0.01)
-            );
-
-            const final = headMatrix.clone().multiply(stamenLocal);
-            this.addInstance(this.stamens, final, null, 'stamenCount');
+            _scratchMatrix2.compose(_scratchPos, _scratchQuat, _scratchScale);
+            _scratchMatrix.multiplyMatrices(_scratchMatrix3, _scratchMatrix2);
+            this.addInstance(this.stamens, _scratchMatrix, null, 'stamenCount');
         }
 
         // 5. Petals
@@ -213,41 +223,42 @@ export class FlowerBatcher {
             const petalCount = 5 + Math.floor(Math.random() * 2);
             for (let i = 0; i < petalCount; i++) {
                 const angle = (i / petalCount) * Math.PI * 2;
-                const m = new THREE.Matrix4();
-                m.makeRotationZ(Math.PI / 4);
-                m.setPosition(Math.cos(angle) * 0.18, 0, Math.sin(angle) * 0.18);
+                _scratchMatrix2.makeRotationZ(Math.PI / 4);
+                _scratchMatrix2.setPosition(Math.cos(angle) * 0.18, 0, Math.sin(angle) * 0.18);
 
-                const final = headMatrix.clone().multiply(m);
-                this.addInstance(this.petalsSimple, final, color, 'simpleCount');
+                _scratchMatrix.multiplyMatrices(_scratchMatrix3, _scratchMatrix2);
+                this.addInstance(this.petalsSimple, _scratchMatrix, color, 'simpleCount');
             }
         } else if (type === 'multi') {
             const petalCount = 8 + Math.floor(Math.random() * 4);
             for (let i = 0; i < petalCount; i++) {
                 const angle = (i / petalCount) * Math.PI * 2;
-                const pos = new THREE.Vector3(
+                _scratchPos.set(
                     Math.cos(angle) * 0.2,
                     Math.sin(i * 0.5) * 0.1,
                     Math.sin(angle) * 0.2
                 );
-                const t = new THREE.Matrix4().setPosition(pos);
-                const s = new THREE.Matrix4().makeScale(0.12, 0.12, 0.12);
-                const m = t.multiply(s);
 
-                const final = headMatrix.clone().multiply(m);
-                this.addInstance(this.petalsMulti, final, color, 'multiCount');
+                _scratchMatrix2.makeTranslation(_scratchPos.x, _scratchPos.y, _scratchPos.z);
+                _scratchMatrix2.scale(_scratchScale.set(0.12, 0.12, 0.12));
+
+                _scratchMatrix.multiplyMatrices(_scratchMatrix3, _scratchMatrix2);
+                this.addInstance(this.petalsMulti, _scratchMatrix, color, 'multiCount');
             }
         } else if (type === 'spiral') {
             const petalCount = 10;
             for (let i = 0; i < petalCount; i++) {
                 const angle = (i / petalCount) * Math.PI * 4;
                 const radius = 0.05 + (i / petalCount) * 0.15;
-                const m = new THREE.Matrix4().compose(
-                    new THREE.Vector3(Math.cos(angle) * radius, (i / petalCount) * 0.1, Math.sin(angle) * radius),
-                    new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, angle)),
-                    new THREE.Vector3(0.1, 0.2, 0.1)
-                );
-                const final = headMatrix.clone().multiply(m);
-                this.addInstance(this.petalsSpiral, final, color, 'spiralCount');
+
+                _scratchPos.set(Math.cos(angle) * radius, (i / petalCount) * 0.1, Math.sin(angle) * radius);
+                _scratchEuler.set(0, 0, angle);
+                _scratchQuat.setFromEuler(_scratchEuler);
+                _scratchScale.set(0.1, 0.2, 0.1);
+
+                _scratchMatrix2.compose(_scratchPos, _scratchQuat, _scratchScale);
+                _scratchMatrix.multiplyMatrices(_scratchMatrix3, _scratchMatrix2);
+                this.addInstance(this.petalsSpiral, _scratchMatrix, color, 'spiralCount');
             }
         } else if (type === 'layered') {
             for (let layer = 0; layer < 2; layer++) {
@@ -255,21 +266,23 @@ export class FlowerBatcher {
                 // Layer Color Logic
                 let layerColor = color;
                 if (layer !== 0) {
-                    const hsl = { h: 0, s: 0, l: 0 };
-                    color.getHSL(hsl);
-                    layerColor = new THREE.Color().setHSL(hsl.h, hsl.s, hsl.l + 0.1); // Slightly lighter
+                    color.getHSL(_scratchHsl);
+                    _scratchColor.setHSL(_scratchHsl.h, _scratchHsl.s, _scratchHsl.l + 0.1); // Slightly lighter
+                    layerColor = _scratchColor;
                 }
 
                 for (let i = 0; i < petalCount; i++) {
                     const angle = (i / petalCount) * Math.PI * 2 + (layer * Math.PI / petalCount);
                     const r = 0.15 + layer * 0.05;
-                    const m = new THREE.Matrix4().compose(
-                        new THREE.Vector3(Math.cos(angle) * r, layer * 0.05, Math.sin(angle) * r),
-                        new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, Math.PI / 4)),
-                        new THREE.Vector3(1, 1, 1)
-                    );
-                    const final = headMatrix.clone().multiply(m);
-                    this.addInstance(this.petalsSimple, final, layerColor, 'simpleCount');
+
+                    _scratchPos.set(Math.cos(angle) * r, layer * 0.05, Math.sin(angle) * r);
+                    _scratchEuler.set(0, 0, Math.PI / 4);
+                    _scratchQuat.setFromEuler(_scratchEuler);
+                    _scratchScale.set(1, 1, 1);
+
+                    _scratchMatrix2.compose(_scratchPos, _scratchQuat, _scratchScale);
+                    _scratchMatrix.multiplyMatrices(_scratchMatrix3, _scratchMatrix2);
+                    this.addInstance(this.petalsSimple, _scratchMatrix, layerColor, 'simpleCount');
                 }
             }
         }
