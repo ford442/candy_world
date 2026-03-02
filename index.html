@@ -507,13 +507,13 @@
 
 <body>
     <div id="now-playing-toast" role="status" aria-live="polite">
-        <span class="icon">🎵</span>
+        <span class="icon" aria-hidden="true">🎵</span>
         <span id="now-playing-text">Now Playing...</span>
     </div>
 
     <div id="drag-overlay" aria-hidden="true">
         <div class="drag-content">
-            <div class="drag-icon">📂</div>
+            <div class="drag-icon" aria-hidden="true">📂</div>
             <h2>Drop Music Here!</h2>
             <p>Add .mod, .xm, .it, .s3m files to playlist</p>
         </div>
@@ -543,7 +543,7 @@
     <div id="instructions">
         <h1>🍭 Candy World</h1>
         <div id="nowPlayingContainer" class="now-playing-info" aria-live="polite" style="display: none;">
-            <span class="music-note">🎵</span> <span id="nowPlayingText"></span>
+            <span class="music-note" aria-hidden="true">🎵</span> <span id="nowPlayingText"></span>
         </div>
         <button id="startButton" class="cta-button" disabled aria-live="polite">
             <span class="spinner" aria-hidden="true"></span>Loading World... 🍭
