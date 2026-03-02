@@ -581,14 +581,12 @@ export function animateFoliage(foliageObject: FoliageObject, time: number, audio
 
         // Check audio channels for matching instrument
         if (audioData && audioData.channelData) {
-            for (const ch of audioData.channelData) {
-                // Check if instrument matches and is playing
-                // Note: ch.instrument is 1-based usually in MODs, but our ID is likely 0-based or direct match
-                // We'll assume direct match for now.
-                if (ch.instrument === targetID && (ch.volume || 0) > 0.1) {
-                    isActive = true;
-                    matchedVolume = Math.max(matchedVolume, ch.volume || 0);
-                }
+            // Bassline is typically on channel 1 in our 4-channel MODs (0=Drums, 1=Bass, 2=Melody, 3=Chords)
+            // We check channel 1 specifically to match the "bassline instrument IDs" puzzle requirement.
+            const bassChannel = audioData.channelData[1];
+            if (bassChannel && bassChannel.instrument === targetID && (bassChannel.volume || 0) > 0.05) {
+                isActive = true;
+                matchedVolume = bassChannel.volume || 0;
             }
         }
 
@@ -600,7 +598,8 @@ export function animateFoliage(foliageObject: FoliageObject, time: number, audio
             if (isActive) {
                 foliageObject.userData.interactionText = "Activate Shrine";
             } else {
-                foliageObject.userData.interactionText = `Locked (Need Inst ${targetID})`;
+                // Reset text if it was previously active but the bassline stopped
+                foliageObject.userData.interactionText = `Tune Shrine (Current: ${targetID})`;
             }
         } else {
              foliageObject.userData.interactionText = "Shrine Activated";

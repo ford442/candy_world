@@ -6,7 +6,7 @@ import {
 } from './common.ts';
 import {
     color, float, mix, uv, sin, cos,
-    vec3, mx_noise_float
+    vec3, mx_noise_float, uniform
 } from 'three/tsl';
 import { makeInteractive } from '../utils/interaction-utils.ts';
 import { unlockSystem } from '../systems/unlocks.ts';
@@ -38,32 +38,31 @@ export function createInstrumentShrine(options: InstrumentShrineOptions = {}): T
     });
 
     // Custom TSL override for Color based on Instrument ID
-    // We create a procedural pattern
-    const id = float(instrumentID);
+    // We use uniforms so the puzzle pattern can be cycled on interact
+    const uInstrumentID = uniform(instrumentID);
 
     // Pattern Logic:
     // Generate a pattern based on UV and ID
     const pUV = uv().mul(10.0);
 
     // Different math for different ID ranges for variety
-    const patternA = sin(pUV.x.add(id)).mul(cos(pUV.y.add(id))); // Grid-like
-    const patternB = mx_noise_float(vec3(pUV.x, pUV.y, id)); // Noise-like
+    const patternA = sin(pUV.x.add(uInstrumentID)).mul(cos(pUV.y.add(uInstrumentID))); // Grid-like
+    const patternB = mx_noise_float(vec3(pUV.x, pUV.y, uInstrumentID)); // Noise-like
 
     // Mix based on ID modulo
     // We can't use modulo easily in TSL without some work, so let's just use sin(id) to mix
-    const mixFactor = sin(id.mul(0.5)).add(1.0).mul(0.5); // 0 to 1
+    const mixFactor = sin(uInstrumentID.mul(0.5)).add(1.0).mul(0.5); // 0 to 1
 
     const pattern = mix(patternA, patternB, mixFactor);
 
     // Colorize
-    // Map ID to Hue (Calculate in JS since ID is constant per instance)
+    // Map ID to Hue and pass via Uniform to allow dynamic updating
     const jsHue = (instrumentID * 0.1) % 1.0;
     const jsColor = new THREE.Color().setHSL(jsHue, 1.0, 0.5);
-
-    const baseCol = color(jsColor);
+    const uBaseColor = uniform(jsColor);
 
     // Apply pattern to emissive
-    shrineMat.emissiveNode = baseCol.mul(pattern.add(0.5).mul(2.0)); // Glow
+    shrineMat.emissiveNode = uBaseColor.mul(pattern.add(0.5).mul(2.0)); // Glow
 
     // Geometry: Monolith
     const geo = new THREE.BoxGeometry(1, 3, 1);
@@ -101,7 +100,12 @@ export function createInstrumentShrine(options: InstrumentShrineOptions = {}): T
     // Puzzle State
     group.userData.isActive = false; // Is matching instrument playing?
     group.userData.isSolved = false; // Has player activated it?
-    group.userData.interactionText = `Locked (Need Inst ${instrumentID})`; // Shortened for UI fit
+    group.userData.interactionText = `Tune Shrine (Current: ${instrumentID})`; // Shortened for UI fit
+
+    // Store uniforms on userData so they can be updated
+    group.userData.uInstrumentID = uInstrumentID;
+    group.userData.uBaseColor = uBaseColor;
+    group.userData.jsColor = jsColor;
 
     // Reactivity
     attachReactivity(group, { minLight: 0.0, maxLight: 1.0 });
@@ -127,7 +131,7 @@ export function createInstrumentShrine(options: InstrumentShrineOptions = {}): T
 
             // Visual feedback
             _scratchPos.copy(group.position).y += 3.0;
-            spawnImpact(_scratchPos, 'muzzle', jsColor, _scratchUp);
+            spawnImpact(_scratchPos, 'muzzle', group.userData.jsColor, _scratchUp);
 
             // Audio feedback
             if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
@@ -142,9 +146,19 @@ export function createInstrumentShrine(options: InstrumentShrineOptions = {}): T
             orbMat.emissiveIntensity = 2.0;
 
         } else {
-             // Locked feedback
-             if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
-                 (window as any).AudioSystem.playSound('click', { position: group.position, pitch: 0.5, volume: 0.5 });
+            // Cycle the puzzle ID!
+            group.userData.instrumentID = (group.userData.instrumentID + 1) % 16;
+
+            // Update Uniforms
+            group.userData.uInstrumentID.value = group.userData.instrumentID;
+            group.userData.jsColor.setHSL((group.userData.instrumentID * 0.1) % 1.0, 1.0, 0.5);
+
+            // Interaction Text Update
+            group.userData.interactionText = `Tune Shrine (Current: ${group.userData.instrumentID})`;
+
+            // Audio feedback for cycling
+            if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
+                 (window as any).AudioSystem.playSound('click', { position: group.position, pitch: 1.0 + (group.userData.instrumentID * 0.05), volume: 0.5 });
             }
         }
 
