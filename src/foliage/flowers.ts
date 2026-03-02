@@ -10,6 +10,7 @@ import {
     createClayMaterial, 
     createStandardNodeMaterial,
     createTransparentNodeMaterial,
+    createJuicyRimLight,
     sharedGeometries,
     calculateFlowerBloom,
     calculateWindSway,
@@ -27,6 +28,7 @@ import { unlockSystem } from '../systems/unlocks.ts';
 import { makeInteractiveCylinder } from '../utils/interaction-utils.ts';
 import { treeBatcher } from './tree-batcher.ts';
 import { flowerBatcher } from './flower-batcher.ts'; // ⚡ OPTIMIZATION: New Unified Batcher
+import { spawnImpact } from './impacts.ts';
 
 interface FlowerOptions {
     color?: number | string | THREE.Color | null;
@@ -429,6 +431,10 @@ export function createTremoloTulip(options: { color?: number, size?: number } = 
         opacity: 0.9,
         side: THREE.DoubleSide
     });
+    // --- PALETTE: Juicy Rim Light for Tremolo Tulip ---
+    const rimLight = createJuicyRimLight(tslColor(color), float(1.5), float(3.0));
+    bellMat.colorNode = tslColor(color).add(rimLight);
+
     registerReactiveMaterial(bellMat);
     const bell = new THREE.Mesh(bellGeo, bellMat);
     bell.rotation.x = Math.PI;
@@ -499,12 +505,23 @@ export function createTremoloTulip(options: { color?: number, size?: number } = 
 
              // Visual feedback
              if (group.userData.headGroup) {
-                 group.userData.headGroup.scale.multiplyScalar(0.5);
+                 // Trigger TSL/render-loop scale animation for juice on the main group
+                 group.userData.scaleAnimStart = Date.now();
+                 group.userData.scaleAnimTime = 0.15; // 150ms bounce
+                 group.userData.scaleTarget = 0.5; // Final shrunken size
+
+                 // Instantaneous squash before the lerp takes over
+                 group.scale.set(1.4, 0.4, 1.4);
+
                  // Dim material
                  if (group.userData.bellMaterial) {
                      group.userData.bellMaterial.emissiveIntensity = 0.1;
                  }
              }
+
+             // --- PALETTE: Spore burst on harvest ---
+             spawnImpact(group.position, 'spore', color);
+
              group.userData.interactionText = "Harvested";
 
              // Play sound if available via audioSystem
