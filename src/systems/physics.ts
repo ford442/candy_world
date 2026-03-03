@@ -50,6 +50,8 @@ export interface PlayerExtended extends CorePlayerState {
     hasShield: boolean;
     isPhasing: boolean;
     phaseTimer: number;
+    isInvisible: boolean;
+    invisibilityTimer: number;
 }
 
 // --- Configuration ---
@@ -89,6 +91,8 @@ export const player: PlayerExtended = {
     hasShield: false,
     isPhasing: false,
     phaseTimer: 0.0,
+    isInvisible: false,
+    invisibilityTimer: 0.0,
 
     // Flags for external systems to query
     isGrounded: false,
@@ -138,6 +142,15 @@ function getUnifiedGroundHeight(x: number, z: number): number {
 }
 
 // --- Public API ---
+
+export function grantInvisibility(duration: number) {
+    player.isInvisible = true;
+    player.invisibilityTimer = duration;
+    showToast("Spiritual Camouflage Active! 🦌", "🌟");
+    if (uChromaticIntensity) {
+        uChromaticIntensity.value = 0.5;
+    }
+}
 
 export function registerPhysicsCave(cave: THREE.Object3D) {
     foliageCaves.push(cave);
@@ -568,6 +581,15 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
         if (player.phaseTimer <= 0) {
             player.isPhasing = false;
             showToast("Phase Shift Ended", "👻");
+        }
+    }
+
+    // Update Invisibility Timer
+    if (player.isInvisible) {
+        player.invisibilityTimer -= delta;
+        if (player.invisibilityTimer <= 0) {
+            player.isInvisible = false;
+            showToast("Camouflage Faded", "💨");
         }
     }
 
