@@ -261,6 +261,8 @@ export function initInput(
         const countText = count > 0 ? ` (${count})` : '';
         openJukeboxBtn.innerHTML = `Open Jukebox${countText} <span class="key-badge">Q</span>`;
         openJukeboxBtn.setAttribute('aria-label', `Open Jukebox playlist${count > 0 ? `, ${count} songs` : ''}`);
+        // Ensure aria-expanded state is preserved when updating innerHTML
+        openJukeboxBtn.setAttribute('aria-expanded', String(isPlaylistOpen));
     }
 
     // Initialize state
@@ -322,6 +324,10 @@ export function initInput(
     // Toggle Function
     function togglePlaylist(): void {
         isPlaylistOpen = !isPlaylistOpen;
+
+        if (openJukeboxBtn) {
+            openJukeboxBtn.setAttribute('aria-expanded', String(isPlaylistOpen));
+        }
 
         if (isPlaylistOpen) {
             // OPENING
