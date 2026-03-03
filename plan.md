@@ -10,12 +10,14 @@
 
 ## Next Steps
 
-1. **Silence Spirits Gameplay Mechanics**: Implement the 5s invisibility buff granted by communing with Silence Spirits during breakdowns.
+1. **Migrate to TypeScript**: Begin Phase 1 of the migration roadmap to harden the codebase before adding more complex systems.
 
 ---
 
 ## Recent Progress
 - **Accomplished:**
+  - **Silence Spirits Gameplay Mechanics**: **Status: Implemented ✅**
+    - *Implementation Details:* Added interaction logic to `src/foliage/silence-spirits.ts` allowing players to commune with spirits before they fully fade. Implemented `grantInvisibility` in `src/systems/physics.ts` which provides a 5s buff tracked via `player.isInvisible`, applies a chromatic pulse effect, and shows a UI toast.
   - **Instrument Shrine Puzzle Mechanics**: **Status: Implemented ✅**
     - *Implementation Details:* Updated `src/foliage/instrument.ts` to use TSL uniforms for dynamic pattern generation. Shrines can now be cycled via interaction to "tune" them to different patterns. The logic in `src/foliage/animation.ts` specifically verifies if the tuned ID matches the active bassline instrument (channel 1), fulfilling the puzzle mechanic.
   - **Rare Flora Discovery Visuals**: **Status: Implemented ✅**
