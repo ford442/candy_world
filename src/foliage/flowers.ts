@@ -387,11 +387,22 @@ export function createVibratoViolet(options: { color?: number, intensity?: numbe
 
              // Visual feedback
              if (group.userData.headGroup) {
-                 group.userData.headGroup.scale.multiplyScalar(0.8);
+                 // Trigger TSL/render-loop scale animation for juice on the main group
+                 group.userData.scaleAnimStart = Date.now();
+                 group.userData.scaleAnimTime = 0.15; // 150ms bounce
+                 group.userData.scaleTarget = 0.8; // Final shrunken size
+
+                 // Instantaneous squash before the lerp takes over
+                 group.scale.set(1.4, 0.4, 1.4);
+
                  // Dim light
                  const light = group.userData.headGroup.children.find((c:any) => c.isPointLight);
                  if (light) light.intensity *= 0.2;
              }
+
+             // --- PALETTE: Spore burst on harvest ---
+             spawnImpact(group.position, 'spore', color);
+
              group.userData.interactionText = "Harvested";
 
              // Play sound if available via audioSystem
