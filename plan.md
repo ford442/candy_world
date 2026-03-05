@@ -10,7 +10,8 @@
 
 ## Next Steps
 
-1. **Migrate to TypeScript**: Begin Phase 1 of the migration roadmap to harden the codebase before adding more complex systems.
+1. **Environmental Discoveries**: Implement discovery logic for Melody Lake Island, Crystal Cave, and Harmonic Waterfall in `src/world/generation.ts`.
+2. **Migrate to TypeScript**: Begin Phase 1 of the migration roadmap to harden the codebase before adding more complex systems.
 
 ---
 
@@ -177,6 +178,7 @@
     - *Implementation Details:* Implemented player interaction (trigger on step, knockback on close) and projectile reflection in `src/systems/physics.ts` and `src/gameplay/rainbow-blaster.ts`.
   - [x] **Plants Twilight Glow**: Implemented logic for plants to glow during twilight hours (pre-dawn/dusk).
     - *Implementation Details:* Added `uTwilight` global uniform to `src/foliage/sky.js` and integrated it into the TSL material pipeline for Flowers, Mushrooms, and Trees. The glow intensity ramps up at dusk and down at dawn, driven by the `WeatherSystem`.
+  - [ ] **Environmental Discoveries**: Implement discovery logic for Melody Lake Island, Crystal Cave, and Harmonic Waterfall.
 
 ---
 
