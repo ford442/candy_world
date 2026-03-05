@@ -176,7 +176,7 @@ export function updatePhysics(delta: number, camera: THREE.Camera, controls: any
             updateVineState(delta, camera, keyStates);
             break;
         case PlayerState.SWIMMING:
-            updateSwimmingState(delta, camera, controls, keyStates);
+            updateSwimmingState(delta, camera, controls, keyStates, audioState);
             break;
         case PlayerState.CLIMBING:
             updateClimbingState(delta, camera, controls, keyStates);
@@ -317,12 +317,16 @@ function updateStateTransitions(camera: THREE.Camera, keyStates: KeyStates) {
 }
 
 // --- State: SWIMMING ---
-function updateSwimmingState(delta: number, camera: THREE.Camera, controls: any, keyStates: KeyStates) {
+function updateSwimmingState(delta: number, camera: THREE.Camera, controls: any, keyStates: KeyStates, audioState: AudioState | null) {
     player.velocity.y -= (SWIMMING_GRAVITY * delta);
     // Clamp drag factor to [0,1] to prevent velocity reversal on large delta (e.g., tab switch)
     player.velocity.multiplyScalar(Math.max(0, 1.0 - (SWIMMING_DRAG * delta)));
 
-    const swimSpeed = player.speed * 0.6;
+    const kickTrigger = audioState?.kickTrigger || 0.0;
+    const surfBoost = kickTrigger > 0.5 ? kickTrigger * 1.5 : 0;
+
+    // Base speed + potential surfing boost on kick
+    const swimSpeed = player.speed * (0.6 + surfBoost);
     const swimDir = _scratchSwimDir.set(0, 0, 0);
 
     if (keyStates.forward) swimDir.z += 1;
@@ -342,6 +346,18 @@ function updateSwimmingState(delta: number, camera: THREE.Camera, controls: any,
             .addScaledVector(camRight, swimDir.x);
 
         player.velocity.addScaledVector(moveVec, swimSpeed * delta);
+
+        // Surfing feedback if moving forward
+        if (surfBoost > 0 && keyStates.forward) {
+            // Only trigger occasionally so we don't spam impacts/toasts
+            if (Math.random() < 0.05) {
+                spawnImpact(player.position, 'dash');
+                if (uChromaticIntensity) {
+                    uChromaticIntensity.value = 0.3;
+                }
+                discoverySystem.discover('waveform_surfing', 'Waveform Surfing', '🌊');
+            }
+        }
     }
 
     if (keyStates.jump) player.velocity.y += 10 * delta;
@@ -684,6 +700,56 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
 
     // --- Portamento Pines (Slingshot/Ramp) ---
     checkPortamentoPines(delta);
+
+    // --- Vibrato Violets (Frequency Distortion Field) ---
+    checkVibratoViolets(delta, audioState);
+}
+
+function checkVibratoViolets(delta: number, audioState: AudioState | null) {
+    if (!audioState || !audioState.channelData) return;
+
+    const playerPos = player.position;
+    let inDistortionField = false;
+
+    // Check all vibrato violets
+    // (Note: They are part of animatedFoliage, we can filter them out)
+    for (const obj of animatedFoliage) {
+        if (obj.userData?.type === 'vibratoViolet') {
+            const dx = playerPos.x - obj.position.x;
+            const dz = playerPos.z - obj.position.z;
+            const distSq = dx * dx + dz * dz;
+
+            // 20m radius as specified
+            if (distSq < 20.0 * 20.0) {
+                // Determine if this violet is actively vibrating
+                // Vibrato is driven by channel 2 (melody) or channel 3 (chords) with vibrato effect (4xx)
+                let isVibrating = false;
+                for (const ch of audioState.channelData) {
+                    // Check if channel is active and has vibrato effect (4)
+                    if (ch.activeEffect === 4 && ch.effectValue > 0) {
+                        isVibrating = true;
+                        break;
+                    }
+                }
+
+                if (isVibrating) {
+                    inDistortionField = true;
+                    // The frequency distortion field causes enemy projectiles to zigzag.
+                    // Since we don't have a full enemy system yet, we simulate the distortion
+                    // by manipulating the TSL-driven uChromaticIntensity uniform which
+                    // drives a full-screen viewport distortion in src/foliage/chromatic.ts.
+
+                    // Apply a sustained, pulsing distortion based on time (delta)
+                    // We cap it at 0.3 so it's noticeable but not overwhelming like the Kick pulse
+                    if (typeof uChromaticIntensity !== 'undefined' && uChromaticIntensity.value < 0.3) {
+                         uChromaticIntensity.value += delta * 1.5;
+                    }
+
+                    break; // Only need to be in one field at a time
+                }
+            }
+        }
+    }
 }
 
 function checkPortamentoPines(delta: number) {

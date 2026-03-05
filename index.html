@@ -369,7 +369,8 @@
         .secondary-button:focus-visible,
         .playlist-btn:focus-visible,
         .file-label:focus-visible,
-        input:focus-visible + label {
+        input:focus-visible + label,
+        .ability-slot:focus-visible {
             outline: none;
             box-shadow: 0 0 0 3px #ffffff, 0 0 0 6px #FF4081;
             position: relative;
@@ -540,8 +541,8 @@
         };
     </script>
 
-    <div id="instructions">
-        <h1>🍭 Candy World</h1>
+    <div id="instructions" role="dialog" aria-modal="true" aria-labelledby="instructions-title">
+        <h1 id="instructions-title">🍭 Candy World</h1>
         <div id="nowPlayingContainer" class="now-playing-info" aria-live="polite" style="display: none;">
             <span class="music-note" aria-hidden="true">🎵</span> <span id="nowPlayingText"></span>
         </div>
@@ -549,14 +550,14 @@
             <span class="spinner" aria-hidden="true"></span>Loading World... 🍭
         </button>
 
-        <div class="settings settings-container">
+        <div class="settings settings-container" role="group" aria-label="Game Settings">
             <input type="file" id="musicUpload" accept=".mod,.xm,.it,.s3m" multiple class="visually-hidden">
             <label for="musicUpload" class="file-label" aria-live="polite" title="Supported formats: .mod, .xm, .it, .s3m" aria-keyshortcuts="U">
                 🎵 Upload Music <span class="key-badge">U</span>
                 <span style="display:block; font-size:0.7em; font-weight:normal; margin-top:2px; opacity:0.9;">.mod .xm .it .s3m</span>
             </label>
 
-            <button id="toggleDayNight" class="toggle-button" aria-pressed="false" aria-keyshortcuts="N" aria-label="Switch to Night">
+            <button id="toggleDayNight" class="toggle-button" aria-pressed="false" aria-keyshortcuts="N" aria-label="Switch to Night" title="Switch to Night (N)">
                 🌙 Switch to Night <span class="key-badge">N</span>
             </button>
 
@@ -575,7 +576,7 @@
             </button>
         </div>
 
-        <div class="controls-container">
+        <div class="controls-container" role="region" aria-label="Controls Guide">
             <div class="controls-section">
                 <h3 class="controls-header">Movement</h3>
                 <dl class="controls-list">
