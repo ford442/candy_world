@@ -117,7 +117,8 @@
   - **Tremolo Tulips**: Implemented `createTremoloTulip` with `tremeloPulse` animation and TSL vortex materials.
   - **Cymbal Dandelions**: Implemented `createCymbalDandelion` with `cymbalShake` animation and particle explosion logic.
   - **Procedural Generation**: Added new musical flora (Tulips, Dandelions) to procedural extras spawning logic.
-  - **Waveform Water**: Implemented `src/foliage/water.js` featuring a TSL-driven, audio-reactive water surface.
+  - **Waveform Water**: **Status: Implemented ✅**
+    - *Implementation Details:* Implemented `src/foliage/water.ts` featuring a TSL-driven, audio-reactive water surface. Displaces vertices based on simulated waveform data (Bass/Treble). Implemented "Surfing" mechanic in `src/systems/physics.ts` providing speed boosts and visual feedback when moving in water during heavy bass kicks.
   - **Panning Pads**: Implemented `src/foliage/panning-pads.js` with mercury-like TSL materials and stereo-pan driven bobbing animation.
   - **Silence Spirits**: Implemented `src/foliage/silence-spirits.js` with volume-reactive AI.
   - **Pattern-Change Seasons**: Implemented global palette shifts triggered by music patterns.
