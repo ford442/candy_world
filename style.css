@@ -200,6 +200,20 @@
     transition: border-color 0.2s, box-shadow 0.2s;
 }
 
+/* 🎨 Palette: Interactive Hover and Focus States */
+.ability-slot:hover {
+    border-color: #FF6B6B;
+    box-shadow: 0 0 15px rgba(255, 107, 107, 0.4);
+    cursor: pointer;
+}
+
+.ability-slot:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px #ffffff, 0 0 0 6px #FF4081;
+    border-color: #FF4081;
+}
+
+
 /* PALETTE: Fallback beat bounce animation */
 @keyframes hud-bounce {
     0% { transform: scale(1.0); }

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { foliageMaterials, registerReactiveMaterial, attachReactivity, pickAnimation, createClayMaterial, createGradientMaterial, sharedGeometries, uAudioLow, uWindSpeed, calculatePlayerPush, createStandardNodeMaterial } from './common.ts';
-import { color as tslColor, mix, float, sin, cos, vec3, positionLocal, positionWorld, time } from 'three/tsl';
+import { foliageMaterials, registerReactiveMaterial, attachReactivity, pickAnimation, createClayMaterial, createGradientMaterial, sharedGeometries, uAudioLow, uWindSpeed, calculatePlayerPush, createStandardNodeMaterial, createJuicyRimLight } from './common.ts';
+import { color as tslColor, mix, float, sin, cos, vec3, positionLocal, positionWorld, time, normalWorld } from 'three/tsl';
 import { uTwilight } from './sky.ts';
 import { createBerryCluster } from './berries.ts';
 import { FoliageObject } from './types.ts';
@@ -83,6 +83,20 @@ function enhanceWithFloralJuice(material: any) {
         newPos = newPos.add(pushOffset);
 
         material.positionNode = newPos;
+
+        // 4. Juicy Rim Light (Audio-reactive edge glow)
+        // Ensure material has a base color node or fallback to white
+        const baseColor = material.colorNode || tslColor(0xFFFFFF);
+        // Explicitly fallback to normalWorld if material has no custom normalNode
+        const safeNormal = material.normalNode || normalWorld;
+        const rimLight = createJuicyRimLight(baseColor, float(1.5), float(3.0), safeNormal);
+
+        // Add to existing emissive or create new
+        if (material.emissiveNode) {
+            material.emissiveNode = material.emissiveNode.add(rimLight);
+        } else {
+            material.emissiveNode = rimLight;
+        }
     }
     return material;
 }
