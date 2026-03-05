@@ -109,14 +109,16 @@ export function patchWasmInstantiateAliases() {
             const inst = result && result.instance ? result.instance : result;
             const exports = inst && inst.exports;
             if (!exports) return result;
-            Object.keys(exports).forEach(k => {
+            const keys = Object.keys(exports);
+            for (let i = 0; i < keys.length; i++) {
+                const k = keys[i];
                 if (k && k.startsWith('_')) {
                     const short = k.slice(1);
                     if (!(short in exports)) {
                         try { exports[short] = exports[k]; } catch (e) {}
                     }
                 }
-            });
+            }
         } catch (e) {}
         return result;
     }

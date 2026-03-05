@@ -181,11 +181,12 @@ export function createMelodyMirror(options: MirrorOptions = {}): THREE.Group {
     // Custom update method for rotation
     group.userData.onUpdate = (delta: number, audioData: any) => {
         // Slowly rotate shards
-        group.children.forEach(child => {
+        for (let i = 0; i < group.children.length; i++) {
+            const child = group.children[i];
             child.rotation.x += child.userData.rotSpeed.x * delta;
             child.rotation.y += child.userData.rotSpeed.y * delta;
             child.rotation.z += child.userData.rotSpeed.z * delta;
-        });
+        }
 
         // Bobbing
         group.position.y += Math.sin(uTime.value + group.id) * 0.005;
