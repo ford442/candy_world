@@ -1013,6 +1013,7 @@ export function initInput(
             if (toggleDayNightBtn) {
                 toggleDayNightBtn.setAttribute('aria-pressed', String(isPressed));
                 toggleDayNightBtn.setAttribute('aria-label', isPressed ? 'Switch to Day' : 'Switch to Night');
+                toggleDayNightBtn.title = isPressed ? 'Switch to Day (N)' : 'Switch to Night (N)';
                 // UX: Update button text to show available action
                 toggleDayNightBtn.innerHTML = isPressed
                     ? '☀️ Switch to Day <span class="key-badge">N</span>'
