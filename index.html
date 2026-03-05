@@ -369,7 +369,8 @@
         .secondary-button:focus-visible,
         .playlist-btn:focus-visible,
         .file-label:focus-visible,
-        input:focus-visible + label {
+        input:focus-visible + label,
+        .ability-slot:focus-visible {
             outline: none;
             box-shadow: 0 0 0 3px #ffffff, 0 0 0 6px #FF4081;
             position: relative;
@@ -540,8 +541,8 @@
         };
     </script>
 
-    <div id="instructions">
-        <h1>🍭 Candy World</h1>
+    <div id="instructions" role="dialog" aria-modal="true" aria-labelledby="instructions-title">
+        <h1 id="instructions-title">🍭 Candy World</h1>
         <div id="nowPlayingContainer" class="now-playing-info" aria-live="polite" style="display: none;">
             <span class="music-note" aria-hidden="true">🎵</span> <span id="nowPlayingText"></span>
         </div>
