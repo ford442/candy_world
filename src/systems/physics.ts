@@ -684,6 +684,56 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
 
     // --- Portamento Pines (Slingshot/Ramp) ---
     checkPortamentoPines(delta);
+
+    // --- Vibrato Violets (Frequency Distortion Field) ---
+    checkVibratoViolets(delta, audioState);
+}
+
+function checkVibratoViolets(delta: number, audioState: AudioState | null) {
+    if (!audioState || !audioState.channelData) return;
+
+    const playerPos = player.position;
+    let inDistortionField = false;
+
+    // Check all vibrato violets
+    // (Note: They are part of animatedFoliage, we can filter them out)
+    for (const obj of animatedFoliage) {
+        if (obj.userData?.type === 'vibratoViolet') {
+            const dx = playerPos.x - obj.position.x;
+            const dz = playerPos.z - obj.position.z;
+            const distSq = dx * dx + dz * dz;
+
+            // 20m radius as specified
+            if (distSq < 20.0 * 20.0) {
+                // Determine if this violet is actively vibrating
+                // Vibrato is driven by channel 2 (melody) or channel 3 (chords) with vibrato effect (4xx)
+                let isVibrating = false;
+                for (const ch of audioState.channelData) {
+                    // Check if channel is active and has vibrato effect (4)
+                    if (ch.activeEffect === 4 && ch.effectValue > 0) {
+                        isVibrating = true;
+                        break;
+                    }
+                }
+
+                if (isVibrating) {
+                    inDistortionField = true;
+                    // The frequency distortion field causes enemy projectiles to zigzag.
+                    // Since we don't have a full enemy system yet, we simulate the distortion
+                    // by manipulating the TSL-driven uChromaticIntensity uniform which
+                    // drives a full-screen viewport distortion in src/foliage/chromatic.ts.
+
+                    // Apply a sustained, pulsing distortion based on time (delta)
+                    // We cap it at 0.3 so it's noticeable but not overwhelming like the Kick pulse
+                    if (typeof uChromaticIntensity !== 'undefined' && uChromaticIntensity.value < 0.3) {
+                         uChromaticIntensity.value += delta * 1.5;
+                    }
+
+                    break; // Only need to be in one field at a time
+                }
+            }
+        }
+    }
 }
 
 function checkPortamentoPines(delta: number) {
