@@ -187,6 +187,25 @@ This document captures feature ideas for the Candy World musical ecosystem. The 
 
 ---
 
+## Category 6: Environmental Discoveries
+
+### Melody Lake Island
+- Description: A floating island with a stylized creek path found in the middle of a lake basin.
+- Gameplay Mechanics: Serves as a central hub for various musical flora, rewarding players who explore the water boundaries. Unlocks the "Melody Lake Island" discovery.
+- Visual Design: Flattened Sphere/Cylinder hybrid base with a flowing creek. Decorated with rare flora and an audio-reactive Neon Pollen cloud.
+
+### Crystal Cave
+- Description: Large enclosed structures generated procedurally with stalactites, stalagmites, and an inner waterfall.
+- Gameplay Mechanics: Blocks entrance during heavy storms (audio/weather reactivity). Unlocks the "Crystal Cave" discovery upon exploration.
+- Visual Design: Uses custom TSL materials, displacement shaders, and bioluminescent glow from within.
+
+### Harmonic Waterfall
+- Description: Dynamic waterfalls that cascade into basins or caves.
+- Gameplay Mechanics: Acts as a visual landmark. Unlocks the "Harmonic Waterfall" discovery when approached.
+- Visual Design: TSL flow materials with particle splashes that react to audio velocity.
+
+---
+
 ## Visual Vision: "The Arpeggio Grove"
 - Expanded Scene: A clearing in the Crystalline Nebula featuring a Subwoofer Lotus surrounded by twelve Arpeggio Ferns, a Spectrum Aurora overhead, and reactive environmental features like Vibrato Violets and Kick-Drum Geysers.
 - Key Interactions:
@@ -289,8 +308,9 @@ Three.js Renderer -> WebGPU RenderPipeline (Raw Draw Calls)
 
 ## Next Steps
 
-1. **Instrument Shrine Puzzle Mechanics**: Implement interactive puzzles where shrine patterns must be matched to bassline instrument IDs.
-2. **Migrate to TypeScript**: Begin Phase 1 of the migration roadmap to harden the codebase before adding more complex systems.
+1. **Environmental Discoveries**: Implement discovery logic for Melody Lake Island, Crystal Cave, and Harmonic Waterfall.
+2. **Instrument Shrine Puzzle Mechanics**: Implement interactive puzzles where shrine patterns must be matched to bassline instrument IDs.
+3. **Migrate to TypeScript**: Begin Phase 1 of the migration roadmap to harden the codebase before adding more complex systems.
 
 ## Recent Progress & Next Steps
 - **Accomplished:**
