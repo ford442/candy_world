@@ -7,7 +7,7 @@ import {
     createFlower, createSubwooferLotus, createAccordionPalm, createFiberOpticWillow,
     createFloatingOrb, createSwingableVine, VineSwing, createPrismRoseBush,
     createStarflower, createVibratoViolet, createTremoloTulip, createKickDrumGeyser,
-    createRainingCloud, createWaterfall, createWaveformWater, createFireflies, initFallingBerries,
+    createRainingCloud, createWaveformWater, createFireflies, initFallingBerries,
     initGrassSystem, addGrassInstance,
     createArpeggioFern, createPortamentoPine, createCymbalDandelion, createSnareTrap,
     createBubbleWillow, createHelixPlant, createBalloonBush, createWisteriaCluster,
@@ -196,6 +196,7 @@ export function initWorld(scene: THREE.Scene, weatherSystem: WeatherSystem, load
     // Lake Island
     const island = createIsland({ radius: 15, height: 2 });
     island.position.set(-40, 2.5, 40); // Place in the lake
+    island.userData.type = 'lake_island';
     safeAddFoliage(island, true, 15, weatherSystem);
 
     // Falling Berries
