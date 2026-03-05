@@ -431,9 +431,9 @@ export class WeatherSystem {
 
         // Update Caves
         if (this.trackedCaves.length > 0) {
-            this.trackedCaves.forEach(cave => {
-                updateCaveWaterLevel(cave, this.groundWaterLevel);
-            });
+            for (let i = 0; i < this.trackedCaves.length; i++) {
+                updateCaveWaterLevel(this.trackedCaves[i], this.groundWaterLevel);
+            }
         }
         // ---------------------------
 
@@ -984,7 +984,10 @@ export class WeatherSystem {
                 toRemove.traverse((child: any) => {
                     if (child.material) {
                         if (Array.isArray(child.material)) {
-                            child.material.forEach((m: any) => m.userData?.isClone && m.dispose && m.dispose());
+                            for (let i = 0; i < child.material.length; i++) {
+                                const m: any = child.material[i];
+                                if (m.userData?.isClone && m.dispose) m.dispose();
+                            }
                         } else if (child.material.userData?.isClone && child.material.dispose) {
                             child.material.dispose();
                         }
@@ -1006,9 +1009,9 @@ export class WeatherSystem {
             if (this.rainbow.geometry) this.rainbow.geometry.dispose();
         }
         if (this.mushroomWaterfalls && this.mushroomWaterfalls.size > 0) {
-            this.mushroomWaterfalls.forEach(uuid => {
+            for (const uuid of this.mushroomWaterfalls) {
                 waterfallBatcher.remove(uuid);
-            });
+            }
             this.mushroomWaterfalls.clear();
         }
     }
