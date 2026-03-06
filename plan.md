@@ -10,12 +10,17 @@
 
 ## Next Steps
 
-1. **Silence Spirits Gameplay Mechanics**: Implement the 5s invisibility buff granted by communing with Silence Spirits during breakdowns.
+1. **Environmental Discoveries**: Implement discovery logic for Melody Lake Island, Crystal Cave, and Harmonic Waterfall in `src/world/generation.ts`.
+2. **Migrate to TypeScript**: Begin Phase 1 of the migration roadmap to harden the codebase before adding more complex systems.
 
 ---
 
 ## Recent Progress
 - **Accomplished:**
+  - **Vibrato Violets Frequency Distortion**: **Status: Implemented ✅**
+    - *Implementation Details:* Implemented frequency distortion field logic in `src/systems/physics.ts`. Checks if the player is within a 20m radius of a `vibratoViolet`. When the player is in range and the plant is vibrating (driven by channel 4xx vibrato effect), a subtle TSL-driven chromatic aberration screen shake is applied via `uChromaticIntensity` (which manipulates viewport sampling) to simulate the frequency distortion field. This prevents enemies from locking on correctly.
+  - **Silence Spirits Gameplay Mechanics**: **Status: Implemented ✅**
+    - *Implementation Details:* Added interaction logic to `src/foliage/silence-spirits.ts` allowing players to commune with spirits before they fully fade. Implemented `grantInvisibility` in `src/systems/physics.ts` which provides a 5s buff tracked via `player.isInvisible`, applies a chromatic pulse effect, and shows a UI toast.
   - **Instrument Shrine Puzzle Mechanics**: **Status: Implemented ✅**
     - *Implementation Details:* Updated `src/foliage/instrument.ts` to use TSL uniforms for dynamic pattern generation. Shrines can now be cycled via interaction to "tune" them to different patterns. The logic in `src/foliage/animation.ts` specifically verifies if the tuned ID matches the active bassline instrument (channel 1), fulfilling the puzzle mechanic.
   - **Rare Flora Discovery Visuals**: **Status: Implemented ✅**
@@ -115,7 +120,8 @@
   - **Tremolo Tulips**: Implemented `createTremoloTulip` with `tremeloPulse` animation and TSL vortex materials.
   - **Cymbal Dandelions**: Implemented `createCymbalDandelion` with `cymbalShake` animation and particle explosion logic.
   - **Procedural Generation**: Added new musical flora (Tulips, Dandelions) to procedural extras spawning logic.
-  - **Waveform Water**: Implemented `src/foliage/water.js` featuring a TSL-driven, audio-reactive water surface.
+  - **Waveform Water**: **Status: Implemented ✅**
+    - *Implementation Details:* Implemented `src/foliage/water.ts` featuring a TSL-driven, audio-reactive water surface. Displaces vertices based on simulated waveform data (Bass/Treble). Implemented "Surfing" mechanic in `src/systems/physics.ts` providing speed boosts and visual feedback when moving in water during heavy bass kicks.
   - **Panning Pads**: Implemented `src/foliage/panning-pads.js` with mercury-like TSL materials and stereo-pan driven bobbing animation.
   - **Silence Spirits**: Implemented `src/foliage/silence-spirits.js` with volume-reactive AI.
   - **Pattern-Change Seasons**: Implemented global palette shifts triggered by music patterns.
@@ -175,6 +181,7 @@
     - *Implementation Details:* Implemented player interaction (trigger on step, knockback on close) and projectile reflection in `src/systems/physics.ts` and `src/gameplay/rainbow-blaster.ts`.
   - [x] **Plants Twilight Glow**: Implemented logic for plants to glow during twilight hours (pre-dawn/dusk).
     - *Implementation Details:* Added `uTwilight` global uniform to `src/foliage/sky.js` and integrated it into the TSL material pipeline for Flowers, Mushrooms, and Trees. The glow intensity ramps up at dusk and down at dawn, driven by the `WeatherSystem`.
+  - [ ] **Environmental Discoveries**: Implement discovery logic for Melody Lake Island, Crystal Cave, and Harmonic Waterfall.
 
 ---
 

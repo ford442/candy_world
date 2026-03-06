@@ -261,6 +261,8 @@ export function initInput(
         const countText = count > 0 ? ` (${count})` : '';
         openJukeboxBtn.innerHTML = `Open Jukebox${countText} <span class="key-badge">Q</span>`;
         openJukeboxBtn.setAttribute('aria-label', `Open Jukebox playlist${count > 0 ? `, ${count} songs` : ''}`);
+        // Ensure aria-expanded state is preserved when updating innerHTML
+        openJukeboxBtn.setAttribute('aria-expanded', String(isPlaylistOpen));
     }
 
     // Initialize state
@@ -322,6 +324,10 @@ export function initInput(
     // Toggle Function
     function togglePlaylist(): void {
         isPlaylistOpen = !isPlaylistOpen;
+
+        if (openJukeboxBtn) {
+            openJukeboxBtn.setAttribute('aria-expanded', String(isPlaylistOpen));
+        }
 
         if (isPlaylistOpen) {
             // OPENING
@@ -1007,6 +1013,7 @@ export function initInput(
             if (toggleDayNightBtn) {
                 toggleDayNightBtn.setAttribute('aria-pressed', String(isPressed));
                 toggleDayNightBtn.setAttribute('aria-label', isPressed ? 'Switch to Day' : 'Switch to Night');
+                toggleDayNightBtn.title = isPressed ? 'Switch to Day (N)' : 'Switch to Night (N)';
                 // UX: Update button text to show available action
                 toggleDayNightBtn.innerHTML = isPressed
                     ? '☀️ Switch to Day <span class="key-badge">N</span>'

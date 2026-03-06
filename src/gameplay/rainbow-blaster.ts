@@ -299,10 +299,10 @@ class ProjectilePool {
     }
 
     knockDownCloudDeluge(cloud: any) {
-         if (cloud.userData.isFalling) return;
+        if (cloud.userData.isFalling) return;
         cloud.userData.isFalling = true;
-        // ⚡ OPTIMIZATION: Reuse vector
-        if (!cloud.userData.velocity) cloud.userData.velocity = new THREE.Vector3();
+
+        // ⚡ OPTIMIZATION: Velocity pre-allocated in createCloud (clouds.ts)
         cloud.userData.velocity.set(0, -20.0, 0);
     }
 }

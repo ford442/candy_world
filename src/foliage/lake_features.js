@@ -18,7 +18,7 @@ export function createIsland(options = {}) {
     } = options;
 
     const group = new THREE.Group();
-    group.userData.type = 'island';
+    group.userData.type = 'lake_island'; // Updated type to match discovery map
 
     // 1. Base Island Geometry (Flattened Sphere/Cylinder hybrid)
     const islandGeo = new THREE.CylinderGeometry(radius, radius * 0.8, height, 16, 2);
