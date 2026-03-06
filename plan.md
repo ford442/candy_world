@@ -10,13 +10,15 @@
 
 ## Next Steps
 
-1. **Environmental Discoveries**: Implement discovery logic for Melody Lake Island, Crystal Cave, and Harmonic Waterfall in `src/world/generation.ts`.
+1. **Instrument Shrine Puzzle Mechanics**: Implement interactive puzzles where shrine patterns must be matched to bassline instrument IDs.
 2. **Migrate to TypeScript**: Begin Phase 1 of the migration roadmap to harden the codebase before adding more complex systems.
 
 ---
 
 ## Recent Progress
 - **Accomplished:**
+  - **Environmental Discoveries**: **Status: Implemented ✅**
+    - *Implementation Details:* Integrated the missing waterfall object into the optimized discovery spatial grid via a proxy object, allowing players to discover Melody Lake Island, Crystal Cave, and Harmonic Waterfall through proximity.
   - **Vibrato Violets Frequency Distortion**: **Status: Implemented ✅**
     - *Implementation Details:* Implemented frequency distortion field logic in `src/systems/physics.ts`. Checks if the player is within a 20m radius of a `vibratoViolet`. When the player is in range and the plant is vibrating (driven by channel 4xx vibrato effect), a subtle TSL-driven chromatic aberration screen shake is applied via `uChromaticIntensity` (which manipulates viewport sampling) to simulate the frequency distortion field. This prevents enemies from locking on correctly.
   - **Silence Spirits Gameplay Mechanics**: **Status: Implemented ✅**
@@ -181,7 +183,6 @@
     - *Implementation Details:* Implemented player interaction (trigger on step, knockback on close) and projectile reflection in `src/systems/physics.ts` and `src/gameplay/rainbow-blaster.ts`.
   - [x] **Plants Twilight Glow**: Implemented logic for plants to glow during twilight hours (pre-dawn/dusk).
     - *Implementation Details:* Added `uTwilight` global uniform to `src/foliage/sky.js` and integrated it into the TSL material pipeline for Flowers, Mushrooms, and Trees. The glow intensity ramps up at dusk and down at dawn, driven by the `WeatherSystem`.
-  - [ ] **Environmental Discoveries**: Implement discovery logic for Melody Lake Island, Crystal Cave, and Harmonic Waterfall.
 
 ---
 
