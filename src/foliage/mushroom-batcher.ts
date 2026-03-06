@@ -650,9 +650,8 @@ export class MushroomBatcher {
 
             // A. Copy Attributes from Last to Removed
             // Matrix
-            const m = new THREE.Matrix4();
-            this.mesh!.getMatrixAt(lastIndex, m);
-            this.mesh!.setMatrixAt(indexToRemove, m);
+            this.mesh!.getMatrixAt(lastIndex, _scratchMatrix);
+            this.mesh!.setMatrixAt(indexToRemove, _scratchMatrix);
 
             // Color
             this.mesh!.getColorAt(lastIndex, _scratchColor);
