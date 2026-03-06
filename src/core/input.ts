@@ -31,23 +31,6 @@ export const keyStates: KeyStates = {
 };
 
 // Controls and Event Listeners
-// Helper: Show temporary success feedback on upload buttons
-const showUploadFeedback = (labelElement: HTMLElement | null, filesCount: number): void => {
-    if (!labelElement) return;
-
-    // Save original HTML if not already saved (Preserves formatting/spans)
-    if (!labelElement.dataset.originalHtml) {
-        labelElement.dataset.originalHtml = labelElement.innerHTML;
-    }
-
-    const originalHtml = labelElement.dataset.originalHtml;
-    // We can use innerText for the temporary message, or innerHTML if we wanted icons/styles
-    labelElement.innerText = `✅ ${filesCount} Song${filesCount > 1 ? 's' : ''} Added!`;
-
-    setTimeout(() => {
-        labelElement.innerHTML = originalHtml || '';
-    }, 2000);
-};
 
 // Helper: Format song title for display
 const formatSongTitle = (filename: string): string => {
@@ -399,8 +382,9 @@ export function initInput(
                 const { validFiles } = filterValidMusicFiles(files);
                 if (validFiles.length > 0) {
                     audioSystem.addToQueue(validFiles);
-                    const label = document.querySelector('label[for="playlistUploadInput"]') as HTMLElement;
-                    showUploadFeedback(label, validFiles.length);
+                    import('../utils/toast.js').then(({ showToast }) => {
+                        showToast(`Added ${validFiles.length} Song${validFiles.length > 1 ? 's' : ''}! 🎶`, '📂');
+                    });
                 }
             }
         });
@@ -753,14 +737,14 @@ export function initInput(
 
                 if (validFiles.length > 0) {
                     audioSystem.addToQueue(validFiles);
-                    const label = document.querySelector('label[for="musicUpload"]') as HTMLElement | null;
-                    showUploadFeedback(label, validFiles.length);
 
-                    if (invalidFiles.length > 0) {
-                        import('../utils/toast.js').then(({ showToast }) => {
+                    import('../utils/toast.js').then(({ showToast }) => {
+                        if (invalidFiles.length > 0) {
                             showToast(`Added ${validFiles.length} song${validFiles.length > 1 ? 's' : ''}. (${invalidFiles.length} ignored)`, '⚠️');
-                        });
-                    }
+                        } else {
+                            showToast(`Added ${validFiles.length} Song${validFiles.length > 1 ? 's' : ''}! 🎶`, '📂');
+                        }
+                    });
                 } else {
                      // All files were invalid
                     import('../utils/toast.js').then(({ showToast }) => {
@@ -992,10 +976,6 @@ export function initInput(
                             showToast(`Added ${validFiles.length} Song${validFiles.length > 1 ? 's' : ''}! 🎶`, '📂');
                         }
                     });
-
-                    // Also trigger label feedback if available
-                    const label = document.querySelector('label[for="musicUpload"]') as HTMLElement | null;
-                    if (label) showUploadFeedback(label, validFiles.length);
                 } else {
                     // All files were invalid
                     import('../utils/toast.js').then(({ showToast }) => {
