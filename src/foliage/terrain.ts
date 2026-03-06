@@ -2,9 +2,10 @@ import * as THREE from 'three';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import {
     color, float, vec3, Fn, uniform, sin, time, positionLocal,
-    smoothstep, mix, positionWorld, mx_noise_float, normalLocal
+    smoothstep, mix, positionWorld, mx_noise_float, normalLocal,
+    distance, max
 } from 'three/tsl';
-import { CandyPresets, uAudioLow, uAudioHigh, createRimLight } from './common.ts';
+import { CandyPresets, uAudioLow, uAudioHigh, createRimLight, uPlayerPosition } from './common.ts';
 
 /**
  * Creates an audio-reactive Terrain Material.
@@ -73,8 +74,35 @@ export function createTerrainMaterial(hexColor: number | string | THREE.Color, o
     // 4. Rim Light for definition (Subtle edge glow)
     const rim = createRimLight(color(0x444444), float(0.2), float(4.0), normalLocal);
 
+    // --- PALETTE: Juicy Proximity Glow ---
+    // Make the ground light up under the player's feet, pulsing to the beat!
+    const proximityLogic = Fn(() => {
+        // Calculate horizontal distance from player to ground vertex
+        const dist = distance(positionWorld.xz, uPlayerPosition.xz);
+
+        // Interaction Radius
+        const glowRadius = float(4.0);
+        const innerRadius = float(1.0);
+
+        // Smoothly fade the glow as distance increases
+        // 1.0 at center, 0.0 at edge
+        const glowFactor = float(1.0).sub(smoothstep(innerRadius, glowRadius, dist));
+
+        // Audio-reactive pulse on the glow (Juice!)
+        // The glow expands and brightens with the kick drum
+        const audioPulse = uAudioLow.mul(1.5).add(1.0);
+
+        // Neon Magic Color (Cyan <-> Magenta mix based on time and position)
+        const magicPhase = time.mul(2.0).add(positionWorld.x.mul(0.5)).add(positionWorld.z.mul(0.5));
+        const colorMix = sin(magicPhase).mul(0.5).add(0.5);
+        const neonColor = mix(vec3(0.0, 1.0, 1.0), vec3(1.0, 0.0, 1.0), colorMix);
+
+        // Final proximity emissive contribution
+        return neonColor.mul(glowFactor).mul(audioPulse).mul(0.8); // 0.8 base intensity
+    });
+
     // Combine emissive sources
-    material.emissiveNode = sparkleLogic().add(rim);
+    material.emissiveNode = sparkleLogic().add(rim).add(proximityLogic());
 
     material.userData.type = 'terrain';
     return material;

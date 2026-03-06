@@ -56,13 +56,15 @@ export function updateArpeggio(foliageObject: FoliageObject, time: number, audio
         // Fallback for legacy objects (if any)
         const fronds = foliageObject.userData.fronds;
         if (fronds) {
-            fronds.forEach((segments: any, fIdx: number) => {
-                segments.forEach((segData: any, sIdx: number) => {
+            for (let fIdx = 0; fIdx < fronds.length; fIdx++) {
+                const segments: any = fronds[fIdx];
+                for (let sIdx = 0; sIdx < segments.length; sIdx++) {
+                    const segData: any = segments[sIdx];
                     const targetRot = THREE.MathUtils.lerp(segData.initialCurl, 0.2, unfurlFactor);
                     const wave = Math.sin(time * 5 + sIdx * 0.5) * 0.1 * unfurlFactor;
                     segData.pivot.rotation.x = targetRot + wave;
-                });
-            });
+                }
+            }
         }
     }
 

@@ -13,6 +13,7 @@ import {
     uTime,
     uPlayerPosition
 } from './common.ts';
+import { grantInvisibility } from '../systems/physics.ts';
 
 export interface SilenceSpiritOptions {
     scale?: number;
@@ -38,8 +39,8 @@ export function createSilenceSpirit(options: SilenceSpiritOptions = {}): THREE.G
     // 1. Proximity Dissolve (Flee behavior)
     // Spirit fades away when player approaches (shy/silent)
     const dist = distance(positionWorld, uPlayerPosition);
-    // Fully invisible at 3.0 units, fully visible at 8.0 units
-    const proximityAlpha = smoothstep(3.0, 8.0, dist);
+    // Fully invisible at 1.5 units, fully visible at 8.0 units
+    const proximityAlpha = smoothstep(1.5, 8.0, dist);
 
     // 2. Stardust Noise (Internal motion)
     // Flowing noise texture
@@ -83,6 +84,12 @@ export function createSilenceSpirit(options: SilenceSpiritOptions = {}): THREE.G
     group.userData.type = 'silenceSpirit';
     // Removed 'spiritFade' animationType as logic is now in TSL
     group.userData.isVisible = true;
+
+    group.userData.isInteractive = true;
+    group.userData.interactionText = "Commune";
+    group.userData.onInteract = () => {
+        grantInvisibility(5.0);
+    };
 
     // Register for reactivity (maybe for light level checks if needed later)
     // But purely visual fading is now GPU-side.

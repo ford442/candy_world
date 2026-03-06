@@ -233,9 +233,11 @@ export class CloudBatcher {
         cloudGroup.userData.batchStart = startIndex;
         cloudGroup.userData.batchCount = puffCount;
 
-        // ⚡ OPTIMIZATION: Pre-allocate state for dirty checking
-        cloudGroup.userData.lastPos = new THREE.Vector3().copy(cloudGroup.position);
-        cloudGroup.userData.lastRot = new THREE.Euler().copy(cloudGroup.rotation);
+        // ⚡ OPTIMIZATION: Copy to pre-allocated state (from createCloud) for dirty checking
+        if (!cloudGroup.userData.lastPos) cloudGroup.userData.lastPos = new THREE.Vector3();
+        if (!cloudGroup.userData.lastRot) cloudGroup.userData.lastRot = new THREE.Euler();
+        cloudGroup.userData.lastPos.copy(cloudGroup.position);
+        cloudGroup.userData.lastRot.copy(cloudGroup.rotation);
 
         this.clouds.push(cloudGroup);
 
