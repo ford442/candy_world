@@ -737,10 +737,11 @@ export class WeatherSystem {
                     if (!this.mushroomWaterfalls.has(uuid)) {
                         const radius = mushroom.userData.capRadius || 5.0;
                         const height = mushroom.userData.capHeight || 8.0;
-                        const pos = new THREE.Vector3(mushroom.position.x + radius * 0.8, height * 0.8, mushroom.position.z);
+                        // ⚡ OPTIMIZATION: Use scratch vector
+                        _scratchSunDir.set(mushroom.position.x + radius * 0.8, height * 0.8, mushroom.position.z);
 
                         // Add to batcher
-                        waterfallBatcher.add(uuid, pos, height * 0.8, 2.0);
+                        waterfallBatcher.add(uuid, _scratchSunDir, height * 0.8, 2.0);
                         this.mushroomWaterfalls.add(uuid);
                     }
 

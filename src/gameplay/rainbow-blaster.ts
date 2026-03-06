@@ -289,7 +289,7 @@ class ProjectilePool {
         cloud.userData.isFalling = true;
         // ⚡ OPTIMIZATION: Reuse vector
         if (!cloud.userData.velocity) cloud.userData.velocity = new THREE.Vector3();
-        cloud.userData.velocity.set(0, 5.0, 0);
+        cloud.userData.velocity.set(0, -5.0, 0);
 
         cloud.traverse((c: any) => {
             if (c.isMesh && c.material) {

@@ -106,6 +106,7 @@ export function updateFallingClouds(dt: number, clouds: THREE.Object3D[], getGro
     for (let i = clouds.length - 1; i >= 0; i--) {
         const cloud = clouds[i];
         if (cloud.userData.isFalling) {
+            // Wait, using cloud.userData.velocity is already reusing the vector
             cloud.userData.velocity.y -= 20.0 * dt;
             cloud.position.addScaledVector(cloud.userData.velocity, dt);
 
