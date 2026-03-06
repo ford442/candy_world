@@ -41,6 +41,11 @@ export function createCloud(options: CloudOptions = {}): THREE.Group {
     group.userData.originalScale = new THREE.Vector3(1.4, 1.0, 1.2);
     group.scale.copy(group.userData.originalScale);
 
+    // ⚡ OPTIMIZATION: Pre-allocate physics and state tracking vectors to prevent GC spikes in render loop
+    group.userData.velocity = new THREE.Vector3();
+    group.userData.lastPos = new THREE.Vector3();
+    group.userData.lastRot = new THREE.Euler();
+
     // ⚡ OPTIMIZATION: Removed CPU-side floating animation
     // Floating is now handled by TSL vertex shader in cloud-batcher.ts
     // This allows the CloudBatcher to skip matrix updates for static clouds
