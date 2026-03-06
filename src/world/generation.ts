@@ -350,6 +350,16 @@ export async function generateMap(
     safeAddFoliage(cave, false, 0, weatherSystem);
     console.log("[World] Cave spawned at ", caveX, caveZ, " Height:", caveY);
 
+    // Add waterfall proxy for discovery system
+    if (cave.userData.gatePosition) {
+        const waterfallProxy = new THREE.Object3D();
+        // Update matrix world to ensure accurate transformation
+        cave.updateMatrixWorld(true);
+        waterfallProxy.position.copy(cave.userData.gatePosition).applyMatrix4(cave.matrixWorld);
+        waterfallProxy.userData.type = 'waterfall';
+        animatedFoliage.push(waterfallProxy as any);
+    }
+
     // --- Populate Lake Island with Musical Flora ---
     populateLakeIsland(weatherSystem);
 
