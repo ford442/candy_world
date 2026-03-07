@@ -552,9 +552,10 @@
 
         <div class="settings settings-container" role="group" aria-label="Game Settings">
             <input type="file" id="musicUpload" accept=".mod,.xm,.it,.s3m" multiple class="visually-hidden">
-            <label for="musicUpload" class="file-label" aria-live="polite" title="Supported formats: .mod, .xm, .it, .s3m" aria-keyshortcuts="U">
-                🎵 Upload Music <span class="key-badge">U</span>
-                <span style="display:block; font-size:0.7em; font-weight:normal; margin-top:2px; opacity:0.9;">.mod .xm .it .s3m</span>
+            <label for="musicUpload" class="file-label" title="Upload Music (Supported formats: .mod, .xm, .it, .s3m)">
+                <span aria-hidden="true">🎵</span> Upload Music <span class="key-badge" aria-hidden="true">U</span>
+                <span class="visually-hidden">Upload supported music files: .mod, .xm, .it, .s3m. Keyboard shortcut U</span>
+                <span aria-hidden="true" style="display:block; font-size:0.7em; font-weight:normal; margin-top:2px; opacity:0.9;">.mod .xm .it .s3m</span>
             </label>
 
             <button id="toggleDayNight" class="toggle-button" aria-pressed="false" aria-keyshortcuts="N" aria-label="Switch to Night" title="Switch to Night (N)">
@@ -650,9 +651,10 @@
         
         <div class="playlist-controls">
             <input type="file" id="playlistUploadInput" multiple accept=".mod,.xm,.it,.s3m" class="visually-hidden">
-            <label for="playlistUploadInput" class="secondary-button" aria-live="polite" title="Supported formats: .mod, .xm, .it, .s3m" aria-keyshortcuts="U">
-                ➕ Add Songs <span class="key-badge">U</span>
-                <span style="display:block; font-size:0.7em; font-weight:normal; margin-top:2px; opacity:0.9;">.mod .xm .it .s3m</span>
+            <label for="playlistUploadInput" class="secondary-button" title="Add Songs (Supported formats: .mod, .xm, .it, .s3m)">
+                <span aria-hidden="true">➕</span> Add Songs <span class="key-badge" aria-hidden="true">U</span>
+                <span class="visually-hidden">Add supported music files: .mod, .xm, .it, .s3m. Keyboard shortcut U</span>
+                <span aria-hidden="true" style="display:block; font-size:0.7em; font-weight:normal; margin-top:2px; opacity:0.9;">.mod .xm .it .s3m</span>
             </label>
             <button id="closePlaylistBtn" class="secondary-button" style="background: #FF6B6B;" aria-label="Close Jukebox (Escape)">Close <span class="key-badge">Esc</span></button>
         </div>
