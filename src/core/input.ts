@@ -387,6 +387,7 @@ export function initInput(
                     });
                 }
             }
+            target.value = '';
         });
     }
 
@@ -438,7 +439,7 @@ export function initInput(
             if (title) title.innerText = 'Game Paused ⏸️';
 
             if (startButton) {
-                startButton.innerHTML = 'Resume Exploration 🚀 <span class="key-badge">Enter</span>';
+                startButton.innerHTML = 'Resume Exploration <span aria-hidden="true">🚀</span> <span class="key-badge" aria-hidden="true">Enter</span>';
                 requestAnimationFrame(() => startButton.focus());
             }
         }
@@ -482,7 +483,7 @@ export function initInput(
                 // Pressing Escape again should manually bring up the menu.
                 if (instructions) instructions.style.display = 'flex';
                 if (startButton) {
-                    startButton.innerHTML = 'Resume Exploration 🚀 <span class="key-badge">Enter</span>';
+                    startButton.innerHTML = 'Resume Exploration <span aria-hidden="true">🚀</span> <span class="key-badge" aria-hidden="true">Enter</span>';
                     startButton.focus();
                 }
                 return;
@@ -752,6 +753,7 @@ export function initInput(
                     });
                 }
             }
+            target.value = '';
         });
     }
 
