@@ -10,13 +10,15 @@
 
 ## Next Steps
 
-1. **Instrument Shrine Puzzle Mechanics**: Implement interactive puzzles where shrine patterns must be matched to bassline instrument IDs.
-2. **Migrate to TypeScript**: Begin Phase 1 of the migration roadmap to harden the codebase before adding more complex systems.
+1. **Waveform Harpoon**: Gameplay mechanic where a harpoon anchors to frequency to pull the player across the waveform water.
+2. **Phase 3 (ASC -> C++): Specialized solvers**: Use C++ where you need high-performance libraries, SIMD, or mature solvers.
 
 ---
 
 ## Recent Progress
 - **Accomplished:**
+  - **Bass Portal Secret (Subwoofer Lotus Glitch)**: **Status: Implemented ✅**
+    - *Implementation Details:* Implemented secret mechanic where interacting with a Subwoofer Lotus during high glitch intensity reveals a hidden Bass Portal.
   - **Environmental Discoveries**: **Status: Implemented ✅**
     - *Implementation Details:* Integrated the missing waterfall object into the optimized discovery spatial grid via a proxy object, allowing players to discover Melody Lake Island, Crystal Cave, and Harmonic Waterfall through proximity.
   - **Vibrato Violets Frequency Distortion**: **Status: Implemented ✅**
@@ -152,8 +154,8 @@
   - [x] Note-Trail Ribbons (Melody tracing geometry)
   - [x] Melody Mirrors (Fake reflection shaders)
     - *Implementation Details:* TSL-driven faux reflection using a procedural environment texture, with UV distortion driven by audio intensity (`uAudioHigh`) and time. Geometry consists of floating shard clusters integrated into `src/world/generation.ts`.
-  - [x] Subwoofer Lotus (Bass & Glitch Reactive)
-    - *Implementation Details:* TSL material logic for bass-driven vertex displacement (rings) and a swirling vortex portal that activates via `uGlitchIntensity` or high bass.
+  - [x] Subwoofer Lotus (Bass & Glitch Reactive) **Status: Implemented ✅**
+    - *Implementation Details:* TSL material logic for bass-driven vertex displacement (rings) and a swirling vortex portal that activates via `uGlitchIntensity` or high bass. Fully documented TSL math nodes (e.g., `atan2`, `mix`, `mx_noise_float`). Also implemented the Bass Portal secret mechanic which reveals a hidden portal and triggers discovery logic when the lotus is interacted with during high glitch intensity.
   - [x] Plants Twilight Glow (Bioluminescence)
     - *Implementation Details:* Implemented `uTwilight` global uniform in `src/foliage/sky.js` driven by `WeatherSystem`'s day/night cycle. Updated TSL materials for Flowers, Mushrooms, and Fiber Optic Trees to accept this uniform and boost emissive intensity during twilight hours.
   - [x] Fluid Fog (C++ Simulation)
@@ -162,6 +164,7 @@
 ### Category 5: Physics & Interaction
 - **Status:** Active
 - **Tasks:**
+  - [x] Bass Portal Secret (Subwoofer Lotus Glitch) **Status: Implemented ✅**
   - [x] Rare Flora Discovery (Unlock system)
     - *Implementation Details:* Implemented proximity-based discovery logic in `src/systems/physics.ts` using a throttled check against `animatedFoliage` objects and a decoupled data map in `src/systems/discovery_map.ts`.
   - [x] Advanced Collision (WASM-based narrow phase)
