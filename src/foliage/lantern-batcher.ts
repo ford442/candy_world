@@ -16,6 +16,12 @@ import { foliageGroup } from '../world/state.ts';
 
 const MAX_LANTERNS = 1000;
 
+// ⚡ OPTIMIZATION: Module scoped scratch variables to avoid GC spikes
+const _scratchMatrixBatch = new THREE.Matrix4();
+const _scratchV = new THREE.Vector3();
+const _scratchN = new THREE.Vector3();
+const _scratchColor = new THREE.Color();
+
 export class LanternBatcher {
     private static instance: LanternBatcher;
     private initialized = false;
@@ -216,17 +222,14 @@ export class LanternBatcher {
              const normAttr = geo.attributes.normal;
              // uv ignored for now
 
-             const v = new THREE.Vector3();
-             const n = new THREE.Vector3();
-
              for(let i=0; i<posAttr.count; i++){
-                 v.set(posAttr.getX(i), posAttr.getY(i), posAttr.getZ(i));
-                 v.applyMatrix4(transform);
-                 positions.push(v.x, v.y, v.z);
+                 _scratchV.set(posAttr.getX(i), posAttr.getY(i), posAttr.getZ(i));
+                 _scratchV.applyMatrix4(transform);
+                 positions.push(_scratchV.x, _scratchV.y, _scratchV.z);
 
-                 n.set(normAttr.getX(i), normAttr.getY(i), normAttr.getZ(i));
-                 n.transformDirection(transform);
-                 normals.push(n.x, n.y, n.z);
+                 _scratchN.set(normAttr.getX(i), normAttr.getY(i), normAttr.getZ(i));
+                 _scratchN.transformDirection(transform);
+                 normals.push(_scratchN.x, _scratchN.y, _scratchN.z);
                  uvs.push(0,0);
              }
 
@@ -244,7 +247,8 @@ export class LanternBatcher {
              vertexOffset += posAttr.count;
         };
 
-        const m = new THREE.Matrix4();
+        // ⚡ OPTIMIZATION: Module scoped scratch matrix to avoid GC spikes
+        const m = _scratchMatrixBatch.identity();
 
         // 1. Hook (Dark Material 0)
         let startIndex = indices.length;
@@ -267,7 +271,9 @@ export class LanternBatcher {
 
         // Bulb Sphere
         const bulbGeo = sharedGeometries.unitSphere; // R=1
-        m.compose(new THREE.Vector3(1.0, -0.5, 0), new THREE.Quaternion(), new THREE.Vector3(0.25, 0.4, 0.25));
+        _scratchV.set(1.0, -0.5, 0);
+        _scratchN.set(0.25, 0.4, 0.25); // Using _scratchN as scale scratch here to save memory
+        m.compose(_scratchV, new THREE.Quaternion(), _scratchN);
 
         addPart(bulbGeo, 1, m);
 
@@ -308,7 +314,8 @@ export class LanternBatcher {
         const height = options.height || 2.5;
         const colorHex = options.color || 0xFFA500;
         const spawnTime = options.spawnTime !== undefined ? options.spawnTime : -100.0;
-        const c = new THREE.Color(colorHex);
+        // ⚡ OPTIMIZATION: Reuse module-scoped scratch color to avoid GC
+        const c = _scratchColor.set(colorHex);
 
         // Generate Random Phase for this instance
         const randomPhase = Math.random() * Math.PI * 2;
