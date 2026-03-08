@@ -8,6 +8,8 @@ import { foliageClouds, foliageGeysers, foliageTraps } from '../world/state.ts';
 import { createCandyMaterial, uTime, uAudioHigh, createJuicyRimLight } from '../foliage/common.ts';
 import { getCelestialState } from '../core/cycle.ts';
 import { spawnImpact } from '../foliage/impacts.ts';
+import { triggerHarpoon } from '../systems/physics.ts';
+import { isInLakeBasin } from '../systems/physics.core.ts';
 
 // Projectile Configuration
 const SPEED = 60.0;
@@ -210,6 +212,14 @@ class ProjectilePool {
                     spawnImpact(geyser.position, 'jump');
                     break;
                 }
+            }
+
+            // Collision with Water (Waveform Harpoon)
+            if (isInLakeBasin(p.position.x, p.position.z) && p.position.y <= 1.5) {
+                hit = true;
+                // Anchor Harpoon
+                triggerHarpoon(p.position);
+                spawnImpact(p.position, 'splash'); // Visual feedback
             }
 
             // Collision with Snare Traps (Reflection)
