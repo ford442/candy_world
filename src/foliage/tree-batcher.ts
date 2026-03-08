@@ -21,6 +21,10 @@ import {
 } from 'three/tsl';
 import { applyGlitch } from './glitch.ts';
 
+const _defaultColorWhite = new THREE.Color(0xFFFFFF);
+const _defaultColorOrange = new THREE.Color(0xFF4500);
+const _defaultColorGreen = new THREE.Color(0x00FA9A);
+
 const MAX_INSTANCES = 3000; // Trunks
 const MAX_SPHERES = MAX_INSTANCES * 15; // Blooms/Leaves
 const MAX_CAPSULES = MAX_INSTANCES * 10; // Branches
@@ -262,7 +266,8 @@ export class TreeBatcher {
             if ((child as THREE.Mesh).isMesh) {
                 const mesh = child as THREE.Mesh;
                 const mat = (Array.isArray(mesh.material) ? mesh.material[0] : mesh.material) as THREE.MeshStandardMaterial;
-                const col = mat.color || new THREE.Color(0xFFFFFF);
+                // ⚡ OPTIMIZATION: Use shared color constant to prevent GC spikes in traverse
+                const col = mat.color || _defaultColorWhite;
 
                 if (mesh.geometry.type === 'CylinderGeometry') {
                      this.addInstance(this.trunks, mesh.matrixWorld, col, 'trunkCount');
@@ -280,7 +285,8 @@ export class TreeBatcher {
             if ((child as THREE.Mesh).isMesh) {
                 const mesh = child as THREE.Mesh;
                 const mat = (Array.isArray(mesh.material) ? mesh.material[0] : mesh.material) as THREE.MeshStandardMaterial;
-                const col = mat.color || new THREE.Color(0xFF4500);
+                // ⚡ OPTIMIZATION: Use shared color constant to prevent GC spikes in traverse
+                const col = mat.color || _defaultColorOrange;
 
                 if (mesh.geometry.type === 'SphereGeometry') {
                     this.addInstance(this.spheres, mesh.matrixWorld, col, 'sphereCount');
@@ -295,7 +301,8 @@ export class TreeBatcher {
             if ((child as THREE.Mesh).isMesh) {
                 const mesh = child as THREE.Mesh;
                 const mat = (Array.isArray(mesh.material) ? mesh.material[0] : mesh.material) as THREE.MeshStandardMaterial;
-                const col = mat.color || new THREE.Color(0x00FA9A);
+                // ⚡ OPTIMIZATION: Use shared color constant to prevent GC spikes in traverse
+                const col = mat.color || _defaultColorGreen;
 
                 if (mesh.geometry.type === 'TubeGeometry') {
                     this.addInstance(this.helices, mesh.matrixWorld, col, 'helixCount');
@@ -313,7 +320,8 @@ export class TreeBatcher {
             if ((child as THREE.Mesh).isMesh) {
                 const mesh = child as THREE.Mesh;
                 const mat = (Array.isArray(mesh.material) ? mesh.material[0] : mesh.material) as THREE.MeshStandardMaterial;
-                const col = mat.color || new THREE.Color(0xFFFFFF);
+                // ⚡ OPTIMIZATION: Use shared color constant to prevent GC spikes in traverse
+                const col = mat.color || _defaultColorWhite;
 
                 if (mesh.geometry.type === 'CylinderGeometry') {
                     this.addInstance(this.trunks, mesh.matrixWorld, col, 'trunkCount');
