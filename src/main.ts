@@ -848,7 +848,7 @@ initWasm().then(async (wasmLoaded) => {
     const startButton = document.getElementById('startButton') as HTMLButtonElement | null;
     if (startButton) {
         startButton.disabled = false;
-        startButton.innerHTML = 'Enter World 🍭 <span class="key-badge">Enter</span>';
+        startButton.innerHTML = 'Enter World <span aria-hidden="true">🍭</span> <span class="key-badge" aria-hidden="true">Enter</span>';
         startButton.focus();
         
         startButton.addEventListener('click', () => {
@@ -856,7 +856,7 @@ initWasm().then(async (wasmLoaded) => {
             
             // UX: Show loading state immediately to prevent "freeze" feeling
             startButton.disabled = true;
-            startButton.innerHTML = '<span class="spinner" aria-hidden="true"></span>Generating... 🍭';
+            startButton.innerHTML = '<span class="spinner" aria-hidden="true"></span>Generating... <span aria-hidden="true">🍭</span>';
 
             // Defer execution slightly to let the UI update
             setTimeout(async () => {
@@ -877,7 +877,7 @@ initWasm().then(async (wasmLoaded) => {
 
                     // Throttle text updates to every 10% or completion
                     if (percent - lastAnnounced >= 10 || percent === 100) {
-                        startButton.innerHTML = `<span class="spinner" aria-hidden="true"></span>Generating ${percent}%... 🍭`;
+                        startButton.innerHTML = `<span class="spinner" aria-hidden="true"></span>Generating ${percent}%... <span aria-hidden="true">🍭</span>`;
                         lastAnnounced = percent;
                     }
                 });

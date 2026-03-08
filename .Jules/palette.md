@@ -7,3 +7,6 @@ Matte clay materials need a strong directional light to show form.
 ## 2026-03-05 - Avoid layout-shifting inline success hints
 **Learning:** Temporarily swapping out `innerHTML` inside complex buttons or labels (e.g. file uploads) to show feedback like "✅ 2 Songs Added!" destroys the original DOM elements (icons, keyboard badges, spans) and causes jarring visual layout shifts. It also removes screen reader context precisely when the user expects confirmation.
 **Action:** Always use dedicated non-intrusive status elements (like an `aria-live` Toast notification system) to present temporary success/error feedback instead of mutating the interactive element itself.
+## 2026-03-05 - Reset file input values after selection
+**Learning:** When using `<input type="file">` for continuous interactions (like adding songs to a playlist), failing to reset the input's `value` prevents users from re-selecting a file they previously added and then removed, because the `change` event won't fire if the file path remains the same.
+**Action:** Always clear the value of file inputs (`target.value = ''`) immediately after processing the selected files to ensure subsequent selections of the same file trigger the change event properly.
