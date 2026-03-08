@@ -929,7 +929,8 @@ export function validateNodeGeometries(scene: THREE.Object3D) {
                         geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
                     } else {
                         try {
-                            const worldPos = new THREE.Vector3();
+                            // ⚡ OPTIMIZATION: Reuse scratch vector to prevent GC spikes during validation
+                            const worldPos = _scratchVec1;
                             obj.getWorldPosition(worldPos);
                             const positions = new Float32Array(3);
                             positions[0] = worldPos.x; positions[1] = worldPos.y; positions[2] = worldPos.z;

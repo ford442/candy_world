@@ -103,18 +103,16 @@ export class MushroomBatcher {
             const uvAttr = geo.attributes.uv;
             const indexAttr = geo.index;
 
-            // Helper to apply matrix manually if needed
-            const v = new THREE.Vector3();
-
+            // ⚡ OPTIMIZATION: Scratch vector defined at module level instead of recreating in loop closure
             for (let i = 0; i < posAttr.count; i++) {
-                v.set(posAttr.getX(i), posAttr.getY(i), posAttr.getZ(i));
-                if (transform) v.applyMatrix4(transform);
-                positions.push(v.x, v.y, v.z);
+                _scratchPos.set(posAttr.getX(i), posAttr.getY(i), posAttr.getZ(i));
+                if (transform) _scratchPos.applyMatrix4(transform);
+                positions.push(_scratchPos.x, _scratchPos.y, _scratchPos.z);
 
                 // Normals (assuming simple transform without non-uniform scale)
-                v.set(normAttr.getX(i), normAttr.getY(i), normAttr.getZ(i));
-                if (transform) v.transformDirection(transform);
-                normals.push(v.x, v.y, v.z);
+                _scratchPos.set(normAttr.getX(i), normAttr.getY(i), normAttr.getZ(i));
+                if (transform) _scratchPos.transformDirection(transform);
+                normals.push(_scratchPos.x, _scratchPos.y, _scratchPos.z);
 
                 if (uvAttr) {
                     uvs.push(uvAttr.getX(i), uvAttr.getY(i));
@@ -150,10 +148,11 @@ export class MushroomBatcher {
         // 0: Stem, 1: Cap, 2: Gills, 3: Spots, 4: Eye, 5: Pupil, 6: Mouth, 7: Cheek
 
         // Transform helpers
-        const m = new THREE.Matrix4();
-        const q = new THREE.Quaternion();
-        const s = new THREE.Vector3(1, 1, 1);
-        const p = new THREE.Vector3();
+        // ⚡ OPTIMIZATION: Reuse scratch matrices to avoid GC spikes on every generation call
+        const m = _scratchMatrix.identity();
+        const q = new THREE.Quaternion(); // Unused but let's keep it safe
+        // s was unused
+        const p = _scratchScale; // Use the other unused scratch vector for 'p' (position scratch)
 
         // 1. Stem (Material 0)
         // Unit Cylinder is centered at 0, 0.5, 0.
@@ -650,7 +649,7 @@ export class MushroomBatcher {
 
             // A. Copy Attributes from Last to Removed
             // Matrix
-            const m = new THREE.Matrix4();
+            const m = _scratchMatrix;
             this.mesh!.getMatrixAt(lastIndex, m);
             this.mesh!.setMatrixAt(indexToRemove, m);
 
