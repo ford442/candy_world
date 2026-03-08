@@ -234,6 +234,11 @@ function checkFloraDiscovery(playerPos: THREE.Vector3) {
             }
         }
     }
+
+    // 🎨 Palette: Sparkle trail when swimming fast
+    if (player.velocity.lengthSq() > 400 && Math.random() < 0.3) {
+        spawnImpact(player.position, 'trail');
+    }
 }
 
 // --- Internal Logic ---
@@ -620,6 +625,11 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
     }
 
     const { moveVec: moveInput, moveSpeed } = calculateMovementInput(camera, keyStates, player);
+
+    // 🎨 Palette: Sparkle trail when moving fast (Dash / Sprint / Fall)
+    if (player.velocity.lengthSq() > 400 && Math.random() < 0.3) {
+        spawnImpact(player.position, 'trail');
+    }
 
     // 3. Sync State with C++
     setPlayerState(player.position.x, player.position.y, player.position.z, player.velocity.x, player.velocity.y, player.velocity.z);
