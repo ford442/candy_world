@@ -349,6 +349,9 @@ export function createHelixPlant(options: HelixPlantOptions = {}): THREE.Group {
     const { color = 0x00FA9A } = options;
     const group = new THREE.Group();
 
+    // ⚡ OPTIMIZATION: Scratch vector to prevent GC spikes in curve generation if optionalTarget is missing
+    const _scratchCurvePoint = new THREE.Vector3();
+
     class SpiralCurve extends THREE.Curve<THREE.Vector3> {
         scale: number;
         constructor(scale = 1) {
@@ -356,7 +359,7 @@ export function createHelixPlant(options: HelixPlantOptions = {}): THREE.Group {
             this.scale = scale;
         }
         getPoint(t: number, optionalTarget?: THREE.Vector3): THREE.Vector3 {
-            const point = optionalTarget || new THREE.Vector3();
+            const point = optionalTarget || _scratchCurvePoint;
             const tx = Math.cos(t * Math.PI * 4) * 0.2 * t * this.scale;
             const ty = t * 2.0 * this.scale;
             const tz = Math.sin(t * Math.PI * 4) * 0.2 * t * this.scale;

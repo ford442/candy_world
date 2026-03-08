@@ -168,9 +168,10 @@ export class FlowerBatcher {
 
         // Parse options
         const colorHex = options.color !== undefined ? options.color : null;
-        let color = new THREE.Color(0xFF69B4); // Default pink
+        let color = _scratchColor;
+        color.set(0xFF69B4); // Default pink
         if (colorHex !== null) {
-            if (colorHex.isColor) color = colorHex;
+            if (colorHex.isColor) color.copy(colorHex);
             else color.set(colorHex);
         }
 
