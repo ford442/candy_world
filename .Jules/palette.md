@@ -17,3 +17,6 @@ Matte clay materials need a strong directional light to show form.
 ## 2026-03-08 - Hide decorative symbols and keyboard badges from screen readers
 **Learning:** Screen readers will redundantly read emojis and keyboard shortcut indicators inside buttons alongside the button's `aria-label`. This creates a noisy and confusing experience, like hearing "sun switch to day n" instead of just the functional text.
 **Action:** Always wrap decorative text, emojis, and visual key shortcuts (e.g. `<span class="key-badge">`) within elements assigned `aria-hidden="true"` inside buttons to ensure a clean accessible readout.
+## 2026-03-08 - Update aria-label dynamically to convey state changes
+**Learning:** Screen readers prioritize static `aria-label` attributes over dynamic `title` attributes. When a UI component has a static `aria-label` (e.g., `aria-label="Dash Ability (E)"`), any dynamic updates to its `title` (e.g., changing `title` to "Dash (E) - Recharging...") will not be announced when focus remains on the element, preventing screen reader users from perceiving state changes.
+**Action:** Always update the `aria-label` attribute directly (e.g., `setAttribute('aria-label', "Dash Ability (E) - Recharging...")`) alongside the `title` when interactive states change to ensure screen readers correctly announce the new state.
