@@ -20,6 +20,7 @@ const MAX_LIFE = 3.0;
 // ⚡ OPTIMIZATION: Scratch objects to prevent GC in hot loops
 const _scratchImpactOptions = { color: new THREE.Color(), direction: new THREE.Vector3() };
 const _scratchVec3 = new THREE.Vector3();
+const _scratchCelestialState = { sunIntensity: 0, moonIntensity: 0 };
 
 class ProjectilePool {
     mesh: THREE.InstancedMesh;
@@ -330,7 +331,7 @@ export function fireRainbow(scene: THREE.Scene, origin: THREE.Vector3, direction
 }
 
 export function updateBlaster(dt: number, scene: THREE.Scene, weatherSystem: any, currentTime: number) {
-    const celestial = getCelestialState(currentTime);
+    const celestial = getCelestialState(currentTime, _scratchCelestialState);
     const isDay = celestial.sunIntensity > 0.5;
 
     // Ensure pool is in scene (safety)
