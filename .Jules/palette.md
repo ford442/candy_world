@@ -10,3 +10,7 @@ Matte clay materials need a strong directional light to show form.
 ## 2026-03-05 - Reset file input values after selection
 **Learning:** When using `<input type="file">` for continuous interactions (like adding songs to a playlist), failing to reset the input's `value` prevents users from re-selecting a file they previously added and then removed, because the `change` event won't fire if the file path remains the same.
 **Action:** Always clear the value of file inputs (`target.value = ''`) immediately after processing the selected files to ensure subsequent selections of the same file trigger the change event properly.
+
+## 2026-03-05 - Add Game Feel to Jump
+**Learning:** Core gameplay interactions like jumping from the ground felt "silent" without visual feedback. Adding impact particles and full-screen effects enhances the sense of weight and juice.
+**Action:** Implemented `spawnImpact(player.position, "jump")` and a subtle `uChromaticIntensity` pulse inside the physics update loop (`updateDefaultState` in `src/systems/physics.ts`) when `player.velocity.y > 0 && player.isGrounded` triggers.

@@ -667,7 +667,13 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
 
         // Reset jump key if we successfully jumped (velocity.y > 0)
         // But only if we were grounded before (normal jump)
-        if (player.velocity.y > 0 && player.isGrounded) keyStates.jump = false;
+        if (player.velocity.y > 0 && player.isGrounded) {
+             keyStates.jump = false;
+             spawnImpact(player.position, 'jump');
+             if (typeof uChromaticIntensity !== 'undefined') {
+                 uChromaticIntensity.value = 0.2;
+             }
+        }
 
         const wasGrounded = player.isGrounded;
         player.isGrounded = (onGround === 1);
