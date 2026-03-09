@@ -101,7 +101,7 @@ export function getCycleState(tRaw: number, paletteMode: string = 'standard'): P
 
 
 // --- NEW: Helper to get celestial intensities ---
-export function getCelestialState(tRaw: number): { sunIntensity: number; moonIntensity: number } {
+export function getCelestialState(tRaw: number, out?: { sunIntensity: number; moonIntensity: number }): { sunIntensity: number; moonIntensity: number } {
     const t = tRaw % CYCLE_DURATION;
     const SUNRISE_END = DURATION_SUNRISE;
     const SUNSET_START = DURATION_SUNRISE + DURATION_DAY;
@@ -129,6 +129,12 @@ export function getCelestialState(tRaw: number): { sunIntensity: number; moonInt
         moonIntensity = 1.0;
     }
 
+    if (out) {
+        out.sunIntensity = sunIntensity;
+        out.moonIntensity = moonIntensity;
+        return out;
+    }
+
     return { sunIntensity, moonIntensity };
 }
 
@@ -147,7 +153,7 @@ export interface SeasonalState {
     yearProgress: number;
 }
 
-export function getSeasonalState(tRaw: number): SeasonalState {
+export function getSeasonalState(tRaw: number, out?: SeasonalState): SeasonalState {
     // 1. Calculate Year Progress (0.0 to 1.0)
     // 0.0 = Spring Start
     // 0.25 = Summer Start
@@ -173,6 +179,14 @@ export function getSeasonalState(tRaw: number): SeasonalState {
     // Simple visual phase (0 = Empty, 1 = Full)
     // Full at 0.5
     const moonPhase = 1.0 - Math.abs(moonProgress - 0.5) * 2.0;
+
+    if (out) {
+        out.season = season;
+        out.sunInclination = sunInclination;
+        out.moonPhase = moonPhase;
+        out.yearProgress = yearProgress;
+        return out;
+    }
 
     return {
         season,

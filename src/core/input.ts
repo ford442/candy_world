@@ -242,7 +242,7 @@ export function initInput(
     function updateJukeboxButtonState(count: number): void {
         if (!openJukeboxBtn) return;
         const countText = count > 0 ? ` (${count})` : '';
-        openJukeboxBtn.innerHTML = `Open Jukebox${countText} <span class="key-badge">Q</span>`;
+        openJukeboxBtn.innerHTML = `Open Jukebox${countText} <span class="key-badge" aria-hidden="true">Q</span>`;
         openJukeboxBtn.setAttribute('aria-label', `Open Jukebox playlist${count > 0 ? `, ${count} songs` : ''}`);
         // Ensure aria-expanded state is preserved when updating innerHTML
         openJukeboxBtn.setAttribute('aria-expanded', String(isPlaylistOpen));
@@ -836,7 +836,7 @@ export function initInput(
     const updateMuteUI = (isMuted: boolean) => {
         if (toggleMuteBtn) {
             toggleMuteBtn.setAttribute('aria-pressed', String(isMuted));
-            toggleMuteBtn.innerHTML = isMuted ? '🔇 Unmute <span class="key-badge">M</span>' : '🔊 Mute <span class="key-badge">M</span>';
+            toggleMuteBtn.innerHTML = isMuted ? '<span aria-hidden="true">🔇</span> Unmute <span class="key-badge" aria-hidden="true">M</span>' : '<span aria-hidden="true">🔊</span> Mute <span class="key-badge" aria-hidden="true">M</span>';
             toggleMuteBtn.setAttribute('aria-label', isMuted ? 'Unmute Audio' : 'Mute Audio');
             toggleMuteBtn.title = isMuted ? 'Unmute Audio (M)' : 'Mute Audio (M)';
         }
@@ -998,8 +998,8 @@ export function initInput(
                 toggleDayNightBtn.title = isPressed ? 'Switch to Day (N)' : 'Switch to Night (N)';
                 // UX: Update button text to show available action
                 toggleDayNightBtn.innerHTML = isPressed
-                    ? '☀️ Switch to Day <span class="key-badge">N</span>'
-                    : '🌙 Switch to Night <span class="key-badge">N</span>';
+                    ? '<span aria-hidden="true">☀️</span> Switch to Day <span class="key-badge" aria-hidden="true">N</span>'
+                    : '<span aria-hidden="true">🌙</span> Switch to Night <span class="key-badge" aria-hidden="true">N</span>';
 
                 import('../utils/toast.js').then(({ showToast }) => {
                     const mode = isPressed ? "Night Mode Active 🌙" : "Day Mode Active ☀️";

@@ -29,6 +29,7 @@ import { animatedFoliage, foliageClouds, foliageMushrooms } from './world/state.
 import { updatePhysics, player } from './systems/physics.ts';
 import { fireRainbow, updateBlaster } from './gameplay/rainbow-blaster.ts';
 import { jitterMineSystem } from './gameplay/jitter-mines.ts';
+import { createHarpoonLine, updateHarpoonLine } from './gameplay/harpoon-line.ts';
 import { updateFallingClouds } from './foliage/clouds.ts';
 import { cloudBatcher } from './foliage/cloud-batcher.ts';
 
@@ -110,6 +111,7 @@ let fluidFog: THREE.Mesh | null = null;
 let playerShieldMesh: THREE.Object3D | null = null;
 let dandelionSeedSystem: THREE.Object3D | null = null;
 let discoveryEffect: any = null;
+let harpoonLine: THREE.Mesh | null = null;
 
 // Function to initialize deferred visual elements with better organization and timing
 function initDeferredVisuals() {
@@ -187,6 +189,12 @@ function initDeferredVisuals() {
     if (!jitterMineSystem.mesh.parent) {
         scene.add(jitterMineSystem.mesh);
         console.log('[Deferred] Jitter Mine System initialized');
+    }
+
+    if (!harpoonLine) {
+        harpoonLine = createHarpoonLine();
+        scene.add(harpoonLine);
+        console.log('[Deferred] Harpoon Line initialized');
     }
     console.timeEnd('Musical Elements');
 
@@ -641,6 +649,10 @@ function animate() {
     profiler.measure('Gameplay', () => {
         updateFallingBerries(delta);
         const berriesCollected = collectFallingBerries(camera.position, 1.5);
+
+        if (harpoonLine) {
+            updateHarpoonLine(harpoonLine, player.position, player.harpoon.anchor, player.harpoon.active);
+        }
         if (berriesCollected > 0) {
             player.energy = Math.min(player.maxEnergy, player.energy + berriesCollected * 0.5);
         }

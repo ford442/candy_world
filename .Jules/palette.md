@@ -14,3 +14,6 @@ Matte clay materials need a strong directional light to show form.
 ## 2026-03-05 - Add Game Feel to Jump
 **Learning:** Core gameplay interactions like jumping from the ground felt "silent" without visual feedback. Adding impact particles and full-screen effects enhances the sense of weight and juice.
 **Action:** Implemented `spawnImpact(player.position, "jump")` and a subtle `uChromaticIntensity` pulse inside the physics update loop (`updateDefaultState` in `src/systems/physics.ts`) when `player.velocity.y > 0 && player.isGrounded` triggers.
+## 2026-03-08 - Hide decorative symbols and keyboard badges from screen readers
+**Learning:** Screen readers will redundantly read emojis and keyboard shortcut indicators inside buttons alongside the button's `aria-label`. This creates a noisy and confusing experience, like hearing "sun switch to day n" instead of just the functional text.
+**Action:** Always wrap decorative text, emojis, and visual key shortcuts (e.g. `<span class="key-badge">`) within elements assigned `aria-hidden="true"` inside buttons to ensure a clean accessible readout.

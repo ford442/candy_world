@@ -24,6 +24,10 @@ import { VisualState } from '../audio/audio-system.ts';
 import { WeatherState } from './weather-types.ts';
 import { calculateTimeOfDayBias } from './weather-utils.ts';
 
+// ⚡ OPTIMIZATION: Scratch objects for cycle state calculations
+const _scratchCelestialState = { sunIntensity: 0, moonIntensity: 0 };
+const _scratchSeasonalState: Cycle.SeasonalState = { season: 'Spring', sunInclination: 0, moonPhase: 0, yearProgress: 0 };
+
 const _UP = new THREE.Vector3(0, 1, 0);
 const _scratchSunDir = new THREE.Vector3();
 const _scratchCelestialForce = new THREE.Vector3();
@@ -382,8 +386,8 @@ export class WeatherSystem {
         const melodyVol = (channels[2] as any)?.volume || 0;
 
         // FIX: Use Namespace for cycle calls
-        const celestial = Cycle.getCelestialState(time);
-        const seasonal = Cycle.getSeasonalState(time);
+        const celestial = Cycle.getCelestialState(time, _scratchCelestialState);
+        const seasonal = Cycle.getSeasonalState(time, _scratchSeasonalState);
 
         this.currentSeason = seasonal.season;
 

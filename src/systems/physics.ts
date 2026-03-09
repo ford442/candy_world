@@ -52,6 +52,10 @@ export interface PlayerExtended extends CorePlayerState {
     phaseTimer: number;
     isInvisible: boolean;
     invisibilityTimer: number;
+    harpoon: {
+        active: boolean;
+        anchor: THREE.Vector3;
+    };
 }
 
 // --- Configuration ---
@@ -96,7 +100,12 @@ export const player: PlayerExtended = {
 
     // Flags for external systems to query
     isGrounded: false,
-    isUnderwater: false
+    isUnderwater: false,
+
+    harpoon: {
+        active: false,
+        anchor: new THREE.Vector3()
+    }
 };
 
 // Internal input tracking for edge detection
@@ -154,6 +163,16 @@ export function grantInvisibility(duration: number) {
 
 export function registerPhysicsCave(cave: THREE.Object3D) {
     foliageCaves.push(cave);
+}
+
+export function triggerHarpoon(anchor: THREE.Vector3) {
+    // Only trigger if player is swimming (in water)
+    if (player.currentState === PlayerState.SWIMMING || player.isUnderwater) {
+        player.harpoon.active = true;
+        player.harpoon.anchor.copy(anchor);
+        showToast("Waveform Harpoon Anchored! ⚓", "🌊");
+        discoverySystem.discover('waveform_harpoon', 'Waveform Harpoon', '⚓');
+    }
 }
 
 // Main Physics Update Loop
@@ -367,6 +386,34 @@ function updateSwimmingState(delta: number, camera: THREE.Camera, controls: any,
 
     if (keyStates.jump) player.velocity.y += 10 * delta;
     if (keyStates.sneak) player.velocity.y -= 10 * delta;
+
+    // Harpoon Mechanics
+    if (player.harpoon.active) {
+        const dx = player.harpoon.anchor.x - player.position.x;
+        const dy = player.harpoon.anchor.y - player.position.y;
+        const dz = player.harpoon.anchor.z - player.position.z;
+        const distSq = dx*dx + dy*dy + dz*dz;
+
+        if (distSq < 4.0) { // Reached anchor
+            player.harpoon.active = false;
+            player.velocity.y += 15.0; // Boost out
+            spawnImpact(player.position, 'jump');
+        } else {
+            // Pull towards anchor
+            const dist = Math.sqrt(distSq);
+            // Modulate pull speed with kick drum
+            const kickBoost = audioState?.kickTrigger ? audioState.kickTrigger * 20.0 : 0;
+            const pullSpeed = 30.0 + kickBoost;
+
+            player.velocity.x += (dx / dist) * pullSpeed * delta;
+            player.velocity.y += (dy / dist) * pullSpeed * delta;
+            player.velocity.z += (dz / dist) * pullSpeed * delta;
+
+            if (Math.random() < 0.1) {
+                spawnImpact(player.position, 'dash');
+            }
+        }
+    }
 
     // controls.moveRight/Forward applies to the camera object directly, which we synced to player.position
     // But Three.js PointerLockControls uses its own internal object.
