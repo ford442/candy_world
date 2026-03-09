@@ -20,7 +20,11 @@ const SEEDS_PER_HEAD = 24;
 
 // Scratch variables
 const _scratchMat = new THREE.Matrix4();
+const _scratchMat2 = new THREE.Matrix4(); // ⚡ OPTIMIZATION: Additional scratch matrix
 const _scratchScale = new THREE.Vector3();
+const _scratchVec3 = new THREE.Vector3(); // ⚡ OPTIMIZATION: Additional scratch vector
+const _scratchUp = new THREE.Vector3(0, 1, 0); // ⚡ OPTIMIZATION: Additional scratch vector
+const _scratchQuat = new THREE.Quaternion(); // ⚡ OPTIMIZATION: Additional scratch quat
 
 // Colors
 const COLOR_STEM = new THREE.Color(0x556B2F); // Olive Drab
@@ -86,15 +90,18 @@ export class DandelionBatcher {
             const phi = Math.acos(-1 + (2 * s) / SEEDS_PER_HEAD);
             const theta = Math.sqrt(SEEDS_PER_HEAD * Math.PI) * phi;
 
-            const dir = new THREE.Vector3(
+            // ⚡ OPTIMIZATION: Re-use scratch variable to avoid GC spikes
+            _scratchVec3.set(
                 Math.sin(phi) * Math.cos(theta),
                 Math.sin(phi) * Math.sin(theta),
                 Math.cos(phi)
             ).normalize();
 
             // 2. Align Seed (Y-up aligns with Dir)
-            const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
-            const m = new THREE.Matrix4().makeRotationFromQuaternion(q);
+            // ⚡ OPTIMIZATION: Re-use scratch variable to avoid GC spikes
+            _scratchQuat.setFromUnitVectors(_scratchUp, _scratchVec3);
+            const m = _scratchMat2;
+            m.makeRotationFromQuaternion(_scratchQuat);
             // Translate to Head Center
             m.setPosition(0, headCenterY, 0); // All seeds start from head center
 
