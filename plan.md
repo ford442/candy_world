@@ -10,13 +10,15 @@
 
 ## Next Steps
 
-1. **Waveform Harpoon**: Gameplay mechanic where a harpoon anchors to frequency to pull the player across the waveform water.
-2. **Phase 3 (ASC -> C++): Specialized solvers**: Use C++ where you need high-performance libraries, SIMD, or mature solvers.
+1. **Phase 3 (ASC -> C++): Specialized solvers**: Use C++ where you need high-performance libraries, SIMD, or mature solvers.
+2. **Category 6: Crystal Cave & Harmonic Waterfall**: Implement advanced discovery mechanics, bioluminescent materials, and audio-reactive elements.
 
 ---
 
 ## Recent Progress
 - **Accomplished:**
+  - **Waveform Harpoon**: **Status: Implemented ✅**
+    - *Implementation Details:* Added `harpoon` state to `PlayerExtended`. Projectiles from `rainbow-blaster` now anchor to the Waveform Water (when `y <= 1.5` in lake basin). When anchored, the player is pulled towards the impact point with speed modulated by `audioState.kickTrigger`. Implemented visual feedback using a TSL-driven `MeshStandardNodeMaterial` thin cylinder that dynamically updates its geometry to connect the player to the anchor point.
   - **Bass Portal Secret (Subwoofer Lotus Glitch)**: **Status: Implemented ✅**
     - *Implementation Details:* Implemented secret mechanic where interacting with a Subwoofer Lotus during high glitch intensity reveals a hidden Bass Portal.
   - **Environmental Discoveries**: **Status: Implemented ✅**
@@ -160,6 +162,8 @@
     - *Implementation Details:* Implemented `uTwilight` global uniform in `src/foliage/sky.js` driven by `WeatherSystem`'s day/night cycle. Updated TSL materials for Flowers, Mushrooms, and Fiber Optic Trees to accept this uniform and boost emissive intensity during twilight hours.
   - [x] Fluid Fog (C++ Simulation)
     - *Implementation Details:* Implemented C++ Stable Fluids solver coupled with TSL fog visualization.
+  - [x] Waveform Harpoon **Status: Implemented ✅**
+    - *Implementation Details:* Projectiles anchor to Waveform Water, pulling the player using audio-modulated speed, visualized with a dynamic TSL line.
 
 ### Category 5: Physics & Interaction
 - **Status:** Active
