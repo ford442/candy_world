@@ -684,10 +684,12 @@ function animate() {
                     hudDash.classList.add('ready');
                     hudDash.setAttribute('aria-disabled', 'false');
                     hudDash.title = "Dash (E) - Ready!";
+                    hudDash.setAttribute('aria-label', "Dash Ability (E) - Ready!");
                 } else {
                     hudDash.classList.remove('ready');
                     hudDash.setAttribute('aria-disabled', 'true');
                     hudDash.title = "Dash (E) - Recharging...";
+                    hudDash.setAttribute('aria-label', "Dash Ability (E) - Recharging...");
                 }
                 _lastDashReady = isReady;
             }
@@ -716,10 +718,12 @@ function animate() {
                     hudMine.classList.add('ready');
                     hudMine.setAttribute('aria-disabled', 'false');
                     hudMine.title = "Jitter Mine (F) - Ready!";
+                    hudMine.setAttribute('aria-label', "Jitter Mine Ability (F) - Ready!");
                 } else {
                     hudMine.classList.remove('ready');
                     hudMine.setAttribute('aria-disabled', 'true');
                     hudMine.title = "Jitter Mine (F) - Recharging...";
+                    hudMine.setAttribute('aria-label', "Jitter Mine Ability (F) - Recharging...");
                 }
                 _lastMineReady = isReady;
             }
