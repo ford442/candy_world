@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { MeshStandardNodeMaterial, PointsNodeMaterial } from 'three/webgpu';
 import { time, vec3, positionLocal, length, sin, cos, color as tslColor, attribute, float, uniform, mix, smoothstep, color } from 'three/tsl';
 import { registerReactiveMaterial, attachReactivity, CandyPresets, uTime, uAudioLow, uAudioHigh, createJuicyRimLight } from './common.ts';
-import { uTwilight } from './sky.ts';
+import { uTwilight, uHorizonColor } from './sky.ts';
 
 export interface FloatingOrbOptions {
     color?: number;
@@ -52,7 +52,13 @@ export function createMelodyLake(width = 200, depth = 200) {
     const crestColor = color(0x00FFFF); // Neon Cyan crests
 
     // Mix color based on wave height
-    const waterColor = mix(deepColor, crestColor, normalizedHeight);
+    const baseWaterColor = mix(deepColor, crestColor, normalizedHeight);
+
+    // 🎨 PALETTE: Sunset Pink Blend
+    // Mix the water color with the horizon color based on twilight, enhancing the pinkish glow during sunset/sunrise
+    const sunsetTint = mix(baseWaterColor, uHorizonColor, uTwilight.mul(0.6));
+    const waterColor = sunsetTint;
+
     mat.colorNode = waterColor;
 
     // 🎨 PALETTE: Audio-Reactive Emissive Glow (Highs/Melody)
