@@ -19,6 +19,7 @@ const MAX_MUSHROOMS = 4000;
 
 // Scratch variables to prevent GC
 const _scratchMatrix = new THREE.Matrix4();
+const _scratchMatrix2 = new THREE.Matrix4(); // ⚡ OPTIMIZATION: Additional scratch matrix
 const _scratchPos = new THREE.Vector3();
 const _scratchScale = new THREE.Vector3();
 const _scratchQuat = new THREE.Quaternion();
@@ -173,10 +174,12 @@ export class MushroomBatcher {
         startIndex = indices.length;
         // Gill is cone.
         m.makeTranslation(0, 0.8, 0);
-        const m2 = new THREE.Matrix4().makeRotationX(Math.PI); // Flip upside down
-        m.multiply(m2);
+        // ⚡ OPTIMIZATION: Re-use scratch variable to avoid GC spikes
+        _scratchMatrix2.makeRotationX(Math.PI); // Flip upside down
+        m.multiply(_scratchMatrix2);
         // Scale gills slightly smaller than cap
-        m.scale(new THREE.Vector3(0.9, 0.4, 0.9));
+        _scratchScale.set(0.9, 0.4, 0.9);
+        m.scale(_scratchScale);
         addPart(sharedGeometries.mushroomGillCenter, 2, m);
         groups.push({ start: startIndex, count: indices.length - startIndex, materialIndex: 2 });
 
@@ -236,16 +239,19 @@ export class MushroomBatcher {
         // 2. Cap
         startIndex = indices.length;
         m.makeTranslation(0, CAP_Y, 0);
-        m.scale(new THREE.Vector3(CAP_R, CAP_R, CAP_R));
+        _scratchScale.set(CAP_R, CAP_R, CAP_R);
+        m.scale(_scratchScale);
         addPart(sharedGeometries.mushroomCap, 1, m);
         groups.push({ start: startIndex, count: indices.length - startIndex, materialIndex: 1 });
 
         // 3. Gills
         startIndex = indices.length;
         m.makeTranslation(0, CAP_Y, 0);
-        const rot = new THREE.Matrix4().makeRotationX(Math.PI);
-        m.multiply(rot);
-        m.scale(new THREE.Vector3(CAP_R * 0.9, CAP_R * 0.4, CAP_R * 0.9));
+        // ⚡ OPTIMIZATION: Re-use scratch variable to avoid GC spikes
+        _scratchMatrix2.makeRotationX(Math.PI);
+        m.multiply(_scratchMatrix2);
+        _scratchScale.set(CAP_R * 0.9, CAP_R * 0.4, CAP_R * 0.9);
+        m.scale(_scratchScale);
         addPart(sharedGeometries.mushroomGillCenter, 2, m);
         groups.push({ start: startIndex, count: indices.length - startIndex, materialIndex: 2 });
 
@@ -270,7 +276,8 @@ export class MushroomBatcher {
             // Rotate to align with normal? sphere is uniform, just scale Y
             // But we need it flush.
             // Complex. Let's just place spheres.
-            m.scale(new THREE.Vector3(spotScale, spotScale * 0.2, spotScale));
+            _scratchScale.set(spotScale, spotScale * 0.2, spotScale);
+            m.scale(_scratchScale);
             // Rotate to match surface normal approx?
             // A simple lookAt from center to P gives the rotation.
             const up = new THREE.Vector3(0, 1, 0);
@@ -284,7 +291,9 @@ export class MushroomBatcher {
             // If we lookAt(eye), Z is (eye - p).
             // We want Y aligned with (p - eye).
 
-            dummyObj.lookAt(p.clone().add(p.clone().sub(eye))); // Look away
+            _scratchPos.copy(p).sub(eye);
+            _scratchPos.add(p);
+            dummyObj.lookAt(_scratchPos); // Look away
             dummyObj.scale.set(spotScale, spotScale, spotScale * 0.2); // Flatten Z
             dummyObj.updateMatrix();
 
@@ -305,14 +314,17 @@ export class MushroomBatcher {
         const eyeScale = 0.12 * FACE_SCALE; // eyeGeo radius
 
         m.makeTranslation(-eyeOffset, eyeY, eyeZ);
-        m.scale(new THREE.Vector3(1, 1, 1)); // unitSphere is R=1. eyeGeo is R=0.12.
+        _scratchScale.set(1, 1, 1); // unitSphere is R=1. eyeGeo is R=0.12.
+        m.scale(_scratchScale);
         // Wait, sharedGeometries.eye is R=0.12.
         // Let's use unitSphere for everything to be safe on transforms.
-        m.scale(new THREE.Vector3(eyeScale, eyeScale, eyeScale));
+        _scratchScale.set(eyeScale, eyeScale, eyeScale);
+        m.scale(_scratchScale);
         addPart(sharedGeometries.unitSphere, 4, m); // Left Eye
 
         m.makeTranslation(eyeOffset, eyeY, eyeZ);
-        m.scale(new THREE.Vector3(eyeScale, eyeScale, eyeScale));
+        _scratchScale.set(eyeScale, eyeScale, eyeScale);
+        m.scale(_scratchScale);
         addPart(sharedGeometries.unitSphere, 4, m); // Right Eye
         groups.push({ start: startIndex, count: indices.length - startIndex, materialIndex: 4 });
 
@@ -321,19 +333,24 @@ export class MushroomBatcher {
         const pupilScale = 0.05 * FACE_SCALE;
         const pupilZ = eyeZ + (eyeScale * 0.8); // Protrude
         m.makeTranslation(-eyeOffset, eyeY, pupilZ);
-        m.scale(new THREE.Vector3(pupilScale, pupilScale, pupilScale));
+        _scratchScale.set(pupilScale, pupilScale, pupilScale);
+        m.scale(_scratchScale);
         addPart(sharedGeometries.unitSphere, 5, m);
 
         m.makeTranslation(eyeOffset, eyeY, pupilZ);
-        m.scale(new THREE.Vector3(pupilScale, pupilScale, pupilScale));
+        _scratchScale.set(pupilScale, pupilScale, pupilScale);
+        m.scale(_scratchScale);
         addPart(sharedGeometries.unitSphere, 5, m);
         groups.push({ start: startIndex, count: indices.length - startIndex, materialIndex: 5 });
 
         // 7. Mouth (Material 6)
         startIndex = indices.length;
         m.makeTranslation(0, FACE_Y - 0.05 * FACE_SCALE, FACE_Z + 0.1 * FACE_SCALE);
-        m.multiply(new THREE.Matrix4().makeRotationZ(Math.PI)); // Smile
-        m.scale(new THREE.Vector3(FACE_SCALE, FACE_SCALE, FACE_SCALE));
+        // ⚡ OPTIMIZATION: Re-use scratch variable to avoid GC spikes
+        _scratchMatrix2.makeRotationZ(Math.PI);
+        m.multiply(_scratchMatrix2); // Smile
+        _scratchScale.set(FACE_SCALE, FACE_SCALE, FACE_SCALE);
+        m.scale(_scratchScale);
         addPart(sharedGeometries.mushroomSmile, 6, m);
         groups.push({ start: startIndex, count: indices.length - startIndex, materialIndex: 6 });
 
@@ -345,11 +362,13 @@ export class MushroomBatcher {
         const cheekZ = FACE_Z + 0.05 * FACE_SCALE;
 
         m.makeTranslation(-cheekX, FACE_Y, cheekZ);
-        m.scale(new THREE.Vector3(cheekScaleX, cheekScaleY, cheekScaleX));
+        _scratchScale.set(cheekScaleX, cheekScaleY, cheekScaleX);
+        m.scale(_scratchScale);
         addPart(sharedGeometries.unitSphere, 7, m);
 
         m.makeTranslation(cheekX, FACE_Y, cheekZ);
-        m.scale(new THREE.Vector3(cheekScaleX, cheekScaleY, cheekScaleX));
+        _scratchScale.set(cheekScaleX, cheekScaleY, cheekScaleX);
+        m.scale(_scratchScale);
         addPart(sharedGeometries.unitSphere, 7, m);
         groups.push({ start: startIndex, count: indices.length - startIndex, materialIndex: 7 });
 

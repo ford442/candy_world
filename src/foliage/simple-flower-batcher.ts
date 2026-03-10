@@ -26,6 +26,7 @@ const GRAINS_PER_FLOWER = 5;
 const MAX_POLLEN = MAX_FLOWERS * GRAINS_PER_FLOWER;
 
 const _scratchMat = new THREE.Matrix4();
+const _scratchMat2 = new THREE.Matrix4(); // ⚡ OPTIMIZATION: Additional scratch matrix
 const _scratchPos = new THREE.Vector3();
 const _scratchQuat = new THREE.Quaternion();
 const _scratchScale = new THREE.Vector3();
@@ -297,8 +298,10 @@ export class SimpleFlowerBatcher {
 
         // Head Transform (At top of stem)
         // Translation(0, stemHeight, 0) relative to Base.
-        const headLocal = new THREE.Matrix4().makeTranslation(0, stemHeight, 0);
-        const headWorld = headLocal.clone().premultiply(baseMatrix);
+        // ⚡ OPTIMIZATION: Re-use scratch variable to avoid GC spikes
+        _scratchMat2.makeTranslation(0, stemHeight, 0);
+        _scratchMat2.premultiply(baseMatrix); // directly modify _scratchMat2 for headWorld
+        const headWorld = _scratchMat2; // No clone, avoid GC spike
 
         // Petals
         this.petalMesh!.setMatrixAt(i, headWorld);
@@ -332,8 +335,8 @@ export class SimpleFlowerBatcher {
         // --- POLLEN REGISTRATION ---
         if (this.pollenPositions && this.pollenOffsets && this.pollenColors) {
             // Extract World Position of Flower Head
-            const headPos = new THREE.Vector3();
-            headPos.setFromMatrixPosition(headWorld);
+            // ⚡ OPTIMIZATION: Re-use scratch variable to avoid GC spikes
+            _scratchPos.setFromMatrixPosition(headWorld);
 
             // Add GRAINS_PER_FLOWER particles
             const startPollen = i * GRAINS_PER_FLOWER;
@@ -341,9 +344,9 @@ export class SimpleFlowerBatcher {
                 const idx = startPollen + p;
 
                 // Position: Flower Head (Shared base)
-                this.pollenPositions[idx * 3] = headPos.x;
-                this.pollenPositions[idx * 3 + 1] = headPos.y;
-                this.pollenPositions[idx * 3 + 2] = headPos.z;
+                this.pollenPositions[idx * 3] = _scratchPos.x;
+                this.pollenPositions[idx * 3 + 1] = _scratchPos.y;
+                this.pollenPositions[idx * 3 + 2] = _scratchPos.z;
 
                 // Offset: Random in sphere R=0.25
                 const r = 0.25 * Math.random();
