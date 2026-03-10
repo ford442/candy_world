@@ -11,12 +11,14 @@
 ## Next Steps
 
 1. **Phase 3 (ASC -> C++): Specialized solvers**: Use C++ where you need high-performance libraries, SIMD, or mature solvers.
-2. **Category 6: Crystal Cave & Harmonic Waterfall**: Implement advanced discovery mechanics, bioluminescent materials, and audio-reactive elements.
+2. **Category 4: Instrument-ID Textures**: Implement procedural patterns generated based on Instrument ID, used for environmental pattern keys and puzzles, using shader-based noise patterns.
 
 ---
 
 ## Recent Progress
 - **Accomplished:**
+  - **Category 6: Crystal Cave & Harmonic Waterfall**: **Status: Implemented ✅**
+    - *Implementation Details:* Added bioluminescent stalactites and stalagmites using `THREE.ConeGeometry` inside `src/foliage/cave.ts`. These formations utilize a new dedicated TSL `crystalMat` material featuring `mix` and `smoothstep` nodes driven by `uAudioLow` to pulse dynamically with the bass. Confirmed integration of the inner waterfall via `createWaterfall` from `src/foliage/waterfalls.ts`.
   - **Waveform Harpoon**: **Status: Implemented ✅**
     - *Implementation Details:* Added `harpoon` state to `PlayerExtended`. Projectiles from `rainbow-blaster` now anchor to the Waveform Water (when `y <= 1.5` in lake basin). When anchored, the player is pulled towards the impact point with speed modulated by `audioState.kickTrigger`. Implemented visual feedback using a TSL-driven `MeshStandardNodeMaterial` thin cylinder that dynamically updates its geometry to connect the player to the anchor point.
   - **Bass Portal Secret (Subwoofer Lotus Glitch)**: **Status: Implemented ✅**
