@@ -6,7 +6,7 @@ import {
 } from './common.ts';
 import {
     color, float, mix, uv, sin, cos,
-    vec3, mx_noise_float, uniform
+    vec3, vec2, floor, smoothstep, abs, mx_noise_float, uniform
 } from 'three/tsl';
 import { makeInteractive } from '../utils/interaction-utils.ts';
 import { unlockSystem } from '../systems/unlocks.ts';
@@ -41,19 +41,41 @@ export function createInstrumentShrine(options: InstrumentShrineOptions = {}): T
     // We use uniforms so the puzzle pattern can be cycled on interact
     const uInstrumentID = uniform(instrumentID);
 
-    // Pattern Logic:
-    // Generate a pattern based on UV and ID
+    // --- Instrument-ID Textures (Advanced Shaders) ---
+    // Procedural patterns generated based on Instrument ID
     const pUV = uv().mul(10.0);
+    const timeOffset = pUV.x.add(pUV.y).add(uInstrumentID);
 
-    // Different math for different ID ranges for variety
-    const patternA = sin(pUV.x.add(uInstrumentID)).mul(cos(pUV.y.add(uInstrumentID))); // Grid-like
-    const patternB = mx_noise_float(vec3(pUV.x, pUV.y, uInstrumentID)); // Noise-like
+    // Pattern 1: Grid-like (e.g. for structured synth instruments)
+    const patternGrid = sin(pUV.x.add(uInstrumentID)).mul(cos(pUV.y.add(uInstrumentID)));
 
-    // Mix based on ID modulo
-    // We can't use modulo easily in TSL without some work, so let's just use sin(id) to mix
-    const mixFactor = sin(uInstrumentID.mul(0.5)).add(1.0).mul(0.5); // 0 to 1
+    // Pattern 2: Noise-like (e.g. for organic or percussive instruments)
+    const patternNoise = mx_noise_float(vec3(pUV.x, pUV.y, uInstrumentID));
 
-    const pattern = mix(patternA, patternB, mixFactor);
+    // Pattern 3: Concentric ripples
+    const distToCenter = vec2(pUV.x.sub(5.0), pUV.y.sub(5.0)).length();
+    const patternRipple = sin(distToCenter.mul(3.0).sub(uInstrumentID.mul(2.0)));
+
+    // Pattern 4: Diagonal stripes
+    const patternStripes = sin(pUV.x.add(pUV.y).mul(5.0).add(uInstrumentID.mul(10.0)));
+
+    // Smooth blending across 4 distinct pattern types based on Instrument ID modulo
+    // We use a pseudo-modulo trick: id - 4 * floor(id/4)
+    const mod4 = uInstrumentID.sub(floor(uInstrumentID.div(4.0)).mul(4.0));
+
+    // Create blend masks using smoothstep for distinct pattern transitions
+    const maskGrid = float(1.0).sub(smoothstep(0.0, 1.0, abs(mod4.sub(0.0))));
+    const maskNoise = float(1.0).sub(smoothstep(0.0, 1.0, abs(mod4.sub(1.0))));
+    const maskRipple = float(1.0).sub(smoothstep(0.0, 1.0, abs(mod4.sub(2.0))));
+    const maskStripes = float(1.0).sub(smoothstep(0.0, 1.0, abs(mod4.sub(3.0))));
+
+    // Combine all patterns weighted by their masks
+    const combinedPattern = patternGrid.mul(maskGrid)
+        .add(patternNoise.mul(maskNoise))
+        .add(patternRipple.mul(maskRipple))
+        .add(patternStripes.mul(maskStripes));
+
+    const pattern = combinedPattern;
 
     // Colorize
     // Map ID to Hue and pass via Uniform to allow dynamic updating
