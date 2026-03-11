@@ -20,3 +20,7 @@ Matte clay materials need a strong directional light to show form.
 ## 2026-03-08 - Update aria-label dynamically to convey state changes
 **Learning:** Screen readers prioritize static `aria-label` attributes over dynamic `title` attributes. When a UI component has a static `aria-label` (e.g., `aria-label="Dash Ability (E)"`), any dynamic updates to its `title` (e.g., changing `title` to "Dash (E) - Recharging...") will not be announced when focus remains on the element, preventing screen reader users from perceiving state changes.
 **Action:** Always update the `aria-label` attribute directly (e.g., `setAttribute('aria-label', "Dash Ability (E) - Recharging...")`) alongside the `title` when interactive states change to ensure screen readers correctly announce the new state.
+
+## 2026-03-08 - Provide visual feedback for aria-disabled UI
+**Learning:** Adding `aria-disabled="true"` to interactive elements is crucial for screen readers, but sighted users still need visual cues. If a button maintains its hover states, pointer cursor, and full opacity when disabled, it creates a confusing experience where users think the button is clickable but it does nothing.
+**Action:** Always pair `aria-disabled="true"` attributes with matching CSS rules (e.g. `[aria-disabled="true"] { opacity: 0.6; cursor: not-allowed; }`) and ensure hover/active states are neutralized so the UI accurately reflects its inactive state to all users.
