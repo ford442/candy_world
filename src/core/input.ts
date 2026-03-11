@@ -225,7 +225,7 @@ export function initInput(
             const emptyBtn = document.createElement('button');
             emptyBtn.className = 'secondary-button'; // Reuse existing class for consistent look
             emptyBtn.style.fontSize = '1em'; // Make it slightly more prominent if needed
-            emptyBtn.innerText = 'No songs... Click to Add! 🍭';
+            emptyBtn.innerHTML = 'No songs... Click to Add! <span aria-hidden="true">🍭</span>';
             emptyBtn.setAttribute('aria-label', 'Playlist empty. Click to upload music files.');
 
             emptyBtn.onclick = (e) => {
@@ -436,7 +436,7 @@ export function initInput(
 
             // UX: Update Title to "Paused" to give context
             const title = instructions ? instructions.querySelector('h1') : null;
-            if (title) title.innerText = 'Game Paused ⏸️';
+            if (title) title.innerHTML = 'Game Paused <span aria-hidden="true">⏸️</span>';
 
             if (startButton) {
                 startButton.innerHTML = 'Resume Exploration <span aria-hidden="true">🚀</span> <span class="key-badge" aria-hidden="true">Enter</span>';
