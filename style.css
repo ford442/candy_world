@@ -371,3 +371,23 @@ kbd.key.key-highlight {
     animation: bounce 1s infinite alternate;
     display: inline-block;
 }
+
+/* 🎨 Palette: Ability Slot Disabled State */
+.ability-slot[aria-disabled="true"] {
+    opacity: 0.6;
+    cursor: not-allowed;
+    background: rgba(230, 230, 230, 0.85);
+    border-color: #dcdcdc;
+    box-shadow: none;
+}
+
+.ability-slot[aria-disabled="true"]:hover {
+    border-color: #dcdcdc;
+    box-shadow: none;
+    transform: none;
+}
+
+.ability-slot[aria-disabled="true"]:active {
+    transform: none;
+    box-shadow: none;
+}
