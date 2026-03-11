@@ -14,6 +14,7 @@ import {
 import { uTwilight } from './sky.ts';
 import { foliageGroup } from '../world/state.ts'; // Assuming state.ts exports foliageGroup
 import { spawnImpact } from './impacts.ts';
+import { uChromaticIntensity } from './chromatic.ts';
 
 const MAX_MUSHROOMS = 4000;
 
@@ -719,28 +720,35 @@ export class MushroomBatcher {
             // PALETTE FIX: Use uTime.value for sync with TSL shader
             // Cast to any to access .value on UniformNode
             const now = ((uTime as any).value !== undefined) ? (uTime as any).value : performance.now() / 1000.0;
+            const normalizedVelocity = velocity / 127.0;
 
             for (const i of indices) {
                 // Update triggerTime (z) and velocity (w) in packed attribute
                 this.instanceData!.setZ(i, now);
-                this.instanceData!.setW(i, velocity / 127.0); // Normalize velocity
+                this.instanceData!.setW(i, normalizedVelocity); // Normalize velocity
 
                 // PALETTE: Spawn Spores!
                 if (this.mesh) {
                     this.mesh.getMatrixAt(i, _scratchMatrix);
                     _scratchMatrix.decompose(_scratchPos, _scratchQuat, _scratchScale);
+                    this.mesh.getColorAt(i, _scratchColor);
 
                     // Offset slightly up (cap height approx 1.0 * scale.y)
                     _scratchPos.y += 0.8 * _scratchScale.y;
 
                     // Spawn impact
-                    spawnImpact(_scratchPos, 'spore');
+                    spawnImpact(_scratchPos, 'spore', _scratchColor);
                 }
             }
             this.instanceData!.needsUpdate = true;
             // Optim: Use addUpdateRange if indices are contiguous?
             // Likely not contiguous. Partial update might be slower than full upload if fragmented.
             // Just flag needsUpdate.
+
+            // 🎨 Palette: "Juice" Factor - Add screen bump on high velocity
+            if (typeof uChromaticIntensity !== 'undefined' && normalizedVelocity > 0.5) {
+                uChromaticIntensity.value = Math.max(uChromaticIntensity.value, normalizedVelocity * 0.3);
+            }
         }
     }
 }
