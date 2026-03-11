@@ -46,6 +46,8 @@ export const uWindSpeed = uniform(0.0);
 export const uWindDirection = uniform(vec3(1, 0, 0));
 export const uTime = uniform(0.0); // Global time uniform for animated materials
 export const uGlitchIntensity = uniform(0.0); // Global glitch intensity
+export const uGlitchExplosionCenter = uniform(vec3(0, 0, 0)); // Local glitch center
+export const uGlitchExplosionRadius = uniform(0.0); // Local glitch radius (0 when inactive)
 export const uAudioLow = uniform(0.0);   // Bass energy (Kick)
 export const uAudioHigh = uniform(0.0);  // Treble energy (Hi-hats/Cymbals)
 
@@ -491,9 +493,22 @@ export function createUnifiedMaterial(hexColor: number | string | THREE.Color, o
         material.sheenRoughnessNode = float(sheenRoughness);
     }
 
-    // 8. Global Glitch Effect (Sample Offset / Pixelation)
+    // 8. Global Glitch Effect (Sample Offset / Pixelation) + Local Glitch Grenade
     const basePos = deformationNode || material.positionNode || positionLocal;
-    const glitchRes = applyGlitch(uv(), basePos, uGlitchIntensity);
+
+    // Calculate local glitch intensity based on distance
+    const distToGlitch = positionWorld.distance(uGlitchExplosionCenter);
+    // Smooth falloff: 1.0 at center, 0.0 at edge
+    const localGlitchFactor = float(1.0).sub(smoothstep(float(0.0), uGlitchExplosionRadius, distToGlitch));
+    // Apply local glitch only when radius > 0
+    const isActive = uGlitchExplosionRadius.greaterThan(0.0);
+    // If active, combine local with global intensity. (Mix or Add)
+    // localGlitchFactor will be 0 if dist > radius.
+    // Use select to apply local only when radius > 0, otherwise just global
+    const localIntensity = localGlitchFactor.mul(float(1.5)); // Base intensity of grenade
+    const combinedIntensity = uGlitchIntensity.add(isActive.select(localIntensity, float(0.0)));
+
+    const glitchRes = applyGlitch(uv(), basePos, combinedIntensity);
 
     // Override position with glitched version
     material.positionNode = glitchRes.position;

@@ -24,6 +24,7 @@ import {
     KeyStates
 } from './physics.core.ts';
 import { uChromaticIntensity } from '../foliage/chromatic.ts';
+import { uGlitchExplosionCenter, uGlitchExplosionRadius } from '../foliage/common.ts';
 import { spawnImpact } from '../foliage/impacts.ts';
 import { VineSwing } from '../foliage/trees.ts';
 import { unlockSystem } from './unlocks.ts';
@@ -182,6 +183,22 @@ export function updatePhysics(delta: number, camera: THREE.Camera, controls: any
 
     // 1. Update Global Environmental Modifiers (Wind, Groove)
     updateEnvironmentalModifiers(delta, audioState);
+
+    // Check if player is within active glitch grenade field
+    if (uGlitchExplosionRadius.value > 0) {
+        const distSq = player.position.distanceToSquared(uGlitchExplosionCenter.value as THREE.Vector3);
+        const radiusSq = uGlitchExplosionRadius.value * uGlitchExplosionRadius.value;
+        if (distSq < radiusSq) {
+            // Player is inside the glitch field - grant intangibility/phasing
+            if (!player.isPhasing) {
+                player.isPhasing = true;
+                player.phaseTimer = 0.5; // Short duration, refreshed each frame while inside
+            } else {
+                // Refresh timer while inside
+                player.phaseTimer = Math.max(player.phaseTimer, 0.5);
+            }
+        }
+    }
 
     // 2. Check Triggers & State Transitions
     updateStateTransitions(camera, keyStates);
