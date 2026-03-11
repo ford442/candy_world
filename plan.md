@@ -11,12 +11,14 @@
 ## Next Steps
 
 1. **Phase 3 (ASC -> C++): Specialized solvers**: Use C++ where you need high-performance libraries, SIMD, or mature solvers.
-2. **Category 4: Instrument-ID Textures**: Implement procedural patterns generated based on Instrument ID, used for environmental pattern keys and puzzles, using shader-based noise patterns.
+2. **Phase 4 (Three.js -> WebGPU)**: Raw compute and render pipelines. Begin migrating custom render passes.
 
 ---
 
 ## Recent Progress
 - **Accomplished:**
+  - **Category 4: Instrument-ID Textures**: **Status: Implemented ✅**
+    - *Implementation Details:* Implemented procedural patterns generated based on Instrument ID in `src/foliage/instrument.ts` using shader-based noise patterns. Uses a complex mix of Grid, Noise, Ripple, and Stripes patterns blended dynamically via TSL's `smoothstep` and `abs` math operations based on the puzzle's `uInstrumentID`.
   - **Category 6: Crystal Cave & Harmonic Waterfall**: **Status: Implemented ✅**
     - *Implementation Details:* Added bioluminescent stalactites and stalagmites using `THREE.ConeGeometry` inside `src/foliage/cave.ts`. These formations utilize a new dedicated TSL `crystalMat` material featuring `mix` and `smoothstep` nodes driven by `uAudioLow` to pulse dynamically with the bass. Confirmed integration of the inner waterfall via `createWaterfall` from `src/foliage/waterfalls.ts`.
   - **Waveform Harpoon**: **Status: Implemented ✅**
