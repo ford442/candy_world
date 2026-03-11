@@ -29,6 +29,7 @@ import { animatedFoliage, foliageClouds, foliageMushrooms } from './world/state.
 import { updatePhysics, player } from './systems/physics.ts';
 import { fireRainbow, updateBlaster } from './gameplay/rainbow-blaster.ts';
 import { jitterMineSystem } from './gameplay/jitter-mines.ts';
+import { glitchGrenadeSystem } from './systems/glitch-grenade.ts';
 import { createHarpoonLine, updateHarpoonLine } from './gameplay/harpoon-line.ts';
 import { updateFallingClouds } from './foliage/clouds.ts';
 import { cloudBatcher } from './foliage/cloud-batcher.ts';
@@ -258,6 +259,12 @@ window.addEventListener('keydown', (e) => {
             profiler.toggle();
         } else if (key === 'f') {
             // Demo logic...
+        } else if (key === 'g') {
+            // Throw Glitch Grenade
+            if (document.pointerLockElement) {
+                camera.getWorldDirection(_scratchClickDir);
+                glitchGrenadeSystem.throwGrenade(scene, camera.position, _scratchClickDir);
+            }
         }
     } catch (err) {
         console.warn('Demo trigger error', err);
@@ -665,6 +672,9 @@ function animate() {
         if (keyStates.action) {
             jitterMineSystem.spawnMine(player.position);
         }
+
+        // Glitch Grenades
+        glitchGrenadeSystem.update(delta, scene);
 
         updateFallingClouds(delta, foliageClouds, getGroundHeight);
         cloudBatcher.update(delta);

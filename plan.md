@@ -19,6 +19,8 @@
 - **Accomplished:**
   - **Category 4: Instrument-ID Textures**: **Status: Implemented ✅**
     - *Implementation Details:* Implemented procedural patterns generated based on Instrument ID in `src/foliage/instrument.ts` using shader-based noise patterns. Uses a complex mix of Grid, Noise, Ripple, and Stripes patterns blended dynamically via TSL's `smoothstep` and `abs` math operations based on the puzzle's `uInstrumentID`.
+  - **Glitch Grenade**: **Status: Implemented ✅**
+    - *Implementation Details:* Built `src/systems/glitch-grenade.ts` to throw dynamic projectiles that explode into localized glitch fields using `uGlitchExplosionCenter` and `uGlitchExplosionRadius` uniforms. Integrated into `src/foliage/common.ts` `applyGlitch` to smoothly blend glitch intensity. Integrated into `src/systems/physics.ts` to grant `player.isPhasing = true` (intangibility) when standing inside the glitch area.
   - **Category 6: Crystal Cave & Harmonic Waterfall**: **Status: Implemented ✅**
     - *Implementation Details:* Added bioluminescent stalactites and stalagmites using `THREE.ConeGeometry` inside `src/foliage/cave.ts`. These formations utilize a new dedicated TSL `crystalMat` material featuring `mix` and `smoothstep` nodes driven by `uAudioLow` to pulse dynamically with the bass. Confirmed integration of the inner waterfall via `createWaterfall` from `src/foliage/waterfalls.ts`.
   - **Waveform Harpoon**: **Status: Implemented ✅**
@@ -153,18 +155,19 @@
 ### Category 4: Advanced Shaders (WebGPU TSL) [IN PROGRESS]
 - **Status:** Active
 - **Tasks:**
-  - [x] Waveform Water (Displacement based on simulated waveform)
-  - [x] Sample-Offset Glitch (Screen-space UV manipulation)
-  - [x] Chromatic Aberration Pulse (Lens distortion on heavy kicks)
-  - [x] Instrument-ID Textures (Procedural noise patterns)
-  - [x] Note-Trail Ribbons (Melody tracing geometry)
-  - [x] Melody Mirrors (Fake reflection shaders)
+  - [x] Waveform Water (Displacement based on simulated waveform) **Status: Implemented ✅**
+  - [x] Sample-Offset Glitch (Screen-space UV manipulation) **Status: Implemented ✅**
+    - *Implementation Details:* Integrated global and local glitch shaders. Added Glitch Grenade logic using `uGlitchExplosionCenter` and `uGlitchExplosionRadius` for localized distortion fields.
+  - [x] Chromatic Aberration Pulse (Lens distortion on heavy kicks) **Status: Implemented ✅**
+  - [x] Instrument-ID Textures (Procedural noise patterns) **Status: Implemented ✅**
+  - [x] Note-Trail Ribbons (Melody tracing geometry) **Status: Implemented ✅**
+  - [x] Melody Mirrors (Fake reflection shaders) **Status: Implemented ✅**
     - *Implementation Details:* TSL-driven faux reflection using a procedural environment texture, with UV distortion driven by audio intensity (`uAudioHigh`) and time. Geometry consists of floating shard clusters integrated into `src/world/generation.ts`.
   - [x] Subwoofer Lotus (Bass & Glitch Reactive) **Status: Implemented ✅**
     - *Implementation Details:* TSL material logic for bass-driven vertex displacement (rings) and a swirling vortex portal that activates via `uGlitchIntensity` or high bass. Fully documented TSL math nodes (e.g., `atan2`, `mix`, `mx_noise_float`). Also implemented the Bass Portal secret mechanic which reveals a hidden portal and triggers discovery logic when the lotus is interacted with during high glitch intensity.
-  - [x] Plants Twilight Glow (Bioluminescence)
+  - [x] Plants Twilight Glow (Bioluminescence) **Status: Implemented ✅**
     - *Implementation Details:* Implemented `uTwilight` global uniform in `src/foliage/sky.js` driven by `WeatherSystem`'s day/night cycle. Updated TSL materials for Flowers, Mushrooms, and Fiber Optic Trees to accept this uniform and boost emissive intensity during twilight hours.
-  - [x] Fluid Fog (C++ Simulation)
+  - [x] Fluid Fog (C++ Simulation) **Status: Implemented ✅**
     - *Implementation Details:* Implemented C++ Stable Fluids solver coupled with TSL fog visualization.
   - [x] Waveform Harpoon **Status: Implemented ✅**
     - *Implementation Details:* Projectiles anchor to Waveform Water, pulling the player using audio-modulated speed, visualized with a dynamic TSL line.
