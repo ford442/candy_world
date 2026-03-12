@@ -1,6 +1,7 @@
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js';
 import { AudioSystem } from '../audio/audio-system';
 import * as THREE from 'three';
+import { discoverySystem } from '../systems/discovery.js';
 
 export interface KeyStates {
     forward: boolean;
@@ -615,6 +616,12 @@ export function initInput(
         // --------------------------------------------------------
 
         switch (event.code) {
+            case 'KeyL':
+                if (document.pointerLockElement) {
+                    controls.unlock();
+                }
+                discoverySystem.showLog();
+                break;
             case 'KeyQ':
                 togglePlaylist();
                 break;
