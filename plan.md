@@ -12,6 +12,7 @@
 
 1. **Phase 3 (ASC -> C++): Specialized solvers**: Continue migrating/adding WASM SIMD support for remaining animations (e.g., `batchFiberWhip_c`, `batchSpiralWave_c`).
 2. **Phase 4 (Three.js -> WebGPU)**: Raw compute and render pipelines. Begin migrating custom render passes.
+3. **Category 3: Wisteria Clusters**: Implement hanging musical vines that respond to high frequencies or chords.
 
 ---
 
@@ -19,6 +20,8 @@
 - **Accomplished:**
   - **Phase 3 (ASC -> C++): Animation Batch SIMD Vectorization**: **Status: Implemented ✅**
     - *Implementation Details:* Implemented explicit WebAssembly SIMD (`v128_t` intrinsics) in `emscripten/animation_batch.cpp`. Rewrote high-frequency array loops for `batchSnareSnap_c`, `batchAccordion_c`, and `batchTremoloPulse_c` to process 4 items concurrently. Replaced math operations with a custom `fast_sin_simd` (Taylor series) and `fast_sqrt_simd` to avoid scalar fallbacks.
+  - **Rare Flora Discovery (Unlock system)**: **Status: Implemented ✅**
+    - *Implementation Details:* Implemented proximity-based discovery logic in `src/systems/physics.ts` using a throttled check against `animatedFoliage` objects and a decoupled data map in `src/systems/discovery_map.ts`. Added a visual Discovery Log UI in `src/systems/discovery.ts` accessible via the 'L' key. It reads discovered items and displays them with icons and names from `DISCOVERY_MAP`. Added the keyboard shortcut and auto-unlocking logic in `src/core/input.ts`.
   - **Category 4: Instrument-ID Textures**: **Status: Implemented ✅**
     - *Implementation Details:* Implemented procedural patterns generated based on Instrument ID in `src/foliage/instrument.ts` using shader-based noise patterns. Uses a complex mix of Grid, Noise, Ripple, and Stripes patterns blended dynamically via TSL's `smoothstep` and `abs` math operations based on the puzzle's `uInstrumentID`.
   - **Glitch Grenade**: **Status: Implemented ✅**
@@ -178,8 +181,6 @@
 - **Status:** Active
 - **Tasks:**
   - [x] Bass Portal Secret (Subwoofer Lotus Glitch) **Status: Implemented ✅**
-  - [x] Rare Flora Discovery (Unlock system)
-    - *Implementation Details:* Implemented proximity-based discovery logic in `src/systems/physics.ts` using a throttled check against `animatedFoliage` objects and a decoupled data map in `src/systems/discovery_map.ts`.
   - [x] Advanced Collision (WASM-based narrow phase)
      - *Implementation Details:* Implemented Spatial Grid (16x16) in AssemblyScript to optimize collision detection from O(N) to O(1) for nearby objects. Handles Mushrooms, Clouds, Gates, and Trampolines.
   - [x] Player Abilities (Dash, Double Jump extensions)

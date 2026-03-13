@@ -24,3 +24,6 @@ Matte clay materials need a strong directional light to show form.
 ## 2026-03-08 - Provide visual feedback for aria-disabled UI
 **Learning:** Adding `aria-disabled="true"` to interactive elements is crucial for screen readers, but sighted users still need visual cues. If a button maintains its hover states, pointer cursor, and full opacity when disabled, it creates a confusing experience where users think the button is clickable but it does nothing.
 **Action:** Always pair `aria-disabled="true"` attributes with matching CSS rules (e.g. `[aria-disabled="true"] { opacity: 0.6; cursor: not-allowed; }`) and ensure hover/active states are neutralized so the UI accurately reflects its inactive state to all users.
+## 2026-03-08 - Visual Feedback for aria-pressed Toggle Buttons
+**Learning:** We added `aria-pressed="true"` states to toggle buttons for screen readers, but sighted users received no clear visual indication when a feature (like Night Mode or Audio Muting) was active since the button looked identical.
+**Action:** Always provide explicit CSS styles (e.g., `.toggle-button[aria-pressed="true"]`) with clear visual changes (like an inset shadow or alternative background color) whenever using ARIA state toggles to ensure parity between visual feedback and accessibility tree state.

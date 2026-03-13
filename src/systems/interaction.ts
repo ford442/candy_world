@@ -74,6 +74,11 @@ export class InteractionSystem {
 
         // 1. PROXIMITY CHECK
         // Populate nextNearby with ALL close objects from all input lists
+        const px = playerPosition.x;
+        const py = playerPosition.y;
+        const pz = playerPosition.z;
+        const radiusSq = this.proximityRadiusSq;
+
         for (let i = 0; i < interactableLists.length; i++) {
             const list = interactableLists[i];
             if (!list || !Array.isArray(list)) continue;
@@ -84,11 +89,17 @@ export class InteractionSystem {
                 // Safety: Skip invalid objects or those without position
                 if (!obj || !obj.position || !obj.visible) continue;
 
-                // ⚡ OPTIMIZATION: Calculate distance once per object
-                // Use distanceToSquared to avoid sqrt
-                const distSq = playerPosition.distanceToSquared(obj.position);
+                const ud = obj.userData;
+                if (!ud || (!ud.onProximityEnter && !ud.onProximityLeave && !ud.onGazeEnter && !ud.onGazeLeave && !ud.onInteract && !ud.interactionText)) continue;
 
-                if (distSq < this.proximityRadiusSq) {
+                // ⚡ OPTIMIZATION: Inline distance squared check to avoid Three.js Vector3.distanceToSquared allocations and function call overhead.
+                const pos = obj.position;
+                const dx = px - pos.x;
+                const dy = py - pos.y;
+                const dz = pz - pos.z;
+                const distSq = dx*dx + dy*dy + dz*dz;
+
+                if (distSq < radiusSq) {
                     nextNearby.add(obj);
                 }
             }
