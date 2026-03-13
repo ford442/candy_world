@@ -20,6 +20,7 @@ const MAX_LANTERNS = 1000;
 const _scratchMatrixBatch = new THREE.Matrix4();
 const _scratchV = new THREE.Vector3();
 const _scratchN = new THREE.Vector3();
+const _scratchQuat = new THREE.Quaternion();
 const _scratchColor = new THREE.Color();
 
 export class LanternBatcher {
@@ -273,7 +274,9 @@ export class LanternBatcher {
         const bulbGeo = sharedGeometries.unitSphere; // R=1
         _scratchV.set(1.0, -0.5, 0);
         _scratchN.set(0.25, 0.4, 0.25); // Using _scratchN as scale scratch here to save memory
-        m.compose(_scratchV, new THREE.Quaternion(), _scratchN);
+        // ⚡ OPTIMIZATION: Re-use scratch quaternion to avoid GC spikes
+        _scratchQuat.identity();
+        m.compose(_scratchV, _scratchQuat, _scratchN);
 
         addPart(bulbGeo, 1, m);
 
