@@ -301,6 +301,19 @@
     box-shadow: 0 0 10px rgba(255, 64, 129, 0.5);
 }
 
+/* 🎨 Palette: Pressed State */
+/* Visually differentiates active toggle buttons (e.g., Muted, Night Mode) */
+.toggle-button[aria-pressed="true"] {
+    background: #FF4081; /* Higher contrast active color */
+    box-shadow: inset 0 2px 5px rgba(0,0,0,0.2);
+    border: 2px solid #FFD1DC;
+    padding: 8px 18px; /* Offset border to prevent layout shift */
+}
+
+.toggle-button[aria-pressed="true"]:hover {
+    background: #F50057;
+}
+
 /* 🎨 Palette: Soft Disabled State */
 /* Maintains focusability for keyboard users while indicating unavailability */
 .toggle-button[aria-disabled="true"] {
