@@ -10,7 +10,7 @@ import {
     uAudioLow, createRimLight, triplanarNoise, perturbNormal
 } from './common.ts';
 import { uTwilight } from './sky.ts';
-import { createWaterfall } from './waterfalls.ts';
+import { waterfallBatcher } from './waterfall-batcher.ts';
 
 export interface CaveOptions {
     scale?: number;
@@ -225,37 +225,48 @@ export function createCaveEntrance(options: CaveOptions = {}): THREE.Group {
     const gatePos = new THREE.Vector3(0, height * 0.7, -2);
     const floorPos = new THREE.Vector3(0, -1, -2);
 
-    const waterfall = createWaterfall(gatePos, floorPos, width * 0.7);
-    waterfall.visible = false; // Starts dry
-    waterfall.name = 'WaterGate';
-    group.add(waterfall);
-
-    group.userData.waterfall = waterfall;
-    group.userData.gatePosition = new THREE.Vector3(0, 0, -2);
+    // ⚡ OPTIMIZATION: Use waterfallBatcher instead of creating individual meshes with JS animation loop
+    group.userData.gateLocalPos = gatePos;
+    group.userData.gateHeight = gatePos.y - floorPos.y;
+    group.userData.gateWidth = width * 0.7;
+    group.userData.waterfallActive = false;
 
     group.scale.setScalar(scale);
 
     return group;
 }
 
+const _scratchWorldPos = new THREE.Vector3();
+
 export function updateCaveWaterLevel(caveGroup: THREE.Group, waterLevel: number): void {
-    const waterfall = caveGroup.userData.waterfall;
     const threshold = 0.2;
 
     if (waterLevel > threshold) {
-        if (!waterfall.visible) waterfall.visible = true;
+        if (!caveGroup.userData.waterfallActive) {
+            caveGroup.userData.waterfallActive = true;
+            // Calculate world position of the gate
+            _scratchWorldPos.copy(caveGroup.userData.gateLocalPos);
+            _scratchWorldPos.applyMatrix4(caveGroup.matrixWorld);
+
+            // Add to batcher
+            waterfallBatcher.add(
+                caveGroup.uuid,
+                _scratchWorldPos,
+                caveGroup.userData.gateHeight * caveGroup.scale.y,
+                caveGroup.userData.gateWidth * caveGroup.scale.x
+            );
+        }
 
         const intensity = (waterLevel - threshold) / (1.0 - threshold);
         // Scale thickness based on intensity
-        waterfall.scale.set(1.0, 1.0, 0.5 + intensity * 0.5);
+        waterfallBatcher.updateInstance(caveGroup.uuid, 0.5 + intensity * 0.5);
 
         caveGroup.userData.isBlocked = intensity > 0.1;
     } else {
-        if (waterfall.visible) waterfall.visible = false;
+        if (caveGroup.userData.waterfallActive) {
+            caveGroup.userData.waterfallActive = false;
+            waterfallBatcher.remove(caveGroup.uuid);
+        }
         caveGroup.userData.isBlocked = false;
-    }
-
-    if (waterfall.visible && (waterfall as any).onAnimate) {
-        (waterfall as any).onAnimate(0.016, Date.now() / 1000);
     }
 }
