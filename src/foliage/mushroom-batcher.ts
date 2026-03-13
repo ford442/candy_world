@@ -453,15 +453,19 @@ export class MushroomBatcher {
         // --- PALETTE: Idle Breathing (Life) ---
         const calculateIdleBreathing = Fn(() => {
             // Sine wave based on time + random offset (using positionWorld.x/z as seed)
-            // Note: positionWorld is expensive if used in vertex shader repeatedly?
-            // It's a varying or attribute. Safe to use.
             const phase = uTime.mul(2.0).add(positionWorld.x).add(positionWorld.z);
             const breath = sin(phase).mul(0.05); // +/- 5% scale
 
             const scaleY = float(1.0).add(breath);
             const scaleXZ = float(1.0).sub(breath.mul(0.5)); // Inverse breath
 
-            return vec3(scaleXZ, scaleY, scaleXZ);
+            // 🎨 PALETTE: Add subtle TSL sway
+            const swayPhaseX = uTime.mul(1.5).add(positionWorld.z);
+            const swayPhaseZ = uTime.mul(1.2).add(positionWorld.x);
+            const swayX = sin(swayPhaseX).mul(0.03);
+            const swayZ = sin(swayPhaseZ).mul(0.03);
+
+            return vec3(scaleXZ.add(swayX), scaleY, scaleXZ.add(swayZ));
         });
 
         // --- PALETTE: Jelly Wobble (Audio Reaction) ---
@@ -519,7 +523,10 @@ export class MushroomBatcher {
         const baseColor = attribute('instanceColor', 'vec3');
 
         // Add Juicy Rim Light! (Pop against background)
-        const rimLight = createJuicyRimLight(baseColor, float(1.5), float(3.0), null);
+        // 🎨 PALETTE: Make rim light react to bass for pulsing edge glow
+        const audioRimThickness = float(3.0).add(uAudioLow.mul(2.0));
+        const audioRimIntensity = float(1.5).add(uAudioLow.mul(1.0));
+        const rimLight = createJuicyRimLight(baseColor, audioRimIntensity, audioRimThickness, null);
 
         // Add Sugar Sparkle! (Palette Polish)
         // Scale 15.0 for fine grain, Density 0.3 for sparse twinkle, Intensity 2.0
@@ -531,7 +538,8 @@ export class MushroomBatcher {
         const NdotV = dot(normalWorld, viewDir).abs(); // 1.0 at center, 0.0 at edge
 
         // Glow is strongest at center (thickest looking part) and driven by High Freq Audio
-        const sssIntensity = uAudioHigh.mul(0.8).add(0.2); // Base glow + Audio boost
+        // 🎨 PALETTE: Enhance High Freq glow response
+        const sssIntensity = uAudioHigh.mul(1.5).add(0.2); // Base glow + Audio boost
         const innerGlowFactor = NdotV.pow(2.0).mul(sssIntensity);
 
         // Warm/Pink tint for the inner light
@@ -542,7 +550,9 @@ export class MushroomBatcher {
 
         // Emissive Logic for Cap (Bioluminescence + Flash)
         const flashIntensity = smoothstep(0.2, 0.0, noteAge).mul(velocity).mul(2.0);
-        const baseGlow = uTwilight.mul(0.5);
+        // 🎨 PALETTE: Let the cap breathe with the bass even when not directly triggered
+        const idlePulse = sin(uTime.mul(2.0)).mul(0.5).add(0.5).mul(uAudioLow.mul(0.5));
+        const baseGlow = uTwilight.mul(float(0.5).add(idlePulse));
 
         // Combine Glow + Flash + Sparkle
         // Note: innerGlowColor is added to diffuse colorNode, so it responds to light but also self-illuminates if unlit?
@@ -562,7 +572,7 @@ export class MushroomBatcher {
         const spotMat = (foliageMaterials.mushroomSpots as MeshStandardNodeMaterial).clone();
         spotMat.positionNode = deform(positionLocal);
         const spotPulse = sin(uTime.mul(3.0)).mul(0.1).add(0.3);
-        const spotAudio = uAudioHigh.mul(0.5);
+        const spotAudio = uAudioHigh.mul(0.8); // 🎨 PALETTE: Make spots pop more on highs
         spotMat.emissiveIntensityNode = flashIntensity.add(spotPulse).add(spotAudio);
 
         // Face Hiding Logic
