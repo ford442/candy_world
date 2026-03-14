@@ -10,14 +10,16 @@
 
 ## Next Steps
 
-1. **Phase 3 (ASC -> C++): Specialized solvers**: Continue migrating/adding WASM SIMD support for remaining animations (e.g., `batchFiberWhip_c`, `batchSpiralWave_c`).
-2. **Phase 4 (Three.js -> WebGPU)**: Raw compute and render pipelines. Begin migrating custom render passes.
-3. **Category 3: Wisteria Clusters**: Implement hanging musical vines that respond to high frequencies or chords.
+1. **Phase 4 (Three.js -> WebGPU)**: Raw compute and render pipelines. Begin migrating custom render passes.
+2. **Category 3: Wisteria Clusters**: Implement hanging musical vines that respond to high frequencies or chords.
+3. **Category 2: Snare-Snap Trap Core**: Allow reflecting projectiles with "Snap Core".
 
 ---
 
 ## Recent Progress
 - **Accomplished:**
+  - **Phase 3 (ASC -> C++): Specialized solvers (Remaining Animations SIMD)**: **Status: Implemented ✅**
+    - *Implementation Details:* Migrated the remaining batch animation loops in `emscripten/animation_batch.cpp` (`batchFiberWhip_c`, `batchSpiralWave_c`, `batchVibratoShake_c`, `batchCymbalShake_c`, `batchPanningBob_c`, `batchSpiritFade_c`) to utilize explicit `v128_t` SIMD intrinsics. Processed items in chunks of 4 using Taylor series approximations for trigonometric functions to avoid scalar fallbacks. Verified via automated tests and visual inspection.
   - **Phase 3 (ASC -> C++): Animation Batch SIMD Vectorization**: **Status: Implemented ✅**
     - *Implementation Details:* Implemented explicit WebAssembly SIMD (`v128_t` intrinsics) in `emscripten/animation_batch.cpp`. Rewrote high-frequency array loops for `batchSnareSnap_c`, `batchAccordion_c`, and `batchTremoloPulse_c` to process 4 items concurrently. Replaced math operations with a custom `fast_sin_simd` (Taylor series) and `fast_sqrt_simd` to avoid scalar fallbacks.
   - **Rare Flora Discovery (Unlock system)**: **Status: Implemented ✅**
