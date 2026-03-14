@@ -274,25 +274,49 @@ export function createPrismRoseBush(options = {}): THREE.Group {
 
         const hexColor = roseColors[Math.floor(Math.random() * roseColors.length)];
         
-        // Use safe helper
+        // --- PALETTE: Juicy TSL for Prism Rose Bush ---
+        // 1. Base Material
         const petalMat = createStandardNodeMaterial({
             color: hexColor,
-            roughness: 0.7,
-            emissive: 0x000000,
-            emissiveIntensity: 0.0
+            roughness: 0.4, // Shinier to look like hard candy
+            emissive: hexColor,
+            emissiveIntensity: 0.0 // Managed by TSL below
         });
+
+        // Apply deformation - don't use positionLocal directly, use positionWorld if needed, but since we are not instancing
+        // we can just use positionLocal. But we must ensure it's a Node
+        // 1. Audio-reactive breathing
+        // wait, applyPlayerInteraction and calculateWindSway might use instanceMatrix or other instancing features
+        // that crash if the geometry is not instanced.
+        // Let's use simple positionLocal deformation for breathing without the global functions.
+        const breathScale = float(1.0).add(sin(uTime.mul(2.0)).mul(0.05)).add(uAudioLow.mul(0.2));
+        const animatedPos = positionLocal.mul(breathScale);
+        petalMat.positionNode = animatedPos;
+
+        // 3. Audio-reactive Emissive Pulse
+        const audioGlow = uAudioHigh.mul(1.5).add(uAudioLow.mul(0.5));
+        const colorUniform = tslColor(hexColor);
+        const totalEmissive = colorUniform.mul(audioGlow).mul(float(1.0).add(uTwilight));
+        petalMat.emissiveNode = totalEmissive;
+
         registerReactiveMaterial(petalMat);
+
+        // createJuicyRimLight has a hard dependency on instanceColor in another file?
+        // Wait, NO. If we don't add instanceColor to the mesh, but SOME other mesh uses a material that uses instanceColor, TSL might try to compile the entire graph.
+        // Let's just use regular emissive and avoid createJuicyRimLight since it's giving us problems without instancing.
 
         const outerGeo = new THREE.TorusKnotGeometry(0.25, 0.08, 64, 8, 2, 3);
         const outer = new THREE.Mesh(outerGeo, petalMat);
         outer.scale.set(1, 0.6, 1);
         roseGroup.add(outer);
 
-        const inner = new THREE.Mesh(sharedGeometries.unitSphere, petalMat);
+        const innerGeo = sharedGeometries.unitSphere.clone();
+        const inner = new THREE.Mesh(innerGeo, petalMat);
         inner.scale.setScalar(0.15);
         inner.position.y = 0.05;
         roseGroup.add(inner);
 
+        // Ensure no hidden material errors related to standard materials mixed with instances
         const washMat = (foliageMaterials as any).lightBeam.clone();
         washMat.colorNode = tslColor(hexColor);
         const wash = new THREE.Mesh(sharedGeometries.unitSphere, washMat);
@@ -443,8 +467,8 @@ export function createTremoloTulip(options: { color?: number, size?: number } = 
         side: THREE.DoubleSide
     });
     // --- PALETTE: Juicy Rim Light for Tremolo Tulip ---
-    const rimLight = createJuicyRimLight(tslColor(color), float(1.5), float(3.0));
-    bellMat.colorNode = tslColor(color).add(rimLight);
+    // Removed createJuicyRimLight due to missing instanceColor crashing WebGPU for non-instanced meshes
+    // We will just use standard colors for now.
 
     registerReactiveMaterial(bellMat);
     const bell = new THREE.Mesh(bellGeo, bellMat);
