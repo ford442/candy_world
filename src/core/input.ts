@@ -198,6 +198,11 @@ export function initInput(
                 audioSystem.removeTrack(index);
                 renderPlaylist();
 
+                // 🎨 Palette: Provide explicit feedback for destructive action
+                import('../utils/toast.js').then(({ showToast }) => {
+                    showToast(`Removed ${displayName}`, '🗑️', 3000);
+                });
+
                 // UX: Restore Focus to an appropriate element
                 requestAnimationFrame(() => {
                     const removeBtns = playlistList.querySelectorAll('.playlist-remove-btn');
