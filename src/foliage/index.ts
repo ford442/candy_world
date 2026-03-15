@@ -47,6 +47,7 @@ export { musicReactivitySystem } from '../systems/music-reactivity.ts';
 export * from './musical_flora.ts';
 export * from './arpeggio-batcher.ts';
 export * from './portamento-batcher.ts';
+export * from './wisteria-cluster.ts';
 
 // Batchers
 export * from './mushroom-batcher.ts';
