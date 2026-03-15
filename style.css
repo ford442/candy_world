@@ -263,6 +263,14 @@
     background: #ffffff;
 }
 
+/* 🎨 Palette: Ability Slot Ready State Visual Pop */
+.ability-slot[aria-disabled="false"] {
+    filter: grayscale(0%) brightness(100%);
+    opacity: 1;
+    transform: scale(1.1); /* Brief pop */
+    transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
 /* 🎨 Palette: Active State (Duration Running) */
 .ability-slot.active {
     border-color: #D500F9;
@@ -389,6 +397,9 @@ kbd.key.key-highlight {
 .ability-slot[aria-disabled="true"] {
     opacity: 0.6;
     cursor: not-allowed;
+    filter: grayscale(100%) brightness(50%);
+    pointer-events: none; /* Prevent clicks while on cooldown */
+    transition: all 0.3s ease;
     background: rgba(230, 230, 230, 0.85);
     border-color: #dcdcdc;
     box-shadow: none;
