@@ -25,11 +25,6 @@ export interface LeafOptions {
     color?: number;
 }
 
-export interface WisteriaOptions {
-    color?: number;
-    strands?: number;
-}
-
 export interface BubbleWillowOptions {
     color?: number;
 }
@@ -255,44 +250,6 @@ export function createLeafParticle(options: LeafOptions = {}): THREE.Mesh {
     const leaf = new THREE.Mesh(geo, mat);
     leaf.castShadow = true;
     return leaf;
-}
-
-export function createWisteriaCluster(options: WisteriaOptions = {}): THREE.Group {
-    const { color = 0xCFA0FF, strands = 4 } = options;
-    const group = new THREE.Group();
-
-    const bloomMat = createClayMaterial(color);
-    enhanceWithFloralJuice(bloomMat);
-    registerReactiveMaterial(bloomMat);
-
-    for (let s = 0; s < strands; s++) {
-        const strand = new THREE.Group();
-        const length = 3 + Math.floor(Math.random() * 3);
-        for (let i = 0; i < length; i++) {
-            const seg = new THREE.Mesh(sharedGeometries.cylinderLow, createClayMaterial(0x2E8B57));
-            seg.scale.set(0.03, 0.4, 0.03);
-            seg.position.y = -i * 0.35;
-            seg.rotation.z = Math.sin(i * 0.5) * 0.15;
-            strand.add(seg);
-
-            if (i > 0 && Math.random() > 0.6) {
-                const b = new THREE.Mesh(sharedGeometries.sphereLow, bloomMat);
-                b.scale.setScalar(0.05);
-                b.position.y = seg.position.y - 0.1;
-                b.position.x = (Math.random() - 0.5) * 0.06;
-                b.position.z = (Math.random() - 0.5) * 0.06;
-                strand.add(b);
-            }
-        }
-        strand.position.x = (Math.random() - 0.5) * 0.6;
-        strand.position.y = 0;
-        group.add(strand);
-    }
-
-    group.userData.animationType = pickAnimation(['vineSway', 'spiralWave']);
-    group.userData.animationOffset = Math.random() * 10;
-    group.userData.type = 'vine';
-    return group;
 }
 
 export function createBubbleWillow(options: BubbleWillowOptions = {}): THREE.Group {

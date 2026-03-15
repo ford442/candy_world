@@ -11,13 +11,15 @@
 ## Next Steps
 
 1. **Phase 4 (Three.js -> WebGPU)**: Raw compute and render pipelines. Begin migrating custom render passes.
-2. **Category 3: Wisteria Clusters**: Implement hanging musical vines that respond to high frequencies or chords.
-3. **Category 2: Snare-Snap Trap Core**: Allow reflecting projectiles with "Snap Core".
+2. **Category 2: Snare-Snap Trap Core**: Allow reflecting projectiles with "Snap Core".
+3. **Category 2: Cymbal Dandelions**: Finish integration of seeds acting as obstacles and manual Sonic Clap triggers.
 
 ---
 
 ## Recent Progress
 - **Accomplished:**
+  - **Category 3: Wisteria Clusters**: **Status: Implemented ✅**
+    - *Implementation Details:* Implemented `createWisteriaCluster` in `src/foliage/wisteria-cluster.ts` which generates hanging wisteria vines. Uses a TSL `MeshStandardNodeMaterial` with the "Cute Clay" preset and modifies `positionLocal` to create an organic sway animated by `uTime` and modulated by high frequency audio (`uAudioHigh`). The plant is interactive and triggers discovery logs. Added to `src/world/generation.ts` and exported in `src/foliage/index.ts`.
   - **Phase 3 (ASC -> C++): Specialized solvers (Remaining Animations SIMD)**: **Status: Implemented ✅**
     - *Implementation Details:* Migrated the remaining batch animation loops in `emscripten/animation_batch.cpp` (`batchFiberWhip_c`, `batchSpiralWave_c`, `batchVibratoShake_c`, `batchCymbalShake_c`, `batchPanningBob_c`, `batchSpiritFade_c`) to utilize explicit `v128_t` SIMD intrinsics. Processed items in chunks of 4 using Taylor series approximations for trigonometric functions to avoid scalar fallbacks. Verified via automated tests and visual inspection.
   - **Phase 3 (ASC -> C++): Animation Batch SIMD Vectorization**: **Status: Implemented ✅**
