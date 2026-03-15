@@ -2,6 +2,7 @@ import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockCont
 import { AudioSystem } from '../audio/audio-system';
 import * as THREE from 'three';
 import { discoverySystem } from '../systems/discovery.js';
+import { trapFocusInside } from '../utils/interaction-utils';
 
 export interface KeyStates {
     forward: boolean;
@@ -100,6 +101,10 @@ export function initInput(
 
     let isPlaylistOpen = false;
     let lastFocusedElement: Element | null = null; // Store focus before opening modal
+
+    // Modal Focus Trap Cleanups
+    let releasePauseMenuFocus: (() => void) | null = null;
+    let releaseJukeboxFocus: (() => void) | null = null;
 
     // --- NEW: Visual Reticle (Crosshair) ---
     // Check if it exists; if not, create it
@@ -322,8 +327,17 @@ export function initInput(
 
             lastFocusedElement = document.activeElement;
             controls.unlock(); // Unlock mouse so we can click
+
+            if (releasePauseMenuFocus) {
+                releasePauseMenuFocus();
+                releasePauseMenuFocus = null;
+            }
             if (instructions) instructions.style.display = 'none'; // Ensure pause menu is hidden
-            if (playlistOverlay) playlistOverlay.style.display = 'flex';
+
+            if (playlistOverlay) {
+                playlistOverlay.style.display = 'flex';
+                releaseJukeboxFocus = trapFocusInside(playlistOverlay);
+            }
             if (playlistBackdrop) playlistBackdrop.style.display = 'block';
             renderPlaylist();
             // UX: Auto-focus the currently playing track for immediate context
@@ -346,10 +360,18 @@ export function initInput(
             if (playlistOverlay) playlistOverlay.style.display = 'none';
             if (playlistBackdrop) playlistBackdrop.style.display = 'none';
 
+            if (releaseJukeboxFocus) {
+                releaseJukeboxFocus();
+                releaseJukeboxFocus = null;
+            }
+
             // 🎨 Palette: Smart Context Restoration
             if (wasPausedBeforePlaylist) {
                 // Return to Pause Menu
-                if (instructions) instructions.style.display = 'flex';
+                if (instructions) {
+                    instructions.style.display = 'flex';
+                    releasePauseMenuFocus = trapFocusInside(instructions);
+                }
                 // Restore focus to the button that opened the jukebox (e.g. Open Jukebox button)
                 if (lastFocusedElement && lastFocusedElement instanceof HTMLElement) {
                     lastFocusedElement.focus();
@@ -418,10 +440,20 @@ export function initInput(
 
         if (instructions) instructions.style.display = 'none';
         
+        if (releasePauseMenuFocus) {
+            releasePauseMenuFocus();
+            releasePauseMenuFocus = null;
+        }
+
         // If we locked, force playlist closed just in case
         isPlaylistOpen = false; 
         if (playlistOverlay) playlistOverlay.style.display = 'none';
         if (playlistBackdrop) playlistBackdrop.style.display = 'none';
+
+        if (releaseJukeboxFocus) {
+            releaseJukeboxFocus();
+            releaseJukeboxFocus = null;
+        }
     });
 
     controls.addEventListener('unlock', () => {
@@ -433,7 +465,10 @@ export function initInput(
                 return;
             }
 
-            if (instructions) instructions.style.display = 'flex';
+            if (instructions) {
+                instructions.style.display = 'flex';
+                releasePauseMenuFocus = trapFocusInside(instructions);
+            }
 
             // UX: Update Title to "Paused" to give context
             const title = instructions ? instructions.querySelector('h1') : null;
@@ -482,7 +517,10 @@ export function initInput(
             } else if (shouldPreventMenuOnUnlock && shouldPreventMenuOnUnlock()) {
                 // If we are dancing, the unlock event fired but menu was suppressed.
                 // Pressing Escape again should manually bring up the menu.
-                if (instructions) instructions.style.display = 'flex';
+                if (instructions) {
+                    instructions.style.display = 'flex';
+                    releasePauseMenuFocus = trapFocusInside(instructions);
+                }
                 if (startButton) {
                     startButton.innerHTML = 'Resume Exploration <span aria-hidden="true">🚀</span> <span class="key-badge" aria-hidden="true">Enter</span>';
                     startButton.focus();
