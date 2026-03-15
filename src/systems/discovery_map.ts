@@ -24,5 +24,6 @@ export const DISCOVERY_MAP: Record<string, DiscoveryItem> = {
     'melody_mirror': { name: 'Melody Mirror', icon: '🪞' },
     'lake_island': { name: 'Melody Lake Island', icon: '🏝️' },
     'cave': { name: 'Crystal Cave', icon: '💎' },
-    'waterfall': { name: 'Harmonic Waterfall', icon: '🌊' }
+    'waterfall': { name: 'Harmonic Waterfall', icon: '🌊' },
+    'wisteria_cluster': { name: 'Wisteria Cluster', icon: '🍇' }
 };
