@@ -2,7 +2,7 @@ import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockCont
 import { AudioSystem } from '../audio/audio-system';
 import * as THREE from 'three';
 import { discoverySystem } from '../systems/discovery.js';
-import { trapFocusInside } from '../utils/interaction-utils';
+import { trapFocusInside } from '../utils/interaction-utils.js';
 
 export interface KeyStates {
     forward: boolean;
