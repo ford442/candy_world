@@ -27,3 +27,7 @@ Matte clay materials need a strong directional light to show form.
 ## 2026-03-08 - Visual Feedback for aria-pressed Toggle Buttons
 **Learning:** We added `aria-pressed="true"` states to toggle buttons for screen readers, but sighted users received no clear visual indication when a feature (like Night Mode or Audio Muting) was active since the button looked identical.
 **Action:** Always provide explicit CSS styles (e.g., `.toggle-button[aria-pressed="true"]`) with clear visual changes (like an inset shadow or alternative background color) whenever using ARIA state toggles to ensure parity between visual feedback and accessibility tree state.
+
+## 2026-03-09 - Provide explicit confirmation for destructive actions
+**Learning:** Destructive actions like removing items from a list (e.g., Jukebox playlist) without visual confirmation or screen reader feedback create an inconsistent and uncertain UX. Users, especially those relying on screen readers, need immediate and explicit feedback that their action was successful.
+**Action:** Always pair destructive UI actions with a transient, accessible status notification (like an `aria-live` Toast) confirming the outcome (e.g., "Removed [Item Name]").
