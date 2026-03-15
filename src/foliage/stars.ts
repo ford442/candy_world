@@ -1,7 +1,7 @@
 // src/foliage/stars.ts
 
 import * as THREE from 'three';
-import { color, float, vec3, vec4, time, positionLocal, attribute, uniform, mix, sin, cos, UniformNode, pow, step } from 'three/tsl';
+import { color, float, vec3, vec4, time, positionLocal, attribute, uniform, mix, sin, cos, UniformNode, pow, step, smoothstep } from 'three/tsl';
 import { PointsNodeMaterial } from 'three/webgpu';
 import { uAudioLow, uAudioHigh } from './common.ts';
 
@@ -87,7 +87,7 @@ export function createStars(count: number = 1500): THREE.Points {
 
     // Scale twinkle intensity by Audio Highs (Cymbals/Melody)
     // When music is quiet, they twinkle softly. When loud, they flash.
-    const activeTwinkle = sharpTwinkle.mul(float(0.8).add(uAudioHigh.mul(4.0)));
+    const activeTwinkle = sharpTwinkle.mul(float(0.8).add(smoothstep(0.0, 1.0, uAudioHigh).mul(4.0)));
 
     // 2. Randomized Pulse (Low Frequency / Kick)
     // Replaced wave with purely random phase based on offset to break unison
@@ -98,7 +98,7 @@ export function createStars(count: number = 1500): THREE.Points {
 
     // Apply Kick energy to the random pulse
     // Stars pulse individually to the beat
-    const kickPulse = uAudioLow.mul(randomPulse).mul(1.5);
+    const kickPulse = smoothstep(0.0, 1.0, uAudioLow).mul(randomPulse).mul(2.5);
 
     // Total Intensity = Base + Twinkle + Pulse
     const intensity = float(0.5).add(activeTwinkle).add(kickPulse);
@@ -124,7 +124,7 @@ export function createStars(count: number = 1500): THREE.Points {
 
     // Mix based on audio high (energy)
     // Stronger highs = More neon color
-    const finalRGB = mix(baseColorVec, targetColor, uAudioHigh.mul(0.8));
+    const finalRGB = mix(baseColorVec, targetColor, smoothstep(0.2, 0.8, uAudioHigh));
 
     // Final Output
     mat.colorNode = vec4(finalRGB, uStarOpacity).mul(mat.color);
