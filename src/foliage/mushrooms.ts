@@ -96,6 +96,9 @@ export function createMushroom(options: MushroomOptions = {}): THREE.Group {
     // Height = baseScale * 1.2.
     makeInteractiveCylinder(group, baseScale * 1.2, baseScale * 0.5);
 
+    // Explicit radius for efficient frustum culling
+    group.userData.radius = baseScale * 1.5;
+
     // Metadata
     group.userData.type = 'mushroom';
     group.userData.size = size;
