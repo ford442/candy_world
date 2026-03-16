@@ -309,7 +309,7 @@ async function loadEmscriptenModule(forceSingleThreaded = false) {
         }
 
         if (emscriptenInstance.wasmMemory) {
-            emscriptenMemory = emscriptenInstance.wasmMemory;
+            emscriptenMemory = emscriptenInstance.wasmMemory.buffer;
         } else if (emscriptenInstance.HEAP8) {
             emscriptenMemory = emscriptenInstance.HEAP8.buffer;
         }
@@ -1124,6 +1124,28 @@ export function initPhysics(x, y, z) {
 export function addObstacle(type, x, y, z, r, h, p1, p2, p3) {
     const f = getNativeFunc('addObstacle');
     if (f) f(type, x, y, z, r, h, p1, p2, p3 ? 1.0 : 0.0);
+}
+
+export function uploadObstaclesBatch(objectsData, count) {
+    if (!emscriptenInstance || !emscriptenInstance._malloc || !emscriptenInstance._free) return;
+    const f = getNativeFunc('addObstaclesBatch');
+    if (!f) return;
+
+    // 9 floats per obstacle
+    const bytes = count * 9 * 4;
+    const ptr = emscriptenInstance._malloc(bytes);
+    if (!ptr) return;
+
+    // ⚡ OPTIMIZATION: Copy JS float array into WASM memory using batched writes
+    // emscriptenMemory holds the WASM heap buffer
+    const heapF32 = new Float32Array(emscriptenMemory);
+    heapF32.set(objectsData, ptr >> 2);
+
+    // Invoke C++
+    f(ptr, count);
+
+    // Free memory
+    emscriptenInstance._free(ptr);
 }
 
 export function setPlayerState(x, y, z, vx, vy, vz) {

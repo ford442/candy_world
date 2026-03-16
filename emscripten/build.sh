@@ -154,6 +154,7 @@ declare -A ANIMATION_FUNCTIONS=(
     ["checkCollision"]="physics"
     ["initPhysics"]="physics"
     ["addObstacle"]="physics"
+    ["addObstaclesBatch"]="physics"
     ["setPlayerState"]="physics"
     ["getPlayerX"]="physics"
     ["getPlayerY"]="physics"
