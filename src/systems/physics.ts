@@ -4,7 +4,7 @@
 
 import * as THREE from 'three';
 import {
-    getGroundHeight, initPhysics, addObstacle, setPlayerState, getPlayerState, updatePhysicsCPP,
+    getGroundHeight, initPhysics, addObstacle, uploadObstaclesBatch, setPlayerState, getPlayerState, updatePhysicsCPP,
     uploadCollisionObjects, resolveGameCollisionsWASM
 } from '../utils/wasm-loader.js';
 import {
@@ -1120,14 +1120,48 @@ function initCppPhysics(camera: THREE.Camera) {
     initPhysics(camera.position.x, camera.position.y, camera.position.z);
 
     // 1. Upload to C++ Engine (Emscripten) - For Standard Terrain/Obstacles
-    for (const m of foliageMushrooms) {
-        addObstacle(0, m.position.x, m.position.y, m.position.z, 0, (m.userData as any).capHeight||3, (m.userData as any).stemRadius||0.5, (m.userData as any).capRadius||2, (m.userData as any).isTrampoline?1:0);
-    }
-    for (const c of foliageClouds) {
-        addObstacle(1, c.position.x, c.position.y, c.position.z, (c.scale.x||1)*2.0, (c.scale.y||1)*0.8, 0, (c.userData as any).tier||1, 0);
-    }
-    for (const t of foliageTrampolines) {
-        addObstacle(2, t.position.x, t.position.y, t.position.z, (t.userData as any).bounceRadius||0.5, (t.userData as any).bounceHeight||0.5, (t.userData as any).bounceForce||12, 0, 0);
+    const totalCount = foliageMushrooms.length + foliageClouds.length + foliageTrampolines.length;
+    if (totalCount > 0) {
+        const batchData = new Float32Array(totalCount * 9);
+        let ptr = 0;
+
+        for (const m of foliageMushrooms) {
+            batchData[ptr++] = 0; // type
+            batchData[ptr++] = m.position.x;
+            batchData[ptr++] = m.position.y;
+            batchData[ptr++] = m.position.z;
+            batchData[ptr++] = 0; // r (unused for mushroom here)
+            batchData[ptr++] = (m.userData as any).capHeight || 3;
+            batchData[ptr++] = (m.userData as any).stemRadius || 0.5;
+            batchData[ptr++] = (m.userData as any).capRadius || 2;
+            batchData[ptr++] = (m.userData as any).isTrampoline ? 1 : 0;
+        }
+
+        for (const c of foliageClouds) {
+            batchData[ptr++] = 1; // type
+            batchData[ptr++] = c.position.x;
+            batchData[ptr++] = c.position.y;
+            batchData[ptr++] = c.position.z;
+            batchData[ptr++] = (c.scale.x || 1) * 2.0; // r
+            batchData[ptr++] = (c.scale.y || 1) * 0.8; // h
+            batchData[ptr++] = 0; // p1
+            batchData[ptr++] = (c.userData as any).tier || 1; // p2
+            batchData[ptr++] = 0; // p3
+        }
+
+        for (const t of foliageTrampolines) {
+            batchData[ptr++] = 2; // type
+            batchData[ptr++] = t.position.x;
+            batchData[ptr++] = t.position.y;
+            batchData[ptr++] = t.position.z;
+            batchData[ptr++] = (t.userData as any).bounceRadius || 0.5; // r
+            batchData[ptr++] = (t.userData as any).bounceHeight || 0.5; // h
+            batchData[ptr++] = (t.userData as any).bounceForce || 12; // p1
+            batchData[ptr++] = 0; // p2
+            batchData[ptr++] = 0; // p3
+        }
+
+        uploadObstaclesBatch(batchData, totalCount);
     }
 
     // 2. Upload to AssemblyScript Engine (ASC) - For Narrow Phase Interactivity

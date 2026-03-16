@@ -43,6 +43,25 @@ void initPhysics(float x, float y, float z) {
 }
 
 EMSCRIPTEN_KEEPALIVE
+void addObstaclesBatch(float* data, int count) {
+    obstacles.reserve(obstacles.size() + count);
+    for (int i = 0; i < count; i++) {
+        int base = i * 9;
+        obstacles.push_back({
+            (int)data[base],
+            data[base + 1],
+            data[base + 2],
+            data[base + 3],
+            data[base + 4],
+            data[base + 5],
+            data[base + 6],
+            data[base + 7],
+            data[base + 8]
+        });
+    }
+}
+
+EMSCRIPTEN_KEEPALIVE
 void addObstacle(int type, float x, float y, float z, float r, float h, float p1, float p2, float p3) {
     obstacles.push_back({type, x, y, z, r, h, p1, p2, p3});
 }
