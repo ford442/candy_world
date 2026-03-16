@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { MeshStandardNodeMaterial, PointsNodeMaterial } from 'three/webgpu';
-import { time, vec3, positionLocal, length, sin, cos, color as tslColor, attribute, float, uniform, mix, smoothstep, color } from 'three/tsl';
+import { time, vec3, positionLocal, length, sin, cos, color as tslColor, attribute, float, uniform, mix, smoothstep, color, positionWorld } from 'three/tsl';
 import { registerReactiveMaterial, attachReactivity, CandyPresets, uTime, uAudioLow, uAudioHigh, createJuicyRimLight } from './common.ts';
 import { uTwilight, uHorizonColor } from './sky.ts';
 
@@ -82,18 +82,47 @@ export function createMelodyLake(width = 200, depth = 200) {
 }
 
 export function createFloatingOrb(options: FloatingOrbOptions = {}) {
-    const { color = 0x87CEEB, size = 0.5 } = options;
+    const { color: hexColor = 0x87CEEB, size = 0.5 } = options;
     const geo = new THREE.SphereGeometry(size, 8, 8);
-    const mat = CandyPresets.Gummy(color, { emissive: color, emissiveIntensity: 0.8 });
+
+    // Base Gummy Material
+    const mat = CandyPresets.Gummy(hexColor, { emissive: hexColor, emissiveIntensity: 0.8 });
+
+    // --- PALETTE: TSL Audio-Reactive Juice ---
+    // 1. Audio-Reactive Squash & Stretch (Bass)
+    // Pulse with the kick drum
+    const pulse = float(1.0).add(uAudioLow.mul(0.4));
+
+    // 2. Idle Float & Spin
+    // Organic floating offset using world position to desync instances
+    const phaseX = positionWorld.x.mul(0.5);
+    const phaseZ = positionWorld.z.mul(0.5);
+    const floatOffset = sin(uTime.mul(2.0).add(phaseX).add(phaseZ)).mul(0.1);
+
+    const animatedPos = positionLocal.mul(pulse).add(vec3(0.0, floatOffset, 0.0));
+    mat.positionNode = animatedPos;
+
+    // 3. Audio-Reactive Emissive Pulse & Rim Light
+    // High frequency triggers bright flashes
+    const baseGlowColor = tslColor(hexColor);
+    const flashIntensity = uAudioHigh.mul(2.0);
+    const baseEmissive = baseGlowColor.mul(float(0.8).add(flashIntensity));
+
+    // Juicy Rim Light for that "Neon/Bioluminescent" magic feel
+    const rimLight = createJuicyRimLight(baseGlowColor, float(1.5), float(3.0), null);
+
+    mat.emissiveNode = baseEmissive.add(rimLight);
+
     registerReactiveMaterial(mat);
 
     const orb = new THREE.Mesh(geo, mat);
     orb.castShadow = true;
-    orb.userData.animationType = 'float';
+    // CPU animation replaced by TSL positionNode for better performance and juice
+    // orb.userData.animationType = 'float';
     orb.userData.animationOffset = Math.random() * 10;
     orb.userData.type = 'orb';
 
-    const light = new THREE.PointLight(color, 0.5, 4.0);
+    const light = new THREE.PointLight(hexColor, 0.5, 4.0);
     orb.add(light);
 
     return attachReactivity(orb);
