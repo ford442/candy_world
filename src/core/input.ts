@@ -407,11 +407,19 @@ export function initInput(
             const target = e.target as HTMLInputElement;
             const files = target.files;
             if (files && files.length > 0) {
-                const { validFiles } = filterValidMusicFiles(files);
+                const { validFiles, invalidFiles } = filterValidMusicFiles(files);
                 if (validFiles.length > 0) {
                     audioSystem.addToQueue(validFiles);
                     import('../utils/toast.js').then(({ showToast }) => {
-                        showToast(`Added ${validFiles.length} Song${validFiles.length > 1 ? 's' : ''}! 🎶`, '📂');
+                        if (invalidFiles.length > 0) {
+                            showToast(`Added ${validFiles.length} song${validFiles.length > 1 ? 's' : ''}. (${invalidFiles.length} ignored)`, '⚠️');
+                        } else {
+                            showToast(`Added ${validFiles.length} Song${validFiles.length > 1 ? 's' : ''}! 🎶`, '📂');
+                        }
+                    });
+                } else {
+                    import('../utils/toast.js').then(({ showToast }) => {
+                        showToast("❌ Only .mod, .xm, .it, .s3m allowed!", '🚫');
                     });
                 }
             }
