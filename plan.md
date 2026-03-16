@@ -11,13 +11,15 @@
 ## Next Steps
 
 1. **Phase 4 (Three.js -> WebGPU)**: Raw compute and render pipelines. Begin migrating custom render passes.
-2. **Category 2: Snare-Snap Trap Core**: Allow reflecting projectiles with "Snap Core".
-3. **Category 2: Cymbal Dandelions**: Finish integration of seeds acting as obstacles and manual Sonic Clap triggers.
+2. **Category 2: Cymbal Dandelions**: Finish integration of seeds acting as obstacles and manual Sonic Clap triggers.
+3. **Category 1: Retrigger Mushrooms**: Evaluate remaining strobe sickness HUD flicker effect or ensure it's fully implemented.
 
 ---
 
 ## Recent Progress
 - **Accomplished:**
+  - **Category 2: Snare-Snap Trap Core**: **Status: Implemented ✅**
+    - *Implementation Details:* Added "Snap Core" to `src/systems/unlocks.ts`. Updated `src/foliage/musical_flora.ts` to make Snare-Snap Traps interactive, allowing players to harvest "Snap Shards". Updated collision logic in `src/gameplay/rainbow-blaster.ts` so that projectiles reflect off traps *only* if the "Snap Core" is unlocked; otherwise, the projectile breaks and the trap triggers normally.
   - **Category 3: Wisteria Clusters**: **Status: Implemented ✅**
     - *Implementation Details:* Implemented `createWisteriaCluster` in `src/foliage/wisteria-cluster.ts` which generates hanging wisteria vines. Uses a TSL `MeshStandardNodeMaterial` with the "Cute Clay" preset and modifies `positionLocal` to create an organic sway animated by `uTime` and modulated by high frequency audio (`uAudioHigh`). The plant is interactive and triggers discovery logs. Added to `src/world/generation.ts` and exported in `src/foliage/index.ts`.
   - **Phase 3 (ASC -> C++): Specialized solvers (Remaining Animations SIMD)**: **Status: Implemented ✅**
