@@ -126,8 +126,15 @@ export function createStars(count: number = 1500): THREE.Points {
     // Stronger highs = More neon color
     const finalRGB = mix(baseColorVec, targetColor, smoothstep(0.2, 0.8, uAudioHigh));
 
+    // 🎨 PALETTE: Make opacity breathe with the music organically
+    // Use the star's unique offset to create a phase offset for the pulse so they don't pulse in perfect unison
+    // We add a subtle glow pulse when high energy drops, mixing with base visibility
+    const opacityPhase = time.mul(2.0).add(aOffset);
+    const pulseOffset = sin(opacityPhase).mul(0.5).add(0.5); // 0 to 1
+    const audioOpacity = uStarOpacity.mul(float(1.0).add(smoothstep(0.0, 1.0, uAudioLow).mul(pulseOffset).mul(0.5)));
+
     // Final Output
-    mat.colorNode = vec4(finalRGB, uStarOpacity).mul(mat.color);
+    mat.colorNode = vec4(finalRGB, audioOpacity).mul(mat.color);
     mat.sizeNode = aSize.mul(intensity.max(0.4)); // Keep min size 0.4 so they don't disappear
 
     // 4. Star Warp/Dance (Existing logic preserved but tuned)
