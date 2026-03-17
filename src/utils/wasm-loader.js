@@ -1236,6 +1236,30 @@ export function getFluidDensityView(size = 128) {
     return null;
 }
 
+export function updateParticlesWASM(positions, velocities, count, deltaTime, gravityY, audioPulse, spawnX, spawnY, spawnZ) {
+    const f = getNativeFunc('updateParticlesWASM');
+    if (!f || !emscriptenMemory) return;
+
+    // We expect positions and velocities to be TypedArrays
+    // Since this is a C function expecting float*, we should allocate memory for it,
+    // or assume the caller passed the offset if the memory is already on the WASM heap.
+    // In `particle_compute.ts`, it might pass raw Float32Arrays. We need to copy to/from.
+    const ptrP = emscriptenInstance._malloc(count * 4 * 4);
+    const ptrV = emscriptenInstance._malloc(count * 4 * 4);
+
+    const heapF32 = new Float32Array(emscriptenMemory);
+    heapF32.set(positions, ptrP >> 2);
+    heapF32.set(velocities, ptrV >> 2);
+
+    f(ptrP, ptrV, count, deltaTime, gravityY, audioPulse, spawnX, spawnY, spawnZ);
+
+    positions.set(heapF32.subarray(ptrP >> 2, (ptrP >> 2) + count * 4));
+    velocities.set(heapF32.subarray(ptrV >> 2, (ptrV >> 2) + count * 4));
+
+    emscriptenInstance._free(ptrP);
+    emscriptenInstance._free(ptrV);
+}
+
 // Re-exports
 export { 
     LOADING_PHASES, 
