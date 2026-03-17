@@ -2,7 +2,7 @@
 
 import * as THREE from 'three';
 import '../style.css';
-import { uWindSpeed, uWindDirection, uSkyTopColor, uSkyBottomColor, uHorizonColor, uAtmosphereIntensity, uStarOpacity, uAuroraIntensity, uAuroraColor, uAudioLow, uAudioHigh, uGlitchIntensity, uChromaticIntensity, uTime, uPlayerPosition, createAurora, createChromaticPulse, animateFoliage, updateFoliageMaterials, updateFallingBerries, collectFallingBerries, createMushroom, validateNodeGeometries, createMelodyRibbon, updateMelodyRibbons, createSparkleTrail, updateSparkleTrail, createImpactSystem, createShield, createDandelionSeedSystem, createDiscoveryEffect } from './foliage/index.ts';
+import { uWindSpeed, uWindDirection, uSkyTopColor, uSkyBottomColor, uHorizonColor, uAtmosphereIntensity, uStarOpacity, uAuroraIntensity, uAuroraColor, uAudioLow, uAudioHigh, uGlitchIntensity, uChromaticIntensity, uTime, uPlayerPosition, createAurora, createChromaticPulse, createStrobePulse, uStrobeIntensity, animateFoliage, updateFoliageMaterials, updateFallingBerries, collectFallingBerries, createMushroom, validateNodeGeometries, createMelodyRibbon, updateMelodyRibbons, createSparkleTrail, updateSparkleTrail, createImpactSystem, createShield, createDandelionSeedSystem, createDiscoveryEffect } from './foliage/index.ts';
 import { initCelestialBodies } from './foliage/celestial-bodies.ts';
 import { InteractionSystem } from './systems/interaction.ts';
 import { unlockSystem } from './systems/unlocks.ts';
@@ -104,6 +104,7 @@ validateNodeGeometries(scene);
 // Defer non-critical visual elements to load after basic scene is ready
 let aurora: THREE.Object3D | null = null;
 let chromaticPulse: THREE.Object3D | null = null;
+let strobePulse: THREE.Object3D | null = null;
 let celestialBodiesInitialized = false;
 let melodyRibbon: any = null;
 let sparkleTrail: any = null;
@@ -136,6 +137,12 @@ function initDeferredVisuals() {
         chromaticPulse = createChromaticPulse();
         camera.add(chromaticPulse);
         console.log('[Deferred] Chromatic Pulse initialized');
+    }
+
+    if (!strobePulse) {
+        strobePulse = createStrobePulse();
+        camera.add(strobePulse);
+        console.log('[Deferred] Strobe Pulse initialized');
     }
     console.timeEnd('Environmental Effects');
 

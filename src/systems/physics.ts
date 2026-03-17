@@ -24,6 +24,7 @@ import {
     KeyStates
 } from './physics.core.ts';
 import { uChromaticIntensity } from '../foliage/chromatic.ts';
+import { uStrobeIntensity } from '../foliage/strobe.ts';
 import { uGlitchExplosionCenter, uGlitchExplosionRadius } from '../foliage/common.ts';
 import { spawnImpact } from '../foliage/impacts.ts';
 import { VineSwing } from '../foliage/trees.ts';
@@ -783,6 +784,58 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
 
     // --- Vibrato Violets (Frequency Distortion Field) ---
     checkVibratoViolets(delta, audioState);
+
+    // --- Retrigger Mushrooms (Strobe Sickness HUD Flicker) ---
+    checkRetriggerMushrooms(delta, audioState);
+}
+
+function checkRetriggerMushrooms(delta: number, audioState: AudioState | null) {
+    if (!audioState || !audioState.channelData) return;
+
+    const playerPos = player.position;
+    let inStrobeField = false;
+    let maxIntensity = 0;
+
+    for (const obj of animatedFoliage) {
+        if (obj.userData?.type === 'retrigger_mushroom') {
+            const dx = playerPos.x - obj.position.x;
+            const dz = playerPos.z - obj.position.z;
+            const distSq = dx * dx + dz * dz;
+
+            // 15m radius
+            if (distSq < 15.0 * 15.0) {
+                // Determine if any channel is playing a retrigger effect (5 or 'Rxx')
+                let isStrobing = false;
+                for (const ch of audioState.channelData) {
+                    if (ch.activeEffect === 5 && ch.effectValue > 0) {
+                        isStrobing = true;
+                        break;
+                    }
+                }
+
+                if (isStrobing) {
+                    inStrobeField = true;
+                    // Calculate intensity based on distance
+                    const dist = Math.sqrt(distSq);
+                    const localIntensity = 1.0 - (dist / 15.0);
+                    if (localIntensity > maxIntensity) {
+                        maxIntensity = localIntensity;
+                    }
+                }
+            }
+        }
+    }
+
+    if (inStrobeField) {
+        if (typeof uStrobeIntensity !== 'undefined') {
+            uStrobeIntensity.value = Math.max(uStrobeIntensity.value, maxIntensity * 0.8);
+        }
+    } else {
+        // Decay the strobe intensity rapidly when out of range or not strobing
+        if (typeof uStrobeIntensity !== 'undefined' && uStrobeIntensity.value > 0) {
+            uStrobeIntensity.value = Math.max(0, uStrobeIntensity.value - delta * 2.0);
+        }
+    }
 }
 
 function checkVibratoViolets(delta: number, audioState: AudioState | null) {
