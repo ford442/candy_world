@@ -1,0 +1,143 @@
+name: Visual Regression Tests
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'src/**'
+      - 'assets/**'
+      - '.github/workflows/visual-regression.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'assets/**'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  visual-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: |
+          # Use pnpm since there is a pnpm-lock.yaml file
+          npm install -g pnpm
+          pnpm install
+          cd tools/visual-regression
+          pnpm install
+
+      - name: Install Playwright
+        run: |
+          cd tools/visual-regression
+          npx playwright install chromium
+
+      - name: Build WASM
+        run: |
+          pnpm run build:wasm
+
+      - name: Start dev server
+        run: |
+          pnpm exec vite &
+          npx wait-on http://localhost:5173 --timeout 60000
+
+      - name: Run visual regression tests
+        run: |
+          cd tools/visual-regression
+          pnpm run test:visual -- \
+            --viewpoints spawn,lake,forest \
+            --qualities medium,high \
+            --threshold 0.05
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-regression-report-${{ github.run_id }}
+          path: |
+            test/screenshots/report/
+            test/screenshots/diffs/
+          retention-days: 7
+
+      - name: Comment PR with results
+        if: github.event_name == 'pull_request' && failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number
+            });
+            
+            const botComment = comments.find(comment => 
+              comment.user.type === 'Bot' && 
+              comment.body.includes('Visual Regression Test Results')
+            );
+            
+            const body = `## 🎮 Visual Regression Test Results
+            
+            ❌ **Tests Failed** - [View Report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+            
+            Please review the visual differences in the uploaded artifact.
+            `;
+            
+            try {
+              if (botComment) {
+                await github.rest.issues.updateComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  comment_id: botComment.id,
+                  body
+                });
+              } else {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.issue.number,
+                  body
+                });
+              }
+            } catch (err) {
+              console.log("Could not post comment to PR. This may be due to token permissions.");
+            }
+
+  update-baselines:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: visual-regression
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      # Baselines should be updated manually via PRs with intentional changes
+      # This job is a placeholder for automated baseline updates if needed
+      - name: Baseline update placeholder
+        run: |
+          echo "Baselines should be updated via PR when making intentional visual changes"

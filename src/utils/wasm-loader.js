@@ -309,7 +309,7 @@ async function loadEmscriptenModule(forceSingleThreaded = false) {
         }
 
         if (emscriptenInstance.wasmMemory) {
-            emscriptenMemory = emscriptenInstance.wasmMemory;
+            emscriptenMemory = emscriptenInstance.wasmMemory.buffer;
         } else if (emscriptenInstance.HEAP8) {
             emscriptenMemory = emscriptenInstance.HEAP8.buffer;
         }
@@ -416,43 +416,131 @@ export function uploadCollisionObjects(caves, mushrooms, clouds, trampolines) {
 
     wasmInitCollisionSystem();
 
+    // ⚡ PERFORMANCE: Use batch upload instead of sequential calls
     // TYPE_MUSHROOM = 1, TYPE_CLOUD = 2, TYPE_GATE = 3, TYPE_TRAMPOLINE = 4
 
-    // 1. Gates
-    if (caves) {
-        caves.forEach(cave => {
-            if (cave.userData.isBlocked) {
-                const gatePos = cave.userData.gatePosition.clone().applyMatrix4(cave.matrixWorld);
-                wasmAddCollisionObject(3, gatePos.x, gatePos.y, gatePos.z, 2.5, 5.0, 0, 0); // Radius 2.5
+    // Calculate total count first
+    let totalCount = 0;
+    if (caves) totalCount += caves.filter(c => c.userData.isBlocked).length;
+    if (mushrooms) totalCount += mushrooms.length;
+    if (clouds) totalCount += clouds.filter(c => c.userData.tier === 1).length;
+
+    if (totalCount === 0) {
+        console.log('[WASM] No collision objects to upload.');
+        return true;
+    }
+
+    // Check if batch function exists
+    const hasBatchFunction = wasmInstance && wasmInstance.exports.addCollisionObjectsBatch;
+
+    if (hasBatchFunction) {
+        // Use batch upload - reduces JS<->WASM bridge crossings from N to 1
+        const BATCH_SIZE = 8; // [type, x, y, z, r, h, p1, p2]
+        const batchData = new Float32Array(totalCount * BATCH_SIZE);
+        let ptr = 0;
+
+        // 1. Gates
+        if (caves) {
+            for (const cave of caves) {
+                if (cave.userData.isBlocked) {
+                    const gatePos = cave.userData.gatePosition.clone().applyMatrix4(cave.matrixWorld);
+                    batchData[ptr++] = 3; // type
+                    batchData[ptr++] = gatePos.x;
+                    batchData[ptr++] = gatePos.y;
+                    batchData[ptr++] = gatePos.z;
+                    batchData[ptr++] = 2.5; // r
+                    batchData[ptr++] = 5.0; // h
+                    batchData[ptr++] = 0;   // p1
+                    batchData[ptr++] = 0;   // p2
+                }
             }
-        });
-    }
+        }
 
-    // 2. Mushrooms
-    if (mushrooms) {
-        mushrooms.forEach(m => {
-            if (m.userData.isTrampoline) {
-                 wasmAddCollisionObject(4, m.position.x, m.position.y, m.position.z,
-                    m.userData.capRadius || 2.0, m.userData.capHeight || 3.0, 0, 0);
-            } else {
-                 wasmAddCollisionObject(1, m.position.x, m.position.y, m.position.z,
-                    m.userData.capRadius || 2.0, m.userData.capHeight || 3.0, 0, 0);
+        // 2. Mushrooms
+        if (mushrooms) {
+            for (const m of mushrooms) {
+                const type = m.userData.isTrampoline ? 4 : 1;
+                batchData[ptr++] = type;
+                batchData[ptr++] = m.position.x;
+                batchData[ptr++] = m.position.y;
+                batchData[ptr++] = m.position.z;
+                batchData[ptr++] = m.userData.capRadius || 2.0;
+                batchData[ptr++] = m.userData.capHeight || 3.0;
+                batchData[ptr++] = 0;
+                batchData[ptr++] = 0;
             }
-        });
+        }
+
+        // 3. Clouds
+        if (clouds) {
+            for (const c of clouds) {
+                if (c.userData.tier === 1) {
+                    batchData[ptr++] = 2; // type
+                    batchData[ptr++] = c.position.x;
+                    batchData[ptr++] = c.position.y;
+                    batchData[ptr++] = c.position.z;
+                    batchData[ptr++] = c.scale.x || 1.0;
+                    batchData[ptr++] = c.scale.y || 1.0;
+                    batchData[ptr++] = 0;
+                    batchData[ptr++] = 0;
+                }
+            }
+        }
+
+        // Upload batch to WASM
+        const wasmBatchUpload = wasmInstance.exports.addCollisionObjectsBatch;
+        if (wasmBatchUpload) {
+            // Allocate memory in WASM and copy data
+            const wasmMalloc = wasmInstance.exports.malloc || wasmInstance.exports.__new;
+            if (wasmMalloc) {
+                const dataPtr = wasmMalloc(batchData.length * 4); // 4 bytes per float
+                const wasmFloatView = new Float32Array(wasmMemory.buffer, dataPtr, batchData.length);
+                wasmFloatView.set(batchData);
+
+                wasmBatchUpload(dataPtr, totalCount);
+
+                // Free the allocated memory
+                const wasmFree = wasmInstance.exports.free || wasmInstance.exports.__free;
+                if (wasmFree) wasmFree(dataPtr);
+            }
+        }
+    } else {
+        // Fallback: Sequential upload (for backwards compatibility)
+        // 1. Gates
+        if (caves) {
+            caves.forEach(cave => {
+                if (cave.userData.isBlocked) {
+                    const gatePos = cave.userData.gatePosition.clone().applyMatrix4(cave.matrixWorld);
+                    wasmAddCollisionObject(3, gatePos.x, gatePos.y, gatePos.z, 2.5, 5.0, 0, 0);
+                }
+            });
+        }
+
+        // 2. Mushrooms
+        if (mushrooms) {
+            mushrooms.forEach(m => {
+                if (m.userData.isTrampoline) {
+                     wasmAddCollisionObject(4, m.position.x, m.position.y, m.position.z,
+                        m.userData.capRadius || 2.0, m.userData.capHeight || 3.0, 0, 0);
+                } else {
+                     wasmAddCollisionObject(1, m.position.x, m.position.y, m.position.z,
+                        m.userData.capRadius || 2.0, m.userData.capHeight || 3.0, 0, 0);
+                }
+            });
+        }
+
+        // 3. Clouds
+        if (clouds) {
+            clouds.forEach(c => {
+                 if (c.userData.tier === 1) {
+                     wasmAddCollisionObject(2, c.position.x, c.position.y, c.position.z,
+                        c.scale.x || 1.0, c.scale.y || 1.0, 0, 0);
+                 }
+            });
+        }
     }
 
-    // 3. Clouds
-    if (clouds) {
-        clouds.forEach(c => {
-             // Cloud Tier 1 only
-             if (c.userData.tier === 1) {
-                 wasmAddCollisionObject(2, c.position.x, c.position.y, c.position.z,
-                    c.scale.x || 1.0, c.scale.y || 1.0, 0, 0);
-             }
-        });
-    }
-
-    console.log('[WASM] Uploaded collision objects to ASC.');
+    console.log(`[WASM] Uploaded ${totalCount} collision objects to ASC.${hasBatchFunction ? ' (batched)' : ' (sequential)'}`);
     return true;
 }
 
@@ -1126,6 +1214,28 @@ export function addObstacle(type, x, y, z, r, h, p1, p2, p3) {
     if (f) f(type, x, y, z, r, h, p1, p2, p3 ? 1.0 : 0.0);
 }
 
+export function uploadObstaclesBatch(objectsData, count) {
+    if (!emscriptenInstance || !emscriptenInstance._malloc || !emscriptenInstance._free) return;
+    const f = getNativeFunc('addObstaclesBatch');
+    if (!f) return;
+
+    // 9 floats per obstacle
+    const bytes = count * 9 * 4;
+    const ptr = emscriptenInstance._malloc(bytes);
+    if (!ptr) return;
+
+    // ⚡ OPTIMIZATION: Copy JS float array into WASM memory using batched writes
+    // emscriptenMemory holds the WASM heap buffer
+    const heapF32 = new Float32Array(emscriptenMemory);
+    heapF32.set(objectsData, ptr >> 2);
+
+    // Invoke C++
+    f(ptr, count);
+
+    // Free memory
+    emscriptenInstance._free(ptr);
+}
+
 export function setPlayerState(x, y, z, vx, vy, vz) {
     const f = getNativeFunc('setPlayerState');
     if (f) f(x, y, z, vx, vy, vz);
@@ -1182,6 +1292,82 @@ export function hash(x, y) {
 }
 
 // =============================================================================
+// AGENT 1: SIMPLE ANIMATION BATCH FUNCTIONS
+// =============================================================================
+
+export function batchShiver_c(input, count, time, intensity, output) {
+    const f = getNativeFunc('batchShiver_c');
+    if (f) f(input, count, time, intensity, output);
+}
+
+export function batchSpring_c(input, count, time, intensity, output) {
+    const f = getNativeFunc('batchSpring_c');
+    if (f) f(input, count, time, intensity, output);
+}
+
+export function batchFloat_c(input, count, time, intensity, output) {
+    const f = getNativeFunc('batchFloat_c');
+    if (f) f(input, count, time, intensity, output);
+}
+
+export function batchCloudBob_c(input, count, time, intensity, output) {
+    const f = getNativeFunc('batchCloudBob_c');
+    if (f) f(input, count, time, intensity, output);
+}
+
+// =============================================================================
+// AGENT 2: MESH DEFORMATION FUNCTIONS
+// =============================================================================
+
+export function deformWave_c(positions, count, time, strength, frequency) {
+    const f = getNativeFunc('deformWave_c');
+    if (f) f(positions, count, time, strength, frequency);
+}
+
+export function deformJiggle_c(positions, count, time, strength, audioPulse) {
+    const f = getNativeFunc('deformJiggle_c');
+    if (f) f(positions, count, time, strength, audioPulse);
+}
+
+export function deformWobble_c(positions, count, time, strength, audioPulse) {
+    const f = getNativeFunc('deformWobble_c');
+    if (f) f(positions, count, time, strength, audioPulse);
+}
+
+// =============================================================================
+// AGENT 3: LOD BATCH FUNCTIONS
+// =============================================================================
+
+export function batchUpdateLODMatrices_c(matrices, colors, count, cameraX, cameraY, cameraZ, lod1Dist, lod2Dist, cullDist, results) {
+    const f = getNativeFunc('batchUpdateLODMatrices_c');
+    if (f) f(matrices, colors, count, cameraX, cameraY, cameraZ, lod1Dist, lod2Dist, cullDist, results);
+}
+
+export function batchScaleMatrices_c(matrices, count, scaleX, scaleY, scaleZ) {
+    const f = getNativeFunc('batchScaleMatrices_c');
+    if (f) f(matrices, count, scaleX, scaleY, scaleZ);
+}
+
+export function batchFadeColors_c(colors, count, fadeAmount) {
+    const f = getNativeFunc('batchFadeColors_c');
+    if (f) f(colors, count, fadeAmount);
+}
+
+// =============================================================================
+// AGENT 4: FRUSTUM/DISTANCE CULLING FUNCTIONS
+// =============================================================================
+
+export function batchFrustumCull_c(positions, count, frustumPlanes, results) {
+    const f = getNativeFunc('batchFrustumCull_c');
+    if (f) f(positions, count, frustumPlanes, results);
+}
+
+export function batchDistanceCullIndexed_c(positions, indices, indexCount, camX, camY, camZ, maxDistSq, results) {
+    const f = getNativeFunc('batchDistanceCullIndexed_c');
+    if (f) f(positions, indices, indexCount, camX, camY, camZ, maxDistSq, results);
+}
+
+// =============================================================================
 // FLUID SIMULATION WRAPPERS
 // =============================================================================
 
@@ -1212,6 +1398,30 @@ export function getFluidDensityView(size = 128) {
         return new Float32Array(emscriptenMemory, ptr, size * size);
     }
     return null;
+}
+
+export function updateParticlesWASM(positions, velocities, count, deltaTime, gravityY, audioPulse, spawnX, spawnY, spawnZ) {
+    const f = getNativeFunc('updateParticlesWASM');
+    if (!f || !emscriptenMemory) return;
+
+    // We expect positions and velocities to be TypedArrays
+    // Since this is a C function expecting float*, we should allocate memory for it,
+    // or assume the caller passed the offset if the memory is already on the WASM heap.
+    // In `particle_compute.ts`, it might pass raw Float32Arrays. We need to copy to/from.
+    const ptrP = emscriptenInstance._malloc(count * 4 * 4);
+    const ptrV = emscriptenInstance._malloc(count * 4 * 4);
+
+    const heapF32 = new Float32Array(emscriptenMemory);
+    heapF32.set(positions, ptrP >> 2);
+    heapF32.set(velocities, ptrV >> 2);
+
+    f(ptrP, ptrV, count, deltaTime, gravityY, audioPulse, spawnX, spawnY, spawnZ);
+
+    positions.set(heapF32.subarray(ptrP >> 2, (ptrP >> 2) + count * 4));
+    velocities.set(heapF32.subarray(ptrV >> 2, (ptrV >> 2) + count * 4));
+
+    emscriptenInstance._free(ptrP);
+    emscriptenInstance._free(ptrV);
 }
 
 // Re-exports

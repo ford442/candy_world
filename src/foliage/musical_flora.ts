@@ -219,7 +219,21 @@ export function createSnareTrap(options: SnareTrapOptions = {}) {
     // Scale
     group.scale.setScalar(scale);
 
-    return attachReactivity(group);
+    group.userData.interactionText = 'Harvest Snap Shard';
+    group.userData.onInteract = () => {
+        if (!group.userData.harvested) {
+            unlockSystem.harvest('snap_shard', 1, 'Snap Shard');
+            group.userData.harvested = true;
+            group.userData.interactionText = '';
+            group.userData.updateInteractionState?.();
+
+            // Visual FX
+            spawnImpact(group.position, 'spore', new THREE.Color(0xFF4444));
+        }
+    };
+
+    const reactiveGroup = attachReactivity(group);
+    return makeInteractive(reactiveGroup);
 }
 
 export function createRetriggerMushroom(options: RetriggerMushroomOptions = {}) {

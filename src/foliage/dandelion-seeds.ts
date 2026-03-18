@@ -190,9 +190,9 @@ export function createDandelionSeedSystem(): THREE.InstancedMesh {
             const itemSize = 4; // vec4
             const updateProps = { offset: start * itemSize, count: count * itemSize };
 
-            _spawnAttr.updateRange = updateProps;
-            _velAttr.updateRange = updateProps;
-            _miscAttr.updateRange = updateProps;
+            _spawnAttr.updateRanges = [{ start: updateProps.offset, count: updateProps.count }];
+            _velAttr.updateRanges = [{ start: updateProps.offset, count: updateProps.count }];
+            _miscAttr.updateRanges = [{ start: updateProps.offset, count: updateProps.count }];
 
             _spawnAttr.needsUpdate = true;
             _velAttr.needsUpdate = true;

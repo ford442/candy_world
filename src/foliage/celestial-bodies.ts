@@ -1,8 +1,9 @@
 // src/foliage/celestial-bodies.ts
 
 import * as THREE from 'three';
-import { MeshBasicNodeMaterial, PointsNodeMaterial } from 'three/webgpu';
-import { attachReactivity, CandyPresets } from './common.ts';
+import { MeshBasicNodeMaterial, PointsNodeMaterial, MeshStandardNodeMaterial } from 'three/webgpu';
+import { color, float, vec3, vec4, uniform, mix, sin, cos, time, positionLocal, attribute } from 'three/tsl';
+import { attachReactivity, CandyPresets, uAudioLow, uAudioHigh, uTime } from './common.ts';
 
 // Helper to place objects on a distant sky sphere
 function getRandomSkyPosition(radius: number): THREE.Vector3 {
@@ -21,21 +22,42 @@ function getRandomSkyPosition(radius: number): THREE.Vector3 {
 function createPulsar(): THREE.Group {
     const group = new THREE.Group();
 
+    // 🎨 PALETTE: TSL Audio Reactive Pulsar
+    const baseScale = float(1.0).add(uAudioHigh.mul(1.5)); // Expand on Highs
+    const pulseOffset = sin(uTime.mul(5.0)).mul(0.1).add(1.0); // Subtle idle breathe
+    const totalScale = baseScale.mul(pulseOffset);
+
     // Core Star
     const geo = new THREE.SphereGeometry(4, 16, 16);
-    const mat = new MeshBasicNodeMaterial({ color: 0xAAFFFF });
+    const mat = new MeshStandardNodeMaterial({
+        color: 0xFFFFFF,
+        roughness: 0.2,
+        metalness: 0.1
+    });
+
+    // Deform vertices and make it glow
+    mat.positionNode = positionLocal.mul(totalScale);
+    mat.emissiveNode = color(0xAAFFFF).mul(float(2.0).add(uAudioHigh.mul(5.0)));
+
     const core = new THREE.Mesh(geo, mat);
     group.add(core);
 
     // Glow Halo (Billboard Sprite logic or simple transparent sphere)
     const glowGeo = new THREE.SphereGeometry(8, 16, 16);
-    const glowMat = new MeshBasicNodeMaterial({
+    const glowMat = new MeshStandardNodeMaterial({
         color: 0x00FFFF,
         transparent: true,
-        opacity: 0.3,
+        opacity: 0.4,
         blending: THREE.AdditiveBlending,
-        side: THREE.BackSide
+        side: THREE.BackSide,
+        depthWrite: false
     });
+
+    // Scale the halo aggressively on beat
+    const haloScale = float(1.0).add(uAudioHigh.mul(2.0)).mul(pulseOffset);
+    glowMat.positionNode = positionLocal.mul(haloScale);
+    glowMat.emissiveNode = color(0x00FFFF).mul(float(1.0).add(uAudioHigh.mul(3.0)));
+
     const glow = new THREE.Mesh(glowGeo, glowMat);
     group.add(glow);
 
@@ -53,22 +75,40 @@ function createPulsar(): THREE.Group {
 function createBassPlanet(): THREE.Group {
     const group = new THREE.Group();
 
+    // 🎨 PALETTE: TSL Audio Reactive Bass Planet
+    const bassPulse = uAudioLow.mul(0.2); // Pulse on kick
+    const planetScale = float(1.0).add(bassPulse);
+
     // Planet Body
     const planetGeo = new THREE.IcosahedronGeometry(15, 2);
     const planetMat = CandyPresets.Clay(0xFF4444, {
         roughness: 0.8
     });
+
+    // Deform planet and add inner glow
+    planetMat.positionNode = positionLocal.mul(planetScale);
+    planetMat.emissiveNode = color(0xFF4444).mul(bassPulse.mul(2.0));
+
     const planet = new THREE.Mesh(planetGeo, planetMat);
     group.add(planet);
 
     // Rings
     const ringGeo = new THREE.RingGeometry(20, 35, 32);
-    const ringMat = new MeshBasicNodeMaterial({
+    const ringMat = new MeshStandardNodeMaterial({
         color: 0xFFAA88,
         side: THREE.DoubleSide,
         transparent: true,
-        opacity: 0.6
+        opacity: 0.8,
+        roughness: 0.4
     });
+
+    // Rings warp and glow on bass
+    const ringWarp = sin(uTime.mul(2.0).add(positionLocal.x.mul(0.1))).mul(uAudioLow.mul(2.0));
+    const ringScale = float(1.0).add(uAudioLow.mul(0.1));
+
+    ringMat.positionNode = positionLocal.mul(ringScale).add(vec3(0, ringWarp, 0));
+    ringMat.emissiveNode = color(0xFFAA88).mul(bassPulse.mul(3.0));
+
     const ring = new THREE.Mesh(ringGeo, ringMat);
     ring.rotation.x = Math.PI / 2.5; // Tilt the ring
     group.add(ring);
@@ -133,11 +173,29 @@ function createGalaxy(): THREE.Points {
 
     const mat = new PointsNodeMaterial({
         size: 0.8,
-        vertexColors: true,
+        vertexColors: true, // We will override with colorNode, but keep this to pass vertexColors
         blending: THREE.AdditiveBlending,
         depthWrite: false,
         transparent: true
     });
+
+    // 🎨 PALETTE: TSL Audio Reactive Galaxy
+    const particleSize = attribute('size', 'float');
+    const particleColor = attribute('color', 'vec3');
+
+    // Pulse size on melody highs
+    const audioScale = float(1.0).add(uAudioHigh.mul(2.0));
+    mat.sizeNode = particleSize.mul(audioScale).mul(mat.size);
+
+    // Shift color towards neon on beat
+    const highColor = mix(particleColor, vec3(1.0, 0.2, 0.8), uAudioHigh.mul(0.5));
+    mat.colorNode = vec4(highColor, 1.0);
+
+    // Add subtle idle rotation to particles using positionLocal
+    const angle = uTime.mul(0.5);
+    const rotatedX = positionLocal.x.mul(cos(angle)).sub(positionLocal.z.mul(sin(angle)));
+    const rotatedZ = positionLocal.x.mul(sin(angle)).add(positionLocal.z.mul(cos(angle)));
+    mat.positionNode = vec3(rotatedX, positionLocal.y, rotatedZ);
 
     const galaxy = new THREE.Points(geo, mat);
 

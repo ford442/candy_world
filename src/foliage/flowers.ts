@@ -29,6 +29,7 @@ import { makeInteractiveCylinder } from '../utils/interaction-utils.ts';
 import { treeBatcher } from './tree-batcher.ts';
 import { flowerBatcher } from './flower-batcher.ts'; // ⚡ OPTIMIZATION: New Unified Batcher
 import { spawnImpact } from './impacts.ts';
+import { getCircleGeometry, getCylinderGeometry, getTorusGeometry, getSphereGeometry } from '../utils/geometry-dedup.ts';
 
 interface FlowerOptions {
     color?: number | string | THREE.Color | null;
@@ -112,18 +113,25 @@ export function createStarflower(options: { color?: number | string | THREE.Colo
     const group = new THREE.Group();
 
     const stemH = 0.7 + Math.random() * 0.4;
-    const stem = new THREE.Mesh(sharedGeometries.unitCylinder, createClayMaterial(0x228B22));
+    // ⚡ OPTIMIZATION: Cache Stem
+    const stemMat = getCachedProceduralMaterial('starflower_stem', 0x228B22, () => createClayMaterial(0x228B22));
+    const stem = new THREE.Mesh(sharedGeometries.unitCylinder, stemMat);
     stem.scale.set(0.04, stemH, 0.04);
     stem.castShadow = true;
     group.add(stem);
 
-    const center = new THREE.Mesh(sharedGeometries.unitSphere, (foliageMaterials as any).flowerCenter);
+    // @ts-ignore
+    const center = new THREE.Mesh(sharedGeometries.unitSphere, foliageMaterials.flowerCenter);
     center.scale.setScalar(0.09);
     center.position.y = stemH;
     group.add(center);
 
-    const petalMat = createClayMaterial(hexColor);
-    registerReactiveMaterial(petalMat);
+    // ⚡ OPTIMIZATION: Cache Petals
+    const petalMat = getCachedProceduralMaterial('starflower_petal', hexColor, () => {
+        const mat = createClayMaterial(hexColor);
+        registerReactiveMaterial(mat);
+        return mat;
+    });
 
     const petalCount = 6 + Math.floor(Math.random() * 3);
     for (let i = 0; i < petalCount; i++) {
@@ -136,18 +144,23 @@ export function createStarflower(options: { color?: number | string | THREE.Colo
         group.add(petal);
     }
 
-    const beamMat = (foliageMaterials as any).lightBeam.clone();
-    beamMat.colorNode = tslColor(hexColor);
+    // ⚡ OPTIMIZATION: Cache Beam
+    const beamMat = getCachedProceduralMaterial('starflower_beam', hexColor, () => {
+        // @ts-ignore
+        const mat = foliageMaterials.lightBeam.clone();
+        mat.colorNode = tslColor(hexColor);
+        return mat;
+    });
+
     const beam = new THREE.Mesh(sharedGeometries.unitCone, beamMat);
     beam.position.y = stemH;
-    beam.scale.set(0.02, 4.0, 0.02); // Tall thin beam
+    beam.scale.set(0.02, 4.0, 0.02);
     beam.userData.isBeam = true;
     group.add(beam);
 
     group.userData.animationType = 'spin';
     group.userData.animationOffset = Math.random() * 10;
     group.userData.type = 'starflower';
-    // Moon Flower logic (Night only)
     return attachReactivity(group, { minLight: 0.0, maxLight: 0.4 });
 }
 
@@ -156,14 +169,20 @@ export function createBellBloom(options: { color?: number | string | THREE.Color
     const group = new THREE.Group();
 
     const stemH = 0.4 + Math.random() * 0.2;
-    const stem = new THREE.Mesh(sharedGeometries.unitCylinder, createClayMaterial(0x2E8B57));
+    // ⚡ OPTIMIZATION: Cache Stem
+    const stemMat = getCachedProceduralMaterial('bellbloom_stem', 0x2E8B57, () => createClayMaterial(0x2E8B57));
+    const stem = new THREE.Mesh(sharedGeometries.unitCylinder, stemMat);
     stem.scale.set(0.03, stemH, 0.03);
     stem.castShadow = true;
     stem.position.y = 0;
     group.add(stem);
 
-    const petalMat = createClayMaterial(color);
-    registerReactiveMaterial(petalMat);
+    // ⚡ OPTIMIZATION: Cache Petals
+    const petalMat = getCachedProceduralMaterial('bellbloom_petal', color, () => {
+        const mat = createClayMaterial(color);
+        registerReactiveMaterial(mat);
+        return mat;
+    });
 
     const petals = 4 + Math.floor(Math.random() * 3);
     for (let i = 0; i < petals; i++) {
@@ -179,8 +198,6 @@ export function createBellBloom(options: { color?: number | string | THREE.Color
     group.userData.animationType = pickAnimation(['sway', 'wobble']);
     group.userData.animationOffset = Math.random() * 10;
     group.userData.type = 'flower';
-    
-    // ⚡ PERFORMANCE: Set accurate bounding radius for frustum culling
     group.userData.radius = 0.3;
     
     return attachReactivity(group, { minLight: 0.2, maxLight: 1.0 });
@@ -191,15 +208,21 @@ export function createPuffballFlower(options: { color?: number } = {}): THREE.Gr
     const group = new THREE.Group();
 
     const stemH = 1.0 + Math.random() * 0.5;
-    const stem = new THREE.Mesh(sharedGeometries.unitCylinder, createClayMaterial(0x6B8E23));
+    // ⚡ OPTIMIZATION: Cache Stem
+    const stemMat = getCachedProceduralMaterial('puffball_stem', 0x6B8E23, () => createClayMaterial(0x6B8E23));
+    const stem = new THREE.Mesh(sharedGeometries.unitCylinder, stemMat);
     stem.scale.set(0.1, stemH, 0.1);
-    stem.position.y = 0; // Pivot is bottom
+    stem.position.y = 0;
     stem.castShadow = true;
     group.add(stem);
 
     const headR = 0.4 + Math.random() * 0.2;
-    const headMat = createClayMaterial(color);
-    registerReactiveMaterial(headMat);
+    // ⚡ OPTIMIZATION: Cache Head
+    const headMat = getCachedProceduralMaterial('puffball_head', color, () => {
+        const mat = createClayMaterial(color);
+        registerReactiveMaterial(mat);
+        return mat;
+    });
 
     const head = new THREE.Mesh(sharedGeometries.unitSphere, headMat);
     head.scale.setScalar(headR);
@@ -208,8 +231,12 @@ export function createPuffballFlower(options: { color?: number } = {}): THREE.Gr
     group.add(head);
 
     const sporeCount = 4 + Math.floor(Math.random() * 4);
-    const sporeMat = createClayMaterial(color + 0x111111);
-    registerReactiveMaterial(sporeMat);
+    // ⚡ OPTIMIZATION: Cache Spores
+    const sporeMat = getCachedProceduralMaterial('puffball_spore', color + 0x111111, () => {
+        const mat = createClayMaterial(color + 0x111111);
+        registerReactiveMaterial(mat);
+        return mat;
+    });
 
     for (let i = 0; i < sporeCount; i++) {
         const spore = new THREE.Mesh(sharedGeometries.unitSphere, sporeMat);
@@ -229,16 +256,11 @@ export function createPuffballFlower(options: { color?: number } = {}): THREE.Gr
     group.userData.animationType = pickAnimation(['sway', 'accordion']);
     group.userData.animationOffset = Math.random() * 10;
     group.userData.type = 'flower';
-    
-    // ⚡ PERFORMANCE: Set accurate bounding radius for frustum culling
-    group.userData.radius = headR * 1.5; // Spore ball radius
-
+    group.userData.radius = headR * 1.5;
     group.userData.isTrampoline = true;
     group.userData.bounceHeight = stemH;
     group.userData.bounceRadius = headR + 0.3;
     group.userData.bounceForce = 12 + Math.random() * 5;
-
-    // 🎨 Palette: Interaction Hint
     group.userData.interactionText = "🚀 Bounce";
 
     return attachReactivity(group, { minLight: 0.2, maxLight: 1.0 });
@@ -247,7 +269,8 @@ export function createPuffballFlower(options: { color?: number } = {}): THREE.Gr
 export function createPrismRoseBush(options = {}): THREE.Group {
     const group = new THREE.Group();
 
-    const stemsMat = createClayMaterial(0x5D4037);
+    // ⚡ OPTIMIZATION: Cache Stem
+    const stemsMat = getCachedProceduralMaterial('prism_stem', 0x5D4037, () => createClayMaterial(0x5D4037));
     const baseHeight = 1.0 + Math.random() * 0.5;
 
     const trunk = new THREE.Mesh(sharedGeometries.unitCylinder, stemsMat);
@@ -274,25 +297,43 @@ export function createPrismRoseBush(options = {}): THREE.Group {
 
         const hexColor = roseColors[Math.floor(Math.random() * roseColors.length)];
         
-        // Use safe helper
-        const petalMat = createStandardNodeMaterial({
-            color: hexColor,
-            roughness: 0.7,
-            emissive: 0x000000,
-            emissiveIntensity: 0.0
+        // --- PALETTE: Juicy TSL for Prism Rose Bush ---
+        // ⚡ OPTIMIZATION: Cache Petals with Juicy TSL logic preserved
+        const petalMat = getCachedProceduralMaterial('prism_petal', hexColor, () => {
+            const mat = createStandardNodeMaterial({
+                color: hexColor,
+                roughness: 0.4, // Shinier to look like hard candy
+                emissive: hexColor,
+                emissiveIntensity: 0.0 // Managed by TSL below
+            });
+
+            // Apply deformation
+            const breathScale = float(1.0).add(sin(uTime.mul(2.0)).mul(0.05)).add(uAudioLow.mul(0.2));
+            const animatedPos = positionLocal.mul(breathScale);
+            mat.positionNode = animatedPos;
+
+            // 3. Audio-reactive Emissive Pulse
+            const audioGlow = uAudioHigh.mul(1.5).add(uAudioLow.mul(0.5));
+            const colorUniform = tslColor(hexColor);
+            const totalEmissive = colorUniform.mul(audioGlow).mul(float(1.0).add(uTwilight));
+            mat.emissiveNode = totalEmissive;
+
+            registerReactiveMaterial(mat);
+            return mat;
         });
-        registerReactiveMaterial(petalMat);
 
         const outerGeo = new THREE.TorusKnotGeometry(0.25, 0.08, 64, 8, 2, 3);
         const outer = new THREE.Mesh(outerGeo, petalMat);
         outer.scale.set(1, 0.6, 1);
         roseGroup.add(outer);
 
-        const inner = new THREE.Mesh(sharedGeometries.unitSphere, petalMat);
+        const innerGeo = sharedGeometries.unitSphere.clone();
+        const inner = new THREE.Mesh(innerGeo, petalMat);
         inner.scale.setScalar(0.15);
         inner.position.y = 0.05;
         roseGroup.add(inner);
 
+        // Ensure no hidden material errors related to standard materials mixed with instances
         const washMat = (foliageMaterials as any).lightBeam.clone();
         washMat.colorNode = tslColor(hexColor);
         const wash = new THREE.Mesh(sharedGeometries.unitSphere, washMat);
@@ -325,7 +366,9 @@ export function createVibratoViolet(options: { color?: number, intensity?: numbe
     const group = new THREE.Group();
 
     const stemH = 0.5 + Math.random() * 0.3;
-    const stem = new THREE.Mesh(sharedGeometries.unitCylinder, createClayMaterial(0x228B22));
+    // ⚡ OPTIMIZATION: Cache Stem
+    const stemMat = getCachedProceduralMaterial('violet_stem', 0x228B22, () => createClayMaterial(0x228B22));
+    const stem = new THREE.Mesh(sharedGeometries.unitCylinder, stemMat);
     stem.scale.set(0.03, stemH, 0.03);
     stem.castShadow = true;
     group.add(stem);
@@ -334,30 +377,39 @@ export function createVibratoViolet(options: { color?: number, intensity?: numbe
     headGroup.position.y = stemH;
     group.add(headGroup);
 
-    // Use Safe Material Helper
-    const centerMat = createStandardNodeMaterial({
-        color: color,
-        emissive: color,
-        emissiveIntensity: 0.8 * intensity,
-        roughness: 0.3
+    // ⚡ OPTIMIZATION: Cache Center
+    const centerMat = getCachedProceduralMaterial('violet_center', color, () => {
+        const mat = createStandardNodeMaterial({
+            color: color,
+            emissive: color,
+            emissiveIntensity: 0.8 * intensity,
+            roughness: 0.3
+        });
+        registerReactiveMaterial(mat);
+        return mat;
     });
-    registerReactiveMaterial(centerMat);
+
     const center = new THREE.Mesh(sharedGeometries.unitSphere, centerMat);
     center.scale.setScalar(0.08);
     headGroup.add(center);
 
     const petalCount = 5;
-    const petalGeo = new THREE.CircleGeometry(0.15, 8);
-    // Use TransparentNodeMaterial Helper
-    const petalMat = createTransparentNodeMaterial({
-        color: color,
-        emissive: color,
-        emissiveIntensity: 0.4 * intensity,
-        roughness: 0.4,
-        opacity: 0.7,
-        side: THREE.DoubleSide
+    // ⚡ OPTIMIZATION: Use shared geometry via registry (deduplicated)
+    const petalGeo = getCircleGeometry(0.15, 8);
+
+    // ⚡ OPTIMIZATION: Cache Petals
+    const petalMat = getCachedProceduralMaterial('violet_petal', color, () => {
+        const mat = createTransparentNodeMaterial({
+            color: color,
+            emissive: color,
+            emissiveIntensity: 0.4 * intensity,
+            roughness: 0.4,
+            opacity: 0.7,
+            side: THREE.DoubleSide
+        });
+        registerReactiveMaterial(mat);
+        return mat;
     });
-    registerReactiveMaterial(petalMat);
 
     for (let i = 0; i < petalCount; i++) {
         const petal = new THREE.Mesh(petalGeo, petalMat);
@@ -420,7 +472,9 @@ export function createTremoloTulip(options: { color?: number, size?: number } = 
     const group = new THREE.Group();
 
     const stemH = (0.8 + Math.random() * 0.4) * size;
-    const stem = new THREE.Mesh(sharedGeometries.unitCylinder, createClayMaterial(0x228B22));
+    // ⚡ OPTIMIZATION: Cache Stem
+    const stemMat = getCachedProceduralMaterial('tulip_stem', 0x228B22, () => createClayMaterial(0x228B22));
+    const stem = new THREE.Mesh(sharedGeometries.unitCylinder, stemMat);
     stem.scale.set(0.04 * size, stemH, 0.04 * size);
     stem.castShadow = true;
     group.add(stem);
@@ -429,57 +483,69 @@ export function createTremoloTulip(options: { color?: number, size?: number } = 
     headGroup.position.y = stemH;
     group.add(headGroup);
 
-    // Legacy geometry kept for complex shapes
-    const bellGeo = new THREE.CylinderGeometry(0.2 * size, 0.05 * size, 0.25 * size, 12, 1, true);
+    const bellGeo = getCylinderGeometry(0.2 * size, 0.05 * size, 0.25 * size, 12, 1, true);
     bellGeo.translate(0, -0.125 * size, 0);
     
-    // Use TransparentNodeMaterial Helper
-    const bellMat = createTransparentNodeMaterial({
-        color: color,
-        emissive: color,
-        emissiveIntensity: 0.3,
-        roughness: 0.5,
-        opacity: 0.9,
-        side: THREE.DoubleSide
-    });
-    // --- PALETTE: Juicy Rim Light for Tremolo Tulip ---
-    const rimLight = createJuicyRimLight(tslColor(color), float(1.5), float(3.0));
-    bellMat.colorNode = tslColor(color).add(rimLight);
+    // ⚡ OPTIMIZATION: Cache Bell
+    const bellMat = getCachedProceduralMaterial('tulip_bell', color, () => {
+        const mat = createTransparentNodeMaterial({
+            color: color,
+            roughness: 0.5,
+            opacity: 0.9,
+            side: THREE.DoubleSide
+        });
 
-    registerReactiveMaterial(bellMat);
+        // --- PALETTE: Juicy Rim Light for Tremolo Tulip ---
+        // By passing a standard tslColor instead of an instance attribute,
+        // we can safely use the juicy rim light on this non-instanced mesh!
+        const baseColorNode = tslColor(color);
+        const rimLight = createJuicyRimLight(baseColorNode, float(1.5), float(3.0), null);
+
+        // Combine base emissive (0.3 intensity) with the audio-reactive rim light
+        mat.emissiveNode = baseColorNode.mul(0.3).add(rimLight);
+
+        registerReactiveMaterial(mat);
+        return mat;
+    });
+
     const bell = new THREE.Mesh(bellGeo, bellMat);
     bell.rotation.x = Math.PI;
     headGroup.add(bell);
 
     // --- PALETTE: Juicy TSL Vortex ---
-    const vortexMat = new MeshStandardNodeMaterial({
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-        transparent: true,
-        side: THREE.DoubleSide
+    // ⚡ OPTIMIZATION: Cache Vortex (Color is static white for the base calculation)
+    const vortexMat = getCachedProceduralMaterial('tulip_vortex', 0xFFFFFF, () => {
+        const mat = new MeshStandardNodeMaterial({
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+            transparent: true,
+            side: THREE.DoubleSide
+        });
+
+        // Vortex Shader Logic
+        const uvCentered = uv().sub(vec2(0.5));
+        const dist = length(uvCentered);
+        const angle = atan(uvCentered.y, uvCentered.x);
+
+        // Swirling motion: Rotates faster in center and with audio
+        const spinSpeed = uTime.mul(2.0).add(uAudioHigh.mul(10.0));
+        const twist = dist.mul(20.0);
+        const spiral = sin(angle.mul(5.0).sub(spinSpeed).add(twist));
+
+        // Soft circle mask
+        const spiralMask = smoothstep(0.4, 0.6, spiral);
+        const edgeFade = float(1.0).sub(smoothstep(0.3, 0.5, dist));
+
+        // Audio Reactive Color (Cyan <-> Magenta)
+        const baseColor = mix(tslColor(0x00FFFF), tslColor(0xFF00FF), dist.mul(2.0));
+        const pulseIntensity = float(1.0).add(uAudioHigh.mul(3.0));
+
+        mat.colorNode = baseColor;
+        mat.opacityNode = spiralMask.mul(edgeFade).mul(0.6);
+        mat.emissiveNode = baseColor.mul(pulseIntensity).mul(2.0);
+
+        return mat;
     });
-
-    // Vortex Shader Logic
-    const uvCentered = uv().sub(vec2(0.5));
-    const dist = length(uvCentered);
-    const angle = atan(uvCentered.y, uvCentered.x);
-
-    // Swirling motion: Rotates faster in center and with audio
-    const spinSpeed = uTime.mul(2.0).add(uAudioHigh.mul(10.0));
-    const twist = dist.mul(20.0);
-    const spiral = sin(angle.mul(5.0).sub(spinSpeed).add(twist));
-
-    // Soft circle mask
-    const spiralMask = smoothstep(0.4, 0.6, spiral);
-    const edgeFade = float(1.0).sub(smoothstep(0.3, 0.5, dist));
-
-    // Audio Reactive Color (Cyan <-> Magenta)
-    const baseColor = mix(tslColor(0x00FFFF), tslColor(0xFF00FF), dist.mul(2.0));
-    const pulseIntensity = float(1.0).add(uAudioHigh.mul(3.0));
-
-    vortexMat.colorNode = baseColor;
-    vortexMat.opacityNode = spiralMask.mul(edgeFade).mul(0.6);
-    vortexMat.emissiveNode = baseColor.mul(pulseIntensity).mul(2.0);
 
     // Use a quad for the portal effect instead of a sphere
     const vortex = new THREE.Mesh(sharedGeometries.quad, vortexMat);
@@ -489,13 +555,16 @@ export function createTremoloTulip(options: { color?: number, size?: number } = 
     headGroup.add(vortex);
     group.userData.vortex = vortex;
 
-    const rimGeo = new THREE.TorusGeometry(0.2 * size, 0.02, 8, 16);
-    // Use TransparentNodeMaterial Helper for rim
-    const rimMat = createTransparentNodeMaterial({
-        color: color,
-        opacity: 0.6,
-        blending: THREE.AdditiveBlending
+    const rimGeo = getTorusGeometry(0.2 * size, 0.02, 8, 16);
+    // ⚡ OPTIMIZATION: Cache Rim
+    const rimMat = getCachedProceduralMaterial('tulip_rim', color, () => {
+        return createTransparentNodeMaterial({
+            color: color,
+            opacity: 0.6,
+            blending: THREE.AdditiveBlending
+        });
     });
+
     const rim = new THREE.Mesh(rimGeo, rimMat);
     rim.rotation.x = Math.PI / 2;
     rim.position.y = -0.02 * size;

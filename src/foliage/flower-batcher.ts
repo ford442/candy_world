@@ -10,9 +10,10 @@ import {
     CandyPresets,
     createStandardNodeMaterial,
     createJuicyRimLight,
-    uAudioHigh
+    uAudioHigh,
+    uTime
 } from './common.ts';
-import { attribute, positionLocal, mix, color, float } from 'three/tsl';
+import { attribute, positionLocal, mix, color, float, sin } from 'three/tsl';
 
 const MAX_FLOWERS = 5000;
 const MAX_PETALS = MAX_FLOWERS * 15; // Up to 15 petals per flower
@@ -109,9 +110,16 @@ export class FlowerBatcher {
         // --- 4. Petals (Shared Material) ---
         // Use Velvet preset for petals, supporting instanceColor
         const instanceColor = attribute('instanceColor', 'vec3');
+
+        // --- PALETTE: Petal Breathing Animation ---
+        // Add subtle procedural life to petals, slightly offsetting based on local coordinates
+        const phaseOffset = positionLocal.x.add(positionLocal.y).add(positionLocal.z).mul(5.0);
+        const petalBreath = sin(uTime.mul(2.0).add(phaseOffset)).mul(0.05).add(1.0);
+        const petalDeformation = posFinal.mul(petalBreath);
+
         const petalMat = CandyPresets.Velvet(0xFFFFFF, {
             colorNode: instanceColor, // Use instance color
-            deformationNode: posFinal, // Apply deformation
+            deformationNode: petalDeformation, // Apply deformation with breathing
             side: THREE.DoubleSide,
             audioReactStrength: 1.0,
             rimStrength: 0.5
@@ -119,7 +127,12 @@ export class FlowerBatcher {
 
         // Add Audio-Reactive Rim Light to petals
         const audioRim = createJuicyRimLight(instanceColor, float(1.0).add(uAudioHigh.mul(2.0)), float(3.0));
-        petalMat.emissiveNode = audioRim;
+
+        // --- PALETTE: Audio Reactive Inner Glow ---
+        // Give petals a deep soft glow when the melody hits
+        const innerGlow = instanceColor.mul(uAudioHigh).mul(0.5);
+
+        petalMat.emissiveNode = audioRim.add(innerGlow);
 
         // Simple Petals (Icosahedron)
         let simpleGeo = new THREE.IcosahedronGeometry(0.15, 0);
@@ -168,9 +181,10 @@ export class FlowerBatcher {
 
         // Parse options
         const colorHex = options.color !== undefined ? options.color : null;
-        let color = new THREE.Color(0xFF69B4); // Default pink
+        let color = _scratchColor;
+        color.set(0xFF69B4); // Default pink
         if (colorHex !== null) {
-            if (colorHex.isColor) color = colorHex;
+            if (colorHex.isColor) color.copy(colorHex);
             else color.set(colorHex);
         }
 

@@ -8,6 +8,9 @@ import { foliageClouds, foliageGeysers, foliageTraps } from '../world/state.ts';
 import { createCandyMaterial, uTime, uAudioHigh, createJuicyRimLight } from '../foliage/common.ts';
 import { getCelestialState } from '../core/cycle.ts';
 import { spawnImpact } from '../foliage/impacts.ts';
+import { unlockSystem } from '../systems/unlocks.ts';
+import { triggerHarpoon } from '../systems/physics.ts';
+import { isInLakeBasin } from '../systems/physics.core.ts';
 
 // Projectile Configuration
 const SPEED = 60.0;
@@ -18,6 +21,7 @@ const MAX_LIFE = 3.0;
 // ⚡ OPTIMIZATION: Scratch objects to prevent GC in hot loops
 const _scratchImpactOptions = { color: new THREE.Color(), direction: new THREE.Vector3() };
 const _scratchVec3 = new THREE.Vector3();
+const _scratchCelestialState = { sunIntensity: 0, moonIntensity: 0 };
 
 class ProjectilePool {
     mesh: THREE.InstancedMesh;
@@ -212,6 +216,14 @@ class ProjectilePool {
                 }
             }
 
+            // Collision with Water (Waveform Harpoon)
+            if (isInLakeBasin(p.position.x, p.position.z) && p.position.y <= 1.5) {
+                hit = true;
+                // Anchor Harpoon
+                triggerHarpoon(p.position);
+                spawnImpact(p.position, 'splash'); // Visual feedback
+            }
+
             // Collision with Snare Traps (Reflection)
             const traps = foliageTraps || [];
             for (let j = traps.length - 1; j >= 0; j--) {
@@ -221,30 +233,38 @@ class ProjectilePool {
                 const distSq = p.position.distanceToSquared(trap.position);
 
                 if (distSq < (radius * radius)) {
-                     // Hit! Reflect!
-                     // Calculate Normal: Outward from trap center
-                     _scratchVec3.subVectors(p.position, trap.position).normalize();
+                     if (unlockSystem.isUnlocked('snap_core')) {
+                         // Hit! Reflect!
+                         // Calculate Normal: Outward from trap center
+                         _scratchVec3.subVectors(p.position, trap.position).normalize();
 
-                     // Reflect Velocity
-                     p.velocity.reflect(_scratchVec3);
+                         // Reflect Velocity
+                         p.velocity.reflect(_scratchVec3);
 
-                     // Trigger Snap Animation (Immediate Close)
-                     trap.userData.snapState = 1.0;
+                         // Trigger Snap Animation (Immediate Close)
+                         trap.userData.snapState = 1.0;
 
-                     // Visuals
-                     spawnImpact(p.position, 'snare');
+                         // Visuals
+                         spawnImpact(p.position, 'snare');
 
-                     // Don't destroy projectile, just bounce
-                     // Reduce life slightly to prevent infinite bounces
-                     p.life -= 0.5;
+                         // Don't destroy projectile, just bounce
+                         // Reduce life slightly to prevent infinite bounces
+                         p.life -= 0.5;
 
-                     // Ensure projectile is pushed out to avoid multi-frame collisions?
-                     // Move it slightly along normal
-                     p.position.addScaledVector(_scratchVec3, 0.5);
+                         // Ensure projectile is pushed out to avoid multi-frame collisions?
+                         // Move it slightly along normal
+                         p.position.addScaledVector(_scratchVec3, 0.5);
 
-                     // Break this loop (handled collision for this frame)
-                     // But continue inner loop? No, break checking traps for this projectile
-                     break;
+                         // Break this loop (handled collision for this frame)
+                         // But continue inner loop? No, break checking traps for this projectile
+                         break;
+                     } else {
+                         // Hit! Without upgrade, destroy projectile and trigger trap
+                         p.life = 0;
+                         trap.userData.snapState = 1.0;
+                         spawnImpact(p.position, 'snare');
+                         break;
+                     }
                 }
             }
 
@@ -320,7 +340,7 @@ export function fireRainbow(scene: THREE.Scene, origin: THREE.Vector3, direction
 }
 
 export function updateBlaster(dt: number, scene: THREE.Scene, weatherSystem: any, currentTime: number) {
-    const celestial = getCelestialState(currentTime);
+    const celestial = getCelestialState(currentTime, _scratchCelestialState);
     const isDay = celestial.sunIntensity > 0.5;
 
     // Ensure pool is in scene (safety)

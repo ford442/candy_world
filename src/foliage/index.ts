@@ -17,6 +17,7 @@ export * from './terrain.ts'; // Added Terrain Material
 export * from './lake_features.js';
 export * from './glitch.ts';
 export * from './chromatic.ts';
+export * from './strobe.ts';
 
 // Export lantern flower explicitly if not covered by flowers.ts (it is, but let's be safe)
 export { createLanternFlower } from './flowers.ts';
@@ -47,6 +48,7 @@ export { musicReactivitySystem } from '../systems/music-reactivity.ts';
 export * from './musical_flora.ts';
 export * from './arpeggio-batcher.ts';
 export * from './portamento-batcher.ts';
+export * from './wisteria-cluster.ts';
 
 // Batchers
 export * from './mushroom-batcher.ts';

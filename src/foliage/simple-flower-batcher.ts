@@ -28,6 +28,7 @@ const MAX_POLLEN = MAX_FLOWERS * GRAINS_PER_FLOWER;
 const _scratchMat = new THREE.Matrix4();
 const _scratchPos = new THREE.Vector3();
 const _scratchQuat = new THREE.Quaternion();
+const _scratchEuler = new THREE.Euler();
 const _scratchScale = new THREE.Vector3();
 const _scratchColor = new THREE.Color();
 
@@ -76,15 +77,15 @@ export class SimpleFlowerBatcher {
         basePetalGeo = mergeVertices(basePetalGeo);
         basePetalGeo.scale(1, 0.5, 1);
 
+        // ⚡ OPTIMIZATION: Re-use scratch variables to avoid GC spikes inside geometry generation loop
         const petalCount = 5;
         for (let i = 0; i < petalCount; i++) {
             const angle = (i / petalCount) * Math.PI * 2;
-            const m = new THREE.Matrix4();
-            m.makeRotationZ(Math.PI / 4);
-            m.setPosition(Math.cos(angle) * 0.18, 0, Math.sin(angle) * 0.18);
+            _scratchMat.makeRotationZ(Math.PI / 4);
+            _scratchMat.setPosition(Math.cos(angle) * 0.18, 0, Math.sin(angle) * 0.18);
 
             const clone = basePetalGeo.clone();
-            clone.applyMatrix4(m);
+            clone.applyMatrix4(_scratchMat);
             petalGeos.push(clone);
         }
         const mergedPetals = mergeGeometries(petalGeos);
@@ -95,18 +96,20 @@ export class SimpleFlowerBatcher {
         // Stamens: 3 Cylinders
         const stamenGeos: THREE.BufferGeometry[] = [];
         const stamenBase = sharedGeometries.unitCylinder;
+        // ⚡ OPTIMIZATION: Re-use scratch variables to avoid GC spikes inside stamen generation loop
         const stamenCount = 3;
         for (let i = 0; i < stamenCount; i++) {
             const fixedRz = (i - 1) * 0.3;
             const fixedRx = 0;
 
-            const m = new THREE.Matrix4().compose(
-                new THREE.Vector3(0, 0.075, 0),
-                new THREE.Quaternion().setFromEuler(new THREE.Euler(fixedRx, 0, fixedRz)),
-                new THREE.Vector3(0.01, 0.15, 0.01)
-            );
+            _scratchPos.set(0, 0.075, 0);
+            _scratchEuler.set(fixedRx, 0, fixedRz);
+            _scratchQuat.setFromEuler(_scratchEuler);
+            _scratchScale.set(0.01, 0.15, 0.01);
+            _scratchMat.compose(_scratchPos, _scratchQuat, _scratchScale);
+
             const clone = stamenBase.clone();
-            clone.applyMatrix4(m);
+            clone.applyMatrix4(_scratchMat);
             stamenGeos.push(clone);
         }
         const mergedStamens = mergeGeometries(stamenGeos);
@@ -297,8 +300,10 @@ export class SimpleFlowerBatcher {
 
         // Head Transform (At top of stem)
         // Translation(0, stemHeight, 0) relative to Base.
-        const headLocal = new THREE.Matrix4().makeTranslation(0, stemHeight, 0);
-        const headWorld = headLocal.clone().premultiply(baseMatrix);
+        // ⚡ OPTIMIZATION: Re-use scratch variable to avoid GC spikes
+        _scratchMat2.makeTranslation(0, stemHeight, 0);
+        _scratchMat2.premultiply(baseMatrix); // directly modify _scratchMat2 for headWorld
+        const headWorld = _scratchMat2; // No clone, avoid GC spike
 
         // Petals
         this.petalMesh!.setMatrixAt(i, headWorld);
@@ -332,8 +337,8 @@ export class SimpleFlowerBatcher {
         // --- POLLEN REGISTRATION ---
         if (this.pollenPositions && this.pollenOffsets && this.pollenColors) {
             // Extract World Position of Flower Head
-            const headPos = new THREE.Vector3();
-            headPos.setFromMatrixPosition(headWorld);
+            // ⚡ OPTIMIZATION: Re-use scratch variable to avoid GC spikes
+            _scratchPos.setFromMatrixPosition(headWorld);
 
             // Add GRAINS_PER_FLOWER particles
             const startPollen = i * GRAINS_PER_FLOWER;
@@ -341,9 +346,9 @@ export class SimpleFlowerBatcher {
                 const idx = startPollen + p;
 
                 // Position: Flower Head (Shared base)
-                this.pollenPositions[idx * 3] = headPos.x;
-                this.pollenPositions[idx * 3 + 1] = headPos.y;
-                this.pollenPositions[idx * 3 + 2] = headPos.z;
+                this.pollenPositions[idx * 3] = _scratchPos.x;
+                this.pollenPositions[idx * 3 + 1] = _scratchPos.y;
+                this.pollenPositions[idx * 3 + 2] = _scratchPos.z;
 
                 // Offset: Random in sphere R=0.25
                 const r = 0.25 * Math.random();

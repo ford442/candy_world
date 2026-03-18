@@ -1,0 +1,52 @@
+<!-- ResponsiveImage.astro -->
+---
+export interface Props {
+  src: string;
+  alt: string;
+  width?: number;
+  height?: number;
+  loading?: 'eager' | 'lazy';
+  decoding?: 'async' | 'sync' | 'auto';
+  class?: string;
+}
+
+const { src, alt, width, height, loading = 'lazy', decoding = 'async', class: className } = Astro.props;
+
+// Generate srcset for different formats
+const baseName = src.replace(/\.[^/.]+$/, '');
+const webpSrc = baseName + '.webp';
+const avifSrc = baseName + '.avif';
+---
+
+<picture>
+  <!-- AVIF for modern browsers -->
+  <source 
+    srcset={avifSrc} 
+    type="image/avif"
+  />
+  
+  <!-- WebP for good browsers -->
+  <source 
+    srcset={webpSrc} 
+    type="image/webp"
+  />
+  
+  <!-- Fallback PNG/JPG -->
+  <img
+    src={src}
+    alt={alt}
+    width={width}
+    height={height}
+    loading={loading}
+    decoding={decoding}
+    class={className}
+  />
+</picture>
+
+<style>
+  picture, img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+  }
+</style>

@@ -154,6 +154,63 @@ export class FoliageBatcher {
         };
     }
 
+    // NEW: Simple animation batches (Agent 1 migration)
+    private simpleBatches: {
+        shiver: ExtendedBatchState;
+        spring: ExtendedBatchState;
+        float: ExtendedBatchState;
+        cloudBob: ExtendedBatchState;
+    } = {
+        shiver: this.createExtendedBatch(),
+        spring: this.createExtendedBatch(),
+        float: this.createExtendedBatch(),
+        cloudBob: this.createExtendedBatch()
+    };
+
+    private simpleBatchesInitialized = false;
+
+    private initSimpleBatches() {
+        const instance = getWasmInstance();
+        if (this.simpleBatchesInitialized || !instance) return;
+
+        let currentOffset = EXTENDED_BATCH_START + (BATCH_SIZE * (ENTRY_SIZE + RESULT_SIZE) * 9); // After existing batches
+        const batchSize = (BATCH_SIZE * ENTRY_SIZE) + (BATCH_SIZE * RESULT_SIZE);
+
+        this.initExtendedBatchMemory(this.simpleBatches.shiver, currentOffset);
+        currentOffset += batchSize;
+        this.initExtendedBatchMemory(this.simpleBatches.spring, currentOffset);
+        currentOffset += batchSize;
+        this.initExtendedBatchMemory(this.simpleBatches.float, currentOffset);
+        currentOffset += batchSize;
+        this.initExtendedBatchMemory(this.simpleBatches.cloudBob, currentOffset);
+
+        this.simpleBatchesInitialized = true;
+    }
+
+    // Migrated to C++: batchShiver_c, batchSpring_c, batchFloat_c, batchCloudBob_c in emscripten/animation_batch.cpp
+    private queueSimpleBatch(obj: FoliageObject, type: 'shiver' | 'spring' | 'float' | 'cloudBob', intensity: number, time: number): boolean {
+        this.initSimpleBatches();
+        if (!this.simpleBatchesInitialized) return false;
+
+        const batch = this.simpleBatches[type];
+        if (batch.count >= BATCH_SIZE) return false;
+
+        const i = batch.count;
+        const entryOffset = i * ENTRY_STRIDE;
+
+        batch.objects[i] = obj;
+        batch.input[entryOffset] = obj.userData.animationOffset || 0; // offset
+        batch.input[entryOffset + 1] = intensity;
+
+        if (type === 'float' || type === 'cloudBob') {
+            if (obj.userData.originalY === undefined) obj.userData.originalY = obj.position.y;
+            batch.input[entryOffset + 2] = obj.userData.originalY;
+        }
+
+        batch.count++;
+        return true;
+    }
+
     private initBatchMemory(batch: BatchState, memoryOffset: number) {
         if (batch.ptrOffsets !== 0) return; // Already initialized
 
@@ -309,6 +366,20 @@ export class FoliageBatcher {
             return true;
         }
 
+        // Try simple animation batch types (Agent 1 migration)
+        if (type === 'shiver') {
+            return this.queueSimpleBatch(obj, 'shiver', intensity, time);
+        }
+        if (type === 'spring') {
+            return this.queueSimpleBatch(obj, 'spring', intensity, time);
+        }
+        if (type === 'float') {
+            return this.queueSimpleBatch(obj, 'float', intensity, time);
+        }
+        if (type === 'cloudBob') {
+            return this.queueSimpleBatch(obj, 'cloudBob', intensity, time);
+        }
+
         // NEW: Try extended batches for new animation types
         return this.queueExtended(obj, type, intensity, time, kick);
     }
@@ -438,6 +509,91 @@ export class FoliageBatcher {
 
         // NEW: Process extended batches
         this.flushExtended(time, kick, audioData);
+
+        // NEW: Process simple animation batches (Agent 1 migration)
+        this.flushSimpleBatches(time, intensity);
+    }
+
+    // NEW: Flush simple animation batches
+    private flushSimpleBatches(time: number, intensity: number) {
+        if (!this.simpleBatchesInitialized) return;
+
+        const instance = getWasmInstance();
+        if (!instance) return;
+
+        const func = (instance.exports as any)['processBatchUniversal_c'] || 
+                     (instance.exports as any)['processBatchUniversal'];
+        if (!func) return;
+
+        // Animation type codes for simple batches (22-25)
+        const batchConfigs: { type: 'shiver' | 'spring' | 'float' | 'cloudBob', code: number, apply: (obj: FoliageObject, data: Float32Array, offset: number) => void }[] = [
+            {
+                type: 'shiver',
+                code: 22,
+                apply: (obj, data, offset) => {
+                    obj.rotation.z = data[offset];      // rotZ
+                    obj.rotation.x = data[offset + 1];  // rotX
+                }
+            },
+            {
+                type: 'spring',
+                code: 23,
+                apply: (obj, data, offset) => {
+                    obj.scale.y = data[offset];      // scaleY
+                    obj.scale.x = data[offset + 1];  // scaleX
+                    obj.scale.z = data[offset + 2];  // scaleZ
+                }
+            },
+            {
+                type: 'float',
+                code: 24,
+                apply: (obj, data, offset) => {
+                    obj.position.y = data[offset];  // posY
+                }
+            },
+            {
+                type: 'cloudBob',
+                code: 25,
+                apply: (obj, data, offset) => {
+                    obj.position.y = data[offset];   // posY
+                    obj.rotation.y = data[offset + 1]; // rotY
+                }
+            }
+        ];
+
+        const F32 = new Float32Array((instance.exports.memory as any).buffer);
+
+        for (const config of batchConfigs) {
+            const batch = this.simpleBatches[config.type];
+            if (batch.count === 0) continue;
+
+            // Copy input data
+            const inPtr = batch.ptrInput >>> 2;
+            F32.set(batch.input.subarray(0, batch.count * ENTRY_STRIDE), inPtr);
+
+            // Call native function
+            const nativeFunc = (instance.exports as any)[`batch${config.type.charAt(0).toUpperCase() + config.type.slice(1)}_c`];
+            if (nativeFunc) {
+                nativeFunc(batch.ptrInput, batch.count, time, intensity, batch.ptrOutput);
+            } else {
+                // Fallback to universal processor
+                func(config.code, batch.ptrInput, batch.count, time, 0, 0, 0, 0, batch.ptrOutput);
+            }
+
+            // Read results
+            const outPtr = batch.ptrOutput >>> 2;
+            const results = F32.subarray(outPtr, outPtr + batch.count * RESULT_STRIDE);
+
+            // Apply to objects
+            for (let i = 0; i < batch.count; i++) {
+                const obj = batch.objects[i];
+                const offset = i * RESULT_STRIDE;
+                config.apply(obj, results, offset);
+                batch.objects[i] = undefined as any;
+            }
+
+            batch.count = 0;
+        }
     }
 
     // NEW: Flush extended batches
