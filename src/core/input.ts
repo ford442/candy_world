@@ -16,6 +16,7 @@ export interface KeyStates {
     dance: boolean;
     action: boolean;
     phase: boolean;
+    clap: boolean;
 }
 
 export const keyStates: KeyStates = {
@@ -29,7 +30,8 @@ export const keyStates: KeyStates = {
     dash: false,
     dance: false,
     action: false,
-    phase: false
+    phase: false,
+    clap: false
 };
 
 // Controls and Event Listeners
@@ -685,14 +687,23 @@ export function initInput(
                 if (hudMine) hudMine.classList.add('pressed');
                 break; // Jitter Mine Ability
             case 'KeyE':
+            case 'e':
                 keyStates.dash = true;
                 if (hudDash) hudDash.classList.add('pressed');
                 break; // Dash Ability
             case 'KeyZ':
+            case 'z':
                 keyStates.phase = true;
                 if (hudPhase) hudPhase.classList.add('pressed');
                 break; // Phase Shift Ability
-            case 'KeyR': keyStates.dance = true; break; // Dance Ability
+            case 'KeyC':
+            case 'c':
+                keyStates.clap = true;
+                break; // Sonic Clap Ability
+            case 'KeyR':
+            case 'r':
+                keyStates.dance = true;
+                break; // Dance Ability
             case 'Space': keyStates.jump = true; break;
             case 'KeyN': if(toggleDayNightCallback) toggleDayNightCallback(); break;
             case 'KeyM': toggleMute(); break;
@@ -753,15 +764,22 @@ export function initInput(
                 if (hudMine) hudMine.classList.remove('pressed');
                 break;
             case 'KeyE':
+            case 'e':
                 keyStates.dash = false;
                 if (hudDash) hudDash.classList.remove('pressed');
                 break;
             case 'KeyZ':
+            case 'z':
                 keyStates.phase = false;
                 if (hudPhase) hudPhase.classList.remove('pressed');
                 break;
-            case 'KeyR': keyStates.dance = false; break;
+            case 'KeyR':
+            case 'r':
+                keyStates.dance = false;
+                break;
             case 'Space': keyStates.jump = false; break;
+            case 'KeyC':
+            case 'c': keyStates.clap = false; break;
             case 'ControlLeft':
             case 'ControlRight': keyStates.sneak = false; break;
             case 'ShiftLeft':
