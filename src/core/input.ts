@@ -154,15 +154,16 @@ export function initInput(
             li.className = `playlist-item ${index === currentIdx ? 'active' : ''}`;
 
             // UX: Use a button for keyboard accessibility
+            const displayName = formatSongTitle(file.name);
+
             const btn = document.createElement('button');
             btn.className = 'playlist-btn';
-            btn.title = file.name; // Tooltip for full filename
-            btn.setAttribute('aria-label', `Play ${file.name}`);
+            // 🎨 Palette: Use formatted title for tooltip and screen readers
+            btn.title = displayName;
+            btn.setAttribute('aria-label', `Play ${displayName}`);
             if (index === currentIdx) {
                 btn.setAttribute('aria-current', 'true');
             }
-
-            const displayName = formatSongTitle(file.name);
 
             btn.innerHTML = `
                 <span class="song-title">${index + 1}. ${displayName}</span>
@@ -189,8 +190,9 @@ export function initInput(
             const removeBtn = document.createElement('button');
             removeBtn.className = 'playlist-remove-btn';
             removeBtn.innerHTML = '<span aria-hidden="true">×</span>';
-            removeBtn.title = `Remove ${file.name}`;
-            removeBtn.setAttribute('aria-label', `Remove ${file.name} from playlist`);
+            // 🎨 Palette: Use formatted title for tooltip and screen readers
+            removeBtn.title = `Remove ${displayName}`;
+            removeBtn.setAttribute('aria-label', `Remove ${displayName} from playlist`);
 
             removeBtn.onclick = (e) => {
                 e.stopPropagation();
