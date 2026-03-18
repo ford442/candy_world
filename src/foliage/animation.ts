@@ -374,11 +374,15 @@ export function animateFoliage(foliageObject: FoliageObject, time: number, audio
         }
     }
 
+    // @perf-migrate {target: "cpp", reason: "hot-loop", threshold: "1-2ms"}
+    // Migrated to C++: batchShiver_c() in emscripten/animation_batch.cpp
     if (type === 'shiver') {
         const shiver = Math.sin(animTime * 20 + offset) * 0.05 * intensity;
         foliageObject.rotation.z = shiver;
         foliageObject.rotation.x = shiver * 0.5;
     }
+    // @perf-migrate {target: "cpp", reason: "hot-loop", threshold: "1-2ms"}
+    // Migrated to C++: batchSpring_c() in emscripten/animation_batch.cpp
     else if (type === 'spring') {
         const springTime = animTime * 5 + offset;
         foliageObject.scale.y = 1.0 + Math.sin(springTime) * 0.1 * intensity;
@@ -389,6 +393,8 @@ export function animateFoliage(foliageObject: FoliageObject, time: number, audio
         foliageObject.rotation.z = Math.sin(time * 1.5 + offset) * 0.2 * intensity;
         foliageObject.rotation.x = Math.cos(time * 1.2 + offset) * 0.1 * intensity;
     }
+    // @perf-migrate {target: "cpp", reason: "hot-loop", threshold: "1-2ms"}
+    // Migrated to C++: batchFloat_c() in emscripten/animation_batch.cpp
     else if (type === 'float') {
         const y = foliageObject.userData.originalY ?? foliageObject.position.y;
         foliageObject.userData.originalY = y;
@@ -422,6 +428,8 @@ export function animateFoliage(foliageObject: FoliageObject, time: number, audio
         foliageObject.userData.originalY = y;
         foliageObject.position.y = y + Math.sin(time * 0.3 + offset) * 0.2;
     }
+    // @perf-migrate {target: "cpp", reason: "hot-loop", threshold: "1-2ms"}
+    // Migrated to C++: batchCloudBob_c() in emscripten/animation_batch.cpp
     else if (type === 'cloudBob') {
         const y = foliageObject.userData.originalY ?? foliageObject.position.y;
         foliageObject.userData.originalY = y;

@@ -1204,6 +1204,82 @@ export function hash(x, y) {
 }
 
 // =============================================================================
+// AGENT 1: SIMPLE ANIMATION BATCH FUNCTIONS
+// =============================================================================
+
+export function batchShiver_c(input, count, time, intensity, output) {
+    const f = getNativeFunc('batchShiver_c');
+    if (f) f(input, count, time, intensity, output);
+}
+
+export function batchSpring_c(input, count, time, intensity, output) {
+    const f = getNativeFunc('batchSpring_c');
+    if (f) f(input, count, time, intensity, output);
+}
+
+export function batchFloat_c(input, count, time, intensity, output) {
+    const f = getNativeFunc('batchFloat_c');
+    if (f) f(input, count, time, intensity, output);
+}
+
+export function batchCloudBob_c(input, count, time, intensity, output) {
+    const f = getNativeFunc('batchCloudBob_c');
+    if (f) f(input, count, time, intensity, output);
+}
+
+// =============================================================================
+// AGENT 2: MESH DEFORMATION FUNCTIONS
+// =============================================================================
+
+export function deformWave_c(positions, count, time, strength, frequency) {
+    const f = getNativeFunc('deformWave_c');
+    if (f) f(positions, count, time, strength, frequency);
+}
+
+export function deformJiggle_c(positions, count, time, strength, audioPulse) {
+    const f = getNativeFunc('deformJiggle_c');
+    if (f) f(positions, count, time, strength, audioPulse);
+}
+
+export function deformWobble_c(positions, count, time, strength, audioPulse) {
+    const f = getNativeFunc('deformWobble_c');
+    if (f) f(positions, count, time, strength, audioPulse);
+}
+
+// =============================================================================
+// AGENT 3: LOD BATCH FUNCTIONS
+// =============================================================================
+
+export function batchUpdateLODMatrices_c(matrices, colors, count, cameraX, cameraY, cameraZ, lod1Dist, lod2Dist, cullDist, results) {
+    const f = getNativeFunc('batchUpdateLODMatrices_c');
+    if (f) f(matrices, colors, count, cameraX, cameraY, cameraZ, lod1Dist, lod2Dist, cullDist, results);
+}
+
+export function batchScaleMatrices_c(matrices, count, scaleX, scaleY, scaleZ) {
+    const f = getNativeFunc('batchScaleMatrices_c');
+    if (f) f(matrices, count, scaleX, scaleY, scaleZ);
+}
+
+export function batchFadeColors_c(colors, count, fadeAmount) {
+    const f = getNativeFunc('batchFadeColors_c');
+    if (f) f(colors, count, fadeAmount);
+}
+
+// =============================================================================
+// AGENT 4: FRUSTUM/DISTANCE CULLING FUNCTIONS
+// =============================================================================
+
+export function batchFrustumCull_c(positions, count, frustumPlanes, results) {
+    const f = getNativeFunc('batchFrustumCull_c');
+    if (f) f(positions, count, frustumPlanes, results);
+}
+
+export function batchDistanceCullIndexed_c(positions, indices, indexCount, camX, camY, camZ, maxDistSq, results) {
+    const f = getNativeFunc('batchDistanceCullIndexed_c');
+    if (f) f(positions, indices, indexCount, camX, camY, camZ, maxDistSq, results);
+}
+
+// =============================================================================
 // FLUID SIMULATION WRAPPERS
 // =============================================================================
 
