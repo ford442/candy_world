@@ -15,6 +15,7 @@ import {
     calculateFlowerBloom,
     calculateWindSway,
     applyPlayerInteraction,
+    getCachedProceduralMaterial,
     uTime,
     uAudioHigh,
     uAudioLow
