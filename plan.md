@@ -12,12 +12,13 @@
 
 1. **Phase 4 (Three.js -> WebGPU)**: Raw compute and render pipelines. Begin migrating custom render passes.
 2. **Category 2: Cymbal Dandelions**: Finish integration of seeds acting as obstacles and manual Sonic Clap triggers.
-3. **Category 1: Retrigger Mushrooms**: Evaluate remaining strobe sickness HUD flicker effect or ensure it's fully implemented.
 
 ---
 
 ## Recent Progress
 - **Accomplished:**
+  - **Category 1: Retrigger Mushrooms (Strobe Sickness HUD Flicker)**: **Status: Implemented ✅**
+    - *Implementation Details:* Implemented TSL-driven full-screen strobe overlay in `src/foliage/strobe.ts` and proximity-based activation in `src/systems/physics.ts` reactive to channel effect 5 (Retrigger).
   - **Category 2: Snare-Snap Trap Core**: **Status: Implemented ✅**
     - *Implementation Details:* Added "Snap Core" to `src/systems/unlocks.ts`. Updated `src/foliage/musical_flora.ts` to make Snare-Snap Traps interactive, allowing players to harvest "Snap Shards". Updated collision logic in `src/gameplay/rainbow-blaster.ts` so that projectiles reflect off traps *only* if the "Snap Core" is unlocked; otherwise, the projectile breaks and the trap triggers normally.
   - **Category 3: Wisteria Clusters**: **Status: Implemented ✅**
@@ -204,6 +205,8 @@
     - *Implementation Details:* Implemented "Riding the Plume" mechanic in `src/systems/physics.ts` (vertical velocity boost). Added charging mechanic: shooting the base increases `eruptionStrength` via `chargeLevel`.
   - [x] Snare-Snap Trap Physics
     - *Implementation Details:* Implemented player interaction (trigger on step, knockback on close) and projectile reflection in `src/systems/physics.ts` and `src/gameplay/rainbow-blaster.ts`.
+  - [x] Retrigger Mushrooms (Strobe Sickness)
+    - *Implementation Details:* Proximity-based full-screen strobe effect based on channel 5 retrigger effects.
   - [x] **Plants Twilight Glow**: Implemented logic for plants to glow during twilight hours (pre-dawn/dusk).
     - *Implementation Details:* Added `uTwilight` global uniform to `src/foliage/sky.js` and integrated it into the TSL material pipeline for Flowers, Mushrooms, and Trees. The glow intensity ramps up at dusk and down at dawn, driven by the `WeatherSystem`.
 
