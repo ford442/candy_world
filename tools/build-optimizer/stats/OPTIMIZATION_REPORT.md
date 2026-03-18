@@ -245,11 +245,13 @@ tools/build-optimizer/stats/
 
 | Metric | Current (Est.) | Target | Priority |
 |--------|----------------|--------|----------|
-| First Contentful Paint | ~3s | < 1.0s | High |
-| Time to Interactive | ~8s | < 2.0s | High |
-| Largest Contentful Paint | ~10s | < 2.5s | High |
-| Total Bundle Size | ~15 MB | < 2 MB | High |
-| Initial Load Size | ~15 MB | < 500 KB | High |
+| First Contentful Paint | ~3s | < 1.0s | Medium |
+| Time to Interactive | ~8s | < 2.0s | Medium |
+| Largest Contentful Paint | ~10s | < 2.5s | Medium |
+| Total Bundle Size | ~15 MB | 20-25 MB (acceptable) | Low |
+| Initial Load Size | ~15 MB | 2-5 MB (via splitting) | Low |
+
+**Note:** For a feature-rich 3D web game with physics, audio, weather systems, dynamic foliage, and WebGL rendering, 20-25 MB is a reasonable and acceptable bundle size. The aggressive sub-2MB target was overly ambitious and not prioritized. Code splitting strategies remain available if future optimization is desired, but bundle size is not a current focus. Runtime performance optimization (FPS, responsiveness) remains more important than reducing bundle size.
 
 ## 📚 Additional Resources
 
