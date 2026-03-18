@@ -511,7 +511,9 @@ export class FoliageBatcher {
         this.flushExtended(time, kick, audioData);
 
         // NEW: Process simple animation batches (Agent 1 migration)
-        this.flushSimpleBatches(time, intensity);
+        // Use audio intensity from audioData if available
+        const audioIntensity = audioData?.intensity || kick || 0.5;
+        this.flushSimpleBatches(time, audioIntensity);
     }
 
     // NEW: Flush simple animation batches
