@@ -33,13 +33,14 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
 
       - name: Install dependencies
         run: |
-          npm ci
+          # Use pnpm since there is a pnpm-lock.yaml file
+          npm install -g pnpm
+          pnpm install
           cd tools/visual-regression
-          npm ci
+          pnpm install
 
       - name: Install Playwright
         run: |
@@ -48,17 +49,17 @@ jobs:
 
       - name: Build WASM
         run: |
-          npm run build:wasm
+          pnpm run build:wasm
 
       - name: Start dev server
         run: |
-          npm run dev &
+          pnpm exec vite &
           npx wait-on http://localhost:5173 --timeout 60000
 
       - name: Run visual regression tests
         run: |
           cd tools/visual-regression
-          npm run test:visual -- \
+          pnpm run test:visual -- \
             --viewpoints spawn,lake,forest \
             --qualities medium,high \
             --threshold 0.05
@@ -96,20 +97,24 @@ jobs:
             Please review the visual differences in the uploaded artifact.
             `;
             
-            if (botComment) {
-              await github.rest.issues.updateComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                comment_id: botComment.id,
-                body
-              });
-            } else {
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.issue.number,
-                body
-              });
+            try {
+              if (botComment) {
+                await github.rest.issues.updateComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  comment_id: botComment.id,
+                  body
+                });
+              } else {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.issue.number,
+                  body
+                });
+              }
+            } catch (err) {
+              console.log("Could not post comment to PR. This may be due to token permissions.");
             }
 
   update-baselines:
