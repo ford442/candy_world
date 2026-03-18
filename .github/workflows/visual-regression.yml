@@ -38,9 +38,9 @@ jobs:
         run: |
           # Use pnpm since there is a pnpm-lock.yaml file
           npm install -g pnpm
-          pnpm install
+          pnpm install --no-frozen-lockfile
           cd tools/visual-regression
-          pnpm install
+          pnpm install --no-frozen-lockfile
 
       - name: Install Playwright
         run: |
