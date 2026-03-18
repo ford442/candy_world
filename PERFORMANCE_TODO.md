@@ -1,16 +1,18 @@
 # Candy World Performance & Quality Checklist
 
-This document outlines a prioritized roadmap to eliminate lag spikes (specifically the "solid freeze" at startup) and improve runtime performance.
+This document outlines optional performance optimizations that can improve runtime responsiveness. These are improvements that can be applied if needed, but are **not required** for acceptable gameplay.
+
+**Bundle Size Context:** A 20-25 MB bundle is acceptable for this feature-rich 3D web game engine. Bundle size optimization is deprioritized in favor of runtime performance and gameplay features.
 
 **Current Status:**
-- **Startup Freeze:** caused by compiling unique shaders for ~3000 individual mushroom instances.
-- **Runtime Lag:** caused by heavy JavaScript loop iterating over thousands of Group objects.
-- **Load Time:** slowed by sequential WASM calls for physics initialization.
+- **Startup Freeze:** caused by compiling unique shaders for ~3000 individual mushroom instances (runtime optimization, medium priority).
+- **Runtime Lag:** caused by heavy JavaScript loop iterating over thousands of Group objects (runtime optimization, medium priority).
+- **Load Time:** slowed by sequential WASM calls for physics initialization (optional optimization, low priority).
 
 ---
 
-## ✅ Phase 1: Quick Wins (Configuration & Rendering)
-*Goals: stabilize frame rate without major refactoring.*
+## ✅ Phase 1: Quick Wins (Configuration & Rendering) - Optional
+*Goals: stabilize frame rate without major refactoring. Apply if experiencing framerate issues.*
 
 - [ ] **Adjust Object Limits** (`src/world/generation.ts`)
     - [ ] Raise `animatedFoliage` safety limit from 1000 to **3000**.
@@ -29,8 +31,8 @@ This document outlines a prioritized roadmap to eliminate lag spikes (specifical
 
 ---
 
-## 🚀 Phase 2: The "Solid Freeze" Fix (Material Strategy)
-*Goal: Eliminate the 2-minute freeze by reducing shader programs from ~3000 to ~12.*
+## 🚀 Phase 2: The "Solid Freeze" Fix (Material Strategy) - Optional
+*Goal: Eliminate the 2-minute freeze by reducing shader programs from ~3000 to ~12. Apply if startup freeze is problematic.*
 
 The current implementation clones the material for every mushroom to set a unique `noteColor`. This forces the GPU to compile 3000 unique shader variants.
 
@@ -55,8 +57,8 @@ The current implementation clones the material for every mushroom to set a uniqu
 
 ---
 
-## ⚡ Phase 3: Load Time & WASM Batching
-*Goal: Speed up world initialization by batching physics calls.*
+## ⚡ Phase 3: Load Time & WASM Batching - Optional
+*Goal: Speed up world initialization by batching physics calls. Apply if world initialization takes too long.*
 
 Currently, `initCppPhysics` calls `addObstacle` 3000 times. Crossing the JS<->WASM bridge 3000 times is slow.
 
@@ -78,8 +80,8 @@ Currently, `initCppPhysics` calls `addObstacle` 3000 times. Crossing the JS<->WA
 
 ---
 
-## 🏗️ Phase 4: Long-Term Architecture (Instancing)
-*Goal: Support 10,000+ objects at 60 FPS.*
+## 🏗️ Phase 4: Long-Term Architecture (Instancing) - Optional
+*Goal: Support 10,000+ objects at 60 FPS. Apply if needing to scale to significantly more objects.*
 
 Moving `THREE.Group` objects to `THREE.InstancedMesh` is the ultimate performance unlock but requires significant refactoring.
 

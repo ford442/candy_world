@@ -347,8 +347,10 @@ Add to your `index.html`:
 | First Contentful Paint | < 1.0s | TBD |
 | Time to Interactive | < 2.0s | TBD |
 | Largest Contentful Paint | < 2.5s | TBD |
-| Total Bundle Size | < 1MB | 1.19 MB |
-| Initial Load Size | < 500KB | TBD |
+| Total Bundle Size | 20-25 MB (acceptable) | 1.19 MB (if implemented) |
+| Initial Load Size | 2-5 MB (via splitting) | TBD |
+
+**Note:** This code splitting strategy represents an optional optimization path. The suggested 1.19 MB total bundle size is not a requirement for this project. A 20-25 MB bundle is reasonable and acceptable for a feature-rich 3D web game engine. However, this splitting strategy remains valuable for improving initial load performance and user-perceived responsiveness through progressive loading. Implement if performance metrics indicate benefit, otherwise the current baseline is acceptable.
 
 ## 📊 Monitoring Recommendations
 
