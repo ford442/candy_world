@@ -223,7 +223,7 @@ async function runVisualTests(config: TestConfig): Promise<void> {
   }
   
   // Generate report
-  if (config.generateReport &⚡ !config.updateBaselines) {
+  if (config.generateReport && !config.updateBaselines) {
     console.log('📄 Generating report...\n');
     
     const stats = new ScreenshotComparator().getSummaryStats(results);
@@ -256,7 +256,7 @@ async function runVisualTests(config: TestConfig): Promise<void> {
   console.log('========================================');
   console.log(`   Duration: ${duration}s`);
   
-  if (!config.skipComparison &⚡ !config.updateBaselines) {
+  if (!config.skipComparison && !config.updateBaselines) {
     console.log(`   Passed: ${passed}/${results.length}`);
     console.log(`   Failed: ${failed}/${results.length}`);
     console.log(`   Pass rate: ${((passed / results.length) * 100).toFixed(1)}%`);
