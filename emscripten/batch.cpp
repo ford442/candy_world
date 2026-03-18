@@ -20,7 +20,7 @@ void batchDistances(float* positions, float* results, int count, float refX, flo
 EMSCRIPTEN_KEEPALIVE
 int batchDistanceCull_c(float* positions, float* flags, int count, float refX, float refY, float refZ, float maxDistSq) {
     int visibleCount = 0;
-    #pragma omp parallel for reduction(+:visibleCount) schedule(static) if(count > 500)
+    #pragma omp parallel for schedule(static) if(count > 500)
     for (int i = 0; i < count; i++) {
         int idx = i * 3;
         float dx = positions[idx] - refX;
@@ -29,10 +29,13 @@ int batchDistanceCull_c(float* positions, float* flags, int count, float refX, f
         float distSq = dx * dx + dy * dy + dz * dz;
         if (distSq <= maxDistSq) {
             flags[i] = 1.0f;
-            visibleCount++;
         } else {
             flags[i] = 0.0f;
         }
+    }
+    // Count visible in a separate pass to avoid reduction
+    for (int i = 0; i < count; i++) {
+        if (flags[i] > 0.5f) visibleCount++;
     }
     return visibleCount;
 }
