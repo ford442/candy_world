@@ -1,17 +1,18 @@
 # Candy World Performance & Quality Checklist
 
-This document outlines a prioritized roadmap to eliminate lag spikes (specifically the "solid freeze" at startup) and improve runtime performance.
+This document outlines optional performance optimizations that can improve runtime responsiveness. These are improvements that can be applied if needed, but are **not required** for acceptable gameplay.
+
+**Bundle Size Context:** A 20-25 MB bundle is acceptable for this feature-rich 3D web game engine. Bundle size optimization is deprioritized in favor of runtime performance and gameplay features.
 
 **Current Status:**
-- **Startup Freeze:** ✅ **FIXED** - Shader warmup implemented, materials use InstancedMesh
-- **Runtime Lag:** ✅ **IMPROVED** - Batched systems, frustum culling with size-based distances
-- **Load Time:** ✅ **IMPROVED** - WASM batching implemented for both C++ and ASC
-- **Bundle Size:** ⚠️ **IN PROGRESS** - Main bundle 1.78MB (target: 200KB)
+- **Startup Freeze:** caused by compiling unique shaders for ~3000 individual mushroom instances (runtime optimization, medium priority).
+- **Runtime Lag:** caused by heavy JavaScript loop iterating over thousands of Group objects (runtime optimization, medium priority).
+- **Load Time:** slowed by sequential WASM calls for physics initialization (optional optimization, low priority).
 
 ---
 
-## ✅ Phase 1: Quick Wins (Configuration & Rendering) - MOSTLY COMPLETE
-*Goals: stabilize frame rate without major refactoring.*
+## ✅ Phase 1: Quick Wins (Configuration & Rendering) - Optional
+*Goals: stabilize frame rate without major refactoring. Apply if experiencing framerate issues.*
 
 ### ✅ Adjust Object Limits (`src/world/generation.ts`)
 - [x] Raise `animatedFoliage` safety limit from 1000 to **3000**.
@@ -34,8 +35,8 @@ This document outlines a prioritized roadmap to eliminate lag spikes (specifical
 
 ---
 
-## ✅ Phase 2: The "Solid Freeze" Fix (Material Strategy) - COMPLETE
-*Goal: Eliminate the 2-minute freeze by reducing shader programs from ~3000 to ~12.*
+## 🚀 Phase 2: The "Solid Freeze" Fix (Material Strategy) - Optional
+*Goal: Eliminate the 2-minute freeze by reducing shader programs from ~3000 to ~12. Apply if startup freeze is problematic.*
 
 **Status:** ✅ **COMPLETE** - Using `InstancedMesh` with TSL materials
 
@@ -48,8 +49,8 @@ The mushroom-batcher.ts uses `InstancedMesh` which is even more efficient than 1
 
 ---
 
-## ✅ Phase 3: Load Time & WASM Batching - COMPLETE
-*Goal: Speed up world initialization by batching physics calls.*
+## ⚡ Phase 3: Load Time & WASM Batching - Optional
+*Goal: Speed up world initialization by batching physics calls. Apply if world initialization takes too long.*
 
 ### ✅ Create Batch API in C++ (`emscripten/physics.cpp`)
 - [x] **Task:** Add exported function `addObstaclesBatch`.
@@ -66,8 +67,8 @@ The mushroom-batcher.ts uses `InstancedMesh` which is even more efficient than 1
 
 ---
 
-## 🏗️ Phase 4: Long-Term Architecture (Instancing) - COMPLETE
-*Goal: Support 10,000+ objects at 60 FPS.*
+## 🏗️ Phase 4: Long-Term Architecture (Instancing) - Optional
+*Goal: Support 10,000+ objects at 60 FPS. Apply if needing to scale to significantly more objects.*
 
 **Status:** ✅ **COMPLETE**
 
