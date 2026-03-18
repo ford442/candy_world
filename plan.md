@@ -11,12 +11,18 @@
 ## Next Steps
 
 1. **Phase 4 (Three.js -> WebGPU)**: Raw compute and render pipelines. Begin migrating custom render passes.
+2. **Category 6: Melody Lake Island**: Ensure the island is fully decorated and interactive.
+3. **Phase 3 (ASC -> C++): Fluid Simulation**: Polish the stable fluids solver and WebGPU integration.
 2. **Category 2: Cymbal Dandelions**: Finish integration of seeds acting as obstacles and manual Sonic Clap triggers.
 
 ---
 
 ## Recent Progress
 - **Accomplished:**
+  - **Category 1: Retrigger Mushrooms (Strobe Sickness)**: **Status: Implemented ✅**
+    - *Implementation Details:* Implemented the "Strobe Sickness" HUD flicker effect in `src/systems/physics.ts`. Players within 15 units of an actively strobing Retrigger Mushroom will experience rapid random pulses of chromatic aberration. Added `strobe_sickness` to the discovery map.
+  - **Category 2: Cymbal Dandelions (Sonic Clap)**: **Status: Implemented ✅**
+    - *Implementation Details:* Implemented the "Sonic Clap" mechanic bound to the 'C' key. Emits a localized pulse that manually triggers nearby Cymbal Dandelions to explode into collectable 'Chime Shards' using `dandelionBatcher.harvest()` and `spawnDandelionExplosion`. Added `ability_sonic_clap` to the discovery map.
   - **Category 1: Retrigger Mushrooms (Strobe Sickness HUD Flicker)**: **Status: Implemented ✅**
     - *Implementation Details:* Implemented TSL-driven full-screen strobe overlay in `src/foliage/strobe.ts` and proximity-based activation in `src/systems/physics.ts` reactive to channel effect 5 (Retrigger).
   - **Category 2: Snare-Snap Trap Core**: **Status: Implemented ✅**

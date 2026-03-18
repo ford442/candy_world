@@ -32,6 +32,7 @@ export interface KeyStates {
     dance: boolean;
     action: boolean;
     phase: boolean;
+    clap: boolean;
 }
 
 export interface MovementInput {

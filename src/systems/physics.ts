@@ -30,6 +30,8 @@ import { spawnImpact } from '../foliage/impacts.ts';
 import { VineSwing } from '../foliage/trees.ts';
 import { unlockSystem } from './unlocks.ts';
 import { showToast } from '../utils/toast.js';
+import { dandelionBatcher } from '../foliage/dandelion-batcher.ts';
+import { spawnDandelionExplosion } from '../foliage/dandelion-seeds.ts';
 
 // --- Types ---
 
@@ -115,7 +117,8 @@ const _lastInputState = {
     jump: false,
     dash: false,
     dance: false,
-    phase: false
+    phase: false,
+    clap: false
 };
 
 // Global physics modifiers (Musical Ecosystem)
@@ -229,6 +232,7 @@ export function updatePhysics(delta: number, camera: THREE.Camera, controls: any
     _lastInputState.dash = keyStates.dash;
     _lastInputState.dance = keyStates.dance;
     _lastInputState.phase = keyStates.phase;
+    _lastInputState.clap = keyStates.clap;
 
     // 5. Check Flora Discovery (Throttled)
     const frameCount = Math.floor(Date.now() / 16);
@@ -611,7 +615,49 @@ function handleAbilities(delta: number, camera: THREE.Camera, keyStates: KeyStat
         discoverySystem.discover('ability_dash', 'Dash', '💨');
     }
 
-    // 5. Phase Shift
+    // 5. Sonic Clap
+    // Trigger on Rising Edge of Clap Key
+    const isClapPressed = keyStates.clap;
+    const isClapTriggered = isClapPressed && !_lastInputState.clap;
+
+    if (isClapTriggered) {
+        // Visual effect for clap
+        spawnImpact(player.position, 'dash');
+        if (uChromaticIntensity) uChromaticIntensity.value = 0.3;
+
+        // Iterate through flora to find Cymbal Dandelions
+        let foundDandelion = false;
+        for (const obj of animatedFoliage) {
+            if (obj.userData?.type === 'flower' && obj.userData?.animationType === 'batchedCymbal') {
+                if (!obj.userData.harvested) {
+                    const distSq = player.position.distanceToSquared(obj.position);
+                    if (distSq < 15.0 * 15.0) { // 15 unit radius
+                        foundDandelion = true;
+
+                        dandelionBatcher.harvest(obj.userData.batchIndex);
+                        unlockSystem.harvest('chime_shard', 3, 'Chime Shards');
+
+                        // Visual FX
+                        const scale = obj.scale.x;
+                        const headOffset = new THREE.Vector3(0, 1.5 * scale, 0);
+                        headOffset.applyQuaternion(obj.quaternion);
+                        const headPos = obj.position.clone().add(headOffset);
+                        spawnImpact(headPos, 'spore', new THREE.Color(0xFFD700));
+                        spawnDandelionExplosion(headPos, 24);
+
+                        obj.userData.harvested = true;
+                        obj.userData.interactionText = "Harvested";
+                    }
+                }
+            }
+        }
+
+        if (foundDandelion) {
+            discoverySystem.discover('ability_sonic_clap', 'Sonic Clap', '👏');
+        }
+    }
+
+    // 6. Phase Shift
     // Trigger on Rising Edge of Phase Key
     const isPhasePressed = keyStates.phase;
     const isPhaseTriggered = isPhasePressed && !_lastInputState.phase;
@@ -769,6 +815,9 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
          }
     }
 
+    // --- Retrigger Mushrooms (Strobe Sickness) ---
+    checkRetriggerMushrooms(delta);
+
     // --- Panning Pads (JS Physics) ---
     // Explicit check for dynamic panning pads (bobbing platforms)
     checkPanningPads();
@@ -834,6 +883,35 @@ function checkRetriggerMushrooms(delta: number, audioState: AudioState | null) {
         // Decay the strobe intensity rapidly when out of range or not strobing
         if (typeof uStrobeIntensity !== 'undefined' && uStrobeIntensity.value > 0) {
             uStrobeIntensity.value = Math.max(0, uStrobeIntensity.value - delta * 2.0);
+        }
+    }
+}
+
+function checkRetriggerMushrooms(delta: number) {
+    const playerPos = player.position;
+
+    // Check all retrigger mushrooms
+    for (const obj of animatedFoliage) {
+        if (obj.userData?.type === 'retrigger_mushroom') {
+            // Check if mushroom is actively strobing
+            if (obj.userData.retriggerActive && obj.userData.retriggerIntensity > 0.5) {
+                const dx = playerPos.x - obj.position.x;
+                const dz = playerPos.z - obj.position.z;
+                const distSq = dx * dx + dz * dz;
+
+                // 15m radius for strobe sickness
+                if (distSq < 15.0 * 15.0) {
+                    // Apply Strobe Sickness: Rapid random pulses to chromatic intensity
+                    if (typeof uChromaticIntensity !== 'undefined') {
+                        // Create a flickering effect by randomly spiking the intensity
+                        if (Math.random() < 0.3) {
+                            uChromaticIntensity.value += Math.random() * 0.5;
+                        }
+                    }
+                    discoverySystem.discover('strobe_sickness', 'Strobe Sickness', '😵‍💫');
+                    break; // Only apply sickness from one mushroom at a time
+                }
+            }
         }
     }
 }
