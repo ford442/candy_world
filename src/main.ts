@@ -15,6 +15,7 @@ import { WeatherSystem } from './systems/weather.ts';
 import { WeatherState } from './systems/weather-types.ts';
 import { initWasm, getGroundHeight } from './utils/wasm-loader.js';
 import { profiler } from './utils/profiler.js';
+import { enableStartupProfiler, finalizeStartupProfile, recordWASMInit, startPhase, endPhase } from './utils/startup-profiler.ts';
 
 // Core imports
 import { CONFIG, CYCLE_DURATION, DURATION_SUNRISE, DURATION_DAY, DURATION_SUNSET, DURATION_DUSK_NIGHT, DURATION_DEEP_NIGHT } from './core/config.ts';
@@ -52,6 +53,14 @@ const _scratchClickDir = new THREE.Vector3();
 const _scratchClickOrigin = new THREE.Vector3();
 
 const _interactionLists: (any[] | null)[] = [null, null, null]; // Reusable array for interaction lists
+
+// --- Enable Startup Profiler ---
+enableStartupProfiler({
+  slowPhaseThreshold: 100,
+  enableOverlay: true,
+  enableConsole: true,
+  saveToFile: true,
+});
 
 // --- Initialization Pipeline ---
 
@@ -257,6 +266,11 @@ window.addEventListener('keydown', (e) => {
         const key = e.key.toLowerCase();
         if (key === 'p') {
             profiler.toggle();
+        } else if (key === 'o') {
+            // Toggle startup profiler overlay
+            import('./utils/startup-profiler.ts').then(({ toggleOverlay }) => {
+                toggleOverlay();
+            });
         } else if (key === 'f') {
             // Demo logic...
         } else if (key === 'g') {
@@ -838,11 +852,15 @@ function animate() {
 }
 
 initWasm().then(async (wasmLoaded) => {
+    const wasmInitStart = performance.now();
     console.log(`WASM module ${wasmLoaded ? 'active' : 'using JS fallbacks'}`);
 
     // Initialize C++ Fluid System (Phase 3)
     fluidSystem.init();
 
+    // Record WASM initialization metrics
+    recordWASMInit(wasmInitStart, true, wasmLoaded);
+    
     // Use getGroundHeight (which is now wrapped in physics/generation but here we access the raw one)
     // Actually, for camera start position, we should use the UNIFIED height if possible.
     // But since that logic is inside generation.ts/physics.js, we rely on the fact that
@@ -895,6 +913,7 @@ initWasm().then(async (wasmLoaded) => {
                 let lastAnnounced = -1;
                 startButton.setAttribute('aria-busy', 'true');
 
+                startPhase('Map Generation');
                 await generateMap(weatherSystem, DEFAULT_MAP_CHUNK_SIZE, (current, total) => {
                     const percent = Math.floor((current / total) * 100);
 
@@ -907,6 +926,7 @@ initWasm().then(async (wasmLoaded) => {
                         lastAnnounced = percent;
                     }
                 });
+                endPhase('Map Generation');
 
                 startButton.removeAttribute('aria-busy');
 
@@ -933,6 +953,7 @@ initWasm().then(async (wasmLoaded) => {
     // --- DEFERRED NUCLEAR WARMUP ---
     // Delay this by 2 seconds to let the browser breathe after initial load
     setTimeout(async () => {
+        startPhase('Shader Warmup');
         console.log('[Deferred] Starting shader pre-compilation...');
         
         const dummyGroup = new THREE.Group();
@@ -975,11 +996,19 @@ initWasm().then(async (wasmLoaded) => {
         scene.remove(dummyGroup);
         
         console.log('[Deferred] Shader compilation complete');
+        endPhase('Shader Warmup');
     }, 2000); // 2 second delay
 
     setTimeout(() => {
         console.log('[Deferred] Loading celestial bodies and aurora...');
+        startPhase('Deferred Visuals Init');
         initDeferredVisuals();
+        endPhase('Deferred Visuals Init');
+        
+        // Startup is essentially complete after deferred visuals
+        setTimeout(() => {
+            finalizeStartupProfile();
+        }, 100);
     }, 300);
 
 });

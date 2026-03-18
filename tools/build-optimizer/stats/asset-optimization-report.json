@@ -1,0 +1,221 @@
+{
+  "timestamp": "2026-03-18T16:21:05.008Z",
+  "assets": [
+    {
+      "path": "/root/.openclaw/workspace/candy_world/assets/colorcode.json",
+      "size": 255,
+      "type": "json",
+      "extension": ".json",
+      "optimization": {
+        "canOptimize": true,
+        "estimatedSavings": 212,
+        "suggestedActions": [
+          "Minify JSON (save 81 bytes)",
+          "Enable gzip compression (save 131 bytes)",
+          "Consider splitting large JSON into chunks"
+        ]
+      }
+    },
+    {
+      "path": "/root/.openclaw/workspace/candy_world/assets/colorcode.png",
+      "size": 15285,
+      "type": "image",
+      "extension": ".png",
+      "optimization": {
+        "canOptimize": true,
+        "recommendedFormat": "avif",
+        "estimatedSavings": 12228,
+        "suggestedActions": [
+          "Convert to AVIF for 80% size reduction",
+          "Generate responsive variants (1x, 2x)",
+          "Add picture element with fallback"
+        ]
+      }
+    },
+    {
+      "path": "/root/.openclaw/workspace/candy_world/assets/map.json",
+      "size": 475009,
+      "type": "json",
+      "extension": ".json",
+      "optimization": {
+        "canOptimize": true,
+        "estimatedSavings": 396665,
+        "suggestedActions": [
+          "Minify JSON (save 161631 bytes)",
+          "Enable gzip compression (save 235034 bytes)",
+          "Consider splitting large JSON into chunks"
+        ]
+      }
+    },
+    {
+      "path": "/root/.openclaw/workspace/candy_world/assets/map_generated.json",
+      "size": 331219,
+      "type": "json",
+      "extension": ".json",
+      "optimization": {
+        "canOptimize": true,
+        "estimatedSavings": 279443,
+        "suggestedActions": [
+          "Minify JSON (save 124115 bytes)",
+          "Enable gzip compression (save 155328 bytes)",
+          "Consider splitting large JSON into chunks"
+        ]
+      }
+    },
+    {
+      "path": "/root/.openclaw/workspace/candy_world/assets/splash.png",
+      "size": 1532319,
+      "type": "image",
+      "extension": ".png",
+      "optimization": {
+        "canOptimize": true,
+        "recommendedFormat": "avif",
+        "estimatedSavings": 1225856,
+        "suggestedActions": [
+          "Convert to AVIF for 80% size reduction",
+          "Generate responsive variants (1x, 2x)",
+          "Add picture element with fallback"
+        ]
+      }
+    },
+    {
+      "path": "/root/.openclaw/workspace/candy_world/public/.htaccess",
+      "size": 679,
+      "type": "other",
+      "extension": "",
+      "optimization": {
+        "canOptimize": false,
+        "estimatedSavings": 0,
+        "suggestedActions": []
+      }
+    },
+    {
+      "path": "/root/.openclaw/workspace/candy_world/public/js/audio-processor.js",
+      "size": 11295,
+      "type": "other",
+      "extension": ".js",
+      "optimization": {
+        "canOptimize": false,
+        "estimatedSavings": 0,
+        "suggestedActions": []
+      }
+    },
+    {
+      "path": "/root/.openclaw/workspace/candy_world/public/js/emscripten-compile-worker.js",
+      "size": 1715,
+      "type": "other",
+      "extension": ".js",
+      "optimization": {
+        "canOptimize": false,
+        "estimatedSavings": 0,
+        "suggestedActions": []
+      }
+    },
+    {
+      "path": "/root/.openclaw/workspace/candy_world/public/js/libopenmpt.js",
+      "size": 12206419,
+      "type": "other",
+      "extension": ".js",
+      "optimization": {
+        "canOptimize": false,
+        "estimatedSavings": 0,
+        "suggestedActions": []
+      }
+    },
+    {
+      "path": "/root/.openclaw/workspace/candy_world/public/js/perf_instancing.js",
+      "size": 5011,
+      "type": "other",
+      "extension": ".js",
+      "optimization": {
+        "canOptimize": false,
+        "estimatedSavings": 0,
+        "suggestedActions": []
+      }
+    },
+    {
+      "path": "/root/.openclaw/workspace/candy_world/public/js/worklet-polyfills.js",
+      "size": 719,
+      "type": "other",
+      "extension": ".js",
+      "optimization": {
+        "canOptimize": false,
+        "estimatedSavings": 0,
+        "suggestedActions": []
+      }
+    },
+    {
+      "path": "/root/.openclaw/workspace/candy_world/public/perf_instancing.html",
+      "size": 1184,
+      "type": "other",
+      "extension": ".html",
+      "optimization": {
+        "canOptimize": false,
+        "estimatedSavings": 0,
+        "suggestedActions": []
+      }
+    }
+  ],
+  "imageVariants": {},
+  "spriteAtlases": [],
+  "lazyLoadingStrategy": {
+    "critical": [
+      "/assets/colorcode.png",
+      "/assets/map.json"
+    ],
+    "deferred": [
+      "/chunks/foliage.js",
+      "/chunks/shaders.js"
+    ],
+    "lazy": [
+      "/chunks/audio.js",
+      "/chunks/weather.js",
+      "/chunks/effects.js",
+      "/assets/splash.png"
+    ],
+    "preloadHints": [
+      "<link rel=\"preload\" href=\"/assets/colorcode.png\" as=\"image\"/>",
+      "<link rel=\"preload\" href=\"/assets/map.json\" as=\"fetch\" crossorigin/>",
+      "<link rel=\"prefetch\" href=\"/chunks/foliage.js\" as=\"script\"/>"
+    ]
+  },
+  "totalCurrentSize": 14581109,
+  "totalPotentialSavings": 1914404,
+  "recommendations": [
+    {
+      "asset": "assets/splash.png",
+      "issue": "Unoptimized image (1.46 MB)",
+      "action": "Convert to AVIF for 80% size reduction",
+      "savings": 1225856,
+      "priority": "high"
+    },
+    {
+      "asset": "assets/map.json",
+      "issue": "Unoptimized json (463.88 KB)",
+      "action": "Minify JSON (save 161631 bytes)",
+      "savings": 396665,
+      "priority": "high"
+    },
+    {
+      "asset": "assets/map_generated.json",
+      "issue": "Unoptimized json (323.46 KB)",
+      "action": "Minify JSON (save 124115 bytes)",
+      "savings": 279443,
+      "priority": "high"
+    },
+    {
+      "asset": "assets/colorcode.png",
+      "issue": "Unoptimized image (14.93 KB)",
+      "action": "Convert to AVIF for 80% size reduction",
+      "savings": 12228,
+      "priority": "medium"
+    },
+    {
+      "asset": "assets/colorcode.json",
+      "issue": "Unoptimized json (255 B)",
+      "action": "Minify JSON (save 81 bytes)",
+      "savings": 212,
+      "priority": "medium"
+    }
+  ]
+}
