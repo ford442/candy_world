@@ -89,6 +89,26 @@ export function generateNoiseTexture(size = 256): THREE.DataTexture {
     return tex;
 }
 
+// --- MATERIAL CACHE ---
+const proceduralMaterialCache = new Map<string, THREE.Material>();
+
+/**
+ * Gets a cached procedural material or creates a new one using the factory function.
+ * This prevents duplicate material creation and improves performance.
+ */
+export function getCachedProceduralMaterial(
+    key: string,
+    colorHint: number,
+    factory: () => THREE.Material
+): THREE.Material {
+    if (proceduralMaterialCache.has(key)) {
+        return proceduralMaterialCache.get(key)!;
+    }
+    const material = factory();
+    proceduralMaterialCache.set(key, material);
+    return material;
+}
+
 // --- TSL UTILITY FUNCTIONS ---
 
 /**
