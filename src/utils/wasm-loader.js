@@ -1204,6 +1204,82 @@ export function hash(x, y) {
 }
 
 // =============================================================================
+// AGENT 1: SIMPLE ANIMATION BATCH FUNCTIONS
+// =============================================================================
+
+export function batchShiver_c(input, count, time, intensity, output) {
+    const f = getNativeFunc('batchShiver_c');
+    if (f) f(input, count, time, intensity, output);
+}
+
+export function batchSpring_c(input, count, time, intensity, output) {
+    const f = getNativeFunc('batchSpring_c');
+    if (f) f(input, count, time, intensity, output);
+}
+
+export function batchFloat_c(input, count, time, intensity, output) {
+    const f = getNativeFunc('batchFloat_c');
+    if (f) f(input, count, time, intensity, output);
+}
+
+export function batchCloudBob_c(input, count, time, intensity, output) {
+    const f = getNativeFunc('batchCloudBob_c');
+    if (f) f(input, count, time, intensity, output);
+}
+
+// =============================================================================
+// AGENT 2: MESH DEFORMATION FUNCTIONS
+// =============================================================================
+
+export function deformWave_c(positions, count, time, strength, frequency) {
+    const f = getNativeFunc('deformWave_c');
+    if (f) f(positions, count, time, strength, frequency);
+}
+
+export function deformJiggle_c(positions, count, time, strength, audioPulse) {
+    const f = getNativeFunc('deformJiggle_c');
+    if (f) f(positions, count, time, strength, audioPulse);
+}
+
+export function deformWobble_c(positions, count, time, strength, audioPulse) {
+    const f = getNativeFunc('deformWobble_c');
+    if (f) f(positions, count, time, strength, audioPulse);
+}
+
+// =============================================================================
+// AGENT 3: LOD BATCH FUNCTIONS
+// =============================================================================
+
+export function batchUpdateLODMatrices_c(matrices, colors, count, cameraX, cameraY, cameraZ, lod1Dist, lod2Dist, cullDist, results) {
+    const f = getNativeFunc('batchUpdateLODMatrices_c');
+    if (f) f(matrices, colors, count, cameraX, cameraY, cameraZ, lod1Dist, lod2Dist, cullDist, results);
+}
+
+export function batchScaleMatrices_c(matrices, count, scaleX, scaleY, scaleZ) {
+    const f = getNativeFunc('batchScaleMatrices_c');
+    if (f) f(matrices, count, scaleX, scaleY, scaleZ);
+}
+
+export function batchFadeColors_c(colors, count, fadeAmount) {
+    const f = getNativeFunc('batchFadeColors_c');
+    if (f) f(colors, count, fadeAmount);
+}
+
+// =============================================================================
+// AGENT 4: FRUSTUM/DISTANCE CULLING FUNCTIONS
+// =============================================================================
+
+export function batchFrustumCull_c(positions, count, frustumPlanes, results) {
+    const f = getNativeFunc('batchFrustumCull_c');
+    if (f) f(positions, count, frustumPlanes, results);
+}
+
+export function batchDistanceCullIndexed_c(positions, indices, indexCount, camX, camY, camZ, maxDistSq, results) {
+    const f = getNativeFunc('batchDistanceCullIndexed_c');
+    if (f) f(positions, indices, indexCount, camX, camY, camZ, maxDistSq, results);
+}
+
+// =============================================================================
 // FLUID SIMULATION WRAPPERS
 // =============================================================================
 
@@ -1234,6 +1310,30 @@ export function getFluidDensityView(size = 128) {
         return new Float32Array(emscriptenMemory, ptr, size * size);
     }
     return null;
+}
+
+export function updateParticlesWASM(positions, velocities, count, deltaTime, gravityY, audioPulse, spawnX, spawnY, spawnZ) {
+    const f = getNativeFunc('updateParticlesWASM');
+    if (!f || !emscriptenMemory) return;
+
+    // We expect positions and velocities to be TypedArrays
+    // Since this is a C function expecting float*, we should allocate memory for it,
+    // or assume the caller passed the offset if the memory is already on the WASM heap.
+    // In `particle_compute.ts`, it might pass raw Float32Arrays. We need to copy to/from.
+    const ptrP = emscriptenInstance._malloc(count * 4 * 4);
+    const ptrV = emscriptenInstance._malloc(count * 4 * 4);
+
+    const heapF32 = new Float32Array(emscriptenMemory);
+    heapF32.set(positions, ptrP >> 2);
+    heapF32.set(velocities, ptrV >> 2);
+
+    f(ptrP, ptrV, count, deltaTime, gravityY, audioPulse, spawnX, spawnY, spawnZ);
+
+    positions.set(heapF32.subarray(ptrP >> 2, (ptrP >> 2) + count * 4));
+    velocities.set(heapF32.subarray(ptrV >> 2, (ptrV >> 2) + count * 4));
+
+    emscriptenInstance._free(ptrP);
+    emscriptenInstance._free(ptrV);
 }
 
 // Re-exports

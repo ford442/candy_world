@@ -7,6 +7,7 @@ import { CandyPresets, uAudioLow, uTime } from './common.ts';
 import { spawnImpact } from './impacts.ts';
 import { uChromaticIntensity } from './chromatic.ts';
 import { foliageGroup } from '../world/state.ts';
+import { CommonGeometries, getSphereGeometry } from '../utils/geometry-dedup.ts';
 
 // OPTIMIZED: BerryBatcher replaces thousands of individual InstancedMeshes
 // with a single large InstancedMesh for improved draw call performance.
@@ -67,9 +68,9 @@ export class BerryBatcher {
     private _dummy = new THREE.Object3D();
 
     private constructor() {
-        // Geometry: Sphere (shared)
+        // Geometry: Sphere (shared via registry - deduplicated)
         // Using slightly higher poly sphere for better refraction
-        const geometry = new THREE.SphereGeometry(0.1, 16, 16);
+        const geometry = getSphereGeometry(0.1, 16, 16);
 
         // Material: Heartbeat Gummy (Shared)
         // Uses attributes for glow instead of uniforms
@@ -405,7 +406,8 @@ let fallingBerryMesh: THREE.InstancedMesh | null = null;
 const _scratchColorFalling = new THREE.Color(); // Rename to avoid conflict if any
 
 export function initFallingBerries(scene: THREE.Scene): void {
-    const berryGeo = new THREE.SphereGeometry(0.06, 16, 16);
+    // ⚡ OPTIMIZATION: Use shared geometry via registry (deduplicated)
+    const berryGeo = getSphereGeometry(0.06, 16, 16);
 
     // For falling berries, we use a simpler material or distinct one
     // But to save code, we can reuse createHeartbeatMaterial logic?

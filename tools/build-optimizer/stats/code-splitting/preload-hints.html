@@ -1,0 +1,41 @@
+<!-- Critical resource preloading -->
+<head>
+  <!-- Preload critical assets -->
+  <link rel="preload" href="/assets/colorcode.png" as="image" type="image/png" />
+  <link rel="preload" href="/assets/map.json" as="fetch" crossorigin />
+  
+  <!-- Preload core JavaScript -->
+  <link rel="modulepreload" href="/chunks/vendor-[hash].js" />
+  <link rel="modulepreload" href="/chunks/core-[hash].js" />
+  
+  <!-- Prefetch non-critical chunks (low priority) -->
+  <link rel="prefetch" href="/chunks/foliage-[hash].js" as="script" />
+  <link rel="prefetch" href="/chunks/shaders-[hash].js" as="script" />
+  
+  <!-- DNS prefetch for external resources -->
+  <link rel="dns-prefetch" href="https://cdn.example.com" />
+  
+  <!-- Preconnect for critical origins -->
+  <link rel="preconnect" href="https://api.example.com" />
+</head>
+
+<!-- Dynamic prefetch after load -->
+<script>
+  // Prefetch foliage when core is ready
+  if ('requestIdleCallback' in window) {
+    requestIdleCallback(() => {
+      const link = document.createElement('link');
+      link.rel = 'prefetch';
+      link.href = '/chunks/foliage-[hash].js';
+      document.head.appendChild(link);
+    }, { timeout: 2000 });
+  }
+  
+  // Prefetch on user intent
+  document.querySelector('#audio-toggle')?.addEventListener('mouseenter', () => {
+    const link = document.createElement('link');
+    link.rel = 'prefetch';
+    link.href = '/chunks/audio-[hash].js';
+    document.head.appendChild(link);
+  });
+</script>
