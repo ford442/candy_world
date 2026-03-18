@@ -4,6 +4,7 @@
  * 
  * Replaces O(N) distance checks with O(1) spatial grid lookups.
  * Uses WASM batch processing for maximum efficiency.
+ * Integrates with DiscoveryPersistence for timestamped tracking.
  * 
  * @example
  * ```ts
@@ -31,6 +32,7 @@
 import * as THREE from 'three';
 import { getWasmInstance } from '../utils/wasm-loader.js';
 import { discoverySystem } from './discovery.ts';
+import { discoveryPersistence } from './discovery-persistence.ts';
 import { DISCOVERY_MAP } from './discovery_map.ts';
 
 // Type definition for discovery info
@@ -72,6 +74,7 @@ export class OptimizedDiscoverySystem {
 
     constructor() {
         this.initWasm();
+        this.loadPersistedDiscoveries();
     }
 
     /**
@@ -102,6 +105,28 @@ export class OptimizedDiscoverySystem {
     }
 
     /**
+     * Load persisted discoveries and sync with WASM
+     */
+    private loadPersistedDiscoveries(): void {
+        const persisted = discoveryPersistence.getAllDiscoveries();
+        
+        for (const discovery of persisted) {
+            // Sync with legacy discoverySystem for backward compatibility
+            if (!discoverySystem.isDiscovered(discovery.id)) {
+                const info = DISCOVERY_MAP[discovery.id];
+                if (info) {
+                    // Add to legacy system without triggering save
+                    (discoverySystem as any).discoveredItems?.add(discovery.id);
+                }
+            }
+        }
+
+        if (persisted.length > 0) {
+            console.log(`[OptimizedDiscovery] Loaded ${persisted.length} persisted discoveries`);
+        }
+    }
+
+    /**
      * Get or create a numeric type ID for a type string
      */
     private getTypeId(type: string): number {
@@ -125,8 +150,8 @@ export class OptimizedDiscoverySystem {
             return -1; // Not a discoverable type
         }
 
-        // Check if this type is already discovered (from localStorage)
-        if (discoverySystem.isDiscovered(type)) {
+        // Check if this type is already discovered (from persistence)
+        if (discoveryPersistence.hasDiscovery(type) || discoverySystem.isDiscovered(type)) {
             return -1; // Already discovered, don't register
         }
 
@@ -175,16 +200,31 @@ export class OptimizedDiscoverySystem {
             const type = this.idToType.get(typeId);
 
             if (type) {
-                // Mark as discovered in both systems
+                // Mark as discovered in persistence layer
                 const obj = this.findObjectByWasmIndex(discoveredIndex);
                 if (obj) {
-                    discoverySystem.discover(type, obj.discoveryInfo.name, obj.discoveryInfo.icon);
+                    this.persistDiscovery(type, obj.discoveryInfo.name, obj.discoveryInfo.icon);
                     return obj.discoveryInfo;
                 }
             }
         }
 
         return null;
+    }
+
+    /**
+     * Persist a discovery through the persistence layer
+     */
+    private persistDiscovery(id: string, name: string, icon: string): void {
+        // Add to persistence layer (handles timestamps)
+        const isNew = discoveryPersistence.addDiscovery(id, name, icon);
+        
+        if (isNew) {
+            // Also notify legacy system for toast display
+            discoverySystem.discover(id, name, icon);
+            
+            console.log(`[OptimizedDiscovery] Persisted discovery: ${name} (${id})`);
+        }
     }
 
     /**
@@ -208,7 +248,7 @@ export class OptimizedDiscoverySystem {
 
         for (const [id, obj] of this.objectRegistry) {
             // Skip already discovered
-            if (discoverySystem.isDiscovered(obj.type)) {
+            if (discoveryPersistence.hasDiscovery(obj.type) || discoverySystem.isDiscovered(obj.type)) {
                 continue;
             }
 
@@ -226,7 +266,8 @@ export class OptimizedDiscoverySystem {
     markDiscovered(type: string): void {
         const discoveryInfo = DISCOVERY_MAP[type];
         if (discoveryInfo) {
-            discoverySystem.discover(type, discoveryInfo.name, discoveryInfo.icon);
+            // Use persistence layer
+            this.persistDiscovery(type, discoveryInfo.name, discoveryInfo.icon);
         }
 
         // Also mark in WASM
@@ -247,7 +288,7 @@ export class OptimizedDiscoverySystem {
      * Check if a type is discovered
      */
     isDiscovered(type: string): boolean {
-        return discoverySystem.isDiscovered(type);
+        return discoveryPersistence.hasDiscovery(type) || discoverySystem.isDiscovered(type);
     }
 
     /**
@@ -261,7 +302,7 @@ export class OptimizedDiscoverySystem {
         // JS fallback
         let count = 0;
         for (const [type, objects] of this.typeToObjects) {
-            if (!discoverySystem.isDiscovered(type)) {
+            if (!this.isDiscovered(type)) {
                 count += objects.length;
             }
         }
@@ -272,11 +313,52 @@ export class OptimizedDiscoverySystem {
      * Reset all discoveries
      */
     reset(): void {
+        discoveryPersistence.clear();
         discoverySystem.reset();
 
         if (this.wasmInitialized && this.wasmResetAll) {
             this.wasmResetAll();
         }
+    }
+
+    /**
+     * Sync discoveries with server
+     * @param serverDiscoveries - Array of discoveries from server
+     */
+    syncWithServer(serverDiscoveries: Array<{ id: string; timestamp: number }>): void {
+        const formatted = serverDiscoveries.map(d => ({
+            id: d.id,
+            timestamp: d.timestamp,
+            metadata: DISCOVERY_MAP[d.id] ? {
+                displayName: DISCOVERY_MAP[d.id].name,
+                icon: DISCOVERY_MAP[d.id].icon
+            } : undefined
+        }));
+
+        discoveryPersistence.mergeWithServer(formatted);
+        
+        // Update legacy system
+        for (const d of serverDiscoveries) {
+            if (!discoverySystem.isDiscovered(d.id)) {
+                const info = DISCOVERY_MAP[d.id];
+                if (info) {
+                    (discoverySystem as any).discoveredItems?.add(d.id);
+                }
+            }
+        }
+
+        console.log(`[OptimizedDiscovery] Synced ${serverDiscoveries.length} discoveries with server`);
+    }
+
+    /**
+     * Get discoveries that need to be synced to server
+     */
+    getPendingSync(): Array<{ id: string; timestamp: number }> {
+        const pending = discoveryPersistence.getPendingSync();
+        return pending.map(d => ({
+            id: d.id,
+            timestamp: d.timestamp
+        }));
     }
 
     /**
@@ -287,12 +369,18 @@ export class OptimizedDiscoverySystem {
         uniqueTypes: number;
         undiscoveredCount: number;
         usingWasm: boolean;
+        persistedCount: number;
+        pendingSync: number;
     } {
+        const persistenceStats = discoveryPersistence.getStats();
+        
         return {
             registeredObjects: this.objectRegistry.size,
             uniqueTypes: this.typeToObjects.size,
             undiscoveredCount: this.getUndiscoveredCount(),
-            usingWasm: this.wasmInitialized
+            usingWasm: this.wasmInitialized,
+            persistedCount: persistenceStats.total,
+            pendingSync: persistenceStats.pendingSync
         };
     }
 
@@ -301,6 +389,13 @@ export class OptimizedDiscoverySystem {
      */
     isUsingWasm(): boolean {
         return this.wasmInitialized;
+    }
+
+    /**
+     * Check if persistence layer is available
+     */
+    isPersistenceAvailable(): boolean {
+        return discoveryPersistence.available;
     }
 
     /**
@@ -355,3 +450,14 @@ export function checkPlayerDiscovery(playerPos: THREE.Vector3): void {
         }
     }
 }
+
+// Re-export persistence utilities for convenience
+export { 
+    discoveryPersistence, 
+    exportDiscoveries, 
+    importDiscoveries, 
+    clearLocalDiscoveries,
+    type PersistedDiscovery,
+    type DiscoveryExport,
+    type DiscoveryStats
+} from './discovery-persistence.ts';
