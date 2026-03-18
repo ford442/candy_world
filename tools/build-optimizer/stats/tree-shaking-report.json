@@ -1,8 +1,8 @@
 {
-  "totalFiles": 123,
-  "totalExports": 842,
-  "unusedExports": 525,
-  "totalUnusedBytes": 840632,
+  "totalFiles": 131,
+  "totalExports": 912,
+  "unusedExports": 576,
+  "totalUnusedBytes": 941832,
   "files": [
     {
       "path": "foliage/index.ts",
@@ -144,9 +144,17 @@
           "size": 43
         },
         {
+          "name": "./strobe.ts",
+          "type": "const",
+          "line": 20,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 43
+        },
+        {
           "name": "createLanternFlower",
           "type": "const",
-          "line": 22,
+          "line": 23,
           "isUsed": true,
           "usedIn": [
             "systems/weather.ts"
@@ -156,7 +164,7 @@
         {
           "name": "./sky.ts",
           "type": "const",
-          "line": 25,
+          "line": 26,
           "isUsed": false,
           "usedIn": [],
           "size": 43
@@ -164,7 +172,7 @@
         {
           "name": "./stars.ts",
           "type": "const",
-          "line": 26,
+          "line": 27,
           "isUsed": false,
           "usedIn": [],
           "size": 43
@@ -172,7 +180,7 @@
         {
           "name": "./moon.ts",
           "type": "const",
-          "line": 27,
+          "line": 28,
           "isUsed": false,
           "usedIn": [],
           "size": 43
@@ -180,7 +188,7 @@
         {
           "name": "./celestial-bodies.ts",
           "type": "const",
-          "line": 28,
+          "line": 29,
           "isUsed": false,
           "usedIn": [],
           "size": 43
@@ -188,7 +196,7 @@
         {
           "name": "./rainbow.ts",
           "type": "const",
-          "line": 29,
+          "line": 30,
           "isUsed": false,
           "usedIn": [],
           "size": 43
@@ -196,7 +204,7 @@
         {
           "name": "./aurora.ts",
           "type": "const",
-          "line": 30,
+          "line": 31,
           "isUsed": false,
           "usedIn": [],
           "size": 43
@@ -204,7 +212,7 @@
         {
           "name": "./panning-pads.ts",
           "type": "const",
-          "line": 31,
+          "line": 32,
           "isUsed": false,
           "usedIn": [],
           "size": 43
@@ -212,7 +220,7 @@
         {
           "name": "./silence-spirits.ts",
           "type": "const",
-          "line": 32,
+          "line": 33,
           "isUsed": false,
           "usedIn": [],
           "size": 43
@@ -220,7 +228,7 @@
         {
           "name": "./instrument.ts",
           "type": "const",
-          "line": 33,
+          "line": 34,
           "isUsed": false,
           "usedIn": [],
           "size": 43
@@ -228,7 +236,7 @@
         {
           "name": "./ribbons.ts",
           "type": "const",
-          "line": 34,
+          "line": 35,
           "isUsed": false,
           "usedIn": [],
           "size": 43
@@ -236,7 +244,7 @@
         {
           "name": "./mirrors.ts",
           "type": "const",
-          "line": 35,
+          "line": 36,
           "isUsed": false,
           "usedIn": [],
           "size": 43
@@ -244,7 +252,7 @@
         {
           "name": "./sparkle-trail.ts",
           "type": "const",
-          "line": 36,
+          "line": 37,
           "isUsed": false,
           "usedIn": [],
           "size": 43
@@ -252,7 +260,7 @@
         {
           "name": "./impacts.ts",
           "type": "const",
-          "line": 37,
+          "line": 38,
           "isUsed": false,
           "usedIn": [],
           "size": 43
@@ -260,7 +268,7 @@
         {
           "name": "./discovery-effect.ts",
           "type": "const",
-          "line": 38,
+          "line": 39,
           "isUsed": false,
           "usedIn": [],
           "size": 43
@@ -268,7 +276,7 @@
         {
           "name": "./lotus.ts",
           "type": "const",
-          "line": 39,
+          "line": 40,
           "isUsed": false,
           "usedIn": [],
           "size": 43
@@ -276,7 +284,7 @@
         {
           "name": "./pollen.ts",
           "type": "const",
-          "line": 40,
+          "line": 41,
           "isUsed": false,
           "usedIn": [],
           "size": 43
@@ -284,7 +292,7 @@
         {
           "name": "./shield.ts",
           "type": "const",
-          "line": 41,
+          "line": 42,
           "isUsed": false,
           "usedIn": [],
           "size": 43
@@ -292,7 +300,7 @@
         {
           "name": "musicReactivitySystem",
           "type": "const",
-          "line": 44,
+          "line": 45,
           "isUsed": true,
           "usedIn": [
             "main.ts",
@@ -303,7 +311,7 @@
         {
           "name": "./musical_flora.ts",
           "type": "const",
-          "line": 47,
+          "line": 48,
           "isUsed": false,
           "usedIn": [],
           "size": 43
@@ -311,7 +319,7 @@
         {
           "name": "./arpeggio-batcher.ts",
           "type": "const",
-          "line": 48,
+          "line": 49,
           "isUsed": false,
           "usedIn": [],
           "size": 43
@@ -319,7 +327,7 @@
         {
           "name": "./portamento-batcher.ts",
           "type": "const",
-          "line": 49,
+          "line": 50,
           "isUsed": false,
           "usedIn": [],
           "size": 43
@@ -327,7 +335,7 @@
         {
           "name": "./wisteria-cluster.ts",
           "type": "const",
-          "line": 50,
+          "line": 51,
           "isUsed": false,
           "usedIn": [],
           "size": 43
@@ -335,7 +343,7 @@
         {
           "name": "./mushroom-batcher.ts",
           "type": "const",
-          "line": 53,
+          "line": 54,
           "isUsed": false,
           "usedIn": [],
           "size": 43
@@ -343,7 +351,7 @@
         {
           "name": "./cloud-batcher.ts",
           "type": "const",
-          "line": 54,
+          "line": 55,
           "isUsed": false,
           "usedIn": [],
           "size": 43
@@ -351,7 +359,7 @@
         {
           "name": "./dandelion-batcher.ts",
           "type": "const",
-          "line": 55,
+          "line": 56,
           "isUsed": false,
           "usedIn": [],
           "size": 43
@@ -359,7 +367,7 @@
         {
           "name": "./dandelion-seeds.ts",
           "type": "const",
-          "line": 56,
+          "line": 57,
           "isUsed": false,
           "usedIn": [],
           "size": 43
@@ -367,7 +375,7 @@
         {
           "name": "./lantern-batcher.ts",
           "type": "const",
-          "line": 57,
+          "line": 58,
           "isUsed": false,
           "usedIn": [],
           "size": 43
@@ -375,7 +383,7 @@
         {
           "name": "./simple-flower-batcher.ts",
           "type": "const",
-          "line": 58,
+          "line": 59,
           "isUsed": false,
           "usedIn": [],
           "size": 43
@@ -383,7 +391,7 @@
         {
           "name": "./glowing-flower-batcher.ts",
           "type": "const",
-          "line": 59,
+          "line": 60,
           "isUsed": false,
           "usedIn": [],
           "size": 43
@@ -391,7 +399,7 @@
         {
           "name": "./waterfall-batcher.ts",
           "type": "const",
-          "line": 60,
+          "line": 61,
           "isUsed": false,
           "usedIn": [],
           "size": 43
@@ -399,7 +407,7 @@
         {
           "name": "./tree-batcher.ts",
           "type": "const",
-          "line": 61,
+          "line": 62,
           "isUsed": false,
           "usedIn": [],
           "size": 43
@@ -544,15 +552,15 @@
           "size": 43
         },
         {
-          "name": "./sky.ts",
+          "name": "./strobe.ts",
           "type": "const",
-          "line": 25,
+          "line": 20,
           "isUsed": false,
           "usedIn": [],
           "size": 43
         },
         {
-          "name": "./stars.ts",
+          "name": "./sky.ts",
           "type": "const",
           "line": 26,
           "isUsed": false,
@@ -560,7 +568,7 @@
           "size": 43
         },
         {
-          "name": "./moon.ts",
+          "name": "./stars.ts",
           "type": "const",
           "line": 27,
           "isUsed": false,
@@ -568,7 +576,7 @@
           "size": 43
         },
         {
-          "name": "./celestial-bodies.ts",
+          "name": "./moon.ts",
           "type": "const",
           "line": 28,
           "isUsed": false,
@@ -576,7 +584,7 @@
           "size": 43
         },
         {
-          "name": "./rainbow.ts",
+          "name": "./celestial-bodies.ts",
           "type": "const",
           "line": 29,
           "isUsed": false,
@@ -584,7 +592,7 @@
           "size": 43
         },
         {
-          "name": "./aurora.ts",
+          "name": "./rainbow.ts",
           "type": "const",
           "line": 30,
           "isUsed": false,
@@ -592,7 +600,7 @@
           "size": 43
         },
         {
-          "name": "./panning-pads.ts",
+          "name": "./aurora.ts",
           "type": "const",
           "line": 31,
           "isUsed": false,
@@ -600,7 +608,7 @@
           "size": 43
         },
         {
-          "name": "./silence-spirits.ts",
+          "name": "./panning-pads.ts",
           "type": "const",
           "line": 32,
           "isUsed": false,
@@ -608,7 +616,7 @@
           "size": 43
         },
         {
-          "name": "./instrument.ts",
+          "name": "./silence-spirits.ts",
           "type": "const",
           "line": 33,
           "isUsed": false,
@@ -616,7 +624,7 @@
           "size": 43
         },
         {
-          "name": "./ribbons.ts",
+          "name": "./instrument.ts",
           "type": "const",
           "line": 34,
           "isUsed": false,
@@ -624,7 +632,7 @@
           "size": 43
         },
         {
-          "name": "./mirrors.ts",
+          "name": "./ribbons.ts",
           "type": "const",
           "line": 35,
           "isUsed": false,
@@ -632,7 +640,7 @@
           "size": 43
         },
         {
-          "name": "./sparkle-trail.ts",
+          "name": "./mirrors.ts",
           "type": "const",
           "line": 36,
           "isUsed": false,
@@ -640,7 +648,7 @@
           "size": 43
         },
         {
-          "name": "./impacts.ts",
+          "name": "./sparkle-trail.ts",
           "type": "const",
           "line": 37,
           "isUsed": false,
@@ -648,7 +656,7 @@
           "size": 43
         },
         {
-          "name": "./discovery-effect.ts",
+          "name": "./impacts.ts",
           "type": "const",
           "line": 38,
           "isUsed": false,
@@ -656,7 +664,7 @@
           "size": 43
         },
         {
-          "name": "./lotus.ts",
+          "name": "./discovery-effect.ts",
           "type": "const",
           "line": 39,
           "isUsed": false,
@@ -664,7 +672,7 @@
           "size": 43
         },
         {
-          "name": "./pollen.ts",
+          "name": "./lotus.ts",
           "type": "const",
           "line": 40,
           "isUsed": false,
@@ -672,7 +680,7 @@
           "size": 43
         },
         {
-          "name": "./shield.ts",
+          "name": "./pollen.ts",
           "type": "const",
           "line": 41,
           "isUsed": false,
@@ -680,15 +688,15 @@
           "size": 43
         },
         {
-          "name": "./musical_flora.ts",
+          "name": "./shield.ts",
           "type": "const",
-          "line": 47,
+          "line": 42,
           "isUsed": false,
           "usedIn": [],
           "size": 43
         },
         {
-          "name": "./arpeggio-batcher.ts",
+          "name": "./musical_flora.ts",
           "type": "const",
           "line": 48,
           "isUsed": false,
@@ -696,7 +704,7 @@
           "size": 43
         },
         {
-          "name": "./portamento-batcher.ts",
+          "name": "./arpeggio-batcher.ts",
           "type": "const",
           "line": 49,
           "isUsed": false,
@@ -704,7 +712,7 @@
           "size": 43
         },
         {
-          "name": "./wisteria-cluster.ts",
+          "name": "./portamento-batcher.ts",
           "type": "const",
           "line": 50,
           "isUsed": false,
@@ -712,15 +720,15 @@
           "size": 43
         },
         {
-          "name": "./mushroom-batcher.ts",
+          "name": "./wisteria-cluster.ts",
           "type": "const",
-          "line": 53,
+          "line": 51,
           "isUsed": false,
           "usedIn": [],
           "size": 43
         },
         {
-          "name": "./cloud-batcher.ts",
+          "name": "./mushroom-batcher.ts",
           "type": "const",
           "line": 54,
           "isUsed": false,
@@ -728,7 +736,7 @@
           "size": 43
         },
         {
-          "name": "./dandelion-batcher.ts",
+          "name": "./cloud-batcher.ts",
           "type": "const",
           "line": 55,
           "isUsed": false,
@@ -736,7 +744,7 @@
           "size": 43
         },
         {
-          "name": "./dandelion-seeds.ts",
+          "name": "./dandelion-batcher.ts",
           "type": "const",
           "line": 56,
           "isUsed": false,
@@ -744,7 +752,7 @@
           "size": 43
         },
         {
-          "name": "./lantern-batcher.ts",
+          "name": "./dandelion-seeds.ts",
           "type": "const",
           "line": 57,
           "isUsed": false,
@@ -752,7 +760,7 @@
           "size": 43
         },
         {
-          "name": "./simple-flower-batcher.ts",
+          "name": "./lantern-batcher.ts",
           "type": "const",
           "line": 58,
           "isUsed": false,
@@ -760,7 +768,7 @@
           "size": 43
         },
         {
-          "name": "./glowing-flower-batcher.ts",
+          "name": "./simple-flower-batcher.ts",
           "type": "const",
           "line": 59,
           "isUsed": false,
@@ -768,7 +776,7 @@
           "size": 43
         },
         {
-          "name": "./waterfall-batcher.ts",
+          "name": "./glowing-flower-batcher.ts",
           "type": "const",
           "line": 60,
           "isUsed": false,
@@ -776,9 +784,17 @@
           "size": 43
         },
         {
-          "name": "./tree-batcher.ts",
+          "name": "./waterfall-batcher.ts",
           "type": "const",
           "line": 61,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 43
+        },
+        {
+          "name": "./tree-batcher.ts",
+          "type": "const",
+          "line": 62,
           "isUsed": false,
           "usedIn": [],
           "size": 43
@@ -1404,476 +1420,6 @@
       "treeShakingScore": 0
     },
     {
-      "path": "systems/asset-streaming.ts",
-      "exports": [
-        {
-          "name": "AssetPriority",
-          "type": "enum",
-          "line": 28,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1799
-        },
-        {
-          "name": "AssetType",
-          "type": "enum",
-          "line": 37,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1799
-        },
-        {
-          "name": "TextureFormat",
-          "type": "enum",
-          "line": 48,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1799
-        },
-        {
-          "name": "LoadingState",
-          "type": "enum",
-          "line": 58,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1799
-        },
-        {
-          "name": "QualityLevel",
-          "type": "enum",
-          "line": 68,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1799
-        },
-        {
-          "name": "MemoryPressure",
-          "type": "enum",
-          "line": 77,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1799
-        },
-        {
-          "name": "AssetMetadata",
-          "type": "interface",
-          "line": 86,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1799
-        },
-        {
-          "name": "AssetManifest",
-          "type": "interface",
-          "line": 103,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1799
-        },
-        {
-          "name": "LoadedAsset",
-          "type": "interface",
-          "line": 112,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1799
-        },
-        {
-          "name": "LoadingProgress",
-          "type": "interface",
-          "line": 126,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1799
-        },
-        {
-          "name": "NetworkStats",
-          "type": "interface",
-          "line": 137,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1799
-        },
-        {
-          "name": "StreamingConfig",
-          "type": "interface",
-          "line": 147,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1799
-        },
-        {
-          "name": "StreamingStats",
-          "type": "interface",
-          "line": 186,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1799
-        },
-        {
-          "name": "DEFAULT_STREAMING_CONFIG",
-          "type": "const",
-          "line": 208,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1799
-        },
-        {
-          "name": "PRIORITY_DISTANCES",
-          "type": "const",
-          "line": 241,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1799
-        },
-        {
-          "name": "QUALITY_FORMAT_PREFERENCES",
-          "type": "const",
-          "line": 250,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1799
-        },
-        {
-          "name": "LRUCache",
-          "type": "class",
-          "line": 266,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1799
-        },
-        {
-          "name": "NetworkManager",
-          "type": "class",
-          "line": 371,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1799
-        },
-        {
-          "name": "ProgressiveTextureLoader",
-          "type": "class",
-          "line": 547,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1799
-        },
-        {
-          "name": "AudioStreamingLoader",
-          "type": "class",
-          "line": 612,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1799
-        },
-        {
-          "name": "GeometryLODLoader",
-          "type": "class",
-          "line": 674,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1799
-        },
-        {
-          "name": "PlaceholderManager",
-          "type": "class",
-          "line": 721,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1799
-        },
-        {
-          "name": "AssetStreamer",
-          "type": "class",
-          "line": 833,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1799
-        },
-        {
-          "name": "createSampleManifest",
-          "type": "function",
-          "line": 1579,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1799
-        },
-        {
-          "name": "estimateTextureMemory",
-          "type": "function",
-          "line": 1590,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1799
-        },
-        {
-          "name": "estimateGeometryMemory",
-          "type": "function",
-          "line": 1604,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1799
-        },
-        {
-          "name": "default",
-          "type": "function",
-          "line": 1623,
-          "isUsed": true,
-          "usedIn": [
-            "world/generation.ts"
-          ],
-          "size": 0
-        },
-        {
-          "name": "RegionManager",
-          "type": "const",
-          "line": 1624,
-          "isUsed": true,
-          "usedIn": [
-            "systems/asset-streaming.ts"
-          ],
-          "size": 0
-        },
-        {
-          "name": "GridCell",
-          "type": "const",
-          "line": 1624,
-          "isUsed": true,
-          "usedIn": [
-            "systems/asset-streaming.ts"
-          ],
-          "size": 0
-        },
-        {
-          "name": "CellState",
-          "type": "const",
-          "line": 1624,
-          "isUsed": true,
-          "usedIn": [
-            "systems/asset-streaming.ts"
-          ],
-          "size": 0
-        }
-      ],
-      "imports": [
-        "RegionManager",
-        "GridCell",
-        "CellState",
-        "THREE"
-      ],
-      "unusedExports": [
-        {
-          "name": "AssetPriority",
-          "type": "enum",
-          "line": 28,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1799
-        },
-        {
-          "name": "AssetType",
-          "type": "enum",
-          "line": 37,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1799
-        },
-        {
-          "name": "TextureFormat",
-          "type": "enum",
-          "line": 48,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1799
-        },
-        {
-          "name": "LoadingState",
-          "type": "enum",
-          "line": 58,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1799
-        },
-        {
-          "name": "QualityLevel",
-          "type": "enum",
-          "line": 68,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1799
-        },
-        {
-          "name": "MemoryPressure",
-          "type": "enum",
-          "line": 77,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1799
-        },
-        {
-          "name": "AssetMetadata",
-          "type": "interface",
-          "line": 86,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1799
-        },
-        {
-          "name": "AssetManifest",
-          "type": "interface",
-          "line": 103,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1799
-        },
-        {
-          "name": "LoadedAsset",
-          "type": "interface",
-          "line": 112,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1799
-        },
-        {
-          "name": "LoadingProgress",
-          "type": "interface",
-          "line": 126,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1799
-        },
-        {
-          "name": "NetworkStats",
-          "type": "interface",
-          "line": 137,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1799
-        },
-        {
-          "name": "StreamingConfig",
-          "type": "interface",
-          "line": 147,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1799
-        },
-        {
-          "name": "StreamingStats",
-          "type": "interface",
-          "line": 186,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1799
-        },
-        {
-          "name": "DEFAULT_STREAMING_CONFIG",
-          "type": "const",
-          "line": 208,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1799
-        },
-        {
-          "name": "PRIORITY_DISTANCES",
-          "type": "const",
-          "line": 241,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1799
-        },
-        {
-          "name": "QUALITY_FORMAT_PREFERENCES",
-          "type": "const",
-          "line": 250,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1799
-        },
-        {
-          "name": "LRUCache",
-          "type": "class",
-          "line": 266,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1799
-        },
-        {
-          "name": "NetworkManager",
-          "type": "class",
-          "line": 371,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1799
-        },
-        {
-          "name": "ProgressiveTextureLoader",
-          "type": "class",
-          "line": 547,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1799
-        },
-        {
-          "name": "AudioStreamingLoader",
-          "type": "class",
-          "line": 612,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1799
-        },
-        {
-          "name": "GeometryLODLoader",
-          "type": "class",
-          "line": 674,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1799
-        },
-        {
-          "name": "PlaceholderManager",
-          "type": "class",
-          "line": 721,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1799
-        },
-        {
-          "name": "AssetStreamer",
-          "type": "class",
-          "line": 833,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1799
-        },
-        {
-          "name": "createSampleManifest",
-          "type": "function",
-          "line": 1579,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1799
-        },
-        {
-          "name": "estimateTextureMemory",
-          "type": "function",
-          "line": 1590,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1799
-        },
-        {
-          "name": "estimateGeometryMemory",
-          "type": "function",
-          "line": 1604,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1799
-        }
-      ],
-      "treeShakingScore": 13
-    },
-    {
       "path": "utils/wasm-loader-wrapper.ts",
       "exports": [
         {
@@ -1916,9 +1462,11 @@
           "name": "isEmscriptenReady",
           "type": "function",
           "line": 14,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 147
+          "isUsed": true,
+          "usedIn": [
+            "compute/mesh_deformation.ts"
+          ],
+          "size": 0
         },
         {
           "name": "getGroundHeight",
@@ -2196,14 +1744,6 @@
           "size": 147
         },
         {
-          "name": "isEmscriptenReady",
-          "type": "function",
-          "line": 14,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 147
-        },
-        {
           "name": "lerp",
           "type": "function",
           "line": 18,
@@ -2372,7 +1912,7 @@
           "size": 147
         }
       ],
-      "treeShakingScore": 29
+      "treeShakingScore": 32
     },
     {
       "path": "particles/compute-particles.ts",
@@ -2383,7 +1923,7 @@
           "line": 52,
           "isUsed": false,
           "usedIn": [],
-          "size": 2089
+          "size": 2118
         },
         {
           "name": "ComputeParticleConfig",
@@ -2391,7 +1931,7 @@
           "line": 54,
           "isUsed": false,
           "usedIn": [],
-          "size": 2089
+          "size": 2118
         },
         {
           "name": "ParticleBuffers",
@@ -2399,7 +1939,7 @@
           "line": 71,
           "isUsed": false,
           "usedIn": [],
-          "size": 2089
+          "size": 2118
         },
         {
           "name": "ParticleAudioData",
@@ -2407,7 +1947,7 @@
           "line": 80,
           "isUsed": false,
           "usedIn": [],
-          "size": 2089
+          "size": 2118
         },
         {
           "name": "ComputeParticleSystem",
@@ -2423,47 +1963,47 @@
         {
           "name": "FireflyConfig",
           "type": "interface",
-          "line": 1357,
+          "line": 1379,
           "isUsed": false,
           "usedIn": [],
-          "size": 2089
+          "size": 2118
         },
         {
           "name": "PollenConfig",
           "type": "interface",
-          "line": 1362,
+          "line": 1384,
           "isUsed": false,
           "usedIn": [],
-          "size": 2089
+          "size": 2118
         },
         {
           "name": "BerryConfig",
           "type": "interface",
-          "line": 1367,
+          "line": 1389,
           "isUsed": false,
           "usedIn": [],
-          "size": 2089
+          "size": 2118
         },
         {
           "name": "RainConfig",
           "type": "interface",
-          "line": 1372,
+          "line": 1394,
           "isUsed": false,
           "usedIn": [],
-          "size": 2089
+          "size": 2118
         },
         {
           "name": "SparkConfig",
           "type": "interface",
-          "line": 1377,
+          "line": 1399,
           "isUsed": false,
           "usedIn": [],
-          "size": 2089
+          "size": 2118
         },
         {
           "name": "createComputeFireflies",
           "type": "function",
-          "line": 1387,
+          "line": 1409,
           "isUsed": true,
           "usedIn": [
             "particles/compute-integration.ts"
@@ -2473,7 +2013,7 @@
         {
           "name": "createComputePollen",
           "type": "function",
-          "line": 1403,
+          "line": 1425,
           "isUsed": true,
           "usedIn": [
             "particles/compute-integration.ts"
@@ -2483,111 +2023,111 @@
         {
           "name": "createComputeBerries",
           "type": "function",
-          "line": 1419,
+          "line": 1441,
           "isUsed": false,
           "usedIn": [],
-          "size": 2089
+          "size": 2118
         },
         {
           "name": "createComputeRain",
           "type": "function",
-          "line": 1435,
+          "line": 1457,
           "isUsed": false,
           "usedIn": [],
-          "size": 2089
+          "size": 2118
         },
         {
           "name": "createComputeSparks",
           "type": "function",
-          "line": 1451,
+          "line": 1473,
           "isUsed": false,
           "usedIn": [],
-          "size": 2089
+          "size": 2118
         },
         {
           "name": "ComputeSystemCollection",
           "type": "interface",
-          "line": 1466,
+          "line": 1488,
           "isUsed": false,
           "usedIn": [],
-          "size": 2089
+          "size": 2118
         },
         {
           "name": "initComputeParticleSystems",
           "type": "function",
-          "line": 1476,
+          "line": 1498,
           "isUsed": false,
           "usedIn": [],
-          "size": 2089
+          "size": 2118
         },
         {
           "name": "addComputeSystem",
           "type": "function",
-          "line": 1481,
+          "line": 1503,
           "isUsed": false,
           "usedIn": [],
-          "size": 2089
+          "size": 2118
         },
         {
           "name": "removeComputeSystem",
           "type": "function",
-          "line": 1485,
+          "line": 1507,
           "isUsed": false,
           "usedIn": [],
-          "size": 2089
+          "size": 2118
         },
         {
           "name": "updateAllComputeSystems",
           "type": "function",
-          "line": 1492,
+          "line": 1514,
           "isUsed": false,
           "usedIn": [],
-          "size": 2089
+          "size": 2118
         },
         {
           "name": "disposeAllComputeSystems",
           "type": "function",
-          "line": 1505,
+          "line": 1527,
           "isUsed": false,
           "usedIn": [],
-          "size": 2089
+          "size": 2118
         },
         {
           "name": "getActiveComputeSystems",
           "type": "function",
-          "line": 1514,
+          "line": 1536,
           "isUsed": false,
           "usedIn": [],
-          "size": 2089
+          "size": 2118
         },
         {
           "name": "UPDATE_PARTICLES_WGSL",
           "type": "const",
-          "line": 1519,
+          "line": 1541,
           "isUsed": false,
           "usedIn": [],
-          "size": 2089
+          "size": 2118
         },
         {
           "name": "RENDER_PARTICLES_WGSL",
           "type": "const",
-          "line": 1519,
+          "line": 1541,
           "isUsed": false,
           "usedIn": [],
-          "size": 2089
+          "size": 2118
         },
         {
           "name": "FRAGMENT_PARTICLES_WGSL",
           "type": "const",
-          "line": 1519,
+          "line": 1541,
           "isUsed": false,
           "usedIn": [],
-          "size": 2089
+          "size": 2118
         },
         {
           "name": "default",
           "type": "function",
-          "line": 1522,
+          "line": 1544,
           "isUsed": true,
           "usedIn": [
             "world/generation.ts"
@@ -2645,7 +2185,7 @@
           "line": 52,
           "isUsed": false,
           "usedIn": [],
-          "size": 2089
+          "size": 2118
         },
         {
           "name": "ComputeParticleConfig",
@@ -2653,7 +2193,7 @@
           "line": 54,
           "isUsed": false,
           "usedIn": [],
-          "size": 2089
+          "size": 2118
         },
         {
           "name": "ParticleBuffers",
@@ -2661,7 +2201,7 @@
           "line": 71,
           "isUsed": false,
           "usedIn": [],
-          "size": 2089
+          "size": 2118
         },
         {
           "name": "ParticleAudioData",
@@ -2669,154 +2209,604 @@
           "line": 80,
           "isUsed": false,
           "usedIn": [],
-          "size": 2089
+          "size": 2118
         },
         {
           "name": "FireflyConfig",
           "type": "interface",
-          "line": 1357,
+          "line": 1379,
           "isUsed": false,
           "usedIn": [],
-          "size": 2089
+          "size": 2118
         },
         {
           "name": "PollenConfig",
           "type": "interface",
-          "line": 1362,
+          "line": 1384,
           "isUsed": false,
           "usedIn": [],
-          "size": 2089
+          "size": 2118
         },
         {
           "name": "BerryConfig",
           "type": "interface",
-          "line": 1367,
+          "line": 1389,
           "isUsed": false,
           "usedIn": [],
-          "size": 2089
+          "size": 2118
         },
         {
           "name": "RainConfig",
           "type": "interface",
-          "line": 1372,
+          "line": 1394,
           "isUsed": false,
           "usedIn": [],
-          "size": 2089
+          "size": 2118
         },
         {
           "name": "SparkConfig",
           "type": "interface",
-          "line": 1377,
+          "line": 1399,
           "isUsed": false,
           "usedIn": [],
-          "size": 2089
+          "size": 2118
         },
         {
           "name": "createComputeBerries",
           "type": "function",
-          "line": 1419,
+          "line": 1441,
           "isUsed": false,
           "usedIn": [],
-          "size": 2089
+          "size": 2118
         },
         {
           "name": "createComputeRain",
           "type": "function",
-          "line": 1435,
+          "line": 1457,
           "isUsed": false,
           "usedIn": [],
-          "size": 2089
+          "size": 2118
         },
         {
           "name": "createComputeSparks",
           "type": "function",
-          "line": 1451,
+          "line": 1473,
           "isUsed": false,
           "usedIn": [],
-          "size": 2089
+          "size": 2118
         },
         {
           "name": "ComputeSystemCollection",
           "type": "interface",
-          "line": 1466,
+          "line": 1488,
           "isUsed": false,
           "usedIn": [],
-          "size": 2089
+          "size": 2118
         },
         {
           "name": "initComputeParticleSystems",
           "type": "function",
-          "line": 1476,
+          "line": 1498,
           "isUsed": false,
           "usedIn": [],
-          "size": 2089
+          "size": 2118
         },
         {
           "name": "addComputeSystem",
           "type": "function",
-          "line": 1481,
+          "line": 1503,
           "isUsed": false,
           "usedIn": [],
-          "size": 2089
+          "size": 2118
         },
         {
           "name": "removeComputeSystem",
           "type": "function",
-          "line": 1485,
+          "line": 1507,
           "isUsed": false,
           "usedIn": [],
-          "size": 2089
+          "size": 2118
         },
         {
           "name": "updateAllComputeSystems",
           "type": "function",
-          "line": 1492,
+          "line": 1514,
           "isUsed": false,
           "usedIn": [],
-          "size": 2089
+          "size": 2118
         },
         {
           "name": "disposeAllComputeSystems",
           "type": "function",
-          "line": 1505,
+          "line": 1527,
           "isUsed": false,
           "usedIn": [],
-          "size": 2089
+          "size": 2118
         },
         {
           "name": "getActiveComputeSystems",
           "type": "function",
-          "line": 1514,
+          "line": 1536,
           "isUsed": false,
           "usedIn": [],
-          "size": 2089
+          "size": 2118
         },
         {
           "name": "UPDATE_PARTICLES_WGSL",
           "type": "const",
-          "line": 1519,
+          "line": 1541,
           "isUsed": false,
           "usedIn": [],
-          "size": 2089
+          "size": 2118
         },
         {
           "name": "RENDER_PARTICLES_WGSL",
           "type": "const",
-          "line": 1519,
+          "line": 1541,
           "isUsed": false,
           "usedIn": [],
-          "size": 2089
+          "size": 2118
         },
         {
           "name": "FRAGMENT_PARTICLES_WGSL",
           "type": "const",
-          "line": 1519,
+          "line": 1541,
           "isUsed": false,
           "usedIn": [],
-          "size": 2089
+          "size": 2118
         }
       ],
       "treeShakingScore": 15
+    },
+    {
+      "path": "systems/asset-streaming.ts",
+      "exports": [
+        {
+          "name": "AssetPriority",
+          "type": "enum",
+          "line": 28,
+          "isUsed": true,
+          "usedIn": [
+            "examples/asset-streaming-usage.ts",
+            "systems/index.ts"
+          ],
+          "size": 0
+        },
+        {
+          "name": "AssetType",
+          "type": "enum",
+          "line": 37,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1799
+        },
+        {
+          "name": "TextureFormat",
+          "type": "enum",
+          "line": 48,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1799
+        },
+        {
+          "name": "LoadingState",
+          "type": "enum",
+          "line": 58,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1799
+        },
+        {
+          "name": "QualityLevel",
+          "type": "enum",
+          "line": 68,
+          "isUsed": true,
+          "usedIn": [
+            "examples/asset-streaming-usage.ts"
+          ],
+          "size": 0
+        },
+        {
+          "name": "MemoryPressure",
+          "type": "enum",
+          "line": 77,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1799
+        },
+        {
+          "name": "AssetMetadata",
+          "type": "interface",
+          "line": 86,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1799
+        },
+        {
+          "name": "AssetManifest",
+          "type": "interface",
+          "line": 103,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1799
+        },
+        {
+          "name": "LoadedAsset",
+          "type": "interface",
+          "line": 112,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1799
+        },
+        {
+          "name": "LoadingProgress",
+          "type": "interface",
+          "line": 126,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1799
+        },
+        {
+          "name": "NetworkStats",
+          "type": "interface",
+          "line": 137,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1799
+        },
+        {
+          "name": "StreamingConfig",
+          "type": "interface",
+          "line": 147,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1799
+        },
+        {
+          "name": "StreamingStats",
+          "type": "interface",
+          "line": 186,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1799
+        },
+        {
+          "name": "DEFAULT_STREAMING_CONFIG",
+          "type": "const",
+          "line": 208,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1799
+        },
+        {
+          "name": "PRIORITY_DISTANCES",
+          "type": "const",
+          "line": 241,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1799
+        },
+        {
+          "name": "QUALITY_FORMAT_PREFERENCES",
+          "type": "const",
+          "line": 250,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1799
+        },
+        {
+          "name": "LRUCache",
+          "type": "class",
+          "line": 266,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1799
+        },
+        {
+          "name": "NetworkManager",
+          "type": "class",
+          "line": 371,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1799
+        },
+        {
+          "name": "ProgressiveTextureLoader",
+          "type": "class",
+          "line": 547,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1799
+        },
+        {
+          "name": "AudioStreamingLoader",
+          "type": "class",
+          "line": 612,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1799
+        },
+        {
+          "name": "GeometryLODLoader",
+          "type": "class",
+          "line": 674,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1799
+        },
+        {
+          "name": "PlaceholderManager",
+          "type": "class",
+          "line": 721,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1799
+        },
+        {
+          "name": "AssetStreamer",
+          "type": "class",
+          "line": 833,
+          "isUsed": true,
+          "usedIn": [
+            "examples/asset-streaming-usage.ts",
+            "systems/index.ts"
+          ],
+          "size": 0
+        },
+        {
+          "name": "createSampleManifest",
+          "type": "function",
+          "line": 1579,
+          "isUsed": true,
+          "usedIn": [
+            "examples/asset-streaming-usage.ts"
+          ],
+          "size": 0
+        },
+        {
+          "name": "estimateTextureMemory",
+          "type": "function",
+          "line": 1590,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1799
+        },
+        {
+          "name": "estimateGeometryMemory",
+          "type": "function",
+          "line": 1604,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1799
+        },
+        {
+          "name": "default",
+          "type": "function",
+          "line": 1623,
+          "isUsed": true,
+          "usedIn": [
+            "world/generation.ts"
+          ],
+          "size": 0
+        },
+        {
+          "name": "RegionManager",
+          "type": "const",
+          "line": 1624,
+          "isUsed": true,
+          "usedIn": [
+            "examples/asset-streaming-usage.ts",
+            "systems/asset-streaming.ts",
+            "systems/index.ts"
+          ],
+          "size": 0
+        },
+        {
+          "name": "GridCell",
+          "type": "const",
+          "line": 1624,
+          "isUsed": true,
+          "usedIn": [
+            "systems/asset-streaming.ts"
+          ],
+          "size": 0
+        },
+        {
+          "name": "CellState",
+          "type": "const",
+          "line": 1624,
+          "isUsed": true,
+          "usedIn": [
+            "systems/asset-streaming.ts"
+          ],
+          "size": 0
+        }
+      ],
+      "imports": [
+        "RegionManager",
+        "GridCell",
+        "CellState",
+        "THREE"
+      ],
+      "unusedExports": [
+        {
+          "name": "AssetType",
+          "type": "enum",
+          "line": 37,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1799
+        },
+        {
+          "name": "TextureFormat",
+          "type": "enum",
+          "line": 48,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1799
+        },
+        {
+          "name": "LoadingState",
+          "type": "enum",
+          "line": 58,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1799
+        },
+        {
+          "name": "MemoryPressure",
+          "type": "enum",
+          "line": 77,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1799
+        },
+        {
+          "name": "AssetMetadata",
+          "type": "interface",
+          "line": 86,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1799
+        },
+        {
+          "name": "AssetManifest",
+          "type": "interface",
+          "line": 103,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1799
+        },
+        {
+          "name": "LoadedAsset",
+          "type": "interface",
+          "line": 112,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1799
+        },
+        {
+          "name": "LoadingProgress",
+          "type": "interface",
+          "line": 126,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1799
+        },
+        {
+          "name": "NetworkStats",
+          "type": "interface",
+          "line": 137,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1799
+        },
+        {
+          "name": "StreamingConfig",
+          "type": "interface",
+          "line": 147,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1799
+        },
+        {
+          "name": "StreamingStats",
+          "type": "interface",
+          "line": 186,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1799
+        },
+        {
+          "name": "DEFAULT_STREAMING_CONFIG",
+          "type": "const",
+          "line": 208,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1799
+        },
+        {
+          "name": "PRIORITY_DISTANCES",
+          "type": "const",
+          "line": 241,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1799
+        },
+        {
+          "name": "QUALITY_FORMAT_PREFERENCES",
+          "type": "const",
+          "line": 250,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1799
+        },
+        {
+          "name": "LRUCache",
+          "type": "class",
+          "line": 266,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1799
+        },
+        {
+          "name": "NetworkManager",
+          "type": "class",
+          "line": 371,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1799
+        },
+        {
+          "name": "ProgressiveTextureLoader",
+          "type": "class",
+          "line": 547,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1799
+        },
+        {
+          "name": "AudioStreamingLoader",
+          "type": "class",
+          "line": 612,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1799
+        },
+        {
+          "name": "GeometryLODLoader",
+          "type": "class",
+          "line": 674,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1799
+        },
+        {
+          "name": "PlaceholderManager",
+          "type": "class",
+          "line": 721,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1799
+        },
+        {
+          "name": "estimateTextureMemory",
+          "type": "function",
+          "line": 1590,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1799
+        },
+        {
+          "name": "estimateGeometryMemory",
+          "type": "function",
+          "line": 1604,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1799
+        }
+      ],
+      "treeShakingScore": 27
     },
     {
       "path": "ui/announcer.ts",
@@ -2825,11 +2815,9 @@
           "name": "AnnouncementPriority",
           "type": "type",
           "line": 15,
-          "isUsed": true,
-          "usedIn": [
-            "systems/accessibility.ts"
-          ],
-          "size": 0
+          "isUsed": false,
+          "usedIn": [],
+          "size": 802
         },
         {
           "name": "Announcement",
@@ -2837,7 +2825,7 @@
           "line": 17,
           "isUsed": false,
           "usedIn": [],
-          "size": 832
+          "size": 802
         },
         {
           "name": "AnnouncerOptions",
@@ -2845,7 +2833,7 @@
           "line": 24,
           "isUsed": false,
           "usedIn": [],
-          "size": 832
+          "size": 802
         },
         {
           "name": "GameEventType",
@@ -2853,7 +2841,7 @@
           "line": 35,
           "isUsed": false,
           "usedIn": [],
-          "size": 832
+          "size": 802
         },
         {
           "name": "GameEvent",
@@ -2861,7 +2849,7 @@
           "line": 47,
           "isUsed": false,
           "usedIn": [],
-          "size": 832
+          "size": 802
         },
         {
           "name": "Announcer",
@@ -2869,7 +2857,7 @@
           "line": 125,
           "isUsed": false,
           "usedIn": [],
-          "size": 832
+          "size": 802
         },
         {
           "name": "getAnnouncer",
@@ -2877,7 +2865,7 @@
           "line": 517,
           "isUsed": false,
           "usedIn": [],
-          "size": 832
+          "size": 802
         },
         {
           "name": "initAnnouncer",
@@ -2885,7 +2873,7 @@
           "line": 524,
           "isUsed": false,
           "usedIn": [],
-          "size": 832
+          "size": 802
         },
         {
           "name": "announce",
@@ -2903,7 +2891,7 @@
           "line": 539,
           "isUsed": false,
           "usedIn": [],
-          "size": 832
+          "size": 802
         },
         {
           "name": "announcePolite",
@@ -2911,7 +2899,7 @@
           "line": 543,
           "isUsed": false,
           "usedIn": [],
-          "size": 832
+          "size": 802
         },
         {
           "name": "announceDiscovery",
@@ -2919,7 +2907,7 @@
           "line": 547,
           "isUsed": false,
           "usedIn": [],
-          "size": 832
+          "size": 802
         },
         {
           "name": "announceCollection",
@@ -2927,7 +2915,7 @@
           "line": 551,
           "isUsed": false,
           "usedIn": [],
-          "size": 832
+          "size": 802
         },
         {
           "name": "announceCombat",
@@ -2935,7 +2923,7 @@
           "line": 555,
           "isUsed": false,
           "usedIn": [],
-          "size": 832
+          "size": 802
         },
         {
           "name": "announceEnvironment",
@@ -2943,7 +2931,7 @@
           "line": 559,
           "isUsed": false,
           "usedIn": [],
-          "size": 832
+          "size": 802
         },
         {
           "name": "announceQuest",
@@ -2951,7 +2939,7 @@
           "line": 563,
           "isUsed": false,
           "usedIn": [],
-          "size": 832
+          "size": 802
         },
         {
           "name": "announceInventory",
@@ -2959,7 +2947,7 @@
           "line": 567,
           "isUsed": false,
           "usedIn": [],
-          "size": 832
+          "size": 802
         },
         {
           "name": "announceStatus",
@@ -2967,7 +2955,7 @@
           "line": 571,
           "isUsed": false,
           "usedIn": [],
-          "size": 832
+          "size": 802
         },
         {
           "name": "announceDialogue",
@@ -2975,7 +2963,7 @@
           "line": 575,
           "isUsed": false,
           "usedIn": [],
-          "size": 832
+          "size": 802
         },
         {
           "name": "announceWarning",
@@ -2983,7 +2971,7 @@
           "line": 579,
           "isUsed": false,
           "usedIn": [],
-          "size": 832
+          "size": 802
         },
         {
           "name": "announceAchievement",
@@ -2991,18 +2979,36 @@
           "line": 583,
           "isUsed": false,
           "usedIn": [],
-          "size": 832
+          "size": 802
+        },
+        {
+          "name": "announceValueChange",
+          "type": "function",
+          "line": 587,
+          "isUsed": true,
+          "usedIn": [
+            "ui/accessibility-menu.ts"
+          ],
+          "size": 0
         }
       ],
       "imports": [],
       "unusedExports": [
+        {
+          "name": "AnnouncementPriority",
+          "type": "type",
+          "line": 15,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 802
+        },
         {
           "name": "Announcement",
           "type": "interface",
           "line": 17,
           "isUsed": false,
           "usedIn": [],
-          "size": 832
+          "size": 802
         },
         {
           "name": "AnnouncerOptions",
@@ -3010,7 +3016,7 @@
           "line": 24,
           "isUsed": false,
           "usedIn": [],
-          "size": 832
+          "size": 802
         },
         {
           "name": "GameEventType",
@@ -3018,7 +3024,7 @@
           "line": 35,
           "isUsed": false,
           "usedIn": [],
-          "size": 832
+          "size": 802
         },
         {
           "name": "GameEvent",
@@ -3026,7 +3032,7 @@
           "line": 47,
           "isUsed": false,
           "usedIn": [],
-          "size": 832
+          "size": 802
         },
         {
           "name": "Announcer",
@@ -3034,7 +3040,7 @@
           "line": 125,
           "isUsed": false,
           "usedIn": [],
-          "size": 832
+          "size": 802
         },
         {
           "name": "getAnnouncer",
@@ -3042,7 +3048,7 @@
           "line": 517,
           "isUsed": false,
           "usedIn": [],
-          "size": 832
+          "size": 802
         },
         {
           "name": "initAnnouncer",
@@ -3050,7 +3056,7 @@
           "line": 524,
           "isUsed": false,
           "usedIn": [],
-          "size": 832
+          "size": 802
         },
         {
           "name": "announceNow",
@@ -3058,7 +3064,7 @@
           "line": 539,
           "isUsed": false,
           "usedIn": [],
-          "size": 832
+          "size": 802
         },
         {
           "name": "announcePolite",
@@ -3066,7 +3072,7 @@
           "line": 543,
           "isUsed": false,
           "usedIn": [],
-          "size": 832
+          "size": 802
         },
         {
           "name": "announceDiscovery",
@@ -3074,7 +3080,7 @@
           "line": 547,
           "isUsed": false,
           "usedIn": [],
-          "size": 832
+          "size": 802
         },
         {
           "name": "announceCollection",
@@ -3082,7 +3088,7 @@
           "line": 551,
           "isUsed": false,
           "usedIn": [],
-          "size": 832
+          "size": 802
         },
         {
           "name": "announceCombat",
@@ -3090,7 +3096,7 @@
           "line": 555,
           "isUsed": false,
           "usedIn": [],
-          "size": 832
+          "size": 802
         },
         {
           "name": "announceEnvironment",
@@ -3098,7 +3104,7 @@
           "line": 559,
           "isUsed": false,
           "usedIn": [],
-          "size": 832
+          "size": 802
         },
         {
           "name": "announceQuest",
@@ -3106,7 +3112,7 @@
           "line": 563,
           "isUsed": false,
           "usedIn": [],
-          "size": 832
+          "size": 802
         },
         {
           "name": "announceInventory",
@@ -3114,7 +3120,7 @@
           "line": 567,
           "isUsed": false,
           "usedIn": [],
-          "size": 832
+          "size": 802
         },
         {
           "name": "announceStatus",
@@ -3122,7 +3128,7 @@
           "line": 571,
           "isUsed": false,
           "usedIn": [],
-          "size": 832
+          "size": 802
         },
         {
           "name": "announceDialogue",
@@ -3130,7 +3136,7 @@
           "line": 575,
           "isUsed": false,
           "usedIn": [],
-          "size": 832
+          "size": 802
         },
         {
           "name": "announceWarning",
@@ -3138,7 +3144,7 @@
           "line": 579,
           "isUsed": false,
           "usedIn": [],
-          "size": 832
+          "size": 802
         },
         {
           "name": "announceAchievement",
@@ -3146,10 +3152,10 @@
           "line": 583,
           "isUsed": false,
           "usedIn": [],
-          "size": 832
+          "size": 802
         }
       ],
-      "treeShakingScore": 10
+      "treeShakingScore": 9
     },
     {
       "path": "systems/analytics.ts",
@@ -4170,6 +4176,351 @@
       "treeShakingScore": 6
     },
     {
+      "path": "systems/accessibility.ts",
+      "exports": [
+        {
+          "name": "ColorBlindType",
+          "type": "type",
+          "line": 19,
+          "isUsed": true,
+          "usedIn": [
+            "ui/accessibility-menu.ts"
+          ],
+          "size": 0
+        },
+        {
+          "name": "UIScale",
+          "type": "type",
+          "line": 20,
+          "isUsed": true,
+          "usedIn": [
+            "ui/accessibility-menu.ts"
+          ],
+          "size": 0
+        },
+        {
+          "name": "VerbosityLevel",
+          "type": "type",
+          "line": 21,
+          "isUsed": true,
+          "usedIn": [
+            "ui/accessibility-menu.ts"
+          ],
+          "size": 0
+        },
+        {
+          "name": "CrosshairStyle",
+          "type": "type",
+          "line": 22,
+          "isUsed": true,
+          "usedIn": [
+            "ui/accessibility-menu.ts"
+          ],
+          "size": 0
+        },
+        {
+          "name": "Keybinding",
+          "type": "interface",
+          "line": 24,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1276
+        },
+        {
+          "name": "InputSettings",
+          "type": "interface",
+          "line": 32,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1276
+        },
+        {
+          "name": "VisualSettings",
+          "type": "interface",
+          "line": 43,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1276
+        },
+        {
+          "name": "CognitiveSettings",
+          "type": "interface",
+          "line": 59,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1276
+        },
+        {
+          "name": "AuditorySettings",
+          "type": "interface",
+          "line": 70,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1276
+        },
+        {
+          "name": "ScreenReaderSettings",
+          "type": "interface",
+          "line": 83,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1276
+        },
+        {
+          "name": "AccessibilitySettings",
+          "type": "interface",
+          "line": 91,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1276
+        },
+        {
+          "name": "AccessibilityPreset",
+          "type": "interface",
+          "line": 99,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1276
+        },
+        {
+          "name": "defaultSettings",
+          "type": "const",
+          "line": 127,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1276
+        },
+        {
+          "name": "colorBlindMatrices",
+          "type": "const",
+          "line": 189,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1276
+        },
+        {
+          "name": "validateColorMatrices",
+          "type": "function",
+          "line": 227,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1276
+        },
+        {
+          "name": "accessibilityPresets",
+          "type": "const",
+          "line": 241,
+          "isUsed": true,
+          "usedIn": [
+            "ui/accessibility-menu.ts"
+          ],
+          "size": 0
+        },
+        {
+          "name": "AccessibilitySystem",
+          "type": "class",
+          "line": 395,
+          "isUsed": true,
+          "usedIn": [
+            "ui/accessibility-menu.ts"
+          ],
+          "size": 0
+        },
+        {
+          "name": "getAccessibilitySystem",
+          "type": "function",
+          "line": 937,
+          "isUsed": true,
+          "usedIn": [
+            "ui/accessibility-menu.ts"
+          ],
+          "size": 0
+        },
+        {
+          "name": "initAccessibilitySystem",
+          "type": "function",
+          "line": 944,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1276
+        },
+        {
+          "name": "applyColorBlindMode",
+          "type": "function",
+          "line": 952,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1276
+        },
+        {
+          "name": "setMotionReduction",
+          "type": "function",
+          "line": 956,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1276
+        },
+        {
+          "name": "announce",
+          "type": "function",
+          "line": 960,
+          "isUsed": true,
+          "usedIn": [
+            "ui/accessibility-menu.ts"
+          ],
+          "size": 0
+        },
+        {
+          "name": "getCurrentSettings",
+          "type": "function",
+          "line": 964,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1276
+        },
+        {
+          "name": "AnnouncementPriority",
+          "type": "const",
+          "line": 969,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1276
+        }
+      ],
+      "imports": [],
+      "unusedExports": [
+        {
+          "name": "Keybinding",
+          "type": "interface",
+          "line": 24,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1276
+        },
+        {
+          "name": "InputSettings",
+          "type": "interface",
+          "line": 32,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1276
+        },
+        {
+          "name": "VisualSettings",
+          "type": "interface",
+          "line": 43,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1276
+        },
+        {
+          "name": "CognitiveSettings",
+          "type": "interface",
+          "line": 59,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1276
+        },
+        {
+          "name": "AuditorySettings",
+          "type": "interface",
+          "line": 70,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1276
+        },
+        {
+          "name": "ScreenReaderSettings",
+          "type": "interface",
+          "line": 83,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1276
+        },
+        {
+          "name": "AccessibilitySettings",
+          "type": "interface",
+          "line": 91,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1276
+        },
+        {
+          "name": "AccessibilityPreset",
+          "type": "interface",
+          "line": 99,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1276
+        },
+        {
+          "name": "defaultSettings",
+          "type": "const",
+          "line": 127,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1276
+        },
+        {
+          "name": "colorBlindMatrices",
+          "type": "const",
+          "line": 189,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1276
+        },
+        {
+          "name": "validateColorMatrices",
+          "type": "function",
+          "line": 227,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1276
+        },
+        {
+          "name": "initAccessibilitySystem",
+          "type": "function",
+          "line": 944,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1276
+        },
+        {
+          "name": "applyColorBlindMode",
+          "type": "function",
+          "line": 952,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1276
+        },
+        {
+          "name": "setMotionReduction",
+          "type": "function",
+          "line": 956,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1276
+        },
+        {
+          "name": "getCurrentSettings",
+          "type": "function",
+          "line": 964,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1276
+        },
+        {
+          "name": "AnnouncementPriority",
+          "type": "const",
+          "line": 969,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1276
+        }
+      ],
+      "treeShakingScore": 33
+    },
+    {
       "path": "particles/compute-integration.ts",
       "exports": [
         {
@@ -4426,347 +4777,6 @@
       "treeShakingScore": 0
     },
     {
-      "path": "systems/accessibility.ts",
-      "exports": [
-        {
-          "name": "ColorBlindType",
-          "type": "type",
-          "line": 19,
-          "isUsed": true,
-          "usedIn": [
-            "ui/accessibility-menu.ts"
-          ],
-          "size": 0
-        },
-        {
-          "name": "UIScale",
-          "type": "type",
-          "line": 20,
-          "isUsed": true,
-          "usedIn": [
-            "ui/accessibility-menu.ts"
-          ],
-          "size": 0
-        },
-        {
-          "name": "VerbosityLevel",
-          "type": "type",
-          "line": 21,
-          "isUsed": true,
-          "usedIn": [
-            "ui/accessibility-menu.ts"
-          ],
-          "size": 0
-        },
-        {
-          "name": "CrosshairStyle",
-          "type": "type",
-          "line": 22,
-          "isUsed": true,
-          "usedIn": [
-            "ui/accessibility-menu.ts"
-          ],
-          "size": 0
-        },
-        {
-          "name": "Keybinding",
-          "type": "interface",
-          "line": 24,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1275
-        },
-        {
-          "name": "InputSettings",
-          "type": "interface",
-          "line": 32,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1275
-        },
-        {
-          "name": "VisualSettings",
-          "type": "interface",
-          "line": 43,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1275
-        },
-        {
-          "name": "CognitiveSettings",
-          "type": "interface",
-          "line": 59,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1275
-        },
-        {
-          "name": "AuditorySettings",
-          "type": "interface",
-          "line": 70,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1275
-        },
-        {
-          "name": "ScreenReaderSettings",
-          "type": "interface",
-          "line": 83,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1275
-        },
-        {
-          "name": "AccessibilitySettings",
-          "type": "interface",
-          "line": 91,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1275
-        },
-        {
-          "name": "AccessibilityPreset",
-          "type": "interface",
-          "line": 99,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1275
-        },
-        {
-          "name": "defaultSettings",
-          "type": "const",
-          "line": 127,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1275
-        },
-        {
-          "name": "colorBlindMatrices",
-          "type": "const",
-          "line": 189,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1275
-        },
-        {
-          "name": "validateColorMatrices",
-          "type": "function",
-          "line": 227,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1275
-        },
-        {
-          "name": "accessibilityPresets",
-          "type": "const",
-          "line": 241,
-          "isUsed": true,
-          "usedIn": [
-            "ui/accessibility-menu.ts"
-          ],
-          "size": 0
-        },
-        {
-          "name": "AccessibilitySystem",
-          "type": "class",
-          "line": 395,
-          "isUsed": true,
-          "usedIn": [
-            "ui/accessibility-menu.ts"
-          ],
-          "size": 0
-        },
-        {
-          "name": "getAccessibilitySystem",
-          "type": "function",
-          "line": 937,
-          "isUsed": true,
-          "usedIn": [
-            "ui/accessibility-menu.ts"
-          ],
-          "size": 0
-        },
-        {
-          "name": "initAccessibilitySystem",
-          "type": "function",
-          "line": 944,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1275
-        },
-        {
-          "name": "applyColorBlindMode",
-          "type": "function",
-          "line": 952,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1275
-        },
-        {
-          "name": "setMotionReduction",
-          "type": "function",
-          "line": 956,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1275
-        },
-        {
-          "name": "announce",
-          "type": "function",
-          "line": 960,
-          "isUsed": true,
-          "usedIn": [
-            "ui/accessibility-menu.ts"
-          ],
-          "size": 0
-        },
-        {
-          "name": "getCurrentSettings",
-          "type": "function",
-          "line": 964,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1275
-        },
-        {
-          "name": "AnnouncementPriority",
-          "type": "const",
-          "line": 969,
-          "isUsed": true,
-          "usedIn": [
-            "systems/accessibility.ts"
-          ],
-          "size": 0
-        }
-      ],
-      "imports": [
-        "AnnouncementPriority"
-      ],
-      "unusedExports": [
-        {
-          "name": "Keybinding",
-          "type": "interface",
-          "line": 24,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1275
-        },
-        {
-          "name": "InputSettings",
-          "type": "interface",
-          "line": 32,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1275
-        },
-        {
-          "name": "VisualSettings",
-          "type": "interface",
-          "line": 43,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1275
-        },
-        {
-          "name": "CognitiveSettings",
-          "type": "interface",
-          "line": 59,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1275
-        },
-        {
-          "name": "AuditorySettings",
-          "type": "interface",
-          "line": 70,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1275
-        },
-        {
-          "name": "ScreenReaderSettings",
-          "type": "interface",
-          "line": 83,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1275
-        },
-        {
-          "name": "AccessibilitySettings",
-          "type": "interface",
-          "line": 91,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1275
-        },
-        {
-          "name": "AccessibilityPreset",
-          "type": "interface",
-          "line": 99,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1275
-        },
-        {
-          "name": "defaultSettings",
-          "type": "const",
-          "line": 127,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1275
-        },
-        {
-          "name": "colorBlindMatrices",
-          "type": "const",
-          "line": 189,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1275
-        },
-        {
-          "name": "validateColorMatrices",
-          "type": "function",
-          "line": 227,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1275
-        },
-        {
-          "name": "initAccessibilitySystem",
-          "type": "function",
-          "line": 944,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1275
-        },
-        {
-          "name": "applyColorBlindMode",
-          "type": "function",
-          "line": 952,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1275
-        },
-        {
-          "name": "setMotionReduction",
-          "type": "function",
-          "line": 956,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1275
-        },
-        {
-          "name": "getCurrentSettings",
-          "type": "function",
-          "line": 964,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 1275
-        }
-      ],
-      "treeShakingScore": 38
-    },
-    {
       "path": "ui/loading-screen.ts",
       "exports": [
         {
@@ -5010,6 +5020,265 @@
       "treeShakingScore": 7
     },
     {
+      "path": "systems/region-manager.ts",
+      "exports": [
+        {
+          "name": "CellState",
+          "type": "enum",
+          "line": 25,
+          "isUsed": true,
+          "usedIn": [
+            "systems/asset-streaming.ts"
+          ],
+          "size": 0
+        },
+        {
+          "name": "GridCell",
+          "type": "interface",
+          "line": 34,
+          "isUsed": true,
+          "usedIn": [
+            "systems/asset-streaming.ts"
+          ],
+          "size": 0
+        },
+        {
+          "name": "CellBounds",
+          "type": "interface",
+          "line": 49,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1797
+        },
+        {
+          "name": "CellWithBounds",
+          "type": "interface",
+          "line": 59,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1797
+        },
+        {
+          "name": "RegionConfig",
+          "type": "interface",
+          "line": 64,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1797
+        },
+        {
+          "name": "RegionStats",
+          "type": "interface",
+          "line": 75,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1797
+        },
+        {
+          "name": "LODTransition",
+          "type": "interface",
+          "line": 88,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1797
+        },
+        {
+          "name": "SpatialQueryResult",
+          "type": "interface",
+          "line": 96,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1797
+        },
+        {
+          "name": "DEFAULT_REGION_CONFIG",
+          "type": "const",
+          "line": 106,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1797
+        },
+        {
+          "name": "getCellKey",
+          "type": "function",
+          "line": 121,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1797
+        },
+        {
+          "name": "parseCellKey",
+          "type": "function",
+          "line": 126,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1797
+        },
+        {
+          "name": "worldToCell",
+          "type": "function",
+          "line": 132,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1797
+        },
+        {
+          "name": "cellToBounds",
+          "type": "function",
+          "line": 144,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1797
+        },
+        {
+          "name": "distanceToCell",
+          "type": "function",
+          "line": 165,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1797
+        },
+        {
+          "name": "RegionManager",
+          "type": "class",
+          "line": 191,
+          "isUsed": true,
+          "usedIn": [
+            "examples/asset-streaming-usage.ts",
+            "systems/asset-streaming.ts",
+            "systems/index.ts"
+          ],
+          "size": 0
+        },
+        {
+          "name": "CellLoader",
+          "type": "class",
+          "line": 910,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1797
+        },
+        {
+          "name": "default",
+          "type": "function",
+          "line": 995,
+          "isUsed": true,
+          "usedIn": [
+            "world/generation.ts"
+          ],
+          "size": 0
+        }
+      ],
+      "imports": [],
+      "unusedExports": [
+        {
+          "name": "CellBounds",
+          "type": "interface",
+          "line": 49,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1797
+        },
+        {
+          "name": "CellWithBounds",
+          "type": "interface",
+          "line": 59,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1797
+        },
+        {
+          "name": "RegionConfig",
+          "type": "interface",
+          "line": 64,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1797
+        },
+        {
+          "name": "RegionStats",
+          "type": "interface",
+          "line": 75,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1797
+        },
+        {
+          "name": "LODTransition",
+          "type": "interface",
+          "line": 88,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1797
+        },
+        {
+          "name": "SpatialQueryResult",
+          "type": "interface",
+          "line": 96,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1797
+        },
+        {
+          "name": "DEFAULT_REGION_CONFIG",
+          "type": "const",
+          "line": 106,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1797
+        },
+        {
+          "name": "getCellKey",
+          "type": "function",
+          "line": 121,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1797
+        },
+        {
+          "name": "parseCellKey",
+          "type": "function",
+          "line": 126,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1797
+        },
+        {
+          "name": "worldToCell",
+          "type": "function",
+          "line": 132,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1797
+        },
+        {
+          "name": "cellToBounds",
+          "type": "function",
+          "line": 144,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1797
+        },
+        {
+          "name": "distanceToCell",
+          "type": "function",
+          "line": 165,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1797
+        },
+        {
+          "name": "CellLoader",
+          "type": "class",
+          "line": 910,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1797
+        }
+      ],
+      "treeShakingScore": 24
+    },
+    {
       "path": "systems/weather.core.ts",
       "exports": [
         {
@@ -5241,6 +5510,881 @@
       "treeShakingScore": 7
     },
     {
+      "path": "foliage/common.ts",
+      "exports": [
+        {
+          "name": "sharedGeometries",
+          "type": "const",
+          "line": 28,
+          "isUsed": true,
+          "usedIn": [
+            "foliage/arpeggio-batcher.ts",
+            "foliage/fireflies.ts",
+            "foliage/flower-batcher.ts",
+            "foliage/flowers.ts",
+            "foliage/glowing-flower-batcher.ts",
+            "foliage/instrument.ts",
+            "foliage/lantern-batcher.ts",
+            "foliage/lotus.ts",
+            "foliage/mushroom-batcher.ts",
+            "foliage/mushrooms.ts",
+            "foliage/panning-pads.ts",
+            "foliage/silence-spirits.ts",
+            "foliage/simple-flower-batcher.ts",
+            "foliage/tree-batcher.ts",
+            "foliage/trees.ts",
+            "foliage/waterfall-batcher.ts",
+            "systems/glitch-grenade.ts"
+          ],
+          "size": 0
+        },
+        {
+          "name": "eyeGeo",
+          "type": "const",
+          "line": 50,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 874
+        },
+        {
+          "name": "pupilGeo",
+          "type": "const",
+          "line": 51,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 874
+        },
+        {
+          "name": "_scratchVec1",
+          "type": "const",
+          "line": 54,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 874
+        },
+        {
+          "name": "_scratchVec2",
+          "type": "const",
+          "line": 55,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 874
+        },
+        {
+          "name": "_scratchVec3",
+          "type": "const",
+          "line": 56,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 874
+        },
+        {
+          "name": "reactiveObjects",
+          "type": "const",
+          "line": 59,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 874
+        },
+        {
+          "name": "reactiveMaterials",
+          "type": "const",
+          "line": 61,
+          "isUsed": true,
+          "usedIn": [
+            "foliage/animation.ts"
+          ],
+          "size": 0
+        },
+        {
+          "name": "_foliageReactiveColor",
+          "type": "const",
+          "line": 62,
+          "isUsed": true,
+          "usedIn": [
+            "foliage/animation.ts"
+          ],
+          "size": 0
+        },
+        {
+          "name": "uWindSpeed",
+          "type": "const",
+          "line": 63,
+          "isUsed": true,
+          "usedIn": [
+            "foliage/cloud-batcher.ts",
+            "foliage/dandelion-seeds.ts",
+            "foliage/glowing-flower-batcher.ts",
+            "foliage/grass.ts",
+            "foliage/lod.ts",
+            "foliage/pollen.ts",
+            "foliage/tree-batcher.ts",
+            "foliage/trees.ts",
+            "main.ts",
+            "particles/compute-particles.ts"
+          ],
+          "size": 0
+        },
+        {
+          "name": "uWindDirection",
+          "type": "const",
+          "line": 64,
+          "isUsed": true,
+          "usedIn": [
+            "foliage/cloud-batcher.ts",
+            "foliage/dandelion-seeds.ts",
+            "foliage/glowing-flower-batcher.ts",
+            "foliage/grass.ts",
+            "foliage/pollen.ts",
+            "main.ts",
+            "particles/compute-particles.ts"
+          ],
+          "size": 0
+        },
+        {
+          "name": "uTime",
+          "type": "const",
+          "line": 65,
+          "isUsed": true,
+          "usedIn": [
+            "foliage/arpeggio-batcher.ts",
+            "foliage/berries.ts",
+            "foliage/celestial-bodies.ts",
+            "foliage/cloud-batcher.ts",
+            "foliage/dandelion-batcher.ts",
+            "foliage/dandelion-seeds.ts",
+            "foliage/environment.ts",
+            "foliage/fireflies.ts",
+            "foliage/flower-batcher.ts",
+            "foliage/flowers.ts",
+            "foliage/glowing-flower-batcher.ts",
+            "foliage/impacts.ts",
+            "foliage/lantern-batcher.ts",
+            "foliage/lod.ts",
+            "foliage/lotus.ts",
+            "foliage/mirrors.ts",
+            "foliage/mushroom-batcher.ts",
+            "foliage/musical_flora.ts",
+            "foliage/panning-pads.ts",
+            "foliage/pollen.ts",
+            "foliage/shield.ts",
+            "foliage/silence-spirits.ts",
+            "foliage/simple-flower-batcher.ts",
+            "foliage/sparkle-trail.ts",
+            "foliage/tree-batcher.ts",
+            "foliage/waterfall-batcher.ts",
+            "foliage/wisteria-cluster.ts",
+            "gameplay/jitter-mines.ts",
+            "gameplay/rainbow-blaster.ts",
+            "main.ts",
+            "particles/compute-particles.ts"
+          ],
+          "size": 0
+        },
+        {
+          "name": "uGlitchIntensity",
+          "type": "const",
+          "line": 66,
+          "isUsed": true,
+          "usedIn": [
+            "foliage/arpeggio-batcher.ts",
+            "foliage/lotus.ts",
+            "foliage/musical_flora.ts",
+            "foliage/tree-batcher.ts",
+            "gameplay/jitter-mines.ts",
+            "main.ts"
+          ],
+          "size": 0
+        },
+        {
+          "name": "uGlitchExplosionCenter",
+          "type": "const",
+          "line": 67,
+          "isUsed": true,
+          "usedIn": [
+            "systems/glitch-grenade.ts",
+            "systems/physics.ts"
+          ],
+          "size": 0
+        },
+        {
+          "name": "uGlitchExplosionRadius",
+          "type": "const",
+          "line": 68,
+          "isUsed": true,
+          "usedIn": [
+            "systems/glitch-grenade.ts",
+            "systems/physics.ts"
+          ],
+          "size": 0
+        },
+        {
+          "name": "uAudioLow",
+          "type": "const",
+          "line": 69,
+          "isUsed": true,
+          "usedIn": [
+            "foliage/aurora.ts",
+            "foliage/berries.ts",
+            "foliage/cave.ts",
+            "foliage/celestial-bodies.ts",
+            "foliage/cloud-batcher.ts",
+            "foliage/dandelion-batcher.ts",
+            "foliage/environment.ts",
+            "foliage/fireflies.ts",
+            "foliage/flowers.ts",
+            "foliage/glowing-flower-batcher.ts",
+            "foliage/grass.ts",
+            "foliage/lantern-batcher.ts",
+            "foliage/lod.ts",
+            "foliage/lotus.ts",
+            "foliage/mushroom-batcher.ts",
+            "foliage/musical_flora.ts",
+            "foliage/pollen.ts",
+            "foliage/shield.ts",
+            "foliage/simple-flower-batcher.ts",
+            "foliage/sparkle-trail.ts",
+            "foliage/stars.ts",
+            "foliage/terrain.ts",
+            "foliage/tree-batcher.ts",
+            "foliage/trees.ts",
+            "foliage/water.ts",
+            "foliage/waterfall-batcher.ts",
+            "main.ts",
+            "particles/compute-particles.ts"
+          ],
+          "size": 0
+        },
+        {
+          "name": "uAudioHigh",
+          "type": "const",
+          "line": 70,
+          "isUsed": true,
+          "usedIn": [
+            "foliage/arpeggio-batcher.ts",
+            "foliage/aurora.ts",
+            "foliage/celestial-bodies.ts",
+            "foliage/cloud-batcher.ts",
+            "foliage/dandelion-batcher.ts",
+            "foliage/dandelion-seeds.ts",
+            "foliage/environment.ts",
+            "foliage/fireflies.ts",
+            "foliage/flower-batcher.ts",
+            "foliage/flowers.ts",
+            "foliage/glowing-flower-batcher.ts",
+            "foliage/grass.ts",
+            "foliage/impacts.ts",
+            "foliage/lantern-batcher.ts",
+            "foliage/lod.ts",
+            "foliage/mirrors.ts",
+            "foliage/mushroom-batcher.ts",
+            "foliage/pollen.ts",
+            "foliage/simple-flower-batcher.ts",
+            "foliage/sparkle-trail.ts",
+            "foliage/stars.ts",
+            "foliage/terrain.ts",
+            "foliage/tree-batcher.ts",
+            "foliage/water.ts",
+            "foliage/waterfall-batcher.ts",
+            "foliage/wisteria-cluster.ts",
+            "gameplay/harpoon-line.ts",
+            "gameplay/rainbow-blaster.ts",
+            "main.ts",
+            "particles/compute-particles.ts"
+          ],
+          "size": 0
+        },
+        {
+          "name": "uPlayerPosition",
+          "type": "const",
+          "line": 73,
+          "isUsed": true,
+          "usedIn": [
+            "foliage/arpeggio-batcher.ts",
+            "foliage/fireflies.ts",
+            "foliage/grass.ts",
+            "foliage/mushroom-batcher.ts",
+            "foliage/panning-pads.ts",
+            "foliage/pollen.ts",
+            "foliage/silence-spirits.ts",
+            "foliage/simple-flower-batcher.ts",
+            "foliage/terrain.ts",
+            "main.ts",
+            "particles/compute-particles.ts"
+          ],
+          "size": 0
+        },
+        {
+          "name": "median",
+          "type": "function",
+          "line": 78,
+          "isUsed": true,
+          "usedIn": [
+            "foliage/animation.ts"
+          ],
+          "size": 0
+        },
+        {
+          "name": "generateNoiseTexture",
+          "type": "function",
+          "line": 85,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 874
+        },
+        {
+          "name": "getCachedProceduralMaterial",
+          "type": "function",
+          "line": 104,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 874
+        },
+        {
+          "name": "triplanarNoise",
+          "type": "const",
+          "line": 122,
+          "isUsed": true,
+          "usedIn": [
+            "foliage/cave.ts",
+            "foliage/cloud-batcher.ts"
+          ],
+          "size": 0
+        },
+        {
+          "name": "perturbNormal",
+          "type": "const",
+          "line": 140,
+          "isUsed": true,
+          "usedIn": [
+            "foliage/cave.ts"
+          ],
+          "size": 0
+        },
+        {
+          "name": "createRimLight",
+          "type": "const",
+          "line": 165,
+          "isUsed": true,
+          "usedIn": [
+            "foliage/cave.ts",
+            "foliage/lantern-batcher.ts",
+            "foliage/mirrors.ts",
+            "foliage/mushroom-batcher.ts",
+            "foliage/terrain.ts",
+            "foliage/water.ts"
+          ],
+          "size": 0
+        },
+        {
+          "name": "createJuicyRimLight",
+          "type": "const",
+          "line": 180,
+          "isUsed": true,
+          "usedIn": [
+            "foliage/arpeggio-batcher.ts",
+            "foliage/cloud-batcher.ts",
+            "foliage/environment.ts",
+            "foliage/fireflies.ts",
+            "foliage/flower-batcher.ts",
+            "foliage/flowers.ts",
+            "foliage/glowing-flower-batcher.ts",
+            "foliage/lantern-batcher.ts",
+            "foliage/mushroom-batcher.ts",
+            "foliage/simple-flower-batcher.ts",
+            "foliage/tree-batcher.ts",
+            "foliage/trees.ts",
+            "foliage/waterfall-batcher.ts",
+            "gameplay/harpoon-line.ts",
+            "gameplay/rainbow-blaster.ts"
+          ],
+          "size": 0
+        },
+        {
+          "name": "createSugarSparkle",
+          "type": "const",
+          "line": 205,
+          "isUsed": true,
+          "usedIn": [
+            "foliage/dandelion-batcher.ts",
+            "foliage/dandelion-seeds.ts",
+            "foliage/mushroom-batcher.ts"
+          ],
+          "size": 0
+        },
+        {
+          "name": "addRimLight",
+          "type": "const",
+          "line": 238,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 874
+        },
+        {
+          "name": "colorFromNote",
+          "type": "const",
+          "line": 247,
+          "isUsed": true,
+          "usedIn": [
+            "foliage/mushroom-batcher.ts"
+          ],
+          "size": 0
+        },
+        {
+          "name": "calculatePlayerPush",
+          "type": "const",
+          "line": 262,
+          "isUsed": true,
+          "usedIn": [
+            "foliage/portamento-batcher.ts",
+            "foliage/trees.ts"
+          ],
+          "size": 0
+        },
+        {
+          "name": "applyPlayerInteraction",
+          "type": "const",
+          "line": 286,
+          "isUsed": true,
+          "usedIn": [
+            "foliage/arpeggio-batcher.ts",
+            "foliage/dandelion-batcher.ts",
+            "foliage/flower-batcher.ts",
+            "foliage/flowers.ts",
+            "foliage/glowing-flower-batcher.ts",
+            "foliage/lantern-batcher.ts",
+            "foliage/lod.ts",
+            "foliage/simple-flower-batcher.ts",
+            "foliage/tree-batcher.ts"
+          ],
+          "size": 0
+        },
+        {
+          "name": "calculateWindSway",
+          "type": "const",
+          "line": 319,
+          "isUsed": true,
+          "usedIn": [
+            "foliage/arpeggio-batcher.ts",
+            "foliage/dandelion-batcher.ts",
+            "foliage/flower-batcher.ts",
+            "foliage/flowers.ts",
+            "foliage/glowing-flower-batcher.ts",
+            "foliage/lantern-batcher.ts",
+            "foliage/lod.ts",
+            "foliage/portamento-batcher.ts",
+            "foliage/simple-flower-batcher.ts",
+            "foliage/tree-batcher.ts"
+          ],
+          "size": 0
+        },
+        {
+          "name": "calculateWindSwayLegacy",
+          "type": "const",
+          "line": 362,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 874
+        },
+        {
+          "name": "windComputeSystem",
+          "type": "const",
+          "line": 382,
+          "isUsed": true,
+          "usedIn": [
+            "foliage/common.ts"
+          ],
+          "size": 0
+        },
+        {
+          "name": "calculateFlowerBloom",
+          "type": "const",
+          "line": 384,
+          "isUsed": true,
+          "usedIn": [
+            "foliage/flower-batcher.ts",
+            "foliage/flowers.ts",
+            "foliage/simple-flower-batcher.ts"
+          ],
+          "size": 0
+        },
+        {
+          "name": "UnifiedMaterialOptions",
+          "type": "interface",
+          "line": 400,
+          "isUsed": true,
+          "usedIn": [
+            "foliage/panning-pads.ts"
+          ],
+          "size": 0
+        },
+        {
+          "name": "createUnifiedMaterial",
+          "type": "function",
+          "line": 436,
+          "isUsed": true,
+          "usedIn": [
+            "foliage/instrument.ts",
+            "foliage/lantern-batcher.ts",
+            "foliage/panning-pads.ts",
+            "foliage/portamento-batcher.ts",
+            "foliage/ribbons.ts",
+            "foliage/shield.ts"
+          ],
+          "size": 0
+        },
+        {
+          "name": "CandyPresets",
+          "type": "const",
+          "line": 675,
+          "isUsed": true,
+          "usedIn": [
+            "foliage/berries.ts",
+            "foliage/celestial-bodies.ts",
+            "foliage/environment.ts",
+            "foliage/flower-batcher.ts",
+            "foliage/lod.ts",
+            "foliage/moon.ts",
+            "foliage/musical_flora.ts",
+            "foliage/panning-pads.ts",
+            "foliage/simple-flower-batcher.ts",
+            "foliage/terrain.ts",
+            "foliage/tree-batcher.ts",
+            "foliage/water.ts",
+            "foliage/waterfall-batcher.ts",
+            "foliage/waterfalls.ts",
+            "foliage/wisteria-cluster.ts",
+            "gameplay/harpoon-line.ts",
+            "rendering/shader-warmup.ts"
+          ],
+          "size": 0
+        },
+        {
+          "name": "createClayMaterial",
+          "type": "function",
+          "line": 757,
+          "isUsed": true,
+          "usedIn": [
+            "foliage/flowers.ts",
+            "foliage/grass.ts",
+            "foliage/lotus.ts",
+            "foliage/musical_flora.ts",
+            "foliage/simple-flower-batcher.ts",
+            "foliage/trees.ts",
+            "gameplay/jitter-mines.ts"
+          ],
+          "size": 0
+        },
+        {
+          "name": "createCandyMaterial",
+          "type": "function",
+          "line": 761,
+          "isUsed": true,
+          "usedIn": [
+            "foliage/arpeggio-batcher.ts",
+            "foliage/musical_flora.ts",
+            "gameplay/rainbow-blaster.ts"
+          ],
+          "size": 0
+        },
+        {
+          "name": "createTexturedClay",
+          "type": "function",
+          "line": 765,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 874
+        },
+        {
+          "name": "createSugaredMaterial",
+          "type": "function",
+          "line": 774,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 874
+        },
+        {
+          "name": "createGradientMaterial",
+          "type": "function",
+          "line": 787,
+          "isUsed": true,
+          "usedIn": [
+            "foliage/trees.ts"
+          ],
+          "size": 0
+        },
+        {
+          "name": "createStandardNodeMaterial",
+          "type": "function",
+          "line": 829,
+          "isUsed": true,
+          "usedIn": [
+            "foliage/arpeggio-batcher.ts",
+            "foliage/dandelion-batcher.ts",
+            "foliage/flower-batcher.ts",
+            "foliage/flowers.ts",
+            "foliage/glowing-flower-batcher.ts",
+            "foliage/lantern-batcher.ts",
+            "foliage/panning-pads.ts",
+            "foliage/tree-batcher.ts",
+            "foliage/trees.ts"
+          ],
+          "size": 0
+        },
+        {
+          "name": "createTransparentNodeMaterial",
+          "type": "function",
+          "line": 849,
+          "isUsed": true,
+          "usedIn": [
+            "foliage/flowers.ts"
+          ],
+          "size": 0
+        },
+        {
+          "name": "foliageMaterials",
+          "type": "const",
+          "line": 858,
+          "isUsed": true,
+          "usedIn": [
+            "foliage/flower-batcher.ts",
+            "foliage/flowers.ts",
+            "foliage/glowing-flower-batcher.ts",
+            "foliage/lantern-batcher.ts",
+            "foliage/mushroom-batcher.ts",
+            "foliage/simple-flower-batcher.ts",
+            "foliage/trees.ts",
+            "foliage/waterfall-batcher.ts",
+            "rendering/shader-warmup.ts"
+          ],
+          "size": 0
+        },
+        {
+          "name": "registerReactiveMaterial",
+          "type": "function",
+          "line": 984,
+          "isUsed": true,
+          "usedIn": [
+            "foliage/arpeggio-batcher.ts",
+            "foliage/environment.ts",
+            "foliage/flowers.ts",
+            "foliage/lotus.ts",
+            "foliage/musical_flora.ts",
+            "foliage/panning-pads.ts",
+            "foliage/portamento-batcher.ts",
+            "foliage/silence-spirits.ts",
+            "foliage/trees.ts",
+            "foliage/waterfall-batcher.ts",
+            "foliage/waterfalls.ts"
+          ],
+          "size": 0
+        },
+        {
+          "name": "pickAnimation",
+          "type": "function",
+          "line": 985,
+          "isUsed": true,
+          "usedIn": [
+            "foliage/flowers.ts",
+            "foliage/trees.ts"
+          ],
+          "size": 0
+        },
+        {
+          "name": "attachReactivity",
+          "type": "function",
+          "line": 987,
+          "isUsed": true,
+          "usedIn": [
+            "foliage/celestial-bodies.ts",
+            "foliage/environment.ts",
+            "foliage/flowers.ts",
+            "foliage/instrument.ts",
+            "foliage/lotus.ts",
+            "foliage/mirrors.ts",
+            "foliage/moon.ts",
+            "foliage/musical_flora.ts",
+            "foliage/panning-pads.ts",
+            "foliage/silence-spirits.ts",
+            "foliage/trees.ts",
+            "foliage/waterfalls.ts",
+            "foliage/wisteria-cluster.ts"
+          ],
+          "size": 0
+        },
+        {
+          "name": "cleanupReactivity",
+          "type": "function",
+          "line": 997,
+          "isUsed": true,
+          "usedIn": [
+            "systems/weather.ts"
+          ],
+          "size": 0
+        },
+        {
+          "name": "validateFoliageMaterials",
+          "type": "function",
+          "line": 1002,
+          "isUsed": true,
+          "usedIn": [
+            "world/generation.ts"
+          ],
+          "size": 0
+        },
+        {
+          "name": "validateNodeGeometries",
+          "type": "function",
+          "line": 1015,
+          "isUsed": true,
+          "usedIn": [
+            "main.ts"
+          ],
+          "size": 0
+        }
+      ],
+      "imports": [
+        "MeshStandardNodeMaterial",
+        "color",
+        "float",
+        "uv",
+        "mix",
+        "vec3",
+        "vec2",
+        "Fn",
+        "uniform",
+        "dot",
+        "max",
+        "min",
+        "mx_noise_float",
+        "positionLocal",
+        "positionWorld",
+        "normalWorld",
+        "normalLocal",
+        "cameraPosition",
+        "sin",
+        "pow",
+        "abs",
+        "normalize",
+        "smoothstep",
+        "exp",
+        "texture",
+        "Node",
+        "applyGlitch",
+        "FoliageMaterial",
+        "windComputeSystem",
+        "getWindTextureData",
+        "geometryRegistry",
+        "CommonGeometries",
+        "getSphereGeometry",
+        "getCylinderGeometry",
+        "getConeGeometry",
+        "getCapsuleGeometry",
+        "getPlaneGeometry",
+        "getTorusGeometry",
+        "THREE"
+      ],
+      "unusedExports": [
+        {
+          "name": "eyeGeo",
+          "type": "const",
+          "line": 50,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 874
+        },
+        {
+          "name": "pupilGeo",
+          "type": "const",
+          "line": 51,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 874
+        },
+        {
+          "name": "_scratchVec1",
+          "type": "const",
+          "line": 54,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 874
+        },
+        {
+          "name": "_scratchVec2",
+          "type": "const",
+          "line": 55,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 874
+        },
+        {
+          "name": "_scratchVec3",
+          "type": "const",
+          "line": 56,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 874
+        },
+        {
+          "name": "reactiveObjects",
+          "type": "const",
+          "line": 59,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 874
+        },
+        {
+          "name": "generateNoiseTexture",
+          "type": "function",
+          "line": 85,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 874
+        },
+        {
+          "name": "getCachedProceduralMaterial",
+          "type": "function",
+          "line": 104,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 874
+        },
+        {
+          "name": "addRimLight",
+          "type": "const",
+          "line": 238,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 874
+        },
+        {
+          "name": "calculateWindSwayLegacy",
+          "type": "const",
+          "line": 362,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 874
+        },
+        {
+          "name": "createTexturedClay",
+          "type": "function",
+          "line": 765,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 874
+        },
+        {
+          "name": "createSugaredMaterial",
+          "type": "function",
+          "line": 774,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 874
+        }
+      ],
+      "treeShakingScore": 76
+    },
+    {
       "path": "particles/particle_config.ts",
       "exports": [
         {
@@ -5449,6 +6593,221 @@
           "isUsed": false,
           "usedIn": [],
           "size": 442
+        }
+      ],
+      "treeShakingScore": 8
+    },
+    {
+      "path": "systems/discovery-persistence.ts",
+      "exports": [
+        {
+          "name": "PersistedDiscovery",
+          "type": "interface",
+          "line": 18,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1716
+        },
+        {
+          "name": "DiscoveryExport",
+          "type": "interface",
+          "line": 39,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1716
+        },
+        {
+          "name": "ImportResult",
+          "type": "interface",
+          "line": 62,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1716
+        },
+        {
+          "name": "DiscoveryStats",
+          "type": "interface",
+          "line": 72,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1716
+        },
+        {
+          "name": "DiscoveryPersistence",
+          "type": "class",
+          "line": 95,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1716
+        },
+        {
+          "name": "discoveryPersistence",
+          "type": "const",
+          "line": 656,
+          "isUsed": true,
+          "usedIn": [
+            "systems/discovery-optimized.ts",
+            "systems/discovery.ts"
+          ],
+          "size": 0
+        },
+        {
+          "name": "exportDiscoveries",
+          "type": "function",
+          "line": 662,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1716
+        },
+        {
+          "name": "importDiscoveries",
+          "type": "function",
+          "line": 671,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1716
+        },
+        {
+          "name": "clearLocalDiscoveries",
+          "type": "function",
+          "line": 678,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1716
+        },
+        {
+          "name": "getDiscoveryStats",
+          "type": "function",
+          "line": 685,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1716
+        },
+        {
+          "name": "isPersistenceAvailable",
+          "type": "function",
+          "line": 692,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1716
+        },
+        {
+          "name": "getDiscoveryIds",
+          "type": "function",
+          "line": 704,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1716
+        },
+        {
+          "name": "isDiscovered",
+          "type": "function",
+          "line": 712,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1716
+        }
+      ],
+      "imports": [
+        "DISCOVERY_MAP",
+        "type DiscoveryItem"
+      ],
+      "unusedExports": [
+        {
+          "name": "PersistedDiscovery",
+          "type": "interface",
+          "line": 18,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1716
+        },
+        {
+          "name": "DiscoveryExport",
+          "type": "interface",
+          "line": 39,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1716
+        },
+        {
+          "name": "ImportResult",
+          "type": "interface",
+          "line": 62,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1716
+        },
+        {
+          "name": "DiscoveryStats",
+          "type": "interface",
+          "line": 72,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1716
+        },
+        {
+          "name": "DiscoveryPersistence",
+          "type": "class",
+          "line": 95,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1716
+        },
+        {
+          "name": "exportDiscoveries",
+          "type": "function",
+          "line": 662,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1716
+        },
+        {
+          "name": "importDiscoveries",
+          "type": "function",
+          "line": 671,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1716
+        },
+        {
+          "name": "clearLocalDiscoveries",
+          "type": "function",
+          "line": 678,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1716
+        },
+        {
+          "name": "getDiscoveryStats",
+          "type": "function",
+          "line": 685,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1716
+        },
+        {
+          "name": "isPersistenceAvailable",
+          "type": "function",
+          "line": 692,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1716
+        },
+        {
+          "name": "getDiscoveryIds",
+          "type": "function",
+          "line": 704,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1716
+        },
+        {
+          "name": "isDiscovered",
+          "type": "function",
+          "line": 712,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1716
         }
       ],
       "treeShakingScore": 8
@@ -6897,778 +8256,172 @@
       "treeShakingScore": 50
     },
     {
-      "path": "foliage/common.ts",
+      "path": "foliage/lod.ts",
       "exports": [
         {
-          "name": "sharedGeometries",
-          "type": "const",
-          "line": 27,
-          "isUsed": true,
-          "usedIn": [
-            "foliage/arpeggio-batcher.ts",
-            "foliage/fireflies.ts",
-            "foliage/flower-batcher.ts",
-            "foliage/flowers.ts",
-            "foliage/glowing-flower-batcher.ts",
-            "foliage/instrument.ts",
-            "foliage/lantern-batcher.ts",
-            "foliage/lotus.ts",
-            "foliage/mushroom-batcher.ts",
-            "foliage/mushrooms.ts",
-            "foliage/panning-pads.ts",
-            "foliage/silence-spirits.ts",
-            "foliage/simple-flower-batcher.ts",
-            "foliage/tree-batcher.ts",
-            "foliage/trees.ts",
-            "foliage/waterfall-batcher.ts",
-            "systems/glitch-grenade.ts"
-          ],
-          "size": 0
-        },
-        {
-          "name": "eyeGeo",
-          "type": "const",
-          "line": 49,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 910
-        },
-        {
-          "name": "pupilGeo",
-          "type": "const",
-          "line": 50,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 910
-        },
-        {
-          "name": "reactiveObjects",
-          "type": "const",
-          "line": 53,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 910
-        },
-        {
-          "name": "reactiveMaterials",
-          "type": "const",
-          "line": 55,
-          "isUsed": true,
-          "usedIn": [
-            "foliage/animation.ts"
-          ],
-          "size": 0
-        },
-        {
-          "name": "_foliageReactiveColor",
-          "type": "const",
-          "line": 56,
-          "isUsed": true,
-          "usedIn": [
-            "foliage/animation.ts"
-          ],
-          "size": 0
-        },
-        {
-          "name": "uWindSpeed",
-          "type": "const",
-          "line": 57,
-          "isUsed": true,
-          "usedIn": [
-            "foliage/cloud-batcher.ts",
-            "foliage/dandelion-seeds.ts",
-            "foliage/glowing-flower-batcher.ts",
-            "foliage/grass.ts",
-            "foliage/pollen.ts",
-            "foliage/tree-batcher.ts",
-            "foliage/trees.ts",
-            "main.ts",
-            "particles/compute-particles.ts"
-          ],
-          "size": 0
-        },
-        {
-          "name": "uWindDirection",
-          "type": "const",
-          "line": 58,
-          "isUsed": true,
-          "usedIn": [
-            "foliage/cloud-batcher.ts",
-            "foliage/dandelion-seeds.ts",
-            "foliage/glowing-flower-batcher.ts",
-            "foliage/grass.ts",
-            "foliage/pollen.ts",
-            "main.ts",
-            "particles/compute-particles.ts"
-          ],
-          "size": 0
-        },
-        {
-          "name": "uTime",
-          "type": "const",
-          "line": 59,
-          "isUsed": true,
-          "usedIn": [
-            "foliage/arpeggio-batcher.ts",
-            "foliage/berries.ts",
-            "foliage/celestial-bodies.ts",
-            "foliage/cloud-batcher.ts",
-            "foliage/dandelion-batcher.ts",
-            "foliage/dandelion-seeds.ts",
-            "foliage/environment.ts",
-            "foliage/fireflies.ts",
-            "foliage/flower-batcher.ts",
-            "foliage/flowers.ts",
-            "foliage/glowing-flower-batcher.ts",
-            "foliage/impacts.ts",
-            "foliage/lantern-batcher.ts",
-            "foliage/lotus.ts",
-            "foliage/mirrors.ts",
-            "foliage/mushroom-batcher.ts",
-            "foliage/musical_flora.ts",
-            "foliage/panning-pads.ts",
-            "foliage/pollen.ts",
-            "foliage/shield.ts",
-            "foliage/silence-spirits.ts",
-            "foliage/simple-flower-batcher.ts",
-            "foliage/sparkle-trail.ts",
-            "foliage/tree-batcher.ts",
-            "foliage/waterfall-batcher.ts",
-            "foliage/wisteria-cluster.ts",
-            "gameplay/jitter-mines.ts",
-            "gameplay/rainbow-blaster.ts",
-            "main.ts",
-            "particles/compute-particles.ts"
-          ],
-          "size": 0
-        },
-        {
-          "name": "uGlitchIntensity",
-          "type": "const",
-          "line": 60,
-          "isUsed": true,
-          "usedIn": [
-            "foliage/arpeggio-batcher.ts",
-            "foliage/lotus.ts",
-            "foliage/musical_flora.ts",
-            "foliage/tree-batcher.ts",
-            "gameplay/jitter-mines.ts",
-            "main.ts"
-          ],
-          "size": 0
-        },
-        {
-          "name": "uGlitchExplosionCenter",
-          "type": "const",
-          "line": 61,
-          "isUsed": true,
-          "usedIn": [
-            "systems/glitch-grenade.ts",
-            "systems/physics.ts"
-          ],
-          "size": 0
-        },
-        {
-          "name": "uGlitchExplosionRadius",
-          "type": "const",
-          "line": 62,
-          "isUsed": true,
-          "usedIn": [
-            "systems/glitch-grenade.ts",
-            "systems/physics.ts"
-          ],
-          "size": 0
-        },
-        {
-          "name": "uAudioLow",
-          "type": "const",
-          "line": 63,
-          "isUsed": true,
-          "usedIn": [
-            "foliage/aurora.ts",
-            "foliage/berries.ts",
-            "foliage/cave.ts",
-            "foliage/celestial-bodies.ts",
-            "foliage/cloud-batcher.ts",
-            "foliage/dandelion-batcher.ts",
-            "foliage/environment.ts",
-            "foliage/fireflies.ts",
-            "foliage/flowers.ts",
-            "foliage/glowing-flower-batcher.ts",
-            "foliage/grass.ts",
-            "foliage/lantern-batcher.ts",
-            "foliage/lotus.ts",
-            "foliage/mushroom-batcher.ts",
-            "foliage/musical_flora.ts",
-            "foliage/pollen.ts",
-            "foliage/shield.ts",
-            "foliage/simple-flower-batcher.ts",
-            "foliage/sparkle-trail.ts",
-            "foliage/stars.ts",
-            "foliage/terrain.ts",
-            "foliage/tree-batcher.ts",
-            "foliage/trees.ts",
-            "foliage/water.ts",
-            "foliage/waterfall-batcher.ts",
-            "main.ts",
-            "particles/compute-particles.ts"
-          ],
-          "size": 0
-        },
-        {
-          "name": "uAudioHigh",
-          "type": "const",
-          "line": 64,
-          "isUsed": true,
-          "usedIn": [
-            "foliage/arpeggio-batcher.ts",
-            "foliage/aurora.ts",
-            "foliage/celestial-bodies.ts",
-            "foliage/cloud-batcher.ts",
-            "foliage/dandelion-batcher.ts",
-            "foliage/dandelion-seeds.ts",
-            "foliage/environment.ts",
-            "foliage/fireflies.ts",
-            "foliage/flower-batcher.ts",
-            "foliage/flowers.ts",
-            "foliage/glowing-flower-batcher.ts",
-            "foliage/grass.ts",
-            "foliage/impacts.ts",
-            "foliage/lantern-batcher.ts",
-            "foliage/mirrors.ts",
-            "foliage/mushroom-batcher.ts",
-            "foliage/pollen.ts",
-            "foliage/simple-flower-batcher.ts",
-            "foliage/sparkle-trail.ts",
-            "foliage/stars.ts",
-            "foliage/terrain.ts",
-            "foliage/tree-batcher.ts",
-            "foliage/water.ts",
-            "foliage/waterfall-batcher.ts",
-            "foliage/wisteria-cluster.ts",
-            "gameplay/harpoon-line.ts",
-            "gameplay/rainbow-blaster.ts",
-            "main.ts",
-            "particles/compute-particles.ts"
-          ],
-          "size": 0
-        },
-        {
-          "name": "uPlayerPosition",
-          "type": "const",
-          "line": 67,
-          "isUsed": true,
-          "usedIn": [
-            "foliage/arpeggio-batcher.ts",
-            "foliage/fireflies.ts",
-            "foliage/grass.ts",
-            "foliage/mushroom-batcher.ts",
-            "foliage/panning-pads.ts",
-            "foliage/pollen.ts",
-            "foliage/silence-spirits.ts",
-            "foliage/simple-flower-batcher.ts",
-            "foliage/terrain.ts",
-            "main.ts",
-            "particles/compute-particles.ts"
-          ],
-          "size": 0
-        },
-        {
-          "name": "median",
-          "type": "function",
-          "line": 72,
-          "isUsed": true,
-          "usedIn": [
-            "foliage/animation.ts"
-          ],
-          "size": 0
-        },
-        {
-          "name": "generateNoiseTexture",
-          "type": "function",
-          "line": 79,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 910
-        },
-        {
-          "name": "triplanarNoise",
-          "type": "const",
-          "line": 96,
-          "isUsed": true,
-          "usedIn": [
-            "foliage/cave.ts",
-            "foliage/cloud-batcher.ts"
-          ],
-          "size": 0
-        },
-        {
-          "name": "perturbNormal",
-          "type": "const",
-          "line": 114,
-          "isUsed": true,
-          "usedIn": [
-            "foliage/cave.ts"
-          ],
-          "size": 0
-        },
-        {
-          "name": "createRimLight",
-          "type": "const",
-          "line": 139,
-          "isUsed": true,
-          "usedIn": [
-            "foliage/cave.ts",
-            "foliage/lantern-batcher.ts",
-            "foliage/mirrors.ts",
-            "foliage/mushroom-batcher.ts",
-            "foliage/terrain.ts",
-            "foliage/water.ts"
-          ],
-          "size": 0
-        },
-        {
-          "name": "createJuicyRimLight",
-          "type": "const",
-          "line": 154,
-          "isUsed": true,
-          "usedIn": [
-            "foliage/arpeggio-batcher.ts",
-            "foliage/cloud-batcher.ts",
-            "foliage/environment.ts",
-            "foliage/fireflies.ts",
-            "foliage/flower-batcher.ts",
-            "foliage/flowers.ts",
-            "foliage/glowing-flower-batcher.ts",
-            "foliage/lantern-batcher.ts",
-            "foliage/mushroom-batcher.ts",
-            "foliage/simple-flower-batcher.ts",
-            "foliage/tree-batcher.ts",
-            "foliage/trees.ts",
-            "foliage/waterfall-batcher.ts",
-            "gameplay/harpoon-line.ts",
-            "gameplay/rainbow-blaster.ts"
-          ],
-          "size": 0
-        },
-        {
-          "name": "createSugarSparkle",
-          "type": "const",
-          "line": 179,
-          "isUsed": true,
-          "usedIn": [
-            "foliage/dandelion-batcher.ts",
-            "foliage/dandelion-seeds.ts",
-            "foliage/mushroom-batcher.ts"
-          ],
-          "size": 0
-        },
-        {
-          "name": "addRimLight",
-          "type": "const",
-          "line": 212,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 910
-        },
-        {
-          "name": "colorFromNote",
-          "type": "const",
-          "line": 221,
-          "isUsed": true,
-          "usedIn": [
-            "foliage/mushroom-batcher.ts"
-          ],
-          "size": 0
-        },
-        {
-          "name": "calculatePlayerPush",
-          "type": "const",
-          "line": 236,
-          "isUsed": true,
-          "usedIn": [
-            "foliage/portamento-batcher.ts",
-            "foliage/trees.ts"
-          ],
-          "size": 0
-        },
-        {
-          "name": "applyPlayerInteraction",
-          "type": "const",
-          "line": 260,
-          "isUsed": true,
-          "usedIn": [
-            "foliage/arpeggio-batcher.ts",
-            "foliage/dandelion-batcher.ts",
-            "foliage/flower-batcher.ts",
-            "foliage/flowers.ts",
-            "foliage/glowing-flower-batcher.ts",
-            "foliage/lantern-batcher.ts",
-            "foliage/simple-flower-batcher.ts",
-            "foliage/tree-batcher.ts"
-          ],
-          "size": 0
-        },
-        {
-          "name": "calculateWindSway",
-          "type": "const",
-          "line": 268,
-          "isUsed": true,
-          "usedIn": [
-            "foliage/arpeggio-batcher.ts",
-            "foliage/dandelion-batcher.ts",
-            "foliage/flower-batcher.ts",
-            "foliage/flowers.ts",
-            "foliage/glowing-flower-batcher.ts",
-            "foliage/lantern-batcher.ts",
-            "foliage/portamento-batcher.ts",
-            "foliage/simple-flower-batcher.ts",
-            "foliage/tree-batcher.ts"
-          ],
-          "size": 0
-        },
-        {
-          "name": "calculateFlowerBloom",
-          "type": "const",
-          "line": 287,
-          "isUsed": true,
-          "usedIn": [
-            "foliage/flower-batcher.ts",
-            "foliage/flowers.ts",
-            "foliage/simple-flower-batcher.ts"
-          ],
-          "size": 0
-        },
-        {
-          "name": "UnifiedMaterialOptions",
+          "name": "LODConfig",
           "type": "interface",
-          "line": 303,
-          "isUsed": true,
-          "usedIn": [
-            "foliage/panning-pads.ts"
-          ],
-          "size": 0
-        },
-        {
-          "name": "createUnifiedMaterial",
-          "type": "function",
-          "line": 339,
-          "isUsed": true,
-          "usedIn": [
-            "foliage/instrument.ts",
-            "foliage/lantern-batcher.ts",
-            "foliage/panning-pads.ts",
-            "foliage/portamento-batcher.ts",
-            "foliage/ribbons.ts",
-            "foliage/shield.ts"
-          ],
-          "size": 0
-        },
-        {
-          "name": "CandyPresets",
-          "type": "const",
-          "line": 578,
-          "isUsed": true,
-          "usedIn": [
-            "foliage/berries.ts",
-            "foliage/celestial-bodies.ts",
-            "foliage/environment.ts",
-            "foliage/flower-batcher.ts",
-            "foliage/moon.ts",
-            "foliage/musical_flora.ts",
-            "foliage/panning-pads.ts",
-            "foliage/simple-flower-batcher.ts",
-            "foliage/terrain.ts",
-            "foliage/tree-batcher.ts",
-            "foliage/water.ts",
-            "foliage/waterfall-batcher.ts",
-            "foliage/waterfalls.ts",
-            "foliage/wisteria-cluster.ts",
-            "gameplay/harpoon-line.ts",
-            "rendering/shader-warmup.ts"
-          ],
-          "size": 0
-        },
-        {
-          "name": "createClayMaterial",
-          "type": "function",
-          "line": 660,
-          "isUsed": true,
-          "usedIn": [
-            "foliage/flowers.ts",
-            "foliage/grass.ts",
-            "foliage/lotus.ts",
-            "foliage/musical_flora.ts",
-            "foliage/simple-flower-batcher.ts",
-            "foliage/trees.ts",
-            "gameplay/jitter-mines.ts"
-          ],
-          "size": 0
-        },
-        {
-          "name": "createCandyMaterial",
-          "type": "function",
-          "line": 664,
-          "isUsed": true,
-          "usedIn": [
-            "foliage/arpeggio-batcher.ts",
-            "foliage/musical_flora.ts",
-            "gameplay/rainbow-blaster.ts"
-          ],
-          "size": 0
-        },
-        {
-          "name": "createTexturedClay",
-          "type": "function",
-          "line": 668,
+          "line": 23,
           "isUsed": false,
           "usedIn": [],
-          "size": 910
+          "size": 3035
         },
         {
-          "name": "createSugaredMaterial",
-          "type": "function",
-          "line": 677,
+          "name": "DEFAULT_LOD_CONFIG",
+          "type": "const",
+          "line": 42,
           "isUsed": false,
           "usedIn": [],
-          "size": 910
+          "size": 3035
         },
         {
-          "name": "createGradientMaterial",
+          "name": "LODLevel",
+          "type": "enum",
+          "line": 60,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 3035
+        },
+        {
+          "name": "createLODGeometry",
           "type": "function",
-          "line": 690,
-          "isUsed": true,
-          "usedIn": [
-            "foliage/trees.ts"
-          ],
-          "size": 0
+          "line": 74,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 3035
         },
         {
-          "name": "createStandardNodeMaterial",
+          "name": "getLODMaterial",
           "type": "function",
-          "line": 732,
-          "isUsed": true,
-          "usedIn": [
-            "foliage/arpeggio-batcher.ts",
-            "foliage/dandelion-batcher.ts",
-            "foliage/flower-batcher.ts",
-            "foliage/flowers.ts",
-            "foliage/glowing-flower-batcher.ts",
-            "foliage/lantern-batcher.ts",
-            "foliage/panning-pads.ts",
-            "foliage/tree-batcher.ts",
-            "foliage/trees.ts"
-          ],
-          "size": 0
+          "line": 136,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 3035
         },
         {
-          "name": "createTransparentNodeMaterial",
+          "name": "FoliageLODManager",
+          "type": "class",
+          "line": 328,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 3035
+        },
+        {
+          "name": "LODTreeInstance",
+          "type": "interface",
+          "line": 756,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 3035
+        },
+        {
+          "name": "LODTreeBatcher",
+          "type": "class",
+          "line": 766,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 3035
+        },
+        {
+          "name": "default",
           "type": "function",
-          "line": 752,
-          "isUsed": true,
-          "usedIn": [
-            "foliage/flowers.ts"
-          ],
-          "size": 0
-        },
-        {
-          "name": "foliageMaterials",
-          "type": "const",
-          "line": 761,
-          "isUsed": true,
-          "usedIn": [
-            "foliage/flower-batcher.ts",
-            "foliage/flowers.ts",
-            "foliage/glowing-flower-batcher.ts",
-            "foliage/lantern-batcher.ts",
-            "foliage/mushroom-batcher.ts",
-            "foliage/simple-flower-batcher.ts",
-            "foliage/trees.ts",
-            "foliage/waterfall-batcher.ts",
-            "rendering/shader-warmup.ts"
-          ],
-          "size": 0
-        },
-        {
-          "name": "registerReactiveMaterial",
-          "type": "function",
-          "line": 887,
-          "isUsed": true,
-          "usedIn": [
-            "foliage/arpeggio-batcher.ts",
-            "foliage/environment.ts",
-            "foliage/flowers.ts",
-            "foliage/lotus.ts",
-            "foliage/musical_flora.ts",
-            "foliage/panning-pads.ts",
-            "foliage/portamento-batcher.ts",
-            "foliage/silence-spirits.ts",
-            "foliage/trees.ts",
-            "foliage/waterfall-batcher.ts",
-            "foliage/waterfalls.ts"
-          ],
-          "size": 0
-        },
-        {
-          "name": "pickAnimation",
-          "type": "function",
-          "line": 888,
-          "isUsed": true,
-          "usedIn": [
-            "foliage/flowers.ts",
-            "foliage/trees.ts"
-          ],
-          "size": 0
-        },
-        {
-          "name": "attachReactivity",
-          "type": "function",
-          "line": 890,
-          "isUsed": true,
-          "usedIn": [
-            "foliage/celestial-bodies.ts",
-            "foliage/environment.ts",
-            "foliage/flowers.ts",
-            "foliage/instrument.ts",
-            "foliage/lotus.ts",
-            "foliage/mirrors.ts",
-            "foliage/moon.ts",
-            "foliage/musical_flora.ts",
-            "foliage/panning-pads.ts",
-            "foliage/silence-spirits.ts",
-            "foliage/trees.ts",
-            "foliage/waterfalls.ts",
-            "foliage/wisteria-cluster.ts"
-          ],
-          "size": 0
-        },
-        {
-          "name": "cleanupReactivity",
-          "type": "function",
-          "line": 900,
-          "isUsed": true,
-          "usedIn": [
-            "systems/weather.ts"
-          ],
-          "size": 0
-        },
-        {
-          "name": "validateFoliageMaterials",
-          "type": "function",
-          "line": 905,
+          "line": 869,
           "isUsed": true,
           "usedIn": [
             "world/generation.ts"
           ],
           "size": 0
-        },
-        {
-          "name": "validateNodeGeometries",
-          "type": "function",
-          "line": 918,
-          "isUsed": true,
-          "usedIn": [
-            "main.ts"
-          ],
-          "size": 0
         }
       ],
       "imports": [
-        "MeshStandardNodeMaterial",
         "color",
         "float",
-        "uv",
-        "mix",
         "vec3",
-        "Fn",
-        "uniform",
-        "dot",
-        "max",
-        "min",
-        "mx_noise_float",
         "positionLocal",
-        "positionWorld",
-        "normalWorld",
-        "normalLocal",
-        "cameraPosition",
+        "mix",
+        "attribute",
+        "uv",
         "sin",
-        "pow",
-        "abs",
-        "normalize",
-        "smoothstep",
-        "exp",
-        "Node",
-        "applyGlitch",
-        "FoliageMaterial",
-        "geometryRegistry",
-        "CommonGeometries",
-        "getSphereGeometry",
-        "getCylinderGeometry",
-        "getConeGeometry",
-        "getCapsuleGeometry",
-        "getPlaneGeometry",
-        "getTorusGeometry",
+        "cos",
+        "positionWorld",
+        "normalLocal",
+        "foliageGroup",
+        "CandyPresets",
+        "calculateWindSway",
+        "applyPlayerInteraction",
+        "uTime",
+        "uAudioLow",
+        "uAudioHigh",
+        "uWindSpeed",
         "THREE"
       ],
       "unusedExports": [
         {
-          "name": "eyeGeo",
-          "type": "const",
-          "line": 49,
+          "name": "LODConfig",
+          "type": "interface",
+          "line": 23,
           "isUsed": false,
           "usedIn": [],
-          "size": 910
+          "size": 3035
         },
         {
-          "name": "pupilGeo",
+          "name": "DEFAULT_LOD_CONFIG",
           "type": "const",
-          "line": 50,
+          "line": 42,
           "isUsed": false,
           "usedIn": [],
-          "size": 910
+          "size": 3035
         },
         {
-          "name": "reactiveObjects",
-          "type": "const",
-          "line": 53,
+          "name": "LODLevel",
+          "type": "enum",
+          "line": 60,
           "isUsed": false,
           "usedIn": [],
-          "size": 910
+          "size": 3035
         },
         {
-          "name": "generateNoiseTexture",
+          "name": "createLODGeometry",
           "type": "function",
-          "line": 79,
+          "line": 74,
           "isUsed": false,
           "usedIn": [],
-          "size": 910
+          "size": 3035
         },
         {
-          "name": "addRimLight",
-          "type": "const",
-          "line": 212,
-          "isUsed": false,
-          "usedIn": [],
-          "size": 910
-        },
-        {
-          "name": "createTexturedClay",
+          "name": "getLODMaterial",
           "type": "function",
-          "line": 668,
+          "line": 136,
           "isUsed": false,
           "usedIn": [],
-          "size": 910
+          "size": 3035
         },
         {
-          "name": "createSugaredMaterial",
-          "type": "function",
-          "line": 677,
+          "name": "FoliageLODManager",
+          "type": "class",
+          "line": 328,
           "isUsed": false,
           "usedIn": [],
-          "size": 910
+          "size": 3035
+        },
+        {
+          "name": "LODTreeInstance",
+          "type": "interface",
+          "line": 756,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 3035
+        },
+        {
+          "name": "LODTreeBatcher",
+          "type": "class",
+          "line": 766,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 3035
         }
       ],
-      "treeShakingScore": 84
+      "treeShakingScore": 11
     },
     {
       "path": "particles/gpu_particles.ts",
@@ -7805,6 +8558,118 @@
           "isUsed": false,
           "usedIn": [],
           "size": 2995
+        }
+      ],
+      "treeShakingScore": 0
+    },
+    {
+      "path": "examples/asset-streaming-usage.ts",
+      "exports": [
+        {
+          "name": "setupAssetStreaming",
+          "type": "function",
+          "line": 23,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1697
+        },
+        {
+          "name": "GameWorld",
+          "type": "class",
+          "line": 77,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1697
+        },
+        {
+          "name": "setupRegionManager",
+          "type": "function",
+          "line": 140,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1697
+        },
+        {
+          "name": "setupMemoryMonitoring",
+          "type": "function",
+          "line": 194,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1697
+        },
+        {
+          "name": "loadWithFallback",
+          "type": "function",
+          "line": 224,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1697
+        },
+        {
+          "name": "initializeGame",
+          "type": "function",
+          "line": 267,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1697
+        }
+      ],
+      "imports": [
+        "AssetStreamer",
+        "AssetPriority",
+        "QualityLevel",
+        "RegionManager",
+        "createSampleManifest",
+        "THREE"
+      ],
+      "unusedExports": [
+        {
+          "name": "setupAssetStreaming",
+          "type": "function",
+          "line": 23,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1697
+        },
+        {
+          "name": "GameWorld",
+          "type": "class",
+          "line": 77,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1697
+        },
+        {
+          "name": "setupRegionManager",
+          "type": "function",
+          "line": 140,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1697
+        },
+        {
+          "name": "setupMemoryMonitoring",
+          "type": "function",
+          "line": 194,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1697
+        },
+        {
+          "name": "loadWithFallback",
+          "type": "function",
+          "line": 224,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1697
+        },
+        {
+          "name": "initializeGame",
+          "type": "function",
+          "line": 267,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1697
         }
       ],
       "treeShakingScore": 0
@@ -8329,6 +9194,127 @@
       "treeShakingScore": 55
     },
     {
+      "path": "foliage/wind-compute.ts",
+      "exports": [
+        {
+          "name": "WindConfig",
+          "type": "interface",
+          "line": 25,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 2317
+        },
+        {
+          "name": "DEFAULT_WIND_CONFIG",
+          "type": "const",
+          "line": 43,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 2317
+        },
+        {
+          "name": "WindComputeSystem",
+          "type": "class",
+          "line": 64,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 2317
+        },
+        {
+          "name": "windComputeSystem",
+          "type": "const",
+          "line": 404,
+          "isUsed": true,
+          "usedIn": [
+            "foliage/common.ts"
+          ],
+          "size": 0
+        },
+        {
+          "name": "getWindTextureData",
+          "type": "function",
+          "line": 418,
+          "isUsed": true,
+          "usedIn": [
+            "foliage/common.ts"
+          ],
+          "size": 0
+        },
+        {
+          "name": "WindPerformanceProfiler",
+          "type": "class",
+          "line": 434,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 2317
+        },
+        {
+          "name": "windProfiler",
+          "type": "const",
+          "line": 497,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 2317
+        }
+      ],
+      "imports": [
+        "DataTexture",
+        "Vector2",
+        "Vector4",
+        "RGBAFormat",
+        "FloatType",
+        "NearestFilter",
+        "RepeatWrapping",
+        "texture",
+        "uv",
+        "getWindTextureNode",
+        "THREE"
+      ],
+      "unusedExports": [
+        {
+          "name": "WindConfig",
+          "type": "interface",
+          "line": 25,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 2317
+        },
+        {
+          "name": "DEFAULT_WIND_CONFIG",
+          "type": "const",
+          "line": 43,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 2317
+        },
+        {
+          "name": "WindComputeSystem",
+          "type": "class",
+          "line": 64,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 2317
+        },
+        {
+          "name": "WindPerformanceProfiler",
+          "type": "class",
+          "line": 434,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 2317
+        },
+        {
+          "name": "windProfiler",
+          "type": "const",
+          "line": 497,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 2317
+        }
+      ],
+      "treeShakingScore": 29
+    },
+    {
       "path": "particles/audio_reactive.ts",
       "exports": [
         {
@@ -8450,7 +9436,7 @@
           "line": 9,
           "isUsed": false,
           "usedIn": [],
-          "size": 688
+          "size": 689
         },
         {
           "name": "KeyStates",
@@ -8465,31 +9451,31 @@
         {
           "name": "MovementInput",
           "type": "interface",
-          "line": 37,
+          "line": 38,
           "isUsed": false,
           "usedIn": [],
-          "size": 688
+          "size": 689
         },
         {
           "name": "LakeBounds",
           "type": "interface",
-          "line": 42,
+          "line": 43,
           "isUsed": false,
           "usedIn": [],
-          "size": 688
+          "size": 689
         },
         {
           "name": "LakeIslandConfig",
           "type": "interface",
-          "line": 49,
+          "line": 50,
           "isUsed": false,
           "usedIn": [],
-          "size": 688
+          "size": 689
         },
         {
           "name": "calculateMovementInput",
           "type": "function",
-          "line": 96,
+          "line": 97,
           "isUsed": true,
           "usedIn": [
             "systems/physics.ts"
@@ -8499,7 +9485,7 @@
         {
           "name": "isInLakeBasin",
           "type": "function",
-          "line": 140,
+          "line": 141,
           "isUsed": true,
           "usedIn": [
             "gameplay/rainbow-blaster.ts",
@@ -8510,7 +9496,7 @@
         {
           "name": "isOnLakeIsland",
           "type": "function",
-          "line": 153,
+          "line": 154,
           "isUsed": true,
           "usedIn": [
             "systems/physics.ts"
@@ -8520,7 +9506,7 @@
         {
           "name": "getUnifiedGroundHeightTyped",
           "type": "function",
-          "line": 167,
+          "line": 168,
           "isUsed": true,
           "usedIn": [
             "systems/physics.ts"
@@ -8530,15 +9516,15 @@
         {
           "name": "applyDamping",
           "type": "function",
-          "line": 223,
+          "line": 224,
           "isUsed": false,
           "usedIn": [],
-          "size": 688
+          "size": 689
         },
         {
           "name": "calculateWaterLevel",
           "type": "function",
-          "line": 236,
+          "line": 237,
           "isUsed": true,
           "usedIn": [
             "systems/physics.ts"
@@ -8556,39 +9542,39 @@
           "line": 9,
           "isUsed": false,
           "usedIn": [],
-          "size": 688
+          "size": 689
         },
         {
           "name": "MovementInput",
           "type": "interface",
-          "line": 37,
+          "line": 38,
           "isUsed": false,
           "usedIn": [],
-          "size": 688
+          "size": 689
         },
         {
           "name": "LakeBounds",
           "type": "interface",
-          "line": 42,
+          "line": 43,
           "isUsed": false,
           "usedIn": [],
-          "size": 688
+          "size": 689
         },
         {
           "name": "LakeIslandConfig",
           "type": "interface",
-          "line": 49,
+          "line": 50,
           "isUsed": false,
           "usedIn": [],
-          "size": 688
+          "size": 689
         },
         {
           "name": "applyDamping",
           "type": "function",
-          "line": 223,
+          "line": 224,
           "isUsed": false,
           "usedIn": [],
-          "size": 688
+          "size": 689
         }
       ],
       "treeShakingScore": 55
@@ -8602,7 +9588,7 @@
           "line": 42,
           "isUsed": false,
           "usedIn": [],
-          "size": 2838
+          "size": 2884
         },
         {
           "name": "PlayerSaveData",
@@ -8610,7 +9596,7 @@
           "line": 51,
           "isUsed": false,
           "usedIn": [],
-          "size": 2838
+          "size": 2884
         },
         {
           "name": "WorldSaveData",
@@ -8618,7 +9604,7 @@
           "line": 68,
           "isUsed": false,
           "usedIn": [],
-          "size": 2838
+          "size": 2884
         },
         {
           "name": "ProgressSaveData",
@@ -8626,7 +9612,7 @@
           "line": 81,
           "isUsed": false,
           "usedIn": [],
-          "size": 2838
+          "size": 2884
         },
         {
           "name": "KeyBindings",
@@ -8654,7 +9640,7 @@
           "line": 125,
           "isUsed": false,
           "usedIn": [],
-          "size": 2838
+          "size": 2884
         },
         {
           "name": "SaveData",
@@ -8680,7 +9666,7 @@
         {
           "name": "createPlayerSaveData",
           "type": "function",
-          "line": 1092,
+          "line": 1112,
           "isUsed": true,
           "usedIn": [
             "systems/save-integration-example.ts"
@@ -8690,7 +9676,7 @@
         {
           "name": "createWorldSaveData",
           "type": "function",
-          "line": 1125,
+          "line": 1145,
           "isUsed": true,
           "usedIn": [
             "systems/save-integration-example.ts"
@@ -8700,7 +9686,7 @@
         {
           "name": "createProgressSaveData",
           "type": "function",
-          "line": 1152,
+          "line": 1172,
           "isUsed": true,
           "usedIn": [
             "systems/save-integration-example.ts"
@@ -8710,7 +9696,7 @@
         {
           "name": "saveSystem",
           "type": "const",
-          "line": 1173,
+          "line": 1193,
           "isUsed": true,
           "usedIn": [
             "systems/save-integration-example.ts",
@@ -8721,7 +9707,7 @@
         {
           "name": "default",
           "type": "function",
-          "line": 1240,
+          "line": 1260,
           "isUsed": true,
           "usedIn": [
             "world/generation.ts"
@@ -8739,7 +9725,7 @@
           "line": 42,
           "isUsed": false,
           "usedIn": [],
-          "size": 2838
+          "size": 2884
         },
         {
           "name": "PlayerSaveData",
@@ -8747,7 +9733,7 @@
           "line": 51,
           "isUsed": false,
           "usedIn": [],
-          "size": 2838
+          "size": 2884
         },
         {
           "name": "WorldSaveData",
@@ -8755,7 +9741,7 @@
           "line": 68,
           "isUsed": false,
           "usedIn": [],
-          "size": 2838
+          "size": 2884
         },
         {
           "name": "ProgressSaveData",
@@ -8763,7 +9749,7 @@
           "line": 81,
           "isUsed": false,
           "usedIn": [],
-          "size": 2838
+          "size": 2884
         },
         {
           "name": "SaveMetadata",
@@ -8771,7 +9757,7 @@
           "line": 125,
           "isUsed": false,
           "usedIn": [],
-          "size": 2838
+          "size": 2884
         }
       ],
       "treeShakingScore": 64
@@ -8785,7 +9771,7 @@
           "line": 55,
           "isUsed": false,
           "usedIn": [],
-          "size": 8206
+          "size": 8205
         },
         {
           "name": "openAccessibilityMenu",
@@ -8793,7 +9779,7 @@
           "line": 1170,
           "isUsed": false,
           "usedIn": [],
-          "size": 8206
+          "size": 8205
         },
         {
           "name": "closeAccessibilityMenu",
@@ -8801,7 +9787,7 @@
           "line": 1177,
           "isUsed": false,
           "usedIn": [],
-          "size": 8206
+          "size": 8205
         },
         {
           "name": "createAccessibilityButton",
@@ -8809,7 +9795,7 @@
           "line": 1181,
           "isUsed": false,
           "usedIn": [],
-          "size": 8206
+          "size": 8205
         },
         {
           "name": "addAccessibilityButtonToPage",
@@ -8817,7 +9803,7 @@
           "line": 1216,
           "isUsed": false,
           "usedIn": [],
-          "size": 8206
+          "size": 8205
         }
       ],
       "imports": [
@@ -8838,7 +9824,7 @@
           "line": 55,
           "isUsed": false,
           "usedIn": [],
-          "size": 8206
+          "size": 8205
         },
         {
           "name": "openAccessibilityMenu",
@@ -8846,7 +9832,7 @@
           "line": 1170,
           "isUsed": false,
           "usedIn": [],
-          "size": 8206
+          "size": 8205
         },
         {
           "name": "closeAccessibilityMenu",
@@ -8854,7 +9840,7 @@
           "line": 1177,
           "isUsed": false,
           "usedIn": [],
-          "size": 8206
+          "size": 8205
         },
         {
           "name": "createAccessibilityButton",
@@ -8862,7 +9848,7 @@
           "line": 1181,
           "isUsed": false,
           "usedIn": [],
-          "size": 8206
+          "size": 8205
         },
         {
           "name": "addAccessibilityButtonToPage",
@@ -8870,7 +9856,7 @@
           "line": 1216,
           "isUsed": false,
           "usedIn": [],
-          "size": 8206
+          "size": 8205
         }
       ],
       "treeShakingScore": 0
@@ -8986,12 +9972,12 @@
           "line": 612,
           "isUsed": false,
           "usedIn": [],
-          "size": 6000
+          "size": 6126
         },
         {
           "name": "openSaveMenu",
           "type": "function",
-          "line": 1423,
+          "line": 1425,
           "isUsed": true,
           "usedIn": [
             "systems/save-integration-example.ts"
@@ -9001,7 +9987,7 @@
         {
           "name": "openLoadMenu",
           "type": "function",
-          "line": 1437,
+          "line": 1439,
           "isUsed": true,
           "usedIn": [
             "systems/save-integration-example.ts"
@@ -9011,39 +9997,39 @@
         {
           "name": "openSaveGameMenu",
           "type": "function",
-          "line": 1444,
+          "line": 1446,
           "isUsed": false,
           "usedIn": [],
-          "size": 6000
+          "size": 6126
         },
         {
           "name": "closeSaveMenu",
           "type": "function",
-          "line": 1451,
+          "line": 1453,
           "isUsed": false,
           "usedIn": [],
-          "size": 6000
+          "size": 6126
         },
         {
           "name": "isSaveMenuOpen",
           "type": "function",
-          "line": 1459,
+          "line": 1461,
           "isUsed": false,
           "usedIn": [],
-          "size": 6000
+          "size": 6126
         },
         {
           "name": "showSaveIndicator",
           "type": "function",
-          "line": 1470,
+          "line": 1472,
           "isUsed": false,
           "usedIn": [],
-          "size": 6000
+          "size": 6126
         },
         {
           "name": "default",
           "type": "function",
-          "line": 1535,
+          "line": 1537,
           "isUsed": true,
           "usedIn": [
             "world/generation.ts"
@@ -9066,39 +10052,39 @@
           "line": 612,
           "isUsed": false,
           "usedIn": [],
-          "size": 6000
+          "size": 6126
         },
         {
           "name": "openSaveGameMenu",
           "type": "function",
-          "line": 1444,
+          "line": 1446,
           "isUsed": false,
           "usedIn": [],
-          "size": 6000
+          "size": 6126
         },
         {
           "name": "closeSaveMenu",
           "type": "function",
-          "line": 1451,
+          "line": 1453,
           "isUsed": false,
           "usedIn": [],
-          "size": 6000
+          "size": 6126
         },
         {
           "name": "isSaveMenuOpen",
           "type": "function",
-          "line": 1459,
+          "line": 1461,
           "isUsed": false,
           "usedIn": [],
-          "size": 6000
+          "size": 6126
         },
         {
           "name": "showSaveIndicator",
           "type": "function",
-          "line": 1470,
+          "line": 1472,
           "isUsed": false,
           "usedIn": [],
-          "size": 6000
+          "size": 6126
         }
       ],
       "treeShakingScore": 38
@@ -9250,7 +10236,7 @@
         {
           "name": "DeformationType",
           "type": "const",
-          "line": 27,
+          "line": 29,
           "isUsed": true,
           "usedIn": [
             "compute/mesh_deformation_wasm.ts"
@@ -9260,7 +10246,7 @@
         {
           "name": "DeformationTypeValue",
           "type": "type",
-          "line": 36,
+          "line": 38,
           "isUsed": true,
           "usedIn": [
             "compute/mesh_deformation_wasm.ts"
@@ -9270,15 +10256,15 @@
         {
           "name": "DeformationConfig",
           "type": "interface",
-          "line": 41,
+          "line": 43,
           "isUsed": false,
           "usedIn": [],
-          "size": 1255
+          "size": 1576
         },
         {
           "name": "DeformationAudioState",
           "type": "interface",
-          "line": 60,
+          "line": 62,
           "isUsed": true,
           "usedIn": [
             "compute/mesh_deformation_wasm.ts"
@@ -9288,7 +10274,7 @@
         {
           "name": "MeshDeformationCompute",
           "type": "class",
-          "line": 71,
+          "line": 73,
           "isUsed": true,
           "usedIn": [
             "compute/mesh_deformation.ts",
@@ -9299,65 +10285,67 @@
         {
           "name": "createWaveDeformation",
           "type": "function",
-          "line": 294,
+          "line": 363,
           "isUsed": false,
           "usedIn": [],
-          "size": 1255
+          "size": 1576
         },
         {
           "name": "createJiggleDeformation",
           "type": "function",
-          "line": 308,
+          "line": 377,
           "isUsed": false,
           "usedIn": [],
-          "size": 1255
+          "size": 1576
         },
         {
           "name": "createWobbleDeformation",
           "type": "function",
-          "line": 322,
+          "line": 391,
           "isUsed": false,
           "usedIn": [],
-          "size": 1255
+          "size": 1576
         }
       ],
       "imports": [
         "MeshDeformationCompute",
         "uniform",
+        "isEmscriptenReady",
+        "getNativeFunc",
         "THREE"
       ],
       "unusedExports": [
         {
           "name": "DeformationConfig",
           "type": "interface",
-          "line": 41,
+          "line": 43,
           "isUsed": false,
           "usedIn": [],
-          "size": 1255
+          "size": 1576
         },
         {
           "name": "createWaveDeformation",
           "type": "function",
-          "line": 294,
+          "line": 363,
           "isUsed": false,
           "usedIn": [],
-          "size": 1255
+          "size": 1576
         },
         {
           "name": "createJiggleDeformation",
           "type": "function",
-          "line": 308,
+          "line": 377,
           "isUsed": false,
           "usedIn": [],
-          "size": 1255
+          "size": 1576
         },
         {
           "name": "createWobbleDeformation",
           "type": "function",
-          "line": 322,
+          "line": 391,
           "isUsed": false,
           "usedIn": [],
-          "size": 1255
+          "size": 1576
         }
       ],
       "treeShakingScore": 50
@@ -9692,15 +10680,15 @@
         {
           "name": "AudioState",
           "type": "interface",
-          "line": 35,
+          "line": 38,
           "isUsed": false,
           "usedIn": [],
-          "size": 4614
+          "size": 5010
         },
         {
           "name": "PlayerExtended",
           "type": "interface",
-          "line": 42,
+          "line": 45,
           "isUsed": true,
           "usedIn": [
             "systems/save-integration-example.ts"
@@ -9710,15 +10698,15 @@
         {
           "name": "PlayerState",
           "type": "const",
-          "line": 70,
+          "line": 73,
           "isUsed": false,
           "usedIn": [],
-          "size": 4614
+          "size": 5010
         },
         {
           "name": "player",
           "type": "const",
-          "line": 79,
+          "line": 82,
           "isUsed": true,
           "usedIn": [
             "main.ts",
@@ -9729,23 +10717,23 @@
         {
           "name": "bpmWind",
           "type": "const",
-          "line": 121,
+          "line": 125,
           "isUsed": false,
           "usedIn": [],
-          "size": 4614
+          "size": 5010
         },
         {
           "name": "grooveGravity",
           "type": "const",
-          "line": 128,
+          "line": 132,
           "isUsed": false,
           "usedIn": [],
-          "size": 4614
+          "size": 5010
         },
         {
           "name": "grantInvisibility",
           "type": "function",
-          "line": 156,
+          "line": 160,
           "isUsed": true,
           "usedIn": [
             "foliage/silence-spirits.ts"
@@ -9755,7 +10743,7 @@
         {
           "name": "registerPhysicsCave",
           "type": "function",
-          "line": 165,
+          "line": 169,
           "isUsed": true,
           "usedIn": [
             "world/generation.ts"
@@ -9765,7 +10753,7 @@
         {
           "name": "triggerHarpoon",
           "type": "function",
-          "line": 169,
+          "line": 173,
           "isUsed": true,
           "usedIn": [
             "gameplay/rainbow-blaster.ts"
@@ -9775,7 +10763,7 @@
         {
           "name": "updatePhysics",
           "type": "function",
-          "line": 180,
+          "line": 184,
           "isUsed": true,
           "usedIn": [
             "main.ts"
@@ -9818,46 +10806,49 @@
         "CorePlayerState",
         "KeyStates",
         "uChromaticIntensity",
+        "uStrobeIntensity",
         "uGlitchExplosionCenter",
         "uGlitchExplosionRadius",
         "spawnImpact",
         "VineSwing",
         "unlockSystem",
         "showToast",
+        "dandelionBatcher",
+        "spawnDandelionExplosion",
         "THREE"
       ],
       "unusedExports": [
         {
           "name": "AudioState",
           "type": "interface",
-          "line": 35,
+          "line": 38,
           "isUsed": false,
           "usedIn": [],
-          "size": 4614
+          "size": 5010
         },
         {
           "name": "PlayerState",
           "type": "const",
-          "line": 70,
+          "line": 73,
           "isUsed": false,
           "usedIn": [],
-          "size": 4614
+          "size": 5010
         },
         {
           "name": "bpmWind",
           "type": "const",
-          "line": 121,
+          "line": 125,
           "isUsed": false,
           "usedIn": [],
-          "size": 4614
+          "size": 5010
         },
         {
           "name": "grooveGravity",
           "type": "const",
-          "line": 128,
+          "line": 132,
           "isUsed": false,
           "usedIn": [],
-          "size": 4614
+          "size": 5010
         }
       ],
       "treeShakingScore": 60
@@ -9979,7 +10970,7 @@
           "line": 167,
           "isUsed": false,
           "usedIn": [],
-          "size": 2517
+          "size": 2540
         },
         {
           "name": "createPuffballFlower",
@@ -9987,7 +10978,7 @@
           "line": 206,
           "isUsed": false,
           "usedIn": [],
-          "size": 2517
+          "size": 2540
         },
         {
           "name": "createPrismRoseBush",
@@ -10022,7 +11013,7 @@
         {
           "name": "createLanternFlower",
           "type": "function",
-          "line": 612,
+          "line": 617,
           "isUsed": true,
           "usedIn": [
             "systems/weather.ts"
@@ -10032,10 +11023,10 @@
         {
           "name": "createGlowingFlowerPatch",
           "type": "function",
-          "line": 644,
+          "line": 649,
           "isUsed": false,
           "usedIn": [],
-          "size": 2517
+          "size": 2540
         }
       ],
       "imports": [
@@ -10093,7 +11084,7 @@
           "line": 167,
           "isUsed": false,
           "usedIn": [],
-          "size": 2517
+          "size": 2540
         },
         {
           "name": "createPuffballFlower",
@@ -10101,15 +11092,15 @@
           "line": 206,
           "isUsed": false,
           "usedIn": [],
-          "size": 2517
+          "size": 2540
         },
         {
           "name": "createGlowingFlowerPatch",
           "type": "function",
-          "line": 644,
+          "line": 649,
           "isUsed": false,
           "usedIn": [],
-          "size": 2517
+          "size": 2540
         }
       ],
       "treeShakingScore": 70
@@ -10272,6 +11263,93 @@
         }
       ],
       "treeShakingScore": 25
+    },
+    {
+      "path": "systems/discovery.ts",
+      "exports": [
+        {
+          "name": "discoverySystem",
+          "type": "const",
+          "line": 209,
+          "isUsed": true,
+          "usedIn": [
+            "core/input.ts",
+            "foliage/lotus.ts",
+            "foliage/wisteria-cluster.ts",
+            "systems/discovery-optimized.ts",
+            "systems/physics.ts",
+            "systems/save-integration-example.ts"
+          ],
+          "size": 0
+        },
+        {
+          "name": "discoveryPersistence",
+          "type": "const",
+          "line": 212,
+          "isUsed": true,
+          "usedIn": [
+            "systems/discovery-optimized.ts",
+            "systems/discovery.ts"
+          ],
+          "size": 0
+        },
+        {
+          "name": "exportDiscoveries",
+          "type": "const",
+          "line": 212,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1499
+        },
+        {
+          "name": "importDiscoveries",
+          "type": "const",
+          "line": 212,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1499
+        },
+        {
+          "name": "clearLocalDiscoveries",
+          "type": "const",
+          "line": 212,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1499
+        }
+      ],
+      "imports": [
+        "showToast",
+        "DISCOVERY_MAP",
+        "discoveryPersistence"
+      ],
+      "unusedExports": [
+        {
+          "name": "exportDiscoveries",
+          "type": "const",
+          "line": 212,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1499
+        },
+        {
+          "name": "importDiscoveries",
+          "type": "const",
+          "line": 212,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1499
+        },
+        {
+          "name": "clearLocalDiscoveries",
+          "type": "const",
+          "line": 212,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 1499
+        }
+      ],
+      "treeShakingScore": 40
     },
     {
       "path": "systems/unlocks.ts",
@@ -10565,7 +11643,7 @@
           "line": 11,
           "isUsed": false,
           "usedIn": [],
-          "size": 4974
+          "size": 5075
         },
         {
           "name": "triggerGrowth",
@@ -10593,7 +11671,7 @@
           "line": 105,
           "isUsed": false,
           "usedIn": [],
-          "size": 4974
+          "size": 5075
         },
         {
           "name": "updateFoliageMaterials",
@@ -10638,7 +11716,7 @@
           "line": 11,
           "isUsed": false,
           "usedIn": [],
-          "size": 4974
+          "size": 5075
         },
         {
           "name": "updateMaterialsForWeather",
@@ -10646,7 +11724,7 @@
           "line": 105,
           "isUsed": false,
           "usedIn": [],
-          "size": 4974
+          "size": 5075
         }
       ],
       "treeShakingScore": 67
@@ -11320,7 +12398,7 @@
         {
           "name": "keyStates",
           "type": "const",
-          "line": 21,
+          "line": 22,
           "isUsed": true,
           "usedIn": [
             "main.ts"
@@ -11330,15 +12408,15 @@
         {
           "name": "InitInputResult",
           "type": "interface",
-          "line": 68,
+          "line": 70,
           "isUsed": false,
           "usedIn": [],
-          "size": 10782
+          "size": 10926
         },
         {
           "name": "initInput",
           "type": "function",
-          "line": 74,
+          "line": 76,
           "isUsed": true,
           "usedIn": [
             "main.ts"
@@ -11357,10 +12435,10 @@
         {
           "name": "InitInputResult",
           "type": "interface",
-          "line": 68,
+          "line": 70,
           "isUsed": false,
           "usedIn": [],
-          "size": 10782
+          "size": 10926
         }
       ],
       "treeShakingScore": 75
@@ -11657,7 +12735,7 @@
           "line": 34,
           "isUsed": false,
           "usedIn": [],
-          "size": 5108
+          "size": 5135
         },
         {
           "name": "dandelionBatcher",
@@ -11665,7 +12743,8 @@
           "line": 283,
           "isUsed": true,
           "usedIn": [
-            "foliage/musical_flora.ts"
+            "foliage/musical_flora.ts",
+            "systems/physics.ts"
           ],
           "size": 0
         }
@@ -11699,7 +12778,7 @@
           "line": 34,
           "isUsed": false,
           "usedIn": [],
-          "size": 5108
+          "size": 5135
         }
       ],
       "treeShakingScore": 50
@@ -11768,12 +12847,12 @@
           "line": 68,
           "isUsed": false,
           "usedIn": [],
-          "size": 17378
+          "size": 20422
         },
         {
           "name": "foliageBatcher",
           "type": "const",
-          "line": 904,
+          "line": 1060,
           "isUsed": true,
           "usedIn": [
             "foliage/animation.ts",
@@ -11795,7 +12874,7 @@
           "line": 68,
           "isUsed": false,
           "usedIn": [],
-          "size": 17378
+          "size": 20422
         }
       ],
       "treeShakingScore": 50
@@ -12954,7 +14033,7 @@
           "line": 6,
           "isUsed": false,
           "usedIn": [],
-          "size": 682
+          "size": 746
         },
         {
           "name": "DISCOVERY_MAP",
@@ -12963,6 +14042,7 @@
           "isUsed": true,
           "usedIn": [
             "systems/discovery-optimized.ts",
+            "systems/discovery-persistence.ts",
             "systems/discovery.ts",
             "systems/physics.ts"
           ],
@@ -12977,7 +14057,7 @@
           "line": 6,
           "isUsed": false,
           "usedIn": [],
-          "size": 682
+          "size": 746
         }
       ],
       "treeShakingScore": 50
@@ -13024,6 +14104,68 @@
         }
       ],
       "treeShakingScore": 50
+    },
+    {
+      "path": "systems/index.ts",
+      "exports": [
+        {
+          "name": "AssetStreamer",
+          "type": "const",
+          "line": 19,
+          "isUsed": true,
+          "usedIn": [
+            "examples/asset-streaming-usage.ts",
+            "systems/index.ts"
+          ],
+          "size": 0
+        },
+        {
+          "name": "RegionManager",
+          "type": "const",
+          "line": 20,
+          "isUsed": true,
+          "usedIn": [
+            "examples/asset-streaming-usage.ts",
+            "systems/asset-streaming.ts",
+            "systems/index.ts"
+          ],
+          "size": 0
+        },
+        {
+          "name": "CellLoader",
+          "type": "const",
+          "line": 20,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 446
+        },
+        {
+          "name": "default",
+          "type": "const",
+          "line": 85,
+          "isUsed": true,
+          "usedIn": [
+            "world/generation.ts"
+          ],
+          "size": 0
+        }
+      ],
+      "imports": [
+        "AssetStreamer",
+        "AssetPriority",
+        "RegionManager"
+      ],
+      "unusedExports": [
+        {
+          "name": "CellLoader",
+          "type": "const",
+          "line": 20,
+          "isUsed": false,
+          "usedIn": [],
+          "size": 446
+        }
+      ],
+      "treeShakingScore": 75
     },
     {
       "path": "systems/interfaces/IParticleSystem.ts",
@@ -13259,6 +14401,13 @@
       "treeShakingScore": 75
     },
     {
+      "path": "accessibility-index.ts",
+      "exports": [],
+      "imports": [],
+      "unusedExports": [],
+      "treeShakingScore": 100
+    },
+    {
       "path": "audio/audio-system.ts",
       "exports": [
         {
@@ -13456,7 +14605,8 @@
           "line": 210,
           "isUsed": true,
           "usedIn": [
-            "foliage/musical_flora.ts"
+            "foliage/musical_flora.ts",
+            "systems/physics.ts"
           ],
           "size": 0
         }
@@ -13905,6 +15055,48 @@
       "treeShakingScore": 100
     },
     {
+      "path": "foliage/strobe.ts",
+      "exports": [
+        {
+          "name": "uStrobeIntensity",
+          "type": "const",
+          "line": 17,
+          "isUsed": true,
+          "usedIn": [
+            "main.ts",
+            "systems/physics.ts"
+          ],
+          "size": 0
+        },
+        {
+          "name": "createStrobePulse",
+          "type": "function",
+          "line": 28,
+          "isUsed": true,
+          "usedIn": [
+            "main.ts"
+          ],
+          "size": 0
+        }
+      ],
+      "imports": [
+        "MeshBasicNodeMaterial",
+        "Fn",
+        "vec3",
+        "vec4",
+        "float",
+        "uniform",
+        "viewportSharedTexture",
+        "screenUV",
+        "time",
+        "sin",
+        "mix",
+        "THREE"
+      ],
+      "unusedExports": [],
+      "treeShakingScore": 100
+    },
+    {
       "path": "foliage/terrain.ts",
       "exports": [
         {
@@ -14147,6 +15339,8 @@
         "uPlayerPosition",
         "createAurora",
         "createChromaticPulse",
+        "createStrobePulse",
+        "uStrobeIntensity",
         "animateFoliage",
         "updateFoliageMaterials",
         "updateFallingBerries",
@@ -14271,7 +15465,7 @@
         {
           "name": "OptimizedDiscoverySystem",
           "type": "class",
-          "line": 52,
+          "line": 54,
           "isUsed": true,
           "usedIn": [
             "systems/discovery-optimized.ts"
@@ -14281,7 +15475,7 @@
         {
           "name": "optimizedDiscovery",
           "type": "const",
-          "line": 318,
+          "line": 413,
           "isUsed": true,
           "usedIn": [
             "systems/physics.ts"
@@ -14291,7 +15485,7 @@
         {
           "name": "initDiscoveryForFoliage",
           "type": "function",
-          "line": 324,
+          "line": 419,
           "isUsed": true,
           "usedIn": [
             "world/generation.ts"
@@ -14301,7 +15495,7 @@
         {
           "name": "checkPlayerDiscovery",
           "type": "function",
-          "line": 347,
+          "line": 442,
           "isUsed": true,
           "usedIn": [
             "systems/physics.ts"
@@ -14314,33 +15508,8 @@
         "DISCOVERY_MAP",
         "getWasmInstance",
         "discoverySystem",
+        "discoveryPersistence",
         "THREE"
-      ],
-      "unusedExports": [],
-      "treeShakingScore": 100
-    },
-    {
-      "path": "systems/discovery.ts",
-      "exports": [
-        {
-          "name": "discoverySystem",
-          "type": "const",
-          "line": 190,
-          "isUsed": true,
-          "usedIn": [
-            "core/input.ts",
-            "foliage/lotus.ts",
-            "foliage/wisteria-cluster.ts",
-            "systems/discovery-optimized.ts",
-            "systems/physics.ts",
-            "systems/save-integration-example.ts"
-          ],
-          "size": 0
-        }
-      ],
-      "imports": [
-        "showToast",
-        "DISCOVERY_MAP"
       ],
       "unusedExports": [],
       "treeShakingScore": 100
@@ -14351,7 +15520,7 @@
         {
           "name": "glitchGrenadeSystem",
           "type": "const",
-          "line": 125,
+          "line": 189,
           "isUsed": true,
           "usedIn": [
             "main.ts"
@@ -14672,6 +15841,7 @@
             "foliage/flower-batcher.ts",
             "foliage/glowing-flower-batcher.ts",
             "foliage/lantern-batcher.ts",
+            "foliage/lod.ts",
             "foliage/mushroom-batcher.ts",
             "foliage/portamento-batcher.ts",
             "foliage/simple-flower-batcher.ts",
@@ -14733,17 +15903,17 @@
   ],
   "recommendations": [
     {
-      "file": "systems/asset-streaming.ts",
-      "issue": "26 unused exports",
-      "suggestion": "Remove unused exports or split into smaller modules",
-      "potentialSavings": 46774,
-      "priority": "high"
-    },
-    {
       "file": "particles/compute-particles.ts",
       "issue": "22 unused exports",
       "suggestion": "Remove unused exports or split into smaller modules",
-      "potentialSavings": 45958,
+      "potentialSavings": 46596,
+      "priority": "high"
+    },
+    {
+      "file": "systems/asset-streaming.ts",
+      "issue": "22 unused exports",
+      "suggestion": "Remove unused exports or split into smaller modules",
+      "potentialSavings": 39578,
       "priority": "high"
     },
     {
@@ -14775,6 +15945,20 @@
       "priority": "high"
     },
     {
+      "file": "foliage/lod.ts",
+      "issue": "8 unused exports",
+      "suggestion": "Remove unused exports or split into smaller modules",
+      "potentialSavings": 24280,
+      "priority": "high"
+    },
+    {
+      "file": "systems/region-manager.ts",
+      "issue": "13 unused exports",
+      "suggestion": "Remove unused exports or split into smaller modules",
+      "potentialSavings": 23361,
+      "priority": "high"
+    },
+    {
       "file": "particles/gpu_particles.ts",
       "issue": "7 unused exports",
       "suggestion": "Remove unused exports or split into smaller modules",
@@ -14782,10 +15966,24 @@
       "priority": "high"
     },
     {
-      "file": "systems/accessibility.ts",
-      "issue": "15 unused exports",
+      "file": "systems/discovery-persistence.ts",
+      "issue": "12 unused exports",
       "suggestion": "Remove unused exports or split into smaller modules",
-      "potentialSavings": 19125,
+      "potentialSavings": 20592,
+      "priority": "high"
+    },
+    {
+      "file": "systems/accessibility.ts",
+      "issue": "16 unused exports",
+      "suggestion": "Remove unused exports or split into smaller modules",
+      "potentialSavings": 20416,
+      "priority": "high"
+    },
+    {
+      "file": "ui/announcer.ts",
+      "issue": "20 unused exports",
+      "suggestion": "Remove unused exports or split into smaller modules",
+      "potentialSavings": 16040,
       "priority": "high"
     },
     {
@@ -14793,13 +15991,6 @@
       "issue": "17 unused exports",
       "suggestion": "Remove unused exports or split into smaller modules",
       "potentialSavings": 15878,
-      "priority": "high"
-    },
-    {
-      "file": "ui/announcer.ts",
-      "issue": "19 unused exports",
-      "suggestion": "Remove unused exports or split into smaller modules",
-      "potentialSavings": 15808,
       "priority": "high"
     },
     {
@@ -14824,10 +16015,24 @@
       "priority": "high"
     },
     {
+      "file": "foliage/common.ts",
+      "issue": "12 unused exports",
+      "suggestion": "Remove unused exports or split into smaller modules",
+      "potentialSavings": 10488,
+      "priority": "high"
+    },
+    {
       "file": "foliage/berries.ts",
       "issue": "8 unused exports",
       "suggestion": "Remove unused exports or split into smaller modules",
       "potentialSavings": 10248,
+      "priority": "high"
+    },
+    {
+      "file": "examples/asset-streaming-usage.ts",
+      "issue": "6 unused exports",
+      "suggestion": "Remove unused exports or split into smaller modules",
+      "potentialSavings": 10182,
       "priority": "high"
     },
     {
@@ -14859,13 +16064,6 @@
       "priority": "high"
     },
     {
-      "file": "foliage/common.ts",
-      "issue": "7 unused exports",
-      "suggestion": "Remove unused exports or split into smaller modules",
-      "potentialSavings": 6370,
-      "priority": "high"
-    },
-    {
       "file": "utils/geometry-dedup.ts",
       "issue": "6 unused exports",
       "suggestion": "Remove unused exports or split into smaller modules",
@@ -14888,37 +16086,37 @@
     },
     {
       "file": "utils/wasm-loader-wrapper.ts",
-      "issue": "24 unused exports",
+      "issue": "23 unused exports",
       "suggestion": "Remove unused exports or split into smaller modules",
-      "potentialSavings": 3528,
+      "potentialSavings": 3381,
       "priority": "high"
     },
     {
       "file": "foliage/index.ts",
-      "issue": "47 unused exports",
+      "issue": "48 unused exports",
       "suggestion": "Remove unused exports or split into smaller modules",
-      "potentialSavings": 2021,
+      "potentialSavings": 2064,
       "priority": "high"
-    },
-    {
-      "file": "systems/asset-streaming.ts",
-      "issue": "Low tree-shaking score (13%)",
-      "suggestion": "Review export structure. Consider using explicit exports instead of wildcards.",
-      "potentialSavings": 46774,
-      "priority": "medium"
     },
     {
       "file": "particles/compute-particles.ts",
       "issue": "Low tree-shaking score (15%)",
       "suggestion": "Review export structure. Consider using explicit exports instead of wildcards.",
-      "potentialSavings": 45958,
+      "potentialSavings": 46596,
       "priority": "medium"
     },
     {
       "file": "ui/accessibility-menu.ts",
       "issue": "5 unused exports",
       "suggestion": "Remove unused exports or split into smaller modules",
-      "potentialSavings": 41030,
+      "potentialSavings": 41025,
+      "priority": "medium"
+    },
+    {
+      "file": "systems/asset-streaming.ts",
+      "issue": "Low tree-shaking score (27%)",
+      "suggestion": "Review export structure. Consider using explicit exports instead of wildcards.",
+      "potentialSavings": 39578,
       "priority": "medium"
     },
     {
@@ -14946,14 +16144,14 @@
       "file": "ui/save-menu.ts",
       "issue": "5 unused exports",
       "suggestion": "Remove unused exports or split into smaller modules",
-      "potentialSavings": 30000,
+      "potentialSavings": 30630,
       "priority": "medium"
     },
     {
       "file": "ui/save-menu.ts",
       "issue": "Low tree-shaking score (38%)",
       "suggestion": "Review export structure. Consider using explicit exports instead of wildcards.",
-      "potentialSavings": 30000,
+      "potentialSavings": 30630,
       "priority": "medium"
     },
     {
@@ -14961,6 +16159,20 @@
       "issue": "Low tree-shaking score (7%)",
       "suggestion": "Review export structure. Consider using explicit exports instead of wildcards.",
       "potentialSavings": 24850,
+      "priority": "medium"
+    },
+    {
+      "file": "foliage/lod.ts",
+      "issue": "Low tree-shaking score (11%)",
+      "suggestion": "Review export structure. Consider using explicit exports instead of wildcards.",
+      "potentialSavings": 24280,
+      "priority": "medium"
+    },
+    {
+      "file": "systems/region-manager.ts",
+      "issue": "Low tree-shaking score (24%)",
+      "suggestion": "Review export structure. Consider using explicit exports instead of wildcards.",
+      "potentialSavings": 23361,
       "priority": "medium"
     },
     {
@@ -14985,17 +16197,31 @@
       "priority": "medium"
     },
     {
-      "file": "systems/accessibility.ts",
-      "issue": "Low tree-shaking score (38%)",
+      "file": "systems/discovery-persistence.ts",
+      "issue": "Low tree-shaking score (8%)",
       "suggestion": "Review export structure. Consider using explicit exports instead of wildcards.",
-      "potentialSavings": 19125,
+      "potentialSavings": 20592,
+      "priority": "medium"
+    },
+    {
+      "file": "systems/accessibility.ts",
+      "issue": "Low tree-shaking score (33%)",
+      "suggestion": "Review export structure. Consider using explicit exports instead of wildcards.",
+      "potentialSavings": 20416,
       "priority": "medium"
     },
     {
       "file": "systems/physics.ts",
       "issue": "4 unused exports",
       "suggestion": "Remove unused exports or split into smaller modules",
-      "potentialSavings": 18456,
+      "potentialSavings": 20040,
+      "priority": "medium"
+    },
+    {
+      "file": "ui/announcer.ts",
+      "issue": "Low tree-shaking score (9%)",
+      "suggestion": "Review export structure. Consider using explicit exports instead of wildcards.",
+      "potentialSavings": 16040,
       "priority": "medium"
     },
     {
@@ -15003,13 +16229,6 @@
       "issue": "Low tree-shaking score (29%)",
       "suggestion": "Review export structure. Consider using explicit exports instead of wildcards.",
       "potentialSavings": 15878,
-      "priority": "medium"
-    },
-    {
-      "file": "ui/announcer.ts",
-      "issue": "Low tree-shaking score (10%)",
-      "suggestion": "Review export structure. Consider using explicit exports instead of wildcards.",
-      "potentialSavings": 15808,
       "priority": "medium"
     },
     {
@@ -15027,6 +16246,13 @@
       "priority": "medium"
     },
     {
+      "file": "systems/save-system.ts",
+      "issue": "5 unused exports",
+      "suggestion": "Remove unused exports or split into smaller modules",
+      "potentialSavings": 14420,
+      "priority": "medium"
+    },
+    {
       "file": "utils/startup-profiler.ts",
       "issue": "5 unused exports",
       "suggestion": "Remove unused exports or split into smaller modules",
@@ -15034,17 +16260,24 @@
       "priority": "medium"
     },
     {
-      "file": "systems/save-system.ts",
-      "issue": "5 unused exports",
-      "suggestion": "Remove unused exports or split into smaller modules",
-      "potentialSavings": 14190,
-      "priority": "medium"
-    },
-    {
       "file": "particles/compute-integration.ts",
       "issue": "Low tree-shaking score (0%)",
       "suggestion": "Review export structure. Consider using explicit exports instead of wildcards.",
       "potentialSavings": 13020,
+      "priority": "medium"
+    },
+    {
+      "file": "foliage/wind-compute.ts",
+      "issue": "5 unused exports",
+      "suggestion": "Remove unused exports or split into smaller modules",
+      "potentialSavings": 11585,
+      "priority": "medium"
+    },
+    {
+      "file": "foliage/wind-compute.ts",
+      "issue": "Low tree-shaking score (29%)",
+      "suggestion": "Review export structure. Consider using explicit exports instead of wildcards.",
+      "potentialSavings": 11585,
       "priority": "medium"
     },
     {
@@ -15069,6 +16302,13 @@
       "priority": "medium"
     },
     {
+      "file": "examples/asset-streaming-usage.ts",
+      "issue": "Low tree-shaking score (0%)",
+      "suggestion": "Review export structure. Consider using explicit exports instead of wildcards.",
+      "potentialSavings": 10182,
+      "priority": "medium"
+    },
+    {
       "file": "rendering/webgpu-limits.ts",
       "issue": "Low tree-shaking score (15%)",
       "suggestion": "Review export structure. Consider using explicit exports instead of wildcards.",
@@ -15079,7 +16319,7 @@
       "file": "foliage/flowers.ts",
       "issue": "3 unused exports",
       "suggestion": "Remove unused exports or split into smaller modules",
-      "potentialSavings": 7551,
+      "potentialSavings": 7620,
       "priority": "medium"
     },
     {
@@ -15108,6 +16348,13 @@
       "issue": "5 unused exports",
       "suggestion": "Remove unused exports or split into smaller modules",
       "potentialSavings": 6590,
+      "priority": "medium"
+    },
+    {
+      "file": "compute/mesh_deformation.ts",
+      "issue": "4 unused exports",
+      "suggestion": "Remove unused exports or split into smaller modules",
+      "potentialSavings": 6304,
       "priority": "medium"
     },
     {
@@ -15146,10 +16393,10 @@
       "priority": "medium"
     },
     {
-      "file": "compute/mesh_deformation.ts",
-      "issue": "4 unused exports",
+      "file": "systems/discovery.ts",
+      "issue": "3 unused exports",
       "suggestion": "Remove unused exports or split into smaller modules",
-      "potentialSavings": 5020,
+      "potentialSavings": 4497,
       "priority": "medium"
     },
     {
@@ -15188,17 +16435,17 @@
       "priority": "medium"
     },
     {
-      "file": "utils/wasm-loader-wrapper.ts",
-      "issue": "Low tree-shaking score (29%)",
-      "suggestion": "Review export structure. Consider using explicit exports instead of wildcards.",
-      "potentialSavings": 3528,
-      "priority": "medium"
-    },
-    {
       "file": "systems/physics.core.ts",
       "issue": "5 unused exports",
       "suggestion": "Remove unused exports or split into smaller modules",
-      "potentialSavings": 3440,
+      "potentialSavings": 3445,
+      "priority": "medium"
+    },
+    {
+      "file": "utils/wasm-loader-wrapper.ts",
+      "issue": "Low tree-shaking score (32%)",
+      "suggestion": "Review export structure. Consider using explicit exports instead of wildcards.",
+      "potentialSavings": 3381,
       "priority": "medium"
     },
     {
@@ -15212,7 +16459,7 @@
       "file": "foliage/index.ts",
       "issue": "Low tree-shaking score (4%)",
       "suggestion": "Review export structure. Consider using explicit exports instead of wildcards.",
-      "potentialSavings": 2021,
+      "potentialSavings": 2064,
       "priority": "medium"
     },
     {
@@ -15238,18 +16485,19 @@
     }
   ],
   "commonTsAudit": {
-    "totalExports": 45,
-    "unusedExports": 7,
+    "totalExports": 51,
+    "unusedExports": 12,
     "unusedFunctions": [
       "generateNoiseTexture",
+      "getCachedProceduralMaterial",
       "createTexturedClay",
       "createSugaredMaterial"
     ],
     "sideEffects": true,
     "recommendations": [
-      "Consider splitting common.ts into smaller modules. 7 unused exports detected.",
+      "Consider splitting common.ts into smaller modules. 12 unused exports detected.",
       "common.ts may have side effects. Add \"sideEffects\": false to package.json for better tree-shaking.",
-      "Remove unused functions: generateNoiseTexture, createTexturedClay, createSugaredMaterial",
+      "Remove unused functions: generateNoiseTexture, getCachedProceduralMaterial, createTexturedClay, createSugaredMaterial",
       "Using Three.js imports. Ensure you're importing only needed modules for better tree-shaking."
     ]
   }

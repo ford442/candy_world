@@ -20,6 +20,16 @@
             width: 100%;
             height: 100%;
             background: #ffecf5; 
+            /* ⚡ PERFORMANCE: Use WebP with PNG fallback via CSS image-set */
+            background-image: image-set(
+                url('assets/splash.webp') type('image/webp'),
+                url('assets/splash.png') type('image/png')
+            );
+            background-image: -webkit-image-set(
+                url('assets/splash.webp') type('image/webp'),
+                url('assets/splash.png') type('image/png')
+            );
+            /* Fallback for browsers without image-set support */
             background-image: url('assets/splash.png');
             background-size: cover;
             background-position: center;
