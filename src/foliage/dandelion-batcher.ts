@@ -119,9 +119,9 @@ export class DandelionBatcher {
                 sColors[k*3+1] = COLOR_STALK.g;
                 sColors[k*3+2] = COLOR_STALK.b;
 
-                sPuff[k*3] = dir.x;
-                sPuff[k*3+1] = dir.y;
-                sPuff[k*3+2] = dir.z;
+                sPuff[k*3] = _scratchVec3.x;
+                sPuff[k*3+1] = _scratchVec3.y;
+                sPuff[k*3+2] = _scratchVec3.z;
             }
             sGeo.setAttribute('color', new THREE.BufferAttribute(sColors, 3));
             sGeo.setAttribute('aPuffDir', new THREE.BufferAttribute(sPuff, 3));
@@ -141,9 +141,9 @@ export class DandelionBatcher {
                 tColors[k*3+1] = COLOR_TIP.g;
                 tColors[k*3+2] = COLOR_TIP.b;
 
-                tPuff[k*3] = dir.x;
-                tPuff[k*3+1] = dir.y;
-                tPuff[k*3+2] = dir.z;
+                tPuff[k*3] = _scratchVec3.x;
+                tPuff[k*3+1] = _scratchVec3.y;
+                tPuff[k*3+2] = _scratchVec3.z;
             }
             tGeo.setAttribute('color', new THREE.BufferAttribute(tColors, 3));
             tGeo.setAttribute('aPuffDir', new THREE.BufferAttribute(tPuff, 3));
