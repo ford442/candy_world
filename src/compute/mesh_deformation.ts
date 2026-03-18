@@ -18,8 +18,10 @@
  * ```
  */
 
+// Migrated to C++: deformWave_c, deformJiggle_c, deformWobble_c in emscripten/mesh_deformation.cpp
 import * as THREE from 'three';
 import { uniform } from 'three/tsl';
+import { isEmscriptenReady, getNativeFunc } from '../utils/wasm-loader.js';
 
 /**
  * Deformation effect types
@@ -181,23 +183,27 @@ export class MeshDeformationCompute {
         const strength = this.uStrength.value;
         const frequency = this.uFrequency.value;
 
-        for (let i = 0; i < positions.length; i += 3) {
-            const x = this.originalPositions[i];
-            const y = this.originalPositions[i + 1];
-            const z = this.originalPositions[i + 2];
+        // Try WASM first, fallback to JS
+        if (!this.applyWASMDeformation(positions, time, strength, frequency, audioPulse)) {
+            // JS Fallback
+            for (let i = 0; i < positions.length; i += 3) {
+                const x = this.originalPositions[i];
+                const y = this.originalPositions[i + 1];
+                const z = this.originalPositions[i + 2];
 
-            switch (this.type) {
-                case DeformationType.WAVE:
-                    this.applyWave(positions, i, x, y, z, time, strength, frequency, audioPulse);
-                    break;
-                    
-                case DeformationType.JIGGLE:
-                    this.applyJiggle(positions, i, x, y, z, time, strength, audioPulse);
-                    break;
-                    
-                case DeformationType.WOBBLE:
-                    this.applyWobble(positions, i, x, y, z, time, strength, audioPulse);
-                    break;
+                switch (this.type) {
+                    case DeformationType.WAVE:
+                        this.applyWave(positions, i, x, y, z, time, strength, frequency, audioPulse);
+                        break;
+                        
+                    case DeformationType.JIGGLE:
+                        this.applyJiggle(positions, i, x, y, z, time, strength, audioPulse);
+                        break;
+                        
+                    case DeformationType.WOBBLE:
+                        this.applyWobble(positions, i, x, y, z, time, strength, audioPulse);
+                        break;
+                }
             }
         }
 
@@ -207,6 +213,69 @@ export class MeshDeformationCompute {
         // Only recompute normals if enabled (expensive operation)
         if (this.recomputeNormals) {
             this.geometry.computeVertexNormals();
+        }
+    }
+
+    /**
+     * Apply deformation using WASM SIMD functions.
+     * Returns true if WASM was used, false if fallback needed.
+     * Migrated to C++: deformWave_c, deformJiggle_c, deformWobble_c in emscripten/mesh_deformation.cpp
+     */
+    private applyWASMDeformation(
+        positions: Float32Array,
+        time: number,
+        strength: number,
+        frequency: number,
+        audioPulse: number
+    ): boolean {
+        if (!isEmscriptenReady()) return false;
+
+        const vertexCount = positions.length / 3;
+        let funcName: string;
+        
+        switch (this.type) {
+            case DeformationType.WAVE:
+                funcName = 'deformWave_c';
+                break;
+            case DeformationType.JIGGLE:
+                funcName = 'deformJiggle_c';
+                break;
+            case DeformationType.WOBBLE:
+                funcName = 'deformWobble_c';
+                break;
+            default:
+                return false;
+        }
+
+        const func = getNativeFunc(funcName);
+        if (!func) return false;
+
+        // We need to use Emscripten's memory
+        // Copy original positions to WASM, process, copy back
+        const emscriptenModule = (window as any).candyNative;
+        if (!emscriptenModule || !emscriptenModule._malloc) return false;
+
+        const bytes = vertexCount * 3 * 4; // 3 floats per vertex, 4 bytes per float
+        const ptr = emscriptenModule._malloc(bytes);
+        if (!ptr) return false;
+
+        try {
+            // Copy current positions to WASM memory
+            const heapF32 = new Float32Array(emscriptenModule.HEAP8.buffer);
+            heapF32.set(positions, ptr >> 2);
+
+            // Call WASM function
+            if (this.type === DeformationType.WAVE) {
+                func(ptr, vertexCount, time, strength, frequency);
+            } else {
+                func(ptr, vertexCount, time, strength, audioPulse);
+            }
+
+            // Copy results back
+            positions.set(heapF32.subarray(ptr >> 2, (ptr >> 2) + vertexCount * 3));
+            return true;
+        } finally {
+            emscriptenModule._free(ptr);
         }
     }
 
