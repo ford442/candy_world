@@ -29,6 +29,7 @@ import { makeInteractiveCylinder } from '../utils/interaction-utils.ts';
 import { treeBatcher } from './tree-batcher.ts';
 import { flowerBatcher } from './flower-batcher.ts'; // ⚡ OPTIMIZATION: New Unified Batcher
 import { spawnImpact } from './impacts.ts';
+import { getCircleGeometry, getCylinderGeometry, getTorusGeometry, getSphereGeometry } from '../utils/geometry-dedup.ts';
 
 interface FlowerOptions {
     color?: number | string | THREE.Color | null;
@@ -393,7 +394,8 @@ export function createVibratoViolet(options: { color?: number, intensity?: numbe
     headGroup.add(center);
 
     const petalCount = 5;
-    const petalGeo = new THREE.CircleGeometry(0.15, 8);
+    // ⚡ OPTIMIZATION: Use shared geometry via registry (deduplicated)
+    const petalGeo = getCircleGeometry(0.15, 8);
 
     // ⚡ OPTIMIZATION: Cache Petals
     const petalMat = getCachedProceduralMaterial('violet_petal', color, () => {
@@ -481,7 +483,7 @@ export function createTremoloTulip(options: { color?: number, size?: number } = 
     headGroup.position.y = stemH;
     group.add(headGroup);
 
-    const bellGeo = new THREE.CylinderGeometry(0.2 * size, 0.05 * size, 0.25 * size, 12, 1, true);
+    const bellGeo = getCylinderGeometry(0.2 * size, 0.05 * size, 0.25 * size, 12, 1, true);
     bellGeo.translate(0, -0.125 * size, 0);
     
     // ⚡ OPTIMIZATION: Cache Bell
@@ -548,7 +550,7 @@ export function createTremoloTulip(options: { color?: number, size?: number } = 
     headGroup.add(vortex);
     group.userData.vortex = vortex;
 
-    const rimGeo = new THREE.TorusGeometry(0.2 * size, 0.02, 8, 16);
+    const rimGeo = getTorusGeometry(0.2 * size, 0.02, 8, 16);
     // ⚡ OPTIMIZATION: Cache Rim
     const rimMat = getCachedProceduralMaterial('tulip_rim', color, () => {
         return createTransparentNodeMaterial({

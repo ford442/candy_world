@@ -12,27 +12,39 @@ import {
 import { applyGlitch } from './glitch.ts';
 import { FoliageMaterial } from './types';
 import { windComputeSystem, getWindTextureData } from './wind-compute.ts';
+import { 
+    geometryRegistry, 
+    CommonGeometries,
+    getSphereGeometry,
+    getCylinderGeometry,
+    getConeGeometry,
+    getCapsuleGeometry,
+    getPlaneGeometry,
+    getTorusGeometry
+} from '../utils/geometry-dedup.ts';
 
-// --- Shared Resources & Geometries ---
+// --- Shared Resources & Geometries (Deduplicated via GeometryRegistry) ---
+// All geometries are now created through the registry to prevent duplicates
 export const sharedGeometries: { [key: string]: THREE.BufferGeometry } = {
-    unitSphere: new THREE.SphereGeometry(1, 16, 16),
-    unitCylinder: new THREE.CylinderGeometry(1, 1, 1, 12).translate(0, 0.5, 0), // Pivot at bottom
-    unitCone: new THREE.ConeGeometry(1, 1, 16).translate(0, 0.5, 0), // Pivot at bottom
-    quad: new THREE.PlaneGeometry(1, 1),
+    // Unit geometries with pivot at bottom
+    get unitSphere() { return CommonGeometries.unitSphere; },
+    get unitCylinder() { return CommonGeometries.unitCylinder; },
+    get unitCone() { return CommonGeometries.unitCone; },
+    get quad() { return CommonGeometries.unitPlane; },
 
-    // Common convenience aliases
-    sphere: new THREE.SphereGeometry(1, 16, 16),
-    sphereLow: new THREE.SphereGeometry(1, 8, 8),
-    cylinder: new THREE.CylinderGeometry(1, 1, 1, 12).translate(0, 0.5, 0),
-    cylinderLow: new THREE.CylinderGeometry(1, 1, 1, 8).translate(0, 0.5, 0),
-    capsule: new THREE.CapsuleGeometry(0.5, 1, 6, 8),
-    eye: new THREE.SphereGeometry(0.12, 16, 16),
-    pupil: new THREE.SphereGeometry(0.05, 12, 12),
+    // Common convenience aliases (deduplicated - these reference the same underlying geometry)
+    get sphere() { return CommonGeometries.unitSphere; },  // Same as unitSphere
+    get sphereLow() { return CommonGeometries.unitSphereLow; },
+    get cylinder() { return CommonGeometries.unitCylinder; },  // Same as unitCylinder
+    get cylinderLow() { return CommonGeometries.unitCylinderLow; },
+    get capsule() { return CommonGeometries.capsule; },
+    get eye() { return CommonGeometries.eye; },
+    get pupil() { return CommonGeometries.pupil; },
 
     // Mushroom parts
-    mushroomCap: new THREE.SphereGeometry(1, 24, 24, 0, Math.PI * 2, 0, Math.PI / 1.8),
-    mushroomGillCenter: new THREE.ConeGeometry(1, 1, 24, 1, true),
-    mushroomSmile: new THREE.TorusGeometry(0.12, 0.04, 6, 12, Math.PI),
+    get mushroomCap() { return CommonGeometries.mushroomCap; },
+    get mushroomGillCenter() { return CommonGeometries.mushroomGillCenter; },
+    get mushroomSmile() { return CommonGeometries.mushroomSmile; },
 };
 
 export const eyeGeo = sharedGeometries.eye;
