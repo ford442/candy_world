@@ -31,3 +31,6 @@ Matte clay materials need a strong directional light to show form.
 ## 2026-03-09 - Provide explicit confirmation for destructive actions
 **Learning:** Destructive actions like removing items from a list (e.g., Jukebox playlist) without visual confirmation or screen reader feedback create an inconsistent and uncertain UX. Users, especially those relying on screen readers, need immediate and explicit feedback that their action was successful.
 **Action:** Always pair destructive UI actions with a transient, accessible status notification (like an `aria-live` Toast) confirming the outcome (e.g., "Removed [Item Name]").
+## 2025-02-12 - 🎨 Palette: Restored Juicy Rim Light
+**Learning:** Visual feedback on interactable items is crucial. Standard objects without instancing can still utilize TSL effects like createJuicyRimLight by passing standard color nodes instead of instanced attributes, preventing WebGPU crashes while maintaining game feel.
+**Action:** Always provide createJuicyRimLight with standard color nodes for non-instanced foliage to ensure consistent audio-reactivity across the environment.

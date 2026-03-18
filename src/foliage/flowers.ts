@@ -488,18 +488,23 @@ export function createTremoloTulip(options: { color?: number, size?: number } = 
     const bellMat = getCachedProceduralMaterial('tulip_bell', color, () => {
         const mat = createTransparentNodeMaterial({
             color: color,
-            emissive: color,
-            emissiveIntensity: 0.3,
             roughness: 0.5,
             opacity: 0.9,
             side: THREE.DoubleSide
         });
+
+        // --- PALETTE: Juicy Rim Light for Tremolo Tulip ---
+        // By passing a standard tslColor instead of an instance attribute,
+        // we can safely use the juicy rim light on this non-instanced mesh!
+        const baseColorNode = tslColor(color);
+        const rimLight = createJuicyRimLight(baseColorNode, float(1.5), float(3.0), null);
+
+        // Combine base emissive (0.3 intensity) with the audio-reactive rim light
+        mat.emissiveNode = baseColorNode.mul(0.3).add(rimLight);
+
         registerReactiveMaterial(mat);
         return mat;
     });
-    // --- PALETTE: Juicy Rim Light for Tremolo Tulip ---
-    // Removed createJuicyRimLight due to missing instanceColor crashing WebGPU for non-instanced meshes
-    // We will just use standard colors for now.
 
     const bell = new THREE.Mesh(bellGeo, bellMat);
     bell.rotation.x = Math.PI;
