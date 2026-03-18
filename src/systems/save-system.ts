@@ -257,10 +257,30 @@ class SaveDatabase {
         if (this.initPromise) return this.initPromise;
         
         this.initPromise = new Promise((resolve, reject) => {
+            const TIMEOUT_MS = 10000; // 10 second timeout for IndexedDB
+            let timeoutId: number | null = null;
+            
+            const cleanup = () => {
+                if (timeoutId !== null) {
+                    clearTimeout(timeoutId);
+                    timeoutId = null;
+                }
+            };
+            
+            timeoutId = window.setTimeout(() => {
+                cleanup();
+                reject(new Error(`IndexedDB open timed out after ${TIMEOUT_MS}ms`));
+            }, TIMEOUT_MS);
+            
             const request = indexedDB.open(DB_NAME, DB_VERSION);
 
-            request.onerror = () => reject(request.error);
+            request.onerror = () => {
+                cleanup();
+                reject(request.error);
+            };
+            
             request.onsuccess = () => {
+                cleanup();
                 this.db = request.result;
                 resolve();
             };

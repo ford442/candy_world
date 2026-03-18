@@ -1160,25 +1160,47 @@ export class ComputeParticleSystem {
             throw new Error('WebGPU not supported');
         }
         
-        const adapter = await navigator.gpu.requestAdapter({
-            powerPreference: 'high-performance'
-        });
+        // Timeout wrapper for GPU operations (prevent 5min hangs)
+        const withTimeout = <T>(promise: Promise<T>, ms: number, label: string): Promise<T> => {
+            return Promise.race([
+                promise,
+                new Promise<T>((_, reject) => 
+                    setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)
+                )
+            ]);
+        };
+        
+        const adapter = await withTimeout(
+            navigator.gpu.requestAdapter({ powerPreference: 'high-performance' }),
+            5000,
+            'WebGPU requestAdapter'
+        );
         
         if (!adapter) {
             throw new Error('No WebGPU adapter found');
         }
         
-        this.device = await adapter.requestDevice({
-            requiredFeatures: [],
-            requiredLimits: {
-                maxStorageBufferBindingSize: 134217728, // 128MB
-                maxComputeWorkgroupSizeX: 256
-            }
-        });
+        this.device = await withTimeout(
+            adapter.requestDevice({
+                requiredFeatures: [],
+                requiredLimits: {
+                    maxStorageBufferBindingSize: 134217728, // 128MB
+                    maxComputeWorkgroupSizeX: 256
+                }
+            }),
+            5000,
+            'WebGPU requestDevice'
+        );
         
-        await this.createComputePipeline();
-        await this.createUniformBuffer();
-        await this.createBindGroup();
+        await withTimeout(
+            Promise.all([
+                this.createComputePipeline(),
+                this.createUniformBuffer(),
+                this.createBindGroup()
+            ]),
+            10000,
+            'WebGPU pipeline initialization'
+        );
         
         this.usingGPU = true;
         console.log(`[ComputeParticles] GPU initialized for ${this.type} with ${this.count} particles`);
