@@ -31,3 +31,7 @@ Matte clay materials need a strong directional light to show form.
 ## 2026-03-09 - Provide explicit confirmation for destructive actions
 **Learning:** Destructive actions like removing items from a list (e.g., Jukebox playlist) without visual confirmation or screen reader feedback create an inconsistent and uncertain UX. Users, especially those relying on screen readers, need immediate and explicit feedback that their action was successful.
 **Action:** Always pair destructive UI actions with a transient, accessible status notification (like an `aria-live` Toast) confirming the outcome (e.g., "Removed [Item Name]").
+
+## 2026-03-09 - Format file names for screen readers in lists
+**Learning:** Dynamically populated lists containing user uploads (like Jukebox playlists) often use raw file names (`super_cool_song_v2.xm`) for `aria-label` and `title` attributes. This results in screen readers reading out the file extension and literal characters, which creates a poor UX compared to a parsed, human-readable title.
+**Action:** Always use a human-readable formatted string (e.g. `displayName` parsed from `file.name`) when setting `aria-label` and `title` attributes for dynamically populated elements derived from file uploads to ensure a smooth screen reader experience.
