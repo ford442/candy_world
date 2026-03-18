@@ -136,6 +136,22 @@ export interface ParticleAudioState {
     readonly beatPhase?: number;
     /** Current audio color (hex) */
     readonly color?: number;
+    /** Bass/low frequency energy (0-1) - for compute particles */
+    low?: number;
+    /** Mid frequency energy (0-1) - for compute particles */
+    mid?: number;
+    /** Treble/high frequency energy (0-1) - for compute particles */
+    high?: number;
+    /** Beat trigger boolean - for compute particles */
+    beat?: boolean;
+    /** Groove amount (0-1) - for compute particles */
+    groove?: number;
+    /** Wind X direction - for compute particles */
+    windX?: number;
+    /** Wind Z direction - for compute particles */
+    windZ?: number;
+    /** Wind speed - for compute particles */
+    windSpeed?: number;
 }
 
 /**

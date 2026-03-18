@@ -13,6 +13,7 @@ import {
     createStandardNodeMaterial, createUnifiedMaterial
 } from './common.ts';
 import { foliageGroup } from '../world/state.ts';
+import { getTorusGeometry, getConeGeometry } from '../utils/geometry-dedup.ts';
 
 const MAX_LANTERNS = 1000;
 
@@ -255,13 +256,15 @@ export class LanternBatcher {
         let startIndex = indices.length;
 
         // Hook Geometry: Torus segment
-        const hookGeo = new THREE.TorusGeometry(0.5, 0.08, 6, 8, Math.PI);
+        // ⚡ OPTIMIZATION: Use shared geometry via registry (deduplicated)
+        const hookGeo = getTorusGeometry(0.5, 0.08, 6, 8, Math.PI);
         m.makeRotationZ(-Math.PI/2);
         m.setPosition(0.5, 0, 0);
         addPart(hookGeo, 0, m);
 
         // Cap (Cone)
-        const capGeo = new THREE.ConeGeometry(0.2, 0.2, 6);
+        // ⚡ OPTIMIZATION: Use shared geometry via registry (deduplicated)
+        const capGeo = getConeGeometry(0.2, 0.2, 6);
         m.makeTranslation(1.0, -0.2, 0);
         addPart(capGeo, 0, m);
 

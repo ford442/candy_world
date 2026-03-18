@@ -10,6 +10,7 @@ import {
     uWindSpeed, uWindDirection, triplanarNoise
 } from './common.ts';
 import { foliageGroup } from '../world/state.ts';
+import { getIcosahedronGeometry } from '../utils/geometry-dedup.ts';
 import { uSkyDarkness, uTwilight } from './sky.ts';
 
 // --- Global Uniforms (Moved from clouds.js) ---
@@ -172,7 +173,8 @@ export class CloudBatcher {
         if (this.initialized) return;
 
         // PALETTE: Increased detail for smoother TSL displacement (1 -> 2)
-        const puffGeometry = new THREE.IcosahedronGeometry(1, 2);
+        // ⚡ OPTIMIZATION: Use shared geometry via registry (deduplicated)
+        const puffGeometry = getIcosahedronGeometry(1, 2);
 
         this.mesh = new THREE.InstancedMesh(puffGeometry, sharedCloudMaterial, MAX_PUFFS);
         this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);

@@ -1,0 +1,27 @@
+{
+  "name": "@candy_world/build-optimizer",
+  "version": "1.0.0",
+  "description": "Build optimization and bundling analysis tools for candy_world",
+  "type": "module",
+  "scripts": {
+    "analyze": "tsx src/bundle-analyzer.ts && tsx src/tree-shaking-audit.ts && tsx src/compression-benchmark.ts",
+    "analyze:bundle": "tsx src/bundle-analyzer.ts",
+    "analyze:treeshake": "tsx src/tree-shaking-audit.ts",
+    "analyze:compress": "tsx src/compression-benchmark.ts",
+    "optimize": "tsx src/run-all-optimizations.ts",
+    "optimize:assets": "tsx src/asset-optimizer.ts",
+    "optimize:split": "tsx src/code-splitting-strategy.ts",
+    "budget": "tsx src/performance-budget.ts",
+    "budget:check": "tsx src/performance-budget.ts --check",
+    "report": "tsx src/generate-report.ts"
+  },
+  "dependencies": {
+    "three": "^0.171.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/three": "^0.171.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.3"
+  }
+}

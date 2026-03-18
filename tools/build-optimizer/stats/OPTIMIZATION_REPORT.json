@@ -1,0 +1,157 @@
+{
+  "timestamp": "2025-03-19T00:22:46.000Z",
+  "summary": {
+    "totalSourceSize": "15.7 MB",
+    "totalAssetsSize": "13.9 MB",
+    "unusedExportsPercentage": 62.4,
+    "unusedExportsCount": 525,
+    "totalExportsCount": 842,
+    "potentialSavings": "2.7 MB"
+  },
+  "budgets": {
+    "main": { "budget": "200 KB", "actual": "1.78 MB", "status": "error", "percentage": 910.6 },
+    "vendor": { "budget": "500 KB", "actual": "0 B", "status": "pass", "percentage": 0 },
+    "wasm": { "budget": "100 KB", "actual": "22.17 KB", "status": "pass", "percentage": 22.2 },
+    "total": { "budget": "2 MB", "actual": "13.46 MB", "status": "error", "percentage": 673.1 }
+  },
+  "loadTimeEstimates": {
+    "3G": { "current": "~15s", "optimized": "~8s" },
+    "4G": { "current": "~4s", "optimized": "~2s" },
+    "5G": { "current": "~1s", "optimized": "~0.5s" }
+  },
+  "tools": {
+    "bundleAnalyzer": {
+      "status": "complete",
+      "totalSize": 15681460,
+      "chunks": 4,
+      "duplicates": 0
+    },
+    "treeShakingAudit": {
+      "status": "complete",
+      "filesAnalyzed": 123,
+      "unusedExports": 525,
+      "potentialSavings": "820.93 KB"
+    },
+    "codeSplitting": {
+      "status": "complete",
+      "chunks": 9,
+      "dynamicImports": 6,
+      "lazyLoadSavings": "693 KB"
+    },
+    "assetOptimizer": {
+      "status": "complete",
+      "assetsAnalyzed": 12,
+      "potentialSavings": "1.83 MB",
+      "optimizableAssets": 5
+    }
+  },
+  "recommendations": {
+    "high": [
+      {
+        "title": "Implement Code Splitting",
+        "impact": "50% reduction in initial load",
+        "effort": "Medium",
+        "action": "Split main.ts into smaller chunks"
+      },
+      {
+        "title": "Optimize Three.js Import",
+        "impact": "200KB+ savings",
+        "effort": "Low",
+        "action": "Use dynamic imports for optional features"
+      },
+      {
+        "title": "Enable WASM Optimization",
+        "impact": "30-50% WASM size reduction",
+        "effort": "Low",
+        "action": "Install wasm-opt and add -O3 -s flags"
+      },
+      {
+        "title": "Compress Assets",
+        "impact": "1.5MB+ savings",
+        "effort": "Low",
+        "action": "Convert splash.png to WebP/AVIF, minify map.json"
+      }
+    ],
+    "medium": [
+      {
+        "title": "Tree Shaking Improvements",
+        "impact": "820KB savings",
+        "effort": "Medium",
+        "action": "Remove 525 unused exports, split common.ts"
+      },
+      {
+        "title": "Implement Preload Strategy",
+        "impact": "Faster perceived load",
+        "effort": "Low",
+        "action": "Preload foliage after core init"
+      },
+      {
+        "title": "Enable Compression",
+        "impact": "60-80% transfer size reduction",
+        "effort": "Low",
+        "action": "Configure gzip/brotli on server"
+      }
+    ],
+    "low": [
+      {
+        "title": "Sprite Atlases",
+        "impact": "Minor",
+        "effort": "Medium",
+        "action": "Combine UI icons"
+      },
+      {
+        "title": "Shader Caching",
+        "impact": "Faster hot reload",
+        "effort": "Medium",
+        "action": "Cache compiled TSL shaders"
+      }
+    ]
+  },
+  "implementationRoadmap": {
+    "phase1": {
+      "duration": "1-2 days",
+      "tasks": [
+        "Install optimization tools",
+        "Install wasm-opt",
+        "Convert splash.png to WebP",
+        "Minify map.json",
+        "Configure server compression"
+      ]
+    },
+    "phase2": {
+      "duration": "3-5 days",
+      "tasks": [
+        "Update vite.config.ts with manual chunks",
+        "Implement dynamic imports for audio",
+        "Lazy-load foliage systems",
+        "Add preload hints to index.html",
+        "Test loading sequence"
+      ]
+    },
+    "phase3": {
+      "duration": "2-3 days",
+      "tasks": [
+        "Audit and remove unused exports",
+        "Split common.ts",
+        "Review and clean up dead code",
+        "Verify bundle size reduction"
+      ]
+    },
+    "phase4": {
+      "duration": "1 week",
+      "tasks": [
+        "Implement shader caching",
+        "Create sprite atlases",
+        "Optimize WASM with emscripten flags",
+        "Performance testing and tuning"
+      ]
+    }
+  },
+  "performanceTargets": {
+    "firstContentfulPaint": { "current": "~3s", "target": "< 1.0s", "priority": "high" },
+    "timeToInteractive": { "current": "~8s", "target": "< 2.0s", "priority": "high" },
+    "largestContentfulPaint": { "current": "~10s", "target": "< 2.5s", "priority": "high" },
+    "totalBundleSize": { "current": "~15 MB", "target": "< 2 MB", "priority": "high" },
+    "initialLoadSize": { "current": "~15 MB", "target": "< 500 KB", "priority": "high" }
+  }
+}
