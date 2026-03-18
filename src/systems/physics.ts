@@ -815,10 +815,7 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
          }
     }
 
-    // --- Retrigger Mushrooms (Strobe Sickness) ---
-    checkRetriggerMushrooms(delta);
-
-    // --- Panning Pads (JS Physics) ---
+    // --- Panning Pads (JS Physics) --
     // Explicit check for dynamic panning pads (bobbing platforms)
     checkPanningPads();
 
@@ -883,35 +880,6 @@ function checkRetriggerMushrooms(delta: number, audioState: AudioState | null) {
         // Decay the strobe intensity rapidly when out of range or not strobing
         if (typeof uStrobeIntensity !== 'undefined' && uStrobeIntensity.value > 0) {
             uStrobeIntensity.value = Math.max(0, uStrobeIntensity.value - delta * 2.0);
-        }
-    }
-}
-
-function checkRetriggerMushrooms(delta: number) {
-    const playerPos = player.position;
-
-    // Check all retrigger mushrooms
-    for (const obj of animatedFoliage) {
-        if (obj.userData?.type === 'retrigger_mushroom') {
-            // Check if mushroom is actively strobing
-            if (obj.userData.retriggerActive && obj.userData.retriggerIntensity > 0.5) {
-                const dx = playerPos.x - obj.position.x;
-                const dz = playerPos.z - obj.position.z;
-                const distSq = dx * dx + dz * dz;
-
-                // 15m radius for strobe sickness
-                if (distSq < 15.0 * 15.0) {
-                    // Apply Strobe Sickness: Rapid random pulses to chromatic intensity
-                    if (typeof uChromaticIntensity !== 'undefined') {
-                        // Create a flickering effect by randomly spiking the intensity
-                        if (Math.random() < 0.3) {
-                            uChromaticIntensity.value += Math.random() * 0.5;
-                        }
-                    }
-                    discoverySystem.discover('strobe_sickness', 'Strobe Sickness', '😵‍💫');
-                    break; // Only apply sickness from one mushroom at a time
-                }
-            }
         }
     }
 }
