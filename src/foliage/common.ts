@@ -50,6 +50,11 @@ export const sharedGeometries: { [key: string]: THREE.BufferGeometry } = {
 export const eyeGeo = sharedGeometries.eye;
 export const pupilGeo = sharedGeometries.pupil;
 
+// --- Scratch Variables (GC Optimization) ---
+export const _scratchVec1 = new THREE.Vector3();
+export const _scratchVec2 = new THREE.Vector3();
+export const _scratchVec3 = new THREE.Vector3();
+
 // --- Reactive Objects Registry ---
 export const reactiveObjects: THREE.Object3D[] = [];
 let reactivityCounter = 0; 
