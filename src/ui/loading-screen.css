@@ -1,0 +1,752 @@
+/**
+ * Loading Screen Styles for Candy World
+ * 
+ * Features:
+ * - Candy-themed pastel colors
+ * - Animated progress bar with shimmer effect
+ * - Responsive design
+ * - Dark overlay behind loading panel
+ * - Smooth transitions and animations
+ */
+
+/* =============================================================================
+   CSS CUSTOM PROPERTIES (Variables)
+   ========================================================================== */
+
+:root {
+  /* Candy Color Palette */
+  --candy-pink: #FFB6C1;
+  --candy-pink-light: #FFD1DC;
+  --candy-pink-dark: #FF69B4;
+  --candy-mint: #98FB98;
+  --candy-mint-light: #C1FFC1;
+  --candy-lavender: #E6E6FA;
+  --candy-lavender-dark: #D8BFD8;
+  --candy-peach: #FFDAB9;
+  --candy-sky: #87CEEB;
+  --candy-sky-light: #B0E0E6;
+  --candy-lemon: #FFFACD;
+  --candy-coral: #FFA07A;
+  
+  /* Dark overlay colors */
+  --overlay-dark: rgba(10, 10, 30, 0.85);
+  --overlay-darker: rgba(5, 5, 20, 0.95);
+  
+  /* Progress bar colors */
+  --progress-bg: rgba(255, 255, 255, 0.15);
+  --progress-fill-start: #FF6B9D;
+  --progress-fill-mid: #C44569;
+  --progress-fill-end: #FF8C94;
+  
+  /* Typography */
+  --font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  --font-mono: 'Courier New', monospace;
+  
+  /* Spacing */
+  --spacing-xs: 0.25rem;
+  --spacing-sm: 0.5rem;
+  --spacing-md: 1rem;
+  --spacing-lg: 1.5rem;
+  --spacing-xl: 2rem;
+  
+  /* Border radius (candy theme = extra rounded) */
+  --radius-sm: 8px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --radius-xl: 32px;
+  --radius-full: 9999px;
+  
+  /* Shadows */
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.15);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.2);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.3);
+  --shadow-glow: 0 0 20px rgba(255, 107, 157, 0.4);
+  
+  /* Transitions */
+  --transition-fast: 0.15s ease;
+  --transition-normal: 0.3s ease;
+  --transition-slow: 0.5s ease;
+}
+
+/* =============================================================================
+   OVERLAY
+   ========================================================================== */
+
+.loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--overlay-dark);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999999;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity var(--transition-normal), visibility var(--transition-normal);
+}
+
+.loading-overlay.visible {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Dark theme overlay */
+.loading-overlay.theme-dark {
+  background: var(--overlay-darker);
+}
+
+/* =============================================================================
+   MAIN LOADING SCREEN CONTAINER
+   ========================================================================== */
+
+.loading-screen {
+  background: linear-gradient(
+    145deg,
+    rgba(255, 255, 255, 0.95) 0%,
+    rgba(255, 214, 220, 0.95) 50%,
+    rgba(230, 230, 250, 0.95) 100%
+  );
+  border-radius: var(--radius-xl);
+  padding: var(--spacing-xl);
+  min-width: 320px;
+  max-width: 480px;
+  width: 90%;
+  box-shadow: 
+    var(--shadow-lg),
+    0 0 0 1px rgba(255, 255, 255, 0.3) inset,
+    var(--shadow-glow);
+  text-align: center;
+  transform: scale(0.95) translateY(20px);
+  opacity: 0;
+  transition: 
+    transform var(--transition-normal),
+    opacity var(--transition-normal);
+}
+
+.loading-screen.visible {
+  transform: scale(1) translateY(0);
+  opacity: 1;
+}
+
+.loading-screen.complete {
+  transform: scale(1.02);
+  box-shadow: 
+    0 12px 48px rgba(0, 0, 0, 0.35),
+    0 0 0 2px rgba(255, 182, 193, 0.8) inset,
+    0 0 40px rgba(255, 107, 157, 0.6);
+}
+
+/* Dark theme */
+.loading-screen.theme-dark {
+  background: linear-gradient(
+    145deg,
+    rgba(30, 30, 50, 0.98) 0%,
+    rgba(40, 30, 50, 0.98) 100%
+  );
+  color: #fff;
+  box-shadow: 
+    var(--shadow-lg),
+    0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+}
+
+/* Minimal theme */
+.loading-screen.theme-minimal {
+  background: rgba(255, 255, 255, 0.98);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+}
+
+/* =============================================================================
+   LOADING CONTENT
+   ========================================================================== */
+
+.loading-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-lg);
+}
+
+/* =============================================================================
+   TITLE
+   ========================================================================== */
+
+.loading-title {
+  font-family: var(--font-family);
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #5a3d5c;
+  margin: 0;
+  text-shadow: 2px 2px 4px rgba(255, 255, 255, 0.5);
+  letter-spacing: -0.02em;
+}
+
+.loading-title .loading-dots {
+  animation: dots 1.5s infinite;
+  display: inline-block;
+  min-width: 24px;
+}
+
+@keyframes dots {
+  0%, 20% { content: '.'; }
+  40% { content: '..'; }
+  60%, 100% { content: '...'; }
+}
+
+/* Dark theme title */
+.loading-screen.theme-dark .loading-title {
+  color: var(--candy-pink-light);
+  text-shadow: 0 0 20px rgba(255, 182, 193, 0.3);
+}
+
+/* =============================================================================
+   SPINNER
+   ========================================================================== */
+
+.loading-spinner {
+  width: 60px;
+  height: 60px;
+  position: relative;
+}
+
+.loading-spinner::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 4px solid var(--progress-bg);
+  border-top-color: var(--progress-fill-start);
+  border-right-color: var(--progress-fill-mid);
+  border-radius: var(--radius-full);
+  animation: spin 1s linear infinite;
+}
+
+.loading-spinner::after {
+  content: '🍭';
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  animation: bounce 0.6s ease-in-out infinite alternate;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes bounce {
+  from { transform: scale(0.9); }
+  to { transform: scale(1.1); }
+}
+
+/* =============================================================================
+   PROGRESS SECTION
+   ========================================================================== */
+
+.progress-section {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+/* Progress Bar Container */
+.progress-bar {
+  width: 100%;
+  height: 24px;
+  background: var(--progress-bg);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  position: relative;
+  box-shadow: 
+    inset 0 2px 4px rgba(0, 0, 0, 0.1),
+    0 1px 2px rgba(255, 255, 255, 0.3);
+}
+
+/* Progress Fill */
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    var(--progress-fill-start) 0%,
+    var(--progress-fill-mid) 50%,
+    var(--progress-fill-end) 100%
+  );
+  border-radius: var(--radius-full);
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 0 10px rgba(255, 107, 157, 0.3);
+}
+
+/* Shimmer effect on progress bar */
+.progress-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.4) 50%,
+    transparent 100%
+  );
+  animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
+}
+
+/* Striped animation for indeterminate state */
+.progress-fill.indeterminate {
+  width: 30% !important;
+  animation: indeterminate 1.5s ease-in-out infinite;
+}
+
+@keyframes indeterminate {
+  0% { transform: translateX(-100%); }
+  50% { transform: translateX(250%); }
+  100% { transform: translateX(250%); }
+}
+
+/* =============================================================================
+   PROGRESS DETAILS
+   ========================================================================== */
+
+.progress-details {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 var(--spacing-xs);
+  font-family: var(--font-family);
+}
+
+.progress-percentage {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--progress-fill-mid);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.progress-task {
+  font-size: 0.875rem;
+  color: #6b5b6d;
+  font-weight: 500;
+  max-width: 60%;
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Dark theme */
+.loading-screen.theme-dark .progress-percentage {
+  color: var(--candy-pink);
+}
+
+.loading-screen.theme-dark .progress-task {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* =============================================================================
+   TIME REMAINING
+   ========================================================================== */
+
+.time-remaining {
+  font-size: 0.8rem;
+  color: #8b7b8d;
+  font-family: var(--font-mono);
+  background: rgba(255, 255, 255, 0.5);
+  padding: var(--spacing-xs) var(--spacing-md);
+  border-radius: var(--radius-full);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+.time-remaining::before {
+  content: '⏱️';
+}
+
+.loading-screen.theme-dark .time-remaining {
+  color: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* =============================================================================
+   SKIP BUTTON
+   ========================================================================== */
+
+.skip-button {
+  background: linear-gradient(135deg, #a8a8a8 0%, #c0c0c0 100%);
+  color: #fff;
+  border: none;
+  padding: var(--spacing-sm) var(--spacing-lg);
+  border-radius: var(--radius-full);
+  font-family: var(--font-family);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  box-shadow: 
+    0 2px 8px rgba(0, 0, 0, 0.15),
+    0 0 0 1px rgba(255, 255, 255, 0.2) inset;
+  margin-top: var(--spacing-sm);
+}
+
+.skip-button:hover {
+  background: linear-gradient(135deg, #b8b8b8 0%, #d0d0d0 100%);
+  transform: translateY(-1px);
+  box-shadow: 
+    0 4px 12px rgba(0, 0, 0, 0.2),
+    0 0 0 1px rgba(255, 255, 255, 0.3) inset;
+}
+
+.skip-button:active {
+  transform: translateY(0);
+  box-shadow: 
+    0 1px 4px rgba(0, 0, 0, 0.15),
+    0 0 0 1px rgba(255, 255, 255, 0.2) inset;
+}
+
+.skip-button::before {
+  content: '⏭️ ';
+}
+
+/* =============================================================================
+   STATUS INDICATORS (Phase Dots)
+   ========================================================================== */
+
+.status-indicators {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-md);
+  padding-top: var(--spacing-md);
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.phase-indicator {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.4);
+  transition: all var(--transition-fast);
+  opacity: 0.6;
+}
+
+.phase-indicator.active {
+  background: rgba(255, 182, 193, 0.3);
+  opacity: 1;
+}
+
+.phase-indicator.complete {
+  background: rgba(152, 251, 152, 0.4);
+  opacity: 1;
+}
+
+.phase-indicator.skipped {
+  background: rgba(200, 200, 200, 0.3);
+  opacity: 0.5;
+}
+
+.phase-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-full);
+  background: #ccc;
+  transition: all var(--transition-fast);
+  position: relative;
+}
+
+.phase-indicator.active .phase-dot {
+  background: var(--progress-fill-start);
+  box-shadow: 0 0 8px var(--progress-fill-start);
+  animation: pulse-dot 1.5s infinite;
+}
+
+.phase-indicator.complete .phase-dot {
+  background: #4ade80;
+}
+
+.phase-indicator.skipped .phase-dot {
+  background: #9ca3af;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.2); opacity: 0.8; }
+}
+
+.phase-label {
+  font-size: 0.7rem;
+  color: #666;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.phase-indicator.active .phase-label {
+  color: var(--progress-fill-mid);
+  font-weight: 700;
+}
+
+.phase-indicator.complete .phase-label {
+  color: #22c55e;
+}
+
+.phase-indicator.skipped .phase-label {
+  color: #6b7280;
+  text-decoration: line-through;
+}
+
+/* Dark theme indicators */
+.loading-screen.theme-dark .status-indicators {
+  border-top-color: rgba(255, 255, 255, 0.1);
+}
+
+.loading-screen.theme-dark .phase-indicator {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.loading-screen.theme-dark .phase-indicator.active {
+  background: rgba(255, 107, 157, 0.2);
+}
+
+.loading-screen.theme-dark .phase-label {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.loading-screen.theme-dark .phase-indicator.active .phase-label {
+  color: var(--candy-pink);
+}
+
+/* =============================================================================
+   RESPONSIVE DESIGN
+   ========================================================================== */
+
+/* Tablet */
+@media (max-width: 768px) {
+  .loading-screen {
+    padding: var(--spacing-lg);
+    min-width: 280px;
+  }
+  
+  .loading-title {
+    font-size: 1.5rem;
+  }
+  
+  .loading-spinner {
+    width: 50px;
+    height: 50px;
+  }
+  
+  .loading-spinner::before {
+    border-width: 3px;
+  }
+  
+  .loading-spinner::after {
+    font-size: 1.25rem;
+  }
+  
+  .progress-bar {
+    height: 20px;
+  }
+  
+  .progress-percentage {
+    font-size: 1.1rem;
+  }
+  
+  .progress-task {
+    font-size: 0.8rem;
+  }
+  
+  .status-indicators {
+    gap: var(--spacing-xs);
+  }
+  
+  .phase-indicator {
+    padding: 2px var(--spacing-xs);
+  }
+  
+  .phase-label {
+    font-size: 0.6rem;
+  }
+}
+
+/* Mobile */
+@media (max-width: 480px) {
+  .loading-overlay {
+    padding: var(--spacing-md);
+    align-items: flex-end;
+    padding-bottom: 10vh;
+  }
+  
+  .loading-screen {
+    padding: var(--spacing-md);
+    border-radius: var(--radius-lg);
+    width: 100%;
+  }
+  
+  .loading-title {
+    font-size: 1.25rem;
+  }
+  
+  .loading-content {
+    gap: var(--spacing-md);
+  }
+  
+  .loading-spinner {
+    width: 40px;
+    height: 40px;
+  }
+  
+  .loading-spinner::after {
+    font-size: 1rem;
+  }
+  
+  .progress-bar {
+    height: 16px;
+  }
+  
+  .progress-percentage {
+    font-size: 1rem;
+  }
+  
+  .progress-task {
+    font-size: 0.75rem;
+    max-width: 50%;
+  }
+  
+  .time-remaining {
+    font-size: 0.7rem;
+  }
+  
+  .skip-button {
+    padding: var(--spacing-xs) var(--spacing-md);
+    font-size: 0.8rem;
+  }
+  
+  .status-indicators {
+    display: none; /* Hide phase indicators on very small screens */
+  }
+}
+
+/* Large screens */
+@media (min-width: 1400px) {
+  .loading-screen {
+    max-width: 560px;
+    padding: calc(var(--spacing-xl) * 1.5);
+  }
+  
+  .loading-title {
+    font-size: 2rem;
+  }
+  
+  .loading-spinner {
+    width: 80px;
+    height: 80px;
+  }
+  
+  .loading-spinner::before {
+    border-width: 5px;
+  }
+  
+  .loading-spinner::after {
+    font-size: 2rem;
+  }
+  
+  .progress-bar {
+    height: 28px;
+  }
+  
+  .progress-percentage {
+    font-size: 1.5rem;
+  }
+  
+  .progress-task {
+    font-size: 1rem;
+  }
+  
+  .phase-label {
+    font-size: 0.75rem;
+  }
+}
+
+/* =============================================================================
+   REDUCED MOTION
+   ========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  .loading-spinner::before {
+    animation: none;
+  }
+  
+  .loading-spinner::after {
+    animation: none;
+  }
+  
+  .progress-fill {
+    transition: none;
+  }
+  
+  .progress-fill::after {
+    animation: none;
+  }
+  
+  .phase-indicator.active .phase-dot {
+    animation: none;
+  }
+  
+  .loading-screen {
+    transition: opacity var(--transition-fast);
+  }
+}
+
+/* =============================================================================
+   HIGH CONTRAST MODE
+   ========================================================================== */
+
+@media (prefers-contrast: high) {
+  .loading-screen {
+    background: #fff;
+    border: 3px solid #000;
+  }
+  
+  .progress-fill {
+    background: #000;
+  }
+  
+  .progress-percentage,
+  .loading-title {
+    color: #000;
+  }
+  
+  .progress-task,
+  .time-remaining {
+    color: #333;
+  }
+}
+
+/* =============================================================================
+   PRINT STYLES (Hide loading screen when printing)
+   ========================================================================== */
+
+@media print {
+  .loading-overlay {
+    display: none !important;
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "budgets": {
+    "main": "200kb",
+    "vendor": "500kb",
+    "wasm": "100kb",
+    "total": "2mb"
+  },
+  "thresholds": {
+    "warning": 0.8,
+    "error": 1.0
+  },
+  "comments": {
+    "main": "Core application code (main.ts, core modules)",
+    "vendor": "Third-party libraries (Three.js, etc.)",
+    "wasm": "WebAssembly physics module",
+    "total": "Total JavaScript + WASM bundle size"
+  }
+}

@@ -1,0 +1,129 @@
+{
+  "timestamp": "2026-03-18T23:45:00.000Z",
+  "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+  "totalTime": 4850,
+  "phases": [
+    {
+      "name": "Startup Profiler Init",
+      "startTime": 100,
+      "endTime": 105,
+      "duration": 5,
+      "memoryBefore": 25165824,
+      "memoryAfter": 25231360,
+      "memoryDelta": 65536
+    },
+    {
+      "name": "Core Scene Setup",
+      "startTime": 110,
+      "endTime": 450,
+      "duration": 340,
+      "memoryBefore": 25231360,
+      "memoryAfter": 45634048,
+      "memoryDelta": 20402688
+    },
+    {
+      "name": "Audio & Systems Init",
+      "startTime": 455,
+      "endTime": 620,
+      "duration": 165,
+      "memoryBefore": 45634048,
+      "memoryAfter": 52428800,
+      "memoryDelta": 6794752
+    },
+    {
+      "name": "World Generation",
+      "startTime": 625,
+      "endTime": 780,
+      "duration": 155,
+      "memoryBefore": 52428800,
+      "memoryAfter": 62914560,
+      "memoryDelta": 10485760
+    },
+    {
+      "name": "Map Generation",
+      "startTime": 3500,
+      "endTime": 4200,
+      "duration": 700,
+      "memoryBefore": 67108864,
+      "memoryAfter": 134217728,
+      "memoryDelta": 67108864
+    },
+    {
+      "name": "Shader Warmup",
+      "startTime": 4250,
+      "endTime": 4650,
+      "duration": 400,
+      "memoryBefore": 134217728,
+      "memoryAfter": 150994944,
+      "memoryDelta": 16777216
+    },
+    {
+      "name": "Deferred Visuals Init",
+      "startTime": 4700,
+      "endTime": 4850,
+      "duration": 150,
+      "memoryBefore": 150994944,
+      "memoryAfter": 167772160,
+      "memoryDelta": 16777216
+    }
+  ],
+  "memory": {
+    "initial": 25165824,
+    "peak": 167772160,
+    "final": 167772160,
+    "delta": 142606336
+  },
+  "webgpu": {
+    "bufferAllocations": 45,
+    "bufferTotalSize": 67108864,
+    "shaderCompilations": 24,
+    "shaderCompileTime": 320,
+    "pipelineCreations": 18
+  },
+  "instancedMeshes": {
+    "count": 12,
+    "totalInstances": 15420,
+    "meshesByType": {
+      "BufferGeometry": 5,
+      "CylinderGeometry": 2,
+      "SphereGeometry": 3,
+      "BoxGeometry": 2
+    }
+  },
+  "wasm": {
+    "assemblyScriptLoaded": true,
+    "emscriptenLoaded": true,
+    "initTime": 180
+  },
+  "tsl": {
+    "materialCount": 8,
+    "compilePhases": [
+      {
+        "name": "Aurora Material",
+        "startTime": 0,
+        "endTime": 0,
+        "duration": 45
+      },
+      {
+        "name": "Chromatic Pulse Material",
+        "startTime": 0,
+        "endTime": 0,
+        "duration": 38
+      }
+    ]
+  },
+  "slowPhases": [
+    {
+      "name": "Map Generation",
+      "startTime": 3500,
+      "endTime": 4200,
+      "duration": 700,
+      "memoryBefore": 67108864,
+      "memoryAfter": 134217728,
+      "memoryDelta": 67108864
+    }
+  ],
+  "warnings": [
+    "⚠️ Slow phase detected: \"Map Generation\" took 700.0ms (>100ms)"
+  ]
+}

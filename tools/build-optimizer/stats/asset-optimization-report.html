@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>candy_world Asset Optimization Report</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0a0a0f;
+      color: #e0e0e0;
+      line-height: 1.6;
+    }
+    .header {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      padding: 2rem;
+      border-bottom: 1px solid #2a2a3e;
+    }
+    .header h1 {
+      font-size: 2rem;
+      background: linear-gradient(90deg, #ff6b6b, #ffeaa7);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .container { max-width: 1400px; margin: 0 auto; padding: 2rem; }
+    .section {
+      background: rgba(255,255,255,0.03);
+      border-radius: 16px;
+      padding: 2rem;
+      margin-bottom: 2rem;
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+    .section h2 { margin-bottom: 1.5rem; color: #fff; }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+    .stat-card {
+      background: rgba(255,255,255,0.05);
+      padding: 1.5rem;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    .stat-value { font-size: 2rem; font-weight: bold; color: #4ecdc4; }
+    .stat-label { color: #888; font-size: 0.9rem; margin-top: 0.25rem; }
+    .recommendation {
+      padding: 1rem;
+      background: rgba(255,255,255,0.05);
+      border-radius: 8px;
+      margin-bottom: 1rem;
+      border-left: 4px solid;
+    }
+    .recommendation.high { border-color: #ff6b6b; }
+    .recommendation.medium { border-color: #fdcb6e; }
+    .recommendation.low { border-color: #00b894; }
+    table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+    th, td { padding: 0.75rem; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.1); }
+    th { color: #888; font-weight: 500; }
+    .savings { color: #00b894; font-weight: bold; }
+    .format-comparison { display: flex; gap: 1rem; margin: 0.5rem 0; }
+    .format-bar {
+      height: 24px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      padding: 0 0.5rem;
+      font-size: 0.8rem;
+      color: #fff;
+    }
+    .format-bar.original { background: #666; }
+    .format-bar.webp { background: #4ecdc4; }
+    .format-bar.avif { background: #ff6b6b; }
+    .code-block {
+      background: rgba(0,0,0,0.5);
+      padding: 1.5rem;
+      border-radius: 8px;
+      overflow-x: auto;
+      margin: 1rem 0;
+    }
+    .code-block code {
+      font-family: 'SF Mono', monospace;
+      font-size: 0.85rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>🖼️ Asset Optimization Report</h1>
+    <p style="color: #888; margin-top: 0.5rem;">Generated: 3/19/2026, 12:21:05 AM</p>
+  </div>
+
+  <div class="container">
+    <div class="section">
+      <h2>Summary</h2>
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-value">13.91 MB</div>
+          <div class="stat-label">Current Total Size</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" style="color: #00b894;">1.83 MB</div>
+          <div class="stat-label">Potential Savings</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">12</div>
+          <div class="stat-label">Total Assets</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">5</div>
+          <div class="stat-label">Optimizable Assets</div>
+        </div>
+      </div>
+
+      <div class="chart-container" style="height: 300px;">
+        <canvas id="savingsChart"></canvas>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>🎯 Top Recommendations</h2>
+      
+        <div class="recommendation high">
+          <strong>assets/splash.png</strong>
+          <p style="color: #aaa; margin: 0.5rem 0;">Unoptimized image (1.46 MB)</p>
+          <p>💡 Convert to AVIF for 80% size reduction</p>
+          <div class="savings">Save 1.17 MB</div>
+        </div>
+      
+        <div class="recommendation high">
+          <strong>assets/map.json</strong>
+          <p style="color: #aaa; margin: 0.5rem 0;">Unoptimized json (463.88 KB)</p>
+          <p>💡 Minify JSON (save 161631 bytes)</p>
+          <div class="savings">Save 387.37 KB</div>
+        </div>
+      
+        <div class="recommendation high">
+          <strong>assets/map_generated.json</strong>
+          <p style="color: #aaa; margin: 0.5rem 0;">Unoptimized json (323.46 KB)</p>
+          <p>💡 Minify JSON (save 124115 bytes)</p>
+          <div class="savings">Save 272.89 KB</div>
+        </div>
+      
+        <div class="recommendation medium">
+          <strong>assets/colorcode.png</strong>
+          <p style="color: #aaa; margin: 0.5rem 0;">Unoptimized image (14.93 KB)</p>
+          <p>💡 Convert to AVIF for 80% size reduction</p>
+          <div class="savings">Save 11.94 KB</div>
+        </div>
+      
+        <div class="recommendation medium">
+          <strong>assets/colorcode.json</strong>
+          <p style="color: #aaa; margin: 0.5rem 0;">Unoptimized json (255 B)</p>
+          <p>💡 Minify JSON (save 81 bytes)</p>
+          <div class="savings">Save 212 B</div>
+        </div>
+      
+    </div>
+
+    <div class="section">
+      <h2>🖼️ Image Optimization</h2>
+      <p style="color: #888; margin-bottom: 1rem;">
+        Estimated savings from modern formats: <strong class="savings">1.18 MB</strong>
+      </p>
+      
+      <table>
+        <thead>
+          <tr>
+            <th>Image</th>
+            <th>Current</th>
+            <th>WebP Est.</th>
+            <th>AVIF Est.</th>
+            <th>Best Savings</th>
+          </tr>
+        </thead>
+        <tbody>
+          
+              <tr>
+                <td>colorcode.png</td>
+                <td>14.93 KB</td>
+                <td>4.48 KB</td>
+                <td>2.99 KB</td>
+                <td class="savings">11.94 KB</td>
+              </tr>
+            
+              <tr>
+                <td>splash.png</td>
+                <td>1.46 MB</td>
+                <td>448.92 KB</td>
+                <td>299.28 KB</td>
+                <td class="savings">1.17 MB</td>
+              </tr>
+            
+        </tbody>
+      </table>
+    </div>
+
+    <div class="section">
+      <h2>📄 JSON Optimization</h2>
+      <p style="color: #888; margin-bottom: 1rem;">
+        Estimated savings from compression: <strong class="savings">660.47 KB</strong>
+      </p>
+      
+      <table>
+        <thead>
+          <tr>
+            <th>File</th>
+            <th>Size</th>
+            <th>Recommended Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          
+            <tr>
+              <td>colorcode.json</td>
+              <td>255 B</td>
+              <td>Minify JSON (save 81 bytes)</td>
+            </tr>
+          
+            <tr>
+              <td>map.json</td>
+              <td>463.88 KB</td>
+              <td>Minify JSON (save 161631 bytes)</td>
+            </tr>
+          
+            <tr>
+              <td>map_generated.json</td>
+              <td>323.46 KB</td>
+              <td>Minify JSON (save 124115 bytes)</td>
+            </tr>
+          
+        </tbody>
+      </table>
+    </div>
+
+    <div class="section">
+      <h2>🐌 Lazy Loading Strategy</h2>
+      
+      <h3 style="color: #ff6b6b; margin: 1rem 0;">Critical (Immediate)</h3>
+      <ul>
+        <li><code>/assets/colorcode.png</code></li><li><code>/assets/map.json</code></li>
+      </ul>
+
+      <h3 style="color: #fdcb6e; margin: 1rem 0;">Deferred (After render)</h3>
+      <ul>
+        <li><code>/chunks/foliage.js</code></li><li><code>/chunks/shaders.js</code></li>
+      </ul>
+
+      <h3 style="color: #00b894; margin: 1rem 0;">Lazy (On demand)</h3>
+      <ul>
+        <li><code>/chunks/audio.js</code></li><li><code>/chunks/weather.js</code></li><li><code>/chunks/effects.js</code></li><li><code>/assets/splash.png</code></li>
+      </ul>
+    </div>
+
+    <div class="section">
+      <h2>🎭 Sprite Atlas Recommendations</h2>
+      <p>No sprite atlas candidates found.</p>
+      
+    </div>
+
+    <div class="section">
+      <h2>🛠️ Responsive Image Component</h2>
+      <div class="code-block">
+        <code>&lt;!-- ResponsiveImage.astro --&gt;
+---
+export interface Props {
+  src: string;
+  alt: string;
+  width?: number;
+  height?: number;
+  loading?: &#039;eager&#039; | &#039;lazy&#039;;
+  decoding?: &#039;async&#039; | &#039;sync&#039; | &#039;auto&#039;;
+  class?: string;
+}
+
+const { src, alt, width, height, loading = &#039;lazy&#039;, decoding = &#039;async&#039;, class: className } = Astro.props;
+
+// Generate srcset for different formats
+const baseName = src.replace(/\.[^/.]+$/, &#039;&#039;);
+const webpSrc = baseName + &#039;.webp&#039;;
+const avifSrc = baseName + &#039;.avif&#039;;
+---
+
+&lt;picture&gt;
+  &lt;!-- AVIF for modern browsers --&gt;
+  &lt;source 
+    srcset={avifSrc} 
+    type=&quot;image/avif&quot;
+  /&gt;
+  
+  &lt;!-- WebP for good browsers --&gt;
+  &lt;source 
+    srcset={webpSrc} 
+    type=&quot;image/webp&quot;
+  /&gt;
+  
+  &lt;!-- Fallback PNG/JPG --&gt;
+  &lt;img
+    src={src}
+    alt={alt}
+    width={width}
+    height={height}
+    loading={loading}
+    decoding={decoding}
+    class={className}
+  /&gt;
+&lt;/picture&gt;
+
+&lt;style&gt;
+  picture, img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+  }
+&lt;/style&gt;
+</code>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const ctx = document.getElementById('savingsChart').getContext('2d');
+    new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels: ['Images', 'JSON', 'Other'],
+        datasets: [{
+          data: [1238084, 676320, 0],
+          backgroundColor: ['#ff6b6b', '#4ecdc4', '#ffeaa7'],
+          borderWidth: 0
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: 'right',
+            labels: { color: '#fff' }
+          },
+          title: {
+            display: true,
+            text: 'Potential Savings by Type',
+            color: '#fff'
+          }
+        }
+      }
+    });
+  </script>
+</body>
+</html>

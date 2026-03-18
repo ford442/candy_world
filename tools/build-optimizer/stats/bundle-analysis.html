@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>candy_world Bundle Analysis</title>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0a0a0f;
+      color: #e0e0e0;
+      line-height: 1.6;
+    }
+    .header {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      padding: 2rem;
+      border-bottom: 1px solid #2a2a3e;
+    }
+    .header h1 {
+      font-size: 2rem;
+      background: linear-gradient(90deg, #ff6b6b, #4ecdc4);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 0.5rem;
+    }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin-top: 1.5rem;
+    }
+    .stat-card {
+      background: rgba(255,255,255,0.05);
+      padding: 1.5rem;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    .stat-value {
+      font-size: 2rem;
+      font-weight: bold;
+      color: #4ecdc4;
+    }
+    .stat-label {
+      color: #888;
+      font-size: 0.9rem;
+      margin-top: 0.25rem;
+    }
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+    .section {
+      background: rgba(255,255,255,0.03);
+      border-radius: 16px;
+      padding: 2rem;
+      margin-bottom: 2rem;
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+    .section h2 {
+      margin-bottom: 1.5rem;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    #treemap {
+      width: 100%;
+      height: 500px;
+      background: rgba(0,0,0,0.3);
+      border-radius: 8px;
+    }
+    .treemap-cell {
+      stroke: #0a0a0f;
+      stroke-width: 2;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    .treemap-cell:hover {
+      opacity: 0.8;
+      stroke: #fff;
+    }
+    .treemap-label {
+      font-size: 12px;
+      fill: #fff;
+      pointer-events: none;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+    }
+    .tooltip {
+      position: absolute;
+      background: rgba(0,0,0,0.9);
+      color: #fff;
+      padding: 1rem;
+      border-radius: 8px;
+      font-size: 13px;
+      pointer-events: none;
+      border: 1px solid rgba(255,255,255,0.2);
+      max-width: 300px;
+      z-index: 1000;
+    }
+    .dependency-list {
+      display: grid;
+      gap: 0.75rem;
+    }
+    .dependency-item {
+      display: flex;
+      align-items: center;
+      padding: 1rem;
+      background: rgba(255,255,255,0.05);
+      border-radius: 8px;
+      border-left: 4px solid;
+    }
+    .dep-name {
+      flex: 1;
+      font-family: 'SF Mono', monospace;
+      font-size: 0.9rem;
+    }
+    .dep-size {
+      color: #4ecdc4;
+      font-weight: bold;
+    }
+    .duplicate-item {
+      padding: 1rem;
+      background: rgba(255,107,107,0.1);
+      border-radius: 8px;
+      border-left: 4px solid #ff6b6b;
+      margin-bottom: 1rem;
+    }
+    .duplicate-files {
+      font-size: 0.85rem;
+      color: #888;
+      margin-top: 0.5rem;
+    }
+    .savings {
+      color: #ffeaa7;
+      font-weight: bold;
+    }
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      margin-top: 1rem;
+      padding: 1rem;
+      background: rgba(0,0,0,0.3);
+      border-radius: 8px;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.85rem;
+    }
+    .legend-color {
+      width: 16px;
+      height: 16px;
+      border-radius: 4px;
+    }
+    pre {
+      background: rgba(0,0,0,0.5);
+      padding: 1rem;
+      border-radius: 8px;
+      overflow-x: auto;
+      font-size: 0.85rem;
+      margin-top: 0.5rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>🍭 candy_world Bundle Analysis</h1>
+    <p>Comprehensive bundle visualization and optimization report</p>
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-value">14.96 MB</div>
+        <div class="stat-label">Total Size</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">4.49 MB</div>
+        <div class="stat-label">Gzipped</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">3.74 MB</div>
+        <div class="stat-label">Brotli</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">4</div>
+        <div class="stat-label">Chunks</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">0</div>
+        <div class="stat-label">Duplicates Found</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="section">
+      <h2>📊 Bundle Treemap</h2>
+      <div id="treemap"></div>
+      <div class="legend">
+        
+          <div class="legend-item">
+            <div class="legend-color" style="background: #ff6b6b"></div>
+            <span>threejs</span>
+          </div>
+        
+          <div class="legend-item">
+            <div class="legend-color" style="background: #4ecdc4"></div>
+            <span>wasm</span>
+          </div>
+        
+          <div class="legend-item">
+            <div class="legend-color" style="background: #45b7d1"></div>
+            <span>shaders</span>
+          </div>
+        
+          <div class="legend-item">
+            <div class="legend-color" style="background: #96ceb4"></div>
+            <span>audio</span>
+          </div>
+        
+          <div class="legend-item">
+            <div class="legend-color" style="background: #ffeaa7"></div>
+            <span>foliage</span>
+          </div>
+        
+          <div class="legend-item">
+            <div class="legend-color" style="background: #dfe6e9"></div>
+            <span>utils</span>
+          </div>
+        
+          <div class="legend-item">
+            <div class="legend-color" style="background: #74b9ff"></div>
+            <span>core</span>
+          </div>
+        
+          <div class="legend-item">
+            <div class="legend-color" style="background: #a29bfe"></div>
+            <span>vendor</span>
+          </div>
+        
+          <div class="legend-item">
+            <div class="legend-color" style="background: #b2bec3"></div>
+            <span>other</span>
+          </div>
+        
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>📦 Largest Dependencies</h2>
+      <div class="dependency-list">
+        
+          <div class="dependency-item" style="border-color: #b2bec3">
+            <span class="dep-name">/node_modules/three/build/three.module.js</span>
+            <span class="dep-size">4.89 KB</span>
+          </div>
+        
+          <div class="dependency-item" style="border-color: #b2bec3">
+            <span class="dep-name">/src/utils/wasm-loader.js</span>
+            <span class="dep-size">4.89 KB</span>
+          </div>
+        
+          <div class="dependency-item" style="border-color: #b2bec3">
+            <span class="dep-name">/src/foliage/musical_flora.ts</span>
+            <span class="dep-size">4.89 KB</span>
+          </div>
+        
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>⚠️ Duplicate Code Detection</h2>
+      <p>No significant duplicates found. Great job!</p>
+      
+    </div>
+
+    <div class="section">
+      <h2>📈 Chunk Breakdown</h2>
+      
+        <div style="margin-bottom: 1.5rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h3>main</h3>
+            <span style="color: #4ecdc4; font-weight: bold;">3.27 MB</span>
+          </div>
+          <div style="background: rgba(0,0,0,0.3); height: 8px; border-radius: 4px; margin-top: 0.5rem;">
+            <div style="background: #b2bec3; width: 21.9%; height: 100%; border-radius: 4px;"></div>
+          </div>
+          <div style="color: #888; font-size: 0.85rem; margin-top: 0.5rem;">
+            7 files | Gzip: 1005.94 KB | Brotli: 838.28 KB
+          </div>
+        </div>
+      
+        <div style="margin-bottom: 1.5rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h3>wasm</h3>
+            <span style="color: #4ecdc4; font-weight: bold;">22.17 KB</span>
+          </div>
+          <div style="background: rgba(0,0,0,0.3); height: 8px; border-radius: 4px; margin-top: 0.5rem;">
+            <div style="background: #4ecdc4; width: 0.1%; height: 100%; border-radius: 4px;"></div>
+          </div>
+          <div style="color: #888; font-size: 0.85rem; margin-top: 0.5rem;">
+            1 files | Gzip: 6.65 KB | Brotli: 5.54 KB
+          </div>
+        </div>
+      
+        <div style="margin-bottom: 1.5rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h3>audio</h3>
+            <span style="color: #4ecdc4; font-weight: bold;">11.03 KB</span>
+          </div>
+          <div style="background: rgba(0,0,0,0.3); height: 8px; border-radius: 4px; margin-top: 0.5rem;">
+            <div style="background: #96ceb4; width: 0.1%; height: 100%; border-radius: 4px;"></div>
+          </div>
+          <div style="color: #888; font-size: 0.85rem; margin-top: 0.5rem;">
+            1 files | Gzip: 3.31 KB | Brotli: 2.76 KB
+          </div>
+        </div>
+      
+        <div style="margin-bottom: 1.5rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h3>js</h3>
+            <span style="color: #4ecdc4; font-weight: bold;">11.65 MB</span>
+          </div>
+          <div style="background: rgba(0,0,0,0.3); height: 8px; border-radius: 4px; margin-top: 0.5rem;">
+            <div style="background: #b2bec3; width: 77.9%; height: 100%; border-radius: 4px;"></div>
+          </div>
+          <div style="color: #888; font-size: 0.85rem; margin-top: 0.5rem;">
+            4 files | Gzip: 3.49 MB | Brotli: 2.91 MB
+          </div>
+        </div>
+      
+    </div>
+
+    <div class="section">
+      <h2>💡 Optimization Recommendations</h2>
+      <div style="display: grid; gap: 1rem;">
+        
+          <div style="padding: 1rem; background: rgba(78,205,196,0.1); border-radius: 8px; border-left: 4px solid #4ecdc4;">
+            <strong>Implement Lazy Loading</strong>
+            <p style="color: #aaa; margin-top: 0.5rem;">Bundle exceeds 2MB. Use dynamic imports for non-critical features like editor, debug tools, and secondary foliage.</p>
+            <div style="color: #ffeaa7; font-size: 0.9rem; margin-top: 0.5rem;">
+              Impact: High | Effort: Medium
+            </div>
+          </div>
+        
+      </div>
+    </div>
+  </div>
+
+  <div class="tooltip" id="tooltip" style="display: none;"></div>
+
+  <script>
+    // Treemap data
+    const data = [{"name":"main","value":3433603,"category":"other","children":[{"name":".htaccess","value":679,"category":"other","fullPath":".htaccess"},{"name":"bootstrap-loader-BwruBh5B.js","value":2831,"category":"other","fullPath":"bootstrap-loader-BwruBh5B.js"},{"name":"index.html","value":25464,"category":"shaders","fullPath":"index.html"},{"name":"main-BVCDuxDP.js","value":1864902,"category":"shaders","fullPath":"main-BVCDuxDP.js"},{"name":"main-BkyUfddy.css","value":6224,"category":"other","fullPath":"main-BkyUfddy.css"},{"name":"perf_instancing.html","value":1184,"category":"other","fullPath":"perf_instancing.html"},{"name":"splash-XugLlQp2.png","value":1532319,"category":"other","fullPath":"splash-XugLlQp2.png"}]},{"name":"wasm","value":22698,"category":"wasm","children":[{"name":"candy_physics-Ddrkksvv.wasm","value":22698,"category":"wasm","fullPath":"candy_physics-Ddrkksvv.wasm"}]},{"name":"audio","value":11295,"category":"audio","children":[{"name":"audio-processor.js","value":11295,"category":"audio","fullPath":"js/audio-processor.js"}]},{"name":"js","value":12213864,"category":"other","children":[{"name":"emscripten-compile-worker.js","value":1715,"category":"other","fullPath":"js/emscripten-compile-worker.js"},{"name":"libopenmpt.js","value":12206419,"category":"other","fullPath":"js/libopenmpt.js"},{"name":"perf_instancing.js","value":5011,"category":"other","fullPath":"js/perf_instancing.js"},{"name":"worklet-polyfills.js","value":719,"category":"other","fullPath":"js/worklet-polyfills.js"}]}];
+
+    // Create treemap
+    const width = document.getElementById('treemap').clientWidth;
+    const height = 500;
+    const colorScale = {"threejs":"#ff6b6b","wasm":"#4ecdc4","shaders":"#45b7d1","audio":"#96ceb4","foliage":"#ffeaa7","utils":"#dfe6e9","core":"#74b9ff","vendor":"#a29bfe","other":"#b2bec3"};
+
+    const root = d3.hierarchy({children: data.flatMap(d => d.children.map(c => ({...c, parent: d.name})))})
+      .sum(d => d.value)
+      .sort((a, b) => b.value - a.value);
+
+    d3.treemap()
+      .size([width, height])
+      .padding(2)
+      (root);
+
+    const svg = d3.select('#treemap')
+      .append('svg')
+      .attr('width', width)
+      .attr('height', height);
+
+    const tooltip = d3.select('#tooltip');
+
+    const leaf = svg.selectAll('g')
+      .data(root.leaves())
+      .join('g')
+      .attr('transform', d => `translate(${d.x0},${d.y0})`);
+
+    leaf.append('rect')
+      .attr('class', 'treemap-cell')
+      .attr('width', d => d.x1 - d.x0)
+      .attr('height', d => d.y1 - d.y0)
+      .attr('fill', d => colorScale[d.data.category] || colorScale.other)
+      .on('mouseover', function(event, d) {
+        tooltip
+          .style('display', 'block')
+          .html(`
+            <strong>${d.data.name}</strong><br/>
+            Path: ${d.data.fullPath}<br/>
+            Size: ${(d.data.value / 1024).toFixed(2)} KB<br/>
+            Category: ${d.data.category}
+          `);
+      })
+      .on('mousemove', function(event) {
+        tooltip
+          .style('left', (event.pageX + 10) + 'px')
+          .style('top', (event.pageY - 10) + 'px');
+      })
+      .on('mouseout', function() {
+        tooltip.style('display', 'none');
+      });
+
+    // Add labels for large cells
+    leaf.filter(d => (d.x1 - d.x0) > 60 && (d.y1 - d.y0) > 30)
+      .append('text')
+      .attr('class', 'treemap-label')
+      .attr('x', 4)
+      .attr('y', 16)
+      .text(d => d.data.name.length > 20 ? d.data.name.substring(0, 20) + '...' : d.data.name);
+  </script>
+</body>
+</html>

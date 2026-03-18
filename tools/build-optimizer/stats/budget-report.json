@@ -1,0 +1,54 @@
+{
+  "timestamp": "2026-03-18T16:18:11.749Z",
+  "config": {
+    "budgets": {
+      "main": "200kb",
+      "vendor": "500kb",
+      "wasm": "100kb",
+      "total": "2mb"
+    },
+    "thresholds": {
+      "warning": 0.8,
+      "error": 1
+    }
+  },
+  "results": [
+    {
+      "name": "main",
+      "budget": 204800,
+      "actual": 1864902,
+      "status": "error",
+      "percentage": 9.105966796875
+    },
+    {
+      "name": "vendor",
+      "budget": 512000,
+      "actual": 0,
+      "status": "pass",
+      "percentage": 0
+    },
+    {
+      "name": "wasm",
+      "budget": 102400,
+      "actual": 22698,
+      "status": "pass",
+      "percentage": 0.22166015625
+    },
+    {
+      "name": "total",
+      "budget": 2097152,
+      "actual": 14115590,
+      "status": "error",
+      "percentage": 6.730837821960449
+    }
+  ],
+  "overall": {
+    "status": "error",
+    "totalSize": 16003190,
+    "totalBudget": 2916352
+  },
+  "recommendations": [
+    "MAIN BUDGET EXCEEDED: Split main.ts into smaller chunks or defer non-critical initialization.",
+    "TOTAL BUDGET EXCEEDED: Implement code splitting and lazy loading for non-critical features."
+  ]
+}

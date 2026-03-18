@@ -1,4 +1,6 @@
 // src/foliage/tree-batcher.ts
+// Lazy dynamic buffer growth: Starts with INITIAL_INSTANCES=100, doubles capacity as needed.
+// Reduces startup allocation from 93,000 to ~500 instances for typical maps.
 
 import * as THREE from 'three';
 import { foliageGroup } from '../world/state.ts';
@@ -20,15 +22,14 @@ import {
     mx_noise_float
 } from 'three/tsl';
 import { applyGlitch } from './glitch.ts';
+import { getCylinderGeometry, getTorusKnotGeometry } from '../utils/geometry-dedup.ts';
 
 const _defaultColorWhite = new THREE.Color(0xFFFFFF);
 const _defaultColorOrange = new THREE.Color(0xFF4500);
 const _defaultColorGreen = new THREE.Color(0x00FA9A);
 
-const MAX_INSTANCES = 3000; // Trunks
-const MAX_SPHERES = MAX_INSTANCES * 15; // Blooms/Leaves
-const MAX_CAPSULES = MAX_INSTANCES * 10; // Branches
-const MAX_ROSES = MAX_INSTANCES * 5; // Roses
+// Initial capacity - grows dynamically as needed (doubles each time)
+const INITIAL_INSTANCES = 100;
 
 export class TreeBatcher {
     private static instance: TreeBatcher;
@@ -47,6 +48,13 @@ export class TreeBatcher {
     private capsuleCount = 0;
     private helixCount = 0;
     private roseCount = 0;
+
+    // Capacity tracking (dynamic growth)
+    private trunkCapacity = INITIAL_INSTANCES;
+    private sphereCapacity = INITIAL_INSTANCES;
+    private capsuleCapacity = INITIAL_INSTANCES;
+    private helixCapacity = INITIAL_INSTANCES;
+    private roseCapacity = INITIAL_INSTANCES;
 
     private constructor() {
         // Deferred initialization
@@ -81,8 +89,8 @@ export class TreeBatcher {
             triplanar: true    // Avoid UV seams on cylinder
         });
 
-        this.trunks = new THREE.InstancedMesh(sharedGeometries.unitCylinder, trunkMat, MAX_INSTANCES);
-        this.trunks.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAX_INSTANCES * 3), 3);
+        this.trunks = new THREE.InstancedMesh(sharedGeometries.unitCylinder, trunkMat, this.trunkCapacity);
+        this.trunks.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(this.trunkCapacity * 3), 3);
         this.trunks.castShadow = true;
         this.trunks.receiveShadow = true;
         this.trunks.count = 0;
@@ -128,8 +136,8 @@ export class TreeBatcher {
             audioReactStrength: 0.5 // Inner glow pulse
         });
 
-        this.spheres = new THREE.InstancedMesh(sharedGeometries.unitSphere, sphereMat, MAX_SPHERES);
-        this.spheres.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAX_SPHERES * 3), 3);
+        this.spheres = new THREE.InstancedMesh(sharedGeometries.unitSphere, sphereMat, this.sphereCapacity);
+        this.spheres.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(this.sphereCapacity * 3), 3);
         this.spheres.castShadow = true;
         this.spheres.receiveShadow = true;
         this.spheres.count = 0;
@@ -146,8 +154,8 @@ export class TreeBatcher {
             rimStrength: 0.4
         });
 
-        this.capsules = new THREE.InstancedMesh(sharedGeometries.capsule, capsuleMat, MAX_CAPSULES);
-        this.capsules.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAX_CAPSULES * 3), 3);
+        this.capsules = new THREE.InstancedMesh(sharedGeometries.capsule, capsuleMat, this.capsuleCapacity);
+        this.capsules.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(this.capsuleCapacity * 3), 3);
         this.capsules.castShadow = true;
         this.capsules.receiveShadow = true;
         this.capsules.count = 0;
@@ -181,10 +189,12 @@ export class TreeBatcher {
         });
 
         // Geometry: Use simple cylinder, deformed by shader to spiral
-        const helixGeo = new THREE.CylinderGeometry(1, 1, 1, 16, 30).translate(0, 0.5, 0);
+        // ⚡ OPTIMIZATION: Use shared geometry via registry (deduplicated)
+        const helixGeo = getCylinderGeometry(1, 1, 1, 16, 30);
+        helixGeo.translate(0, 0.5, 0);
 
-        this.helices = new THREE.InstancedMesh(helixGeo, helixMat, MAX_INSTANCES);
-        this.helices.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAX_INSTANCES * 3), 3);
+        this.helices = new THREE.InstancedMesh(helixGeo, helixMat, this.helixCapacity);
+        this.helices.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(this.helixCapacity * 3), 3);
         this.helices.castShadow = true;
         this.helices.receiveShadow = true;
         this.helices.count = 0;
@@ -204,9 +214,10 @@ export class TreeBatcher {
             audioReactStrength: 0.8 // Strong glow response
         });
 
-        const roseGeo = new THREE.TorusKnotGeometry(0.25, 0.08, 64, 8, 2, 3);
-        this.roses = new THREE.InstancedMesh(roseGeo, roseMat, MAX_ROSES);
-        this.roses.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAX_ROSES * 3), 3);
+        // ⚡ OPTIMIZATION: Use shared geometry via registry (deduplicated)
+        const roseGeo = getTorusKnotGeometry(0.25, 0.08, 64, 8, 2, 3);
+        this.roses = new THREE.InstancedMesh(roseGeo, roseMat, this.roseCapacity);
+        this.roses.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(this.roseCapacity * 3), 3);
         this.roses.castShadow = true;
         this.roses.receiveShadow = true;
         this.roses.count = 0;
@@ -214,6 +225,161 @@ export class TreeBatcher {
 
         this.initialized = true;
         console.log('[TreeBatcher] Initialized tree batching system with Juicy Materials');
+    }
+
+    // --- Dynamic Buffer Growth ---
+
+    private growTrunkBuffer() {
+        const oldMesh = this.trunks;
+        this.trunkCapacity *= 2;
+        
+        const newMesh = new THREE.InstancedMesh(oldMesh.geometry, oldMesh.material, this.trunkCapacity);
+        
+        // Copy existing matrix data
+        const oldMatrixArray = oldMesh.instanceMatrix.array as Float32Array;
+        const newMatrixArray = new Float32Array(this.trunkCapacity * 16);
+        newMatrixArray.set(oldMatrixArray);
+        newMesh.instanceMatrix = new THREE.InstancedBufferAttribute(newMatrixArray, 4);
+        
+        // Copy existing color data
+        if (oldMesh.instanceColor) {
+            const oldColorArray = oldMesh.instanceColor.array as Float32Array;
+            const newColorArray = new Float32Array(this.trunkCapacity * 3);
+            newColorArray.set(oldColorArray);
+            newMesh.instanceColor = new THREE.InstancedBufferAttribute(newColorArray, 3);
+        }
+        
+        newMesh.castShadow = oldMesh.castShadow;
+        newMesh.receiveShadow = oldMesh.receiveShadow;
+        newMesh.count = oldMesh.count;
+        
+        // Replace in scene
+        foliageGroup.remove(oldMesh);
+        foliageGroup.add(newMesh);
+        oldMesh.dispose();
+        
+        this.trunks = newMesh;
+        console.log(`[TreeBatcher] Grew trunk buffer to ${this.trunkCapacity}`);
+    }
+
+    private growSphereBuffer() {
+        const oldMesh = this.spheres;
+        this.sphereCapacity *= 2;
+        
+        const newMesh = new THREE.InstancedMesh(oldMesh.geometry, oldMesh.material, this.sphereCapacity);
+        
+        const oldMatrixArray = oldMesh.instanceMatrix.array as Float32Array;
+        const newMatrixArray = new Float32Array(this.sphereCapacity * 16);
+        newMatrixArray.set(oldMatrixArray);
+        newMesh.instanceMatrix = new THREE.InstancedBufferAttribute(newMatrixArray, 4);
+        
+        if (oldMesh.instanceColor) {
+            const oldColorArray = oldMesh.instanceColor.array as Float32Array;
+            const newColorArray = new Float32Array(this.sphereCapacity * 3);
+            newColorArray.set(oldColorArray);
+            newMesh.instanceColor = new THREE.InstancedBufferAttribute(newColorArray, 3);
+        }
+        
+        newMesh.castShadow = oldMesh.castShadow;
+        newMesh.receiveShadow = oldMesh.receiveShadow;
+        newMesh.count = oldMesh.count;
+        
+        foliageGroup.remove(oldMesh);
+        foliageGroup.add(newMesh);
+        oldMesh.dispose();
+        
+        this.spheres = newMesh;
+        console.log(`[TreeBatcher] Grew sphere buffer to ${this.sphereCapacity}`);
+    }
+
+    private growCapsuleBuffer() {
+        const oldMesh = this.capsules;
+        this.capsuleCapacity *= 2;
+        
+        const newMesh = new THREE.InstancedMesh(oldMesh.geometry, oldMesh.material, this.capsuleCapacity);
+        
+        const oldMatrixArray = oldMesh.instanceMatrix.array as Float32Array;
+        const newMatrixArray = new Float32Array(this.capsuleCapacity * 16);
+        newMatrixArray.set(oldMatrixArray);
+        newMesh.instanceMatrix = new THREE.InstancedBufferAttribute(newMatrixArray, 4);
+        
+        if (oldMesh.instanceColor) {
+            const oldColorArray = oldMesh.instanceColor.array as Float32Array;
+            const newColorArray = new Float32Array(this.capsuleCapacity * 3);
+            newColorArray.set(oldColorArray);
+            newMesh.instanceColor = new THREE.InstancedBufferAttribute(newColorArray, 3);
+        }
+        
+        newMesh.castShadow = oldMesh.castShadow;
+        newMesh.receiveShadow = oldMesh.receiveShadow;
+        newMesh.count = oldMesh.count;
+        
+        foliageGroup.remove(oldMesh);
+        foliageGroup.add(newMesh);
+        oldMesh.dispose();
+        
+        this.capsules = newMesh;
+        console.log(`[TreeBatcher] Grew capsule buffer to ${this.capsuleCapacity}`);
+    }
+
+    private growHelixBuffer() {
+        const oldMesh = this.helices;
+        this.helixCapacity *= 2;
+        
+        const newMesh = new THREE.InstancedMesh(oldMesh.geometry, oldMesh.material, this.helixCapacity);
+        
+        const oldMatrixArray = oldMesh.instanceMatrix.array as Float32Array;
+        const newMatrixArray = new Float32Array(this.helixCapacity * 16);
+        newMatrixArray.set(oldMatrixArray);
+        newMesh.instanceMatrix = new THREE.InstancedBufferAttribute(newMatrixArray, 4);
+        
+        if (oldMesh.instanceColor) {
+            const oldColorArray = oldMesh.instanceColor.array as Float32Array;
+            const newColorArray = new Float32Array(this.helixCapacity * 3);
+            newColorArray.set(oldColorArray);
+            newMesh.instanceColor = new THREE.InstancedBufferAttribute(newColorArray, 3);
+        }
+        
+        newMesh.castShadow = oldMesh.castShadow;
+        newMesh.receiveShadow = oldMesh.receiveShadow;
+        newMesh.count = oldMesh.count;
+        
+        foliageGroup.remove(oldMesh);
+        foliageGroup.add(newMesh);
+        oldMesh.dispose();
+        
+        this.helices = newMesh;
+        console.log(`[TreeBatcher] Grew helix buffer to ${this.helixCapacity}`);
+    }
+
+    private growRoseBuffer() {
+        const oldMesh = this.roses;
+        this.roseCapacity *= 2;
+        
+        const newMesh = new THREE.InstancedMesh(oldMesh.geometry, oldMesh.material, this.roseCapacity);
+        
+        const oldMatrixArray = oldMesh.instanceMatrix.array as Float32Array;
+        const newMatrixArray = new Float32Array(this.roseCapacity * 16);
+        newMatrixArray.set(oldMatrixArray);
+        newMesh.instanceMatrix = new THREE.InstancedBufferAttribute(newMatrixArray, 4);
+        
+        if (oldMesh.instanceColor) {
+            const oldColorArray = oldMesh.instanceColor.array as Float32Array;
+            const newColorArray = new Float32Array(this.roseCapacity * 3);
+            newColorArray.set(oldColorArray);
+            newMesh.instanceColor = new THREE.InstancedBufferAttribute(newColorArray, 3);
+        }
+        
+        newMesh.castShadow = oldMesh.castShadow;
+        newMesh.receiveShadow = oldMesh.receiveShadow;
+        newMesh.count = oldMesh.count;
+        
+        foliageGroup.remove(oldMesh);
+        foliageGroup.add(newMesh);
+        oldMesh.dispose();
+        
+        this.roses = newMesh;
+        console.log(`[TreeBatcher] Grew rose buffer to ${this.roseCapacity}`);
     }
 
     register(group: THREE.Group, type: string) {
@@ -233,17 +399,38 @@ export class TreeBatcher {
 
     private addInstance(mesh: THREE.InstancedMesh, matrix: THREE.Matrix4, color: THREE.Color, countProp: 'trunkCount' | 'sphereCount' | 'capsuleCount' | 'helixCount' | 'roseCount') {
         let index = 0;
-        let max = 0;
 
         switch (countProp) {
-            case 'trunkCount': index = this.trunkCount; max = MAX_INSTANCES; break;
-            case 'sphereCount': index = this.sphereCount; max = MAX_SPHERES; break;
-            case 'capsuleCount': index = this.capsuleCount; max = MAX_CAPSULES; break;
-            case 'helixCount': index = this.helixCount; max = MAX_INSTANCES; break;
-            case 'roseCount': index = this.roseCount; max = MAX_ROSES; break;
+            case 'trunkCount': index = this.trunkCount; break;
+            case 'sphereCount': index = this.sphereCount; break;
+            case 'capsuleCount': index = this.capsuleCount; break;
+            case 'helixCount': index = this.helixCount; break;
+            case 'roseCount': index = this.roseCount; break;
         }
 
-        if (index >= max) return;
+        // Check if we need to grow the buffer
+        switch (countProp) {
+            case 'trunkCount':
+                if (index >= this.trunkCapacity) this.growTrunkBuffer();
+                mesh = this.trunks;
+                break;
+            case 'sphereCount':
+                if (index >= this.sphereCapacity) this.growSphereBuffer();
+                mesh = this.spheres;
+                break;
+            case 'capsuleCount':
+                if (index >= this.capsuleCapacity) this.growCapsuleBuffer();
+                mesh = this.capsules;
+                break;
+            case 'helixCount':
+                if (index >= this.helixCapacity) this.growHelixBuffer();
+                mesh = this.helices;
+                break;
+            case 'roseCount':
+                if (index >= this.roseCapacity) this.growRoseBuffer();
+                mesh = this.roses;
+                break;
+        }
 
         mesh.setMatrixAt(index, matrix);
         mesh.setColorAt(index, color);
@@ -333,6 +520,16 @@ export class TreeBatcher {
                 mesh.visible = false;
             }
         });
+    }
+
+    getStats() {
+        return {
+            trunks: { count: this.trunkCount, capacity: this.trunkCapacity },
+            spheres: { count: this.sphereCount, capacity: this.sphereCapacity },
+            capsules: { count: this.capsuleCount, capacity: this.capsuleCapacity },
+            helices: { count: this.helixCount, capacity: this.helixCapacity },
+            roses: { count: this.roseCount, capacity: this.roseCapacity }
+        };
     }
 }
 

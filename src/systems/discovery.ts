@@ -2,46 +2,49 @@
 
 import { showToast } from '../utils/toast.js';
 import { DISCOVERY_MAP } from './discovery_map.ts';
+import { discoveryPersistence } from './discovery-persistence.ts';
 
 /**
  * Manages the discovery of rare flora and environmental features.
- * Tracks discovered items in localStorage (optional) and triggers UI notifications.
+ * Tracks discovered items in localStorage (via persistence layer) and triggers UI notifications.
+ * 
+ * @deprecated Consider using OptimizedDiscoverySystem for new code
  */
 class DiscoverySystem {
     private discoveredItems: Set<string>;
-    private storageKey: string;
 
     constructor() {
         this.discoveredItems = new Set<string>();
-        this.storageKey = 'candy_world_discovery';
         this.loadDiscovery();
     }
 
     /**
-     * Load discovered items from local storage.
+     * Load discovered items from persistence layer.
      */
     private loadDiscovery(): void {
         try {
-            const data = localStorage.getItem(this.storageKey);
-            if (data) {
-                const items = JSON.parse(data);
-                if (Array.isArray(items)) {
-                    items.forEach((item: string) => this.discoveredItems.add(item));
-                }
+            const persisted = discoveryPersistence.getAllDiscoveries();
+            persisted.forEach(d => this.discoveredItems.add(d.id));
+            
+            if (persisted.length > 0) {
+                console.log(`[DiscoverySystem] Loaded ${persisted.length} discoveries from persistence`);
             }
         } catch (e) {
-            console.warn('DiscoverySystem: Failed to load from localStorage', e);
+            console.warn('DiscoverySystem: Failed to load from persistence', e);
         }
     }
 
     /**
-     * Save discovered items to local storage.
+     * Save discovered item to persistence layer.
+     * @param id - Discovery ID
+     * @param displayName - Display name for metadata
+     * @param icon - Icon for metadata
      */
-    private saveDiscovery(): void {
+    private saveDiscovery(id: string, displayName: string, icon: string): void {
         try {
-            localStorage.setItem(this.storageKey, JSON.stringify(Array.from(this.discoveredItems)));
+            discoveryPersistence.addDiscovery(id, displayName, icon);
         } catch (e) {
-            console.warn('DiscoverySystem: Failed to save to localStorage', e);
+            console.warn('DiscoverySystem: Failed to save to persistence', e);
         }
     }
 
@@ -57,7 +60,7 @@ class DiscoverySystem {
 
         if (!this.discoveredItems.has(id)) {
             this.discoveredItems.add(id);
-            this.saveDiscovery();
+            this.saveDiscovery(id, displayName, icon);
 
             showToast(`New Discovery: ${displayName}!`, icon, 5000);
             console.log(`[Discovery] Discovered: ${displayName} (${id})`);
@@ -80,7 +83,7 @@ class DiscoverySystem {
      */
     public reset(): void {
         this.discoveredItems.clear();
-        this.saveDiscovery();
+        discoveryPersistence.clear();
         console.log('[Discovery] Progress reset.');
     }
 
@@ -184,7 +187,26 @@ class DiscoverySystem {
         // Focus close button for accessibility
         closeBtn.focus();
     }
+
+    /**
+     * Get all discovered item IDs.
+     * @returns {string[]} Array of discovered item IDs
+     */
+    public getDiscoveredIds(): string[] {
+        return Array.from(this.discoveredItems);
+    }
+
+    /**
+     * Get count of discovered items.
+     * @returns {number} Number of discovered items
+     */
+    public getDiscoveredCount(): number {
+        return this.discoveredItems.size;
+    }
 }
 
 // Export a singleton instance
 export const discoverySystem = new DiscoverySystem();
+
+// Re-export persistence utilities for convenience
+export { discoveryPersistence, exportDiscoveries, importDiscoveries, clearLocalDiscoveries } from './discovery-persistence.ts';
