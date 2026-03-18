@@ -16,7 +16,7 @@ import {
     SaveSlotInfo,
     SettingsSaveData,
     KeyBindings
-} from '../systems/save-system.ts';
+} from '../systems/save-system.js';
 import { showToast } from '../utils/toast.js';
 
 // =============================================================================
@@ -738,7 +738,7 @@ export class SaveMenu {
     }
 
     private getTabs(): { id: MenuTab; label: string; icon: string }[] {
-        const tabs = [];
+        const tabs: { id: MenuTab; label: string; icon: string }[] = [];
         if (this.currentMode === 'full' || this.currentMode === 'load') {
             tabs.push({ id: 'load', label: 'Load Game', icon: '📂' });
         }
@@ -762,20 +762,22 @@ export class SaveMenu {
         return `
             <div class="candy-save-menu__header">
                 <h2 class="candy-save-menu__title">${titles[this.currentMode]}</h2>
-                <button class="candy-save-menu__close" data-action="close">✕</button>
+                <button class="candy-save-menu__close" data-action="close" aria-label="Close menu" title="Close"><span aria-hidden="true">✕</span></button>
             </div>
         `;
     }
 
     private renderTabs(tabs: { id: MenuTab; label: string; icon: string }[]): string {
         return `
-            <div class="candy-save-menu__tabs">
+            <div class="candy-save-menu__tabs" role="tablist" aria-label="Save Menu Tabs">
                 ${tabs.map(tab => `
                     <button 
+                        role="tab"
+                        aria-selected="${this.currentTab === tab.id}"
                         class="candy-save-menu__tab ${this.currentTab === tab.id ? 'candy-save-menu__tab--active' : ''}"
                         data-tab="${tab.id}"
                     >
-                        ${tab.icon} ${tab.label}
+                        <span aria-hidden="true">${tab.icon}</span> ${tab.label}
                     </button>
                 `).join('')}
             </div>
@@ -804,7 +806,7 @@ export class SaveMenu {
         if (manualSlots.length === 0 && autoSlots.length === 0) {
             return `
                 <div class="candy-empty-state">
-                    <div class="candy-empty-state__icon">📝</div>
+                    <div class="candy-empty-state__icon" aria-hidden="true">📝</div>
                     <div class="candy-empty-state__text">No save files found</div>
                 </div>
             `;
@@ -813,7 +815,7 @@ export class SaveMenu {
         return `
             ${manualSlots.length > 0 ? `
                 <div class="candy-settings-group">
-                    <div class="candy-settings-group__title">💾 Manual Saves</div>
+                    <div class="candy-settings-group__title"><span aria-hidden="true">💾</span> Manual Saves</div>
                     <div class="candy-save-slots">
                         ${manualSlots.map(slot => this.renderSlot(slot)).join('')}
                     </div>
@@ -821,7 +823,7 @@ export class SaveMenu {
             ` : ''}
             ${autoSlots.length > 0 ? `
                 <div class="candy-settings-group">
-                    <div class="candy-settings-group__title">🔄 Auto Saves</div>
+                    <div class="candy-settings-group__title"><span aria-hidden="true">🔄</span> Auto Saves</div>
                     <div class="candy-save-slots">
                         ${autoSlots.map(slot => this.renderSlot(slot)).join('')}
                     </div>
@@ -839,7 +841,7 @@ export class SaveMenu {
             </div>
             <div class="candy-save-menu__actions">
                 <button class="candy-save-menu__btn candy-save-menu__btn--primary" data-action="quick-save">
-                    💾 Quick Save (Ctrl+S)
+                    <span aria-hidden="true">💾</span> Quick Save (Ctrl+S)
                 </button>
             </div>
         `;
@@ -856,11 +858,11 @@ export class SaveMenu {
                  data-slot-id="${slot.slotId}"
             >
                 ${slot.isAutoSave && !isEmpty ? '<span class="candy-save-slot__badge">AUTO</span>' : ''}
-                <div class="candy-save-slot__icon">${isEmpty ? '➕' : '💾'}</div>
+                <div class="candy-save-slot__icon" aria-hidden="true">${isEmpty ? '➕' : '💾'}</div>
                 <div class="candy-save-slot__name">${slot.slotName}</div>
                 ${!isEmpty ? `
                     <div class="candy-save-slot__info">${date}</div>
-                    ${playtime ? `<div class="candy-save-slot__info">⏱️ ${playtime}</div>` : ''}
+                    ${playtime ? `<div class="candy-save-slot__info"><span aria-hidden="true">⏱️</span> ${playtime}</div>` : ''}
                 ` : '<div class="candy-save-slot__info">Click to save</div>'}
                 <div class="candy-save-slot__actions">
                     ${forSave || isEmpty ? `
@@ -876,8 +878,8 @@ export class SaveMenu {
                         </button>
                     `}
                     ${isEmpty ? '' : `
-                        <button class="candy-save-slot__btn candy-save-slot__btn--danger" data-action="delete" data-slot="${slot.slotId}">
-                            🗑️
+                        <button class="candy-save-slot__btn candy-save-slot__btn--danger" data-action="delete" data-slot="${slot.slotId}" aria-label="Delete save: ${slot.slotName}" title="Delete save">
+                            <span aria-hidden="true">🗑️</span>
                         </button>
                     `}
                 </div>
@@ -890,7 +892,7 @@ export class SaveMenu {
         
         return `
             <div class="candy-settings-group">
-                <div class="candy-settings-group__title">🎮 Graphics</div>
+                <div class="candy-settings-group__title"><span aria-hidden="true">🎮</span> Graphics</div>
                 <div class="candy-settings-row">
                     <span class="candy-settings-row__label">Quality</span>
                     <div class="candy-settings-row__control">
@@ -934,7 +936,7 @@ export class SaveMenu {
             </div>
             
             <div class="candy-settings-group">
-                <div class="candy-settings-group__title">🔊 Audio</div>
+                <div class="candy-settings-group__title"><span aria-hidden="true">🔊</span> Audio</div>
                 <div class="candy-settings-row">
                     <span class="candy-settings-row__label">Master Volume</span>
                     <div class="candy-settings-row__control">
@@ -959,7 +961,7 @@ export class SaveMenu {
             </div>
             
             <div class="candy-settings-group">
-                <div class="candy-settings-group__title">⌨️ Key Bindings (Click to change)</div>
+                <div class="candy-settings-group__title"><span aria-hidden="true">⌨️</span> Key Bindings (Click to change)</div>
                 ${Object.entries(s.keyBindings).map(([action, key]) => `
                     <div class="candy-settings-row">
                         <span class="candy-settings-row__label">${this.formatKeybindAction(action)}</span>
@@ -975,10 +977,10 @@ export class SaveMenu {
             
             <div class="candy-save-menu__actions">
                 <button class="candy-save-menu__btn candy-save-menu__btn--primary" data-action="save-settings">
-                    💾 Save Settings
+                    <span aria-hidden="true">💾</span> Save Settings
                 </button>
                 <button class="candy-save-menu__btn candy-save-menu__btn--secondary" data-action="reset-settings">
-                    🔄 Reset to Defaults
+                    <span aria-hidden="true">🔄</span> Reset to Defaults
                 </button>
             </div>
         `;
@@ -991,16 +993,16 @@ export class SaveMenu {
                 <textarea class="candy-textarea" id="export-area" placeholder="Exported save data will appear here..."></textarea>
                 <div class="candy-save-menu__actions" style="margin-top: 15px;">
                     <button class="candy-save-menu__btn candy-save-menu__btn--secondary" data-action="export-current">
-                        📋 Export Current
+                        <span aria-hidden="true">📋</span> Export Current
                     </button>
                     <button class="candy-save-menu__btn candy-save-menu__btn--secondary" data-action="export-all">
-                        📦 Export All
+                        <span aria-hidden="true">📦</span> Export All
                     </button>
                     <button class="candy-save-menu__btn candy-save-menu__btn--primary" data-action="copy-export">
-                        📋 Copy to Clipboard
+                        <span aria-hidden="true">📋</span> Copy to Clipboard
                     </button>
                     <button class="candy-save-menu__btn candy-save-menu__btn--secondary" data-action="download-export">
-                        💾 Download as File
+                        <span aria-hidden="true">💾</span> Download as File
                     </button>
                 </div>
             </div>
@@ -1010,23 +1012,23 @@ export class SaveMenu {
                 <textarea class="candy-textarea" id="import-area" placeholder="Paste save data here or upload a file..."></textarea>
                 <div class="candy-save-menu__actions" style="margin-top: 15px;">
                     <input type="file" class="candy-file-input" id="import-file" accept=".json,.txt">
-                    <label for="import-file" class="candy-file-label">📁 Choose File</label>
+                    <label for="import-file" class="candy-file-label"><span aria-hidden="true">📁</span> Choose File</label>
                     <button class="candy-save-menu__btn candy-save-menu__btn--primary" data-action="import-data">
-                        📥 Import Data
+                        <span aria-hidden="true">📥</span> Import Data
                     </button>
                     <button class="candy-save-menu__btn candy-save-menu__btn--secondary" data-action="clear-import">
-                        🗑️ Clear
+                        <span aria-hidden="true">🗑️</span> Clear
                     </button>
                 </div>
             </div>
             
             <div class="candy-danger-zone">
-                <div class="candy-danger-zone__title">⚠️ Danger Zone</div>
+                <div class="candy-danger-zone__title"><span aria-hidden="true">⚠️</span> Danger Zone</div>
                 <div class="candy-danger-zone__text">
                     Deleting all data cannot be undone. All saves, settings, and progress will be permanently lost.
                 </div>
                 <button class="candy-save-menu__btn candy-save-menu__btn--danger" data-action="delete-all">
-                    🗑️ Delete All Data
+                    <span aria-hidden="true">🗑️</span> Delete All Data
                 </button>
             </div>
         `;
