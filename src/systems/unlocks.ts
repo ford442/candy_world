@@ -43,6 +43,13 @@ export const UNLOCK_DEFINITIONS: Record<string, UnlockDefinition> = {
         description: 'Fine-tune your frequency perception to detect hidden harmonics.',
         requirements: [{ itemId: 'chime_shard', count: 10 }],
         icon: '🎵'
+    },
+    'snap_core': {
+        id: 'snap_core',
+        name: 'Snap Core',
+        description: 'A rhythmic core that reflects incoming projectiles.',
+        requirements: [{ itemId: 'snap_shard', count: 3 }],
+        icon: '💥'
     }
 };
 

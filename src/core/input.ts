@@ -1,6 +1,8 @@
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js';
 import { AudioSystem } from '../audio/audio-system';
 import * as THREE from 'three';
+import { discoverySystem } from '../systems/discovery.js';
+import { trapFocusInside } from '../utils/interaction-utils.ts';
 
 export interface KeyStates {
     forward: boolean;
@@ -14,6 +16,7 @@ export interface KeyStates {
     dance: boolean;
     action: boolean;
     phase: boolean;
+    clap: boolean;
 }
 
 export const keyStates: KeyStates = {
@@ -27,27 +30,11 @@ export const keyStates: KeyStates = {
     dash: false,
     dance: false,
     action: false,
-    phase: false
+    phase: false,
+    clap: false
 };
 
 // Controls and Event Listeners
-// Helper: Show temporary success feedback on upload buttons
-const showUploadFeedback = (labelElement: HTMLElement | null, filesCount: number): void => {
-    if (!labelElement) return;
-
-    // Save original HTML if not already saved (Preserves formatting/spans)
-    if (!labelElement.dataset.originalHtml) {
-        labelElement.dataset.originalHtml = labelElement.innerHTML;
-    }
-
-    const originalHtml = labelElement.dataset.originalHtml;
-    // We can use innerText for the temporary message, or innerHTML if we wanted icons/styles
-    labelElement.innerText = `✅ ${filesCount} Song${filesCount > 1 ? 's' : ''} Added!`;
-
-    setTimeout(() => {
-        labelElement.innerHTML = originalHtml || '';
-    }, 2000);
-};
 
 // Helper: Format song title for display
 const formatSongTitle = (filename: string): string => {
@@ -117,6 +104,10 @@ export function initInput(
     let isPlaylistOpen = false;
     let lastFocusedElement: Element | null = null; // Store focus before opening modal
 
+    // Modal Focus Trap Cleanups
+    let releasePauseMenuFocus: (() => void) | null = null;
+    let releaseJukeboxFocus: (() => void) | null = null;
+
     // --- NEW: Visual Reticle (Crosshair) ---
     // Check if it exists; if not, create it
     if (!document.getElementById('game-reticle')) {
@@ -165,15 +156,16 @@ export function initInput(
             li.className = `playlist-item ${index === currentIdx ? 'active' : ''}`;
 
             // UX: Use a button for keyboard accessibility
+            const displayName = formatSongTitle(file.name);
+
             const btn = document.createElement('button');
             btn.className = 'playlist-btn';
-            btn.title = file.name; // Tooltip for full filename
-            btn.setAttribute('aria-label', `Play ${file.name}`);
+            // 🎨 Palette: Use formatted title for tooltip and screen readers
+            btn.title = displayName;
+            btn.setAttribute('aria-label', `Play ${displayName}`);
             if (index === currentIdx) {
                 btn.setAttribute('aria-current', 'true');
             }
-
-            const displayName = formatSongTitle(file.name);
 
             btn.innerHTML = `
                 <span class="song-title">${index + 1}. ${displayName}</span>
@@ -200,14 +192,20 @@ export function initInput(
             const removeBtn = document.createElement('button');
             removeBtn.className = 'playlist-remove-btn';
             removeBtn.innerHTML = '<span aria-hidden="true">×</span>';
-            removeBtn.title = `Remove ${file.name}`;
-            removeBtn.setAttribute('aria-label', `Remove ${file.name} from playlist`);
+            // 🎨 Palette: Use formatted title for tooltip and screen readers
+            removeBtn.title = `Remove ${displayName}`;
+            removeBtn.setAttribute('aria-label', `Remove ${displayName} from playlist`);
 
             removeBtn.onclick = (e) => {
                 e.stopPropagation();
                 const wasActive = document.activeElement === removeBtn;
                 audioSystem.removeTrack(index);
                 renderPlaylist();
+
+                // 🎨 Palette: Provide explicit feedback for destructive action
+                import('../utils/toast.js').then(({ showToast }) => {
+                    showToast(`Removed ${displayName}`, '🗑️', 3000);
+                });
 
                 // UX: Restore Focus to an appropriate element
                 requestAnimationFrame(() => {
@@ -242,7 +240,7 @@ export function initInput(
             const emptyBtn = document.createElement('button');
             emptyBtn.className = 'secondary-button'; // Reuse existing class for consistent look
             emptyBtn.style.fontSize = '1em'; // Make it slightly more prominent if needed
-            emptyBtn.innerText = 'No songs... Click to Add! 🍭';
+            emptyBtn.innerHTML = 'No songs... Click to Add! <span aria-hidden="true">🍭</span>';
             emptyBtn.setAttribute('aria-label', 'Playlist empty. Click to upload music files.');
 
             emptyBtn.onclick = (e) => {
@@ -259,7 +257,7 @@ export function initInput(
     function updateJukeboxButtonState(count: number): void {
         if (!openJukeboxBtn) return;
         const countText = count > 0 ? ` (${count})` : '';
-        openJukeboxBtn.innerHTML = `Open Jukebox${countText} <span class="key-badge">Q</span>`;
+        openJukeboxBtn.innerHTML = `Open Jukebox${countText} <span class="key-badge" aria-hidden="true">Q</span>`;
         openJukeboxBtn.setAttribute('aria-label', `Open Jukebox playlist${count > 0 ? `, ${count} songs` : ''}`);
         // Ensure aria-expanded state is preserved when updating innerHTML
         openJukeboxBtn.setAttribute('aria-expanded', String(isPlaylistOpen));
@@ -338,8 +336,17 @@ export function initInput(
 
             lastFocusedElement = document.activeElement;
             controls.unlock(); // Unlock mouse so we can click
+
+            if (releasePauseMenuFocus) {
+                releasePauseMenuFocus();
+                releasePauseMenuFocus = null;
+            }
             if (instructions) instructions.style.display = 'none'; // Ensure pause menu is hidden
-            if (playlistOverlay) playlistOverlay.style.display = 'flex';
+
+            if (playlistOverlay) {
+                playlistOverlay.style.display = 'flex';
+                releaseJukeboxFocus = trapFocusInside(playlistOverlay);
+            }
             if (playlistBackdrop) playlistBackdrop.style.display = 'block';
             renderPlaylist();
             // UX: Auto-focus the currently playing track for immediate context
@@ -362,10 +369,18 @@ export function initInput(
             if (playlistOverlay) playlistOverlay.style.display = 'none';
             if (playlistBackdrop) playlistBackdrop.style.display = 'none';
 
+            if (releaseJukeboxFocus) {
+                releaseJukeboxFocus();
+                releaseJukeboxFocus = null;
+            }
+
             // 🎨 Palette: Smart Context Restoration
             if (wasPausedBeforePlaylist) {
                 // Return to Pause Menu
-                if (instructions) instructions.style.display = 'flex';
+                if (instructions) {
+                    instructions.style.display = 'flex';
+                    releasePauseMenuFocus = trapFocusInside(instructions);
+                }
                 // Restore focus to the button that opened the jukebox (e.g. Open Jukebox button)
                 if (lastFocusedElement && lastFocusedElement instanceof HTMLElement) {
                     lastFocusedElement.focus();
@@ -396,13 +411,23 @@ export function initInput(
             const target = e.target as HTMLInputElement;
             const files = target.files;
             if (files && files.length > 0) {
-                const { validFiles } = filterValidMusicFiles(files);
+                const { validFiles, invalidFiles } = filterValidMusicFiles(files);
                 if (validFiles.length > 0) {
                     audioSystem.addToQueue(validFiles);
-                    const label = document.querySelector('label[for="playlistUploadInput"]') as HTMLElement;
-                    showUploadFeedback(label, validFiles.length);
+                    import('../utils/toast.js').then(({ showToast }) => {
+                        if (invalidFiles.length > 0) {
+                            showToast(`Added ${validFiles.length} song${validFiles.length > 1 ? 's' : ''}. (${invalidFiles.length} ignored)`, '⚠️');
+                        } else {
+                            showToast(`Added ${validFiles.length} Song${validFiles.length > 1 ? 's' : ''}! 🎶`, '📂');
+                        }
+                    });
+                } else {
+                    import('../utils/toast.js').then(({ showToast }) => {
+                        showToast("❌ Only .mod, .xm, .it, .s3m allowed!", '🚫');
+                    });
                 }
             }
+            target.value = '';
         });
     }
 
@@ -432,10 +457,20 @@ export function initInput(
 
         if (instructions) instructions.style.display = 'none';
         
+        if (releasePauseMenuFocus) {
+            releasePauseMenuFocus();
+            releasePauseMenuFocus = null;
+        }
+
         // If we locked, force playlist closed just in case
         isPlaylistOpen = false; 
         if (playlistOverlay) playlistOverlay.style.display = 'none';
         if (playlistBackdrop) playlistBackdrop.style.display = 'none';
+
+        if (releaseJukeboxFocus) {
+            releaseJukeboxFocus();
+            releaseJukeboxFocus = null;
+        }
     });
 
     controls.addEventListener('unlock', () => {
@@ -447,14 +482,17 @@ export function initInput(
                 return;
             }
 
-            if (instructions) instructions.style.display = 'flex';
+            if (instructions) {
+                instructions.style.display = 'flex';
+                releasePauseMenuFocus = trapFocusInside(instructions);
+            }
 
             // UX: Update Title to "Paused" to give context
             const title = instructions ? instructions.querySelector('h1') : null;
-            if (title) title.innerText = 'Game Paused ⏸️';
+            if (title) title.innerHTML = 'Game Paused <span aria-hidden="true">⏸️</span>';
 
             if (startButton) {
-                startButton.innerHTML = 'Resume Exploration 🚀 <span class="key-badge">Enter</span>';
+                startButton.innerHTML = 'Resume Exploration <span aria-hidden="true">🚀</span> <span class="key-badge" aria-hidden="true">Enter</span>';
                 requestAnimationFrame(() => startButton.focus());
             }
         }
@@ -496,9 +534,12 @@ export function initInput(
             } else if (shouldPreventMenuOnUnlock && shouldPreventMenuOnUnlock()) {
                 // If we are dancing, the unlock event fired but menu was suppressed.
                 // Pressing Escape again should manually bring up the menu.
-                if (instructions) instructions.style.display = 'flex';
+                if (instructions) {
+                    instructions.style.display = 'flex';
+                    releasePauseMenuFocus = trapFocusInside(instructions);
+                }
                 if (startButton) {
-                    startButton.innerHTML = 'Resume Exploration 🚀 <span class="key-badge">Enter</span>';
+                    startButton.innerHTML = 'Resume Exploration <span aria-hidden="true">🚀</span> <span class="key-badge" aria-hidden="true">Enter</span>';
                     startButton.focus();
                 }
                 return;
@@ -630,6 +671,12 @@ export function initInput(
         // --------------------------------------------------------
 
         switch (event.code) {
+            case 'KeyL':
+                if (document.pointerLockElement) {
+                    controls.unlock();
+                }
+                discoverySystem.showLog();
+                break;
             case 'KeyQ':
                 togglePlaylist();
                 break;
@@ -642,14 +689,23 @@ export function initInput(
                 if (hudMine) hudMine.classList.add('pressed');
                 break; // Jitter Mine Ability
             case 'KeyE':
+            case 'e':
                 keyStates.dash = true;
                 if (hudDash) hudDash.classList.add('pressed');
                 break; // Dash Ability
             case 'KeyZ':
+            case 'z':
                 keyStates.phase = true;
                 if (hudPhase) hudPhase.classList.add('pressed');
                 break; // Phase Shift Ability
-            case 'KeyR': keyStates.dance = true; break; // Dance Ability
+            case 'KeyC':
+            case 'c':
+                keyStates.clap = true;
+                break; // Sonic Clap Ability
+            case 'KeyR':
+            case 'r':
+                keyStates.dance = true;
+                break; // Dance Ability
             case 'Space': keyStates.jump = true; break;
             case 'KeyN': if(toggleDayNightCallback) toggleDayNightCallback(); break;
             case 'KeyM': toggleMute(); break;
@@ -710,15 +766,22 @@ export function initInput(
                 if (hudMine) hudMine.classList.remove('pressed');
                 break;
             case 'KeyE':
+            case 'e':
                 keyStates.dash = false;
                 if (hudDash) hudDash.classList.remove('pressed');
                 break;
             case 'KeyZ':
+            case 'z':
                 keyStates.phase = false;
                 if (hudPhase) hudPhase.classList.remove('pressed');
                 break;
-            case 'KeyR': keyStates.dance = false; break;
+            case 'KeyR':
+            case 'r':
+                keyStates.dance = false;
+                break;
             case 'Space': keyStates.jump = false; break;
+            case 'KeyC':
+            case 'c': keyStates.clap = false; break;
             case 'ControlLeft':
             case 'ControlRight': keyStates.sneak = false; break;
             case 'ShiftLeft':
@@ -753,14 +816,14 @@ export function initInput(
 
                 if (validFiles.length > 0) {
                     audioSystem.addToQueue(validFiles);
-                    const label = document.querySelector('label[for="musicUpload"]') as HTMLElement | null;
-                    showUploadFeedback(label, validFiles.length);
 
-                    if (invalidFiles.length > 0) {
-                        import('../utils/toast.js').then(({ showToast }) => {
+                    import('../utils/toast.js').then(({ showToast }) => {
+                        if (invalidFiles.length > 0) {
                             showToast(`Added ${validFiles.length} song${validFiles.length > 1 ? 's' : ''}. (${invalidFiles.length} ignored)`, '⚠️');
-                        });
-                    }
+                        } else {
+                            showToast(`Added ${validFiles.length} Song${validFiles.length > 1 ? 's' : ''}! 🎶`, '📂');
+                        }
+                    });
                 } else {
                      // All files were invalid
                     import('../utils/toast.js').then(({ showToast }) => {
@@ -768,6 +831,7 @@ export function initInput(
                     });
                 }
             }
+            target.value = '';
         });
     }
 
@@ -850,7 +914,7 @@ export function initInput(
     const updateMuteUI = (isMuted: boolean) => {
         if (toggleMuteBtn) {
             toggleMuteBtn.setAttribute('aria-pressed', String(isMuted));
-            toggleMuteBtn.innerHTML = isMuted ? '🔇 Unmute <span class="key-badge">M</span>' : '🔊 Mute <span class="key-badge">M</span>';
+            toggleMuteBtn.innerHTML = isMuted ? '<span aria-hidden="true">🔇</span> Unmute <span class="key-badge" aria-hidden="true">M</span>' : '<span aria-hidden="true">🔊</span> Mute <span class="key-badge" aria-hidden="true">M</span>';
             toggleMuteBtn.setAttribute('aria-label', isMuted ? 'Unmute Audio' : 'Mute Audio');
             toggleMuteBtn.title = isMuted ? 'Unmute Audio (M)' : 'Mute Audio (M)';
         }
@@ -992,10 +1056,6 @@ export function initInput(
                             showToast(`Added ${validFiles.length} Song${validFiles.length > 1 ? 's' : ''}! 🎶`, '📂');
                         }
                     });
-
-                    // Also trigger label feedback if available
-                    const label = document.querySelector('label[for="musicUpload"]') as HTMLElement | null;
-                    if (label) showUploadFeedback(label, validFiles.length);
                 } else {
                     // All files were invalid
                     import('../utils/toast.js').then(({ showToast }) => {
@@ -1016,8 +1076,8 @@ export function initInput(
                 toggleDayNightBtn.title = isPressed ? 'Switch to Day (N)' : 'Switch to Night (N)';
                 // UX: Update button text to show available action
                 toggleDayNightBtn.innerHTML = isPressed
-                    ? '☀️ Switch to Day <span class="key-badge">N</span>'
-                    : '🌙 Switch to Night <span class="key-badge">N</span>';
+                    ? '<span aria-hidden="true">☀️</span> Switch to Day <span class="key-badge" aria-hidden="true">N</span>'
+                    : '<span aria-hidden="true">🌙</span> Switch to Night <span class="key-badge" aria-hidden="true">N</span>';
 
                 import('../utils/toast.js').then(({ showToast }) => {
                     const mode = isPressed ? "Night Mode Active 🌙" : "Day Mode Active ☀️";

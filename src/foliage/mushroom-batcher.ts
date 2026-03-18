@@ -14,11 +14,13 @@ import {
 import { uTwilight } from './sky.ts';
 import { foliageGroup } from '../world/state.ts'; // Assuming state.ts exports foliageGroup
 import { spawnImpact } from './impacts.ts';
+import { uChromaticIntensity } from './chromatic.ts';
 
 const MAX_MUSHROOMS = 4000;
 
 // Scratch variables to prevent GC
 const _scratchMatrix = new THREE.Matrix4();
+const _scratchMatrix2 = new THREE.Matrix4(); // ⚡ OPTIMIZATION: Additional scratch matrix
 const _scratchPos = new THREE.Vector3();
 const _scratchScale = new THREE.Vector3();
 const _scratchQuat = new THREE.Quaternion();
@@ -103,18 +105,16 @@ export class MushroomBatcher {
             const uvAttr = geo.attributes.uv;
             const indexAttr = geo.index;
 
-            // Helper to apply matrix manually if needed
-            const v = new THREE.Vector3();
-
+            // ⚡ OPTIMIZATION: Scratch vector defined at module level instead of recreating in loop closure
             for (let i = 0; i < posAttr.count; i++) {
-                v.set(posAttr.getX(i), posAttr.getY(i), posAttr.getZ(i));
-                if (transform) v.applyMatrix4(transform);
-                positions.push(v.x, v.y, v.z);
+                _scratchPos.set(posAttr.getX(i), posAttr.getY(i), posAttr.getZ(i));
+                if (transform) _scratchPos.applyMatrix4(transform);
+                positions.push(_scratchPos.x, _scratchPos.y, _scratchPos.z);
 
                 // Normals (assuming simple transform without non-uniform scale)
-                v.set(normAttr.getX(i), normAttr.getY(i), normAttr.getZ(i));
-                if (transform) v.transformDirection(transform);
-                normals.push(v.x, v.y, v.z);
+                _scratchPos.set(normAttr.getX(i), normAttr.getY(i), normAttr.getZ(i));
+                if (transform) _scratchPos.transformDirection(transform);
+                normals.push(_scratchPos.x, _scratchPos.y, _scratchPos.z);
 
                 if (uvAttr) {
                     uvs.push(uvAttr.getX(i), uvAttr.getY(i));
@@ -150,10 +150,11 @@ export class MushroomBatcher {
         // 0: Stem, 1: Cap, 2: Gills, 3: Spots, 4: Eye, 5: Pupil, 6: Mouth, 7: Cheek
 
         // Transform helpers
-        const m = new THREE.Matrix4();
-        const q = new THREE.Quaternion();
-        const s = new THREE.Vector3(1, 1, 1);
-        const p = new THREE.Vector3();
+        // ⚡ OPTIMIZATION: Reuse scratch matrices to avoid GC spikes on every generation call
+        const m = _scratchMatrix.identity();
+        const q = new THREE.Quaternion(); // Unused but let's keep it safe
+        // s was unused
+        const p = _scratchScale; // Use the other unused scratch vector for 'p' (position scratch)
 
         // 1. Stem (Material 0)
         // Unit Cylinder is centered at 0, 0.5, 0.
@@ -174,10 +175,12 @@ export class MushroomBatcher {
         startIndex = indices.length;
         // Gill is cone.
         m.makeTranslation(0, 0.8, 0);
-        const m2 = new THREE.Matrix4().makeRotationX(Math.PI); // Flip upside down
-        m.multiply(m2);
+        // ⚡ OPTIMIZATION: Re-use scratch variable to avoid GC spikes
+        _scratchMatrix2.makeRotationX(Math.PI); // Flip upside down
+        m.multiply(_scratchMatrix2);
         // Scale gills slightly smaller than cap
-        m.scale(new THREE.Vector3(0.9, 0.4, 0.9));
+        _scratchScale.set(0.9, 0.4, 0.9);
+        m.scale(_scratchScale);
         addPart(sharedGeometries.mushroomGillCenter, 2, m);
         groups.push({ start: startIndex, count: indices.length - startIndex, materialIndex: 2 });
 
@@ -237,16 +240,19 @@ export class MushroomBatcher {
         // 2. Cap
         startIndex = indices.length;
         m.makeTranslation(0, CAP_Y, 0);
-        m.scale(new THREE.Vector3(CAP_R, CAP_R, CAP_R));
+        _scratchScale.set(CAP_R, CAP_R, CAP_R);
+        m.scale(_scratchScale);
         addPart(sharedGeometries.mushroomCap, 1, m);
         groups.push({ start: startIndex, count: indices.length - startIndex, materialIndex: 1 });
 
         // 3. Gills
         startIndex = indices.length;
         m.makeTranslation(0, CAP_Y, 0);
-        const rot = new THREE.Matrix4().makeRotationX(Math.PI);
-        m.multiply(rot);
-        m.scale(new THREE.Vector3(CAP_R * 0.9, CAP_R * 0.4, CAP_R * 0.9));
+        // ⚡ OPTIMIZATION: Re-use scratch variable to avoid GC spikes
+        _scratchMatrix2.makeRotationX(Math.PI);
+        m.multiply(_scratchMatrix2);
+        _scratchScale.set(CAP_R * 0.9, CAP_R * 0.4, CAP_R * 0.9);
+        m.scale(_scratchScale);
         addPart(sharedGeometries.mushroomGillCenter, 2, m);
         groups.push({ start: startIndex, count: indices.length - startIndex, materialIndex: 2 });
 
@@ -271,7 +277,8 @@ export class MushroomBatcher {
             // Rotate to align with normal? sphere is uniform, just scale Y
             // But we need it flush.
             // Complex. Let's just place spheres.
-            m.scale(new THREE.Vector3(spotScale, spotScale * 0.2, spotScale));
+            _scratchScale.set(spotScale, spotScale * 0.2, spotScale);
+            m.scale(_scratchScale);
             // Rotate to match surface normal approx?
             // A simple lookAt from center to P gives the rotation.
             const up = new THREE.Vector3(0, 1, 0);
@@ -285,7 +292,9 @@ export class MushroomBatcher {
             // If we lookAt(eye), Z is (eye - p).
             // We want Y aligned with (p - eye).
 
-            dummyObj.lookAt(p.clone().add(p.clone().sub(eye))); // Look away
+            _scratchPos.copy(p).sub(eye);
+            _scratchPos.add(p);
+            dummyObj.lookAt(_scratchPos); // Look away
             dummyObj.scale.set(spotScale, spotScale, spotScale * 0.2); // Flatten Z
             dummyObj.updateMatrix();
 
@@ -306,14 +315,17 @@ export class MushroomBatcher {
         const eyeScale = 0.12 * FACE_SCALE; // eyeGeo radius
 
         m.makeTranslation(-eyeOffset, eyeY, eyeZ);
-        m.scale(new THREE.Vector3(1, 1, 1)); // unitSphere is R=1. eyeGeo is R=0.12.
+        _scratchScale.set(1, 1, 1); // unitSphere is R=1. eyeGeo is R=0.12.
+        m.scale(_scratchScale);
         // Wait, sharedGeometries.eye is R=0.12.
         // Let's use unitSphere for everything to be safe on transforms.
-        m.scale(new THREE.Vector3(eyeScale, eyeScale, eyeScale));
+        _scratchScale.set(eyeScale, eyeScale, eyeScale);
+        m.scale(_scratchScale);
         addPart(sharedGeometries.unitSphere, 4, m); // Left Eye
 
         m.makeTranslation(eyeOffset, eyeY, eyeZ);
-        m.scale(new THREE.Vector3(eyeScale, eyeScale, eyeScale));
+        _scratchScale.set(eyeScale, eyeScale, eyeScale);
+        m.scale(_scratchScale);
         addPart(sharedGeometries.unitSphere, 4, m); // Right Eye
         groups.push({ start: startIndex, count: indices.length - startIndex, materialIndex: 4 });
 
@@ -322,19 +334,24 @@ export class MushroomBatcher {
         const pupilScale = 0.05 * FACE_SCALE;
         const pupilZ = eyeZ + (eyeScale * 0.8); // Protrude
         m.makeTranslation(-eyeOffset, eyeY, pupilZ);
-        m.scale(new THREE.Vector3(pupilScale, pupilScale, pupilScale));
+        _scratchScale.set(pupilScale, pupilScale, pupilScale);
+        m.scale(_scratchScale);
         addPart(sharedGeometries.unitSphere, 5, m);
 
         m.makeTranslation(eyeOffset, eyeY, pupilZ);
-        m.scale(new THREE.Vector3(pupilScale, pupilScale, pupilScale));
+        _scratchScale.set(pupilScale, pupilScale, pupilScale);
+        m.scale(_scratchScale);
         addPart(sharedGeometries.unitSphere, 5, m);
         groups.push({ start: startIndex, count: indices.length - startIndex, materialIndex: 5 });
 
         // 7. Mouth (Material 6)
         startIndex = indices.length;
         m.makeTranslation(0, FACE_Y - 0.05 * FACE_SCALE, FACE_Z + 0.1 * FACE_SCALE);
-        m.multiply(new THREE.Matrix4().makeRotationZ(Math.PI)); // Smile
-        m.scale(new THREE.Vector3(FACE_SCALE, FACE_SCALE, FACE_SCALE));
+        // ⚡ OPTIMIZATION: Re-use scratch variable to avoid GC spikes
+        _scratchMatrix2.makeRotationZ(Math.PI);
+        m.multiply(_scratchMatrix2); // Smile
+        _scratchScale.set(FACE_SCALE, FACE_SCALE, FACE_SCALE);
+        m.scale(_scratchScale);
         addPart(sharedGeometries.mushroomSmile, 6, m);
         groups.push({ start: startIndex, count: indices.length - startIndex, materialIndex: 6 });
 
@@ -346,11 +363,13 @@ export class MushroomBatcher {
         const cheekZ = FACE_Z + 0.05 * FACE_SCALE;
 
         m.makeTranslation(-cheekX, FACE_Y, cheekZ);
-        m.scale(new THREE.Vector3(cheekScaleX, cheekScaleY, cheekScaleX));
+        _scratchScale.set(cheekScaleX, cheekScaleY, cheekScaleX);
+        m.scale(_scratchScale);
         addPart(sharedGeometries.unitSphere, 7, m);
 
         m.makeTranslation(cheekX, FACE_Y, cheekZ);
-        m.scale(new THREE.Vector3(cheekScaleX, cheekScaleY, cheekScaleX));
+        _scratchScale.set(cheekScaleX, cheekScaleY, cheekScaleX);
+        m.scale(_scratchScale);
         addPart(sharedGeometries.unitSphere, 7, m);
         groups.push({ start: startIndex, count: indices.length - startIndex, materialIndex: 7 });
 
@@ -434,15 +453,19 @@ export class MushroomBatcher {
         // --- PALETTE: Idle Breathing (Life) ---
         const calculateIdleBreathing = Fn(() => {
             // Sine wave based on time + random offset (using positionWorld.x/z as seed)
-            // Note: positionWorld is expensive if used in vertex shader repeatedly?
-            // It's a varying or attribute. Safe to use.
             const phase = uTime.mul(2.0).add(positionWorld.x).add(positionWorld.z);
             const breath = sin(phase).mul(0.05); // +/- 5% scale
 
             const scaleY = float(1.0).add(breath);
             const scaleXZ = float(1.0).sub(breath.mul(0.5)); // Inverse breath
 
-            return vec3(scaleXZ, scaleY, scaleXZ);
+            // 🎨 PALETTE: Add subtle TSL sway
+            const swayPhaseX = uTime.mul(1.5).add(positionWorld.z);
+            const swayPhaseZ = uTime.mul(1.2).add(positionWorld.x);
+            const swayX = sin(swayPhaseX).mul(0.03);
+            const swayZ = sin(swayPhaseZ).mul(0.03);
+
+            return vec3(scaleXZ.add(swayX), scaleY, scaleXZ.add(swayZ));
         });
 
         // --- PALETTE: Jelly Wobble (Audio Reaction) ---
@@ -500,7 +523,10 @@ export class MushroomBatcher {
         const baseColor = attribute('instanceColor', 'vec3');
 
         // Add Juicy Rim Light! (Pop against background)
-        const rimLight = createJuicyRimLight(baseColor, float(1.5), float(3.0), null);
+        // 🎨 PALETTE: Make rim light react to bass for pulsing edge glow
+        const audioRimThickness = float(3.0).add(uAudioLow.mul(2.0));
+        const audioRimIntensity = float(1.5).add(uAudioLow.mul(1.0));
+        const rimLight = createJuicyRimLight(baseColor, audioRimIntensity, audioRimThickness, null);
 
         // Add Sugar Sparkle! (Palette Polish)
         // Scale 15.0 for fine grain, Density 0.3 for sparse twinkle, Intensity 2.0
@@ -512,7 +538,8 @@ export class MushroomBatcher {
         const NdotV = dot(normalWorld, viewDir).abs(); // 1.0 at center, 0.0 at edge
 
         // Glow is strongest at center (thickest looking part) and driven by High Freq Audio
-        const sssIntensity = uAudioHigh.mul(0.8).add(0.2); // Base glow + Audio boost
+        // 🎨 PALETTE: Enhance High Freq glow response
+        const sssIntensity = uAudioHigh.mul(1.5).add(0.2); // Base glow + Audio boost
         const innerGlowFactor = NdotV.pow(2.0).mul(sssIntensity);
 
         // Warm/Pink tint for the inner light
@@ -523,7 +550,9 @@ export class MushroomBatcher {
 
         // Emissive Logic for Cap (Bioluminescence + Flash)
         const flashIntensity = smoothstep(0.2, 0.0, noteAge).mul(velocity).mul(2.0);
-        const baseGlow = uTwilight.mul(0.5);
+        // 🎨 PALETTE: Let the cap breathe with the bass even when not directly triggered
+        const idlePulse = sin(uTime.mul(2.0)).mul(0.5).add(0.5).mul(uAudioLow.mul(0.5));
+        const baseGlow = uTwilight.mul(float(0.5).add(idlePulse));
 
         // Combine Glow + Flash + Sparkle
         // Note: innerGlowColor is added to diffuse colorNode, so it responds to light but also self-illuminates if unlit?
@@ -543,7 +572,7 @@ export class MushroomBatcher {
         const spotMat = (foliageMaterials.mushroomSpots as MeshStandardNodeMaterial).clone();
         spotMat.positionNode = deform(positionLocal);
         const spotPulse = sin(uTime.mul(3.0)).mul(0.1).add(0.3);
-        const spotAudio = uAudioHigh.mul(0.5);
+        const spotAudio = uAudioHigh.mul(0.8); // 🎨 PALETTE: Make spots pop more on highs
         spotMat.emissiveIntensityNode = flashIntensity.add(spotPulse).add(spotAudio);
 
         // Face Hiding Logic
@@ -700,28 +729,35 @@ export class MushroomBatcher {
             // PALETTE FIX: Use uTime.value for sync with TSL shader
             // Cast to any to access .value on UniformNode
             const now = ((uTime as any).value !== undefined) ? (uTime as any).value : performance.now() / 1000.0;
+            const normalizedVelocity = velocity / 127.0;
 
             for (const i of indices) {
                 // Update triggerTime (z) and velocity (w) in packed attribute
                 this.instanceData!.setZ(i, now);
-                this.instanceData!.setW(i, velocity / 127.0); // Normalize velocity
+                this.instanceData!.setW(i, normalizedVelocity); // Normalize velocity
 
                 // PALETTE: Spawn Spores!
                 if (this.mesh) {
                     this.mesh.getMatrixAt(i, _scratchMatrix);
                     _scratchMatrix.decompose(_scratchPos, _scratchQuat, _scratchScale);
+                    this.mesh.getColorAt(i, _scratchColor);
 
                     // Offset slightly up (cap height approx 1.0 * scale.y)
                     _scratchPos.y += 0.8 * _scratchScale.y;
 
                     // Spawn impact
-                    spawnImpact(_scratchPos, 'spore');
+                    spawnImpact(_scratchPos, 'spore', _scratchColor);
                 }
             }
             this.instanceData!.needsUpdate = true;
             // Optim: Use addUpdateRange if indices are contiguous?
             // Likely not contiguous. Partial update might be slower than full upload if fragmented.
             // Just flag needsUpdate.
+
+            // 🎨 Palette: "Juice" Factor - Add screen bump on high velocity
+            if (typeof uChromaticIntensity !== 'undefined' && normalizedVelocity > 0.5) {
+                uChromaticIntensity.value = Math.max(uChromaticIntensity.value, normalizedVelocity * 0.3);
+            }
         }
     }
 }

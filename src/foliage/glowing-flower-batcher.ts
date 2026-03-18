@@ -20,6 +20,8 @@ const instanceColor = attribute('instanceColor', 'vec3');
 
 const MAX_FLOWERS = 5000;
 const _scratchMat = new THREE.Matrix4();
+const _scratchMat2 = new THREE.Matrix4(); // ⚡ OPTIMIZATION: Additional scratch matrix
+const _scratchMat3 = new THREE.Matrix4(); // ⚡ OPTIMIZATION: Additional scratch matrix
 const _scratchScale = new THREE.Vector3();
 const _scratchColor = new THREE.Color();
 
@@ -212,17 +214,23 @@ export class GlowingFlowerBatcher {
         this.stemMesh!.setMatrixAt(i, _scratchMat);
 
         // Head Transform (At top of stem)
-        const headLocal = new THREE.Matrix4().makeTranslation(0, stemHeight, 0);
+        // ⚡ OPTIMIZATION: Re-use scratch variable to avoid GC spikes
+        _scratchMat2.makeTranslation(0, stemHeight, 0);
         // Head Scale: 0.2 (from original code)
-        headLocal.scale(new THREE.Vector3(0.2, 0.2, 0.2));
-        const headWorld = headLocal.clone().premultiply(baseMatrix);
+        _scratchScale.set(0.2, 0.2, 0.2);
+        _scratchMat2.scale(_scratchScale);
+        _scratchMat2.premultiply(baseMatrix);
+        const headWorld = _scratchMat2;
         this.headMesh!.setMatrixAt(i, headWorld);
 
         // Wash Transform (At top of stem)
-        const washLocal = new THREE.Matrix4().makeTranslation(0, stemHeight, 0);
+        // ⚡ OPTIMIZATION: Re-use scratch variable to avoid GC spikes
+        _scratchMat3.makeTranslation(0, stemHeight, 0);
         // Wash Scale: 1.5 (from original code)
-        washLocal.scale(new THREE.Vector3(1.5, 1.5, 1.5));
-        const washWorld = washLocal.clone().premultiply(baseMatrix);
+        _scratchScale.set(1.5, 1.5, 1.5);
+        _scratchMat3.scale(_scratchScale);
+        _scratchMat3.premultiply(baseMatrix);
+        const washWorld = _scratchMat3;
         this.washMesh!.setMatrixAt(i, washWorld);
 
         // Color

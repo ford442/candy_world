@@ -2,7 +2,7 @@
 
 import * as THREE from 'three';
 import '../style.css';
-import { uWindSpeed, uWindDirection, uSkyTopColor, uSkyBottomColor, uHorizonColor, uAtmosphereIntensity, uStarOpacity, uAuroraIntensity, uAuroraColor, uAudioLow, uAudioHigh, uGlitchIntensity, uChromaticIntensity, uTime, uPlayerPosition, createAurora, createChromaticPulse, animateFoliage, updateFoliageMaterials, updateFallingBerries, collectFallingBerries, createMushroom, validateNodeGeometries, createMelodyRibbon, updateMelodyRibbons, createSparkleTrail, updateSparkleTrail, createImpactSystem, createShield, createDandelionSeedSystem, createDiscoveryEffect } from './foliage/index.ts';
+import { uWindSpeed, uWindDirection, uSkyTopColor, uSkyBottomColor, uHorizonColor, uAtmosphereIntensity, uStarOpacity, uAuroraIntensity, uAuroraColor, uAudioLow, uAudioHigh, uGlitchIntensity, uChromaticIntensity, uTime, uPlayerPosition, createAurora, createChromaticPulse, createStrobePulse, uStrobeIntensity, animateFoliage, updateFoliageMaterials, updateFallingBerries, collectFallingBerries, createMushroom, validateNodeGeometries, createMelodyRibbon, updateMelodyRibbons, createSparkleTrail, updateSparkleTrail, createImpactSystem, createShield, createDandelionSeedSystem, createDiscoveryEffect } from './foliage/index.ts';
 import { initCelestialBodies } from './foliage/celestial-bodies.ts';
 import { InteractionSystem } from './systems/interaction.ts';
 import { unlockSystem } from './systems/unlocks.ts';
@@ -15,6 +15,7 @@ import { WeatherSystem } from './systems/weather.ts';
 import { WeatherState } from './systems/weather-types.ts';
 import { initWasm, getGroundHeight } from './utils/wasm-loader.js';
 import { profiler } from './utils/profiler.js';
+import { enableStartupProfiler, finalizeStartupProfile, recordWASMInit, startPhase, endPhase } from './utils/startup-profiler.ts';
 
 // Core imports
 import { CONFIG, CYCLE_DURATION, DURATION_SUNRISE, DURATION_DAY, DURATION_SUNSET, DURATION_DUSK_NIGHT, DURATION_DEEP_NIGHT } from './core/config.ts';
@@ -29,6 +30,8 @@ import { animatedFoliage, foliageClouds, foliageMushrooms } from './world/state.
 import { updatePhysics, player } from './systems/physics.ts';
 import { fireRainbow, updateBlaster } from './gameplay/rainbow-blaster.ts';
 import { jitterMineSystem } from './gameplay/jitter-mines.ts';
+import { glitchGrenadeSystem } from './systems/glitch-grenade.ts';
+import { createHarpoonLine, updateHarpoonLine } from './gameplay/harpoon-line.ts';
 import { updateFallingClouds } from './foliage/clouds.ts';
 import { cloudBatcher } from './foliage/cloud-batcher.ts';
 
@@ -50,6 +53,14 @@ const _scratchClickDir = new THREE.Vector3();
 const _scratchClickOrigin = new THREE.Vector3();
 
 const _interactionLists: (any[] | null)[] = [null, null, null]; // Reusable array for interaction lists
+
+// --- Enable Startup Profiler ---
+enableStartupProfiler({
+  slowPhaseThreshold: 100,
+  enableOverlay: true,
+  enableConsole: true,
+  saveToFile: true,
+});
 
 // --- Initialization Pipeline ---
 
@@ -102,6 +113,7 @@ validateNodeGeometries(scene);
 // Defer non-critical visual elements to load after basic scene is ready
 let aurora: THREE.Object3D | null = null;
 let chromaticPulse: THREE.Object3D | null = null;
+let strobePulse: THREE.Object3D | null = null;
 let celestialBodiesInitialized = false;
 let melodyRibbon: any = null;
 let sparkleTrail: any = null;
@@ -110,6 +122,7 @@ let fluidFog: THREE.Mesh | null = null;
 let playerShieldMesh: THREE.Object3D | null = null;
 let dandelionSeedSystem: THREE.Object3D | null = null;
 let discoveryEffect: any = null;
+let harpoonLine: THREE.Mesh | null = null;
 
 // Function to initialize deferred visual elements with better organization and timing
 function initDeferredVisuals() {
@@ -133,6 +146,12 @@ function initDeferredVisuals() {
         chromaticPulse = createChromaticPulse();
         camera.add(chromaticPulse);
         console.log('[Deferred] Chromatic Pulse initialized');
+    }
+
+    if (!strobePulse) {
+        strobePulse = createStrobePulse();
+        camera.add(strobePulse);
+        console.log('[Deferred] Strobe Pulse initialized');
     }
     console.timeEnd('Environmental Effects');
 
@@ -187,6 +206,12 @@ function initDeferredVisuals() {
     if (!jitterMineSystem.mesh.parent) {
         scene.add(jitterMineSystem.mesh);
         console.log('[Deferred] Jitter Mine System initialized');
+    }
+
+    if (!harpoonLine) {
+        harpoonLine = createHarpoonLine();
+        scene.add(harpoonLine);
+        console.log('[Deferred] Harpoon Line initialized');
     }
     console.timeEnd('Musical Elements');
 
@@ -248,8 +273,19 @@ window.addEventListener('keydown', (e) => {
         const key = e.key.toLowerCase();
         if (key === 'p') {
             profiler.toggle();
+        } else if (key === 'o') {
+            // Toggle startup profiler overlay
+            import('./utils/startup-profiler.ts').then(({ toggleOverlay }) => {
+                toggleOverlay();
+            });
         } else if (key === 'f') {
             // Demo logic...
+        } else if (key === 'g') {
+            // Throw Glitch Grenade
+            if (document.pointerLockElement) {
+                camera.getWorldDirection(_scratchClickDir);
+                glitchGrenadeSystem.throwGrenade(scene, camera.position, _scratchClickDir);
+            }
         }
     } catch (err) {
         console.warn('Demo trigger error', err);
@@ -641,6 +677,10 @@ function animate() {
     profiler.measure('Gameplay', () => {
         updateFallingBerries(delta);
         const berriesCollected = collectFallingBerries(camera.position, 1.5);
+
+        if (harpoonLine) {
+            updateHarpoonLine(harpoonLine, player.position, player.harpoon.anchor, player.harpoon.active);
+        }
         if (berriesCollected > 0) {
             player.energy = Math.min(player.maxEnergy, player.energy + berriesCollected * 0.5);
         }
@@ -653,6 +693,9 @@ function animate() {
         if (keyStates.action) {
             jitterMineSystem.spawnMine(player.position);
         }
+
+        // Glitch Grenades
+        glitchGrenadeSystem.update(delta, scene);
 
         updateFallingClouds(delta, foliageClouds, getGroundHeight);
         cloudBatcher.update(delta);
@@ -672,10 +715,12 @@ function animate() {
                     hudDash.classList.add('ready');
                     hudDash.setAttribute('aria-disabled', 'false');
                     hudDash.title = "Dash (E) - Ready!";
+                    hudDash.setAttribute('aria-label', "Dash Ability (E) - Ready!");
                 } else {
                     hudDash.classList.remove('ready');
                     hudDash.setAttribute('aria-disabled', 'true');
                     hudDash.title = "Dash (E) - Recharging...";
+                    hudDash.setAttribute('aria-label', "Dash Ability (E) - Recharging...");
                 }
                 _lastDashReady = isReady;
             }
@@ -704,10 +749,12 @@ function animate() {
                     hudMine.classList.add('ready');
                     hudMine.setAttribute('aria-disabled', 'false');
                     hudMine.title = "Jitter Mine (F) - Ready!";
+                    hudMine.setAttribute('aria-label', "Jitter Mine Ability (F) - Ready!");
                 } else {
                     hudMine.classList.remove('ready');
                     hudMine.setAttribute('aria-disabled', 'true');
                     hudMine.title = "Jitter Mine (F) - Recharging...";
+                    hudMine.setAttribute('aria-label', "Jitter Mine Ability (F) - Recharging...");
                 }
                 _lastMineReady = isReady;
             }
@@ -812,11 +859,15 @@ function animate() {
 }
 
 initWasm().then(async (wasmLoaded) => {
+    const wasmInitStart = performance.now();
     console.log(`WASM module ${wasmLoaded ? 'active' : 'using JS fallbacks'}`);
 
     // Initialize C++ Fluid System (Phase 3)
     fluidSystem.init();
 
+    // Record WASM initialization metrics
+    recordWASMInit(wasmInitStart, true, wasmLoaded);
+    
     // Use getGroundHeight (which is now wrapped in physics/generation but here we access the raw one)
     // Actually, for camera start position, we should use the UNIFIED height if possible.
     // But since that logic is inside generation.ts/physics.js, we rely on the fact that
@@ -848,7 +899,7 @@ initWasm().then(async (wasmLoaded) => {
     const startButton = document.getElementById('startButton') as HTMLButtonElement | null;
     if (startButton) {
         startButton.disabled = false;
-        startButton.innerHTML = 'Enter World 🍭 <span class="key-badge">Enter</span>';
+        startButton.innerHTML = 'Enter World <span aria-hidden="true">🍭</span> <span class="key-badge" aria-hidden="true">Enter</span>';
         startButton.focus();
         
         startButton.addEventListener('click', () => {
@@ -856,7 +907,7 @@ initWasm().then(async (wasmLoaded) => {
             
             // UX: Show loading state immediately to prevent "freeze" feeling
             startButton.disabled = true;
-            startButton.innerHTML = '<span class="spinner" aria-hidden="true"></span>Generating... 🍭';
+            startButton.innerHTML = '<span class="spinner" aria-hidden="true"></span>Generating... <span aria-hidden="true">🍭</span>';
 
             // Defer execution slightly to let the UI update
             setTimeout(async () => {
@@ -869,6 +920,7 @@ initWasm().then(async (wasmLoaded) => {
                 let lastAnnounced = -1;
                 startButton.setAttribute('aria-busy', 'true');
 
+                startPhase('Map Generation');
                 await generateMap(weatherSystem, DEFAULT_MAP_CHUNK_SIZE, (current, total) => {
                     const percent = Math.floor((current / total) * 100);
 
@@ -877,10 +929,11 @@ initWasm().then(async (wasmLoaded) => {
 
                     // Throttle text updates to every 10% or completion
                     if (percent - lastAnnounced >= 10 || percent === 100) {
-                        startButton.innerHTML = `<span class="spinner" aria-hidden="true"></span>Generating ${percent}%... 🍭`;
+                        startButton.innerHTML = `<span class="spinner" aria-hidden="true"></span>Generating ${percent}%... <span aria-hidden="true">🍭</span>`;
                         lastAnnounced = percent;
                     }
                 });
+                endPhase('Map Generation');
 
                 startButton.removeAttribute('aria-busy');
 
@@ -907,6 +960,7 @@ initWasm().then(async (wasmLoaded) => {
     // --- DEFERRED NUCLEAR WARMUP ---
     // Delay this by 2 seconds to let the browser breathe after initial load
     setTimeout(async () => {
+        startPhase('Shader Warmup');
         console.log('[Deferred] Starting shader pre-compilation...');
         
         const dummyGroup = new THREE.Group();
@@ -949,11 +1003,19 @@ initWasm().then(async (wasmLoaded) => {
         scene.remove(dummyGroup);
         
         console.log('[Deferred] Shader compilation complete');
+        endPhase('Shader Warmup');
     }, 2000); // 2 second delay
 
     setTimeout(() => {
         console.log('[Deferred] Loading celestial bodies and aurora...');
+        startPhase('Deferred Visuals Init');
         initDeferredVisuals();
+        endPhase('Deferred Visuals Init');
+        
+        // Startup is essentially complete after deferred visuals
+        setTimeout(() => {
+            finalizeStartupProfile();
+        }, 100);
     }, 300);
 
 });

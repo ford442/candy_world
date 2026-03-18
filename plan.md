@@ -10,13 +10,43 @@
 
 ## Next Steps
 
-1. **Environmental Discoveries**: Implement discovery logic for Melody Lake Island, Crystal Cave, and Harmonic Waterfall in `src/world/generation.ts`.
-2. **Migrate to TypeScript**: Begin Phase 1 of the migration roadmap to harden the codebase before adding more complex systems.
+1. **Phase 4 (Three.js -> WebGPU)**: Raw compute and render pipelines. Begin migrating custom render passes.
+2. **Category 6: Melody Lake Island**: Ensure the island is fully decorated and interactive.
+3. **Phase 3 (ASC -> C++): Fluid Simulation**: Polish the stable fluids solver and WebGPU integration.
+2. **Category 2: Cymbal Dandelions**: Finish integration of seeds acting as obstacles and manual Sonic Clap triggers.
 
 ---
 
 ## Recent Progress
 - **Accomplished:**
+  - **Category 1: Retrigger Mushrooms (Strobe Sickness)**: **Status: Implemented ✅**
+    - *Implementation Details:* Implemented the "Strobe Sickness" HUD flicker effect in `src/systems/physics.ts`. Players within 15 units of an actively strobing Retrigger Mushroom will experience rapid random pulses of chromatic aberration. Added `strobe_sickness` to the discovery map.
+  - **Category 2: Cymbal Dandelions (Sonic Clap)**: **Status: Implemented ✅**
+    - *Implementation Details:* Implemented the "Sonic Clap" mechanic bound to the 'C' key. Emits a localized pulse that manually triggers nearby Cymbal Dandelions to explode into collectable 'Chime Shards' using `dandelionBatcher.harvest()` and `spawnDandelionExplosion`. Added `ability_sonic_clap` to the discovery map.
+  - **Category 1: Retrigger Mushrooms (Strobe Sickness HUD Flicker)**: **Status: Implemented ✅**
+    - *Implementation Details:* Implemented TSL-driven full-screen strobe overlay in `src/foliage/strobe.ts` and proximity-based activation in `src/systems/physics.ts` reactive to channel effect 5 (Retrigger).
+  - **Category 2: Snare-Snap Trap Core**: **Status: Implemented ✅**
+    - *Implementation Details:* Added "Snap Core" to `src/systems/unlocks.ts`. Updated `src/foliage/musical_flora.ts` to make Snare-Snap Traps interactive, allowing players to harvest "Snap Shards". Updated collision logic in `src/gameplay/rainbow-blaster.ts` so that projectiles reflect off traps *only* if the "Snap Core" is unlocked; otherwise, the projectile breaks and the trap triggers normally.
+  - **Category 3: Wisteria Clusters**: **Status: Implemented ✅**
+    - *Implementation Details:* Implemented `createWisteriaCluster` in `src/foliage/wisteria-cluster.ts` which generates hanging wisteria vines. Uses a TSL `MeshStandardNodeMaterial` with the "Cute Clay" preset and modifies `positionLocal` to create an organic sway animated by `uTime` and modulated by high frequency audio (`uAudioHigh`). The plant is interactive and triggers discovery logs. Added to `src/world/generation.ts` and exported in `src/foliage/index.ts`.
+  - **Phase 3 (ASC -> C++): Specialized solvers (Remaining Animations SIMD)**: **Status: Implemented ✅**
+    - *Implementation Details:* Migrated the remaining batch animation loops in `emscripten/animation_batch.cpp` (`batchFiberWhip_c`, `batchSpiralWave_c`, `batchVibratoShake_c`, `batchCymbalShake_c`, `batchPanningBob_c`, `batchSpiritFade_c`) to utilize explicit `v128_t` SIMD intrinsics. Processed items in chunks of 4 using Taylor series approximations for trigonometric functions to avoid scalar fallbacks. Verified via automated tests and visual inspection.
+  - **Phase 3 (ASC -> C++): Animation Batch SIMD Vectorization**: **Status: Implemented ✅**
+    - *Implementation Details:* Implemented explicit WebAssembly SIMD (`v128_t` intrinsics) in `emscripten/animation_batch.cpp`. Rewrote high-frequency array loops for `batchSnareSnap_c`, `batchAccordion_c`, and `batchTremoloPulse_c` to process 4 items concurrently. Replaced math operations with a custom `fast_sin_simd` (Taylor series) and `fast_sqrt_simd` to avoid scalar fallbacks.
+  - **Rare Flora Discovery (Unlock system)**: **Status: Implemented ✅**
+    - *Implementation Details:* Implemented proximity-based discovery logic in `src/systems/physics.ts` using a throttled check against `animatedFoliage` objects and a decoupled data map in `src/systems/discovery_map.ts`. Added a visual Discovery Log UI in `src/systems/discovery.ts` accessible via the 'L' key. It reads discovered items and displays them with icons and names from `DISCOVERY_MAP`. Added the keyboard shortcut and auto-unlocking logic in `src/core/input.ts`.
+  - **Category 4: Instrument-ID Textures**: **Status: Implemented ✅**
+    - *Implementation Details:* Implemented procedural patterns generated based on Instrument ID in `src/foliage/instrument.ts` using shader-based noise patterns. Uses a complex mix of Grid, Noise, Ripple, and Stripes patterns blended dynamically via TSL's `smoothstep` and `abs` math operations based on the puzzle's `uInstrumentID`.
+  - **Glitch Grenade**: **Status: Implemented ✅**
+    - *Implementation Details:* Built `src/systems/glitch-grenade.ts` to throw dynamic projectiles that explode into localized glitch fields using `uGlitchExplosionCenter` and `uGlitchExplosionRadius` uniforms. Integrated into `src/foliage/common.ts` `applyGlitch` to smoothly blend glitch intensity. Integrated into `src/systems/physics.ts` to grant `player.isPhasing = true` (intangibility) when standing inside the glitch area.
+  - **Category 6: Crystal Cave & Harmonic Waterfall**: **Status: Implemented ✅**
+    - *Implementation Details:* Added bioluminescent stalactites and stalagmites using `THREE.ConeGeometry` inside `src/foliage/cave.ts`. These formations utilize a new dedicated TSL `crystalMat` material featuring `mix` and `smoothstep` nodes driven by `uAudioLow` to pulse dynamically with the bass. Confirmed integration of the inner waterfall via `createWaterfall` from `src/foliage/waterfalls.ts`.
+  - **Waveform Harpoon**: **Status: Implemented ✅**
+    - *Implementation Details:* Added `harpoon` state to `PlayerExtended`. Projectiles from `rainbow-blaster` now anchor to the Waveform Water (when `y <= 1.5` in lake basin). When anchored, the player is pulled towards the impact point with speed modulated by `audioState.kickTrigger`. Implemented visual feedback using a TSL-driven `MeshStandardNodeMaterial` thin cylinder that dynamically updates its geometry to connect the player to the anchor point.
+  - **Bass Portal Secret (Subwoofer Lotus Glitch)**: **Status: Implemented ✅**
+    - *Implementation Details:* Implemented secret mechanic where interacting with a Subwoofer Lotus during high glitch intensity reveals a hidden Bass Portal.
+  - **Environmental Discoveries**: **Status: Implemented ✅**
+    - *Implementation Details:* Integrated the missing waterfall object into the optimized discovery spatial grid via a proxy object, allowing players to discover Melody Lake Island, Crystal Cave, and Harmonic Waterfall through proximity.
   - **Vibrato Violets Frequency Distortion**: **Status: Implemented ✅**
     - *Implementation Details:* Implemented frequency distortion field logic in `src/systems/physics.ts`. Checks if the player is within a 20m radius of a `vibratoViolet`. When the player is in range and the plant is vibrating (driven by channel 4xx vibrato effect), a subtle TSL-driven chromatic aberration screen shake is applied via `uChromaticIntensity` (which manipulates viewport sampling) to simulate the frequency distortion field. This prevents enemies from locking on correctly.
   - **Silence Spirits Gameplay Mechanics**: **Status: Implemented ✅**
@@ -143,25 +173,27 @@
 ### Category 4: Advanced Shaders (WebGPU TSL) [IN PROGRESS]
 - **Status:** Active
 - **Tasks:**
-  - [x] Waveform Water (Displacement based on simulated waveform)
-  - [x] Sample-Offset Glitch (Screen-space UV manipulation)
-  - [x] Chromatic Aberration Pulse (Lens distortion on heavy kicks)
-  - [x] Instrument-ID Textures (Procedural noise patterns)
-  - [x] Note-Trail Ribbons (Melody tracing geometry)
-  - [x] Melody Mirrors (Fake reflection shaders)
+  - [x] Waveform Water (Displacement based on simulated waveform) **Status: Implemented ✅**
+  - [x] Sample-Offset Glitch (Screen-space UV manipulation) **Status: Implemented ✅**
+    - *Implementation Details:* Integrated global and local glitch shaders. Added Glitch Grenade logic using `uGlitchExplosionCenter` and `uGlitchExplosionRadius` for localized distortion fields.
+  - [x] Chromatic Aberration Pulse (Lens distortion on heavy kicks) **Status: Implemented ✅**
+  - [x] Instrument-ID Textures (Procedural noise patterns) **Status: Implemented ✅**
+  - [x] Note-Trail Ribbons (Melody tracing geometry) **Status: Implemented ✅**
+  - [x] Melody Mirrors (Fake reflection shaders) **Status: Implemented ✅**
     - *Implementation Details:* TSL-driven faux reflection using a procedural environment texture, with UV distortion driven by audio intensity (`uAudioHigh`) and time. Geometry consists of floating shard clusters integrated into `src/world/generation.ts`.
-  - [x] Subwoofer Lotus (Bass & Glitch Reactive)
-    - *Implementation Details:* TSL material logic for bass-driven vertex displacement (rings) and a swirling vortex portal that activates via `uGlitchIntensity` or high bass.
-  - [x] Plants Twilight Glow (Bioluminescence)
+  - [x] Subwoofer Lotus (Bass & Glitch Reactive) **Status: Implemented ✅**
+    - *Implementation Details:* TSL material logic for bass-driven vertex displacement (rings) and a swirling vortex portal that activates via `uGlitchIntensity` or high bass. Fully documented TSL math nodes (e.g., `atan2`, `mix`, `mx_noise_float`). Also implemented the Bass Portal secret mechanic which reveals a hidden portal and triggers discovery logic when the lotus is interacted with during high glitch intensity.
+  - [x] Plants Twilight Glow (Bioluminescence) **Status: Implemented ✅**
     - *Implementation Details:* Implemented `uTwilight` global uniform in `src/foliage/sky.js` driven by `WeatherSystem`'s day/night cycle. Updated TSL materials for Flowers, Mushrooms, and Fiber Optic Trees to accept this uniform and boost emissive intensity during twilight hours.
-  - [x] Fluid Fog (C++ Simulation)
+  - [x] Fluid Fog (C++ Simulation) **Status: Implemented ✅**
     - *Implementation Details:* Implemented C++ Stable Fluids solver coupled with TSL fog visualization.
+  - [x] Waveform Harpoon **Status: Implemented ✅**
+    - *Implementation Details:* Projectiles anchor to Waveform Water, pulling the player using audio-modulated speed, visualized with a dynamic TSL line.
 
 ### Category 5: Physics & Interaction
 - **Status:** Active
 - **Tasks:**
-  - [x] Rare Flora Discovery (Unlock system)
-    - *Implementation Details:* Implemented proximity-based discovery logic in `src/systems/physics.ts` using a throttled check against `animatedFoliage` objects and a decoupled data map in `src/systems/discovery_map.ts`.
+  - [x] Bass Portal Secret (Subwoofer Lotus Glitch) **Status: Implemented ✅**
   - [x] Advanced Collision (WASM-based narrow phase)
      - *Implementation Details:* Implemented Spatial Grid (16x16) in AssemblyScript to optimize collision detection from O(N) to O(1) for nearby objects. Handles Mushrooms, Clouds, Gates, and Trampolines.
   - [x] Player Abilities (Dash, Double Jump extensions)
@@ -179,9 +211,10 @@
     - *Implementation Details:* Implemented "Riding the Plume" mechanic in `src/systems/physics.ts` (vertical velocity boost). Added charging mechanic: shooting the base increases `eruptionStrength` via `chargeLevel`.
   - [x] Snare-Snap Trap Physics
     - *Implementation Details:* Implemented player interaction (trigger on step, knockback on close) and projectile reflection in `src/systems/physics.ts` and `src/gameplay/rainbow-blaster.ts`.
+  - [x] Retrigger Mushrooms (Strobe Sickness)
+    - *Implementation Details:* Proximity-based full-screen strobe effect based on channel 5 retrigger effects.
   - [x] **Plants Twilight Glow**: Implemented logic for plants to glow during twilight hours (pre-dawn/dusk).
     - *Implementation Details:* Added `uTwilight` global uniform to `src/foliage/sky.js` and integrated it into the TSL material pipeline for Flowers, Mushrooms, and Trees. The glow intensity ramps up at dusk and down at dawn, driven by the `WeatherSystem`.
-  - [ ] **Environmental Discoveries**: Implement discovery logic for Melody Lake Island, Crystal Cave, and Harmonic Waterfall.
 
 ---
 

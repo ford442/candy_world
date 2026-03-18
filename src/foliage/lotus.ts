@@ -14,6 +14,10 @@ import {
     uGlitchIntensity,
     uTime
 } from './common.ts';
+import { makeInteractive } from '../utils/interaction-utils.ts';
+import { discoverySystem } from '../systems/discovery.ts';
+import { showToast } from '../utils/toast.js';
+import { spawnImpact } from './impacts.ts';
 
 interface LotusOptions {
     color?: number | string | THREE.Color;
@@ -53,26 +57,34 @@ export function createSubwooferLotus(options: LotusOptions = {}): THREE.Group {
     // --- TSL Logic for Rings ---
 
     // Pulse Amplitude driven by Bass + Glitch
-    const bassPulse = uAudioLow.mul(0.8); // 0.0 to 0.8
+    // 'uAudioLow' represents the bass kick intensity (0 to ~1). We scale it to define the maximum upward stretch.
+    const bassPulse = uAudioLow.mul(0.8);
 
     // Glitch Distortion: Random jerky movement
+    // 'mx_noise_float' generates procedural noise. We feed it 'uTime' scaled rapidly (20.0) to create a frantic 1D signal.
+    // This is then scaled by 'uGlitchIntensity' so the shake only occurs during glitch events.
     const glitchShake = mx_noise_float(vec3(uTime.mul(20.0), float(0.0), float(0.0))).mul(uGlitchIntensity).mul(0.5);
 
     // Total vertical displacement
+    // The final displacement is the smooth bass pulse augmented by the chaotic glitch shake.
     const displacement = bassPulse.add(glitchShake);
 
     // Color: White normally, turns Purple/Pink during Glitch
+    // 'mix' linearly interpolates between normal white and glitch purple based on the current 'uGlitchIntensity'.
     const normalColor = vec3(1.0, 1.0, 1.0);
     const glitchColor = vec3(0.8, 0.0, 1.0); // Purple
     const finalColor = mix(normalColor, glitchColor, uGlitchIntensity);
 
     // Emission: Pulse brightness with Bass
+    // The emissive glow scales up with the bass pulse, maintaining a minimum baseline glow (0.2).
     const emission = finalColor.mul(bassPulse.add(0.2));
 
     ringMat.colorNode = finalColor;
     ringMat.emissiveNode = emission;
 
-    // Vertex Displacement (in World Space via positionNode usually, but we are local here)
+    // Vertex Displacement
+    // By modifying 'positionNode', we displace the mesh's vertices dynamically on the GPU.
+    // We add the computed 1D 'displacement' strictly to the Y-axis of the local vertex position.
     const newPos = positionLocal.add(vec3(0.0, displacement, 0.0));
     ringMat.positionNode = newPos;
 
@@ -99,32 +111,43 @@ export function createSubwooferLotus(options: LotusOptions = {}): THREE.Group {
     centerMat.roughnessNode = float(0.0);
 
     // --- TSL Portal Logic ---
+
     // UV centered
-    const vUv = uv().sub(0.5).mul(2.0); // -1 to 1
+    // Standard UVs are [0, 1]. Subtracting 0.5 and multiplying by 2 centers them at [0, 0] with range [-1, 1].
+    const vUv = uv().sub(0.5).mul(2.0);
+    // 'length' gets the distance from the center (radius), converting our Cartesian UVs towards Polar coordinates.
     const len = length(vUv);
 
     // Vortex Spin
+    // The base spin is driven by 'uTime', but spikes aggressively during a glitch ('uGlitchIntensity' * 20.0).
     const spinSpeed = uTime.mul(5.0).add(uGlitchIntensity.mul(20.0));
-    // FIXED: Use TSL atan2 instead of Math.atan2
-    const angle = float(atan2(vUv.y, vUv.x)).add(spinSpeed.mul(float(1.0).sub(len))); // Spin faster at center
+
+    // 'atan2(y, x)' returns the angle (theta) of the pixel relative to the center.
+    // We add the 'spinSpeed' to rotate it, but multiply the speed by '(1.0 - len)' so the center spins faster than the edges, creating a vortex.
+    const angle = float(atan2(vUv.y, vUv.x)).add(spinSpeed.mul(float(1.0).sub(len)));
 
     // Pattern
+    // The 'sin' function creates the alternating arms of the spiral.
+    // 'angle * 5' determines the number of arms. 'len * 10' twists the arms as they move outward.
     const spiral = sin(angle.mul(5.0).sub(len.mul(10.0)));
 
     // Visibility: Only visible if Glitch > 0.1 OR Bass > 0.8 (Super loud)
-    // FIXED: Use max() to prevent overflow
+    // 'smoothstep' creates a smooth transition from 0 to 1 across the given thresholds.
+    // 'max' is used as a logical OR to activate the portal if either the glitch or the bass is sufficiently high.
     const active = max(smoothstep(0.1, 0.5, uGlitchIntensity), smoothstep(0.7, 1.0, uAudioLow));
 
     // Colors
     const portalColor = vec3(0.0, 0.0, 0.0); // Black hole base
-    const swirlColor = vec3(0.5, 0.0, 1.0); // Purple swirl
-    const hotColor = vec3(1.0, 0.0, 0.5); // Hot Pink center
+    const swirlColor = vec3(0.5, 0.0, 1.0);  // Purple swirl
+    const hotColor = vec3(1.0, 0.0, 0.5);    // Hot Pink center
 
+    // 'mix' uses the calculated 'spiral' pattern (masked by 'active') to blend between the black base and the purple swirl.
     const finalPortal = mix(portalColor, swirlColor, spiral.mul(active));
-    const hotCenter = smoothstep(0.2, 0.0, len).mul(hotColor).mul(active); // Glowing dot in center
+    // A glowing pink center dot created by inverting distance ('smoothstep(0.2, 0.0, len)') and masking by 'active'.
+    const hotCenter = smoothstep(0.2, 0.0, len).mul(hotColor).mul(active);
 
-    centerMat.colorNode = vec3(0.0); // Black surface
-    centerMat.emissiveNode = finalPortal.add(hotCenter);
+    centerMat.colorNode = vec3(0.0); // Black surface absorbs light
+    centerMat.emissiveNode = finalPortal.add(hotCenter); // Emissive channel projects the glowing portal
 
     const center = new THREE.Mesh(centerGeo, centerMat);
     center.rotation.x = -Math.PI / 2;
@@ -135,6 +158,29 @@ export function createSubwooferLotus(options: LotusOptions = {}): THREE.Group {
     // 4. Metadata & Reactivity
     group.userData.animationType = 'sway';
     group.userData.type = 'subwoofer_lotus';
+
+    // 5. Interaction (Bass Portal Secret)
+    makeInteractive(group);
+    group.userData.interactionText = "Commune";
+    group.userData.onInteract = () => {
+        // If glitch intensity is high, reveal the secret Bass Portal
+        if (uGlitchIntensity.value > 0.5) {
+            const newlyDiscovered = discoverySystem.discover('bass_portal', 'Bass Portal', '🌀');
+            if (newlyDiscovered) {
+                showToast("Hidden Bass Portal Revealed!", "🌀");
+            } else {
+                showToast("The Bass Portal is unstable...", "🌀");
+            }
+
+            // Visual feedback
+            spawnImpact(group.position, 'dash');
+
+            // Additional 'juice' could be added here later (e.g. teleporting the player)
+        } else {
+            // Normal interaction
+            showToast("The Lotus hums with latent energy...", "🔊");
+        }
+    };
 
     // It reacts to Glitch (Logic handled in material) and Bass (Material).
     return attachReactivity(group, { minLight: 0.0, maxLight: 1.0 });

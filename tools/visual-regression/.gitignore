@@ -1,0 +1,11 @@
+# Visual Regression Testing Artifacts
+test/screenshots/
+test/baselines/
+test/performance/
+tools/visual-regression/test/
+tools/visual-regression/dist/
+*.diff.png
+*.tmp.png
+
+# Reports (keep for CI artifacts)
+!test/screenshots/report/.gitkeep

@@ -1,0 +1,14 @@
+{
+  "$schema": "./config.schema.json",
+  "baseUrl": "http://localhost:5173",
+  "outputDir": "./test/screenshots",
+  "baselineDir": "./test/baselines",
+  "viewpoints": ["spawn", "lake", "forest", "night", "particles", "weather"],
+  "qualities": ["medium", "high"],
+  "viewports": ["desktop"],
+  "threshold": 0.05,
+  "updateBaselines": false,
+  "generateReport": true,
+  "capturePerformance": false,
+  "skipComparison": false
+}

@@ -20,6 +20,16 @@
             width: 100%;
             height: 100%;
             background: #ffecf5; 
+            /* ⚡ PERFORMANCE: Use WebP with PNG fallback via CSS image-set */
+            background-image: image-set(
+                url('assets/splash.webp') type('image/webp'),
+                url('assets/splash.png') type('image/png')
+            );
+            background-image: -webkit-image-set(
+                url('assets/splash.webp') type('image/webp'),
+                url('assets/splash.png') type('image/png')
+            );
+            /* Fallback for browsers without image-set support */
             background-image: url('assets/splash.png');
             background-size: cover;
             background-position: center;
@@ -521,7 +531,7 @@
     </div>
 
     <div id="loading-overlay">
-        <div class="loading-spinner"></div>
+        <div class="loading-spinner" role="progressbar" aria-label="Loading"></div>
         <div id="loading-text" aria-live="polite" aria-atomic="true">Initializing Audio Runtime...</div>
     </div>
 
@@ -542,7 +552,7 @@
     </script>
 
     <div id="instructions" role="dialog" aria-modal="true" aria-labelledby="instructions-title">
-        <h1 id="instructions-title">🍭 Candy World</h1>
+        <h1 id="instructions-title"><span aria-hidden="true">🍭</span> Candy World</h1>
         <div id="nowPlayingContainer" class="now-playing-info" aria-live="polite" style="display: none;">
             <span class="music-note" aria-hidden="true">🎵</span> <span id="nowPlayingText"></span>
         </div>
@@ -552,27 +562,28 @@
 
         <div class="settings settings-container" role="group" aria-label="Game Settings">
             <input type="file" id="musicUpload" accept=".mod,.xm,.it,.s3m" multiple class="visually-hidden">
-            <label for="musicUpload" class="file-label" aria-live="polite" title="Supported formats: .mod, .xm, .it, .s3m" aria-keyshortcuts="U">
-                🎵 Upload Music <span class="key-badge">U</span>
-                <span style="display:block; font-size:0.7em; font-weight:normal; margin-top:2px; opacity:0.9;">.mod .xm .it .s3m</span>
+            <label for="musicUpload" class="file-label" title="Upload Music (Supported formats: .mod, .xm, .it, .s3m)">
+                <span aria-hidden="true">🎵</span> Upload Music <span class="key-badge" aria-hidden="true">U</span>
+                <span class="visually-hidden">Upload supported music files: .mod, .xm, .it, .s3m. Keyboard shortcut U</span>
+                <span aria-hidden="true" style="display:block; font-size:0.7em; font-weight:normal; margin-top:2px; opacity:0.9;">.mod .xm .it .s3m</span>
             </label>
 
             <button id="toggleDayNight" class="toggle-button" aria-pressed="false" aria-keyshortcuts="N" aria-label="Switch to Night" title="Switch to Night (N)">
-                🌙 Switch to Night <span class="key-badge">N</span>
+                <span aria-hidden="true">🌙</span> Switch to Night <span class="key-badge" aria-hidden="true">N</span>
             </button>
 
             <button id="volDownBtn" class="toggle-button" aria-label="Decrease Volume" aria-keyshortcuts="-" title="Decrease Volume (-)">
-                &minus; <span class="key-badge">-</span>
+                <span aria-hidden="true">&minus;</span> <span class="key-badge" aria-hidden="true">-</span>
             </button>
             <button id="toggleMuteBtn" class="toggle-button" aria-pressed="false" aria-keyshortcuts="M" aria-label="Mute Audio">
-                🔊 Mute <span class="key-badge">M</span>
+                <span aria-hidden="true">🔊</span> Mute <span class="key-badge" aria-hidden="true">M</span>
             </button>
             <button id="volUpBtn" class="toggle-button" aria-label="Increase Volume" aria-keyshortcuts="+" title="Increase Volume (+)">
-                &plus; <span class="key-badge">+</span>
+                <span aria-hidden="true">&plus;</span> <span class="key-badge" aria-hidden="true">+</span>
             </button>
 
             <button id="openJukeboxBtn" class="toggle-button" aria-keyshortcuts="Q" aria-label="Open Jukebox playlist" aria-haspopup="dialog" aria-expanded="false">
-                Open Jukebox <span class="key-badge">Q</span>
+                Open Jukebox <span class="key-badge" aria-hidden="true">Q</span>
             </button>
         </div>
 
@@ -643,18 +654,19 @@
     <div id="playlist-backdrop" aria-hidden="true"></div>
 
     <div id="playlist-overlay" role="dialog" aria-modal="true" aria-labelledby="playlist-title" tabindex="-1">
-        <button id="playlistCloseX" class="close-icon-btn" aria-label="Close Jukebox" title="Close Jukebox (Esc)">×</button>
-        <h2 id="playlist-title">🎵 Jukebox</h2>
+        <button id="playlistCloseX" class="close-icon-btn" aria-label="Close Jukebox" title="Close Jukebox (Esc)"><span aria-hidden="true">×</span></button>
+        <h2 id="playlist-title"><span aria-hidden="true">🎵</span> Jukebox</h2>
         <ul id="playlist-list" aria-label="Current playlist">
         </ul>
         
         <div class="playlist-controls">
             <input type="file" id="playlistUploadInput" multiple accept=".mod,.xm,.it,.s3m" class="visually-hidden">
-            <label for="playlistUploadInput" class="secondary-button" aria-live="polite" title="Supported formats: .mod, .xm, .it, .s3m" aria-keyshortcuts="U">
-                ➕ Add Songs <span class="key-badge">U</span>
-                <span style="display:block; font-size:0.7em; font-weight:normal; margin-top:2px; opacity:0.9;">.mod .xm .it .s3m</span>
+            <label for="playlistUploadInput" class="secondary-button" title="Add Songs (Supported formats: .mod, .xm, .it, .s3m)">
+                <span aria-hidden="true">➕</span> Add Songs <span class="key-badge" aria-hidden="true">U</span>
+                <span class="visually-hidden">Add supported music files: .mod, .xm, .it, .s3m. Keyboard shortcut U</span>
+                <span aria-hidden="true" style="display:block; font-size:0.7em; font-weight:normal; margin-top:2px; opacity:0.9;">.mod .xm .it .s3m</span>
             </label>
-            <button id="closePlaylistBtn" class="secondary-button" style="background: #FF6B6B;" aria-label="Close Jukebox (Escape)">Close <span class="key-badge">Esc</span></button>
+            <button id="closePlaylistBtn" class="secondary-button" style="background: #FF6B6B;" aria-label="Close Jukebox (Escape)">Close <span class="key-badge" aria-hidden="true">Esc</span></button>
         </div>
         <div style="text-align: center; margin-top: 15px; font-size: 0.85em; color: #666;" aria-hidden="true">
             Navigate: <kbd class="key" aria-label="Up Arrow">↑</kbd> <kbd class="key" aria-label="Down Arrow">↓</kbd> &nbsp; Select: <kbd class="key">Enter</kbd>
@@ -665,17 +677,17 @@
 
     <div id="ability-hud" role="region" aria-label="Abilities">
         <div class="ability-slot" id="ability-dash" title="Dash (E)" role="button" tabindex="0" aria-label="Dash Ability (E)" aria-keyshortcuts="E">
-            <span class="ability-key">E</span>
+            <span class="ability-key" aria-hidden="true">E</span>
             <span class="ability-icon" aria-hidden="true">💨</span>
             <div class="cooldown-overlay"></div>
         </div>
         <div class="ability-slot" id="ability-mine" title="Jitter Mine (F)" role="button" tabindex="0" aria-label="Jitter Mine Ability (F)" aria-keyshortcuts="F" style="display: none;">
-            <span class="ability-key">F</span>
+            <span class="ability-key" aria-hidden="true">F</span>
             <span class="ability-icon" aria-hidden="true">👾</span>
             <div class="cooldown-overlay"></div>
         </div>
         <div class="ability-slot" id="ability-phase" title="Phase Shift (Z)" role="button" tabindex="0" aria-label="Phase Shift Ability (Z)" aria-keyshortcuts="Z">
-            <span class="ability-key">Z</span>
+            <span class="ability-key" aria-hidden="true">Z</span>
             <span class="ability-icon" aria-hidden="true">👻</span>
             <span class="ability-count" aria-hidden="true">0</span>
             <div class="cooldown-overlay"></div>

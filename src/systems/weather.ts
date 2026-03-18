@@ -24,6 +24,10 @@ import { VisualState } from '../audio/audio-system.ts';
 import { WeatherState } from './weather-types.ts';
 import { calculateTimeOfDayBias } from './weather-utils.ts';
 
+// ⚡ OPTIMIZATION: Scratch objects for cycle state calculations
+const _scratchCelestialState = { sunIntensity: 0, moonIntensity: 0 };
+const _scratchSeasonalState: Cycle.SeasonalState = { season: 'Spring', sunInclination: 0, moonPhase: 0, yearProgress: 0 };
+
 const _UP = new THREE.Vector3(0, 1, 0);
 const _scratchSunDir = new THREE.Vector3();
 const _scratchCelestialForce = new THREE.Vector3();
@@ -63,6 +67,7 @@ export class WeatherSystem {
     trackedShrubs: any[];
     trackedFlowers: any[];
     trackedMushrooms: any[];
+    mushroomPool: any[]; // ⚡ OPTIMIZATION: Object Pooling for weather mushrooms to prevent GC stutter
 
     targetIntensity: number;
     transitionSpeed: number;
@@ -125,6 +130,7 @@ export class WeatherSystem {
         this.trackedShrubs = [];
         this.trackedFlowers = [];
         this.trackedMushrooms = [];
+        this.mushroomPool = []; // ⚡ OPTIMIZATION: Object Pooling for weather mushrooms to prevent GC stutter
 
         this.targetIntensity = 0;
         this.transitionSpeed = 0.02;
@@ -382,8 +388,8 @@ export class WeatherSystem {
         const melodyVol = (channels[2] as any)?.volume || 0;
 
         // FIX: Use Namespace for cycle calls
-        const celestial = Cycle.getCelestialState(time);
-        const seasonal = Cycle.getSeasonalState(time);
+        const celestial = Cycle.getCelestialState(time, _scratchCelestialState);
+        const seasonal = Cycle.getSeasonalState(time, _scratchSeasonalState);
 
         this.currentSeason = seasonal.season;
 
@@ -679,13 +685,21 @@ export class WeatherSystem {
                             const nx = m.position.x + this.windDirection.x * distance + (Math.random() - 0.5) * jitter;
                             const nz = m.position.z + this.windDirection.z * distance + (Math.random() - 0.5) * jitter;
                             const ny = getGroundHeight(nx, nz);
-                            const newM = createMushroom({ size: 'regular', scale: 0.7, colorIndex: colorIndex });
+                            let newM;
+                            if (this.mushroomPool.length > 0) {
+                                newM = this.mushroomPool.pop();
+                                newM.visible = true;
+                                newM.scale.setScalar(0.7);
+                                newM.userData.colorIndex = colorIndex;
+                            } else {
+                                newM = createMushroom({ size: 'regular', scale: 0.7, colorIndex: colorIndex });
+                            }
                             newM.position.set(nx, ny, nz);
                             newM.rotation.y = Math.random() * Math.PI * 2;
                             if (this.onSpawnFoliage) {
                                 try { this.onSpawnFoliage(newM, true, 0.5); } catch (e) {}
                             } else {
-                                this.scene.add(newM);
+                                if (!newM.parent) this.scene.add(newM);
                                 this.registerMushroom(newM);
                             }
                             this.manageMushroomCount();
@@ -704,13 +718,21 @@ export class WeatherSystem {
                             let spawned = 0;
                             for (const c of candidates) {
                                 if (spawned >= this._spawnCapPerFrame) break;
-                                const newM = createMushroom({ size: 'regular', scale: 0.7, colorIndex: c.colorIndex });
+                                let newM;
+                                if (this.mushroomPool.length > 0) {
+                                    newM = this.mushroomPool.pop();
+                                    newM.visible = true;
+                                    newM.scale.setScalar(0.7);
+                                    newM.userData.colorIndex = c.colorIndex;
+                                } else {
+                                    newM = createMushroom({ size: 'regular', scale: 0.7, colorIndex: c.colorIndex });
+                                }
                                 newM.position.set(c.x, c.y, c.z);
                                 newM.rotation.y = Math.random() * Math.PI * 2;
                                 if (this.onSpawnFoliage) {
                                     try { this.onSpawnFoliage(newM, true, 0.5); } catch (e) {}
                                 } else {
-                                    this.scene.add(newM);
+                                    if (!newM.parent) this.scene.add(newM);
                                     this.registerMushroom(newM);
                                 }
                                 this.manageMushroomCount();
@@ -971,33 +993,34 @@ export class WeatherSystem {
             const toRemove = this.trackedMushrooms.shift(); // FIFO: Remove oldest
 
             if (toRemove) {
-                // Remove from Scene
+                // Remove from Scene so it doesn't double-register when pooled
                 if (toRemove.parent) toRemove.parent.remove(toRemove);
-
-                // ⚡ OPTIMIZATION: Remove from Batcher (prevents visual leak)
                 if (mushroomBatcher && mushroomBatcher.removeInstance) {
                     mushroomBatcher.removeInstance(toRemove);
                 }
-
-                // Cleanup Reactivity Systems
                 cleanupReactivity(toRemove);
                 if (musicReactivitySystem && musicReactivitySystem.unregisterObject) {
                     musicReactivitySystem.unregisterObject(toRemove, 'mushroom');
                 }
 
-                // Dispose Materials (to free GPU memory)
-                toRemove.traverse((child: any) => {
-                    if (child.material) {
-                        if (Array.isArray(child.material)) {
-                            for (let i = 0; i < child.material.length; i++) {
-                                const m: any = child.material[i];
-                                if (m.userData?.isClone && m.dispose) m.dispose();
+                // ⚡ OPTIMIZATION: Return to pool instead of disposing materials to prevent GC stutter
+                if (toRemove.userData.isBioluminescent === undefined) {
+                    this.mushroomPool.push(toRemove);
+                } else {
+                    // Dispose special mushrooms (e.g. Giant, Bioluminescent)
+                    toRemove.traverse((child: any) => {
+                        if (child.material) {
+                            if (Array.isArray(child.material)) {
+                                for (let i = 0; i < child.material.length; i++) {
+                                    const m: any = child.material[i];
+                                    if (m.userData?.isClone && m.dispose) m.dispose();
+                                }
+                            } else if (child.material.userData?.isClone && child.material.dispose) {
+                                child.material.dispose();
                             }
-                        } else if (child.material.userData?.isClone && child.material.dispose) {
-                            child.material.dispose();
                         }
-                    }
-                });
+                    });
+                }
             }
         }
     }

@@ -154,6 +154,7 @@ declare -A ANIMATION_FUNCTIONS=(
     ["checkCollision"]="physics"
     ["initPhysics"]="physics"
     ["addObstacle"]="physics"
+    ["addObstaclesBatch"]="physics"
     ["setPlayerState"]="physics"
     ["getPlayerX"]="physics"
     ["getPlayerY"]="physics"
@@ -163,6 +164,11 @@ declare -A ANIMATION_FUNCTIONS=(
     ["getPlayerVZ"]="physics"
     ["updatePhysicsCPP"]="physics"
     
+    # Agent 4: Frustum/distance culling functions
+    ["batchFrustumCull_c"]="physics"
+    ["batchDistanceCullIndexed_c"]="physics"
+    ["batchFrustumCullSIMD_c"]="physics"
+    
     # Batch functions (batch.cpp)
     ["batchDistances"]="batch"
     ["batchDistanceCull_c"]="batch"
@@ -170,6 +176,13 @@ declare -A ANIMATION_FUNCTIONS=(
     ["batchCalcFiberWhip"]="batch"
     ["batchCalcSpiralWave"]="batch"
     ["batchCalcWobble"]="batch"
+    
+    # Agent 3: LOD batch update functions (lod_batch.cpp)
+    ["batchUpdateLODMatrices_c"]="lod_batch"
+    ["batchDistanceCullLOD_c"]="lod_batch"
+    ["batchScaleMatrices_c"]="lod_batch"
+    ["batchTranslateMatrices_c"]="lod_batch"
+    ["batchFadeColors_c"]="lod_batch"
     
     # New batch animation functions (animation_batch.cpp)
     ["batchSnareSnap_c"]="animation_batch"
@@ -183,6 +196,12 @@ declare -A ANIMATION_FUNCTIONS=(
     ["batchSpiritFade_c"]="animation_batch"
     ["processBatchUniversal_c"]="animation_batch"
     
+    # Agent 1: Simple animation types migrated from TS
+    ["batchShiver_c"]="animation_batch"
+    ["batchSpring_c"]="animation_batch"
+    ["batchFloat_c"]="animation_batch"
+    ["batchCloudBob_c"]="animation_batch"
+    
     # Mesh deformation functions (mesh_deformation.cpp)
     ["deformMeshWave"]="mesh_deformation"
     ["deformMeshJiggle"]="mesh_deformation"
@@ -191,6 +210,11 @@ declare -A ANIMATION_FUNCTIONS=(
     ["batchDeformMeshes"]="mesh_deformation"
     ["getDeformBatchSize"]="mesh_deformation"
     ["hasSIMDSupport"]="mesh_deformation"
+    
+    # Agent 2: SIMD-optimized batch deformation functions
+    ["deformWave_c"]="mesh_deformation"
+    ["deformJiggle_c"]="mesh_deformation"
+    ["deformWobble_c"]="mesh_deformation"
     
     # Bootstrap functions (bootstrap_loader.cpp)
     ["startBootstrapInit"]="bootstrap"
@@ -286,7 +310,7 @@ EXPORTS=$(IFS=,; echo "[${EXPORT_LIST[*]}]")
 # - ffast-math: Aggressive floating-point optimizations
 # - fno-rtti: Disable RTTI to reduce code size
 # - pthread: Enable threading support for parallel operations
-COMPILE_FLAGS="-O2 -msimd128 -ffast-math -fwasm-exceptions -fno-rtti -funroll-loops -mbulk-memory -fopenmp -pthread -matomics -I."
+COMPILE_FLAGS="-O2 -msimd128 -ffast-math -fno-rtti -funroll-loops -fopenmp -pthread -matomics -I."
 
 # Linker flags
 # - USE_PTHREADS=1: Enable pthread support (requires SharedArrayBuffer)
@@ -307,11 +331,11 @@ else
     echo "[INFO] Assertions DISABLED for production"
 fi
 
-LINK_FLAGS="-O2 -std=c++17 -lembind -s USE_PTHREADS=1 -s PTHREAD_POOL_SIZE=4 -s WASM=1 -s WASM_BIGINT=0 \
+LINK_FLAGS="-O0 -std=c++17 -lembind -s USE_PTHREADS=1 -s PTHREAD_POOL_SIZE=4 -s WASM=1 -s WASM_BIGINT=0 \
 -s ALLOW_MEMORY_GROWTH=1 -s TOTAL_STACK=16MB -s INITIAL_MEMORY=256MB $ASSERTION_FLAG -s EXPORT_ES6=1 \
 -s EXPORTED_RUNTIME_METHODS=[\"wasmMemory\"] -s MODULARIZE=1 -s EXPORT_NAME=createCandyNative \
 -s ENVIRONMENT=web,worker -s ERROR_ON_UNDEFINED_SYMBOLS=0 \
--fwasm-exceptions -matomics -mbulk-memory -fopenmp -msimd128 -ffast-math -pthread -L$SCRIPT_DIR -lomp"
+-matomics -fopenmp -msimd128 -ffast-math -pthread -L$SCRIPT_DIR -lomp"
 
 # ---------------------------------------------------------
 # STEP 5: Compile and Link
@@ -391,14 +415,14 @@ OUTPUT_JS_ST="$REPO_ROOT/public/candy_native_st.js"
 OUTPUT_WASM_ST="$REPO_ROOT/public/candy_native_st.wasm"
 
 # Compiler flags for ST (remove pthread, atomics, etc)
-COMPILE_FLAGS_ST="-O2 -msimd128 -ffast-math -fwasm-exceptions -fno-rtti -funroll-loops -mbulk-memory"
+COMPILE_FLAGS_ST="-O2 -msimd128 -ffast-math -fno-rtti -funroll-loops"
 
 # Linker flags for ST (remove pthread, shared memory)
 LINK_FLAGS_ST="-O2 -std=c++17 -lembind -s WASM=1 -s WASM_BIGINT=0 \
 -s ALLOW_MEMORY_GROWTH=1 -s TOTAL_STACK=16MB -s INITIAL_MEMORY=256MB $ASSERTION_FLAG -s EXPORT_ES6=1 \
 -s EXPORTED_RUNTIME_METHODS=[\"wasmMemory\"] -s MODULARIZE=1 -s EXPORT_NAME=createCandyNative \
 -s ENVIRONMENT=web -s ERROR_ON_UNDEFINED_SYMBOLS=0 \
--fwasm-exceptions -mbulk-memory -msimd128 -ffast-math"
+-msimd128 -ffast-math"
 
 if em++ "$SCRIPT_DIR"/*.cpp \
   $COMPILE_FLAGS_ST \

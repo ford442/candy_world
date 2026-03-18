@@ -4,7 +4,7 @@
 
 import * as THREE from 'three';
 import {
-    getGroundHeight, initPhysics, addObstacle, setPlayerState, getPlayerState, updatePhysicsCPP,
+    getGroundHeight, initPhysics, addObstacle, uploadObstaclesBatch, setPlayerState, getPlayerState, updatePhysicsCPP,
     uploadCollisionObjects, resolveGameCollisionsWASM
 } from '../utils/wasm-loader.js';
 import {
@@ -24,10 +24,14 @@ import {
     KeyStates
 } from './physics.core.ts';
 import { uChromaticIntensity } from '../foliage/chromatic.ts';
+import { uStrobeIntensity } from '../foliage/strobe.ts';
+import { uGlitchExplosionCenter, uGlitchExplosionRadius } from '../foliage/common.ts';
 import { spawnImpact } from '../foliage/impacts.ts';
 import { VineSwing } from '../foliage/trees.ts';
 import { unlockSystem } from './unlocks.ts';
 import { showToast } from '../utils/toast.js';
+import { dandelionBatcher } from '../foliage/dandelion-batcher.ts';
+import { spawnDandelionExplosion } from '../foliage/dandelion-seeds.ts';
 
 // --- Types ---
 
@@ -52,6 +56,10 @@ export interface PlayerExtended extends CorePlayerState {
     phaseTimer: number;
     isInvisible: boolean;
     invisibilityTimer: number;
+    harpoon: {
+        active: boolean;
+        anchor: THREE.Vector3;
+    };
 }
 
 // --- Configuration ---
@@ -96,7 +104,12 @@ export const player: PlayerExtended = {
 
     // Flags for external systems to query
     isGrounded: false,
-    isUnderwater: false
+    isUnderwater: false,
+
+    harpoon: {
+        active: false,
+        anchor: new THREE.Vector3()
+    }
 };
 
 // Internal input tracking for edge detection
@@ -104,7 +117,8 @@ const _lastInputState = {
     jump: false,
     dash: false,
     dance: false,
-    phase: false
+    phase: false,
+    clap: false
 };
 
 // Global physics modifiers (Musical Ecosystem)
@@ -156,6 +170,16 @@ export function registerPhysicsCave(cave: THREE.Object3D) {
     foliageCaves.push(cave);
 }
 
+export function triggerHarpoon(anchor: THREE.Vector3) {
+    // Only trigger if player is swimming (in water)
+    if (player.currentState === PlayerState.SWIMMING || player.isUnderwater) {
+        player.harpoon.active = true;
+        player.harpoon.anchor.copy(anchor);
+        showToast("Waveform Harpoon Anchored! ⚓", "🌊");
+        discoverySystem.discover('waveform_harpoon', 'Waveform Harpoon', '⚓');
+    }
+}
+
 // Main Physics Update Loop
 export function updatePhysics(delta: number, camera: THREE.Camera, controls: any, keyStates: KeyStates, audioState: AudioState) {
     // 0. Sync Player State with Camera
@@ -163,6 +187,22 @@ export function updatePhysics(delta: number, camera: THREE.Camera, controls: any
 
     // 1. Update Global Environmental Modifiers (Wind, Groove)
     updateEnvironmentalModifiers(delta, audioState);
+
+    // Check if player is within active glitch grenade field
+    if (uGlitchExplosionRadius.value > 0) {
+        const distSq = player.position.distanceToSquared(uGlitchExplosionCenter.value as THREE.Vector3);
+        const radiusSq = uGlitchExplosionRadius.value * uGlitchExplosionRadius.value;
+        if (distSq < radiusSq) {
+            // Player is inside the glitch field - grant intangibility/phasing
+            if (!player.isPhasing) {
+                player.isPhasing = true;
+                player.phaseTimer = 0.5; // Short duration, refreshed each frame while inside
+            } else {
+                // Refresh timer while inside
+                player.phaseTimer = Math.max(player.phaseTimer, 0.5);
+            }
+        }
+    }
 
     // 2. Check Triggers & State Transitions
     updateStateTransitions(camera, keyStates);
@@ -192,6 +232,7 @@ export function updatePhysics(delta: number, camera: THREE.Camera, controls: any
     _lastInputState.dash = keyStates.dash;
     _lastInputState.dance = keyStates.dance;
     _lastInputState.phase = keyStates.phase;
+    _lastInputState.clap = keyStates.clap;
 
     // 5. Check Flora Discovery (Throttled)
     const frameCount = Math.floor(Date.now() / 16);
@@ -233,6 +274,11 @@ function checkFloraDiscovery(playerPos: THREE.Vector3) {
                 }
             }
         }
+    }
+
+    // 🎨 Palette: Sparkle trail when swimming fast
+    if (player.velocity.lengthSq() > 400 && Math.random() < 0.3) {
+        spawnImpact(player.position, 'trail');
     }
 }
 
@@ -362,6 +408,34 @@ function updateSwimmingState(delta: number, camera: THREE.Camera, controls: any,
 
     if (keyStates.jump) player.velocity.y += 10 * delta;
     if (keyStates.sneak) player.velocity.y -= 10 * delta;
+
+    // Harpoon Mechanics
+    if (player.harpoon.active) {
+        const dx = player.harpoon.anchor.x - player.position.x;
+        const dy = player.harpoon.anchor.y - player.position.y;
+        const dz = player.harpoon.anchor.z - player.position.z;
+        const distSq = dx*dx + dy*dy + dz*dz;
+
+        if (distSq < 4.0) { // Reached anchor
+            player.harpoon.active = false;
+            player.velocity.y += 15.0; // Boost out
+            spawnImpact(player.position, 'jump');
+        } else {
+            // Pull towards anchor
+            const dist = Math.sqrt(distSq);
+            // Modulate pull speed with kick drum
+            const kickBoost = audioState?.kickTrigger ? audioState.kickTrigger * 20.0 : 0;
+            const pullSpeed = 30.0 + kickBoost;
+
+            player.velocity.x += (dx / dist) * pullSpeed * delta;
+            player.velocity.y += (dy / dist) * pullSpeed * delta;
+            player.velocity.z += (dz / dist) * pullSpeed * delta;
+
+            if (Math.random() < 0.1) {
+                spawnImpact(player.position, 'dash');
+            }
+        }
+    }
 
     // controls.moveRight/Forward applies to the camera object directly, which we synced to player.position
     // But Three.js PointerLockControls uses its own internal object.
@@ -541,7 +615,49 @@ function handleAbilities(delta: number, camera: THREE.Camera, keyStates: KeyStat
         discoverySystem.discover('ability_dash', 'Dash', '💨');
     }
 
-    // 5. Phase Shift
+    // 5. Sonic Clap
+    // Trigger on Rising Edge of Clap Key
+    const isClapPressed = keyStates.clap;
+    const isClapTriggered = isClapPressed && !_lastInputState.clap;
+
+    if (isClapTriggered) {
+        // Visual effect for clap
+        spawnImpact(player.position, 'dash');
+        if (uChromaticIntensity) uChromaticIntensity.value = 0.3;
+
+        // Iterate through flora to find Cymbal Dandelions
+        let foundDandelion = false;
+        for (const obj of animatedFoliage) {
+            if (obj.userData?.type === 'flower' && obj.userData?.animationType === 'batchedCymbal') {
+                if (!obj.userData.harvested) {
+                    const distSq = player.position.distanceToSquared(obj.position);
+                    if (distSq < 15.0 * 15.0) { // 15 unit radius
+                        foundDandelion = true;
+
+                        dandelionBatcher.harvest(obj.userData.batchIndex);
+                        unlockSystem.harvest('chime_shard', 3, 'Chime Shards');
+
+                        // Visual FX
+                        const scale = obj.scale.x;
+                        const headOffset = new THREE.Vector3(0, 1.5 * scale, 0);
+                        headOffset.applyQuaternion(obj.quaternion);
+                        const headPos = obj.position.clone().add(headOffset);
+                        spawnImpact(headPos, 'spore', new THREE.Color(0xFFD700));
+                        spawnDandelionExplosion(headPos, 24);
+
+                        obj.userData.harvested = true;
+                        obj.userData.interactionText = "Harvested";
+                    }
+                }
+            }
+        }
+
+        if (foundDandelion) {
+            discoverySystem.discover('ability_sonic_clap', 'Sonic Clap', '👏');
+        }
+    }
+
+    // 6. Phase Shift
     // Trigger on Rising Edge of Phase Key
     const isPhasePressed = keyStates.phase;
     const isPhaseTriggered = isPhasePressed && !_lastInputState.phase;
@@ -621,6 +737,11 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
 
     const { moveVec: moveInput, moveSpeed } = calculateMovementInput(camera, keyStates, player);
 
+    // 🎨 Palette: Sparkle trail when moving fast (Dash / Sprint / Fall)
+    if (player.velocity.lengthSq() > 400 && Math.random() < 0.3) {
+        spawnImpact(player.position, 'trail');
+    }
+
     // 3. Sync State with C++
     setPlayerState(player.position.x, player.position.y, player.position.z, player.velocity.x, player.velocity.y, player.velocity.z);
 
@@ -657,7 +778,13 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
 
         // Reset jump key if we successfully jumped (velocity.y > 0)
         // But only if we were grounded before (normal jump)
-        if (player.velocity.y > 0 && player.isGrounded) keyStates.jump = false;
+        if (player.velocity.y > 0 && player.isGrounded) {
+             keyStates.jump = false;
+             spawnImpact(player.position, 'jump');
+             if (typeof uChromaticIntensity !== 'undefined') {
+                 uChromaticIntensity.value = 0.2;
+             }
+        }
 
         const wasGrounded = player.isGrounded;
         player.isGrounded = (onGround === 1);
@@ -688,7 +815,7 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
          }
     }
 
-    // --- Panning Pads (JS Physics) ---
+    // --- Panning Pads (JS Physics) --
     // Explicit check for dynamic panning pads (bobbing platforms)
     checkPanningPads();
 
@@ -703,6 +830,58 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
 
     // --- Vibrato Violets (Frequency Distortion Field) ---
     checkVibratoViolets(delta, audioState);
+
+    // --- Retrigger Mushrooms (Strobe Sickness HUD Flicker) ---
+    checkRetriggerMushrooms(delta, audioState);
+}
+
+function checkRetriggerMushrooms(delta: number, audioState: AudioState | null) {
+    if (!audioState || !audioState.channelData) return;
+
+    const playerPos = player.position;
+    let inStrobeField = false;
+    let maxIntensity = 0;
+
+    for (const obj of animatedFoliage) {
+        if (obj.userData?.type === 'retrigger_mushroom') {
+            const dx = playerPos.x - obj.position.x;
+            const dz = playerPos.z - obj.position.z;
+            const distSq = dx * dx + dz * dz;
+
+            // 15m radius
+            if (distSq < 15.0 * 15.0) {
+                // Determine if any channel is playing a retrigger effect (5 or 'Rxx')
+                let isStrobing = false;
+                for (const ch of audioState.channelData) {
+                    if (ch.activeEffect === 5 && ch.effectValue > 0) {
+                        isStrobing = true;
+                        break;
+                    }
+                }
+
+                if (isStrobing) {
+                    inStrobeField = true;
+                    // Calculate intensity based on distance
+                    const dist = Math.sqrt(distSq);
+                    const localIntensity = 1.0 - (dist / 15.0);
+                    if (localIntensity > maxIntensity) {
+                        maxIntensity = localIntensity;
+                    }
+                }
+            }
+        }
+    }
+
+    if (inStrobeField) {
+        if (typeof uStrobeIntensity !== 'undefined') {
+            uStrobeIntensity.value = Math.max(uStrobeIntensity.value, maxIntensity * 0.8);
+        }
+    } else {
+        // Decay the strobe intensity rapidly when out of range or not strobing
+        if (typeof uStrobeIntensity !== 'undefined' && uStrobeIntensity.value > 0) {
+            uStrobeIntensity.value = Math.max(0, uStrobeIntensity.value - delta * 2.0);
+        }
+    }
 }
 
 function checkVibratoViolets(delta: number, audioState: AudioState | null) {
@@ -1040,14 +1219,48 @@ function initCppPhysics(camera: THREE.Camera) {
     initPhysics(camera.position.x, camera.position.y, camera.position.z);
 
     // 1. Upload to C++ Engine (Emscripten) - For Standard Terrain/Obstacles
-    for (const m of foliageMushrooms) {
-        addObstacle(0, m.position.x, m.position.y, m.position.z, 0, (m.userData as any).capHeight||3, (m.userData as any).stemRadius||0.5, (m.userData as any).capRadius||2, (m.userData as any).isTrampoline?1:0);
-    }
-    for (const c of foliageClouds) {
-        addObstacle(1, c.position.x, c.position.y, c.position.z, (c.scale.x||1)*2.0, (c.scale.y||1)*0.8, 0, (c.userData as any).tier||1, 0);
-    }
-    for (const t of foliageTrampolines) {
-        addObstacle(2, t.position.x, t.position.y, t.position.z, (t.userData as any).bounceRadius||0.5, (t.userData as any).bounceHeight||0.5, (t.userData as any).bounceForce||12, 0, 0);
+    const totalCount = foliageMushrooms.length + foliageClouds.length + foliageTrampolines.length;
+    if (totalCount > 0) {
+        const batchData = new Float32Array(totalCount * 9);
+        let ptr = 0;
+
+        for (const m of foliageMushrooms) {
+            batchData[ptr++] = 0; // type
+            batchData[ptr++] = m.position.x;
+            batchData[ptr++] = m.position.y;
+            batchData[ptr++] = m.position.z;
+            batchData[ptr++] = 0; // r (unused for mushroom here)
+            batchData[ptr++] = (m.userData as any).capHeight || 3;
+            batchData[ptr++] = (m.userData as any).stemRadius || 0.5;
+            batchData[ptr++] = (m.userData as any).capRadius || 2;
+            batchData[ptr++] = (m.userData as any).isTrampoline ? 1 : 0;
+        }
+
+        for (const c of foliageClouds) {
+            batchData[ptr++] = 1; // type
+            batchData[ptr++] = c.position.x;
+            batchData[ptr++] = c.position.y;
+            batchData[ptr++] = c.position.z;
+            batchData[ptr++] = (c.scale.x || 1) * 2.0; // r
+            batchData[ptr++] = (c.scale.y || 1) * 0.8; // h
+            batchData[ptr++] = 0; // p1
+            batchData[ptr++] = (c.userData as any).tier || 1; // p2
+            batchData[ptr++] = 0; // p3
+        }
+
+        for (const t of foliageTrampolines) {
+            batchData[ptr++] = 2; // type
+            batchData[ptr++] = t.position.x;
+            batchData[ptr++] = t.position.y;
+            batchData[ptr++] = t.position.z;
+            batchData[ptr++] = (t.userData as any).bounceRadius || 0.5; // r
+            batchData[ptr++] = (t.userData as any).bounceHeight || 0.5; // h
+            batchData[ptr++] = (t.userData as any).bounceForce || 12; // p1
+            batchData[ptr++] = 0; // p2
+            batchData[ptr++] = 0; // p3
+        }
+
+        uploadObstaclesBatch(batchData, totalCount);
     }
 
     // 2. Upload to AssemblyScript Engine (ASC) - For Narrow Phase Interactivity
