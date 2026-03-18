@@ -166,14 +166,18 @@ export function createCaveEntrance(options: CaveOptions = {}): THREE.Group {
     group.add(tunnelMesh);
 
     // --- Stalactites & Stalagmites ---
+    // ⚡ OPTIMIZATION: Converted cave stalactites to InstancedMesh to reduce draw calls and GC.
     const formationCount = 12;
 
     const crystalMat = getSharedCrystalMat();
 
     const _scratchPos = new THREE.Vector3();
     const _scratchTangent = new THREE.Vector3();
+    const _scratchObj = new THREE.Object3D();
 
-    const formationsGroup = new THREE.Group();
+    const formationsMesh = new THREE.InstancedMesh(_sharedConeGeo, crystalMat, formationCount);
+    formationsMesh.castShadow = true;
+    formationsMesh.receiveShadow = true;
 
     for (let i = 0; i < formationCount; i++) {
         const t = 0.1 + (Math.random() * 0.8); // Avoid very ends of tunnel
@@ -189,10 +193,6 @@ export function createCaveEntrance(options: CaveOptions = {}): THREE.Group {
         // or (0, 1, 0) for floor/ceiling.
         // For simplicity, we can just use the curve point, and add an offset.
 
-        const formation = new THREE.Mesh(_sharedConeGeo, crystalMat);
-        formation.castShadow = true;
-        formation.receiveShadow = true;
-
         const radius = (width / 2) * 0.8; // slightly inside
         const angle = isCeiling ?
             (-Math.PI/4 + Math.random() * Math.PI/2) : // Ceiling arc
@@ -202,24 +202,25 @@ export function createCaveEntrance(options: CaveOptions = {}): THREE.Group {
         const offsetX = Math.cos(angle) * radius;
         const offsetY = Math.sin(angle) * radius;
 
-        formation.position.copy(_scratchPos);
-        formation.position.x += offsetX;
-        formation.position.y += offsetY;
+        _scratchObj.position.copy(_scratchPos);
+        _scratchObj.position.x += offsetX;
+        _scratchObj.position.y += offsetY;
 
         // Point the cone towards the center of the tunnel
-        formation.lookAt(_scratchPos);
+        _scratchObj.lookAt(_scratchPos);
 
         // If it's a stalactite (ceiling), base is attached to wall, tip points inward
         // lookAt points Z towards target. Cone points up in Y by default.
-        formation.rotateX(Math.PI / 2); // align Y axis with Z (lookAt direction)
+        _scratchObj.rotateX(Math.PI / 2); // align Y axis with Z (lookAt direction)
 
         // Random scaling
         const s = 0.5 + Math.random() * 1.0;
-        formation.scale.set(s * 0.5, s, s * 0.5);
+        _scratchObj.scale.set(s * 0.5, s, s * 0.5);
+        _scratchObj.updateMatrix();
 
-        formationsGroup.add(formation);
+        formationsMesh.setMatrixAt(i, _scratchObj.matrix);
     }
-    group.add(formationsGroup);
+    group.add(formationsMesh);
 
     // 2. The Water Gate (Waterfall)
     const gatePos = new THREE.Vector3(0, height * 0.7, -2);
