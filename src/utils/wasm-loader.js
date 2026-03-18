@@ -416,43 +416,131 @@ export function uploadCollisionObjects(caves, mushrooms, clouds, trampolines) {
 
     wasmInitCollisionSystem();
 
+    // ⚡ PERFORMANCE: Use batch upload instead of sequential calls
     // TYPE_MUSHROOM = 1, TYPE_CLOUD = 2, TYPE_GATE = 3, TYPE_TRAMPOLINE = 4
 
-    // 1. Gates
-    if (caves) {
-        caves.forEach(cave => {
-            if (cave.userData.isBlocked) {
-                const gatePos = cave.userData.gatePosition.clone().applyMatrix4(cave.matrixWorld);
-                wasmAddCollisionObject(3, gatePos.x, gatePos.y, gatePos.z, 2.5, 5.0, 0, 0); // Radius 2.5
+    // Calculate total count first
+    let totalCount = 0;
+    if (caves) totalCount += caves.filter(c => c.userData.isBlocked).length;
+    if (mushrooms) totalCount += mushrooms.length;
+    if (clouds) totalCount += clouds.filter(c => c.userData.tier === 1).length;
+
+    if (totalCount === 0) {
+        console.log('[WASM] No collision objects to upload.');
+        return true;
+    }
+
+    // Check if batch function exists
+    const hasBatchFunction = wasmInstance && wasmInstance.exports.addCollisionObjectsBatch;
+
+    if (hasBatchFunction) {
+        // Use batch upload - reduces JS<->WASM bridge crossings from N to 1
+        const BATCH_SIZE = 8; // [type, x, y, z, r, h, p1, p2]
+        const batchData = new Float32Array(totalCount * BATCH_SIZE);
+        let ptr = 0;
+
+        // 1. Gates
+        if (caves) {
+            for (const cave of caves) {
+                if (cave.userData.isBlocked) {
+                    const gatePos = cave.userData.gatePosition.clone().applyMatrix4(cave.matrixWorld);
+                    batchData[ptr++] = 3; // type
+                    batchData[ptr++] = gatePos.x;
+                    batchData[ptr++] = gatePos.y;
+                    batchData[ptr++] = gatePos.z;
+                    batchData[ptr++] = 2.5; // r
+                    batchData[ptr++] = 5.0; // h
+                    batchData[ptr++] = 0;   // p1
+                    batchData[ptr++] = 0;   // p2
+                }
             }
-        });
-    }
+        }
 
-    // 2. Mushrooms
-    if (mushrooms) {
-        mushrooms.forEach(m => {
-            if (m.userData.isTrampoline) {
-                 wasmAddCollisionObject(4, m.position.x, m.position.y, m.position.z,
-                    m.userData.capRadius || 2.0, m.userData.capHeight || 3.0, 0, 0);
-            } else {
-                 wasmAddCollisionObject(1, m.position.x, m.position.y, m.position.z,
-                    m.userData.capRadius || 2.0, m.userData.capHeight || 3.0, 0, 0);
+        // 2. Mushrooms
+        if (mushrooms) {
+            for (const m of mushrooms) {
+                const type = m.userData.isTrampoline ? 4 : 1;
+                batchData[ptr++] = type;
+                batchData[ptr++] = m.position.x;
+                batchData[ptr++] = m.position.y;
+                batchData[ptr++] = m.position.z;
+                batchData[ptr++] = m.userData.capRadius || 2.0;
+                batchData[ptr++] = m.userData.capHeight || 3.0;
+                batchData[ptr++] = 0;
+                batchData[ptr++] = 0;
             }
-        });
+        }
+
+        // 3. Clouds
+        if (clouds) {
+            for (const c of clouds) {
+                if (c.userData.tier === 1) {
+                    batchData[ptr++] = 2; // type
+                    batchData[ptr++] = c.position.x;
+                    batchData[ptr++] = c.position.y;
+                    batchData[ptr++] = c.position.z;
+                    batchData[ptr++] = c.scale.x || 1.0;
+                    batchData[ptr++] = c.scale.y || 1.0;
+                    batchData[ptr++] = 0;
+                    batchData[ptr++] = 0;
+                }
+            }
+        }
+
+        // Upload batch to WASM
+        const wasmBatchUpload = wasmInstance.exports.addCollisionObjectsBatch;
+        if (wasmBatchUpload) {
+            // Allocate memory in WASM and copy data
+            const wasmMalloc = wasmInstance.exports.malloc || wasmInstance.exports.__new;
+            if (wasmMalloc) {
+                const dataPtr = wasmMalloc(batchData.length * 4); // 4 bytes per float
+                const wasmFloatView = new Float32Array(wasmMemory.buffer, dataPtr, batchData.length);
+                wasmFloatView.set(batchData);
+
+                wasmBatchUpload(dataPtr, totalCount);
+
+                // Free the allocated memory
+                const wasmFree = wasmInstance.exports.free || wasmInstance.exports.__free;
+                if (wasmFree) wasmFree(dataPtr);
+            }
+        }
+    } else {
+        // Fallback: Sequential upload (for backwards compatibility)
+        // 1. Gates
+        if (caves) {
+            caves.forEach(cave => {
+                if (cave.userData.isBlocked) {
+                    const gatePos = cave.userData.gatePosition.clone().applyMatrix4(cave.matrixWorld);
+                    wasmAddCollisionObject(3, gatePos.x, gatePos.y, gatePos.z, 2.5, 5.0, 0, 0);
+                }
+            });
+        }
+
+        // 2. Mushrooms
+        if (mushrooms) {
+            mushrooms.forEach(m => {
+                if (m.userData.isTrampoline) {
+                     wasmAddCollisionObject(4, m.position.x, m.position.y, m.position.z,
+                        m.userData.capRadius || 2.0, m.userData.capHeight || 3.0, 0, 0);
+                } else {
+                     wasmAddCollisionObject(1, m.position.x, m.position.y, m.position.z,
+                        m.userData.capRadius || 2.0, m.userData.capHeight || 3.0, 0, 0);
+                }
+            });
+        }
+
+        // 3. Clouds
+        if (clouds) {
+            clouds.forEach(c => {
+                 if (c.userData.tier === 1) {
+                     wasmAddCollisionObject(2, c.position.x, c.position.y, c.position.z,
+                        c.scale.x || 1.0, c.scale.y || 1.0, 0, 0);
+                 }
+            });
+        }
     }
 
-    // 3. Clouds
-    if (clouds) {
-        clouds.forEach(c => {
-             // Cloud Tier 1 only
-             if (c.userData.tier === 1) {
-                 wasmAddCollisionObject(2, c.position.x, c.position.y, c.position.z,
-                    c.scale.x || 1.0, c.scale.y || 1.0, 0, 0);
-             }
-        });
-    }
-
-    console.log('[WASM] Uploaded collision objects to ASC.');
+    console.log(`[WASM] Uploaded ${totalCount} collision objects to ASC.${hasBatchFunction ? ' (batched)' : ' (sequential)'}`);
     return true;
 }
 
