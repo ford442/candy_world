@@ -11,14 +11,14 @@
 ## Next Steps
 
 1. **Phase 4 (Three.js -> WebGPU)**: Raw compute and render pipelines. Begin migrating custom render passes.
-2. **Category 6: Melody Lake Island**: Ensure the island is fully decorated and interactive.
-3. **Phase 3 (ASC -> C++): Fluid Simulation**: Polish the stable fluids solver and WebGPU integration.
-2. **Category 2: Cymbal Dandelions**: Finish integration of seeds acting as obstacles and manual Sonic Clap triggers.
+2. **Phase 3 (ASC -> C++): Fluid Simulation**: Polish the stable fluids solver and WebGPU integration.
 
 ---
 
 ## Recent Progress
 - **Accomplished:**
+  - **Category 6: Melody Lake Island**: **Status: Implemented ✅**
+    - *Implementation Details:* Ensured the island is fully interactive by making the central Retrigger Mushroom harvestable. Added logic in `src/world/generation.ts` to wrap it with `makeInteractive`, allowing players to harvest a "Lake Core". Added the `island_scholar` unlock definition in `src/systems/unlocks.ts`.
   - **Category 1: Retrigger Mushrooms (Strobe Sickness)**: **Status: Implemented ✅**
     - *Implementation Details:* Implemented the "Strobe Sickness" HUD flicker effect in `src/systems/physics.ts`. Players within 15 units of an actively strobing Retrigger Mushroom will experience rapid random pulses of chromatic aberration. Added `strobe_sickness` to the discovery map.
   - **Category 2: Cymbal Dandelions (Sonic Clap)**: **Status: Implemented ✅**
