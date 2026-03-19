@@ -123,9 +123,11 @@ export class WasmParticleSystem extends LegacyParticleSystem {
         );
 
         // Copy back positions
-        // Note: We only need to copy back if the WASM memory hasn't grown (invalidating the view).
-        // Always reconstruct view to be safe.
-        const wasmF32 = new Float32Array(instance.exports.memory.buffer);
+        // ⚡ OPTIMIZATION: Cached WASM memory Float32Array view to prevent GC spikes per frame.
+        if (!this._cachedWasmF32 || this._cachedWasmF32.buffer !== instance.exports.memory.buffer) {
+            this._cachedWasmF32 = new Float32Array(instance.exports.memory.buffer);
+        }
+        const wasmF32 = this._cachedWasmF32;
         const posOffset = this.rainPosPtr / 4;
 
         // This copy is the overhead.
@@ -170,7 +172,11 @@ export class WasmParticleSystem extends LegacyParticleSystem {
             melodyVol
         );
 
-        const wasmF32 = new Float32Array(instance.exports.memory.buffer);
+        // ⚡ OPTIMIZATION: Cached WASM memory Float32Array view to prevent GC spikes per frame.
+        if (!this._cachedWasmF32 || this._cachedWasmF32.buffer !== instance.exports.memory.buffer) {
+            this._cachedWasmF32 = new Float32Array(instance.exports.memory.buffer);
+        }
+        const wasmF32 = this._cachedWasmF32;
         const posOffset = this.mistPtr / 4;
         positionAttr.array.set(wasmF32.subarray(posOffset, posOffset + count * 3));
         positionAttr.needsUpdate = true;
