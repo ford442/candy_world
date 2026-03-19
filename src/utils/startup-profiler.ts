@@ -135,7 +135,7 @@ let originalConsoleTimeEnd: typeof console.timeEnd;
 let originalConsoleLog: typeof console.log;
 
 // InstancedMesh constructor tracking
-let originalInstancedMesh: typeof THREE.InstancedMesh;
+// let originalInstancedMesh: typeof THREE.InstancedMesh;
 
 // ============================================================================
 // Memory Utilities
@@ -217,33 +217,33 @@ function unhookConsole() {
 // ============================================================================
 
 function hookInstancedMesh() {
-  originalInstancedMesh = THREE.InstancedMesh;
+  // originalInstancedMesh = THREE.InstancedMesh;
   
-  (THREE as any).InstancedMesh = class extends originalInstancedMesh {
-    constructor(geometry: THREE.BufferGeometry, material: THREE.Material | THREE.Material[], count: number) {
-      super(geometry, material, count);
+  // (THREE as any).InstancedMesh = class extends originalInstancedMesh {
+  //   constructor(geometry: THREE.BufferGeometry, material: THREE.Material | THREE.Material[], count: number) {
+  //     super(geometry, material, count);
       
-      if (isEnabled) {
-        instancedMeshMetrics.count++;
-        instancedMeshMetrics.totalInstances += count;
+  //     if (isEnabled) {
+  //       instancedMeshMetrics.count++;
+  //       instancedMeshMetrics.totalInstances += count;
         
-        // Track by geometry type name
-        const geoName = geometry?.type || 'Unknown';
-        const current = instancedMeshMetrics.meshesByType.get(geoName) || 0;
-        instancedMeshMetrics.meshesByType.set(geoName, current + 1);
-      }
-    }
-  };
-  
-  // Copy static properties
-  Object.setPrototypeOf((THREE as any).InstancedMesh, originalInstancedMesh);
-  Object.defineProperty((THREE as any).InstancedMesh, 'name', { value: 'InstancedMesh' });
+  //       // Track by geometry type name
+  //       const geoName = geometry?.type || 'Unknown';
+  //       const current = instancedMeshMetrics.meshesByType.get(geoName) || 0;
+  //       instancedMeshMetrics.meshesByType.set(geoName, current + 1);
+  //     }
+  //   }
+  // };
+
+  // // Copy static properties
+  // Object.setPrototypeOf((THREE as any).InstancedMesh, originalInstancedMesh);
+  // Object.defineProperty((THREE as any).InstancedMesh, 'name', { value: 'InstancedMesh' });
 }
 
 function unhookInstancedMesh() {
-  if (originalInstancedMesh) {
-    (THREE as any).InstancedMesh = originalInstancedMesh;
-  }
+  // if (originalInstancedMesh) {
+  //   (THREE as any).InstancedMesh = originalInstancedMesh;
+  // }
 }
 
 // ============================================================================
