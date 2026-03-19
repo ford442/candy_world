@@ -135,7 +135,7 @@ let originalConsoleTimeEnd: typeof console.timeEnd;
 let originalConsoleLog: typeof console.log;
 
 // InstancedMesh constructor tracking
-let originalInstancedMesh: typeof THREE.InstancedMesh;
+// let originalInstancedMesh: typeof THREE.InstancedMesh;
 
 // ============================================================================
 // Memory Utilities
@@ -241,9 +241,9 @@ function hookInstancedMesh() {
 }
 
 function unhookInstancedMesh() {
-  if (originalInstancedMesh) {
-    (THREE as any).InstancedMesh = originalInstancedMesh;
-  }
+  // if (originalInstancedMesh) {
+  //   (THREE as any).InstancedMesh = originalInstancedMesh;
+  // }
 }
 
 // ============================================================================
