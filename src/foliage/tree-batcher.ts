@@ -15,11 +15,12 @@ import {
     uAudioHigh,
     uAudioLow,
     uWindSpeed,
-    uGlitchIntensity
+    uGlitchIntensity,
+    uPlayerPosition
 } from './common.ts';
 import {
     color, float, vec3, positionLocal, mix, attribute, uv, sin, cos, positionWorld, smoothstep,
-    mx_noise_float
+    mx_noise_float, length
 } from 'three/tsl';
 import { applyGlitch } from './glitch.ts';
 import { getCylinderGeometry, getTorusKnotGeometry } from '../utils/geometry-dedup.ts';
@@ -135,6 +136,17 @@ export class TreeBatcher {
             rimStrength: 0.6, // Strong rim for pop
             audioReactStrength: 0.5 // Inner glow pulse
         });
+
+        // 🎨 PALETTE: Touch Glow (Player Interaction)
+        // If player is close, emit a subtle glowing trail as feedback
+        const distToPlayer = length(positionWorld.sub(uPlayerPosition));
+        // Inverse distance falloff for glow
+        const touchGlow = float(1.0).sub(smoothstep(0.0, 2.5, distToPlayer));
+        // Subtle white-green boost
+        const touchColor = vec3(0.5, 1.0, 0.5).mul(touchGlow).mul(1.5);
+
+        // Append touch glow to the existing emissive node
+        sphereMat.emissiveNode = (sphereMat.emissiveNode || color(0x000000)).add(touchColor);
 
         this.spheres = new THREE.InstancedMesh(sharedGeometries.unitSphere, sphereMat, this.sphereCapacity);
         this.spheres.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(this.sphereCapacity * 3), 3);
