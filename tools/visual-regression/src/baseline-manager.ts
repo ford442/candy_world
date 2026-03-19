@@ -164,7 +164,7 @@ export class BaselineManager {
   /**
    * Calculate file hash
    */
-  private calculateHash(filepath: string): string {
+  private async calculateHash(filepath: string): Promise<string> {
     const crypto = await import('crypto');
     const content = fs.readFileSync(filepath);
     return crypto.createHash('sha256').update(content).digest('hex').substring(0, 16);
