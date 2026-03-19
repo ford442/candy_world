@@ -35,3 +35,7 @@ Matte clay materials need a strong directional light to show form.
 ## 2026-03-09 - Format file names for screen readers in lists
 **Learning:** Dynamically populated lists containing user uploads (like Jukebox playlists) often use raw file names (`super_cool_song_v2.xm`) for `aria-label` and `title` attributes. This results in screen readers reading out the file extension and literal characters, which creates a poor UX compared to a parsed, human-readable title.
 **Action:** Always use a human-readable formatted string (e.g. `displayName` parsed from `file.name`) when setting `aria-label` and `title` attributes for dynamically populated elements derived from file uploads to ensure a smooth screen reader experience.
+
+## 2026-03-09 - Make custom UI toggles semantic and keyboard accessible
+**Learning:** Custom UI toggles built with `div` elements and purely visual CSS classes (like `.candy-toggle--active`) are completely invisible to screen readers and inaccessible via keyboard navigation. They lack a semantic role, an interactive state, and an accessible name.
+**Action:** Always refactor custom `div` toggles into `<button type="button" role="switch">` elements. Bind their active state to `aria-checked` dynamically, link them to a visible label using `aria-labelledby`, and ensure `.focus-visible` styles are present for keyboard users.
