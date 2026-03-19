@@ -138,7 +138,7 @@ async function runVisualTests(config: TestConfig): Promise<void> {
           
           // Update baseline if requested
           if (config.updateBaselines) {
-            await baselineManager.addBaseline(screenshotPath, {
+            baselineManager.addBaseline(screenshotPath, {
               viewpoint: viewpoint.name,
               quality: quality.name,
               viewport: viewport.name
@@ -172,7 +172,7 @@ async function runVisualTests(config: TestConfig): Promise<void> {
       if (!match) continue;
       
       const [, vp, quality, viewport] = match;
-      const baseline = await baselineManager.getBaseline(vp, quality, viewport);
+      const baseline = baselineManager.getBaseline(vp, quality, viewport);
       
       if (!baseline) {
         console.log(`   ⚠️  No baseline found for: ${filename}`);
