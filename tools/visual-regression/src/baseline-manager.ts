@@ -164,8 +164,8 @@ export class BaselineManager {
   /**
    * Calculate file hash
    */
-  private async calculateHash(filepath: string): Promise<string> {
-    const crypto = await import('crypto');
+  private calculateHash(filepath: string): string {
+    const crypto = require('crypto');
     const content = fs.readFileSync(filepath);
     return crypto.createHash('sha256').update(content).digest('hex').substring(0, 16);
   }
@@ -173,7 +173,7 @@ export class BaselineManager {
   /**
    * Add a new baseline
    */
-  async addBaseline(
+  addBaseline(
     sourcePath: string,
     options: {
       viewpoint: string;
@@ -203,7 +203,7 @@ export class BaselineManager {
     const entry: BaselineEntry = {
       name: filename,
       path: targetPath,
-      hash: await this.calculateHash(targetPath),
+      hash: this.calculateHash(targetPath),
       timestamp: new Date().toISOString(),
       branch,
       commit: this.getCurrentCommit(),
@@ -230,7 +230,7 @@ export class BaselineManager {
   /**
    * Get baseline for a specific configuration
    */
-  async getBaseline(
+  getBaseline(
     viewpoint: string,
     quality: string,
     viewport: string,
@@ -299,16 +299,16 @@ export class BaselineManager {
       const sourcePath = path.join(screenshotsDir, file);
       
       // Check if different from existing baseline
-      const existing = await this.getBaseline(vp, quality, viewport);
+      const existing = this.getBaseline(vp, quality, viewport);
       if (existing && !options.force) {
-        const newHash = await this.calculateHash(sourcePath);
+        const newHash = this.calculateHash(sourcePath);
         if (newHash === existing.hash) {
           console.log(`⏭️  Skipping unchanged baseline: ${file}`);
           continue;
         }
       }
 
-      const entry = await this.addBaseline(sourcePath, {
+      const entry = this.addBaseline(sourcePath, {
         viewpoint: vp,
         quality,
         viewport,
@@ -435,8 +435,8 @@ export class BaselineManager {
    * Export baselines to a zip file
    */
   async exportBaselines(outputPath: string, branch?: string): Promise<void> {
-    const archiver = await import('archiver');
-    const archive = archiver.default('zip', { zlib: { level: 9 } });
+    const archiver = (await import('archiver')).default;
+    const archive = archiver('zip', { zlib: { level: 9 } });
     const output = fs.createWriteStream(outputPath);
 
     await new Promise<void>((resolve, reject) => {

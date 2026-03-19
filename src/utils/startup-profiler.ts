@@ -217,27 +217,27 @@ function unhookConsole() {
 // ============================================================================
 
 function hookInstancedMesh() {
-  // originalInstancedMesh = THREE.InstancedMesh;
-  
-  // (THREE as any).InstancedMesh = class extends originalInstancedMesh {
-  //   constructor(geometry: THREE.BufferGeometry, material: THREE.Material | THREE.Material[], count: number) {
-  //     super(geometry, material, count);
-      
-  //     if (isEnabled) {
-  //       instancedMeshMetrics.count++;
-  //       instancedMeshMetrics.totalInstances += count;
-        
-  //       // Track by geometry type name
-  //       const geoName = geometry?.type || 'Unknown';
-  //       const current = instancedMeshMetrics.meshesByType.get(geoName) || 0;
-  //       instancedMeshMetrics.meshesByType.set(geoName, current + 1);
-  //     }
-  //   }
-  // };
+  originalInstancedMesh = THREE.InstancedMesh;
 
-  // // Copy static properties
-  // Object.setPrototypeOf((THREE as any).InstancedMesh, originalInstancedMesh);
-  // Object.defineProperty((THREE as any).InstancedMesh, 'name', { value: 'InstancedMesh' });
+  (THREE as any).InstancedMesh = class extends originalInstancedMesh {
+    constructor(geometry: THREE.BufferGeometry, material: THREE.Material | THREE.Material[], count: number) {
+      super(geometry, material, count);
+
+      if (isEnabled) {
+        instancedMeshMetrics.count++;
+        instancedMeshMetrics.totalInstances += count;
+
+        // Track by geometry type name
+        const geoName = geometry?.type || 'Unknown';
+        const current = instancedMeshMetrics.meshesByType.get(geoName) || 0;
+        instancedMeshMetrics.meshesByType.set(geoName, current + 1);
+      }
+    }
+  };
+
+  // Copy static properties
+  Object.setPrototypeOf((THREE as any).InstancedMesh, originalInstancedMesh);
+  Object.defineProperty((THREE as any).InstancedMesh, 'name', { value: 'InstancedMesh' });
 }
 
 function unhookInstancedMesh() {
