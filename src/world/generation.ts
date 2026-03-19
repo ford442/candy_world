@@ -23,6 +23,9 @@ import { validateFoliageMaterials } from '../foliage/common.ts';
 import { CONFIG } from '../core/config.ts';
 import { registerPhysicsCave } from '../systems/physics.ts';
 import { initDiscoveryForFoliage } from '../systems/discovery-optimized.ts';
+import { unlockSystem } from '../systems/unlocks.ts';
+import { spawnImpact } from '../foliage/impacts.ts';
+import { makeInteractive } from '../utils/interaction-utils.ts';
 import {
     animatedFoliage, obstacles, foliageGroup, foliageMushrooms,
     foliageClouds, foliageTrampolines, foliagePanningPads, foliageGeysers, foliageTraps, foliagePortamentoPines, vineSwings, worldGroup
@@ -542,6 +545,14 @@ function populateLakeIsland(weatherSystem: WeatherSystem): void {
     });
     const centralY = getUnifiedGroundHeight(centerX, centerZ);
     centralMushroom.position.set(centerX, centralY, centerZ);
+    makeInteractive(centralMushroom);
+    centralMushroom.userData.interactionText = "Harvest Lake Core";
+    centralMushroom.userData.onInteract = () => {
+        unlockSystem.harvest('lake_core', 1, 'Lake Core');
+        spawnImpact(centralMushroom.position, 'spore', 0x00FFFF);
+        centralMushroom.userData.interactionText = "Harvested";
+        centralMushroom.userData.onInteract = undefined;
+    };
     safeAddFoliage(centralMushroom, false, 0, weatherSystem);
     
     // Ring of Kick Drum Geysers around the perimeter
