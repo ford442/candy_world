@@ -384,6 +384,13 @@ const MENU_STYLES = `
     position: relative;
     cursor: pointer;
     transition: all 0.2s;
+    border: none;
+    padding: 0;
+}
+
+.candy-toggle:focus-visible {
+    outline: 2px solid #ff69b4;
+    outline-offset: 2px;
 }
 
 .candy-toggle--active {
@@ -918,19 +925,19 @@ export class SaveMenu {
                     </div>
                 </div>
                 <div class="candy-settings-row">
-                    <span class="candy-settings-row__label">Shadows</span>
+                    <span class="candy-settings-row__label" id="setting-label-shadows">Shadows</span>
                     <div class="candy-settings-row__control">
-                        <div class="candy-toggle ${s.shadows ? 'candy-toggle--active' : ''}" data-setting="shadows">
+                        <button type="button" role="switch" aria-checked="${s.shadows ? 'true' : 'false'}" aria-labelledby="setting-label-shadows" class="candy-toggle ${s.shadows ? 'candy-toggle--active' : ''}" data-setting="shadows">
                             <div class="candy-toggle__handle"></div>
-                        </div>
+                        </button>
                     </div>
                 </div>
                 <div class="candy-settings-row">
-                    <span class="candy-settings-row__label">Post Processing</span>
+                    <span class="candy-settings-row__label" id="setting-label-postProcessing">Post Processing</span>
                     <div class="candy-settings-row__control">
-                        <div class="candy-toggle ${s.postProcessing ? 'candy-toggle--active' : ''}" data-setting="postProcessing">
+                        <button type="button" role="switch" aria-checked="${s.postProcessing ? 'true' : 'false'}" aria-labelledby="setting-label-postProcessing" class="candy-toggle ${s.postProcessing ? 'candy-toggle--active' : ''}" data-setting="postProcessing">
                             <div class="candy-toggle__handle"></div>
-                        </div>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -1217,6 +1224,7 @@ export class SaveMenu {
             const currentValue = (this.settings as any)[setting];
             (this.settings as any)[setting] = !currentValue;
             target.classList.toggle('candy-toggle--active', !currentValue);
+            target.setAttribute('aria-checked', (!currentValue).toString());
         }
     }
 
