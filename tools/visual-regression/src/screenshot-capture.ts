@@ -293,7 +293,11 @@ export class ScreenshotCapture {
     });
 
     // Wait for the game to initialize
-    await this.page.waitForSelector('#loading-overlay.loaded', { timeout: 60000 });
+    // We wait for the #candy-loading-overlay to have the .loaded class, or for __sceneReady
+    await this.page.waitForFunction(() => {
+      const el = document.getElementById('candy-loading-overlay');
+      return (window as any).__sceneReady === true || (el && el.classList.contains('loaded')) || !el;
+    }, { timeout: 60000 });
     await this.page.waitForTimeout(1000);
 
     // Set up camera position and environment
