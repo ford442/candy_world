@@ -50,6 +50,13 @@ export const UNLOCK_DEFINITIONS: Record<string, UnlockDefinition> = {
         description: 'A rhythmic core that reflects incoming projectiles.',
         requirements: [{ itemId: 'snap_shard', count: 3 }],
         icon: '💥'
+    },
+    'island_scholar': {
+        id: 'island_scholar',
+        name: 'Island Scholar',
+        description: 'Discovered the hidden core of Melody Lake Island.',
+        requirements: [{ itemId: 'lake_core', count: 1 }],
+        icon: '🏝️'
     }
 };
 
