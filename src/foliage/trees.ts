@@ -80,12 +80,9 @@ function enhanceWithFloralJuice(material: any) {
         material.positionNode = newPos;
 
         // 4. Juicy Rim Light (Audio-reactive edge glow)
-        // Ensure material has a base color node or fallback to white
-        // Actually, for TSL materials without an instanceColor attribute, calling createJuicyRimLight
-        // which attempts to use it will crash WebGPU.
-        // We will just use standard emissive if the material doesn't support instancing directly
-        // createJuicyRimLight explicitly references instanceColor in its internal logic?
-        // Let's assume there is an issue with createJuicyRimLight.
+        // Memory explicitly notes: To apply createJuicyRimLight to non-instanced Three.js meshes without crashing WebGPU, construct a standard TSL color node (e.g., tslColor(colorHex)) and pass it as the baseColor argument instead of an instanced attribute.
+        const rimLight = createJuicyRimLight(tslColor(0xFFFFFF), float(1.5), float(3.0), null);
+        material.emissiveNode = (material.emissiveNode || tslColor(0x000000)).add(rimLight);
     }
     return material;
 }
