@@ -1,22 +1,10 @@
-// src/foliage/wind-compute.ts
-/**
- * Optimized Wind Computation System
- * 
- * Replaces per-vertex sine calculations with a baked wind texture approach.
- * This reduces GPU ALU instructions by pre-computing wind vectors in a texture
- * that is sampled per-vertex instead of computed.
- * 
- * Performance Gains:
- * - Before: ~8-12 ALU instructions per vertex (sin, mul, add, pow operations)
- * - After: ~4 ALU instructions + 1 texture sample (faster on modern GPUs)
- * - Expected improvement: 30-50% reduction in wind calculation cost
- */
-
 import * as THREE from 'three';
 import { DataTexture, Vector2, Vector4, RGBAFormat, FloatType, NearestFilter, RepeatWrapping } from 'three';
+import { textureStore, instanceIndex, Fn, float, vec4, vec2, ivec2, mx_noise_float, sin, cos, max, min, uniform } from 'three/tsl';
+import { StorageTexture } from 'three/webgpu';
 
 // Wind texture configuration
-const WIND_TEXTURE_SIZE = 256; // 256x256 wind field
+export const WIND_TEXTURE_SIZE = 256; // 256x256 wind field
 const WIND_TEXTURE_CHANNELS = 4; // RGBA - we use RG for wind X/Z, B for gust, A unused
 
 /**
@@ -50,22 +38,16 @@ export const DEFAULT_WIND_CONFIG: WindConfig = {
 };
 
 /**
- * WindComputeSystem - Baked Wind Texture Manager
+ * WindComputeSystem - WebGPU Compute Shader Edition
  * 
- * Manages a floating-point DataTexture that stores pre-calculated wind vectors.
- * The texture represents a 2D wind field that tiles seamlessly in world space.
- * 
- * Texture Format (RGBA32F):
- * - R: Wind X component
- * - G: Wind Z component  
- * - B: Gust intensity (0-1)
- * - A: Reserved for future use (turbulence)
+ * Replaces CPU noise generation with a WebGPU Compute Shader that writes
+ * to a StorageTexture. This removes the JS CPU bottleneck and updates
+ * the entire 256x256 texture every frame.
  */
 export class WindComputeSystem {
-    private windTexture: DataTexture;
+    private windTexture: THREE.Texture;
     private timeAccumulator: number = 0;
     private config: WindConfig;
-    private textureData: Float32Array;
     
     // Cached direction vectors
     private baseDirection: Vector2 = new Vector2(1, 0);
@@ -76,36 +58,29 @@ export class WindComputeSystem {
     private lastUpdateTime: number = 0;
     private averageUpdateTime: number = 0;
     
-    // Partial update optimization
-    private updateRow: number = 0;
-    private readonly rowsPerFrame: number = 8; // Update only 8 rows per frame for performance
-    
     // Uniforms for TSL shaders
     private windParams: Vector4 = new Vector4(1, 0, 0, 1); // x: speed, y: unused, z: unused, w: time
     
+    // Compute specific uniforms
+    private uTime = uniform(0);
+    private uWindSpeed = uniform(1.0);
+    private uWindDirection = uniform(vec2(1, 0));
+    private uGustFreq = uniform(0.3);
+    private uGustStrength = uniform(0.5);
+
+    private _computeNode: any;
+
     constructor(config: Partial<WindConfig> = {}) {
         this.config = { ...DEFAULT_WIND_CONFIG, ...config };
         
-        // Initialize texture data
-        this.textureData = new Float32Array(
-            WIND_TEXTURE_SIZE * WIND_TEXTURE_SIZE * WIND_TEXTURE_CHANNELS
-        );
-        
-        // Create the wind texture
-        this.windTexture = new DataTexture(
-            this.textureData,
-            WIND_TEXTURE_SIZE,
-            WIND_TEXTURE_SIZE,
-            RGBAFormat,
-            FloatType
-        );
-        
-        // Configure texture for optimal sampling
-        this.windTexture.minFilter = NearestFilter;
-        this.windTexture.magFilter = NearestFilter;
-        this.windTexture.wrapS = RepeatWrapping;
-        this.windTexture.wrapT = RepeatWrapping;
-        this.windTexture.needsUpdate = true;
+        // Create the storage texture for compute shader
+        const storageTexture = new StorageTexture(WIND_TEXTURE_SIZE, WIND_TEXTURE_SIZE);
+        storageTexture.type = FloatType;
+        storageTexture.minFilter = NearestFilter;
+        storageTexture.magFilter = NearestFilter;
+        storageTexture.wrapS = RepeatWrapping;
+        storageTexture.wrapT = RepeatWrapping;
+        this.windTexture = storageTexture;
         
         // Initialize base direction from config
         this.baseDirection.set(
@@ -113,22 +88,104 @@ export class WindComputeSystem {
             Math.sin(this.config.directionAngle)
         );
         this.currentDirection.copy(this.baseDirection);
+        this.uWindDirection.value.copy(this.currentDirection);
         
-        // Initial full texture generation
-        this.generateFullTexture();
+        this.initComputeNode();
+    }
+
+    /**
+     * Initializes the TSL Compute Node for wind generation
+     */
+    private initComputeNode() {
+        const size = float(WIND_TEXTURE_SIZE);
+
+        const computeWind = Fn(() => {
+            const index = float(instanceIndex);
+            const sizeInt = WIND_TEXTURE_SIZE;
+
+            // Using int math for 2D coord to avoid precision issues
+            const x = index.mod(sizeInt);
+            const y = index.div(sizeInt).floor();
+
+            // Normalized coordinates
+            const nx = x.div(size);
+            const ny = y.div(size);
+
+            // Time offset
+            const timeOffset = this.uTime.mul(0.1);
+
+            // Multi-octave noise for natural wind patterns
+            const scale1 = float(1.0);
+            const scale2 = float(2.0);
+            const scale3 = float(4.0);
+
+            // Primary wind flow (large-scale)
+            const ax1 = nx.mul(scale1).add(timeOffset.mul(0.1));
+            const ay1 = ny.mul(scale1).add(timeOffset.mul(0.05));
+            const flowX1 = mx_noise_float(vec2(ax1, ay1));
+            const flowY1 = mx_noise_float(vec2(ax1.add(100.0), ay1.add(100.0)));
+
+            // Secondary turbulence (medium-scale)
+            const ax2 = nx.mul(scale2).sub(timeOffset.mul(0.2));
+            const ay2 = ny.mul(scale2).add(timeOffset.mul(0.15));
+            const flowX2 = mx_noise_float(vec2(ax2, ay2)).mul(0.5);
+            const flowY2 = mx_noise_float(vec2(ax2.add(100.0), ay2.add(100.0))).mul(0.5);
+
+            // Fine detail (small-scale)
+            const ax3 = nx.mul(scale3).add(timeOffset.mul(0.3));
+            const ay3 = ny.mul(scale3).sub(timeOffset.mul(0.1));
+            const flowX3 = mx_noise_float(vec2(ax3, ay3)).mul(0.25);
+            const flowY3 = mx_noise_float(vec2(ax3.add(100.0), ay3.add(100.0))).mul(0.25);
+
+            // Combine octaves
+            let windX = flowX1.add(flowX2).add(flowX3).div(1.75);
+            let windZ = flowY1.add(flowY2).add(flowY3).div(1.75);
+
+            // Apply base wind direction influence
+            const dirInfluence = float(0.7); // How much base direction affects the wind
+            windX = windX.mul(float(1.0).sub(dirInfluence)).add(this.uWindDirection.x.mul(dirInfluence));
+            windZ = windZ.mul(float(1.0).sub(dirInfluence)).add(this.uWindDirection.y.mul(dirInfluence));
+
+            // Calculate gust intensity
+            const gustPhase = nx.mul(2.0).add(ny.mul(1.5)).add(timeOffset.mul(this.uGustFreq));
+            const gust = sin(gustPhase).add(1.0).mul(0.5); // 0 to 1
+            const gustSharp = gust.pow(3.0).mul(this.uGustStrength);
+
+            // Apply gust to wind strength
+            const gustMultiplier = float(1.0).add(gustSharp);
+            windX = windX.mul(gustMultiplier).mul(this.uWindSpeed);
+            windZ = windZ.mul(gustMultiplier).mul(this.uWindSpeed);
+
+            // Store in texture (RGBA)
+            const outColor = vec4(windX, windZ, gustSharp, 0.0);
+
+            // Convert x, y back to int coordinates for textureStore
+            const ivec2_coords = ivec2(x, y);
+            textureStore(this.windTexture as StorageTexture, ivec2_coords, outColor);
+        });
+
+        // Dispatch one thread per pixel
+        this._computeNode = computeWind().compute(WIND_TEXTURE_SIZE * WIND_TEXTURE_SIZE);
+    }
+
+    /**
+     * Get the compute node to be dispatched by the renderer
+     */
+    getComputeNode() {
+        return this._computeNode;
     }
     
     /**
      * Get the wind texture for use in TSL shaders
      */
-    getWindTexture(): DataTexture {
+    getWindTexture(): THREE.Texture {
         return this.windTexture;
     }
     
     /**
      * Get shader uniforms for binding to materials
      */
-    getUniforms(): { windTexture: DataTexture; windParams: Vector4; windSpeed: number } {
+    getUniforms(): { windTexture: THREE.Texture; windParams: Vector4; windSpeed: number } {
         return {
             windTexture: this.windTexture,
             windParams: this.windParams,
@@ -137,7 +194,7 @@ export class WindComputeSystem {
     }
     
     /**
-     * Update the wind simulation
+     * Update the wind simulation parameters
      * Call this once per frame with deltaTime in seconds
      */
     update(deltaTime: number): void {
@@ -153,10 +210,14 @@ export class WindComputeSystem {
             Math.sin(this.config.directionAngle + directionOscillation)
         );
         
-        // Update partial texture (row-by-row for performance)
-        this.updatePartialTexture(deltaTime);
+        // Update uniforms for the compute shader
+        this.uTime.value = this.timeAccumulator;
+        this.uWindSpeed.value = this.config.baseSpeed;
+        this.uWindDirection.value.copy(this.currentDirection);
+        this.uGustFreq.value = this.config.gustFrequency;
+        this.uGustStrength.value = this.config.gustStrength;
         
-        // Update wind params uniform
+        // Update wind params uniform for materials
         this.windParams.set(
             this.config.baseSpeed,
             this.timeAccumulator,
@@ -173,20 +234,21 @@ export class WindComputeSystem {
     /**
      * Get wind vector at a specific world position and time
      * Use this for CPU-side calculations (e.g., particle effects)
+     * NOTE: Since texture is on GPU, we emulate the base noise on CPU for immediate reads
+     * if required by physics. This provides a fast approximation.
      */
     getWindAt(x: number, z: number, time: number = this.timeAccumulator): Vector2 {
-        // Normalize position to texture coordinates with tiling
-        const u = ((x * this.config.turbulenceScale) % 1 + 1) % 1;
-        const v = ((z * this.config.turbulenceScale + time * 0.05) % 1 + 1) % 1;
+        // Approximate the wind direction and speed for CPU side effects
+        // Full noise is calculated on GPU, so we use a simplified version here
+        const gustPhase = (x * 0.01) * 2 + (z * 0.01) * 1.5 + (time * 0.1) * this.config.gustFrequency;
+        const gust = (Math.sin(gustPhase) + 1) * 0.5; // 0 to 1
+        const gustSharp = Math.pow(gust, 3) * this.config.gustStrength;
         
-        // Sample texture
-        const pixelX = Math.floor(u * (WIND_TEXTURE_SIZE - 1));
-        const pixelY = Math.floor(v * (WIND_TEXTURE_SIZE - 1));
-        const index = (pixelY * WIND_TEXTURE_SIZE + pixelX) * WIND_TEXTURE_CHANNELS;
+        const gustMultiplier = 1.0 + gustSharp;
         
         return new Vector2(
-            this.textureData[index],     // R: wind X
-            this.textureData[index + 1]  // G: wind Z
+            this.currentDirection.x * gustMultiplier * this.config.baseSpeed,
+            this.currentDirection.y * gustMultiplier * this.config.baseSpeed
         );
     }
     
@@ -244,157 +306,6 @@ export class WindComputeSystem {
     dispose(): void {
         this.windTexture.dispose();
     }
-    
-    /**
-     * Generate the full wind texture (called on initialization)
-     * Uses multi-octave noise for natural-looking wind patterns
-     */
-    private generateFullTexture(): void {
-        const size = WIND_TEXTURE_SIZE;
-        const data = this.textureData;
-        
-        for (let y = 0; y < size; y++) {
-            for (let x = 0; x < size; x++) {
-                this.computeWindPixel(x, y, data, 0);
-            }
-        }
-        
-        this.windTexture.needsUpdate = true;
-    }
-    
-    /**
-     * Update only a portion of the texture each frame for performance
-     * Uses a sliding window approach - updates 'rowsPerFrame' rows each frame
-     */
-    private updatePartialTexture(deltaTime: number): void {
-        const size = WIND_TEXTURE_SIZE;
-        const data = this.textureData;
-        const timeOffset = this.timeAccumulator * 0.1; // Time-based offset for animation
-        
-        // Update rows in a sliding window
-        for (let i = 0; i < this.rowsPerFrame; i++) {
-            const y = (this.updateRow + i) % size;
-            
-            for (let x = 0; x < size; x++) {
-                this.computeWindPixel(x, y, data, timeOffset);
-            }
-        }
-        
-        // Advance update position
-        this.updateRow = (this.updateRow + this.rowsPerFrame) % size;
-        
-        // Mark texture for update
-        this.windTexture.needsUpdate = true;
-    }
-    
-    /**
-     * Compute wind vector for a single pixel
-     * Uses simplex-like noise for smooth, tileable patterns
-     */
-    private computeWindPixel(x: number, y: number, data: Float32Array, timeOffset: number): void {
-        const size = WIND_TEXTURE_SIZE;
-        const index = (y * size + x) * WIND_TEXTURE_CHANNELS;
-        
-        // Normalized coordinates
-        const nx = x / size;
-        const ny = y / size;
-        
-        // Multi-octave noise for natural wind patterns
-        const scale1 = 1.0;
-        const scale2 = 2.0;
-        const scale3 = 4.0;
-        
-        // Animated coordinates
-        const ax = nx * scale1 + timeOffset * 0.1;
-        const ay = ny * scale1 + timeOffset * 0.05;
-        
-        // Primary wind flow (large-scale)
-        const flowX1 = this.noise(ax, ay);
-        const flowY1 = this.noise(ax + 100, ay + 100);
-        
-        // Secondary turbulence (medium-scale)
-        const ax2 = nx * scale2 - timeOffset * 0.2;
-        const ay2 = ny * scale2 + timeOffset * 0.15;
-        const flowX2 = this.noise(ax2, ay2) * 0.5;
-        const flowY2 = this.noise(ax2 + 100, ay2 + 100) * 0.5;
-        
-        // Fine detail (small-scale)
-        const ax3 = nx * scale3 + timeOffset * 0.3;
-        const ay3 = ny * scale3 - timeOffset * 0.1;
-        const flowX3 = this.noise(ax3, ay3) * 0.25;
-        const flowY3 = this.noise(ax3 + 100, ay3 + 100) * 0.25;
-        
-        // Combine octaves
-        let windX = (flowX1 + flowX2 + flowX3) / 1.75;
-        let windZ = (flowY1 + flowY2 + flowY3) / 1.75;
-        
-        // Apply base wind direction influence
-        const dirInfluence = 0.7; // How much base direction affects the wind
-        windX = windX * (1 - dirInfluence) + this.currentDirection.x * dirInfluence;
-        windZ = windZ * (1 - dirInfluence) + this.currentDirection.y * dirInfluence;
-        
-        // Calculate gust intensity
-        const gustPhase = nx * 2 + ny * 1.5 + timeOffset * this.config.gustFrequency;
-        const gust = (Math.sin(gustPhase) + 1) * 0.5; // 0 to 1
-        const gustSharp = Math.pow(gust, 3) * this.config.gustStrength;
-        
-        // Apply gust to wind strength
-        const gustMultiplier = 1 + gustSharp;
-        windX *= gustMultiplier * this.config.baseSpeed;
-        windZ *= gustMultiplier * this.config.baseSpeed;
-        
-        // Store in texture
-        data[index] = windX;         // R: Wind X
-        data[index + 1] = windZ;     // G: Wind Z
-        data[index + 2] = gustSharp; // B: Gust intensity
-        data[index + 3] = 0;         // A: Reserved
-    }
-    
-    /**
-     * Simple 2D noise function (value noise with smooth interpolation)
-     * Provides tileable, smooth random values
-     */
-    private noise(x: number, y: number): number {
-        // Integer coordinates
-        const ix = Math.floor(x);
-        const iy = Math.floor(y);
-        
-        // Fractional part
-        const fx = x - ix;
-        const fy = y - iy;
-        
-        // Smoothstep interpolation
-        const u = fx * fx * (3 - 2 * fx);
-        const v = fy * fy * (3 - 2 * fy);
-        
-        // Hash function for pseudo-random values
-        const h00 = this.hash(ix, iy);
-        const h10 = this.hash(ix + 1, iy);
-        const h01 = this.hash(ix, iy + 1);
-        const h11 = this.hash(ix + 1, iy + 1);
-        
-        // Bilinear interpolation
-        return this.lerp(
-            this.lerp(h00, h10, u),
-            this.lerp(h01, h11, u),
-            v
-        );
-    }
-    
-    /**
-     * 2D hash function for noise generation
-     */
-    private hash(x: number, y: number): number {
-        let n = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
-        return (n - Math.floor(n)) * 2 - 1; // -1 to 1
-    }
-    
-    /**
-     * Linear interpolation
-     */
-    private lerp(a: number, b: number, t: number): number {
-        return a + (b - a) * t;
-    }
 }
 
 /**
@@ -416,7 +327,7 @@ export const windComputeSystem = new WindComputeSystem();
  * ```
  */
 export function getWindTextureData(): {
-    texture: DataTexture;
+    texture: THREE.Texture;
     params: Vector4;
     sampleScale: number;
 } {
