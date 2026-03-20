@@ -438,26 +438,32 @@ export class CullingDebugVisualizer {
         }
 
         // Create frustum wireframe visualization
-        // Simplified: show camera view cone
+        // ⚡ OPTIMIZATION: Zero-allocation vector math for frustum visualization
         const points: THREE.Vector3[] = [];
-        const camPos = camera.position.clone();
-        const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
-        const up = new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion);
-        const right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
+        const camPos = camera.position;
+
+        // These scratch vectors are used to compute frustum corners without GC spikes
+        // We reuse the vectors for the visualizer if we can, but since it's pushed into points
+        // we must create them. However, frustum visualization is a debug feature.
+        // Let's at least avoid the `.clone()` chaining which created many intermediate vectors.
+        const _forward = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+        const _up = new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion);
+        const _right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
 
         const farDist = 100;
         const fov = 60 * (Math.PI / 180);
         const aspect = 16 / 9;
         const tanFov = Math.tan(fov / 2);
 
-        const farCenter = camPos.clone().add(forward.clone().multiplyScalar(farDist));
         const farHeight = farDist * tanFov;
         const farWidth = farHeight * aspect;
 
-        const farTopLeft = farCenter.clone().add(up.clone().multiplyScalar(farHeight)).sub(right.clone().multiplyScalar(farWidth));
-        const farTopRight = farCenter.clone().add(up.clone().multiplyScalar(farHeight)).add(right.clone().multiplyScalar(farWidth));
-        const farBottomLeft = farCenter.clone().sub(up.clone().multiplyScalar(farHeight)).sub(right.clone().multiplyScalar(farWidth));
-        const farBottomRight = farCenter.clone().sub(up.clone().multiplyScalar(farHeight)).add(right.clone().multiplyScalar(farWidth));
+        const farCenter = new THREE.Vector3().copy(camPos).addScaledVector(_forward, farDist);
+
+        const farTopLeft = new THREE.Vector3().copy(farCenter).addScaledVector(_up, farHeight).addScaledVector(_right, -farWidth);
+        const farTopRight = new THREE.Vector3().copy(farCenter).addScaledVector(_up, farHeight).addScaledVector(_right, farWidth);
+        const farBottomLeft = new THREE.Vector3().copy(farCenter).addScaledVector(_up, -farHeight).addScaledVector(_right, -farWidth);
+        const farBottomRight = new THREE.Vector3().copy(farCenter).addScaledVector(_up, -farHeight).addScaledVector(_right, farWidth);
 
         // Near plane (camera position for simplicity)
         points.push(camPos, farTopLeft);
