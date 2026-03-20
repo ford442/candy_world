@@ -17,6 +17,8 @@
 
 ## Recent Progress
 - **Accomplished:**
+  - **WebGPU Migration (Phase 4): Wind Computation System (WebGPU Compute Shader)**: **Status: Implemented ✅**
+    - *Implementation Details:* Migrated `WindComputeSystem` from a CPU-based 2D noise generator that partially updated a `Float32Array` into a fully TSL-driven WebGPU Compute Shader writing to a `StorageTexture`. All pixels (256x256) update simultaneously per frame. Rewrote noise and gust formulas with `mx_noise_float` and math nodes. Interfaced compute dispatch directly into `src/main.ts`'s render loop.
   - **Category 6: Melody Lake Island**: **Status: Implemented ✅**
     - *Implementation Details:* Ensured the island is fully interactive by making the central Retrigger Mushroom harvestable. Added logic in `src/world/generation.ts` to wrap it with `makeInteractive`, allowing players to harvest a "Lake Core". Added the `island_scholar` unlock definition in `src/systems/unlocks.ts`.
   - **Category 1: Retrigger Mushrooms (Strobe Sickness)**: **Status: Implemented ✅**
