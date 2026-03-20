@@ -106,7 +106,9 @@ class ProjectilePool {
             this.mesh.setMatrixAt(i, this.dummy.matrix);
 
             // Set initial white
-            this.mesh.setColorAt(i, new THREE.Color(0xFFFFFF));
+            // ⚡ OPTIMIZATION: Reuse color
+            this.color.setHex(0xFFFFFF);
+            this.mesh.setColorAt(i, this.color);
         }
     }
 
@@ -307,7 +309,9 @@ class ProjectilePool {
     knockDownCloudMist(cloud: any) {
         if (cloud.userData.isFalling) return;
         cloud.userData.isFalling = true;
-        // ⚡ OPTIMIZATION: Reuse vector
+
+        // ⚡ OPTIMIZATION: Reuse vector. Assume cloud.userData.velocity exists since it's pre-allocated in createCloud.
+        // If not, fall back safely.
         if (!cloud.userData.velocity) cloud.userData.velocity = new THREE.Vector3();
         cloud.userData.velocity.set(0, -5.0, 0);
 
