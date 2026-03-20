@@ -5,6 +5,7 @@ import '../style.css';
 import { uWindSpeed, uWindDirection, uSkyTopColor, uSkyBottomColor, uHorizonColor, uAtmosphereIntensity, uStarOpacity, uAuroraIntensity, uAuroraColor, uAudioLow, uAudioHigh, uGlitchIntensity, uChromaticIntensity, uTime, uPlayerPosition, createAurora, createChromaticPulse, createStrobePulse, uStrobeIntensity, animateFoliage, updateFoliageMaterials, updateFallingBerries, collectFallingBerries, createMushroom, validateNodeGeometries, createMelodyRibbon, updateMelodyRibbons, createSparkleTrail, updateSparkleTrail, createImpactSystem, createShield, createDandelionSeedSystem, createDiscoveryEffect } from './foliage/index.ts';
 import { initCelestialBodies } from './foliage/celestial-bodies.ts';
 import { InteractionSystem } from './systems/interaction.ts';
+import { windComputeSystem } from './foliage/wind-compute.ts';
 import { unlockSystem } from './systems/unlocks.ts';
 import { musicReactivitySystem } from './systems/music-reactivity.ts';
 import { fluidSystem } from './systems/fluid_system.ts';
@@ -650,6 +651,11 @@ function animate() {
         if (isDeepNight && fireflies.userData.computeNode) {
             renderer.compute(fireflies.userData.computeNode);
         }
+    }
+
+    // Update WebGPU compute nodes
+    if (windComputeSystem.getComputeNode()) {
+        renderer.compute(windComputeSystem.getComputeNode());
     }
 
     profiler.measure('Physics', () => {
