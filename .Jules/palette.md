@@ -39,3 +39,7 @@ Matte clay materials need a strong directional light to show form.
 ## 2026-03-09 - Make custom UI toggles semantic and keyboard accessible
 **Learning:** Custom UI toggles built with `div` elements and purely visual CSS classes (like `.candy-toggle--active`) are completely invisible to screen readers and inaccessible via keyboard navigation. They lack a semantic role, an interactive state, and an accessible name.
 **Action:** Always refactor custom `div` toggles into `<button type="button" role="switch">` elements. Bind their active state to `aria-checked` dynamically, link them to a visible label using `aria-labelledby`, and ensure `.focus-visible` styles are present for keyboard users.
+
+## 2026-03-10 - ARIA Labels on Template-Generated Form Controls
+**Learning:** Dynamically generated form controls inside template strings (like `<select>` or `<input type="range">`) are often missing `aria-labelledby` mappings to their descriptive label spans. This causes screen reader context loss as the visual label is not programmatically associated with the input.
+**Action:** Always ensure template-generated inputs include `aria-labelledby` attributes that point to explicit `id`s on their corresponding label elements.

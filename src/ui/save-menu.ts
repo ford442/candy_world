@@ -901,9 +901,9 @@ export class SaveMenu {
             <div class="candy-settings-group">
                 <div class="candy-settings-group__title"><span aria-hidden="true">🎮</span> Graphics</div>
                 <div class="candy-settings-row">
-                    <span class="candy-settings-row__label">Quality</span>
+                    <span class="candy-settings-row__label" id="setting-label-graphicsQuality">Quality</span>
                     <div class="candy-settings-row__control">
-                        <select class="candy-select" data-setting="graphicsQuality">
+                        <select class="candy-select" data-setting="graphicsQuality" aria-labelledby="setting-label-graphicsQuality">
                             ${['low', 'medium', 'high', 'ultra'].map(q => `
                                 <option value="${q}" ${s.graphicsQuality === q ? 'selected' : ''}>${q.charAt(0).toUpperCase() + q.slice(1)}</option>
                             `).join('')}
@@ -911,17 +911,17 @@ export class SaveMenu {
                     </div>
                 </div>
                 <div class="candy-settings-row">
-                    <span class="candy-settings-row__label">Draw Distance</span>
+                    <span class="candy-settings-row__label" id="setting-label-drawDistance">Draw Distance</span>
                     <div class="candy-settings-row__control">
                         <span class="candy-settings-row__value">${s.drawDistance}m</span>
-                        <input type="range" class="candy-slider" min="50" max="500" value="${s.drawDistance}" data-setting="drawDistance">
+                        <input type="range" class="candy-slider" min="50" max="500" value="${s.drawDistance}" data-setting="drawDistance" aria-labelledby="setting-label-drawDistance">
                     </div>
                 </div>
                 <div class="candy-settings-row">
-                    <span class="candy-settings-row__label">Field of View</span>
+                    <span class="candy-settings-row__label" id="setting-label-fov">Field of View</span>
                     <div class="candy-settings-row__control">
                         <span class="candy-settings-row__value">${s.fov}°</span>
-                        <input type="range" class="candy-slider" min="60" max="120" value="${s.fov}" data-setting="fov">
+                        <input type="range" class="candy-slider" min="60" max="120" value="${s.fov}" data-setting="fov" aria-labelledby="setting-label-fov">
                     </div>
                 </div>
                 <div class="candy-settings-row">
@@ -945,24 +945,24 @@ export class SaveMenu {
             <div class="candy-settings-group">
                 <div class="candy-settings-group__title"><span aria-hidden="true">🔊</span> Audio</div>
                 <div class="candy-settings-row">
-                    <span class="candy-settings-row__label">Master Volume</span>
+                    <span class="candy-settings-row__label" id="setting-label-audioVolume">Master Volume</span>
                     <div class="candy-settings-row__control">
                         <span class="candy-settings-row__value">${Math.round(s.audioVolume * 100)}%</span>
-                        <input type="range" class="candy-slider" min="0" max="100" value="${Math.round(s.audioVolume * 100)}" data-setting="audioVolume">
+                        <input type="range" class="candy-slider" min="0" max="100" value="${Math.round(s.audioVolume * 100)}" data-setting="audioVolume" aria-labelledby="setting-label-audioVolume">
                     </div>
                 </div>
                 <div class="candy-settings-row">
-                    <span class="candy-settings-row__label">Music Volume</span>
+                    <span class="candy-settings-row__label" id="setting-label-musicVolume">Music Volume</span>
                     <div class="candy-settings-row__control">
                         <span class="candy-settings-row__value">${Math.round(s.musicVolume * 100)}%</span>
-                        <input type="range" class="candy-slider" min="0" max="100" value="${Math.round(s.musicVolume * 100)}" data-setting="musicVolume">
+                        <input type="range" class="candy-slider" min="0" max="100" value="${Math.round(s.musicVolume * 100)}" data-setting="musicVolume" aria-labelledby="setting-label-musicVolume">
                     </div>
                 </div>
                 <div class="candy-settings-row">
-                    <span class="candy-settings-row__label">SFX Volume</span>
+                    <span class="candy-settings-row__label" id="setting-label-sfxVolume">SFX Volume</span>
                     <div class="candy-settings-row__control">
                         <span class="candy-settings-row__value">${Math.round(s.sfxVolume * 100)}%</span>
-                        <input type="range" class="candy-slider" min="0" max="100" value="${Math.round(s.sfxVolume * 100)}" data-setting="sfxVolume">
+                        <input type="range" class="candy-slider" min="0" max="100" value="${Math.round(s.sfxVolume * 100)}" data-setting="sfxVolume" aria-labelledby="setting-label-sfxVolume">
                     </div>
                 </div>
             </div>
@@ -971,10 +971,10 @@ export class SaveMenu {
                 <div class="candy-settings-group__title"><span aria-hidden="true">⌨️</span> Key Bindings (Click to change)</div>
                 ${Object.entries(s.keyBindings).map(([action, key]) => `
                     <div class="candy-settings-row">
-                        <span class="candy-settings-row__label">${this.formatKeybindAction(action)}</span>
+                        <span class="candy-settings-row__label" id="setting-label-keybind-${action}">${this.formatKeybindAction(action)}</span>
                         <div class="candy-settings-row__control">
                             <button class="candy-keybind ${this.listeningKeybind === action ? 'candy-keybind--listening' : ''}"
-                                    data-keybind="${action}">
+                                    data-keybind="${action}" aria-labelledby="setting-label-keybind-${action}">
                                 ${this.formatKey(key)}
                             </button>
                         </div>
@@ -996,8 +996,8 @@ export class SaveMenu {
     private renderImportExportTab(): string {
         return `
             <div class="candy-io-area">
-                <div class="candy-io-area__label">Export Save Data</div>
-                <textarea class="candy-textarea" id="export-area" placeholder="Exported save data will appear here..."></textarea>
+                <div class="candy-io-area__label" id="export-label">Export Save Data</div>
+                <textarea class="candy-textarea" id="export-area" placeholder="Exported save data will appear here..." aria-labelledby="export-label"></textarea>
                 <div class="candy-save-menu__actions" style="margin-top: 15px;">
                     <button class="candy-save-menu__btn candy-save-menu__btn--secondary" data-action="export-current">
                         <span aria-hidden="true">📋</span> Export Current
@@ -1015,8 +1015,8 @@ export class SaveMenu {
             </div>
             
             <div class="candy-io-area">
-                <div class="candy-io-area__label">Import Save Data</div>
-                <textarea class="candy-textarea" id="import-area" placeholder="Paste save data here or upload a file..."></textarea>
+                <div class="candy-io-area__label" id="import-label">Import Save Data</div>
+                <textarea class="candy-textarea" id="import-area" placeholder="Paste save data here or upload a file..." aria-labelledby="import-label"></textarea>
                 <div class="candy-save-menu__actions" style="margin-top: 15px;">
                     <input type="file" class="candy-file-input" id="import-file" accept=".json,.txt">
                     <label for="import-file" class="candy-file-label"><span aria-hidden="true">📁</span> Choose File</label>
