@@ -1,6 +1,7 @@
 // src/foliage/flowers.ts
 
 import * as THREE from 'three';
+import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { 
     foliageMaterials, 
