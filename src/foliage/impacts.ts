@@ -106,10 +106,23 @@ export function createImpactSystem(): THREE.InstancedMesh {
     const rotationAngle = age.mul(spinSpeed);
     const rotatedLocal = rotate(positionLocal, normalize(rotAxis), rotationAngle);
 
-    // 3. Scaling (Pop in, Shrink out)
-    const scale = sizeAttr.mul(float(1.0).sub(lifeProgress));
+    // 3. Scaling (Pop in with Elastic Overshoot, Shrink out)
+    // 🎨 PALETTE: Make particles pop in fast, overshoot, and slowly shrink
+    const popIn = smoothstep(0.0, 0.15, lifeProgress); // 0 -> 1 very quickly
+    const fadeOut = float(1.0).sub(smoothstep(0.15, 1.0, lifeProgress)); // 1 -> 0 slowly
+
+    // Elastic bounce: sin(t * freq) * decay
+    // We want the bounce to happen right after popIn
+    const bouncePhase = lifeProgress.mul(Math.PI * 8.0);
+    const bounceDecay = float(1.0).sub(lifeProgress).pow(4.0);
+    const elasticBounce = sin(bouncePhase).mul(bounceDecay).mul(0.4); // Max 40% overshoot
+
+    // Combine base size, pop, fade, and bounce
+    const baseScale = popIn.mul(fadeOut);
+    const finalScale = sizeAttr.mul(baseScale.add(elasticBounce).max(0.0));
+
     // Apply scale to rotated local vertex
-    const scaledLocal = rotatedLocal.mul(scale);
+    const scaledLocal = rotatedLocal.mul(finalScale);
 
     // Final Position Node
     // This OVERRIDES the default vertex position logic, effectively ignoring the 
