@@ -790,8 +790,23 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
         player.isGrounded = (onGround === 1);
 
         if (!wasGrounded && player.isGrounded && player.velocity.y < -1.0) {
-            spawnImpact(player.position, 'land');
-            if (uChromaticIntensity) uChromaticIntensity.value = 0.5;
+            // 🎨 PALETTE: Make landing feedback dynamic based on fall velocity
+            const fallSpeed = Math.abs(player.velocity.y);
+
+            if (fallSpeed > 15.0) {
+                // Hard fall -> Big splash, heavy screen distortion
+                spawnImpact(player.position, 'land');
+                spawnImpact(player.position, 'dash'); // Extra particles
+                if (uChromaticIntensity) uChromaticIntensity.value = 0.8;
+            } else if (fallSpeed > 8.0) {
+                // Medium fall
+                spawnImpact(player.position, 'land');
+                if (uChromaticIntensity) uChromaticIntensity.value = 0.5;
+            } else {
+                // Soft landing
+                spawnImpact(player.position, 'jump'); // Lighter particle burst
+                if (uChromaticIntensity) uChromaticIntensity.value = 0.2;
+            }
         }
     } else {
         // JS Fallback (Used for Lake Basin or C++ Failure)
@@ -1198,8 +1213,20 @@ function updateJSFallbackMovement(delta: number, camera: THREE.Camera, controls:
         player.isGrounded = true;
 
         if (!wasGrounded) {
-             spawnImpact(player.position, 'land');
-             if (uChromaticIntensity) uChromaticIntensity.value = 0.5;
+             // 🎨 PALETTE: Make JS fallback landing feedback dynamic based on fall velocity too
+             const fallSpeed = Math.abs(player.velocity.y);
+
+             if (fallSpeed > 15.0) {
+                 spawnImpact(player.position, 'land');
+                 spawnImpact(player.position, 'dash');
+                 if (uChromaticIntensity) uChromaticIntensity.value = 0.8;
+             } else if (fallSpeed > 8.0) {
+                 spawnImpact(player.position, 'land');
+                 if (uChromaticIntensity) uChromaticIntensity.value = 0.5;
+             } else {
+                 spawnImpact(player.position, 'jump');
+                 if (uChromaticIntensity) uChromaticIntensity.value = 0.2;
+             }
         }
     } else {
         player.isGrounded = false;
