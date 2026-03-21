@@ -13,6 +13,7 @@ export interface KeyStates {
     sneak: boolean;
     sprint: boolean;
     dash: boolean;
+    dodgeRoll: boolean;
     dance: boolean;
     action: boolean;
     phase: boolean;
@@ -28,6 +29,7 @@ export const keyStates: KeyStates = {
     sneak: false,
     sprint: false,
     dash: false,
+    dodgeRoll: false,
     dance: false,
     action: false,
     phase: false,
@@ -693,6 +695,10 @@ export function initInput(
                 keyStates.dash = true;
                 if (hudDash) hudDash.classList.add('pressed');
                 break; // Dash Ability
+            case 'KeyX':
+            case 'x':
+                keyStates.dodgeRoll = true;
+                break; // Dodge Roll Ability
             case 'KeyZ':
             case 'z':
                 keyStates.phase = true;
@@ -769,6 +775,10 @@ export function initInput(
             case 'e':
                 keyStates.dash = false;
                 if (hudDash) hudDash.classList.remove('pressed');
+                break;
+            case 'KeyX':
+            case 'x':
+                keyStates.dodgeRoll = false;
                 break;
             case 'KeyZ':
             case 'z':
