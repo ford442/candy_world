@@ -46,6 +46,8 @@ export interface PlayerExtended extends CorePlayerState {
     airJumpsLeft: number;
     dashCooldown: number;
     canDash: boolean;
+    dodgeRollCooldown: number;
+    canDodgeRoll: boolean;
     isDancing: boolean;
     danceTime: number;
     danceStartPos?: THREE.Vector3;
@@ -94,6 +96,8 @@ export const player: PlayerExtended = {
     airJumpsLeft: 1,
     dashCooldown: 0.0,
     canDash: true,
+    dodgeRollCooldown: 0.0,
+    canDodgeRoll: true,
     isDancing: false,
     danceTime: 0.0,
     hasShield: false,
@@ -116,6 +120,7 @@ export const player: PlayerExtended = {
 const _lastInputState = {
     jump: false,
     dash: false,
+    dodgeRoll: false,
     dance: false,
     phase: false,
     clap: false
@@ -230,6 +235,7 @@ export function updatePhysics(delta: number, camera: THREE.Camera, controls: any
     // 4. Update Input History (for next frame edge detection)
     _lastInputState.jump = keyStates.jump;
     _lastInputState.dash = keyStates.dash;
+    _lastInputState.dodgeRoll = keyStates.dodgeRoll;
     _lastInputState.dance = keyStates.dance;
     _lastInputState.phase = keyStates.phase;
     _lastInputState.clap = keyStates.clap;
@@ -552,6 +558,9 @@ function handleAbilities(delta: number, camera: THREE.Camera, keyStates: KeyStat
     if (player.dashCooldown > 0) {
         player.dashCooldown -= delta;
     }
+    if (player.dodgeRollCooldown > 0) {
+        player.dodgeRollCooldown -= delta;
+    }
 
     // 2. Ground Reset
     if (player.isGrounded) {
@@ -613,6 +622,38 @@ function handleAbilities(delta: number, camera: THREE.Camera, keyStates: KeyStat
         }
 
         discoverySystem.discover('ability_dash', 'Dash', '💨');
+    }
+
+    // 4.5 Dodge Roll
+    // Trigger on Rising Edge of Dodge Roll Key AND Cooldown Ready
+    const isDodgeRollPressed = keyStates.dodgeRoll;
+    const isDodgeRollTriggered = isDodgeRollPressed && !_lastInputState.dodgeRoll;
+
+    if (isDodgeRollTriggered && player.dodgeRollCooldown <= 0) {
+        // Calculate Direction
+        camera.getWorldDirection(_scratchCamDir);
+        _scratchCamDir.y = 0;
+        _scratchCamDir.normalize();
+
+        // Apply Impulse
+        player.velocity.addScaledVector(_scratchCamDir, 35.0);
+        if (!player.isGrounded) {
+            player.velocity.y = 0;
+        }
+
+        // Grant short invulnerability window
+        player.isPhasing = true;
+        player.phaseTimer = 0.5;
+
+        player.dodgeRollCooldown = 1.5; // 1.5 Second Cooldown
+
+        // Visual Feedback
+        spawnImpact(player.position, 'dash');
+        if (uChromaticIntensity) {
+            uChromaticIntensity.value = 0.6;
+        }
+
+        discoverySystem.discover('ability_dodge_roll', 'Dodge Roll', '🌪️');
     }
 
     // 5. Sonic Clap

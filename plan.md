@@ -10,13 +10,16 @@
 
 ## Next Steps
 
-1. **Phase 4 (Three.js -> WebGPU)**: Raw compute and render pipelines. Begin migrating custom render passes.
-2. **Phase 3 (ASC -> C++): Fluid Simulation**: Polish the stable fluids solver and WebGPU integration.
+1. **Category 3: Atmospheric & World**: Implement Groove Boots or BPM Wind Anchor from the Musical Ecosystem.
+2. **Phase 4 (Three.js -> WebGPU)**: Raw compute and render pipelines. Begin migrating custom render passes.
+3. **Phase 3 (ASC -> C++): Fluid Simulation**: Polish the stable fluids solver and WebGPU integration.
 
 ---
 
 ## Recent Progress
 - **Accomplished:**
+  - **Dodge Roll Ability**: **Status: Implemented ✅**
+    - *Implementation Details:* Implemented Dodge Roll bound to the 'X' key, granting temporary intangibility (via isPhasing) and a forward velocity impulse. Added 'ability_dodge_roll' discovery log.
   - **WebGPU Migration (Phase 4): Wind Computation System (WebGPU Compute Shader)**: **Status: Implemented ✅**
     - *Implementation Details:* Migrated `WindComputeSystem` from a CPU-based 2D noise generator that partially updated a `Float32Array` into a fully TSL-driven WebGPU Compute Shader writing to a `StorageTexture`. All pixels (256x256) update simultaneously per frame. Rewrote noise and gust formulas with `mx_noise_float` and math nodes. Interfaced compute dispatch directly into `src/main.ts`'s render loop.
   - **Category 6: Melody Lake Island**: **Status: Implemented ✅**
@@ -203,6 +206,8 @@
       - **Double Jump:** Allows one extra jump in mid-air (reset on ground). Triggers `ability_double_jump` discovery.
       - **Dash:** Instant velocity boost in camera direction (mapped to 'E'). Cooldown 1s. Triggers `ability_dash` discovery.
       - **Visuals:** Triggers a chromatic aberration pulse (`uChromaticIntensity`) on use.
+  - [x] Dodge Roll Ability
+    - *Implementation Details:* Bound to the 'X' key, granting temporary intangibility (via isPhasing) and a forward velocity impulse.
   - [x] Phase Shift Ability & Tremolo Harvesting
     - *Implementation Details:* Implemented `Phase Shift` ability (invulnerability/speed boost) in `src/systems/physics.ts` triggered by 'Z' key. Requires and consumes 'Tremolo Bulb'. Added harvesting logic to `Tremolo Tulips` in `src/foliage/flowers.ts`.
   - [x] Cymbal Dandelion Harvesting & Explosion
