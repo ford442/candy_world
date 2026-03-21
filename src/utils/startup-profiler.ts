@@ -135,7 +135,7 @@ let originalConsoleTimeEnd: typeof console.timeEnd;
 let originalConsoleLog: typeof console.log;
 
 // InstancedMesh constructor tracking
-// let originalInstancedMesh: typeof THREE.InstancedMesh;
+let originalInstancedMesh: typeof THREE.InstancedMesh;
 
 // ============================================================================
 // Memory Utilities
