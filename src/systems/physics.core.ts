@@ -29,6 +29,7 @@ export interface KeyStates {
     sprint: boolean;
     sneak: boolean;
     dash: boolean;
+    dodgeRoll: boolean;
     dance: boolean;
     action: boolean;
     phase: boolean;
