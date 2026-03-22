@@ -780,7 +780,23 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
         }
     }
 
-    const { moveVec: moveInput, moveSpeed } = calculateMovementInput(camera, keyStates, player);
+    const { moveVec: moveInput, moveSpeed: baseMoveSpeed } = calculateMovementInput(camera, keyStates, player);
+    let moveSpeed = baseMoveSpeed;
+
+    // --- Groove Boots Logic ---
+    const hasGrooveBoots = unlockSystem.isUnlocked('groove_boots');
+    // If we have groove boots AND groove gravity is significantly active (< 0.95)
+    if (hasGrooveBoots && grooveGravity.multiplier < 0.95) {
+        // Boost speed based on how strong the groove is (lower multiplier = stronger groove)
+        const grooveBoost = 1.0 + (1.0 - grooveGravity.multiplier); // e.g., 0.8 -> 1.2x speed
+        moveSpeed *= grooveBoost;
+
+        // Visual/Audio Feedback could be added here periodically or when moving fast
+        if (player.isGrounded && moveInput.lengthSq() > 0 && Math.random() < 0.05) {
+             spawnImpact(player.position, 'dash'); // Sparkles at feet
+        }
+        discoverySystem.discover('groove_boots', 'Groove Boots', '🥾');
+    }
 
     // 🎨 Palette: Sparkle trail when moving fast (Dash / Sprint / Fall)
     if (player.velocity.lengthSq() > 400 && Math.random() < 0.3) {
@@ -802,6 +818,20 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
     // Prevent C++ from applying jump force if we are doing an Air Jump (which isn't grounded)
     const effectiveJumpInput = (player.isGrounded && keyStates.jump) ? 1 : 0;
 
+    // --- BPM Wind Player Impact ---
+    const hasWindAnchor = unlockSystem.isUnlocked('wind_anchor');
+    let windForceX = 0;
+    let windForceZ = 0;
+    if (!hasWindAnchor && bpmWind.strength > 0) {
+        // Apply wind force scaled by strength
+        // The strength ranges [0, 1]. Apply a constant push velocity.
+        const windPushForce = 25.0; // units/sec max
+        windForceX = bpmWind.direction.x * bpmWind.strength * windPushForce * delta;
+        windForceZ = bpmWind.direction.z * bpmWind.strength * windPushForce * delta;
+    } else if (hasWindAnchor && bpmWind.strength > 0.5) {
+        discoverySystem.discover('wind_anchor', 'Wind Anchor', '⚓');
+    }
+
     if (!inLakeBasin) {
         onGround = updatePhysicsCPP(
             delta,
@@ -818,7 +848,7 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
     if (onGround >= 0) {
         // C++ Success
         getPlayerState(_scratchPlayerState);
-        player.position.set(_scratchPlayerState.x, _scratchPlayerState.y, _scratchPlayerState.z);
+        player.position.set(_scratchPlayerState.x + windForceX, _scratchPlayerState.y, _scratchPlayerState.z + windForceZ);
         player.velocity.set(_scratchPlayerState.vx, _scratchPlayerState.vy, _scratchPlayerState.vz);
 
         // Reset jump key if we successfully jumped (velocity.y > 0)
@@ -856,6 +886,8 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
     } else {
         // JS Fallback (Used for Lake Basin or C++ Failure)
         updateJSFallbackMovement(delta, camera, controls, keyStates, moveSpeed);
+        player.position.x += windForceX;
+        player.position.z += windForceZ;
     }
 
     // --- WASM COLLISION RESOLVER (New) ---

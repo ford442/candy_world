@@ -10,14 +10,16 @@
 
 ## Next Steps
 
-1. **Category 3: Atmospheric & World**: Implement Groove Boots or BPM Wind Anchor from the Musical Ecosystem.
-2. **Phase 4 (Three.js -> WebGPU)**: Raw compute and render pipelines. Begin migrating custom render passes.
-3. **Phase 3 (ASC -> C++): Fluid Simulation**: Polish the stable fluids solver and WebGPU integration.
+1. **Phase 4 (Three.js -> WebGPU)**: Raw compute and render pipelines. Begin migrating custom render passes.
+2. **Phase 3 (ASC -> C++): Fluid Simulation**: Polish the stable fluids solver and WebGPU integration.
+3. **Category 4: Advanced Shaders (WebGPU TSL)**: Implement Crescendo Fog volumetric rendering.
 
 ---
 
 ## Recent Progress
 - **Accomplished:**
+  - **Category 3: Atmospheric & World**: Implement Groove Boots and BPM Wind Anchor. **Status: Implemented ✅**
+    - *Implementation Details: Implemented Groove Boots logic in `src/systems/physics.ts` to apply a speed boost when the player has the boots and `grooveGravity` is active. Implemented BPM Wind Player Impact to push the player in the wind direction, and added `wind_anchor` logic to grant immunity. Registered both items in `unlocks.ts` and `discovery_map.ts`.*
   - **Dodge Roll Ability**: **Status: Implemented ✅**
     - *Implementation Details:* Implemented Dodge Roll bound to the 'X' key, granting temporary intangibility (via isPhasing) and a forward velocity impulse. Added 'ability_dodge_roll' discovery log.
   - **WebGPU Migration (Phase 4): Wind Computation System (WebGPU Compute Shader)**: **Status: Implemented ✅**
