@@ -57,6 +57,20 @@ export const UNLOCK_DEFINITIONS: Record<string, UnlockDefinition> = {
         description: 'Discovered the hidden core of Melody Lake Island.',
         requirements: [{ itemId: 'lake_core', count: 1 }],
         icon: '🏝️'
+    },
+    'groove_boots': {
+        id: 'groove_boots',
+        name: 'Groove Boots',
+        description: 'Magic boots that let you move faster when the beat swings.',
+        requirements: [{ itemId: 'bounce_shroom', count: 5 }],
+        icon: '🥾'
+    },
+    'wind_anchor': {
+        id: 'wind_anchor',
+        name: 'Wind Anchor',
+        description: 'Grants immunity to the pushing forces of the BPM Wind.',
+        requirements: [{ itemId: 'heavy_stone', count: 3 }],
+        icon: '⚓'
     }
 };
 
