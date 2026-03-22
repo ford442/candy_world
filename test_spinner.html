@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Test</title>
+    <style>
+        body { font-family: sans-serif; background: #222; color: #fff; padding: 50px; }
+        .candy-save-menu__btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 25px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .candy-save-menu__btn--primary {
+            background: linear-gradient(90deg, #ff69b4, #ff1493);
+            color: #fff;
+        }
+        .candy-save-menu__btn--danger {
+            background: linear-gradient(90deg, #dc2626, #991b1b);
+            color: #fff;
+        }
+        .candy-save-menu__spinner {
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255, 255, 255, 0.4);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0;
+            display: inline-block;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <button class="candy-save-menu__btn candy-save-menu__btn--primary" id="btn1" style="width: 154px; justify-content: center;">
+        <span class="candy-save-menu__spinner"></span>
+    </button>
+    <br><br>
+    <button class="candy-save-menu__btn candy-save-menu__btn--danger" id="btn2" style="width: 160px; justify-content: center;">
+        <span class="candy-save-menu__spinner"></span>
+    </button>
+</body>
+</html>
