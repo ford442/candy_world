@@ -25,6 +25,12 @@ const _scratchPos = new THREE.Vector3();
 const _scratchScale = new THREE.Vector3();
 const _scratchQuat = new THREE.Quaternion();
 const _scratchColor = new THREE.Color();
+// ⚡ OPTIMIZATION: Re-use scratch variable to avoid GC spikes
+const _scratchCapCenter = new THREE.Vector3();
+const _scratchSpotScale = new THREE.Vector3();
+const _scratchUp = new THREE.Vector3(0, 1, 0);
+const _scratchEye = new THREE.Vector3();
+const _scratchDummyObj = new THREE.Object3D();
 
 export class MushroomBatcher {
     private static instance: MushroomBatcher;
@@ -202,9 +208,11 @@ export class MushroomBatcher {
             const z = Math.sin(phi) * Math.sin(theta) * r;
 
             p.set(x, y, z);
-            m.lookAt(p, new THREE.Vector3(0, 0.8, 0), new THREE.Vector3(0, 1, 0));
+            _scratchCapCenter.set(0, 0.8, 0);
+            _scratchSpotScale.set(0.15, 0.05, 0.15);
+            m.lookAt(p, _scratchCapCenter, _scratchUp);
             m.setPosition(p);
-            m.scale(new THREE.Vector3(0.15, 0.05, 0.15)); // Flattened on surface
+            m.scale(_scratchSpotScale); // Flattened on surface
             addPart(spotGeo, 3, m);
         }
         groups.push({ start: startIndex, count: indices.length - startIndex, materialIndex: 3 });
@@ -267,7 +275,7 @@ export class MushroomBatcher {
 
             p.set(x, y, z);
             m.identity();
-            const lookPos = new THREE.Vector3(0, CAP_Y, 0);
+            _scratchEye.set(0, CAP_Y, 0);
             // lookAt expects eye, target, up
             // We want the spot (at p) to face OUT from center.
             // Actually simple translation + rotation is easier.
@@ -281,24 +289,20 @@ export class MushroomBatcher {
             m.scale(_scratchScale);
             // Rotate to match surface normal approx?
             // A simple lookAt from center to P gives the rotation.
-            const up = new THREE.Vector3(0, 1, 0);
-            const target = p.clone(); // This is where object is
-            const eye = new THREE.Vector3(0, CAP_Y, 0); // Center
             // Object local Y is up. We want Y to point along normal.
-            const dummyObj = new THREE.Object3D();
-            dummyObj.position.copy(p);
-            dummyObj.lookAt(eye); // Z points to eye. Y is Up.
+            _scratchDummyObj.position.copy(p);
+            _scratchDummyObj.lookAt(_scratchEye); // Z points to eye. Y is Up.
             // We want Y to point AWAY from eye.
             // If we lookAt(eye), Z is (eye - p).
             // We want Y aligned with (p - eye).
 
-            _scratchPos.copy(p).sub(eye);
+            _scratchPos.copy(p).sub(_scratchEye);
             _scratchPos.add(p);
-            dummyObj.lookAt(_scratchPos); // Look away
-            dummyObj.scale.set(spotScale, spotScale, spotScale * 0.2); // Flatten Z
-            dummyObj.updateMatrix();
+            _scratchDummyObj.lookAt(_scratchPos); // Look away
+            _scratchDummyObj.scale.set(spotScale, spotScale, spotScale * 0.2); // Flatten Z
+            _scratchDummyObj.updateMatrix();
 
-            addPart(sharedGeometries.unitSphere, 3, dummyObj.matrix);
+            addPart(sharedGeometries.unitSphere, 3, _scratchDummyObj.matrix);
         }
         groups.push({ start: startIndex, count: indices.length - startIndex, materialIndex: 3 });
 
