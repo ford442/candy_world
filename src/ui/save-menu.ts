@@ -1085,11 +1085,11 @@ export class SaveMenu {
             btn.addEventListener('click', (e) => this.handleKeybindClick(e));
         });
 
-        // Import/Export
+        // Actions
         this.container.querySelectorAll('[data-action]').forEach(btn => {
             const action = (btn as HTMLElement).dataset.action;
             if (action && !btn.hasAttribute('data-slot')) {
-                btn.addEventListener('click', () => this.handleAction(action));
+                btn.addEventListener('click', () => this.handleAction(action, btn as HTMLButtonElement));
             }
         });
 
@@ -1259,11 +1259,30 @@ export class SaveMenu {
         this.cancelKeybindListen();
     }
 
-    private async handleAction(action: string): Promise<void> {
+    private async handleAction(action: string, btnElement: HTMLButtonElement): Promise<void> {
+        const originalHtml = btnElement.innerHTML;
+        const originalWidth = btnElement.offsetWidth;
+
+        const setWorkingState = () => {
+            btnElement.disabled = true;
+            btnElement.style.width = `${originalWidth}px`;
+            btnElement.style.justifyContent = 'center';
+            btnElement.innerHTML = '<span class="candy-save-menu__spinner" style="width: 16px; height: 16px; margin: 0; border-width: 2px;"></span>';
+        };
+
+        const restoreState = () => {
+            btnElement.disabled = false;
+            btnElement.style.width = '';
+            btnElement.style.justifyContent = '';
+            btnElement.innerHTML = originalHtml;
+        };
+
         switch (action) {
             case 'save-settings':
+                setWorkingState();
                 saveSystem.updateSettings(this.settings);
                 showToast('Settings saved!', '⚙️', 3000);
+                setTimeout(restoreState, 300); // Brief delay for visual feedback
                 break;
             case 'reset-settings':
                 if (confirm('Reset all settings to defaults?')) {
@@ -1272,31 +1291,43 @@ export class SaveMenu {
                 }
                 break;
             case 'export-current':
+                setWorkingState();
                 const currentSlot = saveSystem.getCurrentSlotId();
                 if (currentSlot) {
                     await this.exportSlot(currentSlot);
                 } else {
                     showToast('No current save to export', '⚠️', 3000);
                 }
+                setTimeout(restoreState, 300);
                 break;
             case 'export-all':
+                setWorkingState();
                 await this.exportAll();
+                setTimeout(restoreState, 300);
                 break;
             case 'copy-export':
+                setWorkingState();
                 await this.copyExport();
+                setTimeout(restoreState, 300);
                 break;
             case 'download-export':
+                setWorkingState();
                 await this.downloadExport();
+                setTimeout(restoreState, 300);
                 break;
             case 'import-data':
+                setWorkingState();
                 await this.importData();
+                setTimeout(restoreState, 300);
                 break;
             case 'clear-import':
                 const importArea = this.container?.querySelector('#import-area') as HTMLTextAreaElement;
                 if (importArea) importArea.value = '';
                 break;
             case 'delete-all':
+                setWorkingState();
                 await this.deleteAll();
+                restoreState();
                 break;
         }
     }
