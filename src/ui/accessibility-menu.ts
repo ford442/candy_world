@@ -828,13 +828,17 @@ export class AccessibilityMenu {
       border-bottom: 1px solid var(--menu-border, #444);
     `;
 
+    const uniqueId = `toggle-${label.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()}`;
+
     const textDiv = document.createElement('div');
     
     const labelEl = document.createElement('label');
+    labelEl.id = `${uniqueId}-label`;
     labelEl.textContent = label;
     labelEl.style.cssText = 'display: block; font-weight: 500;';
 
     const descEl = document.createElement('span');
+    descEl.id = `${uniqueId}-desc`;
     descEl.textContent = description;
     descEl.style.cssText = 'display: block; color: var(--menu-muted, #aaa); font-size: 0.9rem; margin-top: 4px;';
 
@@ -844,6 +848,8 @@ export class AccessibilityMenu {
     const toggle = document.createElement('button');
     toggle.setAttribute('role', 'switch');
     toggle.setAttribute('aria-checked', value.toString());
+    toggle.setAttribute('aria-labelledby', `${uniqueId}-label`);
+    toggle.setAttribute('aria-describedby', `${uniqueId}-desc`);
     toggle.style.cssText = `
       width: 50px;
       height: 26px;
@@ -898,10 +904,13 @@ export class AccessibilityMenu {
       border-bottom: 1px solid var(--menu-border, #444);
     `;
 
+    const uniqueId = `slider-${label.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()}`;
+
     const header = document.createElement('div');
     header.style.cssText = 'display: flex; justify-content: space-between; margin-bottom: 8px;';
 
     const labelEl = document.createElement('label');
+    labelEl.htmlFor = uniqueId;
     labelEl.textContent = label;
     labelEl.style.cssText = 'font-weight: 500;';
 
@@ -913,11 +922,14 @@ export class AccessibilityMenu {
     header.appendChild(valueEl);
 
     const descEl = document.createElement('div');
+    descEl.id = `${uniqueId}-desc`;
     descEl.textContent = description;
     descEl.style.cssText = 'color: var(--menu-muted, #aaa); font-size: 0.9rem; margin-bottom: 10px;';
 
     const slider = document.createElement('input');
     slider.type = 'range';
+    slider.id = uniqueId;
+    slider.setAttribute('aria-describedby', `${uniqueId}-desc`);
     slider.min = min.toString();
     slider.max = max.toString();
     slider.step = step.toString();
@@ -957,15 +969,21 @@ export class AccessibilityMenu {
       border-bottom: 1px solid var(--menu-border, #444);
     `;
 
+    const uniqueId = `select-${label.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()}`;
+
     const labelEl = document.createElement('label');
+    labelEl.htmlFor = uniqueId;
     labelEl.textContent = label;
     labelEl.style.cssText = 'display: block; font-weight: 500; margin-bottom: 4px;';
 
     const descEl = document.createElement('div');
+    descEl.id = `${uniqueId}-desc`;
     descEl.textContent = description;
     descEl.style.cssText = 'color: var(--menu-muted, #aaa); font-size: 0.9rem; margin-bottom: 10px;';
 
     const select = document.createElement('select');
+    select.id = uniqueId;
+    select.setAttribute('aria-describedby', `${uniqueId}-desc`);
     select.style.cssText = `
       width: 100%;
       padding: 10px;
@@ -1013,13 +1031,18 @@ export class AccessibilityMenu {
       border-bottom: 1px solid var(--menu-border, #444);
     `;
 
+    const uniqueId = `color-${label.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()}`;
+
     const textDiv = document.createElement('div');
     
     const labelEl = document.createElement('label');
+    labelEl.id = `${uniqueId}-label`;
+    labelEl.htmlFor = uniqueId;
     labelEl.textContent = label;
     labelEl.style.cssText = 'display: block; font-weight: 500;';
 
     const descEl = document.createElement('span');
+    descEl.id = `${uniqueId}-desc`;
     descEl.textContent = description;
     descEl.style.cssText = 'display: block; color: var(--menu-muted, #aaa); font-size: 0.9rem; margin-top: 4px;';
 
@@ -1031,6 +1054,8 @@ export class AccessibilityMenu {
 
     const colorInput = document.createElement('input');
     colorInput.type = 'color';
+    colorInput.id = uniqueId;
+    colorInput.setAttribute('aria-describedby', `${uniqueId}-desc`);
     colorInput.value = value;
     colorInput.style.cssText = `
       width: 50px;
@@ -1042,6 +1067,8 @@ export class AccessibilityMenu {
 
     const hexInput = document.createElement('input');
     hexInput.type = 'text';
+    hexInput.id = `${uniqueId}-hex`;
+    hexInput.setAttribute('aria-label', `Hex value for ${label}`);
     hexInput.value = value;
     hexInput.style.cssText = `
       width: 80px;
