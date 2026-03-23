@@ -17,6 +17,8 @@
 
 import * as THREE from 'three';
 
+const _scratchBox3 = new THREE.Box3();
+
 // ============================================================================
 // TYPES & ENUMS
 // ============================================================================
@@ -704,8 +706,9 @@ export class CullingSystem {
 
     /** Update bounding sphere for an object */
     private updateBoundingSphere(object: THREE.Object3D, sphere: THREE.Sphere): void {
-        const box = new THREE.Box3().setFromObject(object);
-        box.getBoundingSphere(sphere);
+        // ⚡ OPTIMIZATION: Use reusable scratch box to prevent GC spikes during culling updates
+        _scratchBox3.setFromObject(object);
+        _scratchBox3.getBoundingSphere(sphere);
         
         // Add small margin to prevent edge clipping
         sphere.radius += 0.1;
