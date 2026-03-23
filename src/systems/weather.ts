@@ -12,7 +12,7 @@ import * as Cycle from '../core/cycle.ts';
 
 import { CYCLE_DURATION, CONFIG, DURATION_SUNRISE, DURATION_DAY, DURATION_SUNSET, DURATION_PRE_DAWN } from '../core/config.ts';
 import { uCloudRainbowIntensity, uCloudLightningStrength, uCloudLightningColor, updateCloudAttraction, isCloudOverTarget } from '../foliage/clouds.ts';
-import { uSkyDarkness, uTwilight } from '../foliage/sky.ts';
+import { uSkyDarkness, uTwilight, uCrescendoFogDensity, uFogNear, uFogFar } from '../foliage/sky.ts';
 import { uChromaticIntensity } from '../foliage/chromatic.ts';
 import { updateCaveWaterLevel } from '../foliage/cave.ts';
 import { LegacyParticleSystem } from './adapters/LegacyParticleSystem.js';
@@ -819,10 +819,20 @@ export class WeatherSystem {
         }
 
         let crescendoFactor = 0;
-        if (audioData) {
-            // VisualState doesn't define 'average' explicitly, check usage
-            const volume = (audioData as any).average || 0;
-            crescendoFactor = volume * 0.3;
+        if (audioData && audioData.channelData && audioData.channelData.length > 0) {
+            let totalVolume = 0;
+            for (let i = 0; i < audioData.channelData.length; i++) {
+                totalVolume += audioData.channelData[i].volume;
+            }
+            const averageVolume = totalVolume / audioData.channelData.length;
+            crescendoFactor = Math.min(1.0, averageVolume * 0.5); // Adjust multiplier for desired effect
+        }
+
+        // --- NEW: TSL Crescendo Fog Update ---
+        if (uCrescendoFogDensity) {
+            // Smoothly interpolate to new crescendo factor to avoid sudden jumps
+            const currentDensity = uCrescendoFogDensity.value as number;
+            uCrescendoFogDensity.value = currentDensity + (crescendoFactor - currentDensity) * 0.1;
         }
 
         const weatherVisibility = (1.0 - this.intensity * (1.0 - fogMultiplier));
@@ -834,6 +844,15 @@ export class WeatherSystem {
         const targetNear = (this.baseFogNear * nearModifier) * totalVisibility;
         const targetFar = this.baseFogFar * totalVisibility;
 
+        // --- NEW: Update TSL Fog Global Limits ---
+        if (uFogNear && uFogFar) {
+            const curNear = uFogNear.value as number;
+            const curFar = uFogFar.value as number;
+            uFogNear.value = curNear + (targetNear - curNear) * 0.05;
+            uFogFar.value = curFar + (targetFar - curFar) * 0.05;
+        }
+
+        // Keep standard THREE.Fog fallback updated
         if (this.fog instanceof THREE.Fog) {
             this.fog.near += (targetNear - this.fog.near) * 0.05;
             this.fog.far += (targetFar - this.fog.far) * 0.05;
