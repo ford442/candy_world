@@ -7,7 +7,7 @@ import {
     uv, normalize, smoothstep, mix, abs, max, positionWorld,
     mx_noise_float, normalLocal
 } from 'three/tsl';
-import { CandyPresets, uAudioLow, uAudioHigh, createRimLight } from './common.ts';
+import { CandyPresets, uAudioLow, uAudioHigh, createRimLight, createJuicyRimLight } from './common.ts';
 
 export const uWaveHeight = uniform(1.0); // Base wave height scaler
 
@@ -92,18 +92,21 @@ export function createWaveformWater(width: number = 400, depth: number = 400): T
     // Drive intensity with High Frequency audio (Melody/Hi-Hats)
     // "Bioluminescent" look: Cyan/White mix
     const sparkleColor = vec3(0.6, 1.0, 1.0);
-    const sparkleIntensity = uAudioHigh.mul(sparkleMask).mul(3.0); // Boosted brightness
+    // 🎨 PALETTE: Make sparkles pop aggressively on high energy
+    const sparkleIntensity = uAudioHigh.pow(float(1.5)).mul(sparkleMask).mul(5.0); // Boosted brightness
 
     // 2. Rim Light (Edge Definition)
     // Helps the water separate from the dark background/sky
     // Note: We use normalLocal because displacement modifies the surface,
     // but for simple rim lighting on a plane, the varying view angle provides enough falloff.
     // For better results, we'd need perturbed normals, but this adds a subtle "moonlight sheen".
-    const rim = createRimLight(color(0xAAEEFF), float(0.5), float(2.0), normalLocal);
+    // 🎨 PALETTE: Upgraded to Juicy Rim Light for a more magical, audio-reactive edge glow
+    const rim = createJuicyRimLight(color(0x00FFFF), float(1.2), float(2.5), normalLocal);
 
     // 3. Beat Glow (Bass)
-    const beatGlow = uAudioLow.mul(0.2); // Subtle glow on kick
-    const baseEmissive = vec3(0.1, 0.3, 0.6).mul(beatGlow);
+    // 🎨 PALETTE: Stronger, more colorful beat glow
+    const beatGlow = uAudioLow.pow(float(1.2)).mul(0.5);
+    const baseEmissive = vec3(0.0, 0.5, 0.8).mul(beatGlow);
 
     // Combine all emissive sources
     material.emissiveNode = baseEmissive.add(sparkleColor.mul(sparkleIntensity)).add(rim);
