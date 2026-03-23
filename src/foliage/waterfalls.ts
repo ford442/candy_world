@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { color, time, uv, float, vec2, mix, sin, uniform, UniformNode } from 'three/tsl';
-import { registerReactiveMaterial, attachReactivity, CandyPresets } from './common.ts';
+import { color, time, uv, float, vec2, mix, sin, uniform, UniformNode, normalWorld } from 'three/tsl';
+import { registerReactiveMaterial, attachReactivity, CandyPresets, uAudioHigh, createJuicyRimLight } from './common.ts';
 
 /**
  * Creates a bioluminescent waterfall connecting two points.
@@ -53,10 +53,16 @@ export function createWaterfall(startPos: THREE.Vector3, endPos: THREE.Vector3, 
     // We mix the gradient into the base color
     mat.colorNode = mix(mat.colorNode, gradient, 0.5);
 
+    // 🎨 PALETTE: Integrate `createJuicyRimLight` and non-linear `uAudioHigh` for bioluminescent flow
+    const rim = createJuicyRimLight(gradient, float(2.0), float(3.0), normalWorld);
+
     // Add foam brightness to emission
     // Pulse adds extra glow on beat
     const emission = gradient.mul(uBaseEmission.add(uPulseIntensity)).mul(foam.add(0.2));
-    mat.emissiveNode = emission;
+
+    // Mix in the rim light and audio-driven highs for extra juice
+    const highIntensity = uAudioHigh.pow(float(1.5)).mul(1.5);
+    mat.emissiveNode = emission.add(rim).add(gradient.mul(highIntensity));
 
     // Modify roughness based on foam (foam is rougher)
     // Safety check: wrap in float() if roughnessNode is missing or primitive

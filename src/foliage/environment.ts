@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { MeshStandardNodeMaterial, PointsNodeMaterial } from 'three/webgpu';
-import { time, vec3, positionLocal, length, sin, cos, color as tslColor, attribute, float, uniform, mix, smoothstep, color, positionWorld } from 'three/tsl';
-import { registerReactiveMaterial, attachReactivity, CandyPresets, uTime, uAudioLow, uAudioHigh, createJuicyRimLight } from './common.ts';
+import { time, vec3, positionLocal, length, sin, cos, color as tslColor, attribute, float, uniform, mix, smoothstep, color, positionWorld, normalWorld } from 'three/tsl';
+import { registerReactiveMaterial, attachReactivity, CandyPresets, uTime, uAudioLow, uAudioHigh, createJuicyRimLight, createSugarSparkle } from './common.ts';
 import { uTwilight, uHorizonColor } from './sky.ts';
 
 export interface FloatingOrbOptions {
@@ -105,13 +105,17 @@ export function createFloatingOrb(options: FloatingOrbOptions = {}) {
     // 3. Audio-Reactive Emissive Pulse & Rim Light
     // High frequency triggers bright flashes
     const baseGlowColor = tslColor(hexColor);
-    const flashIntensity = uAudioHigh.mul(2.0);
-    const baseEmissive = baseGlowColor.mul(float(0.8).add(flashIntensity));
+    // 🎨 PALETTE: Make flash non-linear so it pops more
+    const flashIntensity = uAudioHigh.pow(float(1.5)).mul(2.5);
+    const baseEmissive = baseGlowColor.mul(float(0.5).add(flashIntensity));
 
     // Juicy Rim Light for that "Neon/Bioluminescent" magic feel
     const rimLight = createJuicyRimLight(baseGlowColor, float(1.5), float(3.0), null);
 
-    mat.emissiveNode = baseEmissive.add(rimLight);
+    // 🎨 PALETTE: Add Sugar Sparkle for magical dust effect
+    const sparkle = createSugarSparkle(normalWorld, float(25.0), float(0.2), float(2.0));
+
+    mat.emissiveNode = baseEmissive.add(rimLight).add(sparkle);
 
     registerReactiveMaterial(mat);
 
