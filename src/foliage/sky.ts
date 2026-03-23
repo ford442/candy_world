@@ -1,7 +1,7 @@
 // src/foliage/sky.ts
 
 import * as THREE from 'three';
-import { color, mix, positionWorld, float, uniform, smoothstep, UniformNode } from 'three/tsl';
+import { color, mix, positionWorld, float, uniform, smoothstep, UniformNode, rangeFog, nodeObject } from 'three/tsl';
 import { MeshBasicNodeMaterial } from 'three/webgpu';
 
 // Export uniforms so main.js and weather.js can drive them
@@ -15,6 +15,27 @@ export const uSkyDarkness = uniform(0.0); // 0.0 = Normal, 1.0 = Pitch Black
 // --- NEW: Twilight Uniform for Plant Bioluminescence ---
 // 0.0 = Day (No Glow), 1.0 = Night/Twilight (Full Glow)
 export const uTwilight = uniform(0.0);
+// -------------------------------------------------------
+
+// --- Crescendo Fog (Audio Reactive Volumetric Fog) ---
+export const uCrescendoFogDensity = uniform(0.0); // 0.0 = clear, 1.0 = dense
+export const uFogNear = uniform(20.0); // Base weather near
+export const uFogFar = uniform(100.0); // Base weather far
+
+export function createCrescendoFogNode(colorNode: any) {
+    // Dense fog parameters (computed dynamically from the base uniform values)
+    const denseNear = uFogNear.mul(0.2);
+    const denseFar = uFogFar.mul(0.3);
+
+    // Interpolate near and far distances based on audio-driven density
+    const currentNear = mix(uFogNear, denseNear, uCrescendoFogDensity);
+    const currentFar = mix(uFogFar, denseFar, uCrescendoFogDensity);
+
+    // Apply scene darkness to fog color (matches sky logic)
+    const finalFogColor = mix(colorNode, color(0x000000), uSkyDarkness);
+
+    return rangeFog(finalFogColor, currentNear, currentFar);
+}
 // -------------------------------------------------------
 
 export function createSky(): THREE.Mesh {

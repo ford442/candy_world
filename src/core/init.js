@@ -1,13 +1,19 @@
 // src/core/init.js
 
 import * as THREE from 'three';
+import { color } from 'three/tsl';
 import WebGPU from 'three/examples/jsm/capabilities/WebGPU.js';
 import { WebGPURenderer } from 'three/webgpu';
 import { PALETTE, CONFIG } from './config.ts';
+import { createCrescendoFogNode } from '../foliage/sky.ts';
 
 export function initScene() {
     const canvas = document.querySelector('#glCanvas');
     const scene = new THREE.Scene();
+
+    // TSL-driven Crescendo Fog initialization
+    scene.fogNode = createCrescendoFogNode(color(PALETTE.day.fog));
+    // Standard fog kept for fallback/legacy systems
     scene.fog = new THREE.Fog(PALETTE.day.fog, 20, 100);
 
     const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000);

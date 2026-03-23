@@ -12,12 +12,14 @@
 
 1. **Phase 4 (Three.js -> WebGPU)**: Raw compute and render pipelines. Begin migrating custom render passes.
 2. **Phase 3 (ASC -> C++): Fluid Simulation**: Polish the stable fluids solver and WebGPU integration.
-3. **Category 4: Advanced Shaders (WebGPU TSL)**: Implement Crescendo Fog volumetric rendering.
+3. **Category 4: Advanced Shaders (WebGPU TSL)**: Implement Melody Mirrors or continue migrating shaders.
 
 ---
 
 ## Recent Progress
 - **Accomplished:**
+  - **Category 4: Advanced Shaders (WebGPU TSL) - Crescendo Fog**: **Status: Implemented ✅**
+    - *Implementation Details: Built `createCrescendoFogNode` in `src/foliage/sky.ts` using `three/tsl`'s `rangeFog`. Bound the `uCrescendoFogDensity` uniform to audio volume calculated dynamically in `src/systems/weather.ts`'s `updateFog` loop. Swapped standard `THREE.Fog` assignment for `scene.fogNode` in `src/core/init.js` to enable audio-reactive volumetric thickness during drops.*
   - **Category 3: Atmospheric & World**: Implement Groove Boots and BPM Wind Anchor. **Status: Implemented ✅**
     - *Implementation Details: Implemented Groove Boots logic in `src/systems/physics.ts` to apply a speed boost when the player has the boots and `grooveGravity` is active. Implemented BPM Wind Player Impact to push the player in the wind direction, and added `wind_anchor` logic to grant immunity. Registered both items in `unlocks.ts` and `discovery_map.ts`.*
   - **Dodge Roll Ability**: **Status: Implemented ✅**
