@@ -82,12 +82,20 @@ export function createStars(count: number = 1500): THREE.Points {
     const twinkleSpeed = time.mul(speedVar).add(aOffset);
     const rawTwinkle = sin(twinkleSpeed).mul(0.5).add(0.5); // 0..1 sine wave
 
+    // Add rare gold sparkles (moved up to use for twinkle intensity)
+    const isGold = step(0.9, sin(aOffset.mul(2.0))); // Occasional gold
+
     // Sharpen the twinkle (Power curve) -> Spikes of brightness
-    const sharpTwinkle = pow(rawTwinkle, float(4.0));
+    // 🎨 PALETTE: Make the twinkle curve more extreme for non-gold stars, and extra flashy for gold
+    const twinklePower = mix(float(5.0), float(3.0), isGold); // Gold has wider twinkle
+    const sharpTwinkle = pow(rawTwinkle, twinklePower);
 
     // Scale twinkle intensity by Audio Highs (Cymbals/Melody)
-    // When music is quiet, they twinkle softly. When loud, they flash.
-    const activeTwinkle = sharpTwinkle.mul(float(0.8).add(smoothstep(0.0, 1.0, uAudioHigh).mul(4.0)));
+    // 🎨 PALETTE: Non-linear audio reactivity - highs make them pop exponentially
+    const audioTwinkle = uAudioHigh.pow(float(2.0)).mul(5.0);
+    // Base twinkle + Audio Twinkle. Gold stars get an extra boost.
+    const baseTwinkleMul = mix(float(0.5), float(1.5), isGold);
+    const activeTwinkle = sharpTwinkle.mul(baseTwinkleMul.add(audioTwinkle));
 
     // 2. Randomized Pulse (Low Frequency / Kick)
     // Replaced wave with purely random phase based on offset to break unison
@@ -97,11 +105,12 @@ export function createStars(count: number = 1500): THREE.Points {
     const randomPulse = sin(pulsePhase).mul(0.5).add(0.5); // 0..1
 
     // Apply Kick energy to the random pulse
-    // Stars pulse individually to the beat
-    const kickPulse = smoothstep(0.0, 1.0, uAudioLow).mul(randomPulse).mul(2.5);
+    // 🎨 PALETTE: Stars pulse individually to the beat, organically reacting to the kick
+    const kickImpact = smoothstep(0.2, 0.8, uAudioLow).pow(float(1.5));
+    const kickPulse = kickImpact.mul(randomPulse).mul(3.0);
 
     // Total Intensity = Base + Twinkle + Pulse
-    const intensity = float(0.5).add(activeTwinkle).add(kickPulse);
+    const intensity = float(0.4).add(activeTwinkle).add(kickPulse);
 
     // 3. Color Shift (Neon/Magic)
     // Shift towards Cyan/Magenta/Gold on high energy
@@ -118,13 +127,13 @@ export function createStars(count: number = 1500): THREE.Points {
     // Mix Cyan vs Magenta/Gold
     // If selector > 0 use Cyan/Magenta, else Gold
     const magicMix = mix(colorCyan, colorMagenta, selector.mul(0.5).add(0.5));
-    // Add rare gold sparkles
-    const isGold = step(0.9, sin(aOffset.mul(2.0))); // Occasional gold
     const targetColor = mix(magicMix, colorGold, isGold);
 
     // Mix based on audio high (energy)
     // Stronger highs = More neon color
-    const finalRGB = mix(baseColorVec, targetColor, smoothstep(0.2, 0.8, uAudioHigh));
+    // 🎨 PALETTE: More vibrant color shift during high energy
+    const colorShiftFactor = smoothstep(0.1, 0.9, uAudioHigh).pow(float(1.2));
+    const finalRGB = mix(baseColorVec, targetColor, colorShiftFactor);
 
     // 🎨 PALETTE: Make opacity breathe with the music organically
     // Use the star's unique offset to create a phase offset for the pulse so they don't pulse in perfect unison
