@@ -1,0 +1,2 @@
+- Investigate and restore missing test scripts: verify.py and verify_wasm_particle_bounds.js.
+- [Testing Debt] When attempting to run `pnpm test` and `pnpm run test:integration`, tests failed because `verify.py` and `verify_wasm_particle_bounds.js` are completely missing from the filesystem. Action Item: Restore, rewrite, or safely remove these broken commands from package.json.
