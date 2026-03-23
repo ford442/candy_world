@@ -130,7 +130,19 @@ export function createStarflower(options: { color?: number | string | THREE.Colo
 
     // ⚡ OPTIMIZATION: Cache Petals
     const petalMat = getCachedProceduralMaterial('starflower_petal', hexColor, () => {
-        const mat = createClayMaterial(hexColor);
+        const mat = createStandardNodeMaterial({
+            color: hexColor,
+            roughness: 0.4,
+            metalness: 0.2
+        });
+
+        const baseColorNode = tslColor(hexColor);
+        const rimLight = createJuicyRimLight(baseColorNode, float(1.5), float(3.0), null);
+
+        // 🎨 PALETTE: Add audio-reactive emissive pulse
+        const pulse = uAudioHigh.mul(0.6);
+        mat.emissiveNode = baseColorNode.mul(pulse).add(rimLight);
+
         registerReactiveMaterial(mat);
         return mat;
     });
@@ -181,7 +193,19 @@ export function createBellBloom(options: { color?: number | string | THREE.Color
 
     // ⚡ OPTIMIZATION: Cache Petals
     const petalMat = getCachedProceduralMaterial('bellbloom_petal', color, () => {
-        const mat = createClayMaterial(color);
+        const mat = createStandardNodeMaterial({
+            color: color,
+            roughness: 0.5,
+            metalness: 0.1
+        });
+
+        const baseColorNode = tslColor(color);
+        const rimLight = createJuicyRimLight(baseColorNode, float(1.3), float(2.8), null);
+
+        // 🎨 PALETTE: Add audio-reactive emissive pulse
+        const pulse = uAudioHigh.mul(0.5).add(uAudioLow.mul(0.2));
+        mat.emissiveNode = baseColorNode.mul(pulse).add(rimLight);
+
         registerReactiveMaterial(mat);
         return mat;
     });
@@ -221,7 +245,19 @@ export function createPuffballFlower(options: { color?: number } = {}): THREE.Gr
     const headR = 0.4 + Math.random() * 0.2;
     // ⚡ OPTIMIZATION: Cache Head
     const headMat = getCachedProceduralMaterial('puffball_head', color, () => {
-        const mat = createClayMaterial(color);
+        const mat = createStandardNodeMaterial({
+            color: color,
+            roughness: 0.6,
+            metalness: 0.1
+        });
+
+        const baseColorNode = tslColor(color);
+        const rimLight = createJuicyRimLight(baseColorNode, float(1.2), float(2.5), null);
+
+        // 🎨 PALETTE: Add bass pulse to the puffball head
+        const pulse = uAudioLow.mul(0.8);
+        mat.emissiveNode = baseColorNode.mul(pulse).add(rimLight);
+
         registerReactiveMaterial(mat);
         return mat;
     });
