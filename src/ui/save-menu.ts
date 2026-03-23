@@ -735,7 +735,7 @@ export class SaveMenu {
             <div class="candy-save-menu__container">
                 ${this.renderHeader()}
                 ${this.currentMode === 'full' ? this.renderTabs(tabs) : ''}
-                <div class="candy-save-menu__content">
+                <div id="panel-${this.currentTab}" role="tabpanel" aria-labelledby="tab-${this.currentTab}" class="candy-save-menu__content">
                     ${this.renderCurrentTab()}
                 </div>
             </div>
@@ -779,8 +779,10 @@ export class SaveMenu {
             <div class="candy-save-menu__tabs" role="tablist" aria-label="Save Menu Tabs">
                 ${tabs.map(tab => `
                     <button 
+                        id="tab-${tab.id}"
                         role="tab"
                         aria-selected="${this.currentTab === tab.id}"
+                        aria-controls="panel-${tab.id}"
                         class="candy-save-menu__tab ${this.currentTab === tab.id ? 'candy-save-menu__tab--active' : ''}"
                         data-tab="${tab.id}"
                     >

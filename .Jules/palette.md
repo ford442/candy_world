@@ -43,3 +43,7 @@ Matte clay materials need a strong directional light to show form.
 ## 2026-03-10 - ARIA Labels on Template-Generated Form Controls
 **Learning:** Dynamically generated form controls inside template strings (like `<select>` or `<input type="range">`) are often missing `aria-labelledby` mappings to their descriptive label spans. This causes screen reader context loss as the visual label is not programmatically associated with the input.
 **Action:** Always ensure template-generated inputs include `aria-labelledby` attributes that point to explicit `id`s on their corresponding label elements.
+
+## 2026-03-23 - Link custom tabs to panels with aria-controls and aria-labelledby
+**Learning:** Custom tab implementations often remember to apply `role="tablist"` and `role="tab"`, but frequently omit linking the tab to its content container. Without `aria-controls` on the tab and `role="tabpanel"` + `aria-labelledby` on the content container, screen readers lack context of what content the tab dictates.
+**Action:** Always ensure `role="tabpanel"` is applied to the content container of custom tabs, and connect the tab button and panel container explicitly using corresponding `id`, `aria-controls`, and `aria-labelledby` attributes.
