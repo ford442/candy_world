@@ -214,6 +214,7 @@ export class AccessibilityMenu {
   private createSidebar(): HTMLElement {
     const sidebar = document.createElement('nav');
     sidebar.setAttribute('aria-label', 'Settings categories');
+    sidebar.setAttribute('role', 'tablist');
     sidebar.style.cssText = `
       width: 200px;
       background: var(--menu-sidebar, #1a1a1a);
@@ -234,8 +235,10 @@ export class AccessibilityMenu {
     sections.forEach(section => {
       const btn = document.createElement('button');
       btn.textContent = section.label;
+      btn.id = `tab-${section.id}`;
       btn.setAttribute('role', 'tab');
       btn.setAttribute('aria-selected', (section.id === this.currentSection).toString());
+      btn.setAttribute('aria-controls', `panel-${section.id}`);
       btn.style.cssText = `
         width: 100%;
         padding: 12px 20px;
@@ -269,6 +272,8 @@ export class AccessibilityMenu {
   private createMainPanel(): HTMLElement {
     const panel = document.createElement('main');
     panel.setAttribute('role', 'tabpanel');
+    panel.id = `panel-${this.currentSection}`;
+    panel.setAttribute('aria-labelledby', `tab-${this.currentSection}`);
     panel.style.cssText = `
       flex: 1;
       padding: 20px;
@@ -1160,6 +1165,8 @@ export class AccessibilityMenu {
   private refreshMainPanel(): void {
     const main = this.container?.querySelector('main');
     if (main) {
+      main.id = `panel-${this.currentSection}`;
+      main.setAttribute('aria-labelledby', `tab-${this.currentSection}`);
       this.renderSection(main, this.currentSection);
     }
     this.updateSidebarSelection();
