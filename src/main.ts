@@ -9,7 +9,7 @@ import { windComputeSystem } from './foliage/wind-compute.ts';
 import { unlockSystem } from './systems/unlocks.ts';
 import { musicReactivitySystem } from './systems/music-reactivity.ts';
 import { fluidSystem } from './systems/fluid_system.ts';
-import { createFluidFog } from './foliage/fluid_fog.js';
+import { createFluidFog } from './foliage/fluid_fog.ts';
 import { AudioSystem } from './audio/audio-system.ts';
 import { BeatSync } from './audio/beat-sync.ts';
 import { WeatherSystem } from './systems/weather.ts';
@@ -643,7 +643,24 @@ function animate() {
     profiler.measure('MusicReact', () => {
         musicReactivitySystem.update(t, delta, audioState, weatherSystem, animatedFoliage, camera, isNight, isDeepNight);
         if (melodyRibbon) updateMelodyRibbons(melodyRibbon, delta, audioState);
-        if (fluidFog && audioState) fluidSystem.update(delta, audioState);
+        if (fluidFog && audioState) {
+            fluidSystem.update(delta, audioState);
+
+            // Map player world pos (-100 to 100) to grid (0 to 128)
+            // Fluid fog is 200x200 and centered at 0,0
+            const gridX = ((player.position.x + 100) / 200) * 128;
+            const gridY = ((player.position.z + 100) / 200) * 128;
+
+            if (gridX >= 0 && gridX < 128 && gridY >= 0 && gridY < 128) {
+                // Add density/velocity based on player movement
+                const speed = player.velocity.lengthSq();
+                if (speed > 1.0) {
+                    // Inject interaction back to the C++ simulation
+                    fluidSystem.addDensity(gridX, gridY, Math.sqrt(speed) * delta * 5.0);
+                    fluidSystem.addVelocity(gridX, gridY, player.velocity.x * delta, player.velocity.z * delta);
+                }
+            }
+        }
     });
 
     if (fireflies) {
