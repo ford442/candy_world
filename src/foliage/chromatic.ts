@@ -9,6 +9,10 @@ import {
     uniform,
     viewportSharedTexture,
     screenUV,
+    time,
+    sin,
+    cos,
+    vec2
 } from 'three/tsl';
 
 // Global uniform for Chromatic Pulse intensity
@@ -32,22 +36,37 @@ export function createChromaticPulse(): THREE.Mesh {
         // Base UVs for screen sampling
         const baseUV = screenUV; // Use screenUV for viewport-correct sampling
 
-        // 1. Barrel Distortion based on intensity
-        // Center UVs around (0,0) for distortion
+        // 1. Zoom / Impact Punch
+        // Create an energetic zoom-in effect when player dashes or lands heavily
         const centeredUV = baseUV.sub(0.5);
-        const dist = centeredUV.length();
 
+        // 🎨 PALETTE: "Juice" Factor - Add Screen Shake
+        // High frequency shake scaled by the intensity of the pulse
+        const shakePhase = time.mul(50.0);
+        const shakeX = sin(shakePhase).mul(uChromaticIntensity).mul(0.01);
+        const shakeY = cos(shakePhase.mul(1.2)).mul(uChromaticIntensity).mul(0.01);
+        const shakeOffset = vec2(shakeX, shakeY);
+
+        // Apply zoom scale (up to 15% zoom at full intensity) + shake offset
+        const zoomFactor = float(1.0).sub(uChromaticIntensity.mul(0.15));
+        const zoomedUV = centeredUV.mul(zoomFactor).add(shakeOffset);
+
+        const dist = zoomedUV.length();
+
+        // 2. Barrel Distortion based on intensity
         // Barrel distortion formula: uv = uv * (1 + k * r^2)
         // We modulate 'k' with intensity
         const distortionStrength = uChromaticIntensity.mul(0.5); // Max distortion factor
         const distortion = float(1.0).add(dist.mul(dist).mul(distortionStrength));
 
-        const distortedUV = centeredUV.mul(distortion).add(0.5);
+        const distortedUV = zoomedUV.mul(distortion).add(0.5);
 
-        // 2. Chromatic Aberration (RGB Split)
+        // 3. Chromatic Aberration (RGB Split)
         // Offset Red and Blue channels in opposite directions relative to the center
-        const offsetDir = centeredUV.normalize();
-        const aberrationAmount = uChromaticIntensity.mul(0.02); // 2% screen width max offset
+        const offsetDir = zoomedUV.normalize();
+
+        // 🎨 PALETTE: Make chromatic split wider and "juicier"
+        const aberrationAmount = uChromaticIntensity.mul(0.03); // 3% screen width max offset
 
         const redUV = distortedUV.sub(offsetDir.mul(aberrationAmount));
         const blueUV = distortedUV.add(offsetDir.mul(aberrationAmount));
