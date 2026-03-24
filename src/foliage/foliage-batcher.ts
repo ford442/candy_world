@@ -92,6 +92,18 @@ export class FoliageBatcher {
         spiritFade: ExtendedBatchState;
     };
 
+    // ⚡ OPTIMIZATION: Cached Float32Array view to prevent GC spikes in hot loops
+    private cachedMemoryView: Float32Array | null = null;
+
+    private getMemoryView(instance: any): Float32Array {
+        const memory = instance.exports.memory;
+        const buffer = memory.buffer || memory;
+        if (!this.cachedMemoryView || this.cachedMemoryView.buffer !== buffer) {
+            this.cachedMemoryView = new Float32Array(buffer);
+        }
+        return this.cachedMemoryView;
+    }
+
     private constructor() {
         this.batches = {
             sway: this.createBatch(),
@@ -563,7 +575,8 @@ export class FoliageBatcher {
             }
         ];
 
-        const F32 = new Float32Array((instance.exports.memory as any).buffer);
+        // ⚡ OPTIMIZATION: Cached Float32Array view to prevent GC spikes in hot loops
+        const F32 = this.getMemoryView(instance);
 
         for (const config of batchConfigs) {
             const batch = this.simpleBatches[config.type];
@@ -869,7 +882,8 @@ export class FoliageBatcher {
         const instance = getWasmInstance();
         if (!instance) return;
 
-        const F32 = new Float32Array((instance.exports.memory as any).buffer);
+        // ⚡ OPTIMIZATION: Cached Float32Array view to prevent GC spikes in hot loops
+        const F32 = this.getMemoryView(instance);
 
         // Copy input data to WASM memory
         const inPtr = batch.ptrInput >>> 2;
@@ -967,7 +981,8 @@ export class FoliageBatcher {
         const instance = getWasmInstance();
         if (!instance) return;
 
-        const F32 = new Float32Array((instance.exports.memory as any).buffer);
+        // ⚡ OPTIMIZATION: Cached Float32Array view to prevent GC spikes in hot loops
+        const F32 = this.getMemoryView(instance);
 
         const offPtr = batch.ptrOffsets >>> 2;
         const intPtr = batch.ptrIntensities >>> 2;
@@ -996,7 +1011,8 @@ export class FoliageBatcher {
         const instance = getWasmInstance();
         if (!instance) return;
 
-        const F32 = new Float32Array((instance.exports.memory as any).buffer);
+        // ⚡ OPTIMIZATION: Cached Float32Array view to prevent GC spikes in hot loops
+        const F32 = this.getMemoryView(instance);
 
         const offPtr = batch.ptrOffsets >>> 2;
         const intPtr = batch.ptrIntensities >>> 2;
@@ -1027,7 +1043,8 @@ export class FoliageBatcher {
         const instance = getWasmInstance();
         if (!instance) return;
 
-        const F32 = new Float32Array((instance.exports.memory as any).buffer);
+        // ⚡ OPTIMIZATION: Cached Float32Array view to prevent GC spikes in hot loops
+        const F32 = this.getMemoryView(instance);
 
         const offPtr = batch.ptrOffsets >>> 2;
         const intPtr = batch.ptrIntensities >>> 2;
