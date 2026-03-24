@@ -18,6 +18,7 @@ export * from './lake_features.js';
 export * from './glitch.ts';
 export * from './chromatic.ts';
 export * from './strobe.ts';
+export * from './fluid_fog.ts';
 
 // Export lantern flower explicitly if not covered by flowers.ts (it is, but let's be safe)
 export { createLanternFlower } from './flowers.ts';
