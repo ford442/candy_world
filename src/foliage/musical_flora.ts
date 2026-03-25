@@ -227,14 +227,17 @@ export function createSnareTrap(options: SnareTrapOptions = {}) {
             group.userData.interactionText = '';
             group.userData.updateInteractionState?.();
 
+            // ⚡ OPTIMIZATION: Use shared impact color to prevent GC spike on interaction
             // Visual FX
-            spawnImpact(group.position, 'spore', new THREE.Color(0xFF4444));
+            spawnImpact(group.position, 'spore', _impactColorSpore);
         }
     };
 
     const reactiveGroup = attachReactivity(group);
     return makeInteractive(reactiveGroup);
 }
+
+const _impactColorSpore = new THREE.Color(0xFF4444);
 
 export function createRetriggerMushroom(options: RetriggerMushroomOptions = {}) {
     const { scale = 1.0, color = 0xFF6B6B, retriggerSpeed = 4 } = options;
@@ -328,6 +331,9 @@ export function createPortamentoPine(options: PortamentoPineOptions = {}) {
 
 // --- Category 2: Rhythmic Structures ---
 
+const _scratchHeadOffset = new THREE.Vector3();
+const _scratchHeadPos = new THREE.Vector3();
+
 export function createCymbalDandelion(options: CymbalDandelionOptions = {}) {
     const { scale = 1.0 } = options;
     const group = new THREE.Group();
@@ -360,12 +366,13 @@ export function createCymbalDandelion(options: CymbalDandelionOptions = {}) {
             dandelionBatcher.harvest(group.userData.batchIndex);
             unlockSystem.harvest('chime_shard', 3, 'Chime Shards');
 
+            // ⚡ OPTIMIZATION: Zero-allocation vector math to prevent GC spikes on interaction
             // Visual FX
-            const headOffset = new THREE.Vector3(0, 1.5 * scale, 0);
-            headOffset.applyQuaternion(group.quaternion);
-            const headPos = group.position.clone().add(headOffset);
-            spawnImpact(headPos, 'spore', 0xFFD700);
-            spawnDandelionExplosion(headPos, 24);
+            _scratchHeadOffset.set(0, 1.5 * scale, 0);
+            _scratchHeadOffset.applyQuaternion(group.quaternion);
+            _scratchHeadPos.copy(group.position).add(_scratchHeadOffset);
+            spawnImpact(_scratchHeadPos, 'spore', 0xFFD700);
+            spawnDandelionExplosion(_scratchHeadPos, 24);
 
             // Audio
             if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
