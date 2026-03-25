@@ -444,13 +444,10 @@ export class CullingDebugVisualizer {
         const points: THREE.Vector3[] = [];
         const camPos = camera.position;
 
-        // These scratch vectors are used to compute frustum corners without GC spikes
-        // We reuse the vectors for the visualizer if we can, but since it's pushed into points
-        // we must create them. However, frustum visualization is a debug feature.
-        // Let's at least avoid the `.clone()` chaining which created many intermediate vectors.
-        const _forward = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
-        const _up = new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion);
-        const _right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
+        // ⚡ OPTIMIZATION: Use shared scratch vectors to avoid GC spikes on debug render
+        _scratchForward.set(0, 0, -1).applyQuaternion(camera.quaternion);
+        _scratchUp.set(0, 1, 0).applyQuaternion(camera.quaternion);
+        _scratchRight.set(1, 0, 0).applyQuaternion(camera.quaternion);
 
         const farDist = 100;
         const fov = 60 * (Math.PI / 180);
@@ -460,22 +457,22 @@ export class CullingDebugVisualizer {
         const farHeight = farDist * tanFov;
         const farWidth = farHeight * aspect;
 
-        const farCenter = new THREE.Vector3().copy(camPos).addScaledVector(_forward, farDist);
+        _scratchFarCenter.copy(camPos).addScaledVector(_scratchForward, farDist);
 
-        const farTopLeft = new THREE.Vector3().copy(farCenter).addScaledVector(_up, farHeight).addScaledVector(_right, -farWidth);
-        const farTopRight = new THREE.Vector3().copy(farCenter).addScaledVector(_up, farHeight).addScaledVector(_right, farWidth);
-        const farBottomLeft = new THREE.Vector3().copy(farCenter).addScaledVector(_up, -farHeight).addScaledVector(_right, -farWidth);
-        const farBottomRight = new THREE.Vector3().copy(farCenter).addScaledVector(_up, -farHeight).addScaledVector(_right, farWidth);
+        _scratchFarTopLeft.copy(_scratchFarCenter).addScaledVector(_scratchUp, farHeight).addScaledVector(_scratchRight, -farWidth);
+        _scratchFarTopRight.copy(_scratchFarCenter).addScaledVector(_scratchUp, farHeight).addScaledVector(_scratchRight, farWidth);
+        _scratchFarBottomLeft.copy(_scratchFarCenter).addScaledVector(_scratchUp, -farHeight).addScaledVector(_scratchRight, -farWidth);
+        _scratchFarBottomRight.copy(_scratchFarCenter).addScaledVector(_scratchUp, -farHeight).addScaledVector(_scratchRight, farWidth);
 
         // Near plane (camera position for simplicity)
-        points.push(camPos, farTopLeft);
-        points.push(camPos, farTopRight);
-        points.push(camPos, farBottomLeft);
-        points.push(camPos, farBottomRight);
-        points.push(farTopLeft, farTopRight);
-        points.push(farTopRight, farBottomRight);
-        points.push(farBottomRight, farBottomLeft);
-        points.push(farBottomLeft, farTopLeft);
+        points.push(camPos, _scratchFarTopLeft);
+        points.push(camPos, _scratchFarTopRight);
+        points.push(camPos, _scratchFarBottomLeft);
+        points.push(camPos, _scratchFarBottomRight);
+        points.push(_scratchFarTopLeft, _scratchFarTopRight);
+        points.push(_scratchFarTopRight, _scratchFarBottomRight);
+        points.push(_scratchFarBottomRight, _scratchFarBottomLeft);
+        points.push(_scratchFarBottomLeft, _scratchFarTopLeft);
 
         const geometry = new THREE.BufferGeometry().setFromPoints(points);
         const material = new THREE.LineBasicMaterial({ color: 0x00ff00, transparent: true, opacity: 0.5 });
@@ -604,6 +601,15 @@ export class CullingDebugVisualizer {
  * Handles frustum culling, distance-based culling, LOD switching,
  * and occlusion culling with temporal coherence.
  */
+const _scratchForward = new THREE.Vector3();
+const _scratchUp = new THREE.Vector3();
+const _scratchRight = new THREE.Vector3();
+const _scratchFarCenter = new THREE.Vector3();
+const _scratchFarTopLeft = new THREE.Vector3();
+const _scratchFarTopRight = new THREE.Vector3();
+const _scratchFarBottomLeft = new THREE.Vector3();
+const _scratchFarBottomRight = new THREE.Vector3();
+
 export class CullingSystem {
     private objects: Map<string, CullableObject> = new Map();
     private spatialGrid: SpatialHashGrid;
