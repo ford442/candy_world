@@ -10,15 +10,13 @@
 
 ## Next Steps
 
-1. **Phase 4 (Three.js -> WebGPU)**: Raw compute and render pipelines. Begin migrating custom render passes.
-2. **Category 4: Advanced Shaders (WebGPU TSL)**: Implement Melody Mirrors or continue migrating shaders.
-3. **Environmental Discoveries**: Implement discovery logic for Melody Lake Island, Crystal Cave, and Harmonic Waterfall.
-4. **Instrument Shrine Puzzle Mechanics**: Implement interactive puzzles where shrine patterns must be matched to bassline instrument IDs.
+1. **Category 2: Rhythmic Structures**: Implement Chord Strike superweapon using Harmony Orbs.
 
 ---
 
 ## Recent Progress
 - **Accomplished:**
+  - **Phase 4 (Three.js -> WebGPU)**: Raw compute and render pipelines. Migrated custom render passes and unmigrated `src/foliage/lake_features.js` to `src/foliage/lake_features.ts` using TSL. **Status: Implemented ✅**
   - **Phase 3 (ASC -> C++): Fluid Simulation (Polish)**: **Status: Implemented ✅**
     - *Implementation Details: Migrated `src/foliage/fluid_fog.js` to TypeScript (`fluid_fog.ts`). Enhanced `MeshBasicNodeMaterial` to `MeshStandardNodeMaterial` with WebGPU TSL for lighting, noise, and vertex displacement (bulging with density). Integrated player interaction in `src/main.ts` to map player position/velocity to the C++ grid, allowing the player to push the fog and leave a wake.*
   - **Category 4: Advanced Shaders (WebGPU TSL) - Crescendo Fog**: **Status: Implemented ✅**

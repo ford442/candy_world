@@ -1,16 +1,22 @@
-// src/foliage/lake_features.js
+// src/foliage/lake_features.ts
 import * as THREE from 'three';
 import {
-    CandyPresets, attachReactivity, foliageMaterials
+    CandyPresets, attachReactivity
 } from './common.ts';
 import {
-    // positionLocal, vec3, float, mix, normalWorld, color, sin, time, uv, texture, mul, add
+    positionLocal, vec3, float, sin, time, uv, add
 } from 'three/tsl';
+
+export interface IslandOptions {
+    radius?: number;
+    height?: number;
+    hasCreek?: boolean;
+}
 
 /**
  * Creates a floating island with a stylized creek path
  */
-export function createIsland(options = {}) {
+export function createIsland(options: IslandOptions = {}): THREE.Group {
     const {
         radius = 15.0,
         height = 3.0,
@@ -69,10 +75,20 @@ export function createIsland(options = {}) {
         const creekMat = CandyPresets.SeaJelly(0x44AAFF, {
             transmission: 0.8,
             roughness: 0.1
-        });
+        }) as any; // Cast to any to access TSL properties like positionNode
 
-        // Note: For flow animation, we rely on the built-in 'animateMoisture'
-        // in SeaJelly preset as modifying UVs of standard material requires node replacement.
+        // ⚡ OPTIMIZATION & JUICE: Explicit TSL flow animation for the creek
+        // Displace the creek surface based on UVs and time to create a flowing water effect
+        const flowTime = time.mul(2.0);
+        const flowUv = uv(); // TubeGeometry uses 2D UVs
+
+        // Create ripples moving along the creek
+        const ripple = sin(flowUv.x.mul(10.0).add(flowTime)).mul(0.1);
+        const displacement = vec3(0, ripple, 0);
+
+        // Apply the displacement
+        const basePosition = positionLocal;
+        creekMat.positionNode = add(basePosition, displacement);
 
         const creekMesh = new THREE.Mesh(creekGeo, creekMat);
         group.add(creekMesh);
