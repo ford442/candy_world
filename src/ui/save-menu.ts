@@ -1401,7 +1401,10 @@ export class SaveMenu {
             const textarea = this.container?.querySelector('#import-area') as HTMLTextAreaElement;
             if (textarea && event.target?.result) {
                 textarea.value = event.target.result as string;
+                showToast('File loaded, ready to import!', '📁', 3000);
             }
+            // Reset input value to allow selecting the same file again
+            input.value = '';
         };
         reader.readAsText(file);
     }
