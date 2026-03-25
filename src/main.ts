@@ -332,6 +332,8 @@ beatSync.onBeat((state) => {
 
 
 // 🎨 Palette: Cache HUD Elements
+const hudEnergyContainer = document.getElementById('energy-bar-container');
+const hudEnergyFill = document.getElementById('energy-bar-fill');
 const hudDash = document.getElementById('ability-dash');
 const hudDashOverlay = hudDash ? hudDash.querySelector('.cooldown-overlay') as HTMLElement : null;
 const hudMine = document.getElementById('ability-mine');
@@ -722,6 +724,32 @@ function animate() {
 
         updateFallingClouds(delta, foliageClouds, getGroundHeight);
         cloudBatcher.update(delta);
+
+        // 🎨 Palette: Update Energy Bar (UI Feedback)
+        if (hudEnergyContainer && hudEnergyFill) {
+            const energyPct = Math.max(0, Math.min(1, player.energy / player.maxEnergy));
+            hudEnergyFill.style.width = `${energyPct * 100}%`;
+            hudEnergyContainer.setAttribute('aria-valuenow', (energyPct * 10).toFixed(1));
+
+            // Pulse to the beat when health/energy is low (< 30%)
+            if (energyPct < 0.3) {
+                hudEnergyContainer.classList.add('low-energy-pulse');
+                const kick = audioState?.kickTrigger || 0;
+                // Add an intense, juicy pulse based on the beat
+                const pulseScale = 1.0 + kick * 0.25;
+                hudEnergyContainer.style.transform = `scale(${pulseScale.toFixed(3)})`;
+
+                // Color shift to warning red/orange
+                hudEnergyFill.style.background = `linear-gradient(90deg, #ff4500, #ff0000)`;
+                hudEnergyContainer.style.borderColor = '#ff0000';
+            } else {
+                hudEnergyContainer.classList.remove('low-energy-pulse');
+                hudEnergyContainer.style.transform = '';
+                // Restore original candy pink gradient
+                hudEnergyFill.style.background = `linear-gradient(90deg, #ff69b4, #ff1493)`;
+                hudEnergyContainer.style.borderColor = ''; // Let CSS take over
+            }
+        }
 
         // 🎨 Palette: Update Ability HUD
         if (hudDash && hudDashOverlay) {
