@@ -179,8 +179,36 @@
     bottom: 20px;
     right: 20px;
     display: flex;
+    align-items: center;
     gap: 15px;
     z-index: 100;
+}
+
+/* 🎨 Palette: Energy Bar */
+#energy-bar-container {
+    width: 150px;
+    height: 20px;
+    background: rgba(30, 30, 40, 0.85);
+    border-radius: 10px;
+    border: 3px solid #FFD1DC;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    transition: transform 0.1s cubic-bezier(0.175, 0.885, 0.32, 1.275), border-color 0.2s;
+    margin-right: 10px;
+}
+
+#energy-bar-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #ff69b4, #ff1493);
+    border-radius: 7px;
+    transition: width 0.1s linear, background 0.2s;
+    box-shadow: 0 0 10px rgba(255, 105, 180, 0.5);
+}
+
+.low-energy-pulse {
+    border-color: #ff1493 !important;
 }
 
 .ability-slot {
