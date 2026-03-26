@@ -22,6 +22,7 @@ export const DISCOVERY_MAP: Record<string, DiscoveryItem> = {
     'panning_pad': { name: 'Panning Pad', icon: '🧘' },
     'silence_spirit': { name: 'Silence Spirit', icon: '🦌' },
     'subwoofer_lotus': { name: 'Subwoofer Lotus', icon: '🔊' },
+    'harmony_orb': { name: 'Harmony Orb', icon: '🔮' },
     'instrument_shrine': { name: 'Instrument Shrine', icon: '⛩️' },
     'melody_mirror': { name: 'Melody Mirror', icon: '🪞' },
     'lake_island': { name: 'Melody Lake Island', icon: '🏝️' },

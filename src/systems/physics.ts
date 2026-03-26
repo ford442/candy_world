@@ -32,6 +32,7 @@ import { unlockSystem } from './unlocks.ts';
 import { showToast } from '../utils/toast.js';
 import { dandelionBatcher } from '../foliage/dandelion-batcher.ts';
 import { spawnDandelionExplosion } from '../foliage/dandelion-seeds.ts';
+import { harmonyOrbSystem } from '../foliage/aurora.ts';
 
 // --- Types ---
 
@@ -925,6 +926,40 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
 
     // --- Retrigger Mushrooms (Strobe Sickness HUD Flicker) ---
     checkRetriggerMushrooms(delta, audioState);
+
+    // --- Harmony Orbs (Collection) ---
+    checkHarmonyOrbs();
+}
+
+function checkHarmonyOrbs() {
+    const playerPos = player.position;
+    const radiusSq = 2.0 * 2.0; // 2m collection radius
+
+    for (let i = 0; i < harmonyOrbSystem.orbs.length; i++) {
+        const orb = harmonyOrbSystem.orbs[i];
+        if (!orb.active) continue;
+
+        const distSq = orb.position.distanceToSquared(playerPos);
+        if (distSq < radiusSq) {
+            // Collect orb
+            orb.active = false;
+
+            // Hide mesh immediately
+            harmonyOrbSystem.dummy.position.set(0, -9999, 0);
+            harmonyOrbSystem.dummy.scale.setScalar(0);
+            harmonyOrbSystem.dummy.updateMatrix();
+            harmonyOrbSystem.mesh.setMatrixAt(i, harmonyOrbSystem.dummy.matrix);
+            harmonyOrbSystem.mesh.instanceMatrix.needsUpdate = true;
+
+            // Visuals & Logic
+            spawnImpact(orb.position, 'berry', 0x9933FF);
+            unlockSystem.harvest('harmony_orb', 1, 'Harmony Orb');
+
+            if (uChromaticIntensity) {
+                uChromaticIntensity.value = Math.max(uChromaticIntensity.value, 0.4);
+            }
+        }
+    }
 }
 
 function checkRetriggerMushrooms(delta: number, audioState: AudioState | null) {

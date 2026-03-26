@@ -10,12 +10,14 @@
 
 ## Next Steps
 
-1. **Category 2: Rhythmic Structures**: Implement Chord Strike superweapon using Harmony Orbs.
+1. **Phase 4 (Three.js -> WebGPU)**: Complete the final WebGPU migration items (e.g., custom render passes or missing logic).
 
 ---
 
 ## Recent Progress
 - **Accomplished:**
+  - **Category 2: Rhythmic Structures**: Implement Chord Strike superweapon using Harmony Orbs. **Status: Implemented ✅**
+    - *Implementation Details: Created `harmonyOrbSystem` in `src/foliage/aurora.ts` to spawn falling audio-reactive Orbs during harmonic collisions. Implemented collection logic in `src/systems/physics.ts`. Built `ChordStrikeSystem` in `src/gameplay/chord-strike.ts` to consume 3 Orbs (via Key V) and fire a massive, TSL-driven vertical plasma beam that expands and pushes the player upwards. Integrated and mapped into `src/main.ts` and `src/core/input.ts` with edge-detection.*
   - **Phase 4 (Three.js -> WebGPU)**: Raw compute and render pipelines. Migrated custom render passes and unmigrated `src/foliage/lake_features.js` to `src/foliage/lake_features.ts` using TSL. **Status: Implemented ✅**
   - **Phase 3 (ASC -> C++): Fluid Simulation (Polish)**: **Status: Implemented ✅**
     - *Implementation Details: Migrated `src/foliage/fluid_fog.js` to TypeScript (`fluid_fog.ts`). Enhanced `MeshBasicNodeMaterial` to `MeshStandardNodeMaterial` with WebGPU TSL for lighting, noise, and vertex displacement (bulging with density). Integrated player interaction in `src/main.ts` to map player position/velocity to the C++ grid, allowing the player to push the fog and leave a wake.*

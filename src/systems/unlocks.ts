@@ -37,6 +37,13 @@ export const UNLOCK_DEFINITIONS: Record<string, UnlockDefinition> = {
         requirements: [{ itemId: 'shrine_token', count: 3 }],
         icon: '🏛️'
     },
+    'chord_strike': {
+        id: 'chord_strike',
+        name: 'Chord Strike',
+        description: 'A devastating blast powered by pure melody. (Press V)',
+        requirements: [{ itemId: 'harmony_orb', count: 3 }],
+        icon: '🎶'
+    },
     'resonance_tuner': {
         id: 'resonance_tuner',
         name: 'Resonance Tuner',
