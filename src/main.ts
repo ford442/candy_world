@@ -2,7 +2,8 @@
 
 import * as THREE from 'three';
 import '../style.css';
-import { uWindSpeed, uWindDirection, uSkyTopColor, uSkyBottomColor, uHorizonColor, uAtmosphereIntensity, uStarOpacity, uAuroraIntensity, uAuroraColor, uAudioLow, uAudioHigh, uGlitchIntensity, uChromaticIntensity, uTime, uPlayerPosition, createAurora, createChromaticPulse, createStrobePulse, uStrobeIntensity, animateFoliage, updateFoliageMaterials, updateFallingBerries, collectFallingBerries, createMushroom, validateNodeGeometries, createMelodyRibbon, updateMelodyRibbons, createSparkleTrail, updateSparkleTrail, createImpactSystem, createShield, createDandelionSeedSystem, createDiscoveryEffect } from './foliage/index.ts';
+import { uWindSpeed, uWindDirection, uSkyTopColor, uSkyBottomColor, uHorizonColor, uAtmosphereIntensity, uStarOpacity, uAuroraIntensity, uAuroraColor, uAudioLow, uAudioHigh, uGlitchIntensity, uChromaticIntensity, uTime, uPlayerPosition, createAurora, harmonyOrbSystem, createChromaticPulse, createStrobePulse, uStrobeIntensity, animateFoliage, updateFoliageMaterials, updateFallingBerries, collectFallingBerries, createMushroom, validateNodeGeometries, createMelodyRibbon, updateMelodyRibbons, createSparkleTrail, updateSparkleTrail, createImpactSystem, createShield, createDandelionSeedSystem, createDiscoveryEffect } from './foliage/index.ts';
+import { chordStrikeSystem } from './gameplay/chord-strike.ts';
 import { initCelestialBodies } from './foliage/celestial-bodies.ts';
 import { InteractionSystem } from './systems/interaction.ts';
 import { windComputeSystem } from './foliage/wind-compute.ts';
@@ -140,7 +141,9 @@ function initDeferredVisuals() {
     if (!aurora) {
         aurora = createAurora();
         scene.add(aurora);
-        console.log('[Deferred] Aurora initialized');
+        harmonyOrbSystem.addToScene(scene); // Add Harmony Orbs
+        chordStrikeSystem.addToScene(scene); // Add Chord Strike Beam
+        console.log('[Deferred] Aurora & Systems initialized');
     }
 
     if (!chromaticPulse) {
@@ -346,6 +349,7 @@ let _lastDashReady: boolean | null = null;
 let _lastMineReady: boolean | null = null;
 let _lastPhaseCount: number | null = null;
 let _lastPhaseActive: boolean | null = null;
+let _lastStrikeState: boolean = false;
 let _loggedWebGPULimits = false;
 type WebGPURendererWithDeviceLimits = THREE.Renderer & {
     backend?: {
@@ -721,6 +725,20 @@ function animate() {
 
         // Glitch Grenades
         glitchGrenadeSystem.update(delta, scene);
+
+        // Chord Strike
+        const isStrikePressed = keyStates.strike;
+        const isStrikeTriggered = isStrikePressed && !_lastStrikeState;
+
+        if (isStrikeTriggered) {
+            chordStrikeSystem.fire(player.position);
+        }
+        _lastStrikeState = isStrikePressed;
+
+        chordStrikeSystem.update(delta, scene, player);
+
+        // Harmony Orbs
+        harmonyOrbSystem.update(delta, audioState, player.position);
 
         updateFallingClouds(delta, foliageClouds, getGroundHeight);
         cloudBatcher.update(delta);

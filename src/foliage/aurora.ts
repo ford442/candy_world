@@ -1,9 +1,10 @@
 // src/foliage/aurora.ts
 
 import * as THREE from 'three';
-import { color, float, vec3, vec4, uv, mix, smoothstep, uniform, Fn, time, mx_noise_float } from 'three/tsl';
-import { MeshBasicNodeMaterial } from 'three/webgpu';
-import { uAudioLow, uAudioHigh } from './common.ts';
+import { color, float, vec3, vec4, uv, mix, smoothstep, uniform, Fn, time, mx_noise_float, positionWorld, positionLocal, dot, sin } from 'three/tsl';
+import { MeshBasicNodeMaterial, MeshStandardNodeMaterial } from 'three/webgpu';
+import { uAudioLow, uAudioHigh, CandyPresets, uTime, createJuicyRimLight } from './common.ts';
+import { getSphereGeometry } from '../utils/geometry-dedup.ts';
 
 // Global uniforms for Aurora control
 export const uAuroraIntensity = uniform(0.0); // 0.0 to 1.0
@@ -78,3 +79,202 @@ export function createAurora(): THREE.Mesh {
 
     return mesh;
 }
+
+// --- HARMONY ORBS SYSTEM ---
+
+export interface HarmonyOrb {
+    active: boolean;
+    life: number;
+    velocity: THREE.Vector3;
+    position: THREE.Vector3;
+    scale: number;
+}
+
+const MAX_ORBS = 50;
+
+class HarmonyOrbSystem {
+    mesh: THREE.InstancedMesh;
+    orbs: HarmonyOrb[];
+    dummy: THREE.Object3D;
+    dropCooldown: number = 0;
+
+    constructor() {
+        // High quality sphere for glossy look
+        const geometry = getSphereGeometry(0.3, 32, 32);
+
+        // CandyPresets.Gummy base
+        const opts = {
+            transmission: 0.8,
+            thickness: 1.5,
+            roughness: 0.1,
+            ior: 1.5,
+            subsurfaceStrength: 1.0,
+            subsurfaceColor: 0x9933FF
+        };
+        const material = CandyPresets.Gummy(0x9933FF, opts);
+
+        // TSL Logic for Audio-Reactive Pulse and Glow
+        const baseColor = color(0x00FF99);
+        const magicColor = color(0x9933FF);
+
+        // Mix colors based on audio high
+        const orbColor = mix(baseColor, magicColor, uAudioHigh.add(float(0.5)).min(1.0));
+
+        // Emissive: Pulse with bass and rim light
+        const phase = dot(positionWorld, vec3(0.5)).mul(5.0);
+        const beatSpeed = float(8.0);
+        const heartbeat = sin(uTime.mul(beatSpeed).add(phase)).pow(4.0);
+        const glowIntensity = float(0.5).add(heartbeat.mul(uAudioLow));
+
+        // Add rim light for juice
+        const rim = createJuicyRimLight(orbColor, float(1.5), float(3.0), null);
+
+        material.emissiveNode = orbColor.mul(glowIntensity).add(rim);
+
+        // Vertex displacement (Squishy feel based on velocity/audio)
+        // Scale with bass
+        const scaleFactor = float(1.0).add(heartbeat.mul(uAudioLow).mul(0.3));
+        material.positionNode = positionLocal.mul(scaleFactor);
+
+        this.mesh = new THREE.InstancedMesh(geometry, material, MAX_ORBS);
+        this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+        this.mesh.castShadow = true;
+        this.mesh.receiveShadow = false;
+
+        this.orbs = [];
+        this.dummy = new THREE.Object3D();
+
+        for (let i = 0; i < MAX_ORBS; i++) {
+            this.orbs.push({
+                active: false,
+                life: 0,
+                velocity: new THREE.Vector3(),
+                position: new THREE.Vector3(),
+                scale: 1.0
+            });
+            this.dummy.position.set(0, -9999, 0);
+            this.dummy.scale.setScalar(0);
+            this.dummy.updateMatrix();
+            this.mesh.setMatrixAt(i, this.dummy.matrix);
+        }
+    }
+
+    addToScene(scene: THREE.Scene) {
+        scene.add(this.mesh);
+    }
+
+    spawnOrb(playerPos: THREE.Vector3) {
+        // Find inactive orb
+        let idx = -1;
+        for (let i = 0; i < MAX_ORBS; i++) {
+            if (!this.orbs[i].active) {
+                idx = i;
+                break;
+            }
+        }
+
+        if (idx === -1) return; // Pool full
+
+        const orb = this.orbs[idx];
+        orb.active = true;
+        orb.life = 20.0; // Lives for 20 seconds
+
+        // Spawn high up in the aurora, somewhat near the player in XZ
+        const spawnRadius = 30.0;
+        orb.position.set(
+            playerPos.x + (Math.random() - 0.5) * spawnRadius,
+            200.0 + Math.random() * 50.0, // High up in the Aurora curtain
+            playerPos.z + (Math.random() - 0.5) * spawnRadius
+        );
+
+        orb.velocity.set(
+            (Math.random() - 0.5) * 5.0,
+            -10.0, // Initial downward velocity
+            (Math.random() - 0.5) * 5.0
+        );
+        orb.scale = 0.1; // Start small and grow
+
+        this.dummy.position.copy(orb.position);
+        this.dummy.scale.setScalar(orb.scale);
+        this.dummy.updateMatrix();
+        this.mesh.setMatrixAt(idx, this.dummy.matrix);
+        this.mesh.instanceMatrix.needsUpdate = true;
+    }
+
+    update(dt: number, audioState: any, playerPos: THREE.Vector3) {
+        // Trigger logic: Drop an orb when there's a strong harmonic collision (simulated by high channel 4/5 trigger + cooldown)
+        let harmonicTrigger = 0;
+        if (audioState && audioState.channelData) {
+            // Check melody/lead channels for high energy
+            if (audioState.channelData[4] && audioState.channelData[4].trigger > 0.8) harmonicTrigger = 1;
+            if (audioState.channelData[5] && audioState.channelData[5].trigger > 0.8) harmonicTrigger = 1;
+        }
+
+        if (this.dropCooldown > 0) {
+            this.dropCooldown -= dt;
+        } else if (harmonicTrigger > 0 && Math.random() < 0.3) {
+            this.spawnOrb(playerPos);
+            this.dropCooldown = 5.0; // Drop one every 5 seconds max
+        }
+
+        let needsUpdate = false;
+
+        for (let i = 0; i < MAX_ORBS; i++) {
+            const orb = this.orbs[i];
+            if (!orb.active) continue;
+
+            orb.life -= dt;
+            if (orb.life <= 0) {
+                orb.active = false;
+                this.dummy.position.set(0, -9999, 0);
+                this.dummy.scale.setScalar(0);
+                this.dummy.updateMatrix();
+                this.mesh.setMatrixAt(i, this.dummy.matrix);
+                needsUpdate = true;
+                continue;
+            }
+
+            // Physics: Gravity, Wind, Floatiness
+            orb.velocity.y -= 9.8 * 0.2 * dt; // Slow, floaty gravity (feather-like)
+
+            // Add some sway based on sine wave (like a falling leaf or bubble)
+            orb.velocity.x += Math.sin(orb.life * 2.0) * 2.0 * dt;
+            orb.velocity.z += Math.cos(orb.life * 1.5) * 2.0 * dt;
+
+            // Terminal velocity (slow fall)
+            if (orb.velocity.y < -5.0) orb.velocity.y = -5.0;
+
+            orb.position.addScaledVector(orb.velocity, dt);
+
+            // Ground collision
+            // We do a simple height check. Ideally we use getGroundHeight, but since orbs are floaty, we can just say y < 0 is destroyed.
+            if (orb.position.y < -5.0) {
+                orb.active = false;
+                this.dummy.position.set(0, -9999, 0);
+                this.dummy.scale.setScalar(0);
+                this.dummy.updateMatrix();
+                this.mesh.setMatrixAt(i, this.dummy.matrix);
+                needsUpdate = true;
+                continue;
+            }
+
+            // Scale up smoothly
+            if (orb.scale < 1.0) {
+                orb.scale += dt;
+                if (orb.scale > 1.0) orb.scale = 1.0;
+            }
+
+            this.dummy.position.copy(orb.position);
+            this.dummy.scale.setScalar(orb.scale);
+            this.dummy.updateMatrix();
+            this.mesh.setMatrixAt(i, this.dummy.matrix);
+            needsUpdate = true;
+        }
+
+        if (needsUpdate) {
+            this.mesh.instanceMatrix.needsUpdate = true;
+        }
+    }
+}
+
+export const harmonyOrbSystem = new HarmonyOrbSystem();

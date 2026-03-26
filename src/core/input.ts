@@ -18,6 +18,7 @@ export interface KeyStates {
     action: boolean;
     phase: boolean;
     clap: boolean;
+    strike: boolean;
 }
 
 export const keyStates: KeyStates = {
@@ -33,7 +34,8 @@ export const keyStates: KeyStates = {
     dance: false,
     action: false,
     phase: false,
-    clap: false
+    clap: false,
+    strike: false
 };
 
 // Controls and Event Listeners
@@ -708,6 +710,10 @@ export function initInput(
             case 'c':
                 keyStates.clap = true;
                 break; // Sonic Clap Ability
+            case 'KeyV':
+            case 'v':
+                keyStates.strike = true;
+                break; // Chord Strike Ability
             case 'KeyR':
             case 'r':
                 keyStates.dance = true;
@@ -792,6 +798,8 @@ export function initInput(
             case 'Space': keyStates.jump = false; break;
             case 'KeyC':
             case 'c': keyStates.clap = false; break;
+            case 'KeyV':
+            case 'v': keyStates.strike = false; break;
             case 'ControlLeft':
             case 'ControlRight': keyStates.sneak = false; break;
             case 'ShiftLeft':
