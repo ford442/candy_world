@@ -384,12 +384,16 @@ class AnalyticsDebugOverlay {
     
     const closeBtn = document.createElement('button');
     closeBtn.className = 'analytics-debug-close';
-    closeBtn.innerHTML = '×';
+    closeBtn.setAttribute('aria-label', 'Close analytics debug overlay');
+    closeBtn.title = 'Close';
+    closeBtn.innerHTML = '<span aria-hidden="true">×</span>';
     closeBtn.onclick = () => this.hide();
     
     const minimizeBtn = document.createElement('button');
     minimizeBtn.className = 'analytics-debug-close';
-    minimizeBtn.innerHTML = '−';
+    minimizeBtn.setAttribute('aria-label', 'Minimize analytics debug overlay');
+    minimizeBtn.title = 'Minimize';
+    minimizeBtn.innerHTML = '<span aria-hidden="true">−</span>';
     minimizeBtn.onclick = () => this.toggleMinimize();
     minimizeBtn.style.marginRight = '5px';
     
