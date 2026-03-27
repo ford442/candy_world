@@ -103,6 +103,11 @@ const MENU_STYLES = `
     transform: rotate(90deg);
 }
 
+.candy-save-menu__close:focus-visible {
+    outline: 2px solid #ff69b4;
+    outline-offset: 2px;
+}
+
 .candy-save-menu__tabs {
     display: flex;
     gap: 10px;
@@ -125,6 +130,11 @@ const MENU_STYLES = `
 .candy-save-menu__tab:hover {
     background: rgba(255, 255, 255, 0.2);
     color: #fff;
+}
+
+.candy-save-menu__tab:focus-visible {
+    outline: 2px solid #ff69b4;
+    outline-offset: 2px;
 }
 
 .candy-save-menu__tab--active {
@@ -247,6 +257,11 @@ const MENU_STYLES = `
     transform: scale(1.05);
 }
 
+.candy-save-slot__btn:focus-visible {
+    outline: 2px solid #ff69b4;
+    outline-offset: 2px;
+}
+
 /* Action Buttons */
 .candy-save-menu__actions {
     display: flex;
@@ -293,6 +308,11 @@ const MENU_STYLES = `
     opacity: 0.5;
     cursor: not-allowed;
     transform: none;
+}
+
+.candy-save-menu__btn:focus-visible {
+    outline: 2px solid #ff69b4;
+    outline-offset: 2px;
 }
 
 /* Settings Panel */
@@ -430,6 +450,11 @@ const MENU_STYLES = `
     background: rgba(255, 105, 180, 0.1);
 }
 
+.candy-keybind:focus-visible {
+    outline: 2px solid #ff69b4;
+    outline-offset: 2px;
+}
+
 .candy-keybind--listening {
     border-color: #ffd700;
     background: rgba(255, 215, 0, 0.2);
@@ -493,6 +518,11 @@ const MENU_STYLES = `
 
 .candy-file-label:hover {
     background: rgba(255, 255, 255, 0.2);
+}
+
+.candy-file-label:focus-visible {
+    outline: 2px solid #ff69b4;
+    outline-offset: 2px;
 }
 
 /* Danger Zone */
