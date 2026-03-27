@@ -88,8 +88,13 @@ export class MusicReactivitySystem {
                     const originalEmissive = object.userData.originalEmissive || mat.emissive.clone();
                     if (!object.userData.originalEmissive) object.userData.originalEmissive = originalEmissive;
 
-                    // Simple flash
-                    mat.emissive.setHex(color);
+                    // Smooth flash via animateFoliage
+                    if (!object.userData.flashColor) {
+                        object.userData.flashColor = new THREE.Color(color);
+                    } else {
+                        object.userData.flashColor.setHex(color);
+                    }
+                    object.userData.flashIntensity = velocity / 127.0;
                 }
             };
         }
@@ -335,10 +340,14 @@ export class MusicReactivitySystem {
         if (this.moonState.isBlinking) {
             const elapsed = now - this.moonState.blinkStartTime;
             const progress = elapsed / CONFIG.moon.blinkDuration;
+            const mesh = this.moon.children[0] as THREE.Mesh;
 
             if (progress >= 1) {
                 this.moonState.isBlinking = false;
                 this.moon.scale.copy(this.moonState.baseScale);
+                if (mesh && (mesh.material as any).uBlink) {
+                    (mesh.material as any).uBlink.value = 0;
+                }
                 this.scheduleNextBlink();
             } else {
                 // Simple scale blink (squash Y)
@@ -350,6 +359,11 @@ export class MusicReactivitySystem {
                     this.moonState.baseScale.y * scaleY,
                     this.moonState.baseScale.z
                 );
+
+                // Update emissive uniform
+                if (mesh && (mesh.material as any).uBlink) {
+                    (mesh.material as any).uBlink.value = blinkCurve;
+                }
             }
         }
 
