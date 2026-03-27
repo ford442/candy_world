@@ -35,6 +35,9 @@ const _scratchAttraction = new THREE.Vector3();
 const _scratchBlack = new THREE.Color(0x000000);
 const _scratchWaterfallPos = new THREE.Vector3();
 
+// ⚡ OPTIMIZATION: Cache palette keys outside the render loop to prevent GC spikes during storms
+const _cloudPaletteKeys = Object.keys((CONFIG.noteColorMap && CONFIG.noteColorMap.cloud) || {});
+
 export class WeatherSystem {
     scene: THREE.Scene;
     state: WeatherState;
@@ -492,9 +495,8 @@ export class WeatherSystem {
         if (this.state === WeatherState.STORM && (bassIntensity > 0.8 || Math.random() < 0.01)) {
             try { if(uCloudLightningStrength) uCloudLightningStrength.value = 1.0; } catch(e) {}
 
-            const paletteKeys = Object.keys((CONFIG.noteColorMap && CONFIG.noteColorMap.cloud) || {});
-            if (paletteKeys.length > 0) {
-                const randomKey = paletteKeys[Math.floor(Math.random() * paletteKeys.length)];
+            if (_cloudPaletteKeys.length > 0) {
+                const randomKey = _cloudPaletteKeys[Math.floor(Math.random() * _cloudPaletteKeys.length)];
                 const colorHex = CONFIG.noteColorMap.cloud[randomKey];
                 try { if (uCloudLightningColor && uCloudLightningColor.value && uCloudLightningColor.value.setHex) uCloudLightningColor.value.setHex(colorHex); } catch(e) {}
                 this.lightningLight.color.setHex(colorHex);
