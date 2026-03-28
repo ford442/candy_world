@@ -30,9 +30,29 @@ export function initScene() {
     renderer.clippingPlanes = [];
     renderer.localClippingEnabled = false;
     console.log('[Init] WebGPURenderer clipping fix applied.');
+
+    // HDR Configuration (Phase 4: WebGPU)
+    // Attempt to enable wide color gamut and extended tone mapping for brighter visuals
+    const supportsHDR = window.matchMedia && window.matchMedia('(dynamic-range: high)').matches;
+    if (supportsHDR) {
+        console.log('[Init] HDR supported, configuring WebGPURenderer for extended dynamic range and Display P3.');
+        try {
+            // Fallback to string literals since THREE.DisplayP3ColorSpace might not be available in this three.js version
+            renderer.outputColorSpace = 'display-p3';
+        } catch (e) {
+            console.warn('[Init] Failed to set display-p3, falling back to srgb.');
+            renderer.outputColorSpace = 'srgb';
+        }
+        // Extended tone mapping for values > 1.0
+        renderer.toneMapping = THREE.LinearToneMapping;
+    } else {
+        console.log('[Init] HDR not supported, using standard SDR configuration.');
+        renderer.outputColorSpace = 'srgb';
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    }
+
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5)); // Cap pixel ratio for better performance
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.0;
 
     // --- Lighting ---
