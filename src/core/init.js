@@ -1,9 +1,9 @@
 // src/core/init.js
 
 import * as THREE from 'three';
-import { color } from 'three/tsl';
+import { color, uniform } from 'three/tsl';
 import WebGPU from 'three/examples/jsm/capabilities/WebGPU.js';
-import { WebGPURenderer } from 'three/webgpu';
+import { WebGPURenderer, MeshBasicNodeMaterial } from 'three/webgpu';
 import { PALETTE, CONFIG } from './config.ts';
 import { createCrescendoFogNode } from '../foliage/sky.ts';
 
@@ -80,17 +80,22 @@ export function initScene() {
     const lightShaftGroup = new THREE.Group();
     const shaftCount = 12;
     const shaftGeometry = new THREE.PlaneGeometry(8, 200);
-    const shaftMaterial = new THREE.MeshBasicMaterial({
+
+    // ⚡ OPTIMIZATION: Use a shared TSL material instead of looping over 12 clones in JS
+    const uShaftOpacity = window.uShaftOpacity || (window.uShaftOpacity = uniform(0.0));
+    const shaftMaterial = new MeshBasicNodeMaterial({
         color: 0xFFE5A0,
         transparent: true,
-        opacity: 0.0, // Will be animated
         blending: THREE.AdditiveBlending,
         side: THREE.DoubleSide,
         depthWrite: false
     });
+    // Link opacity to a global TSL uniform
+    shaftMaterial.opacityNode = uShaftOpacity;
 
     for (let i = 0; i < shaftCount; i++) {
-        const shaft = new THREE.Mesh(shaftGeometry, shaftMaterial.clone());
+        // Shared material instance, no .clone()
+        const shaft = new THREE.Mesh(shaftGeometry, shaftMaterial);
         const angle = (i / shaftCount) * Math.PI * 2;
         shaft.rotation.z = angle;
         lightShaftGroup.add(shaft);
@@ -115,7 +120,8 @@ export function initScene() {
         sunCorona,
         lightShaftGroup,
         sunGlowMat,
-        coronaMat
+        coronaMat,
+        uShaftOpacity // Export the uniform so main.ts can access it
     };
 }
 
