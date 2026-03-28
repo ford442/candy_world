@@ -10,12 +10,15 @@
 
 ## Next Steps
 
-1. **Phase 4 (Three.js -> WebGPU)**: Complete the final WebGPU migration items (e.g., custom render passes or missing logic).
+1. **Planning Debt Resolution**: Review and fix all plan files (`plan.md`, `IMPLEMENTATION_PLAN_MUSICAL_ECOSYSTEM.md`). Move all completed tasks to archive/history files and delete obsolete ones.
+2. **Phase 4 (Three.js -> WebGPU)**: Identify any remaining WebGPU migration items once the plan has been consolidated and cleaned up.
 
 ---
 
 ## Recent Progress
 - **Accomplished:**
+  - **Plan Consolidation Task**: Added `weekly_plan.md` directive. **Status: Implemented ✅**
+    - *Implementation Details: Updated `weekly_plan.md` with a note to review, fix, and archive all old plan files because all active categories are mostly filled with 'Implemented' tasks.*
   - **Category 2: Rhythmic Structures**: Implement Chord Strike superweapon using Harmony Orbs. **Status: Implemented ✅**
     - *Implementation Details: Created `harmonyOrbSystem` in `src/foliage/aurora.ts` to spawn falling audio-reactive Orbs during harmonic collisions. Implemented collection logic in `src/systems/physics.ts`. Built `ChordStrikeSystem` in `src/gameplay/chord-strike.ts` to consume 3 Orbs (via Key V) and fire a massive, TSL-driven vertical plasma beam that expands and pushes the player upwards. Integrated and mapped into `src/main.ts` and `src/core/input.ts` with edge-detection.*
   - **Phase 4 (Three.js -> WebGPU)**: Raw compute and render pipelines. Migrated custom render passes and unmigrated `src/foliage/lake_features.js` to `src/foliage/lake_features.ts` using TSL. **Status: Implemented ✅**
