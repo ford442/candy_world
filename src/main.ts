@@ -68,7 +68,7 @@ enableStartupProfiler({
 
 // Phase 1: Core Scene Setup (Immediate)
 console.time('Core Scene Setup');
-const { scene, camera, renderer, ambientLight, sunLight, sunGlow, sunCorona, lightShaftGroup, sunGlowMat, coronaMat } = initScene();
+const { scene, camera, renderer, ambientLight, sunLight, sunGlow, sunCorona, lightShaftGroup, sunGlowMat, coronaMat, uShaftOpacity } = initScene();
 
 // Initialize Post Processing Pipeline
 const postProcessing = initPostProcessing(renderer, scene, camera);
@@ -544,9 +544,8 @@ function animate() {
         lightShaftGroup.visible = shaftVisible;
         if (shaftVisible) {
             lightShaftGroup.rotation.z += delta * 0.1;
-            lightShaftGroup.children.forEach((shaft: any) => {
-                shaft.material.opacity = shaftIntensity;
-            });
+            // ⚡ OPTIMIZATION: Update a single TSL uniform instead of iterating through 12 materials
+            uShaftOpacity.value = shaftIntensity;
         }
     } else {
         sunLight.visible = false;
