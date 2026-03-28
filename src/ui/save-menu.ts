@@ -18,6 +18,7 @@ import {
     KeyBindings
 } from '../systems/save-system.js';
 import { showToast } from '../utils/toast.js';
+import { trapFocusInside } from '../utils/interaction-utils.js';
 
 // =============================================================================
 // STYLES
@@ -658,6 +659,7 @@ export class SaveMenu {
     private onSaveCallback?: (slotId: string) => void;
     private onCloseCallback?: () => void;
     private keydownHandler: (e: KeyboardEvent) => void;
+    private releaseFocusTrap: (() => void) | null = null;
 
     constructor(options: SaveMenuOptions = {}) {
         this.currentMode = options.mode || 'full';
@@ -720,6 +722,10 @@ export class SaveMenu {
         this.container.style.animation = 'fadeIn 0.2s ease reverse';
         
         setTimeout(() => {
+            if (this.releaseFocusTrap) {
+                this.releaseFocusTrap();
+                this.releaseFocusTrap = null;
+            }
             this.container?.remove();
             this.container = null;
             document.removeEventListener('keydown', this.keydownHandler);
@@ -761,8 +767,13 @@ export class SaveMenu {
         
         const tabs = this.getTabs();
         
+        if (this.releaseFocusTrap) {
+            this.releaseFocusTrap();
+            this.releaseFocusTrap = null;
+        }
+
         this.container.innerHTML = `
-            <div class="candy-save-menu__container">
+            <div class="candy-save-menu__container" role="dialog" aria-modal="true" aria-labelledby="save-menu-title">
                 ${this.renderHeader()}
                 ${this.currentMode === 'full' ? this.renderTabs(tabs) : ''}
                 <div id="panel-${this.currentTab}" role="tabpanel" aria-labelledby="tab-${this.currentTab}" class="candy-save-menu__content">
@@ -772,6 +783,7 @@ export class SaveMenu {
         `;
         
         this.attachEventListeners();
+        this.releaseFocusTrap = trapFocusInside(this.container);
     }
 
     private getTabs(): { id: MenuTab; label: string; icon: string }[] {
@@ -798,7 +810,7 @@ export class SaveMenu {
         
         return `
             <div class="candy-save-menu__header">
-                <h2 class="candy-save-menu__title">${titles[this.currentMode]}</h2>
+                <h2 id="save-menu-title" class="candy-save-menu__title">${titles[this.currentMode]}</h2>
                 <button class="candy-save-menu__close" data-action="close" aria-label="Close menu" title="Close"><span aria-hidden="true">✕</span></button>
             </div>
         `;
