@@ -152,6 +152,7 @@ const _scratchUp = new THREE.Vector3(0, 1, 0);
 const _scratchPlayerState = { x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0 };
 // ⚡ OPTIMIZATION: Scratch vector for Sonic Clap head offset calculations
 const _scratchHeadOffset = new THREE.Vector3();
+const _scratchPos = new THREE.Vector3();
 const _clapColor = new THREE.Color(0xFFD700);
 
 // C++ Physics Init Flag
@@ -686,7 +687,8 @@ function handleAbilities(delta: number, camera: THREE.Camera, keyStates: KeyStat
                         const scale = obj.scale.x;
                         // ⚡ OPTIMIZATION: Reuse pre-allocated scratch vector and color for GC-free sonic clap
                         _scratchHeadOffset.set(0, 1.5 * scale, 0).applyQuaternion(obj.quaternion);
-                        const headPos = obj.position.clone().add(_scratchHeadOffset);
+                        // ⚡ OPTIMIZATION: Reused scratch vector for headPos to prevent GC spike
+                        const headPos = _scratchPos.copy(obj.position).add(_scratchHeadOffset);
 
                         spawnImpact(headPos, 'spore', _clapColor);
                         spawnDandelionExplosion(headPos, 24);
