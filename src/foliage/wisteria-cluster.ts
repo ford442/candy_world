@@ -7,6 +7,7 @@ import { CandyPresets, attachReactivity, uAudioHigh, uTime } from './common.ts';
 import { makeInteractive } from '../utils/interaction-utils.ts';
 import { discoverySystem } from '../systems/discovery.ts';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { spawnImpact } from './impacts.ts';
 
 export interface WisteriaClusterOptions {
     scale?: number;
@@ -114,6 +115,14 @@ export function createWisteriaCluster(options: WisteriaClusterOptions = {}) {
     group.userData.onInteract = () => {
         // Just trigger a discovery if not already discovered, and visual feedback
         discoverySystem.discover('wisteria_cluster', 'Wisteria Cluster', '🍇');
+
+        // Visual feedback (Particles)
+        spawnImpact(group.position, 'spore', baseHexColor);
+
+        // Audio variation
+        if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
+            (window as any).AudioSystem.playSound('impact', { position: group.position, pitch: Math.random() * 0.2 + 0.9 });
+        }
 
         // Visual pop
         group.scale.setScalar(scale * 1.2);
