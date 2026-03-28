@@ -47,3 +47,7 @@ Matte clay materials need a strong directional light to show form.
 ## 2026-03-23 - Link custom tabs to panels with aria-controls and aria-labelledby
 **Learning:** Custom tab implementations often remember to apply `role="tablist"` and `role="tab"`, but frequently omit linking the tab to its content container. Without `aria-controls` on the tab and `role="tabpanel"` + `aria-labelledby` on the content container, screen readers lack context of what content the tab dictates.
 **Action:** Always ensure `role="tabpanel"` is applied to the content container of custom tabs, and connect the tab button and panel container explicitly using corresponding `id`, `aria-controls`, and `aria-labelledby` attributes.
+
+## 2026-03-24 - Provide focus-visible styles for keyboard navigation on custom menus
+**Learning:** Many custom UI interactive elements like tabs, buttons, and file labels inside template-generated menus (e.g. Save Menu) lack native browser focus rings. This creates a severe accessibility issue where keyboard users cannot see which element has focus while tab-navigating the menu.
+**Action:** Always apply explicit `:focus-visible` styles with high contrast (e.g. `outline: 2px solid #ff69b4; outline-offset: 2px;`) to interactive elements (tabs, buttons, labels) in custom menus. This ensures clear focus indicators for keyboard navigation without impacting mouse interactions.
