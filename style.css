@@ -443,3 +443,10 @@ kbd.key.key-highlight {
     transform: none;
     box-shadow: none;
 }
+
+/* 🎨 Palette: Accessibility Menu Keyboard Navigation */
+.a11y-menu-container *:focus-visible,
+#a11y-menu-button:focus-visible {
+    outline: 2px solid #ff69b4;
+    outline-offset: 2px;
+}
