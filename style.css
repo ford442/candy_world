@@ -27,6 +27,13 @@
 #game-reticle.interact {
     transform: translate(-50%, -50%) scale(0.5);
     background-color: #ffffff;
+    animation: reticle-pop 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes reticle-pop {
+    0% { transform: translate(-50%, -50%) scale(3.0); background-color: rgba(255, 105, 180, 0.9); }
+    50% { transform: translate(-50%, -50%) scale(0.2); background-color: #FF6B6B; }
+    100% { transform: translate(-50%, -50%) scale(0.5); background-color: #ffffff; }
 }
 
 /* 🎨 Palette: Reticle Label */

@@ -901,6 +901,12 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
          if (player.velocity.y > 12.0) {
               discoverySystem.discover('trampoline_shroom', 'Trampoline Mushroom', '🍄');
               keyStates.jump = false;
+
+              // 🎨 Palette: Add "Juice" to trampoline mushroom bounce
+              spawnImpact(player.position, 'jump');
+              if (typeof uChromaticIntensity !== 'undefined') {
+                  uChromaticIntensity.value = 0.5;
+              }
          }
          // Check if we landed on a cloud (isGrounded=true at High Y)
          if (player.isGrounded && player.position.y > 10.0) {
