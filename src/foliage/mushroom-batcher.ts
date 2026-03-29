@@ -158,7 +158,7 @@ export class MushroomBatcher {
         // Transform helpers
         // ⚡ OPTIMIZATION: Reuse scratch matrices to avoid GC spikes on every generation call
         const m = _scratchMatrix.identity();
-        const q = new THREE.Quaternion(); // Unused but let's keep it safe
+        const q = _scratchQuat.identity(); // ⚡ OPTIMIZATION: Avoid unused allocation
         // s was unused
         const p = _scratchScale; // Use the other unused scratch vector for 'p' (position scratch)
 
