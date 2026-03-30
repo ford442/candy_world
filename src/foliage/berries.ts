@@ -437,6 +437,7 @@ export function initFallingBerries(scene: THREE.Scene): void {
     dummy.scale.setScalar(0);
     dummy.updateMatrix();
 
+    // ⚡ OPTIMIZATION: Pre-allocated object pool to stop GC stutter during berry falls.
     fallingBerryPool = [];
 
     for (let i = 0; i < MAX_FALLING_BERRIES; i++) {
