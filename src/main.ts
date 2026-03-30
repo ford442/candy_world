@@ -347,6 +347,7 @@ const hudPhaseOverlay = hudPhase ? hudPhase.querySelector('.cooldown-overlay') a
 // Track previous states to avoid DOM thrashing
 let _lastDashReady: boolean | null = null;
 let _lastMineReady: boolean | null = null;
+let _currentEnergyPulseScale: number = 1.0;
 let _lastPhaseCount: number | null = null;
 let _lastPhaseActive: boolean | null = null;
 let _lastStrikeState: boolean = false;
@@ -753,15 +754,26 @@ function animate() {
                 hudEnergyContainer.classList.add('low-energy-pulse');
                 const kick = audioState?.kickTrigger || 0;
                 // Add an intense, juicy pulse based on the beat
-                const pulseScale = 1.0 + kick * 0.25;
-                hudEnergyContainer.style.transform = `scale(${pulseScale.toFixed(3)})`;
+                const targetScale = 1.0 + kick * 0.25;
+
+                // 🎨 Palette: Smooth organic pulse instead of instant snap
+                _currentEnergyPulseScale = THREE.MathUtils.damp(_currentEnergyPulseScale, targetScale, 15, delta);
+                hudEnergyContainer.style.transform = `scale(${_currentEnergyPulseScale.toFixed(3)})`;
 
                 // Color shift to warning red/orange
                 hudEnergyFill.style.background = `linear-gradient(90deg, #ff4500, #ff0000)`;
                 hudEnergyContainer.style.borderColor = '#ff0000';
             } else {
                 hudEnergyContainer.classList.remove('low-energy-pulse');
-                hudEnergyContainer.style.transform = '';
+
+                // 🎨 Palette: Smoothly return to normal scale when energy recovers
+                _currentEnergyPulseScale = THREE.MathUtils.damp(_currentEnergyPulseScale, 1.0, 10, delta);
+                if (Math.abs(_currentEnergyPulseScale - 1.0) > 0.001) {
+                    hudEnergyContainer.style.transform = `scale(${_currentEnergyPulseScale.toFixed(3)})`;
+                } else {
+                    hudEnergyContainer.style.transform = '';
+                }
+
                 // Restore original candy pink gradient
                 hudEnergyFill.style.background = `linear-gradient(90deg, #ff69b4, #ff1493)`;
                 hudEnergyContainer.style.borderColor = ''; // Let CSS take over
