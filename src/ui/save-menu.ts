@@ -755,7 +755,9 @@ export class SaveMenu {
         this.container.innerHTML = `
             <div class="candy-save-menu__container">
                 <div class="candy-save-menu__loading">
-                    <div class="candy-save-menu__spinner"></div>
+                    <div class="candy-save-menu__spinner">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
                     <span>Loading saves...</span>
                 </div>
             </div>
@@ -917,14 +919,14 @@ export class SaveMenu {
                 ` : '<div class="candy-save-slot__info">Click to save</div>'}
                 <div class="candy-save-slot__actions">
                     ${forSave || isEmpty ? `
-                        <button class="candy-save-slot__btn candy-save-slot__btn--primary" data-action="${forSave ? 'overwrite' : 'save'}" data-slot="${slot.slotId}">
+                        <button class="candy-save-slot__btn candy-save-slot__btn--primary" data-action="${forSave ? 'overwrite' : 'save'}" data-slot="${slot.slotId}" aria-label="${forSave && !isEmpty ? `Overwrite ${slot.slotName}` : `Save to ${slot.slotName}`}">
                             ${forSave && !isEmpty ? 'Overwrite' : 'Save'}
                         </button>
                     ` : `
-                        <button class="candy-save-slot__btn candy-save-slot__btn--primary" data-action="load" data-slot="${slot.slotId}">
+                        <button class="candy-save-slot__btn candy-save-slot__btn--primary" data-action="load" data-slot="${slot.slotId}" aria-label="Load ${slot.slotName}">
                             Load
                         </button>
-                        <button class="candy-save-slot__btn candy-save-slot__btn--secondary" data-action="export" data-slot="${slot.slotId}">
+                        <button class="candy-save-slot__btn candy-save-slot__btn--secondary" data-action="export" data-slot="${slot.slotId}" aria-label="Export ${slot.slotName}">
                             Export
                         </button>
                     `}
@@ -1311,7 +1313,7 @@ export class SaveMenu {
             btnElement.disabled = true;
             btnElement.style.width = `${originalWidth}px`;
             btnElement.style.justifyContent = 'center';
-            btnElement.innerHTML = '<span class="candy-save-menu__spinner" style="width: 16px; height: 16px; margin: 0; border-width: 2px;"></span>';
+            btnElement.innerHTML = '<span class="candy-save-menu__spinner" style="width: 16px; height: 16px; margin: 0; border-width: 2px;"><span class="visually-hidden">Processing...</span></span>';
         };
 
         const restoreState = () => {
