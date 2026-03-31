@@ -7,7 +7,7 @@ import {
 } from 'three/tsl';
 import {
     uTime, createJuicyRimLight, uAudioLow, uAudioHigh,
-    uWindSpeed, uWindDirection, triplanarNoise
+    uWindSpeed, uWindDirection, triplanarNoise, uPlayerPosition
 } from './common.ts';
 import { foliageGroup } from '../world/state.ts';
 import { getIcosahedronGeometry } from '../utils/geometry-dedup.ts';
@@ -29,7 +29,30 @@ function createCloudMaterial() {
 
     // --- PALETTE: Juicy Cloud Logic ---
 
-    // 1. Wind Shearing (Clouds drift faster at the top)
+    // 1. Player Interaction (Juicy Landing/Jump Squash)
+    // The player touching the cloud pushes it down, causing it to bulge outwards
+    const playerDistVector = positionWorld.sub(uPlayerPosition);
+    // Ignore Y distance for cylinder interaction radius check
+    const playerDistXZ = vec3(playerDistVector.x, float(0.0), playerDistVector.z);
+    const distSq = dot(playerDistXZ, playerDistXZ);
+
+    // Interaction Radius = 4.0m (Sq = 16.0)
+    const interactRadiusSq = float(16.0);
+
+    // Force falls off with distance. Normalized distance (0 to 1 inside radius)
+    const distFactor = distSq.div(interactRadiusSq).min(1.0);
+    // Strength: 1.0 at center, 0.0 at edge
+    const playerStrength = float(1.0).sub(smoothstep(0.0, 1.0, distFactor));
+
+    // Squash Y down, Bulge XZ out
+    const playerSquashAmount = playerStrength.mul(0.6); // Max 60% squash
+    const playerSquishScale = vec3(
+        float(1.0).add(playerSquashAmount.mul(0.5)), // Expand X
+        float(1.0).sub(playerSquashAmount),          // Compress Y
+        float(1.0).add(playerSquashAmount.mul(0.5))  // Expand Z
+    );
+
+    // 2. Wind Shearing (Clouds drift faster at the top)
     // We use positionLocal.y (approx height) to shear along Wind Direction
     // Shearing Factor = Height * WindSpeed * 0.5
     const shearHeight = positionLocal.y.max(0.0); // Clamp to 0 to keep bottom fixed-ish
@@ -40,7 +63,7 @@ function createCloudMaterial() {
         uWindDirection.z.mul(shearAmount)
     );
 
-    // 2. Internal Turbulence (Boiling Effect)
+    // 3. Internal Turbulence (Boiling Effect)
     // Use 3D noise that scrolls with time
     const noiseScale = float(1.2);
     const boilSpeed = float(0.3); // Slow boiling
@@ -50,10 +73,14 @@ function createCloudMaterial() {
     // Standard noise for shape
     const shapeNoise = mx_noise_float(noisePos);
 
-    // 3. Audio Reactivity (Squish + Pulse)
-    // Bass Squish: Squashes the cloud vertically on Kick
+    // 4. Audio Reactivity (Squish + Pulse)
+    // Bass Squish: Squashes the cloud vertically on Kick and bulges horizontally
     const bassSquish = uAudioLow.mul(0.3);
-    const verticalSquish = vec3(1.0, float(1.0).sub(bassSquish), 1.0);
+    const verticalSquish = vec3(
+        float(1.0).add(bassSquish.mul(0.5)),
+        float(1.0).sub(bassSquish),
+        float(1.0).add(bassSquish.mul(0.5))
+    );
 
     // Melody Puff: Expands the cloud slightly on Highs
     const melodyPuff = uAudioHigh.mul(0.2);
@@ -65,8 +92,8 @@ function createCloudMaterial() {
     // Calculate final position
     // Start with shearing
     const shearedPos = positionLocal.add(windShear);
-    // Apply squish scale
-    const squishedPos = shearedPos.mul(verticalSquish);
+    // Apply Audio Squish and Player Squash scale
+    const squishedPos = shearedPos.mul(verticalSquish).mul(playerSquishScale);
 
     // Apply Fluff Displacement along Normal
     const fluffOffset = normalLocal.mul(shapeNoise.mul(displacementStrength));
