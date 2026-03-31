@@ -1,8 +1,8 @@
 // src/foliage/aurora.ts
 
 import * as THREE from 'three';
-import { color, float, vec3, vec4, uv, mix, smoothstep, uniform, Fn, time, mx_noise_float, positionWorld, positionLocal, dot, sin } from 'three/tsl';
-import { MeshBasicNodeMaterial, MeshStandardNodeMaterial } from 'three/webgpu';
+import { color, float, vec3, vec4, uv, mix, smoothstep, uniform, Fn, time, mx_noise_float, positionWorld, positionLocal, dot, sin, cos, storage, instanceIndex, vec2, If } from 'three/tsl';
+import { MeshBasicNodeMaterial, MeshStandardNodeMaterial, StorageInstancedBufferAttribute } from 'three/webgpu';
 import { uAudioLow, uAudioHigh, CandyPresets, uTime, createJuicyRimLight } from './common.ts';
 import { getSphereGeometry } from '../utils/geometry-dedup.ts';
 
@@ -82,25 +82,48 @@ export function createAurora(): THREE.Mesh {
 
 // --- HARMONY ORBS SYSTEM ---
 
-export interface HarmonyOrb {
-    active: boolean;
-    life: number;
-    velocity: THREE.Vector3;
-    position: THREE.Vector3;
-    scale: number;
-}
-
 const MAX_ORBS = 50;
 
 class HarmonyOrbSystem {
     mesh: THREE.InstancedMesh;
-    orbs: HarmonyOrb[];
-    dummy: THREE.Object3D;
     dropCooldown: number = 0;
+
+    // WebGPU Compute specific
+    positionBuffer: StorageInstancedBufferAttribute;
+    velocityBuffer: StorageInstancedBufferAttribute;
+    stateBuffer: StorageInstancedBufferAttribute; // x: life, y: scale (negative life = inactive)
+    computeNode: any;
+
+    // Uniforms for compute
+    private uDeltaTime = uniform(0.016);
+    private uOrbAudioSway = uniform(0.0);
+
+    // Spawning Uniforms
+    private uSpawnIndex = uniform(-1); // -1 means no spawn this frame
+    private uSpawnPos = uniform(vec3(0));
+    private uSpawnVel = uniform(vec3(0));
+
+    // CPU-side tracking to prevent spawning over active orbs without reading back from GPU
+    private _nextSpawnIndex: number = 0;
 
     constructor() {
         // High quality sphere for glossy look
         const geometry = getSphereGeometry(0.3, 32, 32);
+
+        // 1. Initialize Storage Buffers (Empty arrays, initialized in compute)
+        const initialPositions = new Float32Array(MAX_ORBS * 3);
+        const initialVelocities = new Float32Array(MAX_ORBS * 3);
+        const initialStates = new Float32Array(MAX_ORBS * 2);
+
+        for (let i = 0; i < MAX_ORBS; i++) {
+            initialStates[i * 2] = -1.0;     // Life
+            initialStates[i * 2 + 1] = 0.0;  // Scale
+            initialPositions[i * 3 + 1] = -9999.0;
+        }
+
+        this.positionBuffer = new StorageInstancedBufferAttribute(initialPositions, 3);
+        this.velocityBuffer = new StorageInstancedBufferAttribute(initialVelocities, 3);
+        this.stateBuffer = new StorageInstancedBufferAttribute(initialStates, 2);
 
         // CandyPresets.Gummy base
         const opts = {
@@ -131,32 +154,82 @@ class HarmonyOrbSystem {
 
         material.emissiveNode = orbColor.mul(glowIntensity).add(rim);
 
+        // 2. Map Storage Buffers to Material
+        const instIndex = instanceIndex;
+        const stateNode = storage(this.stateBuffer, 'vec2', this.stateBuffer.count).element(instIndex);
+        const positionNode = storage(this.positionBuffer, 'vec3', this.positionBuffer.count).element(instIndex);
+
+        const orbScale = stateNode.y;
+
         // Vertex displacement (Squishy feel based on velocity/audio)
-        // Scale with bass
-        const scaleFactor = float(1.0).add(heartbeat.mul(uAudioLow).mul(0.3));
-        material.positionNode = positionLocal.mul(scaleFactor);
+        // Scale with bass AND individual orb scale
+        const scaleFactor = float(1.0).add(heartbeat.mul(uAudioLow).mul(0.3)).mul(orbScale);
+
+        // Final position = (Local * Scale) + WorldPosition from Buffer
+        material.positionNode = positionLocal.mul(scaleFactor).add(positionNode);
 
         this.mesh = new THREE.InstancedMesh(geometry, material, MAX_ORBS);
-        this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
         this.mesh.castShadow = true;
         this.mesh.receiveShadow = false;
 
-        this.orbs = [];
-        this.dummy = new THREE.Object3D();
+        // 3. Define TSL Compute Node for Physics/Lifecycle Updates
+        const updateOrbsCompute = Fn(() => {
+            const index = instanceIndex;
 
-        for (let i = 0; i < MAX_ORBS; i++) {
-            this.orbs.push({
-                active: false,
-                life: 0,
-                velocity: new THREE.Vector3(),
-                position: new THREE.Vector3(),
-                scale: 1.0
+            const position = storage(this.positionBuffer, 'vec3', this.positionBuffer.count).element(index);
+            const velocity = storage(this.velocityBuffer, 'vec3', this.velocityBuffer.count).element(index);
+            const state = storage(this.stateBuffer, 'vec2', this.stateBuffer.count).element(index);
+
+            const life = state.x;
+            const currentScale = state.y;
+            const pos = position.toVar();
+            const vel = velocity.toVar();
+
+            // Handle Spawning
+            If(index.equal(this.uSpawnIndex), () => {
+                state.x = float(20.0); // 20s life
+                state.y = float(0.1);  // Initial scale
+                position.assign(this.uSpawnPos);
+                velocity.assign(this.uSpawnVel);
+            }).ElseIf(life.greaterThan(0.0), () => {
+                // Update active orbs
+                // Decrease life
+                state.x = life.sub(this.uDeltaTime);
+
+                // Increase scale to max 1.0
+                state.y = currentScale.add(this.uDeltaTime).min(1.0);
+
+                // Physics: Gravity
+                vel.y = vel.y.sub(float(9.8).mul(0.2).mul(this.uDeltaTime)); // Floaty gravity
+
+                // Wind Sway (based on life/time)
+                const swaySpeed = float(2.0);
+                vel.x = vel.x.add(sin(life.mul(swaySpeed)).mul(2.0).mul(this.uDeltaTime));
+                vel.z = vel.z.add(cos(life.mul(swaySpeed).mul(0.75)).mul(2.0).mul(this.uDeltaTime));
+
+                // Terminal velocity for falling
+                vel.y = vel.y.max(-5.0);
+
+                // Audio Sway Reactivity
+                vel.x = vel.x.add(this.uOrbAudioSway.mul(this.uDeltaTime));
+
+                velocity.assign(vel);
+
+                // Update Position
+                position.assign(pos.add(vel.mul(this.uDeltaTime)));
+
+                // Floor Collision -> Destroy
+                // Note: We access the specific component of the vector since position.y isn't valid on a var in this TSL context
+                const posY = pos.add(vel.mul(this.uDeltaTime)).y;
+                If(posY.lessThan(-5.0), () => {
+                     state.x = float(-1.0); // Kill
+                     // Assign new hidden position
+                     position.assign(vec3(pos.x, float(-9999.0), pos.z));
+                });
             });
-            this.dummy.position.set(0, -9999, 0);
-            this.dummy.scale.setScalar(0);
-            this.dummy.updateMatrix();
-            this.mesh.setMatrixAt(i, this.dummy.matrix);
-        }
+        });
+
+        this.computeNode = updateOrbsCompute().compute(MAX_ORBS);
     }
 
     addToScene(scene: THREE.Scene) {
@@ -164,50 +237,40 @@ class HarmonyOrbSystem {
     }
 
     spawnOrb(playerPos: THREE.Vector3) {
-        // Find inactive orb
-        let idx = -1;
-        for (let i = 0; i < MAX_ORBS; i++) {
-            if (!this.orbs[i].active) {
-                idx = i;
-                break;
-            }
-        }
+        // Use ring-buffer approach for spawning to avoid reading back from GPU
+        // Assuming orbs live ~20s, pool of 50 should be plenty
+        const idx = this._nextSpawnIndex;
+        this._nextSpawnIndex = (this._nextSpawnIndex + 1) % MAX_ORBS;
 
-        if (idx === -1) return; // Pool full
-
-        const orb = this.orbs[idx];
-        orb.active = true;
-        orb.life = 20.0; // Lives for 20 seconds
-
-        // Spawn high up in the aurora, somewhat near the player in XZ
         const spawnRadius = 30.0;
-        orb.position.set(
+        this.uSpawnPos.value.set(
             playerPos.x + (Math.random() - 0.5) * spawnRadius,
-            200.0 + Math.random() * 50.0, // High up in the Aurora curtain
+            200.0 + Math.random() * 50.0,
             playerPos.z + (Math.random() - 0.5) * spawnRadius
         );
 
-        orb.velocity.set(
+        this.uSpawnVel.value.set(
             (Math.random() - 0.5) * 5.0,
-            -10.0, // Initial downward velocity
+            -10.0,
             (Math.random() - 0.5) * 5.0
         );
-        orb.scale = 0.1; // Start small and grow
 
-        this.dummy.position.copy(orb.position);
-        this.dummy.scale.setScalar(orb.scale);
-        this.dummy.updateMatrix();
-        this.mesh.setMatrixAt(idx, this.dummy.matrix);
-        this.mesh.instanceMatrix.needsUpdate = true;
+        this.uSpawnIndex.value = idx;
     }
 
     update(dt: number, audioState: any, playerPos: THREE.Vector3) {
-        // Trigger logic: Drop an orb when there's a strong harmonic collision (simulated by high channel 4/5 trigger + cooldown)
+        // Reset spawn index at start of frame
+        // If spawnOrb is called this frame, it will be overridden with the new index
+        this.uSpawnIndex.value = -1;
+        this.uDeltaTime.value = dt;
+
         let harmonicTrigger = 0;
         if (audioState && audioState.channelData) {
-            // Check melody/lead channels for high energy
             if (audioState.channelData[4] && audioState.channelData[4].trigger > 0.8) harmonicTrigger = 1;
             if (audioState.channelData[5] && audioState.channelData[5].trigger > 0.8) harmonicTrigger = 1;
+
+            // Pass audio context to compute shader for wind sway
+            this.uOrbAudioSway.value = (audioState.channelData[0]?.trigger || 0) * 5.0;
         }
 
         if (this.dropCooldown > 0) {
@@ -217,63 +280,7 @@ class HarmonyOrbSystem {
             this.dropCooldown = 5.0; // Drop one every 5 seconds max
         }
 
-        let needsUpdate = false;
-
-        for (let i = 0; i < MAX_ORBS; i++) {
-            const orb = this.orbs[i];
-            if (!orb.active) continue;
-
-            orb.life -= dt;
-            if (orb.life <= 0) {
-                orb.active = false;
-                this.dummy.position.set(0, -9999, 0);
-                this.dummy.scale.setScalar(0);
-                this.dummy.updateMatrix();
-                this.mesh.setMatrixAt(i, this.dummy.matrix);
-                needsUpdate = true;
-                continue;
-            }
-
-            // Physics: Gravity, Wind, Floatiness
-            orb.velocity.y -= 9.8 * 0.2 * dt; // Slow, floaty gravity (feather-like)
-
-            // Add some sway based on sine wave (like a falling leaf or bubble)
-            orb.velocity.x += Math.sin(orb.life * 2.0) * 2.0 * dt;
-            orb.velocity.z += Math.cos(orb.life * 1.5) * 2.0 * dt;
-
-            // Terminal velocity (slow fall)
-            if (orb.velocity.y < -5.0) orb.velocity.y = -5.0;
-
-            orb.position.addScaledVector(orb.velocity, dt);
-
-            // Ground collision
-            // We do a simple height check. Ideally we use getGroundHeight, but since orbs are floaty, we can just say y < 0 is destroyed.
-            if (orb.position.y < -5.0) {
-                orb.active = false;
-                this.dummy.position.set(0, -9999, 0);
-                this.dummy.scale.setScalar(0);
-                this.dummy.updateMatrix();
-                this.mesh.setMatrixAt(i, this.dummy.matrix);
-                needsUpdate = true;
-                continue;
-            }
-
-            // Scale up smoothly
-            if (orb.scale < 1.0) {
-                orb.scale += dt;
-                if (orb.scale > 1.0) orb.scale = 1.0;
-            }
-
-            this.dummy.position.copy(orb.position);
-            this.dummy.scale.setScalar(orb.scale);
-            this.dummy.updateMatrix();
-            this.mesh.setMatrixAt(i, this.dummy.matrix);
-            needsUpdate = true;
-        }
-
-        if (needsUpdate) {
-            this.mesh.instanceMatrix.needsUpdate = true;
-        }
+        // GPU computes everything else! The mesh will automatically use the updated buffers.
     }
 }
 
