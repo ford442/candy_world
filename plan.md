@@ -10,12 +10,14 @@
 
 ## Next Steps
 
-1. **Phase 4 (Three.js -> WebGPU)**: Identify any remaining WebGPU migration items once the plan has been consolidated and cleaned up.
+1. **Phase 4 (Three.js -> WebGPU) Stage B**: Find specific visual features that are still heavily reliant on CPU and transition them to WebGPU Custom Render Passes (e.g., replace specific materials with `RawShaderMaterial` / WebGPU pipelines for cloud or terrain draws).
 
 ---
 
 ## Recent Progress
 - **Accomplished:**
+  - **Phase 4 - Compute Shaders (GPGPU) - Harmony Orbs**: **Status: Implemented ✅**
+    - *Implementation Details: Rewrote the `HarmonyOrbSystem` in `src/foliage/aurora.ts` to utilize WebGPU Compute Shaders. All physics (gravity, wind sway) and lifecycle updates were offloaded from the CPU to the GPU via TSL `Fn().compute()`. `StorageInstancedBufferAttribute` buffers map directly to the TSL material.*
   - **Planning Debt Resolution**: **Status: Implemented ✅**
     - *Implementation Details: Extracted all completed features into `archive/COMPLETED_FEATURES.md`. Cleaned up `plan.md` and `IMPLEMENTATION_PLAN_MUSICAL_ECOSYSTEM.md` to remove the bloat from successfully implemented items.*
   - **Plan Consolidation Task**: Added `weekly_plan.md` directive. **Status: Implemented ✅**

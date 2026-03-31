@@ -681,6 +681,11 @@ function animate() {
         renderer.compute(windComputeSystem.getComputeNode());
     }
 
+    // Compute Orbs
+    if (harmonyOrbSystem.computeNode) {
+        renderer.compute(harmonyOrbSystem.computeNode);
+    }
+
     profiler.measure('Physics', () => {
         updatePhysics(delta, camera, controls, keyStates, audioState);
         // Update TSL Uniform for Player Position (Interactive Grass/Foliage)
