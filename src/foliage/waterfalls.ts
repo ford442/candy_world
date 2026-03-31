@@ -82,7 +82,8 @@ export function createWaterfall(startPos: THREE.Vector3, endPos: THREE.Vector3, 
     registerReactiveMaterial(mat);
     group.add(mesh);
 
-    // Add Splash Particles at bottom
+    // ⚡ OPTIMIZATION: Use InstancedMesh for waterfall splashes to avoid draw call bloat and CPU-side geometry creation
+    // ⚡ OPTIMIZATION: Avoid allocating new Vector3s by using raw data and applying it via setMatrixAt
     const splashCount = 8; // Increased count
     const splashGroup = new THREE.Group();
     // Use a shared geometry/material for splashes
@@ -90,16 +91,27 @@ export function createWaterfall(startPos: THREE.Vector3, endPos: THREE.Vector3, 
     // Use a "Sugar" material for splashes (frosted look)
     const splashMat = CandyPresets.Sugar(0xFFFFFF, { roughness: 0.4, bumpStrength: 0.2 });
 
+    const splashInstanced = new THREE.InstancedMesh(splashGeo, splashMat, splashCount);
+    splashInstanced.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    splashInstanced.castShadow = true;
+    splashInstanced.receiveShadow = true;
+
+    // ⚡ OPTIMIZATION: Pool physics state in arrays instead of individual Vector3s
+    const splashData = [];
+    const _dummy = new THREE.Object3D();
+
     for (let i = 0; i < splashCount; i++) {
-        const splash = new THREE.Mesh(splashGeo, splashMat);
-        splash.position.set(startPos.x + (Math.random()-0.5)*width, endPos.y, startPos.z + (Math.random()-0.5)*width);
-        splash.userData = {
-            velocity: new THREE.Vector3((Math.random()-0.5)*2, Math.random()*8 + 2, (Math.random()-0.5)*2),
-            originalY: endPos.y,
-            originalPos: new THREE.Vector3().copy(splash.position)
-        };
-        splashGroup.add(splash);
+        _dummy.position.set(startPos.x + (Math.random()-0.5)*width, endPos.y, startPos.z + (Math.random()-0.5)*width);
+        _dummy.updateMatrix();
+        splashInstanced.setMatrixAt(i, _dummy.matrix);
+
+        splashData.push({
+            px: _dummy.position.x, py: _dummy.position.y, pz: _dummy.position.z,
+            vx: (Math.random()-0.5)*2, vy: Math.random()*8 + 2, vz: (Math.random()-0.5)*2,
+            originalY: endPos.y
+        });
     }
+    splashGroup.add(splashInstanced);
     group.add(splashGroup);
 
     // Attach custom animation for splashes
@@ -116,12 +128,13 @@ export function createWaterfall(startPos: THREE.Vector3, endPos: THREE.Vector3, 
 
         // 2. Splash Explosion (Particle "Juice")
         if (velocity > 0.5) {
-            group.userData.splashes.forEach((s: THREE.Object3D) => {
-                if (Math.random() > 0.5) return; // Only affect some particles
-                s.userData.velocity.y += velocity * 5.0; // Shoot up
-                s.userData.velocity.x += (Math.random()-0.5) * velocity;
-                s.userData.velocity.z += (Math.random()-0.5) * velocity;
-            });
+            for (let i = 0; i < splashCount; i++) {
+                if (Math.random() > 0.5) continue; // Only affect some particles
+                const s = splashData[i];
+                s.vy += velocity * 5.0; // Shoot up
+                s.vx += (Math.random()-0.5) * velocity;
+                s.vz += (Math.random()-0.5) * velocity;
+            }
         }
     };
 
@@ -134,24 +147,39 @@ export function createWaterfall(startPos: THREE.Vector3, endPos: THREE.Vector3, 
         }
 
         // Animate splashes
-        for (let i = 0; i < group.userData.splashes.length; i++) {
-            const s = group.userData.splashes[i];
-            s.position.addScaledVector(s.userData.velocity, delta);
-            s.userData.velocity.y -= 20.0 * delta; // Heavy gravity
+        let needsUpdate = false;
+        for (let i = 0; i < splashCount; i++) {
+            const s = splashData[i];
+
+            s.px += s.vx * delta;
+            s.py += s.vy * delta;
+            s.pz += s.vz * delta;
+            s.vy -= 20.0 * delta; // Heavy gravity
 
             // Floor collision / Reset
-            if (s.position.y < s.userData.originalY) {
-                s.position.y = s.userData.originalY;
+            if (s.py < s.originalY) {
+                s.py = s.originalY;
                 // Bounce with damping
-                s.userData.velocity.y = Math.abs(s.userData.velocity.y) * 0.4;
+                s.vy = Math.abs(s.vy) * 0.4;
 
                 // If velocity is too low, reset to random splash
-                if (s.userData.velocity.y < 1.0) {
-                     s.position.x = startPos.x + (Math.random()-0.5)*width;
-                     s.position.z = startPos.z + (Math.random()-0.5)*width;
-                     s.userData.velocity.set((Math.random()-0.5)*2, Math.random()*8 + 2, (Math.random()-0.5)*2);
+                if (s.vy < 1.0) {
+                     s.px = startPos.x + (Math.random()-0.5)*width;
+                     s.pz = startPos.z + (Math.random()-0.5)*width;
+                     s.vx = (Math.random()-0.5)*2;
+                     s.vy = Math.random()*8 + 2;
+                     s.vz = (Math.random()-0.5)*2;
                 }
             }
+
+            _dummy.position.set(s.px, s.py, s.pz);
+            _dummy.updateMatrix();
+            splashInstanced.setMatrixAt(i, _dummy.matrix);
+            needsUpdate = true;
+        }
+
+        if (needsUpdate) {
+            splashInstanced.instanceMatrix.needsUpdate = true;
         }
     };
 
