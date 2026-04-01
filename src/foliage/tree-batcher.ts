@@ -19,10 +19,11 @@ import {
 } from './common.ts';
 import {
     color, float, vec3, positionLocal, mix, attribute, uv, sin, cos, positionWorld, smoothstep,
-    mx_noise_float
+    mx_noise_float, normalWorld
 } from 'three/tsl';
 import { applyGlitch } from './glitch.ts';
 import { getCylinderGeometry, getTorusKnotGeometry } from '../utils/geometry-dedup.ts';
+import { createSugarSparkle } from './common.ts';
 
 const _defaultColorWhite = new THREE.Color(0xFFFFFF);
 const _defaultColorOrange = new THREE.Color(0xFF4500);
@@ -125,6 +126,13 @@ export class TreeBatcher {
         // Apply Squash (Multiplicative scale)
         const sphereFinalDeform = sphereFluttered.mul(squashScale);
 
+        // Base Emissive logic based on High Freq Audio
+        const sphereEmissive = sphereColor.mul(uAudioHigh.mul(1.5).add(0.2));
+
+        // Add Sugar Sparkle! (Palette Polish)
+        // Scale 15.0 for fine grain, Density 0.3 for sparse twinkle, Intensity 2.0
+        const sugarSparkle = createSugarSparkle(normalWorld, float(15.0), float(0.3), float(2.0));
+
         // Material: Gummy for slight translucency/juice
         const sphereMat = CandyPresets.Gummy(0x228B22, {
             colorNode: sphereColor,
@@ -135,6 +143,9 @@ export class TreeBatcher {
             rimStrength: 0.6, // Strong rim for pop
             audioReactStrength: 0.5 // Inner glow pulse
         });
+
+        // 🎨 PALETTE: Make tree leaves pop with sparkly glow and base audio emissive
+        sphereMat.emissiveNode = sphereEmissive.add(sugarSparkle);
 
         this.spheres = new THREE.InstancedMesh(sharedGeometries.unitSphere, sphereMat, this.sphereCapacity);
         this.spheres.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(this.sphereCapacity * 3), 3);

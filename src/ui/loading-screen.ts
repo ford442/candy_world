@@ -253,7 +253,7 @@ export class LoadingScreen {
         if (this.options.allowSkipDeferred) {
             this.skipButton = document.createElement('button');
             this.skipButton.className = 'skip-button';
-            this.skipButton.textContent = 'Skip Optional Content';
+            this.skipButton.innerHTML = '<span aria-hidden="true">⏭️ </span>Skip Optional Content';
             this.skipButton.style.display = 'none';
             this.skipButton.addEventListener('click', () => this.skipCurrentPhase());
             content.appendChild(this.skipButton);
