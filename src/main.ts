@@ -686,6 +686,13 @@ function animate() {
         renderer.compute(harmonyOrbSystem.computeNode);
     }
 
+    // Compute Waterfall Splashes
+    for (const obj of animatedFoliage) {
+        if (obj.userData.type === 'waterfall' && obj.userData.computeNode) {
+            renderer.compute(obj.userData.computeNode);
+        }
+    }
+
     profiler.measure('Physics', () => {
         updatePhysics(delta, camera, controls, keyStates, audioState);
         // Update TSL Uniform for Player Position (Interactive Grass/Foliage)
