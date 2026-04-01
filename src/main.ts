@@ -80,6 +80,7 @@ console.time('Audio & Systems Init');
 const audioSystem = new AudioSystem(CONFIG.audio.useScriptProcessorNode);
 const beatSync = new BeatSync(audioSystem);
 const weatherSystem = new WeatherSystem(scene);
+weatherSystem.setRenderer(renderer);
 console.timeEnd('Audio & Systems Init');
 
 // Phase 3: World Generation (Critical Path)
