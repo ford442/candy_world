@@ -3,6 +3,7 @@ import { AudioSystem } from '../audio/audio-system';
 import * as THREE from 'three';
 import { discoverySystem } from '../systems/discovery.js';
 import { trapFocusInside } from '../utils/interaction-utils.ts';
+import { openAccessibilityMenu } from '../ui/accessibility-menu.ts';
 
 export interface KeyStates {
     forward: boolean;
@@ -1024,6 +1025,14 @@ export function initInput(
         openJukeboxBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             togglePlaylist();
+        });
+    }
+
+    const openA11yBtn = document.getElementById('openA11yBtn');
+    if (openA11yBtn) {
+        openA11yBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            openAccessibilityMenu();
         });
     }
 
