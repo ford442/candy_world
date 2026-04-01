@@ -54,3 +54,7 @@ Matte clay materials need a strong directional light to show form.
 ## 2026-03-29 - Provide focus-visible styles for keyboard navigation on dynamically generated UI components
 **Learning:** Dynamically generated UI components that inject DOM nodes using \`document.createElement\` often lack native browser focus rings because inline styles (via \`style.cssText\`) cannot define pseudo-classes like \`:focus-visible\`.
 **Action:** Always add custom global CSS rules to a shared stylesheet (e.g., \`style.css\`) targeting the container (e.g., \`.a11y-menu-container *:focus-visible\`) with high-contrast outlines (like \`outline: 2px solid #ff69b4; outline-offset: 2px;\`) to ensure keyboard users can navigate these dynamically generated interfaces effectively without needing to inject arbitrary \`<style>\` tags dynamically via JS.
+
+## 2026-04-01 - Expose Accessibility Menus in Pause UI
+**Learning:** Building an elaborate accessibility menu is useless if it is not easily discoverable by the user. Relying on floating DOM buttons can break immersion in 3D games or cause layout issues, while omitting a trigger entirely leaves the feature orphaned.
+**Action:** Always integrate triggers for accessibility settings directly into the main pause/settings menus alongside other core system controls to ensure discoverability without breaking immersion.
