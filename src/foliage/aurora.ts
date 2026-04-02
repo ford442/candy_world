@@ -225,14 +225,17 @@ class HarmonyOrbSystem {
 
             orb.life -= dt;
             if (orb.life <= 0) {
+
                 orb.active = false;
-                this.dummy.position.set(0, -9999, 0);
-                this.dummy.scale.setScalar(0);
-                this.dummy.updateMatrix();
-                this.mesh.setMatrixAt(i, this.dummy.matrix);
+                // ⚡ OPTIMIZATION: Direct matrix write bypasses Object3D overhead
+                const te = this.mesh.instanceMatrix.array;
+                const offset = i * 16;
+                te[offset] = 0; te[offset+5] = 0; te[offset+10] = 0;
+                te[offset+12] = 0; te[offset+13] = -9999; te[offset+14] = 0;
                 needsUpdate = true;
                 continue;
             }
+
 
             // Physics: Gravity, Wind, Floatiness
             orb.velocity.y -= 9.8 * 0.2 * dt; // Slow, floaty gravity (feather-like)
@@ -249,25 +252,33 @@ class HarmonyOrbSystem {
             // Ground collision
             // We do a simple height check. Ideally we use getGroundHeight, but since orbs are floaty, we can just say y < 0 is destroyed.
             if (orb.position.y < -5.0) {
+
                 orb.active = false;
-                this.dummy.position.set(0, -9999, 0);
-                this.dummy.scale.setScalar(0);
-                this.dummy.updateMatrix();
-                this.mesh.setMatrixAt(i, this.dummy.matrix);
+                // ⚡ OPTIMIZATION: Direct matrix write bypasses Object3D overhead
+                const te = this.mesh.instanceMatrix.array;
+                const offset = i * 16;
+                te[offset] = 0; te[offset+5] = 0; te[offset+10] = 0;
+                te[offset+12] = 0; te[offset+13] = -9999; te[offset+14] = 0;
                 needsUpdate = true;
                 continue;
             }
+
 
             // Scale up smoothly
             if (orb.scale < 1.0) {
                 orb.scale += dt;
                 if (orb.scale > 1.0) orb.scale = 1.0;
+
             }
 
-            this.dummy.position.copy(orb.position);
-            this.dummy.scale.setScalar(orb.scale);
-            this.dummy.updateMatrix();
-            this.mesh.setMatrixAt(i, this.dummy.matrix);
+            // ⚡ OPTIMIZATION: Direct matrix write for scale and translation
+            const te = this.mesh.instanceMatrix.array;
+            const offset = i * 16;
+            const s = orb.scale;
+            te[offset] = s; te[offset+5] = s; te[offset+10] = s;
+            te[offset+12] = orb.position.x;
+            te[offset+13] = orb.position.y;
+            te[offset+14] = orb.position.z;
             needsUpdate = true;
         }
 
