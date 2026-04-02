@@ -280,7 +280,74 @@ class HarmonyOrbSystem {
             this.dropCooldown = 5.0; // Drop one every 5 seconds max
         }
 
-        // GPU computes everything else! The mesh will automatically use the updated buffers.
+        let needsUpdate = false;
+
+        for (let i = 0; i < MAX_ORBS; i++) {
+            const orb = this.orbs[i];
+            if (!orb.active) continue;
+
+            orb.life -= dt;
+            if (orb.life <= 0) {
+
+                orb.active = false;
+                // ⚡ OPTIMIZATION: Direct matrix write bypasses Object3D overhead
+                const te = this.mesh.instanceMatrix.array;
+                const offset = i * 16;
+                te[offset] = 0; te[offset+5] = 0; te[offset+10] = 0;
+                te[offset+12] = 0; te[offset+13] = -9999; te[offset+14] = 0;
+                needsUpdate = true;
+                continue;
+            }
+
+
+            // Physics: Gravity, Wind, Floatiness
+            orb.velocity.y -= 9.8 * 0.2 * dt; // Slow, floaty gravity (feather-like)
+
+            // Add some sway based on sine wave (like a falling leaf or bubble)
+            orb.velocity.x += Math.sin(orb.life * 2.0) * 2.0 * dt;
+            orb.velocity.z += Math.cos(orb.life * 1.5) * 2.0 * dt;
+
+            // Terminal velocity (slow fall)
+            if (orb.velocity.y < -5.0) orb.velocity.y = -5.0;
+
+            orb.position.addScaledVector(orb.velocity, dt);
+
+            // Ground collision
+            // We do a simple height check. Ideally we use getGroundHeight, but since orbs are floaty, we can just say y < 0 is destroyed.
+            if (orb.position.y < -5.0) {
+
+                orb.active = false;
+                // ⚡ OPTIMIZATION: Direct matrix write bypasses Object3D overhead
+                const te = this.mesh.instanceMatrix.array;
+                const offset = i * 16;
+                te[offset] = 0; te[offset+5] = 0; te[offset+10] = 0;
+                te[offset+12] = 0; te[offset+13] = -9999; te[offset+14] = 0;
+                needsUpdate = true;
+                continue;
+            }
+
+
+            // Scale up smoothly
+            if (orb.scale < 1.0) {
+                orb.scale += dt;
+                if (orb.scale > 1.0) orb.scale = 1.0;
+
+            }
+
+            // ⚡ OPTIMIZATION: Direct matrix write for scale and translation
+            const te = this.mesh.instanceMatrix.array;
+            const offset = i * 16;
+            const s = orb.scale;
+            te[offset] = s; te[offset+5] = s; te[offset+10] = s;
+            te[offset+12] = orb.position.x;
+            te[offset+13] = orb.position.y;
+            te[offset+14] = orb.position.z;
+            needsUpdate = true;
+        }
+
+        if (needsUpdate) {
+            this.mesh.instanceMatrix.needsUpdate = true;
+        }
     }
 }
 

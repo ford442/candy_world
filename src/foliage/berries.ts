@@ -510,17 +510,34 @@ export function updateFallingBerries(delta: number): void {
 
         const lifeLeft = 1.0 - (berry.age / maxAge);
 
+        let s = lifeLeft;
         if (berry.position.y < 0 || berry.age > maxAge) {
             berry.active = false;
-            _scratchObject3D.scale.setScalar(0);
-        } else {
-             _scratchObject3D.position.copy(berry.position);
-             _scratchObject3D.scale.setScalar(lifeLeft);
+            s = 0;
         }
 
-        _scratchObject3D.updateMatrix();
-        fallingBerryMesh.setMatrixAt(i, _scratchObject3D.matrix);
+        // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
+        const te = fallingBerryMesh.instanceMatrix.array;
+        const offset = i * 16;
+        te[offset + 0] = s;
+        te[offset + 1] = 0;
+        te[offset + 2] = 0;
+        te[offset + 3] = 0;
+        te[offset + 4] = 0;
+        te[offset + 5] = s;
+        te[offset + 6] = 0;
+        te[offset + 7] = 0;
+        te[offset + 8] = 0;
+        te[offset + 9] = 0;
+        te[offset + 10] = s;
+        te[offset + 11] = 0;
+        te[offset + 12] = berry.position.x;
+        te[offset + 13] = berry.position.y;
+        te[offset + 14] = berry.position.z;
+        te[offset + 15] = 1;
+
         needsUpdate = true;
+
     }
 
     if (needsUpdate) {
@@ -560,13 +577,28 @@ export function collectFallingBerries(playerPos: THREE.Vector3, collectRadius: n
             }
 
             berry.active = false;
+            let s = 0; // Set scale to 0 when collected
 
-            _scratchObject3D.position.copy(berry.position);
-            _scratchObject3D.scale.setScalar(0);
-            _scratchObject3D.updateMatrix();
-            fallingBerryMesh.setMatrixAt(i, _scratchObject3D.matrix);
-
-            needsUpdate = true;
+        // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
+        const te = fallingBerryMesh.instanceMatrix.array;
+        const offset = i * 16;
+        te[offset + 0] = s;
+        te[offset + 1] = 0;
+        te[offset + 2] = 0;
+        te[offset + 3] = 0;
+        te[offset + 4] = 0;
+        te[offset + 5] = s;
+        te[offset + 6] = 0;
+        te[offset + 7] = 0;
+        te[offset + 8] = 0;
+        te[offset + 9] = 0;
+        te[offset + 10] = s;
+        te[offset + 11] = 0;
+        te[offset + 12] = berry.position.x;
+        te[offset + 13] = berry.position.y;
+        te[offset + 14] = berry.position.z;
+        te[offset + 15] = 1;
+        needsUpdate = true;
             collected++;
         }
     }
