@@ -80,6 +80,7 @@ console.time('Audio & Systems Init');
 const audioSystem = new AudioSystem(CONFIG.audio.useScriptProcessorNode);
 const beatSync = new BeatSync(audioSystem);
 const weatherSystem = new WeatherSystem(scene);
+weatherSystem.setRenderer(renderer);
 console.timeEnd('Audio & Systems Init');
 
 // Phase 3: World Generation (Critical Path)
@@ -679,6 +680,11 @@ function animate() {
     // Update WebGPU compute nodes
     if (windComputeSystem.getComputeNode()) {
         renderer.compute(windComputeSystem.getComputeNode());
+    }
+
+    // Compute Orbs
+    if (harmonyOrbSystem.computeNode) {
+        renderer.compute(harmonyOrbSystem.computeNode);
     }
 
     profiler.measure('Physics', () => {
