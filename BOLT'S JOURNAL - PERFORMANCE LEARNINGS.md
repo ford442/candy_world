@@ -1,0 +1,1 @@
+- Direct matrix array manipulation (`instanceMatrix.array`) bypasses expensive Object3D composition and matrix allocations, significantly improving rendering batcher update loops.
