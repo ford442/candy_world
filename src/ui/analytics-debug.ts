@@ -95,6 +95,11 @@ const DEBUG_STYLES = `
   opacity: 1;
 }
 
+.analytics-debug-close:focus-visible {
+  outline: 2px solid #ff69b4;
+  outline-offset: 2px;
+}
+
 .analytics-debug-content {
   overflow-y: auto;
   padding: 15px;
@@ -253,6 +258,11 @@ const DEBUG_STYLES = `
   transform: translateY(0);
 }
 
+.analytics-debug-button:focus-visible {
+  outline: 2px solid #ff69b4;
+  outline-offset: 2px;
+}
+
 .analytics-debug-button.secondary {
   background: rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 105, 180, 0.5);
@@ -289,6 +299,13 @@ const DEBUG_STYLES = `
   border-radius: 12px;
   cursor: pointer;
   transition: background 0.3s;
+  border: none;
+  padding: 0;
+}
+
+.analytics-debug-toggle-switch:focus-visible {
+  outline: 2px solid #ff69b4;
+  outline-offset: 2px;
 }
 
 .analytics-debug-toggle-switch.active {
@@ -380,7 +397,7 @@ class AnalyticsDebugOverlay {
     
     const title = document.createElement('span');
     title.className = 'analytics-debug-title';
-    title.textContent = '🍭 Analytics Debug';
+    title.innerHTML = '<span aria-hidden="true">🍭</span> Analytics Debug';
     
     const closeBtn = document.createElement('button');
     closeBtn.className = 'analytics-debug-close';
@@ -414,7 +431,7 @@ class AnalyticsDebugOverlay {
       const privacyNotice = document.createElement('div');
       privacyNotice.className = 'analytics-debug-privacy-notice';
       privacyNotice.innerHTML = `
-        ⚠️ Analytics is disabled. Enable it to see live data.
+        <span aria-hidden="true">⚠️</span> Analytics is disabled. Enable it to see live data.
         <br>Data is anonymous and privacy-focused.
       `;
       content.appendChild(privacyNotice);
@@ -479,16 +496,16 @@ class AnalyticsDebugOverlay {
       <div class="analytics-debug-section-title">Controls</div>
       <div class="analytics-debug-controls">
         <div class="analytics-debug-toggle">
-          <span class="analytics-debug-toggle-label">Analytics Enabled</span>
-          <div class="analytics-debug-toggle-switch ${config.enabled ? 'active' : ''}" id="analytics-toggle-enabled"></div>
+          <span class="analytics-debug-toggle-label" id="label-analytics-enabled">Analytics Enabled</span>
+          <button type="button" role="switch" aria-checked="${config.enabled ? 'true' : 'false'}" aria-labelledby="label-analytics-enabled" class="analytics-debug-toggle-switch ${config.enabled ? 'active' : ''}" id="analytics-toggle-enabled"></button>
         </div>
         <div class="analytics-debug-toggle">
-          <span class="analytics-debug-toggle-label">Local Only Mode</span>
-          <div class="analytics-debug-toggle-switch ${config.localOnly ? 'active' : ''}" id="analytics-toggle-local"></div>
+          <span class="analytics-debug-toggle-label" id="label-analytics-local">Local Only Mode</span>
+          <button type="button" role="switch" aria-checked="${config.localOnly ? 'true' : 'false'}" aria-labelledby="label-analytics-local" class="analytics-debug-toggle-switch ${config.localOnly ? 'active' : ''}" id="analytics-toggle-local"></button>
         </div>
-        <button class="analytics-debug-button" id="analytics-export-btn">📥 Export Data</button>
-        <button class="analytics-debug-button secondary" id="analytics-refresh-btn">🔄 Refresh</button>
-        <button class="analytics-debug-button danger" id="analytics-clear-btn">🗑️ Clear All Data</button>
+        <button class="analytics-debug-button" id="analytics-export-btn"><span aria-hidden="true">📥</span> Export Data</button>
+        <button class="analytics-debug-button secondary" id="analytics-refresh-btn"><span aria-hidden="true">🔄</span> Refresh</button>
+        <button class="analytics-debug-button danger" id="analytics-clear-btn"><span aria-hidden="true">🗑️</span> Clear All Data</button>
       </div>
     `;
     content.appendChild(controlsSection);
@@ -561,6 +578,7 @@ class AnalyticsDebugOverlay {
         const config = analytics.getConfig();
         analytics.setEnabled(!config.enabled);
         enabledToggle.classList.toggle('active');
+        enabledToggle.setAttribute('aria-checked', (!config.enabled).toString());
         this.refresh();
       });
     }
@@ -572,6 +590,7 @@ class AnalyticsDebugOverlay {
         const config = analytics.getConfig();
         analytics.updateConfig({ localOnly: !config.localOnly });
         localToggle.classList.toggle('active');
+        localToggle.setAttribute('aria-checked', (!config.localOnly).toString());
       });
     }
 
