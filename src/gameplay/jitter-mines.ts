@@ -8,7 +8,7 @@ import { applyGlitch } from '../foliage/glitch.ts';
 import { uChromaticIntensity } from '../foliage/chromatic.ts';
 import { spawnImpact } from '../foliage/impacts.ts';
 import { unlockSystem } from '../systems/unlocks.ts';
-import { positionLocal, uv, float, sin, vec3 } from 'three/tsl';
+import { positionLocal, uv, float, sin, cos, vec3, uniform, attribute, vec4, vec2, step, mix } from 'three/tsl';
 
 const MAX_MINES = 50;
 const MINE_RADIUS = 0.5;
@@ -34,17 +34,45 @@ class JitterMineSystem {
     cooldownTimer: number;
     trauma: number;
 
+    // TSL GPU specific buffers
+    spawnBuffer: THREE.InstancedBufferAttribute; // x,y,z: position, w: spawnTime
+    stateBuffer: THREE.InstancedBufferAttribute; // x: active(1) or hidden(0), y,z,w: random rotation axis
+    computeNode: null = null; // Removed, using vertex shader instead
+
     constructor() {
         this.mines = [];
         this.cooldownTimer = 0;
         this.trauma = 0;
 
-        // Create Geometry (Icosahedron for unstable look)
         const geometry = new THREE.IcosahedronGeometry(MINE_RADIUS, 0);
 
+        // Initialize attributes
+        const initialSpawns = new Float32Array(MAX_MINES * 4);
+        const initialStates = new Float32Array(MAX_MINES * 4);
+
+        for (let i = 0; i < MAX_MINES; i++) {
+            initialSpawns[i * 4 + 1] = -9999.0; // Hide initially by moving down
+            initialStates[i * 4] = 0.0; // inactive
+
+            // Random rotation axis
+            const rx = Math.random() - 0.5;
+            const ry = Math.random() - 0.5;
+            const rz = Math.random() - 0.5;
+            const len = Math.sqrt(rx*rx + ry*ry + rz*rz);
+            initialStates[i * 4 + 1] = rx / len;
+            initialStates[i * 4 + 2] = ry / len;
+            initialStates[i * 4 + 3] = rz / len;
+        }
+
+        this.spawnBuffer = new THREE.InstancedBufferAttribute(initialSpawns, 4);
+        this.spawnBuffer.setUsage(THREE.DynamicDrawUsage);
+        geometry.setAttribute('aSpawn', this.spawnBuffer);
+
+        this.stateBuffer = new THREE.InstancedBufferAttribute(initialStates, 4);
+        this.stateBuffer.setUsage(THREE.DynamicDrawUsage);
+        geometry.setAttribute('aState', this.stateBuffer);
+
         // Create Glitchy Material
-        // We use TSL to make it look unstable
-        // A permanent low-level glitch effect
         const baseGlitch = applyGlitch(uv(), positionLocal, float(0.2).add(sin(uTime.mul(10.0)).mul(0.1)));
 
         const material = createClayMaterial(0xFF00FF, {
@@ -52,30 +80,74 @@ class JitterMineSystem {
             metalness: 0.8,
             emissive: 0xFF00FF,
             emissiveIntensity: 0.8,
-            deformationNode: baseGlitch.position,
             bumpStrength: 0.5,
             noiseScale: 20.0
         });
 
+        // 2. Vertex Shader logic (Stateless GPU Animation)
+        const aSpawn = attribute('aSpawn', 'vec4');
+        const aState = attribute('aState', 'vec4');
+
+        const spawnPos = aSpawn.xyz;
+        const spawnTime = aSpawn.w;
+        const isActive = aState.x;
+        const rotAxis = vec3(aState.y, aState.z, aState.w);
+
+        const age = uTime.sub(spawnTime);
+
+        // Pulse scale
+        const pulse = float(1.0).add(sin(age.mul(10.0)).mul(0.1));
+        const finalScale = pulse.mul(isActive);
+
+        const scaledPos = baseGlitch.position.mul(finalScale);
+
+        // Rotate around random axis
+        const angle = age.mul(2.0); // Rotation speed
+        const c = cos(angle);
+        const s = sin(angle);
+        const t = float(1.0).sub(c);
+
+        const x = rotAxis.x;
+        const y = rotAxis.y;
+        const z = rotAxis.z;
+
+        // Custom Rodrigues' rotation formula
+        const rx = scaledPos.x.mul(t.mul(x).mul(x).add(c))
+            .add(scaledPos.y.mul(t.mul(x).mul(y).sub(s.mul(z))))
+            .add(scaledPos.z.mul(t.mul(x).mul(z).add(s.mul(y))));
+
+        const ry = scaledPos.x.mul(t.mul(x).mul(y).add(s.mul(z)))
+            .add(scaledPos.y.mul(t.mul(y).mul(y).add(c)))
+            .add(scaledPos.z.mul(t.mul(y).mul(z).sub(s.mul(x))));
+
+        const rz = scaledPos.x.mul(t.mul(x).mul(z).sub(s.mul(y)))
+            .add(scaledPos.y.mul(t.mul(y).mul(z).add(s.mul(x))))
+            .add(scaledPos.z.mul(t.mul(z).mul(z).add(c)));
+
+        const rotatedPos = vec3(rx, ry, rz);
+
+        // Position in world
+        material.positionNode = rotatedPos.add(spawnPos);
+
         this.mesh = new THREE.InstancedMesh(geometry, material, MAX_MINES);
-        this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-        this.mesh.count = MAX_MINES; // Always render max, just hide inactive
+        this.mesh.count = MAX_MINES;
         this.mesh.castShadow = true;
         this.mesh.receiveShadow = true;
 
-        // Initialize pool
         for (let i = 0; i < MAX_MINES; i++) {
             this.mines.push({
                 active: false,
                 visible: false,
                 position: new THREE.Vector3(),
-                rotation: new THREE.Euler(), // Initialize
-                scale: 0,                   // Initialize
+                rotation: new THREE.Euler(),
+                scale: 0,
                 time: 0
             });
-            // Init to scale 0
+            // ⚡ OPTIMIZATION: Instance matrix acts purely as an identity transform.
+            // Translation, rotation, and scaling are handled entirely by the TSL material node.
             _scratchDummy.position.set(0,0,0);
-            _scratchDummy.scale.set(0,0,0);
+            _scratchDummy.scale.setScalar(1);
+            _scratchDummy.rotation.set(0,0,0);
             _scratchDummy.updateMatrix();
             this.mesh.setMatrixAt(i, _scratchDummy.matrix);
         }
@@ -109,19 +181,20 @@ class JitterMineSystem {
         mine.active = true;
         mine.visible = true;
         mine.position.copy(position);
-
-        // Reset rotation and scale state
-        mine.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, 0);
-        mine.scale = 1.0;
         mine.time = 0;
 
-        // Update Instance
-        _scratchDummy.position.copy(position);
-        _scratchDummy.rotation.copy(mine.rotation);
-        _scratchDummy.scale.setScalar(1.0);
-        _scratchDummy.updateMatrix();
-        this.mesh.setMatrixAt(index, _scratchDummy.matrix);
-        this.mesh.instanceMatrix.needsUpdate = true;
+        // Update Instance Attributes
+        const spawnArray = this.spawnBuffer.array as Float32Array;
+        spawnArray[index * 4] = position.x;
+        spawnArray[index * 4 + 1] = position.y;
+        spawnArray[index * 4 + 2] = position.z;
+        // uTime is global from common.ts. We pass current time
+        spawnArray[index * 4 + 3] = ((uTime as any).value !== undefined) ? (uTime as any).value : performance.now() / 1000;
+        this.spawnBuffer.needsUpdate = true;
+
+        const stateArray = this.stateBuffer.array as Float32Array;
+        stateArray[index * 4] = 1.0; // active
+        this.stateBuffer.needsUpdate = true;
 
         this.cooldownTimer = COOLDOWN;
 
@@ -136,52 +209,19 @@ class JitterMineSystem {
             this.cooldownTimer -= delta;
         }
 
-        let needsUpdate = false;
-
         for (let i = 0; i < MAX_MINES; i++) {
             const mine = this.mines[i];
 
-            if (!mine.active) {
-                if (mine.visible) {
-                    _scratchDummy.position.copy(mine.position);
-                    _scratchDummy.scale.set(0,0,0);
-                    _scratchDummy.updateMatrix();
-                    this.mesh.setMatrixAt(i, _scratchDummy.matrix);
-                    mine.visible = false;
-                    needsUpdate = true;
-                }
-                continue;
-            }
+            if (!mine.active) continue;
 
-            // ⚡ OPTIMIZATION: Update Rotation State (No Decompose!)
-            // Avoid getMatrixAt() and decompose() by using stored state
+            // Update CPU-side time tracking (used for recycling oldest if full)
             mine.time += delta;
-            mine.rotation.x += delta * 2.0;
-            mine.rotation.y += delta * 1.5;
-
-            // Pulse scale
-            const pulse = 1.0 + Math.sin(mine.time * 10.0) * 0.1;
-            mine.scale = pulse;
-
-            // Recompose Matrix using Scratch Object
-            _scratchDummy.position.copy(mine.position);
-            _scratchDummy.rotation.copy(mine.rotation);
-            _scratchDummy.scale.setScalar(pulse);
-            _scratchDummy.updateMatrix();
-
-            this.mesh.setMatrixAt(i, _scratchDummy.matrix);
-            needsUpdate = true;
 
             // Proximity Check
             const distSq = mine.position.distanceToSquared(playerPos);
             if (distSq < TRIGGER_RADIUS * TRIGGER_RADIUS) {
                 this.explode(i);
-                needsUpdate = true;
             }
-        }
-
-        if (needsUpdate) {
-            this.mesh.instanceMatrix.needsUpdate = true;
         }
 
         // Handle Trauma Decay and Application
@@ -203,7 +243,13 @@ class JitterMineSystem {
         const mine = this.mines[index];
         if (!mine.active) return;
 
-        mine.active = false; // Will be hidden next update
+        mine.active = false;
+        mine.visible = false;
+
+        // Hide on GPU
+        const stateArray = this.stateBuffer.array as Float32Array;
+        stateArray[index * 4] = 0.0; // inactive (scale 0)
+        this.stateBuffer.needsUpdate = true;
 
         // Visuals
         spawnImpact(mine.position, 'explosion', 0xFF00FF);

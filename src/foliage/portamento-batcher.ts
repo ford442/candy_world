@@ -5,8 +5,12 @@ import {
   createUnifiedMaterial,
   registerReactiveMaterial,
   calculateWindSway,
-  calculatePlayerPush
+  calculatePlayerPush,
+  createJuicyRimLight,
+  uAudioHigh,
+  uAudioLow
 } from './common.ts';
+import { uTwilight } from './sky.ts';
 import {
   vec3,
   positionLocal,
@@ -117,6 +121,14 @@ export class PortamentoPineBatcher {
         audioReactStrength: 1.0, // Pulse with music
         deformationNode: animPos
     });
+
+    // 🎨 Palette: TSL Audio-Reactive Juice & Neon Rim Light
+    const baseGlowColor = color(0x00FF00);
+    const audioGlow = uAudioHigh.mul(1.5).add(uAudioLow.mul(0.5));
+    const rimLight = createJuicyRimLight(baseGlowColor, float(1.5), float(3.0), null);
+
+    // Add audio-reactive emissive pulse scaled by night visibility (twilight)
+    needleMat.emissiveNode = baseGlowColor.mul(audioGlow).add(rimLight).mul(float(1.0).add(uTwilight));
 
     registerReactiveMaterial(needleMat);
 

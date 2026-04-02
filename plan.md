@@ -10,12 +10,19 @@
 
 ## Next Steps
 
-1. **Phase 4 (Three.js -> WebGPU)**: Identify any remaining WebGPU migration items once the plan has been consolidated and cleaned up.
+1. **Verify Data Flow**: Ensure `AudioSystem` correctly extracts and passes `order`/`row` data from the worklet to drive the Pattern-Change logic reliably.
+2. **Phase 4 (Three.js -> WebGPU) Stage C**: Scene Graph Replacement - Once compute + custom render passes are in place, migrate scene hierarchy to an ECS in WASM and call `device.queue.submit()` directly.
 
 ---
 
 ## Recent Progress
 - **Accomplished:**
+  - **Phase 4 (Three.js -> WebGPU) Stage B (Weather Particles)**: **Status: Implemented ✅**
+    - *Implementation Details: Rewrote the legacy CPU/WASM particle system to use WebGPU Compute Shaders (`ComputeParticleSystem`) for weather effects (rain and mist). Moved physics updates and audio-reactive behavior completely to the GPU, and removed `LegacyParticleSystem` and `WasmParticleSystem`.*
+  - **Phase 4 targets (Jitter Mines Compute)**: **Status: Implemented ✅**
+    - *Implementation Details: Offloaded JitterMineSystem CPU-side matrix updates to WebGPU TSL Vertex Shaders. Used `InstancedBufferAttribute` and a custom Rodrigues' rotation formula in TSL to provide stateless, time-based particle rotation and scaling updates on the GPU without manual instanceMatrix updates on the CPU.*
+  - **Phase 4 - Compute Shaders (GPGPU) - Harmony Orbs**: **Status: Implemented ✅**
+    - *Implementation Details: Rewrote the `HarmonyOrbSystem` in `src/foliage/aurora.ts` to utilize WebGPU Compute Shaders. All physics (gravity, wind sway) and lifecycle updates were offloaded from the CPU to the GPU via TSL `Fn().compute()`. `StorageInstancedBufferAttribute` buffers map directly to the TSL material.*
   - **Planning Debt Resolution**: **Status: Implemented ✅**
     - *Implementation Details: Extracted all completed features into `archive/COMPLETED_FEATURES.md`. Cleaned up `plan.md` and `IMPLEMENTATION_PLAN_MUSICAL_ECOSYSTEM.md` to remove the bloat from successfully implemented items.*
   - **Plan Consolidation Task**: Added `weekly_plan.md` directive. **Status: Implemented ✅**
