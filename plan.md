@@ -10,13 +10,15 @@
 
 ## Next Steps
 
-1. **Verify Data Flow**: Ensure `AudioSystem` correctly extracts and passes `order`/`row` data from the worklet to drive the Pattern-Change logic reliably.
-2. **Phase 4 (Three.js -> WebGPU) Stage C**: Scene Graph Replacement - Once compute + custom render passes are in place, migrate scene hierarchy to an ECS in WASM and call `device.queue.submit()` directly.
+1. **Phase 4 (Three.js -> WebGPU) Stage C**: Scene Graph Replacement - Once compute + custom render passes are in place, migrate scene hierarchy to an ECS in WASM and call `device.queue.submit()` directly.
+2. **Identify Phase 4 Targets**: Find specific visual features that are still heavily reliant on CPU and transition them to WebGPU Compute Shaders (GPGPU).
 
 ---
 
 ## Recent Progress
 - **Accomplished:**
+  - **Verify Data Flow (`AudioSystem`)**: **Status: Implemented ✅**
+    - *Implementation Details: Updated `src/main.ts` and `index.html` with a Tracker Status HUD UI element that continuously monitors and displays the current Pattern (`order`) and Row. This verified that `AudioSystem` correctly extracts and passes tracker data from the worklet to the main thread.*
   - **Phase 4 (Three.js -> WebGPU) Stage B (Weather Particles)**: **Status: Implemented ✅**
     - *Implementation Details: Rewrote the legacy CPU/WASM particle system to use WebGPU Compute Shaders (`ComputeParticleSystem`) for weather effects (rain and mist). Moved physics updates and audio-reactive behavior completely to the GPU, and removed `LegacyParticleSystem` and `WasmParticleSystem`.*
   - **Phase 4 targets (Jitter Mines Compute)**: **Status: Implemented ✅**
