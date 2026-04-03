@@ -1422,18 +1422,22 @@ function checkVineAttachment(camera: THREE.Camera) {
         // SAFETY: Ensure vineManager and anchorPoint exist before accessing properties
         if (!vineManager || !vineManager.anchorPoint) continue;
         const anchor = vineManager.anchorPoint;
-        if (typeof (anchor as any).x !== 'number' || typeof (anchor as any).y !== 'number' || typeof (anchor as any).z !== 'number') continue;
+        // @ts-ignore
+        if (typeof anchor.x !== 'number' || typeof anchor.y !== 'number' || typeof anchor.z !== 'number') continue;
 
         const dx = playerPos.x - anchor.x;
         const dz = playerPos.z - anchor.z;
-        // ⚡ OPTIMIZATION: Use squared distance to avoid expensive Math.sqrt in hot loop
-        const distH_sq = dx * dx + dz * dz;
+
+        // ⚡ OPTIMIZATION: Use squared distance to avoid expensive Math.sqrt() in a hot loop
+        const distHSq = dx*dx + dz*dz;
         const tipY = anchor.y - (typeof vineManager.length === 'number' ? vineManager.length : 0);
 
-        if (distH_sq < 4.0 && playerPos.y < anchor.y && playerPos.y > tipY) {
-             if (distH_sq < 1.0) {
+        // Compare against squared thresholds (2.0^2 = 4.0, 1.0^2 = 1.0)
+        if (distHSq < 4.0 && playerPos.y < anchor.y && playerPos.y > tipY) {
+             if (distHSq < 1.0) {
                  if (typeof vineManager.attach === 'function') {
-                     vineManager.attach(player as any, player.velocity);
+                     // @ts-ignore
+                     vineManager.attach(player, player.velocity);
                      setActiveVineSwing(vineManager);
                      break;
                  }
