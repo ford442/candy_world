@@ -679,6 +679,12 @@
 
     <div id="reticle-label" aria-live="polite"></div>
 
+    <div id="tracker-status" role="region" aria-label="Tracker Status" style="position: absolute; top: 15px; right: 15px; background: rgba(0,0,0,0.6); padding: 10px; border-radius: 8px; color: #FFF; font-family: monospace; display: flex; flex-direction: column; gap: 5px; pointer-events: none; z-index: 100; border: 2px solid #ff69b4;">
+        <div style="font-weight: bold; color: #ff69b4; text-transform: uppercase; font-size: 0.9em; letter-spacing: 1px;">Tracker Status</div>
+        <div>Pattern: <span id="tracker-pattern">00</span></div>
+        <div>Row: <span id="tracker-row">00</span></div>
+    </div>
+
     <div id="ability-hud" role="region" aria-label="Abilities">
         <div id="energy-bar-container" role="progressbar" aria-label="Energy Bar" aria-valuemin="0" aria-valuemax="10" aria-valuenow="0">
             <div id="energy-bar-fill"></div>

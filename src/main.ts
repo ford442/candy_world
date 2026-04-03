@@ -345,6 +345,12 @@ const hudMineOverlay = hudMine ? hudMine.querySelector('.cooldown-overlay') as H
 const hudPhase = document.getElementById('ability-phase');
 const hudPhaseOverlay = hudPhase ? hudPhase.querySelector('.cooldown-overlay') as HTMLElement : null;
 
+// 🎨 Palette: Cache Tracker HUD Elements
+const trackerPatternEl = document.getElementById('tracker-pattern');
+const trackerRowEl = document.getElementById('tracker-row');
+let _lastTrackerPattern: number | null = null;
+let _lastTrackerRow: number | null = null;
+
 // Track previous states to avoid DOM thrashing
 let _lastDashReady: boolean | null = null;
 let _lastMineReady: boolean | null = null;
@@ -384,6 +390,21 @@ function animate() {
     const timeFactor = 120 / Math.max(10, currentBPM);
     gameTime += delta * timeFactor;
     
+    // 🎨 Palette: Update Tracker HUD (proving data flow works)
+    if (audioState && trackerPatternEl && trackerRowEl) {
+        const patternIndex = audioState.patternIndex || 0;
+        const rowIndex = audioState.row || 0;
+
+        if (patternIndex !== _lastTrackerPattern) {
+            trackerPatternEl.textContent = patternIndex.toString().padStart(2, '0');
+            _lastTrackerPattern = patternIndex;
+        }
+        if (rowIndex !== _lastTrackerRow) {
+            trackerRowEl.textContent = rowIndex.toString().padStart(2, '0');
+            _lastTrackerRow = rowIndex;
+        }
+    }
+
     // Update global shader time
     uTime.value = gameTime;
 
