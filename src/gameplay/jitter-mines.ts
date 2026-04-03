@@ -2,13 +2,14 @@ import * as THREE from 'three';
 import {
     createClayMaterial,
     uGlitchIntensity,
-    uTime
+    uTime,
+    uAudioLow
 } from '../foliage/common.ts';
 import { applyGlitch } from '../foliage/glitch.ts';
 import { uChromaticIntensity } from '../foliage/chromatic.ts';
 import { spawnImpact } from '../foliage/impacts.ts';
 import { unlockSystem } from '../systems/unlocks.ts';
-import { positionLocal, uv, float, sin, cos, vec3, uniform, attribute, vec4, vec2, step, mix } from 'three/tsl';
+import { positionLocal, uv, float, sin, cos, vec3, uniform, attribute, vec4, vec2, step, mix, smoothstep } from 'three/tsl';
 
 const MAX_MINES = 50;
 const MINE_RADIUS = 0.5;
@@ -99,7 +100,16 @@ class JitterMineSystem {
         const pulse = float(1.0).add(sin(age.mul(10.0)).mul(0.1));
         const finalScale = pulse.mul(isActive);
 
-        const scaledPos = baseGlitch.position.mul(finalScale);
+        // 🎨 PALETTE: Audio-Reactive Squash & Stretch (Heartbeat/Jelly feel)
+        // High impact on kick drum (uAudioLow)
+        const beatSquash = smoothstep(0.2, 0.8, uAudioLow).pow(float(1.5)).mul(0.4); // Max 40% squash
+
+        // Squash Y axis down, bulge X/Z axes out
+        const scaleY = float(1.0).sub(beatSquash);
+        const scaleXZ = float(1.0).add(beatSquash.mul(0.5));
+        const audioScale = vec3(scaleXZ, scaleY, scaleXZ);
+
+        const scaledPos = baseGlitch.position.mul(audioScale).mul(finalScale);
 
         // Rotate around random axis
         const angle = age.mul(2.0); // Rotation speed
