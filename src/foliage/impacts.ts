@@ -4,7 +4,7 @@ import {
     attribute, float, sin, positionLocal,
     exp, rotate, normalize, vec4, vec3, smoothstep
 } from 'three/tsl';
-import { uTime, uAudioHigh } from './common.ts';
+import { uTime, uAudioHigh, uAudioLow } from './common.ts';
 
 const MAX_PARTICLES = 4000; // Increased capacity for juice
 let _impactMesh: THREE.InstancedMesh | null = null;
@@ -119,7 +119,10 @@ export function createImpactSystem(): THREE.InstancedMesh {
 
     // Combine base size, pop, fade, and bounce
     const baseScale = popIn.mul(fadeOut);
-    const finalScale = sizeAttr.mul(baseScale.add(elasticBounce).max(0.0));
+
+    // Audio Reactivity (Juice): Pulse size with low frequencies (Kick)
+    const audioScale = float(1.0).add(uAudioLow.mul(0.5));
+    const finalScale = sizeAttr.mul(baseScale.add(elasticBounce).max(0.0)).mul(audioScale);
 
     // Apply scale to rotated local vertex
     const scaledLocal = rotatedLocal.mul(finalScale);
@@ -130,13 +133,15 @@ export function createImpactSystem(): THREE.InstancedMesh {
     mat.positionNode = particleWorldPos.add(scaledLocal);
 
     // 4. Color & Juice
-    // Audio Shimmer
+    // Audio Shimmer (Highs add shimmer, Lows add brightness pulse)
     const shimmer = sin(age.mul(20.0).add(uAudioHigh.mul(10.0))).mul(0.2).add(1.0);
+    const bassGlow = uAudioLow.mul(1.5);
+    const totalGlow = shimmer.add(bassGlow);
 
     // Fade Out
     const opacity = float(1.0).sub(smoothstep(0.7, 1.0, lifeProgress));
 
-    mat.colorNode = colorAttr.mul(shimmer);
+    mat.colorNode = colorAttr.mul(totalGlow);
     mat.opacityNode = opacity.mul(isAlive);
 
     // 5. Mesh Creation
