@@ -30,9 +30,11 @@ const CHROMATIC_SCALE = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', '
 
 // Caches to prevent repeated lookups
 const _noteNameCache: Record<string, string> = {};
-let _noteNameCacheSize = 0; // ⚡ OPTIMIZATION: Track cache size directly to avoid GC spikes from Object.keys
 const _speciesMapCache: Record<string, any> = {};
 const _scratchSphere = new THREE.Sphere(); // Reusable for culling checks
+
+// ⚡ OPTIMIZATION: Manually track cache size to prevent Object.keys() GC spikes
+let _noteNameCacheSize = 0;
 
 // --- Core Calculation Functions ---
 
@@ -155,8 +157,7 @@ export function resolveNoteName(note: number | string): string {
         // Handle "C4", "F#3" etc.
         const noteName = note.replace(/[0-9-]/g, '');
         
-        // Limit cache size to prevent memory leak
-        // ⚡ OPTIMIZATION: Use counter instead of Object.keys to avoid allocation
+        // ⚡ OPTIMIZATION: Use integer counter instead of Object.keys() to prevent GC spikes
         if (_noteNameCacheSize < 200) {
             _noteNameCache[note] = noteName;
             _noteNameCacheSize++;
