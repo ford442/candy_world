@@ -109,8 +109,15 @@ export function createStars(count: number = 1500): THREE.Points {
     const kickImpact = smoothstep(0.2, 0.8, uAudioLow).pow(float(1.5));
     const kickPulse = kickImpact.mul(randomPulse).mul(3.0);
 
+    // 🎨 PALETTE: Randomize "Twinkle" offset so they don't pulse in unison to the music
+    // Even high-hat twinks look better broken up
+    const offsetHigh = sin(aOffset.mul(10.0)).mul(0.5).add(0.5); // 0..1
+    const randomizedAudioHigh = uAudioHigh.mul(mix(float(0.5), float(1.5), offsetHigh));
+    const audioHighTwinkle = randomizedAudioHigh.pow(float(2.0)).mul(5.0);
+    const audioHighPulse = sharpTwinkle.mul(baseTwinkleMul.add(audioHighTwinkle));
+
     // Total Intensity = Base + Twinkle + Pulse
-    const intensity = float(0.4).add(activeTwinkle).add(kickPulse);
+    const intensity = float(0.4).add(audioHighPulse).add(kickPulse);
 
     // 3. Color Shift (Neon/Magic)
     // Shift towards Cyan/Magenta/Gold on high energy
