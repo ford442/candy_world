@@ -84,6 +84,11 @@ export class AccessibilityMenu {
       this.a11y.trapFocus(this.container);
       announce('Accessibility menu opened. Use Tab to navigate, Enter to select.', 'polite');
     }
+
+    const openA11yBtn = document.getElementById('openA11yBtn');
+    if (openA11yBtn) openA11yBtn.setAttribute('aria-expanded', 'true');
+    const a11yMenuButton = document.getElementById('a11y-menu-button');
+    if (a11yMenuButton) a11yMenuButton.setAttribute('aria-expanded', 'true');
   }
 
   close(): void {
@@ -103,6 +108,11 @@ export class AccessibilityMenu {
     this.isOpen = false;
     this.container = null;
     this.overlay = null;
+
+    const openA11yBtn = document.getElementById('openA11yBtn');
+    if (openA11yBtn) openA11yBtn.setAttribute('aria-expanded', 'false');
+    const a11yMenuButton = document.getElementById('a11y-menu-button');
+    if (a11yMenuButton) a11yMenuButton.setAttribute('aria-expanded', 'false');
     
     announce('Accessibility menu closed', 'polite');
   }
