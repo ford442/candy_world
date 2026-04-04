@@ -16,6 +16,9 @@ import { CommonGeometries, getSphereGeometry } from '../utils/geometry-dedup.ts'
 const _scratchWorldPos = new THREE.Vector3();
 const _scratchMatrix = new THREE.Matrix4();
 const _scratchObject3D = new THREE.Object3D();
+const _scratchLocalPos = new THREE.Vector3();
+const _scratchLocalQuat = new THREE.Quaternion();
+const _scratchLocalScale = new THREE.Vector3();
 const _scratchColor = new THREE.Color();
 
 // ⚡ OPTIMIZATION: Global uniform for seasonal berry scaling
@@ -244,16 +247,17 @@ export class BerryBatcher {
                 const idx = start + i;
 
                 if (!skipMatrixUpdate) {
-                    // Reconstruct local matrix
-                    _scratchObject3D.position.set(transforms.positions[i*3], transforms.positions[i*3+1], transforms.positions[i*3+2]);
-                    _scratchObject3D.quaternion.set(transforms.quaternions[i*4], transforms.quaternions[i*4+1], transforms.quaternions[i*4+2], transforms.quaternions[i*4+3]);
-                    _scratchObject3D.scale.setScalar(transforms.scales[i]);
-                    _scratchObject3D.updateMatrix();
+                    // ⚡ OPTIMIZATION: Eliminate CPU overhead and garbage collection spikes from Matrix4 composition by writing directly to instanceMatrix.array
+                    _scratchLocalPos.set(transforms.positions[i*3], transforms.positions[i*3+1], transforms.positions[i*3+2]);
+                    _scratchLocalQuat.set(transforms.quaternions[i*4], transforms.quaternions[i*4+1], transforms.quaternions[i*4+2], transforms.quaternions[i*4+3]);
+                    _scratchLocalScale.setScalar(transforms.scales[i]);
+
+                    _scratchMatrix.compose(_scratchLocalPos, _scratchLocalQuat, _scratchLocalScale);
 
                     // World = Parent * Local
-                    _scratchMatrix.multiplyMatrices(parentMatrix, _scratchObject3D.matrix);
+                    _scratchMatrix.multiplyMatrices(parentMatrix, _scratchMatrix);
 
-                    this.mesh.setMatrixAt(idx, _scratchMatrix);
+                    _scratchMatrix.toArray(this.mesh.instanceMatrix.array, idx * 16);
                 }
 
                 // Update Glow
