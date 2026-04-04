@@ -476,8 +476,22 @@ export class AudioSystem {
         const rowData = matrix?.rows[row] || [];
         const numChannels = this.moduleInfo.numChannels;
 
-        const channelData = [];
         let anyTrigger = false;
+
+        // ⚡ OPTIMIZATION: Reuse a scratch array of pooled objects to avoid GC allocation
+        if (!this._scratchChannelData) {
+            this._scratchChannelData = [];
+        }
+
+        while (this._scratchChannelData.length < numChannels) {
+            this._scratchChannelData.push({
+                volume: 0,
+                note: '',
+                instrument: 0,
+                activeEffect: 0,
+                effectValue: 0
+            });
+        }
 
         for (let ch = 0; ch < numChannels; ch++) {
             const vu = lib._openmpt_module_get_current_channel_vu_mono(modPtr, ch);
@@ -488,17 +502,19 @@ export class AudioSystem {
 
             if (noteMatch) anyTrigger = true;
 
-            channelData.push({
-                volume: vu,
-                note: noteMatch,
-                instrument: instrument,
-                activeEffect: activeEffect,
-                effectValue: intensity
-            });
+            const dest = this._scratchChannelData[ch];
+            dest.volume = vu;
+            dest.note = noteMatch || '';
+            dest.instrument = instrument;
+            dest.activeEffect = activeEffect;
+            dest.effectValue = intensity;
         }
 
-        this.handleVisualUpdate({ bpm, channelData, anyTrigger, order, row });
+        const scratchData = this._scratchChannelData.length === numChannels ? this._scratchChannelData : this._scratchChannelData.slice(0, numChannels);
+        this.handleVisualUpdate({ bpm, channelData: scratchData, anyTrigger, order, row });
     }
+
+    private _scratchChannelData?: any[];
 
     // --- Volume Control (UX) ---
 
