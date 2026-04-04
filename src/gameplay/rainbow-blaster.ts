@@ -31,6 +31,7 @@ class ProjectilePool {
         velocity: THREE.Vector3;
         position: THREE.Vector3;
         color: THREE.Color;
+        scale: number;
     }[];
     dummy: THREE.Object3D;
     color: THREE.Color;
@@ -97,7 +98,8 @@ class ProjectilePool {
                 life: 0,
                 velocity: new THREE.Vector3(),
                 position: new THREE.Vector3(),
-                color: new THREE.Color()
+                color: new THREE.Color(),
+                scale: 0
             });
             // Hide initially
             this.dummy.position.set(0, -9999, 0);
@@ -131,12 +133,13 @@ class ProjectilePool {
         const p = this.projectiles[idx];
         p.active = true;
         p.life = MAX_LIFE;
+        p.scale = 0;
         p.position.copy(origin);
         p.velocity.copy(direction).normalize().multiplyScalar(SPEED);
 
         // Visuals
         this.dummy.position.copy(p.position);
-        this.dummy.scale.setScalar(1.0);
+        this.dummy.scale.setScalar(p.scale);
         this.dummy.updateMatrix();
         this.mesh.setMatrixAt(idx, this.dummy.matrix);
 
@@ -168,6 +171,9 @@ class ProjectilePool {
             // Move
             p.position.addScaledVector(p.velocity, dt);
             p.life -= dt;
+
+            // JUICE: Smooth scale
+            p.scale = THREE.MathUtils.damp(p.scale, 1.0, 15.0, dt);
 
             // JUICE: Projectile Trail
             // Spawn every frame for a continuous trail
@@ -282,7 +288,7 @@ class ProjectilePool {
                 // Spin for fun (visible due to noise displacement)
                 this.dummy.rotation.x += dt * 5.0;
                 this.dummy.rotation.z += dt * 5.0;
-                this.dummy.scale.setScalar(1.0);
+                this.dummy.scale.setScalar(p.scale);
                 this.dummy.updateMatrix();
                 this.mesh.setMatrixAt(i, this.dummy.matrix);
                 needsUpdate = true;
