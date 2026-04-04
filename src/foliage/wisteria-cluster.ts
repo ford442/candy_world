@@ -3,7 +3,7 @@ import { MeshStandardNodeMaterial } from 'three/webgpu';
 import {
     time, positionLocal, sin, cos, positionWorld, color, vec3, mix, float, smoothstep
 } from 'three/tsl';
-import { CandyPresets, attachReactivity, uAudioHigh, uTime } from './common.ts';
+import { CandyPresets, attachReactivity, uAudioHigh, uTime, createJuicyRimLight } from './common.ts';
 import { makeInteractive } from '../utils/interaction-utils.ts';
 import { discoverySystem } from '../systems/discovery.ts';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
@@ -57,6 +57,10 @@ export function createWisteriaCluster(options: WisteriaClusterOptions = {}) {
     const glowColor = color(0xFF66FF); // Neon pink glow
     // Emissive boost driven by uAudioHigh, fading in smoothly
     material.emissiveNode = glowColor.mul(uAudioHigh.mul(0.8));
+
+    // 🎨 PALETTE: Juicy Rim Light for volumetric glow
+    const rimLight = createJuicyRimLight(color(0xFFFFFF), float(1.5), float(3.0), null);
+    material.emissiveNode = material.emissiveNode.add(rimLight);
 
     // --- Geometry Construction ---
     // We create a central hanging stem and several rounded clusters ("grapes" / "petals") hanging off it.
