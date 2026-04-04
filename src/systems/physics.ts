@@ -33,6 +33,7 @@ import { showToast } from '../utils/toast.js';
 import { dandelionBatcher } from '../foliage/dandelion-batcher.ts';
 import { spawnDandelionExplosion } from '../foliage/dandelion-seeds.ts';
 import { harmonyOrbSystem } from '../foliage/aurora.ts';
+import { addCameraShake } from '../main.ts';
 
 // --- Types ---
 
@@ -621,6 +622,7 @@ function handleAbilities(delta: number, camera: THREE.Camera, keyStates: KeyStat
 
         // Visual Feedback
         spawnImpact(player.position, 'dash');
+        addCameraShake(0.1); // 🎨 Palette: Dash shake
 
         if (uChromaticIntensity) {
             uChromaticIntensity.value = 0.5; // Stronger pulse for dash
@@ -875,10 +877,12 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
                 // Hard fall -> Big splash, heavy screen distortion
                 spawnImpact(player.position, 'land');
                 spawnImpact(player.position, 'dash'); // Extra particles
+                addCameraShake(0.4); // 🎨 Palette: Heavy landing shake
                 if (uChromaticIntensity) uChromaticIntensity.value = 0.8;
             } else if (fallSpeed > 8.0) {
                 // Medium fall
                 spawnImpact(player.position, 'land');
+                addCameraShake(0.15); // 🎨 Palette: Medium landing shake
                 if (uChromaticIntensity) uChromaticIntensity.value = 0.5;
             } else {
                 // Soft landing
@@ -906,6 +910,7 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
 
               // 🎨 Palette: Add "Juice" to trampoline mushroom bounce
               spawnImpact(player.position, 'jump');
+              addCameraShake(0.3); // 🎨 Palette: Trampoline bounce shake
               if (typeof uChromaticIntensity !== 'undefined') {
                   uChromaticIntensity.value = 0.5;
               }
@@ -1196,6 +1201,7 @@ function checkSnareTraps(delta: number) {
                     if (Math.random() < 0.2) {
                         if (uChromaticIntensity) uChromaticIntensity.value = 0.8;
                         spawnImpact(player.position, 'snare');
+                        addCameraShake(0.6); // 🎨 Palette: Trap snap shake
                         showToast("Snared! 🪤", "⚠️");
                     }
                 }
@@ -1339,9 +1345,11 @@ function updateJSFallbackMovement(delta: number, camera: THREE.Camera, controls:
              if (fallSpeed > 15.0) {
                  spawnImpact(player.position, 'land');
                  spawnImpact(player.position, 'dash');
+                 addCameraShake(0.4); // 🎨 Palette: Heavy landing shake
                  if (uChromaticIntensity) uChromaticIntensity.value = 0.8;
              } else if (fallSpeed > 8.0) {
                  spawnImpact(player.position, 'land');
+                 addCameraShake(0.15); // 🎨 Palette: Medium landing shake
                  if (uChromaticIntensity) uChromaticIntensity.value = 0.5;
              } else {
                  spawnImpact(player.position, 'jump');

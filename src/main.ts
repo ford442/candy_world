@@ -323,7 +323,14 @@ let audioState: any = null;
 let lastBeatPhase = 0;
 let beatFlashIntensity = 0;
 let cameraZoomPulse = 0;
+let cameraShake = 0;
+let currentShakeOffsetX = 0;
+let currentShakeOffsetY = 0;
 const baseFOV = 75;
+
+export function addCameraShake(amount: number) {
+    cameraShake = Math.max(cameraShake, amount);
+}
 
 // Register Beat Effects
 beatSync.onBeat((state) => {
@@ -439,6 +446,34 @@ function animate() {
             camera.fov = baseFOV;
             camera.updateProjectionMatrix();
         }
+    }
+
+    // 🎨 Palette: Camera Shake Polish
+    // Remove last frame's offset
+    camera.rotation.x -= currentShakeOffsetX;
+    camera.rotation.y -= currentShakeOffsetY;
+
+    if (cameraShake > 0) {
+        camera.rotation.z = (Math.random() - 0.5) * cameraShake * 0.1;
+
+        // Calculate new offset
+        currentShakeOffsetX = (Math.random() - 0.5) * cameraShake * 0.05;
+        currentShakeOffsetY = (Math.random() - 0.5) * cameraShake * 0.05;
+
+        // Apply new offset
+        camera.rotation.x += currentShakeOffsetX;
+        camera.rotation.y += currentShakeOffsetY;
+
+        cameraShake *= 0.85; // Decay
+        if (cameraShake < 0.01) {
+            cameraShake = 0;
+            currentShakeOffsetX = 0;
+            currentShakeOffsetY = 0;
+            camera.rotation.z = 0;
+        }
+    } else {
+        currentShakeOffsetX = 0;
+        currentShakeOffsetY = 0;
     }
 
     const currentState = getCycleState(effectiveTime, weatherSystem.targetPaletteMode || 'standard');
