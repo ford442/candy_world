@@ -965,14 +965,18 @@ export function initInput(
         // UX: Update Button States (Visual Polish)
         // Use epsilon for float comparison safety
         if (volDownBtn) {
-            volDownBtn.setAttribute('aria-disabled', String(newVol <= 0.01));
-            volDownBtn.title = `Decrease Volume (-) • ${percentage}%`;
-            volDownBtn.setAttribute('aria-label', `Decrease Volume (Current: ${percentage}%)`);
+            const isDisabled = newVol <= 0.01;
+            volDownBtn.setAttribute('aria-disabled', String(isDisabled));
+            // 🎨 Palette: Explain why the button is disabled
+            volDownBtn.title = isDisabled ? "Minimum volume reached" : `Decrease Volume (-) • ${percentage}%`;
+            volDownBtn.setAttribute('aria-label', isDisabled ? "Decrease Volume (Disabled: Minimum reached)" : `Decrease Volume (Current: ${percentage}%)`);
         }
         if (volUpBtn) {
-            volUpBtn.setAttribute('aria-disabled', String(newVol >= 0.99));
-            volUpBtn.title = `Increase Volume (+) • ${percentage}%`;
-            volUpBtn.setAttribute('aria-label', `Increase Volume (Current: ${percentage}%)`);
+            const isDisabled = newVol >= 0.99;
+            volUpBtn.setAttribute('aria-disabled', String(isDisabled));
+            // 🎨 Palette: Explain why the button is disabled
+            volUpBtn.title = isDisabled ? "Maximum volume reached" : `Increase Volume (+) • ${percentage}%`;
+            volUpBtn.setAttribute('aria-label', isDisabled ? "Increase Volume (Disabled: Maximum reached)" : `Increase Volume (Current: ${percentage}%)`);
         }
 
         const icon = newVol === 0 ? '🔇' : newVol < 0.5 ? '🔉' : '🔊';
@@ -989,12 +993,14 @@ export function initInput(
     // NEW: Initialize Tooltips
     const initialVolPct = Math.round(audioSystem.volume * 100);
     if (volDownBtn) {
-        volDownBtn.title = `Decrease Volume (-) • ${initialVolPct}%`;
-        volDownBtn.setAttribute('aria-label', `Decrease Volume (Current: ${initialVolPct}%)`);
+        const isMin = audioSystem.volume <= 0.01;
+        volDownBtn.title = isMin ? "Minimum volume reached" : `Decrease Volume (-) • ${initialVolPct}%`;
+        volDownBtn.setAttribute('aria-label', isMin ? "Decrease Volume (Disabled: Minimum reached)" : `Decrease Volume (Current: ${initialVolPct}%)`);
     }
     if (volUpBtn) {
-        volUpBtn.title = `Increase Volume (+) • ${initialVolPct}%`;
-        volUpBtn.setAttribute('aria-label', `Increase Volume (Current: ${initialVolPct}%)`);
+        const isMax = audioSystem.volume >= 0.99;
+        volUpBtn.title = isMax ? "Maximum volume reached" : `Increase Volume (+) • ${initialVolPct}%`;
+        volUpBtn.setAttribute('aria-label', isMax ? "Increase Volume (Disabled: Maximum reached)" : `Increase Volume (Current: ${initialVolPct}%)`);
     }
     if (toggleMuteBtn) toggleMuteBtn.title = audioSystem.isMuted ? 'Unmute Audio (M)' : 'Mute Audio (M)';
 
