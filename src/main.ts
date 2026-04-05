@@ -747,7 +747,7 @@ function animate() {
         updatePhysics(delta, camera, controls, keyStates, audioState);
         // Update TSL Uniform for Player Position (Interactive Grass/Foliage)
         uPlayerPosition.value.copy(player.position);
-        if (sparkleTrail) updateSparkleTrail(sparkleTrail, player.position, player.velocity, gameTime);
+        if (sparkleTrail) updateSparkleTrail(sparkleTrail, player.position, player.velocity, gameTime, renderer);
 
         // --- Arpeggio Shield Logic ---
         if (unlockSystem.isUnlocked('arpeggio_shield')) {
