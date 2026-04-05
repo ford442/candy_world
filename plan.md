@@ -11,7 +11,7 @@
 ## Next Steps
 
 1. **Phase 4 (Three.js -> WebGPU) Stage C**: Scene Graph Replacement - Once compute + custom render passes are in place, migrate scene hierarchy to an ECS in WASM and call `device.queue.submit()` directly.
-2. **Identify Phase 4 Targets**: Find specific visual features that are still heavily reliant on CPU and transition them to WebGPU Compute Shaders (GPGPU).
+2. **Identify Phase 4 Targets**: Find specific visual features that are still heavily reliant on CPU and transition them to WebGPU Compute Shaders (GPGPU). Candidates include `impacts.ts` and `rainbow-blaster.ts`.
 
 ---
 
@@ -25,6 +25,8 @@
     - *Implementation Details: Offloaded JitterMineSystem CPU-side matrix updates to WebGPU TSL Vertex Shaders. Used `InstancedBufferAttribute` and a custom Rodrigues' rotation formula in TSL to provide stateless, time-based particle rotation and scaling updates on the GPU without manual instanceMatrix updates on the CPU.*
   - **Phase 4 - Compute Shaders (GPGPU) - Harmony Orbs**: **Status: Implemented ✅**
     - *Implementation Details: Rewrote the `HarmonyOrbSystem` in `src/foliage/aurora.ts` to utilize WebGPU Compute Shaders. All physics (gravity, wind sway) and lifecycle updates were offloaded from the CPU to the GPU via TSL `Fn().compute()`. `StorageInstancedBufferAttribute` buffers map directly to the TSL material.*
+  - **Phase 4 targets (Sparkle Trail Compute)**: **Status: Implemented ✅**
+    - *Implementation Details: Migrated `SparkleTrail` in `src/foliage/sparkle-trail.ts` to utilize WebGPU Compute Shaders. Replaced CPU-side array mutations with `StorageInstancedBufferAttribute` and handled spawning and physics completely on the GPU via TSL `Fn().compute()`. Added uniform variables for passing dynamic player data (velocity, position) to the shader.*
   - **Planning Debt Resolution**: **Status: Implemented ✅**
     - *Implementation Details: Extracted all completed features into `archive/COMPLETED_FEATURES.md`. Cleaned up `plan.md` and `IMPLEMENTATION_PLAN_MUSICAL_ECOSYSTEM.md` to remove the bloat from successfully implemented items.*
   - **Plan Consolidation Task**: Added `weekly_plan.md` directive. **Status: Implemented ✅**

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { PointsNodeMaterial } from 'three/webgpu';
-import { attribute, float, mix, color, vec3, smoothstep, sin, positionLocal, cos } from 'three/tsl';
+import { PointsNodeMaterial, StorageBufferAttribute } from 'three/webgpu';
+import { vec4, attribute, float, mix, color, vec3, smoothstep, sin, positionLocal, cos, Fn, instanceIndex, storage, uniform, If, length } from 'three/tsl';
 import { uTime, uAudioHigh, uAudioLow } from './common.ts';
 
 const TRAIL_SIZE = 2000; // Increased buffer size for richer trails
@@ -10,33 +10,40 @@ export interface SparkleTrailUserData {
     head: number;
     isSparkleTrail: boolean;
     bufferSize: number;
+    computeNode: any;
+    uSpawnPos: any;
+    uSpawnVel: any;
+    uSpawnCount: any;
+    uSpawnIndex: any;
+    uDeltaTime: any;
+    uCurrentTime: any;
 }
 
 export function createSparkleTrail(): THREE.Points {
     const geo = new THREE.BufferGeometry();
     const positions = new Float32Array(TRAIL_SIZE * 3);
-    const birthTimes = new Float32Array(TRAIL_SIZE);
-    const lifeSpans = new Float32Array(TRAIL_SIZE);
-    const spawnSpeeds = new Float32Array(TRAIL_SIZE);
+    const states = new Float32Array(TRAIL_SIZE * 4); // x: birthTime, y: lifeSpan, z: spawnSpeed, w: randomOffset
+    const randOffsets = new Float32Array(TRAIL_SIZE * 3); // random position offset for juice
 
     // Fill with initial data to avoid empty buffer issues
-    birthTimes.fill(-1000);
+    for (let i = 0; i < TRAIL_SIZE; i++) {
+        states[i * 4] = -1000; // birthTime
+        states[i * 4 + 1] = 0; // lifeSpan
+        states[i * 4 + 2] = 0; // spawnSpeed
+        states[i * 4 + 3] = Math.random(); // random scalar
 
-    const posAttr = new THREE.BufferAttribute(positions, 3);
-    const birthAttr = new THREE.BufferAttribute(birthTimes, 1);
-    const lifeAttr = new THREE.BufferAttribute(lifeSpans, 1);
-    const speedAttr = new THREE.BufferAttribute(spawnSpeeds, 1);
+        randOffsets[i * 3] = (Math.random() - 0.5) * 0.6;
+        randOffsets[i * 3 + 1] = 0.1 + Math.random() * 0.4;
+        randOffsets[i * 3 + 2] = (Math.random() - 0.5) * 0.6;
+    }
 
-    // ⚡ OPTIMIZATION: Hint driver that these buffers change frequently
-    posAttr.setUsage(THREE.DynamicDrawUsage);
-    birthAttr.setUsage(THREE.DynamicDrawUsage);
-    lifeAttr.setUsage(THREE.DynamicDrawUsage);
-    speedAttr.setUsage(THREE.DynamicDrawUsage);
+    // Use Storage Buffers for Compute Shaders
+    const positionBuffer = new StorageBufferAttribute(positions, 3);
+    const stateBuffer = new StorageBufferAttribute(states, 4);
+    const offsetBuffer = new StorageBufferAttribute(randOffsets, 3);
 
-    geo.setAttribute('position', posAttr);
-    geo.setAttribute('birthTime', birthAttr);
-    geo.setAttribute('lifeSpan', lifeAttr);
-    geo.setAttribute('spawnSpeed', speedAttr);
+    geo.setAttribute('position', positionBuffer);
+    geo.setAttribute('state', stateBuffer);
 
     // Material
     const mat = new PointsNodeMaterial({
@@ -46,12 +53,14 @@ export function createSparkleTrail(): THREE.Points {
         blending: THREE.AdditiveBlending
     });
 
-    const birthTime = attribute('birthTime');
-    const lifeSpan = attribute('lifeSpan');
-    const spawnSpeed = attribute('spawnSpeed');
+    const state = attribute('state', 'vec4');
+    const birthTime = state.x;
+    const lifeSpan = state.y;
+    const spawnSpeed = state.z;
 
     const age = uTime.sub(birthTime);
-    const lifeProgress = age.div(lifeSpan); // 0.0 to 1.0
+    // Add small epsilon to avoid divide by zero, though lifeSpan should be > 0 when active
+    const lifeProgress = age.div(lifeSpan.add(0.001)); // 0.0 to 1.0
 
     // --- TSL PHYSICS (Juice) ---
 
@@ -111,118 +120,110 @@ export function createSparkleTrail(): THREE.Points {
     const finalColor = mix(coolMix, colorHot, speedFactor.mul(0.8)); // Increased mix strength to 0.8
 
     // Twinkle: High frequency sine flicker to simulate glitter
-    const twinkle = sin(age.mul(30.0)).mul(0.5).add(0.5);
+    const randomFlickerOffset = state.w.mul(100.0);
+    const twinkle = sin(age.mul(30.0).add(randomFlickerOffset)).mul(0.5).add(0.5);
 
     // Emission Boost
     const intensity = float(3.0).add(speedFactor.mul(2.0));
     mat.colorNode = finalColor.mul(twinkle.add(0.5)).mul(intensity);
-    mat.opacityNode = opacity;
+    // Hide particles that are dead
+    mat.opacityNode = opacity.mul(smoothstep(0.0, 0.01, lifeSpan));
 
     const points = new THREE.Points(geo, mat);
     points.frustumCulled = false;
+
+    // COMPUTE SHADER LOGIC
+    const uSpawnPos = uniform(new THREE.Vector3());
+    const uSpawnVel = uniform(new THREE.Vector3());
+    const uSpawnCount = uniform(0);
+    const uSpawnIndex = uniform(-1);
+    const uCurrentTime = uniform(0);
+
+    const updateTrailCompute = Fn(() => {
+        const index = instanceIndex;
+
+        const posNode = storage(positionBuffer, 'vec3', positionBuffer.count).element(index);
+        const stateNode = storage(stateBuffer, 'vec4', stateBuffer.count).element(index);
+        const offsetNode = storage(offsetBuffer, 'vec3', offsetBuffer.count).element(index);
+
+        const spawnCount = uSpawnCount.toVar();
+        const spawnIdx = uSpawnIndex.toVar();
+
+        // Handle wrapping logic manually in TSL since modulo operations can be tricky
+        // If the current particle index is within the range [spawnIdx, spawnIdx + spawnCount) (handling wrap around)
+
+        // Is this index one of the ones being spawned this frame?
+        const diff = index.sub(spawnIdx);
+        // Add TRAIL_SIZE to handle negative diffs, then modulo
+        const wrappedDiff = diff.add(TRAIL_SIZE).mod(TRAIL_SIZE);
+
+        If(wrappedDiff.lessThan(spawnCount), () => {
+            // Spawn new particle!
+            posNode.assign(uSpawnPos.add(offsetNode));
+
+            // Random life between 0.8 and 1.4
+            // Since we can't easily do random in compute cleanly per-frame per-instance without state,
+            // we use the pre-generated random w component to vary the life
+            const randomLife = float(0.8).add(stateNode.w.mul(0.6));
+
+            // Speed is length of uSpawnVel
+            const speed = length(uSpawnVel);
+
+            // update state: x=birthTime, y=lifeSpan, z=spawnSpeed, w=keep existing random
+            stateNode.assign(vec4(uCurrentTime, randomLife, speed, stateNode.w));
+        });
+    });
+
+    const computeNode = updateTrailCompute().compute(TRAIL_SIZE);
 
     // Custom data for JS update loop
     points.userData = {
         head: 0,
         isSparkleTrail: true,
-        bufferSize: TRAIL_SIZE
+        bufferSize: TRAIL_SIZE,
+        computeNode: computeNode,
+        uSpawnPos: uSpawnPos,
+        uSpawnVel: uSpawnVel,
+        uSpawnCount: uSpawnCount,
+        uSpawnIndex: uSpawnIndex,
+        uCurrentTime: uCurrentTime,
+        uDeltaTime: null
     } as SparkleTrailUserData;
 
     return points;
 }
 
-const _offset = new THREE.Vector3();
-
-export function updateSparkleTrail(trail: THREE.Points, playerPos: THREE.Vector3, playerVel: THREE.Vector3, time: number) {
+export function updateSparkleTrail(trail: THREE.Points, playerPos: THREE.Vector3, playerVel: THREE.Vector3, time: number, renderer: THREE.WebGLRenderer | any) {
     if (!trail || !trail.userData.isSparkleTrail) return;
 
-    const speed = playerVel.length();
-    // Only spawn if moving (lowered threshold to 0.5 for walking visibility)
-    if (speed < 0.5) return;
-
-    // Scale particle count by speed
-    // More particles for better trails, but ensure at least 1 when moving slow
-    const count = Math.max(1, Math.min(Math.floor(speed / 1.5), 20));
-
-    const geometry = trail.geometry;
-    const positions = geometry.attributes.position;
-    const birthTimes = geometry.attributes.birthTime;
-    const lifeSpans = geometry.attributes.lifeSpan;
-    const spawnSpeeds = geometry.attributes.spawnSpeed;
-    if (!positions || !birthTimes || !lifeSpans || !spawnSpeeds) return;
-
     const userData = trail.userData as SparkleTrailUserData;
-    const size = userData.bufferSize;
-    let currentHead = userData.head;
 
-    // Capture start index for range update
-    const startIndex = currentHead;
+    // Always update current time for the compute shader to run properly over living particles
+    userData.uCurrentTime.value = time;
 
-    for (let i = 0; i < count; i++) {
-        // Random offset behind player (low to ground)
-        _offset.set(
-            (Math.random() - 0.5) * 0.6,
-            0.1 + Math.random() * 0.4,
-            (Math.random() - 0.5) * 0.6
-        );
+    const speed = playerVel.length();
 
-        positions.setXYZ(currentHead,
-            playerPos.x + _offset.x,
-            playerPos.y + _offset.y,
-            playerPos.z + _offset.z
-        );
+    let spawnCount = 0;
+    if (speed >= 0.5) {
+        // Scale particle count by speed
+        // More particles for better trails, but ensure at least 1 when moving slow
+        spawnCount = Math.max(1, Math.min(Math.floor(speed / 1.5), 20));
 
-        birthTimes.setX(currentHead, time);
-        lifeSpans.setX(currentHead, 0.8 + Math.random() * 0.6); // 0.8s - 1.4s life
-        spawnSpeeds.setX(currentHead, speed);
+        // Update uniforms for the compute shader to spawn new particles
+        userData.uSpawnPos.value.copy(playerPos);
+        userData.uSpawnVel.value.copy(playerVel);
+        userData.uSpawnCount.value = spawnCount;
+        userData.uSpawnIndex.value = userData.head;
 
-        currentHead = (currentHead + 1) % size;
+        // Advance head
+        userData.head = (userData.head + spawnCount) % userData.bufferSize;
+    } else {
+        // No spawning this frame
+        userData.uSpawnCount.value = 0;
     }
 
-    userData.head = currentHead;
-
-    // ⚡ OPTIMIZATION: Partial Buffer Update
-    // Only upload the range we touched. If it wraps, upload everything (fallback).
-    const wrapped = (startIndex + count) > size;
-
-    const allAttributesHaveUpdateRange =
-        positions.updateRange && birthTimes.updateRange && lifeSpans.updateRange && spawnSpeeds.updateRange;
-
-    if (!wrapped && allAttributesHaveUpdateRange) {
-        // Contiguous update
-        const updateOffset = startIndex;
-        const updateCount = count;
-
-        positions.updateRange.offset = updateOffset * 3;
-        positions.updateRange.count = updateCount * 3;
-
-        birthTimes.updateRange.offset = updateOffset;
-        birthTimes.updateRange.count = updateCount;
-
-        lifeSpans.updateRange.offset = updateOffset;
-        lifeSpans.updateRange.count = updateCount;
-
-        spawnSpeeds.updateRange.offset = updateOffset;
-        spawnSpeeds.updateRange.count = updateCount;
-    } else if (allAttributesHaveUpdateRange) {
-        // Wrapped: Fallback to full update (simple) or implement split update if critical.
-        // Given trail size 2000 and count ~20, wrap happens <1% of frames.
-        // Full update is acceptable here.
-        positions.updateRange.offset = 0;
-        positions.updateRange.count = -1;
-
-        birthTimes.updateRange.offset = 0;
-        birthTimes.updateRange.count = -1;
-
-        lifeSpans.updateRange.offset = 0;
-        lifeSpans.updateRange.count = -1;
-
-        spawnSpeeds.updateRange.offset = 0;
-        spawnSpeeds.updateRange.count = -1;
+    // Execute the compute shader
+    if (renderer && renderer.compute && spawnCount > 0) {
+        renderer.compute(userData.computeNode);
     }
-
-    positions.needsUpdate = true;
-    birthTimes.needsUpdate = true;
-    lifeSpans.needsUpdate = true;
-    spawnSpeeds.needsUpdate = true;
 }
