@@ -1,20 +1,14 @@
 import * as THREE from 'three';
-import { MeshStandardNodeMaterial } from 'three/webgpu';
+import { MeshStandardNodeMaterial, StorageInstancedBufferAttribute } from 'three/webgpu';
 import {
-    attribute, float, sin, positionLocal,
-    exp, rotate, normalize, vec4, vec3, smoothstep
+    float, sin, positionLocal, storage, Fn, If, instanceIndex, uniform,
+    exp, rotate, normalize, vec4, vec3, smoothstep, mix
 } from 'three/tsl';
 import { uTime, uAudioHigh, uAudioLow } from './common.ts';
 
 const MAX_PARTICLES = 4000; // Increased capacity for juice
 let _impactMesh: THREE.InstancedMesh | null = null;
-let _spawnAttr: THREE.InstancedBufferAttribute | null = null;
-let _velAttr: THREE.InstancedBufferAttribute | null = null;
-let _colorAttr: THREE.InstancedBufferAttribute | null = null;
-let _miscAttr: THREE.InstancedBufferAttribute | null = null;
 let _head = 0;
-let _minUpdate = MAX_PARTICLES;
-let _maxUpdate = -1;
 
 export type ImpactType =
   | 'jump'
@@ -26,7 +20,10 @@ export type ImpactType =
   | 'rain'
   | 'spore'
   | 'trail'
-  | 'muzzle';
+  | 'muzzle'
+  | 'splash'
+  | 'magic'
+  | 'explosion';
 
 interface ImpactConfigItem {
     count: number;
@@ -42,11 +39,33 @@ const IMPACT_CONFIG: Record<ImpactType, ImpactConfigItem> = {
     rain: { count: 30 },
     spore: { count: 10 },
     trail: { count: 1 },
-    muzzle: { count: 5 } // Fast burst
+    muzzle: { count: 5 }, // Fast burst
+    splash: { count: 20 },
+    magic: { count: 15 },
+    explosion: { count: 50 }
 };
 
-// Deprecated: SpawnOptions removed in favor of direct arguments
-// export interface SpawnOptions { ... }
+export interface ImpactSystemUserData {
+    head: number;
+    isImpactSystem: boolean;
+    bufferSize: number;
+    computeNode: any;
+    uSpawnCount: any;
+    uSpawnIndex: any;
+
+    stagingSpawnArray: Float32Array;
+    stagingVelArray: Float32Array;
+    stagingColorArray: Float32Array;
+    stagingMiscArray: Float32Array;
+    stagingSpawnBuffer: StorageInstancedBufferAttribute;
+    stagingVelBuffer: StorageInstancedBufferAttribute;
+    stagingColorBuffer: StorageInstancedBufferAttribute;
+    stagingMiscBuffer: StorageInstancedBufferAttribute;
+    maxSpawnsPerFrame: number;
+}
+
+// Global uniform to store max speed across multiple calls
+let uMaxSpeed = 0;
 
 export function createImpactSystem(): THREE.InstancedMesh {
     if (_impactMesh) return _impactMesh;
@@ -55,6 +74,26 @@ export function createImpactSystem(): THREE.InstancedMesh {
     // OPTIMIZATION: Use Icosahedron (low poly) instead of Sphere
     // Fixes WebGPU pointUV issue and allows rotation
     const geometry = new THREE.IcosahedronGeometry(0.1, 0);
+
+    // Custom Attributes for TSL via Storage Instanced Buffers
+    const spawnArray = new Float32Array(MAX_PARTICLES * 4);
+    const velArray = new Float32Array(MAX_PARTICLES * 4);
+    const colorArray = new Float32Array(MAX_PARTICLES * 4);
+    const miscArray = new Float32Array(MAX_PARTICLES * 4);
+
+    // Initialize Birth Times to -1000 (Dead)
+    for (let i = 0; i < MAX_PARTICLES; i++) {
+        spawnArray[i * 4 + 3] = -1000.0;
+        // set some default random misc values to avoid zero vectors
+        miscArray[i * 4 + 0] = Math.random() - 0.5;
+        miscArray[i * 4 + 1] = Math.random() - 0.5;
+        miscArray[i * 4 + 2] = Math.random() - 0.5;
+    }
+
+    const spawnBuffer = new StorageInstancedBufferAttribute(spawnArray, 4);
+    const velBuffer = new StorageInstancedBufferAttribute(velArray, 4);
+    const colorBuffer = new StorageInstancedBufferAttribute(colorArray, 4);
+    const miscBuffer = new StorageInstancedBufferAttribute(miscArray, 4);
 
     // JUICE: Custom TSL Material for particles
     const mat = new MeshStandardNodeMaterial({
@@ -66,29 +105,28 @@ export function createImpactSystem(): THREE.InstancedMesh {
     });
 
     // --- TSL LOGIC ---
-    // Use dedicated attributes instead of packing into instanceMatrix
-    // This fixes "AttributeNode: Vertex attribute 'instanceMatrix' not found" error
-    const aSpawn = attribute('aSpawn', 'vec4');
-    const aVelocity = attribute('aVelocity', 'vec4');
-    const aColor = attribute('aColor', 'vec4');
-    const aMisc = attribute('aMisc', 'vec4');
+    // Use storage to retrieve per-instance data
+    const aSpawn = storage(spawnBuffer, 'vec4', spawnBuffer.count);
+    const aVelocity = storage(velBuffer, 'vec4', velBuffer.count);
+    const aColor = storage(colorBuffer, 'vec4', colorBuffer.count);
+    const aMisc = storage(miscBuffer, 'vec4', miscBuffer.count);
 
     // Map to logic variables
-    const spawnPos = aSpawn.xyz;
-    const birthTime = aSpawn.w;
+    const spawnPos = aSpawn.element(instanceIndex).xyz;
+    const birthTime = aSpawn.element(instanceIndex).w;
     
-    const velocity = aVelocity.xyz;
-    const lifeSpan = aVelocity.w;
+    const velocity = aVelocity.element(instanceIndex).xyz;
+    const lifeSpan = aVelocity.element(instanceIndex).w;
 
-    const colorAttr = aColor.rgb;
-    const sizeAttr = aColor.w;
+    const colorAttr = aColor.element(instanceIndex).rgb;
+    const sizeAttr = aColor.element(instanceIndex).w;
 
-    const rotAxis = aMisc.xyz;
-    const gravityScale = aMisc.w;
+    const rotAxis = aMisc.element(instanceIndex).xyz;
+    const gravityScale = aMisc.element(instanceIndex).w;
 
     // Age & Progress
     const age = uTime.sub(birthTime);
-    const lifeProgress = age.div(lifeSpan);
+    const lifeProgress = age.div(lifeSpan.add(0.0001)); // prevent div by 0
     const isAlive = lifeProgress.greaterThan(0.0).and(lifeProgress.lessThan(1.0));
 
     // 1. Physics: Explosive Drag + Gravity
@@ -104,7 +142,7 @@ export function createImpactSystem(): THREE.InstancedMesh {
     // 2. Rotation (Spin)
     const spinSpeed = float(10.0);
     const rotationAngle = age.mul(spinSpeed);
-    const rotatedLocal = rotate(positionLocal, normalize(rotAxis), rotationAngle);
+    const rotatedLocal = rotate(positionLocal, normalize(rotAxis.add(vec3(0.01))), rotationAngle);
 
     // 3. Scaling (Pop in with Elastic Overshoot, Shrink out)
     // 🎨 PALETTE: Make particles pop in fast, overshoot, and slowly shrink
@@ -151,66 +189,84 @@ export function createImpactSystem(): THREE.InstancedMesh {
     _impactMesh.castShadow = false;
     _impactMesh.receiveShadow = false;
     _impactMesh.frustumCulled = false;
-    _impactMesh.userData.isImpactSystem = true;
 
-    // Custom Attributes for TSL
-    const spawnArray = new Float32Array(MAX_PARTICLES * 4);
-    const velArray = new Float32Array(MAX_PARTICLES * 4);
-    const colorArray = new Float32Array(MAX_PARTICLES * 4);
-    const miscArray = new Float32Array(MAX_PARTICLES * 4);
+    // Remove old internal matrices CPU side logic as everything happens in TSL
+    _impactMesh.matrixAutoUpdate = false;
 
-    _impactMesh.geometry.setAttribute('aSpawn', new THREE.InstancedBufferAttribute(spawnArray, 4));
-    _impactMesh.geometry.setAttribute('aVelocity', new THREE.InstancedBufferAttribute(velArray, 4));
-    _impactMesh.geometry.setAttribute('aColor', new THREE.InstancedBufferAttribute(colorArray, 4));
-    _impactMesh.geometry.setAttribute('aMisc', new THREE.InstancedBufferAttribute(miscArray, 4));
+    // COMPUTE SHADER LOGIC
+    // We use a small staging buffer to pass the generated particles to the GPU
+    // compute shader to avoid large uniform drops or CPU->GPU main buffer uploads.
+    // This allows multiple different colored/sized impacts in one frame.
+    const MAX_SPAWNS_PER_FRAME = 500;
+    const stagingSpawnArray = new Float32Array(MAX_SPAWNS_PER_FRAME * 4);
+    const stagingVelArray = new Float32Array(MAX_SPAWNS_PER_FRAME * 4);
+    const stagingColorArray = new Float32Array(MAX_SPAWNS_PER_FRAME * 4);
+    const stagingMiscArray = new Float32Array(MAX_SPAWNS_PER_FRAME * 4);
 
-    // Set usage
-    _spawnAttr = _impactMesh.geometry.getAttribute('aSpawn') as THREE.InstancedBufferAttribute;
-    _velAttr = _impactMesh.geometry.getAttribute('aVelocity') as THREE.InstancedBufferAttribute;
-    _colorAttr = _impactMesh.geometry.getAttribute('aColor') as THREE.InstancedBufferAttribute;
-    _miscAttr = _impactMesh.geometry.getAttribute('aMisc') as THREE.InstancedBufferAttribute;
+    const stagingSpawnBuffer = new StorageInstancedBufferAttribute(stagingSpawnArray, 4);
+    const stagingVelBuffer = new StorageInstancedBufferAttribute(stagingVelArray, 4);
+    const stagingColorBuffer = new StorageInstancedBufferAttribute(stagingColorArray, 4);
+    const stagingMiscBuffer = new StorageInstancedBufferAttribute(stagingMiscArray, 4);
 
-    _spawnAttr.setUsage(THREE.DynamicDrawUsage);
-    _velAttr.setUsage(THREE.DynamicDrawUsage);
-    _colorAttr.setUsage(THREE.DynamicDrawUsage);
-    _miscAttr.setUsage(THREE.DynamicDrawUsage);
-    
-    // Disable raycasting as the geometry doesn't match the matrix
-    _impactMesh.raycast = () => {};
+    const uSpawnCount = uniform(0);
+    const uSpawnIndex = uniform(-1);
 
-    // ⚡ OPTIMIZATION: Update only modified ranges
-    _impactMesh.onBeforeRender = () => {
-        if (_maxUpdate >= _minUpdate && _spawnAttr && _velAttr && _colorAttr && _miscAttr) {
-            const start = _minUpdate;
-            const count = _maxUpdate - _minUpdate + 1;
-            const itemSize = 4; // vec4
-            const updateProps = { offset: start * itemSize, count: count * itemSize };
+    const updateCompute = Fn(() => {
+        // Run ONLY for the number of particles spawned this frame
+        const stageIndex = instanceIndex;
 
-            _spawnAttr.updateRange = updateProps;
-            _velAttr.updateRange = updateProps;
-            _colorAttr.updateRange = updateProps;
-            _miscAttr.updateRange = updateProps;
+        const sSpawnNode = storage(spawnBuffer, 'vec4', spawnBuffer.count);
+        const sVelNode = storage(velBuffer, 'vec4', velBuffer.count);
+        const sColorNode = storage(colorBuffer, 'vec4', colorBuffer.count);
+        const sMiscNode = storage(miscBuffer, 'vec4', miscBuffer.count);
 
-            _spawnAttr.needsUpdate = true;
-            _velAttr.needsUpdate = true;
-            _colorAttr.needsUpdate = true;
-            _miscAttr.needsUpdate = true;
+        const inSpawnNode = storage(stagingSpawnBuffer, 'vec4', stagingSpawnBuffer.count).element(stageIndex);
+        const inVelNode = storage(stagingVelBuffer, 'vec4', stagingVelBuffer.count).element(stageIndex);
+        const inColorNode = storage(stagingColorBuffer, 'vec4', stagingColorBuffer.count).element(stageIndex);
+        const inMiscNode = storage(stagingMiscBuffer, 'vec4', stagingMiscBuffer.count).element(stageIndex);
 
-            // Reset range
-            _minUpdate = MAX_PARTICLES;
-            _maxUpdate = -1;
-        }
-    };
+        const spawnCount = uSpawnCount.toVar();
+        const spawnIdx = uSpawnIndex.toVar();
 
-    // Initialize Birth Times to -1000 (Dead)
-    for (let i = 0; i < MAX_PARTICLES; i++) {
-        spawnArray[i * 4 + 3] = -1000.0;
-    }
-    _spawnAttr.needsUpdate = true;
-    _impactMesh.instanceMatrix.needsUpdate = true; // Still needed for internal consistency
+        If(stageIndex.lessThan(spawnCount), () => {
+            // Target index in main buffer
+            const targetIdx = stageIndex.add(spawnIdx).mod(MAX_PARTICLES);
+
+            // Copy from staging to main
+            sSpawnNode.element(targetIdx).assign(inSpawnNode);
+            sVelNode.element(targetIdx).assign(inVelNode);
+            sColorNode.element(targetIdx).assign(inColorNode);
+            sMiscNode.element(targetIdx).assign(inMiscNode);
+        });
+    });
+
+    const computeNode = updateCompute().compute(MAX_SPAWNS_PER_FRAME);
+
+    _impactMesh.userData = {
+        head: 0,
+        isImpactSystem: true,
+        bufferSize: MAX_PARTICLES,
+        computeNode: computeNode,
+        uSpawnCount: uSpawnCount,
+        uSpawnIndex: uSpawnIndex,
+
+        // Expose staging buffers to CPU
+        stagingSpawnArray,
+        stagingVelArray,
+        stagingColorArray,
+        stagingMiscArray,
+        stagingSpawnBuffer,
+        stagingVelBuffer,
+        stagingColorBuffer,
+        stagingMiscBuffer,
+        maxSpawnsPerFrame: MAX_SPAWNS_PER_FRAME
+    } as ImpactSystemUserData;
 
     return _impactMesh;
 }
+
+// Staging queues for particles since spawnImpact can be called multiple times per frame
+let _spawnQueue: any[] = [];
 
 export function spawnImpact(
     pos: THREE.Vector3 | {x:number, y:number, z:number},
@@ -218,181 +274,217 @@ export function spawnImpact(
     color?: number | {r:number, g:number, b:number} | THREE.Color,
     direction?: THREE.Vector3 | {x:number, y:number, z:number}
 ) {
-    if (!_impactMesh || !_spawnAttr || !_velAttr || !_colorAttr || !_miscAttr) return;
-
-    const spawnArray = _spawnAttr.array as Float32Array;
-    const velArray = _velAttr.array as Float32Array;
-    const colorArray = _colorAttr.array as Float32Array;
-    const miscArray = _miscAttr.array as Float32Array;
+    if (!_impactMesh || !_impactMesh.userData.isImpactSystem) return;
 
     const config = IMPACT_CONFIG[type] || IMPACT_CONFIG.jump;
     const count = config.count;
-    const now = ((uTime as any).value !== undefined) ? (uTime as any).value : performance.now() / 1000;
 
-    for (let i = 0; i < count; i++) {
-        const idx = _head;
-        _head = (_head + 1) % MAX_PARTICLES;
+    // Queue the spawn
+    _spawnQueue.push({ pos: {...pos}, type, color, direction, count });
+}
 
-        // Track dirty range
-        if (idx < _minUpdate) _minUpdate = idx;
-        if (idx > _maxUpdate) _maxUpdate = idx;
+export function updateImpacts(renderer: any, time: number) {
+    if (!_impactMesh || !_impactMesh.userData.isImpactSystem) return;
 
-        const offset = idx * 4;
+    const userData = _impactMesh.userData as ImpactSystemUserData;
 
-        // Spawn Position (Randomized slightly)
-        const ox = (Math.random() - 0.5) * 0.5;
-        const oy = (Math.random() - 0.5) * 0.5;
-        const oz = (Math.random() - 0.5) * 0.5;
+    // Reset spawn count initially
+    userData.uSpawnCount.value = 0;
+
+    if (_spawnQueue.length > 0 && renderer && renderer.compute) {
         
-        // Write aSpawn: SpawnPos (xyz), BirthTime (w)
-        spawnArray[offset + 0] = pos.x + ox;
-        spawnArray[offset + 1] = pos.y + oy;
-        spawnArray[offset + 2] = pos.z + oz;
-        spawnArray[offset + 3] = now;
+        let totalSpawns = 0;
+        const now = time;
 
-        // Velocity Logic
-        let vx, vy, vz;
-        let gScale = 1.0;
+        for (let s = 0; s < _spawnQueue.length; s++) {
+            const spawn = _spawnQueue[s];
+            const type = spawn.type;
+            let count = spawn.count;
+            const pos = spawn.pos;
+            const color = spawn.color;
+            const direction = spawn.direction;
 
-        if (type === 'jump') {
-             const theta = Math.random() * Math.PI * 2;
-             const r = Math.random() * 2.0;
-             vx = Math.cos(theta) * r;
-             vy = 3.0 + Math.random() * 4.0;
-             vz = Math.sin(theta) * r;
-        } else if (type === 'land') {
-             const theta = Math.random() * Math.PI * 2;
-             const r = 4.0 + Math.random() * 3.0;
-             vx = Math.cos(theta) * r;
-             vy = 1.0 + Math.random() * 2.0;
-             vz = Math.sin(theta) * r;
-        } else if (type === 'dash') {
-             const theta = Math.random() * Math.PI * 2;
-             const phi = Math.random() * Math.PI;
-             const speed = 4.0 + Math.random() * 6.0;
-             vx = Math.sin(phi) * Math.cos(theta) * speed;
-             vy = Math.cos(phi) * speed;
-             vz = Math.sin(phi) * Math.sin(theta) * speed;
-        } else if (type === 'berry') {
-             const theta = Math.random() * Math.PI * 2;
-             const phi = Math.random() * Math.PI;
-             const speed = 2.0 + Math.random() * 4.0;
-             vx = Math.sin(phi) * Math.cos(theta) * speed;
-             vy = Math.cos(phi) * speed;
-             vz = Math.sin(phi) * Math.sin(theta) * speed;
-        } else if (type === 'snare') {
-            const theta = Math.random() * Math.PI * 2;
-            const r = 2.0 + Math.random() * 3.0;
-            vx = Math.cos(theta) * r;
-            vy = 2.0 + Math.random() * 5.0; 
-            vz = Math.sin(theta) * r;
-        } else if (type === 'mist') {
-            const theta = Math.random() * Math.PI * 2;
-            const r = Math.random() * 1.5;
-            vx = Math.cos(theta) * r;
-            vy = 2.0 + Math.random() * 3.0; 
-            vz = Math.sin(theta) * r;
-            gScale = -0.5; 
-        } else if (type === 'rain') {
-            const theta = Math.random() * Math.PI * 2;
-            const r = Math.random() * 1.0;
-            vx = Math.cos(theta) * r;
-            vy = -5.0 - Math.random() * 5.0; 
-            vz = Math.sin(theta) * r;
-            gScale = 2.0; 
-        } else if (type === 'spore') {
-            const theta = Math.random() * Math.PI * 2;
-            const r = Math.random() * 2.0;
-            vx = Math.cos(theta) * r;
-            vy = 1.0 + Math.random() * 2.0; 
-            vz = Math.sin(theta) * r;
-            gScale = -0.2; 
-        } else if (type === 'trail') {
-            vx = (Math.random() - 0.5) * 0.5;
-            vy = (Math.random() - 0.5) * 0.5;
-            vz = (Math.random() - 0.5) * 0.5;
-            gScale = 0.0;
-        } else if (type === 'muzzle') {
-            if (direction) {
-                const speed = 10.0 + Math.random() * 5.0;
-                const spread = 2.0;
-                vx = direction.x * speed + (Math.random() - 0.5) * spread;
-                vy = direction.y * speed + (Math.random() - 0.5) * spread;
-                vz = direction.z * speed + (Math.random() - 0.5) * spread;
-            } else {
-                const theta = Math.random() * Math.PI * 2;
-                const phi = Math.random() * Math.PI;
-                const speed = 5.0 + Math.random() * 5.0;
-                vx = Math.sin(phi) * Math.cos(theta) * speed;
-                vy = Math.cos(phi) * speed;
-                vz = Math.sin(phi) * Math.sin(theta) * speed;
+            // Cap to max staging buffer size
+            if (totalSpawns + count > userData.maxSpawnsPerFrame) {
+                count = userData.maxSpawnsPerFrame - totalSpawns;
+                if (count <= 0) break;
             }
-            gScale = 0.5;
-        }
 
-        // Life
-        let life = 0.5 + Math.random() * 0.5;
-        if (type === 'trail') life = 0.3 + Math.random() * 0.2;
-        else if (type === 'muzzle') life = 0.15 + Math.random() * 0.15;
-        else if (type === 'spore') life = 1.5 + Math.random() * 1.5;
+            for (let i = 0; i < count; i++) {
+                const offset = (totalSpawns + i) * 4;
 
-        // Write aVelocity: Velocity (xyz), LifeSpan (w)
-        velArray[offset + 0] = vx;
-        velArray[offset + 1] = vy;
-        velArray[offset + 2] = vz;
-        velArray[offset + 3] = life;
+                // Position & Time
+                const ox = (Math.random() - 0.5) * 0.5;
+                const oy = (Math.random() - 0.5) * 0.5;
+                const oz = (Math.random() - 0.5) * 0.5;
 
-        // Color
-        let r=1, g=1, b=1;
-        if (color !== undefined) {
-            if (typeof color === 'number') {
-                r = ((color >> 16) & 255) / 255;
-                g = ((color >> 8) & 255) / 255;
-                b = (color & 255) / 255;
-            } else if ((color as any).isColor) {
-                r = (color as THREE.Color).r;
-                g = (color as THREE.Color).g;
-                b = (color as THREE.Color).b;
-            } else {
-                const c = color as {r:number, g:number, b:number};
-                r = c.r; g = c.g; b = c.b;
+                userData.stagingSpawnArray[offset + 0] = pos.x + ox;
+                userData.stagingSpawnArray[offset + 1] = pos.y + oy;
+                userData.stagingSpawnArray[offset + 2] = pos.z + oz;
+                userData.stagingSpawnArray[offset + 3] = now;
+
+                // Velocity Logic
+                let vx, vy, vz;
+                let gScale = 1.0;
+
+                if (type === 'jump') {
+                     const theta = Math.random() * Math.PI * 2;
+                     const r = Math.random() * 2.0;
+                     vx = Math.cos(theta) * r;
+                     vy = 3.0 + Math.random() * 4.0;
+                     vz = Math.sin(theta) * r;
+                } else if (type === 'land') {
+                     const theta = Math.random() * Math.PI * 2;
+                     const r = 4.0 + Math.random() * 3.0;
+                     vx = Math.cos(theta) * r;
+                     vy = 1.0 + Math.random() * 2.0;
+                     vz = Math.sin(theta) * r;
+                } else if (type === 'dash') {
+                     const theta = Math.random() * Math.PI * 2;
+                     const phi = Math.random() * Math.PI;
+                     const speed = 4.0 + Math.random() * 6.0;
+                     vx = Math.sin(phi) * Math.cos(theta) * speed;
+                     vy = Math.cos(phi) * speed;
+                     vz = Math.sin(phi) * Math.sin(theta) * speed;
+                } else if (type === 'berry') {
+                     const theta = Math.random() * Math.PI * 2;
+                     const phi = Math.random() * Math.PI;
+                     const speed = 2.0 + Math.random() * 4.0;
+                     vx = Math.sin(phi) * Math.cos(theta) * speed;
+                     vy = Math.cos(phi) * speed;
+                     vz = Math.sin(phi) * Math.sin(theta) * speed;
+                } else if (type === 'snare') {
+                    const theta = Math.random() * Math.PI * 2;
+                    const r = 2.0 + Math.random() * 3.0;
+                    vx = Math.cos(theta) * r;
+                    vy = 2.0 + Math.random() * 5.0;
+                    vz = Math.sin(theta) * r;
+                } else if (type === 'mist') {
+                    const theta = Math.random() * Math.PI * 2;
+                    const r = Math.random() * 1.5;
+                    vx = Math.cos(theta) * r;
+                    vy = 2.0 + Math.random() * 3.0;
+                    vz = Math.sin(theta) * r;
+                    gScale = -0.5;
+                } else if (type === 'rain') {
+                    const theta = Math.random() * Math.PI * 2;
+                    const r = Math.random() * 1.0;
+                    vx = Math.cos(theta) * r;
+                    vy = -5.0 - Math.random() * 5.0;
+                    vz = Math.sin(theta) * r;
+                    gScale = 2.0;
+                } else if (type === 'spore') {
+                    const theta = Math.random() * Math.PI * 2;
+                    const r = Math.random() * 2.0;
+                    vx = Math.cos(theta) * r;
+                    vy = 1.0 + Math.random() * 2.0;
+                    vz = Math.sin(theta) * r;
+                    gScale = -0.2;
+                } else if (type === 'trail') {
+                    vx = (Math.random() - 0.5) * 0.5;
+                    vy = (Math.random() - 0.5) * 0.5;
+                    vz = (Math.random() - 0.5) * 0.5;
+                    gScale = 0.0;
+                } else if (type === 'muzzle') {
+                    if (direction) {
+                        const speed = 10.0 + Math.random() * 5.0;
+                        const spread = 2.0;
+                        vx = direction.x * speed + (Math.random() - 0.5) * spread;
+                        vy = direction.y * speed + (Math.random() - 0.5) * spread;
+                        vz = direction.z * speed + (Math.random() - 0.5) * spread;
+                    } else {
+                        const theta = Math.random() * Math.PI * 2;
+                        const phi = Math.random() * Math.PI;
+                        const speed = 5.0 + Math.random() * 5.0;
+                        vx = Math.sin(phi) * Math.cos(theta) * speed;
+                        vy = Math.cos(phi) * speed;
+                        vz = Math.sin(phi) * Math.sin(theta) * speed;
+                    }
+                    gScale = 0.5;
+                } else {
+                    vx = (Math.random() - 0.5); vy = (Math.random() - 0.5); vz = (Math.random() - 0.5);
+                }
+
+                let life = 0.5 + Math.random() * 0.5;
+                if (type === 'trail') life = 0.3 + Math.random() * 0.2;
+                else if (type === 'muzzle') life = 0.15 + Math.random() * 0.15;
+                else if (type === 'spore') life = 1.5 + Math.random() * 1.5;
+
+                userData.stagingVelArray[offset + 0] = vx;
+                userData.stagingVelArray[offset + 1] = vy;
+                userData.stagingVelArray[offset + 2] = vz;
+                userData.stagingVelArray[offset + 3] = life;
+
+                // Color
+                let r=1, g=1, b=1;
+                if (color !== undefined) {
+                    if (typeof color === 'number') {
+                        r = ((color >> 16) & 255) / 255;
+                        g = ((color >> 8) & 255) / 255;
+                        b = (color & 255) / 255;
+                    } else if ((color as any).isColor) {
+                        r = (color as THREE.Color).r;
+                        g = (color as THREE.Color).g;
+                        b = (color as THREE.Color).b;
+                    } else {
+                        const c = color as {r:number, g:number, b:number};
+                        r = c.r; g = c.g; b = c.b;
+                    }
+                } else if (type === 'jump') { r=1.0; g=0.8; b=0.2; }
+                else if (type === 'land') { r=0.6; g=0.5; b=0.4; }
+                else if (type === 'dash') { r=0.0; g=1.0; b=1.0; }
+                else if (type === 'berry') {
+                    if (Math.random() > 0.5) { r=1.0; g=0.2; b=0.5; }
+                    else { r=1.0; g=0.6; b=0.0; }
+                }
+                else if (type === 'snare') { r=1.0; g=0.1; b=0.1; }
+                else if (type === 'mist') { r=0.9; g=0.9; b=1.0; }
+                else if (type === 'rain') { r=0.2; g=0.2; b=1.0; }
+                else if (type === 'spore') {
+                    const rand = Math.random();
+                    if (rand < 0.33) { r=0.0; g=1.0; b=1.0; }
+                    else if (rand < 0.66) { r=1.0; g=0.0; b=1.0; }
+                    else { r=0.5; g=1.0; b=0.0; }
+                }
+
+                let size = 0.5 + Math.random() * 1.0;
+                if (type === 'trail') size = 0.3 + Math.random() * 0.2;
+                else if (type === 'muzzle') size = 0.5 + Math.random() * 0.5;
+                else if (type === 'spore') size = 0.2 + Math.random() * 0.3;
+
+                userData.stagingColorArray[offset + 0] = r;
+                userData.stagingColorArray[offset + 1] = g;
+                userData.stagingColorArray[offset + 2] = b;
+                userData.stagingColorArray[offset + 3] = size;
+
+                userData.stagingMiscArray[offset + 0] = Math.random()-0.5;
+                userData.stagingMiscArray[offset + 1] = Math.random()-0.5;
+                userData.stagingMiscArray[offset + 2] = Math.random()-0.5;
+                userData.stagingMiscArray[offset + 3] = gScale;
             }
-        } else if (type === 'jump') { r=1.0; g=0.8; b=0.2; }
-        else if (type === 'land') { r=0.6; g=0.5; b=0.4; }
-        else if (type === 'dash') { r=0.0; g=1.0; b=1.0; }
-        else if (type === 'berry') {
-            if (Math.random() > 0.5) { r=1.0; g=0.2; b=0.5; }
-            else { r=1.0; g=0.6; b=0.0; }
-        }
-        else if (type === 'snare') { r=1.0; g=0.1; b=0.1; }
-        else if (type === 'mist') { r=0.9; g=0.9; b=1.0; }
-        else if (type === 'rain') { r=0.2; g=0.2; b=1.0; }
-        else if (type === 'spore') {
-            const rand = Math.random();
-            if (rand < 0.33) { r=0.0; g=1.0; b=1.0; }
-            else if (rand < 0.66) { r=1.0; g=0.0; b=1.0; }
-            else { r=0.5; g=1.0; b=0.0; }
+
+            totalSpawns += count;
         }
 
-        // Size
-        let size = 0.5 + Math.random() * 1.0;
-        if (type === 'trail') size = 0.3 + Math.random() * 0.2;
-        else if (type === 'muzzle') size = 0.5 + Math.random() * 0.5;
-        else if (type === 'spore') size = 0.2 + Math.random() * 0.3;
+        if (totalSpawns > 0) {
+            // Push staging data to GPU
+            userData.stagingSpawnBuffer.needsUpdate = true;
+            userData.stagingVelBuffer.needsUpdate = true;
+            userData.stagingColorBuffer.needsUpdate = true;
+            userData.stagingMiscBuffer.needsUpdate = true;
 
-        // Write aColor: Color (rgb), Size (w)
-        colorArray[offset + 0] = r;
-        colorArray[offset + 1] = g;
-        colorArray[offset + 2] = b;
-        colorArray[offset + 3] = size;
+            // Update uniforms
+            userData.uSpawnCount.value = totalSpawns;
+            userData.uSpawnIndex.value = userData.head;
 
-        // Rotation & Gravity
-        // Write aMisc: RotAxis (xyz), GravityScale (w)
-        miscArray[offset + 0] = Math.random()-0.5;
-        miscArray[offset + 1] = Math.random()-0.5;
-        miscArray[offset + 2] = Math.random()-0.5;
-        miscArray[offset + 3] = gScale;
+            // Execute compute
+            renderer.compute(userData.computeNode);
+
+            // Advance head
+            userData.head = (userData.head + totalSpawns) % userData.bufferSize;
+        }
+
+        // Clear queue
+        _spawnQueue.length = 0;
     }
-
-    // Note: needsUpdate flag is set in onBeforeRender based on dirty range
 }

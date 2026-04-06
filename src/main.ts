@@ -2,7 +2,7 @@
 
 import * as THREE from 'three';
 import '../style.css';
-import { uWindSpeed, uWindDirection, uSkyTopColor, uSkyBottomColor, uHorizonColor, uAtmosphereIntensity, uStarOpacity, uAuroraIntensity, uAuroraColor, uAudioLow, uAudioHigh, uGlitchIntensity, uChromaticIntensity, uTime, uPlayerPosition, createAurora, harmonyOrbSystem, createChromaticPulse, createStrobePulse, uStrobeIntensity, animateFoliage, updateFoliageMaterials, updateFallingBerries, collectFallingBerries, createMushroom, validateNodeGeometries, createMelodyRibbon, updateMelodyRibbons, createSparkleTrail, updateSparkleTrail, createImpactSystem, createShield, createDandelionSeedSystem, createDiscoveryEffect } from './foliage/index.ts';
+import { uWindSpeed, uWindDirection, uSkyTopColor, uSkyBottomColor, uHorizonColor, uAtmosphereIntensity, uStarOpacity, uAuroraIntensity, uAuroraColor, uAudioLow, uAudioHigh, uGlitchIntensity, uChromaticIntensity, uTime, uPlayerPosition, createAurora, harmonyOrbSystem, createChromaticPulse, createStrobePulse, uStrobeIntensity, animateFoliage, updateFoliageMaterials, updateFallingBerries, collectFallingBerries, createMushroom, validateNodeGeometries, createMelodyRibbon, updateMelodyRibbons, createSparkleTrail, updateSparkleTrail, createImpactSystem, updateImpacts, createShield, createDandelionSeedSystem, createDiscoveryEffect } from './foliage/index.ts';
 import { chordStrikeSystem } from './gameplay/chord-strike.ts';
 import { initCelestialBodies } from './foliage/celestial-bodies.ts';
 import { InteractionSystem } from './systems/interaction.ts';
@@ -742,6 +742,8 @@ function animate() {
     if (harmonyOrbSystem.computeNode) {
         renderer.compute(harmonyOrbSystem.computeNode);
     }
+
+    updateImpacts(renderer, t);
 
     profiler.measure('Physics', () => {
         updatePhysics(delta, camera, controls, keyStates, audioState);

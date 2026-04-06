@@ -10,8 +10,8 @@
 
 ## Next Steps
 
-1. **Phase 4 (Three.js -> WebGPU) Stage C**: Scene Graph Replacement - Once compute + custom render passes are in place, migrate scene hierarchy to an ECS in WASM and call `device.queue.submit()` directly.
-2. **Identify Phase 4 Targets**: Find specific visual features that are still heavily reliant on CPU and transition them to WebGPU Compute Shaders (GPGPU). Candidates include `impacts.ts` and `rainbow-blaster.ts`.
+1. **Phase 4 targets (Rainbow Blaster Compute)**: Migrate `src/gameplay/rainbow-blaster.ts` visuals to WebGPU Compute Shaders (GPGPU).
+2. **Phase 4 (Three.js -> WebGPU) Stage C**: Scene Graph Replacement - Once compute + custom render passes are in place, migrate scene hierarchy to an ECS in WASM and call `device.queue.submit()` directly.
 
 ---
 
@@ -31,6 +31,8 @@
     - *Implementation Details: Extracted all completed features into `archive/COMPLETED_FEATURES.md`. Cleaned up `plan.md` and `IMPLEMENTATION_PLAN_MUSICAL_ECOSYSTEM.md` to remove the bloat from successfully implemented items.*
   - **Plan Consolidation Task**: Added `weekly_plan.md` directive. **Status: Implemented ✅**
     - *Implementation Details: Updated `weekly_plan.md` with a note to review, fix, and archive all old plan files because all active categories are mostly filled with 'Implemented' tasks.*
+  - **Phase 4 targets (Impacts Compute)**: **Status: Implemented ✅**
+    - *Implementation Details: Migrated `src/foliage/impacts.ts` to utilize WebGPU Compute Shaders. Swapped `InstancedBufferAttribute` with `StorageInstancedBufferAttribute` and handled physics, scale, and color strictly inside a WebGPU TSL compute node using `renderer.compute(computeNode)`. Spawns are queued via uniforms to eliminate per-frame CPU iteration.*
 
 *(Note: The full list of past accomplishments and completed plan categories has been moved to `archive/COMPLETED_FEATURES.md` to resolve planning debt).*
 
