@@ -326,9 +326,8 @@ function updateStateTransitions(camera: THREE.Camera, keyStates: KeyStates) {
             player.isDancing = false;
             player.danceTime = 0;
             // Clean up dance state
-            player.danceStartPos = undefined;
+            // ⚡ OPTIMIZATION: Instead of undefined, just let the logic reset values on next dance to avoid GC
             player.danceStartY = undefined;
-            player.danceStartRotation = undefined;
             // Reset camera rotation
             camera.rotation.z = 0;
         } else if (player.currentState === PlayerState.DEFAULT) {
@@ -492,6 +491,9 @@ function updateDancingState(delta: number, camera: THREE.Camera, controls: any, 
         controls.unlock();
     }
 
+    // Store initial values before updating dance time so that we can check for danceTime === 0
+    const isFirstFrame = player.danceTime === 0;
+
     // Update dance time
     player.danceTime += delta;
     
@@ -510,8 +512,10 @@ function updateDancingState(delta: number, camera: THREE.Camera, controls: any, 
     const angle = player.danceTime * circleSpeed;
     
     // Store initial position on first frame
-    if (!player.danceStartPos) {
-        player.danceStartPos = player.position.clone();
+    // ⚡ OPTIMIZATION: Zero-allocation dance state initialization
+    if (isFirstFrame || !player.danceStartPos) {
+        player.danceStartPos = player.danceStartPos || new THREE.Vector3();
+        player.danceStartPos.copy(player.position);
         player.danceStartY = getUnifiedGroundHeight(player.position.x, player.position.z) + PLAYER_HEIGHT_OFFSET;
     }
     
@@ -522,7 +526,8 @@ function updateDancingState(delta: number, camera: THREE.Camera, controls: any, 
     // Bob up and down with the beat
     const bobAmount = 0.3 + (kickTrigger * 0.2);
     const bobPhase = beatPhase * Math.PI * 2;
-    player.position.y = player.danceStartY + Math.sin(bobPhase) * bobAmount;
+    // TypeScript safety: danceStartY is initialized right after danceStartPos
+    player.position.y = (player.danceStartY || 0) + Math.sin(bobPhase) * bobAmount;
     
     // Camera view movement: Rotate and tilt based on music
     // Get current camera rotation
@@ -530,12 +535,12 @@ function updateDancingState(delta: number, camera: THREE.Camera, controls: any, 
     const yawAmount = Math.cos(player.danceTime * danceSpeed) * 0.3; // Turn left/right
     
     // Apply rotation relative to initial orientation
-    if (!player.danceStartRotation) {
-        player.danceStartRotation = {
-            x: camera.rotation.x,
-            y: camera.rotation.y,
-            z: camera.rotation.z
-        };
+    // ⚡ OPTIMIZATION: Zero-allocation dance state initialization
+    if (isFirstFrame || !player.danceStartRotation) {
+        player.danceStartRotation = player.danceStartRotation || { x: 0, y: 0, z: 0 };
+        player.danceStartRotation.x = camera.rotation.x;
+        player.danceStartRotation.y = camera.rotation.y;
+        player.danceStartRotation.z = camera.rotation.z;
     }
     
     // Smooth rotation animation
