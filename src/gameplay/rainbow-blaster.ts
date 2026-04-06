@@ -1,8 +1,9 @@
 import * as THREE from 'three';
-import { MeshStandardNodeMaterial } from 'three/webgpu';
+import { MeshStandardNodeMaterial, StorageInstancedBufferAttribute } from 'three/webgpu';
 import {
     vec3, float, positionLocal, normalLocal, mx_noise_float,
-    mix, sin, smoothstep, normalize, positionWorld, color, attribute
+    mix, sin, smoothstep, normalize, positionWorld, color, attribute,
+    storage, instanceIndex, Fn, If, exp, vec4, uniform, rotate
 } from 'three/tsl';
 import { foliageClouds, foliageGeysers, foliageTraps } from '../world/state.ts';
 import { createCandyMaterial, uTime, uAudioHigh, createJuicyRimLight } from '../foliage/common.ts';
@@ -33,17 +34,50 @@ class ProjectilePool {
         color: THREE.Color;
         scale: number;
     }[];
-    dummy: THREE.Object3D;
     color: THREE.Color;
+
+    // TSL Compute Shader Nodes
+    computeNode: any;
+    uDeltaTime: any;
+
+    // Buffers for CPU <-> GPU sync
+    stateArray: Float32Array;
+    velocityArray: Float32Array;
+    stateBuffer: StorageInstancedBufferAttribute;
+    velocityBuffer: StorageInstancedBufferAttribute;
 
     constructor() {
         const geo = new THREE.SphereGeometry(RADIUS, 16, 16); // Increased detail for displacement
+
+        this.stateArray = new Float32Array(MAX_PROJECTILES * 4);
+        this.velocityArray = new Float32Array(MAX_PROJECTILES * 4);
+
+        // Hide all initially
+        for (let i = 0; i < MAX_PROJECTILES; i++) {
+            this.stateArray[i * 4 + 3] = 0; // life = 0 means dead/hidden
+            this.velocityArray[i * 4 + 3] = 0; // scale = 0
+        }
+
+        this.stateBuffer = new StorageInstancedBufferAttribute(this.stateArray, 4);
+        this.velocityBuffer = new StorageInstancedBufferAttribute(this.velocityArray, 4);
+
+        geo.setAttribute('aState', this.stateBuffer);
+        geo.setAttribute('aVelocity', this.velocityBuffer);
 
         // --- PALETTE UPGRADE: Plasma Material (TSL) ---
         const mat = new MeshStandardNodeMaterial({
             roughness: 0.4,
             metalness: 0.1,
+            transparent: true,
+            depthWrite: false
         });
+
+        const stateAttr = attribute('aState', 'vec4');
+        const velAttr = attribute('aVelocity', 'vec4');
+
+        const instancePos = stateAttr.xyz;
+        const life = stateAttr.w;
+        const scaleAttr = velAttr.w;
 
         // 1. Base Color from Instance
         // Use imported instanceColor node
@@ -63,8 +97,15 @@ class ProjectilePool {
         // Expand on high frequencies (melody/snare)
         const audioPulse = uAudioHigh.mul(float(0.3)).add(float(1.0));
 
-        // Apply Total Deformation
-        mat.positionNode = positionLocal.add(displacement).mul(audioPulse);
+        // Apply spinning rotation ("Juice")
+        const spinAxis = normalize(vec3(1.0, 0.0, 1.0));
+        const spunPosition = rotate(positionLocal, spinAxis, uTime.mul(float(5.0)));
+
+        // Apply Total Deformation based on compute shader scale and position
+        mat.positionNode = spunPosition.add(displacement).mul(audioPulse).mul(scaleAttr).add(instancePos);
+
+        // Hide dead projectiles
+        mat.opacityNode = smoothstep(0.0, 0.01, life);
 
         // 4. Juicy Rim Light & Glow
         // Strong rim light for energy feel
@@ -77,7 +118,19 @@ class ProjectilePool {
         mat.emissiveNode = coreGlow.add(rim);
 
         this.mesh = new THREE.InstancedMesh(geo, mat, MAX_PROJECTILES);
-        this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+
+        // Disable matrix updates and frustum culling since GPU handles transformations
+        this.mesh.matrixAutoUpdate = false;
+        this.mesh.frustumCulled = false;
+
+        // ⚡ OPTIMIZATION: Write a pure identity matrix into the instanceMatrix buffer
+        // WebGPU TSL multiplies custom positionNode output by instanceMatrix
+        const identityMatrix = new THREE.Matrix4();
+        for (let i = 0; i < MAX_PROJECTILES; i++) {
+            this.mesh.setMatrixAt(i, identityMatrix);
+        }
+        this.mesh.instanceMatrix.needsUpdate = true;
+
         this.mesh.castShadow = true;
         this.mesh.receiveShadow = false;
 
@@ -88,10 +141,9 @@ class ProjectilePool {
         this.mesh.instanceColor.setUsage(THREE.DynamicDrawUsage);
 
         this.projectiles = [];
-        this.dummy = new THREE.Object3D();
         this.color = new THREE.Color();
 
-        // Initialize pool
+        // Initialize CPU pool for collision proxy
         for (let i = 0; i < MAX_PROJECTILES; i++) {
             this.projectiles.push({
                 active: false,
@@ -101,17 +153,44 @@ class ProjectilePool {
                 color: new THREE.Color(),
                 scale: 0
             });
-            // Hide initially
-            this.dummy.position.set(0, -9999, 0);
-            this.dummy.scale.setScalar(0);
-            this.dummy.updateMatrix();
-            this.mesh.setMatrixAt(i, this.dummy.matrix);
 
             // Set initial white
             // ⚡ OPTIMIZATION: Reuse color
             this.color.setHex(0xFFFFFF);
             this.mesh.setColorAt(i, this.color);
         }
+
+        // --- WebGPU COMPUTE SHADER LOGIC ---
+        this.uDeltaTime = uniform(0);
+
+        const updateProjectilesCompute = Fn(() => {
+            const index = instanceIndex;
+
+            const stateNode = storage(this.stateBuffer, 'vec4', MAX_PROJECTILES).element(index);
+            const velNode = storage(this.velocityBuffer, 'vec4', MAX_PROJECTILES).element(index);
+
+            const pos = stateNode.xyz;
+            const life = stateNode.w;
+
+            const vel = velNode.xyz;
+            const scale = velNode.w;
+
+            const dt = this.uDeltaTime;
+
+            If(life.greaterThan(0.0), () => {
+                const newPos = pos.add(vel.mul(dt));
+                const newLife = life.sub(dt);
+
+                // Exponential decay approximation for damp(scale, 1.0, 15.0, dt)
+                const decay = exp(float(-15.0).mul(dt));
+                const newScale = mix(float(1.0), scale, decay);
+
+                stateNode.assign(vec4(newPos, newLife));
+                velNode.assign(vec4(vel, newScale));
+            });
+        });
+
+        this.computeNode = updateProjectilesCompute().compute(MAX_PROJECTILES);
     }
 
     addToScene(scene: THREE.Scene) {
@@ -137,11 +216,20 @@ class ProjectilePool {
         p.position.copy(origin);
         p.velocity.copy(direction).normalize().multiplyScalar(SPEED);
 
-        // Visuals
-        this.dummy.position.copy(p.position);
-        this.dummy.scale.setScalar(p.scale);
-        this.dummy.updateMatrix();
-        this.mesh.setMatrixAt(idx, this.dummy.matrix);
+        // Update GPU Backing Buffer
+        this.stateArray[idx * 4 + 0] = p.position.x;
+        this.stateArray[idx * 4 + 1] = p.position.y;
+        this.stateArray[idx * 4 + 2] = p.position.z;
+        this.stateArray[idx * 4 + 3] = p.life;
+
+        this.velocityArray[idx * 4 + 0] = p.velocity.x;
+        this.velocityArray[idx * 4 + 1] = p.velocity.y;
+        this.velocityArray[idx * 4 + 2] = p.velocity.z;
+        this.velocityArray[idx * 4 + 3] = p.scale;
+
+        // Small buffer (100 items), upload whole buffer to avoid range collisions
+        this.stateBuffer.needsUpdate = true;
+        this.velocityBuffer.needsUpdate = true;
 
         // Rainbow Color Logic
         const time = performance.now() / 1000;
@@ -157,23 +245,36 @@ class ProjectilePool {
         _scratchImpactOptions.direction.copy(direction);
         spawnImpact(origin, 'muzzle', _scratchImpactOptions.color, _scratchImpactOptions.direction);
 
-        this.mesh.instanceMatrix.needsUpdate = true;
-        if (this.mesh.instanceColor) this.mesh.instanceColor.needsUpdate = true;
+        // this.mesh.instanceMatrix.needsUpdate = true; // No longer needed
+        if (this.mesh.instanceColor) {
+            this.mesh.instanceColor.needsUpdate = true;
+        }
     }
 
-    update(dt: number, scene: THREE.Scene, weatherSystem: any, isDay: boolean) {
-        let needsUpdate = false;
+    update(dt: number, scene: THREE.Scene, weatherSystem: any, isDay: boolean, renderer: THREE.WebGLRenderer | any) {
+        // Run GPU Compute Shader first
+        if (renderer && renderer.compute) {
+            this.uDeltaTime.value = dt;
+            renderer.compute(this.computeNode);
+        }
+
+        let needsStateUpdate = false;
 
         for (let i = 0; i < MAX_PROJECTILES; i++) {
             const p = this.projectiles[i];
             if (!p.active) continue;
 
-            // Move
+            // CPU Proxy Simulation (Keeps track of where particles are for collisions)
             p.position.addScaledVector(p.velocity, dt);
             p.life -= dt;
-
-            // JUICE: Smooth scale
             p.scale = THREE.MathUtils.damp(p.scale, 1.0, 15.0, dt);
+
+            // Sync current CPU proxy position back to stateArray in case we need to upload
+            this.stateArray[i * 4 + 0] = p.position.x;
+            this.stateArray[i * 4 + 1] = p.position.y;
+            this.stateArray[i * 4 + 2] = p.position.z;
+            this.stateArray[i * 4 + 3] = p.life;
+            this.velocityArray[i * 4 + 3] = p.scale;
 
             // JUICE: Projectile Trail
             // Spawn every frame for a continuous trail
@@ -278,25 +379,18 @@ class ProjectilePool {
 
             if (hit || p.life <= 0) {
                 p.active = false;
-                this.dummy.scale.setScalar(0);
-                this.dummy.position.set(0, -9999, 0); // Move out of view
-                this.dummy.updateMatrix();
-                this.mesh.setMatrixAt(i, this.dummy.matrix);
-                needsUpdate = true;
-            } else {
-                this.dummy.position.copy(p.position);
-                // Spin for fun (visible due to noise displacement)
-                this.dummy.rotation.x += dt * 5.0;
-                this.dummy.rotation.z += dt * 5.0;
-                this.dummy.scale.setScalar(p.scale);
-                this.dummy.updateMatrix();
-                this.mesh.setMatrixAt(i, this.dummy.matrix);
-                needsUpdate = true;
+
+                // Only sync death state to GPU (life = 0)
+                this.stateArray[i * 4 + 3] = 0;
+
+                needsStateUpdate = true;
             }
         }
 
-        if (needsUpdate) {
-            this.mesh.instanceMatrix.needsUpdate = true;
+        // Upload whole buffer to avoid range collisions for this small array
+        if (needsStateUpdate) {
+            this.stateBuffer.needsUpdate = true;
+            this.velocityBuffer.needsUpdate = true;
         }
     }
 
@@ -349,7 +443,7 @@ export function fireRainbow(scene: THREE.Scene, origin: THREE.Vector3, direction
     projectilePool.fire(origin, direction);
 }
 
-export function updateBlaster(dt: number, scene: THREE.Scene, weatherSystem: any, currentTime: number) {
+export function updateBlaster(dt: number, scene: THREE.Scene, weatherSystem: any, currentTime: number, renderer?: THREE.WebGLRenderer) {
     const celestial = getCelestialState(currentTime, _scratchCelestialState);
     const isDay = celestial.sunIntensity > 0.5;
 
@@ -359,5 +453,5 @@ export function updateBlaster(dt: number, scene: THREE.Scene, weatherSystem: any
          initialized = true;
     }
 
-    projectilePool.update(dt, scene, weatherSystem, isDay);
+    projectilePool.update(dt, scene, weatherSystem, isDay, renderer);
 }
