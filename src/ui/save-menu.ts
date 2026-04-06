@@ -861,6 +861,13 @@ export class SaveMenu {
                 <div class="candy-empty-state">
                     <div class="candy-empty-state__icon" aria-hidden="true">📝</div>
                     <div class="candy-empty-state__text">No save files found</div>
+                    ${this.currentMode === 'full' ? `
+                    <div class="candy-save-menu__actions">
+                        <button class="candy-save-menu__btn candy-save-menu__btn--primary" data-action="switch-to-save">
+                            <span aria-hidden="true">➕</span> Create New Save
+                        </button>
+                    </div>
+                    ` : ''}
                 </div>
             `;
         }
@@ -1168,7 +1175,10 @@ export class SaveMenu {
                 await this.loadSave(slotId);
                 break;
             case 'save':
+                await this.saveToSlot(slotId);
+                break;
             case 'overwrite':
+                if (!confirm('Are you sure you want to overwrite this save? This cannot be undone.')) return;
                 await this.saveToSlot(slotId);
                 break;
             case 'export':
@@ -1324,6 +1334,9 @@ export class SaveMenu {
         };
 
         switch (action) {
+            case 'switch-to-save':
+                this.switchTab('save');
+                break;
             case 'save-settings':
                 setWorkingState();
                 saveSystem.updateSettings(this.settings);
