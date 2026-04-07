@@ -89,9 +89,11 @@ export function createFloatingOrb(options: FloatingOrbOptions = {}) {
     const mat = CandyPresets.Gummy(hexColor, { emissive: hexColor, emissiveIntensity: 0.8 });
 
     // --- PALETTE: TSL Audio-Reactive Juice ---
-    // 1. Audio-Reactive Squash & Stretch (Bass)
+    // 1. Audio-Reactive Squash & Stretch (Heartbeat/jelly feel)
     // Pulse with the kick drum
-    const pulse = float(1.0).add(uAudioLow.mul(0.4));
+    const squash = smoothstep(0.0, 1.0, uAudioLow).pow(float(2.0)).mul(0.4);
+    const scaleY = float(1.0).sub(squash);
+    const scaleXZ = float(1.0).add(squash.mul(0.5));
 
     // 2. Idle Float & Spin
     // Organic floating offset using world position to desync instances
@@ -99,7 +101,11 @@ export function createFloatingOrb(options: FloatingOrbOptions = {}) {
     const phaseZ = positionWorld.z.mul(0.5);
     const floatOffset = sin(uTime.mul(2.0).add(phaseX).add(phaseZ)).mul(0.1);
 
-    const animatedPos = positionLocal.mul(pulse).add(vec3(0.0, floatOffset, 0.0));
+    const animatedPos = vec3(
+        positionLocal.x.mul(scaleXZ),
+        positionLocal.y.mul(scaleY),
+        positionLocal.z.mul(scaleXZ)
+    ).add(vec3(0.0, floatOffset, 0.0));
     mat.positionNode = animatedPos;
 
     // 3. Audio-Reactive Emissive Pulse & Rim Light
