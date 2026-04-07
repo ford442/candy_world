@@ -27,6 +27,8 @@
     - *Implementation Details: Rewrote the `HarmonyOrbSystem` in `src/foliage/aurora.ts` to utilize WebGPU Compute Shaders. All physics (gravity, wind sway) and lifecycle updates were offloaded from the CPU to the GPU via TSL `Fn().compute()`. `StorageInstancedBufferAttribute` buffers map directly to the TSL material.*
   - **Phase 4 targets (Sparkle Trail Compute)**: **Status: Implemented ✅**
     - *Implementation Details: Migrated `SparkleTrail` in `src/foliage/sparkle-trail.ts` to utilize WebGPU Compute Shaders. Replaced CPU-side array mutations with `StorageInstancedBufferAttribute` and handled spawning and physics completely on the GPU via TSL `Fn().compute()`. Added uniform variables for passing dynamic player data (velocity, position) to the shader.*
+  - **Phase 4 targets (Rainbow Blaster Compute)**: **Status: Implemented ✅**
+    - *Implementation Details: Migrated `rainbow-blaster.ts` to utilize WebGPU Compute Shaders. Replaced CPU-side Matrix4 updates with `StorageInstancedBufferAttribute`. Handled physics (position, scale, life decay) entirely on the GPU via TSL `Fn().compute()`, while maintaining a CPU proxy array exclusively for collision logic with clouds, geysers, and traps.*
   - **Planning Debt Resolution**: **Status: Implemented ✅**
     - *Implementation Details: Extracted all completed features into `archive/COMPLETED_FEATURES.md`. Cleaned up `plan.md` and `IMPLEMENTATION_PLAN_MUSICAL_ECOSYSTEM.md` to remove the bloat from successfully implemented items.*
   - **Plan Consolidation Task**: Added `weekly_plan.md` directive. **Status: Implemented ✅**

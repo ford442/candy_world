@@ -779,7 +779,7 @@ function animate() {
         }
         player.energy = Math.max(0, player.energy - delta * 0.1);
 
-        updateBlaster(delta, scene, weatherSystem, t);
+        updateBlaster(delta, scene, weatherSystem, t, renderer);
 
         // Jitter Mines
         jitterMineSystem.update(delta, player.position);
