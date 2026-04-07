@@ -867,7 +867,13 @@ export class SaveMenu {
                             <span aria-hidden="true">➕</span> Create New Save
                         </button>
                     </div>
-                    ` : ''}
+                    ` : `
+                    <div class="candy-save-menu__actions" style="margin-top: 15px;">
+                        <button class="candy-save-menu__btn candy-save-menu__btn--secondary" data-action="close">
+                            <span aria-hidden="true">✕</span> Close Menu
+                        </button>
+                    </div>
+                    `}
                 </div>
             `;
         }
@@ -1050,7 +1056,7 @@ export class SaveMenu {
         return `
             <div class="candy-io-area">
                 <div class="candy-io-area__label" id="export-label">Export Save Data</div>
-                <textarea class="candy-textarea" id="export-area" placeholder="Exported save data will appear here..." aria-labelledby="export-label"></textarea>
+                <textarea class="candy-textarea" id="export-area" placeholder="Exported save data will appear here..." aria-labelledby="export-label" readonly spellcheck="false"></textarea>
                 <div class="candy-save-menu__actions" style="margin-top: 15px;">
                     <button class="candy-save-menu__btn candy-save-menu__btn--secondary" data-action="export-current">
                         <span aria-hidden="true">📋</span> Export Current
@@ -1069,7 +1075,7 @@ export class SaveMenu {
             
             <div class="candy-io-area">
                 <div class="candy-io-area__label" id="import-label">Import Save Data</div>
-                <textarea class="candy-textarea" id="import-area" placeholder="Paste save data here or upload a file..." aria-labelledby="import-label"></textarea>
+                <textarea class="candy-textarea" id="import-area" placeholder="Paste save data here or upload a file..." aria-labelledby="import-label" spellcheck="false"></textarea>
                 <div class="candy-save-menu__actions" style="margin-top: 15px;">
                     <input type="file" class="candy-file-input" id="import-file" accept=".json,.txt">
                     <label for="import-file" class="candy-file-label"><span aria-hidden="true">📁</span> Choose File</label>
@@ -1109,9 +1115,10 @@ export class SaveMenu {
             });
         });
 
-        // Close button
-        const closeBtn = this.container.querySelector('[data-action="close"]');
-        closeBtn?.addEventListener('click', () => this.close());
+        // Close buttons
+        this.container.querySelectorAll('[data-action="close"]').forEach(btn => {
+            btn.addEventListener('click', () => this.close());
+        });
 
         // Slot actions
         this.container.querySelectorAll('[data-action][data-slot]').forEach(btn => {
