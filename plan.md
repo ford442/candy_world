@@ -10,14 +10,16 @@
 
 ## Next Steps
 
-1. **Phase 4 (Three.js -> WebGPU) Stage C**: Once compute + custom render passes are in place, migrate scene hierarchy to an ECS in WASM and call `device.queue.submit()` directly.
-1. **Phase 4 targets (Rainbow Blaster Compute)**: Migrate `src/gameplay/rainbow-blaster.ts` visuals to WebGPU Compute Shaders (GPGPU).
-2. **Phase 4 (Three.js -> WebGPU) Stage C**: Scene Graph Replacement - Once compute + custom render passes are in place, migrate scene hierarchy to an ECS in WASM and call `device.queue.submit()` directly.
+1. **Phase 4 targets (Compute Shaders - Remaining)**: Identify specific visual features that are still heavily reliant on CPU and transition them to WebGPU Compute Shaders (GPGPU). Candidates include any remaining particle or visual effect loops.
+2. **Phase 4 (Three.js -> WebGPU) Stage B (Custom Render Passes)**: Begin replacing specific materials with `RawShaderMaterial` / WebGPU pipelines (e.g., cloud or terrain draws) per `IMPLEMENTATION_PLAN_MUSICAL_ECOSYSTEM.md`.
+3. **Phase 4 (Three.js -> WebGPU) Stage C (Scene Graph Replacement)**: Once compute + custom render passes are in place, migrate scene hierarchy to an ECS in WASM and call `device.queue.submit()` directly.
 
 ---
 
 ## Recent Progress
 - **Accomplished:**
+  - **Phase 4 targets (Glitch Grenades Compute)**: **Status: Implemented ✅**
+    - *Implementation Details: Migrated `src/systems/glitch-grenade.ts` to utilize WebGPU Compute Shaders. Added `StorageInstancedBufferAttribute` for position, life, and velocity tracking on the GPU using TSL `Fn().compute()`. Maintained a CPU proxy only for triggering the explosion and checking ground collisions, mirroring the hybrid approach used in Rainbow Blasters.*
   - **Phase 4 - Compute Shaders (GPGPU) - Waterfall Splashes**: **Status: Implemented ✅**
     - *Implementation Details: Replaced the CPU-driven splash particle simulation loop in `src/foliage/waterfalls.ts` with a TSL WebGPU compute shader utilizing `StorageBufferAttribute`. Implemented floor collision logic and audio-reactive velocity impulses (`uPulseIntensity`) purely on the GPU.*
   - **Verify Data Flow (`AudioSystem`)**: **Status: Implemented ✅**
