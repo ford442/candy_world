@@ -76,6 +76,7 @@ export interface InitInputResult {
     controls: PointerLockControls;
     updateReticleState: (state: 'idle' | 'hover' | 'interact', label?: string) => void;
     updateDayNightButtonState: (isPressed: boolean) => void;
+    cleanup: () => void;
 }
 
 export function initInput(
@@ -504,7 +505,7 @@ export function initInput(
     });
 
     // Click to Resume behavior when menu is hidden but controls are unlocked (e.g. after dancing)
-    document.body.addEventListener('click', () => {
+    const onBodyClick = () => {
         // Only trigger if:
         // 1. Controls are unlocked
         // 2. Playlist is closed
@@ -521,7 +522,8 @@ export function initInput(
 
             controls.lock();
         }
-    });
+    };
+    document.body.addEventListener('click', onBodyClick);
 
     // Key Handlers
     const onKeyDown = function (event: KeyboardEvent) {
@@ -1046,62 +1048,87 @@ export function initInput(
     const dragOverlay = document.getElementById('drag-overlay');
     let dragCounter = 0;
 
-    if (dragOverlay) {
-        window.addEventListener('dragenter', (e) => {
-            e.preventDefault();
-            dragCounter++;
+    const onDragEnter = (e: DragEvent) => {
+        e.preventDefault();
+        dragCounter++;
+        if (dragOverlay) {
             dragOverlay.classList.add('active');
             dragOverlay.setAttribute('aria-hidden', 'false');
-        });
+        }
+    };
 
-        window.addEventListener('dragleave', (e) => {
-            e.preventDefault();
-            dragCounter--;
-            if (dragCounter <= 0) {
-                dragCounter = 0;
+    const onDragLeave = (e: DragEvent) => {
+        e.preventDefault();
+        dragCounter--;
+        if (dragCounter <= 0) {
+            dragCounter = 0;
+            if (dragOverlay) {
                 dragOverlay.classList.remove('active');
                 dragOverlay.setAttribute('aria-hidden', 'true');
             }
-        });
+        }
+    };
 
-        window.addEventListener('dragover', (e) => {
-            e.preventDefault(); // Necessary to allow dropping
-        });
+    const onDragOver = (e: DragEvent) => {
+        e.preventDefault(); // Necessary to allow dropping
+    };
 
-        window.addEventListener('drop', (e) => {
-            e.preventDefault();
-            dragCounter = 0;
+    const onDrop = (e: DragEvent) => {
+        e.preventDefault();
+        dragCounter = 0;
+        if (dragOverlay) {
             dragOverlay.classList.remove('active');
             dragOverlay.setAttribute('aria-hidden', 'true');
+        }
 
-            const files = e.dataTransfer?.files;
-            if (files && files.length > 0) {
-                const { validFiles, invalidFiles } = filterValidMusicFiles(files);
+        const files = e.dataTransfer?.files;
+        if (files && files.length > 0) {
+            const { validFiles, invalidFiles } = filterValidMusicFiles(files);
 
-                if (validFiles.length > 0) {
-                    audioSystem.addToQueue(validFiles);
+            if (validFiles.length > 0) {
+                audioSystem.addToQueue(validFiles);
 
-                    // Show feedback via Toast
-                    import('../utils/toast.js').then(({ showToast }) => {
-                        if (invalidFiles.length > 0) {
-                            showToast(`Added ${validFiles.length} song${validFiles.length > 1 ? 's' : ''}. (${invalidFiles.length} ignored)`, '⚠️');
-                        } else {
-                            showToast(`Added ${validFiles.length} Song${validFiles.length > 1 ? 's' : ''}! 🎶`, '📂');
-                        }
-                    });
-                } else {
-                    // All files were invalid
-                    import('../utils/toast.js').then(({ showToast }) => {
-                        showToast("❌ Only .mod, .xm, .it, .s3m allowed!", '🚫');
-                    });
-                }
+                // Show feedback via Toast
+                import('../utils/toast.js').then(({ showToast }) => {
+                    if (invalidFiles.length > 0) {
+                        showToast(`Added ${validFiles.length} song${validFiles.length > 1 ? 's' : ''}. (${invalidFiles.length} ignored)`, '⚠️');
+                    } else {
+                        showToast(`Added ${validFiles.length} Song${validFiles.length > 1 ? 's' : ''}! 🎶`, '📂');
+                    }
+                });
+            } else {
+                // All files were invalid
+                import('../utils/toast.js').then(({ showToast }) => {
+                    showToast("❌ Only .mod, .xm, .it, .s3m allowed!", '🚫');
+                });
             }
-        });
+        }
+    };
+
+    if (dragOverlay) {
+        window.addEventListener('dragenter', onDragEnter);
+        window.addEventListener('dragleave', onDragLeave);
+        window.addEventListener('dragover', onDragOver);
+        window.addEventListener('drop', onDrop);
     }
 
     return {
         controls,
         updateReticleState, // <--- EXPORT THIS
+        cleanup: () => {
+            document.body.removeEventListener('click', onBodyClick);
+            document.removeEventListener('keydown', onKeyDown);
+            document.removeEventListener('keyup', onKeyUp);
+            document.removeEventListener('mousedown', onMouseDown);
+            document.removeEventListener('mouseup', onMouseUp);
+
+            if (dragOverlay) {
+                window.removeEventListener('dragenter', onDragEnter);
+                window.removeEventListener('dragleave', onDragLeave);
+                window.removeEventListener('dragover', onDragOver);
+                window.removeEventListener('drop', onDrop);
+            }
+        },
         updateDayNightButtonState: (isPressed: boolean) => {
             if (toggleDayNightBtn) {
                 toggleDayNightBtn.setAttribute('aria-pressed', String(isPressed));
