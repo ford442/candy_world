@@ -1,8 +1,9 @@
 // src/foliage/sky.ts
 
 import * as THREE from 'three';
-import { color, mix, positionWorld, float, uniform, smoothstep, UniformNode, rangeFog, nodeObject } from 'three/tsl';
+import { color, mix, positionWorld, float, uniform, smoothstep, UniformNode, rangeFog, nodeObject, sin, pow } from 'three/tsl';
 import { MeshBasicNodeMaterial } from 'three/webgpu';
+import { uAudioLow, uAudioHigh, uTime } from './common.ts';
 
 // Export uniforms so main.js and weather.js can drive them
 export const uSkyTopColor = uniform(color(0x7EC8E3));     
@@ -49,13 +50,30 @@ export function createSky(): THREE.Mesh {
     
     // Atmospheric scattering
     const horizonBand = smoothstep(0.0, 0.15, h).mul(smoothstep(0.4, 0.15, h));
-    const atmosphereGlow = horizonBand.mul(uAtmosphereIntensity);
+
+    // 🎨 PALETTE: Audio-Reactive Atmosphere Glow
+    // The atmosphere pulses gently to the low frequency (kick)
+    const audioGlowPulse = uAudioLow.mul(0.3).add(1.0);
+    const reactiveAtmosphereIntensity = uAtmosphereIntensity.mul(audioGlowPulse);
+    const atmosphereGlow = horizonBand.mul(reactiveAtmosphereIntensity);
     
     // Gradient Mix
     const midColor = mix(uHorizonColor, uSkyBottomColor, smoothstep(0.0, 0.3, heightFactor));
     const skyColor = mix(midColor, uSkyTopColor, smoothstep(0.2, 1.0, heightFactor));
     
-    const baseColor = mix(skyColor, uHorizonColor, atmosphereGlow);
+    // 🎨 PALETTE: Color Shift (Neon/Magic) on High Energy
+    // Shift sky colors towards neon magenta/cyan on high hats / cymbals
+    const colorCyan = color(0x00FFFF);
+    const colorMagenta = color(0xFF00FF);
+
+    // Mix magic color based on height: lower is magenta, higher is cyan
+    const magicMix = mix(colorMagenta, colorCyan, heightFactor);
+
+    // Apply shift based on high frequency energy
+    const colorShiftFactor = smoothstep(0.3, 1.0, uAudioHigh).pow(float(1.5)).mul(0.4);
+    const reactiveSkyColor = mix(skyColor, magicMix, colorShiftFactor);
+
+    const baseColor = mix(reactiveSkyColor, uHorizonColor, atmosphereGlow);
 
     // Apply Darkness (Darkness Event Logic)
     // When uSkyDarkness approaches 1.0, the whole sky fades to black

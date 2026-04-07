@@ -6,6 +6,7 @@ import { getGroundHeight, uploadPositions, uploadAnimationData, uploadMushroomSp
 import { chargeBerries, triggerGrowth, triggerBloom, shakeBerriesLoose, createMushroom, createLanternFlower, cleanupReactivity, musicReactivitySystem, updateGlobalBerryScale, berryBatcher, waterfallBatcher } from '../foliage/index.ts';
 import { createRainbow, uRainbowOpacity } from '../foliage/rainbow.ts';
 import { createAurora, uAuroraIntensity } from '../foliage/aurora.ts';
+import { ComputeParticleSystem } from '../compute/particle_compute.ts';
 
 // FIX: Namespace import prevents ReferenceError if bundling logic is mixing CJS/ESM
 import * as Cycle from '../core/cycle.ts';
@@ -15,8 +16,6 @@ import { uCloudRainbowIntensity, uCloudLightningStrength, uCloudLightningColor, 
 import { uSkyDarkness, uTwilight, uCrescendoFogDensity, uFogNear, uFogFar } from '../foliage/sky.ts';
 import { uChromaticIntensity } from '../foliage/chromatic.ts';
 import { updateCaveWaterLevel } from '../foliage/cave.ts';
-import { LegacyParticleSystem } from './adapters/LegacyParticleSystem.js';
-import { WasmParticleSystem } from './adapters/WasmParticleSystem.js';
 import { foliageClouds } from '../world/state.ts';
 import { replaceMushroomWithGiant } from '../foliage/mushrooms.ts';
 import { mushroomBatcher } from '../foliage/mushroom-batcher.ts';
@@ -53,7 +52,10 @@ export class WeatherSystem {
     trackedCaves: any[]; // Using any for foliage objects
 
     // Particle systems
-    particles: any; // WasmParticleSystem
+    percussionRain: ComputeParticleSystem;
+    melodicMist: ComputeParticleSystem;
+    rainMesh: THREE.Points | null = null;
+    mistMesh: THREE.Points | null = null;
 
     mushroomWaterfalls: Set<string>;
 
@@ -116,8 +118,11 @@ export class WeatherSystem {
         this.groundWaterLevel = 0.0; // 0.0 = Dry, 1.0 = Flooded
         this.trackedCaves = [];
 
-        // Particle systems
-        this.particles = new WasmParticleSystem();
+        // Particle systems (Compute)
+        this.percussionRain = null as any;
+        this.melodicMist = null as any;
+    this.rainMesh = null;
+    this.mistMesh = null;
 
         this.mushroomWaterfalls = new Set();
 
@@ -158,7 +163,8 @@ export class WeatherSystem {
         // ⚡ OPTIMIZATION: Scratch set for ecosystem locking
         this._claimedMushroomsScratch = new Set();
 
-        this.initParticles();
+        // Delay initParticles until we have a renderer
+        // this.initParticles();
         this.initLightning();
         this.initRainbow();
         this.initAurora();
@@ -177,7 +183,31 @@ export class WeatherSystem {
     }
 
     initParticles() {
-        this.particles.init(this.scene);
+        // Obsolete, use setRenderer
+    }
+
+    setRenderer(renderer: any) {
+        if (!this.percussionRain) {
+            this.percussionRain = new ComputeParticleSystem(2000, renderer, {
+                type: 'rain',
+                spawnCenter: new THREE.Vector3(0, 50, 0),
+                gravity: new THREE.Vector3(0, -9.8, 0)
+            });
+            this.rainMesh = this.percussionRain.createMesh();
+            this.rainMesh.visible = false;
+            this.scene.add(this.rainMesh);
+        }
+
+        if (!this.melodicMist) {
+            this.melodicMist = new ComputeParticleSystem(1000, renderer, {
+                type: 'mist',
+                spawnCenter: new THREE.Vector3(0, 5, 0),
+                gravity: new THREE.Vector3(0, 0, 0)
+            });
+            this.mistMesh = this.melodicMist.createMesh();
+            this.mistMesh.visible = false;
+            this.scene.add(this.mistMesh);
+        }
     }
 
     registerMushroom(mushroom: any) {
@@ -525,14 +555,13 @@ export class WeatherSystem {
         let fungiFavorability = (1.0 - globalLight) * (0.2 + moisture * 1.5);
         let lanternFavorability = (this.state === WeatherState.STORM ? 1.0 : 0.0) + (1.0 - globalLight) * 0.2;
 
-        if (this.particles.percussionRain && this.particles.percussionRain.visible) {
+        if (this.percussionRain && this.rainMesh && this.rainMesh.visible) {
             if (this.trackedTrees.length > 0) {
                 triggerGrowth(this.trackedTrees, floraFavorability * bassIntensity * 0.1);
             }
             if (this.trackedFlowers.length > 0) {
                 triggerGrowth(this.trackedFlowers, floraFavorability * bassIntensity * 0.1);
             }
-            // MUSHROOMS removed from here, handled in dedicated logic block below
         }
 
         // --- MUSHROOM GROWTH/SHRINK LOGIC ---
@@ -567,7 +596,42 @@ export class WeatherSystem {
 
         this.intensity += (this.targetIntensity - this.intensity) * this.transitionSpeed;
 
-        this.particles.update(time, bassIntensity, melodyVol, this.state, this.weatherType, this.intensity);
+        if (this.percussionRain && this.melodicMist) {
+            const shouldShowRain = bassIntensity > 0.2 || this.state !== WeatherState.CLEAR;
+            const shouldShowMist = melodyVol > 0.2 || (this.weatherType === 'mist' && this.state === WeatherState.RAIN);
+
+            if (this.rainMesh) {
+                this.rainMesh.visible = shouldShowRain;
+            }
+            if (this.mistMesh) {
+                this.mistMesh.visible = shouldShowMist;
+            }
+
+            if (shouldShowRain) {
+                this.percussionRain.update(dt, { kick: bassIntensity, low: bassIntensity, mid: melodyVol }, this.intensity);
+
+                // Legacy dynamic color behavior
+                if (this.weatherType === 'mist') {
+                    this.percussionRain.setBaseColor(0xE0F4FF);
+                } else if (this.weatherType === 'drizzle') {
+                    this.percussionRain.setBaseColor(0x9AB5C8);
+                } else if (this.weatherType === 'thunderstorm' || this.state === WeatherState.STORM) {
+                    this.percussionRain.setBaseColor(0x6090B0);
+                } else {
+                    this.percussionRain.setBaseColor(0x88CCFF);
+                }
+            }
+            if (shouldShowMist) {
+                this.melodicMist.update(dt, { kick: bassIntensity, low: bassIntensity, mid: melodyVol }, this.intensity);
+
+                // Legacy dynamic color behavior
+                if (this.weatherType === 'mist') {
+                    this.melodicMist.setBaseColor(0xDDFFDD);
+                } else {
+                    this.melodicMist.setBaseColor(0xAAFFAA);
+                }
+            }
+        }
 
         if (this.state === WeatherState.STORM) {
             this.updateLightning(time, bassIntensity);
@@ -1047,8 +1111,13 @@ export class WeatherSystem {
     }
 
     dispose() {
-        if (this.particles) {
-            this.particles.dispose(this.scene);
+        if (this.percussionRain) {
+            this.percussionRain.dispose();
+            if (this.rainMesh) this.scene.remove(this.rainMesh);
+        }
+        if (this.melodicMist) {
+            this.melodicMist.dispose();
+            if (this.mistMesh) this.scene.remove(this.mistMesh);
         }
         if (this.lightningLight) {
             this.scene.remove(this.lightningLight);

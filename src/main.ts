@@ -2,7 +2,7 @@
 
 import * as THREE from 'three';
 import '../style.css';
-import { uWindSpeed, uWindDirection, uSkyTopColor, uSkyBottomColor, uHorizonColor, uAtmosphereIntensity, uStarOpacity, uAuroraIntensity, uAuroraColor, uAudioLow, uAudioHigh, uGlitchIntensity, uChromaticIntensity, uTime, uPlayerPosition, createAurora, harmonyOrbSystem, createChromaticPulse, createStrobePulse, uStrobeIntensity, animateFoliage, updateFoliageMaterials, updateFallingBerries, collectFallingBerries, createMushroom, validateNodeGeometries, createMelodyRibbon, updateMelodyRibbons, createSparkleTrail, updateSparkleTrail, createImpactSystem, createShield, createDandelionSeedSystem, createDiscoveryEffect } from './foliage/index.ts';
+import { uWindSpeed, uWindDirection, uSkyTopColor, uSkyBottomColor, uHorizonColor, uAtmosphereIntensity, uStarOpacity, uAuroraIntensity, uAuroraColor, uAudioLow, uAudioHigh, uGlitchIntensity, uChromaticIntensity, uTime, uPlayerPosition, createAurora, harmonyOrbSystem, createChromaticPulse, createStrobePulse, uStrobeIntensity, animateFoliage, updateFoliageMaterials, updateFallingBerries, collectFallingBerries, createMushroom, validateNodeGeometries, createMelodyRibbon, updateMelodyRibbons, createSparkleTrail, updateSparkleTrail, createImpactSystem, updateImpacts, createShield, createDandelionSeedSystem, createDiscoveryEffect } from './foliage/index.ts';
 import { chordStrikeSystem } from './gameplay/chord-strike.ts';
 import { initCelestialBodies } from './foliage/celestial-bodies.ts';
 import { InteractionSystem } from './systems/interaction.ts';
@@ -80,6 +80,7 @@ console.time('Audio & Systems Init');
 const audioSystem = new AudioSystem(CONFIG.audio.useScriptProcessorNode);
 const beatSync = new BeatSync(audioSystem);
 const weatherSystem = new WeatherSystem(scene);
+weatherSystem.setRenderer(renderer);
 console.timeEnd('Audio & Systems Init');
 
 // Phase 3: World Generation (Critical Path)
@@ -322,7 +323,14 @@ let audioState: any = null;
 let lastBeatPhase = 0;
 let beatFlashIntensity = 0;
 let cameraZoomPulse = 0;
+let cameraShake = 0;
+let currentShakeOffsetX = 0;
+let currentShakeOffsetY = 0;
 const baseFOV = 75;
+
+export function addCameraShake(amount: number) {
+    cameraShake = Math.max(cameraShake, amount);
+}
 
 // Register Beat Effects
 beatSync.onBeat((state) => {
@@ -343,6 +351,12 @@ const hudMine = document.getElementById('ability-mine');
 const hudMineOverlay = hudMine ? hudMine.querySelector('.cooldown-overlay') as HTMLElement : null;
 const hudPhase = document.getElementById('ability-phase');
 const hudPhaseOverlay = hudPhase ? hudPhase.querySelector('.cooldown-overlay') as HTMLElement : null;
+
+// 🎨 Palette: Cache Tracker HUD Elements
+const trackerPatternEl = document.getElementById('tracker-pattern');
+const trackerRowEl = document.getElementById('tracker-row');
+let _lastTrackerPattern: number | null = null;
+let _lastTrackerRow: number | null = null;
 
 // Track previous states to avoid DOM thrashing
 let _lastDashReady: boolean | null = null;
@@ -383,6 +397,21 @@ function animate() {
     const timeFactor = 120 / Math.max(10, currentBPM);
     gameTime += delta * timeFactor;
     
+    // 🎨 Palette: Update Tracker HUD (proving data flow works)
+    if (audioState && trackerPatternEl && trackerRowEl) {
+        const patternIndex = audioState.patternIndex || 0;
+        const rowIndex = audioState.row || 0;
+
+        if (patternIndex !== _lastTrackerPattern) {
+            trackerPatternEl.textContent = patternIndex.toString().padStart(2, '0');
+            _lastTrackerPattern = patternIndex;
+        }
+        if (rowIndex !== _lastTrackerRow) {
+            trackerRowEl.textContent = rowIndex.toString().padStart(2, '0');
+            _lastTrackerRow = rowIndex;
+        }
+    }
+
     // Update global shader time
     uTime.value = gameTime;
 
@@ -438,6 +467,34 @@ function animate() {
             camera.fov = baseFOV;
             camera.updateProjectionMatrix();
         }
+    }
+
+    // 🎨 Palette: Camera Shake Polish
+    // Remove last frame's offset
+    camera.rotation.x -= currentShakeOffsetX;
+    camera.rotation.y -= currentShakeOffsetY;
+
+    if (cameraShake > 0) {
+        camera.rotation.z = (Math.random() - 0.5) * cameraShake * 0.1;
+
+        // Calculate new offset
+        currentShakeOffsetX = (Math.random() - 0.5) * cameraShake * 0.05;
+        currentShakeOffsetY = (Math.random() - 0.5) * cameraShake * 0.05;
+
+        // Apply new offset
+        camera.rotation.x += currentShakeOffsetX;
+        camera.rotation.y += currentShakeOffsetY;
+
+        cameraShake *= 0.85; // Decay
+        if (cameraShake < 0.01) {
+            cameraShake = 0;
+            currentShakeOffsetX = 0;
+            currentShakeOffsetY = 0;
+            camera.rotation.z = 0;
+        }
+    } else {
+        currentShakeOffsetX = 0;
+        currentShakeOffsetY = 0;
     }
 
     const currentState = getCycleState(effectiveTime, weatherSystem.targetPaletteMode || 'standard');
@@ -692,12 +749,13 @@ function animate() {
             renderer.compute(obj.userData.computeNode);
         }
     }
+    updateImpacts(renderer, t);
 
     profiler.measure('Physics', () => {
         updatePhysics(delta, camera, controls, keyStates, audioState);
         // Update TSL Uniform for Player Position (Interactive Grass/Foliage)
         uPlayerPosition.value.copy(player.position);
-        if (sparkleTrail) updateSparkleTrail(sparkleTrail, player.position, player.velocity, gameTime);
+        if (sparkleTrail) updateSparkleTrail(sparkleTrail, player.position, player.velocity, gameTime, renderer);
 
         // --- Arpeggio Shield Logic ---
         if (unlockSystem.isUnlocked('arpeggio_shield')) {
@@ -727,7 +785,7 @@ function animate() {
         }
         player.energy = Math.max(0, player.energy - delta * 0.1);
 
-        updateBlaster(delta, scene, weatherSystem, t);
+        updateBlaster(delta, scene, weatherSystem, t, renderer);
 
         // Jitter Mines
         jitterMineSystem.update(delta, player.position);

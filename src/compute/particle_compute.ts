@@ -93,8 +93,19 @@ export class ComputeParticleSystem {
     private readonly uSpawnCenter: ReturnType<typeof uniform>;
     private readonly uAudioPulse = uniform(0.0);
 
+    /** Type of particle system */
+    private readonly type: 'rain' | 'mist' | 'default';
+
     /** Compute shader node */
     private computeNode: ReturnType<ReturnType<typeof Fn>['compute']> | null = null;
+
+    /** Uniforms for audio/weather reactivity */
+    private readonly uIntensity = uniform(0.0);
+    private readonly uBassIntensity = uniform(0.0);
+    private readonly uMelodyVolume = uniform(0.0);
+
+    /** The actual Points mesh (stored for color updates) */
+    private mesh: THREE.Points | null = null;
 
     /** Optional WASM module for physics */
     private wasmModule: WASMParticleModule | null = null;
@@ -112,10 +123,11 @@ export class ComputeParticleSystem {
     constructor(
         count: number,
         renderer: WebGPURenderer,
-        config: ComputeParticleConfig = {}
+        config: ComputeParticleConfig & { type?: 'rain' | 'mist' | 'default' } = {}
     ) {
         this.count = count;
         this.renderer = renderer;
+        this.type = config.type || 'default';
 
         const {
             spawnCenter = new THREE.Vector3(0, 5, 0),
@@ -197,42 +209,94 @@ export class ComputeParticleSystem {
 
             // Physics
             const dt = this.uDeltaTime;
-            const gravity = this.uGravity.mul(dt);
 
-            // Update Velocity (apply gravity)
-            velocity.y.addAssign(gravity.y);
+            if (this.type === 'rain') {
+                // Rain: fast downward velocity, audio boost from bass
+                const gravity = this.uGravity.mul(dt);
+                velocity.y.addAssign(gravity.y);
+                const speed = velocity.w.mul(this.uBassIntensity.mul(2.0).add(1.0));
 
-            // Audio Boost (speed up particles on beat)
-            const speed = velocity.w.mul(this.uAudioPulse.mul(2.0).add(1.0));
+                position.x.addAssign(velocity.x.mul(dt).mul(speed));
+                position.y.addAssign(velocity.y.mul(dt).mul(speed));
+                position.z.addAssign(velocity.z.mul(dt).mul(speed));
 
-            // Update Position
-            position.x.addAssign(velocity.x.mul(dt).mul(speed));
-            position.y.addAssign(velocity.y.mul(dt).mul(speed));
-            position.z.addAssign(velocity.z.mul(dt).mul(speed));
+                position.w.subAssign(dt.mul(0.5)); // faster decay
+            } else if (this.type === 'mist') {
+                // Mist: slow drift, upward sine motion based on melody
+                // Drift horizontally based on time and index
+                const tOffset = this.uTime.add(float(idx).mul(0.1));
+                const driftX = sin(this.uTime.mul(0.5).add(tOffset)).mul(2.0);
+                const driftZ = cos(this.uTime.mul(0.4).add(tOffset)).mul(2.0);
 
-            // Age Life (decay over time)
-            position.w.subAssign(dt.mul(0.3));
+                velocity.x.assign(driftX);
+                velocity.z.assign(driftZ);
+
+                // Slight upward pull
+                velocity.y.assign(float(1.0).add(sin(tOffset).mul(1.5).mul(this.uMelodyVolume.max(0.3))));
+
+                position.x.addAssign(velocity.x.mul(dt));
+                position.y.addAssign(velocity.y.mul(dt));
+                position.z.addAssign(velocity.z.mul(dt));
+
+                position.w.subAssign(dt.mul(0.1)); // slow decay
+            } else {
+                // Default physics
+                const gravity = this.uGravity.mul(dt);
+                velocity.y.addAssign(gravity.y);
+                const speed = velocity.w.mul(this.uAudioPulse.mul(2.0).add(1.0));
+
+                position.x.addAssign(velocity.x.mul(dt).mul(speed));
+                position.y.addAssign(velocity.y.mul(dt).mul(speed));
+                position.z.addAssign(velocity.z.mul(dt).mul(speed));
+
+                position.w.subAssign(dt.mul(0.3));
+            }
 
             // Respawn Logic - when life < 0, reset particle
             If(position.w.lessThan(0.0), () => {
                 // Reset Life
                 position.w.assign(1.0);
 
-                // Respawn at center + random spread using index AND time for variation
-                // Adding time ensures different positions on each respawn
                 const seed = float(idx).mul(0.123).add(this.uTime.mul(0.1));
-                const offsetX = sin(seed.mul(12.9898)).mul(10.0);
-                const offsetZ = cos(seed.mul(78.233)).mul(10.0);
 
-                position.x.assign(this.uSpawnCenter.x.add(offsetX));
-                position.y.assign(this.uSpawnCenter.y);
-                position.z.assign(this.uSpawnCenter.z.add(offsetZ));
+                if (this.type === 'rain') {
+                    // Rain respawns high up in a wide area
+                    const offsetX = sin(seed.mul(12.9898)).mul(50.0);
+                    const offsetZ = cos(seed.mul(78.233)).mul(50.0);
+                    const offsetY = float(20.0).add(cos(seed.mul(14.3)).mul(15.0)); // 5 to 35
 
-                // Reset Velocity with upward burst (also time-varied)
-                const velSeed = seed.add(float(idx).mul(0.456));
-                velocity.y.assign(float(5.0).add(cos(velSeed).mul(2.0)));
-                velocity.x.assign(sin(velSeed).mul(2.0));
-                velocity.z.assign(cos(velSeed.mul(1.5)).mul(2.0));
+                    position.x.assign(this.uSpawnCenter.x.add(offsetX));
+                    position.y.assign(this.uSpawnCenter.y.add(offsetY));
+                    position.z.assign(this.uSpawnCenter.z.add(offsetZ));
+
+                    velocity.y.assign(float(-5.0).sub(sin(seed).mul(5.0)));
+                    velocity.x.assign(float(0.0));
+                    velocity.z.assign(float(0.0));
+                } else if (this.type === 'mist') {
+                    // Mist respawns low in a wide area
+                    const offsetX = sin(seed.mul(12.9898)).mul(40.0);
+                    const offsetZ = cos(seed.mul(78.233)).mul(40.0);
+                    const offsetY = float(0.0).add(cos(seed.mul(14.3)).mul(2.5));
+
+                    position.x.assign(this.uSpawnCenter.x.add(offsetX));
+                    position.y.assign(this.uSpawnCenter.y.add(offsetY));
+                    position.z.assign(this.uSpawnCenter.z.add(offsetZ));
+
+                    velocity.y.assign(float(0.5));
+                    velocity.x.assign(float(0.0));
+                    velocity.z.assign(float(0.0));
+                } else {
+                    const offsetX = sin(seed.mul(12.9898)).mul(10.0);
+                    const offsetZ = cos(seed.mul(78.233)).mul(10.0);
+                    position.x.assign(this.uSpawnCenter.x.add(offsetX));
+                    position.y.assign(this.uSpawnCenter.y);
+                    position.z.assign(this.uSpawnCenter.z.add(offsetZ));
+
+                    const velSeed = seed.add(float(idx).mul(0.456));
+                    velocity.y.assign(float(5.0).add(cos(velSeed).mul(2.0)));
+                    velocity.x.assign(sin(velSeed).mul(2.0));
+                    velocity.z.assign(cos(velSeed.mul(1.5)).mul(2.0));
+                }
             });
 
             // Write back to storage
@@ -268,11 +332,15 @@ export class ComputeParticleSystem {
      * 
      * @param deltaTime - Time since last frame in seconds
      * @param audioState - Optional audio state for reactive behavior
+     * @param intensity - Weather intensity (0 to 1)
      */
-    public update(deltaTime: number, audioState: ParticleAudioState = {}): void {
+    public update(deltaTime: number, audioState: ParticleAudioState = {}, intensity: number = 0.0): void {
         this.uDeltaTime.value = deltaTime;
         this.uTime.value += deltaTime;
         this.uAudioPulse.value = audioState.kick ?? 0;
+        this.uBassIntensity.value = audioState.low ?? audioState.kick ?? 0;
+        this.uMelodyVolume.value = audioState.mid ?? audioState.level ?? 0;
+        this.uIntensity.value = intensity;
 
         // Execute Compute Shader on GPU (primary path)
         if (this.computeNode) {
@@ -313,11 +381,24 @@ export class ComputeParticleSystem {
         geometry.setAttribute('color', this.colorStorage as unknown as THREE.BufferAttribute);
         geometry.drawRange.count = this.count;
 
+        let size = 0.2;
+        let opacity = 0.8;
+        let baseColorHex = 0xFFFFFF;
+
+        if (this.type === 'rain') {
+            size = 0.3;
+            baseColorHex = 0x88CCFF;
+        } else if (this.type === 'mist') {
+            size = 0.15;
+            opacity = 0.4;
+            baseColorHex = 0xAAFFAA;
+        }
+
         const material = new PointsNodeMaterial({
-            size: 0.2,
-            color: 0xFFFFFF,
+            size: size,
+            color: baseColorHex,
             transparent: true,
-            opacity: 0.8,
+            opacity: opacity,
             blending: THREE.AdditiveBlending,
             depthWrite: false
         });
@@ -327,13 +408,32 @@ export class ComputeParticleSystem {
         const life = particlePos.w;
 
         material.positionNode = particlePos.xyz;
-        material.sizeNode = float(0.2).mul(life); // Shrink as they die
-        material.colorNode = vec4(1.0, 0.5, 0.2, life); // Simple fade
 
-        const mesh = new THREE.Points(geometry, material);
-        mesh.userData.type = 'computeParticles';
+        if (this.type === 'rain') {
+            material.sizeNode = float(size).add(this.uBassIntensity.mul(0.5));
+            const targetOpacity = float(0.4).add(this.uIntensity.mul(0.6));
+            material.opacityNode = targetOpacity.mul(life);
+        } else if (this.type === 'mist') {
+            const targetOpacity = float(0.3).add(this.uMelodyVolume.mul(0.4));
+            material.opacityNode = targetOpacity.mul(life);
+        } else {
+            material.sizeNode = float(0.2).mul(life); // Shrink as they die
+            material.colorNode = vec4(1.0, 0.5, 0.2, life); // Simple fade
+        }
 
-        return mesh;
+        this.mesh = new THREE.Points(geometry, material);
+        this.mesh.userData.type = 'computeParticles';
+
+        return this.mesh;
+    }
+
+    /**
+     * Update the base color of the particle material
+     */
+    public setBaseColor(colorHex: number): void {
+        if (this.mesh && this.mesh.material instanceof PointsNodeMaterial) {
+            this.mesh.material.color.setHex(colorHex);
+        }
     }
 
     /**
