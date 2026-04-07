@@ -863,6 +863,12 @@ export const foliageMaterials: { [key: string]: THREE.Material | THREE.Material[
         // Combine Player Push + Wind Sway
         const withPush = applyPlayerInteraction(positionLocal);
         mat.positionNode = withPush.add(calculateWindSway(positionLocal));
+
+        // 🎨 PALETTE: Add Juicy Rim Light to stem so it pops against dark backgrounds
+        const audioRimIntensity = float(1.0).add(uAudioLow.mul(0.5));
+        const rimLight = createJuicyRimLight(color(0x66AA55), audioRimIntensity, float(3.0), null);
+        mat.emissiveNode = (mat.emissiveNode || color(0x000000)).add(rimLight);
+
         return mat;
     })(),
 
@@ -878,6 +884,12 @@ export const foliageMaterials: { [key: string]: THREE.Material | THREE.Material[
         // Combine Player Push + Wind Sway
         const withPush = applyPlayerInteraction(positionLocal);
         mat.positionNode = withPush.add(calculateWindSway(positionLocal));
+
+        // 🎨 PALETTE: Add Juicy Rim Light to flowerStem so it pops against dark backgrounds
+        const audioRimIntensity = float(1.0).add(uAudioLow.mul(0.5));
+        const rimLight = createJuicyRimLight(color(0x66AA55), audioRimIntensity, float(3.0), null);
+        mat.emissiveNode = (mat.emissiveNode || color(0x000000)).add(rimLight);
+
         return mat;
     })(),
 
@@ -946,6 +958,11 @@ export const foliageMaterials: { [key: string]: THREE.Material | THREE.Material[
         const ny = t.sub(0.3);
         const newNormal = vec3(positionLocal.x, ny, positionLocal.z).normalize();
         mat.normalNode = newNormal;
+
+        // 🎨 PALETTE: Add Juicy Rim Light to mushroomStem so it pops against dark backgrounds
+        const audioRimIntensity = float(1.0).add(uAudioLow.mul(0.5));
+        const rimLight = createJuicyRimLight(color(0xF5F5DC), audioRimIntensity, float(3.0), mat.normalNode);
+        mat.emissiveNode = (mat.emissiveNode || color(0x000000)).add(rimLight);
 
         return mat;
     })(),
