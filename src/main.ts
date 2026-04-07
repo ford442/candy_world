@@ -794,7 +794,7 @@ function animate() {
         }
 
         // Glitch Grenades
-        glitchGrenadeSystem.update(delta, scene);
+        glitchGrenadeSystem.update(delta, scene, renderer);
 
         // Chord Strike
         const isStrikePressed = keyStates.strike;
