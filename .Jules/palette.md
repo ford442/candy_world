@@ -9,3 +9,6 @@
 ## 2024-06-03 - Empty State Actions and Destructive Action Confirmation
 **Learning:** Empty states without a clear next action lead to user confusion, and destructive actions (like overwriting save files) without confirmation lead to accidental data loss.
 **Action:** Always include a Call-To-Action (CTA) inside empty states to guide the user towards the desired action. Always use a confirmation dialog before completing a destructive or irreversible action.
+## 2024-11-20 - Empty States and Textarea Readability
+**Learning:** Empty states without Call-To-Action (CTA) buttons leave users stranded. Textareas containing code, JSON, or Base64 data trigger browser spellcheckers, cluttering the UI with red squiggly lines and degrading performance.
+**Action:** Always provide a clear CTA in empty states to guide the user out of it. Add `spellcheck="false"` to data input textareas, and use the `readonly` attribute for output/export textareas to prevent accidental modifications.
