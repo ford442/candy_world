@@ -743,6 +743,12 @@ function animate() {
         renderer.compute(harmonyOrbSystem.computeNode);
     }
 
+    // Compute Waterfall Splashes
+    for (const obj of animatedFoliage) {
+        if (obj.userData.type === 'waterfall' && obj.userData.computeNode) {
+            renderer.compute(obj.userData.computeNode);
+        }
+    }
     updateImpacts(renderer, t);
 
     profiler.measure('Physics', () => {
