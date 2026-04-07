@@ -16,6 +16,9 @@ import { CommonGeometries, getSphereGeometry } from '../utils/geometry-dedup.ts'
 const _scratchWorldPos = new THREE.Vector3();
 const _scratchMatrix = new THREE.Matrix4();
 const _scratchObject3D = new THREE.Object3D();
+const _scratchLocalPos = new THREE.Vector3();
+const _scratchLocalQuat = new THREE.Quaternion();
+const _scratchLocalScale = new THREE.Vector3();
 const _scratchColor = new THREE.Color();
 
 // ⚡ OPTIMIZATION: Global uniform for seasonal berry scaling
@@ -244,16 +247,17 @@ export class BerryBatcher {
                 const idx = start + i;
 
                 if (!skipMatrixUpdate) {
-                    // Reconstruct local matrix
-                    _scratchObject3D.position.set(transforms.positions[i*3], transforms.positions[i*3+1], transforms.positions[i*3+2]);
-                    _scratchObject3D.quaternion.set(transforms.quaternions[i*4], transforms.quaternions[i*4+1], transforms.quaternions[i*4+2], transforms.quaternions[i*4+3]);
-                    _scratchObject3D.scale.setScalar(transforms.scales[i]);
-                    _scratchObject3D.updateMatrix();
+                    // ⚡ OPTIMIZATION: Eliminate CPU overhead and garbage collection spikes from Matrix4 composition by writing directly to instanceMatrix.array
+                    _scratchLocalPos.set(transforms.positions[i*3], transforms.positions[i*3+1], transforms.positions[i*3+2]);
+                    _scratchLocalQuat.set(transforms.quaternions[i*4], transforms.quaternions[i*4+1], transforms.quaternions[i*4+2], transforms.quaternions[i*4+3]);
+                    _scratchLocalScale.setScalar(transforms.scales[i]);
+
+                    _scratchMatrix.compose(_scratchLocalPos, _scratchLocalQuat, _scratchLocalScale);
 
                     // World = Parent * Local
-                    _scratchMatrix.multiplyMatrices(parentMatrix, _scratchObject3D.matrix);
+                    _scratchMatrix.multiplyMatrices(parentMatrix, _scratchMatrix);
 
-                    this.mesh.setMatrixAt(idx, _scratchMatrix);
+                    _scratchMatrix.toArray(this.mesh.instanceMatrix.array, idx * 16);
                 }
 
                 // Update Glow
@@ -510,17 +514,34 @@ export function updateFallingBerries(delta: number): void {
 
         const lifeLeft = 1.0 - (berry.age / maxAge);
 
+        let s = lifeLeft;
         if (berry.position.y < 0 || berry.age > maxAge) {
             berry.active = false;
-            _scratchObject3D.scale.setScalar(0);
-        } else {
-             _scratchObject3D.position.copy(berry.position);
-             _scratchObject3D.scale.setScalar(lifeLeft);
+            s = 0;
         }
 
-        _scratchObject3D.updateMatrix();
-        fallingBerryMesh.setMatrixAt(i, _scratchObject3D.matrix);
+        // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
+        const te = fallingBerryMesh.instanceMatrix.array;
+        const offset = i * 16;
+        te[offset + 0] = s;
+        te[offset + 1] = 0;
+        te[offset + 2] = 0;
+        te[offset + 3] = 0;
+        te[offset + 4] = 0;
+        te[offset + 5] = s;
+        te[offset + 6] = 0;
+        te[offset + 7] = 0;
+        te[offset + 8] = 0;
+        te[offset + 9] = 0;
+        te[offset + 10] = s;
+        te[offset + 11] = 0;
+        te[offset + 12] = berry.position.x;
+        te[offset + 13] = berry.position.y;
+        te[offset + 14] = berry.position.z;
+        te[offset + 15] = 1;
+
         needsUpdate = true;
+
     }
 
     if (needsUpdate) {
@@ -560,13 +581,28 @@ export function collectFallingBerries(playerPos: THREE.Vector3, collectRadius: n
             }
 
             berry.active = false;
+            let s = 0; // Set scale to 0 when collected
 
-            _scratchObject3D.position.copy(berry.position);
-            _scratchObject3D.scale.setScalar(0);
-            _scratchObject3D.updateMatrix();
-            fallingBerryMesh.setMatrixAt(i, _scratchObject3D.matrix);
-
-            needsUpdate = true;
+        // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
+        const te = fallingBerryMesh.instanceMatrix.array;
+        const offset = i * 16;
+        te[offset + 0] = s;
+        te[offset + 1] = 0;
+        te[offset + 2] = 0;
+        te[offset + 3] = 0;
+        te[offset + 4] = 0;
+        te[offset + 5] = s;
+        te[offset + 6] = 0;
+        te[offset + 7] = 0;
+        te[offset + 8] = 0;
+        te[offset + 9] = 0;
+        te[offset + 10] = s;
+        te[offset + 11] = 0;
+        te[offset + 12] = berry.position.x;
+        te[offset + 13] = berry.position.y;
+        te[offset + 14] = berry.position.z;
+        te[offset + 15] = 1;
+        needsUpdate = true;
             collected++;
         }
     }

@@ -84,6 +84,11 @@ export class AccessibilityMenu {
       this.a11y.trapFocus(this.container);
       announce('Accessibility menu opened. Use Tab to navigate, Enter to select.', 'polite');
     }
+
+    const openA11yBtn = document.getElementById('openA11yBtn');
+    if (openA11yBtn) openA11yBtn.setAttribute('aria-expanded', 'true');
+    const a11yMenuButton = document.getElementById('a11y-menu-button');
+    if (a11yMenuButton) a11yMenuButton.setAttribute('aria-expanded', 'true');
   }
 
   close(): void {
@@ -103,6 +108,11 @@ export class AccessibilityMenu {
     this.isOpen = false;
     this.container = null;
     this.overlay = null;
+
+    const openA11yBtn = document.getElementById('openA11yBtn');
+    if (openA11yBtn) openA11yBtn.setAttribute('aria-expanded', 'false');
+    const a11yMenuButton = document.getElementById('a11y-menu-button');
+    if (a11yMenuButton) a11yMenuButton.setAttribute('aria-expanded', 'false');
     
     announce('Accessibility menu closed', 'polite');
   }
@@ -171,7 +181,8 @@ export class AccessibilityMenu {
     `;
 
     const closeBtn = document.createElement('button');
-    closeBtn.textContent = '✕';
+    closeBtn.type = 'button';
+    closeBtn.innerHTML = '<span aria-hidden="true">✕</span>';
     closeBtn.setAttribute('aria-label', 'Close accessibility menu');
     closeBtn.style.cssText = `
       background: none;
@@ -234,6 +245,7 @@ export class AccessibilityMenu {
 
     sections.forEach(section => {
       const btn = document.createElement('button');
+      btn.type = 'button';
       btn.textContent = section.label;
       btn.id = `tab-${section.id}`;
       btn.setAttribute('role', 'tab');
@@ -296,6 +308,7 @@ export class AccessibilityMenu {
     `;
 
     const resetBtn = document.createElement('button');
+    resetBtn.type = 'button';
     resetBtn.textContent = 'Reset to Defaults';
     resetBtn.style.cssText = this.getButtonStyle('#666');
     resetBtn.addEventListener('click', () => {
@@ -307,6 +320,7 @@ export class AccessibilityMenu {
     });
 
     this.saveButton = document.createElement('button');
+    this.saveButton.type = 'button';
     this.saveButton.textContent = 'Save & Close';
     this.saveButton.style.cssText = this.getButtonStyle('#4CAF50');
     this.saveButton.addEventListener('click', () => {
@@ -382,6 +396,7 @@ export class AccessibilityMenu {
 
     Object.entries(accessibilityPresets).forEach(([key, preset]) => {
       const card = document.createElement('button');
+      card.type = 'button';
       card.style.cssText = `
         padding: 20px;
         background: var(--menu-card, #333);
@@ -489,6 +504,7 @@ export class AccessibilityMenu {
       label.style.cssText = 'padding: 8px 0;';
 
       const keyBtn = document.createElement('button');
+      keyBtn.type = 'button';
       const keyText = binding.gamepadButton !== undefined 
         ? `${binding.key} / Pad ${binding.gamepadButton}`
         : binding.key;
@@ -755,6 +771,7 @@ export class AccessibilityMenu {
 
       // Test announcement button
       const testBtn = document.createElement('button');
+      testBtn.type = 'button';
       testBtn.textContent = 'Test Announcement';
       testBtn.style.cssText = `
         margin-top: 20px;
@@ -851,6 +868,7 @@ export class AccessibilityMenu {
     textDiv.appendChild(descEl);
 
     const toggle = document.createElement('button');
+    toggle.type = 'button';
     toggle.setAttribute('role', 'switch');
     toggle.setAttribute('aria-checked', value.toString());
     toggle.setAttribute('aria-labelledby', `${uniqueId}-label`);
@@ -879,11 +897,22 @@ export class AccessibilityMenu {
     `;
     toggle.appendChild(knob);
 
+    toggle.addEventListener('mouseenter', () => {
+      const isChecked = toggle.getAttribute('aria-checked') === 'true';
+      toggle.style.background = isChecked ? '#66BB6A' : '#777'; // Lighten slightly
+    });
+
+    toggle.addEventListener('mouseleave', () => {
+      const isChecked = toggle.getAttribute('aria-checked') === 'true';
+      toggle.style.background = isChecked ? '#4CAF50' : '#666';
+    });
+
     toggle.addEventListener('click', () => {
       const newValue = !value;
       onChange(newValue);
       toggle.setAttribute('aria-checked', newValue.toString());
-      toggle.style.background = newValue ? '#4CAF50' : '#666';
+      // Trigger hover style logic immediately based on hover state
+      toggle.style.background = newValue ? '#66BB6A' : '#777'; // Still hovering when clicked
       knob.style.left = newValue ? '27px' : '3px';
       announce(`${label} ${newValue ? 'enabled' : 'disabled'}`, 'polite');
     });
@@ -1214,7 +1243,8 @@ export function closeAccessibilityMenu(): void {
 
 export function createAccessibilityButton(): HTMLButtonElement {
   const btn = document.createElement('button');
-  btn.textContent = '♿ Accessibility';
+  btn.type = 'button';
+  btn.innerHTML = '<span aria-hidden="true">♿</span> Accessibility';
   btn.setAttribute('aria-label', 'Open accessibility settings');
   btn.style.cssText = `
     position: fixed;

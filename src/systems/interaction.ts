@@ -24,10 +24,13 @@ export class InteractionSystem {
     raycaster: THREE.Raycaster;
     hoveredObject: InteractiveObject | null;
 
-    // Using Set<InteractiveObject> but we might need to cast from Object3D
-    _nearbySetA: Set<InteractiveObject>;
-    _nearbySetB: Set<InteractiveObject>;
-    nearbyObjects: Set<InteractiveObject>;
+    // ⚡ OPTIMIZATION: Replacing Sets with Arrays to prevent Iterator allocation spikes in hot loops
+    _nearbyArrayA: InteractiveObject[];
+    _nearbyArrayB: InteractiveObject[];
+    nearbyObjects: InteractiveObject[];
+    _nearbyCountA: number;
+    _nearbyCountB: number;
+    nearbyCount: number;
 
     _candidatesScratch: InteractiveObject[];
     _scratchVec2: THREE.Vector2;
@@ -46,10 +49,13 @@ export class InteractionSystem {
 
         this.hoveredObject = null;
 
-        // ⚡ OPTIMIZATION: Double-buffered Sets to avoid 'new Set()' every frame
-        this._nearbySetA = new Set();
-        this._nearbySetB = new Set();
-        this.nearbyObjects = this._nearbySetA; // Points to the "Previous Frame" set initially
+        // ⚡ OPTIMIZATION: Double-buffered Arrays to avoid 'new Set()' and Iterator creation every frame
+        this._nearbyArrayA = [];
+        this._nearbyArrayB = [];
+        this.nearbyObjects = this._nearbyArrayA; // Points to the "Previous Frame" array initially
+        this._nearbyCountA = 0;
+        this._nearbyCountB = 0;
+        this.nearbyCount = 0;
 
         // ⚡ OPTIMIZATION: Reusable scratch array for raycast candidates
         this._candidatesScratch = [];
@@ -67,10 +73,20 @@ export class InteractionSystem {
 
     // ⚡ OPTIMIZATION: Accepts array of lists to avoid argument spreading allocation
     update(dt: number, playerPosition: THREE.Vector3, interactableLists: (THREE.Object3D[] | undefined)[]) {
-        // Swap sets: 'nearbyObjects' becomes 'prevNearby', and we fill 'nextNearby'
+        // Swap arrays: 'nearbyObjects' becomes 'prevNearby', and we fill 'nextNearby'
         const prevNearby = this.nearbyObjects;
-        const nextNearby = (prevNearby === this._nearbySetA) ? this._nearbySetB : this._nearbySetA;
-        nextNearby.clear();
+        const prevCount = this.nearbyCount;
+
+        let nextNearby: InteractiveObject[];
+        let nextCount = 0;
+
+        if (prevNearby === this._nearbyArrayA) {
+            nextNearby = this._nearbyArrayB;
+            this._nearbyCountB = 0;
+        } else {
+            nextNearby = this._nearbyArrayA;
+            this._nearbyCountA = 0;
+        }
 
         // 1. PROXIMITY CHECK
         // Populate nextNearby with ALL close objects from all input lists
@@ -100,23 +116,46 @@ export class InteractionSystem {
                 const distSq = dx*dx + dy*dy + dz*dz;
 
                 if (distSq < radiusSq) {
-                    nextNearby.add(obj);
+                    nextNearby[nextCount++] = obj;
                 }
             }
         }
 
+        // ⚡ OPTIMIZATION: Null out remaining array elements to prevent memory leaks from retained old objects
+        for (let i = nextCount; i < nextNearby.length; i++) {
+            if (nextNearby[i] === null) break; // Already cleared remainder
+            nextNearby[i] = null as any;
+        }
+
+        // ⚡ OPTIMIZATION: O(N^2) check is fine here because nearby count is usually very small (< 10)
         // Check for Enters (Object is in Next but was not in Prev)
-        for (const obj of nextNearby) {
-            if (!prevNearby.has(obj)) {
-                 if (obj.userData?.onProximityEnter) {
-                     try { obj.userData.onProximityEnter(playerPosition.distanceTo(obj.position)); } catch(e) { console.warn('Proximity Enter Error:', e); }
-                 }
+        for (let i = 0; i < nextCount; i++) {
+            const obj = nextNearby[i];
+            let found = false;
+            for (let j = 0; j < prevCount; j++) {
+                if (prevNearby[j] === obj) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                if (obj.userData?.onProximityEnter) {
+                    try { obj.userData.onProximityEnter(playerPosition.distanceTo(obj.position)); } catch(e) { console.warn('Proximity Enter Error:', e); }
+                }
             }
         }
 
         // Check for Leaves (Object was in Prev but is not in Next)
-        for (const obj of prevNearby) {
-            if (!nextNearby.has(obj)) {
+        for (let i = 0; i < prevCount; i++) {
+            const obj = prevNearby[i];
+            let found = false;
+            for (let j = 0; j < nextCount; j++) {
+                if (nextNearby[j] === obj) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
                 if (obj.userData?.onProximityLeave) {
                     try { obj.userData.onProximityLeave(); } catch(e) { console.warn('Proximity Leave Error:', e); }
                 }
@@ -126,11 +165,13 @@ export class InteractionSystem {
 
         // Update pointer for next frame
         this.nearbyObjects = nextNearby;
+        this.nearbyCount = nextCount;
 
         // 2. GAZE CHECK
-        // Populate scratch array from the Set
+        // Populate scratch array from the active portion of the array
         this._candidatesScratch.length = 0;
-        for (const obj of this.nearbyObjects) {
+        for (let i = 0; i < this.nearbyCount; i++) {
+            const obj = this.nearbyObjects[i];
             // Extra Safety: Ensure root object is valid before raycasting
             if (obj && obj.visible !== false) {
                 this._candidatesScratch.push(obj);
@@ -163,7 +204,14 @@ export class InteractionSystem {
 
                     while (hitObj && depth < 10) {
                         // We check if this ancestor is one of our tracked interactables
-                        if (this.nearbyObjects.has(hitObj)) {
+                        let isTracked = false;
+                        for (let k = 0; k < this.nearbyCount; k++) {
+                            if (this.nearbyObjects[k] === hitObj) {
+                                isTracked = true;
+                                break;
+                            }
+                        }
+                        if (isTracked) {
                             rootObj = hitObj;
                             break;
                         }

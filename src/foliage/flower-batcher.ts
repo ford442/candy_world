@@ -126,11 +126,12 @@ export class FlowerBatcher {
         });
 
         // Add Audio-Reactive Rim Light to petals
-        const audioRim = createJuicyRimLight(instanceColor, float(1.0).add(uAudioHigh.mul(2.0)), float(3.0));
+        // 🎨 PALETTE: Boosted Rim Light for more pop in twilight
+        const audioRim = createJuicyRimLight(instanceColor, float(2.0).add(uAudioHigh.mul(4.0)), float(2.0));
 
         // --- PALETTE: Audio Reactive Inner Glow ---
-        // Give petals a deep soft glow when the melody hits
-        const innerGlow = instanceColor.mul(uAudioHigh).mul(0.5);
+        // Give petals a deep soft glow when the melody hits (increased intensity)
+        const innerGlow = instanceColor.mul(uAudioHigh).mul(1.2);
 
         petalMat.emissiveNode = audioRim.add(innerGlow);
 

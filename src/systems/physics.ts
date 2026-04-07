@@ -33,6 +33,7 @@ import { showToast } from '../utils/toast.js';
 import { dandelionBatcher } from '../foliage/dandelion-batcher.ts';
 import { spawnDandelionExplosion } from '../foliage/dandelion-seeds.ts';
 import { harmonyOrbSystem } from '../foliage/aurora.ts';
+import { addCameraShake } from '../main.ts';
 
 // --- Types ---
 
@@ -325,9 +326,8 @@ function updateStateTransitions(camera: THREE.Camera, keyStates: KeyStates) {
             player.isDancing = false;
             player.danceTime = 0;
             // Clean up dance state
-            player.danceStartPos = undefined;
+            // ⚡ OPTIMIZATION: Instead of undefined, just let the logic reset values on next dance to avoid GC
             player.danceStartY = undefined;
-            player.danceStartRotation = undefined;
             // Reset camera rotation
             camera.rotation.z = 0;
         } else if (player.currentState === PlayerState.DEFAULT) {
@@ -491,6 +491,9 @@ function updateDancingState(delta: number, camera: THREE.Camera, controls: any, 
         controls.unlock();
     }
 
+    // Store initial values before updating dance time so that we can check for danceTime === 0
+    const isFirstFrame = player.danceTime === 0;
+
     // Update dance time
     player.danceTime += delta;
     
@@ -509,8 +512,10 @@ function updateDancingState(delta: number, camera: THREE.Camera, controls: any, 
     const angle = player.danceTime * circleSpeed;
     
     // Store initial position on first frame
-    if (!player.danceStartPos) {
-        player.danceStartPos = player.position.clone();
+    // ⚡ OPTIMIZATION: Zero-allocation dance state initialization
+    if (isFirstFrame || !player.danceStartPos) {
+        player.danceStartPos = player.danceStartPos || new THREE.Vector3();
+        player.danceStartPos.copy(player.position);
         player.danceStartY = getUnifiedGroundHeight(player.position.x, player.position.z) + PLAYER_HEIGHT_OFFSET;
     }
     
@@ -521,7 +526,8 @@ function updateDancingState(delta: number, camera: THREE.Camera, controls: any, 
     // Bob up and down with the beat
     const bobAmount = 0.3 + (kickTrigger * 0.2);
     const bobPhase = beatPhase * Math.PI * 2;
-    player.position.y = player.danceStartY + Math.sin(bobPhase) * bobAmount;
+    // TypeScript safety: danceStartY is initialized right after danceStartPos
+    player.position.y = (player.danceStartY || 0) + Math.sin(bobPhase) * bobAmount;
     
     // Camera view movement: Rotate and tilt based on music
     // Get current camera rotation
@@ -529,12 +535,12 @@ function updateDancingState(delta: number, camera: THREE.Camera, controls: any, 
     const yawAmount = Math.cos(player.danceTime * danceSpeed) * 0.3; // Turn left/right
     
     // Apply rotation relative to initial orientation
-    if (!player.danceStartRotation) {
-        player.danceStartRotation = {
-            x: camera.rotation.x,
-            y: camera.rotation.y,
-            z: camera.rotation.z
-        };
+    // ⚡ OPTIMIZATION: Zero-allocation dance state initialization
+    if (isFirstFrame || !player.danceStartRotation) {
+        player.danceStartRotation = player.danceStartRotation || { x: 0, y: 0, z: 0 };
+        player.danceStartRotation.x = camera.rotation.x;
+        player.danceStartRotation.y = camera.rotation.y;
+        player.danceStartRotation.z = camera.rotation.z;
     }
     
     // Smooth rotation animation
@@ -621,6 +627,7 @@ function handleAbilities(delta: number, camera: THREE.Camera, keyStates: KeyStat
 
         // Visual Feedback
         spawnImpact(player.position, 'dash');
+        addCameraShake(0.1); // 🎨 Palette: Dash shake
 
         if (uChromaticIntensity) {
             uChromaticIntensity.value = 0.5; // Stronger pulse for dash
@@ -875,10 +882,12 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
                 // Hard fall -> Big splash, heavy screen distortion
                 spawnImpact(player.position, 'land');
                 spawnImpact(player.position, 'dash'); // Extra particles
+                addCameraShake(0.4); // 🎨 Palette: Heavy landing shake
                 if (uChromaticIntensity) uChromaticIntensity.value = 0.8;
             } else if (fallSpeed > 8.0) {
                 // Medium fall
                 spawnImpact(player.position, 'land');
+                addCameraShake(0.15); // 🎨 Palette: Medium landing shake
                 if (uChromaticIntensity) uChromaticIntensity.value = 0.5;
             } else {
                 // Soft landing
@@ -906,6 +915,7 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
 
               // 🎨 Palette: Add "Juice" to trampoline mushroom bounce
               spawnImpact(player.position, 'jump');
+              addCameraShake(0.3); // 🎨 Palette: Trampoline bounce shake
               if (typeof uChromaticIntensity !== 'undefined') {
                   uChromaticIntensity.value = 0.5;
               }
@@ -1196,6 +1206,7 @@ function checkSnareTraps(delta: number) {
                     if (Math.random() < 0.2) {
                         if (uChromaticIntensity) uChromaticIntensity.value = 0.8;
                         spawnImpact(player.position, 'snare');
+                        addCameraShake(0.6); // 🎨 Palette: Trap snap shake
                         showToast("Snared! 🪤", "⚠️");
                     }
                 }
@@ -1339,9 +1350,11 @@ function updateJSFallbackMovement(delta: number, camera: THREE.Camera, controls:
              if (fallSpeed > 15.0) {
                  spawnImpact(player.position, 'land');
                  spawnImpact(player.position, 'dash');
+                 addCameraShake(0.4); // 🎨 Palette: Heavy landing shake
                  if (uChromaticIntensity) uChromaticIntensity.value = 0.8;
              } else if (fallSpeed > 8.0) {
                  spawnImpact(player.position, 'land');
+                 addCameraShake(0.15); // 🎨 Palette: Medium landing shake
                  if (uChromaticIntensity) uChromaticIntensity.value = 0.5;
              } else {
                  spawnImpact(player.position, 'jump');
@@ -1422,17 +1435,22 @@ function checkVineAttachment(camera: THREE.Camera) {
         // SAFETY: Ensure vineManager and anchorPoint exist before accessing properties
         if (!vineManager || !vineManager.anchorPoint) continue;
         const anchor = vineManager.anchorPoint;
-        if (typeof (anchor as any).x !== 'number' || typeof (anchor as any).y !== 'number' || typeof (anchor as any).z !== 'number') continue;
+        // @ts-ignore
+        if (typeof anchor.x !== 'number' || typeof anchor.y !== 'number' || typeof anchor.z !== 'number') continue;
 
         const dx = playerPos.x - anchor.x;
         const dz = playerPos.z - anchor.z;
-        const distH = Math.sqrt(dx*dx + dz*dz);
+
+        // ⚡ OPTIMIZATION: Use squared distance to avoid expensive Math.sqrt() in a hot loop
+        const distHSq = dx*dx + dz*dz;
         const tipY = anchor.y - (typeof vineManager.length === 'number' ? vineManager.length : 0);
 
-        if (distH < 2.0 && playerPos.y < anchor.y && playerPos.y > tipY) {
-             if (distH < 1.0) {
+        // Compare against squared thresholds (2.0^2 = 4.0, 1.0^2 = 1.0)
+        if (distHSq < 4.0 && playerPos.y < anchor.y && playerPos.y > tipY) {
+             if (distHSq < 1.0) {
                  if (typeof vineManager.attach === 'function') {
-                     vineManager.attach(player as any, player.velocity);
+                     // @ts-ignore
+                     vineManager.attach(player, player.velocity);
                      setActiveVineSwing(vineManager);
                      break;
                  }

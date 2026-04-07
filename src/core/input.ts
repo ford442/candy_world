@@ -3,6 +3,7 @@ import { AudioSystem } from '../audio/audio-system';
 import * as THREE from 'three';
 import { discoverySystem } from '../systems/discovery.js';
 import { trapFocusInside } from '../utils/interaction-utils.ts';
+import { openAccessibilityMenu } from '../ui/accessibility-menu.ts';
 
 export interface KeyStates {
     forward: boolean;
@@ -75,6 +76,7 @@ export interface InitInputResult {
     controls: PointerLockControls;
     updateReticleState: (state: 'idle' | 'hover' | 'interact', label?: string) => void;
     updateDayNightButtonState: (isPressed: boolean) => void;
+    cleanup: () => void;
 }
 
 export function initInput(
@@ -503,7 +505,7 @@ export function initInput(
     });
 
     // Click to Resume behavior when menu is hidden but controls are unlocked (e.g. after dancing)
-    document.body.addEventListener('click', () => {
+    const onBodyClick = () => {
         // Only trigger if:
         // 1. Controls are unlocked
         // 2. Playlist is closed
@@ -520,7 +522,8 @@ export function initInput(
 
             controls.lock();
         }
-    });
+    };
+    document.body.addEventListener('click', onBodyClick);
 
     // Key Handlers
     const onKeyDown = function (event: KeyboardEvent) {
@@ -964,14 +967,18 @@ export function initInput(
         // UX: Update Button States (Visual Polish)
         // Use epsilon for float comparison safety
         if (volDownBtn) {
-            volDownBtn.setAttribute('aria-disabled', String(newVol <= 0.01));
-            volDownBtn.title = `Decrease Volume (-) • ${percentage}%`;
-            volDownBtn.setAttribute('aria-label', `Decrease Volume (Current: ${percentage}%)`);
+            const isDisabled = newVol <= 0.01;
+            volDownBtn.setAttribute('aria-disabled', String(isDisabled));
+            // 🎨 Palette: Explain why the button is disabled
+            volDownBtn.title = isDisabled ? "Minimum volume reached" : `Decrease Volume (-) • ${percentage}%`;
+            volDownBtn.setAttribute('aria-label', isDisabled ? "Decrease Volume (Disabled: Minimum reached)" : `Decrease Volume (Current: ${percentage}%)`);
         }
         if (volUpBtn) {
-            volUpBtn.setAttribute('aria-disabled', String(newVol >= 0.99));
-            volUpBtn.title = `Increase Volume (+) • ${percentage}%`;
-            volUpBtn.setAttribute('aria-label', `Increase Volume (Current: ${percentage}%)`);
+            const isDisabled = newVol >= 0.99;
+            volUpBtn.setAttribute('aria-disabled', String(isDisabled));
+            // 🎨 Palette: Explain why the button is disabled
+            volUpBtn.title = isDisabled ? "Maximum volume reached" : `Increase Volume (+) • ${percentage}%`;
+            volUpBtn.setAttribute('aria-label', isDisabled ? "Increase Volume (Disabled: Maximum reached)" : `Increase Volume (Current: ${percentage}%)`);
         }
 
         const icon = newVol === 0 ? '🔇' : newVol < 0.5 ? '🔉' : '🔊';
@@ -988,12 +995,14 @@ export function initInput(
     // NEW: Initialize Tooltips
     const initialVolPct = Math.round(audioSystem.volume * 100);
     if (volDownBtn) {
-        volDownBtn.title = `Decrease Volume (-) • ${initialVolPct}%`;
-        volDownBtn.setAttribute('aria-label', `Decrease Volume (Current: ${initialVolPct}%)`);
+        const isMin = audioSystem.volume <= 0.01;
+        volDownBtn.title = isMin ? "Minimum volume reached" : `Decrease Volume (-) • ${initialVolPct}%`;
+        volDownBtn.setAttribute('aria-label', isMin ? "Decrease Volume (Disabled: Minimum reached)" : `Decrease Volume (Current: ${initialVolPct}%)`);
     }
     if (volUpBtn) {
-        volUpBtn.title = `Increase Volume (+) • ${initialVolPct}%`;
-        volUpBtn.setAttribute('aria-label', `Increase Volume (Current: ${initialVolPct}%)`);
+        const isMax = audioSystem.volume >= 0.99;
+        volUpBtn.title = isMax ? "Maximum volume reached" : `Increase Volume (+) • ${initialVolPct}%`;
+        volUpBtn.setAttribute('aria-label', isMax ? "Increase Volume (Disabled: Maximum reached)" : `Increase Volume (Current: ${initialVolPct}%)`);
     }
     if (toggleMuteBtn) toggleMuteBtn.title = audioSystem.isMuted ? 'Unmute Audio (M)' : 'Mute Audio (M)';
 
@@ -1027,66 +1036,99 @@ export function initInput(
         });
     }
 
+    const openA11yBtn = document.getElementById('openA11yBtn');
+    if (openA11yBtn) {
+        openA11yBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            openAccessibilityMenu();
+        });
+    }
+
     // --- UX: Drag & Drop Support ---
     const dragOverlay = document.getElementById('drag-overlay');
     let dragCounter = 0;
 
-    if (dragOverlay) {
-        window.addEventListener('dragenter', (e) => {
-            e.preventDefault();
-            dragCounter++;
+    const onDragEnter = (e: DragEvent) => {
+        e.preventDefault();
+        dragCounter++;
+        if (dragOverlay) {
             dragOverlay.classList.add('active');
             dragOverlay.setAttribute('aria-hidden', 'false');
-        });
+        }
+    };
 
-        window.addEventListener('dragleave', (e) => {
-            e.preventDefault();
-            dragCounter--;
-            if (dragCounter <= 0) {
-                dragCounter = 0;
+    const onDragLeave = (e: DragEvent) => {
+        e.preventDefault();
+        dragCounter--;
+        if (dragCounter <= 0) {
+            dragCounter = 0;
+            if (dragOverlay) {
                 dragOverlay.classList.remove('active');
                 dragOverlay.setAttribute('aria-hidden', 'true');
             }
-        });
+        }
+    };
 
-        window.addEventListener('dragover', (e) => {
-            e.preventDefault(); // Necessary to allow dropping
-        });
+    const onDragOver = (e: DragEvent) => {
+        e.preventDefault(); // Necessary to allow dropping
+    };
 
-        window.addEventListener('drop', (e) => {
-            e.preventDefault();
-            dragCounter = 0;
+    const onDrop = (e: DragEvent) => {
+        e.preventDefault();
+        dragCounter = 0;
+        if (dragOverlay) {
             dragOverlay.classList.remove('active');
             dragOverlay.setAttribute('aria-hidden', 'true');
+        }
 
-            const files = e.dataTransfer?.files;
-            if (files && files.length > 0) {
-                const { validFiles, invalidFiles } = filterValidMusicFiles(files);
+        const files = e.dataTransfer?.files;
+        if (files && files.length > 0) {
+            const { validFiles, invalidFiles } = filterValidMusicFiles(files);
 
-                if (validFiles.length > 0) {
-                    audioSystem.addToQueue(validFiles);
+            if (validFiles.length > 0) {
+                audioSystem.addToQueue(validFiles);
 
-                    // Show feedback via Toast
-                    import('../utils/toast.js').then(({ showToast }) => {
-                        if (invalidFiles.length > 0) {
-                            showToast(`Added ${validFiles.length} song${validFiles.length > 1 ? 's' : ''}. (${invalidFiles.length} ignored)`, '⚠️');
-                        } else {
-                            showToast(`Added ${validFiles.length} Song${validFiles.length > 1 ? 's' : ''}! 🎶`, '📂');
-                        }
-                    });
-                } else {
-                    // All files were invalid
-                    import('../utils/toast.js').then(({ showToast }) => {
-                        showToast("❌ Only .mod, .xm, .it, .s3m allowed!", '🚫');
-                    });
-                }
+                // Show feedback via Toast
+                import('../utils/toast.js').then(({ showToast }) => {
+                    if (invalidFiles.length > 0) {
+                        showToast(`Added ${validFiles.length} song${validFiles.length > 1 ? 's' : ''}. (${invalidFiles.length} ignored)`, '⚠️');
+                    } else {
+                        showToast(`Added ${validFiles.length} Song${validFiles.length > 1 ? 's' : ''}! 🎶`, '📂');
+                    }
+                });
+            } else {
+                // All files were invalid
+                import('../utils/toast.js').then(({ showToast }) => {
+                    showToast("❌ Only .mod, .xm, .it, .s3m allowed!", '🚫');
+                });
             }
-        });
+        }
+    };
+
+    if (dragOverlay) {
+        window.addEventListener('dragenter', onDragEnter);
+        window.addEventListener('dragleave', onDragLeave);
+        window.addEventListener('dragover', onDragOver);
+        window.addEventListener('drop', onDrop);
     }
 
     return {
         controls,
         updateReticleState, // <--- EXPORT THIS
+        cleanup: () => {
+            document.body.removeEventListener('click', onBodyClick);
+            document.removeEventListener('keydown', onKeyDown);
+            document.removeEventListener('keyup', onKeyUp);
+            document.removeEventListener('mousedown', onMouseDown);
+            document.removeEventListener('mouseup', onMouseUp);
+
+            if (dragOverlay) {
+                window.removeEventListener('dragenter', onDragEnter);
+                window.removeEventListener('dragleave', onDragLeave);
+                window.removeEventListener('dragover', onDragOver);
+                window.removeEventListener('drop', onDrop);
+            }
+        },
         updateDayNightButtonState: (isPressed: boolean) => {
             if (toggleDayNightBtn) {
                 toggleDayNightBtn.setAttribute('aria-pressed', String(isPressed));

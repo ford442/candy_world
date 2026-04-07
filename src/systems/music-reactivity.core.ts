@@ -33,6 +33,9 @@ const _noteNameCache: Record<string, string> = {};
 const _speciesMapCache: Record<string, any> = {};
 const _scratchSphere = new THREE.Sphere(); // Reusable for culling checks
 
+// ⚡ OPTIMIZATION: Manually track cache size to prevent Object.keys() GC spikes
+let _noteNameCacheSize = 0;
+
 // --- Core Calculation Functions ---
 
 /**
@@ -154,9 +157,10 @@ export function resolveNoteName(note: number | string): string {
         // Handle "C4", "F#3" etc.
         const noteName = note.replace(/[0-9-]/g, '');
         
-        // Limit cache size to prevent memory leak
-        if (Object.keys(_noteNameCache).length < 200) {
+        // ⚡ OPTIMIZATION: Use integer counter instead of Object.keys() to prevent GC spikes
+        if (_noteNameCacheSize < 200) {
             _noteNameCache[note] = noteName;
+            _noteNameCacheSize++;
         }
         
         return noteName;

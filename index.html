@@ -585,6 +585,10 @@
             <button id="openJukeboxBtn" class="toggle-button" aria-keyshortcuts="Q" aria-label="Open Jukebox playlist" aria-haspopup="dialog" aria-expanded="false">
                 Open Jukebox <span class="key-badge" aria-hidden="true">Q</span>
             </button>
+
+            <button id="openA11yBtn" class="toggle-button" aria-label="Open Accessibility Settings" aria-haspopup="dialog" aria-expanded="false" title="Accessibility Settings">
+                <span aria-hidden="true">♿</span> Accessibility
+            </button>
         </div>
 
         <div class="controls-container" role="region" aria-label="Controls Guide">
@@ -674,6 +678,12 @@
     </div>
 
     <div id="reticle-label" aria-live="polite"></div>
+
+    <div id="tracker-status" role="region" aria-label="Tracker Status" style="position: absolute; top: 15px; right: 15px; background: rgba(0,0,0,0.6); padding: 10px; border-radius: 8px; color: #FFF; font-family: monospace; display: flex; flex-direction: column; gap: 5px; pointer-events: none; z-index: 100; border: 2px solid #ff69b4;">
+        <div style="font-weight: bold; color: #ff69b4; text-transform: uppercase; font-size: 0.9em; letter-spacing: 1px;">Tracker Status</div>
+        <div>Pattern: <span id="tracker-pattern">00</span></div>
+        <div>Row: <span id="tracker-row">00</span></div>
+    </div>
 
     <div id="ability-hud" role="region" aria-label="Abilities">
         <div id="energy-bar-container" role="progressbar" aria-label="Energy Bar" aria-valuemin="0" aria-valuemax="10" aria-valuenow="0">
