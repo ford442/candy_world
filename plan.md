@@ -10,6 +10,7 @@
 
 ## Next Steps
 
+1. **Phase 4 (Three.js -> WebGPU) Stage C**: Once compute + custom render passes are in place, migrate scene hierarchy to an ECS in WASM and call `device.queue.submit()` directly.
 1. **Phase 4 targets (Rainbow Blaster Compute)**: Migrate `src/gameplay/rainbow-blaster.ts` visuals to WebGPU Compute Shaders (GPGPU).
 2. **Phase 4 (Three.js -> WebGPU) Stage C**: Scene Graph Replacement - Once compute + custom render passes are in place, migrate scene hierarchy to an ECS in WASM and call `device.queue.submit()` directly.
 
@@ -17,6 +18,8 @@
 
 ## Recent Progress
 - **Accomplished:**
+  - **Phase 4 - Compute Shaders (GPGPU) - Waterfall Splashes**: **Status: Implemented ✅**
+    - *Implementation Details: Replaced the CPU-driven splash particle simulation loop in `src/foliage/waterfalls.ts` with a TSL WebGPU compute shader utilizing `StorageBufferAttribute`. Implemented floor collision logic and audio-reactive velocity impulses (`uPulseIntensity`) purely on the GPU.*
   - **Verify Data Flow (`AudioSystem`)**: **Status: Implemented ✅**
     - *Implementation Details: Updated `src/main.ts` and `index.html` with a Tracker Status HUD UI element that continuously monitors and displays the current Pattern (`order`) and Row. This verified that `AudioSystem` correctly extracts and passes tracker data from the worklet to the main thread.*
   - **Phase 4 (Three.js -> WebGPU) Stage B (Weather Particles)**: **Status: Implemented ✅**
