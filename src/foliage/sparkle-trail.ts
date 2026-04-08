@@ -1,6 +1,9 @@
 import * as THREE from 'three';
 import { PointsNodeMaterial, StorageBufferAttribute } from 'three/webgpu';
-import { vec4, attribute, float, mix, color, vec3, smoothstep, sin, positionLocal, cos, Fn, instanceIndex, storage, uniform, If, length } from 'three/tsl';
+import { vec4, attribute, float, mix, color, vec3, smoothstep, sin, positionLocal, cos, Fn, instanceIndex, storage, uniform, If, length, floor } from 'three/tsl';
+
+// WGSL-compatible modulo: x - y * floor(x / y)
+const modFloat = (x: any, y: any) => x.sub(y.mul(x.div(y).floor()));
 import { uTime, uAudioHigh, uAudioLow } from './index.ts';
 
 const TRAIL_SIZE = 2000; // Increased buffer size for richer trails
@@ -155,7 +158,7 @@ export function createSparkleTrail(): THREE.Points {
         // Is this index one of the ones being spawned this frame?
         const diff = index.sub(spawnIdx);
         // Add TRAIL_SIZE to handle negative diffs, then modulo
-        const wrappedDiff = diff.add(TRAIL_SIZE).mod(TRAIL_SIZE);
+        const wrappedDiff = modFloat(diff.add(float(TRAIL_SIZE)), float(TRAIL_SIZE));
 
         If(wrappedDiff.lessThan(spawnCount), () => {
             // Spawn new particle!

@@ -39,8 +39,12 @@ import {
     positionLocal,
     mix,
     sin,
-    cos
+    cos,
+    floor
 } from 'three/tsl';
+
+// WGSL-compatible modulo: x - y * floor(x / y)
+const modFloat = (x: any, y: any) => x.sub(y.mul(x.div(y).floor()));
 import { PointsNodeMaterial } from 'three/webgpu';
 
 import type {
@@ -230,7 +234,7 @@ class BubbleStreamSystem implements IParticleSystem {
         const wobbleZ = time.mul(2.5 * riseSpeed).add(aOffset).cos().mul(0.3);
 
         const pos = positionLocal;
-        const newY = pos.y.add(riseHeight).mod(resetHeight);
+        const newY = modFloat(pos.y.add(riseHeight), resetHeight);
 
         material.positionNode = vec3(
             pos.x.add(wobbleX),
@@ -456,7 +460,7 @@ class LeafConfettiSystem implements IParticleSystem {
         const tumbleRotation = fall.mul(3.0).add(aRotation);
 
         const pos = positionLocal;
-        const newY = pos.y.sub(fall).mod(15.0).add(position.y - 5); // Loop falling
+        const newY = modFloat(pos.y.sub(fall), float(15.0)).add(position.y - 5); // Loop falling
 
         material.positionNode = vec3(
             pos.x.add(windX),
@@ -548,7 +552,7 @@ class PulseRingSystem implements IParticleSystem {
         const aAngle = attribute('angle', 'float');
 
         // Expanding ring on pulse
-        const expansion = time.mul(2.0).mod(3.0);
+        const expansion = modFloat(time.mul(2.0), float(3.0));
         const fadeOut = expansion.div(3.0).oneMinus();
 
         const pos = positionLocal;

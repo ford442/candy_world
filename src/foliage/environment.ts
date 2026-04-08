@@ -1,6 +1,9 @@
 import * as THREE from 'three';
 import { MeshStandardNodeMaterial, PointsNodeMaterial } from 'three/webgpu';
-import { time, vec3, positionLocal, length, sin, cos, color as tslColor, attribute, float, uniform, mix, smoothstep, color, positionWorld, normalWorld } from 'three/tsl';
+import { time, vec3, positionLocal, length, sin, cos, color as tslColor, attribute, float, uniform, mix, smoothstep, color, positionWorld, normalWorld, floor } from 'three/tsl';
+
+// WGSL-compatible modulo: x - y * floor(x / y)
+const modFloat = (x: any, y: any) => x.sub(y.mul(x.div(y).floor()));
 import { registerReactiveMaterial, attachReactivity, CandyPresets, uTime, uAudioLow, uAudioHigh, createJuicyRimLight, createSugarSparkle } from './index.ts';
 import { uTwilight, uHorizonColor } from './sky.ts';
 
@@ -208,7 +211,7 @@ export function createKickDrumGeyser(options: KickDrumGeyserOptions = {}) {
 
     // ⚡ OPTIMIZATION: TSL Node for Plume Animation
     const velocityAttr = attribute('velocity', 'float');
-    const yOffset = uTime.mul(velocityAttr).mul(5.0).mod(float(maxHeight));
+    const yOffset = modFloat(uTime.mul(velocityAttr).mul(5.0), float(maxHeight));
 
     // Add jitter
     const jitterX = sin(uTime.mul(10.0).add(velocityAttr.mul(100.0))).mul(0.1);

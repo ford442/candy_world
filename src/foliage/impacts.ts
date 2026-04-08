@@ -2,8 +2,11 @@ import * as THREE from 'three';
 import { MeshStandardNodeMaterial, StorageInstancedBufferAttribute } from 'three/webgpu';
 import {
     float, sin, positionLocal, storage, Fn, If, instanceIndex, uniform,
-    exp, rotate, normalize, vec4, vec3, smoothstep, mix
+    exp, rotate, normalize, vec4, vec3, smoothstep, mix, floor
 } from 'three/tsl';
+
+// WGSL-compatible modulo: x - y * floor(x / y)
+const modFloat = (x: any, y: any) => x.sub(y.mul(x.div(y).floor()));
 import { uTime, uAudioHigh, uAudioLow } from './index.ts';
 
 const MAX_PARTICLES = 4000; // Increased capacity for juice
@@ -230,7 +233,7 @@ export function createImpactSystem(): THREE.InstancedMesh {
 
         If(stageIndex.lessThan(spawnCount), () => {
             // Target index in main buffer
-            const targetIdx = stageIndex.add(spawnIdx).mod(MAX_PARTICLES);
+            const targetIdx = modFloat(stageIndex.add(spawnIdx), float(MAX_PARTICLES));
 
             // Copy from staging to main
             sSpawnNode.element(targetIdx).assign(inSpawnNode);
