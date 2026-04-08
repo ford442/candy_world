@@ -54,7 +54,7 @@ class ChiptuneProcessor extends AudioWorkletProcessor {
     async initLib() {
         try {
             // --- FIX: Accept both factory and already-initialized Module object ---
-            const libGlobal = globalThis.libopenmpt || globalThis.Module || null;
+            let libGlobal = globalThis.libopenmpt || globalThis.Module || null;
 
             // Determine a base URL to resolve any locateFile calls. Prefer import.meta.url when it's a normal http(s) URL.
             const fallbackLocateBase = '/js/';
@@ -74,7 +74,14 @@ class ChiptuneProcessor extends AudioWorkletProcessor {
 
             if (typeof libGlobal === 'function') {
                 // Emscripten modularized build - call factory with locateFile pointing at the lib script's folder
-                lib = await libGlobal({ locateFile: (path) => new URL(path, computedBase).href });
+                // Also add memory limit settings to prevent allocation failures
+                lib = await libGlobal({ 
+                    locateFile: (path) => new URL(path, computedBase).href,
+                    // Limit memory to avoid Array buffer allocation failures
+                    // Start with 16MB, max 64MB for worklet context
+                    initialMemory: 16 * 1024 * 1024,  // 16MB
+                    maximumMemory: 64 * 1024 * 1024   // 64MB
+                });
             } else if (libGlobal && typeof libGlobal.then === 'function') {
                 // Promise-like (rare) - await it
                 lib = await libGlobal;
@@ -82,8 +89,15 @@ class ChiptuneProcessor extends AudioWorkletProcessor {
                 // Already-initialized Module object (or in-progress). Wait for it to be ready if necessary.
                 lib = libGlobal;
                 const deadline = Date.now() + 5000;
+                // --- FIX: Use busy-wait with Atomics-like behavior instead of setTimeout ---
                 while (!(lib && (lib._malloc || lib.cwrap || lib.HEAPU8)) && Date.now() < deadline) {
-                    await new Promise(r => setTimeout(r, 50));
+                    // Poll timeouts if available
+                    if (globalThis._pollTimeouts) globalThis._pollTimeouts();
+                    // Small synchronous delay to prevent blocking
+                    const waitStart = Date.now();
+                    while (Date.now() - waitStart < 5) {
+                        // Busy wait for 5ms
+                    }
                 }
                 if (!(lib && (lib._malloc || lib.cwrap || lib.HEAPU8))) {
                     throw new Error('libopenmpt present but failed to initialize within timeout');
@@ -111,6 +125,7 @@ class ChiptuneProcessor extends AudioWorkletProcessor {
             this.port.postMessage({ type: 'READY' });
         } catch (e) {
             console.error("Failed to init libopenmpt in Worklet", e);
+            this.port.postMessage({ type: 'ERROR', error: e.message || 'Unknown error initializing libopenmpt' });
         }
     }
     
@@ -210,6 +225,11 @@ class ChiptuneProcessor extends AudioWorkletProcessor {
     }
 
     process(inputs, outputs, parameters) {
+        // Poll for pending timeouts (setTimeout/setInterval polyfills)
+        if (globalThis._pollTimeouts) {
+            globalThis._pollTimeouts();
+        }
+        
         const output = outputs[0];
         if (!output) return true;
         

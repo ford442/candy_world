@@ -19,7 +19,7 @@ import {
     createTerrainMaterial // Added
 } from '../foliage/index.ts';
 import { generateCloudLayer } from '../foliage/procedural-sky.ts';
-import { validateFoliageMaterials } from '../foliage/index.ts';
+import { validateFoliageMaterials, foliageMaterials } from '../foliage/index.ts';
 import { CONFIG } from '../core/config.ts';
 import { registerPhysicsCave } from '../systems/physics/index.js';
 import { initDiscoveryForFoliage } from '../systems/discovery-optimized.ts';
@@ -135,7 +135,7 @@ function getUnifiedGroundHeight(x: number, z: number): number {
 
 export function initWorld(scene: THREE.Scene, weatherSystem: WeatherSystem, loadContent: boolean = true): WorldObjects {
     // 0. Pre-flight Check
-    validateFoliageMaterials();
+    validateFoliageMaterials(foliageMaterials);
 
     // Sky
     const sky = createSky();

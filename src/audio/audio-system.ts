@@ -371,10 +371,16 @@ export class AudioSystem {
         // --------------------------
 
         this.workletNode = new AudioWorkletNode(this.audioContext!, 'chiptune-processor');
+        
+        // Handle worklet errors
+        this.workletNode.onprocessorerror = (e) => {
+            console.error('[AudioSystem] AudioWorklet processor error:', e);
+            this.isReady = false;
+        };
 
         // Wire up messages from the audio thread
         this.workletNode.port.onmessage = (event) => {
-            const { type, data } = event.data || {};
+            const { type, data, error } = event.data || {};
             if (type === 'VISUAL_UPDATE') {
                 this.handleVisualUpdate(data);
             } else if (type === 'SONG_END') {
@@ -386,6 +392,15 @@ export class AudioSystem {
                 if (this.playlist.length > 0 && this.currentIndex === -1) {
                     this.playNext(0);
                 }
+            } else if (type === 'ERROR') {
+                console.error("AudioSystem: Worklet Error:", error);
+                // Fall back to ScriptProcessorNode mode if Worklet fails
+                console.warn("AudioSystem: Falling back to ScriptProcessorNode mode due to Worklet error.");
+                this.useScriptProcessorNode = true;
+                this.cleanupWorklet();
+                this.initScriptProcessorMode().catch(e => {
+                    console.error("AudioSystem: ScriptProcessor fallback also failed:", e);
+                });
             }
         };
     }
@@ -847,6 +862,19 @@ export class AudioSystem {
         this.isStopping = false;
 
         // There's no longer a main-thread module pointer we reset here in AudioWorkletNode mode; Worklet handles its own reset
+    }
+
+    private cleanupWorklet(): void {
+        try {
+            if (this.workletNode) {
+                this.workletNode.port.postMessage({ type: 'STOP' });
+                this.workletNode.disconnect();
+                this.workletNode = null;
+            }
+        } catch (e) {
+            console.warn('[AudioSystem] Error cleaning up worklet:', e);
+        }
+        this.workletNode = null;
     }
 
     handleVisualUpdate(data: any): void {

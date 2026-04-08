@@ -97,6 +97,9 @@ export { FoliageMaterial, FoliageObject } from './types';
 // Re-export glitch functionality
 export { applyGlitch } from './glitch.ts';
 
+// Re-export animation functions
+export { updateFoliageMaterials } from './animation.ts';
+
 // Re-export wind compute
 export { 
     windComputeSystem as defaultWindComputeSystem,
