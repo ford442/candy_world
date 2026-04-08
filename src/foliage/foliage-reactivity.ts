@@ -36,12 +36,11 @@ export function cleanupReactivity(object: THREE.Object3D) {
 // --- VALIDATION HELPERS ---
 
 export function validateFoliageMaterials(foliageMaterials?: { [key: string]: THREE.Material | THREE.Material[] }) {
-    // Lazy import to avoid circular dependencies
-    const { foliageMaterials: defaultMaterials } = require('./foliage-materials.ts');
-    const materials = foliageMaterials || defaultMaterials;
+    // Use provided materials or return false - caller should provide materials
+    const materials = foliageMaterials;
     
     if (!materials) {
-        console.error('[Foliage] validateFoliageMaterials: No foliageMaterials provided and default import failed.');
+        console.error('[Foliage] validateFoliageMaterials: No foliageMaterials provided.');
         return false;
     }
     
