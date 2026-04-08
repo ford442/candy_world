@@ -60,6 +60,10 @@ export {
     wasmAddCollisionObject,
     wasmResolveGameCollisions,
     wasmCheckPositionValidity,
+    wasmSmoothWobble,
+    wasmBatchGrowth,
+    wasmBatchBloom,
+    wasmBatchScaleAnimation,
     
     // Re-exports from orchestrator
     LOADING_PHASES,
