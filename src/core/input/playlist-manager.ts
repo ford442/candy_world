@@ -213,6 +213,7 @@ export function renderPlaylist(): void {
         const displayName = formatSongTitle(file.name);
 
         const btn = document.createElement('button');
+        btn.type = 'button';
         btn.className = 'playlist-btn';
         // 🎨 Palette: Use formatted title for tooltip and screen readers
         btn.title = displayName;
@@ -244,6 +245,7 @@ export function renderPlaylist(): void {
 
         // Remove Button (UX Improvement)
         const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
         removeBtn.className = 'playlist-remove-btn';
         removeBtn.innerHTML = '<span aria-hidden="true">×</span>';
         // 🎨 Palette: Use formatted title for tooltip and screen readers
@@ -292,9 +294,15 @@ export function renderPlaylist(): void {
         li.style.textAlign = 'center';
 
         const emptyBtn = document.createElement('button');
+        emptyBtn.type = 'button';
         emptyBtn.className = 'secondary-button'; // Reuse existing class for consistent look
+        // 🎨 Palette: Improve empty state by making it clear and actionable using existing styles
         emptyBtn.style.fontSize = '1em'; // Make it slightly more prominent if needed
-        emptyBtn.innerHTML = 'No songs... Click to Add! <span aria-hidden="true">🍭</span>';
+        emptyBtn.style.width = '100%';
+        emptyBtn.innerHTML = `
+            <span style="display: block; margin-bottom: 4px;"><span aria-hidden="true">🎵</span> Your playlist is empty</span>
+            <span style="display: block; font-size: 0.9em; opacity: 0.9;">Click to add music! <span aria-hidden="true">🍭</span></span>
+        `;
         emptyBtn.setAttribute('aria-label', 'Playlist empty. Click to upload music files.');
 
         emptyBtn.onclick = (e) => {
