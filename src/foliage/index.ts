@@ -102,3 +102,60 @@ export {
     windComputeSystem as defaultWindComputeSystem,
     getWindTextureData as defaultGetWindTextureData 
 } from './wind-compute.ts';
+
+// =============================================================================
+// FOLIAGE OBJECT CREATORS - Sky, celestial bodies, mushrooms, flowers, trees
+// =============================================================================
+export { createCrescendoFogNode, createSky } from './sky.ts';
+export { createStars } from './stars.ts';
+export { createMoon } from './moon.ts';
+export { createMushroom } from './mushrooms.ts';
+export { 
+    createFlower, 
+    createGlowingFlower, 
+    createStarflower,
+    createBellBloom,
+    createPuffballFlower,
+    createPrismRoseBush,
+    createVibratoViolet,
+    createTremoloTulip,
+    createLanternFlower,
+    createGlowingFlowerPatch
+} from './flowers.ts';
+export { 
+    createFloweringTree, 
+    createShrub, 
+    createVine, 
+    createLeafParticle,
+    createBubbleWillow,
+    createHelixPlant,
+    createBalloonBush,
+    createVineCluster,
+    createAccordionPalm,
+    createFiberOpticWillow,
+    createSwingableVine,
+    VineSwing
+} from './trees.ts';
+export { createSubwooferLotus } from './lotus.ts';
+export { createFloatingOrb, createFloatingOrbCluster, createKickDrumGeyser } from './environment.ts';
+export { createRainingCloud } from './clouds.ts';
+export { createWaveformWater } from './water.ts';
+export { createFireflies } from './fireflies.ts';
+export { initFallingBerries } from './berries.ts';
+export { initGrassSystem, addGrassInstance } from './grass.ts';
+export { 
+    createArpeggioFern, 
+    createPortamentoPine, 
+    createCymbalDandelion, 
+    createSnareTrap,
+    createRetriggerMushroom
+} from './musical_flora.ts';
+export { createWisteriaCluster } from './wisteria-cluster.ts';
+export { createPanningPad } from './panning-pads.ts';
+export { createSilenceSpirit } from './silence-spirits.ts';
+export { createInstrumentShrine } from './instrument.ts';
+export { createMelodyMirror } from './mirrors.ts';
+export { createIsland } from './lake_features.ts';
+export { createCaveEntrance } from './cave.ts';
+export { createNeonPollen } from './pollen.ts';
+export { createTerrainMaterial } from './terrain.ts';
