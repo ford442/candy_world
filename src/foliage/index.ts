@@ -92,7 +92,7 @@ export {
 // Note: UnifiedMaterialOptions is already exported above via './material-core.ts'
 
 // Keep the FoliageMaterial type available
-export { FoliageMaterial } from './types';
+export { FoliageMaterial, FoliageObject } from './types';
 
 // Re-export glitch functionality
 export { applyGlitch } from './glitch.ts';
