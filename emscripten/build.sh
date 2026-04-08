@@ -131,6 +131,11 @@ function_exists() {
     if grep -E "(void|float|int|double|char|long|unsigned|uintptr_t)\s*\*?\s*${func_name}\s*\(" $CPP_FILES >/dev/null 2>&1; then
         return 0  # Function found
     fi
+    # Also check for EMSCRIPTEN_KEEPALIVE on previous line (multiline pattern)
+    # Use -A1 to get line after EMSCRIPTEN_KEEPALIVE and check if it contains our function
+    if grep -A1 "EMSCRIPTEN_KEEPALIVE" $CPP_FILES 2>/dev/null | grep -E "(void|float|int|double|char|long|unsigned|uintptr_t)\s*\*?\s*${func_name}\s*\(" >/dev/null 2>&1; then
+        return 0  # Function found after EMSCRIPTEN_KEEPALIVE
+    fi
     return 1  # Function not found
 }
 

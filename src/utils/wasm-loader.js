@@ -61,27 +61,6 @@ export {
     wasmResolveGameCollisions,
     wasmCheckPositionValidity,
     
-    // Type definitions
-    type AnimationTypeValue,
-    type WasiStubs,
-    type WasmImportObject,
-    type EmscriptenModule,
-    type ExtendedEmscriptenModule,
-    type Positionable,
-    type Mushroom,
-    type Matrix4Like,
-    type Vector3Like,
-    type Cave,
-    type Cloud,
-    type Trampoline,
-    type MaterialInfo,
-    type AnimationData,
-    type PositionData,
-    type PlayerState,
-    type WasmExportValue,
-    type WasmExports,
-    type InitWasmParallelOptions,
-    
     // Re-exports from orchestrator
     LOADING_PHASES,
     isSharedMemoryAvailable,
@@ -97,14 +76,7 @@ export {
 
 export {
     // Animation type definitions
-    type WobbleResult,
-    type AccordionResult,
-    type FiberResult,
-    type ShiverResult,
-    type SpiralResult,
-    type PrismResult,
-    type ArpeggioResult,
-    type ParticleResult,
+
     
     // Simple animation helpers
     calcBounceY,
@@ -137,7 +109,7 @@ export {
 
 export {
     // Type definitions
-    type PlayerStateResult,
+
     
     // Collision system
     uploadCollisionObjects,
@@ -178,9 +150,7 @@ export {
 
 export {
     // Type definitions
-    type SpawnCandidate,
-    type MaterialAnalysisResult,
-    type DistanceCullResult,
+
     
     // Batch upload functions
     uploadPositions,
