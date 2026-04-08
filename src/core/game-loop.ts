@@ -30,7 +30,7 @@ import { updateSparkleTrail } from '../foliage/sparkle-trail.ts';
 import { getGroundHeight } from '../utils/wasm-loader.js';
 import { updateImpacts } from '../foliage/impacts.ts';
 import { createShield } from '../foliage/shield.ts';
-import { validateFoliageMaterials as updateFoliageMaterials } from '../foliage/foliage-reactivity.ts';
+import { updateFoliageMaterials } from '../foliage/animation.ts';
 import { windComputeSystem } from '../foliage/wind-compute.ts';
 import { chordStrikeSystem } from '../gameplay/chord-strike.ts';
 import { updateFallingClouds } from '../foliage/clouds.ts';

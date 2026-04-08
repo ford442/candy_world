@@ -35,17 +35,25 @@ export function cleanupReactivity(object: THREE.Object3D) {
 
 // --- VALIDATION HELPERS ---
 
-export function validateFoliageMaterials(foliageMaterials: { [key: string]: THREE.Material | THREE.Material[] }) {
+export function validateFoliageMaterials(foliageMaterials?: { [key: string]: THREE.Material | THREE.Material[] }) {
     // Lazy import to avoid circular dependencies
+    const { foliageMaterials: defaultMaterials } = require('./foliage-materials.ts');
+    const materials = foliageMaterials || defaultMaterials;
+    
+    if (!materials) {
+        console.error('[Foliage] validateFoliageMaterials: No foliageMaterials provided and default import failed.');
+        return false;
+    }
+    
     const getFallbackMaterial = () => {
         return new THREE.MeshStandardMaterial({ color: 0xFF00FF });
     };
     const required = ['lightBeam', 'mushroomCap', 'opticTip', 'lotusRing', 'flowerStem'];
     let safe = true;
     required.forEach(key => {
-        if (!foliageMaterials[key]) {
+        if (!materials[key]) {
             console.error(`[Foliage] Missing material: ${key}. Using fallback.`);
-            foliageMaterials[key] = getFallbackMaterial();
+            materials[key] = getFallbackMaterial();
             safe = false;
         }
     });

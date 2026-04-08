@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "bash dev.sh",
     "preview": "vite preview",
-    "build:wasm": "asc assembly/index.ts --outFile src/wasm/candy_physics.wasm --textFile src/wasm/candy_physics.wat --sourceMap --shrinkLevel 0 --optimize --converge --optimizeLevel 3 --enable simd --enable bulk-memory --initialMemory 384 --target wasm-gc --enable reference-types --enable gc --exportRuntime --bindings esm",
+    "build:wasm": "asc assembly/index.ts --outFile src/wasm/candy_physics.wasm --textFile src/wasm/candy_physics.wat --sourceMap --shrinkLevel 0 --optimize --converge --optimizeLevel 3 --enable simd --enable bulk-memory --initialMemory 4 --maximumMemory 256 --target wasm-gc --enable reference-types --enable gc --exportRuntime --bindings esm",
     "build:emcc": "bash emscripten/build.sh",
     "optimize": "cd tools/build-optimizer && npm run optimize",
     "optimize:assets": "cd tools/build-optimizer && npm run optimize:assets",
