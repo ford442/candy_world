@@ -4,7 +4,7 @@ import {
     createUnifiedMaterial,
     uTime,
     uAudioLow
-} from './common.ts';
+} from './index.ts';
 import {
     vec3,
     sin,

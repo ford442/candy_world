@@ -10,12 +10,12 @@ import {
     createStandardNodeMaterial,
     uAudioHigh,
     uPlayerPosition
-} from './common.ts';
+} from './index.ts';
 import {
     color, float, uniform, vec3, positionLocal, sin, cos, mix, uv, varying,
     smoothstep, attribute, positionWorld, If, vec4
 } from 'three/tsl';
-import { uTime, uGlitchIntensity } from './common.ts';
+import { uTime, uGlitchIntensity } from './index.ts';
 import { applyGlitch } from './glitch.ts';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 

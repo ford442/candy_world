@@ -1,98 +1,49 @@
 /**
  * @file index.ts
- * @description Barrel export for particles module
+ * @description Barrel file for particle system exports
+ * Re-exports all public APIs from the compute particle system modules
+ * for backward compatibility.
  */
 
-// Configuration types
-export * from './particle_config.ts';
+// Types and interfaces
+export type {
+    ComputeParticleType,
+    ComputeParticleConfig,
+    ParticleBuffers,
+    ParticleAudioData,
+    FireflyConfig,
+    PollenConfig,
+    BerryConfig,
+    RainConfig,
+    SparkConfig,
+    ComputeSystemCollection
+} from './compute-particles-types.ts';
 
-// Audio integration
+// Shaders
 export {
-    uPulseStrength,
-    uPulseColor,
-    uBeatPhase,
-    uAudioLevel,
-    updateParticleAudioUniforms,
-    getParticleAudioState,
-    resetParticleAudioUniforms
-} from './audio_reactive.ts';
+    UPDATE_PARTICLES_WGSL,
+    RENDER_PARTICLES_WGSL,
+    FRAGMENT_PARTICLES_WGSL
+} from './compute-particles-shaders.ts';
 
-// GPU particle systems (TSL-based)
-export {
-    // Particle system creators
-    createShimmerParticles,
-    createBubbleStream,
-    createPollenCloud,
-    createLeafConfetti,
-    createPulseRing,
-    
-    // Helper functions
-    addAmbientParticles,
-    disposeParticleSystems
-} from './gpu_particles.ts';
+// CPU fallback system
+export { CPUParticleSystem } from './cpu-particle-system.ts';
 
-// WebGPU Compute Shader particle systems (high performance)
+// Main GPU compute system and factory functions
 export {
-    // Main class
     ComputeParticleSystem,
-    
-    // Factory functions for different particle types
     createComputeFireflies,
     createComputePollen,
     createComputeBerries,
     createComputeRain,
     createComputeSparks,
-    
-    // System management
     initComputeParticleSystems,
     addComputeSystem,
     removeComputeSystem,
     updateAllComputeSystems,
     disposeAllComputeSystems,
-    getActiveComputeSystems,
-    
-    // Types
-    type ComputeParticleType,
-    type ComputeParticleConfig,
-    type ParticleBuffers,
-    type ParticleAudioData,
-    type FireflyConfig,
-    type PollenConfig,
-    type BerryConfig,
-    type RainConfig,
-    type SparkConfig,
-    type ComputeSystemCollection,
-    
-    // Shader sources (for advanced use)
-    UPDATE_PARTICLES_WGSL,
-    RENDER_PARTICLES_WGSL,
-    FRAGMENT_PARTICLES_WGSL,
+    getActiveComputeSystems
 } from './compute-particles.ts';
 
-// Integration helpers for migrating existing systems
-export {
-    // Drop-in replacements
-    createIntegratedFireflies,
-    createIntegratedPollen,
-    
-    // System registry
-    registerIntegratedSystem,
-    updateAllIntegratedSystems,
-    disposeIntegratedSystem,
-    disposeAllIntegratedSystems,
-    
-    // Deferred loading
-    queueDeferredSystem,
-    loadDeferredSystems,
-    
-    // Benchmarking
-    benchmarkParticleSystem,
-    printBenchmarkResults,
-    getParticleMetrics,
-    getAllParticleMetrics,
-    
-    // Types
-    type IntegratedFireflyOptions,
-    type IntegratedPollenOptions,
-    type BenchmarkResult,
-} from './compute-integration.ts';
+// Default export
+export { default } from './compute-particles.ts';

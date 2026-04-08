@@ -15,6 +15,22 @@
 export { ComputeParticleSystem } from './particle_compute.ts';
 
 // ============================================================================
+// GPU Particle System (WebGPU Compute)
+// ============================================================================
+export {
+    GPUParticleSystem,
+    createFireworkSystem,
+    createSparkleSystem,
+    createRainSystem,
+    createParticleSystemWithFallback
+} from './gpu-particle-system.ts';
+export type {
+    vec3,
+    GPUParticleConfig,
+    GPUParticleAudioState
+} from './gpu-particle-system.ts';
+
+// ============================================================================
 // Procedural noise generation (CPU)
 // ============================================================================
 export {
@@ -93,5 +109,42 @@ export {
     NOISE_HEIGHTMAP_WGSL,
     FRUSTUM_CULL_WGSL,
     DISTANCE_CULL_WGSL,
-    COMBINED_CULL_WGSL
+    COMBINED_CULL_WGSL,
+    PARTICLE_PHYSICS_WGSL
 } from './gpu-compute-shaders.ts';
+
+// ============================================================================
+// GPU Culling System (high-performance frustum and occlusion culling)
+// ============================================================================
+export {
+    GPUCullingSystem,
+    createFrustumFromMatrices,
+    createFrustumFromCamera,
+    LOD_PRESETS
+} from './gpu-culling-system.ts';
+export type {
+    BoundingSphere,
+    Plane,
+    Frustum,
+    CullingConfig,
+    CullingResult
+} from './gpu-culling-system.ts';
+
+// ============================================================================
+// GPU Foliage Animation
+// ============================================================================
+export {
+    GPUFoliageAnimator,
+    FOLIAGE_ANIMATION_WGSL,
+    AnimationType,
+    createGPUFoliageAnimator,
+    createFoliageInstanceData,
+    updateInstancedMeshFromAnimator,
+    detectFoliageCapabilities
+} from './gpu-foliage-animator.ts';
+export type {
+    FoliageInstanceData,
+    FoliageAudioState,
+    FoliageAnimationOutput,
+    FoliageAnimatorCapabilities
+} from './gpu-foliage-animator.ts';

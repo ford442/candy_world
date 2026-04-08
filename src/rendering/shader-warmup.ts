@@ -20,7 +20,7 @@
 import * as THREE from 'three';
 import { MeshStandardNodeMaterial, MeshBasicNodeMaterial } from 'three/webgpu';
 import { vec3, positionLocal } from 'three/tsl';
-import { CandyPresets, foliageMaterials } from '../foliage/common.ts';
+import { CandyPresets, foliageMaterials } from '../foliage/index.ts';
 import { createTerrainMaterial } from '../foliage/terrain.ts';
 
 // Warm-up target types

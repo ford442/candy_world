@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { float, color, positionLocal, sin, cos, vec3 } from 'three/tsl';
-import { uAudioHigh, createJuicyRimLight, uTime } from '../foliage/common.ts';
+import { uAudioHigh, createJuicyRimLight, uTime } from '../foliage/index.ts';
 
 // Reusable scratch variables to avoid GC
 const _scratchVec = new THREE.Vector3();

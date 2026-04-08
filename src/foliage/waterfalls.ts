@@ -5,7 +5,7 @@ import {
     instanceIndex, vec3, positionLocal, max, length, min, abs 
 } from 'three/tsl';
 import { MeshStandardNodeMaterial, StorageBufferAttribute } from 'three/webgpu';
-import { registerReactiveMaterial, attachReactivity, CandyPresets, uAudioHigh, uTime, createJuicyRimLight } from './common.ts';
+import { registerReactiveMaterial, attachReactivity, CandyPresets, uAudioHigh, uTime, createJuicyRimLight } from './index.ts';
 /**
  * Creates a bioluminescent waterfall connecting two points.
  * @param {THREE.Vector3} startPos - Top position

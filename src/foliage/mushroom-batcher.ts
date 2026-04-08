@@ -10,7 +10,7 @@ import {
     sharedGeometries, foliageMaterials, uTime,
     uAudioLow, uAudioHigh, createRimLight, createJuicyRimLight, uPlayerPosition, colorFromNote,
     createSugarSparkle
-} from './common.ts';
+} from './index.ts';
 import { uTwilight } from './sky.ts';
 import { foliageGroup } from '../world/state.ts'; // Assuming state.ts exports foliageGroup
 import { spawnImpact } from './impacts.ts';

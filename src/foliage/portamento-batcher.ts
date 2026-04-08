@@ -9,7 +9,7 @@ import {
   createJuicyRimLight,
   uAudioHigh,
   uAudioLow
-} from './common.ts';
+} from './index.ts';
 import { uTwilight } from './sky.ts';
 import {
   vec3,

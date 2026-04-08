@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { color, float, vec3, vec4, uv, mix, smoothstep, uniform, Fn, time, mx_noise_float, positionWorld, positionLocal, dot, sin, cos, storage, instanceIndex, vec2, If } from 'three/tsl';
 import { MeshBasicNodeMaterial, MeshStandardNodeMaterial, StorageInstancedBufferAttribute } from 'three/webgpu';
-import { uAudioLow, uAudioHigh, CandyPresets, uTime, createJuicyRimLight } from './common.ts';
+import { uAudioLow, uAudioHigh, CandyPresets, uTime, createJuicyRimLight } from './index.ts';
 import { getSphereGeometry } from '../utils/geometry-dedup.ts';
 
 // Global uniforms for Aurora control
@@ -84,8 +84,18 @@ export function createAurora(): THREE.Mesh {
 
 const MAX_ORBS = 50;
 
+interface HarmonyOrb {
+    active: boolean;
+    life: number;
+    position: THREE.Vector3;
+    velocity: THREE.Vector3;
+    scale: number;
+}
+
 class HarmonyOrbSystem {
     mesh: THREE.InstancedMesh;
+    dummy: THREE.Object3D;
+    orbs: HarmonyOrb[];
     dropCooldown: number = 0;
 
     // WebGPU Compute specific
@@ -109,6 +119,19 @@ class HarmonyOrbSystem {
     constructor() {
         // High quality sphere for glossy look
         const geometry = getSphereGeometry(0.3, 32, 32);
+
+        // Initialize CPU-side orb tracking
+        this.dummy = new THREE.Object3D();
+        this.orbs = [];
+        for (let i = 0; i < MAX_ORBS; i++) {
+            this.orbs.push({
+                active: false,
+                life: 0,
+                position: new THREE.Vector3(0, -9999, 0),
+                velocity: new THREE.Vector3(),
+                scale: 0
+            });
+        }
 
         // 1. Initialize Storage Buffers (Empty arrays, initialized in compute)
         const initialPositions = new Float32Array(MAX_ORBS * 3);

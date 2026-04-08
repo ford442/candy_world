@@ -13,7 +13,7 @@ import {
     uAudioLow,
     uGlitchIntensity,
     uTime
-} from './common.ts';
+} from './index.ts';
 import { makeInteractive } from '../utils/interaction-utils.ts';
 import { discoverySystem } from '../systems/discovery.ts';
 import { showToast } from '../utils/toast.js';

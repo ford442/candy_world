@@ -14,7 +14,7 @@ import {
     uAudioHigh,
     uAudioLow,
     uPlayerPosition
-} from './common.ts';
+} from './index.ts';
 import { attribute, color as tslColor, positionLocal, vec3, float, mx_noise_float, mix, sin, smoothstep, normalize, length, positionWorld } from 'three/tsl';
 import { foliageGroup } from '../world/state.ts';
 

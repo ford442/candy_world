@@ -18,526 +18,30 @@
  */
 
 import * as THREE from 'three';
-import { RegionManager, GridCell, CellState } from './region-manager';
+import { RegionManager, GridCell, CellState } from '../region-manager.ts';
+import {
+    AssetPriority,
+    AssetType,
+    TextureFormat,
+    LoadState,
+    QualityLevel,
+    MemoryPressure,
+    AssetMetadata,
+    AssetManifest,
+    LoadedAsset,
+    LoadingProgress,
+    StreamingConfig,
+    StreamingStats,
+    AssetRequest,
+    AssetBatch,
+    DEFAULT_STREAMING_CONFIG,
+    PRIORITY_DISTANCES,
+    QUALITY_FORMAT_PREFERENCES
+} from './asset-streaming-types.ts';
+import { LRUCache, NetworkManager } from './asset-loading-infrastructure.ts';
 
 // ============================================================================
-// TYPES & ENUMS
-// ============================================================================
-
-/** Asset priority levels for loading queue */
-export enum AssetPriority {
-    CRITICAL = 0,   // Core shaders, player model, immediate terrain
-    HIGH = 1,       // Nearby foliage (within 50m), UI textures
-    MEDIUM = 2,     // Distant scenery (50-150m), ambient audio
-    LOW = 3,        // Far terrain (150m+), optional decorations
-    BACKGROUND = 4  // Preload next likely areas
-}
-
-/** Asset types for specialized loading strategies */
-export enum AssetType {
-    TEXTURE = 'texture',
-    GEOMETRY = 'geometry',
-    AUDIO = 'audio',
-    SHADER = 'shader',
-    MATERIAL = 'material',
-    ANIMATION = 'animation',
-    DATA = 'data'
-}
-
-/** Texture format preferences (prioritize modern formats) */
-export enum TextureFormat {
-    AVIF = 'avif',      // Best compression, newer
-    WEBP = 'webp',      // Good compression, widely supported
-    PNG = 'png',        // Lossless fallback
-    JPEG = 'jpeg',      // Photos only
-    KTX2 = 'ktx2',      // Basis Universal compressed
-    BASIS = 'basis'     // Basis Universal
-}
-
-/** Loading state of an asset */
-export enum LoadingState {
-    PENDING = 'pending',
-    LOADING = 'loading',
-    STREAMING = 'streaming',  // For progressive/audio streaming
-    LOADED = 'loaded',
-    ERROR = 'error',
-    UNLOADED = 'unloaded'
-}
-
-/** Quality levels for adaptive streaming */
-export enum QualityLevel {
-    MINIMAL = 'minimal',    // Emergency low-bandwidth mode
-    LOW = 'low',
-    MEDIUM = 'medium',
-    HIGH = 'high',
-    ULTRA = 'ultra'
-}
-
-/** Memory pressure levels */
-export enum MemoryPressure {
-    NONE = 'none',
-    LOW = 'low',
-    MEDIUM = 'medium',
-    HIGH = 'high',
-    CRITICAL = 'critical'
-}
-
-/** Asset metadata from manifest */
-export interface AssetMetadata {
-    id: string;
-    type: AssetType;
-    priority: AssetPriority;
-    size: number;              // bytes
-    compressedSize?: number;   // bytes (compressed)
-    checksum: string;          // SHA-256 for integrity
-    dependencies: string[];    // Asset IDs this depends on
-    formats?: TextureFormat[]; // Available formats
-    lodVariants?: string[];    // LOD asset IDs (highest to lowest detail)
-    streamingSupported: boolean;
-    estimatedMemory: number;   // GPU memory in bytes
-    cellX?: number;            // World grid position
-    cellZ?: number;
-}
-
-/** Complete asset manifest */
-export interface AssetManifest {
-    version: string;
-    totalSize: number;
-    assets: Record<string, AssetMetadata>;
-    cells: Record<string, string[]>;  // cell key -> asset IDs
-    dependencyGraph: Record<string, string[]>;  // asset -> dependencies
-}
-
-/** Loaded asset data */
-export interface LoadedAsset {
-    id: string;
-    metadata: AssetMetadata;
-    state: LoadingState;
-    data: unknown;                    // THREE.Texture, AudioBuffer, etc.
-    lowResData?: unknown;             // Progressive loading placeholder
-    progress: number;                 // 0-1 for streaming assets
-    lastUsed: number;                 // Timestamp for LRU
-    referenceCount: number;
-    quality: QualityLevel;
-    loadTime: number;                 // ms to load
-}
-
-/** Loading progress info */
-export interface LoadingProgress {
-    bytesLoaded: number;
-    bytesTotal: number;
-    assetsLoaded: number;
-    assetsTotal: number;
-    currentAsset: string | null;
-    queueLength: number;
-    estimatedTimeRemaining: number;  // seconds
-}
-
-/** Network statistics for adaptive quality */
-export interface NetworkStats {
-    bandwidth: number;        // bytes/sec
-    latency: number;          // ms
-    connectionType: string;
-    saveData: boolean;
-    downlink?: number;        // Mbps (Network Information API)
-    rtt?: number;             // Round-trip time
-}
-
-/** Streaming configuration */
-export interface StreamingConfig {
-    // Region settings
-    cellSize: number;              // meters per grid cell (default: 50)
-    loadRadius: number;            // cells to load around player
-    unloadRadius: number;          // cells to unload (must be > loadRadius)
-    unloadDelayMs: number;         // delay before unloading distant cells
-    
-    // Quality settings
-    quality: QualityLevel;
-    enableLODSwitching: boolean;
-    lodTransitionDistance: number;
-    
-    // Memory settings
-    maxTextureMemory: number;      // bytes
-    maxGeometryMemory: number;     // bytes
-    maxAudioMemory: number;        // bytes
-    lruCacheSize: number;          // max cached assets
-    
-    // Network settings
-    enableHttp2Push: boolean;
-    enableRangeRequests: boolean;
-    enableServiceWorker: boolean;
-    maxConcurrentRequests: number;
-    retryAttempts: number;
-    retryDelayMs: number;
-    
-    // Loading settings
-    enableProgressiveTextures: boolean;
-    enableAudioStreaming: boolean;
-    enablePredictiveLoading: boolean;
-    predictiveLeadTime: number;    // seconds to preload ahead
-    
-    // Fallback settings
-    placeholderTimeoutMs: number;
-    lowQualityFallback: boolean;
-    showPlaceholders: boolean;
-}
-
-/** Streaming statistics */
-export interface StreamingStats {
-    totalAssets: number;
-    loadedAssets: number;
-    loadingAssets: number;
-    pendingAssets: number;
-    errorAssets: number;
-    memoryUsed: number;
-    cacheHits: number;
-    cacheMisses: number;
-    networkBytesDownloaded: number;
-    networkRequests: number;
-    failedRequests: number;
-    avgLoadTime: number;
-    currentMemoryPressure: MemoryPressure;
-    activeCells: number;
-    queuedCells: number;
-}
-
-// ============================================================================
-// DEFAULT CONFIGURATION
-// ============================================================================
-
-export const DEFAULT_STREAMING_CONFIG: StreamingConfig = {
-    cellSize: 50,
-    loadRadius: 3,           // 150m radius
-    unloadRadius: 5,         // 250m radius (unload buffer)
-    unloadDelayMs: 10000,    // 10 second buffer before unload
-    
-    quality: QualityLevel.HIGH,
-    enableLODSwitching: true,
-    lodTransitionDistance: 10,
-    
-    maxTextureMemory: 512 * 1024 * 1024,      // 512 MB
-    maxGeometryMemory: 256 * 1024 * 1024,     // 256 MB
-    maxAudioMemory: 64 * 1024 * 1024,         // 64 MB
-    lruCacheSize: 1000,
-    
-    enableHttp2Push: true,
-    enableRangeRequests: true,
-    enableServiceWorker: true,
-    maxConcurrentRequests: 6,
-    retryAttempts: 3,
-    retryDelayMs: 1000,
-    
-    enableProgressiveTextures: true,
-    enableAudioStreaming: true,
-    enablePredictiveLoading: true,
-    predictiveLeadTime: 5,
-    
-    placeholderTimeoutMs: 5000,
-    lowQualityFallback: true,
-    showPlaceholders: true
-};
-
-/** Priority distance thresholds (meters) */
-export const PRIORITY_DISTANCES: Record<AssetPriority, number> = {
-    [AssetPriority.CRITICAL]: 0,       // Always load
-    [AssetPriority.HIGH]: 50,
-    [AssetPriority.MEDIUM]: 150,
-    [AssetPriority.LOW]: 300,
-    [AssetPriority.BACKGROUND]: 500
-};
-
-/** Quality level to texture format preference mapping */
-export const QUALITY_FORMAT_PREFERENCES: Record<QualityLevel, TextureFormat[]> = {
-    [QualityLevel.MINIMAL]: [TextureFormat.BASIS, TextureFormat.KTX2],
-    [QualityLevel.LOW]: [TextureFormat.BASIS, TextureFormat.KTX2, TextureFormat.WEBP],
-    [QualityLevel.MEDIUM]: [TextureFormat.KTX2, TextureFormat.AVIF, TextureFormat.WEBP],
-    [QualityLevel.HIGH]: [TextureFormat.AVIF, TextureFormat.KTX2, TextureFormat.WEBP],
-    [QualityLevel.ULTRA]: [TextureFormat.PNG, TextureFormat.AVIF, TextureFormat.KTX2]
-};
-
-// ============================================================================
-// LRU CACHE IMPLEMENTATION
-// ============================================================================
-
-/**
- * LRU (Least Recently Used) cache for asset memory management.
- * Automatically evicts least recently used assets when size limit reached.
- */
-export class LRUCache<K, V> {
-    private cache: Map<K, V> = new Map();
-    private maxSize: number;
-    private currentSize: number;
-    private getSize: (value: V) => number;
-
-    constructor(
-        maxSize: number,
-        getSize: (value: V) => number = () => 1
-    ) {
-        this.maxSize = maxSize;
-        this.currentSize = 0;
-        this.getSize = getSize;
-    }
-
-    get(key: K): V | undefined {
-        const value = this.cache.get(key);
-        if (value !== undefined) {
-            // Move to end (most recently used)
-            this.cache.delete(key);
-            this.cache.set(key, value);
-        }
-        return value;
-    }
-
-    set(key: K, value: V): boolean {
-        const size = this.getSize(value);
-        
-        // If single item exceeds max size, don't cache
-        if (size > this.maxSize) {
-            return false;
-        }
-
-        // Remove existing entry if present
-        if (this.cache.has(key)) {
-            const oldValue = this.cache.get(key)!;
-            this.currentSize -= this.getSize(oldValue);
-            this.cache.delete(key);
-        }
-
-        // Evict entries until we have space
-        while (this.currentSize + size > this.maxSize && this.cache.size > 0) {
-            this.evictLRU();
-        }
-
-        this.cache.set(key, value);
-        this.currentSize += size;
-        return true;
-    }
-
-    delete(key: K): boolean {
-        const value = this.cache.get(key);
-        if (value !== undefined) {
-            this.currentSize -= this.getSize(value);
-            return this.cache.delete(key);
-        }
-        return false;
-    }
-
-    has(key: K): boolean {
-        return this.cache.has(key);
-    }
-
-    private evictLRU(): void {
-        const firstKey = this.cache.keys().next().value;
-        if (firstKey !== undefined) {
-            const value = this.cache.get(firstKey)!;
-            this.currentSize -= this.getSize(value);
-            this.cache.delete(firstKey);
-        }
-    }
-
-    clear(): void {
-        this.cache.clear();
-        this.currentSize = 0;
-    }
-
-    get size(): number {
-        return this.cache.size;
-    }
-
-    get byteSize(): number {
-        return this.currentSize;
-    }
-
-    keys(): IterableIterator<K> {
-        return this.cache.keys();
-    }
-
-    forEach(callback: (value: V, key: K) => void): void {
-        this.cache.forEach(callback);
-    }
-}
-
-// ============================================================================
-// NETWORK MANAGER
-// ============================================================================
-
-/**
- * Manages network requests with optimization features:
- * - HTTP/2 server push simulation
- * - Range requests for large files
- * - Retry with exponential backoff
- * - Request prioritization and queuing
- */
-export class NetworkManager {
-    private config: StreamingConfig;
-    private activeRequests: Map<string, AbortController> = new Map();
-    private requestQueue: Array<{
-        url: string;
-        priority: AssetPriority;
-        range?: { start: number; end: number };
-        resolve: (response: Response) => void;
-        reject: (error: Error) => void;
-        attempts: number;
-    }> = new Map();
-    private stats = {
-        bytesDownloaded: 0,
-        requests: 0,
-        failed: 0,
-        retries: 0
-    };
-
-    constructor(config: StreamingConfig) {
-        this.config = config;
-    }
-
-    /** Detect network capabilities */
-    async detectNetwork(): Promise<NetworkStats> {
-        const connection = (navigator as any).connection;
-        
-        return {
-            bandwidth: 0,  // Would be measured from actual downloads
-            latency: 0,    // Would be measured from ping
-            connectionType: connection?.effectiveType || 'unknown',
-            saveData: connection?.saveData || false,
-            downlink: connection?.downlink,
-            rtt: connection?.rtt
-        };
-    }
-
-    /** Fetch asset with all optimizations */
-    async fetchAsset(
-        url: string,
-        priority: AssetPriority = AssetPriority.MEDIUM,
-        range?: { start: number; end: number }
-    ): Promise<Response> {
-        // Check if we can make more concurrent requests
-        if (this.activeRequests.size >= this.config.maxConcurrentRequests) {
-            // Queue the request
-            return new Promise((resolve, reject) => {
-                this.requestQueue.push({
-                    url, priority, range, resolve, reject, attempts: 0
-                });
-                // Sort by priority
-                this.requestQueue.sort((a, b) => a.priority - b.priority);
-            });
-        }
-
-        return this.doFetch(url, priority, range);
-    }
-
-    private async doFetch(
-        url: string,
-        priority: AssetPriority,
-        range?: { start: number; end: number }
-    ): Promise<Response> {
-        const abortController = new AbortController();
-        this.activeRequests.set(url, abortController);
-
-        const headers: HeadersInit = {};
-        
-        // Add priority hint if supported
-        if ('priority' in Request.prototype) {
-            (headers as any)['priority'] = this.priorityToHint(priority);
-        }
-
-        // Add range header if specified
-        if (range && this.config.enableRangeRequests) {
-            headers['Range'] = `bytes=${range.start}-${range.end}`;
-        }
-
-        try {
-            const response = await fetch(url, {
-                signal: abortController.signal,
-                headers
-            });
-
-            if (!response.ok && response.status !== 206) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-
-            this.stats.requests++;
-            
-            // Track bytes downloaded
-            const contentLength = response.headers.get('content-length');
-            if (contentLength) {
-                this.stats.bytesDownloaded += parseInt(contentLength, 10);
-            }
-
-            return response;
-        } catch (error) {
-            this.stats.failed++;
-            throw error;
-        } finally {
-            this.activeRequests.delete(url);
-            this.processQueue();
-        }
-    }
-
-    private priorityToHint(priority: AssetPriority): 'high' | 'low' | 'auto' {
-        switch (priority) {
-            case AssetPriority.CRITICAL:
-            case AssetPriority.HIGH:
-                return 'high';
-            case AssetPriority.LOW:
-            case AssetPriority.BACKGROUND:
-                return 'low';
-            default:
-                return 'auto';
-        }
-    }
-
-    private processQueue(): void {
-        while (
-            this.activeRequests.size < this.config.maxConcurrentRequests &&
-            this.requestQueue.length > 0
-        ) {
-            const request = this.requestQueue.shift()!;
-            this.doFetch(request.url, request.priority, request.range)
-                .then(request.resolve)
-                .catch(request.reject);
-        }
-    }
-
-    /** Retry with exponential backoff */
-    async retryWithBackoff<T>(
-        operation: () => Promise<T>,
-        attempts: number = this.config.retryAttempts
-    ): Promise<T> {
-        let lastError: Error | undefined;
-        
-        for (let i = 0; i < attempts; i++) {
-            try {
-                return await operation();
-            } catch (error) {
-                lastError = error instanceof Error ? error : new Error(String(error));
-                this.stats.retries++;
-                
-                if (i < attempts - 1) {
-                    const delay = this.config.retryDelayMs * Math.pow(2, i);
-                    await new Promise(resolve => setTimeout(resolve, delay));
-                }
-            }
-        }
-        
-        throw lastError;
-    }
-
-    /** Cancel all pending requests */
-    cancelAll(): void {
-        for (const controller of this.activeRequests.values()) {
-            controller.abort();
-        }
-        this.activeRequests.clear();
-        this.requestQueue = [];
-    }
-
-    getStats(): typeof this.stats {
-        return { ...this.stats };
-    }
-}
-
-// ============================================================================
-// PROGRESSIVE TEXTURE LOADER
+// SPECIALIZED LOADERS
 // ============================================================================
 
 /**
@@ -546,7 +50,7 @@ export class NetworkManager {
  */
 export class ProgressiveTextureLoader {
     private textureLoader: THREE.TextureLoader;
-    private ktx2Loader?: any;  // Would be THREE.KTX2Loader if available
+    private ktx2Loader?: unknown;  // Would be THREE.KTX2Loader if available
 
     constructor() {
         this.textureLoader = new THREE.TextureLoader();
@@ -597,13 +101,10 @@ export class ProgressiveTextureLoader {
         if (!this.ktx2Loader) {
             throw new Error('KTX2Loader not initialized');
         }
-        return this.ktx2Loader.loadAsync(url);
+        // Type assertion needed since ktx2Loader is unknown type
+        return (this.ktx2Loader as { loadAsync(url: string): Promise<THREE.CompressedTexture> }).loadAsync(url);
     }
 }
-
-// ============================================================================
-// AUDIO STREAMING LOADER
-// ============================================================================
 
 /**
  * Streams audio for playback while downloading.
@@ -663,16 +164,12 @@ export class AudioStreamingLoader {
     }
 }
 
-// ============================================================================
-// GEOMETRY LOD LOADER
-// ============================================================================
-
 /**
  * Loads geometry with LOD variants.
  * Simpler mesh arrives first, complex mesh refines it.
  */
 export class GeometryLODLoader {
-    private gltfLoader: any;  // Would be THREE.GLTFLoader
+    private gltfLoader?: unknown;  // Would be THREE.GLTFLoader
 
     /**
      * Load geometry with LOD streaming.
@@ -844,7 +341,7 @@ export class AssetStreamer {
     private config: StreamingConfig;
     private manifest: AssetManifest;
     private assets: Map<string, LoadedAsset> = new Map();
-    private loadingQueue: Array<{ id: string; priority: AssetPriority; resolve: (asset: LoadedAsset) => void; reject: (error: Error) => void }> = [];
+    private loadingQueue: AssetRequest[] = [];
     private activeLoads: Map<string, AbortController> = new Map();
     private playerPosition: THREE.Vector3 = new THREE.Vector3();
     private playerVelocity: THREE.Vector3 = new THREE.Vector3();
@@ -904,6 +401,24 @@ export class AssetStreamer {
     }
 
     // ========================================================================
+    // CONFIGURATION
+    // ========================================================================
+
+    /**
+     * Update streaming configuration.
+     */
+    configure(config: Partial<StreamingConfig>): void {
+        this.config = { ...this.config, ...config };
+        
+        // Recreate network manager if concurrent requests changed
+        if (config.maxConcurrentRequests !== undefined || 
+            config.retryAttempts !== undefined ||
+            config.retryDelayMs !== undefined) {
+            this.networkManager = new NetworkManager(this.config);
+        }
+    }
+
+    // ========================================================================
     // PUBLIC API
     // ========================================================================
 
@@ -937,7 +452,7 @@ export class AssetStreamer {
     async loadAsset(id: string, priority: AssetPriority = AssetPriority.MEDIUM): Promise<LoadedAsset> {
         // Check if already loaded
         const cached = this.assetCache.get(id);
-        if (cached && cached.state === LoadingState.LOADED) {
+        if (cached && cached.state === LoadState.LOADED) {
             cached.lastUsed = performance.now();
             cached.referenceCount++;
             this.stats.cacheHits++;
@@ -946,7 +461,7 @@ export class AssetStreamer {
 
         // Check if currently loading
         const existing = this.assets.get(id);
-        if (existing && existing.state === LoadingState.LOADING) {
+        if (existing && existing.state === LoadState.LOADING) {
             return new Promise((resolve, reject) => {
                 this.loadingQueue.push({ id, priority, resolve, reject });
             });
@@ -962,11 +477,61 @@ export class AssetStreamer {
     }
 
     /**
-     * Unload an asset from memory.
+     * Load a batch of assets together.
+     */
+    async loadBatch(batch: AssetBatch): Promise<LoadedAsset[]> {
+        const { ids, priority, onProgress } = batch;
+        const results: LoadedAsset[] = [];
+        const errors: Error[] = [];
+        let loaded = 0;
+
+        const promises = ids.map(async (id) => {
+            try {
+                const asset = await this.loadAsset(id, priority);
+                results.push(asset);
+                loaded++;
+                onProgress?.(loaded, ids.length);
+                return asset;
+            } catch (error) {
+                const err = error instanceof Error ? error : new Error(String(error));
+                errors.push(err);
+                throw err;
+            }
+        });
+
+        await Promise.all(promises);
+        
+        if (errors.length > 0 && batch.onError) {
+            batch.onError(errors);
+        }
+        
+        if (batch.onComplete) {
+            batch.onComplete(results);
+        }
+        
+        return results;
+    }
+
+    /**
+     * Get an already loaded asset.
+     * Returns undefined if not loaded.
+     */
+    getAsset(id: string): LoadedAsset | undefined {
+        const asset = this.assetCache.get(id);
+        if (asset && asset.state === LoadState.LOADED) {
+            asset.lastUsed = performance.now();
+            asset.referenceCount++;
+            return asset;
+        }
+        return undefined;
+    }
+
+    /**
+     * Release a reference to an asset.
      * Decrements reference count, actual unload happens when count reaches 0
      * and memory pressure requires it (or immediately if force=true).
      */
-    unloadAsset(id: string, force: boolean = false): void {
+    releaseAsset(id: string, force: boolean = false): void {
         const asset = this.assets.get(id);
         if (!asset) return;
 
@@ -1025,10 +590,10 @@ export class AssetStreamer {
         let assetsLoaded = 0;
 
         for (const asset of this.assets.values()) {
-            if (asset.state === LoadingState.LOADED) {
+            if (asset.state === LoadState.LOADED) {
                 bytesLoaded += asset.metadata.size;
                 assetsLoaded++;
-            } else if (asset.state === LoadingState.STREAMING) {
+            } else if (asset.state === LoadState.STREAMING) {
                 bytesLoaded += asset.metadata.size * asset.progress;
             }
         }
@@ -1128,6 +693,58 @@ export class AssetStreamer {
     }
 
     // ========================================================================
+    // PRIORITY MANAGEMENT
+    // ========================================================================
+
+    /**
+     * Change the priority of a queued asset.
+     */
+    setAssetPriority(id: string, priority: AssetPriority): void {
+        const request = this.loadingQueue.find(r => r.id === id);
+        if (request) {
+            request.priority = priority;
+            // Re-sort queue
+            this.loadingQueue.sort((a, b) => a.priority - b.priority);
+        }
+    }
+
+    /**
+     * Get the current priority of an asset in queue.
+     */
+    getAssetPriority(id: string): AssetPriority | undefined {
+        const request = this.loadingQueue.find(r => r.id === id);
+        return request?.priority;
+    }
+
+    // ========================================================================
+    // MEMORY MANAGEMENT
+    // ========================================================================
+
+    /**
+     * Force memory pressure check and cleanup.
+     */
+    forceMemoryCleanup(): void {
+        this.checkMemoryPressure();
+        
+        // If still high, perform aggressive unloading
+        if (this.stats.currentMemoryPressure >= MemoryPressure.HIGH) {
+            this.performAggressiveUnloading();
+        }
+    }
+
+    /**
+     * Get current memory usage breakdown.
+     */
+    getMemoryUsage(): { texture: number; geometry: number; audio: number; total: number } {
+        return {
+            texture: this.textureMemoryUsed,
+            geometry: this.geometryMemoryUsed,
+            audio: this.audioMemoryUsed,
+            total: this.textureMemoryUsed + this.geometryMemoryUsed + this.audioMemoryUsed
+        };
+    }
+
+    // ========================================================================
     // PRIVATE METHODS
     // ========================================================================
 
@@ -1222,7 +839,7 @@ export class AssetStreamer {
         const assetIds = this.manifest.cells[cell.key] || [];
         
         for (const id of assetIds) {
-            this.unloadAsset(id);
+            this.releaseAsset(id);
         }
 
         cell.state = CellState.UNLOADED;
@@ -1258,7 +875,7 @@ export class AssetStreamer {
         const asset: LoadedAsset = {
             id,
             metadata,
-            state: LoadingState.LOADING,
+            state: LoadState.LOADING,
             data: null,
             progress: 0,
             lastUsed: performance.now(),
@@ -1297,7 +914,7 @@ export class AssetStreamer {
                     asset.data = await this.loadGeneric(metadata, abortController.signal);
             }
 
-            asset.state = LoadingState.LOADED;
+            asset.state = LoadState.LOADED;
             asset.loadTime = performance.now() - startTime;
             
             // Add to cache
@@ -1313,7 +930,7 @@ export class AssetStreamer {
 
             resolve(asset);
         } catch (error) {
-            asset.state = LoadingState.ERROR;
+            asset.state = LoadState.ERROR;
             this.stats.loadingAssets--;
             this.stats.errorAssets++;
             this.stats.failedRequests++;
@@ -1445,7 +1062,7 @@ export class AssetStreamer {
             this.audioMemoryUsed -= asset.metadata.estimatedMemory;
         }
 
-        asset.state = LoadingState.UNLOADED;
+        asset.state = LoadState.UNLOADED;
         this.assets.delete(asset.id);
         this.assetCache.delete(asset.id);
         this.stats.loadedAssets--;
@@ -1475,7 +1092,7 @@ export class AssetStreamer {
     private performAggressiveUnloading(): void {
         // Unload all background priority assets with 0 references
         for (const [id, asset] of this.assets) {
-            if (asset.priority === AssetPriority.BACKGROUND && asset.referenceCount === 0) {
+            if (asset.metadata.priority === AssetPriority.BACKGROUND && asset.referenceCount === 0) {
                 this.performUnload(asset);
             }
         }
@@ -1529,7 +1146,7 @@ export class AssetStreamer {
 
     private getCurrentLoadingAsset(): string | null {
         for (const [id, asset] of this.assets) {
-            if (asset.state === LoadingState.LOADING) {
+            if (asset.state === LoadState.LOADING) {
                 return id;
             }
         }
@@ -1571,54 +1188,4 @@ export class AssetStreamer {
     }
 }
 
-// ============================================================================
-// UTILITY FUNCTIONS
-// ============================================================================
-
-/** Create a sample asset manifest */
-export function createSampleManifest(): AssetManifest {
-    return {
-        version: '1.0.0',
-        totalSize: 0,
-        assets: {},
-        cells: {},
-        dependencyGraph: {}
-    };
-}
-
-/** Estimate memory usage for a texture */
-export function estimateTextureMemory(
-    width: number,
-    height: number,
-    format: THREE.PixelFormat = THREE.RGBAFormat,
-    type: THREE.TextureDataType = THREE.UnsignedByteType
-): number {
-    const bitsPerChannel = type === THREE.UnsignedByteType ? 8 : 16;
-    const channels = format === THREE.RGBAFormat ? 4 : 3;
-    const mipmaps = 1.33;  // Mipmaps add ~33%
-    
-    return width * height * channels * (bitsPerChannel / 8) * mipmaps;
-}
-
-/** Estimate memory usage for geometry */
-export function estimateGeometryMemory(geometry: THREE.BufferGeometry): number {
-    let bytes = 0;
-    
-    for (const key in geometry.attributes) {
-        const attr = geometry.attributes[key];
-        bytes += attr.array.byteLength;
-    }
-    
-    if (geometry.index) {
-        bytes += geometry.index.array.byteLength;
-    }
-    
-    return bytes;
-}
-
-// ============================================================================
-// EXPORTS
-// ============================================================================
-
 export default AssetStreamer;
-export { RegionManager, GridCell, CellState };

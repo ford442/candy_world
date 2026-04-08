@@ -43,6 +43,12 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 CANDY_DEBUG="${CANDY_DEBUG:-0}"
 SKIP_VERIFY="${SKIP_VERIFY:-0}"
 
+# Build summary variables
+BUILD_START_TIME=$(date +%s)
+COMPILED_FILES=""
+EXPORT_COUNT=0
+BUILD_SIZE=""
+
 # ---------------------------------------------------------
 # STEP 1: Find and source Emscripten SDK
 # ---------------------------------------------------------
@@ -147,6 +153,35 @@ declare -A ANIMATION_FUNCTIONS=(
     ["fastInvSqrt"]="math"
     ["getGroundHeight"]="math"
     
+    # SIMD-optimized math functions (math.cpp)
+    ["valueNoise2D_simd4"]="math"
+    ["fbm2D_simd4"]="math"
+    ["batchGroundHeight_simd"]="math"
+    ["fastInvSqrt_simd4"]="math"
+    ["batchFastSin_simd"]="math"
+    ["batchFastCos_simd"]="math"
+    
+    # OpenMP-parallelized batch functions (math.cpp)
+    ["batchValueNoise_omp"]="math"
+    ["batchFbm_omp"]="math"
+    ["batchDistSq3D_omp"]="math"
+    
+    # Fast approximation functions (math.cpp)
+    ["fastSin"]="math"
+    ["fastCos"]="math"
+    ["fastPow2"]="math"
+    
+    # Math SIMD/OpenMP functions (math.cpp)
+    ["valueNoise2D_simd4"]="math"
+    ["fbm2D_simd4"]="math"
+    ["batchGroundHeight_simd"]="math"
+    ["batchValueNoise_omp"]="math"
+    ["batchFbm_omp"]="math"
+    ["batchDistSq3D_omp"]="math"
+    ["fastSin"]="math"
+    ["fastCos"]="math"
+    ["fastPow2"]="math"
+    
     # Physics functions (physics.cpp)
     ["fastDistance"]="physics"
     ["smoothDamp"]="physics"
@@ -168,6 +203,10 @@ declare -A ANIMATION_FUNCTIONS=(
     ["batchFrustumCull_c"]="physics"
     ["batchDistanceCullIndexed_c"]="physics"
     ["batchFrustumCullSIMD_c"]="physics"
+    
+    # Batch physics functions (physics.cpp)
+    ["batchCollisionCheck_c"]="physics"
+    ["batchRaycast_c"]="physics"
     
     # Batch functions (batch.cpp)
     ["batchDistances"]="batch"
@@ -201,6 +240,15 @@ declare -A ANIMATION_FUNCTIONS=(
     ["batchSpring_c"]="animation_batch"
     ["batchFloat_c"]="animation_batch"
     ["batchCloudBob_c"]="animation_batch"
+    
+    # Agent 1: SIMD-optimized animation batch functions
+    ["batchShiver_simd"]="animation_batch"
+    ["batchSpring_simd"]="animation_batch"
+    ["batchFloat_simd"]="animation_batch"
+    ["batchCloudBob_simd"]="animation_batch"
+    ["batchVineSway_simd"]="animation_batch"
+    ["batchGeyserErupt_c"]="animation_batch"
+    ["batchRetrigger_simd"]="animation_batch"
     
     # Mesh deformation functions (mesh_deformation.cpp)
     ["deformMeshWave"]="mesh_deformation"
@@ -304,13 +352,14 @@ EXPORTS=$(IFS=,; echo "[${EXPORT_LIST[*]}]")
 # ---------------------------------------------------------
 
 # Compiler flags for performance
-# - O2: Good optimization without excessive compilation time
+# - O3: Maximum optimization for speed
 # - msimd128: Enable SIMD for vectorized math operations
 # - mrelaxed-simd: Allow relaxed SIMD operations for better performance
 # - ffast-math: Aggressive floating-point optimizations
 # - fno-rtti: Disable RTTI to reduce code size
 # - pthread: Enable threading support for parallel operations
-COMPILE_FLAGS="-O2 -msimd128 -ffast-math -fno-rtti -funroll-loops -fopenmp -pthread -matomics -I."
+# - fopenmp: Enable OpenMP for parallel batch operations
+COMPILE_FLAGS="-O3 -msimd128 -mrelaxed-simd -ffast-math -fno-rtti -funroll-loops -fopenmp -pthread -matomics -I."
 
 # Linker flags
 # - USE_PTHREADS=1: Enable pthread support (requires SharedArrayBuffer)
@@ -331,11 +380,11 @@ else
     echo "[INFO] Assertions DISABLED for production"
 fi
 
-LINK_FLAGS="-O0 -std=c++17 -lembind -s USE_PTHREADS=1 -s PTHREAD_POOL_SIZE=4 -s WASM=1 -s WASM_BIGINT=0 \
--s ALLOW_MEMORY_GROWTH=1 -s TOTAL_STACK=16MB -s INITIAL_MEMORY=256MB $ASSERTION_FLAG -s EXPORT_ES6=1 \
--s EXPORTED_RUNTIME_METHODS=[\"wasmMemory\"] -s MODULARIZE=1 -s EXPORT_NAME=createCandyNative \
--s ENVIRONMENT=web,worker -s ERROR_ON_UNDEFINED_SYMBOLS=0 \
--matomics -fopenmp -msimd128 -ffast-math -pthread -L$SCRIPT_DIR -lomp"
+LINK_FLAGS="-O3 -std=c++17 -lembind -s USE_PTHREADS=1 -s PTHREAD_POOL_SIZE=4 -s WASM=1 -s WASM_BIGINT=0 \
+-s ALLOW_MEMORY_GROWTH=1 -s TOTAL_STACK=16MB -s INITIAL_MEMORY=64MB -s MAXIMUM_MEMORY=256MB $ASSERTION_FLAG -s EXPORT_ES6=1 \
+-s EXPORTED_RUNTIME_METHODS=[\"ccall\",\"cwrap\",\"wasmMemory\"] -s MODULARIZE=1 -s EXPORT_NAME=createCandyNative \
+-s ENVIRONMENT=web,worker -s ERROR_ON_UNDEFINED_SYMBOLS=0 -s SHARED_MEMORY=1 \
+-matomics -fopenmp -msimd128 -mrelaxed-simd -ffast-math -pthread -L$SCRIPT_DIR -lomp"
 
 # ---------------------------------------------------------
 # STEP 5: Compile and Link
@@ -374,6 +423,9 @@ if [ $BUILD_SUCCESS -eq 1 ] && [ -f "$OUTPUT_WASM" ]; then
         echo "  - WASM size: $WASM_SIZE"
     fi
     
+    # Store export count for summary
+    EXPORT_COUNT=$FOUND_COUNT
+    
     # ---------------------------------------------------------
     # STEP 6: Post-Build Verification
     # ---------------------------------------------------------
@@ -387,6 +439,13 @@ if [ $BUILD_SUCCESS -eq 1 ] && [ -f "$OUTPUT_WASM" ]; then
         else
             echo "[WARN] Node.js not found. Skipping verification."
         fi
+    fi
+    
+    # Verify exports exist using node if available
+    if command -v node >/dev/null 2>&1 && [ -f "$SCRIPT_DIR/verify_build.js" ]; then
+        echo ""
+        echo "[INFO] Verifying build exports..."
+        node "$SCRIPT_DIR/verify_build.js" || true
     fi
 else
     echo ""
@@ -415,14 +474,14 @@ OUTPUT_JS_ST="$REPO_ROOT/public/candy_native_st.js"
 OUTPUT_WASM_ST="$REPO_ROOT/public/candy_native_st.wasm"
 
 # Compiler flags for ST (remove pthread, atomics, etc)
-COMPILE_FLAGS_ST="-O2 -msimd128 -ffast-math -fno-rtti -funroll-loops"
+COMPILE_FLAGS_ST="-O3 -msimd128 -mrelaxed-simd -ffast-math -fno-rtti -funroll-loops"
 
 # Linker flags for ST (remove pthread, shared memory)
-LINK_FLAGS_ST="-O2 -std=c++17 -lembind -s WASM=1 -s WASM_BIGINT=0 \
--s ALLOW_MEMORY_GROWTH=1 -s TOTAL_STACK=16MB -s INITIAL_MEMORY=256MB $ASSERTION_FLAG -s EXPORT_ES6=1 \
--s EXPORTED_RUNTIME_METHODS=[\"wasmMemory\"] -s MODULARIZE=1 -s EXPORT_NAME=createCandyNative \
+LINK_FLAGS_ST="-O3 -std=c++17 -lembind -s WASM=1 -s WASM_BIGINT=0 \
+-s ALLOW_MEMORY_GROWTH=1 -s TOTAL_STACK=16MB -s INITIAL_MEMORY=64MB -s MAXIMUM_MEMORY=256MB $ASSERTION_FLAG -s EXPORT_ES6=1 \
+-s EXPORTED_RUNTIME_METHODS=[\"ccall\",\"cwrap\",\"wasmMemory\"] -s MODULARIZE=1 -s EXPORT_NAME=createCandyNative \
 -s ENVIRONMENT=web -s ERROR_ON_UNDEFINED_SYMBOLS=0 \
--msimd128 -ffast-math"
+-msimd128 -mrelaxed-simd -ffast-math"
 
 if em++ "$SCRIPT_DIR"/*.cpp \
   $COMPILE_FLAGS_ST \
@@ -435,3 +494,27 @@ if em++ "$SCRIPT_DIR"/*.cpp \
 else
     echo "[WARN] Single-threaded build failed!"
 fi
+
+# ---------------------------------------------------------
+# Build Summary
+# ---------------------------------------------------------
+BUILD_END_TIME=$(date +%s)
+BUILD_DURATION=$((BUILD_END_TIME - BUILD_START_TIME))
+
+echo ""
+echo "=========================================="
+echo "Build Summary"
+echo "=========================================="
+echo "Files compiled:"
+for f in "$SCRIPT_DIR"/*.cpp; do
+    echo "  - $(basename "$f")"
+done
+echo ""
+echo "Export count: $EXPORT_COUNT functions"
+echo "Build duration: ${BUILD_DURATION}s"
+if [ -f "$OUTPUT_WASM" ]; then
+    WASM_SIZE_BYTES=$(stat -c%s "$OUTPUT_WASM" 2>/dev/null || stat -f%z "$OUTPUT_WASM" 2>/dev/null || echo "0")
+    WASM_SIZE_HUMAN=$(ls -lh "$OUTPUT_WASM" | awk '{print $5}')
+    echo "WASM size: $WASM_SIZE_HUMAN ($WASM_SIZE_BYTES bytes)"
+fi
+echo "=========================================="

@@ -3,7 +3,7 @@ import { MeshStandardNodeMaterial } from 'three/webgpu';
 import {
     time, positionLocal, sin, cos, positionWorld, color, vec3, mix, float, smoothstep
 } from 'three/tsl';
-import { CandyPresets, attachReactivity, uAudioHigh, uTime, createJuicyRimLight } from './common.ts';
+import { CandyPresets, attachReactivity, uAudioHigh, uTime, createJuicyRimLight } from './index.ts';
 import { makeInteractive } from '../utils/interaction-utils.ts';
 import { discoverySystem } from '../systems/discovery.ts';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';

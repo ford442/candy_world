@@ -8,7 +8,7 @@ import {
 } from 'three/tsl';
 import {
     uAudioLow, createRimLight, triplanarNoise, perturbNormal
-} from './common.ts';
+} from './index.ts';
 import { uTwilight } from './sky.ts';
 import { waterfallBatcher } from './waterfall-batcher.ts';
 

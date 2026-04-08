@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { PointsNodeMaterial, StorageBufferAttribute } from 'three/webgpu';
 import { vec4, attribute, float, mix, color, vec3, smoothstep, sin, positionLocal, cos, Fn, instanceIndex, storage, uniform, If, length } from 'three/tsl';
-import { uTime, uAudioHigh, uAudioLow } from './common.ts';
+import { uTime, uAudioHigh, uAudioLow } from './index.ts';
 
 const TRAIL_SIZE = 2000; // Increased buffer size for richer trails
 

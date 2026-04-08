@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { MeshStandardNodeMaterial, PointsNodeMaterial } from 'three/webgpu';
 import { time, vec3, positionLocal, length, sin, cos, color as tslColor, attribute, float, uniform, mix, smoothstep, color, positionWorld, normalWorld } from 'three/tsl';
-import { registerReactiveMaterial, attachReactivity, CandyPresets, uTime, uAudioLow, uAudioHigh, createJuicyRimLight, createSugarSparkle } from './common.ts';
+import { registerReactiveMaterial, attachReactivity, CandyPresets, uTime, uAudioLow, uAudioHigh, createJuicyRimLight, createSugarSparkle } from './index.ts';
 import { uTwilight, uHorizonColor } from './sky.ts';
 
 export interface FloatingOrbOptions {

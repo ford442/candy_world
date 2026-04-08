@@ -98,6 +98,84 @@ export declare function lerp(a: number, b: number, t: number): number;
  */
 export declare function clamp(value: number, minVal: number, maxVal: number): number;
 /**
+ * assembly/math/hslToRgb
+ * @param h `f32`
+ * @param s `f32`
+ * @param l `f32`
+ * @returns `u32`
+ */
+export declare function hslToRgb(h: number, s: number, l: number): number;
+/**
+ * assembly/math/rgbToHsl
+ * @param r `f32`
+ * @param g `f32`
+ * @param b `f32`
+ * @returns `u32`
+ */
+export declare function rgbToHsl(r: number, g: number, b: number): number;
+/**
+ * assembly/math/hash2D
+ * @param x `f32`
+ * @param y `f32`
+ * @returns `f32`
+ */
+export declare function hash2D(x: number, y: number): number;
+/**
+ * assembly/math/valueNoise2D
+ * @param x `f32`
+ * @param y `f32`
+ * @returns `f32`
+ */
+export declare function valueNoise2D(x: number, y: number): number;
+/**
+ * assembly/math/fbm2D
+ * @param x `f32`
+ * @param y `f32`
+ * @param octaves `i32`
+ * @returns `f32`
+ */
+export declare function fbm2D(x: number, y: number, octaves: number): number;
+/**
+ * assembly/math/distSq2D
+ * @param ax `f32`
+ * @param ay `f32`
+ * @param bx `f32`
+ * @param by `f32`
+ * @returns `f32`
+ */
+export declare function distSq2D(ax: number, ay: number, bx: number, by: number): number;
+/**
+ * assembly/math/distSq3D
+ * @param ax `f32`
+ * @param ay `f32`
+ * @param az `f32`
+ * @param bx `f32`
+ * @param by `f32`
+ * @param bz `f32`
+ * @returns `f32`
+ */
+export declare function distSq3D(ax: number, ay: number, az: number, bx: number, by: number, bz: number): number;
+/**
+ * assembly/math/smoothstep
+ * @param t `f32`
+ * @returns `f32`
+ */
+export declare function smoothstep(t: number): number;
+/**
+ * assembly/math/smootherstep
+ * @param t `f32`
+ * @returns `f32`
+ */
+export declare function smootherstep(t: number): number;
+/**
+ * assembly/math/inverseLerp
+ * @param a `f32`
+ * @param b `f32`
+ * @param value `f32`
+ * @returns `f32`
+ */
+export declare function inverseLerp(a: number, b: number, value: number): number;
+/**
  * assembly/math/getGroundHeight
  * @param x `f32`
  * @param z `f32`
@@ -181,6 +259,48 @@ export declare function checkPositionValidity(x: number, z: number, radius: numb
  * @returns `i32`
  */
 export declare function resolveGameCollisions(kickTrigger: number): number;
+/**
+ * assembly/physics/batchGroundHeight
+ * @param positionsPtr `usize`
+ * @param count `i32`
+ * @param outputPtr `usize`
+ */
+export declare function batchGroundHeight(positionsPtr: number, count: number, outputPtr: number): void;
+/**
+ * assembly/physics/dampVelocity
+ * @param velocityPtr `usize`
+ * @param count `i32`
+ * @param damping `f32`
+ */
+export declare function dampVelocity(velocityPtr: number, count: number, damping: number): void;
+/**
+ * assembly/physics/batchDistanceCalc
+ * @param positionsPtr `usize`
+ * @param count `i32`
+ * @param camX `f32`
+ * @param camY `f32`
+ * @param camZ `f32`
+ * @param outputPtr `usize`
+ */
+export declare function batchDistanceCalc(positionsPtr: number, count: number, camX: number, camY: number, camZ: number, outputPtr: number): void;
+/**
+ * assembly/physics/batchFrustumTest
+ * @param positionsPtr `usize`
+ * @param count `i32`
+ * @param frustumPlanesPtr `usize`
+ * @param outputPtr `usize`
+ * @returns `i32`
+ */
+export declare function batchFrustumTest(positionsPtr: number, count: number, frustumPlanesPtr: number, outputPtr: number): number;
+/**
+ * assembly/physics/batchLODSelect
+ * @param distancesPtr `usize`
+ * @param count `i32`
+ * @param lodThresholdsPtr `usize`
+ * @param outputPtr `usize`
+ * @returns `i32`
+ */
+export declare function batchLODSelect(distancesPtr: number, count: number, lodThresholdsPtr: number, outputPtr: number): number;
 /**
  * assembly/animation/calcBounceY
  * @param time `f32`
@@ -792,6 +912,29 @@ export declare function batchDistanceCull(cameraX: number, cameraY: number, came
  */
 export declare function batchMushroomSpawnCandidates(time: number, playerX: number, playerZ: number, minDistance: number, maxDistance: number, windSpeed: number, windX: number, windZ: number, objectCount: number, candidateCount: number, spawnThreshold: number): number;
 /**
+ * assembly/batch/batchHslToRgb
+ * @param ptr `usize`
+ * @param count `i32`
+ */
+export declare function batchHslToRgb(ptr: number, count: number): void;
+/**
+ * assembly/batch/batchSphereCull
+ * @param positionsPtr `usize`
+ * @param count `i32`
+ * @param camX `f32`
+ * @param camY `f32`
+ * @param camZ `f32`
+ * @param maxDist `f32`
+ * @param outputPtr `usize`
+ */
+export declare function batchSphereCull(positionsPtr: number, count: number, camX: number, camY: number, camZ: number, maxDist: number, outputPtr: number): void;
+/**
+ * assembly/batch/batchLerp
+ * @param ptr `usize`
+ * @param count `i32`
+ */
+export declare function batchLerp(ptr: number, count: number): void;
+/**
  * assembly/foliage/computeSway
  * @param count `i32`
  * @param time `f32`
@@ -853,6 +996,36 @@ export declare function computeGentleSway(count: number, time: number, offsets: 
  */
 export declare function computeHop(count: number, time: number, originalYs: number, offsets: number, intensities: number, kick: number, outPosY: number): void;
 /**
+ * assembly/foliage/smoothWobble
+ * @param noteBufferPtr `usize`
+ * @param bufferSize `i32`
+ * @param currentWobble `f32`
+ * @param scale `f32`
+ * @param maxAmplitude `f32`
+ * @param minThreshold `f32`
+ * @param smoothingRate `f32`
+ * @returns `f32`
+ */
+export declare function smoothWobble(noteBufferPtr: number, bufferSize: number, currentWobble: number, scale: number, maxAmplitude: number, minThreshold: number, smoothingRate: number): number;
+/**
+ * assembly/foliage/batchGrowth
+ * @param dataPtr `usize`
+ * @param count `i32`
+ */
+export declare function batchGrowth(dataPtr: number, count: number): void;
+/**
+ * assembly/foliage/batchBloom
+ * @param dataPtr `usize`
+ * @param count `i32`
+ */
+export declare function batchBloom(dataPtr: number, count: number): void;
+/**
+ * assembly/foliage/batchScaleAnimation
+ * @param dataPtr `usize`
+ * @param count `i32`
+ */
+export declare function batchScaleAnimation(dataPtr: number, count: number): void;
+/**
  * assembly/particles/updateRainBatch
  * @param positionsPtr `usize`
  * @param velocitiesPtr `usize`
@@ -870,3 +1043,22 @@ export declare function updateRainBatch(positionsPtr: number, velocitiesPtr: num
  * @param melodyVol `f32`
  */
 export declare function updateMelodicMistBatch(positionsPtr: number, count: number, time: number, melodyVol: number): void;
+/**
+ * assembly/particles/updateParticles
+ * @param positionsPtr `usize`
+ * @param count `i32`
+ * @param dt `f32`
+ * @param gravity `f32`
+ */
+export declare function updateParticles(positionsPtr: number, count: number, dt: number, gravity: number): void;
+/**
+ * assembly/particles/spawnBurst
+ * @param outputPtr `usize`
+ * @param count `i32`
+ * @param centerX `f32`
+ * @param centerY `f32`
+ * @param centerZ `f32`
+ * @param speed `f32`
+ * @param time `f32`
+ */
+export declare function spawnBurst(outputPtr: number, count: number, centerX: number, centerY: number, centerZ: number, speed: number, time: number): void;

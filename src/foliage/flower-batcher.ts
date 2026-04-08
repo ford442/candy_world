@@ -12,7 +12,7 @@ import {
     createJuicyRimLight,
     uAudioHigh,
     uTime
-} from './common.ts';
+} from './index.ts';
 import { attribute, positionLocal, mix, color, float, sin } from 'three/tsl';
 
 const MAX_FLOWERS = 5000;

@@ -12,8 +12,8 @@ import {
     attachReactivity,
     uTime,
     uPlayerPosition
-} from './common.ts';
-import { grantInvisibility } from '../systems/physics.ts';
+} from './index.ts';
+import { grantInvisibility } from '../systems/physics/index.js';
 
 export interface SilenceSpiritOptions {
     scale?: number;

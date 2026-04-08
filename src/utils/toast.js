@@ -1,17 +1,14 @@
-export function showToast(message, icon = '✨', duration = 4000) {
-    const toast = document.getElementById('now-playing-toast');
-    const toastText = document.getElementById('now-playing-text');
-
-    if (toast && toastText) {
-        const toastIcon = toast.querySelector('.icon');
-        toastText.innerText = message;
-        if (toastIcon) toastIcon.innerText = icon;
-
-        toast.classList.add('visible');
-
-        if (toast.timeout) clearTimeout(toast.timeout);
-        toast.timeout = setTimeout(() => {
-            toast.classList.remove('visible');
-        }, duration);
-    }
-}
+/**
+ * MIGRATION STUB
+ * ==============
+ * This file has been migrated to TypeScript.
+ * 
+ * NEW LOCATION: ./toast.ts
+ * 
+ * For future agents:
+ * - Add new toast utilities to the .ts file
+ * - This stub maintains backwards compatibility during the transition
+ * 
+ * @deprecated Use ./toast.ts instead
+ */
+export * from './toast.ts';

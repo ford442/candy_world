@@ -5,13 +5,18 @@
  * the existing game systems. This is a reference implementation.
  */
 
-import { saveSystem, SaveData, createPlayerSaveData, createWorldSaveData, createProgressSaveData } from './systems/save-system.ts';
-import { openSaveMenu, openLoadMenu } from './ui/save-menu.ts';
-import { player, PlayerExtended } from './systems/physics.ts';
+import { saveSystem, SaveData, createPlayerSaveData, createWorldSaveData, createProgressSaveData } from './save-system/index.js';
+import { openSaveMenu, openLoadMenu } from '../ui/save-menu/index.js';
+import { player, PlayerExtended } from './physics/index.js';
 import { discoverySystem } from './systems/discovery.ts';
 import { unlockSystem } from './systems/unlocks.ts';
-import { weatherSystem } from './systems/weather.ts';
+// Note: Import your weather system instance here
+// import { weatherSystem } from './your-weather-instance.ts';
 import * as THREE from 'three';
+import type { WeatherSystem } from './weather.ts';
+
+// Placeholder for the weather system instance - replace with your actual instance
+declare const weatherSystem: WeatherSystem;
 
 // =============================================================================
 // GAME STATE PROVIDERS
@@ -85,7 +90,7 @@ function gatherPlayerData() {
  */
 function gatherWorldData() {
     // Get weather state from weather system
-    const weather = (weatherSystem as any).state || {
+    const weather = (weatherSystem as any)?.state || {
         current: 'clear',
         intensity: 0,
         stormCharge: 0
@@ -226,8 +231,8 @@ function applyWorldState(world: SaveData['world']): void {
     
     // Apply weather
     // TODO: Connect to your weather system
-    // weatherSystem.setState(world.weatherState, world.weatherIntensity);
-    // weatherSystem.stormCharge = world.stormCharge;
+    // (weatherSystem as any).setState(world.weatherState, world.weatherIntensity);
+    // (weatherSystem as any).stormCharge = world.stormCharge;
     
     console.log('[Save] World state applied');
 }

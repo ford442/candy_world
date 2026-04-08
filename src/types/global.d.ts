@@ -85,6 +85,13 @@ declare module '*/src/utils/wasm-loader.js' {
   export const LOADING_PHASES: any;
 }
 
+// Declare WASM module imports (Vite with vite-plugin-wasm)
+// Using a specific path pattern that TypeScript can resolve
+declare module '../wasm/candy_physics.wasm?init' {
+  const initWasm: (importObject?: WebAssembly.Imports) => Promise<WebAssembly.Instance>;
+  export default initWasm;
+}
+
 declare module '*/src/core/init.js' {
   export function initScene(): any;
   export function forceFullSceneWarmup(renderer: any, scene: any, camera: any): Promise<void>;

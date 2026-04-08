@@ -11,7 +11,7 @@ import {
     uAudioLow, uAudioHigh, uWindSpeed, uWindDirection,
     createJuicyRimLight, calculateWindSway, applyPlayerInteraction,
     createStandardNodeMaterial
-} from './common.ts';
+} from './index.ts';
 import { uTwilight } from './sky.ts';
 import { foliageGroup } from '../world/state.ts';
 

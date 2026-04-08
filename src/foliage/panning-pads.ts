@@ -11,7 +11,7 @@ import {
     uPlayerPosition,
     uTime,
     UnifiedMaterialOptions
-} from './common.ts';
+} from './index.ts';
 import { spawnImpact } from './impacts.ts';
 import {
     color, float, mix, uv, distance, vec2, smoothstep, uniform,

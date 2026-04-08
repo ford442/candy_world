@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { CONFIG, CYCLE_DURATION } from '../core/config.ts';
 import { animateFoliage } from '../foliage/animation.ts';
-import { foliageBatcher } from '../foliage/foliage-batcher.ts';
+import { foliageBatcher } from '../foliage/batcher/index.ts';
 import { arpeggioFernBatcher } from '../foliage/arpeggio-batcher.ts';
 import { portamentoPineBatcher } from '../foliage/portamento-batcher.ts';
 import { mushroomBatcher } from '../foliage/mushroom-batcher.ts';

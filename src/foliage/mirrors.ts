@@ -7,7 +7,7 @@ import {
     reflect, sin, abs, dot,
     texture, uniform
 } from 'three/tsl';
-import { attachReactivity, createRimLight, uAudioHigh, uTime } from './common.ts';
+import { attachReactivity, createRimLight, uAudioHigh, uTime } from './index.ts';
 
 // Global texture for the "Dream Reflection"
 // Since we don't have a real cubemap, we generate a static noise/gradient texture

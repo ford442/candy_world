@@ -9,7 +9,7 @@ import {
     uAudioHigh,
     uTime,
     createSugarSparkle
-} from './common.ts';
+} from './index.ts';
 import {
     float, vec3, positionLocal, attribute, mix, sin,
     instanceIndex, normalLocal, step, length

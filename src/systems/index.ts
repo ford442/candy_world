@@ -16,8 +16,8 @@
  */
 
 // Main classes
-export { AssetStreamer } from './asset-streaming';
-export { RegionManager, CellLoader } from './region-manager';
+export { AssetStreamer } from './asset-streaming/index.ts';
+export { RegionManager, CellLoader } from './region-manager.ts';
 
 // Supporting classes from asset-streaming
 export {
@@ -27,22 +27,22 @@ export {
     AudioStreamingLoader,
     GeometryLODLoader,
     PlaceholderManager
-} from './asset-streaming';
+} from './asset-streaming/index.ts';
 
-// Enums from asset-streaming
+// Enums from asset-streaming (LoadState renamed from LoadingState for consistency)
 export {
     AssetPriority,
     AssetType,
     TextureFormat,
-    LoadingState,
+    LoadState,
     QualityLevel,
     MemoryPressure
-} from './asset-streaming';
+} from './asset-streaming/index.ts';
 
 // Enums from region-manager
 export {
     CellState
-} from './region-manager';
+} from './region-manager.ts';
 
 // Types from asset-streaming
 export type {
@@ -52,8 +52,10 @@ export type {
     LoadingProgress,
     NetworkStats,
     StreamingConfig,
-    StreamingStats
-} from './asset-streaming';
+    StreamingStats,
+    AssetRequest,
+    AssetBatch
+} from './asset-streaming/index.ts';
 
 // Types from region-manager
 export type {
@@ -64,14 +66,14 @@ export type {
     RegionStats,
     LODTransition,
     SpatialQueryResult
-} from './region-manager';
+} from './region-manager.ts';
 
 // Utility functions
 export {
     createSampleManifest,
     estimateTextureMemory,
     estimateGeometryMemory
-} from './asset-streaming';
+} from './asset-streaming/index.ts';
 
 export {
     getCellKey,
@@ -79,7 +81,7 @@ export {
     worldToCell,
     cellToBounds,
     distanceToCell
-} from './region-manager';
+} from './region-manager.ts';
 
 // Default export
-export { default } from './asset-streaming';
+export { default } from './asset-streaming/index.ts';

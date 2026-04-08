@@ -19,9 +19,9 @@ import {
     createTerrainMaterial // Added
 } from '../foliage/index.ts';
 import { generateCloudLayer } from '../foliage/procedural-sky.ts';
-import { validateFoliageMaterials } from '../foliage/common.ts';
+import { validateFoliageMaterials } from '../foliage/index.ts';
 import { CONFIG } from '../core/config.ts';
-import { registerPhysicsCave } from '../systems/physics.ts';
+import { registerPhysicsCave } from '../systems/physics/index.js';
 import { initDiscoveryForFoliage } from '../systems/discovery-optimized.ts';
 import { unlockSystem } from '../systems/unlocks.ts';
 import { spawnImpact } from '../foliage/impacts.ts';

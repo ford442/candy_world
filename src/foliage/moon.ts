@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { color, vec3, time, sin, cos, uniform, mix, positionLocal, UniformNode } from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
-import { attachReactivity, CandyPresets } from './common.ts';
+import { attachReactivity, CandyPresets } from './index.ts';
 import { VisualState } from '../audio/audio-system.ts';
 
 // Moon Configuration

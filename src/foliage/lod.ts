@@ -16,7 +16,7 @@ import {
     uAudioLow,
     uAudioHigh,
     uWindSpeed
-} from './common.ts';
+} from './index.ts';
 
 // --- Configuration ---
 

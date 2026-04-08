@@ -1,12 +1,40 @@
 // src/foliage/animation.ts
 
 import * as THREE from 'three';
-import { freqToHue } from '../utils/wasm-loader.js';
-import { reactiveMaterials, _foliageReactiveColor, median } from './common.ts';
+import { 
+  freqToHue, 
+  isWasmReady,
+  wasmMemory,
+  wasmSmoothWobble,
+  wasmBatchGrowth,
+  wasmBatchBloom,
+  wasmBatchScaleAnimation,
+  OUTPUT_OFFSET
+} from '../utils/wasm-loader.js';
+import { reactiveMaterials, _foliageReactiveColor, median } from './index.ts';
 import { CONFIG } from '../core/config.ts';
 import { FoliageObject, AudioData, FoliageMaterial, ChannelData } from './types.ts';
-import { foliageBatcher } from './foliage-batcher.ts';
+import { foliageBatcher } from './batcher/index.ts';
 import { spawnImpact } from './impacts.ts';
+
+// WASM memory views for batch operations
+let growthDataView: Float32Array | null = null;
+let bloomDataView: Float32Array | null = null;
+let scaleAnimDataView: Float32Array | null = null;
+let wobbleBufferView: Float32Array | null = null;
+
+/**
+ * Initialize WASM memory views for batch operations
+ */
+function initWasmViews(): void {
+  if (!wasmMemory) return;
+  const buffer = wasmMemory.buffer;
+  // Allocate views at OUTPUT_OFFSET for batch operations
+  growthDataView = new Float32Array(buffer, OUTPUT_OFFSET, 1024);
+  bloomDataView = new Float32Array(buffer, OUTPUT_OFFSET + 4096, 1024);
+  scaleAnimDataView = new Float32Array(buffer, OUTPUT_OFFSET + 8192, 1024);
+  wobbleBufferView = new Float32Array(buffer, OUTPUT_OFFSET + 12288, 256);
+}
 
 export * from './types.ts';
 
@@ -16,63 +44,178 @@ const _scratchWhite = new THREE.Color(0xFFFFFF);
 const _scratchDarkColor = new THREE.Color(); // For applyWetEffect
 
 export function triggerGrowth(plants: FoliageObject[], intensity: number): void {
-    // ⚡ OPTIMIZATION: Use cached for-loop to avoid closure allocation
-    for (let i = 0, len = plants.length; i < len; i++) {
-        const plant = plants[i];
+    // Initialize WASM views on first use
+    if (isWasmReady() && !growthDataView) {
+        initWasmViews();
+    }
 
-        // Initialize baseline scales if not present
-        if (plant.userData.initialScale === undefined) {
-            plant.userData.initialScale = plant.scale.x;
+    // Use WASM batch processing if available and we have enough plants
+    if (isWasmReady() && wasmBatchGrowth && growthDataView && plants.length >= 4) {
+        const batchSize = Math.min(plants.length, 36); // Max 36 plants per batch (36 * 7 floats = 1008 bytes)
+        let dataIdx = 0;
+
+        // Prepare batch data
+        for (let i = 0; i < batchSize; i++) {
+            const plant = plants[i];
+
+            // Initialize baseline scales if not present
+            if (plant.userData.initialScale === undefined) {
+                plant.userData.initialScale = plant.scale.x;
+            }
+            if (!plant.userData.maxScale) {
+                const growthFactor = plant.userData.type === 'mushroom' ? 2.5 : 1.5;
+                plant.userData.maxScale = plant.userData.initialScale * growthFactor;
+            }
+            if (!plant.userData.minScale) {
+                plant.userData.minScale = plant.userData.initialScale * 0.5;
+            }
+
+            // Pack data: [currentScale, initialScale, maxScale, minScale, growthRate, outputScale, changed]
+            growthDataView![dataIdx++] = plant.scale.x;
+            growthDataView![dataIdx++] = plant.userData.initialScale;
+            growthDataView![dataIdx++] = plant.userData.maxScale;
+            growthDataView![dataIdx++] = plant.userData.minScale;
+            growthDataView![dataIdx++] = intensity * 0.01;
+            growthDataView![dataIdx++] = 0; // output placeholder
+            growthDataView![dataIdx++] = 0; // changed flag placeholder
         }
-        
-        // Set limits if not already defined
-        if (!plant.userData.maxScale) {
-            // Mushrooms can grow larger (2.5x), others standard (1.5x)
-            const growthFactor = plant.userData.type === 'mushroom' ? 2.5 : 1.5;
-            plant.userData.maxScale = plant.userData.initialScale * growthFactor;
+
+        // Call WASM batch function
+        wasmBatchGrowth(OUTPUT_OFFSET, batchSize);
+
+        // Apply results
+        dataIdx = 0;
+        for (let i = 0; i < batchSize; i++) {
+            const plant = plants[i];
+            const newScale = growthDataView![dataIdx + 5];
+            const changed = growthDataView![dataIdx + 6];
+            dataIdx += 7;
+
+            if (changed > 0.5) {
+                plant.scale.setScalar(newScale);
+            }
         }
 
-        if (!plant.userData.minScale) {
-            // Allow shrinking to 50% of original size
-            plant.userData.minScale = plant.userData.initialScale * 0.5;
+        // Process remaining plants with JS fallback
+        for (let i = batchSize, len = plants.length; i < len; i++) {
+            processGrowthJS(plants[i], intensity);
         }
-
-        const currentScale = plant.scale.x;
-        const growthRate = intensity * 0.01;
-        let nextScale = currentScale + growthRate;
-
-        // Apply Limits
-        if (growthRate > 0) {
-            // Growing
-            if (nextScale > plant.userData.maxScale) nextScale = plant.userData.maxScale;
-        } else {
-            // Shrinking
-            if (nextScale < plant.userData.minScale) nextScale = plant.userData.minScale;
-        }
-
-        // Apply scale if changed
-        if (Math.abs(nextScale - currentScale) > 0.0001) {
-            plant.scale.setScalar(nextScale);
+    } else {
+        // JS Fallback: Use cached for-loop to avoid closure allocation
+        for (let i = 0, len = plants.length; i < len; i++) {
+            processGrowthJS(plants[i], intensity);
         }
     }
 }
 
-export function triggerBloom(flowers: FoliageObject[], intensity: number): void {
-    // ⚡ OPTIMIZATION: Use cached for-loop to avoid closure allocation
-    for (let i = 0, len = flowers.length; i < len; i++) {
-        const flower = flowers[i];
-        if (flower.userData.type === 'flower') {
-             if (flower.userData.isFlower || flower.userData.type === 'flower') {
-                if (!flower.userData.maxBloom) {
-                    flower.userData.maxBloom = flower.scale.x * 1.3;
-                }
+/** JS fallback for single plant growth */
+function processGrowthJS(plant: FoliageObject, intensity: number): void {
+    // Initialize baseline scales if not present
+    if (plant.userData.initialScale === undefined) {
+        plant.userData.initialScale = plant.scale.x;
+    }
+    
+    // Set limits if not already defined
+    if (!plant.userData.maxScale) {
+        const growthFactor = plant.userData.type === 'mushroom' ? 2.5 : 1.5;
+        plant.userData.maxScale = plant.userData.initialScale * growthFactor;
+    }
 
-                if (flower.scale.x < flower.userData.maxBloom) {
-                    const bloomRate = intensity * 0.02;
-                    flower.scale.addScalar(bloomRate);
-                }
-             }
+    if (!plant.userData.minScale) {
+        plant.userData.minScale = plant.userData.initialScale * 0.5;
+    }
+
+    const currentScale = plant.scale.x;
+    const growthRate = intensity * 0.01;
+    let nextScale = currentScale + growthRate;
+
+    // Apply Limits
+    if (growthRate > 0) {
+        if (nextScale > plant.userData.maxScale) nextScale = plant.userData.maxScale;
+    } else {
+        if (nextScale < plant.userData.minScale) nextScale = plant.userData.minScale;
+    }
+
+    // Apply scale if changed
+    if (Math.abs(nextScale - currentScale) > 0.0001) {
+        plant.scale.setScalar(nextScale);
+    }
+}
+
+export function triggerBloom(flowers: FoliageObject[], intensity: number): void {
+    // Initialize WASM views on first use
+    if (isWasmReady() && !bloomDataView) {
+        initWasmViews();
+    }
+
+    // Filter flowers first
+    const flowerList: FoliageObject[] = [];
+    for (let i = 0, len = flowers.length; i < len; i++) {
+        const f = flowers[i];
+        if (f.userData.type === 'flower' && (f.userData.isFlower || f.userData.type === 'flower')) {
+            flowerList.push(f);
         }
+    }
+
+    // Use WASM batch processing if available and we have enough flowers
+    if (isWasmReady() && wasmBatchBloom && bloomDataView && flowerList.length >= 4) {
+        const batchSize = Math.min(flowerList.length, 42); // Max 42 flowers per batch (42 * 6 floats = 1008 bytes)
+        let dataIdx = 0;
+
+        // Prepare batch data
+        for (let i = 0; i < batchSize; i++) {
+            const flower = flowerList[i];
+
+            if (!flower.userData.maxBloom) {
+                flower.userData.maxBloom = flower.scale.x * 1.3;
+            }
+
+            // Pack data: [currentScale, maxBloom, bloomRate, outputScale, changed, padding]
+            bloomDataView![dataIdx++] = flower.scale.x;
+            bloomDataView![dataIdx++] = flower.userData.maxBloom;
+            bloomDataView![dataIdx++] = intensity * 0.02;
+            bloomDataView![dataIdx++] = 0; // output placeholder
+            bloomDataView![dataIdx++] = 0; // changed flag placeholder
+            bloomDataView![dataIdx++] = 0; // padding
+        }
+
+        // Call WASM batch function
+        wasmBatchBloom(OUTPUT_OFFSET + 4096, batchSize);
+
+        // Apply results
+        dataIdx = 0;
+        for (let i = 0; i < batchSize; i++) {
+            const flower = flowerList[i];
+            const newScale = bloomDataView![dataIdx + 3];
+            const changed = bloomDataView![dataIdx + 4];
+            dataIdx += 6;
+
+            if (changed > 0.5) {
+                flower.scale.setScalar(newScale);
+            }
+        }
+
+        // Process remaining flowers with JS fallback
+        for (let i = batchSize, len = flowerList.length; i < len; i++) {
+            processBloomJS(flowerList[i], intensity);
+        }
+    } else {
+        // JS Fallback
+        for (let i = 0, len = flowerList.length; i < len; i++) {
+            processBloomJS(flowerList[i], intensity);
+        }
+    }
+}
+
+/** JS fallback for single flower bloom */
+function processBloomJS(flower: FoliageObject, intensity: number): void {
+    if (!flower.userData.maxBloom) {
+        flower.userData.maxBloom = flower.scale.x * 1.3;
+    }
+
+    if (flower.scale.x < flower.userData.maxBloom) {
+        const bloomRate = intensity * 0.02;
+        flower.scale.addScalar(bloomRate);
     }
 }
 
@@ -307,7 +450,39 @@ export function animateFoliage(foliageObject: FoliageObject, time: number, audio
         const duration = foliageObject.userData.scaleAnimTime || 0.08;
         const t = Math.min(1.0, elapsed / (duration * 1000));
         
-        if (t < 1.0) {
+        // Initialize WASM views on first use
+        if (isWasmReady() && !scaleAnimDataView) {
+            initWasmViews();
+        }
+        
+        if (isWasmReady() && wasmBatchScaleAnimation && scaleAnimDataView && t < 1.0) {
+            // Use WASM for scale animation calculation
+            const target = foliageObject.userData.scaleTarget || 1.0;
+            const lerpFactor = t * 0.5;
+            
+            // Pack data: [curX, curY, curZ, target, lerpT, ...output]
+            scaleAnimDataView[0] = foliageObject.scale.x;
+            scaleAnimDataView[1] = foliageObject.scale.y;
+            scaleAnimDataView[2] = foliageObject.scale.z;
+            scaleAnimDataView[3] = target;
+            scaleAnimDataView[4] = lerpFactor;
+            
+            // Call WASM function
+            wasmBatchScaleAnimation(OUTPUT_OFFSET + 8192, 1);
+            
+            // Apply results
+            foliageObject.scale.x = scaleAnimDataView[5];
+            foliageObject.scale.y = scaleAnimDataView[6];
+            foliageObject.scale.z = scaleAnimDataView[7];
+            
+            // Check if completed
+            if (scaleAnimDataView[8] > 0.5) {
+                foliageObject.scale.setScalar(target);
+                delete foliageObject.userData.scaleAnimStart;
+                delete foliageObject.userData.scaleTarget;
+                delete foliageObject.userData.scaleAnimTime;
+            }
+        } else if (t < 1.0) {
             const target = foliageObject.userData.scaleTarget || 1.0;
             // Lerp each axis independently to handle non-uniform squash/stretch smoothly
             // (e.g. restoring aspect ratio from flattened state)
@@ -326,13 +501,45 @@ export function animateFoliage(foliageObject: FoliageObject, time: number, audio
     // --- Mushroom wobble smoothing (median + lerp) ---
     if (foliageObject.userData.type === 'mushroom') {
         const buf = foliageObject.userData.noteBuffer || [];
-        const medianVel = median(buf);
-        const cfg = (CONFIG as any).reactivity?.mushroom || {};
-        const scale = cfg.scale || 1.0;
-        const target = Math.min(cfg.maxAmplitude ?? 1.0, Math.max(cfg.minThreshold ?? 0.01, medianVel * scale));
-        const cur = foliageObject.userData.wobbleCurrent || 0;
-        const lerpT = Math.min(0.25, (cfg.smoothingRate || 8) * 0.02);
-        foliageObject.userData.wobbleCurrent = THREE.MathUtils.lerp(cur, target, lerpT);
+        
+        // Initialize WASM views on first use
+        if (isWasmReady() && !wobbleBufferView) {
+            initWasmViews();
+        }
+
+        // Use WASM if available and buffer has data
+        if (isWasmReady() && wasmSmoothWobble && wobbleBufferView && buf.length > 0) {
+            // Copy buffer to WASM memory (max 64 floats = 256 bytes)
+            const bufferSize = Math.min(buf.length, 64);
+            for (let i = 0; i < bufferSize; i++) {
+                wobbleBufferView![i] = buf[i];
+            }
+
+            const cfg = (CONFIG as any).reactivity?.mushroom || {};
+            const currentWobble = foliageObject.userData.wobbleCurrent || 0;
+            
+            // Call WASM smoothWobble function
+            const newWobble = wasmSmoothWobble(
+                OUTPUT_OFFSET + 12288,  // wobbleBuffer location
+                bufferSize,
+                currentWobble,
+                cfg.scale || 1.0,
+                cfg.maxAmplitude ?? 1.0,
+                cfg.minThreshold ?? 0.01,
+                cfg.smoothingRate || 8
+            );
+            
+            foliageObject.userData.wobbleCurrent = newWobble;
+        } else {
+            // JS Fallback
+            const medianVel = median(buf);
+            const cfg = (CONFIG as any).reactivity?.mushroom || {};
+            const scale = cfg.scale || 1.0;
+            const target = Math.min(cfg.maxAmplitude ?? 1.0, Math.max(cfg.minThreshold ?? 0.01, medianVel * scale));
+            const cur = foliageObject.userData.wobbleCurrent || 0;
+            const lerpT = Math.min(0.25, (cfg.smoothingRate || 8) * 0.02);
+            foliageObject.userData.wobbleCurrent = THREE.MathUtils.lerp(cur, target, lerpT);
+        }
     }
 
     let kick = 0, groove = 0, beatPhase = 0, leadVol = 0;
