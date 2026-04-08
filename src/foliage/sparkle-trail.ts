@@ -3,7 +3,12 @@ import { PointsNodeMaterial, StorageBufferAttribute } from 'three/webgpu';
 import { vec4, attribute, float, mix, color, vec3, smoothstep, sin, positionLocal, cos, Fn, instanceIndex, storage, uniform, If, length, floor } from 'three/tsl';
 
 // WGSL-compatible modulo: x - y * floor(x / y)
-const modFloat = (x: any, y: any) => x.sub(y.mul(x.div(y).floor()));
+// Note: Converts inputs to float first since WGSL floor() only works on floats
+const modFloat = (x: any, y: any) => {
+    const xf = float(x);
+    const yf = float(y);
+    return xf.sub(yf.mul(xf.div(yf).floor()));
+};
 import { uTime, uAudioHigh, uAudioLow } from './index.ts';
 
 const TRAIL_SIZE = 2000; // Increased buffer size for richer trails
