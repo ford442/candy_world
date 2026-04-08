@@ -19,7 +19,7 @@ import { uTime, uGlitchIntensity } from './index.ts';
 import { applyGlitch } from './glitch.ts';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
-const MAX_FERNS = 2000;
+const MAX_FERNS = 500; // Reduced from 2000 for WebGPU uniform buffer limits
 const FRONDS_PER_FERN = 5;
 
 export class ArpeggioFernBatcher {

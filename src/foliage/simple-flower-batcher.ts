@@ -21,7 +21,7 @@ import { foliageGroup } from '../world/state.ts';
 // Manually define instanceColor if not exported by three/tsl
 const instanceColor = attribute('instanceColor', 'vec3');
 
-const MAX_FLOWERS = 5000;
+const MAX_FLOWERS = 1000; // Reduced from 5000 for WebGPU uniform buffer limits
 const GRAINS_PER_FLOWER = 5;
 const MAX_POLLEN = MAX_FLOWERS * GRAINS_PER_FLOWER;
 

@@ -20,7 +20,7 @@ import {
 } from './index.ts';
 import { foliageGroup } from '../world/state.ts';
 
-const MAX_WATERFALLS = 200;
+const MAX_WATERFALLS = 50; // Reduced from 200 for WebGPU uniform buffer limits
 const SPLASHES_PER_WATERFALL = 8;
 const MAX_SPLASHES = MAX_WATERFALLS * SPLASHES_PER_WATERFALL;
 

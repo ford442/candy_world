@@ -15,8 +15,8 @@ import {
 } from './index.ts';
 import { attribute, positionLocal, mix, color, float, sin } from 'three/tsl';
 
-const MAX_FLOWERS = 5000;
-const MAX_PETALS = MAX_FLOWERS * 15; // Up to 15 petals per flower
+const MAX_FLOWERS = 1000; // Reduced from 5000 for WebGPU uniform buffer limits
+const MAX_PETALS = MAX_FLOWERS * 8; // Up to 8 petals per flower (reduced from 15 for WebGPU limits)
 
 // ⚡ OPTIMIZATION: Scratch variables to prevent GC spikes during registration
 const _scratchMatrix = new THREE.Matrix4();
