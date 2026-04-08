@@ -8,7 +8,7 @@ import {
 import {
     uTime, createJuicyRimLight, uAudioLow, uAudioHigh,
     uWindSpeed, uWindDirection, triplanarNoise, uPlayerPosition
-} from './common.ts';
+} from './index.ts';
 import { foliageGroup } from '../world/state.ts';
 import { getIcosahedronGeometry } from '../utils/geometry-dedup.ts';
 import { uSkyDarkness, uTwilight } from './sky.ts';

@@ -1,4 +1,5 @@
-// src/foliage/common.ts
+// src/foliage/material-core.ts
+// Core material system: shared resources, TSL utilities, and material factory
 
 import * as THREE from 'three';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
@@ -10,18 +11,10 @@ import {
 } from 'three/tsl';
 
 import { applyGlitch } from './glitch.ts';
-import { FoliageMaterial } from './types';
-import { windComputeSystem, getWindTextureData } from './wind-compute.ts';
 import { 
-    geometryRegistry, 
     CommonGeometries,
-    getSphereGeometry,
-    getCylinderGeometry,
-    getConeGeometry,
-    getCapsuleGeometry,
-    getPlaneGeometry,
-    getTorusGeometry
 } from '../utils/geometry-dedup.ts';
+import { getWindTextureData } from './wind-compute.ts';
 
 // --- Shared Resources & Geometries (Deduplicated via GeometryRegistry) ---
 // All geometries are now created through the registry to prevent duplicates
@@ -55,11 +48,7 @@ export const _scratchVec1 = new THREE.Vector3();
 export const _scratchVec2 = new THREE.Vector3();
 export const _scratchVec3 = new THREE.Vector3();
 
-// --- Reactive Objects Registry ---
-export const reactiveObjects: THREE.Object3D[] = [];
-let reactivityCounter = 0; 
-export const reactiveMaterials: THREE.Material[] = [];
-export const _foliageReactiveColor = new THREE.Color(); 
+// --- Global Uniforms ---
 export const uWindSpeed = uniform(0.0);
 export const uWindDirection = uniform(vec3(1, 0, 0));
 export const uTime = uniform(0.0); // Global time uniform for animated materials
@@ -72,6 +61,26 @@ export const uAudioHigh = uniform(0.0);  // Treble energy (Hi-hats/Cymbals)
 // --- PALETTE UPDATE: New Uniforms for Player Interaction ---
 export const uPlayerPosition = uniform(vec3(0, 0, 0)); // Player position in world space
 // -----------------------------------------------------------
+
+// --- MATERIAL CACHE ---
+const materialCache = new Map<string, THREE.Material>();
+
+/**
+ * Gets a cached procedural material or creates a new one using the factory function.
+ * This prevents duplicate material creation and improves performance.
+ */
+export function getCachedProceduralMaterial(
+    key: string,
+    colorHint: number,
+    factory: () => THREE.Material
+): THREE.Material {
+    if (materialCache.has(key)) {
+        return materialCache.get(key)!;
+    }
+    const material = factory();
+    materialCache.set(key, material);
+    return material;
+}
 
 // --- UTILITY FUNCTIONS ---
 
@@ -92,26 +101,6 @@ export function generateNoiseTexture(size = 256): THREE.DataTexture {
     tex.wrapS = THREE.RepeatWrapping;
     tex.wrapT = THREE.RepeatWrapping;
     return tex;
-}
-
-// --- MATERIAL CACHE ---
-const proceduralMaterialCache = new Map<string, THREE.Material>();
-
-/**
- * Gets a cached procedural material or creates a new one using the factory function.
- * This prevents duplicate material creation and improves performance.
- */
-export function getCachedProceduralMaterial(
-    key: string,
-    colorHint: number,
-    factory: () => THREE.Material
-): THREE.Material {
-    if (proceduralMaterialCache.has(key)) {
-        return proceduralMaterialCache.get(key)!;
-    }
-    const material = factory();
-    proceduralMaterialCache.set(key, material);
-    return material;
 }
 
 // --- TSL UTILITY FUNCTIONS ---
@@ -255,8 +244,6 @@ export const colorFromNote = Fn(([noteIndex]) => {
     return vec3(r, g, b);
 });
 
-// --- UNIFIED MATERIAL PIPELINE ---
-
 // --- PALETTE HELPER: Player Interaction ---
 // Calculates displacement vector based on player proximity
 export const calculatePlayerPush = Fn(([currentPos]) => {
@@ -289,25 +276,7 @@ export const applyPlayerInteraction = (basePosNode: any) => {
     return basePosNode.add(calculatePlayerPush(basePosNode));
 };
 
-// --- PALETTE HELPER: Wind & Bloom ---
-
-/**
- * Wind Sway Calculation - Optimized Version
- * 
- * BEFORE (Per-Vertex Calculation):
- * - Calculated sin() and multiple MUL/ADD operations per vertex
- * - ~8-12 ALU instructions per vertex
- * - Performance scaled poorly with dense foliage
- * 
- * AFTER (Texture Sampling):
- * - Samples from pre-baked wind texture
- * - ~4 ALU instructions + 1 texture sample
- * - 30-50% faster wind calculations on modern GPUs
- * - Enables more complex wind patterns (turbulence, gusts)
- * 
- * The wind texture is updated incrementally each frame by the WindComputeSystem,
- * providing seamless, tileable wind patterns across the entire world.
- */
+// --- WIND & BLOOM FUNCTIONS ---
 
 // Get wind texture data for TSL sampling
 const windTextureData = getWindTextureData();
@@ -379,7 +348,7 @@ export const calculateWindSwayLegacy = Fn(([posNode]) => {
 });
 
 // Re-export wind compute system for external access
-export { windComputeSystem };
+export { getWindTextureData, windComputeSystem } from './wind-compute.ts';
 
 export const calculateFlowerBloom = Fn(([posNode]) => {
     // 1. Breathing (Idle) - Slow pulse
@@ -395,7 +364,7 @@ export const calculateFlowerBloom = Fn(([posNode]) => {
     return posNode.mul(scale);
 });
 
-// ------------------------------------------
+// --- UNIFIED MATERIAL PIPELINE ---
 
 export interface UnifiedMaterialOptions {
     colorNode?: Node;
@@ -851,288 +820,4 @@ export function createTransparentNodeMaterial(options: any = {}) {
     mat.transparent = true;
     mat.depthWrite = options.depthWrite !== undefined ? options.depthWrite : false; 
     return mat;
-}
-
-// --- MATERIAL DEFINITIONS ---
-
-export const foliageMaterials: { [key: string]: THREE.Material | THREE.Material[] } = {
-    // Basic organics
-    // PALETTE UPDATE: Apply Interaction + Wind to standard Stem
-    stem: (() => {
-        const mat = CandyPresets.Clay(0x66AA55);
-        // Combine Player Push + Wind Sway
-        const withPush = applyPlayerInteraction(positionLocal);
-        mat.positionNode = withPush.add(calculateWindSway(positionLocal));
-
-        // 🎨 PALETTE: Add Juicy Rim Light to stem so it pops against dark backgrounds
-        const audioRimIntensity = float(1.0).add(uAudioLow.mul(0.5));
-        const rimLight = createJuicyRimLight(color(0x66AA55), audioRimIntensity, float(3.0), null);
-        mat.emissiveNode = (mat.emissiveNode || color(0x000000)).add(rimLight);
-
-        return mat;
-    })(),
-
-    flowerCenter: CandyPresets.Velvet(0x442211, { audioReactStrength: 0.5 }),
-    vine: CandyPresets.Clay(0x558833),
-    wood: createUnifiedMaterial(0x8B4513, { roughness: 0.9, bumpStrength: 0.3, noiseScale: 3.0 }),
-    leaf: createUnifiedMaterial(0x228B22, { roughness: 0.6, side: THREE.DoubleSide, bumpStrength: 0.1 }),
-    
-    // Restored/Upgraded Materials
-    // PALETTE UPDATE: Apply Interaction + Wind to Flower Stem
-    flowerStem: (() => {
-        const mat = CandyPresets.Clay(0x66AA55);
-        // Combine Player Push + Wind Sway
-        const withPush = applyPlayerInteraction(positionLocal);
-        mat.positionNode = withPush.add(calculateWindSway(positionLocal));
-
-        // 🎨 PALETTE: Add Juicy Rim Light to flowerStem so it pops against dark backgrounds
-        const audioRimIntensity = float(1.0).add(uAudioLow.mul(0.5));
-        const rimLight = createJuicyRimLight(color(0x66AA55), audioRimIntensity, float(3.0), null);
-        mat.emissiveNode = (mat.emissiveNode || color(0x000000)).add(rimLight);
-
-        return mat;
-    })(),
-
-    lotusRing: CandyPresets.Gummy(0xFFFFFF),
-    opticCable: createUnifiedMaterial(0x111111, { roughness: 0.4 }),
-    opticTip: createStandardNodeMaterial({
-        color: 0xFFFFFF,
-        emissive: 0xFF00FF,
-        emissiveIntensity: 1.0,
-        roughness: 0.2
-    }),
-
-    // Special Effects
-    // PALETTE UPDATE: Volumetric God Ray (TSL)
-    lightBeam: (() => {
-        const mat = new MeshStandardNodeMaterial({
-            color: 0xFFFFFF,
-            transparent: true,
-            blending: THREE.AdditiveBlending,
-            depthWrite: false,
-            roughness: 1.0,
-            side: THREE.DoubleSide
-        });
-
-        // 1. Edge Fade (Cylinder UV x wraps 0..1)
-        // Center (0.5) is bright, Edges (0.0/1.0) are transparent
-        const beamCore = float(1.0).sub(abs(uv().x.sub(0.5)).mul(2.0));
-        const softBeam = smoothstep(0.0, 0.5, beamCore);
-
-        // 2. Vertical Fade (Top/Bottom)
-        const verticalFade = smoothstep(0.0, 0.2, uv().y).mul(float(1.0).sub(smoothstep(0.8, 1.0, uv().y)));
-
-        // 3. Dust Motes (Rising Noise)
-        const dustSpeed = vec3(0.0, uTime.mul(0.2), 0.0);
-        const dustPos = positionLocal.mul(2.0).add(dustSpeed);
-        const dust = mx_noise_float(dustPos).mul(0.5).add(0.5); // 0..1
-
-        // 4. Audio Pulse (Breathing)
-        const pulse = sin(uTime.mul(2.0)).mul(0.1).add(0.9); // Idle breath
-        const audioBoost = uAudioLow.mul(0.5); // Bass boost
-        const totalPulse = pulse.add(audioBoost);
-
-        // Combine
-        const opacity = softBeam.mul(verticalFade).mul(dust).mul(totalPulse).mul(0.3);
-
-        mat.opacityNode = opacity;
-        // Use Node Color (can be overridden by instance color)
-        mat.colorNode = color(0xFFFFFF);
-        mat.emissiveNode = color(0xFFFFFF).mul(opacity);
-
-        return mat;
-    })(),
-    
-    mushroomStem: (() => {
-        const mat = CandyPresets.Clay(0xF5F5DC);
-        // ⚡ TSL Shaping: Apply curved profile to standard cylinder
-        // Profile: r = 1.0 - (t - 0.3)^2 * 0.5
-        const t = positionLocal.y; // unitCylinder is 0..1 in Y
-        const curve = float(1.0).sub( pow(t.sub(0.3), 2.0).mul(0.5) );
-        const newPos = vec3(positionLocal.x.mul(curve), positionLocal.y, positionLocal.z.mul(curve));
-
-        // PALETTE UPDATE: Apply Interaction to Shaped Stem
-        mat.positionNode = applyPlayerInteraction(newPos);
-
-        // Recalculate Normal: N = (x, -r'(y), z) -> (x, y-0.3, z)
-        const ny = t.sub(0.3);
-        const newNormal = vec3(positionLocal.x, ny, positionLocal.z).normalize();
-        mat.normalNode = newNormal;
-
-        // 🎨 PALETTE: Add Juicy Rim Light to mushroomStem so it pops against dark backgrounds
-        const audioRimIntensity = float(1.0).add(uAudioLow.mul(0.5));
-        const rimLight = createJuicyRimLight(color(0xF5F5DC), audioRimIntensity, float(3.0), mat.normalNode);
-        mat.emissiveNode = (mat.emissiveNode || color(0x000000)).add(rimLight);
-
-        return mat;
-    })(),
-
-    // Diverse Mushroom Caps
-    mushroomCap: [
-        CandyPresets.Clay(0xFF6B6B),        // Matte Red
-        CandyPresets.Gummy(0xFF9F43),       // Orange Gummy
-        CandyPresets.Sugar(0xFDCB6E),       // Sugared Yellow
-        CandyPresets.Crystal(0x54A0FF),     // Blue Crystal
-        CandyPresets.OilSlick()             // Rare Oil
-    ],
-
-    mushroomCheek: CandyPresets.Velvet(0xFFAACC),
-
-    // Upgraded parts
-    mushroomGills: CandyPresets.Clay(0x332211, { side: THREE.DoubleSide }),
-    mushroomSpots: CandyPresets.Sugar(0xFFFFFF),
-
-    flowerPetal: [
-        CandyPresets.Velvet(0xFF69B4, { side: THREE.DoubleSide, audioReactStrength: 1.0, deformationNode: calculateFlowerBloom(positionLocal) }),
-        CandyPresets.Gummy(0xFFD700, { side: THREE.DoubleSide, audioReactStrength: 0.8, deformationNode: calculateFlowerBloom(positionLocal) }),
-        CandyPresets.Crystal(0xFFFFFF, { side: THREE.DoubleSide, audioReactStrength: 0.5, deformationNode: calculateFlowerBloom(positionLocal) }),
-        CandyPresets.Sugar(0x9933FF, { side: THREE.DoubleSide, audioReactStrength: 1.0, deformationNode: calculateFlowerBloom(positionLocal) }),
-    ],
-
-    // Faces
-    eye: CandyPresets.Gummy(0xFFFFFF), // Wet eyes
-    pupil: new MeshStandardNodeMaterial({ color: 0x000000, roughness: 0.0 }),
-    mouth: CandyPresets.Clay(0x2D3436),
-    clayMouth: CandyPresets.Clay(0x2D3436)
-};
-
-// --- REACTIVITY & VALIDATION HELPERS ---
-
-export function registerReactiveMaterial(mat: THREE.Material) { reactiveMaterials.push(mat); }
-export function pickAnimation(types: string[]) { return types[Math.floor(Math.random() * types.length)]; }
-
-export function attachReactivity<T extends THREE.Object3D>(group: T, options: any = {}): T {
-    reactiveObjects.push(group);
-    group.userData.reactivityType = options.type || group.userData.reactivityType || 'flora';
-    if (typeof group.userData.reactivityId === 'undefined') group.userData.reactivityId = reactivityCounter++;
-    const light = options.lightPreference || {};
-    group.userData.minLight = (typeof light.min !== 'undefined') ? light.min : (group.userData.minLight ?? 0.0);
-    group.userData.maxLight = (typeof light.max !== 'undefined') ? light.max : (group.userData.maxLight ?? 1.0);
-    return group;
-}
-
-export function cleanupReactivity(object: THREE.Object3D) {
-    const index = reactiveObjects.indexOf(object);
-    if (index > -1) reactiveObjects.splice(index, 1);
-}
-
-export function validateFoliageMaterials() {
-    const required = ['lightBeam', 'mushroomCap', 'opticTip', 'lotusRing', 'flowerStem'];
-    let safe = true;
-    required.forEach(key => {
-        if (!foliageMaterials[key]) {
-            console.error(`[Foliage] Missing material: ${key}. Using fallback.`);
-            foliageMaterials[key] = new MeshStandardNodeMaterial({ color: 0xFF00FF });
-            safe = false;
-        }
-    });
-    return safe;
-}
-
-export function validateNodeGeometries(scene: THREE.Object3D) {
-    // Aggregate warnings to avoid spamming the console when many small geometries are missing attributes.
-    const missingPosition: any[] = [];
-
-    function inferVertexCount(geo: THREE.BufferGeometry) {
-        if (!geo) return 0;
-        if (geo.index) return geo.index.count;
-        let maxCount = 0;
-        for (const key in geo.attributes) {
-            if (Object.prototype.hasOwnProperty.call(geo.attributes, key)) {
-                const a = geo.attributes[key];
-                if (a && a.count > maxCount) maxCount = a.count;
-            }
-        }
-        return maxCount;
-    }
-
-    function getObjectPath(obj: THREE.Object3D | null) {
-        const parts = [];
-        let cur = obj;
-        while (cur) {
-            const name = cur.name || cur.type || cur.uuid;
-            parts.unshift(name);
-            cur = cur.parent;
-        }
-        return parts.join('/') || (obj ? obj.uuid : '');
-    }
-
-    scene.traverse((obj: THREE.Object3D) => {
-        if ((obj as THREE.Mesh).isMesh || (obj as THREE.Points).isPoints) {
-            const geo = (obj as THREE.Mesh).geometry;
-            if (geo) {
-                // Attempt to auto-patch a missing position attribute when we can infer a vertex count.
-                if (!geo.attributes.position) {
-                    const preAttrKeys = Object.keys(geo.attributes || {}).join(', ') || '(none)';
-                    const inferred = inferVertexCount(geo);
-                    if (inferred > 0) {
-                        const positions = new Float32Array(inferred * 3);
-                        geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-                    } else {
-                        try {
-                            // ⚡ OPTIMIZATION: Reuse scratch vector to prevent GC spikes during validation
-                            const worldPos = _scratchVec1;
-                            obj.getWorldPosition(worldPos);
-                            const positions = new Float32Array(3);
-                            positions[0] = worldPos.x; positions[1] = worldPos.y; positions[2] = worldPos.z;
-                            geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-
-                            const normals = new Float32Array(3);
-                            normals[0] = 0; normals[1] = 1; normals[2] = 0;
-                            geo.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
-
-                            obj.userData._patchedByValidate = true;
-
-                            const name = obj.name || 'Unnamed';
-                            const type = obj.userData?.type || 'Unknown Type';
-                            const attrKeys = Object.keys(geo.attributes || {}).join(', ') || '(none)';
-                            const geoType = geo.type || geo.constructor?.name || 'UnknownGeo';
-
-                            let anc = obj.parent;
-                            let ancestorType = null;
-                            let ancestorName = null;
-                            let depth = 0;
-                            while (anc && depth < 10) {
-                                if (anc && anc.userData && anc.userData.type) {
-                                    ancestorType = anc.userData.type;
-                                    ancestorName = anc.name || anc.userData.type;
-                                    break;
-                                }
-                                anc = anc && anc.parent;
-                                depth++;
-                            }
-                            missingPosition.push({ name, type, obj, geoType, attrKeys, path: getObjectPath(obj), patched: true, ancestorType, ancestorName, preAttrKeys });
-                        } catch (err) {
-                            const name = obj.name || 'Unnamed';
-                            const type = obj.userData?.type || 'Unknown Type';
-                            const attrKeys = Object.keys(geo.attributes || {}).join(', ') || '(none)';
-                            const geoType = geo.type || geo.constructor?.name || 'UnknownGeo';
-                            missingPosition.push({ name, type, obj, geoType, attrKeys, path: getObjectPath(obj), preAttrKeys });
-                        }
-                    }
-                }
-
-                if (!geo.attributes.normal) {
-                    const count = geo.attributes.position ? geo.attributes.position.count : inferVertexCount(geo);
-                    if (count > 0) {
-                        const normals = new Float32Array(count * 3);
-                        for (let i = 0; i < count * 3; i += 3) { normals[i] = 0; normals[i + 1] = 1; normals[i + 2] = 0; }
-                        geo.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
-                    }
-                }
-            }
-        }
-    });
-
-    if (missingPosition.length > 0) {
-        const header = `[TSL] ${missingPosition.length} geometries missing 'position' attribute.`;
-        const examples = missingPosition.slice(0, 10).map(m => `${m.path} -> ${m.name}(${m.type}) [${m.geoType}] attrs: ${m.attrKeys}${m.patched ? ' (patched)' : ''}${m.ancestorType ? ` ancestor:${m.ancestorType}` : ''}`);
-        const patchedCount = missingPosition.filter(m => m.patched).length;
-        const more = missingPosition.length > 10 ? ` + ${missingPosition.length - 10} more` : '';
-        let msg = `${header} Examples: ${examples.join('; ')}${more}.`;
-        if (patchedCount > 0) {
-            msg += ` Note: ${patchedCount} were auto-patched with minimal position/normal data; consider fixing the source constructor.`;
-        }
-        console.warn(msg);
-    }
 }

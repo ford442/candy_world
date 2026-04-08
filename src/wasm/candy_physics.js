@@ -24,6 +24,14 @@ async function instantiate(module, imports = {}) {
   const { exports } = await WebAssembly.instantiate(module, adaptedImports);
   const memory = exports.memory || imports.env.memory;
   const adaptedExports = Object.setPrototypeOf({
+    hslToRgb(h, s, l) {
+      // assembly/math/hslToRgb(f32, f32, f32) => u32
+      return exports.hslToRgb(h, s, l) >>> 0;
+    },
+    rgbToHsl(r, g, b) {
+      // assembly/math/rgbToHsl(f32, f32, f32) => u32
+      return exports.rgbToHsl(r, g, b) >>> 0;
+    },
     lerpColor(color1, color2, t) {
       // assembly/math/lerpColor(u32, u32, f32) => u32
       return exports.lerpColor(color1, color2, t) >>> 0;
@@ -66,6 +74,16 @@ export const {
   GRID_NEXT_OFFSET,
   lerp,
   clamp,
+  hslToRgb,
+  rgbToHsl,
+  hash2D,
+  valueNoise2D,
+  fbm2D,
+  distSq2D,
+  distSq3D,
+  smoothstep,
+  smootherstep,
+  inverseLerp,
   getGroundHeight,
   freqToHue,
   lerpColor,
@@ -78,6 +96,11 @@ export const {
   checkCollision,
   checkPositionValidity,
   resolveGameCollisions,
+  batchGroundHeight,
+  dampVelocity,
+  batchDistanceCalc,
+  batchFrustumTest,
+  batchLODSelect,
   calcBounceY,
   calcSwayRotZ,
   calcWobble,
@@ -169,14 +192,23 @@ export const {
   batchAnimationCalc,
   batchDistanceCull,
   batchMushroomSpawnCandidates,
+  batchHslToRgb,
+  batchSphereCull,
+  batchLerp,
   computeSway,
   computeBounce,
   computeWobble,
   computeSpiralWave,
   computeGentleSway,
   computeHop,
+  smoothWobble,
+  batchGrowth,
+  batchBloom,
+  batchScaleAnimation,
   updateRainBatch,
   updateMelodicMistBatch,
+  updateParticles,
+  spawnBurst,
 } = await (async url => instantiate(
   await (async () => {
     const isNodeOrBun = typeof process != "undefined" && process.versions != null && (process.versions.node != null || process.versions.bun != null);

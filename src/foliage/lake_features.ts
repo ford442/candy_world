@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import {
     CandyPresets, attachReactivity
-} from './common.ts';
+} from './index.ts';
 import {
     positionLocal, vec3, float, sin, time, uv, add
 } from 'three/tsl';

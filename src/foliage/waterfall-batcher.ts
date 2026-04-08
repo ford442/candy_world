@@ -9,7 +9,7 @@ import {
 import {
     sharedGeometries, foliageMaterials, uTime,
     uAudioLow, uAudioHigh, CandyPresets, registerReactiveMaterial, createJuicyRimLight
-} from './common.ts';
+} from './index.ts';
 import { foliageGroup } from '../world/state.ts';
 
 const MAX_WATERFALLS = 200;

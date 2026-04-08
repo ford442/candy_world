@@ -1,170 +1,62 @@
-// src/systems/physics.ts
-// Orchestrator file - delegates hot paths to physics.core.ts (TypeScript)
+// src/systems/physics/physics.ts
+// Main physics orchestrator - delegates to state handlers and abilities
 // MIGRATED to TypeScript
 
 import * as THREE from 'three';
 import {
-    getGroundHeight, initPhysics, addObstacle, uploadObstaclesBatch, setPlayerState, getPlayerState, updatePhysicsCPP,
+    getGroundHeight, initPhysics, uploadObstaclesBatch, setPlayerState, getPlayerState, updatePhysicsCPP,
     uploadCollisionObjects, resolveGameCollisionsWASM
-} from '../utils/wasm-loader.js';
+} from '../../utils/wasm-loader.js';
 import {
-    foliageMushrooms, foliageTrampolines, foliageClouds, foliagePanningPads, foliageGeysers, foliageTraps, foliagePortamentoPines,
-    activeVineSwing, setActiveVineSwing, lastVineDetachTime, setLastVineDetachTime, vineSwings, animatedFoliage
-} from '../world/state.ts';
-import { discoverySystem } from './discovery.ts';
-import { DISCOVERY_MAP } from './discovery_map.ts';
-import { optimizedDiscovery, checkPlayerDiscovery } from './discovery-optimized.ts';
+    foliageMushrooms, foliageTrampolines, foliageClouds, vineSwings, animatedFoliage
+} from '../../world/state.ts';
+import { discoverySystem } from '../discovery.ts';
+import { DISCOVERY_MAP } from '../discovery_map.ts';
+import { optimizedDiscovery, checkPlayerDiscovery } from '../discovery-optimized.ts';
 import {
     calculateMovementInput,
     isInLakeBasin,
-    isOnLakeIsland,
-    getUnifiedGroundHeightTyped,
-    calculateWaterLevel,
-    PlayerState as CorePlayerState,
+    getUnifiedGroundHeightTyped
+} from '../physics.core.js';
+import { uChromaticIntensity } from '../../foliage/chromatic.ts';
+import { uGlitchExplosionCenter, uGlitchExplosionRadius } from '../../foliage/index.ts';
+import { spawnImpact } from '../../foliage/impacts.ts';
+import { showToast } from '../../utils/toast.js';
+import { harmonyOrbSystem } from '../../foliage/aurora.ts';
+import { addCameraShake } from '../../main.ts';
+import { unlockSystem } from '../unlocks.ts';
+
+// Import from physics modules
+import { 
+    player, 
+    PlayerState,
+    _lastInputState,
+    _scratchPlayerState,
+    _scratchCamDir,
+    _scratchMoveVec,
+    grooveGravity,
+    bpmWind,
+    foliageCaves,
+    setCppPhysicsInitialized,
+    cppPhysicsInitialized,
+    AudioState,
     KeyStates
-} from './physics.core.ts';
-import { uChromaticIntensity } from '../foliage/chromatic.ts';
-import { uStrobeIntensity } from '../foliage/strobe.ts';
-import { uGlitchExplosionCenter, uGlitchExplosionRadius } from '../foliage/common.ts';
-import { spawnImpact } from '../foliage/impacts.ts';
-import { VineSwing } from '../foliage/trees.ts';
-import { unlockSystem } from './unlocks.ts';
-import { showToast } from '../utils/toast.js';
-import { dandelionBatcher } from '../foliage/dandelion-batcher.ts';
-import { spawnDandelionExplosion } from '../foliage/dandelion-seeds.ts';
-import { harmonyOrbSystem } from '../foliage/aurora.ts';
-import { addCameraShake } from '../main.ts';
+} from './physics-types.js';
 
-// --- Types ---
+import {
+    updateSwimmingState,
+    updateVineState,
+    updateClimbingState,
+    updateDancingState,
+    updateStateTransitions,
+    updateEnvironmentalModifiers
+} from './physics-states.js';
 
-export interface AudioState {
-    grooveAmount?: number;
-    bpm?: number;
-    kickTrigger?: number;
-    [key: string]: any;
-}
+import { handleAbilities } from './physics-abilities.js';
 
-export interface PlayerExtended extends CorePlayerState {
-    airJumpsLeft: number;
-    dashCooldown: number;
-    canDash: boolean;
-    dodgeRollCooldown: number;
-    canDodgeRoll: boolean;
-    isDancing: boolean;
-    danceTime: number;
-    danceStartPos?: THREE.Vector3;
-    danceStartY?: number;
-    danceStartRotation?: { x: number; y: number; z: number };
-    hasShield: boolean;
-    isPhasing: boolean;
-    phaseTimer: number;
-    isInvisible: boolean;
-    invisibilityTimer: number;
-    harpoon: {
-        active: boolean;
-        anchor: THREE.Vector3;
-    };
-}
-
-// --- Configuration ---
-const GRAVITY = 20.0;
-const SWIMMING_GRAVITY = 2.0; // Much lower gravity in water
-const SWIMMING_DRAG = 4.0;    // High friction in water
-const PLAYER_HEIGHT_OFFSET = 1.8; // Height above ground
-const DANCE_KICK_THRESHOLD = 0.5; // Threshold for kick-triggered camera roll
-
-// --- State Definitions ---
-export const PlayerState = {
-    DEFAULT: 'default',   // Grounded or Airborne (Standard Physics)
-    SWIMMING: 'swimming', // Underwater physics
-    CLIMBING: 'climbing', // Wall scaling
-    VINE: 'vine',         // Swinging on a vine
-    DANCING: 'dancing'    // Dance mode with unlocked cursor
-};
-
-// --- Player State Object ---
-export const player: PlayerExtended = {
-    position: new THREE.Vector3(), // Shadowing camera position for WASM sync
-    velocity: new THREE.Vector3(),
-    speed: 15.0,
-    sprintSpeed: 25.0,
-    sneakSpeed: 5.0,
-    gravity: GRAVITY,
-    energy: 0.0,
-    maxEnergy: 10.0,
-    currentState: PlayerState.DEFAULT,
-
-    // Ability State
-    airJumpsLeft: 1,
-    dashCooldown: 0.0,
-    canDash: true,
-    dodgeRollCooldown: 0.0,
-    canDodgeRoll: true,
-    isDancing: false,
-    danceTime: 0.0,
-    hasShield: false,
-    isPhasing: false,
-    phaseTimer: 0.0,
-    isInvisible: false,
-    invisibilityTimer: 0.0,
-
-    // Flags for external systems to query
-    isGrounded: false,
-    isUnderwater: false,
-
-    harpoon: {
-        active: false,
-        anchor: new THREE.Vector3()
-    }
-};
-
-// Internal input tracking for edge detection
-const _lastInputState = {
-    jump: false,
-    dash: false,
-    dodgeRoll: false,
-    dance: false,
-    phase: false,
-    clap: false
-};
-
-// Global physics modifiers (Musical Ecosystem)
-export const bpmWind = {
-    direction: new THREE.Vector3(1, 0, 0),
-    strength: 0,
-    targetStrength: 0,
-    bpm: 120
-};
-
-export const grooveGravity = {
-    multiplier: 1.0,
-    targetMultiplier: 1.0,
-    baseGravity: 20.0
-};
-
-// --- Optimization: Scratch Variables (Zero-Allocation) ---
-const _scratchSwimDir = new THREE.Vector3();
-const _scratchCamDir = new THREE.Vector3();
-const _scratchCamRight = new THREE.Vector3();
-const _scratchMoveVec = new THREE.Vector3();
-const _scratchTargetVel = new THREE.Vector3();
-const _scratchUp = new THREE.Vector3(0, 1, 0);
-// ⚡ OPTIMIZATION: Shared scratch object for WASM state reads to avoid GC spikes
-const _scratchPlayerState = { x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0 };
-// ⚡ OPTIMIZATION: Scratch vector for Sonic Clap head offset calculations
-const _scratchHeadOffset = new THREE.Vector3();
-const _scratchPos = new THREE.Vector3();
-const _clapColor = new THREE.Color(0xFFD700);
-
-// C++ Physics Init Flag
-let cppPhysicsInitialized = false;
-let foliageCaves: THREE.Object3D[] = []; // Store caves for collision checks
-
-// --- Helper: Unified Ground Height (WASM + Lake Modifiers) ---
-// This prevents the player from floating on "invisible" ground over the lake
-function getUnifiedGroundHeight(x: number, z: number): number {
-    return getUnifiedGroundHeightTyped(x, z, getGroundHeight);
-}
+// Re-export player and types for external use
+export { player, PlayerState };
+export type { AudioState, PlayerExtended, KeyStates } from './physics-types.js';
 
 // --- Public API ---
 
@@ -294,470 +186,25 @@ function checkFloraDiscovery(playerPos: THREE.Vector3) {
     }
 }
 
-// --- Internal Logic ---
-
-function updateEnvironmentalModifiers(delta: number, audioState: AudioState) {
-    if (audioState) {
-        // Groove Gravity
-        const groove = audioState.grooveAmount || 0;
-        grooveGravity.targetMultiplier = 1.0 - (groove * 0.4);
-        grooveGravity.multiplier += (grooveGravity.targetMultiplier - grooveGravity.multiplier) * delta * 5.0;
-        player.gravity = grooveGravity.baseGravity * grooveGravity.multiplier;
-
-        // BPM Wind (Visuals only for now)
-        const currentBPM = audioState.bpm || 120;
-        bpmWind.bpm = currentBPM;
-        bpmWind.targetStrength = Math.min(1.0, (currentBPM - 60) / 120);
-        bpmWind.strength += (bpmWind.targetStrength - bpmWind.strength) * delta * 2;
-    }
-}
-
-function updateStateTransitions(camera: THREE.Camera, keyStates: KeyStates) {
-    const playerPos = player.position;
-
-    // A. Check Dance Mode Toggle (Toggle on/off with R key)
-    const isDancePressed = keyStates.dance;
-    const isDanceTriggered = isDancePressed && !_lastInputState.dance;
-    
-    if (isDanceTriggered) {
-        if (player.currentState === PlayerState.DANCING) {
-            // Exit dance mode
-            player.currentState = PlayerState.DEFAULT;
-            player.isDancing = false;
-            player.danceTime = 0;
-            // Clean up dance state
-            // ⚡ OPTIMIZATION: Instead of undefined, just let the logic reset values on next dance to avoid GC
-            player.danceStartY = undefined;
-            // Reset camera rotation
-            camera.rotation.z = 0;
-        } else if (player.currentState === PlayerState.DEFAULT) {
-            // Enter dance mode
-            player.currentState = PlayerState.DANCING;
-            player.isDancing = true;
-            player.danceTime = 0;
-        }
-    }
-
-    // Skip other state transitions when dancing
-    if (player.currentState === PlayerState.DANCING) {
-        return;
-    }
-
-    // B. Check Water Level / Cave Flooding
-    // MIGRATED: Now uses TypeScript version from physics.core.ts
-    const waterLevel = calculateWaterLevel(playerPos, foliageCaves);
-
-    const wasSwimming = player.currentState === PlayerState.SWIMMING;
-    const isNowUnderwater = playerPos.y < waterLevel;
-    player.isUnderwater = isNowUnderwater;
-
-    // Transition: Enter/Exit Water
-    if (isNowUnderwater && !wasSwimming) {
-        player.currentState = PlayerState.SWIMMING;
-        // Dampen velocity on entry
-        player.velocity.multiplyScalar(0.5);
-    } else if (!isNowUnderwater && wasSwimming) {
-        // Exit water logic
-        if (playerPos.y > waterLevel) {
-            player.currentState = PlayerState.DEFAULT;
-            if (keyStates.jump) player.velocity.y = 8.0; // Boost out
-        }
-    }
-
-    // Transition: Vine Handling
-    if (activeVineSwing) {
-        player.currentState = PlayerState.VINE;
-        discoverySystem.discover('vine_swing', 'Swingable Vine', '🪜');
-    } else if (player.currentState === PlayerState.VINE) {
-        player.currentState = PlayerState.DEFAULT;
-    }
-}
-
-// --- State: SWIMMING ---
-function updateSwimmingState(delta: number, camera: THREE.Camera, controls: any, keyStates: KeyStates, audioState: AudioState | null) {
-    player.velocity.y -= (SWIMMING_GRAVITY * delta);
-    // Clamp drag factor to [0,1] to prevent velocity reversal on large delta (e.g., tab switch)
-    player.velocity.multiplyScalar(Math.max(0, 1.0 - (SWIMMING_DRAG * delta)));
-
-    const kickTrigger = audioState?.kickTrigger || 0.0;
-    const surfBoost = kickTrigger > 0.5 ? kickTrigger * 1.5 : 0;
-
-    // Base speed + potential surfing boost on kick
-    const swimSpeed = player.speed * (0.6 + surfBoost);
-    const swimDir = _scratchSwimDir.set(0, 0, 0);
-
-    if (keyStates.forward) swimDir.z += 1;
-    if (keyStates.backward) swimDir.z -= 1;
-    if (keyStates.right) swimDir.x += 1;
-    if (keyStates.left) swimDir.x -= 1;
-
-    if (swimDir.lengthSq() > 0) {
-        swimDir.normalize();
-        const camDir = _scratchCamDir;
-        camera.getWorldDirection(camDir);
-        const camRight = _scratchCamRight;
-        camRight.crossVectors(camDir, _scratchUp);
-
-        const moveVec = _scratchMoveVec.set(0, 0, 0)
-            .addScaledVector(camDir, swimDir.z)
-            .addScaledVector(camRight, swimDir.x);
-
-        player.velocity.addScaledVector(moveVec, swimSpeed * delta);
-
-        // Surfing feedback if moving forward
-        if (surfBoost > 0 && keyStates.forward) {
-            // Only trigger occasionally so we don't spam impacts/toasts
-            if (Math.random() < 0.05) {
-                spawnImpact(player.position, 'dash');
-                if (uChromaticIntensity) {
-                    uChromaticIntensity.value = 0.3;
-                }
-                discoverySystem.discover('waveform_surfing', 'Waveform Surfing', '🌊');
-            }
-        }
-    }
-
-    if (keyStates.jump) player.velocity.y += 10 * delta;
-    if (keyStates.sneak) player.velocity.y -= 10 * delta;
-
-    // Harpoon Mechanics
-    if (player.harpoon.active) {
-        const dx = player.harpoon.anchor.x - player.position.x;
-        const dy = player.harpoon.anchor.y - player.position.y;
-        const dz = player.harpoon.anchor.z - player.position.z;
-        const distSq = dx*dx + dy*dy + dz*dz;
-
-        if (distSq < 4.0) { // Reached anchor
-            player.harpoon.active = false;
-            player.velocity.y += 15.0; // Boost out
-            spawnImpact(player.position, 'jump');
-        } else {
-            // Pull towards anchor
-            const dist = Math.sqrt(distSq);
-            // Modulate pull speed with kick drum
-            const kickBoost = audioState?.kickTrigger ? audioState.kickTrigger * 20.0 : 0;
-            const pullSpeed = 30.0 + kickBoost;
-
-            player.velocity.x += (dx / dist) * pullSpeed * delta;
-            player.velocity.y += (dy / dist) * pullSpeed * delta;
-            player.velocity.z += (dz / dist) * pullSpeed * delta;
-
-            if (Math.random() < 0.1) {
-                spawnImpact(player.position, 'dash');
-            }
-        }
-    }
-
-    // controls.moveRight/Forward applies to the camera object directly, which we synced to player.position
-    // But Three.js PointerLockControls uses its own internal object.
-    // We update position manually here instead.
-
-    player.position.x += player.velocity.x * delta;
-    player.position.z += player.velocity.z * delta;
-    player.position.y += player.velocity.y * delta;
-}
-
-// --- State: VINE SWING ---
-function updateVineState(delta: number, camera: THREE.Camera, keyStates: KeyStates) {
-    if (activeVineSwing) {
-        // VineSwing.update expects PlayerObject, but Camera is an Object3D
-        // We pass camera for visual updates (positioning) - it's compatible enough
-        activeVineSwing.update(camera as any, delta, keyStates);
-
-        // CRITICAL: Sync player position to match camera immediately
-        // because VineSwing modified camera.position
-        player.position.copy(camera.position);
-
-        if (keyStates.jump) {
-            // detach modifies velocity, pass player (has velocity)
-            setLastVineDetachTime(activeVineSwing.detach(player as any));
-            setActiveVineSwing(null);
-            keyStates.jump = false;
-            player.currentState = PlayerState.DEFAULT;
-        }
-    }
-}
-
-// --- State: CLIMBING ---
-function updateClimbingState(delta: number, camera: THREE.Camera, controls: any, keyStates: KeyStates) {
-    player.velocity.set(0,0,0);
-    player.currentState = PlayerState.DEFAULT;
-}
-
-// --- State: DANCING ---
-function updateDancingState(delta: number, camera: THREE.Camera, controls: any, keyStates: KeyStates, audioState: AudioState | null) {
-    // Unlock pointer if locked
-    if (document.pointerLockElement === document.body) {
-        controls.unlock();
-    }
-
-    // Store initial values before updating dance time so that we can check for danceTime === 0
-    const isFirstFrame = player.danceTime === 0;
-
-    // Update dance time
-    player.danceTime += delta;
-    
-    // Get BPM and beat info from audio (with fallbacks for when no music is playing)
-    const bpm = audioState?.bpm ?? 120;
-    const beatPhase = audioState?.beatPhase ?? 0;
-    const kickTrigger = audioState?.kickTrigger ?? 0;
-    
-    // Calculate beat duration in seconds
-    const beatDuration = 60.0 / bpm;
-    const danceSpeed = 1.0 + (bpm / 120.0); // Faster dance at higher BPMs
-    
-    // Position movement: Small circular pattern
-    const circleRadius = 0.5 + (kickTrigger * 0.3); // Bigger circle on kicks
-    const circleSpeed = danceSpeed * 2.0;
-    const angle = player.danceTime * circleSpeed;
-    
-    // Store initial position on first frame
-    // ⚡ OPTIMIZATION: Zero-allocation dance state initialization
-    if (isFirstFrame || !player.danceStartPos) {
-        player.danceStartPos = player.danceStartPos || new THREE.Vector3();
-        player.danceStartPos.copy(player.position);
-        player.danceStartY = getUnifiedGroundHeight(player.position.x, player.position.z) + PLAYER_HEIGHT_OFFSET;
-    }
-    
-    // Move in a circle around starting position
-    player.position.x = player.danceStartPos.x + Math.sin(angle) * circleRadius;
-    player.position.z = player.danceStartPos.z + Math.cos(angle) * circleRadius;
-    
-    // Bob up and down with the beat
-    const bobAmount = 0.3 + (kickTrigger * 0.2);
-    const bobPhase = beatPhase * Math.PI * 2;
-    // TypeScript safety: danceStartY is initialized right after danceStartPos
-    player.position.y = (player.danceStartY || 0) + Math.sin(bobPhase) * bobAmount;
-    
-    // Camera view movement: Rotate and tilt based on music
-    // Get current camera rotation
-    const pitchAmount = Math.sin(player.danceTime * danceSpeed * 1.5) * 0.15; // Tilt up/down
-    const yawAmount = Math.cos(player.danceTime * danceSpeed) * 0.3; // Turn left/right
-    
-    // Apply rotation relative to initial orientation
-    // ⚡ OPTIMIZATION: Zero-allocation dance state initialization
-    if (isFirstFrame || !player.danceStartRotation) {
-        player.danceStartRotation = player.danceStartRotation || { x: 0, y: 0, z: 0 };
-        player.danceStartRotation.x = camera.rotation.x;
-        player.danceStartRotation.y = camera.rotation.y;
-        player.danceStartRotation.z = camera.rotation.z;
-    }
-    
-    // Smooth rotation animation
-    camera.rotation.x = player.danceStartRotation.x + pitchAmount;
-    camera.rotation.y = player.danceStartRotation.y + yawAmount;
-    
-    // Extra bounce on kick
-    if (kickTrigger > DANCE_KICK_THRESHOLD) {
-        camera.rotation.z = Math.sin(player.danceTime * 10) * 0.05;
-    } else {
-        camera.rotation.z *= 0.9; // Dampen roll
-    }
-    
-    // Zero velocity while dancing
-    player.velocity.set(0, 0, 0);
-    
-    // Discovery
-    if (player.danceTime < 0.1) {
-        discoverySystem.discover('ability_dance', 'Dance Mode', '💃');
-    }
-}
-
-// --- Ability Handler ---
-function handleAbilities(delta: number, camera: THREE.Camera, keyStates: KeyStates) {
-    // 1. Cooldown Management
-    if (player.dashCooldown > 0) {
-        player.dashCooldown -= delta;
-    }
-    if (player.dodgeRollCooldown > 0) {
-        player.dodgeRollCooldown -= delta;
-    }
-
-    // 2. Ground Reset
-    if (player.isGrounded) {
-        player.airJumpsLeft = 1; // Reset Double Jump
-    }
-
-    // 3. Double Jump (Air Jump)
-    // Trigger on Rising Edge of Jump Key AND Not Grounded AND Jumps Left
-    const isJumpPressed = keyStates.jump;
-    const isJumpTriggered = isJumpPressed && !_lastInputState.jump;
-
-    if (isJumpTriggered && !player.isGrounded && player.airJumpsLeft > 0) {
-        // Apply Jump Force
-        player.velocity.y = 12.0;
-        player.airJumpsLeft--;
-
-        // Visual / Feedback
-        spawnImpact(player.position, 'jump');
-
-        // Small chromatic aberration bump
-        if (uChromaticIntensity) {
-             // We can't set node directly? uChromaticIntensity is a UniformNode.
-             // .value property updates the uniform value.
-             uChromaticIntensity.value = 0.2;
-        }
-
-        discoverySystem.discover('ability_double_jump', 'Double Jump', '🦘');
-    }
-
-    // 4. Dash
-    // Trigger on Rising Edge of Dash Key AND Cooldown Ready
-    const isDashPressed = keyStates.dash;
-    const isDashTriggered = isDashPressed && !_lastInputState.dash;
-
-    if (isDashTriggered && player.dashCooldown <= 0) {
-        // Calculate Dash Direction (Camera Forward, flattened)
-        camera.getWorldDirection(_scratchCamDir);
-        _scratchCamDir.y = 0;
-        _scratchCamDir.normalize();
-
-        // Apply Impulse (25 units/sec instant boost)
-        // We add to existing velocity? Or set it?
-        // Setting it gives a "snappy" feel. Adding preserves momentum.
-        // Let's Add, but clamp Y.
-        player.velocity.addScaledVector(_scratchCamDir, 25.0);
-
-        // Cancel vertical momentum for "Air Dash" feel
-        if (!player.isGrounded) {
-            player.velocity.y = 0;
-        }
-
-        player.dashCooldown = 1.0; // 1 Second Cooldown
-
-        // Visual Feedback
-        spawnImpact(player.position, 'dash');
-        addCameraShake(0.1); // 🎨 Palette: Dash shake
-
-        if (uChromaticIntensity) {
-            uChromaticIntensity.value = 0.5; // Stronger pulse for dash
-        }
-
-        discoverySystem.discover('ability_dash', 'Dash', '💨');
-    }
-
-    // 4.5 Dodge Roll
-    // Trigger on Rising Edge of Dodge Roll Key AND Cooldown Ready
-    const isDodgeRollPressed = keyStates.dodgeRoll;
-    const isDodgeRollTriggered = isDodgeRollPressed && !_lastInputState.dodgeRoll;
-
-    if (isDodgeRollTriggered && player.dodgeRollCooldown <= 0) {
-        // Calculate Direction
-        camera.getWorldDirection(_scratchCamDir);
-        _scratchCamDir.y = 0;
-        _scratchCamDir.normalize();
-
-        // Apply Impulse
-        player.velocity.addScaledVector(_scratchCamDir, 35.0);
-        if (!player.isGrounded) {
-            player.velocity.y = 0;
-        }
-
-        // Grant short invulnerability window
-        player.isPhasing = true;
-        player.phaseTimer = 0.5;
-
-        player.dodgeRollCooldown = 1.5; // 1.5 Second Cooldown
-
-        // Visual Feedback
-        spawnImpact(player.position, 'dash');
-        if (uChromaticIntensity) {
-            uChromaticIntensity.value = 0.6;
-        }
-
-        discoverySystem.discover('ability_dodge_roll', 'Dodge Roll', '🌪️');
-    }
-
-    // 5. Sonic Clap
-    // Trigger on Rising Edge of Clap Key
-    const isClapPressed = keyStates.clap;
-    const isClapTriggered = isClapPressed && !_lastInputState.clap;
-
-    if (isClapTriggered) {
-        // Visual effect for clap
-        spawnImpact(player.position, 'dash');
-        if (uChromaticIntensity) uChromaticIntensity.value = 0.3;
-
-        // Iterate through flora to find Cymbal Dandelions
-        let foundDandelion = false;
-        for (const obj of animatedFoliage) {
-            if (obj.userData?.type === 'flower' && obj.userData?.animationType === 'batchedCymbal') {
-                if (!obj.userData.harvested) {
-                    const distSq = player.position.distanceToSquared(obj.position);
-                    if (distSq < 15.0 * 15.0) { // 15 unit radius
-                        foundDandelion = true;
-
-                        dandelionBatcher.harvest(obj.userData.batchIndex);
-                        unlockSystem.harvest('chime_shard', 3, 'Chime Shards');
-
-                        // Visual FX
-                        const scale = obj.scale.x;
-                        // ⚡ OPTIMIZATION: Reuse pre-allocated scratch vector and color for GC-free sonic clap
-                        _scratchHeadOffset.set(0, 1.5 * scale, 0).applyQuaternion(obj.quaternion);
-                        // ⚡ OPTIMIZATION: Reused scratch vector for headPos to prevent GC spike
-                        const headPos = _scratchPos.copy(obj.position).add(_scratchHeadOffset);
-
-                        spawnImpact(headPos, 'spore', _clapColor);
-                        spawnDandelionExplosion(headPos, 24);
-
-                        obj.userData.harvested = true;
-                        obj.userData.interactionText = "Harvested";
-                    }
-                }
-            }
-        }
-
-        if (foundDandelion) {
-            discoverySystem.discover('ability_sonic_clap', 'Sonic Clap', '👏');
-        }
-    }
-
-    // 6. Phase Shift
-    // Trigger on Rising Edge of Phase Key
-    const isPhasePressed = keyStates.phase;
-    const isPhaseTriggered = isPhasePressed && !_lastInputState.phase;
-
-    if (isPhaseTriggered) {
-        if (player.isPhasing) {
-            // Cancel Phase Shift early? Or just ignore.
-        } else {
-            // Attempt to activate
-            if (unlockSystem.consume('tremolo_bulb', 1)) {
-                player.isPhasing = true;
-                player.phaseTimer = 5.0; // 5 Seconds Duration
-
-                // Visuals
-                if (uChromaticIntensity) {
-                    uChromaticIntensity.value = 0.8; // Strong distortion
-                }
-                spawnImpact(player.position, 'land'); // Reuse land impact for now
-                showToast("Phase Shift Active! 👻", "👻");
-
-                // Note: Collision logic would need to check player.isPhasing
-                // to ignore obstacles, but for now it's just a status effect + visual.
-            } else {
-                showToast("Need Tremolo Bulb! 🌷", "❌");
-            }
-        }
-    }
-}
-
-
 // --- State: DEFAULT (Walking/Falling) ---
 function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, keyStates: KeyStates, audioState: AudioState) {
     if (!cppPhysicsInitialized) {
         initCppPhysics(camera);
-        cppPhysicsInitialized = true;
+        setCppPhysicsInitialized(true);
     }
 
     for (let i = 0; i < vineSwings.length; i++) {
         const v = vineSwings[i];
-        if (v !== activeVineSwing) v.update(player as any, delta, null);
+        import('../../world/state.ts').then(({ activeVineSwing }) => {
+            if (v !== activeVineSwing) v.update(player as any, delta, null);
+        });
     }
 
-    if (Date.now() - lastVineDetachTime > 500) {
-        checkVineAttachment(camera);
-    }
+    import('../../world/state.ts').then(({ lastVineDetachTime }) => {
+        if (Date.now() - lastVineDetachTime > 500) {
+            checkVineAttachment(camera);
+        }
+    });
 
     // --- ABILITIES & MOVEMENT ---
     handleAbilities(delta, camera, keyStates);
@@ -948,6 +395,71 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
     // --- Harmony Orbs (Collection) ---
     checkHarmonyOrbs();
 }
+
+// Helper: Initialize C++ obstacles (One-time setup)
+function initCppPhysics(camera: THREE.Camera) {
+    initPhysics(camera.position.x, camera.position.y, camera.position.z);
+
+    // 1. Upload to C++ Engine (Emscripten) - For Standard Terrain/Obstacles
+    const totalCount = foliageMushrooms.length + foliageClouds.length + foliageTrampolines.length;
+    if (totalCount > 0) {
+        const batchData = new Float32Array(totalCount * 9);
+        let ptr = 0;
+
+        for (const m of foliageMushrooms) {
+            batchData[ptr++] = 0; // type
+            batchData[ptr++] = m.position.x;
+            batchData[ptr++] = m.position.y;
+            batchData[ptr++] = m.position.z;
+            batchData[ptr++] = 0; // r (unused for mushroom here)
+            batchData[ptr++] = (m.userData as any).capHeight || 3;
+            batchData[ptr++] = (m.userData as any).stemRadius || 0.5;
+            batchData[ptr++] = (m.userData as any).capRadius || 2;
+            batchData[ptr++] = (m.userData as any).isTrampoline ? 1 : 0;
+        }
+
+        for (const c of foliageClouds) {
+            batchData[ptr++] = 1; // type
+            batchData[ptr++] = c.position.x;
+            batchData[ptr++] = c.position.y;
+            batchData[ptr++] = c.position.z;
+            batchData[ptr++] = (c.scale.x || 1) * 2.0; // r
+            batchData[ptr++] = (c.scale.y || 1) * 0.8; // h
+            batchData[ptr++] = 0; // p1
+            batchData[ptr++] = (c.userData as any).tier || 1; // p2
+            batchData[ptr++] = 0; // p3
+        }
+
+        for (const t of foliageTrampolines) {
+            batchData[ptr++] = 2; // type
+            batchData[ptr++] = t.position.x;
+            batchData[ptr++] = t.position.y;
+            batchData[ptr++] = t.position.z;
+            batchData[ptr++] = (t.userData as any).bounceRadius || 0.5; // r
+            batchData[ptr++] = (t.userData as any).bounceHeight || 0.5; // h
+            batchData[ptr++] = (t.userData as any).bounceForce || 12; // p1
+            batchData[ptr++] = 0; // p2
+            batchData[ptr++] = 0; // p3
+        }
+
+        uploadObstaclesBatch(batchData, totalCount);
+    }
+
+    // 2. Upload to AssemblyScript Engine (ASC) - For Narrow Phase Interactivity
+    uploadCollisionObjects(foliageCaves, foliageMushrooms, foliageClouds, foliageTrampolines);
+
+    console.log('[Physics] Engines Initialized (C++ & ASC).');
+}
+
+// --- Foliage Interactions (check functions moved from original) ---
+
+import {
+    foliagePanningPads,
+    foliageGeysers,
+    foliageTraps,
+    foliagePortamentoPines
+} from '../../world/state.ts';
+import { uStrobeIntensity } from '../../foliage/strobe.ts';
 
 function checkHarmonyOrbs() {
     const playerPos = player.position;
@@ -1309,6 +821,14 @@ function checkPanningPads() {
     }
 }
 
+// --- JS Fallback Movement ---
+import {
+    _scratchCamRight,
+    _scratchTargetVel,
+    _scratchUp,
+    PLAYER_HEIGHT_OFFSET
+} from './physics-types.js';
+
 function updateJSFallbackMovement(delta: number, camera: THREE.Camera, controls: any, keyStates: KeyStates, moveSpeed: number) {
     // Same Camera-Relative Logic
     const camDir = _scratchCamDir;
@@ -1335,11 +855,11 @@ function updateJSFallbackMovement(delta: number, camera: THREE.Camera, controls:
     player.position.y += player.velocity.y * delta;
 
     // Corrected Ground Check using Unified Height (Accounts for Lake)
-    const groundY = getUnifiedGroundHeight(player.position.x, player.position.z);
+    const groundY = getUnifiedGroundHeightTyped(player.position.x, player.position.z, getGroundHeight);
 
     const wasGrounded = player.isGrounded;
-    if (player.position.y < groundY + 1.8 && player.velocity.y <= 0) {
-        player.position.y = groundY + 1.8;
+    if (player.position.y < groundY + PLAYER_HEIGHT_OFFSET && player.velocity.y <= 0) {
+        player.position.y = groundY + PLAYER_HEIGHT_OFFSET;
         player.velocity.y = 0;
         player.isGrounded = true;
 
@@ -1374,87 +894,35 @@ function updateJSFallbackMovement(delta: number, camera: THREE.Camera, controls:
     }
 }
 
-// Helper: Initialize C++ obstacles (One-time setup)
-function initCppPhysics(camera: THREE.Camera) {
-    initPhysics(camera.position.x, camera.position.y, camera.position.z);
-
-    // 1. Upload to C++ Engine (Emscripten) - For Standard Terrain/Obstacles
-    const totalCount = foliageMushrooms.length + foliageClouds.length + foliageTrampolines.length;
-    if (totalCount > 0) {
-        const batchData = new Float32Array(totalCount * 9);
-        let ptr = 0;
-
-        for (const m of foliageMushrooms) {
-            batchData[ptr++] = 0; // type
-            batchData[ptr++] = m.position.x;
-            batchData[ptr++] = m.position.y;
-            batchData[ptr++] = m.position.z;
-            batchData[ptr++] = 0; // r (unused for mushroom here)
-            batchData[ptr++] = (m.userData as any).capHeight || 3;
-            batchData[ptr++] = (m.userData as any).stemRadius || 0.5;
-            batchData[ptr++] = (m.userData as any).capRadius || 2;
-            batchData[ptr++] = (m.userData as any).isTrampoline ? 1 : 0;
-        }
-
-        for (const c of foliageClouds) {
-            batchData[ptr++] = 1; // type
-            batchData[ptr++] = c.position.x;
-            batchData[ptr++] = c.position.y;
-            batchData[ptr++] = c.position.z;
-            batchData[ptr++] = (c.scale.x || 1) * 2.0; // r
-            batchData[ptr++] = (c.scale.y || 1) * 0.8; // h
-            batchData[ptr++] = 0; // p1
-            batchData[ptr++] = (c.userData as any).tier || 1; // p2
-            batchData[ptr++] = 0; // p3
-        }
-
-        for (const t of foliageTrampolines) {
-            batchData[ptr++] = 2; // type
-            batchData[ptr++] = t.position.x;
-            batchData[ptr++] = t.position.y;
-            batchData[ptr++] = t.position.z;
-            batchData[ptr++] = (t.userData as any).bounceRadius || 0.5; // r
-            batchData[ptr++] = (t.userData as any).bounceHeight || 0.5; // h
-            batchData[ptr++] = (t.userData as any).bounceForce || 12; // p1
-            batchData[ptr++] = 0; // p2
-            batchData[ptr++] = 0; // p3
-        }
-
-        uploadObstaclesBatch(batchData, totalCount);
-    }
-
-    // 2. Upload to AssemblyScript Engine (ASC) - For Narrow Phase Interactivity
-    uploadCollisionObjects(foliageCaves, foliageMushrooms, foliageClouds, foliageTrampolines);
-
-    console.log('[Physics] Engines Initialized (C++ & ASC).');
-}
-
+// --- Vine Attachment Helper ---
 function checkVineAttachment(camera: THREE.Camera) {
-    const playerPos = player.position;
-    for (const vineManager of vineSwings) {
-        // SAFETY: Ensure vineManager and anchorPoint exist before accessing properties
-        if (!vineManager || !vineManager.anchorPoint) continue;
-        const anchor = vineManager.anchorPoint;
-        // @ts-ignore
-        if (typeof anchor.x !== 'number' || typeof anchor.y !== 'number' || typeof anchor.z !== 'number') continue;
+    import('../../world/state.ts').then(({ vineSwings, activeVineSwing, setActiveVineSwing }) => {
+        const playerPos = player.position;
+        for (const vineManager of vineSwings) {
+            // SAFETY: Ensure vineManager and anchorPoint exist before accessing properties
+            if (!vineManager || !vineManager.anchorPoint) continue;
+            const anchor = vineManager.anchorPoint;
+            // @ts-ignore
+            if (typeof anchor.x !== 'number' || typeof anchor.y !== 'number' || typeof anchor.z !== 'number') continue;
 
-        const dx = playerPos.x - anchor.x;
-        const dz = playerPos.z - anchor.z;
+            const dx = playerPos.x - anchor.x;
+            const dz = playerPos.z - anchor.z;
 
-        // ⚡ OPTIMIZATION: Use squared distance to avoid expensive Math.sqrt() in a hot loop
-        const distHSq = dx*dx + dz*dz;
-        const tipY = anchor.y - (typeof vineManager.length === 'number' ? vineManager.length : 0);
+            // ⚡ OPTIMIZATION: Use squared distance to avoid expensive Math.sqrt() in a hot loop
+            const distHSq = dx*dx + dz*dz;
+            const tipY = anchor.y - (typeof vineManager.length === 'number' ? vineManager.length : 0);
 
-        // Compare against squared thresholds (2.0^2 = 4.0, 1.0^2 = 1.0)
-        if (distHSq < 4.0 && playerPos.y < anchor.y && playerPos.y > tipY) {
-             if (distHSq < 1.0) {
-                 if (typeof vineManager.attach === 'function') {
-                     // @ts-ignore
-                     vineManager.attach(player, player.velocity);
-                     setActiveVineSwing(vineManager);
-                     break;
+            // Compare against squared thresholds (2.0^2 = 4.0, 1.0^2 = 1.0)
+            if (distHSq < 4.0 && playerPos.y < anchor.y && playerPos.y > tipY) {
+                 if (distHSq < 1.0) {
+                     if (typeof vineManager.attach === 'function') {
+                         // @ts-ignore
+                         vineManager.attach(player, player.velocity);
+                         setActiveVineSwing(vineManager);
+                         break;
+                     }
                  }
-             }
+            }
         }
-    }
+    });
 }

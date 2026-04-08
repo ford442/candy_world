@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { time, positionLocal, positionWorld, sin, vec3, color, normalView, dot, float, max, sign, smoothstep, normalize } from 'three/tsl';
-import { uWindSpeed, uWindDirection, createClayMaterial, uAudioLow, uAudioHigh, uPlayerPosition } from './common.ts';
+import { uWindSpeed, uWindDirection, createClayMaterial, uAudioLow, uAudioHigh, uPlayerPosition } from './index.ts';
 import { uSkyDarkness } from './sky.ts';
 
 let grassMeshes: THREE.InstancedMesh[] = [];

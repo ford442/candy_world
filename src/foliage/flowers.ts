@@ -20,7 +20,7 @@ import {
     uTime,
     uAudioHigh,
     uAudioLow
-} from './common.ts';
+} from './index.ts';
 import { color as tslColor, mix, float, positionLocal, Node, uv, vec2, sub, mul, add, sin, length, atan, smoothstep, vec3 } from 'three/tsl';
 import { uTwilight } from './sky.ts';
 import { lanternBatcher } from './lantern-batcher.ts';

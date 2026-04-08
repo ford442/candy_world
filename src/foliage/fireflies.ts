@@ -9,7 +9,7 @@ import {
 import {
     uTime, uAudioLow, uAudioHigh, uPlayerPosition,
     sharedGeometries, createJuicyRimLight
-} from './common.ts';
+} from './index.ts';
 
 export function createFireflies(count = 150, areaSize = 100) {
     // 1. Setup Buffers

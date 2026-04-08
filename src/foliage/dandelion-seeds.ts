@@ -6,7 +6,7 @@ import {
     exp, rotate, normalize, vec4, vec3, smoothstep, step,
     mix, color
 } from 'three/tsl';
-import { uTime, uAudioHigh, uWindSpeed, uWindDirection, createSugarSparkle } from './common.ts';
+import { uTime, uAudioHigh, uWindSpeed, uWindDirection, createSugarSparkle } from './index.ts';
 
 const MAX_SEEDS = 2000;
 let _seedMesh: THREE.InstancedMesh | null = null;

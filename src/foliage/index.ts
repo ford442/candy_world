@@ -1,64 +1,104 @@
 // src/foliage/index.ts
-// Export all foliage sub-modules
-export * from './common.ts';
-export * from './berries.ts';
-export * from './grass.ts';
-export * from './mushrooms.ts';
-export * from './flowers.ts';
-export * from './trees.ts';
-export * from './clouds.ts';
-export * from './waterfalls.ts';
-export * from './cave.ts';
-export * from './environment.ts';
-export * from './fireflies.ts';
-export * from './animation.ts';
-export * from './water.ts';
-export * from './terrain.ts'; // Added Terrain Material
-export * from './lake_features.ts';
-export * from './glitch.ts';
-export * from './chromatic.ts';
-export * from './strobe.ts';
-export * from './fluid_fog.ts';
+// Main export hub for foliage system - re-exports everything for backward compatibility
 
-// Export lantern flower explicitly if not covered by flowers.ts (it is, but let's be safe)
-export { createLanternFlower } from './flowers.ts';
+// =============================================================================
+// MATERIAL CORE - Shared resources, TSL utilities, and material factory
+// =============================================================================
+export {
+    // Shared geometries
+    sharedGeometries,
+    eyeGeo,
+    pupilGeo,
+    // Scratch vectors
+    _scratchVec1,
+    _scratchVec2,
+    _scratchVec3,
+    // Global uniforms
+    uWindSpeed,
+    uWindDirection,
+    uTime,
+    uGlitchIntensity,
+    uGlitchExplosionCenter,
+    uGlitchExplosionRadius,
+    uAudioLow,
+    uAudioHigh,
+    uPlayerPosition,
+    // Utility functions
+    median,
+    generateNoiseTexture,
+    getCachedProceduralMaterial,
+    // TSL utility functions
+    triplanarNoise,
+    perturbNormal,
+    createRimLight,
+    createJuicyRimLight,
+    createSugarSparkle,
+    addRimLight,
+    colorFromNote,
+    // Player interaction
+    calculatePlayerPush,
+    applyPlayerInteraction,
+    // Wind and bloom
+    calculateWindSway,
+    calculateWindSwayLegacy,
+    calculateFlowerBloom,
+    getWindTextureData,
+    windComputeSystem,
+    // Material factory
+    createUnifiedMaterial,
+    UnifiedMaterialOptions,
+    // Presets
+    CandyPresets,
+    // Legacy wrappers
+    createClayMaterial,
+    createCandyMaterial,
+    createTexturedClay,
+    createSugaredMaterial,
+    createGradientMaterial,
+    createStandardNodeMaterial,
+    createTransparentNodeMaterial,
+} from './material-core.ts';
 
-// Export moved modules
-export * from './sky.ts';
-export * from './stars.ts';
-export * from './moon.ts';
-export * from './celestial-bodies.ts';
-export * from './rainbow.ts'; // Added Rainbow
-export * from './aurora.ts'; // .js -> .ts
-export { harmonyOrbSystem } from './aurora.ts';
-export * from './panning-pads.ts';
-export * from './silence-spirits.ts';
-export * from './instrument.ts';
-export * from './ribbons.ts'; // .js -> .ts
-export * from './mirrors.ts';
-export * from './sparkle-trail.ts'; // .js -> .ts
-export * from './impacts.ts';
-export * from './discovery-effect.ts'; // Added Discovery Effect
-export * from './lotus.ts'; // .js -> .ts
-export * from './pollen.ts'; // Added Pollen
-export * from './shield.ts'; // Added Shield
+// =============================================================================
+// FOLIAGE MATERIALS - Pre-configured material instances
+// =============================================================================
+export {
+    foliageMaterials,
+} from './foliage-materials.ts';
 
-// Export Music Reactivity System (New)
-export { musicReactivitySystem } from '../systems/music-reactivity.ts';
+// =============================================================================
+// FOLIAGE REACTIVITY - Reactivity registry and validation helpers
+// =============================================================================
+export {
+    // Reactivity registry
+    reactiveObjects,
+    reactiveMaterials,
+    _foliageReactiveColor,
+    // Reactivity functions
+    registerReactiveMaterial,
+    pickAnimation,
+    attachReactivity,
+    cleanupReactivity,
+    // Validation helpers
+    validateFoliageMaterials,
+    validateNodeGeometries,
+} from './foliage-reactivity.ts';
 
-// Musical flora
-export * from './musical_flora.ts';
-export * from './arpeggio-batcher.ts';
-export * from './portamento-batcher.ts';
-export * from './wisteria-cluster.ts';
+// =============================================================================
+// LEGACY EXPORTS - For full backward compatibility
+// These are aliases to maintain existing import patterns
+// =============================================================================
 
-// Batchers
-export * from './mushroom-batcher.ts';
-export * from './cloud-batcher.ts';
-export * from './dandelion-batcher.ts';
-export * from './dandelion-seeds.ts'; // Added Dandelion Seeds
-export * from './lantern-batcher.ts';
-export * from './simple-flower-batcher.ts';
-export * from './glowing-flower-batcher.ts';
-export * from './waterfall-batcher.ts';
-export * from './tree-batcher.ts'; // Added Tree Batcher
+// Note: UnifiedMaterialOptions is already exported above via './material-core.ts'
+
+// Keep the FoliageMaterial type available
+export { FoliageMaterial } from './types';
+
+// Re-export glitch functionality
+export { applyGlitch } from './glitch.ts';
+
+// Re-export wind compute
+export { 
+    windComputeSystem as defaultWindComputeSystem,
+    getWindTextureData as defaultGetWindTextureData 
+} from './wind-compute.ts';

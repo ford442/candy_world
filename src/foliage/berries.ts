@@ -3,7 +3,7 @@ import {
     color, float, uniform, vec3, positionLocal, positionWorld,
     sin, dot, time, Node, UniformNode, ShaderNodeObject, attribute
 } from 'three/tsl';
-import { CandyPresets, uAudioLow, uTime } from './common.ts';
+import { CandyPresets, uAudioLow, uTime } from './index.ts';
 import { spawnImpact } from './impacts.ts';
 import { uChromaticIntensity } from './chromatic.ts';
 import { foliageGroup } from '../world/state.ts';

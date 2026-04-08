@@ -2,7 +2,7 @@
 
 import * as THREE from 'three';
 import { mushroomBatcher } from './mushroom-batcher.ts';
-import { sharedGeometries } from './common.ts';
+import { sharedGeometries } from './index.ts';
 import { makeInteractiveCylinder } from '../utils/interaction-utils.ts';
 
 // Interface for Note Definition

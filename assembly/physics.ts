@@ -13,6 +13,8 @@ import {
   GRID_ORIGIN_Z
 } from "./constants";
 
+import { getGroundHeight } from "./math";
+
 // Object Types
 const TYPE_MUSHROOM = 1;   // Platform (Cylinder-like)
 const TYPE_CLOUD = 2;      // Platform (Box/Cylinder)
@@ -269,4 +271,199 @@ export function resolveGameCollisions(kickTrigger: f32): i32 {
   }
 
   return 0;
+}
+
+// =============================================================================
+// NEW HOT-PATH FUNCTIONS (Migrated from TypeScript)
+// =============================================================================
+
+/**
+ * Batch ground height calculation for multiple points
+ * Used for efficient height sampling across many objects
+ * 
+ * @param positionsPtr - Pointer to [x, z, x, z, ...] array
+ * @param count - Number of points
+ * @param outputPtr - Pointer to output [y, y, ...] array
+ */
+export function batchGroundHeight(
+  positionsPtr: usize,
+  count: i32,
+  outputPtr: usize
+): void {
+  for (let i = 0; i < count; i++) {
+    const posBase = positionsPtr + (<usize>i << 3); // 2 floats * 4 bytes = 8 bytes per point
+    const x = load<f32>(posBase);
+    const z = load<f32>(posBase + 4);
+    
+    const y = getGroundHeight(x, z);
+    
+    store<f32>(outputPtr + (<usize>i << 2), y);
+  }
+}
+
+/**
+ * Velocity damping for multiple objects
+ * Applies damping factor to each velocity component
+ * 
+ * @param velocityPtr - Pointer to [vx, vy, vz, vx, vy, vz, ...] array
+ * @param count - Number of velocities
+ * @param damping - Damping factor (0.0 to 1.0, where 1.0 = no damping)
+ */
+export function dampVelocity(
+  velocityPtr: usize,
+  count: i32,
+  damping: f32
+): void {
+  for (let i = 0; i < count; i++) {
+    const base = velocityPtr + (<usize>i * 12); // 3 floats * 4 bytes = 12 bytes per velocity
+    
+    const vx = load<f32>(base);
+    const vy = load<f32>(base + 4);
+    const vz = load<f32>(base + 8);
+    
+    store<f32>(base, vx * damping);
+    store<f32>(base + 4, vy * damping);
+    store<f32>(base + 8, vz * damping);
+  }
+}
+
+/**
+ * Batch distance calculation for culling
+ * Calculates squared distances from camera to multiple objects
+ * 
+ * @param positionsPtr - Pointer to [x, y, z, x, y, z, ...] array
+ * @param count - Number of positions
+ * @param camX - Camera X position
+ * @param camY - Camera Y position  
+ * @param camZ - Camera Z position
+ * @param outputPtr - Pointer to output [distSq, distSq, ...] array
+ */
+export function batchDistanceCalc(
+  positionsPtr: usize,
+  count: i32,
+  camX: f32,
+  camY: f32,
+  camZ: f32,
+  outputPtr: usize
+): void {
+  for (let i = 0; i < count; i++) {
+    const base = positionsPtr + (<usize>i * 12); // 3 floats * 4 bytes
+    
+    const x = load<f32>(base);
+    const y = load<f32>(base + 4);
+    const z = load<f32>(base + 8);
+    
+    const dx = x - camX;
+    const dy = y - camY;
+    const dz = z - camZ;
+    
+    const distSq = dx * dx + dy * dy + dz * dz;
+    
+    store<f32>(outputPtr + (<usize>i << 2), distSq);
+  }
+}
+
+/**
+ * Simple sphere-frustum test for batch culling
+ * Performs quick sphere-frustum intersection tests
+ * 
+ * @param positionsPtr - Pointer to [x, y, z, radius, x, y, z, radius, ...] array
+ * @param count - Number of spheres
+ * @param frustumPlanesPtr - Pointer to 6 frustum planes [nx, ny, nz, d] * 6
+ * @param outputPtr - Pointer to output visibility flags [1.0 or 0.0, ...]
+ * @returns Number of visible objects
+ */
+export function batchFrustumTest(
+  positionsPtr: usize,
+  count: i32,
+  frustumPlanesPtr: usize,
+  outputPtr: usize
+): i32 {
+  let visibleCount = 0;
+  
+  // Load frustum planes (6 planes, 4 floats each)
+  // Order: left, right, bottom, top, near, far
+  const planes = new StaticArray<f32>(24);
+  for (let i = 0; i < 24; i++) {
+    unchecked(planes[i] = load<f32>(frustumPlanesPtr + (<usize>i << 2)));
+  }
+  
+  for (let i = 0; i < count; i++) {
+    const posBase = positionsPtr + (<usize>i * 16); // 4 floats * 4 bytes = x, y, z, radius
+    
+    const x = load<f32>(posBase);
+    const y = load<f32>(posBase + 4);
+    const z = load<f32>(posBase + 8);
+    const radius = load<f32>(posBase + 12);
+    
+    let visible: f32 = 1.0;
+    
+    // Test against all 6 planes
+    for (let p = 0; p < 6; p++) {
+      const pBase = p * 4;
+      const nx = unchecked(planes[pBase]);
+      const ny = unchecked(planes[pBase + 1]);
+      const nz = unchecked(planes[pBase + 2]);
+      const d = unchecked(planes[pBase + 3]);
+      
+      // Distance from sphere center to plane
+      const dist = nx * x + ny * y + nz * z + d;
+      
+      // If distance < -radius, sphere is completely outside this plane
+      if (dist < -radius) {
+        visible = 0.0;
+        break;
+      }
+    }
+    
+    if (visible > 0.5) {
+      visibleCount++;
+    }
+    
+    store<f32>(outputPtr + (<usize>i << 2), visible);
+  }
+  
+  return visibleCount;
+}
+
+/**
+ * LOD (Level of Detail) selection based on distance
+ * Calculates LOD level for each object based on distance from camera
+ * 
+ * @param distancesPtr - Pointer to squared distances array
+ * @param count - Number of distances
+ * @param lodThresholdsPtr - Pointer to 3 LOD distance thresholds [near, mid, far]
+ * @param outputPtr - Pointer to output LOD levels [0=high, 1=mid, 2=low, 3=cull]
+ * @returns Number of objects to cull (LOD level 3)
+ */
+export function batchLODSelect(
+  distancesPtr: usize,
+  count: i32,
+  lodThresholdsPtr: usize,
+  outputPtr: usize
+): i32 {
+  const nearSq = load<f32>(lodThresholdsPtr);
+  const midSq = load<f32>(lodThresholdsPtr + 4);
+  const farSq = load<f32>(lodThresholdsPtr + 8);
+  
+  let cullCount = 0;
+  
+  for (let i = 0; i < count; i++) {
+    const distSq = load<f32>(distancesPtr + (<usize>i << 2));
+    
+    let lod: f32 = 0.0; // High detail
+    
+    if (distSq > farSq) {
+      lod = 3.0; // Cull
+      cullCount++;
+    } else if (distSq > midSq) {
+      lod = 2.0; // Low detail
+    } else if (distSq > nearSq) {
+      lod = 1.0; // Medium detail
+    }
+    
+    store<f32>(outputPtr + (<usize>i << 2), lod);
+  }
+  
+  return cullCount;
 }

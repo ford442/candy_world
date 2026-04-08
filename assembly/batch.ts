@@ -1,5 +1,8 @@
 import { POSITION_OFFSET, ANIMATION_OFFSET, MATERIAL_DATA_OFFSET } from "./constants";
-import { getGroundHeight } from "./math";
+import { getGroundHeight, lerp, hslToRgb, distSq3D } from "./math";
+
+// Constants for batch operations
+const STRIDE_F32 = 4;
 
 // =============================================================================
 // MATERIAL ANALYSIS CONSTANTS (Strategy 3: Shader Pre-Hashing)
@@ -268,4 +271,112 @@ export function batchMushroomSpawnCandidates(
     }
 
     return candidateCount;
+}
+
+// =============================================================================
+// BATCH COLOR OPERATIONS (for reactive materials)
+// =============================================================================
+
+/**
+ * Batch HSL to RGB conversion for reactive materials
+ * Input: pointer to packed color array [hue, sat, light, intensity, ...]
+ * Output: writes packed RGBA values back to same memory (in-place conversion)
+ * 
+ * @param ptr - Pointer to HSLA array (4 floats per color)
+ * @param count - Number of colors to convert
+ */
+export function batchHslToRgb(ptr: usize, count: i32): void {
+  if (count <= 0 || ptr == 0) return;
+
+  for (let i: i32 = 0; i < count; i++) {
+    const base = ptr + <usize>(i * 4 * STRIDE_F32);
+    
+    const h = load<f32>(base);
+    const s = load<f32>(base + STRIDE_F32);
+    const l = load<f32>(base + 2 * STRIDE_F32);
+    const intensity = load<f32>(base + 3 * STRIDE_F32);
+    
+    const rgb = hslToRgb(h, s, l);
+    
+    // Pack RGB into first 3 bytes, keep intensity in alpha channel
+    const r = (rgb >> 16) & 0xFF;
+    const g = (rgb >> 8) & 0xFF;
+    const b = rgb & 0xFF;
+    
+    // Store normalized RGB (0-1 range for shader use) + intensity
+    store<f32>(base, <f32>r / 255.0);
+    store<f32>(base + STRIDE_F32, <f32>g / 255.0);
+    store<f32>(base + 2 * STRIDE_F32, <f32>b / 255.0);
+    store<f32>(base + 3 * STRIDE_F32, intensity);
+  }
+}
+
+// =============================================================================
+// BATCH CULLING OPERATIONS
+// =============================================================================
+
+/**
+ * Batch sphere culling for visibility testing
+ * Input: pointer to positions array [x, y, z, x, y, z, ...]
+ * Output: writes visibility flags (1.0 = visible, 0.0 = culled) for each sphere
+ * 
+ * @param positionsPtr - Pointer to positions array (3 floats per position)
+ * @param count - Number of spheres to test
+ * @param camX - Camera X position
+ * @param camY - Camera Y position
+ * @param camZ - Camera Z position
+ * @param maxDist - Maximum distance for visibility
+ * @param outputPtr - Pointer to output array (1 float per sphere)
+ */
+export function batchSphereCull(
+  positionsPtr: usize,
+  count: i32,
+  camX: f32, camY: f32, camZ: f32,
+  maxDist: f32,
+  outputPtr: usize
+): void {
+  if (count <= 0 || positionsPtr == 0 || outputPtr == 0) return;
+
+  const maxDistSq = maxDist * maxDist;
+
+  for (let i: i32 = 0; i < count; i++) {
+    const posBase = positionsPtr + <usize>(i * 3 * STRIDE_F32);
+    const outBase = outputPtr + <usize>(i * STRIDE_F32);
+    
+    const x = load<f32>(posBase);
+    const y = load<f32>(posBase + STRIDE_F32);
+    const z = load<f32>(posBase + 2 * STRIDE_F32);
+    
+    const distSq = distSq3D(camX, camY, camZ, x, y, z);
+    
+    store<f32>(outBase, distSq < maxDistSq ? 1.0 : 0.0);
+  }
+}
+
+// =============================================================================
+// BATCH ANIMATION OPERATIONS
+// =============================================================================
+
+/**
+ * Batch lerp for animation properties
+ * Input: pointer to [current, target, speed, ...] for each property
+ * Updates current values in-place using: current += (target - current) * speed
+ * 
+ * @param ptr - Pointer to property array (3 floats per property)
+ * @param count - Number of properties to update
+ */
+export function batchLerp(ptr: usize, count: i32): void {
+  if (count <= 0 || ptr == 0) return;
+
+  for (let i: i32 = 0; i < count; i++) {
+    const base = ptr + <usize>(i * 3 * STRIDE_F32);
+    
+    const current = load<f32>(base);
+    const target = load<f32>(base + STRIDE_F32);
+    const speed = load<f32>(base + 2 * STRIDE_F32);
+    
+    const newValue = lerp(current, target, speed);
+    
+    store<f32>(base, newValue);
+  }
 }

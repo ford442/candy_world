@@ -5,7 +5,7 @@ import {
     smoothstep, mix, positionWorld, mx_noise_float, normalLocal,
     distance, max
 } from 'three/tsl';
-import { CandyPresets, uAudioLow, uAudioHigh, createRimLight, uPlayerPosition } from './common.ts';
+import { CandyPresets, uAudioLow, uAudioHigh, createRimLight, uPlayerPosition } from './index.ts';
 
 /**
  * Creates an audio-reactive Terrain Material.

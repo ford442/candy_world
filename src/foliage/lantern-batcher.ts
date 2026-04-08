@@ -11,7 +11,7 @@ import {
     sharedGeometries, foliageMaterials, uTime,
     uAudioLow, uAudioHigh, createRimLight, createJuicyRimLight, calculateWindSway, applyPlayerInteraction,
     createStandardNodeMaterial, createUnifiedMaterial
-} from './common.ts';
+} from './index.ts';
 import { foliageGroup } from '../world/state.ts';
 import { getTorusGeometry, getConeGeometry } from '../utils/geometry-dedup.ts';
 

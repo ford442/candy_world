@@ -3,7 +3,7 @@ import {
     createUnifiedMaterial,
     sharedGeometries,
     attachReactivity
-} from './common.ts';
+} from './index.ts';
 import {
     color, float, mix, uv, sin, cos,
     vec3, vec2, floor, smoothstep, abs, mx_noise_float, uniform

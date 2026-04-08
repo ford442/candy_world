@@ -9,7 +9,7 @@ import {
     uAudioLow,
     uTime,
     uGlitchIntensity
-} from './common.ts';
+} from './index.ts';
 import {
     color, float, vec3, sin, cos, mix, uv, positionLocal, time, smoothstep, uniform, vec2, step, abs
 } from 'three/tsl';

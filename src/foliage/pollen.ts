@@ -7,7 +7,7 @@ import {
     positionLocal, time, uv, distance, smoothstep, discard,
     vec2
 } from 'three/tsl';
-import { uTime, uAudioLow, uAudioHigh, uWindSpeed, uWindDirection, uPlayerPosition } from './common.ts';
+import { uTime, uAudioLow, uAudioHigh, uWindSpeed, uWindDirection, uPlayerPosition } from './index.ts';
 
 export function createNeonPollen(count = 2000, areaSize = 30, center = new THREE.Vector3(0, 5, 0)) {
     // 1. Setup Buffers

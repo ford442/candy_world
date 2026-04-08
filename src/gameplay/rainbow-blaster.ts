@@ -6,11 +6,11 @@ import {
     storage, instanceIndex, Fn, If, exp, vec4, uniform, rotate
 } from 'three/tsl';
 import { foliageClouds, foliageGeysers, foliageTraps } from '../world/state.ts';
-import { createCandyMaterial, uTime, uAudioHigh, createJuicyRimLight } from '../foliage/common.ts';
+import { createCandyMaterial, uTime, uAudioHigh, createJuicyRimLight } from '../foliage/index.ts';
 import { getCelestialState } from '../core/cycle.ts';
 import { spawnImpact } from '../foliage/impacts.ts';
 import { unlockSystem } from '../systems/unlocks.ts';
-import { triggerHarpoon } from '../systems/physics.ts';
+import { triggerHarpoon } from '../systems/physics/index.js';
 import { isInLakeBasin } from '../systems/physics.core.ts';
 
 // Projectile Configuration

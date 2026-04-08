@@ -4,7 +4,7 @@ import {
     float, sin, positionLocal, storage, Fn, If, instanceIndex, uniform,
     exp, rotate, normalize, vec4, vec3, smoothstep, mix
 } from 'three/tsl';
-import { uTime, uAudioHigh, uAudioLow } from './common.ts';
+import { uTime, uAudioHigh, uAudioLow } from './index.ts';
 
 const MAX_PARTICLES = 4000; // Increased capacity for juice
 let _impactMesh: THREE.InstancedMesh | null = null;

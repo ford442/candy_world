@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { uGlitchExplosionCenter, uGlitchExplosionRadius, sharedGeometries } from '../foliage/common.ts';
+import { uGlitchExplosionCenter, uGlitchExplosionRadius, sharedGeometries } from '../foliage/index.ts';
 import { MeshStandardNodeMaterial, StorageInstancedBufferAttribute } from 'three/webgpu';
 import { color, float, attribute, storage, instanceIndex, Fn, If, vec4, uniform, positionLocal, smoothstep } from 'three/tsl';
 import { getGroundHeight } from '../utils/wasm-loader.js';

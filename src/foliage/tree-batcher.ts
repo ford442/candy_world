@@ -16,14 +16,14 @@ import {
     uAudioLow,
     uWindSpeed,
     uGlitchIntensity
-} from './common.ts';
+} from './index.ts';
 import {
     color, float, vec3, positionLocal, mix, attribute, uv, sin, cos, positionWorld, smoothstep,
     mx_noise_float, normalWorld
 } from 'three/tsl';
 import { applyGlitch } from './glitch.ts';
 import { getCylinderGeometry, getTorusKnotGeometry } from '../utils/geometry-dedup.ts';
-import { createSugarSparkle } from './common.ts';
+import { createSugarSparkle } from './index.ts';
 
 const _defaultColorWhite = new THREE.Color(0xFFFFFF);
 const _defaultColorOrange = new THREE.Color(0xFF4500);
