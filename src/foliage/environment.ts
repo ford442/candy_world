@@ -3,7 +3,12 @@ import { MeshStandardNodeMaterial, PointsNodeMaterial } from 'three/webgpu';
 import { time, vec3, positionLocal, length, sin, cos, color as tslColor, attribute, float, uniform, mix, smoothstep, color, positionWorld, normalWorld, floor } from 'three/tsl';
 
 // WGSL-compatible modulo: x - y * floor(x / y)
-const modFloat = (x: any, y: any) => x.sub(y.mul(x.div(y).floor()));
+// Note: Converts inputs to float first since WGSL floor() only works on floats
+const modFloat = (x: any, y: any) => {
+    const xf = float(x);
+    const yf = float(y);
+    return xf.sub(yf.mul(xf.div(yf).floor()));
+};
 import { registerReactiveMaterial, attachReactivity, CandyPresets, uTime, uAudioLow, uAudioHigh, createJuicyRimLight, createSugarSparkle } from './index.ts';
 import { uTwilight, uHorizonColor } from './sky.ts';
 

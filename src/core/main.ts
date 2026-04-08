@@ -12,6 +12,7 @@ import { AudioSystem } from '../audio/audio-system.ts';
 import { BeatSync } from '../audio/beat-sync.ts';
 import { WeatherSystem } from '../systems/weather.ts';
 import { initWasm, getGroundHeight } from '../utils/wasm-loader.js';
+import { getUnifiedGroundHeightTyped } from '../systems/physics.core.ts';
 import { profiler } from '../utils/profiler.js';
 import { enableStartupProfiler, finalizeStartupProfile, recordWASMInit } from '../utils/startup-profiler.ts';
 import { startPhase, endPhase } from '../utils/startup-profiler.ts';
@@ -194,11 +195,8 @@ initWasm().then(async (wasmLoaded) => {
     // Record WASM initialization metrics
     recordWASMInit(wasmInitStart, true, wasmLoaded);
 
-    // Use getGroundHeight (which is now wrapped in physics/generation but here we access the raw one)
-    // Actually, for camera start position, we should use the UNIFIED height if possible.
-    // But since that logic is inside generation.ts/physics.js, we rely on the fact that
-    // the start position (0,0,0) is likely safe or we'll snap to physics on frame 1.
-    const initialGroundY = getGroundHeight(camera.position.x, camera.position.z);
+    // Use unified ground height for proper spawn positioning (accounts for lake carving)
+    const initialGroundY = getUnifiedGroundHeightTyped(camera.position.x, camera.position.z, getGroundHeight);
     camera.position.y = initialGroundY + 1.8;
     console.log(`[Startup] Camera positioned at ground height: y=${camera.position.y.toFixed(2)}`);
 
@@ -217,7 +215,7 @@ initWasm().then(async (wasmLoaded) => {
 
     // Create a temporary "Preview" mushroom for the startup scene
     const previewMushroom = createMushroom({ size: 'giant', scale: 1.5, hasFace: true, isBouncy: true });
-    previewMushroom.position.set(0, getGroundHeight(0, -10), -10);
+    previewMushroom.position.set(0, getUnifiedGroundHeightTyped(0, -10, getGroundHeight), -10);
     previewMushroom.rotation.y = Math.PI / 8;
     scene.add(previewMushroom);
     animatedFoliage.push(previewMushroom);
