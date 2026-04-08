@@ -1,8 +1,8 @@
 // src/foliage/batcher/foliage-batcher-types.ts
 // Type definitions and constants for foliage batch processing
 
-import { FoliageObject } from '../types.ts';
-export { FoliageObject };
+import type { FoliageObject } from '../types.ts';
+export type { FoliageObject };
 
 // Batch configuration
 export const BATCH_SIZE = 4000; // Max objects per type per batch
