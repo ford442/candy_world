@@ -1,6 +1,9 @@
 import * as THREE from 'three';
 import { DataTexture, Vector2, Vector4, RGBAFormat, FloatType, NearestFilter, RepeatWrapping } from 'three';
-import { textureStore, instanceIndex, Fn, float, vec4, vec2, ivec2, mx_noise_float, sin, cos, max, min, uniform } from 'three/tsl';
+import { textureStore, instanceIndex, Fn, float, vec4, vec2, ivec2, mx_noise_float, sin, cos, max, min, uniform, floor } from 'three/tsl';
+
+// WGSL-compatible modulo: x - y * floor(x / y)
+const modFloat = (x: any, y: any) => x.sub(y.mul(x.div(y).floor()));
 import { StorageTexture } from 'three/webgpu';
 
 // Wind texture configuration
@@ -104,7 +107,7 @@ export class WindComputeSystem {
             const sizeInt = WIND_TEXTURE_SIZE;
 
             // Using int math for 2D coord to avoid precision issues
-            const x = index.mod(sizeInt);
+            const x = modFloat(index, float(sizeInt));
             const y = index.div(sizeInt).floor();
 
             // Normalized coordinates

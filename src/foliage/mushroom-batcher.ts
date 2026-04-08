@@ -6,6 +6,9 @@ import {
     varying, dot, normalize, normalLocal, step, Fn, positionWorld, normalWorld,
     max, pow, min, cameraPosition, uv, floor
 } from 'three/tsl';
+
+// WGSL-compatible modulo: x - y * floor(x / y)
+const modFloat = (x: any, y: any) => x.sub(y.mul(x.div(y).floor()));
 import {
     sharedGeometries, foliageMaterials, uTime,
     uAudioLow, uAudioHigh, createRimLight, createJuicyRimLight, uPlayerPosition, colorFromNote,
@@ -397,8 +400,8 @@ export class MushroomBatcher {
         
         // Unpack the flags
         const packedFlags = instanceData.x;
-        const hasFace = floor(packedFlags.div(20.0)).mod(2.0);
-        const isGiant = floor(packedFlags.div(40.0)).mod(2.0);
+        const hasFace = modFloat(floor(packedFlags.div(20.0)), float(2.0));
+        const isGiant = modFloat(floor(packedFlags.div(40.0)), float(2.0));
         // noteIndex = (packed % 20) - 1, but we don't need it in shader since color is set via setColorAt
         
         const spawnTime = instanceData.y;

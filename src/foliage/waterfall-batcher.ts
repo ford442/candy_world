@@ -4,8 +4,11 @@ import {
     color, float, vec3, vec2, attribute, positionLocal,
     sin, cos, mix, smoothstep, uniform, If, time, uv,
     varying, dot, normalize, normalLocal, step, Fn, positionWorld,
-    instanceIndex, storage, mx_noise_float, normalWorld
+    instanceIndex, storage, mx_noise_float, normalWorld, floor
 } from 'three/tsl';
+
+// WGSL-compatible modulo: x - y * floor(x / y)
+const modFloat = (x: any, y: any) => x.sub(y.mul(x.div(y).floor()));
 import {
     sharedGeometries, foliageMaterials, uTime,
     uAudioLow, uAudioHigh, CandyPresets, registerReactiveMaterial, createJuicyRimLight
@@ -153,7 +156,7 @@ export class WaterfallBatcher {
         // We use aVelocity.y as a seed for phase
         const phase = aVelocity.y.mul(10.0);
         const lifeTime = float(1.0); // 1 second loop
-        const t = uTime.add(phase).mod(lifeTime); // 0 to 1
+        const t = modFloat(uTime.add(phase), lifeTime); // 0 to 1
 
         // Physics
         // Pos = Origin + Vel * t - 0.5 * g * t^2
