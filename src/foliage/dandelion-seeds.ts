@@ -1,24 +1,40 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { MeshStandardNodeMaterial } from 'three/webgpu';
+import { MeshStandardNodeMaterial, StorageInstancedBufferAttribute } from 'three/webgpu';
 import {
     attribute, float, sin, cos, positionLocal, normalLocal,
     exp, rotate, normalize, vec4, vec3, smoothstep, step,
-    mix, color
+    mix, color, storage, instanceIndex, uniform, Fn, If
 } from 'three/tsl';
 import { uTime, uAudioHigh, uWindSpeed, uWindDirection, createSugarSparkle } from './index.ts';
 
 const MAX_SEEDS = 500; // Reduced from 2000 for WebGPU uniform buffer limits
+const MAX_SPAWNS_PER_FRAME = 200; // Allow multiple explosions in a single frame
+
 let _seedMesh: THREE.InstancedMesh | null = null;
-let _spawnAttr: THREE.InstancedBufferAttribute | null = null;
-let _velAttr: THREE.InstancedBufferAttribute | null = null;
-let _miscAttr: THREE.InstancedBufferAttribute | null = null;
 let _head = 0;
-let _minUpdate = MAX_SEEDS;
-let _maxUpdate = -1;
+
+export interface DandelionSeedUserData {
+    isDandelionSeedSystem: boolean;
+    computeNode: any;
+    uSpawnCount: any;
+    uSpawnIndex: any;
+    stagingSpawnArray: Float32Array;
+    stagingVelArray: Float32Array;
+    stagingMiscArray: Float32Array;
+    stagingSpawnBuffer: StorageInstancedBufferAttribute;
+    stagingVelBuffer: StorageInstancedBufferAttribute;
+    stagingMiscBuffer: StorageInstancedBufferAttribute;
+    maxSpawnsPerFrame: number;
+}
 
 // ⚡ OPTIMIZATION: Scratch variables
 const _scratchVec3 = new THREE.Vector3();
+
+// WGSL-compatible modulo: x - y * floor(x / y)
+const modUint = (x: any, y: any) => {
+    return x.remainder(y);
+};
 
 // Colors
 const COLOR_STALK = new THREE.Color(0xFFFFFF); // White
@@ -62,6 +78,23 @@ export function createDandelionSeedSystem(): THREE.InstancedMesh {
     geometry.computeBoundingSphere();
 
 
+    // Custom Attributes for TSL via Storage Instanced Buffers
+    const spawnArray = new Float32Array(MAX_SEEDS * 4);
+    const velArray = new Float32Array(MAX_SEEDS * 4);
+    const miscArray = new Float32Array(MAX_SEEDS * 4);
+
+    // Initialize to dead
+    for(let i=0; i<MAX_SEEDS; i++) {
+        spawnArray[i*4+3] = -1000.0;
+        miscArray[i * 4 + 0] = Math.random() - 0.5;
+        miscArray[i * 4 + 1] = Math.random() - 0.5;
+        miscArray[i * 4 + 2] = Math.random() - 0.5;
+    }
+
+    const spawnBuffer = new StorageInstancedBufferAttribute(spawnArray, 4);
+    const velBuffer = new StorageInstancedBufferAttribute(velArray, 4);
+    const miscBuffer = new StorageInstancedBufferAttribute(miscArray, 4);
+
     // --- 2. TSL Material ---
 
     const mat = new MeshStandardNodeMaterial({
@@ -72,19 +105,19 @@ export function createDandelionSeedSystem(): THREE.InstancedMesh {
         depthWrite: false,
     });
 
-    // Attributes
-    const aSpawn = attribute('aSpawn', 'vec4');     // xyz: spawnPos, w: birthTime
-    const aVelocity = attribute('aVelocity', 'vec4'); // xyz: velocity, w: lifeSpan
-    const aMisc = attribute('aMisc', 'vec4');       // xyz: rotationAxis, w: randomPhase
+    // Attributes mapped to storage buffers
+    const aSpawn = storage(spawnBuffer, 'vec4', spawnBuffer.count);
+    const aVelocity = storage(velBuffer, 'vec4', velBuffer.count);
+    const aMisc = storage(miscBuffer, 'vec4', miscBuffer.count);
 
-    const spawnPos = aSpawn.xyz;
-    const birthTime = aSpawn.w;
+    const spawnPos = aSpawn.element(instanceIndex).xyz;
+    const birthTime = aSpawn.element(instanceIndex).w;
 
-    const velocity = aVelocity.xyz;
-    const lifeSpan = aVelocity.w;
+    const velocity = aVelocity.element(instanceIndex).xyz;
+    const lifeSpan = aVelocity.element(instanceIndex).w;
 
-    const rotAxis = aMisc.xyz;
-    const randomPhase = aMisc.w;
+    const rotAxis = aMisc.element(instanceIndex).xyz;
+    const randomPhase = aMisc.element(instanceIndex).w;
 
     // Time & Age
     const age = uTime.sub(birthTime);
@@ -153,81 +186,87 @@ export function createDandelionSeedSystem(): THREE.InstancedMesh {
     _seedMesh.frustumCulled = false;
     _seedMesh.castShadow = false;
     _seedMesh.receiveShadow = false;
-    _seedMesh.userData.isDandelionSeedSystem = true;
 
-    // Custom Attributes
-    const spawnArray = new Float32Array(MAX_SEEDS * 4);
-    const velArray = new Float32Array(MAX_SEEDS * 4);
-    const miscArray = new Float32Array(MAX_SEEDS * 4);
+    // COMPUTE SHADER LOGIC
+    const stagingSpawnArray = new Float32Array(MAX_SPAWNS_PER_FRAME * 4);
+    const stagingVelArray = new Float32Array(MAX_SPAWNS_PER_FRAME * 4);
+    const stagingMiscArray = new Float32Array(MAX_SPAWNS_PER_FRAME * 4);
 
-    _seedMesh.geometry.setAttribute('aSpawn', new THREE.InstancedBufferAttribute(spawnArray, 4));
-    _seedMesh.geometry.setAttribute('aVelocity', new THREE.InstancedBufferAttribute(velArray, 4));
-    _seedMesh.geometry.setAttribute('aMisc', new THREE.InstancedBufferAttribute(miscArray, 4));
+    const stagingSpawnBuffer = new StorageInstancedBufferAttribute(stagingSpawnArray, 4);
+    const stagingVelBuffer = new StorageInstancedBufferAttribute(stagingVelArray, 4);
+    const stagingMiscBuffer = new StorageInstancedBufferAttribute(stagingMiscArray, 4);
 
-    _spawnAttr = _seedMesh.geometry.getAttribute('aSpawn') as THREE.InstancedBufferAttribute;
-    _velAttr = _seedMesh.geometry.getAttribute('aVelocity') as THREE.InstancedBufferAttribute;
-    _miscAttr = _seedMesh.geometry.getAttribute('aMisc') as THREE.InstancedBufferAttribute;
+    const uSpawnCount = uniform(0, 'uint');
+    const uSpawnIndex = uniform(0, 'uint');
 
-    _spawnAttr.setUsage(THREE.DynamicDrawUsage);
-    _velAttr.setUsage(THREE.DynamicDrawUsage);
-    _miscAttr.setUsage(THREE.DynamicDrawUsage);
+    const updateCompute = Fn(() => {
+        const stageIndex = instanceIndex;
 
-    // Init to dead
-    for(let i=0; i<MAX_SEEDS; i++) {
-        spawnArray[i*4+3] = -1000.0;
-    }
-    _spawnAttr.needsUpdate = true;
-    _velAttr.needsUpdate = true;
-    _miscAttr.needsUpdate = true;
-    // Dummy matrix update
-    _seedMesh.instanceMatrix.needsUpdate = true;
+        const sSpawnNode = storage(spawnBuffer, 'vec4', spawnBuffer.count);
+        const sVelNode = storage(velBuffer, 'vec4', velBuffer.count);
+        const sMiscNode = storage(miscBuffer, 'vec4', miscBuffer.count);
 
-    // ⚡ OPTIMIZATION: Update only modified ranges
-    _seedMesh.onBeforeRender = () => {
-        if (_maxUpdate >= _minUpdate && _spawnAttr && _velAttr && _miscAttr) {
-            const start = _minUpdate;
-            const count = _maxUpdate - _minUpdate + 1;
-            const itemSize = 4; // vec4
-            const updateProps = { offset: start * itemSize, count: count * itemSize };
+        const inSpawnNode = storage(stagingSpawnBuffer, 'vec4', stagingSpawnBuffer.count).element(stageIndex);
+        const inVelNode = storage(stagingVelBuffer, 'vec4', stagingVelBuffer.count).element(stageIndex);
+        const inMiscNode = storage(stagingMiscBuffer, 'vec4', stagingMiscBuffer.count).element(stageIndex);
 
-            _spawnAttr.updateRanges = [{ start: updateProps.offset, count: updateProps.count }];
-            _velAttr.updateRanges = [{ start: updateProps.offset, count: updateProps.count }];
-            _miscAttr.updateRanges = [{ start: updateProps.offset, count: updateProps.count }];
+        const spawnCount = uSpawnCount;
+        const spawnIdx = uSpawnIndex;
 
-            _spawnAttr.needsUpdate = true;
-            _velAttr.needsUpdate = true;
-            _miscAttr.needsUpdate = true;
+        If(stageIndex.lessThan(spawnCount), () => {
+            const targetIdx = modUint(spawnIdx.add(stageIndex), MAX_SEEDS);
 
-            // Reset range
-            _minUpdate = MAX_SEEDS;
-            _maxUpdate = -1;
-        }
+            // Write to main buffer
+            sSpawnNode.element(targetIdx).assign(inSpawnNode);
+            sVelNode.element(targetIdx).assign(inVelNode);
+            sMiscNode.element(targetIdx).assign(inMiscNode);
+        });
+    });
+
+    const computeNode = updateCompute().compute(MAX_SPAWNS_PER_FRAME);
+
+    const userData: DandelionSeedUserData = {
+        isDandelionSeedSystem: true,
+        computeNode,
+        uSpawnCount,
+        uSpawnIndex,
+        stagingSpawnArray,
+        stagingVelArray,
+        stagingMiscArray,
+        stagingSpawnBuffer,
+        stagingVelBuffer,
+        stagingMiscBuffer,
+        maxSpawnsPerFrame: MAX_SPAWNS_PER_FRAME
     };
+
+    _seedMesh.userData = userData;
 
     return _seedMesh;
 }
+
+let _currentStageOffset = 0;
+let _spawnHeadStart = -1;
 
 export function spawnDandelionExplosion(
     center: THREE.Vector3,
     count: number = 24
 ) {
-    if (!_seedMesh || !_spawnAttr || !_velAttr || !_miscAttr) return;
+    if (!_seedMesh) return;
 
-    const spawnArray = _spawnAttr.array as Float32Array;
-    const velArray = _velAttr.array as Float32Array;
-    const miscArray = _miscAttr.array as Float32Array;
+    const ud = _seedMesh.userData as DandelionSeedUserData;
+    if (!ud.isDandelionSeedSystem) return;
+
+    if (_currentStageOffset === 0) {
+        _spawnHeadStart = _head;
+    }
+
+    const limit = Math.min(count, ud.maxSpawnsPerFrame - _currentStageOffset);
+    if (limit <= 0) return;
 
     const now = ((uTime as any).value !== undefined) ? (uTime as any).value : performance.now() / 1000;
 
-    for(let i=0; i<count; i++) {
-        const idx = _head;
-        _head = (_head + 1) % MAX_SEEDS;
-
-        // Track dirty range
-        if (idx < _minUpdate) _minUpdate = idx;
-        if (idx > _maxUpdate) _maxUpdate = idx;
-
-        const offset = idx * 4;
+    for(let i=0; i<limit; i++) {
+        const offset = (_currentStageOffset + i) * 4;
 
         // Spread out start position slightly (radius of head)
         // Dandelion head radius approx 0.2
@@ -239,10 +278,10 @@ export function spawnDandelionExplosion(
         const dy = r * Math.sin(phi) * Math.sin(theta);
         const dz = r * Math.cos(phi);
 
-        spawnArray[offset + 0] = center.x + dx;
-        spawnArray[offset + 1] = center.y + dy;
-        spawnArray[offset + 2] = center.z + dz;
-        spawnArray[offset + 3] = now;
+        ud.stagingSpawnArray[offset + 0] = center.x + dx;
+        ud.stagingSpawnArray[offset + 1] = center.y + dy;
+        ud.stagingSpawnArray[offset + 2] = center.z + dz;
+        ud.stagingSpawnArray[offset + 3] = now;
 
         // Velocity: Explode outward from center
         // Add some randomness
@@ -251,15 +290,48 @@ export function spawnDandelionExplosion(
         // ⚡ OPTIMIZATION: Use scratch vector to avoid allocation in loop
         _scratchVec3.set(dx, dy, dz).normalize();
 
-        velArray[offset + 0] = _scratchVec3.x * speed;
-        velArray[offset + 1] = _scratchVec3.y * speed;
-        velArray[offset + 2] = _scratchVec3.z * speed;
-        velArray[offset + 3] = 4.0 + Math.random() * 4.0; // Life span (4-8s)
+        ud.stagingVelArray[offset + 0] = _scratchVec3.x * speed;
+        ud.stagingVelArray[offset + 1] = _scratchVec3.y * speed;
+        ud.stagingVelArray[offset + 2] = _scratchVec3.z * speed;
+        ud.stagingVelArray[offset + 3] = 4.0 + Math.random() * 4.0; // Life span (4-8s)
 
         // Misc: Rotation Axis & Phase
-        miscArray[offset + 0] = Math.random() - 0.5;
-        miscArray[offset + 1] = Math.random() - 0.5;
-        miscArray[offset + 2] = Math.random() - 0.5;
-        miscArray[offset + 3] = Math.random() * Math.PI * 2;
+        ud.stagingMiscArray[offset + 0] = Math.random() - 0.5;
+        ud.stagingMiscArray[offset + 1] = Math.random() - 0.5;
+        ud.stagingMiscArray[offset + 2] = Math.random() - 0.5;
+        ud.stagingMiscArray[offset + 3] = Math.random() * Math.PI * 2;
+    }
+
+    ud.stagingSpawnBuffer.needsUpdate = true;
+    ud.stagingVelBuffer.needsUpdate = true;
+    ud.stagingMiscBuffer.needsUpdate = true;
+
+    _currentStageOffset += limit;
+    _head = (_head + limit) % MAX_SEEDS;
+}
+
+/**
+ * Call this every frame from the main render loop to process pending
+ * dandelion seed spawns and run the compute shader.
+ */
+export function updateDandelionSeeds(renderer: any) {
+    if (!_seedMesh) return;
+
+    const ud = _seedMesh.userData as DandelionSeedUserData;
+    if (!ud.isDandelionSeedSystem || !renderer || !renderer.compute) return;
+
+    if (_currentStageOffset > 0) {
+        ud.uSpawnCount.value = _currentStageOffset;
+        ud.uSpawnIndex.value = _spawnHeadStart;
+
+        renderer.compute(ud.computeNode);
+
+        _currentStageOffset = 0;
+    } else {
+        // If no spawns, still need to ensure spawnCount is 0 so the shader doesn't
+        // keep writing stale data
+        if (ud.uSpawnCount.value > 0) {
+            ud.uSpawnCount.value = 0;
+        }
     }
 }
