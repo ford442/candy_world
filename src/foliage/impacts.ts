@@ -14,7 +14,7 @@ const modFloat = (x: any, y: any) => {
 };
 import { uTime, uAudioHigh, uAudioLow } from './index.ts';
 
-const MAX_PARTICLES = 4000; // Increased capacity for juice
+const MAX_PARTICLES = 1000; // Reduced from 4000 for WebGPU uniform buffer limits
 let _impactMesh: THREE.InstancedMesh | null = null;
 let _head = 0;
 

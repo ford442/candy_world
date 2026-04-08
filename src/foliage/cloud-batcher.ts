@@ -176,7 +176,7 @@ function createCloudMaterial() {
 export const sharedCloudMaterial = createCloudMaterial();
 
 // --- Cloud Batcher ---
-const MAX_PUFFS = 1000; // Keep instance matrix uniform data under common 64KB WebGPU limit
+const MAX_PUFFS = 400; // Reduced from 1000 for WebGPU uniform buffer limits (64KB max)
 const _scratchMat = new THREE.Matrix4();
 const _scratchPos = new THREE.Vector3();
 const _scratchQuat = new THREE.Quaternion();

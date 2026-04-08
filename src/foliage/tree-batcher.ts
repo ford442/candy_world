@@ -29,8 +29,9 @@ const _defaultColorWhite = new THREE.Color(0xFFFFFF);
 const _defaultColorOrange = new THREE.Color(0xFF4500);
 const _defaultColorGreen = new THREE.Color(0x00FA9A);
 
-// Initial capacity - grows dynamically as needed (doubles each time)
+// Initial capacity - grows dynamically as needed (doubles each time, capped at MAX)
 const INITIAL_INSTANCES = 100;
+const MAX_INSTANCES = 500; // Cap to prevent WebGPU uniform buffer overflow (64KB limit)
 
 export class TreeBatcher {
     private static instance: TreeBatcher;
@@ -241,8 +242,9 @@ export class TreeBatcher {
     // --- Dynamic Buffer Growth ---
 
     private growTrunkBuffer() {
+        if (this.trunkCapacity >= MAX_INSTANCES) return; // Cap at max
         const oldMesh = this.trunks;
-        this.trunkCapacity *= 2;
+        this.trunkCapacity = Math.min(this.trunkCapacity * 2, MAX_INSTANCES);
         
         const newMesh = new THREE.InstancedMesh(oldMesh.geometry, oldMesh.material, this.trunkCapacity);
         
@@ -274,8 +276,9 @@ export class TreeBatcher {
     }
 
     private growSphereBuffer() {
+        if (this.sphereCapacity >= MAX_INSTANCES) return; // Cap at max
         const oldMesh = this.spheres;
-        this.sphereCapacity *= 2;
+        this.sphereCapacity = Math.min(this.sphereCapacity * 2, MAX_INSTANCES);
         
         const newMesh = new THREE.InstancedMesh(oldMesh.geometry, oldMesh.material, this.sphereCapacity);
         
@@ -304,8 +307,9 @@ export class TreeBatcher {
     }
 
     private growCapsuleBuffer() {
+        if (this.capsuleCapacity >= MAX_INSTANCES) return; // Cap at max
         const oldMesh = this.capsules;
-        this.capsuleCapacity *= 2;
+        this.capsuleCapacity = Math.min(this.capsuleCapacity * 2, MAX_INSTANCES);
         
         const newMesh = new THREE.InstancedMesh(oldMesh.geometry, oldMesh.material, this.capsuleCapacity);
         
@@ -334,8 +338,9 @@ export class TreeBatcher {
     }
 
     private growHelixBuffer() {
+        if (this.helixCapacity >= MAX_INSTANCES) return; // Cap at max
         const oldMesh = this.helices;
-        this.helixCapacity *= 2;
+        this.helixCapacity = Math.min(this.helixCapacity * 2, MAX_INSTANCES);
         
         const newMesh = new THREE.InstancedMesh(oldMesh.geometry, oldMesh.material, this.helixCapacity);
         
@@ -364,8 +369,9 @@ export class TreeBatcher {
     }
 
     private growRoseBuffer() {
+        if (this.roseCapacity >= MAX_INSTANCES) return; // Cap at max
         const oldMesh = this.roses;
-        this.roseCapacity *= 2;
+        this.roseCapacity = Math.min(this.roseCapacity * 2, MAX_INSTANCES);
         
         const newMesh = new THREE.InstancedMesh(oldMesh.geometry, oldMesh.material, this.roseCapacity);
         

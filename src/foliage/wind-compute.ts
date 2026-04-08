@@ -96,7 +96,9 @@ export class WindComputeSystem {
             Math.sin(this.config.directionAngle)
         );
         this.currentDirection.copy(this.baseDirection);
-        this.uWindDirection.value.copy(this.currentDirection);
+        if (this.uWindDirection.value) {
+            this.uWindDirection.value.copy(this.currentDirection);
+        }
         
         this.initComputeNode();
     }

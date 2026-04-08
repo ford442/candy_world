@@ -15,7 +15,7 @@ import {
 import { foliageGroup } from '../world/state.ts';
 import { getTorusGeometry, getConeGeometry } from '../utils/geometry-dedup.ts';
 
-const MAX_LANTERNS = 1000;
+const MAX_LANTERNS = 250; // Reduced from 1000 for WebGPU uniform buffer limits
 
 // ⚡ OPTIMIZATION: Module scoped scratch variables to avoid GC spikes
 const _scratchMatrixBatch = new THREE.Matrix4();

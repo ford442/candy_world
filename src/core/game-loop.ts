@@ -271,7 +271,9 @@ export function animate() {
     const targetWindSpeed = baseWind * (1.0 + bpmWindFactor * 0.5);
     uWindSpeed.value = THREE.MathUtils.lerp(uWindSpeed.value, targetWindSpeed, 0.05);
 
-    uWindDirection.value.copy(weatherSystemRef!.windDirection);
+    if (uWindDirection.value && weatherSystemRef?.windDirection) {
+        uWindDirection.value.copy(weatherSystemRef.windDirection);
+    }
 
     const currentBeatPhase = audioState?.beatPhase || 0;
 
@@ -577,8 +579,13 @@ export function animate() {
 
     profiler.measure('Physics', () => {
         updatePhysics(delta, cameraRef!, controlsRef, keyStates, audioState);
-        uPlayerPosition.value.copy(player.position);
-        if (sparkleTrail) updateSparkleTrail(sparkleTrail, player.position, player.velocity, gameTime, rendererRef);
+        // Safety check: ensure player position is valid before copying
+        if (player.position && uPlayerPosition.value) {
+            uPlayerPosition.value.copy(player.position);
+        }
+        if (sparkleTrail && player.position && player.velocity) {
+            updateSparkleTrail(sparkleTrail, player.position, player.velocity, gameTime, rendererRef);
+        }
 
         if (unlockSystem.isUnlocked('arpeggio_shield')) {
             if (!playerShieldMesh) {
