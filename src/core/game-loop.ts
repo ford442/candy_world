@@ -27,6 +27,7 @@ import {
 } from '../foliage/berries.ts';
 import { updateMelodyRibbons } from '../foliage/ribbons.ts';
 import { updateSparkleTrail } from '../foliage/sparkle-trail.ts';
+import { updateDandelionSeeds } from '../foliage/dandelion-seeds.ts';
 import { getGroundHeight } from '../utils/wasm-loader.js';
 import { updateImpacts } from '../foliage/impacts.ts';
 import { createShield } from '../foliage/shield.ts';
@@ -573,6 +574,7 @@ export function animate() {
         }
     }
     updateImpacts(rendererRef, t);
+    updateDandelionSeeds(rendererRef);
 
     const sparkleTrail = getSparkleTrail();
     let playerShieldMesh = getPlayerShieldMesh();
