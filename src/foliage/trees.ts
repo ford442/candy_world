@@ -222,8 +222,16 @@ export function createVine(options: VineOptions = {}): THREE.Group {
     const { color = 0x228B22, length = 3 } = options;
     const group = new THREE.Group();
 
+    // ⚡ BOLT + 🎨 PALETTE OPTIMIZATION:
+    // Create the material ONCE outside the loop, add TSL Juice, and register it.
+    const vineMat = createClayMaterial(color);
+    enhanceWithFloralJuice(vineMat);
+    registerReactiveMaterial(vineMat);
+
     for (let i = 0; i < length; i++) {
-        const segment = new THREE.Mesh(sharedGeometries.cylinderLow, createClayMaterial(color));
+        // Shared geometry: CylinderLow
+        // Shared material: vineMat
+        const segment = new THREE.Mesh(sharedGeometries.cylinderLow, vineMat);
         segment.scale.set(0.05, 0.5, 0.05);
         segment.position.y = i * 0.5;
         segment.rotation.z = Math.sin(i * 0.5) * 0.2;
