@@ -40,6 +40,8 @@ import {
 } from './asset-streaming-types.ts';
 import { LRUCache, NetworkManager } from './asset-loading-infrastructure.ts';
 
+const _scratchFuturePos = new THREE.Vector3();
+
 // ============================================================================
 // SPECIALIZED LOADERS
 // ============================================================================
@@ -1114,13 +1116,13 @@ export class AssetStreamer {
     private updatePredictiveLoading(): void {
         if (this.playerVelocity.lengthSq() < 0.01) return;
 
-        // Predict future position
-        const futurePos = this.playerPosition.clone().add(
-            this.playerVelocity.clone().multiplyScalar(this.config.predictiveLeadTime)
-        );
+        // ⚡ OPTIMIZATION: Zero-allocation predictive loading to prevent GC spikes
+        _scratchFuturePos.copy(this.playerVelocity)
+            .multiplyScalar(this.config.predictiveLeadTime)
+            .add(this.playerPosition);
 
         // Preload region around predicted position
-        this.preloadRegion(futurePos.x, futurePos.z, 2);
+        this.preloadRegion(_scratchFuturePos.x, _scratchFuturePos.z, 2);
     }
 
     private getDistanceToCell(cell: GridCell): number {
