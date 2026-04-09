@@ -22,6 +22,7 @@ import {
 } from 'three/tsl';
 
 const MAX_PINES = 200; // conservative default for performance
+const _scratchMatrix = new THREE.Matrix4();
 
 export class PortamentoPineBatcher {
   initialized = false;
@@ -171,10 +172,12 @@ export class PortamentoPineBatcher {
     this.dummy.position.copy(dummy.position);
     this.dummy.quaternion.copy(dummy.quaternion);
     this.dummy.scale.copy(dummy.scale);
-    this.dummy.updateMatrix();
 
-    this.trunkMesh!.setMatrixAt(i, this.dummy.matrix);
-    this.needleMesh!.setMatrixAt(i, this.dummy.matrix);
+    // ⚡ OPTIMIZATION: Eliminate CPU overhead and GC spikes from Matrix4 composition by writing directly to instanceMatrix.array
+    _scratchMatrix.compose(this.dummy.position, this.dummy.quaternion, this.dummy.scale);
+    _scratchMatrix.toArray(this.trunkMesh!.instanceMatrix.array, i * 16);
+    _scratchMatrix.toArray(this.needleMesh!.instanceMatrix.array, i * 16);
+
     this.bendAttribute!.setX(i, 0);
 
     this.trunkMesh!.instanceMatrix.needsUpdate = true;
@@ -191,9 +194,12 @@ export class PortamentoPineBatcher {
     this.dummy.position.copy(dummy.position);
     this.dummy.quaternion.copy(dummy.quaternion);
     this.dummy.scale.copy(dummy.scale);
-    this.dummy.updateMatrix();
-    this.trunkMesh!.setMatrixAt(idx, this.dummy.matrix);
-    this.needleMesh!.setMatrixAt(idx, this.dummy.matrix);
+
+    // ⚡ OPTIMIZATION: Eliminate CPU overhead and GC spikes from Matrix4 composition by writing directly to instanceMatrix.array
+    _scratchMatrix.compose(this.dummy.position, this.dummy.quaternion, this.dummy.scale);
+    _scratchMatrix.toArray(this.trunkMesh!.instanceMatrix.array, idx * 16);
+    _scratchMatrix.toArray(this.needleMesh!.instanceMatrix.array, idx * 16);
+
     this.trunkMesh!.instanceMatrix.needsUpdate = true;
     this.needleMesh!.instanceMatrix.needsUpdate = true;
   }

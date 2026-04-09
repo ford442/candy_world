@@ -21,6 +21,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 const MAX_FERNS = 500; // Reduced from 2000 for WebGPU uniform buffer limits
 const FRONDS_PER_FERN = 5;
+const _scratchMatrix = new THREE.Matrix4();
 
 export class ArpeggioFernBatcher {
     initialized: boolean;
@@ -332,9 +333,10 @@ export class ArpeggioFernBatcher {
         // So I just need to copy dummy position/rotation/scale.
         this.dummy.rotation.copy(dummy.rotation);
         this.dummy.scale.setScalar(scale);
-        this.dummy.updateMatrix();
 
-        this.mesh!.setMatrixAt(i, this.dummy.matrix);
+        // ⚡ OPTIMIZATION: Eliminate CPU overhead and GC spikes from Matrix4 composition by writing directly to instanceMatrix.array
+        _scratchMatrix.compose(this.dummy.position, this.dummy.quaternion, this.dummy.scale);
+        _scratchMatrix.toArray(this.mesh!.instanceMatrix.array, i * 16);
 
         // Color
         this._color.setHex(color);
@@ -353,9 +355,11 @@ export class ArpeggioFernBatcher {
         this.dummy.position.copy(dummy.position);
         this.dummy.rotation.copy(dummy.rotation);
         this.dummy.scale.copy(dummy.scale);
-        this.dummy.updateMatrix();
 
-        this.mesh!.setMatrixAt(index, this.dummy.matrix);
+        // ⚡ OPTIMIZATION: Eliminate CPU overhead and GC spikes from Matrix4 composition by writing directly to instanceMatrix.array
+        _scratchMatrix.compose(this.dummy.position, this.dummy.quaternion, this.dummy.scale);
+        _scratchMatrix.toArray(this.mesh!.instanceMatrix.array, index * 16);
+
         this.mesh!.instanceMatrix.needsUpdate = true;
     }
 
