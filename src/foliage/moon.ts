@@ -1,7 +1,7 @@
 import * as THREE from 'three';
-import { color, vec3, time, sin, cos, uniform, mix, positionLocal, UniformNode } from 'three/tsl';
+import { color, vec3, sin, cos, uniform, mix, positionLocal, UniformNode, smoothstep, float } from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
-import { attachReactivity, CandyPresets } from './index.ts';
+import { attachReactivity, CandyPresets, uAudioLow, uAudioHigh, uTime, createJuicyRimLight } from './index.ts';
 import { VisualState } from '../audio/audio-system.ts';
 
 // Moon Configuration
@@ -28,16 +28,36 @@ export function createMoon(): THREE.Group {
     const baseColor = color(0xDDEEFF);
 
     // Blink Effect (Emissive Pulse)
-    // We can drive this via a uniform 'uMoonBlink' updated from JS
-    // Or use time-based if generic. For music sync, we use a uniform.
     const uBlink = uniform(0.0); // 0 to 1
     (mat as any).uBlink = uBlink; // Expose to JS
 
-    // Emissive node: Base glow + Blink intensity
-    // Blink adds a strong white flash
-    const glow = uBlink.mul(2.0);
-    mat.colorNode = baseColor;
-    mat.emissiveNode = color(0xFFFFFF).mul(glow);
+    // 🎨 PALETTE: Juicy Audio-Reactive Moon
+
+    // 1. Bass Pulse (Low Frequency / Kick)
+    // The moon gently breathes with the beat, intensifying on strong kicks
+    const bassPulse = uAudioLow.mul(0.4);
+    const breathing = sin(uTime.mul(2.0)).mul(0.1).add(0.9); // Idle breathing 0.8-1.0
+    const activeGlow = breathing.add(bassPulse);
+
+    // 2. Melody Color Shift (High Frequency)
+    // Shifts towards a neon magenta/cyan on high energy notes
+    const magicColor = color(0xFF00FF); // Magenta
+    const melodyShift = smoothstep(0.3, 1.0, uAudioHigh).pow(float(1.5)).mul(0.6);
+    const audioColor = mix(baseColor, magicColor, melodyShift);
+
+    mat.colorNode = audioColor;
+
+    // 3. Emissive logic: Audio Glow + JS Blink + Rim Light
+    // Blink adds a strong white flash on top of the audio glow
+    const blinkGlow = color(0xFFFFFF).mul(uBlink.mul(2.0));
+    const baseEmissive = audioColor.mul(activeGlow).mul(0.5); // Soft inner glow
+
+    // 4. Juicy Rim Light for the edge pop
+    // Modulate rim intensity by bass for a dynamic halo effect
+    const rimIntensity = float(1.0).add(bassPulse.mul(2.0));
+    const rimLight = createJuicyRimLight(audioColor, rimIntensity, float(3.0), null);
+
+    mat.emissiveNode = baseEmissive.add(blinkGlow).add(rimLight);
 
     const moonMesh = new THREE.Mesh(geo, mat);
     moonMesh.castShadow = true; // Moon casts shadow (simulated as directional light source usually, but mesh itself can too)
