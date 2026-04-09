@@ -12,3 +12,7 @@
 ## 2024-11-20 - Empty States and Textarea Readability
 **Learning:** Empty states without Call-To-Action (CTA) buttons leave users stranded. Textareas containing code, JSON, or Base64 data trigger browser spellcheckers, cluttering the UI with red squiggly lines and degrading performance.
 **Action:** Always provide a clear CTA in empty states to guide the user out of it. Add `spellcheck="false"` to data input textareas, and use the `readonly` attribute for output/export textareas to prevent accidental modifications.
+
+## 2025-02-14 - Moon TSL Audio Reactivity
+**Learning:** Implementing moon glow using TSL makes it react responsively and beautifully without JS polling.
+**Action:** Use `mix` and `uAudioLow` or `uAudioHigh` directly inside TSL emissive materials for organic sky celestial bodies.
