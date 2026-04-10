@@ -79,6 +79,11 @@ export function handleAbilities(delta: number, camera: THREE.Camera, keyStates: 
         spawnImpact(player.position, 'dash');
         addCameraShake(0.1); // 🎨 Palette: Dash shake
 
+        // 🎨 Palette: Audio feedback for dash
+        if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
+            (window as any).AudioSystem.playSound('dash', { pitch: Math.random() * 0.2 + 0.9, volume: 0.6 });
+        }
+
         if (uChromaticIntensity) {
             uChromaticIntensity.value = 0.5; // Stronger pulse for dash
         }
