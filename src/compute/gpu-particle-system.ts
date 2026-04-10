@@ -432,7 +432,8 @@ export class GPUParticleSystem {
             this.dummy.scale.set(scale, scale, scale);
             this.dummy.updateMatrix();
 
-            this.particleMesh.setMatrixAt(i, this.dummy.matrix);
+            // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
+        this.dummy.matrix.toArray(this.particleMesh.instanceMatrix.array, (i) * 16);
         }
 
         this.particleMesh.instanceMatrix.needsUpdate = true;

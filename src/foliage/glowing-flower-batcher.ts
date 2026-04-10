@@ -211,7 +211,8 @@ export class GlowingFlowerBatcher {
         _scratchScale.set(0.05, stemHeight, 0.05);
         _scratchMat.makeScale(_scratchScale.x, _scratchScale.y, _scratchScale.z);
         _scratchMat.premultiply(baseMatrix);
-        this.stemMesh!.setMatrixAt(i, _scratchMat);
+        // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
+        _scratchMat.toArray(this.stemMesh!.instanceMatrix.array, (i) * 16);
 
         // Head Transform (At top of stem)
         // ⚡ OPTIMIZATION: Re-use scratch variable to avoid GC spikes
@@ -221,7 +222,8 @@ export class GlowingFlowerBatcher {
         _scratchMat2.scale(_scratchScale);
         _scratchMat2.premultiply(baseMatrix);
         const headWorld = _scratchMat2;
-        this.headMesh!.setMatrixAt(i, headWorld);
+        // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
+        headWorld.toArray(this.headMesh!.instanceMatrix.array, (i) * 16);
 
         // Wash Transform (At top of stem)
         // ⚡ OPTIMIZATION: Re-use scratch variable to avoid GC spikes
@@ -231,7 +233,8 @@ export class GlowingFlowerBatcher {
         _scratchMat3.scale(_scratchScale);
         _scratchMat3.premultiply(baseMatrix);
         const washWorld = _scratchMat3;
-        this.washMesh!.setMatrixAt(i, washWorld);
+        // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
+        washWorld.toArray(this.washMesh!.instanceMatrix.array, (i) * 16);
 
         // Color
         if (typeof color === 'number') _scratchColor.setHex(color);
