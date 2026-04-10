@@ -247,7 +247,8 @@ export class WaterfallBatcher {
         _scratchPos.y -= height * 0.5;
 
         _scratchMatrix.compose(_scratchPos, _scratchQuat, _scratchScale);
-        this.mesh!.setMatrixAt(index, _scratchMatrix);
+        // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
+        _scratchMatrix.toArray(this.mesh!.instanceMatrix.array, (index) * 16);
         this.mesh!.instanceMatrix.needsUpdate = true;
 
         // 2. Setup Splashes (8 per waterfall)
@@ -276,7 +277,8 @@ export class WaterfallBatcher {
 
             // Initialize matrix to identity (needed for rendering, even if positionNode overrides)
             _scratchMatrix.identity();
-            this.splashMesh!.setMatrixAt(si, _scratchMatrix);
+            // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
+        _scratchMatrix.toArray(this.splashMesh!.instanceMatrix.array, (si) * 16);
         }
 
         this.splashOrigin!.needsUpdate = true;
@@ -298,7 +300,8 @@ export class WaterfallBatcher {
         if (indexToRemove !== lastIndex) {
             // Swap Column
             this.mesh!.getMatrixAt(lastIndex, _scratchMatrix);
-            this.mesh!.setMatrixAt(indexToRemove, _scratchMatrix);
+            // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
+        _scratchMatrix.toArray(this.mesh!.instanceMatrix.array, (indexToRemove) * 16);
 
             // Swap Splashes (Block of 8)
             const srcStart = lastIndex * SPLASHES_PER_WATERFALL;
@@ -364,7 +367,8 @@ export class WaterfallBatcher {
         _scratchScale.z = _scratchScale.x * thicknessScale;
 
         _scratchMatrix.compose(_scratchPos, _scratchQuat, _scratchScale);
-        this.mesh!.setMatrixAt(index, _scratchMatrix);
+        // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
+        _scratchMatrix.toArray(this.mesh!.instanceMatrix.array, (index) * 16);
         this.mesh!.instanceMatrix.needsUpdate = true;
     }
 }
