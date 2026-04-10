@@ -4,6 +4,7 @@ import { MeshStandardNodeMaterial, StorageInstancedBufferAttribute } from 'three
 import { color, float, attribute, storage, instanceIndex, Fn, If, vec4, uniform, positionLocal, smoothstep } from 'three/tsl';
 import { getGroundHeight } from '../utils/wasm-loader.js';
 import { spawnImpact } from '../foliage/impacts.ts';
+import { addCameraShake } from '../core/game-loop.ts';
 
 const MAX_GRENADES = 10; // Simple fixed pool size
 
@@ -269,6 +270,12 @@ class GlitchGrenadeSystem {
 
         // Visual impact (reusing spore or jump for now)
         spawnImpact(position, 'spore');
+
+        // 🎨 Palette: Juice up the explosion with shake and sound
+        addCameraShake(0.8);
+        if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
+            (window as any).AudioSystem.playSound('explosion', { position, pitch: 0.5 + Math.random() * 0.5, volume: 1.0 });
+        }
     }
 }
 
