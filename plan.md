@@ -10,7 +10,7 @@
 
 ## Next Steps
 
-1. **Phase 4 targets (Compute Shaders - Remaining)**: Identify specific visual features that are still heavily reliant on CPU and transition them to WebGPU Compute Shaders (GPGPU). Candidates include any remaining particle or visual effect loops.
+1. **Phase 4 targets (Compute Shaders - Remaining)**: Identify specific visual features that are still heavily reliant on CPU and transition them to WebGPU Compute Shaders (GPGPU). Candidates include any remaining particle or visual effect loops (e.g. Grass swaying, or moving custom animations into pure TSL Vertex Shaders).
 2. **Phase 4 (Three.js -> WebGPU) Stage B (Custom Render Passes)**: Begin replacing specific materials with `RawShaderMaterial` / WebGPU pipelines (e.g., cloud or terrain draws) per `IMPLEMENTATION_PLAN_MUSICAL_ECOSYSTEM.md`.
 3. **Phase 4 (Three.js -> WebGPU) Stage C (Scene Graph Replacement)**: Once compute + custom render passes are in place, migrate scene hierarchy to an ECS in WASM and call `device.queue.submit()` directly.
 
@@ -18,6 +18,8 @@
 
 ## Recent Progress
 - **Accomplished:**
+  - **Phase 4 targets (Falling Berries Compute)**: **Status: Implemented ✅**
+    - *Implementation Details: Migrated `src/foliage/berries.ts` falling berry physics loop to utilize WebGPU Compute Shaders. Added `StorageInstancedBufferAttribute` for position, life, velocity, and scale tracking natively on the GPU using TSL `Fn().compute()`. Kept a lightweight CPU proxy strictly for trigger and collection distance checks, eliminating the heavy O(N) `.setMatrixAt` and array writes.*
   - **Phase 4 targets (Glitch Grenades Compute)**: **Status: Implemented ✅**
     - *Implementation Details: Migrated `src/systems/glitch-grenade.ts` to utilize WebGPU Compute Shaders. Added `StorageInstancedBufferAttribute` for position, life, and velocity tracking on the GPU using TSL `Fn().compute()`. Maintained a CPU proxy only for triggering the explosion and checking ground collisions, mirroring the hybrid approach used in Rainbow Blasters.*
   - **Phase 4 - Compute Shaders (GPGPU) - Waterfall Splashes**: **Status: Implemented ✅**
