@@ -607,7 +607,7 @@ export function animate() {
     const harpoonLine = getHarpoonLine();
 
     profiler.measure('Gameplay', () => {
-        updateFallingBerries(delta);
+        updateFallingBerries(delta, rendererRef);
         const berriesCollected = collectFallingBerries(cameraRef!.position, 1.5);
 
         if (harpoonLine) {
