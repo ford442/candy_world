@@ -484,7 +484,7 @@ class AnalyticsDebugOverlay {
     eventsSection.innerHTML = `
       <div class="analytics-debug-section-title">Recent Events</div>
       <div class="analytics-debug-events" id="analytics-events-log">
-        <div class="analytics-debug-empty">No events yet...</div>
+        <div class="analytics-debug-empty">No events yet...<br><br><button class="analytics-debug-button" id="analytics-test-event-btn"><span aria-hidden="true">🔔</span> Send Test Event</button></div>
       </div>
     `;
     content.appendChild(eventsSection);
@@ -619,6 +619,17 @@ class AnalyticsDebugOverlay {
           analytics.clear();
           this.eventLog = [];
           this.refresh();
+        }
+      });
+    }
+
+    // Event delegation for dynamically added buttons (like the CTA in empty state)
+    if (this.elements?.eventsSection) {
+      this.elements.eventsSection.addEventListener('click', (e) => {
+        const target = e.target as HTMLElement;
+        const button = target.closest('#analytics-test-event-btn');
+        if (button) {
+          trackEvent('test_event', { source: 'debug_ui' });
         }
       });
     }
@@ -873,7 +884,7 @@ class AnalyticsDebugOverlay {
     
     if (this.eventLog.length === 0) {
       container.innerHTML = `
-        <div class="analytics-debug-empty">No events yet...</div>
+        <div class="analytics-debug-empty">No events yet...<br><br><button class="analytics-debug-button" id="analytics-test-event-btn"><span aria-hidden="true">🔔</span> Send Test Event</button></div>
       `;
       return;
     }
