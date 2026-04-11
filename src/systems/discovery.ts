@@ -134,6 +134,7 @@ class DiscoverySystem {
 
         const closeBtn = document.createElement('button');
         closeBtn.innerText = '✕';
+        closeBtn.setAttribute('aria-label', 'Close discovery log');
         closeBtn.style.position = 'absolute';
         closeBtn.style.top = '15px';
         closeBtn.style.right = '20px';
