@@ -24,6 +24,8 @@ import {
 import { applyGlitch } from './glitch.ts';
 import { getCylinderGeometry, getTorusKnotGeometry } from '../utils/geometry-dedup.ts';
 import { createSugarSparkle } from './index.ts';
+import { uTwilight } from './sky.ts';
+import { CONFIG } from '../core/config.ts';
 
 const _defaultColorWhite = new THREE.Color(0xFFFFFF);
 const _defaultColorOrange = new THREE.Color(0xFF4500);
@@ -130,6 +132,19 @@ export class TreeBatcher {
         // Base Emissive logic based on High Freq Audio
         const sphereEmissive = sphereColor.mul(uAudioHigh.mul(1.5).add(0.2));
 
+        // 🎨 PALETTE: Twilight Glow System Support
+        const instanceIndex = attribute('instanceIndex', 'uint');
+        const glowPhaseOffset = float(instanceIndex).mul(0.1);
+        const glowPulseFreq = float(CONFIG.glow.glowPulseFrequency);
+        const glowPulseAmp = float(CONFIG.glow.glowPulseAmplitude);
+
+        // Idle pulse responding to audio and time, with phase offset
+        const idlePulse = sin(uTime.mul(glowPulseFreq).add(glowPhaseOffset)).mul(glowPulseAmp).add(1.0).mul(float(0.5)).mul(uAudioLow.mul(0.5));
+
+        // Target glow color from config mapped to twilight
+        const targetGlowColor = color(CONFIG.glow.glowColorMap['tree']);
+        const twilightGlowTint = targetGlowColor.mul(uTwilight).mul(float(CONFIG.glow.glowIntensityMax)).mul(float(0.5).add(idlePulse));
+
         // Add Sugar Sparkle! (Palette Polish)
         // Scale 15.0 for fine grain, Density 0.3 for sparse twinkle, Intensity 2.0
         const sugarSparkle = createSugarSparkle(normalWorld, float(15.0), float(0.3), float(2.0));
@@ -145,8 +160,8 @@ export class TreeBatcher {
             audioReactStrength: 0.5 // Inner glow pulse
         });
 
-        // 🎨 PALETTE: Make tree leaves pop with sparkly glow and base audio emissive
-        sphereMat.emissiveNode = sphereEmissive.add(sugarSparkle);
+        // 🎨 PALETTE: Make tree leaves pop with sparkly glow, base audio emissive, and twilight glow
+        sphereMat.emissiveNode = sphereEmissive.add(sugarSparkle).add(twilightGlowTint);
 
         this.spheres = new THREE.InstancedMesh(sharedGeometries.unitSphere, sphereMat, this.sphereCapacity);
         this.spheres.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(this.sphereCapacity * 3), 3);
