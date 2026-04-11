@@ -106,6 +106,10 @@ export interface ConfigType {
     glow: {
         startOffsetMinutes: number;
         endOffsetMinutes: number;
+        glowPulseFrequency: number;
+        glowPulseAmplitude: number;
+        glowIntensityMax: number;
+        glowColorMap: Record<string, number>;
     };
     noteColorMap: {
         global: Record<string, number>;
@@ -154,7 +158,15 @@ export const CONFIG: ConfigType = {
     glow: {
         startOffsetMinutes: 30, // Start glowing 30 min before sunset
         endOffsetMinutes: 30,   // Stop glowing 30 min after sunrise (or before? usually before dawn, but let's stick to plan)
-        // Plan says "stop before dawn". Let's say it fades out during pre-dawn.
+        glowPulseFrequency: 1.0,
+        glowPulseAmplitude: 0.5,
+        glowIntensityMax: 2.0,
+        glowColorMap: {
+            'mushroom': 0xFFDDDD,
+            'tree': 0xAAFFCC,
+            'flower': 0xFFCCFF,
+            'global': 0xFFFFFF
+        }
     },
 
     // --- NOTE COLOR MAPPING ---
