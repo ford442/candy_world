@@ -629,7 +629,8 @@ export class MushroomBatcher {
 
         // 1. Set Matrix
         dummy.updateMatrix();
-        this.mesh!.setMatrixAt(i, dummy.matrix);
+        // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
+        dummy.matrix.toArray(this.mesh!.instanceMatrix.array, (i) * 16);
 
         // PALETTE: Set Color
         // Default to Red (0xFF6B6B) if no note color provided
@@ -692,7 +693,8 @@ export class MushroomBatcher {
             // A. Copy Attributes from Last to Removed
             // Matrix
             this.mesh!.getMatrixAt(lastIndex, _scratchMatrix);
-            this.mesh!.setMatrixAt(indexToRemove, _scratchMatrix);
+            // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
+        _scratchMatrix.toArray(this.mesh!.instanceMatrix.array, (indexToRemove) * 16);
 
             // Color
             this.mesh!.getColorAt(lastIndex, _scratchColor);

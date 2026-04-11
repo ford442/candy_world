@@ -159,7 +159,8 @@ class JitterMineSystem {
             _scratchDummy.scale.setScalar(1);
             _scratchDummy.rotation.set(0,0,0);
             _scratchDummy.updateMatrix();
-            this.mesh.setMatrixAt(i, _scratchDummy.matrix);
+            // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
+        _scratchDummy.matrix.toArray(this.mesh.instanceMatrix.array, (i) * 16);
         }
     }
 

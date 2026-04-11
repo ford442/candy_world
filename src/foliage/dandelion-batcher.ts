@@ -257,7 +257,8 @@ export class DandelionBatcher {
         _scratchScale.setScalar(scale);
         _scratchMat.scale(_scratchScale);
 
-        this.mesh!.setMatrixAt(i, _scratchMat);
+        // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
+        _scratchMat.toArray(this.mesh!.instanceMatrix.array, (i) * 16);
         this.mesh!.instanceMatrix.needsUpdate = true;
         this.mesh!.count = this.count;
 
@@ -273,7 +274,8 @@ export class DandelionBatcher {
         this.dummy.scale.set(0, 0, 0);
         this.dummy.updateMatrix();
 
-        this.mesh.setMatrixAt(batchIndex, this.dummy.matrix);
+        // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
+        this.dummy.matrix.toArray(this.mesh.instanceMatrix.array, (batchIndex) * 16);
         this.mesh.instanceMatrix.needsUpdate = true;
 
         console.log(`[DandelionBatcher] Harvested dandelion #${batchIndex}`);

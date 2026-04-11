@@ -318,7 +318,8 @@ export class FlowerBatcher {
 
         if (index >= max) return;
 
-        mesh.setMatrixAt(index, matrix);
+        // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
+        matrix.toArray(mesh.instanceMatrix.array, (index) * 16);
         if (color && mesh.instanceColor) {
             mesh.setColorAt(index, color);
         }
