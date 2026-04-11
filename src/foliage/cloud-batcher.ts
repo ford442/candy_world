@@ -287,7 +287,8 @@ export class CloudBatcher {
         for (let i = 0; i < count; i++) {
             // Global = CloudWorld * PuffLocal
             _scratchMat.multiplyMatrices(worldMat, puffs[i]);
-            this.mesh.setMatrixAt(start + i, _scratchMat);
+            // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
+        _scratchMat.toArray(this.mesh.instanceMatrix.array, (start + i) * 16);
         }
     }
 

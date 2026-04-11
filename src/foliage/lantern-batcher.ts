@@ -311,10 +311,12 @@ export class LanternBatcher {
         dummy.updateMatrix();
 
         // Stem
-        this.stemMesh!.setMatrixAt(i, dummy.matrix);
+        // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
+        dummy.matrix.toArray(this.stemMesh!.instanceMatrix.array, (i) * 16);
 
         // Top
-        this.topMesh!.setMatrixAt(i, dummy.matrix);
+        // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
+        dummy.matrix.toArray(this.topMesh!.instanceMatrix.array, (i) * 16);
 
         // Params
         const height = options.height || 2.5;
