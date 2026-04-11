@@ -218,7 +218,8 @@ export function createCaveEntrance(options: CaveOptions = {}): THREE.Group {
         _scratchObj.scale.set(s * 0.5, s, s * 0.5);
         _scratchObj.updateMatrix();
 
-        formationsMesh.setMatrixAt(i, _scratchObj.matrix);
+        // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
+        _scratchObj.matrix.toArray(formationsMesh.instanceMatrix.array, (i) * 16);
     }
     group.add(formationsMesh);
 
