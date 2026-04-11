@@ -296,7 +296,8 @@ export class SimpleFlowerBatcher {
         _scratchScale.set(0.05, stemHeight, 0.05);
         _scratchMat.makeScale(_scratchScale.x, _scratchScale.y, _scratchScale.z);
         _scratchMat.premultiply(baseMatrix); // Apply World Transform
-        this.stemMesh!.setMatrixAt(i, _scratchMat);
+        // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
+        _scratchMat.toArray(this.stemMesh!.instanceMatrix.array, (i) * 16);
 
         // Head Transform (At top of stem)
         // Translation(0, stemHeight, 0) relative to Base.
@@ -306,7 +307,8 @@ export class SimpleFlowerBatcher {
         const headWorld = _scratchMat2; // No clone, avoid GC spike
 
         // Petals
-        this.petalMesh!.setMatrixAt(i, headWorld);
+        // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
+        headWorld.toArray(this.petalMesh!.instanceMatrix.array, (i) * 16);
 
         // Color
         if (typeof color === 'number') _scratchColor.setHex(color);
@@ -317,20 +319,24 @@ export class SimpleFlowerBatcher {
         // Center: Scale(0.1)
         _scratchMat.makeScale(0.1, 0.1, 0.1);
         _scratchMat.premultiply(headWorld);
-        this.centerMesh!.setMatrixAt(i, _scratchMat);
+        // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
+        _scratchMat.toArray(this.centerMesh!.instanceMatrix.array, (i) * 16);
 
         // Stamens: No extra scale needed (baked in geometry), just head transform
-        this.stamenMesh!.setMatrixAt(i, headWorld);
+        // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
+        headWorld.toArray(this.stamenMesh!.instanceMatrix.array, (i) * 16);
 
         // Beam: Random chance
         if (Math.random() > 0.5) {
             _scratchMat.makeScale(0.1, 1.0, 0.1);
             _scratchMat.premultiply(headWorld);
-            this.beamMesh!.setMatrixAt(i, _scratchMat);
+            // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
+        _scratchMat.toArray(this.beamMesh!.instanceMatrix.array, (i) * 16);
         } else {
             _scratchMat.makeScale(0, 0, 0);
             _scratchMat.premultiply(headWorld);
-            this.beamMesh!.setMatrixAt(i, _scratchMat);
+            // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
+        _scratchMat.toArray(this.beamMesh!.instanceMatrix.array, (i) * 16);
         }
         this.beamMesh!.setColorAt(i, _scratchColor);
 

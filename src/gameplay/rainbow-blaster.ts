@@ -127,7 +127,8 @@ class ProjectilePool {
         // WebGPU TSL multiplies custom positionNode output by instanceMatrix
         const identityMatrix = new THREE.Matrix4();
         for (let i = 0; i < MAX_PROJECTILES; i++) {
-            this.mesh.setMatrixAt(i, identityMatrix);
+            // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
+        identityMatrix.toArray(this.mesh.instanceMatrix.array, (i) * 16);
         }
         this.mesh.instanceMatrix.needsUpdate = true;
 

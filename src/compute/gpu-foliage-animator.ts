@@ -711,7 +711,8 @@ export async function updateInstancedMeshFromAnimator(
         }
         
         dummy.updateMatrix();
-        mesh.setMatrixAt(i, dummy.matrix);
+        // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
+        dummy.matrix.toArray(mesh.instanceMatrix.array, (i) * 16);
     }
     
     mesh.instanceMatrix.needsUpdate = true;

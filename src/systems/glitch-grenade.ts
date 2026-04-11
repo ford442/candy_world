@@ -89,7 +89,8 @@ class GlitchGrenadeSystem {
         // ⚡ OPTIMIZATION: Write a pure identity matrix into the instanceMatrix buffer
         const identityMatrix = new THREE.Matrix4();
         for (let i = 0; i < MAX_GRENADES; i++) {
-            this.mesh.setMatrixAt(i, identityMatrix);
+            // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
+        identityMatrix.toArray(this.mesh.instanceMatrix.array, (i) * 16);
         }
         this.mesh.instanceMatrix.needsUpdate = true;
 

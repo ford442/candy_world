@@ -151,7 +151,8 @@ export function addGrassInstance(x: number, y: number, z: number) {
     dummy.scale.set(s, s, s);
 
     dummy.updateMatrix();
-    mesh.setMatrixAt(index, dummy.matrix);
+    // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
+        dummy.matrix.toArray(mesh.instanceMatrix.array, (index) * 16);
     mesh.count++;
     mesh.instanceMatrix.needsUpdate = true;
 }

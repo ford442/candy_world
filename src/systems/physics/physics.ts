@@ -497,7 +497,8 @@ function checkHarmonyOrbs() {
             harmonyOrbSystem.dummy.position.set(0, -9999, 0);
             harmonyOrbSystem.dummy.scale.setScalar(0);
             harmonyOrbSystem.dummy.updateMatrix();
-            harmonyOrbSystem.mesh.setMatrixAt(i, harmonyOrbSystem.dummy.matrix);
+            // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
+        harmonyOrbSystem.dummy.matrix.toArray(harmonyOrbSystem.mesh.instanceMatrix.array, (i) * 16);
             harmonyOrbSystem.mesh.instanceMatrix.needsUpdate = true;
 
             // Visuals & Logic
