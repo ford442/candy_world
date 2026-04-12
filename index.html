@@ -13,6 +13,97 @@
     <link rel="stylesheet" href="style.css">
     <style>
         /* ... (Styles preserved) ... */
+        #loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #ffecf5; 
+            /* ⚡ PERFORMANCE: Use WebP with PNG fallback via CSS image-set */
+            background-image: image-set(
+                url('assets/splash.webp') type('image/webp'),
+                url('assets/splash.png') type('image/png')
+            );
+            background-image: -webkit-image-set(
+                url('assets/splash.webp') type('image/webp'),
+                url('assets/splash.png') type('image/png')
+            );
+            /* Fallback for browsers without image-set support */
+            background-image: url('assets/splash.png');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            transition: opacity 0.5s ease-out;
+            font-family: 'Fredoka One', cursive, sans-serif;
+        }
+        .loading-spinner {
+            width: 60px;
+            height: 60px;
+            border: 6px solid #ffb7e6;
+            border-top: 6px solid #ff40b0;
+            border-radius: 50%;
+            animation: loading-spin 1s linear infinite;
+            margin-bottom: 20px;
+            box-shadow: 0 0 15px rgba(255, 64, 176, 0.3);
+            background: rgba(255, 255, 255, 0.9);
+        }
+        #loading-progress-container {
+            width: 260px;
+            height: 16px;
+            background: rgba(255, 255, 255, 0.5);
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 14px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+        #loading-progress-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #ff6b9d, #c44569, #ff8c94);
+            border-radius: 10px;
+            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+        #loading-progress-fill::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.4) 50%, transparent 100%);
+            animation: loading-shimmer 2s infinite;
+        }
+        @keyframes loading-shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(200%); }
+        }
+        #loading-text {
+            color: #d65db1;
+            font-size: 1.2rem;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 10px 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        @keyframes loading-spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .loaded {
+            opacity: 0;
+            pointer-events: none;
+        }
         body {
             margin: 0;
             overflow: hidden;
@@ -470,49 +561,121 @@
             <p>Add .mod, .xm, .it, .s3m files to playlist</p>
         </div>
     </div>
-
-    <div id="candy-loading-overlay" class="loading-overlay theme-candy visible">
-        <div id="candy-loading-screen" class="loading-screen theme-candy visible" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Game loading progress">
-            <div class="loading-content">
-                <h1 class="loading-title">🍭 Candy World <span class="loading-dots">...</span></h1>
-                <div class="loading-spinner" aria-hidden="true"></div>
-                <div class="progress-section">
-                    <div class="progress-bar">
-                        <div class="progress-fill" style="width: 0%;"></div>
-                    </div>
-                    <div class="progress-details">
-                        <span class="progress-percentage">0%</span>
-                        <span class="progress-task">Initializing...</span>
-                    </div>
+<div id="candy-loading-overlay" class="loading-overlay theme-candy visible">
+    <div id="candy-loading-screen" class="loading-screen theme-candy visible" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Game loading progress">
+        <div class="loading-content">
+            <h1 class="loading-title">🍭 Candy World <span class="loading-dots">...</span></h1>
+            <div class="loading-spinner" aria-hidden="true"></div>
+            <div class="progress-section">
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: 0%;"></div>
                 </div>
-                <div class="time-remaining">Calculating time...</div>
-                <div class="status-indicators">
-                    <div class="phase-indicator" data-phase-id="core-scene" data-phase-index="0">
-                        <span class="phase-dot"></span><span class="phase-label">Core Scene Setup</span>
-                    </div>
-                    <div class="phase-indicator" data-phase-id="wasm-init" data-phase-index="1">
-                        <span class="phase-dot"></span><span class="phase-label">WASM Initialization</span>
-                    </div>
-                    <div class="phase-indicator" data-phase-id="audio-init" data-phase-index="2">
-                        <span class="phase-dot"></span><span class="phase-label">Audio System Init</span>
-                    </div>
-                    <div class="phase-indicator" data-phase-id="world-generation" data-phase-index="3">
-                        <span class="phase-dot"></span><span class="phase-label">World Generation</span>
-                    </div>
-                    <div class="phase-indicator" data-phase-id="shader-warmup" data-phase-index="4">
-                        <span class="phase-dot"></span><span class="phase-label">Shader Warmup</span>
-                    </div>
-                    <div class="phase-indicator" data-phase-id="tree-batcher" data-phase-index="5">
-                        <span class="phase-dot"></span><span class="phase-label">TreeBatcher Initialization</span>
-                    </div>
-                    <div class="phase-indicator" data-phase-id="deferred-visuals" data-phase-index="6">
-                        <span class="phase-dot"></span><span class="phase-label">Deferred Visuals Loading</span>
-                    </div>
+                <div class="progress-details">
+                    <span class="progress-percentage">0%</span>
+                    <span class="progress-task">Initializing...</span>
+                </div>
+            </div>
+            <div class="time-remaining">Calculating time...</div>
+            <div class="status-indicators">
+                <div class="phase-indicator" data-phase-id="core-scene" data-phase-index="0">
+                    <span class="phase-dot"></span><span class="phase-label">Core Scene Setup</span>
+                </div>
+                <div class="phase-indicator" data-phase-id="wasm-init" data-phase-index="1">
+                    <span class="phase-dot"></span><span class="phase-label">WASM Initialization</span>
+                </div>
+                <div class="phase-indicator" data-phase-id="audio-init" data-phase-index="2">
+                    <span class="phase-dot"></span><span class="phase-label">Audio System Init</span>
+                </div>
+                <div class="phase-indicator" data-phase-id="world-generation" data-phase-index="3">
+                    <span class="phase-dot"></span><span class="phase-label">World Generation</span>
+                </div>
+                <div class="phase-indicator" data-phase-id="shader-warmup" data-phase-index="4">
+                    <span class="phase-dot"></span><span class="phase-label">Shader Warmup</span>
+                </div>
+                <div class="phase-indicator" data-phase-id="tree-batcher" data-phase-index="5">
+                    <span class="phase-dot"></span><span class="phase-label">TreeBatcher Initialization</span>
+                </div>
+                <div class="phase-indicator" data-phase-id="deferred-visuals" data-phase-index="6">
+                    <span class="phase-dot"></span><span class="phase-label">Deferred Visuals Loading</span>
                 </div>
             </div>
         </div>
     </div>
+</div>
 
+<div id="instructions" role="dialog" aria-modal="true" aria-labelledby="instructions-title">
+    <h1 id="instructions-title"><span aria-hidden="true">🍭</span> Candy World</h1>
+    <div id="nowPlayingContainer" class="now-playing-info" aria-live="polite" style="display: none;">
+        <span class="music-note" aria-hidden="true">🎵</span> <span id="nowPlayingText"></span>
+    </div>
+    <button id="startButton" class="cta-button" disabled aria-live="polite">
+        <span class="spinner" aria-hidden="true"></span>Loading World... 🍭
+    </button>
+</div>
+
+<script>
+    /**
+     * Merged loading screen helpers – works with the candy-themed UI
+     * Call these from your game code exactly as before:
+     *   setLoadingStatus("WASM Initialization...")
+     *   setLoadingProgress(45)
+     *   hideLoadingScreen()
+     */
+    window.setLoadingStatus = function (text) {
+        const taskEl = document.querySelector('.progress-task');
+        if (taskEl) taskEl.innerText = text;
+
+        console.log('[Splash]', text);
+
+        // Auto-highlight the matching phase (super useful for your WASM/shader/world-gen pipeline)
+        const phases = document.querySelectorAll('.phase-indicator');
+        let matched = false;
+        phases.forEach(phase => {
+            const label = phase.querySelector('.phase-label').innerText.toLowerCase();
+            const id = phase.dataset.phaseId.toLowerCase();
+            if (text.toLowerCase().includes(label) || text.toLowerCase().includes(id)) {
+                phases.forEach(p => p.classList.remove('active'));
+                phase.classList.add('active');
+                matched = true;
+            }
+        });
+
+        // Fallback: if no exact match, just mark the first inactive phase as active
+        if (!matched) {
+            const nextPhase = Array.from(phases).find(p => !p.classList.contains('active'));
+            if (nextPhase) {
+                phases.forEach(p => p.classList.remove('active'));
+                nextPhase.classList.add('active');
+            }
+        }
+    };
+
+    window.setLoadingProgress = function (percent) {
+        const fill = document.querySelector('.progress-fill');
+        const percentageEl = document.querySelector('.progress-percentage');
+        const container = document.getElementById('candy-loading-screen');
+
+        if (fill) fill.style.width = Math.min(100, Math.max(0, percent)) + '%';
+        if (percentageEl) percentageEl.innerText = Math.round(percent) + '%';
+        if (container) container.setAttribute('aria-valuenow', String(Math.round(percent)));
+    };
+
+    window.hideLoadingScreen = function () {
+        const el = document.getElementById('candy-loading-overlay');
+        if (el) {
+            el.classList.add('loaded');
+            setTimeout(() => {
+                el.remove();
+            }, 600);
+        }
+    };
+
+    // Bonus helper (optional but nice for the "Calculating time..." line)
+    window.setTimeRemaining = function (text) {
+        const timeEl = document.querySelector('.time-remaining');
+        if (timeEl) timeEl.innerText = text;
+    };
+</script>
     <div id="instructions" role="dialog" aria-modal="true" aria-labelledby="instructions-title">
         <h1 id="instructions-title"><span aria-hidden="true">🍭</span> Candy World</h1>
         <div id="nowPlayingContainer" class="now-playing-info" aria-live="polite" style="display: none;">

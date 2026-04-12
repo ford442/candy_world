@@ -33,6 +33,7 @@ declare global {
   interface Window {
     // Legacy loading API
     setLoadingStatus: (text: string) => void;
+    setLoadingProgress: (percent: number) => void;
     hideLoadingScreen: () => void;
     showLoadingScreen: () => void;
     updateLoadingProgress: (phase: string, percent: number, taskDescription?: string) => void;
