@@ -34,11 +34,14 @@ import { player } from '../systems/physics/index.ts';
 import { animate, initGameLoopDependencies, addCameraShake } from './game-loop.ts';
 import { updateTheme, toggleDayNight, setInputSystem } from './hud.ts';
 import { initDeferredVisuals, initDeferredVisualsDependencies, runDeferredWarmup } from './deferred-init.ts';
+import { initLoadingScreen, updateProgress, hideLoadingScreen } from '../ui/index.ts';
 
 // Export core objects for use by other modules
 export { scene, camera, renderer, player, addCameraShake };
 
 // --- Enable Startup Profiler ---
+const loadingScreen = initLoadingScreen({ debug: false, theme: 'candy' });
+
 enableStartupProfiler({
     slowPhaseThreshold: 100,
     enableOverlay: true,
@@ -67,7 +70,7 @@ console.timeEnd('Audio & Systems Init');
 
 // Phase 3: World Generation (Critical Path)
 console.time('World Generation');
-if (window.setLoadingStatus) window.setLoadingStatus("Loading World Map...");
+updateProgress('world-generation', 0, 'Loading World Map...');
 
 // CHANGE: Load only the base world (sky/ground) initially, defer content
 const { moon } = initWorld(scene, weatherSystem, false);
@@ -200,17 +203,17 @@ initWasm().then(async (wasmLoaded) => {
     camera.position.y = initialGroundY + 1.8;
     console.log(`[Startup] Camera positioned at ground height: y=${camera.position.y.toFixed(2)}`);
 
-    if (window.setLoadingStatus) window.setLoadingStatus("Preparing Scene...");
+    updateProgress('core-scene', 100, 'Preparing Scene...');
 
     // --- CRITICAL: Start Game Loop IMMEDIATELY (Before heavy compile) ---
     renderer.setAnimationLoop(animate);
     try { window.__sceneReady = true; } catch (e) { }
 
     // Hide loading screen early - the basic scene is ready
-    if (window.setLoadingStatus) window.setLoadingStatus("Entering Candy World...");
+    updateProgress('deferred-visuals', 0, 'Entering Candy World...');
 
     setTimeout(() => {
-        if (window.hideLoadingScreen) window.hideLoadingScreen();
+        hideLoadingScreen();
     }, 200);
 
     // Create a temporary "Preview" mushroom for the startup scene
@@ -249,6 +252,8 @@ initWasm().then(async (wasmLoaded) => {
                     const percent = Math.floor((current / total) * 100);
 
                     // Always update visual gradient for smoothness
+                    updateProgress('world-generation', percent, `Generating ${percent}%...`);
+
                     startButton.style.background = `linear-gradient(90deg, #FF6B6B ${percent}%, #FFB6C1 ${percent}%)`;
 
                     // Throttle text updates to every 10% or completion

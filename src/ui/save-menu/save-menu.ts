@@ -18,7 +18,7 @@ import {
     KeyBindings
 } from '../../systems/save-system/index.js';
 import { showToast } from '../../utils/toast.js';
-import { trapFocusInside } from '../../utils/interaction-utils.js';
+import { trapFocusInside } from '../../utils/interaction-utils.ts';
 import { MENU_STYLES } from './save-menu-styles.js';
 import { 
     renderLoadTab, 

@@ -29,7 +29,7 @@ export {
     
     // Internal utilities (exported for advanced use)
     getNativeFunc,
-    updateProgress,
+    updateWasmProgress as updateProgress,
     
     // State exports
     wasmInstance,
