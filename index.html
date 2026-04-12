@@ -53,6 +53,38 @@
             box-shadow: 0 0 15px rgba(255, 64, 176, 0.3);
             background: rgba(255, 255, 255, 0.9);
         }
+        #loading-progress-container {
+            width: 260px;
+            height: 16px;
+            background: rgba(255, 255, 255, 0.5);
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 14px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+        #loading-progress-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #ff6b9d, #c44569, #ff8c94);
+            border-radius: 10px;
+            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+        #loading-progress-fill::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.4) 50%, transparent 100%);
+            animation: loading-shimmer 2s infinite;
+        }
+        @keyframes loading-shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(200%); }
+        }
         #loading-text {
             color: #d65db1;
             font-size: 1.2rem;
@@ -532,6 +564,9 @@
 
     <div id="loading-overlay">
         <div class="loading-spinner" role="progressbar" aria-label="Loading"></div>
+        <div id="loading-progress-container" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Loading progress">
+            <div id="loading-progress-fill"></div>
+        </div>
         <div id="loading-text" aria-live="polite" aria-atomic="true">Initializing Audio Runtime...</div>
     </div>
 
@@ -540,6 +575,13 @@
             const el = document.getElementById('loading-text');
             if (el) el.innerText = text;
             console.log('[Splash]', text); 
+        };
+
+        window.setLoadingProgress = function (percent) {
+            const fill = document.getElementById('loading-progress-fill');
+            const container = document.getElementById('loading-progress-container');
+            if (fill) fill.style.width = Math.min(100, Math.max(0, percent)) + '%';
+            if (container) container.setAttribute('aria-valuenow', String(Math.round(percent)));
         };
 
         window.hideLoadingScreen = function () {

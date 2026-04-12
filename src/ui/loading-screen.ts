@@ -52,23 +52,15 @@ export interface LoadingScreenOptions {
 export const DEFAULT_LOADING_PHASES: LoadingPhase[] = [
     {
         id: 'core-scene',
-        name: 'Core Scene Setup',
+        name: 'Scene Setup',
         weight: 0.10,
         description: 'Initializing 3D renderer and scene...',
         onStart: () => console.log('[Loading] Starting Core Scene Setup'),
         onComplete: () => console.log('[Loading] Core Scene Setup complete')
     },
     {
-        id: 'wasm-init',
-        name: 'WASM Initialization',
-        weight: 0.20,
-        description: 'Loading physics engine and native modules...',
-        onStart: () => console.log('[Loading] Starting WASM Initialization'),
-        onComplete: () => console.log('[Loading] WASM Initialization complete')
-    },
-    {
         id: 'audio-init',
-        name: 'Audio System Init',
+        name: 'Audio System',
         weight: 0.10,
         description: 'Starting audio worklet and effects...',
         onStart: () => console.log('[Loading] Starting Audio System Init'),
@@ -76,11 +68,19 @@ export const DEFAULT_LOADING_PHASES: LoadingPhase[] = [
     },
     {
         id: 'world-generation',
-        name: 'World Generation',
-        weight: 0.30,
+        name: 'World Build',
+        weight: 0.25,
         description: 'Growing procedural flora and terrain...',
         onStart: () => console.log('[Loading] Starting World Generation'),
         onComplete: () => console.log('[Loading] World Generation complete')
+    },
+    {
+        id: 'wasm-init',
+        name: 'Physics Engine',
+        weight: 0.25,
+        description: 'Loading physics engine and native modules...',
+        onStart: () => console.log('[Loading] Starting WASM Initialization'),
+        onComplete: () => console.log('[Loading] WASM Initialization complete')
     },
     {
         id: 'shader-warmup',
@@ -92,20 +92,11 @@ export const DEFAULT_LOADING_PHASES: LoadingPhase[] = [
     },
     {
         id: 'tree-batcher',
-        name: 'TreeBatcher Initialization',
-        weight: 0.10,
-        description: 'Initializing instanced tree rendering...',
-        onStart: () => console.log('[Loading] Starting TreeBatcher Init'),
-        onComplete: () => console.log('[Loading] TreeBatcher Init complete')
-    },
-    {
-        id: 'deferred-visuals',
-        name: 'Deferred Visuals Loading',
-        weight: 0.05,
-        description: 'Loading atmospheric effects and polish...',
-        isDeferred: true,
-        onStart: () => console.log('[Loading] Starting Deferred Visuals'),
-        onComplete: () => console.log('[Loading] Deferred Visuals complete')
+        name: 'Map Generation',
+        weight: 0.15,
+        description: 'Generating world map and placing entities...',
+        onStart: () => console.log('[Loading] Starting Map Generation'),
+        onComplete: () => console.log('[Loading] Map Generation complete')
     }
 ];
 
@@ -300,7 +291,22 @@ export class LoadingScreen {
      * Show the loading screen
      */
     show(): void {
-        if (this.isVisible) return;
+        // If hide() is in progress (isComplete but not yet destroyed), reset it
+        if (this.isComplete) {
+            this.isComplete = false;
+        }
+        
+        if (this.isVisible && this.overlay && this.container) {
+            // Already shown - just re-add visible classes in case hide was animating
+            requestAnimationFrame(() => {
+                if (this.overlay) this.overlay.classList.add('visible');
+                if (this.container) {
+                    this.container.classList.remove('complete');
+                    this.container.classList.add('visible');
+                }
+            });
+            return;
+        }
         
         this.createDOM();
         this.isVisible = true;
@@ -344,6 +350,9 @@ export class LoadingScreen {
         }
 
         setTimeout(() => {
+            // Guard: don't proceed if show() was called again
+            if (!this.isComplete) return;
+            
             if (this.overlay) {
                 this.overlay.classList.remove('visible');
             }
@@ -352,9 +361,12 @@ export class LoadingScreen {
             }
 
             setTimeout(() => {
-                this.destroy();
-                this.isVisible = false;
-                this.onCompleteCallbacks.forEach(cb => cb());
+                // Guard: don't destroy if show() was called again in the meantime
+                if (this.isComplete) {
+                    this.destroy();
+                    this.isVisible = false;
+                    this.onCompleteCallbacks.forEach(cb => cb());
+                }
             }, this.options.fadeOutDuration);
         }, 300);
 
@@ -793,6 +805,13 @@ export function installLegacyAPI(): void {
     window.hideLoadingScreen = hideLoadingScreen;
     window.showLoadingScreen = showLoadingScreen;
     window.updateLoadingProgress = updateProgress;
+    
+    // Also update the initial HTML progress bar for smooth pre-JS feedback
+    const origSetLoadingProgress = window.setLoadingProgress;
+    window.setLoadingProgress = (percent: number) => {
+        // Forward to the HTML progress bar if it still exists
+        if (origSetLoadingProgress) origSetLoadingProgress(percent);
+    };
     
     if (debugEnabled) {
         console.log('[LoadingScreen] Legacy window API installed');

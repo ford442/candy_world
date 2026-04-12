@@ -35,8 +35,22 @@ import { animate, initGameLoopDependencies, addCameraShake } from './game-loop.t
 import { updateTheme, toggleDayNight, setInputSystem } from './hud.ts';
 import { initDeferredVisuals, initDeferredVisualsDependencies, runDeferredWarmup } from './deferred-init.ts';
 
+// Loading Screen system
+import { initLoadingScreen, installLegacyAPI } from '../ui/loading-screen.ts';
+
 // Export core objects for use by other modules
 export { scene, camera, renderer, player, addCameraShake };
+
+// --- Initialize Loading Screen (replaces old spinner overlay) ---
+const loadingScreen = initLoadingScreen({ theme: 'candy', showEstimatedTime: true });
+loadingScreen.show();
+installLegacyAPI();
+
+// Hide the old HTML loading overlay now that the new system is active
+const oldOverlay = document.getElementById('loading-overlay');
+if (oldOverlay) {
+    oldOverlay.style.display = 'none';
+}
 
 // --- Enable Startup Profiler ---
 enableStartupProfiler({
@@ -49,29 +63,41 @@ enableStartupProfiler({
 // --- Initialization Pipeline ---
 
 // Phase 1: Core Scene Setup (Immediate)
+loadingScreen.startPhase('core-scene');
 console.time('Core Scene Setup');
 const { scene, camera, renderer, ambientLight, sunLight, sunGlow, sunCorona, lightShaftGroup, sunGlowMat, coronaMat, uShaftOpacity } = initScene();
+loadingScreen.updateProgress(70, 'Initializing post-processing...');
 
 // Initialize Post Processing Pipeline
 const postProcessing = initPostProcessing(renderer, scene, camera);
 
 console.timeEnd('Core Scene Setup');
+loadingScreen.updateProgress(100);
+loadingScreen.completePhase('core-scene');
 
 // Phase 2: Audio & Weather Systems (Lightweight)
+loadingScreen.startPhase('audio-init');
 console.time('Audio & Systems Init');
 const audioSystem = new AudioSystem(CONFIG.audio.useScriptProcessorNode);
+loadingScreen.updateProgress(40, 'Creating audio system...');
 const beatSync = new BeatSync(audioSystem);
+loadingScreen.updateProgress(70, 'Initializing weather system...');
 const weatherSystem = new WeatherSystem(scene);
 weatherSystem.setRenderer(renderer);
 console.timeEnd('Audio & Systems Init');
+loadingScreen.updateProgress(100);
+loadingScreen.completePhase('audio-init');
 
 // Phase 3: World Generation (Critical Path)
+loadingScreen.startPhase('world-generation');
 console.time('World Generation');
-if (window.setLoadingStatus) window.setLoadingStatus("Loading World Map...");
+loadingScreen.updateProgress(10, 'Loading world map...');
 
 // CHANGE: Load only the base world (sky/ground) initially, defer content
 const { moon } = initWorld(scene, weatherSystem, false);
 console.timeEnd('World Generation');
+loadingScreen.updateProgress(100, 'Base world ready');
+loadingScreen.completePhase('world-generation');
 
 // Initialize Music Reactivity with dependencies
 musicReactivitySystem.init(scene, weatherSystem);
@@ -185,33 +211,38 @@ window.addEventListener('mousedown', (e) => {
 });
 
 // WASM Init & Game Startup
+loadingScreen.startPhase('wasm-init');
 initWasm().then(async (wasmLoaded) => {
     const wasmInitStart = performance.now();
     console.log(`WASM module ${wasmLoaded ? 'active' : 'using JS fallbacks'}`);
 
     // Initialize C++ Fluid System (Phase 3)
+    loadingScreen.updateProgress(40, 'Initializing fluid system...');
     fluidSystem.init();
 
     // Record WASM initialization metrics
     recordWASMInit(wasmInitStart, true, wasmLoaded);
 
     // Use unified ground height for proper spawn positioning (accounts for lake carving)
+    loadingScreen.updateProgress(70, 'Positioning player...');
     const initialGroundY = getUnifiedGroundHeightTyped(camera.position.x, camera.position.z, getGroundHeight);
     camera.position.y = initialGroundY + 1.8;
     console.log(`[Startup] Camera positioned at ground height: y=${camera.position.y.toFixed(2)}`);
 
-    if (window.setLoadingStatus) window.setLoadingStatus("Preparing Scene...");
+    loadingScreen.updateProgress(100, 'Physics engine ready');
+    loadingScreen.completePhase('wasm-init');
 
     // --- CRITICAL: Start Game Loop IMMEDIATELY (Before heavy compile) ---
+    loadingScreen.startPhase('shader-warmup');
+    loadingScreen.updateProgress(30, 'Starting render loop...');
     renderer.setAnimationLoop(animate);
     try { window.__sceneReady = true; } catch (e) { }
 
-    // Hide loading screen early - the basic scene is ready
-    if (window.setLoadingStatus) window.setLoadingStatus("Entering Candy World...");
+    loadingScreen.updateProgress(100, 'Scene ready!');
+    loadingScreen.completePhase('shader-warmup');
 
-    setTimeout(() => {
-        if (window.hideLoadingScreen) window.hideLoadingScreen();
-    }, 200);
+    // Hide loading screen - the basic scene is ready
+    loadingScreen.hide();
 
     // Create a temporary "Preview" mushroom for the startup scene
     const previewMushroom = createMushroom({ size: 'giant', scale: 1.5, hasFace: true, isBouncy: true });
@@ -239,6 +270,11 @@ initWasm().then(async (wasmLoaded) => {
                 const idx = animatedFoliage.indexOf(previewMushroom);
                 if (idx > -1) animatedFoliage.splice(idx, 1);
 
+                // Show loading screen for map generation phase
+                loadingScreen.show();
+                loadingScreen.startPhase('tree-batcher');
+                loadingScreen.updateProgress(0, 'Generating world map...');
+
                 // Use async map generation with progress updates
                 // 🎨 Palette: Throttle announcements to prevent SR spam
                 let lastAnnounced = -1;
@@ -248,7 +284,10 @@ initWasm().then(async (wasmLoaded) => {
                 await generateMap(weatherSystem, DEFAULT_MAP_CHUNK_SIZE, (current, total) => {
                     const percent = Math.floor((current / total) * 100);
 
-                    // Always update visual gradient for smoothness
+                    // Update loading screen progress bar
+                    loadingScreen.updateProgress(percent, `Generating world... ${percent}%`);
+
+                    // Also update visual gradient on the button for smoothness
                     startButton.style.background = `linear-gradient(90deg, #FF6B6B ${percent}%, #FFB6C1 ${percent}%)`;
 
                     // Throttle text updates to every 10% or completion
@@ -259,7 +298,13 @@ initWasm().then(async (wasmLoaded) => {
                 });
                 endPhase('Map Generation');
 
+                loadingScreen.updateProgress(100, 'World generation complete!');
+                loadingScreen.completePhase('tree-batcher');
+
                 startButton.removeAttribute('aria-busy');
+
+                // Hide loading screen after map generation
+                loadingScreen.hide();
 
                 // UX: Now that generation is done, hide the instructions
                 // (We delayed this in input.js to keep the "Generating..." message visible)
