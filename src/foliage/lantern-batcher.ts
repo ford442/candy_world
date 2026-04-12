@@ -308,15 +308,14 @@ export class LanternBatcher {
         dummy.userData.isBatched = true;
 
         // Transforms
-        dummy.updateMatrix();
-
+        _scratchMatrixBatch.compose(dummy.position, dummy.quaternion, dummy.scale);
         // Stem
         // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
-        dummy.matrix.toArray(this.stemMesh!.instanceMatrix.array, (i) * 16);
+        _scratchMatrixBatch.toArray(this.stemMesh!.instanceMatrix.array, (i) * 16);
 
         // Top
         // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
-        dummy.matrix.toArray(this.topMesh!.instanceMatrix.array, (i) * 16);
+        _scratchMatrixBatch.toArray(this.topMesh!.instanceMatrix.array, (i) * 16);
 
         // Params
         const height = options.height || 2.5;

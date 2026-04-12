@@ -9,6 +9,7 @@ import { uSkyDarkness } from './sky.ts';
 let grassMeshes: THREE.InstancedMesh[] = [];
 const dummy = new THREE.Object3D();
 const MAX_PER_MESH = 1000;
+const _scratchMatrix = new THREE.Matrix4();
 
 export function initGrassSystem(scene: THREE.Scene, count = 5000): THREE.InstancedMesh[] {
     grassMeshes = [];
@@ -150,9 +151,9 @@ export function addGrassInstance(x: number, y: number, z: number) {
     const s = 0.8 + Math.random() * 0.4;
     dummy.scale.set(s, s, s);
 
-    dummy.updateMatrix();
+    _scratchMatrix.compose(dummy.position, dummy.quaternion, dummy.scale);
     // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
-        dummy.matrix.toArray(mesh.instanceMatrix.array, (index) * 16);
+    _scratchMatrix.toArray(mesh.instanceMatrix.array, (index) * 16);
     mesh.count++;
     mesh.instanceMatrix.needsUpdate = true;
 }

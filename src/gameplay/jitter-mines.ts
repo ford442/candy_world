@@ -12,6 +12,7 @@ import { unlockSystem } from '../systems/unlocks.ts';
 import { positionLocal, uv, float, sin, cos, vec3, uniform, attribute, vec4, vec2, step, mix, smoothstep } from 'three/tsl';
 
 const MAX_MINES = 50;
+const _scratchMatrix = new THREE.Matrix4();
 const MINE_RADIUS = 0.5;
 const TRIGGER_RADIUS = 2.0;
 const COOLDOWN = 1.0;
@@ -158,9 +159,9 @@ class JitterMineSystem {
             _scratchDummy.position.set(0,0,0);
             _scratchDummy.scale.setScalar(1);
             _scratchDummy.rotation.set(0,0,0);
-            _scratchDummy.updateMatrix();
+            _scratchMatrix.compose(_scratchDummy.position, _scratchDummy.quaternion, _scratchDummy.scale);
             // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
-        _scratchDummy.matrix.toArray(this.mesh.instanceMatrix.array, (i) * 16);
+            _scratchMatrix.toArray(this.mesh.instanceMatrix.array, (i) * 16);
         }
     }
 

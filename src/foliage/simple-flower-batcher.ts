@@ -288,8 +288,8 @@ export class SimpleFlowerBatcher {
         const { color = 0xFFFFFF } = options;
 
         // 1. Calculate Transforms
-        logicObject.updateMatrix();
-        const baseMatrix = logicObject.matrix;
+        _scratchMat.compose(logicObject.position, logicObject.quaternion, logicObject.scale);
+        const baseMatrix = _scratchMat;
 
         // Stem: Scale (0.05, height, 0.05). Height is random.
         const stemHeight = 0.6 + Math.random() * 0.4;

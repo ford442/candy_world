@@ -253,9 +253,8 @@ export class CloudBatcher {
 
             _scratchObject3D.scale.setScalar(finalPuffScale);
             _scratchObject3D.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
-            _scratchObject3D.updateMatrix();
-
-            puffs.push(_scratchObject3D.matrix.clone());
+            _scratchMat.compose(_scratchObject3D.position, _scratchObject3D.quaternion, _scratchObject3D.scale);
+            puffs.push(_scratchMat.clone());
         }
 
         cloudGroup.userData.puffs = puffs;

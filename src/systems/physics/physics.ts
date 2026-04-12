@@ -496,9 +496,9 @@ function checkHarmonyOrbs() {
             // Hide mesh immediately
             harmonyOrbSystem.dummy.position.set(0, -9999, 0);
             harmonyOrbSystem.dummy.scale.setScalar(0);
-            harmonyOrbSystem.dummy.updateMatrix();
+            _scratchMatrix.compose(harmonyOrbSystem.dummy.position, harmonyOrbSystem.dummy.quaternion, harmonyOrbSystem.dummy.scale);
             // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
-        harmonyOrbSystem.dummy.matrix.toArray(harmonyOrbSystem.mesh.instanceMatrix.array, (i) * 16);
+            _scratchMatrix.toArray(harmonyOrbSystem.mesh.instanceMatrix.array, (i) * 16);
             harmonyOrbSystem.mesh.instanceMatrix.needsUpdate = true;
 
             // Visuals & Logic

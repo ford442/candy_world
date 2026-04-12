@@ -309,9 +309,8 @@ export class MushroomBatcher {
             _scratchPos.add(p);
             _scratchDummyObj.lookAt(_scratchPos); // Look away
             _scratchDummyObj.scale.set(spotScale, spotScale, spotScale * 0.2); // Flatten Z
-            _scratchDummyObj.updateMatrix();
-
-            addPart(sharedGeometries.unitSphere, 3, _scratchDummyObj.matrix);
+            _scratchMatrix.compose(_scratchDummyObj.position, _scratchDummyObj.quaternion, _scratchDummyObj.scale);
+            addPart(sharedGeometries.unitSphere, 3, _scratchMatrix);
         }
         groups.push({ start: startIndex, count: indices.length - startIndex, materialIndex: 3 });
 
@@ -642,9 +641,9 @@ export class MushroomBatcher {
         this.instanceToLogicId[i] = dummy.id;
 
         // 1. Set Matrix
-        dummy.updateMatrix();
+        _scratchMatrix.compose(dummy.position, dummy.quaternion, dummy.scale);
         // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
-        dummy.matrix.toArray(this.mesh!.instanceMatrix.array, (i) * 16);
+        _scratchMatrix.toArray(this.mesh!.instanceMatrix.array, (i) * 16);
 
         // PALETTE: Set Color
         // Default to Red (0xFF6B6B) if no note color provided
