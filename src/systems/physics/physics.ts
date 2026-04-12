@@ -313,6 +313,10 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
         if (player.velocity.y > 0 && player.isGrounded) {
              keyStates.jump = false;
              spawnImpact(player.position, 'jump');
+             // 🎨 Palette: Audio feedback for jump
+             if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
+                 (window as any).AudioSystem.playSound('jump', { pitch: Math.random() * 0.2 + 0.9, volume: 0.5 });
+             }
              if (typeof uChromaticIntensity !== 'undefined') {
                  uChromaticIntensity.value = 0.2;
              }
@@ -331,15 +335,27 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
                 spawnImpact(player.position, 'dash'); // Extra particles
                 addCameraShake(0.4); // 🎨 Palette: Heavy landing shake
                 if (uChromaticIntensity) uChromaticIntensity.value = 0.8;
+                // 🎨 Palette: Heavy impact audio
+                if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
+                    (window as any).AudioSystem.playSound('impact', { pitch: 0.6, volume: 1.0 });
+                }
             } else if (fallSpeed > 8.0) {
                 // Medium fall
                 spawnImpact(player.position, 'land');
                 addCameraShake(0.15); // 🎨 Palette: Medium landing shake
                 if (uChromaticIntensity) uChromaticIntensity.value = 0.5;
+                // 🎨 Palette: Medium impact audio
+                if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
+                    (window as any).AudioSystem.playSound('impact', { pitch: 0.8, volume: 0.7 });
+                }
             } else {
                 // Soft landing
                 spawnImpact(player.position, 'jump'); // Lighter particle burst
                 if (uChromaticIntensity) uChromaticIntensity.value = 0.2;
+                // 🎨 Palette: Soft impact audio
+                if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
+                    (window as any).AudioSystem.playSound('impact', { pitch: 1.2, volume: 0.4 });
+                }
             }
         }
     } else {
@@ -363,6 +379,9 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
               // 🎨 Palette: Add "Juice" to trampoline mushroom bounce
               spawnImpact(player.position, 'jump');
               addCameraShake(0.3); // 🎨 Palette: Trampoline bounce shake
+              if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
+                  (window as any).AudioSystem.playSound('impact', { pitch: 1.5, volume: 0.8 });
+              }
               if (typeof uChromaticIntensity !== 'undefined') {
                   uChromaticIntensity.value = 0.5;
               }
@@ -478,7 +497,8 @@ function checkHarmonyOrbs() {
             harmonyOrbSystem.dummy.position.set(0, -9999, 0);
             harmonyOrbSystem.dummy.scale.setScalar(0);
             harmonyOrbSystem.dummy.updateMatrix();
-            harmonyOrbSystem.mesh.setMatrixAt(i, harmonyOrbSystem.dummy.matrix);
+            // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
+        harmonyOrbSystem.dummy.matrix.toArray(harmonyOrbSystem.mesh.instanceMatrix.array, (i) * 16);
             harmonyOrbSystem.mesh.instanceMatrix.needsUpdate = true;
 
             // Visuals & Logic
@@ -719,6 +739,9 @@ function checkSnareTraps(delta: number) {
                         if (uChromaticIntensity) uChromaticIntensity.value = 0.8;
                         spawnImpact(player.position, 'snare');
                         addCameraShake(0.6); // 🎨 Palette: Trap snap shake
+                        if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
+                            (window as any).AudioSystem.playSound('impact', { pitch: 0.4, volume: 1.0 });
+                        }
                         showToast("Snared! 🪤", "⚠️");
                     }
                 }
@@ -872,13 +895,25 @@ function updateJSFallbackMovement(delta: number, camera: THREE.Camera, controls:
                  spawnImpact(player.position, 'dash');
                  addCameraShake(0.4); // 🎨 Palette: Heavy landing shake
                  if (uChromaticIntensity) uChromaticIntensity.value = 0.8;
+                 // 🎨 Palette: Heavy impact audio
+                 if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
+                     (window as any).AudioSystem.playSound('impact', { pitch: 0.6, volume: 1.0 });
+                 }
              } else if (fallSpeed > 8.0) {
                  spawnImpact(player.position, 'land');
                  addCameraShake(0.15); // 🎨 Palette: Medium landing shake
                  if (uChromaticIntensity) uChromaticIntensity.value = 0.5;
+                 // 🎨 Palette: Medium impact audio
+                 if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
+                     (window as any).AudioSystem.playSound('impact', { pitch: 0.8, volume: 0.7 });
+                 }
              } else {
                  spawnImpact(player.position, 'jump');
                  if (uChromaticIntensity) uChromaticIntensity.value = 0.2;
+                 // 🎨 Palette: Soft impact audio
+                 if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
+                     (window as any).AudioSystem.playSound('impact', { pitch: 1.2, volume: 0.4 });
+                 }
              }
         }
     } else {

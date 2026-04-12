@@ -618,7 +618,8 @@ export class FoliageLODManager {
         mesh.count = count;
 
         for (let i = 0; i < count; i++) {
-            mesh.setMatrixAt(i, matrices[i]);
+            // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
+        matrices[i].toArray(mesh.instanceMatrix.array, (i) * 16);
             mesh.setColorAt(i, colors[i]);
         }
 

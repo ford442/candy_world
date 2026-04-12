@@ -23,6 +23,7 @@ import { uTwilight } from './sky.ts';
 import { foliageGroup } from '../world/state.ts'; // Assuming state.ts exports foliageGroup
 import { spawnImpact } from './impacts.ts';
 import { uChromaticIntensity } from './chromatic.ts';
+import { CONFIG } from '../core/config.ts';
 
 const MAX_MUSHROOMS = 1000; // Reduced from 4000 for WebGPU uniform buffer limits
 
@@ -562,8 +563,19 @@ export class MushroomBatcher {
 
         // Emissive Logic for Cap (Bioluminescence + Flash)
         const flashIntensity = smoothstep(0.2, 0.0, noteAge).mul(velocity).mul(2.0);
-        // 🎨 PALETTE: Let the cap breathe with the bass even when not directly triggered
-        const idlePulse = sin(uTime.mul(2.0)).mul(0.5).add(0.5).mul(uAudioLow.mul(0.5));
+
+        // 🎨 PALETTE: Twilight Glow System Support
+        // Apply phase offset based on instance index to prevent unison pulsing
+        const glowPhaseOffset = float(instanceIndex).mul(0.1);
+        const glowPulseFreq = float(CONFIG.glow.glowPulseFrequency);
+        const glowPulseAmp = float(CONFIG.glow.glowPulseAmplitude);
+
+        // Use a base idle pulse that responds to audio and time with the phase offset
+        const idlePulse = sin(uTime.mul(glowPulseFreq).add(glowPhaseOffset)).mul(glowPulseAmp).add(1.0).mul(float(0.5)).mul(uAudioLow.mul(0.5));
+
+        // Get the specific twilight glow color from config and multiply by twilight window
+        const targetGlowColor = color(CONFIG.glow.glowColorMap['mushroom']);
+        const twilightGlowTint = targetGlowColor.mul(uTwilight).mul(float(CONFIG.glow.glowIntensityMax));
         const baseGlow = uTwilight.mul(float(0.5).add(idlePulse));
 
         // Combine Glow + Flash + Sparkle
@@ -573,7 +585,9 @@ export class MushroomBatcher {
         // Yes, let's add a fraction of inner glow to emissive for night visibility.
         const totalGlow = baseGlow.add(flashIntensity).add(sugarSparkle).add(innerGlowFactor.mul(0.3));
         
-        capMat.emissiveIntensityNode = totalGlow;
+        // Add twilight glow directly to emissive node output
+        capMat.emissiveNode = twilightGlowTint.mul(totalGlow);
+        capMat.emissiveIntensityNode = float(1.0); // Resetting multiplier since we multiply inside node
 
         // 2. Gills
         const gillMat = (foliageMaterials.mushroomGills as MeshStandardNodeMaterial).clone();
@@ -629,7 +643,8 @@ export class MushroomBatcher {
 
         // 1. Set Matrix
         dummy.updateMatrix();
-        this.mesh!.setMatrixAt(i, dummy.matrix);
+        // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
+        dummy.matrix.toArray(this.mesh!.instanceMatrix.array, (i) * 16);
 
         // PALETTE: Set Color
         // Default to Red (0xFF6B6B) if no note color provided
@@ -692,7 +707,8 @@ export class MushroomBatcher {
             // A. Copy Attributes from Last to Removed
             // Matrix
             this.mesh!.getMatrixAt(lastIndex, _scratchMatrix);
-            this.mesh!.setMatrixAt(indexToRemove, _scratchMatrix);
+            // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
+        _scratchMatrix.toArray(this.mesh!.instanceMatrix.array, (indexToRemove) * 16);
 
             // Color
             this.mesh!.getColorAt(lastIndex, _scratchColor);
