@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { MeshStandardNodeMaterial, StorageInstancedBufferAttribute } from 'three/webgpu';
 import {
-    float, sin, positionLocal, storage, Fn, If, instanceIndex, uniform,
+    float, sin, cos, step, positionLocal, storage, Fn, If, instanceIndex, uniform,
     exp, rotate, normalize, vec4, vec3, smoothstep, mix, floor
 } from 'three/tsl';
 
@@ -12,6 +12,12 @@ const modFloat = (x: any, y: any) => {
     const yf = float(y);
     return xf.sub(yf.mul(xf.div(yf).floor()));
 };
+
+
+const hash = Fn(([n]) => {
+    return modFloat(sin(n).mul(43758.5453), 1.0);
+});
+
 import { uTime, uAudioHigh, uAudioLow } from './index.ts';
 
 const MAX_PARTICLES = 1000; // Reduced from 4000 for WebGPU uniform buffer limits
@@ -36,6 +42,14 @@ export type ImpactType =
 interface ImpactConfigItem {
     count: number;
 }
+
+
+
+const IMPACT_TYPE_MAP: Record<ImpactType, number> = {
+    jump: 0, land: 1, dash: 2, berry: 3, snare: 4,
+    mist: 5, rain: 6, spore: 7, trail: 8, muzzle: 9,
+    splash: 10, magic: 11, explosion: 12
+};
 
 const IMPACT_CONFIG: Record<ImpactType, ImpactConfigItem> = {
     jump: { count: 20 },
@@ -229,7 +243,6 @@ export function createImpactSystem(): THREE.InstancedMesh {
         const sMiscNode = storage(miscBuffer, 'vec4', miscBuffer.count);
 
         const inSpawnNode = storage(stagingSpawnBuffer, 'vec4', stagingSpawnBuffer.count).element(stageIndex);
-        const inVelNode = storage(stagingVelBuffer, 'vec4', stagingVelBuffer.count).element(stageIndex);
         const inColorNode = storage(stagingColorBuffer, 'vec4', stagingColorBuffer.count).element(stageIndex);
         const inMiscNode = storage(stagingMiscBuffer, 'vec4', stagingMiscBuffer.count).element(stageIndex);
 
@@ -240,11 +253,135 @@ export function createImpactSystem(): THREE.InstancedMesh {
             // Target index in main buffer
             const targetIdx = modFloat(stageIndex.add(spawnIdx), float(MAX_PARTICLES));
 
-            // Copy from staging to main
+            const baseColor = inColorNode.xyz;
+            const typeId = inMiscNode.x; // We pass type as an integer in Misc.x
+            const dirX = inMiscNode.y;
+            const dirY = inMiscNode.z;
+            const dirZ = inMiscNode.w;
+
+            const baseSeed = float(targetIdx).add(uTime);
+
+            const rand1 = hash(baseSeed);
+            const rand2 = hash(baseSeed.add(1.0));
+            const rand3 = hash(baseSeed.add(2.0));
+            const rand4 = hash(baseSeed.add(3.0));
+
+            const theta = rand1.mul(Math.PI * 2.0);
+            const phi = rand2.mul(Math.PI);
+
+            const finalVel = vec3(0.0).toVar();
+            const finalLife = float(0.0).toVar();
+            const finalColor = baseColor.toVar();
+            const finalSize = float(0.5).add(rand4).toVar();
+            const gScale = float(1.0).toVar();
+
+            If(typeId.equal(0.0), () => { // jump
+                const r = rand3.mul(2.0);
+                finalVel.x = cos(theta).mul(r);
+                finalVel.y = float(3.0).add(rand4.mul(4.0));
+                finalVel.z = sin(theta).mul(r);
+                finalLife.assign(float(0.5).add(rand2.mul(0.5)));
+                finalColor.assign(vec3(1.0, 0.8, 0.2));
+            }).ElseIf(typeId.equal(1.0), () => { // land
+                const r = float(4.0).add(rand3.mul(3.0));
+                finalVel.x = cos(theta).mul(r);
+                finalVel.y = float(1.0).add(rand4.mul(2.0));
+                finalVel.z = sin(theta).mul(r);
+                finalLife.assign(float(0.5).add(rand2.mul(0.5)));
+                finalColor.assign(vec3(0.6, 0.5, 0.4));
+            }).ElseIf(typeId.equal(2.0), () => { // dash
+                const speed = float(4.0).add(rand3.mul(6.0));
+                finalVel.x = sin(phi).mul(cos(theta)).mul(speed);
+                finalVel.y = cos(phi).mul(speed);
+                finalVel.z = sin(phi).mul(sin(theta)).mul(speed);
+                finalLife.assign(float(0.5).add(rand2.mul(0.5)));
+                finalColor.assign(vec3(0.0, 1.0, 1.0));
+            }).ElseIf(typeId.equal(3.0), () => { // berry
+                const speed = float(2.0).add(rand3.mul(4.0));
+                finalVel.x = sin(phi).mul(cos(theta)).mul(speed);
+                finalVel.y = cos(phi).mul(speed);
+                finalVel.z = sin(phi).mul(sin(theta)).mul(speed);
+                finalLife.assign(float(0.5).add(rand2.mul(0.5)));
+                finalColor.assign(mix(vec3(1.0, 0.6, 0.0), vec3(1.0, 0.2, 0.5), step(0.5, rand1)));
+            }).ElseIf(typeId.equal(4.0), () => { // snare
+                const r = float(2.0).add(rand3.mul(3.0));
+                finalVel.x = cos(theta).mul(r);
+                finalVel.y = float(2.0).add(rand4.mul(5.0));
+                finalVel.z = sin(theta).mul(r);
+                finalLife.assign(float(0.5).add(rand2.mul(0.5)));
+                finalColor.assign(vec3(1.0, 0.1, 0.1));
+            }).ElseIf(typeId.equal(5.0), () => { // mist
+                const r = rand3.mul(1.5);
+                finalVel.x = cos(theta).mul(r);
+                finalVel.y = float(2.0).add(rand4.mul(3.0));
+                finalVel.z = sin(theta).mul(r);
+                gScale.assign(-0.5);
+                finalLife.assign(float(0.5).add(rand2.mul(0.5)));
+                finalColor.assign(vec3(0.9, 0.9, 1.0));
+            }).ElseIf(typeId.equal(6.0), () => { // rain
+                const r = rand3.mul(1.0);
+                finalVel.x = cos(theta).mul(r);
+                finalVel.y = float(-5.0).sub(rand4.mul(5.0));
+                finalVel.z = sin(theta).mul(r);
+                gScale.assign(2.0);
+                finalLife.assign(float(0.5).add(rand2.mul(0.5)));
+                finalColor.assign(vec3(0.2, 0.2, 1.0));
+            }).ElseIf(typeId.equal(7.0), () => { // spore
+                const r = rand3.mul(2.0);
+                finalVel.x = cos(theta).mul(r);
+                finalVel.y = float(1.0).add(rand4.mul(2.0));
+                finalVel.z = sin(theta).mul(r);
+                gScale.assign(-0.2);
+                finalLife.assign(float(1.5).add(rand2.mul(1.5)));
+                finalSize.assign(float(0.2).add(rand4.mul(0.3)));
+
+                If(rand1.lessThan(0.33), () => {
+                    finalColor.assign(vec3(0.0, 1.0, 1.0));
+                }).ElseIf(rand1.lessThan(0.66), () => {
+                    finalColor.assign(vec3(1.0, 0.0, 1.0));
+                }).Else(() => {
+                    finalColor.assign(vec3(0.5, 1.0, 0.0));
+                });
+            }).ElseIf(typeId.equal(8.0), () => { // trail
+                finalVel.x = rand1.sub(0.5).mul(0.5);
+                finalVel.y = rand2.sub(0.5).mul(0.5);
+                finalVel.z = rand3.sub(0.5).mul(0.5);
+                gScale.assign(0.0);
+                finalLife.assign(float(0.3).add(rand2.mul(0.2)));
+                finalSize.assign(float(0.3).add(rand4.mul(0.2)));
+            }).ElseIf(typeId.equal(9.0), () => { // muzzle
+                If(dirX.notEqual(0.0).or(dirY.notEqual(0.0)).or(dirZ.notEqual(0.0)), () => {
+                    const speed = float(10.0).add(rand3.mul(5.0));
+                    const spread = 2.0;
+                    finalVel.x = dirX.mul(speed).add(rand1.sub(0.5).mul(spread));
+                    finalVel.y = dirY.mul(speed).add(rand2.sub(0.5).mul(spread));
+                    finalVel.z = dirZ.mul(speed).add(rand3.sub(0.5).mul(spread));
+                }).Else(() => {
+                    const speed = float(5.0).add(rand3.mul(5.0));
+                    finalVel.x = sin(phi).mul(cos(theta)).mul(speed);
+                    finalVel.y = cos(phi).mul(speed);
+                    finalVel.z = sin(phi).mul(sin(theta)).mul(speed);
+                });
+                gScale.assign(0.5);
+                finalLife.assign(float(0.15).add(rand2.mul(0.15)));
+                finalSize.assign(float(0.5).add(rand4.mul(0.5)));
+            }).Else(() => {
+                finalVel.x = rand1.sub(0.5);
+                finalVel.y = rand2.sub(0.5);
+                finalVel.z = rand3.sub(0.5);
+                finalLife.assign(float(0.5).add(rand2.mul(0.5)));
+            });
+
+            // Fallback for custom color passed directly via CPU
+            If(baseColor.x.notEqual(-1.0), () => {
+                finalColor.assign(baseColor);
+            });
+
+            // Copy to main
             sSpawnNode.element(targetIdx).assign(inSpawnNode);
-            sVelNode.element(targetIdx).assign(inVelNode);
-            sColorNode.element(targetIdx).assign(inColorNode);
-            sMiscNode.element(targetIdx).assign(inMiscNode);
+            sVelNode.element(targetIdx).assign(vec4(finalVel, finalLife));
+            sColorNode.element(targetIdx).assign(vec4(finalColor, finalSize));
+            sMiscNode.element(targetIdx).assign(vec4(hash(baseSeed.add(4.0)).sub(0.5), hash(baseSeed.add(5.0)).sub(0.5), hash(baseSeed.add(6.0)).sub(0.5), gScale));
         });
     });
 
@@ -331,100 +468,8 @@ export function updateImpacts(renderer: any, time: number) {
                 userData.stagingSpawnArray[offset + 2] = pos.z + oz;
                 userData.stagingSpawnArray[offset + 3] = now;
 
-                // Velocity Logic
-                let vx, vy, vz;
-                let gScale = 1.0;
-
-                if (type === 'jump') {
-                     const theta = Math.random() * Math.PI * 2;
-                     const r = Math.random() * 2.0;
-                     vx = Math.cos(theta) * r;
-                     vy = 3.0 + Math.random() * 4.0;
-                     vz = Math.sin(theta) * r;
-                } else if (type === 'land') {
-                     const theta = Math.random() * Math.PI * 2;
-                     const r = 4.0 + Math.random() * 3.0;
-                     vx = Math.cos(theta) * r;
-                     vy = 1.0 + Math.random() * 2.0;
-                     vz = Math.sin(theta) * r;
-                } else if (type === 'dash') {
-                     const theta = Math.random() * Math.PI * 2;
-                     const phi = Math.random() * Math.PI;
-                     const speed = 4.0 + Math.random() * 6.0;
-                     vx = Math.sin(phi) * Math.cos(theta) * speed;
-                     vy = Math.cos(phi) * speed;
-                     vz = Math.sin(phi) * Math.sin(theta) * speed;
-                } else if (type === 'berry') {
-                     const theta = Math.random() * Math.PI * 2;
-                     const phi = Math.random() * Math.PI;
-                     const speed = 2.0 + Math.random() * 4.0;
-                     vx = Math.sin(phi) * Math.cos(theta) * speed;
-                     vy = Math.cos(phi) * speed;
-                     vz = Math.sin(phi) * Math.sin(theta) * speed;
-                } else if (type === 'snare') {
-                    const theta = Math.random() * Math.PI * 2;
-                    const r = 2.0 + Math.random() * 3.0;
-                    vx = Math.cos(theta) * r;
-                    vy = 2.0 + Math.random() * 5.0;
-                    vz = Math.sin(theta) * r;
-                } else if (type === 'mist') {
-                    const theta = Math.random() * Math.PI * 2;
-                    const r = Math.random() * 1.5;
-                    vx = Math.cos(theta) * r;
-                    vy = 2.0 + Math.random() * 3.0;
-                    vz = Math.sin(theta) * r;
-                    gScale = -0.5;
-                } else if (type === 'rain') {
-                    const theta = Math.random() * Math.PI * 2;
-                    const r = Math.random() * 1.0;
-                    vx = Math.cos(theta) * r;
-                    vy = -5.0 - Math.random() * 5.0;
-                    vz = Math.sin(theta) * r;
-                    gScale = 2.0;
-                } else if (type === 'spore') {
-                    const theta = Math.random() * Math.PI * 2;
-                    const r = Math.random() * 2.0;
-                    vx = Math.cos(theta) * r;
-                    vy = 1.0 + Math.random() * 2.0;
-                    vz = Math.sin(theta) * r;
-                    gScale = -0.2;
-                } else if (type === 'trail') {
-                    vx = (Math.random() - 0.5) * 0.5;
-                    vy = (Math.random() - 0.5) * 0.5;
-                    vz = (Math.random() - 0.5) * 0.5;
-                    gScale = 0.0;
-                } else if (type === 'muzzle') {
-                    if (direction) {
-                        const speed = 10.0 + Math.random() * 5.0;
-                        const spread = 2.0;
-                        vx = direction.x * speed + (Math.random() - 0.5) * spread;
-                        vy = direction.y * speed + (Math.random() - 0.5) * spread;
-                        vz = direction.z * speed + (Math.random() - 0.5) * spread;
-                    } else {
-                        const theta = Math.random() * Math.PI * 2;
-                        const phi = Math.random() * Math.PI;
-                        const speed = 5.0 + Math.random() * 5.0;
-                        vx = Math.sin(phi) * Math.cos(theta) * speed;
-                        vy = Math.cos(phi) * speed;
-                        vz = Math.sin(phi) * Math.sin(theta) * speed;
-                    }
-                    gScale = 0.5;
-                } else {
-                    vx = (Math.random() - 0.5); vy = (Math.random() - 0.5); vz = (Math.random() - 0.5);
-                }
-
-                let life = 0.5 + Math.random() * 0.5;
-                if (type === 'trail') life = 0.3 + Math.random() * 0.2;
-                else if (type === 'muzzle') life = 0.15 + Math.random() * 0.15;
-                else if (type === 'spore') life = 1.5 + Math.random() * 1.5;
-
-                userData.stagingVelArray[offset + 0] = vx;
-                userData.stagingVelArray[offset + 1] = vy;
-                userData.stagingVelArray[offset + 2] = vz;
-                userData.stagingVelArray[offset + 3] = life;
-
-                // Color
-                let r=1, g=1, b=1;
+                // Base color parsing
+                let r=-1.0, g=-1.0, b=-1.0;
                 if (color !== undefined) {
                     if (typeof color === 'number') {
                         r = ((color >> 16) & 255) / 255;
@@ -438,37 +483,18 @@ export function updateImpacts(renderer: any, time: number) {
                         const c = color as {r:number, g:number, b:number};
                         r = c.r; g = c.g; b = c.b;
                     }
-                } else if (type === 'jump') { r=1.0; g=0.8; b=0.2; }
-                else if (type === 'land') { r=0.6; g=0.5; b=0.4; }
-                else if (type === 'dash') { r=0.0; g=1.0; b=1.0; }
-                else if (type === 'berry') {
-                    if (Math.random() > 0.5) { r=1.0; g=0.2; b=0.5; }
-                    else { r=1.0; g=0.6; b=0.0; }
                 }
-                else if (type === 'snare') { r=1.0; g=0.1; b=0.1; }
-                else if (type === 'mist') { r=0.9; g=0.9; b=1.0; }
-                else if (type === 'rain') { r=0.2; g=0.2; b=1.0; }
-                else if (type === 'spore') {
-                    const rand = Math.random();
-                    if (rand < 0.33) { r=0.0; g=1.0; b=1.0; }
-                    else if (rand < 0.66) { r=1.0; g=0.0; b=1.0; }
-                    else { r=0.5; g=1.0; b=0.0; }
-                }
-
-                let size = 0.5 + Math.random() * 1.0;
-                if (type === 'trail') size = 0.3 + Math.random() * 0.2;
-                else if (type === 'muzzle') size = 0.5 + Math.random() * 0.5;
-                else if (type === 'spore') size = 0.2 + Math.random() * 0.3;
 
                 userData.stagingColorArray[offset + 0] = r;
                 userData.stagingColorArray[offset + 1] = g;
                 userData.stagingColorArray[offset + 2] = b;
-                userData.stagingColorArray[offset + 3] = size;
+                userData.stagingColorArray[offset + 3] = 1.0;
 
-                userData.stagingMiscArray[offset + 0] = Math.random()-0.5;
-                userData.stagingMiscArray[offset + 1] = Math.random()-0.5;
-                userData.stagingMiscArray[offset + 2] = Math.random()-0.5;
-                userData.stagingMiscArray[offset + 3] = gScale;
+                // Misc stores typeId and direction
+                userData.stagingMiscArray[offset + 0] = IMPACT_TYPE_MAP[type] ?? 13.0;
+                userData.stagingMiscArray[offset + 1] = direction ? direction.x : 0.0;
+                userData.stagingMiscArray[offset + 2] = direction ? direction.y : 0.0;
+                userData.stagingMiscArray[offset + 3] = direction ? direction.z : 0.0;
             }
 
             totalSpawns += count;
