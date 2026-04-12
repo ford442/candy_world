@@ -4,3 +4,6 @@
 ## 2024-04-10 - Direct InstancedMesh Updates (Batcher Sweep)
 **Learning:** Using a dummy `THREE.Object3D` proxy inside a high-frequency loop to update an `InstancedMesh` via `setMatrixAt` causes significant internal allocation churn and massive CPU bottlenecking.
 **Action:** Bypass the object proxy completely. Pre-allocate a scratch `THREE.Matrix4()`, compose position, rotation, and scale data directly into it, and write it straight to the `InstancedMesh`'s flat `Float32Array` via `_scratchMatrix.toArray(this.mesh.instanceMatrix.array, i * 16)`. Flag `this.mesh.instanceMatrix.needsUpdate = true` at the end of the loop.
+## 2024-05-XX - Zero-Allocation Matrix Batching
+**Learning:** Calling `Object3D.updateMatrix()` and `mesh.setMatrixAt()` inside update loops or batch generation code causes significant CPU overhead and garbage collection (GC) spikes because they instantiate intermediate objects and allocate arrays under the hood.
+**Action:** For all `InstancedMesh` batchers, construct `Matrix4` locally using zero-allocation scratch variables (`_scratchMatrix.compose(pos, quat, scale)`) and copy the result directly to the underlying buffer memory using `_scratchMatrix.toArray(mesh.instanceMatrix.array, index * 16)`. Always follow up with `mesh.instanceMatrix.needsUpdate = true`.
