@@ -34,6 +34,7 @@ import { player } from '../systems/physics/index.ts';
 import { animate, initGameLoopDependencies, addCameraShake } from './game-loop.ts';
 import { updateTheme, toggleDayNight, setInputSystem } from './hud.ts';
 import { initDeferredVisuals, initDeferredVisualsDependencies, runDeferredWarmup } from './deferred-init.ts';
+import { initLoadingScreen, updateProgress, hideLoadingScreen } from '../ui/index.ts';
 
 // Loading Screen system
 import { initLoadingScreen, installLegacyAPI } from '../ui/loading-screen.ts';
@@ -53,6 +54,8 @@ if (oldOverlay) {
 }
 
 // --- Enable Startup Profiler ---
+const loadingScreen = initLoadingScreen({ debug: false, theme: 'candy' });
+
 enableStartupProfiler({
     slowPhaseThreshold: 100,
     enableOverlay: true,

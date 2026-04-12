@@ -10,6 +10,7 @@
  * - getNativeFunc() helper
  */
 
+import { updateProgress } from '../ui/index.ts';
 import { 
     parallelWasmLoad, 
     LOADING_PHASES, 
@@ -599,8 +600,8 @@ async function startBootstrapIfAvailable(instance: ExtendedEmscriptenModule): Pr
  * Update progress UI
  * @param msg - Progress message to display
  */
-export async function updateProgress(msg: string): Promise<void> {
-    if (window.setLoadingStatus) window.setLoadingStatus(msg);
+export async function updateWasmProgress(percent: number, msg: string): Promise<void> {
+    updateProgress('wasm-init', percent, msg);
     const startButton = document.getElementById('startButton');
     if (startButton) {
         startButton.textContent = msg;
@@ -624,7 +625,7 @@ export async function loadEmscriptenModule(forceSingleThreaded = false): Promise
     const canUseThreads = typeof SharedArrayBuffer !== 'undefined' && !forceSingleThreaded;
 
     try {
-        await updateProgress('Loading Native Engine...');
+        await updateWasmProgress(10, 'Loading Native Engine...');
 
         let wasmFilename = 'candy_native.wasm';
         let jsFilename = 'candy_native.js';
@@ -668,9 +669,9 @@ export async function loadEmscriptenModule(forceSingleThreaded = false): Promise
         if (!createCandyNative) return false;
 
         if (isThreaded) {
-            await updateProgress('Spawning Physics Workers...');
+            await updateWasmProgress(30, 'Spawning Physics Workers...');
         } else {
-            await updateProgress('Initializing Physics (ST)...');
+            await updateWasmProgress(30, 'Initializing Physics (ST)...');
         }
 
         // Apply aliases (patches NativeWA if available)

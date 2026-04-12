@@ -16,3 +16,7 @@
 ## 2025-02-14 - Moon TSL Audio Reactivity
 **Learning:** Implementing moon glow using TSL makes it react responsively and beautifully without JS polling.
 **Action:** Use `mix` and `uAudioLow` or `uAudioHigh` directly inside TSL emissive materials for organic sky celestial bodies.
+
+## 2024-04-12 - First Contentful Paint and Granular Loading Updates
+**Learning:** Dynamically building the base DOM structure of a loading screen via JavaScript causes a blank white screen (FOUC) while scripts load, damaging the perceived performance and 'Game Feel'. Generic 'Loading...' messages without progress bars lead to user frustration and perceived freezes during heavy tasks like WASM init and World Generation.
+**Action:** Hardcode the HTML shell of the loading UI directly into `index.html` to guarantee immediate visibility on First Contentful Paint. Replace global `window.setLoadingStatus` hacks with a modular `updateProgress(phaseId, percentage, text)` API threaded directly into heavy initialization functions for smooth, granular updates.
