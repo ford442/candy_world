@@ -1,5 +1,6 @@
 // src/world/generation.ts
 
+import { updateProgress } from '../ui/index.ts';
 import * as THREE from 'three';
 import { getGroundHeight, initCollisionSystem, addCollisionObject, checkPositionValidity } from '../utils/wasm-loader.js';
 import {
@@ -649,7 +650,7 @@ async function populateProceduralExtras(
     onProgress?: (current: number, total: number) => void
 ): Promise<void> {
     console.log("[World] Populating procedural extras...");
-    if ((window as any).setLoadingStatus) (window as any).setLoadingStatus("Growing Procedural Flora...");
+    updateProgress('world-generation', 50, 'Growing Procedural Flora...');
     const extrasCount = PROCEDURAL_ENTITY_COUNT;
     const range = 150;
 
