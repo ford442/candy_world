@@ -250,8 +250,7 @@ export class DandelionBatcher {
         const scale = options.scale || 1.0;
 
         // Copy transform from logic object
-        logicObject.updateMatrix();
-        _scratchMat.copy(logicObject.matrix);
+        _scratchMat.compose(logicObject.position, logicObject.quaternion, logicObject.scale);
 
         // Apply Scale to the matrix
         _scratchScale.setScalar(scale);
@@ -272,10 +271,8 @@ export class DandelionBatcher {
 
         // Just hide it by scaling to zero
         this.dummy.scale.set(0, 0, 0);
-        this.dummy.updateMatrix();
-
-        // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
-        this.dummy.matrix.toArray(this.mesh.instanceMatrix.array, (batchIndex) * 16);
+        _scratchMat.compose(this.dummy.position, this.dummy.quaternion, this.dummy.scale);
+        _scratchMat.toArray(this.mesh.instanceMatrix.array, (batchIndex) * 16);
         this.mesh.instanceMatrix.needsUpdate = true;
 
         console.log(`[DandelionBatcher] Harvested dandelion #${batchIndex}`);

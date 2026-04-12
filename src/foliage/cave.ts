@@ -12,6 +12,7 @@ import {
 import { uTwilight } from './sky.ts';
 import { waterfallBatcher } from './waterfall-batcher.ts';
 
+const _scratchMatrix = new THREE.Matrix4();
 export interface CaveOptions {
     scale?: number;
     depth?: number;
@@ -216,10 +217,9 @@ export function createCaveEntrance(options: CaveOptions = {}): THREE.Group {
         // Random scaling
         const s = 0.5 + Math.random() * 1.0;
         _scratchObj.scale.set(s * 0.5, s, s * 0.5);
-        _scratchObj.updateMatrix();
-
+        _scratchMatrix.compose(_scratchObj.position, _scratchObj.quaternion, _scratchObj.scale);
         // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
-        _scratchObj.matrix.toArray(formationsMesh.instanceMatrix.array, (i) * 16);
+        _scratchMatrix.toArray(formationsMesh.instanceMatrix.array, (i) * 16);
     }
     group.add(formationsMesh);
 
