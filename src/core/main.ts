@@ -54,7 +54,6 @@ if (oldOverlay) {
 }
 
 // --- Enable Startup Profiler ---
-const loadingScreen = initLoadingScreen({ debug: false, theme: 'candy' });
 
 enableStartupProfiler({
     slowPhaseThreshold: 100,
