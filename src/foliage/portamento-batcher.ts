@@ -35,7 +35,6 @@ export class PortamentoPineBatcher {
   bendAttribute: THREE.InstancedBufferAttribute | null = null;
 
   // scratch
-  dummy = new THREE.Object3D();
   _color = new THREE.Color();
 
   init() {
@@ -168,13 +167,9 @@ export class PortamentoPineBatcher {
     dummy.userData.bendFactor = 0;
     this.logicPines[i] = dummy;
 
-    // Apply initial transform
-    this.dummy.position.copy(dummy.position);
-    this.dummy.quaternion.copy(dummy.quaternion);
-    this.dummy.scale.copy(dummy.scale);
-
     // ⚡ OPTIMIZATION: Eliminate CPU overhead and GC spikes from Matrix4 composition by writing directly to instanceMatrix.array
-    _scratchMatrix.compose(this.dummy.position, this.dummy.quaternion, this.dummy.scale);
+    // Compose directly from the logic object's properties without using a proxy THREE.Object3D
+    _scratchMatrix.compose(dummy.position, dummy.quaternion, dummy.scale);
     _scratchMatrix.toArray(this.trunkMesh!.instanceMatrix.array, i * 16);
     _scratchMatrix.toArray(this.needleMesh!.instanceMatrix.array, i * 16);
 
@@ -191,12 +186,10 @@ export class PortamentoPineBatcher {
 
   updateInstance(idx: number, dummy: THREE.Object3D) {
     if (!this.initialized) return;
-    this.dummy.position.copy(dummy.position);
-    this.dummy.quaternion.copy(dummy.quaternion);
-    this.dummy.scale.copy(dummy.scale);
 
     // ⚡ OPTIMIZATION: Eliminate CPU overhead and GC spikes from Matrix4 composition by writing directly to instanceMatrix.array
-    _scratchMatrix.compose(this.dummy.position, this.dummy.quaternion, this.dummy.scale);
+    // Compose directly from the logic object's properties without using a proxy THREE.Object3D
+    _scratchMatrix.compose(dummy.position, dummy.quaternion, dummy.scale);
     _scratchMatrix.toArray(this.trunkMesh!.instanceMatrix.array, idx * 16);
     _scratchMatrix.toArray(this.needleMesh!.instanceMatrix.array, idx * 16);
 

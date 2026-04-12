@@ -32,7 +32,6 @@ export class ArpeggioFernBatcher {
     mesh: THREE.InstancedMesh | null; // Merged mesh
 
     // Scratch
-    dummy: THREE.Object3D;
     _color: THREE.Color;
 
     // GLOBAL TSL Uniform
@@ -51,7 +50,6 @@ export class ArpeggioFernBatcher {
 
         this.mesh = null;
 
-        this.dummy = new THREE.Object3D();
         this._color = new THREE.Color();
 
         // Initialize global uniform
@@ -311,7 +309,6 @@ export class ArpeggioFernBatcher {
         this.logicFerns.push(dummy);
 
         // Setup Instance (Only ONE matrix per fern now!)
-        this.dummy.position.copy(dummy.position);
         // No extra Y offset needed, baked into geometry logic relative to pivot
         // Base was offset 0.25, Frond 0.4.
         // But original register() added 0.25 * scale to base, and 0.4 * scale to frond.
@@ -330,12 +327,10 @@ export class ArpeggioFernBatcher {
         // So the merged geometry has its bottom at y=0 (actually base starts at 0, cone height 0.5 centered at 0.25).
         // So yes, pivot is at bottom.
 
-        // So I just need to copy dummy position/rotation/scale.
-        this.dummy.rotation.copy(dummy.rotation);
-        this.dummy.scale.setScalar(scale);
-
         // ⚡ OPTIMIZATION: Eliminate CPU overhead and GC spikes from Matrix4 composition by writing directly to instanceMatrix.array
-        _scratchMatrix.compose(this.dummy.position, this.dummy.quaternion, this.dummy.scale);
+        // Compose directly from the logic object's properties without using a proxy THREE.Object3D
+        dummy.scale.setScalar(scale);
+        _scratchMatrix.compose(dummy.position, dummy.quaternion, dummy.scale);
         _scratchMatrix.toArray(this.mesh!.instanceMatrix.array, i * 16);
 
         // Color
@@ -351,13 +346,9 @@ export class ArpeggioFernBatcher {
     updateInstance(index, dummy) {
         if (!this.initialized) return;
 
-        // Simple Matrix Update (1 per fern!)
-        this.dummy.position.copy(dummy.position);
-        this.dummy.rotation.copy(dummy.rotation);
-        this.dummy.scale.copy(dummy.scale);
-
         // ⚡ OPTIMIZATION: Eliminate CPU overhead and GC spikes from Matrix4 composition by writing directly to instanceMatrix.array
-        _scratchMatrix.compose(this.dummy.position, this.dummy.quaternion, this.dummy.scale);
+        // Compose directly from the logic object's properties without using a proxy THREE.Object3D
+        _scratchMatrix.compose(dummy.position, dummy.quaternion, dummy.scale);
         _scratchMatrix.toArray(this.mesh!.instanceMatrix.array, index * 16);
 
         this.mesh!.instanceMatrix.needsUpdate = true;
