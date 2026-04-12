@@ -203,8 +203,8 @@ export class GlowingFlowerBatcher {
         const { color = 0xFFD700 } = options; // Default Gold
 
         // 1. Calculate Transforms
-        logicObject.updateMatrix();
-        const baseMatrix = logicObject.matrix;
+        _scratchMat.compose(logicObject.position, logicObject.quaternion, logicObject.scale);
+        const baseMatrix = _scratchMat;
 
         // Stem: Scale (0.05, height, 0.05). Height is random.
         const stemHeight = 0.6 + Math.random() * 0.4;

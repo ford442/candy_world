@@ -158,8 +158,7 @@ export class BerryBatcher {
             _scratchObject3D.position.set(px, py, pz);
             _scratchObject3D.rotation.set(Math.random()*Math.PI, Math.random()*Math.PI, Math.random()*Math.PI);
             _scratchObject3D.scale.setScalar(sizeVar * size);
-            _scratchObject3D.updateMatrix();
-
+            _scratchMatrix.compose(_scratchObject3D.position, _scratchObject3D.quaternion, _scratchObject3D.scale);
             // Save for later
             initialTransforms.positions.push(px, py, pz);
             initialTransforms.quaternions.push(_scratchObject3D.quaternion.x, _scratchObject3D.quaternion.y, _scratchObject3D.quaternion.z, _scratchObject3D.quaternion.w);
@@ -280,8 +279,8 @@ export class BerryBatcher {
         if (!transforms) return target;
 
         _scratchObject3D.position.set(transforms.positions[index*3], transforms.positions[index*3+1], transforms.positions[index*3+2]);
-        _scratchObject3D.updateMatrix();
-        _scratchMatrix.multiplyMatrices(group.matrixWorld, _scratchObject3D.matrix);
+        _scratchMatrix.compose(_scratchObject3D.position, _scratchObject3D.quaternion, _scratchObject3D.scale);
+        _scratchMatrix.multiplyMatrices(group.matrixWorld, _scratchMatrix);
 
         return target.setFromMatrixPosition(_scratchMatrix);
     }
