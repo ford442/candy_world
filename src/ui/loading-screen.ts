@@ -91,7 +91,7 @@ export const DEFAULT_LOADING_PHASES: LoadingPhase[] = [
         onComplete: () => console.log('[Loading] Shader Warmup complete')
     },
     {
-        id: 'tree-batcher',
+        id: 'map-generation',
         name: 'Map Generation',
         weight: 0.15,
         description: 'Generating world map and placing entities...',
@@ -130,6 +130,9 @@ export class LoadingScreen {
     private phaseStartTime = 0;
     private phaseDurations: Map<string, number> = new Map();
     private averagePhaseTime = 0;
+    
+    // Track hide version to cancel stale timeout callbacks
+    private hideVersion = 0;
     
     // Callbacks
     private onSkipCallbacks: Set<(phaseId: string) => void> = new Set();
@@ -291,9 +294,10 @@ export class LoadingScreen {
      * Show the loading screen
      */
     show(): void {
-        // If hide() is in progress (isComplete but not yet destroyed), reset it
+        // If hide() is in progress (isComplete but not yet destroyed), cancel it
         if (this.isComplete) {
             this.isComplete = false;
+            this.hideVersion++; // Invalidate any pending hide timeouts
         }
         
         if (this.isVisible && this.overlay && this.container) {
@@ -349,9 +353,11 @@ export class LoadingScreen {
             this.taskText.textContent = 'Ready!';
         }
 
+        const currentHideVersion = this.hideVersion;
+        
         setTimeout(() => {
-            // Guard: don't proceed if show() was called again
-            if (!this.isComplete) return;
+            // Guard: don't proceed if show() was called again (version changed)
+            if (this.hideVersion !== currentHideVersion) return;
             
             if (this.overlay) {
                 this.overlay.classList.remove('visible');
@@ -362,7 +368,7 @@ export class LoadingScreen {
 
             setTimeout(() => {
                 // Guard: don't destroy if show() was called again in the meantime
-                if (this.isComplete) {
+                if (this.hideVersion === currentHideVersion && this.isComplete) {
                     this.destroy();
                     this.isVisible = false;
                     this.onCompleteCallbacks.forEach(cb => cb());
@@ -811,6 +817,10 @@ export function installLegacyAPI(): void {
     window.setLoadingProgress = (percent: number) => {
         // Forward to the HTML progress bar if it still exists
         if (origSetLoadingProgress) origSetLoadingProgress(percent);
+        // Also update the LoadingScreen's own progress
+        if (globalLoadingScreen) {
+            globalLoadingScreen.updateProgress(percent);
+        }
     };
     
     if (debugEnabled) {

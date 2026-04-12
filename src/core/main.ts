@@ -272,7 +272,7 @@ initWasm().then(async (wasmLoaded) => {
 
                 // Show loading screen for map generation phase
                 loadingScreen.show();
-                loadingScreen.startPhase('tree-batcher');
+                loadingScreen.startPhase('map-generation');
                 loadingScreen.updateProgress(0, 'Generating world map...');
 
                 // Use async map generation with progress updates
@@ -299,7 +299,7 @@ initWasm().then(async (wasmLoaded) => {
                 endPhase('Map Generation');
 
                 loadingScreen.updateProgress(100, 'World generation complete!');
-                loadingScreen.completePhase('tree-batcher');
+                loadingScreen.completePhase('map-generation');
 
                 startButton.removeAttribute('aria-busy');
 
