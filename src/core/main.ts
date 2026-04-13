@@ -256,6 +256,7 @@ initWasm().then(async (wasmLoaded) => {
     const startButton = document.getElementById('startButton') as HTMLButtonElement | null;
     if (startButton) {
         startButton.disabled = false;
+        startButton.removeAttribute('title');
         startButton.innerHTML = 'Enter World <span aria-hidden="true">🍭</span> <span class="key-badge" aria-hidden="true">Enter</span>';
         startButton.focus();
 
@@ -264,6 +265,7 @@ initWasm().then(async (wasmLoaded) => {
 
             // UX: Show loading state immediately to prevent "freeze" feeling
             startButton.disabled = true;
+            startButton.setAttribute('title', 'Generating world...');
             startButton.innerHTML = '<span class="spinner" aria-hidden="true"></span>Generating... <span aria-hidden="true">🍭</span>';
 
             // Defer execution slightly to let the UI update
@@ -320,6 +322,7 @@ initWasm().then(async (wasmLoaded) => {
 
                 // CRITICAL: Re-enable the button so that "Resume" works later (and checks in input.js pass)
                 startButton.disabled = false;
+                startButton.removeAttribute('title');
                 startButton.style.background = ''; // Reset style
 
                 // Note: The pointer lock will happen automatically via input system
