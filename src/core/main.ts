@@ -81,6 +81,7 @@ loadingScreen.completePhase('core-scene');
 loadingScreen.startPhase('audio-init');
 console.time('Audio & Systems Init');
 const audioSystem = new AudioSystem(CONFIG.audio.useScriptProcessorNode);
+(window as any).AudioSystem = audioSystem;
 loadingScreen.updateProgress(40, 'Creating audio system...');
 const beatSync = new BeatSync(audioSystem);
 loadingScreen.updateProgress(70, 'Initializing weather system...');
