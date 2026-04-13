@@ -335,6 +335,8 @@ export class FoliageLODManager {
 
     // Instance counts per LOD level per geometry type
     private lodCounts: Map<string, Map<LODLevel, number>> = new Map();
+    // ⚡ OPTIMIZATION: Pre-allocated buffers for LOD updates to prevent GC spikes
+    private _lodUpdates: Map<string, Map<LODLevel, { indices: number[]; matrices: THREE.Matrix4[]; colors: THREE.Color[]; count: number }>> = new Map();
 
     // Temporary objects for calculations (to avoid GC)
     private _tempVec3 = new THREE.Vector3();
@@ -548,18 +550,27 @@ export class FoliageLODManager {
             }
         }
 
-        // Temporary storage for batch updates
-        const lodUpdates = new Map<string, Map<LODLevel, { indices: number[]; matrices: THREE.Matrix4[]; colors: THREE.Color[] }>>();
-
-        // Initialize update structure
+        // Initialize pre-allocated update structure if needed
         for (const geomType of this.lodMeshes.keys()) {
-            lodUpdates.set(geomType, new Map());
-            for (let lod = 0; lod < 3; lod++) {
-                lodUpdates.get(geomType)!.set(lod as LODLevel, {
-                    indices: [],
-                    matrices: [],
-                    colors: []
-                });
+            if (!this._lodUpdates.has(geomType)) {
+                this._lodUpdates.set(geomType, new Map());
+                for (let lod = 0; lod < 3; lod++) {
+                    this._lodUpdates.get(geomType)!.set(lod as LODLevel, {
+                        indices: [],
+                        matrices: [],
+                        colors: [],
+                        count: 0
+                    });
+                }
+            } else {
+                // Just reset counts to 0 instead of allocating new arrays
+                for (let lod = 0; lod < 3; lod++) {
+                    const updateData = this._lodUpdates.get(geomType)!.get(lod as LODLevel);
+                    if (updateData) {
+                        updateData.count = 0;
+                        // ⚡ OPTIMIZATION: We don't null out arrays or recreate them, just reset count
+                    }
+                }
             }
         }
 
@@ -576,28 +587,29 @@ export class FoliageLODManager {
                 continue;
             }
 
-            // Add to appropriate LOD update batch
-            const geomUpdates = lodUpdates.get(data.geometryType);
+            // Add to appropriate LOD update batch (using pre-allocated arrays)
+            const geomUpdates = this._lodUpdates.get(data.geometryType);
             if (geomUpdates) {
                 const lodUpdate = geomUpdates.get(newLOD);
                 if (lodUpdate) {
-                    lodUpdate.indices.push(id);
-                    lodUpdate.matrices.push(data.matrix);
-                    lodUpdate.colors.push(data.color);
+                    const idx = lodUpdate.count++;
+                    lodUpdate.indices[idx] = id;
+                    lodUpdate.matrices[idx] = data.matrix;
+                    lodUpdate.colors[idx] = data.color;
                 }
             }
         }
 
         // Apply updates to InstancedMeshes
-        for (const [geomType, geomUpdates] of lodUpdates) {
+        for (const [geomType, geomUpdates] of this._lodUpdates) {
             for (let lod = 0; lod < 3; lod++) {
                 const lodLevel = lod as LODLevel;
                 const update = geomUpdates.get(lodLevel);
                 const mesh = this.lodMeshes.get(geomType)?.get(lodLevel);
 
                 if (update && mesh) {
-                    this.updateInstancedMesh(mesh, update.matrices, update.colors);
-                    this.lodCounts.get(geomType)?.set(lodLevel, update.matrices.length);
+                    this.updateInstancedMesh(mesh, update.matrices, update.colors, update.count);
+                    this.lodCounts.get(geomType)?.set(lodLevel, update.count);
                 }
             }
         }
@@ -612,9 +624,10 @@ export class FoliageLODManager {
     private updateInstancedMesh(
         mesh: THREE.InstancedMesh,
         matrices: THREE.Matrix4[],
-        colors: THREE.Color[]
+        colors: THREE.Color[],
+        elementCount: number
     ): void {
-        const count = Math.min(matrices.length, mesh.instanceMatrix.count);
+        const count = Math.min(elementCount, mesh.instanceMatrix.count);
         mesh.count = count;
 
         for (let i = 0; i < count; i++) {
