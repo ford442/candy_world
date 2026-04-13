@@ -7,9 +7,9 @@
 // Loading Screen
 export {
     LoadingScreen,
-    LoadingScreenOptions,
-    LoadingPhase,
-    LoadingProgress,
+
+
+
     DEFAULT_LOADING_PHASES,
     initLoadingScreen,
     getLoadingScreen,
@@ -25,9 +25,9 @@ export {
 // Save Menu
 export {
     SaveMenu,
-    MenuTab,
-    MenuMode,
-    SaveMenuOptions,
+
+
+
     openSaveMenu,
     openLoadMenu,
     openSaveGameMenu,
