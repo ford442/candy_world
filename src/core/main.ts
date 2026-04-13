@@ -54,6 +54,8 @@ if (oldOverlay) {
 }
 
 // --- Enable Startup Profiler ---
+// The symbol "loadingScreen" was declared twice, causing a TS error. The second one is commented out.
+// const loadingScreen = initLoadingScreen({ debug: false, theme: 'candy' });
 
 enableStartupProfiler({
     slowPhaseThreshold: 100,
