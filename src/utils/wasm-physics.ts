@@ -75,10 +75,19 @@ export function uploadCollisionObjects(
     // TYPE_MUSHROOM = 1, TYPE_CLOUD = 2, TYPE_GATE = 3, TYPE_TRAMPOLINE = 4
 
     // Calculate total count first
+    // ⚡ OPTIMIZATION: Eliminated array allocations (.filter) in hot update path to prevent GC spikes
     let totalCount = 0;
-    if (caves) totalCount += caves.filter(c => c.userData.isBlocked).length;
+    if (caves) {
+        for (let i = 0; i < caves.length; i++) {
+            if (caves[i].userData.isBlocked) totalCount++;
+        }
+    }
     if (mushrooms) totalCount += mushrooms.length;
-    if (clouds) totalCount += clouds.filter(c => c.userData.tier === 1).length;
+    if (clouds) {
+        for (let i = 0; i < clouds.length; i++) {
+            if (clouds[i].userData.tier === 1) totalCount++;
+        }
+    }
 
     if (totalCount === 0) {
         console.log('[WASM] No collision objects to upload.');
