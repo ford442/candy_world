@@ -208,7 +208,7 @@ export class ScreenshotCapture {
         '--disable-web-security',
         '--enable-webgl',
         '--enable-webgpu',
-        '--enable-features=Vulkan,WebGPU',
+        '--enable-features=Vulkan,WebGPU','--enable-unsafe-webgpu',
         '--disable-features=IsolateOrigins,site-per-process'
       ]
     });
@@ -289,7 +289,7 @@ export class ScreenshotCapture {
 
     await this.page.goto(`${this.baseUrl}?${params.toString()}`, {
       waitUntil: 'networkidle',
-      timeout: 60000
+      timeout: 120000
     });
 
     // Wait for the game to initialize
@@ -297,7 +297,7 @@ export class ScreenshotCapture {
     await this.page.waitForFunction(() => {
       const el = document.getElementById('candy-loading-overlay');
       return (window as any).__sceneReady === true || (el && el.classList.contains('loaded')) || (el && !el.classList.contains('visible')) || !el;
-    }, { timeout: 60000 });
+    }, { timeout: 120000 });
     await this.page.waitForTimeout(1000);
 
     // Set up camera position and environment
@@ -359,7 +359,7 @@ export class ScreenshotCapture {
         return vr && vr.stableFrames >= minFrames;
       },
       minStableFrames,
-      { timeout: 30000 }
+      { timeout: 120000 }
     );
   }
 
@@ -384,10 +384,7 @@ export class ScreenshotCapture {
     await this.page.screenshot({
       path: filepath,
       fullPage: options.fullPage || false,
-      mask: options.mask?.map(m => ({
-        selector: 'body',
-        frame: { x: m.x, y: m.y, width: m.width, height: m.height }
-      }))
+      mask: undefined
     });
 
     return filepath;
