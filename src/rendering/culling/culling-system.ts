@@ -36,6 +36,7 @@ import {
 } from './culling-components.ts';
 
 const _scratchBox3 = new THREE.Box3();
+const _scratchSphere = new THREE.Sphere(); // ⚡ OPTIMIZATION: Scratch sphere for culling tests
 
 // ============================================================================
 // MAIN CULLING SYSTEM
@@ -314,10 +315,11 @@ export class CullingSystem {
         // FRUSTUM CULLING
         if (this.config.enableFrustumCulling) {
             // Expand frustum slightly to prevent edge popping
-            const expandedSphere = obj.boundingSphere.clone();
-            expandedSphere.radius += this.config.frustumMargin;
+            // ⚡ OPTIMIZATION: Zero-allocation sphere test
+            _scratchSphere.copy(obj.boundingSphere);
+            _scratchSphere.radius += this.config.frustumMargin;
             
-            if (!this.frustum.intersectsSphere(expandedSphere)) {
+            if (!this.frustum.intersectsSphere(_scratchSphere)) {
                 obj.visible = false;
                 obj.object.visible = false;
                 this.stats.culledObjects++;
