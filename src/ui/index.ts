@@ -5,6 +5,7 @@
  */
 
 // Loading Screen
+export type { LoadingScreenOptions, LoadingPhase, LoadingProgress };
 export {
     LoadingScreen,
 
@@ -23,6 +24,7 @@ export {
 } from './loading-screen';
 
 // Save Menu
+export type { MenuTab, MenuMode, SaveMenuOptions };
 export {
     SaveMenu,
 

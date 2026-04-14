@@ -7,3 +7,6 @@
 ## 2024-05-XX - Zero-Allocation Matrix Batching
 **Learning:** Calling `Object3D.updateMatrix()` and `mesh.setMatrixAt()` inside update loops or batch generation code causes significant CPU overhead and garbage collection (GC) spikes because they instantiate intermediate objects and allocate arrays under the hood.
 **Action:** For all `InstancedMesh` batchers, construct `Matrix4` locally using zero-allocation scratch variables (`_scratchMatrix.compose(pos, quat, scale)`) and copy the result directly to the underlying buffer memory using `_scratchMatrix.toArray(mesh.instanceMatrix.array, index * 16)`. Always follow up with `mesh.instanceMatrix.needsUpdate = true`.
+## 2026-04-12 - Zero-Allocation LOD Map Updates
+**Learning:** Instantiating Maps and Arrays on every frame for batching updates (like `new Map()` and `[].push()`) creates significant garbage collection spikes, violating Bolt's Zero-Allocation standard.
+**Action:** Use pre-allocated nested Maps as class properties (e.g., `this._lodUpdates`) and track active elements via a `count` variable instead of pushing to or resetting arrays, passing this count to downstream buffer updates to ensure stale data is ignored.
