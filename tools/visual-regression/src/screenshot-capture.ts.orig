@@ -199,7 +199,7 @@ export class ScreenshotCapture {
    */
   async init(viewport: ViewportConfig, browserType: 'chromium' | 'firefox' | 'webkit' = 'chromium'): Promise<void> {
     const browserLauncher = { chromium, firefox, webkit }[browserType];
-    
+
     this.browser = await browserLauncher.launch({
       headless: true,
       args: [
@@ -208,8 +208,7 @@ export class ScreenshotCapture {
         '--disable-web-security',
         '--enable-webgl',
         '--enable-webgpu',
-        '--enable-features=Vulkan,WebGPU',
-        '--enable-unsafe-webgpu',
+        '--enable-features=Vulkan,WebGPU', '--enable-unsafe-webgpu',
         '--disable-features=IsolateOrigins,site-per-process'
       ]
     });
@@ -225,7 +224,7 @@ export class ScreenshotCapture {
     });
 
     this.page = await this.context.newPage();
-    
+
     // Inject performance monitoring
     await this.page.addInitScript(() => {
       (window as any).__visualRegression = {
@@ -248,7 +247,7 @@ export class ScreenshotCapture {
           const delta = time - vr.lastFrameTime;
           vr.lastFrameTime = time;
           vr.frameCount++;
-          
+
           // Track frame times for stability detection
           if (vr.gpuMetrics.frameTimes.length < 60) {
             vr.gpuMetrics.frameTimes.push(delta);
@@ -256,15 +255,15 @@ export class ScreenshotCapture {
             vr.gpuMetrics.frameTimes.shift();
             vr.gpuMetrics.frameTimes.push(delta);
           }
-          
+
           // Check for stability (low variance in frame times)
           if (vr.gpuMetrics.frameTimes.length >= 30) {
             const avg = vr.gpuMetrics.frameTimes.reduce((a: number, b: number) => a + b, 0) / vr.gpuMetrics.frameTimes.length;
             const variance = vr.gpuMetrics.frameTimes.reduce((sum: number, val: number) => sum + Math.pow(val - avg, 2), 0) / vr.gpuMetrics.frameTimes.length;
-            vr.isStable = true; // Low variance indicates stable frame
+            vr.isStable = variance < 5; // Low variance indicates stable frame
             if (vr.isStable) vr.stableFrames++;
           }
-          
+
           callback(time);
         });
       };
@@ -406,7 +405,7 @@ export class ScreenshotCapture {
       const avgFrameTime = vr.gpuMetrics.frameTimes.length > 0
         ? vr.gpuMetrics.frameTimes.reduce((a: number, b: number) => a + b, 0) / vr.gpuMetrics.frameTimes.length
         : 0;
-      
+
       return {
         frameCount: vr.frameCount,
         averageFrameTime: avgFrameTime,
@@ -458,10 +457,10 @@ export class ScreenshotCapture {
         for (const viewport of viewports) {
           const quality = QUALITY_SETTINGS[qualityName];
           const capture = new ScreenshotCapture(baseUrl);
-          
+
           try {
             await capture.init(viewport);
-            
+
             const screenshotOptions: ScreenshotOptions = {
               viewpoint,
               quality,

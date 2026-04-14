@@ -84,7 +84,7 @@ export function calculateSimilarity(diffPercentage: number): number {
  */
 export async function waitFor(
   condition: () => boolean | Promise<boolean>,
-  timeout: number = 30000,
+  timeout: number = 120000,
   interval: number = 100
 ): Promise<boolean> {
   const startTime = Date.now();
