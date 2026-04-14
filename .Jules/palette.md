@@ -20,3 +20,6 @@
 ## 2024-04-12 - First Contentful Paint and Granular Loading Updates
 **Learning:** Dynamically building the base DOM structure of a loading screen via JavaScript causes a blank white screen (FOUC) while scripts load, damaging the perceived performance and 'Game Feel'. Generic 'Loading...' messages without progress bars lead to user frustration and perceived freezes during heavy tasks like WASM init and World Generation.
 **Action:** Hardcode the HTML shell of the loading UI directly into `index.html` to guarantee immediate visibility on First Contentful Paint. Replace global `window.setLoadingStatus` hacks with a modular `updateProgress(phaseId, percentage, text)` API threaded directly into heavy initialization functions for smooth, granular updates.
+## 2024-04-13 - Audio System Juice
+**Learning:** Candy World synthesizes its own sound effects (jumps, impacts, UI clicks) procedurally using the Web Audio API rather than relying on external `.wav` or `.mp3` assets to keep the package lightweight and stylized.
+**Action:** When adding new physics or interaction events, trigger them via `(window as any).AudioSystem.playSound('type')` and use the built-in procedural oscillators in `src/audio/audio-system.ts`.

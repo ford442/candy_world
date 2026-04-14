@@ -229,6 +229,98 @@ export class AudioSystem {
         this.onNoteCallback = callback;
     }
 
+    /**
+     * Synthesize procedural sound effects matching the Candy World aesthetic
+     */
+    playSound(name: string, options: { volume?: number, pitch?: number, position?: any } = {}): void {
+        if (!this.audioContext) {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            this.audioContext = new AudioContext({ sampleRate: SAMPLE_RATE });
+        }
+
+        if (this.audioContext.state === 'suspended') {
+            this.audioContext.resume();
+        }
+
+        const t = this.audioContext.currentTime;
+        const volume = (options.volume !== undefined ? options.volume : 1.0) * this.volume;
+        if (volume <= 0 || this.isMuted) return;
+
+        const pitchMultiplier = options.pitch !== undefined ? options.pitch : 1.0;
+
+        const osc = this.audioContext.createOscillator();
+        const gainNode = this.audioContext.createGain();
+
+        osc.connect(gainNode);
+        gainNode.connect(this.audioContext.destination);
+
+        // Apply volume with a fast attack to avoid clicks
+        gainNode.gain.setValueAtTime(0, t);
+        gainNode.gain.linearRampToValueAtTime(volume * 0.5, t + 0.01);
+
+        let duration = 0.1;
+
+        switch (name) {
+            case 'jump':
+                osc.type = 'sine';
+                duration = 0.15;
+                osc.frequency.setValueAtTime(400 * pitchMultiplier, t);
+                osc.frequency.exponentialRampToValueAtTime(600 * pitchMultiplier, t + duration);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, t + duration);
+                break;
+            case 'impact':
+            case 'land':
+                osc.type = 'square';
+                duration = 0.2;
+                osc.frequency.setValueAtTime(150 * pitchMultiplier, t);
+                osc.frequency.exponentialRampToValueAtTime(50 * pitchMultiplier, t + duration);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, t + duration);
+                break;
+            case 'pickup':
+            case 'chime':
+                osc.type = 'triangle';
+                duration = 0.3;
+                osc.frequency.setValueAtTime(600 * pitchMultiplier, t);
+                osc.frequency.setValueAtTime(800 * pitchMultiplier, t + 0.1);
+                osc.frequency.setValueAtTime(1200 * pitchMultiplier, t + 0.2);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, t + duration);
+                break;
+            case 'explosion':
+                osc.type = 'sawtooth';
+                duration = 0.5;
+                osc.frequency.setValueAtTime(100 * pitchMultiplier, t);
+                osc.frequency.exponentialRampToValueAtTime(40 * pitchMultiplier, t + duration);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, t + duration);
+                break;
+            case 'dash':
+                osc.type = 'sine';
+                duration = 0.15;
+                osc.frequency.setValueAtTime(800 * pitchMultiplier, t);
+                osc.frequency.exponentialRampToValueAtTime(200 * pitchMultiplier, t + duration);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, t + duration);
+                break;
+            case 'click':
+            case 'creak':
+            case 'snare':
+            case 'place':
+                osc.type = 'square';
+                duration = 0.05;
+                osc.frequency.setValueAtTime(800 * pitchMultiplier, t);
+                osc.frequency.exponentialRampToValueAtTime(100 * pitchMultiplier, t + duration);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, t + duration);
+                break;
+            default:
+                osc.type = 'sine';
+                duration = 0.1;
+                osc.frequency.setValueAtTime(440 * pitchMultiplier, t);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, t + duration);
+                break;
+        }
+
+        osc.start(t);
+        osc.stop(t + duration);
+    }
+
     async init(): Promise<void> {
         if (window.setLoadingStatus) window.setLoadingStatus("Starting Audio System...");
         
