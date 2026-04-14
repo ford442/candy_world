@@ -1,3 +1,10 @@
+1. The CI is still failing on visual-regression timeout.
+2. Wait! The visual regression tests are running against my code. The fix for the `LoadingScreenOptions` is included in my code.
+3. I checked `__sceneReady` and `candy-loading-overlay`. It turns out `candy-loading-overlay` correctly has `.complete` class added to `candy-loading-screen` and `.loaded` was legacy. BUT wait, `el` is `document.getElementById('candy-loading-overlay')`, which gets its `visible` class removed.
+4. Actually, `el` is `#candy-loading-overlay`, and `src/ui/loading-screen.ts` says `this.overlay = document.createElement('div'); this.overlay.id = 'candy-loading-overlay';`. Then `this.overlay.classList.remove('visible')` happens in `hide()`.
+5. Let's fix `tools/visual-regression/src/screenshot-capture.ts` so the tests pass. The issue is that `tools/visual-regression/src/screenshot-capture.ts` waits for `.loaded` class on `#candy-loading-overlay`, but `src/ui/loading-screen.ts` never adds `.loaded`, it removes `.visible`. So `(el && !el.classList.contains('visible'))` should be added.
+6. The PR branch checks are failing because the new loading screen implementation (`src/ui/loading-screen.ts`) doesn't use the `.loaded` class anymore, and `tools/visual-regression/src/screenshot-capture.ts` wasn't updated to handle it. Wait, when was `src/ui/loading-screen.ts` added? Probably recently. My PR just happens to be the one failing because `tools/visual-regression/src/screenshot-capture.ts` is broken.
+7. I will modify `tools/visual-regression/src/screenshot-capture.ts` to wait for the absence of `.visible` class or `el` being removed.
 # Candy World Master Plan
 
 ## Recent Progress

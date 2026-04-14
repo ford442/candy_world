@@ -46,7 +46,7 @@ export {
     windComputeSystem,
     // Material factory
     createUnifiedMaterial,
-    UnifiedMaterialOptions,
+
     // Presets
     CandyPresets,
     // Legacy wrappers
@@ -92,7 +92,7 @@ export {
 // Note: UnifiedMaterialOptions is already exported above via './material-core.ts'
 
 // Keep the FoliageMaterial type available
-export { FoliageMaterial, FoliageObject } from './types';
+export {  } from './types';
 
 // Re-export glitch functionality
 export { applyGlitch } from './glitch.ts';

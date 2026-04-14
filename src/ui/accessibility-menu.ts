@@ -184,6 +184,7 @@ export class AccessibilityMenu {
     closeBtn.type = 'button';
     closeBtn.innerHTML = '<span aria-hidden="true">✕</span>';
     closeBtn.setAttribute('aria-label', 'Close accessibility menu');
+    closeBtn.title = 'Close accessibility menu (Escape)';
     closeBtn.style.cssText = `
       background: none;
       border: none;

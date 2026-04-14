@@ -5,11 +5,12 @@
  */
 
 // Loading Screen
+export type { LoadingScreenOptions, LoadingPhase, LoadingProgress };
 export {
     LoadingScreen,
-    LoadingScreenOptions,
-    LoadingPhase,
-    LoadingProgress,
+
+
+
     DEFAULT_LOADING_PHASES,
     initLoadingScreen,
     getLoadingScreen,
@@ -23,11 +24,12 @@ export {
 } from './loading-screen';
 
 // Save Menu
+export type { MenuTab, MenuMode, SaveMenuOptions };
 export {
     SaveMenu,
-    MenuTab,
-    MenuMode,
-    SaveMenuOptions,
+
+
+
     openSaveMenu,
     openLoadMenu,
     openSaveGameMenu,
