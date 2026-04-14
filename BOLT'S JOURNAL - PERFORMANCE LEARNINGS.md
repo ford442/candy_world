@@ -15,3 +15,6 @@
 ## 2024-05-XX - Zero-Allocation Geometric Tests in Hot Loops
 **Learning:** Using `clone()` on geometric primitives like `THREE.Sphere` inside hot culling or collision loops (e.g., `obj.boundingSphere.clone()`) creates significant per-frame, per-object memory allocations, leading to severe GC stuttering.
 **Action:** Pre-allocate module-level scratch geometry variables (e.g., `const _scratchSphere = new THREE.Sphere()`) and use in-place copying and mutation (`_scratchSphere.copy(original); _scratchSphere.radius += margin;`) for intersection tests to ensure zero-allocation performance.
+## 2026-04-12 - Zero-Allocation LOD Map Updates
+**Learning:** Instantiating Maps and Arrays on every frame for batching updates (like `new Map()` and `[].push()`) creates significant garbage collection spikes, violating Bolt's Zero-Allocation standard.
+**Action:** Use pre-allocated nested Maps as class properties (e.g., `this._lodUpdates`) and track active elements via a `count` variable instead of pushing to or resetting arrays, passing this count to downstream buffer updates to ensure stale data is ignored.

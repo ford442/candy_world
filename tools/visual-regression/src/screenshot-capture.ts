@@ -293,10 +293,10 @@ export class ScreenshotCapture {
     });
 
     // Wait for the game to initialize
-    // We wait for the #candy-loading-overlay to have the .loaded class, or for __sceneReady
+    // We wait for the #candy-loading-overlay to not have the .visible class, or for __sceneReady
     await this.page.waitForFunction(() => {
       const el = document.getElementById('candy-loading-overlay');
-      return (window as any).__sceneReady === true || (el && el.classList.contains('loaded')) || !el;
+      return (window as any).__sceneReady === true || (el && el.classList.contains('loaded')) || (el && !el.classList.contains('visible')) || !el;
     }, { timeout: 60000 });
     await this.page.waitForTimeout(1000);
 
