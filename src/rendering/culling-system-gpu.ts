@@ -313,16 +313,20 @@ export class CullingSystemGPU {
     // Helpers
     // =========================================================================
 
+    private static _scratchExtractMatrix = new THREE.Matrix4(); // ⚡ OPTIMIZATION: Scratch matrix
+    private static _scratchExtractFrustum = new THREE.Frustum(); // ⚡ OPTIMIZATION: Scratch frustum
+
     /**
      * Extract frustum planes from a Three.js camera as a Float32Array(24).
      * Each plane is vec4(nx, ny, nz, d) matching the WGSL convention.
      */
     static extractFrustumPlanes(camera: THREE.Camera): Float32Array {
-        const mat = new THREE.Matrix4().multiplyMatrices(
+        // ⚡ OPTIMIZATION: Use pre-allocated scratch objects to avoid GC spikes
+        const mat = CullingSystemGPU._scratchExtractMatrix.multiplyMatrices(
             camera.projectionMatrix,
             camera.matrixWorldInverse
         );
-        const frustum = new THREE.Frustum();
+        const frustum = CullingSystemGPU._scratchExtractFrustum;
         frustum.setFromProjectionMatrix(mat);
 
         const planes = new Float32Array(24);
