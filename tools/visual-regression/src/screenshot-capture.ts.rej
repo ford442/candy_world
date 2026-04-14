@@ -1,0 +1,10 @@
+--- tools/visual-regression/src/screenshot-capture.ts
++++ tools/visual-regression/src/screenshot-capture.ts
+@@ -207,6 +207,7 @@
+         '--disable-web-security',
+         '--enable-webgl',
+         '--enable-webgpu',
+         '--enable-features=Vulkan,WebGPU',
++        '--enable-unsafe-webgpu',
+         '--disable-features=IsolateOrigins,site-per-process'
+       ]
