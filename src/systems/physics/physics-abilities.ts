@@ -48,6 +48,12 @@ export function handleAbilities(delta: number, camera: THREE.Camera, keyStates: 
              uChromaticIntensity.value = 0.2;
         }
 
+        // 🎨 Palette: "Juice" Factor - Add screen shake and audio for Double Jump
+        addCameraShake(0.15);
+        if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
+            (window as any).AudioSystem.playSound('jump', { pitch: Math.random() * 0.2 + 1.2, volume: 0.5 });
+        }
+
         discoverySystem.discover('ability_double_jump', 'Double Jump', '🦘');
     }
 
@@ -171,6 +177,12 @@ function handleSonicClap() {
                         spawnImpact(headPos, 'spore', _clapColor);
                         spawnDandelionExplosion(headPos, 24);
                     });
+
+                    // 🎨 Palette: "Juice" Factor - Add screen shake and audio for Sonic Clap
+                    addCameraShake(0.4);
+                    if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
+                        (window as any).AudioSystem.playSound('impact', { pitch: Math.random() * 0.2 + 0.8, volume: 0.8 });
+                    }
 
                     obj.userData.harvested = true;
                     obj.userData.interactionText = "Harvested";
