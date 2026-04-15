@@ -470,14 +470,15 @@ export class FoliageLODManager {
     /**
      * Calculate LOD level based on distance from camera
      */
-    calculateLODLevel(distance: number): LODLevel {
+    calculateLODLevel(distanceSq: number): LODLevel {
         const [lod1Dist, lod2Dist, cullDist] = this.config.thresholds;
 
-        if (distance >= cullDist) {
+        // ⚡ OPTIMIZATION: Use distanceToSquared to eliminate Math.sqrt() overhead in high-frequency LOD loop
+        if (distanceSq >= cullDist * cullDist) {
             return LODLevel.Culled;
-        } else if (distance >= lod2Dist) {
+        } else if (distanceSq >= lod2Dist * lod2Dist) {
             return LODLevel.LOD2;
-        } else if (distance >= lod1Dist) {
+        } else if (distanceSq >= lod1Dist * lod1Dist) {
             return LODLevel.LOD1;
         }
         return LODLevel.LOD0;
@@ -576,8 +577,8 @@ export class FoliageLODManager {
 
         // Calculate LOD for each instance
         for (const [id, data] of this.instanceData) {
-            const distance = data.position.distanceTo(cameraPosition);
-            const newLOD = this.calculateLODLevel(distance);
+            const distanceSq = data.position.distanceToSquared(cameraPosition);
+            const newLOD = this.calculateLODLevel(distanceSq);
 
             // Update stored LOD level
             data.currentLOD = newLOD;

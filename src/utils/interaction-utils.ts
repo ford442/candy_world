@@ -84,11 +84,12 @@ export function makeInteractiveCylinder(group: THREE.Object3D, height: number, r
              _vA.copy(_ray.direction).multiplyScalar(tHit).add(_ray.origin);
              _vA.applyMatrix4(matrixWorld);
 
-             const dist = raycaster.ray.origin.distanceTo(_vA);
-             if (dist < raycaster.near || dist > raycaster.far) return;
+             // ⚡ OPTIMIZATION: Delayed Math.sqrt calculation until after early bounds check
+             const distSq = raycaster.ray.origin.distanceToSquared(_vA);
+             if (distSq < raycaster.near * raycaster.near || distSq > raycaster.far * raycaster.far) return;
 
              intersects.push({
-                 distance: dist,
+                 distance: Math.sqrt(distSq),
                  point: _vA.clone(),
                  object: this,
                  uv: undefined
@@ -144,11 +145,12 @@ export function makeInteractiveSphere(group: THREE.Object3D, radius: number, hei
              _vA.copy(_ray.direction).multiplyScalar(tHit).add(_ray.origin);
              _vA.applyMatrix4(matrixWorld);
 
-             const dist = raycaster.ray.origin.distanceTo(_vA);
-             if (dist < raycaster.near || dist > raycaster.far) return;
+             // ⚡ OPTIMIZATION: Delayed Math.sqrt calculation until after early bounds check
+             const distSq = raycaster.ray.origin.distanceToSquared(_vA);
+             if (distSq < raycaster.near * raycaster.near || distSq > raycaster.far * raycaster.far) return;
 
              intersects.push({
-                 distance: dist,
+                 distance: Math.sqrt(distSq),
                  point: _vA.clone(),
                  object: this,
                  uv: undefined
