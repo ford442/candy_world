@@ -21,6 +21,7 @@ import {
   CrosshairStyle,
 } from '../systems/accessibility';
 import { announce, announceValueChange } from './announcer';
+import { trapFocusInside } from '../utils/interaction-utils.ts';
 
 // ============================================================================
 // Menu Section Types
@@ -62,6 +63,7 @@ export class AccessibilityMenu {
   private focusIndex = 0;
   private boundKeyHandler: (e: KeyboardEvent) => void;
   private saveButton: HTMLButtonElement | null = null;
+  private releaseFocusTrap: (() => void) | null = null;
 
   constructor() {
     this.a11y = getAccessibilitySystem();
@@ -81,7 +83,7 @@ export class AccessibilityMenu {
     
     // Trap focus
     if (this.container) {
-      this.a11y.trapFocus(this.container);
+      this.releaseFocusTrap = trapFocusInside(this.container);
       announce('Accessibility menu opened. Use Tab to navigate, Enter to select.', 'polite');
     }
 
@@ -95,8 +97,9 @@ export class AccessibilityMenu {
     if (!this.isOpen) return;
 
     // Release focus
-    if (this.container) {
-      this.a11y.releaseFocus(this.container);
+    if (this.releaseFocusTrap) {
+      this.releaseFocusTrap();
+      this.releaseFocusTrap = null;
     }
 
     // Remove elements
