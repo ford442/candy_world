@@ -166,12 +166,12 @@ export class CullingSystem {
     }
 
     /** Calculate LOD level based on distance */
-    private calculateLODLevel(distance: number): LODLevel {
-        if (distance < LOD_THRESHOLDS[LODLevel.FULL].max) {
+    private calculateLODLevel(distanceSq: number): LODLevel {
+        if (distanceSq < LOD_THRESHOLDS[LODLevel.FULL].max * LOD_THRESHOLDS[LODLevel.FULL].max) {
             return LODLevel.FULL;
-        } else if (distance < LOD_THRESHOLDS[LODLevel.MEDIUM].max) {
+        } else if (distanceSq < LOD_THRESHOLDS[LODLevel.MEDIUM].max * LOD_THRESHOLDS[LODLevel.MEDIUM].max) {
             return LODLevel.MEDIUM;
-        } else if (distance < LOD_THRESHOLDS[LODLevel.LOW].max) {
+        } else if (distanceSq < LOD_THRESHOLDS[LODLevel.LOW].max * LOD_THRESHOLDS[LODLevel.LOW].max) {
             return LODLevel.LOW;
         }
         return LODLevel.BILLBOARD;
@@ -196,10 +196,11 @@ export class CullingSystem {
 
     /** Check if camera has moved significantly */
     private hasCameraMoved(camera: THREE.Camera): boolean {
-        const posDiff = this.lastCameraPosition.distanceTo(camera.position);
+        // ⚡ OPTIMIZATION: Use distanceToSquared to avoid Math.sqrt() in checks
+        const posDiffSq = this.lastCameraPosition.distanceToSquared(camera.position);
         const rotDiff = 1 - Math.abs(this.lastCameraQuaternion.dot(camera.quaternion));
         
-        return posDiff > this.cameraMovedThreshold || rotDiff > 0.001;
+        return posDiffSq > (this.cameraMovedThreshold * this.cameraMovedThreshold) || rotDiff > 0.001;
     }
 
     /** Update cached camera position */
@@ -291,12 +292,14 @@ export class CullingSystem {
         this.updateBoundingSphere(obj.object, obj.boundingSphere);
         
         // Calculate distance to camera
-        obj.distance = camera.position.distanceTo(obj.boundingSphere.center);
+        // ⚡ OPTIMIZATION: Use distanceToSquared to avoid Math.sqrt() in high-frequency culling loop
+        const distSq = camera.position.distanceToSquared(obj.boundingSphere.center);
+        obj.distance = distSq; // Note: storing squared distance to avoid Math.sqrt
 
         // DISTANCE CULLING
         if (this.config.enableDistanceCulling) {
             const cullDistance = this.getCullDistance(obj.entityType);
-            if (obj.distance > cullDistance) {
+            if (distSq > cullDistance * cullDistance) {
                 obj.visible = false;
                 obj.object.visible = false;
                 this.stats.culledObjects++;
@@ -363,7 +366,7 @@ export class CullingSystem {
 
         // LOD SWITCHING
         if (this.config.enableLOD) {
-            const newLOD = this.calculateLODLevel(obj.distance);
+            const newLOD = this.calculateLODLevel(distSq);
             this.applyLOD(obj, newLOD);
         }
 
