@@ -23,3 +23,6 @@
 ## 2024-04-13 - Audio System Juice
 **Learning:** Candy World synthesizes its own sound effects (jumps, impacts, UI clicks) procedurally using the Web Audio API rather than relying on external `.wav` or `.mp3` assets to keep the package lightweight and stylized.
 **Action:** When adding new physics or interaction events, trigger them via `(window as any).AudioSystem.playSound('type')` and use the built-in procedural oscillators in `src/audio/audio-system.ts`.
+## 2026-04-15 - Accessibility Menu Focus Trapping
+**Learning:** The Accessibility Menu needed a robust focus trap to ensure keyboard navigation remained within the modal while it was open, preventing users from accidentally tabbing out into the underlying game canvas or other UI elements.
+**Action:** Replaced the simple `this.a11y.trapFocus(this.container)` call with the `trapFocusInside` utility from `interaction-utils.ts`, securely binding and unbinding the focus trap during the menu's lifecycle.
