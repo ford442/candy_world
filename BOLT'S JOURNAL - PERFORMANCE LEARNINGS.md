@@ -18,3 +18,6 @@
 ## 2026-04-12 - Zero-Allocation LOD Map Updates
 **Learning:** Instantiating Maps and Arrays on every frame for batching updates (like `new Map()` and `[].push()`) creates significant garbage collection spikes, violating Bolt's Zero-Allocation standard.
 **Action:** Use pre-allocated nested Maps as class properties (e.g., `this._lodUpdates`) and track active elements via a `count` variable instead of pushing to or resetting arrays, passing this count to downstream buffer updates to ensure stale data is ignored.
+## 2026-04-14 - Zero-Allocation Iteration and Math.sqrt Extirpation
+**Learning:** High-frequency loops suffer severe GC spikes from array allocation methods like `.filter()` and CPU bottlenecks from `distanceTo()` (`Math.sqrt()`).
+**Action:** Replaced `.filter()` array processing with standard, zero-allocation `for` loops in `src/utils/wasm-physics.ts`. Converted `distanceTo()` checks to `distanceToSquared()` in LOD, interaction, and physics loops (`src/foliage/lod.ts`, `src/systems/physics.core.ts`, `src/utils/interaction-utils.ts`) to eliminate expensive square root operations.

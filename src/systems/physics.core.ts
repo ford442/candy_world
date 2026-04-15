@@ -248,7 +248,8 @@ export function calculateWaterLevel(
             const gatePos = _scratchGatePos
                 .copy(cave.userData.gatePosition)
                 .applyMatrix4(cave.matrixWorld);
-            if (playerPos.distanceTo(gatePos) < 2.5) {
+            // ⚡ OPTIMIZATION: Converted cave water proximity check to use distanceToSquared
+            if (playerPos.distanceToSquared(gatePos) < 6.25) {
                 waterLevel = gatePos.y + 5; // Water exists here
             }
         }
