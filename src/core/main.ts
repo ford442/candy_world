@@ -274,6 +274,17 @@ initWasm().then(async (wasmLoaded) => {
             // Defer execution slightly to let the UI update
             setTimeout(async () => {
                 scene.remove(previewMushroom);
+                previewMushroom.traverse((child: THREE.Object3D) => {
+                    const mesh = child as THREE.Mesh;
+                    if (mesh.geometry) mesh.geometry.dispose();
+                    if (mesh.material) {
+                        if (Array.isArray(mesh.material)) {
+                            mesh.material.forEach((m: THREE.Material) => m.dispose());
+                        } else {
+                            (mesh.material as THREE.Material).dispose();
+                        }
+                    }
+                });
                 const idx = animatedFoliage.indexOf(previewMushroom);
                 if (idx > -1) animatedFoliage.splice(idx, 1);
 
