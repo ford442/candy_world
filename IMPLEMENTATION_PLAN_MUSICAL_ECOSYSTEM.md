@@ -62,4 +62,7 @@ Three.js Renderer -> WebGPU RenderPipeline (Raw Draw Calls)
 ## Next Steps
 
 1. **Verify Data Flow**: Ensure `AudioSystem` correctly extracts and passes `order`/`row` data from the worklet to drive the Pattern-Change logic reliably.
-2. **Identify Phase 4 Targets**: Find specific visual features that are still heavily reliant on CPU and transition them to WebGPU Compute Shaders (GPGPU). Candidates include `impacts.ts`.
+2. **Target 4: Phase 4 Compute Shader Migration (fireflies.ts)**
+   - **Status: Implemented ✅**
+   - *Implementation Details: Integrated `createIntegratedFireflies` into `src/world/generation.ts` and wired its logic directly to `updateAllIntegratedSystems` within the `animate()` loop in `src/core/game-loop.ts`, effectively shifting the fireflies' rendering entirely from a CPU-heavy process to use WebGPU compute shaders.*
+3. **Identify Phase 4 Targets**: Find specific visual features that are still heavily reliant on CPU and transition them to WebGPU Compute Shaders (GPGPU). Candidates include `pollen.ts`.
