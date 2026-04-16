@@ -47,3 +47,17 @@ export {
 
 // Default export
 export { default } from './compute-particles.ts';
+
+// Integration
+export {
+    createIntegratedFireflies,
+    createIntegratedPollen,
+    updateAllIntegratedSystems,
+    registerIntegratedSystem,
+    disposeIntegratedSystem,
+    disposeAllIntegratedSystems,
+    queueDeferredSystem,
+    loadDeferredSystems,
+    benchmarkParticleSystem,
+    printBenchmarkResults
+} from './compute-integration.ts';

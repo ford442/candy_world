@@ -1,6 +1,7 @@
 // src/world/generation.ts
 
 import { updateProgress } from '../ui/index.ts';
+import { createIntegratedFireflies, createIntegratedPollen } from '../particles/index.ts';
 import * as THREE from 'three';
 import { getGroundHeight, initCollisionSystem, addCollisionObject, checkPositionValidity } from '../utils/wasm-loader.js';
 import {
@@ -8,7 +9,7 @@ import {
     createFlower, createSubwooferLotus, createAccordionPalm, createFiberOpticWillow,
     createFloatingOrb, createSwingableVine, VineSwing, createPrismRoseBush,
     createStarflower, createVibratoViolet, createTremoloTulip, createKickDrumGeyser,
-    createRainingCloud, createWaveformWater, createFireflies, initFallingBerries,
+    createRainingCloud, createWaveformWater, initFallingBerries,
     initGrassSystem, addGrassInstance,
     createArpeggioFern, createPortamentoPine, createCymbalDandelion, createSnareTrap,
     createBubbleWillow, createHelixPlant, createBalloonBush, createWisteriaCluster,
@@ -16,7 +17,6 @@ import {
     createRetriggerMushroom,
     createIsland, // Added
     createCaveEntrance,
-    createNeonPollen, // Added
     createTerrainMaterial // Added
 } from '../foliage/index.ts';
 import { generateCloudLayer } from '../foliage/procedural-sky.ts';
@@ -186,7 +186,7 @@ export function initWorld(scene: THREE.Scene, weatherSystem: WeatherSystem, load
 
     // Initialize Vegetation Systems
     initGrassSystem(scene, 10000);
-    scene.add(createFireflies(150, 100));
+    scene.add(createIntegratedFireflies({ count: 150, areaSize: 100, useCompute: true }));
 
     // Procedural Cloud Layer (Background)
     generateCloudLayer(scene);
@@ -638,7 +638,7 @@ function populateLakeIsland(weatherSystem: WeatherSystem): void {
 
     // ⚡ JUICE: Neon Pollen Cloud
     // Audio-reactive magic dust covering the island
-    const pollen = createNeonPollen(3000, 25, new THREE.Vector3(centerX, 5, centerZ));
+    const pollen = createIntegratedPollen({ count: 3000, areaSize: 25, center: new THREE.Vector3(centerX, 5, centerZ), useCompute: true });
     safeAddFoliage(pollen, false, 0, null);
     
     console.log(`[World] Lake Island populated with musical flora at (${centerX}, ${centerZ})`);

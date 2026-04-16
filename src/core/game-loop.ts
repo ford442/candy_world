@@ -35,6 +35,19 @@ import { updateFoliageMaterials } from '../foliage/animation.ts';
 import { windComputeSystem } from '../foliage/wind-compute.ts';
 import { chordStrikeSystem } from '../gameplay/chord-strike.ts';
 import { updateFallingClouds } from '../foliage/clouds.ts';
+import { updateAllIntegratedSystems, type ParticleAudioData } from '../particles/index.ts';
+
+const _scratchParticleAudioData: ParticleAudioData = {
+    low: 0,
+    mid: 0,
+    high: 0,
+    beat: false,
+    groove: 0,
+    windX: 0,
+    windZ: 0,
+    windSpeed: 0
+};
+import { WeatherState } from '../systems/weather-types.ts';
 import { cloudBatcher } from '../foliage/cloud-batcher.ts';
 import { fluidSystem } from '../systems/fluid_system.ts';
 import { updatePhysics, player } from '../systems/physics/index.ts';
@@ -536,6 +549,19 @@ export function animate() {
     profiler.measure('MusicReact', () => {
         musicReactivitySystem.update(t, delta, audioState, weatherSystemRef!, animatedFoliage, cameraRef!, isNightNow, isDeepNight);
         if (melodyRibbon) updateMelodyRibbons(melodyRibbon, delta, audioState);
+        profiler.measure('Particles', () => {
+            _scratchParticleAudioData.low = audioState?.kickTrigger || 0;
+            _scratchParticleAudioData.mid = 0.3;
+            _scratchParticleAudioData.high = audioState?.energy || 0;
+            _scratchParticleAudioData.beat = (audioState?.beatPhase || 0) < 0.1;
+            _scratchParticleAudioData.groove = audioState?.grooveAmount || 0;
+            _scratchParticleAudioData.windX = weatherSystemRef!.windDirection.x;
+            _scratchParticleAudioData.windZ = weatherSystemRef!.windDirection.z;
+            _scratchParticleAudioData.windSpeed = weatherSystemRef!.currentState === WeatherState.STORM ? 0.8 : 0.2;
+
+            updateAllIntegratedSystems(rendererRef, delta, player.position, _scratchParticleAudioData);
+        });
+
         if (fluidFog && audioState) {
             fluidSystem.update(delta, audioState);
 
@@ -554,9 +580,6 @@ export function animate() {
 
     if (firefliesRef) {
         firefliesRef.visible = isDeepNight;
-        if (isDeepNight && firefliesRef.userData.computeNode) {
-            rendererRef.compute(firefliesRef.userData.computeNode);
-        }
     }
 
     const windComputeNode = windComputeSystem.getComputeNode();

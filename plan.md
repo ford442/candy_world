@@ -17,4 +17,7 @@
 - **Target 3: The AudioSystem Data Flow (Next Ecosystem Feature)**
   - **Status: Implemented ✅**
   - *Implementation Details: Verified that the AudioSystem correctly extracts and passes `order`/`row` data from the audio worklet to drive the Pattern-Change logic.*
-- **Identify Phase 4 Targets**: Find specific visual features that are still heavily reliant on CPU and transition them to WebGPU Compute Shaders (GPGPU). Candidates include `fireflies.ts`.
+- **Target 4: Phase 4 Compute Shader Migration (fireflies.ts)**
+  - **Status: Implemented ✅**
+  - *Implementation Details: Integrated `createIntegratedFireflies` into `src/world/generation.ts` and wired its logic directly to `updateAllIntegratedSystems` within the `animate()` loop in `src/core/game-loop.ts`, effectively shifting the fireflies' rendering entirely from a CPU-heavy process to use WebGPU compute shaders.*
+- **Identify Phase 4 Targets**: Find specific visual features that are still heavily reliant on CPU and transition them to WebGPU Compute Shaders (GPGPU). Candidates include `pollen.ts`.
