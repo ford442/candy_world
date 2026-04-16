@@ -206,6 +206,17 @@ export function runDeferredWarmup(
         }
 
         scene.remove(dummyGroup);
+        dummyGroup.traverse((child: THREE.Object3D) => {
+            const mesh = child as THREE.Mesh;
+            if (mesh.geometry) mesh.geometry.dispose();
+            if (mesh.material) {
+                if (Array.isArray(mesh.material)) {
+                    mesh.material.forEach((m: THREE.Material) => m.dispose());
+                } else {
+                    (mesh.material as THREE.Material).dispose();
+                }
+            }
+        });
 
         console.log('[Deferred] Shader compilation complete');
         endPhase('Shader Warmup');
