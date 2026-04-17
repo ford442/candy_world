@@ -21,3 +21,13 @@
 ## 2026-04-14 - Zero-Allocation Iteration and Math.sqrt Extirpation
 **Learning:** High-frequency loops suffer severe GC spikes from array allocation methods like `.filter()` and CPU bottlenecks from `distanceTo()` (`Math.sqrt()`).
 **Action:** Replaced `.filter()` array processing with standard, zero-allocation `for` loops in `src/utils/wasm-physics.ts`. Converted `distanceTo()` checks to `distanceToSquared()` in LOD, interaction, and physics loops (`src/foliage/lod.ts`, `src/systems/physics.core.ts`, `src/utils/interaction-utils.ts`) to eliminate expensive square root operations.
+
+## Date: 2024-05-24
+### Title: Eliminating Array Methods (.map/.filter) in Hot Paths
+**Learning:** High-frequency game and update loops suffer severe Garbage Collection (GC) spikes when using array iteration methods like `.map()` and `.filter()`. These methods create intermediate arrays that must be tracked and collected by the V8 engine, causing noticeable frame drops when processing thousands of objects (like loaded regions or wind calculations).
+**Action:** Replaced `.map()` and `.filter()` occurrences with standard, zero-allocation `for` loops in files like `src/systems/region-manager.ts`, `src/systems/discovery-persistence.ts`, and `src/foliage/wind-compute.ts` to ensure consistent 60fps performance and avoid memory pressure.
+
+## Date: 2024-05-24
+### Title: Plugging Three.js VRAM Leaks on Scene Removal
+**Learning:** Removing an object from a Three.js scene (using `scene.remove(mesh)`) unlinks it from the graph but does not free the WebGL/WebGPU resources allocated on the GPU. Failing to explicitly dispose of the underlying geometries and materials causes rapid VRAM exhaustion, particularly with dynamic entities like particle systems and weather effects.
+**Action:** Added explicit `.dispose()` calls for geometries and materials (handling both single instances and arrays of materials) prior to removing `rainMesh`, `mistMesh`, and `rainbow` from the scene in `src/systems/weather/weather-effects.ts`.
