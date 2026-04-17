@@ -592,8 +592,10 @@ export function animate() {
     }
 
     for (const obj of animatedFoliage) {
-        if (obj.userData.type === 'waterfall' && obj.userData.computeNode) {
-            rendererRef.compute(obj.userData.computeNode);
+        if (obj.userData.computeNode) {
+            if (obj.userData.type === 'waterfall' || obj.userData.isPollen) {
+                rendererRef.compute(obj.userData.computeNode);
+            }
         }
     }
     updateImpacts(rendererRef, t);
