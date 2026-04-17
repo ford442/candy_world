@@ -3,6 +3,7 @@
 import { showToast } from '../utils/toast.js';
 import { DISCOVERY_MAP } from './discovery_map.ts';
 import { discoveryPersistence } from './discovery-persistence.ts';
+import { trapFocusInside } from '../utils/interaction-utils.ts';
 
 /**
  * Manages the discovery of rare flora and environmental features.
@@ -143,7 +144,14 @@ class DiscoverySystem {
         closeBtn.style.color = 'white';
         closeBtn.style.fontSize = '24px';
         closeBtn.style.cursor = 'pointer';
+
+        let releaseFocusTrap: (() => void) | null = null;
+
         closeBtn.onclick = () => {
+            if (releaseFocusTrap) {
+                releaseFocusTrap();
+                releaseFocusTrap = null;
+            }
             overlay.remove();
         };
         logContainer.appendChild(closeBtn);
@@ -184,6 +192,9 @@ class DiscoverySystem {
         logContainer.appendChild(grid);
         overlay.appendChild(logContainer);
         document.body.appendChild(overlay);
+
+        // Trap focus inside the overlay
+        releaseFocusTrap = trapFocusInside(overlay);
 
         // Focus close button for accessibility
         closeBtn.focus();
