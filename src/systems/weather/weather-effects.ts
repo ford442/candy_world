@@ -296,18 +296,45 @@ export class EffectsManager {
         
         if (percussionRain) {
             percussionRain.dispose();
-            if (rainMesh) this.scene.remove(rainMesh);
+            if (rainMesh) {
+                if (rainMesh.geometry) rainMesh.geometry.dispose();
+                if (rainMesh.material) {
+                    if (Array.isArray(rainMesh.material)) {
+                        rainMesh.material.forEach((m: any) => m.dispose());
+                    } else {
+                        (rainMesh.material as any).dispose();
+                    }
+                }
+                this.scene.remove(rainMesh);
+            }
         }
         if (melodicMist) {
             melodicMist.dispose();
-            if (mistMesh) this.scene.remove(mistMesh);
+            if (mistMesh) {
+                if (mistMesh.geometry) mistMesh.geometry.dispose();
+                if (mistMesh.material) {
+                    if (Array.isArray(mistMesh.material)) {
+                        mistMesh.material.forEach((m: any) => m.dispose());
+                    } else {
+                        (mistMesh.material as any).dispose();
+                    }
+                }
+                this.scene.remove(mistMesh);
+            }
         }
         if (lightningLight) {
             this.scene.remove(lightningLight);
         }
         if (rainbow) {
-            this.scene.remove(rainbow);
             if (rainbow.geometry) rainbow.geometry.dispose();
+            if (rainbow.material) {
+                if (Array.isArray(rainbow.material)) {
+                    rainbow.material.forEach((m: any) => m.dispose());
+                } else {
+                    (rainbow.material as any).dispose();
+                }
+            }
+            this.scene.remove(rainbow);
         }
     }
 }
