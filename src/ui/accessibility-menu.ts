@@ -64,6 +64,7 @@ export class AccessibilityMenu {
   private boundKeyHandler: (e: KeyboardEvent) => void;
   private saveButton: HTMLButtonElement | null = null;
   private releaseFocusTrap: (() => void) | null = null;
+  private lastFocusedElement: HTMLElement | null = null;
 
   constructor() {
     this.a11y = getAccessibilitySystem();
@@ -77,6 +78,8 @@ export class AccessibilityMenu {
   open(): void {
     if (this.isOpen) return;
     
+    this.lastFocusedElement = document.activeElement as HTMLElement;
+
     this.createMenu();
     this.isOpen = true;
     document.addEventListener('keydown', this.boundKeyHandler);
@@ -101,6 +104,11 @@ export class AccessibilityMenu {
       this.releaseFocusTrap();
       this.releaseFocusTrap = null;
     }
+
+    if (this.lastFocusedElement && typeof this.lastFocusedElement.focus === 'function') {
+      this.lastFocusedElement.focus();
+    }
+    this.lastFocusedElement = null;
 
     // Remove elements
     if (this.overlay && this.overlay.parentNode) {
