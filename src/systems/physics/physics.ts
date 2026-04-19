@@ -60,6 +60,104 @@ export type { AudioState, PlayerExtended, KeyStates } from './physics-types.js';
 
 // --- Public API ---
 
+
+// --- Lightweight Physics Spatial Grid (⚡ OPTIMIZATION) ---
+export class PhysicsSpatialGrid {
+    private cellSize: number;
+    private cells: Map<string, any[]>;
+    // ⚡ OPTIMIZATION: Reusable array to avoid GC spikes on findNearby
+    private _queryResult: any[] = [];
+    private _querySet: Set<any> = new Set();
+
+    constructor(cellSize: number) {
+        this.cellSize = cellSize;
+        this.cells = new Map();
+    }
+
+    private getHash(x: number, z: number): string {
+        return `${Math.floor(x / this.cellSize)},${Math.floor(z / this.cellSize)}`;
+    }
+
+    insert(obj: any): void {
+        if (!obj || !obj.position) return;
+        const hash = this.getHash(obj.position.x, obj.position.z);
+        let cell = this.cells.get(hash);
+        if (!cell) {
+            cell = [];
+            this.cells.set(hash, cell);
+        }
+        cell.push(obj);
+    }
+
+    clear(): void {
+        this.cells.clear();
+    }
+
+    findNearby(x: number, z: number, radius: number): any[] {
+        this._queryResult.length = 0;
+        this._querySet.clear();
+
+        const minX = Math.floor((x - radius) / this.cellSize);
+        const maxX = Math.floor((x + radius) / this.cellSize);
+        const minZ = Math.floor((z - radius) / this.cellSize);
+        const maxZ = Math.floor((z + radius) / this.cellSize);
+
+        for (let cx = minX; cx <= maxX; cx++) {
+            for (let cz = minZ; cz <= maxZ; cz++) {
+                const hash = `${cx},${cz}`;
+                const cell = this.cells.get(hash);
+                if (cell) {
+                    for (let i = 0; i < cell.length; i++) {
+                        const obj = cell[i];
+                        if (!this._querySet.has(obj)) {
+                            this._querySet.add(obj);
+                            this._queryResult.push(obj);
+                        }
+                    }
+                }
+            }
+        }
+        return this._queryResult;
+    }
+}
+
+// Global grids for different collision types
+export const physicsFoliageGrid = new PhysicsSpatialGrid(20);
+export const physicsTrapsGrid = new PhysicsSpatialGrid(20);
+export const physicsGeysersGrid = new PhysicsSpatialGrid(20);
+export const physicsPinesGrid = new PhysicsSpatialGrid(20);
+export const physicsPanningPadsGrid = new PhysicsSpatialGrid(20);
+
+export function populatePhysicsGrids() {
+    physicsFoliageGrid.clear();
+    physicsTrapsGrid.clear();
+    physicsGeysersGrid.clear();
+    physicsPinesGrid.clear();
+    physicsPanningPadsGrid.clear();
+
+    // The arrays come from world/state.ts
+    import('../../world/state.ts').then((state) => {
+        for (let i = 0; i < state.animatedFoliage.length; i++) {
+            const obj = state.animatedFoliage[i];
+            if (obj.userData?.type === 'retrigger_mushroom' || obj.userData?.type === 'vibratoViolet' || (obj.userData?.type === 'flower' && obj.userData?.animationType === 'batchedCymbal')) {
+                physicsFoliageGrid.insert(obj);
+            }
+        }
+        for (let i = 0; i < state.foliageTraps.length; i++) {
+            physicsTrapsGrid.insert(state.foliageTraps[i]);
+        }
+        for (let i = 0; i < state.foliageGeysers.length; i++) {
+            physicsGeysersGrid.insert(state.foliageGeysers[i]);
+        }
+        for (let i = 0; i < state.foliagePortamentoPines.length; i++) {
+            physicsPinesGrid.insert(state.foliagePortamentoPines[i]);
+        }
+        for (let i = 0; i < state.foliagePanningPads.length; i++) {
+            physicsPanningPadsGrid.insert(state.foliagePanningPads[i]);
+        }
+    });
+}
+
 export function grantInvisibility(duration: number) {
     player.isInvisible = true;
     player.invisibilityTimer = duration;
@@ -93,7 +191,13 @@ export function updatePhysics(delta: number, camera: THREE.Camera, controls: any
 
     // Check if player is within active glitch grenade field
     if (uGlitchExplosionRadius.value > 0) {
-        const distSq = player.position.distanceToSquared(uGlitchExplosionCenter.value as THREE.Vector3);
+
+        const center = uGlitchExplosionCenter.value as THREE.Vector3;
+        const dx = player.position.x - center.x;
+        const dy = player.position.y - center.y;
+        const dz = player.position.z - center.z;
+        const distSq = dx*dx + dy*dy + dz*dz;
+
         const radiusSq = uGlitchExplosionRadius.value * uGlitchExplosionRadius.value;
         if (distSq < radiusSq) {
             // Player is inside the glitch field - grant intangibility/phasing
@@ -488,7 +592,12 @@ function checkHarmonyOrbs() {
         const orb = harmonyOrbSystem.orbs[i];
         if (!orb.active) continue;
 
-        const distSq = orb.position.distanceToSquared(playerPos);
+
+        const dx = orb.position.x - playerPos.x;
+        const dy = orb.position.y - playerPos.y;
+        const dz = orb.position.z - playerPos.z;
+        const distSq = dx*dx + dy*dy + dz*dz;
+
         if (distSq < radiusSq) {
             // Collect orb
             orb.active = false;
@@ -519,7 +628,10 @@ function checkRetriggerMushrooms(delta: number, audioState: AudioState | null) {
     let inStrobeField = false;
     let maxIntensity = 0;
 
-    for (const obj of animatedFoliage) {
+    // ⚡ OPTIMIZATION: Query spatial grid instead of O(N) array loop
+    const nearbyObjects = physicsFoliageGrid.findNearby(playerPos.x, playerPos.z, 15.0);
+    for (let i = 0; i < nearbyObjects.length; i++) {
+        const obj = nearbyObjects[i];
         if (obj.userData?.type === 'retrigger_mushroom') {
             const dx = playerPos.x - obj.position.x;
             const dz = playerPos.z - obj.position.z;
@@ -539,8 +651,8 @@ function checkRetriggerMushrooms(delta: number, audioState: AudioState | null) {
                 if (isStrobing) {
                     inStrobeField = true;
                     // Calculate intensity based on distance
-                    const dist = Math.sqrt(distSq);
-                    const localIntensity = 1.0 - (dist / 15.0);
+                    // ⚡ OPTIMIZATION: Avoid Math.sqrt by using squared distance for linear attenuation approximation
+                    const localIntensity = 1.0 - (distSq / 225.0);
                     if (localIntensity > maxIntensity) {
                         maxIntensity = localIntensity;
                     }
@@ -568,8 +680,10 @@ function checkVibratoViolets(delta: number, audioState: AudioState | null) {
     let inDistortionField = false;
 
     // Check all vibrato violets
-    // (Note: They are part of animatedFoliage, we can filter them out)
-    for (const obj of animatedFoliage) {
+    // ⚡ OPTIMIZATION: Query spatial grid instead of O(N) array loop
+    const nearbyObjects = physicsFoliageGrid.findNearby(playerPos.x, playerPos.z, 20.0);
+    for (let i = 0; i < nearbyObjects.length; i++) {
+        const obj = nearbyObjects[i];
         if (obj.userData?.type === 'vibratoViolet') {
             const dx = playerPos.x - obj.position.x;
             const dz = playerPos.z - obj.position.z;
@@ -612,7 +726,10 @@ function checkPortamentoPines(delta: number) {
     const playerPos = player.position;
     const now = performance.now();
 
-    for (const pine of foliagePortamentoPines) {
+    // ⚡ OPTIMIZATION: Query spatial grid instead of O(N) array loop
+    const nearbyPines = physicsPinesGrid.findNearby(playerPos.x, playerPos.z, 5.0);
+    for (let i = 0; i < nearbyPines.length; i++) {
+        const pine = nearbyPines[i];
         // Distance check
         const dx = playerPos.x - pine.position.x;
         const dz = playerPos.z - pine.position.z;
@@ -695,7 +812,10 @@ function checkPortamentoPines(delta: number) {
 }
 
 function checkSnareTraps(delta: number) {
-    for (const trap of foliageTraps) {
+    // ⚡ OPTIMIZATION: Query spatial grid instead of O(N) array loop
+    const nearbyTraps = physicsTrapsGrid.findNearby(player.position.x, player.position.z, 5.0);
+    for (let i = 0; i < nearbyTraps.length; i++) {
+        const trap = nearbyTraps[i];
         // Distance Check
         const dx = player.position.x - trap.position.x;
         const dz = player.position.z - trap.position.z;
@@ -751,7 +871,10 @@ function checkSnareTraps(delta: number) {
 }
 
 function checkGeysers(delta: number) {
-    for (const geyser of foliageGeysers) {
+    // ⚡ OPTIMIZATION: Query spatial grid instead of O(N) array loop
+    const nearbyGeysers = physicsGeysersGrid.findNearby(player.position.x, player.position.z, 5.0);
+    for (let i = 0; i < nearbyGeysers.length; i++) {
+        const geyser = nearbyGeysers[i];
         // Distance check (Cylinder)
         const dx = player.position.x - geyser.position.x;
         const dz = player.position.z - geyser.position.z;
@@ -796,7 +919,10 @@ function checkPanningPads() {
     // Panning Pads are flat cylinders created with createPanningPad
     // We treat them as dynamic platforms that boost the player if landed on at peak bob.
 
-    for (const pad of foliagePanningPads) {
+    // ⚡ OPTIMIZATION: Query spatial grid instead of O(N) array loop
+    const nearbyPads = physicsPanningPadsGrid.findNearby(player.position.x, player.position.z, 10.0);
+    for (let i = 0; i < nearbyPads.length; i++) {
+        const pad = nearbyPads[i];
         // Simple Cylinder Collision (XZ Check)
         const dx = player.position.x - pad.position.x;
         const dz = player.position.z - pad.position.z;
