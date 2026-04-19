@@ -3,6 +3,7 @@
 
 // Main exports from physics.ts
 export {
+    populatePhysicsGrids,
     updatePhysics,
     grantInvisibility,
     registerPhysicsCave,

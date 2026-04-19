@@ -31,3 +31,8 @@
 ### Title: Plugging Three.js VRAM Leaks on Scene Removal
 **Learning:** Removing an object from a Three.js scene (using `scene.remove(mesh)`) unlinks it from the graph but does not free the WebGL/WebGPU resources allocated on the GPU. Failing to explicitly dispose of the underlying geometries and materials causes rapid VRAM exhaustion, particularly with dynamic entities like particle systems and weather effects.
 **Action:** Added explicit `.dispose()` calls for geometries and materials (handling both single instances and arrays of materials) prior to removing `rainMesh`, `mistMesh`, and `rainbow` from the scene in `src/systems/weather/weather-effects.ts`.
+
+
+2024-05-24 - Physics Spatial Grids & Zero-Allocation Math
+**Learning:** O(N) array iteration and Math.sqrt() in hot-path physics checks (like Retrigger Mushrooms and Geysers) create significant GC spikes and frame drops, even when N is relatively small compared to render counts. The rendering SpatialHashGrid is not suitable for gameplay proximity logic.
+**Action:** Implemented a lightweight, physics-dedicated `PhysicsSpatialGrid` populated once per world generation. Replaced O(N) loops in `checkRetriggerMushrooms`, `checkGeysers`, `checkSnareTraps`, and `checkVibratoViolets` with grid queries, and stripped all `Math.sqrt()` and proxy `distanceToSquared()` calls from hot loops.

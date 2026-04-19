@@ -28,7 +28,7 @@ import { initPostProcessing } from '../foliage/post-processing.ts';
 import { initWorld, generateMap, DEFAULT_MAP_CHUNK_SIZE } from '../world/generation.ts';
 import { animatedFoliage } from '../world/state.ts';
 import { fireRainbow } from '../gameplay/rainbow-blaster.ts';
-import { player } from '../systems/physics/index.ts';
+import { player, populatePhysicsGrids } from '../systems/physics/index.ts';
 
 // Refactored module imports
 import { animate, initGameLoopDependencies, addCameraShake } from './game-loop.ts';
@@ -314,9 +314,14 @@ initWasm().then(async (wasmLoaded) => {
                         lastAnnounced = percent;
                     }
                 });
+
                 endPhase('Map Generation');
 
+                // ⚡ OPTIMIZATION: Populate spatial grids for physics lookups
+                populatePhysicsGrids();
+
                 loadingScreen.updateProgress(100, 'World generation complete!');
+
                 loadingScreen.completePhase('map-generation');
 
                 startButton.removeAttribute('aria-busy');
