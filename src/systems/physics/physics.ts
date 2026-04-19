@@ -538,9 +538,8 @@ function checkRetriggerMushrooms(delta: number, audioState: AudioState | null) {
 
                 if (isStrobing) {
                     inStrobeField = true;
-                    // Calculate intensity based on distance
-                    const dist = Math.sqrt(distSq);
-                    const localIntensity = 1.0 - (dist / 15.0);
+                    // Calculate intensity based on squared distance to avoid Math.sqrt()
+                    const localIntensity = 1.0 - (distSq / 225.0);
                     if (localIntensity > maxIntensity) {
                         maxIntensity = localIntensity;
                     }
