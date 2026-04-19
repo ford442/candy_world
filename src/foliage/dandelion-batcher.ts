@@ -8,7 +8,8 @@ import {
     uAudioLow,
     uAudioHigh,
     uTime,
-    createSugarSparkle
+    createSugarSparkle,
+    createJuicyRimLight
 } from './index.ts';
 import {
     float, vec3, positionLocal, attribute, mix, sin,
@@ -191,8 +192,11 @@ export class DandelionBatcher {
         // Emission: Only on Gold Tips
         const goldEmission = vColor.mul(float(0.2).add(pulse)).add(sparkle);
 
+        // 🎨 PALETTE: Add Juicy Rim Light to dandelion tips
+        const rim = createJuicyRimLight(vColor, float(2.0), float(3.0), normalLocal);
+
         // Mix: If Gold, use Emission. Else Black.
-        mat.emissiveNode = mix(vec3(0.0), goldEmission, isGold);
+        mat.emissiveNode = mix(vec3(0.0), goldEmission.add(rim), isGold);
 
         // Roughness: Gold is shiny (0.2), others are matte (0.8)
         mat.roughnessNode = mix(float(0.8), float(0.2), isGold);
