@@ -66,6 +66,7 @@ export class SaveMenu {
     private onCloseCallback?: () => void;
     private keydownHandler: (e: KeyboardEvent) => void;
     private releaseFocusTrap: (() => void) | null = null;
+    private lastFocusedElement: HTMLElement | null = null;
 
     constructor(options: SaveMenuOptions = {}) {
         this.currentMode = options.mode || 'full';
@@ -103,6 +104,8 @@ export class SaveMenu {
     async show(): Promise<void> {
         if (this.container) return;
         
+        this.lastFocusedElement = document.activeElement as HTMLElement | null;
+
         this.container = document.createElement('div');
         this.container.className = 'candy-save-menu';
         
@@ -142,6 +145,12 @@ export class SaveMenu {
             this.container?.remove();
             this.container = null;
             document.removeEventListener('keydown', this.keydownHandler);
+
+            if (this.lastFocusedElement && typeof this.lastFocusedElement.focus === 'function') {
+                this.lastFocusedElement.focus();
+                this.lastFocusedElement = null;
+            }
+
             this.onCloseCallback?.();
         }, 200);
     }
