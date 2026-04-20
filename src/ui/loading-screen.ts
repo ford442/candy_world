@@ -118,7 +118,10 @@ export class LoadingScreen {
     private phases: LoadingPhase[] = [];
     private currentPhaseIndex = -1;
     private phaseProgress = 0;
-    private overallProgress = 0;
+    private targetOverallProgress = 0;
+    private displayedOverallProgress = 0;
+    private animationFrameId: number | null = null;
+    private lastTime: number = 0;
     
     private isVisible = false;
     private isComplete = false;
@@ -326,6 +329,11 @@ export class LoadingScreen {
             }
         });
 
+        this.lastTime = performance.now();
+        if (this.animationFrameId === null) {
+            this.animationFrameId = requestAnimationFrame(this.animateProgress);
+        }
+
         if (this.options.debug) {
             console.log('[LoadingScreen] Shown');
         }
@@ -338,6 +346,11 @@ export class LoadingScreen {
         if (!this.isVisible || this.isComplete) return;
         
         this.isComplete = true;
+
+        if (this.animationFrameId !== null) {
+            cancelAnimationFrame(this.animationFrameId);
+            this.animationFrameId = null;
+        }
 
         if (this.container) {
             this.container.classList.add('complete');
@@ -446,7 +459,7 @@ export class LoadingScreen {
             phaseIndex: this.currentPhaseIndex,
             totalPhases: this.phases.length,
             percent: this.phaseProgress,
-            overallPercent: this.overallProgress,
+            overallPercent: this.targetOverallProgress,
             taskDescription: description,
             estimatedTimeRemaining: this.calculateEstimatedTimeRemaining()
         };
@@ -551,7 +564,7 @@ export class LoadingScreen {
             phaseIndex: this.currentPhaseIndex,
             totalPhases: this.phases.length,
             percent: this.phaseProgress,
-            overallPercent: this.overallProgress,
+            overallPercent: this.targetOverallProgress,
             taskDescription: currentPhase?.description || 'Loading...',
             estimatedTimeRemaining: this.calculateEstimatedTimeRemaining()
         };
@@ -574,15 +587,7 @@ export class LoadingScreen {
     private updateUI(phase?: LoadingPhase, taskDescription?: string): void {
         if (!this.container) return;
 
-        // Update progress bar
-        if (this.progressFill) {
-            this.progressFill.style.width = `${this.overallProgress}%`;
-        }
-
-        // Update percentage text
-        if (this.percentageText) {
-            this.percentageText.textContent = `${Math.round(this.overallProgress)}%`;
-        }
+        // Note: progressFill, percentageText, and aria-valuenow are now updated in updateUIVisuals via animateProgress.
 
         // Update task text
         if (this.taskText && taskDescription) {
@@ -598,9 +603,6 @@ export class LoadingScreen {
                 this.timeText.textContent = 'Almost there...';
             }
         }
-
-        // Update ARIA
-        this.container.setAttribute('aria-valuenow', Math.round(this.overallProgress).toString());
     }
 
     private updatePhaseIndicators(): void {
@@ -621,9 +623,51 @@ export class LoadingScreen {
         });
     }
 
+    private animateProgress = (time: number): void => {
+        if (!this.isVisible || this.isComplete) {
+            this.animationFrameId = null;
+            return;
+        }
+
+        const delta = Math.min((time - this.lastTime) / 1000, 0.1); // clamp delta
+        this.lastTime = time;
+
+        // Dampen the displayed progress towards the target
+        const diff = this.targetOverallProgress - this.displayedOverallProgress;
+        if (Math.abs(diff) > 0.1) {
+            // Lerp factor
+            this.displayedOverallProgress += diff * (1.0 - Math.exp(-5.0 * delta));
+
+            // Re-render UI with new displayed progress
+            this.updateUIVisuals();
+        } else if (this.displayedOverallProgress !== this.targetOverallProgress) {
+            this.displayedOverallProgress = this.targetOverallProgress;
+            this.updateUIVisuals();
+        }
+
+        this.animationFrameId = requestAnimationFrame(this.animateProgress);
+    }
+
+    private updateUIVisuals(): void {
+        if (!this.container) return;
+
+        // Update progress bar
+        if (this.progressFill) {
+            this.progressFill.style.width = `${this.displayedOverallProgress}%`;
+        }
+
+        // Update percentage text
+        if (this.percentageText) {
+            this.percentageText.textContent = `${Math.round(this.displayedOverallProgress)}%`;
+        }
+
+        // Update ARIA
+        this.container.setAttribute('aria-valuenow', Math.round(this.displayedOverallProgress).toString());
+    }
+
     private calculateOverallProgress(): void {
         if (this.currentPhaseIndex < 0) {
-            this.overallProgress = 0;
+            this.targetOverallProgress = 0;
             return;
         }
 
@@ -647,7 +691,7 @@ export class LoadingScreen {
 
         // Normalize to 0-100
         const totalWeight = this.phases.reduce((sum, p) => sum + p.weight, 0);
-        this.overallProgress = (completedWeight / totalWeight) * 100;
+        this.targetOverallProgress = (completedWeight / totalWeight) * 100;
     }
 
     private calculateEstimatedTimeRemaining(): number {
