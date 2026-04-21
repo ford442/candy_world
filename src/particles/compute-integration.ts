@@ -7,7 +7,8 @@
  */
 
 import * as THREE from 'three';
-import { ComputeParticleSystem, createComputeFireflies, createComputePollen } from './compute-particles.ts';
+import { ComputeParticleSystem, createComputeFireflies,
+    createComputeSparks, createComputePollen } from './compute-particles.ts';
 import type { ParticleAudioData } from './compute-particles.ts';
 import { createFireflies as createLegacyFireflies } from '../foliage/fireflies.ts';
 import { createNeonPollen as createLegacyPollen } from '../foliage/pollen.ts';
@@ -160,6 +161,58 @@ export function createIntegratedPollen(options: IntegratedPollenOptions = {}): T
     return legacy;
 }
 
+
+export interface IntegratedSparksOptions {
+    count?: number;
+    areaSize?: number;
+    center?: THREE.Vector3;
+    useCompute?: boolean;
+}
+
+/**
+ * Creates an environmental sparks system using GPU compute
+ */
+export function createIntegratedSparks(options: IntegratedSparksOptions = {}): THREE.Object3D {
+    const {
+        count = 1000,
+        areaSize = 50,
+        center = new THREE.Vector3(0, 10, 0),
+        useCompute = true
+    } = options;
+
+    const hasWebGPU = typeof navigator !== 'undefined' && 'gpu' in navigator;
+
+    if (useCompute && hasWebGPU) {
+        const computeCount = Math.min(count * 5, 20000);
+
+        try {
+            // Use the GPU compute path
+            const system = createComputeSparks({
+                count: computeCount,
+                bounds: { x: areaSize * 2, y: 20, z: areaSize * 2 },
+                center: center
+            });
+
+            metrics.set('sparks', {
+                particleCount: computeCount,
+                frameTime: 0,
+                gpuTime: 0,
+                cpuFallback: false
+            });
+
+            console.log(`[Particles] GPU Sparks: ${computeCount.toLocaleString()} particles`);
+
+            return system.mesh;
+        } catch (error) {
+            console.warn('[Particles] GPU compute failed for sparks, returning empty object:', error);
+        }
+    }
+
+    // Fallback: Return empty object if no CPU legacy implementation exists for environmental sparks yet
+    console.log(`[Particles] CPU Sparks: Not implemented, returning empty Group.`);
+    return new THREE.Group();
+}
+
 // =============================================================================
 // SYSTEM REGISTRY
 // =============================================================================
@@ -267,6 +320,10 @@ export async function loadDeferredSystems(
                     break;
                 case 'pollen':
                     mesh = createIntegratedPollen(config.options);
+                    system = (mesh as any).userData?.computeParticleSystem;
+                    break;
+                case 'sparks':
+                    mesh = createIntegratedSparks(config.options);
                     system = (mesh as any).userData?.computeParticleSystem;
                     break;
                 default:

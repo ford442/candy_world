@@ -66,3 +66,5 @@ Three.js Renderer -> WebGPU RenderPipeline (Raw Draw Calls)
    - **Status: Implemented ✅**
    - *Implementation Details: Integrated `createIntegratedFireflies` and `createIntegratedPollen` into `src/world/generation.ts`. Wired the existing TSL compute node for pollen natively into the `game-loop.ts` render graph to execute the WGSL compute shader every frame.*
 3. **Identify Phase 4 Targets**: Find specific visual features that are still heavily reliant on CPU and transition them to WebGPU Compute Shaders (GPGPU). Candidates include `rain.ts` and `sparks.ts`.
+   - **Status: Implemented ✅**
+   - *Implementation Details: Migrated `percussionRain` to `ComputeParticleSystem`, integrated `createIntegratedSparks` into `src/world/generation.ts`. Documented accepted architecture: environmental systems use the unified `ComputeParticleSystem` while `sparkle-trail` continues using its specialized TSL compute node implementation.*

@@ -1,7 +1,7 @@
 // src/world/generation.ts
 
 import { updateProgress } from '../ui/index.ts';
-import { createIntegratedFireflies, createIntegratedPollen } from '../particles/index.ts';
+import { createIntegratedFireflies, createIntegratedPollen, createIntegratedSparks } from '../particles/index.ts';
 import * as THREE from 'three';
 import { getGroundHeight, initCollisionSystem, addCollisionObject, checkPositionValidity } from '../utils/wasm-loader.js';
 import {
@@ -641,6 +641,12 @@ function populateLakeIsland(weatherSystem: WeatherSystem): void {
     const pollen = createIntegratedPollen({ count: 3000, areaSize: 25, center: new THREE.Vector3(centerX, 5, centerZ), useCompute: true });
     safeAddFoliage(pollen, false, 0, null);
     
+
+    // ⚡ JUICE: Environmental Sparks
+    // Add ambient sparks to the world
+    const sparks = createIntegratedSparks({ count: 1000, areaSize: 50, center: new THREE.Vector3(centerX, 10, centerZ), useCompute: true });
+    safeAddFoliage(sparks, false, 0, null);
+
     console.log(`[World] Lake Island populated with musical flora at (${centerX}, ${centerZ})`);
 }
 
