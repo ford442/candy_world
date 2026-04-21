@@ -184,6 +184,18 @@ export function replaceMushroomWithGiant(scene: THREE.Scene, oldMushroom: THREE.
 
     // Remove old logic object
     oldMushroom.parent.remove(oldMushroom);
+    // ⚡ OPTIMIZATION: Call .dispose() on geometries and materials when removing from scene to prevent VRAM leak.
+    oldMushroom.traverse((child: THREE.Object3D) => {
+        const mesh = child as THREE.Mesh;
+        if (mesh.geometry) mesh.geometry.dispose();
+        if (mesh.material) {
+            if (Array.isArray(mesh.material)) {
+                mesh.material.forEach((m: THREE.Material) => m.dispose());
+            } else {
+                (mesh.material as THREE.Material).dispose();
+            }
+        }
+    });
 
     // Current Time for pop animation
     const now = performance.now() / 1000.0;
