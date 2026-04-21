@@ -9,7 +9,8 @@ import {
     uAudioHigh,
     uTime,
     createSugarSparkle,
-    createJuicyRimLight
+    createJuicyRimLight,
+    getCachedProceduralMaterial
 } from './index.ts';
 import {
     float, vec3, positionLocal, attribute, mix, sin,
@@ -159,72 +160,76 @@ export class DandelionBatcher {
 
         // --- 2. Material (TSL Juice) ---
 
-        const mat = createStandardNodeMaterial({
-            side: THREE.FrontSide,
-            vertexColors: true, // Use attribute('color')
-            roughness: 0.8,
-            metalness: 0.0
+        const mat = getCachedProceduralMaterial('dandelion_batch', 0xFFD700, () => {
+            const m = createStandardNodeMaterial({
+                side: THREE.FrontSide,
+                vertexColors: true, // Use attribute('color')
+                roughness: 0.8,
+                metalness: 0.0
+            });
+
+            // Inputs
+            const vColor = attribute('color', 'vec3');
+            const vPuffDir = attribute('aPuffDir', 'vec3');
+
+            // 1. Base Color logic
+            m.colorNode = vColor;
+
+            // 2. Emission & Roughness Logic
+            // Detect Gold Tip: Red > 0.5 (Stalk/Tip) AND Blue < 0.1 (Stem/Tip has low blue? No Stem has 0.18, Stalk has 1.0)
+            // Tip: R=1.0, G=0.84, B=0.0
+            // Stalk: R=1.0, G=1.0, B=1.0
+            // Stem: R=0.33, G=0.42, B=0.18
+
+            // Gold check: High Red, Low Blue.
+            const highRed = step(0.5, vColor.r);
+            const lowBlue = float(1.0).sub(step(0.1, vColor.b));
+            const isGold = highRed.mul(lowBlue);
+
+            // Audio Pulse for Gold
+            const pulse = uAudioHigh.mul(3.0);
+            // Reduce sugar sparkle density/scale for tips
+            const sparkle = createSugarSparkle(normalLocal, float(40.0), float(0.5), float(2.0));
+
+            // Emission: Only on Gold Tips
+            const goldEmission = vColor.mul(float(0.2).add(pulse)).add(sparkle);
+
+            // 🎨 PALETTE: Add Juicy Rim Light to dandelion tips
+            const rim = createJuicyRimLight(vColor, float(2.0), float(3.0), normalLocal);
+
+            // Mix: If Gold, use Emission. Else Black.
+            m.emissiveNode = mix(vec3(0.0), goldEmission.add(rim), isGold);
+
+            // Roughness: Gold is shiny (0.2), others are matte (0.8)
+            m.roughnessNode = mix(float(0.8), float(0.2), isGold);
+
+
+            // 3. Animation Logic (Puff + Shake + Sway + Push)
+
+            // A. Puff (Breathing) - Expand along aPuffDir
+            const puffOffset = vPuffDir.mul(uAudioLow).mul(0.3);
+
+            // B. Shake (High Freq Vibration) - Only for seeds
+            // Use length(vPuffDir) to detect seeds (non-zero puff dir)
+            const seedFactor = step(0.1, length(vPuffDir)); // 1.0 if seed, 0.0 if stem
+
+            const shakePhase = instanceIndex.add(uTime.mul(20.0));
+            const shakeAmt = sin(shakePhase).mul(0.02).mul(uAudioHigh);
+            const shakeOffset = vPuffDir.mul(shakeAmt).mul(seedFactor);
+
+            // Apply Local Deformations
+            const posPuffed = positionLocal.add(puffOffset).add(shakeOffset);
+
+            // C. Global Sway & Player Interaction
+            // Apply to the *entire* geometry (Stem + Seeds)
+            // This makes the stem bend, and seeds (being part of same geo) move with it.
+            const posSwayed = posPuffed.add(calculateWindSway(posPuffed));
+            const posFinal = applyPlayerInteraction(posSwayed);
+
+            m.positionNode = posFinal;
+
+            return m;
         });
-
-        // Inputs
-        const vColor = attribute('color', 'vec3');
-        const vPuffDir = attribute('aPuffDir', 'vec3');
-
-        // 1. Base Color logic
-        mat.colorNode = vColor;
-
-        // 2. Emission & Roughness Logic
-        // Detect Gold Tip: Red > 0.5 (Stalk/Tip) AND Blue < 0.1 (Stem/Tip has low blue? No Stem has 0.18, Stalk has 1.0)
-        // Tip: R=1.0, G=0.84, B=0.0
-        // Stalk: R=1.0, G=1.0, B=1.0
-        // Stem: R=0.33, G=0.42, B=0.18
-
-        // Gold check: High Red, Low Blue.
-        const highRed = step(0.5, vColor.r);
-        const lowBlue = float(1.0).sub(step(0.1, vColor.b));
-        const isGold = highRed.mul(lowBlue);
-
-        // Audio Pulse for Gold
-        const pulse = uAudioHigh.mul(3.0);
-        // Reduce sugar sparkle density/scale for tips
-        const sparkle = createSugarSparkle(normalLocal, float(40.0), float(0.5), float(2.0));
-
-        // Emission: Only on Gold Tips
-        const goldEmission = vColor.mul(float(0.2).add(pulse)).add(sparkle);
-
-        // 🎨 PALETTE: Add Juicy Rim Light to dandelion tips
-        const rim = createJuicyRimLight(vColor, float(2.0), float(3.0), normalLocal);
-
-        // Mix: If Gold, use Emission. Else Black.
-        mat.emissiveNode = mix(vec3(0.0), goldEmission.add(rim), isGold);
-
-        // Roughness: Gold is shiny (0.2), others are matte (0.8)
-        mat.roughnessNode = mix(float(0.8), float(0.2), isGold);
-
-
-        // 3. Animation Logic (Puff + Shake + Sway + Push)
-
-        // A. Puff (Breathing) - Expand along aPuffDir
-        const puffOffset = vPuffDir.mul(uAudioLow).mul(0.3);
-
-        // B. Shake (High Freq Vibration) - Only for seeds
-        // Use length(vPuffDir) to detect seeds (non-zero puff dir)
-        const seedFactor = step(0.1, length(vPuffDir)); // 1.0 if seed, 0.0 if stem
-
-        const shakePhase = instanceIndex.add(uTime.mul(20.0));
-        const shakeAmt = sin(shakePhase).mul(0.02).mul(uAudioHigh);
-        const shakeOffset = vPuffDir.mul(shakeAmt).mul(seedFactor);
-
-        // Apply Local Deformations
-        const posPuffed = positionLocal.add(puffOffset).add(shakeOffset);
-
-        // C. Global Sway & Player Interaction
-        // Apply to the *entire* geometry (Stem + Seeds)
-        // This makes the stem bend, and seeds (being part of same geo) move with it.
-        const posSwayed = posPuffed.add(calculateWindSway(posPuffed));
-        const posFinal = applyPlayerInteraction(posSwayed);
-
-        mat.positionNode = posFinal;
 
 
         // --- 3. InstancedMesh Setup ---
