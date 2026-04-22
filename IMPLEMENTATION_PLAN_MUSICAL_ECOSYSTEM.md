@@ -62,6 +62,8 @@ Three.js Renderer -> WebGPU RenderPipeline (Raw Draw Calls)
 ## Next Steps
 
 1. **Verify Data Flow**: Ensure `AudioSystem` correctly extracts and passes `order`/`row` data from the worklet to drive the Pattern-Change logic reliably.
+   - **Status: Implemented ✅**
+   - *Implementation Details: Verified that `audio-processor.js` correctly extracts `order` and `row` via libopenmpt and passes them in `VISUAL_UPDATE` messages, which `AudioSystem` properly binds to `visualState.patternIndex` and `row` to drive pattern-change logic in `WeatherSystem`.*
 2. **Target 4: Phase 4 Compute Shader Migration (fireflies.ts & pollen.ts)**
    - **Status: Implemented ✅**
    - *Implementation Details: Integrated `createIntegratedFireflies` and `createIntegratedPollen` into `src/world/generation.ts`. Wired the existing TSL compute node for pollen natively into the `game-loop.ts` render graph to execute the WGSL compute shader every frame.*

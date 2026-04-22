@@ -38,5 +38,6 @@
    - `src/systems/weather/weather-effects.ts`: `scene.remove(rainMesh);`, `scene.remove(mistMesh);` but they seem to call `percussionRain.dispose()` and `melodicMist.dispose()` first. What about `lightningLight`?
    - `src/core/deferred-init.ts`: Line 208 `scene.remove(dummyGroup);` dummyGroup contains dummyMesh which has dummyGeo and dummyMat. They should be disposed! `dummyGeo.dispose(); dummyMat.dispose();`
 
-5. **Pre commit instructions:**
-   - "Complete pre-commit steps to ensure proper testing, verification, review, and reflection are done."
+5. **Verify Data Flow:**
+   - **Status: Implemented ✅**
+   - *Implementation Details: Verified that `audio-processor.js` correctly extracts `order` and `row` via libopenmpt and passes them in `VISUAL_UPDATE` messages, which `AudioSystem` properly binds to `visualState.patternIndex` and `row` to drive pattern-change logic in `WeatherSystem`.*
