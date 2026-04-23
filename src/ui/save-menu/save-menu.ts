@@ -375,7 +375,7 @@ export class SaveMenu {
                 const el = e.currentTarget as HTMLElement;
                 const action = el.dataset.action;
                 const slotId = el.dataset.slot!;
-                this.handleSlotAction(action!, slotId);
+                this.handleSlotAction(action!, slotId, el);
             });
         });
 
@@ -420,7 +420,7 @@ export class SaveMenu {
         }
     }
 
-    private async handleSlotAction(action: string, slotId: string): Promise<void> {
+    private async handleSlotAction(action: string, slotId: string, btnElement?: HTMLElement): Promise<void> {
         // Create bound save function for callbacks
         const boundSaveToSlot = async (id: string) => {
             const result = await saveSystem.save(id);
@@ -440,7 +440,8 @@ export class SaveMenu {
             this.onSaveCallback,
             () => this.refreshSlots(),
             () => this.render(),
-            (tab) => this.switchTab(tab)
+            (tab) => this.switchTab(tab),
+            btnElement
         );
     }
 
