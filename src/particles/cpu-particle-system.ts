@@ -280,13 +280,27 @@ export class CPUParticleSystem {
         const toPlayerX = this.positions[idx] - playerPosition.x;
         const toPlayerY = this.positions[idx + 1] - playerPosition.y;
         const toPlayerZ = this.positions[idx + 2] - playerPosition.z;
-        const distToPlayer = Math.sqrt(toPlayerX * toPlayerX + toPlayerY * toPlayerY + toPlayerZ * toPlayerZ);
-        let repelStrength = Math.max(0, 5 - distToPlayer) * 10;
+        const distToPlayerSq = toPlayerX * toPlayerX + toPlayerY * toPlayerY + toPlayerZ * toPlayerZ;
+
+        let repelX = 0;
+        let repelY = 0;
+        let repelZ = 0;
+
+        // ⚡ OPTIMIZATION: Early squared distance check avoids Math.sqrt() in hot CPU loop unless needed
+        if (distToPlayerSq < 25.0) { // 5^2
+            const distToPlayer = Math.sqrt(distToPlayerSq);
+            if (distToPlayer > 0.0001) {
+                const repelStrength = (5 - distToPlayer) * 10;
+                repelX = (toPlayerX / distToPlayer) * repelStrength;
+                repelY = (toPlayerY / distToPlayer) * repelStrength;
+                repelZ = (toPlayerZ / distToPlayer) * repelStrength;
+            }
+        }
         
         // Apply forces
-        this.velocities[idx] += (noiseX * 2 + springX + (toPlayerX / distToPlayer) * repelStrength + audioData.low * 5) * deltaTime;
-        this.velocities[idx + 1] += (noiseY * 2 + (toPlayerY / distToPlayer) * repelStrength) * deltaTime;
-        this.velocities[idx + 2] += (noiseZ * 2 + springZ + (toPlayerZ / distToPlayer) * repelStrength) * deltaTime;
+        this.velocities[idx] += (noiseX * 2 + springX + repelX + audioData.low * 5) * deltaTime;
+        this.velocities[idx + 1] += (noiseY * 2 + repelY) * deltaTime;
+        this.velocities[idx + 2] += (noiseZ * 2 + springZ + repelZ) * deltaTime;
         
         // Damping
         this.velocities[idx] *= 0.95;
@@ -322,19 +336,43 @@ export class CPUParticleSystem {
         // Player repulsion
         const toPlayerX = this.positions[idx] - playerPosition.x;
         const toPlayerZ = this.positions[idx + 2] - playerPosition.z;
-        const distToPlayer = Math.sqrt(toPlayerX * toPlayerX + toPlayerZ * toPlayerZ);
-        const repelFactor = Math.max(0, 5 - distToPlayer) * 2;
+        const distToPlayerSq = toPlayerX * toPlayerX + toPlayerZ * toPlayerZ;
+
+        let repelX = 0;
+        let repelZ = 0;
+
+        // ⚡ OPTIMIZATION: Early squared distance check avoids Math.sqrt() in hot CPU loop
+        if (distToPlayerSq < 25.0) { // 5^2
+            const distToPlayer = Math.sqrt(distToPlayerSq);
+            if (distToPlayer > 0.0001) {
+                const repelFactor = (5 - distToPlayer) * 2;
+                repelX = (toPlayerX / distToPlayer) * repelFactor;
+                repelZ = (toPlayerZ / distToPlayer) * repelFactor;
+            }
+        }
         
         // Center attraction
         const toCenterX = this.center.x - this.positions[idx];
         const toCenterZ = this.center.z - this.positions[idx + 2];
-        const distToCenter = Math.sqrt(toCenterX * toCenterX + toCenterZ * toCenterZ);
-        const pullStrength = Math.max(0, distToCenter - 15) * 0.1;
+        const distToCenterSq = toCenterX * toCenterX + toCenterZ * toCenterZ;
+
+        let pullX = 0;
+        let pullZ = 0;
+
+        // ⚡ OPTIMIZATION: Early squared distance check avoids Math.sqrt() in hot CPU loop
+        if (distToCenterSq > 225.0) { // 15^2
+            const distToCenter = Math.sqrt(distToCenterSq);
+            if (distToCenter > 0.0001) {
+                const pullStrength = (distToCenter - 15) * 0.1;
+                pullX = (toCenterX / distToCenter) * pullStrength;
+                pullZ = (toCenterZ / distToCenter) * pullStrength;
+            }
+        }
         
         // Apply forces
-        this.velocities[idx] += (noiseX * 0.5 + audioData.low * 2 + (toPlayerX / distToPlayer) * repelFactor + (toCenterX / distToCenter) * pullStrength) * deltaTime;
+        this.velocities[idx] += (noiseX * 0.5 + audioData.low * 2 + repelX + pullX) * deltaTime;
         this.velocities[idx + 1] += (noiseY * 0.5) * deltaTime;
-        this.velocities[idx + 2] += (noiseZ * 0.5 + audioData.low * 2 + (toPlayerZ / distToPlayer) * repelFactor + (toCenterZ / distToCenter) * pullStrength) * deltaTime;
+        this.velocities[idx + 2] += (noiseZ * 0.5 + audioData.low * 2 + repelZ + pullZ) * deltaTime;
         
         // Damping
         this.velocities[idx] *= 0.98;

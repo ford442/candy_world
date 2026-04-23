@@ -108,6 +108,9 @@ export class SaveMenu {
 
         this.container = document.createElement('div');
         this.container.className = 'candy-save-menu';
+        this.container.setAttribute('role', 'dialog');
+        this.container.setAttribute('aria-modal', 'true');
+        this.container.setAttribute('aria-labelledby', 'save-menu-title');
         
         // Add click outside to close
         this.container.addEventListener('click', (e) => {
@@ -221,7 +224,7 @@ export class SaveMenu {
         }
 
         this.container.innerHTML = `
-            <div class="candy-save-menu__container" role="dialog" aria-modal="true" aria-labelledby="save-menu-title">
+            <div class="candy-save-menu__container">
                 ${this.renderHeader()}
                 ${this.currentMode === 'full' ? this.renderTabs(tabs) : ''}
                 <div id="panel-${this.currentTab}" role="tabpanel" aria-labelledby="tab-${this.currentTab}" class="candy-save-menu__content">
