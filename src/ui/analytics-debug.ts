@@ -368,6 +368,7 @@ class AnalyticsDebugOverlay {
   private eventLog: Array<{ time: string; type: string; props: string }> = [];
   private maxEventLog = 50;
   private releaseFocusTrap: (() => void) | null = null;
+  private lastFocusedElement: HTMLElement | null = null;
 
   constructor() {
     this.injectStyles();
@@ -651,9 +652,13 @@ class AnalyticsDebugOverlay {
   show(): void {
     if (this.isVisible) return;
     
+    this.lastFocusedElement = document.activeElement as HTMLElement;
     this.elements = this.createElements();
     this.isVisible = true;
     
+    // Trap focus inside the overlay
+    this.releaseFocusTrap = trapFocusInside(this.elements.container);
+
     // Start update loop
     this.refresh();
     this.updateInterval = window.setInterval(() => {
@@ -670,10 +675,15 @@ class AnalyticsDebugOverlay {
   hide(): void {
     if (!this.isVisible || !this.elements) return;
     
+    // Release focus trap and restore focus
     if (this.releaseFocusTrap) {
       this.releaseFocusTrap();
       this.releaseFocusTrap = null;
     }
+    if (this.lastFocusedElement && typeof this.lastFocusedElement.focus === 'function') {
+      this.lastFocusedElement.focus();
+    }
+    this.lastFocusedElement = null;
 
     this.elements.container.remove();
     this.elements = null;
