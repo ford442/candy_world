@@ -16,6 +16,7 @@
 
 import { analytics, trackEvent } from '../systems/analytics';
 import type { FPSHistogram, FrameTimePercentiles } from '../systems/analytics';
+import { trapFocusInside } from '../utils/interaction-utils.ts';
 
 // =============================================================================
 // Types & Interfaces
@@ -366,6 +367,7 @@ class AnalyticsDebugOverlay {
   private updateInterval: number | null = null;
   private eventLog: Array<{ time: string; type: string; props: string }> = [];
   private maxEventLog = 50;
+  private releaseFocusTrap: (() => void) | null = null;
 
   constructor() {
     this.injectStyles();
@@ -658,6 +660,7 @@ class AnalyticsDebugOverlay {
       this.refresh();
     }, 1000);
     
+    this.releaseFocusTrap = trapFocusInside(this.elements.container);
     trackEvent('debug_overlay_opened', {});
   }
 
@@ -667,6 +670,11 @@ class AnalyticsDebugOverlay {
   hide(): void {
     if (!this.isVisible || !this.elements) return;
     
+    if (this.releaseFocusTrap) {
+      this.releaseFocusTrap();
+      this.releaseFocusTrap = null;
+    }
+
     this.elements.container.remove();
     this.elements = null;
     this.isVisible = false;
