@@ -243,6 +243,27 @@ export const MENU_STYLES = `
     outline-offset: 2px;
 }
 
+.candy-save-slot__btn[aria-busy="true"],
+.candy-save-menu__btn[aria-busy="true"] {
+    cursor: wait !important;
+    position: relative;
+    pointer-events: none;
+    opacity: 0.8;
+}
+
+.candy-save-slot__btn[aria-busy="true"] .spinner,
+.candy-save-menu__btn[aria-busy="true"] .spinner {
+    display: inline-block;
+    width: 1em;
+    height: 1em;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top-color: #fff;
+    animation: spin 1s ease-in-out infinite;
+    margin-right: 5px;
+    vertical-align: middle;
+}
+
 /* Action Buttons */
 .candy-save-menu__actions {
     display: flex;
