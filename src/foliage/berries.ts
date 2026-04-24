@@ -199,9 +199,9 @@ export class BerryBatcher {
                 const start = group.userData.batchIndex;
                 const count = group.userData.count;
                 _scratchMatrix.makeScale(0, 0, 0);
-
                 for(let i=0; i<count; i++) {
-                    this.mesh.setMatrixAt(start + i, _scratchMatrix);
+                    // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
+                    _scratchMatrix.toArray(this.mesh.instanceMatrix.array, (start + i) * 16);
                 }
                 meshNeedsUpdate = true;
 
@@ -503,7 +503,8 @@ export function initFallingBerries(scene: THREE.Scene): void {
     const m = new THREE.Matrix4();
     m.identity();
     for (let i = 0; i < MAX_FALLING_BERRIES; i++) {
-        fallingBerryMesh.setMatrixAt(i, m);
+        // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
+        m.toArray(fallingBerryMesh.instanceMatrix.array, i * 16);
     }
     fallingBerryMesh.instanceMatrix.needsUpdate = true;
 

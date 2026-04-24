@@ -268,6 +268,8 @@ export class ShaderWarmup {
       // Cleanup
       renderTarget.dispose();
       scene.remove(mesh);
+      // ⚡ OPTIMIZATION: Ensure materials are not disposed here to preserve compiled shader program.
+      // this.warmupGeometry is reused so we don't dispose it. However, the temporary mesh is removed.
       if (material instanceof MeshStandardNodeMaterial) {
         scene.children.forEach(child => {
           if (child instanceof THREE.Light) scene.remove(child);

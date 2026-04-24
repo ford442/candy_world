@@ -19,9 +19,9 @@
     "budget:check": "cd tools/build-optimizer && npm run budget:check",
     "build": "npm run build:wasm && npm run build:emcc && vite build",
     "build:optimized": "npm run build:wasm && npm run build:emcc && npm run optimize && vite build",
-    "test": "echo 'Skipping broken verify.py'",
-    "test:wasm": "echo 'Skipping broken verify_wasm_particle_bounds.js'",
-    "test:integration": "npm run build:wasm && npm run test:wasm",
+    "test": "node --experimental-detect-module tests/smoke-runner.mjs",
+    "test:wasm": "node tests/wasm.mjs",
+    "test:integration": "npm run build:wasm && npm run test:wasm && npm run test",
     "verify:emcc": "node verification/verify_emcc_exports.js",
     "generate:map": "tsx tools/map-generator/cli.ts"
   },

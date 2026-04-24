@@ -36,3 +36,9 @@
 2024-05-24 - Physics Spatial Grids & Zero-Allocation Math
 **Learning:** O(N) array iteration and Math.sqrt() in hot-path physics checks (like Retrigger Mushrooms and Geysers) create significant GC spikes and frame drops, even when N is relatively small compared to render counts. The rendering SpatialHashGrid is not suitable for gameplay proximity logic.
 **Action:** Implemented a lightweight, physics-dedicated `PhysicsSpatialGrid` populated once per world generation. Replaced O(N) loops in `checkRetriggerMushrooms`, `checkGeysers`, `checkSnareTraps`, and `checkVibratoViolets` with grid queries, and stripped all `Math.sqrt()` and proxy `distanceToSquared()` calls from hot loops.
+
+---
+Date: 2024-05-18
+Title: Bypassing Object3D Proxies in Compute Nodes
+**Learning:** Instantiating `THREE.Object3D` solely to calculate matrices (via `dummy.updateMatrix()`) introduces unnecessary overhead in tight compute loops.
+**Action:** Replaced `dummy.updateMatrix()` with direct `Matrix4.compose()` using pre-allocated module-scoped scratch variables (`_scratchPosition`, `_scratchQuaternion`, `_scratchScale`, `_scratchMatrix`) inside `gpu-particle-system.ts` and `berries.ts`, directly writing to the `instanceMatrix.array` with `toArray()`. This eliminates the need for dummy `Object3D` instances completely.

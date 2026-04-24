@@ -108,6 +108,9 @@ export class SaveMenu {
 
         this.container = document.createElement('div');
         this.container.className = 'candy-save-menu';
+        this.container.setAttribute('role', 'dialog');
+        this.container.setAttribute('aria-modal', 'true');
+        this.container.setAttribute('aria-labelledby', 'save-menu-title');
         
         // Add click outside to close
         this.container.addEventListener('click', (e) => {
@@ -221,7 +224,7 @@ export class SaveMenu {
         }
 
         this.container.innerHTML = `
-            <div class="candy-save-menu__container" role="dialog" aria-modal="true" aria-labelledby="save-menu-title">
+            <div class="candy-save-menu__container">
                 ${this.renderHeader()}
                 ${this.currentMode === 'full' ? this.renderTabs(tabs) : ''}
                 <div id="panel-${this.currentTab}" role="tabpanel" aria-labelledby="tab-${this.currentTab}" class="candy-save-menu__content">
@@ -372,7 +375,7 @@ export class SaveMenu {
                 const el = e.currentTarget as HTMLElement;
                 const action = el.dataset.action;
                 const slotId = el.dataset.slot!;
-                this.handleSlotAction(action!, slotId);
+                this.handleSlotAction(action!, slotId, el);
             });
         });
 
@@ -417,7 +420,7 @@ export class SaveMenu {
         }
     }
 
-    private async handleSlotAction(action: string, slotId: string): Promise<void> {
+    private async handleSlotAction(action: string, slotId: string, btnElement?: HTMLElement): Promise<void> {
         // Create bound save function for callbacks
         const boundSaveToSlot = async (id: string) => {
             const result = await saveSystem.save(id);
@@ -437,7 +440,8 @@ export class SaveMenu {
             this.onSaveCallback,
             () => this.refreshSlots(),
             () => this.render(),
-            (tab) => this.switchTab(tab)
+            (tab) => this.switchTab(tab),
+            btnElement
         );
     }
 

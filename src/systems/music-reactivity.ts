@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { CONFIG, CYCLE_DURATION } from '../core/config.ts';
+import { getDayNightBias } from '../core/cycle.ts';
 import { animateFoliage } from '../foliage/animation.ts';
 import { foliageBatcher } from '../foliage/batcher/index.ts';
 import { arpeggioFernBatcher } from '../foliage/arpeggio-batcher.ts';
@@ -297,11 +298,15 @@ export class MusicReactivitySystem {
             const kick = audioState?.kickTrigger || 0;
             foliageBatcher.flush(time, kick, audioState);
 
+            // Continuous day/night bias for pose state machines (0 = night, 1 = day).
+            // Pure arithmetic — no allocations.
+            const dayNightBias = getDayNightBias(time % CYCLE_DURATION);
+
             // Update Arpeggio Batcher
-            arpeggioFernBatcher.update(audioState);
+            arpeggioFernBatcher.update(audioState, dayNightBias);
 
             // Update Portamento Batcher
-            portamentoPineBatcher.update(time, audioState);
+            portamentoPineBatcher.update(time, audioState, dayNightBias);
         }
     }
 

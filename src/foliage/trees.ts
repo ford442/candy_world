@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { foliageMaterials, registerReactiveMaterial, attachReactivity, pickAnimation, createClayMaterial, createGradientMaterial, sharedGeometries, uAudioLow, uWindSpeed, calculatePlayerPush, createStandardNodeMaterial, createJuicyRimLight } from './index.ts';
+import { foliageMaterials, registerReactiveMaterial, attachReactivity, pickAnimation, createClayMaterial, createGradientMaterial, sharedGeometries, uAudioLow, uWindSpeed, calculatePlayerPush, createStandardNodeMaterial, createJuicyRimLight, getCachedProceduralMaterial } from './index.ts';
 import { color as tslColor, mix, float, sin, cos, vec3, positionLocal, positionWorld, time, normalWorld } from 'three/tsl';
 import { uTwilight } from './sky.ts';
 import { createBerryCluster } from './berries.ts';
@@ -632,8 +632,12 @@ export function createSwingableVine(options: SwingableVineOptions = {}): THREE.G
     const segmentCount = 8;
     const segLen = length / segmentCount;
 
+    const vineMat = getCachedProceduralMaterial(`swingable_vine_${color}`, color, () => {
+        return createClayMaterial(color);
+    });
+
     for (let i = 0; i < segmentCount; i++) {
-        const mat = createClayMaterial(color);
+        const mat = vineMat;
         const segmentGroup = new THREE.Group();
         segmentGroup.position.y = -i * segLen;
 

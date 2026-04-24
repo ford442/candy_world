@@ -36,6 +36,11 @@ import * as THREE from 'three';
 import { GPUComputeLibrary } from './gpu-compute-library.ts';
 import { PARTICLE_PHYSICS_WGSL } from './gpu-compute-shaders.ts';
 
+const _scratchMatrix = new THREE.Matrix4();
+const _scratchQuaternion = new THREE.Quaternion();
+const _scratchPosition = new THREE.Vector3();
+const _scratchScale = new THREE.Vector3();
+
 // =============================================================================
 // TYPES
 // =============================================================================
@@ -428,12 +433,11 @@ export class GPUParticleSystem {
             // Scale based on life
             const scale = Math.max(0, life) * 0.2;
 
-            this.dummy.position.set(x, y, z);
-            this.dummy.scale.set(scale, scale, scale);
-            this.dummy.updateMatrix();
-
-            // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
-        this.dummy.matrix.toArray(this.particleMesh.instanceMatrix.array, (i) * 16);
+            // ⚡ OPTIMIZATION: Bypassed THREE.Object3D proxy and updateMatrix() overhead for zero-allocation batch writing
+            _scratchPosition.set(x, y, z);
+            _scratchScale.set(scale, scale, scale);
+            _scratchMatrix.compose(_scratchPosition, _scratchQuaternion, _scratchScale);
+            _scratchMatrix.toArray(this.particleMesh.instanceMatrix.array, i * 16);
         }
 
         this.particleMesh.instanceMatrix.needsUpdate = true;

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import type { PlantPoseConfig } from '../foliage/plant-pose-machine.ts';
 
 // Cycle: Sunrise (1m), Day (7m), Sunset (1m), Night (7m) = Total 16m = 960s
 export const DURATION_SUNRISE = 60;
@@ -139,6 +140,14 @@ export interface ConfigType {
     audio: {
         useScriptProcessorNode: boolean;
     };
+    /**
+     * Per-plant-type ADSR envelope configuration for the day/night pose state machine.
+     * Values are data-driven so they can be tuned without touching shader code.
+     */
+    plantPose: {
+        arpeggioFern: PlantPoseConfig;
+        portamentoPine: PlantPoseConfig;
+    };
 }
 
 export const CONFIG: ConfigType = {
@@ -235,5 +244,28 @@ export const CONFIG: ConfigType = {
         // Default: false (uses modern AudioWorkletNode)
         // See AUDIO_COMPATIBILITY_MODE.md for more information
         useScriptProcessorNode: false
+    },
+
+    // --- PLANT POSE ADSR ENVELOPES ---
+    // Controls per-plant sustained/transient response to music and day/night cycle.
+    // All values are data-driven so tuning never touches shader or batcher code.
+    plantPose: {
+        arpeggioFern: {
+            attackRate: 3.0,        // unfurl speed per second (fast: responds promptly to arpeggio)
+            releaseRate: 0.4,       // fold-back speed per second (slow: sustains open during quiet)
+            sustainLevel: 1.0,      // envelope peak = 100 % of dayTarget
+            dayTarget: 1.0,         // fully open fronds at mid-day
+            nightTarget: 0.0,       // curled closed at night
+            triggerThreshold: 0.05  // minimum arpeggio channel volume to trigger attack
+        },
+        portamentoPine: {
+            attackRate: 5.0,        // spring-rest shift speed per second (fast kick with note)
+            releaseRate: 0.8,       // settle speed per second (medium: ~1 s to fully release)
+            sustainLevel: 0.8,      // envelope peak = 80 % of dayTarget bend
+            dayTarget: 0.15,        // slight forward lean when active at day
+            nightTarget: -0.05,     // subtle droop at night rest
+            triggerThreshold: 0.08, // minimum melody channel volume to trigger bend
+            channelIndex: 2         // melody channel (tracker channel 2)
+        }
     }
 };

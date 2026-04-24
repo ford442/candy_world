@@ -18,6 +18,8 @@ import {
 import { uTime, uGlitchIntensity } from './index.ts';
 import { applyGlitch } from './glitch.ts';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { PlantPoseMachine } from './plant-pose-machine.ts';
+import { CONFIG } from '../core/config.ts';
 
 const MAX_FERNS = 500; // Reduced from 2000 for WebGPU uniform buffer limits
 const FRONDS_PER_FERN = 5;
@@ -43,6 +45,12 @@ export class ArpeggioFernBatcher {
     private currentUnfurlValue: number = 0;
     private lastTrigger: boolean = false;
 
+    /**
+     * Day/night pose state machine — single slot (global unfurl for all ferns).
+     * Uses a Float32Array of capacity 1; no per-frame allocations.
+     */
+    private _poseMachine: PlantPoseMachine;
+
     constructor() {
         this.initialized = false;
         this.count = 0;
@@ -54,6 +62,9 @@ export class ArpeggioFernBatcher {
 
         // Initialize global uniform
         this.uFernUnfurl = uniform(float(0.0));
+
+        // Single-slot pose machine for global fern unfurl (capacity=1, no per-frame alloc)
+        this._poseMachine = new PlantPoseMachine(1);
     }
 
     init() {
@@ -354,10 +365,10 @@ export class ArpeggioFernBatcher {
         this.mesh!.instanceMatrix.needsUpdate = true;
     }
 
-    update(audioState: any = null) {
+    update(audioState: any = null, dayNightBias: number = 1.0) {
         if (!this.initialized || this.count === 0) return;
 
-        // Logic (Same as before)
+        // --- Arpeggio detection (unchanged) ---
         let arpeggioActive = false;
         let noteTrigger = false;
         if (audioState && audioState.channelData) {
@@ -389,7 +400,21 @@ export class ArpeggioFernBatcher {
         const speed = (nextTarget > this.currentUnfurlValue) ? 0.3 : 0.05;
         this.currentUnfurlValue += (nextTarget - this.currentUnfurlValue) * speed;
 
-        const unfurl = this.currentUnfurlValue / maxSteps;
+        // --- Day/night ADSR envelope (pose machine) ---
+        // Channel intensity: 1.0 when arpeggio is active, 0.0 otherwise.
+        const channelIntensity = arpeggioActive ? 1.0 : 0.0;
+        const poseConfig = CONFIG.plantPose.arpeggioFern;
+
+        // Fixed dt (60 Hz assumption) keeps parity with portamento batcher convention.
+        this._poseMachine.update(1, 0.016, channelIntensity, dayNightBias, poseConfig);
+
+        // Day/night baseline from pose machine (0 = night-closed, up to nightTarget/dayTarget).
+        // Blends a gentle partial-open bias from daylight into the step-driven unfurl.
+        const dnBaseline = this._poseMachine.getPose(0);
+
+        // Final unfurl: day/night baseline + step-driven contribution in the remaining range.
+        const stepUnfurl = this.currentUnfurlValue / maxSteps;
+        const unfurl = dnBaseline + stepUnfurl * (1.0 - dnBaseline);
 
         this.globalUnfurl = unfurl;
         this.uFernUnfurl.value = unfurl;
