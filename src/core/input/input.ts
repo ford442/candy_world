@@ -10,7 +10,7 @@ import * as THREE from 'three';
 import { discoverySystem } from '../../systems/discovery.js';
 import { trapFocusInside } from '../../utils/interaction-utils.ts';
 import { openAccessibilityMenu } from '../../ui/accessibility-menu.ts';
-import { keyStates, InitInputResult } from './input-types.ts';
+import { keyStates, InitInputResult, filterValidMusicFiles } from './input-types.ts';
 import {
     initPlaylistManager,
     getIsPlaylistOpen,
@@ -549,8 +549,7 @@ export function initInput(
         const files = e.dataTransfer?.files;
         if (files && files.length > 0) {
             // Use the filter function from input-types
-            import('./input-types.ts').then(({ filterValidMusicFiles }) => {
-                const { validFiles, invalidFiles } = filterValidMusicFiles(files);
+            const { validFiles, invalidFiles } = filterValidMusicFiles(files);
 
                 if (validFiles.length > 0) {
                     audioSystem.addToQueue(validFiles);
@@ -569,7 +568,7 @@ export function initInput(
                         showToast("❌ Only .mod, .xm, .it, .s3m allowed!", '🚫');
                     });
                 }
-            });
+            // End filter
         }
     };
 
