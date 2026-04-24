@@ -1,7 +1,7 @@
 // src/world/generation.ts
 
 import { updateProgress } from '../ui/index.ts';
-import { createIntegratedFireflies, createIntegratedPollen, createIntegratedSparks } from '../particles/index.ts';
+import { createIntegratedFireflies, createIntegratedPollen, createIntegratedSparks, registerIntegratedSystem } from '../particles/index.ts';
 import * as THREE from 'three';
 import { getGroundHeight, initCollisionSystem, addCollisionObject, checkPositionValidity } from '../utils/wasm-loader.js';
 import {
@@ -640,6 +640,16 @@ function populateLakeIsland(weatherSystem: WeatherSystem): void {
     // Audio-reactive magic dust covering the island
     const pollen = createIntegratedPollen({ count: 3000, areaSize: 25, center: new THREE.Vector3(centerX, 5, centerZ), useCompute: true });
     safeAddFoliage(pollen, false, 0, null);
+    if ((pollen as any).userData?.computeParticleSystem) {
+        registerIntegratedSystem('pollen_island', pollen, (pollen as any).userData.computeParticleSystem);
+    }
+
+    // ⚡ JUICE: Environmental Sparks around the Core
+    const sparks = createIntegratedSparks({ count: 5000, areaSize: 15, center: new THREE.Vector3(centerX, 2, centerZ), useCompute: true });
+    safeAddFoliage(sparks, false, 0, null);
+    if ((sparks as any).userData?.computeParticleSystem) {
+        registerIntegratedSystem('sparks_island', sparks, (sparks as any).userData.computeParticleSystem);
+    }
     
 
     // ⚡ JUICE: Environmental Sparks

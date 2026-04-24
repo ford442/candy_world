@@ -7,8 +7,7 @@
  */
 
 import * as THREE from 'three';
-import { ComputeParticleSystem, createComputeFireflies,
-    createComputeSparks, createComputePollen } from './compute-particles.ts';
+import { ComputeParticleSystem, createComputeFireflies, createComputePollen, createComputeSparks } from './compute-particles.ts';
 import type { ParticleAudioData } from './compute-particles.ts';
 import { createFireflies as createLegacyFireflies } from '../foliage/fireflies.ts';
 import { createNeonPollen as createLegacyPollen } from '../foliage/pollen.ts';
@@ -79,6 +78,7 @@ export function createIntegratedFireflies(options: IntegratedFireflyOptions = {}
             
             console.log(`[Particles] GPU Fireflies: ${computeCount.toLocaleString()} particles`);
             
+            system.mesh.userData.computeParticleSystem = system;
             return system.mesh;
         } catch (error) {
             console.warn('[Particles] GPU compute failed, falling back to CPU:', error);
@@ -161,7 +161,6 @@ export function createIntegratedPollen(options: IntegratedPollenOptions = {}): T
     return legacy;
 }
 
-
 export interface IntegratedSparksOptions {
     count?: number;
     areaSize?: number;
@@ -170,23 +169,23 @@ export interface IntegratedSparksOptions {
 }
 
 /**
- * Creates an environmental sparks system using GPU compute
+ * Creates an integrated environmental sparks system.
+ * Automatically uses GPU compute when available.
  */
 export function createIntegratedSparks(options: IntegratedSparksOptions = {}): THREE.Object3D {
     const {
-        count = 1000,
-        areaSize = 50,
-        center = new THREE.Vector3(0, 10, 0),
+        count = 10000,
+        areaSize = 30,
+        center = new THREE.Vector3(0, 5, 0),
         useCompute = true
     } = options;
 
     const hasWebGPU = typeof navigator !== 'undefined' && 'gpu' in navigator;
 
     if (useCompute && hasWebGPU) {
-        const computeCount = Math.min(count * 5, 20000);
+        const computeCount = Math.min(count * 5, 50000);
 
         try {
-            // Use the GPU compute path
             const system = createComputeSparks({
                 count: computeCount,
                 bounds: { x: areaSize * 2, y: 20, z: areaSize * 2 },
@@ -204,14 +203,27 @@ export function createIntegratedSparks(options: IntegratedSparksOptions = {}): T
 
             return system.mesh;
         } catch (error) {
-            console.warn('[Particles] GPU compute failed for sparks, returning empty object:', error);
+            console.warn('[Particles] GPU compute failed for sparks, falling back to CPU:', error);
         }
     }
 
-    // Fallback: Return empty object if no CPU legacy implementation exists for environmental sparks yet
-    console.log(`[Particles] CPU Sparks: Not implemented, returning empty Group.`);
-    return new THREE.Group();
+    // CPU Fallback - Just return an empty group for now since there's no CPU equivalent in the foliage module
+    // We could implement a legacy version, but for environmental sparks a group is fine as fallback
+    const legacyGroup = new THREE.Group();
+    legacyGroup.userData.isCpuFallbackSparks = true;
+
+    metrics.set('sparks', {
+        particleCount: 0,
+        frameTime: 0,
+        gpuTime: 0,
+        cpuFallback: true
+    });
+
+    console.log(`[Particles] CPU Sparks: Not implemented, skipping...`);
+
+    return legacyGroup;
 }
+
 
 // =============================================================================
 // SYSTEM REGISTRY
@@ -467,5 +479,6 @@ export {
     ComputeParticleSystem,
     createComputeFireflies,
     createComputePollen,
+    createComputeSparks,
     type ParticleAudioData
 } from './compute-particles.ts';
