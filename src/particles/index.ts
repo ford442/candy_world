@@ -52,6 +52,7 @@ export { default } from './compute-particles.ts';
 export {
     createIntegratedFireflies,
     createIntegratedPollen,
+    createIntegratedSparks,
     updateAllIntegratedSystems,
     registerIntegratedSystem,
     disposeIntegratedSystem,
