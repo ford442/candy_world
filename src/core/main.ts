@@ -14,7 +14,7 @@ import { WeatherSystem } from '../systems/weather.ts';
 import { initWasm, getGroundHeight } from '../utils/wasm-loader.js';
 import { getUnifiedGroundHeightTyped } from '../systems/physics.core.ts';
 import { profiler } from '../utils/profiler.js';
-import { enableStartupProfiler, finalizeStartupProfile, recordWASMInit } from '../utils/startup-profiler.ts';
+import { enableStartupProfiler, finalizeStartupProfile, recordWASMInit, toggleOverlay } from '../utils/startup-profiler.ts';
 import { startPhase, endPhase } from '../utils/startup-profiler.ts';
 import { glitchGrenadeSystem } from '../systems/glitch-grenade.ts';
 
@@ -179,9 +179,7 @@ window.addEventListener('keydown', (e) => {
             profiler.toggle();
         } else if (key === 'o') {
             // Toggle startup profiler overlay
-            import('../utils/startup-profiler.ts').then(({ toggleOverlay }) => {
-                toggleOverlay();
-            });
+            toggleOverlay();
         } else if (key === 'f') {
             // Demo logic...
         } else if (key === 'g') {

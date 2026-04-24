@@ -158,8 +158,63 @@ export async function handleSlotAction(
     onSaveCallback?: (slotId: string) => void,
     refreshSlots?: () => Promise<void>,
     render?: () => void,
-    switchTab?: (tab: 'load' | 'save' | 'settings' | 'import-export') => void
+    switchTab?: (tab: 'load' | 'save' | 'settings' | 'import-export') => void,
+    btnElement?: HTMLElement
 ): Promise<void> {
+
+    // Set busy state if button was provided
+    if (btnElement) {
+        btnElement.setAttribute('aria-busy', 'true');
+        btnElement.style.pointerEvents = 'none';
+        btnElement.style.opacity = '0.7';
+        const originalText = btnElement.innerHTML;
+        btnElement.innerHTML = '<span class="spinner" aria-hidden="true"></span>...';
+
+        // Setup cleanup to restore state
+        const cleanup = () => {
+            btnElement.removeAttribute('aria-busy');
+            btnElement.style.pointerEvents = '';
+            btnElement.style.opacity = '';
+            btnElement.innerHTML = originalText;
+        };
+
+        try {
+            switch (action) {
+                case 'load':
+                    await loadSave(slotId, onLoadCallback, menu);
+                    break;
+                case 'save':
+                    await saveToSlot(slotId, onSaveCallback, refreshSlots, render);
+                    break;
+                case 'overwrite':
+                    if (!confirm('Are you sure you want to overwrite this save? This cannot be undone.')) {
+                        cleanup();
+                        return;
+                    }
+                    await saveToSlot(slotId, onSaveCallback, refreshSlots, render);
+                    break;
+                case 'export':
+                    await exportSlot(slotId, menu);
+                    break;
+                case 'delete':
+                    if (confirm('Are you sure you want to delete this save?')) {
+                        const result = await saveSystem.delete(slotId);
+                        if (result) {
+                            import('../../utils/toast.js').then(({ showToast }) => {
+                                showToast('Save deleted', '🗑️', 3000);
+                            });
+                            await refreshSlots?.();
+                            render?.();
+                        }
+                    }
+                    break;
+            }
+        } finally {
+            cleanup();
+        }
+        return;
+    }
+
     switch (action) {
         case 'load':
             await loadSave(slotId, onLoadCallback, menu);

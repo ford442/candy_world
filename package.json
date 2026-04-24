@@ -36,7 +36,7 @@
     "@types/three": "^0.171.0",
     "assemblyscript": "^0.27.37",
     "tsx": "^4.7.0",
-    "typescript": "^5.3.3",
+    "typescript": "^5.9.3",
     "vite": "^5.0.0",
     "vite-plugin-top-level-await": "^1.6.0",
     "vite-plugin-wasm": "^3.5.0"

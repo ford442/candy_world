@@ -8,7 +8,9 @@ import {
     uploadCollisionObjects, resolveGameCollisionsWASM
 } from '../../utils/wasm-loader.js';
 import {
-    foliageMushrooms, foliageTrampolines, foliageClouds, vineSwings, animatedFoliage
+    foliageMushrooms, foliageTrampolines, foliageClouds, vineSwings, animatedFoliage,
+    foliageTraps, foliageGeysers, foliagePortamentoPines, foliagePanningPads,
+    activeVineSwing, lastVineDetachTime
 } from '../../world/state.ts';
 import { discoverySystem } from '../discovery.ts';
 import { DISCOVERY_MAP } from '../discovery_map.ts';
@@ -23,7 +25,7 @@ import { uGlitchExplosionCenter, uGlitchExplosionRadius } from '../../foliage/in
 import { spawnImpact } from '../../foliage/impacts.ts';
 import { showToast } from '../../utils/toast.js';
 import { harmonyOrbSystem } from '../../foliage/aurora.ts';
-import { addCameraShake } from '../../main.ts';
+import { addCameraShake } from '../../core/game-loop.ts';
 import { unlockSystem } from '../unlocks.ts';
 
 // Import from physics modules
@@ -135,27 +137,24 @@ export function populatePhysicsGrids() {
     physicsPinesGrid.clear();
     physicsPanningPadsGrid.clear();
 
-    // The arrays come from world/state.ts
-    import('../../world/state.ts').then((state) => {
-        for (let i = 0; i < state.animatedFoliage.length; i++) {
-            const obj = state.animatedFoliage[i];
-            if (obj.userData?.type === 'retrigger_mushroom' || obj.userData?.type === 'vibratoViolet' || (obj.userData?.type === 'flower' && obj.userData?.animationType === 'batchedCymbal')) {
-                physicsFoliageGrid.insert(obj);
-            }
+    for (let i = 0; i < animatedFoliage.length; i++) {
+        const obj = animatedFoliage[i];
+        if (obj.userData?.type === 'retrigger_mushroom' || obj.userData?.type === 'vibratoViolet' || (obj.userData?.type === 'flower' && obj.userData?.animationType === 'batchedCymbal')) {
+            physicsFoliageGrid.insert(obj);
         }
-        for (let i = 0; i < state.foliageTraps.length; i++) {
-            physicsTrapsGrid.insert(state.foliageTraps[i]);
-        }
-        for (let i = 0; i < state.foliageGeysers.length; i++) {
-            physicsGeysersGrid.insert(state.foliageGeysers[i]);
-        }
-        for (let i = 0; i < state.foliagePortamentoPines.length; i++) {
-            physicsPinesGrid.insert(state.foliagePortamentoPines[i]);
-        }
-        for (let i = 0; i < state.foliagePanningPads.length; i++) {
-            physicsPanningPadsGrid.insert(state.foliagePanningPads[i]);
-        }
-    });
+    }
+    for (let i = 0; i < foliageTraps.length; i++) {
+        physicsTrapsGrid.insert(foliageTraps[i]);
+    }
+    for (let i = 0; i < foliageGeysers.length; i++) {
+        physicsGeysersGrid.insert(foliageGeysers[i]);
+    }
+    for (let i = 0; i < foliagePortamentoPines.length; i++) {
+        physicsPinesGrid.insert(foliagePortamentoPines[i]);
+    }
+    for (let i = 0; i < foliagePanningPads.length; i++) {
+        physicsPanningPadsGrid.insert(foliagePanningPads[i]);
+    }
 }
 
 export function grantInvisibility(duration: number) {
@@ -299,16 +298,12 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
 
     for (let i = 0; i < vineSwings.length; i++) {
         const v = vineSwings[i];
-        import('../../world/state.ts').then(({ activeVineSwing }) => {
-            if (v !== activeVineSwing) v.update(player as any, delta, null);
-        });
+        if (v !== activeVineSwing) v.update(player as any, delta, null);
     }
 
-    import('../../world/state.ts').then(({ lastVineDetachTime }) => {
-        if (Date.now() - lastVineDetachTime > 500) {
-            checkVineAttachment(camera);
-        }
-    });
+    if (Date.now() - lastVineDetachTime > 500) {
+        checkVineAttachment(camera);
+    }
 
     // --- ABILITIES & MOVEMENT ---
     handleAbilities(delta, camera, keyStates);
