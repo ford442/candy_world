@@ -3,7 +3,8 @@ import { MeshStandardNodeMaterial } from 'three/webgpu';
 import {
     time, positionLocal, sin, cos, positionWorld, color, vec3, mix, float, smoothstep
 } from 'three/tsl';
-import { CandyPresets, attachReactivity, uAudioHigh, uTime, createJuicyRimLight } from './index.ts';
+import { CandyPresets, uAudioHigh, createJuicyRimLight } from './material-core.ts';
+import { attachReactivity } from './foliage-reactivity.ts';
 import { makeInteractive } from '../utils/interaction-utils.ts';
 import { discoverySystem } from '../systems/discovery.ts';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
@@ -46,8 +47,8 @@ export function createWisteriaCluster(options: WisteriaClusterOptions = {}) {
     const normalizedHeight = positionLocal.y.div(-4.0).clamp(0.0, 1.0);
 
     // X and Z sway
-    const swayX = sin(uTime.mul(baseSwayFreq).add(swayPhase)).mul(0.5).mul(audioEnergy).mul(normalizedHeight);
-    const swayZ = cos(uTime.mul(baseSwayFreq.mul(0.8)).add(swayPhase)).mul(0.5).mul(audioEnergy).mul(normalizedHeight);
+    const swayX = sin(time.mul(baseSwayFreq).add(swayPhase)).mul(0.5).mul(audioEnergy).mul(normalizedHeight);
+    const swayZ = cos(time.mul(baseSwayFreq.mul(0.8)).add(swayPhase)).mul(0.5).mul(audioEnergy).mul(normalizedHeight);
 
     // Apply sway to vertex position
     material.positionNode = positionLocal.add(vec3(swayX, float(0.0), swayZ));

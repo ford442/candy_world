@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { color, float, vec3, uv, positionLocal, mx_noise_float, mix, smoothstep, normalLocal, sin } from 'three/tsl';
-import { uAudioLow, uAudioHigh, createJuicyRimLight, uTime } from '../foliage/index.ts';
+import { uAudioLow, uAudioHigh, createJuicyRimLight, uTime } from '../foliage/material-core.ts';
 import { uChromaticIntensity } from '../foliage/chromatic.ts';
 import { spawnImpact } from '../foliage/impacts.ts';
 import { unlockSystem } from '../systems/unlocks.ts';
@@ -141,4 +141,23 @@ export class ChordStrikeSystem {
     }
 }
 
-export const chordStrikeSystem = new ChordStrikeSystem();
+let _chordStrikeSystem: ChordStrikeSystem | null = null;
+function getChordStrikeSystem(): ChordStrikeSystem {
+    if (!_chordStrikeSystem) {
+        _chordStrikeSystem = new ChordStrikeSystem();
+    }
+    return _chordStrikeSystem;
+}
+
+export const chordStrikeSystem = {
+    get active() { return getChordStrikeSystem().active; },
+    get duration() { return getChordStrikeSystem().duration; },
+    get maxDuration() { return getChordStrikeSystem().maxDuration; },
+    get radius() { return getChordStrikeSystem().radius; },
+    get maxRadius() { return getChordStrikeSystem().maxRadius; },
+    get position() { return getChordStrikeSystem().position; },
+    get mesh() { return getChordStrikeSystem().mesh; },
+    addToScene(scene: THREE.Scene) { return getChordStrikeSystem().addToScene(scene); },
+    fire(playerPos: THREE.Vector3) { return getChordStrikeSystem().fire(playerPos); },
+    update(delta: number, scene: THREE.Scene, player: any) { return getChordStrikeSystem().update(delta, scene, player); },
+};

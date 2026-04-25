@@ -4,7 +4,7 @@ import {
     uGlitchIntensity,
     uTime,
     uAudioLow
-} from '../foliage/index.ts';
+} from '../foliage/material-core.ts';
 import { applyGlitch } from '../foliage/glitch.ts';
 import { uChromaticIntensity } from '../foliage/chromatic.ts';
 import { spawnImpact } from '../foliage/impacts.ts';
@@ -277,4 +277,20 @@ class JitterMineSystem {
     }
 }
 
-export const jitterMineSystem = new JitterMineSystem();
+let _jitterMineSystem: JitterMineSystem | null = null;
+function getJitterMineSystem(): JitterMineSystem {
+    if (!_jitterMineSystem) {
+        _jitterMineSystem = new JitterMineSystem();
+    }
+    return _jitterMineSystem;
+}
+
+export const jitterMineSystem = {
+    get mesh() { return getJitterMineSystem().mesh; },
+    get mines() { return getJitterMineSystem().mines; },
+    get cooldownTimer() { return getJitterMineSystem().cooldownTimer; },
+    get trauma() { return getJitterMineSystem().trauma; },
+    spawnMine(position: THREE.Vector3) { return getJitterMineSystem().spawnMine(position); },
+    update(delta: number, playerPos: THREE.Vector3) { return getJitterMineSystem().update(delta, playerPos); },
+    explode(index: number) { return getJitterMineSystem().explode(index); },
+};

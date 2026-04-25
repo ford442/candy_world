@@ -12,13 +12,14 @@ import {
     createRainingCloud, createWaveformWater, initFallingBerries,
     initGrassSystem, addGrassInstance,
     createArpeggioFern, createPortamentoPine, createCymbalDandelion, createSnareTrap,
-    createBubbleWillow, createHelixPlant, createBalloonBush, createWisteriaCluster,
+    createBubbleWillow, createHelixPlant, createBalloonBush,
     createPanningPad, createSilenceSpirit, createInstrumentShrine, createMelodyMirror,
     createRetriggerMushroom,
     createIsland, // Added
     createCaveEntrance,
     createTerrainMaterial // Added
 } from '../foliage/index.ts';
+import { createWisteriaCluster } from '../foliage/wisteria-cluster.ts';
 import { generateCloudLayer } from '../foliage/procedural-sky.ts';
 import { validateFoliageMaterials, foliageMaterials } from '../foliage/index.ts';
 import { CONFIG } from '../core/config.ts';
@@ -646,15 +647,16 @@ function populateLakeIsland(weatherSystem: WeatherSystem): void {
 
     // ⚡ JUICE: Environmental Sparks around the Core
     const sparks = createIntegratedSparks({ count: 5000, areaSize: 15, center: new THREE.Vector3(centerX, 2, centerZ), useCompute: true });
-    safeAddFoliage(ambientSparks, false, 0, null);
+    safeAddFoliage(sparks, false, 0, null);
     if ((sparks as any).userData?.computeParticleSystem) {
         registerIntegratedSystem('sparks_island', sparks, (sparks as any).userData.computeParticleSystem);
+    }
+
     const ambientSparks = createIntegratedSparks({ count: 5000, areaSize: 15, center: new THREE.Vector3(centerX, 2, centerZ), useCompute: true });
     safeAddFoliage(ambientSparks, false, 0, null);
     if ((ambientSparks as any).userData?.computeParticleSystem) {
         registerIntegratedSystem('sparks_island', ambientSparks, (ambientSparks as any).userData.computeParticleSystem);
     }
-    
 
     // ⚡ JUICE: Environmental Sparks
     // Add ambient sparks to the world
