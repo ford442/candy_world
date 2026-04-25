@@ -433,7 +433,22 @@ class ProjectilePool {
 }
 
 // Global Pool Instance
-const projectilePool = new ProjectilePool();
+let _projectilePool: ProjectilePool | null = null;
+const projectilePool = new Proxy({} as ProjectilePool, {
+    get: (target, prop) => {
+        if (!_projectilePool) {
+            _projectilePool = new ProjectilePool();
+        }
+        return (_projectilePool as any)[prop];
+    },
+    set: (target, prop, value) => {
+        if (!_projectilePool) {
+            _projectilePool = new ProjectilePool();
+        }
+        (_projectilePool as any)[prop] = value;
+        return true;
+    }
+});
 let initialized = false;
 
 export function fireRainbow(scene: THREE.Scene, origin: THREE.Vector3, direction: THREE.Vector3) {

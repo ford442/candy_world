@@ -141,4 +141,21 @@ export class ChordStrikeSystem {
     }
 }
 
-export const chordStrikeSystem = new ChordStrikeSystem();
+// Lazy init to avoid TSL initialization order issues
+let _chordStrikeSystem: ChordStrikeSystem | null = null;
+
+export const chordStrikeSystem = new Proxy({} as ChordStrikeSystem, {
+    get: (target, prop) => {
+        if (!_chordStrikeSystem) {
+            _chordStrikeSystem = new ChordStrikeSystem();
+        }
+        return (_chordStrikeSystem as any)[prop];
+    },
+    set: (target, prop, value) => {
+        if (!_chordStrikeSystem) {
+            _chordStrikeSystem = new ChordStrikeSystem();
+        }
+        (_chordStrikeSystem as any)[prop] = value;
+        return true;
+    }
+});
