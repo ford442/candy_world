@@ -4,7 +4,7 @@ import {
     uGlitchIntensity,
     uTime,
     uAudioLow
-} from '../foliage/index.ts';
+} from '../foliage/material-core.ts';
 import { applyGlitch } from '../foliage/glitch.ts';
 import { uChromaticIntensity } from '../foliage/chromatic.ts';
 import { spawnImpact } from '../foliage/impacts.ts';

@@ -6,7 +6,7 @@ import {
     storage, instanceIndex, Fn, If, exp, vec4, uniform, rotate
 } from 'three/tsl';
 import { foliageClouds, foliageGeysers, foliageTraps } from '../world/state.ts';
-import { createCandyMaterial, uTime, uAudioHigh, createJuicyRimLight } from '../foliage/index.ts';
+import { createCandyMaterial, uTime, uAudioHigh, createJuicyRimLight } from '../foliage/material-core.ts';
 import { getCelestialState } from '../core/cycle.ts';
 import { spawnImpact } from '../foliage/impacts.ts';
 import { unlockSystem } from '../systems/unlocks.ts';
@@ -453,10 +453,10 @@ let initialized = false;
 
 export function fireRainbow(scene: THREE.Scene, origin: THREE.Vector3, direction: THREE.Vector3) {
     if (!initialized) {
-        projectilePool.addToScene(scene);
+        getProjectilePool().addToScene(scene);
         initialized = true;
     }
-    projectilePool.fire(origin, direction);
+    getProjectilePool().fire(origin, direction);
 }
 
 export function updateBlaster(dt: number, scene: THREE.Scene, weatherSystem: any, currentTime: number, renderer?: THREE.WebGLRenderer) {
@@ -465,9 +465,9 @@ export function updateBlaster(dt: number, scene: THREE.Scene, weatherSystem: any
 
     // Ensure pool is in scene (safety)
     if (!initialized) {
-         projectilePool.addToScene(scene);
+         getProjectilePool().addToScene(scene);
          initialized = true;
     }
 
-    projectilePool.update(dt, scene, weatherSystem, isDay, renderer);
+    getProjectilePool().update(dt, scene, weatherSystem, isDay, renderer);
 }

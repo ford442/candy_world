@@ -126,6 +126,13 @@ async function runSmokeTest() {
       hasError = true;
     });
 
+    // Catch unhandled promise rejections for additional diagnostics
+    await page.evaluate(() => {
+      window.addEventListener('unhandledrejection', (event) => {
+        console.error('[UNHANDLED REJECTION]', event.reason);
+      });
+    });
+
     // Navigate to localhost:4173
     console.log('\nNavigating to http://localhost:4173');
     try {

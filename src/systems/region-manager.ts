@@ -340,7 +340,14 @@ export class RegionManager {
      * Get cells by state.
      */
     getCellsByState(state: CellState): GridCell[] {
-        return Array.from(this.cells.values()).filter(c => c.state === state);
+        // ⚡ OPTIMIZATION: Eliminate Array.from().filter() to prevent GC spikes
+        _scratchCells.length = 0;
+        for (const cell of this.cells.values()) {
+            if (cell.state === state) {
+                _scratchCells.push(cell);
+            }
+        }
+        return _scratchCells;
     }
 
     // ========================================================================
@@ -889,14 +896,28 @@ export class RegionManager {
      * Get loading queue (cells waiting to load).
      */
     getLoadingQueue(): GridCell[] {
-        return this.loadQueue.filter(c => c.state === CellState.QUEUED);
+        // ⚡ OPTIMIZATION: Eliminate .filter() to prevent GC spikes
+        _scratchCells.length = 0;
+        for (let i = 0; i < this.loadQueue.length; i++) {
+            if (this.loadQueue[i].state === CellState.QUEUED) {
+                _scratchCells.push(this.loadQueue[i]);
+            }
+        }
+        return _scratchCells;
     }
 
     /**
      * Get number of cells waiting to load.
      */
     getQueueLength(): number {
-        return this.loadQueue.filter(c => c.state === CellState.QUEUED).length;
+        // ⚡ OPTIMIZATION: Eliminate .filter() to prevent GC spikes
+        let count = 0;
+        for (let i = 0; i < this.loadQueue.length; i++) {
+            if (this.loadQueue[i].state === CellState.QUEUED) {
+                count++;
+            }
+        }
+        return count;
     }
 }
 
@@ -984,7 +1005,12 @@ export class CellLoader {
      * Get all currently loading cells.
      */
     getLoadingCells(): GridCell[] {
-        return Array.from(this.loadingCells.values()).map(l => l.cell);
+        // ⚡ OPTIMIZATION: Eliminate Array.from().map() to prevent GC spikes
+        _scratchCells.length = 0;
+        for (const loadingInfo of this.loadingCells.values()) {
+            _scratchCells.push(loadingInfo.cell);
+        }
+        return _scratchCells;
     }
 }
 
