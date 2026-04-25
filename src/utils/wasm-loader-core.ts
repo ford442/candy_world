@@ -50,6 +50,7 @@ export let wasmBatchMushroomSpawnCandidates: ((time: number, windX: number, wind
 export let wasmUpdateFoliageBatch: ((...args: number[]) => void) | null = null;
 
 /** New Physics exports */
+export let wasmInitDynamicFoliageMemory: ((maxInstances: number) => number) | null = null;
 export let wasmInitCollisionSystem: (() => void) | null = null;
 export let wasmAddCollisionObject: ((type: number, x: number, y: number, z: number, r: number, h: number, p1: number, p2: number, p3: number) => void) | null = null;
 export let wasmResolveGameCollisions: ((kickTrigger: number) => number) | null = null;
@@ -369,6 +370,7 @@ export interface WasmExports {
     lerp: (a: number, b: number, t: number) => number;
     batchMushroomSpawnCandidates?: (time: number, windX: number, windZ: number, windSpeed: number, objectCount: number, spawnThreshold: number, minDistance: number, maxDistance: number) => number;
     updateFoliageBatch?: (...args: number[]) => void;
+    initDynamicFoliageMemory?: (maxInstances: number) => number;
     initCollisionSystem?: () => void;
     addCollisionObject?: (type: number, x: number, y: number, z: number, r: number, h: number, p1: number, p2: number, p3: number) => void;
     resolveGameCollisions?: (kickTrigger: number) => number;
@@ -513,6 +515,7 @@ try {
     wasmUpdateFoliageBatch = exports.updateFoliageBatch || null;
 
     // Physics collision
+    wasmInitDynamicFoliageMemory = exports.initDynamicFoliageMemory || null;
     wasmInitCollisionSystem = exports.initCollisionSystem || null;
     wasmAddCollisionObject = exports.addCollisionObject || null;
     wasmResolveGameCollisions = exports.resolveGameCollisions || null;

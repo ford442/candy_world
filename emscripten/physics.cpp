@@ -248,9 +248,13 @@ int checkCollision(float px, float py, float pz, float radius) {
     return 0;
 }
 
+} // end extern "C"
+
 int main() {
     return 0;
 }
+
+extern "C" {
 
 // =============================================================================
 // FRUSTUM & DISTANCE CULLING (Agent 4)

@@ -196,6 +196,7 @@ export {
     checkCollision,
     
     // Physics helpers
+    initDynamicFoliageBridge,
     initCollisionSystem,
     addCollisionObject,
     checkPositionValidity,
