@@ -3,7 +3,8 @@ import { MeshStandardNodeMaterial } from 'three/webgpu';
 import {
     time, positionLocal, sin, cos, positionWorld, color, vec3, mix, float, smoothstep
 } from 'three/tsl';
-import { CandyPresets, attachReactivity, uAudioHigh, uTime, createJuicyRimLight } from './index.ts';
+import { CandyPresets, createJuicyRimLight, getCachedProceduralMaterial, uAudioHigh } from './material-core.ts';
+import { attachReactivity } from './foliage-reactivity.ts';
 import { makeInteractive } from '../utils/interaction-utils.ts';
 import { discoverySystem } from '../systems/discovery.ts';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
@@ -23,44 +24,48 @@ export function createWisteriaCluster(options: WisteriaClusterOptions = {}) {
 
     // Aesthetic: "Cute Clay"
     // Use the generic Clay preset and apply audio-reactive TSL deformation.
-    const material = CandyPresets.Clay(baseHexColor, {
-        roughness: 0.9,
-        bumpStrength: 0.1
+    const material = getCachedProceduralMaterial(`wisteria_${baseHexColor}`, baseHexColor, () => {
+        const mat = CandyPresets.Clay(baseHexColor, {
+            roughness: 0.9,
+            bumpStrength: 0.1
+        });
+
+        // --- TSL Audio-Reactive Sway ---
+        // Make it sway organically based on world position and time.
+        // High frequency audio (uAudioHigh) acts as an impulse/energy multiplier.
+
+        const baseSwayFreq = float(2.0);
+        const audioEnergy = uAudioHigh.mul(0.5).add(1.0); // Base 1.0, up to 1.5
+
+        // Offset based on positionWorld so multiple clusters aren't perfectly synced
+        const swayPhase = positionWorld.x.mul(0.5).add(positionWorld.z.mul(0.3));
+
+        // Calculate sway amount. The top of the vine (y > 0) shouldn't move as much as the bottom (y < 0).
+        // Assuming the geometry is created such that it hangs down from y=0.
+        // If geometry goes from y=0 to y=-length, then normalizedHeight goes from 0 to 1.
+        // Let's use positionLocal.y.
+        // Assume cluster is about 4 units long, so positionLocal.y goes from 0 down to -4.
+        const normalizedHeight = positionLocal.y.div(-4.0).clamp(0.0, 1.0);
+
+        // X and Z sway
+        const swayX = sin(time.mul(baseSwayFreq).add(swayPhase)).mul(0.5).mul(audioEnergy).mul(normalizedHeight);
+        const swayZ = cos(time.mul(baseSwayFreq.mul(0.8)).add(swayPhase)).mul(0.5).mul(audioEnergy).mul(normalizedHeight);
+
+        // Apply sway to vertex position
+        mat.positionNode = positionLocal.add(vec3(swayX, float(0.0), swayZ));
+
+        // Glow Effect based on audio
+        const baseColorNode = color(baseHexColor);
+        const glowColor = color(0xFF66FF); // Neon pink glow
+        // Emissive boost driven by uAudioHigh, fading in smoothly
+        mat.emissiveNode = glowColor.mul(uAudioHigh.mul(0.8));
+
+        // 🎨 PALETTE: Juicy Rim Light for volumetric glow
+        const rimLight = createJuicyRimLight(color(0xFFFFFF), float(1.5), float(3.0), null);
+        mat.emissiveNode = mat.emissiveNode.add(rimLight);
+
+        return mat;
     });
-
-    // --- TSL Audio-Reactive Sway ---
-    // Make it sway organically based on world position and uTime.
-    // High frequency audio (uAudioHigh) acts as an impulse/energy multiplier.
-
-    const baseSwayFreq = float(2.0);
-    const audioEnergy = uAudioHigh.mul(0.5).add(1.0); // Base 1.0, up to 1.5
-
-    // Offset based on positionWorld so multiple clusters aren't perfectly synced
-    const swayPhase = positionWorld.x.mul(0.5).add(positionWorld.z.mul(0.3));
-
-    // Calculate sway amount. The top of the vine (y > 0) shouldn't move as much as the bottom (y < 0).
-    // Assuming the geometry is created such that it hangs down from y=0.
-    // If geometry goes from y=0 to y=-length, then normalizedHeight goes from 0 to 1.
-    // Let's use positionLocal.y.
-    // Assume cluster is about 4 units long, so positionLocal.y goes from 0 down to -4.
-    const normalizedHeight = positionLocal.y.div(-4.0).clamp(0.0, 1.0);
-
-    // X and Z sway
-    const swayX = sin(uTime.mul(baseSwayFreq).add(swayPhase)).mul(0.5).mul(audioEnergy).mul(normalizedHeight);
-    const swayZ = cos(uTime.mul(baseSwayFreq.mul(0.8)).add(swayPhase)).mul(0.5).mul(audioEnergy).mul(normalizedHeight);
-
-    // Apply sway to vertex position
-    material.positionNode = positionLocal.add(vec3(swayX, float(0.0), swayZ));
-
-    // Glow Effect based on audio
-    const baseColorNode = color(baseHexColor);
-    const glowColor = color(0xFF66FF); // Neon pink glow
-    // Emissive boost driven by uAudioHigh, fading in smoothly
-    material.emissiveNode = glowColor.mul(uAudioHigh.mul(0.8));
-
-    // 🎨 PALETTE: Juicy Rim Light for volumetric glow
-    const rimLight = createJuicyRimLight(color(0xFFFFFF), float(1.5), float(3.0), null);
-    material.emissiveNode = material.emissiveNode.add(rimLight);
 
     // --- Geometry Construction ---
     // We create a central hanging stem and several rounded clusters ("grapes" / "petals") hanging off it.
