@@ -646,7 +646,7 @@ function populateLakeIsland(weatherSystem: WeatherSystem): void {
 
     // ⚡ JUICE: Environmental Sparks around the Core
     const sparks = createIntegratedSparks({ count: 5000, areaSize: 15, center: new THREE.Vector3(centerX, 2, centerZ), useCompute: true });
-    safeAddFoliage(sparks, false, 0, null);
+    safeAddFoliage(ambientSparks, false, 0, null);
     if ((sparks as any).userData?.computeParticleSystem) {
         registerIntegratedSystem('sparks_island', sparks, (sparks as any).userData.computeParticleSystem);
     }
@@ -654,8 +654,8 @@ function populateLakeIsland(weatherSystem: WeatherSystem): void {
 
     // ⚡ JUICE: Environmental Sparks
     // Add ambient sparks to the world
-    const sparks = createIntegratedSparks({ count: 1000, areaSize: 50, center: new THREE.Vector3(centerX, 10, centerZ), useCompute: true });
-    safeAddFoliage(sparks, false, 0, null);
+    const ambientSparks = createIntegratedSparks({ count: 1000, areaSize: 50, center: new THREE.Vector3(centerX, 10, centerZ), useCompute: true });
+    safeAddFoliage(ambientSparks, false, 0, null);
 
     console.log(`[World] Lake Island populated with musical flora at (${centerX}, ${centerZ})`);
 }

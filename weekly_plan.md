@@ -35,3 +35,4 @@ Date: 2026-04-21 (first routine run in template form)
 Mode: User Idea
 Focus: Testing Debt — restore a real `npm test` path
 Outcome: TBD
+- [ ] Investigate and fix runtime error: Cannot read properties of undefined (reading 'mul') during smoke test initialization.
