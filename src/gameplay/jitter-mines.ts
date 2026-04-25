@@ -277,20 +277,21 @@ class JitterMineSystem {
     }
 }
 
+// Lazy init to avoid TSL initialization order issues
 let _jitterMineSystem: JitterMineSystem | null = null;
-function getJitterMineSystem(): JitterMineSystem {
-    if (!_jitterMineSystem) {
-        _jitterMineSystem = new JitterMineSystem();
-    }
-    return _jitterMineSystem;
-}
 
-export const jitterMineSystem = {
-    get mesh() { return getJitterMineSystem().mesh; },
-    get mines() { return getJitterMineSystem().mines; },
-    get cooldownTimer() { return getJitterMineSystem().cooldownTimer; },
-    get trauma() { return getJitterMineSystem().trauma; },
-    spawnMine(position: THREE.Vector3) { return getJitterMineSystem().spawnMine(position); },
-    update(delta: number, playerPos: THREE.Vector3) { return getJitterMineSystem().update(delta, playerPos); },
-    explode(index: number) { return getJitterMineSystem().explode(index); },
-};
+export const jitterMineSystem = new Proxy({} as JitterMineSystem, {
+    get: (target, prop) => {
+        if (!_jitterMineSystem) {
+            _jitterMineSystem = new JitterMineSystem();
+        }
+        return (_jitterMineSystem as any)[prop];
+    },
+    set: (target, prop, value) => {
+        if (!_jitterMineSystem) {
+            _jitterMineSystem = new JitterMineSystem();
+        }
+        (_jitterMineSystem as any)[prop] = value;
+        return true;
+    }
+});

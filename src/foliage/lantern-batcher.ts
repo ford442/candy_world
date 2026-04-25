@@ -192,7 +192,7 @@ export class LanternBatcher {
         const finalColor = mix(baseColor, hotColor, mixFactor);
 
         // Juicy Rim Light
-        const rim = createJuicyRimLight(finalColor, float(2.0), float(3.0));
+        const rim = createJuicyRimLight(finalColor, float(2.0), float(3.0), null);
 
         bulbMat.emissiveNode = finalColor.mul(totalIntensity).add(rim);
         bulbMat.colorNode = finalColor; // Also set base color

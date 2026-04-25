@@ -141,23 +141,21 @@ export class ChordStrikeSystem {
     }
 }
 
+// Lazy init to avoid TSL initialization order issues
 let _chordStrikeSystem: ChordStrikeSystem | null = null;
-function getChordStrikeSystem(): ChordStrikeSystem {
-    if (!_chordStrikeSystem) {
-        _chordStrikeSystem = new ChordStrikeSystem();
-    }
-    return _chordStrikeSystem;
-}
 
-export const chordStrikeSystem = {
-    get active() { return getChordStrikeSystem().active; },
-    get duration() { return getChordStrikeSystem().duration; },
-    get maxDuration() { return getChordStrikeSystem().maxDuration; },
-    get radius() { return getChordStrikeSystem().radius; },
-    get maxRadius() { return getChordStrikeSystem().maxRadius; },
-    get position() { return getChordStrikeSystem().position; },
-    get mesh() { return getChordStrikeSystem().mesh; },
-    addToScene(scene: THREE.Scene) { return getChordStrikeSystem().addToScene(scene); },
-    fire(playerPos: THREE.Vector3) { return getChordStrikeSystem().fire(playerPos); },
-    update(delta: number, scene: THREE.Scene, player: any) { return getChordStrikeSystem().update(delta, scene, player); },
-};
+export const chordStrikeSystem = new Proxy({} as ChordStrikeSystem, {
+    get: (target, prop) => {
+        if (!_chordStrikeSystem) {
+            _chordStrikeSystem = new ChordStrikeSystem();
+        }
+        return (_chordStrikeSystem as any)[prop];
+    },
+    set: (target, prop, value) => {
+        if (!_chordStrikeSystem) {
+            _chordStrikeSystem = new ChordStrikeSystem();
+        }
+        (_chordStrikeSystem as any)[prop] = value;
+        return true;
+    }
+});

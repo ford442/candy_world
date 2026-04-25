@@ -22,6 +22,7 @@ import {
 import { createWisteriaCluster } from '../foliage/wisteria-cluster.ts';
 import { generateCloudLayer } from '../foliage/procedural-sky.ts';
 import { validateFoliageMaterials, foliageMaterials } from '../foliage/index.ts';
+import { createWisteriaCluster } from '../foliage/wisteria-cluster.ts';
 import { CONFIG } from '../core/config.ts';
 import { registerPhysicsCave } from '../systems/physics/index.js';
 import { initDiscoveryForFoliage } from '../systems/discovery-optimized.ts';
@@ -660,6 +661,8 @@ function populateLakeIsland(weatherSystem: WeatherSystem): void {
 
     // ⚡ JUICE: Environmental Sparks
     // Add ambient sparks to the world
+    const ambientSparks = createIntegratedSparks({ count: 1000, areaSize: 50, center: new THREE.Vector3(centerX, 10, centerZ), useCompute: true });
+    safeAddFoliage(ambientSparks, false, 0, null);
     const globalSparks = createIntegratedSparks({ count: 1000, areaSize: 50, center: new THREE.Vector3(centerX, 10, centerZ), useCompute: true });
     safeAddFoliage(globalSparks, false, 0, null);
 

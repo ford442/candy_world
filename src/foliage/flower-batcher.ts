@@ -6,13 +6,10 @@ import {
     sharedGeometries,
     calculateFlowerBloom,
     calculateWindSway,
-    applyPlayerInteraction,
-    CandyPresets,
-    createStandardNodeMaterial,
-    createJuicyRimLight,
-    uAudioHigh,
-    uTime
+    applyPlayerInteraction
 } from './index.ts';
+import { attachReactivity } from './foliage-reactivity.ts';
+import { CandyPresets, uAudioHigh, uTime, createJuicyRimLight, getCachedProceduralMaterial, createStandardNodeMaterial } from './material-core.ts';
 import { attribute, positionLocal, mix, color, float, sin } from 'three/tsl';
 
 const MAX_FLOWERS = 1000; // Reduced from 5000 for WebGPU uniform buffer limits
@@ -78,7 +75,9 @@ export class FlowerBatcher {
         // Actually, TSL materials handle instancing automatically if logic uses attributes/uniforms correctly.
         // But flowerStem uses 'calculateWindSway' which uses 'positionWorld'.
         // InstancedMesh updates positionWorld correctly in VertexNode.
-        const stemMat = (foliageMaterials.flowerStem as THREE.Material).clone();
+        const stemMat = getCachedProceduralMaterial('flower_batch_stem', 0xFFFFFF, () => {
+            return (foliageMaterials.flowerStem as THREE.Material).clone();
+        });
 
         this.stems = new THREE.InstancedMesh(sharedGeometries.unitCylinder, stemMat, MAX_FLOWERS);
         this.stems.castShadow = true;
@@ -88,8 +87,11 @@ export class FlowerBatcher {
         foliageGroup.add(this.stems);
 
         // --- 2. Centers (Sphere) ---
-        const centerMat = (foliageMaterials.flowerCenter as THREE.Material).clone();
-        (centerMat as any).positionNode = posFinal; // Apply full deformation chain
+        const centerMat = getCachedProceduralMaterial('flower_batch_center', 0xFFFFFF, () => {
+            const mat = (foliageMaterials.flowerCenter as THREE.Material).clone();
+            (mat as any).positionNode = posFinal; // Apply full deformation chain
+            return mat;
+        });
 
         this.centers = new THREE.InstancedMesh(sharedGeometries.unitSphere, centerMat, MAX_FLOWERS);
         this.centers.castShadow = true;
@@ -99,7 +101,10 @@ export class FlowerBatcher {
         foliageGroup.add(this.centers);
 
         // --- 3. Stamens (Cylinder) ---
-        const stamenMat = CandyPresets.Clay(0xFFFF00, { deformationNode: posFinal });
+        const stamenMat = getCachedProceduralMaterial('flower_batch_stamen', 0xFFFF00, () => {
+            return CandyPresets.Clay(0xFFFF00, { deformationNode: posFinal });
+        });
+
         this.stamens = new THREE.InstancedMesh(sharedGeometries.unitCylinder, stamenMat, MAX_FLOWERS * 3);
         this.stamens.castShadow = true;
         this.stamens.receiveShadow = true;
@@ -111,29 +116,33 @@ export class FlowerBatcher {
         // Use Velvet preset for petals, supporting instanceColor
         const instanceColor = attribute('instanceColor', 'vec3');
 
-        // --- PALETTE: Petal Breathing Animation ---
-        // Add subtle procedural life to petals, slightly offsetting based on local coordinates
-        const phaseOffset = positionLocal.x.add(positionLocal.y).add(positionLocal.z).mul(5.0);
-        const petalBreath = sin(uTime.mul(2.0).add(phaseOffset)).mul(0.05).add(1.0);
-        const petalDeformation = posFinal.mul(petalBreath);
+        const petalMat = getCachedProceduralMaterial('flower_batch_petal', 0xFFFFFF, () => {
+            // --- PALETTE: Petal Breathing Animation ---
+            // Add subtle procedural life to petals, slightly offsetting based on local coordinates
+            const phaseOffset = positionLocal.x.add(positionLocal.y).add(positionLocal.z).mul(5.0);
+            const petalBreath = sin(uTime.mul(2.0).add(phaseOffset)).mul(0.05).add(1.0);
+            const petalDeformation = posFinal.mul(petalBreath);
 
-        const petalMat = CandyPresets.Velvet(0xFFFFFF, {
-            colorNode: instanceColor, // Use instance color
-            deformationNode: petalDeformation, // Apply deformation with breathing
-            side: THREE.DoubleSide,
-            audioReactStrength: 1.0,
-            rimStrength: 0.5
+            const mat = CandyPresets.Velvet(0xFFFFFF, {
+                colorNode: instanceColor, // Use instance color
+                deformationNode: petalDeformation, // Apply deformation with breathing
+                side: THREE.DoubleSide,
+                audioReactStrength: 1.0,
+                rimStrength: 0.5
+            });
+
+            // Add Audio-Reactive Rim Light to petals
+            // 🎨 PALETTE: Boosted Rim Light for more pop in twilight
+            const audioRim = createJuicyRimLight(instanceColor, float(2.0).add(uAudioHigh.mul(4.0)), float(2.0), null);
+
+            // --- PALETTE: Audio Reactive Inner Glow ---
+            // Give petals a deep soft glow when the melody hits (increased intensity)
+            const innerGlow = instanceColor.mul(uAudioHigh).mul(1.2);
+
+            mat.emissiveNode = audioRim.add(innerGlow);
+
+            return mat;
         });
-
-        // Add Audio-Reactive Rim Light to petals
-        // 🎨 PALETTE: Boosted Rim Light for more pop in twilight
-        const audioRim = createJuicyRimLight(instanceColor, float(2.0).add(uAudioHigh.mul(4.0)), float(2.0));
-
-        // --- PALETTE: Audio Reactive Inner Glow ---
-        // Give petals a deep soft glow when the melody hits (increased intensity)
-        const innerGlow = instanceColor.mul(uAudioHigh).mul(1.2);
-
-        petalMat.emissiveNode = audioRim.add(innerGlow);
 
         // Simple Petals (Icosahedron)
         let simpleGeo = new THREE.IcosahedronGeometry(0.15, 0);
