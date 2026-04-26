@@ -381,6 +381,7 @@ export class LoadingScreen {
             
             if (this.overlay) {
                 this.overlay.classList.remove('visible');
+                this.overlay.classList.add('loaded'); // VRT helper
             }
             if (this.container) {
                 this.container.classList.remove('visible');
