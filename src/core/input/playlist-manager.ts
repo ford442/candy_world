@@ -508,6 +508,14 @@ export function handlePlaylistKeyDown(event: KeyboardEvent): boolean {
  */
 export function initLegacyMusicUpload(audioSystem: AudioSystem): void {
     const musicUpload = document.getElementById('musicUpload') as HTMLInputElement | null;
+    const musicUploadBtn = document.getElementById('musicUploadBtn');
+
+    if (musicUploadBtn && musicUpload) {
+        musicUploadBtn.addEventListener('click', () => {
+            musicUpload.click();
+        });
+    }
+
     if (musicUpload) {
         musicUpload.addEventListener('change', (event: Event) => {
             const target = event.target as HTMLInputElement;

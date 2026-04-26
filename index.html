@@ -206,6 +206,7 @@
             font-weight: bold;
             display: inline-block;
             transition: background 0.2s, color 0.2s;
+            font-family: inherit;
         }
         .file-label:hover {
             background: #FFF0F5;
@@ -689,12 +690,12 @@
         </button>
 
         <div class="settings settings-container" role="group" aria-label="Game Settings">
-            <input type="file" id="musicUpload" accept=".mod,.xm,.it,.s3m" multiple class="visually-hidden">
-            <label for="musicUpload" class="file-label" title="Upload Music (Supported formats: .mod, .xm, .it, .s3m)">
+            <input type="file" id="musicUpload" accept=".mod,.xm,.it,.s3m" multiple class="visually-hidden" tabindex="-1">
+            <button type="button" id="musicUploadBtn" class="file-label" title="Upload Music (Supported formats: .mod, .xm, .it, .s3m)">
                 <span aria-hidden="true">🎵</span> Upload Music <span class="key-badge" aria-hidden="true">U</span>
                 <span class="visually-hidden">Upload supported music files: .mod, .xm, .it, .s3m. Keyboard shortcut U</span>
                 <span aria-hidden="true" style="display:block; font-size:0.7em; font-weight:normal; margin-top:2px; opacity:0.9;">.mod .xm .it .s3m</span>
-            </label>
+            </button>
 
             <button id="toggleDayNight" class="toggle-button" aria-pressed="false" aria-keyshortcuts="N" aria-label="Switch to Night" title="Switch to Night (N)">
                 <span aria-hidden="true">🌙</span> Switch to Night <span class="key-badge" aria-hidden="true">N</span>
