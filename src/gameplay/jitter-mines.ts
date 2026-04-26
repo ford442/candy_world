@@ -9,7 +9,7 @@ import { applyGlitch } from '../foliage/glitch.ts';
 import { uChromaticIntensity } from '../foliage/chromatic.ts';
 import { spawnImpact } from '../foliage/impacts.ts';
 import { unlockSystem } from '../systems/unlocks.ts';
-import { positionLocal, uv, float, sin, cos, vec3, uniform, attribute, vec4, vec2, step, mix, smoothstep } from 'three/tsl';
+import { positionLocal, uv, float, sin, cos, vec3, attribute, vec4, smoothstep } from 'three/tsl';
 
 const MAX_MINES = 50;
 const _scratchMatrix = new THREE.Matrix4();
@@ -31,20 +31,42 @@ interface Mine {
 }
 
 class JitterMineSystem {
-    mesh: THREE.InstancedMesh;
     mines: Mine[];
     cooldownTimer: number;
     trauma: number;
 
-    // TSL GPU specific buffers
-    spawnBuffer: THREE.InstancedBufferAttribute; // x,y,z: position, w: spawnTime
-    stateBuffer: THREE.InstancedBufferAttribute; // x: active(1) or hidden(0), y,z,w: random rotation axis
-    computeNode: null = null; // Removed, using vertex shader instead
+    // GPU resources are deferred — accessed via getters that trigger init()
+    private _mesh: THREE.InstancedMesh | null = null;
+    private _spawnBuffer: THREE.InstancedBufferAttribute | null = null;
+    private _stateBuffer: THREE.InstancedBufferAttribute | null = null;
+    private _initialized = false;
 
     constructor() {
         this.mines = [];
         this.cooldownTimer = 0;
         this.trauma = 0;
+
+        // Pre-allocate CPU-side mine objects (pure JS — safe at construction time)
+        for (let i = 0; i < MAX_MINES; i++) {
+            this.mines.push({
+                active: false,
+                visible: false,
+                position: new THREE.Vector3(),
+                rotation: new THREE.Euler(),
+                scale: 0,
+                time: 0
+            });
+        }
+    }
+
+    /**
+     * Idempotent initialization of all WebGPU / TSL resources.
+     * This is deferred so TSL node math never runs during module load or
+     * constructor execution, preventing scope-loss and mangling crashes.
+     */
+    init() {
+        if (this._initialized) return;
+        this._initialized = true;
 
         const geometry = new THREE.IcosahedronGeometry(MINE_RADIUS, 0);
 
@@ -60,22 +82,28 @@ class JitterMineSystem {
             const rx = Math.random() - 0.5;
             const ry = Math.random() - 0.5;
             const rz = Math.random() - 0.5;
-            const len = Math.sqrt(rx*rx + ry*ry + rz*rz);
+            const len = Math.sqrt(rx * rx + ry * ry + rz * rz);
             initialStates[i * 4 + 1] = rx / len;
             initialStates[i * 4 + 2] = ry / len;
             initialStates[i * 4 + 3] = rz / len;
         }
 
-        this.spawnBuffer = new THREE.InstancedBufferAttribute(initialSpawns, 4);
-        this.spawnBuffer.setUsage(THREE.DynamicDrawUsage);
-        geometry.setAttribute('aSpawn', this.spawnBuffer);
+        this._spawnBuffer = new THREE.InstancedBufferAttribute(initialSpawns, 4);
+        this._spawnBuffer.setUsage(THREE.DynamicDrawUsage);
+        geometry.setAttribute('aSpawn', this._spawnBuffer);
 
-        this.stateBuffer = new THREE.InstancedBufferAttribute(initialStates, 4);
-        this.stateBuffer.setUsage(THREE.DynamicDrawUsage);
-        geometry.setAttribute('aState', this.stateBuffer);
+        this._stateBuffer = new THREE.InstancedBufferAttribute(initialStates, 4);
+        this._stateBuffer.setUsage(THREE.DynamicDrawUsage);
+        geometry.setAttribute('aState', this._stateBuffer);
 
-        // Create Glitchy Material
-        const baseGlitch = applyGlitch(uv(), positionLocal, float(0.2).add(sin(uTime.mul(10.0)).mul(0.1)));
+        // -----------------------------------------------------------------
+        // TSL MATERIAL GRAPH — deferred until first actual use
+        // -----------------------------------------------------------------
+        const baseGlitch = applyGlitch(
+            uv(),
+            positionLocal,
+            float(0.2).add(sin(uTime.mul(10.0)).mul(0.1))
+        );
 
         const material = createClayMaterial(0xFF00FF, {
             roughness: 0.2,
@@ -86,7 +114,7 @@ class JitterMineSystem {
             noiseScale: 20.0
         });
 
-        // 2. Vertex Shader logic (Stateless GPU Animation)
+        // Vertex Shader logic (Stateless GPU Animation)
         const aSpawn = attribute('aSpawn', 'vec4');
         const aState = attribute('aState', 'vec4');
 
@@ -140,29 +168,39 @@ class JitterMineSystem {
         // Position in world
         material.positionNode = rotatedPos.add(spawnPos);
 
-        this.mesh = new THREE.InstancedMesh(geometry, material, MAX_MINES);
-        this.mesh.count = MAX_MINES;
-        this.mesh.castShadow = true;
-        this.mesh.receiveShadow = true;
+        this._mesh = new THREE.InstancedMesh(geometry, material, MAX_MINES);
+        this._mesh.count = MAX_MINES;
+        this._mesh.castShadow = true;
+        this._mesh.receiveShadow = true;
 
         for (let i = 0; i < MAX_MINES; i++) {
-            this.mines.push({
-                active: false,
-                visible: false,
-                position: new THREE.Vector3(),
-                rotation: new THREE.Euler(),
-                scale: 0,
-                time: 0
-            });
             // ⚡ OPTIMIZATION: Instance matrix acts purely as an identity transform.
             // Translation, rotation, and scaling are handled entirely by the TSL material node.
-            _scratchDummy.position.set(0,0,0);
+            _scratchDummy.position.set(0, 0, 0);
             _scratchDummy.scale.setScalar(1);
-            _scratchDummy.rotation.set(0,0,0);
+            _scratchDummy.rotation.set(0, 0, 0);
             _scratchMatrix.compose(_scratchDummy.position, _scratchDummy.quaternion, _scratchDummy.scale);
             // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
-            _scratchMatrix.toArray(this.mesh.instanceMatrix.array, (i) * 16);
+            _scratchMatrix.toArray(this._mesh.instanceMatrix.array, i * 16);
         }
+    }
+
+    /** Lazy getter — triggers WebGPU init on first access. */
+    get mesh(): THREE.InstancedMesh {
+        this.init();
+        return this._mesh!;
+    }
+
+    /** Lazy getter — triggers WebGPU init on first access. */
+    get spawnBuffer(): THREE.InstancedBufferAttribute {
+        this.init();
+        return this._spawnBuffer!;
+    }
+
+    /** Lazy getter — triggers WebGPU init on first access. */
+    get stateBuffer(): THREE.InstancedBufferAttribute {
+        this.init();
+        return this._stateBuffer!;
     }
 
     spawnMine(position: THREE.Vector3) {
@@ -177,16 +215,16 @@ class JitterMineSystem {
 
         // If pool full, recycle oldest
         if (index === -1) {
-             // Find oldest (largest time)
-             let maxTime = -1;
-             let oldestIndex = 0;
-             for(let i=0; i<MAX_MINES; i++) {
-                 if (this.mines[i].time > maxTime) {
-                     maxTime = this.mines[i].time;
-                     oldestIndex = i;
-                 }
-             }
-             index = oldestIndex;
+            // Find oldest (largest time)
+            let maxTime = -1;
+            let oldestIndex = 0;
+            for (let i = 0; i < MAX_MINES; i++) {
+                if (this.mines[i].time > maxTime) {
+                    maxTime = this.mines[i].time;
+                    oldestIndex = i;
+                }
+            }
+            index = oldestIndex;
         }
 
         const mine = this.mines[index];
@@ -200,7 +238,7 @@ class JitterMineSystem {
         spawnArray[index * 4] = position.x;
         spawnArray[index * 4 + 1] = position.y;
         spawnArray[index * 4 + 2] = position.z;
-        // uTime is global from common.ts. We pass current time
+        // uTime is global from material-core.ts. We pass current time
         spawnArray[index * 4 + 3] = ((uTime as any).value !== undefined) ? (uTime as any).value : performance.now() / 1000;
         this.spawnBuffer.needsUpdate = true;
 
@@ -212,7 +250,7 @@ class JitterMineSystem {
 
         // Play sound (if available globally)
         if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
-             (window as any).AudioSystem.playSound('place', { position: position, pitch: 0.8 });
+            (window as any).AudioSystem.playSound('place', { position: position, pitch: 0.8 });
         }
     }
 
@@ -272,7 +310,7 @@ class JitterMineSystem {
 
         // Sound
         if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
-             (window as any).AudioSystem.playSound('explosion', { position: mine.position, pitch: 0.5 + Math.random() * 0.5 });
+            (window as any).AudioSystem.playSound('explosion', { position: mine.position, pitch: 0.5 + Math.random() * 0.5 });
         }
     }
 }
