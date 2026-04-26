@@ -22,6 +22,7 @@ let playlistList: HTMLElement | null = null;
 let closePlaylistBtn: HTMLElement | null = null;
 let playlistCloseX: HTMLElement | null = null;
 let playlistUploadInput: HTMLInputElement | null = null;
+let addSongsBtn: HTMLElement | null = null;
 let openJukeboxBtn: HTMLElement | null = null;
 let nowPlayingContainer: HTMLElement | null = null;
 let nowPlayingText: HTMLElement | null = null;
@@ -50,6 +51,7 @@ export function initPlaylistManager(
     closePlaylistBtn = document.getElementById('closePlaylistBtn');
     playlistCloseX = document.getElementById('playlistCloseX');
     playlistUploadInput = document.getElementById('playlistUploadInput') as HTMLInputElement | null;
+    addSongsBtn = document.getElementById('addSongsBtn');
     openJukeboxBtn = document.getElementById('openJukeboxBtn');
     nowPlayingContainer = document.getElementById('nowPlayingContainer');
     nowPlayingText = document.getElementById('nowPlayingText');
@@ -124,6 +126,13 @@ export function initPlaylistManager(
 
     if (playlistUploadInput) {
         playlistUploadInput.addEventListener('change', handlePlaylistUpload);
+    }
+
+    if (addSongsBtn) {
+        addSongsBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (playlistUploadInput) playlistUploadInput.click();
+        });
     }
 
     if (openJukeboxBtn) {
