@@ -647,10 +647,10 @@ function populateLakeIsland(weatherSystem: WeatherSystem): void {
     }
 
     // ⚡ JUICE: Environmental Sparks around the Core
-    const sparks = createIntegratedSparks({ count: 5000, areaSize: 15, center: new THREE.Vector3(centerX, 2, centerZ), useCompute: true });
-    safeAddFoliage(sparks, false, 0, null);
-    if ((sparks as any).userData?.computeParticleSystem) {
-        registerIntegratedSystem('sparks_island', sparks, (sparks as any).userData.computeParticleSystem);
+    const ambientSparks = createIntegratedSparks({ count: 5000, areaSize: 15, center: new THREE.Vector3(centerX, 2, centerZ), useCompute: true });
+    safeAddFoliage(ambientSparks, false, 0, null);
+    if ((ambientSparks as any).userData?.computeParticleSystem) {
+        registerIntegratedSystem('sparks_island', ambientSparks, (ambientSparks as any).userData.computeParticleSystem);
     }
 
     const ambientIslandSparks = createIntegratedSparks({ count: 5000, areaSize: 15, center: new THREE.Vector3(centerX, 2, centerZ), useCompute: true });
