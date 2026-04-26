@@ -3,8 +3,8 @@ import { MeshStandardNodeMaterial } from 'three/webgpu';
 import {
     time, positionLocal, sin, cos, positionWorld, color, vec3, mix, float, smoothstep
 } from 'three/tsl';
-import { CandyPresets, createJuicyRimLight, getCachedProceduralMaterial, uAudioHigh } from './material-core.ts';
 import { attachReactivity } from './foliage-reactivity.ts';
+import { CandyPresets, uAudioHigh, uTime, createJuicyRimLight, getCachedProceduralMaterial } from './material-core.ts';
 import { makeInteractive } from '../utils/interaction-utils.ts';
 import { discoverySystem } from '../systems/discovery.ts';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
@@ -24,16 +24,16 @@ export function createWisteriaCluster(options: WisteriaClusterOptions = {}) {
 
     // Aesthetic: "Cute Clay"
     // Use the generic Clay preset and apply audio-reactive TSL deformation.
-    const material = getCachedProceduralMaterial(`wisteria_${baseHexColor}`, baseHexColor, () => {
+    // Cache the material to prevent WebGPU compilation freezes
+    const material = getCachedProceduralMaterial(`wisteria_cluster_${baseHexColor}`, baseHexColor, () => {
         const mat = CandyPresets.Clay(baseHexColor, {
             roughness: 0.9,
             bumpStrength: 0.1
         });
 
         // --- TSL Audio-Reactive Sway ---
-        // Make it sway organically based on world position and time.
+        // Make it sway organically based on world position and uTime.
         // High frequency audio (uAudioHigh) acts as an impulse/energy multiplier.
-
         const baseSwayFreq = float(2.0);
         const audioEnergy = uAudioHigh.mul(0.5).add(1.0); // Base 1.0, up to 1.5
 
@@ -48,8 +48,8 @@ export function createWisteriaCluster(options: WisteriaClusterOptions = {}) {
         const normalizedHeight = positionLocal.y.div(-4.0).clamp(0.0, 1.0);
 
         // X and Z sway
-        const swayX = sin(time.mul(baseSwayFreq).add(swayPhase)).mul(0.5).mul(audioEnergy).mul(normalizedHeight);
-        const swayZ = cos(time.mul(baseSwayFreq.mul(0.8)).add(swayPhase)).mul(0.5).mul(audioEnergy).mul(normalizedHeight);
+        const swayX = sin(uTime.mul(baseSwayFreq).add(swayPhase)).mul(0.5).mul(audioEnergy).mul(normalizedHeight);
+        const swayZ = cos(uTime.mul(baseSwayFreq.mul(0.8)).add(swayPhase)).mul(0.5).mul(audioEnergy).mul(normalizedHeight);
 
         // Apply sway to vertex position
         mat.positionNode = positionLocal.add(vec3(swayX, float(0.0), swayZ));
@@ -65,7 +65,7 @@ export function createWisteriaCluster(options: WisteriaClusterOptions = {}) {
         mat.emissiveNode = mat.emissiveNode.add(rimLight);
 
         return mat;
-    });
+    }) as MeshStandardNodeMaterial;
 
     // --- Geometry Construction ---
     // We create a central hanging stem and several rounded clusters ("grapes" / "petals") hanging off it.

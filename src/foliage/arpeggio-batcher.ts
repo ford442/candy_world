@@ -20,6 +20,7 @@ import { applyGlitch } from './glitch.ts';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { PlantPoseMachine } from './plant-pose-machine.ts';
 import { CONFIG } from '../core/config.ts';
+import { dynamicRadiiView } from '../utils/wasm-physics.ts';
 
 const MAX_FERNS = 500; // Reduced from 2000 for WebGPU uniform buffer limits
 const FRONDS_PER_FERN = 5;
@@ -418,6 +419,17 @@ export class ArpeggioFernBatcher {
 
         this.globalUnfurl = unfurl;
         this.uFernUnfurl.value = unfurl;
+
+        // ⚡ OPTIMIZATION: Zero-Allocation WASM Physics Sync
+        // Write the expanded radius directly into the WASM memory view
+        if (dynamicRadiiView) {
+            // Base radius is ~2.0 when closed, expands to ~8.0 when unfurled
+            const activeRadius = 2.0 + (unfurl * 6.0);
+            for (let i = 0; i < this.count; i++) {
+                // scale.x applies uniformly, so multiply by scale
+                dynamicRadiiView[i] = activeRadius * this.logicFerns[i].scale.x;
+            }
+        }
     }
 }
 

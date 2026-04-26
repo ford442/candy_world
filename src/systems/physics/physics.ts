@@ -5,7 +5,7 @@
 import * as THREE from 'three';
 import {
     getGroundHeight, initPhysics, uploadObstaclesBatch, setPlayerState, getPlayerState, updatePhysicsCPP,
-    uploadCollisionObjects, resolveGameCollisionsWASM
+    uploadCollisionObjects, resolveGameCollisionsWASM, initDynamicFoliageBridge
 } from '../../utils/wasm-loader.js';
 import {
     foliageMushrooms, foliageTrampolines, foliageClouds, vineSwings, animatedFoliage,
@@ -514,6 +514,8 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
     checkHarmonyOrbs();
 }
 
+import { arpeggioFernBatcher } from '../../foliage/arpeggio-batcher.ts';
+
 // Helper: Initialize C++ obstacles (One-time setup)
 function initCppPhysics(camera: THREE.Camera) {
     initPhysics(camera.position.x, camera.position.y, camera.position.z);
@@ -564,7 +566,12 @@ function initCppPhysics(camera: THREE.Camera) {
     }
 
     // 2. Upload to AssemblyScript Engine (ASC) - For Narrow Phase Interactivity
-    uploadCollisionObjects(foliageCaves, foliageMushrooms, foliageClouds, foliageTrampolines);
+
+    // Initialize the WASM Bridge for dynamic plant radii
+    // Support enough capacity for our max ferns
+    initDynamicFoliageBridge(500); // MAX_FERNS
+
+    uploadCollisionObjects(foliageCaves, foliageMushrooms, foliageClouds, foliageTrampolines, arpeggioFernBatcher.logicFerns);
 
     console.log('[Physics] Engines Initialized (C++ & ASC).');
 }

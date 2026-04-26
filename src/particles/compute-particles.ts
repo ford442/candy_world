@@ -558,13 +558,9 @@ export class ComputeParticleSystem {
     }
 
     /**
-     * Spawn particles manually from CPU-side data (e.g. ring index or spawn SSBO)
-     * Allows dynamic per-frame spawns (player trails, bursts)
-     *
-     * @param count Number of particles to spawn
-     * @param options Spawn options (position, velocity, etc)
+     * Spawn multiple particles dynamically.
      */
-    spawn(count: number, options: { position?: THREE.Vector3, velocity?: THREE.Vector3, spread?: number } = {}): void {
+    spawnMany(count: number, options: { position?: THREE.Vector3, velocity?: THREE.Vector3, spread?: number } = {}): void {
         if (!this.mesh) return;
 
         // This acts as an API stub for the unified ComputeParticleSystem
@@ -584,10 +580,10 @@ export class ComputeParticleSystem {
     }
 
     /**
-     * Helper to burst particles at a specific location
+     * Helper to burst multiple particles at a specific location
      */
-    burst(count: number, position: THREE.Vector3): void {
-        this.spawn(count, { position, spread: 2.0 });
+    burstMany(count: number, position: THREE.Vector3): void {
+        this.spawnMany(count, { position, spread: 2.0 });
     }
 
 }

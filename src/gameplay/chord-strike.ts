@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { color, float, vec3, uv, positionLocal, mx_noise_float, mix, smoothstep, normalLocal, sin } from 'three/tsl';
-import { uAudioLow, uAudioHigh, createJuicyRimLight, uTime } from '../foliage/index.ts';
+import { uAudioLow, uAudioHigh, createJuicyRimLight, uTime } from '../foliage/material-core.ts';
 import { uChromaticIntensity } from '../foliage/chromatic.ts';
 import { spawnImpact } from '../foliage/impacts.ts';
 import { unlockSystem } from '../systems/unlocks.ts';
@@ -141,4 +141,21 @@ export class ChordStrikeSystem {
     }
 }
 
-export const chordStrikeSystem = new ChordStrikeSystem();
+// Lazy init to avoid TSL initialization order issues
+let _chordStrikeSystem: ChordStrikeSystem | null = null;
+
+export const chordStrikeSystem = new Proxy({} as ChordStrikeSystem, {
+    get: (target, prop) => {
+        if (!_chordStrikeSystem) {
+            _chordStrikeSystem = new ChordStrikeSystem();
+        }
+        return (_chordStrikeSystem as any)[prop];
+    },
+    set: (target, prop, value) => {
+        if (!_chordStrikeSystem) {
+            _chordStrikeSystem = new ChordStrikeSystem();
+        }
+        (_chordStrikeSystem as any)[prop] = value;
+        return true;
+    }
+});

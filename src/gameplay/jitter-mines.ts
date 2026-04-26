@@ -4,7 +4,7 @@ import {
     uGlitchIntensity,
     uTime,
     uAudioLow
-} from '../foliage/index.ts';
+} from '../foliage/material-core.ts';
 import { applyGlitch } from '../foliage/glitch.ts';
 import { uChromaticIntensity } from '../foliage/chromatic.ts';
 import { spawnImpact } from '../foliage/impacts.ts';
@@ -277,4 +277,21 @@ class JitterMineSystem {
     }
 }
 
-export const jitterMineSystem = new JitterMineSystem();
+// Lazy init to avoid TSL initialization order issues
+let _jitterMineSystem: JitterMineSystem | null = null;
+
+export const jitterMineSystem = new Proxy({} as JitterMineSystem, {
+    get: (target, prop) => {
+        if (!_jitterMineSystem) {
+            _jitterMineSystem = new JitterMineSystem();
+        }
+        return (_jitterMineSystem as any)[prop];
+    },
+    set: (target, prop, value) => {
+        if (!_jitterMineSystem) {
+            _jitterMineSystem = new JitterMineSystem();
+        }
+        (_jitterMineSystem as any)[prop] = value;
+        return true;
+    }
+});

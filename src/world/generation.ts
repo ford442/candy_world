@@ -12,15 +12,17 @@ import {
     createRainingCloud, createWaveformWater, initFallingBerries,
     initGrassSystem, addGrassInstance,
     createArpeggioFern, createPortamentoPine, createCymbalDandelion, createSnareTrap,
-    createBubbleWillow, createHelixPlant, createBalloonBush, createWisteriaCluster,
+    createBubbleWillow, createHelixPlant, createBalloonBush,
     createPanningPad, createSilenceSpirit, createInstrumentShrine, createMelodyMirror,
     createRetriggerMushroom,
     createIsland, // Added
     createCaveEntrance,
     createTerrainMaterial // Added
 } from '../foliage/index.ts';
+import { createWisteriaCluster } from '../foliage/wisteria-cluster.ts';
 import { generateCloudLayer } from '../foliage/procedural-sky.ts';
 import { validateFoliageMaterials, foliageMaterials } from '../foliage/index.ts';
+import { createWisteriaCluster } from '../foliage/wisteria-cluster.ts';
 import { CONFIG } from '../core/config.ts';
 import { registerPhysicsCave } from '../systems/physics/index.js';
 import { initDiscoveryForFoliage } from '../systems/discovery-optimized.ts';
@@ -650,15 +652,17 @@ function populateLakeIsland(weatherSystem: WeatherSystem): void {
     if ((ambientSparks as any).userData?.computeParticleSystem) {
         registerIntegratedSystem('sparks_island', ambientSparks, (ambientSparks as any).userData.computeParticleSystem);
     }
-    
+
+    const ambientIslandSparks = createIntegratedSparks({ count: 5000, areaSize: 15, center: new THREE.Vector3(centerX, 2, centerZ), useCompute: true });
+    safeAddFoliage(ambientIslandSparks, false, 0, null);
+    if ((ambientIslandSparks as any).userData?.computeParticleSystem) {
+        registerIntegratedSystem('sparks_island', ambientIslandSparks, (ambientIslandSparks as any).userData.computeParticleSystem);
+    }
 
     // ⚡ JUICE: Environmental Sparks
     // Add ambient sparks to the world
-    const ambientSparksOuter = createIntegratedSparks({ count: 1000, areaSize: 50, center: new THREE.Vector3(centerX, 10, centerZ), useCompute: true });
-    safeAddFoliage(ambientSparksOuter, false, 0, null);
-    if ((ambientSparksOuter as any).userData?.computeParticleSystem) {
-        registerIntegratedSystem('sparks_island_outer', ambientSparksOuter, (ambientSparksOuter as any).userData.computeParticleSystem);
-    }
+    const globalSparks = createIntegratedSparks({ count: 1000, areaSize: 50, center: new THREE.Vector3(centerX, 10, centerZ), useCompute: true });
+    safeAddFoliage(globalSparks, false, 0, null);
 
     console.log(`[World] Lake Island populated with musical flora at (${centerX}, ${centerZ})`);
 }

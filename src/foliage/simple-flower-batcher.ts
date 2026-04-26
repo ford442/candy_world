@@ -137,7 +137,7 @@ export class SimpleFlowerBatcher {
         petalMat.sheenColorNode = instanceColor;
 
         // 3. Add Juicy Rim Light (Neon Edge)
-        const rim = createJuicyRimLight(instanceColor, float(1.0), float(3.0));
+        const rim = createJuicyRimLight(instanceColor, float(1.0), float(3.0), null);
 
         // 4. Add Audio-Reactive Glitter
         const glitterNoise = mx_noise_float(positionLocal.mul(float(50.0)).add(uTime.mul(5.0)));

@@ -49,6 +49,7 @@ export function initInput(
 
     // Modal Focus Trap Cleanups
     let releasePauseMenuFocus: (() => void) | null = null;
+    let lastFocusedElement: HTMLElement | null = null;
 
     // --- NEW: Visual Reticle (Crosshair) ---
     // Check if it exists; if not, create it
@@ -116,6 +117,11 @@ export function initInput(
         }
 
         if (instructions) instructions.style.display = 'none';
+
+        if (lastFocusedElement && typeof lastFocusedElement.focus === 'function') {
+            lastFocusedElement.focus();
+            lastFocusedElement = null;
+        }
         
         if (releasePauseMenuFocus) {
             releasePauseMenuFocus();
@@ -146,6 +152,7 @@ export function initInput(
             }
 
             if (instructions) {
+                lastFocusedElement = document.activeElement as HTMLElement;
                 instructions.style.display = 'flex';
                 releasePauseMenuFocus = trapFocusInside(instructions);
             }
@@ -201,6 +208,7 @@ export function initInput(
                 // If we are dancing, the unlock event fired but menu was suppressed.
                 // Pressing Escape again should manually bring up the menu.
                 if (instructions) {
+                lastFocusedElement = document.activeElement as HTMLElement;
                     instructions.style.display = 'flex';
                     releasePauseMenuFocus = trapFocusInside(instructions);
                 }
