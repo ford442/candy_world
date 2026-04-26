@@ -76,6 +76,18 @@ export class MusicReactivitySystem {
         }
         this.registeredObjects.get(species)!.add(object);
 
+        // ⚡ OPTIMIZATION: Pre-allocate color caches during object registration to prevent GC spikes during hot-loop playback
+        if (!object.userData.flashColor) {
+            object.userData.flashColor = new THREE.Color();
+        }
+
+        if (object.material && !Array.isArray(object.material)) {
+             const mat = object.material as THREE.MeshStandardMaterial;
+             if (mat.emissive && !object.userData.originalEmissive) {
+                 object.userData.originalEmissive = mat.emissive.clone();
+             }
+        }
+
         // Add minimal reactToNote method if it doesn't exist (fallback)
         if (!object.userData.reactToNote) {
             // Note: We assign to userData.reactToNote as a convention for some objects,
@@ -85,16 +97,9 @@ export class MusicReactivitySystem {
             // FoliageObject extends Object3D, which is dynamic.
             (object as any).reactToNote = (note: string, color: number, velocity: number) => {
                 if (object.material && !Array.isArray(object.material) && (object.material as THREE.MeshStandardMaterial).emissive) {
-                    const mat = object.material as THREE.MeshStandardMaterial;
-                    const originalEmissive = object.userData.originalEmissive || mat.emissive.clone();
-                    if (!object.userData.originalEmissive) object.userData.originalEmissive = originalEmissive;
-
                     // Smooth flash via animateFoliage
-                    if (!object.userData.flashColor) {
-                        object.userData.flashColor = new THREE.Color(color);
-                    } else {
-                        object.userData.flashColor.setHex(color);
-                    }
+                    // ⚡ OPTIMIZATION: Only update values, never allocate using new THREE.Color or .clone() in the hot path
+                    object.userData.flashColor.setHex(color);
                     object.userData.flashIntensity = velocity / 127.0;
                 }
             };
