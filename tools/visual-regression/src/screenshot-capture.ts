@@ -297,7 +297,7 @@ export class ScreenshotCapture {
     // We wait for the #candy-loading-overlay to not have the .visible class, or for __sceneReady
     await this.page.waitForFunction(() => {
       const el = document.getElementById('candy-loading-overlay');
-      return (window as any).__sceneReady === true || (el && el.classList.contains('loaded')) || (el && !el.classList.contains('visible')) || !el;
+      return (window as any).__sceneReady === true || (el && el.classList.contains('loaded')) || (el && !el.classList.contains('visible')) || !el || !document.body.contains(el);
     }, { timeout: 120000 });
     await this.page.waitForTimeout(1000);
 

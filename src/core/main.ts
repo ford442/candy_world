@@ -239,12 +239,15 @@ initWasm().then(async (wasmLoaded) => {
     loadingScreen.startPhase('shader-warmup');
     loadingScreen.updateProgress(30, 'Starting render loop...');
     renderer.setAnimationLoop(animate);
-    try { window.__sceneReady = true; } catch (e) { }
+    // Not setting __sceneReady here
 
     loadingScreen.updateProgress(100, 'Scene ready!');
     loadingScreen.completePhase('shader-warmup');
 
     // Hide loading screen - the basic scene is ready
+    loadingScreen.onComplete(() => {
+        // Not setting __sceneReady here
+    });
     loadingScreen.hide();
 
     // Create a temporary "Preview" mushroom for the startup scene
