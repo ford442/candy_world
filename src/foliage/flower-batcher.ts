@@ -69,21 +69,18 @@ export class FlowerBatcher {
         const posFinal = applyPlayerInteraction(posWind);
 
         // --- 1. Stems (Cylinder) ---
-        // Use existing flowerStem material logic but ensure it works with instancing
-        // flowerStem in common.ts already has positionNode logic.
-        // We need to CLONE it to avoid conflict if it's used elsewhere non-instanced?
-        // Actually, TSL materials handle instancing automatically if logic uses attributes/uniforms correctly.
-        // But flowerStem uses 'calculateWindSway' which uses 'positionWorld'.
-        // InstancedMesh updates positionWorld correctly in VertexNode.
         const stemMat = getCachedProceduralMaterial('flower_batch_stem', 0xFFFFFF, () => {
             return (foliageMaterials.flowerStem as THREE.Material).clone();
         });
 
-        this.stems = new THREE.InstancedMesh(sharedGeometries.unitCylinder, stemMat, MAX_FLOWERS);
+        const stemGeo = sharedGeometries.unitCylinder.clone();
+        this.stems = new THREE.InstancedMesh(stemGeo, stemMat, MAX_FLOWERS);
         this.stems.castShadow = true;
         this.stems.receiveShadow = true;
         this.stems.frustumCulled = false;
         this.stems.count = 0;
+        // Provide aPoseState so TSL attribute('aPoseState') resolves during warmup and runtime
+        this.stems.geometry.setAttribute('aPoseState', new THREE.InstancedBufferAttribute(new Float32Array(MAX_FLOWERS), 1));
         foliageGroup.add(this.stems);
 
         // --- 2. Centers (Sphere) ---
@@ -93,11 +90,13 @@ export class FlowerBatcher {
             return mat;
         });
 
-        this.centers = new THREE.InstancedMesh(sharedGeometries.unitSphere, centerMat, MAX_FLOWERS);
+        const centerGeo = sharedGeometries.unitSphere.clone();
+        this.centers = new THREE.InstancedMesh(centerGeo, centerMat, MAX_FLOWERS);
         this.centers.castShadow = true;
         this.centers.receiveShadow = true;
         this.centers.frustumCulled = false;
         this.centers.count = 0;
+        this.centers.geometry.setAttribute('aPoseState', new THREE.InstancedBufferAttribute(new Float32Array(MAX_FLOWERS), 1));
         foliageGroup.add(this.centers);
 
         // --- 3. Stamens (Cylinder) ---
@@ -105,11 +104,13 @@ export class FlowerBatcher {
             return CandyPresets.Clay(0xFFFF00, { deformationNode: posFinal });
         });
 
-        this.stamens = new THREE.InstancedMesh(sharedGeometries.unitCylinder, stamenMat, MAX_FLOWERS * 3);
+        const stamenGeo = sharedGeometries.unitCylinder.clone();
+        this.stamens = new THREE.InstancedMesh(stamenGeo, stamenMat, MAX_FLOWERS * 3);
         this.stamens.castShadow = true;
         this.stamens.receiveShadow = true;
         this.stamens.frustumCulled = false;
         this.stamens.count = 0;
+        this.stamens.geometry.setAttribute('aPoseState', new THREE.InstancedBufferAttribute(new Float32Array(MAX_FLOWERS * 3), 1));
         foliageGroup.add(this.stamens);
 
         // --- 4. Petals (Shared Material) ---
@@ -155,24 +156,29 @@ export class FlowerBatcher {
         this.petalsSimple.receiveShadow = true;
         this.petalsSimple.frustumCulled = false;
         this.petalsSimple.count = 0;
+        this.petalsSimple.geometry.setAttribute('aPoseState', new THREE.InstancedBufferAttribute(new Float32Array(MAX_PETALS), 1));
         foliageGroup.add(this.petalsSimple);
 
         // Multi Petals (Sphere)
-        this.petalsMulti = new THREE.InstancedMesh(sharedGeometries.unitSphere, petalMat, MAX_PETALS);
+        const multiGeo = sharedGeometries.unitSphere.clone();
+        this.petalsMulti = new THREE.InstancedMesh(multiGeo, petalMat, MAX_PETALS);
         this.petalsMulti.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAX_PETALS * 3), 3);
         this.petalsMulti.castShadow = true;
         this.petalsMulti.receiveShadow = true;
         this.petalsMulti.frustumCulled = false;
         this.petalsMulti.count = 0;
+        this.petalsMulti.geometry.setAttribute('aPoseState', new THREE.InstancedBufferAttribute(new Float32Array(MAX_PETALS), 1));
         foliageGroup.add(this.petalsMulti);
 
         // Spiral Petals (Cone)
-        this.petalsSpiral = new THREE.InstancedMesh(sharedGeometries.unitCone, petalMat, MAX_PETALS);
+        const spiralGeo = sharedGeometries.unitCone.clone();
+        this.petalsSpiral = new THREE.InstancedMesh(spiralGeo, petalMat, MAX_PETALS);
         this.petalsSpiral.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAX_PETALS * 3), 3);
         this.petalsSpiral.castShadow = true;
         this.petalsSpiral.receiveShadow = true;
         this.petalsSpiral.frustumCulled = false;
         this.petalsSpiral.count = 0;
+        this.petalsSpiral.geometry.setAttribute('aPoseState', new THREE.InstancedBufferAttribute(new Float32Array(MAX_PETALS), 1));
         foliageGroup.add(this.petalsSpiral);
 
         this.initialized = true;
@@ -309,6 +315,23 @@ export class FlowerBatcher {
                     this.addInstance(this.petalsSimple, _scratchMatrix, layerColor, 'simpleCount');
                 }
             }
+        }
+    }
+
+    update(audioState: any) {
+        if (!this.initialized) return;
+        const kick = audioState?.kickTrigger || 0;
+        const bloom = Math.min(kick * 0.3, 0.5);
+        // Update aPoseState for all active instances across all meshes
+        const meshes = [this.stems, this.centers, this.stamens, this.petalsSimple, this.petalsMulti, this.petalsSpiral];
+        for (const mesh of meshes) {
+            if (!mesh) continue;
+            const attr = mesh.geometry.getAttribute('aPoseState') as THREE.InstancedBufferAttribute;
+            if (!attr) continue;
+            for (let i = 0; i < mesh.count; i++) {
+                attr.setX(i, bloom);
+            }
+            attr.needsUpdate = true;
         }
     }
 

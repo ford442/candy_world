@@ -220,12 +220,26 @@ export async function forceFullSceneWarmup(
     const originalRot = camera.rotation.clone();
     const originalAutoClear = renderer.autoClear;
 
-    // 2. Force visibility
+    // 2. Force visibility and hide sensitive meshes
     const restoreList: THREE.Mesh[] = [];
+    const visibleRestoreList: THREE.Mesh[] = [];
     scene.traverse((obj: THREE.Object3D) => {
         if (obj instanceof THREE.Mesh && obj.frustumCulled) {
             obj.frustumCulled = false;
             restoreList.push(obj);
+        }
+        // Hide meshes with storage/compute attributes during warmup
+        // Their TSL materials can crash the renderer if compiled in a generic context.
+        if (obj instanceof THREE.Mesh && obj.visible) {
+            const geo = obj.geometry;
+            const hasStorageAttr = geo && (
+                geo.attributes.aState instanceof THREE.StorageInstancedBufferAttribute ||
+                geo.attributes.aVelocity instanceof THREE.StorageInstancedBufferAttribute
+            );
+            if (hasStorageAttr) {
+                obj.visible = false;
+                visibleRestoreList.push(obj);
+            }
         }
     });
 
@@ -247,6 +261,7 @@ export async function forceFullSceneWarmup(
     // 4. Restore
     renderer.setViewport(scissor.x, scissor.y, scissor.z, scissor.w);
     restoreList.forEach(o => o.frustumCulled = true);
+    visibleRestoreList.forEach(o => o.visible = true);
     camera.layers.mask = originalMask;
     camera.position.copy(originalPos);
     camera.rotation.copy(originalRot);

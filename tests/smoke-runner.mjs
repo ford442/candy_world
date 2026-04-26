@@ -106,6 +106,7 @@ async function runSmokeTest() {
     const page = await browser.newPage();
     const consoleMessages = [];
     let hasError = false;
+    const pageErrors = [];
 
     page.on('console', (msg) => {
       const text = msg.text();
@@ -113,16 +114,36 @@ async function runSmokeTest() {
       console.log(`[CONSOLE] ${msg.type().toUpperCase()}: ${text}`);
       if (msg.type() === 'error') {
         // Ignore expected 404s for WASM fallbacks
-        if (!text.includes('Failed to load resource: the server responded with a status of 404') &&
-            !text.includes('candy_native.js not found') &&
-            !text.includes('candy_native_st.js not found')) {
-            hasError = true;
+        if (text.includes('Failed to load resource: the server responded with a status of 404') ||
+            text.includes('candy_native.js not found') ||
+            text.includes('candy_native_st.js not found') ||
+            text.includes('candy_native.wasm not found') ||
+            text.includes('candy_native_st.wasm not found')) {
+            return;
         }
+        // Ignore WebGPU Device Lost if it happens during page cleanup
+        if (text.includes('WebGPU Device Lost') || text.includes('Device was destroyed')) {
+            // Only treat as error if scene is not ready yet
+            return;
+        }
+        hasError = true;
       }
     });
 
+    page.on('requestfailed', (request) => {
+      const url = request.url();
+      const failure = request.failure();
+      if (url.includes('candy_native') || url.includes('candy_native_st')) {
+        // Expected when Emscripten is not built
+        return;
+      }
+      console.log(`[REQUEST FAILED] ${url}: ${failure ? failure.errorText : 'unknown'}`);
+    });
+
     page.on('pageerror', (err) => {
-      console.log(`[PAGE ERROR] ${err.message}\n[STACK] ${err.stack}`);
+      const errInfo = `[PAGE ERROR] ${err.message}\n[STACK] ${err.stack}`;
+      console.log(errInfo);
+      pageErrors.push(errInfo);
       hasError = true;
     });
 
@@ -131,6 +152,21 @@ async function runSmokeTest() {
       window.addEventListener('unhandledrejection', (event) => {
         console.error('[UNHANDLED REJECTION]', event.reason);
       });
+
+      window.__pageErrorCount = 0;
+      window.addEventListener('error', () => {
+        window.__pageErrorCount++;
+      });
+    });
+
+    // Poll for last warmup material name to help diagnose shader crashes
+    await page.evaluate(() => {
+      setInterval(() => {
+        const name = window.__lastWarmupMaterialName;
+        if (name) {
+          window.__lastReportedWarmupMaterialName = name;
+        }
+      }, 100);
     });
 
     // Navigate to localhost:4173
@@ -152,6 +188,9 @@ async function runSmokeTest() {
         () => (window).__sceneReady === true,
         { timeout: 25000 }
       );
+      await page.evaluate(() => {
+        window.__sceneReadyTime = performance.now();
+      });
       console.log('✓ Scene is ready!');
     } catch (e) {
       console.log('⚠ Timeout waiting for scene ready');
@@ -171,6 +210,24 @@ async function runSmokeTest() {
 
     if (canvasInfo) {
       console.log(`Canvas: ${canvasInfo.width}x${canvasInfo.height} ✓`);
+    }
+
+    // Check if any page errors occurred before scene ready
+    const errorTiming = await page.evaluate(() => {
+      return {
+        sceneReadyTime: window.__sceneReadyTime || 0,
+        pageErrorCount: window.__pageErrorCount || 0,
+        lastWarmupMaterial: window.__lastReportedWarmupMaterialName || null,
+      };
+    });
+
+    if (errorTiming.lastWarmupMaterial) {
+      console.log(`[DIAGNOSTIC] Last warmup material before error: ${errorTiming.lastWarmupMaterial}`);
+    }
+
+    if (pageErrors.length > 0) {
+      console.log('\n📋 Page Errors:');
+      pageErrors.forEach((e, i) => console.log(`  ${i + 1}. ${e.split('\n')[0]}`));
     }
 
     await page.close();

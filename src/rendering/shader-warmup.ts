@@ -86,6 +86,11 @@ function createWarmupGeometry(): THREE.BufferGeometry {
   geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
   geometry.setAttribute('normal', new THREE.BufferAttribute(new Float32Array([0, 0, 1, 0, 0, 1, 0, 0, 1]), 3));
   geometry.setAttribute('uv', new THREE.BufferAttribute(new Float32Array([0, 0, 2, 0, 0, 2]), 2));
+  // Provide dummy attributes so TSL materials that reference them don't crash during warmup.
+  geometry.setAttribute('instanceColor', new THREE.BufferAttribute(new Float32Array([1, 1, 1, 1, 1, 1, 1, 1, 1]), 3));
+  geometry.setAttribute('aPoseState', new THREE.BufferAttribute(new Float32Array([0, 0, 0]), 1));
+  geometry.setAttribute('aState', new THREE.BufferAttribute(new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), 4));
+  geometry.setAttribute('aVelocity', new THREE.BufferAttribute(new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), 4));
   return geometry;
 }
 
@@ -241,9 +246,28 @@ export class ShaderWarmup {
     const startTime = performance.now();
     
     try {
-      // Create a temporary mesh with the material
-      const mesh = new THREE.Mesh(this.warmupGeometry, material);
-      mesh.frustumCulled = false;
+      // Track which material is currently being warmed up for diagnostics
+      if (typeof window !== 'undefined') {
+        (window as any).__lastWarmupMaterialName = name;
+      }
+      
+      // Determine if we need an InstancedMesh for this material.
+      // Materials that reference 'instanceColor' or other instanced attributes
+      // will warn or crash when rendered on a plain Mesh during warmup.
+      const matStr = material.toString ? material.toString() : '';
+      const needsInstancing = matStr.includes('instanceColor') || matStr.includes('instanceIndex');
+
+      let mesh: THREE.Mesh | THREE.InstancedMesh;
+      if (needsInstancing) {
+        const instancedMesh = new THREE.InstancedMesh(this.warmupGeometry, material, 1);
+        instancedMesh.frustumCulled = false;
+        // Provide a dummy instance color so TSL attribute('instanceColor') resolves.
+        instancedMesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array([1, 1, 1]), 3);
+        mesh = instancedMesh;
+      } else {
+        mesh = new THREE.Mesh(this.warmupGeometry, material);
+        mesh.frustumCulled = false;
+      }
       
       // Create a minimal scene for this material
       const scene = new THREE.Scene();
@@ -268,6 +292,9 @@ export class ShaderWarmup {
       // Cleanup
       renderTarget.dispose();
       scene.remove(mesh);
+      if (needsInstancing && (mesh as THREE.InstancedMesh).instanceColor) {
+        (mesh as THREE.InstancedMesh).instanceColor!.dispose();
+      }
       // ⚡ OPTIMIZATION: Ensure materials are not disposed here to preserve compiled shader program.
       // this.warmupGeometry is reused so we don't dispose it. However, the temporary mesh is removed.
       if (material instanceof MeshStandardNodeMaterial) {

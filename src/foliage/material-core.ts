@@ -7,7 +7,7 @@ import {
     color, float, uv, mix, vec3, vec2, Fn, uniform, dot, max, min,
     mx_noise_float, positionLocal, positionWorld, normalWorld, normalLocal,
     cameraPosition, sin, pow, abs, normalize, smoothstep, exp,
-    texture, Node
+    texture, Node, attribute
 } from 'three/tsl';
 
 import { applyGlitch } from './glitch.ts';
@@ -350,19 +350,22 @@ export const calculateWindSwayLegacy = Fn(([posNode]) => {
 // Re-export wind compute system for external access
 export { getWindTextureData, windComputeSystem } from './wind-compute.ts';
 
-export const calculateFlowerBloom = Fn(([posNode]) => {
-    // 1. Breathing (Idle) - Slow pulse
+export const calculateFlowerBloom = (posNode: any) => {
+    // 1. Pose State (per-instance bloom factor driven by music reactivity)
+    const poseState = attribute('aPoseState', 'float');
+
+    // 2. Breathing (Idle) - Slow pulse
     const breath = sin(uTime.mul(2.0)).mul(0.05);
 
-    // 2. Audio Bloom (Kick/Bass) - Punchy expansion
+    // 3. Audio Bloom (Kick/Bass) - Punchy expansion
     const bloom = uAudioLow.mul(0.3);
 
     // Total Scale
-    const scale = float(1.0).add(breath).add(bloom);
+    const scale = float(1.0).add(breath).add(bloom).add(poseState);
 
     // Scale position from center (0,0,0) - Assumes local space
     return posNode.mul(scale);
-});
+};
 
 // --- UNIFIED MATERIAL PIPELINE ---
 
