@@ -662,6 +662,12 @@
         if (fill) fill.style.width = Math.min(100, Math.max(0, percent)) + '%';
         if (percentageEl) percentageEl.innerText = Math.round(percent) + '%';
         if (container) container.setAttribute('aria-valuenow', String(Math.round(percent)));
+
+        // Update active phase indicator progress
+        const activeIndicator = document.querySelector('.phase-indicator.active');
+        if (activeIndicator) {
+            activeIndicator.style.setProperty('--phase-progress', percent + '%');
+        }
     };
 
     window.hideLoadingScreen = function () {
