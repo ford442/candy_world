@@ -429,7 +429,7 @@ export class ComputeParticleSystem {
     }
     
 
-    public spawn(options: { position: THREE.Vector3, velocity?: THREE.Vector3, life?: number, size?: number, seed?: number }): void {
+    public spawn(options: { position: THREE.Vector3, velocity?: THREE.Vector3, life?: number, size?: number, seed?: number }): number {
         if (this.usingGPU && this.device && this.particleBuffer) {
             const i = this.nextSpawnIndex;
             this.nextSpawnIndex = (this.nextSpawnIndex + 1) % this.count;
@@ -471,13 +471,27 @@ export class ComputeParticleSystem {
                 ComputeParticleSystem.scratchFloat32Array[0] = options.seed;
                 this.device.queue.writeBuffer(this.particleBuffer, seedOffset, ComputeParticleSystem.scratchFloat32Array.subarray(0, 1));
             }
+            return i;
+        }
+        return -1;
+    }
+
+
+    public kill(index: number): void {
+        if (this.usingGPU && this.device && this.particleBuffer) {
+            const vec3ArraySize = this.count * 16;
+            const lifeOffset = vec3ArraySize * 2 + index * 4;
+            ComputeParticleSystem.scratchFloat32Array[0] = -1.0;
+            this.device.queue.writeBuffer(this.particleBuffer, lifeOffset, ComputeParticleSystem.scratchFloat32Array.subarray(0, 1));
         }
     }
 
-    public burst(spawns: { position: THREE.Vector3, velocity?: THREE.Vector3, life?: number, size?: number, seed?: number }[]): void {
+    public burst(spawns: { position: THREE.Vector3, velocity?: THREE.Vector3, life?: number, size?: number, seed?: number }[]): number[] {
+        const indices: number[] = [];
         for (const spawn of spawns) {
-            this.spawn(spawn);
+            indices.push(this.spawn(spawn));
         }
+        return indices;
     }
 
     update(renderer: THREE.Renderer, deltaTime: number, playerPosition: THREE.Vector3, audioData: ParticleAudioData): void {

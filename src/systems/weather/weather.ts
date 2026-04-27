@@ -48,6 +48,7 @@ export class WeatherSystem {
     private ecosystemManager: EcosystemManager;
     private atmosphereManager: AtmosphereManager;
     private effectsManager: EffectsManager;
+    private renderer: any;
 
     // Tracked entities
     trackedTrees: any[];
@@ -166,6 +167,7 @@ export class WeatherSystem {
      * Set renderer for particle systems
      */
     setRenderer(renderer: any): void {
+        this.renderer = renderer;
         this.effectsManager.setRenderer(renderer);
         
         // Sync mesh references
@@ -333,7 +335,7 @@ export class WeatherSystem {
         this.intensity += (this.targetIntensity - this.intensity) * this.transitionSpeed;
 
         // Particle systems
-        this.effectsManager.updateParticleSystems(dt, bassIntensity, melodyVol, this.weatherType, this.state);
+        this.effectsManager.updateParticleSystems(this.renderer, dt, bassIntensity, melodyVol, this.weatherType, this.state);
 
         // Storm-specific effects
         if (this.state === WeatherState.STORM) {

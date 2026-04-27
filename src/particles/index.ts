@@ -53,6 +53,8 @@ export {
     createIntegratedFireflies,
     createIntegratedPollen,
     createIntegratedSparks,
+    createIntegratedBerries,
+    createIntegratedRain,
     updateAllIntegratedSystems,
     registerIntegratedSystem,
     disposeIntegratedSystem,
