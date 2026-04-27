@@ -120,6 +120,7 @@ export class LoadingScreen {
     private phaseProgress = 0;
     private targetOverallProgress = 0;
     private displayedOverallProgress = 0;
+    private displayedPhaseProgress = 0;
     private animationFrameId: number | null = null;
     private lastTime: number = 0;
     
@@ -419,6 +420,7 @@ export class LoadingScreen {
 
         this.currentPhaseIndex = phaseIndex;
         this.phaseProgress = 0;
+        this.displayedPhaseProgress = 0;
         this.phaseStartTime = Date.now();
 
         const phase = this.phases[phaseIndex];
@@ -632,16 +634,30 @@ export class LoadingScreen {
         const delta = Math.min((time - this.lastTime) / 1000, 0.1); // clamp delta
         this.lastTime = time;
 
-        // Dampen the displayed progress towards the target
+        let needsVisualUpdate = false;
+
+        // Dampen the displayed phase progress towards target
+        const phaseDiff = this.phaseProgress - this.displayedPhaseProgress;
+        if (Math.abs(phaseDiff) > 0.1) {
+            this.displayedPhaseProgress += phaseDiff * (1.0 - Math.exp(-5.0 * delta));
+            needsVisualUpdate = true;
+        } else if (this.displayedPhaseProgress !== this.phaseProgress) {
+            this.displayedPhaseProgress = this.phaseProgress;
+            needsVisualUpdate = true;
+        }
+
+        // Dampen the displayed overall progress towards the target
         const diff = this.targetOverallProgress - this.displayedOverallProgress;
         if (Math.abs(diff) > 0.1) {
             // Lerp factor
             this.displayedOverallProgress += diff * (1.0 - Math.exp(-5.0 * delta));
-
-            // Re-render UI with new displayed progress
-            this.updateUIVisuals();
+            needsVisualUpdate = true;
         } else if (this.displayedOverallProgress !== this.targetOverallProgress) {
             this.displayedOverallProgress = this.targetOverallProgress;
+            needsVisualUpdate = true;
+        }
+
+        if (needsVisualUpdate) {
             this.updateUIVisuals();
         }
 
@@ -663,6 +679,12 @@ export class LoadingScreen {
 
         // Update ARIA
         this.container.setAttribute('aria-valuenow', Math.round(this.displayedOverallProgress).toString());
+
+        // Update active phase indicator progress
+        const activeIndicator = this.container.querySelector('.phase-indicator.active') as HTMLElement;
+        if (activeIndicator) {
+            activeIndicator.style.setProperty('--phase-progress', `${this.displayedPhaseProgress}%`);
+        }
     }
 
     private calculateOverallProgress(): void {

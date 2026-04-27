@@ -447,6 +447,7 @@
   background: rgba(255, 255, 255, 0.4);
   transition: all var(--transition-fast);
   opacity: 0.6;
+  --phase-progress: 0%;
 }
 
 .phase-indicator.active {
@@ -474,7 +475,7 @@
 }
 
 .phase-indicator.active .phase-dot {
-  background: var(--progress-fill-start);
+  background: conic-gradient(var(--progress-fill-start) var(--phase-progress), #ccc var(--phase-progress));
   box-shadow: 0 0 8px var(--progress-fill-start);
   animation: pulse-dot 1.5s infinite;
 }
