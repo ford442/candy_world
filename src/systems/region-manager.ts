@@ -122,10 +122,15 @@ export function getCellKey(x: number, z: number): string {
     return `${x},${z}`;
 }
 
+// ⚡ OPTIMIZATION: Module-level scratch object for zero-allocation parsing
+const _scratchCellCoord = { x: 0, z: 0 };
+
 /** Parse cell key into coordinates */
 export function parseCellKey(key: string): { x: number; z: number } {
-    const [x, z] = key.split(',').map(Number);
-    return { x, z };
+    const commaIdx = key.indexOf(',');
+    _scratchCellCoord.x = Number(key.substring(0, commaIdx));
+    _scratchCellCoord.z = Number(key.substring(commaIdx + 1));
+    return _scratchCellCoord;
 }
 
 /** Convert world position to cell coordinates */
@@ -169,10 +174,21 @@ export function distanceToCell(
     cellZ: number,
     cellSize: number
 ): number {
+    return Math.sqrt(distanceToCellSq(worldX, worldZ, cellX, cellZ, cellSize));
+}
+
+/** Get squared distance from world position to cell center (Optimized) */
+export function distanceToCellSq(
+    worldX: number,
+    worldZ: number,
+    cellX: number,
+    cellZ: number,
+    cellSize: number
+): number {
     const bounds = cellToBounds(cellX, cellZ, cellSize);
     const dx = worldX - bounds.centerX;
     const dz = worldZ - bounds.centerZ;
-    return Math.sqrt(dx * dx + dz * dz);
+    return dx * dx + dz * dz;
 }
 
 // ============================================================================
@@ -384,15 +400,16 @@ export class RegionManager {
         const cx = centerX ?? this.playerCellX;
         const cz = centerZ ?? this.playerCellZ;
         const r = radius ?? this.config.unloadRadius;
+        const rSq = r * r;
 
         const result: GridCell[] = [];
         
         for (const cell of this.cells.values()) {
-            const distance = Math.sqrt(
-                Math.pow(cell.x - cx, 2) + Math.pow(cell.z - cz, 2)
-            );
+            const dx = cell.x - cx;
+            const dz = cell.z - cz;
+            const distanceSq = dx * dx + dz * dz;
             
-            if (distance > r && cell.state === CellState.LOADED) {
+            if (distanceSq > rSq && cell.state === CellState.LOADED) {
                 result.push(cell);
             }
         }
@@ -422,22 +439,28 @@ export class RegionManager {
      */
     getDistantCells(minRadius: number): GridCell[] {
         const result: GridCell[] = [];
+        const minRadiusSq = minRadius * minRadius;
         
         for (const cell of this.cells.values()) {
-            const distance = Math.sqrt(
-                Math.pow(cell.x - this.playerCellX, 2) + 
-                Math.pow(cell.z - this.playerCellZ, 2)
-            );
+            const dx = cell.x - this.playerCellX;
+            const dz = cell.z - this.playerCellZ;
+            const distanceSq = dx * dx + dz * dz;
             
-            if (distance >= minRadius && cell.state === CellState.LOADED) {
+            if (distanceSq >= minRadiusSq && cell.state === CellState.LOADED) {
                 result.push(cell);
             }
         }
 
         // Sort by distance (farthest first)
         result.sort((a, b) => {
-            const da = Math.pow(a.x - this.playerCellX, 2) + Math.pow(a.z - this.playerCellZ, 2);
-            const db = Math.pow(b.x - this.playerCellX, 2) + Math.pow(b.z - this.playerCellZ, 2);
+            const dxA = a.x - this.playerCellX;
+            const dzA = a.z - this.playerCellZ;
+            const da = dxA * dxA + dzA * dzA;
+
+            const dxB = b.x - this.playerCellX;
+            const dzB = b.z - this.playerCellZ;
+            const db = dxB * dxB + dzB * dzB;
+
             return db - da;
         });
 
@@ -529,7 +552,7 @@ export class RegionManager {
      * Get appropriate LOD level for a cell based on distance.
      */
     getLODLevelForCell(cell: GridCell): number {
-        const distance = distanceToCell(
+        const distanceSq = distanceToCellSq(
             this.playerWorldX,
             this.playerWorldZ,
             cell.x,
@@ -538,7 +561,7 @@ export class RegionManager {
         );
 
         for (let i = 0; i < this.config.lodRadii.length; i++) {
-            if (distance <= this.config.lodRadii[i]) {
+            if (distanceSq <= this.config.lodRadii[i] * this.config.lodRadii[i]) {
                 return i;
             }
         }
@@ -724,11 +747,11 @@ export class RegionManager {
 
     private queueCellForLoading(cell: GridCell): void {
         // Calculate priority based on distance
-        const distance = Math.sqrt(
-            Math.pow(cell.x - this.playerCellX, 2) + 
-            Math.pow(cell.z - this.playerCellZ, 2)
-        );
-        cell.priority = distance;
+        const dx = cell.x - this.playerCellX;
+        const dz = cell.z - this.playerCellZ;
+        const distanceSq = dx * dx + dz * dz;
+
+        cell.priority = distanceSq;
         
         cell.state = CellState.QUEUED;
         this.loadQueue.push(cell);
