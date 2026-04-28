@@ -15,6 +15,7 @@ import {
     color, float, uniform, vec3, positionLocal, sin, cos, mix, uv, varying,
     smoothstep, attribute, positionWorld, If, vec4
 } from 'three/tsl';
+import { BiomeUniforms } from '../systems/biome-uniforms.ts';
 import { uTime, uGlitchIntensity } from './index.ts';
 import { applyGlitch } from './glitch.ts';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
@@ -137,9 +138,13 @@ export class ArpeggioFernBatcher {
 
         // Base: 0x2E8B57, Rough 0.8, Metal 0.0
         // Frond: 0x00FF88, Rough 0.6, Metal 0.1
+        // Frond accent (hue-shifted purple-violet — blended in by uHueShift)
         const baseColor = color(0x2E8B57);
         const frondColor = color(0x00FF88);
-        const mixedColor = mix(baseColor, frondColor, isFrondAttr);
+        const frondAccentColor = color(0x8844FF); // Purple-violet accent for hue shift
+        // Arpeggio Grove hue shift: mix frond colour towards accent based on uHueShift channel
+        const dynamicFrondColor = mix(frondColor, frondAccentColor, BiomeUniforms.arpeggioGrove.hueShift);
+        const mixedColor = mix(baseColor, dynamicFrondColor, isFrondAttr);
 
         const mixedRough = mix(float(0.8), float(0.6), isFrondAttr);
         const mixedMetal = mix(float(0.0), float(0.1), isFrondAttr);
@@ -287,7 +292,10 @@ export class ArpeggioFernBatcher {
         // Juicy Rim Light
         const rim = createJuicyRimLight(baseInstanceColor, float(2.0), float(3.0), null);
         const audioEmissive = uAudioHigh.mul(0.5);
-        material.emissiveNode = rim.add(baseInstanceColor.mul(audioEmissive));
+        // Arpeggio Grove shimmer: soft teal sparkle driven by melody channels
+        const shimmerColor = color(0x88FFCC);
+        const shimmerGlow = BiomeUniforms.arpeggioGrove.shimmer.mul(shimmerColor).mul(3.0);
+        material.emissiveNode = rim.add(baseInstanceColor.mul(audioEmissive)).add(shimmerGlow);
 
         // --- INSTANCED MESH ---
         this.mesh = new THREE.InstancedMesh(mergedGeo, material, MAX_FERNS);

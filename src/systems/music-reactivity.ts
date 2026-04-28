@@ -9,6 +9,21 @@ import { mushroomBatcher } from '../foliage/mushroom-batcher.ts';
 import { flowerBatcher } from '../foliage/flower-batcher.ts';
 import { simpleFlowerBatcher } from '../foliage/simple-flower-batcher.ts';
 import type { AudioData, FoliageObject } from '../foliage/types.ts';
+import { BiomeUniforms } from './biome-uniforms.ts';
+import musicBindings from '../../assets/music-bindings.json';
+
+// ⚡ OPTIMIZATION: Pre-parsed channel index arrays from music-bindings.json.
+// Resolved once at module init — immutable after that, zero per-frame allocations.
+const _arpeggioShimmerCh: readonly number[] = musicBindings.biomes.arpeggio_grove.shimmer;
+const _arpeggioHueShiftCh: readonly number[] = musicBindings.biomes.arpeggio_grove.hueShift;
+const _nebulaShimmerCh: readonly number[] = musicBindings.biomes.crystalline_nebula.shimmer;
+const _nebulaAmplitudeCh: readonly number[] = musicBindings.biomes.crystalline_nebula.amplitudeScale;
+
+// ⚡ OPTIMIZATION: Per-frame scratch floats — no per-frame object allocations.
+let _arpeggioShimmerAccum = 0.0;
+let _arpeggioHueShiftAccum = 0.0;
+let _nebulaShimmerAccum = 0.0;
+let _nebulaAmplitudeAccum = 0.0;
 
 // ⚡ OPTIMIZATION: Reusable Frustum & Matrices
 const _frustum = new THREE.Frustum();
@@ -318,6 +333,66 @@ export class MusicReactivitySystem {
             // Update Flower Batchers (aPoseState driven by audio)
             flowerBatcher.update(time, audioState, dayNightBias);
             simpleFlowerBatcher.update(audioState);
+
+            // ---------------------------------------------------------------
+            // ⚡ BIOME CHANNEL BINDING — Arpeggio Grove & Crystalline Nebula
+            // Data-driven: channel indices come from assets/music-bindings.json.
+            // Allocation-free: only pre-allocated module-level scalars are used.
+            // Day/night gating: reactivity is attenuated during the day phase.
+            // nightGate: 1.0 at night (dayNightBias=0) → 0.2 at full day (dayNightBias=1)
+            // ---------------------------------------------------------------
+            const nightGate = 0.2 + (1.0 - dayNightBias) * 0.8;
+            const channels = audioState?.channelData;
+
+            if (channels && channels.length > 0) {
+                // --- Arpeggio Grove: shimmer ---
+                _arpeggioShimmerAccum = 0.0;
+                for (let i = 0; i < _arpeggioShimmerCh.length; i++) {
+                    const idx = _arpeggioShimmerCh[i];
+                    if (idx < channels.length) _arpeggioShimmerAccum += channels[idx].volume;
+                }
+
+                // --- Arpeggio Grove: hue shift ---
+                _arpeggioHueShiftAccum = 0.0;
+                for (let i = 0; i < _arpeggioHueShiftCh.length; i++) {
+                    const idx = _arpeggioHueShiftCh[i];
+                    if (idx < channels.length) _arpeggioHueShiftAccum += channels[idx].volume;
+                }
+
+                // --- Crystalline Nebula: shimmer ---
+                _nebulaShimmerAccum = 0.0;
+                for (let i = 0; i < _nebulaShimmerCh.length; i++) {
+                    const idx = _nebulaShimmerCh[i];
+                    if (idx < channels.length) _nebulaShimmerAccum += channels[idx].volume;
+                }
+
+                // --- Crystalline Nebula: amplitude scale ---
+                _nebulaAmplitudeAccum = 0.0;
+                for (let i = 0; i < _nebulaAmplitudeCh.length; i++) {
+                    const idx = _nebulaAmplitudeCh[i];
+                    if (idx < channels.length) _nebulaAmplitudeAccum += channels[idx].volume;
+                }
+
+                // Push to TSL uniforms — clamp sums to [0,1] then gate by night.
+                // Mutate .value in place: never reassign the uniform node itself.
+                BiomeUniforms.arpeggioGrove.shimmer.value =
+                    Math.min(_arpeggioShimmerAccum / Math.max(_arpeggioShimmerCh.length, 1), 1.0) * nightGate;
+                BiomeUniforms.arpeggioGrove.hueShift.value =
+                    Math.min(_arpeggioHueShiftAccum, 1.0) * nightGate;
+                BiomeUniforms.crystallineNebula.shimmer.value =
+                    Math.min(_nebulaShimmerAccum / Math.max(_nebulaShimmerCh.length, 1), 1.0) * nightGate;
+                // amplitudeScale: 1.0 baseline + channel energy boost, gated by night
+                BiomeUniforms.crystallineNebula.amplitudeScale.value =
+                    1.0 + Math.min(_nebulaAmplitudeAccum / Math.max(_nebulaAmplitudeCh.length, 1), 1.0) * nightGate;
+            } else {
+                // No audio data — smoothly decay towards resting values (no snapping).
+                BiomeUniforms.arpeggioGrove.shimmer.value *= 0.9;
+                BiomeUniforms.arpeggioGrove.hueShift.value *= 0.9;
+                BiomeUniforms.crystallineNebula.shimmer.value *= 0.9;
+                // Decay amplitude towards baseline 1.0
+                BiomeUniforms.crystallineNebula.amplitudeScale.value =
+                    1.0 + (BiomeUniforms.crystallineNebula.amplitudeScale.value - 1.0) * 0.9;
+            }
         }
     }
 
