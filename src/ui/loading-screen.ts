@@ -174,6 +174,7 @@ export class LoadingScreen {
         // Check if already exists
         if (document.getElementById('candy-loading-screen')) {
             this.container = document.getElementById('candy-loading-screen');
+            this.overlay = document.getElementById('candy-loading-overlay');
             return;
         }
 

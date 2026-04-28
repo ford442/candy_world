@@ -1,5 +1,10 @@
 // tests/smoke-runner.mjs
 // Smoke test runner that starts Vite preview, runs tests, then exits
+//
+// PREREQUISITES for a fresh environment:
+//   1. npm install   (or pnpm install) – restores node_modules including @playwright/test
+//   2. npx playwright install chromium – downloads the browser binary required by Playwright
+//
 
 import { spawn } from 'child_process';
 import { chromium } from '@playwright/test';
@@ -209,6 +214,36 @@ async function runSmokeTest() {
 
     if (canvasInfo) {
       console.log(`Canvas: ${canvasInfo.width}x${canvasInfo.height} ✓`);
+    }
+
+    // Jukebox UI assertion (Bug 2 fix)
+    console.log('Checking jukebox UI...');
+    try {
+      // Wait for the loading overlay to fully disappear so it doesn't intercept clicks
+      await page.waitForSelector('#candy-loading-overlay', { state: 'hidden', timeout: 5000 });
+      // Use evaluate to click directly and read DOM state, avoiding Playwright actionability retries
+      await page.evaluate(() => {
+        const btn = document.getElementById('openJukeboxBtn');
+        if (btn) btn.click();
+      });
+      await page.waitForFunction(
+        () => {
+          const overlay = document.getElementById('playlist-overlay');
+          return overlay && overlay.style.display === 'flex';
+        },
+        { timeout: 5000 }
+      );
+      const isVisible = await page.evaluate(() => {
+        const btn = document.getElementById('addSongsBtn');
+        return btn ? btn.offsetParent !== null : false;
+      });
+      if (!isVisible) {
+        throw new Error('#addSongsBtn is not visible after opening jukebox');
+      }
+      console.log('✓ Jukebox UI assertion passed');
+    } catch (e) {
+      console.error('❌ Jukebox UI assertion failed:', e.message);
+      hasError = true;
     }
 
     // Check if any page errors occurred before scene ready

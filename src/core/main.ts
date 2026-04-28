@@ -59,7 +59,7 @@ if (oldOverlay) {
 
 enableStartupProfiler({
     slowPhaseThreshold: 100,
-    enableOverlay: true,
+    enableOverlay: false,
     enableConsole: true,
     saveToFile: true,
 });

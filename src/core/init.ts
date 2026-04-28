@@ -79,6 +79,13 @@ export function initScene(): SceneInitResult {
     renderer.localClippingEnabled = false;
     console.log('[Init] WebGPURenderer clipping fix applied.');
 
+    // Polyfill: attributeUtils.get is missing in three@0.171.0 but referenced by compute-particles.ts
+    const backend = (renderer as any).backend;
+    if (backend && backend.attributeUtils && typeof backend.attributeUtils.get !== 'function') {
+        backend.attributeUtils.get = () => null;
+        console.log('[Init] WebGPU attributeUtils.get polyfill applied.');
+    }
+
     // HDR Configuration (Phase 4: WebGPU)
     // Attempt to enable wide color gamut and extended tone mapping for brighter visuals
     const supportsHDR = window.matchMedia && window.matchMedia('(dynamic-range: high)').matches;

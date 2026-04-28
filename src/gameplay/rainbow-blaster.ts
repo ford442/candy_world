@@ -450,6 +450,10 @@ const projectilePool = new Proxy({} as ProjectilePool, {
         return true;
     }
 });
+function getProjectilePool(): ProjectilePool {
+    return projectilePool as ProjectilePool;
+}
+
 let initialized = false;
 
 export function fireRainbow(scene: THREE.Scene, origin: THREE.Vector3, direction: THREE.Vector3) {

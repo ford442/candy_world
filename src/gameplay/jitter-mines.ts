@@ -126,9 +126,6 @@ class JitterMineSystem {
 
             const glitchTime = uTime ? uTime.mul(10.0) : float(0.0);
             const baseGlitchPosition = applyGlitch(uv(), positionLocal, float(0.2).add(sin(glitchTime).mul(0.1))).position;
-        // Vertex Shader logic (Stateless GPU Animation)
-        const aSpawn = attribute('aSpawn', 'vec4');
-        const aState = attribute('aState', 'vec4');
 
             const age = uTime ? uTime.sub(spawnTime) : float(0.0);
 
