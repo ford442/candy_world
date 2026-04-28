@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "biomes": {
+    "arpeggio_grove": {
+      "shimmer": [3, 4],
+      "hueShift": [5]
+    },
+    "crystalline_nebula": {
+      "shimmer": [1, 2],
+      "amplitudeScale": [0, 1]
+    }
+  }
+}
