@@ -654,8 +654,8 @@ function populateLakeIsland(weatherSystem: WeatherSystem): void {
 
     // ⚡ JUICE: Environmental Sparks
     // Add ambient sparks to the world
-    const sparks = createIntegratedSparks({ count: 1000, areaSize: 50, center: new THREE.Vector3(centerX, 10, centerZ), useCompute: true });
-    safeAddFoliage(sparks, false, 0, null);
+    const sparksAmbient = createIntegratedSparks({ count: 1000, areaSize: 50, center: new THREE.Vector3(centerX, 10, centerZ), useCompute: true });
+    safeAddFoliage(sparksAmbient, false, 0, null);
 
     console.log(`[World] Lake Island populated with musical flora at (${centerX}, ${centerZ})`);
 }

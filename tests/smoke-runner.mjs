@@ -117,7 +117,8 @@ async function runSmokeTest() {
     });
 
     page.on('pageerror', (err) => {
-      console.log(`[PAGE ERROR] ${err.message}`);
+      console.error(`[PAGE ERROR] ${err.message}`);
+      console.error(err.stack);
       hasError = true;
     });
 

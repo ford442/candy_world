@@ -168,7 +168,7 @@ export function createFireflies(count = 150, areaSize = 100) {
 
     // Juicy Rim Light (The "Palette" Polish)
     // Makes them look like magical glass orbs
-    const rim = createJuicyRimLight(baseColor, float(2.0), float(3.0));
+    const rim = createJuicyRimLight(baseColor, float(2.0), float(3.0), null);
 
     // Emissive = Base Glow + Rim
     const glow = baseColor.mul(intensity);

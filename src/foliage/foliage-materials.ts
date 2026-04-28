@@ -38,10 +38,10 @@ export const foliageMaterials: { [key: string]: THREE.Material | THREE.Material[
         return mat;
     })(),
 
-    flowerCenter: CandyPresets.Velvet(0x442211, { audioReactStrength: 0.5 }),
-    vine: CandyPresets.Clay(0x558833),
-    wood: createUnifiedMaterial(0x8B4513, { roughness: 0.9, bumpStrength: 0.3, noiseScale: 3.0 }),
-    leaf: createUnifiedMaterial(0x228B22, { roughness: 0.6, side: THREE.DoubleSide, bumpStrength: 0.1 }),
+    get flowerCenter() { return CandyPresets.Velvet(0x442211, { audioReactStrength: 0.5 }); },
+    get vine() { return CandyPresets.Clay(0x558833); },
+    get wood() { return createUnifiedMaterial(0x8B4513, { roughness: 0.9, bumpStrength: 0.3, noiseScale: 3.0 }); },
+    get leaf() { return createUnifiedMaterial(0x228B22, { roughness: 0.6, side: THREE.DoubleSide, bumpStrength: 0.1 }); },
     
     // Restored/Upgraded Materials
     // PALETTE UPDATE: Apply Interaction + Wind to Flower Stem
@@ -59,14 +59,14 @@ export const foliageMaterials: { [key: string]: THREE.Material | THREE.Material[
         return mat;
     })(),
 
-    lotusRing: CandyPresets.Gummy(0xFFFFFF),
-    opticCable: createUnifiedMaterial(0x111111, { roughness: 0.4 }),
-    opticTip: createStandardNodeMaterial({
+    get lotusRing() { return CandyPresets.Gummy(0xFFFFFF); },
+    get opticCable() { return createUnifiedMaterial(0x111111, { roughness: 0.4 }); },
+    get opticTip() { return createStandardNodeMaterial({
         color: 0xFFFFFF,
         emissive: 0xFF00FF,
         emissiveIntensity: 1.0,
         roughness: 0.2
-    }),
+    }); },
 
     // Special Effects
     // PALETTE UPDATE: Volumetric God Ray (TSL)
@@ -134,30 +134,34 @@ export const foliageMaterials: { [key: string]: THREE.Material | THREE.Material[
     })(),
 
     // Diverse Mushroom Caps
-    mushroomCap: [
-        CandyPresets.Clay(0xFF6B6B),        // Matte Red
-        CandyPresets.Gummy(0xFF9F43),       // Orange Gummy
-        CandyPresets.Sugar(0xFDCB6E),       // Sugared Yellow
-        CandyPresets.Crystal(0x54A0FF),     // Blue Crystal
-        CandyPresets.OilSlick()             // Rare Oil
-    ],
+    get mushroomCap() {
+        return [
+            CandyPresets.Clay(0xFF6B6B),        // Matte Red
+            CandyPresets.Gummy(0xFF9F43),       // Orange Gummy
+            CandyPresets.Sugar(0xFDCB6E),       // Sugared Yellow
+            CandyPresets.Crystal(0x54A0FF),     // Blue Crystal
+            CandyPresets.OilSlick()             // Rare Oil
+        ];
+    },
 
-    mushroomCheek: CandyPresets.Velvet(0xFFAACC),
+    get mushroomCheek() { return CandyPresets.Velvet(0xFFAACC); },
 
     // Upgraded parts
-    mushroomGills: CandyPresets.Clay(0x332211, { side: THREE.DoubleSide }),
-    mushroomSpots: CandyPresets.Sugar(0xFFFFFF),
+    get mushroomGills() { return CandyPresets.Clay(0x332211, { side: THREE.DoubleSide }); },
+    get mushroomSpots() { return CandyPresets.Sugar(0xFFFFFF); },
 
-    flowerPetal: [
-        CandyPresets.Velvet(0xFF69B4, { side: THREE.DoubleSide, audioReactStrength: 1.0, deformationNode: calculateFlowerBloom(positionLocal) }),
-        CandyPresets.Gummy(0xFFD700, { side: THREE.DoubleSide, audioReactStrength: 0.8, deformationNode: calculateFlowerBloom(positionLocal) }),
-        CandyPresets.Crystal(0xFFFFFF, { side: THREE.DoubleSide, audioReactStrength: 0.5, deformationNode: calculateFlowerBloom(positionLocal) }),
-        CandyPresets.Sugar(0x9933FF, { side: THREE.DoubleSide, audioReactStrength: 1.0, deformationNode: calculateFlowerBloom(positionLocal) }),
-    ],
+    get flowerPetal() {
+        return [
+            CandyPresets.Velvet(0xFF69B4, { side: THREE.DoubleSide, audioReactStrength: 1.0, deformationNode: calculateFlowerBloom(positionLocal) }),
+            CandyPresets.Gummy(0xFFD700, { side: THREE.DoubleSide, audioReactStrength: 0.8, deformationNode: calculateFlowerBloom(positionLocal) }),
+            CandyPresets.Crystal(0xFFFFFF, { side: THREE.DoubleSide, audioReactStrength: 0.5, deformationNode: calculateFlowerBloom(positionLocal) }),
+            CandyPresets.Sugar(0x9933FF, { side: THREE.DoubleSide, audioReactStrength: 1.0, deformationNode: calculateFlowerBloom(positionLocal) }),
+        ];
+    },
 
     // Faces
-    eye: CandyPresets.Gummy(0xFFFFFF), // Wet eyes
-    pupil: new MeshStandardNodeMaterial({ color: 0x000000, roughness: 0.0 }),
-    mouth: CandyPresets.Clay(0x2D3436),
-    clayMouth: CandyPresets.Clay(0x2D3436)
+    get eye() { return CandyPresets.Gummy(0xFFFFFF); }, // Wet eyes
+    get pupil() { return new MeshStandardNodeMaterial({ color: 0x000000, roughness: 0.0 }); },
+    get mouth() { return CandyPresets.Clay(0x2D3436); },
+    get clayMouth() { return CandyPresets.Clay(0x2D3436); }
 };

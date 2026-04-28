@@ -137,7 +137,7 @@ export class SimpleFlowerBatcher {
         petalMat.sheenColorNode = instanceColor;
 
         // 3. Add Juicy Rim Light (Neon Edge)
-        const rim = createJuicyRimLight(instanceColor, float(1.0), float(3.0));
+        const rim = createJuicyRimLight(instanceColor, float(1.0), float(3.0), null);
 
         // 4. Add Audio-Reactive Glitter
         const glitterNoise = mx_noise_float(positionLocal.mul(float(50.0)).add(uTime.mul(5.0)));
@@ -177,6 +177,8 @@ export class SimpleFlowerBatcher {
         this.beamMesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAX_FLOWERS * 3), 3);
 
         // Add to Scene
+        this.petalMesh.geometry.setAttribute('aPoseState', new THREE.InstancedBufferAttribute(new Float32Array(MAX_FLOWERS).fill(0), 1));
+
         foliageGroup.add(this.stemMesh);
         foliageGroup.add(this.petalMesh);
         foliageGroup.add(this.centerMesh);

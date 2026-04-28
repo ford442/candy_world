@@ -32,11 +32,12 @@ export class ChordStrikeSystem {
         const vUv = uv();
 
         // 1. Noise-based Plasma
-        const noisePos = vec3(vUv.x.mul(10.0), vUv.y.mul(20.0).sub(uTime.mul(20.0)), float(0.0));
+        const timeScale = uTime ? uTime.mul(20.0) : float(0.0);
+        const noisePos = vec3(vUv.x.mul(10.0), vUv.y.mul(20.0).sub(timeScale), float(0.0));
         const plasma = mx_noise_float(noisePos).add(float(0.5));
 
         // 2. Audio Pulse
-        const coreIntensity = uAudioLow.mul(float(1.5)).add(float(1.0));
+        const coreIntensity = uAudioLow ? uAudioLow.mul(float(1.5)).add(float(1.0)) : float(1.0);
 
         // 3. Color Gradient
         const colorBottom = color(0x9933FF); // Deep Purple
@@ -50,10 +51,13 @@ export class ChordStrikeSystem {
         const verticalFade = float(1.0).sub(smoothstep(0.8, 1.0, vUv.y));
 
         const finalColor = baseColor.mul(plasma).mul(coreIntensity).mul(horizontalFade).mul(verticalFade);
-        material.emissiveNode = finalColor.add(createJuicyRimLight(baseColor, float(1.0), float(3.0), null));
+
+        // Disable rim light in chord strike at load to prevent circular dependency resolution issues with audio variables
+        material.emissiveNode = finalColor;
 
         // Deformation: Make it ripple
-        const ripple = mx_noise_float(vec3(vUv.x.mul(5.0), vUv.y.mul(10.0), uTime.mul(5.0)));
+        const rippleTime = uTime ? uTime.mul(5.0) : float(0.0);
+        const ripple = mx_noise_float(vec3(vUv.x.mul(5.0), vUv.y.mul(10.0), rippleTime));
         material.positionNode = positionLocal.add(normalLocal.mul(ripple.mul(float(2.0))));
 
         this.mesh = new THREE.Mesh(geometry, material);

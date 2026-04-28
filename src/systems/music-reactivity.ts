@@ -6,6 +6,7 @@ import { foliageBatcher } from '../foliage/batcher/index.ts';
 import { arpeggioFernBatcher } from '../foliage/arpeggio-batcher.ts';
 import { portamentoPineBatcher } from '../foliage/portamento-batcher.ts';
 import { mushroomBatcher } from '../foliage/mushroom-batcher.ts';
+import { flowerBatcher } from '../foliage/flower-batcher.ts';
 import type { AudioData, FoliageObject } from '../foliage/types.ts';
 
 // ⚡ OPTIMIZATION: Reusable Frustum & Matrices
@@ -307,6 +308,9 @@ export class MusicReactivitySystem {
 
             // Update Portamento Batcher
             portamentoPineBatcher.update(time, audioState, dayNightBias);
+
+            // Update Flower Batcher
+            flowerBatcher.update(time, audioState, dayNightBias);
         }
     }
 

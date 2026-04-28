@@ -86,6 +86,7 @@ function createWarmupGeometry(): THREE.BufferGeometry {
   geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
   geometry.setAttribute('normal', new THREE.BufferAttribute(new Float32Array([0, 0, 1, 0, 0, 1, 0, 0, 1]), 3));
   geometry.setAttribute('uv', new THREE.BufferAttribute(new Float32Array([0, 0, 2, 0, 0, 2]), 2));
+  geometry.setAttribute('aPoseState', new THREE.BufferAttribute(new Float32Array([1, 1, 1]), 1));
   return geometry;
 }
 

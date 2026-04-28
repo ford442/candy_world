@@ -86,7 +86,7 @@ class ProjectilePool {
 
         // 2. Plasma Displacement (Wobble)
         // Scroll noise vertically + rotate?
-        const plasmaTime = uTime.mul(float(3.0));
+        const plasmaTime = uTime ? uTime.mul(float(3.0)) : float(0.0);
         const noisePos = positionLocal.mul(float(2.0)).add(vec3(0.0, plasmaTime, 0.0));
         const plasmaNoise = mx_noise_float(noisePos);
 
@@ -95,11 +95,12 @@ class ProjectilePool {
 
         // 3. Audio Pulse (Size)
         // Expand on high frequencies (melody/snare)
-        const audioPulse = uAudioHigh.mul(float(0.3)).add(float(1.0));
+        const audioPulse = uAudioHigh ? uAudioHigh.mul(float(0.3)).add(float(1.0)) : float(1.0);
 
         // Apply spinning rotation ("Juice")
         const spinAxis = normalize(vec3(1.0, 0.0, 1.0));
-        const spunPosition = rotate(positionLocal, spinAxis, uTime.mul(float(5.0)));
+        const spunTime = uTime ? uTime.mul(float(5.0)) : float(0.0);
+        const spunPosition = rotate(positionLocal, spinAxis, spunTime);
 
         // Apply Total Deformation based on compute shader scale and position
         mat.positionNode = spunPosition.add(displacement).mul(audioPulse).mul(scaleAttr).add(instancePos);
@@ -109,13 +110,13 @@ class ProjectilePool {
 
         // 4. Juicy Rim Light & Glow
         // Strong rim light for energy feel
-        const rim = createJuicyRimLight(baseColor, float(2.0), float(3.0), null);
+        // Temporarily omit to prevent circular audio uniform deps on initial instantiation
 
         // Inner Glow (Emissive)
         // Pulsate the core brightness with audio
-        const coreGlow = baseColor.mul(float(0.5).add(uAudioHigh.mul(0.5)));
+        const coreGlow = uAudioHigh ? baseColor.mul(float(0.5).add(uAudioHigh.mul(0.5))) : baseColor.mul(float(0.5));
 
-        mat.emissiveNode = coreGlow.add(rim);
+        mat.emissiveNode = coreGlow;
 
         this.mesh = new THREE.InstancedMesh(geo, mat, MAX_PROJECTILES);
 
