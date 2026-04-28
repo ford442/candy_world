@@ -277,6 +277,25 @@ export const BIOMES: Record<string, BiomeDefinition> = {
         elevationRange: [-10, 0],
         decorationChance: 0.4
     },
+
+    crystallineNebula: {
+        name: 'Crystalline Nebula',
+        color: '#4B0082',
+        secondaryColor: '#2A0A4A',
+        noiseScale: 0.03,
+        noiseThreshold: 0.35,
+        entityWeights: {
+            subwoofer_lotus: 10,
+            arpeggio_fern: 30,
+            kick_drum_geyser: 15,
+            vibrato_violet: 15,
+            snare_trap: 10,
+            floating_orb: 5
+        },
+        densityMultiplier: 0.9,
+        elevationRange: [2, 8],
+        decorationChance: 0.5
+    },
     neonCorruption: {
         name: 'Neon Corruption',
         color: '#FF1493',
@@ -375,6 +394,8 @@ export class BiomeGenerator {
             biome = 'cave';
         } else if (temperature > 0.7 && moisture < 0.3 && variation > 0.7) {
             biome = 'neonCorruption';
+        } else if (temperature < 0.4 && variation > 0.6) {
+            biome = 'crystallineNebula';
         } else if (moisture > 0.6) {
             biome = 'forest';
         } else {

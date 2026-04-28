@@ -4,7 +4,8 @@ This document captures feature ideas for the Candy World musical ecosystem. Comp
 
 ---
 
-## Visual Vision: "The Arpeggio Grove"
+## Visual Vision: "The Arpeggio Grove" (Status: Implemented ✅)
+* Implementation Details: Created `populateArpeggioGrove` in `src/world/generation.ts` as a manual setpiece and added the `crystallineNebula` biome to the procedural map generator.
 - Expanded Scene: A clearing in the Crystalline Nebula featuring a Subwoofer Lotus surrounded by twelve Arpeggio Ferns, a Spectrum Aurora overhead, and reactive environmental features like Vibrato Violets and Kick-Drum Geysers.
 - Key Interactions:
   - Arpeggio Ferns unfurl as chords play, providing dynamic platforming and defensive structures.
