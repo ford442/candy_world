@@ -69,7 +69,7 @@ export class SimpleFlowerBatcher {
         // 1. Prepare Geometries
 
         // Stem: Unit Cylinder
-        const stemGeo = sharedGeometries.unitCylinder;
+        const stemGeo = sharedGeometries.unitCylinder.clone();
 
         // Petals: Pre-merged 5-petal flower shape
         const petalGeos: THREE.BufferGeometry[] = [];
@@ -91,7 +91,7 @@ export class SimpleFlowerBatcher {
         const mergedPetals = mergeGeometries(petalGeos);
 
         // Center: Unit Sphere
-        const centerGeo = sharedGeometries.unitSphere;
+        const centerGeo = sharedGeometries.unitSphere.clone();
 
         // Stamens: 3 Cylinders
         const stamenGeos: THREE.BufferGeometry[] = [];
@@ -115,7 +115,7 @@ export class SimpleFlowerBatcher {
         const mergedStamens = mergeGeometries(stamenGeos);
 
         // Beam: Cone
-        const beamGeo = sharedGeometries.unitCone;
+        const beamGeo = sharedGeometries.unitCone.clone();
 
         // 2. Prepare Materials
 
@@ -175,6 +175,10 @@ export class SimpleFlowerBatcher {
         this.beamMesh = this.createInstancedMesh(beamGeo, beamMat, MAX_FLOWERS, 'SimpleFlower_Beam');
         this.petalMesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAX_FLOWERS * 3), 3);
         this.beamMesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAX_FLOWERS * 3), 3);
+        // Provide aPoseState so TSL attribute('aPoseState') resolves
+        [this.stemMesh, this.petalMesh, this.centerMesh, this.stamenMesh, this.beamMesh].forEach(mesh => {
+            mesh.geometry.setAttribute('aPoseState', new THREE.InstancedBufferAttribute(new Float32Array(MAX_FLOWERS), 1));
+        });
 
         // Add to Scene
         this.petalMesh.geometry.setAttribute('aPoseState', new THREE.InstancedBufferAttribute(new Float32Array(MAX_FLOWERS).fill(0), 1));
@@ -277,6 +281,22 @@ export class SimpleFlowerBatcher {
         mesh.count = 0;
         mesh.name = name;
         return mesh;
+    }
+
+    update(audioState: any) {
+        if (!this.initialized) return;
+        const kick = audioState?.kickTrigger || 0;
+        const bloom = Math.min(kick * 0.3, 0.5);
+        const meshes = [this.stemMesh, this.petalMesh, this.centerMesh, this.stamenMesh, this.beamMesh];
+        for (const mesh of meshes) {
+            if (!mesh) continue;
+            const attr = mesh.geometry.getAttribute('aPoseState') as THREE.InstancedBufferAttribute;
+            if (!attr) continue;
+            for (let i = 0; i < this.count; i++) {
+                attr.setX(i, bloom);
+            }
+            attr.needsUpdate = true;
+        }
     }
 
     register(logicObject: THREE.Object3D, options: any = {}) {

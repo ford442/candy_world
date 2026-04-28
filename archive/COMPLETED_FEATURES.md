@@ -4,6 +4,11 @@ This document contains all the completed features, enhancements, and migrations 
 
 ## Musical Ecosystem
 
+### Category 0: Expanded Scenes
+
+- **The Arpeggio Grove**: Expanded Scene: A clearing in the Crystalline Nebula featuring a Subwoofer Lotus surrounded by twelve Arpeggio Ferns, a Spectrum Aurora overhead, and reactive environmental features like Vibrato Violets and Kick-Drum Geysers. The Spectrum Aurora visually signals harmonic collisions and drops Harmony Orbs for a Chord Strike superweapon. Crescendo Fog, BPM Wind, and Vibrato Violets shape visibility and projectile behavior mid-combat. Snare-Snap Traps and timed geyser eruptions provide rhythm-based puzzles and traversal mechanics. Secrets: Glitching the Subwoofer Lotus (9xx) during a breakdown reveals a hidden Bass Portal leading to a waveform bonus stage.
+
+
 ### Category 1: Melodic Flora (Pitch & Effect Reactive)
 - **Arpeggio Ferns**: Crystalline ferns with segmented, glowing metal fronds that unfurl in quantized ticks synced to arpeggio effect speed (0xy).
 - **Portamento Pines**: Towering antennae clusters made of copper alloy that bend with portamento (pitch slides), using a spring motion.

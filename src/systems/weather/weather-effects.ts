@@ -8,6 +8,8 @@ import { uCloudRainbowIntensity, uCloudLightningStrength, uCloudLightningColor }
 import { uChromaticIntensity } from '../../foliage/chromatic.ts';
 import { triggerGrowth, triggerBloom } from '../../foliage/animation.ts';
 import { ComputeParticleSystem } from '../../compute/particle_compute.ts';
+import { createIntegratedRain } from '../../particles/index.ts';
+import { ComputeParticleSystem as Phase4ComputeSystem } from '../../particles/compute-particles.ts';
 import { WeatherState } from '../weather-types.ts';
 import { CONFIG } from '../../core/config.ts';
 
@@ -23,7 +25,7 @@ export interface EffectsState {
     lightningTimer: number;
     rainMesh: THREE.Points | null;
     mistMesh: THREE.Points | null;
-    percussionRain: ComputeParticleSystem | null;
+    percussionRain: Phase4ComputeSystem | null;
     melodicMist: ComputeParticleSystem | null;
 }
 
@@ -85,12 +87,8 @@ export class EffectsManager {
      */
     setRenderer(renderer: any): void {
         if (!this.state.percussionRain) {
-            this.state.percussionRain = new ComputeParticleSystem(2000, renderer, {
-                type: 'rain',
-                spawnCenter: new THREE.Vector3(0, 50, 0),
-                gravity: new THREE.Vector3(0, -9.8, 0)
-            });
-            this.state.rainMesh = this.state.percussionRain.createMesh();
+            this.state.rainMesh = createIntegratedRain({ count: 2000, areaSize: 50, center: new THREE.Vector3(0, 40, 0) }) as THREE.Points;
+            this.state.percussionRain = this.state.rainMesh.userData?.computeParticleSystem as Phase4ComputeSystem || null;
             this.state.rainMesh.visible = false;
             this.scene.add(this.state.rainMesh);
         }
@@ -227,6 +225,7 @@ export class EffectsManager {
      * Update rain and mist particle systems
      */
     updateParticleSystems(
+        renderer: any,
         dt: number,
         bassIntensity: number,
         melodyVol: number,
@@ -235,7 +234,7 @@ export class EffectsManager {
     ): void {
         const { percussionRain, melodicMist, rainMesh, mistMesh } = this.state;
         
-        if (!percussionRain || !melodicMist) return;
+        // Update separately to support missing systems in fallback mode
 
         const shouldShowRain = bassIntensity > 0.2 || state !== WeatherState.CLEAR;
         const shouldShowMist = melodyVol > 0.2 || (weatherType === 'mist' && state === WeatherState.RAIN);
@@ -247,22 +246,12 @@ export class EffectsManager {
             mistMesh.visible = shouldShowMist;
         }
 
-        if (shouldShowRain) {
-            percussionRain.update(dt, { kick: bassIntensity, low: bassIntensity, mid: melodyVol }, 0);
-
-            // Dynamic color behavior
-            if (weatherType === 'mist') {
-                percussionRain.setBaseColor(0xE0F4FF);
-            } else if (weatherType === 'drizzle') {
-                percussionRain.setBaseColor(0x9AB5C8);
-            } else if (weatherType === 'thunderstorm' || state === WeatherState.STORM) {
-                percussionRain.setBaseColor(0x6090B0);
-            } else {
-                percussionRain.setBaseColor(0x88CCFF);
-            }
+        if (shouldShowRain && percussionRain) {
+            percussionRain.update(renderer, dt, new THREE.Vector3(0,0,0), { low: bassIntensity, mid: melodyVol, high: 0, beat: false, groove: 0, windX: 0, windZ: 0, windSpeed: 0 });
         }
         
-        if (shouldShowMist) {
+        if (shouldShowMist && melodicMist) {
+            // old CPU update for mist
             melodicMist.update(dt, { kick: bassIntensity, low: bassIntensity, mid: melodyVol }, 0);
 
             // Dynamic color behavior

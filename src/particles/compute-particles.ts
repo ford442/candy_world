@@ -429,7 +429,7 @@ export class ComputeParticleSystem {
     }
     
 
-    public spawn(options: { position: THREE.Vector3, velocity?: THREE.Vector3, life?: number, size?: number, seed?: number }): void {
+    public spawn(options: { position: THREE.Vector3, velocity?: THREE.Vector3, life?: number, size?: number, seed?: number }): number {
         if (this.usingGPU && this.device && this.particleBuffer) {
             const i = this.nextSpawnIndex;
             this.nextSpawnIndex = (this.nextSpawnIndex + 1) % this.count;
@@ -471,13 +471,27 @@ export class ComputeParticleSystem {
                 ComputeParticleSystem.scratchFloat32Array[0] = options.seed;
                 this.device.queue.writeBuffer(this.particleBuffer, seedOffset, ComputeParticleSystem.scratchFloat32Array.subarray(0, 1));
             }
+            return i;
+        }
+        return -1;
+    }
+
+
+    public kill(index: number): void {
+        if (this.usingGPU && this.device && this.particleBuffer) {
+            const vec3ArraySize = this.count * 16;
+            const lifeOffset = vec3ArraySize * 2 + index * 4;
+            ComputeParticleSystem.scratchFloat32Array[0] = -1.0;
+            this.device.queue.writeBuffer(this.particleBuffer, lifeOffset, ComputeParticleSystem.scratchFloat32Array.subarray(0, 1));
         }
     }
 
-    public burst(spawns: { position: THREE.Vector3, velocity?: THREE.Vector3, life?: number, size?: number, seed?: number }[]): void {
+    public burst(spawns: { position: THREE.Vector3, velocity?: THREE.Vector3, life?: number, size?: number, seed?: number }[]): number[] {
+        const indices: number[] = [];
         for (const spawn of spawns) {
-            this.spawn(spawn);
+            indices.push(this.spawn(spawn));
         }
+        return indices;
     }
 
     update(renderer: THREE.Renderer, deltaTime: number, playerPosition: THREE.Vector3, audioData: ParticleAudioData): void {
@@ -558,13 +572,9 @@ export class ComputeParticleSystem {
     }
 
     /**
-     * Spawn particles manually from CPU-side data (e.g. ring index or spawn SSBO)
-     * Allows dynamic per-frame spawns (player trails, bursts)
-     *
-     * @param count Number of particles to spawn
-     * @param options Spawn options (position, velocity, etc)
+     * Spawn multiple particles dynamically.
      */
-    spawn(count: number, options: { position?: THREE.Vector3, velocity?: THREE.Vector3, spread?: number } = {}): void {
+    spawnMany(count: number, options: { position?: THREE.Vector3, velocity?: THREE.Vector3, spread?: number } = {}): void {
         if (!this.mesh) return;
 
         // This acts as an API stub for the unified ComputeParticleSystem
@@ -584,10 +594,10 @@ export class ComputeParticleSystem {
     }
 
     /**
-     * Helper to burst particles at a specific location
+     * Helper to burst multiple particles at a specific location
      */
-    burst(count: number, position: THREE.Vector3): void {
-        this.spawn(count, { position, spread: 2.0 });
+    burstMany(count: number, position: THREE.Vector3): void {
+        this.spawnMany(count, { position, spread: 2.0 });
     }
 
 }

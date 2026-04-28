@@ -35,3 +35,5 @@ Date: 2026-04-21 (first routine run in template form)
 Mode: User Idea
 Focus: Testing Debt — restore a real `npm test` path
 Outcome: TBD
+- [ ] Investigate and fix runtime error: Cannot read properties of undefined (reading 'mul') during smoke test initialization.
+- [ ] UI Testing: Headless Playwright test for Jukebox fails due to TimeoutError (`locator('#addSongsBtn') to be visible`). Investigate and fix the script so we can properly verify DOM interactions in headless environments.

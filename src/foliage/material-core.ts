@@ -7,7 +7,7 @@ import {
     color, float, uv, mix, vec3, vec2, Fn, uniform, dot, max, min,
     mx_noise_float, positionLocal, positionWorld, normalWorld, normalLocal,
     cameraPosition, sin, pow, abs, normalize, smoothstep, exp,
-    texture, Node
+    texture, Node, attribute
 } from 'three/tsl';
 
 import { applyGlitch } from './glitch.ts';

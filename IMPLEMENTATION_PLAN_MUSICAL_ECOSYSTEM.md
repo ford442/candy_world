@@ -4,7 +4,8 @@ This document captures feature ideas for the Candy World musical ecosystem. Comp
 
 ---
 
-## Visual Vision: "The Arpeggio Grove"
+## Visual Vision: "The Arpeggio Grove" (Status: Implemented ✅)
+* Implementation Details: Created `populateArpeggioGrove` in `src/world/generation.ts` as a manual setpiece and added the `crystallineNebula` biome to the procedural map generator.
 - Expanded Scene: A clearing in the Crystalline Nebula featuring a Subwoofer Lotus surrounded by twelve Arpeggio Ferns, a Spectrum Aurora overhead, and reactive environmental features like Vibrato Violets and Kick-Drum Geysers.
 - Key Interactions:
   - Arpeggio Ferns unfurl as chords play, providing dynamic platforming and defensive structures.
@@ -63,10 +64,10 @@ Three.js Renderer -> WebGPU RenderPipeline (Raw Draw Calls)
 
 1. **Verify Data Flow**: Ensure `AudioSystem` correctly extracts and passes `order`/`row` data from the worklet to drive the Pattern-Change logic reliably.
    - **Status: Implemented ✅**
-   - *Implementation Details: Verified that `audio-processor.js` correctly extracts `order` and `row` via libopenmpt and passes them in `VISUAL_UPDATE` messages, which `AudioSystem` properly binds to `visualState.patternIndex` and `row` to drive pattern-change logic in `WeatherSystem`.*
+   - *Implementation Details: Verified and routed tracker `order` and `row` from the WASM worklet up to the main thread `VisualState` (`patternIndex` and `row`). Audio data correctly propagates to `musicReactivitySystem` inside the main game loop.*
 2. **Target 4: Phase 4 Compute Shader Migration (fireflies.ts & pollen.ts)**
    - **Status: Implemented ✅**
    - *Implementation Details: Integrated `createIntegratedFireflies` and `createIntegratedPollen` into `src/world/generation.ts`. Wired the existing TSL compute node for pollen natively into the `game-loop.ts` render graph to execute the WGSL compute shader every frame.*
 3. **Identify Phase 4 Targets**: Find specific visual features that are still heavily reliant on CPU and transition them to WebGPU Compute Shaders (GPGPU). Candidates include `rain.ts` and `sparks.ts`.
    - **Status: Implemented ✅**
-   - *Implementation Details: Migrated `rain.ts` to `ComputeParticleSystem` and integrated `createIntegratedSparks` into `src/world/generation.ts`. Upgraded `ComputeParticleSystem` to strictly enforce WebGPU layout logic and added direct `spawn`/`burst` API via `device.queue.writeBuffer` for zero-allocation interaction.*
+   - *Implementation Details: Migrated `rain.ts` and `berries.ts` to `ComputeParticleSystem` and integrated `createIntegratedSparks` and `createIntegratedBerries` into `src/world/generation.ts`. Upgraded `ComputeParticleSystem` to strictly enforce WebGPU layout logic and added direct `spawn`/`burst` API via `device.queue.writeBuffer` for zero-allocation interaction.*

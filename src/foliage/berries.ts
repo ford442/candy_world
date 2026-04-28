@@ -10,6 +10,7 @@ import { spawnImpact } from './impacts.ts';
 import { uChromaticIntensity } from './chromatic.ts';
 import { foliageGroup } from '../world/state.ts';
 import { CommonGeometries, getSphereGeometry } from '../utils/geometry-dedup.ts';
+import { createComputeBerries, ComputeParticleSystem } from '../particles/compute-particles.ts';
 
 // OPTIMIZED: BerryBatcher replaces thousands of individual InstancedMeshes
 // with a single large InstancedMesh for improved draw call performance.
@@ -57,6 +58,7 @@ export interface FallingBerry {
     age: number;
     velocity: THREE.Vector3;
     position: THREE.Vector3;
+    gpuIndex?: number;
 }
 
 // --- Berry Batcher ---
@@ -407,117 +409,26 @@ export function updateBerrySeasons(berryCluster: THREE.Group, phase: string, pha
 // --- Falling Berry Particle System ---
 let fallingBerryPool: FallingBerry[] = [];
 const MAX_FALLING_BERRIES = 50;
-let fallingBerryMesh: THREE.InstancedMesh | null = null;
+let fallingBerryMesh: THREE.Points | null = null;
 const _scratchColorFalling = new THREE.Color();
 
 // WebGPU Compute Nodes & Buffers
-let computeNode: any = null;
-let stateBuffer: StorageInstancedBufferAttribute;
-let velocityBuffer: StorageInstancedBufferAttribute;
-let uDeltaTime = uniform(float(0.016));
+
+
+
+let computeParticleSystem: ComputeParticleSystem | null = null;
 
 export function initFallingBerries(scene: THREE.Scene): void {
-    // ⚡ OPTIMIZATION: Use shared geometry via registry (deduplicated)
-    const berryGeo = getSphereGeometry(0.06, 16, 16);
-
-    // 1. Storage Buffers for GPU Compute
-    // State: xyz = position, w = life
-    const stateArray = new Float32Array(MAX_FALLING_BERRIES * 4);
-    // Velocity: xyz = velocity, w = scale
-    const velArray = new Float32Array(MAX_FALLING_BERRIES * 4);
-
-    for (let i = 0; i < MAX_FALLING_BERRIES; i++) {
-        stateArray[i * 4 + 3] = 0; // dead
-        velArray[i * 4 + 3] = 0;   // scale 0
-    }
-
-    stateBuffer = new StorageInstancedBufferAttribute(stateArray, 4);
-    velocityBuffer = new StorageInstancedBufferAttribute(velArray, 4);
-
-    // 2. Material (TSL + Storage Node)
-    const uFallingGlow = uniform(float(0.8));
-    const opts = {
-        transmission: 0.6, roughness: 0.2, ior: 1.4, subsurfaceStrength: 1.0, subsurfaceColor: 0xFF6600
-    };
-    const material = CandyPresets.Gummy(0xFF6600, opts);
-
-    const sStateNode = storage(stateBuffer, 'vec4', stateBuffer.count);
-    const sVelNode = storage(velocityBuffer, 'vec4', velocityBuffer.count);
-
-    const particleState = sStateNode.element(instanceIndex);
-    const particleVel = sVelNode.element(instanceIndex);
-
-    const pos = particleState.xyz;
-    const scale = particleVel.w;
-
-    material.colorNode = attribute('instanceColor', 'vec3');
-
-    // Simple pulse
-    const phase = dot(pos, vec3(0.5)).mul(5.0);
-    const heartbeat = sin(uTime.mul(8.0).add(phase)).pow(4.0);
-    material.emissiveNode = attribute('instanceColor', 'vec3').mul(uFallingGlow.add(heartbeat.mul(0.3)));
-
-    // Override vertex position calculation
-    material.positionNode = positionLocal.mul(scale).add(pos);
-
-    // 3. Compute Shader Logic
-    const updateCompute = Fn(() => {
-        const idx = instanceIndex;
-        const pState = sStateNode.element(idx);
-        const pVel = sVelNode.element(idx);
-
-        const currentPos = pState.xyz;
-        const life = pState.w;
-        const currentVel = pVel.xyz;
-        const currentScale = pVel.w;
-
-        If(life.greaterThan(0.0), () => {
-            // Physics
-            const newVelY = currentVel.y.sub(float(9.8).mul(uDeltaTime));
-            const newVel = vec3(currentVel.x, newVelY, currentVel.z);
-            const newPos = currentPos.add(newVel.mul(uDeltaTime));
-
-            // Life decay
-            const maxAge = float(3.0);
-            const newLife = life.sub(uDeltaTime.div(maxAge));
-
-            // Scale logic
-            const newScale = newLife; // scale down as it dies
-
-            If(newPos.y.lessThan(0.0).or(newLife.lessThan(0.0)), () => {
-                // Kill particle
-                pState.assign(vec4(newPos, 0.0));
-                pVel.assign(vec4(newVel, 0.0));
-            }).Else(() => {
-                pState.assign(vec4(newPos, newLife));
-                pVel.assign(vec4(newVel, newScale));
-            });
-        });
-    });
-
-    computeNode = updateCompute().compute(MAX_FALLING_BERRIES);
-
-    fallingBerryMesh = new THREE.InstancedMesh(berryGeo, material, MAX_FALLING_BERRIES);
-    // Initialize standard instanceMatrix with Identity to prevent rendering issues
-    // since we do transformations in TSL
-    const m = new THREE.Matrix4();
-    m.identity();
-    for (let i = 0; i < MAX_FALLING_BERRIES; i++) {
-        // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
-        m.toArray(fallingBerryMesh.instanceMatrix.array, i * 16);
-    }
-    fallingBerryMesh.instanceMatrix.needsUpdate = true;
-
-    fallingBerryMesh.castShadow = true;
-    fallingBerryMesh.receiveShadow = true;
+    // ⚡ OPTIMIZATION: Replace CPU-driven bespoke TSL logic with global Phase 4 ComputeParticleSystem
+    computeParticleSystem = createComputeBerries({ count: MAX_FALLING_BERRIES });
+    fallingBerryMesh = computeParticleSystem.mesh as THREE.Points;
     fallingBerryMesh.name = 'fallingBerries';
     fallingBerryMesh.userData.isFallingBerrySystem = true;
+    fallingBerryMesh.userData.computeParticleSystem = computeParticleSystem;
 
-    // CPU Proxy for collisions
+    // Keep CPU Proxy array initialized for rapid collision detection
     fallingBerryPool = [];
     for (let i = 0; i < MAX_FALLING_BERRIES; i++) {
-        fallingBerryMesh.setColorAt(i, _scratchColor.setHex(0xFF6600));
-
         fallingBerryPool.push({
             active: false,
             age: 0,
@@ -525,10 +436,10 @@ export function initFallingBerries(scene: THREE.Scene): void {
             position: new THREE.Vector3()
         });
     }
-    fallingBerryMesh.instanceColor!.needsUpdate = true;
 
     scene.add(fallingBerryMesh);
 }
+
 
 export function spawnFallingBerry(position: THREE.Vector3, colorHex: number = 0xFF6600): void {
     if (!fallingBerryMesh) return;
@@ -554,33 +465,29 @@ export function spawnFallingBerry(position: THREE.Vector3, colorHex: number = 0x
     berry.active = true;
     berry.age = 0;
 
-    // Sync to GPU Backing Buffer
-    const stateArr = stateBuffer.array as Float32Array;
-    const velArr = velocityBuffer.array as Float32Array;
+    // Spawn natively via WebGPU ComputeParticleSystem zero-allocation method
+    if (computeParticleSystem) {
+        berry.gpuIndex = computeParticleSystem.spawn({
+            position: berry.position,
+            velocity: berry.velocity,
+            life: 3.0,
+            size: 1.0
+        });
+    }
 
-    stateArr[index * 4 + 0] = berry.position.x;
-    stateArr[index * 4 + 1] = berry.position.y;
-    stateArr[index * 4 + 2] = berry.position.z;
-    stateArr[index * 4 + 3] = 1.0; // Life starts at 1.0 (maps to 3.0 seconds inside shader via division)
-
-    velArr[index * 4 + 0] = berry.velocity.x;
-    velArr[index * 4 + 1] = berry.velocity.y;
-    velArr[index * 4 + 2] = berry.velocity.z;
-    velArr[index * 4 + 3] = 1.0; // initial scale
-
-    stateBuffer.needsUpdate = true;
-    velocityBuffer.needsUpdate = true;
-
-    fallingBerryMesh.setColorAt(index, _scratchColor.setHex(colorHex));
-    if (fallingBerryMesh.instanceColor) fallingBerryMesh.instanceColor.needsUpdate = true;
+    // Note: ComputeParticleSystem handles base coloring internally via TSL material or options.
+    // fallingBerryMesh.setColorAt is not valid for THREE.Points.
 }
 
-export function updateFallingBerries(delta: number, renderer?: any): void {
+export function updateFallingBerries(delta: number, renderer?: THREE.Renderer): void {
     if (!fallingBerryMesh) return;
 
-    if (renderer && renderer.compute && computeNode) {
-        uDeltaTime.value = delta;
-        renderer.compute(computeNode);
+    // Sync compute system if available
+    if (computeParticleSystem && renderer) {
+        // We pass a dummy player and audio data since this is environmentally updated
+        computeParticleSystem.update(renderer, delta, new THREE.Vector3(), {
+            low: 0, mid: 0, high: 0, beat: false, groove: 0, windX: 0, windZ: 0, windSpeed: 0
+        });
     }
 
     const gravity = -9.8;
@@ -620,7 +527,6 @@ export function collectFallingBerries(playerPos: THREE.Vector3, collectRadius: n
 
     let collected = 0;
     const radiusSq = collectRadius * collectRadius;
-    let needsUpdate = false;
 
     for (let i = 0; i < MAX_FALLING_BERRIES; i++) {
         const berry = fallingBerryPool[i];
@@ -635,24 +541,16 @@ export function collectFallingBerries(playerPos: THREE.Vector3, collectRadius: n
                 if (uChromaticIntensity.value > 1.0) uChromaticIntensity.value = 1.0;
             }
 
+            // Kill it in the CPU proxy and GPU buffer
             berry.active = false;
-
-            // Update GPU buffer to kill it
-            const stateArr = stateBuffer.array as Float32Array;
-            stateArr[i * 4 + 3] = 0.0; // Set life to 0
-
-            const velArr = velocityBuffer.array as Float32Array;
-            velArr[i * 4 + 3] = 0.0; // Set scale to 0
-
-            needsUpdate = true;
+            if (computeParticleSystem && berry.gpuIndex !== undefined) {
+                computeParticleSystem.kill(berry.gpuIndex);
+            }
             collected++;
         }
     }
 
-    if (needsUpdate) {
-        stateBuffer.needsUpdate = true;
-        velocityBuffer.needsUpdate = true;
-    }
+
 
     return collected;
 }

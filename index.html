@@ -206,6 +206,7 @@
             font-weight: bold;
             display: inline-block;
             transition: background 0.2s, color 0.2s;
+            font-family: inherit;
         }
         .file-label:hover {
             background: #FFF0F5;
@@ -661,6 +662,12 @@
         if (fill) fill.style.width = Math.min(100, Math.max(0, percent)) + '%';
         if (percentageEl) percentageEl.innerText = Math.round(percent) + '%';
         if (container) container.setAttribute('aria-valuenow', String(Math.round(percent)));
+
+        // Update active phase indicator progress
+        const activeIndicator = document.querySelector('.phase-indicator.active');
+        if (activeIndicator) {
+            activeIndicator.style.setProperty('--phase-progress', percent + '%');
+        }
     };
 
     window.hideLoadingScreen = function () {
@@ -689,12 +696,12 @@
         </button>
 
         <div class="settings settings-container" role="group" aria-label="Game Settings">
-            <input type="file" id="musicUpload" accept=".mod,.xm,.it,.s3m" multiple class="visually-hidden">
-            <label for="musicUpload" class="file-label" title="Upload Music (Supported formats: .mod, .xm, .it, .s3m)">
+            <input type="file" id="musicUpload" accept=".mod,.xm,.it,.s3m" multiple class="visually-hidden" tabindex="-1">
+            <button type="button" id="musicUploadBtn" class="file-label" title="Upload Music (Supported formats: .mod, .xm, .it, .s3m)">
                 <span aria-hidden="true">🎵</span> Upload Music <span class="key-badge" aria-hidden="true">U</span>
                 <span class="visually-hidden">Upload supported music files: .mod, .xm, .it, .s3m. Keyboard shortcut U</span>
                 <span aria-hidden="true" style="display:block; font-size:0.7em; font-weight:normal; margin-top:2px; opacity:0.9;">.mod .xm .it .s3m</span>
-            </label>
+            </button>
 
             <button id="toggleDayNight" class="toggle-button" aria-pressed="false" aria-keyshortcuts="N" aria-label="Switch to Night" title="Switch to Night (N)">
                 <span aria-hidden="true">🌙</span> Switch to Night <span class="key-badge" aria-hidden="true">N</span>
@@ -792,12 +799,11 @@
         </ul>
         
         <div class="playlist-controls">
-            <input type="file" id="playlistUploadInput" multiple accept=".mod,.xm,.it,.s3m" class="visually-hidden">
-            <label for="playlistUploadInput" class="secondary-button" title="Add Songs (Supported formats: .mod, .xm, .it, .s3m)">
+            <input type="file" id="playlistUploadInput" multiple accept=".mod,.xm,.it,.s3m" class="visually-hidden" tabindex="-1">
+            <button type="button" id="addSongsBtn" class="secondary-button" title="Add Songs (Supported formats: .mod, .xm, .it, .s3m)" aria-label="Add supported music files: .mod, .xm, .it, .s3m. Keyboard shortcut U">
                 <span aria-hidden="true">➕</span> Add Songs <span class="key-badge" aria-hidden="true">U</span>
-                <span class="visually-hidden">Add supported music files: .mod, .xm, .it, .s3m. Keyboard shortcut U</span>
                 <span aria-hidden="true" style="display:block; font-size:0.7em; font-weight:normal; margin-top:2px; opacity:0.9;">.mod .xm .it .s3m</span>
-            </label>
+            </button>
             <button id="closePlaylistBtn" class="secondary-button" style="background: #FF6B6B;" aria-label="Close Jukebox (Escape)">Close <span class="key-badge" aria-hidden="true">Esc</span></button>
         </div>
         <div style="text-align: center; margin-top: 15px; font-size: 0.85em; color: #666;" aria-hidden="true">
