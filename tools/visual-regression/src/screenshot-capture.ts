@@ -296,9 +296,13 @@ export class ScreenshotCapture {
     // Wait for the game to initialize
     // We wait for the #candy-loading-overlay to not have the .visible class, or for __sceneReady
     await this.page.waitForFunction(() => {
-      const el = document.getElementById('candy-loading-overlay');
-      return (window as any).__sceneReady === true || (el && el.classList.contains('loaded')) || (el && !el.classList.contains('visible')) || !el;
+      return document.querySelector('#candy-loading-overlay.loaded') !== null || !document.getElementById('candy-loading-overlay') || (window as any).__sceneReady === true || (window as any).__visualRegression !== undefined;
     }, { timeout: 120000 });
+
+    if (await this.page.locator('#startButton').first().isDisabled() === false) {
+        await this.page.locator('#startButton').first().click();
+    }
+
     await this.page.waitForTimeout(1000);
 
     // Set up camera position and environment

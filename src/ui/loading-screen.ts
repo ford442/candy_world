@@ -11,6 +11,7 @@
  * - Debug toggle
  */
 
+import { trapFocusInside } from '../utils/interaction-utils';
 import './loading-screen.css';
 import { trapFocusInside } from '../utils/interaction-utils.ts';
 
@@ -112,6 +113,8 @@ export class LoadingScreen {
     private progressFill: HTMLElement | null = null;
     private percentageText: HTMLElement | null = null;
     private taskText: HTMLElement | null = null;
+    private releaseFocusTrap: (() => void) | null = null;
+    private lastFocusedElement: HTMLElement | null = null;
     private timeText: HTMLElement | null = null;
     private skipButton: HTMLButtonElement | null = null;
     private spinner: HTMLElement | null = null;
@@ -182,6 +185,8 @@ export class LoadingScreen {
         this.overlay = document.createElement('div');
         this.overlay.id = 'candy-loading-overlay';
         this.overlay.className = `loading-overlay theme-${this.options.theme}`;
+        this.overlay.setAttribute('role', 'dialog');
+        this.overlay.setAttribute('aria-modal', 'true');
 
         // Create main container
         this.container = document.createElement('div');
@@ -303,6 +308,7 @@ export class LoadingScreen {
      * Show the loading screen
      */
     show(): void {
+        this.lastFocusedElement = document.activeElement as HTMLElement;
         // If hide() is in progress (isComplete but not yet destroyed), cancel it
         if (this.isComplete) {
             this.isComplete = false;
@@ -339,6 +345,7 @@ export class LoadingScreen {
             }
             if (this.container) {
                 this.container.classList.add('visible');
+                this.releaseFocusTrap = trapFocusInside(this.container);
             }
         });
 
@@ -387,6 +394,7 @@ export class LoadingScreen {
             
             if (this.overlay) {
                 this.overlay.classList.remove('visible');
+                this.overlay.classList.add('loaded'); // VRT helper
             }
             if (this.container) {
                 this.container.classList.remove('visible');
@@ -395,6 +403,14 @@ export class LoadingScreen {
             setTimeout(() => {
                 // Guard: don't destroy if show() was called again in the meantime
                 if (this.hideVersion === currentHideVersion && this.isComplete) {
+                    if (this.releaseFocusTrap) {
+                        this.releaseFocusTrap();
+                        this.releaseFocusTrap = null;
+                    }
+                    if (this.lastFocusedElement && typeof this.lastFocusedElement.focus === 'function') {
+                        this.lastFocusedElement.focus();
+                        this.lastFocusedElement = null;
+                    }
                     this.destroy();
                     this.isVisible = false;
                     this.onCompleteCallbacks.forEach(cb => cb());

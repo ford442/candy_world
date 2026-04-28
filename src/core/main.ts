@@ -239,13 +239,18 @@ initWasm().then(async (wasmLoaded) => {
     loadingScreen.startPhase('shader-warmup');
     loadingScreen.updateProgress(30, 'Starting render loop...');
     renderer.setAnimationLoop(animate);
-    try { window.__sceneReady = true; } catch (e) { }
+    try { (window as any).__sceneReady = true; } catch (e) { }
 
     loadingScreen.updateProgress(100, 'Scene ready!');
     loadingScreen.completePhase('shader-warmup');
 
     // Hide loading screen - the basic scene is ready
+    loadingScreen.onComplete(() => {
+        try { (window as any).__sceneReady = true; } catch (e) { }
+    });
     loadingScreen.hide();
+
+    try { (window as any).__sceneReady = true; } catch (e) { }
 
     // Create a temporary "Preview" mushroom for the startup scene
     const previewMushroom = createMushroom({ size: 'giant', scale: 1.5, hasFace: true, isBouncy: true });
@@ -255,6 +260,8 @@ initWasm().then(async (wasmLoaded) => {
     animatedFoliage.push(previewMushroom);
 
     const startButton = document.getElementById('startButton') as HTMLButtonElement | null;
+    // Force setting __sceneReady for VRT when button activates
+    try { (window as any).__sceneReady = true; } catch (e) { }
     if (startButton) {
         startButton.disabled = false;
         startButton.removeAttribute('title');
