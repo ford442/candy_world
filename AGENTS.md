@@ -20,12 +20,13 @@
 |-----------|------------|---------|
 | Rendering | Three.js ^0.171.0 + WebGPU | 3D graphics with `MeshPhysicalMaterial` for candy gloss |
 | Build System | Vite ^5.0.0 | Module bundling, dev server, and production builds |
-| Language | TypeScript ^5.3.3 (ES2022 modules) | Application source code |
+| Language | TypeScript ^5.9.3 (ES2020 target, ES2022 modules) | Application source code |
 | Physics (Required) | AssemblyScript ^0.27.37 → WASM | Stateful physics, collision detection, spatial grid |
 | Compute (Optional) | C++17 + Emscripten → WASM | SIMD-optimized math, animations, particle physics, mesh deformation |
 | Audio | libopenmpt.js | Module music playback (.mod, .xm, .it, .s3m) |
 | Styling | CSS3 | UI themes, animations, responsive design |
-| Testing | Playwright + custom TS scripts | Visual regression, accessibility, compilation verification |
+| Testing | Playwright + custom Node.js test runners | Smoke tests, WASM bounds tests, visual regression |
+| Package Manager | pnpm (primary) / npm | Dependency management (`pnpm-lock.yaml` present) |
 
 ---
 
@@ -35,19 +36,34 @@
 /root/candy_world/
 ├── src/                          # Main TypeScript source
 │   ├── audio/                    # Audio system, beat sync
-│   ├── compute/                  # GPU compute shaders (TSL), mesh deformation, particles
-│   ├── core/                     # Config, input handling, scene init, game loop, HUD
-│   ├── foliage/                  # Trees, mushrooms, flowers, clouds, sky, terrain, water
-│   ├── gameplay/                 # Rainbow blaster, jitter mines, harpoon line
-│   ├── particles/                # GPU and CPU particle systems
+│   ├── compute/                  # GPU compute shaders (TSL), mesh deformation, particles, noise
+│   ├── core/                     # Config, input handling, scene init, game loop, HUD, deferred init
+│   │   └── input/                # Input handling, audio controls, playlist manager
+│   ├── foliage/                  # Trees, mushrooms, flowers, clouds, sky, terrain, water, wind
+│   │   └── batcher/              # Foliage batching sub-systems
+│   ├── gameplay/                 # Rainbow blaster, jitter mines, harpoon line, chord strike
+│   ├── particles/                # GPU and CPU particle systems, compute shaders
+│   │   └── shaders/              # Particle shader code
 │   ├── rendering/                # Materials, culling system, shader warmup, WebGPU limits
+│   │   └── culling/              # Culling types, components, and system
 │   ├── systems/                  # Physics, weather, music reactivity, unlocks, analytics
+│   │   ├── adapters/             # Legacy adapter types
+│   │   ├── analytics/            # Analytics core, types, performance tracking
+│   │   ├── asset-streaming/      # Asset streaming infrastructure and types
+│   │   ├── interfaces/           # Shared interfaces (e.g., IParticleSystem)
+│   │   ├── performance-budget/   # Performance budget core, overlay, types
+│   │   ├── physics/              # Physics states, types, abilities
+│   │   ├── save-system/          # Save types, database, system implementation
+│   │   └── weather/              # Weather atmosphere, effects, ecosystem
 │   ├── types/                    # Global TypeScript type definitions
-│   ├── ui/                       # Loading screen, accessibility menu, toasts, announcer
-│   ├── utils/                    # WASM loader, profiler, geometry dedup, startup profiler
+│   ├── ui/                       # Loading screen, accessibility menu, toasts, announcer, save menu
+│   │   └── save-menu/            # Save menu styles, slots, settings
+│   ├── utils/                    # WASM loader barrel, profiler, geometry dedup, startup profiler
 │   ├── wasm/                     # WASM bindings, type definitions, compiled candy_physics.wasm
 │   ├── workers/                  # Web Workers for physics and world generation
-│   └── world/                    # World generation, state management
+│   ├── world/                    # World generation, state management
+│   ├── accessibility-index.ts    # Accessibility system entry point
+│   └── main.ts                   # Application entry point (re-exports from core)
 ├── assembly/                     # AssemblyScript source (physics module)
 │   ├── index.ts                  # Module exports
 │   ├── physics.ts                # Collision detection, spatial grid
@@ -78,15 +94,16 @@
 │   ├── map-generator/            # Procedural map generation CLI
 │   └── visual-regression/        # Playwright-based visual regression tests
 ├── test/                         # Manual TS compilation / integration tests
-├── tests/                        # Accessibility system tests
+├── tests/                        # Smoke tests, WASM tests, accessibility tests
 ├── docs/                         # Architecture and feature documentation
 ├── public/                       # Static assets, compiled WASM
 ├── dist/                         # Vite production build output
 ├── index.html                    # Main HTML with UI, import maps, loading screen
-├── src/main.ts                   # Application entry point (re-exports from core)
 ├── vite.config.js                # Vite configuration
-├── tsconfig.json                 # TypeScript configuration (ES2022, bundler resolution)
-└── package.json                  # npm scripts and dependencies
+├── tsconfig.json                 # TypeScript configuration
+├── package.json                  # npm scripts and dependencies
+├── pnpm-lock.yaml                # pnpm lockfile (primary package manager)
+└── deploy.py                     # SFTP deployment script
 ```
 
 ---
@@ -98,7 +115,7 @@
 # Standard development (runs dev.sh; attempts Emscripten build, then Vite)
 npm run dev
 
-# If you do not have Emscripten installed, Vite will start after the Emscripten step skips gracefully
+# If you do not have Emscripten installed, the Emscripten step skips gracefully
 ```
 
 ### Production Build
@@ -146,13 +163,15 @@ npm run generate:map
 
 ### Testing
 ```bash
-# NOTE: Currently echoes "Skipping broken verify.py"
+# Smoke test: starts Vite preview, launches Chromium with WebGPU flags,
+# waits for window.__sceneReady, and verifies no console errors
 npm run test
 
-# NOTE: Currently echoes "Skipping broken verify_wasm_particle_bounds.js"
+# WASM particle bounds test: loads candy_physics.wasm in Node.js and
+# verifies particle physics stay within world bounds for 100+ frames
 npm run test:wasm
 
-# Builds WASM then runs the skipped integration placeholder
+# Integration: builds WASM then runs both test suites above
 npm run test:integration
 
 # Verify Emscripten exports after a build
@@ -180,17 +199,18 @@ python3 deploy.py
 - **Required**: **Yes** — physics will not work without this module
 
 Key capabilities:
-- Spatial grid collision system (400x400 world grid)
+- Spatial grid collision system (16×16 cells, 16-unit cells, origin at -128, -128)
 - Player physics state management
 - Position/animation data batching
 - Ground height queries using FBM noise
 - Discovery and foliage helper logic
+- Particle physics updates and spawn bursts
 
 ### Module 2: Emscripten/C++ (`candy_native.wasm`)
 - **Purpose**: Stateless compute functions, SIMD-optimized math
 - **Language**: C++17 with OpenMP pragmas and SIMD (`-msimd128`, `-mrelaxed-simd`)
 - **Location**: `emscripten/*.cpp`
-- **Output**: 
+- **Output**:
   - `public/candy_native.js` + `public/candy_native.wasm` (multi-threaded, with pthread)
   - `public/candy_native_st.js` + `public/candy_native_st.wasm` (single-threaded fallback)
 - **Required**: **No** — has JavaScript fallbacks for all functions
@@ -236,10 +256,14 @@ The build system gracefully handles missing Emscripten:
 ### Memory Layout (AssemblyScript)
 The physics module uses a fixed memory layout:
 - `POSITION_OFFSET` (0): Object positions array
-- `COLLISION_OFFSET` (65536): Collision object data
-- `PLAYER_STATE_OFFSET` (327680): Player physics state
-- `GRID_HEADS_OFFSET` (360448): Spatial grid heads
-- `GRID_NEXT_OFFSET` (368640): Spatial grid next pointers
+- `ANIMATION_OFFSET` (4096): Animation state
+- `OUTPUT_OFFSET` (8192): Output buffer for batch operations
+- `MATERIAL_DATA_OFFSET` (12288): Material data
+- `PLAYER_STATE_OFFSET` (16384): Player physics state (8 floats)
+- `COLLISION_OFFSET` (16416): Collision object data (up to 4096 objects)
+- `GRID_HEADS_OFFSET`: Spatial grid heads (calculated from collision end)
+- `GRID_NEXT_OFFSET`: Spatial grid next pointers
+- `DYNAMIC_RADII_OFFSET`: Dynamic foliage radii (max 512 plants)
 
 ### Security / Runtime Headers
 Vite is configured to emit the following headers (required for `SharedArrayBuffer` / pthreads):
@@ -254,10 +278,10 @@ Cross-Origin-Embedder-Policy: require-corp
 
 ### TypeScript / JavaScript
 - **TypeScript-first**: Almost all application code is in `.ts` files under `src/`
-- Use ES2022+ features (top-level await, optional chaining, `const` / `let`)
-- Module imports use `.ts` extensions (Vite + `allowImportingTsExtensions` handles resolution)
+- Use ES2020+ features (top-level await, optional chaining, `const` / `let`)
+- Module imports **must** use `.ts` extensions (Vite + `allowImportingTsExtensions` handles resolution)
 - Three.js imports via importmap in `index.html` (e.g., `three`, `three/webgpu`, `three/tsl`)
-- Target module system is `ES2022` with `bundler` resolution
+- Target module system is `ES2022` with `bundler` resolution; compilation target is `ES2020`
 
 ### AssemblyScript
 - Explicit type annotations required (`f32`, `i32`)
@@ -282,36 +306,46 @@ Cross-Origin-Embedder-Policy: require-corp
 
 ## Testing Strategy
 
-### Current State
-- `npm run test` and `npm run test:wasm` are currently **disabled** (they echo skip messages for broken legacy scripts).
-- Active tests exist in other locations and are run manually or via CI.
-
 ### Active Tests
-1. **Visual Regression** (`tools/visual-regression/`)
+1. **Smoke Test** (`npm run test` → `tests/smoke-runner.mjs`)
+   - Starts Vite preview server on port 4173
+   - Launches Chromium with WebGPU/Vulkan flags
+   - Navigates to `http://localhost:4173`
+   - Waits for `window.__sceneReady === true` (up to 25s)
+   - Checks for console errors and canvas initialization
+   - Ignores expected 404s for missing Emscripten fallbacks
+
+2. **WASM Bounds Test** (`npm run test:wasm` → `tests/wasm.mjs`)
+   - Loads `src/wasm/candy_physics.wasm` directly in Node.js
+   - Tests particle update, spawn burst, and extreme velocity scenarios
+   - Verifies particles stay within documented world bounds for 100+ frames
+   - Validates AssemblyScript memory layout and export signatures
+
+3. **Visual Regression** (`tools/visual-regression/`)
    - Playwright-based screenshot comparison
    - Run via `pnpm run test:visual` inside `tools/visual-regression/`
    - GitHub Actions workflow (`.github/workflows/visual-regression.yml`) runs on pushes to `main`/`develop` and PRs to `main`
    - Supports viewpoints (`spawn`, `lake`, `forest`) and quality tiers (`medium`, `high`)
 
-2. **Accessibility Tests** (`tests/accessibility-test.ts`)
+4. **Accessibility Tests** (`tests/accessibility-test.ts`)
    - TypeScript compilation and logic verification for the accessibility system
    - Tests color-blind modes, motion reduction, and announcer utilities
 
-3. **Culling System Compilation Test** (`test/culling-system.test.ts`)
-   - Manual verification that `src/rendering/culling-system.ts` exports compile and constants are correct
-
-4. **Analytics Integration Test** (`test/analytics-integration-test.ts`)
-   - Verifies analytics event types and integration surface
+5. **Manual Compilation Tests** (`test/`)
+   - `test/culling-system.test.ts` — verifies culling system exports and constants
+   - `test/analytics-integration-test.ts` — verifies analytics event types
+   - `test/plant-pose-machine.test.ts` — plant pose machine logic verification
 
 ### CI / GitHub Actions
 - **Visual Regression**: Triggered on `src/**`, `assets/**`, or workflow changes. Uploads diffs/reports as artifacts. Baselines are updated manually via PRs.
+- pnpm is used in CI for dependency installation.
 
 ---
 
 ## Deployment Process
 
 1. **Build**: `npm run build` creates optimized `dist/` folder
-2. **Verify**: Run `npm run test` (currently a no-op) and visual regression tests before deploying
+2. **Verify**: Run `npm run test` and `npm run test:wasm` before deploying
 3. **Deploy**: `python3 deploy.py` uploads via SFTP
 
 ### Deployment Configuration (deploy.py)
@@ -340,12 +374,13 @@ Cross-Origin-Embedder-Policy: require-corp
 ### Build
 - `assemblyscript` (^0.27.37) — AssemblyScript compiler
 - `vite` (^5.0.0) — Build tool and dev server
-- `typescript` (^5.3.3) — Type checking
+- `typescript` (^5.9.3) — Type checking
 - `vite-plugin-wasm` — WASM support in Vite
 - `vite-plugin-top-level-await` — Top-level await support
 
 ### Development / Testing
 - `@playwright/test` — E2E and visual regression testing
+- `playwright` — Browser automation
 - `tsx` — TypeScript execution for CLI tools and tests
 
 ---
@@ -358,12 +393,13 @@ When implementing large visual changes:
 3. Comment code with "Visual Impact" notes where uniform values define aesthetics
 
 ### Existing Documentation Files
+- `README.md` — Human-facing project overview and quick start
 - `SETUP_GUIDE.md` — Development environment setup and Emscripten installation
 - `IMPLEMENTATION_SUMMARY.md` — Feature implementation history
 - `PERFORMANCE_MIGRATION_STRATEGY.md` — WASM migration guidelines (includes the "15% Rule")
 - `SKY_ENHANCEMENTS.md` — Sky/weather system details
 - `WEATHER_INTEGRATION_SUMMARY.md` — Weather system architecture
-- `docs/` — Additional deep-dive docs (analytics, compute particles, culling, map generation, save system, wind optimization, etc.)
+- `docs/` — Additional deep-dive docs (analytics, compute particles, culling, map generation, save system, wind optimization, accessibility, asset streaming, etc.)
 
 ---
 
@@ -389,3 +425,6 @@ npm run build
 
 ### TypeScript import errors
 Imports must use `.ts` extensions (e.g., `import { foo } from './bar.ts'`). Vite's bundler resolution handles this; do not omit the extension.
+
+### Smoke test fails with timeout
+The smoke test waits up to 25 seconds for `window.__sceneReady`. If it times out, check the browser console for shader compilation errors or WASM initialization failures.
