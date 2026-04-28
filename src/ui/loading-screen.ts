@@ -12,6 +12,7 @@
  */
 
 import './loading-screen.css';
+import { trapFocusInside } from '../utils/interaction-utils.ts';
 
 // =============================================================================
 // TYPES & INTERFACES
@@ -142,6 +143,9 @@ export class LoadingScreen {
     private onSkipCallbacks: Set<(phaseId: string) => void> = new Set();
     private onCompleteCallbacks: Set<() => void> = new Set();
     private onProgressCallbacks: Set<(progress: LoadingProgress) => void> = new Set();
+
+    private releaseFocusTrap: (() => void) | null = null;
+    private lastFocusedElement: HTMLElement | null = null;
 
     constructor(options: LoadingScreenOptions = {}) {
         this.options = {
@@ -320,6 +324,13 @@ export class LoadingScreen {
         this.isVisible = true;
         this.isComplete = false;
         
+        this.lastFocusedElement = document.activeElement as HTMLElement;
+        if (this.container) {
+            this.container.setAttribute('tabindex', '-1');
+            this.container.setAttribute('aria-modal', 'true');
+            this.releaseFocusTrap = trapFocusInside(this.container);
+        }
+
         // Trigger reflow for animation
         requestAnimationFrame(() => {
             if (this.overlay) {
@@ -757,6 +768,15 @@ export class LoadingScreen {
     }
 
     private destroy(): void {
+        if (this.releaseFocusTrap) {
+            this.releaseFocusTrap();
+            this.releaseFocusTrap = null;
+        }
+        if (this.lastFocusedElement && typeof this.lastFocusedElement.focus === 'function') {
+            this.lastFocusedElement.focus();
+            this.lastFocusedElement = null;
+        }
+
         if (this.overlay && this.overlay.parentNode) {
             this.overlay.parentNode.removeChild(this.overlay);
         }
