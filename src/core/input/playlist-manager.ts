@@ -290,6 +290,12 @@ export function renderPlaylist(): void {
                 } else if (playBtns[0]) {
                     // Or the first song
                     (playBtns[0] as HTMLElement).focus();
+                } else {
+                    // Fallback to empty state button if list is now empty
+                    const emptyBtn = playlistList!.querySelector('button.secondary-button');
+                    if (emptyBtn) {
+                        (emptyBtn as HTMLElement).focus();
+                    }
                 }
             });
         };
