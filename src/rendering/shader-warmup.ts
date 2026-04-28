@@ -88,7 +88,7 @@ function createWarmupGeometry(): THREE.BufferGeometry {
   geometry.setAttribute('uv', new THREE.BufferAttribute(new Float32Array([0, 0, 2, 0, 0, 2]), 2));
   // Provide dummy attributes so TSL materials that reference them don't crash during warmup.
   geometry.setAttribute('instanceColor', new THREE.BufferAttribute(new Float32Array([1, 1, 1, 1, 1, 1, 1, 1, 1]), 3));
-  geometry.setAttribute('aPoseState', new THREE.BufferAttribute(new Float32Array([0, 0, 0]), 1));
+  geometry.setAttribute('aPoseState', new THREE.BufferAttribute(new Float32Array([1, 1, 1]), 1));
   geometry.setAttribute('aState', new THREE.BufferAttribute(new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), 4));
   geometry.setAttribute('aVelocity', new THREE.BufferAttribute(new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), 4));
   return geometry;

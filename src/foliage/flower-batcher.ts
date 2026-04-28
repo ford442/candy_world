@@ -11,6 +11,7 @@ import {
 import { attachReactivity } from './foliage-reactivity.ts';
 import { CandyPresets, uAudioHigh, uTime, createJuicyRimLight, getCachedProceduralMaterial, createStandardNodeMaterial } from './material-core.ts';
 import { attribute, positionLocal, mix, color, float, sin } from 'three/tsl';
+import { PlantPoseMachine } from './plant-pose-machine.ts';
 
 const MAX_FLOWERS = 1000; // Reduced from 5000 for WebGPU uniform buffer limits
 const MAX_PETALS = MAX_FLOWERS * 8; // Up to 8 petals per flower (reduced from 15 for WebGPU limits)
@@ -48,6 +49,8 @@ export class FlowerBatcher {
     private multiCount = 0;
     private spiralCount = 0;
 
+    private _poseMachine: PlantPoseMachine;
+
     private constructor() {
         // Deferred init
     }
@@ -61,6 +64,8 @@ export class FlowerBatcher {
 
     init() {
         if (this.initialized) return;
+
+        this._poseMachine = new PlantPoseMachine(MAX_PETALS, 'flower');
 
         // --- Common TSL Logic ---
         // Apply Bloom -> Wind -> Player Interaction
@@ -132,9 +137,9 @@ export class FlowerBatcher {
                 rimStrength: 0.5
             });
 
-            // Add Audio-Reactive Rim Light to petals
-            // 🎨 PALETTE: Boosted Rim Light for more pop in twilight
-            const audioRim = createJuicyRimLight(instanceColor, float(2.0).add(uAudioHigh.mul(4.0)), float(2.0), null);
+        // Add Audio-Reactive Rim Light to petals
+        // 🎨 PALETTE: Boosted Rim Light for more pop in twilight
+        const audioRim = createJuicyRimLight(instanceColor, float(2.0).add(uAudioHigh.mul(4.0)), float(2.0), null);
 
             // --- PALETTE: Audio Reactive Inner Glow ---
             // Give petals a deep soft glow when the melody hits (increased intensity)
@@ -152,6 +157,7 @@ export class FlowerBatcher {
 
         this.petalsSimple = new THREE.InstancedMesh(simpleGeo, petalMat, MAX_PETALS);
         this.petalsSimple.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAX_PETALS * 3), 3);
+        this.petalsSimple.geometry.setAttribute('aPoseState', new THREE.InstancedBufferAttribute(new Float32Array(MAX_PETALS).fill(0), 1));
         this.petalsSimple.castShadow = true;
         this.petalsSimple.receiveShadow = true;
         this.petalsSimple.frustumCulled = false;
@@ -163,6 +169,7 @@ export class FlowerBatcher {
         const multiGeo = sharedGeometries.unitSphere.clone();
         this.petalsMulti = new THREE.InstancedMesh(multiGeo, petalMat, MAX_PETALS);
         this.petalsMulti.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAX_PETALS * 3), 3);
+        this.petalsMulti.geometry.setAttribute('aPoseState', new THREE.InstancedBufferAttribute(new Float32Array(MAX_PETALS).fill(0), 1));
         this.petalsMulti.castShadow = true;
         this.petalsMulti.receiveShadow = true;
         this.petalsMulti.frustumCulled = false;
@@ -174,6 +181,7 @@ export class FlowerBatcher {
         const spiralGeo = sharedGeometries.unitCone.clone();
         this.petalsSpiral = new THREE.InstancedMesh(spiralGeo, petalMat, MAX_PETALS);
         this.petalsSpiral.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAX_PETALS * 3), 3);
+        this.petalsSpiral.geometry.setAttribute('aPoseState', new THREE.InstancedBufferAttribute(new Float32Array(MAX_PETALS).fill(0), 1));
         this.petalsSpiral.castShadow = true;
         this.petalsSpiral.receiveShadow = true;
         this.petalsSpiral.frustumCulled = false;
@@ -368,6 +376,44 @@ export class FlowerBatcher {
 
         mesh.instanceMatrix.needsUpdate = true;
         if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+    }
+
+    update(time: number, audioState: any, dayNightBias: number) {
+        if (!this.initialized || !this._poseMachine) return;
+
+        // Step the state machine
+        this._poseMachine.update(time, audioState.kick, dayNightBias);
+
+        // Map pose machine states to the petal attributes
+        // The pose machine tracks states for MAX_PETALS instances.
+
+        // simple petals
+        if (this.petalsSimple && this.petalsSimple.count > 0 && this.petalsSimple.geometry.attributes.aPoseState) {
+            const attr = this.petalsSimple.geometry.attributes.aPoseState;
+            for (let i = 0; i < this.petalsSimple.count; i++) {
+                // Read from state machine directly
+                attr.setX(i, this._poseMachine.instances[i].currentValue);
+            }
+            attr.needsUpdate = true;
+        }
+
+        // multi petals
+        if (this.petalsMulti && this.petalsMulti.count > 0 && this.petalsMulti.geometry.attributes.aPoseState) {
+            const attr = this.petalsMulti.geometry.attributes.aPoseState;
+            for (let i = 0; i < this.petalsMulti.count; i++) {
+                attr.setX(i, this._poseMachine.instances[i].currentValue);
+            }
+            attr.needsUpdate = true;
+        }
+
+        // spiral petals
+        if (this.petalsSpiral && this.petalsSpiral.count > 0 && this.petalsSpiral.geometry.attributes.aPoseState) {
+            const attr = this.petalsSpiral.geometry.attributes.aPoseState;
+            for (let i = 0; i < this.petalsSpiral.count; i++) {
+                attr.setX(i, this._poseMachine.instances[i].currentValue);
+            }
+            attr.needsUpdate = true;
+        }
     }
 }
 

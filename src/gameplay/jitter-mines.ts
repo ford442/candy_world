@@ -9,7 +9,7 @@ import { applyGlitch } from '../foliage/glitch.ts';
 import { uChromaticIntensity } from '../foliage/chromatic.ts';
 import { spawnImpact } from '../foliage/impacts.ts';
 import { unlockSystem } from '../systems/unlocks.ts';
-import { positionLocal, uv, float, sin, cos, vec3, attribute, vec4, smoothstep } from 'three/tsl';
+import { positionLocal, uv, float, sin, cos, vec3, uniform, attribute, vec4, vec2, step, mix, smoothstep, Fn } from 'three/tsl';
 
 const MAX_MINES = 50;
 const _scratchMatrix = new THREE.Matrix4();
@@ -41,10 +41,18 @@ class JitterMineSystem {
     private _stateBuffer: THREE.InstancedBufferAttribute | null = null;
     private _initialized = false;
 
+    private initialized = false;
+
     constructor() {
         this.mines = [];
         this.cooldownTimer = 0;
         this.trauma = 0;
+        // Don't eagerly evaluate in constructor to prevent barrel file module load errors
+    }
+
+    init() {
+        if (this.initialized) return;
+        this.initialized = true;
 
         // Pre-allocate CPU-side mine objects (pure JS — safe at construction time)
         for (let i = 0; i < MAX_MINES; i++) {
@@ -96,6 +104,12 @@ class JitterMineSystem {
         this._stateBuffer.setUsage(THREE.DynamicDrawUsage);
         geometry.setAttribute('aState', this._stateBuffer);
 
+        // 2. Vertex Shader logic (Stateless GPU Animation)
+        // By deferring the node generation to a Fn(), we avoid module-import-time undefined crashes
+        // from circular dependencies inside barrel files
+        const computeLogic = Fn(() => {
+            const aSpawn = attribute('aSpawn', 'vec4');
+            const aState = attribute('aState', 'vec4');
         // -----------------------------------------------------------------
         // TSL MATERIAL GRAPH — deferred until first actual use
         // -----------------------------------------------------------------
@@ -105,68 +119,73 @@ class JitterMineSystem {
             float(0.2).add(sin(uTime.mul(10.0)).mul(0.1))
         );
 
+            const spawnPos = aSpawn.xyz;
+            const spawnTime = aSpawn.w;
+            const isActive = aState.x;
+            const rotAxis = vec3(aState.y, aState.z, aState.w);
+
+            const glitchTime = uTime ? uTime.mul(10.0) : float(0.0);
+            const baseGlitchPosition = applyGlitch(uv(), positionLocal, float(0.2).add(sin(glitchTime).mul(0.1))).position;
+        // Vertex Shader logic (Stateless GPU Animation)
+        const aSpawn = attribute('aSpawn', 'vec4');
+        const aState = attribute('aState', 'vec4');
+
+            const age = uTime ? uTime.sub(spawnTime) : float(0.0);
+
+            // Pulse scale
+            const pulse = float(1.0).add(sin(age.mul(10.0)).mul(0.1));
+            const finalScale = pulse.mul(isActive);
+
+            // 🎨 PALETTE: Audio-Reactive Squash & Stretch (Heartbeat/Jelly feel)
+            // High impact on kick drum (uAudioLow)
+            const beatSquash = uAudioLow ? smoothstep(0.2, 0.8, uAudioLow).pow(float(1.5)).mul(0.4) : float(0.0); // Max 40% squash
+
+            // Squash Y axis down, bulge X/Z axes out
+            const scaleY = float(1.0).sub(beatSquash);
+            const scaleXZ = float(1.0).add(beatSquash.mul(0.5));
+            const audioScale = vec3(scaleXZ, scaleY, scaleXZ);
+
+            const scaledPos = baseGlitchPosition.mul(audioScale).mul(finalScale);
+
+            // Rotate around random axis
+            const angle = age.mul(2.0); // Rotation speed
+            const c = cos(angle);
+            const s = sin(angle);
+            const t = float(1.0).sub(c);
+
+            const x = rotAxis.x;
+            const y = rotAxis.y;
+            const z = rotAxis.z;
+
+            // Custom Rodrigues' rotation formula
+            const rx = scaledPos.x.mul(t.mul(x).mul(x).add(c))
+                .add(scaledPos.y.mul(t.mul(x).mul(y).sub(s.mul(z))))
+                .add(scaledPos.z.mul(t.mul(x).mul(z).add(s.mul(y))));
+
+            const ry = scaledPos.x.mul(t.mul(x).mul(y).add(s.mul(z)))
+                .add(scaledPos.y.mul(t.mul(y).mul(y).add(c)))
+                .add(scaledPos.z.mul(t.mul(y).mul(z).sub(s.mul(x))));
+
+            const rz = scaledPos.x.mul(t.mul(x).mul(z).sub(s.mul(y)))
+                .add(scaledPos.y.mul(t.mul(y).mul(z).add(s.mul(x))))
+                .add(scaledPos.z.mul(t.mul(z).mul(z).add(c)));
+
+            const rotatedPos = vec3(rx, ry, rz);
+
+            // Position in world
+            return rotatedPos.add(spawnPos);
+        });
+
+        // Create Glitchy Material using the compute node to prevent instantiation before material-core exports
         const material = createClayMaterial(0xFF00FF, {
             roughness: 0.2,
             metalness: 0.8,
             emissive: 0xFF00FF,
             emissiveIntensity: 0.8,
             bumpStrength: 0.5,
-            noiseScale: 20.0
+            noiseScale: 20.0,
+            deformationNode: computeLogic()
         });
-
-        // Vertex Shader logic (Stateless GPU Animation)
-        const aSpawn = attribute('aSpawn', 'vec4');
-        const aState = attribute('aState', 'vec4');
-
-        const spawnPos = aSpawn.xyz;
-        const spawnTime = aSpawn.w;
-        const isActive = aState.x;
-        const rotAxis = vec3(aState.y, aState.z, aState.w);
-
-        const age = uTime.sub(spawnTime);
-
-        // Pulse scale
-        const pulse = float(1.0).add(sin(age.mul(10.0)).mul(0.1));
-        const finalScale = pulse.mul(isActive);
-
-        // 🎨 PALETTE: Audio-Reactive Squash & Stretch (Heartbeat/Jelly feel)
-        // High impact on kick drum (uAudioLow)
-        const beatSquash = smoothstep(0.2, 0.8, uAudioLow).pow(float(1.5)).mul(0.4); // Max 40% squash
-
-        // Squash Y axis down, bulge X/Z axes out
-        const scaleY = float(1.0).sub(beatSquash);
-        const scaleXZ = float(1.0).add(beatSquash.mul(0.5));
-        const audioScale = vec3(scaleXZ, scaleY, scaleXZ);
-
-        const scaledPos = baseGlitch.position.mul(audioScale).mul(finalScale);
-
-        // Rotate around random axis
-        const angle = age.mul(2.0); // Rotation speed
-        const c = cos(angle);
-        const s = sin(angle);
-        const t = float(1.0).sub(c);
-
-        const x = rotAxis.x;
-        const y = rotAxis.y;
-        const z = rotAxis.z;
-
-        // Custom Rodrigues' rotation formula
-        const rx = scaledPos.x.mul(t.mul(x).mul(x).add(c))
-            .add(scaledPos.y.mul(t.mul(x).mul(y).sub(s.mul(z))))
-            .add(scaledPos.z.mul(t.mul(x).mul(z).add(s.mul(y))));
-
-        const ry = scaledPos.x.mul(t.mul(x).mul(y).add(s.mul(z)))
-            .add(scaledPos.y.mul(t.mul(y).mul(y).add(c)))
-            .add(scaledPos.z.mul(t.mul(y).mul(z).sub(s.mul(x))));
-
-        const rz = scaledPos.x.mul(t.mul(x).mul(z).sub(s.mul(y)))
-            .add(scaledPos.y.mul(t.mul(y).mul(z).add(s.mul(x))))
-            .add(scaledPos.z.mul(t.mul(z).mul(z).add(c)));
-
-        const rotatedPos = vec3(rx, ry, rz);
-
-        // Position in world
-        material.positionNode = rotatedPos.add(spawnPos);
 
         this._mesh = new THREE.InstancedMesh(geometry, material, MAX_MINES);
         this._mesh.count = MAX_MINES;
@@ -204,6 +223,7 @@ class JitterMineSystem {
     }
 
     spawnMine(position: THREE.Vector3) {
+        if (!this.initialized) this.init();
         if (!unlockSystem.isUnlocked('jitter_mines')) {
             return;
         }
@@ -255,6 +275,8 @@ class JitterMineSystem {
     }
 
     update(delta: number, playerPos: THREE.Vector3) {
+        if (!this.initialized) return;
+
         if (this.cooldownTimer > 0) {
             this.cooldownTimer -= delta;
         }

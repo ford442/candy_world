@@ -316,7 +316,7 @@ export class MusicReactivitySystem {
             portamentoPineBatcher.update(time, audioState, dayNightBias);
 
             // Update Flower Batchers (aPoseState driven by audio)
-            flowerBatcher.update(audioState);
+            flowerBatcher.update(time, audioState, dayNightBias);
             simpleFlowerBatcher.update(audioState);
         }
     }

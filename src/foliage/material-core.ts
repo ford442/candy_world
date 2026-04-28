@@ -278,14 +278,14 @@ export const applyPlayerInteraction = (basePosNode: any) => {
 
 // --- WIND & BLOOM FUNCTIONS ---
 
-// Get wind texture data for TSL sampling
-const windTextureData = getWindTextureData();
-
 /**
  * Optimized wind sway using baked texture sampling
  * Samples wind vector from texture based on world position + time
  */
 export const calculateWindSway = Fn(([posNode]) => {
+    // Get wind texture data for TSL sampling inside the function to avoid execution order issues
+    const windTextureData = getWindTextureData();
+
     // Create UV coordinates from world position with tiling
     // Scale matches the world-space tiling of the wind texture
     const worldScale = float(0.1); // Matches getWindTextureData().sampleScale
@@ -350,21 +350,24 @@ export const calculateWindSwayLegacy = Fn(([posNode]) => {
 // Re-export wind compute system for external access
 export { getWindTextureData, windComputeSystem } from './wind-compute.ts';
 
-export const calculateFlowerBloom = (posNode: any) => {
-    // 1. Pose State (per-instance bloom factor driven by music reactivity)
-    const poseState = attribute('aPoseState', 'float');
+export const calculateFlowerBloom = (posNode?: any) => {
+    // DO NOT USE Fn()!
+    // As per the guidance: "No Scope Loss: By removing Fn(), you are just chaining JS objects (TSL Nodes) together synchronously."
 
-    // 2. Breathing (Idle) - Slow pulse
+    // 1. Safely resolve the position node FIRST
+    const _pos = posNode || positionLocal;
+
+    // 2. Declare the custom instanced attribute
+    const aPoseState = attribute('aPoseState', 'float');
+
+    // 3. Build the math graph directly (no Fn wrapper!)
     const breath = sin(uTime.mul(2.0)).mul(0.05);
-
-    // 3. Audio Bloom (Kick/Bass) - Punchy expansion
     const bloom = uAudioLow.mul(0.3);
+    const scale = float(1.0).add(aPoseState).add(breath).add(bloom);
 
-    // Total Scale
-    const scale = float(1.0).add(breath).add(bloom).add(poseState);
-
-    // Scale position from center (0,0,0) - Assumes local space
-    return posNode.mul(scale);
+    // 4. Return the multiplied node
+    // Let's use `scale.mul(_pos)` since `float().mul()` is always guaranteed to work on nodes.
+    return scale.mul(_pos);
 };
 
 // --- UNIFIED MATERIAL PIPELINE ---

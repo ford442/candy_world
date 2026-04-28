@@ -139,7 +139,7 @@ export function initDeferredVisuals() {
         };
     }
 
-    if (!jitterMineSystem.mesh.parent) {
+    if (jitterMineSystem.mesh && !jitterMineSystem.mesh.parent) {
         sceneRef.add(jitterMineSystem.mesh);
         console.log('[Deferred] Jitter Mine System initialized');
     }

@@ -181,6 +181,8 @@ export class SimpleFlowerBatcher {
         });
 
         // Add to Scene
+        this.petalMesh.geometry.setAttribute('aPoseState', new THREE.InstancedBufferAttribute(new Float32Array(MAX_FLOWERS).fill(0), 1));
+
         foliageGroup.add(this.stemMesh);
         foliageGroup.add(this.petalMesh);
         foliageGroup.add(this.centerMesh);
