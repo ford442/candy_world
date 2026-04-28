@@ -378,7 +378,7 @@ export class MusicReactivitySystem {
                 BiomeUniforms.arpeggioGrove.shimmer.value =
                     Math.min(_arpeggioShimmerAccum / Math.max(_arpeggioShimmerCh.length, 1), 1.0) * nightGate;
                 BiomeUniforms.arpeggioGrove.hueShift.value =
-                    Math.min(_arpeggioHueShiftAccum, 1.0) * nightGate;
+                    Math.min(_arpeggioHueShiftAccum / Math.max(_arpeggioHueShiftCh.length, 1), 1.0) * nightGate;
                 BiomeUniforms.crystallineNebula.shimmer.value =
                     Math.min(_nebulaShimmerAccum / Math.max(_nebulaShimmerCh.length, 1), 1.0) * nightGate;
                 // amplitudeScale: 1.0 baseline + channel energy boost, gated by night
