@@ -494,6 +494,7 @@ export class SaveMenu {
         const originalWidth = btnElement.offsetWidth;
 
         const setWorkingState = () => {
+            btnElement.setAttribute('aria-busy', 'true');
             btnElement.disabled = true;
             btnElement.style.width = `${originalWidth}px`;
             btnElement.style.justifyContent = 'center';
@@ -501,6 +502,7 @@ export class SaveMenu {
         };
 
         const restoreState = () => {
+            btnElement.removeAttribute('aria-busy');
             btnElement.disabled = false;
             btnElement.style.width = '';
             btnElement.style.justifyContent = '';
