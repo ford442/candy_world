@@ -84,9 +84,16 @@ export const MENU_STYLES = `
     transform: rotate(90deg);
 }
 
+.candy-save-menu__close:active {
+    transform: rotate(90deg) scale(0.95);
+    transition-duration: 0.05s;
+}
+
 .candy-save-menu__close:focus-visible {
-    outline: 2px solid #ff69b4;
-    outline-offset: 2px;
+    outline: none;
+    box-shadow: 0 0 0 3px #1a1a2e, 0 0 0 6px #ff4081;
+    position: relative;
+    z-index: 10;
 }
 
 .candy-save-menu__tabs {
@@ -113,9 +120,16 @@ export const MENU_STYLES = `
     color: #fff;
 }
 
+.candy-save-menu__tab:active {
+    transform: scale(0.95);
+    transition-duration: 0.05s;
+}
+
 .candy-save-menu__tab:focus-visible {
-    outline: 2px solid #ff69b4;
-    outline-offset: 2px;
+    outline: none;
+    box-shadow: 0 0 0 3px #1a1a2e, 0 0 0 6px #ff4081;
+    position: relative;
+    z-index: 10;
 }
 
 .candy-save-menu__tab--active {
@@ -156,6 +170,11 @@ export const MENU_STYLES = `
 .candy-save-slot:hover {
     background: rgba(255, 255, 255, 0.1);
     transform: translateY(-2px);
+}
+
+.candy-save-slot:active {
+    transform: translateY(0) scale(0.98);
+    transition-duration: 0.05s;
 }
 
 .candy-save-slot--empty {
@@ -238,9 +257,16 @@ export const MENU_STYLES = `
     transform: scale(1.05);
 }
 
+.candy-save-slot__btn:active {
+    transform: scale(0.95);
+    transition-duration: 0.05s;
+}
+
 .candy-save-slot__btn:focus-visible {
-    outline: 2px solid #ff69b4;
-    outline-offset: 2px;
+    outline: none;
+    box-shadow: 0 0 0 3px #1a1a2e, 0 0 0 6px #ff4081;
+    position: relative;
+    z-index: 10;
 }
 
 .candy-save-slot__btn[aria-busy="true"],
@@ -306,6 +332,11 @@ export const MENU_STYLES = `
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
 }
 
+.candy-save-menu__btn:active {
+    transform: translateY(0) scale(0.95);
+    transition-duration: 0.05s;
+}
+
 .candy-save-menu__btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;
@@ -313,8 +344,10 @@ export const MENU_STYLES = `
 }
 
 .candy-save-menu__btn:focus-visible {
-    outline: 2px solid #ff69b4;
-    outline-offset: 2px;
+    outline: none;
+    box-shadow: 0 0 0 3px #1a1a2e, 0 0 0 6px #ff4081;
+    position: relative;
+    z-index: 10;
 }
 
 /* Settings Panel */
@@ -411,8 +444,10 @@ export const MENU_STYLES = `
 }
 
 .candy-toggle:focus-visible {
-    outline: 2px solid #ff69b4;
-    outline-offset: 2px;
+    outline: none;
+    box-shadow: 0 0 0 3px #1a1a2e, 0 0 0 6px #ff4081;
+    position: relative;
+    z-index: 10;
 }
 
 .candy-toggle--active {
@@ -452,9 +487,16 @@ export const MENU_STYLES = `
     background: rgba(255, 105, 180, 0.1);
 }
 
+.candy-keybind:active {
+    transform: scale(0.95);
+    transition-duration: 0.05s;
+}
+
 .candy-keybind:focus-visible {
-    outline: 2px solid #ff69b4;
-    outline-offset: 2px;
+    outline: none;
+    box-shadow: 0 0 0 3px #1a1a2e, 0 0 0 6px #ff4081;
+    position: relative;
+    z-index: 10;
 }
 
 .candy-keybind--listening {
@@ -522,9 +564,16 @@ export const MENU_STYLES = `
     background: rgba(255, 255, 255, 0.2);
 }
 
+.candy-file-label:active {
+    transform: scale(0.95);
+    transition-duration: 0.05s;
+}
+
 .candy-file-label:focus-visible {
-    outline: 2px solid #ff69b4;
-    outline-offset: 2px;
+    outline: none;
+    box-shadow: 0 0 0 3px #1a1a2e, 0 0 0 6px #ff4081;
+    position: relative;
+    z-index: 10;
 }
 
 /* Danger Zone */
