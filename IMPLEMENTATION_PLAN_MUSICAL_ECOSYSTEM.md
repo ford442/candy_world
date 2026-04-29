@@ -37,10 +37,10 @@ This phased plan outlines a progressive migration to stronger typing, offloading
   - Run WGSL compute passes to update particle/physics buffers on a `gpuDevice`.
   - Use a `THREE.BufferAttribute` pointing to the GPU buffer for rendering.
 
-- **Stage B — Custom Render Passes**
+- **Stage B — Custom Render Passes** [DEPRECATED - Superseded by TSL & InstancedMesh Batching]
   - Replace specific materials with `RawShaderMaterial` / WebGPU pipelines (e.g., cloud or terrain draws).
 
-- **Stage C — Scene Graph Replacement**
+- **Stage C — Scene Graph Replacement** [DEPRECATED - Superseded by TSL & InstancedMesh Batching]
   - Once compute + custom render passes are in place, migrate scene hierarchy to an ECS in WASM and call `device.queue.submit()` directly.
 
 ---

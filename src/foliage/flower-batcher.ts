@@ -10,6 +10,7 @@ import {
 } from './index.ts';
 import { attachReactivity } from './foliage-reactivity.ts';
 import { CandyPresets, uAudioHigh, uTime, createJuicyRimLight, getCachedProceduralMaterial, createStandardNodeMaterial } from './material-core.ts';
+import { CONFIG } from '../core/config.ts';
 import { attribute, positionLocal, mix, color, float, sin } from 'three/tsl';
 import { PlantPoseMachine } from './plant-pose-machine.ts';
 
@@ -326,23 +327,6 @@ export class FlowerBatcher {
         }
     }
 
-    update(audioState: any) {
-        if (!this.initialized) return;
-        const kick = audioState?.kickTrigger || 0;
-        const bloom = Math.min(kick * 0.3, 0.5);
-        // Update aPoseState for all active instances across all meshes
-        const meshes = [this.stems, this.centers, this.stamens, this.petalsSimple, this.petalsMulti, this.petalsSpiral];
-        for (const mesh of meshes) {
-            if (!mesh) continue;
-            const attr = mesh.geometry.getAttribute('aPoseState') as THREE.InstancedBufferAttribute;
-            if (!attr) continue;
-            for (let i = 0; i < mesh.count; i++) {
-                attr.setX(i, bloom);
-            }
-            attr.needsUpdate = true;
-        }
-    }
-
     private addInstance(mesh: THREE.InstancedMesh, matrix: THREE.Matrix4, color: THREE.Color | null, countProp: string) {
         let index = 0;
         let max = 0;
@@ -378,39 +362,29 @@ export class FlowerBatcher {
         if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
     }
 
-    update(time: number, audioState: any, dayNightBias: number) {
+    update(time: number, deltaTime: number, audioState: any, dayNightBias: number) {
         if (!this.initialized || !this._poseMachine) return;
+        
+        const config = CONFIG.plantPose.flower;
+        if (!config) return;
 
+        const kick = audioState?.kick || 0;
+        
         // Step the state machine
-        this._poseMachine.update(time, audioState.kick, dayNightBias);
+        this._poseMachine.update(MAX_PETALS, deltaTime, kick, dayNightBias, config);
 
-        // Map pose machine states to the petal attributes
-        // The pose machine tracks states for MAX_PETALS instances.
-
-        // simple petals
-        if (this.petalsSimple && this.petalsSimple.count > 0 && this.petalsSimple.geometry.attributes.aPoseState) {
-            const attr = this.petalsSimple.geometry.attributes.aPoseState;
-            for (let i = 0; i < this.petalsSimple.count; i++) {
-                // Read from state machine directly
-                attr.setX(i, this._poseMachine.instances[i].currentValue);
-            }
-            attr.needsUpdate = true;
-        }
-
-        // multi petals
-        if (this.petalsMulti && this.petalsMulti.count > 0 && this.petalsMulti.geometry.attributes.aPoseState) {
-            const attr = this.petalsMulti.geometry.attributes.aPoseState;
-            for (let i = 0; i < this.petalsMulti.count; i++) {
-                attr.setX(i, this._poseMachine.instances[i].currentValue);
-            }
-            attr.needsUpdate = true;
-        }
-
-        // spiral petals
-        if (this.petalsSpiral && this.petalsSpiral.count > 0 && this.petalsSpiral.geometry.attributes.aPoseState) {
-            const attr = this.petalsSpiral.geometry.attributes.aPoseState;
-            for (let i = 0; i < this.petalsSpiral.count; i++) {
-                attr.setX(i, this._poseMachine.instances[i].currentValue);
+        // Update aPoseState for all active instances across all meshes
+        const meshes = [this.stems, this.centers, this.stamens, this.petalsSimple, this.petalsMulti, this.petalsSpiral];
+        for (const mesh of meshes) {
+            if (!mesh || mesh.count === 0) continue;
+            const attr = mesh.geometry.attributes.aPoseState as THREE.InstancedBufferAttribute;
+            if (!attr) continue;
+            
+            for (let i = 0; i < mesh.count; i++) {
+                // _poseMachine covers up to MAX_PETALS, which is MAX_FLOWERS * 8
+                // Ensure we don't read out of bounds. Stamens can have up to MAX_FLOWERS * 3 instances.
+                // Stems and Centers have up to MAX_FLOWERS instances.
+                attr.setX(i, this._poseMachine.getPose(i));
             }
             attr.needsUpdate = true;
         }

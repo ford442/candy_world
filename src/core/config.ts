@@ -147,6 +147,7 @@ export interface ConfigType {
     plantPose: {
         arpeggioFern: PlantPoseConfig;
         portamentoPine: PlantPoseConfig;
+        flower: PlantPoseConfig;
     };
 }
 
@@ -266,6 +267,14 @@ export const CONFIG: ConfigType = {
             nightTarget: -0.05,     // subtle droop at night rest
             triggerThreshold: 0.08, // minimum melody channel volume to trigger bend
             channelIndex: 2         // melody channel (tracker channel 2)
+        },
+        flower: {
+            attackRate: 4.0,        // bloom response to kick
+            releaseRate: 1.0,       // settle back down
+            sustainLevel: 1.0,      // envelope peak 
+            dayTarget: 1.0,         // fully blooming during day
+            nightTarget: 0.0,       // closed during night
+            triggerThreshold: 0.05  // minimum kick channel volume to trigger bloom
         }
     }
 };
