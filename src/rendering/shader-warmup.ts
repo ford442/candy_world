@@ -251,23 +251,15 @@ export class ShaderWarmup {
         (window as any).__lastWarmupMaterialName = name;
       }
       
-      // Determine if we need an InstancedMesh for this material.
-      // Materials that reference 'instanceColor' or other instanced attributes
-      // will warn or crash when rendered on a plain Mesh during warmup.
-      const matStr = material.toString ? material.toString() : '';
-      const needsInstancing = matStr.includes('instanceColor') || matStr.includes('instanceIndex');
-
-      let mesh: THREE.Mesh | THREE.InstancedMesh;
-      if (needsInstancing) {
-        const instancedMesh = new THREE.InstancedMesh(this.warmupGeometry, material, 1);
-        instancedMesh.frustumCulled = false;
-        // Provide a dummy instance color so TSL attribute('instanceColor') resolves.
-        instancedMesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array([1, 1, 1]), 3);
-        mesh = instancedMesh;
-      } else {
-        mesh = new THREE.Mesh(this.warmupGeometry, material);
-        mesh.frustumCulled = false;
-      }
+      // Always warm up with an InstancedMesh (1 instance) so that:
+      // 1. TSL attribute('instanceColor') resolves — InstancedMesh.instanceColor provides it
+      //    as an InstancedBufferAttribute rather than relying on it being in the geometry.
+      // 2. Materials that reference instanceIndex or other instanced attributes compile
+      //    without "vertex attribute not found" warnings.
+      const mesh = new THREE.InstancedMesh(this.warmupGeometry, material, 1);
+      mesh.frustumCulled = false;
+      // Provide a dummy instance color so TSL attribute('instanceColor') resolves.
+      mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array([1, 1, 1]), 3);
       
       // Create a minimal scene for this material
       const scene = new THREE.Scene();
@@ -292,8 +284,8 @@ export class ShaderWarmup {
       // Cleanup
       renderTarget.dispose();
       scene.remove(mesh);
-      if (needsInstancing && (mesh as THREE.InstancedMesh).instanceColor) {
-        (mesh as THREE.InstancedMesh).instanceColor!.dispose();
+      if (mesh.instanceColor) {
+        mesh.instanceColor.dispose();
       }
       // ⚡ OPTIMIZATION: Ensure materials are not disposed here to preserve compiled shader program.
       // this.warmupGeometry is reused so we don't dispose it. However, the temporary mesh is removed.

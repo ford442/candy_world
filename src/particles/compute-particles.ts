@@ -61,6 +61,9 @@ import {
 import { UPDATE_PARTICLES_WGSL, RENDER_PARTICLES_WGSL, FRAGMENT_PARTICLES_WGSL } from './compute-particles-shaders.ts';
 import { CPUParticleSystem } from './cpu-particle-system.ts';
 
+// Default spawn center used when no config.center is provided
+const DEFAULT_SPAWN_CENTER = new THREE.Vector3(0, 5, 0);
+
 // =============================================================================
 // WEBGPU COMPUTE PARTICLE SYSTEM
 // =============================================================================
@@ -131,8 +134,11 @@ export class ComputeParticleSystem {
         const count = this.count;
         
         return {
-            position: new StorageBufferAttribute(count, 3),
-            velocity: new StorageBufferAttribute(count, 3),
+            // Use 4 components (vec4) for vec3 data so the underlying GPU buffer is
+            // 16-byte-aligned per element, matching WGSL storage buffer requirements.
+            // The 4th component is unused padding.
+            position: new StorageBufferAttribute(count, 4),
+            velocity: new StorageBufferAttribute(count, 4),
             life: new StorageBufferAttribute(count, 1),
             size: new StorageBufferAttribute(count, 1),
             color: new StorageBufferAttribute(count, 4),
@@ -159,9 +165,11 @@ export class ComputeParticleSystem {
             blending: THREE.AdditiveBlending
         });
         
-        // TSL Nodes for position
-        const positionStorage = storage(this.buffers.position, 'vec3', this.count);
-        const instancePos = positionStorage.element(vertexIndex);
+        // TSL Nodes for position.
+        // Use 'vec4' to match the 16-byte-per-element GPU buffer stride required by
+        // WGSL (vec3 arrays are padded to vec4 alignment). Only xyz is used for position.
+        const positionStorage = storage(this.buffers.position, 'vec4', this.count);
+        const instancePos = positionStorage.element(vertexIndex).xyz;
         
         material.positionNode = instancePos;
         
@@ -577,20 +585,13 @@ export class ComputeParticleSystem {
     spawnMany(count: number, options: { position?: THREE.Vector3, velocity?: THREE.Vector3, spread?: number } = {}): void {
         if (!this.mesh) return;
 
-        // This acts as an API stub for the unified ComputeParticleSystem
-        // A full implementation would update the SSBOs and queue a dispatch
-        const { position = this.center, velocity = new THREE.Vector3(), spread = 0 } = options;
+        // Use config.center as the default spawn origin, falling back to DEFAULT_SPAWN_CENTER.
+        const position = options.position ?? this.config.center ?? DEFAULT_SPAWN_CENTER;
 
-        // Temporarily adjust center and run an update to simulate burst
-        const oldCenter = this.center.clone();
-        this.center.copy(position);
-
-        // normally this would use a separate compute pass, but we simulate it here
-        if (this.computeNode && this.renderer) {
-            // renderer.compute(this.computeNode);
+        // Spawn each particle individually via the existing GPU/CPU-aware spawn() path.
+        for (let i = 0; i < count; i++) {
+            this.spawn({ position, velocity: options.velocity });
         }
-
-        this.center.copy(oldCenter);
     }
 
     /**
