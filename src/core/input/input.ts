@@ -443,6 +443,65 @@ export function initInput(
         toggleDayNightBtn.addEventListener('click', toggleDayNightCallback);
     }
 
+    // --- D-Pad Direction Controls ---
+    type DpadDirection = 'forward' | 'backward' | 'left' | 'right';
+
+    const dpadMap: Record<string, DpadDirection> = {
+        'dpad-forward':  'forward',
+        'dpad-backward': 'backward',
+        'dpad-left':     'left',
+        'dpad-right':    'right',
+    };
+
+    // Track which D-pad directions are currently held via pointer
+    const dpadHeld = new Set<DpadDirection>();
+
+    const dpadPress = (dir: DpadDirection, btn: HTMLElement) => {
+        dpadHeld.add(dir);
+        keyStates[dir] = true;
+        btn.classList.add('dpad-pressed');
+    };
+
+    const dpadRelease = (dir: DpadDirection, btn: HTMLElement) => {
+        dpadHeld.delete(dir);
+        keyStates[dir] = false;
+        btn.classList.remove('dpad-pressed');
+    };
+
+    for (const [id, dir] of Object.entries(dpadMap)) {
+        const btn = document.getElementById(id) as HTMLElement | null;
+        if (!btn) continue;
+
+        btn.addEventListener('pointerdown', (e: PointerEvent) => {
+            e.preventDefault();
+            e.stopPropagation();
+            btn.setPointerCapture(e.pointerId);
+            dpadPress(dir, btn);
+        });
+
+        btn.addEventListener('pointerup', (e: PointerEvent) => {
+            e.stopPropagation();
+            dpadRelease(dir, btn);
+        });
+
+        btn.addEventListener('pointercancel', (e: PointerEvent) => {
+            e.stopPropagation();
+            dpadRelease(dir, btn);
+        });
+
+        // Prevent context menu on long-press (mobile)
+        btn.addEventListener('contextmenu', (e) => e.preventDefault());
+    }
+
+    // Safety: release all D-pad directions if window loses focus
+    const releaseDpadAll = () => {
+        for (const [id, dir] of Object.entries(dpadMap)) {
+            const btn = document.getElementById(id) as HTMLElement | null;
+            if (btn) dpadRelease(dir, btn);
+        }
+    };
+    window.addEventListener('blur', releaseDpadAll);
+
     // --- UX: Interactive Ability HUD ---
     // (Variables moved to top of initInput)
 
@@ -596,6 +655,7 @@ export function initInput(
             document.removeEventListener('keyup', onKeyUp);
             document.removeEventListener('mousedown', onMouseDown);
             document.removeEventListener('mouseup', onMouseUp);
+            window.removeEventListener('blur', releaseDpadAll);
 
             if (dragOverlay) {
                 window.removeEventListener('dragenter', onDragEnter);
