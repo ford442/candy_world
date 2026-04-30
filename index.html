@@ -831,6 +831,27 @@
         </div>
     </div>
 
+    <!-- D-Pad Direction Controls -->
+    <div id="dpad-controls" role="group" aria-label="Direction Controls">
+        <button id="dpad-forward" class="dpad-btn" aria-label="Move Forward" title="Move Forward">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4l-8 8h5v8h6v-8h5z"/></svg>
+        </button>
+        <div class="dpad-middle-row">
+            <button id="dpad-left" class="dpad-btn" aria-label="Strafe Left" title="Strafe Left">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12l8-8v5h8v6h-8v5z"/></svg>
+            </button>
+            <div class="dpad-center" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/></svg>
+            </div>
+            <button id="dpad-right" class="dpad-btn" aria-label="Strafe Right" title="Strafe Right">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12l-8 8v-5H4v-6h8V4z"/></svg>
+            </button>
+        </div>
+        <button id="dpad-backward" class="dpad-btn" aria-label="Move Backward" title="Move Backward">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20l8-8h-5V4H9v8H4z"/></svg>
+        </button>
+    </div>
+
     <canvas id="glCanvas" role="region" aria-label="Game World: Use mouse and keyboard to navigate"></canvas>
     <script type="module" src="src/main.ts"></script>
 </body>
