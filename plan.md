@@ -1,6 +1,9 @@
 1. **Update Master Plan:**
+   - **Status: Implemented ✅**
    - Modify `IMPLEMENTATION_PLAN_MUSICAL_ECOSYSTEM.md` to strike out or mark Stage B and Stage C under Phase 4 as [DEPRECATED - Superseded by TSL & InstancedMesh Batching]. (This is mandated by the user).
 2. **Implement Day/Night Plant Pose State Machine:**
+   - **Status: Implemented ✅**
+   - * Implementation Details: Implemented day/night state machine utilizing TSL nodes and InstancedMesh batching to drive flower expansion. Fixed PlantPoseMachine init error in flower-batcher.ts.
    - Update `src/core/config.ts` to add `plantPose.flower` config for the state machine.
    - Update `src/foliage/flower-batcher.ts` to instantiate `PlantPoseMachine` with `MAX_FLOWERS` capacity.
    - Introduce `aPoseState` as an `InstancedBufferAttribute` to petals in `src/foliage/flower-batcher.ts`.

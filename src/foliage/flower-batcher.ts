@@ -66,7 +66,7 @@ export class FlowerBatcher {
     init() {
         if (this.initialized) return;
 
-        this._poseMachine = new PlantPoseMachine(MAX_PETALS, 'flower');
+        this._poseMachine = new PlantPoseMachine(MAX_PETALS);
 
         // --- Common TSL Logic ---
         // Apply Bloom -> Wind -> Player Interaction
