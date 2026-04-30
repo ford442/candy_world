@@ -480,7 +480,14 @@ export class DiscoveryPersistence {
      */
     exportToJSON(): string {
         const discoveries = this.getAllDiscoveries();
-        const timestamps = discoveries.map(d => d.timestamp);
+
+        let minTime = Infinity;
+        let maxTime = -Infinity;
+        for (let i = 0; i < discoveries.length; i++) {
+            const t = discoveries[i].timestamp;
+            if (t < minTime) minTime = t;
+            if (t > maxTime) maxTime = t;
+        }
         
         const exportData: DiscoveryExport = {
             version: 1,
@@ -488,11 +495,11 @@ export class DiscoveryPersistence {
             discoveries,
             stats: {
                 totalDiscovered: discoveries.length,
-                firstDiscovery: timestamps.length > 0 
-                    ? new Date(Math.min(...timestamps)).toISOString() 
+                firstDiscovery: discoveries.length > 0
+                    ? new Date(minTime).toISOString()
                     : undefined,
-                lastDiscovery: timestamps.length > 0 
-                    ? new Date(Math.max(...timestamps)).toISOString() 
+                lastDiscovery: discoveries.length > 0
+                    ? new Date(maxTime).toISOString()
                     : undefined
             }
         };
@@ -612,13 +619,20 @@ export class DiscoveryPersistence {
      */
     getStats(): DiscoveryStats {
         const discoveries = Array.from(this.discoveries.values());
-        const timestamps = discoveries.map(d => d.timestamp);
         const pendingSync = this.getPendingSync();
+
+        let minTime = Infinity;
+        let maxTime = -Infinity;
+        for (let i = 0; i < discoveries.length; i++) {
+            const t = discoveries[i].timestamp;
+            if (t < minTime) minTime = t;
+            if (t > maxTime) maxTime = t;
+        }
 
         return {
             total: discoveries.length,
-            first: timestamps.length > 0 ? Math.min(...timestamps) : null,
-            last: timestamps.length > 0 ? Math.max(...timestamps) : null,
+            first: discoveries.length > 0 ? minTime : null,
+            last: discoveries.length > 0 ? maxTime : null,
             pendingSync: pendingSync.length
         };
     }

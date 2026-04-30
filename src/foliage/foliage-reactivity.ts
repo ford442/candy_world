@@ -93,7 +93,14 @@ export function validateNodeGeometries(scene: THREE.Object3D) {
             if (geo) {
                 // Attempt to auto-patch a missing position attribute when we can infer a vertex count.
                 if (!geo.attributes.position) {
-                    const preAttrKeys = Object.keys(geo.attributes || {}).join(', ') || '(none)';
+                    let preAttrKeys = '';
+                    if (geo.attributes) {
+                        for (const key in geo.attributes) {
+                            if (preAttrKeys.length > 0) preAttrKeys += ', ';
+                            preAttrKeys += key;
+                        }
+                    }
+                    if (preAttrKeys === '') preAttrKeys = '(none)';
                     const inferred = inferVertexCount(geo);
                     if (inferred > 0) {
                         const positions = new Float32Array(inferred * 3);
@@ -115,7 +122,14 @@ export function validateNodeGeometries(scene: THREE.Object3D) {
 
                             const name = obj.name || 'Unnamed';
                             const type = obj.userData?.type || 'Unknown Type';
-                            const attrKeys = Object.keys(geo.attributes || {}).join(', ') || '(none)';
+                            let attrKeys = '';
+                            if (geo.attributes) {
+                                for (const key in geo.attributes) {
+                                    if (attrKeys.length > 0) attrKeys += ', ';
+                                    attrKeys += key;
+                                }
+                            }
+                            if (attrKeys === '') attrKeys = '(none)';
                             const geoType = geo.type || geo.constructor?.name || 'UnknownGeo';
 
                             let anc = obj.parent;
@@ -135,7 +149,14 @@ export function validateNodeGeometries(scene: THREE.Object3D) {
                         } catch (err) {
                             const name = obj.name || 'Unnamed';
                             const type = obj.userData?.type || 'Unknown Type';
-                            const attrKeys = Object.keys(geo.attributes || {}).join(', ') || '(none)';
+                            let attrKeys = '';
+                            if (geo.attributes) {
+                                for (const key in geo.attributes) {
+                                    if (attrKeys.length > 0) attrKeys += ', ';
+                                    attrKeys += key;
+                                }
+                            }
+                            if (attrKeys === '') attrKeys = '(none)';
                             const geoType = geo.type || geo.constructor?.name || 'UnknownGeo';
                             missingPosition.push({ name, type, obj, geoType, attrKeys, path: getObjectPath(obj), preAttrKeys });
                         }
