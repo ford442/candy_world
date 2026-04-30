@@ -480,11 +480,13 @@ export function initInput(
         });
 
         btn.addEventListener('pointerup', (e: PointerEvent) => {
+            e.preventDefault();
             e.stopPropagation();
             dpadRelease(dir, btn);
         });
 
         btn.addEventListener('pointercancel', (e: PointerEvent) => {
+            e.preventDefault();
             e.stopPropagation();
             dpadRelease(dir, btn);
         });
