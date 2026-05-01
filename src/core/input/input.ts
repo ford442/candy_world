@@ -501,6 +501,15 @@ export function initInput(
                 triggerAbility('dash');
             }
         });
+        hudDash.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                e.stopPropagation();
+                if (hudDash.getAttribute('aria-disabled') !== 'true') {
+                    triggerAbility('dash');
+                }
+            }
+        });
         // Add keyboard activation for accessibility (Enter/Space)
         hudDash.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' || e.key === ' ') {
@@ -529,6 +538,15 @@ export function initInput(
                 }
             }
         });
+        hudMine.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                e.stopPropagation();
+                if (hudMine.getAttribute('aria-disabled') !== 'true') {
+                    triggerAbility('action');
+                }
+            }
+        });
     }
 
     if (hudPhase) {
@@ -536,6 +554,15 @@ export function initInput(
             e.stopPropagation();
             if (hudPhase.getAttribute('aria-disabled') !== 'true') {
                 triggerAbility('phase');
+            }
+        });
+        hudPhase.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                e.stopPropagation();
+                if (hudPhase.getAttribute('aria-disabled') !== 'true') {
+                    triggerAbility('phase');
+                }
             }
         });
         hudPhase.addEventListener('keydown', (e) => {
