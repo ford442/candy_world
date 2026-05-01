@@ -59,11 +59,10 @@ import { musicReactivitySystem } from '../systems/music-reactivity.ts';
 import { unlockSystem } from '../systems/unlocks.ts';
 import { profiler } from '../utils/profiler.js';
 import { WeatherSystem } from '../systems/weather.ts';
-import { WeatherState } from '../systems/weather-types.ts';
 import { InteractionSystem } from '../systems/interaction.ts';
 import { AudioSystem } from '../audio/audio-system.ts';
 import { BeatSync } from '../audio/beat-sync.ts';
-import { animatedFoliage, foliageClouds, foliageMushrooms } from '../world/state.ts';
+import { animatedFoliage, foliageClouds, foliageMushrooms, computeFoliageObjects, interactiveObjects } from '../world/state.ts';
 import { getCycleState } from './cycle.ts';
 import {
     CYCLE_DURATION,
@@ -271,10 +270,10 @@ export function animate() {
     });
 
     profiler.measure('Interaction', () => {
-        // Collect all interactive elements safely
-        _interactionLists[0] = animatedFoliage || [];
-        _interactionLists[1] = foliageMushrooms || [];
-        _interactionLists[2] = foliageClouds || [];
+        // ⚡ OPTIMIZATION: Pass only pre-filtered interactive objects instead of scanning all foliage
+        _interactionLists[0] = interactiveObjects || [];
+        _interactionLists[1] = null;
+        _interactionLists[2] = null;
 
         interactionSystemRef!.update(delta, cameraRef!.position, _interactionLists as any);
     });
@@ -591,11 +590,11 @@ export function animate() {
         rendererRef.compute(harmonyOrbSystem.computeNode);
     }
 
-    for (const obj of animatedFoliage) {
-        if (obj.userData.computeNode) {
-            if (obj.userData.type === 'waterfall' || obj.userData.isPollen) {
-                rendererRef.compute(obj.userData.computeNode);
-            }
+    // ⚡ OPTIMIZATION: Iterate only pre-filtered compute objects instead of all animatedFoliage
+    for (let i = 0; i < computeFoliageObjects.length; i++) {
+        const obj = computeFoliageObjects[i];
+        if (obj.userData.type === 'waterfall' || obj.userData.isPollen) {
+            rendererRef.compute(obj.userData.computeNode);
         }
     }
     updateImpacts(rendererRef, t);

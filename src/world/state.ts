@@ -15,6 +15,12 @@ export const foliageTraps: FoliageObject[] = []; // Added for snare trap interac
 export const foliagePortamentoPines: FoliageObject[] = []; // Added for slingshot interaction
 export const vineSwings: VineSwing[] = []; // Managers for swing physics
 
+// ⚡ OPTIMIZATION: Pre-filtered arrays to eliminate O(N) scans in hot loops
+// Objects that have WebGPU compute nodes (waterfall, pollen, etc.)
+export const computeFoliageObjects: FoliageObject[] = [];
+// Objects that have interaction callbacks/text (gaze, proximity, interact)
+export const interactiveObjects: FoliageObject[] = [];
+
 // Groups
 export const worldGroup = new THREE.Group();
 export const foliageGroup = new THREE.Group();

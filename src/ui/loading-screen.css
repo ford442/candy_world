@@ -279,7 +279,7 @@
     var(--progress-fill-end) 100%
   );
   border-radius: var(--radius-full);
-  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  /* Visual Impact: width is driven exclusively by JS lerp in animateProgress() */
   position: relative;
   overflow: hidden;
   box-shadow: 0 0 10px rgba(255, 107, 157, 0.3);
@@ -347,6 +347,11 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  transition: opacity 0.15s ease;
+}
+
+.progress-task.changing {
+  opacity: 0;
 }
 
 /* Dark theme */
@@ -482,6 +487,7 @@
 
 .phase-indicator.complete .phase-dot {
   background: #4ade80;
+  animation: complete-pop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
 .phase-indicator.skipped .phase-dot {
@@ -491,6 +497,12 @@
 @keyframes pulse-dot {
   0%, 100% { transform: scale(1); opacity: 1; }
   50% { transform: scale(1.2); opacity: 0.8; }
+}
+
+@keyframes complete-pop {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.3); }
+  100% { transform: scale(1); }
 }
 
 .phase-label {
@@ -711,6 +723,14 @@
   
   .phase-indicator.active .phase-dot {
     animation: none;
+  }
+  
+  .phase-indicator.complete .phase-dot {
+    animation: none;
+  }
+  
+  .progress-task {
+    transition: none;
   }
   
   .loading-screen {

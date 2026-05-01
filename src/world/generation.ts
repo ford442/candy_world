@@ -30,7 +30,8 @@ import { spawnImpact } from '../foliage/impacts.ts';
 import { makeInteractive } from '../utils/interaction-utils.ts';
 import {
     animatedFoliage, obstacles, foliageGroup, foliageMushrooms,
-    foliageClouds, foliageTrampolines, foliagePanningPads, foliageGeysers, foliageTraps, foliagePortamentoPines, vineSwings, worldGroup
+    foliageClouds, foliageTrampolines, foliagePanningPads, foliageGeysers, foliageTraps, foliagePortamentoPines, vineSwings, worldGroup,
+    computeFoliageObjects, interactiveObjects
 } from './state.ts';
 import mapData from '../../assets/map.json';
 
@@ -241,6 +242,15 @@ export function safeAddFoliage(
     foliageGroup.add(obj);
     animatedFoliage.push(obj);
 
+    // ⚡ OPTIMIZATION: Pre-filter objects into hot-loop arrays to eliminate O(N) scans
+    const ud = obj.userData;
+    if (ud.computeNode) {
+        computeFoliageObjects.push(obj as any);
+    }
+    if (ud.onProximityEnter || ud.onProximityLeave || ud.onGazeEnter || ud.onGazeLeave || ud.onInteract || ud.interactionText) {
+        interactiveObjects.push(obj as any);
+    }
+
     // Add to JS obstacles (legacy/backup)
     if (isObstacle) {
         obstacles.push({ position: obj.position.clone(), radius });
@@ -251,16 +261,16 @@ export function safeAddFoliage(
     }
 
     // Optimization
-    if (obj.userData.type === 'mushroom') foliageMushrooms.push(obj);
-    if (obj.userData.type === 'cloud') foliageClouds.push(obj);
-    if (obj.userData.isTrampoline) foliageTrampolines.push(obj);
-    if (obj.userData.type === 'panningPad') foliagePanningPads.push(obj);
-    if (obj.userData.type === 'geyser') foliageGeysers.push(obj);
-    if (obj.userData.type === 'trap') {
+    if (ud.type === 'mushroom') foliageMushrooms.push(obj);
+    if (ud.type === 'cloud') foliageClouds.push(obj);
+    if (ud.isTrampoline) foliageTrampolines.push(obj);
+    if (ud.type === 'panningPad') foliagePanningPads.push(obj);
+    if (ud.type === 'geyser') foliageGeysers.push(obj);
+    if (ud.type === 'trap') {
         foliageTraps.push(obj);
         console.log('[World] Registered Snare Trap. Total:', foliageTraps.length);
     }
-    if (obj.userData.type === 'tree' && obj.userData.animationType === 'batchedPortamento') {
+    if (ud.type === 'tree' && ud.animationType === 'batchedPortamento') {
         foliagePortamentoPines.push(obj);
     }
 

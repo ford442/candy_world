@@ -26,7 +26,7 @@ import { initPostProcessing } from '../foliage/post-processing.ts';
 
 // World & System imports
 import { initWorld, generateMap, DEFAULT_MAP_CHUNK_SIZE } from '../world/generation.ts';
-import { animatedFoliage } from '../world/state.ts';
+import { animatedFoliage, interactiveObjects } from '../world/state.ts';
 import { fireRainbow } from '../gameplay/rainbow-blaster.ts';
 import { player, populatePhysicsGrids } from '../systems/physics/index.ts';
 
@@ -258,6 +258,10 @@ initWasm().then(async (wasmLoaded) => {
     previewMushroom.rotation.y = Math.PI / 8;
     scene.add(previewMushroom);
     animatedFoliage.push(previewMushroom);
+    // ⚡ OPTIMIZATION: Preview mushroom has interactionText set by createMushroom
+    if (previewMushroom.userData.interactionText || previewMushroom.userData.onInteract) {
+        interactiveObjects.push(previewMushroom);
+    }
 
     const startButton = document.getElementById('startButton') as HTMLButtonElement | null;
     // Force setting __sceneReady for VRT when button activates

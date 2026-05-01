@@ -395,7 +395,13 @@ export function animateFoliage(foliageObject: FoliageObject, time: number, audio
 
                         if ((mat as any).isMeshBasicMaterial) {
                             if (mat.userData && mat.userData.baseColor && mat.color) {
-                                const distSq = mat.color.distanceToSquared(mat.userData.baseColor);
+                                // ⚡ OPTIMIZATION: Inline color distance check to avoid method-call overhead
+                                const c = mat.color;
+                                const b = mat.userData.baseColor;
+                                const dr = c.r - b.r;
+                                const dg = c.g - b.g;
+                                const db = c.b - b.b;
+                                const distSq = dr * dr + dg * dg + db * db;
                                 if (distSq > snapThresholdSq) {
                                     mat.color.lerp(mat.userData.baseColor, fadeT);
                                     allFadedBack = false;

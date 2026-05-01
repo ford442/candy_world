@@ -139,6 +139,10 @@ export class LoadingScreen {
     private phaseDurations: Map<string, number> = new Map();
     private averagePhaseTime = 0;
     
+    // Task text crossfade tracking
+    private currentTaskDescription = '';
+    private taskChangeTimeout: number | null = null;
+    
     // Track hide version to cancel stale timeout callbacks
     private hideVersion = 0;
     
@@ -548,9 +552,27 @@ export class LoadingScreen {
      * Set loading status (legacy compatibility)
      */
     setStatus(text: string): void {
-        if (this.taskText) {
-            this.taskText.textContent = text;
+        this.setTaskText(text);
+    }
+
+    private setTaskText(text: string): void {
+        if (!this.taskText) return;
+        if (text === this.currentTaskDescription) return;
+
+        this.currentTaskDescription = text;
+
+        if (this.taskChangeTimeout !== null) {
+            clearTimeout(this.taskChangeTimeout);
         }
+
+        this.taskText.classList.add('changing');
+        this.taskChangeTimeout = window.setTimeout(() => {
+            if (this.taskText) {
+                this.taskText.textContent = text;
+                this.taskText.classList.remove('changing');
+            }
+            this.taskChangeTimeout = null;
+        }, 150);
     }
 
     /**
@@ -620,8 +642,8 @@ export class LoadingScreen {
         // Note: progressFill, percentageText, and aria-valuenow are now updated in updateUIVisuals via animateProgress.
 
         // Update task text
-        if (this.taskText && taskDescription) {
-            this.taskText.textContent = taskDescription;
+        if (taskDescription) {
+            this.setTaskText(taskDescription);
         }
 
         // Update time remaining
@@ -702,7 +724,12 @@ export class LoadingScreen {
 
         // Update percentage text
         if (this.percentageText) {
-            this.percentageText.textContent = `${Math.round(this.displayedOverallProgress)}%`;
+            const isLerping = Math.abs(this.targetOverallProgress - this.displayedOverallProgress) > 0.5;
+            if (isLerping) {
+                this.percentageText.textContent = `${this.displayedOverallProgress.toFixed(1)}%`;
+            } else {
+                this.percentageText.textContent = `${Math.round(this.displayedOverallProgress)}%`;
+            }
         }
 
         // Update ARIA
