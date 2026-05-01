@@ -63,7 +63,7 @@ import { WeatherState } from '../systems/weather-types.ts';
 import { InteractionSystem } from '../systems/interaction.ts';
 import { AudioSystem } from '../audio/audio-system.ts';
 import { BeatSync } from '../audio/beat-sync.ts';
-import { animatedFoliage, foliageClouds, foliageMushrooms } from '../world/state.ts';
+import { animatedFoliage, cpuAnimatedFoliage, foliageClouds, foliageMushrooms } from '../world/state.ts';
 import { getCycleState } from './cycle.ts';
 import {
     CYCLE_DURATION,
@@ -547,7 +547,7 @@ export function animate() {
     const fluidFog = getFluidFog();
 
     profiler.measure('MusicReact', () => {
-        musicReactivitySystem.update(t, delta, audioState, weatherSystemRef!, animatedFoliage, cameraRef!, isNightNow, isDeepNight);
+        musicReactivitySystem.update(t, delta, audioState, weatherSystemRef!, cpuAnimatedFoliage, cameraRef!, isNightNow, isDeepNight);
         if (melodyRibbon) updateMelodyRibbons(melodyRibbon, delta, audioState);
         profiler.measure('Particles', () => {
             _scratchParticleAudioData.low = audioState?.kickTrigger || 0;

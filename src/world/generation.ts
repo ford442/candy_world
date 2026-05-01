@@ -29,7 +29,7 @@ import { unlockSystem } from '../systems/unlocks.ts';
 import { spawnImpact } from '../foliage/impacts.ts';
 import { makeInteractive } from '../utils/interaction-utils.ts';
 import {
-    animatedFoliage, obstacles, foliageGroup, foliageMushrooms,
+    animatedFoliage, cpuAnimatedFoliage, obstacles, foliageGroup, foliageMushrooms,
     foliageClouds, foliageTrampolines, foliagePanningPads, foliageGeysers, foliageTraps, foliagePortamentoPines, vineSwings, worldGroup
 } from './state.ts';
 import mapData from '../../assets/map.json';
@@ -240,6 +240,16 @@ export function safeAddFoliage(
     if (animatedFoliage.length > 3000) return; // ⚡ PERFORMANCE: Raised limit from 1000 to 3000 for more musical objects
     foliageGroup.add(obj);
     animatedFoliage.push(obj);
+
+    if (!(obj.userData.isBatched ||
+        obj.userData.type === 'mushroom' ||
+        obj.userData.type === 'lanternFlower' ||
+        obj.userData.type === 'arpeggio_fern' ||
+        obj.userData.type === 'portamento_pine' ||
+        obj.userData.type === 'prismRoseBush' ||
+        obj.userData.isFlower)) {
+        cpuAnimatedFoliage.push(obj);
+    }
 
     // Add to JS obstacles (legacy/backup)
     if (isObstacle) {
