@@ -13,7 +13,6 @@
 
 import { trapFocusInside } from '../utils/interaction-utils';
 import './loading-screen.css';
-import { trapFocusInside } from '../utils/interaction-utils.ts';
 
 // =============================================================================
 // TYPES & INTERFACES
@@ -345,7 +344,6 @@ export class LoadingScreen {
             }
             if (this.container) {
                 this.container.classList.add('visible');
-                this.releaseFocusTrap = trapFocusInside(this.container);
             }
         });
 

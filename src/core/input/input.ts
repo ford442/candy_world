@@ -260,27 +260,6 @@ export function initInput(
                 }
             });
 
-            if (event.code === 'Tab') {
-                const focusable = instructions.querySelectorAll('button, input, [href], select, textarea, [tabindex]:not([tabindex="-1"])');
-                if (focusable.length > 0) {
-                    const first = focusable[0] as HTMLElement;
-                    const last = focusable[focusable.length - 1] as HTMLElement;
-
-                    if (event.shiftKey) {
-                        if (document.activeElement === first) {
-                            last.focus();
-                            event.preventDefault();
-                        }
-                    } else {
-                        if (document.activeElement === last) {
-                            first.focus();
-                            event.preventDefault();
-                        }
-                    }
-                }
-                // Allow Tab to work normally inside the trap
-                return;
-            }
         }
 
         // --- UX: Focus Trap & Control Lock when Playlist is open ---
