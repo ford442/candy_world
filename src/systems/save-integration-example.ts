@@ -179,19 +179,29 @@ function applyLoadedData(data: SaveData): void {
     // Apply unlocks
     const unlocksSet = (unlockSystem as any).unlocks as Set<string>;
     unlocksSet.clear();
-    data.progress.unlocks.forEach(id => unlocksSet.add(id));
+    for (let i = 0; i < data.progress.unlocks.length; i++) {
+        unlocksSet.add(data.progress.unlocks[i]);
+    }
     
     // Apply inventory
     const inventory = (unlockSystem as any).inventory as Record<string, number>;
-    Object.keys(inventory).forEach(key => delete inventory[key]);
-    Object.entries(data.progress.inventory).forEach(([key, value]) => {
-        inventory[key] = value;
-    });
+    for (const key in inventory) {
+        if (Object.prototype.hasOwnProperty.call(inventory, key)) {
+            delete inventory[key];
+        }
+    }
+    for (const key in data.progress.inventory) {
+        if (Object.prototype.hasOwnProperty.call(data.progress.inventory, key)) {
+            inventory[key] = data.progress.inventory[key];
+        }
+    }
     
     // Apply discoveries
     const discoveries = (discoverySystem as any).discoveredItems as Set<string>;
     discoveries.clear();
-    data.progress.discoveredEntities.forEach(id => discoveries.add(id));
+    for (let i = 0; i < data.progress.discoveredEntities.length; i++) {
+        discoveries.add(data.progress.discoveredEntities[i]);
+    }
     
     // Apply settings
     saveSystem.updateSettings(data.settings);

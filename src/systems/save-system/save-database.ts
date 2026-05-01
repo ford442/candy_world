@@ -363,14 +363,25 @@ export class MigrationSystem {
     }
 
     private compareVersions(a: string, b: string): number {
-        const partsA = a.split('.').map(Number);
-        const partsB = b.split('.').map(Number);
-        
-        for (let i = 0; i < Math.max(partsA.length, partsB.length); i++) {
-            const partA = partsA[i] || 0;
-            const partB = partsB[i] || 0;
-            if (partA < partB) return -1;
-            if (partA > partB) return 1;
+        // ⚡ OPTIMIZATION: Eliminate .split().map() to prevent string allocation and GC spikes
+        let i = 0, j = 0;
+        while (i < a.length || j < b.length) {
+            let numA = 0;
+            while (i < a.length && a[i] !== '.') {
+                numA = numA * 10 + (a.charCodeAt(i) - 48);
+                i++;
+            }
+            i++; // Skip dot
+
+            let numB = 0;
+            while (j < b.length && b[j] !== '.') {
+                numB = numB * 10 + (b.charCodeAt(j) - 48);
+                j++;
+            }
+            j++; // Skip dot
+
+            if (numA < numB) return -1;
+            if (numA > numB) return 1;
         }
         return 0;
     }

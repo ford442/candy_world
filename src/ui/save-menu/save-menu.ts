@@ -129,6 +129,8 @@ export class SaveMenu {
         // Load slots
         await this.refreshSlots();
         this.render();
+
+        this.releaseFocusTrap = trapFocusInside(this.container);
     }
 
     /**
@@ -137,6 +139,11 @@ export class SaveMenu {
     close(): void {
         if (!this.container) return;
         
+        if (this.releaseFocusTrap) {
+            this.releaseFocusTrap();
+            this.releaseFocusTrap = null;
+        }
+
         // Add exit animation
         this.container.style.animation = 'fadeIn 0.2s ease reverse';
         
@@ -218,11 +225,6 @@ export class SaveMenu {
         
         const tabs = this.getTabs();
         
-        if (this.releaseFocusTrap) {
-            this.releaseFocusTrap();
-            this.releaseFocusTrap = null;
-        }
-
         this.container.innerHTML = `
             <div class="candy-save-menu__container">
                 ${this.renderHeader()}
@@ -234,7 +236,6 @@ export class SaveMenu {
         `;
         
         this.attachEventListeners();
-        this.releaseFocusTrap = trapFocusInside(this.container);
     }
 
     private getTabs(): { id: MenuTab; label: string; icon: string }[] {

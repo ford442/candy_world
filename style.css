@@ -457,3 +457,93 @@ kbd.key.key-highlight {
     outline: 2px solid #ff69b4;
     outline-offset: 2px;
 }
+
+/* 🎮 D-Pad Direction Controls */
+#dpad-controls {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+    z-index: 100;
+    user-select: none;
+    -webkit-user-select: none;
+    pointer-events: none; /* container is transparent; only buttons catch events */
+}
+
+.dpad-middle-row {
+    display: flex;
+    align-items: center;
+    gap: 0;
+}
+
+.dpad-btn {
+    width: 56px;
+    height: 56px;
+    background: rgba(255, 209, 220, 0.82);
+    border: 3px solid #FF6B6B;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    pointer-events: all;
+    box-shadow: 0 4px 14px rgba(255, 107, 107, 0.28), inset 0 2px 0 rgba(255,255,255,0.55);
+    transition: background 0.12s, transform 0.08s, box-shadow 0.12s;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: none;
+    backdrop-filter: blur(4px);
+}
+
+.dpad-btn svg {
+    width: 28px;
+    height: 28px;
+    fill: #FF4081;
+    pointer-events: none;
+    filter: drop-shadow(0 1px 1px rgba(0,0,0,0.15));
+}
+
+.dpad-btn:hover {
+    background: rgba(255, 180, 210, 0.92);
+    box-shadow: 0 6px 18px rgba(255, 107, 107, 0.4), inset 0 2px 0 rgba(255,255,255,0.6);
+}
+
+.dpad-btn:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px #ffffff, 0 0 0 6px #FF4081;
+}
+
+.dpad-btn.dpad-pressed,
+.dpad-btn:active {
+    background: rgba(255, 100, 150, 0.90);
+    transform: scale(0.92);
+    box-shadow: 0 2px 8px rgba(255, 107, 107, 0.35), inset 0 1px 0 rgba(255,255,255,0.4);
+}
+
+.dpad-btn.dpad-pressed svg {
+    fill: #ffffff;
+}
+
+.dpad-center {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+}
+
+.dpad-center svg {
+    width: 22px;
+    height: 22px;
+    fill: rgba(255, 107, 107, 0.45);
+}
+
+/* Separate the buttons slightly so adjacent sides don't visually merge */
+#dpad-forward  { border-bottom-left-radius: 6px; border-bottom-right-radius: 6px; margin-bottom: 2px; }
+#dpad-backward { border-top-left-radius: 6px;    border-top-right-radius: 6px;    margin-top: 2px;    }
+#dpad-left     { border-top-right-radius: 6px;   border-bottom-right-radius: 6px; margin-right: 2px;  }
+#dpad-right    { border-top-left-radius: 6px;    border-bottom-left-radius: 6px;  margin-left: 2px;   }
