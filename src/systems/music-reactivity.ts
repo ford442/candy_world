@@ -214,7 +214,7 @@ export class MusicReactivitySystem {
         deltaTime: number,
         audioState: AudioData | null,
         weatherSystem: IWeatherSystem,
-        animatedFoliage: FoliageObject[],
+        cpuAnimatedFoliage: FoliageObject[],
         camera: THREE.Camera,
         isNight: boolean,
         isDeepNight: boolean
@@ -226,7 +226,7 @@ export class MusicReactivitySystem {
         this.updateTwilightGlow(time);
 
         // 3. Update Foliage Animation Loop
-        if (animatedFoliage && camera) {
+        if (cpuAnimatedFoliage && camera) {
             // Update Frustum for Culling
             _projScreenMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
             _frustum.setFromProjectionMatrix(_projScreenMatrix);
@@ -239,25 +239,10 @@ export class MusicReactivitySystem {
             let culledByFrustum = 0;
             let rendered = 0;
 
-            for (let i = 0; i < animatedFoliage.length; i++) {
-                const obj = animatedFoliage[i];
+            for (let i = 0; i < cpuAnimatedFoliage.length; i++) {
+                const obj = cpuAnimatedFoliage[i];
                 if (!obj) continue;
                 totalObjects++;
-
-                // ⚡ OPTIMIZATION: Skip Batched Objects (Corrected Implementation)
-                // If isBatched is true, we rely on the Batcher (InstancedMesh + TSL) to handle animations.
-                // We skip CPU-side animateFoliage call to save cycles.
-                if (obj.userData.isBatched ||
-                    obj.userData.type === 'mushroom' ||
-                    obj.userData.type === 'lanternFlower' ||
-                    obj.userData.type === 'arpeggio_fern' ||
-                    obj.userData.type === 'portamento_pine' ||
-                    obj.userData.type === 'prismRoseBush' ||
-                    obj.userData.isFlower) {
-                    // We treat them as rendered for metrics, but skip CPU animation logic
-                    rendered++;
-                    continue;
-                }
 
                 // ⚡ PERFORMANCE: Size-based culling distances
                 let cullDistance = 150; // Default
