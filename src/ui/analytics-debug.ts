@@ -665,7 +665,6 @@ class AnalyticsDebugOverlay {
       this.refresh();
     }, 1000);
     
-    this.releaseFocusTrap = trapFocusInside(this.elements.container);
     trackEvent('debug_overlay_opened', {});
   }
 
