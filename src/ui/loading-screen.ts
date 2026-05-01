@@ -113,8 +113,6 @@ export class LoadingScreen {
     private progressFill: HTMLElement | null = null;
     private percentageText: HTMLElement | null = null;
     private taskText: HTMLElement | null = null;
-    private releaseFocusTrap: (() => void) | null = null;
-    private lastFocusedElement: HTMLElement | null = null;
     private timeText: HTMLElement | null = null;
     private skipButton: HTMLButtonElement | null = null;
     private spinner: HTMLElement | null = null;

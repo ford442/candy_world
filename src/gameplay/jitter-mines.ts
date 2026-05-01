@@ -50,6 +50,11 @@ class JitterMineSystem {
         // Don't eagerly evaluate in constructor to prevent barrel file module load errors
     }
 
+    /**
+     * Idempotent initialization of all WebGPU / TSL resources.
+     * This is deferred so TSL node math never runs during module load or
+     * constructor execution, preventing scope-loss and mangling crashes.
+     */
     init() {
         if (this.initialized) return;
         this.initialized = true;
@@ -65,16 +70,7 @@ class JitterMineSystem {
                 time: 0
             });
         }
-    }
 
-    /**
-     * Idempotent initialization of all WebGPU / TSL resources.
-     * This is deferred so TSL node math never runs during module load or
-     * constructor execution, preventing scope-loss and mangling crashes.
-     */
-    init() {
-        if (this._initialized) return;
-        this._initialized = true;
 
         const geometry = new THREE.IcosahedronGeometry(MINE_RADIUS, 0);
 

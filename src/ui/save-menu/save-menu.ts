@@ -418,6 +418,30 @@ export class SaveMenu {
         } else if (this.listeningKeybind) {
             e.preventDefault();
             this.updateKeybind(this.listeningKeybind, e.key.toLowerCase());
+            return;
+        }
+
+        // ♿ Aria: Keyboard navigation for Tabs (Left/Right Arrows)
+        if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+            const activeElement = document.activeElement as HTMLElement;
+            if (activeElement && activeElement.getAttribute('role') === 'tab') {
+                e.preventDefault();
+                const tabs = Array.from(this.container?.querySelectorAll('[role="tab"]') || []) as HTMLElement[];
+                const currentIndex = tabs.indexOf(activeElement);
+                if (currentIndex >= 0) {
+                    let nextIndex = e.key === 'ArrowRight' ? currentIndex + 1 : currentIndex - 1;
+                    if (nextIndex >= tabs.length) nextIndex = 0;
+                    if (nextIndex < 0) nextIndex = tabs.length - 1;
+
+                    const nextTab = tabs[nextIndex];
+                    nextTab.focus();
+
+                    const tabId = nextTab.dataset.tab as MenuTab;
+                    if (tabId) {
+                        this.switchTab(tabId);
+                    }
+                }
+            }
         }
     }
 
