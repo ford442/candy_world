@@ -125,6 +125,9 @@ export function getCellKey(x: number, z: number): string {
 // ⚡ OPTIMIZATION: Module-level scratch object for zero-allocation parsing
 const _scratchCellCoord = { x: 0, z: 0 };
 
+// ⚡ OPTIMIZATION: Module-level scratch array for zero-allocation filtering
+const _scratchCells: GridCell[] = [];
+
 /** Parse cell key into coordinates */
 export function parseCellKey(key: string): { x: number; z: number } {
     const commaIdx = key.indexOf(',');
@@ -523,14 +526,31 @@ export class RegionManager {
         radius: number;
         onlyLoaded?: boolean;
     }): SpatialQueryResult {
-        const cells = this.queryCircle(options.centerX, options.centerZ, options.radius);
-        
-        const filteredCells = options.onlyLoaded 
-            ? cells.filter(c => c.state === CellState.LOADED)
-            : cells;
+        const minCellX = Math.floor((options.centerX - options.radius) / this.config.cellSize);
+        const maxCellX = Math.floor((options.centerX + options.radius) / this.config.cellSize);
+        const minCellZ = Math.floor((options.centerZ - options.radius) / this.config.cellSize);
+        const maxCellZ = Math.floor((options.centerZ + options.radius) / this.config.cellSize);
+
+        _scratchCells.length = 0;
+        const radiusSq = options.radius * options.radius;
+
+        for (let x = minCellX; x <= maxCellX; x++) {
+            for (let z = minCellZ; z <= maxCellZ; z++) {
+                const bounds = cellToBounds(x, z, this.config.cellSize);
+                const dx = Math.max(bounds.minX - options.centerX, 0, options.centerX - bounds.maxX);
+                const dz = Math.max(bounds.minZ - options.centerZ, 0, options.centerZ - bounds.maxZ);
+
+                if (dx * dx + dz * dz <= radiusSq) {
+                    const cell = this.getCell(x, z);
+                    if (cell && (!options.onlyLoaded || cell.state === CellState.LOADED)) {
+                        _scratchCells.push(cell);
+                    }
+                }
+            }
+        }
 
         let totalAssets = 0;
-        for (const cell of filteredCells) {
+        for (const cell of _scratchCells) {
             totalAssets += cell.assetIds.length;
         }
 
@@ -538,7 +558,7 @@ export class RegionManager {
         const estimatedMemory = totalAssets * 1024 * 1024;  // Assume 1MB per asset
 
         return {
-            cells: filteredCells,
+            cells: _scratchCells,
             totalAssets,
             estimatedMemory
         };
