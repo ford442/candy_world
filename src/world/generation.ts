@@ -29,9 +29,8 @@ import { unlockSystem } from '../systems/unlocks.ts';
 import { spawnImpact } from '../foliage/impacts.ts';
 import { makeInteractive } from '../utils/interaction-utils.ts';
 import {
-    animatedFoliage, obstacles, foliageGroup, foliageMushrooms,
-    foliageClouds, foliageTrampolines, foliagePanningPads, foliageGeysers, foliageTraps, foliagePortamentoPines, vineSwings, worldGroup,
-    computeFoliageObjects, interactiveObjects
+    animatedFoliage, cpuAnimatedFoliage, obstacles, foliageGroup, foliageMushrooms,
+    foliageClouds, foliageTrampolines, foliagePanningPads, foliageGeysers, foliageTraps, foliagePortamentoPines, vineSwings, worldGroup
 } from './state.ts';
 import mapData from '../../assets/map.json';
 
@@ -242,13 +241,14 @@ export function safeAddFoliage(
     foliageGroup.add(obj);
     animatedFoliage.push(obj);
 
-    // ⚡ OPTIMIZATION: Pre-filter objects into hot-loop arrays to eliminate O(N) scans
-    const ud = obj.userData;
-    if (ud.computeNode) {
-        computeFoliageObjects.push(obj as any);
-    }
-    if (ud.onProximityEnter || ud.onProximityLeave || ud.onGazeEnter || ud.onGazeLeave || ud.onInteract || ud.interactionText) {
-        interactiveObjects.push(obj as any);
+    if (!(obj.userData.isBatched ||
+        obj.userData.type === 'mushroom' ||
+        obj.userData.type === 'lanternFlower' ||
+        obj.userData.type === 'arpeggio_fern' ||
+        obj.userData.type === 'portamento_pine' ||
+        obj.userData.type === 'prismRoseBush' ||
+        obj.userData.isFlower)) {
+        cpuAnimatedFoliage.push(obj);
     }
 
     // Add to JS obstacles (legacy/backup)
@@ -261,16 +261,16 @@ export function safeAddFoliage(
     }
 
     // Optimization
-    if (ud.type === 'mushroom') foliageMushrooms.push(obj);
-    if (ud.type === 'cloud') foliageClouds.push(obj);
-    if (ud.isTrampoline) foliageTrampolines.push(obj);
-    if (ud.type === 'panningPad') foliagePanningPads.push(obj);
-    if (ud.type === 'geyser') foliageGeysers.push(obj);
-    if (ud.type === 'trap') {
+    if (obj.userData.type === 'mushroom') foliageMushrooms.push(obj);
+    if (obj.userData.type === 'cloud') foliageClouds.push(obj);
+    if (obj.userData.isTrampoline) foliageTrampolines.push(obj);
+    if (obj.userData.type === 'panningPad') foliagePanningPads.push(obj);
+    if (obj.userData.type === 'geyser') foliageGeysers.push(obj);
+    if (obj.userData.type === 'trap') {
         foliageTraps.push(obj);
         console.log('[World] Registered Snare Trap. Total:', foliageTraps.length);
     }
-    if (ud.type === 'tree' && ud.animationType === 'batchedPortamento') {
+    if (obj.userData.type === 'tree' && obj.userData.animationType === 'batchedPortamento') {
         foliagePortamentoPines.push(obj);
     }
 

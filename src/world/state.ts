@@ -3,6 +3,7 @@ import { VineSwing } from '../foliage/trees.ts';
 import { FoliageObject } from '../foliage/types.ts';
 
 export const animatedFoliage: FoliageObject[] = [];
+export const cpuAnimatedFoliage: FoliageObject[] = [];
 export const obstacles: THREE.Object3D[] = [];
 
 // Optimization: Categorized arrays for faster collision/logic

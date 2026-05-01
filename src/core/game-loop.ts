@@ -59,10 +59,11 @@ import { musicReactivitySystem } from '../systems/music-reactivity.ts';
 import { unlockSystem } from '../systems/unlocks.ts';
 import { profiler } from '../utils/profiler.js';
 import { WeatherSystem } from '../systems/weather.ts';
+import { WeatherState } from '../systems/weather-types.ts';
 import { InteractionSystem } from '../systems/interaction.ts';
 import { AudioSystem } from '../audio/audio-system.ts';
 import { BeatSync } from '../audio/beat-sync.ts';
-import { animatedFoliage, foliageClouds, foliageMushrooms, computeFoliageObjects, interactiveObjects } from '../world/state.ts';
+import { animatedFoliage, cpuAnimatedFoliage, foliageClouds, foliageMushrooms } from '../world/state.ts';
 import { getCycleState } from './cycle.ts';
 import {
     CYCLE_DURATION,
@@ -270,10 +271,10 @@ export function animate() {
     });
 
     profiler.measure('Interaction', () => {
-        // ⚡ OPTIMIZATION: Pass only pre-filtered interactive objects instead of scanning all foliage
-        _interactionLists[0] = interactiveObjects || [];
-        _interactionLists[1] = null;
-        _interactionLists[2] = null;
+        // Collect all interactive elements safely
+        _interactionLists[0] = animatedFoliage || [];
+        _interactionLists[1] = foliageMushrooms || [];
+        _interactionLists[2] = foliageClouds || [];
 
         interactionSystemRef!.update(delta, cameraRef!.position, _interactionLists as any);
     });
@@ -546,7 +547,7 @@ export function animate() {
     const fluidFog = getFluidFog();
 
     profiler.measure('MusicReact', () => {
-        musicReactivitySystem.update(t, delta, audioState, weatherSystemRef!, animatedFoliage, cameraRef!, isNightNow, isDeepNight);
+        musicReactivitySystem.update(t, delta, audioState, weatherSystemRef!, cpuAnimatedFoliage, cameraRef!, isNightNow, isDeepNight);
         if (melodyRibbon) updateMelodyRibbons(melodyRibbon, delta, audioState);
         profiler.measure('Particles', () => {
             _scratchParticleAudioData.low = audioState?.kickTrigger || 0;
@@ -590,11 +591,11 @@ export function animate() {
         rendererRef.compute(harmonyOrbSystem.computeNode);
     }
 
-    // ⚡ OPTIMIZATION: Iterate only pre-filtered compute objects instead of all animatedFoliage
-    for (let i = 0; i < computeFoliageObjects.length; i++) {
-        const obj = computeFoliageObjects[i];
-        if (obj.userData.type === 'waterfall' || obj.userData.isPollen) {
-            rendererRef.compute(obj.userData.computeNode);
+    for (const obj of animatedFoliage) {
+        if (obj.userData.computeNode) {
+            if (obj.userData.type === 'waterfall' || obj.userData.isPollen) {
+                rendererRef.compute(obj.userData.computeNode);
+            }
         }
     }
     updateImpacts(rendererRef, t);

@@ -214,7 +214,7 @@ export class MusicReactivitySystem {
         deltaTime: number,
         audioState: AudioData | null,
         weatherSystem: IWeatherSystem,
-        animatedFoliage: FoliageObject[],
+        cpuAnimatedFoliage: FoliageObject[],
         camera: THREE.Camera,
         isNight: boolean,
         isDeepNight: boolean
@@ -226,7 +226,7 @@ export class MusicReactivitySystem {
         this.updateTwilightGlow(time);
 
         // 3. Update Foliage Animation Loop
-        if (animatedFoliage && camera) {
+        if (cpuAnimatedFoliage && camera) {
             // Update Frustum for Culling
             _projScreenMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
             _frustum.setFromProjectionMatrix(_projScreenMatrix);
@@ -239,65 +239,36 @@ export class MusicReactivitySystem {
             let culledByFrustum = 0;
             let rendered = 0;
 
-            // ⚡ OPTIMIZATION: Hoist camera position and cull-distance squares outside the loop
-            // to eliminate repeated property dereferences and multiplications.
-            const cx = camera.position.x;
-            const cy = camera.position.y;
-            const cz = camera.position.z;
-            const CULL_SQ_FLOWER = 80 * 80;
-            const CULL_SQ_MUSHROOM = 120 * 120;
-            const CULL_SQ_MUSHROOM_GIANT = 200 * 200;
-            const CULL_SQ_TREE = 150 * 150;
-            const CULL_SQ_CLOUD = 250 * 250;
-            const CULL_SQ_DEFAULT = 150 * 150;
-
-            for (let i = 0; i < animatedFoliage.length; i++) {
-                const obj = animatedFoliage[i];
+            for (let i = 0; i < cpuAnimatedFoliage.length; i++) {
+                const obj = cpuAnimatedFoliage[i];
                 if (!obj) continue;
                 totalObjects++;
 
-                // ⚡ OPTIMIZATION: Skip Batched Objects (Corrected Implementation)
-                // If isBatched is true, we rely on the Batcher (InstancedMesh + TSL) to handle animations.
-                // We skip CPU-side animateFoliage call to save cycles.
-                const ud = obj.userData;
-                if (ud.isBatched ||
-                    ud.type === 'mushroom' ||
-                    ud.type === 'lanternFlower' ||
-                    ud.type === 'arpeggio_fern' ||
-                    ud.type === 'portamento_pine' ||
-                    ud.type === 'prismRoseBush' ||
-                    ud.isFlower) {
-                    // We treat them as rendered for metrics, but skip CPU animation logic
-                    rendered++;
-                    continue;
-                }
-
-                // ⚡ PERFORMANCE: Size-based culling distances (use pre-computed squares)
-                let cullDistanceSq = CULL_SQ_DEFAULT;
-                const objType = ud.type;
-                const objSize = ud.size;
-                const objRadius = ud.radius || 2.0;
-
+                // ⚡ PERFORMANCE: Size-based culling distances
+                let cullDistance = 150; // Default
+                
+                const objType = obj.userData.type;
+                const objSize = obj.userData.size;
+                const objRadius = obj.userData.radius || 2.0;
+                
                 if (objType === 'flower') {
-                    cullDistanceSq = CULL_SQ_FLOWER;
+                    cullDistance = 80;
                 } else if (objType === 'mushroom') {
                     // Unreachable if we skip above, but kept for logic safety
-                    cullDistanceSq = objSize === 'giant' ? CULL_SQ_MUSHROOM_GIANT : CULL_SQ_MUSHROOM;
+                    if (objSize === 'giant') {
+                        cullDistance = 200;
+                    } else {
+                        cullDistance = 120;
+                    }
                 } else if (objType === 'tree' || objType === 'shrub') {
-                    cullDistanceSq = CULL_SQ_TREE;
+                    cullDistance = 150;
                 } else if (objType === 'cloud') {
-                    cullDistanceSq = CULL_SQ_CLOUD;
+                    cullDistance = 250;
                 }
 
-                // Distance Culling — inline dx/dy/dz to avoid Vector3.distanceToSquared() method overhead
-                const ox = obj.position.x;
-                const oy = obj.position.y;
-                const oz = obj.position.z;
-                const dx = ox - cx;
-                const dy = oy - cy;
-                const dz = oz - cz;
-                const distSq = dx * dx + dy * dy + dz * dz;
-                if (distSq > cullDistanceSq) {
+                // Distance Culling
+                const distSq = obj.position.distanceToSquared(camera.position);
+                if (distSq > cullDistance * cullDistance) {
                     culledByDistance++;
                     continue;
                 }
