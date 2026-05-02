@@ -37,10 +37,10 @@ This phased plan outlines a progressive migration to stronger typing, offloading
   - Run WGSL compute passes to update particle/physics buffers on a `gpuDevice`.
   - Use a `THREE.BufferAttribute` pointing to the GPU buffer for rendering.
 
-- **Stage B — Custom Render Passes** [DEPRECATED - Superseded by TSL & InstancedMesh Batching]
+- ~~**Stage B — Custom Render Passes**~~ [DEPRECATED - Superseded by TSL & InstancedMesh Batching]
   - Replace specific materials with `RawShaderMaterial` / WebGPU pipelines (e.g., cloud or terrain draws).
 
-- **Stage C — Scene Graph Replacement** [DEPRECATED - Superseded by TSL & InstancedMesh Batching]
+- ~~**Stage C — Scene Graph Replacement**~~ [DEPRECATED - Superseded by TSL & InstancedMesh Batching]
   - Once compute + custom render passes are in place, migrate scene hierarchy to an ECS in WASM and call `device.queue.submit()` directly.
 
 ---
@@ -62,12 +62,5 @@ Three.js Renderer -> WebGPU RenderPipeline (Raw Draw Calls)
 
 ## Next Steps
 
-1. **Verify Data Flow**: Ensure `AudioSystem` correctly extracts and passes `order`/`row` data from the worklet to drive the Pattern-Change logic reliably.
-   - **Status: Implemented ✅**
-   - *Implementation Details: Verified and routed tracker `order` and `row` from the WASM worklet up to the main thread `VisualState` (`patternIndex` and `row`). Audio data correctly propagates to `musicReactivitySystem` inside the main game loop.*
-2. **Target 4: Phase 4 Compute Shader Migration (fireflies.ts & pollen.ts)**
-   - **Status: Implemented ✅**
-   - *Implementation Details: Integrated `createIntegratedFireflies` and `createIntegratedPollen` into `src/world/generation.ts`. Wired the existing TSL compute node for pollen natively into the `game-loop.ts` render graph to execute the WGSL compute shader every frame.*
-3. **Identify Phase 4 Targets**: Find specific visual features that are still heavily reliant on CPU and transition them to WebGPU Compute Shaders (GPGPU). Candidates include `rain.ts` and `sparks.ts`.
-   - **Status: Implemented ✅**
-   - *Implementation Details: Migrated `rain.ts` and `berries.ts` to `ComputeParticleSystem` and integrated `createIntegratedSparks` and `createIntegratedBerries` into `src/world/generation.ts`. Upgraded `ComputeParticleSystem` to strictly enforce WebGPU layout logic and added direct `spawn`/`burst` API via `device.queue.writeBuffer` for zero-allocation interaction.*
+1. **Foliage Growth & Rain-Driven Spreading**
+   - Foliage can spread into empty areas during/after rain according to local spawning rules.
