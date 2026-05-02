@@ -1205,12 +1205,30 @@ export class AccessibilityMenu {
 
   private refreshMainPanel(): void {
     const main = this.container?.querySelector('main');
+
+    // Track focus before replacing content
+    const activeElement = document.activeElement;
+    const wasFocusedInside = this.container?.contains(activeElement);
+
     if (main) {
       main.id = `panel-${this.currentSection}`;
       main.setAttribute('aria-labelledby', `tab-${this.currentSection}`);
       this.renderSection(main, this.currentSection);
     }
     this.updateSidebarSelection();
+
+    // Restore focus if it was dropped
+    if (wasFocusedInside && (!document.activeElement || document.activeElement === document.body)) {
+      let activeTab = this.container?.querySelector(`[role="tab"][aria-selected="true"]`) as HTMLElement;
+      if (!activeTab) activeTab = this.container?.querySelector(`button[aria-selected="true"]`) as HTMLElement;
+
+      if (activeTab) {
+        activeTab.focus();
+      } else {
+        const firstFocusable = this.container?.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])') as HTMLElement;
+        if (firstFocusable) firstFocusable.focus();
+      }
+    }
   }
 
   private updateSidebarSelection(): void {
