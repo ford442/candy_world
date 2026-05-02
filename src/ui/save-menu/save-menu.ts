@@ -225,6 +225,10 @@ export class SaveMenu {
         
         const tabs = this.getTabs();
         
+        // Track focus before rendering
+        const activeElement = document.activeElement;
+        const wasFocusedInside = this.container.contains(activeElement);
+
         this.container.innerHTML = `
             <div class="candy-save-menu__container">
                 ${this.renderHeader()}
@@ -236,6 +240,18 @@ export class SaveMenu {
         `;
         
         this.attachEventListeners();
+
+        // Restore focus if it was dropped
+        if (wasFocusedInside && (!document.activeElement || document.activeElement === document.body)) {
+            const activeTab = this.container.querySelector(`[role="tab"][aria-selected="true"]`) as HTMLElement;
+            if (activeTab) {
+                activeTab.focus();
+            } else {
+                // Fallback to first focusable element
+                const firstFocusable = this.container.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])') as HTMLElement;
+                if (firstFocusable) firstFocusable.focus();
+            }
+        }
     }
 
     private getTabs(): { id: MenuTab; label: string; icon: string }[] {
