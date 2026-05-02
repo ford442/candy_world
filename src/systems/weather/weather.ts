@@ -323,7 +323,8 @@ export class WeatherSystem {
         this.updateMushroomGrowth(bassIntensity, globalLight);
 
         // Spawning
-        this.ecosystemManager.handleSpawning(time, fungiFavorability, lanternFavorability, globalLight, this.onSpawnFoliage);
+        const isRaining = this.state === WeatherState.RAIN || this.state === WeatherState.STORM;
+        this.ecosystemManager.handleSpawning(time, fungiFavorability, lanternFavorability, globalLight, this.onSpawnFoliage, isRaining);
         
         // Waterfalls
         this.ecosystemManager.updateMushroomWaterfalls(time, bassIntensity, this.state, this.intensity, this.trackedMushrooms, this.mushroomWaterfalls);
@@ -519,7 +520,8 @@ export class WeatherSystem {
     }
 
     handleSpawning(time: number, fungiScore: number, lanternScore: number, globalLight: number): void {
-        this.ecosystemManager.handleSpawning(time, fungiScore, lanternScore, globalLight, this.onSpawnFoliage);
+        const isRaining = this.state === WeatherState.RAIN || this.state === WeatherState.STORM;
+        this.ecosystemManager.handleSpawning(time, fungiScore, lanternScore, globalLight, this.onSpawnFoliage, isRaining);
     }
 
     updateMushroomWaterfalls(time: number, bassIntensity: number): void {

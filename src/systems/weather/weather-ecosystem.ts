@@ -1,9 +1,12 @@
+import { cpuAnimatedFoliage } from '../../world/state.ts';
 // src/systems/weather/weather-ecosystem.ts
 // Ecosystem management: cloud-mushroom interactions, spawning, waterfalls
 
 import * as THREE from 'three';
 import { getGroundHeight, uploadMushroomSpecs, batchMushroomSpawnCandidates, readSpawnCandidates, isWasmReady } from '../../utils/wasm-loader.js';
 import { createMushroom } from '../../foliage/mushrooms.ts';
+import { FoliageGrowthOptions } from '../../foliage/types.ts';
+import { spawnNearbyFoliage } from '../../world/generation.ts';
 import { createLanternFlower } from '../../foliage/flowers.ts';
 import { cleanupReactivity } from '../../foliage/foliage-reactivity.ts';
 import { updateCloudAttraction, isCloudOverTarget } from '../../foliage/clouds.ts';
@@ -230,10 +233,11 @@ export class EcosystemManager {
         }
     }
 
+
     /**
      * Handle spawning logic based on favorability scores
      */
-    handleSpawning(time: number, fungiScore: number, lanternScore: number, globalLight: number, onSpawnFoliage: ((object: any, isNew: boolean, duration: number) => void) | null): void {
+    handleSpawning(time: number, fungiScore: number, lanternScore: number, globalLight: number, onSpawnFoliage: ((object: any, isNew: boolean, duration: number) => void) | null, isRaining: boolean): void {
         if (time - this._lastSpawnCheck < this._spawnThrottle) return;
         this._lastSpawnCheck = time;
 
@@ -246,8 +250,35 @@ export class EcosystemManager {
         if (globalLight > 0.7 && fungiScore < 0.3) {
              if (Math.random() < 0.2) this.spawnFoliage('flower', false, onSpawnFoliage);
         }
-    }
 
+        // Feature: Rain-Driven Spreading
+        if (isRaining && Math.random() < 0.2) {
+            const growthOptions: FoliageGrowthOptions = {
+                spawnRadius: 10,
+                spawnChanceBase: 0.3,
+                maxOffspring: 2,
+                growthWindowMs: 5000,
+                densityLimit: 5
+            };
+
+            // Pick a random adult plant from cpuAnimatedFoliage to spread
+            if (cpuAnimatedFoliage && cpuAnimatedFoliage.length > 0) {
+                const adultIndex = Math.floor(Math.random() * cpuAnimatedFoliage.length);
+                const adultPlant = cpuAnimatedFoliage[adultIndex];
+
+                // Only spread mushrooms or flowers
+                if (adultPlant && adultPlant.userData && (adultPlant.userData.type === 'mushroom' || adultPlant.userData.isFlower)) {
+                     // Throttle per-plant spreading
+                     const lastSpawn = adultPlant.userData.lastSpawnTime || 0;
+                     if (Date.now() - lastSpawn > growthOptions.growthWindowMs) {
+                         const typeToSpawn = adultPlant.userData.type === 'mushroom' ? 'mushroom' : 'flower';
+                         spawnNearbyFoliage(adultPlant, typeToSpawn, growthOptions, this.weatherSystem);
+                         adultPlant.userData.lastSpawnTime = Date.now();
+                     }
+                }
+            }
+        }
+    }
     /**
      * Spawn a single foliage object
      */
