@@ -1154,6 +1154,31 @@ export class AccessibilityMenu {
     if (event.key === 'Escape') {
       this.close();
       event.preventDefault();
+      return;
+    }
+
+    // ♿ Aria: Keyboard navigation for Tabs (Up/Down Arrows)
+    if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+        const activeElement = document.activeElement as HTMLElement;
+        if (activeElement && activeElement.getAttribute('role') === 'tab') {
+            event.preventDefault();
+            const tabs = Array.from(this.container?.querySelectorAll('[role="tab"]') || []) as HTMLElement[];
+            const currentIndex = tabs.indexOf(activeElement);
+            if (currentIndex >= 0) {
+                let nextIndex = event.key === 'ArrowDown' ? currentIndex + 1 : currentIndex - 1;
+                if (nextIndex >= tabs.length) nextIndex = 0;
+                if (nextIndex < 0) nextIndex = tabs.length - 1;
+
+                const nextTab = tabs[nextIndex];
+                nextTab.focus();
+
+                // Assuming tab id is like 'tab-presets' and section is 'presets'
+                const tabIdMatch = nextTab.id.match(/^tab-(.+)$/);
+                if (tabIdMatch && tabIdMatch[1]) {
+                    this.switchSection(tabIdMatch[1] as MenuSection);
+                }
+            }
+        }
     }
   }
 
