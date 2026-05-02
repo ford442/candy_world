@@ -10,6 +10,7 @@
  * - Math fallbacks: valueNoise2D, fbm, fastInvSqrt, fastDistance, hash
  */
 
+import * as THREE from 'three';
 import { 
     wasmInstance,
     wasmMemory,
@@ -33,6 +34,8 @@ import {
     type Trampoline,
     type PlayerState
 } from './wasm-loader-core.js';
+
+const _scratchGatePos = new THREE.Vector3();
 
 // =============================================================================
 // TYPE DEFINITIONS
@@ -129,7 +132,8 @@ export function uploadCollisionObjects(
         if (caves) {
             for (const cave of caves) {
                 if (cave.userData.isBlocked) {
-                    const gatePos = cave.userData.gatePosition.clone().applyMatrix4(cave.matrixWorld);
+                    // ⚡ OPTIMIZATION: Eliminate Vector allocation and GC spike by using module-level scratch vector
+                    const gatePos = _scratchGatePos.copy(cave.userData.gatePosition).applyMatrix4(cave.matrixWorld);
                     batchData[ptr++] = 3; // type
                     batchData[ptr++] = gatePos.x;
                     batchData[ptr++] = gatePos.y;
@@ -211,7 +215,8 @@ export function uploadCollisionObjects(
         if (caves) {
             caves.forEach(cave => {
                 if (cave.userData.isBlocked) {
-                    const gatePos = cave.userData.gatePosition.clone().applyMatrix4(cave.matrixWorld);
+                    // ⚡ OPTIMIZATION: Eliminate Vector allocation and GC spike by using module-level scratch vector
+                    const gatePos = _scratchGatePos.copy(cave.userData.gatePosition).applyMatrix4(cave.matrixWorld);
                     wasmAddCollisionObject!(3, gatePos.x, gatePos.y, gatePos.z, 2.5, 5.0, 0, 0, 0);
                 }
             });
