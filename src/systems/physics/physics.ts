@@ -40,6 +40,7 @@ import {
     bpmWind,
     foliageCaves,
     setCppPhysicsInitialized,
+    _scratchMatrix,
     cppPhysicsInitialized,
     AudioState,
     KeyStates
@@ -523,6 +524,10 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
 }
 
 import { arpeggioFernBatcher } from '../../foliage/arpeggio-batcher.ts';
+
+// Top of physics.ts cache for dynamic imports
+let vineStateModule: typeof import('../../world/state.ts') | null = null;
+import('../../world/state.ts').then(m => { vineStateModule = m; });
 
 // Helper: Initialize C++ obstacles (One-time setup)
 function initCppPhysics(camera: THREE.Camera) {
@@ -1067,7 +1072,8 @@ function updateJSFallbackMovement(delta: number, camera: THREE.Camera, controls:
 
 // --- Vine Attachment Helper ---
 function checkVineAttachment(camera: THREE.Camera) {
-    import('../../world/state.ts').then(({ vineSwings, activeVineSwing, setActiveVineSwing }) => {
+    if (!vineStateModule) return;
+    const { vineSwings, activeVineSwing, setActiveVineSwing } = vineStateModule;
         const playerPos = player.position;
         for (const vineManager of vineSwings) {
             // SAFETY: Ensure vineManager and anchorPoint exist before accessing properties
@@ -1095,5 +1101,4 @@ function checkVineAttachment(camera: THREE.Camera) {
                  }
             }
         }
-    });
 }
