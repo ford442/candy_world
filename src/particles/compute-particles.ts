@@ -38,7 +38,7 @@ import {
     Fn, uniform, storage, instanceIndex, vertexIndex, float, vec2, vec3, vec4,
     mix, sin, cos, normalize, color, attribute,
     mx_noise_float, positionLocal, max, length, min, pow, abs,
-    smoothstep, uv, distance, time, sqrt, dot, cross,
+    smoothstep, pointUV, uv, pointUV, distance, time, sqrt, dot, cross,
     cameraPosition
 } from 'three/tsl';
 
@@ -204,7 +204,7 @@ export class ComputeParticleSystem {
             
             case 'pollen':
                 return Fn(() => {
-                    const hueMix = sin(uv().x.mul(10.0).add(uTime)).mul(0.5).add(0.5);
+                    const hueMix = sin(pointUV.x.mul(10.0).add(uTime)).mul(0.5).add(0.5);
                     const cyan = color(0x00FFFF);
                     const magenta = color(0xFF00FF);
                     return mix(cyan, magenta, hueMix);
@@ -261,7 +261,7 @@ export class ComputeParticleSystem {
     
     private getOpacityNode(): any {
         return Fn(() => {
-            const distFromCenter = distance(uv(), vec2(0.5));
+            const distFromCenter = distance(pointUV, vec2(0.5));
             return smoothstep(0.5, 0.2, distFromCenter);
         })();
     }
@@ -384,7 +384,7 @@ export class ComputeParticleSystem {
         // Create storage buffer from position buffer
         const vec3ArraySize = this.count * 16;
         const f32ArraySize = this.count * 4;
-        const totalSize = (vec3ArraySize * 2) + (f32ArraySize * 3);
+        const totalSize = Math.ceil(((vec3ArraySize * 2) + (f32ArraySize * 3)) / 16) * 16;
 
         this.particleBuffer = this.device.createBuffer({
             size: totalSize,
