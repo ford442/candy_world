@@ -13,6 +13,7 @@ import { updateCloudAttraction, isCloudOverTarget } from '../../foliage/clouds.t
 import { foliageClouds } from '../../world/state.ts';
 import { replaceMushroomWithGiant } from '../../foliage/mushrooms.ts';
 import { mushroomBatcher } from '../../foliage/mushroom-batcher.ts';
+import { flowerBatcher } from '../../foliage/flower-batcher.ts';
 import { waterfallBatcher } from '../../foliage/waterfall-batcher.ts';
 import { musicReactivitySystem } from '../music-reactivity.ts';
 import type { WeatherSystem } from './weather.ts';
@@ -20,6 +21,7 @@ import type { WeatherSystem } from './weather.ts';
 // Scratch objects for optimization
 const _scratchSunDir = new THREE.Vector3();
 const _scratchWaterfallPos = new THREE.Vector3();
+const _lastSpawnTimes = new Map<string, number>();
 
 export class EcosystemManager {
     private weatherSystem: WeatherSystem;
@@ -261,20 +263,42 @@ export class EcosystemManager {
                 densityLimit: 5
             };
 
-            // Pick a random adult plant from cpuAnimatedFoliage to spread
-            if (cpuAnimatedFoliage && cpuAnimatedFoliage.length > 0) {
-                const adultIndex = Math.floor(Math.random() * cpuAnimatedFoliage.length);
-                const adultPlant = cpuAnimatedFoliage[adultIndex];
+            const sources: { position: THREE.Vector3; type: 'mushroom' | 'flower' }[] = [];
 
-                // Only spread mushrooms or flowers
-                if (adultPlant && adultPlant.userData && (adultPlant.userData.type === 'mushroom' || adultPlant.userData.isFlower)) {
-                     // Throttle per-plant spreading
-                     const lastSpawn = adultPlant.userData.lastSpawnTime || 0;
-                     if (Date.now() - lastSpawn > growthOptions.growthWindowMs) {
-                         const typeToSpawn = adultPlant.userData.type === 'mushroom' ? 'mushroom' : 'flower';
-                         spawnNearbyFoliage(adultPlant, typeToSpawn, growthOptions, this.weatherSystem);
-                         adultPlant.userData.lastSpawnTime = Date.now();
-                     }
+            // 1. Non-batched sources (legacy fallback)
+            for (const plant of cpuAnimatedFoliage) {
+                if (!plant.userData) continue;
+                if (plant.userData.type === 'mushroom' || plant.userData.isFlower) {
+                    sources.push({
+                        position: plant.position,
+                        type: plant.userData.type === 'mushroom' ? 'mushroom' : 'flower'
+                    });
+                }
+            }
+
+            // 2. Batched mushroom sources
+            const mPos = new THREE.Vector3();
+            if (mushroomBatcher.getRandomPosition(mPos)) {
+                sources.push({ position: mPos, type: 'mushroom' });
+            }
+
+            // 3. Batched flower sources
+            const fPos = new THREE.Vector3();
+            if (flowerBatcher.getRandomPosition(fPos)) {
+                sources.push({ position: fPos, type: 'flower' });
+            }
+
+            if (sources.length > 0) {
+                const source = sources[Math.floor(Math.random() * sources.length)];
+
+                // Throttle: use a module-level Map keyed by position string
+                const now = Date.now();
+                const key = `${source.type}_${Math.round(source.position.x)}_${Math.round(source.position.z)}`;
+                const lastSpawn = _lastSpawnTimes.get(key) || 0;
+
+                if (now - lastSpawn > growthOptions.growthWindowMs) {
+                    spawnNearbyFoliage(source.position, source.type, growthOptions, this.weatherSystem);
+                    _lastSpawnTimes.set(key, now);
                 }
             }
         }

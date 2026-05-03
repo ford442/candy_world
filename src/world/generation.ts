@@ -925,7 +925,7 @@ async function populateProceduralExtras(
 }
 
 
-export function spawnNearbyFoliage(parentPlant: THREE.Object3D, type: string, options: FoliageGrowthOptions, weatherSystem: WeatherSystem | null = null): void {
+export function spawnNearbyFoliage(origin: THREE.Vector3, type: string, options: FoliageGrowthOptions, weatherSystem: WeatherSystem | null = null): void {
     if (animatedFoliage.length > 3000) return; // Hard cap
 
     const maxAttempts = 5;
@@ -938,8 +938,8 @@ export function spawnNearbyFoliage(parentPlant: THREE.Object3D, type: string, op
         for (let a = 0; a < maxAttempts; a++) {
             const angle = Math.random() * Math.PI * 2;
             const dist = (Math.random() * 0.5 + 0.5) * options.spawnRadius;
-            nx = parentPlant.position.x + Math.cos(angle) * dist;
-            nz = parentPlant.position.z + Math.sin(angle) * dist;
+            nx = origin.x + Math.cos(angle) * dist;
+            nz = origin.z + Math.sin(angle) * dist;
 
             if (isPositionValid(nx, nz, 1.0)) {
                 // Check local density

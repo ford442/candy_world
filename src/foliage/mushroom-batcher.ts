@@ -63,6 +63,14 @@ export class MushroomBatcher {
 
     private constructor() {}
 
+    getRandomPosition(out: THREE.Vector3): boolean {
+        if (!this.mesh || this.count === 0) return false;
+        const idx = Math.floor(Math.random() * this.count);
+        this.mesh.getMatrixAt(idx, _scratchMatrix);
+        out.setFromMatrixPosition(_scratchMatrix);
+        return true;
+    }
+
     static getInstance(): MushroomBatcher {
         if (!MushroomBatcher.instance) {
             MushroomBatcher.instance = new MushroomBatcher();
