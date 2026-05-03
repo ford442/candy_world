@@ -417,12 +417,13 @@ export class GPUCullingSystem {
                 const dx = sx - cameraPos[0];
                 const dy = sy - cameraPos[1];
                 const dz = sz - cameraPos[2];
-                const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+                // ⚡ OPTIMIZATION: Converted to pure squared distance check to avoid Math.sqrt() in hot CPU fallback loop.
+                const distSq = dx * dx + dy * dy + dz * dz;
 
                 let lod = 3;
-                if (dist < this.config.lodDistances[0]) lod = 0;
-                else if (dist < this.config.lodDistances[1]) lod = 1;
-                else if (dist < this.config.lodDistances[2]) lod = 2;
+                if (distSq < this.config.lodDistances[0] * this.config.lodDistances[0]) lod = 0;
+                else if (distSq < this.config.lodDistances[1] * this.config.lodDistances[1]) lod = 1;
+                else if (distSq < this.config.lodDistances[2] * this.config.lodDistances[2]) lod = 2;
 
                 visible.push(i);
                 lods.push(lod);
