@@ -56,6 +56,14 @@ export class FlowerBatcher {
         // Deferred init
     }
 
+    getRandomPosition(out: THREE.Vector3): boolean {
+        if (!this.stems || this.stemCount === 0) return false;
+        const idx = Math.floor(Math.random() * this.stemCount);
+        this.stems.getMatrixAt(idx, _scratchMatrix);
+        out.setFromMatrixPosition(_scratchMatrix);
+        return true;
+    }
+
     static getInstance(): FlowerBatcher {
         if (!FlowerBatcher.instance) {
             FlowerBatcher.instance = new FlowerBatcher();
