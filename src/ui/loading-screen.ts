@@ -333,6 +333,12 @@ export class LoadingScreen {
         this.isComplete = false;
         
         this.lastFocusedElement = document.activeElement as HTMLElement;
+
+        if (this.releaseFocusTrap) {
+            this.releaseFocusTrap();
+            this.releaseFocusTrap = null;
+        }
+
         if (this.container) {
             this.container.setAttribute('tabindex', '-1');
             this.container.setAttribute('aria-modal', 'true');
