@@ -88,18 +88,22 @@
 │   ├── mesh_deformation.cpp      # Mesh deformation
 │   ├── particle_physics.cpp      # Particle systems
 │   ├── physics.cpp               # Physics computations
-│   └── build.sh                  # Build script with conditional exports
+│   ├── build.sh                  # Build script with conditional exports
+│   ├── libomp.a                  # OpenMP static library
+│   └── omp.h                     # OpenMP headers
 ├── tools/                        # Build and optimization tools
-│   ├── build-optimizer/          # Bundle analysis, tree-shaking audit, compression benchmark
-│   ├── map-generator/            # Procedural map generation CLI
+│   ├── build-optimizer/          # Bundle analysis, tree-shaking audit, compression benchmark, budgets.json
+│   ├── map-generator/            # Procedural map generation CLI (TypeScript)
 │   └── visual-regression/        # Playwright-based visual regression tests
 ├── test/                         # Manual TS compilation / integration tests
 ├── tests/                        # Smoke tests, WASM tests, accessibility tests
 ├── docs/                         # Architecture and feature documentation
 ├── public/                       # Static assets, compiled WASM
 ├── dist/                         # Vite production build output
+├── style.css                     # Global styles imported by core/main.ts
+├── dev.sh                        # Dev script: sources emsdk, builds Emscripten, runs Vite
 ├── index.html                    # Main HTML with UI, import maps, loading screen
-├── vite.config.js                # Vite configuration
+├── vite.config.js                # Vite configuration with manual chunking
 ├── tsconfig.json                 # TypeScript configuration
 ├── package.json                  # npm scripts and dependencies
 ├── pnpm-lock.yaml                # pnpm lockfile (primary package manager)
@@ -282,6 +286,7 @@ Cross-Origin-Embedder-Policy: require-corp
 - Module imports **must** use `.ts` extensions (Vite + `allowImportingTsExtensions` handles resolution)
 - Three.js imports via importmap in `index.html` (e.g., `three`, `three/webgpu`, `three/tsl`)
 - Target module system is `ES2022` with `bundler` resolution; compilation target is `ES2020`
+- No ESLint, Prettier, or Biome configuration is present in the repo; follow existing conventions
 
 ### AssemblyScript
 - Explicit type annotations required (`f32`, `i32`)
@@ -331,7 +336,13 @@ Cross-Origin-Embedder-Policy: require-corp
    - TypeScript compilation and logic verification for the accessibility system
    - Tests color-blind modes, motion reduction, and announcer utilities
 
-5. **Manual Compilation Tests** (`test/`)
+5. **Focus Trap Tests** (`tests/focus-trap.test.ts`)
+   - Tests keyboard focus trapping for modal dialogs (playlist, accessibility settings)
+
+6. **Ability HUD Accessibility** (`tests/ability-hud-accessibility.test.ts`)
+   - Verifies ARIA attributes, keyboard shortcuts, and screen-reader labels on the ability HUD
+
+7. **Manual Compilation Tests** (`test/`)
    - `test/culling-system.test.ts` — verifies culling system exports and constants
    - `test/analytics-integration-test.ts` — verifies analytics event types
    - `test/plant-pose-machine.test.ts` — plant pose machine logic verification
@@ -400,6 +411,7 @@ When implementing large visual changes:
 - `SKY_ENHANCEMENTS.md` — Sky/weather system details
 - `WEATHER_INTEGRATION_SUMMARY.md` — Weather system architecture
 - `docs/` — Additional deep-dive docs (analytics, compute particles, culling, map generation, save system, wind optimization, accessibility, asset streaming, etc.)
+- `CLAUDE.md` — Additional developer context and conventions
 
 ---
 
