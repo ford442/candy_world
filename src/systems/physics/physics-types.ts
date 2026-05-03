@@ -145,3 +145,5 @@ export const foliageCaves: THREE.Object3D[] = [];
 export function setCppPhysicsInitialized(value: boolean) {
     cppPhysicsInitialized = value;
 }
+
+export const _scratchMatrix = new THREE.Matrix4();
