@@ -25,7 +25,8 @@ import {
     setActiveVineSwing, 
     lastVineDetachTime, 
     setLastVineDetachTime, 
-    vineSwings 
+    vineSwings,
+    foliageVineLadders
 } from '../../world/state.ts';
 import { discoverySystem } from '../discovery.ts';
 import { spawnImpact } from '../../foliage/impacts.ts';
@@ -87,6 +88,32 @@ export function updateStateTransitions(camera: THREE.Camera, keyStates: KeyState
     // Skip other state transitions when dancing
     if (player.currentState === PlayerState.DANCING) {
         return;
+    }
+
+    // C. Check Climbing Transitions
+    if (player.currentState === PlayerState.DEFAULT) {
+        const nearest = findNearestClimbable(playerPos, 2.5);
+        if (nearest) {
+            // Enter climbing when pressing forward near a ladder
+            const isForwardPressed = keyStates.forward;
+            const isForwardTriggered = isForwardPressed && !_lastInputState.forward;
+            if (isForwardTriggered) {
+                player.currentState = PlayerState.CLIMBING;
+                player.climbTarget = nearest;
+                const length = nearest.userData.vineLength || 10;
+                player.climbTopY = nearest.position.y;
+                discoverySystem.discover('vine_ladder', 'Vine Ladder', '🪜');
+            }
+        }
+    } else if (player.currentState === PlayerState.CLIMBING) {
+        const isJumpPressed = keyStates.jump;
+        const isJumpTriggered = isJumpPressed && !_lastInputState.jump;
+        if (isJumpTriggered) {
+            // Detach with boost
+            player.currentState = PlayerState.DEFAULT;
+            player.velocity.y = CLIMB_DETACH_BOOST;
+            player.climbTarget = null;
+        }
     }
 
     // B. Check Water Level / Cave Flooding
@@ -231,14 +258,98 @@ export function updateVineState(delta: number, camera: THREE.Camera, keyStates: 
 }
 
 // --- State: CLIMBING ---
+const CLIMB_SPEED = 6.0;
+const CLIMB_DETACH_BOOST = 8.0;
+const CLIMB_MAX_DIST_SQ = 2.5 * 2.5;
+
 export function updateClimbingState(
-    delta: number, 
-    camera: THREE.Camera, 
-    controls: any, 
+    delta: number,
+    camera: THREE.Camera,
+    controls: any,
     keyStates: KeyStates
 ) {
-    player.velocity.set(0,0,0);
-    player.currentState = PlayerState.DEFAULT;
+    if (!player.climbTarget) {
+        player.currentState = PlayerState.DEFAULT;
+        return;
+    }
+
+    const target = player.climbTarget;
+    const topY = player.climbTopY;
+
+    // Horizontal snap: keep player centered on the climbable
+    player.position.x += (target.position.x - player.position.x) * 5.0 * delta;
+    player.position.z += (target.position.z - player.position.z) * 5.0 * delta;
+
+    // Vertical movement
+    if (keyStates.forward || keyStates.jump) {
+        player.position.y += CLIMB_SPEED * delta;
+    } else if (keyStates.backward || keyStates.sneak) {
+        player.position.y -= CLIMB_SPEED * delta;
+    }
+
+    // Clamp to bottom (don't go below ladder base)
+    const length = target.userData.vineLength || 10;
+    const baseY = target.position.y - length;
+    if (player.position.y < baseY + PLAYER_HEIGHT_OFFSET) {
+        player.position.y = baseY + PLAYER_HEIGHT_OFFSET;
+        // Drop off at bottom
+        player.currentState = PlayerState.DEFAULT;
+        player.climbTarget = null;
+        return;
+    }
+
+    // Auto-step off at top
+    if (player.position.y >= topY - 0.5) {
+        player.position.y = topY + PLAYER_HEIGHT_OFFSET;
+        player.currentState = PlayerState.DEFAULT;
+        player.climbTarget = null;
+        // Small forward nudge so we don't immediately fall back
+        const forward = _scratchCamDir.set(0, 0, -1).applyQuaternion(camera.quaternion);
+        forward.y = 0;
+        forward.normalize();
+        player.position.addScaledVector(forward, 0.5);
+        return;
+    }
+
+    // Check if we strayed too far horizontally
+    const dx = player.position.x - target.position.x;
+    const dz = player.position.z - target.position.z;
+    if (dx * dx + dz * dz > CLIMB_MAX_DIST_SQ) {
+        player.currentState = PlayerState.DEFAULT;
+        player.climbTarget = null;
+    }
+
+    player.velocity.set(0, 0, 0);
+}
+
+// Helper: Find nearest climbable object
+const _scratchClimbablePos = new THREE.Vector3();
+
+export function findNearestClimbable(
+    position: THREE.Vector3,
+    maxRadius: number = 2.0
+): THREE.Object3D | null {
+    let best: THREE.Object3D | null = null;
+    let bestDistSq = maxRadius * maxRadius;
+
+    for (const ladder of foliageVineLadders) {
+        _scratchClimbablePos.copy(ladder.position);
+        // Ladder anchor is at top, bottom extends down by length
+        const length = ladder.userData.vineLength || 10;
+        const bottomY = _scratchClimbablePos.y - length;
+        // Only climbable if player is within vertical range
+        if (position.y < bottomY - 1.0 || position.y > _scratchClimbablePos.y + 1.0) continue;
+
+        const dx = position.x - _scratchClimbablePos.x;
+        const dz = position.z - _scratchClimbablePos.z;
+        const distSq = dx * dx + dz * dz;
+        if (distSq < bestDistSq) {
+            bestDistSq = distSq;
+            best = ladder;
+        }
+    }
+
+    return best;
 }
 
 // --- State: DANCING ---

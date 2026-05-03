@@ -240,6 +240,7 @@ export function updatePhysics(delta: number, camera: THREE.Camera, controls: any
     _lastInputState.dance = keyStates.dance;
     _lastInputState.phase = keyStates.phase;
     _lastInputState.clap = keyStates.clap;
+    _lastInputState.forward = keyStates.forward;
 
     // 5. Check Flora Discovery (Throttled)
     const frameCount = Math.floor(Date.now() / 16);
@@ -475,14 +476,21 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
               discoverySystem.discover('trampoline_shroom', 'Trampoline Mushroom', '🍄');
               keyStates.jump = false;
 
+              // --- VERTICAL ECOSYSTEM: Audio-Reactive Mushroom Bounce ---
+              // Scale bounce height with current kick strength / note energy
+              const kick = audioState?.kickTrigger || 0;
+              const noteStrength = audioState?.noteVelocity || kick;
+              const bounceMultiplier = 1.0 + noteStrength * 0.8; // 1.0x - 1.8x
+              player.velocity.y *= bounceMultiplier;
+
               // 🎨 Palette: Add "Juice" to trampoline mushroom bounce
               spawnImpact(player.position, 'jump');
-              addCameraShake(0.3); // 🎨 Palette: Trampoline bounce shake
+              addCameraShake(0.3 * bounceMultiplier); // 🎨 Palette: Trampoline bounce shake
               if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
-                  (window as any).AudioSystem.playSound('impact', { pitch: 1.5, volume: 0.8 });
+                  (window as any).AudioSystem.playSound('impact', { pitch: 1.2 + noteStrength * 0.6, volume: 0.8 });
               }
               if (typeof uChromaticIntensity !== 'undefined') {
-                  uChromaticIntensity.value = 0.5;
+                  uChromaticIntensity.value = 0.5 * bounceMultiplier;
               }
          }
          // Check if we landed on a cloud (isGrounded=true at High Y)

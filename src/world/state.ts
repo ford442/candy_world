@@ -15,6 +15,7 @@ export const foliageGeysers: FoliageObject[] = []; // Added for physics interact
 export const foliageTraps: FoliageObject[] = []; // Added for snare trap interaction
 export const foliagePortamentoPines: FoliageObject[] = []; // Added for slingshot interaction
 export const vineSwings: VineSwing[] = []; // Managers for swing physics
+export const foliageVineLadders: FoliageObject[] = []; // Static climbable vines
 
 // ⚡ OPTIMIZATION: Pre-filtered arrays to eliminate O(N) scans in hot loops
 // Objects that have WebGPU compute nodes (waterfall, pollen, etc.)

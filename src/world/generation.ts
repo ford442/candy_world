@@ -7,7 +7,7 @@ import { getGroundHeight, initCollisionSystem, addCollisionObject, checkPosition
 import {
     createSky, createStars, createMoon, createMushroom, createGlowingFlower,
     createFlower, createSubwooferLotus, createAccordionPalm, createFiberOpticWillow,
-    createFloatingOrb, createSwingableVine, VineSwing, createPrismRoseBush,
+    createFloatingOrb, createSwingableVine, createVineLadder, VineSwing, createPrismRoseBush,
     createStarflower, createVibratoViolet, createTremoloTulip, createKickDrumGeyser,
     createRainingCloud, createWaveformWater, initFallingBerries,
     initGrassSystem, addGrassInstance,
@@ -30,7 +30,7 @@ import { spawnImpact } from '../foliage/impacts.ts';
 import { makeInteractive } from '../utils/interaction-utils.ts';
 import {
     animatedFoliage, cpuAnimatedFoliage, obstacles, foliageGroup, foliageMushrooms,
-    foliageClouds, foliageTrampolines, foliagePanningPads, foliageGeysers, foliageTraps, foliagePortamentoPines, vineSwings, worldGroup
+    foliageClouds, foliageTrampolines, foliagePanningPads, foliageGeysers, foliageTraps, foliagePortamentoPines, vineSwings, foliageVineLadders, worldGroup
 } from './state.ts';
 import mapData from '../../assets/map.json';
 
@@ -273,6 +273,7 @@ export function safeAddFoliage(
     if (obj.userData.type === 'tree' && obj.userData.animationType === 'batchedPortamento') {
         foliagePortamentoPines.push(obj);
     }
+    if (obj.userData.type === 'vine_ladder') foliageVineLadders.push(obj);
 
     // Invoke deferred placement logic (e.g. for batching)
     if (obj.userData.onPlacement) {
@@ -516,7 +517,10 @@ function processMapEntity(item: MapEntity, weatherSystem: WeatherSystem): void {
             obj = isGlowing ? createGlowingFlower() : createFlower();
         }
         else if (item.type === 'cloud') {
+            const cloudTier = (item as any).tier || 1;
             obj = createRainingCloud({ size: item.size as number || 1.5 });
+            obj.userData.tier = cloudTier;
+            obj.userData.isWalkable = cloudTier === 1;
         }
         else if (item.type === 'grass') {
             addGrassInstance(x, y, z);
@@ -852,9 +856,30 @@ async function populateProceduralExtras(
                  if (obj) obj.position.set(x, obj.position.y || groundY, z);
             }
              else if (rand < 0.90) {
-                 const isHigh = Math.random() < 0.5;
-                 y = isHigh ? 35 + Math.random() * 20 : 12 + Math.random() * 10;
-                 obj = createRainingCloud({ size: 1.0 + Math.random() });
+                 // Vertical Ecosystem: Tiered Clouds
+                 const tierRoll = Math.random();
+                 if (tierRoll < 0.35) {
+                     // Tier 1: High, dense, walkable platforms
+                     y = 35 + Math.random() * 20;
+                     obj = createRainingCloud({ size: 1.5 + Math.random() * 0.8 });
+                     obj.userData.tier = 1;
+                     obj.userData.isWalkable = true;
+                     // Occasionally attach a vine ladder descending from this cloud
+                     if (Math.random() < 0.3) {
+                         const ladderLength = y - groundY;
+                         if (ladderLength > 5) {
+                             const ladder = createVineLadder({ length: ladderLength });
+                             ladder.position.set(x, y, z);
+                             safeAddFoliage(ladder, false, 0, weatherSystem);
+                         }
+                     }
+                 } else {
+                     // Tier 2: Mid, misty, non-walkable
+                     y = 12 + Math.random() * 16;
+                     obj = createRainingCloud({ size: 0.8 + Math.random() * 0.6 });
+                     obj.userData.tier = 2;
+                     obj.userData.isWalkable = false;
+                 }
                  obj.position.set(x, y, z);
              }
              else if (rand < 0.95) {

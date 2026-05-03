@@ -10,7 +10,7 @@ import * as THREE from 'three';
 import { discoverySystem } from '../../systems/discovery.js';
 import { trapFocusInside } from '../../utils/interaction-utils.ts';
 import { openAccessibilityMenu } from '../../ui/accessibility-menu.ts';
-import { keyStates, InitInputResult, filterValidMusicFiles } from './input-types.ts';
+import { keyStates, InitInputResult, filterValidMusicFiles, triggerAbility } from './input-types.ts';
 import {
     initPlaylistManager,
     getIsPlaylistOpen,
@@ -486,19 +486,11 @@ export function initInput(
     // --- UX: Interactive Ability HUD ---
     // (Variables moved to top of initInput)
 
-    // Helper to simulate key press for abilities
-    const triggerAbility = (ability: 'dash' | 'action' | 'phase') => {
-        keyStates[ability] = true;
-        setTimeout(() => {
-            keyStates[ability] = false;
-        }, 100);
-    };
-
     if (hudDash) {
         hudDash.addEventListener('click', (e) => {
             e.stopPropagation();
             if (hudDash.getAttribute('aria-disabled') !== 'true') {
-                triggerAbility('dash');
+                triggerAbility('dash', hudDash);
             }
         });
         hudDash.addEventListener('keydown', (e) => {
@@ -516,7 +508,7 @@ export function initInput(
                 e.preventDefault();
                 e.stopPropagation();
                 if (hudDash.getAttribute('aria-disabled') !== 'true') {
-                    triggerAbility('dash');
+                    triggerAbility('dash', hudDash);
                 }
             }
         });
@@ -526,7 +518,7 @@ export function initInput(
         hudMine.addEventListener('click', (e) => {
             e.stopPropagation();
             if (hudMine.getAttribute('aria-disabled') !== 'true') {
-                triggerAbility('action'); // 'action' corresponds to Jitter Mine (KeyF)
+                triggerAbility('action', hudMine); // 'action' corresponds to Jitter Mine (KeyF)
             }
         });
         hudMine.addEventListener('keydown', (e) => {
@@ -534,7 +526,7 @@ export function initInput(
                 e.preventDefault();
                 e.stopPropagation();
                 if (hudMine.getAttribute('aria-disabled') !== 'true') {
-                    triggerAbility('action');
+                    triggerAbility('action', hudMine);
                 }
             }
         });
@@ -553,7 +545,7 @@ export function initInput(
         hudPhase.addEventListener('click', (e) => {
             e.stopPropagation();
             if (hudPhase.getAttribute('aria-disabled') !== 'true') {
-                triggerAbility('phase');
+                triggerAbility('phase', hudPhase);
             }
         });
         hudPhase.addEventListener('keydown', (e) => {
@@ -561,7 +553,7 @@ export function initInput(
                 e.preventDefault();
                 e.stopPropagation();
                 if (hudPhase.getAttribute('aria-disabled') !== 'true') {
-                    triggerAbility('phase');
+                    triggerAbility('phase', hudPhase);
                 }
             }
         });
