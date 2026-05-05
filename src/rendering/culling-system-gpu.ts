@@ -255,12 +255,14 @@ export class CullingSystemGPU {
         const count = spheres.length / 4;
         const result = new Uint32Array(count);
 
+        // ⚡ OPTIMIZATION: Converted to pure squared distance check to avoid Math.sqrt() in hot CPU fallback loop.
+        const maxDistSq = maxDist * maxDist;
         for (let i = 0; i < count; i++) {
             const dx = spheres[i * 4] - camera.x;
             const dy = spheres[i * 4 + 1] - camera.y;
             const dz = spheres[i * 4 + 2] - camera.z;
-            const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
-            result[i] = dist <= maxDist ? 1 : 0;
+            const distSq = dx * dx + dy * dy + dz * dz;
+            result[i] = distSq <= maxDistSq ? 1 : 0;
         }
 
         return result;
@@ -286,8 +288,10 @@ export class CullingSystemGPU {
             const dx = cx - camera.x;
             const dy = cy - camera.y;
             const dz = cz - camera.z;
-            const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
-            if (dist > maxDist) {
+            const distSq = dx * dx + dy * dy + dz * dz;
+
+            // ⚡ OPTIMIZATION: Deferred Math.sqrt() by using squared distance for early-out bounds check.
+            if (distSq > maxDist * maxDist) {
                 result[i] = 0;
                 continue;
             }
