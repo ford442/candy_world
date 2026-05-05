@@ -25,6 +25,7 @@ export {
     // Constants
     DEFAULT_STREAMING_CONFIG,
     PRIORITY_DISTANCES,
+    PRIORITY_DISTANCES_SQ,
     QUALITY_FORMAT_PREFERENCES,
     // Utility functions
     createSampleManifest,
