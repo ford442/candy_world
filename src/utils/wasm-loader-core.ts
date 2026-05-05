@@ -899,6 +899,7 @@ export async function initWasm(): Promise<boolean> {
     const startButton = document.getElementById('startButton');
     if (startButton) {
         (startButton as HTMLButtonElement).disabled = true;
+        startButton.setAttribute('aria-busy', 'true');
         startButton.setAttribute('title', 'Please wait while game assets load...');
         startButton.style.cursor = 'wait';
     }
@@ -914,6 +915,7 @@ export async function initWasm(): Promise<boolean> {
 
     if (startButton) {
         (startButton as HTMLButtonElement).disabled = false;
+        startButton.setAttribute('aria-busy', 'false');
         startButton.removeAttribute('title');
         startButton.textContent = 'Start Exploration 🚀';
         startButton.style.cursor = 'pointer';

@@ -269,6 +269,7 @@ initWasm().then(async (wasmLoaded) => {
     if (startButton) {
         startButton.disabled = false;
         startButton.setAttribute('aria-disabled', 'false');
+        startButton.setAttribute('aria-busy', 'false');
         startButton.removeAttribute('title');
         startButton.innerHTML = 'Enter World <span aria-hidden="true">🍭</span> <span class="key-badge" aria-hidden="true">Enter</span>';
         startButton.focus();
@@ -353,6 +354,7 @@ initWasm().then(async (wasmLoaded) => {
                 // CRITICAL: Re-enable the button so that "Resume" works later (and checks in input.js pass)
                 startButton.disabled = false;
                 startButton.setAttribute('aria-disabled', 'false');
+                startButton.setAttribute('aria-busy', 'false');
                 startButton.removeAttribute('title');
                 startButton.style.background = ''; // Reset style
 
