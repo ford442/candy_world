@@ -493,15 +493,6 @@ export function initInput(
                 triggerAbility('dash', hudDash);
             }
         });
-        hudDash.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                e.stopPropagation();
-                if (hudDash.getAttribute('aria-disabled') !== 'true') {
-                    triggerAbility('dash');
-                }
-            }
-        });
         // Add keyboard activation for accessibility (Enter/Space)
         hudDash.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' || e.key === ' ') {
@@ -521,21 +512,13 @@ export function initInput(
                 triggerAbility('action', hudMine); // 'action' corresponds to Jitter Mine (KeyF)
             }
         });
+        // Add keyboard activation for accessibility (Enter/Space)
         hudMine.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
                 e.stopPropagation();
                 if (hudMine.getAttribute('aria-disabled') !== 'true') {
                     triggerAbility('action', hudMine);
-                }
-            }
-        });
-        hudMine.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                e.stopPropagation();
-                if (hudMine.getAttribute('aria-disabled') !== 'true') {
-                    triggerAbility('action');
                 }
             }
         });
@@ -548,21 +531,13 @@ export function initInput(
                 triggerAbility('phase', hudPhase);
             }
         });
+        // Add keyboard activation for accessibility (Enter/Space)
         hudPhase.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
                 e.stopPropagation();
                 if (hudPhase.getAttribute('aria-disabled') !== 'true') {
                     triggerAbility('phase', hudPhase);
-                }
-            }
-        });
-        hudPhase.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                e.stopPropagation();
-                if (hudPhase.getAttribute('aria-disabled') !== 'true') {
-                    triggerAbility('phase');
                 }
             }
         });
