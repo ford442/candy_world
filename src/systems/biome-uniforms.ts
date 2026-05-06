@@ -11,7 +11,8 @@
  *   BiomeUniforms.arpeggioGrove.shimmer.value = 0.75;
  */
 
-import { uniform } from 'three/tsl';
+import { uniform, texture, vec2 } from 'three/tsl';
+import { DataTexture, RGBAFormat, FloatType, Color, NearestFilter, LinearFilter } from 'three';
 
 export const BiomeUniforms = {
     /**
@@ -36,3 +37,49 @@ export const BiomeUniforms = {
         amplitudeScale: uniform(1.0),
     },
 } as const;
+
+// ---------------------------------------------------------------------------
+// Sky / Moon note-colour uniforms (Moon Dance feature)
+// ---------------------------------------------------------------------------
+
+/**
+ * TSL uniforms for the note-driven sky/moon hue shift.
+ * Created once at module init — mutate .value only each frame.
+ *
+ * noteIndex : float 0–127, maps into skyLutData; GPU normalises to UV [0,1].
+ * intensity : float 0–1, mix factor between base sky/moon colour and note colour.
+ *             Set to 0 during daytime so the feature has zero impact on day scenes.
+ */
+export const SkyUniforms = {
+    noteIndex: uniform(0.0),
+    intensity: uniform(0.0),
+} as const;
+
+/**
+ * 128-slot RGBA-float LUT: maps note index → HSL hue colour.
+ * Shared between GPU DataTexture (skyNoteColorNode) and CPU moon lerp.
+ *
+ * Slot i  →  HSL(i/128, 0.9, 0.5)
+ */
+export const skyLutData = new Float32Array(128 * 4);
+(function buildSkyLut() {
+    const c = new Color();
+    for (let i = 0; i < 128; i++) {
+        c.setHSL(i / 128, 0.9, 0.5);
+        skyLutData[i * 4 + 0] = c.r;
+        skyLutData[i * 4 + 1] = c.g;
+        skyLutData[i * 4 + 2] = c.b;
+        skyLutData[i * 4 + 3] = 1.0;
+    }
+})();
+
+const _skyLutTex = new DataTexture(skyLutData, 128, 1, RGBAFormat, FloatType);
+_skyLutTex.minFilter = NearestFilter;
+_skyLutTex.magFilter = LinearFilter;
+_skyLutTex.needsUpdate = true;
+
+/**
+ * TSL node: samples the note-colour LUT for the current SkyUniforms.noteIndex.
+ * Safe to use in both the sky dome colorNode and the moon emissiveNode.
+ */
+export const skyNoteColorNode = texture(_skyLutTex, vec2(SkyUniforms.noteIndex.div(127.0), 0.5)).rgb;
