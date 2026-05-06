@@ -230,6 +230,9 @@ initWasm().then(async (wasmLoaded) => {
     loadingScreen.updateProgress(70, 'Positioning player...');
     const initialGroundY = getUnifiedGroundHeightTyped(camera.position.x, camera.position.z, getGroundHeight);
     camera.position.y = initialGroundY + 1.8;
+    // ⚡ FIX: Sync player explicitly to prevent a massive camera swoop frame 1
+    player.position.copy(camera.position);
+    player.velocity.set(0, 0, 0);
     console.log(`[Startup] Camera positioned at ground height: y=${camera.position.y.toFixed(2)}`);
 
     loadingScreen.updateProgress(100, 'Physics engine ready');

@@ -183,9 +183,6 @@ export function triggerHarpoon(anchor: THREE.Vector3) {
 
 // Main Physics Update Loop
 export function updatePhysics(delta: number, camera: THREE.Camera, controls: any, keyStates: KeyStates, audioState: AudioState) {
-    // 0. Sync Player State with Camera
-    player.position.copy(camera.position);
-
     // 1. Update Global Environmental Modifiers (Wind, Groove)
     updateEnvironmentalModifiers(delta, audioState);
 
@@ -250,7 +247,10 @@ export function updatePhysics(delta: number, camera: THREE.Camera, controls: any
     }
 
     // Sync back
-    camera.position.copy(player.position);
+    camera.position.x = player.position.x;
+    camera.position.z = player.position.z;
+    // 🎨 PALETTE: Smooth vertical tracking (LERP) for better game feel
+    camera.position.y = THREE.MathUtils.lerp(camera.position.y, player.position.y, Math.min(delta * 15.0, 1.0));
 }
 
 function checkFloraDiscovery(playerPos: THREE.Vector3) {
