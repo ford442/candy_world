@@ -62,5 +62,9 @@ Three.js Renderer -> WebGPU RenderPipeline (Raw Draw Calls)
 
 ## Next Steps
 
-1. **Foliage Growth & Rain-Driven Spreading**
+1. **Foliage Growth & Rain-Driven Spreading** (Status: Implemented ✅)
+   - Implementation Details: Added rain-driven spawning logic in `weather-ecosystem.ts` (`handleSpawning`) triggering `spawnNearbyFoliage`.
    - Foliage can spread into empty areas during/after rain according to local spawning rules.
+
+2. **Moon Dance & Note-Color Reactivity**
+   - The Moon visually reacts to specific notes and beat phases, utilizing TSL uniforms for color shifts and zero-allocation CPU logic for note-to-color mapping.

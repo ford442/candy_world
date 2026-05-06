@@ -3,6 +3,8 @@ import { color, vec3, sin, cos, uniform, mix, positionLocal, UniformNode, smooth
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { attachReactivity, CandyPresets, uAudioLow, uAudioHigh, uTime, createJuicyRimLight } from './index.ts';
 import { VisualState } from '../audio/audio-system.ts';
+import { BiomeUniforms } from '../systems/biome-uniforms.ts';
+import { BiomeUniforms } from '../systems/biome-uniforms.ts';
 
 // Moon Configuration
 export const moonConfig = {
@@ -39,10 +41,10 @@ export function createMoon(): THREE.Group {
     const breathing = sin(uTime.mul(2.0)).mul(0.1).add(0.9); // Idle breathing 0.8-1.0
     const activeGlow = breathing.add(bassPulse);
 
-    // 2. Melody Color Shift (High Frequency)
-    // Shifts towards a neon magenta/cyan on high energy notes
-    const magicColor = color(0xFF00FF); // Magenta
-    const melodyShift = smoothstep(0.3, 1.0, uAudioHigh).pow(float(1.5)).mul(0.6);
+    // 2. Note-Color Reactivity (SkyMoon BiomeUniforms)
+    // The moon smoothly shifts to the active note's color based on intensity
+    const magicColor = BiomeUniforms.skyMoon.moonNoteColor;
+    const melodyShift = BiomeUniforms.skyMoon.moonIntensity.mul(0.8); // 0-0.8 blend
     const audioColor = mix(baseColor, magicColor, melodyShift);
 
     mat.colorNode = audioColor;

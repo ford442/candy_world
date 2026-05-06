@@ -12,7 +12,7 @@ Format: - [ ] Short description (optional: more context on next line indented)
 Routine will mark picked items as "[in progress — YYYY-MM-DD]".
 -->
 - [ ] **Three.js ColorSpace enum regression** — In `src/core/init.js` we fall back to string literals (`'display-p3'`, `'srgb'`) for `outputColorSpace` because `THREE.DisplayP3ColorSpace` / `THREE.SRGBColorSpace` produced TS/build warnings with the current `three` version. When updating Three.js, revert to the proper enum.
-- [in progress — 2026-05-05] **Planning Debt — archive completed plan files** — Review and prune `plan.md`, `IMPLEMENTATION_PLAN_MUSICAL_ECOSYSTEM.md`, and the 30+ other `*.md` planning/summary docs at repo root. Practically all listed features/migrations are currently marked 'Implemented' — keep what's still live, archive the rest under `docs/archive/`.
+- [x] **2026-05-05** **Planning Debt — archive completed plan files** — Review and prune `plan.md`, `IMPLEMENTATION_PLAN_MUSICAL_ECOSYSTEM.md`, and the 30+ other `*.md` planning/summary docs at repo root. Practically all listed features/migrations are currently marked 'Implemented' — keep what's still live, archive the rest under `docs/archive/`.
 
 ## Backlog
 <!--
