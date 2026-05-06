@@ -9,5 +9,9 @@
       "shimmer": [1, 2],
       "amplitudeScale": [0, 1]
     }
+  },
+  "sky_moon": {
+    "melody_channel": 2,
+    "base_moon_intensity": 1.5
   }
 }
