@@ -12,7 +12,7 @@
  */
 
 import { uniform, texture, vec2 } from 'three/tsl';
-import { DataTexture, RGBAFormat, FloatType, Color, NearestFilter, LinearFilter } from 'three';
+import { DataTexture, RGBAFormat, FloatType, Color, NearestFilter } from 'three';
 
 export const BiomeUniforms = {
     /**
@@ -75,11 +75,13 @@ export const skyLutData = new Float32Array(128 * 4);
 
 const _skyLutTex = new DataTexture(skyLutData, 128, 1, RGBAFormat, FloatType);
 _skyLutTex.minFilter = NearestFilter;
-_skyLutTex.magFilter = LinearFilter;
+_skyLutTex.magFilter = NearestFilter;
 _skyLutTex.needsUpdate = true;
 
 /**
  * TSL node: samples the note-colour LUT for the current SkyUniforms.noteIndex.
+ * UV uses pixel-centre addressing: (noteIndex + 0.5) / 128 keeps sampling
+ * strictly within the 128-slot range and avoids edge/wrap artefacts.
  * Safe to use in both the sky dome colorNode and the moon emissiveNode.
  */
-export const skyNoteColorNode = texture(_skyLutTex, vec2(SkyUniforms.noteIndex.div(127.0), 0.5)).rgb;
+export const skyNoteColorNode = texture(_skyLutTex, vec2(SkyUniforms.noteIndex.add(0.5).div(128.0), 0.5)).rgb;

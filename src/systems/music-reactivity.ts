@@ -27,7 +27,11 @@ let _nebulaAmplitudeAccum = 0.0;
 
 // ⚡ OPTIMIZATION: Sky/Moon note reactivity scratch — allocated once, never in hot path.
 // melody_channel from assets/music-bindings.json sky_moon block.
-const _skyMoonCh: number = (musicBindings as any).sky_moon.melody_channel as number;
+const _skyMoonConfig = (musicBindings as any).sky_moon;
+if (!_skyMoonConfig || typeof _skyMoonConfig.melody_channel !== 'number') {
+    throw new Error('[MusicReactivity] Missing or invalid sky_moon.melody_channel in music-bindings.json');
+}
+const _skyMoonCh: number = _skyMoonConfig.melody_channel as number;
 let _smoothedSkyIntensity = 0.0;
 // Last valid note index (0–127) kept across frames to avoid flicker when channel is silent.
 let _lastSkyNoteIndex = 0.0;
@@ -404,12 +408,14 @@ export class MusicReactivitySystem {
                     const noteName = noteStr.replace(/[0-9-]/g, '');
                     const chromaticIdx = CHROMATIC_SCALE.indexOf(noteName);
                     if (chromaticIdx >= 0) {
-                        // Map 0–11 → 0–127 for the 128-slot LUT
-                        _lastSkyNoteIndex = (chromaticIdx / 11) * 127;
+                        // Map 12 chromatic notes evenly across 128 LUT slots.
+                        // Using floor((idx / 12) * 128) gives slots 0,10,21,...,117 for C–B.
+                        _lastSkyNoteIndex = Math.min(Math.floor((chromaticIdx / 12) * 128), 127);
                     }
                 }
 
-                // One-pole smoothing — eliminates staccato strobe on note-on events.
+                // One-pole IIR smoothing — eliminates staccato strobe on note-on events.
+                // Time constant ≈ 1/12 s (~83 ms): fast enough to track melody, slow enough to avoid flicker.
                 _smoothedSkyIntensity += (rawVolume - _smoothedSkyIntensity) * (1.0 - Math.exp(-deltaTime * 12.0));
             } else {
                 // No channel data — decay intensity to zero smoothly.
