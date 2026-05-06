@@ -1,8 +1,8 @@
 # candy_world — Weekly Plan
 
 ## Today's focus
-**2026-05-05 — User Idea: Planning Debt — audit and archive completed plan docs at repo root.**
-44 `.md` files at the repository root, the majority with features marked "Implemented ✅". This clutter increases context cost for every AI agent session and slows Noah's own navigation. Today: categorise all root `.md` files (keep / archive / delete), move completed docs to `docs/archive/`, and leave only live, actively-referenced docs at root. No code changes — pure repo hygiene.
+**2026-05-05 — User Idea (continuation): Planning Debt — complete archival of root `.md` docs.**
+Previous run set this focus but kimi-cli did not complete the archival (no `docs/archive/` created, all 44 files still at root). Today's run re-launches the swarm with a concrete per-file categorisation spec. Outcome goal: ≤10 live docs at root, ~30 archived under `docs/archive/`, `docs/archive/INDEX.md` written.
 
 ## Ideas
 <!--
@@ -40,7 +40,7 @@ Prune occasionally when this gets long.
 
 ## Last run
 <!-- Routine writes summary here each run. Overwrites previous. -->
-Date: 2026-05-05
-Mode: User Idea
-Focus: Planning Debt — audit and archive 44 root-level `.md` docs (most marked "Implemented ✅").
-Outcome: TBD — kimi-cli swarm running.
+Date: 2026-05-05 (re-run / continuation)
+Mode: User Idea — Planning Debt (continuation; previous run produced no archive)
+Focus: Complete archival of 44 root `.md` files → docs/archive/. kimi-cli re-launched with per-file categorisation spec. GitHub issue drafted for Moon Dance note-colour sky reactivity (next feature, decoupled).
+Outcome: TBD
