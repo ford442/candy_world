@@ -343,8 +343,8 @@ export class SaveMenu {
                 <div class="candy-io-area__label" id="import-label">Import Save Data</div>
                 <textarea class="candy-textarea" id="import-area" placeholder="Paste save data here or upload a file..." aria-labelledby="import-label" spellcheck="false"></textarea>
                 <div class="candy-save-menu__actions" style="margin-top: 15px;">
-                    <input type="file" class="candy-file-input" id="import-file" accept=".json,.txt">
-                    <label for="import-file" class="candy-file-label"><span aria-hidden="true">📁</span> Choose File</label>
+                    <input type="file" class="candy-file-input" id="import-file" accept=".json,.txt" tabindex="-1">
+                    <button type="button" class="candy-save-menu__btn candy-save-menu__btn--primary" id="import-file-btn"><span aria-hidden="true">📁</span> Choose File</button>
                     <button class="candy-save-menu__btn candy-save-menu__btn--primary" data-action="import-data">
                         <span aria-hidden="true">📥</span> Import Data
                     </button>
@@ -422,6 +422,11 @@ export class SaveMenu {
         // File input
         const fileInput = this.container.querySelector('#import-file') as HTMLInputElement;
         fileInput?.addEventListener('change', (e) => this.handleFileSelect(e));
+
+        const fileBtn = this.container.querySelector('#import-file-btn') as HTMLButtonElement;
+        if (fileBtn && fileInput) {
+            fileBtn.addEventListener('click', () => fileInput.click());
+        }
     }
 
     private handleKeydown(e: KeyboardEvent): void {
