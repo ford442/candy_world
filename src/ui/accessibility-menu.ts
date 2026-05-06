@@ -1157,15 +1157,15 @@ export class AccessibilityMenu {
       return;
     }
 
-    // ♿ Aria: Keyboard navigation for Tabs (Up/Down Arrows)
-    if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+    // ♿ Aria: Keyboard navigation for Tabs (Up/Down/Left/Right Arrows)
+    if (event.key === 'ArrowUp' || event.key === 'ArrowDown' || event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
         const activeElement = document.activeElement as HTMLElement;
         if (activeElement && activeElement.getAttribute('role') === 'tab') {
             event.preventDefault();
             const tabs = Array.from(this.container?.querySelectorAll('[role="tab"]') || []) as HTMLElement[];
             const currentIndex = tabs.indexOf(activeElement);
             if (currentIndex >= 0) {
-                let nextIndex = event.key === 'ArrowDown' ? currentIndex + 1 : currentIndex - 1;
+                let nextIndex = (event.key === 'ArrowDown' || event.key === 'ArrowRight') ? currentIndex + 1 : currentIndex - 1;
                 if (nextIndex >= tabs.length) nextIndex = 0;
                 if (nextIndex < 0) nextIndex = tabs.length - 1;
 
@@ -1253,6 +1253,14 @@ export class AccessibilityMenu {
         const firstFocusable = this.container?.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])') as HTMLElement;
         if (firstFocusable) firstFocusable.focus();
       }
+    }
+
+    // Re-establish focus trap after rendering new DOM
+    if (this.container) {
+      if (this.releaseFocusTrap) {
+        this.releaseFocusTrap();
+      }
+      this.releaseFocusTrap = trapFocusInside(this.container);
     }
   }
 
