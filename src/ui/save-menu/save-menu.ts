@@ -129,8 +129,6 @@ export class SaveMenu {
         // Load slots
         await this.refreshSlots();
         this.render();
-
-        this.releaseFocusTrap = trapFocusInside(this.container);
     }
 
     /**
@@ -252,6 +250,12 @@ export class SaveMenu {
                 if (firstFocusable) firstFocusable.focus();
             }
         }
+
+        // Re-establish focus trap after rendering new DOM
+        if (this.releaseFocusTrap) {
+            this.releaseFocusTrap();
+        }
+        this.releaseFocusTrap = trapFocusInside(this.container);
     }
 
     private getTabs(): { id: MenuTab; label: string; icon: string }[] {
