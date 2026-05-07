@@ -38,3 +38,9 @@ This directory contains completed and historical planning documents that are no 
 | plan-addMoreFlowersTreesClouds.prompt.md | Plan for musical ecosystem & atmospheric additions |
 | prune_branches.md | Branch pruning notes and instructions |
 | webgpu-extend.md | WebGPU clip-distances extension notes |
+| PLAN_LAKE_ISLAND_CREEK.md | Lake, Island & Creek |
+| PLAN_LUMINOUS_PLANT_SCENIC_SYSTEM.md | Luminous Plant Scenic System |
+| PLAN_MOD_DRIVEN_MAPPING.md | MOD-Driven Mapping |
+| PLAN_PLANTS_TWILIGHT_GLOW.md | Plants Twilight Glow |
+| PLAN_MOON_MUSIC_REACTIVITY.md | Moon Dance & Note-Color Reactivity |
+| PLAN_FOLIAGE_GROWTH.md | Foliage Growth & Rain-Driven Spreading |
