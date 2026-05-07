@@ -38,6 +38,8 @@ export interface PlayerExtended extends CorePlayerState {
         active: boolean;
         anchor: THREE.Vector3;
     };
+    climbTarget: THREE.Object3D | null;
+    climbTopY: number;
 }
 
 // --- Configuration ---
@@ -94,7 +96,9 @@ export const player: PlayerExtended = {
     harpoon: {
         active: false,
         anchor: new THREE.Vector3()
-    }
+    },
+    climbTarget: null,
+    climbTopY: 0
 };
 
 // Internal input tracking for edge detection
@@ -104,7 +108,8 @@ export const _lastInputState = {
     dodgeRoll: false,
     dance: false,
     phase: false,
-    clap: false
+    clap: false,
+    forward: false
 };
 
 // Global physics modifiers (Musical Ecosystem)
@@ -145,3 +150,5 @@ export const foliageCaves: THREE.Object3D[] = [];
 export function setCppPhysicsInitialized(value: boolean) {
     cppPhysicsInitialized = value;
 }
+
+export const _scratchMatrix = new THREE.Matrix4();

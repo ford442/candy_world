@@ -3,6 +3,8 @@
  * Displays a temporary notification to the user
  */
 
+import { announce } from '../ui/announcer.ts';
+
 /**
  * Shows a toast notification
  * @param message - The message to display
@@ -10,6 +12,7 @@
  * @param duration - How long to show in ms (default: 4000)
  */
 export function showToast(message: string, icon: string = '✨', duration: number = 4000): void {
+    announce(message, 'polite');
     const toast = document.getElementById('now-playing-toast');
     const toastText = document.getElementById('now-playing-text') as HTMLElement | null;
 

@@ -6,7 +6,7 @@ import {
     storage, instanceIndex, Fn, If, exp, vec4, uniform, rotate
 } from 'three/tsl';
 import { foliageClouds, foliageGeysers, foliageTraps } from '../world/state.ts';
-import { createCandyMaterial, uTime, uAudioHigh, createJuicyRimLight } from '../foliage/index.ts';
+import { createCandyMaterial, uTime, uAudioHigh, createJuicyRimLight } from '../foliage/material-core.ts';
 import { getCelestialState } from '../core/cycle.ts';
 import { spawnImpact } from '../foliage/impacts.ts';
 import { unlockSystem } from '../systems/unlocks.ts';
@@ -86,7 +86,7 @@ class ProjectilePool {
 
         // 2. Plasma Displacement (Wobble)
         // Scroll noise vertically + rotate?
-        const plasmaTime = uTime.mul(float(3.0));
+        const plasmaTime = uTime ? uTime.mul(float(3.0)) : float(0.0);
         const noisePos = positionLocal.mul(float(2.0)).add(vec3(0.0, plasmaTime, 0.0));
         const plasmaNoise = mx_noise_float(noisePos);
 
@@ -95,11 +95,12 @@ class ProjectilePool {
 
         // 3. Audio Pulse (Size)
         // Expand on high frequencies (melody/snare)
-        const audioPulse = uAudioHigh.mul(float(0.3)).add(float(1.0));
+        const audioPulse = uAudioHigh ? uAudioHigh.mul(float(0.3)).add(float(1.0)) : float(1.0);
 
         // Apply spinning rotation ("Juice")
         const spinAxis = normalize(vec3(1.0, 0.0, 1.0));
-        const spunPosition = rotate(positionLocal, spinAxis, uTime.mul(float(5.0)));
+        const spunTime = uTime ? uTime.mul(float(5.0)) : float(0.0);
+        const spunPosition = rotate(positionLocal, spinAxis, spunTime);
 
         // Apply Total Deformation based on compute shader scale and position
         mat.positionNode = spunPosition.add(displacement).mul(audioPulse).mul(scaleAttr).add(instancePos);
@@ -109,13 +110,13 @@ class ProjectilePool {
 
         // 4. Juicy Rim Light & Glow
         // Strong rim light for energy feel
-        const rim = createJuicyRimLight(baseColor, float(2.0), float(3.0), null);
+        // Temporarily omit to prevent circular audio uniform deps on initial instantiation
 
         // Inner Glow (Emissive)
         // Pulsate the core brightness with audio
-        const coreGlow = baseColor.mul(float(0.5).add(uAudioHigh.mul(0.5)));
+        const coreGlow = uAudioHigh ? baseColor.mul(float(0.5).add(uAudioHigh.mul(0.5))) : baseColor.mul(float(0.5));
 
-        mat.emissiveNode = coreGlow.add(rim);
+        mat.emissiveNode = coreGlow;
 
         this.mesh = new THREE.InstancedMesh(geo, mat, MAX_PROJECTILES);
 
@@ -433,15 +434,34 @@ class ProjectilePool {
 }
 
 // Global Pool Instance
-const projectilePool = new ProjectilePool();
+let _projectilePool: ProjectilePool | null = null;
+const projectilePool = new Proxy({} as ProjectilePool, {
+    get: (target, prop) => {
+        if (!_projectilePool) {
+            _projectilePool = new ProjectilePool();
+        }
+        return (_projectilePool as any)[prop];
+    },
+    set: (target, prop, value) => {
+        if (!_projectilePool) {
+            _projectilePool = new ProjectilePool();
+        }
+        (_projectilePool as any)[prop] = value;
+        return true;
+    }
+});
+function getProjectilePool(): ProjectilePool {
+    return projectilePool as ProjectilePool;
+}
+
 let initialized = false;
 
 export function fireRainbow(scene: THREE.Scene, origin: THREE.Vector3, direction: THREE.Vector3) {
     if (!initialized) {
-        projectilePool.addToScene(scene);
+        getProjectilePool().addToScene(scene);
         initialized = true;
     }
-    projectilePool.fire(origin, direction);
+    getProjectilePool().fire(origin, direction);
 }
 
 export function updateBlaster(dt: number, scene: THREE.Scene, weatherSystem: any, currentTime: number, renderer?: THREE.WebGLRenderer) {
@@ -450,9 +470,9 @@ export function updateBlaster(dt: number, scene: THREE.Scene, weatherSystem: any
 
     // Ensure pool is in scene (safety)
     if (!initialized) {
-         projectilePool.addToScene(scene);
+         getProjectilePool().addToScene(scene);
          initialized = true;
     }
 
-    projectilePool.update(dt, scene, weatherSystem, isDay, renderer);
+    getProjectilePool().update(dt, scene, weatherSystem, isDay, renderer);
 }

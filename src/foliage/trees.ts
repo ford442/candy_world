@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { foliageMaterials, registerReactiveMaterial, attachReactivity, pickAnimation, createClayMaterial, createGradientMaterial, sharedGeometries, uAudioLow, uWindSpeed, calculatePlayerPush, createStandardNodeMaterial, createJuicyRimLight } from './index.ts';
+import { foliageMaterials, registerReactiveMaterial, attachReactivity, pickAnimation, createClayMaterial, createGradientMaterial, sharedGeometries, uAudioLow, uWindSpeed, calculatePlayerPush, createStandardNodeMaterial, createJuicyRimLight, getCachedProceduralMaterial } from './index.ts';
 import { color as tslColor, mix, float, sin, cos, vec3, positionLocal, positionWorld, time, normalWorld } from 'three/tsl';
 import { uTwilight } from './sky.ts';
 import { createBerryCluster } from './berries.ts';
@@ -46,6 +46,11 @@ export interface FiberOpticWillowOptions {
 }
 
 export interface SwingableVineOptions {
+    length?: number;
+    color?: number;
+}
+
+export interface VineLadderOptions {
     length?: number;
     color?: number;
 }
@@ -632,8 +637,12 @@ export function createSwingableVine(options: SwingableVineOptions = {}): THREE.G
     const segmentCount = 8;
     const segLen = length / segmentCount;
 
+    const vineMat = getCachedProceduralMaterial(`swingable_vine_${color}`, color, () => {
+        return createClayMaterial(color);
+    });
+
     for (let i = 0; i < segmentCount; i++) {
-        const mat = createClayMaterial(color);
+        const mat = vineMat;
         const segmentGroup = new THREE.Group();
         segmentGroup.position.y = -i * segLen;
 
@@ -666,6 +675,66 @@ export function createSwingableVine(options: SwingableVineOptions = {}): THREE.G
     group.userData.type = 'vine';
     group.userData.isSwingable = true;
     group.userData.vineLength = length;
+
+    return group;
+}
+
+export function createVineLadder(options: VineLadderOptions = {}): THREE.Group {
+    const { length = 10, color = 0x2E8B57 } = options;
+    const group = new THREE.Group();
+
+    const segmentCount = 10;
+    const segLen = length / segmentCount;
+
+    const vineMat = getCachedProceduralMaterial(`vine_ladder_${color}`, color, () => {
+        return createClayMaterial(color);
+    });
+
+    for (let i = 0; i < segmentCount; i++) {
+        const segmentGroup = new THREE.Group();
+        segmentGroup.position.y = -i * segLen;
+
+        const mesh = new THREE.Mesh(sharedGeometries.cylinderLow, vineMat);
+        mesh.scale.set(0.12, segLen, 0.12);
+        mesh.position.y = -segLen / 2;
+        mesh.rotation.z = (Math.random() - 0.5) * 0.05;
+        mesh.rotation.x = (Math.random() - 0.5) * 0.05;
+
+        segmentGroup.add(mesh);
+
+        // Add rungs every other segment for ladder look
+        if (i % 2 === 0) {
+            const rungGeo = new THREE.CylinderGeometry(0.04, 0.04, 0.6, 6);
+            rungGeo.rotateZ(Math.PI / 2);
+            const rung = new THREE.Mesh(rungGeo, vineMat);
+            rung.position.y = -segLen * 0.5;
+            segmentGroup.add(rung);
+        }
+
+        // Occasional leaf
+        if (Math.random() > 0.5) {
+             const leaf = createLeafParticle({ color: 0x32CD32 });
+             leaf.position.y = -segLen * 0.5;
+             leaf.position.x = 0.12;
+             leaf.rotation.z = Math.PI / 4;
+             segmentGroup.add(leaf);
+        }
+
+        group.add(segmentGroup);
+    }
+
+    // Climbable hitbox (invisible)
+    const hitGeo = new THREE.CylinderGeometry(0.6, 0.6, length, 8);
+    hitGeo.translate(0, -length / 2, 0);
+    const hitMat = new THREE.MeshBasicMaterial({ color: 0x00FF00, wireframe: true, visible: false });
+    const hitbox = new THREE.Mesh(hitGeo, hitMat);
+    hitbox.userData.isClimbable = true;
+    group.add(hitbox);
+
+    group.userData.type = 'vine_ladder';
+    group.userData.isClimbable = true;
+    group.userData.vineLength = length;
+    group.userData.interactionText = '🪜 Climb';
 
     return group;
 }

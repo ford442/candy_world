@@ -342,26 +342,26 @@ export const DEFAULT_ENTITY_TEMPLATES: EntityTemplate[] = [
     { type: 'mushroom', minRadius: 2, maxRadius: 4, scaleRange: [0.8, 1.5], elevationAdapt: true, biomes: ['meadow', 'forest', 'cave'] },
     { type: 'starflower', minRadius: 1.5, maxRadius: 3, scaleRange: [0.7, 1.0], elevationAdapt: true, biomes: ['meadow', 'forest'] },
     { type: 'tremolo_tulip', minRadius: 1.2, maxRadius: 2.5, scaleRange: [0.8, 1.2], elevationAdapt: true, biomes: ['meadow', 'lake'] },
-    { type: 'vibrato_violet', minRadius: 1, maxRadius: 2, scaleRange: [0.7, 1.0], elevationAdapt: true, biomes: ['meadow', 'forest'] },
+    { type: 'vibrato_violet', minRadius: 1, maxRadius: 2, scaleRange: [0.7, 1.0], elevationAdapt: true, biomes: ['meadow', 'forest', 'crystallineNebula'] },
     { type: 'balloon_bush', minRadius: 3, maxRadius: 5, scaleRange: [0.9, 1.4], elevationAdapt: true, biomes: ['meadow', 'forest'] },
     
     // Forest entities
     { type: 'portamento_pine', minRadius: 4, maxRadius: 8, scaleRange: [0.8, 1.5], elevationAdapt: true, biomes: ['forest', 'mountain'] },
     { type: 'bubble_willow', minRadius: 5, maxRadius: 10, scaleRange: [0.9, 1.6], elevationAdapt: true, biomes: ['forest', 'lake'] },
     { type: 'fiber_optic_willow', minRadius: 4, maxRadius: 7, scaleRange: [0.8, 1.3], elevationAdapt: true, biomes: ['forest', 'cave', 'neonCorruption'] },
-    { type: 'arpeggio_fern', minRadius: 1.5, maxRadius: 3, scaleRange: [0.7, 1.2], elevationAdapt: true, biomes: ['forest'] },
+    { type: 'arpeggio_fern', minRadius: 1.5, maxRadius: 3, scaleRange: [0.7, 1.2], elevationAdapt: true, biomes: ['forest', 'crystallineNebula'] },
     { type: 'prism_rose_bush', minRadius: 2, maxRadius: 4, scaleRange: [0.8, 1.3], elevationAdapt: true, biomes: ['forest', 'meadow'] },
     { type: 'wisteria_cluster', minRadius: 3, maxRadius: 6, scaleRange: [0.8, 1.4], elevationAdapt: true, biomes: ['forest'] },
     { type: 'helix_plant', minRadius: 1.5, maxRadius: 3, scaleRange: [0.7, 1.1], elevationAdapt: true, biomes: ['forest', 'cave', 'neonCorruption'] },
-    { type: 'snare_trap', minRadius: 2, maxRadius: 4, scaleRange: [0.8, 1.0], elevationAdapt: true, biomes: ['forest', 'cave'] },
+    { type: 'snare_trap', minRadius: 2, maxRadius: 4, scaleRange: [0.8, 1.0], elevationAdapt: true, biomes: ['forest', 'cave', 'crystallineNebula'] },
     
     // Lake entities
-    { type: 'subwoofer_lotus', minRadius: 3, maxRadius: 6, scaleRange: [0.8, 1.3], elevationAdapt: true, yOffset: -0.5, biomes: ['lake'] },
+    { type: 'subwoofer_lotus', minRadius: 3, maxRadius: 6, scaleRange: [0.8, 1.3], elevationAdapt: true, yOffset: -0.5, biomes: ['lake', 'crystallineNebula'] },
     { type: 'accordion_palm', minRadius: 4, maxRadius: 8, scaleRange: [0.9, 1.5], elevationAdapt: true, biomes: ['lake', 'meadow'] },
     
     // Mountain entities
     { type: 'cymbal_dandelion', minRadius: 2, maxRadius: 4, scaleRange: [0.7, 1.1], elevationAdapt: true, biomes: ['mountain'] },
-    { type: 'kick_drum_geyser', minRadius: 5, maxRadius: 10, scaleRange: [0.9, 1.4], elevationAdapt: true, biomes: ['mountain', 'neonCorruption'] },
+    { type: 'kick_drum_geyser', minRadius: 5, maxRadius: 10, scaleRange: [0.9, 1.4], elevationAdapt: true, biomes: ['mountain', 'neonCorruption', 'crystallineNebula'] },
     
     // Cave entities
     { type: 'floating_orb', minRadius: 3, maxRadius: 6, scaleRange: [0.8, 1.5], elevationAdapt: true, yOffset: 1, biomes: ['cave', 'neonCorruption', 'mountain'] },

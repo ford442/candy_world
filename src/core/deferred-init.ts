@@ -16,6 +16,7 @@ import { initCelestialBodies } from '../foliage/celestial-bodies.ts';
 import { createFluidFog } from '../foliage/fluid_fog.ts';
 import { createMushroom } from '../foliage/mushrooms.ts';
 import { jitterMineSystem } from '../gameplay/jitter-mines.ts';
+import { chordStrikeSystem } from '../gameplay/chord-strike.ts';
 import { createHarpoonLine } from '../gameplay/harpoon-line.ts';
 import { fireRainbow } from '../gameplay/rainbow-blaster.ts';
 import { animatedFoliage } from '../world/state.ts';
@@ -73,11 +74,7 @@ export function initDeferredVisuals() {
         sceneRef.add(aurora);
         harmonyOrbSystem.addToScene(sceneRef); // Add Harmony Orbs
         // Note: chordStrikeSystem is imported and used directly, no need to add here
-        import('../gameplay/chord-strike.ts').then(({ chordStrikeSystem }) => {
-            if (sceneRef) {
-                chordStrikeSystem.addToScene(sceneRef);
-            }
-        });
+        chordStrikeSystem.addToScene(sceneRef);
         console.log('[Deferred] Aurora & Systems initialized');
     }
 
@@ -142,7 +139,7 @@ export function initDeferredVisuals() {
         };
     }
 
-    if (!jitterMineSystem.mesh.parent) {
+    if (jitterMineSystem.mesh && !jitterMineSystem.mesh.parent) {
         sceneRef.add(jitterMineSystem.mesh);
         console.log('[Deferred] Jitter Mine System initialized');
     }
@@ -206,6 +203,17 @@ export function runDeferredWarmup(
         }
 
         scene.remove(dummyGroup);
+        dummyGroup.traverse((child: THREE.Object3D) => {
+            const mesh = child as THREE.Mesh;
+            if (mesh.geometry) mesh.geometry.dispose();
+            if (mesh.material) {
+                if (Array.isArray(mesh.material)) {
+                    mesh.material.forEach((m: THREE.Material) => m.dispose());
+                } else {
+                    (mesh.material as THREE.Material).dispose();
+                }
+            }
+        });
 
         console.log('[Deferred] Shader compilation complete');
         endPhase('Shader Warmup');

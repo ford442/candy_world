@@ -37,6 +37,8 @@ import {
 
 const _scratchBox3 = new THREE.Box3();
 const _scratchSphere = new THREE.Sphere(); // ⚡ OPTIMIZATION: Scratch sphere for culling tests
+const _scratchVisibleObjects: CullableObject[] = []; // ⚡ OPTIMIZATION: Module-level scratch array
+const _scratchObjectsByType: CullableObject[] = []; // ⚡ OPTIMIZATION: Module-level scratch array
 
 // ============================================================================
 // MAIN CULLING SYSTEM
@@ -479,12 +481,26 @@ export class CullingSystem {
 
     /** Get all visible objects */
     getVisibleObjects(): CullableObject[] {
-        return Array.from(this.objects.values()).filter(obj => obj.visible);
+        // ⚡ OPTIMIZATION: Eliminate Array.from().filter() to prevent GC spikes
+        _scratchVisibleObjects.length = 0;
+        for (const obj of this.objects.values()) {
+            if (obj.visible) {
+                _scratchVisibleObjects.push(obj);
+            }
+        }
+        return _scratchVisibleObjects;
     }
 
     /** Get all objects of a specific type */
     getObjectsByType(entityType: EntityType): CullableObject[] {
-        return Array.from(this.objects.values()).filter(obj => obj.entityType === entityType);
+        // ⚡ OPTIMIZATION: Eliminate Array.from().filter() to prevent GC spikes
+        _scratchObjectsByType.length = 0;
+        for (const obj of this.objects.values()) {
+            if (obj.entityType === entityType) {
+                _scratchObjectsByType.push(obj);
+            }
+        }
+        return _scratchObjectsByType;
     }
 
     /** Clear all registered objects */

@@ -10,7 +10,8 @@ import {
   GRID_COLS,
   GRID_ROWS,
   GRID_ORIGIN_X,
-  GRID_ORIGIN_Z
+  GRID_ORIGIN_Z,
+  DYNAMIC_RADII_OFFSET
 } from "./constants";
 
 import { getGroundHeight } from "./math";
@@ -20,6 +21,7 @@ const TYPE_MUSHROOM = 1;   // Platform (Cylinder-like)
 const TYPE_CLOUD = 2;      // Platform (Box/Cylinder)
 const TYPE_GATE = 3;       // Horizontal Blocker (Cylinder)
 const TYPE_TRAMPOLINE = 4; // Bouncy Platform
+const TYPE_DYNAMIC_FERN = 5; // Dynamic Plant (Arpeggio Fern, etc.)
 
 // Player Constants
 const PLAYER_HEIGHT: f32 = 1.8;
@@ -27,6 +29,14 @@ const PLAYER_RADIUS: f32 = 0.5;
 
 // Global collision count
 let collisionObjectCount: i32 = 0;
+
+export function initDynamicFoliageMemory(maxInstances: i32): i32 {
+  // Clear dynamic radii block
+  for (let i = 0; i < maxInstances; i++) {
+    store<f32>(DYNAMIC_RADII_OFFSET + (i * 4), 0.0);
+  }
+  return DYNAMIC_RADII_OFFSET;
+}
 
 export function initCollisionSystem(): void {
   collisionObjectCount = 0;
@@ -203,7 +213,7 @@ export function resolveGameCollisions(kickTrigger: f32): i32 {
             }
           }
         }
-        // --- PLATFORMS (Mushroom / Cloud) ---
+        // --- PLATFORMS (Mushroom / Cloud / Dynamic Fern) ---
         // Optimisation: Only check if we are falling or stable
         else if (vy <= 0.0) {
           let checkHeight = false;
@@ -215,6 +225,21 @@ export function resolveGameCollisions(kickTrigger: f32): i32 {
             // d1 = capRadius, d2 = capHeight
             surfaceY = oy + d2;
             radiusSq = d1 * d1;
+            if (distSq < radiusSq) {
+              checkHeight = true;
+            }
+          } else if (type == TYPE_DYNAMIC_FERN) {
+            // Dynamic Plant (Arpeggio Fern)
+            // d1 is fixed base radius (not used directly), d2 = height, p1 (which is d3 in objPtr + 24) is the dynamic array index
+            const dynamicIdx = i32(d3); // d3 stores the dynamic ID (p1 from addCollisionObject)
+            const dynRadius = load<f32>(DYNAMIC_RADII_OFFSET + (dynamicIdx * 4));
+
+            surfaceY = oy + d2;
+            radiusSq = dynRadius * dynRadius;
+            // Provide a small base radius even if closed (e.g., base radius 2.0)
+            const minRadiusSq: f32 = 4.0;
+            if (radiusSq < minRadiusSq) radiusSq = minRadiusSq;
+
             if (distSq < radiusSq) {
               checkHeight = true;
             }

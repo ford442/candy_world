@@ -21,8 +21,69 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: './index.html'
+      },
+      output: {
+        manualChunks(id) {
+          // Vendor chunk - all third-party dependencies
+          if (id.includes('node_modules')) {
+            return 'vendor';
+          }
+          // GPU compute modules - isolated, heavy
+          if (id.includes('/src/compute/')) {
+            return 'compute';
+          }
+          // Audio system and music reactivity
+          if (id.includes('/src/audio/')) {
+            return 'audio';
+          }
+          // Gameplay mechanics (weapons, abilities)
+          if (id.includes('/src/gameplay/')) {
+            return 'gameplay';
+          }
+          // Weather system and effects
+          if (id.includes('/src/systems/weather/')) {
+            return 'weather';
+          }
+          // UI modules
+          if (id.includes('/src/ui/')) {
+            return 'ui';
+          }
+          // Utility modules (WASM loaders, profilers)
+          if (id.includes('/src/utils/')) {
+            return 'utils';
+          }
+          // Foliage - large module set
+          if (id.includes('/src/foliage/')) {
+            return 'foliage';
+          }
+          // Workers
+          if (id.includes('/src/workers/')) {
+            return 'workers';
+          }
+          // World generation
+          if (id.includes('/src/world/')) {
+            return 'world';
+          }
+          // Remaining systems (physics, discovery, etc.) stay in main
+        },
+        chunkFileNames: (chunkInfo) => {
+          const prefix = chunkInfo.name === 'vendor' ? 'chunks/vendor' : 'chunks/[name]';
+          return `${prefix}-[hash].js`;
+        },
+        assetFileNames: (assetInfo) => {
+          const info = assetInfo;
+          if (info.name?.endsWith('.wasm')) {
+            return 'wasm/[name]-[hash][extname]';
+          }
+          if (/\.(png|jpg|svg|gif|webp)$/.test(info.name || '')) {
+            return 'images/[name]-[hash][extname]';
+          }
+          return 'assets/[name]-[hash][extname]';
+        }
       }
-    }
+    },
+    // Optimize chunk size warnings
+    chunkSizeWarningLimit: 500
   },
   esbuild: {
     // ensure esbuild treats code as modern so top-level await is preserved

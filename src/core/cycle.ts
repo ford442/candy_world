@@ -139,7 +139,28 @@ export function getCelestialState(tRaw: number, out?: { sunIntensity: number; mo
 }
 
 
-// --- NEW: Seasonal & Yearly Calculations ---
+/**
+ * Returns a continuous day/night bias scalar for the plant pose state machine.
+ *
+ * - 1.0  → full day   (sunrise end → sunset start)
+ * - 0.0  → full night (post-sunset → pre-sunrise)
+ * - Smoothly interpolated during sunrise and sunset transitions.
+ *
+ * No heap allocations — pure arithmetic on the cycle position.
+ */
+export function getDayNightBias(cyclePos: number): number {
+    const t = cyclePos % CYCLE_DURATION;
+    // Sunrise: ramp 0 → 1
+    if (t < DURATION_SUNRISE) return t / DURATION_SUNRISE;
+    // Day: full brightness
+    const dayEnd = DURATION_SUNRISE + DURATION_DAY;
+    if (t < dayEnd) return 1.0;
+    // Sunset: ramp 1 → 0
+    const sunsetEnd = dayEnd + DURATION_SUNSET;
+    if (t < sunsetEnd) return 1.0 - (t - dayEnd) / DURATION_SUNSET;
+    // Night
+    return 0.0;
+}
 
 // Year = 40 Days (10 days per season)
 const YEAR_LENGTH = CYCLE_DURATION * 40; // 40 in-game days per year

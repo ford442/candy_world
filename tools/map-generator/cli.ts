@@ -124,7 +124,7 @@ Examples:
 }
 
 function validateBiomes(biomes: string[]): string[] {
-    const validBiomes = ['meadow', 'forest', 'lake', 'mountain', 'cave', 'neonCorruption'];
+    const validBiomes = ['meadow', 'forest', 'lake', 'mountain', 'cave', 'neonCorruption', 'crystallineNebula'];
     const invalid = biomes.filter(b => !validBiomes.includes(b));
     
     if (invalid.length > 0) {

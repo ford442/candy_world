@@ -1,11 +1,40 @@
 import * as THREE from 'three';
 import { CONFIG, CYCLE_DURATION } from '../core/config.ts';
+import { getDayNightBias } from '../core/cycle.ts';
 import { animateFoliage } from '../foliage/animation.ts';
 import { foliageBatcher } from '../foliage/batcher/index.ts';
 import { arpeggioFernBatcher } from '../foliage/arpeggio-batcher.ts';
 import { portamentoPineBatcher } from '../foliage/portamento-batcher.ts';
 import { mushroomBatcher } from '../foliage/mushroom-batcher.ts';
+import { flowerBatcher } from '../foliage/flower-batcher.ts';
+import { simpleFlowerBatcher } from '../foliage/simple-flower-batcher.ts';
 import type { AudioData, FoliageObject } from '../foliage/types.ts';
+import { BiomeUniforms, SkyUniforms } from './biome-uniforms.ts';
+import musicBindings from '../../assets/music-bindings.json';
+
+// ⚡ OPTIMIZATION: Pre-parsed channel index arrays from music-bindings.json.
+// Resolved once at module init — immutable after that, zero per-frame allocations.
+const _arpeggioShimmerCh: readonly number[] = musicBindings.biomes.arpeggio_grove.shimmer;
+const _arpeggioHueShiftCh: readonly number[] = musicBindings.biomes.arpeggio_grove.hueShift;
+const _nebulaShimmerCh: readonly number[] = musicBindings.biomes.crystalline_nebula.shimmer;
+const _nebulaAmplitudeCh: readonly number[] = musicBindings.biomes.crystalline_nebula.amplitudeScale;
+
+// ⚡ OPTIMIZATION: Per-frame scratch floats — no per-frame object allocations.
+let _arpeggioShimmerAccum = 0.0;
+let _arpeggioHueShiftAccum = 0.0;
+let _nebulaShimmerAccum = 0.0;
+let _nebulaAmplitudeAccum = 0.0;
+
+// ⚡ OPTIMIZATION: Sky/Moon note reactivity scratch — allocated once, never in hot path.
+// melody_channel from assets/music-bindings.json sky_moon block.
+const _skyMoonConfig = (musicBindings as any).sky_moon;
+if (!_skyMoonConfig || typeof _skyMoonConfig.melody_channel !== 'number') {
+    throw new Error('[MusicReactivity] Missing or invalid sky_moon.melody_channel in music-bindings.json');
+}
+const _skyMoonCh: number = _skyMoonConfig.melody_channel as number;
+let _smoothedSkyIntensity = 0.0;
+// Last valid note index (0–127) kept across frames to avoid flicker when channel is silent.
+let _lastSkyNoteIndex = 0.0;
 
 // ⚡ OPTIMIZATION: Reusable Frustum & Matrices
 const _frustum = new THREE.Frustum();
@@ -75,6 +104,18 @@ export class MusicReactivitySystem {
         }
         this.registeredObjects.get(species)!.add(object);
 
+        // ⚡ OPTIMIZATION: Pre-allocate color caches during object registration to prevent GC spikes during hot-loop playback
+        if (!object.userData.flashColor) {
+            object.userData.flashColor = new THREE.Color();
+        }
+
+        if (object.material && !Array.isArray(object.material)) {
+             const mat = object.material as THREE.MeshStandardMaterial;
+             if (mat.emissive && !object.userData.originalEmissive) {
+                 object.userData.originalEmissive = mat.emissive.clone();
+             }
+        }
+
         // Add minimal reactToNote method if it doesn't exist (fallback)
         if (!object.userData.reactToNote) {
             // Note: We assign to userData.reactToNote as a convention for some objects,
@@ -84,16 +125,9 @@ export class MusicReactivitySystem {
             // FoliageObject extends Object3D, which is dynamic.
             (object as any).reactToNote = (note: string, color: number, velocity: number) => {
                 if (object.material && !Array.isArray(object.material) && (object.material as THREE.MeshStandardMaterial).emissive) {
-                    const mat = object.material as THREE.MeshStandardMaterial;
-                    const originalEmissive = object.userData.originalEmissive || mat.emissive.clone();
-                    if (!object.userData.originalEmissive) object.userData.originalEmissive = originalEmissive;
-
                     // Smooth flash via animateFoliage
-                    if (!object.userData.flashColor) {
-                        object.userData.flashColor = new THREE.Color(color);
-                    } else {
-                        object.userData.flashColor.setHex(color);
-                    }
+                    // ⚡ OPTIMIZATION: Only update values, never allocate using new THREE.Color or .clone() in the hot path
+                    object.userData.flashColor.setHex(color);
                     object.userData.flashIntensity = velocity / 127.0;
                 }
             };
@@ -191,7 +225,7 @@ export class MusicReactivitySystem {
         deltaTime: number,
         audioState: AudioData | null,
         weatherSystem: IWeatherSystem,
-        animatedFoliage: FoliageObject[],
+        cpuAnimatedFoliage: FoliageObject[],
         camera: THREE.Camera,
         isNight: boolean,
         isDeepNight: boolean
@@ -203,7 +237,7 @@ export class MusicReactivitySystem {
         this.updateTwilightGlow(time);
 
         // 3. Update Foliage Animation Loop
-        if (animatedFoliage && camera) {
+        if (cpuAnimatedFoliage && camera) {
             // Update Frustum for Culling
             _projScreenMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
             _frustum.setFromProjectionMatrix(_projScreenMatrix);
@@ -216,25 +250,10 @@ export class MusicReactivitySystem {
             let culledByFrustum = 0;
             let rendered = 0;
 
-            for (let i = 0; i < animatedFoliage.length; i++) {
-                const obj = animatedFoliage[i];
+            for (let i = 0; i < cpuAnimatedFoliage.length; i++) {
+                const obj = cpuAnimatedFoliage[i];
                 if (!obj) continue;
                 totalObjects++;
-
-                // ⚡ OPTIMIZATION: Skip Batched Objects (Corrected Implementation)
-                // If isBatched is true, we rely on the Batcher (InstancedMesh + TSL) to handle animations.
-                // We skip CPU-side animateFoliage call to save cycles.
-                if (obj.userData.isBatched ||
-                    obj.userData.type === 'mushroom' ||
-                    obj.userData.type === 'lanternFlower' ||
-                    obj.userData.type === 'arpeggio_fern' ||
-                    obj.userData.type === 'portamento_pine' ||
-                    obj.userData.type === 'prismRoseBush' ||
-                    obj.userData.isFlower) {
-                    // We treat them as rendered for metrics, but skip CPU animation logic
-                    rendered++;
-                    continue;
-                }
 
                 // ⚡ PERFORMANCE: Size-based culling distances
                 let cullDistance = 150; // Default
@@ -297,11 +316,117 @@ export class MusicReactivitySystem {
             const kick = audioState?.kickTrigger || 0;
             foliageBatcher.flush(time, kick, audioState);
 
+            // Continuous day/night bias for pose state machines (0 = night, 1 = day).
+            // Pure arithmetic — no allocations.
+            const dayNightBias = getDayNightBias(time % CYCLE_DURATION);
+
             // Update Arpeggio Batcher
-            arpeggioFernBatcher.update(audioState);
+            arpeggioFernBatcher.update(audioState, dayNightBias);
 
             // Update Portamento Batcher
-            portamentoPineBatcher.update(time, audioState);
+            portamentoPineBatcher.update(time, audioState, dayNightBias);
+
+            // Update Flower Batchers (aPoseState driven by audio)
+            flowerBatcher.update(time, deltaTime, audioState, dayNightBias);
+            simpleFlowerBatcher.update(audioState);
+
+            // ---------------------------------------------------------------
+            // ⚡ BIOME CHANNEL BINDING — Arpeggio Grove & Crystalline Nebula
+            // Data-driven: channel indices come from assets/music-bindings.json.
+            // Allocation-free: only pre-allocated module-level scalars are used.
+            // Day/night gating: reactivity is attenuated during the day phase.
+            // nightGate: 1.0 at night (dayNightBias=0) → 0.2 at full day (dayNightBias=1)
+            // ---------------------------------------------------------------
+            const nightGate = 0.2 + (1.0 - dayNightBias) * 0.8;
+            const channels = audioState?.channelData;
+
+            if (channels && channels.length > 0) {
+                // --- Arpeggio Grove: shimmer ---
+                _arpeggioShimmerAccum = 0.0;
+                for (let i = 0; i < _arpeggioShimmerCh.length; i++) {
+                    const idx = _arpeggioShimmerCh[i];
+                    if (idx < channels.length) _arpeggioShimmerAccum += channels[idx].volume;
+                }
+
+                // --- Arpeggio Grove: hue shift ---
+                _arpeggioHueShiftAccum = 0.0;
+                for (let i = 0; i < _arpeggioHueShiftCh.length; i++) {
+                    const idx = _arpeggioHueShiftCh[i];
+                    if (idx < channels.length) _arpeggioHueShiftAccum += channels[idx].volume;
+                }
+
+                // --- Crystalline Nebula: shimmer ---
+                _nebulaShimmerAccum = 0.0;
+                for (let i = 0; i < _nebulaShimmerCh.length; i++) {
+                    const idx = _nebulaShimmerCh[i];
+                    if (idx < channels.length) _nebulaShimmerAccum += channels[idx].volume;
+                }
+
+                // --- Crystalline Nebula: amplitude scale ---
+                _nebulaAmplitudeAccum = 0.0;
+                for (let i = 0; i < _nebulaAmplitudeCh.length; i++) {
+                    const idx = _nebulaAmplitudeCh[i];
+                    if (idx < channels.length) _nebulaAmplitudeAccum += channels[idx].volume;
+                }
+
+                // Push to TSL uniforms — clamp sums to [0,1] then gate by night.
+                // Mutate .value in place: never reassign the uniform node itself.
+                BiomeUniforms.arpeggioGrove.shimmer.value =
+                    Math.min(_arpeggioShimmerAccum / Math.max(_arpeggioShimmerCh.length, 1), 1.0) * nightGate;
+                BiomeUniforms.arpeggioGrove.hueShift.value =
+                    Math.min(_arpeggioHueShiftAccum / Math.max(_arpeggioHueShiftCh.length, 1), 1.0) * nightGate;
+                BiomeUniforms.crystallineNebula.shimmer.value =
+                    Math.min(_nebulaShimmerAccum / Math.max(_nebulaShimmerCh.length, 1), 1.0) * nightGate;
+                // amplitudeScale: 1.0 baseline + channel energy boost, gated by night
+                BiomeUniforms.crystallineNebula.amplitudeScale.value =
+                    1.0 + Math.min(_nebulaAmplitudeAccum / Math.max(_nebulaAmplitudeCh.length, 1), 1.0) * nightGate;
+            } else {
+                // No audio data — smoothly decay towards resting values (no snapping).
+                BiomeUniforms.arpeggioGrove.shimmer.value *= 0.9;
+                BiomeUniforms.arpeggioGrove.hueShift.value *= 0.9;
+                BiomeUniforms.crystallineNebula.shimmer.value *= 0.9;
+                // Decay amplitude towards baseline 1.0
+                BiomeUniforms.crystallineNebula.amplitudeScale.value =
+                    1.0 + (BiomeUniforms.crystallineNebula.amplitudeScale.value - 1.0) * 0.9;
+            }
+
+            // ---------------------------------------------------------------
+            // ⚡ MOON DANCE — Note-colour hue reactivity for sky and moon glow
+            // Data-driven: channel index from assets/music-bindings.json sky_moon.
+            // Allocation-free: only pre-allocated module-level scalars used.
+            // Day/night gating: intensity = 0 during day — no shader branch.
+            // ---------------------------------------------------------------
+            const skyMoonCh = audioState?.channelData;
+            if (skyMoonCh && _skyMoonCh < skyMoonCh.length) {
+                const chData = skyMoonCh[_skyMoonCh];
+                const rawVolume = chData.volume || 0;
+
+                // Resolve chromatic note index (0–11) from the channel's note string.
+                // Uses the already-loaded _noteNameCache / CHROMATIC_SCALE.
+                const noteStr: string = (chData as any).note || '';
+                if (noteStr) {
+                    const noteName = noteStr.replace(/[0-9-]/g, '');
+                    const chromaticIdx = CHROMATIC_SCALE.indexOf(noteName);
+                    if (chromaticIdx >= 0) {
+                        // Map 12 chromatic notes evenly across 128 LUT slots.
+                        // Using floor((idx / 12) * 128) gives slots 0,10,21,...,117 for C–B.
+                        _lastSkyNoteIndex = Math.min(Math.floor((chromaticIdx / 12) * 128), 127);
+                    }
+                }
+
+                // One-pole IIR smoothing — eliminates staccato strobe on note-on events.
+                // Time constant ≈ 1/12 s (~83 ms): fast enough to track melody, slow enough to avoid flicker.
+                _smoothedSkyIntensity += (rawVolume - _smoothedSkyIntensity) * (1.0 - Math.exp(-deltaTime * 12.0));
+            } else {
+                // No channel data — decay intensity to zero smoothly.
+                _smoothedSkyIntensity *= 0.9;
+                if (_smoothedSkyIntensity < 0.001) _smoothedSkyIntensity = 0.0;
+            }
+
+            // Push to TSL uniforms — mutate .value only, never reassign nodes.
+            SkyUniforms.noteIndex.value = _lastSkyNoteIndex;
+            // Day guard: clamp intensity to 0 when daytime so sky/moon are unchanged.
+            SkyUniforms.intensity.value = isNight ? Math.min(_smoothedSkyIntensity, 1.0) : 0.0;
         }
     }
 

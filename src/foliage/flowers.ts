@@ -70,6 +70,15 @@ export function createFlower(options: FlowerOptions = {}): THREE.Object3D {
         reactiveGroup.userData.minLight = 0.6;
     }
 
+    // Set dummy aPoseState so it doesn't crash if passed to CPU fallback renderer
+    reactiveGroup.traverse((child: any) => {
+        if (child.isMesh && child.geometry) {
+            if (!child.geometry.attributes.aPoseState) {
+                child.geometry.setAttribute('aPoseState', new THREE.BufferAttribute(new Float32Array([1,1,1]), 1));
+            }
+        }
+    });
+
     return reactiveGroup;
 }
 

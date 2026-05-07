@@ -14,6 +14,7 @@ import {
     uGlitchIntensity,
     uTime
 } from './index.ts';
+import { BiomeUniforms } from '../systems/biome-uniforms.ts';
 import { makeInteractive } from '../utils/interaction-utils.ts';
 import { discoverySystem } from '../systems/discovery.ts';
 import { showToast } from '../utils/toast.js';
@@ -56,9 +57,10 @@ export function createSubwooferLotus(options: LotusOptions = {}): THREE.Group {
 
     // --- TSL Logic for Rings ---
 
-    // Pulse Amplitude driven by Bass + Glitch
+    // Pulse Amplitude driven by Bass + Glitch + Crystalline Nebula amplitude scale
     // 'uAudioLow' represents the bass kick intensity (0 to ~1). We scale it to define the maximum upward stretch.
-    const bassPulse = uAudioLow.mul(0.8);
+    // BiomeUniforms.crystallineNebula.amplitudeScale amplifies the pulse when the bound channels are active.
+    const bassPulse = uAudioLow.mul(0.8).mul(BiomeUniforms.crystallineNebula.amplitudeScale);
 
     // Glitch Distortion: Random jerky movement
     // 'mx_noise_float' generates procedural noise. We feed it 'uTime' scaled rapidly (20.0) to create a frantic 1D signal.
@@ -75,9 +77,12 @@ export function createSubwooferLotus(options: LotusOptions = {}): THREE.Group {
     const glitchColor = vec3(0.8, 0.0, 1.0); // Purple
     const finalColor = mix(normalColor, glitchColor, uGlitchIntensity);
 
-    // Emission: Pulse brightness with Bass
+    // Emission: Pulse brightness with Bass + Crystalline Nebula shimmer
     // The emissive glow scales up with the bass pulse, maintaining a minimum baseline glow (0.2).
-    const emission = finalColor.mul(bassPulse.add(0.2));
+    // Crystalline Nebula shimmer adds a violet-cyan sparkle driven by the bound tracker channels.
+    const shimmerTint = vec3(0.4, 0.0, 1.0); // Violet shimmer colour
+    const shimmerGlow = BiomeUniforms.crystallineNebula.shimmer.mul(shimmerTint).mul(2.5);
+    const emission = finalColor.mul(bassPulse.add(0.2)).add(shimmerGlow);
 
     ringMat.colorNode = finalColor;
     ringMat.emissiveNode = emission;

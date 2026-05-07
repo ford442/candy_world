@@ -464,7 +464,8 @@ export class TreeBatcher {
                 break;
         }
 
-        mesh.setMatrixAt(index, matrix);
+        // ⚡ OPTIMIZATION: Write directly to instanceMatrix array to bypass .setMatrixAt overhead.
+        matrix.toArray(mesh.instanceMatrix.array, index * 16);
         mesh.setColorAt(index, color);
 
         // Update count

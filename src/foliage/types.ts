@@ -95,3 +95,12 @@ export interface FoliageObject extends THREE.Object3D {
     children: FoliageObject[];
     material?: FoliageMaterial | FoliageMaterial[];
 }
+
+
+export interface FoliageGrowthOptions {
+    spawnRadius: number;
+    spawnChanceBase: number;
+    maxOffspring: number;
+    growthWindowMs: number;
+    densityLimit: number;
+}

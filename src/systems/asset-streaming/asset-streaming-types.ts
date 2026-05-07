@@ -253,6 +253,15 @@ export const PRIORITY_DISTANCES: Record<AssetPriority, number> = {
     [AssetPriority.BACKGROUND]: 500
 };
 
+/** Pre-calculated squared priority distance thresholds */
+export const PRIORITY_DISTANCES_SQ: Record<AssetPriority, number> = {
+    [AssetPriority.CRITICAL]: 0,
+    [AssetPriority.HIGH]: 50 * 50,
+    [AssetPriority.MEDIUM]: 150 * 150,
+    [AssetPriority.LOW]: 300 * 300,
+    [AssetPriority.BACKGROUND]: 500 * 500
+};
+
 /** Quality level to texture format preference mapping */
 export const QUALITY_FORMAT_PREFERENCES: Record<QualityLevel, TextureFormat[]> = {
     [QualityLevel.MINIMAL]: [TextureFormat.BASIS, TextureFormat.KTX2],

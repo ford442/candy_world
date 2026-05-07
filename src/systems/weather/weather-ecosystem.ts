@@ -1,15 +1,19 @@
+import { cpuAnimatedFoliage } from '../../world/state.ts';
 // src/systems/weather/weather-ecosystem.ts
 // Ecosystem management: cloud-mushroom interactions, spawning, waterfalls
 
 import * as THREE from 'three';
 import { getGroundHeight, uploadMushroomSpecs, batchMushroomSpawnCandidates, readSpawnCandidates, isWasmReady } from '../../utils/wasm-loader.js';
 import { createMushroom } from '../../foliage/mushrooms.ts';
+import { FoliageGrowthOptions } from '../../foliage/types.ts';
+import { spawnNearbyFoliage } from '../../world/generation.ts';
 import { createLanternFlower } from '../../foliage/flowers.ts';
 import { cleanupReactivity } from '../../foliage/foliage-reactivity.ts';
 import { updateCloudAttraction, isCloudOverTarget } from '../../foliage/clouds.ts';
 import { foliageClouds } from '../../world/state.ts';
 import { replaceMushroomWithGiant } from '../../foliage/mushrooms.ts';
 import { mushroomBatcher } from '../../foliage/mushroom-batcher.ts';
+import { flowerBatcher } from '../../foliage/flower-batcher.ts';
 import { waterfallBatcher } from '../../foliage/waterfall-batcher.ts';
 import { musicReactivitySystem } from '../music-reactivity.ts';
 import type { WeatherSystem } from './weather.ts';
@@ -17,6 +21,7 @@ import type { WeatherSystem } from './weather.ts';
 // Scratch objects for optimization
 const _scratchSunDir = new THREE.Vector3();
 const _scratchWaterfallPos = new THREE.Vector3();
+const _lastSpawnTimes = new Map<string, number>();
 
 export class EcosystemManager {
     private weatherSystem: WeatherSystem;
@@ -230,10 +235,11 @@ export class EcosystemManager {
         }
     }
 
+
     /**
      * Handle spawning logic based on favorability scores
      */
-    handleSpawning(time: number, fungiScore: number, lanternScore: number, globalLight: number, onSpawnFoliage: ((object: any, isNew: boolean, duration: number) => void) | null): void {
+    handleSpawning(time: number, fungiScore: number, lanternScore: number, globalLight: number, onSpawnFoliage: ((object: any, isNew: boolean, duration: number) => void) | null, isRaining: boolean): void {
         if (time - this._lastSpawnCheck < this._spawnThrottle) return;
         this._lastSpawnCheck = time;
 
@@ -246,8 +252,57 @@ export class EcosystemManager {
         if (globalLight > 0.7 && fungiScore < 0.3) {
              if (Math.random() < 0.2) this.spawnFoliage('flower', false, onSpawnFoliage);
         }
-    }
 
+        // Feature: Rain-Driven Spreading
+        if (isRaining && Math.random() < 0.2) {
+            const growthOptions: FoliageGrowthOptions = {
+                spawnRadius: 10,
+                spawnChanceBase: 0.3,
+                maxOffspring: 2,
+                growthWindowMs: 5000,
+                densityLimit: 5
+            };
+
+            const sources: { position: THREE.Vector3; type: 'mushroom' | 'flower' }[] = [];
+
+            // 1. Non-batched sources (legacy fallback)
+            for (const plant of cpuAnimatedFoliage) {
+                if (!plant.userData) continue;
+                if (plant.userData.type === 'mushroom' || plant.userData.isFlower) {
+                    sources.push({
+                        position: plant.position,
+                        type: plant.userData.type === 'mushroom' ? 'mushroom' : 'flower'
+                    });
+                }
+            }
+
+            // 2. Batched mushroom sources
+            const mPos = new THREE.Vector3();
+            if (mushroomBatcher.getRandomPosition(mPos)) {
+                sources.push({ position: mPos, type: 'mushroom' });
+            }
+
+            // 3. Batched flower sources
+            const fPos = new THREE.Vector3();
+            if (flowerBatcher.getRandomPosition(fPos)) {
+                sources.push({ position: fPos, type: 'flower' });
+            }
+
+            if (sources.length > 0) {
+                const source = sources[Math.floor(Math.random() * sources.length)];
+
+                // Throttle: use a module-level Map keyed by position string
+                const now = Date.now();
+                const key = `${source.type}_${Math.round(source.position.x)}_${Math.round(source.position.z)}`;
+                const lastSpawn = _lastSpawnTimes.get(key) || 0;
+
+                if (now - lastSpawn > growthOptions.growthWindowMs) {
+                    spawnNearbyFoliage(source.position, source.type, growthOptions, this.weatherSystem);
+                    _lastSpawnTimes.set(key, now);
+                }
+            }
+        }
+    }
     /**
      * Spawn a single foliage object
      */

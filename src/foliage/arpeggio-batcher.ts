@@ -15,9 +15,13 @@ import {
     color, float, uniform, vec3, positionLocal, sin, cos, mix, uv, varying,
     smoothstep, attribute, positionWorld, If, vec4
 } from 'three/tsl';
+import { BiomeUniforms } from '../systems/biome-uniforms.ts';
 import { uTime, uGlitchIntensity } from './index.ts';
 import { applyGlitch } from './glitch.ts';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { PlantPoseMachine } from './plant-pose-machine.ts';
+import { CONFIG } from '../core/config.ts';
+import { dynamicRadiiView } from '../utils/wasm-physics.ts';
 
 const MAX_FERNS = 500; // Reduced from 2000 for WebGPU uniform buffer limits
 const FRONDS_PER_FERN = 5;
@@ -43,6 +47,12 @@ export class ArpeggioFernBatcher {
     private currentUnfurlValue: number = 0;
     private lastTrigger: boolean = false;
 
+    /**
+     * Day/night pose state machine — single slot (global unfurl for all ferns).
+     * Uses a Float32Array of capacity 1; no per-frame allocations.
+     */
+    private _poseMachine: PlantPoseMachine;
+
     constructor() {
         this.initialized = false;
         this.count = 0;
@@ -54,6 +64,9 @@ export class ArpeggioFernBatcher {
 
         // Initialize global uniform
         this.uFernUnfurl = uniform(float(0.0));
+
+        // Single-slot pose machine for global fern unfurl (capacity=1, no per-frame alloc)
+        this._poseMachine = new PlantPoseMachine(1);
     }
 
     init() {
@@ -125,9 +138,13 @@ export class ArpeggioFernBatcher {
 
         // Base: 0x2E8B57, Rough 0.8, Metal 0.0
         // Frond: 0x00FF88, Rough 0.6, Metal 0.1
+        // Frond accent (hue-shifted purple-violet — blended in by uHueShift)
         const baseColor = color(0x2E8B57);
         const frondColor = color(0x00FF88);
-        const mixedColor = mix(baseColor, frondColor, isFrondAttr);
+        const frondAccentColor = color(0x8844FF); // Purple-violet accent for hue shift
+        // Arpeggio Grove hue shift: mix frond colour towards accent based on uHueShift channel
+        const dynamicFrondColor = mix(frondColor, frondAccentColor, BiomeUniforms.arpeggioGrove.hueShift);
+        const mixedColor = mix(baseColor, dynamicFrondColor, isFrondAttr);
 
         const mixedRough = mix(float(0.8), float(0.6), isFrondAttr);
         const mixedMetal = mix(float(0.0), float(0.1), isFrondAttr);
@@ -275,7 +292,10 @@ export class ArpeggioFernBatcher {
         // Juicy Rim Light
         const rim = createJuicyRimLight(baseInstanceColor, float(2.0), float(3.0), null);
         const audioEmissive = uAudioHigh.mul(0.5);
-        material.emissiveNode = rim.add(baseInstanceColor.mul(audioEmissive));
+        // Arpeggio Grove shimmer: soft teal sparkle driven by melody channels
+        const shimmerColor = color(0x88FFCC);
+        const shimmerGlow = BiomeUniforms.arpeggioGrove.shimmer.mul(shimmerColor).mul(3.0);
+        material.emissiveNode = rim.add(baseInstanceColor.mul(audioEmissive)).add(shimmerGlow);
 
         // --- INSTANCED MESH ---
         this.mesh = new THREE.InstancedMesh(mergedGeo, material, MAX_FERNS);
@@ -354,10 +374,10 @@ export class ArpeggioFernBatcher {
         this.mesh!.instanceMatrix.needsUpdate = true;
     }
 
-    update(audioState: any = null) {
+    update(audioState: any = null, dayNightBias: number = 1.0) {
         if (!this.initialized || this.count === 0) return;
 
-        // Logic (Same as before)
+        // --- Arpeggio detection (unchanged) ---
         let arpeggioActive = false;
         let noteTrigger = false;
         if (audioState && audioState.channelData) {
@@ -389,10 +409,35 @@ export class ArpeggioFernBatcher {
         const speed = (nextTarget > this.currentUnfurlValue) ? 0.3 : 0.05;
         this.currentUnfurlValue += (nextTarget - this.currentUnfurlValue) * speed;
 
-        const unfurl = this.currentUnfurlValue / maxSteps;
+        // --- Day/night ADSR envelope (pose machine) ---
+        // Channel intensity: 1.0 when arpeggio is active, 0.0 otherwise.
+        const channelIntensity = arpeggioActive ? 1.0 : 0.0;
+        const poseConfig = CONFIG.plantPose.arpeggioFern;
+
+        // Fixed dt (60 Hz assumption) keeps parity with portamento batcher convention.
+        this._poseMachine.update(1, 0.016, channelIntensity, dayNightBias, poseConfig);
+
+        // Day/night baseline from pose machine (0 = night-closed, up to nightTarget/dayTarget).
+        // Blends a gentle partial-open bias from daylight into the step-driven unfurl.
+        const dnBaseline = this._poseMachine.getPose(0);
+
+        // Final unfurl: day/night baseline + step-driven contribution in the remaining range.
+        const stepUnfurl = this.currentUnfurlValue / maxSteps;
+        const unfurl = dnBaseline + stepUnfurl * (1.0 - dnBaseline);
 
         this.globalUnfurl = unfurl;
         this.uFernUnfurl.value = unfurl;
+
+        // ⚡ OPTIMIZATION: Zero-Allocation WASM Physics Sync
+        // Write the expanded radius directly into the WASM memory view
+        if (dynamicRadiiView) {
+            // Base radius is ~2.0 when closed, expands to ~8.0 when unfurled
+            const activeRadius = 2.0 + (unfurl * 6.0);
+            for (let i = 0; i < this.count; i++) {
+                // scale.x applies uniformly, so multiply by scale
+                dynamicRadiiView[i] = activeRadius * this.logicFerns[i].scale.x;
+            }
+        }
     }
 }
 

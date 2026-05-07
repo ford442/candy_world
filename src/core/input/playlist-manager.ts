@@ -7,6 +7,7 @@ import { AudioSystem } from '../../audio/audio-system';
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js';
 import { trapFocusInside } from '../../utils/interaction-utils.ts';
 import { formatSongTitle, filterValidMusicFiles } from './input-types.ts';
+import { announce } from '../../ui/announcer.ts';
 
 // State
 let isPlaylistOpen = false;
@@ -21,6 +22,7 @@ let playlistList: HTMLElement | null = null;
 let closePlaylistBtn: HTMLElement | null = null;
 let playlistCloseX: HTMLElement | null = null;
 let playlistUploadInput: HTMLInputElement | null = null;
+let addSongsBtn: HTMLElement | null = null;
 let openJukeboxBtn: HTMLElement | null = null;
 let nowPlayingContainer: HTMLElement | null = null;
 let nowPlayingText: HTMLElement | null = null;
@@ -49,6 +51,7 @@ export function initPlaylistManager(
     closePlaylistBtn = document.getElementById('closePlaylistBtn');
     playlistCloseX = document.getElementById('playlistCloseX');
     playlistUploadInput = document.getElementById('playlistUploadInput') as HTMLInputElement | null;
+    addSongsBtn = document.getElementById('addSongsBtn');
     openJukeboxBtn = document.getElementById('openJukeboxBtn');
     nowPlayingContainer = document.getElementById('nowPlayingContainer');
     nowPlayingText = document.getElementById('nowPlayingText');
@@ -102,6 +105,9 @@ export function initPlaylistManager(
 
             // 🎨 Palette: Update Browser Tab Title
             document.title = `🎵 ${trackName} - Candy World`;
+
+            // ♿ Aria: Announce the new track to screen readers dynamically
+            announce(`Now Playing: ${trackName}`, 'polite');
         }
     };
 
@@ -120,6 +126,13 @@ export function initPlaylistManager(
 
     if (playlistUploadInput) {
         playlistUploadInput.addEventListener('change', handlePlaylistUpload);
+    }
+
+    if (addSongsBtn) {
+        addSongsBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (playlistUploadInput) playlistUploadInput.click();
+        });
     }
 
     if (openJukeboxBtn) {
@@ -277,6 +290,12 @@ export function renderPlaylist(): void {
                 } else if (playBtns[0]) {
                     // Or the first song
                     (playBtns[0] as HTMLElement).focus();
+                } else {
+                    // Fallback to empty state button if list is now empty
+                    const emptyBtn = playlistList!.querySelector('button.secondary-button');
+                    if (emptyBtn) {
+                        (emptyBtn as HTMLElement).focus();
+                    }
                 }
             });
         };
@@ -448,18 +467,19 @@ export function handlePlaylistKeyDown(event: KeyboardEvent): boolean {
 
     // UX: Arrow Key Navigation for Playlist
     if (event.code === 'ArrowDown' || event.code === 'ArrowUp') {
-        const playlistBtns = Array.from(playlistOverlay.querySelectorAll('.playlist-btn')) as HTMLElement[];
-        if (playlistBtns.length > 0) {
+        // Query all visually accessible buttons within the playlist overlay
+        const focusableBtns = Array.from(playlistOverlay.querySelectorAll('button:not([disabled]):not([tabindex="-1"])')).filter(el => (el as HTMLElement).offsetParent !== null) as HTMLElement[];
+        if (focusableBtns.length > 0) {
             event.preventDefault(); // Prevent scrolling
-            const currentIndex = playlistBtns.indexOf(document.activeElement as HTMLElement);
+            const currentIndex = focusableBtns.indexOf(document.activeElement as HTMLElement);
             let nextIndex;
 
             if (event.code === 'ArrowDown') {
-                nextIndex = currentIndex === -1 ? 0 : (currentIndex + 1) % playlistBtns.length;
+                nextIndex = currentIndex === -1 ? 0 : (currentIndex + 1) % focusableBtns.length;
             } else {
-                nextIndex = currentIndex === -1 ? playlistBtns.length - 1 : (currentIndex - 1 + playlistBtns.length) % playlistBtns.length;
+                nextIndex = currentIndex === -1 ? focusableBtns.length - 1 : (currentIndex - 1 + focusableBtns.length) % focusableBtns.length;
             }
-            playlistBtns[nextIndex].focus();
+            focusableBtns[nextIndex].focus();
         }
         return true;
     }
@@ -495,6 +515,14 @@ export function handlePlaylistKeyDown(event: KeyboardEvent): boolean {
  */
 export function initLegacyMusicUpload(audioSystem: AudioSystem): void {
     const musicUpload = document.getElementById('musicUpload') as HTMLInputElement | null;
+    const musicUploadBtn = document.getElementById('musicUploadBtn');
+
+    if (musicUploadBtn && musicUpload) {
+        musicUploadBtn.addEventListener('click', () => {
+            musicUpload.click();
+        });
+    }
+
     if (musicUpload) {
         musicUpload.addEventListener('change', (event: Event) => {
             const target = event.target as HTMLInputElement;

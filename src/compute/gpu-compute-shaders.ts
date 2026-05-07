@@ -29,7 +29,7 @@ fn hash3v(p: vec3<f32>) -> vec3<f32> {
 
 fn valueNoise2D(p: vec2<f32>) -> f32 {
     let i = floor(p);
-    let f = fract(p);
+    var f = fract(p);
     let u = f * f * (3.0 - 2.0 * f);
 
     let a = hash2(i + vec2<f32>(0.0, 0.0));

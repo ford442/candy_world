@@ -10,9 +10,11 @@
  * - Math fallbacks: valueNoise2D, fbm, fastInvSqrt, fastDistance, hash
  */
 
+import * as THREE from 'three';
 import { 
     wasmInstance,
     wasmMemory,
+    wasmInitDynamicFoliageMemory,
     wasmInitCollisionSystem,
     wasmAddCollisionObject,
     wasmResolveGameCollisions,
@@ -32,6 +34,8 @@ import {
     type Trampoline,
     type PlayerState
 } from './wasm-loader-core.js';
+
+const _scratchGatePos = new THREE.Vector3();
 
 // =============================================================================
 // TYPE DEFINITIONS
@@ -53,6 +57,23 @@ export interface PlayerStateResult {
 // COLLISION SYSTEM
 // =============================================================================
 
+/** Shared Float32Array for updating dynamic object radii in WASM (Zero-Allocation Bridge) */
+export let dynamicRadiiView: Float32Array | null = null;
+
+/**
+ * Initializes the WASM memory block for dynamic foliage collision radii
+ * @param maxPlants Maximum number of instances that need dynamic radii (e.g. MAX_FERNS)
+ * @returns boolean true if successful
+ */
+export function initDynamicFoliageBridge(maxPlants: number): boolean {
+    if (!wasmInitDynamicFoliageMemory || !wasmMemory) return false;
+    const offsetBytes = wasmInitDynamicFoliageMemory(maxPlants);
+    // Create Float32Array view directly into WASM memory over the returned offset
+    dynamicRadiiView = new Float32Array(wasmMemory.buffer, offsetBytes, maxPlants);
+    console.log(`[WASM Physics Bridge] Initialized dynamic radii view (Cap: ${maxPlants}, Offset: ${offsetBytes})`);
+    return true;
+}
+
 /**
  * Upload collision objects to WASM
  * @param caves - Array of cave objects
@@ -65,7 +86,8 @@ export function uploadCollisionObjects(
     caves: Cave[] | undefined, 
     mushrooms: Mushroom[] | undefined, 
     clouds: Cloud[] | undefined, 
-    trampolines: Trampoline[] | undefined
+    trampolines: Trampoline[] | undefined,
+    arpeggioFerns: any[] | undefined = undefined
 ): boolean {
     if (!wasmInitCollisionSystem || !wasmAddCollisionObject) return false;
 
@@ -88,6 +110,7 @@ export function uploadCollisionObjects(
             if (clouds[i].userData.tier === 1) totalCount++;
         }
     }
+    if (arpeggioFerns) totalCount += arpeggioFerns.length;
 
     if (totalCount === 0) {
         console.log('[WASM] No collision objects to upload.');
@@ -109,7 +132,8 @@ export function uploadCollisionObjects(
         if (caves) {
             for (const cave of caves) {
                 if (cave.userData.isBlocked) {
-                    const gatePos = cave.userData.gatePosition.clone().applyMatrix4(cave.matrixWorld);
+                    // ⚡ OPTIMIZATION: Eliminate Vector allocation and GC spike by using module-level scratch vector
+                    const gatePos = _scratchGatePos.copy(cave.userData.gatePosition).applyMatrix4(cave.matrixWorld);
                     batchData[ptr++] = 3; // type
                     batchData[ptr++] = gatePos.x;
                     batchData[ptr++] = gatePos.y;
@@ -153,6 +177,21 @@ export function uploadCollisionObjects(
             }
         }
 
+        // 4. Dynamic Arpeggio Ferns
+        if (arpeggioFerns) {
+            for (let i = 0; i < arpeggioFerns.length; i++) {
+                const f = arpeggioFerns[i];
+                batchData[ptr++] = 5; // TYPE_DYNAMIC_FERN
+                batchData[ptr++] = f.position.x;
+                batchData[ptr++] = f.position.y;
+                batchData[ptr++] = f.position.z;
+                batchData[ptr++] = 2.0; // Base non-dynamic radius fallback
+                batchData[ptr++] = (f.userData.height || 4.5) * (f.scale.y || 1.0); // Height
+                batchData[ptr++] = i; // d3 / p1 (Dynamic ID index)
+                batchData[ptr++] = 0;
+            }
+        }
+
         // Upload batch to WASM
         const wasmBatchUpload = exports.addCollisionObjectsBatch;
         if (wasmBatchUpload) {
@@ -176,7 +215,8 @@ export function uploadCollisionObjects(
         if (caves) {
             caves.forEach(cave => {
                 if (cave.userData.isBlocked) {
-                    const gatePos = cave.userData.gatePosition.clone().applyMatrix4(cave.matrixWorld);
+                    // ⚡ OPTIMIZATION: Eliminate Vector allocation and GC spike by using module-level scratch vector
+                    const gatePos = _scratchGatePos.copy(cave.userData.gatePosition).applyMatrix4(cave.matrixWorld);
                     wasmAddCollisionObject!(3, gatePos.x, gatePos.y, gatePos.z, 2.5, 5.0, 0, 0, 0);
                 }
             });
@@ -203,6 +243,15 @@ export function uploadCollisionObjects(
                         c.scale.x || 1.0, c.scale.y || 1.0, 0, 0, 0);
                  }
             });
+        }
+
+        // 4. Dynamic Arpeggio Ferns
+        if (arpeggioFerns) {
+            for (let i = 0; i < arpeggioFerns.length; i++) {
+                const f = arpeggioFerns[i];
+                wasmAddCollisionObject!(5, f.position.x, f.position.y, f.position.z,
+                    2.0, (f.userData.height || 4.5) * (f.scale.y || 1.0), i, 0, 0);
+            }
         }
     }
 

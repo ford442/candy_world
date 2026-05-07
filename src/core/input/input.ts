@@ -10,7 +10,7 @@ import * as THREE from 'three';
 import { discoverySystem } from '../../systems/discovery.js';
 import { trapFocusInside } from '../../utils/interaction-utils.ts';
 import { openAccessibilityMenu } from '../../ui/accessibility-menu.ts';
-import { keyStates, InitInputResult } from './input-types.ts';
+import { keyStates, InitInputResult, filterValidMusicFiles, triggerAbility } from './input-types.ts';
 import {
     initPlaylistManager,
     getIsPlaylistOpen,
@@ -49,6 +49,7 @@ export function initInput(
 
     // Modal Focus Trap Cleanups
     let releasePauseMenuFocus: (() => void) | null = null;
+    let lastFocusedElement: HTMLElement | null = null;
 
     // --- NEW: Visual Reticle (Crosshair) ---
     // Check if it exists; if not, create it
@@ -115,11 +116,30 @@ export function initInput(
             return;
         }
 
-        if (instructions) instructions.style.display = 'none';
-        
         if (releasePauseMenuFocus) {
             releasePauseMenuFocus();
             releasePauseMenuFocus = null;
+        }
+
+        if (instructions) {
+            instructions.style.opacity = '0';
+            instructions.style.backdropFilter = 'blur(0px)';
+            const content = instructions.querySelector('.instructions-content') as HTMLElement;
+            if (content) {
+                content.style.transform = 'scale(0.95)';
+            }
+            setTimeout(() => {
+                if (instructions) instructions.style.display = 'none';
+                if (lastFocusedElement && typeof lastFocusedElement.focus === 'function') {
+                    lastFocusedElement.focus();
+                    lastFocusedElement = null;
+                }
+            }, 200);
+        } else {
+            if (lastFocusedElement && typeof lastFocusedElement.focus === 'function') {
+                lastFocusedElement.focus();
+                lastFocusedElement = null;
+            }
         }
 
         // If we locked, force playlist closed just in case
@@ -146,8 +166,33 @@ export function initInput(
             }
 
             if (instructions) {
+                lastFocusedElement = document.activeElement as HTMLElement;
                 instructions.style.display = 'flex';
-                releasePauseMenuFocus = trapFocusInside(instructions);
+                instructions.style.opacity = '0';
+                instructions.style.backdropFilter = 'blur(0px)';
+                instructions.style.transition = 'opacity 0.2s ease, backdrop-filter 0.2s ease';
+
+                const content = instructions.querySelector('.instructions-content') as HTMLElement;
+                if (content) {
+                    content.style.transform = 'scale(0.95)';
+                    content.style.transition = 'transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+                }
+
+                requestAnimationFrame(() => {
+                    if (instructions) {
+                        instructions.style.opacity = '1';
+                        instructions.style.backdropFilter = 'blur(10px)';
+                    }
+                    if (content) {
+                        content.style.transform = 'scale(1)';
+                    }
+                });
+
+                setTimeout(() => {
+                    if (instructions && instructions.style.display !== 'none') {
+                        releasePauseMenuFocus = trapFocusInside(instructions);
+                    }
+                }, 200);
             }
 
             // UX: Update Title to "Paused" to give context
@@ -201,8 +246,33 @@ export function initInput(
                 // If we are dancing, the unlock event fired but menu was suppressed.
                 // Pressing Escape again should manually bring up the menu.
                 if (instructions) {
+                    lastFocusedElement = document.activeElement as HTMLElement;
                     instructions.style.display = 'flex';
-                    releasePauseMenuFocus = trapFocusInside(instructions);
+                    instructions.style.opacity = '0';
+                    instructions.style.backdropFilter = 'blur(0px)';
+                    instructions.style.transition = 'opacity 0.2s ease, backdrop-filter 0.2s ease';
+
+                    const content = instructions.querySelector('.instructions-content') as HTMLElement;
+                    if (content) {
+                        content.style.transform = 'scale(0.95)';
+                        content.style.transition = 'transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+                    }
+
+                    requestAnimationFrame(() => {
+                        if (instructions) {
+                            instructions.style.opacity = '1';
+                            instructions.style.backdropFilter = 'blur(10px)';
+                        }
+                        if (content) {
+                            content.style.transform = 'scale(1)';
+                        }
+                    });
+
+                    setTimeout(() => {
+                        if (instructions && instructions.style.display !== 'none') {
+                            releasePauseMenuFocus = trapFocusInside(instructions);
+                        }
+                    }, 200);
                 }
                 if (startButton) {
                     startButton.innerHTML = 'Resume Exploration <span aria-hidden="true">🚀</span> <span class="key-badge" aria-hidden="true">Enter</span>';
@@ -252,27 +322,6 @@ export function initInput(
                 }
             });
 
-            if (event.code === 'Tab') {
-                const focusable = instructions.querySelectorAll('button, input, [href], select, textarea, [tabindex]:not([tabindex="-1"])');
-                if (focusable.length > 0) {
-                    const first = focusable[0] as HTMLElement;
-                    const last = focusable[focusable.length - 1] as HTMLElement;
-
-                    if (event.shiftKey) {
-                        if (document.activeElement === first) {
-                            last.focus();
-                            event.preventDefault();
-                        }
-                    } else {
-                        if (document.activeElement === last) {
-                            first.focus();
-                            event.preventDefault();
-                        }
-                    }
-                }
-                // Allow Tab to work normally inside the trap
-                return;
-            }
         }
 
         // --- UX: Focus Trap & Control Lock when Playlist is open ---
@@ -435,22 +484,75 @@ export function initInput(
         toggleDayNightBtn.addEventListener('click', toggleDayNightCallback);
     }
 
+    // --- D-Pad Direction Controls ---
+    type DpadDirection = 'forward' | 'backward' | 'left' | 'right';
+
+    const dpadMap: Record<string, DpadDirection> = {
+        'dpad-forward':  'forward',
+        'dpad-backward': 'backward',
+        'dpad-left':     'left',
+        'dpad-right':    'right',
+    };
+
+    // Track which D-pad directions are currently held via pointer
+    const dpadHeld = new Set<DpadDirection>();
+
+    const dpadPress = (dir: DpadDirection, btn: HTMLElement) => {
+        dpadHeld.add(dir);
+        keyStates[dir] = true;
+        btn.classList.add('dpad-pressed');
+    };
+
+    const dpadRelease = (dir: DpadDirection, btn: HTMLElement) => {
+        dpadHeld.delete(dir);
+        keyStates[dir] = false;
+        btn.classList.remove('dpad-pressed');
+    };
+
+    for (const [id, dir] of Object.entries(dpadMap)) {
+        const btn = document.getElementById(id) as HTMLElement | null;
+        if (!btn) continue;
+
+        btn.addEventListener('pointerdown', (e: PointerEvent) => {
+            e.preventDefault();
+            e.stopPropagation();
+            btn.setPointerCapture(e.pointerId);
+            dpadPress(dir, btn);
+        });
+
+        btn.addEventListener('pointerup', (e: PointerEvent) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dpadRelease(dir, btn);
+        });
+
+        btn.addEventListener('pointercancel', (e: PointerEvent) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dpadRelease(dir, btn);
+        });
+
+        // Prevent context menu on long-press (mobile)
+        btn.addEventListener('contextmenu', (e) => e.preventDefault());
+    }
+
+    // Safety: release all D-pad directions if window loses focus
+    const releaseDpadAll = () => {
+        for (const [id, dir] of Object.entries(dpadMap)) {
+            const btn = document.getElementById(id) as HTMLElement | null;
+            if (btn) dpadRelease(dir, btn);
+        }
+    };
+    window.addEventListener('blur', releaseDpadAll);
+
     // --- UX: Interactive Ability HUD ---
     // (Variables moved to top of initInput)
-
-    // Helper to simulate key press for abilities
-    const triggerAbility = (ability: 'dash' | 'action' | 'phase') => {
-        keyStates[ability] = true;
-        setTimeout(() => {
-            keyStates[ability] = false;
-        }, 100);
-    };
 
     if (hudDash) {
         hudDash.addEventListener('click', (e) => {
             e.stopPropagation();
             if (hudDash.getAttribute('aria-disabled') !== 'true') {
-                triggerAbility('dash');
+                triggerAbility('dash', hudDash);
             }
         });
         // Add keyboard activation for accessibility (Enter/Space)
@@ -459,7 +561,7 @@ export function initInput(
                 e.preventDefault();
                 e.stopPropagation();
                 if (hudDash.getAttribute('aria-disabled') !== 'true') {
-                    triggerAbility('dash');
+                    triggerAbility('dash', hudDash);
                 }
             }
         });
@@ -469,15 +571,16 @@ export function initInput(
         hudMine.addEventListener('click', (e) => {
             e.stopPropagation();
             if (hudMine.getAttribute('aria-disabled') !== 'true') {
-                triggerAbility('action'); // 'action' corresponds to Jitter Mine (KeyF)
+                triggerAbility('action', hudMine); // 'action' corresponds to Jitter Mine (KeyF)
             }
         });
+        // Add keyboard activation for accessibility (Enter/Space)
         hudMine.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
                 e.stopPropagation();
                 if (hudMine.getAttribute('aria-disabled') !== 'true') {
-                    triggerAbility('action');
+                    triggerAbility('action', hudMine);
                 }
             }
         });
@@ -487,15 +590,16 @@ export function initInput(
         hudPhase.addEventListener('click', (e) => {
             e.stopPropagation();
             if (hudPhase.getAttribute('aria-disabled') !== 'true') {
-                triggerAbility('phase');
+                triggerAbility('phase', hudPhase);
             }
         });
+        // Add keyboard activation for accessibility (Enter/Space)
         hudPhase.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
                 e.stopPropagation();
                 if (hudPhase.getAttribute('aria-disabled') !== 'true') {
-                    triggerAbility('phase');
+                    triggerAbility('phase', hudPhase);
                 }
             }
         });
@@ -549,8 +653,7 @@ export function initInput(
         const files = e.dataTransfer?.files;
         if (files && files.length > 0) {
             // Use the filter function from input-types
-            import('./input-types.ts').then(({ filterValidMusicFiles }) => {
-                const { validFiles, invalidFiles } = filterValidMusicFiles(files);
+            const { validFiles, invalidFiles } = filterValidMusicFiles(files);
 
                 if (validFiles.length > 0) {
                     audioSystem.addToQueue(validFiles);
@@ -569,7 +672,7 @@ export function initInput(
                         showToast("❌ Only .mod, .xm, .it, .s3m allowed!", '🚫');
                     });
                 }
-            });
+            // End filter
         }
     };
 
@@ -589,6 +692,7 @@ export function initInput(
             document.removeEventListener('keyup', onKeyUp);
             document.removeEventListener('mousedown', onMouseDown);
             document.removeEventListener('mouseup', onMouseUp);
+            window.removeEventListener('blur', releaseDpadAll);
 
             if (dragOverlay) {
                 window.removeEventListener('dragenter', onDragEnter);

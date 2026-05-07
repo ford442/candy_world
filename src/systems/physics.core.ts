@@ -76,6 +76,9 @@ const LAKE_ISLAND: LakeIslandConfig = {
     enabled: true
 };
 
+// ⚡ OPTIMIZATION: Pre-calculate squared constant to avoid Math.sqrt() threshold math
+const LAKE_ISLAND_RADIUS_SQ = LAKE_ISLAND.radius * LAKE_ISLAND.radius;
+
 // Scratch vectors (reused to prevent GC)
 const _scratchCamDir = new THREE.Vector3();
 const _scratchCamRight = new THREE.Vector3();
@@ -157,9 +160,11 @@ export function isOnLakeIsland(x: number, z: number): boolean {
     
     const dx = x - LAKE_ISLAND.centerX;
     const dz = z - LAKE_ISLAND.centerZ;
-    const distFromCenter = Math.sqrt(dx * dx + dz * dz);
     
-    return distFromCenter < LAKE_ISLAND.radius;
+    // ⚡ OPTIMIZATION: Converted to pure squared distance check to avoid Math.sqrt() in hot path.
+    const distFromCenterSq = dx * dx + dz * dz;
+
+    return distFromCenterSq < LAKE_ISLAND_RADIUS_SQ;
 }
 
 /**
@@ -179,9 +184,14 @@ export function getUnifiedGroundHeightTyped(
         if (LAKE_ISLAND.enabled) {
             const dx = x - LAKE_ISLAND.centerX;
             const dz = z - LAKE_ISLAND.centerZ;
-            const distFromIslandCenter = Math.sqrt(dx * dx + dz * dz);
             
-            if (distFromIslandCenter < LAKE_ISLAND.radius) {
+            // ⚡ OPTIMIZATION: Deferred Math.sqrt() by using squared distance for early-out bounds check.
+            const distFromIslandCenterSq = dx * dx + dz * dz;
+
+            if (distFromIslandCenterSq < LAKE_ISLAND_RADIUS_SQ) {
+                // Now calculate the linear distance since it is required for the falloff curve
+                const distFromIslandCenter = Math.sqrt(distFromIslandCenterSq);
+
                 // On the island - calculate height above water
                 const normalizedDist = distFromIslandCenter / LAKE_ISLAND.radius;
                 

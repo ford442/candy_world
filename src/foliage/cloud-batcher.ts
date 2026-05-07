@@ -9,6 +9,7 @@ import {
     uTime, createJuicyRimLight, uAudioLow, uAudioHigh,
     uWindSpeed, uWindDirection, triplanarNoise, uPlayerPosition
 } from './index.ts';
+import { attribute } from 'three/tsl';
 import { foliageGroup } from '../world/state.ts';
 import { getIcosahedronGeometry } from '../utils/geometry-dedup.ts';
 import { uSkyDarkness, uTwilight } from './sky.ts';
@@ -167,8 +168,14 @@ function createCloudMaterial() {
 
     material.colorNode = finalColor;
 
+    // --- VERTICAL ECOSYSTEM: Crystallized Rim for Walkable Clouds ---
+    // Walkable clouds (tier 1) get a subtle cyan ice-crystal edge glow
+    const walkableFlag = attribute('aIsWalkable', 'float');
+    const crystalColor = color(0xE0FFFF);
+    const crystalRim = createJuicyRimLight(crystalColor, float(0.8), float(2.5), normalWorld).mul(walkableFlag);
+
     // Dim emissive effects during storms too, except lightning
-    material.emissiveNode = lightningGlow.add(juicyRim.mul(stormDarkness)).add(rainbowSheen.mul(stormDarkness));
+    material.emissiveNode = lightningGlow.add(juicyRim.mul(stormDarkness)).add(rainbowSheen.mul(stormDarkness)).add(crystalRim);
 
     return material;
 }
@@ -188,12 +195,14 @@ export class CloudBatcher {
     count: number;
     mesh: THREE.InstancedMesh | null;
     clouds: any[]; // Logic objects
+    isWalkableAttribute: THREE.InstancedBufferAttribute | null;
 
     constructor() {
         this.initialized = false;
         this.count = 0;
         this.mesh = null;
         this.clouds = [];
+        this.isWalkableAttribute = null;
     }
 
     init() {
@@ -202,6 +211,11 @@ export class CloudBatcher {
         // PALETTE: Increased detail for smoother TSL displacement (1 -> 2)
         // ⚡ OPTIMIZATION: Use shared geometry via registry (deduplicated)
         const puffGeometry = getIcosahedronGeometry(1, 2);
+
+        // ⚡ VERTEX BUFFER BUDGET: position(1) + normal(2) + uv(3) + instanceMatrix(4-7) + aIsWalkable(8)
+        // Staying exactly at the 8-buffer WebGPU limit for GTX 1060 compatibility
+        this.isWalkableAttribute = new THREE.InstancedBufferAttribute(new Float32Array(MAX_PUFFS), 1);
+        puffGeometry.setAttribute('aIsWalkable', this.isWalkableAttribute);
 
         this.mesh = new THREE.InstancedMesh(puffGeometry, sharedCloudMaterial, MAX_PUFFS);
         this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
@@ -266,6 +280,15 @@ export class CloudBatcher {
         if (!cloudGroup.userData.lastRot) cloudGroup.userData.lastRot = new THREE.Euler();
         cloudGroup.userData.lastPos.copy(cloudGroup.position);
         cloudGroup.userData.lastRot.copy(cloudGroup.rotation);
+
+        // Set walkable attribute for all puffs in this cloud
+        const isWalkable = cloudGroup.userData.isWalkable ? 1.0 : 0.0;
+        if (this.isWalkableAttribute) {
+            for (let i = 0; i < puffCount; i++) {
+                this.isWalkableAttribute.setX(startIndex + i, isWalkable);
+            }
+            this.isWalkableAttribute.needsUpdate = true;
+        }
 
         this.clouds.push(cloudGroup);
 
@@ -334,3 +357,4 @@ export class CloudBatcher {
 }
 
 export const cloudBatcher = new CloudBatcher();
+export const walkableCloudBatcher = new CloudBatcher();

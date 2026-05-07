@@ -20,8 +20,12 @@ import {
   color,
   float
 } from 'three/tsl';
+import { PlantPoseMachine } from './plant-pose-machine.ts';
+import { CONFIG } from '../core/config.ts';
 
 const MAX_PINES = 200; // conservative default for performance
+/** Default melody channel index used when config does not specify channelIndex. */
+const DEFAULT_MELODY_CHANNEL_INDEX = 2;
 const _scratchMatrix = new THREE.Matrix4();
 
 export class PortamentoPineBatcher {
@@ -36,6 +40,12 @@ export class PortamentoPineBatcher {
 
   // scratch
   _color = new THREE.Color();
+
+  /**
+   * Per-instance ADSR pose machine — drives the spring rest position for each pine.
+   * Allocated once with MAX_PINES capacity; no per-frame allocations.
+   */
+  private _poseMachine: PlantPoseMachine = new PlantPoseMachine(MAX_PINES);
 
   init() {
     if (this.initialized) return;
@@ -206,11 +216,21 @@ export class PortamentoPineBatcher {
     // including the spring physics integration.
   }
 
-  update(time: number, audioState: any) {
+  update(time: number, audioState: any, dayNightBias: number = 1.0) {
     if (!this.initialized || this.count === 0) return;
 
     let needsUpdate = false;
     const dt = 0.016; // Fixed physics step
+
+    // --- Pose machine: advance per-instance ADSR envelopes ---
+    // Use melody channel (index from config) volume as shared channel intensity.
+    const poseConfig = CONFIG.plantPose.portamentoPine;
+    const channelIdx = poseConfig.channelIndex ?? DEFAULT_MELODY_CHANNEL_INDEX;
+    let channelIntensity = 0.0;
+    if (audioState && audioState.channelData && audioState.channelData[channelIdx]) {
+        channelIntensity = audioState.channelData[channelIdx].volume || 0;
+    }
+    this._poseMachine.update(this.count, dt, channelIntensity, dayNightBias, poseConfig);
 
     for (let i = 0; i < this.count; i++) {
         const pine = this.logicPines[i];
@@ -218,11 +238,17 @@ export class PortamentoPineBatcher {
 
         const state = pine.userData.reactivityState; // { currentBend, velocity }
 
-        // Spring Physics (Hooke's Law + Damping)
+        // --- Spring rest position driven by ADSR pose ---
+        // At day with no music: pose ≈ 0   (straight)
+        // At night:             pose ≈ -0.05 (gentle droop)
+        // Music active:         pose ramps toward dayTarget * sustainLevel (visible forward lean)
+        const poseTarget = this._poseMachine.getPose(i);
+
+        // Spring Physics (Hooke's Law + Damping) toward ADSR target
         const k = 10.0;     // Stiffness
         const damp = 0.92;  // Friction
 
-        const force = -k * state.currentBend;
+        const force = -k * (state.currentBend - poseTarget);
         state.velocity += force * dt;
         state.velocity *= damp;
         state.currentBend += state.velocity * dt;

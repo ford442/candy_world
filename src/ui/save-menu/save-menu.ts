@@ -66,6 +66,7 @@ export class SaveMenu {
     private onCloseCallback?: () => void;
     private keydownHandler: (e: KeyboardEvent) => void;
     private releaseFocusTrap: (() => void) | null = null;
+    private lastFocusedElement: HTMLElement | null = null;
 
     constructor(options: SaveMenuOptions = {}) {
         this.currentMode = options.mode || 'full';
@@ -103,8 +104,13 @@ export class SaveMenu {
     async show(): Promise<void> {
         if (this.container) return;
         
+        this.lastFocusedElement = document.activeElement as HTMLElement | null;
+
         this.container = document.createElement('div');
         this.container.className = 'candy-save-menu';
+        this.container.setAttribute('role', 'dialog');
+        this.container.setAttribute('aria-modal', 'true');
+        this.container.setAttribute('aria-labelledby', 'save-menu-title');
         
         // Add click outside to close
         this.container.addEventListener('click', (e) => {
@@ -131,6 +137,11 @@ export class SaveMenu {
     close(): void {
         if (!this.container) return;
         
+        if (this.releaseFocusTrap) {
+            this.releaseFocusTrap();
+            this.releaseFocusTrap = null;
+        }
+
         // Add exit animation
         this.container.style.animation = 'fadeIn 0.2s ease reverse';
         
@@ -142,6 +153,12 @@ export class SaveMenu {
             this.container?.remove();
             this.container = null;
             document.removeEventListener('keydown', this.keydownHandler);
+
+            if (this.lastFocusedElement && typeof this.lastFocusedElement.focus === 'function') {
+                this.lastFocusedElement.focus();
+                this.lastFocusedElement = null;
+            }
+
             this.onCloseCallback?.();
         }, 200);
     }
@@ -206,13 +223,12 @@ export class SaveMenu {
         
         const tabs = this.getTabs();
         
-        if (this.releaseFocusTrap) {
-            this.releaseFocusTrap();
-            this.releaseFocusTrap = null;
-        }
+        // Track focus before rendering
+        const activeElement = document.activeElement;
+        const wasFocusedInside = this.container.contains(activeElement);
 
         this.container.innerHTML = `
-            <div class="candy-save-menu__container" role="dialog" aria-modal="true" aria-labelledby="save-menu-title">
+            <div class="candy-save-menu__container">
                 ${this.renderHeader()}
                 ${this.currentMode === 'full' ? this.renderTabs(tabs) : ''}
                 <div id="panel-${this.currentTab}" role="tabpanel" aria-labelledby="tab-${this.currentTab}" class="candy-save-menu__content">
@@ -222,6 +238,23 @@ export class SaveMenu {
         `;
         
         this.attachEventListeners();
+
+        // Restore focus if it was dropped
+        if (wasFocusedInside && (!document.activeElement || document.activeElement === document.body)) {
+            const activeTab = this.container.querySelector(`[role="tab"][aria-selected="true"]`) as HTMLElement;
+            if (activeTab) {
+                activeTab.focus();
+            } else {
+                // Fallback to first focusable element
+                const firstFocusable = this.container.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])') as HTMLElement;
+                if (firstFocusable) firstFocusable.focus();
+            }
+        }
+
+        // Re-establish focus trap after rendering new DOM
+        if (this.releaseFocusTrap) {
+            this.releaseFocusTrap();
+        }
         this.releaseFocusTrap = trapFocusInside(this.container);
     }
 
@@ -314,8 +347,8 @@ export class SaveMenu {
                 <div class="candy-io-area__label" id="import-label">Import Save Data</div>
                 <textarea class="candy-textarea" id="import-area" placeholder="Paste save data here or upload a file..." aria-labelledby="import-label" spellcheck="false"></textarea>
                 <div class="candy-save-menu__actions" style="margin-top: 15px;">
-                    <input type="file" class="candy-file-input" id="import-file" accept=".json,.txt">
-                    <label for="import-file" class="candy-file-label"><span aria-hidden="true">📁</span> Choose File</label>
+                    <input type="file" class="candy-file-input" id="import-file" accept=".json,.txt" tabindex="-1">
+                    <button type="button" class="candy-save-menu__btn candy-save-menu__btn--primary" id="import-file-btn"><span aria-hidden="true">📁</span> Choose File</button>
                     <button class="candy-save-menu__btn candy-save-menu__btn--primary" data-action="import-data">
                         <span aria-hidden="true">📥</span> Import Data
                     </button>
@@ -363,7 +396,7 @@ export class SaveMenu {
                 const el = e.currentTarget as HTMLElement;
                 const action = el.dataset.action;
                 const slotId = el.dataset.slot!;
-                this.handleSlotAction(action!, slotId);
+                this.handleSlotAction(action!, slotId, el);
             });
         });
 
@@ -393,6 +426,11 @@ export class SaveMenu {
         // File input
         const fileInput = this.container.querySelector('#import-file') as HTMLInputElement;
         fileInput?.addEventListener('change', (e) => this.handleFileSelect(e));
+
+        const fileBtn = this.container.querySelector('#import-file-btn') as HTMLButtonElement;
+        if (fileBtn && fileInput) {
+            fileBtn.addEventListener('click', () => fileInput.click());
+        }
     }
 
     private handleKeydown(e: KeyboardEvent): void {
@@ -405,10 +443,34 @@ export class SaveMenu {
         } else if (this.listeningKeybind) {
             e.preventDefault();
             this.updateKeybind(this.listeningKeybind, e.key.toLowerCase());
+            return;
+        }
+
+        // ♿ Aria: Keyboard navigation for Tabs (Left/Right Arrows)
+        if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+            const activeElement = document.activeElement as HTMLElement;
+            if (activeElement && activeElement.getAttribute('role') === 'tab') {
+                e.preventDefault();
+                const tabs = Array.from(this.container?.querySelectorAll('[role="tab"]') || []) as HTMLElement[];
+                const currentIndex = tabs.indexOf(activeElement);
+                if (currentIndex >= 0) {
+                    let nextIndex = e.key === 'ArrowRight' ? currentIndex + 1 : currentIndex - 1;
+                    if (nextIndex >= tabs.length) nextIndex = 0;
+                    if (nextIndex < 0) nextIndex = tabs.length - 1;
+
+                    const nextTab = tabs[nextIndex];
+                    nextTab.focus();
+
+                    const tabId = nextTab.dataset.tab as MenuTab;
+                    if (tabId) {
+                        this.switchTab(tabId);
+                    }
+                }
+            }
         }
     }
 
-    private async handleSlotAction(action: string, slotId: string): Promise<void> {
+    private async handleSlotAction(action: string, slotId: string, btnElement?: HTMLElement): Promise<void> {
         // Create bound save function for callbacks
         const boundSaveToSlot = async (id: string) => {
             const result = await saveSystem.save(id);
@@ -428,7 +490,8 @@ export class SaveMenu {
             this.onSaveCallback,
             () => this.refreshSlots(),
             () => this.render(),
-            (tab) => this.switchTab(tab)
+            (tab) => this.switchTab(tab),
+            btnElement
         );
     }
 
@@ -481,6 +544,7 @@ export class SaveMenu {
         const originalWidth = btnElement.offsetWidth;
 
         const setWorkingState = () => {
+            btnElement.setAttribute('aria-busy', 'true');
             btnElement.disabled = true;
             btnElement.style.width = `${originalWidth}px`;
             btnElement.style.justifyContent = 'center';
@@ -488,6 +552,7 @@ export class SaveMenu {
         };
 
         const restoreState = () => {
+            btnElement.removeAttribute('aria-busy');
             btnElement.disabled = false;
             btnElement.style.width = '';
             btnElement.style.justifyContent = '';

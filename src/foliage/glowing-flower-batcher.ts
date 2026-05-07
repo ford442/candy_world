@@ -99,7 +99,7 @@ export class GlowingFlowerBatcher {
         const baseEmissive = instanceColor.mul(pulse);
 
         // Juicy Rim Light (Cyan/White edge)
-        const rim = createJuicyRimLight(instanceColor, float(2.0), float(3.0));
+        const rim = createJuicyRimLight(instanceColor, float(2.0), float(3.0), null);
 
         // Combine
         headMat.emissiveNode = baseEmissive.add(rim);

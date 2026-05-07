@@ -668,7 +668,14 @@ export class GPUFoliageAnimator {
 // THREE.JS INTEGRATION HELPERS
 // =============================================================================
 
-import type * as THREE from 'three';
+import * as THREE from 'three';
+
+// Scratch variables for zero-allocation batch updates
+const _scratchPosition = new THREE.Vector3();
+const _scratchScale = new THREE.Vector3(1, 1, 1);
+const _scratchEuler = new THREE.Euler();
+const _scratchQuaternion = new THREE.Quaternion();
+const _scratchMatrix = new THREE.Matrix4();
 
 /**
  * Update a Three.js InstancedMesh with animation results.
@@ -685,34 +692,35 @@ export async function updateInstancedMeshFromAnimator(
     const { positions, rotations } = await animator.readbackResults();
     const instanceCount = animator.getInstanceCount();
     
-    const dummy = new THREE.Object3D();
-    const scale = new THREE.Vector3();
-    
     for (let i = 0; i < instanceCount; i++) {
-        dummy.position.set(
+        _scratchPosition.set(
             positions[i * 3],
             positions[i * 3 + 1],
             positions[i * 3 + 2]
         );
-        dummy.rotation.set(
+
+        _scratchEuler.set(
             rotations[i * 3],
             rotations[i * 3 + 1],
             rotations[i * 3 + 2]
         );
+        _scratchQuaternion.setFromEuler(_scratchEuler);
         
         if (preserveScale && animator['instanceData']) {
             const data = animator['instanceData'] as FoliageInstanceData;
-            scale.set(
+            _scratchScale.set(
                 data.scales[i * 3],
                 data.scales[i * 3 + 1],
                 data.scales[i * 3 + 2]
             );
-            dummy.scale.copy(scale);
+        } else {
+            _scratchScale.set(1, 1, 1);
         }
         
-        dummy.updateMatrix();
-        // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
-        dummy.matrix.toArray(mesh.instanceMatrix.array, (i) * 16);
+        // ⚡ OPTIMIZATION: Bypassed THREE.Object3D proxy and dummy.updateMatrix() overhead.
+        // Composing manually and writing directly to the Float32Array eliminates allocations in this hot path.
+        _scratchMatrix.compose(_scratchPosition, _scratchQuaternion, _scratchScale);
+        _scratchMatrix.toArray(mesh.instanceMatrix.array, i * 16);
     }
     
     mesh.instanceMatrix.needsUpdate = true;

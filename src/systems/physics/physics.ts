@@ -5,10 +5,12 @@
 import * as THREE from 'three';
 import {
     getGroundHeight, initPhysics, uploadObstaclesBatch, setPlayerState, getPlayerState, updatePhysicsCPP,
-    uploadCollisionObjects, resolveGameCollisionsWASM
+    uploadCollisionObjects, resolveGameCollisionsWASM, initDynamicFoliageBridge
 } from '../../utils/wasm-loader.js';
 import {
-    foliageMushrooms, foliageTrampolines, foliageClouds, vineSwings, animatedFoliage
+    foliageMushrooms, foliageTrampolines, foliageClouds, vineSwings, animatedFoliage,
+    foliageTraps, foliageGeysers, foliagePortamentoPines, foliagePanningPads,
+    activeVineSwing, lastVineDetachTime
 } from '../../world/state.ts';
 import { discoverySystem } from '../discovery.ts';
 import { DISCOVERY_MAP } from '../discovery_map.ts';
@@ -23,7 +25,7 @@ import { uGlitchExplosionCenter, uGlitchExplosionRadius } from '../../foliage/in
 import { spawnImpact } from '../../foliage/impacts.ts';
 import { showToast } from '../../utils/toast.js';
 import { harmonyOrbSystem } from '../../foliage/aurora.ts';
-import { addCameraShake } from '../../main.ts';
+import { addCameraShake } from '../../core/game-loop.ts';
 import { unlockSystem } from '../unlocks.ts';
 
 // Import from physics modules
@@ -38,6 +40,7 @@ import {
     bpmWind,
     foliageCaves,
     setCppPhysicsInitialized,
+    _scratchMatrix,
     cppPhysicsInitialized,
     AudioState,
     KeyStates
@@ -59,6 +62,101 @@ export { player, PlayerState };
 export type { AudioState, PlayerExtended, KeyStates } from './physics-types.js';
 
 // --- Public API ---
+
+
+// --- Lightweight Physics Spatial Grid (⚡ OPTIMIZATION) ---
+export class PhysicsSpatialGrid {
+    private cellSize: number;
+    private cells: Map<string, any[]>;
+    // ⚡ OPTIMIZATION: Reusable array to avoid GC spikes on findNearby
+    private _queryResult: any[] = [];
+    private _querySet: Set<any> = new Set();
+
+    constructor(cellSize: number) {
+        this.cellSize = cellSize;
+        this.cells = new Map();
+    }
+
+    private getHash(x: number, z: number): string {
+        return `${Math.floor(x / this.cellSize)},${Math.floor(z / this.cellSize)}`;
+    }
+
+    insert(obj: any): void {
+        if (!obj || !obj.position) return;
+        const hash = this.getHash(obj.position.x, obj.position.z);
+        let cell = this.cells.get(hash);
+        if (!cell) {
+            cell = [];
+            this.cells.set(hash, cell);
+        }
+        cell.push(obj);
+    }
+
+    clear(): void {
+        this.cells.clear();
+    }
+
+    findNearby(x: number, z: number, radius: number): any[] {
+        this._queryResult.length = 0;
+        this._querySet.clear();
+
+        const minX = Math.floor((x - radius) / this.cellSize);
+        const maxX = Math.floor((x + radius) / this.cellSize);
+        const minZ = Math.floor((z - radius) / this.cellSize);
+        const maxZ = Math.floor((z + radius) / this.cellSize);
+
+        for (let cx = minX; cx <= maxX; cx++) {
+            for (let cz = minZ; cz <= maxZ; cz++) {
+                const hash = `${cx},${cz}`;
+                const cell = this.cells.get(hash);
+                if (cell) {
+                    for (let i = 0; i < cell.length; i++) {
+                        const obj = cell[i];
+                        if (!this._querySet.has(obj)) {
+                            this._querySet.add(obj);
+                            this._queryResult.push(obj);
+                        }
+                    }
+                }
+            }
+        }
+        return this._queryResult;
+    }
+}
+
+// Global grids for different collision types
+export const physicsFoliageGrid = new PhysicsSpatialGrid(20);
+export const physicsTrapsGrid = new PhysicsSpatialGrid(20);
+export const physicsGeysersGrid = new PhysicsSpatialGrid(20);
+export const physicsPinesGrid = new PhysicsSpatialGrid(20);
+export const physicsPanningPadsGrid = new PhysicsSpatialGrid(20);
+
+export function populatePhysicsGrids() {
+    physicsFoliageGrid.clear();
+    physicsTrapsGrid.clear();
+    physicsGeysersGrid.clear();
+    physicsPinesGrid.clear();
+    physicsPanningPadsGrid.clear();
+
+    for (let i = 0; i < animatedFoliage.length; i++) {
+        const obj = animatedFoliage[i];
+        if (obj.userData?.type === 'retrigger_mushroom' || obj.userData?.type === 'vibratoViolet' || (obj.userData?.type === 'flower' && obj.userData?.animationType === 'batchedCymbal')) {
+            physicsFoliageGrid.insert(obj);
+        }
+    }
+    for (let i = 0; i < foliageTraps.length; i++) {
+        physicsTrapsGrid.insert(foliageTraps[i]);
+    }
+    for (let i = 0; i < foliageGeysers.length; i++) {
+        physicsGeysersGrid.insert(foliageGeysers[i]);
+    }
+    for (let i = 0; i < foliagePortamentoPines.length; i++) {
+        physicsPinesGrid.insert(foliagePortamentoPines[i]);
+    }
+    for (let i = 0; i < foliagePanningPads.length; i++) {
+        physicsPanningPadsGrid.insert(foliagePanningPads[i]);
+    }
+}
 
 export function grantInvisibility(duration: number) {
     player.isInvisible = true;
@@ -85,15 +183,18 @@ export function triggerHarpoon(anchor: THREE.Vector3) {
 
 // Main Physics Update Loop
 export function updatePhysics(delta: number, camera: THREE.Camera, controls: any, keyStates: KeyStates, audioState: AudioState) {
-    // 0. Sync Player State with Camera
-    player.position.copy(camera.position);
-
     // 1. Update Global Environmental Modifiers (Wind, Groove)
     updateEnvironmentalModifiers(delta, audioState);
 
     // Check if player is within active glitch grenade field
     if (uGlitchExplosionRadius.value > 0) {
-        const distSq = player.position.distanceToSquared(uGlitchExplosionCenter.value as THREE.Vector3);
+
+        const center = uGlitchExplosionCenter.value as THREE.Vector3;
+        const dx = player.position.x - center.x;
+        const dy = player.position.y - center.y;
+        const dz = player.position.z - center.z;
+        const distSq = dx*dx + dy*dy + dz*dz;
+
         const radiusSq = uGlitchExplosionRadius.value * uGlitchExplosionRadius.value;
         if (distSq < radiusSq) {
             // Player is inside the glitch field - grant intangibility/phasing
@@ -137,6 +238,7 @@ export function updatePhysics(delta: number, camera: THREE.Camera, controls: any
     _lastInputState.dance = keyStates.dance;
     _lastInputState.phase = keyStates.phase;
     _lastInputState.clap = keyStates.clap;
+    _lastInputState.forward = keyStates.forward;
 
     // 5. Check Flora Discovery (Throttled)
     const frameCount = Math.floor(Date.now() / 16);
@@ -145,7 +247,10 @@ export function updatePhysics(delta: number, camera: THREE.Camera, controls: any
     }
 
     // Sync back
-    camera.position.copy(player.position);
+    camera.position.x = player.position.x;
+    camera.position.z = player.position.z;
+    // 🎨 PALETTE: Smooth vertical tracking (LERP) for better game feel
+    camera.position.y = THREE.MathUtils.lerp(camera.position.y, player.position.y, Math.min(delta * 15.0, 1.0));
 }
 
 function checkFloraDiscovery(playerPos: THREE.Vector3) {
@@ -195,16 +300,12 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
 
     for (let i = 0; i < vineSwings.length; i++) {
         const v = vineSwings[i];
-        import('../../world/state.ts').then(({ activeVineSwing }) => {
-            if (v !== activeVineSwing) v.update(player as any, delta, null);
-        });
+        if (v !== activeVineSwing) v.update(player as any, delta, null);
     }
 
-    import('../../world/state.ts').then(({ lastVineDetachTime }) => {
-        if (Date.now() - lastVineDetachTime > 500) {
-            checkVineAttachment(camera);
-        }
-    });
+    if (Date.now() - lastVineDetachTime > 500) {
+        checkVineAttachment(camera);
+    }
 
     // --- ABILITIES & MOVEMENT ---
     handleAbilities(delta, camera, keyStates);
@@ -376,14 +477,21 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
               discoverySystem.discover('trampoline_shroom', 'Trampoline Mushroom', '🍄');
               keyStates.jump = false;
 
+              // --- VERTICAL ECOSYSTEM: Audio-Reactive Mushroom Bounce ---
+              // Scale bounce height with current kick strength / note energy
+              const kick = audioState?.kickTrigger || 0;
+              const noteStrength = audioState?.noteVelocity || kick;
+              const bounceMultiplier = 1.0 + noteStrength * 0.8; // 1.0x - 1.8x
+              player.velocity.y *= bounceMultiplier;
+
               // 🎨 Palette: Add "Juice" to trampoline mushroom bounce
               spawnImpact(player.position, 'jump');
-              addCameraShake(0.3); // 🎨 Palette: Trampoline bounce shake
+              addCameraShake(0.3 * bounceMultiplier); // 🎨 Palette: Trampoline bounce shake
               if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
-                  (window as any).AudioSystem.playSound('impact', { pitch: 1.5, volume: 0.8 });
+                  (window as any).AudioSystem.playSound('impact', { pitch: 1.2 + noteStrength * 0.6, volume: 0.8 });
               }
               if (typeof uChromaticIntensity !== 'undefined') {
-                  uChromaticIntensity.value = 0.5;
+                  uChromaticIntensity.value = 0.5 * bounceMultiplier;
               }
          }
          // Check if we landed on a cloud (isGrounded=true at High Y)
@@ -414,6 +522,12 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
     // --- Harmony Orbs (Collection) ---
     checkHarmonyOrbs();
 }
+
+import { arpeggioFernBatcher } from '../../foliage/arpeggio-batcher.ts';
+
+// Top of physics.ts cache for dynamic imports
+let vineStateModule: typeof import('../../world/state.ts') | null = null;
+import('../../world/state.ts').then(m => { vineStateModule = m; });
 
 // Helper: Initialize C++ obstacles (One-time setup)
 function initCppPhysics(camera: THREE.Camera) {
@@ -465,7 +579,12 @@ function initCppPhysics(camera: THREE.Camera) {
     }
 
     // 2. Upload to AssemblyScript Engine (ASC) - For Narrow Phase Interactivity
-    uploadCollisionObjects(foliageCaves, foliageMushrooms, foliageClouds, foliageTrampolines);
+
+    // Initialize the WASM Bridge for dynamic plant radii
+    // Support enough capacity for our max ferns
+    initDynamicFoliageBridge(500); // MAX_FERNS
+
+    uploadCollisionObjects(foliageCaves, foliageMushrooms, foliageClouds, foliageTrampolines, arpeggioFernBatcher.logicFerns);
 
     console.log('[Physics] Engines Initialized (C++ & ASC).');
 }
@@ -488,7 +607,12 @@ function checkHarmonyOrbs() {
         const orb = harmonyOrbSystem.orbs[i];
         if (!orb.active) continue;
 
-        const distSq = orb.position.distanceToSquared(playerPos);
+
+        const dx = orb.position.x - playerPos.x;
+        const dy = orb.position.y - playerPos.y;
+        const dz = orb.position.z - playerPos.z;
+        const distSq = dx*dx + dy*dy + dz*dz;
+
         if (distSq < radiusSq) {
             // Collect orb
             orb.active = false;
@@ -519,7 +643,10 @@ function checkRetriggerMushrooms(delta: number, audioState: AudioState | null) {
     let inStrobeField = false;
     let maxIntensity = 0;
 
-    for (const obj of animatedFoliage) {
+    // ⚡ OPTIMIZATION: Query spatial grid instead of O(N) array loop
+    const nearbyObjects = physicsFoliageGrid.findNearby(playerPos.x, playerPos.z, 15.0);
+    for (let i = 0; i < nearbyObjects.length; i++) {
+        const obj = nearbyObjects[i];
         if (obj.userData?.type === 'retrigger_mushroom') {
             const dx = playerPos.x - obj.position.x;
             const dz = playerPos.z - obj.position.z;
@@ -539,8 +666,8 @@ function checkRetriggerMushrooms(delta: number, audioState: AudioState | null) {
                 if (isStrobing) {
                     inStrobeField = true;
                     // Calculate intensity based on distance
-                    const dist = Math.sqrt(distSq);
-                    const localIntensity = 1.0 - (dist / 15.0);
+                    // ⚡ OPTIMIZATION: Avoid Math.sqrt by using squared distance for linear attenuation approximation
+                    const localIntensity = 1.0 - (distSq / 225.0);
                     if (localIntensity > maxIntensity) {
                         maxIntensity = localIntensity;
                     }
@@ -568,8 +695,10 @@ function checkVibratoViolets(delta: number, audioState: AudioState | null) {
     let inDistortionField = false;
 
     // Check all vibrato violets
-    // (Note: They are part of animatedFoliage, we can filter them out)
-    for (const obj of animatedFoliage) {
+    // ⚡ OPTIMIZATION: Query spatial grid instead of O(N) array loop
+    const nearbyObjects = physicsFoliageGrid.findNearby(playerPos.x, playerPos.z, 20.0);
+    for (let i = 0; i < nearbyObjects.length; i++) {
+        const obj = nearbyObjects[i];
         if (obj.userData?.type === 'vibratoViolet') {
             const dx = playerPos.x - obj.position.x;
             const dz = playerPos.z - obj.position.z;
@@ -612,7 +741,10 @@ function checkPortamentoPines(delta: number) {
     const playerPos = player.position;
     const now = performance.now();
 
-    for (const pine of foliagePortamentoPines) {
+    // ⚡ OPTIMIZATION: Query spatial grid instead of O(N) array loop
+    const nearbyPines = physicsPinesGrid.findNearby(playerPos.x, playerPos.z, 5.0);
+    for (let i = 0; i < nearbyPines.length; i++) {
+        const pine = nearbyPines[i];
         // Distance check
         const dx = playerPos.x - pine.position.x;
         const dz = playerPos.z - pine.position.z;
@@ -695,7 +827,10 @@ function checkPortamentoPines(delta: number) {
 }
 
 function checkSnareTraps(delta: number) {
-    for (const trap of foliageTraps) {
+    // ⚡ OPTIMIZATION: Query spatial grid instead of O(N) array loop
+    const nearbyTraps = physicsTrapsGrid.findNearby(player.position.x, player.position.z, 5.0);
+    for (let i = 0; i < nearbyTraps.length; i++) {
+        const trap = nearbyTraps[i];
         // Distance Check
         const dx = player.position.x - trap.position.x;
         const dz = player.position.z - trap.position.z;
@@ -751,7 +886,10 @@ function checkSnareTraps(delta: number) {
 }
 
 function checkGeysers(delta: number) {
-    for (const geyser of foliageGeysers) {
+    // ⚡ OPTIMIZATION: Query spatial grid instead of O(N) array loop
+    const nearbyGeysers = physicsGeysersGrid.findNearby(player.position.x, player.position.z, 5.0);
+    for (let i = 0; i < nearbyGeysers.length; i++) {
+        const geyser = nearbyGeysers[i];
         // Distance check (Cylinder)
         const dx = player.position.x - geyser.position.x;
         const dz = player.position.z - geyser.position.z;
@@ -796,7 +934,10 @@ function checkPanningPads() {
     // Panning Pads are flat cylinders created with createPanningPad
     // We treat them as dynamic platforms that boost the player if landed on at peak bob.
 
-    for (const pad of foliagePanningPads) {
+    // ⚡ OPTIMIZATION: Query spatial grid instead of O(N) array loop
+    const nearbyPads = physicsPanningPadsGrid.findNearby(player.position.x, player.position.z, 10.0);
+    for (let i = 0; i < nearbyPads.length; i++) {
+        const pad = nearbyPads[i];
         // Simple Cylinder Collision (XZ Check)
         const dx = player.position.x - pad.position.x;
         const dz = player.position.z - pad.position.z;
@@ -931,7 +1072,8 @@ function updateJSFallbackMovement(delta: number, camera: THREE.Camera, controls:
 
 // --- Vine Attachment Helper ---
 function checkVineAttachment(camera: THREE.Camera) {
-    import('../../world/state.ts').then(({ vineSwings, activeVineSwing, setActiveVineSwing }) => {
+    if (!vineStateModule) return;
+    const { vineSwings, activeVineSwing, setActiveVineSwing } = vineStateModule;
         const playerPos = player.position;
         for (const vineManager of vineSwings) {
             // SAFETY: Ensure vineManager and anchorPoint exist before accessing properties
@@ -959,5 +1101,4 @@ function checkVineAttachment(camera: THREE.Camera) {
                  }
             }
         }
-    });
 }

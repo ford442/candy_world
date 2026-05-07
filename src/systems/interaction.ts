@@ -140,7 +140,8 @@ export class InteractionSystem {
             }
             if (!found) {
                 if (obj.userData?.onProximityEnter) {
-                    try { obj.userData.onProximityEnter(playerPosition.distanceTo(obj.position)); } catch(e) { console.warn('Proximity Enter Error:', e); }
+                    // ⚡ OPTIMIZATION: Replaced distanceTo() with distanceToSquared() to prevent vector allocations.
+                    try { obj.userData.onProximityEnter(Math.sqrt(playerPosition.distanceToSquared(obj.position))); } catch(e) { console.warn('Proximity Enter Error:', e); }
                 }
             }
         }

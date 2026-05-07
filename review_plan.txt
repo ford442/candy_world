@@ -1,0 +1,21 @@
+I will fix the issues reported based on Bolt's performance learnings:
+
+1. **Optimize TreeBatcher (src/foliage/tree-batcher.ts):**
+   - In `TreeBatcher.addInstance()`, I will replace `mesh.setMatrixAt(index, matrix)` with writing directly to the `instanceMatrix.array` (e.g. `matrix.toArray(mesh.instanceMatrix.array, index * 16)`). This removes the overhead of Three.js Matrix math/allocations within a hot-path. I will also add the `// ⚡ OPTIMIZATION:` comment.
+
+2. **Optimize Proximity Enter/Leave Math (src/systems/interaction.ts):**
+   - The loop calculates `distSq = dx*dx + dy*dy + dz*dz`.
+   - On line 143: `obj.userData.onProximityEnter(playerPosition.distanceTo(obj.position));` uses the expensive `.distanceTo` which invokes `Math.sqrt`. We can replace this with `Math.sqrt(distSq)` since we already calculated `distSq` up top, but it's not readily available inside the specific `Enters` loop. Instead of `distanceTo()`, we'll use `Math.sqrt(playerPosition.distanceToSquared(obj.position))` or manually calculate `distSq` and `Math.sqrt()`.
+
+3. **Optimize Harpoon Line Math (src/gameplay/harpoon-line.ts):**
+   - Line 94: `const distance = playerPos.distanceTo(anchor);` will be converted to `Math.sqrt(playerPos.distanceToSquared(anchor));`
+
+4. **Fix VRAM Leaks in Scene Removal:**
+   - `src/rendering/shader-warmup.ts`: Line 270 `scene.remove(mesh);` should also explicitly dispose geometry and materials, or at least traverse to do so. The method already calls `warmupGeometry.dispose()` later on, but the `material` isn't fully disposed here. But mostly, `mesh.geometry.dispose()` should be called if not done.
+   - `src/core/main.ts`: Line 276 `scene.remove(previewMushroom);`. The `previewMushroom` (a Group) is removed but not explicitly traversed to call `.dispose()` on geometries and materials, leading to VRAM leak. I will add traversal logic to dispose geometries and materials.
+   - `src/core/deferred-init.ts`: Line 208 `scene.remove(dummyGroup);`. We should add `dummyGeo.dispose();` and `dummyMat.dispose();` after removal.
+
+5. **Pre Commit Steps:**
+   - Pre-commit check according to memory constraints: "Complete pre commit steps to make sure proper testing, verifications, reviews and reflections are done." Wait, the constraint specifically said: "* Implementation Details: [Brief technical summary]... Outline execution plans, the final pre-commit step must use the exact required string: 'Complete pre-commit steps to ensure proper testing, verification, review, and reflection are done.'"
+
+I'd like to get this plan reviewed.

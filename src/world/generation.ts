@@ -1,26 +1,27 @@
 // src/world/generation.ts
 
 import { updateProgress } from '../ui/index.ts';
+import { createIntegratedFireflies, createIntegratedPollen, createIntegratedSparks, registerIntegratedSystem } from '../particles/index.ts';
 import * as THREE from 'three';
 import { getGroundHeight, initCollisionSystem, addCollisionObject, checkPositionValidity } from '../utils/wasm-loader.js';
 import {
     createSky, createStars, createMoon, createMushroom, createGlowingFlower,
     createFlower, createSubwooferLotus, createAccordionPalm, createFiberOpticWillow,
-    createFloatingOrb, createSwingableVine, VineSwing, createPrismRoseBush,
+    createFloatingOrb, createSwingableVine, createVineLadder, VineSwing, createPrismRoseBush,
     createStarflower, createVibratoViolet, createTremoloTulip, createKickDrumGeyser,
-    createRainingCloud, createWaveformWater, createFireflies, initFallingBerries,
+    createRainingCloud, createWaveformWater, initFallingBerries,
     initGrassSystem, addGrassInstance,
     createArpeggioFern, createPortamentoPine, createCymbalDandelion, createSnareTrap,
-    createBubbleWillow, createHelixPlant, createBalloonBush, createWisteriaCluster,
+    createBubbleWillow, createHelixPlant, createBalloonBush,
     createPanningPad, createSilenceSpirit, createInstrumentShrine, createMelodyMirror,
     createRetriggerMushroom,
     createIsland, // Added
     createCaveEntrance,
-    createNeonPollen, // Added
     createTerrainMaterial // Added
 } from '../foliage/index.ts';
 import { generateCloudLayer } from '../foliage/procedural-sky.ts';
 import { validateFoliageMaterials, foliageMaterials } from '../foliage/index.ts';
+import { createWisteriaCluster } from '../foliage/wisteria-cluster.ts';
 import { CONFIG } from '../core/config.ts';
 import { registerPhysicsCave } from '../systems/physics/index.js';
 import { initDiscoveryForFoliage } from '../systems/discovery-optimized.ts';
@@ -28,8 +29,8 @@ import { unlockSystem } from '../systems/unlocks.ts';
 import { spawnImpact } from '../foliage/impacts.ts';
 import { makeInteractive } from '../utils/interaction-utils.ts';
 import {
-    animatedFoliage, obstacles, foliageGroup, foliageMushrooms,
-    foliageClouds, foliageTrampolines, foliagePanningPads, foliageGeysers, foliageTraps, foliagePortamentoPines, vineSwings, worldGroup
+    animatedFoliage, cpuAnimatedFoliage, obstacles, foliageGroup, foliageMushrooms,
+    foliageClouds, foliageTrampolines, foliagePanningPads, foliageGeysers, foliageTraps, foliagePortamentoPines, vineSwings, foliageVineLadders, worldGroup
 } from './state.ts';
 import mapData from '../../assets/map.json';
 
@@ -81,6 +82,15 @@ const LAKE_ISLAND = {
     peakHeight: 3.0,       // Height at center above water
     falloffRadius: 4,      // Smooth blend at edges
     enabled: true          // Toggle island generation
+};
+
+
+// --- Arpeggio Grove Configuration ---
+const ARPEGGIO_GROVE = {
+    centerX: -60,
+    centerZ: 60,
+    radius: 15,
+    enabled: true
 };
 
 // Helper: Calculate Unified Ground Height (WASM + Visual Lake Modifiers + Island)
@@ -186,7 +196,7 @@ export function initWorld(scene: THREE.Scene, weatherSystem: WeatherSystem, load
 
     // Initialize Vegetation Systems
     initGrassSystem(scene, 10000);
-    scene.add(createFireflies(150, 100));
+    scene.add(createIntegratedFireflies({ count: 150, areaSize: 100, useCompute: true }));
 
     // Procedural Cloud Layer (Background)
     generateCloudLayer(scene);
@@ -231,6 +241,16 @@ export function safeAddFoliage(
     foliageGroup.add(obj);
     animatedFoliage.push(obj);
 
+    if (!(obj.userData.isBatched ||
+        obj.userData.type === 'mushroom' ||
+        obj.userData.type === 'lanternFlower' ||
+        obj.userData.type === 'arpeggio_fern' ||
+        obj.userData.type === 'portamento_pine' ||
+        obj.userData.type === 'prismRoseBush' ||
+        obj.userData.isFlower)) {
+        cpuAnimatedFoliage.push(obj);
+    }
+
     // Add to JS obstacles (legacy/backup)
     if (isObstacle) {
         obstacles.push({ position: obj.position.clone(), radius });
@@ -253,6 +273,7 @@ export function safeAddFoliage(
     if (obj.userData.type === 'tree' && obj.userData.animationType === 'batchedPortamento') {
         foliagePortamentoPines.push(obj);
     }
+    if (obj.userData.type === 'vine_ladder') foliageVineLadders.push(obj);
 
     // Invoke deferred placement logic (e.g. for batching)
     if (obj.userData.onPlacement) {
@@ -364,8 +385,84 @@ export async function generateMap(
         animatedFoliage.push(waterfallProxy as any);
     }
 
+
+/**
+ * Populates the Arpeggio Grove set piece as defined in the Musical Ecosystem plan.
+ * Features a Subwoofer Lotus surrounded by twelve Arpeggio Ferns, with reactive flora.
+ */
+function populateArpeggioGrove(weatherSystem: WeatherSystem): void {
+    if (!ARPEGGIO_GROVE.enabled) return;
+
+    console.log("[World] Populating Arpeggio Grove...");
+
+    const { centerX, centerZ, radius } = ARPEGGIO_GROVE;
+
+    // Central feature: Subwoofer Lotus
+    const centralLotus = createSubwooferLotus({ scale: 1.5 });
+    const centralY = getUnifiedGroundHeight(centerX, centerZ);
+    centralLotus.position.set(centerX, centralY, centerZ);
+    safeAddFoliage(centralLotus, false, 0, weatherSystem);
+
+    // Twelve Arpeggio Ferns ring
+    const fernCount = 12;
+    const fernRadius = radius * 0.4;
+    for (let i = 0; i < fernCount; i++) {
+        const angle = (i / fernCount) * Math.PI * 2;
+        const fx = centerX + Math.cos(angle) * fernRadius;
+        const fz = centerZ + Math.sin(angle) * fernRadius;
+        const fy = getUnifiedGroundHeight(fx, fz);
+
+        const fern = createArpeggioFern({ scale: 1.2 + Math.random() * 0.3 });
+        fern.position.set(fx, fy, fz);
+        fern.rotation.y = angle + Math.PI; // Face outward or inward? Let's say outward
+        safeAddFoliage(fern, false, 0, weatherSystem);
+    }
+
+    // Outer ring: Kick Drum Geysers and Vibrato Violets
+    const outerCount = 8;
+    const outerRadius = radius * 0.8;
+    for (let i = 0; i < outerCount; i++) {
+        const angle = (i / outerCount) * Math.PI * 2 + 0.2;
+        const ox = centerX + Math.cos(angle) * outerRadius;
+        const oz = centerZ + Math.sin(angle) * outerRadius;
+        const oy = getUnifiedGroundHeight(ox, oz);
+
+        if (i % 2 === 0) {
+            const geyser = createKickDrumGeyser({ maxHeight: 5.0 + Math.random() * 2.0 });
+            geyser.position.set(ox, oy, oz);
+            geyser.rotation.y = angle;
+            safeAddFoliage(geyser, false, 1.0, weatherSystem);
+        } else {
+            const violet = createVibratoViolet({ intensity: 1.5 });
+            violet.position.set(ox, oy, oz);
+            violet.rotation.y = Math.random() * Math.PI * 2;
+            safeAddFoliage(violet, false, 0, weatherSystem);
+        }
+    }
+
+    // Perimeter Traps
+    const trapCount = 4;
+    for (let i = 0; i < trapCount; i++) {
+        const angle = (i / trapCount) * Math.PI * 2 + Math.PI / 4;
+        const tx = centerX + Math.cos(angle) * radius;
+        const tz = centerZ + Math.sin(angle) * radius;
+        const ty = getUnifiedGroundHeight(tx, tz);
+
+        const trap = createSnareTrap({ scale: 1.2 });
+        trap.position.set(tx, ty, tz);
+        trap.rotation.y = angle + Math.PI; // Face outward
+        safeAddFoliage(trap, true, 0.8, weatherSystem);
+    }
+
+    console.log(`[World] Arpeggio Grove populated at (${centerX}, ${centerZ})`);
+}
+
+
     // --- Populate Lake Island with Musical Flora ---
     populateLakeIsland(weatherSystem);
+
+    // --- Populate Arpeggio Grove Set Piece ---
+    populateArpeggioGrove(weatherSystem);
 
     // --- Populate Procedural Extras ---
     // 🎨 Palette: Wrap progress to continue from mapTotal (0-100% unified progress)
@@ -420,7 +517,10 @@ function processMapEntity(item: MapEntity, weatherSystem: WeatherSystem): void {
             obj = isGlowing ? createGlowingFlower() : createFlower();
         }
         else if (item.type === 'cloud') {
+            const cloudTier = (item as any).tier || 1;
             obj = createRainingCloud({ size: item.size as number || 1.5 });
+            obj.userData.tier = cloudTier;
+            obj.userData.isWalkable = cloudTier === 1;
         }
         else if (item.type === 'grass') {
             addGrassInstance(x, y, z);
@@ -638,9 +738,32 @@ function populateLakeIsland(weatherSystem: WeatherSystem): void {
 
     // ⚡ JUICE: Neon Pollen Cloud
     // Audio-reactive magic dust covering the island
-    const pollen = createNeonPollen(3000, 25, new THREE.Vector3(centerX, 5, centerZ));
+    const pollen = createIntegratedPollen({ count: 3000, areaSize: 25, center: new THREE.Vector3(centerX, 5, centerZ), useCompute: true });
     safeAddFoliage(pollen, false, 0, null);
-    
+    if ((pollen as any).userData?.computeParticleSystem) {
+        registerIntegratedSystem('pollen_island', pollen, (pollen as any).userData.computeParticleSystem);
+    }
+
+    // ⚡ JUICE: Environmental Sparks around the Core
+    const ambientSparks = createIntegratedSparks({ count: 5000, areaSize: 15, center: new THREE.Vector3(centerX, 2, centerZ), useCompute: true });
+    safeAddFoliage(ambientSparks, false, 0, null);
+    if ((ambientSparks as any).userData?.computeParticleSystem) {
+        registerIntegratedSystem('sparks_island', ambientSparks, (ambientSparks as any).userData.computeParticleSystem);
+    }
+
+    const ambientIslandSparks = createIntegratedSparks({ count: 5000, areaSize: 15, center: new THREE.Vector3(centerX, 2, centerZ), useCompute: true });
+    safeAddFoliage(ambientIslandSparks, false, 0, null);
+    if ((ambientIslandSparks as any).userData?.computeParticleSystem) {
+        registerIntegratedSystem('sparks_island', ambientIslandSparks, (ambientIslandSparks as any).userData.computeParticleSystem);
+    }
+
+    // ⚡ JUICE: Environmental Sparks
+    // Add ambient sparks to the world
+    const sparksAmbient = createIntegratedSparks({ count: 1000, areaSize: 50, center: new THREE.Vector3(centerX, 10, centerZ), useCompute: true });
+    safeAddFoliage(sparksAmbient, false, 0, null);
+    const globalSparks = createIntegratedSparks({ count: 1000, areaSize: 50, center: new THREE.Vector3(centerX, 10, centerZ), useCompute: true });
+    safeAddFoliage(globalSparks, false, 0, null);
+
     console.log(`[World] Lake Island populated with musical flora at (${centerX}, ${centerZ})`);
 }
 
@@ -733,9 +856,30 @@ async function populateProceduralExtras(
                  if (obj) obj.position.set(x, obj.position.y || groundY, z);
             }
              else if (rand < 0.90) {
-                 const isHigh = Math.random() < 0.5;
-                 y = isHigh ? 35 + Math.random() * 20 : 12 + Math.random() * 10;
-                 obj = createRainingCloud({ size: 1.0 + Math.random() });
+                 // Vertical Ecosystem: Tiered Clouds
+                 const tierRoll = Math.random();
+                 if (tierRoll < 0.35) {
+                     // Tier 1: High, dense, walkable platforms
+                     y = 35 + Math.random() * 20;
+                     obj = createRainingCloud({ size: 1.5 + Math.random() * 0.8 });
+                     obj.userData.tier = 1;
+                     obj.userData.isWalkable = true;
+                     // Occasionally attach a vine ladder descending from this cloud
+                     if (Math.random() < 0.3) {
+                         const ladderLength = y - groundY;
+                         if (ladderLength > 5) {
+                             const ladder = createVineLadder({ length: ladderLength });
+                             ladder.position.set(x, y, z);
+                             safeAddFoliage(ladder, false, 0, weatherSystem);
+                         }
+                     }
+                 } else {
+                     // Tier 2: Mid, misty, non-walkable
+                     y = 12 + Math.random() * 16;
+                     obj = createRainingCloud({ size: 0.8 + Math.random() * 0.6 });
+                     obj.userData.tier = 2;
+                     obj.userData.isWalkable = false;
+                 }
                  obj.position.set(x, y, z);
              }
              else if (rand < 0.95) {
@@ -778,4 +922,65 @@ async function populateProceduralExtras(
     }
 
     console.log("[World] Finished populating procedural extras.");
+}
+
+
+export function spawnNearbyFoliage(origin: THREE.Vector3, type: string, options: FoliageGrowthOptions, weatherSystem: WeatherSystem | null = null): void {
+    if (animatedFoliage.length > 3000) return; // Hard cap
+
+    const maxAttempts = 5;
+    for (let i = 0; i < options.maxOffspring; i++) {
+        if (Math.random() > options.spawnChanceBase) continue;
+
+        let valid = false;
+        let nx = 0, nz = 0;
+
+        for (let a = 0; a < maxAttempts; a++) {
+            const angle = Math.random() * Math.PI * 2;
+            const dist = (Math.random() * 0.5 + 0.5) * options.spawnRadius;
+            nx = origin.x + Math.cos(angle) * dist;
+            nz = origin.z + Math.sin(angle) * dist;
+
+            if (isPositionValid(nx, nz, 1.0)) {
+                // Check local density
+                let localCount = 0;
+                // Use a simple distance check against a subset or the WASM grid if available
+                for (const plant of cpuAnimatedFoliage) {
+                    if (!plant || !plant.position) continue;
+                    const dx = plant.position.x - nx;
+                    const dz = plant.position.z - nz;
+                    if (dx*dx + dz*dz < options.spawnRadius * options.spawnRadius) {
+                        localCount++;
+                    }
+                }
+
+                if (localCount < options.densityLimit) {
+                    valid = true;
+                    break;
+                }
+            }
+        }
+
+        if (valid) {
+            const groundY = getUnifiedGroundHeight(nx, nz);
+            let obj: THREE.Object3D | null = null;
+
+            if (type === 'flower') {
+                obj = createFlower();
+            } else if (type === 'mushroom') {
+                obj = createMushroom({ size: 'regular', scale: 0.8 });
+            }
+
+            if (obj) {
+                obj.position.set(nx, groundY, nz);
+                obj.userData.age = 0;
+                obj.userData.lastSpawnTime = Date.now();
+                safeAddFoliage(obj, false, 0.5, weatherSystem);
+
+                // If it's a batcher-registered object, it will be added to the batcher.
+                // However, safeAddFoliage might push it to arrays that get batched.
+                // The weather ecosystem will handle registering mushrooms.
+            }
+        }
+    }
 }

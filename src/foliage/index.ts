@@ -137,6 +137,7 @@ export {
     createAccordionPalm,
     createFiberOpticWillow,
     createSwingableVine,
+    createVineLadder,
     VineSwing
 } from './trees.ts';
 export { createSubwooferLotus } from './lotus.ts';

@@ -9,6 +9,21 @@ extern "C" float fastInvSqrt(float x);
 extern "C" {
 
 // =============================================================================
+// PHYSICS BATCH MEMORY
+// =============================================================================
+float* instanceMatrices = nullptr;
+
+EMSCRIPTEN_KEEPALIVE
+float* initPhysicsMemory(int maxEntities) {
+    if (instanceMatrices != nullptr) {
+        free(instanceMatrices);
+    }
+    instanceMatrices = (float*)malloc(maxEntities * 16 * sizeof(float));
+    return instanceMatrices;
+}
+
+
+// =============================================================================
 // PLAYER & PHYSICS SYSTEM
 // =============================================================================
 
@@ -248,9 +263,13 @@ int checkCollision(float px, float py, float pz, float radius) {
     return 0;
 }
 
+} // end extern "C"
+
 int main() {
     return 0;
 }
+
+extern "C" {
 
 // =============================================================================
 // FRUSTUM & DISTANCE CULLING (Agent 4)

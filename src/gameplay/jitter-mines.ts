@@ -4,12 +4,12 @@ import {
     uGlitchIntensity,
     uTime,
     uAudioLow
-} from '../foliage/index.ts';
+} from '../foliage/material-core.ts';
 import { applyGlitch } from '../foliage/glitch.ts';
 import { uChromaticIntensity } from '../foliage/chromatic.ts';
 import { spawnImpact } from '../foliage/impacts.ts';
 import { unlockSystem } from '../systems/unlocks.ts';
-import { positionLocal, uv, float, sin, cos, vec3, uniform, attribute, vec4, vec2, step, mix, smoothstep } from 'three/tsl';
+import { positionLocal, uv, float, sin, cos, vec3, uniform, attribute, vec4, vec2, step, mix, smoothstep, Fn } from 'three/tsl';
 
 const MAX_MINES = 50;
 const _scratchMatrix = new THREE.Matrix4();
@@ -31,20 +31,46 @@ interface Mine {
 }
 
 class JitterMineSystem {
-    mesh: THREE.InstancedMesh;
     mines: Mine[];
     cooldownTimer: number;
     trauma: number;
 
-    // TSL GPU specific buffers
-    spawnBuffer: THREE.InstancedBufferAttribute; // x,y,z: position, w: spawnTime
-    stateBuffer: THREE.InstancedBufferAttribute; // x: active(1) or hidden(0), y,z,w: random rotation axis
-    computeNode: null = null; // Removed, using vertex shader instead
+    // GPU resources are deferred — accessed via getters that trigger init()
+    private _mesh: THREE.InstancedMesh | null = null;
+    private _spawnBuffer: THREE.InstancedBufferAttribute | null = null;
+    private _stateBuffer: THREE.InstancedBufferAttribute | null = null;
+    private _initialized = false;
+
+    private initialized = false;
 
     constructor() {
         this.mines = [];
         this.cooldownTimer = 0;
         this.trauma = 0;
+        // Don't eagerly evaluate in constructor to prevent barrel file module load errors
+    }
+
+    /**
+     * Idempotent initialization of all WebGPU / TSL resources.
+     * This is deferred so TSL node math never runs during module load or
+     * constructor execution, preventing scope-loss and mangling crashes.
+     */
+    init() {
+        if (this.initialized) return;
+        this.initialized = true;
+
+        // Pre-allocate CPU-side mine objects (pure JS — safe at construction time)
+        for (let i = 0; i < MAX_MINES; i++) {
+            this.mines.push({
+                active: false,
+                visible: false,
+                position: new THREE.Vector3(),
+                rotation: new THREE.Euler(),
+                scale: 0,
+                time: 0
+            });
+        }
+
 
         const geometry = new THREE.IcosahedronGeometry(MINE_RADIUS, 0);
 
@@ -60,112 +86,137 @@ class JitterMineSystem {
             const rx = Math.random() - 0.5;
             const ry = Math.random() - 0.5;
             const rz = Math.random() - 0.5;
-            const len = Math.sqrt(rx*rx + ry*ry + rz*rz);
+            const len = Math.sqrt(rx * rx + ry * ry + rz * rz);
             initialStates[i * 4 + 1] = rx / len;
             initialStates[i * 4 + 2] = ry / len;
             initialStates[i * 4 + 3] = rz / len;
         }
 
-        this.spawnBuffer = new THREE.InstancedBufferAttribute(initialSpawns, 4);
-        this.spawnBuffer.setUsage(THREE.DynamicDrawUsage);
-        geometry.setAttribute('aSpawn', this.spawnBuffer);
+        this._spawnBuffer = new THREE.InstancedBufferAttribute(initialSpawns, 4);
+        this._spawnBuffer.setUsage(THREE.DynamicDrawUsage);
+        geometry.setAttribute('aSpawn', this._spawnBuffer);
 
-        this.stateBuffer = new THREE.InstancedBufferAttribute(initialStates, 4);
-        this.stateBuffer.setUsage(THREE.DynamicDrawUsage);
-        geometry.setAttribute('aState', this.stateBuffer);
+        this._stateBuffer = new THREE.InstancedBufferAttribute(initialStates, 4);
+        this._stateBuffer.setUsage(THREE.DynamicDrawUsage);
+        geometry.setAttribute('aState', this._stateBuffer);
 
-        // Create Glitchy Material
-        const baseGlitch = applyGlitch(uv(), positionLocal, float(0.2).add(sin(uTime.mul(10.0)).mul(0.1)));
+        // 2. Vertex Shader logic (Stateless GPU Animation)
+        // By deferring the node generation to a Fn(), we avoid module-import-time undefined crashes
+        // from circular dependencies inside barrel files
+        const computeLogic = Fn(() => {
+            const aSpawn = attribute('aSpawn', 'vec4');
+            const aState = attribute('aState', 'vec4');
+        // -----------------------------------------------------------------
+        // TSL MATERIAL GRAPH — deferred until first actual use
+        // -----------------------------------------------------------------
+        const baseGlitch = applyGlitch(
+            uv(),
+            positionLocal,
+            float(0.2).add(sin(uTime.mul(10.0)).mul(0.1))
+        );
 
+            const spawnPos = aSpawn.xyz;
+            const spawnTime = aSpawn.w;
+            const isActive = aState.x;
+            const rotAxis = vec3(aState.y, aState.z, aState.w);
+
+            const glitchTime = uTime ? uTime.mul(10.0) : float(0.0);
+            const baseGlitchPosition = applyGlitch(uv(), positionLocal, float(0.2).add(sin(glitchTime).mul(0.1))).position;
+
+            const age = uTime ? uTime.sub(spawnTime) : float(0.0);
+
+            // Pulse scale
+            const pulse = float(1.0).add(sin(age.mul(10.0)).mul(0.1));
+            const finalScale = pulse.mul(isActive);
+
+            // 🎨 PALETTE: Audio-Reactive Squash & Stretch (Heartbeat/Jelly feel)
+            // High impact on kick drum (uAudioLow)
+            const beatSquash = uAudioLow ? smoothstep(0.2, 0.8, uAudioLow).pow(float(1.5)).mul(0.4) : float(0.0); // Max 40% squash
+
+            // Squash Y axis down, bulge X/Z axes out
+            const scaleY = float(1.0).sub(beatSquash);
+            const scaleXZ = float(1.0).add(beatSquash.mul(0.5));
+            const audioScale = vec3(scaleXZ, scaleY, scaleXZ);
+
+            const scaledPos = baseGlitchPosition.mul(audioScale).mul(finalScale);
+
+            // Rotate around random axis
+            const angle = age.mul(2.0); // Rotation speed
+            const c = cos(angle);
+            const s = sin(angle);
+            const t = float(1.0).sub(c);
+
+            const x = rotAxis.x;
+            const y = rotAxis.y;
+            const z = rotAxis.z;
+
+            // Custom Rodrigues' rotation formula
+            const rx = scaledPos.x.mul(t.mul(x).mul(x).add(c))
+                .add(scaledPos.y.mul(t.mul(x).mul(y).sub(s.mul(z))))
+                .add(scaledPos.z.mul(t.mul(x).mul(z).add(s.mul(y))));
+
+            const ry = scaledPos.x.mul(t.mul(x).mul(y).add(s.mul(z)))
+                .add(scaledPos.y.mul(t.mul(y).mul(y).add(c)))
+                .add(scaledPos.z.mul(t.mul(y).mul(z).sub(s.mul(x))));
+
+            const rz = scaledPos.x.mul(t.mul(x).mul(z).sub(s.mul(y)))
+                .add(scaledPos.y.mul(t.mul(y).mul(z).add(s.mul(x))))
+                .add(scaledPos.z.mul(t.mul(z).mul(z).add(c)));
+
+            const rotatedPos = vec3(rx, ry, rz);
+
+            // Position in world
+            return rotatedPos.add(spawnPos);
+        });
+
+        // Create Glitchy Material using the compute node to prevent instantiation before material-core exports
         const material = createClayMaterial(0xFF00FF, {
             roughness: 0.2,
             metalness: 0.8,
             emissive: 0xFF00FF,
             emissiveIntensity: 0.8,
             bumpStrength: 0.5,
-            noiseScale: 20.0
+            noiseScale: 20.0,
+            deformationNode: computeLogic()
         });
 
-        // 2. Vertex Shader logic (Stateless GPU Animation)
-        const aSpawn = attribute('aSpawn', 'vec4');
-        const aState = attribute('aState', 'vec4');
-
-        const spawnPos = aSpawn.xyz;
-        const spawnTime = aSpawn.w;
-        const isActive = aState.x;
-        const rotAxis = vec3(aState.y, aState.z, aState.w);
-
-        const age = uTime.sub(spawnTime);
-
-        // Pulse scale
-        const pulse = float(1.0).add(sin(age.mul(10.0)).mul(0.1));
-        const finalScale = pulse.mul(isActive);
-
-        // 🎨 PALETTE: Audio-Reactive Squash & Stretch (Heartbeat/Jelly feel)
-        // High impact on kick drum (uAudioLow)
-        const beatSquash = smoothstep(0.2, 0.8, uAudioLow).pow(float(1.5)).mul(0.4); // Max 40% squash
-
-        // Squash Y axis down, bulge X/Z axes out
-        const scaleY = float(1.0).sub(beatSquash);
-        const scaleXZ = float(1.0).add(beatSquash.mul(0.5));
-        const audioScale = vec3(scaleXZ, scaleY, scaleXZ);
-
-        const scaledPos = baseGlitch.position.mul(audioScale).mul(finalScale);
-
-        // Rotate around random axis
-        const angle = age.mul(2.0); // Rotation speed
-        const c = cos(angle);
-        const s = sin(angle);
-        const t = float(1.0).sub(c);
-
-        const x = rotAxis.x;
-        const y = rotAxis.y;
-        const z = rotAxis.z;
-
-        // Custom Rodrigues' rotation formula
-        const rx = scaledPos.x.mul(t.mul(x).mul(x).add(c))
-            .add(scaledPos.y.mul(t.mul(x).mul(y).sub(s.mul(z))))
-            .add(scaledPos.z.mul(t.mul(x).mul(z).add(s.mul(y))));
-
-        const ry = scaledPos.x.mul(t.mul(x).mul(y).add(s.mul(z)))
-            .add(scaledPos.y.mul(t.mul(y).mul(y).add(c)))
-            .add(scaledPos.z.mul(t.mul(y).mul(z).sub(s.mul(x))));
-
-        const rz = scaledPos.x.mul(t.mul(x).mul(z).sub(s.mul(y)))
-            .add(scaledPos.y.mul(t.mul(y).mul(z).add(s.mul(x))))
-            .add(scaledPos.z.mul(t.mul(z).mul(z).add(c)));
-
-        const rotatedPos = vec3(rx, ry, rz);
-
-        // Position in world
-        material.positionNode = rotatedPos.add(spawnPos);
-
-        this.mesh = new THREE.InstancedMesh(geometry, material, MAX_MINES);
-        this.mesh.count = MAX_MINES;
-        this.mesh.castShadow = true;
-        this.mesh.receiveShadow = true;
+        this._mesh = new THREE.InstancedMesh(geometry, material, MAX_MINES);
+        this._mesh.count = MAX_MINES;
+        this._mesh.castShadow = true;
+        this._mesh.receiveShadow = true;
 
         for (let i = 0; i < MAX_MINES; i++) {
-            this.mines.push({
-                active: false,
-                visible: false,
-                position: new THREE.Vector3(),
-                rotation: new THREE.Euler(),
-                scale: 0,
-                time: 0
-            });
             // ⚡ OPTIMIZATION: Instance matrix acts purely as an identity transform.
             // Translation, rotation, and scaling are handled entirely by the TSL material node.
-            _scratchDummy.position.set(0,0,0);
+            _scratchDummy.position.set(0, 0, 0);
             _scratchDummy.scale.setScalar(1);
-            _scratchDummy.rotation.set(0,0,0);
+            _scratchDummy.rotation.set(0, 0, 0);
             _scratchMatrix.compose(_scratchDummy.position, _scratchDummy.quaternion, _scratchDummy.scale);
             // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
-            _scratchMatrix.toArray(this.mesh.instanceMatrix.array, (i) * 16);
+            _scratchMatrix.toArray(this._mesh.instanceMatrix.array, i * 16);
         }
     }
 
+    /** Lazy getter — triggers WebGPU init on first access. */
+    get mesh(): THREE.InstancedMesh {
+        this.init();
+        return this._mesh!;
+    }
+
+    /** Lazy getter — triggers WebGPU init on first access. */
+    get spawnBuffer(): THREE.InstancedBufferAttribute {
+        this.init();
+        return this._spawnBuffer!;
+    }
+
+    /** Lazy getter — triggers WebGPU init on first access. */
+    get stateBuffer(): THREE.InstancedBufferAttribute {
+        this.init();
+        return this._stateBuffer!;
+    }
+
     spawnMine(position: THREE.Vector3) {
+        if (!this.initialized) this.init();
         if (!unlockSystem.isUnlocked('jitter_mines')) {
             return;
         }
@@ -177,16 +228,16 @@ class JitterMineSystem {
 
         // If pool full, recycle oldest
         if (index === -1) {
-             // Find oldest (largest time)
-             let maxTime = -1;
-             let oldestIndex = 0;
-             for(let i=0; i<MAX_MINES; i++) {
-                 if (this.mines[i].time > maxTime) {
-                     maxTime = this.mines[i].time;
-                     oldestIndex = i;
-                 }
-             }
-             index = oldestIndex;
+            // Find oldest (largest time)
+            let maxTime = -1;
+            let oldestIndex = 0;
+            for (let i = 0; i < MAX_MINES; i++) {
+                if (this.mines[i].time > maxTime) {
+                    maxTime = this.mines[i].time;
+                    oldestIndex = i;
+                }
+            }
+            index = oldestIndex;
         }
 
         const mine = this.mines[index];
@@ -200,7 +251,7 @@ class JitterMineSystem {
         spawnArray[index * 4] = position.x;
         spawnArray[index * 4 + 1] = position.y;
         spawnArray[index * 4 + 2] = position.z;
-        // uTime is global from common.ts. We pass current time
+        // uTime is global from material-core.ts. We pass current time
         spawnArray[index * 4 + 3] = ((uTime as any).value !== undefined) ? (uTime as any).value : performance.now() / 1000;
         this.spawnBuffer.needsUpdate = true;
 
@@ -212,11 +263,13 @@ class JitterMineSystem {
 
         // Play sound (if available globally)
         if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
-             (window as any).AudioSystem.playSound('place', { position: position, pitch: 0.8 });
+            (window as any).AudioSystem.playSound('place', { position: position, pitch: 0.8 });
         }
     }
 
     update(delta: number, playerPos: THREE.Vector3) {
+        if (!this.initialized) return;
+
         if (this.cooldownTimer > 0) {
             this.cooldownTimer -= delta;
         }
@@ -272,9 +325,26 @@ class JitterMineSystem {
 
         // Sound
         if ((window as any).AudioSystem && (window as any).AudioSystem.playSound) {
-             (window as any).AudioSystem.playSound('explosion', { position: mine.position, pitch: 0.5 + Math.random() * 0.5 });
+            (window as any).AudioSystem.playSound('explosion', { position: mine.position, pitch: 0.5 + Math.random() * 0.5 });
         }
     }
 }
 
-export const jitterMineSystem = new JitterMineSystem();
+// Lazy init to avoid TSL initialization order issues
+let _jitterMineSystem: JitterMineSystem | null = null;
+
+export const jitterMineSystem = new Proxy({} as JitterMineSystem, {
+    get: (target, prop) => {
+        if (!_jitterMineSystem) {
+            _jitterMineSystem = new JitterMineSystem();
+        }
+        return (_jitterMineSystem as any)[prop];
+    },
+    set: (target, prop, value) => {
+        if (!_jitterMineSystem) {
+            _jitterMineSystem = new JitterMineSystem();
+        }
+        (_jitterMineSystem as any)[prop] = value;
+        return true;
+    }
+});

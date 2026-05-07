@@ -81,6 +81,16 @@ export declare const GRID_NEXT_OFFSET: {
   /** @type `i32` */
   get value(): number
 };
+/** assembly/constants/MAX_DYNAMIC_PLANTS */
+export declare const MAX_DYNAMIC_PLANTS: {
+  /** @type `i32` */
+  get value(): number
+};
+/** assembly/constants/DYNAMIC_RADII_OFFSET */
+export declare const DYNAMIC_RADII_OFFSET: {
+  /** @type `i32` */
+  get value(): number
+};
 /**
  * assembly/math/lerp
  * @param a `f32`
@@ -220,6 +230,12 @@ export declare function getPositionZ(index: number): number;
  * @returns `f32`
  */
 export declare function getPositionRadius(index: number): number;
+/**
+ * assembly/physics/initDynamicFoliageMemory
+ * @param maxInstances `i32`
+ * @returns `i32`
+ */
+export declare function initDynamicFoliageMemory(maxInstances: number): number;
 /**
  * assembly/physics/initCollisionSystem
  */

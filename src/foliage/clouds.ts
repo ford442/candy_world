@@ -1,7 +1,7 @@
 // src/foliage/clouds.ts
 
 import * as THREE from 'three';
-import { cloudBatcher, uCloudRainbowIntensity, uCloudLightningStrength, uCloudLightningColor, sharedCloudMaterial } from './cloud-batcher.ts';
+import { cloudBatcher, walkableCloudBatcher, uCloudRainbowIntensity, uCloudLightningStrength, uCloudLightningColor, sharedCloudMaterial } from './cloud-batcher.ts';
 
 // Re-export for compatibility with weather.ts
 export { uCloudRainbowIntensity, uCloudLightningStrength, uCloudLightningColor, sharedCloudMaterial };
@@ -18,9 +18,9 @@ export interface CloudOptions {
 
 // Wrapper for createCloud
 export function createRainingCloud(options: CloudOptions = {}): THREE.Group {
-    const { scale = 1.0, size = 1.0 } = options;
+    const { scale = 1.0, size = 1.0, tier = 1 } = options;
     const finalScale = scale * (typeof size === 'number' ? size : 1.0);
-    return createCloud({ scale: finalScale });
+    return createCloud({ scale: finalScale, tier });
 }
 
 export function createCloud(options: CloudOptions = {}): THREE.Group {
@@ -36,6 +36,7 @@ export function createCloud(options: CloudOptions = {}): THREE.Group {
     group.userData.type = 'cloud';
     group.userData.tier = tier;
     group.userData.isRainCloud = false;
+    group.userData.isWalkable = tier === 1;
 
     // Store Scale for Batcher
     group.userData.originalScale = new THREE.Vector3(1.4, 1.0, 1.2);
@@ -52,7 +53,8 @@ export function createCloud(options: CloudOptions = {}): THREE.Group {
 
     // Register with Batcher on Placement (World Generation)
     group.userData.onPlacement = () => {
-        cloudBatcher.register(group, { scale, puffCount });
+        const batcher = group.userData.isWalkable ? walkableCloudBatcher : cloudBatcher;
+        batcher.register(group, { scale, puffCount });
     };
 
     return group;

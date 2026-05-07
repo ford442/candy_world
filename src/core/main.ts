@@ -14,7 +14,7 @@ import { WeatherSystem } from '../systems/weather.ts';
 import { initWasm, getGroundHeight } from '../utils/wasm-loader.js';
 import { getUnifiedGroundHeightTyped } from '../systems/physics.core.ts';
 import { profiler } from '../utils/profiler.js';
-import { enableStartupProfiler, finalizeStartupProfile, recordWASMInit } from '../utils/startup-profiler.ts';
+import { enableStartupProfiler, finalizeStartupProfile, recordWASMInit, toggleOverlay } from '../utils/startup-profiler.ts';
 import { startPhase, endPhase } from '../utils/startup-profiler.ts';
 import { glitchGrenadeSystem } from '../systems/glitch-grenade.ts';
 
@@ -26,9 +26,9 @@ import { initPostProcessing } from '../foliage/post-processing.ts';
 
 // World & System imports
 import { initWorld, generateMap, DEFAULT_MAP_CHUNK_SIZE } from '../world/generation.ts';
-import { animatedFoliage } from '../world/state.ts';
+import { animatedFoliage, interactiveObjects } from '../world/state.ts';
 import { fireRainbow } from '../gameplay/rainbow-blaster.ts';
-import { player } from '../systems/physics/index.ts';
+import { player, populatePhysicsGrids } from '../systems/physics/index.ts';
 
 // Refactored module imports
 import { animate, initGameLoopDependencies, addCameraShake } from './game-loop.ts';
@@ -59,7 +59,7 @@ if (oldOverlay) {
 
 enableStartupProfiler({
     slowPhaseThreshold: 100,
-    enableOverlay: true,
+    enableOverlay: false,
     enableConsole: true,
     saveToFile: true,
 });
@@ -179,9 +179,7 @@ window.addEventListener('keydown', (e) => {
             profiler.toggle();
         } else if (key === 'o') {
             // Toggle startup profiler overlay
-            import('../utils/startup-profiler.ts').then(({ toggleOverlay }) => {
-                toggleOverlay();
-            });
+            toggleOverlay();
         } else if (key === 'f') {
             // Demo logic...
         } else if (key === 'g') {
@@ -232,6 +230,9 @@ initWasm().then(async (wasmLoaded) => {
     loadingScreen.updateProgress(70, 'Positioning player...');
     const initialGroundY = getUnifiedGroundHeightTyped(camera.position.x, camera.position.z, getGroundHeight);
     camera.position.y = initialGroundY + 1.8;
+    // ⚡ FIX: Sync player explicitly to prevent a massive camera swoop frame 1
+    player.position.copy(camera.position);
+    player.velocity.set(0, 0, 0);
     console.log(`[Startup] Camera positioned at ground height: y=${camera.position.y.toFixed(2)}`);
 
     loadingScreen.updateProgress(100, 'Physics engine ready');
@@ -241,13 +242,18 @@ initWasm().then(async (wasmLoaded) => {
     loadingScreen.startPhase('shader-warmup');
     loadingScreen.updateProgress(30, 'Starting render loop...');
     renderer.setAnimationLoop(animate);
-    try { window.__sceneReady = true; } catch (e) { }
+    try { (window as any).__sceneReady = true; } catch (e) { }
 
     loadingScreen.updateProgress(100, 'Scene ready!');
     loadingScreen.completePhase('shader-warmup');
 
     // Hide loading screen - the basic scene is ready
+    loadingScreen.onComplete(() => {
+        try { (window as any).__sceneReady = true; } catch (e) { }
+    });
     loadingScreen.hide();
+
+    try { (window as any).__sceneReady = true; } catch (e) { }
 
     // Create a temporary "Preview" mushroom for the startup scene
     const previewMushroom = createMushroom({ size: 'giant', scale: 1.5, hasFace: true, isBouncy: true });
@@ -255,10 +261,18 @@ initWasm().then(async (wasmLoaded) => {
     previewMushroom.rotation.y = Math.PI / 8;
     scene.add(previewMushroom);
     animatedFoliage.push(previewMushroom);
+    // ⚡ OPTIMIZATION: Preview mushroom has interactionText set by createMushroom
+    if (previewMushroom.userData.interactionText || previewMushroom.userData.onInteract) {
+        interactiveObjects.push(previewMushroom);
+    }
 
     const startButton = document.getElementById('startButton') as HTMLButtonElement | null;
+    // Force setting __sceneReady for VRT when button activates
+    try { (window as any).__sceneReady = true; } catch (e) { }
     if (startButton) {
         startButton.disabled = false;
+        startButton.setAttribute('aria-disabled', 'false');
+        startButton.setAttribute('aria-busy', 'false');
         startButton.removeAttribute('title');
         startButton.innerHTML = 'Enter World <span aria-hidden="true">🍭</span> <span class="key-badge" aria-hidden="true">Enter</span>';
         startButton.focus();
@@ -268,12 +282,24 @@ initWasm().then(async (wasmLoaded) => {
 
             // UX: Show loading state immediately to prevent "freeze" feeling
             startButton.disabled = true;
+            startButton.setAttribute('aria-disabled', 'true');
             startButton.setAttribute('title', 'Generating world...');
             startButton.innerHTML = '<span class="spinner" aria-hidden="true"></span>Generating... <span aria-hidden="true">🍭</span>';
 
             // Defer execution slightly to let the UI update
             setTimeout(async () => {
                 scene.remove(previewMushroom);
+                previewMushroom.traverse((child: THREE.Object3D) => {
+                    const mesh = child as THREE.Mesh;
+                    if (mesh.geometry) mesh.geometry.dispose();
+                    if (mesh.material) {
+                        if (Array.isArray(mesh.material)) {
+                            mesh.material.forEach((m: THREE.Material) => m.dispose());
+                        } else {
+                            (mesh.material as THREE.Material).dispose();
+                        }
+                    }
+                });
                 const idx = animatedFoliage.indexOf(previewMushroom);
                 if (idx > -1) animatedFoliage.splice(idx, 1);
 
@@ -303,9 +329,14 @@ initWasm().then(async (wasmLoaded) => {
                         lastAnnounced = percent;
                     }
                 });
+
                 endPhase('Map Generation');
 
+                // ⚡ OPTIMIZATION: Populate spatial grids for physics lookups
+                populatePhysicsGrids();
+
                 loadingScreen.updateProgress(100, 'World generation complete!');
+
                 loadingScreen.completePhase('map-generation');
 
                 startButton.removeAttribute('aria-busy');
@@ -325,6 +356,8 @@ initWasm().then(async (wasmLoaded) => {
 
                 // CRITICAL: Re-enable the button so that "Resume" works later (and checks in input.js pass)
                 startButton.disabled = false;
+                startButton.setAttribute('aria-disabled', 'false');
+                startButton.setAttribute('aria-busy', 'false');
                 startButton.removeAttribute('title');
                 startButton.style.background = ''; // Reset style
 

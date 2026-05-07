@@ -37,6 +37,18 @@ export const keyStates: KeyStates = {
     strike: false
 };
 
+export function triggerAbility(
+    ability: 'dash' | 'action' | 'phase',
+    element?: HTMLElement | null
+): void {
+    keyStates[ability] = true;
+    if (element) element.classList.add('pressed');
+    setTimeout(() => {
+        keyStates[ability] = false;
+        if (element) element.classList.remove('pressed');
+    }, 100);
+}
+
 export interface InitInputResult {
     controls: import('three/examples/jsm/controls/PointerLockControls.js').PointerLockControls;
     updateReticleState: (state: 'idle' | 'hover' | 'interact', label?: string) => void;

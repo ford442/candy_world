@@ -7,11 +7,12 @@ import { spawnImpact } from '../../foliage/impacts.ts';
 import { spawnDandelionExplosion } from '../../foliage/dandelion-seeds.ts';
 import { dandelionBatcher } from '../../foliage/dandelion-batcher.ts';
 import { animatedFoliage } from '../../world/state.ts';
+import { physicsFoliageGrid } from './physics.ts';
 import { discoverySystem } from '../discovery.ts';
 import { unlockSystem } from '../unlocks.ts';
 import { showToast } from '../../utils/toast.js';
 import { uChromaticIntensity } from '../../foliage/chromatic.ts';
-import { addCameraShake } from '../../main.ts';
+import { addCameraShake } from '../../core/game-loop.ts';
 
 // --- Ability Handler ---
 export function handleAbilities(delta: number, camera: THREE.Camera, keyStates: KeyStates) {
@@ -155,11 +156,19 @@ function handleSonicClap() {
     if (uChromaticIntensity) uChromaticIntensity.value = 0.3;
 
     // Iterate through flora to find Cymbal Dandelions
+    // ⚡ OPTIMIZATION: Query spatial grid instead of O(N) array loop
     let foundDandelion = false;
-    for (const obj of animatedFoliage) {
+    const nearbyObjects = physicsFoliageGrid.findNearby(player.position.x, player.position.z, 15.0);
+    for (let i = 0; i < nearbyObjects.length; i++) {
+        const obj = nearbyObjects[i];
         if (obj.userData?.type === 'flower' && obj.userData?.animationType === 'batchedCymbal') {
             if (!obj.userData.harvested) {
-                const distSq = player.position.distanceToSquared(obj.position);
+
+                const dx = player.position.x - obj.position.x;
+                const dy = player.position.y - obj.position.y;
+                const dz = player.position.z - obj.position.z;
+                const distSq = dx*dx + dy*dy + dz*dz;
+
                 if (distSq < 15.0 * 15.0) { // 15 unit radius
                     foundDandelion = true;
 
@@ -169,14 +178,12 @@ function handleSonicClap() {
                     // Visual FX
                     const scale = obj.scale.x;
                     // ⚡ OPTIMIZATION: Reuse pre-allocated scratch vector and color for GC-free sonic clap
-                    import('./physics-types.js').then(({ _scratchHeadOffset, _scratchPos, _clapColor }) => {
-                        _scratchHeadOffset.set(0, 1.5 * scale, 0).applyQuaternion(obj.quaternion);
-                        // ⚡ OPTIMIZATION: Reused scratch vector for headPos to prevent GC spike
-                        const headPos = _scratchPos.copy(obj.position).add(_scratchHeadOffset);
+                    _scratchHeadOffset.set(0, 1.5 * scale, 0).applyQuaternion(obj.quaternion);
+                    // ⚡ OPTIMIZATION: Reused scratch vector for headPos to prevent GC spike
+                    const headPos = _scratchPos.copy(obj.position).add(_scratchHeadOffset);
 
-                        spawnImpact(headPos, 'spore', _clapColor);
-                        spawnDandelionExplosion(headPos, 24);
-                    });
+                    spawnImpact(headPos, 'spore', _clapColor);
+                    spawnDandelionExplosion(headPos, 24);
 
                     // 🎨 Palette: "Juice" Factor - Add screen shake and audio for Sonic Clap
                     addCameraShake(0.4);

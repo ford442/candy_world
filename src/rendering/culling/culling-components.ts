@@ -364,8 +364,13 @@ export class CullingDebugVisualizer {
                 mesh.geometry.dispose();
             }
             const mat = mesh.material;
-            if (mat && !Array.isArray(mat)) {
-                mat.dispose();
+            // ⚡ OPTIMIZATION: Ensure multi-material arrays are fully disposed to prevent VRAM leaks.
+            if (mat) {
+                if (Array.isArray(mat)) {
+                    mat.forEach(m => m.dispose());
+                } else {
+                    mat.dispose();
+                }
             }
             this.debugObjects.delete(obj.id);
         }
@@ -420,11 +425,18 @@ export class CullingDebugVisualizer {
     clear(): void {
         for (const [id, obj] of this.debugObjects) {
             this.scene.remove(obj);
-            if ((obj as THREE.Mesh).geometry) {
-                (obj as THREE.Mesh).geometry.dispose();
+            const mesh = obj as THREE.Mesh;
+            if (mesh.geometry) {
+                mesh.geometry.dispose();
             }
-            if ((obj as THREE.Mesh).material) {
-                ((obj as THREE.Mesh).material as THREE.Material).dispose();
+            // ⚡ OPTIMIZATION: Ensure multi-material arrays are fully disposed to prevent VRAM leaks.
+            const mat = mesh.material;
+            if (mat) {
+                if (Array.isArray(mat)) {
+                    mat.forEach(m => m.dispose());
+                } else {
+                    (mat as THREE.Material).dispose();
+                }
             }
         }
         this.debugObjects.clear();

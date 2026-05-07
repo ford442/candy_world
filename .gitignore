@@ -27,3 +27,4 @@ verify_mod_player.md
 test_build/
 .aider*
 package-lock.json
+public/js/libopenmpt.js

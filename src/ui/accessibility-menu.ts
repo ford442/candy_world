@@ -64,6 +64,7 @@ export class AccessibilityMenu {
   private boundKeyHandler: (e: KeyboardEvent) => void;
   private saveButton: HTMLButtonElement | null = null;
   private releaseFocusTrap: (() => void) | null = null;
+  private lastFocusedElement: HTMLElement | null = null;
 
   constructor() {
     this.a11y = getAccessibilitySystem();
@@ -77,6 +78,8 @@ export class AccessibilityMenu {
   open(): void {
     if (this.isOpen) return;
     
+    this.lastFocusedElement = document.activeElement as HTMLElement;
+
     this.createMenu();
     this.isOpen = true;
     document.addEventListener('keydown', this.boundKeyHandler);
@@ -101,6 +104,11 @@ export class AccessibilityMenu {
       this.releaseFocusTrap();
       this.releaseFocusTrap = null;
     }
+
+    if (this.lastFocusedElement && typeof this.lastFocusedElement.focus === 'function') {
+      this.lastFocusedElement.focus();
+    }
+    this.lastFocusedElement = null;
 
     // Remove elements
     if (this.overlay && this.overlay.parentNode) {
@@ -1146,6 +1154,31 @@ export class AccessibilityMenu {
     if (event.key === 'Escape') {
       this.close();
       event.preventDefault();
+      return;
+    }
+
+    // ♿ Aria: Keyboard navigation for Tabs (Up/Down/Left/Right Arrows)
+    if (event.key === 'ArrowUp' || event.key === 'ArrowDown' || event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+        const activeElement = document.activeElement as HTMLElement;
+        if (activeElement && activeElement.getAttribute('role') === 'tab') {
+            event.preventDefault();
+            const tabs = Array.from(this.container?.querySelectorAll('[role="tab"]') || []) as HTMLElement[];
+            const currentIndex = tabs.indexOf(activeElement);
+            if (currentIndex >= 0) {
+                let nextIndex = (event.key === 'ArrowDown' || event.key === 'ArrowRight') ? currentIndex + 1 : currentIndex - 1;
+                if (nextIndex >= tabs.length) nextIndex = 0;
+                if (nextIndex < 0) nextIndex = tabs.length - 1;
+
+                const nextTab = tabs[nextIndex];
+                nextTab.focus();
+
+                // Assuming tab id is like 'tab-presets' and section is 'presets'
+                const tabIdMatch = nextTab.id.match(/^tab-(.+)$/);
+                if (tabIdMatch && tabIdMatch[1]) {
+                    this.switchSection(tabIdMatch[1] as MenuSection);
+                }
+            }
+        }
     }
   }
 
@@ -1197,12 +1230,38 @@ export class AccessibilityMenu {
 
   private refreshMainPanel(): void {
     const main = this.container?.querySelector('main');
+
+    // Track focus before replacing content
+    const activeElement = document.activeElement;
+    const wasFocusedInside = this.container?.contains(activeElement);
+
     if (main) {
       main.id = `panel-${this.currentSection}`;
       main.setAttribute('aria-labelledby', `tab-${this.currentSection}`);
       this.renderSection(main, this.currentSection);
     }
     this.updateSidebarSelection();
+
+    // Restore focus if it was dropped
+    if (wasFocusedInside && (!document.activeElement || document.activeElement === document.body)) {
+      let activeTab = this.container?.querySelector(`[role="tab"][aria-selected="true"]`) as HTMLElement;
+      if (!activeTab) activeTab = this.container?.querySelector(`button[aria-selected="true"]`) as HTMLElement;
+
+      if (activeTab) {
+        activeTab.focus();
+      } else {
+        const firstFocusable = this.container?.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])') as HTMLElement;
+        if (firstFocusable) firstFocusable.focus();
+      }
+    }
+
+    // Re-establish focus trap after rendering new DOM
+    if (this.container) {
+      if (this.releaseFocusTrap) {
+        this.releaseFocusTrap();
+      }
+      this.releaseFocusTrap = trapFocusInside(this.container);
+    }
   }
 
   private updateSidebarSelection(): void {

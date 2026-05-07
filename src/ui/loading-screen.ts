@@ -11,6 +11,7 @@
  * - Debug toggle
  */
 
+import { trapFocusInside } from '../utils/interaction-utils';
 import './loading-screen.css';
 
 // =============================================================================
@@ -118,7 +119,11 @@ export class LoadingScreen {
     private phases: LoadingPhase[] = [];
     private currentPhaseIndex = -1;
     private phaseProgress = 0;
-    private overallProgress = 0;
+    private targetOverallProgress = 0;
+    private displayedOverallProgress = 0;
+    private displayedPhaseProgress = 0;
+    private animationFrameId: number | null = null;
+    private lastTime: number = 0;
     
     private isVisible = false;
     private isComplete = false;
@@ -131,6 +136,10 @@ export class LoadingScreen {
     private phaseDurations: Map<string, number> = new Map();
     private averagePhaseTime = 0;
     
+    // Task text crossfade tracking
+    private currentTaskDescription = '';
+    private taskChangeTimeout: number | null = null;
+    
     // Track hide version to cancel stale timeout callbacks
     private hideVersion = 0;
     
@@ -138,6 +147,9 @@ export class LoadingScreen {
     private onSkipCallbacks: Set<(phaseId: string) => void> = new Set();
     private onCompleteCallbacks: Set<() => void> = new Set();
     private onProgressCallbacks: Set<(progress: LoadingProgress) => void> = new Set();
+
+    private releaseFocusTrap: (() => void) | null = null;
+    private lastFocusedElement: HTMLElement | null = null;
 
     constructor(options: LoadingScreenOptions = {}) {
         this.options = {
@@ -166,6 +178,7 @@ export class LoadingScreen {
         // Check if already exists
         if (document.getElementById('candy-loading-screen')) {
             this.container = document.getElementById('candy-loading-screen');
+            this.overlay = document.getElementById('candy-loading-overlay');
             return;
         }
 
@@ -173,6 +186,8 @@ export class LoadingScreen {
         this.overlay = document.createElement('div');
         this.overlay.id = 'candy-loading-overlay';
         this.overlay.className = `loading-overlay theme-${this.options.theme}`;
+        this.overlay.setAttribute('role', 'dialog');
+        this.overlay.setAttribute('aria-modal', 'true');
 
         // Create main container
         this.container = document.createElement('div');
@@ -294,6 +309,7 @@ export class LoadingScreen {
      * Show the loading screen
      */
     show(): void {
+        this.lastFocusedElement = document.activeElement as HTMLElement;
         // If hide() is in progress (isComplete but not yet destroyed), cancel it
         if (this.isComplete) {
             this.isComplete = false;
@@ -316,6 +332,19 @@ export class LoadingScreen {
         this.isVisible = true;
         this.isComplete = false;
         
+        this.lastFocusedElement = document.activeElement as HTMLElement;
+
+        if (this.releaseFocusTrap) {
+            this.releaseFocusTrap();
+            this.releaseFocusTrap = null;
+        }
+
+        if (this.container) {
+            this.container.setAttribute('tabindex', '-1');
+            this.container.setAttribute('aria-modal', 'true');
+            this.releaseFocusTrap = trapFocusInside(this.container);
+        }
+
         // Trigger reflow for animation
         requestAnimationFrame(() => {
             if (this.overlay) {
@@ -325,6 +354,11 @@ export class LoadingScreen {
                 this.container.classList.add('visible');
             }
         });
+
+        this.lastTime = performance.now();
+        if (this.animationFrameId === null) {
+            this.animationFrameId = requestAnimationFrame(this.animateProgress);
+        }
 
         if (this.options.debug) {
             console.log('[LoadingScreen] Shown');
@@ -338,6 +372,11 @@ export class LoadingScreen {
         if (!this.isVisible || this.isComplete) return;
         
         this.isComplete = true;
+
+        if (this.animationFrameId !== null) {
+            cancelAnimationFrame(this.animationFrameId);
+            this.animationFrameId = null;
+        }
 
         if (this.container) {
             this.container.classList.add('complete');
@@ -361,6 +400,7 @@ export class LoadingScreen {
             
             if (this.overlay) {
                 this.overlay.classList.remove('visible');
+                this.overlay.classList.add('loaded'); // VRT helper
             }
             if (this.container) {
                 this.container.classList.remove('visible');
@@ -369,6 +409,14 @@ export class LoadingScreen {
             setTimeout(() => {
                 // Guard: don't destroy if show() was called again in the meantime
                 if (this.hideVersion === currentHideVersion && this.isComplete) {
+                    if (this.releaseFocusTrap) {
+                        this.releaseFocusTrap();
+                        this.releaseFocusTrap = null;
+                    }
+                    if (this.lastFocusedElement && typeof this.lastFocusedElement.focus === 'function') {
+                        this.lastFocusedElement.focus();
+                        this.lastFocusedElement = null;
+                    }
                     this.destroy();
                     this.isVisible = false;
                     this.onCompleteCallbacks.forEach(cb => cb());
@@ -406,6 +454,7 @@ export class LoadingScreen {
 
         this.currentPhaseIndex = phaseIndex;
         this.phaseProgress = 0;
+        this.displayedPhaseProgress = 0;
         this.phaseStartTime = Date.now();
 
         const phase = this.phases[phaseIndex];
@@ -446,7 +495,7 @@ export class LoadingScreen {
             phaseIndex: this.currentPhaseIndex,
             totalPhases: this.phases.length,
             percent: this.phaseProgress,
-            overallPercent: this.overallProgress,
+            overallPercent: this.targetOverallProgress,
             taskDescription: description,
             estimatedTimeRemaining: this.calculateEstimatedTimeRemaining()
         };
@@ -505,9 +554,27 @@ export class LoadingScreen {
      * Set loading status (legacy compatibility)
      */
     setStatus(text: string): void {
-        if (this.taskText) {
-            this.taskText.textContent = text;
+        this.setTaskText(text);
+    }
+
+    private setTaskText(text: string): void {
+        if (!this.taskText) return;
+        if (text === this.currentTaskDescription) return;
+
+        this.currentTaskDescription = text;
+
+        if (this.taskChangeTimeout !== null) {
+            clearTimeout(this.taskChangeTimeout);
         }
+
+        this.taskText.classList.add('changing');
+        this.taskChangeTimeout = window.setTimeout(() => {
+            if (this.taskText) {
+                this.taskText.textContent = text;
+                this.taskText.classList.remove('changing');
+            }
+            this.taskChangeTimeout = null;
+        }, 150);
     }
 
     /**
@@ -551,7 +618,7 @@ export class LoadingScreen {
             phaseIndex: this.currentPhaseIndex,
             totalPhases: this.phases.length,
             percent: this.phaseProgress,
-            overallPercent: this.overallProgress,
+            overallPercent: this.targetOverallProgress,
             taskDescription: currentPhase?.description || 'Loading...',
             estimatedTimeRemaining: this.calculateEstimatedTimeRemaining()
         };
@@ -574,19 +641,11 @@ export class LoadingScreen {
     private updateUI(phase?: LoadingPhase, taskDescription?: string): void {
         if (!this.container) return;
 
-        // Update progress bar
-        if (this.progressFill) {
-            this.progressFill.style.width = `${this.overallProgress}%`;
-        }
-
-        // Update percentage text
-        if (this.percentageText) {
-            this.percentageText.textContent = `${Math.round(this.overallProgress)}%`;
-        }
+        // Note: progressFill, percentageText, and aria-valuenow are now updated in updateUIVisuals via animateProgress.
 
         // Update task text
-        if (this.taskText && taskDescription) {
-            this.taskText.textContent = taskDescription;
+        if (taskDescription) {
+            this.setTaskText(taskDescription);
         }
 
         // Update time remaining
@@ -598,9 +657,6 @@ export class LoadingScreen {
                 this.timeText.textContent = 'Almost there...';
             }
         }
-
-        // Update ARIA
-        this.container.setAttribute('aria-valuenow', Math.round(this.overallProgress).toString());
     }
 
     private updatePhaseIndicators(): void {
@@ -621,9 +677,76 @@ export class LoadingScreen {
         });
     }
 
+    private animateProgress = (time: number): void => {
+        if (!this.isVisible || this.isComplete) {
+            this.animationFrameId = null;
+            return;
+        }
+
+        const delta = Math.min((time - this.lastTime) / 1000, 0.1); // clamp delta
+        this.lastTime = time;
+
+        let needsVisualUpdate = false;
+
+        // Dampen the displayed phase progress towards target
+        const phaseDiff = this.phaseProgress - this.displayedPhaseProgress;
+        if (Math.abs(phaseDiff) > 0.1) {
+            this.displayedPhaseProgress += phaseDiff * (1.0 - Math.exp(-5.0 * delta));
+            needsVisualUpdate = true;
+        } else if (this.displayedPhaseProgress !== this.phaseProgress) {
+            this.displayedPhaseProgress = this.phaseProgress;
+            needsVisualUpdate = true;
+        }
+
+        // Dampen the displayed overall progress towards the target
+        const diff = this.targetOverallProgress - this.displayedOverallProgress;
+        if (Math.abs(diff) > 0.1) {
+            // Lerp factor
+            this.displayedOverallProgress += diff * (1.0 - Math.exp(-5.0 * delta));
+            needsVisualUpdate = true;
+        } else if (this.displayedOverallProgress !== this.targetOverallProgress) {
+            this.displayedOverallProgress = this.targetOverallProgress;
+            needsVisualUpdate = true;
+        }
+
+        if (needsVisualUpdate) {
+            this.updateUIVisuals();
+        }
+
+        this.animationFrameId = requestAnimationFrame(this.animateProgress);
+    }
+
+    private updateUIVisuals(): void {
+        if (!this.container) return;
+
+        // Update progress bar
+        if (this.progressFill) {
+            this.progressFill.style.width = `${this.displayedOverallProgress}%`;
+        }
+
+        // Update percentage text
+        if (this.percentageText) {
+            const isLerping = Math.abs(this.targetOverallProgress - this.displayedOverallProgress) > 0.5;
+            if (isLerping) {
+                this.percentageText.textContent = `${this.displayedOverallProgress.toFixed(1)}%`;
+            } else {
+                this.percentageText.textContent = `${Math.round(this.displayedOverallProgress)}%`;
+            }
+        }
+
+        // Update ARIA
+        this.container.setAttribute('aria-valuenow', Math.round(this.displayedOverallProgress).toString());
+
+        // Update active phase indicator progress
+        const activeIndicator = this.container.querySelector('.phase-indicator.active') as HTMLElement;
+        if (activeIndicator) {
+            activeIndicator.style.setProperty('--phase-progress', `${this.displayedPhaseProgress}%`);
+        }
+    }
+
     private calculateOverallProgress(): void {
         if (this.currentPhaseIndex < 0) {
-            this.overallProgress = 0;
+            this.targetOverallProgress = 0;
             return;
         }
 
@@ -647,7 +770,7 @@ export class LoadingScreen {
 
         // Normalize to 0-100
         const totalWeight = this.phases.reduce((sum, p) => sum + p.weight, 0);
-        this.overallProgress = (completedWeight / totalWeight) * 100;
+        this.targetOverallProgress = (completedWeight / totalWeight) * 100;
     }
 
     private calculateEstimatedTimeRemaining(): number {
@@ -691,6 +814,15 @@ export class LoadingScreen {
     }
 
     private destroy(): void {
+        if (this.releaseFocusTrap) {
+            this.releaseFocusTrap();
+            this.releaseFocusTrap = null;
+        }
+        if (this.lastFocusedElement && typeof this.lastFocusedElement.focus === 'function') {
+            this.lastFocusedElement.focus();
+            this.lastFocusedElement = null;
+        }
+
         if (this.overlay && this.overlay.parentNode) {
             this.overlay.parentNode.removeChild(this.overlay);
         }

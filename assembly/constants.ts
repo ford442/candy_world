@@ -33,3 +33,7 @@ export const GRID_HEADS_OFFSET: i32 = COLLISION_OFFSET + (MAX_COLLISION_OBJECTS 
 
 // Grid Next Pointers (MAX * 4 bytes = 16KB)
 export const GRID_NEXT_OFFSET: i32 = GRID_HEADS_OFFSET + (GRID_COLS * GRID_ROWS * 4);
+
+// Dynamic Foliage Radii Sync (Max 512 dynamic plants * 4 bytes = 2KB)
+export const MAX_DYNAMIC_PLANTS: i32 = 512;
+export const DYNAMIC_RADII_OFFSET: i32 = GRID_NEXT_OFFSET + (MAX_COLLISION_OBJECTS * 4);

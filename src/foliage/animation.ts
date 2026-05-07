@@ -224,7 +224,11 @@ function applyWetEffect(material: FoliageMaterial, wetAmount: number): void {
         material.userData.dryRoughness = material.roughness || 0.5;
         material.userData.dryMetalness = material.metalness || 0;
         if (material.color) {
-            material.userData.dryColor = material.color.clone();
+            // ⚡ OPTIMIZATION: Avoid allocating a new color on the fly
+            if (!material.userData.dryColor) {
+                 material.userData.dryColor = new THREE.Color();
+            }
+            material.userData.dryColor.copy(material.color);
         }
     }
 
@@ -373,8 +377,9 @@ export function animateFoliage(foliageObject: FoliageObject, time: number, audio
                     child.userData.flashIntensity = Math.max(0, fi - decay);
                     if (child.userData.flashIntensity === 0) {
                         // keep base colors in place and allow fade-back logic to run next frame
-                        delete child.userData.flashColor;
-                        delete child.userData.flashDecay;
+                        // ⚡ OPTIMIZATION: Do not use 'delete' on object properties as it de-optimizes the V8 hidden class and causes GC.
+                        // Setting to undefined or 0 is preferable. In this case, flashIntensity = 0 effectively disables it.
+                        child.userData.flashDecay = 0;
                         child.userData._needsFadeBack = true; // Mark this specific child for fade-back
                     }
                 } else if (child.userData._needsFadeBack) {
@@ -390,7 +395,13 @@ export function animateFoliage(foliageObject: FoliageObject, time: number, audio
 
                         if ((mat as any).isMeshBasicMaterial) {
                             if (mat.userData && mat.userData.baseColor && mat.color) {
-                                const distSq = mat.color.distanceToSquared(mat.userData.baseColor);
+                                // ⚡ OPTIMIZATION: Inline color distance check to avoid method-call overhead
+                                const c = mat.color;
+                                const b = mat.userData.baseColor;
+                                const dr = c.r - b.r;
+                                const dg = c.g - b.g;
+                                const db = c.b - b.b;
+                                const distSq = dr * dr + dg * dg + db * db;
                                 if (distSq > snapThresholdSq) {
                                     mat.color.lerp(mat.userData.baseColor, fadeT);
                                     allFadedBack = false;
@@ -478,9 +489,9 @@ export function animateFoliage(foliageObject: FoliageObject, time: number, audio
             // Check if completed
             if (scaleAnimDataView[8] > 0.5) {
                 foliageObject.scale.setScalar(target);
-                delete foliageObject.userData.scaleAnimStart;
-                delete foliageObject.userData.scaleTarget;
-                delete foliageObject.userData.scaleAnimTime;
+                foliageObject.userData.scaleAnimStart = undefined;
+                foliageObject.userData.scaleTarget = undefined;
+                foliageObject.userData.scaleAnimTime = undefined;
             }
         } else if (t < 1.0) {
             const target = foliageObject.userData.scaleTarget || 1.0;
@@ -492,9 +503,9 @@ export function animateFoliage(foliageObject: FoliageObject, time: number, audio
         } else {
             // Animation complete
             foliageObject.scale.setScalar(foliageObject.userData.scaleTarget || 1.0);
-            delete foliageObject.userData.scaleAnimStart;
-            delete foliageObject.userData.scaleTarget;
-            delete foliageObject.userData.scaleAnimTime;
+            foliageObject.userData.scaleAnimStart = undefined;
+            foliageObject.userData.scaleTarget = undefined;
+            foliageObject.userData.scaleAnimTime = undefined;
         }
     }
 

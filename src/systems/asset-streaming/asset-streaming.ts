@@ -36,6 +36,7 @@ import {
     AssetBatch,
     DEFAULT_STREAMING_CONFIG,
     PRIORITY_DISTANCES,
+    PRIORITY_DISTANCES_SQ,
     QUALITY_FORMAT_PREFERENCES
 } from './asset-streaming-types.ts';
 import { LRUCache, NetworkManager } from './asset-loading-infrastructure.ts';
@@ -566,12 +567,11 @@ export class AssetStreamer {
                 // Calculate distance-based priority
                 const assetCellX = metadata.cellX ?? cellX;
                 const assetCellZ = metadata.cellZ ?? cellZ;
-                const distance = Math.sqrt(
-                    Math.pow((assetCellX - cellX) * this.config.cellSize, 2) +
-                    Math.pow((assetCellZ - cellZ) * this.config.cellSize, 2)
-                );
+                // ⚡ OPTIMIZATION: Use squared distance to avoid Math.sqrt() in hot asset priority loop
+                const distanceSq = Math.pow((assetCellX - cellX) * this.config.cellSize, 2) +
+                                   Math.pow((assetCellZ - cellZ) * this.config.cellSize, 2);
 
-                const priority = this.distanceToPriority(distance);
+                const priority = this.distanceSqToPriority(distanceSq);
                 
                 loadPromises.push(
                     this.loadAsset(id, priority).then(() => {}).catch(() => {})
@@ -818,8 +818,8 @@ export class AssetStreamer {
             if (!metadata) continue;
 
             // Calculate distance-based priority
-            const distance = this.getDistanceToCell(cell);
-            const priority = this.distanceToPriority(distance);
+            const distanceSq = this.getDistanceToCellSq(cell);
+            const priority = this.distanceSqToPriority(distanceSq);
 
             // Queue for loading
             this.loadAsset(id, priority).catch(() => {});
@@ -1125,22 +1125,22 @@ export class AssetStreamer {
         this.preloadRegion(_scratchFuturePos.x, _scratchFuturePos.z, 2);
     }
 
-    private getDistanceToCell(cell: GridCell): number {
+    // ⚡ OPTIMIZATION: Return squared distance to avoid Math.sqrt() overhead
+    private getDistanceToCellSq(cell: GridCell): number {
         const cellCenterX = (cell.x + 0.5) * this.config.cellSize;
         const cellCenterZ = (cell.z + 0.5) * this.config.cellSize;
         
-        return Math.sqrt(
-            Math.pow(cellCenterX - this.playerPosition.x, 2) +
-            Math.pow(cellCenterZ - this.playerPosition.z, 2)
-        );
+        return Math.pow(cellCenterX - this.playerPosition.x, 2) +
+               Math.pow(cellCenterZ - this.playerPosition.z, 2);
     }
 
-    private distanceToPriority(distance: number): AssetPriority {
-        if (distance <= PRIORITY_DISTANCES[AssetPriority.HIGH]) {
+    // ⚡ OPTIMIZATION: Compare against squared priority distances
+    private distanceSqToPriority(distanceSq: number): AssetPriority {
+        if (distanceSq <= PRIORITY_DISTANCES_SQ[AssetPriority.HIGH]) {
             return AssetPriority.HIGH;
-        } else if (distance <= PRIORITY_DISTANCES[AssetPriority.MEDIUM]) {
+        } else if (distanceSq <= PRIORITY_DISTANCES_SQ[AssetPriority.MEDIUM]) {
             return AssetPriority.MEDIUM;
-        } else if (distance <= PRIORITY_DISTANCES[AssetPriority.LOW]) {
+        } else if (distanceSq <= PRIORITY_DISTANCES_SQ[AssetPriority.LOW]) {
             return AssetPriority.LOW;
         }
         return AssetPriority.BACKGROUND;

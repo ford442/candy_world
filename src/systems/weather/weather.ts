@@ -48,6 +48,7 @@ export class WeatherSystem {
     private ecosystemManager: EcosystemManager;
     private atmosphereManager: AtmosphereManager;
     private effectsManager: EffectsManager;
+    private renderer: any;
 
     // Tracked entities
     trackedTrees: any[];
@@ -166,6 +167,7 @@ export class WeatherSystem {
      * Set renderer for particle systems
      */
     setRenderer(renderer: any): void {
+        this.renderer = renderer;
         this.effectsManager.setRenderer(renderer);
         
         // Sync mesh references
@@ -321,7 +323,8 @@ export class WeatherSystem {
         this.updateMushroomGrowth(bassIntensity, globalLight);
 
         // Spawning
-        this.ecosystemManager.handleSpawning(time, fungiFavorability, lanternFavorability, globalLight, this.onSpawnFoliage);
+        const isRaining = this.state === WeatherState.RAIN || this.state === WeatherState.STORM;
+        this.ecosystemManager.handleSpawning(time, fungiFavorability, lanternFavorability, globalLight, this.onSpawnFoliage, isRaining);
         
         // Waterfalls
         this.ecosystemManager.updateMushroomWaterfalls(time, bassIntensity, this.state, this.intensity, this.trackedMushrooms, this.mushroomWaterfalls);
@@ -333,7 +336,7 @@ export class WeatherSystem {
         this.intensity += (this.targetIntensity - this.intensity) * this.transitionSpeed;
 
         // Particle systems
-        this.effectsManager.updateParticleSystems(dt, bassIntensity, melodyVol, this.weatherType, this.state);
+        this.effectsManager.updateParticleSystems(this.renderer, dt, bassIntensity, melodyVol, this.weatherType, this.state);
 
         // Storm-specific effects
         if (this.state === WeatherState.STORM) {
@@ -517,7 +520,8 @@ export class WeatherSystem {
     }
 
     handleSpawning(time: number, fungiScore: number, lanternScore: number, globalLight: number): void {
-        this.ecosystemManager.handleSpawning(time, fungiScore, lanternScore, globalLight, this.onSpawnFoliage);
+        const isRaining = this.state === WeatherState.RAIN || this.state === WeatherState.STORM;
+        this.ecosystemManager.handleSpawning(time, fungiScore, lanternScore, globalLight, this.onSpawnFoliage, isRaining);
     }
 
     updateMushroomWaterfalls(time: number, bassIntensity: number): void {

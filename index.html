@@ -6,6 +6,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#FFD1DC">
     <title>Candy World</title>
+    <!-- Preload critical assets -->
+    <link rel="preload" href="./assets/splash.webp" as="image" type="image/webp" />
+    <link rel="preload" href="./assets/map.json" as="fetch" crossorigin="anonymous" />
     <script>
         window.NativeWebAssembly = window.WebAssembly;
     </script>
@@ -153,12 +156,16 @@
             text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.1);
             margin-bottom: 20px;
         }
+        .cta-button[aria-disabled="true"],
         .cta-button:disabled {
             background: #FFB6C1;
             cursor: wait;
             transform: none;
             box-shadow: none;
             opacity: 0.8;
+            filter: grayscale(100%) brightness(80%);
+            pointer-events: none;
+            transition: all 0.3s ease;
             /* 🎨 Palette: Improve text contrast */
             text-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
         }
@@ -203,6 +210,7 @@
             font-weight: bold;
             display: inline-block;
             transition: background 0.2s, color 0.2s;
+            font-family: inherit;
         }
         .file-label:hover {
             background: #FFF0F5;
@@ -561,7 +569,7 @@
             <p>Add .mod, .xm, .it, .s3m files to playlist</p>
         </div>
     </div>
-<div id="candy-loading-overlay" class="loading-overlay theme-candy visible">
+<div id="candy-loading-overlay" class="loading-overlay theme-candy visible" role="dialog" aria-modal="true">
     <div id="candy-loading-screen" class="loading-screen theme-candy visible" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Game loading progress">
         <div class="loading-content">
             <h1 class="loading-title">🍭 Candy World <span class="loading-dots">...</span></h1>
@@ -601,16 +609,6 @@
             </div>
         </div>
     </div>
-</div>
-
-<div id="instructions" role="dialog" aria-modal="true" aria-labelledby="instructions-title">
-    <h1 id="instructions-title"><span aria-hidden="true">🍭</span> Candy World</h1>
-    <div id="nowPlayingContainer" class="now-playing-info" aria-live="polite" style="display: none;">
-        <span class="music-note" aria-hidden="true">🎵</span> <span id="nowPlayingText"></span>
-    </div>
-    <button id="startButton" class="cta-button" disabled aria-live="polite" title="Please wait while game assets load...">
-        <span class="spinner" aria-hidden="true"></span>Loading World... 🍭
-    </button>
 </div>
 
 <script>
@@ -658,6 +656,12 @@
         if (fill) fill.style.width = Math.min(100, Math.max(0, percent)) + '%';
         if (percentageEl) percentageEl.innerText = Math.round(percent) + '%';
         if (container) container.setAttribute('aria-valuenow', String(Math.round(percent)));
+
+        // Update active phase indicator progress
+        const activeIndicator = document.querySelector('.phase-indicator.active');
+        if (activeIndicator) {
+            activeIndicator.style.setProperty('--phase-progress', percent + '%');
+        }
     };
 
     window.hideLoadingScreen = function () {
@@ -681,17 +685,17 @@
         <div id="nowPlayingContainer" class="now-playing-info" aria-live="polite" style="display: none;">
             <span class="music-note" aria-hidden="true">🎵</span> <span id="nowPlayingText"></span>
         </div>
-        <button id="startButton" class="cta-button" disabled aria-live="polite" title="Please wait while game assets load...">
+        <button id="startButton" class="cta-button" disabled aria-live="polite" aria-busy="true" title="Please wait while game assets load...">
             <span class="spinner" aria-hidden="true"></span>Loading World... 🍭
         </button>
 
         <div class="settings settings-container" role="group" aria-label="Game Settings">
-            <input type="file" id="musicUpload" accept=".mod,.xm,.it,.s3m" multiple class="visually-hidden">
-            <label for="musicUpload" class="file-label" title="Upload Music (Supported formats: .mod, .xm, .it, .s3m)">
+            <input type="file" id="musicUpload" accept=".mod,.xm,.it,.s3m" multiple class="visually-hidden" tabindex="-1">
+            <button type="button" id="musicUploadBtn" class="file-label" title="Upload Music (Supported formats: .mod, .xm, .it, .s3m)">
                 <span aria-hidden="true">🎵</span> Upload Music <span class="key-badge" aria-hidden="true">U</span>
                 <span class="visually-hidden">Upload supported music files: .mod, .xm, .it, .s3m. Keyboard shortcut U</span>
                 <span aria-hidden="true" style="display:block; font-size:0.7em; font-weight:normal; margin-top:2px; opacity:0.9;">.mod .xm .it .s3m</span>
-            </label>
+            </button>
 
             <button id="toggleDayNight" class="toggle-button" aria-pressed="false" aria-keyshortcuts="N" aria-label="Switch to Night" title="Switch to Night (N)">
                 <span aria-hidden="true">🌙</span> Switch to Night <span class="key-badge" aria-hidden="true">N</span>
@@ -789,12 +793,11 @@
         </ul>
         
         <div class="playlist-controls">
-            <input type="file" id="playlistUploadInput" multiple accept=".mod,.xm,.it,.s3m" class="visually-hidden">
-            <label for="playlistUploadInput" class="secondary-button" title="Add Songs (Supported formats: .mod, .xm, .it, .s3m)">
+            <input type="file" id="playlistUploadInput" multiple accept=".mod,.xm,.it,.s3m" class="visually-hidden" tabindex="-1">
+            <button type="button" id="addSongsBtn" class="secondary-button" title="Add Songs (Supported formats: .mod, .xm, .it, .s3m)" aria-label="Add supported music files: .mod, .xm, .it, .s3m. Keyboard shortcut U">
                 <span aria-hidden="true">➕</span> Add Songs <span class="key-badge" aria-hidden="true">U</span>
-                <span class="visually-hidden">Add supported music files: .mod, .xm, .it, .s3m. Keyboard shortcut U</span>
                 <span aria-hidden="true" style="display:block; font-size:0.7em; font-weight:normal; margin-top:2px; opacity:0.9;">.mod .xm .it .s3m</span>
-            </label>
+            </button>
             <button id="closePlaylistBtn" class="secondary-button" style="background: #FF6B6B;" aria-label="Close Jukebox (Escape)">Close <span class="key-badge" aria-hidden="true">Esc</span></button>
         </div>
         <div style="text-align: center; margin-top: 15px; font-size: 0.85em; color: #666;" aria-hidden="true">
@@ -830,6 +833,27 @@
             <span class="ability-count" aria-hidden="true">0</span>
             <div class="cooldown-overlay"></div>
         </div>
+    </div>
+
+    <!-- D-Pad Direction Controls -->
+    <div id="dpad-controls" role="group" aria-label="Direction Controls">
+        <button id="dpad-forward" class="dpad-btn" aria-label="Move Forward" title="Move Forward">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4l-8 8h5v8h6v-8h5z"/></svg>
+        </button>
+        <div class="dpad-middle-row">
+            <button id="dpad-left" class="dpad-btn" aria-label="Strafe Left" title="Strafe Left">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12l8-8v5h8v6h-8v5z"/></svg>
+            </button>
+            <div class="dpad-center" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/></svg>
+            </div>
+            <button id="dpad-right" class="dpad-btn" aria-label="Strafe Right" title="Strafe Right">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12l-8 8v-5H4v-6h8V4z"/></svg>
+            </button>
+        </div>
+        <button id="dpad-backward" class="dpad-btn" aria-label="Move Backward" title="Move Backward">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20l8-8h-5V4H9v8H4z"/></svg>
+        </button>
     </div>
 
     <canvas id="glCanvas" role="region" aria-label="Game World: Use mouse and keyboard to navigate"></canvas>

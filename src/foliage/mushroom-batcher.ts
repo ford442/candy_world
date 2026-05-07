@@ -17,7 +17,7 @@ const modFloat = (x: any, y: any) => {
 import {
     sharedGeometries, foliageMaterials, uTime,
     uAudioLow, uAudioHigh, createRimLight, createJuicyRimLight, uPlayerPosition, colorFromNote,
-    createSugarSparkle
+    createSugarSparkle, applyPlayerInteraction
 } from './index.ts';
 import { uTwilight } from './sky.ts';
 import { foliageGroup } from '../world/state.ts'; // Assuming state.ts exports foliageGroup
@@ -62,6 +62,14 @@ export class MushroomBatcher {
     private instanceToLogicId: number[] = [];
 
     private constructor() {}
+
+    getRandomPosition(out: THREE.Vector3): boolean {
+        if (!this.mesh || this.count === 0) return false;
+        const idx = Math.floor(Math.random() * this.count);
+        this.mesh.getMatrixAt(idx, _scratchMatrix);
+        out.setFromMatrixPosition(_scratchMatrix);
+        return true;
+    }
 
     static getInstance(): MushroomBatcher {
         if (!MushroomBatcher.instance) {
@@ -521,14 +529,14 @@ export class MushroomBatcher {
 
         // 0. Stem
         const stemMat = (foliageMaterials.mushroomStem as MeshStandardNodeMaterial).clone();
-        stemMat.positionNode = deform(positionLocal);
+        stemMat.positionNode = applyPlayerInteraction(deform(positionLocal));
 
         // 1. Cap
         // PALETTE: Upgraded to use instanceColor + Juicy Rim Light
         // mushroomCap is an array of materials in common.ts
         const capList = foliageMaterials.mushroomCap as MeshStandardNodeMaterial[];
         const capMat = capList[0].clone();
-        capMat.positionNode = deform(positionLocal);
+        capMat.positionNode = applyPlayerInteraction(deform(positionLocal));
 
         // Base color from instance (set via register/setColorAt)
         // Fallback to Red if instanceColor is missing (should not happen if initialized)
@@ -590,12 +598,12 @@ export class MushroomBatcher {
 
         // 2. Gills
         const gillMat = (foliageMaterials.mushroomGills as MeshStandardNodeMaterial).clone();
-        gillMat.positionNode = deform(positionLocal);
+        gillMat.positionNode = applyPlayerInteraction(deform(positionLocal));
         gillMat.emissiveIntensityNode = totalGlow.mul(0.3);
 
         // 3. Spots
         const spotMat = (foliageMaterials.mushroomSpots as MeshStandardNodeMaterial).clone();
-        spotMat.positionNode = deform(positionLocal);
+        spotMat.positionNode = applyPlayerInteraction(deform(positionLocal));
         const spotPulse = sin(uTime.mul(3.0)).mul(0.1).add(0.3);
         const spotAudio = uAudioHigh.mul(0.8); // 🎨 PALETTE: Make spots pop more on highs
         spotMat.emissiveIntensityNode = flashIntensity.add(spotPulse).add(spotAudio);

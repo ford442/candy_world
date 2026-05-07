@@ -7,7 +7,7 @@
  */
 
 import * as THREE from 'three';
-import { ComputeParticleSystem, createComputeFireflies, createComputePollen } from './compute-particles.ts';
+import { ComputeParticleSystem, createComputeFireflies, createComputePollen, createComputeSparks, createComputeBerries, createComputeRain } from './compute-particles.ts';
 import type { ParticleAudioData } from './compute-particles.ts';
 import { createFireflies as createLegacyFireflies } from '../foliage/fireflies.ts';
 import { createNeonPollen as createLegacyPollen } from '../foliage/pollen.ts';
@@ -78,6 +78,7 @@ export function createIntegratedFireflies(options: IntegratedFireflyOptions = {}
             
             console.log(`[Particles] GPU Fireflies: ${computeCount.toLocaleString()} particles`);
             
+            system.mesh.userData.computeParticleSystem = system;
             return system.mesh;
         } catch (error) {
             console.warn('[Particles] GPU compute failed, falling back to CPU:', error);
@@ -158,6 +159,186 @@ export function createIntegratedPollen(options: IntegratedPollenOptions = {}): T
     console.log(`[Particles] CPU Pollen: ${count} particles`);
     
     return legacy;
+}
+
+export interface IntegratedSparksOptions {
+    count?: number;
+    areaSize?: number;
+    center?: THREE.Vector3;
+    useCompute?: boolean;
+}
+
+export interface IntegratedBerriesOptions {
+    count?: number;
+    areaSize?: number;
+    center?: THREE.Vector3;
+    useCompute?: boolean;
+}
+
+export interface IntegratedRainOptions {
+    count?: number;
+    areaSize?: number;
+    center?: THREE.Vector3;
+    useCompute?: boolean;
+}
+
+/**
+ * Creates an integrated environmental sparks system.
+ * Automatically uses GPU compute when available.
+ */
+export function createIntegratedSparks(options: IntegratedSparksOptions = {}): THREE.Object3D {
+    const {
+        count = 10000,
+        areaSize = 30,
+        center = new THREE.Vector3(0, 5, 0),
+        useCompute = true
+    } = options;
+
+    const hasWebGPU = typeof navigator !== 'undefined' && 'gpu' in navigator;
+
+    if (useCompute && hasWebGPU) {
+        const computeCount = Math.min(count * 5, 50000);
+
+        try {
+            const system = createComputeSparks({
+                count: computeCount,
+                bounds: { x: areaSize * 2, y: 20, z: areaSize * 2 },
+                center: center
+            });
+
+            metrics.set('sparks', {
+                particleCount: computeCount,
+                frameTime: 0,
+                gpuTime: 0,
+                cpuFallback: false
+            });
+
+            console.log(`[Particles] GPU Sparks: ${computeCount.toLocaleString()} particles`);
+
+            return system.mesh;
+        } catch (error) {
+            console.warn('[Particles] GPU compute failed for sparks, falling back to CPU:', error);
+        }
+    }
+
+    // CPU Fallback - Just return an empty group for now since there's no CPU equivalent in the foliage module
+    // We could implement a legacy version, but for environmental sparks a group is fine as fallback
+    const legacyGroup = new THREE.Group();
+    legacyGroup.userData.isCpuFallbackSparks = true;
+
+    metrics.set('sparks', {
+        particleCount: 0,
+        frameTime: 0,
+        gpuTime: 0,
+        cpuFallback: true
+    });
+
+    console.log(`[Particles] CPU Sparks: Not implemented, skipping...`);
+
+    return legacyGroup;
+}
+
+
+
+/**
+ * Creates an integrated falling berries system.
+ * Automatically uses GPU compute when available.
+ */
+export function createIntegratedBerries(options: IntegratedBerriesOptions = {}): THREE.Object3D {
+    const {
+        count = 50,
+        areaSize = 30,
+        center = new THREE.Vector3(0, 5, 0),
+        useCompute = true
+    } = options;
+
+    const hasWebGPU = typeof navigator !== 'undefined' && 'gpu' in navigator;
+
+    if (useCompute && hasWebGPU) {
+        try {
+            const system = createComputeBerries({
+                count: count,
+                bounds: { x: areaSize * 2, y: 20, z: areaSize * 2 },
+                center: center
+            });
+
+            metrics.set('berries', {
+                particleCount: count,
+                frameTime: 0,
+                gpuTime: 0,
+                cpuFallback: false
+            });
+
+            console.log(`[Particles] GPU Berries: ${count.toLocaleString()} particles`);
+
+            return system.mesh;
+        } catch (error) {
+            console.warn('[Particles] GPU compute failed for berries, falling back to CPU:', error);
+        }
+    }
+
+    const legacyGroup = new THREE.Group();
+    legacyGroup.userData.isCpuFallbackBerries = true;
+
+    metrics.set('berries', {
+        particleCount: 0,
+        frameTime: 0,
+        gpuTime: 0,
+        cpuFallback: true
+    });
+
+    return legacyGroup;
+}
+
+
+/**
+ * Creates an integrated rain system.
+ * Automatically uses GPU compute when available.
+ */
+export function createIntegratedRain(options: IntegratedRainOptions = {}): THREE.Object3D {
+    const {
+        count = 10000,
+        areaSize = 100,
+        center = new THREE.Vector3(0, 40, 0),
+        useCompute = true
+    } = options;
+
+    const hasWebGPU = typeof navigator !== 'undefined' && 'gpu' in navigator;
+
+    if (useCompute && hasWebGPU) {
+        try {
+            const system = createComputeRain({
+                count: count,
+                bounds: { x: areaSize * 2, y: 100, z: areaSize * 2 },
+                center: center
+            });
+
+            metrics.set('rain', {
+                particleCount: count,
+                frameTime: 0,
+                gpuTime: 0,
+                cpuFallback: false
+            });
+
+            console.log(`[Particles] GPU Rain: ${count.toLocaleString()} particles`);
+
+            return system.mesh;
+        } catch (error) {
+            console.warn('[Particles] GPU compute failed for rain, falling back to CPU:', error);
+        }
+    }
+
+    const legacyGroup = new THREE.Group();
+    legacyGroup.userData.isCpuFallbackRain = true;
+
+    metrics.set('rain', {
+        particleCount: 0,
+        frameTime: 0,
+        gpuTime: 0,
+        cpuFallback: true
+    });
+
+    return legacyGroup;
 }
 
 // =============================================================================
@@ -269,6 +450,14 @@ export async function loadDeferredSystems(
                     mesh = createIntegratedPollen(config.options);
                     system = (mesh as any).userData?.computeParticleSystem;
                     break;
+                case 'sparks':
+                    mesh = createIntegratedSparks(config.options);
+                    system = (mesh as any).userData?.computeParticleSystem;
+                    break;
+                case 'berries':
+                    mesh = createIntegratedBerries(config.options);
+                    system = (mesh as any).userData?.computeParticleSystem;
+                    break;
                 default:
                     console.warn(`[Particles] Unknown deferred type: ${config.type}`);
                     continue;
@@ -337,8 +526,12 @@ export async function benchmarkParticleSystem(
                     system = createComputePollen({ count });
                     break;
                 case 'rain':
-                    // Rain would need its own create function
-                    continue;
+                    mesh = createIntegratedRain(config.options);
+                    system = (mesh as any).userData?.computeParticleSystem;
+                    break;
+                case 'berries':
+                    system = createComputeBerries({ count });
+                    break;
                 default:
                     continue;
             }
@@ -410,5 +603,7 @@ export {
     ComputeParticleSystem,
     createComputeFireflies,
     createComputePollen,
+    createComputeSparks,
+    createComputeBerries,
     type ParticleAudioData
 } from './compute-particles.ts';

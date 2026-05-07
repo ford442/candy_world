@@ -5,6 +5,7 @@
 
 import { AudioSystem } from '../../audio/audio-system';
 import { keyStates } from './input-types.ts';
+import { announce, announceValueChange } from '../../ui/announcer.ts';
 
 let audioSystemRef: AudioSystem | null = null;
 
@@ -87,6 +88,8 @@ export const toggleMute = () => {
         showToast(isMuted ? "Audio Muted 🔇" : "Audio Unmuted 🔊", isMuted ? '🔇' : '🔊');
     });
     
+    announce(isMuted ? "Audio Muted" : "Audio Unmuted", "polite");
+
     return isMuted;
 };
 
@@ -127,6 +130,8 @@ export const adjustVolume = (delta: number) => {
     import('../../utils/toast.js').then(({ showToast }) => {
         showToast(`Volume: ${percentage}% ${icon}`, icon);
     });
+
+    announceValueChange('Volume', percentage, 0, 100);
 };
 
 /**
