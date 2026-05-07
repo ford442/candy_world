@@ -14,6 +14,7 @@ import { trapFocusInside } from '../utils/interaction-utils.ts';
 class DiscoverySystem {
     private discoveredItems: Set<string>;
     private lastFocusedElement: HTMLElement | null = null;
+    private releaseFocusTrap: (() => void) | null = null;
 
     constructor() {
         this.discoveredItems = new Set<string>();
@@ -96,6 +97,10 @@ class DiscoverySystem {
         // Remove existing if any
         let existingLog = document.getElementById('discovery-log-overlay');
         if (existingLog) {
+                        if (this.releaseFocusTrap) {
+                this.releaseFocusTrap();
+                this.releaseFocusTrap = null;
+            }
             existingLog.remove();
             if (this.lastFocusedElement && typeof this.lastFocusedElement.focus === 'function') {
                 this.lastFocusedElement.focus();
@@ -152,12 +157,10 @@ class DiscoverySystem {
         closeBtn.style.fontSize = '24px';
         closeBtn.style.cursor = 'pointer';
 
-        let releaseFocusTrap: (() => void) | null = null;
-
         closeBtn.onclick = () => {
-            if (releaseFocusTrap) {
-                releaseFocusTrap();
-                releaseFocusTrap = null;
+            if (this.releaseFocusTrap) {
+                this.releaseFocusTrap();
+                this.releaseFocusTrap = null;
             }
             overlay.remove();
 
@@ -206,7 +209,7 @@ class DiscoverySystem {
         document.body.appendChild(overlay);
 
         // Trap focus inside the overlay
-        releaseFocusTrap = trapFocusInside(overlay);
+        this.releaseFocusTrap = trapFocusInside(overlay);
 
         // Focus close button for accessibility
         closeBtn.focus();

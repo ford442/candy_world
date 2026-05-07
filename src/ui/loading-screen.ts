@@ -342,18 +342,25 @@ export class LoadingScreen {
         if (this.container) {
             this.container.setAttribute('tabindex', '-1');
             this.container.setAttribute('aria-modal', 'true');
-            this.releaseFocusTrap = trapFocusInside(this.container);
         }
 
         // Trigger reflow for animation
-        requestAnimationFrame(() => {
-            if (this.overlay) {
-                this.overlay.classList.add('visible');
+        if (this.overlay) {
+            this.overlay.style.display = 'flex';
+            void this.overlay.offsetWidth;
+            this.overlay.classList.add('visible');
+        }
+        if (this.container) {
+            this.container.style.display = 'flex';
+            void this.container.offsetWidth;
+            this.container.classList.add('visible');
+        }
+
+        setTimeout(() => {
+            if (this.container && this.isVisible) {
+                this.releaseFocusTrap = trapFocusInside(this.container);
             }
-            if (this.container) {
-                this.container.classList.add('visible');
-            }
-        });
+        }, 300);
 
         this.lastTime = performance.now();
         if (this.animationFrameId === null) {
@@ -372,6 +379,16 @@ export class LoadingScreen {
         if (!this.isVisible || this.isComplete) return;
         
         this.isComplete = true;
+
+        if (this.releaseFocusTrap) {
+            this.releaseFocusTrap();
+            this.releaseFocusTrap = null;
+        }
+
+        if (this.lastFocusedElement && typeof this.lastFocusedElement.focus === 'function') {
+            this.lastFocusedElement.focus();
+            this.lastFocusedElement = null;
+        }
 
         if (this.animationFrameId !== null) {
             cancelAnimationFrame(this.animationFrameId);
@@ -409,13 +426,11 @@ export class LoadingScreen {
             setTimeout(() => {
                 // Guard: don't destroy if show() was called again in the meantime
                 if (this.hideVersion === currentHideVersion && this.isComplete) {
-                    if (this.releaseFocusTrap) {
-                        this.releaseFocusTrap();
-                        this.releaseFocusTrap = null;
+                    if (this.overlay) {
+                        this.overlay.style.display = 'none';
                     }
-                    if (this.lastFocusedElement && typeof this.lastFocusedElement.focus === 'function') {
-                        this.lastFocusedElement.focus();
-                        this.lastFocusedElement = null;
+                    if (this.container) {
+                        this.container.style.display = 'none';
                     }
                     this.destroy();
                     this.isVisible = false;
@@ -824,7 +839,11 @@ export class LoadingScreen {
         }
 
         if (this.overlay && this.overlay.parentNode) {
+            this.overlay.style.display = 'none';
             this.overlay.parentNode.removeChild(this.overlay);
+        }
+        if (this.container) {
+            this.container.style.display = 'none';
         }
         this.container = null;
         this.overlay = null;

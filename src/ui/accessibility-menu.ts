@@ -1255,13 +1255,7 @@ export class AccessibilityMenu {
       }
     }
 
-    // Re-establish focus trap after rendering new DOM
-    if (this.container) {
-      if (this.releaseFocusTrap) {
-        this.releaseFocusTrap();
-      }
-      this.releaseFocusTrap = trapFocusInside(this.container);
-    }
+
   }
 
   private updateSidebarSelection(): void {
