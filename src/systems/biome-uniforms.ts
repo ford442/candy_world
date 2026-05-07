@@ -1,3 +1,4 @@
+import * as THREE from 'three';
 /**
  * Shared TSL uniform nodes for biome-specific music reactivity.
  *
@@ -35,6 +36,17 @@ export const BiomeUniforms = {
         shimmer: uniform(0.0),
         /** ≥1 amplitude multiplier for the lotus bass-pulse displacement. */
         amplitudeScale: uniform(1.0),
+    },
+
+    /**
+     * Sky & Moon — tracker channels defined in assets/music-bindings.json
+     * under "sky_moon".
+     */
+    skyMoon: {
+        /** RGB color for note reactivity */
+        moonNoteColor: uniform(new THREE.Color(0xffffff)),
+        /** 0–1 intensity based on channels */
+        moonIntensity: uniform(0.0),
     },
 } as const;
 
