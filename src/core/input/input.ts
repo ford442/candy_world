@@ -116,16 +116,30 @@ export function initInput(
             return;
         }
 
-        if (instructions) instructions.style.display = 'none';
-
-        if (lastFocusedElement && typeof lastFocusedElement.focus === 'function') {
-            lastFocusedElement.focus();
-            lastFocusedElement = null;
-        }
-        
         if (releasePauseMenuFocus) {
             releasePauseMenuFocus();
             releasePauseMenuFocus = null;
+        }
+
+        if (instructions) {
+            instructions.style.opacity = '0';
+            instructions.style.backdropFilter = 'blur(0px)';
+            const content = instructions.querySelector('.instructions-content') as HTMLElement;
+            if (content) {
+                content.style.transform = 'scale(0.95)';
+            }
+            setTimeout(() => {
+                if (instructions) instructions.style.display = 'none';
+                if (lastFocusedElement && typeof lastFocusedElement.focus === 'function') {
+                    lastFocusedElement.focus();
+                    lastFocusedElement = null;
+                }
+            }, 200);
+        } else {
+            if (lastFocusedElement && typeof lastFocusedElement.focus === 'function') {
+                lastFocusedElement.focus();
+                lastFocusedElement = null;
+            }
         }
 
         // If we locked, force playlist closed just in case
@@ -154,7 +168,31 @@ export function initInput(
             if (instructions) {
                 lastFocusedElement = document.activeElement as HTMLElement;
                 instructions.style.display = 'flex';
-                releasePauseMenuFocus = trapFocusInside(instructions);
+                instructions.style.opacity = '0';
+                instructions.style.backdropFilter = 'blur(0px)';
+                instructions.style.transition = 'opacity 0.2s ease, backdrop-filter 0.2s ease';
+
+                const content = instructions.querySelector('.instructions-content') as HTMLElement;
+                if (content) {
+                    content.style.transform = 'scale(0.95)';
+                    content.style.transition = 'transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+                }
+
+                requestAnimationFrame(() => {
+                    if (instructions) {
+                        instructions.style.opacity = '1';
+                        instructions.style.backdropFilter = 'blur(10px)';
+                    }
+                    if (content) {
+                        content.style.transform = 'scale(1)';
+                    }
+                });
+
+                setTimeout(() => {
+                    if (instructions && instructions.style.display !== 'none') {
+                        releasePauseMenuFocus = trapFocusInside(instructions);
+                    }
+                }, 200);
             }
 
             // UX: Update Title to "Paused" to give context
@@ -208,9 +246,33 @@ export function initInput(
                 // If we are dancing, the unlock event fired but menu was suppressed.
                 // Pressing Escape again should manually bring up the menu.
                 if (instructions) {
-                lastFocusedElement = document.activeElement as HTMLElement;
+                    lastFocusedElement = document.activeElement as HTMLElement;
                     instructions.style.display = 'flex';
-                    releasePauseMenuFocus = trapFocusInside(instructions);
+                    instructions.style.opacity = '0';
+                    instructions.style.backdropFilter = 'blur(0px)';
+                    instructions.style.transition = 'opacity 0.2s ease, backdrop-filter 0.2s ease';
+
+                    const content = instructions.querySelector('.instructions-content') as HTMLElement;
+                    if (content) {
+                        content.style.transform = 'scale(0.95)';
+                        content.style.transition = 'transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+                    }
+
+                    requestAnimationFrame(() => {
+                        if (instructions) {
+                            instructions.style.opacity = '1';
+                            instructions.style.backdropFilter = 'blur(10px)';
+                        }
+                        if (content) {
+                            content.style.transform = 'scale(1)';
+                        }
+                    });
+
+                    setTimeout(() => {
+                        if (instructions && instructions.style.display !== 'none') {
+                            releasePauseMenuFocus = trapFocusInside(instructions);
+                        }
+                    }, 200);
                 }
                 if (startButton) {
                     startButton.innerHTML = 'Resume Exploration <span aria-hidden="true">🚀</span> <span class="key-badge" aria-hidden="true">Enter</span>';
@@ -493,15 +555,6 @@ export function initInput(
                 triggerAbility('dash', hudDash);
             }
         });
-        hudDash.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                e.stopPropagation();
-                if (hudDash.getAttribute('aria-disabled') !== 'true') {
-                    triggerAbility('dash');
-                }
-            }
-        });
         // Add keyboard activation for accessibility (Enter/Space)
         hudDash.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' || e.key === ' ') {
@@ -521,21 +574,13 @@ export function initInput(
                 triggerAbility('action', hudMine); // 'action' corresponds to Jitter Mine (KeyF)
             }
         });
+        // Add keyboard activation for accessibility (Enter/Space)
         hudMine.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
                 e.stopPropagation();
                 if (hudMine.getAttribute('aria-disabled') !== 'true') {
                     triggerAbility('action', hudMine);
-                }
-            }
-        });
-        hudMine.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                e.stopPropagation();
-                if (hudMine.getAttribute('aria-disabled') !== 'true') {
-                    triggerAbility('action');
                 }
             }
         });
@@ -548,21 +593,13 @@ export function initInput(
                 triggerAbility('phase', hudPhase);
             }
         });
+        // Add keyboard activation for accessibility (Enter/Space)
         hudPhase.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
                 e.stopPropagation();
                 if (hudPhase.getAttribute('aria-disabled') !== 'true') {
                     triggerAbility('phase', hudPhase);
-                }
-            }
-        });
-        hudPhase.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                e.stopPropagation();
-                if (hudPhase.getAttribute('aria-disabled') !== 'true') {
-                    triggerAbility('phase');
                 }
             }
         });

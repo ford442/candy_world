@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { color, mix, positionWorld, float, uniform, smoothstep, UniformNode, rangeFog, nodeObject, sin, pow } from 'three/tsl';
 import { MeshBasicNodeMaterial } from 'three/webgpu';
 import { uAudioLow, uAudioHigh, uTime } from './index.ts';
+import { SkyUniforms, skyNoteColorNode } from '../systems/biome-uniforms.ts';
 
 // Export uniforms so main.js and weather.js can drive them
 export const uSkyTopColor = uniform(color(0x7EC8E3));     
@@ -79,8 +80,11 @@ export function createSky(): THREE.Mesh {
     // When uSkyDarkness approaches 1.0, the whole sky fades to black
     const finalColor = baseColor.mul(float(1.0).sub(uSkyDarkness));
 
+    // Moon Dance: blend in note colour at night (SkyUniforms.intensity = 0 during day)
+    const skyWithNote = mix(finalColor, skyNoteColorNode, SkyUniforms.intensity);
+
     const skyMat = new MeshBasicNodeMaterial();
-    skyMat.colorNode = finalColor;
+    skyMat.colorNode = skyWithNote;
     skyMat.side = THREE.BackSide;
 
     const sky = new THREE.Mesh(skyGeo, skyMat);

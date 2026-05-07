@@ -4,7 +4,7 @@ import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { attachReactivity, CandyPresets, uAudioLow, uAudioHigh, uTime, createJuicyRimLight } from './index.ts';
 import { VisualState } from '../audio/audio-system.ts';
 import { BiomeUniforms } from '../systems/biome-uniforms.ts';
-import { BiomeUniforms } from '../systems/biome-uniforms.ts';
+import { SkyUniforms, skyNoteColorNode } from '../systems/biome-uniforms.ts';
 
 // Moon Configuration
 export const moonConfig = {
@@ -59,7 +59,10 @@ export function createMoon(): THREE.Group {
     const rimIntensity = float(1.0).add(bassPulse.mul(2.0));
     const rimLight = createJuicyRimLight(audioColor, rimIntensity, float(3.0), null);
 
-    mat.emissiveNode = baseEmissive.add(blinkGlow).add(rimLight);
+    // 5. Moon Dance: note-colour emissive glow (zero during day via SkyUniforms.intensity)
+    const noteMoonEmissive = mix(color(0x000000), skyNoteColorNode, SkyUniforms.intensity);
+
+    mat.emissiveNode = baseEmissive.add(blinkGlow).add(rimLight).add(noteMoonEmissive);
 
     const moonMesh = new THREE.Mesh(geo, mat);
     moonMesh.castShadow = true; // Moon casts shadow (simulated as directional light source usually, but mesh itself can too)

@@ -29,5 +29,9 @@
         1
       ]
     }
+  },
+  "sky_moon": {
+    "melody_channel": 2,
+    "base_moon_intensity": 1.5
   }
 }

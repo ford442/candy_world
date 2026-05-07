@@ -9,6 +9,21 @@ extern "C" float fastInvSqrt(float x);
 extern "C" {
 
 // =============================================================================
+// PHYSICS BATCH MEMORY
+// =============================================================================
+float* instanceMatrices = nullptr;
+
+EMSCRIPTEN_KEEPALIVE
+float* initPhysicsMemory(int maxEntities) {
+    if (instanceMatrices != nullptr) {
+        free(instanceMatrices);
+    }
+    instanceMatrices = (float*)malloc(maxEntities * 16 * sizeof(float));
+    return instanceMatrices;
+}
+
+
+// =============================================================================
 // PLAYER & PHYSICS SYSTEM
 // =============================================================================
 

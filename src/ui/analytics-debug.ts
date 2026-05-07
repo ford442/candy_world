@@ -1,3 +1,4 @@
+**[PASTE THE FULL MAIN VERSION CONTENT HERE]**
 /**
  * @file analytics-debug.ts
  * @brief Analytics Debug Overlay for Candy World

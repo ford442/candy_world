@@ -9,7 +9,7 @@ import { mushroomBatcher } from '../foliage/mushroom-batcher.ts';
 import { flowerBatcher } from '../foliage/flower-batcher.ts';
 import { simpleFlowerBatcher } from '../foliage/simple-flower-batcher.ts';
 import type { AudioData, FoliageObject } from '../foliage/types.ts';
-import { BiomeUniforms } from './biome-uniforms.ts';
+import { BiomeUniforms, SkyUniforms } from './biome-uniforms.ts';
 import musicBindings from '../../assets/music-bindings.json';
 
 // ⚡ OPTIMIZATION: Pre-parsed channel index arrays from music-bindings.json.
@@ -31,6 +31,17 @@ let _skyMoonNoteVal = 0.0; // The active MIDI note (e.g., 60 for C4)
 
 // ⚡ OPTIMIZATION: Module-scoped colors for zero-allocation note lerping
 const _targetMoonColor = new THREE.Color(0xffffff);
+
+// ⚡ OPTIMIZATION: Sky/Moon note reactivity scratch — allocated once, never in hot path.
+// melody_channel from assets/music-bindings.json sky_moon block.
+const _skyMoonConfig = (musicBindings as any).sky_moon;
+if (!_skyMoonConfig || typeof _skyMoonConfig.melody_channel !== 'number') {
+    throw new Error('[MusicReactivity] Missing or invalid sky_moon.melody_channel in music-bindings.json');
+}
+const _skyMoonCh: number = _skyMoonConfig.melody_channel as number;
+let _smoothedSkyIntensity = 0.0;
+// Last valid note index (0–127) kept across frames to avoid flicker when channel is silent.
+let _lastSkyNoteIndex = 0.0;
 
 // ⚡ OPTIMIZATION: Reusable Frustum & Matrices
 const _frustum = new THREE.Frustum();
@@ -429,6 +440,44 @@ export class MusicReactivitySystem {
                 _targetMoonColor.setHex(0xffffff);
                 BiomeUniforms.skyMoon.moonNoteColor.value.lerp(_targetMoonColor, 0.05);
             }
+
+            // ---------------------------------------------------------------
+            // ⚡ MOON DANCE — Note-colour hue reactivity for sky and moon glow
+            // Data-driven: channel index from assets/music-bindings.json sky_moon.
+            // Allocation-free: only pre-allocated module-level scalars used.
+            // Day/night gating: intensity = 0 during day — no shader branch.
+            // ---------------------------------------------------------------
+            const skyMoonCh = audioState?.channelData;
+            if (skyMoonCh && _skyMoonCh < skyMoonCh.length) {
+                const chData = skyMoonCh[_skyMoonCh];
+                const rawVolume = chData.volume || 0;
+
+                // Resolve chromatic note index (0–11) from the channel's note string.
+                // Uses the already-loaded _noteNameCache / CHROMATIC_SCALE.
+                const noteStr: string = (chData as any).note || '';
+                if (noteStr) {
+                    const noteName = noteStr.replace(/[0-9-]/g, '');
+                    const chromaticIdx = CHROMATIC_SCALE.indexOf(noteName);
+                    if (chromaticIdx >= 0) {
+                        // Map 12 chromatic notes evenly across 128 LUT slots.
+                        // Using floor((idx / 12) * 128) gives slots 0,10,21,...,117 for C–B.
+                        _lastSkyNoteIndex = Math.min(Math.floor((chromaticIdx / 12) * 128), 127);
+                    }
+                }
+
+                // One-pole IIR smoothing — eliminates staccato strobe on note-on events.
+                // Time constant ≈ 1/12 s (~83 ms): fast enough to track melody, slow enough to avoid flicker.
+                _smoothedSkyIntensity += (rawVolume - _smoothedSkyIntensity) * (1.0 - Math.exp(-deltaTime * 12.0));
+            } else {
+                // No channel data — decay intensity to zero smoothly.
+                _smoothedSkyIntensity *= 0.9;
+                if (_smoothedSkyIntensity < 0.001) _smoothedSkyIntensity = 0.0;
+            }
+
+            // Push to TSL uniforms — mutate .value only, never reassign nodes.
+            SkyUniforms.noteIndex.value = _lastSkyNoteIndex;
+            // Day guard: clamp intensity to 0 when daytime so sky/moon are unchanged.
+            SkyUniforms.intensity.value = isNight ? Math.min(_smoothedSkyIntensity, 1.0) : 0.0;
         }
     }
 
