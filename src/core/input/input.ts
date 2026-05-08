@@ -146,8 +146,10 @@ export function initInput(
         setIsPlaylistOpen(false);
         const playlistOverlay = document.getElementById('playlist-overlay');
         const playlistBackdrop = document.getElementById('playlist-backdrop');
+        const openJukeboxBtn = document.getElementById('openJukeboxBtn');
         if (playlistOverlay) playlistOverlay.style.display = 'none';
         if (playlistBackdrop) playlistBackdrop.style.display = 'none';
+        if (openJukeboxBtn) openJukeboxBtn.setAttribute('aria-expanded', 'false');
 
         const releaseJukebox = getReleaseJukeboxFocus();
         if (releaseJukebox) {
