@@ -9,7 +9,7 @@ import { AudioSystem } from '../../audio/audio-system';
 import * as THREE from 'three';
 import { discoverySystem } from '../../systems/discovery.js';
 import { trapFocusInside } from '../../utils/interaction-utils.ts';
-import { openAccessibilityMenu } from '../../ui/accessibility-menu.ts';
+import { openAccessibilityMenu, closeAccessibilityMenu } from '../../ui/accessibility-menu.ts';
 import { keyStates, InitInputResult, filterValidMusicFiles, triggerAbility } from './input-types.ts';
 import {
     initPlaylistManager,
@@ -156,6 +156,8 @@ export function initInput(
             releaseJukebox();
             setReleaseJukeboxFocus(null);
         }
+
+        closeAccessibilityMenu();
     });
 
     controls.addEventListener('unlock', () => {
