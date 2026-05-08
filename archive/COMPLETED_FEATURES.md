@@ -25,6 +25,7 @@ This document contains all the completed features, enhancements, and migrations 
 - **Chord Strike**: Superweapon using Harmony Orbs spawned during harmonic collisions. Consumes 3 Orbs (via Key V) and fires a massive, TSL-driven vertical plasma beam.
 
 ### Category 3: Atmospheric & World (Global State)
+- **Foliage Growth & Rain-Driven Spreading**: Foliage spreads into empty areas during/after rain, pulling source positions from batched flora and using a distance threshold check to cap local density.
 - **Sky & Celestial Enhancements**: Multi-Band Gradient, Time-of-Day Palettes, Enhanced Star Field (1500 stars + Twinkle), Sun Layers, Atmospheric Scattering.
 - **Firefly Particles**: GPU-driven particle system simulating firefly movement and blinking.
 - **Crescendo Fog**: Volumetric fog density driven by mix energy (average volume).
