@@ -143,9 +143,9 @@ function_exists() {
 EXPORT_LIST=()
 
 # Core functions (always required)
-CORE_EXPORTS=("_main" "_malloc" "_free")
+CORE_EXPORTS=("main" "malloc" "free")
 for func in "${CORE_EXPORTS[@]}"; do
-    EXPORT_LIST+=("'$func'")
+    EXPORT_LIST+=("_$func")
 done
 
 # Define all animation function exports and check each one
@@ -336,7 +336,7 @@ MISSING_FUNCS=""
 
 for func in "${!ANIMATION_FUNCTIONS[@]}"; do
     if function_exists "$func"; then
-        EXPORT_LIST+=("'_$func'")
+        EXPORT_LIST+=("_$func")
         ((FOUND_COUNT++))
     else
         ((MISSING_COUNT++))
@@ -350,8 +350,18 @@ if [ $MISSING_COUNT -gt 0 ]; then
     echo "[INFO] Missing functions will use JavaScript fallbacks"
 fi
 
-# Convert array to comma-separated string
-EXPORTS=$(IFS=,; echo "[${EXPORT_LIST[*]}]")
+# =============================================================================
+# ROBUST EXPORT LIST (fixes -O3 DCE + shell quoting trap)
+# =============================================================================
+echo "[INFO] Building export list (${#EXPORT_LIST[@]} functions)..."
+
+# Generate a clean JSON file (Emscripten's recommended way for large/complex lists)
+EXPORTS_FILE="$SCRIPT_DIR/exports.txt"
+rm -f "$EXPORTS_FILE"
+for func in "${EXPORT_LIST[@]}"; do
+    echo "$func" >> "$EXPORTS_FILE"
+done
+echo "[INFO] Generated $EXPORTS_FILE with $(wc -l < "$EXPORTS_FILE") functions"
 
 # ---------------------------------------------------------
 # STEP 4: Configure Compiler and Linker Flags
@@ -365,7 +375,7 @@ EXPORTS=$(IFS=,; echo "[${EXPORT_LIST[*]}]")
 # - fno-rtti: Disable RTTI to reduce code size
 # - pthread: Enable threading support for parallel operations
 # - fopenmp: Enable OpenMP for parallel batch operations
-COMPILE_FLAGS="-O3 -msimd128 -mrelaxed-simd -ffast-math -fno-rtti -funroll-loops -fopenmp -pthread -matomics -I."
+COMPILE_FLAGS="-O2 -msimd128 -mrelaxed-simd -ffast-math -fno-rtti -funroll-loops -fopenmp -pthread -matomics -I."
 
 # Linker flags
 # - USE_PTHREADS=1: Enable pthread support (requires SharedArrayBuffer)
@@ -386,9 +396,9 @@ else
     echo "[INFO] Assertions DISABLED for production"
 fi
 
-LINK_FLAGS="-O3 -std=c++17 -lembind -s USE_PTHREADS=1 -s PTHREAD_POOL_SIZE=4 -s WASM=1 -s WASM_BIGINT=0 \
--s ALLOW_MEMORY_GROWTH=1 -s TOTAL_STACK=16MB -s INITIAL_MEMORY=256MB -s MAXIMUM_MEMORY=512MB $ASSERTION_FLAG -s EXPORT_ES6=1 \
--s EXPORTED_RUNTIME_METHODS=[\"ccall\",\"cwrap\",\"wasmMemory\"] -s MODULARIZE=1 -s EXPORT_NAME=createCandyNative \
+LINK_FLAGS="-O2 -std=c++17 -lembind -s USE_PTHREADS=1 -s PTHREAD_POOL_SIZE=4 -s WASM=1 -s WASM_BIGINT=0 \
+-s ALLOW_MEMORY_GROWTH=1 -s EXPORT_KEEPALIVE=1 -s TOTAL_STACK=16MB -s INITIAL_MEMORY=256MB -s MAXIMUM_MEMORY=512MB $ASSERTION_FLAG -s EXPORT_ES6=1 \
+-s EXPORTED_RUNTIME_METHODS=["ccall","cwrap","wasmMemory"] -s MODULARIZE=1 -s EXPORT_NAME=createCandyNative \
 -s ENVIRONMENT=web,worker -s ERROR_ON_UNDEFINED_SYMBOLS=0 -s SHARED_MEMORY=1 \
 -matomics -fopenmp -msimd128 -mrelaxed-simd -ffast-math -pthread -L$SCRIPT_DIR -lomp"
 
@@ -408,7 +418,7 @@ BUILD_SUCCESS=0
 if em++ "$SCRIPT_DIR"/*.cpp \
   $COMPILE_FLAGS \
   $LINK_FLAGS \
-  -s EXPORTED_FUNCTIONS="$EXPORTS" \
+  -s EXPORTED_FUNCTIONS=@"$EXPORTS_FILE" -s EXPORT_KEEPALIVE=1 --closure 0  \
   -o "$OUTPUT_JS" 2>&1; then
     BUILD_SUCCESS=1
 fi
@@ -480,19 +490,19 @@ OUTPUT_JS_ST="$REPO_ROOT/public/candy_native_st.js"
 OUTPUT_WASM_ST="$REPO_ROOT/public/candy_native_st.wasm"
 
 # Compiler flags for ST (remove pthread, atomics, etc)
-COMPILE_FLAGS_ST="-O3 -msimd128 -mrelaxed-simd -ffast-math -fno-rtti -funroll-loops"
+COMPILE_FLAGS_ST="-O2 -msimd128 -mrelaxed-simd -ffast-math -fno-rtti -funroll-loops"
 
 # Linker flags for ST (remove pthread, shared memory)
-LINK_FLAGS_ST="-O3 -std=c++17 -lembind -s WASM=1 -s WASM_BIGINT=0 \
--s ALLOW_MEMORY_GROWTH=1 -s TOTAL_STACK=16MB -s INITIAL_MEMORY=64MB -s MAXIMUM_MEMORY=256MB $ASSERTION_FLAG -s EXPORT_ES6=1 \
--s EXPORTED_RUNTIME_METHODS=[\"ccall\",\"cwrap\",\"wasmMemory\"] -s MODULARIZE=1 -s EXPORT_NAME=createCandyNative \
+LINK_FLAGS_ST="-O2 -std=c++17 -lembind -s WASM=1 -s WASM_BIGINT=0 \
+-s ALLOW_MEMORY_GROWTH=1 -s EXPORT_KEEPALIVE=1 -s TOTAL_STACK=16MB -s INITIAL_MEMORY=64MB -s MAXIMUM_MEMORY=256MB $ASSERTION_FLAG -s EXPORT_ES6=1 \
+-s EXPORTED_RUNTIME_METHODS=["ccall","cwrap","wasmMemory"] -s MODULARIZE=1 -s EXPORT_NAME=createCandyNative \
 -s ENVIRONMENT=web -s ERROR_ON_UNDEFINED_SYMBOLS=0 \
 -msimd128 -mrelaxed-simd -ffast-math"
 
 if em++ "$SCRIPT_DIR"/*.cpp \
   $COMPILE_FLAGS_ST \
   $LINK_FLAGS_ST \
-  -s EXPORTED_FUNCTIONS="$EXPORTS" \
+  -s EXPORTED_FUNCTIONS=@"$EXPORTS_FILE" -s EXPORT_KEEPALIVE=1 --closure 0  \
   -o "$OUTPUT_JS_ST" 2>&1; then
     echo "[OK] Single-threaded build successful!"
     echo "  - public/candy_native_st.js"
