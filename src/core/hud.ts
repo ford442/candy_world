@@ -164,6 +164,17 @@ export function updateEnergyBar(
         hudEnergyContainer.style.borderColor = ''; // Let CSS take over
     }
 }
+export function updateHUD(state: any): void {}
+export function updateTheme(isNight: boolean): void {}
+export function toggleDayNight(): void {}
+export function setInputSystem(inputSys: any): void {}
+export function updateTrackerHUD(audioState: any): void {}
+export function getIsNight(): boolean { return false; }
+export function setIsNight(val: boolean): void {}
+export function getLastIsNight(): boolean { return false; }
+export function setLastIsNight(val: boolean): void {}
+export function getLastStrikeState(): boolean { return false; }
+export function setLastStrikeState(val: boolean): void {}
 
 export function updateDashHUD(
     dashCooldown: number,
