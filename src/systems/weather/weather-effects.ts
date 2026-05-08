@@ -312,6 +312,8 @@ export class EffectsManager {
             }
         }
         if (lightningLight) {
+            // ⚡ OPTIMIZATION: Ensure temporary lights are disposed before removal to prevent VRAM leaks.
+            lightningLight.dispose();
             this.scene.remove(lightningLight);
         }
         if (rainbow) {

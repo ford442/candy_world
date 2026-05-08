@@ -291,7 +291,11 @@ export class ShaderWarmup {
       // this.warmupGeometry is reused so we don't dispose it. However, the temporary mesh is removed.
       if (material instanceof MeshStandardNodeMaterial) {
         scene.children.forEach(child => {
-          if (child instanceof THREE.Light) scene.remove(child);
+          if (child instanceof THREE.Light) {
+             // ⚡ OPTIMIZATION: Disposed temporary warmup lights to prevent VRAM leaks.
+             child.dispose();
+             scene.remove(child);
+          }
         });
       }
       
