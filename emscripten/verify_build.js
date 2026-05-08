@@ -70,6 +70,7 @@ const EXPECTED_EXPORTS = {
     
     // Physics functions (physics.cpp) - HIGH priority
     physics: [
+        'initPhysicsMemory',
         'initPhysics',
         'addObstacle',
         'setPlayerState',
