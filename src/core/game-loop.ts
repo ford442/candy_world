@@ -75,15 +75,8 @@ import {
 } from './config.ts';
 import { keyStates } from './input/index.js';
 import {
-    updateTrackerHUD,
     updateHUD,
-    getIsNight,
-    setIsNight,
-    getLastIsNight,
-    setLastIsNight,
-    getLastStrikeState,
-    setLastStrikeState,
-    updateTheme
+
 } from './hud.ts';
 import {
     getMelodyRibbon,
@@ -253,9 +246,6 @@ export function animate() {
     const currentBPM = audioState?.bpm || 120;
     const timeFactor = 120 / Math.max(10, currentBPM);
     gameTime += delta * timeFactor;
-
-    // Update Tracker HUD
-    updateTrackerHUD(audioState);
 
     // Update global shader time
     uTime.value = gameTime;
