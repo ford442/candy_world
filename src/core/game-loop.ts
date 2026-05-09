@@ -59,7 +59,6 @@ import { musicReactivitySystem } from '../systems/music-reactivity.ts';
 import { unlockSystem } from '../systems/unlocks.ts';
 import { profiler } from '../utils/profiler.js';
 import { WeatherSystem } from '../systems/weather.ts';
-import { WeatherState } from '../systems/weather-types.ts';
 import { InteractionSystem } from '../systems/interaction.ts';
 import { AudioSystem } from '../audio/audio-system.ts';
 import { BeatSync } from '../audio/beat-sync.ts';

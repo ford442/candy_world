@@ -128,11 +128,7 @@ export function updateEnergyBar(
 
     const energyPct = Math.max(0, Math.min(1, playerEnergy / playerMaxEnergy));
     hudEnergyFill.style.width = `${energyPct * 100}%`;
-    // WCAG 4.1.2 fix: Use absolute values for dynamic maxEnergy
-    // aria-valuenow = current energy (absolute)
-    // aria-valuemax = playerMaxEnergy (dynamic, updates on upgrades)
-    hudEnergyContainer.setAttribute('aria-valuenow', playerEnergy.toFixed(1));
-    hudEnergyContainer.setAttribute('aria-valuemax', playerMaxEnergy.toString());
+    hudEnergyContainer.setAttribute('aria-valuenow', (energyPct * 10).toFixed(1));
 
     // Pulse to the beat when health/energy is low (< 30%)
     if (energyPct < 0.3) {
@@ -164,17 +160,6 @@ export function updateEnergyBar(
         hudEnergyContainer.style.borderColor = ''; // Let CSS take over
     }
 }
-export function updateHUD(state: any): void {}
-export function updateTheme(isNight: boolean): void {}
-export function toggleDayNight(): void {}
-export function setInputSystem(inputSys: any): void {}
-export function updateTrackerHUD(audioState: any): void {}
-export function getIsNight(): boolean { return false; }
-export function setIsNight(val: boolean): void {}
-export function getLastIsNight(): boolean { return false; }
-export function setLastIsNight(val: boolean): void {}
-export function getLastStrikeState(): boolean { return false; }
-export function setLastStrikeState(val: boolean): void {}
 
 export function updateDashHUD(
     dashCooldown: number,
