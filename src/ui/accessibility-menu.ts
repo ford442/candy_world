@@ -86,7 +86,11 @@ export class AccessibilityMenu {
     
     // Trap focus
     if (this.container) {
-      this.releaseFocusTrap = trapFocusInside(this.container);
+      setTimeout(() => {
+        if (this.container && this.isOpen) {
+          this.releaseFocusTrap = trapFocusInside(this.container);
+        }
+      }, 100);
       announce('Accessibility menu opened. Use Tab to navigate, Enter to select.', 'polite');
     }
 
@@ -111,14 +115,23 @@ export class AccessibilityMenu {
     this.lastFocusedElement = null;
 
     // Remove elements
-    if (this.overlay && this.overlay.parentNode) {
-      this.overlay.parentNode.removeChild(this.overlay);
+    if (this.container) {
+      this.container.style.opacity = '0';
     }
+    if (this.overlay) {
+      this.overlay.style.opacity = '0';
+    }
+
+    setTimeout(() => {
+      if (this.overlay && this.overlay.parentNode) {
+        this.overlay.parentNode.removeChild(this.overlay);
+      }
+      this.container = null;
+      this.overlay = null;
+    }, 300);
 
     document.removeEventListener('keydown', this.boundKeyHandler);
     this.isOpen = false;
-    this.container = null;
-    this.overlay = null;
 
     const openA11yBtn = document.getElementById('openA11yBtn');
     if (openA11yBtn) openA11yBtn.setAttribute('aria-expanded', 'false');
@@ -143,6 +156,8 @@ export class AccessibilityMenu {
       align-items: center;
       justify-content: center;
       z-index: 10000;
+      opacity: 1;
+      transition: opacity 0.3s ease;
     `;
 
     // Create menu container
@@ -162,6 +177,7 @@ export class AccessibilityMenu {
       overflow: hidden;
       color: var(--menu-text, #ffffff);
       font-family: system-ui, -apple-system, sans-serif;
+      transition: opacity 0.3s ease;
     `;
 
     this.container.appendChild(this.createHeader());

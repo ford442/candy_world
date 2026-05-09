@@ -657,7 +657,11 @@ class AnalyticsDebugOverlay {
     this.isVisible = true;
     
     // Trap focus inside the overlay
-    this.releaseFocusTrap = trapFocusInside(this.elements.container);
+    setTimeout(() => {
+      if (this.isVisible && this.elements.container) {
+        this.releaseFocusTrap = trapFocusInside(this.elements.container);
+      }
+    }, 100);
 
     // Start update loop
     this.refresh();
@@ -684,7 +688,11 @@ class AnalyticsDebugOverlay {
     }
     this.lastFocusedElement = null;
 
-    this.elements.container.remove();
+    this.elements.container.style.opacity = '0';
+    const containerToRemove = this.elements.container;
+    setTimeout(() => {
+      containerToRemove.remove();
+    }, 300);
     this.elements = null;
     this.isVisible = false;
     

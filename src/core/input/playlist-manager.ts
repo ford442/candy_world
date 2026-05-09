@@ -374,7 +374,15 @@ export function togglePlaylist(): void {
 
         if (playlistOverlay) {
             playlistOverlay.style.display = 'flex';
-            releaseJukeboxFocus = trapFocusInside(playlistOverlay);
+            // Force DOM reflow
+            void playlistOverlay.offsetWidth;
+            playlistOverlay.style.opacity = '1';
+
+            setTimeout(() => {
+                if (isPlaylistOpen && playlistOverlay) {
+                    releaseJukeboxFocus = trapFocusInside(playlistOverlay);
+                }
+            }, 100);
         }
         if (playlistBackdrop) playlistBackdrop.style.display = 'block';
         renderPlaylist();
@@ -396,13 +404,21 @@ export function togglePlaylist(): void {
         });
     } else {
         // CLOSING
-        if (playlistOverlay) playlistOverlay.style.display = 'none';
-        if (playlistBackdrop) playlistBackdrop.style.display = 'none';
-
         if (releaseJukeboxFocus) {
             releaseJukeboxFocus();
             releaseJukeboxFocus = null;
         }
+
+        if (playlistOverlay) {
+            playlistOverlay.style.opacity = '0';
+        }
+
+        setTimeout(() => {
+            if (!isPlaylistOpen) {
+                if (playlistOverlay) playlistOverlay.style.display = 'none';
+                if (playlistBackdrop) playlistBackdrop.style.display = 'none';
+            }
+        }, 300);
 
         // 🎨 Palette: Smart Context Restoration
         if (wasPausedBeforePlaylist) {
