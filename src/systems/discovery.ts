@@ -97,11 +97,14 @@ class DiscoverySystem {
         // Remove existing if any
         let existingLog = document.getElementById('discovery-log-overlay');
         if (existingLog) {
-                        if (this.releaseFocusTrap) {
+            if (this.releaseFocusTrap) {
                 this.releaseFocusTrap();
                 this.releaseFocusTrap = null;
             }
-            existingLog.remove();
+            existingLog.style.opacity = '0';
+            setTimeout(() => {
+                existingLog.remove();
+            }, 300);
             if (this.lastFocusedElement && typeof this.lastFocusedElement.focus === 'function') {
                 this.lastFocusedElement.focus();
                 this.lastFocusedElement = null;
@@ -120,6 +123,8 @@ class DiscoverySystem {
         overlay.style.height = '100vh';
         overlay.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
         overlay.style.display = 'flex';
+        overlay.style.opacity = '1';
+        overlay.style.transition = 'opacity 0.3s ease';
         overlay.style.justifyContent = 'center';
         overlay.style.alignItems = 'center';
         overlay.style.zIndex = '10000';
@@ -162,7 +167,10 @@ class DiscoverySystem {
                 this.releaseFocusTrap();
                 this.releaseFocusTrap = null;
             }
-            overlay.remove();
+            overlay.style.opacity = '0';
+            setTimeout(() => {
+                overlay.remove();
+            }, 300);
 
             if (this.lastFocusedElement && typeof this.lastFocusedElement.focus === 'function') {
                 this.lastFocusedElement.focus();
@@ -209,10 +217,13 @@ class DiscoverySystem {
         document.body.appendChild(overlay);
 
         // Trap focus inside the overlay
-        this.releaseFocusTrap = trapFocusInside(overlay);
-
-        // Focus close button for accessibility
-        closeBtn.focus();
+        setTimeout(() => {
+            if (document.getElementById('discovery-log-overlay')) {
+                this.releaseFocusTrap = trapFocusInside(overlay);
+                // Focus close button for accessibility
+                closeBtn.focus();
+            }
+        }, 100);
     }
 
     /**
