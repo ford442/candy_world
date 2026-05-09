@@ -60,7 +60,12 @@ Three.js Renderer -> WebGPU RenderPipeline (Raw Draw Calls)
 
 ---
 
+## Recent Progress
+
+1. **Foliage Growth & Rain-Driven Spreading** (Status: Implemented ✅)
+   - *Implementation Details:* Implemented `spawnNearbyFoliage` in `src/world/generation.ts` and integrated it into the weather ecosystem's update loop (`src/systems/weather/weather-ecosystem.ts`). It pulls source positions from existing batched mushrooms and flowers, and uses a distance threshold check to cap local density.
+
 ## Next Steps
 
-1. **Foliage Growth & Rain-Driven Spreading**
-   - Foliage can spread into empty areas during/after rain according to local spawning rules.
+1. **Moon Dance & Note-Color Reactivity**
+   - Note: The sky reactivity and basic moon setup are already in place, but we need to finalize the visual integration, ensuring that specific species react to specific notes and update `CONFIG.noteColorMap` according to `assets/colorcode.json`.

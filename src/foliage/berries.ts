@@ -23,6 +23,10 @@ const _scratchLocalPos = new THREE.Vector3();
 const _scratchLocalQuat = new THREE.Quaternion();
 const _scratchLocalScale = new THREE.Vector3();
 const _scratchColor = new THREE.Color();
+const _scratchZeroVector = new THREE.Vector3();
+
+// ⚡ OPTIMIZATION: Pre-calculate constants for loop efficiency
+const GOLDEN_RATIO_ANGLE = Math.PI * (1 + Math.sqrt(5));
 
 // ⚡ OPTIMIZATION: Global uniform for seasonal berry scaling
 export const uBerrySeasonScale = uniform(float(1.0));
@@ -148,7 +152,7 @@ export class BerryBatcher {
 
             // Generate Local Transform
             const phi = Math.acos(2 * (i / count) - 1);
-            const theta = Math.PI * (1 + Math.sqrt(5)) * i;
+            const theta = GOLDEN_RATIO_ANGLE * i;
             const radius = 0.12; // Cluster spread
 
             const px = radius * Math.sin(phi) * Math.cos(theta);
@@ -485,7 +489,8 @@ export function updateFallingBerries(delta: number, renderer?: THREE.Renderer): 
     // Sync compute system if available
     if (computeParticleSystem && renderer) {
         // We pass a dummy player and audio data since this is environmentally updated
-        computeParticleSystem.update(renderer, delta, new THREE.Vector3(), {
+        _scratchZeroVector.set(0, 0, 0); // ⚡ OPTIMIZATION: Use scratch vector instead of new THREE.Vector3()
+        computeParticleSystem.update(renderer, delta, _scratchZeroVector, {
             low: 0, mid: 0, high: 0, beat: false, groove: 0, windX: 0, windZ: 0, windSpeed: 0
         });
     }
