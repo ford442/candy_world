@@ -14,6 +14,7 @@ import * as THREE from 'three';
 
 import { uniform, texture, vec2 } from 'three/tsl';
 import { DataTexture, RGBAFormat, FloatType, Color, NearestFilter } from 'three';
+import { CONFIG } from '../core/config.ts';
 
 export const BiomeUniforms = {
     /**
@@ -68,16 +69,26 @@ export const SkyUniforms = {
 } as const;
 
 /**
- * 128-slot RGBA-float LUT: maps note index → HSL hue colour.
+ * 128-slot RGBA-float LUT: maps note index → hue colour.
  * Shared between GPU DataTexture (skyNoteColorNode) and CPU moon lerp.
  *
- * Slot i  →  HSL(i/128, 0.9, 0.5)
+ * Uses chromatic colors mapped from CONFIG.noteColorMap.sky
  */
 export const skyLutData = new Float32Array(128 * 4);
 (function buildSkyLut() {
     const c = new Color();
+    const CHROMATIC_SCALE = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+    const skyMap = CONFIG.noteColorMap.sky || CONFIG.noteColorMap.global;
+
     for (let i = 0; i < 128; i++) {
-        c.setHSL(i / 128, 0.9, 0.5);
+        // Since we map 12 chromatic notes across 128 slots during reactivity updates:
+        // Math.floor((chromaticIdx / 12) * 128)
+        // Here we reverse it to determine which note index this slot mostly corresponds to.
+        const chromaticIdx = Math.floor((i / 128) * 12);
+        const noteName = CHROMATIC_SCALE[chromaticIdx];
+        const hex = skyMap[noteName] || 0xffffff;
+
+        c.setHex(hex);
         skyLutData[i * 4 + 0] = c.r;
         skyLutData[i * 4 + 1] = c.g;
         skyLutData[i * 4 + 2] = c.b;
