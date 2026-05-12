@@ -162,7 +162,6 @@ export function updateEnergyBar(
     }
 }
 
-export function updateHUD(state: any) {}
 export function updateTheme(isNight: boolean) {}
 export function toggleDayNight() {}
 export function setInputSystem(system: any) {}
