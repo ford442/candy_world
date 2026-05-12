@@ -51,14 +51,15 @@ const _scratchSphere = new THREE.Sphere(); // Reusable for Group culling checks
 // ⚡ OPTIMIZATION: Reusable scratch array for species list
 const _scratchSpeciesList: string[] = [];
 
+
 // Helper to map MIDI note (0-127) to a color hue
 function mapNoteToColor(note: number, outColor: THREE.Color) {
     if (note <= 0) return outColor.setHex(0xffffff); // Default white
     // Standard map: C=0, C#=1 ... B=11
     const pitchClass = note % 12;
-    // Spread 12 notes across 360 degrees of hue
-    const hue = pitchClass / 12.0;
-    outColor.setHSL(hue, 0.8, 0.6); // Vivid pastel
+    const noteName = CHROMATIC_SCALE[pitchClass];
+    const hexColor = CONFIG.noteColorMap['global'][noteName] || 0xffffff;
+    outColor.setHex(hexColor);
     return outColor;
 }
 

@@ -181,7 +181,7 @@ export const CONFIG: ConfigType = {
 
     // --- NOTE COLOR MAPPING ---
     noteColorMap: {
-        // Standard Global Palette (Fallback)
+        // Standard Global Palette (Fallback) - matching assets/colorcode.json
         'global': {
             'C': 0xFF0000, 'C#': 0xFF7F00, 'D': 0xFFFF00, 'D#': 0x7FFF00,
             'E': 0x00FF00, 'F': 0x00FF7F, 'F#': 0x00FFFF, 'G': 0x007FFF,
