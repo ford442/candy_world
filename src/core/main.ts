@@ -303,6 +303,9 @@ initWasm().then(async (wasmLoaded) => {
                 const idx = animatedFoliage.indexOf(previewMushroom);
                 if (idx > -1) animatedFoliage.splice(idx, 1);
 
+                const idxInter = interactiveObjects.indexOf(previewMushroom);
+                if (idxInter > -1) interactiveObjects.splice(idxInter, 1);
+
                 // Show loading screen for map generation phase
                 loadingScreen.show();
                 loadingScreen.startPhase('map-generation');
