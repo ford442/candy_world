@@ -65,7 +65,10 @@ Three.js Renderer -> WebGPU RenderPipeline (Raw Draw Calls)
 1. **Foliage Growth & Rain-Driven Spreading** (Status: Implemented ✅)
    - *Implementation Details:* Implemented `spawnNearbyFoliage` in `src/world/generation.ts` and integrated it into the weather ecosystem's update loop (`src/systems/weather/weather-ecosystem.ts`). It pulls source positions from existing batched mushrooms and flowers, and uses a distance threshold check to cap local density.
 
+2. **Moon Dance & Note-Color Reactivity** (Status: Implemented ✅)
+   - *Implementation Details:* Updated `CONFIG.noteColorMap` and `MUSHROOM_NOTES` to strictly adhere to the `assets/colorcode.json` note-color mappings. Also modified the `skyLutData` node in `src/systems/biome-uniforms.ts` to procedurally map the 12 chromatic notes across its 128 slots matching the specified color palette.
+
 ## Next Steps
 
-1. **Moon Dance & Note-Color Reactivity**
-   - Note: The sky reactivity and basic moon setup are already in place, but we need to finalize the visual integration, ensuring that specific species react to specific notes and update `CONFIG.noteColorMap` according to `assets/colorcode.json`.
+1. **Phase 4: The Graphics Rewire (Three.js → Raw WebGPU) Stage A — Compute Shaders (GPGPU)**
+   - *Next Step Suggestion:* Implement the GPGPU compute passes for particle updates and transition the particle system entirely to WebGPU Compute Shaders to realize Phase 4 Stage A objectives.

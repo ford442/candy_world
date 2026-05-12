@@ -162,16 +162,7 @@ export function updateEnergyBar(
     }
 }
 
-export function updateHUD(state: any) {}
-export function updateTheme(isNight: boolean) {}
-export function toggleDayNight() {}
-export function setInputSystem(system: any) {}
-export function getIsNight() { return false; }
-export function setIsNight(val: boolean) { }
-export function getLastIsNight() { return false; }
-export function setLastIsNight(val: boolean) { }
-export function getLastStrikeState() { return false; }
-export function setLastStrikeState(val: boolean) { }
+
 export function updateDashHUD(
     dashCooldown: number,
     audioState: any

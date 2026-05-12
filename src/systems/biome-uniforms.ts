@@ -76,8 +76,14 @@ export const SkyUniforms = {
 export const skyLutData = new Float32Array(128 * 4);
 (function buildSkyLut() {
     const c = new Color();
+    const noteColors = [
+        0xFF0000, 0xFF7F00, 0xFFFF00, 0x7FFF00,
+        0x00FF00, 0x00FF7F, 0x00FFFF, 0x007FFF,
+        0x0000FF, 0x7F00FF, 0xFF00FF, 0xFF007F
+    ];
     for (let i = 0; i < 128; i++) {
-        c.setHSL(i / 128, 0.9, 0.5);
+        const noteIndex = Math.floor((i / 128) * 12);
+        c.setHex(noteColors[noteIndex]);
         skyLutData[i * 4 + 0] = c.r;
         skyLutData[i * 4 + 1] = c.g;
         skyLutData[i * 4 + 2] = c.b;
