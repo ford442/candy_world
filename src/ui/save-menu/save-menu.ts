@@ -19,6 +19,7 @@ import {
 } from '../../systems/save-system/index.js';
 import { showToast } from '../../utils/toast.js';
 import { trapFocusInside } from '../../utils/interaction-utils.ts';
+import { announce } from '../announcer.ts';
 import { MENU_STYLES } from './save-menu-styles.js';
 import { 
     renderLoadTab, 
@@ -128,6 +129,7 @@ export class SaveMenu {
         
         // Load slots
         await this.refreshSlots();
+        announce(`${this.slots.length} saves loaded`, 'polite');
         this.render();
 
         // Trap Focus
@@ -135,7 +137,7 @@ export class SaveMenu {
             if (this.container && this.isOpen()) {
                 this.releaseFocusTrap = trapFocusInside(this.container);
             }
-        }, 100);
+        }, 200);
     }
 
     /**
@@ -150,7 +152,7 @@ export class SaveMenu {
         }
 
         // Add exit animation
-        this.container.style.animation = 'fadeIn 0.2s ease reverse';
+        this.container.style.animation = 'saveMenuFadeIn 0.2s ease reverse';
         
         setTimeout(() => {
             if (this.releaseFocusTrap) {
@@ -215,7 +217,7 @@ export class SaveMenu {
         
         this.container.innerHTML = `
             <div class="candy-save-menu__container">
-                <div class="candy-save-menu__loading">
+                <div class="candy-save-menu__loading" aria-live="polite">
                     <div class="candy-save-menu__spinner">
                         <span class="visually-hidden">Loading...</span>
                     </div>

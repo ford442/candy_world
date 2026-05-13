@@ -161,6 +161,8 @@ export function updateEnergyBar(
         hudEnergyContainer.style.borderColor = ''; // Let CSS take over
     }
 }
+
+
 export function updateDashHUD(
     dashCooldown: number,
     audioState: any

@@ -14,6 +14,8 @@ import {
 } from './index.ts';
 import { foliageGroup } from '../world/state.ts';
 import { getTorusGeometry, getConeGeometry } from '../utils/geometry-dedup.ts';
+import { CONFIG } from '../core/config.ts';
+import { uTwilight } from './sky.ts';
 
 const MAX_LANTERNS = 250; // Reduced from 1000 for WebGPU uniform buffer limits
 
@@ -194,7 +196,16 @@ export class LanternBatcher {
         // Juicy Rim Light
         const rim = createJuicyRimLight(finalColor, float(2.0), float(3.0), null);
 
-        bulbMat.emissiveNode = finalColor.mul(totalIntensity).add(rim);
+        // 🎨 PALETTE: Twilight Glow for lantern bulbs
+        const glowPhaseOffset = params.y; // reuse randomPhase
+        const idlePulse = sin(uTime.mul(float(CONFIG.glow.glowPulseFrequency)).add(glowPhaseOffset)).mul(float(CONFIG.glow.glowPulseAmplitude)).add(1.0).mul(float(0.5)).mul(uAudioLow.mul(0.3).add(0.7));
+        const targetGlowColor = color(CONFIG.glow.glowColorMap['lantern']);
+        const twilightGlowTint = targetGlowColor
+            .mul(uTwilight)
+            .mul(float(CONFIG.glow.glowIntensityMax))
+            .mul(float(0.4).add(idlePulse));
+
+        bulbMat.emissiveNode = finalColor.mul(totalIntensity).add(rim).add(twilightGlowTint);
         bulbMat.colorNode = finalColor; // Also set base color
 
         // Create Mesh
