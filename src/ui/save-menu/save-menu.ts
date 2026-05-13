@@ -145,14 +145,9 @@ export class SaveMenu {
      */
     close(): void {
         if (!this.container) return;
-        
-        if (this.releaseFocusTrap) {
-            this.releaseFocusTrap();
-            this.releaseFocusTrap = null;
-        }
 
         // Add exit animation
-        this.container.style.animation = 'saveMenuFadeIn 0.2s ease reverse';
+        this.container.style.animation = 'slideUp 0.2s ease reverse';
         
         setTimeout(() => {
             if (this.releaseFocusTrap) {
