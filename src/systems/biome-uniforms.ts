@@ -69,15 +69,18 @@ export const SkyUniforms = {
 } as const;
 
 /**
- * 128-slot RGBA-float LUT: maps note index → HSL hue colour.
+ * 128-slot RGBA-float LUT: maps note index → hue colour.
  * Shared between GPU DataTexture (skyNoteColorNode) and CPU moon lerp.
  *
- * Slot i  →  HSL(i/128, 0.9, 0.5)
+ * Uses chromatic colors mapped from CONFIG.noteColorMap.sky
  */
 const CHROMATIC_SCALE = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 export const skyLutData = new Float32Array(128 * 4);
 (function buildSkyLut() {
     const c = new Color();
+    const CHROMATIC_SCALE = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+    const skyMap = CONFIG.noteColorMap.sky || CONFIG.noteColorMap.global;
+
     for (let i = 0; i < 128; i++) {
         const chromaticIdx = Math.floor((i * 12) / 128);
         const pitchClass = chromaticIdx % 12;

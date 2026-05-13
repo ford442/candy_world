@@ -53,9 +53,11 @@ const _scratchSpeciesList: string[] = [];
 
 
 // Helper to map MIDI note (0-127) to a color hue
+// Helper to map MIDI note (0-127) to a color using CONFIG.noteColorMap.sky
 function mapNoteToColor(note: number, outColor: THREE.Color) {
     if (note <= 0) return outColor.setHex(0xffffff); // Default white
     // Standard map: C=0, C#=1 ... B=11
+    const CHROMATIC_SCALE = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
     const pitchClass = note % 12;
     const noteName = CHROMATIC_SCALE[pitchClass];
     const hexColor = CONFIG.noteColorMap['global'][noteName] || 0xffffff;

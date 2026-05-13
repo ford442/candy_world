@@ -128,7 +128,8 @@ export function updateEnergyBar(
 
     const energyPct = Math.max(0, Math.min(1, playerEnergy / playerMaxEnergy));
     hudEnergyFill.style.width = `${energyPct * 100}%`;
-    hudEnergyContainer.setAttribute('aria-valuenow', (energyPct * 10).toFixed(1));
+    hudEnergyContainer.setAttribute('aria-valuenow', playerEnergy.toFixed(1));
+    hudEnergyContainer.setAttribute('aria-valuemax', playerMaxEnergy.toFixed(1));
 
     // Pulse to the beat when health/energy is low (< 30%)
     if (energyPct < 0.3) {
@@ -161,16 +162,6 @@ export function updateEnergyBar(
     }
 }
 
-export function updateHUD(state: any) {}
-export function updateTheme(isNight: boolean) {}
-export function toggleDayNight() {}
-export function setInputSystem(system: any) {}
-export function getIsNight() { return false; }
-export function setIsNight(val: boolean) { }
-export function getLastIsNight() { return false; }
-export function setLastIsNight(val: boolean) { }
-export function getLastStrikeState() { return false; }
-export function setLastStrikeState(val: boolean) { }
 export function updateDashHUD(
     dashCooldown: number,
     audioState: any
