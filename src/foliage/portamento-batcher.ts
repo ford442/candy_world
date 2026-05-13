@@ -8,7 +8,8 @@ import {
   calculatePlayerPush,
   createJuicyRimLight,
   uAudioHigh,
-  uAudioLow
+  uAudioLow,
+  uTime
 } from './index.ts';
 import { uTwilight } from './sky.ts';
 import {
@@ -18,7 +19,9 @@ import {
   uv,
   mix,
   color,
-  float
+  float,
+  sin,
+  instanceIndex
 } from 'three/tsl';
 import { PlantPoseMachine } from './plant-pose-machine.ts';
 import { CONFIG } from '../core/config.ts';
@@ -137,8 +140,15 @@ export class PortamentoPineBatcher {
     const audioGlow = uAudioHigh.mul(1.5).add(uAudioLow.mul(0.5));
     const rimLight = createJuicyRimLight(baseGlowColor, float(1.5), float(3.0), null);
 
-    // Add audio-reactive emissive pulse scaled by night visibility (twilight)
-    needleMat.emissiveNode = baseGlowColor.mul(audioGlow).add(rimLight).mul(float(1.0).add(uTwilight));
+    // 🎨 PALETTE: Twilight Glow for portamento pines
+    const glowPhaseOffset = float(instanceIndex).mul(0.1);
+    const idlePulse = sin(uTime.mul(float(CONFIG.glow.glowPulseFrequency)).add(glowPhaseOffset)).mul(float(CONFIG.glow.glowPulseAmplitude)).add(1.0).mul(float(0.5)).mul(uAudioHigh.mul(0.3).add(0.7));
+    const targetGlowColor = color(CONFIG.glow.glowColorMap['portamento']);
+    const twilightGlowTint = targetGlowColor
+        .mul(uTwilight)
+        .mul(float(CONFIG.glow.glowIntensityMax))
+        .mul(float(0.3).add(idlePulse));
+    needleMat.emissiveNode = baseGlowColor.mul(audioGlow).add(rimLight).add(twilightGlowTint);
 
     registerReactiveMaterial(needleMat);
 

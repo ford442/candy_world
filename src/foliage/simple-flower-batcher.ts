@@ -17,6 +17,8 @@ import {
 } from './index.ts';
 import { attribute, color as tslColor, positionLocal, vec3, float, mx_noise_float, mix, sin, smoothstep, normalize, length, positionWorld } from 'three/tsl';
 import { foliageGroup } from '../world/state.ts';
+import { CONFIG } from '../core/config.ts';
+import { uTwilight } from './sky.ts';
 
 // Manually define instanceColor if not exported by three/tsl
 const instanceColor = attribute('instanceColor', 'vec3');
@@ -151,7 +153,15 @@ export class SimpleFlowerBatcher {
         const touchColor = vec3(1.0, 0.9, 0.5).mul(touchGlow).mul(2.0); // Gold boost
 
         // Combine Emissive: Base Emissive (if any) + Rim + Glitter + TouchGlow
-        petalMat.emissiveNode = (petalMat.emissiveNode || tslColor(0x000000)).add(rim).add(glitter).add(touchColor);
+        // 🎨 PALETTE: Twilight Glow for simple flowers
+        const glowPhaseOffset = positionLocal.x.add(positionLocal.y).add(positionLocal.z).mul(5.0);
+        const idlePulse = sin(uTime.mul(float(CONFIG.glow.glowPulseFrequency)).add(glowPhaseOffset)).mul(float(CONFIG.glow.glowPulseAmplitude)).add(1.0).mul(float(0.5)).mul(uAudioLow.mul(0.3).add(0.7));
+        const targetGlowColor = tslColor(CONFIG.glow.glowColorMap['flower']);
+        const twilightGlowTint = targetGlowColor
+            .mul(uTwilight)
+            .mul(float(CONFIG.glow.glowIntensityMax))
+            .mul(float(0.3).add(idlePulse));
+        petalMat.emissiveNode = (petalMat.emissiveNode || tslColor(0x000000)).add(rim).add(glitter).add(touchColor).add(twilightGlowTint);
 
         // Center: Velvet (Brown) + Chain
         const centerMat = (foliageMaterials as any).flowerCenter.clone();

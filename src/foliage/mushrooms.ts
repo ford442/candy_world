@@ -15,18 +15,18 @@ export interface MushroomNote {
 // 12 Chromatic Notes with their corresponding colors
 // Colors are defined here to match CONFIG.noteColorMap.mushroom palette
 export const MUSHROOM_NOTES: MushroomNote[] = [
-    { note: 'C',  color: 0xFF4040, name: 'C Red' },       // Red
-    { note: 'C#', color: 0xEF1280, name: 'C# Magenta' },  // Magenta-Red
-    { note: 'D',  color: 0xC020C0, name: 'D Magenta' },   // Magenta
-    { note: 'D#', color: 0x8020EF, name: 'D# Violet' },   // Violet
-    { note: 'E',  color: 0x4040FF, name: 'E Blue' },      // Blue
-    { note: 'F',  color: 0x1280EF, name: 'F Azure' },     // Azure
-    { note: 'F#', color: 0x00C0C0, name: 'F# Cyan' },     // Cyan
-    { note: 'G',  color: 0x12EF80, name: 'G Spring' },    // Spring Green
-    { note: 'G#', color: 0x40FF40, name: 'G# Green' },    // Green
-    { note: 'A',  color: 0x80EF12, name: 'A Lime' },      // Lime
-    { note: 'A#', color: 0xC0C000, name: 'A# Yellow' },   // Yellow
-    { note: 'B',  color: 0xEF8012, name: 'B Orange' }     // Orange
+    { note: 'C',  color: 0xFF0000, name: 'C Red' },
+    { note: 'C#', color: 0xFF7F00, name: 'C# Orange-Red' },
+    { note: 'D',  color: 0xFFFF00, name: 'D Yellow' },
+    { note: 'D#', color: 0x7FFF00, name: 'D# Yellow-Green' },
+    { note: 'E',  color: 0x00FF00, name: 'E Green' },
+    { note: 'F',  color: 0x00FF7F, name: 'F Spring Green' },
+    { note: 'F#', color: 0x00FFFF, name: 'F# Cyan' },
+    { note: 'G',  color: 0x007FFF, name: 'G Azure' },
+    { note: 'G#', color: 0x0000FF, name: 'G# Blue' },
+    { note: 'A',  color: 0x7F00FF, name: 'A Violet' },
+    { note: 'A#', color: 0xFF00FF, name: 'A# Magenta' },
+    { note: 'B',  color: 0xFF007F, name: 'B Rose' }
 ];
 
 // ⚡ PERFORMANCE: Material cache size (Mocked as we use Batcher now)

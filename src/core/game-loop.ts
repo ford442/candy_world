@@ -77,11 +77,11 @@ import {
     updateHUD,
     getLastIsNight,
     setLastIsNight,
+    getIsNight,
     setIsNight,
     updateTheme,
     setLastStrikeState,
-    getLastStrikeState,
-
+    getLastStrikeState
 } from './hud.ts';
 import {
     getMelodyRibbon,

@@ -4,8 +4,10 @@ import {
     time, positionLocal, sin, cos, positionWorld, color, vec3, mix, float, smoothstep
 } from 'three/tsl';
 import { attachReactivity } from './foliage-reactivity.ts';
-import { CandyPresets, uAudioHigh, uTime, createJuicyRimLight, getCachedProceduralMaterial } from './material-core.ts';
+import { CandyPresets, uAudioHigh, uAudioLow, uTime, createJuicyRimLight, getCachedProceduralMaterial } from './material-core.ts';
 import { makeInteractive } from '../utils/interaction-utils.ts';
+import { CONFIG } from '../core/config.ts';
+import { uTwilight } from './sky.ts';
 import { discoverySystem } from '../systems/discovery.ts';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { spawnImpact } from './impacts.ts';
@@ -63,6 +65,16 @@ export function createWisteriaCluster(options: WisteriaClusterOptions = {}) {
         // 🎨 PALETTE: Juicy Rim Light for volumetric glow
         const rimLight = createJuicyRimLight(color(0xFFFFFF), float(1.5), float(3.0), null);
         mat.emissiveNode = mat.emissiveNode.add(rimLight);
+
+        // 🎨 PALETTE: Twilight Glow for wisteria
+        const glowPhaseOffset = positionWorld.x.mul(0.5).add(positionWorld.z.mul(0.3));
+        const idlePulse = sin(time.mul(float(CONFIG.glow.glowPulseFrequency)).add(glowPhaseOffset)).mul(float(CONFIG.glow.glowPulseAmplitude)).add(1.0).mul(float(0.5)).mul(uAudioLow.mul(0.3).add(0.7));
+        const targetGlowColor = color(CONFIG.glow.glowColorMap['wisteria']);
+        const twilightGlowTint = targetGlowColor
+            .mul(uTwilight)
+            .mul(float(CONFIG.glow.glowIntensityMax))
+            .mul(float(0.3).add(idlePulse));
+        mat.emissiveNode = mat.emissiveNode.add(twilightGlowTint);
 
         return mat;
     }) as MeshStandardNodeMaterial;
