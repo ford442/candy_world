@@ -342,6 +342,7 @@ export function initInput(
                 discoverySystem.showLog();
                 break;
             case 'KeyQ':
+                triggerButtonPress('openJukeboxBtn');
                 togglePlaylist();
                 break;
             case 'KeyW': keyStates.forward = true; break;
@@ -379,18 +380,26 @@ export function initInput(
                 keyStates.dance = true;
                 break; // Dance Ability
             case 'Space': keyStates.jump = true; break;
-            case 'KeyN': if(toggleDayNightCallback) toggleDayNightCallback(); break;
-            case 'KeyM': handleMuteKey(); break;
+            case 'KeyN':
+                triggerButtonPress('toggleDayNight');
+                if(toggleDayNightCallback) toggleDayNightCallback();
+                break;
+            case 'KeyM':
+                triggerButtonPress('toggleMuteBtn');
+                handleMuteKey();
+                break;
             case 'KeyU':
                 const uploadInput = document.getElementById('musicUpload') as HTMLInputElement;
                 if (uploadInput) uploadInput.click();
                 break;
             case 'Equal':
             case 'NumpadAdd':
+                triggerButtonPress('volUpBtn');
                 handleVolumeKey(0.1);
                 break;
             case 'Minus':
             case 'NumpadSubtract':
+                triggerButtonPress('volDownBtn');
                 handleVolumeKey(-0.1);
                 break;
             case 'ControlLeft':
@@ -482,6 +491,27 @@ export function initInput(
     document.addEventListener('keyup', onKeyUp);
     document.addEventListener('mousedown', onMouseDown);
     document.addEventListener('mouseup', onMouseUp);
+
+
+// Cache timeouts to debounce rapid key presses
+const buttonPressTimeouts = new Map<string, NodeJS.Timeout | number>();
+function triggerButtonPress(buttonId: string): void {
+    const btn = document.getElementById(buttonId);
+    if (btn && btn.getAttribute('aria-disabled') !== 'true') {
+        btn.classList.add('pressed');
+
+        if (buttonPressTimeouts.has(buttonId)) {
+            clearTimeout(buttonPressTimeouts.get(buttonId) as any);
+        }
+
+        const timeoutId = setTimeout(() => {
+            btn.classList.remove('pressed');
+            buttonPressTimeouts.delete(buttonId);
+        }, 150);
+
+        buttonPressTimeouts.set(buttonId, timeoutId as unknown as number);
+    }
+}
 
     const toggleDayNightBtn = document.getElementById('toggleDayNight');
     if (toggleDayNightBtn && toggleDayNightCallback) {
