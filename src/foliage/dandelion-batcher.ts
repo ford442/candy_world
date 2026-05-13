@@ -12,8 +12,10 @@ import {
     createJuicyRimLight,
     getCachedProceduralMaterial
 } from './index.ts';
+import { CONFIG } from '../core/config.ts';
+import { uTwilight } from './sky.ts';
 import {
-    float, vec3, positionLocal, attribute, mix, sin,
+    float, vec3, positionLocal, attribute, mix, sin, color,
     instanceIndex, normalLocal, step, length
 } from 'three/tsl';
 
@@ -197,8 +199,18 @@ export class DandelionBatcher {
             // 🎨 PALETTE: Add Juicy Rim Light to dandelion tips
             const rim = createJuicyRimLight(vColor, float(2.0), float(3.0), normalLocal);
 
+            // 🎨 PALETTE: Twilight Glow for dandelion tips
+            const glowPhaseOffset = positionLocal.x.add(positionLocal.y).add(positionLocal.z).mul(5.0);
+            const idlePulse = sin(uTime.mul(float(CONFIG.glow.glowPulseFrequency)).add(glowPhaseOffset)).mul(float(CONFIG.glow.glowPulseAmplitude)).add(1.0).mul(float(0.5)).mul(uAudioLow.mul(0.3).add(0.7));
+            const targetGlowColor = color(CONFIG.glow.glowColorMap['dandelion']);
+            const twilightGlowTint = targetGlowColor
+                .mul(uTwilight)
+                .mul(float(CONFIG.glow.glowIntensityMax))
+                .mul(float(0.3).add(idlePulse));
+            const goldEmissionWithTwilight = goldEmission.add(twilightGlowTint);
+
             // Mix: If Gold, use Emission. Else Black.
-            m.emissiveNode = mix(vec3(0.0), goldEmission.add(rim), isGold);
+            m.emissiveNode = mix(vec3(0.0), goldEmissionWithTwilight.add(rim), isGold);
 
             // Roughness: Gold is shiny (0.2), others are matte (0.8)
             m.roughnessNode = mix(float(0.8), float(0.2), isGold);

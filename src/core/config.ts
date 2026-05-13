@@ -175,7 +175,12 @@ export const CONFIG: ConfigType = {
         glowColorMap: {
             'mushroom': 0xFFDDDD,
             'tree': 0xAAFFCC,
-            'flower': 0xFFCCFF,
+            'flower': 0xFFCCEE,
+            'dandelion': 0xFFFFAA,
+            'wisteria': 0xDDAAFF,
+            'lotus': 0xFFBBCC,
+            'lantern': 0xFFEEAA,
+            'portamento': 0xAAEEFF,
             'global': 0xFFFFFF
         }
     },
