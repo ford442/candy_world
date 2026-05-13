@@ -95,6 +95,7 @@ export const {
   getPositionRadius,
   initDynamicFoliageMemory,
   initCollisionSystem,
+  addCollisionObjectsBatch,
   addCollisionObject,
   checkCollision,
   checkPositionValidity,

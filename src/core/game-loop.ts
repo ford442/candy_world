@@ -75,6 +75,12 @@ import {
 import { keyStates } from './input/index.js';
 import {
     updateHUD,
+    getLastIsNight,
+    setLastIsNight,
+    setIsNight,
+    updateTheme,
+    setLastStrikeState,
+    getLastStrikeState,
 
 } from './hud.ts';
 import {

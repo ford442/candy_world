@@ -35,6 +35,7 @@ import {
 import mapData from '../../assets/map.json';
 
 // Performance constants for async generation
+const obstaclesData: {x: number, y: number, z: number, radius: number}[] = [];
 export const DEFAULT_MAP_CHUNK_SIZE = 100;        // Map entities per chunk
 export const DEFAULT_PROCEDURAL_CHUNK_SIZE = 100; // Procedural extras per chunk
 export const PROCEDURAL_ENTITY_COUNT = 400;       // Number of random procedural items
@@ -253,11 +254,11 @@ export function safeAddFoliage(
 
     // Add to JS obstacles (legacy/backup)
     if (isObstacle) {
-        obstacles.push({ position: obj.position.clone(), radius });
+        // obstacles.push({ position: obj.position.clone(), radius }); // Replaced by obstaclesData
 
-        // ⚡ PERFORMANCE: Add to WASM Spatial Grid for O(1) validity checks
+        // ⚡ OPTIMIZATION: Add to WASM Spatial Grid for O(1) validity checks later in batch
         // Type 5 = Generic Obstacle (Radius Check Only)
-        addCollisionObject(5, obj.position.x, obj.position.y, obj.position.z, radius, 0, 0, 0, 0);
+        obstaclesData.push({ x: obj.position.x, y: obj.position.y, z: obj.position.z, radius });
     }
 
     // Optimization
@@ -338,12 +339,12 @@ export async function generateMap(
     chunkSize: number = DEFAULT_MAP_CHUNK_SIZE,
     onProgress?: (current: number, total: number) => void
 ): Promise<void> {
-    console.log(`[World] Loading map with ${mapData.length} entities...`);
+    console.log(`[World] Loading map with ${mapData.entities.length} entities...`);
 
     // Reset WASM Collision System for Generation Phase
     initCollisionSystem();
 
-    const entities = mapData as MapEntity[];
+    const entities = mapData.entities as any as MapEntity[];
     const mapTotal = entities.length;
     const globalTotal = mapTotal + PROCEDURAL_ENTITY_COUNT;
     
