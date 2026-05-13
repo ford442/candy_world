@@ -283,16 +283,30 @@ export class ShaderWarmup {
       
       // Cleanup
       renderTarget.dispose();
+
+      // ⚡ OPTIMIZATION: Explicitly dispose temporary warmup meshes to prevent VRAM leaks.
+      if (mesh.geometry && mesh.geometry !== this.warmupGeometry) {
+         mesh.geometry.dispose();
+      }
+
+      if (material) {
+        if (Array.isArray(material)) {
+          material.forEach((m) => m.dispose());
+        } else {
+          material.dispose();
+        }
+      }
+
       scene.remove(mesh);
+
       if (mesh.instanceColor) {
         mesh.instanceColor.dispose();
       }
-      // ⚡ OPTIMIZATION: Ensure materials are not disposed here to preserve compiled shader program.
-      // this.warmupGeometry is reused so we don't dispose it. However, the temporary mesh is removed.
+
       if (material instanceof MeshStandardNodeMaterial) {
         scene.children.forEach(child => {
           if (child instanceof THREE.Light) {
-             // ⚡ OPTIMIZATION: Disposed temporary warmup lights to prevent VRAM leaks.
+             // ⚡ OPTIMIZATION: Dispose temporary warmup lights to prevent VRAM leaks.
              child.dispose();
              scene.remove(child);
           }

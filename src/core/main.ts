@@ -288,7 +288,7 @@ initWasm().then(async (wasmLoaded) => {
 
             // Defer execution slightly to let the UI update
             setTimeout(async () => {
-                scene.remove(previewMushroom);
+                // ⚡ OPTIMIZATION: Ensure full disposal before removing from scene to prevent VRAM leak.
                 previewMushroom.traverse((child: THREE.Object3D) => {
                     const mesh = child as THREE.Mesh;
                     if (mesh.geometry) mesh.geometry.dispose();
@@ -300,8 +300,13 @@ initWasm().then(async (wasmLoaded) => {
                         }
                     }
                 });
+                scene.remove(previewMushroom);
+
                 const idx = animatedFoliage.indexOf(previewMushroom);
                 if (idx > -1) animatedFoliage.splice(idx, 1);
+
+                const intIdx = interactiveObjects.indexOf(previewMushroom);
+                if (intIdx > -1) interactiveObjects.splice(intIdx, 1);
 
                 // Show loading screen for map generation phase
                 loadingScreen.show();
