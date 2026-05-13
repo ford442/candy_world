@@ -162,6 +162,7 @@ export function updateEnergyBar(
     }
 }
 
+
 export function updateTheme(isNight: boolean) {}
 export function toggleDayNight() {}
 export function setInputSystem(system: any) {}
