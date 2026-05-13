@@ -288,9 +288,11 @@ export class AccessibilityMenu {
       btn.type = 'button';
       btn.textContent = section.label;
       btn.id = `tab-${section.id}`;
+      btn.classList.add('a11y-tab');
       btn.setAttribute('role', 'tab');
       btn.setAttribute('aria-selected', (section.id === this.currentSection).toString());
       btn.setAttribute('aria-controls', `panel-${section.id}`);
+      btn.tabIndex = section.id === this.currentSection ? 0 : -1;
       btn.style.cssText = `
         width: 100%;
         padding: 12px 20px;
@@ -1297,6 +1299,7 @@ export class AccessibilityMenu {
       const sections: MenuSection[] = ['presets', 'motor', 'visual', 'cognitive', 'auditory', 'screenReader'];
       const isActive = sections[index] === this.currentSection;
       btn.setAttribute('aria-selected', isActive.toString());
+      btn.tabIndex = isActive ? 0 : -1;
       btn.style.background = isActive ? 'var(--menu-active, #4a4a4a)' : 'transparent';
     });
   }
