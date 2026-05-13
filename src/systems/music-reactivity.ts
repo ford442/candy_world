@@ -9,7 +9,7 @@ import { mushroomBatcher } from '../foliage/mushroom-batcher.ts';
 import { flowerBatcher } from '../foliage/flower-batcher.ts';
 import { simpleFlowerBatcher } from '../foliage/simple-flower-batcher.ts';
 import type { AudioData, FoliageObject } from '../foliage/types.ts';
-import { BiomeUniforms, SkyUniforms } from './biome-uniforms.ts';
+import { BiomeUniforms, SkyUniforms, LuminousPlantUniforms } from './biome-uniforms.ts';
 import musicBindings from '../../assets/music-bindings.json';
 
 // ⚡ OPTIMIZATION: Pre-parsed channel index arrays from music-bindings.json.
@@ -477,6 +477,38 @@ export class MusicReactivitySystem {
 
             // Push to TSL uniforms — mutate .value only, never reassign nodes.
             SkyUniforms.noteIndex.value = _lastSkyNoteIndex;
+            // ---------------------------------------------------------------
+            // ⚡ LUMINOUS PLANTS (Scenic System)
+            // Tracker channel defined in assets/music-bindings.json.
+            // ---------------------------------------------------------------
+            if (musicBindings.luminous_plants) {
+                const lpChan = musicBindings.luminous_plants.tracker_channel || 2;
+                if (channels && lpChan < channels.length) {
+                    const lpData = channels[lpChan];
+
+                    let dominantNote = 0;
+                    let maxAmp = 0.0;
+
+                    for (let i = 0; i < 12; i++) {
+                        if (lpData.notes[i] > maxAmp) {
+                            maxAmp = lpData.notes[i];
+                            dominantNote = i;
+                        }
+                    }
+
+                    // Add a threshold
+                    const targetIntensity = maxAmp > 0.1 ? maxAmp : 0.0;
+
+                    // 1-pole IIR smoothing (Zero-allocation)
+                    LuminousPlantUniforms.intensity.value += (targetIntensity - LuminousPlantUniforms.intensity.value) * 0.15;
+
+                    // Only snap note index when amplitude is high enough
+                    if (targetIntensity > 0.2) {
+                        // Map chromatic note index (0-11) across 128 LUT slots exactly like sky_moon
+                        LuminousPlantUniforms.noteIndex.value = Math.min(Math.floor((dominantNote / 12) * 128), 127);
+                    }
+                }
+            }
             // Day guard: clamp intensity to 0 when daytime so sky/moon are unchanged.
             SkyUniforms.intensity.value = isNight ? Math.min(_smoothedSkyIntensity, 1.0) : 0.0;
         }

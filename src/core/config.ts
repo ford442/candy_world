@@ -112,6 +112,15 @@ export interface ConfigType {
         glowIntensityMax: number;
         glowColorMap: Record<string, number>;
     };
+    luminousPlants: {
+        density: number;
+        baseGlowIntensity: number;
+        peakGlowIntensity: number;
+        pulseSpeed: number;
+        pulseDepth: number;
+        subsurfaceStrength: number;
+        glowIntensity: number;
+    };
     noteColorMap: {
         global: Record<string, number>;
         mushroom: Record<string, number>;
@@ -119,6 +128,7 @@ export interface ConfigType {
         tree: Record<string, number>;
         cloud: Record<string, number>;
         sky: Record<string, number>;
+        luminous_plants: Record<string, number>;
         [key: string]: Record<string, number>; // Allow for dynamic access if needed
     };
     reactivity: {
@@ -177,7 +187,16 @@ export const CONFIG: ConfigType = {
             'tree': 0xAAFFCC,
             'flower': 0xFFCCFF,
             'global': 0xFFFFFF
-        }
+        },
+    luminousPlants: {
+        density: 150,
+        baseGlowIntensity: 1.0,
+        peakGlowIntensity: 3.5,
+        pulseSpeed: 1.5,
+        pulseDepth: 0.3,
+        subsurfaceStrength: 0.8,
+        glowIntensity: 2.0
+    }
     },
 
     // --- NOTE COLOR MAPPING ---
@@ -226,6 +245,12 @@ export const CONFIG: ConfigType = {
             'C': 0xFF0000, 'C#': 0xFF7F00, 'D': 0xFFFF00, 'D#': 0x7FFF00,
             'E': 0x00FF00, 'F': 0x00FF7F, 'F#': 0x00FFFF, 'G': 0x007FFF,
             'G#': 0x0000FF, 'A': 0x7F00FF, 'A#': 0xFF00FF, 'B': 0xFF007F
+        },
+        // Species: Luminous Plants (Deep sea / Bioluminescence)
+        'luminous_plants': {
+            'C': 0x00FF88, 'C#': 0x00FFCC, 'D': 0x00FFFF, 'D#': 0x00CCFF,
+            'E': 0x0088FF, 'F': 0x0044FF, 'F#': 0x4400FF, 'G': 0x8800FF,
+            'G#': 0xCC00FF, 'A': 0xFF00FF, 'A#': 0xFF00CC, 'B': 0xFF0088
         }
     },
     // Per-species reaction tuning

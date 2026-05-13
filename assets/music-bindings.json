@@ -33,5 +33,9 @@
   "sky_moon": {
     "melody_channel": 2,
     "base_moon_intensity": 1.5
+  },
+  "luminous_plants": {
+    "tracker_channel": 2,
+    "base_intensity": 1
   }
 }

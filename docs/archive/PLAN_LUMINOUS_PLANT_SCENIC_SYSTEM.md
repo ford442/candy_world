@@ -1,5 +1,9 @@
 # Luminous Plant Scenic System (Audio-Driven)
 
+## Visual Vision: Luminous Plant Scenic System (Status: Implemented ✅)
+* Implementation Details: Created `luminousPlantBatcher` in `src/foliage/luminous-plant-batcher.ts` utilizing TSL for fake subsurface scattering and audio-reactive emissive pulses. Integrated around Melody Lake island in `src/world/generation.ts` and configured color palettes and dynamics in `src/core/config.ts`.
+
+
 These are the key scenic and technical rules to render music-reactive luminous plants in 3D. The ideas are organized by visual storytelling layers and are directly mappable to MOD data (note, volume, duration, channel, effects).
 
 1) Plant Architecture & Light Organs

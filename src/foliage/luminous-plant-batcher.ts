@@ -1,0 +1,97 @@
+import * as THREE from 'three';
+import { MeshStandardNodeMaterial } from 'three/webgpu';
+import { color, float, sin, positionLocal, normalLocal, mix, attribute } from 'three/tsl';
+import { uTime, createJuicyRimLight, createStandardNodeMaterial } from './material-core.ts';
+import { LuminousPlantUniforms, luminousPlantsNoteColorNode } from '../systems/biome-uniforms.ts';
+import { CONFIG } from '../core/config.ts';
+
+export class LuminousPlantBatcher {
+    public mesh: THREE.InstancedMesh;
+    private maxInstances: number;
+    private count: number = 0;
+
+    constructor(maxInstances: number = 1200) {
+        this.maxInstances = maxInstances;
+
+        const stemGeo = new THREE.CylinderGeometry(0.2, 0.4, 4, 8, 4);
+        stemGeo.translate(0, 2, 0);
+
+        const pos = stemGeo.attributes.position;
+        for (let i = 0; i < pos.count; i++) {
+            const y = pos.getY(i);
+            const factor = y / 4.0;
+            pos.setX(i, pos.getX(i) + Math.sin(y * 2) * 0.3 * factor);
+            pos.setZ(i, pos.getZ(i) + Math.cos(y * 2) * 0.3 * factor);
+        }
+        stemGeo.computeVertexNormals();
+
+        const mat = new MeshStandardNodeMaterial({
+            roughness: 0.3,
+            metalness: 0.1,
+            transparent: true,
+            opacity: 0.95
+        });
+
+        const aPhaseOffset = attribute('aPhaseOffset', 'float');
+        const baseColor = color(0x66CCFF);
+
+        const pulseSpeed = float(CONFIG.luminousPlants.pulseSpeed);
+        const pulseDepth = float(CONFIG.luminousPlants.pulseDepth);
+        const localTime = uTime.mul(pulseSpeed).add(aPhaseOffset);
+
+        const heightFactor = positionLocal.y.div(4.0);
+        const breathe = sin(localTime).mul(pulseDepth).mul(heightFactor);
+        const shockwave = LuminousPlantUniforms.intensity.mul(heightFactor).mul(1.5);
+        const totalDisplacement = normalLocal.mul(breathe.add(shockwave));
+        mat.positionNode = positionLocal.add(totalDisplacement);
+
+        const sssStrength = float(CONFIG.luminousPlants.subsurfaceStrength);
+        const musicColor = mix(baseColor, luminousPlantsNoteColorNode, LuminousPlantUniforms.intensity);
+        mat.colorNode = musicColor;
+
+        const musicEnergy = LuminousPlantUniforms.intensity;
+        const pulse = musicEnergy.mul(0.6).add(sin(localTime).mul(0.4));
+        const activeGlow = float(0.7).add(pulse.mul(float(CONFIG.luminousPlants.glowIntensity)));
+        const emissiveBase = musicColor.mul(activeGlow);
+
+        const rimIntensity = float(1.0).add(LuminousPlantUniforms.intensity.mul(2.0));
+        const rimLight = createJuicyRimLight(musicColor, rimIntensity, float(3.0), null);
+        mat.emissiveNode = emissiveBase.add(rimLight.mul(sssStrength));
+
+        this.mesh = new THREE.InstancedMesh(stemGeo, mat, this.maxInstances);
+        this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+        this.mesh.castShadow = true;
+        this.mesh.receiveShadow = true;
+
+        const phaseArray = new Float32Array(maxInstances);
+        this.mesh.geometry.setAttribute('aPhaseOffset', new THREE.InstancedBufferAttribute(phaseArray, 1));
+
+        this.mesh.userData.type = 'luminous_plant';
+        this.mesh.count = 0;
+    }
+
+    register(group: THREE.Group): number {
+        if (this.count >= this.maxInstances) {
+            console.warn('[LuminousPlantBatcher] Max capacity reached');
+            return -1;
+        }
+
+        const id = this.count;
+
+        group.updateMatrixWorld(true);
+        this.mesh.setMatrixAt(id, group.matrixWorld);
+
+        const phaseAttr = this.mesh.geometry.getAttribute('aPhaseOffset') as THREE.InstancedBufferAttribute;
+        phaseAttr.setX(id, Math.random() * Math.PI * 2);
+
+        this.count++;
+        this.mesh.count = this.count;
+
+        this.mesh.instanceMatrix.needsUpdate = true;
+        phaseAttr.needsUpdate = true;
+
+        return id;
+    }
+}
+
+export const luminousPlantBatcher = new LuminousPlantBatcher(CONFIG.luminousPlants.density);
