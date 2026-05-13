@@ -439,12 +439,13 @@ export function togglePlaylist(): void {
             // Force DOM reflow
             void playlistOverlay.offsetWidth;
             playlistOverlay.style.opacity = '1';
+            playlistOverlay.style.transform = 'translate(-50%, -50%) scale(1)';
 
             setTimeout(() => {
                 if (isPlaylistOpen && playlistOverlay) {
                     releaseJukeboxFocus = trapFocusInside(playlistOverlay);
                 }
-            }, 100);
+            }, 300);
         }
         if (playlistBackdrop) playlistBackdrop.style.display = 'block';
         renderPlaylist();
@@ -473,6 +474,7 @@ export function togglePlaylist(): void {
 
         if (playlistOverlay) {
             playlistOverlay.style.opacity = '0';
+            playlistOverlay.style.transform = 'translate(-50%, -50%) scale(0.95)';
         }
 
         setTimeout(() => {

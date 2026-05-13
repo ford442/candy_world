@@ -137,7 +137,7 @@ export class SaveMenu {
             if (this.container && this.isOpen()) {
                 this.releaseFocusTrap = trapFocusInside(this.container);
             }
-        }, 100);
+        }, 200);
     }
 
     /**
@@ -152,7 +152,7 @@ export class SaveMenu {
         }
 
         // Add exit animation
-        this.container.style.animation = 'fadeIn 0.2s ease reverse';
+        this.container.style.animation = 'saveMenuFadeIn 0.2s ease reverse';
         
         setTimeout(() => {
             if (this.releaseFocusTrap) {
