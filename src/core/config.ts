@@ -141,6 +141,12 @@ export interface ConfigType {
     audio: {
         useScriptProcessorNode: boolean;
     };
+    weather: {
+        musicReactivity: {
+            enabled: boolean;
+            blendWeight: number; // 0.0 = no music influence, 1.0 = full override
+        };
+    };
     /**
      * Per-plant-type ADSR envelope configuration for the day/night pose state machine.
      * Values are data-driven so they can be tuned without touching shader code.
@@ -249,6 +255,14 @@ export const CONFIG: ConfigType = {
         // Default: false (uses modern AudioWorkletNode)
         // See AUDIO_COMPATIBILITY_MODE.md for more information
         useScriptProcessorNode: false
+    },
+
+    // Weather music reactivity settings
+    weather: {
+        musicReactivity: {
+            enabled: false,
+            blendWeight: 0.6  // 0.0 = no music influence, 1.0 = full override
+        }
     },
 
     // --- PLANT POSE ADSR ENVELOPES ---

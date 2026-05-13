@@ -7,9 +7,10 @@ import { calculateTimeOfDayBias } from '../weather-utils.ts';
 import { EcosystemManager } from './weather-ecosystem.ts';
 import { AtmosphereManager } from './weather-atmosphere.ts';
 import { EffectsManager } from './weather-effects.ts';
-import { CYCLE_DURATION, DURATION_SUNRISE, DURATION_DAY } from '../../core/config.ts';
+import { CYCLE_DURATION, DURATION_SUNRISE, DURATION_DAY, CONFIG } from '../../core/config.ts';
 import * as Cycle from '../../core/cycle.ts';
 import { VisualState } from '../../audio/audio-system.ts';
+import { WeatherMusicTargets } from '../music-reactivity.ts';
 
 import { uTwilight } from '../../foliage/sky.ts';
 import { updateCaveWaterLevel } from '../../foliage/cave.ts';
@@ -335,6 +336,27 @@ export class WeatherSystem {
         // Intensity transition
         this.intensity += (this.targetIntensity - this.intensity) * this.transitionSpeed;
 
+        // --- Music-driven weather blend ---
+        // When enabled, lerp base intensity and fog toward music channel targets.
+        // Guard: when disabled, behaviour is byte-for-byte identical to before.
+        let musicFogIntensity = this.intensity;
+        if (CONFIG.weather.musicReactivity.enabled) {
+            const w = CONFIG.weather.musicReactivity.blendWeight;
+            const baseIntensity = this.intensity; // capture before rain blend
+            this.intensity = THREE.MathUtils.clamp(
+                THREE.MathUtils.lerp(baseIntensity, WeatherMusicTargets.rainIntensity, w),
+                0, 1
+            );
+            musicFogIntensity = THREE.MathUtils.clamp(
+                THREE.MathUtils.lerp(baseIntensity, WeatherMusicTargets.fogDensity, w),
+                0, 1
+            );
+            // thunderPulse: threshold trigger — boost storm charge for a dramatic flash
+            if (WeatherMusicTargets.thunderPulse > 0.75) {
+                this.stormCharge = Math.min(2.0, this.stormCharge + 0.05);
+            }
+        }
+
         // Particle systems
         this.effectsManager.updateParticleSystems(this.renderer, dt, bassIntensity, melodyVol, this.weatherType, this.state);
 
@@ -389,7 +411,7 @@ export class WeatherSystem {
         this.atmosphereManager.updateFog(
             audioData,
             this.state,
-            this.intensity,
+            musicFogIntensity,
             this.darknessFactor,
             this.baseFogNear,
             this.baseFogFar,
