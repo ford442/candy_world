@@ -200,8 +200,10 @@ export function getNoteColorTyped(
             } else if (s.includes('tree') || s.includes('willow') || 
                        s.includes('palm') || s.includes('bush')) {
                 map = noteColorMap['tree'];
+            } else if (s.includes('moon') || s.includes('sky')) {
+                map = noteColorMap['sky'] || noteColorMap['global'];
             } else if (s.includes('cloud') || s.includes('orb') || 
-                       s.includes('geyser') || s.includes('moon')) {
+                       s.includes('geyser')) {
                 map = noteColorMap['cloud'] || noteColorMap['global'];
             } else {
                 map = noteColorMap['global'];

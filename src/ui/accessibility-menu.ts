@@ -1242,6 +1242,8 @@ export class AccessibilityMenu {
     this.currentSection = section;
     this.refreshMainPanel();
     announce(`Switched to ${this.formatActionName(section)} settings`, 'polite');
+    const newTab = this.container?.querySelector(`#tab-${section}`) as HTMLElement;
+    if (newTab) newTab.focus();
   }
 
   private refreshMainPanel(): void {
