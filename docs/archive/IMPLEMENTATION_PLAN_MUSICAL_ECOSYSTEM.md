@@ -62,10 +62,16 @@ Three.js Renderer -> WebGPU RenderPipeline (Raw Draw Calls)
 
 ## Recent Progress
 
-1. **Foliage Growth & Rain-Driven Spreading** (Status: Implemented ✅)
+1. **Moon Dance & Note-Color Reactivity** (Status: Implemented ✅)
+   - *Implementation Details:* Finalised visual integration for Moon Dance sky reactivity by adding a specific `sky` property to `CONFIG.noteColorMap` (mirroring `assets/colorcode.json`), routing the note color maps in `getNoteColorTyped`, and updating `BiomeUniforms` and `mapNoteToColor` to use the configured hex values instead of calculating HSL offsets dynamically.
+
+2. **Foliage Growth & Rain-Driven Spreading** (Status: Implemented ✅)
    - *Implementation Details:* Implemented `spawnNearbyFoliage` in `src/world/generation.ts` and integrated it into the weather ecosystem's update loop (`src/systems/weather/weather-ecosystem.ts`). It pulls source positions from existing batched mushrooms and flowers, and uses a distance threshold check to cap local density.
+
+2. **Moon Dance & Note-Color Reactivity** (Status: Implemented ✅)
+   - *Implementation Details:* Updated `mapNoteToColor` and `skyLutData` to use `CONFIG.noteColorMap.global` adhering to `colorcode.json`, replacing procedural color mapping with the correct hex values.
 
 ## Next Steps
 
-1. **Moon Dance & Note-Color Reactivity**
-   - Note: The sky reactivity and basic moon setup are already in place, but we need to finalize the visual integration, ensuring that specific species react to specific notes and update `CONFIG.noteColorMap` according to `assets/colorcode.json`.
+*(All features currently implemented)*
+*(No immediate Next Steps - waiting for Roadmap sync)*

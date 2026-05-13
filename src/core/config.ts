@@ -118,6 +118,7 @@ export interface ConfigType {
         flower: Record<string, number>;
         tree: Record<string, number>;
         cloud: Record<string, number>;
+        sky: Record<string, number>;
         [key: string]: Record<string, number>; // Allow for dynamic access if needed
     };
     reactivity: {
@@ -181,7 +182,7 @@ export const CONFIG: ConfigType = {
 
     // --- NOTE COLOR MAPPING ---
     noteColorMap: {
-        // Standard Global Palette (Fallback)
+        // Standard Global Palette (Fallback) - matching assets/colorcode.json
         'global': {
             'C': 0xFF0000, 'C#': 0xFF7F00, 'D': 0xFFFF00, 'D#': 0x7FFF00,
             'E': 0x00FF00, 'F': 0x00FF7F, 'F#': 0x00FFFF, 'G': 0x007FFF,
@@ -219,6 +220,12 @@ export const CONFIG: ConfigType = {
             'C': 0xF0F8FF, 'C#': 0xE6E6FA, 'D': 0xB0C4DE, 'D#': 0xADD8E6,
             'E': 0x87CEEB, 'F': 0x87CEFA, 'F#': 0x00BFFF, 'G': 0x1E90FF,
             'G#': 0x6495ED, 'A': 0x4682B4, 'A#': 0x5F9EA0, 'B': 0x2F4F4F
+        },
+        // Species: Sky & Moon (Note-Color Reactivity)
+        'sky': {
+            'C': 0xFF0000, 'C#': 0xFF7F00, 'D': 0xFFFF00, 'D#': 0x7FFF00,
+            'E': 0x00FF00, 'F': 0x00FF7F, 'F#': 0x00FFFF, 'G': 0x007FFF,
+            'G#': 0x0000FF, 'A': 0x7F00FF, 'A#': 0xFF00FF, 'B': 0xFF007F
         }
     },
     // Per-species reaction tuning
