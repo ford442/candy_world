@@ -65,6 +65,9 @@ export interface WeatherReactivityBinding {
  */
 export const WeatherMusicTargets = { rainIntensity: 0, thunderPulse: 0, fogDensity: 0 };
 
+// Decay rate for WeatherMusicTargets when feature is disabled (~200 ms time constant)
+const WEATHER_TARGET_DECAY_RATE = 5.0;
+
 const _weatherBindings: {
     rainIntensity?: WeatherReactivityBinding;
     thunderPulse?: WeatherReactivityBinding;
@@ -535,7 +538,7 @@ export class MusicReactivitySystem {
         } else {
             // Feature off or no channel data — exponentially decay targets to zero.
             // Gradual decay (~200 ms time constant) prevents abrupt transitions on mid-game toggle.
-            const decayFactor = 1.0 - Math.exp(-deltaTime * 5.0);
+            const decayFactor = 1.0 - Math.exp(-deltaTime * WEATHER_TARGET_DECAY_RATE);
             WeatherMusicTargets.rainIntensity -= WeatherMusicTargets.rainIntensity * decayFactor;
             WeatherMusicTargets.thunderPulse  -= WeatherMusicTargets.thunderPulse  * decayFactor;
             WeatherMusicTargets.fogDensity    -= WeatherMusicTargets.fogDensity    * decayFactor;

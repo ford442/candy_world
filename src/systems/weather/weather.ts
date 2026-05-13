@@ -22,6 +22,10 @@ import { waterfallBatcher } from '../../foliage/waterfall-batcher.ts';
 const _scratchCelestialState = { sunIntensity: 0, moonIntensity: 0 };
 const _scratchSeasonalState: Cycle.SeasonalState = { season: 'Spring', sunInclination: 0, moonPhase: 0, yearProgress: 0 };
 
+// Music-reactive weather constants
+const THUNDER_PULSE_THRESHOLD = 0.75;  // WeatherMusicTargets.thunderPulse value that triggers a storm charge boost
+const THUNDER_STORM_CHARGE_BOOST = 0.05; // Storm charge increment per frame when thunder pulse fires
+
 export class WeatherSystem {
     // Core references
     scene: THREE.Scene;
@@ -352,8 +356,8 @@ export class WeatherSystem {
                 0, 1
             );
             // thunderPulse: threshold trigger — boost storm charge for a dramatic flash
-            if (WeatherMusicTargets.thunderPulse > 0.75) {
-                this.stormCharge = Math.min(2.0, this.stormCharge + 0.05);
+            if (WeatherMusicTargets.thunderPulse > THUNDER_PULSE_THRESHOLD) {
+                this.stormCharge = Math.min(2.0, this.stormCharge + THUNDER_STORM_CHARGE_BOOST);
             }
         }
 
