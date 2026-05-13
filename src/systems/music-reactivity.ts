@@ -51,6 +51,8 @@ const _scratchSphere = new THREE.Sphere(); // Reusable for Group culling checks
 // ⚡ OPTIMIZATION: Reusable scratch array for species list
 const _scratchSpeciesList: string[] = [];
 
+
+// Helper to map MIDI note (0-127) to a color hue
 // Helper to map MIDI note (0-127) to a color using CONFIG.noteColorMap.sky
 function mapNoteToColor(note: number, outColor: THREE.Color) {
     if (note <= 0) return outColor.setHex(0xffffff); // Default white
@@ -58,9 +60,9 @@ function mapNoteToColor(note: number, outColor: THREE.Color) {
     const CHROMATIC_SCALE = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
     const pitchClass = note % 12;
     const noteName = CHROMATIC_SCALE[pitchClass];
-    const skyMap = CONFIG.noteColorMap.sky || CONFIG.noteColorMap.global;
-    const colorHex = skyMap[noteName] || 0xffffff;
-    return outColor.setHex(colorHex);
+    const hexColor = CONFIG.noteColorMap['global'][noteName] || 0xffffff;
+    outColor.setHex(hexColor);
+    return outColor;
 }
 
 // --- Type Definitions ---

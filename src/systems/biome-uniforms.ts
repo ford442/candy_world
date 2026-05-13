@@ -74,6 +74,7 @@ export const SkyUniforms = {
  *
  * Uses chromatic colors mapped from CONFIG.noteColorMap.sky
  */
+const CHROMATIC_SCALE = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 export const skyLutData = new Float32Array(128 * 4);
 (function buildSkyLut() {
     const c = new Color();
@@ -81,14 +82,11 @@ export const skyLutData = new Float32Array(128 * 4);
     const skyMap = CONFIG.noteColorMap.sky || CONFIG.noteColorMap.global;
 
     for (let i = 0; i < 128; i++) {
-        // Since we map 12 chromatic notes across 128 slots during reactivity updates:
-        // Math.floor((chromaticIdx / 12) * 128)
-        // Here we reverse it to determine which note index this slot mostly corresponds to.
-        const chromaticIdx = Math.floor((i / 128) * 12);
-        const noteName = CHROMATIC_SCALE[chromaticIdx];
-        const hex = skyMap[noteName] || 0xffffff;
-
-        c.setHex(hex);
+        const chromaticIdx = Math.floor((i * 12) / 128);
+        const pitchClass = chromaticIdx % 12;
+        const noteName = CHROMATIC_SCALE[pitchClass];
+        const hexColor = CONFIG.noteColorMap.global[noteName] || 0xFFFFFF;
+        c.setHex(hexColor);
         skyLutData[i * 4 + 0] = c.r;
         skyLutData[i * 4 + 1] = c.g;
         skyLutData[i * 4 + 2] = c.b;
