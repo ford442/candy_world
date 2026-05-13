@@ -141,6 +141,62 @@ export function initPlaylistManager(
             togglePlaylist();
         });
     }
+
+    // 🎨 Palette: Improve Drag & Drop Feedback in Jukebox
+    if (playlistOverlay) {
+        const dropZoneText = document.createElement('div');
+        dropZoneText.className = 'playlist-drop-zone-text';
+        dropZoneText.innerHTML = '<span aria-hidden="true">📂</span> Drop tracks here...';
+        playlistOverlay.appendChild(dropZoneText);
+
+        let playlistDragCounter = 0;
+
+        playlistOverlay.addEventListener('dragenter', (e: DragEvent) => {
+            e.preventDefault();
+            playlistDragCounter++;
+            playlistOverlay?.classList.add('playlist-drag-active');
+        });
+
+        playlistOverlay.addEventListener('dragleave', (e: DragEvent) => {
+            e.preventDefault();
+            playlistDragCounter--;
+            if (playlistDragCounter <= 0) {
+                playlistDragCounter = 0;
+                playlistOverlay?.classList.remove('playlist-drag-active');
+            }
+        });
+
+        playlistOverlay.addEventListener('dragover', (e: DragEvent) => {
+            e.preventDefault();
+        });
+
+        playlistOverlay.addEventListener('drop', (e: DragEvent) => {
+            e.preventDefault();
+            playlistDragCounter = 0;
+            playlistOverlay?.classList.remove('playlist-drag-active');
+
+            const files = e.dataTransfer?.files;
+            if (files && files.length > 0) {
+                const { validFiles, invalidFiles } = filterValidMusicFiles(files);
+
+                if (validFiles.length > 0) {
+                    audioSystem.addToQueue(validFiles);
+
+                    import('../../utils/toast.js').then(({ showToast }) => {
+                        if (invalidFiles.length > 0) {
+                            showToast(`Added ${validFiles.length} song${validFiles.length > 1 ? 's' : ''}. (${invalidFiles.length} ignored)`, '⚠️');
+                        } else {
+                            showToast(`Added ${validFiles.length} Song${validFiles.length > 1 ? 's' : ''}! 🎶`, '📂');
+                        }
+                    });
+                } else {
+                    import('../../utils/toast.js').then(({ showToast }) => {
+                        showToast("❌ Only .mod, .xm, .it, .s3m allowed!", '🚫');
+                    });
+                }
+            }
+        });
+    }
 }
 
 /**
@@ -306,30 +362,36 @@ export function renderPlaylist(): void {
     });
     
     if (songs.length === 0) {
-        // UX: Make Empty State Actionable
+        // 🎨 Palette: Rich Empty State for the Jukebox
         const li = document.createElement('li');
+        li.className = 'jukebox-empty-state';
         li.style.listStyle = 'none';
-        li.style.padding = '20px 0';
-        li.style.textAlign = 'center';
 
-        const emptyBtn = document.createElement('button');
-        emptyBtn.type = 'button';
-        emptyBtn.className = 'secondary-button'; // Reuse existing class for consistent look
-        // 🎨 Palette: Improve empty state by making it clear and actionable using existing styles
-        emptyBtn.style.fontSize = '1em'; // Make it slightly more prominent if needed
-        emptyBtn.style.width = '100%';
-        emptyBtn.innerHTML = `
-            <span style="display: block; margin-bottom: 4px;"><span aria-hidden="true">🎵</span> Your playlist is empty</span>
-            <span style="display: block; font-size: 0.9em; opacity: 0.9;">Click to add music! <span aria-hidden="true">🍭</span></span>
-        `;
-        emptyBtn.setAttribute('aria-label', 'Playlist empty. Click to upload music files.');
+        const iconContainer = document.createElement('div');
+        iconContainer.className = 'jukebox-empty-icon-container';
+        const icon = document.createElement('div');
+        icon.className = 'jukebox-empty-icon';
+        icon.innerHTML = '<span aria-hidden="true">🎵</span>';
+        iconContainer.appendChild(icon);
 
-        emptyBtn.onclick = (e) => {
+        const text = document.createElement('div');
+        text.className = 'jukebox-empty-text';
+        text.innerText = 'Your playlist is empty — drop some tracks in!';
+
+        const browseBtn = document.createElement('button');
+        browseBtn.type = 'button';
+        browseBtn.className = 'cta-button jukebox-browse-btn';
+        browseBtn.innerHTML = 'Browse Music <span aria-hidden="true">📂</span>';
+        browseBtn.setAttribute('aria-label', 'Browse for music files to add to playlist');
+
+        browseBtn.onclick = (e) => {
             e.stopPropagation();
             if (playlistUploadInput) playlistUploadInput.click();
         };
 
-        li.appendChild(emptyBtn);
+        li.appendChild(iconContainer);
+        li.appendChild(text);
+        li.appendChild(browseBtn);
         playlistList.appendChild(li);
     }
 }

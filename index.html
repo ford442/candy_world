@@ -211,11 +211,17 @@
             color: #FF6B6B;
             font-weight: bold;
             display: inline-block;
-            transition: background 0.2s, color 0.2s;
+            transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), background 0.2s, color 0.2s, box-shadow 0.2s;
             font-family: inherit;
         }
         .file-label:hover {
             background: #FFF0F5;
+            transform: scale(1.05);
+            box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3);
+        }
+        .file-label:active {
+            transform: scale(0.95);
+            box-shadow: 0 2px 5px rgba(255, 107, 107, 0.2);
         }
         .toggle-button {
             background: #6A5ACD;
@@ -315,6 +321,93 @@
             font-family: 'Fredoka One', cursive, sans-serif;
             letter-spacing: 1px;
         }
+
+        /* 🎨 Palette: Jukebox Empty State Polish */
+        .jukebox-empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px 20px;
+            text-align: center;
+            height: 100%;
+        }
+
+        .jukebox-empty-icon-container {
+            font-size: 4rem;
+            margin-bottom: 15px;
+            animation: jukeboxFloat 3s ease-in-out infinite;
+        }
+
+        .jukebox-empty-icon {
+            filter: drop-shadow(0 0 15px rgba(255, 107, 107, 0.6));
+            animation: jukeboxPulse 2s ease-in-out infinite;
+        }
+
+        .jukebox-empty-text {
+            font-size: 1.1rem;
+            color: #666;
+            margin-bottom: 25px;
+            font-weight: 500;
+        }
+
+        .jukebox-browse-btn {
+            font-size: 1rem !important;
+            padding: 10px 25px !important;
+            width: auto !important;
+            margin-bottom: 0 !important;
+        }
+
+        @keyframes jukeboxFloat {
+            0% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+            100% { transform: translateY(0); }
+        }
+
+        @keyframes jukeboxPulse {
+            0% { filter: drop-shadow(0 0 15px rgba(255, 107, 107, 0.4)); }
+            50% { filter: drop-shadow(0 0 25px rgba(255, 107, 107, 0.8)); }
+            100% { filter: drop-shadow(0 0 15px rgba(255, 107, 107, 0.4)); }
+        }
+
+        /* 🎨 Palette: Jukebox Drag & Drop Feedback */
+        .playlist-drag-active {
+            border-color: #FF4081 !important;
+            background: rgba(255, 240, 245, 0.95) !important;
+        }
+
+        .playlist-drag-active .playlist-drop-zone-text {
+            display: flex !important;
+        }
+
+        .playlist-drop-zone-text {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(4px);
+            border-radius: 15px;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            color: #FF6B6B;
+            font-weight: bold;
+            text-align: center;
+            border: 4px dashed #FF4081;
+            box-sizing: border-box;
+            animation: pulseBorder 1.5s infinite;
+        }
+
+        @keyframes pulseBorder {
+            0% { border-color: rgba(255, 64, 129, 0.5); }
+            50% { border-color: rgba(255, 64, 129, 1); }
+            100% { border-color: rgba(255, 64, 129, 0.5); }
+        }
         #playlist-list {
             list-style: none;
             padding: 0;
@@ -366,11 +459,12 @@
             border-radius: 50px;
             cursor: pointer;
             font-weight: bold;
-            transition: transform 0.1s;
+            transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), background 0.2s, box-shadow 0.2s;
         }
         .secondary-button:hover {
             transform: scale(1.05);
             background: #584AB8;
+            box-shadow: 0 4px 15px rgba(106, 90, 205, 0.4);
         }
         #now-playing-toast {
             position: fixed;
