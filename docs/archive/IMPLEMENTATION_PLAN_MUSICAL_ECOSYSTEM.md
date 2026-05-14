@@ -74,7 +74,10 @@ Three.js Renderer -> WebGPU RenderPipeline (Raw Draw Calls)
 4. **Moon Dance & Note-Color Reactivity** (Status: Implemented ✅)
    - *Implementation Details:* Updated `CONFIG.noteColorMap` and `MUSHROOM_NOTES` to strictly adhere to the `assets/colorcode.json` note-color mappings. Also modified the `skyLutData` node in `src/systems/biome-uniforms.ts` to procedurally map the 12 chromatic notes across its 128 slots matching the specified color palette.
 
+5. **Phase 4: The Graphics Rewire (Three.js → Raw WebGPU) Stage B — Advanced Post-Processing** (Status: Implemented ✅)
+   - *Implementation Details:* Replaced standard post-processing with an advanced TSL-based pipeline featuring Chromatic Aberration and Vignette, driven by uniforms, within `src/foliage/post-processing.ts`.
+
 ## Next Steps
 
-1. **Phase 4: The Graphics Rewire (Three.js → Raw WebGPU) Stage B — Advanced Post-Processing**
-   - *Next Step Suggestion:* Replace specific materials with WebGPU pipelines and implement Advanced Post-Processing.
+1. **Phase 4: The Graphics Rewire (Three.js → Raw WebGPU) Stage C — Scene Graph Replacement**
+   - *Next Step Suggestion:* Migrate scene hierarchy to an ECS in WASM and call `device.queue.submit()` directly, fully replacing the Three.js scene graph.
