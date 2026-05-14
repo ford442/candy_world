@@ -57,28 +57,36 @@ void initPhysics(float x, float y, float z) {
     obstacles.clear();
 }
 
+float* obstacleUploadBuffer = nullptr;
+
 EMSCRIPTEN_KEEPALIVE
-void addObstaclesBatch(float* data, int count) {
+float* initObstacleBuffer(int maxCount) {
+    if (obstacleUploadBuffer != nullptr) {
+        free(obstacleUploadBuffer);
+    }
+    obstacleUploadBuffer = (float*)malloc(maxCount * 9 * sizeof(float));
+    return obstacleUploadBuffer;
+}
+
+EMSCRIPTEN_KEEPALIVE
+void addObstaclesBatch(int count) {
+    if (obstacleUploadBuffer == nullptr) return;
+
     obstacles.reserve(obstacles.size() + count);
     for (int i = 0; i < count; i++) {
         int base = i * 9;
         obstacles.push_back({
-            (int)data[base],
-            data[base + 1],
-            data[base + 2],
-            data[base + 3],
-            data[base + 4],
-            data[base + 5],
-            data[base + 6],
-            data[base + 7],
-            data[base + 8]
+            (int)obstacleUploadBuffer[base],
+            obstacleUploadBuffer[base + 1],
+            obstacleUploadBuffer[base + 2],
+            obstacleUploadBuffer[base + 3],
+            obstacleUploadBuffer[base + 4],
+            obstacleUploadBuffer[base + 5],
+            obstacleUploadBuffer[base + 6],
+            obstacleUploadBuffer[base + 7],
+            obstacleUploadBuffer[base + 8]
         });
     }
-}
-
-EMSCRIPTEN_KEEPALIVE
-void addObstacle(int type, float x, float y, float z, float r, float h, float p1, float p2, float p3) {
-    obstacles.push_back({type, x, y, z, r, h, p1, p2, p3});
 }
 
 EMSCRIPTEN_KEEPALIVE

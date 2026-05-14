@@ -566,7 +566,8 @@ export function animate() {
             if (gridX >= 0 && gridX < 128 && gridY >= 0 && gridY < 128) {
                 const speed = player.velocity.lengthSq();
                 if (speed > 1.0) {
-                    fluidSystem.addDensity(gridX, gridY, Math.sqrt(speed) * delta * 5.0);
+                    // ⚡ OPTIMIZATION: Linear approximation of velocity response avoids expensive Math.sqrt in hot loop
+                    fluidSystem.addDensity(gridX, gridY, (speed * 0.2) * delta);
                     fluidSystem.addVelocity(gridX, gridY, player.velocity.x * delta, player.velocity.z * delta);
                 }
             }
