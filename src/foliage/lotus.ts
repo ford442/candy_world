@@ -16,6 +16,8 @@ import {
 } from './index.ts';
 import { BiomeUniforms } from '../systems/biome-uniforms.ts';
 import { makeInteractive } from '../utils/interaction-utils.ts';
+import { CONFIG } from '../core/config.ts';
+import { uTwilight } from './sky.ts';
 import { discoverySystem } from '../systems/discovery.ts';
 import { showToast } from '../utils/toast.js';
 import { spawnImpact } from './impacts.ts';
@@ -85,7 +87,16 @@ export function createSubwooferLotus(options: LotusOptions = {}): THREE.Group {
     const emission = finalColor.mul(bassPulse.add(0.2)).add(shimmerGlow);
 
     ringMat.colorNode = finalColor;
-    ringMat.emissiveNode = emission;
+
+    // 🎨 PALETTE: Twilight Glow for lotus rings
+    const glowPhaseOffset = positionLocal.x.add(positionLocal.z).mul(2.0);
+    const idlePulse = sin(uTime.mul(float(CONFIG.glow.glowPulseFrequency)).add(glowPhaseOffset)).mul(float(CONFIG.glow.glowPulseAmplitude)).add(1.0).mul(float(0.5)).mul(uAudioLow.mul(0.3).add(0.7));
+    const targetGlowColor = color(CONFIG.glow.glowColorMap['lotus']);
+    const twilightGlowTint = targetGlowColor
+        .mul(uTwilight)
+        .mul(float(CONFIG.glow.glowIntensityMax))
+        .mul(float(0.3).add(idlePulse));
+    ringMat.emissiveNode = emission.add(twilightGlowTint);
 
     // Vertex Displacement
     // By modifying 'positionNode', we displace the mesh's vertices dynamically on the GPU.

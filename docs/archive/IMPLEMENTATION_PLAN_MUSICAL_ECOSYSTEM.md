@@ -62,12 +62,22 @@ Three.js Renderer -> WebGPU RenderPipeline (Raw Draw Calls)
 
 ## Recent Progress
 
-1. **Moon Dance & Note-Color Reactivity** (Status: Implemented ✅)
+1. **Phase 4: The Graphics Rewire (Three.js → Raw WebGPU) Stage A — Compute Shaders (GPGPU)** (Status: Implemented ✅)
+   - *Implementation Details:* Implemented the GPGPU compute passes for particle updates and transitioned the particle systems (fireflies, pollen, berries, rain, sparks) entirely to WebGPU Compute Shaders to realize Phase 4 Stage A objectives.
+
+2. **Moon Dance & Note-Color Reactivity** (Status: Implemented ✅)
    - *Implementation Details:* Finalised visual integration for Moon Dance sky reactivity by adding a specific `sky` property to `CONFIG.noteColorMap` (mirroring `assets/colorcode.json`), routing the note color maps in `getNoteColorTyped`, and updating `BiomeUniforms` and `mapNoteToColor` to use the configured hex values instead of calculating HSL offsets dynamically.
 
-2. **Foliage Growth & Rain-Driven Spreading** (Status: Implemented ✅)
+3. **Foliage Growth & Rain-Driven Spreading** (Status: Implemented ✅)
    - *Implementation Details:* Implemented `spawnNearbyFoliage` in `src/world/generation.ts` and integrated it into the weather ecosystem's update loop (`src/systems/weather/weather-ecosystem.ts`). It pulls source positions from existing batched mushrooms and flowers, and uses a distance threshold check to cap local density.
+
+4. **Moon Dance & Note-Color Reactivity** (Status: Implemented ✅)
+   - *Implementation Details:* Updated `CONFIG.noteColorMap` and `MUSHROOM_NOTES` to strictly adhere to the `assets/colorcode.json` note-color mappings. Also modified the `skyLutData` node in `src/systems/biome-uniforms.ts` to procedurally map the 12 chromatic notes across its 128 slots matching the specified color palette.
+
+5. **Phase 4: The Graphics Rewire (Three.js → Raw WebGPU) Stage B — Advanced Post-Processing** (Status: Implemented ✅)
+   - *Implementation Details:* Replaced standard post-processing with an advanced TSL-based pipeline featuring Chromatic Aberration and Vignette, driven by uniforms, within `src/foliage/post-processing.ts`.
 
 ## Next Steps
 
-*(No immediate Next Steps - waiting for Roadmap sync)*
+1. **Phase 4: The Graphics Rewire (Three.js → Raw WebGPU) Stage C — Scene Graph Replacement**
+   - *Next Step Suggestion:* Migrate scene hierarchy to an ECS in WASM and call `device.queue.submit()` directly, fully replacing the Three.js scene graph.

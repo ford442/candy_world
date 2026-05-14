@@ -51,6 +51,31 @@ const _scratchSphere = new THREE.Sphere(); // Reusable for Group culling checks
 // ⚡ OPTIMIZATION: Reusable scratch array for species list
 const _scratchSpeciesList: string[] = [];
 
+// --- Weather Music Reactivity ---
+// Parsed once at module init from assets/music-bindings.json weatherReactivity block.
+export interface WeatherReactivityBinding {
+    channel: number;
+    smoothing: number;
+    scale: number;
+}
+
+/** Normalized target values (0–1) written each frame by MusicReactivitySystem.update().
+ *  Consumed by WeatherSystem to blend music-driven weather intensity.
+ *  Decays to zero when disabled or when no audio is playing.
+ */
+export const WeatherMusicTargets = { rainIntensity: 0, thunderPulse: 0, fogDensity: 0 };
+
+// Decay rate for WeatherMusicTargets when feature is disabled (~200 ms time constant)
+const WEATHER_TARGET_DECAY_RATE = 5.0;
+
+const _weatherBindings: {
+    rainIntensity?: WeatherReactivityBinding;
+    thunderPulse?: WeatherReactivityBinding;
+    fogDensity?: WeatherReactivityBinding;
+} = (musicBindings as any).weatherReactivity ?? {};
+
+
+// Helper to map MIDI note (0-127) to a color hue
 // Helper to map MIDI note (0-127) to a color using CONFIG.noteColorMap.sky
 function mapNoteToColor(note: number, outColor: THREE.Color) {
     if (note <= 0) return outColor.setHex(0xffffff); // Default white
@@ -58,9 +83,9 @@ function mapNoteToColor(note: number, outColor: THREE.Color) {
     const CHROMATIC_SCALE = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
     const pitchClass = note % 12;
     const noteName = CHROMATIC_SCALE[pitchClass];
-    const skyMap = CONFIG.noteColorMap.sky || CONFIG.noteColorMap.global;
-    const colorHex = skyMap[noteName] || 0xffffff;
-    return outColor.setHex(colorHex);
+    const hexColor = CONFIG.noteColorMap['global'][noteName] || 0xffffff;
+    outColor.setHex(hexColor);
+    return outColor;
 }
 
 // --- Type Definitions ---
@@ -511,6 +536,48 @@ export class MusicReactivitySystem {
             }
             // Day guard: clamp intensity to 0 when daytime so sky/moon are unchanged.
             SkyUniforms.intensity.value = isNight ? Math.min(_smoothedSkyIntensity, 1.0) : 0.0;
+        }
+
+        // ---------------------------------------------------------------
+        // ⚡ WEATHER MUSIC REACTIVITY — channel amplitude → weather targets
+        // Data-driven: channel indices come from assets/music-bindings.json weatherReactivity.
+        // Exponential moving average keyed to deltaTime for frame-rate independence.
+        // Targets decay to zero when disabled so mid-game toggle leaves no stuck state.
+        // ---------------------------------------------------------------
+        if (CONFIG.weather.musicReactivity.enabled && audioState?.channelData) {
+            const ch = audioState.channelData;
+            const smooth = (current: number, target: number, k: number) =>
+                current + (target - current) * (1.0 - Math.exp(-k * deltaTime));
+
+            if (_weatherBindings.rainIntensity) {
+                const b = _weatherBindings.rainIntensity;
+                const idx = b.channel;
+                const raw = idx < ch.length ? (ch[idx].volume * b.scale) : 0;
+                WeatherMusicTargets.rainIntensity = smooth(WeatherMusicTargets.rainIntensity, Math.min(raw, 1.0), b.smoothing);
+            }
+            if (_weatherBindings.thunderPulse) {
+                const b = _weatherBindings.thunderPulse;
+                const idx = b.channel;
+                const raw = idx < ch.length ? (ch[idx].volume * b.scale) : 0;
+                WeatherMusicTargets.thunderPulse = smooth(WeatherMusicTargets.thunderPulse, Math.min(raw, 1.0), b.smoothing);
+            }
+            if (_weatherBindings.fogDensity) {
+                const b = _weatherBindings.fogDensity;
+                const idx = b.channel;
+                const raw = idx < ch.length ? (ch[idx].volume * b.scale) : 0;
+                WeatherMusicTargets.fogDensity = smooth(WeatherMusicTargets.fogDensity, Math.min(raw, 1.0), b.smoothing);
+            }
+        } else {
+            // Feature off or no channel data — exponentially decay targets to zero.
+            // Gradual decay (~200 ms time constant) prevents abrupt transitions on mid-game toggle.
+            const decayFactor = 1.0 - Math.exp(-deltaTime * WEATHER_TARGET_DECAY_RATE);
+            WeatherMusicTargets.rainIntensity -= WeatherMusicTargets.rainIntensity * decayFactor;
+            WeatherMusicTargets.thunderPulse  -= WeatherMusicTargets.thunderPulse  * decayFactor;
+            WeatherMusicTargets.fogDensity    -= WeatherMusicTargets.fogDensity    * decayFactor;
+            // Clamp to zero below threshold to avoid denormals
+            if (WeatherMusicTargets.rainIntensity < 0.001) WeatherMusicTargets.rainIntensity = 0;
+            if (WeatherMusicTargets.thunderPulse  < 0.001) WeatherMusicTargets.thunderPulse  = 0;
+            if (WeatherMusicTargets.fogDensity    < 0.001) WeatherMusicTargets.fogDensity    = 0;
         }
     }
 

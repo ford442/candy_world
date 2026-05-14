@@ -84,13 +84,22 @@ export class AccessibilityMenu {
     this.isOpen = true;
     document.addEventListener('keydown', this.boundKeyHandler);
     
-    // Trap focus
+    // Force DOM reflow
+    void this.overlay!.offsetWidth;
+    void this.container!.offsetWidth;
+
+    // Apply active CSS styles
+    this.overlay!.style.opacity = '1';
+    this.container!.style.opacity = '1';
+    this.container!.style.transform = 'scale(1)';
+
+    // Trap focus after transition
     if (this.container) {
       setTimeout(() => {
         if (this.container && this.isOpen) {
           this.releaseFocusTrap = trapFocusInside(this.container);
         }
-      }, 100);
+      }, 300);
       announce('Accessibility menu opened. Use Tab to navigate, Enter to select.', 'polite');
     }
 
@@ -117,6 +126,7 @@ export class AccessibilityMenu {
     // Remove elements
     if (this.container) {
       this.container.style.opacity = '0';
+      this.container.style.transform = 'scale(0.95)';
     }
     if (this.overlay) {
       this.overlay.style.opacity = '0';
@@ -156,7 +166,7 @@ export class AccessibilityMenu {
       align-items: center;
       justify-content: center;
       z-index: 10000;
-      opacity: 1;
+      opacity: 0;
       transition: opacity 0.3s ease;
     `;
 
@@ -177,7 +187,9 @@ export class AccessibilityMenu {
       overflow: hidden;
       color: var(--menu-text, #ffffff);
       font-family: system-ui, -apple-system, sans-serif;
-      transition: opacity 0.3s ease;
+      opacity: 0;
+      transform: scale(0.95);
+      transition: opacity 0.3s ease, transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     `;
 
     this.container.appendChild(this.createHeader());
@@ -276,9 +288,11 @@ export class AccessibilityMenu {
       btn.type = 'button';
       btn.textContent = section.label;
       btn.id = `tab-${section.id}`;
+      btn.classList.add('a11y-tab');
       btn.setAttribute('role', 'tab');
       btn.setAttribute('aria-selected', (section.id === this.currentSection).toString());
       btn.setAttribute('aria-controls', `panel-${section.id}`);
+      btn.tabIndex = section.id === this.currentSection ? 0 : -1;
       btn.style.cssText = `
         width: 100%;
         padding: 12px 20px;
@@ -1242,6 +1256,8 @@ export class AccessibilityMenu {
     this.currentSection = section;
     this.refreshMainPanel();
     announce(`Switched to ${this.formatActionName(section)} settings`, 'polite');
+    const newTab = this.container?.querySelector(`#tab-${section}`) as HTMLElement;
+    if (newTab) newTab.focus();
   }
 
   private refreshMainPanel(): void {
@@ -1283,6 +1299,7 @@ export class AccessibilityMenu {
       const sections: MenuSection[] = ['presets', 'motor', 'visual', 'cognitive', 'auditory', 'screenReader'];
       const isActive = sections[index] === this.currentSection;
       btn.setAttribute('aria-selected', isActive.toString());
+      btn.tabIndex = isActive ? 0 : -1;
       btn.style.background = isActive ? 'var(--menu-active, #4a4a4a)' : 'transparent';
     });
   }

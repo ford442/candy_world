@@ -162,6 +162,7 @@ export function updateEnergyBar(
     }
 }
 
+
 export function updateDashHUD(
     dashCooldown: number,
     audioState: any
