@@ -51,7 +51,7 @@ export function renderSlot(
             ` : '<div class="candy-save-slot__info">Click to save</div>'}
             <div class="candy-save-slot__actions">
                 ${forSave || isEmpty ? `
-                    <button class="candy-save-slot__btn candy-save-slot__btn--primary" data-action="${forSave ? 'overwrite' : 'save'}" data-slot="${slot.slotId}" aria-label="${forSave && !isEmpty ? `Overwrite ${slot.slotName}` : `Save to ${slot.slotName}`}">
+                    <button class="candy-save-slot__btn candy-save-slot__btn--primary" data-action="${forSave ? 'overwrite' : 'save'}" data-slot="${slot.slotId}" aria-label="${isEmpty ? `Available Save Slot: ${slot.slotName}` : (forSave ? `Overwrite ${slot.slotName}` : `Save to ${slot.slotName}`)}">
                         ${forSave && !isEmpty ? 'Overwrite' : 'Save'}
                     </button>
                 ` : `
@@ -88,7 +88,7 @@ export function renderLoadTab(
         return `
             <div class="candy-empty-state">
                 <div class="candy-empty-state__icon" aria-hidden="true">📝</div>
-                <div class="candy-empty-state__text">No save files found</div>
+                <div class="candy-empty-state__text">No memories found yet. Embark on a journey to save your progress!</div>
                 ${currentMode === 'full' ? `
                 <div class="candy-save-menu__actions">
                     <button class="candy-save-menu__btn candy-save-menu__btn--primary" data-action="switch-to-save">

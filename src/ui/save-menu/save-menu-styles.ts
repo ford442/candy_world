@@ -174,6 +174,7 @@ export const MENU_STYLES = `
 
 .candy-save-slot:active {
     transform: translateY(0) scale(0.98);
+    filter: brightness(0.95);
     transition-duration: 0.05s;
 }
 
