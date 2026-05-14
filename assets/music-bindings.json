@@ -34,6 +34,10 @@
     "melody_channel": 2,
     "base_moon_intensity": 1.5
   },
+  "luminous_plants": {
+    "tracker_channel": 2,
+    "base_intensity": 1
+  },
   "weatherReactivity": {
     "rainIntensity": { "channel": 2, "smoothing": 0.15, "scale": 1.0 },
     "thunderPulse":  { "channel": 0, "smoothing": 0.05, "scale": 0.8 },

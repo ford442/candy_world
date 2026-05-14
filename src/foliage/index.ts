@@ -141,6 +141,8 @@ export {
     VineSwing
 } from './trees.ts';
 export { createSubwooferLotus } from './lotus.ts';
+export { createLuminousPlant } from './luminous-plant.ts';
+export { luminousPlantBatcher } from './luminous-plant-batcher.ts';
 export { createFloatingOrb, createFloatingOrbCluster, createKickDrumGeyser } from './environment.ts';
 export { createRainingCloud } from './clouds.ts';
 export { createWaveformWater } from './water.ts';
