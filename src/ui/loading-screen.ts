@@ -127,6 +127,7 @@ export class LoadingScreen {
     
     private isVisible = false;
     private isComplete = false;
+    private hasFatalError = false;
     private skippedPhases: Set<string> = new Set();
     
     private options: Required<LoadingScreenOptions>;
@@ -693,7 +694,7 @@ export class LoadingScreen {
     }
 
     private animateProgress = (time: number): void => {
-        if (!this.isVisible || this.isComplete) {
+        if (!this.isVisible || this.isComplete || this.hasFatalError) {
             this.animationFrameId = null;
             return;
         }
@@ -826,6 +827,75 @@ export class LoadingScreen {
         }
         
         this.averagePhaseTime = totalWeight > 0 ? totalTime / totalWeight : 0;
+    }
+
+    /**
+     * Display a fatal error state on the loading screen.
+     * Stops the spinner, turns the progress bar red, and shows the error message.
+     * @param message Human-readable error description shown to the user.
+     */
+    showFatalError(message: string): void {
+        // Stop the animation loop so the spinner and lerp no longer run
+        if (this.animationFrameId !== null) {
+            cancelAnimationFrame(this.animationFrameId);
+            this.animationFrameId = null;
+        }
+
+        // Use a dedicated flag so hide() and animateProgress() don't misinterpret
+        // this as a successful completion.
+        this.hasFatalError = true;
+
+        if (this.container) {
+            this.container.classList.add('fatal-error');
+            this.container.setAttribute('aria-valuenow', '0');
+            this.container.setAttribute('aria-label', 'Game initialization failed');
+        }
+
+        // Turn progress bar red
+        if (this.progressFill) {
+            this.progressFill.style.width = '100%';
+            this.progressFill.classList.add('fatal-error');
+        }
+
+        if (this.percentageText) {
+            this.percentageText.textContent = 'Error';
+        }
+
+        // Show error message
+        if (this.taskText) {
+            this.taskText.textContent = message;
+            this.taskText.classList.add('fatal-error');
+        }
+
+        // Stop the "Calculating time…" ticker
+        if (this.timeText) {
+            this.timeText.textContent = '';
+        }
+
+        // Hide skip button
+        if (this.skipButton) {
+            this.skipButton.style.display = 'none';
+        }
+
+        // Stop spinner
+        if (this.spinner) {
+            this.spinner.classList.add('stopped');
+        }
+
+        // Add a reload button so the user has a clear recovery path
+        if (this.container) {
+            const existing = this.container.querySelector('.fatal-error-reload');
+            if (!existing) {
+                const reloadBtn = document.createElement('button');
+                reloadBtn.className = 'fatal-error-reload skip-button';
+                reloadBtn.setAttribute('aria-label', 'Reload page to try again');
+                reloadBtn.innerHTML = '<span aria-hidden="true">🔄</span> Reload Page';
+                reloadBtn.addEventListener('click', () => window.location.reload());
+                this.container.querySelector('.loading-content')?.appendChild(reloadBtn);
+            }
+        }
+
+        console.error('[LoadingScreen] Fatal error displayed:', message);
     }
 
     private destroy(): void {
