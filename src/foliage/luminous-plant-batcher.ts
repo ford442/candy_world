@@ -79,7 +79,8 @@ export class LuminousPlantBatcher {
         const id = this.count;
 
         group.updateMatrixWorld(true);
-        this.mesh.setMatrixAt(id, group.matrixWorld);
+        // ⚡ OPTIMIZATION: Bypassed THREE.Object3D proxy and setMatrixAt() overhead by writing directly to instanceMatrix.
+        group.matrixWorld.toArray(this.mesh.instanceMatrix.array, id * 16);
 
         const phaseAttr = this.mesh.geometry.getAttribute('aPhaseOffset') as THREE.InstancedBufferAttribute;
         phaseAttr.setX(id, Math.random() * Math.PI * 2);
