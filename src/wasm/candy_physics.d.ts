@@ -241,6 +241,12 @@ export declare function initDynamicFoliageMemory(maxInstances: number): number;
  */
 export declare function initCollisionSystem(): void;
 /**
+ * assembly/physics/addCollisionObjectsBatch
+ * @param ptr `i32`
+ * @param count `i32`
+ */
+export declare function addCollisionObjectsBatch(ptr: number, count: number): void;
+/**
  * assembly/physics/addCollisionObject
  * @param type `i32`
  * @param x `f32`

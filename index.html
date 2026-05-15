@@ -175,12 +175,19 @@
             background: #FF5252;
         }
         .cta-button:active,
+        .cta-button.pressed,
         .toggle-button:active,
+        .toggle-button.pressed,
         .secondary-button:active,
+        .secondary-button.pressed,
         .playlist-btn:active,
+        .playlist-btn.pressed,
         .close-icon-btn:active,
+        .close-icon-btn.pressed,
         .file-label:active,
-        .playlist-remove-btn:active {
+        .file-label.pressed,
+        .playlist-remove-btn:active,
+        .playlist-remove-btn.pressed {
             transform: scale(0.95);
             transition-duration: 0.05s;
         }
@@ -211,11 +218,17 @@
             color: #FF6B6B;
             font-weight: bold;
             display: inline-block;
-            transition: background 0.2s, color 0.2s;
+            transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), background 0.2s, color 0.2s, box-shadow 0.2s;
             font-family: inherit;
         }
         .file-label:hover {
             background: #FFF0F5;
+            transform: scale(1.05);
+            box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3);
+        }
+        .file-label:active {
+            transform: scale(0.95);
+            box-shadow: 0 2px 5px rgba(255, 107, 107, 0.2);
         }
         .toggle-button {
             background: #6A5ACD;
@@ -278,6 +291,8 @@
         }
         /* 🎨 Palette: Playlist Backdrop */
         #playlist-backdrop {
+            opacity: 0;
+            transition: opacity 0.3s ease;
             position: fixed;
             top: 0;
             left: 0;
@@ -290,6 +305,8 @@
         }
 
         #playlist-overlay {
+            opacity: 0;
+            transition: opacity 0.3s ease, transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             position: absolute;
             top: 50%;
             left: 50%;
@@ -314,6 +331,93 @@
             text-transform: uppercase;
             font-family: 'Fredoka One', cursive, sans-serif;
             letter-spacing: 1px;
+        }
+
+        /* 🎨 Palette: Jukebox Empty State Polish */
+        .jukebox-empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px 20px;
+            text-align: center;
+            height: 100%;
+        }
+
+        .jukebox-empty-icon-container {
+            font-size: 4rem;
+            margin-bottom: 15px;
+            animation: jukeboxFloat 3s ease-in-out infinite;
+        }
+
+        .jukebox-empty-icon {
+            filter: drop-shadow(0 0 15px rgba(255, 107, 107, 0.6));
+            animation: jukeboxPulse 2s ease-in-out infinite;
+        }
+
+        .jukebox-empty-text {
+            font-size: 1.1rem;
+            color: #666;
+            margin-bottom: 25px;
+            font-weight: 500;
+        }
+
+        .jukebox-browse-btn {
+            font-size: 1rem !important;
+            padding: 10px 25px !important;
+            width: auto !important;
+            margin-bottom: 0 !important;
+        }
+
+        @keyframes jukeboxFloat {
+            0% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+            100% { transform: translateY(0); }
+        }
+
+        @keyframes jukeboxPulse {
+            0% { filter: drop-shadow(0 0 15px rgba(255, 107, 107, 0.4)); }
+            50% { filter: drop-shadow(0 0 25px rgba(255, 107, 107, 0.8)); }
+            100% { filter: drop-shadow(0 0 15px rgba(255, 107, 107, 0.4)); }
+        }
+
+        /* 🎨 Palette: Jukebox Drag & Drop Feedback */
+        .playlist-drag-active {
+            border-color: #FF4081 !important;
+            background: rgba(255, 240, 245, 0.95) !important;
+        }
+
+        .playlist-drag-active .playlist-drop-zone-text {
+            display: flex !important;
+        }
+
+        .playlist-drop-zone-text {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(4px);
+            border-radius: 15px;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            color: #FF6B6B;
+            font-weight: bold;
+            text-align: center;
+            border: 4px dashed #FF4081;
+            box-sizing: border-box;
+            animation: pulseBorder 1.5s infinite;
+        }
+
+        @keyframes pulseBorder {
+            0% { border-color: rgba(255, 64, 129, 0.5); }
+            50% { border-color: rgba(255, 64, 129, 1); }
+            100% { border-color: rgba(255, 64, 129, 0.5); }
         }
         #playlist-list {
             list-style: none;
@@ -366,11 +470,12 @@
             border-radius: 50px;
             cursor: pointer;
             font-weight: bold;
-            transition: transform 0.1s;
+            transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), background 0.2s, box-shadow 0.2s;
         }
         .secondary-button:hover {
             transform: scale(1.05);
             background: #584AB8;
+            box-shadow: 0 4px 15px rgba(106, 90, 205, 0.4);
         }
         #now-playing-toast {
             position: fixed;
@@ -528,27 +633,24 @@
         }
     </style>
     
-    <script type="importmap">
-        {
-            "imports": {
-                "three": "./node_modules/three/build/three.module.js",
-                "three/webgpu": "./node_modules/three/build/three.webgpu.js",
-                "three/tsl": "./node_modules/three/build/three.tsl.js",
-                "three/examples/jsm/": "./node_modules/three/examples/jsm/"
-            }
-        }
-    </script>
-
     <script>
-        // Use a Promise to notify the app when libopenmpt is ready
+        // Use a Promise to notify the app when libopenmpt is ready.
+        // libopenmpt.js is a wasm2js build — all WASM code is compiled to asm.js,
+        // so no separate .wasm file is fetched. We intercept instantiateWasm to
+        // prevent the fallback fetch(undefined) → 404 path from ever running.
         window.libopenmptReady = new Promise(resolve => {
             window.libopenmpt = {
                 // Limit memory to 32MB to prevent "Array buffer allocation failed"
-                // The library file has been patched to handle this Number without BigInt errors.
-                INITIAL_MEMORY: 33554432, 
-                
+                INITIAL_MEMORY: 33554432,
+
+                // wasm2js: short-circuit the WASM instantiation path so no external
+                // fetch is attempted. The asmFunc (asm.js) takes over automatically.
+                instantiateWasm: function(imports, successCallback) {
+                    return {};
+                },
+
                 onRuntimeInitialized: function () {
-                    console.log('libopenmpt runtime initialized via local script.');
+                    console.log('[libopenmpt] Runtime initialized (wasm2js mode).');
                     resolve(this);
                 }
             };
@@ -580,7 +682,7 @@
                 <div class="progress-bar">
                     <div class="progress-fill" style="width: 0%;"></div>
                 </div>
-                <div class="progress-details">
+                <div class="progress-details" aria-live="polite" aria-atomic="true" role="status">
                     <span class="progress-percentage">0%</span>
                     <span class="progress-task">Initializing...</span>
                 </div>

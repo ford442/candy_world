@@ -656,12 +656,19 @@ class AnalyticsDebugOverlay {
     this.elements = this.createElements();
     this.isVisible = true;
     
+    // Force DOM reflow
+    void this.elements.container.offsetWidth;
+
+    // Apply active styles
+    this.elements.container.style.opacity = '1';
+    this.elements.container.style.transform = 'scale(1)';
+
     // Trap focus inside the overlay
     setTimeout(() => {
-      if (this.isVisible && this.elements.container) {
+      if (this.isVisible && this.elements?.container) {
         this.releaseFocusTrap = trapFocusInside(this.elements.container);
       }
-    }, 100);
+    }, 200);
 
     // Start update loop
     this.refresh();
@@ -689,6 +696,7 @@ class AnalyticsDebugOverlay {
     this.lastFocusedElement = null;
 
     this.elements.container.style.opacity = '0';
+    this.elements.container.style.transform = 'scale(0.95)';
     const containerToRemove = this.elements.container;
     setTimeout(() => {
       containerToRemove.remove();

@@ -17,7 +17,8 @@ import {
     createRetriggerMushroom,
     createIsland, // Added
     createCaveEntrance,
-    createTerrainMaterial // Added
+    createTerrainMaterial, // Added
+    createLuminousPlant, luminousPlantBatcher
 } from '../foliage/index.ts';
 import { generateCloudLayer } from '../foliage/procedural-sky.ts';
 import { validateFoliageMaterials, foliageMaterials } from '../foliage/index.ts';
@@ -35,6 +36,7 @@ import {
 import mapData from '../../assets/map.json';
 
 // Performance constants for async generation
+const obstaclesData: {x: number, y: number, z: number, radius: number}[] = [];
 export const DEFAULT_MAP_CHUNK_SIZE = 100;        // Map entities per chunk
 export const DEFAULT_PROCEDURAL_CHUNK_SIZE = 100; // Procedural extras per chunk
 export const PROCEDURAL_ENTITY_COUNT = 400;       // Number of random procedural items
@@ -207,14 +209,47 @@ export function initWorld(scene: THREE.Scene, weatherSystem: WeatherSystem, load
     melodyLake.position.set(20, 1.5, 20); 
     scene.add(melodyLake);
 
+
     // Lake Island
     const island = createIsland({ radius: 15, height: 2 });
     island.position.set(-40, 2.5, 40); // Place in the lake
     island.userData.type = 'lake_island';
     safeAddFoliage(island, true, 15, weatherSystem);
 
+    // Add Luminous Plants around Lake Island
+    const luminousCount = CONFIG.luminousPlants.density; // Increased count
+    for (let i = 0; i < luminousCount; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        // Gentle radius falloff: more dense near edge (10-25), tapering out to 35
+        // Using a square-root or quadratic distribution helps achieve this
+        const randDist = Math.pow(Math.random(), 2.0); // more values near 0
+        const dist = 10 + randDist * 25; // 10 to 35
+
+        const lx = -40 + Math.cos(angle) * dist;
+        const lz = 40 + Math.sin(angle) * dist;
+        const ly = getUnifiedGroundHeight(lx, lz);
+
+        // Quick biome check to avoid candy cane forest (let's say candy cane is where x > 0)
+        // If x > 0, we'll just skip (assume biome boundary)
+        if (lx > -10) continue;
+
+        // Add a small height bias: prefer elevated ground
+        // Don't spawn directly in water (y < 2.0) and favor y between 2.0 and 5.0
+        if (ly > 2.0 && ly < 8.0) {
+            const plant = createLuminousPlant({ scale: 0.8 + Math.random() * 0.6 });
+            plant.position.set(lx, ly, lz);
+            plant.rotation.y = Math.random() * Math.PI * 2;
+            safeAddFoliage(plant, false, 0, weatherSystem);
+        }
+    }
+
+
     // Falling Berries
     initFallingBerries(scene);
+
+    // Add the luminous plant batcher to the scene
+    scene.add(luminousPlantBatcher.mesh);
+
 
     // Add the main world group (containing all generated foliage) to the scene
     scene.add(worldGroup);
@@ -253,11 +288,11 @@ export function safeAddFoliage(
 
     // Add to JS obstacles (legacy/backup)
     if (isObstacle) {
-        obstacles.push({ position: obj.position.clone(), radius });
+        // obstacles.push({ position: obj.position.clone(), radius }); // Replaced by obstaclesData
 
-        // ⚡ PERFORMANCE: Add to WASM Spatial Grid for O(1) validity checks
+        // ⚡ OPTIMIZATION: Add to WASM Spatial Grid for O(1) validity checks later in batch
         // Type 5 = Generic Obstacle (Radius Check Only)
-        addCollisionObject(5, obj.position.x, obj.position.y, obj.position.z, radius, 0, 0, 0, 0);
+        obstaclesData.push({ x: obj.position.x, y: obj.position.y, z: obj.position.z, radius });
     }
 
     // Optimization
@@ -338,12 +373,12 @@ export async function generateMap(
     chunkSize: number = DEFAULT_MAP_CHUNK_SIZE,
     onProgress?: (current: number, total: number) => void
 ): Promise<void> {
-    console.log(`[World] Loading map with ${mapData.length} entities...`);
+    console.log(`[World] Loading map with ${mapData.entities.length} entities...`);
 
     // Reset WASM Collision System for Generation Phase
     initCollisionSystem();
 
-    const entities = mapData as MapEntity[];
+    const entities = mapData.entities as any as MapEntity[];
     const mapTotal = entities.length;
     const globalTotal = mapTotal + PROCEDURAL_ENTITY_COUNT;
     

@@ -46,9 +46,11 @@ export const BiomeUniforms = {
     skyMoon: {
         /** RGB color for note reactivity */
         moonNoteColor: uniform(new THREE.Color(0xffffff)),
-        /** 0–1 intensity based on channels */
+        /** 0-1 intensity based on channels */
         moonIntensity: uniform(0.0),
     },
+
+
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -63,6 +65,16 @@ export const BiomeUniforms = {
  * intensity : float 0–1, mix factor between base sky/moon colour and note colour.
  *             Set to 0 during daytime so the feature has zero impact on day scenes.
  */
+
+export const LuminousPlantUniforms = {
+    /** 0-1 intensity based on channels */
+    intensity: uniform(0.0),
+    /** RGB color for note reactivity */
+    noteColor: uniform(new THREE.Color(0xffffff)),
+    /** Active note index for precise mapping (0-127) */
+    noteIndex: uniform(0.0),
+} as const;
+
 export const SkyUniforms = {
     noteIndex: uniform(0.0),
     intensity: uniform(0.0),
@@ -73,22 +85,26 @@ export const SkyUniforms = {
  * Shared between GPU DataTexture (skyNoteColorNode) and CPU moon lerp.
  *
  * Uses chromatic colors mapped from CONFIG.noteColorMap.sky
- */
+ */const CHROMATIC_SCALE = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+
 export const skyLutData = new Float32Array(128 * 4);
+
 (function buildSkyLut() {
     const c = new Color();
-    const CHROMATIC_SCALE = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-    const skyMap = CONFIG.noteColorMap.sky || CONFIG.noteColorMap.global;
+
+    // Use configurable note colors from CONFIG (preferred)
+    // Falls back to the old rainbow if CONFIG.noteColorMap is not available
+    const noteColorMap = CONFIG?.noteColorMap?.global || {};
 
     for (let i = 0; i < 128; i++) {
-        // Since we map 12 chromatic notes across 128 slots during reactivity updates:
-        // Math.floor((chromaticIdx / 12) * 128)
-        // Here we reverse it to determine which note index this slot mostly corresponds to.
-        const chromaticIdx = Math.floor((i / 128) * 12);
-        const noteName = CHROMATIC_SCALE[chromaticIdx];
-        const hex = skyMap[noteName] || 0xffffff;
+        const chromaticIdx = Math.floor((i * 12) / 128);
+        const pitchClass = chromaticIdx % 12;
+        const noteName = CHROMATIC_SCALE[pitchClass];
 
-        c.setHex(hex);
+        const hexColor = noteColorMap[noteName] || 0xFFFFFF;
+
+        c.setHex(hexColor);
+
         skyLutData[i * 4 + 0] = c.r;
         skyLutData[i * 4 + 1] = c.g;
         skyLutData[i * 4 + 2] = c.b;
@@ -108,3 +124,35 @@ _skyLutTex.needsUpdate = true;
  * Safe to use in both the sky dome colorNode and the moon emissiveNode.
  */
 export const skyNoteColorNode = texture(_skyLutTex, vec2(SkyUniforms.noteIndex.add(0.5).div(128.0), 0.5)).rgb;
+
+/**
+ * 128-slot RGBA-float LUT: maps note index -> hue colour for Luminous Plants.
+ */
+export const luminousPlantsLutData = new Float32Array(128 * 4);
+(function buildLuminousPlantsLut() {
+    const c = new Color();
+    const CHROMATIC_SCALE = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+    const plantMap = CONFIG.noteColorMap.luminous_plants || CONFIG.noteColorMap.global;
+
+    for (let i = 0; i < 128; i++) {
+        const chromaticIdx = Math.floor((i / 128) * 12);
+        const noteName = CHROMATIC_SCALE[chromaticIdx];
+        const hex = plantMap[noteName] || 0xffffff;
+
+        c.setHex(hex);
+        luminousPlantsLutData[i * 4 + 0] = c.r;
+        luminousPlantsLutData[i * 4 + 1] = c.g;
+        luminousPlantsLutData[i * 4 + 2] = c.b;
+        luminousPlantsLutData[i * 4 + 3] = 1.0;
+    }
+})();
+
+const _luminousPlantsLutTex = new DataTexture(luminousPlantsLutData, 128, 1, RGBAFormat, FloatType);
+_luminousPlantsLutTex.minFilter = NearestFilter;
+_luminousPlantsLutTex.magFilter = NearestFilter;
+_luminousPlantsLutTex.needsUpdate = true;
+
+/**
+ * TSL node: samples the note-colour LUT for the current LuminousPlantUniforms.noteIndex.
+ */
+export const luminousPlantsNoteColorNode = texture(_luminousPlantsLutTex, vec2(LuminousPlantUniforms.noteIndex.add(0.5).div(128.0), 0.5)).rgb;

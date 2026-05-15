@@ -63,6 +63,23 @@ function getGridIndex(x: f32, z: f32): i32 {
   return row * GRID_COLS + col;
 }
 
+
+export function addCollisionObjectsBatch(ptr: i32, count: i32): void {
+  for (let i = 0; i < count; i++) {
+    const objPtr = ptr + (i * 8 * 4); // 8 floats per object, 4 bytes per float
+    const type = i32(load<f32>(objPtr));
+    const x = load<f32>(objPtr + 4);
+    const y = load<f32>(objPtr + 8);
+    const z = load<f32>(objPtr + 12);
+    const d1 = load<f32>(objPtr + 16);
+    const d2 = load<f32>(objPtr + 20);
+    const d3 = load<f32>(objPtr + 24);
+    const flags = i32(load<f32>(objPtr + 28));
+
+    addCollisionObject(type, x, y, z, d1, d2, d3, flags);
+  }
+}
+
 export function addCollisionObject(type: i32, x: f32, y: f32, z: f32, d1: f32, d2: f32, d3: f32, flags: i32): void {
   if (collisionObjectCount >= MAX_COLLISION_OBJECTS) return;
 

@@ -547,3 +547,10 @@ kbd.key.key-highlight {
 #dpad-backward { border-top-left-radius: 6px;    border-top-right-radius: 6px;    margin-top: 2px;    }
 #dpad-left     { border-top-right-radius: 6px;   border-bottom-right-radius: 6px; margin-right: 2px;  }
 #dpad-right    { border-top-left-radius: 6px;    border-bottom-left-radius: 6px;  margin-left: 2px;   }
+
+/* ♿ Aria: Accessibility Menu Tabs Focus Styling */
+.a11y-tab[tabindex="0"]:focus-visible {
+    outline: 3px solid #fff;
+    outline-offset: -3px;
+    box-shadow: 0 0 12px currentColor;
+}

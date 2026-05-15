@@ -77,6 +77,12 @@ import {
     updateHUD,
     getLastIsNight,
 
+    setLastIsNight,
+    getIsNight,
+    setIsNight,
+    updateTheme,
+    setLastStrikeState,
+    getLastStrikeState
 } from './hud.ts';
 import {
     getMelodyRibbon,

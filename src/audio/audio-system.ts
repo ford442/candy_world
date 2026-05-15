@@ -501,13 +501,31 @@ export class AudioSystem {
         console.log('[AudioSystem] Using ScriptProcessorNode (compatibility mode)');
         if (window.setLoadingStatus) window.setLoadingStatus("Audio ScriptProcessor Ready...");
 
-        // Wait for libopenmpt to be ready
+        // Wait for libopenmpt to be ready — 5 s timeout for Silent Mode fallback
         if (!window.libopenmpt) {
             console.log('[AudioSystem] Waiting for libopenmpt...');
-            await window.libopenmptReady;
+            try {
+                await Promise.race([
+                    window.libopenmptReady,
+                    new Promise<never>((_, reject) =>
+                        setTimeout(() => reject(new Error('libopenmpt init timeout')), 5000)
+                    ),
+                ]);
+            } catch (err) {
+                console.warn('[AudioSystem] WASM failed, starting in Silent Mode:', err);
+                window.libopenmpt = null;
+                this.isReady = true;
+                return;
+            }
         }
 
-        this.libopenmpt = window.libopenmpt!;
+        if (!window.libopenmpt) {
+            console.warn('[AudioSystem] libopenmpt unavailable, starting in Silent Mode.');
+            this.isReady = true;
+            return;
+        }
+
+        this.libopenmpt = window.libopenmpt;
         
         // Create ScriptProcessorNode (4096 samples buffer, 0 inputs, 2 outputs for stereo)
         const bufferSize = 4096;

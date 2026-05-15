@@ -9,8 +9,9 @@ import {
     applyPlayerInteraction
 } from './index.ts';
 import { attachReactivity } from './foliage-reactivity.ts';
-import { CandyPresets, uAudioHigh, uTime, createJuicyRimLight, getCachedProceduralMaterial, createStandardNodeMaterial } from './material-core.ts';
+import { CandyPresets, uAudioHigh, uAudioLow, uTime, createJuicyRimLight, getCachedProceduralMaterial, createStandardNodeMaterial } from './material-core.ts';
 import { CONFIG } from '../core/config.ts';
+import { uTwilight } from './sky.ts';
 import { attribute, positionLocal, mix, color, float, sin } from 'three/tsl';
 import { PlantPoseMachine } from './plant-pose-machine.ts';
 
@@ -154,7 +155,16 @@ export class FlowerBatcher {
             // Give petals a deep soft glow when the melody hits (increased intensity)
             const innerGlow = instanceColor.mul(uAudioHigh).mul(1.2);
 
-            mat.emissiveNode = audioRim.add(innerGlow);
+            // 🎨 PALETTE: Twilight Glow for petals
+            const glowPhaseOffset = positionLocal.x.add(positionLocal.y).add(positionLocal.z).mul(5.0);
+            const idlePulse = sin(uTime.mul(float(CONFIG.glow.glowPulseFrequency)).add(glowPhaseOffset)).mul(float(CONFIG.glow.glowPulseAmplitude)).add(1.0).mul(float(0.5)).mul(uAudioLow.mul(0.3).add(0.7));
+            const targetGlowColor = color(CONFIG.glow.glowColorMap['flower']);
+            const twilightGlowTint = targetGlowColor
+                .mul(uTwilight)
+                .mul(float(CONFIG.glow.glowIntensityMax))
+                .mul(float(0.3).add(idlePulse));
+
+            mat.emissiveNode = audioRim.add(innerGlow).add(twilightGlowTint);
 
             return mat;
         });
