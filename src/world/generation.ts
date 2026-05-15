@@ -217,7 +217,7 @@ export function initWorld(scene: THREE.Scene, weatherSystem: WeatherSystem, load
     safeAddFoliage(island, true, 15, weatherSystem);
 
     // Add Luminous Plants around Lake Island
-    const luminousCount = CONFIG.luminousPlants.density; // Increased count
+    const luminousCount = CONFIG.luminousPlants?.density || 150; // Increased count
     for (let i = 0; i < luminousCount; i++) {
         const angle = Math.random() * Math.PI * 2;
         // Gentle radius falloff: more dense near edge (10-25), tapering out to 35

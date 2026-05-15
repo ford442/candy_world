@@ -306,8 +306,7 @@ initWasm().then(async (wasmLoaded) => {
                             (mesh.material as THREE.Material).dispose();
                         }
                     }
-                }
-            });
+                });
             scene.remove(previewMushroom);
 
             const idx = animatedFoliage.indexOf(previewMushroom);
