@@ -5,7 +5,7 @@
  * This module contains:
  * - Collision system: uploadCollisionObjects, resolveGameCollisionsWASM
  * - Physics helpers: initCollisionSystem, addCollisionObject, checkPositionValidity
- * - Native C++ physics wrappers: updatePhysicsCPP, initPhysics, addObstacle, uploadObstaclesBatch
+ * - Native C++ physics wrappers: updatePhysicsCPP, initPhysics, uploadObstaclesBatch
  * - Player state: setPlayerState, getPlayerState
  * - Math fallbacks: valueNoise2D, fbm, fastInvSqrt, fastDistance, hash
  */
@@ -59,6 +59,27 @@ export interface PlayerStateResult {
 
 /** Shared Float32Array for updating dynamic object radii in WASM (Zero-Allocation Bridge) */
 export let dynamicRadiiView: Float32Array | null = null;
+let _obstacleUploadView: Float32Array | null = null;
+const MAX_OBSTACLES = 2000;
+
+/**
+ * Initializes the WASM memory block for obstacle batch uploading
+ * @param maxCount Maximum number of obstacles
+ * @returns boolean true if successful
+ */
+export function initObstacleUploadBridge(maxCount: number): boolean {
+    if (!emscriptenMemory) return false;
+    const initFn = getNativeFunc('initObstacleBuffer');
+    if (!initFn) return false;
+
+    const ptr = initFn(maxCount);
+    if (!ptr) return false;
+
+    // Create Float32Array view directly into WASM memory over the returned offset
+    _obstacleUploadView = new Float32Array(emscriptenMemory, ptr, maxCount * 9);
+    console.log(`[WASM Physics Bridge] Initialized obstacle upload view (Cap: ${maxCount}, Offset: ${ptr})`);
+    return true;
+}
 
 /**
  * Initializes the WASM memory block for dynamic foliage collision radii
@@ -384,48 +405,29 @@ export function initPhysics(x: number, y: number, z: number): void {
 }
 
 /**
- * Add an obstacle
- * @param type - Obstacle type
- * @param x - X position
- * @param y - Y position
- * @param z - Z position
- * @param r - Radius
- * @param h - Height
- * @param p1 - Parameter 1
- * @param p2 - Parameter 2
- * @param p3 - Parameter 3 (boolean)
- */
-export function addObstacle(type: number, x: number, y: number, z: number, r: number, h: number, p1: number, p2: number, p3: boolean): void {
-    const f = getNativeFunc('addObstacle');
-    if (f) f(type, x, y, z, r, h, p1, p2, p3 ? 1.0 : 0.0);
-}
-
-/**
- * Upload obstacles in batch
+ * Upload obstacles in batch using the persistent buffer
  * @param objectsData - Float32Array of object data
  * @param count - Number of objects
  */
 export function uploadObstaclesBatch(objectsData: Float32Array, count: number): void {
-    if (!emscriptenInstance || !emscriptenInstance._malloc || !emscriptenInstance._free) return;
     const f = getNativeFunc('addObstaclesBatch');
     if (!f) return;
 
-    // 9 floats per obstacle
-    const bytes = count * 9 * 4;
-    const ptr = emscriptenInstance._malloc(bytes);
-    if (!ptr) return;
+    if (!_obstacleUploadView) {
+        if (!initObstacleUploadBridge(MAX_OBSTACLES)) {
+            return;
+        }
+    }
 
-    // ⚡ OPTIMIZATION: Copy JS float array into WASM memory using batched writes
-    // emscriptenMemory holds the WASM heap buffer
-    if (!emscriptenMemory) return;
-    const heapF32 = new Float32Array(emscriptenMemory);
-    heapF32.set(objectsData, ptr >> 2);
+    // Limit to max count to prevent out-of-bounds writes
+    const maxAllowed = Math.min(count, MAX_OBSTACLES);
 
-    // Invoke C++
-    f(ptr, count);
+    // ⚡ OPTIMIZATION: Write directly into the persistent SharedArrayBuffer view
+    // Avoids per-frame malloc/free and simplifies WASM bridge
+    _obstacleUploadView!.set(objectsData.subarray(0, maxAllowed * 9));
 
-    // Free memory
-    emscriptenInstance._free(ptr);
+    // Invoke C++ to process the buffer
+    f(maxAllowed);
 }
 
 // =============================================================================

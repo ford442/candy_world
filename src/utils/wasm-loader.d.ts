@@ -79,7 +79,6 @@ export function calcFloatingParticle(baseX: number, baseY: number, baseZ: number
 // Native Exports
 export function updatePhysicsCPP(delta: number, inputX: number, inputZ: number, speed: number, jump: boolean, sprint: boolean, sneak: boolean, grooveGravity: number): number;
 export function initPhysics(x: number, y: number, z: number): void;
-export function addObstacle(type: number, x: number, y: number, z: number, r: number, h: number, p1: number, p2: number, p3: boolean): void;
 export function setPlayerState(x: number, y: number, z: number, vx: number, vy: number, vz: number): void;
 export function getPlayerState(out?: { x: number, y: number, z: number, vx: number, vy: number, vz: number }): { x: number, y: number, z: number, vx: number, vy: number, vz: number };
 

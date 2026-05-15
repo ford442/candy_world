@@ -4,7 +4,7 @@ import { CONFIG } from '../core/config.ts';
 // Define interface for interactive objects with userdata
 export interface InteractiveObject extends THREE.Object3D {
     userData: {
-        onProximityEnter?: (distance: number) => void;
+        onProximityEnter?: (distanceSq: number) => void;
         onProximityLeave?: () => void;
         onGazeEnter?: () => void;
         onGazeLeave?: () => void;
@@ -140,8 +140,8 @@ export class InteractionSystem {
             }
             if (!found) {
                 if (obj.userData?.onProximityEnter) {
-                    // ⚡ OPTIMIZATION: Replaced distanceTo() with distanceToSquared() to prevent vector allocations.
-                    try { obj.userData.onProximityEnter(Math.sqrt(playerPosition.distanceToSquared(obj.position))); } catch(e) { console.warn('Proximity Enter Error:', e); }
+                    // ⚡ OPTIMIZATION: Replaced distanceTo() with distanceToSquared() and removed Math.sqrt() overhead.
+                    try { obj.userData.onProximityEnter(playerPosition.distanceToSquared(obj.position)); } catch(e) { console.warn('Proximity Enter Error:', e); }
                 }
             }
         }

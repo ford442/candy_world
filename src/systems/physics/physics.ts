@@ -396,9 +396,9 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
             moveInput.x,
             moveInput.z,
             moveSpeed,
-            effectiveJumpInput,
-            keyStates.sprint ? 1 : 0,
-            keyStates.sneak ? 1 : 0,
+            effectiveJumpInput > 0,
+            keyStates.sprint,
+            keyStates.sneak,
             grooveGravity.multiplier
         );
     }

@@ -138,7 +138,7 @@ export function createPanningPad(options: PanningPadOptions = {}): THREE.Group {
 
     // ⚡ JUICE: Interaction Callbacks (Logic Layer)
     // InteractionSystem will call these when player enters proximity or clicks
-    group.userData.onProximityEnter = () => {
+    group.userData.onProximityEnter = (distanceSq: number) => {
         // Trigger "Land" dust particles
         spawnImpact(group.position, 'land');
     };

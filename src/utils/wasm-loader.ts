@@ -204,7 +204,6 @@ export {
     // Native C++ physics wrappers
     updatePhysicsCPP,
     initPhysics,
-    addObstacle,
     uploadObstaclesBatch,
     
     // Player state

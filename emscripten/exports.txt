@@ -93,7 +93,6 @@ _batchSpiralWave_c
 _getBootstrapHeight
 _initPhysicsMemory
 _batchCymbalShake_c
-_addObstacle
 _batchSnareSnap_c
 _getFiberBaseRotY
 _fastDistance
