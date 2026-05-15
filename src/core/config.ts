@@ -198,7 +198,10 @@ export const CONFIG: ConfigType = {
             'lantern': 0xFFEEAA,
             'portamento': 0xAAEEFF,
             'global': 0xFFFFFF
-        },
+        }
+    },
+
+    // --- LUMINOUS PLANTS SETTINGS ---
     luminousPlants: {
         density: 150,
         baseGlowIntensity: 1.0,
@@ -207,7 +210,6 @@ export const CONFIG: ConfigType = {
         pulseDepth: 0.3,
         subsurfaceStrength: 0.8,
         glowIntensity: 2.0
-    }
     },
 
     // --- NOTE COLOR MAPPING ---
