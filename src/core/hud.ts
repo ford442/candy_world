@@ -34,6 +34,34 @@ let _lastPhaseCount: number | null = null;
 let _lastPhaseActive: boolean | null = null;
 let _lastStrikeState: boolean = false;
 
+// ⚡ OPTIMIZATION: Cache prefersReducedMotion to avoid DOM queries in hot path
+let _cachedPrefersReducedMotion = false;
+let _reducedMotionMediaQuery: MediaQueryList | null = null;
+
+function _updateReducedMotionCache() {
+    _cachedPrefersReducedMotion =
+        document.body.classList.contains('a11y-motion-reduced') ||
+        (_reducedMotionMediaQuery ? _reducedMotionMediaQuery.matches : false);
+}
+
+// Auto-init reduced motion listener
+if (typeof window !== 'undefined') {
+    _reducedMotionMediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    _reducedMotionMediaQuery.addEventListener('change', _updateReducedMotionCache);
+
+    // Also listen for custom a11y system changes (body class mutation)
+    const observer = new MutationObserver((mutations) => {
+        for (const mutation of mutations) {
+            if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                _updateReducedMotionCache();
+            }
+        }
+    });
+    observer.observe(document.body, { attributes: true });
+
+    _updateReducedMotionCache();
+}
+
 // Reference to input system for button state updates
 let inputSystem: any = null;
 
@@ -134,7 +162,7 @@ export function updateEnergyBar(
     // Pulse to the beat when health/energy is low (< 30%)
     if (energyPct < 0.3) {
         hudEnergyContainer.classList.add('low-energy-pulse');
-        const kick = audioState?.kickTrigger || 0;
+        const kick = _cachedPrefersReducedMotion ? 0 : (audioState?.kickTrigger || 0);
         // Add an intense, juicy pulse based on the beat
         const targetScale = 1.0 + kick * 0.25;
 
@@ -193,7 +221,7 @@ export function updateDashHUD(
 
     // PALETTE: Pulse to the beat when ready!
     if (isReady) {
-        const kick = audioState?.kickTrigger || 0;
+        const kick = _cachedPrefersReducedMotion ? 0 : (audioState?.kickTrigger || 0);
         const scale = 1.0 + kick * 0.15;
         const pressed = hudDash.classList.contains('pressed');
         // Multiply by 0.9 if pressed (mimics CSS active state)
@@ -231,7 +259,7 @@ export function updateMineHUD(
 
     // PALETTE: Pulse to the beat when ready!
     if (isReady) {
-        const kick = audioState?.kickTrigger || 0;
+        const kick = _cachedPrefersReducedMotion ? 0 : (audioState?.kickTrigger || 0);
         const scale = 1.0 + kick * 0.15;
         const pressed = hudMine.classList.contains('pressed');
         const finalScale = pressed ? scale * 0.9 : scale;
@@ -308,7 +336,7 @@ export function updatePhaseHUD(
         // PALETTE: Pulse to the beat when ready (Ammo > 0)!
         const isReady = phaseCount > 0;
         if (isReady) {
-            const kick = audioState?.kickTrigger || 0;
+            const kick = _cachedPrefersReducedMotion ? 0 : (audioState?.kickTrigger || 0);
             const scale = 1.0 + kick * 0.15;
             const pressed = hudPhase.classList.contains('pressed');
             const finalScale = pressed ? scale * 0.9 : scale;
