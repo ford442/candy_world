@@ -191,9 +191,14 @@ export function initWorld(scene: THREE.Scene, weatherSystem: WeatherSystem, load
     ground.receiveShadow = true;
     scene.add(ground);
 
-    // 2. OVERRIDE FOG for Compact World
+    // 2. Update fog colour for compact world.
+    // scene.fogNode (set in init.ts) drives actual WebGPU rendering via TSL rangeFog.
+    // Keep scene.fog as THREE.Fog (not FogExp2) so WeatherSystem's stale reference
+    // stays valid and renderer code never has to read FogExp2.density.
     const fogColor = new THREE.Color(CONFIG.colors.fog || 0xFFC5D3);
-    scene.fog = new THREE.FogExp2(fogColor, 0.012);
+    if (scene.fog instanceof THREE.Fog) {
+        scene.fog.color.set(fogColor);
+    }
     scene.background = fogColor;
 
     // Initialize Vegetation Systems
