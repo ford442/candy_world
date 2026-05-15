@@ -288,6 +288,7 @@ initWasm().then(async (wasmLoaded) => {
 
             // Defer execution slightly to let the UI update
             setTimeout(async () => {
+                try {
                 scene.remove(previewMushroom);
                 previewMushroom.traverse((child: THREE.Object3D) => {
                     const mesh = child as THREE.Mesh;
@@ -365,6 +366,16 @@ initWasm().then(async (wasmLoaded) => {
                 startButton.style.background = ''; // Reset style
 
                 // Note: The pointer lock will happen automatically via input system
+                } catch (err) {
+                    console.error('[Init] World generation failed:', err);
+                    loadingScreen.hide();
+                    startButton.disabled = false;
+                    startButton.setAttribute('aria-disabled', 'false');
+                    startButton.setAttribute('aria-busy', 'false');
+                    startButton.removeAttribute('title');
+                    startButton.style.background = '';
+                    startButton.innerHTML = 'Retry';
+                }
             }, 50);
 
         }, { once: true });
