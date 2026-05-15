@@ -107,10 +107,13 @@ export class BerryBatcher {
         }
 
         // Initialize instance colors buffer to white/orange default (will be overwritten)
-        if (this.mesh.instanceColor) {
-             for(let i=0; i<MAX_BERRIES; i++) {
-                 this.mesh.setColorAt(i, _scratchColor.setHex(0xFF6600));
-             }
+        // CRITICAL: Explicitly create instanceColor because InstancedMesh does not auto-create it.
+        // TSL attribute('instanceColor', 'vec3') crashes during shader compilation if this is missing.
+        if (!this.mesh.instanceColor) {
+            this.mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAX_BERRIES * 3), 3);
+        }
+        for (let i = 0; i < MAX_BERRIES; i++) {
+            this.mesh.setColorAt(i, _scratchColor.setHex(0xFF6600));
         }
     }
 

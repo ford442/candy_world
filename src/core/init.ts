@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { color, uniform } from 'three/tsl';
 import type UniformNode from 'three/src/nodes/core/UniformNode.js';
 import WebGPU from 'three/examples/jsm/capabilities/WebGPU.js';
-import { WebGPURenderer, MeshBasicNodeMaterial } from 'three/webgpu';
+import { WebGPURenderer, MeshBasicNodeMaterial, StorageInstancedBufferAttribute, StorageBufferAttribute } from 'three/webgpu';
 import { PALETTE, CONFIG } from './config.ts';
 import { createCrescendoFogNode } from '../foliage/sky.ts';
 
@@ -228,20 +228,21 @@ export async function forceFullSceneWarmup(
     const originalAutoClear = renderer.autoClear;
 
     // 2. Force visibility and hide sensitive meshes
-    const restoreList: THREE.Mesh[] = [];
-    const visibleRestoreList: THREE.Mesh[] = [];
+    const restoreList: (THREE.Mesh | THREE.Points)[] = [];
+    const visibleRestoreList: (THREE.Mesh | THREE.Points)[] = [];
     scene.traverse((obj: THREE.Object3D) => {
-        if (obj instanceof THREE.Mesh && obj.frustumCulled) {
+        const isRenderable = obj instanceof THREE.Mesh || obj instanceof THREE.Points;
+        if (isRenderable && obj.frustumCulled) {
             obj.frustumCulled = false;
             restoreList.push(obj);
         }
-        // Hide meshes with storage/compute attributes during warmup
+        // Hide meshes/points with storage/compute attributes during warmup
         // Their TSL materials can crash the renderer if compiled in a generic context.
-        if (obj instanceof THREE.Mesh && obj.visible) {
+        if (isRenderable && obj.visible) {
             const geo = obj.geometry;
-            const hasStorageAttr = geo && (
-                geo.attributes.aState instanceof THREE.StorageInstancedBufferAttribute ||
-                geo.attributes.aVelocity instanceof THREE.StorageInstancedBufferAttribute
+            const hasStorageAttr = geo && Object.values(geo.attributes).some((attr: any) =>
+                attr instanceof StorageInstancedBufferAttribute ||
+                attr instanceof StorageBufferAttribute
             );
             if (hasStorageAttr) {
                 obj.visible = false;

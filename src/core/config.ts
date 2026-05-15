@@ -112,6 +112,15 @@ export interface ConfigType {
         glowIntensityMax: number;
         glowColorMap: Record<string, number>;
     };
+    luminousPlants: {
+        density: number;
+        baseGlowIntensity: number;
+        peakGlowIntensity: number;
+        pulseSpeed: number;
+        pulseDepth: number;
+        subsurfaceStrength: number;
+        glowIntensity: number;
+    };
     noteColorMap: {
         global: Record<string, number>;
         mushroom: Record<string, number>;
@@ -119,6 +128,7 @@ export interface ConfigType {
         tree: Record<string, number>;
         cloud: Record<string, number>;
         sky: Record<string, number>;
+        luminous_plants: Record<string, number>;
         [key: string]: Record<string, number>; // Allow for dynamic access if needed
     };
     reactivity: {
@@ -140,6 +150,12 @@ export interface ConfigType {
     };
     audio: {
         useScriptProcessorNode: boolean;
+    };
+    weather: {
+        musicReactivity: {
+            enabled: boolean;
+            blendWeight: number; // 0.0 = no music influence, 1.0 = full override
+        };
     };
     /**
      * Per-plant-type ADSR envelope configuration for the day/night pose state machine.
@@ -175,14 +191,28 @@ export const CONFIG: ConfigType = {
         glowColorMap: {
             'mushroom': 0xFFDDDD,
             'tree': 0xAAFFCC,
-            'flower': 0xFFCCFF,
+            'flower': 0xFFCCEE,
+            'dandelion': 0xFFFFAA,
+            'wisteria': 0xDDAAFF,
+            'lotus': 0xFFBBCC,
+            'lantern': 0xFFEEAA,
+            'portamento': 0xAAEEFF,
             'global': 0xFFFFFF
-        }
+        },
+    luminousPlants: {
+        density: 150,
+        baseGlowIntensity: 1.0,
+        peakGlowIntensity: 3.5,
+        pulseSpeed: 1.5,
+        pulseDepth: 0.3,
+        subsurfaceStrength: 0.8,
+        glowIntensity: 2.0
+    }
     },
 
     // --- NOTE COLOR MAPPING ---
     noteColorMap: {
-        // Standard Global Palette (Fallback)
+        // Standard Global Palette (Fallback) - matching assets/colorcode.json
         'global': {
             'C': 0xFF0000, 'C#': 0xFF7F00, 'D': 0xFFFF00, 'D#': 0x7FFF00,
             'E': 0x00FF00, 'F': 0x00FF7F, 'F#': 0x00FFFF, 'G': 0x007FFF,
@@ -190,30 +220,21 @@ export const CONFIG: ConfigType = {
         },
         // Species: Mushroom (Shader-matched palette)
         'mushroom': {
-            'C':  0xFF4040, // Red
-            'C#': 0xEF1280, // Magenta-Red
-            'D':  0xC020C0, // Magenta
-            'D#': 0x8020EF, // Violet
-            'E':  0x4040FF, // Blue (Peak)
-            'F':  0x1280EF, // Azure
-            'F#': 0x00C0C0, // Cyan
-            'G':  0x12EF80, // Spring Green
-            'G#': 0x40FF40, // Green (Peak)
-            'A':  0x80EF12, // Lime
-            'A#': 0xC0C000, // Yellow
-            'B':  0xEF8012  // Orange
+            'C': 0xFF0000, 'C#': 0xFF7F00, 'D': 0xFFFF00, 'D#': 0x7FFF00,
+            'E': 0x00FF00, 'F': 0x00FF7F, 'F#': 0x00FFFF, 'G': 0x007FFF,
+            'G#': 0x0000FF, 'A': 0x7F00FF, 'A#': 0xFF00FF, 'B': 0xFF007F
         },
         // Species: Flower (Vibrant Pastels)
         'flower': {
-            'C': 0xFF69B4, 'C#': 0xFF1493, 'D': 0xFFB6C1, 'D#': 0xFFC0CB,
-            'E': 0xDDA0DD, 'F': 0xEE82EE, 'F#': 0xDA70D6, 'G': 0xBA55D3,
-            'G#': 0x9370DB, 'A': 0x8A2BE2, 'A#': 0x9400D3, 'B': 0x9932CC
+            'C': 0xFF0000, 'C#': 0xFF7F00, 'D': 0xFFFF00, 'D#': 0x7FFF00,
+            'E': 0x00FF00, 'F': 0x00FF7F, 'F#': 0x00FFFF, 'G': 0x007FFF,
+            'G#': 0x0000FF, 'A': 0x7F00FF, 'A#': 0xFF00FF, 'B': 0xFF007F
         },
         // Species: Tree (Nature + Biolum)
         'tree': {
-            'C': 0x006400, 'C#': 0x228B22, 'D': 0x32CD32, 'D#': 0x90EE90,
-            'E': 0x98FB98, 'F': 0x00FF00, 'F#': 0xADFF2F, 'G': 0x7FFF00,
-            'G#': 0x7CFC00, 'A': 0x6B8E23, 'A#': 0x556B2F, 'B': 0x808000
+            'C': 0xFF0000, 'C#': 0xFF7F00, 'D': 0xFFFF00, 'D#': 0x7FFF00,
+            'E': 0x00FF00, 'F': 0x00FF7F, 'F#': 0x00FFFF, 'G': 0x007FFF,
+            'G#': 0x0000FF, 'A': 0x7F00FF, 'A#': 0xFF00FF, 'B': 0xFF007F
         },
         // Species: Cloud (Ethereal)
         'cloud': {
@@ -226,8 +247,15 @@ export const CONFIG: ConfigType = {
             'C': 0xFF0000, 'C#': 0xFF7F00, 'D': 0xFFFF00, 'D#': 0x7FFF00,
             'E': 0x00FF00, 'F': 0x00FF7F, 'F#': 0x00FFFF, 'G': 0x007FFF,
             'G#': 0x0000FF, 'A': 0x7F00FF, 'A#': 0xFF00FF, 'B': 0xFF007F
+        },
+        // Species: Luminous Plants (Deep sea / Bioluminescence)
+        'luminous_plants': {
+            'C': 0x00FF88, 'C#': 0x00FFCC, 'D': 0x00FFFF, 'D#': 0x00CCFF,
+            'E': 0x0088FF, 'F': 0x0044FF, 'F#': 0x4400FF, 'G': 0x8800FF,
+            'G#': 0xCC00FF, 'A': 0xFF00FF, 'A#': 0xFF00CC, 'B': 0xFF0088
         }
     },
+
     // Per-species reaction tuning
     reactivity: {
         mushroom: { medianWindow: 5, smoothingRate: 8, scale: 0.6, maxAmplitude: 1.0, minThreshold: 0.02 }
@@ -252,6 +280,14 @@ export const CONFIG: ConfigType = {
         // Default: false (uses modern AudioWorkletNode)
         // See AUDIO_COMPATIBILITY_MODE.md for more information
         useScriptProcessorNode: false
+    },
+
+    // Weather music reactivity settings
+    weather: {
+        musicReactivity: {
+            enabled: false,
+            blendWeight: 0.6  // 0.0 = no music influence, 1.0 = full override
+        }
     },
 
     // --- PLANT POSE ADSR ENVELOPES ---

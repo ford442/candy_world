@@ -1,12 +1,14 @@
 import * as THREE from 'three';
 import { PostProcessing } from 'three/webgpu';
-import { pass, mix, vec3, uniform, Fn, float } from 'three/tsl';
+import { pass, mix, vec3, uniform, Fn, float, uv, vec2, distance, smoothstep } from 'three/tsl';
 import { bloom } from 'three/examples/jsm/tsl/display/BloomNode.js';
 
 // Global uniforms for reactivity
 export const uBloomStrength = uniform(1.0);
 export const uColorSaturation = uniform(1.1); // Slightly boosted by default
 export const uColorContrast = uniform(1.05);
+export const uVignetteStrength = uniform(0.5);
+export const uAberrationStrength = uniform(0.005);
 
 /**
  * Initializes the WebGPU Post-Processing pipeline for Candy World.
@@ -37,8 +39,22 @@ export function initPostProcessing(renderer: THREE.WebGPURenderer, scene: THREE.
 
     // 4. Color Correction Logic
     const colorCorrection = Fn(() => {
+        // Chromatic Aberration on base scene
+        const caOffset = uAberrationStrength;
+        const uvNode = uv();
+        const uvR = uvNode.add(vec2(caOffset, 0.0));
+        const uvG = uvNode;
+        const uvB = uvNode.sub(vec2(caOffset, 0.0));
+
+        const sceneTex = scenePass.getTextureNode();
+        const r = sceneTex.uv(uvR).r;
+        const g = sceneTex.uv(uvG).g;
+        const b = sceneTex.uv(uvB).b;
+
+        const caColor = vec3(r, g, b);
+
         // Base color + Bloom
-        const color = scenePass.add(bloomPass);
+        const color = caColor.add(bloomPass);
 
         // Saturation
         // Simple luminance dot product
@@ -53,6 +69,12 @@ export function initPostProcessing(renderer: THREE.WebGPURenderer, scene: THREE.
         // smoothstep-like contrast adjustment or simple centering
         const midPoint = vec3(0.5);
         satColor = satColor.sub(midPoint).mul(uColorContrast).add(midPoint);
+
+        // Vignette
+        const dist = distance(uvNode, vec2(0.5, 0.5));
+        const vig = float(1.0).sub(smoothstep(0.2, 1.0, dist));
+        const vignetteMultiplier = mix(float(1.0), vig, uVignetteStrength);
+        satColor = satColor.mul(vignetteMultiplier);
 
         return satColor;
     });
@@ -78,7 +100,9 @@ export function initPostProcessing(renderer: THREE.WebGPURenderer, scene: THREE.
         uniforms: {
             bloomStrength: uBloomStrength,
             saturation: uColorSaturation,
-            contrast: uColorContrast
+            contrast: uColorContrast,
+            vignetteStrength: uVignetteStrength,
+            aberrationStrength: uAberrationStrength
         }
     };
 }
