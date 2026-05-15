@@ -306,9 +306,7 @@ initWasm().then(async (wasmLoaded) => {
                             mesh.material.dispose();
                         }
                     }
-                }
-            });
-            scene.remove(previewMushroom);
+                });
 
             const idx = animatedFoliage.indexOf(previewMushroom);
             if (idx > -1) animatedFoliage.splice(idx, 1);
