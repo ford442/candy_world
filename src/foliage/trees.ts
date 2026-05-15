@@ -159,6 +159,7 @@ export function createFloweringTree(options: TreeOptions = {}): THREE.Group {
     // ⚡ OPTIMIZATION: Register to Batcher on Placement
     group.userData.onPlacement = () => {
         treeBatcher.register(group, 'floweringTree');
+        group.userData.isBatched = true;
         group.userData.onPlacement = null;
     };
 
@@ -217,6 +218,7 @@ export function createShrub(options: ShrubOptions = {}): THREE.Group {
     // ⚡ OPTIMIZATION: Register to Batcher
     group.userData.onPlacement = () => {
         treeBatcher.register(group, 'shrub');
+        group.userData.isBatched = true;
         group.userData.onPlacement = null;
     };
 
@@ -300,6 +302,7 @@ export function createBubbleWillow(options: BubbleWillowOptions = {}): THREE.Gro
     // ⚡ OPTIMIZATION: Register to Batcher
     group.userData.onPlacement = () => {
         treeBatcher.register(group, 'bubbleWillow');
+        group.userData.isBatched = true;
         group.userData.onPlacement = null;
     };
 
@@ -355,6 +358,7 @@ export function createHelixPlant(options: HelixPlantOptions = {}): THREE.Group {
     // ⚡ OPTIMIZATION: Register to Batcher
     group.userData.onPlacement = () => {
         treeBatcher.register(group, 'helixPlant');
+        group.userData.isBatched = true;
         group.userData.onPlacement = null;
     };
 
@@ -390,6 +394,7 @@ export function createBalloonBush(options: BalloonBushOptions = {}): THREE.Group
     // ⚡ OPTIMIZATION: Register to Batcher
     group.userData.onPlacement = () => {
         treeBatcher.register(group, 'balloonBush');
+        group.userData.isBatched = true;
         group.userData.onPlacement = null;
     };
 
