@@ -34,9 +34,6 @@ import { player, populatePhysicsGrids } from '../systems/physics/index.ts';
 import { animate, initGameLoopDependencies, addCameraShake } from './game-loop.ts';
 import { updateTheme, toggleDayNight, setInputSystem } from './hud.ts';
 import { initDeferredVisuals, initDeferredVisualsDependencies, runDeferredWarmup } from './deferred-init.ts';
-import { initLoadingScreen, updateProgress, hideLoadingScreen } from '../ui/index.ts';
-
-// Loading Screen system
 import { initLoadingScreen, installLegacyAPI } from '../ui/loading-screen.ts';
 
 // Export core objects for use by other modules
@@ -54,8 +51,6 @@ if (oldOverlay) {
 }
 
 // --- Enable Startup Profiler ---
-// The symbol "loadingScreen" was declared twice, causing a TS error. The second one is commented out.
-// const loadingScreen = initLoadingScreen({ debug: false, theme: 'candy' });
 
 enableStartupProfiler({
     slowPhaseThreshold: 100,
@@ -66,10 +61,24 @@ enableStartupProfiler({
 
 // --- Initialization Pipeline ---
 
+/** Maximum milliseconds a single startup phase is allowed to run before being declared failed. */
+const STARTUP_PHASE_TIMEOUT_MS = 10_000;
+
 // Phase 1: Core Scene Setup (Immediate)
 loadingScreen.startPhase('core-scene');
 console.time('Core Scene Setup');
-const { scene, camera, renderer, ambientLight, sunLight, sunGlow, sunCorona, lightShaftGroup, sunGlowMat, coronaMat, uShaftOpacity } = initScene();
+
+let sceneInitResult: ReturnType<typeof initScene>;
+try {
+    sceneInitResult = initScene();
+} catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('[Startup] Core Scene Setup failed:', error);
+    loadingScreen.showFatalError(`Failed to initialize 3D scene.\n${msg}`);
+    throw error; // Halt module execution — showFatalError already updated the UI
+}
+
+const { scene, camera, renderer, ambientLight, sunLight, sunGlow, sunCorona, lightShaftGroup, sunGlowMat, coronaMat, uShaftOpacity } = sceneInitResult;
 loadingScreen.updateProgress(70, 'Initializing post-processing...');
 
 // Initialize Post Processing Pipeline
@@ -215,7 +224,18 @@ window.addEventListener('mousedown', (e) => {
 
 // WASM Init & Game Startup
 loadingScreen.startPhase('wasm-init');
-initWasm().then(async (wasmLoaded) => {
+let wasmInitTimeoutId: ReturnType<typeof setTimeout> | null = null;
+const wasmInitTimeout = new Promise<never>((_, reject) => {
+    wasmInitTimeoutId = setTimeout(
+        () => reject(new Error(`WASM initialization timed out after ${STARTUP_PHASE_TIMEOUT_MS}ms`)),
+        STARTUP_PHASE_TIMEOUT_MS
+    );
+});
+Promise.race([initWasm(), wasmInitTimeout]).then(async (wasmLoaded) => {
+    if (wasmInitTimeoutId !== null) {
+        clearTimeout(wasmInitTimeoutId);
+        wasmInitTimeoutId = null;
+    }
     const wasmInitStart = performance.now();
     console.log(`WASM module ${wasmLoaded ? 'active' : 'using JS fallbacks'}`);
 
@@ -416,4 +436,12 @@ initWasm().then(async (wasmLoaded) => {
         }, 100);
     }, 300);
 
+}).catch((error: unknown) => {
+    if (wasmInitTimeoutId !== null) {
+        clearTimeout(wasmInitTimeoutId);
+        wasmInitTimeoutId = null;
+    }
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('[Startup] WASM/Game-startup phase failed:', error);
+    loadingScreen.showFatalError(`Startup failed during physics engine initialization.\n${msg}`);
 });
