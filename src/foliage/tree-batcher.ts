@@ -26,6 +26,7 @@ import { getCylinderGeometry, getTorusKnotGeometry } from '../utils/geometry-ded
 import { createSugarSparkle } from './index.ts';
 import { uTwilight } from './sky.ts';
 import { CONFIG } from '../core/config.ts';
+import { applyInstanceAnimation, ANIMATION_TYPES } from './animation-nodes.ts';
 
 const _defaultColorWhite = new THREE.Color(0xFFFFFF);
 const _defaultColorOrange = new THREE.Color(0xFF4500);
@@ -81,7 +82,9 @@ export class TreeBatcher {
         const trunkColor = mix(instanceColor.mul(0.6), instanceColor, positionLocal.y);
 
         // Combined Deformation: Interaction + Wind
-        const trunkDeform = applyPlayerInteraction(positionLocal).add(calculateWindSway(positionLocal));
+        const animOffsetTrunk = applyInstanceAnimation();
+        const baseTrunkPos = positionLocal.add(animOffsetTrunk);
+        const trunkDeform = baseTrunkPos.add(applyPlayerInteraction(baseTrunkPos)).add(calculateWindSway(baseTrunkPos)).sub(positionLocal);
 
         // Create Material using CandyPresets.Clay for nice bump/rim
         const trunkMat = CandyPresets.Clay(0x8B4513, {
@@ -95,6 +98,8 @@ export class TreeBatcher {
 
         this.trunks = new THREE.InstancedMesh(sharedGeometries.unitCylinder, trunkMat, this.trunkCapacity);
         this.trunks.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(this.trunkCapacity * 3), 3);
+        this.trunks.geometry.setAttribute('instanceAnimType', new THREE.InstancedBufferAttribute(new Float32Array(this.trunkCapacity), 1));
+        this.trunks.geometry.setAttribute('instanceAnimOffset', new THREE.InstancedBufferAttribute(new Float32Array(this.trunkCapacity), 1));
         this.trunks.castShadow = true;
         this.trunks.receiveShadow = true;
         this.trunks.count = 0;
@@ -122,8 +127,10 @@ export class TreeBatcher {
             float(1.0).add(kickSquash.mul(0.5))  // Z bulge
         );
 
+        const animOffsetSphere = applyInstanceAnimation();
+        const baseSpherePos = positionLocal.add(animOffsetSphere);
         // Base deform (Interaction + Wind)
-        const sphereBaseDeform = applyPlayerInteraction(positionLocal).add(calculateWindSway(positionLocal));
+        const sphereBaseDeform = baseSpherePos.add(applyPlayerInteraction(baseSpherePos)).add(calculateWindSway(baseSpherePos)).sub(positionLocal);
         // Add Flutter
         const sphereFluttered = sphereBaseDeform.add(flutterOffset);
         // Apply Squash (Multiplicative scale)
@@ -165,6 +172,8 @@ export class TreeBatcher {
 
         this.spheres = new THREE.InstancedMesh(sharedGeometries.unitSphere, sphereMat, this.sphereCapacity);
         this.spheres.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(this.sphereCapacity * 3), 3);
+        this.spheres.geometry.setAttribute('instanceAnimType', new THREE.InstancedBufferAttribute(new Float32Array(this.sphereCapacity), 1));
+        this.spheres.geometry.setAttribute('instanceAnimOffset', new THREE.InstancedBufferAttribute(new Float32Array(this.sphereCapacity), 1));
         this.spheres.castShadow = true;
         this.spheres.receiveShadow = true;
         this.spheres.count = 0;
@@ -172,7 +181,9 @@ export class TreeBatcher {
 
         // --- 3. Capsule Batch (Branches) ---
         const capsuleColor = attribute('instanceColor', 'vec3');
-        const capsuleDeform = applyPlayerInteraction(positionLocal).add(calculateWindSway(positionLocal));
+        const animOffsetCapsule = applyInstanceAnimation();
+        const baseCapsulePos = positionLocal.add(animOffsetCapsule);
+        const capsuleDeform = baseCapsulePos.add(applyPlayerInteraction(baseCapsulePos)).add(calculateWindSway(baseCapsulePos)).sub(positionLocal);
 
         const capsuleMat = CandyPresets.Clay(0x8B4513, {
             colorNode: capsuleColor,
@@ -183,6 +194,8 @@ export class TreeBatcher {
 
         this.capsules = new THREE.InstancedMesh(sharedGeometries.capsule, capsuleMat, this.capsuleCapacity);
         this.capsules.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(this.capsuleCapacity * 3), 3);
+        this.capsules.geometry.setAttribute('instanceAnimType', new THREE.InstancedBufferAttribute(new Float32Array(this.capsuleCapacity), 1));
+        this.capsules.geometry.setAttribute('instanceAnimOffset', new THREE.InstancedBufferAttribute(new Float32Array(this.capsuleCapacity), 1));
         this.capsules.castShadow = true;
         this.capsules.receiveShadow = true;
         this.capsules.count = 0;
@@ -198,7 +211,9 @@ export class TreeBatcher {
         const radius = t.mul(0.3).add(sin(uTime.mul(2.0).add(t.mul(10.0))).mul(0.05)); // Breathing radius
 
         const spiralPos = vec3(cos(angle).mul(radius), t, sin(angle).mul(radius));
-        const helixDeform = applyPlayerInteraction(spiralPos).add(calculateWindSway(spiralPos));
+        const animOffsetHelix = applyInstanceAnimation();
+        const baseHelixPos = spiralPos.add(animOffsetHelix);
+        const helixDeform = baseHelixPos.add(applyPlayerInteraction(baseHelixPos)).add(calculateWindSway(baseHelixPos)).sub(spiralPos);
 
         // Emissive Pulse (Scrolling light)
         const pulseSpeed = float(2.0);
@@ -222,6 +237,8 @@ export class TreeBatcher {
 
         this.helices = new THREE.InstancedMesh(helixGeo, helixMat, this.helixCapacity);
         this.helices.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(this.helixCapacity * 3), 3);
+        this.helices.geometry.setAttribute('instanceAnimType', new THREE.InstancedBufferAttribute(new Float32Array(this.helixCapacity), 1));
+        this.helices.geometry.setAttribute('instanceAnimOffset', new THREE.InstancedBufferAttribute(new Float32Array(this.helixCapacity), 1));
         this.helices.castShadow = true;
         this.helices.receiveShadow = true;
         this.helices.count = 0;
@@ -230,7 +247,9 @@ export class TreeBatcher {
         // --- 5. Rose Batch (TorusKnot) ---
         // PALETTE: Velvet/Sugar Look
         const roseColor = attribute('instanceColor', 'vec3');
-        const roseDeform = applyPlayerInteraction(positionLocal).add(calculateWindSway(positionLocal));
+        const animOffsetRose = applyInstanceAnimation();
+        const baseRosePos = positionLocal.add(animOffsetRose);
+        const roseDeform = baseRosePos.add(applyPlayerInteraction(baseRosePos)).add(calculateWindSway(baseRosePos)).sub(positionLocal);
 
         // Use Sugar preset for crystalline/sparkly look
         const roseMat = CandyPresets.Sugar(0xFF69B4, {
@@ -245,6 +264,8 @@ export class TreeBatcher {
         const roseGeo = getTorusKnotGeometry(0.25, 0.08, 64, 8, 2, 3);
         this.roses = new THREE.InstancedMesh(roseGeo, roseMat, this.roseCapacity);
         this.roses.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(this.roseCapacity * 3), 3);
+        this.roses.geometry.setAttribute('instanceAnimType', new THREE.InstancedBufferAttribute(new Float32Array(this.roseCapacity), 1));
+        this.roses.geometry.setAttribute('instanceAnimOffset', new THREE.InstancedBufferAttribute(new Float32Array(this.roseCapacity), 1));
         this.roses.castShadow = true;
         this.roses.receiveShadow = true;
         this.roses.count = 0;
@@ -277,6 +298,20 @@ export class TreeBatcher {
             newMesh.instanceColor = new THREE.InstancedBufferAttribute(newColorArray, 3);
         }
         
+        if (oldMesh.geometry.attributes.instanceAnimType) {
+            const oldAnimTypeArray = oldMesh.geometry.attributes.instanceAnimType.array as Float32Array;
+            const newAnimTypeArray = new Float32Array(this.trunkCapacity);
+            newAnimTypeArray.set(oldAnimTypeArray);
+            newMesh.geometry.setAttribute('instanceAnimType', new THREE.InstancedBufferAttribute(newAnimTypeArray, 1));
+        }
+
+        if (oldMesh.geometry.attributes.instanceAnimOffset) {
+            const oldAnimOffsetArray = oldMesh.geometry.attributes.instanceAnimOffset.array as Float32Array;
+            const newAnimOffsetArray = new Float32Array(this.trunkCapacity);
+            newAnimOffsetArray.set(oldAnimOffsetArray);
+            newMesh.geometry.setAttribute('instanceAnimOffset', new THREE.InstancedBufferAttribute(newAnimOffsetArray, 1));
+        }
+
         newMesh.castShadow = oldMesh.castShadow;
         newMesh.receiveShadow = oldMesh.receiveShadow;
         newMesh.count = oldMesh.count;
@@ -309,6 +344,20 @@ export class TreeBatcher {
             newMesh.instanceColor = new THREE.InstancedBufferAttribute(newColorArray, 3);
         }
         
+        if (oldMesh.geometry.attributes.instanceAnimType) {
+            const oldAnimTypeArray = oldMesh.geometry.attributes.instanceAnimType.array as Float32Array;
+            const newAnimTypeArray = new Float32Array(this.sphereCapacity);
+            newAnimTypeArray.set(oldAnimTypeArray);
+            newMesh.geometry.setAttribute('instanceAnimType', new THREE.InstancedBufferAttribute(newAnimTypeArray, 1));
+        }
+
+        if (oldMesh.geometry.attributes.instanceAnimOffset) {
+            const oldAnimOffsetArray = oldMesh.geometry.attributes.instanceAnimOffset.array as Float32Array;
+            const newAnimOffsetArray = new Float32Array(this.sphereCapacity);
+            newAnimOffsetArray.set(oldAnimOffsetArray);
+            newMesh.geometry.setAttribute('instanceAnimOffset', new THREE.InstancedBufferAttribute(newAnimOffsetArray, 1));
+        }
+
         newMesh.castShadow = oldMesh.castShadow;
         newMesh.receiveShadow = oldMesh.receiveShadow;
         newMesh.count = oldMesh.count;
@@ -340,6 +389,20 @@ export class TreeBatcher {
             newMesh.instanceColor = new THREE.InstancedBufferAttribute(newColorArray, 3);
         }
         
+        if (oldMesh.geometry.attributes.instanceAnimType) {
+            const oldAnimTypeArray = oldMesh.geometry.attributes.instanceAnimType.array as Float32Array;
+            const newAnimTypeArray = new Float32Array(this.capsuleCapacity);
+            newAnimTypeArray.set(oldAnimTypeArray);
+            newMesh.geometry.setAttribute('instanceAnimType', new THREE.InstancedBufferAttribute(newAnimTypeArray, 1));
+        }
+
+        if (oldMesh.geometry.attributes.instanceAnimOffset) {
+            const oldAnimOffsetArray = oldMesh.geometry.attributes.instanceAnimOffset.array as Float32Array;
+            const newAnimOffsetArray = new Float32Array(this.capsuleCapacity);
+            newAnimOffsetArray.set(oldAnimOffsetArray);
+            newMesh.geometry.setAttribute('instanceAnimOffset', new THREE.InstancedBufferAttribute(newAnimOffsetArray, 1));
+        }
+
         newMesh.castShadow = oldMesh.castShadow;
         newMesh.receiveShadow = oldMesh.receiveShadow;
         newMesh.count = oldMesh.count;
@@ -371,6 +434,20 @@ export class TreeBatcher {
             newMesh.instanceColor = new THREE.InstancedBufferAttribute(newColorArray, 3);
         }
         
+        if (oldMesh.geometry.attributes.instanceAnimType) {
+            const oldAnimTypeArray = oldMesh.geometry.attributes.instanceAnimType.array as Float32Array;
+            const newAnimTypeArray = new Float32Array(this.helixCapacity);
+            newAnimTypeArray.set(oldAnimTypeArray);
+            newMesh.geometry.setAttribute('instanceAnimType', new THREE.InstancedBufferAttribute(newAnimTypeArray, 1));
+        }
+
+        if (oldMesh.geometry.attributes.instanceAnimOffset) {
+            const oldAnimOffsetArray = oldMesh.geometry.attributes.instanceAnimOffset.array as Float32Array;
+            const newAnimOffsetArray = new Float32Array(this.helixCapacity);
+            newAnimOffsetArray.set(oldAnimOffsetArray);
+            newMesh.geometry.setAttribute('instanceAnimOffset', new THREE.InstancedBufferAttribute(newAnimOffsetArray, 1));
+        }
+
         newMesh.castShadow = oldMesh.castShadow;
         newMesh.receiveShadow = oldMesh.receiveShadow;
         newMesh.count = oldMesh.count;
@@ -402,6 +479,20 @@ export class TreeBatcher {
             newMesh.instanceColor = new THREE.InstancedBufferAttribute(newColorArray, 3);
         }
         
+        if (oldMesh.geometry.attributes.instanceAnimType) {
+            const oldAnimTypeArray = oldMesh.geometry.attributes.instanceAnimType.array as Float32Array;
+            const newAnimTypeArray = new Float32Array(this.roseCapacity);
+            newAnimTypeArray.set(oldAnimTypeArray);
+            newMesh.geometry.setAttribute('instanceAnimType', new THREE.InstancedBufferAttribute(newAnimTypeArray, 1));
+        }
+
+        if (oldMesh.geometry.attributes.instanceAnimOffset) {
+            const oldAnimOffsetArray = oldMesh.geometry.attributes.instanceAnimOffset.array as Float32Array;
+            const newAnimOffsetArray = new Float32Array(this.roseCapacity);
+            newAnimOffsetArray.set(oldAnimOffsetArray);
+            newMesh.geometry.setAttribute('instanceAnimOffset', new THREE.InstancedBufferAttribute(newAnimOffsetArray, 1));
+        }
+
         newMesh.castShadow = oldMesh.castShadow;
         newMesh.receiveShadow = oldMesh.receiveShadow;
         newMesh.count = oldMesh.count;
@@ -418,18 +509,38 @@ export class TreeBatcher {
         if (!this.initialized) this.init();
         group.updateMatrixWorld(true);
 
+        let animTypeEnum = ANIMATION_TYPES.STATIC;
+        const typeStr = group.userData.animationType;
+        if (typeStr === 'gentleSway') animTypeEnum = ANIMATION_TYPES.GENTLE_SWAY;
+        else if (typeStr === 'bounce' || (Array.isArray(typeStr) && typeStr.indexOf('bounce') !== -1)) animTypeEnum = ANIMATION_TYPES.BOUNCE;
+        else if (typeStr === 'shiver' || (Array.isArray(typeStr) && typeStr.indexOf('shiver') !== -1)) animTypeEnum = ANIMATION_TYPES.SHIVER;
+        else if (typeStr === 'spring' || (Array.isArray(typeStr) && typeStr.indexOf('spring') !== -1)) animTypeEnum = ANIMATION_TYPES.SPRING;
+        else if (typeStr === 'vineSway' || (Array.isArray(typeStr) && typeStr.indexOf('vineSway') !== -1)) animTypeEnum = ANIMATION_TYPES.VINE_SWAY;
+        else if (typeStr === 'hop' || (Array.isArray(typeStr) && typeStr.indexOf('hop') !== -1)) animTypeEnum = ANIMATION_TYPES.HOP;
+        else if (typeStr === 'wobble' || (Array.isArray(typeStr) && typeStr.indexOf('wobble') !== -1)) animTypeEnum = ANIMATION_TYPES.WOBBLE;
+        else if (typeStr === 'accordion' || (Array.isArray(typeStr) && typeStr.indexOf('accordion') !== -1)) animTypeEnum = ANIMATION_TYPES.ACCORDION;
+        else if (typeStr === 'accordionStretch') animTypeEnum = ANIMATION_TYPES.ACCORDION_STRETCH;
+        else if (typeStr === 'spiralWave' || (Array.isArray(typeStr) && typeStr.indexOf('spiralWave') !== -1)) animTypeEnum = ANIMATION_TYPES.SPIRAL_WAVE;
+        else if (typeStr === 'fiberWhip') animTypeEnum = ANIMATION_TYPES.FIBER_WHIP;
+
+        group.userData._animTypeEnum = animTypeEnum;
+        group.userData._animOffset = group.userData.animationOffset || 0;
+
+        if (!this.initialized) this.init();
+        group.updateMatrixWorld(true);
+
         if (type === 'bubbleWillow' || type === 'willow') {
-            this.registerBubbleWillow(group);
+            this.registerBubbleWillow(group, group.userData._animTypeEnum, group.userData._animOffset);
         } else if (type === 'balloonBush' || type === 'shrub') {
-            this.registerBalloonBush(group);
+            this.registerBalloonBush(group, group.userData._animTypeEnum, group.userData._animOffset);
         } else if (type === 'helixPlant' || type === 'helix') {
-            this.registerHelixPlant(group);
+            this.registerHelixPlant(group, group.userData._animTypeEnum, group.userData._animOffset);
         } else if (type === 'tree' || type === 'floweringTree' || type === 'prismRoseBush') {
-            this.registerFloweringTree(group);
+            this.registerFloweringTree(group, group.userData._animTypeEnum, group.userData._animOffset);
         }
     }
 
-    private addInstance(mesh: THREE.InstancedMesh, matrix: THREE.Matrix4, color: THREE.Color, countProp: 'trunkCount' | 'sphereCount' | 'capsuleCount' | 'helixCount' | 'roseCount') {
+    private addInstance(mesh: THREE.InstancedMesh, matrix: THREE.Matrix4, color: THREE.Color, countProp: 'trunkCount' | 'sphereCount' | 'capsuleCount' | 'helixCount' | 'roseCount', animType: number = 0, animOffset: number = 0) {
         let index = 0;
 
         switch (countProp) {
@@ -468,6 +579,11 @@ export class TreeBatcher {
         matrix.toArray(mesh.instanceMatrix.array, index * 16);
         mesh.setColorAt(index, color);
 
+        const typeAttr = mesh.geometry.attributes.instanceAnimType as THREE.InstancedBufferAttribute;
+        const offsetAttr = mesh.geometry.attributes.instanceAnimOffset as THREE.InstancedBufferAttribute;
+        if (typeAttr) { typeAttr.setX(index, animType); typeAttr.needsUpdate = true; }
+        if (offsetAttr) { offsetAttr.setX(index, animOffset); offsetAttr.needsUpdate = true; }
+
         // Update count
         switch (countProp) {
             case 'trunkCount': this.trunkCount++; mesh.count = this.trunkCount; break;
@@ -481,7 +597,7 @@ export class TreeBatcher {
         if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
     }
 
-    private registerBubbleWillow(group: THREE.Group) {
+    private registerBubbleWillow(group: THREE.Group, animType: number, animOffset: number) {
         group.traverse(child => {
             if ((child as THREE.Mesh).isMesh) {
                 const mesh = child as THREE.Mesh;
@@ -490,17 +606,17 @@ export class TreeBatcher {
                 const col = mat.color || _defaultColorWhite;
 
                 if (mesh.geometry.type === 'CylinderGeometry') {
-                     this.addInstance(this.trunks, mesh.matrixWorld, col, 'trunkCount');
+                     this.addInstance(this.trunks, mesh.matrixWorld, col, 'trunkCount', animType, animOffset);
                      mesh.visible = false;
                 } else if (mesh.geometry.type === 'CapsuleGeometry') {
-                     this.addInstance(this.capsules, mesh.matrixWorld, col, 'capsuleCount');
+                     this.addInstance(this.capsules, mesh.matrixWorld, col, 'capsuleCount', animType, animOffset);
                      mesh.visible = false;
                 }
             }
         });
     }
 
-    private registerBalloonBush(group: THREE.Group) {
+    private registerBalloonBush(group: THREE.Group, animType: number, animOffset: number) {
         group.traverse(child => {
             if ((child as THREE.Mesh).isMesh) {
                 const mesh = child as THREE.Mesh;
@@ -509,14 +625,14 @@ export class TreeBatcher {
                 const col = mat.color || _defaultColorOrange;
 
                 if (mesh.geometry.type === 'SphereGeometry') {
-                    this.addInstance(this.spheres, mesh.matrixWorld, col, 'sphereCount');
+                    this.addInstance(this.spheres, mesh.matrixWorld, col, 'sphereCount', animType, animOffset);
                     mesh.visible = false;
                 }
             }
         });
     }
 
-    private registerHelixPlant(group: THREE.Group) {
+    private registerHelixPlant(group: THREE.Group, animType: number, animOffset: number) {
         group.traverse(child => {
             if ((child as THREE.Mesh).isMesh) {
                 const mesh = child as THREE.Mesh;
@@ -525,17 +641,17 @@ export class TreeBatcher {
                 const col = mat.color || _defaultColorGreen;
 
                 if (mesh.geometry.type === 'TubeGeometry') {
-                    this.addInstance(this.helices, mesh.matrixWorld, col, 'helixCount');
+                    this.addInstance(this.helices, mesh.matrixWorld, col, 'helixCount', animType, animOffset);
                     mesh.visible = false;
                 } else if (mesh.geometry.type === 'SphereGeometry') {
-                    this.addInstance(this.spheres, mesh.matrixWorld, col, 'sphereCount');
+                    this.addInstance(this.spheres, mesh.matrixWorld, col, 'sphereCount', animType, animOffset);
                     mesh.visible = false;
                 }
             }
         });
     }
 
-    private registerFloweringTree(group: THREE.Group) {
+    private registerFloweringTree(group: THREE.Group, animType: number, animOffset: number) {
         group.traverse(child => {
             if ((child as THREE.Mesh).isMesh) {
                 const mesh = child as THREE.Mesh;
@@ -544,11 +660,11 @@ export class TreeBatcher {
                 const col = mat.color || _defaultColorWhite;
 
                 if (mesh.geometry.type === 'CylinderGeometry') {
-                    this.addInstance(this.trunks, mesh.matrixWorld, col, 'trunkCount');
+                    this.addInstance(this.trunks, mesh.matrixWorld, col, 'trunkCount', animType, animOffset);
                 } else if (mesh.geometry.type === 'SphereGeometry') {
-                    this.addInstance(this.spheres, mesh.matrixWorld, col, 'sphereCount');
+                    this.addInstance(this.spheres, mesh.matrixWorld, col, 'sphereCount', animType, animOffset);
                 } else if (mesh.geometry.type === 'TorusKnotGeometry') {
-                    this.addInstance(this.roses, mesh.matrixWorld, col, 'roseCount');
+                    this.addInstance(this.roses, mesh.matrixWorld, col, 'roseCount', animType, animOffset);
                 }
                 mesh.visible = false;
             }

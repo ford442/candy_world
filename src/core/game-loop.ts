@@ -76,6 +76,7 @@ import { keyStates } from './input/index.js';
 import {
     updateHUD,
     getLastIsNight,
+
     setLastIsNight,
     getIsNight,
     setIsNight,
