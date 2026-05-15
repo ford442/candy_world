@@ -290,14 +290,14 @@ initWasm().then(async (wasmLoaded) => {
             setTimeout(async () => {
                 try {
                 scene.remove(previewMushroom);
-                previewMushroom.traverse((child: THREE.Object3D) => {
+                previewMushroom.traverse((child) => {
                     const mesh = child as THREE.Mesh;
                     if (mesh.geometry) mesh.geometry.dispose();
                     if (mesh.material) {
                         if (Array.isArray(mesh.material)) {
-                            mesh.material.forEach((m: THREE.Material) => m.dispose());
+                            mesh.material.forEach(m => m.dispose());
                         } else {
-                            (mesh.material as THREE.Material).dispose();
+                            mesh.material.dispose();
                         }
                     }
                 });
