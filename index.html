@@ -528,27 +528,24 @@
         }
     </style>
     
-    <script type="importmap">
-        {
-            "imports": {
-                "three": "./node_modules/three/build/three.module.js",
-                "three/webgpu": "./node_modules/three/build/three.webgpu.js",
-                "three/tsl": "./node_modules/three/build/three.tsl.js",
-                "three/examples/jsm/": "./node_modules/three/examples/jsm/"
-            }
-        }
-    </script>
-
     <script>
-        // Use a Promise to notify the app when libopenmpt is ready
+        // Use a Promise to notify the app when libopenmpt is ready.
+        // libopenmpt.js is a wasm2js build — all WASM code is compiled to asm.js,
+        // so no separate .wasm file is fetched. We intercept instantiateWasm to
+        // prevent the fallback fetch(undefined) → 404 path from ever running.
         window.libopenmptReady = new Promise(resolve => {
             window.libopenmpt = {
                 // Limit memory to 32MB to prevent "Array buffer allocation failed"
-                // The library file has been patched to handle this Number without BigInt errors.
-                INITIAL_MEMORY: 33554432, 
-                
+                INITIAL_MEMORY: 33554432,
+
+                // wasm2js: short-circuit the WASM instantiation path so no external
+                // fetch is attempted. The asmFunc (asm.js) takes over automatically.
+                instantiateWasm: function(imports, successCallback) {
+                    return {};
+                },
+
                 onRuntimeInitialized: function () {
-                    console.log('libopenmpt runtime initialized via local script.');
+                    console.log('[libopenmpt] Runtime initialized (wasm2js mode).');
                     resolve(this);
                 }
             };
