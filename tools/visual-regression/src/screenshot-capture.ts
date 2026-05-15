@@ -299,9 +299,31 @@ export class ScreenshotCapture {
       return document.querySelector('#candy-loading-overlay.loaded') !== null || !document.getElementById('candy-loading-overlay') || (window as any).__sceneReady === true || (window as any).__visualRegression !== undefined;
     }, { timeout: 120000 });
 
-    if (await this.page.locator('#startButton').first().isDisabled() === false) {
-        await this.page.locator('#startButton').first().click();
+    const startBtn = this.page.locator('#startButton').first();
+
+    // The button might not exist or may disappear if auto-start finishes instantly
+    try {
+        await startBtn.waitFor({ state: 'visible', timeout: 30000 });
+
+        // Wait for it to become enabled (if generation is slow)
+        await this.page.waitForFunction(() => {
+            const btn = document.getElementById('startButton');
+            return btn && !btn.disabled && btn.getAttribute('aria-busy') !== 'true';
+        }, { timeout: 120000 });
+
+        // Ensure overlay is hidden
+        await this.page.waitForFunction(() => {
+            const overlay = document.getElementById('candy-loading-overlay');
+            return !overlay || overlay.style.display === 'none' || !overlay.classList.contains('visible');
+        }, { timeout: 120000 });
+
+        if (await startBtn.isDisabled() === false) {
+            await startBtn.click();
+        }
+    } catch (e) {
+        console.log('Skipping start button click (timeout or already entered world)');
     }
+
 
     await this.page.waitForTimeout(1000);
 
