@@ -293,17 +293,18 @@ initWasm().then(async (wasmLoaded) => {
             startButton.innerHTML = '<span class="spinner" aria-hidden="true"></span>Generating... <span aria-hidden="true">🍭</span>';
 
             // Defer execution slightly to let the UI update
-            await new Promise(resolve => setTimeout(resolve, 50));
-
-            // ⚡ OPTIMIZATION: Ensure full disposal before removing from scene to prevent VRAM leak.
-            previewMushroom.traverse((child: THREE.Object3D) => {
-                const mesh = child as THREE.Mesh;
-                if (mesh.geometry) mesh.geometry.dispose();
-                if (mesh.material) {
-                    if (Array.isArray(mesh.material)) {
-                        mesh.material.forEach((m: THREE.Material) => m.dispose());
-                    } else {
-                        (mesh.material as THREE.Material).dispose();
+            setTimeout(async () => {
+                try {
+                scene.remove(previewMushroom);
+                previewMushroom.traverse((child: THREE.Object3D) => {
+                    const mesh = child as THREE.Mesh;
+                    if (mesh.geometry) mesh.geometry.dispose();
+                    if (mesh.material) {
+                        if (Array.isArray(mesh.material)) {
+                            mesh.material.forEach((m: THREE.Material) => m.dispose());
+                        } else {
+                            (mesh.material as THREE.Material).dispose();
+                        }
                     }
                 }
             });
@@ -366,6 +367,18 @@ initWasm().then(async (wasmLoaded) => {
                 showToast("Click to explore! Press [ESC] for Controls", "🎮", 4000);
             });
 
+                // Note: The pointer lock will happen automatically via input system
+                } catch (err) {
+                    console.error('[Init] World generation failed:', err);
+                    loadingScreen.hide();
+                    startButton.disabled = false;
+                    startButton.setAttribute('aria-disabled', 'false');
+                    startButton.setAttribute('aria-busy', 'false');
+                    startButton.removeAttribute('title');
+                    startButton.style.background = '';
+                    startButton.innerHTML = 'Retry';
+                }
+            }, 50);
             worldGenerated = true;
             isGenerating = false;
 
