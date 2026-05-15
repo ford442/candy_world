@@ -195,6 +195,9 @@ export function initInput(
                 setTimeout(() => {
                     if (instructions && instructions.style.display !== 'none') {
                         releasePauseMenuFocus = trapFocusInside(instructions);
+                        if (startButton) {
+                            startButton.focus();
+                        }
                     }
                 }, 200);
             }
@@ -205,7 +208,6 @@ export function initInput(
 
             if (startButton) {
                 startButton.innerHTML = 'Resume Exploration <span aria-hidden="true">🚀</span> <span class="key-badge" aria-hidden="true">Enter</span>';
-                requestAnimationFrame(() => startButton.focus());
             }
         }
     });
@@ -275,12 +277,14 @@ export function initInput(
                     setTimeout(() => {
                         if (instructions && instructions.style.display !== 'none') {
                             releasePauseMenuFocus = trapFocusInside(instructions);
+                            if (startButton) {
+                                startButton.focus();
+                            }
                         }
                     }, 200);
                 }
                 if (startButton) {
                     startButton.innerHTML = 'Resume Exploration <span aria-hidden="true">🚀</span> <span class="key-badge" aria-hidden="true">Enter</span>';
-                    startButton.focus();
                 }
                 return;
             }
