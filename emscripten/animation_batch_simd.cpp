@@ -465,8 +465,75 @@ void batchRetrigger_simd(float* input, int count, float time, float retriggerSpe
     }
 }
 
-// End of extern "C" block - closing the namespace
-}
+EMSCRIPTEN_KEEPALIVE
+void batchVineSway_simd(float* input, int count, float time, float intensity, float* output) {
+    int i = 0;
+    int count4 = count & ~3;
 
+    v128_t v_time = wasm_f32x4_splat(time);
+    v128_t v_intensity = wasm_f32x4_splat(intensity);
+    v128_t v_base_amp = wasm_f32x4_splat(0.1f);
+    v128_t v_amp_mult = wasm_f32x4_splat(0.2f);
+    v128_t v_z_speed = wasm_f32x4_splat(3.0f);
+    v128_t v_x_speed = wasm_f32x4_splat(2.5f);
+    v128_t v_x_amp = wasm_f32x4_splat(0.05f);
+    v128_t v_branch_mult = wasm_f32x4_splat(0.3f);
+    v128_t v_amp = wasm_f32x4_add(v_base_amp, wasm_f32x4_mul(v_intensity, v_amp_mult));
+
+    for (; i < count4; i += 4) {
+        float off0 = input[(i+0) * ENTRY_STRIDE];
+        float off1 = input[(i+1) * ENTRY_STRIDE];
+        float off2 = input[(i+2) * ENTRY_STRIDE];
+        float off3 = input[(i+3) * ENTRY_STRIDE];
+        v128_t v_off = wasm_f32x4_make(off0, off1, off2, off3);
+
+        float bi0 = input[(i+0) * ENTRY_STRIDE + 4];
+        float bi1 = input[(i+1) * ENTRY_STRIDE + 4];
+        float bi2 = input[(i+2) * ENTRY_STRIDE + 4];
+        float bi3 = input[(i+3) * ENTRY_STRIDE + 4];
+        v128_t v_branchIdx = wasm_f32x4_make(bi0, bi1, bi2, bi3);
+
+        v128_t v_cascade = wasm_f32x4_mul(v_branchIdx, v_branch_mult);
+        v128_t v_zArg = wasm_f32x4_add(wasm_f32x4_add(wasm_f32x4_mul(v_time, v_z_speed), v_off), v_cascade);
+        v128_t v_rotZ = wasm_f32x4_mul(fast_sin_simd(v_zArg), v_amp);
+
+        v128_t v_xArg = wasm_f32x4_add(wasm_f32x4_mul(v_time, v_x_speed), v_off);
+        v128_t v_rotX = wasm_f32x4_mul(fast_sin_simd(v_xArg), wasm_f32x4_mul(v_x_amp, v_intensity));
+
+        output[(i+0) * RESULT_STRIDE + 0] = wasm_f32x4_extract_lane(v_rotX, 0);
+        output[(i+0) * RESULT_STRIDE + 1] = 0.0f;
+        output[(i+0) * RESULT_STRIDE + 2] = wasm_f32x4_extract_lane(v_rotZ, 0);
+        output[(i+0) * RESULT_STRIDE + 3] = 0.0f;
+
+        output[(i+1) * RESULT_STRIDE + 0] = wasm_f32x4_extract_lane(v_rotX, 1);
+        output[(i+1) * RESULT_STRIDE + 1] = 0.0f;
+        output[(i+1) * RESULT_STRIDE + 2] = wasm_f32x4_extract_lane(v_rotZ, 1);
+        output[(i+1) * RESULT_STRIDE + 3] = 0.0f;
+
+        output[(i+2) * RESULT_STRIDE + 0] = wasm_f32x4_extract_lane(v_rotX, 2);
+        output[(i+2) * RESULT_STRIDE + 1] = 0.0f;
+        output[(i+2) * RESULT_STRIDE + 2] = wasm_f32x4_extract_lane(v_rotZ, 2);
+        output[(i+2) * RESULT_STRIDE + 3] = 0.0f;
+
+        output[(i+3) * RESULT_STRIDE + 0] = wasm_f32x4_extract_lane(v_rotX, 3);
+        output[(i+3) * RESULT_STRIDE + 1] = 0.0f;
+        output[(i+3) * RESULT_STRIDE + 2] = wasm_f32x4_extract_lane(v_rotZ, 3);
+        output[(i+3) * RESULT_STRIDE + 3] = 0.0f;
+    }
+
+    for (; i < count; i++) {
+        int inBase = i * ENTRY_STRIDE;
+        int outBase = i * RESULT_STRIDE;
+        float offset = input[inBase];
+        float branchIdx = input[inBase + 4];
+        float amp = 0.1f + intensity * 0.2f;
+        float rotZ = sinf(time * 3.0f + offset + branchIdx * 0.3f) * amp;
+        float rotX = sinf(time * 2.5f + offset) * 0.05f * intensity;
+        output[outBase]     = rotX;
+        output[outBase + 1] = 0.0f;
+        output[outBase + 2] = rotZ;
+        output[outBase + 3] = 0.0f;
+    }
+}
 
 }
