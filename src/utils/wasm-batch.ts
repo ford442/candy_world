@@ -918,9 +918,16 @@ export function batchGroundHeightSimd(positions: Float32Array): Float32Array {
         return output;
     }
     
-    // JS fallback using FBM
+    // JS fallback — inline getGroundHeight formula (NOT fbm)
     for (let i = 0; i < count; i++) {
-        output[i] = fbm2DJS(positions[i * 2], positions[i * 2 + 1], 4);
+        const x = positions[i * 2];
+        const z = positions[i * 2 + 1];
+        if (isNaN(x) || isNaN(z)) {
+            output[i] = 0;
+            continue;
+        }
+        output[i] = Math.sin(x * 0.05) * 2 + Math.cos(z * 0.05) * 2 +
+                    Math.sin(x * 0.2) * 0.3 + Math.cos(z * 0.15) * 0.3;
     }
     return output;
 }

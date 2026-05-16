@@ -381,6 +381,12 @@ export interface WasmExports {
     free?: (ptr: number) => void;
     __free?: (ptr: number) => void;
     batchDistanceCull?: (cameraX: number, cameraY: number, cameraZ: number, maxDistSq: number, objectCount: number) => number;
+    // Hot-path Physics exports (from assembly/physics.ts)
+    batchGroundHeight?: (positionsPtr: number, count: number, outputPtr: number) => void;
+    dampVelocity?: (velocityPtr: number, count: number, damping: number) => void;
+    batchDistanceCalc?: (positionsPtr: number, count: number, camX: number, camY: number, camZ: number, outputPtr: number) => void;
+    batchFrustumTest?: (positionsPtr: number, count: number, frustumPlanesPtr: number, outputPtr: number) => number;
+    batchLODSelect?: (distancesPtr: number, count: number, lodThresholdsPtr: number, outputPtr: number) => number;
     analyzeMaterials?: (offset: number, count: number) => number;
     getUniqueShaderCount?: () => number;
     batchAnimationCalc?: (time: number, intensity: number, kick: number, objectCount: number) => void;
@@ -520,6 +526,13 @@ try {
     wasmAddCollisionObject = exports.addCollisionObject || null;
     wasmResolveGameCollisions = exports.resolveGameCollisions || null;
     wasmCheckPositionValidity = exports.checkPositionValidity || null;
+
+    // Hot-path Physics exports (Migrated from TS)
+    wasmBatchGroundHeight = exports.batchGroundHeight || null;
+    wasmDampVelocity = exports.dampVelocity || null;
+    wasmBatchDistanceCalc = exports.batchDistanceCalc || null;
+    wasmBatchFrustumTest = exports.batchFrustumTest || null;
+    wasmBatchLODSelect = exports.batchLODSelect || null;
 
     // Math functions from assembly/math.ts
     wasmHslToRgb = exports.hslToRgb || null;
