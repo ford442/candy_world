@@ -12,6 +12,14 @@
 
 extern "C" {
 
+// Forward declarations for functions defined in animation_batch_simd.cpp
+void batchShiver_simd(float* input, int count, float time, float intensity, float* output);
+void batchSpring_simd(float* input, int count, float time, float intensity, float* output);
+void batchFloat_simd(float* input, int count, float time, float intensity, float* output);
+void batchCloudBob_simd(float* input, int count, float time, float intensity, float* output);
+void batchVineSway_simd(float* input, int count, float time, float intensity, float* output);
+void batchRetrigger_simd(float* input, int count, float time, float retriggerSpeed, float intensity, float* output);
+
 EMSCRIPTEN_KEEPALIVE
 void batchSpiritFade_c(float* input, int count, float time, float volume, float delta, float* output) {
     constexpr float threshold = 0.1f;
@@ -220,12 +228,5 @@ void processBatchUniversal_c(
             break;
     }
 }
-
-// =============================================================================
-// NEW: Simple Animation Types Migration (Agent 1)
-// Migrated from animation.ts lines 377-430
-// =============================================================================
-
-EMSCRIPTEN_KEEPALIVE
 
 }

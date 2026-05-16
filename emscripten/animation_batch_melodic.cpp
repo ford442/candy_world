@@ -102,8 +102,6 @@ void batchFiberWhip_c(float* input, int count, float time, float leadVol, int is
 }
 
 EMSCRIPTEN_KEEPALIVE
-
-EMSCRIPTEN_KEEPALIVE
 void batchSpiralWave_c(float* input, int count, float time, float intensity, float groove, float* output) {
     int i = 0;
     int count4 = count & ~3;
@@ -437,3 +435,5 @@ void batchPanningBob_c(float* input, int count, float time, float panActivity, f
     }
 }
 
+
+}

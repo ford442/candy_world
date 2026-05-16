@@ -237,18 +237,6 @@ player.position.copy(camera.position);
 player.velocity.set(0, 0, 0);
 console.log(`[Startup] Camera positioned at ground height: y=${camera.position.y.toFixed(2)}`);
 
-// --- DEFERRED WORLD CONTENT (loads in background after loop starts) ---
-function startDeferredWorldLoading() {
-    initDeferredWorldContent(scene, weatherSystem, (pct, label) => {
-        // Real progress logged; could wire to a subtle in-world indicator
-        if (pct % 25 === 0 || pct === 100) {
-            console.log(`[Deferred World] ${pct}%: ${label}`);
-        }
-    }).catch(err => {
-        console.error('[World] Deferred content failed:', err);
-    });
-}
-
 // --- SHADER WARMUP (before loop starts to prevent first-frame stutter) ---
 (async function warmupAndStartLoop() {
     loadingScreen.startPhase('shader-warmup');
@@ -270,30 +258,7 @@ function startDeferredWorldLoading() {
     try { (window as any).__sceneReady = true; } catch (e) { }
 
     loadingScreen.hide();
-
-    // Begin streaming heavy world content
-    startDeferredWorldLoading();
 })();
-
-// --- DEFERRED VISUAL LOADER (requestIdleCallback-based) ---
-// Replaces the old setTimeout(() => initDeferredVisuals(), 300) with a
-// prioritized loader that respects frame budgets via requestIdleCallback.
-const deferredVisualLoader = new DeferredLoader({ batchSize: 1, useIdleCallback: true, idleTimeout: 100 });
-
-deferredVisualLoader.add(LoadPriority.HIGH, 'deferredVisuals', () => {
-    console.log('[Deferred] Loading celestial bodies and aurora...');
-    startPhase('Deferred Visuals Init');
-    initDeferredVisuals();
-    endPhase('Deferred Visuals Init');
-});
-
-deferredVisualLoader.add(LoadPriority.LOW, 'startupProfile', () => {
-    finalizeStartupProfile();
-});
-
-deferredVisualLoader.on('complete', ({ loaded }) => {
-    console.log(`[DeferredLoader] All ${loaded} visual elements loaded`);
-});
 
 // --- BACKGROUND: Optional Emscripten C++ module (non-blocking) ---
 // The JS fallbacks are already active; Emscripten just adds native performance.

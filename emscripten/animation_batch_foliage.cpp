@@ -377,19 +377,4 @@ void batchVineSway_simd(float* input, int count, float time, float intensity, fl
     }
 }
 
-/**
- * @brief Batch Geyser Erupt (SIMD + OpenMP)
- * 
- * Geyser eruption effect with parallel processing for many particles.
- * Simulates explosive upward motion with gravity and particle spread.
- * 
- * Math: velocityY = kick * (1.0 + random * 0.5)
- *       posY = posY + velocityY * deltaTime
- *       velocityY = velocityY - gravity * deltaTime
- *       scale = 1.0 - (time * decayRate)
- * 
- * Uses OpenMP for parallel processing of large particle counts.
- */
-EMSCRIPTEN_KEEPALIVE
-
 }
