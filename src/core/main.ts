@@ -452,13 +452,3 @@ deferredVisualLoader.on('complete', ({ loaded }) => {
 setTimeout(() => {
     deferredVisualLoader.start();
 }, 400);
-
-// --- WASM (completely non-blocking) ---
-initWasm().then(() => {
-    console.log('[WASM] Emscripten loaded in background');
-    fluidSystem.init();
-    recordWASMInit(performance.now(), true, true);
-}).catch(err => {
-    console.warn('[WASM] Emscripten failed, using JS fallbacks:', err);
-    recordWASMInit(performance.now(), false, false);
-});

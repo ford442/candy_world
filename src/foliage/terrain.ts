@@ -69,9 +69,9 @@ export function createTerrainMaterial(
 
     // Static Normal Map
     if (normalMap) {
-        // Read normal from texture (RGB)
+        // Read normal from texture (RGBA HalfFloat)
+        // Values are stored as direct -1..1 float components (HalfFloat preserves this range).
         const normalTexNode = texture(normalMap, uv());
-        // Normal textures are typically mapped 0-1, but our generator outputs -1 to 1 directly since we use FloatType
         material.normalNode = normalTexNode.rgb;
     }
 

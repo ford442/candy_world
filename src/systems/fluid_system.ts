@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { DataUtils } from 'three';
 import {
     fluidInit, fluidStep, fluidAddDensity, fluidAddVelocity, getFluidDensityView
 } from '../utils/wasm-loader.js';
@@ -7,15 +8,17 @@ import { VisualState } from '../audio/audio-system.ts';
 export class FluidSystem {
     private size: number = 128;
     public texture: THREE.DataTexture;
+    private textureData: Uint16Array;
     private densityView: Float32Array | null = null;
     private initialized: boolean = false;
 
     constructor() {
         // Create initial texture (black)
-        // RedFormat means 1 float per pixel
-        const data = new Float32Array(this.size * this.size);
+        // RedFormat + HalfFloatType (r16float): filterable in WebGPU without any device extensions,
+        // which avoids the 'textureLoad(texture_2d, vec2)' WGSL error caused by r32float textures.
+        this.textureData = new Uint16Array(this.size * this.size);
         this.texture = new THREE.DataTexture(
-            data, this.size, this.size, THREE.RedFormat, THREE.FloatType
+            this.textureData, this.size, this.size, THREE.RedFormat, THREE.HalfFloatType
         );
         this.texture.magFilter = THREE.LinearFilter;
         this.texture.minFilter = THREE.LinearFilter;
@@ -82,12 +85,13 @@ export class FluidSystem {
         fluidStep(dt, 0.00001, 0.00001);
 
         // --- Update Texture ---
-        // Copy WASM memory to Texture buffer
+        // Copy WASM memory to Texture buffer, converting float32 → float16.
         // Note: densityView is a view into the WASM heap.
-        // texture.image.data is a separate Float32Array in JS heap.
-        // We must copy.
+        // textureData is a Uint16Array holding half-float values.
         if (this.densityView) {
-            this.texture.image.data.set(this.densityView);
+            for (let i = 0; i < this.densityView.length; i++) {
+                this.textureData[i] = DataUtils.toHalfFloat(this.densityView[i]);
+            }
             this.texture.needsUpdate = true;
         }
     }
