@@ -3,7 +3,7 @@
 import { updateProgress } from '../ui/index.ts';
 import { createIntegratedFireflies, createIntegratedPollen, createIntegratedSparks, registerIntegratedSystem } from '../particles/index.ts';
 import * as THREE from 'three';
-import { getGroundHeight, initCollisionSystem, addCollisionObject, checkPositionValidity } from '../utils/wasm-loader.js';
+import { getGroundHeight, getGroundHeightBatch, initCollisionSystem, addCollisionObject, checkPositionValidity } from '../utils/wasm-loader.js';
 import {
     createSky, createStars, createMoon, createMushroom, createGlowingFlower,
     createFlower, createSubwooferLotus, createAccordionPalm, createFiberOpticWillow,
@@ -72,7 +72,7 @@ interface WeatherSystem {
 }
 
 // --- Lake Configuration (Mirrored in Physics.js) ---
-const LAKE_BOUNDS = { minX: -38, maxX: 78, minZ: -28, maxZ: 68 };
+const LAKE_BOUNDS = { minX: -38, maxX: 78, minZ: -28, maxZ: 68, maxDepth: 2.0, blendDistance: 10.0 };
 const LAKE_BOTTOM = -2.0;
 
 // --- Lake Island Configuration ---
@@ -146,7 +146,7 @@ function getUnifiedGroundHeight(x: number, z: number): number {
 
 // --- Scene Setup ---
 
-export function initWorld(scene: THREE.Scene, weatherSystem: WeatherSystem, loadContent: boolean = true): WorldObjects {
+export function initWorldCritical(scene: THREE.Scene, weatherSystem: WeatherSystem): WorldObjects {
     // 0. Pre-flight Check
     validateFoliageMaterials(foliageMaterials);
 
@@ -167,13 +167,57 @@ export function initWorld(scene: THREE.Scene, weatherSystem: WeatherSystem, load
     const groundGeo = new THREE.PlaneGeometry(400, 400, 128, 128);
     const posAttribute = groundGeo.attributes.position;
 
-    for (let i = 0; i < posAttribute.count; i++) {
-        const x = posAttribute.getX(i);
-        const y = posAttribute.getY(i); // Plane is on XY
-        const zWorld = -y;
+    // Extract interleaved positions for batched WASM call
+    const vertexCount = posAttribute.count;
+    const positions2D = new Float32Array(vertexCount * 2);
 
-        // Use the Unified Height that accounts for the Lake
-        const height = getUnifiedGroundHeight(x, zWorld);
+    for (let i = 0; i < vertexCount; i++) {
+        positions2D[i * 2] = posAttribute.getX(i);
+        positions2D[i * 2 + 1] = -posAttribute.getY(i); // Plane is on XY, zWorld = -y
+    }
+
+    // Batch query WASM for ground height
+    const heights = getGroundHeightBatch(positions2D);
+
+    // Apply unified height modifications (e.g. lake) back to vertices
+    for (let i = 0; i < vertexCount; i++) {
+        const x = positions2D[i * 2];
+        const zWorld = positions2D[i * 2 + 1];
+
+        // Base ground height from WASM batch
+        let height = heights[i];
+
+        // Apply Lake / Island modifiers (matching getUnifiedGroundHeight logic)
+        if (x > LAKE_BOUNDS.minX && x < LAKE_BOUNDS.maxX && zWorld > LAKE_BOUNDS.minZ && zWorld < LAKE_BOUNDS.maxZ) {
+            const distX = Math.min(x - LAKE_BOUNDS.minX, LAKE_BOUNDS.maxX - x);
+            const distZ = Math.min(zWorld - LAKE_BOUNDS.minZ, LAKE_BOUNDS.maxZ - zWorld);
+            const distEdge = Math.min(distX, distZ);
+
+            if (LAKE_ISLAND.enabled) {
+                const dx = x - LAKE_ISLAND.centerX;
+                const dz = zWorld - LAKE_ISLAND.centerZ;
+                const distFromIslandCenter = Math.sqrt(dx * dx + dz * dz);
+
+                if (distFromIslandCenter < LAKE_ISLAND.radius) {
+                    const normalizedDist = distFromIslandCenter / LAKE_ISLAND.radius;
+                    const islandHeight = LAKE_ISLAND.peakHeight * Math.cos(normalizedDist * Math.PI / 2);
+                    height = Math.max(height, islandHeight);
+                } else {
+                    const depth = LAKE_BOUNDS.maxDepth;
+                    const edgeBlend = Math.min(1.0, distEdge / LAKE_BOUNDS.blendDistance);
+                    const smoothBlend = edgeBlend * edgeBlend * (3 - 2 * edgeBlend);
+                    const targetHeight = height - depth;
+                    height = height * (1 - smoothBlend) + targetHeight * smoothBlend;
+                }
+            } else {
+                const depth = LAKE_BOUNDS.maxDepth;
+                const edgeBlend = Math.min(1.0, distEdge / LAKE_BOUNDS.blendDistance);
+                const smoothBlend = edgeBlend * edgeBlend * (3 - 2 * edgeBlend);
+                const targetHeight = height - depth;
+                height = height * (1 - smoothBlend) + targetHeight * smoothBlend;
+            }
+        }
+
         posAttribute.setZ(i, height);
     }
 
@@ -192,69 +236,81 @@ export function initWorld(scene: THREE.Scene, weatherSystem: WeatherSystem, load
     scene.add(ground);
 
     // 2. Update fog colour for compact world.
-    // scene.fogNode (set in init.ts) drives actual WebGPU rendering via TSL rangeFog.
-    // Keep scene.fog as THREE.Fog (not FogExp2) so WeatherSystem's stale reference
-    // stays valid and renderer code never has to read FogExp2.density.
     const fogColor = new THREE.Color(CONFIG.colors.fog || 0xFFC5D3);
     if (scene.fog instanceof THREE.Fog) {
-        scene.fog.color.set(fogColor);
+        scene.fog.color = fogColor;
+        scene.fog.near = 10;
+        scene.fog.far = 120; // ⚡ PERFORMANCE: Bring fog much closer to aggressively cull
     }
     scene.background = fogColor;
 
-    // Initialize Vegetation Systems
-    initGrassSystem(scene, 10000);
-    scene.add(createIntegratedFireflies({ count: 150, areaSize: 100, useCompute: true }));
+    return { sky, moon, ground };
+}
 
-    // Procedural Cloud Layer (Background)
-    generateCloudLayer(scene);
+export function initWorldContent(scene: THREE.Scene, weatherSystem: WeatherSystem, loadContent: boolean = true): void {
+    // 3. Ambient Systems
 
-    // Melody Lake (Waveform Water)
-    // Lake is at 20, 1.5, 20 with width 120, depth 100
-    const melodyLake = createWaveformWater(120, 100);
-    melodyLake.position.set(20, 1.5, 20); 
-    scene.add(melodyLake);
+    // Fireflies / Magic Dust (Using Integrated Compute Shaders if available)
+    const fireflies = createIntegratedFireflies({ count: 2000, areaSize: 50, useCompute: true });
+    scene.add(fireflies);
+
+    // Register compute systems with WeatherSystem to update uniform time
+    if ((fireflies as any).userData?.computeParticleSystem) {
+        registerIntegratedSystem('ambient_fireflies', fireflies, (fireflies as any).userData.computeParticleSystem);
+    }
+
+    // Clouds
+    const cloudCount = 12; // Modest amount of clouds
+    for (let i = 0; i < cloudCount; i++) {
+        const cx = (Math.random() - 0.5) * 150;
+        const cz = (Math.random() - 0.5) * 150;
+        const cy = 20 + Math.random() * 15;
+        const cloudGroup = createRainingCloud();
+        cloudGroup.position.set(cx, cy, cz);
+        scene.add(cloudGroup);
+        // We use safeAddFoliage to animate them later, though they are in scene directly too.
+        safeAddFoliage(cloudGroup, false, 0, null);
+    }
+
+    // Replace ProceduralSky with generateCloudLayer for more stylized clouds
+    const cloudLayer = generateCloudLayer(scene);
+    // scene.add(cloudLayer);
+
+    // 4. Ground Cover (Grass & Weeds)
+    const grassResult = initGrassSystem(scene);
+    for (const mesh of grassResult) { scene.add(mesh); }
 
 
-    // Lake Island
-    const island = createIsland({ radius: 15, height: 2 });
-    island.position.set(-40, 2.5, 40); // Place in the lake
-    island.userData.type = 'lake_island';
-    safeAddFoliage(island, true, 15, weatherSystem);
-
-    // Add Luminous Plants around Lake Island
-    const luminousCount = CONFIG.luminousPlants.density; // Increased count
-    for (let i = 0; i < luminousCount; i++) {
-        const angle = Math.random() * Math.PI * 2;
-        // Gentle radius falloff: more dense near edge (10-25), tapering out to 35
-        // Using a square-root or quadratic distribution helps achieve this
-        const randDist = Math.pow(Math.random(), 2.0); // more values near 0
-        const dist = 10 + randDist * 25; // 10 to 35
-
-        const lx = -40 + Math.cos(angle) * dist;
-        const lz = 40 + Math.sin(angle) * dist;
-        const ly = getUnifiedGroundHeight(lx, lz);
-
-        // Quick biome check to avoid candy cane forest (let's say candy cane is where x > 0)
-        // If x > 0, we'll just skip (assume biome boundary)
-        if (lx > -10) continue;
-
-        // Add a small height bias: prefer elevated ground
-        // Don't spawn directly in water (y < 2.0) and favor y between 2.0 and 5.0
-        if (ly > 2.0 && ly < 8.0) {
-            const plant = createLuminousPlant({ scale: 0.8 + Math.random() * 0.6 });
-            plant.position.set(lx, ly, lz);
-            plant.rotation.y = Math.random() * Math.PI * 2;
-            safeAddFoliage(plant, false, 0, weatherSystem);
+    // Fast random generation for ground cover
+    const grassCount = (CONFIG as any).grass?.density || 10000;
+    const groundSize = 200;
+    for (let i = 0; i < grassCount; i++) {
+        const gx = (Math.random() - 0.5) * groundSize;
+        const gz = (Math.random() - 0.5) * groundSize;
+        // Don't place grass in the lake
+        if (!(gx > LAKE_BOUNDS.minX && gx < LAKE_BOUNDS.maxX && gz > LAKE_BOUNDS.minZ && gz < LAKE_BOUNDS.maxZ)) {
+             const gy = getUnifiedGroundHeight(gx, gz);
+             // 10% chance of being a weed
+             const isWeed = Math.random() < 0.1;
+             addGrassInstance(gx, gy, gz);
         }
     }
 
+    // Add Waveform Water Lake
+    const lake = createWaveformWater(
+LAKE_BOUNDS.maxX - LAKE_BOUNDS.minX, LAKE_BOUNDS.maxZ - LAKE_BOUNDS.minZ);
 
-    // Falling Berries
+    // Position lake at center of bounds
+    const lakeCX = (LAKE_BOUNDS.minX + LAKE_BOUNDS.maxX) / 2;
+    const lakeCZ = (LAKE_BOUNDS.minZ + LAKE_BOUNDS.maxZ) / 2;
+    lake.position.set(lakeCX, LAKE_BOTTOM + LAKE_BOUNDS.maxDepth, lakeCZ);
+    scene.add(lake);
+
+    // Set up global falling berries instance
     initFallingBerries(scene);
 
     // Add the luminous plant batcher to the scene
     scene.add(luminousPlantBatcher.mesh);
-
 
     // Add the main world group (containing all generated foliage) to the scene
     scene.add(worldGroup);
@@ -267,8 +323,6 @@ export function initWorld(scene: THREE.Scene, weatherSystem: WeatherSystem, load
             console.error('[World] Failed to generate map:', err);
         });
     }
-
-    return { sky, moon, ground };
 }
 
 export function safeAddFoliage(

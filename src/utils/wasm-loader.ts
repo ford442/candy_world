@@ -219,6 +219,7 @@ export {
     
     // Simple math functions
     getGroundHeight,
+    getGroundHeightBatch,
     freqToHue,
     lerp,
     // New math functions

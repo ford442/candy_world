@@ -12,6 +12,7 @@
 
 import * as THREE from 'three';
 import { 
+    cppBatchGroundHeightSimd,
     wasmInstance,
     wasmMemory,
     wasmInitDynamicFoliageMemory,
@@ -553,6 +554,65 @@ export function hash(x: number, y: number): number {
  * @param z - Z coordinate
  * @returns Height value
  */
+
+/**
+ * Batched ground height calculation
+ * @param positions - Interleaved array of [x, z, x, z, ...]
+ * @returns Array of height values corresponding to each x, z pair
+ */
+export function getGroundHeightBatch(positions: Float32Array): Float32Array {
+    if (!cppBatchGroundHeightSimd || !wasmInstance || !wasmMemory) {
+        // Fallback to scalar JS loop
+        const result = new Float32Array(positions.length / 2);
+        for (let i = 0; i < result.length; i++) {
+            result[i] = getGroundHeight(positions[i * 2], positions[i * 2 + 1]);
+        }
+        return result;
+    }
+
+    const count = positions.length / 2;
+    const byteLength = positions.byteLength;
+    const outByteLength = count * 4; // 4 bytes per float
+
+    // Allocate memory
+    const malloc = wasmInstance.exports.malloc as (size: number) => number;
+    const free = wasmInstance.exports.free as (ptr: number) => void;
+
+    const posPtr = malloc(byteLength);
+    const outPtr = malloc(outByteLength);
+
+    if (!posPtr || !outPtr) {
+        if (posPtr) free(posPtr);
+        if (outPtr) free(outPtr);
+        console.warn('Failed to allocate WASM memory for batched ground height');
+
+        // Fallback
+        const result = new Float32Array(count);
+        for (let i = 0; i < count; i++) {
+            result[i] = getGroundHeight(positions[i * 2], positions[i * 2 + 1]);
+        }
+        return result;
+    }
+
+    try {
+        // Copy positions to WASM memory
+        const memory = new Float32Array(wasmMemory!.buffer);
+        memory.set(positions, posPtr / 4);
+
+        // Execute batch calculation
+        cppBatchGroundHeightSimd!(posPtr, count, outPtr);
+
+        // Read results
+        const result = new Float32Array(count);
+        result.set(new Float32Array(wasmMemory!.buffer, outPtr, count));
+
+        return result;
+    } finally {
+        free(posPtr);
+        free(outPtr);
+    }
+}
+
 export function getGroundHeight(x: number, z: number): number {
     if (wasmGetGroundHeight) return wasmGetGroundHeight(x, z);
     if (isNaN(x) || isNaN(z)) return 0;
