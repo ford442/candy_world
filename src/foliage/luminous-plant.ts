@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { luminousPlantBatcher } from './luminous-plant-batcher.ts';
+import { LuminousPlantBatcher } from './luminous-plant-batcher.ts';
 import { attachReactivity } from './index.ts';
 
 export interface LuminousPlantOptions {
@@ -17,7 +17,7 @@ export function createLuminousPlant(options: LuminousPlantOptions = {}): THREE.G
 
     // Register with batcher for rendering
     group.userData.onPlacement = () => {
-        luminousPlantBatcher.register(group);
+        LuminousPlantBatcher.getInstance().register(group);
         group.userData.onPlacement = null;
     };
 

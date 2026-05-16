@@ -295,7 +295,6 @@ export class BerryBatcher {
     }
 }
 
-export const berryBatcher = BerryBatcher.getInstance();
 
 
 /**
@@ -374,7 +373,7 @@ export function createBerryCluster(options: BerryClusterOptions = {}): THREE.Gro
     const group = new THREE.Group();
 
     // Register with Batcher
-    berryBatcher.register(group, options);
+    BerryBatcher.getInstance().register(group, options);
 
     // Store metadata
     group.userData.isBerry = true;
@@ -524,7 +523,7 @@ export function shakeBerriesLoose(cluster: THREE.Group, intensity: number): void
     // Use Batcher helper to find positions
     for (let i = 0; i < count; i++) {
         if (Math.random() < intensity * 0.02) {
-            berryBatcher.getBerryWorldPosition(cluster, i, _scratchWorldPos);
+            BerryBatcher.getInstance().getBerryWorldPosition(cluster, i, _scratchWorldPos);
             spawnFallingBerry(_scratchWorldPos, cluster.userData.berryColor || 0xFF6600);
         }
     }

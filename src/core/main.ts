@@ -4,7 +4,7 @@
 import * as THREE from 'three';
 import '../../style.css';
 import { validateNodeGeometries } from '../foliage/index.ts';
-import { createMushroom } from '../foliage/mushrooms.ts';
+
 import { InteractionSystem } from '../systems/interaction.ts';
 import { musicReactivitySystem } from '../systems/music-reactivity.ts';
 import { fluidSystem } from '../systems/fluid_system.ts';
@@ -25,7 +25,7 @@ import { initInput, keyStates } from './input/index.ts';
 import { initPostProcessing } from '../foliage/post-processing.ts';
 
 // World & System imports
-import { initWorld, generateMap, DEFAULT_MAP_CHUNK_SIZE } from '../world/generation.ts';
+import { initCriticalWorld, initDeferredWorldContent, initWorld, initWorldCritical, initWorldContent, generateMap, DEFAULT_MAP_CHUNK_SIZE } from '../world/generation.ts';
 import { animatedFoliage, interactiveObjects } from '../world/state.ts';
 import { fireRainbow } from '../gameplay/rainbow-blaster.ts';
 import { player, populatePhysicsGrids } from '../systems/physics/index.ts';
@@ -36,6 +36,7 @@ import { updateTheme, toggleDayNight, setInputSystem } from './hud.ts';
 import { initDeferredVisuals, initDeferredVisualsDependencies, runDeferredWarmup } from './deferred-init.ts';
 import { globalBackgroundProcessor } from '../utils/background-processor.ts';
 import { showDeferredIndicator, hideDeferredIndicator } from '../ui/index.ts';
+import { DeferredLoader, LoadPriority } from '../systems/deferred-loader.ts';
 import { initLoadingScreen, installLegacyAPI } from '../ui/loading-screen.ts';
 
 // Export core objects for use by other modules
@@ -63,8 +64,7 @@ enableStartupProfiler({
 
 // --- Initialization Pipeline ---
 
-/** Maximum milliseconds a single startup phase is allowed to run before being declared failed. */
-const STARTUP_PHASE_TIMEOUT_MS = 10_000;
+
 
 // Phase 1: Core Scene Setup (Immediate)
 loadingScreen.startPhase('core-scene');
@@ -107,10 +107,10 @@ loadingScreen.completePhase('audio-init');
 // Phase 3: World Generation (Critical Path)
 loadingScreen.startPhase('world-generation');
 console.time('World Generation');
-loadingScreen.updateProgress(10, 'Loading world map...');
+loadingScreen.updateProgress(10, 'Loading critical world...');
 
 // CHANGE: Load only the base world (sky/ground) initially, defer content
-const { moon } = initWorld(scene, weatherSystem, false);
+const { moon } = initWorldCritical(scene, weatherSystem);
 console.timeEnd('World Generation');
 loadingScreen.updateProgress(100, 'Base world ready');
 loadingScreen.completePhase('world-generation');
@@ -134,7 +134,12 @@ if (audioSystem.onNote) {
 }
 
 // Validate node material geometries to avoid TSL attribute errors
-validateNodeGeometries(scene);
+// DEFERRED: This full-scene traversal is expensive. Run it during idle time.
+if ('requestIdleCallback' in window) {
+    requestIdleCallback(() => validateNodeGeometries(scene), { timeout: 3000 });
+} else {
+    setTimeout(() => validateNodeGeometries(scene), 100);
+}
 
 // Time offset for day/night cycle (shared with game-loop)
 const timeOffset = { value: 0 };
@@ -224,99 +229,111 @@ window.addEventListener('mousedown', (e) => {
     }
 });
 
-// WASM Init & Game Startup
-loadingScreen.startPhase('wasm-init');
-let wasmInitTimeoutId: ReturnType<typeof setTimeout> | null = null;
-const wasmInitTimeout = new Promise<never>((_, reject) => {
-    wasmInitTimeoutId = setTimeout(
-        () => reject(new Error(`WASM initialization timed out after ${STARTUP_PHASE_TIMEOUT_MS}ms`)),
-        STARTUP_PHASE_TIMEOUT_MS
-    );
-});
-Promise.race([initWasm(), wasmInitTimeout]).then(async (wasmLoaded) => {
-    if (wasmInitTimeoutId !== null) {
-        clearTimeout(wasmInitTimeoutId);
-        wasmInitTimeoutId = null;
-    }
-    const wasmInitStart = performance.now();
-    console.log(`WASM module ${wasmLoaded ? 'active' : 'using JS fallbacks'}`);
+// --- IMMEDIATE: Position player (AS WASM already loaded via TLA) ---
+const initialGroundY = getUnifiedGroundHeightTyped(camera.position.x, camera.position.z, getGroundHeight);
+camera.position.y = initialGroundY + 1.8;
+// ⚡ FIX: Sync player explicitly to prevent a massive camera swoop frame 1
+player.position.copy(camera.position);
+player.velocity.set(0, 0, 0);
+console.log(`[Startup] Camera positioned at ground height: y=${camera.position.y.toFixed(2)}`);
 
-    // Initialize C++ Fluid System (Phase 3)
-    loadingScreen.updateProgress(40, 'Initializing fluid system...');
-    fluidSystem.init();
+// --- DEFERRED WORLD CONTENT (loads in background after loop starts) ---
+function startDeferredWorldLoading() {
+    initDeferredWorldContent(scene, weatherSystem, (pct, label) => {
+        // Real progress logged; could wire to a subtle in-world indicator
+        if (pct % 25 === 0 || pct === 100) {
+            console.log(`[Deferred World] ${pct}%: ${label}`);
+        }
+    }).catch(err => {
+        console.error('[World] Deferred content failed:', err);
+    });
+}
 
-    // Record WASM initialization metrics
-    recordWASMInit(wasmInitStart, true, wasmLoaded);
-
-    // Use unified ground height for proper spawn positioning (accounts for lake carving)
-    loadingScreen.updateProgress(70, 'Positioning player...');
-    const initialGroundY = getUnifiedGroundHeightTyped(camera.position.x, camera.position.z, getGroundHeight);
-    camera.position.y = initialGroundY + 1.8;
-    // ⚡ FIX: Sync player explicitly to prevent a massive camera swoop frame 1
-    player.position.copy(camera.position);
-    player.velocity.set(0, 0, 0);
-    console.log(`[Startup] Camera positioned at ground height: y=${camera.position.y.toFixed(2)}`);
-
-    loadingScreen.updateProgress(100, 'Physics engine ready');
-    loadingScreen.completePhase('wasm-init');
-
-    // --- CRITICAL: Start Game Loop IMMEDIATELY (Before heavy compile) ---
+// --- SHADER WARMUP (before loop starts to prevent first-frame stutter) ---
+(async function warmupAndStartLoop() {
     loadingScreen.startPhase('shader-warmup');
-    loadingScreen.updateProgress(30, 'Starting render loop...');
-    renderer.setAnimationLoop(animate);
-    try { (window as any).__sceneReady = true; } catch (e) { }
-
+    loadingScreen.updateProgress(30, 'Pre-compiling shaders...');
+    try {
+        await renderer.compileAsync(scene, camera);
+        await forceFullSceneWarmup(renderer, scene, camera);
+        console.log('[Startup] Shaders pre-compiled');
+    } catch (e) {
+        console.warn('[Startup] Shader warmup error (non-fatal):', e);
+    }
     loadingScreen.updateProgress(100, 'Scene ready!');
     loadingScreen.completePhase('shader-warmup');
 
-    // Hide loading screen - the basic scene is ready
-    loadingScreen.onComplete(() => {
-        try { (window as any).__sceneReady = true; } catch (e) { }
-    });
+    // Start game loop NOW — player can move immediately
+    renderer.setAnimationLoop(animate);
+    try { (window as any).__sceneReady = true; } catch (e) { }
+
     loadingScreen.hide();
 
-    try { (window as any).__sceneReady = true; } catch (e) { }
+    // Begin streaming heavy world content
+    startDeferredWorldLoading();
+})();
 
-    // Create a temporary "Preview" mushroom for the startup scene
-    const previewMushroom = createMushroom({ size: 'giant', scale: 1.5, hasFace: true, isBouncy: true });
-    previewMushroom.position.set(0, getUnifiedGroundHeightTyped(0, -10, getGroundHeight), -10);
-    previewMushroom.rotation.y = Math.PI / 8;
-    scene.add(previewMushroom);
-    animatedFoliage.push(previewMushroom);
-    // ⚡ OPTIMIZATION: Preview mushroom has interactionText set by createMushroom
-    if (previewMushroom.userData.interactionText || previewMushroom.userData.onInteract) {
-        interactiveObjects.push(previewMushroom);
-    }
+// --- DEFERRED VISUAL LOADER (requestIdleCallback-based) ---
+// Replaces the old setTimeout(() => initDeferredVisuals(), 300) with a
+// prioritized loader that respects frame budgets via requestIdleCallback.
+const deferredVisualLoader = new DeferredLoader({ batchSize: 1, useIdleCallback: true, idleTimeout: 100 });
 
-    const startButton = document.getElementById('startButton') as HTMLButtonElement | null;
-    // Force setting __sceneReady for VRT when button activates
-    try { (window as any).__sceneReady = true; } catch (e) { }
-    if (startButton) {
-        startButton.disabled = false;
-        startButton.setAttribute('aria-disabled', 'false');
-        startButton.setAttribute('aria-busy', 'false');
-        startButton.removeAttribute('title');
-        startButton.innerHTML = 'Enter World <span aria-hidden="true">🍭</span> <span class="key-badge" aria-hidden="true">Enter</span>';
+deferredVisualLoader.add(LoadPriority.HIGH, 'deferredVisuals', () => {
+    console.log('[Deferred] Loading celestial bodies and aurora...');
+    startPhase('Deferred Visuals Init');
+    initDeferredVisuals();
+    endPhase('Deferred Visuals Init');
+});
 
-        // --- AUTO-START: generate the full world immediately without requiring a click ---
-        let worldGenerated = false;
-        let isGenerating = false;
+deferredVisualLoader.add(LoadPriority.LOW, 'startupProfile', () => {
+    finalizeStartupProfile();
+});
 
-        async function enterWorld() {
-            if (isGenerating || !startButton) return;
-            isGenerating = true;
+deferredVisualLoader.on('complete', ({ loaded }) => {
+    console.log(`[DeferredLoader] All ${loaded} visual elements loaded`);
+});
 
-            console.log('[Startup] Entering world...');
+// --- BACKGROUND: Optional Emscripten C++ module (non-blocking) ---
+// The JS fallbacks are already active; Emscripten just adds native performance.
+initWasm().then(() => {
+    console.log('[WASM] Emscripten loaded in background');
+    fluidSystem.init();
+    recordWASMInit(performance.now(), true, true);
+}).catch(err => {
+    console.warn('[WASM] Emscripten failed, using JS fallbacks:', err);
+    recordWASMInit(performance.now(), false, false);
+});
 
-            // UX: Show loading state immediately to prevent "freeze" feeling
-            startButton.disabled = true;
-            startButton.setAttribute('aria-disabled', 'true');
-            startButton.setAttribute('title', 'Generating world...');
-            startButton.innerHTML = '<span class="spinner" aria-hidden="true"></span>Generating... <span aria-hidden="true">🍭</span>';
+// --- START BUTTON + MAP GENERATION (unchanged UX) ---
+const startButton = document.getElementById('startButton') as HTMLButtonElement | null;
 
-            // Defer execution slightly to let the UI update
-            setTimeout(async () => {
-                try {
+if (startButton) {
+    startButton.disabled = false;
+    startButton.setAttribute('aria-disabled', 'false');
+    startButton.setAttribute('aria-busy', 'false');
+    startButton.removeAttribute('title');
+    startButton.innerHTML = 'Enter World <span aria-hidden="true">🍭</span> <span class="key-badge" aria-hidden="true">Enter</span>';
+
+    let worldGenerated = false;
+    let isGenerating = false;
+
+    async function enterWorld() {
+        if (isGenerating || !startButton || worldGenerated) return;
+
+        isGenerating = true;
+        console.log('[Startup] Entering world...');
+
+        // Immediate UI feedback
+        startButton.disabled = true;
+        startButton.setAttribute('aria-disabled', 'true');
+        startButton.setAttribute('aria-busy', 'true');
+        startButton.innerHTML = '<span class="spinner" aria-hidden="true"></span>Generating... <span aria-hidden="true">🍭</span>';
+
+        await new Promise(resolve => setTimeout(resolve, 30)); // let UI paint
+
+        try {
+            // Clean up preview mushroom if it exists
+            if (typeof previewMushroom !== 'undefined' && previewMushroom) {
                 scene.remove(previewMushroom);
                 previewMushroom.traverse((child) => {
                     const mesh = child as THREE.Mesh;
@@ -329,31 +346,29 @@ Promise.race([initWasm(), wasmInitTimeout]).then(async (wasmLoaded) => {
                         }
                     }
                 });
+            scene.remove(previewMushroom);
 
-            const idx = animatedFoliage.indexOf(previewMushroom);
-            if (idx > -1) animatedFoliage.splice(idx, 1);
+                const idx = animatedFoliage.indexOf(previewMushroom);
+                if (idx > -1) animatedFoliage.splice(idx, 1);
 
-            const intIdx = interactiveObjects.indexOf(previewMushroom);
-            if (intIdx > -1) interactiveObjects.splice(intIdx, 1);
+                const intIdx = interactiveObjects.indexOf(previewMushroom);
+                if (intIdx > -1) interactiveObjects.splice(intIdx, 1);
+            }
 
-            // Show loading screen for map generation phase
             loadingScreen.show();
             loadingScreen.startPhase('map-generation');
             loadingScreen.updateProgress(0, 'Generating world map...');
 
-            // Use async map generation with progress updates
-            // 🎨 Palette: Throttle announcements to prevent SR spam
             let lastAnnounced = -1;
-            startButton.setAttribute('aria-busy', 'true');
-
             startPhase('Map Generation');
+
             await generateMap(weatherSystem, DEFAULT_MAP_CHUNK_SIZE, (current, total) => {
                 const percent = Math.floor((current / total) * 100);
                 loadingScreen.updateProgress(percent, `Generating critical world elements... ${percent}%`);
                 startButton.style.background = `linear-gradient(90deg, #FF6B6B ${percent}%, #FFB6C1 ${percent}%)`;
 
                 if (percent - lastAnnounced >= 10 || percent === 100) {
-                    startButton.innerHTML = `<span class="spinner" aria-hidden="true"></span>Generating ${percent}%... <span aria-hidden="true">🍭</span>`;
+                    startButton.innerHTML = `<span class="spinner" aria-hidden="true"></span>Generating ${percent}%... 🍭`;
                     lastAnnounced = percent;
                 }
             });
@@ -422,27 +437,29 @@ Promise.race([initWasm(), wasmInitTimeout]).then(async (wasmLoaded) => {
                 }
             }, 50);
             worldGenerated = true;
-            isGenerating = false;
 
-            // CRITICAL: Re-enable the button so that "Resume" works later (and checks in input.js pass)
+            // Button now becomes "Regenerate"
+            startButton.innerHTML = 'Regenerate World <span aria-hidden="true">🍭</span> <span class="key-badge" aria-hidden="true">Enter</span>';
+
+        } catch (err) {
+            console.error('[Init] World generation failed:', err);
+            loadingScreen.hide();
+            startButton.innerHTML = 'Retry';
+        } finally {
+            isGenerating = false;
             startButton.disabled = false;
             startButton.setAttribute('aria-disabled', 'false');
             startButton.setAttribute('aria-busy', 'false');
-            startButton.removeAttribute('title');
-            startButton.style.background = ''; // Reset style
-            startButton.innerHTML = 'Regenerate World <span aria-hidden="true">🍭</span> <span class="key-badge" aria-hidden="true">Enter</span>';
+            startButton.style.background = '';
         }
-
-        // Auto-start world generation immediately so the player isn't stuck at a blank screen
-        enterWorld();
-
-        // Keep the button usable for future regeneration or resume
-        startButton.addEventListener('click', () => {
-            if (!worldGenerated && !isGenerating) {
-                enterWorld();
-            }
-        });
     }
+
+    startButton.addEventListener('click', enterWorld);
+}
+
+// --- DEFERRED NUCLEAR WARMUP ---
+// Delay this by 2 seconds to let the browser breathe after initial load
+runDeferredWarmup(scene, camera, renderer);
 
     // Deferred setup is now handled entirely via the Background Processor inside enterWorld().
 
@@ -455,3 +472,7 @@ Promise.race([initWasm(), wasmInitTimeout]).then(async (wasmLoaded) => {
     console.error('[Startup] WASM/Game-startup phase failed:', error);
     loadingScreen.showFatalError(`Startup failed during physics engine initialization.\n${msg}`);
 });
+// Start deferred visual loading after a short delay so the first frames can breathe
+setTimeout(() => {
+    deferredVisualLoader.start();
+}, 300);

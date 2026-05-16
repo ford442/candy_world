@@ -304,13 +304,14 @@ export class ShaderWarmup {
       }
 
       if (material instanceof MeshStandardNodeMaterial) {
-        scene.children.forEach(child => {
+        for (let i = scene.children.length - 1; i >= 0; i--) {
+          const child = scene.children[i];
           if (child instanceof THREE.Light) {
-             // ⚡ OPTIMIZATION: Dispose temporary warmup lights to prevent VRAM leaks.
+             // ⚡ OPTIMIZATION: Dispose temporary warmup lights to prevent VRAM leaks. Iterate backwards to safely remove from array.
              child.dispose();
              scene.remove(child);
           }
-        });
+        }
       }
       
       this.warmedMaterials.add(name);
