@@ -112,3 +112,5 @@ All optimizations are documented in:
 - This file - Quick reference
 
 Happy exploring in Candy World! 🍬🌈
+
+- **GPU Heightmap Terrain Displacement**: Ground geometry generation relied on looping over all vertices (~16k) sequentially in JS and invoking WASM math functions per vertex, leading to a massive CPU stall (~80-200ms) during world init. Implemented a zero-allocation DataTexture + TSL vertex shader displacement path behind `CONFIG.terrain.useGpuHeightmap`, moving heavy math evaluation off the CPU and into the WebGPU vertex shader.

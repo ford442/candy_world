@@ -14,7 +14,7 @@ import { WeatherMusicTargets } from '../music-reactivity.ts';
 
 import { uTwilight } from '../../foliage/sky.ts';
 import { updateCaveWaterLevel } from '../../foliage/cave.ts';
-import { berryBatcher } from '../../foliage/berries.ts';
+import { BerryBatcher } from '../../foliage/berries.ts';
 import { triggerGrowth } from '../../foliage/animation.ts';
 import { waterfallBatcher } from '../../foliage/waterfall-batcher.ts';
 
@@ -335,7 +335,7 @@ export class WeatherSystem {
         this.ecosystemManager.updateMushroomWaterfalls(time, bassIntensity, this.state, this.intensity, this.trackedMushrooms, this.mushroomWaterfalls);
 
         // Update BerryBatcher
-        berryBatcher.update(time, audioData);
+        BerryBatcher.getInstance().update(time, audioData);
 
         // Intensity transition
         this.intensity += (this.targetIntensity - this.intensity) * this.transitionSpeed;

@@ -21,12 +21,12 @@ import { glitchGrenadeSystem } from '../systems/glitch-grenade.ts';
 // Core imports
 import { CONFIG } from './config.ts';
 import { initScene, forceFullSceneWarmup } from './init.js';
-import { initInput, keyStates } from './input/index.js';
+import { initInput, keyStates } from './input/index.ts';
 import { initPostProcessing } from '../foliage/post-processing.ts';
 
 // World & System imports
-import { initCriticalWorld, initDeferredWorldContent, generateMap, DEFAULT_MAP_CHUNK_SIZE } from '../world/generation.ts';
-
+import { initCriticalWorld, initDeferredWorldContent, initWorld, initWorldCritical, initWorldContent, generateMap, DEFAULT_MAP_CHUNK_SIZE } from '../world/generation.ts';
+import { animatedFoliage, interactiveObjects } from '../world/state.ts';
 import { fireRainbow } from '../gameplay/rainbow-blaster.ts';
 import { player, populatePhysicsGrids } from '../systems/physics/index.ts';
 
@@ -34,6 +34,8 @@ import { player, populatePhysicsGrids } from '../systems/physics/index.ts';
 import { animate, initGameLoopDependencies, addCameraShake } from './game-loop.ts';
 import { updateTheme, toggleDayNight, setInputSystem } from './hud.ts';
 import { initDeferredVisuals, initDeferredVisualsDependencies, runDeferredWarmup } from './deferred-init.ts';
+import { globalBackgroundProcessor } from '../utils/background-processor.ts';
+import { showDeferredIndicator, hideDeferredIndicator } from '../ui/index.ts';
 import { DeferredLoader, LoadPriority } from '../systems/deferred-loader.ts';
 import { initLoadingScreen, installLegacyAPI } from '../ui/loading-screen.ts';
 
@@ -107,8 +109,8 @@ loadingScreen.startPhase('world-generation');
 console.time('World Generation');
 loadingScreen.updateProgress(10, 'Loading critical world...');
 
-// CHANGE: Only load the critical world (sky, ground, moon). Heavy content deferred.
-const { moon } = initCriticalWorld(scene, weatherSystem);
+// CHANGE: Load only the base world (sky/ground) initially, defer content
+const { moon } = initWorldCritical(scene, weatherSystem);
 console.timeEnd('World Generation');
 loadingScreen.updateProgress(100, 'Base world ready');
 loadingScreen.completePhase('world-generation');
@@ -306,6 +308,7 @@ initWasm().then(() => {
 
 // --- START BUTTON + MAP GENERATION (unchanged UX) ---
 const startButton = document.getElementById('startButton') as HTMLButtonElement | null;
+
 if (startButton) {
     startButton.disabled = false;
     startButton.setAttribute('aria-disabled', 'false');
@@ -321,20 +324,40 @@ if (startButton) {
     }
 
     async function enterWorld() {
-        if (isGenerating || !startButton) return;
-        isGenerating = true;
+        if (isGenerating || !startButton || worldGenerated) return;
 
+        isGenerating = true;
         console.log('[Startup] Entering world...');
 
+        // Immediate UI feedback
         startButton.disabled = true;
         startButton.setAttribute('aria-disabled', 'true');
         startButton.setAttribute('aria-busy', 'true');
         startButton.setAttribute('title', 'Generating world...');
         startButton.innerHTML = '<span class="spinner" aria-hidden="true"></span>Generating... <span aria-hidden="true">🍭</span>';
 
+        await yieldFrame(); // Let the spinner paint
+
         try {
-            // Let the spinner paint before kicking off heavy work
-            await yieldFrame();
+            // Clean up preview mushroom if it exists (from optimize branch)
+            if (typeof previewMushroom !== 'undefined' && previewMushroom) {
+                scene.remove(previewMushroom);
+                previewMushroom.traverse((child) => {
+                    const mesh = child as THREE.Mesh;
+                    if (mesh.geometry) mesh.geometry.dispose();
+                    if (mesh.material) {
+                        if (Array.isArray(mesh.material)) {
+                            mesh.material.forEach(m => m.dispose());
+                        } else {
+                            mesh.material.dispose();
+                        }
+                    }
+                });
+                const idx = animatedFoliage.indexOf(previewMushroom);
+                if (idx > -1) animatedFoliage.splice(idx, 1);
+                const intIdx = interactiveObjects.indexOf(previewMushroom);
+                if (intIdx > -1) interactiveObjects.splice(intIdx, 1);
+            }
 
             loadingScreen.show();
             loadingScreen.startPhase('map-generation');
@@ -342,17 +365,21 @@ if (startButton) {
 
             let lastAnnounced = -1;
             startPhase('Map Generation');
+
             await generateMap(weatherSystem, DEFAULT_MAP_CHUNK_SIZE, (current, total) => {
                 const percent = Math.floor((current / total) * 100);
                 loadingScreen.updateProgress(percent, `Generating world... ${percent}%`);
                 startButton.style.background = `linear-gradient(90deg, #FF6B6B ${percent}%, #FFB6C1 ${percent}%)`;
+
                 if (percent - lastAnnounced >= 10 || percent === 100) {
                     startButton.innerHTML = `<span class="spinner" aria-hidden="true"></span>Generating ${percent}%... <span aria-hidden="true">🍭</span>`;
                     lastAnnounced = percent;
                 }
             });
+
             endPhase('Map Generation');
 
+            // ⚡ Critical: Populate physics grids right after map generation
             populatePhysicsGrids();
 
             loadingScreen.updateProgress(100, 'World generation complete!');
@@ -366,9 +393,39 @@ if (startButton) {
                 showToast("Click to explore! Press [ESC] for Controls", "🎮", 4000);
             });
 
+            // Start background processor for deferred work
+            showDeferredIndicator();
+            globalBackgroundProcessor.onComplete(() => {
+                hideDeferredIndicator();
+                finalizeStartupProfile();
+                console.log('[Startup] All deferred background tasks completed.');
+            });
+
+            // Queue non-critical visuals
+            globalBackgroundProcessor.enqueue({
+                id: 'deferred_visuals',
+                execute: () => {
+                    console.log('[Deferred] Loading celestial bodies and aurora...');
+                    startPhase('Deferred Visuals Init');
+                    initDeferredVisuals();
+                    endPhase('Deferred Visuals Init');
+                }
+            });
+
+            // Queue any remaining deferred warmup
+            globalBackgroundProcessor.enqueue({
+                id: 'shader_warmup',
+                execute: () => {
+                    runDeferredWarmup(scene, camera, renderer);
+                }
+            });
+
+            globalBackgroundProcessor.start();
+
             worldGenerated = true;
             startButton.style.background = '';
             startButton.innerHTML = 'Regenerate World <span aria-hidden="true">🍭</span> <span class="key-badge" aria-hidden="true">Enter</span>';
+
         } catch (err) {
             console.error('[Init] World generation failed:', err);
             loadingScreen.hide();
@@ -383,9 +440,10 @@ if (startButton) {
         }
     }
 
-    // Auto-start world generation immediately so the player isn't stuck at a blank screen
+    // Auto-start world generation so player isn't stuck at blank screen
     enterWorld();
 
+    // Regenerate support
     startButton.addEventListener('click', () => {
         if (!isGenerating) {
             enterWorld();
@@ -393,11 +451,49 @@ if (startButton) {
     });
 }
 
-// --- DEFERRED NUCLEAR WARMUP ---
-// Delay this by 2 seconds to let the browser breathe after initial load
-runDeferredWarmup(scene, camera, renderer);
+// --- DEFERRED WORLD CONTENT (non-blocking, after loop is running) ---
+function startDeferredWorldLoading() {
+    initDeferredWorldContent(scene, weatherSystem, (pct, label) => {
+        if (pct % 25 === 0 || pct === 100) {
+            console.log(`[Deferred World] ${pct}%: ${label}`);
+        }
+    }).catch(err => {
+        console.error('[World] Deferred content failed:', err);
+    });
+}
 
-// Start deferred visual loading after a short delay so the first frames can breathe
+// Start deferred world content shortly after loop begins
+setTimeout(startDeferredWorldLoading, 150);
+
+// --- DEFERRED VISUAL LOADER (kept for now, but consider consolidating) ---
+const deferredVisualLoader = new DeferredLoader({ batchSize: 1, useIdleCallback: true, idleTimeout: 100 });
+
+deferredVisualLoader.add(LoadPriority.HIGH, 'deferredVisuals', () => {
+    console.log('[Deferred] Loading celestial bodies and aurora (via DeferredLoader)...');
+    startPhase('Deferred Visuals Init');
+    initDeferredVisuals();
+    endPhase('Deferred Visuals Init');
+});
+
+deferredVisualLoader.add(LoadPriority.LOW, 'startupProfile', () => {
+    finalizeStartupProfile();
+});
+
+deferredVisualLoader.on('complete', ({ loaded }) => {
+    console.log(`[DeferredLoader] All ${loaded} visual elements loaded`);
+});
+
+// Start idle-based loader a bit later
 setTimeout(() => {
     deferredVisualLoader.start();
-}, 300);
+}, 400);
+
+// --- WASM (completely non-blocking) ---
+initWasm().then(() => {
+    console.log('[WASM] Emscripten loaded in background');
+    fluidSystem.init();
+    recordWASMInit(performance.now(), true, true);
+}).catch(err => {
+    console.warn('[WASM] Emscripten failed, using JS fallbacks:', err);
+    recordWASMInit(performance.now(), false, false);
+});

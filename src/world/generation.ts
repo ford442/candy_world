@@ -3,7 +3,7 @@
 import { updateProgress } from '../ui/index.ts';
 import { createIntegratedFireflies, createIntegratedPollen, createIntegratedSparks, registerIntegratedSystem } from '../particles/index.ts';
 import * as THREE from 'three';
-import { getGroundHeight, batchGroundHeight, initCollisionSystem, addCollisionObject, checkPositionValidity } from '../utils/wasm-loader.js';
+import { getGroundHeight, initCollisionSystem, addCollisionObject, checkPositionValidity } from '../utils/wasm-loader.js';
 import {
     createSky, createStars, createMoon, createMushroom, createGlowingFlower,
     createFlower, createSubwooferLotus, createAccordionPalm, createFiberOpticWillow,
@@ -24,6 +24,8 @@ import { generateCloudLayer } from '../foliage/procedural-sky.ts';
 import { validateFoliageMaterials, foliageMaterials } from '../foliage/index.ts';
 import { createWisteriaCluster } from '../foliage/wisteria-cluster.ts';
 import { CONFIG } from '../core/config.ts';
+import { generateGroundHeightmap, disposeHeightmap } from './ground-heightmap.ts';
+
 import { registerPhysicsCave } from '../systems/physics/index.js';
 import { initDiscoveryForFoliage } from '../systems/discovery-optimized.ts';
 import { unlockSystem } from '../systems/unlocks.ts';
@@ -34,6 +36,8 @@ import {
     foliageClouds, foliageTrampolines, foliagePanningPads, foliageGeysers, foliageTraps, foliagePortamentoPines, vineSwings, foliageVineLadders, worldGroup
 } from './state.ts';
 import mapData from '../../assets/map.json';
+import { globalBackgroundProcessor } from '../utils/background-processor.ts';
+import { showDeferredIndicator, hideDeferredIndicator } from '../ui/index.ts';
 
 // Performance constants for async generation
 const obstaclesData: {x: number, y: number, z: number, radius: number}[] = [];
@@ -95,10 +99,10 @@ const ARPEGGIO_GROVE = {
     enabled: true
 };
 
-// Helper: Apply lake depression and island elevation to a base height.
-// Extracted so it can be used on individual points or on a batch result.
-function applyLakeIslandModifier(x: number, z: number, baseHeight: number): number {
-    let height = baseHeight;
+// Helper: Calculate Unified Ground Height (WASM + Visual Lake Modifiers + Island)
+// Matches logic in src/systems/physics.js
+function getUnifiedGroundHeight(x: number, z: number): number {
+    let height = getGroundHeight(x, z);
 
     // Check if we're in the lake bounds
     if (x > LAKE_BOUNDS.minX && x < LAKE_BOUNDS.maxX && z > LAKE_BOUNDS.minZ && z < LAKE_BOUNDS.maxZ) {
@@ -112,22 +116,22 @@ function applyLakeIslandModifier(x: number, z: number, baseHeight: number): numb
             const dx = x - LAKE_ISLAND.centerX;
             const dz = z - LAKE_ISLAND.centerZ;
             const distFromIslandCenter = Math.sqrt(dx * dx + dz * dz);
-
+            
             if (distFromIslandCenter < LAKE_ISLAND.radius) {
                 // On the island - calculate height above water
                 const normalizedDist = distFromIslandCenter / LAKE_ISLAND.radius;
-
+                
                 // Smooth falloff using cosine curve for natural hill shape
                 const islandHeight = LAKE_ISLAND.peakHeight * Math.cos(normalizedDist * Math.PI / 2);
-
+                
                 // Blend at the edge of the island
                 const edgeDist = LAKE_ISLAND.radius - distFromIslandCenter;
                 const edgeBlend = Math.min(1.0, edgeDist / LAKE_ISLAND.falloffRadius);
-
+                
                 // Island height above water level (water is at ~1.5)
                 const waterLevel = 1.5;
                 const finalIslandHeight = waterLevel + (islandHeight * edgeBlend);
-
+                
                 // Return island height (don't apply lake depression)
                 return Math.max(height, finalIslandHeight);
             }
@@ -144,33 +148,9 @@ function applyLakeIslandModifier(x: number, z: number, baseHeight: number): numb
     return height;
 }
 
-// Helper: Calculate Unified Ground Height (WASM + Visual Lake Modifiers + Island)
-// Matches logic in src/systems/physics.js
-function getUnifiedGroundHeight(x: number, z: number): number {
-    return applyLakeIslandModifier(x, z, getGroundHeight(x, z));
-}
-
 // --- Scene Setup ---
 
-/**
- * Yield control back to the browser using requestIdleCallback (with rAF fallback).
- * Respects frame budgets better than raw requestAnimationFrame for background work.
- */
-function yieldIdle(timeout = 100): Promise<void> {
-    return new Promise(resolve => {
-        if ('requestIdleCallback' in window) {
-            requestIdleCallback(() => resolve(), { timeout });
-        } else {
-            requestAnimationFrame(() => resolve());
-        }
-    });
-}
-
-/**
- * Initialize the absolute minimum world needed for the player to stand and look around.
- * This is intentionally light and synchronous — everything else goes into initDeferredWorldContent().
- */
-export function initCriticalWorld(scene: THREE.Scene, weatherSystem?: WeatherSystem): WorldObjects {
+export function initWorld(scene: THREE.Scene, weatherSystem: WeatherSystem, loadContent: boolean = true): WorldObjects {
     // 0. Pre-flight Check
     validateFoliageMaterials(foliageMaterials);
 
@@ -188,145 +168,215 @@ export function initCriticalWorld(scene: THREE.Scene, weatherSystem?: WeatherSys
     scene.add(moon);
 
     // Ground - SHRUNK from 2000 to 400 for tighter feel
-    const groundGeo = new THREE.PlaneGeometry(400, 400, 128, 128);
-    const posAttribute = groundGeo.attributes.position;
-    const vertexCount = posAttribute.count;
+    let groundGeo: THREE.PlaneGeometry;
+    let groundMat: THREE.Material;
 
-    // Batch query base heights via WASM to avoid 16k individual boundary crossings
-    const positions = new Float32Array(vertexCount * 2);
-    for (let i = 0; i < vertexCount; i++) {
-        positions[i * 2] = posAttribute.getX(i);
-        positions[i * 2 + 1] = -posAttribute.getY(i); // Plane is on XY, zWorld = -y
+    // Parse URL parameter for quick toggle
+    const urlParams = new URLSearchParams(window.location.search);
+    const forceGpuTerrain = urlParams.has('gpuTerrain');
+
+    if (CONFIG.terrain?.useGpuHeightmap || forceGpuTerrain) {
+        console.log("[World] Using GPU Heightmap Displacement");
+
+        const resolution = CONFIG.terrain?.heightmapResolution || 256;
+        groundGeo = new THREE.PlaneGeometry(400, 400, resolution, resolution);
+
+        // Generate heightmap textures
+        const startParams = performance.now();
+        const { heightTexture, normalTexture } = generateGroundHeightmap(400, resolution);
+        console.log(`[World] Generated heightmap in ${(performance.now() - startParams).toFixed(2)}ms`);
+
+        groundMat = createTerrainMaterial(CONFIG.colors.ground, {
+            roughness: 0.9,
+            bumpStrength: 0.15,
+            noiseScale: 20.0
+        }, heightTexture, normalTexture);
+
+    } else {
+        console.log("[World] Using CPU Vertex Displacement");
+
+        groundGeo = new THREE.PlaneGeometry(400, 400, 128, 128);
+        const posAttribute = groundGeo.attributes.position;
+
+        for (let i = 0; i < posAttribute.count; i++) {
+            const x = posAttribute.getX(i);
+            const y = posAttribute.getY(i); // Plane is on XY
+            const zWorld = -y;
+
+            // Use the Unified Height that accounts for the Lake
+            const height = getUnifiedGroundHeight(x, zWorld);
+            posAttribute.setZ(i, height);
+        }
+
+        groundGeo.computeVertexNormals();
+
+        // Replaced MeshPhysicalMaterial with Audio-Reactive TSL Material
+        groundMat = createTerrainMaterial(CONFIG.colors.ground, {
+            roughness: 0.9,
+            bumpStrength: 0.15,
+            noiseScale: 20.0
+        });
     }
-
-    const baseHeights = batchGroundHeight(positions);
-
-    // Apply lake/island modifiers in a second JS pass
-    for (let i = 0; i < vertexCount; i++) {
-        const x = positions[i * 2];
-        const z = positions[i * 2 + 1];
-        const height = applyLakeIslandModifier(x, z, baseHeights[i]);
-        posAttribute.setZ(i, height);
-    }
-
-    groundGeo.computeVertexNormals();
-
-    // Replaced MeshPhysicalMaterial with Audio-Reactive TSL Material
-    const groundMat = createTerrainMaterial(CONFIG.colors.ground, {
-        roughness: 0.9,
-        bumpStrength: 0.15,
-        noiseScale: 20.0
-    });
 
     const ground = new THREE.Mesh(groundGeo, groundMat);
     ground.rotation.x = -Math.PI / 2;
     ground.receiveShadow = true;
     scene.add(ground);
 
-    // Update fog colour for compact world.
+    // 2. Update fog colour for compact world.
+    // scene.fogNode (set in init.ts) drives actual WebGPU rendering via TSL rangeFog.
+    // Keep scene.fog as THREE.Fog (not FogExp2) so WeatherSystem's stale reference
+    // stays valid and renderer code never has to read FogExp2.density.
     const fogColor = new THREE.Color(CONFIG.colors.fog || 0xFFC5D3);
     if (scene.fog instanceof THREE.Fog) {
         scene.fog.color.set(fogColor);
     }
     scene.background = fogColor;
 
+    // Initialize Vegetation Systems
+    initGrassSystem(scene, 10000);
+    scene.add(createIntegratedFireflies({ count: 150, areaSize: 100, useCompute: true }));
+
+    // Procedural Cloud Layer (Background)
+    generateCloudLayer(scene);
+
+    // Melody Lake (Waveform Water)
+    // Lake is at 20, 1.5, 20 with width 120, depth 100
+    const melodyLake = createWaveformWater(120, 100);
+    melodyLake.position.set(20, 1.5, 20); 
+    scene.add(melodyLake);
+
+
+    // Lake Island
+    const island = createIsland({ radius: 15, height: 2 });
+    island.position.set(-40, 2.5, 40); // Place in the lake
+    island.userData.type = 'lake_island';
+    safeAddFoliage(island, true, 15, weatherSystem);
+
+    // Add Luminous Plants around Lake Island
+    const luminousCount = CONFIG.luminousPlants.density; // Increased count
+    for (let i = 0; i < luminousCount; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        // Gentle radius falloff: more dense near edge (10-25), tapering out to 35
+        // Using a square-root or quadratic distribution helps achieve this
+        const randDist = Math.pow(Math.random(), 2.0); // more values near 0
+        const dist = 10 + randDist * 25; // 10 to 35
+
+        const lx = -40 + Math.cos(angle) * dist;
+        const lz = 40 + Math.sin(angle) * dist;
+        const ly = getUnifiedGroundHeight(lx, lz);
+
+        // Quick biome check to avoid candy cane forest (let's say candy cane is where x > 0)
+        // If x > 0, we'll just skip (assume biome boundary)
+        if (lx > -10) continue;
+
+        // Add a small height bias: prefer elevated ground
+        // Don't spawn directly in water (y < 2.0) and favor y between 2.0 and 5.0
+        if (ly > 2.0 && ly < 8.0) {
+            const plant = createLuminousPlant({ scale: 0.8 + Math.random() * 0.6 });
+            plant.position.set(lx, ly, lz);
+            plant.rotation.y = Math.random() * Math.PI * 2;
+            safeAddFoliage(plant, false, 0, weatherSystem);
+        }
+    }
+
+
+    // Falling Berries
+    initFallingBerries(scene);
+
+    // Add the luminous plant batcher to the scene
+    scene.add(luminousPlantBatcher.mesh);
+
+
     // Add the main world group (containing all generated foliage) to the scene
     scene.add(worldGroup);
 
-    return { sky, moon, ground };
-}
-
-/**
- * Deferred world content — streams in heavy systems frame-by-frame so the
- * loading screen stays responsive and the game loop can start early.
- *
- * @param onProgress Optional callback (percent, label) for real progress tracking.
- */
-export async function initDeferredWorldContent(
-    scene: THREE.Scene,
-    weatherSystem: WeatherSystem,
-    onProgress?: (percent: number, label: string) => void
-): Promise<void> {
-    // Phase A: Grass (reduced initial density — can grow later via a separate system)
-    onProgress?.(0, 'Growing grass...');
-    initGrassSystem(scene, 5000); // Reduced from 10000 for faster startup
-    await yieldIdle();
-
-    // Phase B: Lake + Island
-    onProgress?.(15, 'Creating lake...');
-    const melodyLake = createWaveformWater(120, 100);
-    melodyLake.position.set(20, 1.5, 20);
-    scene.add(melodyLake);
-
-    const island = createIsland({ radius: 15, height: 2 });
-    island.position.set(-40, 2.5, 40);
-    island.userData.type = 'lake_island';
-    safeAddFoliage(island, true, 15, weatherSystem);
-    await yieldIdle();
-
-    // Phase C: Cloud Layer
-    onProgress?.(30, 'Generating clouds...');
-    generateCloudLayer(scene);
-    await yieldIdle();
-
-    // Phase D: Luminous Plants (chunked — 30 per frame)
-    onProgress?.(45, 'Planting flora...');
-    const luminousCount = CONFIG.luminousPlants.density;
-    const luminousChunk = 30;
-    for (let i = 0; i < luminousCount; i += luminousChunk) {
-        const end = Math.min(i + luminousChunk, luminousCount);
-        for (let j = i; j < end; j++) {
-            const angle = Math.random() * Math.PI * 2;
-            const randDist = Math.pow(Math.random(), 2.0);
-            const dist = 10 + randDist * 25;
-            const lx = -40 + Math.cos(angle) * dist;
-            const lz = 40 + Math.sin(angle) * dist;
-            const ly = getUnifiedGroundHeight(lx, lz);
-            if (lx > -10) continue;
-            if (ly > 2.0 && ly < 8.0) {
-                const plant = createLuminousPlant({ scale: 0.8 + Math.random() * 0.6 });
-                plant.position.set(lx, ly, lz);
-                plant.rotation.y = Math.random() * Math.PI * 2;
-                safeAddFoliage(plant, false, 0, weatherSystem);
-            }
-        }
-        const pct = 45 + Math.floor((i / luminousCount) * 35);
-        onProgress?.(pct, 'Planting flora...');
-        await yieldIdle();
-    }
-
-    // Phase E: Fireflies + Berries + Batcher mesh
-    onProgress?.(85, 'Spawning fireflies...');
-    scene.add(createIntegratedFireflies({ count: 150, areaSize: 100, useCompute: true }));
-    initFallingBerries(scene);
-    scene.add(luminousPlantBatcher.mesh);
-    await yieldIdle();
-
-    onProgress?.(100, 'World complete!');
-}
-
-/**
- * Backward-compatible full world init.
- * Now async because it streams deferred content.
- * Prefer using initCriticalWorld() + initDeferredWorldContent() directly
- * for phased loading.
- */
-export async function initWorld(
-    scene: THREE.Scene,
-    weatherSystem: WeatherSystem,
-    loadContent: boolean = true
-): Promise<WorldObjects> {
-    const result = initCriticalWorld(scene, weatherSystem);
-    await initDeferredWorldContent(scene, weatherSystem);
-
+    // Generate Content if requested (Note: currently disabled in main.js, generation happens on button click)
     if (loadContent) {
+        // This is now async but we're not awaiting it here
+        // If this code path is used in the future, consider making initWorld async
         generateMap(weatherSystem).catch(err => {
             console.error('[World] Failed to generate map:', err);
         });
     }
 
-    return result;
+    return { sky, moon, ground };
 }
+
+
+/**
+ * Populates the Arpeggio Grove set piece as defined in the Musical Ecosystem plan.
+ * Features a Subwoofer Lotus surrounded by twelve Arpeggio Ferns, with reactive flora.
+ */
+function populateArpeggioGrove(weatherSystem: WeatherSystem): void {
+    if (!ARPEGGIO_GROVE.enabled) return;
+
+    console.log("[World] Populating Arpeggio Grove...");
+
+    const { centerX, centerZ, radius } = ARPEGGIO_GROVE;
+
+    // Central feature: Subwoofer Lotus
+    const centralLotus = createSubwooferLotus({ scale: 1.5 });
+    const centralY = getUnifiedGroundHeight(centerX, centerZ);
+    centralLotus.position.set(centerX, centralY, centerZ);
+    safeAddFoliage(centralLotus, false, 0, weatherSystem);
+
+    // Twelve Arpeggio Ferns ring
+    const fernCount = 12;
+    const fernRadius = radius * 0.4;
+    for (let i = 0; i < fernCount; i++) {
+        const angle = (i / fernCount) * Math.PI * 2;
+        const fx = centerX + Math.cos(angle) * fernRadius;
+        const fz = centerZ + Math.sin(angle) * fernRadius;
+        const fy = getUnifiedGroundHeight(fx, fz);
+
+        const fern = createArpeggioFern({ scale: 1.2 + Math.random() * 0.3 });
+        fern.position.set(fx, fy, fz);
+        fern.rotation.y = angle + Math.PI; // Face outward or inward? Let's say outward
+        safeAddFoliage(fern, false, 0, weatherSystem);
+    }
+
+    // Outer ring: Kick Drum Geysers and Vibrato Violets
+    const outerCount = 8;
+    const outerRadius = radius * 0.8;
+    for (let i = 0; i < outerCount; i++) {
+        const angle = (i / outerCount) * Math.PI * 2 + 0.2;
+        const ox = centerX + Math.cos(angle) * outerRadius;
+        const oz = centerZ + Math.sin(angle) * outerRadius;
+        const oy = getUnifiedGroundHeight(ox, oz);
+
+        if (i % 2 === 0) {
+            const geyser = createKickDrumGeyser({ maxHeight: 5.0 + Math.random() * 2.0 });
+            geyser.position.set(ox, oy, oz);
+            geyser.rotation.y = angle;
+            safeAddFoliage(geyser, false, 1.0, weatherSystem);
+        } else {
+            const violet = createVibratoViolet({ intensity: 1.5 });
+            violet.position.set(ox, oy, oz);
+            violet.rotation.y = Math.random() * Math.PI * 2;
+            safeAddFoliage(violet, false, 0, weatherSystem);
+        }
+    }
+
+    // Glowing flower accents
+    const flowerCount = 15;
+    for (let i = 0; i < flowerCount; i++) {
+        const randAngle = Math.random() * Math.PI * 2;
+        const randRadius = Math.random() * radius;
+        const fx = centerX + Math.cos(randAngle) * randRadius;
+        const fz = centerZ + Math.sin(randAngle) * randRadius;
+        const fy = getUnifiedGroundHeight(fx, fz);
+
+        const flower = createGlowingFlower();
+        flower.position.set(fx, fy, fz);
+        flower.rotation.y = Math.random() * Math.PI * 2;
+        safeAddFoliage(flower, false, 0, weatherSystem);
+    }
+
+    console.log(`[World] Arpeggio Grove populated at (${centerX}, ${centerZ})`);
+}
+
+// Ensure the lake island is also present
 
 export function safeAddFoliage(
     obj: THREE.Object3D,
@@ -430,6 +480,37 @@ function isPositionValid(x: number, z: number, radius: number): boolean {
  * @param chunkSize Number of entities to process per frame (default: 100)
  * @param onProgress Optional callback for progress updates
  */
+
+
+/**
+ * Determine if an entity is critical for initial load (collision, physics, interaction)
+ */
+export function isCriticalEntity(item: MapEntity | { type: string, isObstacle?: boolean }): boolean {
+    const criticalTypes = [
+        'mushroom', // Often giant / bouncy
+        'tree',     // usually has collision
+        'arpeggio_fern',
+        'portamento_pine',
+        'snare_trap',
+        'geyser',
+        'trap',
+        'panningPad',
+        'cloud',    // can be Walkable
+        'vine_ladder',
+        'instrumentShrine',
+        'waterfall'
+    ];
+
+    if (criticalTypes.includes(item.type)) return true;
+
+    // Explicit overrides
+    if ((item as any).critical === true) return true;
+    if ((item as any).isObstacle === true) return true;
+    if (item.type === 'cave') return true;
+
+    return false;
+}
+
 export async function generateMap(
     weatherSystem: WeatherSystem, 
     chunkSize: number = DEFAULT_MAP_CHUNK_SIZE,
@@ -441,28 +522,43 @@ export async function generateMap(
     initCollisionSystem();
 
     const entities = mapData.entities as any as MapEntity[];
-    const mapTotal = entities.length;
-    const globalTotal = mapTotal + PROCEDURAL_ENTITY_COUNT;
     
-    // Process entities in chunks to prevent blocking
-    for (let i = 0; i < mapTotal; i += chunkSize) {
-        const chunk = entities.slice(i, Math.min(i + chunkSize, mapTotal));
+    // 1. Filter into Critical vs Deferred
+    const criticalEntities: MapEntity[] = [];
+    const deferredEntities: MapEntity[] = [];
+
+    for (const item of entities) {
+        if (isCriticalEntity(item)) {
+            criticalEntities.push(item);
+        } else {
+            deferredEntities.push(item);
+        }
+    }
+
+    console.log(`[World] Filtered map: ${criticalEntities.length} critical, ${deferredEntities.length} deferred.`);
+
+    const criticalTotal = criticalEntities.length;
+    // For progress, we only track critical + Arpeggio Grove (treated as 1 chunk) during the blocking phase
+    // Procedural extras are now split as well. We'll approximate.
+    const globalTotal = criticalTotal + 1; // +1 for Arpeggio Grove
+
+    // 2. Process Critical Map Entities (Blocking / Async chunked)
+    for (let i = 0; i < criticalTotal; i += chunkSize) {
+        const chunk = criticalEntities.slice(i, Math.min(i + chunkSize, criticalTotal));
         
-        // Process this chunk
         chunk.forEach(item => {
             processMapEntity(item, weatherSystem);
         });
         
-        // Report progress
         if (onProgress) {
-            onProgress(Math.min(i + chunkSize, mapTotal), globalTotal);
+            onProgress(Math.min(i + chunkSize, criticalTotal), globalTotal);
         }
         
         // Yield control back to browser
-        await yieldIdle();
+        await new Promise(resolve => setTimeout(resolve, 0));
     }
 
-    // --- Spawn The Cave (after map entities) ---
+    // --- Spawn The Cave (Critical) ---
     const cave = createCaveEntrance({ scale: 2.0 });
     const caveX = 25;
     const caveZ = 25;
@@ -472,108 +568,35 @@ export async function generateMap(
     safeAddFoliage(cave, false, 0, weatherSystem);
     console.log("[World] Cave spawned at ", caveX, caveZ, " Height:", caveY);
 
-    // Add waterfall proxy for discovery system
     if (cave.userData.gatePosition) {
         const waterfallProxy = new THREE.Object3D();
-        // Update matrix world to ensure accurate transformation
         cave.updateMatrixWorld(true);
         waterfallProxy.position.copy(cave.userData.gatePosition).applyMatrix4(cave.matrixWorld);
         waterfallProxy.userData.type = 'waterfall';
         animatedFoliage.push(waterfallProxy as any);
     }
 
-
-/**
- * Populates the Arpeggio Grove set piece as defined in the Musical Ecosystem plan.
- * Features a Subwoofer Lotus surrounded by twelve Arpeggio Ferns, with reactive flora.
- */
-function populateArpeggioGrove(weatherSystem: WeatherSystem): void {
-    if (!ARPEGGIO_GROVE.enabled) return;
-
-    console.log("[World] Populating Arpeggio Grove...");
-
-    const { centerX, centerZ, radius } = ARPEGGIO_GROVE;
-
-    // Central feature: Subwoofer Lotus
-    const centralLotus = createSubwooferLotus({ scale: 1.5 });
-    const centralY = getUnifiedGroundHeight(centerX, centerZ);
-    centralLotus.position.set(centerX, centralY, centerZ);
-    safeAddFoliage(centralLotus, false, 0, weatherSystem);
-
-    // Twelve Arpeggio Ferns ring
-    const fernCount = 12;
-    const fernRadius = radius * 0.4;
-    for (let i = 0; i < fernCount; i++) {
-        const angle = (i / fernCount) * Math.PI * 2;
-        const fx = centerX + Math.cos(angle) * fernRadius;
-        const fz = centerZ + Math.sin(angle) * fernRadius;
-        const fy = getUnifiedGroundHeight(fx, fz);
-
-        const fern = createArpeggioFern({ scale: 1.2 + Math.random() * 0.3 });
-        fern.position.set(fx, fy, fz);
-        fern.rotation.y = angle + Math.PI; // Face outward or inward? Let's say outward
-        safeAddFoliage(fern, false, 0, weatherSystem);
-    }
-
-    // Outer ring: Kick Drum Geysers and Vibrato Violets
-    const outerCount = 8;
-    const outerRadius = radius * 0.8;
-    for (let i = 0; i < outerCount; i++) {
-        const angle = (i / outerCount) * Math.PI * 2 + 0.2;
-        const ox = centerX + Math.cos(angle) * outerRadius;
-        const oz = centerZ + Math.sin(angle) * outerRadius;
-        const oy = getUnifiedGroundHeight(ox, oz);
-
-        if (i % 2 === 0) {
-            const geyser = createKickDrumGeyser({ maxHeight: 5.0 + Math.random() * 2.0 });
-            geyser.position.set(ox, oy, oz);
-            geyser.rotation.y = angle;
-            safeAddFoliage(geyser, false, 1.0, weatherSystem);
-        } else {
-            const violet = createVibratoViolet({ intensity: 1.5 });
-            violet.position.set(ox, oy, oz);
-            violet.rotation.y = Math.random() * Math.PI * 2;
-            safeAddFoliage(violet, false, 0, weatherSystem);
-        }
-    }
-
-    // Perimeter Traps
-    const trapCount = 4;
-    for (let i = 0; i < trapCount; i++) {
-        const angle = (i / trapCount) * Math.PI * 2 + Math.PI / 4;
-        const tx = centerX + Math.cos(angle) * radius;
-        const tz = centerZ + Math.sin(angle) * radius;
-        const ty = getUnifiedGroundHeight(tx, tz);
-
-        const trap = createSnareTrap({ scale: 1.2 });
-        trap.position.set(tx, ty, tz);
-        trap.rotation.y = angle + Math.PI; // Face outward
-        safeAddFoliage(trap, true, 0.8, weatherSystem);
-    }
-
-    console.log(`[World] Arpeggio Grove populated at (${centerX}, ${centerZ})`);
-}
-
-
-    // --- Populate Lake Island with Musical Flora ---
-    populateLakeIsland(weatherSystem);
-
-    // --- Populate Arpeggio Grove Set Piece ---
+    // --- Populate Arpeggio Grove Set Piece (Critical) ---
     populateArpeggioGrove(weatherSystem);
-
-    // --- Populate Procedural Extras ---
-    // 🎨 Palette: Wrap progress to continue from mapTotal (0-100% unified progress)
-    await populateProceduralExtras(weatherSystem, chunkSize, (curr, tot) => {
-        if (onProgress) {
-            onProgress(mapTotal + curr, globalTotal);
-        }
-    });
+    if (onProgress) onProgress(globalTotal, globalTotal); // Done with critical path
     
-    // --- Initialize Discovery System with Spatial Grid ---
+    // --- Initialize Discovery System with Spatial Grid (Critical) ---
     // OPTIMIZATION: O(1) spatial lookups instead of O(N) distance checks
+    // We do this NOW before deferring the rest, so grids are static and complete for interactive items
     initDiscoveryForFoliage(animatedFoliage);
     
-    console.log("[World] Map generation complete!");
+    // 3. Queue Deferred Map Entities
+    for (const item of deferredEntities) {
+        globalBackgroundProcessor.enqueue({
+            id: `map_deferred_${item.type}_${Math.random()}`,
+            execute: () => processMapEntity(item, weatherSystem)
+        });
+    }
+
+    // --- Populate Procedural Extras (Split into Critical/Deferred inside) ---
+    await populateProceduralExtras(weatherSystem, chunkSize);
+
+    console.log("[World] Critical map generation complete! Deferred tasks queued.");
 }
 
 /**
@@ -835,20 +858,20 @@ function populateLakeIsland(weatherSystem: WeatherSystem): void {
 
     // ⚡ JUICE: Neon Pollen Cloud
     // Audio-reactive magic dust covering the island
-    const pollen = createIntegratedPollen({ count: 3000, areaSize: 25, center: new THREE.Vector3(centerX, 5, centerZ), useCompute: true });
+    const pollen = createIntegratedPollen({ count: 100, areaSize: 25, center: new THREE.Vector3(centerX, 5, centerZ), useCompute: true });
     safeAddFoliage(pollen, false, 0, null);
     if ((pollen as any).userData?.computeParticleSystem) {
         registerIntegratedSystem('pollen_island', pollen, (pollen as any).userData.computeParticleSystem);
     }
 
     // ⚡ JUICE: Environmental Sparks around the Core
-    const ambientSparks = createIntegratedSparks({ count: 5000, areaSize: 15, center: new THREE.Vector3(centerX, 2, centerZ), useCompute: true });
+    const ambientSparks = createIntegratedSparks({ count: 100, areaSize: 15, center: new THREE.Vector3(centerX, 2, centerZ), useCompute: true });
     safeAddFoliage(ambientSparks, false, 0, null);
     if ((ambientSparks as any).userData?.computeParticleSystem) {
         registerIntegratedSystem('sparks_island', ambientSparks, (ambientSparks as any).userData.computeParticleSystem);
     }
 
-    const ambientIslandSparks = createIntegratedSparks({ count: 5000, areaSize: 15, center: new THREE.Vector3(centerX, 2, centerZ), useCompute: true });
+    const ambientIslandSparks = createIntegratedSparks({ count: 100, areaSize: 15, center: new THREE.Vector3(centerX, 2, centerZ), useCompute: true });
     safeAddFoliage(ambientIslandSparks, false, 0, null);
     if ((ambientIslandSparks as any).userData?.computeParticleSystem) {
         registerIntegratedSystem('sparks_island', ambientIslandSparks, (ambientIslandSparks as any).userData.computeParticleSystem);
@@ -856,9 +879,9 @@ function populateLakeIsland(weatherSystem: WeatherSystem): void {
 
     // ⚡ JUICE: Environmental Sparks
     // Add ambient sparks to the world
-    const sparksAmbient = createIntegratedSparks({ count: 1000, areaSize: 50, center: new THREE.Vector3(centerX, 10, centerZ), useCompute: true });
+    const sparksAmbient = createIntegratedSparks({ count: 100, areaSize: 50, center: new THREE.Vector3(centerX, 10, centerZ), useCompute: true });
     safeAddFoliage(sparksAmbient, false, 0, null);
-    const globalSparks = createIntegratedSparks({ count: 1000, areaSize: 50, center: new THREE.Vector3(centerX, 10, centerZ), useCompute: true });
+    const globalSparks = createIntegratedSparks({ count: 100, areaSize: 50, center: new THREE.Vector3(centerX, 10, centerZ), useCompute: true });
     safeAddFoliage(globalSparks, false, 0, null);
 
     console.log(`[World] Lake Island populated with musical flora at (${centerX}, ${centerZ})`);
@@ -866,18 +889,21 @@ function populateLakeIsland(weatherSystem: WeatherSystem): void {
 
 async function populateProceduralExtras(
     weatherSystem: WeatherSystem,
-    chunkSize: number = DEFAULT_PROCEDURAL_CHUNK_SIZE,
-    onProgress?: (current: number, total: number) => void
+    chunkSize: number = DEFAULT_PROCEDURAL_CHUNK_SIZE
 ): Promise<void> {
-    console.log("[World] Populating procedural extras...");
-    updateProgress('world-generation', 50, 'Growing Procedural Flora...');
+    console.log("[World] Populating procedural extras (Critical + Deferred)...");
     const extrasCount = PROCEDURAL_ENTITY_COUNT;
     const range = 150;
 
+    // We no longer block the main thread for non-critical procedural objects.
+    // Instead, we immediately calculate their positions and types.
+    // If they are critical, we spawn them now.
+    // If deferred, we queue them in the BackgroundProcessor.
+
+    let criticalCount = 0;
+    let deferredCount = 0;
+
     for (let i = 0; i < extrasCount; i++) {
-        let obj: THREE.Object3D | null = null;
-        let isObstacle = false;
-        let radius = 0.5;
         let x = 0, z = 0, y = 0;
         let attempts = 0;
         let validPosition = false;
@@ -893,132 +919,148 @@ async function populateProceduralExtras(
         }
 
         if (!validPosition) continue;
-
-        // Use Unified Height for placement
         const groundY = getUnifiedGroundHeight(x, z);
 
-        try {
-            // ... (Procedural selection logic same as before) ...
-            const rand = Math.random();
-            if (rand < 0.3) {
-                 obj = Math.random() < 0.5 ? createFlower() : createGlowingFlower();
-                 obj.position.set(x, groundY, z);
-            }
-            else if (rand < 0.45) {
-                 obj = createMushroom({
-                     size: 'regular',
-                     scale: 0.8 + Math.random() * 0.5,
-                     hasFace: true,
-                     isBouncy: true
-                 });
-                 obj.position.set(x, groundY, z);
-                 isObstacle = true;
-            }
-            else if (rand < 0.55) {
-                 const treeType = Math.random();
-                 if (treeType < 0.33) obj = createBubbleWillow();
-                 else if (treeType < 0.66) obj = createBalloonBush();
-                 else obj = createHelixPlant();
+        // Determine object type and criticality
+        const rand = Math.random();
 
-                 obj.position.set(x, groundY, z);
-                 isObstacle = true;
-                 radius = 1.5;
-            }
-            else if (rand < 0.75) {
-                 const type = Math.random();
-                 if (type < 0.15) {
-                     obj = createArpeggioFern({ scale: 1.0 + Math.random() * 0.5 });
-                 } else if (type < 0.28) {
-                     obj = createKickDrumGeyser({ maxHeight: 5.0 + Math.random() * 3.0 });
-                     radius = 1.0;
-                 } else if (type < 0.40) {
-                     obj = createSnareTrap({ scale: 0.8 + Math.random() * 0.4 });
+        // Define a closure to spawn this specific extra
+        const spawnExtra = () => {
+            let obj: THREE.Object3D | null = null;
+            let isObstacle = false;
+            let radius = 0.5;
+            let currentY = groundY;
+
+            try {
+                if (rand < 0.3) {
+                     obj = Math.random() < 0.5 ? createFlower() : createGlowingFlower();
+                     obj.position.set(x, currentY, z);
+                }
+                else if (rand < 0.45) {
+                     obj = createMushroom({
+                         size: 'regular',
+                         scale: 0.8 + Math.random() * 0.5,
+                         hasFace: true,
+                         isBouncy: true
+                     });
+                     obj.position.set(x, currentY, z);
                      isObstacle = true;
-                     radius = 0.8;
-                 } else if (type < 0.50) {
-                     obj = createRetriggerMushroom({ scale: 0.8 + Math.random() * 0.4, retriggerSpeed: 2 + Math.floor(Math.random() * 6) });
-                 } else if (type < 0.60) {
-                     obj = createPortamentoPine({ height: 4.0 + Math.random() * 2.0 });
+                }
+                else if (rand < 0.55) {
+                     const treeType = Math.random();
+                     if (treeType < 0.33) obj = createBubbleWillow();
+                     else if (treeType < 0.66) obj = createBalloonBush();
+                     else obj = createHelixPlant();
+
+                     obj.position.set(x, currentY, z);
                      isObstacle = true;
-                     radius = 0.5;
-                 } else if (type < 0.75) {
-                     obj = createTremoloTulip({ size: 1.0 + Math.random() * 0.5 });
-                 } else if (type < 0.85) {
-                     obj = createCymbalDandelion({ scale: 0.8 + Math.random() * 0.4 });
-                 } else {
-                     const panBias = x < 0 ? -1 : 1;
-                     obj = createPanningPad({ radius: 1.2 + Math.random(), panBias });
-                     obj.position.y = groundY + 0.5;
-                 }
-                 if (obj) obj.position.set(x, obj.position.y || groundY, z);
-            }
-             else if (rand < 0.90) {
-                 // Vertical Ecosystem: Tiered Clouds
-                 const tierRoll = Math.random();
-                 if (tierRoll < 0.35) {
-                     // Tier 1: High, dense, walkable platforms
-                     y = 35 + Math.random() * 20;
-                     obj = createRainingCloud({ size: 1.5 + Math.random() * 0.8 });
-                     obj.userData.tier = 1;
-                     obj.userData.isWalkable = true;
-                     // Occasionally attach a vine ladder descending from this cloud
-                     if (Math.random() < 0.3) {
-                         const ladderLength = y - groundY;
-                         if (ladderLength > 5) {
-                             const ladder = createVineLadder({ length: ladderLength });
-                             ladder.position.set(x, y, z);
-                             safeAddFoliage(ladder, false, 0, weatherSystem);
-                         }
+                     radius = 1.5;
+                }
+                else if (rand < 0.75) {
+                     const type = Math.random();
+                     if (type < 0.15) {
+                         obj = createArpeggioFern({ scale: 1.0 + Math.random() * 0.5 });
+                     } else if (type < 0.28) {
+                         obj = createKickDrumGeyser({ maxHeight: 5.0 + Math.random() * 3.0 });
+                         radius = 1.0;
+                     } else if (type < 0.40) {
+                         obj = createSnareTrap({ scale: 0.8 + Math.random() * 0.4 });
+                         isObstacle = true;
+                         radius = 0.8;
+                     } else if (type < 0.50) {
+                         obj = createRetriggerMushroom({ scale: 0.8 + Math.random() * 0.4, retriggerSpeed: 2 + Math.floor(Math.random() * 6) });
+                     } else if (type < 0.60) {
+                         obj = createPortamentoPine({ height: 4.0 + Math.random() * 2.0 });
+                         isObstacle = true;
+                         radius = 0.5;
+                     } else if (type < 0.75) {
+                         obj = createTremoloTulip({ size: 1.0 + Math.random() * 0.5 });
+                     } else if (type < 0.85) {
+                         obj = createCymbalDandelion({ scale: 0.8 + Math.random() * 0.4 });
+                     } else {
+                         const panBias = x < 0 ? -1 : 1;
+                         obj = createPanningPad({ radius: 1.2 + Math.random(), panBias });
+                         currentY = groundY + 0.5;
+                         obj.position.y = currentY;
                      }
-                 } else {
-                     // Tier 2: Mid, misty, non-walkable
-                     y = 12 + Math.random() * 16;
-                     obj = createRainingCloud({ size: 0.8 + Math.random() * 0.6 });
-                     obj.userData.tier = 2;
-                     obj.userData.isWalkable = false;
+                     if (obj) obj.position.set(x, currentY, z);
+                }
+                 else if (rand < 0.90) {
+                     // Vertical Ecosystem: Tiered Clouds
+                     const tierRoll = Math.random();
+                     if (tierRoll < 0.35) {
+                         currentY = 35 + Math.random() * 20;
+                         obj = createRainingCloud({ size: 1.5 + Math.random() * 0.8 });
+                         obj.userData.tier = 1;
+                         obj.userData.isWalkable = true;
+                         if (Math.random() < 0.3) {
+                             const ladderLength = currentY - groundY;
+                             if (ladderLength > 5) {
+                                 const ladder = createVineLadder({ length: ladderLength });
+                                 ladder.position.set(x, currentY, z);
+                                 safeAddFoliage(ladder, false, 0, weatherSystem);
+                             }
+                         }
+                     } else {
+                         currentY = 12 + Math.random() * 16;
+                         obj = createRainingCloud({ size: 0.8 + Math.random() * 0.6 });
+                         obj.userData.tier = 2;
+                         obj.userData.isWalkable = false;
+                     }
+                     obj.position.set(x, currentY, z);
                  }
-                 obj.position.set(x, y, z);
-             }
-             else if (rand < 0.95) {
-                 obj = createSilenceSpirit();
-                 obj.position.set(x, groundY, z);
-             }
-             else if (rand < 0.97) {
-                 obj = createMelodyMirror({ scale: 2.0 });
-                 // Float high up
-                 obj.position.set(x, groundY + 15 + Math.random() * 10, z);
-             }
-         else {
-             const id = Math.floor(Math.random() * 16);
-             obj = createInstrumentShrine({ instrumentID: id });
-             obj.position.set(x, groundY, z);
-             isObstacle = true;
-        }
-
-        if (obj) {
-            obj.rotation.y = Math.random() * Math.PI * 2;
-            safeAddFoliage(obj, isObstacle, radius, weatherSystem);
-        }
-        
-        // Report progress and yield every chunkSize items
-        if ((i + 1) % chunkSize === 0) {
-            if (onProgress) {
-                onProgress(Math.min(i + 1, extrasCount), extrasCount);
+                 else if (rand < 0.95) {
+                     obj = createSilenceSpirit();
+                     obj.position.set(x, currentY, z);
+                 }
+                 else if (rand < 0.97) {
+                     obj = createMelodyMirror({ scale: 2.0 });
+                     obj.position.set(x, groundY + 15 + Math.random() * 10, z);
+                 }
+             else {
+                 const id = Math.floor(Math.random() * 16);
+                 obj = createInstrumentShrine({ instrumentID: id });
+                 obj.position.set(x, currentY, z);
+                 isObstacle = true;
             }
-            // Yield control back to browser
-            await yieldIdle();
+
+            if (obj) {
+                obj.rotation.y = Math.random() * Math.PI * 2;
+                safeAddFoliage(obj, isObstacle, radius, weatherSystem);
+            }
+            } catch (e) {
+                console.warn(`[World] Failed to spawn procedural extra at ${x},${z}`, e);
+            }
+        };
+
+        // Heuristic to decide if critical based on the random roll
+        // 0.00 - 0.30: Flowers (Deferred)
+        // 0.30 - 0.45: Mushroom (Critical - bouncy)
+        // 0.45 - 0.55: Trees (Critical - obstacle)
+        // 0.55 - 0.75: Musical interactables (Critical)
+        // 0.75 - 0.90: Clouds (Critical if walkable, let's treat all clouds as critical for simplicity)
+        // > 0.90: Spirits, Mirrors, Shrines (Critical)
+        
+        const isCritical = rand >= 0.30; // Flowers are < 0.30
+
+        if (isCritical) {
+            spawnExtra();
+            criticalCount++;
+        } else {
+            globalBackgroundProcessor.enqueue({
+                id: `procedural_deferred_${i}`,
+                execute: spawnExtra
+            });
+            deferredCount++;
         }
-    } catch (e) {
-        console.warn(`[World] Failed to spawn procedural extra at ${x},${z}`, e);
-    }
-}
 
-    // Report final progress if we didn't just report it
-    if (onProgress && extrasCount % chunkSize !== 0) {
-        onProgress(extrasCount, extrasCount);
+        // We only yield occasionally for the critical path setup
+        if ((i + 1) % chunkSize === 0) {
+            await new Promise(resolve => setTimeout(resolve, 0));
+        }
     }
 
-    console.log("[World] Finished populating procedural extras.");
+    console.log(`[World] Procedural Extras: ${criticalCount} critical spawned, ${deferredCount} deferred.`);
 }
 
 
@@ -1080,4 +1122,26 @@ export function spawnNearbyFoliage(origin: THREE.Vector3, type: string, options:
             }
         }
     }
+}
+
+// Compatibility wrappers for refactored startup flow
+export function initCriticalWorld(scene: THREE.Scene, weatherSystem?: WeatherSystem): WorldObjects {
+    return initWorld(scene, weatherSystem, false);
+}
+
+export function initWorldCritical(scene: THREE.Scene, weatherSystem?: WeatherSystem): WorldObjects {
+    return initWorld(scene, weatherSystem, false);
+}
+
+export async function initDeferredWorldContent(
+    scene: THREE.Scene,
+    weatherSystem: WeatherSystem,
+    onProgress?: (percent: number, label: string) => void
+): Promise<void> {
+    // Background deferred loading - map generation is triggered separately on enter
+    if (onProgress) onProgress(100, 'Deferred content ready');
+}
+
+export function initWorldContent(scene: THREE.Scene, weatherSystem: WeatherSystem): Promise<void> {
+    return initDeferredWorldContent(scene, weatherSystem);
 }

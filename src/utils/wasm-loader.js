@@ -159,6 +159,7 @@ export {
     
     // Batch upload functions
     uploadPositions,
+    getHeightmapBatch,
     uploadMushroomSpecs,
     copySharedPositions,
     uploadAnimationData,
