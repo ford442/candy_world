@@ -437,6 +437,3 @@ void batchPanningBob_c(float* input, int count, float time, float panActivity, f
     }
 }
 
-EMSCRIPTEN_KEEPALIVE
-
-}
