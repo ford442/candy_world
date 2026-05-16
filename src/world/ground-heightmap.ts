@@ -97,7 +97,7 @@ export function generateGroundHeightmap(
         normalsHalf[i * 4 + 0] = DataUtils.toHalfFloat(normals[i * 3 + 0]); // x
         normalsHalf[i * 4 + 1] = DataUtils.toHalfFloat(normals[i * 3 + 1]); // y
         normalsHalf[i * 4 + 2] = DataUtils.toHalfFloat(normals[i * 3 + 2]); // z
-        normalsHalf[i * 4 + 3] = DataUtils.toHalfFloat(1.0);                // w (unused)
+        normalsHalf[i * 4 + 3] = DataUtils.toHalfFloat(1.0);                // w (alpha, set to 1.0 for RGBA compatibility)
     }
     const normalTexture = new THREE.DataTexture(
         normalsHalf,
