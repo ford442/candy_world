@@ -12,12 +12,18 @@
 
 extern "C" {
 
+// Forward declarations for functions defined in animation_batch_foliage.cpp
+void batchShiver_c(float* input, int count, float time, float intensity, float* output);
+void batchSpring_c(float* input, int count, float time, float intensity, float* output);
+void batchFloat_c(float* input, int count, float time, float intensity, float* output);
+void batchCloudBob_c(float* input, int count, float time, float intensity, float* output);
+void batchVineSway_simd(float* input, int count, float time, float intensity, float* output);
+
 // Forward declarations for functions defined in animation_batch_simd.cpp
 void batchShiver_simd(float* input, int count, float time, float intensity, float* output);
 void batchSpring_simd(float* input, int count, float time, float intensity, float* output);
 void batchFloat_simd(float* input, int count, float time, float intensity, float* output);
 void batchCloudBob_simd(float* input, int count, float time, float intensity, float* output);
-void batchVineSway_simd(float* input, int count, float time, float intensity, float* output);
 void batchRetrigger_simd(float* input, int count, float time, float retriggerSpeed, float intensity, float* output);
 
 EMSCRIPTEN_KEEPALIVE
