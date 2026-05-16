@@ -34,9 +34,9 @@ import {
     uploadCollisionObjects, initDynamicFoliageBridge
 } from '../../utils/wasm-loader.js';
 import {
-    foliageMushrooms, foliageTrampolines, foliageClouds, 
-    foliageTraps, foliageGeysers, foliagePortamentoPines, 
-    foliagePanningPads, animatedFoliage, foliageCaves
+    foliageMushrooms, foliageTrampolines, foliageClouds,
+    foliageTraps, foliageGeysers, foliagePortamentoPines,
+    foliagePanningPads, animatedFoliage
 } from '../../world/state.ts';
 import {
     player,
@@ -49,7 +49,8 @@ import {
     _scratchCamRight,
     _scratchTargetVel,
     _scratchUp,
-    PLAYER_HEIGHT_OFFSET
+    PLAYER_HEIGHT_OFFSET,
+    foliageCaves
 } from './physics-types.js';
 import {
     calculateMovementInput,
