@@ -3,7 +3,7 @@
 import { updateProgress } from '../ui/index.ts';
 import { createIntegratedFireflies, createIntegratedPollen, createIntegratedSparks, registerIntegratedSystem } from '../particles/index.ts';
 import * as THREE from 'three';
-import { getGroundHeight, initCollisionSystem, addCollisionObject, checkPositionValidity } from '../utils/wasm-loader.js';
+import { getGroundHeight, batchGroundHeight, initCollisionSystem, addCollisionObject, checkPositionValidity } from '../utils/wasm-loader.js';
 import {
     createSky, createStars, createMoon, createMushroom, createGlowingFlower,
     createFlower, createSubwooferLotus, createAccordionPalm, createFiberOpticWillow,
@@ -95,10 +95,10 @@ const ARPEGGIO_GROVE = {
     enabled: true
 };
 
-// Helper: Calculate Unified Ground Height (WASM + Visual Lake Modifiers + Island)
-// Matches logic in src/systems/physics.js
-function getUnifiedGroundHeight(x: number, z: number): number {
-    let height = getGroundHeight(x, z);
+// Helper: Apply lake depression and island elevation to a base height.
+// Extracted so it can be used on individual points or on a batch result.
+function applyLakeIslandModifier(x: number, z: number, baseHeight: number): number {
+    let height = baseHeight;
 
     // Check if we're in the lake bounds
     if (x > LAKE_BOUNDS.minX && x < LAKE_BOUNDS.maxX && z > LAKE_BOUNDS.minZ && z < LAKE_BOUNDS.maxZ) {
@@ -112,22 +112,22 @@ function getUnifiedGroundHeight(x: number, z: number): number {
             const dx = x - LAKE_ISLAND.centerX;
             const dz = z - LAKE_ISLAND.centerZ;
             const distFromIslandCenter = Math.sqrt(dx * dx + dz * dz);
-            
+
             if (distFromIslandCenter < LAKE_ISLAND.radius) {
                 // On the island - calculate height above water
                 const normalizedDist = distFromIslandCenter / LAKE_ISLAND.radius;
-                
+
                 // Smooth falloff using cosine curve for natural hill shape
                 const islandHeight = LAKE_ISLAND.peakHeight * Math.cos(normalizedDist * Math.PI / 2);
-                
+
                 // Blend at the edge of the island
                 const edgeDist = LAKE_ISLAND.radius - distFromIslandCenter;
                 const edgeBlend = Math.min(1.0, edgeDist / LAKE_ISLAND.falloffRadius);
-                
+
                 // Island height above water level (water is at ~1.5)
                 const waterLevel = 1.5;
                 const finalIslandHeight = waterLevel + (islandHeight * edgeBlend);
-                
+
                 // Return island height (don't apply lake depression)
                 return Math.max(height, finalIslandHeight);
             }
@@ -144,9 +144,33 @@ function getUnifiedGroundHeight(x: number, z: number): number {
     return height;
 }
 
+// Helper: Calculate Unified Ground Height (WASM + Visual Lake Modifiers + Island)
+// Matches logic in src/systems/physics.js
+function getUnifiedGroundHeight(x: number, z: number): number {
+    return applyLakeIslandModifier(x, z, getGroundHeight(x, z));
+}
+
 // --- Scene Setup ---
 
-export function initWorld(scene: THREE.Scene, weatherSystem: WeatherSystem, loadContent: boolean = true): WorldObjects {
+/**
+ * Yield control back to the browser using requestIdleCallback (with rAF fallback).
+ * Respects frame budgets better than raw requestAnimationFrame for background work.
+ */
+function yieldIdle(timeout = 100): Promise<void> {
+    return new Promise(resolve => {
+        if ('requestIdleCallback' in window) {
+            requestIdleCallback(() => resolve(), { timeout });
+        } else {
+            requestAnimationFrame(() => resolve());
+        }
+    });
+}
+
+/**
+ * Initialize the absolute minimum world needed for the player to stand and look around.
+ * This is intentionally light and synchronous — everything else goes into initDeferredWorldContent().
+ */
+export function initCriticalWorld(scene: THREE.Scene, weatherSystem?: WeatherSystem): WorldObjects {
     // 0. Pre-flight Check
     validateFoliageMaterials(foliageMaterials);
 
@@ -166,14 +190,22 @@ export function initWorld(scene: THREE.Scene, weatherSystem: WeatherSystem, load
     // Ground - SHRUNK from 2000 to 400 for tighter feel
     const groundGeo = new THREE.PlaneGeometry(400, 400, 128, 128);
     const posAttribute = groundGeo.attributes.position;
+    const vertexCount = posAttribute.count;
 
-    for (let i = 0; i < posAttribute.count; i++) {
-        const x = posAttribute.getX(i);
-        const y = posAttribute.getY(i); // Plane is on XY
-        const zWorld = -y;
+    // Batch query base heights via WASM to avoid 16k individual boundary crossings
+    const positions = new Float32Array(vertexCount * 2);
+    for (let i = 0; i < vertexCount; i++) {
+        positions[i * 2] = posAttribute.getX(i);
+        positions[i * 2 + 1] = -posAttribute.getY(i); // Plane is on XY, zWorld = -y
+    }
 
-        // Use the Unified Height that accounts for the Lake
-        const height = getUnifiedGroundHeight(x, zWorld);
+    const baseHeights = batchGroundHeight(positions);
+
+    // Apply lake/island modifiers in a second JS pass
+    for (let i = 0; i < vertexCount; i++) {
+        const x = positions[i * 2];
+        const z = positions[i * 2 + 1];
+        const height = applyLakeIslandModifier(x, z, baseHeights[i]);
         posAttribute.setZ(i, height);
     }
 
@@ -191,32 +223,109 @@ export function initWorld(scene: THREE.Scene, weatherSystem: WeatherSystem, load
     ground.receiveShadow = true;
     scene.add(ground);
 
-    // 2. Update fog colour for compact world.
-    // scene.fogNode (set in init.ts) drives actual WebGPU rendering via TSL rangeFog.
-    // Keep scene.fog as THREE.Fog (not FogExp2) so WeatherSystem's stale reference
-    // stays valid and renderer code never has to read FogExp2.density.
+    // Update fog colour for compact world.
     const fogColor = new THREE.Color(CONFIG.colors.fog || 0xFFC5D3);
     if (scene.fog instanceof THREE.Fog) {
         scene.fog.color.set(fogColor);
     }
     scene.background = fogColor;
 
-
-
-
     // Add the main world group (containing all generated foliage) to the scene
     scene.add(worldGroup);
 
-    // Generate Content if requested (Note: currently disabled in main.js, generation happens on button click)
+    return { sky, moon, ground };
+}
+
+/**
+ * Deferred world content — streams in heavy systems frame-by-frame so the
+ * loading screen stays responsive and the game loop can start early.
+ *
+ * @param onProgress Optional callback (percent, label) for real progress tracking.
+ */
+export async function initDeferredWorldContent(
+    scene: THREE.Scene,
+    weatherSystem: WeatherSystem,
+    onProgress?: (percent: number, label: string) => void
+): Promise<void> {
+    // Phase A: Grass (reduced initial density — can grow later via a separate system)
+    onProgress?.(0, 'Growing grass...');
+    initGrassSystem(scene, 5000); // Reduced from 10000 for faster startup
+    await yieldIdle();
+
+    // Phase B: Lake + Island
+    onProgress?.(15, 'Creating lake...');
+    const melodyLake = createWaveformWater(120, 100);
+    melodyLake.position.set(20, 1.5, 20);
+    scene.add(melodyLake);
+
+    const island = createIsland({ radius: 15, height: 2 });
+    island.position.set(-40, 2.5, 40);
+    island.userData.type = 'lake_island';
+    safeAddFoliage(island, true, 15, weatherSystem);
+    await yieldIdle();
+
+    // Phase C: Cloud Layer
+    onProgress?.(30, 'Generating clouds...');
+    generateCloudLayer(scene);
+    await yieldIdle();
+
+    // Phase D: Luminous Plants (chunked — 30 per frame)
+    onProgress?.(45, 'Planting flora...');
+    const luminousCount = CONFIG.luminousPlants.density;
+    const luminousChunk = 30;
+    for (let i = 0; i < luminousCount; i += luminousChunk) {
+        const end = Math.min(i + luminousChunk, luminousCount);
+        for (let j = i; j < end; j++) {
+            const angle = Math.random() * Math.PI * 2;
+            const randDist = Math.pow(Math.random(), 2.0);
+            const dist = 10 + randDist * 25;
+            const lx = -40 + Math.cos(angle) * dist;
+            const lz = 40 + Math.sin(angle) * dist;
+            const ly = getUnifiedGroundHeight(lx, lz);
+            if (lx > -10) continue;
+            if (ly > 2.0 && ly < 8.0) {
+                const plant = createLuminousPlant({ scale: 0.8 + Math.random() * 0.6 });
+                plant.position.set(lx, ly, lz);
+                plant.rotation.y = Math.random() * Math.PI * 2;
+                safeAddFoliage(plant, false, 0, weatherSystem);
+            }
+        }
+        const pct = 45 + Math.floor((i / luminousCount) * 35);
+        onProgress?.(pct, 'Planting flora...');
+        await yieldIdle();
+    }
+
+    // Phase E: Fireflies + Berries + Batcher mesh
+    onProgress?.(85, 'Spawning fireflies...');
+    scene.add(createIntegratedFireflies({ count: 150, areaSize: 100, useCompute: true }));
+    initFallingBerries(scene);
+    scene.add(luminousPlantBatcher.mesh);
+    await yieldIdle();
+
+    onProgress?.(100, 'World complete!');
+}
+
+/**
+ * Backward-compatible full world init.
+ * Now async because it streams deferred content.
+ * Prefer using initCriticalWorld() + initDeferredWorldContent() directly
+ * for phased loading.
+ */
+export async function initWorld(
+    scene: THREE.Scene,
+    weatherSystem: WeatherSystem,
+    loadContent: boolean = true
+): Promise<WorldObjects> {
+    const result = initCriticalWorld(scene, weatherSystem);
+    await initDeferredWorldContent(scene, weatherSystem);
+
     if (loadContent) {
-        // This is now async but we're not awaiting it here
-        // If this code path is used in the future, consider making initWorld async
         generateMap(weatherSystem).catch(err => {
             console.error('[World] Failed to generate map:', err);
         });
     }
 
-    return { sky, moon, ground };
+    return result;
 }
 
 export function safeAddFoliage(
@@ -350,7 +459,7 @@ export async function generateMap(
         }
         
         // Yield control back to browser
-        await new Promise(resolve => setTimeout(resolve, 0));
+        await yieldIdle();
     }
 
     // --- Spawn The Cave (after map entities) ---
@@ -897,7 +1006,7 @@ async function populateProceduralExtras(
                 onProgress(Math.min(i + 1, extrasCount), extrasCount);
             }
             // Yield control back to browser
-            await new Promise(resolve => setTimeout(resolve, 0));
+            await yieldIdle();
         }
     } catch (e) {
         console.warn(`[World] Failed to spawn procedural extra at ${x},${z}`, e);
