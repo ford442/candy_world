@@ -18,7 +18,7 @@ import {
     createIsland, // Added
     createCaveEntrance,
     createTerrainMaterial, // Added
-    createLuminousPlant, luminousPlantBatcher
+    createLuminousPlant, LuminousPlantBatcher
 } from '../foliage/index.ts';
 import { generateCloudLayer } from '../foliage/procedural-sky.ts';
 import { validateFoliageMaterials, foliageMaterials } from '../foliage/index.ts';
@@ -1080,4 +1080,65 @@ export function spawnNearbyFoliage(origin: THREE.Vector3, type: string, options:
             }
         }
     }
+}
+
+export function populateWorldDeferred(scene: THREE.Scene, weatherSystem: WeatherSystem): void {
+    console.log("[World] Starting deferred population...");
+
+    // Step 1: Grass
+    requestAnimationFrame(() => {
+        initGrassSystem(scene, 5000);
+
+        // Step 2: Clouds & Fireflies
+        requestAnimationFrame(() => {
+            scene.add(createIntegratedFireflies({ count: 150, areaSize: 100, useCompute: true }));
+            generateCloudLayer(scene);
+
+            // Step 3: Melody Lake
+            requestAnimationFrame(() => {
+                const melodyLake = createWaveformWater(120, 100);
+                melodyLake.position.set(20, 1.5, 20);
+                scene.add(melodyLake);
+
+                // Step 4: Island
+                requestAnimationFrame(() => {
+                    const island = createIsland({ radius: 15, height: 2 });
+                    island.position.set(-40, 2.5, 40);
+                    island.userData.type = 'lake_island';
+                    safeAddFoliage(island, true, 15, weatherSystem);
+
+                    // Step 5: Luminous Plants
+                    requestAnimationFrame(() => {
+                        const luminousCount = CONFIG.luminousPlants.density;
+                        for (let i = 0; i < luminousCount; i++) {
+                            const angle = Math.random() * Math.PI * 2;
+                            const randDist = Math.pow(Math.random(), 2.0);
+                            const dist = 10 + randDist * 25;
+                            const lx = -40 + Math.cos(angle) * dist;
+                            const lz = 40 + Math.sin(angle) * dist;
+                            const ly = getUnifiedGroundHeight(lx, lz);
+
+                            if (lx > -10) continue;
+
+                            if (ly > 2.0 && ly < 8.0) {
+                                const plant = createLuminousPlant({ scale: 0.8 + Math.random() * 0.6 });
+                                plant.position.set(lx, ly, lz);
+                                plant.rotation.y = Math.random() * Math.PI * 2;
+                                safeAddFoliage(plant, false, 0, weatherSystem);
+                            }
+                        }
+
+                        // Luminous plant batcher
+                        scene.add(LuminousPlantBatcher.getInstance().mesh);
+
+                        // Step 6: Falling Berries
+                        requestAnimationFrame(() => {
+                            initFallingBerries(scene);
+                            console.log("[World] Deferred population complete!");
+                        });
+                    });
+                });
+            });
+        });
+    });
 }

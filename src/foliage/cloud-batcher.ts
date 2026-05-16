@@ -180,7 +180,13 @@ function createCloudMaterial() {
     return material;
 }
 
-export const sharedCloudMaterial = createCloudMaterial();
+let _sharedCloudMaterial: any = null;
+export function getSharedCloudMaterial() {
+    if (!_sharedCloudMaterial) {
+        _sharedCloudMaterial = createCloudMaterial();
+    }
+    return _sharedCloudMaterial;
+}
 
 // --- Cloud Batcher ---
 const MAX_PUFFS = 400; // Reduced from 1000 for WebGPU uniform buffer limits (64KB max)
@@ -191,6 +197,22 @@ const _scratchScale = new THREE.Vector3();
 const _scratchObject3D = new THREE.Object3D();
 
 export class CloudBatcher {
+    private static instance: CloudBatcher;
+    private static walkableInstance: CloudBatcher;
+
+    public static getInstance(): CloudBatcher {
+        if (!CloudBatcher.instance) {
+            CloudBatcher.instance = new CloudBatcher();
+        }
+        return CloudBatcher.instance;
+    }
+
+    public static getWalkableInstance(): CloudBatcher {
+        if (!CloudBatcher.walkableInstance) {
+            CloudBatcher.walkableInstance = new CloudBatcher();
+        }
+        return CloudBatcher.walkableInstance;
+    }
     initialized: boolean;
     count: number;
     mesh: THREE.InstancedMesh | null;
@@ -217,7 +239,7 @@ export class CloudBatcher {
         this.isWalkableAttribute = new THREE.InstancedBufferAttribute(new Float32Array(MAX_PUFFS), 1);
         puffGeometry.setAttribute('aIsWalkable', this.isWalkableAttribute);
 
-        this.mesh = new THREE.InstancedMesh(puffGeometry, sharedCloudMaterial, MAX_PUFFS);
+        this.mesh = new THREE.InstancedMesh(puffGeometry, getSharedCloudMaterial(), MAX_PUFFS);
         this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
         this.mesh.castShadow = true;
         this.mesh.receiveShadow = true;
@@ -356,5 +378,3 @@ export class CloudBatcher {
     }
 }
 
-export const cloudBatcher = new CloudBatcher();
-export const walkableCloudBatcher = new CloudBatcher();
