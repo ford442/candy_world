@@ -412,32 +412,6 @@ if (startButton) {
 // Delay this by 2 seconds to let the browser breathe after initial load
 runDeferredWarmup(scene, camera, renderer);
 
-    // --- DEFERRED NUCLEAR WARMUP ---
-    // Delay this by 2 seconds to let the browser breathe after initial load
-    runDeferredWarmup(scene, camera, renderer);
-
-    setTimeout(() => {
-        populateWorldDeferred(scene, weatherSystem);
-        console.log('[Deferred] Loading celestial bodies and aurora...');
-        startPhase('Deferred Visuals Init');
-        initDeferredVisuals();
-        endPhase('Deferred Visuals Init');
-
-        // Startup is essentially complete after deferred visuals
-        setTimeout(() => {
-            finalizeStartupProfile();
-        }, 100);
-    }, 300);
-
-}).catch((error: unknown) => {
-    if (wasmInitTimeoutId !== null) {
-        clearTimeout(wasmInitTimeoutId);
-        wasmInitTimeoutId = null;
-    }
-    const msg = error instanceof Error ? error.message : String(error);
-    console.error('[Startup] WASM/Game-startup phase failed:', error);
-    loadingScreen.showFatalError(`Startup failed during physics engine initialization.\n${msg}`);
-});
 // Start deferred visual loading after a short delay so the first frames can breathe
 setTimeout(() => {
     deferredVisualLoader.start();
