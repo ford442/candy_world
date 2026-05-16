@@ -21,7 +21,7 @@ import { glitchGrenadeSystem } from '../systems/glitch-grenade.ts';
 // Core imports
 import { CONFIG } from './config.ts';
 import { initScene, forceFullSceneWarmup } from './init.js';
-import { initInput, keyStates } from './input/index.js';
+import { initInput, keyStates } from './input/index.ts';
 import { initPostProcessing } from '../foliage/post-processing.ts';
 
 // World & System imports
@@ -34,6 +34,8 @@ import { player, populatePhysicsGrids } from '../systems/physics/index.ts';
 import { animate, initGameLoopDependencies, addCameraShake } from './game-loop.ts';
 import { updateTheme, toggleDayNight, setInputSystem } from './hud.ts';
 import { initDeferredVisuals, initDeferredVisualsDependencies, runDeferredWarmup } from './deferred-init.ts';
+import { globalBackgroundProcessor } from '../utils/background-processor.ts';
+import { showDeferredIndicator, hideDeferredIndicator } from '../ui/index.ts';
 import { initLoadingScreen, installLegacyAPI } from '../ui/loading-screen.ts';
 
 // Export core objects for use by other modules
@@ -347,14 +349,9 @@ Promise.race([initWasm(), wasmInitTimeout]).then(async (wasmLoaded) => {
             startPhase('Map Generation');
             await generateMap(weatherSystem, DEFAULT_MAP_CHUNK_SIZE, (current, total) => {
                 const percent = Math.floor((current / total) * 100);
-
-                // Update loading screen progress bar
-                loadingScreen.updateProgress(percent, `Generating world... ${percent}%`);
-
-                // Also update visual gradient on the button for smoothness
+                loadingScreen.updateProgress(percent, `Generating critical world elements... ${percent}%`);
                 startButton.style.background = `linear-gradient(90deg, #FF6B6B ${percent}%, #FFB6C1 ${percent}%)`;
 
-                // Throttle text updates to every 10% or completion
                 if (percent - lastAnnounced >= 10 || percent === 100) {
                     startButton.innerHTML = `<span class="spinner" aria-hidden="true"></span>Generating ${percent}%... <span aria-hidden="true">🍭</span>`;
                     lastAnnounced = percent;
@@ -364,26 +361,53 @@ Promise.race([initWasm(), wasmInitTimeout]).then(async (wasmLoaded) => {
             endPhase('Map Generation');
 
             // ⚡ OPTIMIZATION: Populate spatial grids for physics lookups
+            // Done immediately AFTER critical map generation so physics bounds are perfectly solid
             populatePhysicsGrids();
 
             loadingScreen.updateProgress(100, 'World generation complete!');
-
             loadingScreen.completePhase('map-generation');
-
             startButton.removeAttribute('aria-busy');
 
-            // Hide loading screen after map generation
+            // ⚡ UX WIN: Hide loading screen IMMEDIATELY after critical physics/world elements are ready
+            // The player gains control here, rather than waiting for decorative elements
             loadingScreen.hide();
 
-            // UX: Now that generation is done, hide the instructions overlay
-            // so the user sees the world immediately
             const instructions = document.getElementById('instructions');
             if (instructions) instructions.style.display = 'none';
 
-            // 🎨 Palette: Welcome Toast
             import('../utils/toast.js').then(({ showToast }) => {
                 showToast("Click to explore! Press [ESC] for Controls", "🎮", 4000);
             });
+
+            // ⚡ Start the Background Processor to handle deferred entities, heavy setup, and warmup
+            showDeferredIndicator();
+
+            globalBackgroundProcessor.onComplete(() => {
+                hideDeferredIndicator();
+                finalizeStartupProfile();
+                console.log('[Startup] All deferred background tasks completed.');
+            });
+
+            // Queue deferred visual setup (aurora, celestial bodies, etc.)
+            globalBackgroundProcessor.enqueue({
+                id: 'deferred_visuals',
+                execute: () => {
+                    console.log('[Deferred] Loading celestial bodies and aurora...');
+                    startPhase('Deferred Visuals Init');
+                    initDeferredVisuals();
+                    endPhase('Deferred Visuals Init');
+                }
+            });
+
+            // Queue Shader Warmup as a background task
+            globalBackgroundProcessor.enqueue({
+                id: 'shader_warmup',
+                execute: () => {
+                    runDeferredWarmup(scene, camera, renderer);
+                }
+            });
+
+            globalBackgroundProcessor.start();
 
                 // Note: The pointer lock will happen automatically via input system
                 } catch (err) {
@@ -420,21 +444,7 @@ Promise.race([initWasm(), wasmInitTimeout]).then(async (wasmLoaded) => {
         });
     }
 
-    // --- DEFERRED NUCLEAR WARMUP ---
-    // Delay this by 2 seconds to let the browser breathe after initial load
-    runDeferredWarmup(scene, camera, renderer);
-
-    setTimeout(() => {
-        console.log('[Deferred] Loading celestial bodies and aurora...');
-        startPhase('Deferred Visuals Init');
-        initDeferredVisuals();
-        endPhase('Deferred Visuals Init');
-
-        // Startup is essentially complete after deferred visuals
-        setTimeout(() => {
-            finalizeStartupProfile();
-        }, 100);
-    }, 300);
+    // Deferred setup is now handled entirely via the Background Processor inside enterWorld().
 
 }).catch((error: unknown) => {
     if (wasmInitTimeoutId !== null) {

@@ -174,7 +174,7 @@ export class GPUComputeLibrary {
             size: Math.max(data.byteLength, 4), // WebGPU requires size > 0
             usage,
             label: label ?? 'storage-buffer',
-            mappedAtCreation: true,
+            mappedAtCreation: false,
         });
 
         new Uint8Array(buffer.getMappedRange()).set(new Uint8Array(data.buffer, data.byteOffset, data.byteLength));
