@@ -144,6 +144,7 @@ export {
     
     // Simple math functions
     getGroundHeight,
+    batchGroundHeight,
     freqToHue,
     lerp
 } from './wasm-physics.ts';
@@ -158,6 +159,7 @@ export {
     
     // Batch upload functions
     uploadPositions,
+    getHeightmapBatch,
     uploadMushroomSpecs,
     copySharedPositions,
     uploadAnimationData,

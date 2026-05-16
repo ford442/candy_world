@@ -1,3 +1,4 @@
+import { cppBatchGroundHeightSimd } from "./wasm-loader-core.ts";
 /**
  * @file wasm-batch.ts
  * @brief Batch Processing and Culling Functions
@@ -917,9 +918,16 @@ export function batchGroundHeightSimd(positions: Float32Array): Float32Array {
         return output;
     }
     
-    // JS fallback using FBM
+    // JS fallback — inline getGroundHeight formula (NOT fbm)
     for (let i = 0; i < count; i++) {
-        output[i] = fbm2DJS(positions[i * 2], positions[i * 2 + 1], 4);
+        const x = positions[i * 2];
+        const z = positions[i * 2 + 1];
+        if (isNaN(x) || isNaN(z)) {
+            output[i] = 0;
+            continue;
+        }
+        output[i] = Math.sin(x * 0.05) * 2 + Math.cos(z * 0.05) * 2 +
+                    Math.sin(x * 0.2) * 0.3 + Math.cos(z * 0.15) * 0.3;
     }
     return output;
 }
@@ -1749,5 +1757,73 @@ export function spawnBurst(
             output[idx + 4] = vy;
             output[idx + 5] = vz;
         }
+    }
+}
+
+
+/**
+ * Computes base ground height via WASM for an array of [x, z] coordinates.
+ * Relies on the C++ export `batchGroundHeight_simd`.
+ * @param coordinates Interleaved [x0, z0, x1, z1...]
+ * @returns Array of height values [y0, y1, y2...]
+ */
+export function getHeightmapBatch(coordinates: Float32Array): Float32Array {
+    if (!cppBatchGroundHeightSimd || !emscriptenMemory) {
+        // Fallback if WASM function isn't ready
+        console.warn("[WASM Batch] cppBatchGroundHeightSimd not found, using JS fallback");
+        const count = coordinates.length / 2;
+        const result = new Float32Array(count);
+        for (let i = 0; i < count; i++) {
+            const x = coordinates[i * 2];
+            const z = coordinates[i * 2 + 1];
+            result[i] = Math.sin(x * 0.05) * 2 + Math.cos(z * 0.05) * 2 +
+                        Math.sin(x * 0.2) * 0.3 + Math.cos(z * 0.15) * 0.3;
+        }
+        return result;
+    }
+
+    const count = coordinates.length / 2;
+    const inputBytes = coordinates.length * 4;
+    const outputBytes = count * 4;
+
+    const emModule = emscriptenInstance as any;
+
+    // Allocate memory in WASM heap
+    const inputPtr = emModule._malloc(inputBytes);
+    const outputPtr = emModule._malloc(outputBytes);
+
+    try {
+        // Copy data to WASM memory
+        const wasmHeap = new Float32Array(emscriptenMemory.buffer);
+        wasmHeap.set(coordinates, inputPtr / 4);
+
+        // Execute batch calculation
+        cppBatchGroundHeightSimd(inputPtr, count, outputPtr);
+
+        // Extract results
+        const result = new Float32Array(count);
+        const wasmView = new Float32Array(emscriptenMemory.buffer, outputPtr, count);
+        result.set(wasmView);
+
+        let hasNan = false;
+        for (let i = 0; i < count; i++) {
+            if (isNaN(result[i]) || Math.abs(result[i]) > 1000) {
+                hasNan = true;
+                const x = coordinates[i * 2];
+                const z = coordinates[i * 2 + 1];
+                result[i] = Math.sin(x * 0.05) * 2 + Math.cos(z * 0.05) * 2 +
+                            Math.sin(x * 0.2) * 0.3 + Math.cos(z * 0.15) * 0.3;
+            }
+        }
+
+        if (hasNan) {
+             console.warn("[WASM Batch] NaN or Out of Bounds detected in batch output, repaired with JS fallback");
+        }
+
+        return result;
+    } finally {
+        // Always free allocated memory
+        emModule._free(inputPtr);
+        emModule._free(outputPtr);
     }
 }

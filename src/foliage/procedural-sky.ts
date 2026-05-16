@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { createCloud } from './clouds.ts';
-import { cloudBatcher } from './cloud-batcher.ts';
+import { CloudBatcher } from './cloud-batcher.ts';
 
 /**
  * Generates a procedural cloud layer for the background sky.
@@ -86,7 +86,7 @@ export function generateCloudLayer(scene: THREE.Scene): THREE.Object3D[] {
         };
 
         // Register immediately with batcher
-        cloudBatcher.register(cloud, { scale, puffCount });
+        CloudBatcher.getInstance().register(cloud, { scale, puffCount });
 
         // Add to return list
         generatedClouds.push(cloud);

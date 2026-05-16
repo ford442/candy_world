@@ -765,6 +765,34 @@
 }
 
 /* =============================================================================
+   FATAL ERROR STATE
+   ========================================================================== */
+
+.loading-screen.fatal-error .loading-title {
+  color: #ff4444;
+}
+
+.progress-fill.fatal-error {
+  background: linear-gradient(90deg, #ff4444, #ff6b6b) !important;
+}
+
+.progress-task.fatal-error {
+  color: #ff6b6b;
+  font-weight: 600;
+  white-space: pre-line;
+}
+
+.loading-spinner.stopped {
+  animation: none !important;
+  opacity: 0.3;
+}
+
+.fatal-error-reload {
+  margin-top: 12px;
+  background: linear-gradient(135deg, #ff4444, #ff6b6b) !important;
+}
+
+/* =============================================================================
    PRINT STYLES (Hide loading screen when printing)
    ========================================================================== */
 

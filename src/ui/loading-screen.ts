@@ -49,12 +49,11 @@ export interface LoadingScreenOptions {
 // =============================================================================
 // DEFAULT LOADING PHASES
 // =============================================================================
-
 export const DEFAULT_LOADING_PHASES: LoadingPhase[] = [
     {
         id: 'core-scene',
         name: 'Scene Setup',
-        weight: 0.10,
+        weight: 0.05,
         description: 'Initializing 3D renderer and scene...',
         onStart: () => console.log('[Loading] Starting Core Scene Setup'),
         onComplete: () => console.log('[Loading] Core Scene Setup complete')
@@ -62,7 +61,7 @@ export const DEFAULT_LOADING_PHASES: LoadingPhase[] = [
     {
         id: 'audio-init',
         name: 'Audio System',
-        weight: 0.10,
+        weight: 0.05,
         description: 'Starting audio worklet and effects...',
         onStart: () => console.log('[Loading] Starting Audio System Init'),
         onComplete: () => console.log('[Loading] Audio System Init complete')
@@ -70,7 +69,7 @@ export const DEFAULT_LOADING_PHASES: LoadingPhase[] = [
     {
         id: 'world-generation',
         name: 'World Build',
-        weight: 0.25,
+        weight: 0.15,
         description: 'Growing procedural flora and terrain...',
         onStart: () => console.log('[Loading] Starting World Generation'),
         onComplete: () => console.log('[Loading] World Generation complete')
@@ -78,7 +77,7 @@ export const DEFAULT_LOADING_PHASES: LoadingPhase[] = [
     {
         id: 'wasm-init',
         name: 'Physics Engine',
-        weight: 0.25,
+        weight: 0.35,
         description: 'Loading physics engine and native modules...',
         onStart: () => console.log('[Loading] Starting WASM Initialization'),
         onComplete: () => console.log('[Loading] WASM Initialization complete')
@@ -86,7 +85,7 @@ export const DEFAULT_LOADING_PHASES: LoadingPhase[] = [
     {
         id: 'shader-warmup',
         name: 'Shader Warmup',
-        weight: 0.15,
+        weight: 0.05,
         description: 'Pre-compiling shaders for smooth gameplay...',
         onStart: () => console.log('[Loading] Starting Shader Warmup'),
         onComplete: () => console.log('[Loading] Shader Warmup complete')
@@ -94,7 +93,7 @@ export const DEFAULT_LOADING_PHASES: LoadingPhase[] = [
     {
         id: 'map-generation',
         name: 'Map Generation',
-        weight: 0.15,
+        weight: 0.35,
         description: 'Generating world map and placing entities...',
         onStart: () => console.log('[Loading] Starting Map Generation'),
         onComplete: () => console.log('[Loading] Map Generation complete')
@@ -127,6 +126,7 @@ export class LoadingScreen {
     
     private isVisible = false;
     private isComplete = false;
+    private hasFatalError = false;
     private skippedPhases: Set<string> = new Set();
     
     private options: Required<LoadingScreenOptions>;
@@ -693,7 +693,7 @@ export class LoadingScreen {
     }
 
     private animateProgress = (time: number): void => {
-        if (!this.isVisible || this.isComplete) {
+        if (!this.isVisible || this.isComplete || this.hasFatalError) {
             this.animationFrameId = null;
             return;
         }
@@ -826,6 +826,75 @@ export class LoadingScreen {
         }
         
         this.averagePhaseTime = totalWeight > 0 ? totalTime / totalWeight : 0;
+    }
+
+    /**
+     * Display a fatal error state on the loading screen.
+     * Stops the spinner, turns the progress bar red, and shows the error message.
+     * @param message Human-readable error description shown to the user.
+     */
+    showFatalError(message: string): void {
+        // Stop the animation loop so the spinner and lerp no longer run
+        if (this.animationFrameId !== null) {
+            cancelAnimationFrame(this.animationFrameId);
+            this.animationFrameId = null;
+        }
+
+        // Use a dedicated flag so hide() and animateProgress() don't misinterpret
+        // this as a successful completion.
+        this.hasFatalError = true;
+
+        if (this.container) {
+            this.container.classList.add('fatal-error');
+            this.container.setAttribute('aria-valuenow', '0');
+            this.container.setAttribute('aria-label', 'Game initialization failed');
+        }
+
+        // Turn progress bar red
+        if (this.progressFill) {
+            this.progressFill.style.width = '100%';
+            this.progressFill.classList.add('fatal-error');
+        }
+
+        if (this.percentageText) {
+            this.percentageText.textContent = 'Error';
+        }
+
+        // Show error message
+        if (this.taskText) {
+            this.taskText.textContent = message;
+            this.taskText.classList.add('fatal-error');
+        }
+
+        // Stop the "Calculating time…" ticker
+        if (this.timeText) {
+            this.timeText.textContent = '';
+        }
+
+        // Hide skip button
+        if (this.skipButton) {
+            this.skipButton.style.display = 'none';
+        }
+
+        // Stop spinner
+        if (this.spinner) {
+            this.spinner.classList.add('stopped');
+        }
+
+        // Add a reload button so the user has a clear recovery path
+        if (this.container) {
+            const existing = this.container.querySelector('.fatal-error-reload');
+            if (!existing) {
+                const reloadBtn = document.createElement('button');
+                reloadBtn.className = 'fatal-error-reload skip-button';
+                reloadBtn.setAttribute('aria-label', 'Reload page to try again');
+                reloadBtn.innerHTML = '<span aria-hidden="true">🔄</span> Reload Page';
+                reloadBtn.addEventListener('click', () => window.location.reload());
+                this.container.querySelector('.loading-content')?.appendChild(reloadBtn);
+            }
+        }
+
+        console.error('[LoadingScreen] Fatal error displayed:', message);
     }
 
     private destroy(): void {

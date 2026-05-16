@@ -7,6 +7,14 @@ import { LuminousPlantUniforms, luminousPlantsNoteColorNode } from '../systems/b
 import { CONFIG } from '../core/config.ts';
 
 export class LuminousPlantBatcher {
+    private static instance: LuminousPlantBatcher;
+
+    public static getInstance(): LuminousPlantBatcher {
+        if (!LuminousPlantBatcher.instance) {
+            LuminousPlantBatcher.instance = new LuminousPlantBatcher(CONFIG.luminousPlants.density);
+        }
+        return LuminousPlantBatcher.instance;
+    }
     public mesh: THREE.InstancedMesh;
     private maxInstances: number;
     private count: number = 0;

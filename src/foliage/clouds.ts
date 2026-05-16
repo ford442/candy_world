@@ -1,10 +1,10 @@
 // src/foliage/clouds.ts
 
 import * as THREE from 'three';
-import { cloudBatcher, walkableCloudBatcher, uCloudRainbowIntensity, uCloudLightningStrength, uCloudLightningColor, sharedCloudMaterial } from './cloud-batcher.ts';
+import { CloudBatcher, uCloudRainbowIntensity, uCloudLightningStrength, uCloudLightningColor, getSharedCloudMaterial } from './cloud-batcher.ts';
 
 // Re-export for compatibility with weather.ts
-export { uCloudRainbowIntensity, uCloudLightningStrength, uCloudLightningColor, sharedCloudMaterial };
+export { uCloudRainbowIntensity, uCloudLightningStrength, uCloudLightningColor, getSharedCloudMaterial };
 
 // Optimization: Shared scratch variables
 const _scratchVec3 = new THREE.Vector3();
@@ -53,7 +53,7 @@ export function createCloud(options: CloudOptions = {}): THREE.Group {
 
     // Register with Batcher on Placement (World Generation)
     group.userData.onPlacement = () => {
-        const batcher = group.userData.isWalkable ? walkableCloudBatcher : cloudBatcher;
+        const batcher = group.userData.isWalkable ? CloudBatcher.getWalkableInstance() : CloudBatcher.getInstance();
         batcher.register(group, { scale, puffCount });
     };
 
