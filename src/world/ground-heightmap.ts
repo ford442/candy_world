@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { DataUtils } from 'three';
 import { getUnifiedGroundHeightTyped } from '../systems/physics.core.js';
 import { getGroundHeight } from '../utils/wasm-loader.js';
 
@@ -68,27 +69,42 @@ export function generateGroundHeightmap(
     }
 
     // Create DataTextures
-    // Height texture: RedFormat, FloatType, NearestFilter
+    // Height texture: RedFormat, HalfFloatType, NearestFilter
+    // HalfFloat (f16) is filterable in WebGPU without extensions, avoiding the
+    // 'textureLoad(texture_2d, vec2)' WGSL error caused by non-filterable f32 textures.
+    const heightsHalf = new Uint16Array(vertexCount);
+    for (let i = 0; i < vertexCount; i++) {
+        heightsHalf[i] = DataUtils.toHalfFloat(heights[i]);
+    }
     const heightTexture = new THREE.DataTexture(
-        heights,
+        heightsHalf,
         resolution + 1,
         resolution + 1,
         THREE.RedFormat,
-        THREE.FloatType
+        THREE.HalfFloatType
     );
     heightTexture.minFilter = THREE.NearestFilter;
     heightTexture.magFilter = THREE.NearestFilter;
     heightTexture.needsUpdate = true;
     heightTexture.generateMipmaps = false;
 
-    // Normal texture: RGBFormat (or RGBA), FloatType, LinearFilter
-    // Using RGBFormat for now
+    // Normal texture: RGBAFormat, HalfFloatType, LinearFilter
+    // WebGPU does not support RGBFormat (3-channel) textures at all.
+    // Using RGBAFormat (4-channel) with HalfFloatType so the texture is filterable,
+    // allowing textureSample in WGSL instead of the broken textureLoad path.
+    const normalsHalf = new Uint16Array(vertexCount * 4);
+    for (let i = 0; i < vertexCount; i++) {
+        normalsHalf[i * 4 + 0] = DataUtils.toHalfFloat(normals[i * 3 + 0]); // x
+        normalsHalf[i * 4 + 1] = DataUtils.toHalfFloat(normals[i * 3 + 1]); // y
+        normalsHalf[i * 4 + 2] = DataUtils.toHalfFloat(normals[i * 3 + 2]); // z
+        normalsHalf[i * 4 + 3] = DataUtils.toHalfFloat(1.0);                // w (unused)
+    }
     const normalTexture = new THREE.DataTexture(
-        normals,
+        normalsHalf,
         resolution + 1,
         resolution + 1,
-        THREE.RGBFormat,
-        THREE.FloatType
+        THREE.RGBAFormat,
+        THREE.HalfFloatType
     );
     normalTexture.minFilter = THREE.LinearFilter;
     normalTexture.magFilter = THREE.LinearFilter;
