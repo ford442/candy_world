@@ -14,7 +14,7 @@
  */
 
 import { AccessibilityMenuHandlers } from './accessibility-menu-handlers';
-export { MenuSection, MenuItem } from './accessibility-menu-core';
+export type { MenuSection, MenuItem } from './accessibility-menu-core';
 export { AccessibilityMenuRendering } from './accessibility-menu-rendering';
 export { AccessibilityMenuHandlers } from './accessibility-menu-handlers';
 
