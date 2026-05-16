@@ -12,6 +12,19 @@
 
 extern "C" {
 
+// Forward declarations for functions defined in animation_batch_percussion.cpp
+void batchSnareSnap_c(float* input, int count, float time, float snareTrigger, float* output);
+void batchAccordion_c(float* input, int count, float time, float intensity, float* output);
+void batchCymbalShake_c(float* input, int count, float time, float highFreq, float intensity, float* output);
+void batchGeyserErupt_c(float* particles, int count, float time, float kick, float* output);
+
+// Forward declarations for functions defined in animation_batch_melodic.cpp
+void batchFiberWhip_c(float* input, int count, float time, float leadVol, int isActive, float* output);
+void batchSpiralWave_c(float* input, int count, float time, float intensity, float groove, float* output);
+void batchVibratoShake_c(float* input, int count, float time, float vibratoAmount, float intensity, float* output);
+void batchTremoloPulse_c(float* input, int count, float time, float tremoloAmount, float intensity, float* output);
+void batchPanningBob_c(float* input, int count, float time, float panActivity, float intensity, float* output);
+
 // Forward declarations for functions defined in animation_batch_foliage.cpp
 void batchShiver_c(float* input, int count, float time, float intensity, float* output);
 void batchSpring_c(float* input, int count, float time, float intensity, float* output);
