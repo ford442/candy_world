@@ -49,13 +49,32 @@ export {
 
 // Re-export animation wrappers
 export {
+    batchAnimationCalc,
+    batchShiver_c,
+    batchSpring_c,
+    batchFloat_c,
+    batchCloudBob_c,
+    deformWave_c,
+    deformJiggle_c,
+    deformWobble_c,
+    batchUpdateLODMatrices_c,
+    batchScaleMatrices_c,
+    batchFadeColors_c,
+    batchFrustumCull_c,
+    batchDistanceCullIndexed_c,
     batchShiverHighLevel,
     batchSpringHighLevel,
     batchFloatHighLevel,
     batchCloudBobHighLevel,
     batchVineSwayHighLevel,
     batchGeyserEruptHighLevel,
-    batchRetriggerHighLevel
+    batchRetriggerHighLevel,
+    fluidInit,
+    fluidStep,
+    fluidAddDensity,
+    fluidAddVelocity,
+    getFluidDensityView,
+    updateParticlesWASM
 } from './wasm-batch-animation.ts';
 
 // Re-export particle operations
