@@ -144,6 +144,7 @@ export {
     
     // Simple math functions
     getGroundHeight,
+    batchGroundHeight,
     freqToHue,
     lerp
 } from './wasm-physics.ts';

@@ -48,7 +48,7 @@ const _scratchParticleAudioData: ParticleAudioData = {
     windSpeed: 0
 };
 import { WeatherState } from '../systems/weather-types.ts';
-import { cloudBatcher } from '../foliage/cloud-batcher.ts';
+import { CloudBatcher } from '../foliage/cloud-batcher.ts';
 import { fluidSystem } from '../systems/fluid_system.ts';
 import { updatePhysics, player } from '../systems/physics/index.ts';
 import { fireRainbow, updateBlaster } from '../gameplay/rainbow-blaster.ts';
@@ -662,7 +662,8 @@ export function animate() {
         harmonyOrbSystem.update(delta, audioState, player.position);
 
         updateFallingClouds(delta, foliageClouds, getGroundHeight);
-        cloudBatcher.update(delta);
+        CloudBatcher.getInstance().update(delta);
+        CloudBatcher.getWalkableInstance().update(delta);
 
         // Update HUD
         updateHUD({
