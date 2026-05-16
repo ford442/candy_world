@@ -24,6 +24,8 @@ import { generateCloudLayer } from '../foliage/procedural-sky.ts';
 import { validateFoliageMaterials, foliageMaterials } from '../foliage/index.ts';
 import { createWisteriaCluster } from '../foliage/wisteria-cluster.ts';
 import { CONFIG } from '../core/config.ts';
+import { generateGroundHeightmap, disposeHeightmap } from './ground-heightmap.ts';
+
 import { registerPhysicsCave } from '../systems/physics/index.js';
 import { initDiscoveryForFoliage } from '../systems/discovery-optimized.ts';
 import { unlockSystem } from '../systems/unlocks.ts';
@@ -164,27 +166,55 @@ export function initWorld(scene: THREE.Scene, weatherSystem: WeatherSystem, load
     scene.add(moon);
 
     // Ground - SHRUNK from 2000 to 400 for tighter feel
-    const groundGeo = new THREE.PlaneGeometry(400, 400, 128, 128);
-    const posAttribute = groundGeo.attributes.position;
+    let groundGeo: THREE.PlaneGeometry;
+    let groundMat: THREE.Material;
 
-    for (let i = 0; i < posAttribute.count; i++) {
-        const x = posAttribute.getX(i);
-        const y = posAttribute.getY(i); // Plane is on XY
-        const zWorld = -y;
+    // Parse URL parameter for quick toggle
+    const urlParams = new URLSearchParams(window.location.search);
+    const forceGpuTerrain = urlParams.has('gpuTerrain');
 
-        // Use the Unified Height that accounts for the Lake
-        const height = getUnifiedGroundHeight(x, zWorld);
-        posAttribute.setZ(i, height);
+    if (CONFIG.terrain?.useGpuHeightmap || forceGpuTerrain) {
+        console.log("[World] Using GPU Heightmap Displacement");
+
+        const resolution = CONFIG.terrain?.heightmapResolution || 256;
+        groundGeo = new THREE.PlaneGeometry(400, 400, resolution, resolution);
+
+        // Generate heightmap textures
+        const startParams = performance.now();
+        const { heightTexture, normalTexture } = generateGroundHeightmap(400, resolution);
+        console.log(`[World] Generated heightmap in ${(performance.now() - startParams).toFixed(2)}ms`);
+
+        groundMat = createTerrainMaterial(CONFIG.colors.ground, {
+            roughness: 0.9,
+            bumpStrength: 0.15,
+            noiseScale: 20.0
+        }, heightTexture, normalTexture);
+
+    } else {
+        console.log("[World] Using CPU Vertex Displacement");
+
+        groundGeo = new THREE.PlaneGeometry(400, 400, 128, 128);
+        const posAttribute = groundGeo.attributes.position;
+
+        for (let i = 0; i < posAttribute.count; i++) {
+            const x = posAttribute.getX(i);
+            const y = posAttribute.getY(i); // Plane is on XY
+            const zWorld = -y;
+
+            // Use the Unified Height that accounts for the Lake
+            const height = getUnifiedGroundHeight(x, zWorld);
+            posAttribute.setZ(i, height);
+        }
+
+        groundGeo.computeVertexNormals();
+
+        // Replaced MeshPhysicalMaterial with Audio-Reactive TSL Material
+        groundMat = createTerrainMaterial(CONFIG.colors.ground, {
+            roughness: 0.9,
+            bumpStrength: 0.15,
+            noiseScale: 20.0
+        });
     }
-
-    groundGeo.computeVertexNormals();
-
-    // Replaced MeshPhysicalMaterial with Audio-Reactive TSL Material
-    const groundMat = createTerrainMaterial(CONFIG.colors.ground, {
-        roughness: 0.9,
-        bumpStrength: 0.15,
-        noiseScale: 20.0
-    });
 
     const ground = new THREE.Mesh(groundGeo, groundMat);
     ground.rotation.x = -Math.PI / 2;
