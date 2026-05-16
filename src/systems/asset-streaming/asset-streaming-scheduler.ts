@@ -320,8 +320,8 @@ export class BatchCoordinator {
         return batch.ids.map(id => ({
             id,
             priority: batch.priority,
-            resolve: () => {} as any,
-            reject: () => {} as any,
+            resolve: () => {},
+            reject: () => {},
             attempts: 0
         }));
     }

@@ -71,6 +71,8 @@ export class AccessibilityMenuRendering extends AccessibilityMenu {
     // Trap focus
     trapFocusInside(this.container);
   }
+
+  private createHeader(): HTMLElement {
     const header = document.createElement('header');
     header.style.cssText = `
       padding: 20px;
