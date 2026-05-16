@@ -116,7 +116,10 @@ export class LoadingScreen {
     private skipButton: HTMLButtonElement | null = null;
     private spinner: HTMLElement | null = null;
     
-    // We keep legacy phases array for compatibility if needed, but drive from Manager
+    // Deferred HUD Indicator
+    private deferredIndicator: HTMLElement | null = null;
+    private isDeferredVisible = false;
+
     private phases: LoadingPhase[] = [];
     private currentPhaseIndex = -1;
     private phaseProgress = 0;
@@ -198,6 +201,17 @@ export class LoadingScreen {
     private createDOM(): void {
         if (typeof document === 'undefined') return;
         
+        // Create Deferred HUD Indicator
+        if (!document.getElementById('candy-deferred-indicator')) {
+            this.deferredIndicator = document.createElement('div');
+            this.deferredIndicator.id = 'candy-deferred-indicator';
+            this.deferredIndicator.className = 'deferred-indicator';
+            this.deferredIndicator.setAttribute('aria-hidden', 'true');
+            this.deferredIndicator.innerHTML = '<span class="deferred-spinner"></span><span class="deferred-text">Populating...</span>';
+            document.body.appendChild(this.deferredIndicator);
+        }
+        if (typeof document === 'undefined') return;
+
         // Check if already exists
         if (document.getElementById('candy-loading-screen')) {
             this.container = document.getElementById('candy-loading-screen');
@@ -398,6 +412,28 @@ export class LoadingScreen {
     /**
      * Hide the loading screen with fade-out animation
      */
+    /**
+     * Show the subtle deferred loading indicator in the HUD
+     */
+    showDeferredIndicator(): void {
+        if (!this.deferredIndicator) return;
+        this.isDeferredVisible = true;
+        this.deferredIndicator.classList.add('visible');
+        this.deferredIndicator.setAttribute('aria-hidden', 'false');
+        if (this.options.debug) console.log('[LoadingScreen] Deferred indicator shown');
+    }
+
+    /**
+     * Hide the deferred loading indicator
+     */
+    hideDeferredIndicator(): void {
+        if (!this.deferredIndicator || !this.isDeferredVisible) return;
+        this.isDeferredVisible = false;
+        this.deferredIndicator.classList.remove('visible');
+        this.deferredIndicator.setAttribute('aria-hidden', 'true');
+        if (this.options.debug) console.log('[LoadingScreen] Deferred indicator hidden');
+    }
+
     hide(): void {
         if (!this.isVisible || this.isComplete) return;
         
@@ -973,6 +1009,14 @@ export function showLoadingScreen(): void {
 /**
  * Hide the loading screen
  */
+export function showDeferredIndicator(): void {
+    globalLoadingScreen?.showDeferredIndicator();
+}
+
+export function hideDeferredIndicator(): void {
+    globalLoadingScreen?.hideDeferredIndicator();
+}
+
 export function hideLoadingScreen(): void {
     globalLoadingScreen?.hide();
 }

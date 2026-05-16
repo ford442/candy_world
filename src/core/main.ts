@@ -21,7 +21,7 @@ import { glitchGrenadeSystem } from '../systems/glitch-grenade.ts';
 // Core imports
 import { CONFIG } from './config.ts';
 import { initScene, forceFullSceneWarmup } from './init.js';
-import { initInput, keyStates } from './input/index.js';
+import { initInput, keyStates } from './input/index.ts';
 import { initPostProcessing } from '../foliage/post-processing.ts';
 
 // World & System imports
@@ -34,6 +34,8 @@ import { player, populatePhysicsGrids } from '../systems/physics/index.ts';
 import { animate, initGameLoopDependencies, addCameraShake } from './game-loop.ts';
 import { updateTheme, toggleDayNight, setInputSystem } from './hud.ts';
 import { initDeferredVisuals, initDeferredVisualsDependencies, runDeferredWarmup } from './deferred-init.ts';
+import { globalBackgroundProcessor } from '../utils/background-processor.ts';
+import { showDeferredIndicator, hideDeferredIndicator } from '../ui/index.ts';
 import { DeferredLoader, LoadPriority } from '../systems/deferred-loader.ts';
 import { initLoadingScreen, installLegacyAPI } from '../ui/loading-screen.ts';
 
@@ -362,8 +364,7 @@ if (startButton) {
 
             await generateMap(weatherSystem, DEFAULT_MAP_CHUNK_SIZE, (current, total) => {
                 const percent = Math.floor((current / total) * 100);
-                loadingScreen.updateProgress(percent, `Generating world... ${percent}%`);
-
+                loadingScreen.updateProgress(percent, `Generating critical world elements... ${percent}%`);
                 startButton.style.background = `linear-gradient(90deg, #FF6B6B ${percent}%, #FFB6C1 ${percent}%)`;
 
                 if (percent - lastAnnounced >= 10 || percent === 100) {
@@ -373,13 +374,19 @@ if (startButton) {
             });
 
             endPhase('Map Generation');
+
+            // ⚡ OPTIMIZATION: Populate spatial grids for physics lookups
+            // Done immediately AFTER critical map generation so physics bounds are perfectly solid
             populatePhysicsGrids();
 
             loadingScreen.updateProgress(100, 'World generation complete!');
             loadingScreen.completePhase('map-generation');
+            startButton.removeAttribute('aria-busy');
+
+            // ⚡ UX WIN: Hide loading screen IMMEDIATELY after critical physics/world elements are ready
+            // The player gains control here, rather than waiting for decorative elements
             loadingScreen.hide();
 
-            // Hide instructions
             const instructions = document.getElementById('instructions');
             if (instructions) instructions.style.display = 'none';
 
@@ -387,6 +394,48 @@ if (startButton) {
                 showToast("Click to explore! Press [ESC] for Controls", "🎮", 4000);
             });
 
+            // ⚡ Start the Background Processor to handle deferred entities, heavy setup, and warmup
+            showDeferredIndicator();
+
+            globalBackgroundProcessor.onComplete(() => {
+                hideDeferredIndicator();
+                finalizeStartupProfile();
+                console.log('[Startup] All deferred background tasks completed.');
+            });
+
+            // Queue deferred visual setup (aurora, celestial bodies, etc.)
+            globalBackgroundProcessor.enqueue({
+                id: 'deferred_visuals',
+                execute: () => {
+                    console.log('[Deferred] Loading celestial bodies and aurora...');
+                    startPhase('Deferred Visuals Init');
+                    initDeferredVisuals();
+                    endPhase('Deferred Visuals Init');
+                }
+            });
+
+            // Queue Shader Warmup as a background task
+            globalBackgroundProcessor.enqueue({
+                id: 'shader_warmup',
+                execute: () => {
+                    runDeferredWarmup(scene, camera, renderer);
+                }
+            });
+
+            globalBackgroundProcessor.start();
+
+                // Note: The pointer lock will happen automatically via input system
+                } catch (err) {
+                    console.error('[Init] World generation failed:', err);
+                    loadingScreen.hide();
+                    startButton.disabled = false;
+                    startButton.setAttribute('aria-disabled', 'false');
+                    startButton.setAttribute('aria-busy', 'false');
+                    startButton.removeAttribute('title');
+                    startButton.style.background = '';
+                    startButton.innerHTML = 'Retry';
+                }
+            }, 50);
             worldGenerated = true;
 
             // Button now becomes "Regenerate"
@@ -412,6 +461,17 @@ if (startButton) {
 // Delay this by 2 seconds to let the browser breathe after initial load
 runDeferredWarmup(scene, camera, renderer);
 
+    // Deferred setup is now handled entirely via the Background Processor inside enterWorld().
+
+}).catch((error: unknown) => {
+    if (wasmInitTimeoutId !== null) {
+        clearTimeout(wasmInitTimeoutId);
+        wasmInitTimeoutId = null;
+    }
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('[Startup] WASM/Game-startup phase failed:', error);
+    loadingScreen.showFatalError(`Startup failed during physics engine initialization.\n${msg}`);
+});
 // Start deferred visual loading after a short delay so the first frames can breathe
 setTimeout(() => {
     deferredVisualLoader.start();
