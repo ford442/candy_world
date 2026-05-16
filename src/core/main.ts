@@ -25,7 +25,7 @@ import { initInput, keyStates } from './input/index.js';
 import { initPostProcessing } from '../foliage/post-processing.ts';
 
 // World & System imports
-import { initWorld, generateMap, DEFAULT_MAP_CHUNK_SIZE } from '../world/generation.ts';
+import { initWorld, generateMap, DEFAULT_MAP_CHUNK_SIZE, populateWorldDeferred } from '../world/generation.ts';
 import { animatedFoliage, interactiveObjects } from '../world/state.ts';
 import { fireRainbow } from '../gameplay/rainbow-blaster.ts';
 import { player, populatePhysicsGrids } from '../systems/physics/index.ts';
@@ -425,6 +425,7 @@ Promise.race([initWasm(), wasmInitTimeout]).then(async (wasmLoaded) => {
     runDeferredWarmup(scene, camera, renderer);
 
     setTimeout(() => {
+        populateWorldDeferred(scene, weatherSystem);
         console.log('[Deferred] Loading celestial bodies and aurora...');
         startPhase('Deferred Visuals Init');
         initDeferredVisuals();
