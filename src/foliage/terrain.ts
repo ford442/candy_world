@@ -1,9 +1,8 @@
 import * as THREE from 'three';
-import { MeshStandardNodeMaterial } from 'three/webgpu';
 import {
     color, float, vec3, Fn, uniform, sin, time, positionLocal,
     smoothstep, mix, positionWorld, mx_noise_float, normalLocal,
-    distance, max
+    distance, max, uv, texture
 } from 'three/tsl';
 import { CandyPresets, uAudioLow, uAudioHigh, createRimLight, uPlayerPosition } from './index.ts';
 
@@ -15,7 +14,12 @@ import { CandyPresets, uAudioLow, uAudioHigh, createRimLight, uPlayerPosition } 
  * @param {any} options - Material options (roughness, bumpStrength, etc.)
  * @returns {MeshStandardNodeMaterial}
  */
-export function createTerrainMaterial(hexColor: number | string | THREE.Color, options: any = {}): MeshStandardNodeMaterial {
+export function createTerrainMaterial(
+    hexColor: number | string | THREE.Color,
+    options: any = {},
+    heightMap?: THREE.DataTexture,
+    normalMap?: THREE.DataTexture
+): MeshStandardNodeMaterial {
     // 1. Base Material: Clay preset for the "Cute Clay" look
     // Override with options to match existing ground physics material properties
     const material = CandyPresets.Clay(hexColor, {
@@ -42,13 +46,35 @@ export function createTerrainMaterial(hexColor: number | string | THREE.Color, o
         return breathe.mul(pulse);
     });
 
+
     const currentPos = material.positionNode || positionLocal;
-    // Use positionWorld for consistent noise across chunks if we had chunks
-    // For a single large plane, it works fine too.
+
+    // Static Heightmap Displacement
+    let finalPos = currentPos;
+    if (heightMap) {
+        // Create uniforms for textures
+        const heightTexNode = texture(heightMap, uv());
+
+        // Add height displacement (height is in the red channel)
+        // Since geometry is rotated -90 on X, the displacement should be on Z in object space
+        finalPos = vec3(currentPos.x, currentPos.y, currentPos.z.add(heightTexNode.r));
+    }
+
+    // Audio-reactive breathing displacement on top
+    // Note: dispY applies to World Y
     const dispY = displacementLogic(positionWorld);
 
-    // Apply displacement to Y (Height)
-    material.positionNode = vec3(currentPos.x, currentPos.y.add(dispY), currentPos.z);
+    // Apply displacement
+    material.positionNode = vec3(finalPos.x, finalPos.y, finalPos.z.add(dispY));
+
+    // Static Normal Map
+    if (normalMap) {
+        // Read normal from texture (RGB)
+        const normalTexNode = texture(normalMap, uv());
+        // Normal textures are typically mapped 0-1, but our generator outputs -1 to 1 directly since we use FloatType
+        material.normalNode = normalTexNode.rgb;
+    }
+
 
     // 3. Emissive "Magic Dust" (Audio Reactive Sparkles)
     // High frequency audio triggers sparkles on the ground, visualizing the melody.

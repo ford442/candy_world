@@ -21,6 +21,8 @@ import { generateCloudLayer } from '../foliage/procedural-sky.ts';
 import { validateFoliageMaterials, foliageMaterials } from '../foliage/index.ts';
 import { createWisteriaCluster } from '../foliage/wisteria-cluster.ts';
 import { CONFIG } from '../core/config.ts';
+import { generateGroundHeightmap, disposeHeightmap } from './ground-heightmap.ts';
+
 import { registerPhysicsCave } from '../systems/physics/index.js';
 import { initDiscoveryForFoliage } from '../systems/discovery-optimized.ts';
 import { unlockSystem } from '../systems/unlocks.ts';
@@ -78,50 +80,79 @@ export function getUnifiedGroundHeight(x: number, z: number): number {
 }
 
 // ============== CRITICAL WORLD INIT ==============
+// ============== CRITICAL WORLD INIT ==============
 export function initCriticalWorld(scene: THREE.Scene, weatherSystem?: WeatherSystem): WorldObjects {
     validateFoliageMaterials(foliageMaterials);
 
     // Sky, Stars, Moon
-    const sky = createSky(); 
+    const sky = createSky();
     scene.add(sky);
 
-    const stars = createStars(); 
+    const stars = createStars();
     scene.add(stars);
 
     const moon = createMoon();
     moon.position.set(-50, 60, -30);
     scene.add(moon);
 
-    // === GROUND WITH BATCHED HEIGHTS ===
-    const groundGeo = new THREE.PlaneGeometry(400, 400, 128, 128);
-    const posAttribute = groundGeo.attributes.position as THREE.BufferAttribute;
-    const vertexCount = posAttribute.count;
+    // ==================== GROUND GENERATION ====================
+    let groundGeo: THREE.PlaneGeometry;
+    let groundMat: THREE.Material;
 
-    // Prepare coordinates for batch WASM call
-    const coordinates = new Float32Array(vertexCount * 2);
-    for (let i = 0; i < vertexCount; i++) {
-        coordinates[i * 2]     = posAttribute.getX(i);
-        coordinates[i * 2 + 1] = -posAttribute.getY(i); // Plane is rotated later
+    const urlParams = new URLSearchParams(window.location.search);
+    const forceGpuTerrain = urlParams.has('gpuTerrain');
+    const useGpuHeightmap = CONFIG.terrain?.useGpuHeightmap || forceGpuTerrain;
+
+    if (useGpuHeightmap) {
+        console.log("[World] Using GPU Heightmap Displacement (Texture-based)");
+
+        const resolution = CONFIG.terrain?.heightmapResolution || 256;
+        groundGeo = new THREE.PlaneGeometry(400, 400, resolution, resolution);
+
+        const startTime = performance.now();
+        const { heightTexture, normalTexture } = generateGroundHeightmap(400, resolution);
+        
+        console.log(`[World] Generated heightmap textures in ${(performance.now() - startTime).toFixed(2)}ms`);
+
+        groundMat = createTerrainMaterial(CONFIG.colors.ground, {
+            roughness: 0.9,
+            bumpStrength: 0.15,
+            noiseScale: 20.0
+        }, heightTexture, normalTexture);
+
+    } else {
+        console.log("[World] Using WASM Batched CPU Vertex Displacement");
+
+        groundGeo = new THREE.PlaneGeometry(400, 400, 128, 128);
+        const posAttribute = groundGeo.attributes.position as THREE.BufferAttribute;
+        const vertexCount = posAttribute.count;
+
+        // Prepare batch for WASM
+        const coordinates = new Float32Array(vertexCount * 2);
+        for (let i = 0; i < vertexCount; i++) {
+            coordinates[i * 2]     = posAttribute.getX(i);
+            coordinates[i * 2 + 1] = -posAttribute.getY(i);
+        }
+
+        const baseHeights = batchGroundHeight(coordinates);
+
+        for (let i = 0; i < vertexCount; i++) {
+            const x = coordinates[i * 2];
+            const z = coordinates[i * 2 + 1];
+            const height = applyLakeIslandModifier(x, z, baseHeights[i]);
+            posAttribute.setZ(i, height || 0);
+        }
+
+        groundGeo.computeVertexNormals();
+
+        groundMat = createTerrainMaterial(CONFIG.colors.ground, {
+            roughness: 0.9,
+            bumpStrength: 0.15,
+            noiseScale: 20.0
+        });
     }
 
-    const baseHeights = batchGroundHeight(coordinates);
-
-    for (let i = 0; i < vertexCount; i++) {
-        const x = coordinates[i * 2];
-        const z = coordinates[i * 2 + 1];
-        const height = applyLakeIslandModifier(x, z, baseHeights[i]);
-
-        posAttribute.setZ(i, height || 0); // prevent NaN
-    }
-
-    groundGeo.computeVertexNormals();
-
-    const groundMat = createTerrainMaterial(CONFIG.colors.ground, {
-        roughness: 0.9,
-        bumpStrength: 0.15,
-        noiseScale: 20.0
-    });
-
+    // Create and add ground
     const ground = new THREE.Mesh(groundGeo, groundMat);
     ground.rotation.x = -Math.PI / 2;
     ground.receiveShadow = true;
