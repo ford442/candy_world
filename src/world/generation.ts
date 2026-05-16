@@ -3,7 +3,7 @@
 import { updateProgress } from '../ui/index.ts';
 import { createIntegratedFireflies, createIntegratedPollen, createIntegratedSparks, registerIntegratedSystem } from '../particles/index.ts';
 import * as THREE from 'three';
-import { getGroundHeight, initCollisionSystem, addCollisionObject, checkPositionValidity } from '../utils/wasm-loader.js';
+import { getHeightmapBatch, getGroundHeight, initCollisionSystem, addCollisionObject, checkPositionValidity } from '../utils/wasm-loader.js';
 import {
     createSky, createStars, createMoon, createMushroom, createGlowingFlower,
     createFlower, createSubwooferLotus, createAccordionPalm, createFiberOpticWillow,
@@ -167,13 +167,62 @@ export function initWorld(scene: THREE.Scene, weatherSystem: WeatherSystem, load
     const groundGeo = new THREE.PlaneGeometry(400, 400, 128, 128);
     const posAttribute = groundGeo.attributes.position;
 
+        // Wave 2: Batch the heightmap generation
+    const coordinates = new Float32Array(posAttribute.count * 2);
     for (let i = 0; i < posAttribute.count; i++) {
-        const x = posAttribute.getX(i);
-        const y = posAttribute.getY(i); // Plane is on XY
-        const zWorld = -y;
+        coordinates[i * 2] = posAttribute.getX(i);
+        coordinates[i * 2 + 1] = -posAttribute.getY(i); // Plane is on XY, so zWorld is -y
+    }
 
-        // Use the Unified Height that accounts for the Lake
-        const height = getUnifiedGroundHeight(x, zWorld);
+    // Call batched WASM
+    const baseHeights = getHeightmapBatch(coordinates);
+
+    for (let i = 0; i < posAttribute.count; i++) {
+        const x = coordinates[i * 2];
+        const zWorld = coordinates[i * 2 + 1];
+        let height = baseHeights[i];
+
+        // Apply TS-side lake/island modifiers
+        if (x > LAKE_BOUNDS.minX && x < LAKE_BOUNDS.maxX && zWorld > LAKE_BOUNDS.minZ && zWorld < LAKE_BOUNDS.maxZ) {
+            const distX = Math.min(x - LAKE_BOUNDS.minX, LAKE_BOUNDS.maxX - x);
+            const distZ = Math.min(zWorld - LAKE_BOUNDS.minZ, LAKE_BOUNDS.maxZ - zWorld);
+            const distEdge = Math.min(distX, distZ);
+
+            if (LAKE_ISLAND.enabled) {
+                const dx = x - LAKE_ISLAND.centerX;
+                const dz = zWorld - LAKE_ISLAND.centerZ;
+                const distFromIslandCenter = Math.sqrt(dx * dx + dz * dz);
+
+                if (distFromIslandCenter < LAKE_ISLAND.radius) {
+                    const normalizedDist = distFromIslandCenter / LAKE_ISLAND.radius;
+                    const islandHeight = LAKE_ISLAND.peakHeight * Math.cos(normalizedDist * Math.PI / 2);
+                    const edgeDist = LAKE_ISLAND.radius - distFromIslandCenter;
+                    const edgeBlend = Math.min(1.0, edgeDist / LAKE_ISLAND.falloffRadius);
+                    const waterLevel = 1.5;
+                    const finalIslandHeight = waterLevel + (islandHeight * edgeBlend);
+
+                    height = finalIslandHeight;
+                } else {
+                    const normalizedDist = Math.min(1.0, distEdge / LAKE_BOUNDS.falloffDistance);
+                    const smoothFalloff = 0.5 - 0.5 * Math.cos(normalizedDist * Math.PI);
+                    const maxDepth = 2.0;
+                    const currentHeight = height;
+                    const lakeBottom = currentHeight - maxDepth;
+                    height = currentHeight - (currentHeight - lakeBottom) * (1.0 - smoothFalloff);
+                }
+            } else {
+                const normalizedDist = Math.min(1.0, distEdge / LAKE_BOUNDS.falloffDistance);
+                const smoothFalloff = 0.5 - 0.5 * Math.cos(normalizedDist * Math.PI);
+                const maxDepth = 2.0;
+                const currentHeight = height;
+                const lakeBottom = currentHeight - maxDepth;
+                height = currentHeight - (currentHeight - lakeBottom) * (1.0 - smoothFalloff);
+            }
+        }
+
+        if (isNaN(height)) {
+            height = 0; // Absolute fallback to prevent computeBoundingSphere from failing
+        }
         posAttribute.setZ(i, height);
     }
 
