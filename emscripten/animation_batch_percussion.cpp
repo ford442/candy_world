@@ -364,18 +364,3 @@ void batchGeyserErupt_c(float* particles, int count, float time, float kick, flo
     }
 }
 
-/**
- * @brief Batch Retrigger Effect (SIMD)
- * 
- * Stutter/retrigger visual effect that creates rapid position jumps.
- * Useful for glitch-style animations synced to audio retrigger effects.
- * 
- * Math: retriggerPhase = frac(time * retriggerSpeed)
- *       jump = sin(retriggerPhase * PI * 2) * intensity * (1.0 - retriggerPhase)
- *       scale = 1.0 + jump * 0.5
- * 
- * The intensity fades over each retrigger cycle creating a decaying stutter.
- */
-EMSCRIPTEN_KEEPALIVE
-
-}
