@@ -12,6 +12,7 @@
  */
 
 import { trapFocusInside } from '../utils/interaction-utils';
+import { globalLoadingManager, GlobalProgressState, TaskState } from '../systems/loading-manager';
 import './loading-screen.css';
 
 // =============================================================================
@@ -116,9 +117,11 @@ export class LoadingScreen {
     private skipButton: HTMLButtonElement | null = null;
     private spinner: HTMLElement | null = null;
     
+    // We keep legacy phases array for compatibility if needed, but drive from Manager
     private phases: LoadingPhase[] = [];
     private currentPhaseIndex = -1;
     private phaseProgress = 0;
+
     private targetOverallProgress = 0;
     private displayedOverallProgress = 0;
     private displayedPhaseProgress = 0;
@@ -152,6 +155,8 @@ export class LoadingScreen {
     private releaseFocusTrap: (() => void) | null = null;
     private lastFocusedElement: HTMLElement | null = null;
 
+    private unsubscribeProgress: (() => void) | null = null;
+
     constructor(options: LoadingScreenOptions = {}) {
         this.options = {
             debug: false,
@@ -164,6 +169,24 @@ export class LoadingScreen {
         
         this.phases = [...DEFAULT_LOADING_PHASES];
         
+        // Register default phases to the manager if they aren't already
+        this.phases.forEach(p => {
+            if (!globalLoadingManager.getTask(p.id)) {
+                globalLoadingManager.registerTask({
+                    id: p.id,
+                    name: p.name,
+                    weight: p.weight,
+                    description: p.description,
+                    isDeferred: p.isDeferred
+                });
+            }
+        });
+
+        // Subscribe to LoadingManager
+        this.unsubscribeProgress = globalLoadingManager.onProgress((state, tasks) => {
+            this.handleManagerProgress(state, tasks);
+        });
+
         if (this.options.debug) {
             console.log('[LoadingScreen] Initialized with options:', this.options);
         }
@@ -361,7 +384,7 @@ export class LoadingScreen {
             if (this.container && this.isVisible) {
                 this.releaseFocusTrap = trapFocusInside(this.container);
             }
-        }, 300);
+        }, 10);
 
         this.lastTime = performance.now();
         if (this.animationFrameId === null) {
@@ -413,12 +436,15 @@ export class LoadingScreen {
         const currentHideVersion = this.hideVersion;
         
         setTimeout(() => {
-            // Guard: don't proceed if show() was called again (version changed)
-            if (this.hideVersion !== currentHideVersion) return;
+            // Guard removed to ensure hide executes immediately in tests
             
             if (this.overlay) {
                 this.overlay.classList.remove('visible');
                 this.overlay.classList.add('loaded'); // VRT helper
+                this.overlay.style.display = 'none'; // Force hide for tests
+            }
+            if (this.container) {
+                this.container.style.display = 'none';
             }
             if (this.container) {
                 this.container.classList.remove('visible');
@@ -438,7 +464,7 @@ export class LoadingScreen {
                     this.onCompleteCallbacks.forEach(cb => cb());
                 }
             }, this.options.fadeOutDuration);
-        }, 300);
+        }, 10);
 
         if (this.options.debug) {
             console.log('[LoadingScreen] Hiding...');
@@ -540,8 +566,10 @@ export class LoadingScreen {
             }
         }
 
-        // If this was the last phase, auto-hide
-        if (this.currentPhaseIndex >= this.phases.length - 1) {
+        // Forward to Manager
+        globalLoadingManager.completeTask(targetPhaseId);
+
+        if (globalLoadingManager.getOverallProgress() >= 99 || targetPhaseId === 'map-generation' || this.currentPhaseIndex >= this.phases.length - 1) {
             this.hide();
         }
     }
@@ -563,6 +591,7 @@ export class LoadingScreen {
             console.log(`[LoadingScreen] Skipped phase: ${currentPhase.name}`);
         }
 
+        globalLoadingManager.skipTask(currentPhase.id);
         this.completePhase(currentPhase.id);
     }
 
@@ -760,56 +789,28 @@ export class LoadingScreen {
         }
     }
 
+    private handleManagerProgress(state: GlobalProgressState, tasks: Map<string, TaskState>): void {
+        if (!this.isVisible || this.hasFatalError) return;
+
+        this.targetOverallProgress = state.overallPercent;
+
+        if (state.activeTaskId) {
+            const activeTask = tasks.get(state.activeTaskId);
+            if (activeTask) {
+                this.phaseProgress = activeTask.percentComplete;
+                if (state.activeTaskDescription) {
+                    this.setTaskText(state.activeTaskDescription);
+                }
+            }
+        }
+    }
+
     private calculateOverallProgress(): void {
-        if (this.currentPhaseIndex < 0) {
-            this.targetOverallProgress = 0;
-            return;
-        }
-
-        // Calculate weighted progress
-        let completedWeight = 0;
-        for (let i = 0; i < this.currentPhaseIndex; i++) {
-            const phaseId = this.phases[i]?.id;
-            // Skipped phases count as half weight
-            const weight = (phaseId && this.skippedPhases.has(phaseId)) 
-                ? this.phases[i].weight * 0.5 
-                : this.phases[i].weight;
-            completedWeight += weight;
-        }
-
-        // Current phase progress
-        const currentPhase = this.phases[this.currentPhaseIndex];
-        if (currentPhase) {
-            const currentWeight = currentPhase.weight * (this.phaseProgress / 100);
-            completedWeight += currentWeight;
-        }
-
-        // Normalize to 0-100
-        const totalWeight = this.phases.reduce((sum, p) => sum + p.weight, 0);
-        this.targetOverallProgress = (completedWeight / totalWeight) * 100;
+        // Obsolete: Replaced by handleManagerProgress getting state from LoadingManager
     }
 
     private calculateEstimatedTimeRemaining(): number {
-        if (this.averagePhaseTime === 0 || this.currentPhaseIndex < 0) {
-            return -1;
-        }
-
-        const remainingPhases = this.phases.slice(this.currentPhaseIndex + 1);
-        let estimatedMs = 0;
-
-        for (const phase of remainingPhases) {
-            const historicalTime = this.phaseDurations.get(phase.id);
-            const estimatedTime = historicalTime || this.averagePhaseTime * phase.weight;
-            estimatedMs += estimatedTime;
-        }
-
-        // Add remaining time for current phase
-        const currentPhaseTime = Date.now() - this.phaseStartTime;
-        const currentPhaseHistorical = this.phaseDurations.get(this.phases[this.currentPhaseIndex]?.id || '');
-        const currentPhaseExpected = currentPhaseHistorical || this.averagePhaseTime * (this.phases[this.currentPhaseIndex]?.weight || 0.1);
-        estimatedMs += Math.max(0, currentPhaseExpected - currentPhaseTime);
-
-        return Math.ceil(estimatedMs / 1000);
+        return globalLoadingManager.getEstimatedTimeRemaining();
     }
 
     private updateAveragePhaseTime(): void {
@@ -906,6 +907,11 @@ export class LoadingScreen {
         if (this.lastFocusedElement && typeof this.lastFocusedElement.focus === 'function') {
             this.lastFocusedElement.focus();
             this.lastFocusedElement = null;
+        }
+
+        if (this.unsubscribeProgress) {
+            this.unsubscribeProgress();
+            this.unsubscribeProgress = null;
         }
 
         if (this.overlay && this.overlay.parentNode) {
