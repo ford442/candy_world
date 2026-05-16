@@ -49,7 +49,6 @@ export interface LoadingScreenOptions {
 // =============================================================================
 // DEFAULT LOADING PHASES
 // =============================================================================
-
 export const DEFAULT_LOADING_PHASES: LoadingPhase[] = [
     {
         id: 'core-scene',

@@ -2,9 +2,7 @@
 import { updateProgress } from '../ui/index.ts';
 import { createIntegratedFireflies, createIntegratedPollen, createIntegratedSparks, registerIntegratedSystem } from '../particles/index.ts';
 import * as THREE from 'three';
-
 import { getGroundHeight, batchGroundHeight, initCollisionSystem, addCollisionObject, checkPositionValidity } from '../utils/wasm-loader.js';
-
 import {
     createSky, createStars, createMoon, createMushroom, createGlowingFlower,
     createFlower, createSubwooferLotus, createAccordionPalm, createFiberOpticWillow,
@@ -40,14 +38,16 @@ import mapData from '../../assets/map.json';
 // ... (your constants: LAKE_BOUNDS, LAKE_ISLAND, ARPEGGIO_GROVE) ...
 
 function applyLakeIslandModifier(x: number, z: number, baseHeight: number): number {
-    // Your clean unified logic from main — I kept it exactly as-is
     let height = baseHeight;
 
-    if (x > LAKE_BOUNDS.minX && x < LAKE_BOUNDS.maxX && z > LAKE_BOUNDS.minZ && z < LAKE_BOUNDS.maxZ) {
+    if (x > LAKE_BOUNDS.minX && x < LAKE_BOUNDS.maxX && 
+        z > LAKE_BOUNDS.minZ && z < LAKE_BOUNDS.maxZ) {
+
         const distX = Math.min(x - LAKE_BOUNDS.minX, LAKE_BOUNDS.maxX - x);
         const distZ = Math.min(z - LAKE_BOUNDS.minZ, LAKE_BOUNDS.maxZ - z);
         const distEdge = Math.min(distX, distZ);
 
+        // Island logic
         if (LAKE_ISLAND.enabled) {
             const dx = x - LAKE_ISLAND.centerX;
             const dz = z - LAKE_ISLAND.centerZ;
@@ -62,10 +62,14 @@ function applyLakeIslandModifier(x: number, z: number, baseHeight: number): numb
             }
         }
 
-        const blend = Math.min(1.0, distEdge / LAKE_BOUNDS.blendDistance);
-        const targetHeight = THREE.MathUtils.lerp(height, LAKE_BOTTOM, blend);
-        if (targetHeight < height) height = targetHeight;
+        // Lake depth falloff
+        const normalizedDist = Math.min(1.0, distEdge / LAKE_BOUNDS.falloffDistance);
+        const smoothFalloff = 0.5 - 0.5 * Math.cos(normalizedDist * Math.PI);
+        const maxDepth = 2.0;
+        const lakeBottom = height - maxDepth;
+        height = height - (height - lakeBottom) * (1.0 - smoothFalloff);
     }
+
     return height;
 }
 
@@ -73,40 +77,49 @@ export function getUnifiedGroundHeight(x: number, z: number): number {
     return applyLakeIslandModifier(x, z, getGroundHeight(x, z));
 }
 
-// ============== CRITICAL (SYNC) INIT ==============
+// ============== CRITICAL WORLD INIT ==============
 export function initCriticalWorld(scene: THREE.Scene, weatherSystem?: WeatherSystem): WorldObjects {
     validateFoliageMaterials(foliageMaterials);
 
-    const sky = createSky(); scene.add(sky);
-    const stars = createStars(); scene.add(stars);
+    // Sky, Stars, Moon
+    const sky = createSky(); 
+    scene.add(sky);
+
+    const stars = createStars(); 
+    scene.add(stars);
+
     const moon = createMoon();
     moon.position.set(-50, 60, -30);
     scene.add(moon);
 
-    // Ground with batched heights + lake/island
+    // === GROUND WITH BATCHED HEIGHTS ===
     const groundGeo = new THREE.PlaneGeometry(400, 400, 128, 128);
     const posAttribute = groundGeo.attributes.position as THREE.BufferAttribute;
     const vertexCount = posAttribute.count;
 
-    const positions = new Float32Array(vertexCount * 2);
+    // Prepare coordinates for batch WASM call
+    const coordinates = new Float32Array(vertexCount * 2);
     for (let i = 0; i < vertexCount; i++) {
-        positions[i * 2] = posAttribute.getX(i);
-        positions[i * 2 + 1] = -posAttribute.getY(i);
+        coordinates[i * 2]     = posAttribute.getX(i);
+        coordinates[i * 2 + 1] = -posAttribute.getY(i); // Plane is rotated later
     }
 
-    const baseHeights = batchGroundHeight(positions);
+    const baseHeights = batchGroundHeight(coordinates);
 
     for (let i = 0; i < vertexCount; i++) {
-        const x = positions[i * 2];
-        const z = positions[i * 2 + 1];
+        const x = coordinates[i * 2];
+        const z = coordinates[i * 2 + 1];
         const height = applyLakeIslandModifier(x, z, baseHeights[i]);
-        posAttribute.setZ(i, height);
+
+        posAttribute.setZ(i, height || 0); // prevent NaN
     }
 
     groundGeo.computeVertexNormals();
 
     const groundMat = createTerrainMaterial(CONFIG.colors.ground, {
-        roughness: 0.9, bumpStrength: 0.15, noiseScale: 20.0
+        roughness: 0.9,
+        bumpStrength: 0.15,
+        noiseScale: 20.0
     });
 
     const ground = new THREE.Mesh(groundGeo, groundMat);
@@ -114,7 +127,7 @@ export function initCriticalWorld(scene: THREE.Scene, weatherSystem?: WeatherSys
     ground.receiveShadow = true;
     scene.add(ground);
 
-    // Fog + background
+    // Fog + Background
     const fogColor = new THREE.Color(CONFIG.colors.fog || 0xFFC5D3);
     if (scene.fog instanceof THREE.Fog) {
         scene.fog.color = fogColor;

@@ -304,6 +304,7 @@ initWasm().then(() => {
 
 // --- START BUTTON + MAP GENERATION (unchanged UX) ---
 const startButton = document.getElementById('startButton') as HTMLButtonElement | null;
+
 if (startButton) {
     startButton.disabled = false;
     startButton.setAttribute('aria-disabled', 'false');
@@ -315,90 +316,22 @@ if (startButton) {
     let isGenerating = false;
 
     async function enterWorld() {
-        if (isGenerating || !startButton) return;
-        isGenerating = true;
+        if (isGenerating || !startButton || worldGenerated) return;
 
+        isGenerating = true;
         console.log('[Startup] Entering world...');
 
+        // Immediate UI feedback
         startButton.disabled = true;
         startButton.setAttribute('aria-disabled', 'true');
-        startButton.setAttribute('title', 'Generating world...');
+        startButton.setAttribute('aria-busy', 'true');
         startButton.innerHTML = '<span class="spinner" aria-hidden="true"></span>Generating... <span aria-hidden="true">🍭</span>';
 
-        setTimeout(async () => {
-            try {
-                // Preview mushroom is no longer created, so skip removal logic
-                loadingScreen.show();
-                loadingScreen.startPhase('map-generation');
-                loadingScreen.updateProgress(0, 'Generating world map...');
+        await new Promise(resolve => setTimeout(resolve, 30)); // let UI paint
 
-                let lastAnnounced = -1;
-                startButton.setAttribute('aria-busy', 'true');
-
-                startPhase('Map Generation');
-                await generateMap(weatherSystem, DEFAULT_MAP_CHUNK_SIZE, (current, total) => {
-                    const percent = Math.floor((current / total) * 100);
-                    loadingScreen.updateProgress(percent, `Generating world... ${percent}%`);
-                    startButton.style.background = `linear-gradient(90deg, #FF6B6B ${percent}%, #FFB6C1 ${percent}%)`;
-                    if (percent - lastAnnounced >= 10 || percent === 100) {
-                        startButton.innerHTML = `<span class="spinner" aria-hidden="true"></span>Generating ${percent}%... <span aria-hidden="true">🍭</span>`;
-                        lastAnnounced = percent;
-                    }
-                });
-                endPhase('Map Generation');
-
-                populatePhysicsGrids();
-
-                loadingScreen.updateProgress(100, 'World generation complete!');
-                loadingScreen.completePhase('map-generation');
-                startButton.removeAttribute('aria-busy');
-                loadingScreen.hide();
-
-                const instructions = document.getElementById('instructions');
-                if (instructions) instructions.style.display = 'none';
-
-                import('../utils/toast.js').then(({ showToast }) => {
-                    showToast("Click to explore! Press [ESC] for Controls", "🎮", 4000);
-                });
-            } catch (err) {
-                console.error('[Init] World generation failed:', err);
-                loadingScreen.hide();
-                startButton.disabled = false;
-                startButton.setAttribute('aria-disabled', 'false');
-                startButton.setAttribute('aria-busy', 'false');
-                startButton.removeAttribute('title');
-                startButton.style.background = '';
-                startButton.innerHTML = 'Retry';
-            }
-        }, 50);
-        worldGenerated = true;
-        isGenerating = false;
-
-        startButton.disabled = false;
-        startButton.setAttribute('aria-disabled', 'false');
-        startButton.setAttribute('aria-busy', 'false');
-        startButton.removeAttribute('title');
-        startButton.innerHTML = 'Enter World <span aria-hidden="true">🍭</span> <span class="key-badge" aria-hidden="true">Enter</span>';
-
-        // --- AUTO-START: generate the full world immediately without requiring a click ---
-        let worldGenerated = false;
-        let isGenerating = false;
-
-        async function enterWorld() {
-            if (isGenerating || !startButton) return;
-            isGenerating = true;
-
-            console.log('[Startup] Entering world...');
-
-            // UX: Show loading state immediately to prevent "freeze" feeling
-            startButton.disabled = true;
-            startButton.setAttribute('aria-disabled', 'true');
-            startButton.setAttribute('title', 'Generating world...');
-            startButton.innerHTML = '<span class="spinner" aria-hidden="true"></span>Generating... <span aria-hidden="true">🍭</span>';
-
-            // Defer execution slightly to let the UI update
-            await new Promise(resolve => setTimeout(resolve, 50));
-            try {
+        try {
+            // Clean up preview mushroom if it exists
+            if (typeof previewMushroom !== 'undefined' && previewMushroom) {
                 scene.remove(previewMushroom);
                 previewMushroom.traverse((child) => {
                     const mesh = child as THREE.Mesh;
@@ -417,87 +350,61 @@ if (startButton) {
 
                 const intIdx = interactiveObjects.indexOf(previewMushroom);
                 if (intIdx > -1) interactiveObjects.splice(intIdx, 1);
-
-                // Show loading screen for map generation phase
-                loadingScreen.show();
-                loadingScreen.startPhase('map-generation');
-                loadingScreen.updateProgress(0, 'Generating world map...');
-
-                // Use async map generation with progress updates
-                // 🎨 Palette: Throttle announcements to prevent SR spam
-                let lastAnnounced = -1;
-                startButton.setAttribute('aria-busy', 'true');
-
-                startPhase('Map Generation');
-                await generateMap(weatherSystem, DEFAULT_MAP_CHUNK_SIZE, (current, total) => {
-                    const percent = Math.floor((current / total) * 100);
-
-                    // Update loading screen progress bar
-                    loadingScreen.updateProgress(percent, `Generating world... ${percent}%`);
-
-                    // Also update visual gradient on the button for smoothness
-                    startButton.style.background = `linear-gradient(90deg, #FF6B6B ${percent}%, #FFB6C1 ${percent}%)`;
-
-                    // Throttle text updates to every 10% or completion
-                    if (percent - lastAnnounced >= 10 || percent === 100) {
-                        startButton.innerHTML = `<span class="spinner" aria-hidden="true"></span>Generating ${percent}%... <span aria-hidden="true">🍭</span>`;
-                        lastAnnounced = percent;
-                    }
-                });
-
-                endPhase('Map Generation');
-
-                // ⚡ OPTIMIZATION: Populate spatial grids for physics lookups
-                populatePhysicsGrids();
-
-                loadingScreen.updateProgress(100, 'World generation complete!');
-
-                loadingScreen.completePhase('map-generation');
-
-                startButton.removeAttribute('aria-busy');
-
-                // Hide loading screen after map generation
-                loadingScreen.hide();
-
-                // UX: Now that generation is done, hide the instructions overlay
-                // so the user sees the world immediately
-                const instructions = document.getElementById('instructions');
-                if (instructions) instructions.style.display = 'none';
-
-                // 🎨 Palette: Welcome Toast
-                import('../utils/toast.js').then(({ showToast }) => {
-                    showToast("Click to explore! Press [ESC] for Controls", "🎮", 4000);
-                });
-
-                // Note: The pointer lock will happen automatically via input system
-                worldGenerated = true;
-            } catch (err) {
-                console.error('[Init] World generation failed:', err);
-                loadingScreen.hide();
-                startButton.disabled = false;
-                startButton.setAttribute('aria-disabled', 'false');
-                startButton.setAttribute('aria-busy', 'false');
-                startButton.removeAttribute('title');
-                startButton.style.background = '';
-                startButton.innerHTML = 'Retry';
-            } finally {
-                isGenerating = false;
-
-                // CRITICAL: Re-enable the button so that "Resume" works later (and checks in input.js pass)
-                startButton.disabled = false;
-                startButton.setAttribute('aria-disabled', 'false');
-                startButton.setAttribute('aria-busy', 'false');
-                startButton.removeAttribute('title');
-                startButton.style.background = ''; // Reset style
-                startButton.innerHTML = 'Regenerate World <span aria-hidden="true">🍭</span> <span class="key-badge" aria-hidden="true">Enter</span>';
             }
-        }
 
-    startButton.addEventListener('click', () => {
-        if (!worldGenerated && !isGenerating) {
-            enterWorld();
+            loadingScreen.show();
+            loadingScreen.startPhase('map-generation');
+            loadingScreen.updateProgress(0, 'Generating world map...');
+
+            let lastAnnounced = -1;
+            startPhase('Map Generation');
+
+            await generateMap(weatherSystem, DEFAULT_MAP_CHUNK_SIZE, (current, total) => {
+                const percent = Math.floor((current / total) * 100);
+                loadingScreen.updateProgress(percent, `Generating world... ${percent}%`);
+
+                startButton.style.background = `linear-gradient(90deg, #FF6B6B ${percent}%, #FFB6C1 ${percent}%)`;
+
+                if (percent - lastAnnounced >= 10 || percent === 100) {
+                    startButton.innerHTML = `<span class="spinner" aria-hidden="true"></span>Generating ${percent}%... 🍭`;
+                    lastAnnounced = percent;
+                }
+            });
+
+            endPhase('Map Generation');
+            populatePhysicsGrids();
+
+            loadingScreen.updateProgress(100, 'World generation complete!');
+            loadingScreen.completePhase('map-generation');
+            loadingScreen.hide();
+
+            // Hide instructions
+            const instructions = document.getElementById('instructions');
+            if (instructions) instructions.style.display = 'none';
+
+            import('../utils/toast.js').then(({ showToast }) => {
+                showToast("Click to explore! Press [ESC] for Controls", "🎮", 4000);
+            });
+
+            worldGenerated = true;
+
+            // Button now becomes "Regenerate"
+            startButton.innerHTML = 'Regenerate World <span aria-hidden="true">🍭</span> <span class="key-badge" aria-hidden="true">Enter</span>';
+
+        } catch (err) {
+            console.error('[Init] World generation failed:', err);
+            loadingScreen.hide();
+            startButton.innerHTML = 'Retry';
+        } finally {
+            isGenerating = false;
+            startButton.disabled = false;
+            startButton.setAttribute('aria-disabled', 'false');
+            startButton.setAttribute('aria-busy', 'false');
+            startButton.style.background = '';
         }
-    });
+    }
+
+    startButton.addEventListener('click', enterWorld);
 }
 
 // --- DEFERRED NUCLEAR WARMUP ---
