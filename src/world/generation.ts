@@ -99,6 +99,75 @@ export function initCriticalWorld(scene: THREE.Scene, weatherSystem?: WeatherSys
     let groundGeo: THREE.PlaneGeometry;
     let groundMat: THREE.Material;
 
+    groundGeo.computeVertexNormals();
+
+    // Replaced MeshPhysicalMaterial with Audio-Reactive TSL Material
+    const groundMat = createTerrainMaterial(CONFIG.colors.ground, {
+        roughness: 0.9,
+        bumpStrength: 0.15,
+        noiseScale: 20.0
+    });
+
+    const ground = new THREE.Mesh(groundGeo, groundMat);
+    ground.rotation.x = -Math.PI / 2;
+    ground.receiveShadow = true;
+    scene.add(ground);
+
+    // 2. OVERRIDE FOG for Compact World
+    const fogColor = new THREE.Color(CONFIG.colors.fog || 0xFFC5D3);
+    scene.fog = new THREE.FogExp2(fogColor, 0.012);
+    scene.background = fogColor;
+
+    // Initialize Vegetation Systems
+    initGrassSystem(scene, 10000);
+    scene.add(createIntegratedFireflies({ count: 150, areaSize: 100, useCompute: true }));
+
+    // Procedural Cloud Layer (Background)
+    generateCloudLayer(scene);
+
+    // Melody Lake (Waveform Water)
+    // Lake is at 20, 1.5, 20 with width 120, depth 100
+    const melodyLake = createWaveformWater(120, 100);
+    melodyLake.position.set(20, 1.5, 20); 
+    scene.add(melodyLake);
+
+
+    // Lake Island
+    const island = createIsland({ radius: 15, height: 2 });
+    island.position.set(-40, 2.5, 40); // Place in the lake
+    island.userData.type = 'lake_island';
+    safeAddFoliage(island, true, 15, weatherSystem);
+
+    // Add Luminous Plants around Lake Island
+    const luminousCount = CONFIG.luminousPlants?.density || 150; // Increased count
+    for (let i = 0; i < luminousCount; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        // Gentle radius falloff: more dense near edge (10-25), tapering out to 35
+        // Using a square-root or quadratic distribution helps achieve this
+        const randDist = Math.pow(Math.random(), 2.0); // more values near 0
+        const dist = 10 + randDist * 25; // 10 to 35
+
+        const lx = -40 + Math.cos(angle) * dist;
+        const lz = 40 + Math.sin(angle) * dist;
+        const ly = getUnifiedGroundHeight(lx, lz);
+
+        // Quick biome check to avoid candy cane forest (let's say candy cane is where x > 0)
+        // If x > 0, we'll just skip (assume biome boundary)
+        if (lx > -10) continue;
+
+        // Add a small height bias: prefer elevated ground
+        // Don't spawn directly in water (y < 2.0) and favor y between 2.0 and 5.0
+        if (ly > 2.0 && ly < 8.0) {
+            const plant = createLuminousPlant({ scale: 0.8 + Math.random() * 0.6 });
+            plant.position.set(lx, ly, lz);
+            plant.rotation.y = Math.random() * Math.PI * 2;
+            safeAddFoliage(plant, false, 0, weatherSystem);
+        }
+    }
+
+
+    // Falling Berries
+    initFallingBerries(scene);
     const urlParams = new URLSearchParams(window.location.search);
     const forceGpuTerrain = urlParams.has('gpuTerrain');
     const useGpuHeightmap = CONFIG.terrain?.useGpuHeightmap || forceGpuTerrain;

@@ -344,6 +344,7 @@ if (startButton) {
                         }
                     }
                 });
+            scene.remove(previewMushroom);
 
                 const idx = animatedFoliage.indexOf(previewMushroom);
                 if (idx > -1) animatedFoliage.splice(idx, 1);

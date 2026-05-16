@@ -4,7 +4,7 @@ import {
     color, float, vec3, vec4, attribute, positionLocal,
     sin, cos, mix, smoothstep, uniform, If, time,
     varying, dot, normalize, normalLocal, step, Fn, positionWorld, normalWorld,
-    max, pow, min, cameraPosition, uv, floor
+    max, pow, min, cameraPosition, uv, floor, instanceIndex
 } from 'three/tsl';
 
 // WGSL-compatible modulo: x - y * floor(x / y)
