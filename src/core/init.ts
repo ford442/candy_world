@@ -267,8 +267,8 @@ export function initScene(): SceneInitResult {
 /**
  * Force a full scene warmup render to prevent shader compilation stutter.
  * 
- * Only applies to WebGPU renderer. WebGL skips warmup as it's less prone to
- * stutter during first render.
+ * Only applies to WebGPU renderer. WebGL renderer returns immediately without
+ * performing warmup, as WebGL is generally more stable during first render.
  * 
  * Temporarily disables frustum culling, moves camera to capture all objects,
  * renders a 1x1 pixel frame to trigger shader compilation, then restores
@@ -277,7 +277,7 @@ export function initScene(): SceneInitResult {
  * @param renderer - The renderer instance (WebGPU or WebGL)
  * @param scene - The Three.js scene to warm up
  * @param camera - The camera to use for warmup rendering
- * @returns Promise that resolves when warmup is complete
+ * @returns Promise that resolves when warmup is complete (immediate for WebGL)
  */
 export async function forceFullSceneWarmup(
     renderer: CandyRenderer, 

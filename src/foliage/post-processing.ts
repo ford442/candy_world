@@ -166,8 +166,10 @@ function initWebGLPostProcessing(renderer: CandyRenderer, scene: THREE.Scene, ca
     // Return interface compatible with WebGPU version
     return {
         render: () => {
-            // Update bloom strength from uniform if audio system has updated it
-            // In the future, consider syncing this automatically in the render loop
+            // Sync bloom strength: This per-frame read is necessary for audio reactivity.
+            // Performance note: Uniforms are reactive in WebGPU mode (TSL), but WebGL requires
+            // manual synchronization on every frame. This is an acceptable trade-off for fallback support.
+            // TODO: Consider implementing an automatic sync mechanism to improve efficiency.
             bloomPass.strength = uBloomStrength.value || 1.0;
             composer.render();
         },

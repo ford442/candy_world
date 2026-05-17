@@ -442,6 +442,10 @@ export function animate() {
         lightShaftGroupRef!.visible = shaftVisible;
         if (shaftVisible) {
             lightShaftGroupRef!.rotation.z += delta * 0.1;
+            // Update light shaft opacity
+            // Note: In WebGPU mode, this updates the uShaftOpacity uniform which affects rendering via TSL.
+            // In WebGL mode, the light shaft material opacity should also be updated here (TODO for future).
+            // See src/core/init.ts for WebGL light shaft material initialization.
             uShaftOpacityRef!.value = shaftIntensity;
         }
     } else {
