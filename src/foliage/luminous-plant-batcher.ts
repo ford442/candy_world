@@ -5,6 +5,8 @@ import { uTime, createJuicyRimLight, createStandardNodeMaterial } from './materi
 import { LuminousPlantUniforms, luminousPlantsNoteColorNode } from '../systems/biome-uniforms.ts';
 import { CONFIG } from '../core/config.ts';
 
+const _scratchMatrix = new THREE.Matrix4();
+
 export class LuminousPlantBatcher {
     public mesh: THREE.InstancedMesh;
     private maxInstances: number;
@@ -78,8 +80,10 @@ export class LuminousPlantBatcher {
 
         const id = this.count;
 
-        group.updateMatrixWorld(true);
-        this.mesh.setMatrixAt(id, group.matrixWorld);
+        // ⚡ OPTIMIZATION: Write directly to instanceMatrix array to bypass .setMatrixAt overhead.
+        _scratchMatrix.compose(group.position, group.quaternion, group.scale);
+        _scratchMatrix.toArray(this.mesh.instanceMatrix.array, id * 16);
+        this.mesh.instanceMatrix.needsUpdate = true;
 
         const phaseAttr = this.mesh.geometry.getAttribute('aPhaseOffset') as THREE.InstancedBufferAttribute;
         phaseAttr.setX(id, Math.random() * Math.PI * 2);

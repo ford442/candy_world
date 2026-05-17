@@ -4,7 +4,7 @@ import {
     color, float, vec3, vec4, attribute, positionLocal,
     sin, cos, mix, smoothstep, uniform, If, time,
     varying, dot, normalize, normalLocal, step, Fn, positionWorld, normalWorld,
-    max, pow, min, cameraPosition, uv, floor
+    max, pow, min, cameraPosition, uv, floor, instanceIndex
 } from 'three/tsl';
 
 // WGSL-compatible modulo: x - y * floor(x / y)
@@ -652,6 +652,7 @@ export class MushroomBatcher {
         _scratchMatrix.compose(dummy.position, dummy.quaternion, dummy.scale);
         // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
         _scratchMatrix.toArray(this.mesh!.instanceMatrix.array, (i) * 16);
+        this.mesh!.instanceMatrix.needsUpdate = true;
 
         // PALETTE: Set Color
         // Default to Red (0xFF6B6B) if no note color provided
@@ -716,6 +717,7 @@ export class MushroomBatcher {
             this.mesh!.getMatrixAt(lastIndex, _scratchMatrix);
             // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
         _scratchMatrix.toArray(this.mesh!.instanceMatrix.array, (indexToRemove) * 16);
+            this.mesh!.instanceMatrix.needsUpdate = true;
 
             // Color
             this.mesh!.getColorAt(lastIndex, _scratchColor);
