@@ -39,6 +39,10 @@ import mapData from '../../assets/map.json';
 import { globalBackgroundProcessor } from '../utils/background-processor.ts';
 import { showDeferredIndicator, hideDeferredIndicator } from '../ui/index.ts';
 
+// Yields control back to the browser for one event loop turn, allowing the
+// renderer to update the loading screen and preventing "Page Unresponsive" dialogs.
+const yieldControl = (): Promise<void> => new Promise(resolve => setTimeout(resolve, 0));
+
 // Performance constants for async generation
 const obstaclesData: {x: number, y: number, z: number, radius: number}[] = [];
 export const DEFAULT_MAP_CHUNK_SIZE = 100;        // Map entities per chunk
@@ -150,19 +154,17 @@ function getUnifiedGroundHeight(x: number, z: number): number {
 
 // --- Scene Setup ---
 
-export function initWorld(scene: THREE.Scene, weatherSystem: WeatherSystem, loadContent: boolean = true): WorldObjects {
+export async function initWorld(scene: THREE.Scene, weatherSystem: WeatherSystem, loadContent: boolean = true): Promise<WorldObjects> {
     // 0. Pre-flight Check
     validateFoliageMaterials(foliageMaterials);
 
-    // Sky
+    // Sky, stars, moon (fast — no yield needed)
     const sky = createSky();
     scene.add(sky);
 
-    // Stars
     const stars = createStars();
     scene.add(stars);
 
-    // Moon
     const moon = createMoon();
     moon.position.set(-50, 60, -30); // High up
     scene.add(moon);
@@ -175,15 +177,18 @@ export function initWorld(scene: THREE.Scene, weatherSystem: WeatherSystem, load
     const urlParams = new URLSearchParams(window.location.search);
     const forceGpuTerrain = urlParams.has('gpuTerrain');
 
+    // Yield before the heavy terrain generation so the loading screen can paint.
+    await yieldControl();
+
     if (CONFIG.terrain?.useGpuHeightmap || forceGpuTerrain) {
         console.log("[World] Using GPU Heightmap Displacement");
 
         const resolution = CONFIG.terrain?.heightmapResolution || 256;
         groundGeo = new THREE.PlaneGeometry(400, 400, resolution, resolution);
 
-        // Generate heightmap textures
+        // generateGroundHeightmap is now async and yields internally every 32 rows
         const startParams = performance.now();
-        const { heightTexture, normalTexture } = generateGroundHeightmap(400, resolution);
+        const { heightTexture, normalTexture } = await generateGroundHeightmap(400, resolution);
         console.log(`[World] Generated heightmap in ${(performance.now() - startParams).toFixed(2)}ms`);
 
         groundMat = createTerrainMaterial(CONFIG.colors.ground, {
@@ -197,8 +202,10 @@ export function initWorld(scene: THREE.Scene, weatherSystem: WeatherSystem, load
 
         groundGeo = new THREE.PlaneGeometry(400, 400, 128, 128);
         const posAttribute = groundGeo.attributes.position;
+        const vertexCount = posAttribute.count;
+        const cpuYieldEvery = 2000; // yield every ~2k vertices to stay responsive
 
-        for (let i = 0; i < posAttribute.count; i++) {
+        for (let i = 0; i < vertexCount; i++) {
             const x = posAttribute.getX(i);
             const y = posAttribute.getY(i); // Plane is on XY
             const zWorld = -y;
@@ -206,6 +213,10 @@ export function initWorld(scene: THREE.Scene, weatherSystem: WeatherSystem, load
             // Use the Unified Height that accounts for the Lake
             const height = getUnifiedGroundHeight(x, zWorld);
             posAttribute.setZ(i, height);
+
+            if (i % cpuYieldEvery === cpuYieldEvery - 1) {
+                await yieldControl();
+            }
         }
 
         groundGeo.computeVertexNormals();
@@ -233,11 +244,15 @@ export function initWorld(scene: THREE.Scene, weatherSystem: WeatherSystem, load
     }
     scene.background = fogColor;
 
-    // Initialize Vegetation Systems
+    // Initialize Vegetation Systems (yield first so browser can breathe)
+    await yieldControl();
     initGrassSystem(scene, 10000);
-    scene.add(createIntegratedFireflies({ count: 150, areaSize: 100, useCompute: true }));
+
+    // Use CPU fallback initially for fireflies; GPU upgrade can happen after the first frame
+    scene.add(createIntegratedFireflies({ count: 150, areaSize: 100, useCompute: false }));
 
     // Procedural Cloud Layer (Background)
+    await yieldControl();
     generateCloudLayer(scene);
 
     // Melody Lake (Waveform Water)
@@ -246,15 +261,15 @@ export function initWorld(scene: THREE.Scene, weatherSystem: WeatherSystem, load
     melodyLake.position.set(20, 1.5, 20); 
     scene.add(melodyLake);
 
-
     // Lake Island
     const island = createIsland({ radius: 15, height: 2 });
     island.position.set(-40, 2.5, 40); // Place in the lake
     island.userData.type = 'lake_island';
     safeAddFoliage(island, true, 15, weatherSystem);
 
-    // Add Luminous Plants around Lake Island
-    const luminousCount = CONFIG.luminousPlants.density; // Increased count
+    // Add Luminous Plants around Lake Island (yield every 30 plants to stay responsive)
+    const luminousCount = CONFIG.luminousPlants.density;
+    await yieldControl();
     for (let i = 0; i < luminousCount; i++) {
         const angle = Math.random() * Math.PI * 2;
         // Gentle radius falloff: more dense near edge (10-25), tapering out to 35
@@ -278,23 +293,22 @@ export function initWorld(scene: THREE.Scene, weatherSystem: WeatherSystem, load
             plant.rotation.y = Math.random() * Math.PI * 2;
             safeAddFoliage(plant, false, 0, weatherSystem);
         }
+
+        if (i % 30 === 29) await yieldControl();
     }
 
-
     // Falling Berries
+    await yieldControl();
     initFallingBerries(scene);
 
     // Add the luminous plant batcher to the scene
     scene.add(luminousPlantBatcher.mesh);
 
-
     // Add the main world group (containing all generated foliage) to the scene
     scene.add(worldGroup);
 
-    // Generate Content if requested (Note: currently disabled in main.js, generation happens on button click)
+    // Generate Content if requested (triggered by start button in main.ts)
     if (loadContent) {
-        // This is now async but we're not awaiting it here
-        // If this code path is used in the future, consider making initWorld async
         generateMap(weatherSystem).catch(err => {
             console.error('[World] Failed to generate map:', err);
         });
@@ -307,8 +321,9 @@ export function initWorld(scene: THREE.Scene, weatherSystem: WeatherSystem, load
 /**
  * Populates the Arpeggio Grove set piece as defined in the Musical Ecosystem plan.
  * Features a Subwoofer Lotus surrounded by twelve Arpeggio Ferns, with reactive flora.
+ * Yields control to the browser between object batches to prevent main-thread blocking.
  */
-function populateArpeggioGrove(weatherSystem: WeatherSystem): void {
+async function populateArpeggioGrove(weatherSystem: WeatherSystem): Promise<void> {
     if (!ARPEGGIO_GROVE.enabled) return;
 
     console.log("[World] Populating Arpeggio Grove...");
@@ -320,8 +335,9 @@ function populateArpeggioGrove(weatherSystem: WeatherSystem): void {
     const centralY = getUnifiedGroundHeight(centerX, centerZ);
     centralLotus.position.set(centerX, centralY, centerZ);
     safeAddFoliage(centralLotus, false, 0, weatherSystem);
+    await yieldControl();
 
-    // Twelve Arpeggio Ferns ring
+    // Twelve Arpeggio Ferns ring (yield every 4 ferns)
     const fernCount = 12;
     const fernRadius = radius * 0.4;
     for (let i = 0; i < fernCount; i++) {
@@ -334,9 +350,10 @@ function populateArpeggioGrove(weatherSystem: WeatherSystem): void {
         fern.position.set(fx, fy, fz);
         fern.rotation.y = angle + Math.PI; // Face outward or inward? Let's say outward
         safeAddFoliage(fern, false, 0, weatherSystem);
+        if (i % 4 === 3) await yieldControl();
     }
 
-    // Outer ring: Kick Drum Geysers and Vibrato Violets
+    // Outer ring: Kick Drum Geysers and Vibrato Violets (yield every 4 objects)
     const outerCount = 8;
     const outerRadius = radius * 0.8;
     for (let i = 0; i < outerCount; i++) {
@@ -356,9 +373,10 @@ function populateArpeggioGrove(weatherSystem: WeatherSystem): void {
             violet.rotation.y = Math.random() * Math.PI * 2;
             safeAddFoliage(violet, false, 0, weatherSystem);
         }
+        if (i % 4 === 3) await yieldControl();
     }
 
-    // Glowing flower accents
+    // Glowing flower accents (yield every 5 flowers)
     const flowerCount = 15;
     for (let i = 0; i < flowerCount; i++) {
         const randAngle = Math.random() * Math.PI * 2;
@@ -371,6 +389,7 @@ function populateArpeggioGrove(weatherSystem: WeatherSystem): void {
         flower.position.set(fx, fy, fz);
         flower.rotation.y = Math.random() * Math.PI * 2;
         safeAddFoliage(flower, false, 0, weatherSystem);
+        if (i % 5 === 4) await yieldControl();
     }
 
     console.log(`[World] Arpeggio Grove populated at (${centerX}, ${centerZ})`);
@@ -577,7 +596,7 @@ export async function generateMap(
     }
 
     // --- Populate Arpeggio Grove Set Piece (Critical) ---
-    populateArpeggioGrove(weatherSystem);
+    await populateArpeggioGrove(weatherSystem);
     if (onProgress) onProgress(globalTotal, globalTotal); // Done with critical path
     
     // --- Initialize Discovery System with Spatial Grid (Critical) ---
@@ -1125,12 +1144,12 @@ export function spawnNearbyFoliage(origin: THREE.Vector3, type: string, options:
 }
 
 // Compatibility wrappers for refactored startup flow
-export function initCriticalWorld(scene: THREE.Scene, weatherSystem?: WeatherSystem): WorldObjects {
-    return initWorld(scene, weatherSystem, false);
+export async function initCriticalWorld(scene: THREE.Scene, weatherSystem?: WeatherSystem): Promise<WorldObjects> {
+    return initWorld(scene, weatherSystem!, false);
 }
 
-export function initWorldCritical(scene: THREE.Scene, weatherSystem?: WeatherSystem): WorldObjects {
-    return initWorld(scene, weatherSystem, false);
+export async function initWorldCritical(scene: THREE.Scene, weatherSystem?: WeatherSystem): Promise<WorldObjects> {
+    return initWorld(scene, weatherSystem!, false);
 }
 
 export async function initDeferredWorldContent(
