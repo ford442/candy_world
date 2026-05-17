@@ -74,7 +74,7 @@ initDebugPanel();
 loadingScreen.startPhase('core-scene');
 console.time('Core Scene Setup');
 
-let sceneInitResult: ReturnType<typeof initScene>;
+let sceneInitResult: ReturnType<typeof initScene> | undefined;
 await StageLoader.loadStage('core', () => {
     sceneInitResult = initScene();
 });
@@ -149,13 +149,13 @@ await StageLoader.loadStage('musicReactivity', () => {
     // Hook up audio system note events to music reactivity
     if (audioSystem) {
         if (audioSystem.onNote) {
-            audioSystem.onNote((note: number, velocity: number, channel: number) => {
+            audioSystem.onNote((note: string, velocity: number, channel: number) => {
                 musicReactivitySystem.handleNoteOn(note, velocity, channel);
             });
-        } else {
+        } else if (audioSystem.setNoteCallback) {
             // If not, we might need to modify AudioSystem or use a polling approach in animate()
             // For now, let's assume we will add setNoteCallback to AudioSystem
-            audioSystem.setNoteCallback((note: number, velocity: number, channel: number) => {
+            audioSystem.setNoteCallback((note: string, velocity: number, channel: number) => {
                 musicReactivitySystem.handleNoteOn(note, velocity, channel);
             });
         }
@@ -196,6 +196,9 @@ initDeferredVisualsDependencies(scene, camera, renderer);
 
 // Initialize game loop dependencies
 await StageLoader.loadStage('gameLoop', () => {
+    if (!interactionSystem) {
+        throw new Error('InteractionSystem is required for game loop');
+    }
     initGameLoopDependencies({
         scene,
         camera,
@@ -204,7 +207,7 @@ await StageLoader.loadStage('gameLoop', () => {
         weatherSystem: weatherSystem!,
         audioSystem: audioSystem!,
         beatSync: beatSync!,
-        interactionSystem: interactionSystem!,
+        interactionSystem,
         moon,
         fireflies: null,
         controls,
@@ -342,14 +345,16 @@ if (startButton) {
 
         const worldGenResult = await StageLoader.loadStage('worldGeneration', async () => {
             // Clean up preview mushroom if it exists (from optimize branch)
+            // Note: previewMushroom is defined in previous world generation runs
+            const previewMushroom = (window as any).previewMushroom;
             if (typeof previewMushroom !== 'undefined' && previewMushroom) {
                 scene.remove(previewMushroom);
-                previewMushroom.traverse((child) => {
+                previewMushroom.traverse((child: any) => {
                     const mesh = child as THREE.Mesh;
                     if (mesh.geometry) mesh.geometry.dispose();
                     if (mesh.material) {
                         if (Array.isArray(mesh.material)) {
-                            mesh.material.forEach(m => m.dispose());
+                            mesh.material.forEach((m: any) => m.dispose());
                         } else {
                             mesh.material.dispose();
                         }
