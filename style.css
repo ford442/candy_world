@@ -555,3 +555,14 @@ kbd.key.key-highlight {
     outline-offset: -3px;
     box-shadow: 0 0 12px currentColor;
 }
+
+/* 🎨 Palette: Keyboard tactile feedback */
+.action-btn.pressed,
+button.pressed,
+.icon-btn.pressed,
+.secondary-button.pressed,
+.cta-button.pressed {
+    transform: scale(0.95) !important;
+    filter: brightness(0.9) !important;
+    transition-duration: 0.05s !important;
+}
