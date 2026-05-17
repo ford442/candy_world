@@ -293,7 +293,12 @@ console.log(`[Startup] Camera positioned at ground height: y=${camera.position.y
     await StageLoader.loadStage('shaderWarmup', async () => {
         loadingScreen.startPhase('shader-warmup');
         loadingScreen.updateProgress(5, 'Pre-compiling shaders...');
-        await renderer.compileAsync(scene, camera);
+        // compileAsync can hang indefinitely on WebGPU when storage-buffer / compute
+        // materials are in the scene.  Race it against a 8 s timeout so startup
+        // always proceeds even if a pipeline never settles.
+        const compileTimeout = new Promise<void>(resolve => setTimeout(resolve, 8000));
+        await Promise.race([renderer.compileAsync(scene, camera), compileTimeout])
+            .catch(err => console.warn('[ShaderWarmup] compileAsync error (ignored):', err));
         loadingScreen.updateProgress(55, 'Warming up pipelines...');
         await forceFullSceneWarmup(renderer, scene, camera);
         loadingScreen.updateProgress(90, 'Finalizing scene...');
