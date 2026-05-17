@@ -23,21 +23,37 @@ export interface DebugStages {
   deferredWorld: boolean;  // Additional world content
 }
 
+/**
+ * EMPTY SANDBOX CONFIGURATION
+ * 
+ * This configuration keeps core systems alive to test WebGPU stability,
+ * while disabling heavy WASM/compute tasks that typically cause hangs.
+ * 
+ * Use this for debugging initialization by setting ?debug=1 and toggling
+ * stages one at a time via the debug panel to identify the culprit.
+ * 
+ * Recommended progression:
+ * 1. Keep this base config, verify "Enter World" button appears
+ * 2. Turn on worldGeneration → check for memory/instancing issues
+ * 3. Turn on shaderWarmup → check for WebGPU compile hangs
+ * 4. Turn on postProcessing → check for render target mismatches
+ * 5. Turn on wasm → check for Emscripten bridge conflicts
+ */
 export const DEBUG_STAGES: DebugStages = {
-  core: true,
-  postProcessing: true,
-  audio: true,
-  weather: true,
-  worldCritical: true,
-  input: true,
-  interaction: true,
-  musicReactivity: true,
-  gameLoop: true,
-  shaderWarmup: true,
-  wasm: true,
-  worldGeneration: true,
-  deferredVisuals: true,
-  deferredWorld: true,
+  core: true,             // ✓ KEEP: Scene, renderer, camera, lights
+  postProcessing: false,  // ✗ DISABLE: Often causes WebGPU compilation hangs
+  audio: true,            // ✓ KEEP: Prevents null audioSystem crashes
+  weather: true,          // ✓ KEEP: Prevents null weatherSystem crashes
+  worldCritical: true,    // ✓ KEEP: Sky, ground, moon (visual feedback)
+  input: true,            // ✓ KEEP: Camera movement, demo triggers
+  interaction: true,      // ✓ KEEP: Prevents gameLoop dependency crash
+  musicReactivity: false, // ✗ DISABLE: Skips foliage loop ties
+  gameLoop: true,         // ✓ KEEP: Animation loop must run
+  shaderWarmup: false,    // ✗ DISABLE: Skips 8-second compile timeout
+  wasm: false,            // ✗ DISABLE: Uses JS fallback mode
+  worldGeneration: false, // ✗ DISABLE: Skips massive biome instancing
+  deferredVisuals: false, // ✗ DISABLE: Aurora/celestial bodies
+  deferredWorld: false,   // ✗ DISABLE: Additional mesh content
 };
 
 /**

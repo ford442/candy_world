@@ -195,19 +195,44 @@ await StageLoader.loadStage('input', () => {
     controls = inputSystem.controls;
 });
 
+// Fallback: Null object pattern for skipped input
+if (!inputSystem) {
+    inputSystem = {
+        controls: null,
+        updateReticleState: () => {},
+        setPlaylistMode: () => {},
+        getPlaylistIndex: () => -1,
+    };
+}
+
 // Initialize Interaction System
 let interactionSystem: InteractionSystem | undefined;
 await StageLoader.loadStage('interaction', () => {
     interactionSystem = new InteractionSystem(camera, inputSystem.updateReticleState);
 });
 
+// Fallback: Null object pattern for skipped interaction system
+if (!interactionSystem) {
+    interactionSystem = {
+        triggerClick: () => false,
+        update: () => {},
+        dispose: () => {},
+    } as any;
+}
+
 // Initialize deferred visual dependencies
 initDeferredVisualsDependencies(scene, camera, renderer);
 
 // Initialize game loop dependencies
 await StageLoader.loadStage('gameLoop', () => {
+    // Fallback gracefully instead of throwing
     if (!interactionSystem) {
-        throw new Error('InteractionSystem is required for game loop');
+        console.warn('[gameLoop] InteractionSystem not initialized, using dummy');
+        interactionSystem = {
+            triggerClick: () => false,
+            update: () => {},
+            dispose: () => {},
+        } as any;
     }
     initGameLoopDependencies({
         scene,
@@ -267,7 +292,7 @@ window.addEventListener('mousedown', (e) => {
         // Left Click (0) -> Standard Interaction
         if (e.button === 0) {
             // First check if we are interacting with an object
-            const handled = interactionSystem.triggerClick();
+            const handled = interactionSystem?.triggerClick?.() ?? false;
 
             // If interaction didn't handle it, fire rainbow blaster
             if (!handled) {
