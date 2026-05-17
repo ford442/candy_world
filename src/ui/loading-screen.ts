@@ -403,7 +403,7 @@ export class LoadingScreen {
             if (this.container && this.isVisible) {
                 this.releaseFocusTrap = trapFocusInside(this.container);
             }
-        }, 10);
+        }, 300);
 
         this.lastTime = performance.now();
         if (this.animationFrameId === null) {

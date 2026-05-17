@@ -67,9 +67,6 @@ export class AccessibilityMenuRendering extends AccessibilityMenu {
 
     // Set up keyboard listener
     this.container.addEventListener('keydown', (e) => this.handleKeyDown(e));
-
-    // Trap focus
-    trapFocusInside(this.container);
   }
 
   private createHeader(): HTMLElement {
