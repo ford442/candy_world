@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { DataTexture, Vector2, Vector4, RGBAFormat, FloatType, NearestFilter, RepeatWrapping } from 'three';
+import { DataTexture, Vector2, Vector4, RGBAFormat, HalfFloatType, NearestFilter, RepeatWrapping } from 'three';
 import { textureStore, instanceIndex, Fn, float, vec4, vec2, ivec2, mx_noise_float, sin, cos, max, min, uniform, floor } from 'three/tsl';
 
 // WGSL-compatible modulo: x - y * floor(x / y)
@@ -83,7 +83,7 @@ export class WindComputeSystem {
         
         // Create the storage texture for compute shader
         const storageTexture = new StorageTexture(WIND_TEXTURE_SIZE, WIND_TEXTURE_SIZE);
-        storageTexture.type = FloatType;
+        storageTexture.type = HalfFloatType;
         storageTexture.minFilter = NearestFilter;
         storageTexture.magFilter = NearestFilter;
         storageTexture.wrapS = RepeatWrapping;
