@@ -3,7 +3,7 @@
 // Reduces startup allocation from 93,000 to ~500 instances for typical maps.
 
 import * as THREE from 'three';
-import { foliageGroup } from '../world/state.ts';
+import { instanceIndex, foliageGroup } from '../world/state.ts';
 import {
     CandyPresets,
     createStandardNodeMaterial,

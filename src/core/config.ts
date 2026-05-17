@@ -95,6 +95,10 @@ export const PALETTE: Record<string, PaletteEntry> = {
 };
 
 export interface ConfigType {
+    terrain: {
+        useGpuHeightmap: boolean;
+        heightmapResolution: number;
+    };
     colors: {
         ground: number;
         fog: number;
@@ -169,6 +173,10 @@ export interface ConfigType {
 }
 
 export const CONFIG: ConfigType = {
+    terrain: {
+        useGpuHeightmap: true, // Default to true as it is the goal
+        heightmapResolution: 256
+    },
     colors: {
         ground: 0x222222,
         fog: 0x1A1A2E

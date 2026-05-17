@@ -387,14 +387,27 @@ export class WindPerformanceProfiler {
             return { averageFPS: 0, minFPS: 0, maxFPS: 0, totalFrames: 0, duration: 0 };
         }
         
-        const fpsValues = this.frameTimings.map(dt => 1000 / Math.max(dt, 0.1));
         const duration = performance.now() - this.profileStartTime;
         
+        // ⚡ OPTIMIZATION: Eliminate .map() and .reduce() arrays to prevent GC spikes in hot paths
+        let sum = 0;
+        let minFPS = Infinity;
+        let maxFPS = -Infinity;
+        const count = this.frameTimings.length;
+
+        for (let i = 0; i < count; i++) {
+            const dt = this.frameTimings[i];
+            const fps = 1000 / Math.max(dt, 0.1);
+            sum += fps;
+            if (fps < minFPS) minFPS = fps;
+            if (fps > maxFPS) maxFPS = fps;
+        }
+
         return {
-            averageFPS: fpsValues.reduce((a, b) => a + b, 0) / fpsValues.length,
-            minFPS: Math.min(...fpsValues),
-            maxFPS: Math.max(...fpsValues),
-            totalFrames: this.frameTimings.length,
+            averageFPS: sum / count,
+            minFPS: minFPS,
+            maxFPS: maxFPS,
+            totalFrames: count,
             duration
         };
     }

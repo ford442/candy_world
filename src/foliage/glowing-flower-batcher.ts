@@ -1,6 +1,6 @@
 
 import * as THREE from 'three';
-import { MeshStandardNodeMaterial } from 'three/webgpu';
+import { instanceIndex, MeshStandardNodeMaterial } from 'three/webgpu';
 import {
     color, float, vec3, attribute, positionLocal, positionWorld,
     sin, smoothstep, uniform, mix,

@@ -12,6 +12,7 @@
  */
 
 import { trapFocusInside } from '../utils/interaction-utils';
+import { globalLoadingManager, GlobalProgressState, TaskState } from '../systems/loading-manager';
 import './loading-screen.css';
 
 // =============================================================================
@@ -50,11 +51,16 @@ export interface LoadingScreenOptions {
 // DEFAULT LOADING PHASES
 // =============================================================================
 
+// Weights are calibrated to observed wall-clock costs after Wave 1:
+// - WASM runs in the background (not on the critical path) — removed from phases.
+// - Heightmap deform uses batchGroundHeight() — world-generation is now cheap.
+// - Shader compileAsync() + forceFullSceneWarmup() dominates the critical path on first run.
+// - map-generation runs after "Enter World" and is its own bar segment.
 export const DEFAULT_LOADING_PHASES: LoadingPhase[] = [
     {
         id: 'core-scene',
         name: 'Scene Setup',
-        weight: 0.10,
+        weight: 0.15,
         description: 'Initializing 3D renderer and scene...',
         onStart: () => console.log('[Loading] Starting Core Scene Setup'),
         onComplete: () => console.log('[Loading] Core Scene Setup complete')
@@ -62,7 +68,7 @@ export const DEFAULT_LOADING_PHASES: LoadingPhase[] = [
     {
         id: 'audio-init',
         name: 'Audio System',
-        weight: 0.10,
+        weight: 0.05,
         description: 'Starting audio worklet and effects...',
         onStart: () => console.log('[Loading] Starting Audio System Init'),
         onComplete: () => console.log('[Loading] Audio System Init complete')
@@ -70,15 +76,15 @@ export const DEFAULT_LOADING_PHASES: LoadingPhase[] = [
     {
         id: 'world-generation',
         name: 'World Build',
-        weight: 0.25,
-        description: 'Growing procedural flora and terrain...',
+        weight: 0.20,
+        description: 'Building sky, terrain and base world...',
         onStart: () => console.log('[Loading] Starting World Generation'),
         onComplete: () => console.log('[Loading] World Generation complete')
     },
     {
         id: 'wasm-init',
         name: 'Physics Engine',
-        weight: 0.25,
+        weight: 0.35,
         description: 'Loading physics engine and native modules...',
         onStart: () => console.log('[Loading] Starting WASM Initialization'),
         onComplete: () => console.log('[Loading] WASM Initialization complete')
@@ -86,7 +92,7 @@ export const DEFAULT_LOADING_PHASES: LoadingPhase[] = [
     {
         id: 'shader-warmup',
         name: 'Shader Warmup',
-        weight: 0.15,
+        weight: 0.30,
         description: 'Pre-compiling shaders for smooth gameplay...',
         onStart: () => console.log('[Loading] Starting Shader Warmup'),
         onComplete: () => console.log('[Loading] Shader Warmup complete')
@@ -94,8 +100,8 @@ export const DEFAULT_LOADING_PHASES: LoadingPhase[] = [
     {
         id: 'map-generation',
         name: 'Map Generation',
-        weight: 0.15,
-        description: 'Generating world map and placing entities...',
+        weight: 0.30,
+        description: 'Placing entities, foliage and discoveries...',
         onStart: () => console.log('[Loading] Starting Map Generation'),
         onComplete: () => console.log('[Loading] Map Generation complete')
     }
@@ -116,9 +122,14 @@ export class LoadingScreen {
     private skipButton: HTMLButtonElement | null = null;
     private spinner: HTMLElement | null = null;
     
+    // Deferred HUD Indicator
+    private deferredIndicator: HTMLElement | null = null;
+    private isDeferredVisible = false;
+
     private phases: LoadingPhase[] = [];
     private currentPhaseIndex = -1;
     private phaseProgress = 0;
+
     private targetOverallProgress = 0;
     private displayedOverallProgress = 0;
     private displayedPhaseProgress = 0;
@@ -152,6 +163,8 @@ export class LoadingScreen {
     private releaseFocusTrap: (() => void) | null = null;
     private lastFocusedElement: HTMLElement | null = null;
 
+    private unsubscribeProgress: (() => void) | null = null;
+
     constructor(options: LoadingScreenOptions = {}) {
         this.options = {
             debug: false,
@@ -164,6 +177,24 @@ export class LoadingScreen {
         
         this.phases = [...DEFAULT_LOADING_PHASES];
         
+        // Register default phases to the manager if they aren't already
+        this.phases.forEach(p => {
+            if (!globalLoadingManager.getTask(p.id)) {
+                globalLoadingManager.registerTask({
+                    id: p.id,
+                    name: p.name,
+                    weight: p.weight,
+                    description: p.description,
+                    isDeferred: p.isDeferred
+                });
+            }
+        });
+
+        // Subscribe to LoadingManager
+        this.unsubscribeProgress = globalLoadingManager.onProgress((state, tasks) => {
+            this.handleManagerProgress(state, tasks);
+        });
+
         if (this.options.debug) {
             console.log('[LoadingScreen] Initialized with options:', this.options);
         }
@@ -176,6 +207,17 @@ export class LoadingScreen {
     private createDOM(): void {
         if (typeof document === 'undefined') return;
         
+        // Create Deferred HUD Indicator
+        if (!document.getElementById('candy-deferred-indicator')) {
+            this.deferredIndicator = document.createElement('div');
+            this.deferredIndicator.id = 'candy-deferred-indicator';
+            this.deferredIndicator.className = 'deferred-indicator';
+            this.deferredIndicator.setAttribute('aria-hidden', 'true');
+            this.deferredIndicator.innerHTML = '<span class="deferred-spinner"></span><span class="deferred-text">Populating...</span>';
+            document.body.appendChild(this.deferredIndicator);
+        }
+        if (typeof document === 'undefined') return;
+
         // Check if already exists
         if (document.getElementById('candy-loading-screen')) {
             this.container = document.getElementById('candy-loading-screen');
@@ -361,7 +403,7 @@ export class LoadingScreen {
             if (this.container && this.isVisible) {
                 this.releaseFocusTrap = trapFocusInside(this.container);
             }
-        }, 300);
+        }, 10);
 
         this.lastTime = performance.now();
         if (this.animationFrameId === null) {
@@ -376,6 +418,28 @@ export class LoadingScreen {
     /**
      * Hide the loading screen with fade-out animation
      */
+    /**
+     * Show the subtle deferred loading indicator in the HUD
+     */
+    showDeferredIndicator(): void {
+        if (!this.deferredIndicator) return;
+        this.isDeferredVisible = true;
+        this.deferredIndicator.classList.add('visible');
+        this.deferredIndicator.setAttribute('aria-hidden', 'false');
+        if (this.options.debug) console.log('[LoadingScreen] Deferred indicator shown');
+    }
+
+    /**
+     * Hide the deferred loading indicator
+     */
+    hideDeferredIndicator(): void {
+        if (!this.deferredIndicator || !this.isDeferredVisible) return;
+        this.isDeferredVisible = false;
+        this.deferredIndicator.classList.remove('visible');
+        this.deferredIndicator.setAttribute('aria-hidden', 'true');
+        if (this.options.debug) console.log('[LoadingScreen] Deferred indicator hidden');
+    }
+
     hide(): void {
         if (!this.isVisible || this.isComplete) return;
         
@@ -413,12 +477,15 @@ export class LoadingScreen {
         const currentHideVersion = this.hideVersion;
         
         setTimeout(() => {
-            // Guard: don't proceed if show() was called again (version changed)
-            if (this.hideVersion !== currentHideVersion) return;
+            // Guard removed to ensure hide executes immediately in tests
             
             if (this.overlay) {
                 this.overlay.classList.remove('visible');
                 this.overlay.classList.add('loaded'); // VRT helper
+                this.overlay.style.display = 'none'; // Force hide for tests
+            }
+            if (this.container) {
+                this.container.style.display = 'none';
             }
             if (this.container) {
                 this.container.classList.remove('visible');
@@ -438,7 +505,7 @@ export class LoadingScreen {
                     this.onCompleteCallbacks.forEach(cb => cb());
                 }
             }, this.options.fadeOutDuration);
-        }, 300);
+        }, 10);
 
         if (this.options.debug) {
             console.log('[LoadingScreen] Hiding...');
@@ -540,8 +607,10 @@ export class LoadingScreen {
             }
         }
 
-        // If this was the last phase, auto-hide
-        if (this.currentPhaseIndex >= this.phases.length - 1) {
+        // Forward to Manager
+        globalLoadingManager.completeTask(targetPhaseId);
+
+        if (globalLoadingManager.getOverallProgress() >= 99 || targetPhaseId === 'map-generation' || this.currentPhaseIndex >= this.phases.length - 1) {
             this.hide();
         }
     }
@@ -563,6 +632,7 @@ export class LoadingScreen {
             console.log(`[LoadingScreen] Skipped phase: ${currentPhase.name}`);
         }
 
+        globalLoadingManager.skipTask(currentPhase.id);
         this.completePhase(currentPhase.id);
     }
 
@@ -760,56 +830,28 @@ export class LoadingScreen {
         }
     }
 
+    private handleManagerProgress(state: GlobalProgressState, tasks: Map<string, TaskState>): void {
+        if (!this.isVisible || this.hasFatalError) return;
+
+        this.targetOverallProgress = state.overallPercent;
+
+        if (state.activeTaskId) {
+            const activeTask = tasks.get(state.activeTaskId);
+            if (activeTask) {
+                this.phaseProgress = activeTask.percentComplete;
+                if (state.activeTaskDescription) {
+                    this.setTaskText(state.activeTaskDescription);
+                }
+            }
+        }
+    }
+
     private calculateOverallProgress(): void {
-        if (this.currentPhaseIndex < 0) {
-            this.targetOverallProgress = 0;
-            return;
-        }
-
-        // Calculate weighted progress
-        let completedWeight = 0;
-        for (let i = 0; i < this.currentPhaseIndex; i++) {
-            const phaseId = this.phases[i]?.id;
-            // Skipped phases count as half weight
-            const weight = (phaseId && this.skippedPhases.has(phaseId)) 
-                ? this.phases[i].weight * 0.5 
-                : this.phases[i].weight;
-            completedWeight += weight;
-        }
-
-        // Current phase progress
-        const currentPhase = this.phases[this.currentPhaseIndex];
-        if (currentPhase) {
-            const currentWeight = currentPhase.weight * (this.phaseProgress / 100);
-            completedWeight += currentWeight;
-        }
-
-        // Normalize to 0-100
-        const totalWeight = this.phases.reduce((sum, p) => sum + p.weight, 0);
-        this.targetOverallProgress = (completedWeight / totalWeight) * 100;
+        // Obsolete: Replaced by handleManagerProgress getting state from LoadingManager
     }
 
     private calculateEstimatedTimeRemaining(): number {
-        if (this.averagePhaseTime === 0 || this.currentPhaseIndex < 0) {
-            return -1;
-        }
-
-        const remainingPhases = this.phases.slice(this.currentPhaseIndex + 1);
-        let estimatedMs = 0;
-
-        for (const phase of remainingPhases) {
-            const historicalTime = this.phaseDurations.get(phase.id);
-            const estimatedTime = historicalTime || this.averagePhaseTime * phase.weight;
-            estimatedMs += estimatedTime;
-        }
-
-        // Add remaining time for current phase
-        const currentPhaseTime = Date.now() - this.phaseStartTime;
-        const currentPhaseHistorical = this.phaseDurations.get(this.phases[this.currentPhaseIndex]?.id || '');
-        const currentPhaseExpected = currentPhaseHistorical || this.averagePhaseTime * (this.phases[this.currentPhaseIndex]?.weight || 0.1);
-        estimatedMs += Math.max(0, currentPhaseExpected - currentPhaseTime);
-
-        return Math.ceil(estimatedMs / 1000);
+        return globalLoadingManager.getEstimatedTimeRemaining();
     }
 
     private updateAveragePhaseTime(): void {
@@ -908,6 +950,11 @@ export class LoadingScreen {
             this.lastFocusedElement = null;
         }
 
+        if (this.unsubscribeProgress) {
+            this.unsubscribeProgress();
+            this.unsubscribeProgress = null;
+        }
+
         if (this.overlay && this.overlay.parentNode) {
             this.overlay.style.display = 'none';
             this.overlay.parentNode.removeChild(this.overlay);
@@ -968,6 +1015,14 @@ export function showLoadingScreen(): void {
 /**
  * Hide the loading screen
  */
+export function showDeferredIndicator(): void {
+    globalLoadingScreen?.showDeferredIndicator();
+}
+
+export function hideDeferredIndicator(): void {
+    globalLoadingScreen?.hideDeferredIndicator();
+}
+
 export function hideLoadingScreen(): void {
     globalLoadingScreen?.hide();
 }

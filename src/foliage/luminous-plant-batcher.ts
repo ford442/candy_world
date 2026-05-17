@@ -2,12 +2,21 @@ import * as THREE from 'three';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { color, float, sin, positionLocal, normalLocal, mix, attribute } from 'three/tsl';
 import { uTime, createJuicyRimLight, createStandardNodeMaterial } from './material-core.ts';
+import { calculateWindSway } from './index.ts';
 import { LuminousPlantUniforms, luminousPlantsNoteColorNode } from '../systems/biome-uniforms.ts';
 import { CONFIG } from '../core/config.ts';
 
 const _scratchMatrix = new THREE.Matrix4();
 
 export class LuminousPlantBatcher {
+    private static instance: LuminousPlantBatcher;
+
+    public static getInstance(): LuminousPlantBatcher {
+        if (!LuminousPlantBatcher.instance) {
+            LuminousPlantBatcher.instance = new LuminousPlantBatcher(CONFIG.luminousPlants.density);
+        }
+        return LuminousPlantBatcher.instance;
+    }
     public mesh: THREE.InstancedMesh;
     private maxInstances: number;
     private count: number = 0;
@@ -37,23 +46,23 @@ export class LuminousPlantBatcher {
         const aPhaseOffset = attribute('aPhaseOffset', 'float');
         const baseColor = color(0x66CCFF);
 
-        const pulseSpeed = float(CONFIG.luminousPlants.pulseSpeed);
-        const pulseDepth = float(CONFIG.luminousPlants.pulseDepth);
+        const pulseSpeed = float(CONFIG.luminousPlants?.pulseSpeed || 1.5);
+        const pulseDepth = float(CONFIG.luminousPlants?.pulseDepth || 0.3);
         const localTime = uTime.mul(pulseSpeed).add(aPhaseOffset);
 
         const heightFactor = positionLocal.y.div(4.0);
         const breathe = sin(localTime).mul(pulseDepth).mul(heightFactor);
         const shockwave = LuminousPlantUniforms.intensity.mul(heightFactor).mul(1.5);
         const totalDisplacement = normalLocal.mul(breathe.add(shockwave));
-        mat.positionNode = positionLocal.add(totalDisplacement);
+        mat.positionNode = positionLocal.add(totalDisplacement).add(calculateWindSway(positionLocal));
 
-        const sssStrength = float(CONFIG.luminousPlants.subsurfaceStrength);
+        const sssStrength = float(CONFIG.luminousPlants?.subsurfaceStrength || 0.8);
         const musicColor = mix(baseColor, luminousPlantsNoteColorNode, LuminousPlantUniforms.intensity);
         mat.colorNode = musicColor;
 
         const musicEnergy = LuminousPlantUniforms.intensity;
         const pulse = musicEnergy.mul(0.6).add(sin(localTime).mul(0.4));
-        const activeGlow = float(0.7).add(pulse.mul(float(CONFIG.luminousPlants.glowIntensity)));
+        const activeGlow = float(0.7).add(pulse.mul(float(CONFIG.luminousPlants?.glowIntensity || 2.0)));
         const emissiveBase = musicColor.mul(activeGlow);
 
         const rimIntensity = float(1.0).add(LuminousPlantUniforms.intensity.mul(2.0));
@@ -80,11 +89,10 @@ export class LuminousPlantBatcher {
 
         const id = this.count;
 
-        // ⚡ OPTIMIZATION: Write directly to instanceMatrix array to bypass .setMatrixAt overhead.
-        _scratchMatrix.compose(group.position, group.quaternion, group.scale);
-        _scratchMatrix.toArray(this.mesh.instanceMatrix.array, id * 16);
-        this.mesh.instanceMatrix.needsUpdate = true;
-
+_scratchGroupMatrix.compose(group.position, group.quaternion, group.scale);
+_scratchMatrix.multiplyMatrices(_scratchGroupMatrix, childLocalMatrix); // if needed
+_scratchMatrix.toArray(this.mesh.instanceMatrix.array, id * 16);
+      
         const phaseAttr = this.mesh.geometry.getAttribute('aPhaseOffset') as THREE.InstancedBufferAttribute;
         phaseAttr.setX(id, Math.random() * Math.PI * 2);
 
@@ -98,4 +106,4 @@ export class LuminousPlantBatcher {
     }
 }
 
-export const luminousPlantBatcher = new LuminousPlantBatcher(CONFIG.luminousPlants.density);
+export const luminousPlantBatcher = new LuminousPlantBatcher(CONFIG.luminousPlants?.density || 150);
