@@ -137,11 +137,15 @@ loadingScreen.startPhase('world-generation');
 console.time('World Generation');
 loadingScreen.updateProgress(10, 'Loading critical world...');
 
-// CHANGE: Load only the base world (sky/ground) initially, defer content
+// CHANGE: Load only the base world (sky/ground) initially, defer content.
+// initWorldCritical is now async and yields control between heavy subsystems
+// so the loading screen stays responsive throughout terrain generation.
 let moon: any;
-await StageLoader.loadStage('worldCritical', () => {
-    const result = initWorldCritical(scene, weatherSystem!);
+await StageLoader.loadStage('worldCritical', async () => {
+    loadingScreen.updateProgress(20, 'Generating terrain...');
+    const result = await initWorldCritical(scene, weatherSystem!);
     moon = result.moon;
+    loadingScreen.updateProgress(90, 'World objects ready...');
 });
 
 console.timeEnd('World Generation');

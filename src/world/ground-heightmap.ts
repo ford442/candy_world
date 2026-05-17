@@ -10,10 +10,10 @@ export interface HeightmapTextures {
     normalTexture: THREE.DataTexture;
 }
 
-export function generateGroundHeightmap(
+export async function generateGroundHeightmap(
     size: number = 400,
     resolution: number = 256
-): HeightmapTextures {
+): Promise<HeightmapTextures> {
     const vertexCount = (resolution + 1) * (resolution + 1);
     const heights = new Float32Array(vertexCount);
     // Normals are RGB (3 floats per vertex)
@@ -21,6 +21,8 @@ export function generateGroundHeightmap(
 
     const step = size / resolution;
     const halfSize = size / 2;
+    // Yield every 32 rows to keep the browser responsive during the ~330k height lookups
+    const yieldEvery = 32;
 
     // First pass: Calculate heights
     for (let iy = 0; iy <= resolution; iy++) {
@@ -34,6 +36,9 @@ export function generateGroundHeightmap(
 
             const height = getUnifiedGroundHeightTyped(x, zWorld, getGroundHeight);
             heights[index] = height;
+        }
+        if (iy % yieldEvery === yieldEvery - 1) {
+            await new Promise<void>(resolve => setTimeout(resolve, 0));
         }
     }
 
@@ -65,6 +70,9 @@ export function generateGroundHeightmap(
             normals[index] = normal.x;
             normals[index + 1] = normal.y;
             normals[index + 2] = normal.z;
+        }
+        if (iy % yieldEvery === yieldEvery - 1) {
+            await new Promise<void>(resolve => setTimeout(resolve, 0));
         }
     }
 
