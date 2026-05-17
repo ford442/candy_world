@@ -42,10 +42,12 @@ export function initPostProcessing(renderer: CandyRenderer, scene: THREE.Scene, 
  * WebGPU-specific post-processing pipeline using TSL
  */
 function initWebGPUPostProcessing(renderer: CandyRenderer, scene: THREE.Scene, camera: THREE.Camera) {
-    const webgpuRenderer = renderer as any; // WebGPURenderer
+    if (!isWebGPUMode(renderer)) {
+        throw new Error('Expected WebGPU renderer for WebGPU post-processing');
+    }
     
     // 1. Initialize PostProcessing
-    const postProcessing = new PostProcessing(webgpuRenderer);
+    const postProcessing = new PostProcessing(renderer);
 
     // 2. Base Pass
     const scenePass = pass(scene, camera);
@@ -161,15 +163,23 @@ function initWebGLPostProcessing(renderer: CandyRenderer, scene: THREE.Scene, ca
     // Return interface compatible with WebGPU version
     return {
         render: () => {
+            // Note: For audio reactivity, the game loop can update bloomPass.strength directly
+            // e.g., bloomPass.strength = uBloomStrength.value (when audio system updates it)
             composer.render();
         },
-        // Expose uniforms for compatibility (WebGL version has fewer reactive uniforms)
+        // Expose uniforms for compatibility
         uniforms: {
-            bloomStrength: { value: 1.0 }, // UnrealBloomPass is not easily reactive
+            bloomStrength: { 
+                value: 1.0,
+                // In WebGL mode, reactivity requires updating bloomPass.strength manually
+                // This is less efficient than TSL but provides fallback support
+            },
             saturation: uColorSaturation,
             contrast: uColorContrast,
             vignetteStrength: uVignetteStrength,
             aberrationStrength: uAberrationStrength
-        }
+        },
+        // Expose bloom pass for manual control if needed
+        _bloomPass: bloomPass
     };
 }

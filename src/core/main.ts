@@ -42,6 +42,9 @@ import { initLoadingScreen, installLegacyAPI } from '../ui/loading-screen.ts';
 // Debug staging system
 import { StageLoader, showDebugError, initDebugPanel } from '../debug/index.ts';
 
+// Constants for loading progress
+const POST_PROCESSING_PROGRESS = 70;
+
 // Export core objects for use by other modules
 export { scene, camera, renderer, player, addCameraShake };
 
@@ -91,9 +94,9 @@ const { scene, camera, renderer, mode, ambientLight, sunLight, sunGlow, sunCoron
 // Notify user if using WebGL fallback
 if (mode === 'webgl') {
     console.warn('[Startup] WebGL fallback mode active. Some visual features may be limited.');
-    loadingScreen.updateProgress(70, 'Switching to WebGL mode...');
+    loadingScreen.updateProgress(POST_PROCESSING_PROGRESS, 'Switching to WebGL mode...');
 } else {
-    loadingScreen.updateProgress(70, 'Initializing post-processing...');
+    loadingScreen.updateProgress(POST_PROCESSING_PROGRESS, 'Initializing post-processing...');
 }
 
 // Initialize Post Processing Pipeline

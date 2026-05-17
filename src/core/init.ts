@@ -62,7 +62,10 @@ function createRenderer(canvas: HTMLCanvasElement): { renderer: CandyRenderer; m
 
     console.warn('[Init] WebGPU unavailable — falling back to WebGLRenderer');
     const warning = WebGPU.getErrorMessage();
-    if (warning) {
+    if (warning && !document.getElementById('webgpu-warning')) {
+        // Only append if not already present (avoid duplicates)
+        warning.id = 'webgpu-warning';
+        warning.style.zIndex = '1';  // Behind loading screen
         document.body.appendChild(warning);
     }
     
@@ -216,10 +219,11 @@ export function initScene(): SceneInitResult {
         (shaftMaterial as MeshBasicNodeMaterial).opacityNode = uShaftOpacity;
     } else {
         // WebGL fallback: use standard material with static opacity
+        // Default opacity matches uShaftOpacity default value (0.0) for consistency
         shaftMaterial = new THREE.MeshBasicMaterial({
             color: 0xFFE5A0,
             transparent: true,
-            opacity: 0.3,
+            opacity: 0.0,  // Matches uShaftOpacity default; updated in game loop
             blending: THREE.AdditiveBlending,
             side: THREE.DoubleSide,
             depthWrite: false
