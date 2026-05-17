@@ -219,11 +219,12 @@ export function initScene(): SceneInitResult {
         (shaftMaterial as MeshBasicNodeMaterial).opacityNode = uShaftOpacity;
     } else {
         // WebGL fallback: use standard material with static opacity
-        // Default opacity matches uShaftOpacity default value (0.0) for consistency
+        // Note: Opacity is updated dynamically in game-loop.ts based on sunrise/sunset.
+        // Default starts at 0.0 (invisible) and matches uShaftOpacity uniform behavior.
         shaftMaterial = new THREE.MeshBasicMaterial({
             color: 0xFFE5A0,
             transparent: true,
-            opacity: 0.0,  // Matches uShaftOpacity default; updated in game loop
+            opacity: 0.0,  // See game-loop.ts for dynamic updates
             blending: THREE.AdditiveBlending,
             side: THREE.DoubleSide,
             depthWrite: false

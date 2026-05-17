@@ -132,6 +132,9 @@ function initWebGPUPostProcessing(renderer: CandyRenderer, scene: THREE.Scene, c
  * WebGL-specific post-processing pipeline using EffectComposer
  */
 function initWebGLPostProcessing(renderer: CandyRenderer, scene: THREE.Scene, camera: THREE.Camera) {
+    if (isWebGPUMode(renderer)) {
+        throw new Error('Expected WebGL renderer for WebGL post-processing, got WebGPU');
+    }
     const webglRenderer = renderer as THREE.WebGLRenderer;
     
     // 1. Initialize EffectComposer
@@ -163,23 +166,20 @@ function initWebGLPostProcessing(renderer: CandyRenderer, scene: THREE.Scene, ca
     // Return interface compatible with WebGPU version
     return {
         render: () => {
-            // Note: For audio reactivity, the game loop can update bloomPass.strength directly
-            // e.g., bloomPass.strength = uBloomStrength.value (when audio system updates it)
+            // Update bloom strength from uniform if audio system has updated it
+            // In the future, consider syncing this automatically in the render loop
+            bloomPass.strength = uBloomStrength.value || 1.0;
             composer.render();
         },
         // Expose uniforms for compatibility
         uniforms: {
-            bloomStrength: { 
-                value: 1.0,
-                // In WebGL mode, reactivity requires updating bloomPass.strength manually
-                // This is less efficient than TSL but provides fallback support
-            },
+            bloomStrength: uBloomStrength,  // Same uniform as WebGPU; manual sync required
             saturation: uColorSaturation,
             contrast: uColorContrast,
             vignetteStrength: uVignetteStrength,
             aberrationStrength: uAberrationStrength
         },
-        // Expose bloom pass for manual control if needed
-        _bloomPass: bloomPass
+        // Expose bloom pass for manual control and synchronization
+        bloomPass: bloomPass
     };
 }
