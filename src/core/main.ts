@@ -86,13 +86,20 @@ if (!sceneInitResult) {
     throw new Error(msg);
 }
 
-const { scene, camera, renderer, ambientLight, sunLight, sunGlow, sunCorona, lightShaftGroup, sunGlowMat, coronaMat, uShaftOpacity } = sceneInitResult;
-loadingScreen.updateProgress(70, 'Initializing post-processing...');
+const { scene, camera, renderer, mode, ambientLight, sunLight, sunGlow, sunCorona, lightShaftGroup, sunGlowMat, coronaMat, uShaftOpacity } = sceneInitResult;
+
+// Notify user if using WebGL fallback
+if (mode === 'webgl') {
+    console.warn('[Startup] WebGL fallback mode active. Some visual features may be limited.');
+    loadingScreen.updateProgress(70, 'Switching to WebGL mode...');
+} else {
+    loadingScreen.updateProgress(70, 'Initializing post-processing...');
+}
 
 // Initialize Post Processing Pipeline
 let postProcessing: any;
 await StageLoader.loadStage('postProcessing', () => {
-    postProcessing = initPostProcessing(renderer, scene, camera);
+    postProcessing = initPostProcessing(renderer, scene, camera, mode);
 });
 
 console.timeEnd('Core Scene Setup');
