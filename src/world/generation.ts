@@ -248,7 +248,8 @@ export async function initWorld(scene: THREE.Scene, weatherSystem: WeatherSystem
     await yieldControl();
     initGrassSystem(scene, 10000);
 
-    // Use CPU fallback initially for fireflies; GPU upgrade can happen after the first frame
+    // Use CPU fallback for fireflies during startup. GPU compute init is async but can hang
+    // on systems with partial WebGPU support; the CPU path is safe and fast enough for 150 particles.
     scene.add(createIntegratedFireflies({ count: 150, areaSize: 100, useCompute: false }));
 
     // Procedural Cloud Layer (Background)
@@ -1145,11 +1146,13 @@ export function spawnNearbyFoliage(origin: THREE.Vector3, type: string, options:
 
 // Compatibility wrappers for refactored startup flow
 export async function initCriticalWorld(scene: THREE.Scene, weatherSystem?: WeatherSystem): Promise<WorldObjects> {
-    return initWorld(scene, weatherSystem!, false);
+    if (!weatherSystem) throw new Error('[World] initCriticalWorld: weatherSystem is required');
+    return initWorld(scene, weatherSystem, false);
 }
 
 export async function initWorldCritical(scene: THREE.Scene, weatherSystem?: WeatherSystem): Promise<WorldObjects> {
-    return initWorld(scene, weatherSystem!, false);
+    if (!weatherSystem) throw new Error('[World] initWorldCritical: weatherSystem is required');
+    return initWorld(scene, weatherSystem, false);
 }
 
 export async function initDeferredWorldContent(
