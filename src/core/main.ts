@@ -39,6 +39,9 @@ import { showDeferredIndicator, hideDeferredIndicator } from '../ui/index.ts';
 import { DeferredLoader, LoadPriority } from '../systems/deferred-loader.ts';
 import { initLoadingScreen, installLegacyAPI } from '../ui/loading-screen.ts';
 
+// Debug staging system
+import { StageLoader, showDebugError, initDebugPanel } from '../debug/index.ts';
+
 // Export core objects for use by other modules
 export { scene, camera, renderer, player, addCameraShake };
 
@@ -62,29 +65,35 @@ enableStartupProfiler({
     saveToFile: true,
 });
 
-// --- Initialization Pipeline ---
+// --- Initialize Debug Panel (if ?debug=1) ---
+initDebugPanel();
 
-
+// --- Initialization Pipeline with Debug Staging ---
 
 // Phase 1: Core Scene Setup (Immediate)
 loadingScreen.startPhase('core-scene');
 console.time('Core Scene Setup');
 
 let sceneInitResult: ReturnType<typeof initScene>;
-try {
+await StageLoader.loadStage('core', () => {
     sceneInitResult = initScene();
-} catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : String(error);
-    console.error('[Startup] Core Scene Setup failed:', error);
+});
+
+if (!sceneInitResult) {
+    const msg = 'Core scene initialization was skipped or failed';
+    console.error('[Startup] Core Scene Setup failed');
     loadingScreen.showFatalError(`Failed to initialize 3D scene.\n${msg}`);
-    throw error; // Halt module execution — showFatalError already updated the UI
+    throw new Error(msg);
 }
 
 const { scene, camera, renderer, ambientLight, sunLight, sunGlow, sunCorona, lightShaftGroup, sunGlowMat, coronaMat, uShaftOpacity } = sceneInitResult;
 loadingScreen.updateProgress(70, 'Initializing post-processing...');
 
 // Initialize Post Processing Pipeline
-const postProcessing = initPostProcessing(renderer, scene, camera);
+let postProcessing: any;
+await StageLoader.loadStage('postProcessing', () => {
+    postProcessing = initPostProcessing(renderer, scene, camera);
+});
 
 console.timeEnd('Core Scene Setup');
 loadingScreen.updateProgress(100);
@@ -93,13 +102,22 @@ loadingScreen.completePhase('core-scene');
 // Phase 2: Audio & Weather Systems (Lightweight)
 loadingScreen.startPhase('audio-init');
 console.time('Audio & Systems Init');
-const audioSystem = new AudioSystem(CONFIG.audio.useScriptProcessorNode);
-(window as any).AudioSystem = audioSystem;
-loadingScreen.updateProgress(40, 'Creating audio system...');
-const beatSync = new BeatSync(audioSystem);
-loadingScreen.updateProgress(70, 'Initializing weather system...');
-const weatherSystem = new WeatherSystem(scene);
-weatherSystem.setRenderer(renderer);
+
+let audioSystem: AudioSystem | undefined;
+let beatSync: BeatSync | undefined;
+await StageLoader.loadStage('audio', () => {
+    audioSystem = new AudioSystem(CONFIG.audio.useScriptProcessorNode);
+    (window as any).AudioSystem = audioSystem;
+    loadingScreen.updateProgress(40, 'Creating audio system...');
+    beatSync = new BeatSync(audioSystem);
+});
+
+let weatherSystem: WeatherSystem | undefined;
+await StageLoader.loadStage('weather', () => {
+    loadingScreen.updateProgress(70, 'Initializing weather system...');
+    weatherSystem = new WeatherSystem(scene);
+    weatherSystem.setRenderer(renderer);
+});
 console.timeEnd('Audio & Systems Init');
 loadingScreen.updateProgress(100);
 loadingScreen.completePhase('audio-init');
@@ -110,28 +128,39 @@ console.time('World Generation');
 loadingScreen.updateProgress(10, 'Loading critical world...');
 
 // CHANGE: Load only the base world (sky/ground) initially, defer content
-const { moon } = initWorldCritical(scene, weatherSystem);
+let moon: any;
+await StageLoader.loadStage('worldCritical', () => {
+    const result = initWorldCritical(scene, weatherSystem!);
+    moon = result.moon;
+});
+
 console.timeEnd('World Generation');
 loadingScreen.updateProgress(100, 'Base world ready');
 loadingScreen.completePhase('world-generation');
 
 // Initialize Music Reactivity with dependencies
-musicReactivitySystem.init(scene, weatherSystem);
-// Explicitly register moon (cleaner than traversing scene later)
-musicReactivitySystem.registerMoon(moon);
-
-// Hook up audio system note events to music reactivity
-if (audioSystem.onNote) {
-    audioSystem.onNote((note, velocity, channel) => {
-        musicReactivitySystem.handleNoteOn(note, velocity, channel);
-    });
-} else {
-    // If not, we might need to modify AudioSystem or use a polling approach in animate()
-    // For now, let's assume we will add setNoteCallback to AudioSystem
-    audioSystem.setNoteCallback((note, velocity, channel) => {
-        musicReactivitySystem.handleNoteOn(note, velocity, channel);
-    });
-}
+await StageLoader.loadStage('musicReactivity', () => {
+    musicReactivitySystem.init(scene, weatherSystem!);
+    // Explicitly register moon (cleaner than traversing scene later)
+    if (moon) {
+        musicReactivitySystem.registerMoon(moon);
+    }
+    
+    // Hook up audio system note events to music reactivity
+    if (audioSystem) {
+        if (audioSystem.onNote) {
+            audioSystem.onNote((note: number, velocity: number, channel: number) => {
+                musicReactivitySystem.handleNoteOn(note, velocity, channel);
+            });
+        } else {
+            // If not, we might need to modify AudioSystem or use a polling approach in animate()
+            // For now, let's assume we will add setNoteCallback to AudioSystem
+            audioSystem.setNoteCallback((note: number, velocity: number, channel: number) => {
+                musicReactivitySystem.handleNoteOn(note, velocity, channel);
+            });
+        }
+    }
+});
 
 // Validate node material geometries to avoid TSL attribute errors
 // DEFERRED: This full-scene traversal is expensive. Run it during idle time.
@@ -145,41 +174,50 @@ if ('requestIdleCallback' in window) {
 const timeOffset = { value: 0 };
 
 // 4. Input Handling
-const inputSystem = initInput(camera, audioSystem, 
-    () => toggleDayNight(timeOffset), 
-    () => (player as any).isDancing
-);
-setInputSystem(inputSystem);
-const controls = inputSystem.controls;
+let inputSystem: any;
+let controls: any;
+await StageLoader.loadStage('input', () => {
+    inputSystem = initInput(camera, audioSystem!, 
+        () => toggleDayNight(timeOffset), 
+        () => (player as any).isDancing
+    );
+    setInputSystem(inputSystem);
+    controls = inputSystem.controls;
+});
 
 // Initialize Interaction System
-const interactionSystem = new InteractionSystem(camera, inputSystem.updateReticleState);
+let interactionSystem: InteractionSystem | undefined;
+await StageLoader.loadStage('interaction', () => {
+    interactionSystem = new InteractionSystem(camera, inputSystem.updateReticleState);
+});
 
 // Initialize deferred visual dependencies
 initDeferredVisualsDependencies(scene, camera, renderer);
 
 // Initialize game loop dependencies
-initGameLoopDependencies({
-    scene,
-    camera,
-    renderer,
-    postProcessing,
-    weatherSystem,
-    audioSystem,
-    beatSync,
-    interactionSystem,
-    moon,
-    fireflies: null,
-    controls,
-    sunLight,
-    ambientLight,
-    sunGlow,
-    sunCorona,
-    lightShaftGroup,
-    sunGlowMat,
-    coronaMat,
-    uShaftOpacity,
-    timeOffset
+await StageLoader.loadStage('gameLoop', () => {
+    initGameLoopDependencies({
+        scene,
+        camera,
+        renderer,
+        postProcessing,
+        weatherSystem: weatherSystem!,
+        audioSystem: audioSystem!,
+        beatSync: beatSync!,
+        interactionSystem: interactionSystem!,
+        moon,
+        fireflies: null,
+        controls,
+        sunLight,
+        ambientLight,
+        sunGlow,
+        sunCorona,
+        lightShaftGroup,
+        sunGlowMat,
+        coronaMat,
+        uShaftOpacity,
+        timeOffset
+    });
 });
 
 // Optimization: Hoist reusable objects to module scope to prevent GC in animation loop
@@ -239,19 +277,17 @@ console.log(`[Startup] Camera positioned at ground height: y=${camera.position.y
 
 // --- SHADER WARMUP (before loop starts to prevent first-frame stutter) ---
 (async function warmupAndStartLoop() {
-    loadingScreen.startPhase('shader-warmup');
-    loadingScreen.updateProgress(5, 'Pre-compiling shaders...');
-    try {
+    await StageLoader.loadStage('shaderWarmup', async () => {
+        loadingScreen.startPhase('shader-warmup');
+        loadingScreen.updateProgress(5, 'Pre-compiling shaders...');
         await renderer.compileAsync(scene, camera);
         loadingScreen.updateProgress(55, 'Warming up pipelines...');
         await forceFullSceneWarmup(renderer, scene, camera);
         loadingScreen.updateProgress(90, 'Finalizing scene...');
         console.log('[Startup] Shaders pre-compiled');
-    } catch (e) {
-        console.warn('[Startup] Shader warmup error (non-fatal):', e);
-    }
-    loadingScreen.updateProgress(100, 'Scene ready!');
-    loadingScreen.completePhase('shader-warmup');
+        loadingScreen.updateProgress(100, 'Scene ready!');
+        loadingScreen.completePhase('shader-warmup');
+    });
 
     // Start game loop NOW — player can move immediately
     renderer.setAnimationLoop(animate);
@@ -262,7 +298,8 @@ console.log(`[Startup] Camera positioned at ground height: y=${camera.position.y
 
 // --- BACKGROUND: Optional Emscripten C++ module (non-blocking) ---
 // The JS fallbacks are already active; Emscripten just adds native performance.
-initWasm().then(() => {
+StageLoader.loadStage('wasm', async () => {
+    await initWasm();
     console.log('[WASM] Emscripten loaded in background');
     fluidSystem.init();
     recordWASMInit(performance.now(), true, true);
@@ -303,7 +340,7 @@ if (startButton) {
 
         await yieldFrame(); // Let the spinner paint
 
-        try {
+        const worldGenResult = await StageLoader.loadStage('worldGeneration', async () => {
             // Clean up preview mushroom if it exists (from optimize branch)
             if (typeof previewMushroom !== 'undefined' && previewMushroom) {
                 scene.remove(previewMushroom);
@@ -331,7 +368,7 @@ if (startButton) {
             let lastAnnounced = -1;
             startPhase('Map Generation');
 
-            await generateMap(weatherSystem, DEFAULT_MAP_CHUNK_SIZE, (current, total) => {
+            await generateMap(weatherSystem!, DEFAULT_MAP_CHUNK_SIZE, (current: number, total: number) => {
                 const percent = Math.floor((current / total) * 100);
                 loadingScreen.updateProgress(percent, `Generating world... ${percent}%`);
                 startButton.style.background = `linear-gradient(90deg, #FF6B6B ${percent}%, #FFB6C1 ${percent}%)`;
@@ -350,7 +387,13 @@ if (startButton) {
             loadingScreen.updateProgress(100, 'World generation complete!');
             loadingScreen.completePhase('map-generation');
             loadingScreen.hide();
+        });
 
+        if (!worldGenResult.success) {
+            throw new Error(worldGenResult.error || 'World generation failed');
+        }
+
+        try {
             const instructions = document.getElementById('instructions');
             if (instructions) instructions.style.display = 'none';
 
@@ -370,10 +413,12 @@ if (startButton) {
             globalBackgroundProcessor.enqueue({
                 id: 'deferred_visuals',
                 execute: () => {
-                    console.log('[Deferred] Loading celestial bodies and aurora...');
-                    startPhase('Deferred Visuals Init');
-                    initDeferredVisuals();
-                    endPhase('Deferred Visuals Init');
+                    StageLoader.loadStage('deferredVisuals', () => {
+                        console.log('[Deferred] Loading celestial bodies and aurora...');
+                        startPhase('Deferred Visuals Init');
+                        initDeferredVisuals();
+                        endPhase('Deferred Visuals Init');
+                    });
                 }
             });
 
@@ -418,10 +463,12 @@ if (startButton) {
 
 // --- DEFERRED WORLD CONTENT (non-blocking, after loop is running) ---
 function startDeferredWorldLoading() {
-    initDeferredWorldContent(scene, weatherSystem, (pct, label) => {
-        if (pct % 25 === 0 || pct === 100) {
-            console.log(`[Deferred World] ${pct}%: ${label}`);
-        }
+    StageLoader.loadStage('deferredWorld', async () => {
+        await initDeferredWorldContent(scene, weatherSystem!, (pct, label) => {
+            if (pct % 25 === 0 || pct === 100) {
+                console.log(`[Deferred World] ${pct}%: ${label}`);
+            }
+        });
     }).catch(err => {
         console.error('[World] Deferred content failed:', err);
     });
