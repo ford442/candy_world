@@ -137,7 +137,7 @@ export class SaveMenu {
             if (this.container && this.isOpen()) {
                 this.releaseFocusTrap = trapFocusInside(this.container);
             }
-        }, 200);
+        }, 300);
     }
 
     /**
@@ -147,7 +147,11 @@ export class SaveMenu {
         if (!this.container) return;
 
         // Add exit animation
-        this.container.style.animation = 'slideUp 0.2s ease reverse';
+        this.container.style.animation = 'fadeOut 0.3s ease forwards';
+        const containerInner = this.container.querySelector('.candy-save-menu__container') as HTMLElement;
+        if (containerInner) {
+            containerInner.style.animation = 'juicyPopOut 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards';
+        }
         
         setTimeout(() => {
             if (this.releaseFocusTrap) {
@@ -164,7 +168,7 @@ export class SaveMenu {
             }
 
             this.onCloseCallback?.();
-        }, 200);
+        }, 300);
     }
 
     /**
