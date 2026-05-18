@@ -541,6 +541,11 @@ export function handlePlaylistKeyDown(event: KeyboardEvent): boolean {
     // Upload on U
     if (event.code === 'KeyU') {
         const playlistInput = document.getElementById('playlistUploadInput') as HTMLInputElement;
+        const addSongsBtnEl = document.getElementById('addSongsBtn');
+        if (addSongsBtnEl) {
+            addSongsBtnEl.classList.add('pressed');
+            setTimeout(() => addSongsBtnEl.classList.remove('pressed'), 150);
+        }
         if (playlistInput) playlistInput.click();
         return true;
     }
