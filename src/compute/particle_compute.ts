@@ -31,7 +31,11 @@ import {
     cos,
     sin,
     If,
-    Fn
+    Fn,
+    uv,
+    distance,
+    smoothstep,
+    vec2
 } from 'three/tsl';
 import { StorageInstancedBufferAttribute, PointsNodeMaterial } from 'three/webgpu';
 
@@ -409,13 +413,17 @@ export class ComputeParticleSystem {
 
         material.positionNode = particlePos.xyz;
 
+        // Soft circular disc mask via uv() prevents Three.js from emitting
+        // gl_PointCoord (a GLSL-only built-in) in the generated WGSL shader.
+        const pointCircle = smoothstep(float(0.5), float(0.2), distance(uv(), vec2(0.5, 0.5)));
+
         if (this.type === 'rain') {
             material.sizeNode = float(size).add(this.uBassIntensity.mul(0.5));
             const targetOpacity = float(0.4).add(this.uIntensity.mul(0.6));
-            material.opacityNode = targetOpacity.mul(life);
+            material.opacityNode = targetOpacity.mul(life).mul(pointCircle);
         } else if (this.type === 'mist') {
             const targetOpacity = float(0.3).add(this.uMelodyVolume.mul(0.4));
-            material.opacityNode = targetOpacity.mul(life);
+            material.opacityNode = targetOpacity.mul(life).mul(pointCircle);
         } else {
             material.sizeNode = float(0.2).mul(life); // Shrink as they die
             material.colorNode = vec4(1.0, 0.5, 0.2, life); // Simple fade
