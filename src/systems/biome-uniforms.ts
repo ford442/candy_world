@@ -13,7 +13,7 @@ import * as THREE from 'three';
  */
 
 import { uniform, texture, vec2 } from 'three/tsl';
-import { DataTexture, RGBAFormat, FloatType, Color, NearestFilter } from 'three';
+import { DataTexture, RGBAFormat, HalfFloatType, Color, NearestFilter, DataUtils } from 'three';
 import { CONFIG } from '../core/config.ts';
 
 export const BiomeUniforms = {
@@ -112,7 +112,13 @@ export const skyLutData = new Float32Array(128 * 4);
     }
 })();
 
-const _skyLutTex = new DataTexture(skyLutData, 128, 1, RGBAFormat, FloatType);
+// r32float textures are non-filterable in WebGPU — Three.js falls back to
+// textureLoad(...) without the required mip-level argument, causing a WGSL
+// parse error.  HalfFloatType (r16float) IS filterable, so Three.js can use
+// textureSample instead.  The same fix is applied in ground-heightmap.ts.
+const _skyLutHalf = new Uint16Array(128 * 4);
+for (let i = 0; i < 128 * 4; i++) _skyLutHalf[i] = DataUtils.toHalfFloat(skyLutData[i]);
+const _skyLutTex = new DataTexture(_skyLutHalf, 128, 1, RGBAFormat, HalfFloatType);
 _skyLutTex.minFilter = NearestFilter;
 _skyLutTex.magFilter = NearestFilter;
 _skyLutTex.needsUpdate = true;
@@ -147,7 +153,9 @@ export const luminousPlantsLutData = new Float32Array(128 * 4);
     }
 })();
 
-const _luminousPlantsLutTex = new DataTexture(luminousPlantsLutData, 128, 1, RGBAFormat, FloatType);
+const _luminousPlantsLutHalf = new Uint16Array(128 * 4);
+for (let i = 0; i < 128 * 4; i++) _luminousPlantsLutHalf[i] = DataUtils.toHalfFloat(luminousPlantsLutData[i]);
+const _luminousPlantsLutTex = new DataTexture(_luminousPlantsLutHalf, 128, 1, RGBAFormat, HalfFloatType);
 _luminousPlantsLutTex.minFilter = NearestFilter;
 _luminousPlantsLutTex.magFilter = NearestFilter;
 _luminousPlantsLutTex.needsUpdate = true;

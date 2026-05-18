@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { MeshStandardNodeMaterial, PointsNodeMaterial } from 'three/webgpu';
-import { time, vec3, positionLocal, length, sin, cos, color as tslColor, attribute, float, uniform, mix, smoothstep, color, positionWorld, normalWorld, floor } from 'three/tsl';
+import { time, vec3, vec4, positionLocal, length, sin, cos, color as tslColor, attribute, float, uniform, mix, smoothstep, color, positionWorld, normalWorld, floor } from 'three/tsl';
 
 // WGSL-compatible modulo: x - y * floor(x / y)
 // Note: Converts inputs to float first since WGSL floor() only works on floats
@@ -232,6 +232,9 @@ export function createKickDrumGeyser(options: KickDrumGeyserOptions = {}) {
         finalY,
         positionLocal.z.add(jitterZ).mul(uEruptionStrength)
     );
+    // Provide a vec4 colorNode so Three.js doesn't fall back to gl_PointCoord
+    // (a GLSL-only built-in) when generating the WGSL disc-mask for point sprites.
+    plumeMat.colorNode = vec4(tslColor(color), float(0.8));
 
     const plume = new THREE.Points(plumeGeo, plumeMat);
     plume.visible = false;

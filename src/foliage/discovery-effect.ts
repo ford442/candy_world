@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { PointsNodeMaterial } from 'three/webgpu';
 import {
-    time, color, positionLocal, vec3, attribute, float,
+    time, color, positionLocal, vec3, vec4, attribute, float,
     mix, sin, cos, positionWorld, abs, step
 } from 'three/tsl';
 
@@ -103,7 +103,7 @@ export function createDiscoveryEffect() {
     // Clamp to 0 if outside active window
     const isActive = step(float(0.0), normalizedAge).mul(step(normalizedAge, float(1.0)));
 
-    material.colorNode = baseColor.mul(opacity).mul(isActive);
+    material.colorNode = vec4(baseColor, opacity.mul(isActive));
 
     const mesh = new THREE.Points(geometry, material);
     mesh.frustumCulled = false; // Always render when triggered
