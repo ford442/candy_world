@@ -8,6 +8,9 @@
       ],
       "hueShift": [
         5
+      ],
+      "noteColor": [
+        2
       ]
     },
     "crystalline_nebula": {
@@ -17,6 +20,9 @@
       ],
       "amplitudeScale": [
         0,
+        1
+      ],
+      "noteColor": [
         1
       ]
     },
@@ -29,6 +35,12 @@
         1
       ]
     }
+  },
+  "portamento_pine": {
+    "tracker_channel": 2
+  },
+  "wisteria_cluster": {
+    "tracker_channel": 2
   },
   "sky_moon": {
     "melody_channel": 2,
