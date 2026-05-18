@@ -520,3 +520,7 @@ export function
 - `/root/candy_world/PHASE2_ROADMAP.md` - Roadmap for Phase 2
 - `/root/candy_world/assembly/` - AssemblyScript source
 - `/root/candy_world/emscripten/` - C++ source
+
+### Flat-Hierarchy Matrix Bypass
+**Rule:** For batched or instanced objects guaranteed to be at the scene root, do not use `updateMatrixWorld()` in a per-frame loop. Use manual quaternion/position composition to bypass scene graph traversal.
+**Why:** The `updateMatrixWorld()` method is a recursive tree-traversal function that checks `parent`, `children`, and `matrixAutoUpdate` flags every single time it runs. Bypassing it with `_scratchWorldMat.compose()` strips away object-oriented overhead in high-frequency update loops.
