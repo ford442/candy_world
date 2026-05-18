@@ -38,7 +38,7 @@ import {
     Fn, uniform, storage, instanceIndex, vertexIndex, float, vec2, vec3, vec4,
     mix, sin, cos, normalize, color, attribute,
     mx_noise_float, positionLocal, max, length, min, pow, abs,
-    smoothstep, pointUV, uv, pointUV, distance, time, sqrt, dot, cross,
+    smoothstep, uv, distance, time, sqrt, dot, cross,
     cameraPosition
 } from 'three/tsl';
 
@@ -204,7 +204,8 @@ export class ComputeParticleSystem {
             
             case 'pollen':
                 return Fn(() => {
-                    const hueMix = sin(pointUV.x.mul(10.0).add(uTime)).mul(0.5).add(0.5);
+                    // pointUV emits gl_PointCoord which WGSL doesn't support; use seed for variation instead.
+                    const hueMix = sin(seed.mul(10.0).add(uTime)).mul(0.5).add(0.5);
                     const cyan = color(0x00FFFF);
                     const magenta = color(0xFF00FF);
                     return mix(cyan, magenta, hueMix);
@@ -260,10 +261,12 @@ export class ComputeParticleSystem {
     }
     
     private getOpacityNode(): any {
-        return Fn(() => {
-            const distFromCenter = distance(pointUV, vec2(0.5));
-            return smoothstep(0.5, 0.2, distFromCenter);
-        })();
+        // pointUV emits gl_PointCoord which WGSL does not support. WebGPU points are
+        // single-fragment primitives without point-coord, so we fade by life instead of
+        // applying a circular disc mask.
+        const lifeStorage = storage(this.buffers.life, 'float', this.count);
+        const life = lifeStorage.element(vertexIndex);
+        return smoothstep(float(0.0), float(0.5), life).clamp(0.0, 1.0);
     }
     
     private async initWebGPU(): Promise<void> {
