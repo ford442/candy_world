@@ -269,7 +269,8 @@ export class LoadingScreen {
         // Progress fill
         this.progressFill = document.createElement('div');
         this.progressFill.className = 'progress-fill';
-        this.progressFill.style.width = '0%';
+        this.progressFill.style.transform = 'scaleX(0)';
+        this.progressFill.style.transformOrigin = 'left';
         this.progressBar.appendChild(this.progressFill);
 
         // Progress details
@@ -465,7 +466,7 @@ export class LoadingScreen {
             this.container.setAttribute('aria-valuenow', '100');
         }
         if (this.progressFill) {
-            this.progressFill.style.width = '100%';
+            this.progressFill.style.transform = 'scaleX(1)';
         }
         if (this.percentageText) {
             this.percentageText.textContent = '100%';
@@ -807,7 +808,8 @@ export class LoadingScreen {
 
         // Update progress bar
         if (this.progressFill) {
-            this.progressFill.style.width = `${this.displayedOverallProgress}%`;
+            this.progressFill.style.transform = `scaleX(${this.displayedOverallProgress / 100})`;
+            this.progressFill.style.transformOrigin = 'left';
         }
 
         // Update percentage text
@@ -895,7 +897,7 @@ export class LoadingScreen {
 
         // Turn progress bar red
         if (this.progressFill) {
-            this.progressFill.style.width = '100%';
+            this.progressFill.style.transform = 'scaleX(1)';
             this.progressFill.classList.add('fatal-error');
         }
 

@@ -366,6 +366,7 @@ export function renderPlaylist(): void {
         const li = document.createElement('li');
         li.className = 'jukebox-empty-state';
         li.style.listStyle = 'none';
+        li.setAttribute('aria-live', 'polite');
 
         const iconContainer = document.createElement('div');
         iconContainer.className = 'jukebox-empty-icon-container';
@@ -534,6 +535,10 @@ export function handlePlaylistKeyDown(event: KeyboardEvent): boolean {
     // Close on Q
     if (event.code === 'KeyQ') {
         event.preventDefault();
+        if (closePlaylistBtn) {
+            closePlaylistBtn.classList.add('pressed');
+            setTimeout(() => closePlaylistBtn.classList.remove('pressed'), 150);
+        }
         togglePlaylist();
         return true;
     }
