@@ -289,6 +289,12 @@ export class SimpleFlowerBatcher {
         mesh.receiveShadow = true;
         mesh.count = 0;
         mesh.name = name;
+        if (!mesh.instanceColor) {
+            const defaultColors = new Float32Array(count * 3);
+            defaultColors.fill(1.0);
+            mesh.instanceColor = new THREE.InstancedBufferAttribute(defaultColors, 3);
+        }
+        mesh.geometry.setAttribute('instanceColor', mesh.instanceColor);
         return mesh;
     }
 

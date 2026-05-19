@@ -140,6 +140,7 @@ class ProjectilePool {
         // Crucial for the TSL material to read per-instance colors
         const colors = new Float32Array(MAX_PROJECTILES * 3);
         this.mesh.instanceColor = new THREE.InstancedBufferAttribute(colors, 3);
+        this.mesh.geometry.setAttribute('instanceColor', this.mesh.instanceColor);
         this.mesh.instanceColor.setUsage(THREE.DynamicDrawUsage);
 
         this.projectiles = [];

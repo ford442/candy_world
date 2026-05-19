@@ -213,6 +213,7 @@ export class LanternBatcher {
         this.topMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
         // Explicitly create instanceColor buffer for use with setColorAt
         this.topMesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAX_LANTERNS * 3), 3);
+        this.topMesh.geometry.setAttribute('instanceColor', this.topMesh.instanceColor);
         this.topMesh.count = 0;
         this.topMesh.castShadow = true;
         this.topMesh.receiveShadow = true;

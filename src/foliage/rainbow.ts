@@ -10,6 +10,15 @@ export function createRainbow(): THREE.Mesh {
     const outerRadius = 90;
     const geometry = new THREE.RingGeometry(innerRadius, outerRadius, 64, 1, 0, Math.PI);
 
+    function ensureUVAttribute(geometry: THREE.BufferGeometry) {
+        if (!geometry.attributes.uv && geometry.attributes.position) {
+            const count = geometry.attributes.position.count;
+            const uvs = new Float32Array(count * 2);
+            geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+        }
+    }
+    ensureUVAttribute(geometry);
+
     // Position it: Center at (0, -10, -50) so it arcs over the world
     // We'll let the caller position it, but default logic needs to be upright.
 
