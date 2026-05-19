@@ -49,6 +49,11 @@ const POST_PROCESSING_PROGRESS = 70;
 export { scene, camera, renderer, player, addCameraShake };
 
 // --- Initialize Loading Screen (replaces old spinner overlay) ---
+if (CONFIG.safeMode) {
+    console.warn('[Startup] safeMode active (?safe=1) — shader warmup and compute disabled');
+    (window as any).__computeDisabled = true;
+}
+
 const loadingScreen = initLoadingScreen({ theme: 'candy', showEstimatedTime: true });
 loadingScreen.show();
 installLegacyAPI();
@@ -320,6 +325,10 @@ console.log(`[Startup] Camera positioned at ground height: y=${camera.position.y
 // --- SHADER WARMUP (before loop starts to prevent first-frame stutter) ---
 (async function warmupAndStartLoop() {
     await StageLoader.loadStage('shaderWarmup', async () => {
+        if (CONFIG.safeMode) {
+            console.warn('[Startup] safeMode active — skipping shader warmup and compileAsync');
+            return;
+        }
         loadingScreen.startPhase('shader-warmup');
         loadingScreen.updateProgress(5, 'Pre-compiling shaders...');
         // compileAsync can hang indefinitely on WebGPU when storage-buffer / compute
@@ -329,7 +338,11 @@ console.log(`[Startup] Camera positioned at ground height: y=${camera.position.y
         await Promise.race([renderer.compileAsync(scene, camera), compileTimeout])
             .catch(err => console.warn('[ShaderWarmup] compileAsync error (ignored):', err));
         loadingScreen.updateProgress(55, 'Warming up pipelines...');
-        await forceFullSceneWarmup(renderer, scene, camera);
+        try {
+            await forceFullSceneWarmup(renderer, scene, camera);
+        } catch (err) {
+            console.warn('[ShaderWarmup] forceFullSceneWarmup error (non-fatal):', err);
+        }
         loadingScreen.updateProgress(90, 'Finalizing scene...');
         console.log('[Startup] Shaders pre-compiled');
         loadingScreen.updateProgress(100, 'Scene ready!');

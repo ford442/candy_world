@@ -22,6 +22,7 @@ import { MeshStandardNodeMaterial, MeshBasicNodeMaterial } from 'three/webgpu';
 import { vec3, positionLocal } from 'three/tsl';
 import { CandyPresets, foliageMaterials } from '../foliage/index.ts';
 import { createTerrainMaterial } from '../foliage/terrain.ts';
+import { CONFIG } from '../core/config.ts';
 
 // Warm-up target types
 export type WarmupTarget = {
@@ -549,6 +550,10 @@ export async function warmupAllShaders(
   onProgress?: WarmupProgressCallback,
   options?: Partial<ShaderWarmupOptions>
 ): Promise<WarmupStats> {
+  if (CONFIG.safeMode) {
+    console.warn('[ShaderWarmup] Bypassed due to safeMode');
+    return { total: 0, completed: 0, failed: 0, totalTime: 0, averageTime: 0 };
+  }
   const warmup = new ShaderWarmup(options);
   const stats = await warmup.warmAll(renderer, onProgress);
   warmup.dispose();
