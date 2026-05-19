@@ -251,7 +251,7 @@ await StageLoader.loadStage('gameLoop', () => {
         weatherSystem: weatherSystem!,
         audioSystem: audioSystem!,
         beatSync: beatSync!,
-        interactionSystem,
+        interactionSystem: interactionSystem!,
         moon,
         fireflies: null,
         controls,

@@ -21,7 +21,7 @@ import {
     uAudioHigh,
     uAudioLow
 } from './index.ts';
-import { color as tslColor, mix, float, positionLocal, Node, uv, vec2, sub, mul, add, sin, length, atan, smoothstep, vec3 } from 'three/tsl';
+import { color as tslColor, mix, float, positionLocal, uv, vec2, sub, mul, add, sin, length, atan, atan2, smoothstep, vec3 } from 'three/tsl';
 import { uTwilight } from './sky.ts';
 import { lanternBatcher } from './lantern-batcher.ts';
 import { simpleFlowerBatcher } from './simple-flower-batcher.ts'; // Kept for legacy compatibility if any
@@ -572,7 +572,7 @@ export function createTremoloTulip(options: { color?: number, size?: number } = 
         // Vortex Shader Logic
         const uvCentered = uv().sub(vec2(0.5));
         const dist = length(uvCentered);
-        const angle = atan(uvCentered.y, uvCentered.x);
+        const angle = atan2(uvCentered.y, uvCentered.x);
 
         // Swirling motion: Rotates faster in center and with audio
         const spinSpeed = uTime.mul(2.0).add(uAudioHigh.mul(10.0));

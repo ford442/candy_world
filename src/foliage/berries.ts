@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { StorageInstancedBufferAttribute } from 'three/webgpu';
 import {
     color, float, uniform, vec3, positionLocal, positionWorld,
-    sin, dot, time, Node, UniformNode, ShaderNodeObject, attribute,
+    sin, dot, time, attribute,
     storage, instanceIndex, Fn, If, vec4, varyingProperty
 } from 'three/tsl';
 import { CandyPresets, uAudioLow, uTime } from './index.ts';

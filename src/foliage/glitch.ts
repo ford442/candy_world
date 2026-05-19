@@ -3,9 +3,9 @@ import {
     float,
     floor,
     mx_noise_float,
-    mix,
-    Node
+    mix
 } from 'three/tsl';
+import type { Node } from 'three/webgpu';
 
 export interface GlitchResult {
   uv: Node;
