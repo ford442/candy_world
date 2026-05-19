@@ -561,7 +561,8 @@ kbd.key.key-highlight {
 button.pressed,
 .icon-btn.pressed,
 .secondary-button.pressed,
-.cta-button.pressed {
+.cta-button.pressed,
+.file-label.pressed {
     transform: scale(0.95) !important;
     filter: brightness(0.9) !important;
     transition-duration: 0.05s !important;

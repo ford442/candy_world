@@ -393,6 +393,7 @@ export function initInput(
                 handleMuteKey();
                 break;
             case 'KeyU':
+                triggerButtonPress('musicUploadBtn');
                 const uploadInput = document.getElementById('musicUpload') as HTMLInputElement;
                 if (uploadInput) uploadInput.click();
                 break;
