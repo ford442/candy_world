@@ -25,6 +25,7 @@ import { applyGlitch } from './glitch.ts';
 import { getCylinderGeometry, getTorusKnotGeometry } from '../utils/geometry-dedup.ts';
 import { createSugarSparkle } from './index.ts';
 import { uTwilight } from './sky.ts';
+import { BiomeUniforms } from '../systems/biome-uniforms.ts';
 import { CONFIG } from '../core/config.ts';
 import { applyInstanceAnimation, ANIMATION_TYPES } from './animation-nodes.ts';
 
@@ -168,7 +169,7 @@ export class TreeBatcher {
         });
 
         // 🎨 PALETTE: Make tree leaves pop with sparkly glow, base audio emissive, and twilight glow
-        sphereMat.emissiveNode = sphereEmissive.add(sugarSparkle).add(twilightGlowTint);
+        sphereMat.emissiveNode = sphereEmissive.mul(BiomeUniforms.arpeggioGrove.noteColor).add(sugarSparkle).add(twilightGlowTint);
 
         this.spheres = new THREE.InstancedMesh(sharedGeometries.unitSphere, sphereMat, this.sphereCapacity);
         this.spheres.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(this.sphereCapacity * 3), 3);

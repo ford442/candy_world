@@ -12,6 +12,7 @@ import {
   uTime
 } from './index.ts';
 import { uTwilight } from './sky.ts';
+import { BiomeUniforms } from '../systems/biome-uniforms.ts';
 import {
   vec3,
   positionLocal,
@@ -148,7 +149,7 @@ export class PortamentoPineBatcher {
         .mul(uTwilight)
         .mul(float(CONFIG.glow.glowIntensityMax))
         .mul(float(0.3).add(idlePulse));
-    needleMat.emissiveNode = baseGlowColor.mul(audioGlow).add(rimLight).add(twilightGlowTint);
+    needleMat.emissiveNode = baseGlowColor.mul(BiomeUniforms.arpeggioGrove.noteColor).mul(audioGlow).add(rimLight).add(twilightGlowTint);
 
     registerReactiveMaterial(needleMat);
 
