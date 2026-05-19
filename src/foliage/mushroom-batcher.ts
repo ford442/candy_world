@@ -3,7 +3,7 @@ import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { instanceIndex, color, float, vec3, vec4, attribute, positionLocal,
     sin, cos, mix, smoothstep, uniform, If, time,
     varying, dot, normalize, normalLocal, step, Fn, positionWorld, normalWorld,
-    max, pow, min, cameraPosition, uv, floor, instanceIndex
+    max, pow, min, cameraPosition, uv, floor, instanceIndex, varyingProperty
 } from 'three/tsl';
 
 // WGSL-compatible modulo: x - y * floor(x / y)
@@ -19,6 +19,7 @@ import {
     createSugarSparkle, applyPlayerInteraction
 } from './index.ts';
 import { uTwilight } from './sky.ts';
+import { BiomeUniforms } from '../systems/biome-uniforms.ts';
 import { foliageGroup } from '../world/state.ts'; // Assuming state.ts exports foliageGroup
 import { spawnImpact } from './impacts.ts';
 import { uChromaticIntensity } from './chromatic.ts';
@@ -539,8 +540,8 @@ export class MushroomBatcher {
         capMat.positionNode = applyPlayerInteraction(deform(positionLocal));
 
         // Base color from instance (set via register/setColorAt)
-        // Fallback to Red if instanceColor is missing (should not happen if initialized)
-        const baseColor = attribute('instanceColor', 'vec3');
+        // Uses the vInstanceColor varying populated by InstancedMeshNode
+        const baseColor = varyingProperty('vec3', 'vInstanceColor');
 
         // Add Juicy Rim Light! (Pop against background)
         // 🎨 PALETTE: Make rim light react to bass for pulsing edge glow
@@ -593,7 +594,7 @@ export class MushroomBatcher {
         const totalGlow = baseGlow.add(flashIntensity).add(sugarSparkle).add(innerGlowFactor.mul(0.3));
         
         // Add twilight glow directly to emissive node output
-        capMat.emissiveNode = twilightGlowTint.mul(totalGlow);
+        capMat.emissiveNode = twilightGlowTint.mul(BiomeUniforms.crystallineNebula.noteColor).mul(totalGlow);
         capMat.emissiveIntensityNode = float(1.0); // Resetting multiplier since we multiply inside node
 
         // 2. Gills

@@ -2,6 +2,11 @@ import * as THREE from 'three';
 import { PostProcessing } from 'three/webgpu';
 import { pass, mix, vec3, uniform, Fn, float, uv, vec2, distance, smoothstep } from 'three/tsl';
 import { bloom } from 'three/examples/jsm/tsl/display/BloomNode.js';
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
+import type { CandyRenderer } from '../core/init.ts';
+import { isWebGPUMode } from '../core/init.ts';
 
 // Global uniforms for reactivity
 export const uBloomStrength = uniform(1.0);
@@ -11,18 +16,36 @@ export const uVignetteStrength = uniform(0.5);
 export const uAberrationStrength = uniform(0.005);
 
 /**
- * Initializes the WebGPU Post-Processing pipeline for Candy World.
+ * Initializes the Post-Processing pipeline for Candy World.
+ * Automatically selects WebGPU TSL pipeline or WebGL EffectComposer based on renderer.
+ * 
  * Features:
- * - Base Scene Render (pass)
- * - TSL Bloom (Audio-reactive via uBloomStrength)
+ * - Base Scene Render
+ * - Bloom (Audio-reactive via uBloomStrength)
  * - Color Correction (Saturation & Contrast)
  *
- * @param renderer The WebGPURenderer
+ * @param renderer The renderer (WebGPU or WebGL)
  * @param scene The main scene
  * @param camera The main camera
+ * @param mode The renderer mode ('webgpu' or 'webgl')
  * @returns An object to manage and render the post-processing pipeline
  */
-export function initPostProcessing(renderer: THREE.WebGPURenderer, scene: THREE.Scene, camera: THREE.Camera) {
+export function initPostProcessing(renderer: CandyRenderer, scene: THREE.Scene, camera: THREE.Camera, mode: 'webgpu' | 'webgl') {
+    if (mode === 'webgpu') {
+        return initWebGPUPostProcessing(renderer, scene, camera);
+    } else {
+        return initWebGLPostProcessing(renderer, scene, camera);
+    }
+}
+
+/**
+ * WebGPU-specific post-processing pipeline using TSL
+ */
+function initWebGPUPostProcessing(renderer: CandyRenderer, scene: THREE.Scene, camera: THREE.Camera) {
+    if (!isWebGPUMode(renderer)) {
+        throw new Error('Expected WebGPU renderer for WebGPU post-processing');
+    }
+    
     // 1. Initialize PostProcessing
     const postProcessing = new PostProcessing(renderer);
 
@@ -86,9 +109,7 @@ export function initPostProcessing(renderer: THREE.WebGPURenderer, scene: THREE.
     window.addEventListener('resize', () => {
         const width = window.innerWidth;
         const height = window.innerHeight;
-        // PostProcessing handles resizing internally, but we can call it explicitly if needed
-        // postProcessing.setSize(width, height);
-        // PostProcessing doesn't have a direct setSize, it uses renderer size.
+        // PostProcessing handles resizing internally
     });
 
     return {
@@ -104,5 +125,63 @@ export function initPostProcessing(renderer: THREE.WebGPURenderer, scene: THREE.
             vignetteStrength: uVignetteStrength,
             aberrationStrength: uAberrationStrength
         }
+    };
+}
+
+/**
+ * WebGL-specific post-processing pipeline using EffectComposer
+ */
+function initWebGLPostProcessing(renderer: CandyRenderer, scene: THREE.Scene, camera: THREE.Camera) {
+    if (isWebGPUMode(renderer)) {
+        throw new Error('Expected WebGL renderer for WebGL post-processing, got WebGPU');
+    }
+    const webglRenderer = renderer as THREE.WebGLRenderer;
+    
+    // 1. Initialize EffectComposer
+    const composer = new EffectComposer(webglRenderer);
+
+    // 2. Add Render Pass (base scene rendering)
+    const renderPass = new RenderPass(scene, camera);
+    composer.addPass(renderPass);
+
+    // 3. Add Bloom Pass
+    // UnrealBloomPass parameters: (resolution, strength, radius, threshold)
+    const resolution = new THREE.Vector2(window.innerWidth, window.innerHeight);
+    const bloomPass = new UnrealBloomPass(
+        resolution,
+        1.0,    // strength (maps to uBloomStrength)
+        0.5,    // radius (soft glow spread)
+        0.85    // threshold (only bright spots bloom)
+    );
+    composer.addPass(bloomPass);
+
+    // Resize handler
+    const handleResize = () => {
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+        composer.setSize(width, height);
+    };
+    window.addEventListener('resize', handleResize);
+
+    // Return interface compatible with WebGPU version
+    return {
+        render: () => {
+            // Sync bloom strength: This per-frame read is necessary for audio reactivity.
+            // Performance note: Uniforms are reactive in WebGPU mode (TSL), but WebGL requires
+            // manual synchronization on every frame. This is an acceptable trade-off for fallback support.
+            // TODO: Consider implementing an automatic sync mechanism to improve efficiency.
+            bloomPass.strength = uBloomStrength.value || 1.0;
+            composer.render();
+        },
+        // Expose uniforms for compatibility
+        uniforms: {
+            bloomStrength: uBloomStrength,  // Same uniform as WebGPU; manual sync required
+            saturation: uColorSaturation,
+            contrast: uColorContrast,
+            vignetteStrength: uVignetteStrength,
+            aberrationStrength: uAberrationStrength
+        },
+        // Expose bloom pass for manual control and synchronization
+        bloomPass: bloomPass
     };
 }

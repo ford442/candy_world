@@ -118,8 +118,29 @@ OUTPUT_WASM="$REPO_ROOT/public/candy_native.wasm"
 
 echo "[INFO] Scanning source files for implemented functions..."
 
-# All C++ source files
+# All C++ source files (used for function scanning)
 CPP_FILES="$SCRIPT_DIR"/*.cpp
+
+# Compilation units: exclude sub-files that are #included by animation_batch.cpp.
+# Compiling them both as part of the wrapper AND as standalone files causes
+# duplicate symbol errors from the linker.
+ANIM_BATCH_SUBFILES=(
+    "animation_batch_effects.cpp"
+    "animation_batch_foliage.cpp"
+    "animation_batch_melodic.cpp"
+    "animation_batch_percussion.cpp"
+    "animation_batch_simd.cpp"
+)
+COMPILE_UNITS=()
+for _f in "$SCRIPT_DIR"/*.cpp; do
+    _base="$(basename "$_f")"
+    _skip=0
+    for _sub in "${ANIM_BATCH_SUBFILES[@]}"; do
+        if [ "$_base" = "$_sub" ]; then _skip=1; break; fi
+    done
+    [ $_skip -eq 0 ] && COMPILE_UNITS+=("$_f")
+done
+unset _f _base _skip _sub
 
 # Function to check if a function is implemented in source
 # This verifies the function has EMSCRIPTEN_KEEPALIVE and a proper function signature
@@ -415,7 +436,7 @@ rm -f "$OUTPUT_JS" "$OUTPUT_WASM" "$REPO_ROOT/public/candy_native.worker.js" "pe
 
 # Compile with error handling
 BUILD_SUCCESS=0
-if em++ "$SCRIPT_DIR"/*.cpp \
+if em++ "${COMPILE_UNITS[@]}" \
   $COMPILE_FLAGS \
   $LINK_FLAGS \
   -s EXPORTED_FUNCTIONS=@"$EXPORTS_FILE" -s EXPORT_KEEPALIVE=1 --closure 0  \
@@ -499,7 +520,7 @@ LINK_FLAGS_ST="-O2 -std=c++17 -lembind -s WASM=1 -s WASM_BIGINT=0 \
 -s ENVIRONMENT=web -s ERROR_ON_UNDEFINED_SYMBOLS=0 \
 -msimd128 -mrelaxed-simd -ffast-math"
 
-if em++ "$SCRIPT_DIR"/*.cpp \
+if em++ "${COMPILE_UNITS[@]}" \
   $COMPILE_FLAGS_ST \
   $LINK_FLAGS_ST \
   -s EXPORTED_FUNCTIONS=@"$EXPORTS_FILE" -s EXPORT_KEEPALIVE=1 --closure 0  \
@@ -522,7 +543,7 @@ echo "=========================================="
 echo "Build Summary"
 echo "=========================================="
 echo "Files compiled:"
-for f in "$SCRIPT_DIR"/*.cpp; do
+for f in "${COMPILE_UNITS[@]}"; do
     echo "  - $(basename "$f")"
 done
 echo ""

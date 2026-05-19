@@ -3,7 +3,7 @@ import { StorageInstancedBufferAttribute } from 'three/webgpu';
 import {
     color, float, uniform, vec3, positionLocal, positionWorld,
     sin, dot, time, Node, UniformNode, ShaderNodeObject, attribute,
-    storage, instanceIndex, Fn, If, vec4
+    storage, instanceIndex, Fn, If, vec4, varyingProperty
 } from 'three/tsl';
 import { CandyPresets, uAudioLow, uTime } from './index.ts';
 import { spawnImpact } from './impacts.ts';
@@ -108,7 +108,7 @@ export class BerryBatcher {
 
         // Initialize instance colors buffer to white/orange default (will be overwritten)
         // CRITICAL: Explicitly create instanceColor because InstancedMesh does not auto-create it.
-        // TSL attribute('instanceColor', 'vec3') crashes during shader compilation if this is missing.
+        // TSL varyingProperty('vec3', 'vInstanceColor') needs mesh.instanceColor to be initialized.
         if (!this.mesh.instanceColor) {
             this.mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAX_BERRIES * 3), 3);
             this.mesh.geometry.setAttribute('instanceColor', this.mesh.instanceColor);
@@ -341,7 +341,7 @@ function createHeartbeatMaterial(): THREE.Material {
     // Base color from instanceColor
     const material = CandyPresets.Gummy(0xFF6600, opts);
     // Force use of instanceColor
-    material.colorNode = attribute('instanceColor', 'vec3') || color(0xFF6600);
+    material.colorNode = varyingProperty('vec3', 'vInstanceColor');
 
     // 2. Heartbeat Logic (Vertex Displacement)
     const phase = dot(positionWorld, vec3(0.5)).mul(5.0);
@@ -353,7 +353,7 @@ function createHeartbeatMaterial(): THREE.Material {
 
     // 3. Reactive Glow (Emissive)
     const aGlow = attribute('aGlow', 'float'); // FROM BATCHER
-    const baseColor = attribute('instanceColor', 'vec3') || color(0xFF6600);
+    const baseColor = varyingProperty('vec3', 'vInstanceColor');
     const flashColor = color(0xFFFFFF);
 
     // Mix flash based on heartbeat strength

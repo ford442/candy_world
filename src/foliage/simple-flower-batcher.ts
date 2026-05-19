@@ -15,13 +15,13 @@ import {
     uAudioLow,
     uPlayerPosition
 } from './index.ts';
-import { attribute, color as tslColor, positionLocal, vec3, float, mx_noise_float, mix, sin, smoothstep, normalize, length, positionWorld } from 'three/tsl';
+import { attribute, color as tslColor, positionLocal, vec3, float, mx_noise_float, mix, sin, smoothstep, normalize, length, positionWorld, uv, distance, vec2, varyingProperty } from 'three/tsl';
 import { foliageGroup } from '../world/state.ts';
 import { CONFIG } from '../core/config.ts';
 import { uTwilight } from './sky.ts';
 
-// Manually define instanceColor if not exported by three/tsl
-const instanceColor = attribute('instanceColor', 'vec3');
+// Use the instanced color varying populated by InstancedMeshNode
+const instanceColor = varyingProperty('vec3', 'vInstanceColor');
 
 const MAX_FLOWERS = 1000; // Reduced from 5000 for WebGPU uniform buffer limits
 const GRAINS_PER_FLOWER = 5;
@@ -271,10 +271,9 @@ export class SimpleFlowerBatcher {
         const touchPulse = push.mul(0.15);
         pollenMat.sizeNode = float(0.05).add(audioPulse).add(touchPulse);
 
-        // Opacity: Fade out if very far from player? Or always visible?
-        // Let's keep them visible but subtle.
-        // Fade out slightly when pushed to avoid hard edges?
-        pollenMat.opacityNode = float(0.8);
+        // Circular soft-disc mask using uv() to avoid the gl_PointCoord WGSL error.
+        const pollenCircle = smoothstep(float(0.5), float(0.2), distance(uv(), vec2(0.5, 0.5)));
+        pollenMat.opacityNode = float(0.8).mul(pollenCircle);
 
         this.pollenPoints = new THREE.Points(pollenGeo, pollenMat);
         this.pollenPoints.frustumCulled = false; // Always update

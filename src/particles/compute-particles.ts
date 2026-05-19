@@ -212,14 +212,14 @@ export class ComputeParticleSystem {
                     return baseColor.mul(float(1.0).add(audioBoost));
                 })();
             
-            case 'pollen':
-                return Fn(() => {
-                    const aUv = uv();
-                    const hueMix = sin(aUv.x.mul(10.0).add(uTime)).mul(0.5).add(0.5);
-                    const cyan = color(0x00FFFF);
-                    const magenta = color(0xFF00FF);
-                    return mix(cyan, magenta, hueMix);
-                })();
+case 'pollen':
+    return Fn(() => {
+        // pointUV emits gl_PointCoord which WGSL doesn't support; use seed for variation instead.
+        const hueMix = sin(seed.mul(10.0).add(uTime)).mul(0.5).add(0.5);
+        const cyan = color(0x00FFFF);
+        const magenta = color(0xFF00FF);
+        return mix(cyan, magenta, hueMix);
+    })();
             
             case 'berries':
                 return color(0xFF6600);
@@ -269,15 +269,14 @@ export class ComputeParticleSystem {
                 return baseSize;
         }
     }
-    
-    private getOpacityNode(): any {
-        return Fn(() => {
-            const aUv = uv();
-            const distFromCenter = distance(aUv, vec2(0.5));
-            return smoothstep(0.5, 0.2, distFromCenter);
-        })();
-    }
-    
+private getOpacityNode(): any {
+    // pointUV emits gl_PointCoord which WGSL does not support. WebGPU points are
+    // single-fragment primitives without point-coord, so we fade by life instead of
+    // applying a circular disc mask.
+    const lifeStorage = storage(this.buffers.life, 'float', this.count);
+    const life = lifeStorage.element(vertexIndex);
+    return smoothstep(float(0.0), float(0.5), life).clamp(0.0, 1.0);
+}
     private async initWebGPU(): Promise<void> {
         if (!navigator.gpu) {
             throw new Error('WebGPU not supported');

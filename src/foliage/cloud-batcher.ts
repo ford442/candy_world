@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { MeshStandardNodeMaterial } from 'three/webgpu';
+import { instanceIndex, MeshStandardNodeMaterial } from 'three/webgpu';
 import {
     color, uniform, mix, vec3, positionLocal, normalLocal, mx_noise_float,
     float, normalize, positionWorld, normalWorld, cameraPosition, dot, abs, sin, pow,
@@ -191,6 +191,7 @@ export function getSharedCloudMaterial() {
 // --- Cloud Batcher ---
 const MAX_PUFFS = 400; // Reduced from 1000 for WebGPU uniform buffer limits (64KB max)
 const _scratchMat = new THREE.Matrix4();
+const _scratchWorldMat = new THREE.Matrix4();
 const _scratchPos = new THREE.Vector3();
 const _scratchQuat = new THREE.Quaternion();
 const _scratchScale = new THREE.Vector3();
@@ -325,14 +326,15 @@ export class CloudBatcher {
         const count = cloud.userData.batchCount;
         const puffs = cloud.userData.puffs;
 
-        cloud.updateMatrixWorld();
-        const worldMat = cloud.matrixWorld;
+        // ⚡ OPTIMIZATION: Bypassed THREE.Object3D overhead in high-frequency batchers!
+        // Replaced cloud.updateMatrixWorld() with manual composition.
+        _scratchWorldMat.compose(cloud.position, cloud.quaternion, cloud.scale);
 
         for (let i = 0; i < count; i++) {
             // Global = CloudWorld * PuffLocal
-            _scratchMat.multiplyMatrices(worldMat, puffs[i]);
+            _scratchMat.multiplyMatrices(_scratchWorldMat, puffs[i]);
             // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
-        _scratchMat.toArray(this.mesh.instanceMatrix.array, (start + i) * 16);
+            _scratchMat.toArray(this.mesh.instanceMatrix.array, (start + i) * 16);
         }
     }
 

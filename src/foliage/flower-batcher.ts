@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
+import { instanceIndex, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { foliageGroup } from '../world/state.ts';
 import {
     foliageMaterials,
@@ -12,7 +12,7 @@ import { attachReactivity } from './foliage-reactivity.ts';
 import { CandyPresets, uAudioHigh, uAudioLow, uTime, createJuicyRimLight, getCachedProceduralMaterial, createStandardNodeMaterial } from './material-core.ts';
 import { CONFIG } from '../core/config.ts';
 import { uTwilight } from './sky.ts';
-import { attribute, positionLocal, mix, color, float, sin } from 'three/tsl';
+import { attribute, positionLocal, mix, color, float, sin, varyingProperty } from 'three/tsl';
 import { PlantPoseMachine } from './plant-pose-machine.ts';
 
 const MAX_FLOWERS = 1000; // Reduced from 5000 for WebGPU uniform buffer limits
@@ -142,7 +142,7 @@ export class FlowerBatcher {
 
         // --- 4. Petals (Shared Material) ---
         // Use Velvet preset for petals, supporting instanceColor
-        const instanceColor = attribute('instanceColor', 'vec3');
+        const instanceColor = varyingProperty('vec3', 'vInstanceColor');
 
         const petalMat = getCachedProceduralMaterial('flower_batch_petal', 0xFFFFFF, () => {
             // --- PALETTE: Petal Breathing Animation ---

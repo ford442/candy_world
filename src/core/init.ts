@@ -9,13 +9,25 @@ import { PALETTE, CONFIG } from './config.ts';
 import { createCrescendoFogNode } from '../foliage/sky.ts';
 
 /**
+ * Type union for supported renderers (WebGPU or WebGL fallback)
+ */
+export type CandyRenderer = WebGPURenderer | THREE.WebGLRenderer;
+
+/**
+ * Type guard to check if renderer is in WebGPU mode
+ */
+export const isWebGPUMode = (r: CandyRenderer): r is WebGPURenderer =>
+    r instanceof WebGPURenderer;
+
+/**
  * Return type for initScene function
  * Contains all created scene objects, lights, materials, and uniforms
  */
 export interface SceneInitResult {
     scene: THREE.Scene;
     camera: THREE.PerspectiveCamera;
-    renderer: WebGPURenderer;
+    renderer: CandyRenderer;
+    mode: 'webgpu' | 'webgl';
     ambientLight: THREE.HemisphereLight;
     sunLight: THREE.DirectionalLight;
     sunGlow: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
@@ -37,26 +49,59 @@ declare global {
 }
 
 /**
- * Initialize the Three.js scene with WebGPU renderer, lighting, fog, and visual effects.
+ * Create a renderer with automatic WebGL fallback if WebGPU is unavailable
+ * @param canvas The canvas element to render to
+ * @returns Object containing the renderer and mode
+ */
+function createRenderer(canvas: HTMLCanvasElement): { renderer: CandyRenderer; mode: 'webgpu' | 'webgl' } {
+    if (WebGPU.isAvailable()) {
+        console.log('[Init] WebGPU available, creating WebGPURenderer');
+        const renderer = new WebGPURenderer({ canvas, antialias: true });
+        return { renderer, mode: 'webgpu' };
+    }
+
+    console.warn('[Init] WebGPU unavailable — falling back to WebGLRenderer');
+    const warning = WebGPU.getErrorMessage();
+    if (warning && !document.getElementById('webgpu-warning')) {
+        // Only append if not already present (avoid duplicates)
+        warning.id = 'webgpu-warning';
+        warning.style.zIndex = '1';  // Behind loading screen
+        document.body.appendChild(warning);
+    }
+    
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.0;
+    return { renderer, mode: 'webgl' };
+}
+
+/**
+ * Initialize the Three.js scene with renderer (WebGPU with WebGL fallback), lighting, fog, and visual effects.
  * 
  * Creates:
- * - WebGPU renderer with HDR/SDR configuration based on device capabilities
- * - Scene with TSL-driven fog node and legacy fallback fog
+ * - WebGPU renderer with automatic WebGL fallback if unavailable
+ * - Scene with TSL-driven fog node (WebGPU) and legacy fallback fog (all)
  * - Perspective camera positioned at (0, 5, 0)
  * - Hemisphere ambient light + directional sunlight with shadows
  * - Sun glow, corona, and volumetric light shafts
  * - Resize event handler
  * 
- * @returns SceneInitResult containing all scene objects, lights, materials, and uniforms
- * @throws Error if WebGPU is not supported by the browser
+ * @returns SceneInitResult containing all scene objects, lights, materials, uniforms, and mode
  */
 export function initScene(): SceneInitResult {
     const canvas = document.querySelector('#glCanvas') as HTMLCanvasElement;
     const scene = new THREE.Scene();
 
-    // TSL-driven Crescendo Fog initialization
-    scene.fogNode = createCrescendoFogNode(color(PALETTE.day.fog));
-    // Standard fog kept for fallback/legacy systems
+    // Create renderer with automatic fallback from WebGPU to WebGL
+    const { renderer, mode } = createRenderer(canvas);
+
+    // TSL-driven Crescendo Fog initialization (WebGPU only)
+    if (mode === 'webgpu') {
+        scene.fogNode = createCrescendoFogNode(color(PALETTE.day.fog));
+    }
+    // Standard fog kept for all renderers
     scene.fog = new THREE.Fog(PALETTE.day.fog, 20, 100);
 
     const camera = new THREE.PerspectiveCamera(
@@ -67,43 +112,40 @@ export function initScene(): SceneInitResult {
     );
     camera.position.set(0, 5, 0);
 
-    if (!WebGPU.isAvailable()) {
-        const warning = WebGPU.getErrorMessage();
-        document.body.appendChild(warning);
-        throw new Error('WebGPU not supported');
-    }
+    // WebGPU-specific fixes and configuration
+    if (mode === 'webgpu') {
+        // Fix: WebGPURenderer 0.171.0+ can crash in setupHardwareClipping if this is undefined
+        const webgpuRenderer = renderer as WebGPURenderer;
+        webgpuRenderer.clippingPlanes = [];
+        webgpuRenderer.localClippingEnabled = false;
+        console.log('[Init] WebGPURenderer clipping fix applied.');
 
-    const renderer = new WebGPURenderer({ canvas, antialias: true });
-    // Fix: WebGPURenderer 0.171.0+ can crash in setupHardwareClipping if this is undefined
-    renderer.clippingPlanes = [];
-    renderer.localClippingEnabled = false;
-    console.log('[Init] WebGPURenderer clipping fix applied.');
-
-    // Polyfill: attributeUtils.get is missing in three@0.171.0 but referenced by compute-particles.ts
-    const backend = (renderer as any).backend;
-    if (backend && backend.attributeUtils && typeof backend.attributeUtils.get !== 'function') {
-        backend.attributeUtils.get = () => null;
-        console.log('[Init] WebGPU attributeUtils.get polyfill applied.');
-    }
-
-    // HDR Configuration (Phase 4: WebGPU)
-    // Attempt to enable wide color gamut and extended tone mapping for brighter visuals
-    const supportsHDR = window.matchMedia && window.matchMedia('(dynamic-range: high)').matches;
-    if (supportsHDR) {
-        console.log('[Init] HDR supported, configuring WebGPURenderer for extended dynamic range and Display P3.');
-        try {
-            // Fallback to string literals since THREE.DisplayP3ColorSpace might not be available in this three.js version
-            renderer.outputColorSpace = 'display-p3' as THREE.ColorSpace;
-        } catch (e) {
-            console.warn('[Init] Failed to set display-p3, falling back to srgb.');
-            renderer.outputColorSpace = 'srgb';
+        // Polyfill: attributeUtils.get is missing in three@0.171.0 but referenced by compute-particles.ts
+        const backend = (webgpuRenderer as any).backend;
+        if (backend && backend.attributeUtils && typeof backend.attributeUtils.get !== 'function') {
+            backend.attributeUtils.get = () => null;
+            console.log('[Init] WebGPU attributeUtils.get polyfill applied.');
         }
-        // Extended tone mapping for values > 1.0
-        renderer.toneMapping = THREE.LinearToneMapping;
-    } else {
-        console.log('[Init] HDR not supported, using standard SDR configuration.');
-        renderer.outputColorSpace = 'srgb';
-        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+
+        // HDR Configuration (WebGPU only)
+        // Attempt to enable wide color gamut and extended tone mapping for brighter visuals
+        const supportsHDR = window.matchMedia && window.matchMedia('(dynamic-range: high)').matches;
+        if (supportsHDR) {
+            console.log('[Init] HDR supported, configuring WebGPURenderer for extended dynamic range and Display P3.');
+            try {
+                // Fallback to string literals since THREE.DisplayP3ColorSpace might not be available in this three.js version
+                webgpuRenderer.outputColorSpace = 'display-p3' as THREE.ColorSpace;
+            } catch (e) {
+                console.warn('[Init] Failed to set display-p3, falling back to srgb.');
+                webgpuRenderer.outputColorSpace = 'srgb';
+            }
+            // Extended tone mapping for values > 1.0
+            webgpuRenderer.toneMapping = THREE.LinearToneMapping;
+        } else {
+            console.log('[Init] HDR not supported, using standard SDR configuration.');
+            webgpuRenderer.outputColorSpace = 'srgb';
+            webgpuRenderer.toneMapping = THREE.ACESFilmicToneMapping;
+        }
     }
 
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -160,17 +202,34 @@ export function initScene(): SceneInitResult {
     const shaftCount = 12;
     const shaftGeometry = new THREE.PlaneGeometry(8, 200);
 
-    // ⚡ OPTIMIZATION: Use a shared TSL material instead of looping over 12 clones in JS
+    // Create light shaft material based on renderer mode
     const uShaftOpacity = window.uShaftOpacity || (window.uShaftOpacity = uniform(0.0));
-    const shaftMaterial = new MeshBasicNodeMaterial({
-        color: 0xFFE5A0,
-        transparent: true,
-        blending: THREE.AdditiveBlending,
-        side: THREE.DoubleSide,
-        depthWrite: false
-    });
-    // Link opacity to a global TSL uniform
-    shaftMaterial.opacityNode = uShaftOpacity;
+    let shaftMaterial: THREE.MeshBasicMaterial | MeshBasicNodeMaterial;
+    
+    if (mode === 'webgpu') {
+        // ⚡ OPTIMIZATION: Use a shared TSL material instead of looping over 12 clones in JS
+        shaftMaterial = new MeshBasicNodeMaterial({
+            color: 0xFFE5A0,
+            transparent: true,
+            blending: THREE.AdditiveBlending,
+            side: THREE.DoubleSide,
+            depthWrite: false
+        });
+        // Link opacity to a global TSL uniform
+        (shaftMaterial as MeshBasicNodeMaterial).opacityNode = uShaftOpacity;
+    } else {
+        // WebGL fallback: use standard material with static opacity
+        // Note: Opacity is updated dynamically in game-loop.ts based on sunrise/sunset.
+        // Default starts at 0.0 (invisible) and matches uShaftOpacity uniform behavior.
+        shaftMaterial = new THREE.MeshBasicMaterial({
+            color: 0xFFE5A0,
+            transparent: true,
+            opacity: 0.0,  // See game-loop.ts for dynamic updates
+            blending: THREE.AdditiveBlending,
+            side: THREE.DoubleSide,
+            depthWrite: false
+        });
+    }
 
     for (let i = 0; i < shaftCount; i++) {
         // Shared material instance, no .clone()
@@ -193,6 +252,7 @@ export function initScene(): SceneInitResult {
         scene,
         camera,
         renderer,
+        mode,
         ambientLight,
         sunLight,
         sunGlow,
@@ -207,20 +267,28 @@ export function initScene(): SceneInitResult {
 /**
  * Force a full scene warmup render to prevent shader compilation stutter.
  * 
+ * Only applies to WebGPU renderer. WebGL renderer returns immediately without
+ * performing warmup, as WebGL is generally more stable during first render.
+ * 
  * Temporarily disables frustum culling, moves camera to capture all objects,
  * renders a 1x1 pixel frame to trigger shader compilation, then restores
  * all original states.
  * 
- * @param renderer - The WebGPU renderer instance
+ * @param renderer - The renderer instance (WebGPU or WebGL)
  * @param scene - The Three.js scene to warm up
  * @param camera - The camera to use for warmup rendering
- * @returns Promise that resolves when warmup is complete
+ * @returns Promise that resolves when warmup is complete (immediate for WebGL)
  */
 export async function forceFullSceneWarmup(
-    renderer: WebGPURenderer, 
+    renderer: CandyRenderer, 
     scene: THREE.Scene, 
     camera: THREE.PerspectiveCamera
 ): Promise<void> {
+    // Only warmup WebGPU renderer; WebGL is more forgiving
+    if (!isWebGPUMode(renderer)) {
+        console.log('[Init] Skipping scene warmup for WebGL renderer');
+        return;
+    }
     // 1. Save state
     const originalMask = camera.layers.mask;
     const originalPos = camera.position.clone();

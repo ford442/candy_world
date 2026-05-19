@@ -50,11 +50,17 @@ export interface LoadingScreenOptions {
 // =============================================================================
 // DEFAULT LOADING PHASES
 // =============================================================================
+
+// Weights are calibrated to observed wall-clock costs after Wave 1:
+// - WASM runs in the background (not on the critical path) — removed from phases.
+// - Heightmap deform uses batchGroundHeight() — world-generation is now cheap.
+// - Shader compileAsync() + forceFullSceneWarmup() dominates the critical path on first run.
+// - map-generation runs after "Enter World" and is its own bar segment.
 export const DEFAULT_LOADING_PHASES: LoadingPhase[] = [
     {
         id: 'core-scene',
         name: 'Scene Setup',
-        weight: 0.05,
+        weight: 0.15,
         description: 'Initializing 3D renderer and scene...',
         onStart: () => console.log('[Loading] Starting Core Scene Setup'),
         onComplete: () => console.log('[Loading] Core Scene Setup complete')
@@ -70,8 +76,8 @@ export const DEFAULT_LOADING_PHASES: LoadingPhase[] = [
     {
         id: 'world-generation',
         name: 'World Build',
-        weight: 0.15,
-        description: 'Growing procedural flora and terrain...',
+        weight: 0.20,
+        description: 'Building sky, terrain and base world...',
         onStart: () => console.log('[Loading] Starting World Generation'),
         onComplete: () => console.log('[Loading] World Generation complete')
     },
@@ -86,7 +92,7 @@ export const DEFAULT_LOADING_PHASES: LoadingPhase[] = [
     {
         id: 'shader-warmup',
         name: 'Shader Warmup',
-        weight: 0.05,
+        weight: 0.30,
         description: 'Pre-compiling shaders for smooth gameplay...',
         onStart: () => console.log('[Loading] Starting Shader Warmup'),
         onComplete: () => console.log('[Loading] Shader Warmup complete')
@@ -94,8 +100,8 @@ export const DEFAULT_LOADING_PHASES: LoadingPhase[] = [
     {
         id: 'map-generation',
         name: 'Map Generation',
-        weight: 0.35,
-        description: 'Generating world map and placing entities...',
+        weight: 0.30,
+        description: 'Placing entities, foliage and discoveries...',
         onStart: () => console.log('[Loading] Starting Map Generation'),
         onComplete: () => console.log('[Loading] Map Generation complete')
     }
@@ -116,7 +122,10 @@ export class LoadingScreen {
     private skipButton: HTMLButtonElement | null = null;
     private spinner: HTMLElement | null = null;
     
-    // We keep legacy phases array for compatibility if needed, but drive from Manager
+    // Deferred HUD Indicator
+    private deferredIndicator: HTMLElement | null = null;
+    private isDeferredVisible = false;
+
     private phases: LoadingPhase[] = [];
     private currentPhaseIndex = -1;
     private phaseProgress = 0;
@@ -198,6 +207,17 @@ export class LoadingScreen {
     private createDOM(): void {
         if (typeof document === 'undefined') return;
         
+        // Create Deferred HUD Indicator
+        if (!document.getElementById('candy-deferred-indicator')) {
+            this.deferredIndicator = document.createElement('div');
+            this.deferredIndicator.id = 'candy-deferred-indicator';
+            this.deferredIndicator.className = 'deferred-indicator';
+            this.deferredIndicator.setAttribute('aria-hidden', 'true');
+            this.deferredIndicator.innerHTML = '<span class="deferred-spinner"></span><span class="deferred-text">Populating...</span>';
+            document.body.appendChild(this.deferredIndicator);
+        }
+        if (typeof document === 'undefined') return;
+
         // Check if already exists
         if (document.getElementById('candy-loading-screen')) {
             this.container = document.getElementById('candy-loading-screen');
@@ -249,7 +269,8 @@ export class LoadingScreen {
         // Progress fill
         this.progressFill = document.createElement('div');
         this.progressFill.className = 'progress-fill';
-        this.progressFill.style.width = '0%';
+        this.progressFill.style.transform = 'scaleX(0)';
+        this.progressFill.style.transformOrigin = 'left';
         this.progressBar.appendChild(this.progressFill);
 
         // Progress details
@@ -383,7 +404,7 @@ export class LoadingScreen {
             if (this.container && this.isVisible) {
                 this.releaseFocusTrap = trapFocusInside(this.container);
             }
-        }, 10);
+        }, 300);
 
         this.lastTime = performance.now();
         if (this.animationFrameId === null) {
@@ -398,6 +419,28 @@ export class LoadingScreen {
     /**
      * Hide the loading screen with fade-out animation
      */
+    /**
+     * Show the subtle deferred loading indicator in the HUD
+     */
+    showDeferredIndicator(): void {
+        if (!this.deferredIndicator) return;
+        this.isDeferredVisible = true;
+        this.deferredIndicator.classList.add('visible');
+        this.deferredIndicator.setAttribute('aria-hidden', 'false');
+        if (this.options.debug) console.log('[LoadingScreen] Deferred indicator shown');
+    }
+
+    /**
+     * Hide the deferred loading indicator
+     */
+    hideDeferredIndicator(): void {
+        if (!this.deferredIndicator || !this.isDeferredVisible) return;
+        this.isDeferredVisible = false;
+        this.deferredIndicator.classList.remove('visible');
+        this.deferredIndicator.setAttribute('aria-hidden', 'true');
+        if (this.options.debug) console.log('[LoadingScreen] Deferred indicator hidden');
+    }
+
     hide(): void {
         if (!this.isVisible || this.isComplete) return;
         
@@ -423,7 +466,7 @@ export class LoadingScreen {
             this.container.setAttribute('aria-valuenow', '100');
         }
         if (this.progressFill) {
-            this.progressFill.style.width = '100%';
+            this.progressFill.style.transform = 'scaleX(1)';
         }
         if (this.percentageText) {
             this.percentageText.textContent = '100%';
@@ -765,7 +808,8 @@ export class LoadingScreen {
 
         // Update progress bar
         if (this.progressFill) {
-            this.progressFill.style.width = `${this.displayedOverallProgress}%`;
+            this.progressFill.style.transform = `scaleX(${this.displayedOverallProgress / 100})`;
+            this.progressFill.style.transformOrigin = 'left';
         }
 
         // Update percentage text
@@ -853,7 +897,7 @@ export class LoadingScreen {
 
         // Turn progress bar red
         if (this.progressFill) {
-            this.progressFill.style.width = '100%';
+            this.progressFill.style.transform = 'scaleX(1)';
             this.progressFill.classList.add('fatal-error');
         }
 
@@ -973,6 +1017,14 @@ export function showLoadingScreen(): void {
 /**
  * Hide the loading screen
  */
+export function showDeferredIndicator(): void {
+    globalLoadingScreen?.showDeferredIndicator();
+}
+
+export function hideDeferredIndicator(): void {
+    globalLoadingScreen?.hideDeferredIndicator();
+}
+
 export function hideLoadingScreen(): void {
     globalLoadingScreen?.hide();
 }

@@ -276,7 +276,7 @@ class BubbleStreamSystem implements IParticleSystem {
             color(0xE6E6FA), // Lavender
             iridescence.mul(0.5).add(0.5)
         );
-        material.colorNode = bubbleColor;
+        material.colorNode = vec4(bubbleColor, 1.0);
 
         this.mesh = new THREE.Points(geometry, material);
         this.mesh.userData.type = 'bubbles';
@@ -398,7 +398,7 @@ class PollenCloudSystem implements IParticleSystem {
         const pulse = time.mul(2.0).add(aOffset).sin().mul(0.3).add(0.7);
         material.sizeNode = aSize.mul(pulse);
 
-        material.colorNode = color(pollenColor);
+        material.colorNode = vec4(color(pollenColor), 1.0);
 
         this.mesh = new THREE.Points(geometry, material);
         this.mesh.userData.type = 'pollen';
@@ -515,7 +515,7 @@ class LeafConfettiSystem implements IParticleSystem {
 
         // Color variation
         const colorShift = aOffset.mul(0.1).sin().mul(0.2).add(1.0);
-        material.colorNode = color(leafColor).mul(colorShift);
+        material.colorNode = vec4(color(leafColor).mul(colorShift), 1.0);
 
         this.mesh = new THREE.Points(geometry, material);
         this.mesh.userData.type = 'confetti';
