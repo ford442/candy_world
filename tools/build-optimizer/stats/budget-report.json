@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-05-13T03:31:50.351Z",
+  "timestamp": "2026-05-19T06:25:54.534Z",
   "config": {
     "budgets": {
       "main": "200kb",
@@ -16,39 +16,40 @@
     {
       "name": "main",
       "budget": 204800,
-      "actual": 14693,
+      "actual": 20452,
       "status": "pass",
-      "percentage": 0.0717431640625
+      "percentage": 0.09986328125
     },
     {
       "name": "vendor",
       "budget": 512000,
-      "actual": 944012,
+      "actual": 943623,
       "status": "error",
-      "percentage": 1.8437734375
+      "percentage": 1.843013671875
     },
     {
       "name": "wasm",
       "budget": 102400,
-      "actual": 27310,
-      "status": "pass",
-      "percentage": 0.26669921875
+      "actual": 479744,
+      "status": "error",
+      "percentage": 4.685
     },
     {
       "name": "total",
       "budget": 2097152,
-      "actual": 14779866,
+      "actual": 15081569,
       "status": "error",
-      "percentage": 7.047589302062988
+      "percentage": 7.191452503204346
     }
   ],
   "overall": {
     "status": "error",
-    "totalSize": 15765881,
+    "totalSize": 16525388,
     "totalBudget": 2916352
   },
   "recommendations": [
     "VENDOR BUDGET EXCEEDED: Consider using dynamic imports for Three.js or switching to a lighter alternative.",
+    "WASM BUDGET EXCEEDED: Run wasm-opt with -O3 to strip debug symbols and optimize.",
     "TOTAL BUDGET EXCEEDED: Implement code splitting and lazy loading for non-critical features."
   ]
 }

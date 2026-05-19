@@ -115,6 +115,15 @@ class ShimmerParticleSystem implements IParticleSystem {
         geometry.setAttribute('offset', new THREE.BufferAttribute(offsets, 1));
         geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
 
+        const ensureUVAttribute = (geometry: THREE.BufferGeometry) => {
+            if (!geometry.attributes.uv && geometry.attributes.position) {
+                const count = geometry.attributes.position.count;
+                const uvs = new Float32Array(count * 2);
+                geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+            }
+        };
+        ensureUVAttribute(geometry);
+
         const material = new PointsNodeMaterial({
             transparent: true,
             blending: THREE.AdditiveBlending,
@@ -220,6 +229,15 @@ class BubbleStreamSystem implements IParticleSystem {
         geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
         geometry.setAttribute('offset', new THREE.BufferAttribute(offsets, 1));
         geometry.setAttribute('velocity', new THREE.BufferAttribute(velocities, 3));
+
+        const ensureUVAttribute = (geometry: THREE.BufferGeometry) => {
+            if (!geometry.attributes.uv && geometry.attributes.position) {
+                const count = geometry.attributes.position.count;
+                const uvs = new Float32Array(count * 2);
+                geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+            }
+        };
+        ensureUVAttribute(geometry);
 
         const material = new PointsNodeMaterial({
             transparent: true,
@@ -337,6 +355,15 @@ class PollenCloudSystem implements IParticleSystem {
         geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
         geometry.setAttribute('offset', new THREE.BufferAttribute(offsets, 1));
 
+        const ensureUVAttribute = (geometry: THREE.BufferGeometry) => {
+            if (!geometry.attributes.uv && geometry.attributes.position) {
+                const count = geometry.attributes.position.count;
+                const uvs = new Float32Array(count * 2);
+                geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+            }
+        };
+        ensureUVAttribute(geometry);
+
         const material = new PointsNodeMaterial({
             transparent: true,
             opacity: 0.7,
@@ -446,6 +473,15 @@ class LeafConfettiSystem implements IParticleSystem {
         geometry.setAttribute('offset', new THREE.BufferAttribute(offsets, 1));
         geometry.setAttribute('rotation', new THREE.BufferAttribute(rotations, 1));
 
+        const ensureUVAttribute = (geometry: THREE.BufferGeometry) => {
+            if (!geometry.attributes.uv && geometry.attributes.position) {
+                const count = geometry.attributes.position.count;
+                const uvs = new Float32Array(count * 2);
+                geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+            }
+        };
+        ensureUVAttribute(geometry);
+
         const material = new PointsNodeMaterial({
             transparent: true,
             opacity: 0.8,
@@ -545,6 +581,15 @@ class PulseRingSystem implements IParticleSystem {
 
         geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
         geometry.setAttribute('angle', new THREE.BufferAttribute(angles, 1));
+
+        const ensureUVAttribute = (geometry: THREE.BufferGeometry) => {
+            if (!geometry.attributes.uv && geometry.attributes.position) {
+                const count = geometry.attributes.position.count;
+                const uvs = new Float32Array(count * 2);
+                geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+            }
+        };
+        ensureUVAttribute(geometry);
 
         const material = new PointsNodeMaterial({
             size: 0.5,

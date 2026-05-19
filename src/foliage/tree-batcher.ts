@@ -98,6 +98,7 @@ export class TreeBatcher {
 
         this.trunks = new THREE.InstancedMesh(sharedGeometries.unitCylinder, trunkMat, this.trunkCapacity);
         this.trunks.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(this.trunkCapacity * 3), 3);
+        this.trunks.geometry.setAttribute('instanceColor', this.trunks.instanceColor);
         this.trunks.geometry.setAttribute('instanceAnimType', new THREE.InstancedBufferAttribute(new Float32Array(this.trunkCapacity), 1));
         this.trunks.geometry.setAttribute('instanceAnimOffset', new THREE.InstancedBufferAttribute(new Float32Array(this.trunkCapacity), 1));
         this.trunks.castShadow = true;
@@ -172,6 +173,7 @@ export class TreeBatcher {
 
         this.spheres = new THREE.InstancedMesh(sharedGeometries.unitSphere, sphereMat, this.sphereCapacity);
         this.spheres.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(this.sphereCapacity * 3), 3);
+        this.spheres.geometry.setAttribute('instanceColor', this.spheres.instanceColor);
         this.spheres.geometry.setAttribute('instanceAnimType', new THREE.InstancedBufferAttribute(new Float32Array(this.sphereCapacity), 1));
         this.spheres.geometry.setAttribute('instanceAnimOffset', new THREE.InstancedBufferAttribute(new Float32Array(this.sphereCapacity), 1));
         this.spheres.castShadow = true;
@@ -194,6 +196,7 @@ export class TreeBatcher {
 
         this.capsules = new THREE.InstancedMesh(sharedGeometries.capsule, capsuleMat, this.capsuleCapacity);
         this.capsules.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(this.capsuleCapacity * 3), 3);
+        this.capsules.geometry.setAttribute('instanceColor', this.capsules.instanceColor);
         this.capsules.geometry.setAttribute('instanceAnimType', new THREE.InstancedBufferAttribute(new Float32Array(this.capsuleCapacity), 1));
         this.capsules.geometry.setAttribute('instanceAnimOffset', new THREE.InstancedBufferAttribute(new Float32Array(this.capsuleCapacity), 1));
         this.capsules.castShadow = true;
@@ -237,6 +240,7 @@ export class TreeBatcher {
 
         this.helices = new THREE.InstancedMesh(helixGeo, helixMat, this.helixCapacity);
         this.helices.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(this.helixCapacity * 3), 3);
+        this.helices.geometry.setAttribute('instanceColor', this.helices.instanceColor);
         this.helices.geometry.setAttribute('instanceAnimType', new THREE.InstancedBufferAttribute(new Float32Array(this.helixCapacity), 1));
         this.helices.geometry.setAttribute('instanceAnimOffset', new THREE.InstancedBufferAttribute(new Float32Array(this.helixCapacity), 1));
         this.helices.castShadow = true;
@@ -264,6 +268,7 @@ export class TreeBatcher {
         const roseGeo = getTorusKnotGeometry(0.25, 0.08, 64, 8, 2, 3);
         this.roses = new THREE.InstancedMesh(roseGeo, roseMat, this.roseCapacity);
         this.roses.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(this.roseCapacity * 3), 3);
+        this.roses.geometry.setAttribute('instanceColor', this.roses.instanceColor);
         this.roses.geometry.setAttribute('instanceAnimType', new THREE.InstancedBufferAttribute(new Float32Array(this.roseCapacity), 1));
         this.roses.geometry.setAttribute('instanceAnimOffset', new THREE.InstancedBufferAttribute(new Float32Array(this.roseCapacity), 1));
         this.roses.castShadow = true;
@@ -296,6 +301,7 @@ export class TreeBatcher {
             const newColorArray = new Float32Array(this.trunkCapacity * 3);
             newColorArray.set(oldColorArray);
             newMesh.instanceColor = new THREE.InstancedBufferAttribute(newColorArray, 3);
+            newMesh.geometry.setAttribute('instanceColor', newMesh.instanceColor);
         }
         
         if (oldMesh.geometry.attributes.instanceAnimType) {
@@ -342,6 +348,7 @@ export class TreeBatcher {
             const newColorArray = new Float32Array(this.sphereCapacity * 3);
             newColorArray.set(oldColorArray);
             newMesh.instanceColor = new THREE.InstancedBufferAttribute(newColorArray, 3);
+            newMesh.geometry.setAttribute('instanceColor', newMesh.instanceColor);
         }
         
         if (oldMesh.geometry.attributes.instanceAnimType) {
@@ -387,6 +394,7 @@ export class TreeBatcher {
             const newColorArray = new Float32Array(this.capsuleCapacity * 3);
             newColorArray.set(oldColorArray);
             newMesh.instanceColor = new THREE.InstancedBufferAttribute(newColorArray, 3);
+            newMesh.geometry.setAttribute('instanceColor', newMesh.instanceColor);
         }
         
         if (oldMesh.geometry.attributes.instanceAnimType) {
@@ -432,6 +440,7 @@ export class TreeBatcher {
             const newColorArray = new Float32Array(this.helixCapacity * 3);
             newColorArray.set(oldColorArray);
             newMesh.instanceColor = new THREE.InstancedBufferAttribute(newColorArray, 3);
+            newMesh.geometry.setAttribute('instanceColor', newMesh.instanceColor);
         }
         
         if (oldMesh.geometry.attributes.instanceAnimType) {
@@ -477,6 +486,7 @@ export class TreeBatcher {
             const newColorArray = new Float32Array(this.roseCapacity * 3);
             newColorArray.set(oldColorArray);
             newMesh.instanceColor = new THREE.InstancedBufferAttribute(newColorArray, 3);
+            newMesh.geometry.setAttribute('instanceColor', newMesh.instanceColor);
         }
         
         if (oldMesh.geometry.attributes.instanceAnimType) {

@@ -96,6 +96,7 @@ export class MushroomBatcher {
         // PALETTE: Initialize instanceColor manually since we use TSL
         const colors = new Float32Array(MAX_MUSHROOMS * 3);
         this.mesh.instanceColor = new THREE.InstancedBufferAttribute(colors, 3);
+        this.mesh.geometry.setAttribute('instanceColor', this.mesh.instanceColor);
 
         this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
         this.mesh.count = 0;

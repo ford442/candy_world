@@ -38,7 +38,7 @@ import {
     Fn, uniform, storage, instanceIndex, vertexIndex, float, vec2, vec3, vec4,
     mix, sin, cos, normalize, color, attribute,
     mx_noise_float, positionLocal, max, length, min, pow, abs,
-    smoothstep, pointUV, uv, pointUV, distance, time, sqrt, dot, cross,
+    smoothstep, uv, distance, time, sqrt, dot, cross,
     cameraPosition
 } from 'three/tsl';
 
@@ -146,6 +146,14 @@ export class ComputeParticleSystem {
         };
     }
     
+    private ensureUVAttribute(geometry: THREE.BufferGeometry): void {
+        if (!geometry.hasAttribute('uv')) {
+            const vertexCount = geometry.attributes.position.count;
+            const uvs = new Float32Array(vertexCount * 2);
+            geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+        }
+    }
+
     private createMesh(): THREE.Points {
         // Use storage buffers for GPU, regular buffers for CPU fallback
         const geometry = new THREE.BufferGeometry();
@@ -157,6 +165,8 @@ export class ComputeParticleSystem {
         geometry.setAttribute('size', this.buffers.size);
         geometry.setAttribute('color', this.buffers.color);
         geometry.setAttribute('seed', this.buffers.seed);
+
+        this.ensureUVAttribute(geometry);
         
         // Create TSL material
         const material = new PointsNodeMaterial({
@@ -204,7 +214,8 @@ export class ComputeParticleSystem {
             
             case 'pollen':
                 return Fn(() => {
-                    const hueMix = sin(pointUV.x.mul(10.0).add(uTime)).mul(0.5).add(0.5);
+                    const aUv = uv();
+                    const hueMix = sin(aUv.x.mul(10.0).add(uTime)).mul(0.5).add(0.5);
                     const cyan = color(0x00FFFF);
                     const magenta = color(0xFF00FF);
                     return mix(cyan, magenta, hueMix);
@@ -261,7 +272,8 @@ export class ComputeParticleSystem {
     
     private getOpacityNode(): any {
         return Fn(() => {
-            const distFromCenter = distance(pointUV, vec2(0.5));
+            const aUv = uv();
+            const distFromCenter = distance(aUv, vec2(0.5));
             return smoothstep(0.5, 0.2, distFromCenter);
         })();
     }

@@ -111,6 +111,7 @@ export class BerryBatcher {
         // TSL attribute('instanceColor', 'vec3') crashes during shader compilation if this is missing.
         if (!this.mesh.instanceColor) {
             this.mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAX_BERRIES * 3), 3);
+            this.mesh.geometry.setAttribute('instanceColor', this.mesh.instanceColor);
         }
         for (let i = 0; i < MAX_BERRIES; i++) {
             this.mesh.setColorAt(i, _scratchColor.setHex(0xFF6600));

@@ -81,13 +81,20 @@ export function generateGroundHeightmap(
     heightTexture.needsUpdate = true;
     heightTexture.generateMipmaps = false;
 
-    // Normal texture: RGBFormat (or RGBA), FloatType, LinearFilter
-    // Using RGBFormat for now
+    // Normal texture: RGBAFormat (RGBFormat is not well supported in WebGPU), FloatType, LinearFilter
+    // Using RGBAFormat for now
+    const rgbaNormals = new Float32Array((resolution + 1) * (resolution + 1) * 4);
+    for (let i = 0; i < normals.length / 3; i++) {
+        rgbaNormals[i * 4] = normals[i * 3];
+        rgbaNormals[i * 4 + 1] = normals[i * 3 + 1];
+        rgbaNormals[i * 4 + 2] = normals[i * 3 + 2];
+        rgbaNormals[i * 4 + 3] = 1.0;
+    }
     const normalTexture = new THREE.DataTexture(
-        normals,
+        rgbaNormals,
         resolution + 1,
         resolution + 1,
-        THREE.RGBFormat,
+        THREE.RGBAFormat,
         THREE.FloatType
     );
     normalTexture.minFilter = THREE.LinearFilter;

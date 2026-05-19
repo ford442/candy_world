@@ -300,6 +300,7 @@ export class ArpeggioFernBatcher {
         // --- INSTANCED MESH ---
         this.mesh = new THREE.InstancedMesh(mergedGeo, material, MAX_FERNS);
         this.mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAX_FERNS * 3), 3);
+        this.mesh.geometry.setAttribute('instanceColor', this.mesh.instanceColor);
         this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
         this.mesh.castShadow = true;
         this.mesh.receiveShadow = true;

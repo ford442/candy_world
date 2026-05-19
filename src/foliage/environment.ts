@@ -203,6 +203,15 @@ export function createKickDrumGeyser(options: KickDrumGeyserOptions = {}) {
     plumeGeo.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
     plumeGeo.setAttribute('velocity', new THREE.BufferAttribute(velocities, 1));
 
+    function ensureUVAttribute(geometry: THREE.BufferGeometry) {
+        if (!geometry.attributes.uv && geometry.attributes.position) {
+            const count = geometry.attributes.position.count;
+            const uvs = new Float32Array(count * 2);
+            geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+        }
+    }
+    ensureUVAttribute(plumeGeo);
+
     const uEruptionStrength = uniform(float(0.0));
 
     const plumeMat = new PointsNodeMaterial({
