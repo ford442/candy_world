@@ -347,14 +347,16 @@
 
 /* 🎨 Palette: Pressed State */
 /* Visually differentiates active toggle buttons (e.g., Muted, Night Mode) */
-.toggle-button[aria-pressed="true"] {
+.toggle-button[aria-pressed="true"],
+.toggle-button[aria-expanded="true"] {
     background: #FF4081; /* Higher contrast active color */
     box-shadow: inset 0 2px 5px rgba(0,0,0,0.2);
     border: 2px solid #FFD1DC;
     padding: 8px 18px; /* Offset border to prevent layout shift */
 }
 
-.toggle-button[aria-pressed="true"]:hover {
+.toggle-button[aria-pressed="true"]:hover,
+.toggle-button[aria-expanded="true"]:hover {
     background: #F50057;
 }
 
