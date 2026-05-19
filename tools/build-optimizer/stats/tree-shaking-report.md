@@ -1,56 +1,34 @@
 # 🌳 Tree Shaking Audit Report
 
-**Overall Tree-Shaking Score: 37%**
+**Overall Tree-Shaking Score: 52%**
 
 | Metric | Value |
 |--------|-------|
-| Total Files | 131 |
-| Total Exports | 912 |
-| Unused Exports | 576 (63.2%) |
-| Potential Savings | 919.76 KB |
-
-## 📋 common.ts Analysis
-
-| Metric | Value |
-|--------|-------|
-| Total Exports | 51 |
-| Unused Exports | 12 |
-| Side Effects | ⚠️ Yes |
-
-### Unused Functions in common.ts
-
-- `generateNoiseTexture`
-- `getCachedProceduralMaterial`
-- `createTexturedClay`
-- `createSugaredMaterial`
-
-### Recommendations
-
-- Consider splitting common.ts into smaller modules. 12 unused exports detected.
-- common.ts may have side effects. Add "sideEffects": false to package.json for better tree-shaking.
-- Remove unused functions: generateNoiseTexture, getCachedProceduralMaterial, createTexturedClay, createSugaredMaterial
-- Using Three.js imports. Ensure you're importing only needed modules for better tree-shaking.
+| Total Files | 226 |
+| Total Exports | 1559 |
+| Unused Exports | 747 (47.9%) |
+| Potential Savings | 1.05 MB |
 
 ## 📁 Files with Unused Exports
 
-### foliage/index.ts
+### utils/wasm-loader-core.ts
 
-- **Tree-Shaking Score:** 4%
-- **Unused Exports:** 48/50
+- **Tree-Shaking Score:** 58%
+- **Unused Exports:** 39/93
 
 | Export | Type | Line |
 |--------|------|------|
-| `./common.ts` | const | 3 |
-| `./berries.ts` | const | 4 |
-| `./grass.ts` | const | 5 |
-| `./mushrooms.ts` | const | 6 |
-| `./flowers.ts` | const | 7 |
-| `./trees.ts` | const | 8 |
-| `./clouds.ts` | const | 9 |
-| `./waterfalls.ts` | const | 10 |
-| `./cave.ts` | const | 11 |
-| `./environment.ts` | const | 12 |
-| ... and 38 more | | |
+| `sharedF32` | let | 43 |
+| `wasmUpdateFoliageBatch` | let | 50 |
+| `wasmDampVelocity` | let | 67 |
+| `wasmBatchDistanceCalc` | let | 68 |
+| `wasmBatchFrustumTest` | let | 69 |
+| `wasmBatchLODSelect` | let | 70 |
+| `cppBatchShiverSimd` | let | 107 |
+| `cppBatchSpringSimd` | let | 108 |
+| `cppBatchFloatSimd` | let | 109 |
+| `cppBatchCloudBobSimd` | let | 110 |
+| ... and 29 more | | |
 
 ### workers/worker-types.ts
 
@@ -78,10 +56,10 @@
 
 | Export | Type | Line |
 |--------|------|------|
-| `SpawnCandidate` | type | 3 |
 | `AnimationType` | const | 5 |
 | `lerp` | function | 18 |
 | `lerpColor` | function | 19 |
+| `uploadAnimationData` | function | 27 |
 | `batchDistanceCull` | function | 31 |
 | `calcBounceY` | function | 43 |
 | `calcSwayRotZ` | function | 44 |
@@ -90,43 +68,43 @@
 | `calcAccordionStretch` | function | 50 |
 | ... and 13 more | | |
 
-### particles/compute-particles.ts
+### systems/accessibility.ts
 
-- **Tree-Shaking Score:** 15%
-- **Unused Exports:** 22/26
-
-| Export | Type | Line |
-|--------|------|------|
-| `ComputeParticleType` | type | 52 |
-| `ComputeParticleConfig` | interface | 54 |
-| `ParticleBuffers` | interface | 71 |
-| `ParticleAudioData` | interface | 80 |
-| `FireflyConfig` | interface | 1379 |
-| `PollenConfig` | interface | 1384 |
-| `BerryConfig` | interface | 1389 |
-| `RainConfig` | interface | 1394 |
-| `SparkConfig` | interface | 1399 |
-| `createComputeBerries` | function | 1441 |
-| ... and 12 more | | |
-
-### systems/asset-streaming.ts
-
-- **Tree-Shaking Score:** 27%
-- **Unused Exports:** 22/30
+- **Tree-Shaking Score:** 13%
+- **Unused Exports:** 21/24
 
 | Export | Type | Line |
 |--------|------|------|
-| `AssetType` | enum | 37 |
-| `TextureFormat` | enum | 48 |
-| `LoadingState` | enum | 58 |
-| `MemoryPressure` | enum | 77 |
-| `AssetMetadata` | interface | 86 |
-| `AssetManifest` | interface | 103 |
-| `LoadedAsset` | interface | 112 |
-| `LoadingProgress` | interface | 126 |
-| `NetworkStats` | interface | 137 |
-| `StreamingConfig` | interface | 147 |
-| ... and 12 more | | |
+| `ColorBlindType` | type | 19 |
+| `UIScale` | type | 20 |
+| `VerbosityLevel` | type | 21 |
+| `CrosshairStyle` | type | 22 |
+| `Keybinding` | interface | 24 |
+| `InputSettings` | interface | 32 |
+| `VisualSettings` | interface | 43 |
+| `CognitiveSettings` | interface | 59 |
+| `AuditorySettings` | interface | 70 |
+| `ScreenReaderSettings` | interface | 83 |
+| ... and 11 more | | |
+
+### utils/wasm-animations.ts
+
+- **Tree-Shaking Score:** 5%
+- **Unused Exports:** 21/22
+
+| Export | Type | Line |
+|--------|------|------|
+| `WobbleResult` | interface | 27 |
+| `AccordionResult` | interface | 35 |
+| `FiberResult` | interface | 43 |
+| `ShiverResult` | interface | 51 |
+| `SpiralResult` | interface | 59 |
+| `PrismResult` | interface | 68 |
+| `ArpeggioResult` | interface | 78 |
+| `ParticleResult` | interface | 86 |
+| `calcBounceY` | function | 118 |
+| `calcSwayRotZ` | function | 139 |
+| ... and 11 more | | |
 
 ### ui/announcer.ts
 
@@ -147,29 +125,10 @@
 | `announcePolite` | function | 543 |
 | ... and 10 more | | |
 
-### systems/analytics.ts
-
-- **Tree-Shaking Score:** 18%
-- **Unused Exports:** 18/22
-
-| Export | Type | Line |
-|--------|------|------|
-| `AnalyticsConfig` | interface | 38 |
-| `EventType` | type | 62 |
-| `AnalyticsEvent` | interface | 77 |
-| `SessionData` | interface | 91 |
-| `FPSHistogram` | interface | 121 |
-| `FrameTimePercentiles` | interface | 133 |
-| `LoadingPhaseTiming` | interface | 143 |
-| `MemorySnapshot` | interface | 153 |
-| `GPUTiming` | interface | 165 |
-| `PerformanceMetrics` | interface | 175 |
-| ... and 8 more | | |
-
 ### foliage/trees.ts
 
-- **Tree-Shaking Score:** 29%
-- **Unused Exports:** 17/24
+- **Tree-Shaking Score:** 31%
+- **Unused Exports:** 18/26
 
 | Export | Type | Line |
 |--------|------|------|
@@ -183,88 +142,69 @@
 | `AccordionPalmOptions` | interface | 40 |
 | `FiberOpticWillowOptions` | interface | 44 |
 | `SwingableVineOptions` | interface | 48 |
-| ... and 7 more | | |
+| ... and 8 more | | |
 
-### rendering/culling-system.ts
+### utils/wasm-physics.ts
 
-- **Tree-Shaking Score:** 6%
-- **Unused Exports:** 17/18
-
-| Export | Type | Line |
-|--------|------|------|
-| `CullingGroup` | enum | 25 |
-| `EntityType` | enum | 35 |
-| `LODLevel` | enum | 49 |
-| `QualityTier` | enum | 57 |
-| `CullableObject` | interface | 65 |
-| `CullingConfig` | interface | 83 |
-| `CullingStats` | interface | 109 |
-| `DEFAULT_CULL_DISTANCES` | const | 135 |
-| `LOD_THRESHOLDS` | const | 149 |
-| `QUALITY_MULTIPLIERS` | const | 157 |
-| ... and 7 more | | |
-
-### systems/accessibility.ts
-
-- **Tree-Shaking Score:** 33%
-- **Unused Exports:** 16/24
+- **Tree-Shaking Score:** 45%
+- **Unused Exports:** 18/33
 
 | Export | Type | Line |
 |--------|------|------|
-| `Keybinding` | interface | 24 |
-| `InputSettings` | interface | 32 |
-| `VisualSettings` | interface | 43 |
-| `CognitiveSettings` | interface | 59 |
-| `AuditorySettings` | interface | 70 |
-| `ScreenReaderSettings` | interface | 83 |
-| `AccessibilitySettings` | interface | 91 |
-| `AccessibilityPreset` | interface | 99 |
-| `defaultSettings` | const | 127 |
-| `colorBlindMatrices` | const | 189 |
+| `PlayerStateResult` | interface | 56 |
+| `initObstacleUploadBridge` | function | 79 |
+| `checkCollision` | function | 377 |
+| `valueNoise2D` | function | 488 |
+| `fbm` | function | 502 |
+| `fastInvSqrt` | function | 519 |
+| `fastDistance` | function | 535 |
+| `hash` | function | 548 |
+| `getGroundHeightBatch` | function | 571 |
+| `batchGroundHeight` | function | 637 |
+| ... and 8 more | | |
+
+### utils/wasm-batch-animation.ts
+
+- **Tree-Shaking Score:** 27%
+- **Unused Exports:** 16/22
+
+| Export | Type | Line |
+|--------|------|------|
+| `batchShiver_c` | function | 58 |
+| `batchSpring_c` | function | 71 |
+| `batchFloat_c` | function | 84 |
+| `batchCloudBob_c` | function | 97 |
+| `deformWave_c` | function | 114 |
+| `deformJiggle_c` | function | 127 |
+| `deformWobble_c` | function | 140 |
+| `batchUpdateLODMatrices_c` | function | 162 |
+| `batchScaleMatrices_c` | function | 186 |
+| `batchFadeColors_c` | function | 197 |
 | ... and 6 more | | |
 
 ### particles/compute-integration.ts
 
-- **Tree-Shaking Score:** 0%
-- **Unused Exports:** 15/15
+- **Tree-Shaking Score:** 29%
+- **Unused Exports:** 15/21
 
 | Export | Type | Line |
 |--------|------|------|
 | `getParticleMetrics` | function | 28 |
 | `getAllParticleMetrics` | function | 32 |
 | `IntegratedFireflyOptions` | interface | 40 |
-| `createIntegratedFireflies` | function | 50 |
-| `IntegratedPollenOptions` | interface | 102 |
-| `createIntegratedPollen` | function | 113 |
-| `registerIntegratedSystem` | function | 175 |
-| `updateAllIntegratedSystems` | function | 201 |
-| `disposeIntegratedSystem` | function | 212 |
-| `disposeAllIntegratedSystems` | function | 223 |
+| `IntegratedPollenOptions` | interface | 103 |
+| `IntegratedSparksOptions` | interface | 164 |
+| `IntegratedBerriesOptions` | interface | 171 |
+| `IntegratedRainOptions` | interface | 178 |
+| `createIntegratedBerries` | function | 247 |
+| `disposeIntegratedSystem` | function | 393 |
+| `disposeAllIntegratedSystems` | function | 404 |
 | ... and 5 more | | |
-
-### ui/loading-screen.ts
-
-- **Tree-Shaking Score:** 7%
-- **Unused Exports:** 14/15
-
-| Export | Type | Line |
-|--------|------|------|
-| `LoadingPhase` | interface | 20 |
-| `LoadingProgress` | interface | 30 |
-| `LoadingScreenOptions` | interface | 40 |
-| `DEFAULT_LOADING_PHASES` | const | 52 |
-| `LoadingScreen` | class | 116 |
-| `initLoadingScreen` | function | 701 |
-| `getLoadingScreen` | function | 715 |
-| `showLoadingScreen` | function | 722 |
-| `hideLoadingScreen` | function | 732 |
-| `updateProgress` | function | 739 |
-| ... and 4 more | | |
 
 ### systems/region-manager.ts
 
-- **Tree-Shaking Score:** 24%
-- **Unused Exports:** 13/17
+- **Tree-Shaking Score:** 22%
+- **Unused Exports:** 14/18
 
 | Export | Type | Line |
 |--------|------|------|
@@ -276,9 +216,9 @@
 | `SpatialQueryResult` | interface | 96 |
 | `DEFAULT_REGION_CONFIG` | const | 106 |
 | `getCellKey` | function | 121 |
-| `parseCellKey` | function | 126 |
-| `worldToCell` | function | 132 |
-| ... and 3 more | | |
+| `parseCellKey` | function | 132 |
+| `worldToCell` | function | 140 |
+| ... and 4 more | | |
 
 ### systems/weather.core.ts
 
@@ -299,44 +239,6 @@
 | `calculateFogDensity` | function | 196 |
 | ... and 3 more | | |
 
-### foliage/common.ts
-
-- **Tree-Shaking Score:** 76%
-- **Unused Exports:** 12/51
-
-| Export | Type | Line |
-|--------|------|------|
-| `eyeGeo` | const | 50 |
-| `pupilGeo` | const | 51 |
-| `_scratchVec1` | const | 54 |
-| `_scratchVec2` | const | 55 |
-| `_scratchVec3` | const | 56 |
-| `reactiveObjects` | const | 59 |
-| `generateNoiseTexture` | function | 85 |
-| `getCachedProceduralMaterial` | function | 104 |
-| `addRimLight` | const | 238 |
-| `calculateWindSwayLegacy` | const | 362 |
-| ... and 2 more | | |
-
-### particles/particle_config.ts
-
-- **Tree-Shaking Score:** 8%
-- **Unused Exports:** 12/13
-
-| Export | Type | Line |
-|--------|------|------|
-| `ParticleSystemTypeValue` | type | 20 |
-| `ParticleBounds` | interface | 25 |
-| `ShimmerParticleConfig` | interface | 34 |
-| `BubbleStreamConfig` | interface | 52 |
-| `PollenCloudConfig` | interface | 68 |
-| `LeafConfettiConfig` | interface | 84 |
-| `PulseRingConfig` | interface | 100 |
-| `ComputeParticleConfig` | interface | 114 |
-| `ParticleAudioState` | interface | 130 |
-| `IParticleSystem` | interface | 160 |
-| ... and 2 more | | |
-
 ### systems/discovery-persistence.ts
 
 - **Tree-Shaking Score:** 8%
@@ -349,30 +251,87 @@
 | `ImportResult` | interface | 62 |
 | `DiscoveryStats` | interface | 72 |
 | `DiscoveryPersistence` | class | 95 |
-| `exportDiscoveries` | function | 662 |
-| `importDiscoveries` | function | 671 |
-| `clearLocalDiscoveries` | function | 678 |
-| `getDiscoveryStats` | function | 685 |
-| `isPersistenceAvailable` | function | 692 |
+| `exportDiscoveries` | function | 676 |
+| `importDiscoveries` | function | 685 |
+| `clearLocalDiscoveries` | function | 692 |
+| `getDiscoveryStats` | function | 699 |
+| `isPersistenceAvailable` | function | 706 |
 | ... and 2 more | | |
 
-### rendering/material_types.ts
+### utils/wasm-batch-math.ts
 
-- **Tree-Shaking Score:** 8%
-- **Unused Exports:** 11/12
+- **Tree-Shaking Score:** 0%
+- **Unused Exports:** 12/12
 
 | Export | Type | Line |
 |--------|------|------|
-| `MaterialTypeValue` | type | 24 |
-| `CandyMaterialConfig` | interface | 29 |
-| `GlowingMaterialConfig` | interface | 47 |
-| `PetalMaterialConfig` | interface | 59 |
-| `AudioReactiveMaterialConfig` | interface | 69 |
-| `GroundMaterialConfig` | interface | 81 |
-| `AudioState` | interface | 89 |
-| `IAudioReactiveMaterial` | interface | 103 |
-| `CandyMaterial` | interface | 111 |
-| `AudioUniforms` | interface | 131 |
+| `batchHslToRgb` | function | 80 |
+| `batchSphereCull` | function | 132 |
+| `batchLerp` | function | 167 |
+| `batchValueNoiseSimd4` | function | 195 |
+| `batchFbmSimd4` | function | 234 |
+| `batchGroundHeightSimd` | function | 271 |
+| `batchValueNoiseOmp` | function | 313 |
+| `batchFbmOmp` | function | 352 |
+| `batchDistSq3DOmp` | function | 394 |
+| `fastSin` | function | 448 |
+| ... and 2 more | | |
+
+### compute/gpu-foliage-animator.ts
+
+- **Tree-Shaking Score:** 0%
+- **Unused Exports:** 11/11
+
+| Export | Type | Line |
+|--------|------|------|
+| `FoliageInstanceData` | interface | 29 |
+| `FoliageAudioState` | interface | 47 |
+| `AnimationType` | enum | 62 |
+| `FoliageAnimationOutput` | interface | 81 |
+| `FOLIAGE_ANIMATION_WGSL` | const | 117 |
+| `GPUFoliageAnimator` | class | 361 |
+| `updateInstancedMeshFromAnimator` | function | 687 |
+| `createGPUFoliageAnimator` | function | 740 |
+| `createFoliageInstanceData` | function | 758 |
+| `FoliageAnimatorCapabilities` | interface | 794 |
+| ... and 1 more | | |
+
+### foliage/animation-nodes.ts
+
+- **Tree-Shaking Score:** 15%
+- **Unused Exports:** 11/13
+
+| Export | Type | Line |
+|--------|------|------|
+| `gentleSwayNode` | const | 26 |
+| `bounceNode` | const | 34 |
+| `shiverNode` | const | 41 |
+| `springNode` | const | 49 |
+| `vineSwayNode` | const | 57 |
+| `hopNode` | const | 65 |
+| `wobbleNode` | const | 72 |
+| `accordionNode` | const | 79 |
+| `spiralWaveNode` | const | 86 |
+| `fiberWhipNode` | const | 94 |
+| ... and 1 more | | |
+
+### particles/particle_config.ts
+
+- **Tree-Shaking Score:** 15%
+- **Unused Exports:** 11/13
+
+| Export | Type | Line |
+|--------|------|------|
+| `ParticleSystemTypeValue` | type | 20 |
+| `ParticleBounds` | interface | 25 |
+| `ShimmerParticleConfig` | interface | 34 |
+| `BubbleStreamConfig` | interface | 52 |
+| `PollenCloudConfig` | interface | 68 |
+| `LeafConfettiConfig` | interface | 84 |
+| `PulseRingConfig` | interface | 100 |
+| `ParticleAudioState` | interface | 130 |
+| `IParticleSystem` | interface | 160 |
+| `ParticleSystemFactory` | type | 183 |
 | ... and 1 more | | |
 
 ### rendering/materials.ts
@@ -413,111 +372,130 @@
 | `estimateVertexBufferUsage` | function | 290 |
 | ... and 1 more | | |
 
+### systems/analytics/types.ts
+
+- **Tree-Shaking Score:** 52%
+- **Unused Exports:** 11/23
+
+| Export | Type | Line |
+|--------|------|------|
+| `AnalyticsConfig` | interface | 14 |
+| `EventType` | type | 38 |
+| `AnalyticsEvent` | interface | 53 |
+| `SessionData` | interface | 67 |
+| `FPSHistogram` | interface | 97 |
+| `FrameTimePercentiles` | interface | 109 |
+| `LoadingPhaseTiming` | interface | 119 |
+| `MemorySnapshot` | interface | 129 |
+| `GPUTiming` | interface | 141 |
+| `AnalyticsExport` | interface | 165 |
+| ... and 1 more | | |
+
 ## 💡 Recommendations
 
 ### 🔴 High Priority
 
-**particles/compute-particles.ts**
-- Issue: 22 unused exports
+**compute/gpu-foliage-animator.ts**
+- Issue: 11 unused exports
 - Suggestion: Remove unused exports or split into smaller modules
-- Potential Savings: 45.5 KB
+- Potential Savings: 27.6 KB
 
-**systems/asset-streaming.ts**
-- Issue: 22 unused exports
+**systems/accessibility.ts**
+- Issue: 21 unused exports
 - Suggestion: Remove unused exports or split into smaller modules
-- Potential Savings: 38.65 KB
-
-**rendering/culling-system.ts**
-- Issue: 17 unused exports
-- Suggestion: Remove unused exports or split into smaller modules
-- Potential Savings: 36.71 KB
-
-**systems/analytics.ts**
-- Issue: 18 unused exports
-- Suggestion: Remove unused exports or split into smaller modules
-- Potential Savings: 31.62 KB
-
-**systems/performance-budget.ts**
-- Issue: 10 unused exports
-- Suggestion: Remove unused exports or split into smaller modules
-- Potential Savings: 30.63 KB
-
-**ui/loading-screen.ts**
-- Issue: 14 unused exports
-- Suggestion: Remove unused exports or split into smaller modules
-- Potential Savings: 24.27 KB
-
-**foliage/lod.ts**
-- Issue: 8 unused exports
-- Suggestion: Remove unused exports or split into smaller modules
-- Potential Savings: 23.71 KB
+- Potential Savings: 26.17 KB
 
 **systems/region-manager.ts**
-- Issue: 13 unused exports
+- Issue: 14 unused exports
 - Suggestion: Remove unused exports or split into smaller modules
-- Potential Savings: 22.81 KB
+- Potential Savings: 25.21 KB
 
 **particles/gpu_particles.ts**
 - Issue: 7 unused exports
 - Suggestion: Remove unused exports or split into smaller modules
-- Potential Savings: 20.47 KB
+- Potential Savings: 22.83 KB
+
+**compute/gpu-culling-system.ts**
+- Issue: 8 unused exports
+- Suggestion: Remove unused exports or split into smaller modules
+- Potential Savings: 22.05 KB
+
+**ui/save-menu/save-menu.ts**
+- Issue: 8 unused exports
+- Suggestion: Remove unused exports or split into smaller modules
+- Potential Savings: 21.71 KB
+
+**foliage/lod.ts**
+- Issue: 7 unused exports
+- Suggestion: Remove unused exports or split into smaller modules
+- Potential Savings: 21.61 KB
+
+**compute/gpu-particle-system.ts**
+- Issue: 7 unused exports
+- Suggestion: Remove unused exports or split into smaller modules
+- Potential Savings: 21.19 KB
 
 **systems/discovery-persistence.ts**
 - Issue: 12 unused exports
 - Suggestion: Remove unused exports or split into smaller modules
-- Potential Savings: 20.11 KB
+- Potential Savings: 20.41 KB
+
+**ui/loading-screen.ts**
+- Issue: 9 unused exports
+- Suggestion: Remove unused exports or split into smaller modules
+- Potential Savings: 20.04 KB
 
 ### 🟡 Medium Priority
 
-**particles/compute-particles.ts**
-- Issue: Low tree-shaking score (15%)
+**compute/gpu-foliage-animator.ts**
+- Issue: Low tree-shaking score (0%)
 - Suggestion: Review export structure. Consider using explicit exports instead of wildcards.
-- Potential Savings: 45.5 KB
+- Potential Savings: 27.6 KB
 
-**ui/accessibility-menu.ts**
+**systems/accessibility.ts**
+- Issue: Low tree-shaking score (13%)
+- Suggestion: Review export structure. Consider using explicit exports instead of wildcards.
+- Potential Savings: 26.17 KB
+
+**systems/region-manager.ts**
+- Issue: Low tree-shaking score (22%)
+- Suggestion: Review export structure. Consider using explicit exports instead of wildcards.
+- Potential Savings: 25.21 KB
+
+**ui/analytics-debug.ts**
 - Issue: 5 unused exports
 - Suggestion: Remove unused exports or split into smaller modules
-- Potential Savings: 40.06 KB
+- Potential Savings: 24.43 KB
 
-**systems/asset-streaming.ts**
-- Issue: Low tree-shaking score (27%)
+**ui/analytics-debug.ts**
+- Issue: Low tree-shaking score (17%)
 - Suggestion: Review export structure. Consider using explicit exports instead of wildcards.
-- Potential Savings: 38.65 KB
+- Potential Savings: 24.43 KB
 
-**rendering/culling-system.ts**
-- Issue: Low tree-shaking score (6%)
+**particles/gpu_particles.ts**
+- Issue: Low tree-shaking score (0%)
 - Suggestion: Review export structure. Consider using explicit exports instead of wildcards.
-- Potential Savings: 36.71 KB
+- Potential Savings: 22.83 KB
 
-**systems/analytics.ts**
-- Issue: Low tree-shaking score (18%)
-- Suggestion: Review export structure. Consider using explicit exports instead of wildcards.
-- Potential Savings: 31.62 KB
-
-**systems/performance-budget.ts**
-- Issue: Low tree-shaking score (23%)
-- Suggestion: Review export structure. Consider using explicit exports instead of wildcards.
-- Potential Savings: 30.63 KB
-
-**ui/save-menu.ts**
-- Issue: 5 unused exports
-- Suggestion: Remove unused exports or split into smaller modules
-- Potential Savings: 29.91 KB
-
-**ui/save-menu.ts**
-- Issue: Low tree-shaking score (38%)
-- Suggestion: Review export structure. Consider using explicit exports instead of wildcards.
-- Potential Savings: 29.91 KB
-
-**ui/loading-screen.ts**
-- Issue: Low tree-shaking score (7%)
-- Suggestion: Review export structure. Consider using explicit exports instead of wildcards.
-- Potential Savings: 24.27 KB
-
-**foliage/lod.ts**
+**compute/gpu-culling-system.ts**
 - Issue: Low tree-shaking score (11%)
 - Suggestion: Review export structure. Consider using explicit exports instead of wildcards.
-- Potential Savings: 23.71 KB
+- Potential Savings: 22.05 KB
+
+**ui/save-menu/save-menu.ts**
+- Issue: Low tree-shaking score (27%)
+- Suggestion: Review export structure. Consider using explicit exports instead of wildcards.
+- Potential Savings: 21.71 KB
+
+**foliage/lod.ts**
+- Issue: Low tree-shaking score (22%)
+- Suggestion: Review export structure. Consider using explicit exports instead of wildcards.
+- Potential Savings: 21.61 KB
+
+**compute/gpu-particle-system.ts**
+- Issue: Low tree-shaking score (22%)
+- Suggestion: Review export structure. Consider using explicit exports instead of wildcards.
+- Potential Savings: 21.19 KB
 
 ## 📚 Tree-Shaking Best Practices
 
