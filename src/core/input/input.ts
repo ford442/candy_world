@@ -246,6 +246,11 @@ export function initInput(
         if (event.code === 'Escape') {
             if (isPlaylistOpen) {
                 event.preventDefault();
+                const closePlaylistBtn = document.getElementById('closePlaylistBtn');
+                if (closePlaylistBtn) {
+                    closePlaylistBtn.classList.add('pressed');
+                    setTimeout(() => closePlaylistBtn.classList.remove('pressed'), 150);
+                }
                 togglePlaylist();
                 return;
             } else if (shouldPreventMenuOnUnlock && shouldPreventMenuOnUnlock()) {
