@@ -38,6 +38,12 @@ import {
     type PlayerState
 } from './wasm-loader-core.js';
 
+// Zero-allocation persistent buffers for batchGroundHeight
+let _batchGroundHeightInPtr: number | null = null;
+let _batchGroundHeightOutPtr: number | null = null;
+let _batchGroundHeightCapacity = 0;
+
+
 const _scratchGatePos = new THREE.Vector3();
 
 // =============================================================================
@@ -634,14 +640,19 @@ export function batchGroundHeight(positions: Float32Array): Float32Array {
 
     // 1. C++ SIMD (fastest, but optional)
     if (cppBatchGroundHeightSimd && emscriptenInstance && emscriptenInstance._malloc && emscriptenInstance._free) {
-        const posPtr = emscriptenInstance._malloc(positions.length * 4);
-        const outPtr = emscriptenInstance._malloc(count * 4);
-        if (posPtr && outPtr) {
-            emscriptenInstance.HEAPF32!.set(positions, posPtr >> 2);
-            cppBatchGroundHeightSimd(posPtr, count, outPtr);
-            output.set(emscriptenInstance.HEAPF32!.subarray(outPtr >> 2, (outPtr >> 2) + count));
-            emscriptenInstance._free(posPtr);
-            emscriptenInstance._free(outPtr);
+        if (_batchGroundHeightCapacity < count) {
+            if (_batchGroundHeightInPtr) emscriptenInstance._free(_batchGroundHeightInPtr);
+            if (_batchGroundHeightOutPtr) emscriptenInstance._free(_batchGroundHeightOutPtr);
+            const newCapacity = Math.max(count, _batchGroundHeightCapacity * 2 || 1024);
+            _batchGroundHeightInPtr = emscriptenInstance._malloc(newCapacity * 2 * 4); // x, z pairs
+            _batchGroundHeightOutPtr = emscriptenInstance._malloc(newCapacity * 4);
+            _batchGroundHeightCapacity = newCapacity;
+        }
+
+        if (_batchGroundHeightInPtr && _batchGroundHeightOutPtr) {
+            emscriptenInstance.HEAPF32!.set(positions, _batchGroundHeightInPtr >> 2);
+            cppBatchGroundHeightSimd(_batchGroundHeightInPtr, count, _batchGroundHeightOutPtr);
+            output.set(emscriptenInstance.HEAPF32!.subarray(_batchGroundHeightOutPtr >> 2, (_batchGroundHeightOutPtr >> 2) + count));
             return output;
         }
     }

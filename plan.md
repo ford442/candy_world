@@ -15,12 +15,15 @@
    - Implemented pre-commit checks and successfully built the project.
 
 Status: Implemented ✅
-Status: Implemented ✅
+
 We have finished the startup improvements.
 - Loading phases reweighed and `shader-warmup` removed.
 - `enterWorld` logic wrapped in robust `try...finally` to fix the `isGenerating` race condition.
 - `getHeightmapBatch` implemented and integrated into ground geometry deformation loop to drastically reduce synchronous WASM calls.
-Next Step: Move on to Wave 3 optimizations or address memory allocation efficiency on WASM boundary.
 
 Status: Implemented ✅
-Implementation Details: Wired portamento and wisteria ADSR reactivity and per-channel biome note color propagation across foliage batchers using BiomeUniforms.
+- Addressed memory allocation efficiency on WASM boundary.
+- Refactored `batchGroundHeight`, `updateParticlesWASM`, and value noise functions to use a Zero-Allocation Bridge pattern (avoiding per-frame GC spikes and `_malloc`).
+- Finished audio reactivity wiring for `wisteria-cluster.ts` and `portamento-batcher.ts` to `music-reactivity.ts`, with ADSR-driven scale/emission mapping.
+
+Next Step: Prerequisites for Phase 4 Graphics Rewire - establish final ECS migration targets and memory benchmarks.

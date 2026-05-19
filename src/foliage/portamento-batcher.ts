@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { applyInstanceAnimation, ANIMATION_TYPES } from './animation-nodes.ts';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { foliageGroup } from '../world/state.ts';
 import {
@@ -11,6 +12,7 @@ import {
   uAudioLow,
   uTime
 } from './index.ts';
+import { _skyMoonNoteVal } from '../systems/music-reactivity.ts';
 import { uTwilight } from './sky.ts';
 import { BiomeUniforms } from '../systems/biome-uniforms.ts';
 import {
@@ -145,15 +147,18 @@ export class PortamentoPineBatcher {
     const glowPhaseOffset = float(instanceIndex).mul(0.1);
     const idlePulse = sin(uTime.mul(float(CONFIG.glow.glowPulseFrequency)).add(glowPhaseOffset)).mul(float(CONFIG.glow.glowPulseAmplitude)).add(1.0).mul(float(0.5)).mul(uAudioHigh.mul(0.3).add(0.7));
     const targetGlowColor = color(CONFIG.glow.glowColorMap['portamento']);
-    const twilightGlowTint = targetGlowColor
-        .mul(uTwilight)
-        .mul(float(CONFIG.glow.glowIntensityMax))
-        .mul(float(0.3).add(idlePulse));
-    needleMat.emissiveNode = baseGlowColor.mul(BiomeUniforms.arpeggioGrove.noteColor).mul(audioGlow).add(rimLight).add(twilightGlowTint);
-
+    needleMat.emissiveNode = baseGlowColor
+    .mul(BiomeUniforms.arpeggioGrove.noteColor)
+    .mul(audioGlow)
+    .add(rimLight)
+    .add(twilightGlowTint);
     registerReactiveMaterial(needleMat);
 
     this.bendAttribute = new THREE.InstancedBufferAttribute(new Float32Array(MAX_PINES), 1);
+    trunkGeo.setAttribute('instanceAnimType', new THREE.InstancedBufferAttribute(new Float32Array(MAX_PINES), 1));
+    trunkGeo.setAttribute('instanceAnimOffset', new THREE.InstancedBufferAttribute(new Float32Array(MAX_PINES), 1));
+    needleGeo.setAttribute('instanceAnimType', new THREE.InstancedBufferAttribute(new Float32Array(MAX_PINES), 1));
+    needleGeo.setAttribute('instanceAnimOffset', new THREE.InstancedBufferAttribute(new Float32Array(MAX_PINES), 1));
     trunkGeo.setAttribute('instanceBend', this.bendAttribute);
     needleGeo.setAttribute('instanceBend', this.bendAttribute);
 

@@ -3,6 +3,7 @@ import { MeshStandardNodeMaterial } from 'three/webgpu';
 import {
     time, positionLocal, sin, cos, positionWorld, color, vec3, mix, float, smoothstep
 } from 'three/tsl';
+import { _skyMoonNoteVal } from '../systems/music-reactivity.ts';
 import { attachReactivity } from './foliage-reactivity.ts';
 import { CandyPresets, uAudioHigh, uAudioLow, uTime, createJuicyRimLight, getCachedProceduralMaterial } from './material-core.ts';
 import { makeInteractive } from '../utils/interaction-utils.ts';
@@ -38,7 +39,8 @@ export function createWisteriaCluster(options: WisteriaClusterOptions = {}) {
         // Make it sway organically based on world position and uTime.
         // High frequency audio (uAudioHigh) acts as an impulse/energy multiplier.
         const baseSwayFreq = float(2.0);
-        const audioEnergy = uAudioHigh.mul(0.5).add(1.0); // Base 1.0, up to 1.5
+        // ADSR Style scale + emissive reaction to high frequency
+        const audioEnergy = uAudioHigh.mul(1.5).add(0.5); // Boost reactivity
 
         // Offset based on positionWorld so multiple clusters aren't perfectly synced
         const swayPhase = positionWorld.x.mul(0.5).add(positionWorld.z.mul(0.3));
@@ -75,7 +77,12 @@ export function createWisteriaCluster(options: WisteriaClusterOptions = {}) {
             .mul(uTwilight)
             .mul(float(CONFIG.glow.glowIntensityMax))
             .mul(float(0.3).add(idlePulse));
-        mat.emissiveNode = mat.emissiveNode.add(twilightGlowTint);
+
+        // ADSR Glow based on tracker channel (sky_moon base color, reactive)
+        // Here we just use audioEnergy for a simple ADSR-like reaction
+        const baseAdsrGlow = targetGlowColor.mul(audioEnergy).mul(0.3);
+
+        mat.emissiveNode = mat.emissiveNode.add(twilightGlowTint).add(baseAdsrGlow);
 
         return mat;
     }) as MeshStandardNodeMaterial;
