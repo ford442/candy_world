@@ -4,9 +4,9 @@ import {
     color, float, vec3, vec4, attribute, positionLocal, positionWorld,
     sin, cos, mix, smoothstep, uniform, If, time,
     varying, dot, normalize, normalLocal, step, uv,
-    mx_noise_float
+    mx_noise_float, varyingProperty
 } from 'three/tsl';
-const instanceColor = attribute('instanceColor', 'vec3');
+const instanceColor = varyingProperty('vec3', 'vInstanceColor');
 import {
     sharedGeometries, foliageMaterials, uTime,
     uAudioLow, uAudioHigh, createRimLight, createJuicyRimLight, calculateWindSway, applyPlayerInteraction,

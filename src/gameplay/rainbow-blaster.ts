@@ -3,7 +3,7 @@ import { MeshStandardNodeMaterial, StorageInstancedBufferAttribute } from 'three
 import {
     vec3, float, positionLocal, normalLocal, mx_noise_float,
     mix, sin, smoothstep, normalize, positionWorld, color, attribute,
-    storage, instanceIndex, Fn, If, exp, vec4, uniform, rotate
+    storage, instanceIndex, Fn, If, exp, vec4, uniform, rotate, varyingProperty
 } from 'three/tsl';
 import { foliageClouds, foliageGeysers, foliageTraps } from '../world/state.ts';
 import { createCandyMaterial, uTime, uAudioHigh, createJuicyRimLight } from '../foliage/material-core.ts';
@@ -81,7 +81,7 @@ class ProjectilePool {
 
         // 1. Base Color from Instance
         // Use imported instanceColor node
-        const baseColor = attribute('instanceColor', 'vec3') || color(0xFFFFFF);
+        const baseColor = varyingProperty('vec3', 'vInstanceColor');
         mat.colorNode = baseColor;
 
         // 2. Plasma Displacement (Wobble)

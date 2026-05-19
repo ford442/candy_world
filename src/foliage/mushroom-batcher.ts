@@ -3,7 +3,7 @@ import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { instanceIndex, color, float, vec3, vec4, attribute, positionLocal,
     sin, cos, mix, smoothstep, uniform, If, time,
     varying, dot, normalize, normalLocal, step, Fn, positionWorld, normalWorld,
-    max, pow, min, cameraPosition, uv, floor, instanceIndex
+    max, pow, min, cameraPosition, uv, floor, instanceIndex, varyingProperty
 } from 'three/tsl';
 
 // WGSL-compatible modulo: x - y * floor(x / y)
@@ -538,8 +538,8 @@ export class MushroomBatcher {
         capMat.positionNode = applyPlayerInteraction(deform(positionLocal));
 
         // Base color from instance (set via register/setColorAt)
-        // Fallback to Red if instanceColor is missing (should not happen if initialized)
-        const baseColor = attribute('instanceColor', 'vec3');
+        // Uses the vInstanceColor varying populated by InstancedMeshNode
+        const baseColor = varyingProperty('vec3', 'vInstanceColor');
 
         // Add Juicy Rim Light! (Pop against background)
         // 🎨 PALETTE: Make rim light react to bass for pulsing edge glow

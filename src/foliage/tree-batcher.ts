@@ -19,7 +19,7 @@ import {
 } from './index.ts';
 import {
     color, float, vec3, positionLocal, mix, attribute, uv, sin, cos, positionWorld, smoothstep,
-    mx_noise_float, normalWorld
+    mx_noise_float, normalWorld, varyingProperty
 } from 'three/tsl';
 import { applyGlitch } from './glitch.ts';
 import { getCylinderGeometry, getTorusKnotGeometry } from '../utils/geometry-dedup.ts';
@@ -78,7 +78,7 @@ export class TreeBatcher {
         // --- 1. Trunk Batch (Cylinder) ---
         // PALETTE: Upgrade to "Clay Bark"
         // Use instanceColor but darken bottom for grounding
-        const instanceColor = attribute('instanceColor', 'vec3');
+        const instanceColor = varyingProperty('vec3', 'vInstanceColor');
         const trunkColor = mix(instanceColor.mul(0.6), instanceColor, positionLocal.y);
 
         // Combined Deformation: Interaction + Wind
@@ -107,7 +107,7 @@ export class TreeBatcher {
 
         // --- 2. Sphere Batch (Leaves/Blooms) ---
         // PALETTE: "Flutter" + "Squash" Juice
-        const sphereColor = attribute('instanceColor', 'vec3');
+        const sphereColor = varyingProperty('vec3', 'vInstanceColor');
 
         // Flutter: High frequency vertex displacement driven by wind
         const flutterSpeed = float(15.0);
@@ -180,7 +180,7 @@ export class TreeBatcher {
         foliageGroup.add(this.spheres);
 
         // --- 3. Capsule Batch (Branches) ---
-        const capsuleColor = attribute('instanceColor', 'vec3');
+        const capsuleColor = varyingProperty('vec3', 'vInstanceColor');
         const animOffsetCapsule = applyInstanceAnimation();
         const baseCapsulePos = positionLocal.add(animOffsetCapsule);
         const capsuleDeform = baseCapsulePos.add(applyPlayerInteraction(baseCapsulePos)).add(calculateWindSway(baseCapsulePos)).sub(positionLocal);
@@ -203,7 +203,7 @@ export class TreeBatcher {
 
         // --- 4. Helix Batch (Vines/Strange Plants) ---
         // PALETTE: Neon Pulse
-        const helixColor = attribute('instanceColor', 'vec3');
+        const helixColor = varyingProperty('vec3', 'vInstanceColor');
 
         // Spiral Math for Geometry (applied in vertex shader)
         const t = positionLocal.y; // 0 to 1
@@ -246,7 +246,7 @@ export class TreeBatcher {
 
         // --- 5. Rose Batch (TorusKnot) ---
         // PALETTE: Velvet/Sugar Look
-        const roseColor = attribute('instanceColor', 'vec3');
+        const roseColor = varyingProperty('vec3', 'vInstanceColor');
         const animOffsetRose = applyInstanceAnimation();
         const baseRosePos = positionLocal.add(animOffsetRose);
         const roseDeform = baseRosePos.add(applyPlayerInteraction(baseRosePos)).add(calculateWindSway(baseRosePos)).sub(positionLocal);

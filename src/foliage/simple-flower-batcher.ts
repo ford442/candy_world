@@ -15,13 +15,13 @@ import {
     uAudioLow,
     uPlayerPosition
 } from './index.ts';
-import { attribute, color as tslColor, positionLocal, vec3, float, mx_noise_float, mix, sin, smoothstep, normalize, length, positionWorld, uv, distance, vec2 } from 'three/tsl';
+import { attribute, color as tslColor, positionLocal, vec3, float, mx_noise_float, mix, sin, smoothstep, normalize, length, positionWorld, uv, distance, vec2, varyingProperty } from 'three/tsl';
 import { foliageGroup } from '../world/state.ts';
 import { CONFIG } from '../core/config.ts';
 import { uTwilight } from './sky.ts';
 
-// Manually define instanceColor if not exported by three/tsl
-const instanceColor = attribute('instanceColor', 'vec3');
+// Use the instanced color varying populated by InstancedMeshNode
+const instanceColor = varyingProperty('vec3', 'vInstanceColor');
 
 const MAX_FLOWERS = 1000; // Reduced from 5000 for WebGPU uniform buffer limits
 const GRAINS_PER_FLOWER = 5;

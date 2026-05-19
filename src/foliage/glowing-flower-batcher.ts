@@ -4,7 +4,7 @@ import { instanceIndex, MeshStandardNodeMaterial } from 'three/webgpu';
 import {
     color, float, vec3, attribute, positionLocal, positionWorld,
     sin, smoothstep, uniform, mix,
-    Node
+    Node, varyingProperty
 } from 'three/tsl';
 import {
     sharedGeometries, foliageMaterials, uTime,
@@ -15,8 +15,8 @@ import {
 import { uTwilight } from './sky.ts';
 import { foliageGroup } from '../world/state.ts';
 
-// Manually define instanceColor if not exported by three/tsl
-const instanceColor = attribute('instanceColor', 'vec3');
+// Use the instanced color varying populated by InstancedMeshNode
+const instanceColor = varyingProperty('vec3', 'vInstanceColor');
 
 const MAX_FLOWERS = 1000; // Reduced from 5000 for WebGPU uniform buffer limits
 const _scratchMat = new THREE.Matrix4();
