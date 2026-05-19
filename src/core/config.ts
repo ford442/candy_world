@@ -95,6 +95,8 @@ export const PALETTE: Record<string, PaletteEntry> = {
 };
 
 export interface ConfigType {
+    /** True when ?safe=1 is in the URL — disables shader warmup and skips heavy compute init */
+    safeMode: boolean;
     terrain: {
         useGpuHeightmap: boolean;
         heightmapResolution: number;
@@ -173,6 +175,7 @@ export interface ConfigType {
 }
 
 export const CONFIG: ConfigType = {
+    safeMode: typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('safe'),
     terrain: {
         useGpuHeightmap: true, // Default to true as it is the goal
         heightmapResolution: 256

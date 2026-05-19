@@ -45,6 +45,15 @@ export function createDiscoveryEffect() {
     geometry.setAttribute('aSpawnTime', new THREE.BufferAttribute(spawnTimes, 1));
     geometry.setAttribute('aSize', new THREE.BufferAttribute(sizes, 1));
 
+    function ensureUVAttribute(geometry: THREE.BufferGeometry) {
+        if (!geometry.attributes.uv && geometry.attributes.position) {
+            const count = geometry.attributes.position.count;
+            const uvs = new Float32Array(count * 2);
+            geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+        }
+    }
+    ensureUVAttribute(geometry);
+
     // Create the Node Material for the particle burst
     const material = new PointsNodeMaterial({
         transparent: true,

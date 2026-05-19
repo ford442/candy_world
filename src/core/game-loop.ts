@@ -583,20 +583,28 @@ export function animate() {
         firefliesRef.visible = isDeepNight;
     }
 
-    const windComputeNode = windComputeSystem.getComputeNode();
-    if (windComputeNode) {
-        rendererRef.compute(windComputeNode);
-    }
-
-    if (harmonyOrbSystem.computeNode) {
-        rendererRef.compute(harmonyOrbSystem.computeNode);
-    }
-
-    for (const obj of animatedFoliage) {
-        if (obj.userData.computeNode) {
-            if (obj.userData.type === 'waterfall' || obj.userData.isPollen) {
-                rendererRef.compute(obj.userData.computeNode);
+    if (!(window as any).__computeDisabled) {
+        try {
+            const windComputeNode = windComputeSystem.getComputeNode();
+            if (windComputeNode) {
+                rendererRef.compute(windComputeNode);
             }
+
+            if (harmonyOrbSystem.computeNode) {
+                rendererRef.compute(harmonyOrbSystem.computeNode);
+            }
+
+            for (const obj of animatedFoliage) {
+                if (obj.userData.computeNode) {
+                    if (obj.userData.type === 'waterfall' || obj.userData.isPollen) {
+                        rendererRef.compute(obj.userData.computeNode);
+                    }
+                }
+            }
+        } catch (err) {
+            console.error('[Compute] Runtime dispatch failed:', err);
+            console.warn('[Compute] Disabling compute passes for remainder of session');
+            (window as any).__computeDisabled = true;
         }
     }
     updateImpacts(rendererRef, t);

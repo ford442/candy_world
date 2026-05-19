@@ -9,6 +9,7 @@ import { CandyPresets, uAudioHigh, uAudioLow, uTime, createJuicyRimLight, getCac
 import { makeInteractive } from '../utils/interaction-utils.ts';
 import { CONFIG } from '../core/config.ts';
 import { uTwilight } from './sky.ts';
+import { BiomeUniforms } from '../systems/biome-uniforms.ts';
 import { discoverySystem } from '../systems/discovery.ts';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { spawnImpact } from './impacts.ts';
@@ -62,7 +63,7 @@ export function createWisteriaCluster(options: WisteriaClusterOptions = {}) {
         const baseColorNode = color(baseHexColor);
         const glowColor = color(0xFF66FF); // Neon pink glow
         // Emissive boost driven by uAudioHigh, fading in smoothly
-        mat.emissiveNode = glowColor.mul(uAudioHigh.mul(0.8));
+        mat.emissiveNode = glowColor.mul(BiomeUniforms.arpeggioGrove.noteColor).mul(uAudioHigh.mul(0.8));
 
         // 🎨 PALETTE: Juicy Rim Light for volumetric glow
         const rimLight = createJuicyRimLight(color(0xFFFFFF), float(1.5), float(3.0), null);

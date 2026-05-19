@@ -4,9 +4,9 @@ import {
     color, float, vec3, vec4, attribute, positionLocal, positionWorld,
     sin, cos, mix, smoothstep, uniform, If, time,
     varying, dot, normalize, normalLocal, step, uv,
-    mx_noise_float
+    mx_noise_float, varyingProperty
 } from 'three/tsl';
-const instanceColor = attribute('instanceColor', 'vec3');
+const instanceColor = varyingProperty('vec3', 'vInstanceColor');
 import {
     sharedGeometries, foliageMaterials, uTime,
     uAudioLow, uAudioHigh, createRimLight, createJuicyRimLight, calculateWindSway, applyPlayerInteraction,
@@ -213,6 +213,7 @@ export class LanternBatcher {
         this.topMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
         // Explicitly create instanceColor buffer for use with setColorAt
         this.topMesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAX_LANTERNS * 3), 3);
+        this.topMesh.geometry.setAttribute('instanceColor', this.topMesh.instanceColor);
         this.topMesh.count = 0;
         this.topMesh.castShadow = true;
         this.topMesh.receiveShadow = true;

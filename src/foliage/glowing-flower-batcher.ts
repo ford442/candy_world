@@ -4,7 +4,7 @@ import { instanceIndex, MeshStandardNodeMaterial } from 'three/webgpu';
 import {
     color, float, vec3, attribute, positionLocal, positionWorld,
     sin, smoothstep, uniform, mix,
-    Node
+    Node, varyingProperty
 } from 'three/tsl';
 import {
     sharedGeometries, foliageMaterials, uTime,
@@ -15,8 +15,8 @@ import {
 import { uTwilight } from './sky.ts';
 import { foliageGroup } from '../world/state.ts';
 
-// Manually define instanceColor if not exported by three/tsl
-const instanceColor = attribute('instanceColor', 'vec3');
+// Use the instanced color varying populated by InstancedMeshNode
+const instanceColor = varyingProperty('vec3', 'vInstanceColor');
 
 const MAX_FLOWERS = 1000; // Reduced from 5000 for WebGPU uniform buffer limits
 const _scratchMat = new THREE.Matrix4();
@@ -169,8 +169,11 @@ export class GlowingFlowerBatcher {
 
         // TSL Safety: Initialize instanceColor manually to prevent runtime errors with TSL attributes
         this.stemMesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAX_FLOWERS * 3), 3);
+        this.stemMesh.geometry.setAttribute('instanceColor', this.stemMesh.instanceColor);
         this.headMesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAX_FLOWERS * 3), 3);
+        this.headMesh.geometry.setAttribute('instanceColor', this.headMesh.instanceColor);
         this.washMesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAX_FLOWERS * 3), 3);
+        this.washMesh.geometry.setAttribute('instanceColor', this.washMesh.instanceColor);
 
         // Add to Scene
         foliageGroup.add(this.stemMesh);
@@ -189,6 +192,12 @@ export class GlowingFlowerBatcher {
         mesh.receiveShadow = true;
         mesh.count = 0;
         mesh.name = name;
+        if (!mesh.instanceColor) {
+            const defaultColors = new Float32Array(count * 3);
+            defaultColors.fill(1.0);
+            mesh.instanceColor = new THREE.InstancedBufferAttribute(defaultColors, 3);
+        }
+        mesh.geometry.setAttribute('instanceColor', mesh.instanceColor);
         return mesh;
     }
 

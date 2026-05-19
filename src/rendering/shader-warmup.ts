@@ -22,6 +22,7 @@ import { MeshStandardNodeMaterial, MeshBasicNodeMaterial } from 'three/webgpu';
 import { vec3, positionLocal } from 'three/tsl';
 import { CandyPresets, foliageMaterials } from '../foliage/index.ts';
 import { createTerrainMaterial } from '../foliage/terrain.ts';
+import { CONFIG } from '../core/config.ts';
 
 // Warm-up target types
 export type WarmupTarget = {
@@ -252,13 +253,13 @@ export class ShaderWarmup {
       }
       
       // Always warm up with an InstancedMesh (1 instance) so that:
-      // 1. TSL attribute('instanceColor') resolves — InstancedMesh.instanceColor provides it
-      //    as an InstancedBufferAttribute rather than relying on it being in the geometry.
+      // 1. TSL varyingProperty('vec3', 'vInstanceColor') resolves — InstancedMeshNode assigns
+      //    the instance color to this varying, making it available in fragment shaders.
       // 2. Materials that reference instanceIndex or other instanced attributes compile
       //    without "vertex attribute not found" warnings.
       const mesh = new THREE.InstancedMesh(this.warmupGeometry, material, 1);
       mesh.frustumCulled = false;
-      // Provide a dummy instance color so TSL attribute('instanceColor') resolves.
+      // Provide a dummy instance color so TSL varyingProperty('vec3', 'vInstanceColor') resolves.
       mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array([1, 1, 1]), 3);
       
       // Create a minimal scene for this material
@@ -549,6 +550,10 @@ export async function warmupAllShaders(
   onProgress?: WarmupProgressCallback,
   options?: Partial<ShaderWarmupOptions>
 ): Promise<WarmupStats> {
+  if (CONFIG.safeMode) {
+    console.warn('[ShaderWarmup] Bypassed due to safeMode');
+    return { total: 0, completed: 0, failed: 0, totalTime: 0, averageTime: 0 };
+  }
   const warmup = new ShaderWarmup(options);
   const stats = await warmup.warmAll(renderer, onProgress);
   warmup.dispose();

@@ -160,8 +160,17 @@ export function createNeonPollen(count = 2000, areaSize = 30, center = new THREE
     material.sizeNode = float(0.15).add(uAudioHigh.mul(0.1));
 
     // 4. Mesh
+    function ensureUVAttribute(geometry: THREE.BufferGeometry) {
+        if (!geometry.attributes.uv && geometry.attributes.position) {
+            const count = geometry.attributes.position.count;
+            const uvs = new Float32Array(count * 2);
+            geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+        }
+    }
+
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', positionBuffer);
+    ensureUVAttribute(geometry);
     geometry.drawRange.count = count;
 
     const pollen = new THREE.Points(geometry, material);

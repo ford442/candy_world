@@ -14,6 +14,7 @@ import {
 } from './index.ts';
 import { _skyMoonNoteVal } from '../systems/music-reactivity.ts';
 import { uTwilight } from './sky.ts';
+import { BiomeUniforms } from '../systems/biome-uniforms.ts';
 import {
   vec3,
   positionLocal,
@@ -146,14 +147,11 @@ export class PortamentoPineBatcher {
     const glowPhaseOffset = float(instanceIndex).mul(0.1);
     const idlePulse = sin(uTime.mul(float(CONFIG.glow.glowPulseFrequency)).add(glowPhaseOffset)).mul(float(CONFIG.glow.glowPulseAmplitude)).add(1.0).mul(float(0.5)).mul(uAudioHigh.mul(0.3).add(0.7));
     const targetGlowColor = color(CONFIG.glow.glowColorMap['portamento']);
-    const twilightGlowTint = targetGlowColor
-        .mul(uTwilight)
-        .mul(float(CONFIG.glow.glowIntensityMax))
-        .mul(float(0.3).add(idlePulse));
-    // ADSR / Channel driven Hue
-    // We already have audioGlow, let's tie it to the music system note color if needed
-    needleMat.emissiveNode = baseGlowColor.mul(audioGlow).add(rimLight).add(twilightGlowTint);
-
+    needleMat.emissiveNode = baseGlowColor
+    .mul(BiomeUniforms.arpeggioGrove.noteColor)
+    .mul(audioGlow)
+    .add(rimLight)
+    .add(twilightGlowTint);
     registerReactiveMaterial(needleMat);
 
     this.bendAttribute = new THREE.InstancedBufferAttribute(new Float32Array(MAX_PINES), 1);

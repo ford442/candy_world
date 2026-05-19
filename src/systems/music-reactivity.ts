@@ -16,8 +16,10 @@ import musicBindings from '../../assets/music-bindings.json';
 // Resolved once at module init — immutable after that, zero per-frame allocations.
 const _arpeggioShimmerCh: readonly number[] = musicBindings.biomes.arpeggio_grove.shimmer;
 const _arpeggioHueShiftCh: readonly number[] = musicBindings.biomes.arpeggio_grove.hueShift;
+const _arpeggioNoteColorCh: readonly number[] = musicBindings.biomes.arpeggio_grove.noteColor;
 const _nebulaShimmerCh: readonly number[] = musicBindings.biomes.crystalline_nebula.shimmer;
 const _nebulaAmplitudeCh: readonly number[] = musicBindings.biomes.crystalline_nebula.amplitudeScale;
+const _nebulaNoteColorCh: readonly number[] = musicBindings.biomes.crystalline_nebula.noteColor;
 const _skyMoonNoteColorCh: readonly number[] = musicBindings.biomes.sky_moon.noteColor;
 const _skyMoonIntensityCh: readonly number[] = musicBindings.biomes.sky_moon.intensity;
 
@@ -28,9 +30,13 @@ let _nebulaShimmerAccum = 0.0;
 let _nebulaAmplitudeAccum = 0.0;
 let _skyMoonIntensityAccum = 0.0;
 export let _skyMoonNoteVal = 0.0; // The active MIDI note (e.g., 60 for C4)
+let _arpeggioNoteVal = 0.0;
+let _nebulaNoteVal = 0.0;
 
 // ⚡ OPTIMIZATION: Module-scoped colors for zero-allocation note lerping
 const _targetMoonColor = new THREE.Color(0xffffff);
+const _targetArpeggioColor = new THREE.Color(0xffffff);
+const _targetNebulaColor = new THREE.Color(0xffffff);
 
 // ⚡ OPTIMIZATION: Sky/Moon note reactivity scratch — allocated once, never in hot path.
 // melody_channel from assets/music-bindings.json sky_moon block.
@@ -415,6 +421,8 @@ export class MusicReactivitySystem {
 
                 _skyMoonIntensityAccum = 0.0;
                 _skyMoonNoteVal = 0;
+                _arpeggioNoteVal = 0;
+                _nebulaNoteVal = 0;
                 // Read Intensity
                 for (let i = 0; i < _skyMoonIntensityCh.length; i++) {
                     const idx = _skyMoonIntensityCh[i];
@@ -425,6 +433,22 @@ export class MusicReactivitySystem {
                     const idx = _skyMoonNoteColorCh[i];
                     if (idx < channels.length && channels[idx].volume > 0.05) {
                         _skyMoonNoteVal = channels[idx].note; // Assume .note exists on the channel data
+                        break;
+                    }
+                }
+                // Read Arpeggio Note Color
+                for (let i = 0; i < _arpeggioNoteColorCh.length; i++) {
+                    const idx = _arpeggioNoteColorCh[i];
+                    if (idx < channels.length && channels[idx].volume > 0.05) {
+                        _arpeggioNoteVal = channels[idx].note;
+                        break;
+                    }
+                }
+                // Read Nebula Note Color
+                for (let i = 0; i < _nebulaNoteColorCh.length; i++) {
+                    const idx = _nebulaNoteColorCh[i];
+                    if (idx < channels.length && channels[idx].volume > 0.05) {
+                        _nebulaNoteVal = channels[idx].note;
                         break;
                     }
                 }
@@ -453,6 +477,22 @@ export class MusicReactivitySystem {
                     _targetMoonColor.setHex(0xffffff);
                     BiomeUniforms.skyMoon.moonNoteColor.value.lerp(_targetMoonColor, 0.05);
                 }
+
+                if (_arpeggioNoteVal > 0) {
+                    mapNoteToColor(_arpeggioNoteVal, _targetArpeggioColor);
+                    BiomeUniforms.arpeggioGrove.noteColor.value.lerp(_targetArpeggioColor, 0.1);
+                } else {
+                    _targetArpeggioColor.setHex(0xffffff);
+                    BiomeUniforms.arpeggioGrove.noteColor.value.lerp(_targetArpeggioColor, 0.05);
+                }
+
+                if (_nebulaNoteVal > 0) {
+                    mapNoteToColor(_nebulaNoteVal, _targetNebulaColor);
+                    BiomeUniforms.crystallineNebula.noteColor.value.lerp(_targetNebulaColor, 0.1);
+                } else {
+                    _targetNebulaColor.setHex(0xffffff);
+                    BiomeUniforms.crystallineNebula.noteColor.value.lerp(_targetNebulaColor, 0.05);
+                }
             } else {
                 // No audio data — smoothly decay towards resting values (no snapping).
                 BiomeUniforms.arpeggioGrove.shimmer.value *= 0.9;
@@ -465,6 +505,12 @@ export class MusicReactivitySystem {
                 BiomeUniforms.skyMoon.moonIntensity.value *= 0.9;
                 _targetMoonColor.setHex(0xffffff);
                 BiomeUniforms.skyMoon.moonNoteColor.value.lerp(_targetMoonColor, 0.05);
+
+                _targetArpeggioColor.setHex(0xffffff);
+                BiomeUniforms.arpeggioGrove.noteColor.value.lerp(_targetArpeggioColor, 0.05);
+
+                _targetNebulaColor.setHex(0xffffff);
+                BiomeUniforms.crystallineNebula.noteColor.value.lerp(_targetNebulaColor, 0.05);
             }
 
             // ---------------------------------------------------------------

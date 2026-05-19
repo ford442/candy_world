@@ -5,7 +5,7 @@
 import * as THREE from 'three';
 import {
     color, float, vec3, positionLocal, mix, attribute, uv, sin, cos, positionWorld,
-    normalLocal
+    normalLocal, varyingProperty
 } from 'three/tsl';
 import { foliageGroup } from '../world/state.ts';
 import {
@@ -174,7 +174,7 @@ export function getLODMaterial(
  * LOD1 Material: Simple wind sway only, no player interaction
  */
 function createLOD1Material(geometryType: string, baseMaterial: THREE.Material): THREE.Material {
-    const instanceColor = attribute('instanceColor', 'vec3');
+    const instanceColor = varyingProperty('vec3', 'vInstanceColor');
 
     switch (geometryType) {
         case 'trunk':
@@ -254,7 +254,7 @@ function createLOD1Material(geometryType: string, baseMaterial: THREE.Material):
  * LOD2 Material: No vertex animation, simple billboard-style rendering
  */
 function createLOD2Material(geometryType: string, baseMaterial: THREE.Material): THREE.Material {
-    const instanceColor = attribute('instanceColor', 'vec3');
+    const instanceColor = varyingProperty('vec3', 'vInstanceColor');
 
     switch (geometryType) {
         case 'trunk':

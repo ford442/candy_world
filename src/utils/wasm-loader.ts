@@ -320,8 +320,5 @@ export {
     batchShiverHighLevel,
     batchSpringHighLevel,
     batchFloatHighLevel,
-    batchCloudBobHighLevel,
-    batchVineSwayHighLevel,
-    batchGeyserEruptHighLevel,
-    batchRetriggerHighLevel
+    batchCloudBobHighLevel
 } from './wasm-batch.ts';

@@ -27,6 +27,14 @@ export interface SparkleTrailUserData {
     uCurrentTime: any;
 }
 
+function ensureUVAttribute(geometry: THREE.BufferGeometry) {
+    if (!geometry.attributes.uv && geometry.attributes.position) {
+        const count = geometry.attributes.position.count;
+        const uvs = new Float32Array(count * 2);
+        geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+    }
+}
+
 export function createSparkleTrail(): THREE.Points {
     const geo = new THREE.BufferGeometry();
     const positions = new Float32Array(TRAIL_SIZE * 3);
@@ -52,6 +60,7 @@ export function createSparkleTrail(): THREE.Points {
 
     geo.setAttribute('position', positionBuffer);
     geo.setAttribute('state', stateBuffer);
+    ensureUVAttribute(geo);
 
     // Material
     const mat = new PointsNodeMaterial({

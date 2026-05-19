@@ -13,7 +13,7 @@ import {
 } from './index.ts';
 import {
     color, float, uniform, vec3, positionLocal, sin, cos, mix, uv, varying,
-    smoothstep, attribute, positionWorld, If, vec4
+    smoothstep, attribute, positionWorld, If, vec4, varyingProperty
 } from 'three/tsl';
 import { BiomeUniforms } from '../systems/biome-uniforms.ts';
 import { uTime, uGlitchIntensity } from './index.ts';
@@ -285,7 +285,7 @@ export class ArpeggioFernBatcher {
         material.positionNode = glitched.position;
 
         // Fragment Shader: Instance Color Tint + Rim Light
-        const baseInstanceColor = attribute('instanceColor', 'vec3');
+        const baseInstanceColor = varyingProperty('vec3', 'vInstanceColor');
         // Mix instance color into base color
         material.colorNode = mixedColor.mul(baseInstanceColor);
 
@@ -300,6 +300,7 @@ export class ArpeggioFernBatcher {
         // --- INSTANCED MESH ---
         this.mesh = new THREE.InstancedMesh(mergedGeo, material, MAX_FERNS);
         this.mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAX_FERNS * 3), 3);
+        this.mesh.geometry.setAttribute('instanceColor', this.mesh.instanceColor);
         this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
         this.mesh.castShadow = true;
         this.mesh.receiveShadow = true;

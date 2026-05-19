@@ -12,7 +12,7 @@ import { attachReactivity } from './foliage-reactivity.ts';
 import { CandyPresets, uAudioHigh, uAudioLow, uTime, createJuicyRimLight, getCachedProceduralMaterial, createStandardNodeMaterial } from './material-core.ts';
 import { CONFIG } from '../core/config.ts';
 import { uTwilight } from './sky.ts';
-import { attribute, positionLocal, mix, color, float, sin } from 'three/tsl';
+import { attribute, positionLocal, mix, color, float, sin, varyingProperty } from 'three/tsl';
 import { PlantPoseMachine } from './plant-pose-machine.ts';
 
 const MAX_FLOWERS = 1000; // Reduced from 5000 for WebGPU uniform buffer limits
@@ -72,6 +72,15 @@ export class FlowerBatcher {
         return FlowerBatcher.instance;
     }
 
+    private ensureInstanceColor(mesh: THREE.InstancedMesh) {
+        if (!mesh.instanceColor) {
+            const defaultColors = new Float32Array(mesh.count * 3);
+            defaultColors.fill(1.0); // White (no tint)
+            mesh.instanceColor = new THREE.InstancedBufferAttribute(defaultColors, 3);
+        }
+        mesh.geometry.setAttribute('instanceColor', mesh.instanceColor);
+    }
+
     init() {
         if (this.initialized) return;
 
@@ -96,6 +105,7 @@ export class FlowerBatcher {
         this.stems.count = 0;
         // Provide aPoseState so TSL attribute('aPoseState') resolves during warmup and runtime
         this.stems.geometry.setAttribute('aPoseState', new THREE.InstancedBufferAttribute(new Float32Array(MAX_FLOWERS), 1));
+        this.ensureInstanceColor(this.stems);
         foliageGroup.add(this.stems);
 
         // --- 2. Centers (Sphere) ---
@@ -112,6 +122,7 @@ export class FlowerBatcher {
         this.centers.frustumCulled = false;
         this.centers.count = 0;
         this.centers.geometry.setAttribute('aPoseState', new THREE.InstancedBufferAttribute(new Float32Array(MAX_FLOWERS), 1));
+        this.ensureInstanceColor(this.centers);
         foliageGroup.add(this.centers);
 
         // --- 3. Stamens (Cylinder) ---
@@ -126,11 +137,12 @@ export class FlowerBatcher {
         this.stamens.frustumCulled = false;
         this.stamens.count = 0;
         this.stamens.geometry.setAttribute('aPoseState', new THREE.InstancedBufferAttribute(new Float32Array(MAX_FLOWERS * 3), 1));
+        this.ensureInstanceColor(this.stamens);
         foliageGroup.add(this.stamens);
 
         // --- 4. Petals (Shared Material) ---
         // Use Velvet preset for petals, supporting instanceColor
-        const instanceColor = attribute('instanceColor', 'vec3');
+        const instanceColor = varyingProperty('vec3', 'vInstanceColor');
 
         const petalMat = getCachedProceduralMaterial('flower_batch_petal', 0xFFFFFF, () => {
             // --- PALETTE: Petal Breathing Animation ---
@@ -176,6 +188,7 @@ export class FlowerBatcher {
 
         this.petalsSimple = new THREE.InstancedMesh(simpleGeo, petalMat, MAX_PETALS);
         this.petalsSimple.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAX_PETALS * 3), 3);
+        this.petalsSimple.geometry.setAttribute('instanceColor', this.petalsSimple.instanceColor);
         this.petalsSimple.geometry.setAttribute('aPoseState', new THREE.InstancedBufferAttribute(new Float32Array(MAX_PETALS).fill(0), 1));
         this.petalsSimple.castShadow = true;
         this.petalsSimple.receiveShadow = true;
@@ -188,6 +201,7 @@ export class FlowerBatcher {
         const multiGeo = sharedGeometries.unitSphere.clone();
         this.petalsMulti = new THREE.InstancedMesh(multiGeo, petalMat, MAX_PETALS);
         this.petalsMulti.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAX_PETALS * 3), 3);
+        this.petalsMulti.geometry.setAttribute('instanceColor', this.petalsMulti.instanceColor);
         this.petalsMulti.geometry.setAttribute('aPoseState', new THREE.InstancedBufferAttribute(new Float32Array(MAX_PETALS).fill(0), 1));
         this.petalsMulti.castShadow = true;
         this.petalsMulti.receiveShadow = true;
@@ -200,6 +214,7 @@ export class FlowerBatcher {
         const spiralGeo = sharedGeometries.unitCone.clone();
         this.petalsSpiral = new THREE.InstancedMesh(spiralGeo, petalMat, MAX_PETALS);
         this.petalsSpiral.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAX_PETALS * 3), 3);
+        this.petalsSpiral.geometry.setAttribute('instanceColor', this.petalsSpiral.instanceColor);
         this.petalsSpiral.geometry.setAttribute('aPoseState', new THREE.InstancedBufferAttribute(new Float32Array(MAX_PETALS).fill(0), 1));
         this.petalsSpiral.castShadow = true;
         this.petalsSpiral.receiveShadow = true;
