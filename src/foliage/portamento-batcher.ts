@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { applyInstanceAnimation, ANIMATION_TYPES } from './animation-nodes.ts';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { foliageGroup } from '../world/state.ts';
 import {
@@ -11,6 +12,7 @@ import {
   uAudioLow,
   uTime
 } from './index.ts';
+import { _skyMoonNoteVal } from '../systems/music-reactivity.ts';
 import { uTwilight } from './sky.ts';
 import {
   vec3,
@@ -148,11 +150,17 @@ export class PortamentoPineBatcher {
         .mul(uTwilight)
         .mul(float(CONFIG.glow.glowIntensityMax))
         .mul(float(0.3).add(idlePulse));
+    // ADSR / Channel driven Hue
+    // We already have audioGlow, let's tie it to the music system note color if needed
     needleMat.emissiveNode = baseGlowColor.mul(audioGlow).add(rimLight).add(twilightGlowTint);
 
     registerReactiveMaterial(needleMat);
 
     this.bendAttribute = new THREE.InstancedBufferAttribute(new Float32Array(MAX_PINES), 1);
+    trunkGeo.setAttribute('instanceAnimType', new THREE.InstancedBufferAttribute(new Float32Array(MAX_PINES), 1));
+    trunkGeo.setAttribute('instanceAnimOffset', new THREE.InstancedBufferAttribute(new Float32Array(MAX_PINES), 1));
+    needleGeo.setAttribute('instanceAnimType', new THREE.InstancedBufferAttribute(new Float32Array(MAX_PINES), 1));
+    needleGeo.setAttribute('instanceAnimOffset', new THREE.InstancedBufferAttribute(new Float32Array(MAX_PINES), 1));
     trunkGeo.setAttribute('instanceBend', this.bendAttribute);
     needleGeo.setAttribute('instanceBend', this.bendAttribute);
 

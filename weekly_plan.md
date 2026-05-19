@@ -13,7 +13,7 @@ Routine will mark picked items as "[in progress — YYYY-MM-DD]".
 -->
 - [ ] **Three.js ColorSpace enum regression** — In `src/core/init.js` we fall back to string literals (`'display-p3'`, `'srgb'`) for `outputColorSpace` because `THREE.DisplayP3ColorSpace` / `THREE.SRGBColorSpace` produced TS/build warnings with the current `three` version. When updating Three.js, revert to the proper enum. Opportunistic — activate when upgrading Three.js version, not a standalone sprint.
 - [ ] **Per-channel MOD note-color propagation from sky to foliage** — Extend the music-bindings system so each biome's note-color hue (established by Moon Dance, PR #764) propagates downward to nearby foliage emissive uniforms, creating a visible color wave from sky to ground per beat. Touches `foliage-reactivity.ts`, `music-reactivity.ts`, `music-bindings.json`. Full day.
-- [ ] **Portamento-batcher + wisteria-cluster audio reactivity wiring** — `portamento-batcher.ts` imports `uTwilight` but is not wired to music-reactivity or music-bindings.json. Same for `wisteria-cluster.ts`. Add ADSR-driven scale/emission and per-channel hue mapping, matching the pattern established in tree-batcher and mushroom-batcher. Full day.
+- [x] **Portamento-batcher + wisteria-cluster audio reactivity wiring** — `portamento-batcher.ts` imports `uTwilight` but is not wired to music-reactivity or music-bindings.json. Same for `wisteria-cluster.ts`. Add ADSR-driven scale/emission and per-channel hue mapping, matching the pattern established in tree-batcher and mushroom-batcher. Full day.
 
 ## Backlog
 <!--

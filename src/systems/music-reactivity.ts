@@ -27,7 +27,7 @@ let _arpeggioHueShiftAccum = 0.0;
 let _nebulaShimmerAccum = 0.0;
 let _nebulaAmplitudeAccum = 0.0;
 let _skyMoonIntensityAccum = 0.0;
-let _skyMoonNoteVal = 0.0; // The active MIDI note (e.g., 60 for C4)
+export let _skyMoonNoteVal = 0.0; // The active MIDI note (e.g., 60 for C4)
 
 // ⚡ OPTIMIZATION: Module-scoped colors for zero-allocation note lerping
 const _targetMoonColor = new THREE.Color(0xffffff);
