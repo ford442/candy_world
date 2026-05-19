@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>candy_world Compression Benchmark</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0a0a0f;
+      color: #e0e0e0;
+      line-height: 1.6;
+    }
+    .header {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      padding: 2rem;
+      border-bottom: 1px solid #2a2a3e;
+    }
+    .header h1 {
+      font-size: 2rem;
+      background: linear-gradient(90deg, #4ecdc4, #ff6b6b);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+    .section {
+      background: rgba(255,255,255,0.03);
+      border-radius: 16px;
+      padding: 2rem;
+      margin-bottom: 2rem;
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+    .section h2 {
+      margin-bottom: 1.5rem;
+      color: #fff;
+    }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+    .stat-card {
+      background: rgba(255,255,255,0.05);
+      padding: 1.5rem;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    .stat-value {
+      font-size: 1.75rem;
+      font-weight: bold;
+    }
+    .stat-label {
+      color: #888;
+      font-size: 0.9rem;
+      margin-top: 0.25rem;
+    }
+    .compression-card {
+      border-left: 4px solid;
+      margin-bottom: 1rem;
+    }
+    .compression-card.none { border-color: #666; }
+    .compression-card.gzip { border-color: #4ecdc4; }
+    .compression-card.brotli { border-color: #ff6b6b; }
+    .compression-card.zstd { border-color: #ffeaa7; }
+    
+    .chart-container {
+      position: relative;
+      height: 400px;
+      margin: 2rem 0;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1rem;
+    }
+    th, td {
+      padding: 0.75rem;
+      text-align: left;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    th {
+      color: #888;
+      font-weight: 500;
+    }
+    .badge {
+      display: inline-block;
+      padding: 0.25rem 0.75rem;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    .badge-best { background: #00b894; color: #fff; }
+    .badge-good { background: #0984e3; color: #fff; }
+    .badge-ok { background: #fdcb6e; color: #000; }
+    .config-block {
+      background: rgba(0,0,0,0.5);
+      padding: 1.5rem;
+      border-radius: 8px;
+      overflow-x: auto;
+      margin: 1rem 0;
+    }
+    .config-block pre {
+      margin: 0;
+      font-family: 'SF Mono', monospace;
+      font-size: 0.85rem;
+      line-height: 1.5;
+    }
+    .config-tabs {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+    .config-tab {
+      padding: 0.5rem 1rem;
+      background: rgba(255,255,255,0.1);
+      border: none;
+      border-radius: 6px;
+      color: #fff;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .config-tab:hover, .config-tab.active {
+      background: rgba(255,255,255,0.2);
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>📊 Compression Benchmark Report</h1>
+    <p style="color: #888; margin-top: 0.5rem;">Generated: 5/19/2026, 2:45:03 PM</p>
+  </div>
+
+  <div class="container">
+    <div class="section">
+      <h2>Summary</h2>
+      <div class="stats-grid">
+        
+            <div class="stat-card compression-card none">
+              <div class="stat-value" style="color: #666">19.67 MB</div>
+              <div class="stat-label">NONE</div>
+              
+            </div>
+          
+            <div class="stat-card compression-card gzip">
+              <div class="stat-value" style="color: #4ecdc4">5.33 MB</div>
+              <div class="stat-label">GZIP</div>
+              <div style="color: #00b894; font-size: 0.85rem; margin-top: 0.5rem;">-72.9% savings</div>
+            </div>
+          
+            <div class="stat-card compression-card brotli">
+              <div class="stat-value" style="color: #ff6b6b">4.68 MB</div>
+              <div class="stat-label">BROTLI</div>
+              <div style="color: #00b894; font-size: 0.85rem; margin-top: 0.5rem;">-76.2% savings</div>
+            </div>
+          
+            <div class="stat-card compression-card zstd">
+              <div class="stat-value" style="color: #ffeaa7">0 B</div>
+              <div class="stat-label">ZSTD</div>
+              <div style="color: #00b894; font-size: 0.85rem; margin-top: 0.5rem;">-100.0% savings</div>
+            </div>
+          
+      </div>
+
+      <div class="chart-container">
+        <canvas id="compressionChart"></canvas>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>⏱️ Estimated Load Times</h2>
+      <div class="stats-grid">
+        
+          <div class="stat-card">
+            <div class="stat-value" style="color: #ff6b6b">51.16s</div>
+            <div class="stat-label">3G</div>
+          </div>
+        
+          <div class="stat-card">
+            <div class="stat-value" style="color: #00b894">0.75s</div>
+            <div class="stat-label">4G</div>
+          </div>
+        
+          <div class="stat-card">
+            <div class="stat-value" style="color: #00b894">0.07s</div>
+            <div class="stat-label">5G</div>
+          </div>
+        
+      </div>
+      <p style="color: #888; margin-top: 1rem;">
+        Based on 4.68 MB total compressed size
+        and simulated connection speeds.
+      </p>
+    </div>
+
+    <div class="section">
+      <h2>💰 Bandwidth Savings</h2>
+      <div class="stat-card">
+        <div class="stat-value" style="color: #00b894;">5.22 TB</div>
+        <div class="stat-label">Annual Bandwidth Savings (1000 visits/day)</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>📁 File Results</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>File</th>
+            <th>Type</th>
+            <th>Original</th>
+            <th>Gzip</th>
+            <th>Brotli</th>
+            <th>Best</th>
+          </tr>
+        </thead>
+        <tbody>
+          
+              <tr>
+                <td>main-BF5S0qyC.css</td>
+                <td><span class="badge badge-ok">CSS</span></td>
+                <td>9 KB</td>
+                <td>2.48 KB (72%)</td>
+                <td>2.15 KB (76%)</td>
+                <td><span class="badge badge-best">BROTLI</span></td>
+              </tr>
+            
+              <tr>
+                <td>map-B63FtkXv.json</td>
+                <td><span class="badge badge-ok">JSON</span></td>
+                <td>836.18 KB</td>
+                <td>167.83 KB (80%)</td>
+                <td>132.72 KB (84%)</td>
+                <td><span class="badge badge-best">BROTLI</span></td>
+              </tr>
+            
+              <tr>
+                <td>ui-BA2_WYBH.css</td>
+                <td><span class="badge badge-ok">CSS</span></td>
+                <td>11.26 KB</td>
+                <td>3.01 KB (73%)</td>
+                <td>2.62 KB (77%)</td>
+                <td><span class="badge badge-best">BROTLI</span></td>
+              </tr>
+            
+              <tr>
+                <td>audio-Cc_AtAmm.js</td>
+                <td><span class="badge badge-ok">JavaScript</span></td>
+                <td>22.22 KB</td>
+                <td>5.83 KB (74%)</td>
+                <td>5.16 KB (77%)</td>
+                <td><span class="badge badge-best">BROTLI</span></td>
+              </tr>
+            
+              <tr>
+                <td>compute-O0n62K7Y.js</td>
+                <td><span class="badge badge-ok">JavaScript</span></td>
+                <td>6.44 KB</td>
+                <td>1.85 KB (71%)</td>
+                <td>1.63 KB (75%)</td>
+                <td><span class="badge badge-best">BROTLI</span></td>
+              </tr>
+            
+              <tr>
+                <td>foliage-BOvOkROo.js</td>
+                <td><span class="badge badge-ok">JavaScript</span></td>
+                <td>418.42 KB</td>
+                <td>105.27 KB (75%)</td>
+                <td>85.15 KB (80%)</td>
+                <td><span class="badge badge-best">BROTLI</span></td>
+              </tr>
+            
+              <tr>
+                <td>gameplay-CrLl3kST.js</td>
+                <td><span class="badge badge-ok">JavaScript</span></td>
+                <td>16.22 KB</td>
+                <td>4.89 KB (70%)</td>
+                <td>4.36 KB (73%)</td>
+                <td><span class="badge badge-best">BROTLI</span></td>
+              </tr>
+            
+              <tr>
+                <td>ui-jIvP09Qj.js</td>
+                <td><span class="badge badge-ok">JavaScript</span></td>
+                <td>185.86 KB</td>
+                <td>38.7 KB (79%)</td>
+                <td>32.29 KB (83%)</td>
+                <td><span class="badge badge-best">BROTLI</span></td>
+              </tr>
+            
+              <tr>
+                <td>utils-CHkIR9sP.js</td>
+                <td><span class="badge badge-ok">JavaScript</span></td>
+                <td>49.7 KB</td>
+                <td>14.01 KB (72%)</td>
+                <td>12.31 KB (75%)</td>
+                <td><span class="badge badge-best">BROTLI</span></td>
+              </tr>
+            
+              <tr>
+                <td>vendor-36WQIEU1.js</td>
+                <td><span class="badge badge-ok">JavaScript</span></td>
+                <td>1.3 MB</td>
+                <td>290.37 KB (78%)</td>
+                <td>227.56 KB (83%)</td>
+                <td><span class="badge badge-best">BROTLI</span></td>
+              </tr>
+            
+              <tr>
+                <td>weather-DInr9qbu.js</td>
+                <td><span class="badge badge-ok">JavaScript</span></td>
+                <td>29.32 KB</td>
+                <td>7.55 KB (74%)</td>
+                <td>6.75 KB (77%)</td>
+                <td><span class="badge badge-best">BROTLI</span></td>
+              </tr>
+            
+              <tr>
+                <td>world-BuYUkIqU.js</td>
+                <td><span class="badge badge-ok">JavaScript</span></td>
+                <td>504.15 KB</td>
+                <td>124.68 KB (75%)</td>
+                <td>102.06 KB (80%)</td>
+                <td><span class="badge badge-best">BROTLI</span></td>
+              </tr>
+            
+              <tr>
+                <td>splash-XugLlQp2.png</td>
+                <td><span class="badge badge-ok">PNG Image</span></td>
+                <td>1.46 MB</td>
+                <td>1.46 MB (-0%)</td>
+                <td>1.46 MB (-0%)</td>
+                <td><span class="badge badge-best">NONE</span></td>
+              </tr>
+            
+              <tr>
+                <td>index.html</td>
+                <td><span class="badge badge-ok">HTML</span></td>
+                <td>38.1 KB</td>
+                <td>8.06 KB (79%)</td>
+                <td>6.85 KB (82%)</td>
+                <td><span class="badge badge-best">BROTLI</span></td>
+              </tr>
+            
+              <tr>
+                <td>audio-processor.js</td>
+                <td><span class="badge badge-ok">JavaScript</span></td>
+                <td>12.08 KB</td>
+                <td>3.45 KB (71%)</td>
+                <td>2.97 KB (75%)</td>
+                <td><span class="badge badge-best">BROTLI</span></td>
+              </tr>
+            
+              <tr>
+                <td>emscripten-compile-worker.js</td>
+                <td><span class="badge badge-ok">JavaScript</span></td>
+                <td>1.67 KB</td>
+                <td>782 B (54%)</td>
+                <td>654 B (62%)</td>
+                <td><span class="badge badge-best">BROTLI</span></td>
+              </tr>
+            
+              <tr>
+                <td>libopenmpt.js</td>
+                <td><span class="badge badge-ok">JavaScript</span></td>
+                <td>11.64 MB</td>
+                <td>1.28 MB (89%)</td>
+                <td>877.55 KB (93%)</td>
+                <td><span class="badge badge-best">BROTLI</span></td>
+              </tr>
+            
+              <tr>
+                <td>perf_instancing.js</td>
+                <td><span class="badge badge-ok">JavaScript</span></td>
+                <td>4.89 KB</td>
+                <td>1.97 KB (60%)</td>
+                <td>1.67 KB (66%)</td>
+                <td><span class="badge badge-best">BROTLI</span></td>
+              </tr>
+            
+              <tr>
+                <td>worklet-polyfills.js</td>
+                <td><span class="badge badge-ok">JavaScript</span></td>
+                <td>3.55 KB</td>
+                <td>1.13 KB (68%)</td>
+                <td>910 B (75%)</td>
+                <td><span class="badge badge-best">BROTLI</span></td>
+              </tr>
+            
+              <tr>
+                <td>main-DbVFPZUs.js</td>
+                <td><span class="badge badge-ok">JavaScript</span></td>
+                <td>30.94 KB</td>
+                <td>8.97 KB (71%)</td>
+                <td>7.93 KB (74%)</td>
+                <td><span class="badge badge-best">BROTLI</span></td>
+              </tr>
+            
+              <tr>
+                <td>perf_instancing.html</td>
+                <td><span class="badge badge-ok">HTML</span></td>
+                <td>1.16 KB</td>
+                <td>652 B (45%)</td>
+                <td>428 B (64%)</td>
+                <td><span class="badge badge-best">BROTLI</span></td>
+              </tr>
+            
+              <tr>
+                <td>candy_physics-Bpmoak5a.wasm</td>
+                <td><span class="badge badge-ok">WASM</span></td>
+                <td>26.78 KB</td>
+                <td>12.81 KB (52%)</td>
+                <td>11.43 KB (57%)</td>
+                <td><span class="badge badge-best">BROTLI</span></td>
+              </tr>
+            
+              <tr>
+                <td>colorcode.json</td>
+                <td><span class="badge badge-ok">JSON</span></td>
+                <td>255 B</td>
+                <td>107 B (58%)</td>
+                <td>86 B (66%)</td>
+                <td><span class="badge badge-best">BROTLI</span></td>
+              </tr>
+            
+              <tr>
+                <td>colorcode.png</td>
+                <td><span class="badge badge-ok">PNG Image</span></td>
+                <td>14.93 KB</td>
+                <td>12.72 KB (15%)</td>
+                <td>12.72 KB (15%)</td>
+                <td><span class="badge badge-best">BROTLI</span></td>
+              </tr>
+            
+              <tr>
+                <td>map.json</td>
+                <td><span class="badge badge-ok">JSON</span></td>
+                <td>836.18 KB</td>
+                <td>167.83 KB (80%)</td>
+                <td>132.72 KB (84%)</td>
+                <td><span class="badge badge-best">BROTLI</span></td>
+              </tr>
+            
+              <tr>
+                <td>map_generated.json</td>
+                <td><span class="badge badge-ok">JSON</span></td>
+                <td>836.18 KB</td>
+                <td>167.83 KB (80%)</td>
+                <td>132.72 KB (84%)</td>
+                <td><span class="badge badge-best">BROTLI</span></td>
+              </tr>
+            
+              <tr>
+                <td>music-bindings.json</td>
+                <td><span class="badge badge-ok">JSON</span></td>
+                <td>996 B</td>
+                <td>368 B (63%)</td>
+                <td>325 B (67%)</td>
+                <td><span class="badge badge-best">BROTLI</span></td>
+              </tr>
+            
+              <tr>
+                <td>splash.png</td>
+                <td><span class="badge badge-ok">PNG Image</span></td>
+                <td>1.46 MB</td>
+                <td>1.46 MB (-0%)</td>
+                <td>1.46 MB (-0%)</td>
+                <td><span class="badge badge-best">NONE</span></td>
+              </tr>
+            
+        </tbody>
+      </table>
+    </div>
+
+    <div class="section">
+      <h2>⚙️ Server Configuration</h2>
+      
+      <div class="config-tabs">
+        <button class="config-tab active" onclick="showConfig('nginx')">Nginx</button>
+        <button class="config-tab" onclick="showConfig('apache')">Apache</button>
+        <button class="config-tab" onclick="showConfig('vercel')">Vercel</button>
+        <button class="config-tab" onclick="showConfig('netlify')">Netlify</button>
+      </div>
+
+      <div id="config-nginx" class="config-content">
+        <div class="config-block"><pre># Nginx Compression Configuration
+# Add to your server block
+
+# Enable gzip
+gzip on;
+gzip_vary on;
+gzip_proxied any;
+gzip_comp_level 6;
+gzip_min_length 1000;
+gzip_types
+    text/plain
+    text/css
+    text/xml
+    text/javascript
+    application/json
+    application/javascript
+    application/xml+rss
+    application/atom+xml
+    image/svg+xml
+    font/woff
+    font/woff2;
+
+# Enable Brotli (requires ngx_brotli module)
+brotli on;
+brotli_comp_level 6;
+brotli_min_length 1000;
+brotli_types
+    text/plain
+    text/css
+    text/xml
+    text/javascript
+    application/json
+    application/javascript
+    application/xml+rss
+    application/atom+xml
+    image/svg+xml
+    font/woff
+    font/woff2;
+</pre></div>
+      </div>
+      <div id="config-apache" class="config-content" style="display: none;">
+        <div class="config-block"><pre># Apache Compression Configuration
+# Add to your .htaccess or virtual host config
+
+# Enable mod_deflate
+&lt;IfModule mod_deflate.c&gt;
+    # Compress HTML, CSS, JavaScript, Text, XML, fonts
+    AddOutputFilterByType DEFLATE application/javascript
+    AddOutputFilterByType DEFLATE application/rss+xml
+    AddOutputFilterByType DEFLATE application/vnd.ms-fontobject
+    AddOutputFilterByType DEFLATE application/x-font
+    AddOutputFilterByType DEFLATE application/x-font-opentype
+    AddOutputFilterByType DEFLATE application/x-font-otf
+    AddOutputFilterByType DEFLATE application/x-font-truetype
+    AddOutputFilterByType DEFLATE application/x-font-ttf
+    AddOutputFilterByType DEFLATE application/x-javascript
+    AddOutputFilterByType DEFLATE application/xhtml+xml
+    AddOutputFilterByType DEFLATE application/xml
+    AddOutputFilterByType DEFLATE font/opentype
+    AddOutputFilterByType DEFLATE font/otf
+    AddOutputFilterByType DEFLATE font/ttf
+    AddOutputFilterByType DEFLATE image/svg+xml
+    AddOutputFilterByType DEFLATE image/x-icon
+    AddOutputFilterByType DEFLATE text/css
+    AddOutputFilterByType DEFLATE text/html
+    AddOutputFilterByType DEFLATE text/javascript
+    AddOutputFilterByType DEFLATE text/plain
+    AddOutputFilterByType DEFLATE text/xml
+    
+    # Remove browser bugs
+    BrowserMatch ^Mozilla/4 gzip-only-text/html
+    BrowserMatch ^Mozilla/4\.0[678] no-gzip
+    BrowserMatch \bMSIE !no-gzip !gzip-only-text/html
+&lt;/IfModule&gt;
+
+# Enable mod_brotli (Apache 2.4.26+)
+&lt;IfModule mod_brotli.c&gt;
+    AddOutputFilterByType BROTLI_COMPRESS text/html text/plain text/xml text/css text/javascript application/javascript application/json
+&lt;/IfModule&gt;
+</pre></div>
+      </div>
+      <div id="config-vercel" class="config-content" style="display: none;">
+        <div class="config-block"><pre>{
+  &quot;headers&quot;: [
+    {
+      &quot;source&quot;: &quot;/(.*)&quot;,
+      &quot;headers&quot;: [
+        {
+          &quot;key&quot;: &quot;Cache-Control&quot;,
+          &quot;value&quot;: &quot;public, max-age=31536000, immutable&quot;
+        }
+      ]
+    }
+  ]
+}
+
+# Note: Vercel automatically handles Brotli and Gzip compression
+# No additional configuration needed
+</pre></div>
+      </div>
+      <div id="config-netlify" class="config-content" style="display: none;">
+        <div class="config-block"><pre># netlify.toml
+
+[build]
+  command = &quot;npm run build&quot;
+  publish = &quot;dist&quot;
+
+[[headers]]
+  for = &quot;/*&quot;
+  [headers.values]
+    X-Frame-Options = &quot;DENY&quot;
+    X-XSS-Protection = &quot;1; mode=block&quot;
+    
+# Netlify automatically compresses assets with Brotli and Gzip
+# For custom compression settings, use build plugins
+</pre></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Compression chart
+    const ctx = document.getElementById('compressionChart').getContext('2d');
+    new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: ["NONE","GZIP","BROTLI","ZSTD"],
+        datasets: [{
+          label: 'Total Size',
+          data: [20624146,5589490,4911631,0],
+          backgroundColor: ["#666","#4ecdc4","#ff6b6b","#ffeaa7"],
+          borderRadius: 8
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          title: {
+            display: true,
+            text: 'Compression Algorithm Comparison',
+            color: '#fff'
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: {
+              color: '#888',
+              callback: function(value) {
+                return (value / 1024 / 1024).toFixed(1) + ' MB';
+              }
+            },
+            grid: { color: 'rgba(255,255,255,0.1)' }
+          },
+          x: {
+            ticks: { color: '#fff' },
+            grid: { display: false }
+          }
+        }
+      }
+    });
+
+    // Tab switching
+    function showConfig(type) {
+      document.querySelectorAll('.config-content').forEach(el => el.style.display = 'none');
+      document.getElementById('config-' + type).style.display = 'block';
+      document.querySelectorAll('.config-tab').forEach(el => el.classList.remove('active'));
+      event.target.classList.add('active');
+    }
+  </script>
+</body>
+</html>

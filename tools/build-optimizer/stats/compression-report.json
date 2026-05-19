@@ -1,0 +1,773 @@
+{
+  "timestamp": "2026-05-19T14:45:03.548Z",
+  "files": [
+    {
+      "path": "dist/assets/main-BF5S0qyC.css",
+      "originalSize": 9219,
+      "type": "CSS",
+      "compressions": [
+        {
+          "algorithm": "none",
+          "size": 9219,
+          "ratio": 1,
+          "time": 0
+        },
+        {
+          "algorithm": "gzip",
+          "size": 2541,
+          "ratio": 0.275626423690205,
+          "time": 5.112502000000006
+        },
+        {
+          "algorithm": "brotli",
+          "size": 2202,
+          "ratio": 0.23885453953791083,
+          "time": 21.580593999999962
+        }
+      ],
+      "bestAlgorithm": "brotli",
+      "savingsVsNone": 7017
+    },
+    {
+      "path": "dist/assets/map-B63FtkXv.json",
+      "originalSize": 856252,
+      "type": "JSON",
+      "compressions": [
+        {
+          "algorithm": "none",
+          "size": 856252,
+          "ratio": 1,
+          "time": 0
+        },
+        {
+          "algorithm": "gzip",
+          "size": 171855,
+          "ratio": 0.2007061005404951,
+          "time": 102.85513800000001
+        },
+        {
+          "algorithm": "brotli",
+          "size": 135908,
+          "ratio": 0.15872430078995436,
+          "time": 1507.734743
+        }
+      ],
+      "bestAlgorithm": "brotli",
+      "savingsVsNone": 720344
+    },
+    {
+      "path": "dist/assets/ui-BA2_WYBH.css",
+      "originalSize": 11530,
+      "type": "CSS",
+      "compressions": [
+        {
+          "algorithm": "none",
+          "size": 11530,
+          "ratio": 1,
+          "time": 0
+        },
+        {
+          "algorithm": "gzip",
+          "size": 3083,
+          "ratio": 0.26738941890719864,
+          "time": 5.1497699999999895
+        },
+        {
+          "algorithm": "brotli",
+          "size": 2686,
+          "ratio": 0.23295750216825672,
+          "time": 15.575689000000011
+        }
+      ],
+      "bestAlgorithm": "brotli",
+      "savingsVsNone": 8844
+    },
+    {
+      "path": "dist/chunks/audio-Cc_AtAmm.js",
+      "originalSize": 22749,
+      "type": "JavaScript",
+      "compressions": [
+        {
+          "algorithm": "none",
+          "size": 22749,
+          "ratio": 1,
+          "time": 0
+        },
+        {
+          "algorithm": "gzip",
+          "size": 5975,
+          "ratio": 0.26264890764429205,
+          "time": 5.1827549999998155
+        },
+        {
+          "algorithm": "brotli",
+          "size": 5280,
+          "ratio": 0.23209811420282211,
+          "time": 31.24732999999992
+        }
+      ],
+      "bestAlgorithm": "brotli",
+      "savingsVsNone": 17469
+    },
+    {
+      "path": "dist/chunks/compute-O0n62K7Y.js",
+      "originalSize": 6590,
+      "type": "JavaScript",
+      "compressions": [
+        {
+          "algorithm": "none",
+          "size": 6590,
+          "ratio": 1,
+          "time": 0
+        },
+        {
+          "algorithm": "gzip",
+          "size": 1894,
+          "ratio": 0.2874051593323217,
+          "time": 5.239471999999978
+        },
+        {
+          "algorithm": "brotli",
+          "size": 1665,
+          "ratio": 0.2526555386949924,
+          "time": 10.399817999999868
+        }
+      ],
+      "bestAlgorithm": "brotli",
+      "savingsVsNone": 4925
+    },
+    {
+      "path": "dist/chunks/foliage-BOvOkROo.js",
+      "originalSize": 428466,
+      "type": "JavaScript",
+      "compressions": [
+        {
+          "algorithm": "none",
+          "size": 428466,
+          "ratio": 1,
+          "time": 0
+        },
+        {
+          "algorithm": "gzip",
+          "size": 107793,
+          "ratio": 0.251578888406548,
+          "time": 53.09185600000001
+        },
+        {
+          "algorithm": "brotli",
+          "size": 87191,
+          "ratio": 0.20349572661541407,
+          "time": 785.50171
+        }
+      ],
+      "bestAlgorithm": "brotli",
+      "savingsVsNone": 341275
+    },
+    {
+      "path": "dist/chunks/gameplay-CrLl3kST.js",
+      "originalSize": 16612,
+      "type": "JavaScript",
+      "compressions": [
+        {
+          "algorithm": "none",
+          "size": 16612,
+          "ratio": 1,
+          "time": 0
+        },
+        {
+          "algorithm": "gzip",
+          "size": 5011,
+          "ratio": 0.3016494100650132,
+          "time": 5.078549000000294
+        },
+        {
+          "algorithm": "brotli",
+          "size": 4467,
+          "ratio": 0.26890199855526126,
+          "time": 23.116128000000117
+        }
+      ],
+      "bestAlgorithm": "brotli",
+      "savingsVsNone": 12145
+    },
+    {
+      "path": "dist/chunks/ui-jIvP09Qj.js",
+      "originalSize": 190324,
+      "type": "JavaScript",
+      "compressions": [
+        {
+          "algorithm": "none",
+          "size": 190324,
+          "ratio": 1,
+          "time": 0
+        },
+        {
+          "algorithm": "gzip",
+          "size": 39630,
+          "ratio": 0.2082238708728274,
+          "time": 21.47018799999978
+        },
+        {
+          "algorithm": "brotli",
+          "size": 33069,
+          "ratio": 0.17375107711061138,
+          "time": 285.47984099999985
+        }
+      ],
+      "bestAlgorithm": "brotli",
+      "savingsVsNone": 157255
+    },
+    {
+      "path": "dist/chunks/utils-CHkIR9sP.js",
+      "originalSize": 50892,
+      "type": "JavaScript",
+      "compressions": [
+        {
+          "algorithm": "none",
+          "size": 50892,
+          "ratio": 1,
+          "time": 0
+        },
+        {
+          "algorithm": "gzip",
+          "size": 14343,
+          "ratio": 0.2818321150672011,
+          "time": 11.164823999999953
+        },
+        {
+          "algorithm": "brotli",
+          "size": 12610,
+          "ratio": 0.247779611726794,
+          "time": 71.35054200000013
+        }
+      ],
+      "bestAlgorithm": "brotli",
+      "savingsVsNone": 38282
+    },
+    {
+      "path": "dist/chunks/vendor-36WQIEU1.js",
+      "originalSize": 1363107,
+      "type": "JavaScript",
+      "compressions": [
+        {
+          "algorithm": "none",
+          "size": 1363107,
+          "ratio": 1,
+          "time": 0
+        },
+        {
+          "algorithm": "gzip",
+          "size": 297336,
+          "ratio": 0.21813107848466776,
+          "time": 163.0725309999998
+        },
+        {
+          "algorithm": "brotli",
+          "size": 233024,
+          "ratio": 0.17095062970111663,
+          "time": 2547.0753360000003
+        }
+      ],
+      "bestAlgorithm": "brotli",
+      "savingsVsNone": 1130083
+    },
+    {
+      "path": "dist/chunks/weather-DInr9qbu.js",
+      "originalSize": 30026,
+      "type": "JavaScript",
+      "compressions": [
+        {
+          "algorithm": "none",
+          "size": 30026,
+          "ratio": 1,
+          "time": 0
+        },
+        {
+          "algorithm": "gzip",
+          "size": 7736,
+          "ratio": 0.25764337574102447,
+          "time": 6.310878999999659
+        },
+        {
+          "algorithm": "brotli",
+          "size": 6917,
+          "ratio": 0.23036701525344702,
+          "time": 43.64324899999974
+        }
+      ],
+      "bestAlgorithm": "brotli",
+      "savingsVsNone": 23109
+    },
+    {
+      "path": "dist/chunks/world-BuYUkIqU.js",
+      "originalSize": 516250,
+      "type": "JavaScript",
+      "compressions": [
+        {
+          "algorithm": "none",
+          "size": 516250,
+          "ratio": 1,
+          "time": 0
+        },
+        {
+          "algorithm": "gzip",
+          "size": 127677,
+          "ratio": 0.24731622276029055,
+          "time": 82.14399700000013
+        },
+        {
+          "algorithm": "brotli",
+          "size": 104510,
+          "ratio": 0.20244067796610168,
+          "time": 980.5576230000006
+        }
+      ],
+      "bestAlgorithm": "brotli",
+      "savingsVsNone": 411740
+    },
+    {
+      "path": "dist/images/splash-XugLlQp2.png",
+      "originalSize": 1532319,
+      "type": "PNG Image",
+      "compressions": [
+        {
+          "algorithm": "none",
+          "size": 1532319,
+          "ratio": 1,
+          "time": 0
+        },
+        {
+          "algorithm": "gzip",
+          "size": 1532710,
+          "ratio": 1.000255168799708,
+          "time": 95.38705899999968
+        },
+        {
+          "algorithm": "brotli",
+          "size": 1532327,
+          "ratio": 1.0000052208450068,
+          "time": 1127.4750099999992
+        }
+      ],
+      "bestAlgorithm": "none",
+      "savingsVsNone": 0
+    },
+    {
+      "path": "dist/index.html",
+      "originalSize": 39017,
+      "type": "HTML",
+      "compressions": [
+        {
+          "algorithm": "none",
+          "size": 39017,
+          "ratio": 1,
+          "time": 0
+        },
+        {
+          "algorithm": "gzip",
+          "size": 8254,
+          "ratio": 0.21154881205628315,
+          "time": 8.206570000000283
+        },
+        {
+          "algorithm": "brotli",
+          "size": 7014,
+          "ratio": 0.17976779352589897,
+          "time": 54.08473699999922
+        }
+      ],
+      "bestAlgorithm": "brotli",
+      "savingsVsNone": 32003
+    },
+    {
+      "path": "dist/js/audio-processor.js",
+      "originalSize": 12370,
+      "type": "JavaScript",
+      "compressions": [
+        {
+          "algorithm": "none",
+          "size": 12370,
+          "ratio": 1,
+          "time": 0
+        },
+        {
+          "algorithm": "gzip",
+          "size": 3535,
+          "ratio": 0.28577202910266775,
+          "time": 5.9923520000011194
+        },
+        {
+          "algorithm": "brotli",
+          "size": 3045,
+          "ratio": 0.246160064672595,
+          "time": 24.759436999998798
+        }
+      ],
+      "bestAlgorithm": "brotli",
+      "savingsVsNone": 9325
+    },
+    {
+      "path": "dist/js/emscripten-compile-worker.js",
+      "originalSize": 1715,
+      "type": "JavaScript",
+      "compressions": [
+        {
+          "algorithm": "none",
+          "size": 1715,
+          "ratio": 1,
+          "time": 0
+        },
+        {
+          "algorithm": "gzip",
+          "size": 782,
+          "ratio": 0.45597667638483963,
+          "time": 4.7857329999988
+        },
+        {
+          "algorithm": "brotli",
+          "size": 654,
+          "ratio": 0.3813411078717201,
+          "time": 4.5179559999996854
+        }
+      ],
+      "bestAlgorithm": "brotli",
+      "savingsVsNone": 1061
+    },
+    {
+      "path": "dist/js/libopenmpt.js",
+      "originalSize": 12206418,
+      "type": "JavaScript",
+      "compressions": [
+        {
+          "algorithm": "none",
+          "size": 12206418,
+          "ratio": 1,
+          "time": 0
+        },
+        {
+          "algorithm": "gzip",
+          "size": 1343291,
+          "ratio": 0.11004792724614215,
+          "time": 2583.640942
+        },
+        {
+          "algorithm": "brotli",
+          "size": 898614,
+          "ratio": 0.07361815726775865,
+          "time": 26379.961906000004
+        }
+      ],
+      "bestAlgorithm": "brotli",
+      "savingsVsNone": 11307804
+    },
+    {
+      "path": "dist/js/perf_instancing.js",
+      "originalSize": 5011,
+      "type": "JavaScript",
+      "compressions": [
+        {
+          "algorithm": "none",
+          "size": 5011,
+          "ratio": 1,
+          "time": 0
+        },
+        {
+          "algorithm": "gzip",
+          "size": 2016,
+          "ratio": 0.40231490720415086,
+          "time": 5.4845209999984945
+        },
+        {
+          "algorithm": "brotli",
+          "size": 1707,
+          "ratio": 0.34065056874875277,
+          "time": 8.31713899999886
+        }
+      ],
+      "bestAlgorithm": "brotli",
+      "savingsVsNone": 3304
+    },
+    {
+      "path": "dist/js/worklet-polyfills.js",
+      "originalSize": 3631,
+      "type": "JavaScript",
+      "compressions": [
+        {
+          "algorithm": "none",
+          "size": 3631,
+          "ratio": 1,
+          "time": 0
+        },
+        {
+          "algorithm": "gzip",
+          "size": 1159,
+          "ratio": 0.31919581382539247,
+          "time": 4.634900999997626
+        },
+        {
+          "algorithm": "brotli",
+          "size": 910,
+          "ratio": 0.2506196640044065,
+          "time": 6.615282999999181
+        }
+      ],
+      "bestAlgorithm": "brotli",
+      "savingsVsNone": 2721
+    },
+    {
+      "path": "dist/main-DbVFPZUs.js",
+      "originalSize": 31686,
+      "type": "JavaScript",
+      "compressions": [
+        {
+          "algorithm": "none",
+          "size": 31686,
+          "ratio": 1,
+          "time": 0
+        },
+        {
+          "algorithm": "gzip",
+          "size": 9185,
+          "ratio": 0.2898756548633466,
+          "time": 6.7874540000048
+        },
+        {
+          "algorithm": "brotli",
+          "size": 8123,
+          "ratio": 0.25635927538976205,
+          "time": 42.12557899999956
+        }
+      ],
+      "bestAlgorithm": "brotli",
+      "savingsVsNone": 23563
+    },
+    {
+      "path": "dist/perf_instancing.html",
+      "originalSize": 1184,
+      "type": "HTML",
+      "compressions": [
+        {
+          "algorithm": "none",
+          "size": 1184,
+          "ratio": 1,
+          "time": 0
+        },
+        {
+          "algorithm": "gzip",
+          "size": 652,
+          "ratio": 0.5506756756756757,
+          "time": 4.953518000002077
+        },
+        {
+          "algorithm": "brotli",
+          "size": 428,
+          "ratio": 0.3614864864864865,
+          "time": 3.031970000003639
+        }
+      ],
+      "bestAlgorithm": "brotli",
+      "savingsVsNone": 756
+    },
+    {
+      "path": "dist/wasm/candy_physics-Bpmoak5a.wasm",
+      "originalSize": 27419,
+      "type": "WASM",
+      "compressions": [
+        {
+          "algorithm": "none",
+          "size": 27419,
+          "ratio": 1,
+          "time": 0
+        },
+        {
+          "algorithm": "gzip",
+          "size": 13113,
+          "ratio": 0.4782450125825158,
+          "time": 6.196218000004592
+        },
+        {
+          "algorithm": "brotli",
+          "size": 11705,
+          "ratio": 0.42689375980159744,
+          "time": 46.29993600000307
+        }
+      ],
+      "bestAlgorithm": "brotli",
+      "savingsVsNone": 15714
+    },
+    {
+      "path": "assets/colorcode.json",
+      "originalSize": 255,
+      "type": "JSON",
+      "compressions": [
+        {
+          "algorithm": "none",
+          "size": 255,
+          "ratio": 1,
+          "time": 0
+        },
+        {
+          "algorithm": "gzip",
+          "size": 107,
+          "ratio": 0.4196078431372549,
+          "time": 4.669646000002103
+        },
+        {
+          "algorithm": "brotli",
+          "size": 86,
+          "ratio": 0.33725490196078434,
+          "time": 1.6728539999967325
+        }
+      ],
+      "bestAlgorithm": "brotli",
+      "savingsVsNone": 169
+    },
+    {
+      "path": "assets/colorcode.png",
+      "originalSize": 15285,
+      "type": "PNG Image",
+      "compressions": [
+        {
+          "algorithm": "none",
+          "size": 15285,
+          "ratio": 1,
+          "time": 0
+        },
+        {
+          "algorithm": "gzip",
+          "size": 13024,
+          "ratio": 0.8520771998691528,
+          "time": 4.812147000004188
+        },
+        {
+          "algorithm": "brotli",
+          "size": 13021,
+          "ratio": 0.8518809290153746,
+          "time": 32.76991399999679
+        }
+      ],
+      "bestAlgorithm": "brotli",
+      "savingsVsNone": 2264
+    },
+    {
+      "path": "assets/map.json",
+      "originalSize": 856252,
+      "type": "JSON",
+      "compressions": [
+        {
+          "algorithm": "none",
+          "size": 856252,
+          "ratio": 1,
+          "time": 0
+        },
+        {
+          "algorithm": "gzip",
+          "size": 171855,
+          "ratio": 0.2007061005404951,
+          "time": 100.84367499999644
+        },
+        {
+          "algorithm": "brotli",
+          "size": 135908,
+          "ratio": 0.15872430078995436,
+          "time": 1524.9763900000034
+        }
+      ],
+      "bestAlgorithm": "brotli",
+      "savingsVsNone": 720344
+    },
+    {
+      "path": "assets/map_generated.json",
+      "originalSize": 856252,
+      "type": "JSON",
+      "compressions": [
+        {
+          "algorithm": "none",
+          "size": 856252,
+          "ratio": 1,
+          "time": 0
+        },
+        {
+          "algorithm": "gzip",
+          "size": 171855,
+          "ratio": 0.2007061005404951,
+          "time": 102.40713400000095
+        },
+        {
+          "algorithm": "brotli",
+          "size": 135908,
+          "ratio": 0.15872430078995436,
+          "time": 1589.4310350000014
+        }
+      ],
+      "bestAlgorithm": "brotli",
+      "savingsVsNone": 720344
+    },
+    {
+      "path": "assets/music-bindings.json",
+      "originalSize": 996,
+      "type": "JSON",
+      "compressions": [
+        {
+          "algorithm": "none",
+          "size": 996,
+          "ratio": 1,
+          "time": 0
+        },
+        {
+          "algorithm": "gzip",
+          "size": 368,
+          "ratio": 0.36947791164658633,
+          "time": 5.589277999999467
+        },
+        {
+          "algorithm": "brotli",
+          "size": 325,
+          "ratio": 0.32630522088353414,
+          "time": 2.9181209999951534
+        }
+      ],
+      "bestAlgorithm": "brotli",
+      "savingsVsNone": 671
+    },
+    {
+      "path": "assets/splash.png",
+      "originalSize": 1532319,
+      "type": "PNG Image",
+      "compressions": [
+        {
+          "algorithm": "none",
+          "size": 1532319,
+          "ratio": 1,
+          "time": 0
+        },
+        {
+          "algorithm": "gzip",
+          "size": 1532710,
+          "ratio": 1.000255168799708,
+          "time": 91.3948739999978
+        },
+        {
+          "algorithm": "brotli",
+          "size": 1532327,
+          "ratio": 1.0000052208450068,
+          "time": 1135.5354650000008
+        }
+      ],
+      "bestAlgorithm": "none",
+      "savingsVsNone": 0
+    }
+  ],
+  "summary": {
+    "totalOriginalSize": 20624146,
+    "bestCompressionByType": {},
+    "estimatedLoadTimes": {},
+    "annualBandwidthSavings": 5735073815000
+  },
+  "serverConfigs": {
+    "nginx": "# Nginx Compression Configuration\n# Add to your server block\n\n# Enable gzip\ngzip on;\ngzip_vary on;\ngzip_proxied any;\ngzip_comp_level 6;\ngzip_min_length 1000;\ngzip_types\n    text/plain\n    text/css\n    text/xml\n    text/javascript\n    application/json\n    application/javascript\n    application/xml+rss\n    application/atom+xml\n    image/svg+xml\n    font/woff\n    font/woff2;\n\n# Enable Brotli (requires ngx_brotli module)\nbrotli on;\nbrotli_comp_level 6;\nbrotli_min_length 1000;\nbrotli_types\n    text/plain\n    text/css\n    text/xml\n    text/javascript\n    application/json\n    application/javascript\n    application/xml+rss\n    application/atom+xml\n    image/svg+xml\n    font/woff\n    font/woff2;\n",
+    "apache": "# Apache Compression Configuration\n# Add to your .htaccess or virtual host config\n\n# Enable mod_deflate\n<IfModule mod_deflate.c>\n    # Compress HTML, CSS, JavaScript, Text, XML, fonts\n    AddOutputFilterByType DEFLATE application/javascript\n    AddOutputFilterByType DEFLATE application/rss+xml\n    AddOutputFilterByType DEFLATE application/vnd.ms-fontobject\n    AddOutputFilterByType DEFLATE application/x-font\n    AddOutputFilterByType DEFLATE application/x-font-opentype\n    AddOutputFilterByType DEFLATE application/x-font-otf\n    AddOutputFilterByType DEFLATE application/x-font-truetype\n    AddOutputFilterByType DEFLATE application/x-font-ttf\n    AddOutputFilterByType DEFLATE application/x-javascript\n    AddOutputFilterByType DEFLATE application/xhtml+xml\n    AddOutputFilterByType DEFLATE application/xml\n    AddOutputFilterByType DEFLATE font/opentype\n    AddOutputFilterByType DEFLATE font/otf\n    AddOutputFilterByType DEFLATE font/ttf\n    AddOutputFilterByType DEFLATE image/svg+xml\n    AddOutputFilterByType DEFLATE image/x-icon\n    AddOutputFilterByType DEFLATE text/css\n    AddOutputFilterByType DEFLATE text/html\n    AddOutputFilterByType DEFLATE text/javascript\n    AddOutputFilterByType DEFLATE text/plain\n    AddOutputFilterByType DEFLATE text/xml\n    \n    # Remove browser bugs\n    BrowserMatch ^Mozilla/4 gzip-only-text/html\n    BrowserMatch ^Mozilla/4\\.0[678] no-gzip\n    BrowserMatch \\bMSIE !no-gzip !gzip-only-text/html\n</IfModule>\n\n# Enable mod_brotli (Apache 2.4.26+)\n<IfModule mod_brotli.c>\n    AddOutputFilterByType BROTLI_COMPRESS text/html text/plain text/xml text/css text/javascript application/javascript application/json\n</IfModule>\n",
+    "vercel": "{\n  \"headers\": [\n    {\n      \"source\": \"/(.*)\",\n      \"headers\": [\n        {\n          \"key\": \"Cache-Control\",\n          \"value\": \"public, max-age=31536000, immutable\"\n        }\n      ]\n    }\n  ]\n}\n\n# Note: Vercel automatically handles Brotli and Gzip compression\n# No additional configuration needed\n",
+    "netlify": "# netlify.toml\n\n[build]\n  command = \"npm run build\"\n  publish = \"dist\"\n\n[[headers]]\n  for = \"/*\"\n  [headers.values]\n    X-Frame-Options = \"DENY\"\n    X-XSS-Protection = \"1; mode=block\"\n    \n# Netlify automatically compresses assets with Brotli and Gzip\n# For custom compression settings, use build plugins\n"
+  }
+}
