@@ -10,6 +10,8 @@ import { flowerBatcher } from '../foliage/flower-batcher.ts';
 import { simpleFlowerBatcher } from '../foliage/simple-flower-batcher.ts';
 import type { AudioData, FoliageObject } from '../foliage/types.ts';
 import { BiomeUniforms, SkyUniforms, LuminousPlantUniforms } from './biome-uniforms.ts';
+import { uTwilight } from '../foliage/sky.ts';
+import { BeatSync } from '../audio/beat-sync.ts';
 import musicBindings from '../../assets/music-bindings.json';
 
 // ⚡ OPTIMIZATION: Pre-parsed channel index arrays from music-bindings.json.
@@ -80,6 +82,17 @@ const _weatherBindings: {
     fogDensity?: WeatherReactivityBinding;
 } = (musicBindings as any).weatherReactivity ?? {};
 
+// ⚡ SKY WAVE config from music-bindings.json
+const _skyWaveConfig = (musicBindings as any).sky_wave;
+const _skyWavePropagationMs = _skyWaveConfig?.propagation_ms ?? 800;
+const _skyWaveDecayMs = _skyWaveConfig?.decay_ms ?? 2000;
+
+// ⚡ SKY WAVE state — pre-allocated, zero per-frame allocations in hot path
+interface WaveStamp { color: THREE.Color; timestamp: number; }
+let _activeWave: WaveStamp | null = null;
+const _waveColor = new THREE.Color(); // scratch for beat capture
+const _whiteColor = new THREE.Color(0xffffff);
+let _waveDecayStartTime = 0;
 
 // Helper to map MIDI note (0-127) to a color hue
 // Helper to map MIDI note (0-127) to a color using CONFIG.noteColorMap.sky
@@ -134,9 +147,24 @@ export class MusicReactivitySystem {
         this.scheduleNextBlink();
     }
 
-    init(scene: THREE.Scene, weatherSystem: IWeatherSystem) {
+    init(scene: THREE.Scene, weatherSystem: IWeatherSystem, beatSync?: BeatSync) {
         this.weatherSystem = weatherSystem;
+        if (beatSync) {
+            this.registerBeatSync(beatSync);
+        }
         // Moon registration is handled explicitly via registerMoon()
+    }
+
+    registerBeatSync(beatSync: BeatSync) {
+        beatSync.onBeat((_state) => {
+            // Night-gate: only fire during dusk/dawn/night
+            if (uTwilight.value <= 0.1) return;
+            if (_skyMoonNoteVal > 0) {
+                _waveColor.copy(BiomeUniforms.skyMoon.moonNoteColor.value);
+                _activeWave = { color: _waveColor, timestamp: performance.now() };
+                _waveDecayStartTime = 0;
+            }
+        });
     }
 
     registerMoon(moonMesh: THREE.Object3D) {
@@ -582,6 +610,43 @@ export class MusicReactivitySystem {
             }
             // Day guard: clamp intensity to 0 when daytime so sky/moon are unchanged.
             SkyUniforms.intensity.value = isNight ? Math.min(_smoothedSkyIntensity, 1.0) : 0.0;
+        }
+
+        // ---------------------------------------------------------------
+        // ⚡ SKY WAVE — Per-channel MOD note-color wave propagation
+        // When a sky/moon note fires on the beat, its hue cascades down
+        // through foliage emissive uniforms, delayed by propagation_ms.
+        // Zero allocations: all colors and state are module-level.
+        // ---------------------------------------------------------------
+        const twilightVal = uTwilight.value;
+        if (twilightVal > 0.1) {
+            if (_activeWave) {
+                const elapsed = (performance.now() - _activeWave.timestamp) / _skyWavePropagationMs;
+                if (elapsed < 0.3) {
+                    BiomeUniforms.arpeggioGrove.noteColor.value.lerp(_activeWave.color, 0.2);
+                } else if (elapsed < 0.7) {
+                    BiomeUniforms.crystallineNebula.noteColor.value.lerp(_activeWave.color, 0.2);
+                } else if (elapsed >= 1.0) {
+                    _activeWave = null;
+                    _waveDecayStartTime = performance.now();
+                }
+            } else if (_waveDecayStartTime > 0) {
+                const decayElapsed = performance.now() - _waveDecayStartTime;
+                if (decayElapsed < _skyWaveDecayMs) {
+                    BiomeUniforms.arpeggioGrove.noteColor.value.lerp(_whiteColor, 0.05);
+                    BiomeUniforms.crystallineNebula.noteColor.value.lerp(_whiteColor, 0.05);
+                } else {
+                    _waveDecayStartTime = 0;
+                    BiomeUniforms.arpeggioGrove.noteColor.value.copy(_whiteColor);
+                    BiomeUniforms.crystallineNebula.noteColor.value.copy(_whiteColor);
+                }
+            }
+        } else {
+            // Dawn guard: clear active wave and decay to white
+            if (_activeWave) {
+                _activeWave = null;
+                _waveDecayStartTime = performance.now();
+            }
         }
 
         // ---------------------------------------------------------------

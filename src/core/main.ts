@@ -159,7 +159,7 @@ loadingScreen.completePhase('world-generation');
 
 // Initialize Music Reactivity with dependencies
 await StageLoader.loadStage('musicReactivity', () => {
-    musicReactivitySystem.init(scene, weatherSystem!);
+    musicReactivitySystem.init(scene, weatherSystem!, beatSync);
     // Explicitly register moon (cleaner than traversing scene later)
     if (moon) {
         musicReactivitySystem.registerMoon(moon);
