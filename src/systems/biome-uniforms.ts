@@ -26,6 +26,7 @@ export const BiomeUniforms = {
         shimmer: uniform(0.0),
         /** 0–1 hue-mix factor — blends frond colour towards an accent tint. */
         hueShift: uniform(0.0),
+        noteColor: uniform(new THREE.Color(0xffffff)),
     },
 
     /**
@@ -37,6 +38,7 @@ export const BiomeUniforms = {
         shimmer: uniform(0.0),
         /** ≥1 amplitude multiplier for the lotus bass-pulse displacement. */
         amplitudeScale: uniform(1.0),
+        noteColor: uniform(new THREE.Color(0xffffff)),
     },
 
     /**
