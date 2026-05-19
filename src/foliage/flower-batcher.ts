@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { instanceIndex, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
+import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { foliageGroup } from '../world/state.ts';
 import {
     foliageMaterials,
@@ -34,14 +34,14 @@ export class FlowerBatcher {
     private initialized = false;
 
     // Batches
-    private stems: THREE.InstancedMesh;
-    private centers: THREE.InstancedMesh;
-    private stamens: THREE.InstancedMesh;
+    private stems!: THREE.InstancedMesh;
+    private centers!: THREE.InstancedMesh;
+    private stamens!: THREE.InstancedMesh;
 
     // Petal Batches (by shape)
-    private petalsSimple: THREE.InstancedMesh; // Icosahedron
-    private petalsMulti: THREE.InstancedMesh;  // Sphere
-    private petalsSpiral: THREE.InstancedMesh; // Cone
+    private petalsSimple!: THREE.InstancedMesh; // Icosahedron
+    private petalsMulti!: THREE.InstancedMesh;  // Sphere
+    private petalsSpiral!: THREE.InstancedMesh; // Cone
 
     // Counts
     private stemCount = 0;
@@ -51,7 +51,7 @@ export class FlowerBatcher {
     private multiCount = 0;
     private spiralCount = 0;
 
-    private _poseMachine: PlantPoseMachine;
+    private _poseMachine!: PlantPoseMachine;
 
     private constructor() {
         // Deferred init

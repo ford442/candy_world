@@ -1,10 +1,10 @@
-
 import * as THREE from 'three';
-import { instanceIndex, MeshStandardNodeMaterial } from 'three/webgpu';
+import { MeshStandardNodeMaterial } from 'three/webgpu';
+import type { Node } from 'three/webgpu';
 import {
     color, float, vec3, attribute, positionLocal, positionWorld,
     sin, smoothstep, uniform, mix,
-    Node, varyingProperty
+    varyingProperty
 } from 'three/tsl';
 import {
     sharedGeometries, foliageMaterials, uTime,

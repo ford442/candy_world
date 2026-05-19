@@ -263,7 +263,7 @@ export function animate() {
 
     profiler.measure('Weather', () => {
         weatherSystemRef!.update(t, audioState);
-        weatherSystemRef!.updateBerrySeasonalSize(cyclePos, CYCLE_DURATION);
+        weatherSystemRef!.updateBerrySeasonalSize(cyclePos);
     });
 
     profiler.measure('Interaction', () => {
@@ -557,7 +557,7 @@ export function animate() {
             _scratchParticleAudioData.groove = audioState?.grooveAmount || 0;
             _scratchParticleAudioData.windX = weatherSystemRef!.windDirection.x;
             _scratchParticleAudioData.windZ = weatherSystemRef!.windDirection.z;
-            _scratchParticleAudioData.windSpeed = weatherSystemRef!.currentState === WeatherState.STORM ? 0.8 : 0.2;
+            _scratchParticleAudioData.windSpeed = weatherSystemRef!.state === WeatherState.STORM ? 0.8 : 0.2;
 
             updateAllIntegratedSystems(rendererRef, delta, player.position, _scratchParticleAudioData);
         });

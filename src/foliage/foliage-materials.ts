@@ -140,7 +140,7 @@ export const foliageMaterials: { [key: string]: THREE.Material | THREE.Material[
             CandyPresets.Gummy(0xFF9F43),       // Orange Gummy
             CandyPresets.Sugar(0xFDCB6E),       // Sugared Yellow
             CandyPresets.Crystal(0x54A0FF),     // Blue Crystal
-            CandyPresets.OilSlick()             // Rare Oil
+            CandyPresets.OilSlick(0x222222)             // Rare Oil
         ];
     },
 

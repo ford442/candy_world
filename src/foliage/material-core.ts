@@ -3,11 +3,12 @@
 
 import * as THREE from 'three';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
+import type { Node } from 'three/webgpu';
 import {
     color, float, uv, mix, vec3, vec2, Fn, uniform, dot, max, min,
     mx_noise_float, positionLocal, positionWorld, normalWorld, normalLocal,
     cameraPosition, sin, pow, abs, normalize, smoothstep, exp,
-    texture, Node, attribute
+    texture, attribute
 } from 'three/tsl';
 
 import { applyGlitch } from './glitch.ts';
@@ -71,7 +72,7 @@ const materialCache = new Map<string, THREE.Material>();
  */
 export function getCachedProceduralMaterial(
     key: string,
-    colorHint: number,
+    colorHint: number | string | THREE.Color,
     factory: () => THREE.Material
 ): THREE.Material {
     if (materialCache.has(key)) {
