@@ -5,7 +5,7 @@
 
 import { AudioSystem } from '../../audio/audio-system';
 import { keyStates } from './input-types.ts';
-import { announce, announceValueChange } from '../../ui/announcer.ts';
+import { announce, announceValueChange, announcePolite } from '../../ui/announcer.ts';
 
 let audioSystemRef: AudioSystem | null = null;
 
@@ -110,19 +110,20 @@ export const adjustVolume = (delta: number) => {
 
     // UX: Update Button States (Visual Polish)
     // Use epsilon for float comparison safety
+    const isMin = newVol <= 0.01;
+    const isMax = newVol >= 0.99;
+
     if (volDownBtn) {
-        const isDisabled = newVol <= 0.01;
-        volDownBtn.setAttribute('aria-disabled', String(isDisabled));
+        volDownBtn.setAttribute('aria-disabled', String(isMin));
         // 🎨 Palette: Explain why the button is disabled
-        volDownBtn.title = isDisabled ? "Minimum volume reached" : `Decrease Volume (-) • ${percentage}%`;
-        volDownBtn.setAttribute('aria-label', isDisabled ? "Decrease Volume (Disabled: Minimum reached)" : `Decrease Volume (Current: ${percentage}%)`);
+        volDownBtn.title = isMin ? "Minimum volume reached" : `Decrease Volume (-) • ${percentage}%`;
+        volDownBtn.setAttribute('aria-label', isMin ? "Decrease Volume (Disabled: Minimum reached)" : `Decrease Volume (Current: ${percentage}%)`);
     }
     if (volUpBtn) {
-        const isDisabled = newVol >= 0.99;
-        volUpBtn.setAttribute('aria-disabled', String(isDisabled));
+        volUpBtn.setAttribute('aria-disabled', String(isMax));
         // 🎨 Palette: Explain why the button is disabled
-        volUpBtn.title = isDisabled ? "Maximum volume reached" : `Increase Volume (+) • ${percentage}%`;
-        volUpBtn.setAttribute('aria-label', isDisabled ? "Increase Volume (Disabled: Maximum reached)" : `Increase Volume (Current: ${percentage}%)`);
+        volUpBtn.title = isMax ? "Maximum volume reached" : `Increase Volume (+) • ${percentage}%`;
+        volUpBtn.setAttribute('aria-label', isMax ? "Increase Volume (Disabled: Maximum reached)" : `Increase Volume (Current: ${percentage}%)`);
     }
 
     const icon = newVol === 0 ? '🔇' : newVol < 0.5 ? '🔉' : '🔊';
@@ -131,7 +132,13 @@ export const adjustVolume = (delta: number) => {
         showToast(`Volume: ${percentage}% ${icon}`, icon);
     });
 
-    announceValueChange('Volume', percentage, 0, 100);
+    if (isMin) {
+        announcePolite('Volume at minimum');
+    } else if (isMax) {
+        announcePolite('Volume at maximum');
+    } else {
+        announceValueChange('Volume', `${percentage}%`);
+    }
 };
 
 /**
