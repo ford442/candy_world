@@ -308,7 +308,7 @@ export class ScreenshotCapture {
         // Wait for it to become enabled (if generation is slow)
         await this.page.waitForFunction(() => {
             const btn = document.getElementById('startButton');
-            return btn && !btn.disabled && btn.getAttribute('aria-busy') !== 'true';
+            return btn && (btn.disabled === false || btn.getAttribute('disabled') === null) && btn.getAttribute('aria-disabled') !== 'true' && btn.getAttribute('aria-busy') !== 'true';
         }, { timeout: 120000 });
 
         // Ensure overlay is hidden
