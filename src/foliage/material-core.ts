@@ -284,42 +284,23 @@ export const applyPlayerInteraction = (basePosNode: any) => {
  * Samples wind vector from texture based on world position + time
  */
 export const calculateWindSway = Fn(([posNode]) => {
-    // Get wind texture data for TSL sampling inside the function to avoid execution order issues
-    const windTextureData = getWindTextureData();
+    // NOTE: Texture-sampled wind is disabled. Three.js TSL's WGSLNodeBuilder
+    // generates `textureLoad(tex, vec2u)` (no mip-level arg) for any
+    // texture flagged isStorageTexture === true, even when read as a
+    // sampled texture_2d<f32>. This produces an invalid WGSL vertex shader
+    // and crashes every foliage material on load. Until three.js is fixed,
+    // fall back to a procedural sway equivalent to calculateWindSwayLegacy.
+    const windTime = uTime.mul(uWindSpeed.add(0.5));
+    const swayPhase = positionWorld.x.mul(0.5).add(positionWorld.z.mul(0.5)).add(windTime);
+    const swayAmount = sin(swayPhase).mul(0.1).mul(uWindSpeed.add(0.2));
 
-    // Create UV coordinates from world position with tiling
-    // Scale matches the world-space tiling of the wind texture
-    const worldScale = float(0.1); // Matches getWindTextureData().sampleScale
-    const timeOffset = uTime.mul(0.1); // Animated wind flow
-    
-    // UV coordinates: world XZ mapped to texture with animation
-    const windUV = vec2(
-        positionWorld.x.mul(worldScale).add(timeOffset),
-        positionWorld.z.mul(worldScale).add(timeOffset.mul(0.5)) // Different speed for Y axis
-    );
-    
-    // Sample wind vector from baked texture (RG channels = XZ wind)
-    const windSample = texture(windTextureData.texture, windUV);
-    const windX = windSample.r;
-    const windZ = windSample.g;
-    const gustIntensity = windSample.b; // Gust intensity for variation
-    
-    // Height factor: more sway at the top (cantilever effect)
     const heightFactor = posNode.y.max(0.0);
-    const heightBend = heightFactor.pow(2.0); // Squared for natural bend curve
-    
-    // Apply global wind speed uniform for dynamic control
-    const speedMultiplier = uWindSpeed.add(0.2).mul(0.1);
-    
-    // Apply gust intensity for dynamic variation
-    const gustMultiplier = float(1.0).add(gustIntensity.mul(0.5));
-    
-    // Calculate final bend offset
-    // Uses direction uniform for global wind direction control
+    const heightBend = heightFactor.pow(2.0);
+
     const windBend = vec3(
-        windX.mul(uWindDirection.x).mul(heightBend).mul(speedMultiplier).mul(gustMultiplier),
+        uWindDirection.x.mul(swayAmount).mul(heightBend),
         float(0.0),
-        windZ.mul(uWindDirection.z).mul(heightBend).mul(speedMultiplier).mul(gustMultiplier)
+        uWindDirection.z.mul(swayAmount).mul(heightBend)
     );
 
     return windBend;
