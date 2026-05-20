@@ -548,7 +548,7 @@ export class SaveMenu {
 
         const setWorkingState = () => {
             btnElement.setAttribute('aria-busy', 'true');
-            btnElement.disabled = true;
+            btnElement.setAttribute("aria-disabled", "true");
             btnElement.style.width = `${originalWidth}px`;
             btnElement.style.justifyContent = 'center';
             btnElement.innerHTML = '<span class="candy-save-menu__spinner" style="width: 16px; height: 16px; margin: 0; border-width: 2px;"><span class="visually-hidden">Processing...</span></span>';
@@ -556,7 +556,7 @@ export class SaveMenu {
 
         const restoreState = () => {
             btnElement.removeAttribute('aria-busy');
-            btnElement.disabled = false;
+            btnElement.removeAttribute("aria-disabled");
             btnElement.style.width = '';
             btnElement.style.justifyContent = '';
             btnElement.innerHTML = originalHtml;

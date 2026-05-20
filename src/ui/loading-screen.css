@@ -283,7 +283,7 @@
   position: relative;
   overflow: hidden;
   box-shadow: 0 0 10px rgba(255, 107, 157, 0.3);
-  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* Shimmer effect on progress bar */
@@ -310,7 +310,7 @@
 
 /* Striped animation for indeterminate state */
 .progress-fill.indeterminate {
-  width: 30% !important;
+  transform: scaleX(0.3) !important;
   animation: indeterminate 1.5s ease-in-out infinite;
 }
 
