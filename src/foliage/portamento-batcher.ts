@@ -277,7 +277,8 @@ export class PortamentoPineBatcher {
         // If significant change, update attribute
         const last = pine.userData._lastUploadedBend || 0;
         if (Math.abs(state.currentBend - last) > 0.001) {
-             this.bendAttribute!.setX(i, state.currentBend);
+             // ⚡ OPTIMIZATION: Bypassed THREE.BufferAttribute.setX overhead by writing directly to typed array
+             this.bendAttribute!.array[i] = state.currentBend;
              pine.userData._lastUploadedBend = state.currentBend;
              needsUpdate = true;
         }
