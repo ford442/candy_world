@@ -225,7 +225,7 @@ export class DandelionBatcher {
             // Use length(vPuffDir) to detect seeds (non-zero puff dir)
             const seedFactor = step(0.1, length(vPuffDir)); // 1.0 if seed, 0.0 if stem
 
-            const shakePhase = instanceIndex.add(uTime.mul(20.0));
+            const shakePhase = float(instanceIndex).add(uTime.mul(20.0));
             const shakeAmt = sin(shakePhase).mul(0.02).mul(uAudioHigh);
             const shakeOffset = vPuffDir.mul(shakeAmt).mul(seedFactor);
 
