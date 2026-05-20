@@ -151,11 +151,12 @@ export class PortamentoPineBatcher {
         .mul(uTwilight)
         .mul(float(CONFIG.glow.glowIntensityMax))
         .mul(float(0.3).add(idlePulse));
+
     needleMat.emissiveNode = baseGlowColor
-    .mul(BiomeUniforms.arpeggioGrove.noteColor)
-    .mul(audioGlow)
-    .add(rimLight)
-    .add(twilightGlowTint);
+        .mul(BiomeUniforms.arpeggioGrove.noteColor)
+        .mul(audioGlow)
+        .add(rimLight)
+        .add(twilightGlowTint);
     registerReactiveMaterial(needleMat);
 
     this.bendAttribute = new THREE.InstancedBufferAttribute(new Float32Array(MAX_PINES), 1);
