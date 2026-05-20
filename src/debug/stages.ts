@@ -156,8 +156,8 @@ export class StageLoader {
   ): Promise<StageResult> {
     const startTime = performance.now();
     
-    // Check if stage is enabled
-    if (!DEBUG_STAGES[name]) {
+    // Check if stage is enabled (only respect flags when debug mode is active)
+    if (DEBUG_CONFIG.enabled && !DEBUG_STAGES[name]) {
       console.log(`%c[${name}] ⏭️  SKIPPED`, 'color: gray; font-weight: bold');
       updateStageStatus(name, StageStatus.SKIPPED, 0);
       return { success: true, duration: 0 };

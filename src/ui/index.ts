@@ -17,6 +17,7 @@ export {
     showLoadingScreen,
     showDeferredIndicator,
     hideDeferredIndicator,
+    setDeferredProgress,
     hideLoadingScreen,
     updateProgress,
     setLoadingStatus,
