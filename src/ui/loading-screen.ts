@@ -213,7 +213,7 @@ export class LoadingScreen {
             this.deferredIndicator.id = 'candy-deferred-indicator';
             this.deferredIndicator.className = 'deferred-indicator';
             this.deferredIndicator.setAttribute('aria-hidden', 'true');
-            this.deferredIndicator.innerHTML = '<span class="deferred-spinner"></span><span class="deferred-text">Populating...</span>';
+            this.deferredIndicator.innerHTML = '<span class="deferred-spinner"></span><span class="deferred-text">Populating...</span><span class="deferred-count" aria-hidden="true"></span><span class="deferred-bar"><span class="deferred-bar-fill"></span></span>';
             document.body.appendChild(this.deferredIndicator);
         }
         if (typeof document === 'undefined') return;
@@ -428,6 +428,19 @@ export class LoadingScreen {
         this.deferredIndicator.classList.add('visible');
         this.deferredIndicator.setAttribute('aria-hidden', 'false');
         if (this.options.debug) console.log('[LoadingScreen] Deferred indicator shown');
+    }
+
+    /**
+     * Update the deferred indicator's progress bar and count
+     */
+    setDeferredProgress(completed: number, total: number): void {
+        if (!this.deferredIndicator) return;
+        const pct = total > 0 ? Math.min(100, Math.max(0, (completed / total) * 100)) : 0;
+        const fill = this.deferredIndicator.querySelector('.deferred-bar-fill') as HTMLElement | null;
+        if (fill) fill.style.width = `${pct.toFixed(1)}%`;
+        const count = this.deferredIndicator.querySelector('.deferred-count') as HTMLElement | null;
+        if (count) count.textContent = `${completed} / ${total}`;
+        this.deferredIndicator.setAttribute('aria-valuenow', String(Math.round(pct)));
     }
 
     /**
@@ -1023,6 +1036,10 @@ export function showDeferredIndicator(): void {
 
 export function hideDeferredIndicator(): void {
     globalLoadingScreen?.hideDeferredIndicator();
+}
+
+export function setDeferredProgress(completed: number, total: number): void {
+    globalLoadingScreen?.setDeferredProgress(completed, total);
 }
 
 export function hideLoadingScreen(): void {
