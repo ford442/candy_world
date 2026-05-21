@@ -55,6 +55,11 @@ export const PROCEDURAL_ENTITY_COUNT = 400;       // Number of random procedural
  */
 const ENTITY_BUDGET_MS = 14;
 const YIELD_ENTITY_BATCH_SIZE = 40;
+const YIELD_LOG_INTERVAL = YIELD_ENTITY_BATCH_SIZE * 5;
+
+function shouldLogYieldProgress(current: number, total: number): boolean {
+    return current === YIELD_ENTITY_BATCH_SIZE || current === total || current % YIELD_LOG_INTERVAL === 0;
+}
 
 // Type definitions for map data
 interface MapEntity {
@@ -572,7 +577,9 @@ export async function generateMap(
 
         scannedEntities++;
         if (scannedEntities % YIELD_ENTITY_BATCH_SIZE === 0 && scannedEntities < entities.length) {
-            console.log(`[World] Yielding during entity scan at ${scannedEntities}/${entities.length} (last type: ${item.type})`);
+            if (shouldLogYieldProgress(scannedEntities, entities.length)) {
+                console.log(`[World] Yielding during entity scan at ${scannedEntities}/${entities.length} (last type: ${item.type})`);
+            }
             await yieldControl();
         }
     }
@@ -624,7 +631,9 @@ export async function generateMap(
 
         // Yield control back to the browser.
         if (i < criticalTotal) {
-            console.log(`[World] Yielding after ${i}/${criticalTotal} critical entities (last type: ${lastEntityType})`);
+            if (shouldLogYieldProgress(i, criticalTotal)) {
+                console.log(`[World] Yielding after ${i}/${criticalTotal} critical entities (last type: ${lastEntityType})`);
+            }
             await yieldControl();
         }
     }
@@ -669,7 +678,9 @@ export async function generateMap(
 
         queuedDeferred++;
         if (queuedDeferred % YIELD_ENTITY_BATCH_SIZE === 0 && queuedDeferred < deferredEntities.length) {
-            console.log(`[World] Yielding while queueing deferred entities at ${queuedDeferred}/${deferredEntities.length} (last type: ${item.type})`);
+            if (shouldLogYieldProgress(queuedDeferred, deferredEntities.length)) {
+                console.log(`[World] Yielding while queueing deferred entities at ${queuedDeferred}/${deferredEntities.length} (last type: ${item.type})`);
+            }
             await yieldControl();
         }
     }

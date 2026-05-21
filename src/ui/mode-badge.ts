@@ -34,11 +34,11 @@ export function showModeBadge(mode: WorldMode) {
   if (mode === 'CORE') {
     modeBadge.style.background = 'rgba(255, 158, 205, 0.92)';
     modeBadge.style.color = '#2b0f1c';
-    modeBadge.innerText = 'MODE: CORE';
+    modeBadge.innerText = 'CORE MODE';
   } else {
     modeBadge.style.background = 'rgba(125, 211, 252, 0.92)';
     modeBadge.style.color = '#0f2a3a';
-    modeBadge.innerText = 'MODE: FULL';
+    modeBadge.innerText = 'FULL MODE';
   }
 
   document.body.appendChild(modeBadge);

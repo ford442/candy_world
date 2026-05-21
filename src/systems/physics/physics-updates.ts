@@ -529,13 +529,11 @@ export async function initCppPhysics(camera: THREE.Camera) {
     initDynamicFoliageBridge(500);
     const { arpeggioFernBatcher } = await import('../../foliage/arpeggio-batcher.ts');
     const validCaves = filterValidPhysicsObjects(foliageCaves, 'cave');
-    const fernBatcherReady = arpeggioFernBatcher.initialized;
-    const validFerns = fernBatcherReady
-        ? filterValidPhysicsObjects(arpeggioFernBatcher.logicFerns, 'arpeggio fern')
-        : [];
+    const rawFerns = Array.isArray(arpeggioFernBatcher.logicFerns) ? arpeggioFernBatcher.logicFerns : [];
+    const validFerns = filterValidPhysicsObjects(rawFerns, 'arpeggio fern');
     const fernCount = validFerns.length;
-    if (!fernBatcherReady) {
-        console.log('[Physics] Arpeggio fern batcher not initialized; skipping dynamic foliage collision sync.');
+    if (rawFerns.length === 0) {
+        console.log('[Physics] Arpeggio fern batcher is empty or uninitialized; skipping dynamic foliage collision sync.');
     }
     if (fernCount > 0) {
         uploadCollisionObjects(validCaves, validMushrooms, validClouds, validTrampolines, validFerns);
