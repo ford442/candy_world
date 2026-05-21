@@ -19,7 +19,7 @@ import {
 } from './index.ts';
 import {
     color, float, vec3, positionLocal, mix, attribute, uv, sin, cos, positionWorld, smoothstep,
-    mx_noise_float, normalWorld, varyingProperty
+    mx_noise_float, normalWorld, varyingProperty, instanceIndex as tslInstanceIndex
 } from 'three/tsl';
 import { applyGlitch } from './glitch.ts';
 import { getCylinderGeometry, getTorusKnotGeometry } from '../utils/geometry-dedup.ts';
@@ -142,8 +142,8 @@ export class TreeBatcher {
         const sphereEmissive = sphereColor.mul(uAudioHigh.mul(1.5).add(0.2));
 
         // 🎨 PALETTE: Twilight Glow System Support
-        const instanceIndex = attribute('instanceIndex', 'uint');
-        const glowPhaseOffset = float(instanceIndex).mul(0.1);
+
+        const glowPhaseOffset = float(tslInstanceIndex).mul(0.1);
         const glowPulseFreq = float(CONFIG.glow.glowPulseFrequency);
         const glowPulseAmp = float(CONFIG.glow.glowPulseAmplitude);
 

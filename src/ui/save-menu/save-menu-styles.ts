@@ -348,7 +348,7 @@ export const MENU_STYLES = `
     transition-duration: 0.05s;
 }
 
-.candy-save-menu__btn:disabled {
+.candy-save-menu__btn[aria-disabled="true"] {
     opacity: 0.5;
     cursor: not-allowed;
     transform: none;
