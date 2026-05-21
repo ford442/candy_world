@@ -223,7 +223,7 @@ class DiscoverySystem {
                 // Focus close button for accessibility
                 closeBtn.focus();
             }
-        }, 100);
+        }, 300);
     }
 
     /**

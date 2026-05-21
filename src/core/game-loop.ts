@@ -586,6 +586,7 @@ export function animate() {
                     () => updateAllIntegratedSystems(rendererRef, delta, player.position, _scratchParticleAudioData),
                     'updateAllIntegratedSystems'
                 );
+            });
 
         if (fluidFog && audioState) {
             fluidSystem.update(delta, audioState);
