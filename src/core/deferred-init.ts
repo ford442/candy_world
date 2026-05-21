@@ -195,12 +195,14 @@ export function runDeferredWarmup(
 
         try {
             // compileAsync can hang on WebGPU with storage-buffer materials; cap at 8 s.
-            const compileTimeout = new Promise<void>(resolve => setTimeout(resolve, 8000));
+            const compileTimeout = new Promise<never>((_, reject) =>
+                setTimeout(() => reject(new Error('timeout')), 8000)
+            );
             await Promise.race([renderer.compileAsync(scene, camera), compileTimeout]);
             await forceFullSceneWarmup(renderer, scene, camera);
             console.log("✅ Scene shaders pre-compiled (Nuclear Warmup complete).");
         } catch (e) {
-            console.warn("Shader compile error (Non-Fatal):", e);
+            console.warn('[Warmup] Shader compilation timed out, forcing start');
         }
 
         scene.remove(dummyGroup);
