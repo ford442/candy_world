@@ -486,6 +486,10 @@ if (startButton) {
             : 'Enter Full Game <span aria-hidden="true">🌸</span> <span class="key-badge" aria-hidden="true">Enter</span>';
     };
 
+    const getGenerationLabel = (mode: WorldMode) => (
+        mode === 'CORE' ? 'Generating core world...' : 'Generating world map...'
+    );
+
     updateStartupMode(true);
 
     if (btnCoreOnly && btnFullGame) {
@@ -553,14 +557,14 @@ if (startButton) {
 
             loadingScreen.show();
             loadingScreen.startPhase('map-generation');
-            loadingScreen.updateProgress(0, requestedMode === 'CORE' ? 'Generating core world...' : 'Generating world map...');
+            loadingScreen.updateProgress(0, getGenerationLabel(requestedMode));
 
             let lastAnnounced = -1;
             startPhase('Map Generation');
 
             activeWorldMode = await populateWorld(scene, weatherSystem!, requestedMode, (current: number, total: number, label?: string, entityType?: string) => {
                 const percent = Math.floor((current / total) * 100);
-                const baseLabel = label ?? (requestedMode === 'CORE' ? 'Generating core world...' : 'Generating world...');
+                const baseLabel = label ?? getGenerationLabel(requestedMode);
                 const progressLabel = entityType ? `${baseLabel} · ${entityType}` : baseLabel;
                 loadingScreen.updateProgress(percent, progressLabel);
                 startButton.style.background = requestedMode === 'CORE'

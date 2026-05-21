@@ -65,12 +65,20 @@ import {
     physicsPanningPadsGrid
 } from './physics-core.ts';
 
-function hasFinitePosition(obj: any): boolean {
+interface PhysicsSyncObject {
+    position?: {
+        x?: number;
+        y?: number;
+        z?: number;
+    };
+}
+
+function hasFinitePosition(obj: PhysicsSyncObject): boolean {
     const position = obj?.position;
     return Number.isFinite(position?.x) && Number.isFinite(position?.y) && Number.isFinite(position?.z);
 }
 
-function filterValidPhysicsObjects<T>(objects: T[] | undefined, label: string): T[] {
+function filterValidPhysicsObjects<T extends PhysicsSyncObject>(objects: T[] | undefined, label: string): T[] {
     if (!Array.isArray(objects) || objects.length === 0) {
         return [];
     }
@@ -521,11 +529,12 @@ export async function initCppPhysics(camera: THREE.Camera) {
     initDynamicFoliageBridge(500);
     const { arpeggioFernBatcher } = await import('../../foliage/arpeggio-batcher.ts');
     const validCaves = filterValidPhysicsObjects(foliageCaves, 'cave');
-    const validFerns = arpeggioFernBatcher.initialized
+    const fernBatcherReady = arpeggioFernBatcher.initialized;
+    const validFerns = fernBatcherReady
         ? filterValidPhysicsObjects(arpeggioFernBatcher.logicFerns, 'arpeggio fern')
         : [];
     const fernCount = validFerns.length;
-    if (!arpeggioFernBatcher.initialized) {
+    if (!fernBatcherReady) {
         console.log('[Physics] Arpeggio fern batcher not initialized; skipping dynamic foliage collision sync.');
     }
     if (fernCount > 0) {

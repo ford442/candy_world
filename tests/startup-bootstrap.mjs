@@ -267,11 +267,12 @@ test('startup mode: fallback keeps active mode at CORE when FULL boot fails', ()
 
 test('startup progress: entity type is appended to loading label when present', () => {
   const requestedMode = 'FULL';
-  const label = '[World] Populating 40/180 critical entities';
+  const label = `[World] Populating world ${40}/${180}`;
   const entityType = 'mushroom';
   const baseLabel = label ?? (requestedMode === 'CORE' ? 'Generating core world...' : 'Generating world...');
   const progressLabel = entityType ? `${baseLabel} · ${entityType}` : baseLabel;
 
+  assert(/\[World\] Populating world \d+\/\d+/.test(baseLabel), 'progress label should keep the world count structure');
   assert(progressLabel.includes('mushroom'), 'entity type should be surfaced in the loading label');
   assert(progressLabel.includes('40/180'), 'entity counts should remain visible in the loading label');
 });

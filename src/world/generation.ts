@@ -54,6 +54,7 @@ export const PROCEDURAL_ENTITY_COUNT = 400;       // Number of random procedural
  * preventing "long task" jank on the main thread.
  */
 const ENTITY_BUDGET_MS = 14;
+const YIELD_ENTITY_BATCH_SIZE = 40;
 
 // Type definitions for map data
 interface MapEntity {
@@ -570,7 +571,7 @@ export async function generateMap(
         }
 
         scannedEntities++;
-        if (scannedEntities % 40 === 0 && scannedEntities < entities.length) {
+        if (scannedEntities % YIELD_ENTITY_BATCH_SIZE === 0 && scannedEntities < entities.length) {
             console.log(`[World] Yielding during entity scan at ${scannedEntities}/${entities.length} (last type: ${item.type})`);
             await yieldControl();
         }
@@ -601,7 +602,7 @@ export async function generateMap(
             processed++;
 
             // Yield as soon as we've spent our per-chunk budget.
-            if (processed >= 40 || performance.now() - chunkStart >= ENTITY_BUDGET_MS) {
+            if (processed >= YIELD_ENTITY_BATCH_SIZE || performance.now() - chunkStart >= ENTITY_BUDGET_MS) {
                 break;
             }
         }
@@ -613,7 +614,7 @@ export async function generateMap(
             onProgress(
                 current,
                 globalTotal,
-                `[World] Populating ${current}/${criticalTotal} critical entities`,
+                `[World] Populating world ${current}/${criticalTotal}`,
                 lastEntityType
             );
         }
@@ -667,7 +668,7 @@ export async function generateMap(
         });
 
         queuedDeferred++;
-        if (queuedDeferred % 40 === 0 && queuedDeferred < deferredEntities.length) {
+        if (queuedDeferred % YIELD_ENTITY_BATCH_SIZE === 0 && queuedDeferred < deferredEntities.length) {
             console.log(`[World] Yielding while queueing deferred entities at ${queuedDeferred}/${deferredEntities.length} (last type: ${item.type})`);
             await yieldControl();
         }
