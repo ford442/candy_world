@@ -50,14 +50,23 @@ declare global {
 
 /**
  * Create a renderer with automatic WebGL fallback if WebGPU is unavailable
+ * or if the WebGPURenderer constructor throws at runtime (e.g. Safari 17.4 where
+ * navigator.gpu exists but requestAdapter() returns null).
  * @param canvas The canvas element to render to
  * @returns Object containing the renderer and mode
  */
 function createRenderer(canvas: HTMLCanvasElement): { renderer: CandyRenderer; mode: 'webgpu' | 'webgl' } {
     if (WebGPU.isAvailable()) {
-        console.log('[Init] WebGPU available, creating WebGPURenderer');
-        const renderer = new WebGPURenderer({ canvas, antialias: true });
-        return { renderer, mode: 'webgpu' };
+        try {
+            console.log('[Init] WebGPU available, creating WebGPURenderer');
+            const renderer = new WebGPURenderer({ canvas, antialias: true });
+            return { renderer, mode: 'webgpu' };
+        } catch (err) {
+            // Issue #2: WebGPU may be declared available but fail at runtime
+            // (e.g. requestAdapter returns null on Safari 17.4 / Chrome with
+            // disabled GPU).  Fall through to the WebGL path instead of crashing.
+            console.warn('[Init] WebGPURenderer creation failed — falling back to WebGLRenderer:', err);
+        }
     }
 
     console.warn('[Init] WebGPU unavailable — falling back to WebGLRenderer');
