@@ -20,7 +20,8 @@ import { glitchGrenadeSystem } from '../systems/glitch-grenade.ts';
 
 // Core imports
 import { CONFIG } from './config.ts';
-import { initScene, forceFullSceneWarmup } from './init.js';
+import { initScene } from './init.js';
+import { ShaderWarmup } from '../rendering/shader-warmup.ts';
 import { initInput, keyStates } from './input/index.ts';
 import { initPostProcessing } from '../foliage/post-processing.ts';
 
@@ -332,23 +333,44 @@ console.log(`[Startup] Camera positioned at ground height: y=${camera.position.y
         }
         loadingScreen.startPhase('shader-warmup');
         loadingScreen.updateProgress(5, 'Pre-compiling shaders...');
-        // compileAsync can hang indefinitely on WebGPU when storage-buffer / compute
-        // materials are in the scene.  Race it against a 8 s timeout so startup
-        // always proceeds even if a pipeline never settles.
-        const compileTimeout = new Promise<never>((_, reject) =>
-            setTimeout(() => reject(new Error('timeout')), 8000)
-        );
+
+        // Replace the monolithic compileAsync + forceFullSceneWarmup with a
+        // time-budgeted batched approach so no single task exceeds ~100 ms.
+        const BATCH_SIZE = 10;
+        const BUDGET_MS = 100;
+        let batchCount = 0;
+
         try {
-            await Promise.race([renderer.compileAsync(scene, camera), compileTimeout]);
+            const warmup = new ShaderWarmup();
+            const targets = warmup.getTargets();
+
+            for (let i = 0; i < targets.length; i += BATCH_SIZE) {
+                const batchStart = performance.now();
+                const batch = targets.slice(i, i + BATCH_SIZE);
+
+                for (const target of batch) {
+                    const mat = target.create();
+                    try {
+                        await warmup.warmupSingle(mat, renderer, target.name);
+                    } catch (_e) { /* skip non-critical failures */ }
+                }
+
+                batchCount++;
+                const batchMs = performance.now() - batchStart;
+                const pct = 5 + Math.round((i / targets.length) * 85);
+                loadingScreen.updateProgress(pct, `Warming shaders (${i + batch.length}/${targets.length})...`);
+
+                // Yield after every batch to stay within the long-task budget.
+                if (batchMs > BUDGET_MS || i + BATCH_SIZE < targets.length) {
+                    await new Promise<void>(resolve => setTimeout(resolve, 0));
+                }
+            }
+            warmup.dispose();
+            console.log(`[Startup] Shaders pre-compiled in ${batchCount} batch(es)`);
         } catch (err) {
-            console.warn('[Warmup] Shader compilation timed out, forcing start');
+            console.warn('[Warmup] Shader compilation error (non-fatal):', err);
         }
-        loadingScreen.updateProgress(55, 'Warming up pipelines...');
-        try {
-            await forceFullSceneWarmup(renderer, scene, camera);
-        } catch (err) {
-            console.warn('[ShaderWarmup] forceFullSceneWarmup error (non-fatal):', err);
-        }
+
         loadingScreen.updateProgress(90, 'Finalizing scene...');
         console.log('[Startup] Shaders pre-compiled');
         loadingScreen.updateProgress(100, 'Scene ready!');
