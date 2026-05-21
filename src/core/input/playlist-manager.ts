@@ -445,27 +445,25 @@ export function togglePlaylist(): void {
             setTimeout(() => {
                 if (isPlaylistOpen && playlistOverlay) {
                     releaseJukeboxFocus = trapFocusInside(playlistOverlay);
+
+                    // UX: Auto-focus the currently playing track for immediate context
+                    if (!audioSystemRef || !playlistList) return;
+                    const currentIdx = audioSystemRef.getCurrentIndex();
+                    const playlistBtns = playlistList.querySelectorAll('.playlist-btn');
+
+                    if (currentIdx >= 0 && playlistBtns[currentIdx]) {
+                        const activeBtn = playlistBtns[currentIdx] as HTMLElement;
+                        activeBtn.focus();
+                        // Ensure the active song is visible in the scrollable list
+                        activeBtn.scrollIntoView({ block: 'center', behavior: 'smooth' });
+                    } else if (closePlaylistBtn) {
+                        closePlaylistBtn.focus();
+                    }
                 }
             }, 300);
         }
         if (playlistBackdrop) playlistBackdrop.style.display = 'block';
         renderPlaylist();
-        
-        // UX: Auto-focus the currently playing track for immediate context
-        requestAnimationFrame(() => {
-            if (!audioSystemRef || !playlistList) return;
-            const currentIdx = audioSystemRef.getCurrentIndex();
-            const playlistBtns = playlistList.querySelectorAll('.playlist-btn');
-
-            if (currentIdx >= 0 && playlistBtns[currentIdx]) {
-                const activeBtn = playlistBtns[currentIdx] as HTMLElement;
-                activeBtn.focus();
-                // Ensure the active song is visible in the scrollable list
-                activeBtn.scrollIntoView({ block: 'center', behavior: 'smooth' });
-            } else if (closePlaylistBtn) {
-                closePlaylistBtn.focus();
-            }
-        });
     } else {
         // CLOSING
         if (releaseJukeboxFocus) {
