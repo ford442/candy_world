@@ -58,6 +58,13 @@ interface StartupReport {
     materialCount: number;
     compilePhases: PhaseTiming[];
   };
+  /** Warmup batch metrics (populated by recordWarmupMetrics) */
+  warmup: {
+    batches: number;
+    batchMaxMs: number;
+  };
+  /** Number of generation chunks yielded to the browser (populated by recordGenerationChunk) */
+  generationChunksStreamed: number;
   slowPhases: PhaseTiming[];
   warnings: string[];
 }
@@ -123,6 +130,15 @@ let tslMetrics = {
   materialCount: 0,
   compilePhases: [] as PhaseTiming[],
 };
+
+// Warmup batch tracking
+let warmupMetrics = {
+  batches: 0,
+  batchMaxMs: 0,
+};
+
+// Generation chunk streaming counter
+let generationChunksStreamed = 0;
 
 // UI Elements
 let overlayContainer: HTMLElement | null = null;
@@ -306,6 +322,9 @@ export function startPhase(name: string): void {
   });
   
   memorySnapshots.push(memoryBefore);
+
+  // Emit a performance mark so external profilers (Lighthouse, DevTools) can surface it
+  try { performance.mark(`candy:phase:${name}:start`); } catch (_e) { /* not all envs support this */ }
 }
 
 export function endPhase(name: string): PhaseTiming | null {
@@ -321,6 +340,12 @@ export function endPhase(name: string): PhaseTiming | null {
   
   phases.delete(name);
   completedPhases.push(phase);
+
+  // Emit performance marks/measure for external profilers
+  try {
+    performance.mark(`candy:phase:${name}:end`);
+    performance.measure(`candy:${name}`, `candy:phase:${name}:start`, `candy:phase:${name}:end`);
+  } catch (_e) { /* not all envs support this */ }
   
   // Check for slow phase
   if (phase.duration > config.slowPhaseThreshold) {
@@ -353,6 +378,27 @@ export function recordTSLCompile(phaseName: string, duration: number): void {
     duration,
   });
   tslMetrics.materialCount++;
+}
+
+/**
+ * Record shader warmup batch metrics.
+ * Call once after the warmup loop completes.
+ * @param batches   Total number of batches processed
+ * @param batchMaxMs  Duration (ms) of the slowest batch
+ */
+export function recordWarmupMetrics(batches: number, batchMaxMs: number): void {
+  if (!isEnabled) return;
+  warmupMetrics.batches = batches;
+  warmupMetrics.batchMaxMs = batchMaxMs;
+}
+
+/**
+ * Increment the generation-chunks-streamed counter.
+ * Call once per time-budget yield inside the map-generation loop.
+ */
+export function recordGenerationChunk(): void {
+  if (!isEnabled) return;
+  generationChunksStreamed++;
 }
 
 // ============================================================================
@@ -389,6 +435,8 @@ function generateReport(): StartupReport {
     },
     wasm: { ...wasmMetrics },
     tsl: { ...tslMetrics },
+    warmup: { ...warmupMetrics },
+    generationChunksStreamed,
     slowPhases,
     warnings: [...warnings],
   };
@@ -508,6 +556,15 @@ function outputReportToConsole(report: StartupReport): void {
     }));
     console.table(tslTable);
   }
+  console.groupEnd();
+
+  console.group('🔥 Shader Warmup');
+  console.log(`Batches: ${report.warmup.batches}`);
+  console.log(`Max batch duration: ${formatDuration(report.warmup.batchMaxMs)}`);
+  console.groupEnd();
+
+  console.group('🌍 Map Generation');
+  console.log(`Chunks streamed: ${report.generationChunksStreamed}`);
   console.groupEnd();
   
   if (report.warnings.length > 0) {
@@ -809,6 +866,11 @@ export function enableStartupProfiler(userConfig: Partial<ProfilerConfig> = {}):
     materialCount: 0,
     compilePhases: [],
   };
+  warmupMetrics = {
+    batches: 0,
+    batchMaxMs: 0,
+  };
+  generationChunksStreamed = 0;
   
   // Record initial memory
   memorySnapshots.push(getMemoryUsage());

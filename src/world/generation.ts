@@ -38,6 +38,7 @@ import {
 import mapData from '../../assets/map.json';
 import { globalBackgroundProcessor } from '../utils/background-processor.ts';
 import { showDeferredIndicator, hideDeferredIndicator } from '../ui/index.ts';
+import { recordGenerationChunk } from '../utils/startup-profiler.ts';
 
 // Yields control back to the browser for one event loop turn, allowing the
 // renderer to update the loading screen and preventing "Page Unresponsive" dialogs.
@@ -45,9 +46,11 @@ const yieldControl = (): Promise<void> => new Promise(resolve => setTimeout(reso
 
 // Performance constants for async generation
 const obstaclesData: {x: number, y: number, z: number, radius: number}[] = [];
-export const DEFAULT_MAP_CHUNK_SIZE = 100;        // Map entities per chunk
+export const DEFAULT_MAP_CHUNK_SIZE = 100;        // Map entities per chunk (used for progress reporting)
 export const DEFAULT_PROCEDURAL_CHUNK_SIZE = 100; // Procedural extras per chunk
 export const PROCEDURAL_ENTITY_COUNT = 400;       // Number of random procedural items
+/** Maximum ms spent processing map entities before yielding to the event loop. */
+const ENTITY_BUDGET_MS = 50;
 
 // Type definitions for map data
 interface MapEntity {
@@ -536,6 +539,7 @@ export async function generateMap(
     chunkSize: number = DEFAULT_MAP_CHUNK_SIZE,
     onProgress?: (current: number, total: number) => void
 ): Promise<void> {
+    performance.mark('candy:map-generation-start');
     console.log(`[World] Loading map with ${mapData.entities.length} entities...`);
 
     // Reset WASM Collision System for Generation Phase
@@ -562,20 +566,37 @@ export async function generateMap(
     // Procedural extras are now split as well. We'll approximate.
     const globalTotal = criticalTotal + 1; // +1 for Arpeggio Grove
 
-    // 2. Process Critical Map Entities (Blocking / Async chunked)
-    for (let i = 0; i < criticalTotal; i += chunkSize) {
-        const chunk = criticalEntities.slice(i, Math.min(i + chunkSize, criticalTotal));
-        
-        chunk.forEach(item => {
-            processMapEntity(item, weatherSystem);
-        });
-        
-        if (onProgress) {
-            onProgress(Math.min(i + chunkSize, criticalTotal), globalTotal);
+    // 2. Process Critical Map Entities with a per-entity time budget.
+    // Instead of fixed-size chunks (which could still run long if entities are heavy),
+    // we check elapsed time after each entity and yield as soon as ENTITY_BUDGET_MS
+    // is exceeded. This keeps every task well under 100 ms.
+    let i = 0;
+    while (i < criticalTotal) {
+        const chunkStart = performance.now();
+        let processed = 0;
+
+        while (i + processed < criticalTotal) {
+            const idx = i + processed;
+            processMapEntity(criticalEntities[idx], weatherSystem);
+            processed++;
+
+            // Yield as soon as we've spent our per-chunk budget.
+            if (performance.now() - chunkStart >= ENTITY_BUDGET_MS) {
+                break;
+            }
         }
-        
-        // Yield control back to browser
-        await new Promise(resolve => setTimeout(resolve, 0));
+
+        i += processed;
+
+        if (onProgress) {
+            onProgress(Math.min(i, criticalTotal), globalTotal);
+        }
+
+        // Record this chunk for the startup profiler.
+        recordGenerationChunk();
+
+        // Yield control back to the browser.
+        await yieldControl();
     }
 
     // --- Spawn The Cave (Critical) ---
@@ -615,6 +636,11 @@ export async function generateMap(
 
     // --- Populate Procedural Extras (Split into Critical/Deferred inside) ---
     await populateProceduralExtras(weatherSystem, chunkSize);
+
+    performance.mark('candy:map-generation-end');
+    try {
+        performance.measure('candy:Map Generation', 'candy:map-generation-start', 'candy:map-generation-end');
+    } catch (_e) { /* ignore if marks were cleared */ }
 
     console.log("[World] Critical map generation complete! Deferred tasks queued.");
 }
