@@ -234,8 +234,8 @@ export class FlowerBatcher {
         group.userData.isBatched = true;
 
         // Ensure world matrix is up to date
-        group.updateMatrix();
-        const rootMatrix = group.matrix;
+        group.updateWorldMatrix(true, false);
+        const rootMatrix = group.matrixWorld;
 
         // Parse options
         const colorHex = options.color !== undefined ? options.color : null;

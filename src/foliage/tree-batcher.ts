@@ -617,15 +617,8 @@ export class TreeBatcher {
                 const mat = (Array.isArray(mesh.material) ? mesh.material[0] : mesh.material) as THREE.MeshStandardMaterial;
                 // ⚡ OPTIMIZATION: Use shared color constant to prevent GC spikes in traverse
                 const col = mat.color || _defaultColorWhite;
-                mesh.updateMatrix();
-                let current = mesh;
-                _scratchTreeMatrix.copy(mesh.matrix);
-                while (current.parent && current.parent !== group) {
-                    current = current.parent;
-                    current.updateMatrix();
-                    _scratchTreeMatrix.premultiply(current.matrix);
-                }
-                _scratchTreeMatrix.premultiply(group.matrix);
+                mesh.updateWorldMatrix(true, false);
+                _scratchTreeMatrix.copy(mesh.matrixWorld);
 
                 if (mesh.geometry.type === 'CylinderGeometry') {
                      this.addInstance(this.trunks, _scratchTreeMatrix, col, 'trunkCount', animType, animOffset);
@@ -645,15 +638,8 @@ export class TreeBatcher {
                 const mat = (Array.isArray(mesh.material) ? mesh.material[0] : mesh.material) as THREE.MeshStandardMaterial;
                 // ⚡ OPTIMIZATION: Use shared color constant to prevent GC spikes in traverse
                 const col = mat.color || _defaultColorOrange;
-                mesh.updateMatrix();
-                let current = mesh;
-                _scratchTreeMatrix.copy(mesh.matrix);
-                while (current.parent && current.parent !== group) {
-                    current = current.parent;
-                    current.updateMatrix();
-                    _scratchTreeMatrix.premultiply(current.matrix);
-                }
-                _scratchTreeMatrix.premultiply(group.matrix);
+                mesh.updateWorldMatrix(true, false);
+                _scratchTreeMatrix.copy(mesh.matrixWorld);
 
                 if (mesh.geometry.type === 'SphereGeometry') {
                     this.addInstance(this.spheres, _scratchTreeMatrix, col, 'sphereCount', animType, animOffset);
@@ -670,15 +656,8 @@ export class TreeBatcher {
                 const mat = (Array.isArray(mesh.material) ? mesh.material[0] : mesh.material) as THREE.MeshStandardMaterial;
                 // ⚡ OPTIMIZATION: Use shared color constant to prevent GC spikes in traverse
                 const col = mat.color || _defaultColorGreen;
-                mesh.updateMatrix();
-                let current = mesh;
-                _scratchTreeMatrix.copy(mesh.matrix);
-                while (current.parent && current.parent !== group) {
-                    current = current.parent;
-                    current.updateMatrix();
-                    _scratchTreeMatrix.premultiply(current.matrix);
-                }
-                _scratchTreeMatrix.premultiply(group.matrix);
+                mesh.updateWorldMatrix(true, false);
+                _scratchTreeMatrix.copy(mesh.matrixWorld);
 
                 if (mesh.geometry.type === 'TubeGeometry') {
                     this.addInstance(this.helices, _scratchTreeMatrix, col, 'helixCount', animType, animOffset);
@@ -698,15 +677,8 @@ export class TreeBatcher {
                 const mat = (Array.isArray(mesh.material) ? mesh.material[0] : mesh.material) as THREE.MeshStandardMaterial;
                 // ⚡ OPTIMIZATION: Use shared color constant to prevent GC spikes in traverse
                 const col = mat.color || _defaultColorWhite;
-                mesh.updateMatrix();
-                let current = mesh;
-                _scratchTreeMatrix.copy(mesh.matrix);
-                while (current.parent && current.parent !== group) {
-                    current = current.parent;
-                    current.updateMatrix();
-                    _scratchTreeMatrix.premultiply(current.matrix);
-                }
-                _scratchTreeMatrix.premultiply(group.matrix);
+                mesh.updateWorldMatrix(true, false);
+                _scratchTreeMatrix.copy(mesh.matrixWorld);
 
                 if (mesh.geometry.type === 'CylinderGeometry') {
                     this.addInstance(this.trunks, _scratchTreeMatrix, col, 'trunkCount', animType, animOffset);

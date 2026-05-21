@@ -804,15 +804,8 @@ export class LODTreeBatcher {
             if ((child as THREE.Mesh).isMesh) {
                 const mesh = child as THREE.Mesh;
                 const mat = (Array.isArray(mesh.material) ? mesh.material[0] : mesh.material) as THREE.MeshStandardMaterial;
-                mesh.updateMatrix();
-                let current = mesh;
-                _scratchLODMatrix.copy(mesh.matrix);
-                while (current.parent && current.parent !== group) {
-                    current = current.parent;
-                    current.updateMatrix();
-                    _scratchLODMatrix.premultiply(current.matrix);
-                }
-                _scratchLODMatrix.premultiply(group.matrix);
+                mesh.updateWorldMatrix(true, false);
+                _scratchLODMatrix.copy(mesh.matrixWorld);
                 const col = mat.color || new THREE.Color(0xFFFFFF);
 
                 // Map geometry types to our LOD categories
