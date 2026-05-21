@@ -60,12 +60,6 @@ const loadingScreen = initLoadingScreen({ theme: 'candy', showEstimatedTime: tru
 loadingScreen.show();
 installLegacyAPI();
 
-// Hide the old HTML loading overlay now that the new system is active
-const oldOverlay = document.getElementById('loading-overlay');
-if (oldOverlay) {
-    oldOverlay.style.display = 'none';
-}
-
 // --- Enable Startup Profiler ---
 
 enableStartupProfiler({

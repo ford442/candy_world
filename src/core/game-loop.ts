@@ -603,6 +603,7 @@ export function animate() {
             }
         }
     });
+    });
 
     if (firefliesRef) {
         firefliesRef.visible = isDeepNight;

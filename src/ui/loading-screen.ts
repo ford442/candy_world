@@ -241,6 +241,8 @@ export class LoadingScreen {
         this.container.setAttribute('aria-valuemax', '100');
         this.container.setAttribute('aria-valuenow', '0');
         this.container.setAttribute('aria-label', 'Game loading progress');
+        this.container.setAttribute('aria-live', 'polite');
+        this.container.setAttribute('aria-atomic', 'true');
 
         // Create content wrapper
         const content = document.createElement('div');
@@ -375,6 +377,9 @@ export class LoadingScreen {
         this.createDOM();
         this.isVisible = true;
         this.isComplete = false;
+        
+        // Set aria-busy on the document body to indicate loading is in progress
+        document.body.setAttribute('aria-busy', 'true');
         
         this.lastFocusedElement = document.activeElement as HTMLElement;
 
@@ -986,6 +991,9 @@ export class LoadingScreen {
         this.timeText = null;
         this.skipButton = null;
         this.spinner = null;
+        
+        // Clear aria-busy once loading is complete
+        document.body.setAttribute('aria-busy', 'false');
     }
 }
 
