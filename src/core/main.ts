@@ -60,6 +60,44 @@ const loadingScreen = initLoadingScreen({ theme: 'candy', showEstimatedTime: tru
 loadingScreen.show();
 installLegacyAPI();
 
+// --- Top-level error boundary (Issue #1) ---
+// Catch any unhandled promise rejections during startup and surface them to the
+// loading screen so the user never sees a silent hang at 0%.
+window.addEventListener('unhandledrejection', (event) => {
+    const err = event.reason;
+    const msg = err instanceof Error ? err.message : String(err ?? 'Unknown error');
+    console.error('[Bootstrap] Unhandled rejection during startup:', err);
+    try {
+        loadingScreen.showFatalError(
+            `Startup failed: ${msg}\n\nRefresh the page to try again.`
+        );
+    } catch (_) {
+        // Loading screen may not be initialized yet — surface in the DOM directly.
+        // We attempt 'loading-overlay' first (the outermost wrapper defined in
+        // index.html), then fall back to 'loading-container' (the inner card).
+        // Use textContent to avoid XSS when inserting the error message.
+        const fallback = document.getElementById('loading-overlay') ??
+            document.getElementById('loading-container');
+        if (fallback) {
+            const p = document.createElement('p');
+            p.style.cssText = 'color:red;padding:1rem';
+            p.textContent = `Error: ${msg}`;
+            const btn = document.createElement('button');
+            btn.textContent = 'Reload';
+            btn.addEventListener('click', () => window.location.reload());
+            p.appendChild(document.createElement('br'));
+            p.appendChild(btn);
+            fallback.appendChild(p);
+        }
+    }
+    // Don't suppress the event — let DevTools still see it
+});
+
+// --- Fix Issue #5: Loading screen race condition guard ---
+// Tracks whether enterWorld() has started so warmupAndStartLoop() does not
+// hide the loading screen while map-generation is in progress.
+let _worldGenerationActive = false;
+
 // --- Enable Startup Profiler ---
 
 enableStartupProfiler({
@@ -403,7 +441,12 @@ loadingScreen.completePhase('wasm-init');
     renderer.setAnimationLoop(animate);
     try { (window as any).__sceneReady = true; } catch (e) { }
 
-    loadingScreen.hide();
+    // Issue #5: Only hide the initial loading screen if world generation has not
+    // yet started. If the user clicked "Start" during shader warmup, enterWorld()
+    // will have set _worldGenerationActive = true and is managing the screen itself.
+    if (!_worldGenerationActive) {
+        loadingScreen.hide();
+    }
 })();
 
 // --- START BUTTON + MAP GENERATION (unchanged UX) ---
@@ -460,6 +503,10 @@ if (startButton) {
         if (isGenerating || !startButton || worldGenerated) return;
 
         isGenerating = true;
+        // Issue #5: Signal to warmupAndStartLoop that world generation is active.
+        // This prevents the shader-warmup IIFE from hiding the loading screen
+        // while map generation is in progress.
+        _worldGenerationActive = true;
         console.log('[Startup] Entering world...');
 
         // Immediate UI feedback
@@ -588,6 +635,7 @@ if (startButton) {
             startButton.style.background = '';
             startButton.innerHTML = 'Retry';
         } finally {
+            _worldGenerationActive = false;
             isGenerating = false;
             startButton.disabled = false;
             startButton.setAttribute('aria-disabled', 'false');

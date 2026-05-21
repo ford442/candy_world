@@ -22,6 +22,7 @@
     "test": "node --experimental-detect-module tests/smoke-runner.mjs",
     "test:wasm": "node tests/wasm.mjs",
     "test:wasm-loader": "node tests/wasm-loader-reliability.mjs",
+    "test:startup": "node tests/startup-bootstrap.mjs",
     "test:integration": "npm run build:wasm && npm run test:wasm && npm run test",
     "verify:emcc": "node verification/verify_emcc_exports.js",
     "generate:map": "tsx tools/map-generator/cli.ts"
