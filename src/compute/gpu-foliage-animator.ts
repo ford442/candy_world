@@ -527,7 +527,10 @@ export class GPUFoliageAnimator {
         if (!this.gpu.isReady() || !this.uniformBuffer || !this.pipeline || !this.bindGroup) {
             return;
         }
-        
+
+        // Zero-count guard: dispatching a compute pass with 0 workgroups is harmless
+        // in the WebGPU spec but may still trigger validation warnings on some drivers,
+        // and running the uniform-write / dispatch path for empty data is pointless.
         if (this.instanceCount === 0) {
             return;
         }

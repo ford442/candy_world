@@ -299,7 +299,7 @@ export class SimpleFlowerBatcher {
     }
 
     update(audioState: any) {
-        if (!this.initialized) return;
+        if (!this.initialized || this.count === 0) return;
         const kick = audioState?.kickTrigger || 0;
         const bloom = Math.min(kick * 0.3, 0.5);
         const meshes = [this.stemMesh, this.petalMesh, this.centerMesh, this.stamenMesh, this.beamMesh];

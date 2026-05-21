@@ -456,6 +456,7 @@ export function checkVineAttachment(camera: THREE.Camera) {
 export async function initCppPhysics(camera: THREE.Camera) {
     initPhysics(camera.position.x, camera.position.y, camera.position.z);
     const totalCount = foliageMushrooms.length + foliageClouds.length + foliageTrampolines.length;
+    console.log(`[Physics] Uploading obstacle batch: ${foliageMushrooms.length} mushrooms, ${foliageClouds.length} clouds, ${foliageTrampolines.length} trampolines (total: ${totalCount})`);
     if (totalCount > 0) {
         const batchData = new Float32Array(totalCount * 9);
         let ptr = 0;
@@ -493,9 +494,18 @@ export async function initCppPhysics(camera: THREE.Camera) {
             batchData[ptr++] = 0;
         }
         uploadObstaclesBatch(batchData, totalCount);
+    } else {
+        // Core mode or early startup: no physics obstacles yet — safe to skip batch upload.
+        console.log('[Physics] No obstacles to batch-upload (Core mode or empty scene); skipping.');
     }
     initDynamicFoliageBridge(500);
     const { arpeggioFernBatcher } = await import('../../foliage/arpeggio-batcher.ts');
-    uploadCollisionObjects(foliageCaves, foliageMushrooms, foliageClouds, foliageTrampolines, arpeggioFernBatcher.logicFerns);
+    const fernCount = arpeggioFernBatcher.logicFerns?.length ?? 0;
+    if (fernCount > 0) {
+        uploadCollisionObjects(foliageCaves, foliageMushrooms, foliageClouds, foliageTrampolines, arpeggioFernBatcher.logicFerns);
+    } else {
+        // No arpeggio ferns yet (Core mode): upload only structural collision objects.
+        uploadCollisionObjects(foliageCaves, foliageMushrooms, foliageClouds, foliageTrampolines, []);
+    }
     console.log('[Physics] Engines Initialized (C++ & ASC).');
 }
