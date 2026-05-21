@@ -119,6 +119,11 @@ export async function generateGroundHeightmap(
     normalTexture.needsUpdate = true;
     normalTexture.generateMipmaps = false;
 
+    // The full-precision Float32 backing arrays are no longer needed now that the
+    // GPU textures have been created from the half-float copies.  They are
+    // returned as part of the struct for callers that need CPU-side sampling
+    // (e.g., sampleHeightmapCPU).  Callers that don't need them should let them
+    // fall out of scope so the GC can reclaim ~1 MB of heap as soon as possible.
     return { heights, normals, heightTexture, normalTexture };
 }
 
