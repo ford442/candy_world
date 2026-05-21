@@ -324,6 +324,32 @@ player.position.copy(camera.position);
 player.velocity.set(0, 0, 0);
 console.log(`[Startup] Camera positioned at ground height: y=${camera.position.y.toFixed(2)}`);
 
+// --- Phase 4: WASM Initialization (Emscripten, sequential with loading phase) ---
+// initWasm() loads the optional Emscripten C++ module that adds native-SIMD
+// performance on top of the already-active AssemblyScript fallbacks. Running it
+// here (before shader warmup, after world generation) means:
+//   • the loading screen shows a distinct "wasm-init" phase with attempt counter,
+//   • failures produce a user-visible error via setWasmError(), and
+//   • JS fallbacks are already active so the game stays playable regardless.
+loadingScreen.startPhase('wasm-init');
+await StageLoader.loadStage('wasm', async () => {
+    try {
+        const wasmOk = await initWasm();
+        if (wasmOk) {
+            console.log('[WASM] Emscripten loaded successfully');
+            fluidSystem.init();
+            recordWASMInit(performance.now(), true, true);
+        } else {
+            console.warn('[WASM] Emscripten unavailable — JS fallbacks active');
+            recordWASMInit(performance.now(), false, false);
+        }
+    } catch (err) {
+        console.warn('[WASM] Emscripten failed, using JS fallbacks:', err);
+        recordWASMInit(performance.now(), false, false);
+    }
+});
+loadingScreen.completePhase('wasm-init');
+
 // --- SHADER WARMUP (before loop starts to prevent first-frame stutter) ---
 (async function warmupAndStartLoop() {
     await StageLoader.loadStage('shaderWarmup', async () => {
@@ -383,18 +409,6 @@ console.log(`[Startup] Camera positioned at ground height: y=${camera.position.y
 
     loadingScreen.hide();
 })();
-
-// --- BACKGROUND: Optional Emscripten C++ module (non-blocking) ---
-// The JS fallbacks are already active; Emscripten just adds native performance.
-StageLoader.loadStage('wasm', async () => {
-    await initWasm();
-    console.log('[WASM] Emscripten loaded in background');
-    fluidSystem.init();
-    recordWASMInit(performance.now(), true, true);
-}).catch(err => {
-    console.warn('[WASM] Emscripten failed, using JS fallbacks:', err);
-    recordWASMInit(performance.now(), false, false);
-});
 
 // --- START BUTTON + MAP GENERATION (unchanged UX) ---
 const startButton = document.getElementById('startButton') as HTMLButtonElement | null;

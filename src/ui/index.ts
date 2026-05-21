@@ -23,6 +23,8 @@ export {
     setLoadingStatus,
     completePhase,
     setLoadingDebug,
+    setWasmPhase,
+    setWasmError,
     installLegacyAPI
 } from './loading-screen';
 
