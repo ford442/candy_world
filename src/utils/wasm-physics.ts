@@ -112,6 +112,27 @@ export function initDynamicFoliageBridge(maxPlants: number): boolean {
  * @param trampolines - Array of trampoline objects
  * @returns True if upload was successful
  */
+/**
+ * Uploads static collision geometry to the WASM physics engine.
+ * 
+ * TASK 1: Guards against uninitialized batchers (null/undefined)
+ *  - Validates each batcher exists and contains objects before processing
+ *  - Prevents null-pointer dereferences in WASM memory heap
+ *  - Early returns on WASM unavailability
+ * 
+ * TASK 2: Filters registration array & safely bypasses WASM in CORE mode
+ *  - Counts only active collision objects (caves.isBlocked, clouds.tier===1, etc.)
+ *  - Returns early if totalCount === 0, skipping WASM initialization
+ *  - Prevents wasteful allocation and computation in CORE mode
+ *  - Guarantees no 0-byte buffer allocation or null-pointer errors
+ * 
+ * @param caves Cave obstacles (filtered by isBlocked)
+ * @param mushrooms Mushroom colliders (always counted if array exists)
+ * @param clouds Cloud colliders (filtered by tier === 1)
+ * @param trampolines Trampoline colliders (legacy, not currently used)
+ * @param arpeggioFerns Dynamic fern colliders (optional, FULL mode only)
+ * @returns true if successful or safely bypassed, false on WASM unavailability
+ */
 export function uploadCollisionObjects(
     caves: Cave[] | undefined, 
     mushrooms: Mushroom[] | undefined, 
@@ -119,33 +140,71 @@ export function uploadCollisionObjects(
     trampolines: Trampoline[] | undefined,
     arpeggioFerns: any[] | undefined = undefined
 ): boolean {
-    if (!wasmInitCollisionSystem || !wasmAddCollisionObject) return false;
+    // ========== TASK 1: Guard Against Uninitialized Batchers ==========
+    // Validate WASM availability before proceeding
+    if (!wasmInitCollisionSystem || !wasmAddCollisionObject) {
+        console.warn('[WASM Physics] Collision system unavailable (WASM not initialized).');
+        return false;
+    }
 
+    // ========== TASK 2: Filter & Count Only Active Collision Objects ==========
+    // Calculate total count first (filtering out inactive objects)
+    // ⚡ OPTIMIZATION: Eliminated array allocations (.filter) in hot update path to prevent GC spikes
+    let totalCount = 0;
+    
+    // Caves: Count only those with isBlocked flag (guards against undefined userData)
+    if (caves && caves.length > 0) {
+        for (let i = 0; i < caves.length; i++) {
+            const cave = caves[i];
+            // TASK 1: Guard against undefined/malformed cave
+            if (cave && cave.userData && cave.userData.isBlocked) {
+                totalCount++;
+            }
+        }
+    }
+    
+    // Mushrooms: Count all valid objects (guards against null array)
+    if (mushrooms && mushrooms.length > 0) {
+        for (let i = 0; i < mushrooms.length; i++) {
+            // TASK 1: Guard against null/undefined mushroom
+            if (mushrooms[i]) {
+                totalCount++;
+            }
+        }
+    }
+    
+    // Clouds: Count only tier === 1 (guards against undefined/malformed cloud)
+    if (clouds && clouds.length > 0) {
+        for (let i = 0; i < clouds.length; i++) {
+            const cloud = clouds[i];
+            // TASK 1: Guard against undefined userData.tier
+            if (cloud && cloud.userData && cloud.userData.tier === 1) {
+                totalCount++;
+            }
+        }
+    }
+    
+    // Arpeggio Ferns: Count all valid objects (optional, FULL mode only)
+    if (arpeggioFerns && arpeggioFerns.length > 0) {
+        for (let i = 0; i < arpeggioFerns.length; i++) {
+            // TASK 1: Guard against null/undefined fern
+            if (arpeggioFerns[i]) {
+                totalCount++;
+            }
+        }
+    }
+
+    // TASK 2: Safe bypass if no static structures in CORE mode
+    if (totalCount === 0) {
+        console.log('[WASM Physics] CORE mode detected: No collision objects to upload. Skipping WASM initialization.');
+        return true; // Return success (not an error to have zero collisions)
+    }
+
+    // Initialize collision system only if we have objects to register
     wasmInitCollisionSystem();
 
     // ⚡ PERFORMANCE: Use batch upload instead of sequential calls
     // TYPE_MUSHROOM = 1, TYPE_CLOUD = 2, TYPE_GATE = 3, TYPE_TRAMPOLINE = 4
-
-    // Calculate total count first
-    // ⚡ OPTIMIZATION: Eliminated array allocations (.filter) in hot update path to prevent GC spikes
-    let totalCount = 0;
-    if (caves) {
-        for (let i = 0; i < caves.length; i++) {
-            if (caves[i].userData.isBlocked) totalCount++;
-        }
-    }
-    if (mushrooms) totalCount += mushrooms.length;
-    if (clouds) {
-        for (let i = 0; i < clouds.length; i++) {
-            if (clouds[i].userData.tier === 1) totalCount++;
-        }
-    }
-    if (arpeggioFerns) totalCount += arpeggioFerns.length;
-
-    if (totalCount === 0) {
-        console.log('[WASM] No collision objects to upload.');
-        return true;
-    }
 
     const exports = wasmInstance!.exports as WasmExports;
     
@@ -158,10 +217,10 @@ export function uploadCollisionObjects(
         const batchData = new Float32Array(totalCount * BATCH_SIZE);
         let ptr = 0;
 
-        // 1. Gates
-        if (caves) {
+        // 1. Gates (TASK 1: Guard against undefined cave/userData)
+        if (caves && caves.length > 0) {
             for (const cave of caves) {
-                if (cave.userData.isBlocked) {
+                if (cave && cave.userData && cave.userData.isBlocked) {
                     // ⚡ OPTIMIZATION: Eliminate Vector allocation and GC spike by using module-level scratch vector
                     const gatePos = _scratchGatePos.copy(cave.userData.gatePosition).applyMatrix4(cave.matrixWorld);
                     batchData[ptr++] = 3; // type
@@ -176,25 +235,27 @@ export function uploadCollisionObjects(
             }
         }
 
-        // 2. Mushrooms
-        if (mushrooms) {
+        // 2. Mushrooms (TASK 1: Guard against undefined mushroom/userData)
+        if (mushrooms && mushrooms.length > 0) {
             for (const m of mushrooms) {
-                const type = m.userData.isTrampoline ? 4 : 1;
-                batchData[ptr++] = type;
-                batchData[ptr++] = m.position.x;
-                batchData[ptr++] = m.position.y;
-                batchData[ptr++] = m.position.z;
-                batchData[ptr++] = m.userData.capRadius || 2.0;
-                batchData[ptr++] = m.userData.capHeight || 3.0;
-                batchData[ptr++] = 0;
-                batchData[ptr++] = 0;
+                if (m && m.userData && m.position) {
+                    const type = m.userData.isTrampoline ? 4 : 1;
+                    batchData[ptr++] = type;
+                    batchData[ptr++] = m.position.x;
+                    batchData[ptr++] = m.position.y;
+                    batchData[ptr++] = m.position.z;
+                    batchData[ptr++] = m.userData.capRadius || 2.0;
+                    batchData[ptr++] = m.userData.capHeight || 3.0;
+                    batchData[ptr++] = 0;
+                    batchData[ptr++] = 0;
+                }
             }
         }
 
-        // 3. Clouds
-        if (clouds) {
+        // 3. Clouds (TASK 1: Guard against undefined cloud/userData/scale)
+        if (clouds && clouds.length > 0) {
             for (const c of clouds) {
-                if (c.userData.tier === 1) {
+                if (c && c.userData && c.userData.tier === 1 && c.position && c.scale) {
                     batchData[ptr++] = 2; // type
                     batchData[ptr++] = c.position.x;
                     batchData[ptr++] = c.position.y;
@@ -207,18 +268,20 @@ export function uploadCollisionObjects(
             }
         }
 
-        // 4. Dynamic Arpeggio Ferns
-        if (arpeggioFerns) {
+        // 4. Dynamic Arpeggio Ferns (TASK 1: Guard against undefined fern/userData/scale)
+        if (arpeggioFerns && arpeggioFerns.length > 0) {
             for (let i = 0; i < arpeggioFerns.length; i++) {
                 const f = arpeggioFerns[i];
-                batchData[ptr++] = 5; // TYPE_DYNAMIC_FERN
-                batchData[ptr++] = f.position.x;
-                batchData[ptr++] = f.position.y;
-                batchData[ptr++] = f.position.z;
-                batchData[ptr++] = 2.0; // Base non-dynamic radius fallback
-                batchData[ptr++] = (f.userData.height || 4.5) * (f.scale.y || 1.0); // Height
-                batchData[ptr++] = i; // d3 / p1 (Dynamic ID index)
-                batchData[ptr++] = 0;
+                if (f && f.userData && f.position && f.scale) {
+                    batchData[ptr++] = 5; // TYPE_DYNAMIC_FERN
+                    batchData[ptr++] = f.position.x;
+                    batchData[ptr++] = f.position.y;
+                    batchData[ptr++] = f.position.z;
+                    batchData[ptr++] = 2.0; // Base non-dynamic radius fallback
+                    batchData[ptr++] = (f.userData.height || 4.5) * (f.scale.y || 1.0); // Height
+                    batchData[ptr++] = i; // d3 / p1 (Dynamic ID index)
+                    batchData[ptr++] = 0;
+                }
             }
         }
 
@@ -241,10 +304,10 @@ export function uploadCollisionObjects(
         }
     } else {
         // Fallback: Sequential upload (for backwards compatibility)
-        // 1. Gates
-        if (caves) {
+        // 1. Gates (TASK 1: Guard against undefined cave/userData)
+        if (caves && caves.length > 0) {
             caves.forEach(cave => {
-                if (cave.userData.isBlocked) {
+                if (cave && cave.userData && cave.userData.isBlocked) {
                     // ⚡ OPTIMIZATION: Eliminate Vector allocation and GC spike by using module-level scratch vector
                     const gatePos = _scratchGatePos.copy(cave.userData.gatePosition).applyMatrix4(cave.matrixWorld);
                     wasmAddCollisionObject!(3, gatePos.x, gatePos.y, gatePos.z, 2.5, 5.0, 0, 0, 0);
@@ -252,40 +315,44 @@ export function uploadCollisionObjects(
             });
         }
 
-        // 2. Mushrooms
-        if (mushrooms) {
+        // 2. Mushrooms (TASK 1: Guard against undefined mushroom/userData/position)
+        if (mushrooms && mushrooms.length > 0) {
             mushrooms.forEach(m => {
-                if (m.userData.isTrampoline) {
-                     wasmAddCollisionObject!(4, m.position.x, m.position.y, m.position.z,
-                        m.userData.capRadius || 2.0, m.userData.capHeight || 3.0, 0, 0, 0);
-                } else {
-                     wasmAddCollisionObject!(1, m.position.x, m.position.y, m.position.z,
-                        m.userData.capRadius || 2.0, m.userData.capHeight || 3.0, 0, 0, 0);
+                if (m && m.userData && m.position) {
+                    if (m.userData.isTrampoline) {
+                         wasmAddCollisionObject!(4, m.position.x, m.position.y, m.position.z,
+                            m.userData.capRadius || 2.0, m.userData.capHeight || 3.0, 0, 0, 0);
+                    } else {
+                         wasmAddCollisionObject!(1, m.position.x, m.position.y, m.position.z,
+                            m.userData.capRadius || 2.0, m.userData.capHeight || 3.0, 0, 0, 0);
+                    }
                 }
             });
         }
 
-        // 3. Clouds
-        if (clouds) {
+        // 3. Clouds (TASK 1: Guard against undefined cloud/userData/position/scale)
+        if (clouds && clouds.length > 0) {
             clouds.forEach(c => {
-                 if (c.userData.tier === 1) {
+                 if (c && c.userData && c.userData.tier === 1 && c.position && c.scale) {
                      wasmAddCollisionObject!(2, c.position.x, c.position.y, c.position.z,
                         c.scale.x || 1.0, c.scale.y || 1.0, 0, 0, 0);
                  }
             });
         }
 
-        // 4. Dynamic Arpeggio Ferns
-        if (arpeggioFerns) {
+        // 4. Dynamic Arpeggio Ferns (TASK 1: Guard against undefined fern/userData/position/scale)
+        if (arpeggioFerns && arpeggioFerns.length > 0) {
             for (let i = 0; i < arpeggioFerns.length; i++) {
                 const f = arpeggioFerns[i];
-                wasmAddCollisionObject!(5, f.position.x, f.position.y, f.position.z,
-                    2.0, (f.userData.height || 4.5) * (f.scale.y || 1.0), i, 0, 0);
+                if (f && f.userData && f.position && f.scale) {
+                    wasmAddCollisionObject!(5, f.position.x, f.position.y, f.position.z,
+                        2.0, (f.userData.height || 4.5) * (f.scale.y || 1.0), i, 0, 0);
+                }
             }
         }
     }
 
-    console.log(`[WASM] Uploaded ${totalCount} collision objects to ASC.${hasBatchFunction ? ' (batched)' : ' (sequential)'}`);
+    console.log(`[WASM Physics] Uploaded ${totalCount} collision objects to ASC.${hasBatchFunction ? ' (batched)' : ' (sequential)'}`);
     return true;
 }
 

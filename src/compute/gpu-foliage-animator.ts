@@ -377,6 +377,9 @@ export class GPUFoliageAnimator {
     private instanceData: FoliageInstanceData | null = null;
     private outputStaging: Float32Array | null = null;
     
+    // Safety flag: True only when instanceCount > 0 (compute dispatch is meaningful)
+    private isComputeActive: boolean = false;
+    
     // Constants
     private readonly INSTANCE_STRUCT_SIZE = 48; // bytes per instance
     private readonly OUTPUT_VEC4_SIZE = 16;     // bytes per vec4<f32>
@@ -402,6 +405,10 @@ export class GPUFoliageAnimator {
      * Initialize GPU resources (buffers, pipeline, bind group).
      * Must be called before using uploadInstances() or update().
      * 
+     * Safety: Allocates minimum-size buffers even if no instances are present (CORE mode).
+     * This prevents WebGPU validation errors when descriptor sets bind empty buffers.
+     * The isComputeActive flag prevents dispatch when instanceCount === 0.
+     * 
      * @throws Error if GPU device is not initialized
      */
     async initialize(): Promise<void> {
@@ -413,6 +420,7 @@ export class GPUFoliageAnimator {
         const outputBufferSize = this.maxInstances * 2 * this.OUTPUT_VEC4_SIZE; // position + rotation
         
         // Create buffers with initial dummy data
+        // NOTE: createStorageBuffer() has built-in safety: minimum 4 bytes allocation
         const dummyInstanceData = new Float32Array(this.maxInstances * 12); // 12 floats per instance struct
         const dummyOutputData = new Float32Array(this.maxInstances * 8);    // 2 vec4 per instance
         const dummyUniformData = new Float32Array(8); // 8 floats (32 bytes)
@@ -446,6 +454,7 @@ export class GPUFoliageAnimator {
         });
         
         // Create bind group
+        // Safety: Even if buffers are dummy (0 instances), binding layout is valid
         this.bindGroup = this.gpu.createBindGroup(
             this.pipeline,
             [this.instanceBuffer, this.outputBuffer, this.uniformBuffer],
@@ -455,11 +464,19 @@ export class GPUFoliageAnimator {
         // Pre-allocate output staging array
         this.outputStaging = new Float32Array(this.maxInstances * 8);
         
-        console.log(`[GPUFoliageAnimator] Initialized for ${this.maxInstances} max instances`);
+        // Initialize compute state: no instances yet, so dispatch is inactive
+        this.isComputeActive = false;
+        
+        console.log(`[GPUFoliageAnimator] Initialized for ${this.maxInstances} max instances (compute: ${this.isComputeActive ? 'active' : 'inactive'})`);
     }
     
     /**
      * Upload instance data to GPU.
+     * 
+     * Task 1 Verification: Verifies instanceCount before allocating/updating buffers.
+     * Task 2 Safety: Buffers created via gpu.createStorageBuffer() have built-in 
+     *         minimum 4-byte allocation, preventing validation errors.
+     * Task 3 Dispatch Control: Sets isComputeActive flag based on instance count.
      * 
      * @param data - Foliage instance data to upload
      * @throws Error if instance count exceeds maxInstances
@@ -470,12 +487,23 @@ export class GPUFoliageAnimator {
             return;
         }
         
-        this.instanceCount = data.positions.length / 3;
+        // TASK 1: Verify instanceCount before processing
+        const newInstanceCount = data.positions.length / 3;
         
-        if (this.instanceCount > this.maxInstances) {
+        if (newInstanceCount > this.maxInstances) {
             throw new Error(
-                `[GPUFoliageAnimator] Instance count (${this.instanceCount}) exceeds max (${this.maxInstances})`
+                `[GPUFoliageAnimator] Instance count (${newInstanceCount}) exceeds max (${this.maxInstances})`
             );
+        }
+        
+        this.instanceCount = newInstanceCount;
+        
+        // TASK 3: Set compute active state (true only if instances exist)
+        this.isComputeActive = this.instanceCount > 0;
+        
+        if (!this.isComputeActive) {
+            console.debug('[GPUFoliageAnimator] No instances to upload. Compute dispatch will be skipped.');
+            return;
         }
         
         this.instanceData = data;
@@ -520,6 +548,11 @@ export class GPUFoliageAnimator {
     /**
      * Update animations on GPU.
      * 
+     * Task 3 Implementation: Uses isComputeActive flag to skip dispatch when 
+     * instanceCount === 0 (CORE mode). This avoids wasting GPU cycles on empty data.
+     * Dummy buffers remain allocated and bound (preventing validation errors),
+     * but dispatch is completely bypassed.
+     * 
      * @param time - Current time in seconds
      * @param audio - Audio state for reactive animations
      */
@@ -528,10 +561,9 @@ export class GPUFoliageAnimator {
             return;
         }
 
-        // Zero-count guard: dispatching a compute pass with 0 workgroups is harmless
-        // in the WebGPU spec but may still trigger validation warnings on some drivers,
-        // and running the uniform-write / dispatch path for empty data is pointless.
-        if (this.instanceCount === 0) {
+        // TASK 3: Skip dispatch if compute is inactive (CORE mode, no instances)
+        // Dummy buffers remain bound to prevent validation errors, but dispatch is skipped
+        if (!this.isComputeActive) {
             return;
         }
         
@@ -621,6 +653,17 @@ export class GPUFoliageAnimator {
      */
     getMaxInstances(): number {
         return this.maxInstances;
+    }
+    
+    /**
+     * Check if compute dispatch is active.
+     * Returns false in CORE mode (0 instances) to prevent wasted GPU cycles.
+     * Dummy buffers remain allocated and bound to prevent validation errors.
+     * 
+     * @returns true if instanceCount > 0, false otherwise (CORE mode)
+     */
+    getIsComputeActive(): boolean {
+        return this.isComputeActive;
     }
     
     /**

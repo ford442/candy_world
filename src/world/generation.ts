@@ -584,6 +584,12 @@ export async function generateMap(
             processMapEntity(criticalEntities[idx], weatherSystem);
             processed++;
 
+            // Granular progress update every 50 entities with detailed text
+            if ((i + processed) % 50 === 0) {
+                const percentage = Math.floor(((i + processed) / criticalTotal) * 100);
+                updateProgress('map-generation', percentage, `Spawning flora: ${i + processed}/${criticalTotal}`);
+            }
+
             // Yield as soon as we've spent our per-chunk budget.
             if (performance.now() - chunkStart >= ENTITY_BUDGET_MS) {
                 break;

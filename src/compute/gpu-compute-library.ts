@@ -6,6 +6,9 @@
  * dispatch helpers used by MeshDeformationGPU, NoiseGeneratorGPU,
  * and CullingSystemGPU.
  *
+ * **Safety Guarantee**: All buffer allocations include a minimum size safeguard
+ * to prevent WebGPU validation errors when registries are empty (CORE mode).
+ *
  * @example
  * ```ts
  * const lib = new GPUComputeLibrary();
@@ -165,20 +168,39 @@ export class GPUComputeLibrary {
     // Buffer Management
     // =========================================================================
 
-    /** Create a GPU storage buffer, optionally initialised with data */
+    /**
+     * Create a GPU storage buffer, optionally initialised with data.
+     * 
+     * **Safety Guarantee**: Always allocates at least 4 bytes, even for empty data.
+     * This prevents WebGPU validation errors when binding empty registries (CORE mode).
+     * 
+     * @param data - Data to initialize the buffer with (may be empty)
+     * @param label - Debug label for the buffer
+     * @param readOnly - Whether this is a read-only binding
+     * @returns GPUBuffer with guaranteed minimum size
+     */
     createStorageBuffer(data: ArrayBufferView, label?: string, readOnly = false): GPUBuffer {
         if (!this.device) throw new Error('[GPU] Device not initialised');
 
+        // Safety: Ensure minimum 4 bytes even for empty data arrays
+        // This prevents "binding size mismatch" errors when TSL materials
+        // expect storage buffers for empty registries (e.g., CORE mode luminousPlants)
+        const minSize = 4;
+        const allocSize = Math.max(data.byteLength, minSize);
+        
         const usage = GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC;
         const buffer = this.device.createBuffer({
-            size: Math.max(data.byteLength, 4), // WebGPU requires size > 0
+            size: allocSize,
             usage,
             label: label ?? 'storage-buffer',
             mappedAtCreation: false,
         });
 
-        new Uint8Array(buffer.getMappedRange()).set(new Uint8Array(data.buffer, data.byteOffset, data.byteLength));
-        buffer.unmap();
+        // Only write data if present (avoid mapping empty buffer)
+        if (data.byteLength > 0) {
+            this.device.queue.writeBuffer(buffer, 0, data);
+        }
+        
         return buffer;
     }
 
@@ -187,14 +209,20 @@ export class GPUComputeLibrary {
         if (!this.device) throw new Error('[GPU] Device not initialised');
 
         // Align to 16 bytes (std140)
-        const alignedSize = Math.ceil(data.byteLength / 16) * 16;
+        // Safety: Ensure minimum 16 bytes even for empty data
+        const minSize = 16;
+        const alignedSize = Math.max(Math.ceil(data.byteLength / 16) * 16, minSize);
         const buffer = this.device.createBuffer({
-            size: Math.max(alignedSize, 16),
+            size: alignedSize,
             usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
             label: label ?? 'uniform-buffer',
         });
 
-        this.device.queue.writeBuffer(buffer, 0, data);
+        // Only write data if present
+        if (data.byteLength > 0) {
+            this.device.queue.writeBuffer(buffer, 0, data);
+        }
+        
         return buffer;
     }
 
@@ -324,6 +352,34 @@ export class GPUComputeLibrary {
             console.error(`[GPU] ${label} failed, falling back to CPU:`, error);
             return cpuFn();
         }
+    }
+
+    /**
+     * Check if a compute dispatch should be skipped due to empty registry.
+     * 
+     * Used in CORE mode when entity registries are empty (e.g., luminousPlants.count = 0).
+     * Even though we allocate dummy buffers, we should skip actual compute dispatch
+     * to avoid wasting GPU cycles.
+     * 
+     * @param activeCount - Number of active entities in the registry
+     * @param systemName - Name of the compute system (for logging)
+     * @returns true if dispatch should be skipped (count === 0)
+     * 
+     * @example
+     * ```ts
+     * const count = luminousPlantBatcher?.mesh?.count || 0;
+     * if (this.gpu.shouldSkipDispatch(count, 'LuminousPlantAnimator')) {
+     *     return; // Skip GPU dispatch, dummy buffers prevent validation errors
+     * }
+     * // Proceed with normal dispatch...
+     * ```
+     */
+    shouldSkipDispatch(activeCount: number, systemName: string = 'GPU Compute'): boolean {
+        if (activeCount === 0) {
+            console.debug(`[GPU] ${systemName}: Skipping dispatch (empty registry). Dummy buffer in place.`);
+            return true;
+        }
+        return false;
     }
 
     // =========================================================================
