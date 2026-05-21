@@ -29,6 +29,8 @@ import { BiomeUniforms } from '../systems/biome-uniforms.ts';
 import { CONFIG } from '../core/config.ts';
 import { applyInstanceAnimation, ANIMATION_TYPES } from './animation-nodes.ts';
 
+const _scratchTreeMatrix = new THREE.Matrix4();
+
 const _defaultColorWhite = new THREE.Color(0xFFFFFF);
 const _defaultColorOrange = new THREE.Color(0xFF4500);
 const _defaultColorGreen = new THREE.Color(0x00FA9A);
@@ -518,7 +520,7 @@ export class TreeBatcher {
 
     register(group: THREE.Group, type: string) {
         if (!this.initialized) this.init();
-        group.updateMatrixWorld(true);
+        group.updateMatrix();
 
         let animTypeEnum = ANIMATION_TYPES.STATIC;
         const typeStr = group.userData.animationType;
@@ -538,7 +540,7 @@ export class TreeBatcher {
         group.userData._animOffset = group.userData.animationOffset || 0;
 
         if (!this.initialized) this.init();
-        group.updateMatrixWorld(true);
+        group.updateMatrix();
 
         if (type === 'bubbleWillow' || type === 'willow') {
             this.registerBubbleWillow(group, group.userData._animTypeEnum, group.userData._animOffset);
@@ -615,12 +617,21 @@ export class TreeBatcher {
                 const mat = (Array.isArray(mesh.material) ? mesh.material[0] : mesh.material) as THREE.MeshStandardMaterial;
                 // ⚡ OPTIMIZATION: Use shared color constant to prevent GC spikes in traverse
                 const col = mat.color || _defaultColorWhite;
+                mesh.updateMatrix();
+                let current = mesh;
+                _scratchTreeMatrix.copy(mesh.matrix);
+                while (current.parent && current.parent !== group) {
+                    current = current.parent;
+                    current.updateMatrix();
+                    _scratchTreeMatrix.premultiply(current.matrix);
+                }
+                _scratchTreeMatrix.premultiply(group.matrix);
 
                 if (mesh.geometry.type === 'CylinderGeometry') {
-                     this.addInstance(this.trunks, mesh.matrixWorld, col, 'trunkCount', animType, animOffset);
+                     this.addInstance(this.trunks, _scratchTreeMatrix, col, 'trunkCount', animType, animOffset);
                      mesh.visible = false;
                 } else if (mesh.geometry.type === 'CapsuleGeometry') {
-                     this.addInstance(this.capsules, mesh.matrixWorld, col, 'capsuleCount', animType, animOffset);
+                     this.addInstance(this.capsules, _scratchTreeMatrix, col, 'capsuleCount', animType, animOffset);
                      mesh.visible = false;
                 }
             }
@@ -634,9 +645,18 @@ export class TreeBatcher {
                 const mat = (Array.isArray(mesh.material) ? mesh.material[0] : mesh.material) as THREE.MeshStandardMaterial;
                 // ⚡ OPTIMIZATION: Use shared color constant to prevent GC spikes in traverse
                 const col = mat.color || _defaultColorOrange;
+                mesh.updateMatrix();
+                let current = mesh;
+                _scratchTreeMatrix.copy(mesh.matrix);
+                while (current.parent && current.parent !== group) {
+                    current = current.parent;
+                    current.updateMatrix();
+                    _scratchTreeMatrix.premultiply(current.matrix);
+                }
+                _scratchTreeMatrix.premultiply(group.matrix);
 
                 if (mesh.geometry.type === 'SphereGeometry') {
-                    this.addInstance(this.spheres, mesh.matrixWorld, col, 'sphereCount', animType, animOffset);
+                    this.addInstance(this.spheres, _scratchTreeMatrix, col, 'sphereCount', animType, animOffset);
                     mesh.visible = false;
                 }
             }
@@ -650,12 +670,21 @@ export class TreeBatcher {
                 const mat = (Array.isArray(mesh.material) ? mesh.material[0] : mesh.material) as THREE.MeshStandardMaterial;
                 // ⚡ OPTIMIZATION: Use shared color constant to prevent GC spikes in traverse
                 const col = mat.color || _defaultColorGreen;
+                mesh.updateMatrix();
+                let current = mesh;
+                _scratchTreeMatrix.copy(mesh.matrix);
+                while (current.parent && current.parent !== group) {
+                    current = current.parent;
+                    current.updateMatrix();
+                    _scratchTreeMatrix.premultiply(current.matrix);
+                }
+                _scratchTreeMatrix.premultiply(group.matrix);
 
                 if (mesh.geometry.type === 'TubeGeometry') {
-                    this.addInstance(this.helices, mesh.matrixWorld, col, 'helixCount', animType, animOffset);
+                    this.addInstance(this.helices, _scratchTreeMatrix, col, 'helixCount', animType, animOffset);
                     mesh.visible = false;
                 } else if (mesh.geometry.type === 'SphereGeometry') {
-                    this.addInstance(this.spheres, mesh.matrixWorld, col, 'sphereCount', animType, animOffset);
+                    this.addInstance(this.spheres, _scratchTreeMatrix, col, 'sphereCount', animType, animOffset);
                     mesh.visible = false;
                 }
             }
@@ -669,13 +698,22 @@ export class TreeBatcher {
                 const mat = (Array.isArray(mesh.material) ? mesh.material[0] : mesh.material) as THREE.MeshStandardMaterial;
                 // ⚡ OPTIMIZATION: Use shared color constant to prevent GC spikes in traverse
                 const col = mat.color || _defaultColorWhite;
+                mesh.updateMatrix();
+                let current = mesh;
+                _scratchTreeMatrix.copy(mesh.matrix);
+                while (current.parent && current.parent !== group) {
+                    current = current.parent;
+                    current.updateMatrix();
+                    _scratchTreeMatrix.premultiply(current.matrix);
+                }
+                _scratchTreeMatrix.premultiply(group.matrix);
 
                 if (mesh.geometry.type === 'CylinderGeometry') {
-                    this.addInstance(this.trunks, mesh.matrixWorld, col, 'trunkCount', animType, animOffset);
+                    this.addInstance(this.trunks, _scratchTreeMatrix, col, 'trunkCount', animType, animOffset);
                 } else if (mesh.geometry.type === 'SphereGeometry') {
-                    this.addInstance(this.spheres, mesh.matrixWorld, col, 'sphereCount', animType, animOffset);
+                    this.addInstance(this.spheres, _scratchTreeMatrix, col, 'sphereCount', animType, animOffset);
                 } else if (mesh.geometry.type === 'TorusKnotGeometry') {
-                    this.addInstance(this.roses, mesh.matrixWorld, col, 'roseCount', animType, animOffset);
+                    this.addInstance(this.roses, _scratchTreeMatrix, col, 'roseCount', animType, animOffset);
                 }
                 mesh.visible = false;
             }
