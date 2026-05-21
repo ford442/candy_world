@@ -259,7 +259,10 @@ export function runDeferredWarmup(
                 });
 
                 // Frustum-visible first.
-                sceneEntries.sort((a, b) => (a.inFrustum ? 0 : 1) - (b.inFrustum ? 0 : 1));
+                sceneEntries.sort((a, b) => {
+                    if (a.inFrustum === b.inFrustum) return 0;
+                    return a.inFrustum ? -1 : 1;
+                });
 
                 // Compile each material by cloning it so warmupSingle can safely dispose
                 // the clone while the original in the scene remains intact.

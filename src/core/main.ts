@@ -361,7 +361,7 @@ console.log(`[Startup] Camera positioned at ground height: y=${camera.position.y
                 loadingScreen.updateProgress(pct, `Warming shaders (${i + batch.length}/${targets.length})...`);
 
                 // Yield after every batch to stay within the long-task budget.
-                if (batchMs > BUDGET_MS || i + BATCH_SIZE < targets.length) {
+                if (batchMs > BUDGET_MS || i + batch.length < targets.length) {
                     await new Promise<void>(resolve => setTimeout(resolve, 0));
                 }
             }

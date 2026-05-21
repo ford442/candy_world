@@ -576,7 +576,8 @@ export async function generateMap(
         let processed = 0;
 
         while (i + processed < criticalTotal) {
-            processMapEntity(criticalEntities[i + processed], weatherSystem);
+            const idx = i + processed;
+            processMapEntity(criticalEntities[idx], weatherSystem);
             processed++;
 
             // Yield as soon as we've spent our per-chunk budget.
