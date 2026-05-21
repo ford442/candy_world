@@ -619,6 +619,131 @@ export async function generateMap(
     console.log("[World] Critical map generation complete! Deferred tasks queued.");
 }
 
+export async function generateCoreWorld(
+    weatherSystem: WeatherSystem,
+    onProgress?: (current: number, total: number) => void
+): Promise<void> {
+    console.log('[World] Core Only mode: generating lightweight candy landscape');
+    initCollisionSystem();
+
+    const areaSize = 120;
+    const maxAttempts = 20;
+    const getRandomGroundPosition = (radius: number) => {
+        for (let attempt = 0; attempt < maxAttempts; attempt++) {
+            const x = (Math.random() - 0.5) * areaSize;
+            const z = (Math.random() - 0.5) * areaSize;
+            if (!isPositionValid(x, z, radius)) continue;
+            return { x, z, y: getUnifiedGroundHeight(x, z) };
+        }
+        return null;
+    };
+
+    const spawnObject = (
+        factory: () => THREE.Object3D,
+        count: number,
+        radius: number,
+        isObstacle: boolean = false
+    ) => {
+        let spawned = 0;
+        while (spawned < count) {
+            const pos = getRandomGroundPosition(radius);
+            if (!pos) break;
+            const obj = factory();
+            obj.position.set(pos.x, pos.y, pos.z);
+            obj.rotation.y = Math.random() * Math.PI * 2;
+            safeAddFoliage(obj, isObstacle, radius, weatherSystem);
+            spawned += 1;
+        }
+        return spawned;
+    };
+
+    if (onProgress) onProgress(0, 4);
+
+    // Basic candy trees
+    const treeFactories = [
+        () => createBubbleWillow(),
+        () => createBalloonBush(),
+        () => createHelixPlant(),
+        () => createPortamentoPine({ height: 4.5 }),
+    ];
+    for (let i = 0; i < 18; i++) {
+        const factory = treeFactories[i % treeFactories.length];
+        spawnObject(factory, 1, 1.5, true);
+    }
+    if (onProgress) onProgress(1, 4);
+
+    // Mushrooms and ground accents
+    for (let i = 0; i < 24; i++) {
+        spawnObject(() => createMushroom({ size: 'regular', scale: 0.8 + Math.random() * 0.5, hasFace: true, isBouncy: true }), 1, 0.5, true);
+    }
+    if (onProgress) onProgress(2, 4);
+
+    // Clouds above the terrain
+    for (let i = 0; i < 12; i++) {
+        const pos = getRandomGroundPosition(0.8);
+        if (!pos) continue;
+        const height = 10 + Math.random() * 18;
+        const cloud = createRainingCloud({ size: 1.0 + Math.random() * 0.8 });
+        cloud.position.set(pos.x, height, pos.z);
+        cloud.userData.tier = 1;
+        cloud.userData.isWalkable = true;
+        safeAddFoliage(cloud, false, 0.8, weatherSystem);
+    }
+    if (onProgress) onProgress(3, 4);
+
+    // Low flowers and luminous accents
+    for (let i = 0; i < 16; i++) {
+        const factory = Math.random() < 0.5 ? () => createFlower() : () => createGlowingFlower();
+        spawnObject(factory, 1, 0.4, false);
+    }
+
+    // Lake island accents
+    const islandItems = [
+        () => createGlowingFlower(),
+        () => createFlower(),
+    ];
+    for (let i = 0; i < 8; i++) {
+        const pos = getRandomGroundPosition(0.4);
+        if (!pos) continue;
+        const factory = islandItems[i % islandItems.length];
+        const obj = factory();
+        obj.position.set(pos.x, pos.y, pos.z);
+        obj.rotation.y = Math.random() * Math.PI * 2;
+        safeAddFoliage(obj, false, 0.4, weatherSystem);
+    }
+
+    initDiscoveryForFoliage(animatedFoliage);
+    if (onProgress) onProgress(4, 4);
+    console.log('[World] Core Only world generation complete.');
+}
+
+export type WorldMode = 'CORE' | 'FULL';
+
+export async function populateWorld(
+    scene: THREE.Scene,
+    weatherSystem: WeatherSystem,
+    mode: WorldMode = 'CORE',
+    onProgress?: (current: number, total: number) => void
+): Promise<void> {
+    console.log(`[World] Starting population in ${mode} mode`);
+
+    if (mode === 'CORE') {
+        console.log('%c[World] CORE Mode active — spawning minimal classic candy set', 'color:#ff9ecd');
+        await generateCoreWorld(weatherSystem, onProgress);
+        console.log('[World] Core mode ready. Heavy foliage systems skipped.');
+        return;
+    }
+
+    console.log('%c[World] FULL Mode — attempting complete musical ecosystem', 'color:#7dd3fc');
+    try {
+        await generateMap(weatherSystem, DEFAULT_MAP_CHUNK_SIZE, onProgress);
+        console.log('[World] Full mode population complete.');
+    } catch (error) {
+        console.error('[World] Full population failed. Falling back to Core state.', error);
+        await generateCoreWorld(weatherSystem, onProgress);
+    }
+}
+
 /**
  * Process a single map entity (extracted from forEach loop for chunking)
  */

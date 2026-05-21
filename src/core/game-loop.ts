@@ -47,6 +47,26 @@ const _scratchParticleAudioData: ParticleAudioData = {
     windZ: 0,
     windSpeed: 0
 };
+
+function safeUpdateBatcher(batcher: any, delta: number, label = 'batcher') {
+    if (batcher && typeof batcher.update === 'function') {
+        try {
+            batcher.update(delta);
+        } catch (err) {
+            console.warn(`[GameLoop] Skipped update on ${label} (likely empty or incomplete in Core mode)`, err);
+        }
+    }
+}
+
+function safeSystemUpdate(updateFn: any, label: string, ...args: any[]) {
+    if (typeof updateFn !== 'function') return;
+    try {
+        updateFn(...args);
+    } catch (err) {
+        console.warn(`[GameLoop] Skipped ${label} update in Core mode`, err);
+    }
+}
+
 import { WeatherState } from '../systems/weather-types.ts';
 import { CloudBatcher } from '../foliage/cloud-batcher.ts';
 import { fluidSystem } from '../systems/fluid_system.ts';
@@ -547,20 +567,25 @@ export function animate() {
     const fluidFog = getFluidFog();
 
     profiler.measure('MusicReact', () => {
-        musicReactivitySystem.update(t, delta, audioState, weatherSystemRef!, cpuAnimatedFoliage, cameraRef!, isNightNow, isDeepNight);
-        if (melodyRibbon) updateMelodyRibbons(melodyRibbon, delta, audioState);
-        profiler.measure('Particles', () => {
-            _scratchParticleAudioData.low = audioState?.kickTrigger || 0;
-            _scratchParticleAudioData.mid = 0.3;
-            _scratchParticleAudioData.high = audioState?.energy || 0;
-            _scratchParticleAudioData.beat = (audioState?.beatPhase || 0) < 0.1;
-            _scratchParticleAudioData.groove = audioState?.grooveAmount || 0;
-            _scratchParticleAudioData.windX = weatherSystemRef!.windDirection.x;
-            _scratchParticleAudioData.windZ = weatherSystemRef!.windDirection.z;
-            _scratchParticleAudioData.windSpeed = weatherSystemRef!.state === WeatherState.STORM ? 0.8 : 0.2;
+            safeSystemUpdate(
+                () => musicReactivitySystem.update(t, delta, audioState, weatherSystemRef!, cpuAnimatedFoliage, cameraRef!, isNightNow, isDeepNight),
+                'musicReactivitySystem'
+            );
+            if (melodyRibbon) updateMelodyRibbons(melodyRibbon, delta, audioState);
+            profiler.measure('Particles', () => {
+                _scratchParticleAudioData.low = audioState?.kickTrigger || 0;
+                _scratchParticleAudioData.mid = 0.3;
+                _scratchParticleAudioData.high = audioState?.energy || 0;
+                _scratchParticleAudioData.beat = (audioState?.beatPhase || 0) < 0.1;
+                _scratchParticleAudioData.groove = audioState?.grooveAmount || 0;
+                _scratchParticleAudioData.windX = weatherSystemRef!.windDirection.x;
+                _scratchParticleAudioData.windZ = weatherSystemRef!.windDirection.z;
+                _scratchParticleAudioData.windSpeed = weatherSystemRef!.state === WeatherState.STORM ? 0.8 : 0.2;
 
-            updateAllIntegratedSystems(rendererRef, delta, player.position, _scratchParticleAudioData);
-        });
+                safeSystemUpdate(
+                    () => updateAllIntegratedSystems(rendererRef, delta, player.position, _scratchParticleAudioData),
+                    'updateAllIntegratedSystems'
+                );
 
         if (fluidFog && audioState) {
             fluidSystem.update(delta, audioState);
@@ -673,9 +698,12 @@ export function animate() {
 
         harmonyOrbSystem.update(delta, audioState, player.position);
 
-        updateFallingClouds(delta, foliageClouds, getGroundHeight);
-        CloudBatcher.getInstance().update(delta);
-        CloudBatcher.getWalkableInstance().update(delta);
+        safeSystemUpdate(
+            () => updateFallingClouds(delta, foliageClouds, getGroundHeight),
+            'updateFallingClouds'
+        );
+        safeUpdateBatcher(CloudBatcher.getInstance(), delta, 'CloudBatcher');
+        safeUpdateBatcher(CloudBatcher.getWalkableInstance(), delta, 'CloudBatcherWalkable');
 
         // Update HUD
         updateHUD({

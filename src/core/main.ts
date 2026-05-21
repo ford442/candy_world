@@ -25,7 +25,7 @@ import { initInput, keyStates } from './input/index.ts';
 import { initPostProcessing } from '../foliage/post-processing.ts';
 
 // World & System imports
-import { initCriticalWorld, initDeferredWorldContent, initWorld, initWorldCritical, initWorldContent, generateMap, DEFAULT_MAP_CHUNK_SIZE } from '../world/generation.ts';
+import { initCriticalWorld, initDeferredWorldContent, initWorld, initWorldCritical, initWorldContent, generateMap, populateWorld, WorldMode, DEFAULT_MAP_CHUNK_SIZE } from '../world/generation.ts';
 import { animatedFoliage, interactiveObjects } from '../world/state.ts';
 import { fireRainbow } from '../gameplay/rainbow-blaster.ts';
 import { player, populatePhysicsGrids } from '../systems/physics/index.ts';
@@ -36,6 +36,7 @@ import { updateTheme, toggleDayNight, setInputSystem } from './hud.ts';
 import { initDeferredVisuals, initDeferredVisualsDependencies, runDeferredWarmup } from './deferred-init.ts';
 import { globalBackgroundProcessor } from '../utils/background-processor.ts';
 import { showDeferredIndicator, hideDeferredIndicator, setDeferredProgress } from '../ui/index.ts';
+import { showModeBadge } from '../ui/mode-badge.ts';
 import { DeferredLoader, LoadPriority } from '../systems/deferred-loader.ts';
 import { initLoadingScreen, installLegacyAPI } from '../ui/loading-screen.ts';
 
@@ -381,7 +382,40 @@ if (startButton) {
     startButton.setAttribute('aria-disabled', 'false');
     startButton.setAttribute('aria-busy', 'false');
     startButton.removeAttribute('title');
-    startButton.innerHTML = 'Enter World <span aria-hidden="true">🍭</span> <span class="key-badge" aria-hidden="true">Enter</span>';
+    startButton.innerHTML = 'Enter Core World <span aria-hidden="true">🍭</span> <span class="key-badge" aria-hidden="true">Enter</span>';
+
+    let coreOnlyMode = true;
+    const btnCoreOnly = document.getElementById('btn-core-only') as HTMLButtonElement | null;
+    const btnFullGame = document.getElementById('btn-full-game') as HTMLButtonElement | null;
+    const modeSelect = document.getElementById('mode-select');
+    const modeDescription = document.getElementById('mode-description');
+
+    const updateStartupMode = (isCore: boolean) => {
+        coreOnlyMode = isCore;
+        if (btnCoreOnly) {
+            btnCoreOnly.setAttribute('aria-pressed', String(isCore));
+            btnCoreOnly.style.boxShadow = isCore ? '0 5px 18px rgba(255, 156, 205, 0.55)' : 'none';
+        }
+        if (btnFullGame) {
+            btnFullGame.setAttribute('aria-pressed', String(!isCore));
+            btnFullGame.style.boxShadow = !isCore ? '0 5px 18px rgba(125, 211, 252, 0.55)' : 'none';
+        }
+        if (modeDescription) {
+            modeDescription.textContent = isCore
+                ? 'Fast startup with classic candy terrain, trees, mushrooms, and clouds.'
+                : 'Full game with the complete musical foliage map.';
+        }
+        startButton.innerHTML = isCore
+            ? 'Enter Core World <span aria-hidden="true">🍭</span> <span class="key-badge" aria-hidden="true">Enter</span>'
+            : 'Enter Full Game <span aria-hidden="true">🌸</span> <span class="key-badge" aria-hidden="true">Enter</span>';
+    };
+
+    updateStartupMode(true);
+
+    if (btnCoreOnly && btnFullGame) {
+        btnCoreOnly.addEventListener('click', () => updateStartupMode(true));
+        btnFullGame.addEventListener('click', () => updateStartupMode(false));
+    }
 
     let worldGenerated = false;
     let isGenerating = false;
@@ -428,20 +462,28 @@ if (startButton) {
                 if (intIdx > -1) interactiveObjects.splice(intIdx, 1);
             }
 
+            if (modeSelect) {
+                modeSelect.style.display = 'none';
+            }
+            showModeBadge(coreOnlyMode ? 'CORE' : 'FULL');
+
             loadingScreen.show();
             loadingScreen.startPhase('map-generation');
-            loadingScreen.updateProgress(0, 'Generating world map...');
+            loadingScreen.updateProgress(0, coreOnlyMode ? 'Generating core world...' : 'Generating world map...');
 
             let lastAnnounced = -1;
             startPhase('Map Generation');
 
-            await generateMap(weatherSystem!, DEFAULT_MAP_CHUNK_SIZE, (current: number, total: number) => {
+            await populateWorld(scene, weatherSystem!, coreOnlyMode ? 'CORE' : 'FULL', (current: number, total: number) => {
                 const percent = Math.floor((current / total) * 100);
-                loadingScreen.updateProgress(percent, `Generating world... ${percent}%`);
-                startButton.style.background = `linear-gradient(90deg, #FF6B6B ${percent}%, #FFB6C1 ${percent}%)`;
+                const label = coreOnlyMode ? 'Generating core world...' : 'Generating world...';
+                loadingScreen.updateProgress(percent, `${label} ${percent}%`);
+                startButton.style.background = coreOnlyMode
+                    ? `linear-gradient(90deg, #FF9ECD ${percent}%, #FFD4E3 ${percent}%)`
+                    : `linear-gradient(90deg, #FF6B6B ${percent}%, #FFB6C1 ${percent}%)`;
 
                 if (percent - lastAnnounced >= 10 || percent === 100) {
-                    startButton.innerHTML = `<span class="spinner" aria-hidden="true"></span>Generating ${percent}%... <span aria-hidden="true">🍭</span>`;
+                    startButton.innerHTML = `<span class="spinner" aria-hidden="true"></span>Generating ${percent}%... <span aria-hidden="true">${coreOnlyMode ? '🍭' : '🍭'}</span>`;
                     lastAnnounced = percent;
                 }
             });
@@ -504,7 +546,9 @@ if (startButton) {
 
             worldGenerated = true;
             startButton.style.background = '';
-            startButton.innerHTML = 'Regenerate World <span aria-hidden="true">🍭</span> <span class="key-badge" aria-hidden="true">Enter</span>';
+            startButton.innerHTML = coreOnlyMode
+                ? 'Regenerate Core World <span aria-hidden="true">🍭</span> <span class="key-badge" aria-hidden="true">Enter</span>'
+                : 'Regenerate Full Game <span aria-hidden="true">🌸</span> <span class="key-badge" aria-hidden="true">Enter</span>';
 
         } catch (err) {
             console.error('[Init] World generation failed:', err);
@@ -519,9 +563,6 @@ if (startButton) {
             startButton.removeAttribute('title');
         }
     }
-
-    // Auto-start world generation so player isn't stuck at blank screen
-    enterWorld();
 
     // Regenerate support
     startButton.addEventListener('click', () => {
