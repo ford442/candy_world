@@ -87,7 +87,7 @@ export class LuminousPlantBatcher {
 
         const id = this.count;
 
-        group.updateMatrixWorld(true);
+        group.updateWorldMatrix(true, false);
         // ⚡ OPTIMIZATION: Bypassed THREE.Object3D proxy and setMatrixAt() overhead by writing directly to instanceMatrix.
         group.matrixWorld.toArray(this.mesh.instanceMatrix.array, id * 16);
 

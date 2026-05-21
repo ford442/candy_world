@@ -8,6 +8,8 @@ import {
     normalLocal, varyingProperty
 } from 'three/tsl';
 import { foliageGroup } from '../world/state.ts';
+
+const _scratchLODMatrix = new THREE.Matrix4();
 import {
     CandyPresets,
     calculateWindSway,
@@ -795,13 +797,15 @@ export class LODTreeBatcher {
         const treeId = this.nextTreeId++;
         const componentIds: { [geometryType: string]: number } = {};
 
-        group.updateMatrixWorld(true);
+        group.updateMatrix();
 
         // Traverse and register each mesh component
         group.traverse((child) => {
             if ((child as THREE.Mesh).isMesh) {
                 const mesh = child as THREE.Mesh;
                 const mat = (Array.isArray(mesh.material) ? mesh.material[0] : mesh.material) as THREE.MeshStandardMaterial;
+                mesh.updateWorldMatrix(true, false);
+                _scratchLODMatrix.copy(mesh.matrixWorld);
                 const col = mat.color || new THREE.Color(0xFFFFFF);
 
                 // Map geometry types to our LOD categories
@@ -827,7 +831,7 @@ export class LODTreeBatcher {
 
                 if (geometryType) {
                     const instanceId = this.lodManager.registerObject(
-                        mesh.matrixWorld,
+                        _scratchLODMatrix,
                         col,
                         type,
                         geometryType,
