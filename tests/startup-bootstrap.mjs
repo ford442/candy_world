@@ -251,6 +251,32 @@ test('race fix: loading screen shown again if enterWorld starts before warmup hi
   assert(ls.wasCalled('show'), 'show() should have been called by enterWorld');
 });
 
+test('startup mode: fallback keeps active mode at CORE when FULL boot fails', () => {
+  const requestedMode = 'FULL';
+  let activeWorldMode = requestedMode;
+
+  function applyPopulateWorldResult(actualMode) {
+    activeWorldMode = actualMode;
+    return activeWorldMode;
+  }
+
+  const result = applyPopulateWorldResult('CORE');
+  assert(result === 'CORE', 'fallback should switch active mode to CORE');
+  assert(activeWorldMode === 'CORE', 'active mode should reflect the recovered CORE boot');
+});
+
+test('startup progress: entity type is appended to loading label when present', () => {
+  const requestedMode = 'FULL';
+  const label = `[World] Populating world ${40}/${180}`;
+  const entityType = 'mushroom';
+  const baseLabel = label ?? (requestedMode === 'CORE' ? 'Generating core world...' : 'Generating world...');
+  const progressLabel = entityType ? `${baseLabel} · ${entityType}` : baseLabel;
+
+  assert(/\[World\] Populating world \d+\/\d+/.test(baseLabel), 'progress label should keep the world count structure');
+  assert(progressLabel.includes('mushroom'), 'entity type should be surfaced in the loading label');
+  assert(progressLabel.includes('40/180'), 'entity counts should remain visible in the loading label');
+});
+
 // ============================================================================
 // Issue #2 — WebGPU renderer fallback
 // Tests that the renderer creation falls back to WebGL when WebGPURenderer

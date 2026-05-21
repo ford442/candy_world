@@ -65,6 +65,31 @@ import {
     physicsPanningPadsGrid
 } from './physics-core.ts';
 
+interface PhysicsSyncObject {
+    position?: {
+        x?: number;
+        y?: number;
+        z?: number;
+    };
+}
+
+function hasFinitePosition(obj: PhysicsSyncObject): boolean {
+    const position = obj?.position;
+    return Number.isFinite(position?.x) && Number.isFinite(position?.y) && Number.isFinite(position?.z);
+}
+
+function filterValidPhysicsObjects<T extends PhysicsSyncObject>(objects: T[] | undefined, label: string): T[] {
+    if (!Array.isArray(objects) || objects.length === 0) {
+        return [];
+    }
+
+    const validObjects = objects.filter(hasFinitePosition);
+    if (validObjects.length !== objects.length) {
+        console.warn(`[Physics] Skipping ${objects.length - validObjects.length} invalid ${label} objects during WASM collision sync.`);
+    }
+    return validObjects;
+}
+
 /**
  * Checks for flora discovery within player proximity.
  */
@@ -455,12 +480,15 @@ export function checkVineAttachment(camera: THREE.Camera) {
  */
 export async function initCppPhysics(camera: THREE.Camera) {
     initPhysics(camera.position.x, camera.position.y, camera.position.z);
-    const totalCount = foliageMushrooms.length + foliageClouds.length + foliageTrampolines.length;
-    console.log(`[Physics] Uploading obstacle batch: ${foliageMushrooms.length} mushrooms, ${foliageClouds.length} clouds, ${foliageTrampolines.length} trampolines (total: ${totalCount})`);
+    const validMushrooms = filterValidPhysicsObjects(foliageMushrooms, 'mushroom');
+    const validClouds = filterValidPhysicsObjects(foliageClouds, 'cloud');
+    const validTrampolines = filterValidPhysicsObjects(foliageTrampolines, 'trampoline');
+    const totalCount = validMushrooms.length + validClouds.length + validTrampolines.length;
+    console.log(`[Physics] Uploading obstacle batch: ${validMushrooms.length} mushrooms, ${validClouds.length} clouds, ${validTrampolines.length} trampolines (total: ${totalCount})`);
     if (totalCount > 0) {
         const batchData = new Float32Array(totalCount * 9);
         let ptr = 0;
-        for (const m of foliageMushrooms) {
+        for (const m of validMushrooms) {
             batchData[ptr++] = 0;
             batchData[ptr++] = m.position.x;
             batchData[ptr++] = m.position.y;
@@ -471,7 +499,7 @@ export async function initCppPhysics(camera: THREE.Camera) {
             batchData[ptr++] = (m.userData as any).capRadius || 2;
             batchData[ptr++] = (m.userData as any).isTrampoline ? 1 : 0;
         }
-        for (const c of foliageClouds) {
+        for (const c of validClouds) {
             batchData[ptr++] = 1;
             batchData[ptr++] = c.position.x;
             batchData[ptr++] = c.position.y;
@@ -482,7 +510,7 @@ export async function initCppPhysics(camera: THREE.Camera) {
             batchData[ptr++] = (c.userData as any).tier || 1;
             batchData[ptr++] = 0;
         }
-        for (const t of foliageTrampolines) {
+        for (const t of validTrampolines) {
             batchData[ptr++] = 2;
             batchData[ptr++] = t.position.x;
             batchData[ptr++] = t.position.y;
@@ -500,12 +528,18 @@ export async function initCppPhysics(camera: THREE.Camera) {
     }
     initDynamicFoliageBridge(500);
     const { arpeggioFernBatcher } = await import('../../foliage/arpeggio-batcher.ts');
-    const fernCount = arpeggioFernBatcher.logicFerns?.length ?? 0;
+    const validCaves = filterValidPhysicsObjects(foliageCaves, 'cave');
+    const rawFerns = Array.isArray(arpeggioFernBatcher.logicFerns) ? arpeggioFernBatcher.logicFerns : [];
+    const validFerns = filterValidPhysicsObjects(rawFerns, 'arpeggio fern');
+    const fernCount = validFerns.length;
+    if (rawFerns.length === 0) {
+        console.log('[Physics] Arpeggio fern batcher is empty or uninitialized; skipping dynamic foliage collision sync.');
+    }
     if (fernCount > 0) {
-        uploadCollisionObjects(foliageCaves, foliageMushrooms, foliageClouds, foliageTrampolines, arpeggioFernBatcher.logicFerns);
+        uploadCollisionObjects(validCaves, validMushrooms, validClouds, validTrampolines, validFerns);
     } else {
         // No arpeggio ferns yet (Core mode): upload only structural collision objects.
-        uploadCollisionObjects(foliageCaves, foliageMushrooms, foliageClouds, foliageTrampolines, []);
+        uploadCollisionObjects(validCaves, validMushrooms, validClouds, validTrampolines, []);
     }
     console.log('[Physics] Engines Initialized (C++ & ASC).');
 }

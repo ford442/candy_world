@@ -11,10 +11,10 @@ export function showModeBadge(mode: WorldMode) {
   modeBadge.id = 'mode-badge';
 
   Object.assign(modeBadge.style, {
-    position: 'absolute',
+    position: 'fixed',
     top: '12px',
     right: '12px',
-    padding: '6px 12px',
+    padding: '6px 10px',
     borderRadius: '999px',
     fontSize: '12px',
     fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif',
@@ -25,6 +25,8 @@ export function showModeBadge(mode: WorldMode) {
     userSelect: 'none',
     whiteSpace: 'nowrap',
     boxShadow: '0 10px 30px rgba(0, 0, 0, 0.12)',
+    border: '1px solid rgba(255, 255, 255, 0.45)',
+    backdropFilter: 'blur(10px)',
     transition: 'transform 0.2s ease, opacity 0.2s ease',
     opacity: '0.98',
   });
