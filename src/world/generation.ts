@@ -631,6 +631,7 @@ export async function generateMap(
     initDiscoveryForFoliage(animatedFoliage);
     
     // 3. Queue Deferred Map Entities
+    console.log(`[World] Queueing ${deferredEntities.length} deferred map entities for background processing...`);
     for (const item of deferredEntities) {
         globalBackgroundProcessor.enqueue({
             id: `map_deferred_${item.type}_${Math.random()}`,
@@ -668,47 +669,53 @@ export async function generateCoreWorld(
         return null;
     };
 
-    const spawnObject = (
-        factory: () => THREE.Object3D,
-        count: number,
-        radius: number,
-        isObstacle: boolean = false
-    ) => {
-        let spawned = 0;
-        while (spawned < count) {
-            const pos = getRandomGroundPosition(radius);
-            if (!pos) break;
-            const obj = factory();
-            obj.position.set(pos.x, pos.y, pos.z);
-            obj.rotation.y = Math.random() * Math.PI * 2;
-            safeAddFoliage(obj, isObstacle, radius, weatherSystem);
-            spawned += 1;
-        }
-        return spawned;
-    };
-
     if (onProgress) onProgress(0, 4);
 
-    // Basic candy trees
+    // Basic candy trees — yield every ENTITY_BUDGET_MS to avoid blocking the main thread.
+    // Tree geometry creation can take 10–30 ms each; without yielding 18 trees back-to-back
+    // would stall the browser for up to 540 ms and trigger "Page Unresponsive".
     const treeFactories = [
         () => createBubbleWillow(),
         () => createBalloonBush(),
         () => createHelixPlant(),
         () => createPortamentoPine({ height: 4.5 }),
     ];
+    let chunkStart = performance.now();
     for (let i = 0; i < 18; i++) {
         const factory = treeFactories[i % treeFactories.length];
-        spawnObject(factory, 1, 1.5, true);
+        const pos = getRandomGroundPosition(1.5);
+        if (pos) {
+            const obj = factory();
+            obj.position.set(pos.x, pos.y, pos.z);
+            obj.rotation.y = Math.random() * Math.PI * 2;
+            safeAddFoliage(obj, true, 1.5, weatherSystem);
+        }
+        if (performance.now() - chunkStart >= ENTITY_BUDGET_MS) {
+            await yieldControl();
+            chunkStart = performance.now();
+        }
     }
     if (onProgress) onProgress(1, 4);
 
-    // Mushrooms and ground accents
+    // Mushrooms and ground accents — same time-based yield approach.
+    chunkStart = performance.now();
     for (let i = 0; i < 24; i++) {
-        spawnObject(() => createMushroom({ size: 'regular', scale: 0.8 + Math.random() * 0.5, hasFace: true, isBouncy: true }), 1, 0.5, true);
+        const pos = getRandomGroundPosition(0.5);
+        if (pos) {
+            const obj = createMushroom({ size: 'regular', scale: 0.8 + Math.random() * 0.5, hasFace: true, isBouncy: true });
+            obj.position.set(pos.x, pos.y, pos.z);
+            obj.rotation.y = Math.random() * Math.PI * 2;
+            safeAddFoliage(obj, true, 0.5, weatherSystem);
+        }
+        if (performance.now() - chunkStart >= ENTITY_BUDGET_MS) {
+            await yieldControl();
+            chunkStart = performance.now();
+        }
     }
     if (onProgress) onProgress(2, 4);
 
-    // Clouds above the terrain
+    // Clouds above the terrain.
+    chunkStart = performance.now();
     for (let i = 0; i < 12; i++) {
         const pos = getRandomGroundPosition(0.8);
         if (!pos) continue;
@@ -718,16 +725,27 @@ export async function generateCoreWorld(
         cloud.userData.tier = 1;
         cloud.userData.isWalkable = true;
         safeAddFoliage(cloud, false, 0.8, weatherSystem);
+        if (performance.now() - chunkStart >= ENTITY_BUDGET_MS) {
+            await yieldControl();
+            chunkStart = performance.now();
+        }
     }
     if (onProgress) onProgress(3, 4);
 
-    // Low flowers and luminous accents
+    // Low flowers and luminous accents (lightweight — single yield at end is sufficient).
     for (let i = 0; i < 16; i++) {
         const factory = Math.random() < 0.5 ? () => createFlower() : () => createGlowingFlower();
-        spawnObject(factory, 1, 0.4, false);
+        const pos = getRandomGroundPosition(0.4);
+        if (pos) {
+            const obj = factory();
+            obj.position.set(pos.x, pos.y, pos.z);
+            obj.rotation.y = Math.random() * Math.PI * 2;
+            safeAddFoliage(obj, false, 0.4, weatherSystem);
+        }
     }
+    await yieldControl();
 
-    // Lake island accents
+    // Lake island accents.
     const islandItems = [
         () => createGlowingFlower(),
         () => createFlower(),
@@ -744,7 +762,7 @@ export async function generateCoreWorld(
 
     initDiscoveryForFoliage(animatedFoliage);
     if (onProgress) onProgress(4, 4);
-    console.log('[World] Core Only world generation complete.');
+    console.log(`[World] Core Only world generation complete. Spawned ${animatedFoliage.length} objects.`);
 }
 
 export type WorldMode = 'CORE' | 'FULL';
@@ -759,12 +777,14 @@ export async function populateWorld(
 
     if (mode === 'CORE') {
         console.log('%c[World] CORE Mode active — spawning minimal classic candy set', 'color:#ff9ecd');
+        console.log('[World] Core mode skips: map entities, arpeggio grove, procedural extras, WASM physics upload');
         await generateCoreWorld(weatherSystem, onProgress);
         console.log('[World] Core mode ready. Heavy foliage systems skipped.');
         return;
     }
 
     console.log('%c[World] FULL Mode — attempting complete musical ecosystem', 'color:#7dd3fc');
+    console.log(`[World] Full mode: ${(mapData as any).entities?.length ?? 0} map entities + ${PROCEDURAL_ENTITY_COUNT} procedural extras to process`);
     try {
         await generateMap(weatherSystem, DEFAULT_MAP_CHUNK_SIZE, onProgress);
         console.log('[World] Full mode population complete.');
@@ -1077,6 +1097,8 @@ async function populateProceduralExtras(
 
     let criticalCount = 0;
     let deferredCount = 0;
+    // Track elapsed time so we can yield after each critical spawn that hits the budget.
+    let chunkStart = performance.now();
 
     for (let i = 0; i < extrasCount; i++) {
         let x = 0, z = 0, y = 0;
@@ -1215,25 +1237,27 @@ async function populateProceduralExtras(
         // 0.55 - 0.75: Musical interactables (Critical)
         // 0.75 - 0.90: Clouds (Critical if walkable, let's treat all clouds as critical for simplicity)
         // > 0.90: Spirits, Mirrors, Shrines (Critical)
-        
+
         const isCritical = rand >= 0.30; // Flowers are < 0.30
 
         if (isCritical) {
             spawnExtra();
             criticalCount++;
+            // Time-based yield after each critical spawn.
+            // Count-based yielding (e.g. every 25 iterations) is unreliable when entity
+            // creation takes 10–30 ms each: 25 × 30 ms = 750 ms worst case per chunk.
+            // Instead we yield as soon as the ENTITY_BUDGET_MS wall-clock budget is
+            // exceeded, keeping every chunk well under 100 ms.
+            if (performance.now() - chunkStart >= ENTITY_BUDGET_MS) {
+                await yieldControl();
+                chunkStart = performance.now();
+            }
         } else {
             globalBackgroundProcessor.enqueue({
                 id: `procedural_deferred_${i}`,
                 execute: spawnExtra
             });
             deferredCount++;
-        }
-
-        // Yield every 25 entities to keep each task under the 16ms frame budget.
-        // Using a smaller constant here (independent of the caller-supplied chunkSize)
-        // ensures responsive rendering even when chunkSize is set to a large value.
-        if ((i + 1) % 25 === 0) {
-            await new Promise(resolve => setTimeout(resolve, 0));
         }
     }
 
