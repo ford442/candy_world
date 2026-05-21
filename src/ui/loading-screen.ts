@@ -1092,6 +1092,32 @@ export function setLoadingDebug(enabled: boolean): void {
     }
 }
 
+/**
+ * Display a WASM loading phase message on the loading screen.
+ * Automatically activates the 'wasm-init' phase if it is not already active.
+ * @param label Human-readable status (e.g. "Booting Physics Engine… (Attempt 1/3)")
+ * @param progress Optional progress value 0–100 within the phase
+ */
+export function setWasmPhase(label: string, progress?: number): void {
+    if (!globalLoadingScreen) return;
+    const current = globalLoadingScreen.getProgress();
+    if (current.phase !== 'wasm-init') {
+        globalLoadingScreen.startPhase('wasm-init');
+    }
+    globalLoadingScreen.updateProgress(progress ?? 0, label);
+}
+
+/**
+ * Display a fatal WASM error on the loading screen.
+ * Stops the spinner, turns the progress bar red, and shows a user-visible error
+ * with a reload button so the player has a clear recovery path.
+ * @param message Human-readable error description shown to the user
+ */
+export function setWasmError(message: string): void {
+    if (!globalLoadingScreen) return;
+    globalLoadingScreen.showFatalError(message);
+}
+
 // =============================================================================
 // LEGACY WINDOW API COMPATIBILITY
 // =============================================================================

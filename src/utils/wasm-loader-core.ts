@@ -10,7 +10,7 @@
  * - getNativeFunc() helper
  */
 
-import { updateProgress } from '../ui/index.ts';
+import { updateProgress, setWasmPhase, setWasmError } from '../ui/index.ts';
 import { 
     parallelWasmLoad, 
     LOADING_PHASES, 
@@ -453,8 +453,40 @@ declare global {
 }
 
 // =============================================================================
+// WASM EXPORT VALIDATION
+// =============================================================================
+
+/**
+ * Validate that the required AssemblyScript WASM exports exist and return sane
+ * values. Throws an Error with a descriptive message if validation fails.
+ * Exported so it can be used in tests and external tooling.
+ * @param instance - The instantiated WebAssembly instance to inspect
+ */
+export function validateWasmExports(instance: WebAssembly.Instance): void {
+    const exports = instance.exports as WasmExports;
+
+    // Required exports: memory and the critical getGroundHeight function
+    const required = ['memory', 'getGroundHeight'] as const;
+    for (const name of required) {
+        if (!exports[name]) {
+            throw new Error(`[WASM] Missing required export: ${name}`);
+        }
+    }
+
+    // Smoke test: getGroundHeight(0, 0) must return a finite number
+    const sample = exports.getGroundHeight(0, 0);
+    if (typeof sample !== 'number' || !isFinite(sample)) {
+        throw new Error(`[WASM] Smoke test failed: getGroundHeight(0,0) returned ${sample}`);
+    }
+}
+
+// =============================================================================
 // INITIALIZATION: TOP-LEVEL AWAIT
 // =============================================================================
+
+/** Retry configuration for AssemblyScript WASM initialisation (exported for tests) */
+export const WASM_MAX_RETRIES = 3;
+export const WASM_RETRY_DELAYS_MS = [1000, 2000, 4000];
 
 // WASI stubs with BigInt Safety (Required for AS environment)
 const wasiStubs: WasiStubs = {
@@ -494,16 +526,14 @@ const importObject: WasmImportObject = {
     wasi_snapshot_preview1: wasiStubs
 };
 
-// Immediately initialize the AssemblyScript WASM module
-// This blocks module execution until the WASM is ready (Vite handles this via top-level await wrapper)
-try {
-    const instance = await initCandyPhysics(importObject);
-
-    // Store global instance
+/**
+ * Helper to populate all cached function references from a fully instantiated
+ * AssemblyScript WASM instance. Called once initialization succeeds.
+ */
+function cacheWasmFunctions(instance: WebAssembly.Instance): void {
     wasmInstance = instance;
-
-    // Setup Memory Views
     const exports = instance.exports as WasmExports;
+
     if (exports.memory) {
         wasmMemory = exports.memory;
         const memBuffer = wasmMemory.buffer;
@@ -513,28 +543,24 @@ try {
         playerStateView = new Float32Array(memBuffer, PLAYER_STATE_OFFSET, 8);
     }
 
-    // Cache function references
     wasmGetGroundHeight = exports.getGroundHeight;
     wasmFreqToHue = exports.freqToHue;
     wasmLerp = exports.lerp;
     wasmBatchMushroomSpawnCandidates = exports.batchMushroomSpawnCandidates || null;
     wasmUpdateFoliageBatch = exports.updateFoliageBatch || null;
 
-    // Physics collision
     wasmInitDynamicFoliageMemory = exports.initDynamicFoliageMemory || null;
     wasmInitCollisionSystem = exports.initCollisionSystem || null;
     wasmAddCollisionObject = exports.addCollisionObject || null;
     wasmResolveGameCollisions = exports.resolveGameCollisions || null;
     wasmCheckPositionValidity = exports.checkPositionValidity || null;
 
-    // Hot-path Physics exports (Migrated from TS)
     wasmBatchGroundHeight = exports.batchGroundHeight || null;
     wasmDampVelocity = exports.dampVelocity || null;
     wasmBatchDistanceCalc = exports.batchDistanceCalc || null;
     wasmBatchFrustumTest = exports.batchFrustumTest || null;
     wasmBatchLODSelect = exports.batchLODSelect || null;
 
-    // Math functions from assembly/math.ts
     wasmHslToRgb = exports.hslToRgb || null;
     wasmHash2D = exports.hash2D || null;
     wasmValueNoise2D = exports.valueNoise2D || null;
@@ -544,19 +570,50 @@ try {
     wasmSmoothstep = exports.smoothstep || null;
     wasmInverseLerp = exports.inverseLerp || null;
 
-    // Batch functions from assembly/batch.ts
     wasmBatchHslToRgb = exports.batchHslToRgb || null;
     wasmBatchSphereCull = exports.batchSphereCull || null;
     wasmBatchLerp = exports.batchLerp || null;
 
-    // Particle functions from assembly/particles.ts
     wasmUpdateParticles = exports.updateParticles || null;
     wasmSpawnBurst = exports.spawnBurst || null;
+}
 
-    console.log('[WASM] AssemblyScript module initialized via Top-Level Await');
-} catch (e) {
-    console.error('[WASM] Failed to initialize AssemblyScript module:', e);
-    // JS Fallbacks will automatically kick in because function pointers are null
+// Immediately initialize the AssemblyScript WASM module with retry logic.
+// This blocks module execution until the WASM is ready (Vite handles this via
+// top-level await wrapper). Up to WASM_MAX_RETRIES attempts are made with
+// exponential backoff; if all fail, JS fallbacks remain active.
+{
+    let lastError: unknown;
+    for (let attempt = 0; attempt < WASM_MAX_RETRIES; attempt++) {
+        try {
+            if (attempt > 0) {
+                console.warn(`[WASM] AS init attempt ${attempt + 1}/${WASM_MAX_RETRIES}...`);
+                await new Promise(r => setTimeout(r, WASM_RETRY_DELAYS_MS[attempt - 1]));
+            }
+
+            const instance = await initCandyPhysics(importObject);
+            validateWasmExports(instance);
+            cacheWasmFunctions(instance);
+
+            console.log('[WASM] AssemblyScript module initialized via Top-Level Await');
+            lastError = null;
+            break;
+        } catch (e) {
+            lastError = e;
+            console.error(`[WASM] AS init attempt ${attempt + 1}/${WASM_MAX_RETRIES} failed:`, e);
+        }
+    }
+
+    if (lastError) {
+        // All retries exhausted — JS fallbacks will kick in automatically because
+        // all function pointers remain null.
+        console.error('[WASM] All AssemblyScript init attempts failed. JS fallbacks active.', lastError);
+        // Notify loading screen so the user sees a non-fatal warning (not a full
+        // fatal error since JS fallbacks allow the game to continue).
+        try {
+            setWasmPhase('Physics engine unavailable - using JS fallback', 0);
+        } catch (_) { /* loading screen may not be ready yet */ }
+    }
 }
 
 // =============================================================================
@@ -901,10 +958,15 @@ export interface InitWasmParallelOptions {
     onProgress?: (phase: string, message: string) => void;
 }
 
-// NOTE: This function is now just a wrapper for Emscripten loading.
-// The main AssemblyScript WASM is already loaded via Top-Level Await.
+/** Retry configuration for Emscripten module initialisation (exported for tests) */
+export const EMCC_MAX_RETRIES = 3;
+export const EMCC_RETRY_DELAYS_MS = [1000, 2000, 4000];
+
+// NOTE: This function is now a wrapper for Emscripten loading with retry logic
+// and user-visible progress reporting. The main AssemblyScript WASM is already
+// loaded via Top-Level Await before this is called.
 export async function initWasm(): Promise<boolean> {
-    // If we already have the AS instance (which we should), we just proceed to Emscripten
+    // Warn (not error) if the AS instance is somehow missing
     if (!wasmInstance) {
         console.warn('[WASM] AS instance missing even after TLA?');
     }
@@ -917,13 +979,48 @@ export async function initWasm(): Promise<boolean> {
         startButton.style.cursor = 'wait';
     }
 
-    console.log('[WASM] initWasm called - checking Emscripten');
+    console.log('[WASM] initWasm called - loading Emscripten with retry');
 
-    // Load Emscripten (Complex/Threaded)
-    await loadEmscriptenModule();
+    let loaded = false;
+    let lastError: unknown;
 
-    if (emscriptenInstance) {
-        await startBootstrapIfAvailable(emscriptenInstance);
+    for (let attempt = 0; attempt < EMCC_MAX_RETRIES; attempt++) {
+        try {
+            setWasmPhase(
+                `Booting Physics Engine… (Attempt ${attempt + 1}/${EMCC_MAX_RETRIES})`,
+                Math.round((attempt / EMCC_MAX_RETRIES) * 80)
+            );
+
+            const result = await loadEmscriptenModule();
+
+            if (result && emscriptenInstance) {
+                await startBootstrapIfAvailable(emscriptenInstance);
+                setWasmPhase('Physics Engine ready', 100);
+                loaded = true;
+                lastError = null;
+                break;
+            }
+
+            // loadEmscriptenModule returned false (file missing / optional skip) —
+            // not a hard error; fall through to allow JS fallbacks.
+            console.warn('[WASM] Emscripten module unavailable (optional). JS fallbacks remain active.');
+            loaded = true; // treated as "done" — fallbacks are fine
+            lastError = null;
+            break;
+        } catch (err) {
+            lastError = err;
+            console.error(`[WASM] Emscripten init attempt ${attempt + 1}/${EMCC_MAX_RETRIES} failed:`, err);
+
+            if (attempt < EMCC_MAX_RETRIES - 1) {
+                // Wait before next retry (exponential backoff)
+                await new Promise(r => setTimeout(r, EMCC_RETRY_DELAYS_MS[attempt]));
+            } else {
+                // All attempts exhausted
+                setWasmError(
+                    'Physics engine failed to load. Check your network connection and reload the page.'
+                );
+            }
+        }
     }
 
     if (startButton) {
@@ -932,6 +1029,11 @@ export async function initWasm(): Promise<boolean> {
         startButton.removeAttribute('title');
         startButton.textContent = 'Start Exploration 🚀';
         startButton.style.cursor = 'pointer';
+    }
+
+    if (!loaded && lastError) {
+        console.error('[WASM] initWasm: all retries failed. JS fallbacks active.', lastError);
+        return false;
     }
 
     return true;
