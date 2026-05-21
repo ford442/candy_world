@@ -297,6 +297,9 @@ export class GPUComputeLibrary {
         workgroupCountZ = 1
     ): void {
         if (!this.device) return;
+        if (workgroupCountX <= 0 || workgroupCountY <= 0 || workgroupCountZ <= 0) {
+            return;
+        }
 
         const encoder = this.device.createCommandEncoder({ label: 'dispatch-encoder' });
         const pass = encoder.beginComputePass({ label: 'dispatch-pass' });

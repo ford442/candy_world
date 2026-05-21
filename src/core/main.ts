@@ -467,6 +467,7 @@ if (startButton) {
 
     const updateStartupMode = (isCore: boolean) => {
         coreOnlyMode = isCore;
+        console.log(`[Startup] Mode selected: ${isCore ? 'CORE' : 'FULL'}`);
         if (btnCoreOnly) {
             btnCoreOnly.setAttribute('aria-pressed', String(isCore));
             btnCoreOnly.style.boxShadow = isCore ? '0 5px 18px rgba(255, 156, 205, 0.55)' : 'none';
@@ -517,6 +518,8 @@ if (startButton) {
         startButton.innerHTML = '<span class="spinner" aria-hidden="true"></span>Generating... <span aria-hidden="true">🍭</span>';
 
         await yieldFrame(); // Let the spinner paint
+        const requestedMode: WorldMode = coreOnlyMode ? 'CORE' : 'FULL';
+        let activeWorldMode: WorldMode = requestedMode;
 
         const worldGenResult = await StageLoader.loadStage('worldGeneration', async () => {
             // Clean up preview mushroom if it exists (from optimize branch)
@@ -541,31 +544,39 @@ if (startButton) {
                 if (intIdx > -1) interactiveObjects.splice(intIdx, 1);
             }
 
+            console.log(`[Startup] Enter world requested in ${requestedMode} mode`);
+
             if (modeSelect) {
                 modeSelect.style.display = 'none';
             }
-            showModeBadge(coreOnlyMode ? 'CORE' : 'FULL');
+            showModeBadge(requestedMode);
 
             loadingScreen.show();
             loadingScreen.startPhase('map-generation');
-            loadingScreen.updateProgress(0, coreOnlyMode ? 'Generating core world...' : 'Generating world map...');
+            loadingScreen.updateProgress(0, requestedMode === 'CORE' ? 'Generating core world...' : 'Generating world map...');
 
             let lastAnnounced = -1;
             startPhase('Map Generation');
 
-            await populateWorld(scene, weatherSystem!, coreOnlyMode ? 'CORE' : 'FULL', (current: number, total: number) => {
+            activeWorldMode = await populateWorld(scene, weatherSystem!, requestedMode, (current: number, total: number, label?: string, entityType?: string) => {
                 const percent = Math.floor((current / total) * 100);
-                const label = coreOnlyMode ? 'Generating core world...' : 'Generating world...';
-                loadingScreen.updateProgress(percent, `${label} ${percent}%`);
-                startButton.style.background = coreOnlyMode
+                const baseLabel = label ?? (requestedMode === 'CORE' ? 'Generating core world...' : 'Generating world...');
+                const progressLabel = entityType ? `${baseLabel} · ${entityType}` : baseLabel;
+                loadingScreen.updateProgress(percent, progressLabel);
+                startButton.style.background = requestedMode === 'CORE'
                     ? `linear-gradient(90deg, #FF9ECD ${percent}%, #FFD4E3 ${percent}%)`
                     : `linear-gradient(90deg, #FF6B6B ${percent}%, #FFB6C1 ${percent}%)`;
 
                 if (percent - lastAnnounced >= 10 || percent === 100) {
-                    startButton.innerHTML = `<span class="spinner" aria-hidden="true"></span>Generating ${percent}%... <span aria-hidden="true">${coreOnlyMode ? '🍭' : '🍭'}</span>`;
+                    startButton.innerHTML = `<span class="spinner" aria-hidden="true"></span>Generating ${percent}%... <span aria-hidden="true">${requestedMode === 'CORE' ? '🍭' : '🍭'}</span>`;
                     lastAnnounced = percent;
                 }
             });
+
+            if (activeWorldMode !== requestedMode) {
+                console.warn(`[Startup] Full mode fallback engaged: booted in ${activeWorldMode} mode instead of ${requestedMode}`);
+                showModeBadge(activeWorldMode);
+            }
 
             endPhase('Map Generation');
 
@@ -625,7 +636,7 @@ if (startButton) {
 
             worldGenerated = true;
             startButton.style.background = '';
-            startButton.innerHTML = coreOnlyMode
+            startButton.innerHTML = activeWorldMode === 'CORE'
                 ? 'Regenerate Core World <span aria-hidden="true">🍭</span> <span class="key-badge" aria-hidden="true">Enter</span>'
                 : 'Regenerate Full Game <span aria-hidden="true">🌸</span> <span class="key-badge" aria-hidden="true">Enter</span>';
 

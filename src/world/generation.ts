@@ -1,6 +1,5 @@
 // src/world/generation.ts
 
-import { updateProgress } from '../ui/index.ts';
 import { createIntegratedFireflies, createIntegratedPollen, createIntegratedSparks, registerIntegratedSystem } from '../particles/index.ts';
 import * as THREE from 'three';
 import { getGroundHeight, initCollisionSystem, addCollisionObject, checkPositionValidity } from '../utils/wasm-loader.js';
@@ -85,6 +84,13 @@ interface WeatherSystem {
     registerMushroom(obj: THREE.Object3D): void;
     registerCave(obj: THREE.Object3D): void;
 }
+
+type WorldProgressCallback = (
+    current: number,
+    total: number,
+    label?: string,
+    entityType?: string
+) => void;
 
 // --- Lake Configuration (Mirrored in Physics.js) ---
 const LAKE_BOUNDS = { minX: -38, maxX: 78, minZ: -28, maxZ: 68 };
@@ -541,7 +547,7 @@ export function isCriticalEntity(item: MapEntity | { type: string, isObstacle?: 
 export async function generateMap(
     weatherSystem: WeatherSystem, 
     chunkSize: number = DEFAULT_MAP_CHUNK_SIZE,
-    onProgress?: (current: number, total: number) => void
+    onProgress?: WorldProgressCallback
 ): Promise<void> {
     performance.mark('candy:map-generation-start');
     console.log(`[World] Loading map with ${mapData.entities.length} entities...`);
@@ -555,11 +561,18 @@ export async function generateMap(
     const criticalEntities: MapEntity[] = [];
     const deferredEntities: MapEntity[] = [];
 
+    let scannedEntities = 0;
     for (const item of entities) {
         if (isCriticalEntity(item)) {
             criticalEntities.push(item);
         } else {
             deferredEntities.push(item);
+        }
+
+        scannedEntities++;
+        if (scannedEntities % 40 === 0 && scannedEntities < entities.length) {
+            console.log(`[World] Yielding during entity scan at ${scannedEntities}/${entities.length} (last type: ${item.type})`);
+            await yieldControl();
         }
     }
 
@@ -578,14 +591,17 @@ export async function generateMap(
     while (i < criticalTotal) {
         const chunkStart = performance.now();
         let processed = 0;
+        let lastEntityType = 'entity';
 
         while (i + processed < criticalTotal) {
             const idx = i + processed;
-            processMapEntity(criticalEntities[idx], weatherSystem);
+            const entity = criticalEntities[idx];
+            lastEntityType = entity.type;
+            processMapEntity(entity, weatherSystem);
             processed++;
 
             // Yield as soon as we've spent our per-chunk budget.
-            if (performance.now() - chunkStart >= ENTITY_BUDGET_MS) {
+            if (processed >= 40 || performance.now() - chunkStart >= ENTITY_BUDGET_MS) {
                 break;
             }
         }
@@ -593,14 +609,23 @@ export async function generateMap(
         i += processed;
 
         if (onProgress) {
-            onProgress(Math.min(i, criticalTotal), globalTotal);
+            const current = Math.min(i, criticalTotal);
+            onProgress(
+                current,
+                globalTotal,
+                `[World] Populating ${current}/${criticalTotal} critical entities`,
+                lastEntityType
+            );
         }
 
         // Record this chunk for the startup profiler.
         recordGenerationChunk();
 
         // Yield control back to the browser.
-        await yieldControl();
+        if (i < criticalTotal) {
+            console.log(`[World] Yielding after ${i}/${criticalTotal} critical entities (last type: ${lastEntityType})`);
+            await yieldControl();
+        }
     }
 
     // --- Spawn The Cave (Critical) ---
@@ -623,7 +648,9 @@ export async function generateMap(
 
     // --- Populate Arpeggio Grove Set Piece (Critical) ---
     await populateArpeggioGrove(weatherSystem);
-    if (onProgress) onProgress(globalTotal, globalTotal); // Done with critical path
+    if (onProgress) {
+        onProgress(globalTotal, globalTotal, '[World] Critical full world population complete', 'arpeggio_grove');
+    }
     
     // --- Initialize Discovery System with Spatial Grid (Critical) ---
     // OPTIMIZATION: O(1) spatial lookups instead of O(N) distance checks
@@ -632,11 +659,18 @@ export async function generateMap(
     
     // 3. Queue Deferred Map Entities
     console.log(`[World] Queueing ${deferredEntities.length} deferred map entities for background processing...`);
+    let queuedDeferred = 0;
     for (const item of deferredEntities) {
         globalBackgroundProcessor.enqueue({
             id: `map_deferred_${item.type}_${Math.random()}`,
             execute: () => processMapEntity(item, weatherSystem)
         });
+
+        queuedDeferred++;
+        if (queuedDeferred % 40 === 0 && queuedDeferred < deferredEntities.length) {
+            console.log(`[World] Yielding while queueing deferred entities at ${queuedDeferred}/${deferredEntities.length} (last type: ${item.type})`);
+            await yieldControl();
+        }
     }
 
     // --- Populate Procedural Extras (Split into Critical/Deferred inside) ---
@@ -652,7 +686,7 @@ export async function generateMap(
 
 export async function generateCoreWorld(
     weatherSystem: WeatherSystem,
-    onProgress?: (current: number, total: number) => void
+    onProgress?: WorldProgressCallback
 ): Promise<void> {
     console.log('[World] Core Only mode: generating lightweight candy landscape');
     initCollisionSystem();
@@ -669,7 +703,7 @@ export async function generateCoreWorld(
         return null;
     };
 
-    if (onProgress) onProgress(0, 4);
+    if (onProgress) onProgress(0, 4, '[World] Generating core world');
 
     // Basic candy trees — yield every ENTITY_BUDGET_MS to avoid blocking the main thread.
     // Tree geometry creation can take 10–30 ms each; without yielding 18 trees back-to-back
@@ -695,7 +729,7 @@ export async function generateCoreWorld(
             chunkStart = performance.now();
         }
     }
-    if (onProgress) onProgress(1, 4);
+    if (onProgress) onProgress(1, 4, '[World] Core trees ready', 'tree');
 
     // Mushrooms and ground accents — same time-based yield approach.
     chunkStart = performance.now();
@@ -712,7 +746,7 @@ export async function generateCoreWorld(
             chunkStart = performance.now();
         }
     }
-    if (onProgress) onProgress(2, 4);
+    if (onProgress) onProgress(2, 4, '[World] Core mushrooms ready', 'mushroom');
 
     // Clouds above the terrain.
     chunkStart = performance.now();
@@ -730,7 +764,7 @@ export async function generateCoreWorld(
             chunkStart = performance.now();
         }
     }
-    if (onProgress) onProgress(3, 4);
+    if (onProgress) onProgress(3, 4, '[World] Core clouds ready', 'cloud');
 
     // Low flowers and luminous accents (lightweight — single yield at end is sufficient).
     for (let i = 0; i < 16; i++) {
@@ -761,7 +795,7 @@ export async function generateCoreWorld(
     }
 
     initDiscoveryForFoliage(animatedFoliage);
-    if (onProgress) onProgress(4, 4);
+    if (onProgress) onProgress(4, 4, '[World] Core world population complete', 'flower');
     console.log(`[World] Core Only world generation complete. Spawned ${animatedFoliage.length} objects.`);
 }
 
@@ -771,16 +805,17 @@ export async function populateWorld(
     scene: THREE.Scene,
     weatherSystem: WeatherSystem,
     mode: WorldMode = 'CORE',
-    onProgress?: (current: number, total: number) => void
-): Promise<void> {
-    console.log(`[World] Starting population in ${mode} mode`);
+    onProgress?: WorldProgressCallback
+): Promise<WorldMode> {
+    console.log(`[World] Starting populateWorld() in ${mode} mode`);
 
     if (mode === 'CORE') {
         console.log('%c[World] CORE Mode active — spawning minimal classic candy set', 'color:#ff9ecd');
         console.log('[World] Core mode skips: map entities, arpeggio grove, procedural extras, WASM physics upload');
         await generateCoreWorld(weatherSystem, onProgress);
         console.log('[World] Core mode ready. Heavy foliage systems skipped.');
-        return;
+        console.log('[World] populateWorld() complete in CORE mode');
+        return 'CORE';
     }
 
     console.log('%c[World] FULL Mode — attempting complete musical ecosystem', 'color:#7dd3fc');
@@ -788,9 +823,13 @@ export async function populateWorld(
     try {
         await generateMap(weatherSystem, DEFAULT_MAP_CHUNK_SIZE, onProgress);
         console.log('[World] Full mode population complete.');
+        console.log('[World] populateWorld() complete in FULL mode');
+        return 'FULL';
     } catch (error) {
-        console.error('[World] Full population failed. Falling back to Core state.', error);
+        console.error('[World] Full population failed. Falling back from FULL to CORE.', error);
         await generateCoreWorld(weatherSystem, onProgress);
+        console.log('[World] populateWorld() recovered in CORE mode after FULL failure');
+        return 'CORE';
     }
 }
 

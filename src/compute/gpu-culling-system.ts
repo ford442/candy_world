@@ -301,6 +301,14 @@ export class GPUCullingSystem {
      * GPU-accelerated culling implementation.
      */
     private gpuCull(frustum: Frustum, cameraPosition: [number, number, number]): CullingResult {
+        if (this.sphereCount === 0) {
+            return {
+                visibleIndices: new Uint32Array(0),
+                lodLevels: new Uint32Array(0),
+                visibleCount: 0,
+            };
+        }
+
         const device = this.gpu.getDevice()!;
 
         // Upload frustum planes (packed as vec4: normal.xyz, distance)
