@@ -587,7 +587,7 @@ function cacheWasmFunctions(instance: WebAssembly.Instance): void {
     for (let attempt = 0; attempt < WASM_MAX_RETRIES; attempt++) {
         try {
             if (attempt > 0) {
-                console.warn(`[WASM] AS init retry ${attempt}/${WASM_MAX_RETRIES - 1}...`);
+                console.warn(`[WASM] AS init attempt ${attempt + 1}/${WASM_MAX_RETRIES}...`);
                 await new Promise(r => setTimeout(r, WASM_RETRY_DELAYS_MS[attempt - 1]));
             }
 
@@ -611,7 +611,7 @@ function cacheWasmFunctions(instance: WebAssembly.Instance): void {
         // Notify loading screen so the user sees a non-fatal warning (not a full
         // fatal error since JS fallbacks allow the game to continue).
         try {
-            setWasmPhase('Physics engine unavailable — using JS fallback', 0);
+            setWasmPhase('Physics engine unavailable - using JS fallback', 0);
         } catch (_) { /* loading screen may not be ready yet */ }
     }
 }

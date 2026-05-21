@@ -337,16 +337,18 @@ await StageLoader.loadStage('wasm', async () => {
         const wasmOk = await initWasm();
         if (wasmOk) {
             console.log('[WASM] Emscripten loaded successfully');
-            fluidSystem.init();
             recordWASMInit(performance.now(), true, true);
         } else {
-            console.warn('[WASM] Emscripten unavailable — JS fallbacks active');
+            console.warn('[WASM] Emscripten unavailable - JS fallbacks active');
             recordWASMInit(performance.now(), false, false);
         }
     } catch (err) {
         console.warn('[WASM] Emscripten failed, using JS fallbacks:', err);
         recordWASMInit(performance.now(), false, false);
     }
+    // Initialize fluid system regardless of Emscripten availability;
+    // it has its own internal fallback path when the native module is absent.
+    fluidSystem.init();
 });
 loadingScreen.completePhase('wasm-init');
 
