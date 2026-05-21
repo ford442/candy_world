@@ -49,8 +49,12 @@ const obstaclesData: {x: number, y: number, z: number, radius: number}[] = [];
 export const DEFAULT_MAP_CHUNK_SIZE = 100;        // Map entities per chunk (used for progress reporting)
 export const DEFAULT_PROCEDURAL_CHUNK_SIZE = 100; // Procedural extras per chunk
 export const PROCEDURAL_ENTITY_COUNT = 400;       // Number of random procedural items
-/** Maximum ms spent processing map entities before yielding to the event loop. */
-const ENTITY_BUDGET_MS = 50;
+/**
+ * Maximum ms spent processing map entities before yielding to the event loop.
+ * Kept below 16ms so each burst fits within a single animation frame budget,
+ * preventing "long task" jank on the main thread.
+ */
+const ENTITY_BUDGET_MS = 14;
 
 // Type definitions for map data
 interface MapEntity {
@@ -1225,8 +1229,10 @@ async function populateProceduralExtras(
             deferredCount++;
         }
 
-        // We only yield occasionally for the critical path setup
-        if ((i + 1) % chunkSize === 0) {
+        // Yield every 25 entities to keep each task under the 16ms frame budget.
+        // Using a smaller constant here (independent of the caller-supplied chunkSize)
+        // ensures responsive rendering even when chunkSize is set to a large value.
+        if ((i + 1) % 25 === 0) {
             await new Promise(resolve => setTimeout(resolve, 0));
         }
     }
