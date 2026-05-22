@@ -29,4 +29,7 @@ Status: Implemented ✅
 Status: Implemented ✅
 * Implementation Details: Built the `src/systems/ecs` core structure to facilitate scene graph replacement, targeting maximum performance and memory efficiency through dense arrays. Ran memory benchmarks yielding approx 40.03 MB memory usage for 100000 entities with standard components.
 
-Next Step: Phase 4 Stage C — Scene Graph Replacement: Migrate scene hierarchy to the new ECS structure in WASM and call `device.queue.submit()` directly, fully replacing the Three.js scene graph.
+Status: Implemented ✅
+* Implementation Details: Implemented AssemblyScript WASM ECS system using high-performance pointer arrays and memory mappings. Exported `ecs_createEntity`, `ecs_addComponent`, etc. to typescript.
+
+Next Step: Replace the large file refactoring tasks from `REFACTORING_PLAN_REMAINING.md`, starting with `src/world/generation.ts`.

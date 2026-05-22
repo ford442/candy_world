@@ -1084,3 +1084,40 @@ export declare function updateParticles(positionsPtr: number, count: number, dt:
  * @param time `f32`
  */
 export declare function spawnBurst(outputPtr: number, count: number, centerX: number, centerY: number, centerZ: number, speed: number, time: number): void;
+/**
+ * assembly/ecs/ecs_createEntity
+ * @returns `u32`
+ */
+export declare function ecs_createEntity(): number;
+/**
+ * assembly/ecs/ecs_destroyEntity
+ * @param entity `u32`
+ */
+export declare function ecs_destroyEntity(entity: number): void;
+/**
+ * assembly/ecs/ecs_addComponent
+ * @param entity `u32`
+ * @param componentName `~lib/string/String`
+ * @param componentPtr `usize`
+ */
+export declare function ecs_addComponent(entity: number, componentName: string, componentPtr: number): void;
+/**
+ * assembly/ecs/ecs_removeComponent
+ * @param entity `u32`
+ * @param componentName `~lib/string/String`
+ */
+export declare function ecs_removeComponent(entity: number, componentName: string): void;
+/**
+ * assembly/ecs/ecs_getComponent
+ * @param entity `u32`
+ * @param componentName `~lib/string/String`
+ * @returns `usize`
+ */
+export declare function ecs_getComponent(entity: number, componentName: string): number;
+/**
+ * assembly/ecs/ecs_hasComponent
+ * @param entity `u32`
+ * @param componentName `~lib/string/String`
+ * @returns `bool`
+ */
+export declare function ecs_hasComponent(entity: number, componentName: string): boolean;

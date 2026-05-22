@@ -36,6 +36,30 @@ async function instantiate(module, imports = {}) {
       // assembly/math/lerpColor(u32, u32, f32) => u32
       return exports.lerpColor(color1, color2, t) >>> 0;
     },
+    ecs_createEntity() {
+      // assembly/ecs/ecs_createEntity() => u32
+      return exports.ecs_createEntity() >>> 0;
+    },
+    ecs_addComponent(entity, componentName, componentPtr) {
+      // assembly/ecs/ecs_addComponent(u32, ~lib/string/String, usize) => void
+      componentName = __lowerString(componentName) || __notnull();
+      exports.ecs_addComponent(entity, componentName, componentPtr);
+    },
+    ecs_removeComponent(entity, componentName) {
+      // assembly/ecs/ecs_removeComponent(u32, ~lib/string/String) => void
+      componentName = __lowerString(componentName) || __notnull();
+      exports.ecs_removeComponent(entity, componentName);
+    },
+    ecs_getComponent(entity, componentName) {
+      // assembly/ecs/ecs_getComponent(u32, ~lib/string/String) => usize
+      componentName = __lowerString(componentName) || __notnull();
+      return exports.ecs_getComponent(entity, componentName) >>> 0;
+    },
+    ecs_hasComponent(entity, componentName) {
+      // assembly/ecs/ecs_hasComponent(u32, ~lib/string/String) => bool
+      componentName = __lowerString(componentName) || __notnull();
+      return exports.ecs_hasComponent(entity, componentName) != 0;
+    },
   }, exports);
   function __liftString(pointer) {
     if (!pointer) return null;
@@ -47,6 +71,18 @@ async function instantiate(module, imports = {}) {
       string = "";
     while (end - start > 1024) string += String.fromCharCode(...memoryU16.subarray(start, start += 1024));
     return string + String.fromCharCode(...memoryU16.subarray(start, end));
+  }
+  function __lowerString(value) {
+    if (value == null) return 0;
+    const
+      length = value.length,
+      pointer = exports.__new(length << 1, 2) >>> 0,
+      memoryU16 = new Uint16Array(memory.buffer);
+    for (let i = 0; i < length; ++i) memoryU16[(pointer >>> 1) + i] = value.charCodeAt(i);
+    return pointer;
+  }
+  function __notnull() {
+    throw TypeError("value must not be null");
   }
   return adaptedExports;
 }
@@ -213,6 +249,12 @@ export const {
   updateMelodicMistBatch,
   updateParticles,
   spawnBurst,
+  ecs_createEntity,
+  ecs_destroyEntity,
+  ecs_addComponent,
+  ecs_removeComponent,
+  ecs_getComponent,
+  ecs_hasComponent,
 } = await (async url => instantiate(
   await (async () => {
     const isNodeOrBun = typeof process != "undefined" && process.versions != null && (process.versions.node != null || process.versions.bun != null);

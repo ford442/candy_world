@@ -9,3 +9,4 @@ export * from "./discovery";
 export * from "./batch";
 export * from "./foliage";
 export * from "./particles";
+export * from "./ecs";
