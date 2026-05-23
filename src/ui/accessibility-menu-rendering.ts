@@ -4,14 +4,15 @@
  * This module extends the core AccessibilityMenu class with rendering capabilities.
  */
 
-import { AccessibilityMenu, MenuSection } from './accessibility-menu-core';
-import { trapFocusInside } from '../utils/interaction-utils.ts';
+import { AccessibilityMenuCore, MenuSection } from './accessibility-menu-core';
+import { trapFocusInside } from '../utils/interaction-utils';
+import { announce } from './announcer';
 
 /**
- * Extension of AccessibilityMenu with rendering methods.
+ * Extension of AccessibilityMenuCore with rendering methods.
  * These methods handle all DOM creation and section rendering.
  */
-export class AccessibilityMenuRendering extends AccessibilityMenu {
+export class AccessibilityMenuRendering extends AccessibilityMenuCore {
   
   // ============================================================================
   // DOM Creation Methods
