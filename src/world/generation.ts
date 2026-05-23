@@ -138,9 +138,13 @@ function getUnifiedGroundHeight(x: number, z: number): number {
         if (LAKE_ISLAND.enabled) {
             const dx = x - LAKE_ISLAND.centerX;
             const dz = z - LAKE_ISLAND.centerZ;
-            const distFromIslandCenter = Math.sqrt(dx * dx + dz * dz);
             
-            if (distFromIslandCenter < LAKE_ISLAND.radius) {
+            // ⚡ OPTIMIZATION: Deferred Math.sqrt() by using squared distance for early-out bounds check.
+            const distFromIslandCenterSq = dx * dx + dz * dz;
+            const islandRadiusSq = LAKE_ISLAND.radius * LAKE_ISLAND.radius;
+
+            if (distFromIslandCenterSq < islandRadiusSq) {
+                const distFromIslandCenter = Math.sqrt(distFromIslandCenterSq);
                 // On the island - calculate height above water
                 const normalizedDist = distFromIslandCenter / LAKE_ISLAND.radius;
                 
