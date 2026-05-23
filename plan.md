@@ -30,6 +30,9 @@ Status: Implemented ✅
 * Implementation Details: Built the `src/systems/ecs` core structure to facilitate scene graph replacement, targeting maximum performance and memory efficiency through dense arrays. Ran memory benchmarks yielding approx 40.03 MB memory usage for 100000 entities with standard components.
 
 Status: Implemented ✅
+* Implementation Details: Modularized src/world/generation.ts into generation-core.ts, generation-decorators.ts, and generation-utils.ts.
+
+Next Step: Refactoring Large Files: Continue the refactoring plan by splitting src/systems/region-manager.ts into smaller, well-scoped modules to improve long-term maintainability.
 * Implementation Details: Implemented AssemblyScript WASM ECS system using high-performance pointer arrays and memory mappings. Exported `ecs_createEntity`, `ecs_addComponent`, etc. to typescript.
 
 Status: Implemented ✅
