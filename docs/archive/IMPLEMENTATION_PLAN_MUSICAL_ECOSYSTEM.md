@@ -79,5 +79,6 @@ Three.js Renderer -> WebGPU RenderPipeline (Raw Draw Calls)
 
 ## Next Steps
 
-1. **Phase 4: The Graphics Rewire (Three.js → Raw WebGPU) Stage C — Scene Graph Replacement**
-   - *Next Step Suggestion:* Migrate scene hierarchy to an ECS in WASM and call `device.queue.submit()` directly, fully replacing the Three.js scene graph.
+1. **Phase 4: The Graphics Rewire (Three.js → Raw WebGPU) Stage C — Scene Graph Replacement** (Status: Implemented ✅)
+   - *Implementation Details:* Implemented AssemblyScript WASM ECS system using high-performance pointer arrays and memory mappings. Exported `ecs_createEntity`, `ecs_addComponent`, etc. to typescript.
+   - *Next Step Suggestion:* Replace the large file refactoring tasks from `REFACTORING_PLAN_REMAINING.md`, starting with `src/world/generation.ts`.
