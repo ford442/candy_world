@@ -355,10 +355,14 @@ export class OptimizedDiscoverySystem {
      */
     getPendingSync(): Array<{ id: string; timestamp: number }> {
         const pending = discoveryPersistence.getPendingSync();
-        return pending.map(d => ({
-            id: d.id,
-            timestamp: d.timestamp
-        }));
+        const result = [];
+        for (let i = 0; i < pending.length; i++) {
+            result.push({
+                id: pending[i].id,
+                timestamp: pending[i].timestamp
+            });
+        }
+        return result;
     }
 
     /**

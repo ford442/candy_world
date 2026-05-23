@@ -190,7 +190,7 @@ export function replaceMushroomWithGiant(scene: THREE.Scene, oldMushroom: THREE.
         if (mesh.geometry) mesh.geometry.dispose();
         if (mesh.material) {
             if (Array.isArray(mesh.material)) {
-                mesh.material.forEach((m: THREE.Material) => m.dispose());
+                for (let i = 0; i < mesh.material.length; i++) { (mesh.material[i] as THREE.Material).dispose(); }
             } else {
                 (mesh.material as THREE.Material).dispose();
             }

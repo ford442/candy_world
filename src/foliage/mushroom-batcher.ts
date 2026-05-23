@@ -401,7 +401,7 @@ export class MushroomBatcher {
         geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
         geo.setIndex(indices);
 
-        groups.forEach(g => geo.addGroup(g.start, g.count, g.materialIndex));
+        for (let i = 0; i < groups.length; i++) { geo.addGroup(groups[i].start, groups[i].count, groups[i].materialIndex); }
 
         return geo;
     }
