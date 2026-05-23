@@ -84,3 +84,6 @@ Three.js Renderer -> WebGPU RenderPipeline (Raw Draw Calls)
 
 1. **Refactoring Large Files: region-manager.ts**
    - *Next Step Suggestion:* Continue the refactoring plan by splitting `src/systems/region-manager.ts` into smaller, well-scoped modules to improve long-term maintainability.
+1. **Phase 4: The Graphics Rewire (Three.js → Raw WebGPU) Stage C — Scene Graph Replacement** (Status: Implemented ✅)
+   - *Implementation Details:* Implemented AssemblyScript WASM ECS system using high-performance pointer arrays and memory mappings. Exported `ecs_createEntity`, `ecs_addComponent`, etc. to typescript.
+   - *Next Step Suggestion:* Replace the large file refactoring tasks from `REFACTORING_PLAN_REMAINING.md`, starting with `src/world/generation.ts`.

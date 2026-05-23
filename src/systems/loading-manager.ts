@@ -256,11 +256,11 @@ export class LoadingManager {
             estimatedTimeRemaining: this.getEstimatedTimeRemaining()
         };
 
-        this.onProgressCallbacks.forEach(cb => cb(state, this.tasks));
+        for (let i = 0; i < this.onProgressCallbacks.length; i++) this.onProgressCallbacks[i](state, this.tasks);
     }
 
     private emitPhaseChange(): void {
-        this.onPhaseChangeCallbacks.forEach(cb => cb(this.activeTaskId));
+        for (let i = 0; i < this.onPhaseChangeCallbacks.length; i++) this.onPhaseChangeCallbacks[i](this.activeTaskId);
     }
 
     // Event subscription

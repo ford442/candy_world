@@ -98,9 +98,24 @@ export class OptimizedDiscoverySystem {
         this.wasmGetUndiscoveredCount = (instance.exports as any).getUndiscoveredCount;
 
         if (this.wasmInitDiscovery) {
-            this.wasmInitDiscovery();
-            this.wasmInitialized = true;
-            console.log('[OptimizedDiscovery] WASM spatial grid initialized');
+            // The discovery system writes to addresses up to ~276KB. Guard against
+            // running on a WASM build whose initialMemory is too small (old 4-page
+            // binaries only have 256KB), which would throw RuntimeError immediately.
+            const mem = (instance.exports as any).memory as WebAssembly.Memory;
+            const DISCOVERY_REQUIRED_BYTES = 280000;
+            if (mem && mem.buffer.byteLength < DISCOVERY_REQUIRED_BYTES) {
+                console.warn('[OptimizedDiscovery] WASM memory too small for discovery system, using JS fallback');
+                this.wasmInitDiscovery = null;
+                return;
+            }
+            try {
+                this.wasmInitDiscovery();
+                this.wasmInitialized = true;
+                console.log('[OptimizedDiscovery] WASM spatial grid initialized');
+            } catch (e) {
+                console.warn('[OptimizedDiscovery] WASM initDiscoverySystem failed, using JS fallback:', e);
+                this.wasmInitDiscovery = null;
+            }
         }
     }
 
@@ -355,10 +370,14 @@ export class OptimizedDiscoverySystem {
      */
     getPendingSync(): Array<{ id: string; timestamp: number }> {
         const pending = discoveryPersistence.getPendingSync();
-        return pending.map(d => ({
-            id: d.id,
-            timestamp: d.timestamp
-        }));
+        const result = [];
+        for (let i = 0; i < pending.length; i++) {
+            result.push({
+                id: pending[i].id,
+                timestamp: pending[i].timestamp
+            });
+        }
+        return result;
     }
 
     /**

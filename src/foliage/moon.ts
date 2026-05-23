@@ -159,12 +159,12 @@ export function updateMoon(moon: THREE.Group, delta: number, audioData: VisualSt
         // Squash eyes
         const eyes = moon.userData.eyes as THREE.Object3D[];
         if (eyes) {
-            eyes.forEach(eye => eye.scale.y = 0.1 + (1.0 - Math.sin(Math.PI * (1.0 - moon.userData.blinkTimer/moonConfig.blinkDuration))) * 0.9);
+            for (let i = 0; i < eyes.length; i++) { eyes[i].scale.y = 0.1 + (1.0 - Math.sin(Math.PI * (1.0 - moon.userData.blinkTimer/moonConfig.blinkDuration))) * 0.9; }
         }
     } else {
         // Reset eyes
         const eyes = moon.userData.eyes as THREE.Object3D[];
-        if (eyes) eyes.forEach(eye => eye.scale.y = 1.0);
+        if (eyes) { for (let i = 0; i < eyes.length; i++) { eyes[i].scale.y = 1.0; } }
 
         if ((mesh.material as any).uBlink) (mesh.material as any).uBlink.value = 0;
 

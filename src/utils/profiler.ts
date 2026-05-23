@@ -115,7 +115,7 @@ export class Profiler {
         ctx.clearRect(0, 0, width, height);
         
         // Calculate average frame time
-        const avgFrameTime = this.frameHistory.reduce((a, b) => a + b, 0) / this.frameHistory.length;
+        let sum = 0; for (let i = 0; i < this.frameHistory.length; i++) sum += this.frameHistory[i]; const avgFrameTime = sum / this.frameHistory.length;
         const fps = Math.round(1000 / avgFrameTime);
         
         // Draw background

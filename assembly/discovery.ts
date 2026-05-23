@@ -49,12 +49,18 @@ const FLAG_DISCOVERABLE: i32 = 2;
 // MEMORY LAYOUT
 // =============================================================================
 
-/** Discovery data buffer offset */
-const DISCOVERY_BUFFER_OFFSET: i32 = 350000; // 350KB
+// Memory layout (relative to WASM linear memory start):
+//   constants.ts static layout ends at ~166944 (DYNAMIC_RADII_OFFSET + MAX_DYNAMIC_PLANTS*4)
+//   Discovery buffer: 167168 + 3000*32 = 263168
+//   Discovery grid heads: 263168 + 16*16*4 = 264192
+//   Discovery grid next: 264192 + 3000*4 = 276192  →  ceil(276192/65536) = 5 pages required
+
+/** Discovery data buffer offset — starts right after the static constants.ts layout */
+const DISCOVERY_BUFFER_OFFSET: i32 = 167168; // ~163KB, aligned to 256-byte boundary
 
 /** Spatial grid for discovery objects (maps grid cell -> object indices) */
-const DISCOVERY_GRID_HEADS_OFFSET: i32 = 450000; // 450KB
-const DISCOVERY_GRID_NEXT_OFFSET: i32 = 451024; // 451KB (1KB for heads + next pointers)
+const DISCOVERY_GRID_HEADS_OFFSET: i32 = 263168; // after discovery buffer
+const DISCOVERY_GRID_NEXT_OFFSET: i32 = 264192; // after grid heads (16*16*4 = 1024 bytes)
 
 // =============================================================================
 // SPATIAL GRID FUNCTIONS

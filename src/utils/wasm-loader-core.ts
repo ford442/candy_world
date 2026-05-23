@@ -1029,6 +1029,11 @@ export async function initWasm(): Promise<boolean> {
         startButton.removeAttribute('title');
         startButton.textContent = 'Start Exploration 🚀';
         startButton.style.cursor = 'pointer';
+
+        // ♿ Aria: Announce that the loading is complete and the button is ready
+        import('../ui/announcer.ts').then(({ announce }) => {
+            announce('Game ready. Press Enter to start exploration.', 'assertive');
+        });
     }
 
     if (!loaded && lastError) {

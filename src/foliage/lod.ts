@@ -579,7 +579,7 @@ export class FoliageLODManager {
 
         // Calculate LOD for each instance
         for (const [id, data] of this.instanceData) {
-            const distanceSq = data.position.distanceToSquared(cameraPosition);
+            const dx = data.position.x - cameraPosition.x; const dy = data.position.y - cameraPosition.y; const dz = data.position.z - cameraPosition.z; const distanceSq = dx*dx + dy*dy + dz*dz;
             const newLOD = this.calculateLODLevel(distanceSq);
 
             // Update stored LOD level
@@ -750,7 +750,7 @@ export class FoliageLODManager {
         if (this.billboardMesh) {
             this.billboardMesh.geometry.dispose();
             if (Array.isArray(this.billboardMesh.material)) {
-                this.billboardMesh.material.forEach(m => m.dispose());
+                for (let i = 0; i < this.billboardMesh.material.length; i++) { this.billboardMesh.material[i].dispose(); }
             } else {
                 this.billboardMesh.material.dispose();
             }
@@ -804,8 +804,8 @@ export class LODTreeBatcher {
             if ((child as THREE.Mesh).isMesh) {
                 const mesh = child as THREE.Mesh;
                 const mat = (Array.isArray(mesh.material) ? mesh.material[0] : mesh.material) as THREE.MeshStandardMaterial;
-                mesh.updateWorldMatrix(true, false);
-                _scratchLODMatrix.copy(mesh.matrixWorld);
+                // ⚡ OPTIMIZATION: Bypass recursive updateWorldMatrix
+                _scratchLODMatrix.copy(mesh.matrix).premultiply(group.matrix);
                 const col = mat.color || new THREE.Color(0xFFFFFF);
 
                 // Map geometry types to our LOD categories

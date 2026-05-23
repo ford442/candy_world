@@ -49,13 +49,14 @@ export function validateFoliageMaterials(foliageMaterials?: { [key: string]: THR
     };
     const required = ['lightBeam', 'mushroomCap', 'opticTip', 'lotusRing', 'flowerStem'];
     let safe = true;
-    required.forEach(key => {
+    for (let i = 0; i < required.length; i++) {
+        const key = required[i];
         if (!materials[key]) {
             console.error(`[Foliage] Missing material: ${key}. Using fallback.`);
             materials[key] = getFallbackMaterial();
             safe = false;
         }
-    });
+    }
     return safe;
 }
 

@@ -53,10 +53,10 @@ export interface MenuItem {
 // ============================================================================
 
 /**
- * AccessibilityMenu manages the accessibility settings dialog.
+ * AccessibilityMenuCore manages the accessibility settings dialog.
  * Provides state management, lifecycle hooks, and focus trapping.
  */
-export class AccessibilityMenu {
+export class AccessibilityMenuCore {
   protected container: HTMLElement | null = null;
   protected overlay: HTMLElement | null = null;
   protected isOpen = false;
@@ -220,12 +220,4 @@ export class AccessibilityMenu {
       .trim();
   }
 
-  // ============================================================================
-  // Static Helpers
-  // ============================================================================
-
-  static open(): void {
-    const menu = new AccessibilityMenu();
-    menu.open();
-  }
 }
