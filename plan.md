@@ -29,4 +29,7 @@ Status: Implemented ✅
 Status: Implemented ✅
 * Implementation Details: Built the `src/systems/ecs` core structure to facilitate scene graph replacement, targeting maximum performance and memory efficiency through dense arrays. Ran memory benchmarks yielding approx 40.03 MB memory usage for 100000 entities with standard components.
 
-Next Step: Phase 4 Stage C — Scene Graph Replacement: Migrate scene hierarchy to the new ECS structure in WASM and call `device.queue.submit()` directly, fully replacing the Three.js scene graph.
+Status: Implemented ✅
+* Implementation Details: Modularized src/world/generation.ts into generation-core.ts, generation-decorators.ts, and generation-utils.ts.
+
+Next Step: Refactoring Large Files: Continue the refactoring plan by splitting src/systems/region-manager.ts into smaller, well-scoped modules to improve long-term maintainability.

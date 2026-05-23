@@ -77,7 +77,10 @@ Three.js Renderer -> WebGPU RenderPipeline (Raw Draw Calls)
 5. **Phase 4: The Graphics Rewire (Three.js → Raw WebGPU) Stage B — Advanced Post-Processing** (Status: Implemented ✅)
    - *Implementation Details:* Replaced standard post-processing with an advanced TSL-based pipeline featuring Chromatic Aberration and Vignette, driven by uniforms, within `src/foliage/post-processing.ts`.
 
+6. **Refactoring Large Files: generation.ts** (Status: Implemented ✅)
+   - *Implementation Details:* Modularized `src/world/generation.ts` into `generation-core.ts`, `generation-decorators.ts`, and `generation-utils.ts`, reducing file size and improving maintainability.
+
 ## Next Steps
 
-1. **Phase 4: The Graphics Rewire (Three.js → Raw WebGPU) Stage C — Scene Graph Replacement**
-   - *Next Step Suggestion:* Migrate scene hierarchy to an ECS in WASM and call `device.queue.submit()` directly, fully replacing the Three.js scene graph.
+1. **Refactoring Large Files: region-manager.ts**
+   - *Next Step Suggestion:* Continue the refactoring plan by splitting `src/systems/region-manager.ts` into smaller, well-scoped modules to improve long-term maintainability.
