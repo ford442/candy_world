@@ -8,7 +8,7 @@ This document outlines the remaining 5 files (5,275 lines) that need to be refac
 
 | File | Lines | Target Split | Status |
 |------|-------|--------------|--------|
-| src/world/generation.ts | 1078 | 4 files | ⏳ TODO |
+| src/world/generation.ts | 1078 | 4 files | ✅ DONE |
 | src/systems/region-manager.ts | 1064 | 3 files | ⏳ TODO |
 | src/ui/loading-screen.ts | 1063 | 3 files | ⏳ TODO |
 | src/audio/audio-system.ts | 1047 | 3 files | ⏳ TODO |

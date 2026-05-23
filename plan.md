@@ -32,4 +32,7 @@ Status: Implemented ✅
 Status: Implemented ✅
 * Implementation Details: Implemented AssemblyScript WASM ECS system using high-performance pointer arrays and memory mappings. Exported `ecs_createEntity`, `ecs_addComponent`, etc. to typescript.
 
-Next Step: Replace the large file refactoring tasks from `REFACTORING_PLAN_REMAINING.md`, starting with `src/world/generation.ts`.
+Status: Implemented ✅
+* Implementation Details: Refactored `src/world/generation.ts` (1400+ lines) into `generation-utils.ts`, `generation-decorators.ts`, `generation-core.ts` and a barrel export file, reducing monolithic complexity.
+
+Next Step: Replace the large file refactoring tasks from `REFACTORING_PLAN_REMAINING.md`, moving to `src/systems/region-manager.ts`.
