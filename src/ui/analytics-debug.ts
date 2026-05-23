@@ -256,7 +256,8 @@ const DEBUG_STYLES = `
 }
 
 .analytics-debug-button:active {
-  transform: translateY(0);
+  transform: translateY(0) scale(0.95);
+  transition-duration: 0.05s;
 }
 
 .analytics-debug-button:focus-visible {
@@ -668,7 +669,7 @@ class AnalyticsDebugOverlay {
       if (this.isVisible && this.elements?.container) {
         this.releaseFocusTrap = trapFocusInside(this.elements.container);
       }
-    }, 200);
+    }, 300);
 
     // Start update loop
     this.refresh();
