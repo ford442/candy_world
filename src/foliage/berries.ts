@@ -540,7 +540,7 @@ export function collectFallingBerries(playerPos: THREE.Vector3, collectRadius: n
         const berry = fallingBerryPool[i];
         if (!berry.active) continue;
 
-        const distSq = berry.position.distanceToSquared(playerPos);
+        const dx = berry.position.x - playerPos.x; const dy = berry.position.y - playerPos.y; const dz = berry.position.z - playerPos.z; const distSq = dx*dx + dy*dy + dz*dz;
         if (distSq < radiusSq) {
             spawnImpact(berry.position, 'berry');
 

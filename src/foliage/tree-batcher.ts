@@ -617,8 +617,8 @@ export class TreeBatcher {
                 const mat = (Array.isArray(mesh.material) ? mesh.material[0] : mesh.material) as THREE.MeshStandardMaterial;
                 // ⚡ OPTIMIZATION: Use shared color constant to prevent GC spikes in traverse
                 const col = mat.color || _defaultColorWhite;
-                mesh.updateWorldMatrix(true, false);
-                _scratchTreeMatrix.copy(mesh.matrixWorld);
+                // ⚡ OPTIMIZATION: Manual composition instead of updateWorldMatrix
+                _scratchTreeMatrix.copy(mesh.matrix).premultiply(group.matrixWorld);
 
                 if (mesh.geometry.type === 'CylinderGeometry') {
                      this.addInstance(this.trunks, _scratchTreeMatrix, col, 'trunkCount', animType, animOffset);
@@ -638,8 +638,8 @@ export class TreeBatcher {
                 const mat = (Array.isArray(mesh.material) ? mesh.material[0] : mesh.material) as THREE.MeshStandardMaterial;
                 // ⚡ OPTIMIZATION: Use shared color constant to prevent GC spikes in traverse
                 const col = mat.color || _defaultColorOrange;
-                mesh.updateWorldMatrix(true, false);
-                _scratchTreeMatrix.copy(mesh.matrixWorld);
+                // ⚡ OPTIMIZATION: Manual composition instead of updateWorldMatrix
+                _scratchTreeMatrix.copy(mesh.matrix).premultiply(group.matrixWorld);
 
                 if (mesh.geometry.type === 'SphereGeometry') {
                     this.addInstance(this.spheres, _scratchTreeMatrix, col, 'sphereCount', animType, animOffset);
@@ -656,8 +656,8 @@ export class TreeBatcher {
                 const mat = (Array.isArray(mesh.material) ? mesh.material[0] : mesh.material) as THREE.MeshStandardMaterial;
                 // ⚡ OPTIMIZATION: Use shared color constant to prevent GC spikes in traverse
                 const col = mat.color || _defaultColorGreen;
-                mesh.updateWorldMatrix(true, false);
-                _scratchTreeMatrix.copy(mesh.matrixWorld);
+                // ⚡ OPTIMIZATION: Manual composition instead of updateWorldMatrix
+                _scratchTreeMatrix.copy(mesh.matrix).premultiply(group.matrixWorld);
 
                 if (mesh.geometry.type === 'TubeGeometry') {
                     this.addInstance(this.helices, _scratchTreeMatrix, col, 'helixCount', animType, animOffset);
@@ -677,8 +677,8 @@ export class TreeBatcher {
                 const mat = (Array.isArray(mesh.material) ? mesh.material[0] : mesh.material) as THREE.MeshStandardMaterial;
                 // ⚡ OPTIMIZATION: Use shared color constant to prevent GC spikes in traverse
                 const col = mat.color || _defaultColorWhite;
-                mesh.updateWorldMatrix(true, false);
-                _scratchTreeMatrix.copy(mesh.matrixWorld);
+                // ⚡ OPTIMIZATION: Manual composition instead of updateWorldMatrix
+                _scratchTreeMatrix.copy(mesh.matrix).premultiply(group.matrixWorld);
 
                 if (mesh.geometry.type === 'CylinderGeometry') {
                     this.addInstance(this.trunks, _scratchTreeMatrix, col, 'trunkCount', animType, animOffset);

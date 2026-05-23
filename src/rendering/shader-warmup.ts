@@ -301,7 +301,9 @@ export class ShaderWarmup {
       scene.remove(mesh);
 
       if (mesh.instanceColor) {
-        mesh.instanceColor.dispose();
+        if (typeof (mesh.instanceColor as any).dispose === 'function') {
+          try { (mesh.instanceColor as any).dispose(); } catch (e) {}
+        }
       }
 
       if (material instanceof MeshStandardNodeMaterial) {

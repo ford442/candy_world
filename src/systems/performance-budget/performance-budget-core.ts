@@ -558,7 +558,7 @@ export class PerformanceBudget {
     }
     
     // Notify listeners
-    this.onViolationCallbacks.forEach(cb => {
+    for (let i = 0; i < this.onViolationCallbacks.length; i++) { const cb = this.onViolationCallbacks[i];
       try {
         cb(violation);
       } catch (e) {
@@ -673,7 +673,7 @@ export class PerformanceBudget {
     if (changed) {
       console.log(`[PerformanceBudget] Applied adaptive reduction for ${specificType}:`, this.adaptiveSettings);
       
-      this.onAdaptiveChangeCallbacks.forEach(cb => {
+      for (let i = 0; i < this.onAdaptiveChangeCallbacks.length; i++) { const cb = this.onAdaptiveChangeCallbacks[i];
         try {
           cb(this.adaptiveSettings);
         } catch (e) {
@@ -817,7 +817,7 @@ export class PerformanceBudget {
       unloadDistantFoliage: false
     };
     
-    this.onAdaptiveChangeCallbacks.forEach(cb => {
+    for (let i = 0; i < this.onAdaptiveChangeCallbacks.length; i++) { const cb = this.onAdaptiveChangeCallbacks[i];
       try {
         cb(this.adaptiveSettings);
       } catch (e) {

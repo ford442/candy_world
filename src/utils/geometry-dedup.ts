@@ -269,7 +269,7 @@ export class GeometryRegistry {
      * Get total reference count across all geometries
      */
     getTotalRefCount(): number {
-        return Array.from(this.registry.values()).reduce((sum, e) => sum + e.refCount, 0);
+        let sum = 0; for (const e of this.registry.values()) sum += e.refCount; return sum;
     }
 }
 

@@ -359,7 +359,7 @@ export class CloudBatcher {
             // Only update matrix buffer if cloud actually moved (physics/drag)
             // Floating animation is handled by TSL Vertex Shader
             if (cloud.userData.lastPos) {
-                 const moved = cloud.position.distanceToSquared(cloud.userData.lastPos) > 0.0001;
+                 const dx = cloud.position.x - cloud.userData.lastPos.x; const dy = cloud.position.y - cloud.userData.lastPos.y; const dz = cloud.position.z - cloud.userData.lastPos.z; const moved = (dx*dx + dy*dy + dz*dz) > 0.0001;
                  const rotated = Math.abs(cloud.rotation.x - cloud.userData.lastRot.x) > 0.001 ||
                                  Math.abs(cloud.rotation.y - cloud.userData.lastRot.y) > 0.001 ||
                                  Math.abs(cloud.rotation.z - cloud.userData.lastRot.z) > 0.001;

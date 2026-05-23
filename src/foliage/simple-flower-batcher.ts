@@ -186,9 +186,10 @@ export class SimpleFlowerBatcher {
         this.petalMesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAX_FLOWERS * 3), 3);
         this.beamMesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAX_FLOWERS * 3), 3);
         // Provide aPoseState so TSL attribute('aPoseState') resolves
-        [this.stemMesh, this.petalMesh, this.centerMesh, this.stamenMesh, this.beamMesh].forEach(mesh => {
-            mesh.geometry.setAttribute('aPoseState', new THREE.InstancedBufferAttribute(new Float32Array(MAX_FLOWERS), 1));
-        });
+        const meshes = [this.stemMesh, this.petalMesh, this.centerMesh, this.stamenMesh, this.beamMesh];
+        for (let i = 0; i < meshes.length; i++) {
+            meshes[i].geometry.setAttribute('aPoseState', new THREE.InstancedBufferAttribute(new Float32Array(MAX_FLOWERS), 1));
+        }
 
         // Add to Scene
         this.petalMesh.geometry.setAttribute('aPoseState', new THREE.InstancedBufferAttribute(new Float32Array(MAX_FLOWERS).fill(0), 1));

@@ -306,18 +306,18 @@ export function uploadCollisionObjects(
         // Fallback: Sequential upload (for backwards compatibility)
         // 1. Gates (TASK 1: Guard against undefined cave/userData)
         if (caves && caves.length > 0) {
-            caves.forEach(cave => {
+            for (let i = 0; i < caves.length; i++) { const cave = caves[i];
                 if (cave && cave.userData && cave.userData.isBlocked) {
                     // ⚡ OPTIMIZATION: Eliminate Vector allocation and GC spike by using module-level scratch vector
                     const gatePos = _scratchGatePos.copy(cave.userData.gatePosition).applyMatrix4(cave.matrixWorld);
                     wasmAddCollisionObject!(3, gatePos.x, gatePos.y, gatePos.z, 2.5, 5.0, 0, 0, 0);
                 }
-            });
+            }
         }
 
         // 2. Mushrooms (TASK 1: Guard against undefined mushroom/userData/position)
         if (mushrooms && mushrooms.length > 0) {
-            mushrooms.forEach(m => {
+            for (let i = 0; i < mushrooms.length; i++) { const m = mushrooms[i];
                 if (m && m.userData && m.position) {
                     if (m.userData.isTrampoline) {
                          wasmAddCollisionObject!(4, m.position.x, m.position.y, m.position.z,
@@ -327,17 +327,17 @@ export function uploadCollisionObjects(
                             m.userData.capRadius || 2.0, m.userData.capHeight || 3.0, 0, 0, 0);
                     }
                 }
-            });
+            }
         }
 
         // 3. Clouds (TASK 1: Guard against undefined cloud/userData/position/scale)
         if (clouds && clouds.length > 0) {
-            clouds.forEach(c => {
+            for (let i = 0; i < clouds.length; i++) { const c = clouds[i];
                  if (c && c.userData && c.userData.tier === 1 && c.position && c.scale) {
                      wasmAddCollisionObject!(2, c.position.x, c.position.y, c.position.z,
                         c.scale.x || 1.0, c.scale.y || 1.0, 0, 0, 0);
                  }
-            });
+            }
         }
 
         // 4. Dynamic Arpeggio Ferns (TASK 1: Guard against undefined fern/userData/position/scale)

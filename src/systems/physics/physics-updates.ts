@@ -83,7 +83,13 @@ function filterValidPhysicsObjects<T extends PhysicsSyncObject>(objects: T[] | u
         return [];
     }
 
-    const validObjects = objects.filter(hasFinitePosition);
+    const validObjects: T[] = [];
+    for (let i = 0; i < objects.length; i++) {
+        if (hasFinitePosition(objects[i])) {
+            validObjects.push(objects[i]);
+        }
+    }
+
     if (validObjects.length !== objects.length) {
         console.warn(`[Physics] Skipping ${objects.length - validObjects.length} invalid ${label} objects during WASM collision sync.`);
     }
