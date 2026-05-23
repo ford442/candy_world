@@ -206,12 +206,10 @@ export function updateDashHUD(
     const isReady = dashPct <= 0;
     if (isReady !== _lastDashReady) {
         if (isReady) {
-            hudDash.classList.add('ready');
             hudDash.setAttribute('aria-disabled', 'false');
             hudDash.title = "Dash (E) - Ready!";
             hudDash.setAttribute('aria-label', "Dash Ability (E) - Ready!");
         } else {
-            hudDash.classList.remove('ready');
             hudDash.setAttribute('aria-disabled', 'true');
             hudDash.title = "Dash (E) - Recharging...";
             hudDash.setAttribute('aria-label', "Dash Ability (E) - Recharging...");
@@ -244,12 +242,10 @@ export function updateMineHUD(
     const isReady = minePct <= 0;
     if (isReady !== _lastMineReady) {
         if (isReady) {
-            hudMine.classList.add('ready');
             hudMine.setAttribute('aria-disabled', 'false');
             hudMine.title = "Jitter Mine (F) - Ready!";
             hudMine.setAttribute('aria-label', "Jitter Mine Ability (F) - Ready!");
         } else {
-            hudMine.classList.remove('ready');
             hudMine.setAttribute('aria-disabled', 'true');
             hudMine.title = "Jitter Mine (F) - Recharging...";
             hudMine.setAttribute('aria-label', "Jitter Mine Ability (F) - Recharging...");
@@ -297,8 +293,7 @@ export function updatePhaseHUD(
         hudPhaseOverlay.style.height = `${pct * 100}%`;
 
         if (isPhasing !== _lastPhaseActive) {
-            hudPhase.classList.add('active');
-            hudPhase.classList.remove('ready');
+            hudPhase.setAttribute('aria-pressed', 'true');
             hudPhase.setAttribute('aria-disabled', 'false');
             _lastPhaseActive = isPhasing;
         }
@@ -313,7 +308,7 @@ export function updatePhaseHUD(
 
         const stateChanged = (isPhasing !== _lastPhaseActive);
         if (stateChanged) {
-            hudPhase.classList.remove('active');
+            hudPhase.setAttribute('aria-pressed', 'false');
             _lastPhaseActive = isPhasing;
         }
 
@@ -321,12 +316,10 @@ export function updatePhaseHUD(
         if (stateChanged || countChanged) {
             const isReady = phaseCount > 0;
             if (isReady) {
-                hudPhase.classList.add('ready');
                 hudPhase.setAttribute('aria-disabled', 'false');
                 hudPhase.title = `Phase Shift (Z) - ${phaseCount} Bulb${phaseCount !== 1 ? 's' : ''} Available`;
                 hudPhase.setAttribute('aria-label', `Phase Shift (Z) - ${phaseCount} Bulbs Available`);
             } else {
-                hudPhase.classList.remove('ready');
                 hudPhase.setAttribute('aria-disabled', 'true');
                 hudPhase.title = "Phase Shift (Z) - Need Tremolo Bulb";
                 hudPhase.setAttribute('aria-label', "Phase Shift (Z) - Empty (Need Tremolo Bulb)");

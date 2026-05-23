@@ -590,6 +590,11 @@ if (startButton) {
             loadingScreen.updateProgress(100, 'World generation complete!');
             loadingScreen.completePhase('map-generation');
             loadingScreen.hide();
+
+            // ♿ Aria: Announce that the game is fully loaded and exploration has started
+            import('../ui/announcer.ts').then(({ announce }) => {
+                announce('World generated. Welcome to Candy World.', 'assertive');
+            });
         });
 
         if (!worldGenResult.success) {
@@ -649,6 +654,9 @@ if (startButton) {
             loadingScreen.hide();
             startButton.style.background = '';
             startButton.innerHTML = 'Retry';
+            import('../ui/announcer.ts').then(({ announce }) => {
+                announce('World generation failed. Please try again.', 'assertive');
+            });
         } finally {
             _worldGenerationActive = false;
             isGenerating = false;
