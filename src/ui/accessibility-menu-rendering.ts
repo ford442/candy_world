@@ -90,6 +90,7 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
     `;
 
     const closeBtn = document.createElement('button');
+    closeBtn.classList.add('a11y-menu-btn');
     closeBtn.textContent = '✕';
     closeBtn.style.cssText = `
       ${this.getButtonStyle()}
@@ -151,6 +152,7 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
     for (const section of sections) {
       const isActive = this.currentSection === section;
       const tab = document.createElement('button');
+      tab.classList.add('a11y-menu-btn');
       tab.id = `tab-${section}`;
       tab.role = 'tab';
       tab.setAttribute('aria-selected', isActive ? 'true' : 'false');
@@ -276,6 +278,7 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
 
     for (const preset of presets) {
       const card = document.createElement('button');
+      card.classList.add('a11y-menu-btn');
       card.style.cssText = `
         ${this.getButtonStyle()}
         padding: 16px;
@@ -348,6 +351,7 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
       label.style.cssText = 'flex: 1;';
 
       const btn = document.createElement('button');
+      btn.classList.add('a11y-menu-btn');
       btn.textContent = binding.key || 'Unbound';
       btn.style.cssText = `${this.getButtonStyle()} width: 120px;`;
       btn.onclick = () => this.startKeyRebind(action, btn);

@@ -569,3 +569,23 @@ button.pressed,
     filter: brightness(0.9) !important;
     transition-duration: 0.05s !important;
 }
+
+/* 🎨 Palette: Accessibility Menu Buttons Tactile Feedback */
+.a11y-menu-btn {
+    cursor: pointer;
+    transition: transform 0.1s ease, background-color 0.1s ease, box-shadow 0.1s ease;
+}
+
+.a11y-menu-btn:hover {
+    transform: translateY(-1px);
+}
+
+.a11y-menu-btn:active {
+    transform: scale(0.95);
+    transition-duration: 0.05s;
+}
+
+.a11y-menu-btn:focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: 3px;
+}
