@@ -20,7 +20,7 @@ export interface DeferredTask {
 }
 
 // Detect requestIdleCallback at module level to avoid repeated property lookups.
-const _hasIdleCallback = typeof requestIdleCallback !== 'undefined';
+const hasIdleCallback = typeof requestIdleCallback !== 'undefined';
 
 export class BackgroundProcessor {
     private queue: DeferredTask[] = [];
@@ -65,7 +65,7 @@ export class BackgroundProcessor {
         this.isRunning = true;
 
         console.log(`[BackgroundProcessor] Starting with ${this.queue.length} tasks`);
-        this._scheduleNext();
+        this.scheduleNext();
     }
 
     /**
@@ -78,17 +78,17 @@ export class BackgroundProcessor {
     /**
      * Schedule the next processing callback using the best available API.
      */
-    private _scheduleNext(): void {
-        if (_hasIdleCallback) {
+    private scheduleNext(): void {
+        if (hasIdleCallback) {
             // idleDeadline.timeRemaining() tells us how long the browser is idle.
             // We cap at maxMsPerFrame so we never hog an entire idle period.
             requestIdleCallback((deadline) => {
                 const budget = Math.min(deadline.timeRemaining(), this.maxMsPerFrame);
-                this._processChunk(budget);
+                this.processChunk(budget);
             }, { timeout: 1000 }); // 1 s timeout ensures progress even under load
         } else {
             requestAnimationFrame(() => {
-                this._processChunk(this.maxMsPerFrame);
+                this.processChunk(this.maxMsPerFrame);
             });
         }
     }
@@ -96,11 +96,11 @@ export class BackgroundProcessor {
     /**
      * Process tasks until the given time budget (ms) is consumed.
      */
-    private async _processChunk(budgetMs: number): Promise<void> {
+    private async processChunk(budgetMs: number): Promise<void> {
         if (!this.isRunning) return;
 
         if (this.queue.length === 0) {
-            this._complete();
+            this.complete();
             return;
         }
 
@@ -132,13 +132,13 @@ export class BackgroundProcessor {
         }
 
         if (this.queue.length > 0) {
-            this._scheduleNext();
+            this.scheduleNext();
         } else {
-            this._complete();
+            this.complete();
         }
     }
 
-    private _complete(): void {
+    private complete(): void {
         this.isRunning = false;
         console.log('[BackgroundProcessor] Queue complete');
         if (this.onCompleteCallback) this.onCompleteCallback();

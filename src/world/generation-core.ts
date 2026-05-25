@@ -407,7 +407,7 @@ export async function generateMap(
     let queuedDeferred = 0;
     for (const item of deferredEntities) {
         globalBackgroundProcessor.enqueue({
-            id: `map_deferred_${item.type}`,
+            id: `map_deferred_${item.type}_${queuedDeferred}`,
             execute: () => processMapEntity(item, weatherSystem)
         });
 
