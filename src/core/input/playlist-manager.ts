@@ -446,6 +446,7 @@ export function togglePlaylist(): void {
                 if (isPlaylistOpen && playlistOverlay) {
                     releaseJukeboxFocus = trapFocusInside(playlistOverlay);
 
+
                     // UX: Auto-focus the currently playing track for immediate context
                     if (!audioSystemRef || !playlistList) return;
                     const currentIdx = audioSystemRef.getCurrentIndex();
