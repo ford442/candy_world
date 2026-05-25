@@ -475,11 +475,9 @@ if (startButton) {
         console.log(`[Startup] Mode selected: ${isCore ? 'CORE' : 'FULL'}`);
         if (btnCoreOnly) {
             btnCoreOnly.setAttribute('aria-pressed', String(isCore));
-            btnCoreOnly.style.boxShadow = isCore ? '0 5px 18px rgba(255, 156, 205, 0.55)' : 'none';
         }
         if (btnFullGame) {
             btnFullGame.setAttribute('aria-pressed', String(!isCore));
-            btnFullGame.style.boxShadow = !isCore ? '0 5px 18px rgba(125, 211, 252, 0.55)' : 'none';
         }
         if (modeDescription) {
             modeDescription.textContent = isCore
