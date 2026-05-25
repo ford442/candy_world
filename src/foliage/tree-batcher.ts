@@ -609,7 +609,12 @@ export class TreeBatcher {
 
         // ⚡ OPTIMIZATION: Write directly to instanceMatrix array to bypass .setMatrixAt overhead.
         matrix.toArray(mesh.instanceMatrix.array, index * 16);
-        mesh.setColorAt(index, color);
+        // ⚡ OPTIMIZATION: Write directly to instanceColor array to bypass .setColorAt overhead.
+        const colorArray = mesh.instanceColor.array as Float32Array;
+        const colorOffset = index * 3;
+        colorArray[colorOffset] = color.r;
+        colorArray[colorOffset + 1] = color.g;
+        colorArray[colorOffset + 2] = color.b;
 
         const typeAttr = mesh.geometry.attributes.instanceAnimType as THREE.InstancedBufferAttribute;
         const offsetAttr = mesh.geometry.attributes.instanceAnimOffset as THREE.InstancedBufferAttribute;

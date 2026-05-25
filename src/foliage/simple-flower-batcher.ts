@@ -352,7 +352,14 @@ export class SimpleFlowerBatcher {
         if (typeof color === 'number') _scratchColor.setHex(color);
         else if (color instanceof THREE.Color) _scratchColor.copy(color);
         else _scratchColor.set(color as string);
-        this.petalMesh!.setColorAt(i, _scratchColor);
+        // ⚡ OPTIMIZATION: Write directly to instanceColor array to bypass .setColorAt overhead.
+        if (this.petalMesh!.instanceColor) {
+            const colorArray = this.petalMesh!.instanceColor.array as Float32Array;
+            const colorOffset = i * 3;
+            colorArray[colorOffset] = _scratchColor.r;
+            colorArray[colorOffset + 1] = _scratchColor.g;
+            colorArray[colorOffset + 2] = _scratchColor.b;
+        }
 
         // Center: Scale(0.1)
         _scratchMat.makeScale(0.1, 0.1, 0.1);
@@ -376,7 +383,14 @@ export class SimpleFlowerBatcher {
             // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
         _scratchMat.toArray(this.beamMesh!.instanceMatrix.array, (i) * 16);
         }
-        this.beamMesh!.setColorAt(i, _scratchColor);
+        // ⚡ OPTIMIZATION: Write directly to instanceColor array to bypass .setColorAt overhead.
+        if (this.beamMesh!.instanceColor) {
+            const colorArray = this.beamMesh!.instanceColor.array as Float32Array;
+            const colorOffset = i * 3;
+            colorArray[colorOffset] = _scratchColor.r;
+            colorArray[colorOffset + 1] = _scratchColor.g;
+            colorArray[colorOffset + 2] = _scratchColor.b;
+        }
 
         // --- POLLEN REGISTRATION ---
         if (this.pollenPositions && this.pollenOffsets && this.pollenColors) {

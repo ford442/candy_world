@@ -378,7 +378,12 @@ export class FlowerBatcher {
         // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
         matrix.toArray(mesh.instanceMatrix.array, (index) * 16);
         if (color && mesh.instanceColor) {
-            mesh.setColorAt(index, color);
+            // ⚡ OPTIMIZATION: Write directly to instanceColor array to bypass .setColorAt overhead.
+            const colorArray = mesh.instanceColor.array as Float32Array;
+            const colorOffset = index * 3;
+            colorArray[colorOffset] = color.r;
+            colorArray[colorOffset + 1] = color.g;
+            colorArray[colorOffset + 2] = color.b;
         }
 
         // Update count

@@ -254,10 +254,31 @@ export class GlowingFlowerBatcher {
         // Stem doesn't use instance color (uses standard stem green), but we can set it if we want custom stem colors.
         // Original code used `foliageMaterials.flowerStem` which is green.
         // But head and wash need the color.
-        this.headMesh!.setColorAt(i, _scratchColor);
-        this.washMesh!.setColorAt(i, _scratchColor);
+        // ⚡ OPTIMIZATION: Write directly to instanceColor array to bypass .setColorAt overhead.
+        if (this.headMesh!.instanceColor) {
+            const colorArray = this.headMesh!.instanceColor.array as Float32Array;
+            const colorOffset = i * 3;
+            colorArray[colorOffset] = _scratchColor.r;
+            colorArray[colorOffset + 1] = _scratchColor.g;
+            colorArray[colorOffset + 2] = _scratchColor.b;
+        }
+        // ⚡ OPTIMIZATION: Write directly to instanceColor array to bypass .setColorAt overhead.
+        if (this.washMesh!.instanceColor) {
+            const colorArray = this.washMesh!.instanceColor.array as Float32Array;
+            const colorOffset = i * 3;
+            colorArray[colorOffset] = _scratchColor.r;
+            colorArray[colorOffset + 1] = _scratchColor.g;
+            colorArray[colorOffset + 2] = _scratchColor.b;
+        }
         // We set stem color just to be safe, though material might ignore it if not configured to use instanceColor
-        this.stemMesh!.setColorAt(i, _scratchColor);
+        // ⚡ OPTIMIZATION: Write directly to instanceColor array to bypass .setColorAt overhead.
+        if (this.stemMesh!.instanceColor) {
+            const colorArray = this.stemMesh!.instanceColor.array as Float32Array;
+            const colorOffset = i * 3;
+            colorArray[colorOffset] = _scratchColor.r;
+            colorArray[colorOffset + 1] = _scratchColor.g;
+            colorArray[colorOffset + 2] = _scratchColor.b;
+        }
 
         this.count++;
 
