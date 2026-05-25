@@ -35,4 +35,7 @@ Status: Implemented ✅
 Status: Implemented ✅
 * Implementation Details: Refactored `src/systems/region-manager.ts` into `region-manager-core.ts`, `region-manager-lod.ts`, and a barrel export, separating the core class logic from the LOD transitions and spatial queries.
 
-Next Step: Continue large file refactoring from `REFACTORING_PLAN_REMAINING.md` by targeting `src/ui/loading-screen.ts`.
+Status: Implemented ✅
+* Implementation Details: Refactored `src/ui/loading-screen.ts` into `loading-screen-types.ts`, `loading-screen-ui.ts`, and `loading-screen-progress.ts` with a barrel export, separating types, the UI class implementation, and the global APIs.
+
+Next Step: Continue large file refactoring from `REFACTORING_PLAN_REMAINING.md` by targeting `src/audio/audio-system.ts`.
