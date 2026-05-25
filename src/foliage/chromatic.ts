@@ -12,20 +12,28 @@ import {
     time,
     sin,
     cos,
-    vec2
+    vec2,
+    max,
+    mix
 } from 'three/tsl';
 
-// Global uniform for Chromatic Pulse intensity
+// Global uniform for Candy Impact / Glow Pulse intensity.
+// Driven by dashes, impacts, strong beats, etc.
 export const uChromaticIntensity = uniform(0.0);
 
 /**
- * Creates a Chromatic Aberration Pulse effect.
- * This function returns a mesh that should be added to the camera or scene
- * to create a full-screen distortion effect.
+ * Creates a full-screen "Candy Glow Pulse" overlay.
  *
- * It uses `viewportSharedTexture` to sample the scene behind the object.
+ * This replaces the old harsh RGB chromatic aberration split with a much
+ * more aesthetically pleasing effect that fits the pastel candy world:
+ * - Soft ethereal bloom / glow on bright areas
+ * - Gentle warm pink "sugar rush" color shift on high intensity
+ * - Zoom + light shake + soft barrel distortion for impact feedback
+ * - Extra highlight sparkle on emissive candy surfaces
  *
- * @returns {THREE.Mesh} The full-screen quad mesh.
+ * Much softer and dreamier than raw RGB channel separation.
+ *
+ * @returns {THREE.Mesh} The full-screen quad mesh (attach to camera).
  */
 export function createChromaticPulse(): THREE.Mesh {
     // Create a full-screen quad geometry
@@ -34,60 +42,76 @@ export function createChromaticPulse(): THREE.Mesh {
     // --- TSL Shader Logic ---
     const chromaticEffect = Fn(() => {
         // Base UVs for screen sampling
-        const baseUV = screenUV; // Use screenUV for viewport-correct sampling
+        const baseUV = screenUV;
 
-        // 1. Zoom / Impact Punch
-        // Create an energetic zoom-in effect when player dashes or lands heavily
+        // 1. Zoom / Impact Punch (kept for strong "hit" feedback)
         const centeredUV = baseUV.sub(0.5);
 
-        // 🎨 PALETTE: "Juice" Factor - Add Screen Shake
-        // High frequency shake scaled by the intensity of the pulse
-        const shakePhase = time.mul(50.0);
-        const shakeX = sin(shakePhase).mul(uChromaticIntensity).mul(0.01);
-        const shakeY = cos(shakePhase.mul(1.2)).mul(uChromaticIntensity).mul(0.01);
+        // 🎨 PALETTE: "Juice" Factor - Add Screen Shake (gentle, candy-like)
+        const shakePhase = time.mul(42.0);
+        const shakeAmount = uChromaticIntensity.mul(0.007); // softer than before
+        const shakeX = sin(shakePhase).mul(shakeAmount);
+        const shakeY = cos(shakePhase.mul(1.15)).mul(shakeAmount);
         const shakeOffset = vec2(shakeX, shakeY);
 
-        // Apply zoom scale (up to 15% zoom at full intensity) + shake offset
-        const zoomFactor = float(1.0).sub(uChromaticIntensity.mul(0.15));
+        // Apply zoom (max ~12% at full intensity) + shake
+        const zoomFactor = float(1.0).sub(uChromaticIntensity.mul(0.12));
         const zoomedUV = centeredUV.mul(zoomFactor).add(shakeOffset);
 
         const dist = zoomedUV.length();
 
-        // 2. Barrel Distortion based on intensity
-        // Barrel distortion formula: uv = uv * (1 + k * r^2)
-        // We modulate 'k' with intensity
-        const distortionStrength = uChromaticIntensity.mul(0.5); // Max distortion factor
+        // 2. Gentle Barrel Distortion (soft "sugar rush" lens feel)
+        const distortionStrength = uChromaticIntensity.mul(0.35);
         const distortion = float(1.0).add(dist.mul(dist).mul(distortionStrength));
-
         const distortedUV = zoomedUV.mul(distortion).add(0.5);
 
-        // 3. Chromatic Aberration (RGB Split)
-        // Offset Red and Blue channels in opposite directions relative to the center
-        const offsetDir = zoomedUV.normalize();
+        // 3. --- IMPROVED AESTHETIC: "Candy Glow Pulse" instead of harsh RGB split ---
+        // Sample main scene
+        const baseColor = viewportSharedTexture(distortedUV);
 
-        // 🎨 PALETTE: Make chromatic split wider and "juicier"
-        const aberrationAmount = uChromaticIntensity.mul(0.03); // 3% screen width max offset
+        // Soft multi-sample "ethereal bloom" approximation (dreamy glossy glow)
+        const glowOffset = uChromaticIntensity.mul(0.004);
+        const glow1 = viewportSharedTexture(distortedUV.add(vec2(glowOffset, 0.0)));
+        const glow2 = viewportSharedTexture(distortedUV.add(vec2(glowOffset.mul(-0.7), glowOffset.mul(1.1))));
+        const glow3 = viewportSharedTexture(distortedUV.add(vec2(0.0, glowOffset.mul(-0.9))));
 
-        const redUV = distortedUV.sub(offsetDir.mul(aberrationAmount));
-        const blueUV = distortedUV.add(offsetDir.mul(aberrationAmount));
-        const greenUV = distortedUV; // Green stays center
+        // Chain max calls (more TSL-type friendly)
+        const glowA = max(baseColor, glow1);
+        const glowB = max(glowA, glow2);
+        const glow = max(glowB, glow3);
 
-        // Sample the viewport texture
-        // Note: viewportSharedTexture takes UVs as input if provided?
-        // Checking docs/usage: viewportSharedTexture( uv )
-        const r = viewportSharedTexture(redUV).r;
-        const g = viewportSharedTexture(greenUV).g;
-        const b = viewportSharedTexture(blueUV).b;
+        // Add extra brightness on highlights (makes emissive candy surfaces "pop" more)
+        const brightness = glow.x.mul(0.3).add(glow.y.mul(0.59)).add(glow.z.mul(0.11));
+        const highlightBoost = max(brightness.sub(0.6), 0.0).mul(uChromaticIntensity.mul(1.8));
+        const glowed = glow.add(vec3(highlightBoost).mul(0.6));
 
-        // Combine channels
-        const finalColor = vec3(r, g, b);
+        // 🎨 PALETTE: Soft candy color shift (pastel pink/magenta bias on impact)
+        // This feels like a "sugar high" or "candy rush" rather than a glitch
+        const candyPink = vec3(1.08, 0.88, 0.98); // soft warm pink
+        const candyShift = mix(vec3(1.0), candyPink, uChromaticIntensity.mul(0.35));
 
-        return vec4(finalColor, 1.0);
+        let finalColor = glowed.mul(candyShift);
+
+        // Gentle extra saturation on high intensity (makes pastels more vivid without breaking)
+        const satAmount = uChromaticIntensity.mul(0.25).add(1.0);
+        const lum = finalColor.dot(vec3(0.299, 0.587, 0.114));
+        const saturated = mix(vec3(lum), finalColor, satAmount);
+
+        // Very subtle vignette glow on edges during strong pulses (dreamy feel)
+        const edgeVig = max(float(1.0).sub(dist.mul(0.9)), 0.0);
+        const vigBoost = edgeVig.mul(uChromaticIntensity).mul(0.25);
+        const withVig = saturated.add(vec3(vigBoost).mul(0.4));
+
+        return vec4(withVig, 1.0);
     });
 
     // Use MeshBasicNodeMaterial to ensure the overlay is unlit and displays exactly as calculated
     const material = new MeshBasicNodeMaterial();
     material.colorNode = chromaticEffect();
+
+    // The effect is intentionally named "Chromatic Pulse" in the API for backward compatibility
+    // with all the gameplay systems that drive uChromaticIntensity, but the visual is now a
+    // soft, juicy "Candy Glow Pulse" that matches the pastel aesthetic.
 
     // Ensure it renders on top of everything else (Post-Processing simulation)
     // We set depthTest/depthWrite to false so it doesn't mess with depth buffer

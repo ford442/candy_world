@@ -52,8 +52,9 @@
   },
   "sky_wave": {
     "propagation_ms": 800,
-    "target_biomes": ["arpeggio_grove", "crystalline_nebula"],
-    "decay_ms": 2000
+    "target_biomes": ["arpeggio_grove", "crystalline_nebula", "luminous_plants"],
+    "decay_ms": 2000,
+    "_comment": "Order in target_biomes controls stagger (earlier = hits first). Wave lerps the corresponding noteColor uniform so any foliage already consuming that uniform (portamento, wisteria, trees, mushrooms, etc.) receives the sky hue automatically."
   },
   "weatherReactivity": {
     "rainIntensity": { "channel": 2, "smoothing": 0.15, "scale": 1.0 },

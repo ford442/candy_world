@@ -8,6 +8,10 @@ export interface ChannelData {
     instrument?: number;
     activeEffect?: number;
     effectValue?: number;
+
+    // --- Missing fields present at runtime (from audio worklet / audio-system.ts) ---
+    note: string;           // e.g. "C", "F#", ""
+    notes?: number[];       // 12-band / chromatic analysis (used for luminous dominant note detection)
 }
 
 export interface AudioData {
@@ -50,6 +54,9 @@ export interface FoliageObject extends THREE.Object3D {
         minLight?: number;
         maxLight?: number;
         radius?: number;
+
+        // Biome tagging (lightweight — used by getBiomeUniforms for scalable music reactivity)
+        biome?: import('../systems/biome-uniforms.ts').BiomeId;
         reactiveMeshes?: FoliageObject[]; // Recursive definition
         flashIntensity?: number;
         flashDecay?: number;

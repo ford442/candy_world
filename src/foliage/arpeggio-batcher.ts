@@ -15,7 +15,10 @@ import {
     color, float, uniform, vec3, positionLocal, sin, cos, mix, uv, varying,
     smoothstep, attribute, positionWorld, If, vec4, varyingProperty
 } from 'three/tsl';
-import { BiomeUniforms } from '../systems/biome-uniforms.ts';
+import { BiomeUniforms, getBiomeUniforms, type BiomeId } from '../systems/biome-uniforms.ts';
+
+const ARPEGGIO_BIOME: BiomeId = 'arpeggio_grove';
+const arpeggioUniforms = getBiomeUniforms(ARPEGGIO_BIOME); // Future-proof: adding new biomes only requires updating the helper + JSON
 import { uTime, uGlitchIntensity } from './index.ts';
 import { applyGlitch } from './glitch.ts';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
@@ -31,6 +34,8 @@ export class ArpeggioFernBatcher {
     initialized: boolean;
     count: number;
     logicFerns: any[];
+
+    private static _debugLogged = false;
 
     // GPU Buffers
     mesh: THREE.InstancedMesh | null; // Merged mesh
@@ -143,7 +148,7 @@ export class ArpeggioFernBatcher {
         const frondColor = color(0x00FF88);
         const frondAccentColor = color(0x8844FF); // Purple-violet accent for hue shift
         // Arpeggio Grove hue shift: mix frond colour towards accent based on uHueShift channel
-        const dynamicFrondColor = mix(frondColor, frondAccentColor, BiomeUniforms.arpeggioGrove.hueShift);
+        const dynamicFrondColor = mix(frondColor, frondAccentColor, arpeggioUniforms.hueShift);
         const mixedColor = mix(baseColor, dynamicFrondColor, isFrondAttr);
 
         const mixedRough = mix(float(0.8), float(0.6), isFrondAttr);
@@ -155,6 +160,12 @@ export class ArpeggioFernBatcher {
             metalness: 0.0
         });
         registerReactiveMaterial(material);
+
+        // Lightweight debug indicator for biome tagging / music reactivity system
+        if (!ArpeggioFernBatcher._debugLogged && CONFIG.debugNoteReactivity) {
+            console.log('[Biome] ArpeggioFernBatcher using biome=', ARPEGGIO_BIOME, 'via getBiomeUniforms()');
+            ArpeggioFernBatcher._debugLogged = true;
+        }
 
         material.colorNode = mixedColor; // Will be multiplied by instanceColor in fragment logic?
         // Actually, createStandardNodeMaterial usually sets basic properties.
@@ -294,7 +305,7 @@ export class ArpeggioFernBatcher {
         const audioEmissive = uAudioHigh.mul(0.5);
         // Arpeggio Grove shimmer: soft teal sparkle driven by melody channels
         const shimmerColor = color(0x88FFCC);
-        const shimmerGlow = BiomeUniforms.arpeggioGrove.shimmer.mul(shimmerColor).mul(3.0);
+        const shimmerGlow = arpeggioUniforms.shimmer.mul(shimmerColor).mul(3.0);
         material.emissiveNode = rim.add(baseInstanceColor.mul(audioEmissive)).add(shimmerGlow);
 
         // --- INSTANCED MESH ---

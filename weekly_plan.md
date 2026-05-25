@@ -2,7 +2,8 @@
 
 ## Today's focus
 **2026-05-19 — User Idea: Per-channel MOD note-color propagation from sky to foliage.**
-When a tracker note fires on the sky/moon channel, the note's hue (already in `BiomeUniforms.skyMoon.moonNoteColor`) cascades downward to nearby foliage emissive uniforms, creating a visible color wave from sky to ground synchronized to the beat. kimi-cli implements the wave state, beat trigger, and per-frame propagation update. Touches `music-reactivity.ts`, `foliage-reactivity.ts`, `biome-uniforms.ts`, `music-bindings.json`. Full day.
+When a tracker note fires on the sky/moon channel, the note's hue (already in `BiomeUniforms.skyMoon.moonNoteColor`) cascades downward to nearby foliage emissive uniforms, creating a visible color wave from sky to ground synchronized to the beat. 
+**Progress (Task A):** `target_biomes` in music-bindings.json is now respected (was parsed but ignored). Wave logic fully data-driven with index-based stagger. luminous_plants added to targets + small emissive tint in luminous-plant-batcher.ts so sky hue visibly reaches them. portamento/wisteria/trees/mushrooms already benefit because they consume the arpeggioGrove or crystalline noteColor hubs. Touches `music-reactivity.ts`, `luminous-plant-batcher.ts`, `music-bindings.json`. See also new guidance in AGENTS.md. Ready for more targets or visual tuning.
 
 ## Ideas
 <!--
@@ -12,7 +13,11 @@ Format: - [ ] Short description (optional: more context on next line indented)
 Routine will mark picked items as "[in progress — YYYY-MM-DD]".
 -->
 - [ ] **Three.js ColorSpace enum regression** — In `src/core/init.js` we fall back to string literals (`'display-p3'`, `'srgb'`) for `outputColorSpace` because `THREE.DisplayP3ColorSpace` / `THREE.SRGBColorSpace` produced TS/build warnings with the current `three` version. When updating Three.js, revert to the proper enum. Opportunistic — activate when upgrading Three.js version, not a standalone sprint.
-- [in progress — 2026-05-19] **Per-channel MOD note-color propagation from sky to foliage** — Extend the music-bindings system so each biome's note-color hue (established by Moon Dance, PR #764) propagates downward to nearby foliage emissive uniforms, creating a visible color wave from sky to ground per beat. Touches `foliage-reactivity.ts`, `music-reactivity.ts`, `music-bindings.json`. Full day.
+- [completed — 2026-05-19] **Per-channel MOD note-color propagation from sky to foliage** — All three tasks completed sequentially:
+  - **A**: Sky Wave fully data-driven via target_biomes (luminous_plants added + visible effect).
+  - **B**: BiomeId + getBiomeUniforms() helper + tagging on creation + usage in 2 batchers + debug hook.
+  - **C**: ChannelData type completed (note + notes[]), portamento uTwilight explicitly wired + documented (backlog item closed), channel-range validation added in music-reactivity.
+  Smoke test reached "✓ Scene is ready!" + "No console errors" (partial run due to env timeout). WASM tests green. All changes are non-breaking.
 
 ## Backlog
 <!--

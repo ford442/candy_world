@@ -17,13 +17,16 @@ import { safeAddFoliage } from './generation-core.ts';
 import {
     ARPEGGIO_GROVE, LAKE_ISLAND, PROCEDURAL_ENTITY_COUNT, DEFAULT_PROCEDURAL_CHUNK_SIZE,
     ENTITY_BUDGET_MS, WeatherSystem, FoliageGrowthOptions, yieldControl,
-    getUnifiedGroundHeight, isPositionValid
+    getUnifiedGroundHeight, isPositionValid,
+    ARPEGGIO_GROVE_FERN_COUNT, ARPEGGIO_GROVE_OUTER_COUNT,
+    LAKE_ARPEGGIO_FERN_COUNT, LAKE_DANDELION_COUNT
 } from './generation-utils.ts';
 
 export /**
- * Populates the Arpeggio Grove set piece as defined in the Musical Ecosystem plan.
- * Features a Subwoofer Lotus surrounded by twelve Arpeggio Ferns, with reactive flora.
- * Yields control to the browser between object batches to prevent main-thread blocking.
+ * Populates the Arpeggio Grove set piece.
+ * Fern and outer counts are now configurable via CONFIG.world.population
+ * to allow faster Full mode loading.
+ * Yields control to the browser between batches.
  */
 async function populateArpeggioGrove(weatherSystem: WeatherSystem): Promise<void> {
     if (!ARPEGGIO_GROVE.enabled) return;
@@ -39,8 +42,8 @@ async function populateArpeggioGrove(weatherSystem: WeatherSystem): Promise<void
     safeAddFoliage(centralLotus, false, 0, weatherSystem);
     await yieldControl();
 
-    // Twelve Arpeggio Ferns ring (yield every 4 ferns)
-    const fernCount = 12;
+    // Arpeggio Ferns ring (count controlled via CONFIG.world.population for faster Full mode loads)
+    const fernCount = ARPEGGIO_GROVE_FERN_COUNT;
     const fernRadius = radius * 0.4;
     for (let i = 0; i < fernCount; i++) {
         const angle = (i / fernCount) * Math.PI * 2;
@@ -55,8 +58,8 @@ async function populateArpeggioGrove(weatherSystem: WeatherSystem): Promise<void
         if (i % 4 === 3) await yieldControl();
     }
 
-    // Outer ring: Kick Drum Geysers and Vibrato Violets (yield every 4 objects)
-    const outerCount = 8;
+    // Outer ring: Kick Drum Geysers and Vibrato Violets
+    const outerCount = ARPEGGIO_GROVE_OUTER_COUNT;
     const outerRadius = radius * 0.8;
     for (let i = 0; i < outerCount; i++) {
         const angle = (i / outerCount) * Math.PI * 2 + 0.2;
@@ -158,8 +161,8 @@ function populateLakeIsland(weatherSystem: WeatherSystem): void {
         safeAddFoliage(flower, false, 0, weatherSystem);
     }
 
-    // Scattered Arpeggio Ferns
-    const fernCount = 5;
+    // Scattered Arpeggio Ferns (lake island)
+    const fernCount = LAKE_ARPEGGIO_FERN_COUNT;
     for (let i = 0; i < fernCount; i++) {
         // Random position within island
         const randAngle = Math.random() * Math.PI * 2;
@@ -175,7 +178,7 @@ function populateLakeIsland(weatherSystem: WeatherSystem): void {
     }
 
     // Edge decorations: Cymbal Dandelions
-    const dandelionCount = 10;
+    const dandelionCount = LAKE_DANDELION_COUNT;
     for (let i = 0; i < dandelionCount; i++) {
         const angle = (i / dandelionCount) * Math.PI * 2 + Math.random() * 0.2;
         const edgeOffset = radius * 0.85 + Math.random() * (radius * 0.1);
