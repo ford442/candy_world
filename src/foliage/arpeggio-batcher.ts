@@ -356,7 +356,14 @@ export class ArpeggioFernBatcher {
 
         // Color
         this._color.setHex(color);
-        this.mesh!.setColorAt(i, this._color);
+        // ⚡ OPTIMIZATION: Write directly to instanceColor array to bypass .setColorAt overhead.
+        if (this.mesh!.instanceColor) {
+            const colorArray = this.mesh!.instanceColor.array as Float32Array;
+            const colorOffset = i * 3;
+            colorArray[colorOffset] = this._color.r;
+            colorArray[colorOffset + 1] = this._color.g;
+            colorArray[colorOffset + 2] = this._color.b;
+        }
 
         // Update count
         this.mesh!.count = this.count;

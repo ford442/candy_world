@@ -658,7 +658,14 @@ export class MushroomBatcher {
         // Default to Red (0xFF6B6B) if no note color provided
         const colorHex = options.noteColor !== undefined ? options.noteColor : 0xFF6B6B;
         _scratchColor.setHex(colorHex);
-        this.mesh!.setColorAt(i, _scratchColor);
+        // ⚡ OPTIMIZATION: Write directly to instanceColor array to bypass .setColorAt overhead.
+        if (this.mesh!.instanceColor) {
+            const colorArray = this.mesh!.instanceColor.array as Float32Array;
+            const colorOffset = i * 3;
+            colorArray[colorOffset] = _scratchColor.r;
+            colorArray[colorOffset + 1] = _scratchColor.g;
+            colorArray[colorOffset + 2] = _scratchColor.b;
+        }
 
         // 2. Set Attributes - Packed into single vec4
         // packedFlags: noteIndex+1 + hasFace*20 + isGiant*40
@@ -720,7 +727,14 @@ export class MushroomBatcher {
 
             // Color
             this.mesh!.getColorAt(lastIndex, _scratchColor);
-            this.mesh!.setColorAt(indexToRemove, _scratchColor);
+            // ⚡ OPTIMIZATION: Write directly to instanceColor array to bypass .setColorAt overhead.
+            if (this.mesh!.instanceColor) {
+                const colorArray = this.mesh!.instanceColor.array as Float32Array;
+                const colorOffset = indexToRemove * 3;
+                colorArray[colorOffset] = _scratchColor.r;
+                colorArray[colorOffset + 1] = _scratchColor.g;
+                colorArray[colorOffset + 2] = _scratchColor.b;
+            }
 
             // Single packed attribute
             this.instanceData!.setXYZW(

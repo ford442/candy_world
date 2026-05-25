@@ -343,7 +343,14 @@ export class LanternBatcher {
         this.topParams!.setXYZW(i, height, randomPhase, 0, spawnTime);
         
         // Use setColorAt
-        this.topMesh!.setColorAt(i, c);
+        // ⚡ OPTIMIZATION: Write directly to instanceColor array to bypass .setColorAt overhead.
+        if (this.topMesh!.instanceColor) {
+            const colorArray = this.topMesh!.instanceColor.array as Float32Array;
+            const colorOffset = i * 3;
+            colorArray[colorOffset] = c.r;
+            colorArray[colorOffset + 1] = c.g;
+            colorArray[colorOffset + 2] = c.b;
+        }
 
         this.stemMesh!.instanceMatrix.needsUpdate = true;
         this.topMesh!.instanceMatrix.needsUpdate = true;

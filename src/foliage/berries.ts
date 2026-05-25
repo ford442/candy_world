@@ -114,7 +114,15 @@ export class BerryBatcher {
             this.mesh.geometry.setAttribute('instanceColor', this.mesh.instanceColor);
         }
         for (let i = 0; i < MAX_BERRIES; i++) {
-            this.mesh.setColorAt(i, _scratchColor.setHex(0xFF6600));
+            _scratchColor.setHex(0xFF6600);
+        // ⚡ OPTIMIZATION: Write directly to instanceColor array to bypass .setColorAt overhead.
+        if (this.mesh.instanceColor) {
+            const colorArray = this.mesh.instanceColor.array as Float32Array;
+            const colorOffset = i * 3;
+            colorArray[colorOffset] = _scratchColor.r;
+            colorArray[colorOffset + 1] = _scratchColor.g;
+            colorArray[colorOffset + 2] = _scratchColor.b;
+        }
         }
     }
 
@@ -175,7 +183,14 @@ export class BerryBatcher {
             initialTransforms.scales.push(sizeVar * size);
 
             // Set Color
-            this.mesh.setColorAt(idx, _scratchColor);
+        // ⚡ OPTIMIZATION: Write directly to instanceColor array to bypass .setColorAt overhead.
+        if (this.mesh.instanceColor) {
+            const colorArray = this.mesh.instanceColor.array as Float32Array;
+            const colorOffset = idx * 3;
+            colorArray[colorOffset] = _scratchColor.r;
+            colorArray[colorOffset + 1] = _scratchColor.g;
+            colorArray[colorOffset + 2] = _scratchColor.b;
+        }
 
             // Set Glow
             this.glowAttribute.setX(idx, baseGlow);
