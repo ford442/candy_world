@@ -3,7 +3,9 @@ import { getGroundHeight, checkPositionValidity } from '../utils/wasm-loader.js'
 
 export const DEFAULT_MAP_CHUNK_SIZE = 100;
 export const DEFAULT_PROCEDURAL_CHUNK_SIZE = 100;
-export const PROCEDURAL_ENTITY_COUNT = 400;
+// Reduced from 400 → 200: halves synchronous + deferred work in Full mode
+// without meaningfully affecting visual density (the map.json already has 2192 entities).
+export const PROCEDURAL_ENTITY_COUNT = 200;
 export const ENTITY_BUDGET_MS = 14;
 export const YIELD_ENTITY_BATCH_SIZE = 40;
 export const YIELD_LOG_INTERVAL = YIELD_ENTITY_BATCH_SIZE * 5;
