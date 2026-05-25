@@ -32,10 +32,7 @@ Status: Implemented ✅
 Status: Implemented ✅
 * Implementation Details: Modularized src/world/generation.ts into generation-core.ts, generation-decorators.ts, and generation-utils.ts.
 
-Next Step: Refactoring Large Files: Continue the refactoring plan by splitting src/systems/region-manager.ts into smaller, well-scoped modules to improve long-term maintainability.
-* Implementation Details: Implemented AssemblyScript WASM ECS system using high-performance pointer arrays and memory mappings. Exported `ecs_createEntity`, `ecs_addComponent`, etc. to typescript.
-
 Status: Implemented ✅
-* Implementation Details: Refactored `src/world/generation.ts` (1400+ lines) into `generation-utils.ts`, `generation-decorators.ts`, `generation-core.ts` and a barrel export file, reducing monolithic complexity.
+* Implementation Details: Refactored `src/systems/region-manager.ts` into `region-manager-core.ts`, `region-manager-lod.ts`, and a barrel export, separating the core class logic from the LOD transitions and spatial queries.
 
-Next Step: Replace the large file refactoring tasks from `REFACTORING_PLAN_REMAINING.md`, moving to `src/systems/region-manager.ts`.
+Next Step: Continue large file refactoring from `REFACTORING_PLAN_REMAINING.md` by targeting `src/ui/loading-screen.ts`.
