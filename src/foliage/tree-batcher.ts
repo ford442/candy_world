@@ -285,6 +285,25 @@ export class TreeBatcher {
 
     // --- Dynamic Buffer Growth ---
 
+    /**
+     * Helper to properly dispose of InstancedMesh resources to prevent VRAM leaks.
+     */
+    private disposeInstancedMesh(mesh: THREE.InstancedMesh) {
+        if (mesh.geometry) mesh.geometry.dispose();
+        if (mesh.material) {
+            if (Array.isArray(mesh.material)) {
+                mesh.material.forEach(m => m.dispose());
+            } else {
+                mesh.material.dispose();
+            }
+        }
+
+        // Ensure custom instance attributes are disposed if supported
+        if (mesh.instanceColor && typeof (mesh.instanceColor as any).dispose === 'function') {
+            try { (mesh.instanceColor as any).dispose(); } catch (e) {}
+        }
+    }
+
     private growTrunkBuffer() {
         if (this.trunkCapacity >= MAX_INSTANCES) return; // Cap at max
         const oldMesh = this.trunks;
@@ -328,7 +347,7 @@ export class TreeBatcher {
         // Replace in scene
         foliageGroup.remove(oldMesh);
         foliageGroup.add(newMesh);
-        oldMesh.dispose();
+        this.disposeInstancedMesh(oldMesh);
         
         this.trunks = newMesh;
         console.log(`[TreeBatcher] Grew trunk buffer to ${this.trunkCapacity}`);
@@ -374,7 +393,7 @@ export class TreeBatcher {
         
         foliageGroup.remove(oldMesh);
         foliageGroup.add(newMesh);
-        oldMesh.dispose();
+        this.disposeInstancedMesh(oldMesh);
         
         this.spheres = newMesh;
         console.log(`[TreeBatcher] Grew sphere buffer to ${this.sphereCapacity}`);
@@ -420,7 +439,7 @@ export class TreeBatcher {
         
         foliageGroup.remove(oldMesh);
         foliageGroup.add(newMesh);
-        oldMesh.dispose();
+        this.disposeInstancedMesh(oldMesh);
         
         this.capsules = newMesh;
         console.log(`[TreeBatcher] Grew capsule buffer to ${this.capsuleCapacity}`);
@@ -466,7 +485,7 @@ export class TreeBatcher {
         
         foliageGroup.remove(oldMesh);
         foliageGroup.add(newMesh);
-        oldMesh.dispose();
+        this.disposeInstancedMesh(oldMesh);
         
         this.helices = newMesh;
         console.log(`[TreeBatcher] Grew helix buffer to ${this.helixCapacity}`);
@@ -512,7 +531,7 @@ export class TreeBatcher {
         
         foliageGroup.remove(oldMesh);
         foliageGroup.add(newMesh);
-        oldMesh.dispose();
+        this.disposeInstancedMesh(oldMesh);
         
         this.roses = newMesh;
         console.log(`[TreeBatcher] Grew rose buffer to ${this.roseCapacity}`);
