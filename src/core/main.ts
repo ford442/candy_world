@@ -459,6 +459,11 @@ if (startButton) {
     startButton.removeAttribute('title');
     startButton.innerHTML = 'Enter Core World <span aria-hidden="true">🍭</span> <span class="key-badge" aria-hidden="true">Enter</span>';
 
+    // ♿ Aria: Announce to screen readers that the world is ready
+    import('../ui/announcer.ts').then(({ announce }) => {
+        announce('World loaded. Press Enter to enter the world.', 'assertive');
+    }).catch(err => console.warn('Failed to load announcer:', err));
+
     let coreOnlyMode = true;
     const btnCoreOnly = document.getElementById('btn-core-only') as HTMLButtonElement | null;
     const btnFullGame = document.getElementById('btn-full-game') as HTMLButtonElement | null;
@@ -664,6 +669,11 @@ if (startButton) {
             startButton.setAttribute('aria-disabled', 'false');
             startButton.setAttribute('aria-busy', 'false');
             startButton.removeAttribute('title');
+
+            // ♿ Aria: Announce if they somehow return back or if it completes
+            import('../ui/announcer.ts').then(({ announce }) => {
+                announce('World loaded. Press Enter to enter the world.', 'assertive');
+            }).catch(err => console.warn('Failed to load announcer:', err));
         }
     }
 
