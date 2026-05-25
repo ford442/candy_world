@@ -21,6 +21,7 @@ import {
   getAccessibilitySystem,
 } from '../systems/accessibility';
 import { announce } from './announcer';
+import { trapFocusInside } from '../utils/interaction-utils';
 
 // ============================================================================
 // Menu Section Types
@@ -67,6 +68,7 @@ export class AccessibilityMenuCore {
   protected saveButton: HTMLButtonElement | null = null;
   protected releaseFocusTrap: (() => void) | null = null;
   protected lastFocusedElement: HTMLElement | null = null;
+  protected boundKeyHandler = this.handleKeyDown.bind(this);
 
   constructor() {
     this.a11y = getAccessibilitySystem();

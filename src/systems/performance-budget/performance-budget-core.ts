@@ -564,7 +564,7 @@ export class PerformanceBudget {
       } catch (e) {
         console.error('[PerformanceBudget] Error in violation callback:', e);
       }
-    });
+    }
   }
 
   /**
@@ -679,7 +679,7 @@ export class PerformanceBudget {
         } catch (e) {
           console.error('[PerformanceBudget] Error in adaptive callback:', e);
         }
-      });
+      }
       
       // Reset consecutive counter after applying reduction
       this.consecutiveOverBudgetFrames.set(specificType, 0);
@@ -823,7 +823,7 @@ export class PerformanceBudget {
       } catch (e) {
         console.error('[PerformanceBudget] Error in adaptive callback:', e);
       }
-    });
+    }
   }
 
   // ============================================================================
