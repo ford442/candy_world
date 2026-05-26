@@ -174,6 +174,7 @@ export function createSubwooferLotus(options: LotusOptions = {}): THREE.Group {
     // 4. Metadata & Reactivity
     group.userData.animationType = 'sway';
     group.userData.type = 'subwoofer_lotus';
+    group.userData.biome = 'crystalline_nebula';  // Music reactivity: crystalline uniforms (amplitudeScale, noteColor, shimmer)
 
     // 5. Interaction (Bass Portal Secret)
     makeInteractive(group);

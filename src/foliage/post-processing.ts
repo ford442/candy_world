@@ -13,7 +13,7 @@ export const uBloomStrength = uniform(1.0);
 export const uColorSaturation = uniform(1.1); // Slightly boosted by default
 export const uColorContrast = uniform(1.05);
 export const uVignetteStrength = uniform(0.5);
-export const uAberrationStrength = uniform(0.005);
+export const uAberrationStrength = uniform(0.002); // Very subtle by default (harsh RGB split removed in favor of prettier candy glow)
 
 /**
  * Initializes the Post-Processing pipeline for Candy World.
@@ -62,8 +62,9 @@ function initWebGPUPostProcessing(renderer: CandyRenderer, scene: THREE.Scene, c
 
     // 4. Color Correction Logic
     const colorCorrection = Fn(() => {
-        // Chromatic Aberration on base scene
-        const caOffset = uAberrationStrength;
+        // Very subtle, soft chromatic aberration (mostly disabled by default for candy aesthetic)
+        // The old hard RGB split has been replaced by the much prettier "Candy Glow Pulse" in chromatic.ts
+        const caOffset = uAberrationStrength.mul(0.3); // even softer than before
         const uvNode = uv();
         const uvR = uvNode.add(vec2(caOffset, 0.0));
         const uvG = uvNode;

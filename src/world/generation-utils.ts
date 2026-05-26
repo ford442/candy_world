@@ -1,14 +1,30 @@
 import * as THREE from 'three';
 import { getGroundHeight, checkPositionValidity } from '../utils/wasm-loader.js';
+import { CONFIG } from '../core/config.ts';
 
 export const DEFAULT_MAP_CHUNK_SIZE = 100;
 export const DEFAULT_PROCEDURAL_CHUNK_SIZE = 100;
-// Reduced from 400 → 200: halves synchronous + deferred work in Full mode
-// without meaningfully affecting visual density (the map.json already has 2192 entities).
+
+// Population numbers are now driven from CONFIG.world.population for easier tuning.
+// These are the effective values used by Full mode generation.
+const pop = CONFIG.world?.population ?? {};
+let popScale = pop.scale ?? 1.0;
+
+// Runtime override for "Fast Full Mode" (chosen in the startup UI)
+if ((window as any).__fastPopulationOverride) {
+    popScale *= 0.42; // Aggressive reduction for fast loading while still feeling like "full"
+}
+
 export const PROCEDURAL_ENTITY_COUNT = 200;
 export const ENTITY_BUDGET_MS = 14;
 export const YIELD_ENTITY_BATCH_SIZE = 40;
 export const YIELD_LOG_INTERVAL = YIELD_ENTITY_BATCH_SIZE * 5;
+
+// Arpeggio Grove counts (used by generation-decorators)
+export const ARPEGGIO_GROVE_FERN_COUNT = Math.max(3, Math.floor((pop.arpeggioGroveFerns ?? 7) * popScale));
+export const ARPEGGIO_GROVE_OUTER_COUNT = Math.max(2, Math.floor((pop.arpeggioGroveOuter ?? 4) * popScale));
+export const LAKE_ARPEGGIO_FERN_COUNT = Math.max(1, Math.floor((pop.lakeArpeggioFerns ?? 3) * popScale));
+export const LAKE_DANDELION_COUNT = Math.max(2, Math.floor((pop.lakeDandelions ?? 6) * popScale));
 
 // Constants
 export const LAKE_BOUNDS = { minX: -38, maxX: 78, minZ: -28, maxZ: 68 };
@@ -27,6 +43,9 @@ export const ARPEGGIO_GROVE = {
     radius: 15,
     enabled: true
 };
+
+// Note: Actual fern/outer counts for the grove now come from
+// CONFIG.world.population (see above) and are consumed in generation-decorators.ts.
 
 export const obstaclesData: {x: number, y: number, z: number, radius: number}[] = [];
 

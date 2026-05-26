@@ -115,6 +115,7 @@ export function createArpeggioFern(options: ArpeggioFernOptions = {}) {
 
     group.userData.animationType = 'arpeggioUnfurl';
     group.userData.type = 'fern';
+    group.userData.biome = 'arpeggio_grove';   // Music reactivity: tells getBiomeUniforms which uniform group to use
     group.userData.interactionText = "Play Arpeggio";
 
     group.userData.needsRegistration = true;

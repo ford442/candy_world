@@ -87,12 +87,25 @@ const _skyWaveConfig = (musicBindings as any).sky_wave;
 const _skyWavePropagationMs = _skyWaveConfig?.propagation_ms ?? 800;
 const _skyWaveDecayMs = _skyWaveConfig?.decay_ms ?? 2000;
 
+// Map from sky_wave.target_biomes keys (in music-bindings.json) → the Color uniform to receive the propagating hue.
+// This makes the wave fully data-driven. Adding a new target = add key here + entry in JSON list.
+// Many foliage already consume arpeggioGrove.noteColor or crystallineNebula.noteColor (portamento, wisteria, trees, mushrooms),
+// so they receive the sky wave "for free" when those hubs are targeted.
+const _skyWaveUniformMap: Record<string, { value: THREE.Color }> = {
+  arpeggio_grove: BiomeUniforms.arpeggioGrove.noteColor,
+  crystalline_nebula: BiomeUniforms.crystallineNebula.noteColor,
+  luminous_plants: LuminousPlantUniforms.noteColor as any, // allows sky hue to reach luminous plants (mixed in their batcher)
+};
+
 // ⚡ SKY WAVE state — pre-allocated, zero per-frame allocations in hot path
 interface WaveStamp { color: THREE.Color; timestamp: number; }
 let _activeWave: WaveStamp | null = null;
 const _waveColor = new THREE.Color(); // scratch for beat capture
 const _whiteColor = new THREE.Color(0xffffff);
 let _waveDecayStartTime = 0;
+
+// One-time validation flag for channel range checks against music-bindings.json
+let _channelValidationDone = false;
 
 // Helper to map MIDI note (0-127) to a color hue
 // Helper to map MIDI note (0-127) to a color using CONFIG.noteColorMap.sky
@@ -419,6 +432,22 @@ export class MusicReactivitySystem {
             const channels = audioState?.channelData;
 
             if (channels && channels.length > 0) {
+                // --- Bindings validation (defensive) ---
+                // Warn once if music-bindings.json references tracker channels that don't exist in the current module.
+                // This is cheap and prevents silent "no reactivity" bugs when swapping MODs.
+                if (!_channelValidationDone) {
+                    _channelValidationDone = true;
+                    const allConfiguredChannels = [
+                        ..._arpeggioShimmerCh, ..._arpeggioHueShiftCh, ..._arpeggioNoteColorCh,
+                        ..._nebulaShimmerCh, ..._nebulaAmplitudeCh, ..._nebulaNoteColorCh,
+                        ..._skyMoonNoteColorCh, ..._skyMoonIntensityCh
+                    ];
+                    const maxNeeded = Math.max(0, ...allConfiguredChannels);
+                    if (maxNeeded >= channels.length) {
+                        console.warn(`[MusicReactivity] music-bindings.json references channel ${maxNeeded} but the loaded tracker only provides ${channels.length} channels. Some reactivity will be silent.`);
+                    }
+                }
+
                 // --- Arpeggio Grove: shimmer ---
                 _arpeggioShimmerAccum = 0.0;
                 for (let i = 0; i < _arpeggioShimmerCh.length; i++) {
@@ -614,38 +643,68 @@ export class MusicReactivitySystem {
 
         // ---------------------------------------------------------------
         // ⚡ SKY WAVE — Per-channel MOD note-color wave propagation
-        // When a sky/moon note fires on the beat, its hue cascades down
-        // through foliage emissive uniforms, delayed by propagation_ms.
-        // Zero allocations: all colors and state are module-level.
+        // When a sky/moon note fires on the beat (via BeatSync), its hue cascades
+        // to the noteColor uniforms listed in music-bindings.json sky_wave.target_biomes.
+        // Order in the array controls stagger (earlier targets receive the color first).
+        // Foliage that already .mul() one of the hub noteColors (arpeggioGrove or crystallineNebula)
+        // — e.g. portamento-pine, wisteria-cluster, many trees/mushrooms — get the sky hue automatically.
+        // Zero allocations: all state is module-level.
+        // Music Impact: the primary "sky talks to ground" visual sync mechanism.
         // ---------------------------------------------------------------
         const twilightVal = uTwilight.value;
         if (twilightVal > 0.1) {
             if (_activeWave) {
                 const elapsed = (performance.now() - _activeWave.timestamp) / _skyWavePropagationMs;
-                if (elapsed < 0.3) {
-                    BiomeUniforms.arpeggioGrove.noteColor.value.lerp(_activeWave.color, 0.2);
-                } else if (elapsed < 0.7) {
-                    BiomeUniforms.crystallineNebula.noteColor.value.lerp(_activeWave.color, 0.2);
-                } else if (elapsed >= 1.0) {
+                const targets: string[] = _skyWaveConfig?.target_biomes ?? ['arpeggio_grove', 'crystalline_nebula'];
+
+                let allComplete = true;
+                for (let i = 0; i < targets.length; i++) {
+                    const key = targets[i];
+                    const uni = _skyWaveUniformMap[key];
+                    if (!uni) continue;
+
+                    // Stagger arrival: ~0.22 of propagation per step in the list
+                    const phaseStart = i * 0.22;
+                    if (elapsed > phaseStart) {
+                        const localT = Math.min((elapsed - phaseStart) / 0.68, 1.0);
+                        // Gentle influence so it feels like a traveling wave, not a hard cut
+                        uni.value.lerp(_activeWave.color, localT * 0.32);
+                        allComplete = false;
+                    }
+                }
+
+                if (elapsed >= 1.0 || allComplete) {
                     _activeWave = null;
                     _waveDecayStartTime = performance.now();
                 }
             } else if (_waveDecayStartTime > 0) {
                 const decayElapsed = performance.now() - _waveDecayStartTime;
+                const targets: string[] = _skyWaveConfig?.target_biomes ?? ['arpeggio_grove', 'crystalline_nebula'];
+
                 if (decayElapsed < _skyWaveDecayMs) {
-                    BiomeUniforms.arpeggioGrove.noteColor.value.lerp(_whiteColor, 0.05);
-                    BiomeUniforms.crystallineNebula.noteColor.value.lerp(_whiteColor, 0.05);
+                    for (const key of targets) {
+                        const uni = _skyWaveUniformMap[key];
+                        if (uni) uni.value.lerp(_whiteColor, 0.06);
+                    }
                 } else {
                     _waveDecayStartTime = 0;
-                    BiomeUniforms.arpeggioGrove.noteColor.value.copy(_whiteColor);
-                    BiomeUniforms.crystallineNebula.noteColor.value.copy(_whiteColor);
+                    for (const key of targets) {
+                        const uni = _skyWaveUniformMap[key];
+                        if (uni) uni.value.copy(_whiteColor);
+                    }
                 }
             }
         } else {
-            // Dawn guard: clear active wave and decay to white
+            // Dawn guard: clear active wave and decay to white for every targeted uniform
             if (_activeWave) {
                 _activeWave = null;
                 _waveDecayStartTime = performance.now();
+            }
+            // Also gently clear any lingering wave color on targets (defensive)
+            const targets: string[] = _skyWaveConfig?.target_biomes ?? [];
+            for (const key of targets) {
+                const uni = _skyWaveUniformMap[key];
+                if (uni) uni.value.lerp(_whiteColor, 0.04);
             }
         }
 

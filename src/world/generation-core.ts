@@ -554,9 +554,16 @@ export async function populateWorld(
     scene: THREE.Scene,
     weatherSystem: WeatherSystem,
     mode: WorldMode = 'CORE',
-    onProgress?: WorldProgressCallback
+    onProgress?: WorldProgressCallback,
+    options?: { fastPopulation?: boolean }
 ): Promise<WorldMode> {
     console.log(`[World] Starting populateWorld() in ${mode} mode`);
+
+    // Fast Full Mode: apply aggressive population reduction on top of user config
+    if (options?.fastPopulation) {
+        (window as any).__fastPopulationOverride = true;
+        console.log('%c[World] FAST FULL Mode — using heavily reduced object population for quick loads', 'color:#81c784');
+    }
 
     if (mode === 'CORE') {
         console.log('%c[World] CORE Mode active — spawning minimal classic candy set', 'color:#ff9ecd');
@@ -568,7 +575,7 @@ export async function populateWorld(
     }
 
     console.log('%c[World] FULL Mode — attempting complete musical ecosystem', 'color:#7dd3fc');
-    console.log(`[World] Full mode: ${(mapData as any).entities?.length ?? 0} map entities + ${PROCEDURAL_ENTITY_COUNT} procedural extras to process`);
+    console.log(`[World] Full mode: ${(mapData as any).entities?.length ?? 0} map entities + ${PROCEDURAL_ENTITY_COUNT} procedural extras to process (population scaled via CONFIG.world.population${options?.fastPopulation ? ' + fast mode multiplier' : ''})`);
     try {
         await generateMap(weatherSystem, DEFAULT_MAP_CHUNK_SIZE, onProgress);
         console.log('[World] Full mode population complete.');
@@ -576,6 +583,7 @@ export async function populateWorld(
         return 'FULL';
     } catch (error) {
         console.error('[World] Full population failed. Falling back from FULL to CORE.', error);
+        delete (window as any).__fastPopulationOverride;
         await generateCoreWorld(weatherSystem, onProgress);
         console.log('[World] populateWorld() recovered in CORE mode after FULL failure');
         return 'CORE';

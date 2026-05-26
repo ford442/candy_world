@@ -3,7 +3,10 @@ import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { color, float, sin, positionLocal, normalLocal, mix, attribute } from 'three/tsl';
 import { uTime, createJuicyRimLight, createStandardNodeMaterial } from './material-core.ts';
 import { calculateWindSway } from './index.ts';
-import { LuminousPlantUniforms, luminousPlantsNoteColorNode } from '../systems/biome-uniforms.ts';
+import { LuminousPlantUniforms, luminousPlantsNoteColorNode, getBiomeUniforms, type BiomeId } from '../systems/biome-uniforms.ts';
+
+const LUMINOUS_BIOME: BiomeId = 'luminous_plants';
+const luminousUniforms = getBiomeUniforms(LUMINOUS_BIOME); // demonstrates the helper for a non-arpeggio biome
 import { CONFIG } from '../core/config.ts';
 
 export class LuminousPlantBatcher {
@@ -66,6 +69,14 @@ export class LuminousPlantBatcher {
         const rimIntensity = float(1.0).add(LuminousPlantUniforms.intensity.mul(2.0));
         const rimLight = createJuicyRimLight(musicColor, rimIntensity, float(3.0), null);
         mat.emissiveNode = emissiveBase.add(rimLight.mul(sssStrength));
+
+        // Music Impact: subtle direct contribution from the sky-wave-driven noteColor uniform.
+        // When the Sky Wave (see music-reactivity.ts + sky_wave in music-bindings.json) fires,
+        // the sky melody hue lerps into LuminousPlantUniforms.noteColor and now visibly tints
+        // the luminous plants, creating the "color from the moon travels to the ground" effect.
+        // Strength is intentionally low so it blends with the primary noteIndex-driven path.
+        const skyWaveTint = luminousUniforms.noteColor.mul(0.18);
+        mat.emissiveNode = (mat.emissiveNode as any).add(skyWaveTint);  // TSL chaining requires cast in current three version
 
         this.mesh = new THREE.InstancedMesh(stemGeo, mat, this.maxInstances);
         this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);

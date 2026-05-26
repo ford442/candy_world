@@ -172,6 +172,17 @@ export interface ConfigType {
         portamentoPine: PlantPoseConfig;
         flower: PlantPoseConfig;
     };
+
+    world: {
+        population: {
+            proceduralExtras: number;
+            arpeggioGroveFerns: number;
+            arpeggioGroveOuter: number;
+            lakeArpeggioFerns: number;
+            lakeDandelions: number;
+            scale: number;
+        };
+    };
 }
 
 export const CONFIG: ConfigType = {
@@ -221,6 +232,35 @@ export const CONFIG: ConfigType = {
         pulseDepth: 0.3,
         subsurfaceStrength: 0.8,
         glowIntensity: 2.0
+    },
+
+    // --- WORLD POPULATION (Full Mode) ---
+    // These control how many objects are spawned when the user selects "Full Game".
+    // Reducing these numbers (especially proceduralExtras and the Arpeggio Grove counts)
+    // is the most effective way to shorten the loading wait / hang in Full mode.
+    // CORE mode is unaffected (it uses a minimal hardcoded set).
+    //
+    // Quick tuning tips:
+    //   - Set scale: 0.5 for a dramatically faster Full mode.
+    //   - Lower proceduralExtras first (biggest object count).
+    //   - Then reduce arpeggioGrove* numbers (expensive reactive batchers + TSL materials).
+    world: {
+        population: {
+            // Scattered procedural objects across the world (mushrooms, flowers, trees, clouds, etc.)
+            proceduralExtras: 220,          // Reduced from 400 for faster Full mode loads
+
+            // Main Arpeggio Grove setpiece (near -60,60)
+            arpeggioGroveFerns: 7,          // Reduced from 12
+            arpeggioGroveOuter: 4,          // Reduced from 8 (geysers + violets)
+
+            // Secondary Arpeggio-style foliage on the lake island
+            lakeArpeggioFerns: 3,           // Reduced from 5
+            lakeDandelions: 6,              // Reduced from 10
+
+            // Global multiplier for quick experimentation (1.0 = use the numbers above)
+            // Set to 0.5 for a very light Full mode, or 1.5 if you have a powerful machine.
+            scale: 1.0
+        }
     },
 
     // --- NOTE COLOR MAPPING ---

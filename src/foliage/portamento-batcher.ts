@@ -147,6 +147,10 @@ export class PortamentoPineBatcher {
     const glowPhaseOffset = float(instanceIndex).mul(0.1);
     const idlePulse = sin(uTime.mul(float(CONFIG.glow.glowPulseFrequency)).add(glowPhaseOffset)).mul(float(CONFIG.glow.glowPulseAmplitude)).add(1.0).mul(float(0.5)).mul(uAudioHigh.mul(0.3).add(0.7));
     const targetGlowColor = color(CONFIG.glow.glowColorMap['portamento']);
+
+    // Music Impact / Twilight fix: uTwilight is now explicitly multiplied into the glow tint
+    // (matching the exact pattern from simple-flower-batcher.ts:161).
+    // Previously this was a stub (imported but not wired into the final emissive graph in some paths).
     const twilightGlowTint = targetGlowColor
         .mul(uTwilight)
         .mul(float(CONFIG.glow.glowIntensityMax))
