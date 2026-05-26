@@ -1,0 +1,126 @@
+{
+  "timestamp": "2026-05-26T00:52:37.435Z",
+  "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/148.0.0.0 Safari/537.36",
+  "totalTime": 1106.0149999856949,
+  "phases": [
+    {
+      "name": "Startup Profiler Init",
+      "startTime": 819.0099999904633,
+      "endTime": 819.160000026226,
+      "duration": 0.15000003576278687,
+      "memoryBefore": 57118911,
+      "memoryAfter": 57118911,
+      "memoryDelta": 0
+    },
+    {
+      "name": "Core Scene Setup",
+      "startTime": 821.9599999785423,
+      "endTime": 888.0199999809265,
+      "duration": 66.06000000238419,
+      "memoryBefore": 57118911,
+      "memoryAfter": 57848588,
+      "memoryDelta": 729677
+    },
+    {
+      "name": "Audio & Systems Init",
+      "startTime": 888.8799999952316,
+      "endTime": 907.4900000095367,
+      "duration": 18.610000014305115,
+      "memoryBefore": 57848588,
+      "memoryAfter": 57848588,
+      "memoryDelta": 0
+    },
+    {
+      "name": "World Generation",
+      "startTime": 908.3149999976158,
+      "endTime": 1317.6150000095367,
+      "duration": 409.30000001192093,
+      "memoryBefore": 57848588,
+      "memoryAfter": 76513844,
+      "memoryDelta": 18665256
+    },
+    {
+      "name": "Environmental Effects",
+      "startTime": 1877.9800000190735,
+      "endTime": 1899.8949999809265,
+      "duration": 21.914999961853027,
+      "memoryBefore": 79177739,
+      "memoryAfter": 79177739,
+      "memoryDelta": 0
+    },
+    {
+      "name": "Celestial Elements",
+      "startTime": 1903.4650000333786,
+      "endTime": 1913.2549999952316,
+      "duration": 9.789999961853027,
+      "memoryBefore": 79177739,
+      "memoryAfter": 79177739,
+      "memoryDelta": 0
+    },
+    {
+      "name": "Musical Elements",
+      "startTime": 1913.75,
+      "endTime": 1922.8500000238419,
+      "duration": 9.100000023841858,
+      "memoryBefore": 79177739,
+      "memoryAfter": 79177739,
+      "memoryDelta": 0
+    },
+    {
+      "name": "Deferred Visuals Init",
+      "startTime": 1877.9449999928474,
+      "endTime": 1924.2350000143051,
+      "duration": 46.29000002145767,
+      "memoryBefore": 79177739,
+      "memoryAfter": 79177739,
+      "memoryDelta": 0
+    }
+  ],
+  "memory": {
+    "initial": 57118911,
+    "peak": 81046787,
+    "final": 81046787,
+    "delta": 23927876
+  },
+  "webgpu": {
+    "bufferAllocations": 0,
+    "bufferTotalSize": 0,
+    "shaderCompilations": 0,
+    "shaderCompileTime": 0,
+    "pipelineCreations": 0
+  },
+  "instancedMeshes": {
+    "count": 0,
+    "totalInstances": 0,
+    "meshesByType": {}
+  },
+  "wasm": {
+    "assemblyScriptLoaded": true,
+    "emscriptenLoaded": true,
+    "initTime": 0.009999990463256836,
+    "initStartTime": 0
+  },
+  "tsl": {
+    "materialCount": 0,
+    "compilePhases": []
+  },
+  "warmup": {
+    "batches": 0,
+    "batchMaxMs": 0
+  },
+  "generationChunksStreamed": 0,
+  "slowPhases": [
+    {
+      "name": "World Generation",
+      "startTime": 908.3149999976158,
+      "endTime": 1317.6150000095367,
+      "duration": 409.30000001192093,
+      "memoryBefore": 57848588,
+      "memoryAfter": 76513844,
+      "memoryDelta": 18665256
+    }
+  ],
+  "warnings": [
+    "⚠️ Slow phase detected: \"World Generation\" took 409.3ms (>100ms)"
+  ]
+}
