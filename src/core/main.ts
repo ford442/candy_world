@@ -485,7 +485,6 @@ if (startButton) {
 
         if (btnCoreOnly) {
             btnCoreOnly.setAttribute('aria-pressed', String(isCore));
-            btnCoreOnly.style.boxShadow = isCore ? '0 5px 18px rgba(255, 156, 205, 0.55)' : 'none';
         }
         if (btnFullGame) {
             btnFullGame.setAttribute('aria-pressed', String(mode === 'FULL'));
