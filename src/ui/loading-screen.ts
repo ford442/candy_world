@@ -442,7 +442,7 @@ export class LoadingScreen {
         if (!this.deferredIndicator) return;
         const pct = total > 0 ? Math.min(100, Math.max(0, (completed / total) * 100)) : 0;
         const fill = this.deferredIndicator.querySelector('.deferred-bar-fill') as HTMLElement | null;
-        if (fill) fill.style.width = `${pct.toFixed(1)}%`;
+        if (fill) fill.style.transform = `scaleX(${pct / 100})`;
         const count = this.deferredIndicator.querySelector('.deferred-count') as HTMLElement | null;
         if (count) count.textContent = `${completed} / ${total}`;
         this.deferredIndicator.setAttribute('aria-valuenow', String(Math.round(pct)));
