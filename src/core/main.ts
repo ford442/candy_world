@@ -50,6 +50,9 @@ const POST_PROCESSING_PROGRESS = 70;
 // Export core objects for use by other modules
 export { scene, camera, renderer, player, addCameraShake };
 
+// Set global game object so playwright tests can interact with camera, etc
+(window as any).game = { camera, scene };
+
 // --- Initialize Loading Screen (replaces old spinner overlay) ---
 if (CONFIG.safeMode) {
     console.warn('[Startup] safeMode active (?safe=1) — shader warmup and compute disabled');
