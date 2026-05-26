@@ -278,6 +278,25 @@ class PerformanceBudgetChecker {
   }
 }
 
+// Load config from budgets.json if present, fall back to DEFAULT_CONFIG
+function loadConfig(): BudgetConfig {
+  const budgetsJsonPath = path.join(__dirname, '../budgets.json');
+  try {
+    if (fs.existsSync(budgetsJsonPath)) {
+      const raw = JSON.parse(fs.readFileSync(budgetsJsonPath, 'utf8'));
+      if (raw && typeof raw === 'object' && raw.budgets) {
+        return {
+          budgets: raw.budgets,
+          thresholds: raw.thresholds ?? DEFAULT_CONFIG.thresholds
+        };
+      }
+    }
+  } catch (err) {
+    console.warn('⚠️  Failed to load budgets.json, using defaults:', err);
+  }
+  return DEFAULT_CONFIG;
+}
+
 // Main execution
 async function main() {
   const args = process.argv.slice(2);
@@ -285,7 +304,7 @@ async function main() {
   const outputIndex = args.indexOf('--output');
   const outputPath = outputIndex !== -1 ? args[outputIndex + 1] : OUTPUT_FILE;
 
-  const checker = new PerformanceBudgetChecker();
+  const checker = new PerformanceBudgetChecker(loadConfig());
   
   try {
     await checker.check();
