@@ -13,6 +13,7 @@ import {
     uTime,
     uPlayerPosition
 } from './index.ts';
+import { getBiomeUniforms, type BiomeId } from '../systems/biome-uniforms.ts';
 import { grantInvisibility } from '../systems/physics/index.js';
 
 export interface SilenceSpiritOptions {
@@ -63,7 +64,10 @@ export function createSilenceSpirit(options: SilenceSpiritOptions = {}): THREE.G
     // Emissive Glow
     // Blue-ish core, White edges
     const glowColor = color(0x88CCFF);
-    mat.emissiveNode = glowColor.mul(alpha).mul(2.0); // Bright glow
+    // Music Impact: crystalline nebula shimmer/noteColor tints the ethereal spirits
+    const nebulaUniforms = getBiomeUniforms('crystalline_nebula');
+    const musicTint = nebulaUniforms.noteColor.mul(nebulaUniforms.shimmer).mul(0.35);
+    mat.emissiveNode = glowColor.mul(alpha).mul(2.0).add(musicTint); // Bright glow
     mat.colorNode = color(0xEEFFFF);
 
     // 1. Ghost Body

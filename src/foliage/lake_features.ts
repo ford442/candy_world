@@ -4,8 +4,9 @@ import {
     CandyPresets, attachReactivity
 } from './index.ts';
 import {
-    positionLocal, vec3, float, sin, time, uv, add
+    positionLocal, vec3, float, sin, time, uv, add, color
 } from 'three/tsl';
+import { getBiomeUniforms, type BiomeId } from '../systems/biome-uniforms.ts';
 
 export interface IslandOptions {
     radius?: number;
@@ -89,6 +90,10 @@ export function createIsland(options: IslandOptions = {}): THREE.Group {
         // Apply the displacement
         const basePosition = positionLocal;
         creekMat.positionNode = add(basePosition, displacement);
+
+        // Music Impact: crystalline nebula shimmer drives creek bioluminescence
+        const nebulaUniforms = getBiomeUniforms('crystalline_nebula');
+        creekMat.emissiveNode = color(0x44AAFF).mul(nebulaUniforms.shimmer).mul(0.35);
 
         const creekMesh = new THREE.Mesh(creekGeo, creekMat);
         group.add(creekMesh);

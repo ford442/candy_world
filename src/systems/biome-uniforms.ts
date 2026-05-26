@@ -52,6 +52,16 @@ export const BiomeUniforms = {
         moonIntensity: uniform(0.0),
     },
 
+    /**
+     * Global — screen-wide or ambient effects (e.g. chromatic pulse overlay).
+     */
+    global: {
+        /** 0–1 shimmer emissive boost for global effects. */
+        shimmer: uniform(0.0),
+        /** 0–1 hue-mix factor for global color shifts. */
+        hueShift: uniform(0.0),
+        noteColor: uniform(new THREE.Color(0xffffff)),
+    },
 
 } as const;
 
@@ -179,7 +189,7 @@ export const luminousPlantsNoteColorNode = texture(_luminousPlantsLutTex, vec2(L
  * Add new values here + corresponding entry in BiomeUniforms (or alias) when
  * introducing a new musical biome.
  */
-export type BiomeId = 'arpeggio_grove' | 'crystalline_nebula' | 'luminous_plants' | 'global';
+export type BiomeId = 'arpeggio_grove' | 'crystalline_nebula' | 'luminous_plants' | 'sky_moon' | 'global';
 
 /**
  * Returns the appropriate uniform group for a given biome tag.
@@ -205,6 +215,15 @@ export function getBiomeUniforms(biome: BiomeId | string | undefined) {
                 noteColor: LuminousPlantUniforms.noteColor as any,
                 // intensity / noteIndex live on LuminousPlantUniforms directly
             } as any;
+        case 'sky_moon':
+            // Sky/Moon uses different key names internally; alias them to the common shape.
+            return {
+                shimmer: BiomeUniforms.skyMoon.moonIntensity as any,
+                hueShift: uniform(0.0),
+                noteColor: BiomeUniforms.skyMoon.moonNoteColor as any,
+            };
+        case 'global':
+            return BiomeUniforms.global;
         default:
             return BiomeUniforms.arpeggioGrove;
     }

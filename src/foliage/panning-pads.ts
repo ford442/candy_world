@@ -18,6 +18,7 @@ import {
     positionLocal, positionWorld, vec3,
     ShaderNodeObject, Node
 } from 'three/tsl';
+import { getBiomeUniforms, type BiomeId } from '../systems/biome-uniforms.ts';
 
 export interface PanningPadOptions {
     radius?: number;
@@ -115,7 +116,10 @@ export function createPanningPad(options: PanningPadOptions = {}): THREE.Group {
 
     // Mix opacity + boost
     glowMat.opacityNode = core.mul(0.3).add(ring).mul(uGlowOpacity.add(proximityBoost));
-    glowMat.emissiveNode = color(glowColor).mul(glowMat.opacityNode);
+    // Music Impact: arpeggio grove shimmer/noteColor drives pad glow intensity
+    const groveUniforms = getBiomeUniforms('arpeggio_grove');
+    const musicGlow = glowMat.opacityNode.mul(groveUniforms.noteColor).mul(groveUniforms.shimmer).mul(0.5);
+    glowMat.emissiveNode = color(glowColor).mul(glowMat.opacityNode).add(musicGlow);
 
     const glowDisc = new THREE.Mesh(sharedGeometries.quad, glowMat);
     glowDisc.rotation.x = -Math.PI / 2;

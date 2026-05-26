@@ -18,6 +18,7 @@ import {
     sharedGeometries, foliageMaterials, uTime,
     uAudioLow, uAudioHigh, CandyPresets, registerReactiveMaterial, createJuicyRimLight
 } from './index.ts';
+import { getBiomeUniforms, type BiomeId } from '../systems/biome-uniforms.ts';
 import { foliageGroup } from '../world/state.ts';
 
 const MAX_WATERFALLS = 50; // Reduced from 200 for WebGPU uniform buffer limits
@@ -130,7 +131,10 @@ export class WaterfallBatcher {
         const foamEmission = color(0xFFFFFF).mul(totalFoam.mul(uBaseEmission.add(uPulseIntensity)));
 
         // Combine: Base Emission + Foam + Rim
-        colMat.emissiveNode = gradient.mul(uBaseEmission).add(foamEmission).add(rim);
+        // Music Impact: crystalline nebula shimmer/noteColor adds bioluminescent tint to waterfall
+        const nebulaUniforms = getBiomeUniforms('crystalline_nebula');
+        const musicTint = nebulaUniforms.noteColor.mul(nebulaUniforms.shimmer).mul(0.3);
+        colMat.emissiveNode = gradient.mul(uBaseEmission).add(foamEmission).add(rim).add(musicTint);
 
         // Roughness: Foam makes it rougher
         const currentRoughness = colMat.roughnessNode || float(colMat.roughness);

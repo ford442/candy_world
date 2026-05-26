@@ -14,6 +14,7 @@ import {
     color, float, vec3, sin, cos, mix, uv, positionLocal, time, smoothstep, uniform, vec2, step, abs
 } from 'three/tsl';
 import { applyGlitch } from './glitch.ts';
+import { getBiomeUniforms, type BiomeId } from '../systems/biome-uniforms.ts';
 
 import { makeInteractive as makeInteractiveUtils } from '../utils/interaction-utils.ts';
 import { unlockSystem } from '../systems/unlocks.ts';
@@ -94,7 +95,10 @@ function createGlitchyMaterial(hexColor: number): MeshStandardNodeMaterial {
     const emissiveIntensity = scanline.mul(glitchTrigger.add(0.2)).mul(2.0); // Base visibility + Kick
 
     material.colorNode = mix(baseColorNode, glitchColor, scanline.mul(glitchTrigger));
-    material.emissiveNode = glitchColor.mul(emissiveIntensity);
+    // Music Impact: arpeggio grove shimmer/noteColor tints the glitch mushroom cap
+    const groveUniforms = getBiomeUniforms('arpeggio_grove');
+    const musicTint = groveUniforms.noteColor.mul(groveUniforms.shimmer).mul(0.25);
+    material.emissiveNode = glitchColor.mul(emissiveIntensity).add(musicTint);
 
     return material;
 }

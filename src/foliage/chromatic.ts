@@ -16,6 +16,7 @@ import {
     max,
     mix
 } from 'three/tsl';
+import { getBiomeUniforms } from '../systems/biome-uniforms.ts';
 
 // Global uniform for Candy Impact / Glow Pulse intensity.
 // Driven by dashes, impacts, strong beats, etc.
@@ -102,7 +103,12 @@ export function createChromaticPulse(): THREE.Mesh {
         const vigBoost = edgeVig.mul(uChromaticIntensity).mul(0.25);
         const withVig = saturated.add(vec3(vigBoost).mul(0.4));
 
-        return vec4(withVig, 1.0);
+        // Music Impact: global noteColor tint on high chromatic intensity
+        const globalUniforms = getBiomeUniforms('global');
+        const musicTint = globalUniforms.noteColor.mul(globalUniforms.shimmer).mul(uChromaticIntensity).mul(0.15);
+        const withMusic = withVig.add(musicTint);
+
+        return vec4(withMusic, 1.0);
     });
 
     // Use MeshBasicNodeMaterial to ensure the overlay is unlit and displays exactly as calculated

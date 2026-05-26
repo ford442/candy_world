@@ -5,6 +5,7 @@ import { color, float, vec3, vec4, uv, mix, smoothstep, uniform, Fn, time, mx_no
 import { MeshBasicNodeMaterial, MeshStandardNodeMaterial, StorageInstancedBufferAttribute } from 'three/webgpu';
 import { uAudioLow, uAudioHigh, CandyPresets, uTime, createJuicyRimLight } from './index.ts';
 import { getSphereGeometry } from '../utils/geometry-dedup.ts';
+import { getBiomeUniforms, type BiomeId } from '../systems/biome-uniforms.ts';
 
 // Global uniforms for Aurora control
 export const uAuroraIntensity = uniform(0.0); // 0.0 to 1.0
@@ -56,7 +57,9 @@ export function createAurora(): THREE.Mesh {
         // More purple when bass hits or at top
         const colorMix = vUv.y.mul(0.5).add(uAudioLow.mul(0.4)).min(1.0);
 
-        const finalColorRGB = mix(uAuroraColor, magicColor, colorMix);
+        const finalColorRGB = mix(uAuroraColor, magicColor, colorMix).add(
+            getBiomeUniforms('sky_moon').noteColor.mul(0.12)
+        );
 
         // 6. Combine
         // Rays + Shimmer + Fade + Global Intensity
@@ -175,7 +178,10 @@ class HarmonyOrbSystem {
         // Add rim light for juice
         const rim = createJuicyRimLight(orbColor, float(1.5), float(3.0), null);
 
-        material.emissiveNode = orbColor.mul(glowIntensity).add(rim);
+        // Music Impact: subtle sky-moon noteColor tint on harmony orbs
+        const skyMoonUniforms = getBiomeUniforms('sky_moon');
+        const skyTint = skyMoonUniforms.noteColor.mul(skyMoonUniforms.shimmer).mul(0.25);
+        material.emissiveNode = orbColor.mul(glowIntensity).add(rim).add(skyTint);
 
         // 2. Map Storage Buffers to Material
         const instIndex = instanceIndex;

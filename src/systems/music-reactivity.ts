@@ -24,6 +24,9 @@ const _nebulaAmplitudeCh: readonly number[] = musicBindings.biomes.crystalline_n
 const _nebulaNoteColorCh: readonly number[] = musicBindings.biomes.crystalline_nebula.noteColor;
 const _skyMoonNoteColorCh: readonly number[] = musicBindings.biomes.sky_moon.noteColor;
 const _skyMoonIntensityCh: readonly number[] = musicBindings.biomes.sky_moon.intensity;
+const _globalShimmerCh: readonly number[] = musicBindings.biomes.global.shimmer;
+const _globalHueShiftCh: readonly number[] = musicBindings.biomes.global.hueShift;
+const _globalNoteColorCh: readonly number[] = musicBindings.biomes.global.noteColor;
 
 // ⚡ OPTIMIZATION: Per-frame scratch floats — no per-frame object allocations.
 let _arpeggioShimmerAccum = 0.0;
@@ -31,14 +34,18 @@ let _arpeggioHueShiftAccum = 0.0;
 let _nebulaShimmerAccum = 0.0;
 let _nebulaAmplitudeAccum = 0.0;
 let _skyMoonIntensityAccum = 0.0;
+let _globalShimmerAccum = 0.0;
+let _globalHueShiftAccum = 0.0;
 export let _skyMoonNoteVal = 0.0; // The active MIDI note (e.g., 60 for C4)
 let _arpeggioNoteVal = 0.0;
 let _nebulaNoteVal = 0.0;
+let _globalNoteVal = 0.0;
 
 // ⚡ OPTIMIZATION: Module-scoped colors for zero-allocation note lerping
 const _targetMoonColor = new THREE.Color(0xffffff);
 const _targetArpeggioColor = new THREE.Color(0xffffff);
 const _targetNebulaColor = new THREE.Color(0xffffff);
+const _targetGlobalColor = new THREE.Color(0xffffff);
 
 // ⚡ OPTIMIZATION: Sky/Moon note reactivity scratch — allocated once, never in hot path.
 // melody_channel from assets/music-bindings.json sky_moon block.
@@ -440,7 +447,8 @@ export class MusicReactivitySystem {
                     const allConfiguredChannels = [
                         ..._arpeggioShimmerCh, ..._arpeggioHueShiftCh, ..._arpeggioNoteColorCh,
                         ..._nebulaShimmerCh, ..._nebulaAmplitudeCh, ..._nebulaNoteColorCh,
-                        ..._skyMoonNoteColorCh, ..._skyMoonIntensityCh
+                        ..._skyMoonNoteColorCh, ..._skyMoonIntensityCh,
+                        ..._globalShimmerCh, ..._globalHueShiftCh, ..._globalNoteColorCh
                     ];
                     const maxNeeded = Math.max(0, ...allConfiguredChannels);
                     if (maxNeeded >= channels.length) {
@@ -460,6 +468,20 @@ export class MusicReactivitySystem {
                 for (let i = 0; i < _arpeggioHueShiftCh.length; i++) {
                     const idx = _arpeggioHueShiftCh[i];
                     if (idx < channels.length) _arpeggioHueShiftAccum += channels[idx].volume;
+                }
+
+                // --- Global: shimmer ---
+                _globalShimmerAccum = 0.0;
+                for (let i = 0; i < _globalShimmerCh.length; i++) {
+                    const idx = _globalShimmerCh[i];
+                    if (idx < channels.length) _globalShimmerAccum += channels[idx].volume;
+                }
+
+                // --- Global: hue shift ---
+                _globalHueShiftAccum = 0.0;
+                for (let i = 0; i < _globalHueShiftCh.length; i++) {
+                    const idx = _globalHueShiftCh[i];
+                    if (idx < channels.length) _globalHueShiftAccum += channels[idx].volume;
                 }
 
                 // --- Crystalline Nebula: shimmer ---
@@ -510,6 +532,15 @@ export class MusicReactivitySystem {
                     }
                 }
 
+                // Read Global Note Color
+                for (let i = 0; i < _globalNoteColorCh.length; i++) {
+                    const idx = _globalNoteColorCh[i];
+                    if (idx < channels.length && channels[idx].volume > 0.05) {
+                        _globalNoteVal = channels[idx].note;
+                        break;
+                    }
+                }
+
                 // Push to TSL uniforms — clamp sums to [0,1] then gate by night.
                 // Mutate .value in place: never reassign the uniform node itself.
                 BiomeUniforms.arpeggioGrove.shimmer.value =
@@ -521,6 +552,11 @@ export class MusicReactivitySystem {
                 // amplitudeScale: 1.0 baseline + channel energy boost, gated by night
                 BiomeUniforms.crystallineNebula.amplitudeScale.value =
                     1.0 + Math.min(_nebulaAmplitudeAccum / Math.max(_nebulaAmplitudeCh.length, 1), 1.0) * nightGate;
+
+                BiomeUniforms.global.shimmer.value =
+                    Math.min(_globalShimmerAccum / Math.max(_globalShimmerCh.length, 1), 1.0) * nightGate;
+                BiomeUniforms.global.hueShift.value =
+                    Math.min(_globalHueShiftAccum / Math.max(_globalHueShiftCh.length, 1), 1.0) * nightGate;
 
                 BiomeUniforms.skyMoon.moonIntensity.value =
                     Math.min(_skyMoonIntensityAccum / Math.max(_skyMoonIntensityCh.length, 1), 1.0) * nightGate;
@@ -550,6 +586,14 @@ export class MusicReactivitySystem {
                     _targetNebulaColor.setHex(0xffffff);
                     BiomeUniforms.crystallineNebula.noteColor.value.lerp(_targetNebulaColor, 0.05);
                 }
+
+                if (_globalNoteVal > 0) {
+                    mapNoteToColor(_globalNoteVal, _targetGlobalColor);
+                    BiomeUniforms.global.noteColor.value.lerp(_targetGlobalColor, 0.1);
+                } else {
+                    _targetGlobalColor.setHex(0xffffff);
+                    BiomeUniforms.global.noteColor.value.lerp(_targetGlobalColor, 0.05);
+                }
             } else {
                 // No audio data — smoothly decay towards resting values (no snapping).
                 BiomeUniforms.arpeggioGrove.shimmer.value *= 0.9;
@@ -558,6 +602,9 @@ export class MusicReactivitySystem {
                 // Decay amplitude towards baseline 1.0
                 BiomeUniforms.crystallineNebula.amplitudeScale.value =
                     1.0 + (BiomeUniforms.crystallineNebula.amplitudeScale.value - 1.0) * 0.9;
+
+                BiomeUniforms.global.shimmer.value *= 0.9;
+                BiomeUniforms.global.hueShift.value *= 0.9;
 
                 BiomeUniforms.skyMoon.moonIntensity.value *= 0.9;
                 _targetMoonColor.setHex(0xffffff);
@@ -568,6 +615,9 @@ export class MusicReactivitySystem {
 
                 _targetNebulaColor.setHex(0xffffff);
                 BiomeUniforms.crystallineNebula.noteColor.value.lerp(_targetNebulaColor, 0.05);
+
+                _targetGlobalColor.setHex(0xffffff);
+                BiomeUniforms.global.noteColor.value.lerp(_targetGlobalColor, 0.05);
             }
 
             // ---------------------------------------------------------------
