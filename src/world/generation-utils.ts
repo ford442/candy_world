@@ -15,7 +15,7 @@ if ((window as any).__fastPopulationOverride) {
     popScale *= 0.42; // Aggressive reduction for fast loading while still feeling like "full"
 }
 
-export const PROCEDURAL_ENTITY_COUNT = Math.max(50, Math.floor((pop.proceduralExtras ?? 220) * popScale));
+export const PROCEDURAL_ENTITY_COUNT = 200;
 export const ENTITY_BUDGET_MS = 14;
 export const YIELD_ENTITY_BATCH_SIZE = 40;
 export const YIELD_LOG_INTERVAL = YIELD_ENTITY_BATCH_SIZE * 5;

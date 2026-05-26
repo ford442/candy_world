@@ -388,24 +388,30 @@ export async function populateProceduralExtras(
             }
         };
 
-        // Heuristic to decide if critical based on the random roll
-        // 0.00 - 0.30: Flowers (Deferred)
-        // 0.30 - 0.45: Mushroom (Critical - bouncy)
-        // 0.45 - 0.55: Trees (Critical - obstacle)
-        // 0.55 - 0.75: Musical interactables (Critical)
-        // 0.75 - 0.90: Clouds (Critical if walkable, let's treat all clouds as critical for simplicity)
-        // > 0.90: Spirits, Mirrors, Shrines (Critical)
-
-        const isCritical = rand >= 0.30; // Flowers are < 0.30
+        // Narrowed criticality: only physics-relevant objects need to block the loading phase.
+        // 0.00 - 0.30: Flowers               → Deferred (no collision)
+        // 0.30 - 0.45: Mushrooms              → Critical (bouncy, obstacle)
+        // 0.45 - 0.55: Trees                  → Critical (obstacle)
+        // 0.55 - 0.75: Musical interactables  → Deferred (no physics impact on player movement)
+        // 0.75 - 0.90: Clouds                 → Deferred (walkable tier-1 clouds are uncommon;
+        //                                         accepting them being added a frame late is fine)
+        // > 0.90: Spirits, Mirrors, Shrines   → Deferred (purely decorative / audio-reactive)
+        //
+        // Result: only ~25 % of procedural extras are critical (down from 70 %),
+        // cutting synchronous spawn time by ~65 %.
+        const isCritical = rand >= 0.30 && rand < 0.55;
 
         if (isCritical) {
+            // Yield BEFORE a potentially heavy spawn if we have already burned the budget
+            // in a previous spawn.  This prevents a single heavy tree (10–30 ms) from
+            // stacking on top of an already-overrun chunk and compounding the stall.
+            if (performance.now() - chunkStart >= ENTITY_BUDGET_MS) {
+                await yieldControl();
+                chunkStart = performance.now();
+            }
             spawnExtra();
             criticalCount++;
-            // Time-based yield after each critical spawn.
-            // Count-based yielding (e.g. every 25 iterations) is unreliable when entity
-            // creation takes 10–30 ms each: 25 × 30 ms = 750 ms worst case per chunk.
-            // Instead we yield as soon as the ENTITY_BUDGET_MS wall-clock budget is
-            // exceeded, keeping every chunk well under 100 ms.
+            // Also yield immediately AFTER a heavy spawn so the browser can breathe.
             if (performance.now() - chunkStart >= ENTITY_BUDGET_MS) {
                 await yieldControl();
                 chunkStart = performance.now();
