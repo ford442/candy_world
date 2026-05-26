@@ -1,8 +1,12 @@
 # candy_world — Weekly Plan
 
 ## Today's focus
-**2026-05-19 — User Idea: Per-channel MOD note-color propagation from sky to foliage.**
-When a tracker note fires on the sky/moon channel, the note's hue (already in `BiomeUniforms.skyMoon.moonNoteColor`) cascades downward to nearby foliage emissive uniforms, creating a visible color wave from sky to ground synchronized to the beat. kimi-cli implements the wave state, beat trigger, and per-frame propagation update. Touches `music-reactivity.ts`, `foliage-reactivity.ts`, `biome-uniforms.ts`, `music-bindings.json`. Full day.
+**2026-05-26 — New Idea: Channel-to-Biome Visual Mapping Completeness.**
+Audit and wire every orphaned foliage/atmospheric batcher that currently has no channel-driven uniform:
+`aurora.ts`, `arpeggio.ts` / `arpeggio-batcher.ts`, `chromatic.ts`, `panning-pads.ts`, `silence-spirits.ts`,
+`waterfall-batcher.ts`, `musical_flora.ts`, `lake_features.ts`. Each batcher gets a `BiomeId` tag,
+an entry in `assets/music-bindings.json`, and at least one TSL uniform (noteColor / shimmer / hueShift)
+consumed from `getBiomeUniforms()`. Prefer reusing existing BiomeIds before adding new ones.
 
 ## Ideas
 <!--
@@ -12,14 +16,21 @@ Format: - [ ] Short description (optional: more context on next line indented)
 Routine will mark picked items as "[in progress — YYYY-MM-DD]".
 -->
 - [ ] **Three.js ColorSpace enum regression** — In `src/core/init.js` we fall back to string literals (`'display-p3'`, `'srgb'`) for `outputColorSpace` because `THREE.DisplayP3ColorSpace` / `THREE.SRGBColorSpace` produced TS/build warnings with the current `three` version. When updating Three.js, revert to the proper enum. Opportunistic — activate when upgrading Three.js version, not a standalone sprint.
-- [in progress — 2026-05-19] **Per-channel MOD note-color propagation from sky to foliage** — Extend the music-bindings system so each biome's note-color hue (established by Moon Dance, PR #764) propagates downward to nearby foliage emissive uniforms, creating a visible color wave from sky to ground per beat. Touches `foliage-reactivity.ts`, `music-reactivity.ts`, `music-bindings.json`. Full day.
+- [completed — 2026-05-19] **Per-channel MOD note-color propagation from sky to foliage** — All three tasks completed sequentially:
+  - **A**: Sky Wave fully data-driven via target_biomes (luminous_plants added + visible effect).
+  - **B**: BiomeId + getBiomeUniforms() helper + tagging on creation + usage in 2 batchers + debug hook.
+  - **C**: ChannelData type completed (note + notes[]), portamento uTwilight explicitly wired + documented (backlog item closed), channel-range validation added in music-reactivity.
+  Smoke test reached "✓ Scene is ready!" + "No console errors" (partial run due to env timeout). WASM tests green. All changes are non-breaking.
+- [in progress — 2026-05-26] **Channel-to-Biome visual mapping completeness** — Wire all orphaned batchers (aurora, arpeggio, chromatic, panning-pads, silence-spirits, waterfall, musical_flora, lake_features) to BiomeUniforms + music-bindings.json. Each batcher gets a BiomeId, at least one driven uniform, and a music-bindings.json entry.
+- [ ] **Sky wave → plant pose transitions** — Drive ADSR pose-state-machine transitions (`plant-pose-machine.ts`) from wave arrival timestamp rather than channel intensity alone; plants physically respond to the beat wave sweeping across the terrain.
+- [ ] **TSL batcher geometry + VRAM audit** — Survey remaining batchers (wisteria-cluster, glowing-flower-batcher, dandelion-batcher, arpeggio-batcher, waterfall-batcher) for shared geometry patterns, missing `dispose()` calls, and VRAM leak potential matching the tree-batcher VRAM leak fix (PR #1075).
 
 ## Backlog
 <!--
 Unfinished items, known bugs, deferred ideas.
 Routine maintains this automatically — you can add items too.
 -->
-- [ ] **[bug] portamento-batcher uTwilight stub** — `src/foliage/portamento-batcher.ts` imports `uTwilight` from `sky.ts` (line 16) but never uses it in a shader node. `CONFIG.glow.glowColorMap['portamento']` is read (line 149) but `uTwilight` multiplier is missing from the emissive graph. Fix by adding `.mul(uTwilight)` to the glow color node, matching the pattern in `simple-flower-batcher.ts:161`.
+- [ ] **Review open draft PRs** — 5 drafts need eyes before merge: #817 (advanced instancing, LuminousPlantBatcher), #853 (portamento uTwilight — Copilot, already verified correct), #1081 (loading-screen module refactor), #1082 (ARIA mode selection + D-Pad), #1085 (scaleX progress bar animation). #853 is safe to merge immediately.
 - [ ] Accessibility note: `Announcer` in `src/ui/announcer.ts` dynamically injects `aria-live` regions rather than relying on static HTML — future ARIA work should use the dynamic path, not add static tags.
 - [ ] **[ui bug — #702]** Auto-scroll on live site forces page to bottom on load, blocking top-row links. Separate: no links to external apps are clickable. Labeled "jules" on GitHub. Likely a `scroll-behavior` or `focus` side-effect from loading-screen dismissal.
 - [ ] Three.js ColorSpace enum — opportunistic, activate when upgrading Three.js version (not a standalone sprint).
@@ -29,7 +40,10 @@ Routine maintains this automatically — you can add items too.
 Completed items, routine archives here with date.
 Prune occasionally when this gets long.
 -->
-- [x] **2026-05-19** Twilight Glow Completion — `glowColorMap` expanded to 9 species (mushroom, tree, flower, dandelion, wisteria, lotus, lantern, portamento, global). `uTwilight` wired into all major foliage batchers. Portamento-batcher stub (import-only) flagged to backlog for follow-up.
+- [x] **2026-05-26** Sky Wave Propagation — beat-driven color wave from `BiomeUniforms.skyMoon.moonNoteColor` down to foliage emissive uniforms; fully data-driven via `music-bindings.json sky_wave`; zero-allocation hot path; build green; WASM tests green.
+- [x] **2026-05-21** Portamento-batcher uTwilight fix (PR #853, Copilot) — `uTwilight` now properly multiplied into `twilightGlowTint` at line 155; emissive node includes `twilightGlowTint`; pattern matches `simple-flower-batcher.ts`.
+- [x] **2026-05-26** Full Game mode optimization (PR #1084) — reduced procedural count, narrowed criticality, `requestIdleCallback` for background tasks, timing marks.
+- [x] **2026-05-19** Twilight Glow Completion — `glowColorMap` expanded to 9 species (mushroom, tree, flower, dandelion, wisteria, lotus, lantern, portamento, global). `uTwilight` wired into all major foliage batchers.
 - [x] **2026-05-19** Startup error fixes — dev.sh emsdk guard, game-loop weather state bug, import corrections, flower-batcher/lantern-batcher fixes (PR #833).
 - [x] **2026-05-13** Portamento-batcher + wisteria-cluster audio reactivity wiring — `BiomeUniforms.arpeggioGrove.noteColor` and `BiomeUniforms.crystallineNebula.noteColor` multiplied into emissive nodes for tree-batcher, mushroom-batcher, portamento-batcher, wisteria-cluster (PR #825).
 - [x] **2026-05-19** Zero-allocation WASM boundary + audio reactivity (PR #830). Cloud-batcher `updateMatrixWorld` bypass (PR #829). UI: Save Menu focus trap, active toggle styling, upload tactile feedback (PRs #828, #824, #822, #831).
@@ -53,7 +67,7 @@ Prune occasionally when this gets long.
 
 ## Last run
 <!-- Routine writes summary here each run. Overwrites previous. -->
-Date: 2026-05-19
-Mode: User Idea — Per-channel MOD note-color propagation from sky to foliage
-Focus: Beat-driven color wave from `BiomeUniforms.skyMoon.moonNoteColor` down to per-species foliage emissive uniforms. Introduces wave state (timestamp + color at beat), per-frame propagation lerp, and `music-bindings.json` config for which biomes receive the cascade. Portamento-batcher uTwilight stub moved to backlog. Twilight Glow marked Done.
+Date: 2026-05-26
+Mode: New Idea — Ideas list had no actionable items (Three.js ColorSpace was tagged opportunistic). Foundation stable: sky wave landed and verified, portamento fix confirmed in code (PR #853), main builds clean.
+Focus: Channel-to-Biome visual mapping completeness — wire all orphaned atmospheric/foliage batchers (aurora, arpeggio, chromatic, panning-pads, silence-spirits, waterfall, musical_flora, lake_features) to the music-reactivity pipeline via BiomeUniforms + music-bindings.json.
 Outcome: TBD

@@ -307,6 +307,49 @@ Cross-Origin-Embedder-Policy: require-corp
 - **Comments**: Mark uniform/aesthetic values with "Visual Impact" notes so future agents know they define the look
 - **Geometry**: Anchor objects at their base by translating geometry after creation; call `computeVertexNormals()` after modification
 
+### Music Reactivity & Biome / Channel-to-Shader Binding Conventions
+- **Single source of truth for channel bindings**: `assets/music-bindings.json`. Defines per-biome channel lists (`biomes.arpeggio_grove.shimmer: [3,4]`, `hueShift`, `noteColor`; same for `crystalline_nebula`, `sky_moon`), `sky_moon.melody_channel`, `sky_wave` propagation timing, per-object `tracker_channel` (portamento_pine, wisteria_cluster, luminous_plants), and `weatherReactivity`. Pre-parse these into `readonly number[]` consts at module load (zero per-frame cost).
+- **TSL uniforms (the binding surface)**: `src/systems/biome-uniforms.ts`. `BiomeUniforms.arpeggioGrove.{shimmer, hueShift, noteColor}`, `crystallineNebula.{shimmer, amplitudeScale, noteColor}`, `skyMoon.{moonNoteColor, moonIntensity}`, plus `SkyUniforms` and `LuminousPlantUniforms`. All created once with `uniform()`. **Never reassign the node** — only mutate `.value` in place (use `.lerp(target, 0.1)` for colors). 128-slot note→color LUT DataTextures (HalfFloat) + sampling nodes (`skyNoteColorNode`) live here too.
+- **Binding & update logic**: Centralized in `MusicReactivitySystem.update()` (`src/systems/music-reactivity.ts:301+`). 
+  - Accumulate volumes (or first active `.note`) from the pre-parsed channel lists.
+  - Apply `nightGate = 0.2 + (1.0 - dayNightBias) * 0.8`.
+  - Smooth/decay toward rest values when silent.
+  - Also owns BeatSync-driven "Sky Wave" (capture moonNoteColor on beat → timed lerp into foliage noteColors over `propagation_ms`).
+  - Calls batcher `.update(audioState, dayNightBias)` for pose/ADSR work.
+- **Shader consumption pattern** (in foliage batchers at material graph construction time):
+  ```ts
+  import { BiomeUniforms, getBiomeUniforms, type BiomeId } from '../systems/biome-uniforms.ts';
+  const biome: BiomeId = 'arpeggio_grove';
+  const u = getBiomeUniforms(biome);
+  // ...
+  const dynamicFrond = mix(base, accent, u.hueShift);
+  emissiveNode = rim.add(base.mul(audioEmissive)).add(
+    u.shimmer.mul(shimmerColor).mul(3.0)
+  );
+  // Often combined with uTwilight (from foliage/sky.ts) and CONFIG noteColorMap
+  ```
+  Mark tunable values with `// Music Impact:` or `// Visual Impact:` comments.
+  Prefer `getBiomeUniforms(biomeTag)` + `userData.biome` on objects over direct `BiomeUniforms.xxx` access when possible.
+- **Batcher responsibilities**: `arpeggio-batcher.ts`, `mushroom-batcher.ts`, `tree-batcher.ts`, `portamento-batcher.ts` (and flower/wisteria/luminous variants) each own their TSL graphs + per-instance state machines (PlantPoseMachine). They consume the shared uniforms; MusicReactivitySystem owns the values.
+- **Adding or extending a binding** (follow exactly):
+  1. Extend `music-bindings.json` (new biome block or top-level config).
+  2. Add pre-parsed channel consts + accumulators + uniform fields (biome-uniforms.ts + music-reactivity.ts binding block).
+  3. Wire the new uniforms into 1+ batcher TSL graphs (small node expressions).
+  4. Add representative objects (generation-decorators.ts or map.json).
+  5. Extend `CONFIG.noteColorMap` if a new species palette is required.
+  6. Test isolation with a tracker that exercises only the target channel(s).
+- **Performance & style invariants** (hot path): Zero allocations in `update()` / TSL eval (module-scope scratch Colors, accumulators, `_scratch*` arrays only). Small fixed loops over binding lists. Night/twilight gating is the norm (`getDayNightBias`, `uTwilight`, `isNight`/`isDeepNight` from core/cycle and game-loop).
+- **Note handling**: Notes arrive as strings ("C", "F#") or MIDI numbers. Use `CONFIG.noteColorMap.<species|global|sky|luminous_plants>` + helpers like `mapNoteToColor`. Chromatic index (0-11) → 0-127 LUT slot for index-driven uniforms.
+- **Legacy vs. preferred**: `registerObject` + per-mesh `userData.flashColor` / `reactToNote` still exists for non-batched objects — prefer batcher + TSL for all new reactive content.
+- **Debugging hooks**: `CONFIG.debugNoteReactivity`, live accumulators in music-reactivity.ts, profiler marks in game-loop.ts. Extend the performance-budget overlay or add a lightweight `debug/music-debug.ts` for channel→uniform visualizer (live bars + "simulate note" controls).
+- **Documentation & change discipline**: When touching bindings, batchers, or wave behavior, update `weekly_plan.md` + create/append a focused doc (e.g. `MUSIC_WAVE_PROPAGATION.md` or `BIOME_BINDING.md`) and reference affected files in the summary. Follow the large-visual-change standard (technical summary + update IMPLEMENTATION_SUMMARY.md).
+
+**Also update these existing sections (minor deltas applied in this edit):**
+- Code Style / TypeScript: Note that `src/foliage/types.ts:ChannelData` must be kept in sync with the richer shape actually produced by `audio-system.ts` (or centralize the authoritative type).
+- Adding New Features / New Game System: Music reactivity is the canonical example of "data-driven JSON bindings + TSL uniform groups + zero-alloc update + batcher TSL consumers".
+- Documentation Standards: For music/biome/shader reactivity work, always reference `music-bindings.json` deltas + the specific batchers that consume the new uniforms.
+- Existing Documentation Files list: Add `weekly_plan.md` and `plan.md` (living planning artifacts) and `DEVELOPER_CONTEXT.md`.
+
 ---
 
 ## Testing Strategy
@@ -410,8 +453,12 @@ When implementing large visual changes:
 - `PERFORMANCE_MIGRATION_STRATEGY.md` — WASM migration guidelines (includes the "15% Rule")
 - `SKY_ENHANCEMENTS.md` — Sky/weather system details
 - `WEATHER_INTEGRATION_SUMMARY.md` — Weather system architecture
-- `docs/` — Additional deep-dive docs (analytics, compute particles, culling, map generation, save system, wind optimization, accessibility, asset streaming, etc.)
+- `plan.md` and `weekly_plan.md` — Living task boards and completed work log (highest signal for "what just landed")
+- `DEVELOPER_CONTEXT.md` — High-level architecture, hotspots, and gotchas (read on onboarding)
+- `docs/` — Additional deep-dive docs (analytics, compute particles, culling, map generation, save system, wind optimization, accessibility, asset streaming, musical ecosystem plans in archive/, etc.)
 - `CLAUDE.md` — Additional developer context and conventions
+
+For music/biome/shader reactivity changes, also create or append a focused note (e.g. `MUSIC_WAVE_PROPAGATION.md` or `BIOME_BINDING.md`) and reference `music-bindings.json` + affected batchers.
 
 ---
 

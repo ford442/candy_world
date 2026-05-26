@@ -166,3 +166,49 @@ _luminousPlantsLutTex.needsUpdate = true;
  * TSL node: samples the note-colour LUT for the current LuminousPlantUniforms.noteIndex.
  */
 export const luminousPlantsNoteColorNode = texture(_luminousPlantsLutTex, vec2(LuminousPlantUniforms.noteIndex.add(0.5).div(128.0), 0.5)).rgb;
+
+// ---------------------------------------------------------------------------
+// Biome tagging & uniform lookup (foundational for scalable music reactivity)
+// ---------------------------------------------------------------------------
+
+/**
+ * Lightweight biome identifier.
+ * Used to tag foliage objects and to look up the correct uniform group without
+ * hard-coded imports everywhere.
+ *
+ * Add new values here + corresponding entry in BiomeUniforms (or alias) when
+ * introducing a new musical biome.
+ */
+export type BiomeId = 'arpeggio_grove' | 'crystalline_nebula' | 'luminous_plants' | 'global';
+
+/**
+ * Returns the appropriate uniform group for a given biome tag.
+ * Falls back to arpeggioGrove for unknown / unset values (safe default).
+ *
+ * Usage in batchers / material graphs:
+ *   const uniforms = getBiomeUniforms(biome);
+ *   ... uniforms.noteColor ...
+ *
+ * This makes adding a third (or Nth) biome cheap and prevents wiring drift.
+ */
+export function getBiomeUniforms(biome: BiomeId | string | undefined) {
+    switch (biome) {
+        case 'arpeggio_grove':
+            return BiomeUniforms.arpeggioGrove;
+        case 'crystalline_nebula':
+            return BiomeUniforms.crystallineNebula;
+        case 'luminous_plants':
+            // Luminous primarily uses its own LuminousPlantUniforms for intensity/noteIndex,
+            // but we expose the noteColor here for wave / shared tinting use cases.
+            return {
+                ...BiomeUniforms.arpeggioGrove, // shape compatibility if someone expects the common fields
+                noteColor: LuminousPlantUniforms.noteColor as any,
+                // intensity / noteIndex live on LuminousPlantUniforms directly
+            } as any;
+        default:
+            return BiomeUniforms.arpeggioGrove;
+    }
+}
+
+/** Convenience re-export of the type for consumers that only need the id. */
+export type { BiomeId as BiomeTag };

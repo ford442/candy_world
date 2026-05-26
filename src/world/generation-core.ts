@@ -273,6 +273,7 @@ export async function generateMap(
     onProgress?: WorldProgressCallback
 ): Promise<void> {
     performance.mark('candy:map-generation-start');
+    console.time('[World] generateMap total');
     console.log(`[World] Loading map with ${mapData.entities.length} entities...`);
 
     // Reset WASM Collision System for Generation Phase
@@ -281,6 +282,7 @@ export async function generateMap(
     const entities = mapData.entities as any as MapEntity[];
 
     // 1. Filter into Critical vs Deferred
+    console.time('[World] entity-scan');
     const criticalEntities: MapEntity[] = [];
     const deferredEntities: MapEntity[] = [];
 
@@ -300,6 +302,7 @@ export async function generateMap(
             await yieldControl();
         }
     }
+    console.timeEnd('[World] entity-scan');
 
     console.log(`[World] Filtered map: ${criticalEntities.length} critical, ${deferredEntities.length} deferred.`);
 
@@ -312,6 +315,7 @@ export async function generateMap(
     // Instead of fixed-size chunks (which could still run long if entities are heavy),
     // we check elapsed time after each entity and yield as soon as ENTITY_BUDGET_MS
     // is exceeded. This keeps every task well under 100 ms.
+    console.time('[World] critical-entities');
     let i = 0;
     while (i < criticalTotal) {
         const chunkStart = performance.now();
@@ -360,8 +364,10 @@ export async function generateMap(
             await yieldControl();
         }
     }
+    console.timeEnd('[World] critical-entities');
 
     // --- Spawn The Cave (Critical) ---
+    console.time('[World] cave-spawn');
     const cave = createCaveEntrance({ scale: 2.0 });
     const caveX = 25;
     const caveZ = 25;
@@ -370,6 +376,7 @@ export async function generateMap(
     cave.lookAt(0, caveY, 0);
     safeAddFoliage(cave, false, 0, weatherSystem);
     console.log("[World] Cave spawned at ", caveX, caveZ, " Height:", caveY);
+    console.timeEnd('[World] cave-spawn');
 
     if (cave.userData.gatePosition) {
         const waterfallProxy = new THREE.Object3D();
@@ -380,7 +387,9 @@ export async function generateMap(
     }
 
     // --- Populate Arpeggio Grove Set Piece (Critical) ---
+    console.time('[World] arpeggio-grove');
     await populateArpeggioGrove(weatherSystem);
+    console.timeEnd('[World] arpeggio-grove');
     if (onProgress) {
         onProgress(globalTotal, globalTotal, '[World] Critical full world population complete', 'arpeggio_grove');
     }
@@ -388,14 +397,17 @@ export async function generateMap(
     // --- Initialize Discovery System with Spatial Grid (Critical) ---
     // OPTIMIZATION: O(1) spatial lookups instead of O(N) distance checks
     // We do this NOW before deferring the rest, so grids are static and complete for interactive items
+    console.time('[World] discovery-init');
     initDiscoveryForFoliage(animatedFoliage);
+    console.timeEnd('[World] discovery-init');
 
     // 3. Queue Deferred Map Entities
+    console.time('[World] queue-deferred');
     console.log(`[World] Queueing ${deferredEntities.length} deferred map entities for background processing...`);
     let queuedDeferred = 0;
     for (const item of deferredEntities) {
         globalBackgroundProcessor.enqueue({
-            id: `map_deferred_${item.type}_${Math.random()}`,
+            id: `map_deferred_${item.type}_${queuedDeferred}`,
             execute: () => processMapEntity(item, weatherSystem)
         });
 
@@ -407,15 +419,19 @@ export async function generateMap(
             await yieldControl();
         }
     }
+    console.timeEnd('[World] queue-deferred');
 
     // --- Populate Procedural Extras (Split into Critical/Deferred inside) ---
+    console.time('[World] procedural-extras');
     await populateProceduralExtras(weatherSystem, chunkSize);
+    console.timeEnd('[World] procedural-extras');
 
     performance.mark('candy:map-generation-end');
     try {
         performance.measure('candy:Map Generation', 'candy:map-generation-start', 'candy:map-generation-end');
     } catch (_e) { /* ignore if marks were cleared */ }
 
+    console.timeEnd('[World] generateMap total');
     console.log("[World] Critical map generation complete! Deferred tasks queued.");
 }
 
@@ -538,9 +554,16 @@ export async function populateWorld(
     scene: THREE.Scene,
     weatherSystem: WeatherSystem,
     mode: WorldMode = 'CORE',
-    onProgress?: WorldProgressCallback
+    onProgress?: WorldProgressCallback,
+    options?: { fastPopulation?: boolean }
 ): Promise<WorldMode> {
     console.log(`[World] Starting populateWorld() in ${mode} mode`);
+
+    // Fast Full Mode: apply aggressive population reduction on top of user config
+    if (options?.fastPopulation) {
+        (window as any).__fastPopulationOverride = true;
+        console.log('%c[World] FAST FULL Mode — using heavily reduced object population for quick loads', 'color:#81c784');
+    }
 
     if (mode === 'CORE') {
         console.log('%c[World] CORE Mode active — spawning minimal classic candy set', 'color:#ff9ecd');
@@ -552,7 +575,7 @@ export async function populateWorld(
     }
 
     console.log('%c[World] FULL Mode — attempting complete musical ecosystem', 'color:#7dd3fc');
-    console.log(`[World] Full mode: ${(mapData as any).entities?.length ?? 0} map entities + ${PROCEDURAL_ENTITY_COUNT} procedural extras to process`);
+    console.log(`[World] Full mode: ${(mapData as any).entities?.length ?? 0} map entities + ${PROCEDURAL_ENTITY_COUNT} procedural extras to process (population scaled via CONFIG.world.population${options?.fastPopulation ? ' + fast mode multiplier' : ''})`);
     try {
         await generateMap(weatherSystem, DEFAULT_MAP_CHUNK_SIZE, onProgress);
         console.log('[World] Full mode population complete.');
@@ -560,6 +583,7 @@ export async function populateWorld(
         return 'FULL';
     } catch (error) {
         console.error('[World] Full population failed. Falling back from FULL to CORE.', error);
+        delete (window as any).__fastPopulationOverride;
         await generateCoreWorld(weatherSystem, onProgress);
         console.log('[World] populateWorld() recovered in CORE mode after FULL failure');
         return 'CORE';

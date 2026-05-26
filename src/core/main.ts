@@ -464,40 +464,63 @@ if (startButton) {
         announce('World loaded. Press Enter to enter the world.', 'assertive');
     }).catch(err => console.warn('Failed to load announcer:', err));
 
+    // Three-state startup mode: CORE (fastest), FULL (complete), FAST_FULL (full map but heavily reduced population for quicker loads)
     let coreOnlyMode = true;
+    let fastFullMode = false;
+
     const btnCoreOnly = document.getElementById('btn-core-only') as HTMLButtonElement | null;
     const btnFullGame = document.getElementById('btn-full-game') as HTMLButtonElement | null;
+    const btnFastFull = document.getElementById('btn-fast-full') as HTMLButtonElement | null;
     const modeSelect = document.getElementById('mode-select');
     const modeDescription = document.getElementById('mode-description');
 
-    const updateStartupMode = (isCore: boolean) => {
-        coreOnlyMode = isCore;
-        console.log(`[Startup] Mode selected: ${isCore ? 'CORE' : 'FULL'}`);
+    const updateStartupMode = (mode: 'CORE' | 'FULL' | 'FAST_FULL') => {
+        coreOnlyMode = mode === 'CORE';
+        fastFullMode = mode === 'FAST_FULL';
+
+        console.log(`[Startup] Mode selected: ${mode}`);
+
+        const isCore = mode === 'CORE';
+        const isFast = mode === 'FAST_FULL';
+
         if (btnCoreOnly) {
             btnCoreOnly.setAttribute('aria-pressed', String(isCore));
         }
         if (btnFullGame) {
-            btnFullGame.setAttribute('aria-pressed', String(!isCore));
+            btnFullGame.setAttribute('aria-pressed', String(mode === 'FULL'));
+            btnFullGame.style.boxShadow = mode === 'FULL' ? '0 5px 18px rgba(125, 211, 252, 0.55)' : 'none';
         }
+        if (btnFastFull) {
+            btnFastFull.setAttribute('aria-pressed', String(isFast));
+            btnFastFull.style.boxShadow = isFast ? '0 5px 18px rgba(165, 214, 167, 0.7)' : 'none';
+        }
+
         if (modeDescription) {
             modeDescription.textContent = isCore
                 ? 'Fast startup with classic candy terrain, trees, mushrooms, and clouds.'
-                : 'Full game with the complete musical foliage map.';
+                : isFast
+                    ? 'Full musical map with greatly reduced object count for much faster loading.'
+                    : 'Full game with the complete musical foliage map.';
         }
+
         startButton.innerHTML = isCore
             ? 'Enter Core World <span aria-hidden="true">🍭</span> <span class="key-badge" aria-hidden="true">Enter</span>'
-            : 'Enter Full Game <span aria-hidden="true">🌸</span> <span class="key-badge" aria-hidden="true">Enter</span>';
+            : isFast
+                ? 'Enter Fast Full <span aria-hidden="true">🌿</span> <span class="key-badge" aria-hidden="true">Enter</span>'
+                : 'Enter Full Game <span aria-hidden="true">🌸</span> <span class="key-badge" aria-hidden="true">Enter</span>';
     };
 
-    const getGenerationLabel = (mode: WorldMode) => (
-        mode === 'CORE' ? 'Generating core world...' : 'Generating world map...'
-    );
+    const getGenerationLabel = (mode: WorldMode) => {
+        if (mode === 'CORE') return 'Generating core world...';
+        return fastFullMode ? 'Generating light full world (reduced objects)...' : 'Generating world map...';
+    };
 
-    updateStartupMode(true);
+    updateStartupMode('CORE');
 
-    if (btnCoreOnly && btnFullGame) {
-        btnCoreOnly.addEventListener('click', () => updateStartupMode(true));
-        btnFullGame.addEventListener('click', () => updateStartupMode(false));
+    if (btnCoreOnly && btnFullGame && btnFastFull) {
+        btnCoreOnly.addEventListener('click', () => updateStartupMode('CORE'));
+        btnFullGame.addEventListener('click', () => updateStartupMode('FULL'));
+        btnFastFull.addEventListener('click', () => updateStartupMode('FAST_FULL'));
     }
 
     let worldGenerated = false;
@@ -526,6 +549,7 @@ if (startButton) {
 
         await yieldFrame(); // Let the spinner paint
         const requestedMode: WorldMode = coreOnlyMode ? 'CORE' : 'FULL';
+        const useFastPopulation = fastFullMode;   // "Fast Full" = Full map but with aggressive population reduction
         let activeWorldMode: WorldMode = requestedMode;
 
         const worldGenResult = await StageLoader.loadStage('worldGeneration', async () => {
@@ -578,7 +602,7 @@ if (startButton) {
                     startButton.innerHTML = `<span class="spinner" aria-hidden="true"></span>Generating ${percent}%... <span aria-hidden="true">${requestedMode === 'CORE' ? '🍭' : '🍭'}</span>`;
                     lastAnnounced = percent;
                 }
-            });
+            }, useFastPopulation ? { fastPopulation: true } : undefined);
 
             if (activeWorldMode !== requestedMode) {
                 console.warn(`[Startup] Full mode fallback engaged: booted in ${activeWorldMode} mode instead of ${requestedMode}`);
@@ -586,6 +610,9 @@ if (startButton) {
             }
 
             endPhase('Map Generation');
+
+            // Clean up the temporary fast population override
+            delete (window as any).__fastPopulationOverride;
 
             // ⚡ Critical: Populate physics grids right after map generation
             populatePhysicsGrids();
@@ -648,9 +675,14 @@ if (startButton) {
 
             worldGenerated = true;
             startButton.style.background = '';
-            startButton.innerHTML = activeWorldMode === 'CORE'
-                ? 'Regenerate Core World <span aria-hidden="true">🍭</span> <span class="key-badge" aria-hidden="true">Enter</span>'
-                : 'Regenerate Full Game <span aria-hidden="true">🌸</span> <span class="key-badge" aria-hidden="true">Enter</span>';
+            const wasFast = !!(window as any).__fastPopulationOverride || fastFullMode;
+            if (activeWorldMode === 'CORE') {
+                startButton.innerHTML = 'Regenerate Core World <span aria-hidden="true">🍭</span> <span class="key-badge" aria-hidden="true">Enter</span>';
+            } else if (wasFast) {
+                startButton.innerHTML = 'Regenerate Fast Full <span aria-hidden="true">🌿</span> <span class="key-badge" aria-hidden="true">Enter</span>';
+            } else {
+                startButton.innerHTML = 'Regenerate Full Game <span aria-hidden="true">🌸</span> <span class="key-badge" aria-hidden="true">Enter</span>';
+            }
 
         } catch (err) {
             console.error('[Init] World generation failed:', err);

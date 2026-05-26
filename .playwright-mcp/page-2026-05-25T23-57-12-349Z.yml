@@ -1,0 +1,138 @@
+- generic [active] [ref=e1]:
+  - status:
+    - generic: 🌙
+    - generic: Night Mode Active 🌙
+  - generic:
+    - generic:
+      - generic: 📂
+      - heading [level=2]: Drop Music Here!
+      - paragraph: Add .mod, .xm, .it, .s3m files to playlist
+  - dialog "Candy World" [ref=e2] [cursor=pointer]:
+    - generic [ref=e3]:
+      - heading "Candy World" [level=1] [ref=e4]: 🍭 Candy World
+      - button "Enter Core World" [ref=e98]:
+        - text: Enter Core World 🍭
+        - generic [ref=e99]: Enter
+      - generic [ref=e5]:
+        - paragraph [ref=e6]: Fast startup with classic candy terrain, trees, mushrooms, and clouds.
+        - button "🍭 Core Only (Fast)" [pressed] [ref=e7]
+        - button "🌸 Full Game" [ref=e8]
+        - button "🌿 Fast Full (Light)" [ref=e9]
+      - group "Game Settings" [ref=e10]:
+        - button "Choose File" [ref=e11]
+        - 'button "Upload Music Upload supported music files: .mod, .xm, .it, .s3m. Keyboard shortcut U" [ref=e12]':
+          - text: 🎵 Upload Music
+          - generic [ref=e13]: U
+          - generic [ref=e14]: "Upload supported music files: .mod, .xm, .it, .s3m. Keyboard shortcut U"
+          - generic [ref=e15]: .mod .xm .it .s3m
+        - button "Switch to Day" [pressed] [ref=e100]:
+          - text: ☀️ Switch to Day
+          - generic [ref=e101]: "N"
+        - 'button "Decrease Volume (Current: 100%)" [ref=e102]':
+          - text: −
+          - generic [ref=e19]: "-"
+        - button "Mute Audio" [ref=e20]:
+          - text: 🔊 Mute
+          - generic [ref=e21]: M
+        - 'button "Increase Volume (Disabled: Maximum reached)" [disabled] [ref=e103]':
+          - text: +
+          - generic [ref=e23]: +
+        - button "Open Jukebox playlist" [ref=e24]:
+          - text: Open Jukebox
+          - generic [ref=e104]: Q
+        - button "Open Accessibility Settings" [ref=e26]: ♿ Accessibility
+      - region "Controls Guide" [ref=e27]:
+        - generic [ref=e28]:
+          - heading "Movement" [level=3] [ref=e29]
+          - generic [ref=e30]:
+            - term [ref=e31]:
+              - generic [ref=e32]: W
+              - text: /
+              - generic [ref=e33]: A
+              - text: /
+              - generic [ref=e34]: S
+              - text: /
+              - generic [ref=e35]: D
+              - text: or
+              - text: Right Click
+            - definition [ref=e37]: Move Forward / Walk
+            - term [ref=e38]:
+              - generic [ref=e39]: Shift
+            - definition [ref=e40]: Hold to Sprint
+            - term [ref=e41]:
+              - generic [ref=e42]: Space
+            - definition [ref=e43]: Jump
+            - term [ref=e44]:
+              - generic [ref=e45]: Ctrl
+            - definition [ref=e46]: Hold to Sneak
+        - generic [ref=e47]:
+          - heading "Abilities" [level=3] [ref=e48]
+          - generic [ref=e49]:
+            - term [ref=e50]:
+              - generic [ref=e51]: E
+            - definition [ref=e52]: Dash (Requires Energy)
+            - term [ref=e53]:
+              - generic [ref=e54]: F
+            - definition [ref=e55]: Jitter Mine (Cooldown)
+            - term [ref=e56]:
+              - generic [ref=e57]: Z
+            - definition [ref=e58]: Phase Shift (Requires Bulb)
+            - term [ref=e59]:
+              - generic [ref=e60]: R
+            - definition [ref=e61]: Dance Mode (Unlocks Cursor)
+            - term [ref=e62]:
+              - generic [ref=e63]: Space
+              - generic "Double Press" [ref=e64]: ×2
+            - definition [ref=e65]: Double Jump
+        - generic [ref=e66]:
+          - heading "System" [level=3] [ref=e67]
+          - generic [ref=e68]:
+            - term [ref=e69]:
+              - generic [ref=e70]: Q
+            - definition [ref=e71]: Toggle Jukebox
+            - term [ref=e72]:
+              - generic [ref=e73]: "N"
+            - definition [ref=e74]: Toggle Day/Night
+            - term [ref=e75]:
+              - generic [ref=e76]: M
+            - definition [ref=e77]: Mute Audio
+            - term [ref=e78]:
+              - generic [ref=e79]: +
+              - text: /
+              - generic [ref=e80]: "-"
+            - definition [ref=e81]: Adjust Volume
+            - term [ref=e82]: Mouse
+            - definition [ref=e84]: Look Around
+  - region "Tracker Status":
+    - generic: Tracker Status
+    - generic: "Pattern: 00"
+    - generic: "Row: 00"
+  - region "Abilities" [ref=e85]:
+    - progressbar "Energy Bar" [ref=e86]
+    - button "Dash Ability (E) - Ready!" [ref=e105]:
+      - generic [ref=e88]: E
+      - generic [ref=e89]: 💨
+    - button "Phase Shift (Z) - Empty (Need Tremolo Bulb)" [disabled]:
+      - generic: Z
+      - generic: 👻
+      - generic: "0"
+  - group "Direction Controls":
+    - button "Move Forward" [ref=e93] [cursor=pointer]:
+      - img
+    - generic:
+      - button "Strafe Left" [ref=e94] [cursor=pointer]:
+        - img
+      - generic:
+        - img
+      - button "Strafe Right" [ref=e95] [cursor=pointer]:
+        - img
+    - button "Move Backward" [ref=e96] [cursor=pointer]:
+      - img
+  - 'region "Game World: Use mouse and keyboard to navigate" [ref=e97]'
+  - generic:
+    - generic: Populating...
+  - generic [ref=e106]:
+    - text: Your browser does not support
+    - link "WebGPU" [ref=e107] [cursor=pointer]:
+      - /url: https://gpuweb.github.io/gpuweb/
+    - text: yet

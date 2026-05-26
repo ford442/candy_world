@@ -1,14 +1,26 @@
 /**
  * Time-Budgeted Background Processor
  *
- * Safely processes a queue of expensive tasks over multiple frames
- * using requestAnimationFrame to maintain a target framerate.
+ * Safely processes a queue of expensive tasks over multiple frames.
+ *
+ * Scheduling strategy (priority order):
+ *  1. `requestIdleCallback` — preferred: runs during browser idle time so it
+ *     cannot steal render-frame budget from the game loop.
+ *  2. `requestAnimationFrame` — fallback for browsers without rIC.
+ *
+ * The per-callback time budget (`maxMsPerFrame`) guards against long-running
+ * individual tasks: we measure elapsed time *before* dequeuing each task so
+ * that a single expensive factory function (e.g. 25 ms tree geometry) only
+ * causes one overrun rather than stacking overruns across entities.
  */
 
 export interface DeferredTask {
     id: string;
     execute: () => void | Promise<void>;
 }
+
+// Detect requestIdleCallback at module level to avoid repeated property lookups.
+const hasIdleCallback = typeof requestIdleCallback !== 'undefined';
 
 export class BackgroundProcessor {
     private queue: DeferredTask[] = [];
@@ -20,7 +32,7 @@ export class BackgroundProcessor {
     private completedTasks: number = 0;
 
     constructor(maxMsPerFrame: number = 8) {
-        this.maxMsPerFrame = maxMsPerFrame; // 8ms gives us plenty of room to hit 60fps (16ms)
+        this.maxMsPerFrame = maxMsPerFrame;
     }
 
     /**
@@ -53,7 +65,7 @@ export class BackgroundProcessor {
         this.isRunning = true;
 
         console.log(`[BackgroundProcessor] Starting with ${this.queue.length} tasks`);
-        requestAnimationFrame(this.processQueue.bind(this));
+        this.scheduleNext();
     }
 
     /**
@@ -64,58 +76,72 @@ export class BackgroundProcessor {
     }
 
     /**
-     * Internal processing loop
+     * Schedule the next processing callback using the best available API.
      */
-    private async processQueue(): Promise<void> {
+    private scheduleNext(): void {
+        if (hasIdleCallback) {
+            // idleDeadline.timeRemaining() tells us how long the browser is idle.
+            // We cap at maxMsPerFrame so we never hog an entire idle period.
+            requestIdleCallback((deadline) => {
+                const budget = Math.min(deadline.timeRemaining(), this.maxMsPerFrame);
+                this.processChunk(budget);
+            }, { timeout: 1000 }); // 1 s timeout ensures progress even under load
+        } else {
+            requestAnimationFrame(() => {
+                this.processChunk(this.maxMsPerFrame);
+            });
+        }
+    }
+
+    /**
+     * Process tasks until the given time budget (ms) is consumed.
+     */
+    private async processChunk(budgetMs: number): Promise<void> {
         if (!this.isRunning) return;
 
         if (this.queue.length === 0) {
-            this.isRunning = false;
-            console.log('[BackgroundProcessor] Queue complete');
-            if (this.onCompleteCallback) this.onCompleteCallback();
+            this.complete();
             return;
         }
 
-        const frameStart = performance.now();
+        const chunkStart = performance.now();
 
-        // Process tasks until we run out of time budget
         while (this.queue.length > 0) {
-            const timeElapsed = performance.now() - frameStart;
-
-            // If we've exceeded our budget for this frame, yield to next frame
-            if (timeElapsed >= this.maxMsPerFrame) {
+            // Check budget BEFORE starting the next task so a single slow task
+            // only overruns once rather than accumulating overruns.
+            if (performance.now() - chunkStart >= budgetMs) {
                 break;
             }
 
             const task = this.queue.shift();
-            if (task) {
-                try {
-                    // Note: If task returns a Promise, we await it.
-                    // This pauses the loop for async operations, which is fine,
-                    // though it means we yield control anyway.
-                    const result = task.execute();
-                    if (result instanceof Promise) {
-                        await result;
-                    }
-                    this.completedTasks++;
+            if (!task) continue;
 
-                    if (this.onProgressCallback) {
-                        this.onProgressCallback(this.completedTasks, this.totalTasks);
-                    }
-                } catch (e) {
-                    console.error(`[BackgroundProcessor] Error executing task ${task.id}:`, e);
+            try {
+                const result = task.execute();
+                if (result instanceof Promise) {
+                    await result;
                 }
+                this.completedTasks++;
+
+                if (this.onProgressCallback) {
+                    this.onProgressCallback(this.completedTasks, this.totalTasks);
+                }
+            } catch (e) {
+                console.error(`[BackgroundProcessor] Error executing task ${task.id}:`, e);
             }
         }
 
-        // Schedule the next chunk
         if (this.queue.length > 0) {
-            requestAnimationFrame(this.processQueue.bind(this));
+            this.scheduleNext();
         } else {
-            this.isRunning = false;
-            console.log('[BackgroundProcessor] Queue complete');
-            if (this.onCompleteCallback) this.onCompleteCallback();
+            this.complete();
         }
+    }
+
+    private complete(): void {
+        this.isRunning = false;
+        console.log('[BackgroundProcessor] Queue complete');
+        if (this.onCompleteCallback) this.onCompleteCallback();
     }
 
     /**
