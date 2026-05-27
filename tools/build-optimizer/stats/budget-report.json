@@ -1,11 +1,11 @@
 {
-  "timestamp": "2026-05-19T06:25:54.534Z",
+  "timestamp": "2026-05-27T13:32:04.945Z",
   "config": {
     "budgets": {
       "main": "200kb",
-      "vendor": "500kb",
-      "wasm": "100kb",
-      "total": "2mb"
+      "vendor": "1500kb",
+      "wasm": "600kb",
+      "total": "20mb"
     },
     "thresholds": {
       "warning": 0.8,
@@ -16,40 +16,39 @@
     {
       "name": "main",
       "budget": 204800,
-      "actual": 20452,
+      "actual": 37507,
       "status": "pass",
-      "percentage": 0.09986328125
+      "percentage": 0.1831396484375
     },
     {
       "name": "vendor",
-      "budget": 512000,
-      "actual": 943623,
-      "status": "error",
-      "percentage": 1.843013671875
+      "budget": 1536000,
+      "actual": 1363183,
+      "status": "warning",
+      "percentage": 0.8874889322916667
     },
     {
       "name": "wasm",
-      "budget": 102400,
-      "actual": 479744,
-      "status": "error",
-      "percentage": 4.685
+      "budget": 614400,
+      "actual": 492149,
+      "status": "warning",
+      "percentage": 0.8010237630208333
     },
     {
       "name": "total",
-      "budget": 2097152,
-      "actual": 15081569,
-      "status": "error",
-      "percentage": 7.191452503204346
+      "budget": 20971520,
+      "actual": 15572729,
+      "status": "pass",
+      "percentage": 0.7425655841827392
     }
   ],
   "overall": {
-    "status": "error",
-    "totalSize": 16525388,
-    "totalBudget": 2916352
+    "status": "warning",
+    "totalSize": 17465568,
+    "totalBudget": 23326720
   },
   "recommendations": [
-    "VENDOR BUDGET EXCEEDED: Consider using dynamic imports for Three.js or switching to a lighter alternative.",
-    "WASM BUDGET EXCEEDED: Run wasm-opt with -O3 to strip debug symbols and optimize.",
-    "TOTAL BUDGET EXCEEDED: Implement code splitting and lazy loading for non-critical features."
+    "VENDOR approaching budget (89%). Monitor closely.",
+    "WASM approaching budget (80%). Monitor closely."
   ]
 }

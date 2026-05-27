@@ -707,7 +707,7 @@ export class MusicReactivitySystem {
         if (twilightVal > 0.1) {
             if (_activeWave) {
                 const elapsed = (performance.now() - _activeWave.timestamp) / _skyWavePropagationMs;
-                const targets: string[] = _skyWaveConfig?.target_biomes ?? ['arpeggio_grove', 'crystalline_nebula'];
+                const targets: string[] = _skyWaveConfig?.target_biomes ?? ['arpeggio_grove', 'crystalline_nebula', 'luminous_plants', 'sky_moon', 'global'];
 
                 let allComplete = true;
                 for (let i = 0; i < targets.length; i++) {
@@ -731,7 +731,7 @@ export class MusicReactivitySystem {
                 }
             } else if (_waveDecayStartTime > 0) {
                 const decayElapsed = performance.now() - _waveDecayStartTime;
-                const targets: string[] = _skyWaveConfig?.target_biomes ?? ['arpeggio_grove', 'crystalline_nebula'];
+                const targets: string[] = _skyWaveConfig?.target_biomes ?? ['arpeggio_grove', 'crystalline_nebula', 'luminous_plants', 'sky_moon', 'global'];
 
                 if (decayElapsed < _skyWaveDecayMs) {
                     for (const key of targets) {
