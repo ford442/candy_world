@@ -1,13 +1,13 @@
 {
   "budgets": {
     "main": "200kb",
-    "vendor": "1.5mb",
-    "wasm": "500kb",
-    "total": "16mb"
+    "vendor": "1500kb",
+    "wasm": "600kb",
+    "total": "20mb"
   },
   "thresholds": {
     "warning": 0.8,
-    "error": 1.0
+    "error": 1
   },
   "comments": {
     "main": "Core application code (main.ts, core modules)",

@@ -38,6 +38,10 @@ Status: Implemented ✅
 Status: Implemented ✅
 * Implementation Details: Refactored `src/ui/loading-screen.ts` into `loading-screen-types.ts`, `loading-screen-ui.ts`, and `loading-screen-progress.ts` with a barrel export, separating types, the UI class implementation, and the global APIs.
 
+Status: Implemented ✅
+* Implementation Details: Wired orphaned batchers (lake_features, aurora, chromatic, panning-pads, silence-spirits) to the music-reactivity pipeline by adding `global` and `sky_moon` biomes to the `sky_wave.target_biomes` array in `music-bindings.json` and mapping them in `music-reactivity.ts`.
+
+Next Step: Target the final large file refactoring task from `REFACTORING_PLAN_REMAINING.md` by splitting `src/ui/analytics-debug.ts`.
 Next Step: Continue large file refactoring from `REFACTORING_PLAN_REMAINING.md` by targeting `src/audio/audio-system.ts`.
 
 Status: Implemented ✅
