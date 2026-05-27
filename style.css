@@ -79,6 +79,23 @@
     }
 }
 
+/* ♿ Aria: Fallback support for programmatic a11y toggle */
+body.a11y-motion-reduced *,
+body.a11y-motion-reduced *::before,
+body.a11y-motion-reduced *::after {
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+}
+
+body.a11y-motion-reduced .drag-icon {
+    animation: none !important;
+}
+
+body.a11y-motion-reduced .loading-spinner,
+body.a11y-motion-reduced .spinner {
+    animation-duration: 5s !important;
+}
+
 /* 🎨 Palette: Button Keyboard Badges */
 .key-badge {
     display: inline-block;
