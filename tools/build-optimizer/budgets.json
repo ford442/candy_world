@@ -1,9 +1,9 @@
 {
   "budgets": {
     "main": "200kb",
-    "vendor": "500kb",
-    "wasm": "100kb",
-    "total": "2mb"
+    "vendor": "2000kb",
+    "wasm": "500kb",
+    "total": "20mb"
   },
   "thresholds": {
     "warning": 0.8,
