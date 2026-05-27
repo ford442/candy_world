@@ -39,3 +39,6 @@ Status: Implemented ✅
 * Implementation Details: Refactored `src/ui/loading-screen.ts` into `loading-screen-types.ts`, `loading-screen-ui.ts`, and `loading-screen-progress.ts` with a barrel export, separating types, the UI class implementation, and the global APIs.
 
 Next Step: Continue large file refactoring from `REFACTORING_PLAN_REMAINING.md` by targeting `src/audio/audio-system.ts`.
+
+Status: Implemented ✅
+* Implementation Details: Improved FCP (First Contentful Paint) for the `LoadingScreen` by moving heavy, synchronous DOM generation from `src/ui/loading-screen-ui.ts` into static HTML shells inside `index.html`. This ensures the overlay and loading indicator render immediately without JS-driven layout thrashing.
