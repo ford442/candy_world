@@ -12,7 +12,7 @@
   "comments": {
     "main": "Core application code (main.ts, core modules)",
     "vendor": "Third-party libraries (Three.js, etc.)",
-    "wasm": "WebAssembly physics module",
+    "wasm": "WebAssembly modules (physics + compute)",
     "total": "Total JavaScript + WASM bundle size"
   }
 }

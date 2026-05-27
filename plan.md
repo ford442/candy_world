@@ -42,3 +42,7 @@ Status: Implemented ✅
 * Implementation Details: Wired orphaned batchers (lake_features, aurora, chromatic, panning-pads, silence-spirits) to the music-reactivity pipeline by adding `global` and `sky_moon` biomes to the `sky_wave.target_biomes` array in `music-bindings.json` and mapping them in `music-reactivity.ts`.
 
 Next Step: Target the final large file refactoring task from `REFACTORING_PLAN_REMAINING.md` by splitting `src/ui/analytics-debug.ts`.
+Next Step: Continue large file refactoring from `REFACTORING_PLAN_REMAINING.md` by targeting `src/audio/audio-system.ts`.
+
+Status: Implemented ✅
+* Implementation Details: Improved FCP (First Contentful Paint) for the `LoadingScreen` by moving heavy, synchronous DOM generation from `src/ui/loading-screen-ui.ts` into static HTML shells inside `index.html`. This ensures the overlay and loading indicator render immediately without JS-driven layout thrashing.
