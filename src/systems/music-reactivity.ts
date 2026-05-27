@@ -102,6 +102,8 @@ const _skyWaveUniformMap: Record<string, { value: THREE.Color }> = {
   arpeggio_grove: BiomeUniforms.arpeggioGrove.noteColor,
   crystalline_nebula: BiomeUniforms.crystallineNebula.noteColor,
   luminous_plants: LuminousPlantUniforms.noteColor as any, // allows sky hue to reach luminous plants (mixed in their batcher)
+  global: BiomeUniforms.global.noteColor,
+  sky_moon: BiomeUniforms.skyMoon.moonNoteColor as any,
 };
 
 // ⚡ SKY WAVE state — pre-allocated, zero per-frame allocations in hot path
