@@ -418,11 +418,13 @@ export class FlowerBatcher {
             const attr = mesh.geometry.attributes.aPoseState as THREE.InstancedBufferAttribute;
             if (!attr) continue;
             
+            // ⚡ OPTIMIZATION: Bypassed THREE.BufferAttribute.setX overhead by writing directly to typed array
+            const array = attr.array as Float32Array;
             for (let i = 0; i < mesh.count; i++) {
                 // _poseMachine covers up to MAX_PETALS, which is MAX_FLOWERS * 8
                 // Ensure we don't read out of bounds. Stamens can have up to MAX_FLOWERS * 3 instances.
                 // Stems and Centers have up to MAX_FLOWERS instances.
-                attr.setX(i, this._poseMachine.getPose(i));
+                array[i * attr.itemSize] = this._poseMachine.getPose(i);
             }
             attr.needsUpdate = true;
         }

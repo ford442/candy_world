@@ -7,12 +7,12 @@
   },
   "thresholds": {
     "warning": 0.8,
-    "error": 1.0
+    "error": 1
   },
   "comments": {
     "main": "Core application code (main.ts, core modules)",
     "vendor": "Third-party libraries (Three.js, etc.)",
-    "wasm": "WebAssembly physics module",
+    "wasm": "WebAssembly modules (physics + compute)",
     "total": "Total JavaScript + WASM bundle size"
   }
 }
