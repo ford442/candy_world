@@ -41,7 +41,8 @@ Status: Implemented ✅
 Status: Implemented ✅
 * Implementation Details: Wired orphaned batchers (lake_features, aurora, chromatic, panning-pads, silence-spirits) to the music-reactivity pipeline by adding `global` and `sky_moon` biomes to the `sky_wave.target_biomes` array in `music-bindings.json` and mapping them in `music-reactivity.ts`.
 
-Next Step: Target the final large file refactoring task from `REFACTORING_PLAN_REMAINING.md` by splitting `src/ui/analytics-debug.ts`.
+Status: Implemented ✅
+* Implementation Details: Refactored `src/ui/analytics-debug.ts` into `analytics-debug-types.ts` (merged into ui for simplicity based on length), `analytics-debug-ui.ts`, and `analytics-debug-handlers.ts` with a barrel export, separating the UI rendering logic from the state management and event handlers.
 Next Step: Continue large file refactoring from `REFACTORING_PLAN_REMAINING.md` by targeting `src/audio/audio-system.ts`.
 
 Status: Implemented ✅
