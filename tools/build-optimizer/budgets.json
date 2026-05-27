@@ -1,8 +1,8 @@
 {
   "budgets": {
-    "main": "200kb",
-    "vendor": "2000kb",
-    "wasm": "500kb",
+    "main": "300kb",
+    "vendor": "1500kb",
+    "wasm": "600kb",
     "total": "20mb"
   },
   "thresholds": {
@@ -10,9 +10,9 @@
     "error": 1
   },
   "comments": {
-    "main": "Core application code (main.ts, core modules)",
-    "vendor": "Third-party libraries (Three.js, etc.)",
-    "wasm": "WebAssembly modules (physics + compute)",
+    "main": "Core application code (main.ts, core modules, shaders)",
+    "vendor": "Third-party libraries (Three.js, Vite chunks, etc.)",
+    "wasm": "WebAssembly modules (physics + compute via AssemblyScript)",
     "total": "Total JavaScript + WASM bundle size"
   }
 }
