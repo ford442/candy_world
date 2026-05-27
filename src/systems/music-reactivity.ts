@@ -102,6 +102,8 @@ const _skyWaveUniformMap: Record<string, { value: THREE.Color }> = {
   arpeggio_grove: BiomeUniforms.arpeggioGrove.noteColor,
   crystalline_nebula: BiomeUniforms.crystallineNebula.noteColor,
   luminous_plants: LuminousPlantUniforms.noteColor as any, // allows sky hue to reach luminous plants (mixed in their batcher)
+  global: BiomeUniforms.global.noteColor,
+  sky_moon: BiomeUniforms.skyMoon.moonNoteColor as any,
 };
 
 // ⚡ SKY WAVE state — pre-allocated, zero per-frame allocations in hot path
@@ -348,36 +350,45 @@ export class MusicReactivitySystem {
             let culledByFrustum = 0;
             let rendered = 0;
 
+            const cx = camera.position.x;
+            const cy = camera.position.y;
+            const cz = camera.position.z;
+
             for (let i = 0; i < cpuAnimatedFoliage.length; i++) {
                 const obj = cpuAnimatedFoliage[i];
                 if (!obj) continue;
                 totalObjects++;
 
                 // ⚡ PERFORMANCE: Size-based culling distances
-                let cullDistance = 150; // Default
+                let cullDistanceSq = 22500; // 150 * 150 Default
                 
                 const objType = obj.userData.type;
                 const objSize = obj.userData.size;
                 const objRadius = obj.userData.radius || 2.0;
                 
                 if (objType === 'flower') {
-                    cullDistance = 80;
+                    cullDistanceSq = 6400; // 80 * 80
                 } else if (objType === 'mushroom') {
                     // Unreachable if we skip above, but kept for logic safety
                     if (objSize === 'giant') {
-                        cullDistance = 200;
+                        cullDistanceSq = 40000; // 200 * 200
                     } else {
-                        cullDistance = 120;
+                        cullDistanceSq = 14400; // 120 * 120
                     }
                 } else if (objType === 'tree' || objType === 'shrub') {
-                    cullDistance = 150;
+                    cullDistanceSq = 22500; // 150 * 150
                 } else if (objType === 'cloud') {
-                    cullDistance = 250;
+                    cullDistanceSq = 62500; // 250 * 250
                 }
 
                 // Distance Culling
-                const distSq = obj.position.distanceToSquared(camera.position);
-                if (distSq > cullDistance * cullDistance) {
+                // ⚡ OPTIMIZATION: Bypassed THREE.Vector3.distanceToSquared() overhead in hot loop with raw math
+                const ox = obj.position.x;
+                const oy = obj.position.y;
+                const oz = obj.position.z;
+                const distSq = (cx - ox) * (cx - ox) + (cy - oy) * (cy - oy) + (cz - oz) * (cz - oz);
+
+                if (distSq > cullDistanceSq) {
                     culledByDistance++;
                     continue;
                 }
@@ -705,7 +716,7 @@ export class MusicReactivitySystem {
         if (twilightVal > 0.1) {
             if (_activeWave) {
                 const elapsed = (performance.now() - _activeWave.timestamp) / _skyWavePropagationMs;
-                const targets: string[] = _skyWaveConfig?.target_biomes ?? ['arpeggio_grove', 'crystalline_nebula'];
+                const targets: string[] = _skyWaveConfig?.target_biomes ?? ['arpeggio_grove', 'crystalline_nebula', 'luminous_plants', 'sky_moon', 'global'];
 
                 let allComplete = true;
                 for (let i = 0; i < targets.length; i++) {
@@ -729,7 +740,7 @@ export class MusicReactivitySystem {
                 }
             } else if (_waveDecayStartTime > 0) {
                 const decayElapsed = performance.now() - _waveDecayStartTime;
-                const targets: string[] = _skyWaveConfig?.target_biomes ?? ['arpeggio_grove', 'crystalline_nebula'];
+                const targets: string[] = _skyWaveConfig?.target_biomes ?? ['arpeggio_grove', 'crystalline_nebula', 'luminous_plants', 'sky_moon', 'global'];
 
                 if (decayElapsed < _skyWaveDecayMs) {
                     for (const key of targets) {

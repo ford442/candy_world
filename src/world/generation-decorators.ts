@@ -251,12 +251,15 @@ export async function populateProceduralExtras(
     // We no longer block the main thread for non-critical procedural objects.
     // Instead, we immediately calculate their positions and types.
     // If they are critical, we spawn them now.
-    // If deferred, we queue them in the BackgroundProcessor.
+    // If deferred, we collect them for near-first sorting before queuing.
 
     let criticalCount = 0;
-    let deferredCount = 0;
     // Track elapsed time so we can yield after each critical spawn that hits the budget.
     let chunkStart = performance.now();
+
+    // Collect deferred items with their squared distance from origin so we can
+    // sort them nearest-first before handing them to the background processor.
+    const deferredItems: Array<{ distSq: number; id: string; execute: () => void }> = [];
 
     for (let i = 0; i < extrasCount; i++) {
         let x = 0, z = 0, y = 0;
@@ -417,15 +420,18 @@ export async function populateProceduralExtras(
                 chunkStart = performance.now();
             }
         } else {
-            globalBackgroundProcessor.enqueue({
-                id: `procedural_deferred_${i}`,
-                execute: spawnExtra
-            });
-            deferredCount++;
+            deferredItems.push({ distSq: x * x + z * z, id: `procedural_deferred_${i}`, execute: spawnExtra });
         }
     }
 
-    console.log(`[World] Procedural Extras: ${criticalCount} critical spawned, ${deferredCount} deferred.`);
+    // Sort deferred extras nearest-first so the background processor populates the
+    // area around the player before filling in the far horizon.
+    deferredItems.sort((a, b) => a.distSq - b.distSq);
+    for (const item of deferredItems) {
+        globalBackgroundProcessor.enqueue({ id: item.id, execute: item.execute });
+    }
+
+    console.log(`[World] Procedural Extras: ${criticalCount} critical spawned, ${deferredItems.length} deferred (sorted near-first).`);
 }
 
 export function spawnNearbyFoliage(origin: THREE.Vector3, type: string, options: FoliageGrowthOptions, weatherSystem: WeatherSystem | null = null): void {

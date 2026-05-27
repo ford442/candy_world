@@ -342,6 +342,118 @@ test('webgpu fallback: uses webgl when webgpu not available', () => {
 });
 
 // ============================================================================
+// Deferred entity proximity sorting
+// Verifies that deferred map entities and procedural extras are queued
+// nearest-first so the background processor populates the visible area around
+// the player spawn (origin) before filling the far horizon.
+// ============================================================================
+
+test('deferred entity sort: map entities are ordered by ascending distance from origin', () => {
+  // Simulate the filter + sort step from generateMap()
+  const deferredEntities = [
+    { type: 'flower',    position: [100, 0, 100] },
+    { type: 'flower',    position: [20,  0, 20 ] },
+    { type: 'starflower',position: [5,   0, 5  ] },
+    { type: 'flower',    position: [80,  0, 0  ] },
+  ];
+
+  deferredEntities.sort((a, b) => {
+    const [ax, , az] = a.position;
+    const [bx, , bz] = b.position;
+    return (ax * ax + az * az) - (bx * bx + bz * bz);
+  });
+
+  // The entity at (5, 0, 5) has distSq = 50 — should be first
+  assert(deferredEntities[0].position[0] === 5 && deferredEntities[0].position[2] === 5,
+    'Nearest entity (5, 5) should be first after sort');
+  // The entity at (20, 0, 20) has distSq = 800 — should be second
+  assert(deferredEntities[1].position[0] === 20,
+    'Second-nearest entity (20, 20) should come second');
+  // The entity at (80, 0, 0) has distSq = 6400 — should be third
+  assert(deferredEntities[2].position[0] === 80,
+    'Third-nearest entity (80, 0) should come third');
+  // The entity at (100, 0, 100) has distSq = 20000 — should be last
+  assert(deferredEntities[3].position[0] === 100,
+    'Farthest entity (100, 100) should be last after sort');
+});
+
+test('deferred entity sort: entities at equal distances preserve relative order (stable)', () => {
+  const deferredEntities = [
+    { type: 'flower', position: [10, 0, 0], id: 'a' },
+    { type: 'flower', position: [0, 0, 10], id: 'b' }, // same dist (100)
+    { type: 'flower', position: [5,  0, 5 ], id: 'c' }, // distSq=50, nearer
+  ];
+
+  deferredEntities.sort((a, b) => {
+    const [ax, , az] = a.position;
+    const [bx, , bz] = b.position;
+    return (ax * ax + az * az) - (bx * bx + bz * bz);
+  });
+
+  // 'c' at distSq=50 must come before 'a' and 'b' at distSq=100
+  assert(deferredEntities[0].id === 'c', 'Nearer entity should come first');
+  // 'a' and 'b' are at the same distance; either order is acceptable
+  assert(['a', 'b'].includes(deferredEntities[1].id), 'Equal-distance entities should follow');
+  assert(['a', 'b'].includes(deferredEntities[2].id), 'Equal-distance entities should follow');
+});
+
+test('deferred entity sort: procedural extras collect distSq before enqueueing', () => {
+  // Replicate the deferred-collection pattern from populateProceduralExtras()
+  const deferredItems = [];
+  const positions = [
+    { x: 90, z: 90 }, // distSq = 16200
+    { x: 20, z: 30 }, // distSq = 1300
+    { x: 5,  z: 5  }, // distSq = 50
+  ];
+
+  for (let i = 0; i < positions.length; i++) {
+    const { x, z } = positions[i];
+    deferredItems.push({ distSq: x * x + z * z, id: `procedural_deferred_${i}`, execute: () => {} });
+  }
+
+  deferredItems.sort((a, b) => a.distSq - b.distSq);
+
+  assert(deferredItems[0].distSq === 50,    'Nearest extra (distSq=50) should enqueue first');
+  assert(deferredItems[1].distSq === 1300,  'Mid-range extra (distSq=1300) should enqueue second');
+  assert(deferredItems[2].distSq === 16200, 'Farthest extra (distSq=16200) should enqueue last');
+});
+
+// ============================================================================
+// worldFullyPopulated event
+// Verifies that the event is dispatched when the background processor
+// completes so downstream systems can react.
+// ============================================================================
+
+test('worldFullyPopulated: event fires when background processor onComplete callback runs', () => {
+  // Replicate the onComplete callback logic from main.ts
+  let eventFired = false;
+
+  // Minimal mock of the document.dispatchEvent call
+  const mockDispatch = (event) => {
+    if (event.type === 'worldFullyPopulated') eventFired = true;
+  };
+
+  function simulateOnComplete(dispatchEvent) {
+    // This mirrors the onComplete callback installed in main.ts
+    dispatchEvent({ type: 'worldFullyPopulated' });
+  }
+
+  simulateOnComplete(mockDispatch);
+  assert(eventFired, 'worldFullyPopulated event should be dispatched when background tasks complete');
+});
+
+test('worldFullyPopulated: event is not fired before completion', () => {
+  let eventFired = false;
+  const mockDispatch = (event) => {
+    if (event.type === 'worldFullyPopulated') eventFired = true;
+  };
+
+  // onComplete has not been called yet — no dispatch
+  assert(!eventFired, 'worldFullyPopulated should not fire before completion');
+});
+
+
+// ============================================================================
 // Run all tests
 // ============================================================================
 

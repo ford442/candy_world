@@ -651,6 +651,10 @@ if (startButton) {
                 hideDeferredIndicator();
                 finalizeStartupProfile();
                 console.log('[Startup] All deferred background tasks completed.');
+                // Notify interested systems (music reactivity, discovery, etc.) that the
+                // world is now fully populated.  A CustomEvent on `document` keeps this
+                // decoupled from any specific module.
+                document.dispatchEvent(new CustomEvent('worldFullyPopulated'));
             });
 
             // Queue non-critical visuals

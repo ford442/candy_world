@@ -304,7 +304,16 @@ export async function generateMap(
     }
     console.timeEnd('[World] entity-scan');
 
-    console.log(`[World] Filtered map: ${criticalEntities.length} critical, ${deferredEntities.length} deferred.`);
+    // Sort deferred entities by squared distance from player spawn (origin) so that
+    // the background processor handles nearby entities first, making the world feel
+    // more populated immediately after the loading screen hides.
+    deferredEntities.sort((a, b) => {
+        const [ax, , az] = a.position;
+        const [bx, , bz] = b.position;
+        return (ax * ax + az * az) - (bx * bx + bz * bz);
+    });
+
+    console.log(`[World] Filtered map: ${criticalEntities.length} critical, ${deferredEntities.length} deferred (sorted near-first).`);
 
     const criticalTotal = criticalEntities.length;
     // For progress, we only track critical + Arpeggio Grove (treated as 1 chunk) during the blocking phase
@@ -455,6 +464,41 @@ export async function generateCoreWorld(
     };
 
     if (onProgress) onProgress(0, 4, '[World] Generating core world');
+
+    // --- Near-player "seed ring": spawn decorative items within ~16–30 units of the
+    // player spawn (origin) so the world feels immediately populated right after the
+    // loading screen hides.  These are purely visual (no physics obstacles) so the
+    // 15-unit hard-exclusion zone for obstacles doesn't apply.  We place them at
+    // evenly-spaced angles around the spawn point, alternating between an inner ring
+    // (~18 units, even indices) and an outer ring (~26 units, odd indices) for visual
+    // variety.  Using `i % seedFactories.length` keeps the loop safe if SEED_RING_COUNT
+    // is ever changed independently of the factory list.
+    const SEED_RING_COUNT = 8;
+    const SEED_RING_INNER = 18;
+    const SEED_RING_OUTER = 26;
+    const seedFactories = [
+        () => createFlower(),
+        () => createGlowingFlower(),
+        () => createFlower(),
+        () => createGlowingFlower(),
+        () => createArpeggioFern({ scale: 1.0 }),
+        () => createFlower(),
+        () => createGlowingFlower(),
+        () => createArpeggioFern({ scale: 0.8 }),
+    ];
+    for (let i = 0; i < SEED_RING_COUNT; i++) {
+        const angle = (i / SEED_RING_COUNT) * Math.PI * 2;
+        // Even indices → inner ring; odd indices → outer ring for staggered depth.
+        const ringRadius = SEED_RING_INNER + (i % 2) * (SEED_RING_OUTER - SEED_RING_INNER);
+        const sx = Math.cos(angle) * ringRadius;
+        const sz = Math.sin(angle) * ringRadius;
+        const sy = getUnifiedGroundHeight(sx, sz);
+        const seedObj = seedFactories[i % seedFactories.length]();
+        seedObj.position.set(sx, sy, sz);
+        seedObj.rotation.y = Math.random() * Math.PI * 2;
+        safeAddFoliage(seedObj, false, 0.3, weatherSystem);
+    }
+    await yieldControl();
 
     // Basic candy trees — yield every ENTITY_BUDGET_MS to avoid blocking the main thread.
     // Tree geometry creation can take 10–30 ms each; without yielding 18 trees back-to-back

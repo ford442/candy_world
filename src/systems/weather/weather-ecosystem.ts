@@ -72,6 +72,10 @@ export class EcosystemManager {
                 let minDistSq = 1000000;
                 let candidate = null;
 
+                const cx = cloud.position.x;
+                const cy = cloud.position.y;
+                const cz = cloud.position.z;
+
                 for (let j = 0, mLen = trackedMushrooms.length; j < mLen; j++) {
                     const m = trackedMushrooms[j];
                     // Rule: Don't target if already claimed by another cloud
@@ -80,7 +84,12 @@ export class EcosystemManager {
                     // Rule: Favor Small mushrooms initially to grow them
                     // But if it's already Giant, we can still latch on if we are close (permanent barrier logic)
 
-                    const distSq = cloud.position.distanceToSquared(m.position);
+                    // ⚡ OPTIMIZATION: Bypassed THREE.Vector3.distanceToSquared() overhead in nested O(N) loop with raw math
+                    const mx = m.position.x;
+                    const my = m.position.y;
+                    const mz = m.position.z;
+                    const distSq = (cx - mx) * (cx - mx) + (cy - my) * (cy - my) + (cz - mz) * (cz - mz);
+
                     if (distSq < 2500 && distSq < minDistSq) { // 50m scan range (50*50 = 2500)
                         minDistSq = distSq;
                         candidate = m;
