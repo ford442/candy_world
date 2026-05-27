@@ -47,3 +47,7 @@ Next Step: Continue large file refactoring from `REFACTORING_PLAN_REMAINING.md` 
 
 Status: Implemented ✅
 * Implementation Details: Improved FCP (First Contentful Paint) for the `LoadingScreen` by moving heavy, synchronous DOM generation from `src/ui/loading-screen-ui.ts` into static HTML shells inside `index.html`. This ensures the overlay and loading indicator render immediately without JS-driven layout thrashing.
+
+Status: Implemented ✅
+* Implementation Details: Fixed screen reader double-announcements by removing `aria-live` and adding `aria-hidden="true"` to visual toast UI elements in `index.html`. Removed `aria-live` from the jukebox empty state element in `src/core/input/playlist-manager.ts` to prevent unnecessary automatic announcements, aligning with typical empty-state ARIA guidelines.
+Next Step: Ask the user for the next task.
