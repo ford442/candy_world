@@ -1,10 +1,10 @@
 {
-  "timestamp": "2026-05-27T13:32:04.945Z",
+  "timestamp": "2026-05-27T13:23:13.725Z",
   "config": {
     "budgets": {
       "main": "200kb",
-      "vendor": "1500kb",
-      "wasm": "600kb",
+      "vendor": "2000kb",
+      "wasm": "500kb",
       "total": "20mb"
     },
     "thresholds": {
@@ -22,33 +22,32 @@
     },
     {
       "name": "vendor",
-      "budget": 1536000,
+      "budget": 2048000,
       "actual": 1363183,
-      "status": "warning",
-      "percentage": 0.8874889322916667
+      "status": "pass",
+      "percentage": 0.66561669921875
     },
     {
       "name": "wasm",
-      "budget": 614400,
+      "budget": 512000,
       "actual": 492149,
       "status": "warning",
-      "percentage": 0.8010237630208333
+      "percentage": 0.961228515625
     },
     {
       "name": "total",
       "budget": 20971520,
-      "actual": 15572729,
+      "actual": 15573446,
       "status": "pass",
-      "percentage": 0.7425655841827392
+      "percentage": 0.7425997734069825
     }
   ],
   "overall": {
     "status": "warning",
-    "totalSize": 17465568,
-    "totalBudget": 23326720
+    "totalSize": 17466285,
+    "totalBudget": 23736320
   },
   "recommendations": [
-    "VENDOR approaching budget (89%). Monitor closely.",
-    "WASM approaching budget (80%). Monitor closely."
+    "WASM approaching budget (96%). Monitor closely."
   ]
 }

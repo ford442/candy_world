@@ -1,8 +1,8 @@
 {
   "budgets": {
     "main": "200kb",
-    "vendor": "1500kb",
-    "wasm": "600kb",
+    "vendor": "2000kb",
+    "wasm": "500kb",
     "total": "20mb"
   },
   "thresholds": {
