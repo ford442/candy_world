@@ -596,7 +596,7 @@
 </head>
 
 <body>
-    <div id="now-playing-toast" role="status" aria-live="polite">
+    <div id="now-playing-toast" aria-hidden="true">
         <span class="icon" aria-hidden="true">🎵</span>
         <span id="now-playing-text">Now Playing...</span>
     </div>
@@ -611,7 +611,7 @@
 <div id="instructions" role="dialog" aria-modal="true" aria-labelledby="instructions-title">
         <div class="instructions-content">
         <h1 id="instructions-title"><span aria-hidden="true">🍭</span> Candy World</h1>
-        <div id="nowPlayingContainer" class="now-playing-info" aria-live="polite" style="display: none;">
+        <div id="nowPlayingContainer" class="now-playing-info" aria-hidden="true" style="display: none;">
             <span class="music-note" aria-hidden="true">🎵</span> <span id="nowPlayingText"></span>
         </div>
         <button id="startButton" class="cta-button" disabled aria-live="polite" aria-busy="true" title="Please wait while game assets load...">
