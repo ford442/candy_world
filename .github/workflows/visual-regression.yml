@@ -1,7 +1,4 @@
 name: Visual Regression Tests
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 on:
   push:
     branches: [main, develop]
@@ -34,7 +31,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '24'
+          node-version: '20'
 
       - name: Install dependencies
         run: |
@@ -72,8 +69,8 @@ jobs:
         with:
           name: visual-regression-report-${{ github.run_id }}
           path: |
-            test/screenshots/report/
-            test/screenshots/diffs/
+            tools/visual-regression/test/screenshots/report/
+            tools/visual-regression/test/screenshots/diffs/
           retention-days: 7
 
       - name: Comment PR with results
