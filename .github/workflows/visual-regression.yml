@@ -56,7 +56,7 @@ jobs:
       - name: Start dev server
         run: |
           pnpm exec vite &
-          npx wait-on http://localhost:5173 --timeout 60000
+          npx wait-on http-get://localhost:5173 --timeout 60000
 
       - name: Run visual regression tests
         run: |
