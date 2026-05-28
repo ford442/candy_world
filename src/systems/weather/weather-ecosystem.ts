@@ -21,6 +21,8 @@ import type { WeatherSystem } from './weather.ts';
 // Scratch objects for optimization
 const _scratchSunDir = new THREE.Vector3();
 const _scratchWaterfallPos = new THREE.Vector3();
+const _scratchMPos = new THREE.Vector3();
+const _scratchFPos = new THREE.Vector3();
 const _lastSpawnTimes = new Map<string, number>();
 
 export class EcosystemManager {
@@ -286,13 +288,15 @@ export class EcosystemManager {
             }
 
             // 2. Batched mushroom sources
-            const mPos = new THREE.Vector3();
+            // ⚡ OPTIMIZATION: Eliminated per-frame new THREE.Vector3() allocation
+            const mPos = _scratchMPos;
             if (mushroomBatcher.getRandomPosition(mPos)) {
-                sources.push({ position: mPos, type: 'mushroom' });
+                sources.push({ position: mPos, type: 'mushroom' }); // Ok to reuse since sources array is local to this tick and only one element selected
             }
 
             // 3. Batched flower sources
-            const fPos = new THREE.Vector3();
+            // ⚡ OPTIMIZATION: Eliminated per-frame new THREE.Vector3() allocation
+            const fPos = _scratchFPos;
             if (flowerBatcher.getRandomPosition(fPos)) {
                 sources.push({ position: fPos, type: 'flower' });
             }
