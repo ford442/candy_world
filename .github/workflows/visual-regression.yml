@@ -56,7 +56,7 @@ jobs:
       - name: Start dev server
         run: |
           pnpm exec vite &
-          npx wait-on http://localhost:5173 --timeout 60000
+          npx wait-on http-get://localhost:5173 --timeout 60000
 
       - name: Run visual regression tests
         run: |
@@ -72,8 +72,8 @@ jobs:
         with:
           name: visual-regression-report-${{ github.run_id }}
           path: |
-            test/screenshots/report/
-            test/screenshots/diffs/
+            tools/visual-regression/test/screenshots/report/
+            tools/visual-regression/test/screenshots/diffs/
           retention-days: 7
 
       - name: Comment PR with results

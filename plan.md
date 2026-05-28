@@ -51,3 +51,7 @@ Status: Implemented ✅
 Status: Implemented ✅
 * Implementation Details: Fixed screen reader double-announcements by removing `aria-live` and adding `aria-hidden="true"` to visual toast UI elements in `index.html`. Removed `aria-live` from the jukebox empty state element in `src/core/input/playlist-manager.ts` to prevent unnecessary automatic announcements, aligning with typical empty-state ARIA guidelines.
 Next Step: Ask the user for the next task.
+
+Status: Implemented ✅
+* Implementation Details: Refactored `src/audio/audio-system.ts` into `audio-system-core.ts` and `audio-system-playback.ts` with a barrel export, separating the core types and web audio setup logic from the actual module playback logic.
+Next Step: Continue large file refactoring from `REFACTORING_PLAN_REMAINING.md`.
