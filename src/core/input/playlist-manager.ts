@@ -7,7 +7,6 @@ import { AudioSystem } from '../../audio/audio-system';
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js';
 import { trapFocusInside } from '../../utils/interaction-utils.ts';
 import { formatSongTitle, filterValidMusicFiles } from './input-types.ts';
-import { announce } from '../../ui/announcer.ts';
 
 // State
 let isPlaylistOpen = false;
@@ -105,9 +104,6 @@ export function initPlaylistManager(
 
             // 🎨 Palette: Update Browser Tab Title
             document.title = `🎵 ${trackName} - Candy World`;
-
-            // ♿ Aria: Announce the new track to screen readers dynamically
-            announce(`Now Playing: ${trackName}`, 'polite');
         }
     };
 
