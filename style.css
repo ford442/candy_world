@@ -614,3 +614,13 @@ button.pressed,
 #btn-full-game[aria-pressed="true"] {
     box-shadow: 0 5px 18px rgba(125, 211, 252, 0.55);
 }
+
+/* 🎨 Palette: Tactile feedback on interactive elements */
+.toggle-button:not([aria-disabled="true"]):active,
+.cta-button:not([aria-disabled="true"]):active,
+.secondary-button:not([aria-disabled="true"]):active,
+.close-icon-btn:not([aria-disabled="true"]):active,
+.playlist-remove-btn:not([aria-disabled="true"]):active {
+    transform: scale(0.95);
+    transition-duration: 0.05s;
+}
