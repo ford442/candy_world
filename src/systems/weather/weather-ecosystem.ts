@@ -287,19 +287,14 @@ export class EcosystemManager {
                 }
             }
 
-            // 2. Batched mushroom sources
-            // ⚡ OPTIMIZATION: Eliminated per-frame new THREE.Vector3() allocation
-            const mPos = _scratchMPos;
-            if (mushroomBatcher.getRandomPosition(mPos)) {
-                sources.push({ position: mPos, type: 'mushroom' }); // Ok to reuse since sources array is local to this tick and only one element selected
-            }
+// ⚡ OPTIMIZATION: Reuse module-level scratches (zero allocation per tick)
+if (mushroomBatcher.getRandomPosition(_scratchMPos)) {
+    sources.push({ position: _scratchMPos, type: 'mushroom' });
+}
 
-            // 3. Batched flower sources
-            // ⚡ OPTIMIZATION: Eliminated per-frame new THREE.Vector3() allocation
-            const fPos = _scratchFPos;
-            if (flowerBatcher.getRandomPosition(fPos)) {
-                sources.push({ position: fPos, type: 'flower' });
-            }
+if (flowerBatcher.getRandomPosition(_scratchFPos)) {
+    sources.push({ position: _scratchFPos, type: 'flower' });
+}
 
             if (sources.length > 0) {
                 const source = sources[Math.floor(Math.random() * sources.length)];
