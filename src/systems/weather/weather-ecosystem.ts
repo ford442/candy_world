@@ -287,17 +287,14 @@ export class EcosystemManager {
                 }
             }
 
-            // 2. Batched mushroom sources
-            if (mushroomBatcher.getRandomPosition(_scratchMPos)) {
-                // ⚡ OPTIMIZATION: Push reference instead of clone(), read directly
-                sources.push({ position: _scratchMPos, type: 'mushroom' });
-            }
+// ⚡ OPTIMIZATION: Reuse module-level scratches (zero allocation per tick)
+if (mushroomBatcher.getRandomPosition(_scratchMPos)) {
+    sources.push({ position: _scratchMPos, type: 'mushroom' });
+}
 
-            // 3. Batched flower sources
-            if (flowerBatcher.getRandomPosition(_scratchFPos)) {
-                // ⚡ OPTIMIZATION: Push reference instead of clone(), read directly
-                sources.push({ position: _scratchFPos, type: 'flower' });
-            }
+if (flowerBatcher.getRandomPosition(_scratchFPos)) {
+    sources.push({ position: _scratchFPos, type: 'flower' });
+}
 
             if (sources.length > 0) {
                 const source = sources[Math.floor(Math.random() * sources.length)];
