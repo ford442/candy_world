@@ -57,3 +57,7 @@ Status: Implemented ✅
 Next Step: Continue large file refactoring from `REFACTORING_PLAN_REMAINING.md`.
 nStatus: Implemented ✅
 * Implementation Details: Removed redundant `group.updateMatrix()` calls in `src/foliage/tree-batcher.ts` and replaced multiple matrix clone/premultiply calls with a single `group.updateWorldMatrix(false, false)` followed by manual local matrix multiplication. Added module-level scratch variables (`_scratchMPos`, `_scratchFPos`) in `src/systems/weather/weather-ecosystem.ts` to eliminate `new THREE.Vector3()` instantiations and `.clone()` calls inside the high-frequency tick loop, removing major GC spikes.
+
+Status: Implemented ✅
+* Implementation Details: Applied "Juice" to the `wisteria-cluster.ts` component by adding `calculateWindSway` and `applyPlayerInteraction` TSL logic into the position graph so that it responds dynamically to weather and player forces. Also, provided `:active` CSS tactile scale-down rules for the `.fatal-error-reload` button in `loading-screen.css`.
+Next Step: Provide instructions for next feature.
