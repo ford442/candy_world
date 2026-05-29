@@ -7,7 +7,7 @@ export const DEFAULT_PROCEDURAL_CHUNK_SIZE = 100;
 
 // Population numbers are now driven from CONFIG.world.population for easier tuning.
 // These are the effective values used by Full mode generation.
-const pop = CONFIG.world?.population ?? {};
+const pop = CONFIG?.world?.population ?? {};
 let popScale = pop.scale ?? 1.0;
 
 // Runtime override for "Fast Full Mode" (chosen in the startup UI)

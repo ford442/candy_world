@@ -45,6 +45,29 @@
       "noteColor": [
         6
       ]
+    },
+    "musical_flora": {
+      "shimmer": [
+        0,
+        1
+      ],
+      "hueShift": [
+        2
+      ],
+      "noteColor": [
+        3
+      ]
+    },
+    "lake_features": {
+      "shimmer": [
+        4
+      ],
+      "hueShift": [
+        5
+      ],
+      "noteColor": [
+        6
+      ]
     }
   },
   "portamento_pine": {
