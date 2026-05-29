@@ -13,6 +13,7 @@
  * - accessibility-menu.ts: This barrel export with standalone utilities
  */
 
+import './accessibility-menu.css';
 import { AccessibilityMenuHandlers } from './accessibility-menu-handlers';
 export type { MenuSection, MenuItem } from './accessibility-menu-core';
 export { AccessibilityMenuRendering } from './accessibility-menu-rendering';
