@@ -51,3 +51,7 @@ Status: Implemented ✅
 Status: Implemented ✅
 * Implementation Details: Fixed screen reader double-announcements by removing `aria-live` and adding `aria-hidden="true"` to visual toast UI elements in `index.html`. Removed `aria-live` from the jukebox empty state element in `src/core/input/playlist-manager.ts` to prevent unnecessary automatic announcements, aligning with typical empty-state ARIA guidelines.
 Next Step: Ask the user for the next task.
+
+Status: Implemented ✅
+* Implementation Details: Replaced custom `.pressed`/`.dpad-pressed` classes with declarative `[aria-pressed="true"]` + scale transform for Game Feel. Updated input + playlist-manager layers to toggle the ARIA attribute directly. Refactored accessibility menu to remove all inline JS styling. Introduced `src/ui/accessibility-menu.css` with hover, active, and `[aria-selected="true"]` rules. Added proper visual focus-ring styles for accessibility.
+Next Step: Ask the user for the next task.

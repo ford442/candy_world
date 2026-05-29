@@ -90,7 +90,7 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
     `;
 
     const closeBtn = document.createElement('button');
-    closeBtn.classList.add('a11y-menu-btn');
+    closeBtn.className = 'a11y-close-btn a11y-button';
     closeBtn.textContent = '✕';
     closeBtn.style.cssText = `
       ${this.getButtonStyle()}
@@ -101,7 +101,11 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
       cursor: pointer;
       font-size: 1.2rem;
     `;
-    closeBtn.onclick = () => this.close();
+    closeBtn.onclick = () => {
+      closeBtn.setAttribute('aria-pressed', 'true');
+      setTimeout(() => closeBtn.setAttribute('aria-pressed', 'false'), 150);
+      this.close();
+    };
     closeBtn.setAttribute('aria-label', 'Close accessibility menu');
 
     header.appendChild(title);
@@ -152,7 +156,7 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
     for (const section of sections) {
       const isActive = this.currentSection === section;
       const tab = document.createElement('button');
-      tab.classList.add('a11y-menu-btn');
+      tab.className = 'a11y-tab';
       tab.id = `tab-${section}`;
       tab.role = 'tab';
       tab.setAttribute('aria-selected', isActive ? 'true' : 'false');
@@ -161,21 +165,17 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
       tab.style.cssText = `
         width: 100%;
         padding: 12px;
-        background: ${isActive ? 'var(--menu-active, #4a4a4a)' : 'transparent'};
-        color: ${isActive ? '#fff' : 'var(--menu-text, #ccc)'};
+        color: var(--menu-text, #ccc);
         border: none;
-        border-left: 3px solid ${isActive ? 'var(--a11y-color, #00aaff)' : 'transparent'};
+        border-left: 3px solid transparent;
         cursor: pointer;
         text-align: left;
-        transition: all 0.2s;
       `;
-      tab.onmouseover = () => {
-        if (!isActive) tab.style.background = 'var(--menu-hover, #3a3a3a)';
+      tab.onclick = () => {
+        tab.setAttribute('aria-pressed', 'true');
+        setTimeout(() => tab.setAttribute('aria-pressed', 'false'), 150);
+        this.switchSection(section as MenuSection);
       };
-      tab.onmouseout = () => {
-        if (!isActive) tab.style.background = 'transparent';
-      };
-      tab.onclick = () => this.switchSection(section as MenuSection);
 
       sidebar.appendChild(tab);
     }
@@ -278,7 +278,7 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
 
     for (const preset of presets) {
       const card = document.createElement('button');
-      card.classList.add('a11y-menu-btn');
+      card.className = 'a11y-preset-card a11y-button';
       card.style.cssText = `
         ${this.getButtonStyle()}
         padding: 16px;
@@ -351,10 +351,14 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
       label.style.cssText = 'flex: 1;';
 
       const btn = document.createElement('button');
-      btn.classList.add('a11y-menu-btn');
+      btn.className = 'a11y-button';
       btn.textContent = binding.key || 'Unbound';
       btn.style.cssText = `${this.getButtonStyle()} width: 120px;`;
-      btn.onclick = () => this.startKeyRebind(action, btn);
+      btn.onclick = () => {
+        btn.setAttribute('aria-pressed', 'true');
+        setTimeout(() => btn.setAttribute('aria-pressed', 'false'), 150);
+        this.startKeyRebind(action, btn);
+      };
 
       row.appendChild(label);
       row.appendChild(btn);
@@ -529,6 +533,7 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
     labelEl.style.cssText = 'flex: 1; cursor: pointer;';
 
     const checkbox = document.createElement('input');
+    checkbox.className = 'a11y-checkbox';
     checkbox.type = 'checkbox';
     checkbox.id = id;
     checkbox.checked = checked;
@@ -590,6 +595,7 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
     labelEl.style.cssText = 'display: block; margin-bottom: 6px; font-weight: 500;';
 
     const select = document.createElement('select');
+    select.className = 'a11y-select';
     select.id = id;
     select.style.cssText = `
       ${this.getButtonStyle()}
