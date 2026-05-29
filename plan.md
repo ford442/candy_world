@@ -57,3 +57,6 @@ Status: Implemented ✅
 Next Step: Continue large file refactoring from `REFACTORING_PLAN_REMAINING.md`.
 nStatus: Implemented ✅
 * Implementation Details: Removed redundant `group.updateMatrix()` calls in `src/foliage/tree-batcher.ts` and replaced multiple matrix clone/premultiply calls with a single `group.updateWorldMatrix(false, false)` followed by manual local matrix multiplication. Added module-level scratch variables (`_scratchMPos`, `_scratchFPos`) in `src/systems/weather/weather-ecosystem.ts` to eliminate `new THREE.Vector3()` instantiations and `.clone()` calls inside the high-frequency tick loop, removing major GC spikes.
+
+Status: Implemented ✅
+* Implementation Details: Added `:active` pressed states (scale 0.95) to `.toggle-button`, `.cta-button`, `.secondary-button`, `.close-icon-btn`, and `.playlist-remove-btn` classes for consistent tactile 'Game Feel' feedback when users click interactive UI elements.
