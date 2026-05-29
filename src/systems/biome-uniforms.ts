@@ -55,6 +55,27 @@ export const BiomeUniforms = {
     /**
      * Global — screen-wide or ambient effects (e.g. chromatic pulse overlay).
      */
+
+    /**
+     * Musical Flora — tracker channels defined in assets/music-bindings.json
+     * under "musical_flora".
+     */
+    musicalFlora: {
+        shimmer: uniform(0.0),
+        hueShift: uniform(0.0),
+        noteColor: uniform(new THREE.Color(0xffffff)),
+    },
+
+    /**
+     * Lake Features — tracker channels defined in assets/music-bindings.json
+     * under "lake_features".
+     */
+    lakeFeatures: {
+        shimmer: uniform(0.0),
+        hueShift: uniform(0.0),
+        noteColor: uniform(new THREE.Color(0xffffff)),
+    },
+
     global: {
         /** 0–1 shimmer emissive boost for global effects. */
         shimmer: uniform(0.0),
@@ -189,7 +210,7 @@ export const luminousPlantsNoteColorNode = texture(_luminousPlantsLutTex, vec2(L
  * Add new values here + corresponding entry in BiomeUniforms (or alias) when
  * introducing a new musical biome.
  */
-export type BiomeId = 'arpeggio_grove' | 'crystalline_nebula' | 'luminous_plants' | 'sky_moon' | 'global';
+export type BiomeId = 'arpeggio_grove' | 'crystalline_nebula' | 'luminous_plants' | 'sky_moon' | 'global' | 'musical_flora' | 'lake_features';
 
 /**
  * Returns the appropriate uniform group for a given biome tag.
@@ -222,6 +243,10 @@ export function getBiomeUniforms(biome: BiomeId | string | undefined) {
                 hueShift: uniform(0.0),
                 noteColor: BiomeUniforms.skyMoon.moonNoteColor as any,
             };
+                case 'musical_flora':
+            return BiomeUniforms.musicalFlora;
+        case 'lake_features':
+            return BiomeUniforms.lakeFeatures;
         case 'global':
             return BiomeUniforms.global;
         default:

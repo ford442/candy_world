@@ -21,7 +21,7 @@ Routine will mark picked items as "[in progress — YYYY-MM-DD]".
   - **B**: BiomeId + getBiomeUniforms() helper + tagging on creation + usage in 2 batchers + debug hook.
   - **C**: ChannelData type completed (note + notes[]), portamento uTwilight explicitly wired + documented (backlog item closed), channel-range validation added in music-reactivity.
   Smoke test reached "✓ Scene is ready!" + "No console errors" (partial run due to env timeout). WASM tests green. All changes are non-breaking.
-- [in progress — 2026-05-26] **Channel-to-Biome visual mapping completeness** — Wire all orphaned batchers (aurora, arpeggio, chromatic, panning-pads, silence-spirits, waterfall, musical_flora, lake_features) to BiomeUniforms + music-bindings.json. Each batcher gets a BiomeId, at least one driven uniform, and a music-bindings.json entry.
+- [completed — 2026-05-26] **Channel-to-Biome visual mapping completeness** — Wire all orphaned batchers (aurora, arpeggio, chromatic, panning-pads, silence-spirits, waterfall, musical_flora, lake_features) to BiomeUniforms + music-bindings.json. Each batcher gets a BiomeId, at least one driven uniform, and a music-bindings.json entry.
 - [ ] **Sky wave → plant pose transitions** — Drive ADSR pose-state-machine transitions (`plant-pose-machine.ts`) from wave arrival timestamp rather than channel intensity alone; plants physically respond to the beat wave sweeping across the terrain.
 - [ ] **TSL batcher geometry + VRAM audit** — Survey remaining batchers (wisteria-cluster, glowing-flower-batcher, dandelion-batcher, arpeggio-batcher, waterfall-batcher) for shared geometry patterns, missing `dispose()` calls, and VRAM leak potential matching the tree-batcher VRAM leak fix (PR #1075).
 
@@ -40,6 +40,7 @@ Routine maintains this automatically — you can add items too.
 Completed items, routine archives here with date.
 Prune occasionally when this gets long.
 -->
+- [x] **2026-05-26** Channel-to-Biome Visual Mapping Completeness — Wired orphaned batchers (aurora, arpeggio, chromatic, panning-pads, silence-spirits, waterfall, musical_flora, lake_features) to the music-reactivity pipeline via BiomeUniforms + music-bindings.json.
 - [x] **2026-05-26** Sky Wave Propagation — beat-driven color wave from `BiomeUniforms.skyMoon.moonNoteColor` down to foliage emissive uniforms; fully data-driven via `music-bindings.json sky_wave`; zero-allocation hot path; build green; WASM tests green.
 - [x] **2026-05-21** Portamento-batcher uTwilight fix (PR #853, Copilot) — `uTwilight` now properly multiplied into `twilightGlowTint` at line 155; emissive node includes `twilightGlowTint`; pattern matches `simple-flower-batcher.ts`.
 - [x] **2026-05-26** Full Game mode optimization (PR #1084) — reduced procedural count, narrowed criticality, `requestIdleCallback` for background tasks, timing marks.
@@ -70,4 +71,4 @@ Prune occasionally when this gets long.
 Date: 2026-05-26
 Mode: New Idea — Ideas list had no actionable items (Three.js ColorSpace was tagged opportunistic). Foundation stable: sky wave landed and verified, portamento fix confirmed in code (PR #853), main builds clean.
 Focus: Channel-to-Biome visual mapping completeness — wire all orphaned atmospheric/foliage batchers (aurora, arpeggio, chromatic, panning-pads, silence-spirits, waterfall, musical_flora, lake_features) to the music-reactivity pipeline via BiomeUniforms + music-bindings.json.
-Outcome: TBD
+Outcome: Successfully mapped all orphaned batchers to BiomeUniforms, added musical_flora and lake_features biomes to music-bindings.json and systems.
