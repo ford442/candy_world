@@ -1,0 +1,7 @@
+packages:
+  - '.'
+  - 'tools/visual-regression'
+onlyBuiltDependencies:
+  - "@swc/core"
+  - "esbuild"
+  - "playwright"
