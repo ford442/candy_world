@@ -53,6 +53,8 @@ Status: Implemented ✅
 Next Step: Ask the user for the next task.
 
 Status: Implemented ✅
+* Implementation Details: Replaced custom `.pressed`/`.dpad-pressed` classes with declarative `[aria-pressed="true"]` + scale transform for Game Feel. Updated input + playlist-manager layers to toggle the ARIA attribute directly. Refactored accessibility menu to remove all inline JS styling. Introduced `src/ui/accessibility-menu.css` with hover, active, and `[aria-selected="true"]` rules. Added proper visual focus-ring styles for accessibility.
+Next Step: Ask the user for the next task.
 * Implementation Details: Refactored `src/audio/audio-system.ts` into `audio-system-core.ts` and `audio-system-playback.ts` with a barrel export, separating the core types and web audio setup logic from the actual module playback logic.
 Next Step: Continue large file refactoring from `REFACTORING_PLAN_REMAINING.md`.
 nStatus: Implemented ✅
@@ -60,3 +62,5 @@ nStatus: Implemented ✅
 
 Status: Implemented ✅
 * Implementation Details: Added `:active` pressed states (scale 0.95) to `.toggle-button`, `.cta-button`, `.secondary-button`, `.close-icon-btn`, and `.playlist-remove-btn` classes for consistent tactile 'Game Feel' feedback when users click interactive UI elements.
+* Implementation Details: Applied "Juice" to the `wisteria-cluster.ts` component by adding `calculateWindSway` and `applyPlayerInteraction` TSL logic into the position graph so that it responds dynamically to weather and player forces. Also, provided `:active` CSS tactile scale-down rules for the `.fatal-error-reload` button in `loading-screen.css`.
+Next Step: Provide instructions for next feature.

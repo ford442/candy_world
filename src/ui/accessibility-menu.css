@@ -1,0 +1,48 @@
+/* Accessibility Menu Styles */
+
+.a11y-tab {
+    transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    background: transparent;
+}
+
+.a11y-tab[aria-selected="true"] {
+    background: var(--menu-active, #4a4a4a) !important;
+    color: #fff !important;
+    border-left: 3px solid var(--a11y-color, #00aaff) !important;
+}
+
+.a11y-tab[aria-selected="false"]:hover {
+    background: var(--menu-hover, #3a3a3a);
+}
+
+.a11y-button, .a11y-preset-card, .a11y-close-btn {
+    transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), background 0.2s, box-shadow 0.2s;
+}
+
+.a11y-button:hover, .a11y-preset-card:hover {
+    background: var(--menu-hover, #4a4a4a) !important;
+}
+
+/* 🎨 Palette: Accessibility Polish */
+.a11y-button:focus-visible,
+.a11y-tab:focus-visible,
+.a11y-preset-card:focus-visible,
+.a11y-close-btn:focus-visible {
+    outline: none !important;
+    box-shadow: 0 0 0 3px var(--menu-bg, #2a2a2a), 0 0 0 6px var(--a11y-color, #00aaff) !important;
+    position: relative;
+    z-index: 10;
+}
+
+/* 🎨 Palette: "Game Feel" Active Pressed State */
+.a11y-tab:active,
+.a11y-tab[aria-pressed="true"],
+.a11y-button:active,
+.a11y-button[aria-pressed="true"],
+.a11y-preset-card:active,
+.a11y-preset-card[aria-pressed="true"],
+.a11y-close-btn:active,
+.a11y-close-btn[aria-pressed="true"] {
+    transform: scale(0.95);
+    transition-duration: 0.05s;
+}

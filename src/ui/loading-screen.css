@@ -418,7 +418,8 @@
     0 0 0 1px rgba(255, 255, 255, 0.3) inset;
 }
 
-.skip-button:active {
+.skip-button:active,
+.fatal-error-reload:active {
   transform: translateY(0) scale(0.95);
   transition-duration: 0.05s;
   box-shadow: 

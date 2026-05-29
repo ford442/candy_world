@@ -5,7 +5,7 @@ import {
 } from 'three/tsl';
 import { _skyMoonNoteVal } from '../systems/music-reactivity.ts';
 import { attachReactivity } from './foliage-reactivity.ts';
-import { CandyPresets, uAudioHigh, uAudioLow, uTime, createJuicyRimLight, getCachedProceduralMaterial } from './material-core.ts';
+import { CandyPresets, uAudioHigh, uAudioLow, uTime, createJuicyRimLight, getCachedProceduralMaterial, applyPlayerInteraction, calculateWindSway } from './material-core.ts';
 import { makeInteractive } from '../utils/interaction-utils.ts';
 import { CONFIG } from '../core/config.ts';
 import { uTwilight } from './sky.ts';
@@ -57,7 +57,10 @@ export function createWisteriaCluster(options: WisteriaClusterOptions = {}) {
         const swayZ = cos(uTime.mul(baseSwayFreq.mul(0.8)).add(swayPhase)).mul(0.5).mul(audioEnergy).mul(normalizedHeight);
 
         // Apply sway to vertex position
-        mat.positionNode = positionLocal.add(vec3(swayX, float(0.0), swayZ));
+        const posSwayed = positionLocal.add(vec3(swayX, float(0.0), swayZ));
+        const posWind = posSwayed.add(calculateWindSway(posSwayed));
+        const posFinal = applyPlayerInteraction(posWind);
+        mat.positionNode = posFinal;
 
         // Glow Effect based on audio
         const baseColorNode = color(baseHexColor);

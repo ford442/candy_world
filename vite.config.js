@@ -48,6 +48,11 @@ export default defineConfig({
           if (id.includes('/src/ui/')) {
             return 'ui';
           }
+          // Core config and constants — must load before world and main chunks
+          // to break the circular chunk dependency (main→world→config→main).
+          if (id.includes('/src/core/config.ts') || id.includes('/src/core/config.js')) {
+            return 'utils';
+          }
           // Utility modules (WASM loaders, profilers)
           if (id.includes('/src/utils/')) {
             return 'utils';
