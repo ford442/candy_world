@@ -55,3 +55,7 @@ Next Step: Ask the user for the next task.
 Status: Implemented ✅
 * Implementation Details: Replaced custom `.pressed`/`.dpad-pressed` classes with declarative `[aria-pressed="true"]` + scale transform for Game Feel. Updated input + playlist-manager layers to toggle the ARIA attribute directly. Refactored accessibility menu to remove all inline JS styling. Introduced `src/ui/accessibility-menu.css` with hover, active, and `[aria-selected="true"]` rules. Added proper visual focus-ring styles for accessibility.
 Next Step: Ask the user for the next task.
+* Implementation Details: Refactored `src/audio/audio-system.ts` into `audio-system-core.ts` and `audio-system-playback.ts` with a barrel export, separating the core types and web audio setup logic from the actual module playback logic.
+Next Step: Continue large file refactoring from `REFACTORING_PLAN_REMAINING.md`.
+nStatus: Implemented ✅
+* Implementation Details: Removed redundant `group.updateMatrix()` calls in `src/foliage/tree-batcher.ts` and replaced multiple matrix clone/premultiply calls with a single `group.updateWorldMatrix(false, false)` followed by manual local matrix multiplication. Added module-level scratch variables (`_scratchMPos`, `_scratchFPos`) in `src/systems/weather/weather-ecosystem.ts` to eliminate `new THREE.Vector3()` instantiations and `.clone()` calls inside the high-frequency tick loop, removing major GC spikes.

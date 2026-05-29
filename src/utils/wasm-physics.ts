@@ -11,7 +11,7 @@
  */
 
 import * as THREE from 'three';
-import { 
+import {
     cppBatchGroundHeightSimd,
     wasmInstance,
     wasmMemory,
@@ -28,7 +28,6 @@ import {
     wasmFreqToHue,
     wasmLerp,
     getNativeFunc,
-    cppBatchGroundHeightSimd,
     POSITION_OFFSET,
     type WasmExports,
     type Cave,
