@@ -286,15 +286,14 @@ export class CPUParticleSystem {
         let repelY = 0;
         let repelZ = 0;
 
-        // ⚡ OPTIMIZATION: Early squared distance check avoids Math.sqrt() in hot CPU loop unless needed
-        if (distToPlayerSq < 25.0) { // 5^2
-            const distToPlayer = Math.sqrt(distToPlayerSq);
-            if (distToPlayer > 0.0001) {
-                const repelStrength = (5 - distToPlayer) * 10;
-                repelX = (toPlayerX / distToPlayer) * repelStrength;
-                repelY = (toPlayerY / distToPlayer) * repelStrength;
-                repelZ = (toPlayerZ / distToPlayer) * repelStrength;
-            }
+        // ⚡ OPTIMIZATION: Use squared distance to completely avoid Math.sqrt() in hot CPU loop
+        if (distToPlayerSq < 25.0 && distToPlayerSq > 0.0001) { // 5^2
+            const distToPlayerSqInv = 1.0 / distToPlayerSq;
+            // Approximate linear falloff using squared distance
+            const repelStrength = (25.0 - distToPlayerSq) * 2.0;
+            repelX = toPlayerX * distToPlayerSqInv * repelStrength;
+            repelY = toPlayerY * distToPlayerSqInv * repelStrength;
+            repelZ = toPlayerZ * distToPlayerSqInv * repelStrength;
         }
         
         // Apply forces
@@ -341,14 +340,13 @@ export class CPUParticleSystem {
         let repelX = 0;
         let repelZ = 0;
 
-        // ⚡ OPTIMIZATION: Early squared distance check avoids Math.sqrt() in hot CPU loop
-        if (distToPlayerSq < 25.0) { // 5^2
-            const distToPlayer = Math.sqrt(distToPlayerSq);
-            if (distToPlayer > 0.0001) {
-                const repelFactor = (5 - distToPlayer) * 2;
-                repelX = (toPlayerX / distToPlayer) * repelFactor;
-                repelZ = (toPlayerZ / distToPlayer) * repelFactor;
-            }
+        // ⚡ OPTIMIZATION: Use squared distance to completely avoid Math.sqrt() in hot CPU loop
+        if (distToPlayerSq < 25.0 && distToPlayerSq > 0.0001) { // 5^2
+            const distToPlayerSqInv = 1.0 / distToPlayerSq;
+            // Approximate linear falloff using squared distance
+            const repelFactor = (25.0 - distToPlayerSq) * 0.4;
+            repelX = toPlayerX * distToPlayerSqInv * repelFactor;
+            repelZ = toPlayerZ * distToPlayerSqInv * repelFactor;
         }
         
         // Center attraction
@@ -359,14 +357,12 @@ export class CPUParticleSystem {
         let pullX = 0;
         let pullZ = 0;
 
-        // ⚡ OPTIMIZATION: Early squared distance check avoids Math.sqrt() in hot CPU loop
-        if (distToCenterSq > 225.0) { // 15^2
-            const distToCenter = Math.sqrt(distToCenterSq);
-            if (distToCenter > 0.0001) {
-                const pullStrength = (distToCenter - 15) * 0.1;
-                pullX = (toCenterX / distToCenter) * pullStrength;
-                pullZ = (toCenterZ / distToCenter) * pullStrength;
-            }
+        // ⚡ OPTIMIZATION: Use squared distance to completely avoid Math.sqrt() in hot CPU loop
+        if (distToCenterSq > 225.0 && distToCenterSq > 0.0001) { // 15^2
+            const distToCenterSqInv = 1.0 / distToCenterSq;
+            const pullStrength = (distToCenterSq - 225.0) * 0.003;
+            pullX = toCenterX * distToCenterSqInv * pullStrength;
+            pullZ = toCenterZ * distToCenterSqInv * pullStrength;
         }
         
         // Apply forces

@@ -234,7 +234,8 @@ export class FlowerBatcher {
         group.userData.isBatched = true;
 
         // Ensure world matrix is up to date
-        group.updateWorldMatrix(true, false);
+        // ⚡ OPTIMIZATION: Bypassed deep THREE.Object3D proxy traversals
+        group.updateWorldMatrix(false, false);
         const rootMatrix = group.matrixWorld;
 
         // Parse options
