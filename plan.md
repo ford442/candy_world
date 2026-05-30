@@ -66,3 +66,6 @@ Status: Implemented ✅
 Next Step: Provide instructions for next feature.
 * Implementation Details: Applied "Juice" to the `berries.ts` component by adding `calculateWindSway`, `applyPlayerInteraction`, and `createJuicyRimLight` TSL logic into the position graph and emissive node so that it responds dynamically to weather and player forces with a rim light effect.
 Next Step: Provide instructions for next feature.
+* Implementation Details: Replaced uniform channel intensity logic with wave-swept geographic distance updates. Introduced `ActiveWave` and `computeWaveTimeSinceArrival` in `music-reactivity.ts`. Updated `PlantPoseMachine.update` to perform zero-allocation per-instance wave delay calculations based on their distance from the propagating wave. Modified `flowerBatcher`, `portamentoBatcher`, and `arpeggioBatcher` to pass zero-allocation getters referencing their internal `instanceMatrix.array` values directly to calculate localized bloom times.
+
+Next Step: Review and continue clearing remaining items from `weekly_plan.md` or `REFACTORING_PLAN_REMAINING.md`.

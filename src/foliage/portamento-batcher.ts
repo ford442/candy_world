@@ -27,6 +27,8 @@ import {
   instanceIndex
 } from 'three/tsl';
 import { PlantPoseMachine } from './plant-pose-machine.ts';
+import { musicReactivitySystem } from '../systems/music-reactivity.ts';
+import { camera } from '../core/main.ts';
 import { CONFIG } from '../core/config.ts';
 
 const MAX_PINES = 200; // conservative default for performance
@@ -255,7 +257,17 @@ export class PortamentoPineBatcher {
     if (audioState && audioState.channelData && audioState.channelData[channelIdx]) {
         channelIntensity = audioState.channelData[channelIdx].volume || 0;
     }
-    this._poseMachine.update(this.count, dt, channelIntensity, dayNightBias, poseConfig);
+    const activeWave = musicReactivitySystem.getActiveWave();
+    const cameraPos = camera ? camera.position : undefined;
+
+    const getPlantPos = (index: number, out: THREE.Vector3) => {
+        if (!this.trunkMesh) return;
+        const array = this.trunkMesh.instanceMatrix.array as Float32Array;
+        const offset = index * 16;
+        out.set(array[offset + 12], array[offset + 13], array[offset + 14]);
+    };
+
+    this._poseMachine.update(this.count, dt, channelIntensity, dayNightBias, poseConfig, activeWave, getPlantPos, cameraPos);
 
     for (let i = 0; i < this.count; i++) {
         const pine = this.logicPines[i];
