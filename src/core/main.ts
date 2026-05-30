@@ -48,10 +48,9 @@ import { StageLoader, showDebugError, initDebugPanel } from '../debug/index.ts';
 const POST_PROCESSING_PROGRESS = 70;
 
 // Export core objects for use by other modules
+// We defer the export until after sceneInitResult is available, but for now we just declare let and assign them.
+let scene: any, camera: any, renderer: any;
 export { scene, camera, renderer, player, addCameraShake };
-
-// Set global game object so playwright tests can interact with camera, etc
-(window as any).game = { camera, scene };
 
 // --- Initialize Loading Screen (replaces old spinner overlay) ---
 if (CONFIG.safeMode) {
@@ -131,7 +130,13 @@ if (!sceneInitResult) {
     throw new Error(msg);
 }
 
-const { scene, camera, renderer, mode, ambientLight, sunLight, sunGlow, sunCorona, lightShaftGroup, sunGlowMat, coronaMat, uShaftOpacity } = sceneInitResult;
+const { mode, ambientLight, sunLight, sunGlow, sunCorona, lightShaftGroup, sunGlowMat, coronaMat, uShaftOpacity } = sceneInitResult;
+scene = sceneInitResult.scene;
+camera = sceneInitResult.camera;
+renderer = sceneInitResult.renderer;
+
+// Set global game object so playwright tests can interact with camera, etc
+(window as any).game = { camera, scene };
 
 // Notify user if using WebGL fallback
 if (mode === 'webgl') {
