@@ -64,3 +64,5 @@ Status: Implemented ✅
 * Implementation Details: Added `:active` pressed states (scale 0.95) to `.toggle-button`, `.cta-button`, `.secondary-button`, `.close-icon-btn`, and `.playlist-remove-btn` classes for consistent tactile 'Game Feel' feedback when users click interactive UI elements.
 * Implementation Details: Applied "Juice" to the `wisteria-cluster.ts` component by adding `calculateWindSway` and `applyPlayerInteraction` TSL logic into the position graph so that it responds dynamically to weather and player forces. Also, provided `:active` CSS tactile scale-down rules for the `.fatal-error-reload` button in `loading-screen.css`.
 Next Step: Provide instructions for next feature.
+* Implementation Details: Applied "Juice" to the `berries.ts` component by adding `calculateWindSway`, `applyPlayerInteraction`, and `createJuicyRimLight` TSL logic into the position graph and emissive node so that it responds dynamically to weather and player forces with a rim light effect.
+Next Step: Provide instructions for next feature.

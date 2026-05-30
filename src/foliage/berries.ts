@@ -5,7 +5,7 @@ import {
     sin, dot, time, attribute,
     storage, instanceIndex, Fn, If, vec4, varyingProperty
 } from 'three/tsl';
-import { CandyPresets, uAudioLow, uTime } from './index.ts';
+import { CandyPresets, uAudioLow, uTime, createJuicyRimLight, calculateWindSway, applyPlayerInteraction } from './index.ts';
 import { spawnImpact } from './impacts.ts';
 import { uChromaticIntensity } from './chromatic.ts';
 import { foliageGroup } from '../world/state.ts';
@@ -364,7 +364,11 @@ function createHeartbeatMaterial(): THREE.Material {
     const heartbeat = sin(uTime.mul(beatSpeed).add(phase)).pow(4.0);
     const kickForce = uAudioLow.mul(0.25);
     const scaleFactor = float(1.0).add(heartbeat.mul(kickForce)).mul(uBerrySeasonScale);
-    material.positionNode = positionLocal.mul(scaleFactor);
+
+    // 🎨 PALETTE: Add TSL Wind Sway and Player Interaction
+    const posScaled = positionLocal.mul(scaleFactor);
+    const posWind = posScaled.add(calculateWindSway(posScaled));
+    material.positionNode = applyPlayerInteraction(posWind);
 
     // 3. Reactive Glow (Emissive)
     const aGlow = attribute('aGlow', 'float'); // FROM BATCHER
@@ -377,7 +381,10 @@ function createHeartbeatMaterial(): THREE.Material {
     // Final Intensity
     const totalIntensity = aGlow.add(heartbeat.mul(uAudioLow));
 
-    material.emissiveNode = glowColor.mul(totalIntensity);
+    // 🎨 PALETTE: Add Juicy Rim Light to berries
+    const rim = createJuicyRimLight(baseColor, float(1.5), float(3.0), null);
+
+    material.emissiveNode = glowColor.mul(totalIntensity).add(rim);
 
     return material;
 }
