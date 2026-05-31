@@ -17,6 +17,7 @@
 export interface DeferredTask {
     id: string;
     execute: () => void | Promise<void>;
+    priority?: number;
 }
 
 // Detect requestIdleCallback at module level to avoid repeated property lookups.
@@ -39,7 +40,17 @@ export class BackgroundProcessor {
      * Add a task to the queue
      */
     public enqueue(task: DeferredTask): void {
-        this.queue.push(task);
+        const priority = task.priority ?? 0;
+        if (priority <= 0 || this.queue.length === 0) {
+            this.queue.push(task);
+        } else {
+            const insertAt = this.queue.findIndex(queued => (queued.priority ?? 0) < priority);
+            if (insertAt === -1) {
+                this.queue.push(task);
+            } else {
+                this.queue.splice(insertAt, 0, task);
+            }
+        }
         this.totalTasks++;
     }
 

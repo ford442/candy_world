@@ -5,6 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Project Overview
 
 **Candy World** is a 3D interactive WebGPU experience featuring a pastel candy-colored landscape with smooth, glossy organic shapes. Built with Three.js, TypeScript, and WebAssembly for performance-critical systems.
+The primary play experience is first-person: click to pointer-lock, use mouse-look + WASD, and trigger movement abilities from within the world.
 
 ### Key Technologies
 

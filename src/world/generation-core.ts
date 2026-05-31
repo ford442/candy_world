@@ -2,21 +2,13 @@ import * as THREE from 'three';
 import { createIntegratedFireflies } from '../particles/index.ts';
 import { initCollisionSystem } from '../utils/wasm-loader.js';
 import {
-    createSky, createStars, createMoon, createMushroom, createGlowingFlower,
-    createFlower, createSubwooferLotus, createAccordionPalm, createFiberOpticWillow,
-    createFloatingOrb, createSwingableVine, VineSwing, createPrismRoseBush,
-    createStarflower, createVibratoViolet, createTremoloTulip, createKickDrumGeyser,
-    createRainingCloud, createWaveformWater, initFallingBerries,
+    createSky, createStars, createMoon, createWaveformWater, initFallingBerries,
     initGrassSystem, addGrassInstance,
-    createArpeggioFern, createPortamentoPine, createCymbalDandelion, createSnareTrap,
-    createBubbleWillow, createHelixPlant, createBalloonBush,
-    createPanningPad, createSilenceSpirit, createInstrumentShrine, createMelodyMirror,
-    createRetriggerMushroom, createIsland, createCaveEntrance,
-    createTerrainMaterial, createLuminousPlant, luminousPlantBatcher
+    createIsland, VineSwing,
+    createTerrainMaterial, luminousPlantBatcher
 } from '../foliage/index.ts';
 import { generateCloudLayer } from '../foliage/procedural-sky.ts';
 import { validateFoliageMaterials, foliageMaterials } from '../foliage/index.ts';
-import { createWisteriaCluster } from '../foliage/wisteria-cluster.ts';
 import { CONFIG } from '../core/config.ts';
 import { generateGroundHeightmap } from './ground-heightmap.ts';
 import { registerPhysicsCave } from '../systems/physics/index.js';
@@ -26,16 +18,85 @@ import {
     foliageClouds, foliageTrampolines, foliagePanningPads, foliageGeysers,
     foliageTraps, foliagePortamentoPines, vineSwings, foliageVineLadders, worldGroup
 } from './state.ts';
-import mapData from '../../assets/map.json';
 import { globalBackgroundProcessor } from '../utils/background-processor.ts';
 import { updateProgress } from '../ui/index.ts';
-import { recordGenerationChunk } from '../utils/startup-profiler.ts';
-import { populateArpeggioGrove, populateLakeIsland, populateProceduralExtras } from './generation-decorators.ts';
+import { endPhase, recordGenerationChunk, startPhase } from '../utils/startup-profiler.ts';
+import { populateProceduralExtras } from './generation-decorators.ts';
 import {
     DEFAULT_MAP_CHUNK_SIZE, ENTITY_BUDGET_MS, YIELD_ENTITY_BATCH_SIZE, PROCEDURAL_ENTITY_COUNT,
     obstaclesData, WeatherSystem, WorldObjects, WorldMode, MapEntity, WorldProgressCallback,
-    getUnifiedGroundHeight, isPositionValid, isCriticalEntity, yieldControl, shouldLogYieldProgress
+    getUnifiedGroundHeight, isPositionValid, yieldControl, normalizeMapEntityType
 } from './generation-utils.ts';
+import { getMapSourceFromUrl, loadMap, setupMapHotReload, type LoadedCandyMap } from './map-loader.ts';
+import { clearMapMusicContext, deriveMapMusicContext, setMapMusicContext } from './map-music-context.ts';
+import { create, getTypeMeta, registerBuiltinWorldObjectTypes, registerWorldObject } from './foliage-registry.ts';
+import { treeBatcher } from '../foliage/tree-batcher.ts';
+
+let loadedMapPromise: Promise<LoadedCandyMap> | null = null;
+let worldGenerationToken = 0;
+registerBuiltinWorldObjectTypes();
+
+const STREAMING_PRIORITY_TYPES = [
+    'cave',
+    'subwoofer_lotus',
+    'instrument_shrine',
+    'retrigger_mushroom',
+    'portamento_pine',
+    'bubble_willow',
+    'mushroom',
+    'cloud',
+    'flower'
+] as const;
+
+const VISIBLE_BUBBLE_RADIUS = 80;
+const VISIBLE_BUBBLE_LIMIT = 300;
+
+function applyMapPreallocationHints(loadedMap: LoadedCandyMap): void {
+    const expected = loadedMap.getExpectedInstanceCounts();
+    const explicitTreeHint = expected.tree;
+    const derivedTreeHint =
+        (expected.bubble_willow ?? 0) +
+        (expected.helix_plant ?? 0) +
+        (expected.balloon_bush ?? 0) +
+        (expected.accordion_palm ?? 0) +
+        (expected.fiber_optic_willow ?? 0) +
+        (expected.portamento_pine ?? 0) +
+        (expected.prism_rose_bush ?? 0);
+    const treeHint = Math.max(explicitTreeHint ?? 0, derivedTreeHint);
+    if (treeHint > 0) {
+        treeBatcher.setInitialCapacity(treeHint);
+    }
+}
+
+function invalidateLoadedMap(): void {
+    loadedMapPromise = null;
+    clearMapMusicContext();
+}
+
+async function getLoadedMap(): Promise<LoadedCandyMap> {
+    if (!loadedMapPromise) {
+        const defaultSource = './assets/map.json';
+        const source = getMapSourceFromUrl(defaultSource);
+        loadedMapPromise = loadMap(source)
+            .catch(async error => {
+                if (source === defaultSource) throw error;
+                console.warn(`[MapLoader] Failed to load "${source}", falling back to default map.`, error);
+                return loadMap(defaultSource);
+            })
+            .then(loaded => {
+                setMapMusicContext(deriveMapMusicContext(loaded.data));
+                return loaded;
+            });
+    }
+    return loadedMapPromise;
+}
+
+if (typeof window !== 'undefined') {
+    setupMapHotReload(getMapSourceFromUrl('./assets/map.json'), () => {
+        invalidateLoadedMap();
+        console.log('[MapLoader] Map asset changed, cache invalidated.');
+    });
+}
 
 // --- Scene Setup ---
 export async function initWorld(scene: THREE.Scene, weatherSystem: WeatherSystem, loadContent: boolean = true): Promise<WorldObjects> {
@@ -173,7 +234,8 @@ export async function initWorld(scene: THREE.Scene, weatherSystem: WeatherSystem
         // Add a small height bias: prefer elevated ground
         // Don't spawn directly in water (y < 2.0) and favor y between 2.0 and 5.0
         if (ly > 2.0 && ly < 8.0) {
-            const plant = createLuminousPlant({ scale: 0.8 + Math.random() * 0.6 });
+            const plant = create('luminous_plant', { scale: 0.8 + Math.random() * 0.6 });
+            if (!plant) continue;
             plant.position.set(lx, ly, lz);
             plant.rotation.y = Math.random() * Math.PI * 2;
             safeAddFoliage(plant, false, 0, weatherSystem);
@@ -251,6 +313,11 @@ export function safeAddFoliage(
     if (obj.userData.onPlacement) {
         obj.userData.onPlacement();
     }
+    if (typeof obj.userData.mapEntityType === 'string') {
+        registerWorldObject(obj, obj.userData.mapEntityType);
+    } else if (typeof obj.userData.type === 'string') {
+        registerWorldObject(obj, normalizeMapEntityType(obj.userData.type));
+    }
 
     // Register with weather system
     if (weatherSystem) {
@@ -267,141 +334,95 @@ export function safeAddFoliage(
     }
 }
 
+interface ProcessEntityOptions {
+    streamed?: boolean;
+}
+
+function applyDreamyPopIn(obj: THREE.Object3D): void {
+    const animatedMaterials: Array<{ mat: THREE.Material & { opacity: number; transparent: boolean }; targetOpacity: number }> = [];
+    obj.traverse((child: THREE.Object3D) => {
+        const mesh = child as THREE.Mesh;
+        if (!mesh.material) return;
+        const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+        for (const material of materials) {
+            if (!(material as any).isMaterial || !('opacity' in material)) continue;
+            const typed = material as THREE.Material & { opacity: number; transparent: boolean };
+            if (typed.opacity >= 0.99) {
+                typed.transparent = true;
+                typed.opacity = 0;
+                animatedMaterials.push({ mat: typed, targetOpacity: 1 });
+            }
+        }
+    });
+
+    if (animatedMaterials.length === 0) return;
+    const start = performance.now();
+    const duration = 380;
+    const tick = () => {
+        const elapsed = performance.now() - start;
+        const t = Math.min(1, elapsed / duration);
+        const eased = 1 - Math.pow(1 - t, 2);
+        for (const entry of animatedMaterials) {
+            entry.mat.opacity = entry.targetOpacity * eased;
+            if (t >= 1) entry.mat.transparent = false;
+        }
+        if (t < 1) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+}
+
 export async function generateMap(
     weatherSystem: WeatherSystem,
     chunkSize: number = DEFAULT_MAP_CHUNK_SIZE,
     onProgress?: WorldProgressCallback
 ): Promise<void> {
+    const generationToken = ++worldGenerationToken;
     performance.mark('candy:map-generation-start');
     console.time('[World] generateMap total');
-    console.log(`[World] Loading map with ${mapData.entities.length} entities...`);
+    const loadedMap = await getLoadedMap();
+    applyMapPreallocationHints(loadedMap);
+    console.log(`[World] Loading map (${loadedMap.source}) with ${loadedMap.entities.length} entities...`);
 
     // Reset WASM Collision System for Generation Phase
     initCollisionSystem();
 
-    const entities = mapData.entities as any as MapEntity[];
-
-    // 1. Filter into Critical vs Deferred
-    console.time('[World] entity-scan');
-    const criticalEntities: MapEntity[] = [];
-    const deferredEntities: MapEntity[] = [];
-
-    let scannedEntities = 0;
-    for (const item of entities) {
-        if (isCriticalEntity(item)) {
-            criticalEntities.push(item);
-        } else {
-            deferredEntities.push(item);
-        }
-
-        scannedEntities++;
-        if (scannedEntities % YIELD_ENTITY_BATCH_SIZE === 0 && scannedEntities < entities.length) {
-            if (shouldLogYieldProgress(scannedEntities, entities.length)) {
-                console.log(`[World] Yielding during entity scan at ${scannedEntities}/${entities.length} (last type: ${item.type})`);
-            }
-            await yieldControl();
-        }
-    }
-    console.timeEnd('[World] entity-scan');
-
-    // Sort deferred entities by squared distance from player spawn (origin) so that
-    // the background processor handles nearby entities first, making the world feel
-    // more populated immediately after the loading screen hides.
-    deferredEntities.sort((a, b) => {
-        const [ax, , az] = a.position;
-        const [bx, , bz] = b.position;
-        return (ax * ax + az * az) - (bx * bx + bz * bz);
+    const spawnedEntityIds = new Set<string>();
+    const phase1Entities = loadedMap.getNearestEntities({
+        origin: [0, 0, 0],
+        radius: VISIBLE_BUBBLE_RADIUS,
+        limit: VISIBLE_BUBBLE_LIMIT,
+        priorityTypes: STREAMING_PRIORITY_TYPES,
     });
+    const phase1Total = phase1Entities.length;
+    const phase1YieldAt = Math.ceil(phase1Total / 2);
+    console.log(`[World] Streaming phase 1: spawning ${phase1Total} entities within ${VISIBLE_BUBBLE_RADIUS}m.`);
 
-    console.log(`[World] Filtered map: ${criticalEntities.length} critical, ${deferredEntities.length} deferred (sorted near-first).`);
+    startPhase('Map Streaming Phase 1 (Visible)');
+    console.time('[World] phase1-visible');
+    for (let i = 0; i < phase1Total; i++) {
+        const entity = phase1Entities[i];
+        processMapEntity(entity, weatherSystem);
+        spawnedEntityIds.add(entity.id);
 
-    const criticalTotal = criticalEntities.length;
-    // For progress, we only track critical + Arpeggio Grove (treated as 1 chunk) during the blocking phase
-    // Procedural extras are now split as well. We'll approximate.
-    const globalTotal = criticalTotal + 1; // +1 for Arpeggio Grove
-
-    // 2. Process Critical Map Entities with a per-entity time budget.
-    // Instead of fixed-size chunks (which could still run long if entities are heavy),
-    // we check elapsed time after each entity and yield as soon as ENTITY_BUDGET_MS
-    // is exceeded. This keeps every task well under 100 ms.
-    console.time('[World] critical-entities');
-    let i = 0;
-    while (i < criticalTotal) {
-        const chunkStart = performance.now();
-        let processed = 0;
-        let lastEntityType = 'entity';
-
-        while (i + processed < criticalTotal) {
-            const idx = i + processed;
-            const entity = criticalEntities[idx];
-            lastEntityType = entity.type;
-            processMapEntity(entity, weatherSystem);
-            processed++;
-
-            // Granular progress update every 50 entities with detailed text
-            if ((i + processed) % 50 === 0) {
-                const percentage = Math.floor(((i + processed) / criticalTotal) * 100);
-                updateProgress('map-generation', percentage, `Spawning flora: ${i + processed}/${criticalTotal}`);
-            }
-
-            // Yield as soon as we've spent our per-chunk budget.
-            if (processed >= YIELD_ENTITY_BATCH_SIZE || performance.now() - chunkStart >= ENTITY_BUDGET_MS) {
-                break;
-            }
+        if ((i + 1) % 50 === 0) {
+            const percentage = Math.floor(((i + 1) / Math.max(1, phase1Total)) * 100);
+            updateProgress('map-generation', percentage, `Spawning visible bubble: ${i + 1}/${phase1Total}`);
         }
-
-        i += processed;
-
         if (onProgress) {
-            const current = Math.min(i, criticalTotal);
             onProgress(
-                current,
-                globalTotal,
-                `[World] Populating world ${current}/${criticalTotal}`,
-                lastEntityType
+                i + 1,
+                phase1Total,
+                `[World] Streaming visible bubble ${i + 1}/${phase1Total}`,
+                entity.type
             );
         }
-
-        // Record this chunk for the startup profiler.
-        recordGenerationChunk();
-
-        // Yield control back to the browser.
-        if (i < criticalTotal) {
-            if (shouldLogYieldProgress(i, criticalTotal)) {
-                console.log(`[World] Yielding after ${i}/${criticalTotal} critical entities (last type: ${lastEntityType})`);
-            }
+        if (i + 1 === phase1YieldAt && i + 1 < phase1Total) {
+            recordGenerationChunk();
             await yieldControl();
         }
     }
-    console.timeEnd('[World] critical-entities');
-
-    // --- Spawn The Cave (Critical) ---
-    console.time('[World] cave-spawn');
-    const cave = createCaveEntrance({ scale: 2.0 });
-    const caveX = 25;
-    const caveZ = 25;
-    const caveY = getUnifiedGroundHeight(caveX, caveZ);
-    cave.position.set(caveX, caveY, caveZ);
-    cave.lookAt(0, caveY, 0);
-    safeAddFoliage(cave, false, 0, weatherSystem);
-    console.log("[World] Cave spawned at ", caveX, caveZ, " Height:", caveY);
-    console.timeEnd('[World] cave-spawn');
-
-    if (cave.userData.gatePosition) {
-        const waterfallProxy = new THREE.Object3D();
-        cave.updateMatrixWorld(true);
-        waterfallProxy.position.copy(cave.userData.gatePosition).applyMatrix4(cave.matrixWorld);
-        waterfallProxy.userData.type = 'waterfall';
-        animatedFoliage.push(waterfallProxy as any);
-    }
-
-    // --- Populate Arpeggio Grove Set Piece (Critical) ---
-    console.time('[World] arpeggio-grove');
-    await populateArpeggioGrove(weatherSystem);
-    console.timeEnd('[World] arpeggio-grove');
-    if (onProgress) {
-        onProgress(globalTotal, globalTotal, '[World] Critical full world population complete', 'arpeggio_grove');
-    }
+    console.timeEnd('[World] phase1-visible');
+    endPhase('Map Streaming Phase 1 (Visible)');
 
     // --- Initialize Discovery System with Spatial Grid (Critical) ---
     // OPTIMIZATION: O(1) spatial lookups instead of O(N) distance checks
@@ -410,30 +431,73 @@ export async function generateMap(
     initDiscoveryForFoliage(animatedFoliage);
     console.timeEnd('[World] discovery-init');
 
-    // 3. Queue Deferred Map Entities
-    console.time('[World] queue-deferred');
-    console.log(`[World] Queueing ${deferredEntities.length} deferred map entities for background processing...`);
+    // 2. Stream remaining entities in prioritized near-to-far chunks.
+    startPhase('Map Streaming Phase 2 (Horizon)');
+    console.time('[World] phase2-horizon-queue');
     let queuedDeferred = 0;
-    for (const item of deferredEntities) {
-        globalBackgroundProcessor.enqueue({
-            id: `map_deferred_${item.type}_${queuedDeferred}`,
-            execute: () => processMapEntity(item, weatherSystem)
-        });
+    let streamBatch = 0;
+    for (const batch of loadedMap.streamEntitiesNear(
+        [0, 0, 0],
+        Number.POSITIVE_INFINITY,
+        STREAMING_PRIORITY_TYPES,
+        { ringSize: 36, chunkSize: 36, excludeIds: spawnedEntityIds }
+    )) {
+        const streamPriority = Math.max(1, 80 - streamBatch);
+        for (const item of batch) {
+            if (spawnedEntityIds.has(item.id)) continue;
+            spawnedEntityIds.add(item.id);
+            const queuedType = item.type;
+            const queuedId = item.id;
+            const taskToken = generationToken;
+            const streamFlag = streamBatch > 0;
+            globalBackgroundProcessor.enqueue({
+                id: `map_stream_${queuedType}_${queuedId}`,
+                priority: streamPriority,
+                execute: () => {
+                    if (taskToken !== worldGenerationToken) return;
+                    processMapEntity(item as MapEntity, weatherSystem, { streamed: streamFlag });
+                }
+            });
+            queuedDeferred++;
+        }
 
-        queuedDeferred++;
-        if (queuedDeferred % YIELD_ENTITY_BATCH_SIZE === 0 && queuedDeferred < deferredEntities.length) {
-            if (shouldLogYieldProgress(queuedDeferred, deferredEntities.length)) {
-                console.log(`[World] Yielding while queueing deferred entities at ${queuedDeferred}/${deferredEntities.length} (last type: ${item.type})`);
-            }
+        streamBatch++;
+        if (streamBatch % 2 === 0) {
+            recordGenerationChunk();
             await yieldControl();
         }
     }
-    console.timeEnd('[World] queue-deferred');
+    endPhase('Map Streaming Phase 2 (Horizon)');
+    console.timeEnd('[World] phase2-horizon-queue');
+    console.log(`[World] Streaming phase 2 queued ${queuedDeferred} horizon entities.`);
 
-    // --- Populate Procedural Extras (Split into Critical/Deferred inside) ---
+    if (onProgress) {
+        onProgress(phase1Total, phase1Total, '[World] Visible bubble ready');
+    }
+
+    // 3. Queue Procedural Extras
     console.time('[World] procedural-extras');
     await populateProceduralExtras(weatherSystem, chunkSize);
     console.timeEnd('[World] procedural-extras');
+
+    // Keep a lightweight final fallback for any entities excluded from the streaming query.
+    let fallbackQueued = 0;
+    for (const item of loadedMap.entities) {
+        if (spawnedEntityIds.has(item.id)) continue;
+        const taskToken = generationToken;
+        globalBackgroundProcessor.enqueue({
+            id: `map_fallback_${item.type}_${item.id}`,
+            priority: 1,
+            execute: () => {
+                if (taskToken !== worldGenerationToken) return;
+                processMapEntity(item as MapEntity, weatherSystem, { streamed: true });
+            }
+        });
+        fallbackQueued++;
+    }
+    if (fallbackQueued > 0) {
+        console.warn(`[World] Fallback queued ${fallbackQueued} entities not covered by streaming rings.`);
+    }
 
     performance.mark('candy:map-generation-end');
     try {
@@ -441,7 +505,7 @@ export async function generateMap(
     } catch (_e) { /* ignore if marks were cleared */ }
 
     console.timeEnd('[World] generateMap total');
-    console.log("[World] Critical map generation complete! Deferred tasks queued.");
+    console.log("[World] Map streaming bootstrap complete. Horizon tasks queued.");
 }
 
 export async function generateCoreWorld(
@@ -476,15 +540,15 @@ export async function generateCoreWorld(
     const SEED_RING_COUNT = 8;
     const SEED_RING_INNER = 18;
     const SEED_RING_OUTER = 26;
-    const seedFactories = [
-        () => createFlower(),
-        () => createGlowingFlower(),
-        () => createFlower(),
-        () => createGlowingFlower(),
-        () => createArpeggioFern({ scale: 1.0 }),
-        () => createFlower(),
-        () => createGlowingFlower(),
-        () => createArpeggioFern({ scale: 0.8 }),
+    const seedFactories: Array<() => THREE.Object3D | null> = [
+        () => create('flower'),
+        () => create('flower', { variant: 'glowing' }),
+        () => create('flower'),
+        () => create('flower', { variant: 'glowing' }),
+        () => create('arpeggio_fern', { scale: 1.0 }),
+        () => create('flower'),
+        () => create('flower', { variant: 'glowing' }),
+        () => create('arpeggio_fern', { scale: 0.8 }),
     ];
     for (let i = 0; i < SEED_RING_COUNT; i++) {
         const angle = (i / SEED_RING_COUNT) * Math.PI * 2;
@@ -494,6 +558,7 @@ export async function generateCoreWorld(
         const sz = Math.sin(angle) * ringRadius;
         const sy = getUnifiedGroundHeight(sx, sz);
         const seedObj = seedFactories[i % seedFactories.length]();
+        if (!seedObj) continue;
         seedObj.position.set(sx, sy, sz);
         seedObj.rotation.y = Math.random() * Math.PI * 2;
         safeAddFoliage(seedObj, false, 0.3, weatherSystem);
@@ -503,11 +568,11 @@ export async function generateCoreWorld(
     // Basic candy trees — yield every ENTITY_BUDGET_MS to avoid blocking the main thread.
     // Tree geometry creation can take 10–30 ms each; without yielding 18 trees back-to-back
     // would stall the browser for up to 540 ms and trigger "Page Unresponsive".
-    const treeFactories = [
-        () => createBubbleWillow(),
-        () => createBalloonBush(),
-        () => createHelixPlant(),
-        () => createPortamentoPine({ height: 4.5 }),
+    const treeFactories: Array<() => THREE.Object3D | null> = [
+        () => create('bubble_willow'),
+        () => create('balloon_bush'),
+        () => create('helix_plant'),
+        () => create('portamento_pine', { height: 4.5 }),
     ];
     let chunkStart = performance.now();
     for (let i = 0; i < 18; i++) {
@@ -515,6 +580,7 @@ export async function generateCoreWorld(
         const pos = getRandomGroundPosition(1.5);
         if (pos) {
             const obj = factory();
+            if (!obj) continue;
             obj.position.set(pos.x, pos.y, pos.z);
             obj.rotation.y = Math.random() * Math.PI * 2;
             safeAddFoliage(obj, true, 1.5, weatherSystem);
@@ -531,7 +597,8 @@ export async function generateCoreWorld(
     for (let i = 0; i < 24; i++) {
         const pos = getRandomGroundPosition(0.5);
         if (pos) {
-            const obj = createMushroom({ size: 'regular', scale: 0.8 + Math.random() * 0.5, hasFace: true, isBouncy: true });
+            const obj = create('mushroom', { size: 'regular', scale: 0.8 + Math.random() * 0.5, hasFace: true, isBouncy: true });
+            if (!obj) continue;
             obj.position.set(pos.x, pos.y, pos.z);
             obj.rotation.y = Math.random() * Math.PI * 2;
             safeAddFoliage(obj, true, 0.5, weatherSystem);
@@ -549,7 +616,8 @@ export async function generateCoreWorld(
         const pos = getRandomGroundPosition(0.8);
         if (!pos) continue;
         const height = 10 + Math.random() * 18;
-        const cloud = createRainingCloud({ size: 1.0 + Math.random() * 0.8 });
+        const cloud = create('cloud', { size: 1.0 + Math.random() * 0.8 });
+        if (!cloud) continue;
         cloud.position.set(pos.x, height, pos.z);
         cloud.userData.tier = 1;
         cloud.userData.isWalkable = true;
@@ -563,10 +631,13 @@ export async function generateCoreWorld(
 
     // Low flowers and luminous accents (lightweight — single yield at end is sufficient).
     for (let i = 0; i < 16; i++) {
-        const factory = Math.random() < 0.5 ? () => createFlower() : () => createGlowingFlower();
+        const factory = Math.random() < 0.5
+            ? () => create('flower')
+            : () => create('flower', { variant: 'glowing' });
         const pos = getRandomGroundPosition(0.4);
         if (pos) {
             const obj = factory();
+            if (!obj) continue;
             obj.position.set(pos.x, pos.y, pos.z);
             obj.rotation.y = Math.random() * Math.PI * 2;
             safeAddFoliage(obj, false, 0.4, weatherSystem);
@@ -575,15 +646,16 @@ export async function generateCoreWorld(
     await yieldControl();
 
     // Lake island accents.
-    const islandItems = [
-        () => createGlowingFlower(),
-        () => createFlower(),
+    const islandItems: Array<() => THREE.Object3D | null> = [
+        () => create('flower', { variant: 'glowing' }),
+        () => create('flower'),
     ];
     for (let i = 0; i < 8; i++) {
         const pos = getRandomGroundPosition(0.4);
         if (!pos) continue;
         const factory = islandItems[i % islandItems.length];
         const obj = factory();
+        if (!obj) continue;
         obj.position.set(pos.x, pos.y, pos.z);
         obj.rotation.y = Math.random() * Math.PI * 2;
         safeAddFoliage(obj, false, 0.4, weatherSystem);
@@ -619,8 +691,9 @@ export async function populateWorld(
     }
 
     console.log('%c[World] FULL Mode — attempting complete musical ecosystem', 'color:#7dd3fc');
-    console.log(`[World] Full mode: ${(mapData as any).entities?.length ?? 0} map entities + ${PROCEDURAL_ENTITY_COUNT} procedural extras to process (population scaled via CONFIG.world.population${options?.fastPopulation ? ' + fast mode multiplier' : ''})`);
     try {
+        const loadedMap = await getLoadedMap();
+        console.log(`[World] Full mode: ${loadedMap.entities.length} map entities + ${PROCEDURAL_ENTITY_COUNT} procedural extras to process (population scaled via CONFIG.world.population${options?.fastPopulation ? ' + fast mode multiplier' : ''})`);
         await generateMap(weatherSystem, DEFAULT_MAP_CHUNK_SIZE, onProgress);
         console.log('[World] Full mode population complete.');
         console.log('[World] populateWorld() complete in FULL mode');
@@ -637,144 +710,214 @@ export async function populateWorld(
 export /**
  * Process a single map entity (extracted from forEach loop for chunking)
  */
-function processMapEntity(item: MapEntity, weatherSystem: WeatherSystem): void {
+function processMapEntity(item: MapEntity, weatherSystem: WeatherSystem, options?: ProcessEntityOptions): void {
     const [x, yInput, z] = item.position;
+    const entityType = normalizeMapEntityType(item.type);
+    const params = item.params ?? {};
+    const placement = item.placement ?? (entityType === 'cloud' ? 'absolute' : 'ground');
     // USE UNIFIED HEIGHT for placement
     const groundY = getUnifiedGroundHeight(x, z);
     let y = groundY;
-    if (item.type === 'cloud') y = yInput;
+    if (placement === 'absolute' || entityType === 'cloud') y = yInput;
+    if (placement === 'offset') y = groundY + yInput;
+
+    const uniformScale = typeof item.scale === 'number' ? item.scale : undefined;
+    const vectorScale = Array.isArray(item.scale) ? item.scale : undefined;
+    const itemRotation = item.rotation;
+    const getParamNumber = (key: string, fallback: number): number => {
+        const value = params[key];
+        return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+    };
+    const getParamBoolean = (key: string, fallback: boolean): boolean => {
+        const value = params[key];
+        return typeof value === 'boolean' ? value : fallback;
+    };
+    const annotateMapExport = (obj: THREE.Object3D, resolvedType: string) => {
+        const resolvedBiome = item.music?.biomeOverride ?? item.music?.biome ?? item.music?.biomeTag ?? item.biome;
+        obj.userData.mapEntityType = resolvedType;
+        obj.userData.mapEntityId = item.id;
+        obj.userData.biome = resolvedBiome;
+        if (typeof item.music?.trackerChannel === 'number') {
+            obj.userData.trackerChannel = item.music.trackerChannel;
+        }
+        if (typeof item.music?.reactivityProfile === 'string') {
+            obj.userData.reactivityProfile = item.music.reactivityProfile;
+        }
+        if (typeof item.music?.intensityScale === 'number') {
+            obj.userData.reactivityIntensityScale = item.music.intensityScale;
+        }
+        obj.userData.mapExport = {
+            type: resolvedType,
+            sourceId: item.id,
+            provenance: 'map',
+            variant: item.variant,
+            note: item.note,
+            noteIndex: item.noteIndex,
+            hasFace: item.hasFace,
+            category: item.category,
+            layer: item.layer,
+            biome: resolvedBiome,
+            music: item.music,
+            placement,
+            params
+        };
+    };
 
     try {
         let obj: THREE.Object3D | null = null;
-        let isObstacle = false;
-        let radius = 0.5;
+        const meta = getTypeMeta(entityType);
+        let isObstacle = meta?.defaultIsObstacle ?? false;
+        let radius = meta?.defaultRadius ?? 0.5;
+        let caveLookAtOrigin = false;
+        let caveNeedsWaterfallProxy = false;
+        const createParams: Record<string, unknown> = { ...params };
+        if (item.variant !== undefined) createParams.variant = item.variant;
+        if (item.note !== undefined) createParams.note = item.note;
+        if (item.noteIndex !== undefined) createParams.noteIndex = item.noteIndex;
+        let cloudTier = 1;
 
-        // --- Basic Types ---
-        if (item.type === 'mushroom') {
-                const isGiant = item.variant === 'giant';
-                const scale = item.scale || 1.0;
-                const hasFace = item.hasFace !== undefined ? item.hasFace : (isGiant || Math.random() < 0.1);
-                const isBouncy = isGiant || hasFace;
-
-                obj = createMushroom({
-                    size: isGiant ? 'giant' : 'regular',
-                    scale,
-                    hasFace,
-                    isBouncy,
-                    note: item.note,
-                    noteIndex: item.noteIndex
-                });
-                isObstacle = true;
-                radius = isGiant ? 2.0 : 0.5;
-            }
-        else if (item.type === 'flower') {
-            const isGlowing = item.variant === 'glowing';
-            obj = isGlowing ? createGlowingFlower() : createFlower();
-        }
-        else if (item.type === 'cloud') {
-            const cloudTier = (item as any).tier || 1;
-            obj = createRainingCloud({ size: item.size as number || 1.5 });
-            obj.userData.tier = cloudTier;
-            obj.userData.isWalkable = cloudTier === 1;
-        }
-        else if (item.type === 'grass') {
+        if (entityType === 'grass') {
             addGrassInstance(x, y, z);
             return;
         }
-        // ... (Other types elided for brevity, same logic follows) ...
-        else if (item.type === 'subwoofer_lotus') {
-            obj = createSubwooferLotus({ scale: item.scale || 1.0 });
+        switch (entityType) {
+            case 'mushroom': {
+                const isGiant = item.variant === 'giant';
+                const hasFace = item.hasFace !== undefined ? item.hasFace : (isGiant || Math.random() < 0.1);
+                createParams.size = isGiant ? 'giant' : 'regular';
+                createParams.scale = uniformScale ?? 1.0;
+                createParams.hasFace = hasFace;
+                createParams.isBouncy = isGiant || hasFace;
+                if (typeof item.note === 'string') createParams.note = item.note;
+                if (Number.isInteger(item.noteIndex)) createParams.noteIndex = item.noteIndex;
+                isObstacle = true;
+                radius = isGiant ? 2.0 : 0.5;
+                break;
+            }
+            case 'flower':
+                createParams.variant = item.variant === 'glowing' ? 'glowing' : 'simple';
+                break;
+            case 'cloud':
+                cloudTier = (item as any).tier || 1;
+                createParams.size = typeof item.size === 'number' ? item.size : getParamNumber('size', 1.5);
+                break;
+            case 'subwoofer_lotus':
+            case 'silence_spirit':
+            case 'melody_mirror':
+                createParams.scale = uniformScale ?? 1.0;
+                break;
+            case 'floating_orb':
+                createParams.size = getParamNumber('size', 0.5);
+                y += getParamNumber('hoverOffset', 1.5);
+                break;
+            case 'swingable_vine': {
+                const vineLength = getParamNumber('length', 8);
+                createParams.length = vineLength;
+                y += vineLength;
+                break;
+            }
+            case 'arpeggio_fern':
+                createParams.scale = uniformScale ?? 1.0;
+                break;
+            case 'portamento_pine':
+                createParams.height = getParamNumber('height', 4.0);
+                break;
+            case 'kick_drum_geyser':
+                createParams.maxHeight = getParamNumber('maxHeight', 5.0);
+                break;
+            case 'cymbal_dandelion':
+            case 'snare_trap':
+                createParams.scale = uniformScale ?? getParamNumber('scale', 1.0);
+                break;
+            case 'retrigger_mushroom':
+                createParams.scale = uniformScale ?? 1.0;
+                createParams.retriggerSpeed = getParamNumber('retriggerSpeed', 4);
+                break;
+            case 'tremolo_tulip':
+                createParams.size = getParamNumber('size', uniformScale ?? 1.0);
+                break;
+            case 'panning_pad':
+                createParams.panBias = x < 0 ? -1 : 1;
+                createParams.radius = getParamNumber('radius', uniformScale ?? 1.0);
+                if (y < 2) y = 1.0;
+                break;
+            case 'instrument_shrine': {
+                const variantId = parseInt(item.variant || '0', 10);
+                createParams.instrumentID = Number.isFinite(variantId) ? variantId : getParamNumber('instrumentID', 0);
+                createParams.scale = uniformScale ?? 1.0;
+                break;
+            }
+            case 'wisteria_cluster':
+                y += getParamNumber('heightOffset', 4);
+                break;
+            case 'cave':
+                createParams.scale = getParamNumber('scale', uniformScale ?? 2.0);
+                isObstacle = getParamBoolean('isObstacle', false);
+                radius = getParamNumber('radius', 0);
+                caveLookAtOrigin = getParamBoolean('lookAtOrigin', true);
+                break;
+            default:
+                break;
         }
-        else if (item.type === 'accordion_palm') {
-            obj = createAccordionPalm({ color: 0xFFD700 });
-            isObstacle = true;
+
+        obj = create(entityType, createParams);
+        if (!obj) return;
+
+        if (entityType === 'cloud') {
+            obj.userData.tier = cloudTier;
+            obj.userData.isWalkable = cloudTier === 1;
+        } else if (entityType === 'swingable_vine') {
+            const vineLength = typeof createParams.length === 'number' ? createParams.length : 8;
+            if (vineSwings) vineSwings.push(new VineSwing(obj, vineLength));
+        } else if (entityType === 'melody_mirror') {
+            if (Number.isInteger(item.noteIndex)) obj.userData.noteIndex = item.noteIndex;
+            if (typeof item.note === 'string') obj.userData.note = item.note;
         }
-        else if (item.type === 'fiber_optic_willow') {
-            obj = createFiberOpticWillow();
-            isObstacle = true;
-        }
-        else if (item.type === 'floating_orb') {
-            obj = createFloatingOrb({ size: 0.5 });
-            y += 1.5;
-        }
-        else if (item.type === 'swingable_vine') {
-            obj = createSwingableVine({ length: 8 });
-            y += 8;
-            if (vineSwings) vineSwings.push(new VineSwing(obj, 8));
-        }
-        else if (item.type === 'prism_rose_bush') {
-            obj = createPrismRoseBush();
-            isObstacle = true;
-        }
-        else if (item.type === 'starflower') {
-            obj = createStarflower();
-        }
-        else if (item.type === 'vibrato_violet') {
-            obj = createVibratoViolet();
-        }
-        else if (item.type === 'tremolo_tulip') {
-            obj = createTremoloTulip();
-        }
-        else if (item.type === 'kick_drum_geyser') {
-            obj = createKickDrumGeyser();
-        }
-        // Musical Flora
-        else if (item.type === 'arpeggio_fern') {
-            obj = createArpeggioFern({ scale: item.scale || 1.0 });
-        }
-        else if (item.type === 'portamento_pine') {
-            obj = createPortamentoPine({ height: 4.0 });
-            isObstacle = true;
-        }
-        else if (item.type === 'cymbal_dandelion') {
-            obj = createCymbalDandelion();
-        }
-        else if (item.type === 'snare_trap') {
-            obj = createSnareTrap();
-        }
-        else if (item.type === 'retrigger_mushroom') {
-            obj = createRetriggerMushroom({ scale: item.scale || 1.0 });
-        }
-        else if (item.type === 'panning_pad') {
-            const panBias = x < 0 ? -1 : 1;
-            obj = createPanningPad({ radius: item.scale || 1.0, panBias: panBias });
-            if (y < 2) y = 1.0;
-        }
-        // Spirits
-        else if (item.type === 'silence_spirit') {
-            obj = createSilenceSpirit({ scale: item.scale || 1.0 });
-        }
-        // Instrument Shrines
-        else if (item.type === 'instrument_shrine') {
-            const id = parseInt(item.variant || '0', 10);
-            obj = createInstrumentShrine({ instrumentID: id, scale: item.scale || 1.0 });
-            isObstacle = true;
-            radius = 1.0;
-        }
-        // Trees
-        else if (item.type === 'bubble_willow') {
-            obj = createBubbleWillow();
-            isObstacle = true;
-        }
-        else if (item.type === 'helix_plant') {
-            obj = createHelixPlant();
-        }
-        else if (item.type === 'balloon_bush') {
-            obj = createBalloonBush();
-        }
-        else if (item.type === 'wisteria_cluster') {
-            obj = createWisteriaCluster();
-            y += 4;
-        }
+        if (entityType === 'cave') caveNeedsWaterfallProxy = !!obj.userData.gatePosition;
 
         // --- Spawning ---
         if (obj) {
+            annotateMapExport(obj, entityType);
             obj.position.set(x, y, z);
-            obj.rotation.y = Math.random() * Math.PI * 2;
-            if (item.scale && item.type !== 'mushroom' && item.type !== 'flower') {
-                obj.scale.setScalar(item.scale);
+            if (itemRotation && typeof itemRotation === 'object' && !Array.isArray(itemRotation) && 'quat' in itemRotation && Array.isArray(itemRotation.quat)) {
+                const [qx, qy, qz, qw] = itemRotation.quat;
+                obj.quaternion.set(qx, qy, qz, qw);
+            } else if (itemRotation && typeof itemRotation === 'object' && !Array.isArray(itemRotation) && 'euler' in itemRotation && Array.isArray(itemRotation.euler)) {
+                const [rx, ry, rz] = itemRotation.euler;
+                const order = itemRotation.order;
+                const safeOrder = order === 'XYZ' || order === 'YZX' || order === 'ZXY' || order === 'XZY' || order === 'YXZ' || order === 'ZYX'
+                    ? order
+                    : 'YXZ';
+                obj.rotation.set(rx, ry, rz, safeOrder);
+            } else if (Array.isArray(itemRotation) && itemRotation.length === 4) {
+                const [qx, qy, qz, qw] = itemRotation;
+                obj.quaternion.set(qx, qy, qz, qw);
+            } else if (Array.isArray(itemRotation) && itemRotation.length === 3) {
+                obj.rotation.set(itemRotation[0], itemRotation[1], itemRotation[2], 'YXZ');
+            } else if (typeof itemRotation === 'number') {
+                obj.rotation.y = itemRotation;
+            } else {
+                obj.rotation.y = Math.random() * Math.PI * 2;
+            }
+            if (entityType === 'cave' && caveLookAtOrigin) {
+                obj.lookAt(0, y, 0);
+            }
+            if (vectorScale && entityType !== 'mushroom' && entityType !== 'flower') {
+                obj.scale.set(vectorScale[0], vectorScale[1], vectorScale[2]);
+            } else if (uniformScale !== undefined && entityType !== 'mushroom' && entityType !== 'flower') {
+                obj.scale.setScalar(uniformScale);
+            }
+            if (options?.streamed && !obj.userData.isBatched) {
+                applyDreamyPopIn(obj);
             }
             safeAddFoliage(obj, isObstacle, radius, weatherSystem);
+            if (entityType === 'cave' && caveNeedsWaterfallProxy && obj.userData.gatePosition) {
+                const waterfallProxy = new THREE.Object3D();
+                obj.updateMatrixWorld(true);
+                waterfallProxy.position.copy(obj.userData.gatePosition).applyMatrix4(obj.matrixWorld);
+                waterfallProxy.userData.type = 'waterfall';
+                animatedFoliage.push(waterfallProxy as any);
+            }
         }
 
     } catch (e) {

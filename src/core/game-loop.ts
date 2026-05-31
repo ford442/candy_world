@@ -640,10 +640,13 @@ export function animate() {
     let playerShieldMesh = getPlayerShieldMesh();
 
     profiler.measure('Physics', () => {
-        updatePhysics(delta, cameraRef!, controlsRef, keyStates, audioState);
+        const devOrbitActive = Boolean((window as Window & { __devOrbitActive?: boolean }).__devOrbitActive);
+        if (!devOrbitActive) {
+            updatePhysics(delta, cameraRef!, controlsRef, keyStates, audioState);
+        }
         // Safety check: ensure player position is valid before copying
         if (player.position && uPlayerPosition.value) {
-            uPlayerPosition.value.copy(player.position);
+            uPlayerPosition.value.copy(devOrbitActive ? cameraRef!.position : player.position);
         }
         if (sparkleTrail && player.position && player.velocity) {
             updateSparkleTrail(sparkleTrail, player.position, player.velocity, gameTime, rendererRef);

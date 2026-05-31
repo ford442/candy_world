@@ -40,6 +40,7 @@ declare global {
     
     // Scene ready flag
     __sceneReady?: boolean;
+    __devOrbitActive?: boolean;
     
     // Audio
     libopenmptReady?: Promise<any>;
@@ -56,6 +57,35 @@ declare global {
     getLoadingScreen?: () => LoadingScreenInstance | null;
     initLoadingScreen?: (options?: LoadingScreenOptions) => LoadingScreenInstance;
     setLoadingDebug?: (enabled: boolean) => void;
+    exportCurrentWorldToMap?: (options?: {
+      download?: boolean;
+      fileName?: string;
+      sourceLabel?: string;
+      includeInstancedFallback?: boolean;
+    }) => Promise<{
+      map: any;
+      stats: {
+        totalEntities: number;
+        byType: Record<string, number>;
+        byProvenance: Record<string, number>;
+        deduped: number;
+      };
+    }>;
+    __getBatcherTelemetry?: () => {
+      timestamp: number;
+      totalInstances: number;
+      totalCapacity: number;
+      totalDrawCalls: number;
+      totalEstimatedVramBytes: number;
+      entries: Array<{
+        id: string;
+        label: string;
+        instances: number;
+        capacity: number;
+        drawCalls: number;
+        estimatedVramBytes: number;
+      }>;
+    };
   }
   
   // Loading Screen instance interface

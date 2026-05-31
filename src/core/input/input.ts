@@ -41,6 +41,8 @@ export function initInput(
     const controls = new PointerLockControls(camera, document.body);
     const instructions = document.getElementById('instructions');
     const startButton = document.getElementById('startButton') as HTMLButtonElement | null;
+    const canvas = document.getElementById('glCanvas') as HTMLCanvasElement | null;
+    const isDevBuild = import.meta.env.DEV;
 
     // Ability HUD Elements
     const hudDash = document.getElementById('ability-dash');
@@ -50,6 +52,125 @@ export function initInput(
     // Modal Focus Trap Cleanups
     let releasePauseMenuFocus: (() => void) | null = null;
     let lastFocusedElement: HTMLElement | null = null;
+    let isDevOrbitMode = false;
+    let orbitControls: { update: () => void; dispose: () => void; target: THREE.Vector3 } | null = null;
+    let orbitUpdateHandle: number | null = null;
+
+    const setDevOrbitFlag = (active: boolean) => {
+        (window as Window & { __devOrbitActive?: boolean }).__devOrbitActive = active;
+    };
+
+    const resetMovementInput = () => {
+        keyStates.forward = false;
+        keyStates.backward = false;
+        keyStates.left = false;
+        keyStates.right = false;
+        keyStates.jump = false;
+        keyStates.sneak = false;
+        keyStates.sprint = false;
+        keyStates.dash = false;
+        keyStates.action = false;
+        keyStates.phase = false;
+        keyStates.clap = false;
+        keyStates.strike = false;
+        keyStates.dance = false;
+        keyStates.dodgeRoll = false;
+    };
+
+    const isInteractiveTarget = (eventTarget: EventTarget | null) => {
+        if (!(eventTarget instanceof HTMLElement)) return false;
+        return !!eventTarget.closest(
+            'button, input, select, textarea, a, label, [role="button"], [role="dialog"], #ability-hud, #playlist-overlay, #playlist-backdrop, #dpad-controls, #instructions, #mode-select'
+        );
+    };
+
+    const stopDevOrbitLoop = () => {
+        if (orbitUpdateHandle !== null) {
+            cancelAnimationFrame(orbitUpdateHandle);
+            orbitUpdateHandle = null;
+        }
+    };
+
+    const hideInstructionsImmediately = () => {
+        if (!instructions) return;
+        instructions.style.display = 'none';
+        instructions.style.opacity = '0';
+        instructions.style.backdropFilter = 'blur(0px)';
+    };
+
+    const setPausedTitle = (paused: boolean) => {
+        const title = instructions ? instructions.querySelector('h1') : null;
+        if (title) {
+            title.innerHTML = paused
+                ? 'Dream Paused <span aria-hidden="true">⏸️</span>'
+                : '<span aria-hidden="true">🍭</span> Candy World';
+        }
+    };
+
+    const setStartButtonResumeLabel = () => {
+        if (startButton) {
+            startButton.innerHTML = 'Resume the Dream <span aria-hidden="true">✨</span> <span class="key-badge" aria-hidden="true">Enter</span>';
+        }
+    };
+
+    const setStartButtonEnterLabel = () => {
+        if (startButton) {
+            startButton.innerHTML = 'Enter the Dream <span aria-hidden="true">🍭</span> <span class="key-badge" aria-hidden="true">Enter</span>';
+        }
+    };
+
+    const startDevOrbitLoop = () => {
+        const tick = () => {
+            if (!isDevOrbitMode || !orbitControls) return;
+            orbitControls.update();
+            orbitUpdateHandle = requestAnimationFrame(tick);
+        };
+        stopDevOrbitLoop();
+        orbitUpdateHandle = requestAnimationFrame(tick);
+    };
+
+    const disableDevOrbitMode = (relock = true) => {
+        if (!isDevOrbitMode) return;
+        isDevOrbitMode = false;
+        setDevOrbitFlag(false);
+        stopDevOrbitLoop();
+        if (orbitControls) {
+            orbitControls.dispose();
+            orbitControls = null;
+        }
+        resetMovementInput();
+        if (relock) {
+            controls.lock();
+        }
+    };
+
+    const enableDevOrbitMode = async () => {
+        if (!isDevBuild || isDevOrbitMode) return;
+        controls.unlock();
+        hideInstructionsImmediately();
+        resetMovementInput();
+        setPausedTitle(false);
+        setStartButtonEnterLabel();
+        isDevOrbitMode = true;
+        setDevOrbitFlag(true);
+
+        const { OrbitControls } = await import('three/examples/jsm/controls/OrbitControls.js');
+        if (!isDevOrbitMode) return;
+
+        const activeElement = (canvas ?? document.body) as HTMLElement;
+        const orbit = new OrbitControls(camera as THREE.PerspectiveCamera, activeElement);
+        orbit.enableDamping = true;
+        orbit.dampingFactor = 0.08;
+        orbit.enablePan = true;
+        orbit.maxPolarAngle = Math.PI * 0.49;
+        orbit.minDistance = 3;
+        orbit.maxDistance = 280;
+        orbit.target.copy((camera as THREE.PerspectiveCamera).position).add(
+            new THREE.Vector3(0, 0, -1).applyQuaternion((camera as THREE.PerspectiveCamera).quaternion).multiplyScalar(8)
+        );
+        orbitControls = orbit;
+        startDevOrbitLoop();
+    };
 
     // --- NEW: Visual Reticle (Crosshair) ---
     // Check if it exists; if not, create it
@@ -109,6 +230,9 @@ export function initInput(
     }
 
     controls.addEventListener('lock', () => {
+        if (isDevOrbitMode) {
+            disableDevOrbitMode(false);
+        }
         // UX: If generating the world, keep the "Generating..." message visible
         // The main.js logic will hide it when done.
         const currentStartButton = document.getElementById('startButton') as HTMLButtonElement | null;
@@ -134,6 +258,8 @@ export function initInput(
                     lastFocusedElement.focus();
                     lastFocusedElement = null;
                 }
+                setPausedTitle(false);
+                setStartButtonEnterLabel();
             }, 200);
         } else {
             if (lastFocusedElement && typeof lastFocusedElement.focus === 'function') {
@@ -161,6 +287,7 @@ export function initInput(
     });
 
     controls.addEventListener('unlock', () => {
+        if (isDevOrbitMode) return;
         // CRITICAL: Only show Main Menu if Playlist ISN'T open.
         // If Playlist is open, we *want* to be unlocked, but seeing the Playlist, not the start screen.
         if (!getIsPlaylistOpen()) {
@@ -203,25 +330,25 @@ export function initInput(
             }
 
             // UX: Update Title to "Paused" to give context
-            const title = instructions ? instructions.querySelector('h1') : null;
-            if (title) title.innerHTML = 'Game Paused <span aria-hidden="true">⏸️</span>';
-
-            if (startButton) {
-                startButton.innerHTML = 'Resume Exploration <span aria-hidden="true">🚀</span> <span class="key-badge" aria-hidden="true">Enter</span>';
-            }
+            setPausedTitle(true);
+            setStartButtonResumeLabel();
         }
     });
 
     // Click to Resume behavior when menu is hidden but controls are unlocked (e.g. after dancing)
-    const onBodyClick = () => {
+    const onBodyClick = (event: MouseEvent) => {
         // Only trigger if:
         // 1. Controls are unlocked
         // 2. Playlist is closed
         // 3. Instructions (Pause Menu) are hidden
         // 4. We are NOT currently prevented from locking (i.e. not dancing)
+        const target = event.target;
         if (!controls.isLocked &&
+            !isDevOrbitMode &&
             !getIsPlaylistOpen() &&
-            instructions && instructions.style.display === 'none') {
+            instructions && instructions.style.display === 'none' &&
+            !isInteractiveTarget(target) &&
+            (target === canvas || target === document.body)) {
 
             if (shouldPreventMenuOnUnlock && shouldPreventMenuOnUnlock()) {
                 // Still dancing/prevented? Do nothing, keep cursor free.
@@ -235,12 +362,29 @@ export function initInput(
 
     // Key Handlers
     const onKeyDown = function (event: KeyboardEvent) {
+        if (isDevBuild && event.ctrlKey && event.shiftKey && event.code === 'KeyO') {
+            event.preventDefault();
+            if (isDevOrbitMode) {
+                disableDevOrbitMode(true);
+            } else {
+                void enableDevOrbitMode();
+            }
+            return;
+        }
+
         // Prevent default browser actions (like Ctrl+S)
         if (event.ctrlKey && event.code !== 'ControlLeft' && event.code !== 'ControlRight') {
             event.preventDefault();
         }
 
         const isPlaylistOpen = getIsPlaylistOpen();
+        if (isDevOrbitMode) {
+            if (event.code === 'Escape') {
+                event.preventDefault();
+                disableDevOrbitMode(true);
+            }
+            return;
+        }
 
         // Escape: Special Handling to FORCE menu open if it was suppressed (e.g. by dancing)
         if (event.code === 'Escape') {
@@ -289,7 +433,7 @@ export function initInput(
                     }, 200);
                 }
                 if (startButton) {
-                    startButton.innerHTML = 'Resume Exploration <span aria-hidden="true">🚀</span> <span class="key-badge" aria-hidden="true">Enter</span>';
+                    setStartButtonResumeLabel();
                 }
                 return;
             }
@@ -426,6 +570,7 @@ export function initInput(
 
     const onKeyUp = function (event: KeyboardEvent) {
         // 🎨 Palette: Remove Key Hints
+        if (isDevOrbitMode) return;
         if (instructions && instructions.style.display !== 'none') {
             const keyChar = event.key.toUpperCase();
             const code = event.code;
@@ -731,6 +876,8 @@ function triggerButtonPress(buttonId: string): void {
         controls,
         updateReticleState,
         cleanup: () => {
+            disableDevOrbitMode(false);
+            setDevOrbitFlag(false);
             document.body.removeEventListener('click', onBodyClick);
             document.removeEventListener('keydown', onKeyDown);
             document.removeEventListener('keyup', onKeyUp);

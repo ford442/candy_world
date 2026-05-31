@@ -121,7 +121,7 @@ npx tsx tools/map-generator/cli.ts --size 2000 --max-entities 20000 --no-preview
 {
   "metadata": {
     "seed": 12345,
-    "version": "1.0",
+    "version": "2.0",
     "biomes": ["meadow", "forest", "lake"],
     "bounds": { "min": [-250, -250], "max": [250, 250] },
     "entityCount": 2847,
@@ -129,7 +129,18 @@ npx tsx tools/map-generator/cli.ts --size 2000 --max-entities 20000 --no-preview
     "poiCount": 12,
     "generationTime": 2456
   },
-  "entities": [...],
+  "entities": [
+    {
+      "id": "mushroom_0",
+      "type": "mushroom",
+      "position": [12.4, 1.1, -44.0],
+      "rotation": { "euler": [0, 2.15, 0], "order": "YXZ" },
+      "scale": 1.2,
+      "category": "face-mushrooms",
+      "layer": "ground",
+      "biome": "meadow"
+    }
+  ],
   "paths": [...],
   "pois": [...],
   "validation": { "isValid": true, ... }

@@ -1,0 +1,92 @@
+{
+  "mapSource": "assets/map.json",
+  "aliases": {
+    "mushroom": "mushroom",
+    "flower": "flower",
+    "cloud": "cloud",
+    "luminous_plant": "luminous",
+    "arpeggio_fern": "arpeggio",
+    "portamento_pine": "portamento",
+    "cymbal_dandelion": "dandelion",
+    "lantern_flower": "lantern",
+    "waterfall": "waterfall",
+    "bubble_willow": "tree",
+    "helix_plant": "tree",
+    "balloon_bush": "tree",
+    "accordion_palm": "tree",
+    "fiber_optic_willow": "tree",
+    "prism_rose_bush": "tree"
+  },
+  "batchers": {
+    "mushroom": {
+      "label": "MushroomBatcher",
+      "budgetInstances": 1000,
+      "warningUtilization": 80,
+      "bytesPerInstance": 112,
+      "baseBytes": 262144
+    },
+    "flower": {
+      "label": "Flower+Simple",
+      "budgetInstances": 1000,
+      "warningUtilization": 80,
+      "bytesPerInstance": 224,
+      "baseBytes": 393216
+    },
+    "cloud": {
+      "label": "CloudBatcher",
+      "budgetInstances": 400,
+      "warningUtilization": 80,
+      "bytesPerInstance": 160,
+      "baseBytes": 196608
+    },
+    "luminous": {
+      "label": "LuminousBatcher",
+      "budgetInstances": 300,
+      "warningUtilization": 80,
+      "bytesPerInstance": 128,
+      "baseBytes": 98304
+    },
+    "tree": {
+      "label": "TreeBatcher",
+      "budgetInstances": 500,
+      "warningUtilization": 80,
+      "bytesPerInstance": 192,
+      "baseBytes": 327680
+    },
+    "arpeggio": {
+      "label": "ArpeggioBatcher",
+      "budgetInstances": 500,
+      "warningUtilization": 80,
+      "bytesPerInstance": 96,
+      "baseBytes": 98304
+    },
+    "portamento": {
+      "label": "PortamentoBatcher",
+      "budgetInstances": 200,
+      "warningUtilization": 80,
+      "bytesPerInstance": 128,
+      "baseBytes": 98304
+    },
+    "dandelion": {
+      "label": "DandelionBatcher",
+      "budgetInstances": 500,
+      "warningUtilization": 80,
+      "bytesPerInstance": 96,
+      "baseBytes": 65536
+    },
+    "lantern": {
+      "label": "LanternBatcher",
+      "budgetInstances": 250,
+      "warningUtilization": 80,
+      "bytesPerInstance": 128,
+      "baseBytes": 65536
+    },
+    "waterfall": {
+      "label": "WaterfallBatcher",
+      "budgetInstances": 50,
+      "warningUtilization": 80,
+      "bytesPerInstance": 512,
+      "baseBytes": 131072
+    }
+  }
+}

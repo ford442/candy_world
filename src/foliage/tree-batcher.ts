@@ -68,6 +68,21 @@ export class TreeBatcher {
         // Deferred initialization
     }
 
+    /**
+     * Pre-allocate a larger initial capacity before init() to avoid runtime growth spikes.
+     * This is map-driven and optional; values are clamped to safe WebGPU limits.
+     */
+    setInitialCapacity(target: number): void {
+        if (this.initialized) return;
+        if (!Number.isFinite(target)) return;
+        const clamped = Math.min(MAX_INSTANCES, Math.max(INITIAL_INSTANCES, Math.floor(target)));
+        this.trunkCapacity = clamped;
+        this.sphereCapacity = clamped;
+        this.capsuleCapacity = clamped;
+        this.helixCapacity = clamped;
+        this.roseCapacity = clamped;
+    }
+
     static getInstance(): TreeBatcher {
         if (!TreeBatcher.instance) {
             TreeBatcher.instance = new TreeBatcher();

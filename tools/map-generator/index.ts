@@ -36,14 +36,32 @@ export interface GeneratedMap {
         generationTime: number;
     };
     entities: Array<{
+        id: string;
         type: string;
         position: [number, number, number];
         scale: number;
+        rotation?: {
+            euler: [number, number, number];
+            order: string;
+        };
         variant?: string;
         note?: string;
         noteIndex?: number;
         hasFace?: boolean;
-        rotation?: number;
+        category?: string;
+        layer?: string;
+        biome?: string;
+        params?: Record<string, unknown>;
+        music?: {
+            biome?: string;
+            biomeTag?: string;
+            biomeOverride?: string;
+            channels?: number[];
+            intensityScale?: number;
+            trackerChannel?: number;
+            reactivityProfile?: string;
+            noteColorOverride?: string;
+        };
     }>;
     paths: Path[];
     pois: POI[];
@@ -121,7 +139,7 @@ export class MapGenerator {
         return {
             metadata: {
                 seed: this.seed,
-                version: '1.0',
+                version: '2.0',
                 biomes: presentBiomes,
                 bounds: {
                     min: [this.bounds.minX, this.bounds.minZ],
@@ -356,12 +374,20 @@ export class MapGenerator {
      * Convert internal entities to map format
      */
     private convertEntities(entities: PlacedEntity[]): GeneratedMap['entities'] {
-        return entities.map(e => {
+        return entities.map((e, index) => {
+            const inferredBiome = e.template.biomes && e.template.biomes.length > 0 ? e.template.biomes[0] : undefined;
             const base: GeneratedMap['entities'][0] = {
+                id: `${e.type}_${index}`,
                 type: e.type,
                 position: [e.x, e.y, e.z],
                 scale: e.scale,
-                rotation: e.rotation
+                rotation: {
+                    euler: [0, e.rotation, 0],
+                    order: 'YXZ'
+                },
+                category: this.inferCategory(e.type),
+                layer: this.inferLayer(e.type),
+                biome: inferredBiome
             };
 
             // Add mushroom-specific properties
@@ -377,10 +403,33 @@ export class MapGenerator {
             // Add cloud-specific properties
             if (e.type === 'cloud') {
                 base.variant = 'floating';
+                base.params = { size: Math.max(1, e.scale) };
             }
 
             return base;
         });
+    }
+
+    private inferCategory(type: string): string {
+        if (type === 'tree' || type === 'bubble_willow' || type === 'portamento_pine') return 'mushroom-trees';
+        if (type === 'mushroom' || type === 'retrigger_mushroom') return 'face-mushrooms';
+        if (type === 'rock') return 'rocks';
+        if (type === 'cloud') return 'clouds';
+        if (
+            type === 'arpeggio_fern' ||
+            type === 'vibrato_violet' ||
+            type === 'tremolo_tulip' ||
+            type === 'kick_drum_geyser' ||
+            type === 'subwoofer_lotus'
+        ) return 'musical-flora';
+        if (type === 'floating_orb' || type === 'silence_spirit') return 'interactive';
+        return 'decorative';
+    }
+
+    private inferLayer(type: string): string {
+        if (type === 'cloud') return 'sky';
+        if (type === 'floating_orb' || type === 'silence_spirit') return 'interactive';
+        return 'ground';
     }
 
     /**

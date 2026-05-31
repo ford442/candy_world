@@ -13,6 +13,7 @@ import { attribute } from 'three/tsl';
 import { foliageGroup } from '../world/state.ts';
 import { getIcosahedronGeometry } from '../utils/geometry-dedup.ts';
 import { uSkyDarkness, uTwilight } from './sky.ts';
+import { BiomeUniforms } from '../systems/biome-uniforms.ts';
 
 // --- Global Uniforms (Moved from clouds.js) ---
 export const uCloudRainbowIntensity = uniform(0.0);
@@ -164,7 +165,8 @@ function createCloudMaterial() {
     const ambientTint = mix(dayTint, nightTint, uTwilight.mul(0.7)); // 0.7 intensity
 
     // Final Color Composition
-    const finalColor = texturedColor.mul(ambientTint).mul(stormDarkness);
+    const lakeTint = mix(color(0xFFFFFF), BiomeUniforms.lakeFeatures.noteColor, BiomeUniforms.lakeFeatures.hueShift.mul(0.35));
+    const finalColor = texturedColor.mul(ambientTint).mul(stormDarkness).mul(lakeTint);
 
     material.colorNode = finalColor;
 
@@ -379,4 +381,3 @@ export class CloudBatcher {
         }
     }
 }
-

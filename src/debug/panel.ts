@@ -18,6 +18,7 @@ export class DebugPanel {
   private panel: HTMLElement | null = null;
   private stageElements: Map<keyof DebugStages, HTMLElement> = new Map();
   private updateInterval: number | null = null;
+  private batcherStatsEl: HTMLElement | null = null;
 
   /**
    * Create and show the debug panel
@@ -92,6 +93,42 @@ export class DebugPanel {
     });
 
     panel.appendChild(stageList);
+
+    const actions = document.createElement('div');
+    actions.style.cssText = `
+      margin-top: 10px;
+      display: flex;
+      gap: 8px;
+    `;
+    actions.innerHTML = `
+      <button id="debug-export-map" style="
+        background: #103820;
+        border: 1px solid #37ff85;
+        color: #7dffaf;
+        padding: 4px 8px;
+        cursor: pointer;
+        font-size: 10px;
+        border-radius: 3px;
+      ">Export Map</button>
+    `;
+    panel.appendChild(actions);
+
+    // Batcher telemetry (live instances/capacity/VRAM estimate)
+    const batcherStats = document.createElement('div');
+    batcherStats.style.cssText = `
+      margin-top: 10px;
+      padding: 8px;
+      background: rgba(0, 40, 20, 0.35);
+      border: 1px solid rgba(55, 255, 133, 0.35);
+      border-radius: 4px;
+      font-size: 10px;
+      line-height: 1.35;
+      white-space: pre-wrap;
+      color: #9dffc3;
+    `;
+    batcherStats.textContent = 'Batcher Stats: waiting for world init...';
+    this.batcherStatsEl = batcherStats;
+    panel.appendChild(batcherStats);
 
     // Instructions
     const instructions = document.createElement('div');
@@ -208,6 +245,30 @@ export class DebugPanel {
       });
     }
 
+    const exportBtn = document.getElementById('debug-export-map');
+    if (exportBtn) {
+      exportBtn.addEventListener('click', async () => {
+        if (!window.exportCurrentWorldToMap) {
+          console.warn('[DebugPanel] exportCurrentWorldToMap is not available yet');
+          return;
+        }
+        exportBtn.setAttribute('disabled', 'true');
+        try {
+          const result = await window.exportCurrentWorldToMap({
+            download: true,
+            fileName: 'canonical-part1-map.json',
+            sourceLabel: 'debug-panel-export',
+            includeInstancedFallback: true
+          });
+          console.log(`[DebugPanel] Exported ${result.stats.totalEntities} entities.`);
+        } catch (error) {
+          console.error('[DebugPanel] Failed to export map:', error);
+        } finally {
+          exportBtn.removeAttribute('disabled');
+        }
+      });
+    }
+
     // Keyboard shortcut to toggle panel (D key)
     document.addEventListener('keydown', (e) => {
       if (e.key === 'd' || e.key === 'D') {
@@ -284,6 +345,32 @@ export class DebugPanel {
         row.style.cursor = 'help';
       }
     });
+
+    this.updateBatcherStats();
+  }
+
+  private updateBatcherStats(): void {
+    if (!this.batcherStatsEl) return;
+    const provider = window.__getBatcherTelemetry;
+    if (!provider) {
+      this.batcherStatsEl.textContent = 'Batcher Stats: unavailable';
+      return;
+    }
+    const telemetry = provider();
+    const topEntries = telemetry.entries
+      .slice()
+      .sort((a, b) => b.instances - a.instances)
+      .slice(0, 5);
+    const bytesToMb = (bytes: number): string => `${(bytes / (1024 * 1024)).toFixed(2)}MB`;
+    const rows = topEntries.map((entry) => {
+      const utilization = entry.capacity > 0 ? (entry.instances / entry.capacity) * 100 : 0;
+      return `${entry.label.padEnd(18)} ${String(entry.instances).padStart(4)}/${String(entry.capacity).padEnd(4)} ${utilization.toFixed(0).padStart(3)}%`;
+    });
+    this.batcherStatsEl.textContent =
+      `Batcher Stats\n` +
+      `Instances: ${telemetry.totalInstances}/${telemetry.totalCapacity}  Draws: ${telemetry.totalDrawCalls}\n` +
+      `Est. VRAM: ${bytesToMb(telemetry.totalEstimatedVramBytes)}\n` +
+      rows.join('\n');
   }
 
   /**

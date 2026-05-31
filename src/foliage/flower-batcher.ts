@@ -14,6 +14,7 @@ import { CONFIG } from '../core/config.ts';
 import { uTwilight } from './sky.ts';
 import { attribute, positionLocal, mix, color, float, sin, varyingProperty } from 'three/tsl';
 import { PlantPoseMachine } from './plant-pose-machine.ts';
+import { BiomeUniforms } from '../systems/biome-uniforms.ts';
 
 const MAX_FLOWERS = 1000; // Reduced from 5000 for WebGPU uniform buffer limits
 const MAX_PETALS = MAX_FLOWERS * 8; // Up to 8 petals per flower (reduced from 15 for WebGPU limits)
@@ -175,8 +176,9 @@ export class FlowerBatcher {
                 .mul(uTwilight)
                 .mul(float(CONFIG.glow.glowIntensityMax))
                 .mul(float(0.3).add(idlePulse));
+            const biomeTint = BiomeUniforms.musicalFlora.noteColor.mul(BiomeUniforms.musicalFlora.shimmer.mul(0.35));
 
-            mat.emissiveNode = audioRim.add(innerGlow).add(twilightGlowTint);
+            mat.emissiveNode = audioRim.add(innerGlow).add(twilightGlowTint).add(biomeTint);
 
             return mat;
         });

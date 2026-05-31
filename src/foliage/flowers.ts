@@ -24,8 +24,7 @@ import {
 import { color as tslColor, mix, float, positionLocal, uv, vec2, sub, mul, add, sin, length, atan, atan2, smoothstep, vec3 } from 'three/tsl';
 import { uTwilight } from './sky.ts';
 import { lanternBatcher } from './lantern-batcher.ts';
-import { simpleFlowerBatcher } from './simple-flower-batcher.ts'; // Kept for legacy compatibility if any
-import { glowingFlowerBatcher } from './glowing-flower-batcher.ts';
+import { simpleFlowerBatcher } from './simple-flower-batcher.ts';
 import { unlockSystem } from '../systems/unlocks.ts';
 import { makeInteractiveCylinder } from '../utils/interaction-utils.ts';
 import { treeBatcher } from './tree-batcher.ts';
@@ -106,7 +105,9 @@ export function createGlowingFlower(options: GlowingFlowerOptions = {}): THREE.G
 
     // Deferred Registration to Batcher
     group.userData.onPlacement = () => {
-        glowingFlowerBatcher.register(group, options);
+        // Consolidated path: use SimpleFlowerBatcher for glowing variant too,
+        // reducing active batcher/shader variants while keeping glow beam behavior.
+        simpleFlowerBatcher.register(group, { ...options, color, forceBeam: true });
         group.userData.onPlacement = null;
     };
 

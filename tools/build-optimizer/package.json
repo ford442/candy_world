@@ -13,6 +13,8 @@
     "optimize:split": "tsx src/code-splitting-strategy.ts",
     "budget": "tsx src/performance-budget.ts",
     "budget:check": "tsx src/performance-budget.ts --check",
+    "budget:batchers": "tsx src/batcher-budget.ts",
+    "budget:batchers:check": "tsx src/batcher-budget.ts --check",
     "report": "tsx src/generate-report.ts"
   },
   "dependencies": {

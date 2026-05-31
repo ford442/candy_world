@@ -1,12 +1,4 @@
 import * as THREE from 'three';
-import {
-    createMushroom, createGlowingFlower, createFlower, createSubwooferLotus,
-    createVineLadder, createVibratoViolet, createTremoloTulip, createKickDrumGeyser,
-    createRainingCloud, createArpeggioFern, createPortamentoPine, createCymbalDandelion,
-    createSnareTrap, createBubbleWillow, createHelixPlant, createBalloonBush,
-    createPanningPad, createSilenceSpirit, createInstrumentShrine, createMelodyMirror,
-    createRetriggerMushroom
-} from '../foliage/index.ts';
 import { createIntegratedPollen, createIntegratedSparks, registerIntegratedSystem } from '../particles/index.ts';
 import { animatedFoliage, cpuAnimatedFoliage } from './state.ts';
 import { globalBackgroundProcessor } from '../utils/background-processor.ts';
@@ -17,10 +9,13 @@ import { safeAddFoliage } from './generation-core.ts';
 import {
     ARPEGGIO_GROVE, LAKE_ISLAND, PROCEDURAL_ENTITY_COUNT, DEFAULT_PROCEDURAL_CHUNK_SIZE,
     ENTITY_BUDGET_MS, WeatherSystem, FoliageGrowthOptions, yieldControl,
-    getUnifiedGroundHeight, isPositionValid,
+    getUnifiedGroundHeight, isPositionValid, normalizeMapEntityType,
     ARPEGGIO_GROVE_FERN_COUNT, ARPEGGIO_GROVE_OUTER_COUNT,
     LAKE_ARPEGGIO_FERN_COUNT, LAKE_DANDELION_COUNT
 } from './generation-utils.ts';
+import { create, registerBuiltinWorldObjectTypes } from './foliage-registry.ts';
+
+registerBuiltinWorldObjectTypes();
 
 export /**
  * Populates the Arpeggio Grove set piece.
@@ -36,7 +31,8 @@ async function populateArpeggioGrove(weatherSystem: WeatherSystem): Promise<void
     const { centerX, centerZ, radius } = ARPEGGIO_GROVE;
 
     // Central feature: Subwoofer Lotus
-    const centralLotus = createSubwooferLotus({ scale: 1.5 });
+    const centralLotus = create('subwoofer_lotus', { scale: 1.5 });
+    if (!centralLotus) return;
     const centralY = getUnifiedGroundHeight(centerX, centerZ);
     centralLotus.position.set(centerX, centralY, centerZ);
     safeAddFoliage(centralLotus, false, 0, weatherSystem);
@@ -51,7 +47,8 @@ async function populateArpeggioGrove(weatherSystem: WeatherSystem): Promise<void
         const fz = centerZ + Math.sin(angle) * fernRadius;
         const fy = getUnifiedGroundHeight(fx, fz);
 
-        const fern = createArpeggioFern({ scale: 1.2 + Math.random() * 0.3 });
+        const fern = create('arpeggio_fern', { scale: 1.2 + Math.random() * 0.3 });
+        if (!fern) continue;
         fern.position.set(fx, fy, fz);
         fern.rotation.y = angle + Math.PI; // Face outward or inward? Let's say outward
         safeAddFoliage(fern, false, 0, weatherSystem);
@@ -68,12 +65,14 @@ async function populateArpeggioGrove(weatherSystem: WeatherSystem): Promise<void
         const oy = getUnifiedGroundHeight(ox, oz);
 
         if (i % 2 === 0) {
-            const geyser = createKickDrumGeyser({ maxHeight: 5.0 + Math.random() * 2.0 });
+            const geyser = create('kick_drum_geyser', { maxHeight: 5.0 + Math.random() * 2.0 });
+            if (!geyser) continue;
             geyser.position.set(ox, oy, oz);
             geyser.rotation.y = angle;
             safeAddFoliage(geyser, false, 1.0, weatherSystem);
         } else {
-            const violet = createVibratoViolet({ intensity: 1.5 });
+            const violet = create('vibrato_violet', { intensity: 1.5 });
+            if (!violet) continue;
             violet.position.set(ox, oy, oz);
             violet.rotation.y = Math.random() * Math.PI * 2;
             safeAddFoliage(violet, false, 0, weatherSystem);
@@ -90,7 +89,8 @@ async function populateArpeggioGrove(weatherSystem: WeatherSystem): Promise<void
         const fz = centerZ + Math.sin(randAngle) * randRadius;
         const fy = getUnifiedGroundHeight(fx, fz);
 
-        const flower = createGlowingFlower();
+        const flower = create('flower', { variant: 'glowing' });
+        if (!flower) continue;
         flower.position.set(fx, fy, fz);
         flower.rotation.y = Math.random() * Math.PI * 2;
         safeAddFoliage(flower, false, 0, weatherSystem);
@@ -112,11 +112,12 @@ function populateLakeIsland(weatherSystem: WeatherSystem): void {
     const { centerX, centerZ, radius, peakHeight } = LAKE_ISLAND;
 
     // Central feature: Large Retrigger Mushroom
-    const centralMushroom = createRetriggerMushroom({
+    const centralMushroom = create('retrigger_mushroom', {
         scale: 1.5,
         retriggerSpeed: 4,
         color: 0x00FFFF
     });
+    if (!centralMushroom) return;
     const centralY = getUnifiedGroundHeight(centerX, centerZ);
     centralMushroom.position.set(centerX, centralY, centerZ);
     makeInteractive(centralMushroom);
@@ -138,7 +139,8 @@ function populateLakeIsland(weatherSystem: WeatherSystem): void {
         const gz = centerZ + Math.sin(angle) * geyserRadius;
         const gy = getUnifiedGroundHeight(gx, gz);
 
-        const geyser = createKickDrumGeyser({ maxHeight: 4.0 + Math.random() * 2.0 });
+        const geyser = create('kick_drum_geyser', { maxHeight: 4.0 + Math.random() * 2.0 });
+        if (!geyser) continue;
         geyser.position.set(gx, gy, gz);
         geyser.rotation.y = angle + Math.PI; // Face outward
         safeAddFoliage(geyser, false, 1.0, weatherSystem);
@@ -154,8 +156,9 @@ function populateLakeIsland(weatherSystem: WeatherSystem): void {
         const fy = getUnifiedGroundHeight(fx, fz);
 
         const flower = i % 2 === 0
-            ? createVibratoViolet({ intensity: 1.2 })
-            : createTremoloTulip({ size: 1.2 });
+            ? create('vibrato_violet', { intensity: 1.2 })
+            : create('tremolo_tulip', { size: 1.2 });
+        if (!flower) continue;
         flower.position.set(fx, fy, fz);
         flower.rotation.y = Math.random() * Math.PI * 2;
         safeAddFoliage(flower, false, 0, weatherSystem);
@@ -171,7 +174,8 @@ function populateLakeIsland(weatherSystem: WeatherSystem): void {
         const fz = centerZ + Math.sin(randAngle) * randRadius;
         const fy = getUnifiedGroundHeight(fx, fz);
 
-        const fern = createArpeggioFern({ scale: 0.8 + Math.random() * 0.4 });
+        const fern = create('arpeggio_fern', { scale: 0.8 + Math.random() * 0.4 });
+        if (!fern) continue;
         fern.position.set(fx, fy, fz);
         fern.rotation.y = Math.random() * Math.PI * 2;
         safeAddFoliage(fern, false, 0, weatherSystem);
@@ -188,7 +192,8 @@ function populateLakeIsland(weatherSystem: WeatherSystem): void {
 
         // Only place if we're still above water
         if (dy > 1.6) {
-            const dandelion = createCymbalDandelion({ scale: 0.7 + Math.random() * 0.3 });
+            const dandelion = create('cymbal_dandelion', { scale: 0.7 + Math.random() * 0.3 });
+            if (!dandelion) continue;
             dandelion.position.set(dx, dy, dz);
             dandelion.rotation.y = Math.random() * Math.PI * 2;
             safeAddFoliage(dandelion, false, 0, weatherSystem);
@@ -203,7 +208,8 @@ function populateLakeIsland(weatherSystem: WeatherSystem): void {
         const tz = centerZ + Math.sin(angle) * (radius * 0.55);
         const ty = getUnifiedGroundHeight(tx, tz);
 
-        const trap = createSnareTrap({ scale: 0.9 });
+        const trap = create('snare_trap', { scale: 0.9 });
+        if (!trap) continue;
         trap.position.set(tx, ty, tz);
         trap.rotation.y = angle;
         safeAddFoliage(trap, true, 0.8, weatherSystem);
@@ -288,58 +294,90 @@ export async function populateProceduralExtras(
             let isObstacle = false;
             let radius = 0.5;
             let currentY = groundY;
+            let exportType: string | null = null;
+            let exportVariant: string | undefined;
+            let exportHasFace: boolean | undefined;
+            const exportParams: Record<string, unknown> = {};
 
             try {
                 if (rand < 0.3) {
-                     obj = Math.random() < 0.5 ? createFlower() : createGlowingFlower();
-                     obj.position.set(x, currentY, z);
+                     if (Math.random() < 0.5) {
+                        obj = create('flower');
+                         exportType = 'flower';
+                         exportVariant = 'simple';
+                     } else {
+                        obj = create('flower', { variant: 'glowing' });
+                         exportType = 'flower';
+                         exportVariant = 'glowing';
+                     }
+                     if (obj) obj.position.set(x, currentY, z);
                 }
                 else if (rand < 0.45) {
-                     obj = createMushroom({
+                    obj = create('mushroom', {
                          size: 'regular',
                          scale: 0.8 + Math.random() * 0.5,
                          hasFace: true,
                          isBouncy: true
                      });
-                     obj.position.set(x, currentY, z);
+                     exportType = 'mushroom';
+                     exportVariant = 'regular';
+                     exportHasFace = true;
+                     if (obj) obj.position.set(x, currentY, z);
                      isObstacle = true;
                 }
                 else if (rand < 0.55) {
                      const treeType = Math.random();
-                     if (treeType < 0.33) obj = createBubbleWillow();
-                     else if (treeType < 0.66) obj = createBalloonBush();
-                     else obj = createHelixPlant();
+                     if (treeType < 0.33) {
+                         obj = create('bubble_willow');
+                         exportType = 'bubble_willow';
+                     } else if (treeType < 0.66) {
+                         obj = create('balloon_bush');
+                         exportType = 'balloon_bush';
+                     } else {
+                         obj = create('helix_plant');
+                         exportType = 'helix_plant';
+                     }
 
-                     obj.position.set(x, currentY, z);
+                     if (obj) obj.position.set(x, currentY, z);
                      isObstacle = true;
                      radius = 1.5;
                 }
                 else if (rand < 0.75) {
                      const type = Math.random();
                      if (type < 0.15) {
-                         obj = createArpeggioFern({ scale: 1.0 + Math.random() * 0.5 });
+                         obj = create('arpeggio_fern', { scale: 1.0 + Math.random() * 0.5 });
+                         exportType = 'arpeggio_fern';
                      } else if (type < 0.28) {
-                         obj = createKickDrumGeyser({ maxHeight: 5.0 + Math.random() * 3.0 });
+                         obj = create('kick_drum_geyser', { maxHeight: 5.0 + Math.random() * 3.0 });
+                         exportType = 'kick_drum_geyser';
                          radius = 1.0;
                      } else if (type < 0.40) {
-                         obj = createSnareTrap({ scale: 0.8 + Math.random() * 0.4 });
+                         obj = create('snare_trap', { scale: 0.8 + Math.random() * 0.4 });
+                         exportType = 'snare_trap';
                          isObstacle = true;
                          radius = 0.8;
                      } else if (type < 0.50) {
-                         obj = createRetriggerMushroom({ scale: 0.8 + Math.random() * 0.4, retriggerSpeed: 2 + Math.floor(Math.random() * 6) });
+                         obj = create('retrigger_mushroom', { scale: 0.8 + Math.random() * 0.4, retriggerSpeed: 2 + Math.floor(Math.random() * 6) });
+                         exportType = 'retrigger_mushroom';
                      } else if (type < 0.60) {
-                         obj = createPortamentoPine({ height: 4.0 + Math.random() * 2.0 });
+                         obj = create('portamento_pine', { height: 4.0 + Math.random() * 2.0 });
+                         exportType = 'portamento_pine';
                          isObstacle = true;
                          radius = 0.5;
                      } else if (type < 0.75) {
-                         obj = createTremoloTulip({ size: 1.0 + Math.random() * 0.5 });
+                         obj = create('tremolo_tulip', { size: 1.0 + Math.random() * 0.5 });
+                         exportType = 'tremolo_tulip';
                      } else if (type < 0.85) {
-                         obj = createCymbalDandelion({ scale: 0.8 + Math.random() * 0.4 });
+                         obj = create('cymbal_dandelion', { scale: 0.8 + Math.random() * 0.4 });
+                         exportType = 'cymbal_dandelion';
                      } else {
                          const panBias = x < 0 ? -1 : 1;
-                         obj = createPanningPad({ radius: 1.2 + Math.random(), panBias });
+                         const padRadius = 1.2 + Math.random();
+                         obj = create('panning_pad', { radius: padRadius, panBias });
+                         exportType = 'panning_pad';
+                         exportParams.radius = padRadius;
                          currentY = groundY + 0.5;
-                         obj.position.y = currentY;
+                         if (obj) obj.position.y = currentY;
                      }
                      if (obj) obj.position.set(x, currentY, z);
                 }
@@ -348,42 +386,78 @@ export async function populateProceduralExtras(
                      const tierRoll = Math.random();
                      if (tierRoll < 0.35) {
                          currentY = 35 + Math.random() * 20;
-                         obj = createRainingCloud({ size: 1.5 + Math.random() * 0.8 });
-                         obj.userData.tier = 1;
-                         obj.userData.isWalkable = true;
+                         const cloudSize = 1.5 + Math.random() * 0.8;
+                         obj = create('cloud', { size: cloudSize });
+                         exportType = 'cloud';
+                         exportParams.size = cloudSize;
+                         exportParams.tier = 1;
+                         if (obj) {
+                             obj.userData.tier = 1;
+                             obj.userData.isWalkable = true;
+                         }
                          if (Math.random() < 0.3) {
                              const ladderLength = currentY - groundY;
                              if (ladderLength > 5) {
-                                 const ladder = createVineLadder({ length: ladderLength });
-                                 ladder.position.set(x, currentY, z);
-                                 safeAddFoliage(ladder, false, 0, weatherSystem);
+                                 const ladder = create('vine_ladder', { length: ladderLength });
+                                 if (ladder) {
+                                     ladder.userData.mapEntityType = 'vine_ladder';
+                                     ladder.userData.mapExport = {
+                                         type: 'vine_ladder',
+                                         provenance: 'procedural-extra',
+                                         placement: 'absolute',
+                                         params: { length: ladderLength }
+                                     };
+                                     ladder.position.set(x, currentY, z);
+                                     safeAddFoliage(ladder, false, 0, weatherSystem);
+                                 }
                              }
                          }
                      } else {
                          currentY = 12 + Math.random() * 16;
-                         obj = createRainingCloud({ size: 0.8 + Math.random() * 0.6 });
-                         obj.userData.tier = 2;
-                         obj.userData.isWalkable = false;
+                         const cloudSize = 0.8 + Math.random() * 0.6;
+                         obj = create('cloud', { size: cloudSize });
+                         exportType = 'cloud';
+                         exportParams.size = cloudSize;
+                         exportParams.tier = 2;
+                         if (obj) {
+                             obj.userData.tier = 2;
+                             obj.userData.isWalkable = false;
+                         }
                      }
-                     obj.position.set(x, currentY, z);
+                     if (obj) obj.position.set(x, currentY, z);
                  }
                  else if (rand < 0.95) {
-                     obj = createSilenceSpirit();
-                     obj.position.set(x, currentY, z);
+                    obj = create('silence_spirit');
+                     exportType = 'silence_spirit';
+                     if (obj) obj.position.set(x, currentY, z);
                  }
                  else if (rand < 0.97) {
-                     obj = createMelodyMirror({ scale: 2.0 });
-                     obj.position.set(x, groundY + 15 + Math.random() * 10, z);
+                    obj = create('melody_mirror', { scale: 2.0 });
+                     exportType = 'melody_mirror';
+                     if (obj) obj.position.set(x, groundY + 15 + Math.random() * 10, z);
                  }
              else {
                  const id = Math.floor(Math.random() * 16);
-                 obj = createInstrumentShrine({ instrumentID: id });
-                 obj.position.set(x, currentY, z);
+                 obj = create('instrument_shrine', { instrumentID: id });
+                 exportType = 'instrument_shrine';
+                 exportVariant = String(id);
+                 exportParams.instrumentID = id;
+                 if (obj) obj.position.set(x, currentY, z);
                  isObstacle = true;
             }
 
             if (obj) {
                 obj.rotation.y = Math.random() * Math.PI * 2;
+                const normalizedExportType = normalizeMapEntityType(exportType ?? obj.userData?.type ?? '');
+                obj.userData.mapEntityType = normalizedExportType;
+                obj.userData.mapExport = {
+                    type: normalizedExportType,
+                    provenance: 'procedural-extra',
+                    variant: exportVariant,
+                    hasFace: exportHasFace,
+                    placement: normalizedExportType === 'cloud' ? 'absolute' : 'ground',
+                    params: Object.keys(exportParams).length > 0 ? exportParams : undefined
+                };
                 safeAddFoliage(obj, isObstacle, radius, weatherSystem);
             }
             } catch (e) {
@@ -428,7 +502,8 @@ export async function populateProceduralExtras(
     // area around the player before filling in the far horizon.
     deferredItems.sort((a, b) => a.distSq - b.distSq);
     for (const item of deferredItems) {
-        globalBackgroundProcessor.enqueue({ id: item.id, execute: item.execute });
+        const priority = Math.max(1, 60 - Math.floor(Math.sqrt(item.distSq) / 4));
+        globalBackgroundProcessor.enqueue({ id: item.id, execute: item.execute, priority });
     }
 
     console.log(`[World] Procedural Extras: ${criticalCount} critical spawned, ${deferredItems.length} deferred (sorted near-first).`);
@@ -472,13 +547,9 @@ export function spawnNearbyFoliage(origin: THREE.Vector3, type: string, options:
 
         if (valid) {
             const groundY = getUnifiedGroundHeight(nx, nz);
-            let obj: THREE.Object3D | null = null;
-
-            if (type === 'flower') {
-                obj = createFlower();
-            } else if (type === 'mushroom') {
-                obj = createMushroom({ size: 'regular', scale: 0.8 });
-            }
+            const obj = type === 'mushroom'
+                ? create('mushroom', { size: 'regular', scale: 0.8 })
+                : create(type);
 
             if (obj) {
                 obj.position.set(nx, groundY, nz);

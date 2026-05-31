@@ -238,6 +238,43 @@ npm run generate:map \
   --output ./assets/map_custom.json
 ```
 
+## Canonical World Capture (WYSIWYG Export)
+
+To preserve the exact hand-tuned beauty of Part I as a canonical data map, use the live-world exporter.
+
+### Runtime export (dev mode)
+
+1. Boot the game in dev mode (`npm run dev`).
+2. Enter **Full Game** so map + deferred population finishes.
+3. Export using either:
+   - Debug panel **Export Map** button (when `?debug=1`), or
+   - Browser console:
+
+```js
+await window.exportCurrentWorldToMap({
+  download: true,
+  fileName: 'canonical-part1-map.json',
+  includeInstancedFallback: true
+});
+```
+
+This traversal is read-only and captures logical placements (including batched proxies) plus safe instanced fallbacks.
+
+### CLI export (headless)
+
+```bash
+npm run export:map
+```
+
+Default outputs:
+
+- `assets/canonical-part1-map.json` (pretty)
+- `assets/canonical-part1-map.min.json` (compact)
+- `assets/canonical-part1-map-preview.png` (screenshot)
+- `assets/canonical-part1-map-preview.svg` (top-down preview)
+
+The CLI flow boots the world, waits for full deferred population, calls the runtime exporter, validates the exported entities with the existing map validator, and runs a loader round-trip check.
+
 ### Output
 
 ```

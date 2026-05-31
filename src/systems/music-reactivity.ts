@@ -13,20 +13,40 @@ import { BiomeUniforms, SkyUniforms, LuminousPlantUniforms } from './biome-unifo
 import { uTwilight } from '../foliage/sky.ts';
 import { BeatSync } from '../audio/beat-sync.ts';
 import musicBindings from '../../assets/music-bindings.json';
+import { getMapMusicContext } from '../world/map-music-context.ts';
+import type { MapMusicOverrides } from '../world/map-loader.ts';
 
 // ⚡ OPTIMIZATION: Pre-parsed channel index arrays from music-bindings.json.
 // Resolved once at module init — immutable after that, zero per-frame allocations.
-const _arpeggioShimmerCh: readonly number[] = musicBindings.biomes.arpeggio_grove.shimmer;
-const _arpeggioHueShiftCh: readonly number[] = musicBindings.biomes.arpeggio_grove.hueShift;
-const _arpeggioNoteColorCh: readonly number[] = musicBindings.biomes.arpeggio_grove.noteColor;
-const _nebulaShimmerCh: readonly number[] = musicBindings.biomes.crystalline_nebula.shimmer;
-const _nebulaAmplitudeCh: readonly number[] = musicBindings.biomes.crystalline_nebula.amplitudeScale;
-const _nebulaNoteColorCh: readonly number[] = musicBindings.biomes.crystalline_nebula.noteColor;
-const _skyMoonNoteColorCh: readonly number[] = musicBindings.biomes.sky_moon.noteColor;
-const _skyMoonIntensityCh: readonly number[] = musicBindings.biomes.sky_moon.intensity;
-const _globalShimmerCh: readonly number[] = musicBindings.biomes.global.shimmer;
-const _globalHueShiftCh: readonly number[] = musicBindings.biomes.global.hueShift;
-const _globalNoteColorCh: readonly number[] = musicBindings.biomes.global.noteColor;
+const _defaultArpeggioShimmerCh: readonly number[] = musicBindings.biomes.arpeggio_grove.shimmer;
+const _defaultArpeggioHueShiftCh: readonly number[] = musicBindings.biomes.arpeggio_grove.hueShift;
+const _defaultArpeggioNoteColorCh: readonly number[] = musicBindings.biomes.arpeggio_grove.noteColor;
+const _defaultNebulaShimmerCh: readonly number[] = musicBindings.biomes.crystalline_nebula.shimmer;
+const _defaultNebulaAmplitudeCh: readonly number[] = musicBindings.biomes.crystalline_nebula.amplitudeScale;
+const _defaultNebulaNoteColorCh: readonly number[] = musicBindings.biomes.crystalline_nebula.noteColor;
+const _defaultSkyMoonNoteColorCh: readonly number[] = musicBindings.biomes.sky_moon.noteColor;
+const _defaultSkyMoonIntensityCh: readonly number[] = musicBindings.biomes.sky_moon.intensity;
+const _defaultGlobalShimmerCh: readonly number[] = musicBindings.biomes.global.shimmer;
+const _defaultGlobalHueShiftCh: readonly number[] = musicBindings.biomes.global.hueShift;
+const _defaultGlobalNoteColorCh: readonly number[] = musicBindings.biomes.global.noteColor;
+
+let _arpeggioShimmerCh: readonly number[] = _defaultArpeggioShimmerCh;
+let _arpeggioHueShiftCh: readonly number[] = _defaultArpeggioHueShiftCh;
+let _arpeggioNoteColorCh: readonly number[] = _defaultArpeggioNoteColorCh;
+let _nebulaShimmerCh: readonly number[] = _defaultNebulaShimmerCh;
+let _nebulaAmplitudeCh: readonly number[] = _defaultNebulaAmplitudeCh;
+let _nebulaNoteColorCh: readonly number[] = _defaultNebulaNoteColorCh;
+let _skyMoonNoteColorCh: readonly number[] = _defaultSkyMoonNoteColorCh;
+let _skyMoonIntensityCh: readonly number[] = _defaultSkyMoonIntensityCh;
+let _globalShimmerCh: readonly number[] = _defaultGlobalShimmerCh;
+let _globalHueShiftCh: readonly number[] = _defaultGlobalHueShiftCh;
+let _globalNoteColorCh: readonly number[] = _defaultGlobalNoteColorCh;
+
+let _arpeggioIntensityScale = 1.0;
+let _nebulaIntensityScale = 1.0;
+let _globalIntensityScale = 1.0;
+let _skyMoonIntensityScale = 1.0;
+let _luminousIntensityScale = 1.0;
 
 // ⚡ OPTIMIZATION: Per-frame scratch floats — no per-frame object allocations.
 let _arpeggioShimmerAccum = 0.0;
@@ -53,7 +73,10 @@ const _skyMoonConfig = (musicBindings as any).sky_moon;
 if (!_skyMoonConfig || typeof _skyMoonConfig.melody_channel !== 'number') {
     throw new Error('[MusicReactivity] Missing or invalid sky_moon.melody_channel in music-bindings.json');
 }
-const _skyMoonCh: number = _skyMoonConfig.melody_channel as number;
+const _defaultSkyMoonMelodyCh: number = _skyMoonConfig.melody_channel as number;
+let _skyMoonCh: number = _defaultSkyMoonMelodyCh;
+const _defaultLuminousPlantTrackerChannel: number = (musicBindings as any).luminous_plants?.tracker_channel ?? 2;
+let _luminousPlantTrackerChannel: number = _defaultLuminousPlantTrackerChannel;
 let _smoothedSkyIntensity = 0.0;
 // Last valid note index (0–127) kept across frames to avoid flicker when channel is silent.
 let _lastSkyNoteIndex = 0.0;
@@ -83,16 +106,29 @@ export const WeatherMusicTargets = { rainIntensity: 0, thunderPulse: 0, fogDensi
 // Decay rate for WeatherMusicTargets when feature is disabled (~200 ms time constant)
 const WEATHER_TARGET_DECAY_RATE = 5.0;
 
-const _weatherBindings: {
+const _defaultWeatherBindings: {
     rainIntensity?: WeatherReactivityBinding;
     thunderPulse?: WeatherReactivityBinding;
     fogDensity?: WeatherReactivityBinding;
 } = (musicBindings as any).weatherReactivity ?? {};
+let _weatherBindings: {
+    rainIntensity?: WeatherReactivityBinding;
+    thunderPulse?: WeatherReactivityBinding;
+    fogDensity?: WeatherReactivityBinding;
+} = {
+    rainIntensity: _defaultWeatherBindings.rainIntensity ? { ..._defaultWeatherBindings.rainIntensity } : undefined,
+    thunderPulse: _defaultWeatherBindings.thunderPulse ? { ..._defaultWeatherBindings.thunderPulse } : undefined,
+    fogDensity: _defaultWeatherBindings.fogDensity ? { ..._defaultWeatherBindings.fogDensity } : undefined,
+};
 
 // ⚡ SKY WAVE config from music-bindings.json
 const _skyWaveConfig = (musicBindings as any).sky_wave;
-const _skyWavePropagationMs = _skyWaveConfig?.propagation_ms ?? 800;
-const _skyWaveDecayMs = _skyWaveConfig?.decay_ms ?? 2000;
+const _defaultSkyWavePropagationMs = _skyWaveConfig?.propagation_ms ?? 800;
+const _defaultSkyWaveDecayMs = _skyWaveConfig?.decay_ms ?? 2000;
+const _defaultSkyWaveTargets: readonly string[] = _skyWaveConfig?.target_biomes ?? ['arpeggio_grove', 'crystalline_nebula', 'luminous_plants', 'sky_moon', 'global', 'musical_flora', 'lake_features'];
+let _skyWavePropagationMs = _defaultSkyWavePropagationMs;
+let _skyWaveDecayMs = _defaultSkyWaveDecayMs;
+let _skyWaveTargets: readonly string[] = _defaultSkyWaveTargets;
 
 // Map from sky_wave.target_biomes keys (in music-bindings.json) → the Color uniform to receive the propagating hue.
 // This makes the wave fully data-driven. Adding a new target = add key here + entry in JSON list.
@@ -117,6 +153,131 @@ let _waveDecayStartTime = 0;
 
 // One-time validation flag for channel range checks against music-bindings.json
 let _channelValidationDone = false;
+let _appliedMapMusicVersion = -1;
+
+function toChannels(value: unknown): readonly number[] | undefined {
+    if (!Array.isArray(value) || value.length === 0) return undefined;
+    const sanitized: number[] = [];
+    for (let i = 0; i < value.length; i++) {
+        const channel = value[i];
+        if (Number.isInteger(channel) && channel >= 0 && channel <= 255) sanitized.push(channel as number);
+    }
+    return sanitized.length > 0 ? sanitized : undefined;
+}
+
+function applyMapMusicContext(overrides: MapMusicOverrides | undefined): void {
+    _arpeggioShimmerCh = _defaultArpeggioShimmerCh;
+    _arpeggioHueShiftCh = _defaultArpeggioHueShiftCh;
+    _arpeggioNoteColorCh = _defaultArpeggioNoteColorCh;
+    _nebulaShimmerCh = _defaultNebulaShimmerCh;
+    _nebulaAmplitudeCh = _defaultNebulaAmplitudeCh;
+    _nebulaNoteColorCh = _defaultNebulaNoteColorCh;
+    _skyMoonNoteColorCh = _defaultSkyMoonNoteColorCh;
+    _skyMoonIntensityCh = _defaultSkyMoonIntensityCh;
+    _globalShimmerCh = _defaultGlobalShimmerCh;
+    _globalHueShiftCh = _defaultGlobalHueShiftCh;
+    _globalNoteColorCh = _defaultGlobalNoteColorCh;
+
+    _arpeggioIntensityScale = 1.0;
+    _nebulaIntensityScale = 1.0;
+    _globalIntensityScale = 1.0;
+    _skyMoonIntensityScale = 1.0;
+    _luminousIntensityScale = 1.0;
+
+    _skyMoonCh = _defaultSkyMoonMelodyCh;
+    _luminousPlantTrackerChannel = _defaultLuminousPlantTrackerChannel;
+
+    _weatherBindings = {
+        rainIntensity: _defaultWeatherBindings.rainIntensity ? { ..._defaultWeatherBindings.rainIntensity } : undefined,
+        thunderPulse: _defaultWeatherBindings.thunderPulse ? { ..._defaultWeatherBindings.thunderPulse } : undefined,
+        fogDensity: _defaultWeatherBindings.fogDensity ? { ..._defaultWeatherBindings.fogDensity } : undefined,
+    };
+    _skyWavePropagationMs = _defaultSkyWavePropagationMs;
+    _skyWaveDecayMs = _defaultSkyWaveDecayMs;
+    _skyWaveTargets = _defaultSkyWaveTargets;
+
+    const biomeOverrides = overrides?.biomes;
+    if (biomeOverrides && typeof biomeOverrides === 'object') {
+        const arpeggio = biomeOverrides.arpeggio_grove;
+        const nebula = biomeOverrides.crystalline_nebula;
+        const skyMoon = biomeOverrides.sky_moon;
+        const global = biomeOverrides.global;
+        if (arpeggio) {
+            _arpeggioShimmerCh = toChannels(arpeggio.shimmer) ?? _arpeggioShimmerCh;
+            _arpeggioHueShiftCh = toChannels(arpeggio.hueShift) ?? _arpeggioHueShiftCh;
+            _arpeggioNoteColorCh = toChannels(arpeggio.noteColor) ?? _arpeggioNoteColorCh;
+            if (typeof arpeggio.intensityScale === 'number' && Number.isFinite(arpeggio.intensityScale)) {
+                _arpeggioIntensityScale = arpeggio.intensityScale;
+            }
+        }
+        if (nebula) {
+            _nebulaShimmerCh = toChannels(nebula.shimmer) ?? _nebulaShimmerCh;
+            _nebulaAmplitudeCh = toChannels(nebula.amplitudeScale) ?? _nebulaAmplitudeCh;
+            _nebulaNoteColorCh = toChannels(nebula.noteColor) ?? _nebulaNoteColorCh;
+            if (typeof nebula.intensityScale === 'number' && Number.isFinite(nebula.intensityScale)) {
+                _nebulaIntensityScale = nebula.intensityScale;
+            }
+        }
+        if (skyMoon) {
+            _skyMoonNoteColorCh = toChannels(skyMoon.noteColor) ?? _skyMoonNoteColorCh;
+            _skyMoonIntensityCh = toChannels(skyMoon.intensity) ?? _skyMoonIntensityCh;
+            if (typeof skyMoon.intensityScale === 'number' && Number.isFinite(skyMoon.intensityScale)) {
+                _skyMoonIntensityScale = skyMoon.intensityScale;
+            }
+        }
+        if (global) {
+            _globalShimmerCh = toChannels(global.shimmer) ?? _globalShimmerCh;
+            _globalHueShiftCh = toChannels(global.hueShift) ?? _globalHueShiftCh;
+            _globalNoteColorCh = toChannels(global.noteColor) ?? _globalNoteColorCh;
+            if (typeof global.intensityScale === 'number' && Number.isFinite(global.intensityScale)) {
+                _globalIntensityScale = global.intensityScale;
+            }
+        }
+    }
+
+    if (typeof overrides?.skyMoon?.melodyChannel === 'number' && Number.isInteger(overrides.skyMoon.melodyChannel)) {
+        _skyMoonCh = overrides.skyMoon.melodyChannel;
+    }
+    if (typeof overrides?.luminousPlants?.trackerChannel === 'number' && Number.isInteger(overrides.luminousPlants.trackerChannel)) {
+        _luminousPlantTrackerChannel = overrides.luminousPlants.trackerChannel;
+    }
+    if (typeof overrides?.luminousPlants?.baseIntensity === 'number' && Number.isFinite(overrides.luminousPlants.baseIntensity)) {
+        _luminousIntensityScale = overrides.luminousPlants.baseIntensity;
+    }
+    if (typeof overrides?.skyWave?.propagationMs === 'number' && Number.isFinite(overrides.skyWave.propagationMs)) {
+        _skyWavePropagationMs = Math.max(100, overrides.skyWave.propagationMs);
+    }
+    if (typeof overrides?.skyWave?.decayMs === 'number' && Number.isFinite(overrides.skyWave.decayMs)) {
+        _skyWaveDecayMs = Math.max(100, overrides.skyWave.decayMs);
+    }
+    if (Array.isArray(overrides?.skyWave?.targetBiomes) && overrides.skyWave.targetBiomes.length > 0) {
+        const filteredTargets = overrides.skyWave.targetBiomes.filter((name: string) => typeof name === 'string');
+        if (filteredTargets.length > 0) _skyWaveTargets = filteredTargets;
+    }
+    if (overrides?.weatherReactivity && typeof overrides.weatherReactivity === 'object') {
+        const keys: Array<'rainIntensity' | 'thunderPulse' | 'fogDensity'> = ['rainIntensity', 'thunderPulse', 'fogDensity'];
+        for (const key of keys) {
+            const current = _weatherBindings[key];
+            const override = overrides.weatherReactivity[key];
+            if (!override || typeof override !== 'object') continue;
+            const merged: WeatherReactivityBinding = {
+                channel: typeof override.channel === 'number' ? override.channel : current?.channel ?? 0,
+                smoothing: typeof override.smoothing === 'number' ? override.smoothing : current?.smoothing ?? 0.15,
+                scale: typeof override.scale === 'number' ? override.scale : current?.scale ?? 1.0,
+            };
+            _weatherBindings[key] = merged;
+        }
+    }
+
+    _channelValidationDone = false;
+}
+
+function syncMapMusicContext(): void {
+    const context = getMapMusicContext();
+    if (context.version === _appliedMapMusicVersion) return;
+    _appliedMapMusicVersion = context.version;
+    applyMapMusicContext(context.overrides);
+}
 
 // Helper to map MIDI note (0-127) to a color hue
 // Helper to map MIDI note (0-127) to a color using CONFIG.noteColorMap.sky
@@ -332,6 +493,7 @@ export class MusicReactivitySystem {
         isNight: boolean,
         isDeepNight: boolean
     ) {
+        syncMapMusicContext();
         // 1. Update Moon Animation
         this.updateMoon(time, deltaTime);
 
@@ -557,22 +719,22 @@ export class MusicReactivitySystem {
                 // Push to TSL uniforms — clamp sums to [0,1] then gate by night.
                 // Mutate .value in place: never reassign the uniform node itself.
                 BiomeUniforms.arpeggioGrove.shimmer.value =
-                    Math.min(_arpeggioShimmerAccum / Math.max(_arpeggioShimmerCh.length, 1), 1.0) * nightGate;
+                    Math.min(_arpeggioShimmerAccum / Math.max(_arpeggioShimmerCh.length, 1), 1.0) * nightGate * _arpeggioIntensityScale;
                 BiomeUniforms.arpeggioGrove.hueShift.value =
-                    Math.min(_arpeggioHueShiftAccum / Math.max(_arpeggioHueShiftCh.length, 1), 1.0) * nightGate;
+                    Math.min(_arpeggioHueShiftAccum / Math.max(_arpeggioHueShiftCh.length, 1), 1.0) * nightGate * _arpeggioIntensityScale;
                 BiomeUniforms.crystallineNebula.shimmer.value =
-                    Math.min(_nebulaShimmerAccum / Math.max(_nebulaShimmerCh.length, 1), 1.0) * nightGate;
+                    Math.min(_nebulaShimmerAccum / Math.max(_nebulaShimmerCh.length, 1), 1.0) * nightGate * _nebulaIntensityScale;
                 // amplitudeScale: 1.0 baseline + channel energy boost, gated by night
                 BiomeUniforms.crystallineNebula.amplitudeScale.value =
-                    1.0 + Math.min(_nebulaAmplitudeAccum / Math.max(_nebulaAmplitudeCh.length, 1), 1.0) * nightGate;
+                    1.0 + Math.min(_nebulaAmplitudeAccum / Math.max(_nebulaAmplitudeCh.length, 1), 1.0) * nightGate * _nebulaIntensityScale;
 
                 BiomeUniforms.global.shimmer.value =
-                    Math.min(_globalShimmerAccum / Math.max(_globalShimmerCh.length, 1), 1.0) * nightGate;
+                    Math.min(_globalShimmerAccum / Math.max(_globalShimmerCh.length, 1), 1.0) * nightGate * _globalIntensityScale;
                 BiomeUniforms.global.hueShift.value =
-                    Math.min(_globalHueShiftAccum / Math.max(_globalHueShiftCh.length, 1), 1.0) * nightGate;
+                    Math.min(_globalHueShiftAccum / Math.max(_globalHueShiftCh.length, 1), 1.0) * nightGate * _globalIntensityScale;
 
                 BiomeUniforms.skyMoon.moonIntensity.value =
-                    Math.min(_skyMoonIntensityAccum / Math.max(_skyMoonIntensityCh.length, 1), 1.0) * nightGate;
+                    Math.min(_skyMoonIntensityAccum / Math.max(_skyMoonIntensityCh.length, 1), 1.0) * nightGate * _skyMoonIntensityScale;
 
                 if (_skyMoonNoteVal > 0) {
                     mapNoteToColor(_skyMoonNoteVal, _targetMoonColor);
@@ -672,10 +834,8 @@ export class MusicReactivitySystem {
             // ⚡ LUMINOUS PLANTS (Scenic System)
             // Tracker channel defined in assets/music-bindings.json.
             // ---------------------------------------------------------------
-            if (musicBindings.luminous_plants) {
-                const lpChan = musicBindings.luminous_plants.tracker_channel || 2;
-                if (channels && lpChan < channels.length) {
-                    const lpData = channels[lpChan];
+            if (channels && _luminousPlantTrackerChannel < channels.length) {
+                    const lpData = channels[_luminousPlantTrackerChannel];
 
                     let dominantNote = 0;
                     let maxAmp = 0.0;
@@ -688,7 +848,7 @@ export class MusicReactivitySystem {
                     }
 
                     // Add a threshold
-                    const targetIntensity = maxAmp > 0.1 ? maxAmp : 0.0;
+                    const targetIntensity = maxAmp > 0.1 ? maxAmp * _luminousIntensityScale : 0.0;
 
                     // 1-pole IIR smoothing (Zero-allocation)
                     LuminousPlantUniforms.intensity.value += (targetIntensity - LuminousPlantUniforms.intensity.value) * 0.15;
@@ -698,7 +858,6 @@ export class MusicReactivitySystem {
                         // Map chromatic note index (0-11) across 128 LUT slots exactly like sky_moon
                         LuminousPlantUniforms.noteIndex.value = Math.min(Math.floor((dominantNote / 12) * 128), 127);
                     }
-                }
             }
             // Day guard: clamp intensity to 0 when daytime so sky/moon are unchanged.
             SkyUniforms.intensity.value = isNight ? Math.min(_smoothedSkyIntensity, 1.0) : 0.0;
@@ -718,7 +877,7 @@ export class MusicReactivitySystem {
         if (twilightVal > 0.1) {
             if (_activeWave) {
                 const elapsed = (performance.now() - _activeWave.timestamp) / _skyWavePropagationMs;
-                const targets: string[] = _skyWaveConfig?.target_biomes ?? ['arpeggio_grove', 'crystalline_nebula', 'luminous_plants', 'sky_moon', 'global', 'musical_flora', 'lake_features'];
+                const targets: readonly string[] = _skyWaveTargets;
 
                 let allComplete = true;
                 for (let i = 0; i < targets.length; i++) {
@@ -742,7 +901,7 @@ export class MusicReactivitySystem {
                 }
             } else if (_waveDecayStartTime > 0) {
                 const decayElapsed = performance.now() - _waveDecayStartTime;
-                const targets: string[] = _skyWaveConfig?.target_biomes ?? ['arpeggio_grove', 'crystalline_nebula', 'luminous_plants', 'sky_moon', 'global', 'musical_flora', 'lake_features'];
+                const targets: readonly string[] = _skyWaveTargets;
 
                 if (decayElapsed < _skyWaveDecayMs) {
                     for (const key of targets) {
@@ -764,7 +923,7 @@ export class MusicReactivitySystem {
                 _waveDecayStartTime = performance.now();
             }
             // Also gently clear any lingering wave color on targets (defensive)
-            const targets: string[] = _skyWaveConfig?.target_biomes ?? [];
+            const targets: readonly string[] = _skyWaveTargets;
             for (const key of targets) {
                 const uni = _skyWaveUniformMap[key];
                 if (uni) uni.value.lerp(_whiteColor, 0.04);

@@ -43,12 +43,30 @@
             backdrop-filter: blur(5px);
             transition: opacity 0.3s;
         }
+        #instructions::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            background: radial-gradient(circle at center, rgba(255, 255, 255, 0) 28%, rgba(255, 144, 186, 0.26) 100%);
+        }
+        .instructions-content {
+            position: relative;
+            z-index: 1;
+        }
         #instructions h1 {
             color: #FF6B6B;
             font-size: 3em;
             margin: 0 0 20px 0;
             text-shadow: 2px 2px 0px #fff;
             font-family: 'Fredoka One', cursive, sans-serif;
+        }
+        .dream-subtitle {
+            margin: -6px 0 18px;
+            color: #7f3f68;
+            font-size: 1.05rem;
+            text-shadow: 0 1px 0 rgba(255, 255, 255, 0.65);
+            letter-spacing: 0.02em;
         }
         .cta-button {
             font-size: 1.5em;
@@ -611,6 +629,7 @@
 <div id="instructions" role="dialog" aria-modal="true" aria-labelledby="instructions-title">
         <div class="instructions-content">
         <h1 id="instructions-title"><span aria-hidden="true">🍭</span> Candy World</h1>
+        <p class="dream-subtitle">Click to enter the dream. Press <kbd class="key">Esc</kbd> any time to pause.</p>
         <div id="nowPlayingContainer" class="now-playing-info" role="status" aria-live="polite" style="display: none;">
             <span class="music-note" aria-hidden="true">🎵</span> <span id="nowPlayingText"></span>
         </div>
@@ -666,12 +685,8 @@
             <div class="controls-section">
                 <h3 class="controls-header">Movement</h3>
                 <dl class="controls-list">
-                    <dt>
-                        <kbd class="key">W</kbd> / <kbd class="key">A</kbd> / <kbd class="key">S</kbd> / <kbd class="key">D</kbd>
-                        <span style="font-size: 0.9em; margin: 0 5px; color: #555;">or</span>
-                        <span class="mouse-icon right" aria-hidden="true"></span>Right Click
-                    </dt>
-                    <dd>Move Forward / Walk</dd>
+                    <dt><kbd class="key">W</kbd> / <kbd class="key">A</kbd> / <kbd class="key">S</kbd> / <kbd class="key">D</kbd></dt>
+                    <dd>Move through the world</dd>
 
                     <dt><kbd class="key">Shift</kbd></dt>
                     <dd>Hold to Sprint</dd>
@@ -720,7 +735,7 @@
                     <dd>Adjust Volume</dd>
 
                     <dt><span class="mouse-icon" aria-hidden="true"></span>Mouse</dt>
-                    <dd>Look Around</dd>
+                    <dd>Look Around (first-person)</dd>
                 </dl>
             </div>
         </div>

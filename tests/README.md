@@ -54,6 +54,8 @@ This test:
    - WebGPU is available (`navigator.gpu !== undefined`)
    - Canvas element exists and is sized (`width > 0`, `height > 0`)
 
+**Pointer-lock note**: current smoke coverage validates boot readiness (`window.__sceneReady`) but does not synthesize browser pointer-lock interactions in CI. For first-person flow checks, run manual verification in dev (`npm run dev`), click the world once to lock look, then press `Esc` and click canvas to relock.
+
 **Required browser flags**: `--enable-unsafe-webgpu`, `--enable-features=Vulkan,WebGPU`
 
 **Exit code**: `0` on pass, `1` on fail  

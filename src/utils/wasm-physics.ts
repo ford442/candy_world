@@ -44,6 +44,7 @@ let _batchGroundHeightCapacity = 0;
 
 
 const _scratchGatePos = new THREE.Vector3();
+const DYNAMIC_FERN_COLLIDER_RADIUS = 1.35;
 
 // =============================================================================
 // TYPE DEFINITIONS
@@ -276,7 +277,7 @@ export function uploadCollisionObjects(
                     batchData[ptr++] = f.position.x;
                     batchData[ptr++] = f.position.y;
                     batchData[ptr++] = f.position.z;
-                    batchData[ptr++] = 2.0; // Base non-dynamic radius fallback
+                    batchData[ptr++] = DYNAMIC_FERN_COLLIDER_RADIUS; // Base non-dynamic radius fallback
                     batchData[ptr++] = (f.userData.height || 4.5) * (f.scale.y || 1.0); // Height
                     batchData[ptr++] = i; // d3 / p1 (Dynamic ID index)
                     batchData[ptr++] = 0;
@@ -345,7 +346,7 @@ export function uploadCollisionObjects(
                 const f = arpeggioFerns[i];
                 if (f && f.userData && f.position && f.scale) {
                     wasmAddCollisionObject!(5, f.position.x, f.position.y, f.position.z,
-                        2.0, (f.userData.height || 4.5) * (f.scale.y || 1.0), i, 0, 0);
+                        DYNAMIC_FERN_COLLIDER_RADIUS, (f.userData.height || 4.5) * (f.scale.y || 1.0), i, 0, 0);
                 }
             }
         }

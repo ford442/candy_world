@@ -43,7 +43,7 @@ export interface PlayerExtended extends CorePlayerState {
 }
 
 // --- Configuration ---
-export const GRAVITY = 20.0;
+export const GRAVITY = 21.5;
 export const SWIMMING_GRAVITY = 2.0; // Much lower gravity in water
 export const SWIMMING_DRAG = 4.0;    // High friction in water
 export const PLAYER_HEIGHT_OFFSET = 1.8; // Height above ground
@@ -67,8 +67,8 @@ export type PlayerStateType = typeof PlayerState[keyof typeof PlayerState];
 export const player: PlayerExtended = {
     position: new THREE.Vector3(), // Shadowing camera position for WASM sync
     velocity: new THREE.Vector3(),
-    speed: 15.0,
-    sprintSpeed: 25.0,
+    speed: 14.0,
+    sprintSpeed: 22.5,
     sneakSpeed: 5.0,
     gravity: GRAVITY,
     energy: 0.0,

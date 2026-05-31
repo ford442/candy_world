@@ -10,7 +10,7 @@
 - **Procedural Generation**: Dynamic terrain, foliage placement, and environmental effects
 - **Audio Reactivity**: MOD/XM/IT/S3M music playback with visual reactivity
 - **Dynamic Weather**: Rain, storms, and atmospheric effects with seasonal cycles
-- **Interactive Gameplay**: First-person exploration with physics-based movement, abilities (dash, jitter mine, phase shift), and a tracker-pattern music HUD
+- **Interactive Gameplay**: First-person exploration with pointer-lock mouse look, WASD movement, abilities (dash, jitter mine, phase shift), and a tracker-pattern music HUD
 
 ---
 

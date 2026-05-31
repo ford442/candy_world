@@ -8,7 +8,7 @@ A 3D world of rudimentary, but sharp graphically nature - featuring smooth, glos
 - **Smooth, glossy graphics** - Rounded organic shapes with specular highlights
 - **Nature-themed candy world** - Trees, mushrooms with faces, and clouds
 - **Pastel color palette** - Soft greens, pinks, purples, and oranges inspired by candy aesthetics
-- **Orbit camera controls** - Mouse to look around and scroll to zoom
+- **First-person controls** - Pointer lock mouse look, WASD movement, and movement abilities
 - **Animated elements** - Mushrooms bounce and clouds drift across the sky
 - **3D perspective** - Proper depth rendering with WebGPU
 - **npm buildable** - Modern build system with Vite
@@ -62,8 +62,12 @@ npm run preview
 
 ## Controls
 
-- **Mouse Drag** - Look around the world (Left Click + Drag)
-- **Mouse Wheel** - Zoom in/out
+- **Click / Mouse** - Enter pointer-lock and look around in first-person
+- **W / A / S / D** - Move
+- **Shift** - Sprint
+- **Space** - Jump (double-jump supported)
+- **E / F / Z** - Dash / Jitter Mine / Phase Shift
+- **Esc** - Pause and release cursor
 
 ## Technical Details
 
@@ -80,7 +84,7 @@ npm run preview
   - Rolling hills with sine wave displacement
 - 30 trees, 20 animated mushrooms with faces, and 15 floating clouds
 - 300x300 unit terrain with fog effects
-- OrbitControls for smooth camera movement
+- PointerLockControls for immersive first-person camera movement
 - Vite build system for fast development and optimized production builds
 
 Enjoy wandering through this memorable 3D candy nature world!

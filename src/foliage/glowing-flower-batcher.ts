@@ -14,6 +14,7 @@ import {
 } from './index.ts';
 import { uTwilight } from './sky.ts';
 import { foliageGroup } from '../world/state.ts';
+import { BiomeUniforms } from '../systems/biome-uniforms.ts';
 
 // Use the instanced color varying populated by InstancedMeshNode
 const instanceColor = varyingProperty('vec3', 'vInstanceColor');
@@ -96,7 +97,8 @@ export class GlowingFlowerBatcher {
         // Base Emissive = Instance Color
         // Pulse = Audio High (Melody)
         const pulse = uAudioHigh.mul(1.5).add(0.5); // 0.5 to 2.0
-        const baseEmissive = instanceColor.mul(pulse);
+        const biomeTint = BiomeUniforms.musicalFlora.noteColor.mul(BiomeUniforms.musicalFlora.shimmer.mul(0.4));
+        const baseEmissive = instanceColor.mul(pulse).add(biomeTint);
 
         // Juicy Rim Light (Cyan/White edge)
         const rim = createJuicyRimLight(instanceColor, float(2.0), float(3.0), null);

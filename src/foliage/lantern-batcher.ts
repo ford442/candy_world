@@ -16,6 +16,7 @@ import { foliageGroup } from '../world/state.ts';
 import { getTorusGeometry, getConeGeometry } from '../utils/geometry-dedup.ts';
 import { CONFIG } from '../core/config.ts';
 import { uTwilight } from './sky.ts';
+import { BiomeUniforms } from '../systems/biome-uniforms.ts';
 
 const MAX_LANTERNS = 250; // Reduced from 1000 for WebGPU uniform buffer limits
 
@@ -204,8 +205,9 @@ export class LanternBatcher {
             .mul(uTwilight)
             .mul(float(CONFIG.glow.glowIntensityMax))
             .mul(float(0.4).add(idlePulse));
+        const biomeTint = BiomeUniforms.global.noteColor.mul(BiomeUniforms.global.shimmer.mul(0.35));
 
-        bulbMat.emissiveNode = finalColor.mul(totalIntensity).add(rim).add(twilightGlowTint);
+        bulbMat.emissiveNode = finalColor.mul(totalIntensity).add(rim).add(twilightGlowTint).add(biomeTint);
         bulbMat.colorNode = finalColor; // Also set base color
 
         // Create Mesh

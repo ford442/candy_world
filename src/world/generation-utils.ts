@@ -7,7 +7,8 @@ export const DEFAULT_PROCEDURAL_CHUNK_SIZE = 100;
 
 // Population numbers are now driven from CONFIG.world.population for easier tuning.
 // These are the effective values used by Full mode generation.
-const pop = CONFIG?.world?.population ?? {};
+const cfg = (typeof CONFIG !== 'undefined' ? CONFIG : undefined) as any;
+const pop = (cfg && cfg.world && cfg.world.population) ? cfg.world.population : {};
 let popScale = pop.scale ?? 1.0;
 
 // Runtime override for "Fast Full Mode" (chosen in the startup UI)
@@ -51,14 +52,37 @@ export const obstaclesData: {x: number, y: number, z: number, radius: number}[] 
 
 // Types
 export interface MapEntity {
+    id?: string;
     type: string;
     position: [number, number, number];
     variant?: string;
-    scale?: number;
+    scale?: number | [number, number, number];
+    rotation?: number | [number, number, number] | [number, number, number, number] | {
+        euler?: [number, number, number];
+        quat?: [number, number, number, number];
+        order?: string;
+    };
     size?: number | string;
     note?: string;
     noteIndex?: number;
     hasFace?: boolean;
+    category?: string;
+    layer?: string;
+    biome?: string;
+    placement?: 'ground' | 'absolute' | 'offset';
+    music?: {
+        biome?: string;
+        biomeTag?: string;
+        biomeOverride?: string;
+        channels?: number[];
+        intensityScale?: number;
+        trackerChannel?: number;
+        reactivityProfile?: string;
+        noteColorOverride?: string;
+    };
+    params?: Record<string, unknown>;
+    critical?: boolean;
+    isObstacle?: boolean;
 }
 
 export interface ObstacleData {
@@ -184,6 +208,33 @@ export function isPositionValid(x: number, z: number, radius: number): boolean {
     return true;
 }
 
+const TYPE_ALIASES: Record<string, string> = {
+    panningPad: 'panning_pad',
+    instrumentShrine: 'instrument_shrine',
+    kickDrumGeyser: 'kick_drum_geyser',
+    snareTrap: 'snare_trap',
+    subwooferLotus: 'subwoofer_lotus',
+    prismRoseBush: 'prism_rose_bush',
+    fiberOpticWillow: 'fiber_optic_willow',
+    bubbleWillow: 'bubble_willow',
+    portamentoPine: 'portamento_pine',
+    arpeggioFern: 'arpeggio_fern',
+    cymbalDandelion: 'cymbal_dandelion',
+    retriggerMushroom: 'retrigger_mushroom',
+    vibratoViolet: 'vibrato_violet',
+    tremoloTulip: 'tremolo_tulip',
+    floatingOrb: 'floating_orb',
+    swingableVine: 'swingable_vine',
+    vineLadder: 'vine_ladder',
+    wisteriaCluster: 'wisteria_cluster',
+    silenceSpirit: 'silence_spirit',
+    melodyMirror: 'melody_mirror'
+};
+
+export function normalizeMapEntityType(type: string): string {
+    return TYPE_ALIASES[type] ?? type;
+}
+
 // --- MAP GENERATION ---
 /**
  * Determine if an entity is critical for initial load (collision, physics, interaction)
@@ -195,16 +246,16 @@ export function isCriticalEntity(item: MapEntity | { type: string, isObstacle?: 
         'arpeggio_fern',
         'portamento_pine',
         'snare_trap',
-        'geyser',
+        'kick_drum_geyser',
         'trap',
-        'panningPad',
+        'panning_pad',
         'cloud',    // can be Walkable
         'vine_ladder',
-        'instrumentShrine',
+        'instrument_shrine',
         'waterfall'
     ];
 
-    if (criticalTypes.includes(item.type)) return true;
+    if (criticalTypes.includes(normalizeMapEntityType(item.type))) return true;
 
     // Explicit overrides
     if ((item as any).critical === true) return true;

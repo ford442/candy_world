@@ -19,6 +19,7 @@ import { attribute, color as tslColor, positionLocal, vec3, float, mx_noise_floa
 import { foliageGroup } from '../world/state.ts';
 import { CONFIG } from '../core/config.ts';
 import { uTwilight } from './sky.ts';
+import { BiomeUniforms } from '../systems/biome-uniforms.ts';
 
 // Use the instanced color varying populated by InstancedMeshNode
 const instanceColor = varyingProperty('vec3', 'vInstanceColor');
@@ -161,7 +162,8 @@ export class SimpleFlowerBatcher {
             .mul(uTwilight)
             .mul(float(CONFIG.glow.glowIntensityMax))
             .mul(float(0.3).add(idlePulse));
-        petalMat.emissiveNode = (petalMat.emissiveNode || tslColor(0x000000)).add(rim).add(glitter).add(touchColor).add(twilightGlowTint);
+        const biomeTint = BiomeUniforms.musicalFlora.noteColor.mul(BiomeUniforms.musicalFlora.shimmer.mul(0.35));
+        petalMat.emissiveNode = (petalMat.emissiveNode || tslColor(0x000000)).add(rim).add(glitter).add(touchColor).add(twilightGlowTint).add(biomeTint);
 
         // Center: Velvet (Brown) + Chain
         const centerMat = (foliageMaterials as any).flowerCenter.clone();
@@ -371,8 +373,9 @@ export class SimpleFlowerBatcher {
         // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
         headWorld.toArray(this.stamenMesh!.instanceMatrix.array, (i) * 16);
 
-        // Beam: Random chance
-        if (Math.random() > 0.5) {
+        // Beam: force for glowing variants, otherwise random chance for visual variety.
+        const forceBeam = options.forceBeam === true;
+        if (forceBeam || Math.random() > 0.5) {
             _scratchMat.makeScale(0.1, 1.0, 0.1);
             _scratchMat.premultiply(headWorld);
             // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt

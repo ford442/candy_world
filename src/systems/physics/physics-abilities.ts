@@ -36,7 +36,7 @@ export function handleAbilities(delta: number, camera: THREE.Camera, keyStates: 
 
     if (isJumpTriggered && !player.isGrounded && player.airJumpsLeft > 0) {
         // Apply Jump Force
-        player.velocity.y = 12.0;
+        player.velocity.y = 11.5;
         player.airJumpsLeft--;
 
         // Visual / Feedback
@@ -80,7 +80,7 @@ export function handleAbilities(delta: number, camera: THREE.Camera, keyStates: 
             player.velocity.y = 0;
         }
 
-        player.dashCooldown = 1.0; // 1 Second Cooldown
+        player.dashCooldown = 0.85; // Slightly snappier cadence
 
         // Visual Feedback
         spawnImpact(player.position, 'dash');

@@ -14,6 +14,7 @@ import {
 } from './index.ts';
 import { CONFIG } from '../core/config.ts';
 import { uTwilight } from './sky.ts';
+import { BiomeUniforms } from '../systems/biome-uniforms.ts';
 import {
     float, vec3, positionLocal, attribute, mix, sin, color,
     instanceIndex, normalLocal, step, length
@@ -207,7 +208,8 @@ export class DandelionBatcher {
                 .mul(uTwilight)
                 .mul(float(CONFIG.glow.glowIntensityMax))
                 .mul(float(0.3).add(idlePulse));
-            const goldEmissionWithTwilight = goldEmission.add(twilightGlowTint);
+            const biomeTint = BiomeUniforms.musicalFlora.noteColor.mul(BiomeUniforms.musicalFlora.shimmer.mul(0.3));
+            const goldEmissionWithTwilight = goldEmission.add(twilightGlowTint).add(biomeTint);
 
             // Mix: If Gold, use Emission. Else Black.
             m.emissiveNode = mix(vec3(0.0), goldEmissionWithTwilight.add(rim), isGold);

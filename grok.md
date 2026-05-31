@@ -12,7 +12,7 @@
 ## Technology Stack
 - **Rendering**: Three.js + WebGPU renderer (MeshPhysicalMaterial with clearcoat for candy surfaces)
 - **Build**: Vite + TypeScript
-- **Controls**: OrbitControls (mouse drag to look, scroll to zoom)
+- **Controls**: Pointer-lock first-person (click to lock, mouse look, WASD + abilities)
 - **Key Features**: Procedurally generated geometry, animated mushrooms, floating clouds, fog, rolling hills
 
 ## Key Files & Structure

@@ -28,6 +28,7 @@ import { initPostProcessing } from '../foliage/post-processing.ts';
 // World & System imports
 import { initCriticalWorld, initDeferredWorldContent, initWorld, initWorldCritical, initWorldContent, generateMap, populateWorld, WorldMode, DEFAULT_MAP_CHUNK_SIZE } from '../world/generation.ts';
 import { animatedFoliage, interactiveObjects } from '../world/state.ts';
+import { installWorldExportTools } from '../world/map-exporter.ts';
 import { fireRainbow } from '../gameplay/rainbow-blaster.ts';
 import { player, populatePhysicsGrids } from '../systems/physics/index.ts';
 
@@ -40,6 +41,7 @@ import { showDeferredIndicator, hideDeferredIndicator, setDeferredProgress } fro
 import { showModeBadge } from '../ui/mode-badge.ts';
 import { DeferredLoader, LoadPriority } from '../systems/deferred-loader.ts';
 import { initLoadingScreen, installLegacyAPI } from '../ui/loading-screen.ts';
+import { installBatcherTelemetry } from '../foliage/batcher-telemetry.ts';
 
 // Debug staging system
 import { StageLoader, showDebugError, initDebugPanel } from '../debug/index.ts';
@@ -111,6 +113,7 @@ enableStartupProfiler({
 
 // --- Initialize Debug Panel (if ?debug=1) ---
 initDebugPanel();
+installBatcherTelemetry();
 
 // --- Initialization Pipeline with Debug Staging ---
 
@@ -137,6 +140,7 @@ renderer = sceneInitResult.renderer;
 
 // Set global game object so playwright tests can interact with camera, etc
 (window as any).game = { camera, scene };
+installWorldExportTools();
 
 // Notify user if using WebGL fallback
 if (mode === 'webgl') {
@@ -320,7 +324,7 @@ window.addEventListener('keydown', (e) => {
         const key = e.key.toLowerCase();
         if (key === 'p') {
             profiler.toggle();
-        } else if (key === 'o') {
+        } else if (key === 'o' && !e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey) {
             // Toggle startup profiler overlay
             toggleOverlay();
         } else if (key === 'f') {
@@ -465,7 +469,7 @@ if (startButton) {
     startButton.setAttribute('aria-disabled', 'false');
     startButton.setAttribute('aria-busy', 'false');
     startButton.removeAttribute('title');
-    startButton.innerHTML = 'Enter Core World <span aria-hidden="true">🍭</span> <span class="key-badge" aria-hidden="true">Enter</span>';
+    startButton.innerHTML = 'Enter the Dream <span aria-hidden="true">🍭</span> <span class="key-badge" aria-hidden="true">Enter</span>';
 
     // ♿ Aria: Announce to screen readers that the world is ready
     import('../ui/announcer.ts').then(({ announce }) => {
@@ -512,10 +516,10 @@ if (startButton) {
         }
 
         startButton.innerHTML = isCore
-            ? 'Enter Core World <span aria-hidden="true">🍭</span> <span class="key-badge" aria-hidden="true">Enter</span>'
+            ? 'Enter the Dream <span aria-hidden="true">🍭</span> <span class="key-badge" aria-hidden="true">Enter</span>'
             : isFast
-                ? 'Enter Fast Full <span aria-hidden="true">🌿</span> <span class="key-badge" aria-hidden="true">Enter</span>'
-                : 'Enter Full Game <span aria-hidden="true">🌸</span> <span class="key-badge" aria-hidden="true">Enter</span>';
+                ? 'Enter Fast Dream <span aria-hidden="true">🌿</span> <span class="key-badge" aria-hidden="true">Enter</span>'
+                : 'Enter Full Dream <span aria-hidden="true">🌸</span> <span class="key-badge" aria-hidden="true">Enter</span>';
     };
 
     const getGenerationLabel = (mode: WorldMode) => {
@@ -654,6 +658,7 @@ if (startButton) {
             });
             globalBackgroundProcessor.onComplete(() => {
                 hideDeferredIndicator();
+                populatePhysicsGrids();
                 finalizeStartupProfile();
                 console.log('[Startup] All deferred background tasks completed.');
                 // Notify interested systems (music reactivity, discovery, etc.) that the
@@ -665,6 +670,7 @@ if (startButton) {
             // Queue non-critical visuals
             globalBackgroundProcessor.enqueue({
                 id: 'deferred_visuals',
+                priority: 100,
                 execute: () => {
                     StageLoader.loadStage('deferredVisuals', () => {
                         console.log('[Deferred] Loading celestial bodies and aurora...');
@@ -678,6 +684,7 @@ if (startButton) {
             // Queue any remaining deferred warmup
             globalBackgroundProcessor.enqueue({
                 id: 'shader_warmup',
+                priority: 90,
                 execute: () => {
                     runDeferredWarmup(scene, camera, renderer);
                 }
@@ -689,11 +696,11 @@ if (startButton) {
             startButton.style.background = '';
             const wasFast = !!(window as any).__fastPopulationOverride || fastFullMode;
             if (activeWorldMode === 'CORE') {
-                startButton.innerHTML = 'Regenerate Core World <span aria-hidden="true">🍭</span> <span class="key-badge" aria-hidden="true">Enter</span>';
+                startButton.innerHTML = 'Regenerate Core Dream <span aria-hidden="true">🍭</span> <span class="key-badge" aria-hidden="true">Enter</span>';
             } else if (wasFast) {
-                startButton.innerHTML = 'Regenerate Fast Full <span aria-hidden="true">🌿</span> <span class="key-badge" aria-hidden="true">Enter</span>';
+                startButton.innerHTML = 'Regenerate Fast Dream <span aria-hidden="true">🌿</span> <span class="key-badge" aria-hidden="true">Enter</span>';
             } else {
-                startButton.innerHTML = 'Regenerate Full Game <span aria-hidden="true">🌸</span> <span class="key-badge" aria-hidden="true">Enter</span>';
+                startButton.innerHTML = 'Regenerate Full Dream <span aria-hidden="true">🌸</span> <span class="key-badge" aria-hidden="true">Enter</span>';
             }
 
         } catch (err) {
