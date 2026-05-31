@@ -223,6 +223,31 @@ export class WaterfallBatcher {
         console.log('WaterfallBatcher initialized');
     }
 
+    dispose() {
+        if (!this.initialized) return;
+
+        [this.mesh, this.splashMesh].forEach(mesh => {
+            if (!mesh) return;
+            if (mesh.geometry) mesh.geometry.dispose();
+            if (mesh.material) {
+                if (Array.isArray(mesh.material)) {
+                    mesh.material.forEach(m => m.dispose());
+                } else {
+                    mesh.material.dispose();
+                }
+            }
+            if (mesh.instanceColor && typeof (mesh.instanceColor as any).dispose === 'function') {
+                try { (mesh.instanceColor as any).dispose(); } catch (e) {}
+            }
+            foliageGroup.remove(mesh);
+        });
+
+        this.initialized = false;
+        this.count = 0;
+        this.idToIndex.clear();
+        this.waterfalls.length = 0;
+    }
+
     /**
      * Adds a waterfall instance.
      * @param id Unique identifier (e.g. parent UUID)

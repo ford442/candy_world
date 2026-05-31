@@ -326,6 +326,31 @@ export class ArpeggioFernBatcher {
         console.log(`[ArpeggioBatcher] Initialized unified mesh system (Cap: ${MAX_FERNS})`);
     }
 
+    dispose() {
+        if (!this.initialized) return;
+
+        if (this.mesh) {
+            if (this.mesh.geometry) this.mesh.geometry.dispose();
+            if (this.mesh.material) {
+                if (Array.isArray(this.mesh.material)) {
+                    this.mesh.material.forEach(m => m.dispose());
+                } else {
+                    this.mesh.material.dispose();
+                }
+            }
+            if (this.mesh.instanceColor && typeof (this.mesh.instanceColor as any).dispose === 'function') {
+                try { (this.mesh.instanceColor as any).dispose(); } catch (e) {}
+            }
+            foliageGroup.remove(this.mesh);
+        }
+
+        this.initialized = false;
+        this.count = 0;
+        this.indexMap.clear();
+        this.positions.length = 0;
+        this.scales.length = 0;
+    }
+
     register(dummy, options: any = {}) {
         if (!this.initialized) this.init();
         if (this.count >= MAX_FERNS) {
