@@ -262,6 +262,31 @@ export class DandelionBatcher {
         console.log(`[DandelionBatcher] Unified Initialized. 1 Draw Call.`);
     }
 
+    dispose() {
+        if (!this.initialized) return;
+
+        [this.stemMesh, this.headMesh].forEach(mesh => {
+            if (!mesh) return;
+            if (mesh.geometry) mesh.geometry.dispose();
+            if (mesh.material) {
+                if (Array.isArray(mesh.material)) {
+                    mesh.material.forEach(m => m.dispose());
+                } else {
+                    mesh.material.dispose();
+                }
+            }
+            if (mesh.instanceColor && typeof (mesh.instanceColor as any).dispose === 'function') {
+                try { (mesh.instanceColor as any).dispose(); } catch (e) {}
+            }
+            foliageGroup.remove(mesh);
+        });
+
+        this.initialized = false;
+        this.count = 0;
+        this.indexMap.clear();
+        this.logicObjects.length = 0;
+    }
+
     register(logicObject: THREE.Object3D, options: any = {}) {
         if (!this.initialized) this.init();
         if (this.count >= MAX_DANDELIONS) return;

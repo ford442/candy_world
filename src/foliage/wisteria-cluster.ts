@@ -19,6 +19,9 @@ export interface WisteriaClusterOptions {
     color?: number;
 }
 
+let _cachedMergedGeo: THREE.BufferGeometry | null = null;
+let _cachedHitGeo: THREE.BufferGeometry | null = null;
+
 /**
  * Creates a cluster of hanging musical vines (Wisteria) that respond to high frequencies.
  */
@@ -93,48 +96,55 @@ export function createWisteriaCluster(options: WisteriaClusterOptions = {}) {
     // --- Geometry Construction ---
     // We create a central hanging stem and several rounded clusters ("grapes" / "petals") hanging off it.
 
-    // We'll build a single merged buffer geometry or just use multiple meshes in a group.
-    // For optimization, creating a single geometry is better, but since it's procedural:
+    // Use cached geometry to avoid VRAM leak
+    if (!_cachedMergedGeo) {
+        const geometries: THREE.BufferGeometry[] = [];
 
-    // We build a single merged buffer geometry.
-    // For optimization and proper TSL positionLocal scaling, merging is necessary.
-    const geometries: THREE.BufferGeometry[] = [];
+        const vineGeo = new THREE.CylinderGeometry(0.1, 0.05, 4, 8);
+        // Shift geometry so the top is at y=0, bottom is at y=-4
+        vineGeo.translate(0, -2, 0);
+        geometries.push(vineGeo);
 
-    const vineGeo = new THREE.CylinderGeometry(0.1, 0.05, 4, 8);
-    // Shift geometry so the top is at y=0, bottom is at y=-4
-    vineGeo.translate(0, -2, 0);
-    geometries.push(vineGeo);
+        // Add rounded "clusters" (flowers) along the vine
+        const clusterGeoBase = new THREE.SphereGeometry(0.4, 16, 16);
 
-    // Add rounded "clusters" (flowers) along the vine
-    const clusterGeoBase = new THREE.SphereGeometry(0.4, 16, 16);
+        for (let i = 0; i < 5; i++) {
+            const clusterGeo = clusterGeoBase.clone();
 
-    for (let i = 0; i < 5; i++) {
-        const clusterGeo = clusterGeoBase.clone();
+            // Position them down the vine
+            const yPos = -0.5 - (i * 0.7);
+            // Offset slightly in x/z for organic look
+            const xOffset = (Math.random() - 0.5) * 0.5;
+            const zOffset = (Math.random() - 0.5) * 0.5;
 
-        // Position them down the vine
-        const yPos = -0.5 - (i * 0.7);
-        // Offset slightly in x/z for organic look
-        const xOffset = (Math.random() - 0.5) * 0.5;
-        const zOffset = (Math.random() - 0.5) * 0.5;
+            // Vary size
+            const s = 1.0 - (i * 0.1); // smaller towards the bottom
 
-        // Vary size
-        const s = 1.0 - (i * 0.1); // smaller towards the bottom
+            clusterGeo.scale(s, s, s);
+            clusterGeo.translate(xOffset, yPos, zOffset);
 
-        clusterGeo.scale(s, s, s);
-        clusterGeo.translate(xOffset, yPos, zOffset);
+            geometries.push(clusterGeo);
+        }
 
-        geometries.push(clusterGeo);
+        _cachedMergedGeo = mergeGeometries(geometries);
+
+        // Clean up temporary geometries to prevent memory leaks
+        vineGeo.dispose();
+        clusterGeoBase.dispose();
+        for (let i = 1; i < geometries.length; i++) {
+            geometries[i].dispose();
+        }
     }
 
-    const mergedGeo = mergeGeometries(geometries);
-
-    const mainMesh = new THREE.Mesh(mergedGeo, material);
+    const mainMesh = new THREE.Mesh(_cachedMergedGeo, material);
     group.add(mainMesh);
 
     // Add an invisible hitbox for interaction since the visual mesh hangs down
-    const hitGeo = new THREE.CylinderGeometry(1.0, 1.0, 4);
+    if (!_cachedHitGeo) {
+        _cachedHitGeo = new THREE.CylinderGeometry(1.0, 1.0, 4);
+    }
     const hitMat = new THREE.MeshBasicMaterial({ visible: false });
-    const hitMesh = new THREE.Mesh(hitGeo, hitMat);
+    const hitMesh = new THREE.Mesh(_cachedHitGeo, hitMat);
     hitMesh.position.y = -2;
     group.add(hitMesh);
 
