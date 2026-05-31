@@ -255,7 +255,7 @@ export function initInput(
             setTimeout(() => {
                 if (instructions) instructions.style.display = 'none';
                 if (lastFocusedElement && typeof lastFocusedElement.focus === 'function') {
-                    lastFocusedElement.focus();
+                    lastFocusedElement.focus({ preventScroll: true });
                     lastFocusedElement = null;
                 }
                 setPausedTitle(false);
@@ -263,7 +263,7 @@ export function initInput(
             }, 200);
         } else {
             if (lastFocusedElement && typeof lastFocusedElement.focus === 'function') {
-                lastFocusedElement.focus();
+                lastFocusedElement.focus({ preventScroll: true });
                 lastFocusedElement = null;
             }
         }
@@ -323,7 +323,7 @@ export function initInput(
                     if (instructions && instructions.style.display !== 'none') {
                         releasePauseMenuFocus = trapFocusInside(instructions);
                         if (startButton) {
-                            startButton.focus();
+                            startButton.focus({ preventScroll: true });
                         }
                     }
                 }, 200);
@@ -427,7 +427,7 @@ export function initInput(
                         if (instructions && instructions.style.display !== 'none') {
                             releasePauseMenuFocus = trapFocusInside(instructions);
                             if (startButton) {
-                                startButton.focus();
+                                startButton.focus({ preventScroll: true });
                             }
                         }
                     }, 200);

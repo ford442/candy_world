@@ -303,7 +303,7 @@ export function renderPlaylist(): void {
             requestAnimationFrame(() => {
                 const newItems = playlistList!.querySelectorAll('.playlist-btn');
                 if (newItems[index] && newItems[index] instanceof HTMLElement) {
-                    (newItems[index] as HTMLElement).focus();
+                    (newItems[index] as HTMLElement).focus({ preventScroll: true });
                 }
             });
         };
@@ -335,18 +335,18 @@ export function renderPlaylist(): void {
 
                 // Try focusing the next remove button (at same index, since list shifted)
                 if (removeBtns[index]) {
-                    (removeBtns[index] as HTMLElement).focus();
+                    (removeBtns[index] as HTMLElement).focus({ preventScroll: true });
                 } else if (removeBtns[index - 1]) {
                     // Or the previous one
-                    (removeBtns[index - 1] as HTMLElement).focus();
+                    (removeBtns[index - 1] as HTMLElement).focus({ preventScroll: true });
                 } else if (playBtns[0]) {
                     // Or the first song
-                    (playBtns[0] as HTMLElement).focus();
+                    (playBtns[0] as HTMLElement).focus({ preventScroll: true });
                 } else {
                     // Fallback to empty state button if list is now empty
                     const emptyBtn = playlistList!.querySelector('button.secondary-button');
                     if (emptyBtn) {
-                        (emptyBtn as HTMLElement).focus();
+                        (emptyBtn as HTMLElement).focus({ preventScroll: true });
                     }
                 }
             });
@@ -449,11 +449,11 @@ export function togglePlaylist(): void {
 
                     if (currentIdx >= 0 && playlistBtns[currentIdx]) {
                         const activeBtn = playlistBtns[currentIdx] as HTMLElement;
-                        activeBtn.focus();
+                        activeBtn.focus({ preventScroll: true });
                         // Ensure the active song is visible in the scrollable list
                         activeBtn.scrollIntoView({ block: 'center', behavior: 'smooth' });
                     } else if (closePlaylistBtn) {
-                        closePlaylistBtn.focus();
+                        closePlaylistBtn.focus({ preventScroll: true });
                     }
                 }
             }, 300);
@@ -488,7 +488,7 @@ export function togglePlaylist(): void {
             }
             // Restore focus to the button that opened the jukebox (e.g. Open Jukebox button)
             if (lastFocusedElement && lastFocusedElement instanceof HTMLElement) {
-                lastFocusedElement.focus();
+                lastFocusedElement.focus({ preventScroll: true });
             }
             // Do NOT lock controls, stay unlocked
         } else {
@@ -563,7 +563,7 @@ export function handlePlaylistKeyDown(event: KeyboardEvent): boolean {
             } else {
                 nextIndex = currentIndex === -1 ? focusableBtns.length - 1 : (currentIndex - 1 + focusableBtns.length) % focusableBtns.length;
             }
-            focusableBtns[nextIndex].focus();
+            focusableBtns[nextIndex].focus({ preventScroll: true });
         }
         return true;
     }
@@ -578,12 +578,12 @@ export function handlePlaylistKeyDown(event: KeyboardEvent): boolean {
 
         if (event.shiftKey) {
             if (document.activeElement === first) {
-                last.focus();
+                last.focus({ preventScroll: true });
                 event.preventDefault();
             }
         } else {
             if (document.activeElement === last) {
-                first.focus();
+                first.focus({ preventScroll: true });
                 event.preventDefault();
             }
         }

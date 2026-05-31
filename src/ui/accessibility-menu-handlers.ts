@@ -37,7 +37,7 @@ export class AccessibilityMenuHandlers extends AccessibilityMenuRendering {
           if (nextIndex < 0) nextIndex = tabs.length - 1;
 
           const nextTab = tabs[nextIndex];
-          nextTab.focus();
+          nextTab.focus({ preventScroll: true });
 
           // Assuming tab id is like 'tab-presets' and section is 'presets'
           const tabIdMatch = nextTab.id.match(/^tab-(.+)$/);
