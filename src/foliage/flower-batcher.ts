@@ -15,6 +15,8 @@ import { uTwilight } from './sky.ts';
 import { attribute, positionLocal, mix, color, float, sin, varyingProperty } from 'three/tsl';
 import { PlantPoseMachine } from './plant-pose-machine.ts';
 import { BiomeUniforms } from '../systems/biome-uniforms.ts';
+import { musicReactivitySystem } from '../systems/music-reactivity.ts';
+import { camera } from '../core/main.ts';
 
 const MAX_FLOWERS = 1000; // Reduced from 5000 for WebGPU uniform buffer limits
 const MAX_PETALS = MAX_FLOWERS * 8; // Up to 8 petals per flower (reduced from 15 for WebGPU limits)
@@ -412,7 +414,27 @@ export class FlowerBatcher {
         const kick = audioState?.kick || 0;
         
         // Step the state machine
-        this._poseMachine.update(MAX_PETALS, deltaTime, kick, dayNightBias, config);
+        const activeWave = musicReactivitySystem.getActiveWave();
+        const cameraPos = camera ? camera.position : undefined;
+
+        const getPlantPos = (index: number, out: THREE.Vector3) => {
+            if (!this.stems) return;
+            const array = this.stems.instanceMatrix.array as Float32Array;
+            // The stems count is stemCount. MAX_PETALS is larger.
+            // Map index to stem index (since many petals map to one stem, this is an approximation,
+            // or we just use index modulo stemCount, or if index > stemCount, clamp).
+            // Wait, flower instances match stem instances. Petals are more.
+            // Actually, aPoseState uses the exact same pose value for all parts of the flower.
+            // Let's just map the instance index properly. Wait, stems, centers, stamens have up to MAX_FLOWERS instances.
+            // Petals have up to MAX_PETALS instances.
+            // For simplicity, we can read from stems.instanceMatrix, but if index >= stems.count, we need a safe fallback.
+            const stemIdx = index % Math.max(1, this.stemCount);
+            const offset = stemIdx * 16;
+            out.set(array[offset + 12], array[offset + 13], array[offset + 14]);
+        };
+
+        // Step the state machine
+        this._poseMachine.update(MAX_PETALS, deltaTime, kick, dayNightBias, config, activeWave, getPlantPos, cameraPos);
 
         // Update aPoseState for all active instances across all meshes
         const meshes = [this.stems, this.centers, this.stamens, this.petalsSimple, this.petalsMulti, this.petalsSpiral];

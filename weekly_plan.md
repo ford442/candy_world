@@ -22,7 +22,7 @@ Routine will mark picked items as "[in progress — YYYY-MM-DD]".
   - **C**: ChannelData type completed (note + notes[]), portamento uTwilight explicitly wired + documented (backlog item closed), channel-range validation added in music-reactivity.
   Smoke test reached "✓ Scene is ready!" + "No console errors" (partial run due to env timeout). WASM tests green. All changes are non-breaking.
 - [completed — 2026-05-26] **Channel-to-Biome visual mapping completeness** — Wire all orphaned batchers (aurora, arpeggio, chromatic, panning-pads, silence-spirits, waterfall, musical_flora, lake_features) to BiomeUniforms + music-bindings.json. Each batcher gets a BiomeId, at least one driven uniform, and a music-bindings.json entry.
-- [ ] **Sky wave → plant pose transitions** — Drive ADSR pose-state-machine transitions (`plant-pose-machine.ts`) from wave arrival timestamp rather than channel intensity alone; plants physically respond to the beat wave sweeping across the terrain.
+- [completed — 2026-05-30] **Sky wave → plant pose transitions** — Drive ADSR pose-state-machine transitions (`plant-pose-machine.ts`) from wave arrival timestamp rather than channel intensity alone; plants physically respond to the beat wave sweeping across the terrain.
 - [ ] **TSL batcher geometry + VRAM audit** — Survey remaining batchers (wisteria-cluster, glowing-flower-batcher, dandelion-batcher, arpeggio-batcher, waterfall-batcher) for shared geometry patterns, missing `dispose()` calls, and VRAM leak potential matching the tree-batcher VRAM leak fix (PR #1075).
 
 ## Backlog

@@ -23,6 +23,8 @@ import { uTime, uGlitchIntensity } from './index.ts';
 import { applyGlitch } from './glitch.ts';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { PlantPoseMachine } from './plant-pose-machine.ts';
+import { musicReactivitySystem } from '../systems/music-reactivity.ts';
+import { camera } from '../core/main.ts';
 import { CONFIG } from '../core/config.ts';
 import { dynamicRadiiView } from '../utils/wasm-physics.ts';
 
@@ -434,7 +436,17 @@ export class ArpeggioFernBatcher {
         const poseConfig = CONFIG.plantPose.arpeggioFern;
 
         // Fixed dt (60 Hz assumption) keeps parity with portamento batcher convention.
-        this._poseMachine.update(1, 0.016, channelIntensity, dayNightBias, poseConfig);
+        const activeWave = musicReactivitySystem.getActiveWave();
+        const cameraPos = camera ? camera.position : undefined;
+
+        const getPlantPos = (index: number, out: THREE.Vector3) => {
+            if (!this.mesh) return;
+            const array = this.mesh.instanceMatrix.array as Float32Array;
+            const offset = index * 16;
+            out.set(array[offset + 12], array[offset + 13], array[offset + 14]);
+        };
+
+        this._poseMachine.update(1, 0.016, channelIntensity, dayNightBias, poseConfig, activeWave, getPlantPos, cameraPos);
 
         // Day/night baseline from pose machine (0 = night-closed, up to nightTarget/dayTarget).
         // Blends a gentle partial-open bias from daylight into the step-driven unfurl.
