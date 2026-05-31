@@ -160,7 +160,7 @@ export class AnalyticsDebugOverlay {
       this.releaseFocusTrap = null;
     }
     if (this.lastFocusedElement && typeof this.lastFocusedElement.focus === 'function') {
-      this.lastFocusedElement.focus();
+      this.lastFocusedElement.focus({ preventScroll: true });
     }
     this.lastFocusedElement = null;
 

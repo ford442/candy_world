@@ -457,7 +457,7 @@ export class Announcer {
    * Sets focus to a specific element and announces it
    */
   focusAndAnnounce(element: HTMLElement, description?: string): void {
-    element.focus();
+    element.focus({ preventScroll: true });
     
     if (description) {
       this.announce(`${description}, focused`, 'polite');

@@ -122,7 +122,7 @@ export class AccessibilityMenuCore {
     }
 
     if (this.lastFocusedElement && typeof this.lastFocusedElement.focus === 'function') {
-      this.lastFocusedElement.focus();
+      this.lastFocusedElement.focus({ preventScroll: true });
     }
     this.lastFocusedElement = null;
 
@@ -179,7 +179,7 @@ export class AccessibilityMenuCore {
     this.refreshMainPanel();
     announce(`Switched to ${this.formatActionName(section)} settings`, 'polite');
     const newTab = this.container?.querySelector(`#tab-${section}`) as HTMLElement;
-    if (newTab) newTab.focus();
+    if (newTab) newTab.focus({ preventScroll: true });
   }
 
   protected refreshMainPanel(): void {

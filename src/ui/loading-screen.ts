@@ -470,7 +470,7 @@ export class LoadingScreen {
         }
 
         if (this.lastFocusedElement && typeof this.lastFocusedElement.focus === 'function') {
-            this.lastFocusedElement.focus();
+            this.lastFocusedElement.focus({ preventScroll: true });
             this.lastFocusedElement = null;
         }
 
@@ -966,7 +966,7 @@ export class LoadingScreen {
             this.releaseFocusTrap = null;
         }
         if (this.lastFocusedElement && typeof this.lastFocusedElement.focus === 'function') {
-            this.lastFocusedElement.focus();
+            this.lastFocusedElement.focus({ preventScroll: true });
             this.lastFocusedElement = null;
         }
 

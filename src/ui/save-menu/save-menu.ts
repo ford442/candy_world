@@ -163,7 +163,7 @@ export class SaveMenu {
             document.removeEventListener('keydown', this.keydownHandler);
 
             if (this.lastFocusedElement && typeof this.lastFocusedElement.focus === 'function') {
-                this.lastFocusedElement.focus();
+                this.lastFocusedElement.focus({ preventScroll: true });
                 this.lastFocusedElement = null;
             }
 
@@ -251,11 +251,11 @@ export class SaveMenu {
         if (wasFocusedInside && (!document.activeElement || document.activeElement === document.body)) {
             const activeTab = this.container.querySelector(`[role="tab"][aria-selected="true"]`) as HTMLElement;
             if (activeTab) {
-                activeTab.focus();
+                activeTab.focus({ preventScroll: true });
             } else {
                 // Fallback to first focusable element
                 const firstFocusable = this.container.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])') as HTMLElement;
-                if (firstFocusable) firstFocusable.focus();
+                if (firstFocusable) firstFocusable.focus({ preventScroll: true });
             }
         }
 
@@ -462,7 +462,7 @@ export class SaveMenu {
                     if (nextIndex < 0) nextIndex = tabs.length - 1;
 
                     const nextTab = tabs[nextIndex];
-                    nextTab.focus();
+                    nextTab.focus({ preventScroll: true });
 
                     const tabId = nextTab.dataset.tab as MenuTab;
                     if (tabId) {
