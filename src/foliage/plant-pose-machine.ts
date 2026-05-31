@@ -10,6 +10,9 @@
  * - Channel intensity from the music reactivity pipeline triggers attack/release.
  */
 
+import * as THREE from 'three';
+import { ActiveWave, computeWaveTimeSinceArrival } from '../systems/music-reactivity.ts';
+
 export interface PlantPoseConfig {
     /** Rate at which envelopeLevel ramps toward 1.0 per second when channel is active. */
     attackRate: number;
@@ -48,6 +51,7 @@ export class PlantPoseMachine {
      * falls toward 0 at releaseRate when channel is inactive.
      */
     private readonly _envelopeLevel: Float32Array;
+    private readonly _scratchPos: THREE.Vector3 = new THREE.Vector3();
 
     readonly capacity: number;
 
@@ -72,7 +76,10 @@ export class PlantPoseMachine {
         delta: number,
         channelIntensity: number,
         dayNightBias: number,
-        config: PlantPoseConfig
+        config: PlantPoseConfig,
+        activeWave: ActiveWave | null = null,
+        getPlantWorldPosition?: (index: number, out: THREE.Vector3) => void,
+        cameraPosition?: THREE.Vector3
     ): void {
         const { attackRate, releaseRate, sustainLevel, dayTarget, nightTarget, triggerThreshold } = config;
 
@@ -87,8 +94,21 @@ export class PlantPoseMachine {
         const lerpK = Math.min(1.0, attackRate * delta);
 
         for (let i = 0; i < count; i++) {
+            let triggerValue = channelIntensity;
+
+            if (activeWave && getPlantWorldPosition) {
+                getPlantWorldPosition(i, this._scratchPos);
+                const timeSinceArrival = computeWaveTimeSinceArrival(this._scratchPos, activeWave, cameraPosition);
+
+                if (timeSinceArrival > 0) {
+                    triggerValue = Math.min(1.0, timeSinceArrival * 2.0);
+                } else {
+                    triggerValue = 0;
+                }
+            }
+
             // --- Envelope advance (attack / release) ---
-            if (channelIntensity > triggerThreshold) {
+            if (triggerValue > triggerThreshold) {
                 this._envelopeLevel[i] += attackRate * delta;
                 if (this._envelopeLevel[i] > 1.0) this._envelopeLevel[i] = 1.0;
             } else {

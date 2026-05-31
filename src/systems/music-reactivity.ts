@@ -109,8 +109,18 @@ const _skyWaveUniformMap: Record<string, { value: THREE.Color }> = {
 };
 
 // ⚡ SKY WAVE state — pre-allocated, zero per-frame allocations in hot path
-interface WaveStamp { color: THREE.Color; timestamp: number; }
-let _activeWave: WaveStamp | null = null;
+export interface ActiveWave { color: THREE.Color; timestamp: number; origin?: THREE.Vector3; speed?: number; }
+let _activeWave: ActiveWave | null = null;
+
+const _scratchWavePos = new THREE.Vector3();
+export function computeWaveTimeSinceArrival(plantWorldPos: THREE.Vector3, activeWave: ActiveWave | null, cameraPosition?: THREE.Vector3): number {
+    if (!activeWave) return -999;
+    const origin = activeWave.origin || cameraPosition || new THREE.Vector3();
+    const speed = activeWave.speed || 25.0;
+    const distance = _scratchWavePos.copy(plantWorldPos).distanceTo(origin);
+    const arrivalTime = activeWave.timestamp + (distance / speed) * 1000;
+    return (performance.now() - arrivalTime) / 1000;
+}
 const _waveColor = new THREE.Color(); // scratch for beat capture
 const _whiteColor = new THREE.Color(0xffffff);
 let _waveDecayStartTime = 0;
@@ -152,6 +162,8 @@ const _noteNameCache: Record<string | number, string> = {};
 const CHROMATIC_SCALE = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
 export class MusicReactivitySystem {
+    getActiveWave(): ActiveWave | null { return _activeWave; }
+
     moon: THREE.Object3D | null = null;
     weatherSystem: IWeatherSystem | null = null;
     registeredObjects: Map<string, Set<FoliageObject>> = new Map();
@@ -185,7 +197,7 @@ export class MusicReactivitySystem {
             if (uTwilight.value <= 0.1) return;
             if (_skyMoonNoteVal > 0) {
                 _waveColor.copy(BiomeUniforms.skyMoon.moonNoteColor.value);
-                _activeWave = { color: _waveColor, timestamp: performance.now() };
+                _activeWave = { color: _waveColor, timestamp: performance.now(), speed: 25.0 }; // Let wave origin be undefined initially, use camera
                 _waveDecayStartTime = 0;
             }
         });
