@@ -500,11 +500,9 @@ if (startButton) {
         }
         if (btnFullGame) {
             btnFullGame.setAttribute('aria-pressed', String(mode === 'FULL'));
-            btnFullGame.style.boxShadow = mode === 'FULL' ? '0 5px 18px rgba(125, 211, 252, 0.55)' : 'none';
         }
         if (btnFastFull) {
             btnFastFull.setAttribute('aria-pressed', String(isFast));
-            btnFastFull.style.boxShadow = isFast ? '0 5px 18px rgba(165, 214, 167, 0.7)' : 'none';
         }
 
         if (modeDescription) {
