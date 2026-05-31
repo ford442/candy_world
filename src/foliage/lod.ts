@@ -805,7 +805,8 @@ export class LODTreeBatcher {
         const treeId = this.nextTreeId++;
         const componentIds: { [geometryType: string]: number } = {};
 
-        group.updateMatrix();
+        // ⚡ OPTIMIZATION: Ensure world matrix is ready without deep traversal
+        group.updateWorldMatrix(false, false);
 
         // Traverse and register each mesh component
         group.traverse((child) => {
@@ -813,7 +814,7 @@ export class LODTreeBatcher {
                 const mesh = child as THREE.Mesh;
                 const mat = (Array.isArray(mesh.material) ? mesh.material[0] : mesh.material) as THREE.MeshStandardMaterial;
                 // ⚡ OPTIMIZATION: Bypass recursive updateWorldMatrix
-                _scratchLODMatrix.copy(mesh.matrix).premultiply(group.matrix);
+                _scratchLODMatrix.multiplyMatrices(group.matrixWorld, mesh.matrix);
                 const col = mat.color || new THREE.Color(0xFFFFFF);
 
                 // Map geometry types to our LOD categories
