@@ -121,6 +121,25 @@
             transform: scale(1.05);
             background: #FF5252;
         }
+        .mode-btn {
+            padding: 12px 24px; margin: 0 8px; font-size: 1.05em; border-radius: 12px; border: 2px solid transparent; cursor: pointer; color: white;
+            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        #btn-core-only { background: #ff9ecd; }
+        #btn-full-game { background: #7dd3fc; }
+        #btn-fast-full { background: #a5d6a7; color: #1b3a1b; }
+        #btn-core-only:hover, #btn-core-only:focus-visible { background: #ff75b8; }
+        #btn-full-game:hover, #btn-full-game:focus-visible { background: #38bdf8; }
+        #btn-fast-full:hover, #btn-fast-full:focus-visible { background: #81c784; }
+
+        .mode-btn[aria-pressed="true"] {
+            border-color: #fff;
+            transform: scale(1.1);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        #btn-core-only[aria-pressed="true"] { box-shadow: 0 5px 18px rgba(255, 158, 205, 0.7); }
+        #btn-full-game[aria-pressed="true"] { box-shadow: 0 5px 18px rgba(125, 211, 252, 0.55); }
+        #btn-fast-full[aria-pressed="true"] { box-shadow: 0 5px 18px rgba(165, 214, 167, 0.7); }
         .cta-button:active,
         .cta-button.pressed,
         .toggle-button:active,
@@ -638,14 +657,14 @@
         </button>
 
         <div id="mode-select" style="margin: 20px 0; text-align: center;" role="group" aria-label="Game Mode Selection">
-            <p id="mode-description" style="margin-bottom: 8px; opacity: 0.9;">Choose startup mode:</p>
-            <button id="btn-core-only" type="button" class="cta-button" style="padding: 12px 24px; margin: 0 8px; font-size: 1.05em; border-radius: 12px; border: none; background: #ff9ecd; color: white; cursor: pointer;">
+            <p id="mode-description" style="margin-bottom: 8px; opacity: 0.9;" aria-live="polite" aria-atomic="true">Choose startup mode:</p>
+            <button id="btn-core-only" type="button" class="cta-button mode-btn" aria-describedby="mode-description">
                 🍭 Core Only (Fast)
             </button>
-            <button id="btn-full-game" type="button" class="cta-button" style="padding: 12px 24px; margin: 0 8px; font-size: 1.05em; border-radius: 12px; border: none; background: #7dd3fc; color: white; cursor: pointer;">
+            <button id="btn-full-game" type="button" class="cta-button mode-btn" aria-describedby="mode-description">
                 🌸 Full Game
             </button>
-            <button id="btn-fast-full" type="button" class="cta-button" style="padding: 12px 24px; margin: 0 8px; font-size: 1.05em; border-radius: 12px; border: none; background: #a5d6a7; color: #1b3a1b; cursor: pointer;">
+            <button id="btn-fast-full" type="button" class="cta-button mode-btn fast-full-btn" aria-describedby="mode-description">
                 🌿 Fast Full (Light)
             </button>
         </div>
