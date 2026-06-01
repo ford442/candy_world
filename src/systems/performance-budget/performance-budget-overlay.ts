@@ -19,6 +19,7 @@ import {
   DebugOverlayOptions
 } from './performance-budget-types.ts';
 import { PerformanceBudget } from './performance-budget-core.ts';
+import { getGPUComputeStatus } from '../../compute/compute-init.ts';
 
 export { DebugOverlayOptions };
 
@@ -217,6 +218,22 @@ export class PerformanceBudgetOverlay {
         <span>Draw Calls:</span>
         <span style="color: ${getColor('drawCalls')}; font-weight: bold;">${drawCalls}</span>
         <span style="color: #888;">${drawCallBudget}</span>
+      </div>
+    `;
+
+    // GPU compute status
+    const gpu = getGPUComputeStatus();
+    const gpuLabel = gpu.ready ? '✓ GPU' : (gpu.available ? 'init…' : '✗ CPU');
+    const gpuColor = gpu.ready ? '#44ff44' : (gpu.available ? '#ffaa44' : '#aaaaaa');
+    const gpuMetricEntries = Object.entries(gpu.metrics);
+    const gpuMetricsStr = gpuMetricEntries.length > 0
+        ? gpuMetricEntries.map(([k, v]) => `${k}: ${(v as number).toFixed(1)}ms`).join(' | ')
+        : '';
+    html += `
+      <div style="margin-top: 6px; padding-top: 6px; border-top: 1px solid #444; font-size: ${10 * this.overlayOptions.scale}px;">
+        <span style="color: #aaa;">GPU Compute: </span>
+        <span style="color: ${gpuColor}; font-weight: bold;">${gpuLabel}</span>
+        ${gpuMetricsStr ? `<span style="color: #888;"> — ${gpuMetricsStr}</span>` : ''}
       </div>
     `;
     

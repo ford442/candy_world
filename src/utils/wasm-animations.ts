@@ -15,7 +15,7 @@ import {
     wasmInstance,
     getNativeFunc,
     type WasmExports 
-} from './wasm-loader-core.js';
+} from './wasm-loader-core.ts';
 
 // =============================================================================
 // TYPE DEFINITIONS

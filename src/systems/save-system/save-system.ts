@@ -11,7 +11,7 @@
  * - Corrupted save handling with graceful fallback
  */
 
-import { showToast } from '../../utils/toast.js';
+import { showToast } from '../../utils/toast.ts';
 import {
     SAVE_VERSION,
     SAVE_VERSION as SAVE_VERSION_CONST,

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { DataUtils } from 'three';
 import { getUnifiedGroundHeightTyped } from '../systems/physics.core.js';
-import { getGroundHeight } from '../utils/wasm-loader.js';
+import { getGroundHeight } from '../utils/wasm-loader.ts';
 
 export interface HeightmapTextures {
     heights: Float32Array;

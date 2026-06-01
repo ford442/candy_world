@@ -37,3 +37,6 @@ export const GRID_NEXT_OFFSET: i32 = GRID_HEADS_OFFSET + (GRID_COLS * GRID_ROWS 
 // Dynamic Foliage Radii Sync (Max 512 dynamic plants * 4 bytes = 2KB)
 export const MAX_DYNAMIC_PLANTS: i32 = 512;
 export const DYNAMIC_RADII_OFFSET: i32 = GRID_NEXT_OFFSET + (MAX_COLLISION_OBJECTS * 4);
+
+// Discovery System (shared with emscripten/discovery.cpp)
+export const MAX_DISCOVERY_OBJECTS: i32 = 3000;

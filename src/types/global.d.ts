@@ -108,7 +108,7 @@ declare global {
 }
 
 // Declare modules for JS files without types
-declare module '*/src/utils/wasm-loader.js' {
+declare module '*/src/utils/wasm-loader.ts' {
   export function initWasm(): Promise<boolean>;
   export function initWasmParallel(): Promise<boolean>;
   export function isWasmReady(): boolean;
@@ -128,7 +128,7 @@ declare module '*/src/core/init.js' {
   export function forceFullSceneWarmup(renderer: any, scene: any, camera: any): Promise<void>;
 }
 
-declare module '*/src/utils/profiler.js' {
+declare module '*/src/utils/profiler.ts' {
   export const profiler: {
     startFrame(): void;
     endFrame(): void;

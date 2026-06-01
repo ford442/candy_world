@@ -21,7 +21,7 @@
 // Migrated to C++: deformWave_c, deformJiggle_c, deformWobble_c in emscripten/mesh_deformation.cpp
 import * as THREE from 'three';
 import { uniform } from 'three/tsl';
-import { isEmscriptenReady, getNativeFunc } from '../utils/wasm-loader.js';
+import { isEmscriptenReady, getNativeFunc } from '../utils/wasm-loader.ts';
 
 /**
  * Deformation effect types

@@ -348,6 +348,27 @@ declare -A ANIMATION_FUNCTIONS=(
     ["updateParticlesWASM"]="particle_physics"
     ["getParticlePhysicsVersion"]="particle_physics"
     ["initParticleRandom"]="particle_physics"
+
+    # Discovery spatial-grid functions (discovery.cpp)
+    ["initDiscoveryGrid"]="discovery"
+    ["registerDiscoverable"]="discovery"
+    ["queryDiscoveries"]="discovery"
+    ["clearDiscoveryGrid"]="discovery"
+
+    # ECS entity-component system (ecs.cpp)
+    ["ecsInit"]="ecs"
+    ["ecsCreateEntity"]="ecs"
+    ["ecsDestroyEntity"]="ecs"
+    ["ecsIsAlive"]="ecs"
+    ["ecsGetEntityCount"]="ecs"
+    ["ecsRegisterComponent"]="ecs"
+    ["ecsGetComponent"]="ecs"
+    ["ecsSetComponent"]="ecs"
+    ["ecsAddComponent"]="ecs"
+    ["ecsRemoveComponent"]="ecs"
+    ["ecsHasComponent"]="ecs"
+    ["ecsQueryComponents"]="ecs"
+    ["ecsGetComponentMask"]="ecs"
 )
 
 # Check each function and add to export list if it exists

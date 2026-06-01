@@ -19,7 +19,7 @@ import { makeInteractive } from '../utils/interaction-utils.ts';
 import { CONFIG } from '../core/config.ts';
 import { uTwilight } from './sky.ts';
 import { discoverySystem } from '../systems/discovery.ts';
-import { showToast } from '../utils/toast.js';
+import { showToast } from '../utils/toast.ts';
 import { spawnImpact } from './impacts.ts';
 
 interface LotusOptions {

@@ -10,7 +10,7 @@ import {
     SettingsSaveData,
     KeyBindings
 } from '../../systems/save-system/index.js';
-import { showToast } from '../../utils/toast.js';
+import { showToast } from '../../utils/toast.ts';
 
 /** Key map for displaying keys */
 const KEY_MAP: Record<string, string> = {

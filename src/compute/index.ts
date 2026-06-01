@@ -148,3 +148,8 @@ export type {
     FoliageAnimationOutput,
     FoliageAnimatorCapabilities
 } from './gpu-foliage-animator.ts';
+
+// ============================================================================
+// GPU Compute initialisation (call once from deferred-init / post-boot)
+// ============================================================================
+export { initGPUCompute, getGPUComputeStatus } from './compute-init.ts';

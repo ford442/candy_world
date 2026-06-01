@@ -91,6 +91,11 @@ export declare const DYNAMIC_RADII_OFFSET: {
   /** @type `i32` */
   get value(): number
 };
+/** assembly/constants/MAX_DISCOVERY_OBJECTS */
+export declare const MAX_DISCOVERY_OBJECTS: {
+  /** @type `i32` */
+  get value(): number
+};
 /**
  * assembly/math/lerp
  * @param a `f32`
@@ -804,11 +809,6 @@ export declare function materialNeedsFadeBack(index: number): number;
  * @returns `f32`
  */
 export declare function getMaterialFlashIntensity(index: number): number;
-/** assembly/discovery/MAX_DISCOVERY_OBJECTS */
-export declare const MAX_DISCOVERY_OBJECTS: {
-  /** @type `i32` */
-  get value(): number
-};
 /** assembly/discovery/DISCOVERY_RADIUS_SQ */
 export declare const DISCOVERY_RADIUS_SQ: {
   /** @type `f32` */

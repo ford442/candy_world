@@ -10,7 +10,7 @@ import {
     SaveData, 
     SaveSlotInfo
 } from '../../systems/save-system/index.js';
-import { showToast } from '../../utils/toast.js';
+import { showToast } from '../../utils/toast.ts';
 import type { SaveMenu } from './save-menu.js';
 
 /**
@@ -200,7 +200,7 @@ export async function handleSlotAction(
                     if (confirm('Are you sure you want to delete this save?')) {
                         const result = await saveSystem.delete(slotId);
                         if (result) {
-                            import('../../utils/toast.js').then(({ showToast }) => {
+                            import('../../utils/toast.ts').then(({ showToast }) => {
                                 showToast('Save deleted', '🗑️', 3000);
                             });
                             await refreshSlots?.();

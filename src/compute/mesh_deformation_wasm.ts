@@ -18,7 +18,7 @@
  */
 
 import * as THREE from 'three';
-import { getNativeFunc, getWasmMemory } from '../utils/wasm-loader.js';
+import { getNativeFunc, getWasmMemory } from '../utils/wasm-loader.ts';
 import { MeshDeformationCompute, DeformationType, DeformationTypeValue, DeformationAudioState } from './mesh_deformation.ts';
 
 /**

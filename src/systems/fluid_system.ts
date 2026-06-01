@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { DataUtils } from 'three';
 import {
     fluidInit, fluidStep, fluidAddDensity, fluidAddVelocity, getFluidDensityView
-} from '../utils/wasm-loader.js';
+} from '../utils/wasm-loader.ts';
 import { VisualState } from '../audio/audio-system.ts';
 
 export class FluidSystem {

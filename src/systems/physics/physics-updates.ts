@@ -23,7 +23,7 @@ import { DISCOVERY_MAP } from '../discovery_map.ts';
 import { optimizedDiscovery, checkPlayerDiscovery } from '../discovery-optimized.ts';
 import { discoverySystem } from '../discovery.ts';
 import { spawnImpact } from '../../foliage/impacts.ts';
-import { showToast } from '../../utils/toast.js';
+import { showToast } from '../../utils/toast.ts';
 import { harmonyOrbSystem } from '../../foliage/aurora.ts';
 import { addCameraShake } from '../../core/game-loop.ts';
 import { unlockSystem } from '../unlocks.ts';
@@ -32,7 +32,7 @@ import { uStrobeIntensity } from '../../foliage/strobe.ts';
 import {
     getGroundHeight, initPhysics, uploadObstaclesBatch,
     uploadCollisionObjects, initDynamicFoliageBridge
-} from '../../utils/wasm-loader.js';
+} from '../../utils/wasm-loader.ts';
 import {
     foliageMushrooms, foliageTrampolines, foliageClouds,
     foliageTraps, foliageGeysers, foliagePortamentoPines,

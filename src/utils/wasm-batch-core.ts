@@ -20,7 +20,7 @@ import {
     type Mushroom,
     type AnimationData,
     type PositionData
-} from './wasm-loader-core.js';
+} from './wasm-loader-core.ts';
 
 import { 
     SpawnCandidate, 

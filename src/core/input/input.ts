@@ -848,7 +848,7 @@ function triggerButtonPress(buttonId: string): void {
                     audioSystem.addToQueue(validFiles);
 
                     // Show feedback via Toast
-                    import('../../utils/toast.js').then(({ showToast }) => {
+                    import('../../utils/toast.ts').then(({ showToast }) => {
                         if (invalidFiles.length > 0) {
                             showToast(`Added ${validFiles.length} song${validFiles.length > 1 ? 's' : ''}. (${invalidFiles.length} ignored)`, '⚠️');
                         } else {
@@ -857,7 +857,7 @@ function triggerButtonPress(buttonId: string): void {
                     });
                 } else {
                     // All files were invalid
-                    import('../../utils/toast.js').then(({ showToast }) => {
+                    import('../../utils/toast.ts').then(({ showToast }) => {
                         showToast("❌ Only .mod, .xm, .it, .s3m allowed!", '🚫');
                     });
                 }
@@ -902,7 +902,7 @@ function triggerButtonPress(buttonId: string): void {
                     ? '<span aria-hidden="true">☀️</span> Switch to Day <span class="key-badge" aria-hidden="true">N</span>'
                     : '<span aria-hidden="true">🌙</span> Switch to Night <span class="key-badge" aria-hidden="true">N</span>';
 
-                import('../../utils/toast.js').then(({ showToast }) => {
+                import('../../utils/toast.ts').then(({ showToast }) => {
                     const mode = isPressed ? "Night Mode Active 🌙" : "Day Mode Active ☀️";
                     showToast(mode, isPressed ? '🌙' : '☀️');
                 });

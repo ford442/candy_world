@@ -32,7 +32,7 @@ import { discoverySystem } from '../discovery.ts';
 import { spawnImpact } from '../../foliage/impacts.ts';
 import { uChromaticIntensity } from '../../foliage/chromatic.ts';
 import { calculateWaterLevel, getUnifiedGroundHeightTyped } from '../physics.core.js';
-import { getGroundHeight } from '../../utils/wasm-loader.js';
+import { getGroundHeight } from '../../utils/wasm-loader.ts';
 import { foliageCaves } from './physics-types.js';
 
 // Helper: Unified Ground Height (WASM + Lake Modifiers)

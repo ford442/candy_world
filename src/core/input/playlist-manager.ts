@@ -91,7 +91,7 @@ export function initPlaylistManager(
         const songs = audioSystem.getPlaylist();
         if (songs && songs[index]) {
             const trackName = formatSongTitle(songs[index].name);
-            import('../../utils/toast.js').then(({ showToast }) => {
+            import('../../utils/toast.ts').then(({ showToast }) => {
                 showToast(`Now Playing: ${trackName}`, '🎵');
             });
 
@@ -178,7 +178,7 @@ export function initPlaylistManager(
                 if (validFiles.length > 0) {
                     audioSystem.addToQueue(validFiles);
 
-                    import('../../utils/toast.js').then(({ showToast }) => {
+                    import('../../utils/toast.ts').then(({ showToast }) => {
                         if (invalidFiles.length > 0) {
                             showToast(`Added ${validFiles.length} song${validFiles.length > 1 ? 's' : ''}. (${invalidFiles.length} ignored)`, '⚠️');
                         } else {
@@ -186,7 +186,7 @@ export function initPlaylistManager(
                         }
                     });
                 } else {
-                    import('../../utils/toast.js').then(({ showToast }) => {
+                    import('../../utils/toast.ts').then(({ showToast }) => {
                         showToast("❌ Only .mod, .xm, .it, .s3m allowed!", '🚫');
                     });
                 }
@@ -207,7 +207,7 @@ function handlePlaylistUpload(e: Event): void {
         const { validFiles, invalidFiles } = filterValidMusicFiles(files);
         if (validFiles.length > 0) {
             audioSystemRef.addToQueue(validFiles);
-            import('../../utils/toast.js').then(({ showToast }) => {
+            import('../../utils/toast.ts').then(({ showToast }) => {
                 if (invalidFiles.length > 0) {
                     showToast(`Added ${validFiles.length} song${validFiles.length > 1 ? 's' : ''}. (${invalidFiles.length} ignored)`, '⚠️');
                 } else {
@@ -215,7 +215,7 @@ function handlePlaylistUpload(e: Event): void {
                 }
             });
         } else {
-            import('../../utils/toast.js').then(({ showToast }) => {
+            import('../../utils/toast.ts').then(({ showToast }) => {
                 showToast("❌ Only .mod, .xm, .it, .s3m allowed!", '🚫');
             });
         }
@@ -324,7 +324,7 @@ export function renderPlaylist(): void {
             renderPlaylist();
 
             // 🎨 Palette: Provide explicit feedback for destructive action
-            import('../../utils/toast.js').then(({ showToast }) => {
+            import('../../utils/toast.ts').then(({ showToast }) => {
                 showToast(`Removed ${displayName}`, '🗑️', 3000);
             });
 
@@ -617,7 +617,7 @@ export function initLegacyMusicUpload(audioSystem: AudioSystem): void {
                 if (validFiles.length > 0) {
                     audioSystem.addToQueue(validFiles);
 
-                    import('../../utils/toast.js').then(({ showToast }) => {
+                    import('../../utils/toast.ts').then(({ showToast }) => {
                         if (invalidFiles.length > 0) {
                             showToast(`Added ${validFiles.length} song${validFiles.length > 1 ? 's' : ''}. (${invalidFiles.length} ignored)`, '⚠️');
                         } else {
@@ -626,7 +626,7 @@ export function initLegacyMusicUpload(audioSystem: AudioSystem): void {
                     });
                 } else {
                      // All files were invalid
-                    import('../../utils/toast.js').then(({ showToast }) => {
+                    import('../../utils/toast.ts').then(({ showToast }) => {
                         showToast("❌ Only .mod, .xm, .it, .s3m allowed!", '🚫');
                     });
                 }

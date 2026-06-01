@@ -1,7 +1,7 @@
 // WASM-First GPU Pipeline Orchestrator
 // Updated for Emscripten Pthreads Support
 
-import { checkWasmFileExists, inspectWasmExports, patchWasmInstantiateAliases } from './wasm-utils.js';
+import { checkWasmFileExists, inspectWasmExports, patchWasmInstantiateAliases } from './wasm-utils.ts';
 
 /**
  * Loading phase constants

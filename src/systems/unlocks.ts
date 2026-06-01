@@ -1,6 +1,6 @@
 // src/systems/unlocks.ts
 
-import { showToast } from '../utils/toast.js';
+import { showToast } from '../utils/toast.ts';
 
 export interface UnlockRequirement {
     itemId: string;

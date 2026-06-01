@@ -15,15 +15,15 @@ import {
     GRID_COLS,
     GRID_ROWS,
     GRID_ORIGIN_X,
-    GRID_ORIGIN_Z
+    GRID_ORIGIN_Z,
+    MAX_DISCOVERY_OBJECTS
 } from "./constants";
 
 // =============================================================================
 // DISCOVERY SYSTEM CONFIGURATION
 // =============================================================================
 
-/** Maximum number of discoverable objects */
-export const MAX_DISCOVERY_OBJECTS: i32 = 3000;
+// MAX_DISCOVERY_OBJECTS is imported from ./constants (= 3000)
 
 /** Discovery check radius squared (5 meters default) */
 export const DISCOVERY_RADIUS_SQ: f32 = 25.0; // 5 * 5

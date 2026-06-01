@@ -43,7 +43,7 @@ import {
 } from 'three/tsl';
 
 import { uTime, uAudioLow, uAudioHigh, uPlayerPosition, uWindSpeed, uWindDirection } from '../foliage/material-core.ts';
-import { getGroundHeight } from '../utils/wasm-loader.js';
+import { getGroundHeight } from '../utils/wasm-loader.ts';
 
 import { 
     ComputeParticleType, 

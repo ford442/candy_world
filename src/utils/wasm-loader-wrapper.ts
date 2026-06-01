@@ -1,4 +1,4 @@
-import * as wasm from './wasm-loader.js';
+import * as wasm from './wasm-loader.ts';
 
 export type SpawnCandidate = { x: number; y: number; z: number; colorIndex: number };
 

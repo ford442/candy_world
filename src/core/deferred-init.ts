@@ -20,9 +20,10 @@ import { chordStrikeSystem } from '../gameplay/chord-strike.ts';
 import { createHarpoonLine } from '../gameplay/harpoon-line.ts';
 import { fireRainbow } from '../gameplay/rainbow-blaster.ts';
 import { animatedFoliage } from '../world/state.ts';
-import { getGroundHeight } from '../utils/wasm-loader.js';
+import { getGroundHeight } from '../utils/wasm-loader.ts';
 import { ShaderWarmup } from '../rendering/shader-warmup.ts';
 import { startPhase, endPhase, recordWarmupMetrics } from '../utils/startup-profiler.ts';
+import { initGPUCompute } from '../compute/compute-init.ts';
 
 // Deferred visual elements
 let aurora: THREE.Object3D | null = null;
@@ -58,6 +59,11 @@ export function initDeferredVisuals() {
         console.warn('[Deferred] Cannot initialize visuals: scene or camera not set');
         return;
     }
+
+    // Arm the GPU compute library in the background so MeshDeformationGPU,
+    // NoiseGeneratorGPU, and GPUCullingSystem find a warm device on first use.
+    // Resolves silently when WebGPU is unavailable; CPU/WASM fallbacks stay active.
+    initGPUCompute();
 
     console.time('Deferred Visuals Init');
 

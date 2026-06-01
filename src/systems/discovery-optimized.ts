@@ -30,7 +30,8 @@
  */
 
 import * as THREE from 'three';
-import { getWasmInstance } from '../utils/wasm-loader.js';
+import { getWasmInstance } from '../utils/wasm-loader.ts';
+import { isEmscriptenReady, getEmscriptenInstance, getNativeFunc } from '../utils/wasm-loader-core.ts';
 import { discoverySystem } from './discovery.ts';
 import { discoveryPersistence } from './discovery-persistence.ts';
 import { DISCOVERY_MAP } from './discovery_map.ts';
@@ -48,8 +49,14 @@ interface RegisteredObject {
     discoveryInfo: DiscoveryInfo;
 }
 
+// Squared discovery radius matching assembly/discovery.ts (5 m)
+const CPP_DISCOVERY_RADIUS_SQ = 25.0;
+// Max results per queryDiscoveries call (small buffer, discoveries are rare)
+const CPP_MAX_QUERY_RESULTS = 16;
+
 /**
- * Optimized discovery system using WASM spatial grid
+ * Optimized discovery system using WASM spatial grid.
+ * Routing priority: C++/Emscripten → AssemblyScript → JS fallback.
  */
 export class OptimizedDiscoverySystem {
     private wasmInitialized = false;
@@ -57,7 +64,7 @@ export class OptimizedDiscoverySystem {
     private typeToObjects = new Map<string, number[]>();
     private nextId = 0;
 
-    // WASM function bindings
+    // AssemblyScript WASM function bindings
     private wasmInitDiscovery: (() => void) | null = null;
     private wasmRegisterObject: ((x: number, y: number, z: number, typeId: number) => number) | null = null;
     private wasmCheckDiscovery: ((x: number, y: number, z: number, typeFilter: number) => number) | null = null;
@@ -67,10 +74,20 @@ export class OptimizedDiscoverySystem {
     private wasmResetAll: (() => void) | null = null;
     private wasmGetUndiscoveredCount: (() => number) | null = null;
 
-    // Type ID encoding (map type string to numeric ID)
+    // Type ID encoding for the AssemblyScript path (map type string ↔ numeric ID)
     private typeToId = new Map<string, number>();
     private idToType = new Map<number, string>();
     private nextTypeId = 1;
+
+    // C++/Emscripten function bindings
+    private cppInitialized = false;
+    private cppRegister: ((...args: number[]) => number) | null = null;
+    private cppQuery: ((...args: number[]) => number) | null = null;
+    private cppClear: ((...args: number[]) => number) | null = null;
+    private cppMalloc: ((size: number) => number) | null = null;
+    private cppFree: ((ptr: number) => void) | null = null;
+    private cppHeap32: Int32Array | null = null;
+    private cppOutPtr = 0; // pre-allocated output buffer in Emscripten heap
 
     constructor() {
         this.initWasm();
@@ -78,23 +95,58 @@ export class OptimizedDiscoverySystem {
     }
 
     /**
-     * Initialize WASM bindings
+     * Initialize backends: C++ first, then AssemblyScript.
      */
     private initWasm(): void {
+        // --- C++ / Emscripten path (preferred) ---
+        if (isEmscriptenReady()) {
+            try {
+                const emInst = getEmscriptenInstance() as any;
+                const initGrid  = getNativeFunc('initDiscoveryGrid');
+                const register  = getNativeFunc('registerDiscoverable');
+                const query     = getNativeFunc('queryDiscoveries');
+                const clear     = getNativeFunc('clearDiscoveryGrid');
+                const malloc    = emInst?._malloc as ((n: number) => number) | undefined;
+                const free      = emInst?._free  as ((p: number) => void)   | undefined;
+                const heap32    = emInst?.HEAP32  as Int32Array | undefined;
+
+                if (initGrid && register && query && clear && malloc && heap32) {
+                    // Allocate output buffer once (CPP_MAX_QUERY_RESULTS × 4 bytes)
+                    const outPtr = malloc(CPP_MAX_QUERY_RESULTS * 4);
+                    if (outPtr) {
+                        // initDiscoveryGrid(cols=16, rows=16, originX=-128, originZ=-128, cellSize=16)
+                        initGrid(16, 16, -128, -128, 16);
+                        this.cppRegister    = register;
+                        this.cppQuery       = query;
+                        this.cppClear       = clear;
+                        this.cppMalloc      = malloc;
+                        this.cppFree        = free ?? null;
+                        this.cppHeap32      = heap32;
+                        this.cppOutPtr      = outPtr;
+                        this.cppInitialized = true;
+                        console.log('[OptimizedDiscovery] C++ spatial grid initialized');
+                        return; // skip ASC init
+                    }
+                }
+            } catch (e) {
+                console.warn('[OptimizedDiscovery] C++ discovery init failed, trying ASC:', e);
+            }
+        }
+
+        // --- AssemblyScript path (fallback) ---
         const instance = getWasmInstance();
         if (!instance) {
             console.log('[OptimizedDiscovery] WASM not available, will use JS fallback');
             return;
         }
 
-        // Bind functions
-        this.wasmInitDiscovery = (instance.exports as any).initDiscoverySystem;
-        this.wasmRegisterObject = (instance.exports as any).registerDiscoveryObject;
-        this.wasmCheckDiscovery = (instance.exports as any).checkDiscoverySpatial;
-        this.wasmMarkDiscovered = (instance.exports as any).markDiscovered;
-        this.wasmIsDiscovered = (instance.exports as any).isObjectDiscovered;
-        this.wasmGetTypeId = (instance.exports as any).getDiscoveryTypeId;
-        this.wasmResetAll = (instance.exports as any).resetAllDiscoveries;
+        this.wasmInitDiscovery        = (instance.exports as any).initDiscoverySystem;
+        this.wasmRegisterObject       = (instance.exports as any).registerDiscoveryObject;
+        this.wasmCheckDiscovery       = (instance.exports as any).checkDiscoverySpatial;
+        this.wasmMarkDiscovered       = (instance.exports as any).markDiscovered;
+        this.wasmIsDiscovered         = (instance.exports as any).isObjectDiscovered;
+        this.wasmGetTypeId            = (instance.exports as any).getDiscoveryTypeId;
+        this.wasmResetAll             = (instance.exports as any).resetAllDiscoveries;
         this.wasmGetUndiscoveredCount = (instance.exports as any).getUndiscoveredCount;
 
         if (this.wasmInitDiscovery) {
@@ -111,7 +163,7 @@ export class OptimizedDiscoverySystem {
             try {
                 this.wasmInitDiscovery();
                 this.wasmInitialized = true;
-                console.log('[OptimizedDiscovery] WASM spatial grid initialized');
+                console.log('[OptimizedDiscovery] ASC spatial grid initialized');
             } catch (e) {
                 console.warn('[OptimizedDiscovery] WASM initDiscoverySystem failed, using JS fallback:', e);
                 this.wasmInitDiscovery = null;
@@ -154,7 +206,7 @@ export class OptimizedDiscoverySystem {
     }
 
     /**
-     * Register a discoverable object
+     * Register a discoverable object.
      * @param position - World position
      * @param type - Object type (e.g., 'mushroom', 'flower')
      * @returns Registration ID, or -1 if failed
@@ -162,60 +214,59 @@ export class OptimizedDiscoverySystem {
     registerObject(position: THREE.Vector3, type: string): number {
         const discoveryInfo = DISCOVERY_MAP[type];
         if (!discoveryInfo) {
-            return -1; // Not a discoverable type
+            return -1;
         }
 
-        // Check if this type is already discovered (from persistence)
+        // Skip types already discovered (from persistence)
         if (discoveryPersistence.hasDiscovery(type) || discoverySystem.isDiscovered(type)) {
-            return -1; // Already discovered, don't register
+            return -1;
         }
 
         const id = this.nextId++;
-        const typeId = this.getTypeId(type);
 
-        // Register in WASM
-        let wasmIndex = -1;
-        if (this.wasmInitialized && this.wasmRegisterObject) {
-            wasmIndex = this.wasmRegisterObject(position.x, position.y, position.z, typeId);
+        // C++ path: passes the JS id directly so queryDiscoveries returns it verbatim
+        if (this.cppInitialized && this.cppRegister) {
+            this.cppRegister(id, position.x, position.z);
+        } else if (this.wasmInitialized && this.wasmRegisterObject) {
+            // ASC path: needs a numeric typeId
+            const typeId = this.getTypeId(type);
+            const wasmIndex = this.wasmRegisterObject(position.x, position.y, position.z, typeId);
+            this.objectRegistry.set(id, { index: wasmIndex, type, discoveryInfo });
+            if (!this.typeToObjects.has(type)) this.typeToObjects.set(type, []);
+            this.typeToObjects.get(type)!.push(id);
+            return id;
         }
 
-        // Track in JS registry
-        const obj: RegisteredObject = {
-            index: wasmIndex,
-            type,
-            discoveryInfo
-        };
-        this.objectRegistry.set(id, obj);
-
-        // Track by type
-        if (!this.typeToObjects.has(type)) {
-            this.typeToObjects.set(type, []);
-        }
+        // JS registry (C++ path also needs this for the id→type lookup)
+        this.objectRegistry.set(id, { index: id, type, discoveryInfo });
+        if (!this.typeToObjects.has(type)) this.typeToObjects.set(type, []);
         this.typeToObjects.get(type)!.push(id);
 
         return id;
     }
 
     /**
-     * Check for discoveries at a player position
+     * Check for discoveries at a player position.
+     * Routes to C++ when the Emscripten module is loaded, otherwise AssemblyScript.
      * @param playerPos - Player position
      * @returns Discovery info if something was discovered, null otherwise
      */
     checkDiscovery(playerPos: THREE.Vector3): DiscoveryInfo | null {
+        if (this.cppInitialized) {
+            return this.checkDiscoveryCpp(playerPos);
+        }
         if (!this.wasmInitialized || !this.wasmCheckDiscovery) {
             return this.checkDiscoveryJS(playerPos);
         }
 
-        // Check using WASM spatial grid
+        // AssemblyScript spatial grid
         const discoveredIndex = this.wasmCheckDiscovery(playerPos.x, playerPos.y, playerPos.z, 0);
 
         if (discoveredIndex >= 0) {
-            // Get the type ID
             const typeId = this.wasmGetTypeId!(discoveredIndex);
             const type = this.idToType.get(typeId);
 
             if (type) {
-                // Mark as discovered in persistence layer
                 const obj = this.findObjectByWasmIndex(discoveredIndex);
                 if (obj) {
                     this.persistDiscovery(type, obj.discoveryInfo.name, obj.discoveryInfo.icon);
@@ -250,6 +301,35 @@ export class OptimizedDiscoverySystem {
             if (obj.index === wasmIndex) {
                 return obj;
             }
+        }
+        return null;
+    }
+
+    /**
+     * C++ discovery query via Emscripten spatial grid.
+     * queryDiscoveries returns caller-provided IDs; the TS layer decides which
+     * are still undiscovered.
+     */
+    private checkDiscoveryCpp(playerPos: THREE.Vector3): DiscoveryInfo | null {
+        if (!this.cppQuery || !this.cppHeap32 || !this.cppOutPtr) return null;
+
+        const count = this.cppQuery(
+            playerPos.x, playerPos.z,
+            CPP_DISCOVERY_RADIUS_SQ,
+            this.cppOutPtr,
+            CPP_MAX_QUERY_RESULTS
+        );
+        if (count <= 0) return null;
+
+        const base = this.cppOutPtr >> 2; // byte offset → Int32Array index
+        for (let i = 0; i < count; i++) {
+            const id = this.cppHeap32[base + i];
+            const obj = this.objectRegistry.get(id);
+            if (!obj) continue;
+            if (discoveryPersistence.hasDiscovery(obj.type) || discoverySystem.isDiscovered(obj.type)) continue;
+
+            this.persistDiscovery(obj.type, obj.discoveryInfo.name, obj.discoveryInfo.icon);
+            return obj.discoveryInfo;
         }
         return null;
     }
@@ -331,7 +411,9 @@ export class OptimizedDiscoverySystem {
         discoveryPersistence.clear();
         discoverySystem.reset();
 
-        if (this.wasmInitialized && this.wasmResetAll) {
+        if (this.cppInitialized && this.cppClear) {
+            this.cppClear();
+        } else if (this.wasmInitialized && this.wasmResetAll) {
             this.wasmResetAll();
         }
     }
@@ -397,17 +479,24 @@ export class OptimizedDiscoverySystem {
             registeredObjects: this.objectRegistry.size,
             uniqueTypes: this.typeToObjects.size,
             undiscoveredCount: this.getUndiscoveredCount(),
-            usingWasm: this.wasmInitialized,
+            usingWasm: this.cppInitialized || this.wasmInitialized,
             persistedCount: persistenceStats.total,
             pendingSync: persistenceStats.pendingSync
         };
     }
 
     /**
-     * Check if using WASM acceleration
+     * Check if using WASM acceleration (either C++ or AssemblyScript)
      */
     isUsingWasm(): boolean {
-        return this.wasmInitialized;
+        return this.cppInitialized || this.wasmInitialized;
+    }
+
+    /**
+     * Check if using the C++/Emscripten backend (highest performance)
+     */
+    isUsingCpp(): boolean {
+        return this.cppInitialized;
     }
 
     /**
@@ -421,6 +510,10 @@ export class OptimizedDiscoverySystem {
      * Dispose of all resources
      */
     dispose(): void {
+        if (this.cppInitialized && this.cppFree && this.cppOutPtr) {
+            this.cppFree(this.cppOutPtr);
+            this.cppOutPtr = 0;
+        }
         this.objectRegistry.clear();
         this.typeToObjects.clear();
         this.typeToId.clear();

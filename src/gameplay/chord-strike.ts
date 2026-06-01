@@ -5,7 +5,7 @@ import { uAudioLow, uAudioHigh, createJuicyRimLight, uTime } from '../foliage/ma
 import { uChromaticIntensity } from '../foliage/chromatic.ts';
 import { spawnImpact } from '../foliage/impacts.ts';
 import { unlockSystem } from '../systems/unlocks.ts';
-import { showToast } from '../utils/toast.js';
+import { showToast } from '../utils/toast.ts';
 
 export class ChordStrikeSystem {
     mesh: THREE.Mesh;

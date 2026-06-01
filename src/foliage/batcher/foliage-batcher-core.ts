@@ -2,7 +2,7 @@
 // OPTIMIZATION: WASM batch processing for foliage animations
 // Migrated 10 additional animation types from JS to WASM (Phase 1)
 
-import { getWasmInstance } from '../../utils/wasm-loader.js';
+import { getWasmInstance } from '../../utils/wasm-loader.ts';
 import * as THREE from 'three';
 import {
     BATCH_SIZE,

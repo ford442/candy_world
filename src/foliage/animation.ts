@@ -10,7 +10,7 @@ import {
   wasmBatchBloom,
   wasmBatchScaleAnimation,
   OUTPUT_OFFSET
-} from '../utils/wasm-loader.js';
+} from '../utils/wasm-loader.ts';
 import { reactiveMaterials, _foliageReactiveColor, median } from './index.ts';
 import { CONFIG } from '../core/config.ts';
 import { FoliageObject, AudioData, FoliageMaterial, ChannelData } from './types.ts';

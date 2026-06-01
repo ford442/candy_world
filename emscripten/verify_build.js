@@ -110,6 +110,31 @@ const EXPECTED_EXPORTS = {
         'isBootstrapComplete',
         'getBootstrapHeight',
         'resetBootstrap'
+    ],
+
+    // Discovery spatial-grid functions (discovery.cpp)
+    discovery: [
+        'initDiscoveryGrid',
+        'registerDiscoverable',
+        'queryDiscoveries',
+        'clearDiscoveryGrid'
+    ],
+
+    // ECS entity-component system (ecs.cpp)
+    ecs: [
+        'ecsInit',
+        'ecsCreateEntity',
+        'ecsDestroyEntity',
+        'ecsIsAlive',
+        'ecsGetEntityCount',
+        'ecsRegisterComponent',
+        'ecsGetComponent',
+        'ecsSetComponent',
+        'ecsAddComponent',
+        'ecsRemoveComponent',
+        'ecsHasComponent',
+        'ecsQueryComponents',
+        'ecsGetComponentMask'
     ]
 };
 

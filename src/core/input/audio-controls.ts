@@ -84,7 +84,7 @@ export const toggleMute = () => {
     const isMuted = audioSystemRef.toggleMute();
     updateMuteUI(isMuted);
 
-    import('../../utils/toast.js').then(({ showToast }) => {
+    import('../../utils/toast.ts').then(({ showToast }) => {
         showToast(isMuted ? "Audio Muted 🔇" : "Audio Unmuted 🔊", isMuted ? '🔇' : '🔊');
     });
     
@@ -128,7 +128,7 @@ export const adjustVolume = (delta: number) => {
 
     const icon = newVol === 0 ? '🔇' : newVol < 0.5 ? '🔉' : '🔊';
 
-    import('../../utils/toast.js').then(({ showToast }) => {
+    import('../../utils/toast.ts').then(({ showToast }) => {
         showToast(`Volume: ${percentage}% ${icon}`, icon);
     });
 

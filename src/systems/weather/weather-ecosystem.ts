@@ -3,7 +3,7 @@ import { cpuAnimatedFoliage } from '../../world/state.ts';
 // Ecosystem management: cloud-mushroom interactions, spawning, waterfalls
 
 import * as THREE from 'three';
-import { getGroundHeight, uploadMushroomSpecs, batchMushroomSpawnCandidates, readSpawnCandidates, isWasmReady } from '../../utils/wasm-loader.js';
+import { getGroundHeight, uploadMushroomSpecs, batchMushroomSpawnCandidates, readSpawnCandidates, isWasmReady } from '../../utils/wasm-loader.ts';
 import { createMushroom } from '../../foliage/mushrooms.ts';
 import { FoliageGrowthOptions } from '../../foliage/types.ts';
 import { spawnNearbyFoliage } from '../../world/generation.ts';

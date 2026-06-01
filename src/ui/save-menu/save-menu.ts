@@ -17,7 +17,7 @@ import {
     SettingsSaveData,
     KeyBindings
 } from '../../systems/save-system/index.js';
-import { showToast } from '../../utils/toast.js';
+import { showToast } from '../../utils/toast.ts';
 import { trapFocusInside } from '../../utils/interaction-utils.ts';
 import { announce } from '../announcer.ts';
 import { MENU_STYLES } from './save-menu-styles.js';

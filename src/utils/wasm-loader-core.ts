@@ -18,10 +18,10 @@ import {
     getSharedBuffer,
     isSharedMemoryAvailable,
     type ParallelWasmLoadOptions
-} from './wasm-orchestrator.js';
+} from './wasm-orchestrator.ts';
 
-import { checkWasmFileExists, inspectWasmExports, patchWasmInstantiateAliases } from './wasm-utils.js';
-import { showToast } from './toast.js';
+import { checkWasmFileExists, inspectWasmExports, patchWasmInstantiateAliases } from './wasm-utils.ts';
+import { showToast } from './toast.ts';
 
 // Import WASM initialization function (Vite + vite-plugin-wasm)
 // @ts-ignore - Vite-specific WASM import with vite-plugin-wasm
@@ -659,7 +659,7 @@ let bootstrapStarted = false;
 async function startBootstrapIfAvailable(instance: ExtendedEmscriptenModule): Promise<void> {
     if (!instance || bootstrapStarted) return;
     try {
-        const { startBootstrap } = await import('./bootstrap-loader.js');
+        const { startBootstrap } = await import('./bootstrap-loader.ts');
         if (startBootstrap && startBootstrap(instance)) {
             bootstrapStarted = true;
             console.log('[WASM] Bootstrap terrain pre-computation started');
@@ -1062,4 +1062,4 @@ export {
     getSharedBuffer,
     createPlaceholderScene,
     removePlaceholderScene 
-} from './wasm-orchestrator.js';
+} from './wasm-orchestrator.ts';

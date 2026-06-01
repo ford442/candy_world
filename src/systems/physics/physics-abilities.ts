@@ -10,7 +10,7 @@ import { animatedFoliage } from '../../world/state.ts';
 import { physicsFoliageGrid } from './physics.ts';
 import { discoverySystem } from '../discovery.ts';
 import { unlockSystem } from '../unlocks.ts';
-import { showToast } from '../../utils/toast.js';
+import { showToast } from '../../utils/toast.ts';
 import { uChromaticIntensity } from '../../foliage/chromatic.ts';
 import { addCameraShake } from '../../core/game-loop.ts';
 

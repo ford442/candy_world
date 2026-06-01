@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { createIntegratedFireflies } from '../particles/index.ts';
-import { initCollisionSystem } from '../utils/wasm-loader.js';
+import { initCollisionSystem } from '../utils/wasm-loader.ts';
 import {
     createSky, createStars, createMoon, createWaveformWater, initFallingBerries,
     initGrassSystem, addGrassInstance,

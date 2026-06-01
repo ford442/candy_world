@@ -28,7 +28,7 @@ import {
 import { updateMelodyRibbons } from '../foliage/ribbons.ts';
 import { updateSparkleTrail } from '../foliage/sparkle-trail.ts';
 import { updateDandelionSeeds } from '../foliage/dandelion-seeds.ts';
-import { getGroundHeight } from '../utils/wasm-loader.js';
+import { getGroundHeight } from '../utils/wasm-loader.ts';
 import { updateImpacts } from '../foliage/impacts.ts';
 import { createShield } from '../foliage/shield.ts';
 import { updateFoliageMaterials } from '../foliage/animation.ts';
@@ -77,7 +77,7 @@ import { glitchGrenadeSystem } from '../systems/glitch-grenade.ts';
 import { updateHarpoonLine } from '../gameplay/harpoon-line.ts';
 import { musicReactivitySystem } from '../systems/music-reactivity.ts';
 import { unlockSystem } from '../systems/unlocks.ts';
-import { profiler } from '../utils/profiler.js';
+import { profiler } from '../utils/profiler.ts';
 import { WeatherSystem } from '../systems/weather.ts';
 import { InteractionSystem } from '../systems/interaction.ts';
 import { AudioSystem } from '../audio/audio-system.ts';

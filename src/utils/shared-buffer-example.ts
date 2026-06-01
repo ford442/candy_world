@@ -1,5 +1,5 @@
 import { createSharedPositionBuffer as createSharedPositionBufferJS, fillDemoPositions as fillDemoPositionsJS, copySharedToWasm as copySharedToWasmJS } from './shared-buffer-example.ts';
-import { copySharedPositions } from './wasm-loader.js';
+import { copySharedPositions } from './wasm-loader.ts';
 
 export type SharedPosResult = { sab: SharedArrayBuffer; view: Float32Array };
 

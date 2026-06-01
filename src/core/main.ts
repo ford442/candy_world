@@ -11,16 +11,16 @@ import { fluidSystem } from '../systems/fluid_system.ts';
 import { AudioSystem } from '../audio/audio-system.ts';
 import { BeatSync } from '../audio/beat-sync.ts';
 import { WeatherSystem } from '../systems/weather.ts';
-import { initWasm, getGroundHeight } from '../utils/wasm-loader.js';
+import { initWasm, getGroundHeight } from '../utils/wasm-loader.ts';
 import { getUnifiedGroundHeightTyped } from '../systems/physics.core.ts';
-import { profiler } from '../utils/profiler.js';
+import { profiler } from '../utils/profiler.ts';
 import { enableStartupProfiler, finalizeStartupProfile, recordWASMInit, toggleOverlay } from '../utils/startup-profiler.ts';
 import { startPhase, endPhase } from '../utils/startup-profiler.ts';
 import { glitchGrenadeSystem } from '../systems/glitch-grenade.ts';
 
 // Core imports
 import { CONFIG } from './config.ts';
-import { initScene } from './init.js';
+import { initScene } from './init.ts';
 import { ShaderWarmup } from '../rendering/shader-warmup.ts';
 import { initInput, keyStates } from './input/index.ts';
 import { initPostProcessing } from '../foliage/post-processing.ts';
@@ -645,7 +645,7 @@ if (startButton) {
             const instructions = document.getElementById('instructions');
             if (instructions) instructions.style.display = 'none';
 
-            import('../utils/toast.js').then(({ showToast }) => {
+            import('../utils/toast.ts').then(({ showToast }) => {
                 showToast("Click to explore! Press [ESC] for Controls", "🎮", 4000);
             });
 

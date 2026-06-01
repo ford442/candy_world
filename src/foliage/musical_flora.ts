@@ -20,7 +20,7 @@ import { makeInteractive as makeInteractiveUtils } from '../utils/interaction-ut
 import { unlockSystem } from '../systems/unlocks.ts';
 import { spawnImpact } from './impacts.ts';
 
-import { batchAnimationCalc, uploadPositions } from '../utils/wasm-loader.js';
+import { batchAnimationCalc, uploadPositions } from '../utils/wasm-loader.ts';
 import { arpeggioFernBatcher } from './arpeggio-batcher.ts';
 import { dandelionBatcher } from './dandelion-batcher.ts';
 import { portamentoPineBatcher } from './portamento-batcher.ts';

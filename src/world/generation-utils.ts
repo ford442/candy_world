@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { getGroundHeight, checkPositionValidity } from '../utils/wasm-loader.js';
+import { getGroundHeight, checkPositionValidity } from '../utils/wasm-loader.ts';
 import { CONFIG } from '../core/config.ts';
 
 export const DEFAULT_MAP_CHUNK_SIZE = 100;

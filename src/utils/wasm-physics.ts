@@ -35,7 +35,7 @@ import {
     type Cloud,
     type Trampoline,
     type PlayerState
-} from './wasm-loader-core.js';
+} from './wasm-loader-core.ts';
 
 // Zero-allocation persistent buffers for batchGroundHeight
 let _batchGroundHeightInPtr: number | null = null;
@@ -795,7 +795,7 @@ import {
     wasmDistSq3D,
     wasmSmoothstep,
     wasmInverseLerp
-} from './wasm-loader-core.js';
+} from './wasm-loader-core.ts';
 
 /**
  * Convert HSL color to RGB integer

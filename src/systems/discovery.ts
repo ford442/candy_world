@@ -1,6 +1,6 @@
 // src/systems/discovery.ts
 
-import { showToast } from '../utils/toast.js';
+import { showToast } from '../utils/toast.ts';
 import { DISCOVERY_MAP } from './discovery_map.ts';
 import { discoveryPersistence } from './discovery-persistence.ts';
 import { trapFocusInside } from '../utils/interaction-utils.ts';
