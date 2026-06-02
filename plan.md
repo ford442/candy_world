@@ -84,3 +84,7 @@ Next Step: Provide next task or continue with REFACTORING_PLAN_REMAINING.md.
    - Adjusted `createJuicyRimLight` or emissive values to add more dreamy candy-nature aesthetic.
 
 Next Step: Provide next task or continue with REFACTORING_PLAN_REMAINING.md.
+
+Status: Implemented ✅
+* Implementation Details: Replaced `group.traverse()` calls in `src/foliage/tree-batcher.ts` registration methods (`registerBubbleWillow`, `registerBalloonBush`, `registerHelixPlant`, `registerFloweringTree`) with direct `for (let i = 0; i < group.children.length; i++)` iteration over `group.children`. This eliminates recursive function overhead and adheres to zero-allocation guidelines in shallow, known hierarchies.
+Next Step: Ask the user for the next task.
