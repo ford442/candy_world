@@ -12,7 +12,6 @@ import {
     createStarflower,
     createVibratoViolet,
     createTremoloTulip,
-    createKickDrumGeyser,
     createRainingCloud,
     createArpeggioFern,
     createPortamentoPine,
@@ -31,6 +30,7 @@ import {
     createVineLadder,
 } from '../foliage/index.ts';
 import { createWisteriaCluster } from '../foliage/wisteria-cluster.ts';
+import { kickDrumGeyserBatcher } from '../foliage/kick-drum-geyser-batcher.ts';
 
 export interface WorldObjectMeta {
     isCritical?: boolean;
@@ -123,7 +123,11 @@ export function registerBuiltinWorldObjectTypes(): void {
     registerType('starflower', () => createStarflower(), { supportsMusic: true });
     registerType('vibrato_violet', () => createVibratoViolet(), { supportsMusic: true, batcherHint: 'musical_flora' });
     registerType('tremolo_tulip', (params) => createTremoloTulip({ size: typeof params?.size === 'number' ? params.size : 1.0 }), { supportsMusic: true, batcherHint: 'musical_flora' });
-    registerType('kick_drum_geyser', (params) => createKickDrumGeyser({ maxHeight: typeof params?.maxHeight === 'number' ? params.maxHeight : 5.0 }), { defaultRadius: 1.0, supportsMusic: true });
+    registerType('kick_drum_geyser', (params) => {
+        const proxy = new THREE.Group();
+        kickDrumGeyserBatcher.register(proxy, { maxHeight: typeof params?.maxHeight === 'number' ? params.maxHeight : 5.0 });
+        return proxy;
+    }, { defaultRadius: 1.0, supportsMusic: true, batcherHint: 'musical_flora' });
     registerType('arpeggio_fern', (params) => createArpeggioFern({ scale: typeof params?.scale === 'number' ? params.scale : 1.0 }), { supportsMusic: true, batcherHint: 'musical_flora' });
     registerType('portamento_pine', (params) => createPortamentoPine({ height: typeof params?.height === 'number' ? params.height : 4.0 }), { defaultIsObstacle: true, defaultRadius: 0.5, supportsMusic: true });
     registerType('cymbal_dandelion', (params) => createCymbalDandelion({ scale: typeof params?.scale === 'number' ? params.scale : 1.0 }), { supportsMusic: true, batcherHint: 'musical_flora' });

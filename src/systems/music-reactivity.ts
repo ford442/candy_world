@@ -8,6 +8,7 @@ import { portamentoPineBatcher } from '../foliage/portamento-batcher.ts';
 import { mushroomBatcher } from '../foliage/mushroom-batcher.ts';
 import { flowerBatcher } from '../foliage/flower-batcher.ts';
 import { simpleFlowerBatcher } from '../foliage/simple-flower-batcher.ts';
+import { kickDrumGeyserBatcher } from '../foliage/kick-drum-geyser-batcher.ts';
 import type { AudioData, FoliageObject } from '../foliage/types.ts';
 import { BiomeUniforms, SkyUniforms, LuminousPlantUniforms } from './biome-uniforms.ts';
 import { uTwilight } from '../foliage/sky.ts';
@@ -614,6 +615,9 @@ export class MusicReactivitySystem {
             // Update Flower Batchers (aPoseState driven by audio)
             flowerBatcher.update(time, deltaTime, audioState, dayNightBias);
             simpleFlowerBatcher.update(audioState);
+
+            // Update Kick Drum Geysers
+            kickDrumGeyserBatcher.update(time, deltaTime, audioState, activeWave);
 
             // ---------------------------------------------------------------
             // ⚡ BIOME CHANNEL BINDING — Arpeggio Grove & Crystalline Nebula
