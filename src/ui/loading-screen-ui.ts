@@ -1,6 +1,7 @@
 import { trapFocusInside } from '../utils/interaction-utils';
 import { globalLoadingManager, GlobalProgressState, TaskState } from '../systems/loading-manager';
 import { LoadingPhase, LoadingProgress, LoadingScreenOptions, DEFAULT_LOADING_PHASES } from './loading-screen-types';
+import { getReport } from '../world/spawn-tracker.ts';
 import './loading-screen.css';
 
 // =============================================================================
@@ -109,7 +110,7 @@ export class LoadingScreen {
             this.deferredIndicator.id = 'candy-deferred-indicator';
             this.deferredIndicator.className = 'deferred-indicator';
             this.deferredIndicator.setAttribute('aria-hidden', 'true');
-            this.deferredIndicator.innerHTML = '<span class="deferred-spinner"></span><span class="deferred-text">Populating...</span><span class="deferred-count" aria-hidden="true"></span><span class="deferred-bar"><span class="deferred-bar-fill"></span></span>';
+            this.deferredIndicator.innerHTML = '<span class="deferred-spinner"></span><span class="deferred-text">Populating...</span><span class="deferred-count" aria-hidden="true"></span><span class="deferred-fail" aria-hidden="true" style="display:none;color:#ff6b6b;font-weight:600;margin-left:6px;cursor:pointer;">⚠ <span class="fail-count">0</span></span><span class="deferred-bar"><span class="deferred-bar-fill"></span></span>';
             document.body.appendChild(this.deferredIndicator);
         }
 
@@ -338,6 +339,49 @@ export class LoadingScreen {
         const count = this.deferredIndicator.querySelector('.deferred-count') as HTMLElement | null;
         if (count) count.textContent = `${completed} / ${total}`;
         this.deferredIndicator.setAttribute('aria-valuenow', String(Math.round(pct)));
+
+        // Spawn failure badge (visible + clickable for details). Safe if tracker not present.
+        try {
+            const report = getReport ? getReport() : null;
+            const failEl = this.deferredIndicator.querySelector('.deferred-fail') as HTMLElement | null;
+            const failCountEl = this.deferredIndicator.querySelector('.fail-count') as HTMLElement | null;
+            if (report && failEl && failCountEl) {
+                if (report.failed > 0) {
+                    failCountEl.textContent = String(report.failed);
+                    failEl.style.display = 'inline';
+                    failEl.setAttribute('aria-hidden', 'false');
+                    failEl.setAttribute('title', `${report.failed} object(s) failed to spawn — click for details`);
+                    if (!(failEl as any)._spawnClickWired) {
+                        (failEl as any)._spawnClickWired = true;
+                        failEl.addEventListener('click', (ev) => {
+                            ev.stopPropagation();
+                            try {
+                                const r = getReport();
+                                const summary = `Spawn failures: ${r.failed}/${r.attempted} (succeeded ${r.succeeded}). By type: ${Object.entries(r.failuresByType).map(([k,v])=>k+':'+v).join(', ') || 'n/a'}`;
+                                console.group('[SpawnTracker] Failures during population');
+                                console.table(r.failuresByType);
+                                console.log('Last errors:', r.lastErrors);
+                                console.groupEnd();
+                                import('../utils/toast.ts').then(({ showToast }) => {
+                                    showToast(summary + ' — see console for full list', '⚠️', 6000);
+                                }).catch(() => {
+                                    const t = document.createElement('div');
+                                    t.textContent = summary;
+                                    t.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#3a2a2a;color:#ffdddd;padding:6px 10px;border-radius:4px;z-index:99999;font-size:12px';
+                                    document.body.appendChild(t);
+                                    setTimeout(() => t.remove(), 5000);
+                                });
+                            } catch (e) { console.warn('[Deferred] failed to show spawn report', e); }
+                        }, { once: false });
+                    }
+                } else {
+                    failEl.style.display = 'none';
+                    failEl.setAttribute('aria-hidden', 'true');
+                }
+            }
+        } catch {
+            // tracker not ready — silent
+        }
     }
 
     /**

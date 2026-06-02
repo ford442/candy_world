@@ -38,6 +38,7 @@ import { updateTheme, toggleDayNight, setInputSystem } from './hud.ts';
 import { initDeferredVisuals, initDeferredVisualsDependencies, runDeferredWarmup } from './deferred-init.ts';
 import { globalBackgroundProcessor } from '../utils/background-processor.ts';
 import { showDeferredIndicator, hideDeferredIndicator, setDeferredProgress } from '../ui/index.ts';
+import { reset as resetSpawnTracker, getReport as getSpawnReport } from '../world/spawn-tracker.ts';
 import { showModeBadge } from '../ui/mode-badge.ts';
 import { DeferredLoader, LoadPriority } from '../systems/deferred-loader.ts';
 import { initLoadingScreen, installLegacyAPI } from '../ui/loading-screen.ts';
@@ -595,6 +596,7 @@ if (startButton) {
             loadingScreen.show();
             loadingScreen.startPhase('map-generation');
             loadingScreen.updateProgress(0, getGenerationLabel(requestedMode));
+            resetSpawnTracker(); // fresh counts for this population attempt
 
             let lastAnnounced = -1;
             startPhase('Map Generation');
@@ -659,6 +661,20 @@ if (startButton) {
                 populatePhysicsGrids();
                 finalizeStartupProfile();
                 console.log('[Startup] All deferred background tasks completed.');
+                // Surface spawn report (visible errors already shown via badge/toast in indicator)
+                try {
+                    const r = getSpawnReport();
+                    (window as any).__worldPopulationReport = r;
+                    if (r.failed > 0) {
+                        console.warn(`[Startup] Population complete with ${r.failed} spawn failures out of ${r.attempted}. See spawn tracker report.`);
+                        // One last non-fatal hint if badge wasn't noticed
+                        import('../utils/toast.ts').then(({ showToast }) => {
+                            showToast(`Some objects failed to load (${r.failed}). Click the ⚠ badge or check console.`, '⚠️', 5000);
+                        }).catch(() => {});
+                    } else if (r.attempted > 0) {
+                        console.log(`[Startup] Population complete: ${r.succeeded}/${r.attempted} objects spawned cleanly.`);
+                    }
+                } catch {}
                 // Notify interested systems (music reactivity, discovery, etc.) that the
                 // world is now fully populated.  A CustomEvent on `document` keeps this
                 // decoupled from any specific module.

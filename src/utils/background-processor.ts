@@ -23,6 +23,8 @@ export interface DeferredTask {
 // Detect requestIdleCallback at module level to avoid repeated property lookups.
 const hasIdleCallback = typeof requestIdleCallback !== 'undefined';
 
+import { maybeRecordBackgroundFailure } from '../world/spawn-tracker.ts';
+
 export class BackgroundProcessor {
     private queue: DeferredTask[] = [];
     private isRunning: boolean = false;
@@ -139,6 +141,8 @@ export class BackgroundProcessor {
                 }
             } catch (e) {
                 console.error(`[BackgroundProcessor] Error executing task ${task.id}:`, e);
+                // If this looks like a world spawn / foliage task, feed the failure into the visible spawn tracker
+                maybeRecordBackgroundFailure(task.id, e);
             }
         }
 

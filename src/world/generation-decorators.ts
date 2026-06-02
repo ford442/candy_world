@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { createIntegratedPollen, createIntegratedSparks, registerIntegratedSystem } from '../particles/index.ts';
 import { animatedFoliage, cpuAnimatedFoliage } from './state.ts';
 import { globalBackgroundProcessor } from '../utils/background-processor.ts';
+import { recordSpawnAttempt } from './spawn-tracker.ts';
 import { unlockSystem } from '../systems/unlocks.ts';
 import { spawnImpact } from '../foliage/impacts.ts';
 import { makeInteractive } from '../utils/interaction-utils.ts';
@@ -462,6 +463,7 @@ export async function populateProceduralExtras(
             }
             } catch (e) {
                 console.warn(`[World] Failed to spawn procedural extra at ${x},${z}`, e);
+                recordSpawnAttempt('procedural_extra', false, e);
             }
         };
 

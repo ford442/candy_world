@@ -19,6 +19,7 @@ import {
     foliageTraps, foliagePortamentoPines, vineSwings, foliageVineLadders, worldGroup
 } from './state.ts';
 import { globalBackgroundProcessor } from '../utils/background-processor.ts';
+import { recordSpawnAttempt } from './spawn-tracker.ts';
 import { updateProgress } from '../ui/index.ts';
 import { endPhase, recordGenerationChunk, startPhase } from '../utils/startup-profiler.ts';
 import { populateProceduralExtras } from './generation-decorators.ts';
@@ -922,6 +923,7 @@ function processMapEntity(item: MapEntity, weatherSystem: WeatherSystem, options
 
     } catch (e) {
         console.warn(`[World] Failed to spawn ${item.type} at ${x},${z}`, e);
+        recordSpawnAttempt(item.type || 'unknown', false, e);
     }
 }
 
