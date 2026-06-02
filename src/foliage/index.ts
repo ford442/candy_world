@@ -143,7 +143,7 @@ export {
 export { createSubwooferLotus } from './lotus.ts';
 export { createLuminousPlant } from './luminous-plant.ts';
 export { LuminousPlantBatcher, luminousPlantBatcher } from './luminous-plant-batcher.ts';
-export { createFloatingOrb, createFloatingOrbCluster, createKickDrumGeyser } from './environment.ts';
+export { createFloatingOrb, createFloatingOrbCluster } from './environment.ts';
 export { createRainingCloud } from './clouds.ts';
 export { createWaveformWater } from './water.ts';
 export { createFireflies } from './fireflies.ts';

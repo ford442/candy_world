@@ -1,13 +1,14 @@
 import * as THREE from 'three';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { color, float, sin, positionLocal, normalLocal, mix, attribute } from 'three/tsl';
-import { uTime, createJuicyRimLight, createStandardNodeMaterial } from './material-core.ts';
+import { uTime, createJuicyRimLight, createStandardNodeMaterial, applyPlayerInteraction } from './material-core.ts';
 import { calculateWindSway } from './index.ts';
 import { LuminousPlantUniforms, luminousPlantsNoteColorNode, getBiomeUniforms, type BiomeId } from '../systems/biome-uniforms.ts';
 
 const LUMINOUS_BIOME: BiomeId = 'luminous_plants';
 const luminousUniforms = getBiomeUniforms(LUMINOUS_BIOME); // demonstrates the helper for a non-arpeggio biome
 import { CONFIG } from '../core/config.ts';
+import { uTwilight } from './sky.ts';
 
 export class LuminousPlantBatcher {
     private static instance: LuminousPlantBatcher;
@@ -55,7 +56,7 @@ export class LuminousPlantBatcher {
         const breathe = sin(localTime).mul(pulseDepth).mul(heightFactor);
         const shockwave = LuminousPlantUniforms.intensity.mul(heightFactor).mul(1.5);
         const totalDisplacement = normalLocal.mul(breathe.add(shockwave));
-        mat.positionNode = positionLocal.add(totalDisplacement).add(calculateWindSway(positionLocal));
+        mat.positionNode = applyPlayerInteraction(positionLocal.add(totalDisplacement).add(calculateWindSway(positionLocal)));
 
         const sssStrength = float(CONFIG.luminousPlants?.subsurfaceStrength || 0.8);
         const musicColor = mix(baseColor, luminousPlantsNoteColorNode, LuminousPlantUniforms.intensity);
@@ -68,7 +69,14 @@ export class LuminousPlantBatcher {
 
         const rimIntensity = float(1.0).add(LuminousPlantUniforms.intensity.mul(2.0));
         const rimLight = createJuicyRimLight(musicColor, rimIntensity, float(3.0), null);
-        mat.emissiveNode = emissiveBase.add(rimLight.mul(sssStrength));
+        const glowPhaseOffset = positionLocal.x.add(positionLocal.z).mul(2.0);
+        const idlePulse = sin(uTime.mul(float(CONFIG.glow.glowPulseFrequency)).add(glowPhaseOffset)).mul(float(CONFIG.glow.glowPulseAmplitude)).add(1.0).mul(float(0.5)).mul(LuminousPlantUniforms.intensity.mul(0.3).add(0.7));
+        const targetGlowColor = color(CONFIG.glow.glowColorMap['luminous_plants'] || 0x66CCFF);
+        const twilightGlowTint = targetGlowColor
+            .mul(uTwilight)
+            .mul(float(CONFIG.glow.glowIntensityMax))
+            .mul(float(0.3).add(idlePulse));
+        mat.emissiveNode = emissiveBase.add(rimLight.mul(sssStrength)).add(twilightGlowTint);
 
         // Music Impact: subtle direct contribution from the sky-wave-driven noteColor uniform.
         // When the Sky Wave (see music-reactivity.ts + sky_wave in music-bindings.json) fires,
@@ -88,6 +96,34 @@ export class LuminousPlantBatcher {
 
         this.mesh.userData.type = 'luminous_plant';
         this.mesh.count = 0;
+    }
+
+
+    dispose() {
+        if (!this.mesh) return;
+
+        if (this.mesh.geometry) {
+            this.mesh.geometry.dispose();
+        }
+
+        if (this.mesh.material) {
+            if (Array.isArray(this.mesh.material)) {
+                this.mesh.material.forEach(m => m.dispose());
+            } else {
+                this.mesh.material.dispose();
+            }
+        }
+
+        const phaseAttr = this.mesh.geometry.getAttribute('aPhaseOffset');
+        if (phaseAttr && typeof (phaseAttr as any).dispose === 'function') {
+            try { (phaseAttr as any).dispose(); } catch (e) {}
+        }
+
+        if (this.mesh.parent) {
+            this.mesh.parent.remove(this.mesh);
+        }
+
+        this.count = 0;
     }
 
     register(group: THREE.Group): number {
@@ -113,6 +149,31 @@ export class LuminousPlantBatcher {
         phaseAttr.needsUpdate = true;
 
         return id;
+    }
+
+    dispose(): void {
+        if (this.mesh) {
+            if (this.mesh.geometry) {
+                this.mesh.geometry.dispose();
+                const phaseAttr = this.mesh.geometry.getAttribute('aPhaseOffset');
+                if (phaseAttr && typeof (phaseAttr as any).dispose === 'function') {
+                    try { (phaseAttr as any).dispose(); } catch(e) {}
+                }
+            }
+            if (this.mesh.material) {
+                if (Array.isArray(this.mesh.material)) {
+                    this.mesh.material.forEach(m => m.dispose());
+                } else {
+                    (this.mesh.material as any).dispose();
+                }
+            }
+            if (this.mesh.instanceColor && typeof (this.mesh.instanceColor as any).dispose === 'function') {
+                try { (this.mesh.instanceColor as any).dispose(); } catch (e) {}
+            }
+            if (this.mesh.instanceMatrix && typeof (this.mesh.instanceMatrix as any).dispose === 'function') {
+                try { (this.mesh.instanceMatrix as any).dispose(); } catch (e) {}
+            }
+        }
     }
 }
 

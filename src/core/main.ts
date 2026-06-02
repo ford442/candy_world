@@ -569,6 +569,14 @@ if (startButton) {
             const previewMushroom = (window as any).previewMushroom;
             if (typeof previewMushroom !== 'undefined' && previewMushroom) {
                 scene.remove(previewMushroom);
+                if (previewMushroom.geometry) previewMushroom.geometry.dispose();
+                if (previewMushroom.material) {
+                    if (Array.isArray(previewMushroom.material)) {
+                        previewMushroom.material.forEach((m: any) => m.dispose());
+                    } else {
+                        previewMushroom.material.dispose();
+                    }
+                }
                 previewMushroom.traverse((child: any) => {
                     const mesh = child as THREE.Mesh;
                     if (mesh.geometry) mesh.geometry.dispose();
