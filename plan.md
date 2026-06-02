@@ -73,3 +73,5 @@ Next Step: Review and continue clearing remaining items from `weekly_plan.md` or
 Status: Implemented ✅
 * Implementation Details: Audited remaining batchers (`wisteria-cluster.ts`, `glowing-flower-batcher.ts`, `dandelion-batcher.ts`, `arpeggio-batcher.ts`, `waterfall-batcher.ts`) for VRAM leaks. Introduced `_cachedMergedGeo` and `_cachedHitGeo` singletons in `createWisteriaCluster` to eliminate per-call geometry instantiation leaks. Added fully robust `dispose()` methods to all other tracked batchers to properly clean up `mesh.geometry`, `mesh.material`, and custom attributes like `mesh.instanceColor`. Marked task as complete in `weekly_plan.md`.
 Next Step: Provide next task or continue with REFACTORING_PLAN_REMAINING.md.
+* Implementation Details: Replaced single mesh geysers with `KickDrumGeyserBatcher` in `src/foliage/kick-drum-geyser-batcher.ts`, fully adopting `InstancedMesh` with TSL wave scaling and proper VRAM disposal for the Kick-Drum Geyser. Marked `region-manager.ts` refactoring as implemented in the musical ecosystem roadmap.
+Next Step: Provide next task or continue with Subwoofer Lotus Batcher implementation.
