@@ -300,10 +300,12 @@ export async function populateProceduralExtras(
             let exportHasFace: boolean | undefined;
             const exportParams: Record<string, unknown> = {};
             let hasTrackedAttempt = false;
-            const getTrackedType = () => normalizeMapEntityType(exportType ?? obj?.userData?.type ?? 'procedural_extra');
-            const ensureTrackedAttempt = () => {
+            let trackedType = 'procedural_extra';
+            const resolveSpawnType = () => normalizeMapEntityType(exportType ?? obj?.userData?.type ?? 'procedural_extra');
+            const recordAttemptOnce = () => {
                 if (hasTrackedAttempt) return;
-                spawnTracker.recordAttempt(getTrackedType());
+                trackedType = resolveSpawnType();
+                spawnTracker.recordAttempt(trackedType);
                 hasTrackedAttempt = true;
             };
 
@@ -455,7 +457,7 @@ export async function populateProceduralExtras(
             }
 
             if (obj) {
-                ensureTrackedAttempt();
+                recordAttemptOnce();
                 obj.rotation.y = Math.random() * Math.PI * 2;
                 const normalizedExportType = normalizeMapEntityType(exportType ?? obj.userData?.type ?? '');
                 obj.userData.mapEntityType = normalizedExportType;
@@ -468,16 +470,16 @@ export async function populateProceduralExtras(
                     params: Object.keys(exportParams).length > 0 ? exportParams : undefined
                 };
                 safeAddFoliage(obj, isObstacle, radius, weatherSystem);
-                spawnTracker.recordSuccess(getTrackedType());
+                spawnTracker.recordSuccess(trackedType);
             } else {
-                ensureTrackedAttempt();
-                spawnTracker.recordFailure(getTrackedType(), new Error('Factory returned null for procedural extra'), {
+                recordAttemptOnce();
+                spawnTracker.recordFailure(trackedType, new Error(`Factory returned null for ${trackedType}`), {
                     context: 'procedural-extra',
                 });
             }
             } catch (e) {
-                ensureTrackedAttempt();
-                spawnTracker.recordFailure(getTrackedType(), e, { context: 'procedural-extra' });
+                recordAttemptOnce();
+                spawnTracker.recordFailure(trackedType, e, { context: 'procedural-extra' });
                 console.warn(`[World] Failed to spawn procedural extra at ${x},${z}`, e);
             }
         };

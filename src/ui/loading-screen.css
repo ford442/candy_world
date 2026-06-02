@@ -860,8 +860,8 @@
 
 .deferred-fail {
     display: none;
-    color: #ff9ea8;
-    background: rgba(120, 20, 20, 0.35);
+    color: #ffdfe4;
+    background: rgba(120, 20, 20, 0.75);
     border: 1px solid rgba(255, 120, 130, 0.45);
     border-radius: 999px;
     padding: 2px 6px;

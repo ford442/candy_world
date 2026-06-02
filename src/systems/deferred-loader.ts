@@ -389,7 +389,7 @@ export class DeferredLoader {
           }
         }
       } catch (error) {
-        spawnTracker.recordFailure(`deferred_loader_${item.id}`, error, {
+        spawnTracker.recordFailure('deferred_loader_item', error, {
           context: `deferred-loader:${item.id}`,
           countAttempt: true,
         });

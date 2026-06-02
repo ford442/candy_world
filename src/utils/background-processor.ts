@@ -25,11 +25,22 @@ export interface DeferredTask {
 // Detect requestIdleCallback at module level to avoid repeated property lookups.
 const hasIdleCallback = typeof requestIdleCallback !== 'undefined';
 
+const TASK_TYPE_PREFIX_MAP: Array<{ prefix: string; type: string }> = [
+    { prefix: 'map_stream_', type: 'map_entity_deferred' },
+    { prefix: 'map_fallback_', type: 'map_entity_deferred' },
+    { prefix: 'procedural_deferred_', type: 'procedural_extra_deferred' },
+];
+
+const TASK_TYPE_EXACT_MAP: Record<string, string> = {
+    deferred_visuals: 'deferred_visuals',
+    shader_warmup: 'shader_warmup',
+};
+
 function inferFailureTypeFromTaskId(taskId: string): string {
-    if (taskId.startsWith('map_stream_') || taskId.startsWith('map_fallback_')) return 'map_entity_deferred';
-    if (taskId.startsWith('procedural_deferred_')) return 'procedural_extra_deferred';
-    if (taskId === 'deferred_visuals') return 'deferred_visuals';
-    if (taskId === 'shader_warmup') return 'shader_warmup';
+    if (TASK_TYPE_EXACT_MAP[taskId]) return TASK_TYPE_EXACT_MAP[taskId];
+    for (const entry of TASK_TYPE_PREFIX_MAP) {
+        if (taskId.startsWith(entry.prefix)) return entry.type;
+    }
     return 'background_task';
 }
 

@@ -346,7 +346,7 @@ export class LoadingScreen {
         const badge = this.deferredIndicator.querySelector('.deferred-fail') as HTMLElement | null;
         if (!badge) return;
         if (failed > 0) {
-            badge.textContent = `! ${failed} failed`;
+            badge.textContent = `${failed} objects failed to load`;
             badge.classList.add('visible');
         } else {
             badge.textContent = '';
