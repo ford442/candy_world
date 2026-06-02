@@ -73,3 +73,14 @@ Next Step: Review and continue clearing remaining items from `weekly_plan.md` or
 Status: Implemented ✅
 * Implementation Details: Audited remaining batchers (`wisteria-cluster.ts`, `glowing-flower-batcher.ts`, `dandelion-batcher.ts`, `arpeggio-batcher.ts`, `waterfall-batcher.ts`) for VRAM leaks. Introduced `_cachedMergedGeo` and `_cachedHitGeo` singletons in `createWisteriaCluster` to eliminate per-call geometry instantiation leaks. Added fully robust `dispose()` methods to all other tracked batchers to properly clean up `mesh.geometry`, `mesh.material`, and custom attributes like `mesh.instanceColor`. Marked task as complete in `weekly_plan.md`.
 Next Step: Provide next task or continue with REFACTORING_PLAN_REMAINING.md.
+1. *Add `dispose` method to `LuminousPlantBatcher` in `src/foliage/luminous-plant-batcher.ts`.*
+   - Defined a `dispose()` method.
+   - Cleaned up `this.mesh.geometry`, `this.mesh.material`, and custom attributes like `aPhaseOffset`.
+   - Removed the mesh from its parent if necessary.
+
+2. *Add visual polish (TSL juice) to `LuminousPlantBatcher`.*
+   - Integrated `applyPlayerInteraction` from `material-core.ts` so the plants react when the player walks through them.
+   - Improved the emissive falloff by adding `uTwilight` so that the glow respects the day/night cycle.
+   - Adjusted `createJuicyRimLight` or emissive values to add more dreamy candy-nature aesthetic.
+
+Next Step: Provide next task or continue with REFACTORING_PLAN_REMAINING.md.
