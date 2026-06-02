@@ -219,7 +219,8 @@ export const CONFIG: ConfigType = {
             'lotus': 0xFFBBCC,
             'lantern': 0xFFEEAA,
             'portamento': 0xAAEEFF,
-            'global': 0xFFFFFF
+            'global': 0xFFFFFF,
+            'luminous_plants': 0x66CCFF
         }
     },
 
