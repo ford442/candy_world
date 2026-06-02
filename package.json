@@ -28,7 +28,9 @@
     "test:integration": "npm run build:wasm && npm run test:wasm && npm run test",
     "verify:emcc": "node verification/verify_emcc_exports.js",
     "generate:map": "tsx tools/map-generator/cli.ts",
-    "export:map": "tsx tools/map-generator/export-current-world.ts"
+    "export:map": "tsx tools/map-generator/export-current-world.ts",
+    "release:tag": "node scripts/make-release.mjs",
+    "release": "npm run build && node scripts/make-release.mjs"
   },
   "keywords": [],
   "author": "",

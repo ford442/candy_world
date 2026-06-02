@@ -34,6 +34,7 @@ import {
     applyPanningBob,
     applySpiritFade
 } from './foliage-batcher-effects.ts';
+import { FoliageEcsBridge, type SimpleAnimType } from '../../systems/ecs/foliage-ecs-bridge.ts';
 
 export class FoliageBatcher {
     private static instance: FoliageBatcher;
@@ -342,6 +343,16 @@ export class FoliageBatcher {
     }
 
     private queueSimpleBatch(obj: FoliageObject, type: 'shiver' | 'spring' | 'float' | 'cloudBob', intensity: number, time: number): boolean {
+        // If the ECS bridge is active it owns the entity; skip legacy queue path.
+        const bridge = FoliageEcsBridge.getInstance();
+        if (bridge.isReady()) {
+            // Register each object once (no-op for subsequent frames — bridge tracks entities).
+            if (obj.userData._ecsBridgeId === undefined) {
+                obj.userData._ecsBridgeId = bridge.registerEntity(obj, type);
+            }
+            return true;
+        }
+
         this.initSimpleBatches();
         if (!this.simpleBatchesInitialized) return false;
 
@@ -730,6 +741,14 @@ export class FoliageBatcher {
     }
 
     private flushSimpleBatches(time: number, intensity: number) {
+        // Fast path: C++ ECS handles entity query + batch animate in one shot.
+        const bridge = FoliageEcsBridge.getInstance();
+        if (bridge.isReady()) {
+            const types: SimpleAnimType[] = ['shiver', 'spring', 'float', 'cloudBob'];
+            for (const t of types) bridge.runBatch(t, time, intensity);
+            return;
+        }
+
         if (!this.simpleBatchesInitialized) return;
 
         const instance = getWasmInstance();

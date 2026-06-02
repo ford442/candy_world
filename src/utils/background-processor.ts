@@ -93,12 +93,12 @@ export class BackgroundProcessor {
      */
     private scheduleNext(): void {
         if (hasIdleCallback) {
-            // idleDeadline.timeRemaining() tells us how long the browser is idle.
-            // We cap at maxMsPerFrame so we never hog an entire idle period.
             requestIdleCallback((deadline) => {
-                const budget = Math.min(deadline.timeRemaining(), this.maxMsPerFrame);
+                // Guarantee at least 2 ms so a forced-timeout callback (timeRemaining≈0)
+                // still makes forward progress instead of spinning with zero work done.
+                const budget = Math.max(2, Math.min(deadline.timeRemaining(), this.maxMsPerFrame));
                 this.processChunk(budget);
-            }, { timeout: 1000 }); // 1 s timeout ensures progress even under load
+            }, { timeout: 500 }); // tighter timeout so forced callbacks fire sooner under load
         } else {
             requestAnimationFrame(() => {
                 this.processChunk(this.maxMsPerFrame);
@@ -108,6 +108,8 @@ export class BackgroundProcessor {
 
     /**
      * Process tasks until the given time budget (ms) is consumed.
+     * Always processes at least one task per call so the queue makes forward
+     * progress even when the budget is tight (e.g. forced idle callback).
      */
     private async processChunk(budgetMs: number): Promise<void> {
         if (!this.isRunning) return;
@@ -118,11 +120,13 @@ export class BackgroundProcessor {
         }
 
         const chunkStart = performance.now();
+        let processed = 0;
 
         while (this.queue.length > 0) {
-            // Check budget BEFORE starting the next task so a single slow task
-            // only overruns once rather than accumulating overruns.
-            if (performance.now() - chunkStart >= budgetMs) {
+            // Check budget only after we've done at least one task, so a forced
+            // callback with timeRemaining()=0 still drains one entry per slot
+            // rather than spinning forever without touching the queue.
+            if (processed > 0 && performance.now() - chunkStart >= budgetMs) {
                 break;
             }
 
@@ -134,15 +138,17 @@ export class BackgroundProcessor {
                 if (result instanceof Promise) {
                     await result;
                 }
+            } catch (e) {
+                console.error(`[BackgroundProcessor] Error executing task ${task.id}:`, e);
+                maybeRecordBackgroundFailure(task.id, e);
+            } finally {
+                // Count every dequeued task (success or failure) so the progress
+                // counter stays in sync with totalTasks and onComplete fires correctly.
                 this.completedTasks++;
-
+                processed++;
                 if (this.onProgressCallback) {
                     this.onProgressCallback(this.completedTasks, this.totalTasks);
                 }
-            } catch (e) {
-                console.error(`[BackgroundProcessor] Error executing task ${task.id}:`, e);
-                // If this looks like a world spawn / foliage task, feed the failure into the visible spawn tracker
-                maybeRecordBackgroundFailure(task.id, e);
             }
         }
 
@@ -160,13 +166,17 @@ export class BackgroundProcessor {
     }
 
     /**
-     * Clear all pending tasks
+     * Clear all pending tasks and reset counters.
+     * Call before re-enqueuing a new generation run so totalTasks/completedTasks
+     * start fresh and start() is not blocked by a stale isRunning=true state.
      */
     public clear(): void {
         this.queue = [];
         this.totalTasks = 0;
         this.completedTasks = 0;
         this.isRunning = false;
+        this.onCompleteCallback = null;
+        this.onProgressCallback = null;
     }
 }
 

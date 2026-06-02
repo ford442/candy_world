@@ -1,6 +1,50 @@
 import * as THREE from 'three';
 import type { PlantPoseConfig } from '../foliage/plant-pose-machine.ts';
 
+// ---------------------------------------------------------------------------
+// FEATURE FLAGS
+//
+// URL query params let you disable heavy subsystems without touching code:
+//   ?no_luminous          — skip luminous plant batcher + lake-island plants
+//   ?no_musical           — skip musical flora (arpeggio fern, vibrato violet, etc.)
+//   ?no_procedural        — skip procedural extras (random filler objects)
+//   ?no_batchers          — skip tree / mushroom / flower GPU batch systems
+//   ?no_audio_react       — skip beat-sync and music-reactivity hooks
+//   ?no_fireflies         — skip firefly particle system
+//   ?no_grass             — skip GPU grass instancing
+//
+// Combine flags to isolate regressions: ?no_luminous&no_musical
+// All flags default to ENABLED (absent = feature on).
+// ---------------------------------------------------------------------------
+
+function _hasFlag(key: string): boolean {
+    try {
+        return new URLSearchParams(window.location.search).has(key);
+    } catch {
+        return false; // non-browser (test) environment — all features on
+    }
+}
+
+export const FEATURE_FLAGS = {
+    luminousPlants:   !_hasFlag('no_luminous'),
+    musicalFlora:     !_hasFlag('no_musical'),
+    proceduralExtras: !_hasFlag('no_procedural'),
+    batchers:         !_hasFlag('no_batchers'),
+    audioReactivity:  !_hasFlag('no_audio_react'),
+    fireflies:        !_hasFlag('no_fireflies'),
+    grass:            !_hasFlag('no_grass'),
+} as const;
+
+// Log active overrides once at startup so the console makes the state obvious.
+if (typeof window !== 'undefined') {
+    const disabled = Object.entries(FEATURE_FLAGS)
+        .filter(([, v]) => !v)
+        .map(([k]) => k);
+    if (disabled.length > 0) {
+        console.warn(`[FeatureFlags] Disabled via URL: ${disabled.join(', ')}`);
+    }
+}
+
 // Cycle: Sunrise (1m), Day (7m), Sunset (1m), Night (7m) = Total 16m = 960s
 export const DURATION_SUNRISE = 60;
 export const DURATION_DAY = 420;

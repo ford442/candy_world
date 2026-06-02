@@ -659,7 +659,10 @@ if (startButton) {
                 showToast("Click to explore! Press [ESC] for Controls", "🎮", 4000);
             });
 
-            // Start background processor for deferred work
+            // Start background processor for deferred work.
+            // clear() resets counters and clears any leftover tasks/callbacks from
+            // a previous generation run so start() isn't blocked by isRunning=true.
+            globalBackgroundProcessor.clear();
             showDeferredIndicator();
             globalBackgroundProcessor.onProgress((completed, total) => {
                 setDeferredProgress(completed, total);

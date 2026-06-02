@@ -28,3 +28,7 @@ test_build/
 .aider*
 package-lock.json
 public/js/libopenmpt.js
+
+# Release tooling
+candy-world-*.zip
+candy-world-*.tar.gz

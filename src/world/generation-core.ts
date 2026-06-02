@@ -9,7 +9,7 @@ import {
 } from '../foliage/index.ts';
 import { generateCloudLayer } from '../foliage/procedural-sky.ts';
 import { validateFoliageMaterials, foliageMaterials } from '../foliage/index.ts';
-import { CONFIG } from '../core/config.ts';
+import { CONFIG, FEATURE_FLAGS } from '../core/config.ts';
 import { generateGroundHeightmap } from './ground-heightmap.ts';
 import { registerPhysicsCave } from '../systems/physics/index.js';
 import { initDiscoveryForFoliage } from '../systems/discovery-optimized.ts';
@@ -192,11 +192,15 @@ export async function initWorld(scene: THREE.Scene, weatherSystem: WeatherSystem
 
     // Initialize Vegetation Systems (yield first so browser can breathe)
     await yieldControl();
-    initGrassSystem(scene, 10000);
+    if (FEATURE_FLAGS.grass) {
+        initGrassSystem(scene, 10000);
+    }
 
     // Use CPU fallback for fireflies during startup. GPU compute init is async but can hang
     // on systems with partial WebGPU support; the CPU path is safe and fast enough for 150 particles.
-    scene.add(createIntegratedFireflies({ count: 150, areaSize: 100, useCompute: false }));
+    if (FEATURE_FLAGS.fireflies) {
+        scene.add(createIntegratedFireflies({ count: 150, areaSize: 100, useCompute: false }));
+    }
 
     // Procedural Cloud Layer (Background)
     await yieldControl();
@@ -215,42 +219,36 @@ export async function initWorld(scene: THREE.Scene, weatherSystem: WeatherSystem
     safeAddFoliage(island, true, 15, weatherSystem);
 
     // Add Luminous Plants around Lake Island (yield every 30 plants to stay responsive)
-    const luminousCount = CONFIG.luminousPlants.density;
-    await yieldControl();
-    for (let i = 0; i < luminousCount; i++) {
-        const angle = Math.random() * Math.PI * 2;
-        // Gentle radius falloff: more dense near edge (10-25), tapering out to 35
-        // Using a square-root or quadratic distribution helps achieve this
-        const randDist = Math.pow(Math.random(), 2.0); // more values near 0
-        const dist = 10 + randDist * 25; // 10 to 35
+    if (FEATURE_FLAGS.luminousPlants) {
+        const luminousCount = CONFIG.luminousPlants.density;
+        await yieldControl();
+        for (let i = 0; i < luminousCount; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const randDist = Math.pow(Math.random(), 2.0);
+            const dist = 10 + randDist * 25;
 
-        const lx = -40 + Math.cos(angle) * dist;
-        const lz = 40 + Math.sin(angle) * dist;
-        const ly = getUnifiedGroundHeight(lx, lz);
+            const lx = -40 + Math.cos(angle) * dist;
+            const lz = 40 + Math.sin(angle) * dist;
+            const ly = getUnifiedGroundHeight(lx, lz);
 
-        // Quick biome check to avoid candy cane forest (let's say candy cane is where x > 0)
-        // If x > 0, we'll just skip (assume biome boundary)
-        if (lx > -10) continue;
+            if (lx > -10) continue;
+            if (ly > 2.0 && ly < 8.0) {
+                const plant = create('luminous_plant', { scale: 0.8 + Math.random() * 0.6 });
+                if (!plant) continue;
+                plant.position.set(lx, ly, lz);
+                plant.rotation.y = Math.random() * Math.PI * 2;
+                safeAddFoliage(plant, false, 0, weatherSystem);
+            }
 
-        // Add a small height bias: prefer elevated ground
-        // Don't spawn directly in water (y < 2.0) and favor y between 2.0 and 5.0
-        if (ly > 2.0 && ly < 8.0) {
-            const plant = create('luminous_plant', { scale: 0.8 + Math.random() * 0.6 });
-            if (!plant) continue;
-            plant.position.set(lx, ly, lz);
-            plant.rotation.y = Math.random() * Math.PI * 2;
-            safeAddFoliage(plant, false, 0, weatherSystem);
+            if (i % 30 === 29) await yieldControl();
         }
-
-        if (i % 30 === 29) await yieldControl();
+        // Add the luminous plant batcher to the scene
+        scene.add(luminousPlantBatcher.mesh);
     }
 
     // Falling Berries
     await yieldControl();
     initFallingBerries(scene);
-
-    // Add the luminous plant batcher to the scene
-    scene.add(luminousPlantBatcher.mesh);
 
     // Add the main world group (containing all generated foliage) to the scene
     scene.add(worldGroup);
@@ -711,9 +709,22 @@ export async function populateWorld(
 export /**
  * Process a single map entity (extracted from forEach loop for chunking)
  */
+const MUSICAL_FLORA_TYPES = new Set([
+    'arpeggio_fern', 'vibrato_violet', 'tremolo_tulip', 'cymbal_dandelion',
+    'snare_trap', 'retrigger_mushroom', 'portamento_pine', 'kick_drum_geyser',
+    'panning_pad', 'subwoofer_lotus', 'silence_spirit', 'instrument_shrine',
+    'melody_mirror', 'wisteria_cluster', 'accordion_palm', 'fiber_optic_willow',
+    'prism_rose_bush', 'starflower',
+]);
+
 function processMapEntity(item: MapEntity, weatherSystem: WeatherSystem, options?: ProcessEntityOptions): void {
     const [x, yInput, z] = item.position;
     const entityType = normalizeMapEntityType(item.type);
+
+    // Feature flag gates — skip entire entity without counting as a failure.
+    if (!FEATURE_FLAGS.musicalFlora && MUSICAL_FLORA_TYPES.has(entityType)) return;
+    if (!FEATURE_FLAGS.luminousPlants && entityType === 'luminous_plant') return;
+
     const params = item.params ?? {};
     const placement = item.placement ?? (entityType === 'cloud' ? 'absolute' : 'ground');
     // USE UNIFIED HEIGHT for placement
@@ -778,7 +789,7 @@ function processMapEntity(item: MapEntity, weatherSystem: WeatherSystem, options
         let cloudTier = 1;
 
         if (entityType === 'grass') {
-            addGrassInstance(x, y, z);
+            if (FEATURE_FLAGS.grass) addGrassInstance(x, y, z);
             return;
         }
         switch (entityType) {
@@ -862,7 +873,12 @@ function processMapEntity(item: MapEntity, weatherSystem: WeatherSystem, options
         }
 
         obj = create(entityType, createParams);
-        if (!obj) return;
+        if (!obj) {
+            // Unknown or unregistered type — count as a spawn failure so it shows
+            // up in the spawn report / badge rather than being silently dropped.
+            recordSpawnAttempt(entityType, false, new Error(`No factory registered for type "${entityType}"`));
+            return;
+        }
 
         if (entityType === 'cloud') {
             obj.userData.tier = cloudTier;
@@ -921,6 +937,7 @@ function processMapEntity(item: MapEntity, weatherSystem: WeatherSystem, options
             }
         }
 
+        recordSpawnAttempt(entityType, true);
     } catch (e) {
         console.warn(`[World] Failed to spawn ${item.type} at ${x},${z}`, e);
         recordSpawnAttempt(item.type || 'unknown', false, e);
