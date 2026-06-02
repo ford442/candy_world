@@ -150,6 +150,31 @@ export class LuminousPlantBatcher {
 
         return id;
     }
+
+    dispose(): void {
+        if (this.mesh) {
+            if (this.mesh.geometry) {
+                this.mesh.geometry.dispose();
+                const phaseAttr = this.mesh.geometry.getAttribute('aPhaseOffset');
+                if (phaseAttr && typeof (phaseAttr as any).dispose === 'function') {
+                    try { (phaseAttr as any).dispose(); } catch(e) {}
+                }
+            }
+            if (this.mesh.material) {
+                if (Array.isArray(this.mesh.material)) {
+                    this.mesh.material.forEach(m => m.dispose());
+                } else {
+                    (this.mesh.material as any).dispose();
+                }
+            }
+            if (this.mesh.instanceColor && typeof (this.mesh.instanceColor as any).dispose === 'function') {
+                try { (this.mesh.instanceColor as any).dispose(); } catch (e) {}
+            }
+            if (this.mesh.instanceMatrix && typeof (this.mesh.instanceMatrix as any).dispose === 'function') {
+                try { (this.mesh.instanceMatrix as any).dispose(); } catch (e) {}
+            }
+        }
+    }
 }
 
 export const luminousPlantBatcher = new LuminousPlantBatcher(CONFIG.luminousPlants?.density || 150);

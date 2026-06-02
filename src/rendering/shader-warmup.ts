@@ -298,6 +298,7 @@ export class ShaderWarmup {
         }
       }
 
+      if (mesh.geometry) mesh.geometry.dispose();
       scene.remove(mesh);
 
       if (mesh.instanceColor) {
