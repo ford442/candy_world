@@ -69,6 +69,7 @@ _batchCalcWobble
 _updatePhysicsCPP
 _getShaderWarmupProgress
 _ecsSetComponent
+_ecsCreateEntity
 _updateParticles
 _calcRainDropY
 _batchCalcFiberWhip
@@ -93,6 +94,7 @@ _batchFrustumCull_c
 _calcWobble
 _batchFloat_simd
 _batchCalcSpiralWave
+_ecsGetComponentMask
 _batchFadeColors_c
 _getWobbleX
 _getWobbleZ
@@ -100,6 +102,7 @@ _getPrismUnfurl
 _batchScaleMatrices_c
 _fluidAddVelocity
 _batchSpiralWave_c
+_ecsIsAlive
 _ecsInit
 _getBootstrapHeight
 _initPhysicsMemory
@@ -116,6 +119,7 @@ _batchVibratoShake_c
 _getPrismHue
 _ecsGetComponent
 _recomputeNormals
+_ecsHasComponent
 _getPrismPulse
 _fastCos
 _getAccordionStretchY

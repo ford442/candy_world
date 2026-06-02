@@ -134,6 +134,8 @@ const EXPECTED_EXPORTS = {
         'ecsRemoveComponent',
         'ecsHasComponent',
         'ecsQueryComponents',
+        'ecsQueryComponentPointers',
+        'ecsGetComponentStride',
         'ecsGetComponentMask'
     ]
 };
