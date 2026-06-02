@@ -650,7 +650,8 @@ export class TreeBatcher {
     }
 
     private registerBubbleWillow(group: THREE.Group, animType: number, animOffset: number) {
-        group.traverse(child => {
+        for (let i = 0; i < group.children.length; i++) {
+            const child = group.children[i];
             if ((child as THREE.Mesh).isMesh) {
                 const mesh = child as THREE.Mesh;
                 const mat = (Array.isArray(mesh.material) ? mesh.material[0] : mesh.material) as THREE.MeshStandardMaterial;
@@ -669,11 +670,12 @@ export class TreeBatcher {
                      mesh.visible = false;
                 }
             }
-        });
+        }
     }
 
     private registerBalloonBush(group: THREE.Group, animType: number, animOffset: number) {
-        group.traverse(child => {
+        for (let i = 0; i < group.children.length; i++) {
+            const child = group.children[i];
             if ((child as THREE.Mesh).isMesh) {
                 const mesh = child as THREE.Mesh;
                 const mat = (Array.isArray(mesh.material) ? mesh.material[0] : mesh.material) as THREE.MeshStandardMaterial;
@@ -687,11 +689,12 @@ export class TreeBatcher {
                     mesh.visible = false;
                 }
             }
-        });
+        }
     }
 
     private registerHelixPlant(group: THREE.Group, animType: number, animOffset: number) {
-        group.traverse(child => {
+        for (let i = 0; i < group.children.length; i++) {
+            const child = group.children[i];
             if ((child as THREE.Mesh).isMesh) {
                 const mesh = child as THREE.Mesh;
                 const mat = (Array.isArray(mesh.material) ? mesh.material[0] : mesh.material) as THREE.MeshStandardMaterial;
@@ -708,11 +711,12 @@ export class TreeBatcher {
                     mesh.visible = false;
                 }
             }
-        });
+        }
     }
 
     private registerFloweringTree(group: THREE.Group, animType: number, animOffset: number) {
-        group.traverse(child => {
+        for (let i = 0; i < group.children.length; i++) {
+            const child = group.children[i];
             if ((child as THREE.Mesh).isMesh) {
                 const mesh = child as THREE.Mesh;
                 const mat = (Array.isArray(mesh.material) ? mesh.material[0] : mesh.material) as THREE.MeshStandardMaterial;
@@ -730,7 +734,7 @@ export class TreeBatcher {
                 }
                 mesh.visible = false;
             }
-        });
+        }
     }
 
     getStats() {

@@ -75,3 +75,18 @@ Status: Implemented ✅
 Next Step: Provide next task or continue with REFACTORING_PLAN_REMAINING.md.
 * Implementation Details: Replaced single mesh geysers with `KickDrumGeyserBatcher` in `src/foliage/kick-drum-geyser-batcher.ts`, fully adopting `InstancedMesh` with TSL wave scaling and proper VRAM disposal for the Kick-Drum Geyser. Marked `region-manager.ts` refactoring as implemented in the musical ecosystem roadmap.
 Next Step: Provide next task or continue with Subwoofer Lotus Batcher implementation.
+1. *Add `dispose` method to `LuminousPlantBatcher` in `src/foliage/luminous-plant-batcher.ts`.*
+   - Defined a `dispose()` method.
+   - Cleaned up `this.mesh.geometry`, `this.mesh.material`, and custom attributes like `aPhaseOffset`.
+   - Removed the mesh from its parent if necessary.
+
+2. *Add visual polish (TSL juice) to `LuminousPlantBatcher`.*
+   - Integrated `applyPlayerInteraction` from `material-core.ts` so the plants react when the player walks through them.
+   - Improved the emissive falloff by adding `uTwilight` so that the glow respects the day/night cycle.
+   - Adjusted `createJuicyRimLight` or emissive values to add more dreamy candy-nature aesthetic.
+
+Next Step: Provide next task or continue with REFACTORING_PLAN_REMAINING.md.
+
+Status: Implemented ✅
+* Implementation Details: Replaced `group.traverse()` calls in `src/foliage/tree-batcher.ts` registration methods (`registerBubbleWillow`, `registerBalloonBush`, `registerHelixPlant`, `registerFloweringTree`) with direct `for (let i = 0; i < group.children.length; i++)` iteration over `group.children`. This eliminates recursive function overhead and adheres to zero-allocation guidelines in shallow, known hierarchies.
+Next Step: Ask the user for the next task.
