@@ -31,6 +31,7 @@ import { getMapSourceFromUrl, loadMap, setupMapHotReload, type LoadedCandyMap } 
 import { clearMapMusicContext, deriveMapMusicContext, setMapMusicContext } from './map-music-context.ts';
 import { create, getTypeMeta, registerBuiltinWorldObjectTypes, registerWorldObject } from './foliage-registry.ts';
 import { treeBatcher } from '../foliage/tree-batcher.ts';
+import { resetSpawnTracker, spawnTracker } from './spawn-tracker.ts';
 
 let loadedMapPromise: Promise<LoadedCandyMap> | null = null;
 let worldGenerationToken = 0;
@@ -377,6 +378,7 @@ export async function generateMap(
     onProgress?: WorldProgressCallback
 ): Promise<void> {
     const generationToken = ++worldGenerationToken;
+    resetSpawnTracker();
     performance.mark('candy:map-generation-start');
     console.time('[World] generateMap total');
     const loadedMap = await getLoadedMap();
@@ -713,6 +715,7 @@ export /**
 function processMapEntity(item: MapEntity, weatherSystem: WeatherSystem, options?: ProcessEntityOptions): void {
     const [x, yInput, z] = item.position;
     const entityType = normalizeMapEntityType(item.type);
+    spawnTracker.recordAttempt(entityType);
     const params = item.params ?? {};
     const placement = item.placement ?? (entityType === 'cloud' ? 'absolute' : 'ground');
     // USE UNIFIED HEIGHT for placement
@@ -778,6 +781,7 @@ function processMapEntity(item: MapEntity, weatherSystem: WeatherSystem, options
 
         if (entityType === 'grass') {
             addGrassInstance(x, y, z);
+            spawnTracker.recordSuccess(entityType);
             return;
         }
         switch (entityType) {
@@ -861,7 +865,12 @@ function processMapEntity(item: MapEntity, weatherSystem: WeatherSystem, options
         }
 
         obj = create(entityType, createParams);
-        if (!obj) return;
+        if (!obj) {
+            spawnTracker.recordFailure(entityType, new Error(`Factory returned null for ${entityType}`), {
+                context: `map-entity:${item.id}`,
+            });
+            return;
+        }
 
         if (entityType === 'cloud') {
             obj.userData.tier = cloudTier;
@@ -918,9 +927,11 @@ function processMapEntity(item: MapEntity, weatherSystem: WeatherSystem, options
                 waterfallProxy.userData.type = 'waterfall';
                 animatedFoliage.push(waterfallProxy as any);
             }
+            spawnTracker.recordSuccess(entityType);
         }
 
     } catch (e) {
+        spawnTracker.recordFailure(entityType, e, { context: `map-entity:${item.id}` });
         console.warn(`[World] Failed to spawn ${item.type} at ${x},${z}`, e);
     }
 }

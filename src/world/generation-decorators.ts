@@ -14,6 +14,7 @@ import {
     LAKE_ARPEGGIO_FERN_COUNT, LAKE_DANDELION_COUNT
 } from './generation-utils.ts';
 import { create, registerBuiltinWorldObjectTypes } from './foliage-registry.ts';
+import { spawnTracker } from './spawn-tracker.ts';
 
 registerBuiltinWorldObjectTypes();
 
@@ -298,6 +299,13 @@ export async function populateProceduralExtras(
             let exportVariant: string | undefined;
             let exportHasFace: boolean | undefined;
             const exportParams: Record<string, unknown> = {};
+            let hasTrackedAttempt = false;
+            const getTrackedType = () => normalizeMapEntityType(exportType ?? obj?.userData?.type ?? 'procedural_extra');
+            const ensureTrackedAttempt = () => {
+                if (hasTrackedAttempt) return;
+                spawnTracker.recordAttempt(getTrackedType());
+                hasTrackedAttempt = true;
+            };
 
             try {
                 if (rand < 0.3) {
@@ -447,6 +455,7 @@ export async function populateProceduralExtras(
             }
 
             if (obj) {
+                ensureTrackedAttempt();
                 obj.rotation.y = Math.random() * Math.PI * 2;
                 const normalizedExportType = normalizeMapEntityType(exportType ?? obj.userData?.type ?? '');
                 obj.userData.mapEntityType = normalizedExportType;
@@ -459,8 +468,16 @@ export async function populateProceduralExtras(
                     params: Object.keys(exportParams).length > 0 ? exportParams : undefined
                 };
                 safeAddFoliage(obj, isObstacle, radius, weatherSystem);
+                spawnTracker.recordSuccess(getTrackedType());
+            } else {
+                ensureTrackedAttempt();
+                spawnTracker.recordFailure(getTrackedType(), new Error('Factory returned null for procedural extra'), {
+                    context: 'procedural-extra',
+                });
             }
             } catch (e) {
+                ensureTrackedAttempt();
+                spawnTracker.recordFailure(getTrackedType(), e, { context: 'procedural-extra' });
                 console.warn(`[World] Failed to spawn procedural extra at ${x},${z}`, e);
             }
         };

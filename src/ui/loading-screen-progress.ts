@@ -61,6 +61,13 @@ export function setDeferredProgress(completed: number, total: number): void {
 }
 
 /**
+ * Set deferred spawn failure count badge
+ */
+export function setDeferredFailures(failed: number): void {
+    globalLoadingScreen?.setDeferredFailures(failed);
+}
+
+/**
  * Hide the loading screen
  */
 export function hideLoadingScreen(): void {

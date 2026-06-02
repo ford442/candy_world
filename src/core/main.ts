@@ -37,7 +37,7 @@ import { animate, initGameLoopDependencies, addCameraShake } from './game-loop.t
 import { updateTheme, toggleDayNight, setInputSystem } from './hud.ts';
 import { initDeferredVisuals, initDeferredVisualsDependencies, runDeferredWarmup } from './deferred-init.ts';
 import { globalBackgroundProcessor } from '../utils/background-processor.ts';
-import { showDeferredIndicator, hideDeferredIndicator, setDeferredProgress } from '../ui/index.ts';
+import { showDeferredIndicator, hideDeferredIndicator, setDeferredProgress, setDeferredFailures } from '../ui/index.ts';
 import { showModeBadge } from '../ui/mode-badge.ts';
 import { DeferredLoader, LoadPriority } from '../systems/deferred-loader.ts';
 import { initLoadingScreen, installLegacyAPI } from '../ui/loading-screen.ts';
@@ -659,8 +659,10 @@ if (startButton) {
 
             // Start background processor for deferred work
             showDeferredIndicator();
+            setDeferredFailures(0);
             globalBackgroundProcessor.onProgress((completed, total) => {
                 setDeferredProgress(completed, total);
+                setDeferredFailures((window as any).__worldPopulationReport?.failCount ?? 0);
             });
             globalBackgroundProcessor.onComplete(() => {
                 hideDeferredIndicator();

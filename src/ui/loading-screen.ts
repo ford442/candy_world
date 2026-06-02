@@ -213,7 +213,7 @@ export class LoadingScreen {
             this.deferredIndicator.id = 'candy-deferred-indicator';
             this.deferredIndicator.className = 'deferred-indicator';
             this.deferredIndicator.setAttribute('aria-hidden', 'true');
-            this.deferredIndicator.innerHTML = '<span class="deferred-spinner"></span><span class="deferred-text">Populating...</span><span class="deferred-count" aria-hidden="true"></span><span class="deferred-bar"><span class="deferred-bar-fill"></span></span>';
+            this.deferredIndicator.innerHTML = '<span class="deferred-spinner"></span><span class="deferred-text">Populating...</span><span class="deferred-count" aria-hidden="true"></span><span class="deferred-fail" aria-live="polite" aria-atomic="true"></span><span class="deferred-bar"><span class="deferred-bar-fill"></span></span>';
             document.body.appendChild(this.deferredIndicator);
         }
         if (typeof document === 'undefined') return;
@@ -432,6 +432,7 @@ export class LoadingScreen {
         this.isDeferredVisible = true;
         this.deferredIndicator.classList.add('visible');
         this.deferredIndicator.setAttribute('aria-hidden', 'false');
+        this.setDeferredFailures(0);
         if (this.options.debug) console.log('[LoadingScreen] Deferred indicator shown');
     }
 
@@ -446,6 +447,19 @@ export class LoadingScreen {
         const count = this.deferredIndicator.querySelector('.deferred-count') as HTMLElement | null;
         if (count) count.textContent = `${completed} / ${total}`;
         this.deferredIndicator.setAttribute('aria-valuenow', String(Math.round(pct)));
+    }
+
+    setDeferredFailures(failed: number): void {
+        if (!this.deferredIndicator) return;
+        const badge = this.deferredIndicator.querySelector('.deferred-fail') as HTMLElement | null;
+        if (!badge) return;
+        if (failed > 0) {
+            badge.textContent = `! ${failed} failed`;
+            badge.classList.add('visible');
+        } else {
+            badge.textContent = '';
+            badge.classList.remove('visible');
+        }
     }
 
     /**
@@ -1048,6 +1062,10 @@ export function hideDeferredIndicator(): void {
 
 export function setDeferredProgress(completed: number, total: number): void {
     globalLoadingScreen?.setDeferredProgress(completed, total);
+}
+
+export function setDeferredFailures(failed: number): void {
+    globalLoadingScreen?.setDeferredFailures(failed);
 }
 
 export function hideLoadingScreen(): void {

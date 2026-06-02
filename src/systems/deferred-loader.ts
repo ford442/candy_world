@@ -92,6 +92,8 @@
  * ```
  */
 
+import { spawnTracker } from '../world/spawn-tracker.ts';
+
 export enum LoadPriority {
   CRITICAL = 0,  // Player sees immediately - load first
   HIGH = 1,      // Visible but not immediately
@@ -387,6 +389,10 @@ export class DeferredLoader {
           }
         }
       } catch (error) {
+        spawnTracker.recordFailure(`deferred_loader_${item.id}`, error, {
+          context: `deferred-loader:${item.id}`,
+          countAttempt: true,
+        });
         console.error(`[DeferredLoader] Failed to load '${item.id}':`, error);
         this.emit('error', {
           id: item.id,

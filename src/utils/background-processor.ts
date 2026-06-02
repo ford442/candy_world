@@ -14,6 +14,8 @@
  * causes one overrun rather than stacking overruns across entities.
  */
 
+import { spawnTracker } from '../world/spawn-tracker.ts';
+
 export interface DeferredTask {
     id: string;
     execute: () => void | Promise<void>;
@@ -22,6 +24,14 @@ export interface DeferredTask {
 
 // Detect requestIdleCallback at module level to avoid repeated property lookups.
 const hasIdleCallback = typeof requestIdleCallback !== 'undefined';
+
+function inferFailureTypeFromTaskId(taskId: string): string {
+    if (taskId.startsWith('map_stream_') || taskId.startsWith('map_fallback_')) return 'map_entity_deferred';
+    if (taskId.startsWith('procedural_deferred_')) return 'procedural_extra_deferred';
+    if (taskId === 'deferred_visuals') return 'deferred_visuals';
+    if (taskId === 'shader_warmup') return 'shader_warmup';
+    return 'background_task';
+}
 
 export class BackgroundProcessor {
     private queue: DeferredTask[] = [];
@@ -138,6 +148,10 @@ export class BackgroundProcessor {
                     this.onProgressCallback(this.completedTasks, this.totalTasks);
                 }
             } catch (e) {
+                spawnTracker.recordFailure(inferFailureTypeFromTaskId(task.id), e, {
+                    context: `background-task:${task.id}`,
+                    countAttempt: true,
+                });
                 console.error(`[BackgroundProcessor] Error executing task ${task.id}:`, e);
             }
         }
