@@ -16,7 +16,7 @@ import { attribute, positionLocal, mix, color, float, sin, varyingProperty } fro
 import { PlantPoseMachine } from './plant-pose-machine.ts';
 import { BiomeUniforms } from '../systems/biome-uniforms.ts';
 import { musicReactivitySystem } from '../systems/music-reactivity.ts';
-import { camera } from '../core/main.ts';
+import { camera } from '../core/camera-ref.ts';
 
 const MAX_FLOWERS = 1000; // Reduced from 5000 for WebGPU uniform buffer limits
 const MAX_PETALS = MAX_FLOWERS * 8; // Up to 8 petals per flower (reduced from 15 for WebGPU limits)

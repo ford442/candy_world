@@ -99,33 +99,6 @@ export class LuminousPlantBatcher {
     }
 
 
-    dispose() {
-        if (!this.mesh) return;
-
-        if (this.mesh.geometry) {
-            this.mesh.geometry.dispose();
-        }
-
-        if (this.mesh.material) {
-            if (Array.isArray(this.mesh.material)) {
-                this.mesh.material.forEach(m => m.dispose());
-            } else {
-                this.mesh.material.dispose();
-            }
-        }
-
-        const phaseAttr = this.mesh.geometry.getAttribute('aPhaseOffset');
-        if (phaseAttr && typeof (phaseAttr as any).dispose === 'function') {
-            try { (phaseAttr as any).dispose(); } catch (e) {}
-        }
-
-        if (this.mesh.parent) {
-            this.mesh.parent.remove(this.mesh);
-        }
-
-        this.count = 0;
-    }
-
     register(group: THREE.Group): number {
         if (this.count >= this.maxInstances) {
             console.warn('[LuminousPlantBatcher] Max capacity reached');

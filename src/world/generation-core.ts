@@ -19,7 +19,7 @@ import {
     foliageTraps, foliagePortamentoPines, vineSwings, foliageVineLadders, worldGroup
 } from './state.ts';
 import { globalBackgroundProcessor } from '../utils/background-processor.ts';
-import { recordSpawnAttempt } from './spawn-tracker.ts';
+import { recordSpawnAttempt, getReport, reset as resetSpawnTracker } from './spawn-tracker.ts';
 import { updateProgress } from '../ui/index.ts';
 import { endPhase, recordGenerationChunk, startPhase } from '../utils/startup-profiler.ts';
 import { populateProceduralExtras } from './generation-decorators.ts';
@@ -76,7 +76,7 @@ function invalidateLoadedMap(): void {
 
 async function getLoadedMap(): Promise<LoadedCandyMap> {
     if (!loadedMapPromise) {
-        const defaultSource = './assets/map.json';
+        const defaultSource = new URL('../../assets/map.json', import.meta.url).href;
         const source = getMapSourceFromUrl(defaultSource);
         loadedMapPromise = loadMap(source)
             .catch(async error => {
@@ -263,37 +263,45 @@ export async function initWorld(scene: THREE.Scene, weatherSystem: WeatherSystem
     return { sky, moon, ground };
 }
 
-// Ensure the lake island is also present
+const CPU_ANIMATION_LIMIT = 3000;
+let _cpuLimitWarnedAt = 0;
+
+// Returns true if the object was successfully added to the scene.
 export function safeAddFoliage(
     obj: THREE.Object3D,
     isObstacle: boolean = false,
     radius: number = 1.0,
     weatherSystem: WeatherSystem | null = null
-): void {
-    if (animatedFoliage.length > 3000) return; // ⚡ PERFORMANCE: Raised limit from 1000 to 3000 for more musical objects
-    foliageGroup.add(obj);
-    animatedFoliage.push(obj);
-
-    if (!(obj.userData.isBatched ||
+): boolean {
+    const isBatched =
+        obj.userData.isBatched ||
         obj.userData.type === 'mushroom' ||
         obj.userData.type === 'lanternFlower' ||
         obj.userData.type === 'arpeggio_fern' ||
         obj.userData.type === 'portamento_pine' ||
         obj.userData.type === 'prismRoseBush' ||
-        obj.userData.isFlower)) {
-        cpuAnimatedFoliage.push(obj);
+        obj.userData.isFlower;
+
+    // CPU-animated objects are capped to keep the game-loop affordable.
+    // Batcher-managed objects bypass this gate — their geometry lives in InstancedMesh,
+    // not in per-frame CPU traversal, so they don't contribute to frame cost here.
+    const cpuFull = !isBatched && cpuAnimatedFoliage.length >= CPU_ANIMATION_LIMIT;
+    if (cpuFull) {
+        if (cpuAnimatedFoliage.length > _cpuLimitWarnedAt + 100) {
+            console.warn(`[World] CPU animation limit (${CPU_ANIMATION_LIMIT}) reached; non-batched objects will be skipped.`);
+            _cpuLimitWarnedAt = cpuAnimatedFoliage.length;
+        }
+        return false;
     }
 
-    // Add to JS obstacles (legacy/backup)
-    if (isObstacle) {
-        // obstacles.push({ position: obj.position.clone(), radius }); // Replaced by obstaclesData
+    foliageGroup.add(obj);
+    animatedFoliage.push(obj);
+    if (!isBatched) cpuAnimatedFoliage.push(obj);
 
-        // ⚡ OPTIMIZATION: Add to WASM Spatial Grid for O(1) validity checks later in batch
-        // Type 5 = Generic Obstacle (Radius Check Only)
+    if (isObstacle) {
         obstaclesData.push({ x: obj.position.x, y: obj.position.y, z: obj.position.z, radius });
     }
 
-    // Optimization
     if (obj.userData.type === 'mushroom') foliageMushrooms.push(obj);
     if (obj.userData.type === 'cloud') foliageClouds.push(obj);
     if (obj.userData.isTrampoline) foliageTrampolines.push(obj);
@@ -308,9 +316,15 @@ export function safeAddFoliage(
     }
     if (obj.userData.type === 'vine_ladder') foliageVineLadders.push(obj);
 
-    // Invoke deferred placement logic (e.g. for batching)
+    // Batcher registration — must not throw silently.
     if (obj.userData.onPlacement) {
-        obj.userData.onPlacement();
+        try {
+            obj.userData.onPlacement();
+        } catch (err) {
+            const t = obj.userData.type ?? obj.userData.mapEntityType ?? 'unknown';
+            console.error(`[World] onPlacement() failed for "${t}":`, err);
+            recordSpawnAttempt(`${t}_batcher`, false, err);
+        }
     }
     if (typeof obj.userData.mapEntityType === 'string') {
         registerWorldObject(obj, obj.userData.mapEntityType);
@@ -318,7 +332,6 @@ export function safeAddFoliage(
         registerWorldObject(obj, normalizeMapEntityType(obj.userData.type));
     }
 
-    // Register with weather system
     if (weatherSystem) {
         if (obj.userData.type === 'tree') {
             weatherSystem.registerTree(obj);
@@ -331,6 +344,7 @@ export function safeAddFoliage(
             registerPhysicsCave(obj);
         }
     }
+    return true;
 }
 
 interface ProcessEntityOptions {
@@ -376,6 +390,7 @@ export async function generateMap(
     onProgress?: WorldProgressCallback
 ): Promise<void> {
     const generationToken = ++worldGenerationToken;
+    resetSpawnTracker();
     performance.mark('candy:map-generation-start');
     console.time('[World] generateMap total');
     const loadedMap = await getLoadedMap();
@@ -422,6 +437,14 @@ export async function generateMap(
     }
     console.timeEnd('[World] phase1-visible');
     endPhase('Map Streaming Phase 1 (Visible)');
+    {
+        const r = getReport();
+        if (r.failed > 0) {
+            console.warn(`[World] Phase 1 spawn report: ${r.succeeded} ok, ${r.failed} failed`, r.failuresByType);
+        } else if (r.attempted > 0) {
+            console.log(`[World] Phase 1 spawn report: ${r.succeeded}/${r.attempted} ok`);
+        }
+    }
 
     // --- Initialize Discovery System with Spatial Grid (Critical) ---
     // OPTIMIZATION: O(1) spatial lookups instead of O(N) distance checks
@@ -927,7 +950,11 @@ function processMapEntity(item: MapEntity, weatherSystem: WeatherSystem, options
             if (options?.streamed && !obj.userData.isBatched) {
                 applyDreamyPopIn(obj);
             }
-            safeAddFoliage(obj, isObstacle, radius, weatherSystem);
+            const placed = safeAddFoliage(obj, isObstacle, radius, weatherSystem);
+            if (!placed) {
+                recordSpawnAttempt(entityType, false, new Error('CPU animation limit reached; object dropped'));
+                return;
+            }
             if (entityType === 'cave' && caveNeedsWaterfallProxy && obj.userData.gatePosition) {
                 const waterfallProxy = new THREE.Object3D();
                 obj.updateMatrixWorld(true);

@@ -617,7 +617,7 @@ export class MusicReactivitySystem {
             simpleFlowerBatcher.update(audioState);
 
             // Update Kick Drum Geysers
-            kickDrumGeyserBatcher.update(time, deltaTime, audioState, activeWave);
+            kickDrumGeyserBatcher.update(time, deltaTime, audioState, _activeWave);
 
             // ---------------------------------------------------------------
             // ⚡ BIOME CHANNEL BINDING — Arpeggio Grove & Crystalline Nebula

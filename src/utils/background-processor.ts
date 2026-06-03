@@ -29,10 +29,12 @@ export class BackgroundProcessor {
     private queue: DeferredTask[] = [];
     private isRunning: boolean = false;
     private maxMsPerFrame: number;
-    private onCompleteCallback: (() => void) | null = null;
+    private onCompleteCallback: ((completed: number, total: number, failed: number) => void) | null = null;
     private onProgressCallback: ((completed: number, total: number) => void) | null = null;
     private totalTasks: number = 0;
     private completedTasks: number = 0;
+    private failedTasks: number = 0;
+    private startTimeMs: number = 0;
 
     constructor(maxMsPerFrame: number = 8) {
         this.maxMsPerFrame = maxMsPerFrame;
@@ -57,9 +59,10 @@ export class BackgroundProcessor {
     }
 
     /**
-     * Set a callback for when the queue is fully processed
+     * Set a callback for when the queue is fully processed.
+     * Receives (completed, total, failed) counts.
      */
-    public onComplete(callback: () => void): void {
+    public onComplete(callback: (completed: number, total: number, failed: number) => void): void {
         this.onCompleteCallback = callback;
     }
 
@@ -76,9 +79,27 @@ export class BackgroundProcessor {
     public start(): void {
         if (this.isRunning || this.queue.length === 0) return;
         this.isRunning = true;
+        this.startTimeMs = performance.now();
 
         console.log(`[BackgroundProcessor] Starting with ${this.queue.length} tasks`);
         this.scheduleNext();
+    }
+
+    /** Current number of failed tasks (readable mid-run for progress reporting). */
+    public getFailedCount(): number {
+        return this.failedTasks;
+    }
+
+    /**
+     * Estimated milliseconds until the queue drains, based on observed task rate.
+     * Returns -1 when no tasks have completed yet (rate unknown).
+     */
+    public getEstimatedTimeRemainingMs(): number {
+        if (this.completedTasks === 0 || this.startTimeMs === 0) return -1;
+        const elapsedMs = performance.now() - this.startTimeMs;
+        const msPerTask = elapsedMs / this.completedTasks;
+        const remaining = this.totalTasks - this.completedTasks;
+        return remaining > 0 ? Math.ceil(remaining * msPerTask) : 0;
     }
 
     /**
@@ -141,6 +162,7 @@ export class BackgroundProcessor {
             } catch (e) {
                 console.error(`[BackgroundProcessor] Error executing task ${task.id}:`, e);
                 maybeRecordBackgroundFailure(task.id, e);
+                this.failedTasks++;
             } finally {
                 // Count every dequeued task (success or failure) so the progress
                 // counter stays in sync with totalTasks and onComplete fires correctly.
@@ -161,8 +183,8 @@ export class BackgroundProcessor {
 
     private complete(): void {
         this.isRunning = false;
-        console.log('[BackgroundProcessor] Queue complete');
-        if (this.onCompleteCallback) this.onCompleteCallback();
+        console.log(`[BackgroundProcessor] Queue complete (${this.completedTasks}/${this.totalTasks}, ${this.failedTasks} failed)`);
+        if (this.onCompleteCallback) this.onCompleteCallback(this.completedTasks, this.totalTasks, this.failedTasks);
     }
 
     /**
@@ -174,6 +196,22 @@ export class BackgroundProcessor {
         this.queue = [];
         this.totalTasks = 0;
         this.completedTasks = 0;
+        this.failedTasks = 0;
+        this.startTimeMs = 0;
+        this.isRunning = false;
+        this.onCompleteCallback = null;
+        this.onProgressCallback = null;
+    }
+
+    /**
+     * Reset counters and running state without dropping queued tasks.
+     * Use this when tasks were enqueued before the caller is ready to start()
+     * so progress/completion tracking stays accurate.
+     */
+    public resetCounters(): void {
+        this.totalTasks = this.queue.length;
+        this.completedTasks = 0;
+        this.startTimeMs = 0;
         this.isRunning = false;
         this.onCompleteCallback = null;
         this.onProgressCallback = null;

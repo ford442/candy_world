@@ -56,8 +56,8 @@ export function hideDeferredIndicator(): void {
 /**
  * Set progress on the deferred indicator
  */
-export function setDeferredProgress(completed: number, total: number): void {
-    globalLoadingScreen?.setDeferredProgress(completed, total);
+export function setDeferredProgress(completed: number, total: number, failed?: number, etaMs?: number): void {
+    globalLoadingScreen?.setDeferredProgress(completed, total, failed, etaMs);
 }
 
 /**

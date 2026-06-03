@@ -852,7 +852,7 @@ async function fetchMapJson(source: string): Promise<unknown> {
     return response.json();
 }
 
-export function getMapSourceFromUrl(defaultSource: string = './assets/map.json'): string {
+export function getMapSourceFromUrl(defaultSource: string = new URL('../../assets/map.json', import.meta.url).href): string {
     if (typeof window === 'undefined') return defaultSource;
     const params = new URLSearchParams(window.location.search);
     const fromQuery = params.get('map');

@@ -29,7 +29,6 @@ export {
     
     // Internal utilities (exported for advanced use)
     getNativeFunc,
-    updateProgress,
     
     // State exports
     wasmInstance,
@@ -308,14 +307,6 @@ export {
     fastSin,
     fastCos,
     fastPow2,
-    // C++ Animation batch wrappers (low-level)
-    batchShiverSimd,
-    batchSpringSimd,
-    batchFloatSimd,
-    batchCloudBobSimd,
-    batchVineSwaySimd,
-    batchGeyserEruptC,
-    batchRetriggerSimd,
     // C++ Animation batch wrappers (high-level)
     batchShiverHighLevel,
     batchSpringHighLevel,

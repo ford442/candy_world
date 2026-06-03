@@ -29,6 +29,7 @@ const GRAINS_PER_FLOWER = 5;
 const MAX_POLLEN = MAX_FLOWERS * GRAINS_PER_FLOWER;
 
 const _scratchMat = new THREE.Matrix4();
+const _scratchMat2 = new THREE.Matrix4();
 const _scratchPos = new THREE.Vector3();
 const _scratchQuat = new THREE.Quaternion();
 const _scratchEuler = new THREE.Euler();

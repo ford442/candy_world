@@ -32,7 +32,7 @@ import { uChromaticIntensity } from '../../foliage/chromatic.ts';
 import { uGlitchExplosionCenter, uGlitchExplosionRadius } from '../../foliage/index.ts';
 import { spawnImpact } from '../../foliage/impacts.ts';
 import { showToast } from '../../utils/toast.ts';
-import { addCameraShake } from '../../core/game-loop.ts';
+import { addCameraShake } from '../../core/camera-shake.ts';
 import { unlockSystem } from '../unlocks.ts';
 import {
     calculateMovementInput,
