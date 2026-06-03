@@ -149,12 +149,16 @@ const _skyWaveUniformMap: Record<string, { value: THREE.Color }> = {
 export interface ActiveWave { color: THREE.Color; timestamp: number; origin?: THREE.Vector3; speed?: number; }
 let _activeWave: ActiveWave | null = null;
 
-const _scratchWavePos = new THREE.Vector3();
+const _zeroVec = new THREE.Vector3();
 export function computeWaveTimeSinceArrival(plantWorldPos: THREE.Vector3, activeWave: ActiveWave | null, cameraPosition?: THREE.Vector3): number {
     if (!activeWave) return -999;
-    const origin = activeWave.origin || cameraPosition || new THREE.Vector3();
+    const origin = activeWave.origin || cameraPosition || _zeroVec;
     const speed = activeWave.speed || 25.0;
-    const distance = _scratchWavePos.copy(plantWorldPos).distanceTo(origin);
+    // ⚡ OPTIMIZATION: Bypassed THREE.Vector3.distanceTo() overhead in hot loop with raw math
+    const dx = plantWorldPos.x - origin.x;
+    const dy = plantWorldPos.y - origin.y;
+    const dz = plantWorldPos.z - origin.z;
+    const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
     const arrivalTime = activeWave.timestamp + (distance / speed) * 1000;
     return (performance.now() - arrivalTime) / 1000;
 }

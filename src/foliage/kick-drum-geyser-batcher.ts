@@ -106,12 +106,15 @@ export class KickDrumGeyserBatcher {
         this.plumeMesh.count = this._count;
 
         // Apply Transform
-        proxy.updateMatrixWorld(true);
-        this.baseMesh.setMatrixAt(i, proxy.matrixWorld);
-        this.coreMesh.setMatrixAt(i, proxy.matrixWorld);
+        // ⚡ OPTIMIZATION: Bypassed THREE.Object3D proxy and setMatrixAt() overhead by writing directly to instanceMatrix
+        proxy.updateWorldMatrix(false, false);
+        const matrixArray = proxy.matrixWorld.elements;
 
-        // Plume will be scaled dynamically
-        this.plumeMesh.setMatrixAt(i, proxy.matrixWorld);
+        for (let j = 0; j < 16; j++) {
+            this.baseMesh.instanceMatrix.array[i * 16 + j] = matrixArray[j];
+            this.coreMesh.instanceMatrix.array[i * 16 + j] = matrixArray[j];
+            this.plumeMesh.instanceMatrix.array[i * 16 + j] = matrixArray[j]; // Plume will be scaled dynamically later
+        }
 
         this.baseMesh.instanceMatrix.needsUpdate = true;
         this.coreMesh.instanceMatrix.needsUpdate = true;
@@ -166,13 +169,30 @@ export class KickDrumGeyserBatcher {
 
             // Manual matrix composition for plume
             // Keep base transform, but scale Y axis
-            this._scratchMatrix.fromArray(baseArray, i * 16);
+            // ⚡ OPTIMIZATION: Bypassed Matrix4 composition overhead by directly modifying the Y-axis basis vector in the Float32Array
+            const scaleY = targetHeight + 0.01; // 0.01 to prevent singular matrix warning
+            const baseIndex = i * 16;
 
-            // Scale the y axis by targetHeight
-            this._scratchVec3.set(1, targetHeight + 0.01, 1); // 0.01 to prevent singular matrix warning
-            this._scratchMatrix.scale(this._scratchVec3);
+            plumeArray[baseIndex + 0] = baseArray[baseIndex + 0];
+            plumeArray[baseIndex + 1] = baseArray[baseIndex + 1];
+            plumeArray[baseIndex + 2] = baseArray[baseIndex + 2];
+            plumeArray[baseIndex + 3] = baseArray[baseIndex + 3];
 
-            this._scratchMatrix.toArray(plumeArray, i * 16);
+            // Scale Y-axis basis vector
+            plumeArray[baseIndex + 4] = baseArray[baseIndex + 4] * scaleY;
+            plumeArray[baseIndex + 5] = baseArray[baseIndex + 5] * scaleY;
+            plumeArray[baseIndex + 6] = baseArray[baseIndex + 6] * scaleY;
+            plumeArray[baseIndex + 7] = baseArray[baseIndex + 7] * scaleY;
+
+            plumeArray[baseIndex + 8] = baseArray[baseIndex + 8];
+            plumeArray[baseIndex + 9] = baseArray[baseIndex + 9];
+            plumeArray[baseIndex + 10] = baseArray[baseIndex + 10];
+            plumeArray[baseIndex + 11] = baseArray[baseIndex + 11];
+
+            plumeArray[baseIndex + 12] = baseArray[baseIndex + 12];
+            plumeArray[baseIndex + 13] = baseArray[baseIndex + 13];
+            plumeArray[baseIndex + 14] = baseArray[baseIndex + 14];
+            plumeArray[baseIndex + 15] = baseArray[baseIndex + 15];
         }
 
         this.plumeMesh.instanceMatrix.needsUpdate = true;
