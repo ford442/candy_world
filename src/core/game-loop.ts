@@ -32,6 +32,7 @@ import { getGroundHeight } from '../utils/wasm-loader.ts';
 import { updateImpacts } from '../foliage/impacts.ts';
 import { createShield } from '../foliage/shield.ts';
 import { updateFoliageMaterials } from '../foliage/animation.ts';
+import { circadianController } from '../systems/circadian-controller.ts';
 import { windComputeSystem } from '../foliage/wind-compute.ts';
 import { chordStrikeSystem } from '../gameplay/chord-strike.ts';
 import { updateFallingClouds } from '../foliage/clouds.ts';
@@ -369,6 +370,8 @@ export function animate() {
         setLastIsNight(isNightNow);
     }
     setIsNight(isNightNow);
+    circadianController.setDayTarget(!isNightNow);
+    circadianController.update(delta);
 
     const weatherIntensity = weatherSystemRef!.getIntensity();
     const weatherState = weatherSystemRef!.getState();

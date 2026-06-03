@@ -174,6 +174,10 @@ npm run test:integration
 npm run build:wasm     # Compile WASM
 npm run test:wasm      # Verify bounds
 npm run test           # Verify boot (auto-builds dist if needed)
+
+# Full-world population smoke tests (requires GPU; see "FULL BOOT in headless" note above)
+npm run test:smoke:full   # FULL_BOOT=1
+npm run test:smoke:fast   # FULL_BOOT=fast
 ```
 
 All commands exit with:
@@ -204,3 +208,7 @@ On the first run after `npm run build`, the smoke test may take 3+ minutes. This
 - Initial WASM initialization (~5-10s)
 
 Subsequent runs are faster once caches are warm.
+
+### FULL BOOT in headless / CI environments
+
+`FULL_BOOT=1` creates a large number of instanced meshes and WebGPU buffers. In headless Chromium (SwiftShader) or containers without a real GPU, the browser tab may crash with `WebGPU Device Lost` or `Target crashed`. This is an **environment limitation**, not a code bug. For reliable FULL mode smoke tests, run on a machine with a discrete GPU and stable WebGPU drivers.

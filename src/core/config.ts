@@ -217,6 +217,19 @@ export interface ConfigType {
         flower: PlantPoseConfig;
     };
 
+    circadian: {
+        transitionSeconds: number;
+        dayPoseOffset: number;
+        nightPoseOffset: number;
+        nightGlowMultiplier: number;
+        biomeOverrides: Record<string, Partial<{
+            transitionSeconds: number;
+            dayPoseOffset: number;
+            nightPoseOffset: number;
+            nightGlowMultiplier: number;
+        }>>;
+    };
+
     world: {
         population: {
             proceduralExtras: number;
@@ -412,10 +425,28 @@ export const CONFIG: ConfigType = {
         flower: {
             attackRate: 4.0,        // bloom response to kick
             releaseRate: 1.0,       // settle back down
-            sustainLevel: 1.0,      // envelope peak 
+            sustainLevel: 1.0,      // envelope peak
             dayTarget: 1.0,         // fully blooming during day
             nightTarget: 0.0,       // closed during night
             triggerThreshold: 0.05  // minimum kick channel volume to trigger bloom
+        }
+    },
+
+    // --- CIRCADIAN SYSTEM ---
+    // Controls smooth day/night plant behaviour (pose + bioluminescence).
+    // Separate from music-bindings.json — circadian is a time-domain signal, not audio.
+    circadian: {
+        transitionSeconds: 3.0,
+        // uCircadianPoseOffset value at full day (1.0) and full night (0.0).
+        // Added to the music-driven pose in opted-in batcher TSL graphs.
+        dayPoseOffset: 0.3,
+        nightPoseOffset: 0.0,
+        // Emissive glow multiplier for luminous plants / mushroom caps at night.
+        nightGlowMultiplier: 3.5,
+        // Per-biome overrides: any key matching a BiomeId can override the above.
+        biomeOverrides: {
+            crystalline_nebula: { nightGlowMultiplier: 5.0 },
+            arpeggio_grove:     { nightPoseOffset: 0.1 }
         }
     }
 };

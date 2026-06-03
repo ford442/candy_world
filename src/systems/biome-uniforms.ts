@@ -256,3 +256,20 @@ export function getBiomeUniforms(biome: BiomeId | string | undefined) {
 
 /** Convenience re-export of the type for consumers that only need the id. */
 export type { BiomeId as BiomeTag };
+
+// ---------------------------------------------------------------------------
+// Circadian uniforms — written by CircadianController once per frame.
+// Consumed by opted-in foliage batchers; zero cost for batchers that ignore them.
+// ---------------------------------------------------------------------------
+
+/**
+ * 0 = night, 1 = day. Lerped by CircadianController each frame.
+ * Read-only from batcher TSL; mutate only via CircadianController.
+ */
+export const uCircadianPhase = uniform(0.5);
+
+/**
+ * Additive pose offset to add on top of the music-driven pose.
+ * Precomputed by CircadianController: lerp(nightPoseOffset, dayPoseOffset, ease(phase)).
+ */
+export const uCircadianPoseOffset = uniform(0.0);
