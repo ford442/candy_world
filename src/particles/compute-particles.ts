@@ -385,7 +385,8 @@ private getOpacityNode(): any {
         
         this.uniformBuffer = this.device.createBuffer({
             size: uniformSize,
-            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+            mappedAtCreation: false
         });
     }
     
@@ -399,7 +400,8 @@ private getOpacityNode(): any {
 
         this.particleBuffer = this.device.createBuffer({
             size: totalSize,
-            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC
+            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+            mappedAtCreation: false
         });
         
 
