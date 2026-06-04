@@ -140,7 +140,7 @@ export {
     createVineLadder,
     VineSwing
 } from './trees.ts';
-export { createSubwooferLotus } from './lotus.ts';
+
 export { createLuminousPlant } from './luminous-plant.ts';
 export { LuminousPlantBatcher, luminousPlantBatcher } from './luminous-plant-batcher.ts';
 export { createFloatingOrb, createFloatingOrbCluster } from './environment.ts';
