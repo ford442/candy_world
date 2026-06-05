@@ -19,7 +19,7 @@ import {
     createSugarSparkle, applyPlayerInteraction
 } from './index.ts';
 import { uTwilight } from './sky.ts';
-import { BiomeUniforms } from '../systems/biome-uniforms.ts';
+import { BiomeUniforms, uCircadianPhase } from '../systems/biome-uniforms.ts';
 import { foliageGroup } from '../world/state.ts'; // Assuming state.ts exports foliageGroup
 import { spawnImpact } from './impacts.ts';
 import { uChromaticIntensity } from './chromatic.ts';
@@ -594,7 +594,9 @@ export class MushroomBatcher {
         const totalGlow = baseGlow.add(flashIntensity).add(sugarSparkle).add(innerGlowFactor.mul(0.3));
         
         // Add twilight glow directly to emissive node output
-        capMat.emissiveNode = twilightGlowTint.mul(BiomeUniforms.crystallineNebula.noteColor).mul(totalGlow);
+        // Circadian night-glow: mushroom caps brighten at night (phase=0), dim by day (phase=1).
+        const circadianGlowMult = mix(float(CONFIG.circadian.nightGlowMultiplier), float(1.0), uCircadianPhase);
+        capMat.emissiveNode = twilightGlowTint.mul(BiomeUniforms.crystallineNebula.noteColor).mul(totalGlow).mul(circadianGlowMult);
         capMat.emissiveIntensityNode = float(1.0); // Resetting multiplier since we multiply inside node
 
         // 2. Gills

@@ -5,7 +5,7 @@
  */
 
 // Loading Screen
-export type { LoadingScreenOptions, LoadingPhase, LoadingProgress };
+export type { LoadingScreenOptions, LoadingPhase, LoadingProgress } from './loading-screen';
 export {
     LoadingScreen,
 

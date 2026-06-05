@@ -32,6 +32,7 @@ import { getGroundHeight } from '../utils/wasm-loader.ts';
 import { updateImpacts } from '../foliage/impacts.ts';
 import { createShield } from '../foliage/shield.ts';
 import { updateFoliageMaterials } from '../foliage/animation.ts';
+import { circadianController } from '../systems/circadian-controller.ts';
 import { windComputeSystem } from '../foliage/wind-compute.ts';
 import { chordStrikeSystem } from '../gameplay/chord-strike.ts';
 import { updateFallingClouds } from '../foliage/clouds.ts';
@@ -123,7 +124,8 @@ let audioState: any = null;
 let lastBeatPhase = 0;
 let beatFlashIntensity = 0;
 let cameraZoomPulse = 0;
-let cameraShake = 0;
+import { addCameraShake, getCameraShake, setCameraShake } from './camera-shake.ts';
+let cameraShake = getCameraShake();
 let currentShakeOffsetX = 0;
 let currentShakeOffsetY = 0;
 const baseFOV = 75;
@@ -232,9 +234,8 @@ export function initGameLoopDependencies(deps: {
     });
 }
 
-export function addCameraShake(amount: number) {
-    cameraShake = Math.max(cameraShake, amount);
-}
+// addCameraShake re-exported from ./camera-shake.ts
+export { addCameraShake };
 
 export function getGameTime(): number {
     return gameTime;
@@ -335,6 +336,7 @@ export function animate() {
     cameraRef.rotation.x -= currentShakeOffsetX;
     cameraRef.rotation.y -= currentShakeOffsetY;
 
+    cameraShake = getCameraShake();
     if (cameraShake > 0) {
         cameraRef.rotation.z = (Math.random() - 0.5) * cameraShake * 0.1;
 
@@ -345,8 +347,9 @@ export function animate() {
         cameraRef.rotation.y += currentShakeOffsetY;
 
         cameraShake *= 0.85;
+        setCameraShake(cameraShake);
         if (cameraShake < 0.01) {
-            cameraShake = 0;
+            setCameraShake(0);
             currentShakeOffsetX = 0;
             currentShakeOffsetY = 0;
             cameraRef.rotation.z = 0;
@@ -367,6 +370,8 @@ export function animate() {
         setLastIsNight(isNightNow);
     }
     setIsNight(isNightNow);
+    circadianController.setDayTarget(!isNightNow);
+    circadianController.update(delta);
 
     const weatherIntensity = weatherSystemRef!.getIntensity();
     const weatherState = weatherSystemRef!.getState();

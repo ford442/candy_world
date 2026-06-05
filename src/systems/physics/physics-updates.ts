@@ -25,7 +25,7 @@ import { discoverySystem } from '../discovery.ts';
 import { spawnImpact } from '../../foliage/impacts.ts';
 import { showToast } from '../../utils/toast.ts';
 import { harmonyOrbSystem } from '../../foliage/aurora.ts';
-import { addCameraShake } from '../../core/game-loop.ts';
+import { addCameraShake } from '../../core/camera-shake.ts';
 import { unlockSystem } from '../unlocks.ts';
 import { uChromaticIntensity } from '../../foliage/chromatic.ts';
 import { uStrobeIntensity } from '../../foliage/strobe.ts';

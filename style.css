@@ -355,7 +355,7 @@ body.a11y-motion-reduced .spinner {
 }
 
 .ability-slot[aria-disabled="false"]:not([aria-pressed="true"]):active,
-.ability-slot.pressed {
+.ability-slot[aria-pressed="true"] {
     transform: scale(0.9);
     border-color: #FF4081; /* High contrast feedback */
     box-shadow: 0 0 10px rgba(255, 64, 129, 0.5);
@@ -536,14 +536,14 @@ kbd.key.key-highlight {
     box-shadow: 0 0 0 3px #ffffff, 0 0 0 6px #FF4081;
 }
 
-.dpad-btn.dpad-pressed,
+.dpad-btn[aria-pressed="true"],
 .dpad-btn:active {
     background: rgba(255, 100, 150, 0.90);
     transform: scale(0.92);
     box-shadow: 0 2px 8px rgba(255, 107, 107, 0.35), inset 0 1px 0 rgba(255,255,255,0.4);
 }
 
-.dpad-btn.dpad-pressed svg {
+.dpad-btn[aria-pressed="true"] svg {
     fill: #ffffff;
 }
 
@@ -576,12 +576,12 @@ kbd.key.key-highlight {
 }
 
 /* 🎨 Palette: Keyboard tactile feedback */
-.action-btn.pressed,
-button.pressed,
-.icon-btn.pressed,
-.secondary-button.pressed,
-.cta-button.pressed,
-.file-label.pressed {
+.action-btn[aria-pressed="true"],
+button[aria-pressed="true"],
+.icon-btn[aria-pressed="true"],
+.secondary-button[aria-pressed="true"],
+.cta-button[aria-pressed="true"],
+.file-label[aria-pressed="true"] {
     transform: scale(0.95) !important;
     filter: brightness(0.9) !important;
     transition-duration: 0.05s !important;

@@ -37,8 +37,10 @@ import { animate, initGameLoopDependencies, addCameraShake } from './game-loop.t
 import { updateTheme, toggleDayNight, setInputSystem } from './hud.ts';
 import { initDeferredVisuals, initDeferredVisualsDependencies, runDeferredWarmup } from './deferred-init.ts';
 import { globalBackgroundProcessor } from '../utils/background-processor.ts';
-import { showDeferredIndicator, hideDeferredIndicator, setDeferredProgress } from '../ui/index.ts';
+import { showDeferredIndicator, hideDeferredIndicator } from '../ui/index.ts';
 import { reset as resetSpawnTracker, getReport as getSpawnReport } from '../world/spawn-tracker.ts';
+import { globalLoadingManager } from '../systems/loading-manager.ts';
+import { validateWorldPopulation } from '../world/world-health.ts';
 import { showModeBadge } from '../ui/mode-badge.ts';
 import { DeferredLoader, LoadPriority } from '../systems/deferred-loader.ts';
 import { initLoadingScreen, installLegacyAPI } from '../ui/loading-screen.ts';
@@ -60,6 +62,13 @@ if (CONFIG.safeMode) {
     console.warn('[Startup] safeMode active (?safe=1) — shader warmup and compute disabled');
     (window as any).__computeDisabled = true;
 }
+
+// Wait-for-full preference: URL param (?waitForFull) or localStorage key.
+// URL param wins; localStorage persists the checkbox choice across sessions.
+const WAIT_FULL_KEY = 'candy_waitForFull';
+let waitForFullPopulation =
+    new URLSearchParams(location.search).has('waitForFull') ||
+    localStorage.getItem(WAIT_FULL_KEY) === '1';
 
 const loadingScreen = initLoadingScreen({ theme: 'candy', showEstimatedTime: true });
 loadingScreen.show();
@@ -137,10 +146,12 @@ if (!sceneInitResult) {
 const { mode, ambientLight, sunLight, sunGlow, sunCorona, lightShaftGroup, sunGlowMat, coronaMat, uShaftOpacity } = sceneInitResult;
 scene = sceneInitResult.scene;
 camera = sceneInitResult.camera;
+import { setCameraRef } from './camera-ref.ts';
+setCameraRef(camera);
 renderer = sceneInitResult.renderer;
 
 // Set global game object so playwright tests can interact with camera, etc
-(window as any).game = { camera, scene };
+(window as any).game = { camera, scene, animatedFoliage, interactiveObjects };
 installWorldExportTools();
 
 // Notify user if using WebGL fallback
@@ -534,6 +545,16 @@ if (startButton) {
         btnFastFull.addEventListener('click', () => updateStartupMode('FAST_FULL'));
     }
 
+    // Wire the wait-for-full checkbox
+    const waitFullCheckbox = document.getElementById('wait-full-checkbox') as HTMLInputElement | null;
+    if (waitFullCheckbox) {
+        waitFullCheckbox.checked = waitForFullPopulation;
+        waitFullCheckbox.addEventListener('change', () => {
+            waitForFullPopulation = waitFullCheckbox.checked;
+            localStorage.setItem(WAIT_FULL_KEY, waitForFullPopulation ? '1' : '0');
+        });
+    }
+
     let worldGenerated = false;
     let isGenerating = false;
 
@@ -659,34 +680,83 @@ if (startButton) {
                 showToast("Click to explore! Press [ESC] for Controls", "🎮", 4000);
             });
 
-            // Start background processor for deferred work
-            showDeferredIndicator();
+            // Start background processor for deferred work.
+            // resetCounters() syncs totalTasks to the queue length (which already
+            // contains horizon tasks from generateMap) and clears stale callbacks
+            // so start() isn't blocked by isRunning=true.
+            globalBackgroundProcessor.resetCounters();
+
+            // In waitForFull mode, keep the main loading screen up as a 'deferred-population'
+            // phase. Mark it non-skippable so users see the full progress.
+            if (waitForFullPopulation) {
+                if (!globalLoadingManager.getTask('deferred-population')) {
+                    globalLoadingManager.registerTask({
+                        id: 'deferred-population',
+                        name: 'World Population',
+                        weight: 0.2,
+                        description: 'Populating horizon...',
+                        isDeferred: true,
+                    });
+                }
+                loadingScreen.markPhaseNonSkippable('deferred-population');
+                loadingScreen.startPhase('deferred-population');
+            } else {
+                showDeferredIndicator();
+            }
+
             globalBackgroundProcessor.onProgress((completed, total) => {
-                setDeferredProgress(completed, total);
+                const failedSoFar = globalBackgroundProcessor.getFailedCount();
+                const etaMs = globalBackgroundProcessor.getEstimatedTimeRemainingMs();
+                globalLoadingManager.reportDeferredProgress(completed, total, failedSoFar, etaMs);
             });
-            globalBackgroundProcessor.onComplete(() => {
-                hideDeferredIndicator();
+
+            globalBackgroundProcessor.onComplete((completed, total, bgFailed) => {
+                if (waitForFullPopulation) {
+                    globalLoadingManager.reportDeferredProgress(completed, total, bgFailed);
+                    globalLoadingManager.completeTask('deferred-population');
+                    loadingScreen.completePhase('deferred-population');
+                } else {
+                    hideDeferredIndicator();
+                }
+
                 populatePhysicsGrids();
                 finalizeStartupProfile();
                 console.log('[Startup] All deferred background tasks completed.');
-                // Surface spawn report (visible errors already shown via badge/toast in indicator)
+
+                // Surface spawn report
                 try {
                     const r = getSpawnReport();
-                    (window as any).__worldPopulationReport = r;
+                    const report = { ...r, backgroundFailed: bgFailed };
+                    (window as any).__worldPopulationReport = report;
                     if (r.failed > 0) {
                         console.warn(`[Startup] Population complete with ${r.failed} spawn failures out of ${r.attempted}. See spawn tracker report.`);
-                        // One last non-fatal hint if badge wasn't noticed
-                        import('../utils/toast.ts').then(({ showToast }) => {
-                            showToast(`Some objects failed to load (${r.failed}). Click the ⚠ badge or check console.`, '⚠️', 5000);
-                        }).catch(() => {});
+                        if (!waitForFullPopulation) {
+                            // Badge already visible; toast as last-resort hint if missed
+                            import('../utils/toast.ts').then(({ showToast }) => {
+                                showToast(`Some objects failed to load (${r.failed}). Click the ⚠ badge or check console.`, '⚠️', 5000);
+                            }).catch(() => {});
+                        }
                     } else if (r.attempted > 0) {
                         console.log(`[Startup] Population complete: ${r.succeeded}/${r.attempted} objects spawned cleanly.`);
                     }
                 } catch {}
-                // Notify interested systems (music reactivity, discovery, etc.) that the
-                // world is now fully populated.  A CustomEvent on `document` keeps this
-                // decoupled from any specific module.
+
                 document.dispatchEvent(new CustomEvent('worldFullyPopulated'));
+
+                // Run world health validation and surface any warnings.
+                try {
+                    const health = validateWorldPopulation(activeWorldMode ?? 'UNKNOWN');
+                    if (!health.healthy) {
+                        import('../utils/toast.ts').then(({ showToast }) => {
+                            const summary = health.warnings.length === 1
+                                ? health.warnings[0]
+                                : `${health.warnings.length} world health warnings — see console`;
+                            showToast(summary, '⚠️', 7000);
+                        }).catch(() => {});
+                    }
+                } catch (e) {
+                    console.warn('[WorldHealth] Validation threw:', e);
+                }
             });
 
             // Queue non-critical visuals

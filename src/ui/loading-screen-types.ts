@@ -3,7 +3,8 @@ export interface LoadingPhase {
     name: string;
     weight: number; // Relative time cost (0-1)
     description: string;
-    isDeferred?: boolean; // Can be skipped/cancelled
+    isDeferred?: boolean;    // Eligible for the skip button
+    nonSkippable?: boolean;  // Override: hide skip button even when isDeferred
     onStart?: () => void;
     onComplete?: () => void;
 }
@@ -83,5 +84,14 @@ export const DEFAULT_LOADING_PHASES: LoadingPhase[] = [
         description: 'Placing entities, foliage and discoveries...',
         onStart: () => console.log('[Loading] Starting Map Generation'),
         onComplete: () => console.log('[Loading] Map Generation complete')
+    },
+    {
+        id: 'deferred-population',
+        name: 'World Population',
+        weight: 0,   // 0 in normal mode; set to >0 in waitForFull mode before registering
+        description: 'Populating horizon...',
+        isDeferred: true,
+        onStart: () => console.log('[Loading] Starting deferred world population'),
+        onComplete: () => console.log('[Loading] Deferred world population complete')
     }
 ];

@@ -3,7 +3,7 @@ import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { color, float, sin, positionLocal, normalLocal, mix, attribute } from 'three/tsl';
 import { uTime, createJuicyRimLight, createStandardNodeMaterial, applyPlayerInteraction } from './material-core.ts';
 import { calculateWindSway } from './index.ts';
-import { LuminousPlantUniforms, luminousPlantsNoteColorNode, getBiomeUniforms, type BiomeId } from '../systems/biome-uniforms.ts';
+import { LuminousPlantUniforms, luminousPlantsNoteColorNode, getBiomeUniforms, uCircadianPhase, uCircadianPoseOffset, type BiomeId } from '../systems/biome-uniforms.ts';
 
 const LUMINOUS_BIOME: BiomeId = 'luminous_plants';
 const luminousUniforms = getBiomeUniforms(LUMINOUS_BIOME); // demonstrates the helper for a non-arpeggio biome
@@ -55,7 +55,9 @@ export class LuminousPlantBatcher {
         const heightFactor = positionLocal.y.div(4.0);
         const breathe = sin(localTime).mul(pulseDepth).mul(heightFactor);
         const shockwave = LuminousPlantUniforms.intensity.mul(heightFactor).mul(1.5);
-        const totalDisplacement = normalLocal.mul(breathe.add(shockwave));
+        // Circadian pose: additive radial swell that opens plants by day, closes at night
+        const circadianSwell = normalLocal.mul(uCircadianPoseOffset).mul(heightFactor);
+        const totalDisplacement = normalLocal.mul(breathe.add(shockwave)).add(circadianSwell);
         mat.positionNode = applyPlayerInteraction(positionLocal.add(totalDisplacement).add(calculateWindSway(positionLocal)));
 
         const sssStrength = float(CONFIG.luminousPlants?.subsurfaceStrength || 0.8);
@@ -76,7 +78,11 @@ export class LuminousPlantBatcher {
             .mul(uTwilight)
             .mul(float(CONFIG.glow.glowIntensityMax))
             .mul(float(0.3).add(idlePulse));
-        mat.emissiveNode = emissiveBase.add(rimLight.mul(sssStrength)).add(twilightGlowTint);
+        // Circadian night-glow: brighter at night (phase=0), dimmer by day (phase=1).
+        // Multiplier lerps from nightGlowMultiplier → 1.0 as phase goes 0 → 1.
+        const nightMult = float(CONFIG.circadian.nightGlowMultiplier);
+        const circadianGlowMult = mix(nightMult, float(1.0), uCircadianPhase);
+        mat.emissiveNode = emissiveBase.mul(circadianGlowMult).add(rimLight.mul(sssStrength)).add(twilightGlowTint);
 
         // Music Impact: subtle direct contribution from the sky-wave-driven noteColor uniform.
         // When the Sky Wave (see music-reactivity.ts + sky_wave in music-bindings.json) fires,

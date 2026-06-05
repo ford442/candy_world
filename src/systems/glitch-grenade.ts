@@ -4,7 +4,7 @@ import { MeshStandardNodeMaterial, StorageInstancedBufferAttribute } from 'three
 import { color, float, attribute, storage, instanceIndex, Fn, If, vec4, uniform, positionLocal, smoothstep } from 'three/tsl';
 import { getGroundHeight } from '../utils/wasm-loader.ts';
 import { spawnImpact } from '../foliage/impacts.ts';
-import { addCameraShake } from '../core/game-loop.ts';
+import { addCameraShake } from '../core/camera-shake.ts';
 
 const MAX_GRENADES = 10; // Simple fixed pool size
 

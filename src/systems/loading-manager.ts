@@ -2,10 +2,11 @@
  * Loading Manager
  *
  * Centralized progress tracker for all loading phases and subtasks.
- * Acts as the single source of truth for loading state.
+ * Acts as the single source of truth for loading state — including the
+ * post-interactive deferred population phase driven by BackgroundProcessor.
  */
 
-import { DEFAULT_LOADING_PHASES } from '../ui/loading-screen';
+import { DEFAULT_LOADING_PHASES } from '../ui/loading-screen-types';
 
 export interface LoadingTaskOptions {
     id: string;
@@ -36,6 +37,12 @@ export interface GlobalProgressState {
     activeTaskName: string | null;
     activeTaskDescription: string | null;
     estimatedTimeRemaining: number; // seconds
+    // Deferred / post-interactive population progress
+    deferredCompleted: number;
+    deferredTotal: number;
+    deferredFailed: number;
+    deferredPercent: number; // 0-100, 0 if not started
+    deferredEtaMs: number;  // -1 = unknown, 0 = done, >0 = ms remaining
 }
 
 export type ProgressCallback = (state: GlobalProgressState, tasks: Map<string, TaskState>) => void;
@@ -56,6 +63,12 @@ export class LoadingManager {
     private totalWeight: number = 0;
     private globalStartTime: number = 0;
 
+    // Deferred population state (driven by BackgroundProcessor)
+    private deferredCompleted: number = 0;
+    private deferredTotal: number = 0;
+    private deferredFailed: number = 0;
+    private deferredEtaMs: number = -1;
+
     constructor() {}
 
     /**
@@ -67,7 +80,7 @@ export class LoadingManager {
             name: options.name,
             weight: options.weight,
             description: options.description || '',
-            totalSubTasks: options.totalSubTasks || 100, // Default to 100% style if not specified
+            totalSubTasks: options.totalSubTasks || 100,
             completedSubTasks: 0,
             percentComplete: 0,
             isDeferred: options.isDeferred || false,
@@ -156,7 +169,7 @@ export class LoadingManager {
         this.updateAverageTime(task.endTime - task.startTime, task.weight);
 
         if (this.activeTaskId === id) {
-            this.activeTaskId = null; // Will be set by next startTask
+            this.activeTaskId = null;
         }
 
         this.emitProgress();
@@ -174,7 +187,6 @@ export class LoadingManager {
 
         task.status = 'skipped';
         task.endTime = performance.now();
-        // Treat skipped task as having half its weight completed, matching legacy logic
         this.completedWeights += task.weight * 0.5;
 
         if (this.activeTaskId === id) {
@@ -196,6 +208,38 @@ export class LoadingManager {
     }
 
     /**
+     * Report progress from BackgroundProcessor for the post-interactive
+     * deferred population phase.  This drives both the HUD indicator and any
+     * 'deferred-population' task registered in the phase list.
+     *
+     * @param completed  Tasks completed so far (success + failed)
+     * @param total      Total tasks enqueued
+     * @param failed     Tasks that threw during execution
+     */
+    reportDeferredProgress(completed: number, total: number, failed: number = 0, etaMs: number = -1): void {
+        this.deferredCompleted = completed;
+        this.deferredTotal = total;
+        this.deferredFailed = failed;
+        this.deferredEtaMs = etaMs;
+
+        // Also drive any registered 'deferred-population' task
+        const task = this.tasks.get('deferred-population');
+        if (task && task.status !== 'completed' && task.status !== 'skipped') {
+            const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
+            const failLabel = failed > 0 ? ` (${failed} failed)` : '';
+            this.reportProgress(
+                'deferred-population',
+                completed,
+                total,
+                `Populating horizon: ${completed}/${total}${failLabel}`
+            );
+            return; // reportProgress already emits
+        }
+
+        this.emitProgress();
+    }
+
+    /**
      * Calculates overall weighted progress (0 to 100).
      */
     getOverallProgress(): number {
@@ -203,7 +247,6 @@ export class LoadingManager {
 
         let currentCompletedWeight = this.completedWeights;
 
-        // Add partial progress from active task
         if (this.activeTaskId) {
             const activeTask = this.tasks.get(this.activeTaskId);
             if (activeTask && activeTask.status === 'active') {
@@ -212,6 +255,15 @@ export class LoadingManager {
         }
 
         return (currentCompletedWeight / this.totalWeight) * 100;
+    }
+
+    /**
+     * Deferred population percent (0–100). 0 if not started.
+     */
+    getDeferredPercent(): number {
+        return this.deferredTotal > 0
+            ? Math.min(100, Math.round((this.deferredCompleted / this.deferredTotal) * 100))
+            : 0;
     }
 
     /**
@@ -240,27 +292,32 @@ export class LoadingManager {
         if (this.averageTaskTimeMs === 0) {
             this.averageTaskTimeMs = normalizedTime;
         } else {
-            // Moving average
             this.averageTaskTimeMs = (this.averageTaskTimeMs * 0.7) + (normalizedTime * 0.3);
         }
     }
 
     private emitProgress(): void {
-        const activeTask = this.activeTaskId ? this.tasks.get(this.activeTaskId) : null;
+        if (this.onProgressCallbacks.size === 0) return;
 
+        const activeTask = this.activeTaskId ? this.tasks.get(this.activeTaskId) : null;
         const state: GlobalProgressState = {
             overallPercent: this.getOverallProgress(),
             activeTaskId: this.activeTaskId,
             activeTaskName: activeTask ? activeTask.name : null,
             activeTaskDescription: activeTask ? activeTask.description : null,
-            estimatedTimeRemaining: this.getEstimatedTimeRemaining()
+            estimatedTimeRemaining: this.getEstimatedTimeRemaining(),
+            deferredCompleted: this.deferredCompleted,
+            deferredTotal: this.deferredTotal,
+            deferredFailed: this.deferredFailed,
+            deferredPercent: this.getDeferredPercent(),
+            deferredEtaMs: this.deferredEtaMs,
         };
 
-        for (let i = 0; i < this.onProgressCallbacks.length; i++) this.onProgressCallbacks[i](state, this.tasks);
+        for (const cb of this.onProgressCallbacks) cb(state, this.tasks);
     }
 
     private emitPhaseChange(): void {
-        for (let i = 0; i < this.onPhaseChangeCallbacks.length; i++) this.onPhaseChangeCallbacks[i](this.activeTaskId);
+        for (const cb of this.onPhaseChangeCallbacks) cb(this.activeTaskId);
     }
 
     // Event subscription

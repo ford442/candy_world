@@ -392,8 +392,8 @@ export function initInput(
                 event.preventDefault();
                 const closePlaylistBtn = document.getElementById('closePlaylistBtn');
                 if (closePlaylistBtn) {
-                    closePlaylistBtn.classList.add('pressed');
-                    setTimeout(() => closePlaylistBtn.classList.remove('pressed'), 150);
+                    closePlaylistBtn.setAttribute('aria-pressed', 'true');
+                    setTimeout(() => closePlaylistBtn.setAttribute('aria-pressed', 'false'), 150);
                 }
                 togglePlaylist();
                 return;
@@ -504,12 +504,12 @@ export function initInput(
             case 'KeyD': keyStates.right = true; break;
             case 'KeyF':
                 keyStates.action = true;
-                if (hudMine) hudMine.classList.add('pressed');
+                if (hudMine) hudMine.setAttribute('aria-pressed', 'true');
                 break; // Jitter Mine Ability
             case 'KeyE':
             case 'e':
                 keyStates.dash = true;
-                if (hudDash) hudDash.classList.add('pressed');
+                if (hudDash) hudDash.setAttribute('aria-pressed', 'true');
                 break; // Dash Ability
             case 'KeyX':
             case 'x':
@@ -518,7 +518,7 @@ export function initInput(
             case 'KeyZ':
             case 'z':
                 keyStates.phase = true;
-                if (hudPhase) hudPhase.classList.add('pressed');
+                if (hudPhase) hudPhase.setAttribute('aria-pressed', 'true');
                 break; // Phase Shift Ability
             case 'KeyC':
             case 'c':
@@ -599,12 +599,12 @@ export function initInput(
             case 'KeyD': keyStates.right = false; break;
             case 'KeyF':
                 keyStates.action = false;
-                if (hudMine) hudMine.classList.remove('pressed');
+                if (hudMine) hudMine.setAttribute('aria-pressed', 'false');
                 break;
             case 'KeyE':
             case 'e':
                 keyStates.dash = false;
-                if (hudDash) hudDash.classList.remove('pressed');
+                if (hudDash) hudDash.setAttribute('aria-pressed', 'false');
                 break;
             case 'KeyX':
             case 'x':
@@ -613,7 +613,7 @@ export function initInput(
             case 'KeyZ':
             case 'z':
                 keyStates.phase = false;
-                if (hudPhase) hudPhase.classList.remove('pressed');
+                if (hudPhase) hudPhase.setAttribute('aria-pressed', 'false');
                 break;
             case 'KeyR':
             case 'r':
@@ -653,14 +653,14 @@ const buttonPressTimeouts = new Map<string, NodeJS.Timeout | number>();
 function triggerButtonPress(buttonId: string): void {
     const btn = document.getElementById(buttonId);
     if (btn && btn.getAttribute('aria-disabled') !== 'true') {
-        btn.classList.add('pressed');
+        btn.setAttribute('aria-pressed', 'true');
 
         if (buttonPressTimeouts.has(buttonId)) {
             clearTimeout(buttonPressTimeouts.get(buttonId) as any);
         }
 
         const timeoutId = setTimeout(() => {
-            btn.classList.remove('pressed');
+            btn.setAttribute('aria-pressed', 'false');
             buttonPressTimeouts.delete(buttonId);
         }, 150);
 
@@ -689,13 +689,13 @@ function triggerButtonPress(buttonId: string): void {
     const dpadPress = (dir: DpadDirection, btn: HTMLElement) => {
         dpadHeld.add(dir);
         keyStates[dir] = true;
-        btn.classList.add('dpad-pressed');
+        btn.setAttribute('aria-pressed', 'true');
     };
 
     const dpadRelease = (dir: DpadDirection, btn: HTMLElement) => {
         dpadHeld.delete(dir);
         keyStates[dir] = false;
-        btn.classList.remove('dpad-pressed');
+        btn.setAttribute('aria-pressed', 'false');
     };
 
     for (const [id, dir] of Object.entries(dpadMap)) {

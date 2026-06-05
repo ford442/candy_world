@@ -1,6 +1,50 @@
 import * as THREE from 'three';
 import type { PlantPoseConfig } from '../foliage/plant-pose-machine.ts';
 
+// ---------------------------------------------------------------------------
+// FEATURE FLAGS
+//
+// URL query params let you disable heavy subsystems without touching code:
+//   ?no_luminous          — skip luminous plant batcher + lake-island plants
+//   ?no_musical           — skip musical flora (arpeggio fern, vibrato violet, etc.)
+//   ?no_procedural        — skip procedural extras (random filler objects)
+//   ?no_batchers          — skip tree / mushroom / flower GPU batch systems
+//   ?no_audio_react       — skip beat-sync and music-reactivity hooks
+//   ?no_fireflies         — skip firefly particle system
+//   ?no_grass             — skip GPU grass instancing
+//
+// Combine flags to isolate regressions: ?no_luminous&no_musical
+// All flags default to ENABLED (absent = feature on).
+// ---------------------------------------------------------------------------
+
+function _hasFlag(key: string): boolean {
+    try {
+        return new URLSearchParams(window.location.search).has(key);
+    } catch {
+        return false; // non-browser (test) environment — all features on
+    }
+}
+
+export const FEATURE_FLAGS = {
+    luminousPlants:   !_hasFlag('no_luminous'),
+    musicalFlora:     !_hasFlag('no_musical'),
+    proceduralExtras: !_hasFlag('no_procedural'),
+    batchers:         !_hasFlag('no_batchers'),
+    audioReactivity:  !_hasFlag('no_audio_react'),
+    fireflies:        !_hasFlag('no_fireflies'),
+    grass:            !_hasFlag('no_grass'),
+} as const;
+
+// Log active overrides once at startup so the console makes the state obvious.
+if (typeof window !== 'undefined') {
+    const disabled = Object.entries(FEATURE_FLAGS)
+        .filter(([, v]) => !v)
+        .map(([k]) => k);
+    if (disabled.length > 0) {
+        console.warn(`[FeatureFlags] Disabled via URL: ${disabled.join(', ')}`);
+    }
+}
+
 // Cycle: Sunrise (1m), Day (7m), Sunset (1m), Night (7m) = Total 16m = 960s
 export const DURATION_SUNRISE = 60;
 export const DURATION_DAY = 420;
@@ -171,6 +215,19 @@ export interface ConfigType {
         arpeggioFern: PlantPoseConfig;
         portamentoPine: PlantPoseConfig;
         flower: PlantPoseConfig;
+    };
+
+    circadian: {
+        transitionSeconds: number;
+        dayPoseOffset: number;
+        nightPoseOffset: number;
+        nightGlowMultiplier: number;
+        biomeOverrides: Record<string, Partial<{
+            transitionSeconds: number;
+            dayPoseOffset: number;
+            nightPoseOffset: number;
+            nightGlowMultiplier: number;
+        }>>;
     };
 
     world: {
@@ -368,10 +425,28 @@ export const CONFIG: ConfigType = {
         flower: {
             attackRate: 4.0,        // bloom response to kick
             releaseRate: 1.0,       // settle back down
-            sustainLevel: 1.0,      // envelope peak 
+            sustainLevel: 1.0,      // envelope peak
             dayTarget: 1.0,         // fully blooming during day
             nightTarget: 0.0,       // closed during night
             triggerThreshold: 0.05  // minimum kick channel volume to trigger bloom
+        }
+    },
+
+    // --- CIRCADIAN SYSTEM ---
+    // Controls smooth day/night plant behaviour (pose + bioluminescence).
+    // Separate from music-bindings.json — circadian is a time-domain signal, not audio.
+    circadian: {
+        transitionSeconds: 3.0,
+        // uCircadianPoseOffset value at full day (1.0) and full night (0.0).
+        // Added to the music-driven pose in opted-in batcher TSL graphs.
+        dayPoseOffset: 0.3,
+        nightPoseOffset: 0.0,
+        // Emissive glow multiplier for luminous plants / mushroom caps at night.
+        nightGlowMultiplier: 3.5,
+        // Per-biome overrides: any key matching a BiomeId can override the above.
+        biomeOverrides: {
+            crystalline_nebula: { nightGlowMultiplier: 5.0 },
+            arpeggio_grove:     { nightPoseOffset: 0.1 }
         }
     }
 };

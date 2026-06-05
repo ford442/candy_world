@@ -15,6 +15,7 @@ import {
     LAKE_ARPEGGIO_FERN_COUNT, LAKE_DANDELION_COUNT
 } from './generation-utils.ts';
 import { create, registerBuiltinWorldObjectTypes } from './foliage-registry.ts';
+import { FEATURE_FLAGS } from '../core/config.ts';
 
 registerBuiltinWorldObjectTypes();
 
@@ -251,6 +252,10 @@ export async function populateProceduralExtras(
     weatherSystem: WeatherSystem,
     chunkSize: number = DEFAULT_PROCEDURAL_CHUNK_SIZE
 ): Promise<void> {
+    if (!FEATURE_FLAGS.proceduralExtras) {
+        console.log('[World] Procedural extras skipped (no_procedural flag)');
+        return;
+    }
     console.log("[World] Populating procedural extras (Critical + Deferred)...");
     const extrasCount = PROCEDURAL_ENTITY_COUNT;
     const range = 150;
@@ -344,43 +349,45 @@ export async function populateProceduralExtras(
                      radius = 1.5;
                 }
                 else if (rand < 0.75) {
-                     const type = Math.random();
-                     if (type < 0.15) {
-                         obj = create('arpeggio_fern', { scale: 1.0 + Math.random() * 0.5 });
-                         exportType = 'arpeggio_fern';
-                     } else if (type < 0.28) {
-                         obj = create('kick_drum_geyser', { maxHeight: 5.0 + Math.random() * 3.0 });
-                         exportType = 'kick_drum_geyser';
-                         radius = 1.0;
-                     } else if (type < 0.40) {
-                         obj = create('snare_trap', { scale: 0.8 + Math.random() * 0.4 });
-                         exportType = 'snare_trap';
-                         isObstacle = true;
-                         radius = 0.8;
-                     } else if (type < 0.50) {
-                         obj = create('retrigger_mushroom', { scale: 0.8 + Math.random() * 0.4, retriggerSpeed: 2 + Math.floor(Math.random() * 6) });
-                         exportType = 'retrigger_mushroom';
-                     } else if (type < 0.60) {
-                         obj = create('portamento_pine', { height: 4.0 + Math.random() * 2.0 });
-                         exportType = 'portamento_pine';
-                         isObstacle = true;
-                         radius = 0.5;
-                     } else if (type < 0.75) {
-                         obj = create('tremolo_tulip', { size: 1.0 + Math.random() * 0.5 });
-                         exportType = 'tremolo_tulip';
-                     } else if (type < 0.85) {
-                         obj = create('cymbal_dandelion', { scale: 0.8 + Math.random() * 0.4 });
-                         exportType = 'cymbal_dandelion';
-                     } else {
-                         const panBias = x < 0 ? -1 : 1;
-                         const padRadius = 1.2 + Math.random();
-                         obj = create('panning_pad', { radius: padRadius, panBias });
-                         exportType = 'panning_pad';
-                         exportParams.radius = padRadius;
-                         currentY = groundY + 0.5;
-                         if (obj) obj.position.y = currentY;
+                     if (FEATURE_FLAGS.musicalFlora) {
+                         const type = Math.random();
+                         if (type < 0.15) {
+                             obj = create('arpeggio_fern', { scale: 1.0 + Math.random() * 0.5 });
+                             exportType = 'arpeggio_fern';
+                         } else if (type < 0.28) {
+                             obj = create('kick_drum_geyser', { maxHeight: 5.0 + Math.random() * 3.0 });
+                             exportType = 'kick_drum_geyser';
+                             radius = 1.0;
+                         } else if (type < 0.40) {
+                             obj = create('snare_trap', { scale: 0.8 + Math.random() * 0.4 });
+                             exportType = 'snare_trap';
+                             isObstacle = true;
+                             radius = 0.8;
+                         } else if (type < 0.50) {
+                             obj = create('retrigger_mushroom', { scale: 0.8 + Math.random() * 0.4, retriggerSpeed: 2 + Math.floor(Math.random() * 6) });
+                             exportType = 'retrigger_mushroom';
+                         } else if (type < 0.60) {
+                             obj = create('portamento_pine', { height: 4.0 + Math.random() * 2.0 });
+                             exportType = 'portamento_pine';
+                             isObstacle = true;
+                             radius = 0.5;
+                         } else if (type < 0.75) {
+                             obj = create('tremolo_tulip', { size: 1.0 + Math.random() * 0.5 });
+                             exportType = 'tremolo_tulip';
+                         } else if (type < 0.85) {
+                             obj = create('cymbal_dandelion', { scale: 0.8 + Math.random() * 0.4 });
+                             exportType = 'cymbal_dandelion';
+                         } else {
+                             const panBias = x < 0 ? -1 : 1;
+                             const padRadius = 1.2 + Math.random();
+                             obj = create('panning_pad', { radius: padRadius, panBias });
+                             exportType = 'panning_pad';
+                             exportParams.radius = padRadius;
+                             currentY = groundY + 0.5;
+                             if (obj) obj.position.y = currentY;
+                         }
+                         if (obj) obj.position.set(x, currentY, z);
                      }
-                     if (obj) obj.position.set(x, currentY, z);
                 }
                  else if (rand < 0.90) {
                      // Vertical Ecosystem: Tiered Clouds

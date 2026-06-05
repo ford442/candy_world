@@ -62,6 +62,32 @@ This test:
 
 **Note**: Warnings (e.g., `CloudBatcher` capacity warnings) are OK and don't cause failure. Only errors fail the test.
 
+#### Full-Boot Smoke Test (`FULL_BOOT=1`)
+
+You can run the smoke test in **FULL** or **FAST_FULL** mode to verify the complete world population path (the same path that regressed in #1133):
+
+```bash
+# Full map population (~60-90s additional wait)
+FULL_BOOT=1 npm run test
+
+# Fast-full (lighter population)
+FULL_BOOT=fast npm run test
+```
+
+In full-boot mode the smoke runner:
+1. Clicks the **Full Game** (or **Fast Full**) mode button
+2. Clicks **Enter the Dream**
+3. Waits up to **60 seconds** for deferred background population to finish
+4. Asserts (hard failures):
+   - `window.__worldHealth.healthy === true`
+   - `window.__spawnReport.failed === 0`
+   - `window.__worldHealth.succeeded >= 1000`
+   - `window.__worldHealth.sceneObjects.animatedFoliage >= 50`
+   - `window.__worldHealth.batchers.totalInstances >= 100`
+   - `window.game.animatedFoliage.length >= 50`
+
+Keep **CORE** as the default for fast CI feedback; use `FULL_BOOT=1` for integration / nightly runs.
+
 ### `npm run test:integration` — Full Test Chain
 
 Runs the complete verification pipeline:
@@ -148,6 +174,10 @@ npm run test:integration
 npm run build:wasm     # Compile WASM
 npm run test:wasm      # Verify bounds
 npm run test           # Verify boot (auto-builds dist if needed)
+
+# Full-world population smoke tests (requires GPU; see "FULL BOOT in headless" note above)
+npm run test:smoke:full   # FULL_BOOT=1
+npm run test:smoke:fast   # FULL_BOOT=fast
 ```
 
 All commands exit with:
@@ -178,3 +208,7 @@ On the first run after `npm run build`, the smoke test may take 3+ minutes. This
 - Initial WASM initialization (~5-10s)
 
 Subsequent runs are faster once caches are warm.
+
+### FULL BOOT in headless / CI environments
+
+`FULL_BOOT=1` creates a large number of instanced meshes and WebGPU buffers. In headless Chromium (SwiftShader) or containers without a real GPU, the browser tab may crash with `WebGPU Device Lost` or `Target crashed`. This is an **environment limitation**, not a code bug. For reliable FULL mode smoke tests, run on a machine with a discrete GPU and stable WebGPU drivers.

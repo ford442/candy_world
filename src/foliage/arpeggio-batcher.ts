@@ -24,7 +24,7 @@ import { applyGlitch } from './glitch.ts';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { PlantPoseMachine } from './plant-pose-machine.ts';
 import { musicReactivitySystem } from '../systems/music-reactivity.ts';
-import { camera } from '../core/main.ts';
+import { camera } from '../core/camera-ref.ts';
 import { CONFIG } from '../core/config.ts';
 import { dynamicRadiiView } from '../utils/wasm-physics.ts';
 
@@ -71,13 +71,13 @@ export class ArpeggioFernBatcher {
 
         // Initialize global uniform
         this.uFernUnfurl = uniform(float(0.0));
-
-        // Single-slot pose machine for global fern unfurl (capacity=1, no per-frame alloc)
-        this._poseMachine = new PlantPoseMachine(1);
     }
 
     init() {
         if (this.initialized) return;
+
+        // Single-slot pose machine for global fern unfurl (capacity=1, no per-frame alloc)
+        this._poseMachine = new PlantPoseMachine(1);
 
         // --- Geometry Preparation ---
 
