@@ -344,7 +344,7 @@ export function renderPlaylist(): void {
                     (playBtns[0] as HTMLElement).focus({ preventScroll: true });
                 } else {
                     // Fallback to empty state button if list is now empty
-                    const emptyBtn = playlistList!.querySelector('button.secondary-button');
+                    const emptyBtn = playlistList!.querySelector('.jukebox-browse-btn') || document.getElementById('addSongsBtn');
                     if (emptyBtn) {
                         (emptyBtn as HTMLElement).focus({ preventScroll: true });
                     }
