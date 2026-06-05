@@ -9,6 +9,7 @@ import { mushroomBatcher } from '../foliage/mushroom-batcher.ts';
 import { flowerBatcher } from '../foliage/flower-batcher.ts';
 import { simpleFlowerBatcher } from '../foliage/simple-flower-batcher.ts';
 import { kickDrumGeyserBatcher } from '../foliage/kick-drum-geyser-batcher.ts';
+import { subwooferLotusBatcher } from '../foliage/subwoofer-lotus-batcher.ts';
 import type { AudioData, FoliageObject } from '../foliage/types.ts';
 import { BiomeUniforms, SkyUniforms, LuminousPlantUniforms } from './biome-uniforms.ts';
 import { uTwilight } from '../foliage/sky.ts';
@@ -622,6 +623,7 @@ export class MusicReactivitySystem {
 
             // Update Kick Drum Geysers
             kickDrumGeyserBatcher.update(time, deltaTime, audioState, _activeWave);
+            // Note: subwooferLotusBatcher responds via TSL uniforms, no JS update loop required.
 
             // ---------------------------------------------------------------
             // ⚡ BIOME CHANNEL BINDING — Arpeggio Grove & Crystalline Nebula

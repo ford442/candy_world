@@ -74,6 +74,9 @@ Status: Implemented ✅
 * Implementation Details: Audited remaining batchers (`wisteria-cluster.ts`, `glowing-flower-batcher.ts`, `dandelion-batcher.ts`, `arpeggio-batcher.ts`, `waterfall-batcher.ts`) for VRAM leaks. Introduced `_cachedMergedGeo` and `_cachedHitGeo` singletons in `createWisteriaCluster` to eliminate per-call geometry instantiation leaks. Added fully robust `dispose()` methods to all other tracked batchers to properly clean up `mesh.geometry`, `mesh.material`, and custom attributes like `mesh.instanceColor`. Marked task as complete in `weekly_plan.md`.
 Next Step: Provide next task or continue with REFACTORING_PLAN_REMAINING.md.
 * Implementation Details: Replaced single mesh geysers with `KickDrumGeyserBatcher` in `src/foliage/kick-drum-geyser-batcher.ts`, fully adopting `InstancedMesh` with TSL wave scaling and proper VRAM disposal for the Kick-Drum Geyser. Marked `region-manager.ts` refactoring as implemented in the musical ecosystem roadmap.
+Status: Implemented ✅
+* Implementation Details: Replaced single mesh `createSubwooferLotus` in `src/foliage/lotus.ts` with `SubwooferLotusBatcher` inside `src/foliage/subwoofer-lotus-batcher.ts`. Introduced a `pendingRegistrations` array and a `flushRegistrations` method to defer matrix composition to the GPU buffers until caller has finalized positioning inside `populateWorld`. Wired dispose inside `weather.ts` and updated registry references to support massive-scale rendering of Subwoofer Lotuses with audio reactivity driven entirely via WebGPU TSL uniforms.
+Next Step: Ask the user for the next task.
 
 Status: Implemented ✅
 * Implementation Details: Replaced single mesh subwoofer lotus with `SubwooferLotusBatcher` in `src/foliage/subwoofer-lotus-batcher.ts`, fully adopting `InstancedMesh` with TSL bass pulse scaling, glitch distortion, and proper VRAM disposal for the Subwoofer Lotus.
