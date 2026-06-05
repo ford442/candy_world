@@ -289,6 +289,7 @@ function hookWebGPU() {
             const end = performance.now();
             webgpuMetrics.shaderCompilations++;
             webgpuMetrics.shaderCompileTime += (end - start);
+            return result;
           }
           return originalCreateShaderModule.call(device, desc);
         };
