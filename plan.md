@@ -77,6 +77,10 @@ Next Step: Provide next task or continue with REFACTORING_PLAN_REMAINING.md.
 Status: Implemented ✅
 * Implementation Details: Replaced single mesh `createSubwooferLotus` in `src/foliage/lotus.ts` with `SubwooferLotusBatcher` inside `src/foliage/subwoofer-lotus-batcher.ts`. Introduced a `pendingRegistrations` array and a `flushRegistrations` method to defer matrix composition to the GPU buffers until caller has finalized positioning inside `populateWorld`. Wired dispose inside `weather.ts` and updated registry references to support massive-scale rendering of Subwoofer Lotuses with audio reactivity driven entirely via WebGPU TSL uniforms.
 Next Step: Ask the user for the next task.
+
+Status: Implemented ✅
+* Implementation Details: Replaced single mesh subwoofer lotus with `SubwooferLotusBatcher` in `src/foliage/subwoofer-lotus-batcher.ts`, fully adopting `InstancedMesh` with TSL bass pulse scaling, glitch distortion, and proper VRAM disposal for the Subwoofer Lotus.
+Next Step: Continue large file refactoring from `REFACTORING_PLAN_REMAINING.md`.
 1. *Add `dispose` method to `LuminousPlantBatcher` in `src/foliage/luminous-plant-batcher.ts`.*
    - Defined a `dispose()` method.
    - Cleaned up `this.mesh.geometry`, `this.mesh.material`, and custom attributes like `aPhaseOffset`.
@@ -91,4 +95,6 @@ Next Step: Provide next task or continue with REFACTORING_PLAN_REMAINING.md.
 
 Status: Implemented ✅
 * Implementation Details: Replaced `group.traverse()` calls in `src/foliage/tree-batcher.ts` registration methods (`registerBubbleWillow`, `registerBalloonBush`, `registerHelixPlant`, `registerFloweringTree`) with direct `for (let i = 0; i < group.children.length; i++)` iteration over `group.children`. This eliminates recursive function overhead and adheres to zero-allocation guidelines in shallow, known hierarchies.
+Next Step: Ask the user for the next task.
+* Implementation Details: Applied "Juice" to the `flowers.ts` component by adding `calculateWindSway` and `applyPlayerInteraction` TSL logic into the position graph so that it responds dynamically to weather and player forces.
 Next Step: Ask the user for the next task.

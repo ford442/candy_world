@@ -42,10 +42,10 @@ export function triggerAbility(
     element?: HTMLElement | null
 ): void {
     keyStates[ability] = true;
-    if (element) element.classList.add('pressed');
+    if (element) element.setAttribute('aria-pressed', 'true');
     setTimeout(() => {
         keyStates[ability] = false;
-        if (element) element.classList.remove('pressed');
+        if (element) element.setAttribute('aria-pressed', 'false');
     }, 100);
 }
 
