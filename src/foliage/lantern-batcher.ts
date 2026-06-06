@@ -18,7 +18,7 @@ import { CONFIG } from '../core/config.ts';
 import { uTwilight } from './sky.ts';
 import { BiomeUniforms } from '../systems/biome-uniforms.ts';
 
-const MAX_LANTERNS = 250; // Reduced from 1000 for WebGPU uniform buffer limits
+const MAX_LANTERNS = 1000; // Reduced from 1000 for WebGPU uniform buffer limits
 
 // ⚡ OPTIMIZATION: Module scoped scratch variables to avoid GC spikes
 const _scratchMatrixBatch = new THREE.Matrix4();

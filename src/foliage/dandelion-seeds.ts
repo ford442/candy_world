@@ -8,7 +8,7 @@ import {
 } from 'three/tsl';
 import { uTime, uAudioHigh, uWindSpeed, uWindDirection, createSugarSparkle } from './index.ts';
 
-const MAX_SEEDS = 500; // Reduced from 2000 for WebGPU uniform buffer limits
+const MAX_SEEDS = 2000; // Reduced from 2000 for WebGPU uniform buffer limits
 const MAX_SPAWNS_PER_FRAME = 200; // Allow multiple explosions in a single frame
 
 let _seedMesh: THREE.InstancedMesh | null = null;
