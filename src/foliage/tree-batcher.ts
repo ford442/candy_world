@@ -601,23 +601,23 @@ export class TreeBatcher {
         // Check if we need to grow the buffer
         switch (countProp) {
             case 'trunkCount':
-                if (index >= this.trunkCapacity) { if (this.trunkCapacity >= MAX_INSTANCES) { console.warn("[TreeBatcher] Max capacity reached for trunks"); return; } this.growTrunkBuffer(); }
+                if (index >= this.trunkCapacity) { if (index >= MAX_INSTANCES) { console.warn("[TreeBatcher] Max capacity reached for trunks"); return; } this.growTrunkBuffer(); }
                 mesh = this.trunks;
                 break;
             case 'sphereCount':
-                if (index >= this.sphereCapacity) { if (this.sphereCapacity >= MAX_INSTANCES) { console.warn("[TreeBatcher] Max capacity reached for spheres"); return; } this.growSphereBuffer(); }
+                if (index >= this.sphereCapacity) { if (index >= MAX_INSTANCES) { console.warn("[TreeBatcher] Max capacity reached for spheres"); return; } this.growSphereBuffer(); }
                 mesh = this.spheres;
                 break;
             case 'capsuleCount':
-                if (index >= this.capsuleCapacity) { if (this.capsuleCapacity >= MAX_INSTANCES) { console.warn("[TreeBatcher] Max capacity reached for capsules"); return; } this.growCapsuleBuffer(); }
+                if (index >= this.capsuleCapacity) { if (index >= MAX_INSTANCES) { console.warn("[TreeBatcher] Max capacity reached for capsules"); return; } this.growCapsuleBuffer(); }
                 mesh = this.capsules;
                 break;
             case 'helixCount':
-                if (index >= this.helixCapacity) { if (this.helixCapacity >= MAX_INSTANCES) { console.warn("[TreeBatcher] Max capacity reached for helices"); return; } this.growHelixBuffer(); }
+                if (index >= this.helixCapacity) { if (index >= MAX_INSTANCES) { console.warn("[TreeBatcher] Max capacity reached for helices"); return; } this.growHelixBuffer(); }
                 mesh = this.helices;
                 break;
             case 'roseCount':
-                if (index >= this.roseCapacity) { if (this.roseCapacity >= MAX_INSTANCES) { console.warn("[TreeBatcher] Max capacity reached for roses"); return; } this.growRoseBuffer(); }
+                if (index >= this.roseCapacity) { if (index >= MAX_INSTANCES) { console.warn("[TreeBatcher] Max capacity reached for roses"); return; } this.growRoseBuffer(); }
                 mesh = this.roses;
                 break;
         }
