@@ -95,5 +95,3 @@ Status: Implemented ✅
 Next Step: Ask the user for the next task.
 * Implementation Details: Applied "Juice" to the `flowers.ts` component by adding `calculateWindSway` and `applyPlayerInteraction` TSL logic into the position graph so that it responds dynamically to weather and player forces.
 Next Step: Ask the user for the next task.
-* Implementation Details: Replaced expensive `.clone()` calls in `src/foliage/mushroom-batcher.ts` with `getCachedProceduralMaterial` to avoid WebGPU compilation freezes. Also applied visual polish by integrating `calculateWindSway` and `applyPlayerInteraction` TSL logic to the materials for enhanced "Game Feel".
-Next Step: Ask the user for the next task.

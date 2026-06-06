@@ -16,7 +16,7 @@ const modFloat = (x: any, y: any) => {
 import {
     sharedGeometries, foliageMaterials, uTime,
     uAudioLow, uAudioHigh, createRimLight, createJuicyRimLight, uPlayerPosition, colorFromNote,
-    createSugarSparkle, applyPlayerInteraction, calculateWindSway, getCachedProceduralMaterial
+    createSugarSparkle, applyPlayerInteraction, calculateWindSway, calculateWindSway
 } from './index.ts';
 import { uTwilight } from './sky.ts';
 import { BiomeUniforms, uCircadianPhase } from '../systems/biome-uniforms.ts';
@@ -407,186 +407,151 @@ export class MushroomBatcher {
     }
 
     private createMaterials(): MeshStandardNodeMaterial[] {
-        // --- Shared Logic Helpers ---
-        // These return TSL nodes so they must be called inside the material factory to avoid cross-material node sharing crashes in WebGPU.
+        // --- Shared Logic ---
         
-        const getDeformNodes = () => {
-            const instanceData = attribute('instanceData', 'vec4');
-            const packedFlags = instanceData.x;
-            const spawnTime = instanceData.y;
-            const triggerTime = instanceData.z;
-            const velocity = instanceData.w;
+        // Unpack properties from instanceData (vec4)
+        const instanceData = attribute('aInstanceData', 'vec4');
+        const packedFlags = instanceData.x;
+        const spawnTime = instanceData.y;
+        const triggerTime = instanceData.z;
+        const velocity = instanceData.w;
 
-            const hasFace = modFloat(floor(packedFlags.div(20.0)), 2.0);
-            const isGiant = floor(packedFlags.div(40.0));
+        // Decode Flags
+        const hasFace = modFloat(floor(packedFlags.div(20.0)), 2.0);
+        const isGiant = floor(packedFlags.div(40.0));
 
-            const now = uTime;
-            const age = max(float(0.0), now.sub(spawnTime));
-            const timeSinceTrigger = max(float(0.0), now.sub(triggerTime));
+        // Time calculations
+        const now = uTime;
+        const age = max(float(0.0), now.sub(spawnTime));
+        const timeSinceTrigger = max(float(0.0), now.sub(triggerTime));
 
-            const tSpawn = smoothstep(0.0, 0.6, age);
-            const spawnScale = float(1.0).sub(pow(float(1.0).sub(tSpawn), 3.0));
+        // --- Animations ---
 
-            const breathPhase = age.mul(2.0).add(float(instanceIndex).mul(0.1));
-            const breathAmpY = sin(breathPhase).mul(0.02).add(1.0);
-            const breathAmpXZ = cos(breathPhase).mul(0.015).add(1.0);
+        // 1. Spawning Animation (Pop-in scale)
+        const tSpawn = smoothstep(0.0, 0.6, age);
+        const spawnScale = float(1.0).sub(pow(float(1.0).sub(tSpawn), 3.0));
 
-            // PALETTE FIX: restore breathing animation
-            const totalScaleY = spawnScale.mul(breathAmpY);
-            const totalScaleXZ = spawnScale.mul(breathAmpXZ);
+        // 2. Idle Breathing (Continuous subtle scale variation)
+        const breathPhase = age.mul(2.0).add(float(instanceIndex).mul(0.1));
+        const breathAmpY = sin(breathPhase).mul(0.02).add(1.0); // 2% stretch
+        const breathAmpXZ = cos(breathPhase).mul(0.015).add(1.0);
 
-            const flashIntensity = smoothstep(0.5, 0.0, timeSinceTrigger).mul(velocity);
+        // Calculate Scale Multipliers
+        const totalScaleY = spawnScale.mul(breathAmpY);
+        const totalScaleXZ = spawnScale.mul(breathAmpXZ);
 
-            const calculateJellyWobble = (pos: any) => {
-                const isBouncing = step(timeSinceTrigger, float(0.5));
-                const rippleSpeed = float(20.0);
-                const rippleFreq = float(5.0);
-                const phase = pos.y.mul(rippleFreq).sub(timeSinceTrigger.mul(rippleSpeed));
-                return isBouncing.mul(sin(phase)).mul(velocity).mul(0.08);
-            };
+        // Audio reactivity helpers
+        const flashIntensity = smoothstep(0.5, 0.0, timeSinceTrigger).mul(velocity);
 
-            const deform = (pos: any) => {
-                const wobble = calculateJellyWobble(pos);
-
-                // Combine scales (Multiplicative)
-                // Add wobble to XZ scale
-                const finalScaleY = totalScaleY;
-                const finalScaleXZ = totalScaleXZ.add(wobble);
-
-                return vec3(
-                    pos.x.mul(finalScaleXZ),
-                    pos.y.mul(finalScaleY),
-                    pos.z.mul(finalScaleXZ)
-                );
-            };
-
-            const deformedPos = deform(positionLocal);
-            const finalPos = applyPlayerInteraction(deformedPos).add(calculateWindSway(deformedPos));
-
-            const faceScale = step(0.5, hasFace);
-            const faceDeform = (pos: any) => {
-                const d = deform(pos).mul(faceScale);
-                return applyPlayerInteraction(d).add(calculateWindSway(d));
-            };
-            const finalFacePos = faceDeform(positionLocal);
-
-            return { finalPos, finalFacePos, flashIntensity, timeSinceTrigger, velocity };
+        const calculateJellyWobble = (pos: any) => {
+            const isBouncing = step(timeSinceTrigger, float(0.5));
+            const rippleSpeed = float(20.0);
+            const rippleFreq = float(5.0);
+            const phase = pos.y.mul(rippleFreq).sub(timeSinceTrigger.mul(rippleSpeed));
+            return isBouncing.mul(sin(phase)).mul(velocity).mul(0.08); // 8% wobble max
         };
+
+        const deform = (pos: any) => {
+            const wobble = calculateJellyWobble(pos);
+            const finalScaleY = totalScaleY;
+            const finalScaleXZ = totalScaleXZ.add(wobble);
+
+            return vec3(
+                pos.x.mul(finalScaleXZ),
+                pos.y.mul(finalScaleY),
+                pos.z.mul(finalScaleXZ)
+            );
+        };
+
+        const deformedPos = deform(positionLocal);
+
+        // 🎨 PALETTE: Add wind sway to stem and cap, but not face/gills to save shader compilation complexity
+        const finalPosWithWind = applyPlayerInteraction(deformedPos).add(calculateWindSway(deformedPos));
+        const finalPosNoWind = applyPlayerInteraction(deformedPos);
+
+        const faceScale = step(0.5, hasFace);
+        const faceDeform = (pos: any) => {
+            const d = deform(pos).mul(faceScale);
+            return applyPlayerInteraction(d);
+        };
+        const finalFacePos = faceDeform(positionLocal);
 
         // --- Material Definitions ---
 
         // 0. Stem
-        const stemMat = getCachedProceduralMaterial('mushroom_stem', 0xFFFFFF, () => {
-            const mat = (foliageMaterials.mushroomStem as MeshStandardNodeMaterial).clone();
-            mat.positionNode = getDeformNodes().finalPos;
-            return mat;
-        }) as MeshStandardNodeMaterial;
+        const stemMat = (foliageMaterials.mushroomStem as MeshStandardNodeMaterial).clone();
+        stemMat.positionNode = finalPosWithWind;
 
         // 1. Cap
         const capList = foliageMaterials.mushroomCap as MeshStandardNodeMaterial[];
-        const capMat = getCachedProceduralMaterial('mushroom_cap', 0xFFFFFF, () => {
-            const mat = capList[0].clone();
-            const nodes = getDeformNodes();
+        const capMat = capList[0].clone();
+        capMat.positionNode = finalPosWithWind;
 
-            const baseColor = varyingProperty('vec3', 'vInstanceColor');
+        // Base color from instance (set via register/setColorAt)
+        const baseColor = varyingProperty('vec3', 'vInstanceColor');
 
-            const audioRimThickness = float(3.0).add(uAudioLow.mul(2.0));
-            const audioRimIntensity = float(1.5).add(uAudioLow.mul(1.0));
-            const rimLight = createJuicyRimLight(baseColor, audioRimIntensity, audioRimThickness, null);
+        // Add Juicy Rim Light! (Pop against background)
+        const audioRimThickness = float(3.0).add(uAudioLow.mul(2.0));
+        const audioRimIntensity = float(1.5).add(uAudioLow.mul(1.0));
+        const rimLight = createJuicyRimLight(baseColor, audioRimIntensity, audioRimThickness, null);
 
-            const sugarSparkle = createSugarSparkle(normalLocal, float(15.0), float(0.3), float(2.0)).mul(uAudioHigh.add(0.5));
+        // Add Sugar Sparkle! (Palette Polish)
+        const sugarSparkle = createSugarSparkle(normalLocal, float(15.0), float(0.3), float(2.0)).mul(uAudioHigh.add(0.5));
 
-            // Inner Glow (Fake SSS) restored
-            const viewDirLocal = normalize(cameraPosition.sub(positionWorld));
-            const NdotV = max(dot(normalWorld, viewDirLocal), 0.0);
-            const fresnel = pow(float(1.0).sub(NdotV), 3.0);
-            const innerGlowFactor = fresnel.mul(float(0.2).add(uAudioLow.mul(0.5)));
+        // Inner Glow (Fake SSS)
+        const viewDirLocal = normalize(cameraPosition.sub(positionWorld));
+        const NdotV = max(dot(normalWorld, viewDirLocal), 0.0);
+        const fresnel = pow(float(1.0).sub(NdotV), 3.0);
+        const innerGlowFactor = fresnel.mul(float(0.2).add(uAudioLow.mul(0.5)));
 
-            mat.colorNode = baseColor.add(rimLight).add(sugarSparkle).add(innerGlowFactor);
+        // Replace color Node with dynamic one + Rim + Inner Glow
+        capMat.colorNode = baseColor.add(rimLight).add(sugarSparkle).add(innerGlowFactor);
 
-            const glowPhaseOffset = positionWorld.x.add(positionWorld.z).mul(0.5);
-            const glowPulseFreq = float(CONFIG.glow.glowPulseFrequency);
-            const glowPulseAmp = float(CONFIG.glow.glowPulseAmplitude);
+        // --- Glowing Behavior ---
 
-            const idlePulse = sin(uTime.mul(glowPulseFreq).add(glowPhaseOffset)).mul(glowPulseAmp).add(1.0).mul(float(0.5)).mul(uAudioLow.mul(0.5));
+        const glowPhaseOffset = positionWorld.x.add(positionWorld.z).mul(0.5);
+        const glowPulseFreq = float(CONFIG.glow.glowPulseFrequency);
+        const glowPulseAmp = float(CONFIG.glow.glowPulseAmplitude);
 
-            const targetGlowColor = color(CONFIG.glow.glowColorMap['mushroom']);
-            const twilightGlowTint = targetGlowColor.mul(uTwilight).mul(float(CONFIG.glow.glowIntensityMax));
-            const baseGlow = uTwilight.mul(float(0.5).add(idlePulse));
+        const idlePulse = sin(uTime.mul(glowPulseFreq).add(glowPhaseOffset)).mul(glowPulseAmp).add(1.0).mul(float(0.5)).mul(uAudioLow.mul(0.5));
 
-            const totalGlow = baseGlow.add(nodes.flashIntensity).add(sugarSparkle).add(innerGlowFactor.mul(0.3));
+        const targetGlowColor = color(CONFIG.glow.glowColorMap['mushroom']);
+        const twilightGlowTint = targetGlowColor.mul(uTwilight).mul(float(CONFIG.glow.glowIntensityMax));
+        const baseGlow = uTwilight.mul(float(0.5).add(idlePulse));
 
-            const circadianGlowMult = mix(float(CONFIG.circadian.nightGlowMultiplier), float(1.0), uCircadianPhase);
-            mat.emissiveNode = twilightGlowTint.mul(BiomeUniforms.crystallineNebula.noteColor).mul(totalGlow).mul(circadianGlowMult);
-            mat.emissiveIntensityNode = float(1.0);
+        const totalGlow = baseGlow.add(flashIntensity).add(sugarSparkle).add(innerGlowFactor.mul(0.3));
 
-            mat.positionNode = nodes.finalPos;
-            return mat;
-        }) as MeshStandardNodeMaterial;
-
+        const circadianGlowMult = mix(float(CONFIG.circadian.nightGlowMultiplier), float(1.0), uCircadianPhase);
+        capMat.emissiveNode = twilightGlowTint.mul(BiomeUniforms.crystallineNebula.noteColor).mul(totalGlow).mul(circadianGlowMult);
+        capMat.emissiveIntensityNode = float(1.0); // Resetting multiplier since we multiply inside node
 
         // 2. Gills
-        const gillMat = getCachedProceduralMaterial('mushroom_gills', 0xFFFFFF, () => {
-            const mat = (foliageMaterials.mushroomGills as MeshStandardNodeMaterial).clone();
-            const nodes = getDeformNodes();
-
-            const flashInt = smoothstep(0.5, 0.0, nodes.timeSinceTrigger).mul(nodes.velocity);
-            const glowPhaseOffset = positionWorld.x.add(positionWorld.z).mul(0.5);
-            const idlePulse = sin(uTime.mul(float(CONFIG.glow.glowPulseFrequency)).add(glowPhaseOffset)).mul(float(CONFIG.glow.glowPulseAmplitude)).add(1.0).mul(float(0.5)).mul(uAudioLow.mul(0.5));
-            const baseGlow = uTwilight.mul(float(0.5).add(idlePulse));
-
-            const viewDirLocal = normalize(cameraPosition.sub(positionWorld));
-            const NdotV = max(dot(normalWorld, viewDirLocal), 0.0);
-            const fresnel = pow(float(1.0).sub(NdotV), 3.0);
-            const innerGlowFactor = fresnel.mul(float(0.2).add(uAudioLow.mul(0.5)));
-
-            const sugarSparkle = createSugarSparkle(normalLocal, float(15.0), float(0.3), float(2.0)).mul(uAudioHigh.add(0.5));
-            const totalGlow = baseGlow.add(flashInt).add(sugarSparkle).add(innerGlowFactor.mul(0.3));
-
-            mat.emissiveIntensityNode = totalGlow.mul(0.3);
-            mat.positionNode = nodes.finalPos;
-            return mat;
-        }) as MeshStandardNodeMaterial;
+        const gillMat = (foliageMaterials.mushroomGills as MeshStandardNodeMaterial).clone();
+        gillMat.positionNode = finalPosNoWind;
+        gillMat.emissiveIntensityNode = totalGlow.mul(0.3);
 
         // 3. Spots
-        const spotMat = getCachedProceduralMaterial('mushroom_spots', 0xFFFFFF, () => {
-            const mat = (foliageMaterials.mushroomSpots as MeshStandardNodeMaterial).clone();
-            const nodes = getDeformNodes();
-            const flashInt = smoothstep(0.5, 0.0, nodes.timeSinceTrigger).mul(nodes.velocity);
-            const spotPulse = sin(uTime.mul(3.0)).mul(0.1).add(0.3);
-            const spotAudio = uAudioHigh.mul(0.8);
-            mat.emissiveIntensityNode = flashInt.add(spotPulse).add(spotAudio);
-            mat.positionNode = nodes.finalPos;
-            return mat;
-        }) as MeshStandardNodeMaterial;
+        const spotMat = (foliageMaterials.mushroomSpots as MeshStandardNodeMaterial).clone();
+        spotMat.positionNode = finalPosNoWind;
+        const spotPulse = sin(uTime.mul(3.0)).mul(0.1).add(0.3);
+        const spotAudio = uAudioHigh.mul(0.8); // 🎨 PALETTE: Make spots pop more on highs
+        spotMat.emissiveIntensityNode = flashIntensity.add(spotPulse).add(spotAudio);
 
         // 4. Eye
-        const eyeMat = getCachedProceduralMaterial('mushroom_eye', 0xFFFFFF, () => {
-            const mat = (foliageMaterials.eye as MeshStandardNodeMaterial).clone();
-            mat.positionNode = getDeformNodes().finalFacePos;
-            return mat;
-        }) as MeshStandardNodeMaterial;
+        const eyeMat = (foliageMaterials.eye as MeshStandardNodeMaterial).clone();
+        eyeMat.positionNode = finalFacePos;
 
         // 5. Pupil
-        const pupilMat = getCachedProceduralMaterial('mushroom_pupil', 0xFFFFFF, () => {
-            const mat = (foliageMaterials.pupil as MeshStandardNodeMaterial).clone();
-            mat.positionNode = getDeformNodes().finalFacePos;
-            return mat;
-        }) as MeshStandardNodeMaterial;
+        const pupilMat = (foliageMaterials.pupil as MeshStandardNodeMaterial).clone();
+        pupilMat.positionNode = finalFacePos;
 
         // 6. Mouth
-        const mouthMat = getCachedProceduralMaterial('mushroom_mouth', 0xFFFFFF, () => {
-            const mat = (foliageMaterials.clayMouth as MeshStandardNodeMaterial).clone();
-            mat.positionNode = getDeformNodes().finalFacePos;
-            return mat;
-        }) as MeshStandardNodeMaterial;
+        const mouthMat = (foliageMaterials.clayMouth as MeshStandardNodeMaterial).clone();
+        mouthMat.positionNode = finalFacePos;
 
         // 7. Cheek
-        const cheekMat = getCachedProceduralMaterial('mushroom_cheek', 0xFFFFFF, () => {
-            const mat = (foliageMaterials.mushroomCheek as MeshStandardNodeMaterial).clone();
-            mat.positionNode = getDeformNodes().finalFacePos;
-            return mat;
-        }) as MeshStandardNodeMaterial;
+        const cheekMat = (foliageMaterials.mushroomCheek as MeshStandardNodeMaterial).clone();
+        cheekMat.positionNode = finalFacePos;
 
         return [stemMat, capMat, gillMat, spotMat, eyeMat, pupilMat, mouthMat, cheekMat];
     }
