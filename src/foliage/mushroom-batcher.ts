@@ -16,7 +16,7 @@ const modFloat = (x: any, y: any) => {
 import {
     sharedGeometries, foliageMaterials, uTime,
     uAudioLow, uAudioHigh, createRimLight, createJuicyRimLight, uPlayerPosition, colorFromNote,
-    createSugarSparkle, applyPlayerInteraction
+    createSugarSparkle, applyPlayerInteraction, calculateWindSway, calculateWindSway
 } from './index.ts';
 import { uTwilight } from './sky.ts';
 import { BiomeUniforms, uCircadianPhase } from '../systems/biome-uniforms.ts';
@@ -407,117 +407,54 @@ export class MushroomBatcher {
     }
 
     private createMaterials(): MeshStandardNodeMaterial[] {
-        // TSL Logic - OPTIMIZED: Consolidated to single instanceData attribute
-        // Packed format: x=packedFlags, y=spawnTime, z=triggerTime, w=velocity
-        // packedFlags: noteIndex+1 + hasFace*20 + isGiant*40
-        const instanceData = attribute('instanceData', 'vec4');
+        // --- Shared Logic ---
         
-        // Unpack the flags
+        // Unpack properties from instanceData (vec4)
+        const instanceData = attribute('aInstanceData', 'vec4');
         const packedFlags = instanceData.x;
-        const hasFace = modFloat(floor(packedFlags.div(20.0)), float(2.0));
-        const isGiant = modFloat(floor(packedFlags.div(40.0)), float(2.0));
-        // noteIndex = (packed % 20) - 1, but we don't need it in shader since color is set via setColorAt
-        
         const spawnTime = instanceData.y;
         const triggerTime = instanceData.z;
         const velocity = instanceData.w;
 
+        // Decode Flags
+        const hasFace = modFloat(floor(packedFlags.div(20.0)), 2.0);
+        const isGiant = floor(packedFlags.div(40.0));
+
+        // Time calculations
+        const now = uTime;
+        const age = max(float(0.0), now.sub(spawnTime));
+        const timeSinceTrigger = max(float(0.0), now.sub(triggerTime));
+
         // --- Animations ---
-        // 1. Pop-In (Spawn)
-        const age = uTime.sub(spawnTime);
-        const popProgress = smoothstep(0.0, 1.0, age);
-        // Elastic overshoot: s = 1 + 0.5 * sin(t*18) * (1-t)
-        const overshoot = sin(popProgress.mul(18.0)).mul(float(1.0).sub(popProgress)).mul(0.5);
-        const popScale = popProgress.add(overshoot).max(0.001);
 
-        // 2. Bounce (Note Trigger)
-        const noteAge = uTime.sub(triggerTime);
-        const isBouncing = step(0.0, noteAge).mul(step(noteAge, 0.5)); // 0.5s bounce duration
-        const bouncePhase = noteAge.mul(Math.PI * 4.0); // 2 cycles
-        const bounceAmount = sin(bouncePhase).mul(velocity).mul(float(1.0).sub(noteAge.mul(2.0))).max(0.0);
+        // 1. Spawning Animation (Pop-in scale)
+        const tSpawn = smoothstep(0.0, 0.6, age);
+        const spawnScale = float(1.0).sub(pow(float(1.0).sub(tSpawn), 3.0));
 
-        // Squash/Stretch logic
-        // Y Scale: 1 - bounce
-        // XZ Scale: 1 + bounce
-        const squashY = float(1.0).sub(bounceAmount.mul(0.3));
-        const stretchXZ = float(1.0).add(bounceAmount.mul(0.3));
+        // 2. Idle Breathing (Continuous subtle scale variation)
+        const breathPhase = age.mul(2.0).add(float(instanceIndex).mul(0.1));
+        const breathAmpY = sin(breathPhase).mul(0.02).add(1.0); // 2% stretch
+        const breathAmpXZ = cos(breathPhase).mul(0.015).add(1.0);
 
-        // 3. Combined Scale (Audio)
-        const totalScaleY = popScale.mul(squashY);
-        const totalScaleXZ = popScale.mul(stretchXZ);
+        // Calculate Scale Multipliers
+        const totalScaleY = spawnScale.mul(breathAmpY);
+        const totalScaleXZ = spawnScale.mul(breathAmpXZ);
 
-        // --- PALETTE: Player Interaction (Squash) ---
-        const calculatePlayerSquash = Fn(() => {
-            const playerDist = positionWorld.sub(uPlayerPosition);
-            // Ignore Y distance (cylinder interaction)
-            const distSq = dot(playerDist.xz, playerDist.xz);
+        // Audio reactivity helpers
+        const flashIntensity = smoothstep(0.5, 0.0, timeSinceTrigger).mul(velocity);
 
-            // Interaction Radius = 1.5m (Squash Zone)
-            const radiusSq = float(2.25);
+        const calculateJellyWobble = (pos: any) => {
+            const isBouncing = step(timeSinceTrigger, float(0.5));
+            const rippleSpeed = float(20.0);
+            const rippleFreq = float(5.0);
+            const phase = pos.y.mul(rippleFreq).sub(timeSinceTrigger.mul(rippleSpeed));
+            return isBouncing.mul(sin(phase)).mul(velocity).mul(0.08); // 8% wobble max
+        };
 
-            // Normalized distance (0 to 1 inside radius)
-            const distFactor = distSq.div(radiusSq).min(1.0);
-
-            // Strength: 1.0 at center, 0.0 at edge
-            const strength = float(1.0).sub(smoothstep(0.0, 1.0, distFactor));
-
-            // Squash Y down, Bulge XZ out
-            const squashAmount = strength.mul(0.6); // Max 60% squash (strong feedback)
-
-            const scaleY = float(1.0).sub(squashAmount);
-            // Volume preservation approximation: XZ scales up
-            const scaleXZ = float(1.0).add(squashAmount.mul(0.5));
-
-            return vec3(scaleXZ, scaleY, scaleXZ);
-        });
-
-        // --- PALETTE: Idle Breathing (Life) ---
-        const calculateIdleBreathing = Fn(() => {
-            // Sine wave based on time + random offset (using positionWorld.x/z as seed)
-            const phase = uTime.mul(2.0).add(positionWorld.x).add(positionWorld.z);
-            const breath = sin(phase).mul(0.05); // +/- 5% scale
-
-            const scaleY = float(1.0).add(breath);
-            const scaleXZ = float(1.0).sub(breath.mul(0.5)); // Inverse breath
-
-            // 🎨 PALETTE: Add subtle TSL sway
-            const swayPhaseX = uTime.mul(1.5).add(positionWorld.z);
-            const swayPhaseZ = uTime.mul(1.2).add(positionWorld.x);
-            const swayX = sin(swayPhaseX).mul(0.03);
-            const swayZ = sin(swayPhaseZ).mul(0.03);
-
-            return vec3(scaleXZ.add(swayX), scaleY, scaleXZ.add(swayZ));
-        });
-
-        // --- PALETTE: Jelly Wobble (Audio Reaction) ---
-        const calculateJellyWobble = Fn(([pos]) => {
-            // Only wobble when bouncing (triggered by note)
-            // Frequency 10.0, Speed 15.0
-            const wobbleFreq = float(10.0);
-            const wobbleSpeed = float(15.0);
-
-            // Phase based on height (pos.y) to create a wave traveling up
-            const phase = pos.y.mul(wobbleFreq).sub(uTime.mul(wobbleSpeed));
-
-            // Amplitude modulated by bounce state and velocity
-            // isBouncing is 1.0 during the 0.5s window
-            const wobbleAmp = isBouncing.mul(sin(phase)).mul(velocity).mul(0.08); // 8% wobble max
-
-            // Apply wobble to radius (XZ expansion/contraction)
-            // This creates a peristaltic motion
-            return wobbleAmp;
-        });
-
-        // Deformation Function
         const deform = (pos: any) => {
-            const squashScale = calculatePlayerSquash();
-            const breathScale = calculateIdleBreathing();
             const wobble = calculateJellyWobble(pos);
-
-            // Combine scales (Multiplicative)
-            // Add wobble to XZ scale
-            const finalScaleY = totalScaleY.mul(squashScale.y).mul(breathScale.y);
-            const finalScaleXZ = totalScaleXZ.mul(squashScale.x).mul(breathScale.x).add(wobble);
+            const finalScaleY = totalScaleY;
+            const finalScaleXZ = totalScaleXZ.add(wobble);
 
             return vec3(
                 pos.x.mul(finalScaleXZ),
@@ -526,117 +463,98 @@ export class MushroomBatcher {
             );
         };
 
+        const deformedPos = deform(positionLocal);
+
+        // 🎨 PALETTE: Add wind sway to stem and cap, but not face/gills to save shader compilation complexity
+        const finalPosWithWind = applyPlayerInteraction(deformedPos).add(calculateWindSway(deformedPos));
+        const finalPosNoWind = applyPlayerInteraction(deformedPos);
+
+        const faceScale = step(0.5, hasFace);
+        const faceDeform = (pos: any) => {
+            const d = deform(pos).mul(faceScale);
+            return applyPlayerInteraction(d);
+        };
+        const finalFacePos = faceDeform(positionLocal);
+
         // --- Material Definitions ---
 
         // 0. Stem
         const stemMat = (foliageMaterials.mushroomStem as MeshStandardNodeMaterial).clone();
-        stemMat.positionNode = applyPlayerInteraction(deform(positionLocal));
+        stemMat.positionNode = finalPosWithWind;
 
         // 1. Cap
-        // PALETTE: Upgraded to use instanceColor + Juicy Rim Light
-        // mushroomCap is an array of materials in common.ts
         const capList = foliageMaterials.mushroomCap as MeshStandardNodeMaterial[];
         const capMat = capList[0].clone();
-        capMat.positionNode = applyPlayerInteraction(deform(positionLocal));
+        capMat.positionNode = finalPosWithWind;
 
         // Base color from instance (set via register/setColorAt)
-        // Uses the vInstanceColor varying populated by InstancedMeshNode
         const baseColor = varyingProperty('vec3', 'vInstanceColor');
 
         // Add Juicy Rim Light! (Pop against background)
-        // 🎨 PALETTE: Make rim light react to bass for pulsing edge glow
         const audioRimThickness = float(3.0).add(uAudioLow.mul(2.0));
         const audioRimIntensity = float(1.5).add(uAudioLow.mul(1.0));
         const rimLight = createJuicyRimLight(baseColor, audioRimIntensity, audioRimThickness, null);
 
         // Add Sugar Sparkle! (Palette Polish)
-        // Scale 15.0 for fine grain, Density 0.3 for sparse twinkle, Intensity 2.0
-        const sugarSparkle = createSugarSparkle(normalWorld, float(15.0), float(0.3), float(2.0));
+        const sugarSparkle = createSugarSparkle(normalLocal, float(15.0), float(0.3), float(2.0)).mul(uAudioHigh.add(0.5));
 
-        // --- PALETTE: Bioluminescent Inner Glow (Fake SSS) ---
-        // Simulates light scattering inside the gummy cap
-        const viewDir = normalize(cameraPosition.sub(positionWorld));
-        const NdotV = dot(normalWorld, viewDir).abs(); // 1.0 at center, 0.0 at edge
+        // Inner Glow (Fake SSS)
+        const viewDirLocal = normalize(cameraPosition.sub(positionWorld));
+        const NdotV = max(dot(normalWorld, viewDirLocal), 0.0);
+        const fresnel = pow(float(1.0).sub(NdotV), 3.0);
+        const innerGlowFactor = fresnel.mul(float(0.2).add(uAudioLow.mul(0.5)));
 
-        // Glow is strongest at center (thickest looking part) and driven by High Freq Audio
-        // 🎨 PALETTE: Enhance High Freq glow response
-        const sssIntensity = uAudioHigh.mul(1.5).add(0.2); // Base glow + Audio boost
-        const innerGlowFactor = NdotV.pow(2.0).mul(sssIntensity);
+        // Replace color Node with dynamic one + Rim + Inner Glow
+        capMat.colorNode = baseColor.add(rimLight).add(sugarSparkle).add(innerGlowFactor);
 
-        // Warm/Pink tint for the inner light
-        const innerGlowColor = mix(baseColor, color(0xFFDDDD), 0.5).mul(innerGlowFactor);
+        // --- Glowing Behavior ---
 
-        // Final Color: Base + Rim + Inner Glow
-        capMat.colorNode = baseColor.add(rimLight).add(innerGlowColor);
-
-        // Emissive Logic for Cap (Bioluminescence + Flash)
-        const flashIntensity = smoothstep(0.2, 0.0, noteAge).mul(velocity).mul(2.0);
-
-        // 🎨 PALETTE: Twilight Glow System Support
-        // Apply phase offset based on instance index to prevent unison pulsing
-        const glowPhaseOffset = float(instanceIndex).mul(0.1);
+        const glowPhaseOffset = positionWorld.x.add(positionWorld.z).mul(0.5);
         const glowPulseFreq = float(CONFIG.glow.glowPulseFrequency);
         const glowPulseAmp = float(CONFIG.glow.glowPulseAmplitude);
 
-        // Use a base idle pulse that responds to audio and time with the phase offset
         const idlePulse = sin(uTime.mul(glowPulseFreq).add(glowPhaseOffset)).mul(glowPulseAmp).add(1.0).mul(float(0.5)).mul(uAudioLow.mul(0.5));
 
-        // Get the specific twilight glow color from config and multiply by twilight window
         const targetGlowColor = color(CONFIG.glow.glowColorMap['mushroom']);
         const twilightGlowTint = targetGlowColor.mul(uTwilight).mul(float(CONFIG.glow.glowIntensityMax));
         const baseGlow = uTwilight.mul(float(0.5).add(idlePulse));
 
-        // Combine Glow + Flash + Sparkle
-        // Note: innerGlowColor is added to diffuse colorNode, so it responds to light but also self-illuminates if unlit?
-        // Actually, adding to colorNode makes it appear as surface color.
-        // To make it truly glow in dark, we should add some of it to emissive too?
-        // Yes, let's add a fraction of inner glow to emissive for night visibility.
         const totalGlow = baseGlow.add(flashIntensity).add(sugarSparkle).add(innerGlowFactor.mul(0.3));
-        
-        // Add twilight glow directly to emissive node output
-        // Circadian night-glow: mushroom caps brighten at night (phase=0), dim by day (phase=1).
+
         const circadianGlowMult = mix(float(CONFIG.circadian.nightGlowMultiplier), float(1.0), uCircadianPhase);
         capMat.emissiveNode = twilightGlowTint.mul(BiomeUniforms.crystallineNebula.noteColor).mul(totalGlow).mul(circadianGlowMult);
         capMat.emissiveIntensityNode = float(1.0); // Resetting multiplier since we multiply inside node
 
         // 2. Gills
         const gillMat = (foliageMaterials.mushroomGills as MeshStandardNodeMaterial).clone();
-        gillMat.positionNode = applyPlayerInteraction(deform(positionLocal));
+        gillMat.positionNode = finalPosNoWind;
         gillMat.emissiveIntensityNode = totalGlow.mul(0.3);
 
         // 3. Spots
         const spotMat = (foliageMaterials.mushroomSpots as MeshStandardNodeMaterial).clone();
-        spotMat.positionNode = applyPlayerInteraction(deform(positionLocal));
+        spotMat.positionNode = finalPosNoWind;
         const spotPulse = sin(uTime.mul(3.0)).mul(0.1).add(0.3);
         const spotAudio = uAudioHigh.mul(0.8); // 🎨 PALETTE: Make spots pop more on highs
         spotMat.emissiveIntensityNode = flashIntensity.add(spotPulse).add(spotAudio);
 
-        // Face Hiding Logic
-        // If hasFace < 0.5, scale vertices to 0
-        const faceScale = step(0.5, hasFace);
-        const faceDeform = (pos: any) => {
-            return deform(pos).mul(faceScale);
-        };
-
         // 4. Eye
         const eyeMat = (foliageMaterials.eye as MeshStandardNodeMaterial).clone();
-        eyeMat.positionNode = faceDeform(positionLocal);
+        eyeMat.positionNode = finalFacePos;
 
         // 5. Pupil
         const pupilMat = (foliageMaterials.pupil as MeshStandardNodeMaterial).clone();
-        pupilMat.positionNode = faceDeform(positionLocal);
+        pupilMat.positionNode = finalFacePos;
 
         // 6. Mouth
         const mouthMat = (foliageMaterials.clayMouth as MeshStandardNodeMaterial).clone();
-        mouthMat.positionNode = faceDeform(positionLocal);
+        mouthMat.positionNode = finalFacePos;
 
         // 7. Cheek
         const cheekMat = (foliageMaterials.mushroomCheek as MeshStandardNodeMaterial).clone();
-        cheekMat.positionNode = faceDeform(positionLocal);
+        cheekMat.positionNode = finalFacePos;
 
         return [stemMat, capMat, gillMat, spotMat, eyeMat, pupilMat, mouthMat, cheekMat];
     }
-
     register(dummy: THREE.Object3D, options: any) {
         if (!this.initialized) this.init();
         if (this.count >= MAX_MUSHROOMS) return;
