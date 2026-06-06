@@ -552,6 +552,11 @@ if (startButton) {
         waitFullCheckbox.addEventListener('change', () => {
             waitForFullPopulation = waitFullCheckbox.checked;
             localStorage.setItem(WAIT_FULL_KEY, waitForFullPopulation ? '1' : '0');
+
+            // ♿ Aria: Announce the toggle change explicitly for screen readers
+            import('../ui/announcer.ts').then(({ announce }) => {
+                announce(`Scenery wait mode ${waitForFullPopulation ? 'enabled - world will fully load before entry' : 'disabled'}`, 'polite');
+            });
         });
     }
 
