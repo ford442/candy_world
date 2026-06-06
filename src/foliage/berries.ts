@@ -66,7 +66,7 @@ export interface FallingBerry {
 }
 
 // --- Berry Batcher ---
-const MAX_BERRIES = 2500; // Reduced from 10000 for WebGPU uniform buffer limits
+const MAX_BERRIES = 10000; // Reduced from 10000 for WebGPU uniform buffer limits
 
 export class BerryBatcher {
     private static instance: BerryBatcher;

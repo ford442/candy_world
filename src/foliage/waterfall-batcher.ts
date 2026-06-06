@@ -21,7 +21,7 @@ import {
 import { getBiomeUniforms, type BiomeId } from '../systems/biome-uniforms.ts';
 import { foliageGroup } from '../world/state.ts';
 
-const MAX_WATERFALLS = 50; // Reduced from 200 for WebGPU uniform buffer limits
+const MAX_WATERFALLS = 200; // Reduced from 200 for WebGPU uniform buffer limits
 const SPLASHES_PER_WATERFALL = 8;
 const MAX_SPLASHES = MAX_WATERFALLS * SPLASHES_PER_WATERFALL;
 
