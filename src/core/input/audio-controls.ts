@@ -153,4 +153,11 @@ export function handleMuteKey(): void {
  */
 export function handleVolumeKey(delta: number): void {
     adjustVolume(delta);
+
+    // Provide visual feedback for keyboard interaction
+    const btn = delta > 0 ? volUpBtn : volDownBtn;
+    if (btn && btn.getAttribute('aria-disabled') !== 'true') {
+        btn.setAttribute('aria-pressed', 'true');
+        setTimeout(() => btn.setAttribute('aria-pressed', 'false'), 150);
+    }
 }
