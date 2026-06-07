@@ -465,7 +465,7 @@ private createMaterials(): MeshStandardNodeMaterial[] {
     };
 
     const createCapMaterial = () => {
-        const mat = (foliageMaterials.mushroomCap as MeshStandardNodeMaterial).clone();
+        const mat = (foliageMaterials.mushroomCap[0] as MeshStandardNodeMaterial).clone();
 
         const deformed = deform(positionLocal);
         const finalPos = applyPlayerInteraction(deformed);
