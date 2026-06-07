@@ -102,8 +102,8 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
       font-size: 1.2rem;
     `;
     closeBtn.onclick = () => {
-      closeBtn.setAttribute('aria-pressed', 'true');
-      setTimeout(() => closeBtn.setAttribute('aria-pressed', 'false'), 150);
+      closeBtn.classList.add('keyboard-active');
+      setTimeout(() => closeBtn.classList.remove('keyboard-active'), 150);
       this.close();
     };
     closeBtn.setAttribute('aria-label', 'Close accessibility menu');
