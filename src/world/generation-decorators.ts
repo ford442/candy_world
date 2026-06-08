@@ -6,7 +6,7 @@ import { recordSpawnAttempt } from './spawn-tracker.ts';
 import { unlockSystem } from '../systems/unlocks.ts';
 import { spawnImpact } from '../foliage/impacts.ts';
 import { makeInteractive } from '../utils/interaction-utils.ts';
-import { safeAddFoliage } from './generation-core.ts';
+import { safeAddFoliage, worldGenerationToken } from './generation-core.ts';
 import {
     ARPEGGIO_GROVE, LAKE_ISLAND, PROCEDURAL_ENTITY_COUNT, DEFAULT_PROCEDURAL_CHUNK_SIZE,
     ENTITY_BUDGET_MS, WeatherSystem, FoliageGrowthOptions, yieldControl,
@@ -512,7 +512,15 @@ export async function populateProceduralExtras(
     deferredItems.sort((a, b) => a.distSq - b.distSq);
     for (const item of deferredItems) {
         const priority = Math.max(1, 60 - Math.floor(Math.sqrt(item.distSq) / 4));
-        globalBackgroundProcessor.enqueue({ id: item.id, execute: item.execute, priority });
+        const taskToken = worldGenerationToken;
+        globalBackgroundProcessor.enqueue({
+            id: item.id,
+            execute: () => {
+                if (taskToken !== worldGenerationToken) return;
+                item.execute();
+            },
+            priority
+        });
     }
 
     console.log(`[World] Procedural Extras: ${criticalCount} critical spawned, ${deferredItems.length} deferred (sorted near-first).`);

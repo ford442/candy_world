@@ -617,6 +617,7 @@ button[aria-pressed="true"],
 
 /* 🎨 Palette: Tactile feedback on interactive elements */
 .toggle-button:not([aria-disabled="true"]):active,
+.toggle-button.keyboard-active,
 .cta-button:not([aria-disabled="true"]):active,
 .secondary-button:not([aria-disabled="true"]):active,
 .close-icon-btn:not([aria-disabled="true"]):active,

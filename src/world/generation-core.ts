@@ -36,7 +36,7 @@ import { treeBatcher } from '../foliage/tree-batcher.ts';
 import { subwooferLotusBatcher } from '../foliage/subwoofer-lotus-batcher.ts';
 
 let loadedMapPromise: Promise<LoadedCandyMap> | null = null;
-let worldGenerationToken = 0;
+export let worldGenerationToken = 0;
 registerBuiltinWorldObjectTypes();
 
 const STREAMING_PRIORITY_TYPES = [
