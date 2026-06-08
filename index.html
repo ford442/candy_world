@@ -132,14 +132,14 @@
         #btn-full-game:hover, #btn-full-game:focus-visible { background: #38bdf8; }
         #btn-fast-full:hover, #btn-fast-full:focus-visible { background: #81c784; }
 
-        .mode-btn[aria-pressed="true"] {
+        .mode-btn.keyboard-active {
             border-color: #fff;
             transform: scale(1.1);
             box-shadow: 0 4px 15px rgba(0,0,0,0.2);
         }
-        #btn-core-only[aria-pressed="true"] { box-shadow: 0 5px 18px rgba(255, 158, 205, 0.7); }
-        #btn-full-game[aria-pressed="true"] { box-shadow: 0 5px 18px rgba(125, 211, 252, 0.55); }
-        #btn-fast-full[aria-pressed="true"] { box-shadow: 0 5px 18px rgba(165, 214, 167, 0.7); }
+        #btn-core-only.keyboard-active { box-shadow: 0 5px 18px rgba(255, 158, 205, 0.7); }
+        #btn-full-game.keyboard-active { box-shadow: 0 5px 18px rgba(125, 211, 252, 0.55); }
+        #btn-fast-full.keyboard-active { box-shadow: 0 5px 18px rgba(165, 214, 167, 0.7); }
 
         /* Custom Checkbox for Wait Full Option */
         .custom-checkbox {
@@ -190,19 +190,19 @@
         }
 
         .cta-button:active,
-        .cta-button[aria-pressed="true"],
+        .cta-button.keyboard-active,
         .toggle-button:active,
-        .toggle-button[aria-pressed="true"],
+        .toggle-button.keyboard-active, .toggle-button[aria-pressed="true"],
         .secondary-button:active,
-        .secondary-button[aria-pressed="true"],
+        .secondary-button.keyboard-active,
         .playlist-btn:active,
-        .playlist-btn[aria-pressed="true"],
+        .playlist-btn.keyboard-active,
         .close-icon-btn:active,
-        .close-icon-btn[aria-pressed="true"],
+        .close-icon-btn.keyboard-active,
         .file-label:active,
-        .file-label[aria-pressed="true"],
+        .file-label.keyboard-active,
         .playlist-remove-btn:active,
-        .playlist-remove-btn[aria-pressed="true"] {
+        .playlist-remove-btn.keyboard-active {
             transform: scale(0.95);
             transition-duration: 0.05s;
         }
