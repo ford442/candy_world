@@ -1,17 +1,19 @@
 # candy_world — Weekly Plan
 
 ## Today's focus
-**2026-06-02 — FIX FIRST: Root-cause the scene-loading / world-population regression (#1133).**
-Objects, foliage, and musical scenery frequently fail to appear on startup. A 10-issue cluster
-(#1133–#1142) was filed 2026-06-02 and `spawn-tracker.ts` + `window.__worldHealth` scaffolding has
-already landed on this branch; Copilot draft PR #1138 owns the telemetry/UI layer. Today's job is the
-*actual root cause*: why do `processMapEntity` (generation-core.ts) / `populateProceduralExtras`
-(generation-decorators.ts) / `background-processor.ts` / `deferred-loader.ts` silently drop spawns?
-Use the existing SpawnTracker report as ground truth — boot, read `window.__worldPopulationReport`,
-identify which types fail and why (null factory, throw, scheduling drop, generationToken race), fix the
-orchestration so a clean FULL boot reaches `failCount === 0` deterministically. Add a feature-flag
-guarantee so the world always boots to a usable state even when a heavy subsystem fails.
-No new feature work until full-world population is reliable.
+**2026-06-09 — USER IDEA: Music-Reactive Atmosphere Bridge (Audio → Bloom, Fog & Light Shafts) (#1169).**
+Loading foundation restored (#1133 cluster closed 2026-06-03; circadian #1144 landed) — back to feature work.
+Foliage music-reactivity is mature (sky wave, circadian, batcher TSL); the *air itself* still ignores the
+tracker. Build a zero-allocation Atmosphere Reactivity block inside `MusicReactivitySystem.update()` (or a
+small `src/systems/atmosphere-reactivity.ts`) mapping audio channels → post-processing/sky uniforms:
+kick/bass → `uBloomStrength` (1.0 → ~2.5 crescendo), mix energy → `uCrescendoFogDensity`, melody hits →
+`uShaftOpacity` + re-enable night shaft visibility (fix `shaftVisible` hardcoded `false` in
+`game-loop.ts` ~lines 444–467), BeatSync downbeats → brief bloom spike. Add an optional `atmosphere`
+section to `assets/music-bindings.json` (parallel to `weatherReactivity`) for per-biome tuning. Follow the
+`_arpeggioShimmerAccum` zero-alloc accumulator pattern; mutate only `.value` on existing TSL uniforms,
+never reassign nodes. WebGL fallback branch in `post-processing.ts` must receive the same values.
+Verify: `npm run build` green, smoke reaches `__sceneReady` with no new console errors, visible bloom
+modulation on playback that decays smoothly to rest on silence (no pops, flat GC heap).
 
 ## Ideas
 <!--
@@ -22,17 +24,27 @@ Routine will mark picked items as "[in progress — YYYY-MM-DD]".
 -->
 - [ ] **Three.js ColorSpace enum regression** — In `src/core/init.js` we fall back to string literals (`'display-p3'`, `'srgb'`) for `outputColorSpace` because `THREE.DisplayP3ColorSpace` / `THREE.SRGBColorSpace` produced TS/build warnings with the current `three` version. When updating Three.js, revert to the proper enum. Opportunistic — activate when upgrading Three.js version, not a standalone sprint.
 
-<!-- Completed ideas archived to Done below (2026-05-19 sky→foliage propagation, 2026-05-26 channel-to-biome completeness, 2026-05-30 sky-wave→plant-pose, TSL/VRAM audit). -->
-- [ ] **Day/night plant behaviour** *(promoted to Copilot issue 2026-06-02 — see Backlog)* — Plants should physically open/glow by day and close/dim at night driven by the day/night cycle, not just music-channel intensity. Builds on `plant-pose-machine.ts`. Deferred behind the loading Fix First; queued for Copilot.
+<!-- Completed ideas archived to Done below (2026-05-19 sky→foliage propagation, 2026-05-26 channel-to-biome completeness, 2026-05-30 sky-wave→plant-pose, TSL/VRAM audit, 2026-06-03 day/night circadian #1144). -->
+
+### Live idea stream — GitHub issues filed 2026-06-09 (Siphon Part I vision)
+Noah filed 9 issues today; these ARE this week's accumulated ideas. Priority pool for upcoming runs:
+- [ ] **#1169 Music-Reactive Atmosphere Bridge** `[in progress — 2026-06-09]` — audio → bloom/fog/light-shaft uniforms. *Today's kimi-cli focus.* Highest-impact remaining reactivity step; core active focus area.
+- [ ] **#1168 WebGL2 fallback renderer** — toggleable WebGLRenderer alongside WebGPU; unblocks agent/Playwright visual debugging. Infrastructure multiplier for everything below.
+- [ ] **#1170 Gem Canopy** — hanging faceted crystal fruits on trees (`GemFruitBatcher`). New signature scenic biome.
+- [ ] **#1171 Luminous Mycelium Realm** — glass mushrooms + ambient spore particle field near Melody Lake.
+- [ ] **#1172 Cinematic Explore Mode** — promote dev-orbit prototype to player-facing hybrid FP/orbit camera.
+- [ ] **#1173 TSL Volumetric God Rays + selective DoF** — performant revival of golden-hour shafts + macro bokeh. (Overlaps #1169 shaft work — sequence after.)
+- [ ] **#1174 Distance LOD tiers for instanced foliage** — 3-tier hero/mid/far for tree/mushroom/flower/luminous batchers.
+- [ ] **#1175 Candy Material Cookbook + grok.md onboarding** — docs (`docs/CANDY_MATERIAL_COOKBOOK.md`).
+- [ ] **#1176 Awakened Flora Persistence** — persist discovery glow states across sessions (save-system + discovery-persistence).
 
 ## Backlog
 <!--
 Unfinished items, known bugs, deferred ideas.
 Routine maintains this automatically — you can add items too.
 -->
-- [ ] **🔴 LOADING REGRESSION CLUSTER (filed 2026-06-02)** — Scene/world population unreliable; objects, foliage, musical scenery frequently missing on startup. Parent: **#1133** (regression). Sub-tasks: **#1135** (visible progress + completion guarantee + error surfacing — umbrella), **#1136** (consolidate duplicated `LoadingScreen` class: `loading-screen.ts` vs `loading-screen-ui.ts`), **#1137** (SpawnTracker + visible error badge — *`spawn-tracker.ts` already in tree*), **#1139** (wire `BackgroundProcessor`/deferred queue into `LoadingManager`), **#1140** (post-deferred `validateWorldPopulation` + `window.__worldHealth`), **#1141** (smoke test FULL-mode + assert spawn counts), **#1142** ("Wait for full population" startup option + ETA). Today's kimi-cli Fix First targets the *root cause* in the generation/background orchestration.
-- [ ] **#1134 — Stable release / pinned-build process** — annotated tags + GitHub Releases for known-good states; feature flags to disable heavy subsystems so boot is always usable. Process decision, defer until loading is fixed.
-- [ ] **Open draft PR #1138 (Copilot)** — adds `spawn-tracker.ts` telemetry + visible failure badge + `window.__worldPopulationReport`; touches `generation-core.ts`, `generation-decorators.ts`, `background-processor.ts`, `deferred-loader.ts`, `loading-screen*.ts`. ⚠️ **Overlaps the kimi-cli Fix First files** — land or close #1138 before/early in the kimi loop, or have kimi build strictly on its telemetry (read, don't rewrite). (Stale draft-PR list #817/#853/#1081/#1082/#1085 cleared — all merged/closed; #853 & loading-screen/ARIA refactors are in `main`.)
+- [ ] **🟡 PR REVIEW BACKLOG — stacking up unreviewed (2026-06-09)** — open draft PRs awaiting triage: **#1178** (Palette: unify foliage materials + juicy rim + UI micro-interactions), **#1167** (Aria: a11y menu `role="switch"`), **#1161** (Palette: a11y momentary-ARIA fix — *appears superseded by merged #1162/#1166 keyboard-active work; likely close as dup*), **#1150** (Bolt: rainbow-blaster spatial-hash queries). Plus **#1138** (Copilot spawn-tracker telemetry — non-draft, the loading-cluster telemetry layer; **verify it's still needed now the cluster is closed**, then land or close). Sweep + merge/close to stop drift.
+- [ ] **#1134 — Stable release / pinned-build process** — annotated tags + GitHub Releases for known-good states; feature flags to disable heavy subsystems so boot is always usable. Process decision; now that loading is fixed this is a good candidate for a quiet day.
 - [ ] Accessibility note: `Announcer` in `src/ui/announcer.ts` dynamically injects `aria-live` regions rather than relying on static HTML — future ARIA work should use the dynamic path, not add static tags.
 - [ ] **[ui bug — #702]** Auto-scroll forces page to bottom on load, blocking top-row links — *likely resolved* by `preventScroll: true` on all `.focus()` calls (commit 88f2bf3, PR #1125). Verify on live site, then close.
 - [ ] Three.js ColorSpace enum — opportunistic, activate when upgrading Three.js version (not a standalone sprint).
@@ -42,6 +54,8 @@ Routine maintains this automatically — you can add items too.
 Completed items, routine archives here with date.
 Prune occasionally when this gets long.
 -->
+- [x] **2026-06-03** 🟢 LOADING REGRESSION CLUSTER RESOLVED — #1133 (parent) + sub-tasks #1135–#1142 all closed/completed. Full-world population reliable again; SpawnTracker telemetry (`window.__worldPopulationReport`) + feature-flag boot fallback landed. Confirmed by #1170 ("Loading reliability is restored (#1133 cluster closed)"). *Last week's Fix First landed cleanly.*
+- [x] **2026-06-03** Day/night plant behaviour (#1144) — circadian baseline via `uCircadianPhase` + `uCircadianPoseOffset` global uniforms (NOT overloading `uTwilight`), `circadian-controller.ts` owns the lerp, HUD toggle fires `setDayTarget`, opt-in luminous + mushroom batchers compose pose/emissive in TSL. Pose machine left untouched. (Was the deferred Ideas item — now done.)
 - [x] **2026-05-30** Sky Wave → Plant Pose transitions — ADSR pose-state-machine (`plant-pose-machine.ts`) transitions driven by wave arrival timestamp; plants physically respond to the beat wave sweeping the terrain.
 - [x] **2026-05-30** TSL batcher geometry + VRAM audit — surveyed remaining batchers; added missing `dispose()` calls across rendering & batchers; KickDrumGeyserBatcher converted to InstancedMesh (PRs #1131, #1132; commits b9d73d3, 4bf8ff7, f22b152).
 - [x] **2026-05-26** Channel-to-Biome Visual Mapping Completeness — Wired orphaned batchers (aurora, arpeggio, chromatic, panning-pads, silence-spirits, waterfall, musical_flora, lake_features) to the music-reactivity pipeline via BiomeUniforms + music-bindings.json.
@@ -72,8 +86,8 @@ Prune occasionally when this gets long.
 
 ## Last run
 <!-- Routine writes summary here each run. Overwrites previous. -->
-Date: 2026-06-02
-Mode: FIX FIRST — last week's channel-to-biome / sky-wave / VRAM work all merged cleanly (moved to Done), but a 10-issue cluster (#1133–#1142) filed today flags an active foundation crack: full-world population is unreliable, objects/scenery silently missing on startup. No new feature work until boot is reliable.
-Focus: Root-cause the scene-loading regression (#1133) — find why `processMapEntity` / `populateProceduralExtras` / `background-processor` / `deferred-loader` drop spawns, fix the orchestration so a clean FULL boot reaches `failCount === 0`, and add a feature-flag fallback so the world always boots usable. SpawnTracker telemetry (already in tree) is the diagnostic substrate; Copilot PR #1138 owns the telemetry/UI layer (coordinate to avoid file collision).
+Date: 2026-06-09
+Mode: USER IDEA — last week's Fix First (loading regression #1133 cluster) closed/completed 2026-06-03, and the deferred day/night circadian idea (#1144) also landed; both moved to Done. Foundation solid, no crack → feature work resumes. Noah filed 9 fresh vision issues today (#1168–#1176) = this week's live idea stream; picked the highest-impact one in the core music-reactivity focus area.
+Focus: Music-Reactive Atmosphere Bridge (#1169) — zero-alloc Atmosphere Reactivity block mapping audio channels → `uBloomStrength` / `uCrescendoFogDensity` / `uShaftOpacity` (+ re-enable night light shafts), optional `atmosphere` block in `music-bindings.json`, WebGL fallback parity. Decoupled Copilot track drafted in the save/discovery domain (Awakened Flora persistence) to avoid file collision with kimi.
 Outcome: <!-- fill in at end of day after kimi-cli loop -->
-Context gap: No access to recent_chats / conversation_search in this environment — prior-session reconstruction is from git history, open issues, weekly_plan.md, and .swarm-state.md only.
+Context gap: No access to recent_chats / conversation_search in this environment — prior-session reconstruction is from git history, open/closed issues, open PRs, weekly_plan.md, and .swarm-state.md only. Could not directly read live-site behaviour; reactivity "maturity" claims are from issue text + Done log, not runtime verification.
