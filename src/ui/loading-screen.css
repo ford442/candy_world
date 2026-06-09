@@ -365,6 +365,24 @@
 }
 
 /* =============================================================================
+   FLAVOR TEXT
+   ========================================================================== */
+
+.progress-flavor-text {
+  display: block;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.7);
+  font-style: italic;
+  margin-top: 4px;
+  text-align: center;
+  animation: pulse 2s infinite ease-in-out;
+}
+
+.loading-screen.theme-dark .progress-flavor-text {
+  color: rgba(177, 156, 217, 0.7); /* Muted candy-purple */
+}
+
+/* =============================================================================
    TIME REMAINING
    ========================================================================== */
 
