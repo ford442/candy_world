@@ -520,6 +520,7 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
 
   private createToggle(container: HTMLElement, label: string, id: string, checked: boolean, onChange: (val: boolean) => void): void {
     const wrapper = document.createElement('div');
+    wrapper.className = 'a11y-toggle-wrapper';
     wrapper.style.cssText = `
       display: flex;
       justify-content: space-between;
@@ -530,18 +531,47 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
     const labelEl = document.createElement('label');
     labelEl.textContent = label;
     labelEl.htmlFor = id;
-    labelEl.style.cssText = 'flex: 1; cursor: pointer;';
+    labelEl.style.cssText = 'flex: 1; cursor: pointer; user-select: none;';
+
+    // Container for the custom toggle
+    const toggleContainer = document.createElement('div');
+    toggleContainer.className = 'custom-toggle-container';
+    toggleContainer.style.cssText = 'position: relative; display: inline-flex; align-items: center; cursor: pointer;';
 
     const checkbox = document.createElement('input');
-    checkbox.className = 'a11y-checkbox';
+    checkbox.className = 'visually-hidden';
     checkbox.type = 'checkbox';
     checkbox.id = id;
     checkbox.checked = checked;
-    checkbox.style.cssText = 'width: 20px; height: 20px; cursor: pointer;';
-    checkbox.onchange = () => onChange(checkbox.checked);
+    checkbox.setAttribute('aria-checked', checked.toString());
+
+    // The visual custom toggle (pill)
+    const customToggle = document.createElement('span');
+    customToggle.className = 'custom-toggle';
+
+    // The thumb inside the pill
+    const customThumb = document.createElement('span');
+    customThumb.className = 'custom-toggle-thumb';
+
+    customToggle.appendChild(customThumb);
+
+    checkbox.onchange = () => {
+        checkbox.setAttribute('aria-checked', checkbox.checked.toString());
+        onChange(checkbox.checked);
+    };
+
+    toggleContainer.appendChild(checkbox);
+    toggleContainer.appendChild(customToggle);
+
+    // Allow clicking the toggle container to trigger the checkbox
+    toggleContainer.onclick = (e) => {
+        if (e.target !== checkbox) {
+            checkbox.click();
+        }
+    };
 
     wrapper.appendChild(labelEl);
-    wrapper.appendChild(checkbox);
+    wrapper.appendChild(toggleContainer);
     container.appendChild(wrapper);
   }
 

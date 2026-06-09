@@ -46,3 +46,19 @@
     transform: scale(0.95);
     transition-duration: 0.05s;
 }
+/* Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+    .custom-toggle,
+    .custom-toggle-thumb,
+    .a11y-toggle-wrapper,
+    .custom-toggle-container:active .custom-toggle {
+        transition: none !important;
+        transform: none !important;
+    }
+}
+
+/* Focus rings mapped to accessibility rules */
+input.visually-hidden:focus-visible + .custom-toggle {
+    outline: none !important;
+    box-shadow: 0 0 0 3px var(--menu-bg, #2a2a2a), 0 0 0 6px var(--a11y-color, #00aaff) !important;
+}
