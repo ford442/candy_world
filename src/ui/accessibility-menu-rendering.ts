@@ -535,10 +535,15 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
     const checkbox = document.createElement('input');
     checkbox.className = 'a11y-checkbox';
     checkbox.type = 'checkbox';
+    checkbox.role = 'switch';
     checkbox.id = id;
     checkbox.checked = checked;
+    checkbox.setAttribute('aria-checked', checked ? 'true' : 'false');
     checkbox.style.cssText = 'width: 20px; height: 20px; cursor: pointer;';
-    checkbox.onchange = () => onChange(checkbox.checked);
+    checkbox.onchange = () => {
+      checkbox.setAttribute('aria-checked', checkbox.checked ? 'true' : 'false');
+      onChange(checkbox.checked);
+    };
 
     wrapper.appendChild(labelEl);
     wrapper.appendChild(checkbox);
