@@ -25,12 +25,5 @@
     "@types/pngjs": "^6.0.4",
     "tsx": "^4.7.0",
     "typescript": "^5.3.3"
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "@swc/core",
-      "esbuild",
-      "playwright"
-    ]
   }
 }

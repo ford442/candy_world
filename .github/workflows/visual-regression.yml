@@ -44,7 +44,7 @@ jobs:
       - name: Install Playwright
         run: |
           cd tools/visual-regression
-          npx playwright install --with-deps chromium
+          pnpm exec playwright install --with-deps chromium
 
       - name: Build WASM
         run: |
