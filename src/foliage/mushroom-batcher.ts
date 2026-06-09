@@ -465,7 +465,7 @@ private createMaterials(): MeshStandardNodeMaterial[] {
     };
 
     const createCapMaterial = () => {
-        const mat = (foliageMaterials.mushroomCap as MeshStandardNodeMaterial).clone();
+        const mat = (Array.isArray(foliageMaterials.mushroomCap) ? foliageMaterials.mushroomCap[0] : foliageMaterials.mushroomCap as any as MeshStandardNodeMaterial).clone();
 
         const deformed = deform(positionLocal);
         const finalPos = applyPlayerInteraction(deformed);
@@ -563,7 +563,7 @@ private createMaterials(): MeshStandardNodeMaterial[] {
 
     return [stemMat, capMat, gillMat, spotMat, eyeMat, pupilMat, mouthMat, cheekMat];
 }
-    }
+
     register(dummy: THREE.Object3D, options: any) {
         if (!this.initialized) this.init();
         if (this.count >= MAX_MUSHROOMS) return;

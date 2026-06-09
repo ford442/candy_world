@@ -102,3 +102,7 @@ Next Step: Ask the user for the next task.
 Status: Implemented ✅
 * Implementation Details: Replaced `.clone()` calls inside `src/foliage/mushroom-batcher.ts` with `getCachedProceduralMaterial` module-level caches to prevent WebGPU compilation freezes, successfully moving node assignments inside the factory closures to fix validation errors. Also applied `calculateWindSway` to the TSL position nodes of all mushroom materials (stem, cap, gills, spots, and face parts) so they dynamically react to the ambient wind system.
 Next Step: Provide instructions for next feature.
+
+Status: Implemented ✅
+* Implementation Details: Implemented `RELIABLE_BOOT` feature flag in `config.ts` and `generation-core.ts` to allow critical startup elements to bypass the deferred loading queue. Fixed a material cloning array access bug in `mushroom-batcher.ts` and added explicit `.capacity` bounds checks to 4 batchers to prevent memory corruption.
+Next Step: Await user request for next priority task.
