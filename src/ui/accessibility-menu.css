@@ -46,6 +46,82 @@
     transform: scale(0.95);
     transition-duration: 0.05s;
 }
+
+
+
+/* 🎨 Palette: Accessibility Toggles Polish */
+.a11y-toggle-wrapper {
+    background: transparent;
+    padding: 6px;
+    border-radius: 8px;
+    transition: background 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.a11y-toggle-wrapper:hover {
+    background: var(--menu-hover, rgba(255, 255, 255, 0.05));
+}
+
+/* Custom Accessible Toggle Styles */
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    border: 0;
+}
+
+.custom-toggle {
+    display: inline-block;
+    width: 44px;
+    height: 24px;
+    background-color: var(--menu-bg-secondary, #4a4a4a);
+    border-radius: 12px;
+    position: relative;
+    transition: background-color 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);
+}
+
+.custom-toggle-thumb {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 20px;
+    height: 20px;
+    background-color: white;
+    border-radius: 50%;
+    transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+}
+
+/* Checked State */
+input.visually-hidden:checked + .custom-toggle {
+    background-color: var(--a11y-color, #00aaff);
+}
+
+input.visually-hidden:checked + .custom-toggle .custom-toggle-thumb {
+    transform: translateX(20px);
+}
+
+/* Focus State */
+input.visually-hidden:focus-visible + .custom-toggle {
+    outline: none !important;
+    box-shadow: 0 0 0 3px var(--menu-bg, #2a2a2a), 0 0 0 6px var(--a11y-color, #00aaff) !important;
+}
+
+/* Hover State */
+.custom-toggle-container:hover .custom-toggle {
+    filter: brightness(1.2);
+}
+
+/* Active (Pressed) State for Game Feel */
+.custom-toggle-container:active .custom-toggle {
+    transform: scale(0.95);
+    transition-duration: 0.05s;
+}
+
 /* Reduced Motion Support */
 @media (prefers-reduced-motion: reduce) {
     .custom-toggle,
@@ -57,8 +133,86 @@
     }
 }
 
-/* Focus rings mapped to accessibility rules */
+/* 🎨 Palette: Accessibility Toggles Polish */
+.a11y-toggle-wrapper {
+    background: transparent;
+    padding: 6px;
+    border-radius: 8px;
+    transition: background 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.a11y-toggle-wrapper:hover {
+    background: var(--menu-hover, rgba(255, 255, 255, 0.05));
+}
+
+/* Custom Accessible Toggle Styles */
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    border: 0;
+}
+
+.custom-toggle {
+    display: inline-block;
+    width: 44px;
+    height: 24px;
+    background-color: var(--menu-bg-secondary, #4a4a4a);
+    border-radius: 12px;
+    position: relative;
+    transition: background-color 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);
+}
+
+.custom-toggle-thumb {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 20px;
+    height: 20px;
+    background-color: white;
+    border-radius: 50%;
+    transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+}
+
+/* Checked State */
+input.visually-hidden:checked + .custom-toggle {
+    background-color: var(--a11y-color, #00aaff);
+}
+
+input.visually-hidden:checked + .custom-toggle .custom-toggle-thumb {
+    transform: translateX(20px);
+}
+
+/* Focus State */
 input.visually-hidden:focus-visible + .custom-toggle {
     outline: none !important;
     box-shadow: 0 0 0 3px var(--menu-bg, #2a2a2a), 0 0 0 6px var(--a11y-color, #00aaff) !important;
+}
+
+/* Hover State */
+.custom-toggle-container:hover .custom-toggle {
+    filter: brightness(1.2);
+}
+
+/* Active (Pressed) State for Game Feel */
+.custom-toggle-container:active .custom-toggle {
+    transform: scale(0.95);
+    transition-duration: 0.05s;
+}
+
+/* Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+    .custom-toggle,
+    .custom-toggle-thumb,
+    .a11y-toggle-wrapper,
+    .custom-toggle-container:active .custom-toggle {
+        transition: none !important;
+        transform: none !important;
+    }
 }
