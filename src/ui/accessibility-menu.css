@@ -29,7 +29,8 @@
 .a11y-preset-card:focus-visible,
 .a11y-close-btn:focus-visible {
     outline: none !important;
-    box-shadow: 0 0 0 3px var(--menu-bg, #2a2a2a), 0 0 0 6px var(--a11y-color, #00aaff) !important;
+    outline: 3px solid #ff4081 !important;
+    outline-offset: 3px !important;
     position: relative;
     z-index: 10;
 }
@@ -44,5 +45,5 @@
 .a11y-close-btn:active,
 .a11y-close-btn.keyboard-active {
     transform: scale(0.95);
-    transition-duration: 0.05s;
+    transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
