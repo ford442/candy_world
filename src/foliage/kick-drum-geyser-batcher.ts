@@ -3,11 +3,7 @@ import { MeshStandardNodeMaterial } from 'three/webgpu';
 import {
     CandyPresets,
     uTime,
-    registerReactiveMaterial,
-    getCachedProceduralMaterial,
-    createJuicyRimLight,
-    calculateWindSway,
-    applyPlayerInteraction
+    registerReactiveMaterial
 } from './index.ts';
 import {
     color, float, vec3, vec4, sin, cos, positionLocal, time, uniform
@@ -72,37 +68,23 @@ export class KickDrumGeyserBatcher {
         const plumeGeo = new THREE.CylinderGeometry(0.15, 0.15, 1, 8, 4);
         plumeGeo.translate(0, 0.5, 0); // Origin at bottom
 
-        const plumeMat = getCachedProceduralMaterial('kick_drum_geyser_plume', 0xFF4500, () => {
-            const mat = new MeshStandardNodeMaterial({
-                transparent: true,
-                opacity: 0.8,
-                blending: THREE.AdditiveBlending,
-                depthWrite: false
-            });
-
-            // ⚡ OPTIMIZATION: TSL Node for Plume Animation (Wave-based scale handled in CPU update logic, but we can add jitter here)
-            const jitterX = sin(uTime.mul(10.0).add(positionLocal.y.mul(10.0))).mul(0.1);
-            const jitterZ = cos(uTime.mul(12.0).add(positionLocal.y.mul(10.0))).mul(0.1);
-
-            const displacedPos = vec3(
-                positionLocal.x.add(jitterX),
-                positionLocal.y,
-                positionLocal.z.add(jitterZ)
-            );
-
-            // Add Wind Sway and Player Interaction
-            const posWind = displacedPos.add(calculateWindSway(displacedPos));
-            const posFinal = applyPlayerInteraction(posWind);
-            mat.positionNode = posFinal;
-
-            mat.colorNode = vec4(color(0xFF4500), float(0.8));
-
-            // 🎨 PALETTE: Juicy Rim Light for the geyser plume
-            const rimLight = createJuicyRimLight(color(0xFF4500), float(2.0), float(3.0), null);
-            mat.emissiveNode = rimLight;
-
-            return mat;
+        const plumeMat = new MeshStandardNodeMaterial({
+            transparent: true,
+            opacity: 0.8,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false
         });
+
+        // ⚡ OPTIMIZATION: TSL Node for Plume Animation (Wave-based scale handled in CPU update logic, but we can add jitter here)
+        const jitterX = sin(uTime.mul(10.0).add(positionLocal.y.mul(10.0))).mul(0.1);
+        const jitterZ = cos(uTime.mul(12.0).add(positionLocal.y.mul(10.0))).mul(0.1);
+
+        plumeMat.positionNode = vec3(
+            positionLocal.x.add(jitterX),
+            positionLocal.y,
+            positionLocal.z.add(jitterZ)
+        );
+        plumeMat.colorNode = vec4(color(0xFF4500), float(0.8));
 
         this.plumeMesh = new THREE.InstancedMesh(plumeGeo, plumeMat, MAX_GEYSERS);
         this.plumeMesh.count = 0;
