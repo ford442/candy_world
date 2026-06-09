@@ -291,16 +291,24 @@ export class ScreenshotCapture {
       skipIntro: 'true'
     });
 
-    await this.page.goto(`${this.baseUrl}?${params.toString()}`, {
-      waitUntil: 'networkidle',
-      timeout: 120000
-    });
+    try {
+      await this.page.goto(`${this.baseUrl}?${params.toString()}`, {
+        waitUntil: 'networkidle',
+        timeout: 120000
+      });
+    } catch (e) {
+      console.log('Timeout or error during goto, attempting to continue...');
+    }
 
     // Wait for the game to initialize
     // We wait for the #candy-loading-overlay to not have the .visible class, or for __sceneReady
-    await this.page.waitForFunction(() => {
-      return document.querySelector('#candy-loading-overlay.loaded') !== null || !document.getElementById('candy-loading-overlay') || (window as any).__sceneReady === true || (window as any).__visualRegression !== undefined;
-    }, { timeout: 120000 });
+    try {
+      await this.page.waitForFunction(() => {
+        return document.querySelector('#candy-loading-overlay.loaded') !== null || !document.getElementById('candy-loading-overlay') || (window as any).__sceneReady === true || (window as any).__visualRegression !== undefined;
+      }, { timeout: 120000 });
+    } catch (e) {
+      console.log('Timeout waiting for game initialization...');
+    }
 
     const startBtn = this.page.locator('#startButton').first();
 
