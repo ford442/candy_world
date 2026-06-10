@@ -44,7 +44,7 @@ jobs:
       - name: Install Playwright
         run: |
           cd tools/visual-regression
-          npx playwright install --with-deps chromium
+          pnpm exec playwright install --with-deps chromium
 
       - name: Build WASM
         run: |
@@ -52,7 +52,7 @@ jobs:
 
       - name: Start dev server
         run: |
-          pnpm exec vite &
+          pnpm exec vite --port 5173 &
           npx wait-on http-get://localhost:5173 --timeout 60000
 
       - name: Run visual regression tests
