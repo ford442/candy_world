@@ -36,7 +36,7 @@ jobs:
       - name: Install dependencies
         run: |
           # Use pnpm since there is a pnpm-lock.yaml file
-          npm install -g pnpm
+          npm install -g pnpm@9
           pnpm install
           cd tools/visual-regression
           pnpm install
