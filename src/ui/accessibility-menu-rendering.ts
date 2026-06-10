@@ -543,6 +543,7 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
     checkbox.type = 'checkbox';
     checkbox.id = id;
     checkbox.checked = checked;
+    checkbox.setAttribute('role', 'switch');
     checkbox.setAttribute('aria-checked', checked.toString());
 
     // The visual custom toggle (pill)
