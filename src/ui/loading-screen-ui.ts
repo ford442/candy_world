@@ -23,6 +23,18 @@ export class LoadingScreen {
     private deferredIndicator: HTMLElement | null = null;
     private isDeferredVisible = false;
 
+    // Flavor text
+    private flavorText: HTMLElement | null = null;
+    private flavorIntervalId: number | null = null;
+    private readonly flavorMessages = [
+        'Watering the wisteria...',
+        'Tuning the geysers...',
+        'Planting dandelions...',
+        'Synthesizing sugar...',
+        'Polishing the lotus...',
+        'Reticulating splines...'
+    ];
+
     private phases: LoadingPhase[] = [];
     private currentPhaseIndex = -1;
     private phaseProgress = 0;
@@ -188,6 +200,11 @@ export class LoadingScreen {
         progressDetails.appendChild(this.percentageText);
         progressDetails.appendChild(this.taskText);
 
+        // Flavor text
+        this.flavorText = document.createElement('span');
+        this.flavorText.className = 'progress-flavor-text';
+        progressDetails.appendChild(this.flavorText);
+
         progressSection.appendChild(this.progressBar);
         progressSection.appendChild(progressDetails);
         content.appendChild(progressSection);
@@ -312,6 +329,15 @@ export class LoadingScreen {
             this.animationFrameId = requestAnimationFrame(this.animateProgress);
         }
 
+        if (this.flavorText) {
+            this.flavorText.textContent = this.flavorMessages[Math.floor(Math.random() * this.flavorMessages.length)];
+            this.flavorIntervalId = window.setInterval(() => {
+                if (this.flavorText && !this.isComplete) {
+                    this.flavorText.textContent = this.flavorMessages[Math.floor(Math.random() * this.flavorMessages.length)];
+                }
+            }, 2500);
+        }
+
         if (this.options.debug) {
             console.log('[LoadingScreen] Shown');
         }
@@ -419,6 +445,11 @@ export class LoadingScreen {
         if (!this.isVisible || this.isComplete) return;
 
         this.isComplete = true;
+
+        if (this.flavorIntervalId !== null) {
+            window.clearInterval(this.flavorIntervalId);
+            this.flavorIntervalId = null;
+        }
 
         if (this.releaseFocusTrap) {
             this.releaseFocusTrap();
@@ -641,7 +672,11 @@ export class LoadingScreen {
         this.taskText.classList.add('changing');
         this.taskChangeTimeout = window.setTimeout(() => {
             if (this.taskText) {
-                this.taskText.textContent = text;
+                if (text.endsWith('...')) {
+                    this.taskText.innerHTML = text.slice(0, -3) + '<span class="loading-dots">...</span>';
+                } else {
+                    this.taskText.textContent = text;
+                }
                 this.taskText.classList.remove('changing');
             }
             this.taskChangeTimeout = null;
@@ -891,6 +926,11 @@ export class LoadingScreen {
             this.progressFill.classList.add('fatal-error');
         }
 
+        if (this.flavorIntervalId !== null) {
+            window.clearInterval(this.flavorIntervalId);
+            this.flavorIntervalId = null;
+        }
+
         if (this.percentageText) {
             this.percentageText.textContent = 'Error';
         }
@@ -933,6 +973,11 @@ export class LoadingScreen {
     }
 
     private destroy(): void {
+        if (this.flavorIntervalId !== null) {
+            window.clearInterval(this.flavorIntervalId);
+            this.flavorIntervalId = null;
+        }
+
         if (this.releaseFocusTrap) {
             this.releaseFocusTrap();
             this.releaseFocusTrap = null;

@@ -15,6 +15,7 @@ import { uTime } from '../foliage/index.ts';
 import { initCelestialBodies } from '../foliage/celestial-bodies.ts';
 import { createFluidFog } from '../foliage/fluid_fog.ts';
 import { createMushroom } from '../foliage/mushrooms.ts';
+import { initializeAwakenedPersistence } from '../systems/awakened-persistence.ts';
 import { jitterMineSystem } from '../gameplay/jitter-mines.ts';
 import { chordStrikeSystem } from '../gameplay/chord-strike.ts';
 import { createHarpoonLine } from '../gameplay/harpoon-line.ts';
@@ -49,6 +50,7 @@ export function initDeferredVisualsDependencies(
     camera: THREE.Camera,
     renderer: any
 ) {
+    initializeAwakenedPersistence();
     sceneRef = scene;
     cameraRef = camera;
     rendererRef = renderer;
