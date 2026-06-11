@@ -1,3 +1,8 @@
+Accomplished:
+- Refactored `startup-profiler.ts`, `wasm-loader-core.ts`, `music-reactivity.ts` (files > 1000 lines) into smaller files under 700 lines each.
+
+- Refactored `startup-profiler.ts`, `wasm-loader-core.ts`, `music-reactivity.ts` (files > 1000 lines) into smaller files under 700 lines each.
+
 # GPU Heightmap Displacement Plan
 
 1. Created `src/world/ground-heightmap.ts`
