@@ -66,7 +66,7 @@ export interface FallingBerry {
 }
 
 // --- Berry Batcher ---
-const MAX_BERRIES = 2500; // Reduced from 10000 for WebGPU uniform buffer limits
+const MAX_BERRIES = 10000; // Reduced from 10000 for WebGPU uniform buffer limits
 
 export class BerryBatcher {
     private static instance: BerryBatcher;
@@ -193,7 +193,9 @@ export class BerryBatcher {
         }
 
             // Set Glow
-            this.glowAttribute.setX(idx, baseGlow);
+            if (idx < this.glowAttribute.count && idx >= 0) {
+                this.glowAttribute.setX(idx, baseGlow);
+            }
         }
 
         group.userData.initialTransforms = initialTransforms;
@@ -225,6 +227,15 @@ export class BerryBatcher {
                 const count = group.userData.count;
                 _scratchMatrix.makeScale(0, 0, 0);
                 for(let i=0; i<count; i++) {
+                    const idx = start + i;
+                    const bufferCapacity1 = this.mesh.instanceMatrix.array.length / 16;
+                    if (idx >= this.maxInstances || idx >= bufferCapacity1 || idx < 0) {
+                        console.error(
+                            `[BOLT CRASH] ${this.constructor.name} prevented out-of-bounds write!`,
+                            { index: idx, bufferCapacity: bufferCapacity1, maxInstances: this.maxInstances, currentCount: this.count }
+                        );
+                        continue;
+                    }
                     // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
                     _scratchMatrix.toArray(this.mesh.instanceMatrix.array, (start + i) * 16);
                 }
@@ -283,11 +294,22 @@ export class BerryBatcher {
                     // World = Parent * Local
                     _scratchMatrix.multiplyMatrices(parentMatrix, _scratchMatrix);
 
+                    const bufferCapacity2 = this.mesh.instanceMatrix.array.length / 16;
+                    if (idx >= this.maxInstances || idx >= bufferCapacity2 || idx < 0) {
+                        console.error(
+                            `[BOLT CRASH] ${this.constructor.name} prevented out-of-bounds write!`,
+                            { index: idx, bufferCapacity: bufferCapacity2, maxInstances: this.maxInstances, currentCount: this.count }
+                        );
+                        continue;
+                    }
+
                     _scratchMatrix.toArray(this.mesh.instanceMatrix.array, idx * 16);
                 }
 
                 // Update Glow
-                this.glowAttribute.setX(idx, targetIntensity);
+                if (idx < this.glowAttribute.count && idx >= 0) {
+                    this.glowAttribute.setX(idx, targetIntensity);
+                }
             }
 
             if (!skipMatrixUpdate) meshNeedsUpdate = true;

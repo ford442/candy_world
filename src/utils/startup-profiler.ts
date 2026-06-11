@@ -274,7 +274,7 @@ function hookWebGPU() {
           }
           // Fix for mapping issue on some devices - force mappedAtCreation to false when we can
           // Unless explicitly requested otherwise
-          if (desc.mappedAtCreation === undefined) {
+          if (desc.mappedAtCreation === undefined || desc.mappedAtCreation === true) {
              desc.mappedAtCreation = false;
           }
           return originalCreateBuffer.call(device, desc);

@@ -7,7 +7,8 @@ import {
     smoothstep, abs
 } from 'three/tsl';
 import {
-    uAudioLow, createRimLight, triplanarNoise, perturbNormal
+    uAudioLow, createRimLight, createJuicyRimLight, triplanarNoise, perturbNormal,
+    calculateWindSway, applyPlayerInteraction
 } from './index.ts';
 import { uTwilight } from './sky.ts';
 import { waterfallBatcher } from './waterfall-batcher.ts';
@@ -64,7 +65,7 @@ function getSharedCrystalMat() {
         const crystalGlowColor = color(0x00FFFF); // Cyan glow
 
         // 3. Rim Light (Edge Definition)
-        const crystalRim = createRimLight(color(0xffffff), float(0.8), float(3.0));
+        const crystalRim = createJuicyRimLight(color(0xffffff), float(1.2), float(3.0), null);
 
         // Combine Colors
         _sharedCrystalMat.colorNode = crystalBaseColor.add(crystalRim);
@@ -73,6 +74,9 @@ function getSharedCrystalMat() {
         // 4. Surface Detail (Bump & Roughness & Transmission)
         _sharedCrystalMat.roughnessNode = float(0.2).add(crystalNoise.mul(0.1)); // Smooth and shiny
         _sharedCrystalMat.metalnessNode = float(0.2);
+
+        // 5. Position Deformations (Wind Sway & Player Interaction)
+        _sharedCrystalMat.positionNode = applyPlayerInteraction(positionLocal).add(calculateWindSway(positionLocal));
     }
     return _sharedCrystalMat;
 }
@@ -107,7 +111,7 @@ function getSharedRockMat() {
         const veinColor = color(0x00FFFF); // Cyan glow
 
         // 3. Rim Light (Edge Definition)
-        const rim = createRimLight(color(0x444455), float(0.5), float(2.0));
+        const rim = createJuicyRimLight(color(0x444455), float(0.8), float(2.0), null);
 
         // Combine Colors
         _sharedRockMat.colorNode = baseColor.add(rim);
@@ -120,6 +124,9 @@ function getSharedRockMat() {
 
         // Bump Map for detail
         _sharedRockMat.normalNode = perturbNormal(positionLocal, normalWorld, float(8.0), float(0.5));
+
+        // 5. Position Deformations (Player Interaction)
+        _sharedRockMat.positionNode = applyPlayerInteraction(positionLocal);
     }
     return _sharedRockMat;
 }
@@ -218,6 +225,16 @@ export function createCaveEntrance(options: CaveOptions = {}): THREE.Group {
         const s = 0.5 + Math.random() * 1.0;
         _scratchObj.scale.set(s * 0.5, s, s * 0.5);
         _scratchMatrix.compose(_scratchObj.position, _scratchObj.quaternion, _scratchObj.scale);
+        const bufferLength = formationsMesh.instanceMatrix.array.length / 16;
+        if (i >= formationCount || i >= bufferLength || i < 0) {
+            console.error(
+                `[BOLT CRASH] createCave formationsMesh prevented out-of-bounds write!`,
+                `index=${i}`,
+                `formationCount=${formationCount}`,
+                `bufferCapacity=${bufferLength}`
+            );
+            return group; // Early return to prevent bad write, returning the group as constructed
+        }
         // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
         _scratchMatrix.toArray(formationsMesh.instanceMatrix.array, (i) * 16);
     }

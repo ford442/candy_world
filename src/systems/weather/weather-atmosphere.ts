@@ -252,19 +252,27 @@ export class AtmosphereManager {
         if (giantsCount > 0) {
             const centerX = giantsX / giantsCount;
             const centerZ = giantsZ / giantsCount;
-            const len = Math.sqrt(centerX * centerX + centerZ * centerZ) || 1;
-            const attractX = centerX / len;
-            const attractZ = centerZ / len;
-            
-            windDirection.x += (attractX - windDirection.x) * 0.05;
-            windDirection.z += (attractZ - windDirection.z) * 0.05;
+            const lenSq = centerX * centerX + centerZ * centerZ;
+            if (lenSq > 0.0001) {
+                const len = Math.sqrt(lenSq);
+                const attractX = centerX / len;
+                const attractZ = centerZ / len;
+                windDirection.x += (attractX - windDirection.x) * 0.05;
+                windDirection.z += (attractZ - windDirection.z) * 0.05;
+            }
         }
 
         // Normalize
-        const dirLen = Math.sqrt(windDirection.x * windDirection.x + windDirection.y * windDirection.y + windDirection.z * windDirection.z) || 1;
-        windDirection.x /= dirLen;
-        windDirection.y /= dirLen;
-        windDirection.z /= dirLen;
+        // ⚡ OPTIMIZATION: Check squared length before Math.sqrt() to avoid unnecessary allocation/computation
+        const dirLenSq = windDirection.x * windDirection.x + windDirection.y * windDirection.y + windDirection.z * windDirection.z;
+        if (dirLenSq > 0.0001) {
+            const dirLen = Math.sqrt(dirLenSq);
+            windDirection.x /= dirLen;
+            windDirection.y /= dirLen;
+            windDirection.z /= dirLen;
+        } else {
+            windDirection.set(1, 0, 0); // Default fallback
+        }
 
         return { windDirection, windSpeed, windTargetSpeed };
     }

@@ -112,5 +112,30 @@
       "smoothing": 0.3,
       "scale": 0.5
     }
+  },
+  "atmosphere": {
+    "bloom": {
+      "channels": [0, 1],
+      "restStrength": 1.0,
+      "maxStrength": 2.5,
+      "smoothing": 4.0
+    },
+    "fog": {
+      "boostScale": 0.7,
+      "smoothing": 3.0
+    },
+    "shafts": {
+      "restOpacity": 0.0,
+      "maxOpacity": 0.35,
+      "smoothing": 2.5,
+      "activateThreshold": 0.15
+    },
+    "beatPulse": {
+      "threshold": 0.5,
+      "bloomSpike": 0.6,
+      "shaftShimmerSpike": 0.25,
+      "decayRate": 4.0
+    },
+    "_comment": "Optional. Drives bloom/fog/light-shaft post-processing uniforms from audio. bloom.channels sum volume -> uBloomStrength (restStrength..maxStrength). fog.boostScale enhances uCrescendoFogDensity on top of the weather-driven lerp (never decreases it). shafts intensity comes from SkyUniforms.intensity (driven by sky_moon.melody_channel) -> uShaftOpacity at night. beatPulse adds a decaying spike to bloom + shaft shimmer on strong downbeats."
   }
 }
