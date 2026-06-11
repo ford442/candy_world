@@ -115,11 +115,27 @@ export class LuminousPlantBatcher {
 
         // ⚡ OPTIMIZATION: Bypassed deep THREE.Object3D proxy traversals
         group.updateWorldMatrix(false, false);
+        const bufferCapacity = this.mesh.instanceMatrix.array.length / 16;
+        if (id >= this.maxInstances || id >= bufferCapacity || id < 0) {
+            console.error(
+                `[BOLT CRASH] ${this.constructor.name} prevented out-of-bounds write!`,
+                { index: id, bufferCapacity, maxInstances: this.maxInstances, currentCount: this.count }
+            );
+            return;
+        }
         // ⚡ OPTIMIZATION: Bypassed THREE.Object3D proxy and setMatrixAt() overhead by writing directly to instanceMatrix.
         group.matrixWorld.toArray(this.mesh.instanceMatrix.array, id * 16);
 
         const phaseAttr = this.mesh.geometry.getAttribute('aPhaseOffset') as THREE.InstancedBufferAttribute;
+        if (id >= phaseAttr.count || id < 0) {
+            console.error(
+                `[BOLT CRASH] ${this.constructor.name} aPhaseOffset prevented out-of-bounds write!`,
+                { index: id, phaseAttrCount: phaseAttr.count, maxInstances: this.maxInstances }
+            );
+            return;
+        }
         phaseAttr.setX(id, Math.random() * Math.PI * 2);
+        phaseAttr.needsUpdate = true;
 
         this.count++;
         this.mesh.count = this.count;

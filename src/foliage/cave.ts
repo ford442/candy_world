@@ -218,6 +218,16 @@ export function createCaveEntrance(options: CaveOptions = {}): THREE.Group {
         const s = 0.5 + Math.random() * 1.0;
         _scratchObj.scale.set(s * 0.5, s, s * 0.5);
         _scratchMatrix.compose(_scratchObj.position, _scratchObj.quaternion, _scratchObj.scale);
+        const bufferLength = formationsMesh.instanceMatrix.array.length / 16;
+        if (i >= formationCount || i >= bufferLength || i < 0) {
+            console.error(
+                `[BOLT CRASH] createCave formationsMesh prevented out-of-bounds write!`,
+                `index=${i}`,
+                `formationCount=${formationCount}`,
+                `bufferCapacity=${bufferLength}`
+            );
+            return group; // Early return to prevent bad write, returning the group as constructed
+        }
         // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
         _scratchMatrix.toArray(formationsMesh.instanceMatrix.array, (i) * 16);
     }

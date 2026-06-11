@@ -653,6 +653,17 @@ export class MushroomBatcher {
 
         // 1. Set Matrix
         _scratchMatrix.compose(dummy.position, dummy.quaternion, dummy.scale);
+        const bufferLength1 = this.mesh!.instanceMatrix.array.length / 16;
+        if (i >= this.maxInstances || i >= bufferLength1 || i < 0) {
+            console.error(
+                `[BOLT CRASH] ${this.constructor.name} prevented out-of-bounds write!`,
+                `index=${i}`,
+                `maxInstances=${this.maxInstances}`,
+                `bufferCapacity=${bufferLength1}`,
+                `currentCount=${this.count}`
+            );
+            return -1; // Early return to prevent bad write
+        }
         // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
         _scratchMatrix.toArray(this.mesh!.instanceMatrix.array, (i) * 16);
 
@@ -724,6 +735,17 @@ export class MushroomBatcher {
             // A. Copy Attributes from Last to Removed
             // Matrix
             this.mesh!.getMatrixAt(lastIndex, _scratchMatrix);
+            const bufferLength2 = this.mesh!.instanceMatrix.array.length / 16;
+            if (indexToRemove >= this.maxInstances || indexToRemove >= bufferLength2 || indexToRemove < 0) {
+                console.error(
+                    `[BOLT CRASH] ${this.constructor.name} prevented out-of-bounds write!`,
+                    `index=${indexToRemove}`,
+                    `maxInstances=${this.maxInstances}`,
+                    `bufferCapacity=${bufferLength2}`,
+                    `currentCount=${this.count}`
+                );
+                return; // Early return to prevent bad write
+            }
             // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
         _scratchMatrix.toArray(this.mesh!.instanceMatrix.array, (indexToRemove) * 16);
 

@@ -310,7 +310,9 @@ export class CloudBatcher {
         const isWalkable = cloudGroup.userData.isWalkable ? 1.0 : 0.0;
         if (this.isWalkableAttribute) {
             for (let i = 0; i < puffCount; i++) {
-                this.isWalkableAttribute.setX(startIndex + i, isWalkable);
+                if (startIndex + i < this.isWalkableAttribute.count && startIndex + i >= 0) {
+                    this.isWalkableAttribute.setX(startIndex + i, isWalkable);
+                }
             }
             this.isWalkableAttribute.needsUpdate = true;
         }
@@ -335,6 +337,20 @@ export class CloudBatcher {
         for (let i = 0; i < count; i++) {
             // Global = CloudWorld * PuffLocal
             _scratchMat.multiplyMatrices(_scratchWorldMat, puffs[i]);
+
+            const idx = start + i;
+            const bufferLength = this.mesh.instanceMatrix.array.length / 16;
+            if (idx >= this.maxInstances || idx >= bufferLength || idx < 0) {
+                console.error(
+                    `[BOLT CRASH] ${this.constructor.name} prevented out-of-bounds write!`,
+                    `index=${idx}`,
+                    `maxInstances=${this.maxInstances}`,
+                    `bufferCapacity=${bufferLength}`,
+                    `currentCount=${this.count}`
+                );
+                return -1; // Early return to prevent bad write
+            }
+
             // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
             _scratchMat.toArray(this.mesh.instanceMatrix.array, (start + i) * 16);
         }

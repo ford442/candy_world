@@ -380,6 +380,16 @@ export class FlowerBatcher {
 
         if (index >= max) return;
 
+        const bufferLength = mesh.instanceMatrix.array.length / 16;
+        if (index >= max || index >= bufferLength || index < 0) {
+            console.error(
+                `[BOLT CRASH] ${this.constructor.name} prevented out-of-bounds write!`,
+                `index=${index}`,
+                `maxInstances=${max}`,
+                `bufferCapacity=${bufferLength}`
+            );
+            return; // Early return to prevent bad write
+        }
         // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
         matrix.toArray(mesh.instanceMatrix.array, (index) * 16);
         if (color && mesh.instanceColor) {
