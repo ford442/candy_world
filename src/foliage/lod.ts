@@ -634,6 +634,16 @@ export class FoliageLODManager {
         mesh.count = count;
 
         for (let i = 0; i < count; i++) {
+            const bufferLength = mesh.instanceMatrix.array.length / 16;
+            if (i >= mesh.instanceMatrix.count || i >= bufferLength || i < 0) {
+                console.error(
+                    `[BOLT CRASH] ${this.constructor.name} prevented out-of-bounds write!`,
+                    `index=${i}`,
+                    `maxInstances=${mesh.instanceMatrix.count}`,
+                    `bufferCapacity=${bufferLength}`
+                );
+                continue; // Skip the bad write
+            }
             // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
         matrices[i].toArray(mesh.instanceMatrix.array, (i) * 16);
             // ⚡ OPTIMIZATION: Write directly to instanceColor array to bypass .setColorAt overhead.
