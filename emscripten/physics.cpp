@@ -136,7 +136,8 @@ int updatePhysicsCPP(float delta, float inputX, float inputZ, float speed, int j
     for (const auto& obj : obstacles) {
         float dx = nextX - obj.x;
         float dz = nextZ - obj.z;
-        float distH = std::sqrt(dx*dx + dz*dz);
+        // ⚡ OPTIMIZATION: Bypassed std::sqrt by using squared distances for collision tests, saving CPU cycles in the physics hot loop.
+        float distSq = dx*dx + dz*dz;
 
         if (obj.type == 0) {
             float stemR = obj.param1;
@@ -146,7 +147,7 @@ int updatePhysicsCPP(float delta, float inputX, float inputZ, float speed, int j
 
             if (nextY < surfaceY - 0.5f) {
                  float minDist = stemR + player.radius;
-                 if (distH < minDist) {
+                 if (distSq < minDist * minDist) {
                      float angle = std::atan2(dz, dx);
                      float pushX = std::cos(angle) * minDist;
                      float pushZ = std::sin(angle) * minDist;
@@ -154,7 +155,7 @@ int updatePhysicsCPP(float delta, float inputX, float inputZ, float speed, int j
                      nextZ = obj.z + pushZ;
                  }
             }
-            else if (player.vy < 0 && distH < capR) {
+            else if (player.vy < 0 && distSq < capR * capR) {
                  if (nextY >= surfaceY - 0.5f && nextY <= surfaceY + 2.0f) {
                      if (obj.param3 > 0.5f) {
                          player.vy = 15.0f;
@@ -171,7 +172,7 @@ int updatePhysicsCPP(float delta, float inputX, float inputZ, float speed, int j
             if (obj.param2 < 1.5f) {
                 float topY = obj.y + obj.height;
                 float radius = obj.radius;
-                if (distH < radius) {
+                if (distSq < radius * radius) {
                     if (player.vy < 0 && nextY >= topY - 0.5f && nextY < topY + 3.0f) {
                         nextY = topY + 1.8f;
                         player.vy = 0;
@@ -182,7 +183,7 @@ int updatePhysicsCPP(float delta, float inputX, float inputZ, float speed, int j
         }
         else if (obj.type == 2) {
             float bounceTop = obj.y + obj.height;
-            if (distH < obj.radius && nextY > bounceTop - 0.5f && nextY < bounceTop + 1.5f) {
+            if (distSq < obj.radius * obj.radius && nextY > bounceTop - 0.5f && nextY < bounceTop + 1.5f) {
                 if (player.vy < 0) {
                      player.vy = obj.param1;
                      onGround = 2;

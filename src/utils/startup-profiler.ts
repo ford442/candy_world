@@ -272,6 +272,11 @@ function hookWebGPU() {
             webgpuMetrics.bufferAllocations++;
             webgpuMetrics.bufferTotalSize += desc.size;
           }
+          // Fix for mapping issue on some devices - force mappedAtCreation to false when we can
+          // Unless explicitly requested otherwise
+          if (desc.mappedAtCreation === undefined || desc.mappedAtCreation === true) {
+             desc.mappedAtCreation = false;
+          }
           return originalCreateBuffer.call(device, desc);
         };
         
@@ -284,6 +289,7 @@ function hookWebGPU() {
             const end = performance.now();
             webgpuMetrics.shaderCompilations++;
             webgpuMetrics.shaderCompileTime += (end - start);
+            return result;
           }
           return originalCreateShaderModule.call(device, desc);
         };

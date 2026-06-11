@@ -191,7 +191,7 @@ export function getSharedCloudMaterial() {
 }
 
 // --- Cloud Batcher ---
-const MAX_PUFFS = 400; // Reduced from 1000 for WebGPU uniform buffer limits (64KB max)
+const MAX_PUFFS = 2000; // Reduced from 1000 for WebGPU uniform buffer limits (64KB max)
 const _scratchMat = new THREE.Matrix4();
 const _scratchWorldMat = new THREE.Matrix4();
 const _scratchPos = new THREE.Vector3();

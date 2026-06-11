@@ -204,23 +204,40 @@ function handlePlaylistUpload(e: Event): void {
     const target = e.target as HTMLInputElement;
     const files = target.files;
     if (files && files.length > 0) {
-        const { validFiles, invalidFiles } = filterValidMusicFiles(files);
-        if (validFiles.length > 0) {
-            audioSystemRef.addToQueue(validFiles);
-            import('../../utils/toast.ts').then(({ showToast }) => {
-                if (invalidFiles.length > 0) {
-                    showToast(`Added ${validFiles.length} song${validFiles.length > 1 ? 's' : ''}. (${invalidFiles.length} ignored)`, '⚠️');
-                } else {
-                    showToast(`Added ${validFiles.length} Song${validFiles.length > 1 ? 's' : ''}! 🎶`, '📂');
-                }
-            });
-        } else {
-            import('../../utils/toast.ts').then(({ showToast }) => {
-                showToast("❌ Only .mod, .xm, .it, .s3m allowed!", '🚫');
-            });
+        const originalHtml = addSongsBtn ? addSongsBtn.innerHTML : '';
+        if (addSongsBtn) {
+            addSongsBtn.setAttribute('aria-busy', 'true');
+            addSongsBtn.setAttribute('aria-disabled', 'true');
+            addSongsBtn.innerHTML = '<span class="spinner" aria-hidden="true"></span> Processing...';
         }
+
+        setTimeout(() => {
+            const { validFiles, invalidFiles } = filterValidMusicFiles(files);
+            if (validFiles.length > 0) {
+                audioSystemRef!.addToQueue(validFiles);
+                import('../../utils/toast.ts').then(({ showToast }) => {
+                    if (invalidFiles.length > 0) {
+                        showToast(`Added ${validFiles.length} song${validFiles.length > 1 ? 's' : ''}. (${invalidFiles.length} ignored)`, '⚠️');
+                    } else {
+                        showToast(`Added ${validFiles.length} Song${validFiles.length > 1 ? 's' : ''}! 🎶`, '📂');
+                    }
+                });
+            } else {
+                import('../../utils/toast.ts').then(({ showToast }) => {
+                    showToast("❌ Only .mod, .xm, .it, .s3m allowed!", '🚫');
+                });
+            }
+
+            if (addSongsBtn) {
+                addSongsBtn.removeAttribute('aria-busy');
+                addSongsBtn.removeAttribute('aria-disabled');
+                addSongsBtn.innerHTML = originalHtml;
+            }
+            target.value = '';
+        }, 10);
+    } else {
+        target.value = '';
     }
-    target.value = '';
 }
 
 /**
@@ -344,7 +361,7 @@ export function renderPlaylist(): void {
                     (playBtns[0] as HTMLElement).focus({ preventScroll: true });
                 } else {
                     // Fallback to empty state button if list is now empty
-                    const emptyBtn = playlistList!.querySelector('button.secondary-button');
+                    const emptyBtn = playlistList!.querySelector('.jukebox-browse-btn') || document.getElementById('addSongsBtn');
                     if (emptyBtn) {
                         (emptyBtn as HTMLElement).focus({ preventScroll: true });
                     }
@@ -530,8 +547,8 @@ export function handlePlaylistKeyDown(event: KeyboardEvent): boolean {
     if (event.code === 'KeyQ') {
         event.preventDefault();
         if (closePlaylistBtn) {
-            closePlaylistBtn.setAttribute('aria-pressed', 'true');
-            setTimeout(() => closePlaylistBtn.setAttribute('aria-pressed', 'false'), 150);
+            closePlaylistBtn.classList.add('keyboard-active');
+            setTimeout(() => closePlaylistBtn.classList.remove('keyboard-active'), 150);
         }
         togglePlaylist();
         return true;
@@ -542,8 +559,8 @@ export function handlePlaylistKeyDown(event: KeyboardEvent): boolean {
         const playlistInput = document.getElementById('playlistUploadInput') as HTMLInputElement;
         const addSongsBtnEl = document.getElementById('addSongsBtn');
         if (addSongsBtnEl) {
-            addSongsBtnEl.setAttribute('aria-pressed', 'true');
-            setTimeout(() => addSongsBtnEl.setAttribute('aria-pressed', 'false'), 150);
+            addSongsBtnEl.classList.add('keyboard-active');
+            setTimeout(() => addSongsBtnEl.classList.remove('keyboard-active'), 150);
         }
         if (playlistInput) playlistInput.click();
         return true;
@@ -612,26 +629,53 @@ export function initLegacyMusicUpload(audioSystem: AudioSystem): void {
             const target = event.target as HTMLInputElement;
             const files = target.files;
             if (files && files.length > 0) {
-                const { validFiles, invalidFiles } = filterValidMusicFiles(files);
-
-                if (validFiles.length > 0) {
-                    audioSystem.addToQueue(validFiles);
-
-                    import('../../utils/toast.ts').then(({ showToast }) => {
-                        if (invalidFiles.length > 0) {
-                            showToast(`Added ${validFiles.length} song${validFiles.length > 1 ? 's' : ''}. (${invalidFiles.length} ignored)`, '⚠️');
-                        } else {
-                            showToast(`Added ${validFiles.length} Song${validFiles.length > 1 ? 's' : ''}! 🎶`, '📂');
-                        }
-                    });
-                } else {
-                     // All files were invalid
-                    import('../../utils/toast.ts').then(({ showToast }) => {
-                        showToast("❌ Only .mod, .xm, .it, .s3m allowed!", '🚫');
-                    });
+                const originalHtml = musicUploadBtn ? musicUploadBtn.innerHTML : '';
+                if (musicUploadBtn) {
+                    musicUploadBtn.setAttribute('aria-busy', 'true');
+                    musicUploadBtn.setAttribute('aria-disabled', 'true');
+                    musicUploadBtn.innerHTML = '<span class="spinner" aria-hidden="true"></span> Processing...';
                 }
+
+                // Brief delay for satisfying UX feedback
+                setTimeout(() => {
+                    const { validFiles, invalidFiles } = filterValidMusicFiles(files);
+
+                    if (validFiles.length > 0) {
+                        audioSystem.addToQueue(validFiles);
+
+                        import('../../utils/toast.ts').then(({ showToast }) => {
+                            if (invalidFiles.length > 0) {
+                                const msg = `Added ${validFiles.length} song${validFiles.length > 1 ? 's' : ''}. (${invalidFiles.length} ignored)`;
+                                showToast(msg, '⚠️');
+                                announce(msg, 'polite');
+                            } else {
+                                const msg = `Added ${validFiles.length} Song${validFiles.length > 1 ? 's' : ''}! 🎶`;
+                                showToast(msg, '📂');
+                                if (validFiles.length === 1) {
+                                    announce(`Song '${validFiles[0].name}' has been added and is ready to play.`, 'polite');
+                                } else {
+                                    announce(`Added ${validFiles.length} songs to the playlist.`, 'polite');
+                                }
+                            }
+                        });
+                    } else {
+                        // All files were invalid
+                        import('../../utils/toast.ts').then(({ showToast }) => {
+                            showToast("❌ Only .mod, .xm, .it, .s3m allowed!", '🚫');
+                            announce("Failed to add songs, invalid format.", 'polite');
+                        });
+                    }
+
+                    if (musicUploadBtn) {
+                        musicUploadBtn.removeAttribute('aria-busy');
+                        musicUploadBtn.removeAttribute('aria-disabled');
+                        musicUploadBtn.innerHTML = originalHtml;
+                    }
+                    target.value = '';
+                }, 500);
+            } else {
+                target.value = '';
             }
-            target.value = '';
         });
     }
 }

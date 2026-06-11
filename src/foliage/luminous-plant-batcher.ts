@@ -1,13 +1,15 @@
 import * as THREE from 'three';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
-import { color, float, sin, positionLocal, normalLocal, mix, attribute } from 'three/tsl';
+import { color, float, sin, positionLocal, normalLocal, mix, attribute, instancedArray, instanceIndex } from 'three/tsl';
 import { uTime, createJuicyRimLight, createStandardNodeMaterial, applyPlayerInteraction } from './material-core.ts';
 import { calculateWindSway } from './index.ts';
 import { LuminousPlantUniforms, luminousPlantsNoteColorNode, getBiomeUniforms, uCircadianPhase, uCircadianPoseOffset, type BiomeId } from '../systems/biome-uniforms.ts';
+import { awakenedPersistence, deriveAwakenedKey, registerAwakenedSpawn, markAwakened } from '../systems/awakened-persistence.ts';
 
 const LUMINOUS_BIOME: BiomeId = 'luminous_plants';
 const luminousUniforms = getBiomeUniforms(LUMINOUS_BIOME); // demonstrates the helper for a non-arpeggio biome
 import { CONFIG } from '../core/config.ts';
+import { FEATURE_FLAGS } from '../core/config.ts';
 import { uTwilight } from './sky.ts';
 
 export class LuminousPlantBatcher {
@@ -22,9 +24,15 @@ export class LuminousPlantBatcher {
     public mesh: THREE.InstancedMesh;
     private maxInstances: number;
     private count: number = 0;
+    private awakenedValues: Float32Array | null = null;
+    private awakenedAttribute: THREE.InstancedBufferAttribute | null = null;
+    private awakenedKeys: string[] = [];
 
     constructor(maxInstances: number = 1200) {
         this.maxInstances = maxInstances;
+        if (FEATURE_FLAGS.awakenedPersistence) {
+            this.awakenedValues = new Float32Array(this.maxInstances);
+        }
 
         const stemGeo = new THREE.CylinderGeometry(0.2, 0.4, 4, 8, 4);
         stemGeo.translate(0, 2, 0);
@@ -51,6 +59,9 @@ export class LuminousPlantBatcher {
         const pulseSpeed = float(CONFIG.luminousPlants?.pulseSpeed || 1.5);
         const pulseDepth = float(CONFIG.luminousPlants?.pulseDepth || 0.3);
         const localTime = uTime.mul(pulseSpeed).add(aPhaseOffset);
+        const awakened = FEATURE_FLAGS.awakenedPersistence
+            ? instancedArray(this.maxInstances, 'float').element(instanceIndex)
+            : float(0);
 
         const heightFactor = positionLocal.y.div(4.0);
         const breathe = sin(localTime).mul(pulseDepth).mul(heightFactor);
@@ -82,7 +93,9 @@ export class LuminousPlantBatcher {
         // Multiplier lerps from nightGlowMultiplier → 1.0 as phase goes 0 → 1.
         const nightMult = float(CONFIG.circadian.nightGlowMultiplier);
         const circadianGlowMult = mix(nightMult, float(1.0), uCircadianPhase);
-        mat.emissiveNode = emissiveBase.mul(circadianGlowMult).add(rimLight.mul(sssStrength)).add(twilightGlowTint);
+        mat.emissiveNode = FEATURE_FLAGS.awakenedPersistence
+            ? emissiveBase.mul(circadianGlowMult).add(rimLight.mul(sssStrength)).add(twilightGlowTint).add(awakened.mul(0.18))
+            : emissiveBase.mul(circadianGlowMult).add(rimLight.mul(sssStrength)).add(twilightGlowTint);
 
         // Music Impact: subtle direct contribution from the sky-wave-driven noteColor uniform.
         // When the Sky Wave (see music-reactivity.ts + sky_wave in music-bindings.json) fires,
@@ -96,6 +109,10 @@ export class LuminousPlantBatcher {
         this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
         this.mesh.castShadow = true;
         this.mesh.receiveShadow = true;
+        if (FEATURE_FLAGS.awakenedPersistence && this.awakenedValues) {
+            this.awakenedAttribute = new THREE.InstancedBufferAttribute(this.awakenedValues, 1);
+            this.mesh.geometry.setAttribute('awakened', this.awakenedAttribute);
+        }
 
         const phaseArray = new Float32Array(maxInstances);
         this.mesh.geometry.setAttribute('aPhaseOffset', new THREE.InstancedBufferAttribute(phaseArray, 1));
@@ -104,6 +121,27 @@ export class LuminousPlantBatcher {
         this.mesh.count = 0;
     }
 
+    dispose() {
+        if (!this.mesh) return;
+        if (this.mesh.geometry) {
+            this.mesh.geometry.dispose();
+        }
+        if (this.mesh.material) {
+            if (Array.isArray(this.mesh.material)) {
+                this.mesh.material.forEach(m => m.dispose());
+            } else {
+                this.mesh.material.dispose();
+            }
+        }
+        const phaseAttr = this.mesh.geometry.getAttribute("aPhaseOffset");
+        if (phaseAttr && typeof (phaseAttr as any).dispose === "function") {
+            try { (phaseAttr as any).dispose(); } catch (e) {}
+        }
+        if (this.mesh.parent) {
+            this.mesh.parent.remove(this.mesh);
+        }
+        this.count = 0;
+    }
 
     register(group: THREE.Group): number {
         if (this.count >= this.maxInstances) {
@@ -137,39 +175,77 @@ export class LuminousPlantBatcher {
         phaseAttr.setX(id, Math.random() * Math.PI * 2);
         phaseAttr.needsUpdate = true;
 
+        if (FEATURE_FLAGS.awakenedPersistence) {
+            const biome = typeof group.userData.biome === 'string' && group.userData.biome ? group.userData.biome : LUMINOUS_BIOME;
+            const key = deriveAwakenedKey({
+                type: 'luminous_plant',
+                biome,
+                x: group.position.x,
+                z: group.position.z,
+            });
+            this.awakenedKeys[id] = key;
+            if (this.awakenedValues) {
+                this.awakenedValues[id] = awakenedPersistence.getAwakenedScale(key);
+            }
+            registerAwakenedSpawn({
+                type: 'luminous_plant',
+                biome,
+                x: group.position.x,
+                z: group.position.z,
+            });
+
+            type ReactToNoteHandler = (note: string, color: number, velocity: number) => unknown;
+            const awakenLuminousPlant = (noteColor: number): void => {
+                if (this.awakenedValues && this.awakenedValues[id] <= 0) {
+                    if (markAwakened({
+                        key,
+                        type: 'luminous_plant',
+                        biome,
+                        x: group.position.x,
+                        z: group.position.z,
+                        lastNoteColor: noteColor,
+                        emissiveScale: 1,
+                    })) {
+                        this.awakenedValues![id] = 1;
+                        this.awakenedAttribute!.needsUpdate = true;
+                    }
+                }
+            };
+            const originalReactToNote = (group as any).reactToNote as ReactToNoteHandler | undefined;
+            const wrapReactToNote = (fn: ReactToNoteHandler): ReactToNoteHandler =>
+                (note: string, color: number, velocity: number) => {
+                    awakenLuminousPlant(color);
+                    return fn(note, color, velocity);
+                };
+            let currentReactToNote: ReactToNoteHandler | undefined = typeof originalReactToNote === 'function'
+                ? wrapReactToNote(originalReactToNote)
+                : undefined;
+
+            Object.defineProperty(group, 'reactToNote', {
+                configurable: true,
+                enumerable: true,
+                get: () => currentReactToNote,
+                set: (value: unknown) => {
+                    if (typeof value === 'function') {
+                        currentReactToNote = wrapReactToNote(value as ReactToNoteHandler);
+                    } else {
+                        currentReactToNote = undefined;
+                    }
+                },
+            });
+        }
         this.count++;
         this.mesh.count = this.count;
 
         this.mesh.instanceMatrix.needsUpdate = true;
         phaseAttr.needsUpdate = true;
+        if (FEATURE_FLAGS.awakenedPersistence && this.awakenedAttribute) {
+            this.awakenedAttribute.needsUpdate = true;
+        }
 
         return id;
     }
 
-    dispose(): void {
-        if (this.mesh) {
-            if (this.mesh.geometry) {
-                this.mesh.geometry.dispose();
-                const phaseAttr = this.mesh.geometry.getAttribute('aPhaseOffset');
-                if (phaseAttr && typeof (phaseAttr as any).dispose === 'function') {
-                    try { (phaseAttr as any).dispose(); } catch(e) {}
-                }
-            }
-            if (this.mesh.material) {
-                if (Array.isArray(this.mesh.material)) {
-                    this.mesh.material.forEach(m => m.dispose());
-                } else {
-                    (this.mesh.material as any).dispose();
-                }
-            }
-            if (this.mesh.instanceColor && typeof (this.mesh.instanceColor as any).dispose === 'function') {
-                try { (this.mesh.instanceColor as any).dispose(); } catch (e) {}
-            }
-            if (this.mesh.instanceMatrix && typeof (this.mesh.instanceMatrix as any).dispose === 'function') {
-                try { (this.mesh.instanceMatrix as any).dispose(); } catch (e) {}
-            }
-        }
-    }
-}
 
+}
 export const luminousPlantBatcher = new LuminousPlantBatcher(CONFIG.luminousPlants?.density || 150);

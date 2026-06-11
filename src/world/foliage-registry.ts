@@ -30,6 +30,7 @@ import {
     createVineLadder,
 } from '../foliage/index.ts';
 import { createWisteriaCluster } from '../foliage/wisteria-cluster.ts';
+import { subwooferLotusBatcher } from '../foliage/subwoofer-lotus-batcher.ts';
 import { kickDrumGeyserBatcher } from '../foliage/kick-drum-geyser-batcher.ts';
 
 export interface WorldObjectMeta {
@@ -113,7 +114,11 @@ export function registerBuiltinWorldObjectTypes(): void {
         return createRainingCloud({ size });
     }, { defaultRadius: 0.8, batcherHint: 'cloud' });
 
-    registerType('subwoofer_lotus', (params) => createSubwooferLotus({ scale: typeof params?.scale === 'number' ? params.scale : 1.0 }), { supportsMusic: true });
+    registerType('subwoofer_lotus', (params) => {
+        const proxy = new THREE.Group();
+        subwooferLotusBatcher.register(proxy, { scale: typeof params?.scale === 'number' ? params.scale : 1.0 });
+        return proxy;
+    }, { supportsMusic: true, batcherHint: 'musical_flora' });
     registerType('accordion_palm', () => createAccordionPalm({ color: 0xFFD700 }), { defaultIsObstacle: true });
     registerType('fiber_optic_willow', () => createFiberOpticWillow(), { defaultIsObstacle: true });
     registerType('floating_orb', (params) => createFloatingOrb({ size: typeof params?.size === 'number' ? params.size : 0.5 }));

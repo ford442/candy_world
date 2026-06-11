@@ -19,7 +19,7 @@ import { BiomeUniforms } from '../systems/biome-uniforms.ts';
 // Use the instanced color varying populated by InstancedMeshNode
 const instanceColor = varyingProperty('vec3', 'vInstanceColor');
 
-const MAX_FLOWERS = 1000; // Reduced from 5000 for WebGPU uniform buffer limits
+const MAX_FLOWERS = 5000; // Reduced from 5000 for WebGPU uniform buffer limits
 const _scratchMat = new THREE.Matrix4();
 const _scratchMat2 = new THREE.Matrix4(); // ⚡ OPTIMIZATION: Additional scratch matrix
 const _scratchMat3 = new THREE.Matrix4(); // ⚡ OPTIMIZATION: Additional scratch matrix

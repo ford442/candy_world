@@ -27,6 +27,7 @@
     "test:world-health": "node tests/world-health.test.mjs",
     "test:wasm-loader": "node tests/wasm-loader-reliability.mjs",
     "test:startup": "node tests/startup-bootstrap.mjs",
+    "test:progressive-boot": "node tests/progressive-boot.test.mjs",
     "test:integration": "npm run build:wasm && npm run test:wasm && npm run test:spawn-tracker && npm run test:world-health && npm run test",
     "test:smoke:full": "FULL_BOOT=1 npm run test",
     "test:smoke:fast": "FULL_BOOT=fast npm run test",
