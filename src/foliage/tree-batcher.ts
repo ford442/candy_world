@@ -602,22 +602,27 @@ export class TreeBatcher {
         switch (countProp) {
             case 'trunkCount':
                 if (index >= this.trunkCapacity) this.growTrunkBuffer();
+                if (index >= this.trunkCapacity) return;
                 mesh = this.trunks;
                 break;
             case 'sphereCount':
                 if (index >= this.sphereCapacity) this.growSphereBuffer();
+                if (index >= this.sphereCapacity) return;
                 mesh = this.spheres;
                 break;
             case 'capsuleCount':
                 if (index >= this.capsuleCapacity) this.growCapsuleBuffer();
+                if (index >= this.capsuleCapacity) return;
                 mesh = this.capsules;
                 break;
             case 'helixCount':
                 if (index >= this.helixCapacity) this.growHelixBuffer();
+                if (index >= this.helixCapacity) return;
                 mesh = this.helices;
                 break;
             case 'roseCount':
                 if (index >= this.roseCapacity) this.growRoseBuffer();
+                if (index >= this.roseCapacity) return;
                 mesh = this.roses;
                 break;
         }
