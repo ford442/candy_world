@@ -252,7 +252,9 @@ export class AtmosphereManager {
         if (giantsCount > 0) {
             const centerX = giantsX / giantsCount;
             const centerZ = giantsZ / giantsCount;
-            const len = Math.sqrt(centerX * centerX + centerZ * centerZ) || 1;
+            // ⚡ OPTIMIZATION: Check squared length before Math.sqrt to avoid overhead on zero/tiny vectors
+            const lenSq = centerX * centerX + centerZ * centerZ;
+            const len = lenSq > 0.0001 ? Math.sqrt(lenSq) : 1;
             const attractX = centerX / len;
             const attractZ = centerZ / len;
             
@@ -261,7 +263,9 @@ export class AtmosphereManager {
         }
 
         // Normalize
-        const dirLen = Math.sqrt(windDirection.x * windDirection.x + windDirection.y * windDirection.y + windDirection.z * windDirection.z) || 1;
+        // ⚡ OPTIMIZATION: Check squared length before Math.sqrt to avoid overhead on zero/tiny vectors
+        const dirLenSq = windDirection.x * windDirection.x + windDirection.y * windDirection.y + windDirection.z * windDirection.z;
+        const dirLen = dirLenSq > 0.0001 ? Math.sqrt(dirLenSq) : 1;
         windDirection.x /= dirLen;
         windDirection.y /= dirLen;
         windDirection.z /= dirLen;

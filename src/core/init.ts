@@ -49,6 +49,15 @@ declare global {
 }
 
 /**
+ * Light shaft / god ray opacity uniform. Cached on `window` so HMR reloads of this
+ * module reuse the same TSL uniform node instead of recreating it (recreating a
+ * uniform that's already bound to a material triggers a shader recompile).
+ * Driven by sunrise/sunset logic (src/core/game-loop.ts) and by night-time melody
+ * reactivity (src/systems/atmosphere-reactivity.ts).
+ */
+export const uShaftOpacity = window.uShaftOpacity || (window.uShaftOpacity = uniform(0.0));
+
+/**
  * Create a renderer with automatic WebGL fallback if WebGPU is unavailable
  * or if the WebGPURenderer constructor throws at runtime (e.g. Safari 17.4 where
  * navigator.gpu exists but requestAdapter() returns null).
@@ -212,7 +221,7 @@ export function initScene(): SceneInitResult {
     const shaftGeometry = new THREE.PlaneGeometry(8, 200);
 
     // Create light shaft material based on renderer mode
-    const uShaftOpacity = window.uShaftOpacity || (window.uShaftOpacity = uniform(0.0));
+    // (uShaftOpacity is the module-level export above, cached on window for HMR safety)
     let shaftMaterial: THREE.MeshBasicMaterial | MeshBasicNodeMaterial;
     
     if (mode === 'webgpu') {
