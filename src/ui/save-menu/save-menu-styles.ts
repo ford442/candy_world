@@ -96,13 +96,12 @@ export const MENU_STYLES = `
 
 .candy-save-menu__close:active {
     transform: rotate(90deg) scale(0.95);
-    transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    transition-duration: 0.05s;
 }
 
 .candy-save-menu__close:focus-visible {
     outline: none;
-    outline: 3px solid #ff4081;
-    outline-offset: 3px;
+    box-shadow: 0 0 0 3px #1a1a2e, 0 0 0 6px #ff4081;
     position: relative;
     z-index: 10;
 }
@@ -133,13 +132,12 @@ export const MENU_STYLES = `
 
 .candy-save-menu__tab:active {
     transform: scale(0.95);
-    transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    transition-duration: 0.05s;
 }
 
 .candy-save-menu__tab:focus-visible {
     outline: none;
-    outline: 3px solid #ff4081;
-    outline-offset: 3px;
+    box-shadow: 0 0 0 3px #1a1a2e, 0 0 0 6px #ff4081;
     position: relative;
     z-index: 10;
 }
@@ -187,7 +185,7 @@ export const MENU_STYLES = `
 .candy-save-slot:active {
     transform: translateY(0) scale(0.98);
     filter: brightness(0.95);
-    transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    transition-duration: 0.05s;
 }
 
 .candy-save-slot--empty {
@@ -272,13 +270,12 @@ export const MENU_STYLES = `
 
 .candy-save-slot__btn:active {
     transform: scale(0.95);
-    transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    transition-duration: 0.05s;
 }
 
 .candy-save-slot__btn:focus-visible {
     outline: none;
-    outline: 3px solid #ff4081;
-    outline-offset: 3px;
+    box-shadow: 0 0 0 3px #1a1a2e, 0 0 0 6px #ff4081;
     position: relative;
     z-index: 10;
 }
@@ -348,7 +345,7 @@ export const MENU_STYLES = `
 
 .candy-save-menu__btn:active {
     transform: translateY(0) scale(0.95);
-    transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    transition-duration: 0.05s;
 }
 
 .candy-save-menu__btn[aria-disabled="true"] {
@@ -359,8 +356,7 @@ export const MENU_STYLES = `
 
 .candy-save-menu__btn:focus-visible {
     outline: none;
-    outline: 3px solid #ff4081;
-    outline-offset: 3px;
+    box-shadow: 0 0 0 3px #1a1a2e, 0 0 0 6px #ff4081;
     position: relative;
     z-index: 10;
 }
@@ -460,8 +456,7 @@ export const MENU_STYLES = `
 
 .candy-toggle:focus-visible {
     outline: none;
-    outline: 3px solid #ff4081;
-    outline-offset: 3px;
+    box-shadow: 0 0 0 3px #1a1a2e, 0 0 0 6px #ff4081;
     position: relative;
     z-index: 10;
 }
@@ -505,13 +500,12 @@ export const MENU_STYLES = `
 
 .candy-keybind:active {
     transform: scale(0.95);
-    transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    transition-duration: 0.05s;
 }
 
 .candy-keybind:focus-visible {
     outline: none;
-    outline: 3px solid #ff4081;
-    outline-offset: 3px;
+    box-shadow: 0 0 0 3px #1a1a2e, 0 0 0 6px #ff4081;
     position: relative;
     z-index: 10;
 }
@@ -583,13 +577,12 @@ export const MENU_STYLES = `
 
 .candy-file-label:active {
     transform: scale(0.95);
-    transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    transition-duration: 0.05s;
 }
 
 .candy-file-label:focus-visible {
     outline: none;
-    outline: 3px solid #ff4081;
-    outline-offset: 3px;
+    box-shadow: 0 0 0 3px #1a1a2e, 0 0 0 6px #ff4081;
     position: relative;
     z-index: 10;
 }

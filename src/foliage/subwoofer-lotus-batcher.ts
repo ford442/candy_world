@@ -11,11 +11,7 @@ import {
     registerReactiveMaterial,
     uAudioLow,
     uGlitchIntensity,
-    uTime,
-    getCachedProceduralMaterial,
-    createJuicyRimLight,
-    calculateWindSway,
-    applyPlayerInteraction
+    uTime
 } from './index.ts';
 import { BiomeUniforms } from '../systems/biome-uniforms.ts';
 import { makeInteractive } from '../utils/interaction-utils.ts';
@@ -56,48 +52,36 @@ export class SubwooferLotusBatcher {
         foliageGroup.add(this.padMesh);
 
         // 2. Rings
-        const ringMat = getCachedProceduralMaterial('subwoofer_lotus_rings', 0xFFFFFF, () => {
-            const mat = new MeshStandardNodeMaterial();
-            mat.colorNode = color(0xFFFFFF);
-            mat.roughnessNode = float(0.2);
-            mat.metalnessNode = float(0.5);
+        const ringMat = new MeshStandardNodeMaterial();
+        ringMat.colorNode = color(0xFFFFFF);
+        ringMat.roughnessNode = float(0.2);
+        ringMat.metalnessNode = float(0.5);
 
-            const bassPulse = uAudioLow.mul(0.8).mul(BiomeUniforms.crystallineNebula.amplitudeScale);
-            const glitchShake = mx_noise_float(vec3(uTime.mul(20.0), float(0.0), float(0.0))).mul(uGlitchIntensity).mul(0.5);
-            const displacement = bassPulse.add(glitchShake);
+        const bassPulse = uAudioLow.mul(0.8).mul(BiomeUniforms.crystallineNebula.amplitudeScale);
+        const glitchShake = mx_noise_float(vec3(uTime.mul(20.0), float(0.0), float(0.0))).mul(uGlitchIntensity).mul(0.5);
+        const displacement = bassPulse.add(glitchShake);
 
-            const normalColor = vec3(1.0, 1.0, 1.0);
-            const glitchColor = vec3(0.8, 0.0, 1.0);
-            const finalColor = mix(normalColor, glitchColor, uGlitchIntensity);
+        const normalColor = vec3(1.0, 1.0, 1.0);
+        const glitchColor = vec3(0.8, 0.0, 1.0);
+        const finalColor = mix(normalColor, glitchColor, uGlitchIntensity);
 
-            const shimmerTint = vec3(0.4, 0.0, 1.0);
-            const shimmerGlow = BiomeUniforms.crystallineNebula.shimmer.mul(shimmerTint).mul(2.5);
-            const emission = finalColor.mul(bassPulse.add(0.2)).add(shimmerGlow);
+        const shimmerTint = vec3(0.4, 0.0, 1.0);
+        const shimmerGlow = BiomeUniforms.crystallineNebula.shimmer.mul(shimmerTint).mul(2.5);
+        const emission = finalColor.mul(bassPulse.add(0.2)).add(shimmerGlow);
 
-            mat.colorNode = finalColor;
+        ringMat.colorNode = finalColor;
 
-            const glowPhaseOffset = positionLocal.x.add(positionLocal.z).mul(2.0);
-            const idlePulse = sin(uTime.mul(float(CONFIG.glow.glowPulseFrequency)).add(glowPhaseOffset)).mul(float(CONFIG.glow.glowPulseAmplitude)).add(1.0).mul(float(0.5)).mul(uAudioLow.mul(0.3).add(0.7));
-            const targetGlowColor = color(CONFIG.glow.glowColorMap['lotus']);
-            const twilightGlowTint = targetGlowColor
-                .mul(uTwilight)
-                .mul(float(CONFIG.glow.glowIntensityMax))
-                .mul(float(0.3).add(idlePulse));
+        const glowPhaseOffset = positionLocal.x.add(positionLocal.z).mul(2.0);
+        const idlePulse = sin(uTime.mul(float(CONFIG.glow.glowPulseFrequency)).add(glowPhaseOffset)).mul(float(CONFIG.glow.glowPulseAmplitude)).add(1.0).mul(float(0.5)).mul(uAudioLow.mul(0.3).add(0.7));
+        const targetGlowColor = color(CONFIG.glow.glowColorMap['lotus']);
+        const twilightGlowTint = targetGlowColor
+            .mul(uTwilight)
+            .mul(float(CONFIG.glow.glowIntensityMax))
+            .mul(float(0.3).add(idlePulse));
+        ringMat.emissiveNode = emission.add(twilightGlowTint);
 
-            // 🎨 PALETTE: Juicy Rim Light for volumetric glow
-            const rimLight = createJuicyRimLight(finalColor, float(1.5), float(3.0), null);
-
-            mat.emissiveNode = emission.add(twilightGlowTint).add(rimLight);
-
-            const displacedPos = positionLocal.add(vec3(0.0, displacement, 0.0));
-
-            // Add Wind Sway and Player Interaction
-            const posWind = displacedPos.add(calculateWindSway(displacedPos));
-            const posFinal = applyPlayerInteraction(posWind);
-            mat.positionNode = posFinal;
-
-            return mat;
-        });
+        const newPos = positionLocal.add(vec3(0.0, displacement, 0.0));
+        ringMat.positionNode = newPos;
 
         registerReactiveMaterial(ringMat);
 
@@ -121,37 +105,25 @@ export class SubwooferLotusBatcher {
         const centerGeo = new THREE.CircleGeometry(0.25, 32);
         centerGeo.rotateX(-Math.PI / 2);
         centerGeo.translate(0, 0.6, 0);
+        const centerMat = new MeshStandardNodeMaterial();
+        centerMat.roughnessNode = float(0.0);
 
-        const centerMat = getCachedProceduralMaterial('subwoofer_lotus_center', 0x000000, () => {
-            const mat = new MeshStandardNodeMaterial();
-            mat.roughnessNode = float(0.0);
+        const vUv = uv().sub(0.5).mul(2.0);
+        const len = length(vUv);
+        const spinSpeed = uTime.mul(5.0).add(uGlitchIntensity.mul(20.0));
+        const angle = float(atan2(vUv.y, vUv.x)).add(spinSpeed.mul(float(1.0).sub(len)));
+        const spiral = sin(angle.mul(5.0).sub(len.mul(10.0)));
+        const active = max(smoothstep(0.1, 0.5, uGlitchIntensity), smoothstep(0.7, 1.0, uAudioLow));
 
-            const vUv = uv().sub(0.5).mul(2.0);
-            const len = length(vUv);
-            const spinSpeed = uTime.mul(5.0).add(uGlitchIntensity.mul(20.0));
-            const angle = float(atan2(vUv.y, vUv.x)).add(spinSpeed.mul(float(1.0).sub(len)));
-            const spiral = sin(angle.mul(5.0).sub(len.mul(10.0)));
-            const active = max(smoothstep(0.1, 0.5, uGlitchIntensity), smoothstep(0.7, 1.0, uAudioLow));
+        const portalColor = vec3(0.0, 0.0, 0.0);
+        const swirlColor = vec3(0.5, 0.0, 1.0);
+        const hotColor = vec3(1.0, 0.0, 0.5);
 
-            const portalColor = vec3(0.0, 0.0, 0.0);
-            const swirlColor = vec3(0.5, 0.0, 1.0);
-            const hotColor = vec3(1.0, 0.0, 0.5);
+        const finalPortal = mix(portalColor, swirlColor, spiral.mul(active));
+        const hotCenter = smoothstep(0.2, 0.0, len).mul(hotColor).mul(active);
 
-            const finalPortal = mix(portalColor, swirlColor, spiral.mul(active));
-            const hotCenter = smoothstep(0.2, 0.0, len).mul(hotColor).mul(active);
-
-            mat.colorNode = vec3(0.0);
-            mat.emissiveNode = finalPortal.add(hotCenter);
-
-            // Add Wind Sway and Player Interaction
-            const posWind = positionLocal.add(calculateWindSway(positionLocal));
-            const posFinal = applyPlayerInteraction(posWind);
-            mat.positionNode = posFinal;
-
-            return mat;
-        });
-
-        registerReactiveMaterial(centerMat);
+        centerMat.colorNode = vec3(0.0);
+        centerMat.emissiveNode = finalPortal.add(hotCenter);
 
         this.centerMesh = new THREE.InstancedMesh(centerGeo, centerMat, MAX_LOTUS);
         this.centerMesh.count = 0;

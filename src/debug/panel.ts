@@ -144,8 +144,6 @@ export class DebugPanel {
       <div style="color: #0f0; margin-bottom: 4px;">Keyboard Shortcuts:</div>
       <div>• <kbd style="background:#333;padding:1px 4px;border-radius:2px">P</kbd> - Toggle Profiler</div>
       <div>• <kbd style="background:#333;padding:1px 4px;border-radius:2px">O</kbd> - Toggle Startup Overlay</div>
-      <div style="margin-top: 6px; color: #0f0;">Boot Presets (?boot=):</div>
-      <div>sandbox → limited → standard → full</div>
       <div style="margin-top: 6px; color: #0f0;">Status Legend:</div>
       <div>⏳ Loading • ✅ Success • ❌ Failed • ⏭️ Skipped</div>
     `;

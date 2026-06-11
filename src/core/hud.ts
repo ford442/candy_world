@@ -221,7 +221,7 @@ export function updateDashHUD(
     if (isReady) {
         const kick = _cachedPrefersReducedMotion ? 0 : (audioState?.kickTrigger || 0);
         const scale = 1.0 + kick * 0.15;
-        const pressed = hudDash.classList.contains('keyboard-active') || hudDash.matches(':active');
+        const pressed = hudDash.classList.contains('pressed');
         // Multiply by 0.9 if pressed (mimics CSS active state)
         const finalScale = pressed ? scale * 0.9 : scale;
         hudDash.style.transform = `scale(${finalScale.toFixed(3)})`;
@@ -257,7 +257,7 @@ export function updateMineHUD(
     if (isReady) {
         const kick = _cachedPrefersReducedMotion ? 0 : (audioState?.kickTrigger || 0);
         const scale = 1.0 + kick * 0.15;
-        const pressed = hudMine.classList.contains('keyboard-active') || hudMine.matches(':active');
+        const pressed = hudMine.classList.contains('pressed');
         const finalScale = pressed ? scale * 0.9 : scale;
         hudMine.style.transform = `scale(${finalScale.toFixed(3)})`;
     } else {
@@ -331,7 +331,7 @@ export function updatePhaseHUD(
         if (isReady) {
             const kick = _cachedPrefersReducedMotion ? 0 : (audioState?.kickTrigger || 0);
             const scale = 1.0 + kick * 0.15;
-            const pressed = hudPhase.classList.contains('keyboard-active') || hudPhase.matches(':active');
+            const pressed = hudPhase.classList.contains('pressed');
             const finalScale = pressed ? scale * 0.9 : scale;
             hudPhase.style.transform = `scale(${finalScale.toFixed(3)})`;
         } else {

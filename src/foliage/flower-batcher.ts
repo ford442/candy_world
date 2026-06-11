@@ -18,7 +18,7 @@ import { BiomeUniforms } from '../systems/biome-uniforms.ts';
 import { musicReactivitySystem } from '../systems/music-reactivity.ts';
 import { camera } from '../core/camera-ref.ts';
 
-const MAX_FLOWERS = 5000; // Reduced from 5000 for WebGPU uniform buffer limits
+const MAX_FLOWERS = 1000; // Reduced from 5000 for WebGPU uniform buffer limits
 const MAX_PETALS = MAX_FLOWERS * 8; // Up to 8 petals per flower (reduced from 15 for WebGPU limits)
 
 // ⚡ OPTIMIZATION: Scratch variables to prevent GC spikes during registration
@@ -380,16 +380,6 @@ export class FlowerBatcher {
 
         if (index >= max) return;
 
-        const bufferLength = mesh.instanceMatrix.array.length / 16;
-        if (index >= max || index >= bufferLength || index < 0) {
-            console.error(
-                `[BOLT CRASH] ${this.constructor.name} prevented out-of-bounds write!`,
-                `index=${index}`,
-                `maxInstances=${max}`,
-                `bufferCapacity=${bufferLength}`
-            );
-            return; // Early return to prevent bad write
-        }
         // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
         matrix.toArray(mesh.instanceMatrix.array, (index) * 16);
         if (color && mesh.instanceColor) {

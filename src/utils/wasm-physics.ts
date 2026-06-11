@@ -69,10 +69,6 @@ export interface PlayerStateResult {
 /** Shared Float32Array for updating dynamic object radii in WASM (Zero-Allocation Bridge) */
 export let dynamicRadiiView: Float32Array | null = null;
 let _obstacleUploadView: Float32Array | null = null;
-
-let _collisionUploadBuffer: Float32Array | null = null;
-let _collisionUploadCapacity = 0;
-
 const MAX_OBSTACLES = 2000;
 
 /**
@@ -215,17 +211,10 @@ export function uploadCollisionObjects(
     // Check if batch function exists
     const hasBatchFunction = exports.addCollisionObjectsBatch;
 
-    // Use batch upload - reduces JS<->WASM bridge crossings from N to 1
-    const BATCH_SIZE = 8; // [type, x, y, z, r, h, p1, p2]
-
-        // ⚡ OPTIMIZATION: Use persistent Float32Array buffer to avoid allocation and GC spikes
-        const requiredCapacity = totalCount * BATCH_SIZE;
-        if (!_collisionUploadBuffer || _collisionUploadCapacity < requiredCapacity) {
-            _collisionUploadCapacity = Math.max(requiredCapacity, _collisionUploadCapacity * 2 || 4096);
-            _collisionUploadBuffer = new Float32Array(_collisionUploadCapacity);
-        }
-
-        const batchData = _collisionUploadBuffer;
+    if (hasBatchFunction) {
+        // Use batch upload - reduces JS<->WASM bridge crossings from N to 1
+        const BATCH_SIZE = 8; // [type, x, y, z, r, h, p1, p2]
+        const batchData = new Float32Array(totalCount * BATCH_SIZE);
         let ptr = 0;
 
         // 1. Gates (TASK 1: Guard against undefined cave/userData)
@@ -302,10 +291,9 @@ export function uploadCollisionObjects(
             // Allocate memory in WASM and copy data
             const wasmMalloc = exports.malloc || exports.__new;
             if (wasmMalloc) {
-                // We only need to allocate and copy exactly the required capacity
-                const dataPtr = wasmMalloc(requiredCapacity * 4); // 4 bytes per float
-                const wasmFloatView = new Float32Array(wasmMemory!.buffer, dataPtr, requiredCapacity);
-                wasmFloatView.set(batchData.subarray(0, requiredCapacity));
+                const dataPtr = wasmMalloc(batchData.length * 4); // 4 bytes per float
+                const wasmFloatView = new Float32Array(wasmMemory!.buffer, dataPtr, batchData.length);
+                wasmFloatView.set(batchData);
 
                 wasmBatchUpload(dataPtr, totalCount);
 
@@ -314,8 +302,57 @@ export function uploadCollisionObjects(
                 if (wasmFree) wasmFree(dataPtr);
             }
         }
+    } else {
+        // Fallback: Sequential upload (for backwards compatibility)
+        // 1. Gates (TASK 1: Guard against undefined cave/userData)
+        if (caves && caves.length > 0) {
+            for (let i = 0; i < caves.length; i++) { const cave = caves[i];
+                if (cave && cave.userData && cave.userData.isBlocked) {
+                    // ⚡ OPTIMIZATION: Eliminate Vector allocation and GC spike by using module-level scratch vector
+                    const gatePos = _scratchGatePos.copy(cave.userData.gatePosition).applyMatrix4(cave.matrixWorld);
+                    wasmAddCollisionObject!(3, gatePos.x, gatePos.y, gatePos.z, 2.5, 5.0, 0, 0, 0);
+                }
+            }
+        }
 
-    console.log(`[WASM Physics] Uploaded ${totalCount} collision objects to ASC. (batched)`);
+        // 2. Mushrooms (TASK 1: Guard against undefined mushroom/userData/position)
+        if (mushrooms && mushrooms.length > 0) {
+            for (let i = 0; i < mushrooms.length; i++) { const m = mushrooms[i];
+                if (m && m.userData && m.position) {
+                    if (m.userData.isTrampoline) {
+                         wasmAddCollisionObject!(4, m.position.x, m.position.y, m.position.z,
+                            m.userData.capRadius || 2.0, m.userData.capHeight || 3.0, 0, 0, 0);
+                    } else {
+                         wasmAddCollisionObject!(1, m.position.x, m.position.y, m.position.z,
+                            m.userData.capRadius || 2.0, m.userData.capHeight || 3.0, 0, 0, 0);
+                    }
+                }
+            }
+        }
+
+        // 3. Clouds (TASK 1: Guard against undefined cloud/userData/position/scale)
+        if (clouds && clouds.length > 0) {
+            for (let i = 0; i < clouds.length; i++) { const c = clouds[i];
+                 if (c && c.userData && c.userData.tier === 1 && c.position && c.scale) {
+                     wasmAddCollisionObject!(2, c.position.x, c.position.y, c.position.z,
+                        c.scale.x || 1.0, c.scale.y || 1.0, 0, 0, 0);
+                 }
+            }
+        }
+
+        // 4. Dynamic Arpeggio Ferns (TASK 1: Guard against undefined fern/userData/position/scale)
+        if (arpeggioFerns && arpeggioFerns.length > 0) {
+            for (let i = 0; i < arpeggioFerns.length; i++) {
+                const f = arpeggioFerns[i];
+                if (f && f.userData && f.position && f.scale) {
+                    wasmAddCollisionObject!(5, f.position.x, f.position.y, f.position.z,
+                        DYNAMIC_FERN_COLLIDER_RADIUS, (f.userData.height || 4.5) * (f.scale.y || 1.0), i, 0, 0);
+                }
+            }
+        }
+    }
+
+    console.log(`[WASM Physics] Uploaded ${totalCount} collision objects to ASC.${hasBatchFunction ? ' (batched)' : ' (sequential)'}`);
     return true;
 }
 

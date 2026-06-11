@@ -12,7 +12,6 @@ import type { PlantPoseConfig } from '../foliage/plant-pose-machine.ts';
 //   ?no_audio_react       — skip beat-sync and music-reactivity hooks
 //   ?no_fireflies         — skip firefly particle system
 //   ?no_grass             — skip GPU grass instancing
-//   ?awakened_persistence — enable persistent awakened flora store (default off)
 //
 // Combine flags to isolate regressions: ?no_luminous&no_musical
 // All flags default to ENABLED (absent = feature on).
@@ -34,7 +33,6 @@ export const FEATURE_FLAGS = {
     audioReactivity:  !_hasFlag('no_audio_react'),
     fireflies:        !_hasFlag('no_fireflies'),
     grass:            !_hasFlag('no_grass'),
-    awakenedPersistence: _hasFlag('awakened_persistence'),
 } as const;
 
 // Log active overrides once at startup so the console makes the state obvious.

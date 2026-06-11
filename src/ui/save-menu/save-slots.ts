@@ -165,7 +165,6 @@ export async function handleSlotAction(
     // Set busy state if button was provided
     if (btnElement) {
         btnElement.setAttribute('aria-busy', 'true');
-        btnElement.setAttribute('aria-disabled', 'true');
         btnElement.style.pointerEvents = 'none';
         btnElement.style.opacity = '0.7';
         const originalText = btnElement.innerHTML;
@@ -174,7 +173,6 @@ export async function handleSlotAction(
         // Setup cleanup to restore state
         const cleanup = () => {
             btnElement.removeAttribute('aria-busy');
-            btnElement.removeAttribute('aria-disabled');
             btnElement.style.pointerEvents = '';
             btnElement.style.opacity = '';
             btnElement.innerHTML = originalText;
