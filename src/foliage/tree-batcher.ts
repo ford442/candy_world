@@ -601,25 +601,34 @@ export class TreeBatcher {
         // Check if we need to grow the buffer
         switch (countProp) {
             case 'trunkCount':
-                if (index >= this.trunkCapacity) { if (index >= MAX_INSTANCES) { console.warn("[TreeBatcher] Max capacity reached for trunks"); return; } this.growTrunkBuffer(); }
+                if (index >= this.trunkCapacity) this.growTrunkBuffer();
+                if (index >= this.trunkCapacity) return;
                 mesh = this.trunks;
                 break;
             case 'sphereCount':
-                if (index >= this.sphereCapacity) { if (index >= MAX_INSTANCES) { console.warn("[TreeBatcher] Max capacity reached for spheres"); return; } this.growSphereBuffer(); }
+                if (index >= this.sphereCapacity) this.growSphereBuffer();
+                if (index >= this.sphereCapacity) return;
                 mesh = this.spheres;
                 break;
             case 'capsuleCount':
-                if (index >= this.capsuleCapacity) { if (index >= MAX_INSTANCES) { console.warn("[TreeBatcher] Max capacity reached for capsules"); return; } this.growCapsuleBuffer(); }
+                if (index >= this.capsuleCapacity) this.growCapsuleBuffer();
+                if (index >= this.capsuleCapacity) return;
                 mesh = this.capsules;
                 break;
             case 'helixCount':
-                if (index >= this.helixCapacity) { if (index >= MAX_INSTANCES) { console.warn("[TreeBatcher] Max capacity reached for helices"); return; } this.growHelixBuffer(); }
+                if (index >= this.helixCapacity) this.growHelixBuffer();
+                if (index >= this.helixCapacity) return;
                 mesh = this.helices;
                 break;
             case 'roseCount':
-                if (index >= this.roseCapacity) { if (index >= MAX_INSTANCES) { console.warn("[TreeBatcher] Max capacity reached for roses"); return; } this.growRoseBuffer(); }
+                if (index >= this.roseCapacity) this.growRoseBuffer();
+                if (index >= this.roseCapacity) return;
                 mesh = this.roses;
                 break;
+        }
+
+        const maxInstances = mesh.instanceMatrix.array.length / 16;
+        if (index >= maxInstances || index < 0) {
         }
 
         // ⚡ OPTIMIZATION: Write directly to instanceMatrix array to bypass .setMatrixAt overhead.
@@ -633,8 +642,16 @@ export class TreeBatcher {
 
         const typeAttr = mesh.geometry.attributes.instanceAnimType as THREE.InstancedBufferAttribute;
         const offsetAttr = mesh.geometry.attributes.instanceAnimOffset as THREE.InstancedBufferAttribute;
-        if (typeAttr) { typeAttr.setX(index, animType); typeAttr.needsUpdate = true; }
-        if (offsetAttr) { offsetAttr.setX(index, animOffset); offsetAttr.needsUpdate = true; }
+        if (typeAttr) {
+            if (index < typeAttr.count) {
+                typeAttr.setX(index, animType); typeAttr.needsUpdate = true;
+            }
+        }
+        if (offsetAttr) {
+            if (index < offsetAttr.count) {
+                offsetAttr.setX(index, animOffset); offsetAttr.needsUpdate = true;
+            }
+        }
 
         // Update count
         switch (countProp) {

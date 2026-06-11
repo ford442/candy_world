@@ -439,15 +439,15 @@
 .skip-button:active,
 .fatal-error-reload:active {
   transform: translateY(0) scale(0.95);
-  transition-duration: 0.05s;
+  transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
   box-shadow: 
     0 1px 4px rgba(0, 0, 0, 0.15),
     0 0 0 1px rgba(255, 255, 255, 0.2) inset;
 }
 
 .skip-button:focus-visible {
-  outline: 2px solid #ff69b4;
-  outline-offset: 2px;
+  outline: 3px solid #ff4081;
+  outline-offset: 3px;
 }
 
 /* =============================================================================

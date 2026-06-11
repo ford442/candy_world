@@ -116,8 +116,11 @@ export class PlantPoseMachine {
                 if (this._envelopeLevel[i] < 0.0) this._envelopeLevel[i] = 0.0;
             }
 
-            // --- Target pose: baseline shifted by envelope contribution ---
-            this._targetPose[i] = baseline + (envelopePeak - baseline) * this._envelopeLevel[i];
+            // --- Target pose: driven by day/night cycle, boosted by music ---
+            // Music envelope allows the plant to open/glow at night.
+            // During the day, it's already open (baseline near dayTarget).
+            const musicTarget = nightTarget + (dayTarget - nightTarget) * (this._envelopeLevel[i] * sustainLevel);
+            this._targetPose[i] = Math.max(baseline, musicTarget);
 
             // --- Smooth currentPose toward targetPose ---
             this._currentPose[i] += (this._targetPose[i] - this._currentPose[i]) * lerpK;

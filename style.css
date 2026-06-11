@@ -143,7 +143,8 @@ body.a11y-motion-reduced .spinner {
 
 .close-icon-btn:focus-visible {
     outline: none;
-    box-shadow: 0 0 0 3px #ffffff, 0 0 0 6px #FF4081;
+    outline: 3px solid #ff4081;
+    outline-offset: 3px;
 }
 
 /* 🎨 Palette: Playlist Layout */
@@ -183,7 +184,8 @@ body.a11y-motion-reduced .spinner {
 
 .playlist-remove-btn:focus-visible {
     outline: none;
-    box-shadow: 0 0 0 3px #ffffff, 0 0 0 6px #FF4081;
+    outline: 3px solid #ff4081;
+    outline-offset: 3px;
     z-index: 5;
 }
 
@@ -261,7 +263,8 @@ body.a11y-motion-reduced .spinner {
 
 .ability-slot:focus-visible {
     outline: none;
-    box-shadow: 0 0 0 3px #ffffff, 0 0 0 6px #FF4081;
+    outline: 3px solid #ff4081;
+    outline-offset: 3px;
     border-color: #FF4081;
 }
 
@@ -533,7 +536,8 @@ kbd.key.key-highlight {
 
 .dpad-btn:focus-visible {
     outline: none;
-    box-shadow: 0 0 0 3px #ffffff, 0 0 0 6px #FF4081;
+    outline: 3px solid #ff4081;
+    outline-offset: 3px;
 }
 
 .dpad-btn.keyboard-active,
@@ -599,7 +603,7 @@ button.keyboard-active,
 
 .a11y-menu-btn:active {
     transform: scale(0.95);
-    transition-duration: 0.05s;
+    transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
 .a11y-menu-btn:focus-visible {
@@ -623,5 +627,5 @@ button.keyboard-active,
 .close-icon-btn:not([aria-disabled="true"]):active,
 .playlist-remove-btn:not([aria-disabled="true"]):active {
     transform: scale(0.95);
-    transition-duration: 0.05s;
+    transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }

@@ -247,6 +247,17 @@ export class GlowingFlowerBatcher {
         _scratchScale.set(0.05, stemHeight, 0.05);
         _scratchMat.makeScale(_scratchScale.x, _scratchScale.y, _scratchScale.z);
         _scratchMat.premultiply(baseMatrix);
+        const bufferLength1 = this.stemMesh!.instanceMatrix.array.length / 16;
+        if (i >= this.maxInstances || i >= bufferLength1 || i < 0) {
+            console.error(
+                `[BOLT CRASH] ${this.constructor.name} prevented out-of-bounds write!`,
+                `index=${i}`,
+                `maxInstances=${this.maxInstances}`,
+                `bufferCapacity=${bufferLength1}`,
+                `currentCount=${this.count}`
+            );
+            return -1; // Early return to prevent bad write
+        }
         // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
         _scratchMat.toArray(this.stemMesh!.instanceMatrix.array, (i) * 16);
 
@@ -258,6 +269,17 @@ export class GlowingFlowerBatcher {
         _scratchMat2.scale(_scratchScale);
         _scratchMat2.premultiply(baseMatrix);
         const headWorld = _scratchMat2;
+        const bufferLength2 = this.headMesh!.instanceMatrix.array.length / 16;
+        if (i >= this.maxInstances || i >= bufferLength2 || i < 0) {
+            console.error(
+                `[BOLT CRASH] ${this.constructor.name} prevented out-of-bounds write!`,
+                `index=${i}`,
+                `maxInstances=${this.maxInstances}`,
+                `bufferCapacity=${bufferLength2}`,
+                `currentCount=${this.count}`
+            );
+            return -1; // Early return to prevent bad write
+        }
         // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
         headWorld.toArray(this.headMesh!.instanceMatrix.array, (i) * 16);
 
@@ -269,6 +291,17 @@ export class GlowingFlowerBatcher {
         _scratchMat3.scale(_scratchScale);
         _scratchMat3.premultiply(baseMatrix);
         const washWorld = _scratchMat3;
+        const bufferLength3 = this.washMesh!.instanceMatrix.array.length / 16;
+        if (i >= this.maxInstances || i >= bufferLength3 || i < 0) {
+            console.error(
+                `[BOLT CRASH] ${this.constructor.name} prevented out-of-bounds write!`,
+                `index=${i}`,
+                `maxInstances=${this.maxInstances}`,
+                `bufferCapacity=${bufferLength3}`,
+                `currentCount=${this.count}`
+            );
+            return -1; // Early return to prevent bad write
+        }
         // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
         washWorld.toArray(this.washMesh!.instanceMatrix.array, (i) * 16);
 

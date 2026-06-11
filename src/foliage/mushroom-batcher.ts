@@ -3,7 +3,7 @@ import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { instanceIndex, color, float, vec3, vec4, attribute, positionLocal,
     sin, cos, mix, smoothstep, uniform, If, time,
     varying, dot, normalize, normalLocal, step, Fn, positionWorld, normalWorld,
-    max, pow, min, cameraPosition, uv, floor, instanceIndex, varyingProperty
+    max, pow, min, cameraPosition, uv, floor, varyingProperty, instancedArray
 } from 'three/tsl';
 
 // WGSL-compatible modulo: x - y * floor(x / y)
@@ -16,7 +16,7 @@ const modFloat = (x: any, y: any) => {
 import {
     sharedGeometries, foliageMaterials, uTime,
     uAudioLow, uAudioHigh, createRimLight, createJuicyRimLight, uPlayerPosition, colorFromNote,
-    createSugarSparkle, applyPlayerInteraction, calculateWindSway, calculateWindSway
+    createSugarSparkle, applyPlayerInteraction, calculateWindSway
 } from './index.ts';
 import { getCachedProceduralMaterial } from './material-core.ts';
 import { uTwilight } from './sky.ts';
@@ -25,6 +25,8 @@ import { foliageGroup } from '../world/state.ts'; // Assuming state.ts exports f
 import { spawnImpact } from './impacts.ts';
 import { uChromaticIntensity } from './chromatic.ts';
 import { CONFIG } from '../core/config.ts';
+import { FEATURE_FLAGS } from '../core/config.ts';
+import { awakenedPersistence, deriveAwakenedKey, registerAwakenedSpawn, markAwakened } from '../systems/awakened-persistence.ts';
 
 const MAX_MUSHROOMS = 4000; // Reduced from 4000 for WebGPU uniform buffer limits
 
@@ -41,6 +43,7 @@ const _scratchSpotScale = new THREE.Vector3();
 const _scratchUp = new THREE.Vector3(0, 1, 0);
 const _scratchEye = new THREE.Vector3();
 const _scratchDummyObj = new THREE.Object3D();
+const MUSHROOM_NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
 export class MushroomBatcher {
     private static instance: MushroomBatcher;
@@ -53,6 +56,9 @@ export class MushroomBatcher {
     // instanceData: x=packedFlags, y=spawnTime, z=triggerTime, w=velocity
     // packedFlags encoding: noteIndex+1 + hasFace*20 + isGiant*40
     private instanceData: THREE.InstancedBufferAttribute | null = null;
+    private awakenedValues: Float32Array | null = null;
+    private awakenedAttribute: THREE.InstancedBufferAttribute | null = null;
+    private awakenedKeys: string[] = [];
 
     // Mapping: Note Index (0-11) -> Array of Instance Indices
     private noteToInstances: Map<number, number[]> = new Map();
@@ -88,6 +94,11 @@ export class MushroomBatcher {
         // 2. Attributes - SINGLE packed attribute to stay within WebGPU 8 buffer limit
         this.instanceData = new THREE.InstancedBufferAttribute(new Float32Array(MAX_MUSHROOMS * 4), 4);
         geometry.setAttribute('instanceData', this.instanceData);
+        if (FEATURE_FLAGS.awakenedPersistence) {
+            this.awakenedValues = new Float32Array(MAX_MUSHROOMS);
+            this.awakenedAttribute = new THREE.InstancedBufferAttribute(this.awakenedValues, 1);
+            geometry.setAttribute('awakened', this.awakenedAttribute);
+        }
 
         // 3. Materials with TSL
         const materials = this.createMaterials();
@@ -410,10 +421,13 @@ export class MushroomBatcher {
 private createMaterials(): MeshStandardNodeMaterial[] {
     // --- Shared TSL Logic ---
     const instanceData = attribute('instanceData', 'vec4');
-    const packedFlags = instanceData.x;
-    const spawnTime = instanceData.y;
-    const triggerTime = instanceData.z;
-    const velocity = instanceData.w;
+const awakened = FEATURE_FLAGS.awakenedPersistence
+    ? instancedArray(MAX_MUSHROOMS, 'float').element(instanceIndex)
+    : float(0);
+const packedFlags = instanceData.x;
+const spawnTime = instanceData.y;
+const triggerTime = instanceData.z;
+const velocity = instanceData.w;
 
     // Decode flags
     const hasFace = modFloat(floor(packedFlags.div(20.0)), 2.0);
@@ -465,7 +479,7 @@ private createMaterials(): MeshStandardNodeMaterial[] {
     };
 
     const createCapMaterial = () => {
-        const mat = (foliageMaterials.mushroomCap[0] as MeshStandardNodeMaterial).clone();
+        const mat = (Array.isArray(foliageMaterials.mushroomCap) ? foliageMaterials.mushroomCap[0] : foliageMaterials.mushroomCap as any as MeshStandardNodeMaterial).clone();
 
         const deformed = deform(positionLocal);
         const finalPos = applyPlayerInteraction(deformed);
@@ -508,7 +522,7 @@ private createMaterials(): MeshStandardNodeMaterial[] {
 
         mat.emissiveNode = twilightGlowTint
             .mul(BiomeUniforms.crystallineNebula.noteColor)
-            .mul(totalGlow)
+            .mul(FEATURE_FLAGS.awakenedPersistence ? totalGlow.add(awakened.mul(0.18)) : totalGlow)
             .mul(circadianGlowMult);
         mat.emissiveIntensityNode = float(1.0);
 
@@ -577,9 +591,38 @@ private createMaterials(): MeshStandardNodeMaterial[] {
         // Track ID for removal
         this.logicIdToInstance.set(dummy.id, i);
         this.instanceToLogicId[i] = dummy.id;
+        if (FEATURE_FLAGS.awakenedPersistence) {
+            const biome = typeof dummy.userData.biome === 'string' && dummy.userData.biome ? dummy.userData.biome : 'unknown';
+            const key = deriveAwakenedKey({
+                type: 'mushroom',
+                biome,
+                x: dummy.position.x,
+                z: dummy.position.z,
+            });
+            dummy.userData.awakenedKey = key;
+            this.awakenedKeys[i] = key;
+            this.awakenedValues![i] = awakenedPersistence.getAwakenedScale(key);
+            registerAwakenedSpawn({
+                type: 'mushroom',
+                biome,
+                x: dummy.position.x,
+                z: dummy.position.z,
+            });
+        }
 
         // 1. Set Matrix
         _scratchMatrix.compose(dummy.position, dummy.quaternion, dummy.scale);
+        const bufferLength1 = this.mesh!.instanceMatrix.array.length / 16;
+        if (i >= this.maxInstances || i >= bufferLength1 || i < 0) {
+            console.error(
+                `[BOLT CRASH] ${this.constructor.name} prevented out-of-bounds write!`,
+                `index=${i}`,
+                `maxInstances=${this.maxInstances}`,
+                `bufferCapacity=${bufferLength1}`,
+                `currentCount=${this.count}`
+            );
+            return -1; // Early return to prevent bad write
+        }
         // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
         _scratchMatrix.toArray(this.mesh!.instanceMatrix.array, (i) * 16);
 
@@ -618,6 +661,7 @@ private createMaterials(): MeshStandardNodeMaterial[] {
         this.mesh!.instanceMatrix.needsUpdate = true;
         if (this.mesh!.instanceColor) this.mesh!.instanceColor.needsUpdate = true;
         this.instanceData!.needsUpdate = true;
+        if (FEATURE_FLAGS.awakenedPersistence && this.awakenedAttribute) this.awakenedAttribute.needsUpdate = true;
     }
 
     removeInstance(logicObject: THREE.Object3D) {
@@ -651,6 +695,17 @@ private createMaterials(): MeshStandardNodeMaterial[] {
             // A. Copy Attributes from Last to Removed
             // Matrix
             this.mesh!.getMatrixAt(lastIndex, _scratchMatrix);
+            const bufferLength2 = this.mesh!.instanceMatrix.array.length / 16;
+            if (indexToRemove >= this.maxInstances || indexToRemove >= bufferLength2 || indexToRemove < 0) {
+                console.error(
+                    `[BOLT CRASH] ${this.constructor.name} prevented out-of-bounds write!`,
+                    `index=${indexToRemove}`,
+                    `maxInstances=${this.maxInstances}`,
+                    `bufferCapacity=${bufferLength2}`,
+                    `currentCount=${this.count}`
+                );
+                return; // Early return to prevent bad write
+            }
             // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
         _scratchMatrix.toArray(this.mesh!.instanceMatrix.array, (indexToRemove) * 16);
 
@@ -673,6 +728,12 @@ private createMaterials(): MeshStandardNodeMaterial[] {
                 this.instanceData!.getZ(lastIndex),
                 this.instanceData!.getW(lastIndex)
             );
+            if (FEATURE_FLAGS.awakenedPersistence && this.awakenedValues) {
+                this.awakenedValues[indexToRemove] = this.awakenedValues[lastIndex];
+            }
+            if (FEATURE_FLAGS.awakenedPersistence && this.awakenedKeys[lastIndex]) {
+                this.awakenedKeys[indexToRemove] = this.awakenedKeys[lastIndex];
+            }
 
             // B. Update Note Mapping for the MOVED instance
             if (movedNoteIndex >= 0) {
@@ -691,6 +752,8 @@ private createMaterials(): MeshStandardNodeMaterial[] {
         // 3. Cleanup
         this.logicIdToInstance.delete(id);
         this.instanceToLogicId[lastIndex] = -1;
+        if (FEATURE_FLAGS.awakenedPersistence && this.awakenedValues) this.awakenedValues[lastIndex] = 0;
+        if (FEATURE_FLAGS.awakenedPersistence) this.awakenedKeys[lastIndex] = '';
         this.count--;
 
         // 4. Mark Updates
@@ -698,6 +761,7 @@ private createMaterials(): MeshStandardNodeMaterial[] {
         this.mesh!.instanceMatrix.needsUpdate = true;
         if (this.mesh!.instanceColor) this.mesh!.instanceColor.needsUpdate = true;
         this.instanceData!.needsUpdate = true;
+        if (FEATURE_FLAGS.awakenedPersistence && this.awakenedAttribute) this.awakenedAttribute.needsUpdate = true;
     }
 
     handleNote(noteIndex: number, velocity: number) {
@@ -714,6 +778,23 @@ private createMaterials(): MeshStandardNodeMaterial[] {
                 // Update triggerTime (z) and velocity (w) in packed attribute
                 this.instanceData!.setZ(i, now);
                 this.instanceData!.setW(i, normalizedVelocity); // Normalize velocity
+
+                if (FEATURE_FLAGS.awakenedPersistence && this.awakenedValues && this.awakenedValues[i] <= 0) {
+                    const noteName = MUSHROOM_NOTE_NAMES[noteIndex % MUSHROOM_NOTE_NAMES.length];
+                    const noteHex = CONFIG.noteColorMap.mushroom[noteName] ?? CONFIG.noteColorMap.global[noteName] ?? 0xffffff;
+                    if (markAwakened({
+                        key: this.awakenedKeys[i],
+                        type: 'mushroom',
+                        biome: 'mushroom',
+                        x: 0,
+                        z: 0,
+                        lastNoteColor: noteHex,
+                        emissiveScale: Math.max(0.5, normalizedVelocity),
+                    })) {
+                        this.awakenedValues[i] = Math.max(0.5, normalizedVelocity);
+                        if (this.awakenedAttribute) this.awakenedAttribute.needsUpdate = true;
+                    }
+                }
 
                 // PALETTE: Spawn Spores!
                 if (this.mesh) {

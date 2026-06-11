@@ -37,6 +37,7 @@ jobs:
         run: |
           # Use pnpm since there is a pnpm-lock.yaml file
           npm install -g pnpm
+          pnpm config set ignore-scripts false
           pnpm install
           cd tools/visual-regression
           pnpm install
@@ -44,7 +45,7 @@ jobs:
       - name: Install Playwright
         run: |
           cd tools/visual-regression
-          npx playwright install --with-deps chromium
+          pnpm exec playwright install --with-deps chromium
 
       - name: Build WASM
         run: |
@@ -52,7 +53,7 @@ jobs:
 
       - name: Start dev server
         run: |
-          pnpm exec vite &
+          pnpm exec vite --port 5173 &
           npx wait-on http-get://localhost:5173 --timeout 60000
 
       - name: Run visual regression tests

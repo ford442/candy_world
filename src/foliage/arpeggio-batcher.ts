@@ -390,6 +390,17 @@ export class ArpeggioFernBatcher {
         // Compose directly from the logic object's properties without using a proxy THREE.Object3D
         dummy.scale.setScalar(scale);
         _scratchMatrix.compose(dummy.position, dummy.quaternion, dummy.scale);
+        const bufferLength1 = this.mesh!.instanceMatrix.array.length / 16;
+        if (i >= this.maxInstances || i >= bufferLength1 || i < 0) {
+            console.error(
+                `[BOLT CRASH] ${this.constructor.name} prevented out-of-bounds write!`,
+                `index=${i}`,
+                `maxInstances=${this.maxInstances}`,
+                `bufferCapacity=${bufferLength1}`,
+                `currentCount=${this.count}`
+            );
+            return; // Early return to prevent bad write
+        }
         _scratchMatrix.toArray(this.mesh!.instanceMatrix.array, i * 16);
 
         // Color
@@ -415,6 +426,17 @@ export class ArpeggioFernBatcher {
         // ⚡ OPTIMIZATION: Eliminate CPU overhead and GC spikes from Matrix4 composition by writing directly to instanceMatrix.array
         // Compose directly from the logic object's properties without using a proxy THREE.Object3D
         _scratchMatrix.compose(dummy.position, dummy.quaternion, dummy.scale);
+        const bufferLength2 = this.mesh!.instanceMatrix.array.length / 16;
+        if (index >= this.maxInstances || index >= bufferLength2 || index < 0) {
+            console.error(
+                `[BOLT CRASH] ${this.constructor.name} prevented out-of-bounds write!`,
+                `index=${index}`,
+                `maxInstances=${this.maxInstances}`,
+                `bufferCapacity=${bufferLength2}`,
+                `currentCount=${this.count}`
+            );
+            return; // Early return to prevent bad write
+        }
         _scratchMatrix.toArray(this.mesh!.instanceMatrix.array, index * 16);
 
         this.mesh!.instanceMatrix.needsUpdate = true;

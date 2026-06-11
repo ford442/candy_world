@@ -304,6 +304,17 @@ export class DandelionBatcher {
         _scratchScale.setScalar(scale);
         _scratchMat.scale(_scratchScale);
 
+        const bufferLength1 = this.mesh!.instanceMatrix.array.length / 16;
+        if (i >= this.maxInstances || i >= bufferLength1 || i < 0) {
+            console.error(
+                `[BOLT CRASH] ${this.constructor.name} prevented out-of-bounds write!`,
+                `index=${i}`,
+                `maxInstances=${this.maxInstances}`,
+                `bufferCapacity=${bufferLength1}`,
+                `currentCount=${this.count}`
+            );
+            return; // Early return to prevent bad write
+        }
         // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
         _scratchMat.toArray(this.mesh!.instanceMatrix.array, (i) * 16);
         this.mesh!.instanceMatrix.needsUpdate = true;
@@ -320,6 +331,17 @@ export class DandelionBatcher {
         // Just hide it by scaling to zero
         this.dummy.scale.set(0, 0, 0);
         _scratchMat.compose(this.dummy.position, this.dummy.quaternion, this.dummy.scale);
+        const bufferLength2 = this.mesh.instanceMatrix.array.length / 16;
+        if (batchIndex >= this.maxInstances || batchIndex >= bufferLength2 || batchIndex < 0) {
+            console.error(
+                `[BOLT CRASH] ${this.constructor.name} prevented out-of-bounds write!`,
+                `index=${batchIndex}`,
+                `maxInstances=${this.maxInstances}`,
+                `bufferCapacity=${bufferLength2}`,
+                `currentCount=${this.count}`
+            );
+            return; // Early return to prevent bad write
+        }
         _scratchMat.toArray(this.mesh.instanceMatrix.array, (batchIndex) * 16);
         this.mesh.instanceMatrix.needsUpdate = true;
 
