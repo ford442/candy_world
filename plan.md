@@ -104,6 +104,8 @@ Status: Implemented ✅
 Next Step: Provide instructions for next feature.
 
 Status: Implemented ✅
+* Implementation Details: Implemented `RELIABLE_BOOT` feature flag in `config.ts` and `generation-core.ts` to allow critical startup elements to bypass the deferred loading queue. Fixed a material cloning array access bug in `mushroom-batcher.ts` and added explicit `.capacity` bounds checks to 4 batchers to prevent memory corruption.
+Next Step: Await user request for next priority task.
 * Implementation Details: Replaced the default checkbox for the accessibility menu toggles with an accessible `visually-hidden` and `custom-toggle` pattern in `src/ui/accessibility-menu-rendering.ts` and `src/ui/accessibility-menu.css`. Applied "Game Feel" tactile scaling, `:focus-visible` accessibility rings, and `prefers-reduced-motion: reduce` fallback styles.
 
 Status: Implemented ✅
