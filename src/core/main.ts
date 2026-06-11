@@ -2,6 +2,17 @@
 // Main entry point - Core initialization and game startup
 
 import * as THREE from 'three';
+
+declare global {
+    interface Window {
+        __visualRegression?: {
+            ready: boolean;
+            stableFrames: number;
+            frameCount: number;
+            isHeadless?: boolean;
+        };
+    }
+}
 import '../../style.css';
 import { validateNodeGeometries } from '../foliage/index.ts';
 
@@ -747,6 +758,23 @@ if (startButton) {
                 } catch {}
 
                 document.dispatchEvent(new CustomEvent('worldFullyPopulated'));
+
+                // === Visual Regression Readiness Signal ===
+                if (typeof window !== 'undefined') {
+                    if (!window.__visualRegression) {
+                        window.__visualRegression = {
+                            ready: false,
+                            stableFrames: 0,
+                            frameCount: 0,
+                            isHeadless: false
+                        };
+                    }
+                    window.__visualRegression.ready = true;
+                    window.__visualRegression.isHeadless =
+                        /headless/i.test(navigator.userAgent) ||
+                        !!navigator.webdriver;
+                    console.log('[VisualRegression] Scene ready signal set');
+                }
 
                 // Run world health validation and surface any warnings.
                 try {

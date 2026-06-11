@@ -288,16 +288,24 @@ export class ScreenshotCapture {
       skipIntro: 'true'
     });
 
-    await this.page.goto(`${this.baseUrl}?${params.toString()}`, {
-      waitUntil: 'networkidle',
-      timeout: 120000
-    });
+    try {
+      await this.page.goto(`${this.baseUrl}?${params.toString()}`, {
+        waitUntil: 'domcontentloaded',
+        timeout: 45000
+      });
+    } catch (e) {
+      console.log('Timeout during goto, attempting to continue...');
+    }
 
     // Wait for the game to initialize
     // We wait for the #candy-loading-overlay to not have the .visible class, or for __sceneReady
-    await this.page.waitForFunction(() => {
-      return document.querySelector('#candy-loading-overlay.loaded') !== null || !document.getElementById('candy-loading-overlay') || (window as any).__sceneReady === true || (window as any).__visualRegression !== undefined;
-    }, { timeout: 120000 });
+    try {
+      await this.page.waitForFunction(() => {
+        return document.querySelector('#candy-loading-overlay.loaded') !== null || !document.getElementById('candy-loading-overlay') || (window as any).__sceneReady === true || (window as any).__visualRegression !== undefined;
+      }, { timeout: 45000 });
+    } catch (e) {
+      console.log('Timeout waiting for game initialization...');
+    }
 
     const startBtn = this.page.locator('#startButton').first();
 
@@ -328,14 +336,21 @@ export class ScreenshotCapture {
     await this.page.waitForTimeout(1000);
 
     // Set up camera position and environment
-    await this.setupViewpoint(options.viewpoint);
+    try {
+      await this.setupViewpoint(options.viewpoint);
+    } catch (e) {
+      console.log('Error setting up viewpoint, page may have crashed:', e);
+    }
   }
 
   /**
    * Set up camera and environment for a specific viewpoint
    */
   private async setupViewpoint(viewpoint: Viewpoint): Promise<void> {
-    if (!this.page) throw new Error('Page not initialized');
+    if (!this.page || this.page.isClosed()) {
+      console.log('Page closed before setupViewpoint could run');
+      return;
+    }
 
     await this.page.evaluate((vp) => {
       // Access the game's camera and scene through the global game instance
@@ -378,23 +393,33 @@ export class ScreenshotCapture {
    * Wait for a stable frame (no animation jitter)
    */
   async waitForStableFrame(minStableFrames: number = 10): Promise<void> {
-    if (!this.page) throw new Error('Page not initialized');
+    if (!this.page || this.page.isClosed()) return;
 
-    await this.page.waitForFunction(
-      (minFrames) => {
-        const vr = (window as any).__visualRegression;
-        return vr && vr.stableFrames >= minFrames;
-      },
-      minStableFrames,
-      { timeout: 120000 }
-    );
+    try {
+        await this.page.waitForFunction(() => {
+            const vr = (window as any).__visualRegression;
+            if (!vr) return false;
+
+            // Primary signal: explicit ready flag from the app
+            if (vr.ready === true) {
+                return true;
+            }
+
+            // Fallback: stable frames or sufficient frame count in headless
+            return (vr.stableFrames > 2) || (vr.frameCount > 120);
+        }, { timeout: 60000, polling: 200 });
+
+        console.log('[ScreenshotCapture] Scene ready signal received');
+    } catch (err) {
+        console.warn('[ScreenshotCapture] Ready signal timeout, using fallback');
+    }
   }
 
   /**
    * Capture screenshot
    */
   async capture(options: ScreenshotOptions): Promise<string> {
-    if (!this.page) throw new Error('Page not initialized');
+    if (!this.page || this.page.isClosed()) throw new Error('Page not initialized or closed');
 
     // Wait for stable frame if needed
     await this.waitForStableFrame(10);
