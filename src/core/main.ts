@@ -286,6 +286,7 @@ console.log(`[Startup] Camera positioned at ground height: y=${camera.position.y
 
 // --- START BUTTON + MAP GENERATION (unchanged UX) ---
 const startButton = document.getElementById('startButton') as HTMLButtonElement | null;
+const statusEl = document.getElementById('world-status');
 
 if (startButton) {
     startButton.disabled = false;
@@ -451,6 +452,11 @@ if (startButton) {
                 const baseLabel = label ?? getGenerationLabel(requestedMode);
                 const progressLabel = entityType ? `${baseLabel} · ${entityType}` : baseLabel;
                 loadingScreen.updateProgress(percent, progressLabel);
+
+                if (statusEl) {
+                    statusEl.textContent = progressLabel;
+                }
+
                 startButton.style.background = requestedMode === 'CORE'
                     ? `linear-gradient(90deg, #FF9ECD ${percent}%, #FFD4E3 ${percent}%)`
                     : `linear-gradient(90deg, #FF6B6B ${percent}%, #FFB6C1 ${percent}%)`;
@@ -477,6 +483,10 @@ if (startButton) {
             loadingScreen.updateProgress(100, 'World generation complete!');
             loadingScreen.completePhase('map-generation');
             loadingScreen.hide();
+
+            if (statusEl) {
+                statusEl.textContent = 'World generated. Welcome to Candy World.';
+            }
 
             // ♿ Aria: Announce that the game is fully loaded and exploration has started
             import('../ui/announcer.ts').then(({ announce }) => {
