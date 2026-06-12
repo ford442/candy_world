@@ -411,13 +411,13 @@ export class MushroomBatcher {
         // Packed format: x=packedFlags, y=spawnTime, z=triggerTime, w=velocity
         // packedFlags: noteIndex+1 + hasFace*20 + isGiant*40
         const instanceData = attribute('instanceData', 'vec4');
-        
+
         // Unpack the flags
         const packedFlags = instanceData.x;
         const hasFace = modFloat(floor(packedFlags.div(20.0)), float(2.0));
         const isGiant = modFloat(floor(packedFlags.div(40.0)), float(2.0));
         // noteIndex = (packed % 20) - 1, but we don't need it in shader since color is set via setColorAt
-        
+
         const spawnTime = instanceData.y;
         const triggerTime = instanceData.z;
         const velocity = instanceData.w;
@@ -592,7 +592,7 @@ export class MushroomBatcher {
         // To make it truly glow in dark, we should add some of it to emissive too?
         // Yes, let's add a fraction of inner glow to emissive for night visibility.
         const totalGlow = baseGlow.add(flashIntensity).add(sugarSparkle).add(innerGlowFactor.mul(0.3));
-        
+
         // Add twilight glow directly to emissive node output
         // Circadian night-glow: mushroom caps brighten at night (phase=0), dim by day (phase=1).
         const circadianGlowMult = mix(float(CONFIG.circadian.nightGlowMultiplier), float(1.0), uCircadianPhase);

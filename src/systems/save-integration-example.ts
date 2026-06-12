@@ -1,6 +1,6 @@
 /**
  * Save System Integration Example for Candy World
- * 
+ *
  * This file demonstrates how to integrate the save system with
  * the existing game systems. This is a reference implementation.
  */
@@ -29,26 +29,26 @@ declare const weatherSystem: WeatherSystem;
 export function initializeSaveSystemIntegration(): void {
     // Override player data gathering
     (saveSystem as any).gatherPlayerData = gatherPlayerData;
-    
+
     // Override world data gathering
     (saveSystem as any).gatherWorldData = gatherWorldData;
-    
+
     // Override progress data gathering
     (saveSystem as any).gatherProgressData = gatherProgressData;
-    
+
     // Set up event callbacks
     saveSystem.onSaveComplete = () => {
         console.log('[Save] Game saved successfully');
     };
-    
+
     saveSystem.onLoadComplete = (data) => {
         console.log('[Save] Game loaded:', data.metadata.slotName);
         applyLoadedData(data);
     };
-    
+
     // Set up discovery event saves
     setupEventSaves();
-    
+
     console.log('[Save] Save system integration initialized');
 }
 
@@ -64,7 +64,7 @@ function gatherPlayerData() {
         },
         {
             x: 0, // Rotation X (pitch) - extract from camera if needed
-            y: 0, // Rotation Y (yaw) - extract from camera if needed  
+            y: 0, // Rotation Y (yaw) - extract from camera if needed
             z: 0  // Rotation Z (roll) - usually 0
         },
         {
@@ -95,11 +95,11 @@ function gatherWorldData() {
         intensity: 0,
         stormCharge: 0
     };
-    
+
     // Get time of day from cycle system
     // This would need to be imported from your cycle/time system
     const timeOfDay = getTimeOfDay(); // TODO: Implement based on your time system
-    
+
     return createWorldSaveData(
         timeOfDay,
         {
@@ -120,18 +120,18 @@ function gatherWorldData() {
  */
 function gatherProgressData(playtime: number) {
     // Get discoveries from discovery system
-    const discoveries = (discoverySystem as any).discoveredItems 
+    const discoveries = (discoverySystem as any).discoveredItems
         ? Array.from((discoverySystem as any).discoveredItems)
         : [];
-    
+
     // Get inventory from unlock system
     const inventory = (unlockSystem as any).inventory || {};
-    
+
     // Get unlocks from unlock system
-    const unlocks = (unlockSystem as any).unlocks 
+    const unlocks = (unlockSystem as any).unlocks
         ? Array.from((unlockSystem as any).unlocks)
         : [];
-    
+
     return createProgressSaveData(
         discoveries,
         inventory,
@@ -157,7 +157,7 @@ function applyLoadedData(data: SaveData): void {
             data.player.position.z
         );
     }
-    
+
     // Apply player velocity
     if (data.player.velocity) {
         player.velocity.set(
@@ -166,7 +166,7 @@ function applyLoadedData(data: SaveData): void {
             data.player.velocity.z
         );
     }
-    
+
     // Apply player state
     player.energy = data.player.energy;
     player.maxEnergy = data.player.maxEnergy;
@@ -175,14 +175,14 @@ function applyLoadedData(data: SaveData): void {
     player.hasShield = data.player.hasShield;
     player.isPhasing = data.player.isPhasing;
     player.isInvisible = data.player.isInvisible;
-    
+
     // Apply unlocks
     const unlocksSet = (unlockSystem as any).unlocks as Set<string>;
     unlocksSet.clear();
     for (let i = 0; i < data.progress.unlocks.length; i++) {
         unlocksSet.add(data.progress.unlocks[i]);
     }
-    
+
     // Apply inventory
     const inventory = (unlockSystem as any).inventory as Record<string, number>;
     for (const key in inventory) {
@@ -195,21 +195,21 @@ function applyLoadedData(data: SaveData): void {
             inventory[key] = data.progress.inventory[key];
         }
     }
-    
+
     // Apply discoveries
     const discoveries = (discoverySystem as any).discoveredItems as Set<string>;
     discoveries.clear();
     for (let i = 0; i < data.progress.discoveredEntities.length; i++) {
         discoveries.add(data.progress.discoveredEntities[i]);
     }
-    
+
     // Apply settings
     saveSystem.updateSettings(data.settings);
     applySettings(data.settings);
-    
+
     // Apply world state
     applyWorldState(data.world);
-    
+
     console.log('[Save] Save data applied to game state');
 }
 
@@ -222,12 +222,12 @@ function applySettings(settings: SaveData['settings']): void {
     // audioSystem.setMasterVolume(settings.audioVolume);
     // audioSystem.setMusicVolume(settings.musicVolume);
     // audioSystem.setSFXVolume(settings.sfxVolume);
-    
+
     // Apply graphics settings
     // TODO: Connect to your renderer
     // renderer.shadowMap.enabled = settings.shadows;
     // camera.fov = settings.fov;
-    
+
     console.log('[Save] Settings applied');
 }
 
@@ -238,12 +238,12 @@ function applyWorldState(world: SaveData['world']): void {
     // Apply time of day
     // TODO: Connect to your time/cycle system
     // setTimeOfDay(world.timeOfDay);
-    
+
     // Apply weather
     // TODO: Connect to your weather system
     // (weatherSystem as any).setState(world.weatherState, world.weatherIntensity);
     // (weatherSystem as any).stormCharge = world.stormCharge;
-    
+
     console.log('[Save] World state applied');
 }
 
@@ -264,7 +264,7 @@ function setupEventSaves(): void {
         }
         return result;
     };
-    
+
     // Hook into unlock system
     const originalHarvest = (unlockSystem as any).harvest;
     (unlockSystem as any).harvest = function(itemId: string, amount?: number, displayName?: string) {
@@ -289,7 +289,7 @@ export function addSaveMenuToUI(): void {
             e.preventDefault();
             openSaveGameMenu();
         }
-        // F9 - Load Menu  
+        // F9 - Load Menu
         if (e.key === 'F9') {
             e.preventDefault();
             openLoadMenu((data) => {
@@ -297,18 +297,18 @@ export function addSaveMenuToUI(): void {
             });
         }
     });
-    
+
     // Add pause menu button
     const pauseMenu = document.getElementById('pause-menu');
     if (pauseMenu) {
         const saveButton = document.createElement('button');
         saveButton.textContent = '💾 Save Game';
         saveButton.onclick = () => openSaveGameMenu();
-        
+
         const loadButton = document.createElement('button');
         loadButton.textContent = '📂 Load Game';
         loadButton.onclick = () => openLoadMenu((data) => applyLoadedData(data));
-        
+
         pauseMenu.appendChild(saveButton);
         pauseMenu.appendChild(loadButton);
     }

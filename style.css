@@ -624,3 +624,22 @@ button[aria-pressed="true"],
     transform: scale(0.95);
     transition-duration: 0.05s;
 }
+
+
+/* ♿ Aria: Canvas focus visible state */
+#glCanvas:focus-visible {
+    outline: 3px solid rgba(255, 182, 255, 0.8);
+    box-shadow: 0 0 20px rgba(180, 255, 200, 0.6);
+}
+
+
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    border: 0;
+}

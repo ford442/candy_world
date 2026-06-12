@@ -171,12 +171,14 @@ export class GPUCullingSystem {
             size: sphereBufferSize,
             usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
             label: 'culling-spheres',
+            mappedAtCreation: false,
         });
 
         this.planeBuffer = device.createBuffer({
             size: planeBufferSize,
             usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
             label: 'culling-planes',
+            mappedAtCreation: false,
         });
 
         // Create output buffers
@@ -184,18 +186,21 @@ export class GPUCullingSystem {
             size: outputBufferSize,
             usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST,
             label: 'culling-visible',
+            mappedAtCreation: false,
         });
 
         this.lodBuffer = device.createBuffer({
             size: outputBufferSize,
             usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST,
             label: 'culling-lod',
+            mappedAtCreation: false,
         });
 
         this.cameraBuffer = device.createBuffer({
             size: cameraBufferSize,
             usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
             label: 'culling-camera',
+            mappedAtCreation: false,
         });
 
         // Create frustum cull pipeline
@@ -342,6 +347,7 @@ export class GPUCullingSystem {
             size: 112, // 6*16 + 16 bytes
             usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
             label: 'frustum-uniforms',
+            mappedAtCreation: false,
         });
         device.queue.writeBuffer(frustumUniformBuffer, 0, frustumUniformData);
 
@@ -504,6 +510,7 @@ export class GPUCullingSystem {
             size: maxDraws * 16,
             usage: GPUBufferUsage.INDIRECT | GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
             label: 'culling-indirect',
+            mappedAtCreation: false,
         });
     }
 

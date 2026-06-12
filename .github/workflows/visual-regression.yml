@@ -1,4 +1,7 @@
 name: Visual Regression Tests
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 on:
   push:
     branches: [main, develop]
@@ -31,14 +34,16 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
 
       - name: Install dependencies
         run: |
           # Use pnpm since there is a pnpm-lock.yaml file
           npm install -g pnpm
+          pnpm config set ignore-scripts false
           pnpm install
           cd tools/visual-regression
+          pnpm config set ignore-scripts false
           pnpm install
 
       - name: Install Playwright

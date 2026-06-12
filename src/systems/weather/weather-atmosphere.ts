@@ -255,7 +255,7 @@ export class AtmosphereManager {
             const len = Math.sqrt(centerX * centerX + centerZ * centerZ) || 1;
             const attractX = centerX / len;
             const attractZ = centerZ / len;
-            
+
             windDirection.x += (attractX - windDirection.x) * 0.05;
             windDirection.z += (attractZ - windDirection.z) * 0.05;
         }

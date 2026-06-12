@@ -32,9 +32,12 @@ import { getMapSourceFromUrl, loadMap, setupMapHotReload, type LoadedCandyMap } 
 import { clearMapMusicContext, deriveMapMusicContext, setMapMusicContext } from './map-music-context.ts';
 import { create, getTypeMeta, registerBuiltinWorldObjectTypes, registerWorldObject } from './foliage-registry.ts';
 import { treeBatcher } from '../foliage/tree-batcher.ts';
+import { treeBatcher } from '../foliage/tree-batcher.ts';
+import { subwooferLotusBatcher } from '../foliage/subwoofer-lotus-batcher.ts';
 
 let loadedMapPromise: Promise<LoadedCandyMap> | null = null;
 
+export let worldGenerationToken = 0;
 registerBuiltinWorldObjectTypes();
 
 const STREAMING_PRIORITY_TYPES = [
@@ -721,7 +724,8 @@ export async function populateWorld(
         await generateMap(weatherSystem, DEFAULT_MAP_CHUNK_SIZE, onProgress);
         console.log('[World] Full mode population complete.');
         console.log('[World] populateWorld() complete in FULL mode');
-        return 'FULL';
+        subwooferLotusBatcher.flushRegistrations();
+    return 'FULL';
     } catch (error) {
         console.error('[World] Full population failed. Falling back from FULL to CORE.', error);
         delete (window as any).__fastPopulationOverride;
