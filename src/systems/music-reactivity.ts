@@ -1,5 +1,336 @@
 import { MRState, computeWaveTimeSinceArrival, ActiveWave, applyMapMusicContext, syncMapMusicContext, toChannels, mapNoteToColor, WeatherReactivityBinding, WeatherMusicTargets, _frustum, _projScreenMatrix, _scratchSphere, _targetMoonColor, _targetArpeggioColor, _targetNebulaColor, _targetGlobalColor, _zeroVec, _waveColor, _whiteColor } from './music-reactivity-core.ts';
 export * from './music-reactivity-core.ts';
+import * as THREE from 'three';
+import { CONFIG, CYCLE_DURATION } from '../core/config.ts';
+import { getDayNightBias } from '../core/cycle.ts';
+import { animateFoliage } from '../foliage/animation.ts';
+import { foliageBatcher } from '../foliage/batcher/index.ts';
+import { arpeggioFernBatcher } from '../foliage/arpeggio-batcher.ts';
+import { portamentoPineBatcher } from '../foliage/portamento-batcher.ts';
+import { mushroomBatcher } from '../foliage/mushroom-batcher.ts';
+import { flowerBatcher } from '../foliage/flower-batcher.ts';
+import { simpleFlowerBatcher } from '../foliage/simple-flower-batcher.ts';
+import { kickDrumGeyserBatcher } from '../foliage/kick-drum-geyser-batcher.ts';
+import { subwooferLotusBatcher } from '../foliage/subwoofer-lotus-batcher.ts';
+import type { AudioData, FoliageObject } from '../foliage/types.ts';
+import { BiomeUniforms, SkyUniforms, LuminousPlantUniforms } from './biome-uniforms.ts';
+import { uTwilight } from '../foliage/sky.ts';
+import { BeatSync } from '../audio/beat-sync.ts';
+import { registerAtmosphereBeatSync, updateAtmosphereReactivity } from './atmosphere-reactivity.ts';
+import musicBindings from '../../assets/music-bindings.json';
+import { getMapMusicContext } from '../world/map-music-context.ts';
+import type { MapMusicOverrides } from '../world/map-loader.ts';
+
+// ⚡ OPTIMIZATION: Pre-parsed channel index arrays from music-bindings.json.
+// Resolved once at module init — immutable after that, zero per-frame allocations.
+const _defaultArpeggioShimmerCh: readonly number[] = musicBindings.biomes.arpeggio_grove.shimmer;
+const _defaultArpeggioHueShiftCh: readonly number[] = musicBindings.biomes.arpeggio_grove.hueShift;
+const _defaultArpeggioNoteColorCh: readonly number[] = musicBindings.biomes.arpeggio_grove.noteColor;
+const _defaultNebulaShimmerCh: readonly number[] = musicBindings.biomes.crystalline_nebula.shimmer;
+const _defaultNebulaAmplitudeCh: readonly number[] = musicBindings.biomes.crystalline_nebula.amplitudeScale;
+const _defaultNebulaNoteColorCh: readonly number[] = musicBindings.biomes.crystalline_nebula.noteColor;
+const _defaultSkyMoonNoteColorCh: readonly number[] = musicBindings.biomes.sky_moon.noteColor;
+const _defaultSkyMoonIntensityCh: readonly number[] = musicBindings.biomes.sky_moon.intensity;
+const _defaultGlobalShimmerCh: readonly number[] = musicBindings.biomes.global.shimmer;
+const _defaultGlobalHueShiftCh: readonly number[] = musicBindings.biomes.global.hueShift;
+const _defaultGlobalNoteColorCh: readonly number[] = musicBindings.biomes.global.noteColor;
+
+let _arpeggioShimmerCh: readonly number[] = _defaultArpeggioShimmerCh;
+let _arpeggioHueShiftCh: readonly number[] = _defaultArpeggioHueShiftCh;
+let _arpeggioNoteColorCh: readonly number[] = _defaultArpeggioNoteColorCh;
+let _nebulaShimmerCh: readonly number[] = _defaultNebulaShimmerCh;
+let _nebulaAmplitudeCh: readonly number[] = _defaultNebulaAmplitudeCh;
+let _nebulaNoteColorCh: readonly number[] = _defaultNebulaNoteColorCh;
+let _skyMoonNoteColorCh: readonly number[] = _defaultSkyMoonNoteColorCh;
+let _skyMoonIntensityCh: readonly number[] = _defaultSkyMoonIntensityCh;
+let _globalShimmerCh: readonly number[] = _defaultGlobalShimmerCh;
+let _globalHueShiftCh: readonly number[] = _defaultGlobalHueShiftCh;
+let _globalNoteColorCh: readonly number[] = _defaultGlobalNoteColorCh;
+
+let _arpeggioIntensityScale = 1.0;
+let _nebulaIntensityScale = 1.0;
+let _globalIntensityScale = 1.0;
+let _skyMoonIntensityScale = 1.0;
+let _luminousIntensityScale = 1.0;
+
+// ⚡ OPTIMIZATION: Per-frame scratch floats — no per-frame object allocations.
+let _arpeggioShimmerAccum = 0.0;
+let _arpeggioHueShiftAccum = 0.0;
+let _nebulaShimmerAccum = 0.0;
+let _nebulaAmplitudeAccum = 0.0;
+let _skyMoonIntensityAccum = 0.0;
+let _globalShimmerAccum = 0.0;
+let _globalHueShiftAccum = 0.0;
+export let _skyMoonNoteVal = 0.0; // The active MIDI note (e.g., 60 for C4)
+let _arpeggioNoteVal = 0.0;
+let _nebulaNoteVal = 0.0;
+let _globalNoteVal = 0.0;
+
+// ⚡ OPTIMIZATION: Module-scoped colors for zero-allocation note lerping
+const _targetMoonColor = new THREE.Color(0xffffff);
+const _targetArpeggioColor = new THREE.Color(0xffffff);
+const _targetNebulaColor = new THREE.Color(0xffffff);
+const _targetGlobalColor = new THREE.Color(0xffffff);
+
+// ⚡ OPTIMIZATION: Sky/Moon note reactivity scratch — allocated once, never in hot path.
+// melody_channel from assets/music-bindings.json sky_moon block.
+const _skyMoonConfig = (musicBindings as any).sky_moon;
+if (!_skyMoonConfig || typeof _skyMoonConfig.melody_channel !== 'number') {
+    throw new Error('[MusicReactivity] Missing or invalid sky_moon.melody_channel in music-bindings.json');
+}
+const _defaultSkyMoonMelodyCh: number = _skyMoonConfig.melody_channel as number;
+let _skyMoonCh: number = _defaultSkyMoonMelodyCh;
+const _defaultLuminousPlantTrackerChannel: number = (musicBindings as any).luminous_plants?.tracker_channel ?? 2;
+let _luminousPlantTrackerChannel: number = _defaultLuminousPlantTrackerChannel;
+let _smoothedSkyIntensity = 0.0;
+// Last valid note index (0–127) kept across frames to avoid flicker when channel is silent.
+let _lastSkyNoteIndex = 0.0;
+
+// ⚡ OPTIMIZATION: Reusable Frustum & Matrices
+const _frustum = new THREE.Frustum();
+const _projScreenMatrix = new THREE.Matrix4();
+const _scratchSphere = new THREE.Sphere(); // Reusable for Group culling checks
+
+// ⚡ OPTIMIZATION: Reusable scratch array for species list
+const _scratchSpeciesList: string[] = [];
+
+// --- Weather Music Reactivity ---
+// Parsed once at module init from assets/music-bindings.json weatherReactivity block.
+export interface WeatherReactivityBinding {
+    channel: number;
+    smoothing: number;
+    scale: number;
+}
+
+/** Normalized target values (0–1) written each frame by MusicReactivitySystem.update().
+ *  Consumed by WeatherSystem to blend music-driven weather intensity.
+ *  Decays to zero when disabled or when no audio is playing.
+ */
+export const WeatherMusicTargets = { rainIntensity: 0, thunderPulse: 0, fogDensity: 0 };
+
+// Decay rate for WeatherMusicTargets when feature is disabled (~200 ms time constant)
+const WEATHER_TARGET_DECAY_RATE = 5.0;
+
+const _defaultWeatherBindings: {
+    rainIntensity?: WeatherReactivityBinding;
+    thunderPulse?: WeatherReactivityBinding;
+    fogDensity?: WeatherReactivityBinding;
+} = (musicBindings as any).weatherReactivity ?? {};
+let _weatherBindings: {
+    rainIntensity?: WeatherReactivityBinding;
+    thunderPulse?: WeatherReactivityBinding;
+    fogDensity?: WeatherReactivityBinding;
+} = {
+    rainIntensity: _defaultWeatherBindings.rainIntensity ? { ..._defaultWeatherBindings.rainIntensity } : undefined,
+    thunderPulse: _defaultWeatherBindings.thunderPulse ? { ..._defaultWeatherBindings.thunderPulse } : undefined,
+    fogDensity: _defaultWeatherBindings.fogDensity ? { ..._defaultWeatherBindings.fogDensity } : undefined,
+};
+
+// ⚡ SKY WAVE config from music-bindings.json
+const _skyWaveConfig = (musicBindings as any).sky_wave;
+const _defaultSkyWavePropagationMs = _skyWaveConfig?.propagation_ms ?? 800;
+const _defaultSkyWaveDecayMs = _skyWaveConfig?.decay_ms ?? 2000;
+const _defaultSkyWaveTargets: readonly string[] = _skyWaveConfig?.target_biomes ?? ['arpeggio_grove', 'crystalline_nebula', 'luminous_plants', 'sky_moon', 'global', 'musical_flora', 'lake_features'];
+let _skyWavePropagationMs = _defaultSkyWavePropagationMs;
+let _skyWaveDecayMs = _defaultSkyWaveDecayMs;
+let _skyWaveTargets: readonly string[] = _defaultSkyWaveTargets;
+
+// Map from sky_wave.target_biomes keys (in music-bindings.json) → the Color uniform to receive the propagating hue.
+// This makes the wave fully data-driven. Adding a new target = add key here + entry in JSON list.
+// Many foliage already consume arpeggioGrove.noteColor or crystallineNebula.noteColor (portamento, wisteria, trees, mushrooms),
+// so they receive the sky wave "for free" when those hubs are targeted.
+const _skyWaveUniformMap: Record<string, { value: THREE.Color }> = {
+  arpeggio_grove: BiomeUniforms.arpeggioGrove.noteColor,
+  crystalline_nebula: BiomeUniforms.crystallineNebula.noteColor,
+  luminous_plants: LuminousPlantUniforms.noteColor as any, // allows sky hue to reach luminous plants (mixed in their batcher)
+  musical_flora: BiomeUniforms.musicalFlora.noteColor,
+  lake_features: BiomeUniforms.lakeFeatures.noteColor,
+  global: BiomeUniforms.global.noteColor,
+  sky_moon: BiomeUniforms.skyMoon.moonNoteColor as any,
+};
+
+// ⚡ SKY WAVE state — pre-allocated, zero per-frame allocations in hot path
+export interface ActiveWave { color: THREE.Color; timestamp: number; origin?: THREE.Vector3; speed?: number; }
+let _activeWave: ActiveWave | null = null;
+
+const _zeroVec = new THREE.Vector3();
+export function computeWaveTimeSinceArrival(plantWorldPos: THREE.Vector3, activeWave: ActiveWave | null, cameraPosition?: THREE.Vector3): number {
+    if (!activeWave) return -999;
+    const origin = activeWave.origin || cameraPosition || _zeroVec;
+    const speed = activeWave.speed || 25.0;
+    // ⚡ OPTIMIZATION: Bypassed THREE.Vector3.distanceTo() overhead in hot loop with raw math
+    const dx = plantWorldPos.x - origin.x;
+    const dy = plantWorldPos.y - origin.y;
+    const dz = plantWorldPos.z - origin.z;
+    const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+    const arrivalTime = activeWave.timestamp + (distance / speed) * 1000;
+    return (performance.now() - arrivalTime) / 1000;
+}
+const _waveColor = new THREE.Color(); // scratch for beat capture
+const _whiteColor = new THREE.Color(0xffffff);
+let _waveDecayStartTime = 0;
+
+// One-time validation flag for channel range checks against music-bindings.json
+let _channelValidationDone = false;
+let _appliedMapMusicVersion = -1;
+
+function toChannels(value: unknown): readonly number[] | undefined {
+    if (!Array.isArray(value) || value.length === 0) return undefined;
+    const sanitized: number[] = [];
+    for (let i = 0; i < value.length; i++) {
+        const channel = value[i];
+        if (Number.isInteger(channel) && channel >= 0 && channel <= 255) sanitized.push(channel as number);
+    }
+    return sanitized.length > 0 ? sanitized : undefined;
+}
+
+function applyMapMusicContext(overrides: MapMusicOverrides | undefined): void {
+    _arpeggioShimmerCh = _defaultArpeggioShimmerCh;
+    _arpeggioHueShiftCh = _defaultArpeggioHueShiftCh;
+    _arpeggioNoteColorCh = _defaultArpeggioNoteColorCh;
+    _nebulaShimmerCh = _defaultNebulaShimmerCh;
+    _nebulaAmplitudeCh = _defaultNebulaAmplitudeCh;
+    _nebulaNoteColorCh = _defaultNebulaNoteColorCh;
+    _skyMoonNoteColorCh = _defaultSkyMoonNoteColorCh;
+    _skyMoonIntensityCh = _defaultSkyMoonIntensityCh;
+    _globalShimmerCh = _defaultGlobalShimmerCh;
+    _globalHueShiftCh = _defaultGlobalHueShiftCh;
+    _globalNoteColorCh = _defaultGlobalNoteColorCh;
+
+    _arpeggioIntensityScale = 1.0;
+    _nebulaIntensityScale = 1.0;
+    _globalIntensityScale = 1.0;
+    _skyMoonIntensityScale = 1.0;
+    _luminousIntensityScale = 1.0;
+
+    _skyMoonCh = _defaultSkyMoonMelodyCh;
+    _luminousPlantTrackerChannel = _defaultLuminousPlantTrackerChannel;
+
+    _weatherBindings = {
+        rainIntensity: _defaultWeatherBindings.rainIntensity ? { ..._defaultWeatherBindings.rainIntensity } : undefined,
+        thunderPulse: _defaultWeatherBindings.thunderPulse ? { ..._defaultWeatherBindings.thunderPulse } : undefined,
+        fogDensity: _defaultWeatherBindings.fogDensity ? { ..._defaultWeatherBindings.fogDensity } : undefined,
+    };
+    _skyWavePropagationMs = _defaultSkyWavePropagationMs;
+    _skyWaveDecayMs = _defaultSkyWaveDecayMs;
+    _skyWaveTargets = _defaultSkyWaveTargets;
+
+    const biomeOverrides = overrides?.biomes;
+    if (biomeOverrides && typeof biomeOverrides === 'object') {
+        const arpeggio = biomeOverrides.arpeggio_grove;
+        const nebula = biomeOverrides.crystalline_nebula;
+        const skyMoon = biomeOverrides.sky_moon;
+        const global = biomeOverrides.global;
+        if (arpeggio) {
+            _arpeggioShimmerCh = toChannels(arpeggio.shimmer) ?? _arpeggioShimmerCh;
+            _arpeggioHueShiftCh = toChannels(arpeggio.hueShift) ?? _arpeggioHueShiftCh;
+            _arpeggioNoteColorCh = toChannels(arpeggio.noteColor) ?? _arpeggioNoteColorCh;
+            if (typeof arpeggio.intensityScale === 'number' && Number.isFinite(arpeggio.intensityScale)) {
+                _arpeggioIntensityScale = arpeggio.intensityScale;
+            }
+        }
+        if (nebula) {
+            _nebulaShimmerCh = toChannels(nebula.shimmer) ?? _nebulaShimmerCh;
+            _nebulaAmplitudeCh = toChannels(nebula.amplitudeScale) ?? _nebulaAmplitudeCh;
+            _nebulaNoteColorCh = toChannels(nebula.noteColor) ?? _nebulaNoteColorCh;
+            if (typeof nebula.intensityScale === 'number' && Number.isFinite(nebula.intensityScale)) {
+                _nebulaIntensityScale = nebula.intensityScale;
+            }
+        }
+        if (skyMoon) {
+            _skyMoonNoteColorCh = toChannels(skyMoon.noteColor) ?? _skyMoonNoteColorCh;
+            _skyMoonIntensityCh = toChannels(skyMoon.intensity) ?? _skyMoonIntensityCh;
+            if (typeof skyMoon.intensityScale === 'number' && Number.isFinite(skyMoon.intensityScale)) {
+                _skyMoonIntensityScale = skyMoon.intensityScale;
+            }
+        }
+        if (global) {
+            _globalShimmerCh = toChannels(global.shimmer) ?? _globalShimmerCh;
+            _globalHueShiftCh = toChannels(global.hueShift) ?? _globalHueShiftCh;
+            _globalNoteColorCh = toChannels(global.noteColor) ?? _globalNoteColorCh;
+            if (typeof global.intensityScale === 'number' && Number.isFinite(global.intensityScale)) {
+                _globalIntensityScale = global.intensityScale;
+            }
+        }
+    }
+
+    if (typeof overrides?.skyMoon?.melodyChannel === 'number' && Number.isInteger(overrides.skyMoon.melodyChannel)) {
+        _skyMoonCh = overrides.skyMoon.melodyChannel;
+    }
+    if (typeof overrides?.luminousPlants?.trackerChannel === 'number' && Number.isInteger(overrides.luminousPlants.trackerChannel)) {
+        _luminousPlantTrackerChannel = overrides.luminousPlants.trackerChannel;
+    }
+    if (typeof overrides?.luminousPlants?.baseIntensity === 'number' && Number.isFinite(overrides.luminousPlants.baseIntensity)) {
+        _luminousIntensityScale = overrides.luminousPlants.baseIntensity;
+    }
+    if (typeof overrides?.skyWave?.propagationMs === 'number' && Number.isFinite(overrides.skyWave.propagationMs)) {
+        _skyWavePropagationMs = Math.max(100, overrides.skyWave.propagationMs);
+    }
+    if (typeof overrides?.skyWave?.decayMs === 'number' && Number.isFinite(overrides.skyWave.decayMs)) {
+        _skyWaveDecayMs = Math.max(100, overrides.skyWave.decayMs);
+    }
+    if (Array.isArray(overrides?.skyWave?.targetBiomes) && overrides.skyWave.targetBiomes.length > 0) {
+        const filteredTargets = overrides.skyWave.targetBiomes.filter((name: string) => typeof name === 'string');
+        if (filteredTargets.length > 0) _skyWaveTargets = filteredTargets;
+    }
+    if (overrides?.weatherReactivity && typeof overrides.weatherReactivity === 'object') {
+        const keys: Array<'rainIntensity' | 'thunderPulse' | 'fogDensity'> = ['rainIntensity', 'thunderPulse', 'fogDensity'];
+        for (const key of keys) {
+            const current = _weatherBindings[key];
+            const override = overrides.weatherReactivity[key];
+            if (!override || typeof override !== 'object') continue;
+            const merged: WeatherReactivityBinding = {
+                channel: typeof override.channel === 'number' ? override.channel : current?.channel ?? 0,
+                smoothing: typeof override.smoothing === 'number' ? override.smoothing : current?.smoothing ?? 0.15,
+                scale: typeof override.scale === 'number' ? override.scale : current?.scale ?? 1.0,
+            };
+            _weatherBindings[key] = merged;
+        }
+    }
+
+    _channelValidationDone = false;
+}
+
+function syncMapMusicContext(): void {
+    const context = getMapMusicContext();
+    if (context.version === _appliedMapMusicVersion) return;
+    _appliedMapMusicVersion = context.version;
+    applyMapMusicContext(context.overrides);
+}
+
+// Helper to map MIDI note (0-127) to a color hue
+// Helper to map MIDI note (0-127) to a color using CONFIG.noteColorMap.sky
+function mapNoteToColor(note: number, outColor: THREE.Color) {
+    if (note <= 0) return outColor.setHex(0xffffff); // Default white
+    // Standard map: C=0, C#=1 ... B=11
+    const CHROMATIC_SCALE = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+    const pitchClass = note % 12;
+    const noteName = CHROMATIC_SCALE[pitchClass];
+    const hexColor = CONFIG.noteColorMap['global'][noteName] || 0xffffff;
+    outColor.setHex(hexColor);
+    return outColor;
+}
+
+// --- Type Definitions ---
+
+interface MoonState {
+    isBlinking: boolean;
+    blinkStartTime: number;
+    nextBlinkTime: number;
+    baseScale: THREE.Vector3;
+    dancePhase: number;
+}
+
+// Minimal interface for WeatherSystem based on usage
+export interface IWeatherSystem {
+    getTwilightGlowIntensity?(cyclePos: number): number;
+    isNight(): boolean;
+}
+
+// Caches to prevent repeated lookups (migrated from core idea)
+const _noteNameCache: Record<string | number, string> = {};
+const CHROMATIC_SCALE = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+
 export class MusicReactivitySystem {
     getActiveWave(): ActiveWave | null { return MRState.activeWave; }
 
@@ -26,6 +357,7 @@ export class MusicReactivitySystem {
         this.weatherSystem = weatherSystem;
         if (beatSync) {
             this.registerBeatSync(beatSync);
+            registerAtmosphereBeatSync(beatSync);
         }
         // Moon registration is handled explicitly via registerMoon()
     }
@@ -622,6 +954,12 @@ export class MusicReactivitySystem {
             if (WeatherMusicTargets.thunderPulse  < 0.001) WeatherMusicTargets.thunderPulse  = 0;
             if (WeatherMusicTargets.fogDensity    < 0.001) WeatherMusicTargets.fogDensity    = 0;
         }
+
+        // ---------------------------------------------------------------
+        // ⚡ ATMOSPHERE REACTIVITY — bloom, crescendo fog, and night light shafts.
+        // Runs last so SkyUniforms.intensity (melody) is up to date for this frame.
+        // ---------------------------------------------------------------
+        updateAtmosphereReactivity(audioState, deltaTime, isNight);
     }
 
     updateTwilightGlow(time: number) {

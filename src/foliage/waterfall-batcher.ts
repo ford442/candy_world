@@ -21,7 +21,7 @@ import {
 import { getBiomeUniforms, type BiomeId } from '../systems/biome-uniforms.ts';
 import { foliageGroup } from '../world/state.ts';
 
-const MAX_WATERFALLS = 50; // Reduced from 200 for WebGPU uniform buffer limits
+const MAX_WATERFALLS = 200; // Reduced from 200 for WebGPU uniform buffer limits
 const SPLASHES_PER_WATERFALL = 8;
 const MAX_SPLASHES = MAX_WATERFALLS * SPLASHES_PER_WATERFALL;
 
@@ -276,6 +276,14 @@ export class WaterfallBatcher {
         _scratchPos.y -= height * 0.5;
 
         _scratchMatrix.compose(_scratchPos, _scratchQuat, _scratchScale);
+        const bufferCapacity1 = this.mesh!.instanceMatrix.array.length / 16;
+        if (index >= this.maxInstances || index >= bufferCapacity1 || index < 0) {
+            console.error(
+                `[BOLT CRASH] ${this.constructor.name} prevented out-of-bounds write!`,
+                { index, bufferCapacity: bufferCapacity1, maxInstances: this.maxInstances, currentCount: this.count }
+            );
+            return -1;
+        }
         // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
         _scratchMatrix.toArray(this.mesh!.instanceMatrix.array, (index) * 16);
         this.mesh!.instanceMatrix.needsUpdate = true;
@@ -291,21 +299,33 @@ export class WaterfallBatcher {
             const offsetX = (Math.random() - 0.5) * width;
             const offsetZ = (Math.random() - 0.5) * width;
 
-            this.splashOrigin!.setXYZ(si,
-                position.x + offsetX,
-                bottomY,
-                position.z + offsetZ
-            );
+            if (si < this.splashOrigin!.count && si >= 0) {
+                this.splashOrigin!.setXYZ(si,
+                    position.x + offsetX,
+                    bottomY,
+                    position.z + offsetZ
+                );
+            }
 
             // Velocity Params: X/Z direction, Y seed
-            this.splashVelocity!.setXYZ(si,
-                (Math.random() - 0.5), // X dir
-                Math.random(),         // Y seed (phase)
-                (Math.random() - 0.5)  // Z dir
-            );
+            if (si < this.splashVelocity!.count && si >= 0) {
+                this.splashVelocity!.setXYZ(si,
+                    (Math.random() - 0.5), // X dir
+                    Math.random(),         // Y seed (phase)
+                    (Math.random() - 0.5)  // Z dir
+                );
+            }
 
             // Initialize matrix to identity (needed for rendering, even if positionNode overrides)
             _scratchMatrix.identity();
+            const bufferCapacity2 = this.splashMesh!.instanceMatrix.array.length / 16;
+            if (si >= MAX_SPLASHES || si >= bufferCapacity2 || si < 0) {
+                console.error(
+                    `[BOLT CRASH] ${this.constructor.name} prevented out-of-bounds write!`,
+                    { index: si, bufferCapacity: bufferCapacity2, maxInstances: MAX_SPLASHES, currentCount: this.count }
+                );
+                continue;
+            }
             // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
         _scratchMatrix.toArray(this.splashMesh!.instanceMatrix.array, (si) * 16);
         }
@@ -329,6 +349,14 @@ export class WaterfallBatcher {
         if (indexToRemove !== lastIndex) {
             // Swap Column
             this.mesh!.getMatrixAt(lastIndex, _scratchMatrix);
+            const bufferCapacity3 = this.mesh!.instanceMatrix.array.length / 16;
+            if (indexToRemove >= this.maxInstances || indexToRemove >= bufferCapacity3 || indexToRemove < 0) {
+                console.error(
+                    `[BOLT CRASH] ${this.constructor.name} prevented out-of-bounds write!`,
+                    { index: indexToRemove, bufferCapacity: bufferCapacity3, maxInstances: this.maxInstances, currentCount: this.count }
+                );
+                return;
+            }
             // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
         _scratchMatrix.toArray(this.mesh!.instanceMatrix.array, (indexToRemove) * 16);
 
@@ -341,18 +369,22 @@ export class WaterfallBatcher {
                 const dest = destStart + i;
 
                 // Copy Origin
-                this.splashOrigin!.setXYZ(dest,
-                    this.splashOrigin!.getX(src),
-                    this.splashOrigin!.getY(src),
-                    this.splashOrigin!.getZ(src)
-                );
+                if (dest < this.splashOrigin!.count && dest >= 0) {
+                    this.splashOrigin!.setXYZ(dest,
+                        this.splashOrigin!.getX(src),
+                        this.splashOrigin!.getY(src),
+                        this.splashOrigin!.getZ(src)
+                    );
+                }
 
                 // Copy Velocity
-                this.splashVelocity!.setXYZ(dest,
-                    this.splashVelocity!.getX(src),
-                    this.splashVelocity!.getY(src),
-                    this.splashVelocity!.getZ(src)
-                );
+                if (dest < this.splashVelocity!.count && dest >= 0) {
+                    this.splashVelocity!.setXYZ(dest,
+                        this.splashVelocity!.getX(src),
+                        this.splashVelocity!.getY(src),
+                        this.splashVelocity!.getZ(src)
+                    );
+                }
             }
 
             // Update Map
@@ -396,6 +428,14 @@ export class WaterfallBatcher {
         _scratchScale.z = _scratchScale.x * thicknessScale;
 
         _scratchMatrix.compose(_scratchPos, _scratchQuat, _scratchScale);
+        const bufferCapacity4 = this.mesh!.instanceMatrix.array.length / 16;
+        if (index >= this.maxInstances || index >= bufferCapacity4 || index < 0) {
+            console.error(
+                `[BOLT CRASH] ${this.constructor.name} prevented out-of-bounds write!`,
+                { index, bufferCapacity: bufferCapacity4, maxInstances: this.maxInstances, currentCount: this.count }
+            );
+            return;
+        }
         // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
         _scratchMatrix.toArray(this.mesh!.instanceMatrix.array, (index) * 16);
         this.mesh!.instanceMatrix.needsUpdate = true;

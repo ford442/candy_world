@@ -36,7 +36,7 @@ import { treeBatcher } from '../foliage/tree-batcher.ts';
 import { subwooferLotusBatcher } from '../foliage/subwoofer-lotus-batcher.ts';
 
 let loadedMapPromise: Promise<LoadedCandyMap> | null = null;
-let worldGenerationToken = 0;
+export let worldGenerationToken = 0;
 registerBuiltinWorldObjectTypes();
 
 const STREAMING_PRIORITY_TYPES = [
@@ -474,15 +474,22 @@ export async function generateMap(
             const queuedId = item.id;
             const taskToken = generationToken;
             const streamFlag = streamBatch > 0;
-            globalBackgroundProcessor.enqueue({
-                id: `map_stream_${queuedType}_${queuedId}`,
-                priority: streamPriority,
-                execute: () => {
-                    if (taskToken !== worldGenerationToken) return;
+
+            if (FEATURE_FLAGS.reliableBoot) {
+                if (taskToken === worldGenerationToken) {
                     processMapEntity(item as MapEntity, weatherSystem, { streamed: streamFlag });
                 }
-            });
-            queuedDeferred++;
+            } else {
+                globalBackgroundProcessor.enqueue({
+                    id: `map_stream_${queuedType}_${queuedId}`,
+                    priority: streamPriority,
+                    execute: () => {
+                        if (taskToken !== worldGenerationToken) return;
+                        processMapEntity(item as MapEntity, weatherSystem, { streamed: streamFlag });
+                    }
+                });
+                queuedDeferred++;
+            }
         }
 
         streamBatch++;
@@ -509,15 +516,22 @@ export async function generateMap(
     for (const item of loadedMap.entities) {
         if (spawnedEntityIds.has(item.id)) continue;
         const taskToken = generationToken;
-        globalBackgroundProcessor.enqueue({
-            id: `map_fallback_${item.type}_${item.id}`,
-            priority: 1,
-            execute: () => {
-                if (taskToken !== worldGenerationToken) return;
+
+        if (FEATURE_FLAGS.reliableBoot) {
+            if (taskToken === worldGenerationToken) {
                 processMapEntity(item as MapEntity, weatherSystem, { streamed: true });
             }
-        });
-        fallbackQueued++;
+        } else {
+            globalBackgroundProcessor.enqueue({
+                id: `map_fallback_${item.type}_${item.id}`,
+                priority: 1,
+                execute: () => {
+                    if (taskToken !== worldGenerationToken) return;
+                    processMapEntity(item as MapEntity, weatherSystem, { streamed: true });
+                }
+            });
+            fallbackQueued++;
+        }
     }
     if (fallbackQueued > 0) {
         console.warn(`[World] Fallback queued ${fallbackQueued} entities not covered by streaming rings.`);

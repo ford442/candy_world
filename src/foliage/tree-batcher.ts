@@ -37,7 +37,7 @@ const _defaultColorGreen = new THREE.Color(0x00FA9A);
 
 // Initial capacity - grows dynamically as needed (doubles each time, capped at MAX)
 const INITIAL_INSTANCES = 100;
-const MAX_INSTANCES = 500; // Cap to prevent WebGPU uniform buffer overflow (64KB limit)
+const MAX_INSTANCES = 3000; // Cap to prevent WebGPU uniform buffer overflow (64KB limit)
 
 export class TreeBatcher {
     private static instance: TreeBatcher;
@@ -602,24 +602,33 @@ export class TreeBatcher {
         switch (countProp) {
             case 'trunkCount':
                 if (index >= this.trunkCapacity) this.growTrunkBuffer();
+                if (index >= this.trunkCapacity) return;
                 mesh = this.trunks;
                 break;
             case 'sphereCount':
                 if (index >= this.sphereCapacity) this.growSphereBuffer();
+                if (index >= this.sphereCapacity) return;
                 mesh = this.spheres;
                 break;
             case 'capsuleCount':
                 if (index >= this.capsuleCapacity) this.growCapsuleBuffer();
+                if (index >= this.capsuleCapacity) return;
                 mesh = this.capsules;
                 break;
             case 'helixCount':
                 if (index >= this.helixCapacity) this.growHelixBuffer();
+                if (index >= this.helixCapacity) return;
                 mesh = this.helices;
                 break;
             case 'roseCount':
                 if (index >= this.roseCapacity) this.growRoseBuffer();
+                if (index >= this.roseCapacity) return;
                 mesh = this.roses;
                 break;
+        }
+
+        const maxInstances = mesh.instanceMatrix.array.length / 16;
+        if (index >= maxInstances || index < 0) {
         }
 
         // ⚡ OPTIMIZATION: Write directly to instanceMatrix array to bypass .setMatrixAt overhead.
@@ -633,8 +642,16 @@ export class TreeBatcher {
 
         const typeAttr = mesh.geometry.attributes.instanceAnimType as THREE.InstancedBufferAttribute;
         const offsetAttr = mesh.geometry.attributes.instanceAnimOffset as THREE.InstancedBufferAttribute;
-        if (typeAttr) { typeAttr.setX(index, animType); typeAttr.needsUpdate = true; }
-        if (offsetAttr) { offsetAttr.setX(index, animOffset); offsetAttr.needsUpdate = true; }
+        if (typeAttr) {
+            if (index < typeAttr.count) {
+                typeAttr.setX(index, animType); typeAttr.needsUpdate = true;
+            }
+        }
+        if (offsetAttr) {
+            if (index < offsetAttr.count) {
+                offsetAttr.setX(index, animOffset); offsetAttr.needsUpdate = true;
+            }
+        }
 
         // Update count
         switch (countProp) {

@@ -18,7 +18,7 @@ import { CONFIG } from '../core/config.ts';
 import { uTwilight } from './sky.ts';
 import { BiomeUniforms } from '../systems/biome-uniforms.ts';
 
-const MAX_LANTERNS = 250; // Reduced from 1000 for WebGPU uniform buffer limits
+const MAX_LANTERNS = 1000; // Reduced from 1000 for WebGPU uniform buffer limits
 
 // ⚡ OPTIMIZATION: Module scoped scratch variables to avoid GC spikes
 const _scratchMatrixBatch = new THREE.Matrix4();
@@ -324,10 +324,32 @@ export class LanternBatcher {
         // Transforms
         _scratchMatrixBatch.compose(dummy.position, dummy.quaternion, dummy.scale);
         // Stem
+        const bufferLength1 = this.stemMesh!.instanceMatrix.array.length / 16;
+        if (i >= this.maxInstances || i >= bufferLength1 || i < 0) {
+            console.error(
+                `[BOLT CRASH] ${this.constructor.name} prevented out-of-bounds write!`,
+                `index=${i}`,
+                `maxInstances=${this.maxInstances}`,
+                `bufferCapacity=${bufferLength1}`,
+                `currentCount=${this.count}`
+            );
+            return -1; // Early return to prevent bad write
+        }
         // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
         _scratchMatrixBatch.toArray(this.stemMesh!.instanceMatrix.array, (i) * 16);
 
         // Top
+        const bufferLength2 = this.topMesh!.instanceMatrix.array.length / 16;
+        if (i >= this.maxInstances || i >= bufferLength2 || i < 0) {
+            console.error(
+                `[BOLT CRASH] ${this.constructor.name} prevented out-of-bounds write!`,
+                `index=${i}`,
+                `maxInstances=${this.maxInstances}`,
+                `bufferCapacity=${bufferLength2}`,
+                `currentCount=${this.count}`
+            );
+            return -1; // Early return to prevent bad write
+        }
         // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
         _scratchMatrixBatch.toArray(this.topMesh!.instanceMatrix.array, (i) * 16);
 

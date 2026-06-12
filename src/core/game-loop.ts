@@ -77,6 +77,7 @@ import { jitterMineSystem } from '../gameplay/jitter-mines.ts';
 import { glitchGrenadeSystem } from '../systems/glitch-grenade.ts';
 import { updateHarpoonLine } from '../gameplay/harpoon-line.ts';
 import { musicReactivitySystem } from '../systems/music-reactivity.ts';
+import { AtmosphereReactivityState } from '../systems/atmosphere-reactivity.ts';
 import { unlockSystem } from '../systems/unlocks.ts';
 import { profiler } from '../utils/profiler.ts';
 import { WeatherSystem } from '../systems/weather.ts';
@@ -141,7 +142,12 @@ const _scratchBaseSkyTop = new THREE.Color();
 const _scratchBaseSkyBot = new THREE.Color();
 const _scratchBaseFog = new THREE.Color();
 const _scratchSunVector = new THREE.Vector3();
+const _scratchMoonVector = new THREE.Vector3();
+const _scratchCameraDir = new THREE.Vector3();
 const _scratchAuroraColor = new THREE.Color();
+
+// Light shaft / god ray opacity cap (sunrise/sunset and night moonbeams share this ceiling).
+const MAX_SHAFT_OPACITY = 0.2;
 
 const _interactionLists: (any[] | null)[] = [null, null, null]; // Reusable array for interaction lists
 
@@ -446,7 +452,7 @@ export function animate() {
             glowIntensity = 0.25 + factor * 0.35;
             coronaIntensity = 0.15 + factor * 0.25;
             shaftIntensity = factor * 0.12;
-            shaftVisible = false;
+            shaftVisible = true;
             (sunGlowMatRef as any).color.setHex(0xFFB366);
             (coronaMatRef as any).color.setHex(0xFFD6A3);
         } else if (sunProgress > 0.85) {
@@ -454,7 +460,7 @@ export function animate() {
             glowIntensity = 0.25 + factor * 0.45;
             coronaIntensity = 0.15 + factor * 0.35;
             shaftIntensity = factor * 0.18;
-            shaftVisible = false;
+            shaftVisible = true;
             (sunGlowMatRef as any).color.setHex(0xFF9966);
             (coronaMatRef as any).color.setHex(0xFFCC99);
         } else {
@@ -464,27 +470,52 @@ export function animate() {
 
         (sunGlowMatRef as any).opacity = glowIntensity;
         (coronaMatRef as any).opacity = coronaIntensity;
-        lightShaftGroupRef!.visible = shaftVisible;
-        if (shaftVisible) {
+
+        // Gate shaft visibility on the sun being roughly in front of the camera
+        // (cheap hemisphere check — avoids rendering 12 additive planes off-screen).
+        cameraRef.getWorldDirection(_scratchCameraDir);
+        const sunInView = _scratchCameraDir.dot(_scratchSunVector) > 0.0;
+        lightShaftGroupRef!.visible = shaftVisible && sunInView;
+        if (lightShaftGroupRef!.visible) {
             lightShaftGroupRef!.rotation.z += delta * 0.1;
-            // Update light shaft opacity
             // Note: In WebGPU mode, this updates the uShaftOpacity uniform which affects rendering via TSL.
             // In WebGL mode, the light shaft material opacity should also be updated here (TODO for future).
             // See src/core/init.ts for WebGL light shaft material initialization.
-            uShaftOpacityRef!.value = shaftIntensity;
+            uShaftOpacityRef!.value = Math.min(shaftIntensity, MAX_SHAFT_OPACITY);
+            // Sun god-rays own uShaftOpacity this frame; atmosphere-reactivity (called
+            // later this frame for cyclePos near the day/night boundary) yields to us.
+            AtmosphereReactivityState.sunShaftActive = true;
+        } else {
+            AtmosphereReactivityState.sunShaftActive = false;
         }
     } else {
         sunLightRef!.visible = false;
         sunGlowRef!.visible = false;
         sunCoronaRef!.visible = false;
-        lightShaftGroupRef!.visible = false;
         moonRef!.visible = true;
+        AtmosphereReactivityState.sunShaftActive = false;
 
         const nightProgress = (cyclePos - 540) / (CYCLE_DURATION - 540);
         const moonAngle = nightProgress * Math.PI;
         const r = 90;
         moonRef.position.set(Math.cos(moonAngle) * -r, Math.sin(moonAngle) * r, -30);
         (moonRef as any).lookAt(0, 0, 0);
+
+        // Moonbeam god rays: melody-driven (see atmosphere-reactivity.ts), gated on
+        // the moon being roughly in view and on melody/beat energy being audible.
+        // uShaftOpacity itself is lerped continuously by atmosphere-reactivity.ts,
+        // so toggling visibility here never causes an opacity pop.
+        _scratchMoonVector.copy(moonRef.position).normalize();
+        cameraRef.getWorldDirection(_scratchCameraDir);
+        const moonInView = _scratchCameraDir.dot(_scratchMoonVector) > 0.0;
+        if (moonInView && AtmosphereReactivityState.nightShaftReady) {
+            lightShaftGroupRef!.position.copy(_scratchMoonVector).multiplyScalar(380);
+            (lightShaftGroupRef as any).lookAt(cameraRef.position);
+            lightShaftGroupRef!.rotation.z += delta * 0.1;
+            lightShaftGroupRef!.visible = true;
+        } else {
+            lightShaftGroupRef!.visible = false;
+        }
     }
 
     const progress = cyclePos / CYCLE_DURATION;

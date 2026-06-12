@@ -143,7 +143,8 @@ body.a11y-motion-reduced .spinner {
 
 .close-icon-btn:focus-visible {
     outline: none;
-    box-shadow: 0 0 0 3px #ffffff, 0 0 0 6px #FF4081;
+    outline: 3px solid #ff4081;
+    outline-offset: 3px;
 }
 
 /* 🎨 Palette: Playlist Layout */
@@ -183,7 +184,8 @@ body.a11y-motion-reduced .spinner {
 
 .playlist-remove-btn:focus-visible {
     outline: none;
-    box-shadow: 0 0 0 3px #ffffff, 0 0 0 6px #FF4081;
+    outline: 3px solid #ff4081;
+    outline-offset: 3px;
     z-index: 5;
 }
 
@@ -261,7 +263,8 @@ body.a11y-motion-reduced .spinner {
 
 .ability-slot:focus-visible {
     outline: none;
-    box-shadow: 0 0 0 3px #ffffff, 0 0 0 6px #FF4081;
+    outline: 3px solid #ff4081;
+    outline-offset: 3px;
     border-color: #FF4081;
 }
 
@@ -309,7 +312,7 @@ body.a11y-motion-reduced .spinner {
 }
 
 /* Ready State */
-.ability-slot[aria-disabled="false"]:not([aria-pressed="true"]) {
+.ability-slot[aria-disabled="false"]:not(.keyboard-active) {
     border-color: #4CAF50;
     box-shadow: 0 0 15px rgba(76, 175, 80, 0.5);
     background: #ffffff;
@@ -324,7 +327,7 @@ body.a11y-motion-reduced .spinner {
 }
 
 /* 🎨 Palette: Active State (Duration Running) */
-.ability-slot[aria-pressed="true"] {
+.ability-slot.keyboard-active {
     border-color: #D500F9;
     box-shadow: 0 0 15px rgba(213, 0, 249, 0.6);
     background: #F3E5F5;
@@ -348,14 +351,14 @@ body.a11y-motion-reduced .spinner {
     pointer-events: none;
 }
 
-.ability-slot[aria-disabled="false"]:not([aria-pressed="true"]) .ability-icon {
+.ability-slot[aria-disabled="false"]:not(.keyboard-active) .ability-icon {
     filter: grayscale(0%);
     opacity: 1;
     transform: scale(1.1);
 }
 
-.ability-slot[aria-disabled="false"]:not([aria-pressed="true"]):active,
-.ability-slot[aria-pressed="true"] {
+.ability-slot[aria-disabled="false"]:not(.keyboard-active):active,
+.ability-slot.keyboard-active {
     transform: scale(0.9);
     border-color: #FF4081; /* High contrast feedback */
     box-shadow: 0 0 10px rgba(255, 64, 129, 0.5);
@@ -364,7 +367,7 @@ body.a11y-motion-reduced .spinner {
 
 /* 🎨 Palette: Pressed State */
 /* Visually differentiates active toggle buttons (e.g., Muted, Night Mode) */
-.toggle-button[aria-pressed="true"],
+.toggle-button.keyboard-active, .toggle-button.keyboard-active,
 .toggle-button[aria-expanded="true"] {
     background: #FF4081; /* Higher contrast active color */
     box-shadow: inset 0 2px 5px rgba(0,0,0,0.2);
@@ -372,7 +375,7 @@ body.a11y-motion-reduced .spinner {
     padding: 8px 18px; /* Offset border to prevent layout shift */
 }
 
-.toggle-button[aria-pressed="true"]:hover,
+.toggle-button.keyboard-active, .toggle-button.keyboard-active:hover,
 .toggle-button[aria-expanded="true"]:hover {
     background: #F50057;
 }
@@ -533,17 +536,18 @@ kbd.key.key-highlight {
 
 .dpad-btn:focus-visible {
     outline: none;
-    box-shadow: 0 0 0 3px #ffffff, 0 0 0 6px #FF4081;
+    outline: 3px solid #ff4081;
+    outline-offset: 3px;
 }
 
-.dpad-btn[aria-pressed="true"],
+.dpad-btn.keyboard-active,
 .dpad-btn:active {
     background: rgba(255, 100, 150, 0.90);
     transform: scale(0.92);
     box-shadow: 0 2px 8px rgba(255, 107, 107, 0.35), inset 0 1px 0 rgba(255,255,255,0.4);
 }
 
-.dpad-btn[aria-pressed="true"] svg {
+.dpad-btn.keyboard-active svg {
     fill: #ffffff;
 }
 
@@ -576,12 +580,12 @@ kbd.key.key-highlight {
 }
 
 /* 🎨 Palette: Keyboard tactile feedback */
-.action-btn[aria-pressed="true"],
-button[aria-pressed="true"],
-.icon-btn[aria-pressed="true"],
-.secondary-button[aria-pressed="true"],
-.cta-button[aria-pressed="true"],
-.file-label[aria-pressed="true"] {
+.action-btn.keyboard-active,
+button.keyboard-active,
+.icon-btn.keyboard-active,
+.secondary-button.keyboard-active,
+.cta-button.keyboard-active,
+.file-label.keyboard-active {
     transform: scale(0.95) !important;
     filter: brightness(0.9) !important;
     transition-duration: 0.05s !important;
@@ -599,7 +603,7 @@ button[aria-pressed="true"],
 
 .a11y-menu-btn:active {
     transform: scale(0.95);
-    transition-duration: 0.05s;
+    transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
 .a11y-menu-btn:focus-visible {
@@ -608,19 +612,39 @@ button[aria-pressed="true"],
 }
 
 /* ♿ Aria: Mode Selection ARIA States */
-#btn-core-only[aria-pressed="true"] {
+#btn-core-only.keyboard-active {
     box-shadow: 0 5px 18px rgba(255, 156, 205, 0.55);
 }
-#btn-full-game[aria-pressed="true"] {
+#btn-full-game.keyboard-active {
     box-shadow: 0 5px 18px rgba(125, 211, 252, 0.55);
 }
 
 /* 🎨 Palette: Tactile feedback on interactive elements */
 .toggle-button:not([aria-disabled="true"]):active,
+.toggle-button.keyboard-active,
 .cta-button:not([aria-disabled="true"]):active,
 .secondary-button:not([aria-disabled="true"]):active,
 .close-icon-btn:not([aria-disabled="true"]):active,
 .playlist-remove-btn:not([aria-disabled="true"]):active {
     transform: scale(0.95);
-    transition-duration: 0.05s;
+    transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+
+/* ♿ Aria: Canvas focus visible state */
+#glCanvas:focus-visible {
+    outline: 3px solid rgba(255, 182, 255, 0.8);
+    box-shadow: 0 0 20px rgba(180, 255, 200, 0.6);
+}
+
+
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    border: 0;
 }

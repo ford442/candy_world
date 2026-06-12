@@ -212,7 +212,8 @@ export function updateSwimmingState(
             spawnImpact(player.position, 'jump');
         } else {
             // Pull towards anchor
-            const dist = Math.sqrt(distSq);
+            // ⚡ OPTIMIZATION: distSq is always >= 4.0 here, but we guard against tiny values just in case
+            const dist = distSq > 0.0001 ? Math.sqrt(distSq) : 1;
             // Modulate pull speed with kick drum
             const kickBoost = audioState?.kickTrigger ? audioState.kickTrigger * 20.0 : 0;
             const pullSpeed = 30.0 + kickBoost;

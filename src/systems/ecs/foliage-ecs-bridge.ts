@@ -275,8 +275,10 @@ export class FoliageEcsBridge {
 
     /** Remove all registered entities (call on scene teardown). */
     clear(): void {
-        for (const t of Object.keys(this.slots) as SimpleAnimType[]) {
-            const slot = this.slots[t];
+        // ⚡ OPTIMIZATION: Use for-in loop to prevent Object.keys() GC spikes
+        for (const t in this.slots) {
+            const type = t as SimpleAnimType;
+            const slot = this.slots[type];
             for (const id of slot.entityIds) this.world.destroyEntity(id);
             slot.entities.length  = 0;
             slot.entityIds.length = 0;
@@ -310,8 +312,10 @@ export class FoliageEcsBridge {
             );
 
             // Register native components for each animation type
-            for (const t of Object.keys(this.slots) as SimpleAnimType[]) {
-                const slot = this.slots[t];
+            // ⚡ OPTIMIZATION: Use for-in loop to prevent Object.keys() GC spikes
+            for (const t in this.slots) {
+                const type = t as SimpleAnimType;
+                const slot = this.slots[type];
                 const inputOk  = this.world.registerNativeComponent(
                     slot.inputCompName, makeInputCodec(MAX_FOLIAGE_PER_TYPE));
                 const resultOk = this.world.registerNativeComponent(
