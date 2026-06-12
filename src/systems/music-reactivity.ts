@@ -153,17 +153,17 @@ export interface ActiveWave { color: THREE.Color; timestamp: number; origin?: TH
 let _activeWave: ActiveWave | null = null;
 
 const _zeroVec = new THREE.Vector3();
-export function computeWaveTimeSinceArrival(plantWorldPos: THREE.Vector3, activeWave: ActiveWave | null, cameraPosition?: THREE.Vector3): number {
-    if (!activeWave) return -999;
+// Return squared distance instead of time (avoids sqrt entirely)
+export function computeWaveDistSq(plantWorldPos: THREE.Vector3, activeWave: ActiveWave | null, cameraPosition?: THREE.Vector3): number {
+    if (!activeWave) return -1;
     const origin = activeWave.origin || cameraPosition || _zeroVec;
-    const speed = activeWave.speed || 25.0;
+
     // ⚡ OPTIMIZATION: Bypassed THREE.Vector3.distanceTo() overhead in hot loop with raw math
     const dx = plantWorldPos.x - origin.x;
     const dy = plantWorldPos.y - origin.y;
     const dz = plantWorldPos.z - origin.z;
-    const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
-    const arrivalTime = activeWave.timestamp + (distance / speed) * 1000;
-    return (performance.now() - arrivalTime) / 1000;
+
+    return dx * dx + dy * dy + dz * dz;  // ⚡ no sqrt
 }
 const _waveColor = new THREE.Color(); // scratch for beat capture
 const _whiteColor = new THREE.Color(0xffffff);
