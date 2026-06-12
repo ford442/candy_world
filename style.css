@@ -576,6 +576,12 @@ kbd.key.key-highlight {
 }
 
 /* 🎨 Palette: Keyboard tactile feedback */
+.action-btn.keyboard-active,
+button.keyboard-active,
+.icon-btn.keyboard-active,
+.secondary-button.keyboard-active,
+.cta-button.keyboard-active,
+.file-label.keyboard-active,
 .action-btn[aria-pressed="true"],
 button[aria-pressed="true"],
 .icon-btn[aria-pressed="true"],
@@ -617,10 +623,15 @@ button[aria-pressed="true"],
 
 /* 🎨 Palette: Tactile feedback on interactive elements */
 .toggle-button:not([aria-disabled="true"]):active,
+.toggle-button:not([aria-disabled="true"]).keyboard-active,
 .cta-button:not([aria-disabled="true"]):active,
+.cta-button:not([aria-disabled="true"]).keyboard-active,
 .secondary-button:not([aria-disabled="true"]):active,
+.secondary-button:not([aria-disabled="true"]).keyboard-active,
 .close-icon-btn:not([aria-disabled="true"]):active,
-.playlist-remove-btn:not([aria-disabled="true"]):active {
+.close-icon-btn:not([aria-disabled="true"]).keyboard-active,
+.playlist-remove-btn:not([aria-disabled="true"]):active,
+.playlist-remove-btn:not([aria-disabled="true"]).keyboard-active {
     transform: scale(0.95);
     transition-duration: 0.05s;
 }
