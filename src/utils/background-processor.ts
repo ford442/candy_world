@@ -77,7 +77,14 @@ export class BackgroundProcessor {
      * Start processing the queue
      */
     public start(): void {
-        if (this.isRunning || this.queue.length === 0) return;
+        console.log(`[Diagnostic] BackgroundProcessor.start() CALLED. isRunning=${this.isRunning}, queueLength=${this.queue.length}`);
+        if (this.queue.length === 0) {
+            console.warn('[BackgroundProcessor] start() called with empty queue');
+            if (this.onCompleteCallback) this.onCompleteCallback(this.completedTasks, this.totalTasks, this.failedTasks);
+            return;
+        }
+        if (this.isRunning) return;
+
         this.isRunning = true;
         this.startTimeMs = performance.now();
 
@@ -209,12 +216,20 @@ export class BackgroundProcessor {
      * so progress/completion tracking stays accurate.
      */
     public resetCounters(): void {
-        this.totalTasks = this.queue.length;
+        const beforeQueue = this.queue.length;
+        console.log('[Boot] 🔄 resetCounters BEFORE', {
+            totalTasks: this.totalTasks,
+            completed: this.completedTasks,
+            queueLen: beforeQueue
+        });
+
+        this.totalTasks = beforeQueue;
         this.completedTasks = 0;
+        this.failedTasks = 0;
         this.startTimeMs = 0;
         this.isRunning = false;
-        this.onCompleteCallback = null;
-        this.onProgressCallback = null;
+
+        console.log('[Boot] 🔄 resetCounters AFTER snapshot', { totalTasks: this.totalTasks });
     }
 }
 

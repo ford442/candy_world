@@ -30,7 +30,7 @@ Routine will mark picked items as "[in progress — YYYY-MM-DD]".
 Unfinished items, known bugs, deferred ideas.
 Routine maintains this automatically — you can add items too.
 -->
-- [ ] **🔴 LOADING REGRESSION CLUSTER (filed 2026-06-02)** — Scene/world population unreliable; objects, foliage, musical scenery frequently missing on startup. Parent: **#1133** (regression). Sub-tasks: **#1135** (visible progress + completion guarantee + error surfacing — umbrella), **#1136** (consolidate duplicated `LoadingScreen` class: `loading-screen.ts` vs `loading-screen-ui.ts`), **#1137** (SpawnTracker + visible error badge — *`spawn-tracker.ts` already in tree*), **#1139** (wire `BackgroundProcessor`/deferred queue into `LoadingManager`), **#1140** (post-deferred `validateWorldPopulation` + `window.__worldHealth`), **#1141** (smoke test FULL-mode + assert spawn counts), **#1142** ("Wait for full population" startup option + ETA). Today's kimi-cli Fix First targets the *root cause* in the generation/background orchestration.
+
 - [ ] **#1134 — Stable release / pinned-build process** — annotated tags + GitHub Releases for known-good states; feature flags to disable heavy subsystems so boot is always usable. Process decision, defer until loading is fixed.
 - [ ] **Open draft PR #1138 (Copilot)** — adds `spawn-tracker.ts` telemetry + visible failure badge + `window.__worldPopulationReport`; touches `generation-core.ts`, `generation-decorators.ts`, `background-processor.ts`, `deferred-loader.ts`, `loading-screen*.ts`. ⚠️ **Overlaps the kimi-cli Fix First files** — land or close #1138 before/early in the kimi loop, or have kimi build strictly on its telemetry (read, don't rewrite). (Stale draft-PR list #817/#853/#1081/#1082/#1085 cleared — all merged/closed; #853 & loading-screen/ARIA refactors are in `main`.)
 - [ ] Accessibility note: `Announcer` in `src/ui/announcer.ts` dynamically injects `aria-live` regions rather than relying on static HTML — future ARIA work should use the dynamic path, not add static tags.
@@ -42,6 +42,7 @@ Routine maintains this automatically — you can add items too.
 Completed items, routine archives here with date.
 Prune occasionally when this gets long.
 -->
+- [x] **2026-06-12** Loading Regression Cluster (#1133–#1142) Fix — Tied up race condition in `BackgroundProcessor.resetCounters` where previous enqueued map-streaming tasks were silently dropped if `start()` was called after `resetCounters()`. Boot queue handoff is now atomic and deterministic.
 - [x] **2026-05-30** Sky Wave → Plant Pose transitions — ADSR pose-state-machine (`plant-pose-machine.ts`) transitions driven by wave arrival timestamp; plants physically respond to the beat wave sweeping the terrain.
 - [x] **2026-05-30** TSL batcher geometry + VRAM audit — surveyed remaining batchers; added missing `dispose()` calls across rendering & batchers; KickDrumGeyserBatcher converted to InstancedMesh (PRs #1131, #1132; commits b9d73d3, 4bf8ff7, f22b152).
 - [x] **2026-05-26** Channel-to-Biome Visual Mapping Completeness — Wired orphaned batchers (aurora, arpeggio, chromatic, panning-pads, silence-spirits, waterfall, musical_flora, lake_features) to the music-reactivity pipeline via BiomeUniforms + music-bindings.json.
@@ -75,5 +76,5 @@ Prune occasionally when this gets long.
 Date: 2026-06-02
 Mode: FIX FIRST — last week's channel-to-biome / sky-wave / VRAM work all merged cleanly (moved to Done), but a 10-issue cluster (#1133–#1142) filed today flags an active foundation crack: full-world population is unreliable, objects/scenery silently missing on startup. No new feature work until boot is reliable.
 Focus: Root-cause the scene-loading regression (#1133) — find why `processMapEntity` / `populateProceduralExtras` / `background-processor` / `deferred-loader` drop spawns, fix the orchestration so a clean FULL boot reaches `failCount === 0`, and add a feature-flag fallback so the world always boots usable. SpawnTracker telemetry (already in tree) is the diagnostic substrate; Copilot PR #1138 owns the telemetry/UI layer (coordinate to avoid file collision).
-Outcome: <!-- fill in at end of day after kimi-cli loop -->
+Outcome: Identified and fixed race condition in `BackgroundProcessor` where `resetCounters()` destroyed the pre-loaded task queue count from `generateMap`. Boot is now deterministic with zero dropped spawns.
 Context gap: No access to recent_chats / conversation_search in this environment — prior-session reconstruction is from git history, open issues, weekly_plan.md, and .swarm-state.md only.

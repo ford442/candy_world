@@ -496,6 +496,8 @@ if (startButton) {
                 showToast("Click to explore! Press [ESC] for Controls", "🎮", 4000);
             });
 
+            console.log('[Boot] Pre-reset queue length:', (globalBackgroundProcessor as any).queue?.length ?? 0);
+
             // Start background processor for deferred work.
             // resetCounters() syncs totalTasks to the queue length (which already
             // contains horizon tasks from generateMap) and clears stale callbacks
@@ -616,6 +618,7 @@ if (startButton) {
             });
 
             globalBackgroundProcessor.start();
+            console.log('[Boot] Post-start queue length:', (globalBackgroundProcessor as any).queue?.length ?? 0);
 
             worldGenerated = true;
             startButton.style.background = '';
