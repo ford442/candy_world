@@ -9,7 +9,7 @@ import {
     color, float, vec3, vec4, sin, cos, positionLocal, time, uniform
 } from 'three/tsl';
 import { BiomeId } from '../systems/biome-uniforms.ts';
-import { computeWaveTimeSinceArrival } from '../systems/music-reactivity.ts';
+import { computeWaveDistSq } from '../systems/music-reactivity.ts';
 import { foliageGroup } from '../world/state.ts';
 
 const MAX_GEYSERS = 500;
