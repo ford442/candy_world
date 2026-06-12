@@ -187,7 +187,7 @@ export class TreeBatcher {
         });
 
         // 🎨 PALETTE: Make tree leaves pop with sparkly glow, base audio emissive, and twilight glow
-        sphereMat.emissiveNode = sphereEmissive.mul(BiomeUniforms.arpeggioGrove.noteColor).add(sugarSparkle).add(twilightGlowTint);
+        sphereMat.emissiveNode = sphereEmissive.mul(BiomeUniforms.arpeggioGrove.noteColor).add(sugarSparkle).add(twilightGlowTint).add(createJuicyRimLight(color(0xFFFFFF), float(1.5), float(3.0), null));
 
         this.spheres = new THREE.InstancedMesh(sharedGeometries.unitSphere, sphereMat, this.sphereCapacity);
         this.spheres.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(this.sphereCapacity * 3), 3);

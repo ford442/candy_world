@@ -1088,4 +1088,3 @@ export class MusicReactivitySystem {
 
 export const musicReactivitySystem = new MusicReactivitySystem();
 
-export const WeatherMusicTargets = { rainIntensity: 0, thunderPulse: 0, fogDensity: 0 };
