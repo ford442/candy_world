@@ -1,3 +1,5 @@
+Status: Implemented ✅
+* Implementation Details: Appended `createJuicyRimLight` to the `sphereMat.emissiveNode` in `src/foliage/tree-batcher.ts` to add visual TSL juice (Rim Lighting) to the tree canopy.
 Accomplished:
 - Refactored `startup-profiler.ts`, `wasm-loader-core.ts`, `music-reactivity.ts` (files > 1000 lines) into smaller files under 700 lines each.
 
