@@ -5,3 +5,4 @@ onlyBuiltDependencies:
   - "@swc/core"
   - "esbuild"
   - "playwright"
+  - "archiver"
