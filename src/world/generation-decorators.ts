@@ -250,6 +250,7 @@ function populateLakeIsland(weatherSystem: WeatherSystem): void {
 
 export async function populateProceduralExtras(
     weatherSystem: WeatherSystem,
+    taskToken: number = -1,
     chunkSize: number = DEFAULT_PROCEDURAL_CHUNK_SIZE
 ): Promise<void> {
     if (!FEATURE_FLAGS.proceduralExtras) {
@@ -416,7 +417,12 @@ export async function populateProceduralExtras(
                                          params: { length: ladderLength }
                                      };
                                      ladder.position.set(x, currentY, z);
-                                     safeAddFoliage(ladder, false, 0, weatherSystem);
+                                     const placed = safeAddFoliage(ladder, false, 0, weatherSystem);
+                                     if (!placed) {
+                                         recordSpawnAttempt('procedural_extra', false, new Error('CPU animation limit reached; object dropped'));
+                                     } else {
+                                         recordSpawnAttempt('procedural_extra', true);
+                                     }
                                  }
                              }
                          }
@@ -466,7 +472,12 @@ export async function populateProceduralExtras(
                     placement: normalizedExportType === 'cloud' ? 'absolute' : 'ground',
                     params: Object.keys(exportParams).length > 0 ? exportParams : undefined
                 };
-                safeAddFoliage(obj, isObstacle, radius, weatherSystem);
+                const placed = safeAddFoliage(obj, isObstacle, radius, weatherSystem);
+                 if (!placed) {
+                     recordSpawnAttempt('procedural_extra', false, new Error('CPU animation limit reached; object dropped'));
+                 } else {
+                     recordSpawnAttempt('procedural_extra', true);
+                 }
             }
             } catch (e) {
                 console.warn(`[World] Failed to spawn procedural extra at ${x},${z}`, e);
@@ -513,14 +524,10 @@ export async function populateProceduralExtras(
     const taskToken = worldGenerationToken;
     for (const item of deferredItems) {
         const priority = Math.max(1, 60 - Math.floor(Math.sqrt(item.distSq) / 4));
-        globalBackgroundProcessor.enqueue({
-            id: item.id,
-            execute: () => {
-                if (taskToken !== worldGenerationToken) return;
-                item.execute();
-            },
-            priority
-        });
+        globalBackgroundProcessor.enqueue({ id: item.id, execute: () => {
+             if (taskToken !== -1 && taskToken !== worldGenerationToken) return;
+             item.execute();
+         }, priority });
     }
 
     console.log(`[World] Procedural Extras: ${criticalCount} critical spawned, ${deferredItems.length} deferred (sorted near-first).`);
@@ -572,7 +579,12 @@ export function spawnNearbyFoliage(origin: THREE.Vector3, type: string, options:
                 obj.position.set(nx, groundY, nz);
                 obj.userData.age = 0;
                 obj.userData.lastSpawnTime = Date.now();
-                safeAddFoliage(obj, false, 0.5, weatherSystem);
+                const placed = safeAddFoliage(obj, false, 0.5, weatherSystem);
+                if (!placed) {
+                    recordSpawnAttempt('procedural_extra', false, new Error('CPU animation limit reached; object dropped'));
+                } else {
+                    recordSpawnAttempt('procedural_extra', true);
+                }
 
                 // If it's a batcher-registered object, it will be added to the batcher.
                 // However, safeAddFoliage might push it to arrays that get batched.
