@@ -210,7 +210,11 @@ export class ScreenshotCapture {
         '--enable-webgpu',
         '--enable-features=Vulkan,WebGPU',
         '--enable-unsafe-webgpu',
-        '--disable-features=IsolateOrigins,site-per-process'
+        '--disable-features=IsolateOrigins,site-per-process',
+        '--disable-gpu-sandbox',
+        '--disable-software-rasterizer',
+        '--use-gl=swiftshader',
+        '--max-active-webgl-contexts=1'
       ]
     });
 
@@ -286,6 +290,13 @@ export class ScreenshotCapture {
       particleDensity: options.quality.particleDensity.toString(),
       visualRegression: 'true',
       skipIntro: 'true'
+    });
+
+    // Inject the CI flag into window BEFORE the page loads so
+    // heavy particle buffer allocations are aggressively scaled down
+    await this.page.addInitScript(() => {
+      (window as any).__IS_FULL_BOOT_TEST = true;
+      localStorage.setItem('__IS_FULL_BOOT_TEST', 'true');
     });
 
     await this.page.goto(`${this.baseUrl}?${params.toString()}`, {
