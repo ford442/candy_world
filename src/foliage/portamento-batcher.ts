@@ -208,20 +208,10 @@ export class PortamentoPineBatcher {
     // ⚡ OPTIMIZATION: Eliminate CPU overhead and GC spikes from Matrix4 composition by writing directly to instanceMatrix.array
     // Compose directly from the logic object's properties without using a proxy THREE.Object3D
     _scratchMatrix.compose(dummy.position, dummy.quaternion, dummy.scale);
-    const bufferCapacity1 = this.trunkMesh!.instanceMatrix.array.length / 16;
-    if (i >= this.maxInstances || i >= bufferCapacity1 || i < 0) {
-        console.error(
-            `[BOLT CRASH] ${this.constructor.name} prevented out-of-bounds write!`,
-            { index: i, bufferCapacity: bufferCapacity1, maxInstances: this.maxInstances, currentCount: this.count }
-        );
-        return;
-    }
     _scratchMatrix.toArray(this.trunkMesh!.instanceMatrix.array, i * 16);
     _scratchMatrix.toArray(this.needleMesh!.instanceMatrix.array, i * 16);
 
-    if (i < this.bendAttribute!.count && i >= 0) {
-        this.bendAttribute!.setX(i, 0);
-    }
+    this.bendAttribute!.setX(i, 0);
 
     this.trunkMesh!.instanceMatrix.needsUpdate = true;
     this.needleMesh!.instanceMatrix.needsUpdate = true;
@@ -238,14 +228,6 @@ export class PortamentoPineBatcher {
     // ⚡ OPTIMIZATION: Eliminate CPU overhead and GC spikes from Matrix4 composition by writing directly to instanceMatrix.array
     // Compose directly from the logic object's properties without using a proxy THREE.Object3D
     _scratchMatrix.compose(dummy.position, dummy.quaternion, dummy.scale);
-    const bufferCapacity2 = this.trunkMesh!.instanceMatrix.array.length / 16;
-    if (idx >= this.maxInstances || idx >= bufferCapacity2 || idx < 0) {
-        console.error(
-            `[BOLT CRASH] ${this.constructor.name} prevented out-of-bounds write!`,
-            { index: idx, bufferCapacity: bufferCapacity2, maxInstances: this.maxInstances, currentCount: this.count }
-        );
-        return;
-    }
     _scratchMatrix.toArray(this.trunkMesh!.instanceMatrix.array, idx * 16);
     _scratchMatrix.toArray(this.needleMesh!.instanceMatrix.array, idx * 16);
 

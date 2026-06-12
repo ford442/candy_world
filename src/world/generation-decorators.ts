@@ -510,9 +510,9 @@ export async function populateProceduralExtras(
     // Sort deferred extras nearest-first so the background processor populates the
     // area around the player before filling in the far horizon.
     deferredItems.sort((a, b) => a.distSq - b.distSq);
+    const taskToken = worldGenerationToken;
     for (const item of deferredItems) {
         const priority = Math.max(1, 60 - Math.floor(Math.sqrt(item.distSq) / 4));
-        const taskToken = worldGenerationToken;
         globalBackgroundProcessor.enqueue({
             id: item.id,
             execute: () => {

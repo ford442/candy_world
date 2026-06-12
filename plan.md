@@ -103,21 +103,3 @@ Status: Implemented ✅
 Next Step: Ask the user for the next task.
 * Implementation Details: Applied "Juice" to the `flowers.ts` component by adding `calculateWindSway` and `applyPlayerInteraction` TSL logic into the position graph so that it responds dynamically to weather and player forces.
 Next Step: Ask the user for the next task.
-
-Status: Implemented ✅
-* Implementation Details: Replaced `.clone()` calls inside `src/foliage/mushroom-batcher.ts` with `getCachedProceduralMaterial` module-level caches to prevent WebGPU compilation freezes, successfully moving node assignments inside the factory closures to fix validation errors. Also applied `calculateWindSway` to the TSL position nodes of all mushroom materials (stem, cap, gills, spots, and face parts) so they dynamically react to the ambient wind system.
-Next Step: Provide instructions for next feature.
-
-Status: Implemented ✅
-* Implementation Details: Implemented `RELIABLE_BOOT` feature flag in `config.ts` and `generation-core.ts` to allow critical startup elements to bypass the deferred loading queue. Fixed a material cloning array access bug in `mushroom-batcher.ts` and added explicit `.capacity` bounds checks to 4 batchers to prevent memory corruption.
-Next Step: Await user request for next priority task.
-* Implementation Details: Replaced the default checkbox for the accessibility menu toggles with an accessible `visually-hidden` and `custom-toggle` pattern in `src/ui/accessibility-menu-rendering.ts` and `src/ui/accessibility-menu.css`. Applied "Game Feel" tactile scaling, `:focus-visible` accessibility rings, and `prefers-reduced-motion: reduce` fallback styles.
-
-Status: Implemented ✅
-* Implementation Details: Replaced the default checkbox for the accessibility menu toggles with an accessible `visually-hidden` and `custom-toggle` pattern in `src/ui/accessibility-menu-rendering.ts` and `src/ui/accessibility-menu.css`. Applied "Game Feel" tactile scaling, `:focus-visible` accessibility rings, and `prefers-reduced-motion: reduce` fallback styles.
-Status: Implemented ✅
-* Implementation Details: Replaced O(N) array loops in `src/gameplay/rainbow-blaster.ts` over `clouds`, `geysers`, and `traps` with fast O(1) Spatial Hash Grid queries via `physicsCloudsGrid`, `physicsGeysersGrid`, and `physicsTrapsGrid`, eliminating a major architectural math bottleneck. Created `physicsCloudsGrid` inside `src/systems/physics/physics-core.ts`.
-
-Status: Implemented ✅
-* Implementation Details: Modified `src/foliage/plant-pose-machine.ts` to implement true Day/Night plant behaviour. The target pose is now driven primarily by the `dayNightBias` (time of day), and the audio envelope uses `Math.max(baseline, musicTarget)` to open/glow the plants during the night without shrinking them during the day.
-Next Step: Ask the user for the next task.

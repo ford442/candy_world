@@ -16,7 +16,6 @@ import type { AudioData, FoliageObject } from '../foliage/types.ts';
 import { BiomeUniforms, SkyUniforms, LuminousPlantUniforms } from './biome-uniforms.ts';
 import { uTwilight } from '../foliage/sky.ts';
 import { BeatSync } from '../audio/beat-sync.ts';
-import { registerAtmosphereBeatSync, updateAtmosphereReactivity } from './atmosphere-reactivity.ts';
 import musicBindings from '../../assets/music-bindings.json';
 import { getMapMusicContext } from '../world/map-music-context.ts';
 import type { MapMusicOverrides } from '../world/map-loader.ts';
@@ -357,7 +356,6 @@ export class MusicReactivitySystem {
         this.weatherSystem = weatherSystem;
         if (beatSync) {
             this.registerBeatSync(beatSync);
-            registerAtmosphereBeatSync(beatSync);
         }
         // Moon registration is handled explicitly via registerMoon()
     }
@@ -954,12 +952,6 @@ export class MusicReactivitySystem {
             if (WeatherMusicTargets.thunderPulse  < 0.001) WeatherMusicTargets.thunderPulse  = 0;
             if (WeatherMusicTargets.fogDensity    < 0.001) WeatherMusicTargets.fogDensity    = 0;
         }
-
-        // ---------------------------------------------------------------
-        // ⚡ ATMOSPHERE REACTIVITY — bloom, crescendo fog, and night light shafts.
-        // Runs last so SkyUniforms.intensity (melody) is up to date for this frame.
-        // ---------------------------------------------------------------
-        updateAtmosphereReactivity(audioState, deltaTime, isNight);
     }
 
     updateTwilightGlow(time: number) {

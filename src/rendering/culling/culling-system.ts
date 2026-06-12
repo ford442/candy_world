@@ -428,13 +428,12 @@ export class CullingSystem {
         // Update dependent systems
         if (config.gridCellSize && config.gridCellSize !== this.spatialGrid.getCellSize()) {
             // Rebuild spatial grid with new cell size
-            // ⚡ OPTIMIZATION: Removed Array.from() to prevent GC spikes
+            const objects = Array.from(this.objects.values());
             this.spatialGrid.clear();
-            const newGrid = new SpatialHashGrid(config.gridCellSize);
-            for (const obj of this.objects.values()) {
-                newGrid.insert(obj);
+            this.spatialGrid = new SpatialHashGrid(config.gridCellSize);
+            for (const obj of objects) {
+                this.spatialGrid.insert(obj);
             }
-            this.spatialGrid = newGrid;
         }
     }
 

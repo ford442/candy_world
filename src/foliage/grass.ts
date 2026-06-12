@@ -152,16 +152,6 @@ export function addGrassInstance(x: number, y: number, z: number) {
     dummy.scale.set(s, s, s);
 
     _scratchMatrix.compose(dummy.position, dummy.quaternion, dummy.scale);
-    const bufferLength = mesh.instanceMatrix.array.length / 16;
-    if (index >= GRASS_MAX_INSTANCES || index >= bufferLength || index < 0) {
-        console.error(
-            `[BOLT CRASH] Grass prevented out-of-bounds write!`,
-            `index=${index}`,
-            `maxInstances=${GRASS_MAX_INSTANCES}`,
-            `bufferCapacity=${bufferLength}`
-        );
-        return; // Early return to prevent bad write
-    }
     // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
     _scratchMatrix.toArray(mesh.instanceMatrix.array, (index) * 16);
     mesh.count++;

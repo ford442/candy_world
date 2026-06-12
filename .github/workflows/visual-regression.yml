@@ -1,4 +1,7 @@
 name: Visual Regression Tests
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 on:
   push:
     branches: [main, develop]
@@ -31,7 +34,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '24'
 
       - name: Install dependencies
         run: |
@@ -40,12 +43,13 @@ jobs:
           pnpm config set ignore-scripts false
           pnpm install
           cd tools/visual-regression
+          pnpm config set ignore-scripts false
           pnpm install
 
       - name: Install Playwright
         run: |
           cd tools/visual-regression
-          pnpm exec playwright install --with-deps chromium
+          npx playwright install chromium
 
       - name: Build WASM
         run: |
@@ -53,11 +57,10 @@ jobs:
 
       - name: Start dev server
         run: |
-          pnpm exec vite --port 5173 &
+          pnpm exec vite &
           npx wait-on http-get://localhost:5173 --timeout 60000
 
       - name: Run visual regression tests
-        continue-on-error: true # Non-blocking due to WebGPU headless flakiness
         run: |
           cd tools/visual-regression
           pnpm run test:visual -- \
