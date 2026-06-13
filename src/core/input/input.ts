@@ -392,8 +392,8 @@ export function initInput(
                 event.preventDefault();
                 const closePlaylistBtn = document.getElementById('closePlaylistBtn');
                 if (closePlaylistBtn) {
-                    closePlaylistBtn.setAttribute('aria-pressed', 'true');
-                    setTimeout(() => closePlaylistBtn.setAttribute('aria-pressed', 'false'), 150);
+                    closePlaylistBtn.classList.add('keyboard-active');
+                    setTimeout(() => closePlaylistBtn.classList.remove('keyboard-active'), 150);
                 }
                 togglePlaylist();
                 return;
@@ -653,14 +653,14 @@ const buttonPressTimeouts = new Map<string, NodeJS.Timeout | number>();
 function triggerButtonPress(buttonId: string): void {
     const btn = document.getElementById(buttonId);
     if (btn && btn.getAttribute('aria-disabled') !== 'true') {
-        btn.setAttribute('aria-pressed', 'true');
+        btn.classList.add('keyboard-active');
 
         if (buttonPressTimeouts.has(buttonId)) {
             clearTimeout(buttonPressTimeouts.get(buttonId) as any);
         }
 
         const timeoutId = setTimeout(() => {
-            btn.setAttribute('aria-pressed', 'false');
+            btn.classList.remove('keyboard-active');
             buttonPressTimeouts.delete(buttonId);
         }, 150);
 
