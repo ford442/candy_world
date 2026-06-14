@@ -281,7 +281,7 @@ export class EffectsManager {
      * Dispose of all effects
      */
     dispose(): void {
-        const { percussionRain, melodicMist, rainMesh, mistMesh, lightningLight, rainbow, aurora } = this.state;
+        const { percussionRain, melodicMist, rainMesh, mistMesh, lightningLight, rainbow } = this.state;
         
         if (percussionRain) {
             percussionRain.dispose();
@@ -326,18 +326,6 @@ export class EffectsManager {
                 }
             }
             this.scene.remove(rainbow);
-        }
-        if (aurora) {
-            // ⚡ OPTIMIZATION: Ensure aurora mesh and materials are disposed to prevent VRAM leak when weather effects are torn down.
-            if (aurora.geometry) aurora.geometry.dispose();
-            if (aurora.material) {
-                if (Array.isArray(aurora.material)) {
-                    aurora.material.forEach((m: any) => m.dispose());
-                } else {
-                    (aurora.material as any).dispose();
-                }
-            }
-            this.scene.remove(aurora);
         }
     }
 }

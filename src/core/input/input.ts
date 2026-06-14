@@ -689,13 +689,13 @@ function triggerButtonPress(buttonId: string): void {
     const dpadPress = (dir: DpadDirection, btn: HTMLElement) => {
         dpadHeld.add(dir);
         keyStates[dir] = true;
-        btn.classList.add('keyboard-active');
+        btn.setAttribute('aria-pressed', 'true');
     };
 
     const dpadRelease = (dir: DpadDirection, btn: HTMLElement) => {
         dpadHeld.delete(dir);
         keyStates[dir] = false;
-        btn.classList.remove('keyboard-active');
+        btn.setAttribute('aria-pressed', 'false');
     };
 
     for (const [id, dir] of Object.entries(dpadMap)) {

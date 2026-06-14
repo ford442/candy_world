@@ -37,7 +37,7 @@ const _defaultColorGreen = new THREE.Color(0x00FA9A);
 
 // Initial capacity - grows dynamically as needed (doubles each time, capped at MAX)
 const INITIAL_INSTANCES = 100;
-const MAX_INSTANCES = 3000; // Cap to prevent WebGPU uniform buffer overflow (64KB limit)
+const MAX_INSTANCES = 500; // Cap to prevent WebGPU uniform buffer overflow (64KB limit)
 
 export class TreeBatcher {
     private static instance: TreeBatcher;
@@ -187,7 +187,7 @@ export class TreeBatcher {
         });
 
         // 🎨 PALETTE: Make tree leaves pop with sparkly glow, base audio emissive, and twilight glow
-        sphereMat.emissiveNode = sphereEmissive.mul(BiomeUniforms.arpeggioGrove.noteColor).add(sugarSparkle).add(twilightGlowTint);
+        sphereMat.emissiveNode = sphereEmissive.mul(BiomeUniforms.arpeggioGrove.noteColor).add(sugarSparkle).add(twilightGlowTint).add(createJuicyRimLight(color(0xFFFFFF), float(1.5), float(3.0), null));
 
         this.spheres = new THREE.InstancedMesh(sharedGeometries.unitSphere, sphereMat, this.sphereCapacity);
         this.spheres.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(this.sphereCapacity * 3), 3);
@@ -601,23 +601,28 @@ export class TreeBatcher {
         // Check if we need to grow the buffer
         switch (countProp) {
             case 'trunkCount':
-                if (index >= this.trunkCapacity) { if (index >= MAX_INSTANCES) { console.warn("[TreeBatcher] Max capacity reached for trunks"); return; } this.growTrunkBuffer(); }
+                if (index >= this.trunkCapacity) this.growTrunkBuffer();
+                if (index >= this.trunkCapacity) return;
                 mesh = this.trunks;
                 break;
             case 'sphereCount':
-                if (index >= this.sphereCapacity) { if (index >= MAX_INSTANCES) { console.warn("[TreeBatcher] Max capacity reached for spheres"); return; } this.growSphereBuffer(); }
+                if (index >= this.sphereCapacity) this.growSphereBuffer();
+                if (index >= this.sphereCapacity) return;
                 mesh = this.spheres;
                 break;
             case 'capsuleCount':
-                if (index >= this.capsuleCapacity) { if (index >= MAX_INSTANCES) { console.warn("[TreeBatcher] Max capacity reached for capsules"); return; } this.growCapsuleBuffer(); }
+                if (index >= this.capsuleCapacity) this.growCapsuleBuffer();
+                if (index >= this.capsuleCapacity) return;
                 mesh = this.capsules;
                 break;
             case 'helixCount':
-                if (index >= this.helixCapacity) { if (index >= MAX_INSTANCES) { console.warn("[TreeBatcher] Max capacity reached for helices"); return; } this.growHelixBuffer(); }
+                if (index >= this.helixCapacity) this.growHelixBuffer();
+                if (index >= this.helixCapacity) return;
                 mesh = this.helices;
                 break;
             case 'roseCount':
-                if (index >= this.roseCapacity) { if (index >= MAX_INSTANCES) { console.warn("[TreeBatcher] Max capacity reached for roses"); return; } this.growRoseBuffer(); }
+                if (index >= this.roseCapacity) this.growRoseBuffer();
+                if (index >= this.roseCapacity) return;
                 mesh = this.roses;
                 break;
         }

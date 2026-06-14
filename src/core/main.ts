@@ -222,7 +222,7 @@ await StageLoader.loadStage('musicReactivity', () => {
     if (moon) {
         musicReactivitySystem.registerMoon(moon);
     }
-    
+
     // Hook up audio system note events to music reactivity
     if (audioSystem) {
         if (audioSystem.onNote) {
@@ -254,8 +254,8 @@ const timeOffset = { value: 0 };
 let inputSystem: any;
 let controls: any;
 await StageLoader.loadStage('input', () => {
-    inputSystem = initInput(camera, audioSystem!, 
-        () => toggleDayNight(timeOffset), 
+    inputSystem = initInput(camera, audioSystem!,
+        () => toggleDayNight(timeOffset),
         () => (player as any).isDancing
     );
     setInputSystem(inputSystem);
@@ -475,6 +475,7 @@ loadingScreen.completePhase('wasm-init');
 
 // --- START BUTTON + MAP GENERATION (unchanged UX) ---
 const startButton = document.getElementById('startButton') as HTMLButtonElement | null;
+const statusEl = document.getElementById('world-status');
 
 if (startButton) {
     startButton.disabled = false;
@@ -552,11 +553,6 @@ if (startButton) {
         waitFullCheckbox.addEventListener('change', () => {
             waitForFullPopulation = waitFullCheckbox.checked;
             localStorage.setItem(WAIT_FULL_KEY, waitForFullPopulation ? '1' : '0');
-
-            // ♿ Aria: Announce the toggle change explicitly for screen readers
-            import('../ui/announcer.ts').then(({ announce }) => {
-                announce(`Scenery wait mode ${waitForFullPopulation ? 'enabled - world will fully load before entry' : 'disabled'}`, 'polite');
-            });
         });
     }
 
@@ -640,6 +636,11 @@ if (startButton) {
                 const baseLabel = label ?? getGenerationLabel(requestedMode);
                 const progressLabel = entityType ? `${baseLabel} · ${entityType}` : baseLabel;
                 loadingScreen.updateProgress(percent, progressLabel);
+
+                if (statusEl) {
+                    statusEl.textContent = progressLabel;
+                }
+
                 startButton.style.background = requestedMode === 'CORE'
                     ? `linear-gradient(90deg, #FF9ECD ${percent}%, #FFD4E3 ${percent}%)`
                     : `linear-gradient(90deg, #FF6B6B ${percent}%, #FFB6C1 ${percent}%)`;
@@ -666,6 +667,10 @@ if (startButton) {
             loadingScreen.updateProgress(100, 'World generation complete!');
             loadingScreen.completePhase('map-generation');
             loadingScreen.hide();
+
+            if (statusEl) {
+                statusEl.textContent = 'World generated. Welcome to Candy World.';
+            }
 
             // ♿ Aria: Announce that the game is fully loaded and exploration has started
             import('../ui/announcer.ts').then(({ announce }) => {

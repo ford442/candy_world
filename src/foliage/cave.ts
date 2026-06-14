@@ -7,8 +7,7 @@ import {
     smoothstep, abs
 } from 'three/tsl';
 import {
-    uAudioLow, createRimLight, createJuicyRimLight, triplanarNoise, perturbNormal,
-    calculateWindSway, applyPlayerInteraction
+    uAudioLow, createRimLight, triplanarNoise, perturbNormal
 } from './index.ts';
 import { uTwilight } from './sky.ts';
 import { waterfallBatcher } from './waterfall-batcher.ts';
@@ -65,7 +64,7 @@ function getSharedCrystalMat() {
         const crystalGlowColor = color(0x00FFFF); // Cyan glow
 
         // 3. Rim Light (Edge Definition)
-        const crystalRim = createJuicyRimLight(color(0xffffff), float(1.2), float(3.0), null);
+        const crystalRim = createRimLight(color(0xffffff), float(0.8), float(3.0));
 
         // Combine Colors
         _sharedCrystalMat.colorNode = crystalBaseColor.add(crystalRim);
@@ -74,9 +73,6 @@ function getSharedCrystalMat() {
         // 4. Surface Detail (Bump & Roughness & Transmission)
         _sharedCrystalMat.roughnessNode = float(0.2).add(crystalNoise.mul(0.1)); // Smooth and shiny
         _sharedCrystalMat.metalnessNode = float(0.2);
-
-        // 5. Position Deformations (Wind Sway & Player Interaction)
-        _sharedCrystalMat.positionNode = applyPlayerInteraction(positionLocal).add(calculateWindSway(positionLocal));
     }
     return _sharedCrystalMat;
 }
@@ -111,7 +107,7 @@ function getSharedRockMat() {
         const veinColor = color(0x00FFFF); // Cyan glow
 
         // 3. Rim Light (Edge Definition)
-        const rim = createJuicyRimLight(color(0x444455), float(0.8), float(2.0), null);
+        const rim = createRimLight(color(0x444455), float(0.5), float(2.0));
 
         // Combine Colors
         _sharedRockMat.colorNode = baseColor.add(rim);
@@ -124,9 +120,6 @@ function getSharedRockMat() {
 
         // Bump Map for detail
         _sharedRockMat.normalNode = perturbNormal(positionLocal, normalWorld, float(8.0), float(0.5));
-
-        // 5. Position Deformations (Player Interaction)
-        _sharedRockMat.positionNode = applyPlayerInteraction(positionLocal);
     }
     return _sharedRockMat;
 }

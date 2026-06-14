@@ -24,7 +24,7 @@ import { BiomeUniforms } from '../systems/biome-uniforms.ts';
 // Use the instanced color varying populated by InstancedMeshNode
 const instanceColor = varyingProperty('vec3', 'vInstanceColor');
 
-const MAX_FLOWERS = 5000; // Reduced from 5000 for WebGPU uniform buffer limits
+const MAX_FLOWERS = 1000; // Reduced from 5000 for WebGPU uniform buffer limits
 const GRAINS_PER_FLOWER = 5;
 const MAX_POLLEN = MAX_FLOWERS * GRAINS_PER_FLOWER;
 

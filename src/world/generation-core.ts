@@ -36,6 +36,7 @@ import { treeBatcher } from '../foliage/tree-batcher.ts';
 import { subwooferLotusBatcher } from '../foliage/subwoofer-lotus-batcher.ts';
 
 let loadedMapPromise: Promise<LoadedCandyMap> | null = null;
+
 export let worldGenerationToken = 0;
 registerBuiltinWorldObjectTypes();
 
@@ -502,7 +503,7 @@ export async function generateMap(
 
     // 3. Queue Procedural Extras
     console.time('[World] procedural-extras');
-    await populateProceduralExtras(weatherSystem, chunkSize);
+    await populateProceduralExtras(weatherSystem, generationToken, chunkSize);
     console.timeEnd('[World] procedural-extras');
 
     // Keep a lightweight final fallback for any entities excluded from the streaming query.
@@ -905,9 +906,7 @@ function processMapEntity(item: MapEntity, weatherSystem: WeatherSystem, options
 
         obj = create(entityType, createParams);
         if (!obj) {
-            // Unknown or unregistered type — count as a spawn failure so it shows
-            // up in the spawn report / badge rather than being silently dropped.
-            recordSpawnAttempt(entityType, false, new Error(`No factory registered for type "${entityType}"`));
+            recordSpawnAttempt(entityType, false, new Error(`Factory returned null for type "${entityType}"`));
             return;
         }
 

@@ -1,4 +1,7 @@
 name: Visual Regression Tests
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 on:
   push:
     branches: [main, develop]
@@ -31,14 +34,16 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
 
       - name: Install dependencies
         run: |
           # Use pnpm since there is a pnpm-lock.yaml file
           npm install -g pnpm
+          pnpm config set ignore-scripts false
           pnpm install
           cd tools/visual-regression
+          pnpm config set ignore-scripts false
           pnpm install
 
       - name: Install Playwright
@@ -48,17 +53,18 @@ jobs:
 
       - name: Build WASM
         run: |
-          pnpm run build:wasm
+          pnpm run build:ci
 
       - name: Start dev server
         run: |
-          pnpm exec vite &
-          npx wait-on http-get://localhost:5173 --timeout 60000
+          pnpm exec vite preview --port 5173 &
+          npx wait-on http-get://localhost:5173 --timeout 120000
 
       - name: Run visual regression tests
         run: |
           cd tools/visual-regression
           pnpm run test:visual -- \
+            --url http://localhost:5173 \
             --viewpoints spawn,lake,forest \
             --qualities medium,high \
             --threshold 0.05

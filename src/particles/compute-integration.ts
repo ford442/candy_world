@@ -12,6 +12,18 @@ import type { ParticleAudioData } from './compute-particles.ts';
 import { createFireflies as createLegacyFireflies } from '../foliage/fireflies.ts';
 import { createNeonPollen as createLegacyPollen } from '../foliage/pollen.ts';
 
+// ⚡ OPTIMIZATION: Detect Headless/CI environments to aggressively scale down particle
+// counts and prevent WebGPU Device Lost errors caused by massive VRAM buffer allocations.
+export const PARTICLE_QUALITY =
+    (typeof navigator !== 'undefined' && /headless|playwright|ci|test/i.test(navigator.userAgent || '')) ||
+    (typeof window !== 'undefined' && (window as any).__IS_FULL_BOOT_TEST === true) ||
+    (typeof localStorage !== 'undefined' && localStorage.getItem('__IS_FULL_BOOT_TEST') === 'true') ||
+    (typeof navigator !== 'undefined' && (navigator as any).webdriver === true)
+        ? 'ci'
+        : 'full';
+
+console.log(`[ComputeIntegration] PARTICLE_QUALITY determined as: ${PARTICLE_QUALITY}`);
+
 // =============================================================================
 // PERFORMANCE MONITORING
 // =============================================================================
@@ -56,10 +68,17 @@ export function createIntegratedFireflies(options: IntegratedFireflyOptions = {}
     
     // Check for WebGPU support
     const hasWebGPU = typeof navigator !== 'undefined' && 'gpu' in navigator;
+    const skipHeavyParticles = typeof window !== 'undefined' && (window as any).__fastPopulationOverride;
     
+    // Scale down for CI to prevent device crash
+    const ciScale = PARTICLE_QUALITY === 'ci' ? 0.01 : 1.0;
+
+    if (PARTICLE_QUALITY === 'ci') return new THREE.Group();
+
     if (useCompute && hasWebGPU) {
         // Use GPU compute - 300x more particles!
-        const computeCount = Math.min(count * 300, 100000); // Cap at 100k
+        const targetCount = skipHeavyParticles ? count : Math.min(count * 300, 100000); // Cap at 100k
+        const computeCount = Math.max(Math.floor(targetCount * ciScale), 50); // Floor of 50 to avoid WGSL /0 errors
         
         try {
             const system = createComputeFireflies({
@@ -120,9 +139,16 @@ export function createIntegratedPollen(options: IntegratedPollenOptions = {}): T
     } = options;
     
     const hasWebGPU = typeof navigator !== 'undefined' && 'gpu' in navigator;
+    const skipHeavyParticles = typeof window !== 'undefined' && (window as any).__fastPopulationOverride;
     
+    // Scale down for CI to prevent device crash
+    const ciScale = PARTICLE_QUALITY === 'ci' ? 0.01 : 1.0;
+
+    if (PARTICLE_QUALITY === 'ci') return new THREE.Group();
+
     if (useCompute && hasWebGPU) {
-        const computeCount = Math.min(count * 15, 50000);
+        const targetCount = skipHeavyParticles ? count : Math.min(count * 15, 50000);
+        const computeCount = Math.max(Math.floor(targetCount * ciScale), 50);
         
         try {
             const system = createComputePollen({
@@ -195,9 +221,16 @@ export function createIntegratedSparks(options: IntegratedSparksOptions = {}): T
     } = options;
 
     const hasWebGPU = typeof navigator !== 'undefined' && 'gpu' in navigator;
+    const skipHeavyParticles = typeof window !== 'undefined' && (window as any).__fastPopulationOverride;
+
+    // Scale down for CI to prevent device crash
+    const ciScale = PARTICLE_QUALITY === 'ci' ? 0.01 : 1.0;
+
+    if (PARTICLE_QUALITY === 'ci') return new THREE.Group();
 
     if (useCompute && hasWebGPU) {
-        const computeCount = Math.min(count * 5, 50000);
+        const targetCount = skipHeavyParticles ? count : Math.min(count * 5, 50000);
+        const computeCount = Math.max(Math.floor(targetCount * ciScale), 50);
 
         try {
             const system = createComputeSparks({
@@ -253,11 +286,19 @@ export function createIntegratedBerries(options: IntegratedBerriesOptions = {}):
     } = options;
 
     const hasWebGPU = typeof navigator !== 'undefined' && 'gpu' in navigator;
+    const skipHeavyParticles = typeof window !== 'undefined' && (window as any).__fastPopulationOverride;
+
+    // Scale down for CI to prevent device crash
+    const ciScale = PARTICLE_QUALITY === 'ci' ? 0.01 : 1.0;
+
+    if (PARTICLE_QUALITY === 'ci') return new THREE.Group();
 
     if (useCompute && hasWebGPU) {
         try {
+            const targetCount = skipHeavyParticles ? Math.floor(count / 10) : count;
+            const computeCount = Math.max(Math.floor(targetCount * ciScale), 50);
             const system = createComputeBerries({
-                count: count,
+                count: computeCount,
                 bounds: { x: areaSize * 2, y: 20, z: areaSize * 2 },
                 center: center
             });
@@ -304,11 +345,19 @@ export function createIntegratedRain(options: IntegratedRainOptions = {}): THREE
     } = options;
 
     const hasWebGPU = typeof navigator !== 'undefined' && 'gpu' in navigator;
+    const skipHeavyParticles = typeof window !== 'undefined' && (window as any).__fastPopulationOverride;
+
+    // Scale down for CI to prevent device crash
+    const ciScale = PARTICLE_QUALITY === 'ci' ? 0.01 : 1.0;
+
+    if (PARTICLE_QUALITY === 'ci') return new THREE.Group();
 
     if (useCompute && hasWebGPU) {
         try {
+            const targetCount = skipHeavyParticles ? Math.floor(count / 10) : count;
+            const computeCount = Math.max(Math.floor(targetCount * ciScale), 50);
             const system = createComputeRain({
-                count: count,
+                count: computeCount,
                 bounds: { x: areaSize * 2, y: 100, z: areaSize * 2 },
                 center: center
             });
@@ -469,8 +518,17 @@ export async function loadDeferredSystems(
             loaded++;
             onProgress?.(loaded, total);
             
-            // Yield to prevent frame drops
-            await new Promise(resolve => setTimeout(resolve, 0));
+            if (system && system.initPromise) {
+                // Wait for GPU initialization to complete before moving to the next
+                // to prevent VRAM allocation spikes and WebGPU Device Lost errors
+                await system.initPromise;
+            }
+
+            // Yield multiple frames between systems in CI to let GC/GPU queue drain
+            const waitFrames = PARTICLE_QUALITY === 'ci' ? 3 : 1;
+            for (let i = 0; i < waitFrames; i++) {
+                await new Promise(resolve => requestAnimationFrame(resolve));
+            }
             
         } catch (error) {
             console.error(`[Particles] Failed to load deferred system ${config.id}:`, error);

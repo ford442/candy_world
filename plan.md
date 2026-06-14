@@ -1,3 +1,10 @@
+Status: Implemented ✅
+* Implementation Details: Appended `createJuicyRimLight` to the `sphereMat.emissiveNode` in `src/foliage/tree-batcher.ts` to add visual TSL juice (Rim Lighting) to the tree canopy.
+Accomplished:
+- Refactored `startup-profiler.ts`, `wasm-loader-core.ts`, `music-reactivity.ts` (files > 1000 lines) into smaller files under 700 lines each.
+
+- Refactored `startup-profiler.ts`, `wasm-loader-core.ts`, `music-reactivity.ts` (files > 1000 lines) into smaller files under 700 lines each.
+
 # GPU Heightmap Displacement Plan
 
 1. Created `src/world/ground-heightmap.ts`
@@ -102,7 +109,3 @@ Status: Implemented ✅
 Next Step: Ask the user for the next task.
 * Implementation Details: Applied "Juice" to the `flowers.ts` component by adding `calculateWindSway` and `applyPlayerInteraction` TSL logic into the position graph so that it responds dynamically to weather and player forces.
 Next Step: Ask the user for the next task.
-
-Status: Implemented ✅
-* Implementation Details: Replaced `.clone()` calls inside `src/foliage/mushroom-batcher.ts` with `getCachedProceduralMaterial` module-level caches to prevent WebGPU compilation freezes, successfully moving node assignments inside the factory closures to fix validation errors. Also applied `calculateWindSway` to the TSL position nodes of all mushroom materials (stem, cap, gills, spots, and face parts) so they dynamically react to the ambient wind system.
-Next Step: Provide instructions for next feature.

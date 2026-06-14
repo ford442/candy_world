@@ -86,6 +86,7 @@ export class ComputeParticleSystem {
     private nextSpawnIndex: number = 0;
     private static scratchFloat32Array = new Float32Array(4);
 
+    public initPromise: Promise<void> | null = null;
     
     // Uniforms
     private uniforms = {
@@ -124,7 +125,7 @@ export class ComputeParticleSystem {
         this.mesh.userData.computeParticleSystem = this;
         
         // Try to initialize WebGPU
-        this.initWebGPU().catch(() => {
+        this.initPromise = this.initWebGPU().catch(() => {
             console.log(`[ComputeParticles] Falling back to CPU for ${this.type}`);
             this.initCPUFallback();
         });
@@ -313,16 +314,18 @@ private getOpacityNode(): any {
             5000,
             'WebGPU requestDevice'
         );
+
+        this.device.lost.then((info) => {
+            console.error(`[ComputeParticles] WebGPU Device Lost for ${this.type}: ${info.message}`);
+        });
         
-        await withTimeout(
-            Promise.all([
-                this.createComputePipeline(),
-                this.createUniformBuffer(),
-                this.createBindGroup()
-            ]),
-            10000,
-            'WebGPU pipeline initialization'
-        );
+        // Ensure WebGPU resources are created sequentially with rAF yields
+        // rather than Promise.all parallel execution, to prevent VRAM allocation spikes.
+        await this.createComputePipeline();
+        await new Promise(resolve => requestAnimationFrame(resolve));
+        await this.createUniformBuffer();
+        await new Promise(resolve => requestAnimationFrame(resolve));
+        await this.createBindGroup();
         
         this.usingGPU = true;
         console.log(`[ComputeParticles] GPU initialized for ${this.type} with ${this.count} particles`);
@@ -398,13 +401,16 @@ private getOpacityNode(): any {
         const f32ArraySize = this.count * 4;
         const totalSize = Math.ceil(((vec3ArraySize * 2) + (f32ArraySize * 3)) / 16) * 16;
 
+        // Stagger allocation to prevent VRAM spikes
+        await new Promise(resolve => requestAnimationFrame(resolve));
+
         this.particleBuffer = this.device.createBuffer({
             size: totalSize,
             usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
             mappedAtCreation: false
         });
         
-
+        await new Promise(resolve => requestAnimationFrame(resolve));
 
         this.bindGroup = this.device.createBindGroup({
             layout: this.computePipeline.getBindGroupLayout(0),
