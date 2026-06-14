@@ -1,14 +1,14 @@
 import { PhaseTiming, InstancedMeshMetrics, WebGPUMetrics, ProfilerConfig, StartupReport } from './startup-profiler-types.ts';
 import { formatBytes, formatDuration, getMemoryUsage } from './startup-profiler-utils.ts';
-
+import { uiState } from './startup-profiler.ts';
 
 export function createOverlay(): void {
-  if (overlayContainer) return;
+  if (uiState.overlayContainer) return;
 
   // Container
-  overlayContainer = document.createElement('div');
-  overlayContainer.id = 'startup-profiler-overlay';
-  overlayContainer.style.cssText = `
+  uiState.overlayContainer = document.createElement('div');
+  uiState.overlayContainer.id = 'startup-profiler-overlay';
+  uiState.overlayContainer.style.cssText = `
     position: fixed;
     top: 10px;
     right: 10px;
@@ -55,26 +55,26 @@ export function createOverlay(): void {
       transition: background 0.2s;
     ">×</button>
   `;
-  overlayContainer.appendChild(header);
+  uiState.overlayContainer.appendChild(header);
 
   // Content area
   const content = document.createElement('div');
   content.id = 'startup-profiler-content';
-  overlayContainer.appendChild(content);
+  uiState.overlayContainer.appendChild(content);
 
   // Canvas for charts
-  overlayCanvas = document.createElement('canvas');
-  overlayCanvas.width = 360;
-  overlayCanvas.height = 200;
-  overlayCanvas.style.cssText = `
+  uiState.overlayCanvas = document.createElement('canvas');
+  uiState.overlayCanvas.width = 360;
+  uiState.overlayCanvas.height = 200;
+  uiState.overlayCanvas.style.cssText = `
     width: 100%;
     height: auto;
     margin-top: 12px;
     border-radius: 6px;
     background: rgba(0, 0, 0, 0.3);
   `;
-  overlayContainer.appendChild(overlayCanvas);
-  overlayCtx = overlayCanvas.getContext('2d');
+  uiState.overlayContainer.appendChild(uiState.overlayCanvas);
+  uiState.overlayCtx = uiState.overlayCanvas.getContext('2d');
 
   // Footer with actions
   const footer = document.createElement('div');
@@ -107,9 +107,9 @@ export function createOverlay(): void {
       font-size: 11px;
     ">Hide</button>
   `;
-  overlayContainer.appendChild(footer);
+  uiState.overlayContainer.appendChild(footer);
 
-  document.body.appendChild(overlayContainer);
+  document.body.appendChild(uiState.overlayContainer);
 
   // Event listeners
   document.getElementById('startup-profiler-close')?.addEventListener('click', hideOverlay);
@@ -121,10 +121,10 @@ export function createOverlay(): void {
 }
 
 export function drawOverlay(): void {
-  if (!overlayCtx || !overlayCanvas) return;
+  if (!uiState.overlayCtx || !uiState.overlayCanvas) return;
 
-  const ctx = overlayCtx;
-  const canvas = overlayCanvas;
+  const ctx = uiState.overlayCtx;
+  const canvas = uiState.overlayCanvas;
   const width = canvas.width;
   const height = canvas.height;
 
@@ -223,21 +223,21 @@ export function drawOverlay(): void {
 }
 
 export function showOverlay(): void {
-  if (!overlayContainer) {
+  if (!uiState.overlayContainer) {
     createOverlay();
   }
-  if (overlayContainer) {
-    overlayContainer.style.display = 'block';
-    overlayContainer.style.opacity = '1';
+  if (uiState.overlayContainer) {
+    uiState.overlayContainer.style.display = 'block';
+    uiState.overlayContainer.style.opacity = '1';
     drawOverlay();
   }
 }
 
 export function hideOverlay(): void {
-  if (overlayContainer) {
-    overlayContainer.style.opacity = '0';
+  if (uiState.overlayContainer) {
+    uiState.overlayContainer.style.opacity = '0';
     setTimeout(() => {
-      if (overlayContainer) overlayContainer.style.display = 'none';
+      if (uiState.overlayContainer) uiState.overlayContainer.style.display = 'none';
     }, 300);
   }
 }

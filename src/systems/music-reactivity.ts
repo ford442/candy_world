@@ -504,13 +504,16 @@ export class MusicReactivitySystem {
     }
 
     private updateFoliageAnimationLoop(time: number, deltaTime: number, audioState: AudioData | null, cpuAnimatedFoliage: FoliageObject[], camera: THREE.Camera, isDay: boolean, isDeepNight: boolean) {
+        if (typeof isDay !== 'boolean') {
+            console.warn('[Music] isDay parameter missing');
+            return;
+        }
+
 // 3. Update Foliage Animation Loop
     if (cpuAnimatedFoliage && camera) {
         // Update Frustum for Culling
         _projScreenMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
         _frustum.setFromProjectionMatrix(_projScreenMatrix);
-
-        const isDay = !isNight;
 
         // ⚡ PERFORMANCE: Debug counters
         let totalObjects = 0;
@@ -813,6 +816,7 @@ export class MusicReactivitySystem {
         // ⚡ LUMINOUS PLANTS (Scenic System)
         // Tracker channel defined in assets/music-bindings.json.
         // ---------------------------------------------------------------
+        const channels = audioState?.channelData;
         if (channels && MRState.luminousPlantTrackerChannel < channels.length) {
             const lpData = channels[MRState.luminousPlantTrackerChannel];
 
@@ -839,7 +843,8 @@ export class MusicReactivitySystem {
             }
         }
         // Day guard: clamp intensity to 0 when daytime so sky/moon are unchanged.
-        SkyUniforms.intensity.value = isNight ? Math.min(MRState.smoothedSkyIntensity, 1.0) : 0.0;
+        const isNightNow = this.weatherSystem ? this.weatherSystem.isNight() : true;
+        SkyUniforms.intensity.value = isNightNow ? Math.min(MRState.smoothedSkyIntensity, 1.0) : 0.0;
     }
 
     private updateSkyWavePropagation(audioState: AudioData | null, isDay: boolean, cameraPosition?: THREE.Vector3) {
