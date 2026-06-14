@@ -530,8 +530,8 @@ export function handlePlaylistKeyDown(event: KeyboardEvent): boolean {
     if (event.code === 'KeyQ') {
         event.preventDefault();
         if (closePlaylistBtn) {
-            closePlaylistBtn.setAttribute('aria-pressed', 'true');
-            setTimeout(() => closePlaylistBtn.setAttribute('aria-pressed', 'false'), 150);
+            closePlaylistBtn.classList.add('keyboard-active');
+            setTimeout(() => closePlaylistBtn.classList.remove('keyboard-active'), 150);
         }
         togglePlaylist();
         return true;
@@ -542,8 +542,8 @@ export function handlePlaylistKeyDown(event: KeyboardEvent): boolean {
         const playlistInput = document.getElementById('playlistUploadInput') as HTMLInputElement;
         const addSongsBtnEl = document.getElementById('addSongsBtn');
         if (addSongsBtnEl) {
-            addSongsBtnEl.setAttribute('aria-pressed', 'true');
-            setTimeout(() => addSongsBtnEl.setAttribute('aria-pressed', 'false'), 150);
+            addSongsBtnEl.classList.add('keyboard-active');
+            setTimeout(() => addSongsBtnEl.classList.remove('keyboard-active'), 150);
         }
         if (playlistInput) playlistInput.click();
         return true;

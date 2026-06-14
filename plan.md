@@ -86,6 +86,10 @@ Status: Implemented ✅
 Next Step: Ask the user for the next task.
 
 Status: Implemented ✅
+* Implementation Details: Fixed the Scene-Loading Regression (#1133) by replacing mutating tokens with a stable per-boot `worldGenerationToken` orchestration strategy and adding `reliableBoot` fallback guards inside `config.ts`. Eliminated Out of Bounds Float32Array WASM crashes using explicit clamping boundaries.
+Next Step: Wait for user instructions.
+
+Status: Implemented ✅
 * Implementation Details: Replaced single mesh subwoofer lotus with `SubwooferLotusBatcher` in `src/foliage/subwoofer-lotus-batcher.ts`, fully adopting `InstancedMesh` with TSL bass pulse scaling, glitch distortion, and proper VRAM disposal for the Subwoofer Lotus.
 Next Step: Continue large file refactoring from `REFACTORING_PLAN_REMAINING.md`.
 1. *Add `dispose` method to `LuminousPlantBatcher` in `src/foliage/luminous-plant-batcher.ts`.*
@@ -104,4 +108,8 @@ Status: Implemented ✅
 * Implementation Details: Replaced `group.traverse()` calls in `src/foliage/tree-batcher.ts` registration methods (`registerBubbleWillow`, `registerBalloonBush`, `registerHelixPlant`, `registerFloweringTree`) with direct `for (let i = 0; i < group.children.length; i++)` iteration over `group.children`. This eliminates recursive function overhead and adheres to zero-allocation guidelines in shallow, known hierarchies.
 Next Step: Ask the user for the next task.
 * Implementation Details: Applied "Juice" to the `flowers.ts` component by adding `calculateWindSway` and `applyPlayerInteraction` TSL logic into the position graph so that it responds dynamically to weather and player forces.
+Next Step: Ask the user for the next task.
+
+Status: Implemented ✅
+* Implementation Details: Applied "Juice" to the `subwoofer-lotus-batcher.ts` component by adding `calculateWindSway`, `applyPlayerInteraction`, and `createJuicyRimLight` TSL logic to the base pad, rings, and center portal.
 Next Step: Ask the user for the next task.

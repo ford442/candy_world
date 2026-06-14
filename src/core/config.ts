@@ -33,6 +33,7 @@ export const FEATURE_FLAGS = {
     audioReactivity:  !_hasFlag('no_audio_react'),
     fireflies:        !_hasFlag('no_fireflies'),
     grass:            !_hasFlag('no_grass'),
+    reliableBoot:     !_hasFlag('no_reliable_boot'),
 } as const;
 
 // Log active overrides once at startup so the console makes the state obvious.

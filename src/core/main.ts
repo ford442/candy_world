@@ -31,6 +31,7 @@ import { animatedFoliage, interactiveObjects } from '../world/state.ts';
 import { installWorldExportTools } from '../world/map-exporter.ts';
 import { fireRainbow } from '../gameplay/rainbow-blaster.ts';
 import { player, populatePhysicsGrids } from '../systems/physics/index.ts';
+import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 
 // Refactored module imports
 import { animate, initGameLoopDependencies, addCameraShake } from './game-loop.ts';
@@ -590,26 +591,7 @@ if (startButton) {
             // Note: previewMushroom is defined in previous world generation runs
             const previewMushroom = (window as any).previewMushroom;
             if (typeof previewMushroom !== 'undefined' && previewMushroom) {
-                scene.remove(previewMushroom);
-                if (previewMushroom.geometry) previewMushroom.geometry.dispose();
-                if (previewMushroom.material) {
-                    if (Array.isArray(previewMushroom.material)) {
-                        previewMushroom.material.forEach((m: any) => m.dispose());
-                    } else {
-                        previewMushroom.material.dispose();
-                    }
-                }
-                previewMushroom.traverse((child: any) => {
-                    const mesh = child as THREE.Mesh;
-                    if (mesh.geometry) mesh.geometry.dispose();
-                    if (mesh.material) {
-                        if (Array.isArray(mesh.material)) {
-                            mesh.material.forEach((m: any) => m.dispose());
-                        } else {
-                            mesh.material.dispose();
-                        }
-                    }
-                });
+                safeRemoveAndDispose(scene, previewMushroom);
                 const idx = animatedFoliage.indexOf(previewMushroom);
                 if (idx > -1) animatedFoliage.splice(idx, 1);
                 const intIdx = interactiveObjects.indexOf(previewMushroom);
