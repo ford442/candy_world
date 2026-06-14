@@ -256,11 +256,19 @@ export class GPUComputeLibrary {
         encoder.copyBufferToBuffer(gpuBuffer, 0, staging, 0, size);
         this.device.queue.submit([encoder.finish()]);
 
+        try {
+    if (staging.mapState === 'unmapped') {
         await staging.mapAsync(GPUMapMode.READ);
-        const result = new Float32Array(staging.getMappedRange().slice(0));
-        staging.unmap();
-        staging.destroy();
-        return result;
+    }
+    const result = new Float32Array(staging.getMappedRange().slice(0));
+    staging.unmap();
+    staging.destroy();
+    return result;
+} catch (e) {
+    console.warn('[GPU] getMappedRange failed:', e);
+    staging.destroy();
+    return new Float32Array(size / 4); // Fallback
+}
     }
 
     /**
@@ -280,11 +288,19 @@ export class GPUComputeLibrary {
         encoder.copyBufferToBuffer(gpuBuffer, 0, staging, 0, size);
         this.device.queue.submit([encoder.finish()]);
 
+        try {
+    if (staging.mapState === 'unmapped') {
         await staging.mapAsync(GPUMapMode.READ);
-        const result = new Uint32Array(staging.getMappedRange().slice(0));
-        staging.unmap();
-        staging.destroy();
-        return result;
+    }
+    const result = new Uint32Array(staging.getMappedRange().slice(0));
+    staging.unmap();
+    staging.destroy();
+    return result;
+} catch (e) {
+    console.warn('[GPU] getMappedRange failed (U32):', e);
+    staging.destroy();
+    return new Uint32Array(size / 4); // Fallback
+}
     }
 
     // =========================================================================

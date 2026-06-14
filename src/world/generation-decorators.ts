@@ -512,11 +512,12 @@ export async function populateProceduralExtras(
     deferredItems.sort((a, b) => a.distSq - b.distSq);
     for (const item of deferredItems) {
         const priority = Math.max(1, 60 - Math.floor(Math.sqrt(item.distSq) / 4));
-        const taskToken = worldGenerationToken;
+        const taskToken = (window as any).__currentWorldGenerationToken ?? worldGenerationToken;
         globalBackgroundProcessor.enqueue({
             id: item.id,
             execute: () => {
-                if (taskToken !== worldGenerationToken) return;
+                const currentToken = (window as any).__currentWorldGenerationToken ?? 0;
+                if (taskToken !== currentToken) { return; }
                 item.execute();
             },
             priority

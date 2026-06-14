@@ -391,7 +391,7 @@ export async function generateMap(
     chunkSize: number = DEFAULT_MAP_CHUNK_SIZE,
     onProgress?: WorldProgressCallback
 ): Promise<void> {
-    const generationToken = ++worldGenerationToken;
+    const generationToken = worldGenerationToken;
     resetSpawnTracker();
     performance.mark('candy:map-generation-start');
     console.time('[World] generateMap total');
@@ -478,7 +478,8 @@ export async function generateMap(
                 id: `map_stream_${queuedType}_${queuedId}`,
                 priority: streamPriority,
                 execute: () => {
-                    if (taskToken !== worldGenerationToken) return;
+                    const currentToken = (window as any).__currentWorldGenerationToken ?? 0;
+                if (taskToken !== currentToken) { return; }
                     processMapEntity(item as MapEntity, weatherSystem, { streamed: streamFlag });
                 }
             });
@@ -513,7 +514,8 @@ export async function generateMap(
             id: `map_fallback_${item.type}_${item.id}`,
             priority: 1,
             execute: () => {
-                if (taskToken !== worldGenerationToken) return;
+                const currentToken = (window as any).__currentWorldGenerationToken ?? 0;
+                if (taskToken !== currentToken) { return; }
                 processMapEntity(item as MapEntity, weatherSystem, { streamed: true });
             }
         });
@@ -697,6 +699,9 @@ export async function populateWorld(
     onProgress?: WorldProgressCallback,
     options?: { fastPopulation?: boolean }
 ): Promise<WorldMode> {
+    worldGenerationToken = Date.now();
+    const currentToken = worldGenerationToken;
+    (window as any).__currentWorldGenerationToken = currentToken;
     console.log(`[World] Starting populateWorld() in ${mode} mode`);
 
     // Fast Full Mode: apply aggressive population reduction on top of user config
