@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import {
-    color, float, vec3, positionLocal,
+    color, float, vec3, positionLocal, normalLocal,
     mix, sin, abs, smoothstep,
     mx_noise_float, uv, length, atan2, max
 } from 'three/tsl';
@@ -11,7 +11,10 @@ import {
     registerReactiveMaterial,
     uAudioLow,
     uGlitchIntensity,
-    uTime
+    uTime,
+    createJuicyRimLight,
+    calculateWindSway,
+    applyPlayerInteraction
 } from './index.ts';
 import { BiomeUniforms } from '../systems/biome-uniforms.ts';
 import { makeInteractive } from '../utils/interaction-utils.ts';
@@ -44,6 +47,7 @@ export class SubwooferLotusBatcher {
 
         // 1. Base Pad
         const padMat = createClayMaterial(hexColor);
+        padMat.positionNode = applyPlayerInteraction(positionLocal.add(calculateWindSway(positionLocal)));
         this.padMesh = new THREE.InstancedMesh(sharedGeometries.unitCylinder, padMat, MAX_LOTUS);
         this.padMesh.count = 0;
         this.padMesh.castShadow = true;
@@ -78,10 +82,10 @@ export class SubwooferLotusBatcher {
             .mul(uTwilight)
             .mul(float(CONFIG.glow.glowIntensityMax))
             .mul(float(0.3).add(idlePulse));
-        ringMat.emissiveNode = emission.add(twilightGlowTint);
+        ringMat.emissiveNode = emission.add(twilightGlowTint).add(createJuicyRimLight(color(0x00FFFF), float(2.0), float(3.0), normalLocal));
 
         const newPos = positionLocal.add(vec3(0.0, displacement, 0.0));
-        ringMat.positionNode = newPos;
+        ringMat.positionNode = applyPlayerInteraction(newPos.add(calculateWindSway(newPos)));
 
         registerReactiveMaterial(ringMat);
 
@@ -124,6 +128,7 @@ export class SubwooferLotusBatcher {
 
         centerMat.colorNode = vec3(0.0);
         centerMat.emissiveNode = finalPortal.add(hotCenter);
+        centerMat.positionNode = applyPlayerInteraction(positionLocal.add(calculateWindSway(positionLocal)));
 
         this.centerMesh = new THREE.InstancedMesh(centerGeo, centerMat, MAX_LOTUS);
         this.centerMesh.count = 0;
