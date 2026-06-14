@@ -12,9 +12,11 @@ import {
     uAudioLow,
     uGlitchIntensity,
     uTime,
+    getCachedProceduralMaterial,
     createJuicyRimLight,
     calculateWindSway,
-    applyPlayerInteraction
+      applyPlayerInteraction
+
 } from './index.ts';
 import { BiomeUniforms } from '../systems/biome-uniforms.ts';
 import { makeInteractive } from '../utils/interaction-utils.ts';
@@ -56,36 +58,49 @@ export class SubwooferLotusBatcher {
         foliageGroup.add(this.padMesh);
 
         // 2. Rings
-        const ringMat = new MeshStandardNodeMaterial();
-        ringMat.colorNode = color(0xFFFFFF);
-        ringMat.roughnessNode = float(0.2);
-        ringMat.metalnessNode = float(0.5);
+const ringMat = getCachedProceduralMaterial('subwoofer_lotus_ring', 0xFFFFFF, () => {
+    const mat = new MeshStandardNodeMaterial();
+    mat.colorNode = color(0xFFFFFF);
+    mat.roughnessNode = float(0.2);
+    mat.metalnessNode = float(0.5);
 
-        const bassPulse = uAudioLow.mul(0.8).mul(BiomeUniforms.crystallineNebula.amplitudeScale);
-        const glitchShake = mx_noise_float(vec3(uTime.mul(20.0), float(0.0), float(0.0))).mul(uGlitchIntensity).mul(0.5);
-        const displacement = bassPulse.add(glitchShake);
+    // Audio + glitch driven displacement (keep this)
+    const bassPulse = uAudioLow.mul(0.8).mul(BiomeUniforms.crystallineNebula.amplitudeScale);
+    const glitchShake = mx_noise_float(vec3(uTime.mul(20.0), float(0.0), float(0.0)))
+        .mul(uGlitchIntensity).mul(0.5);
+    const displacement = bassPulse.add(glitchShake);
 
-        const normalColor = vec3(1.0, 1.0, 1.0);
-        const glitchColor = vec3(0.8, 0.0, 1.0);
-        const finalColor = mix(normalColor, glitchColor, uGlitchIntensity);
+    // Color + emission logic (keep this)
+    const normalColor = vec3(1.0, 1.0, 1.0);
+    const glitchColor = vec3(0.8, 0.0, 1.0);
+    const finalColor = mix(normalColor, glitchColor, uGlitchIntensity);
+    const shimmerTint = vec3(0.4, 0.0, 1.0);
+    const shimmerGlow = BiomeUniforms.crystallineNebula.shimmer.mul(shimmerTint).mul(2.5);
+    const emission = finalColor.mul(bassPulse.add(0.2)).add(shimmerGlow);
 
-        const shimmerTint = vec3(0.4, 0.0, 1.0);
-        const shimmerGlow = BiomeUniforms.crystallineNebula.shimmer.mul(shimmerTint).mul(2.5);
-        const emission = finalColor.mul(bassPulse.add(0.2)).add(shimmerGlow);
+    mat.colorNode = finalColor;
 
-        ringMat.colorNode = finalColor;
+    // Glow / twilight logic (keep this)
+    const glowPhaseOffset = positionLocal.x.add(positionLocal.z).mul(2.0);
+    const idlePulse = sin(uTime.mul(float(CONFIG.glow.glowPulseFrequency)).add(glowPhaseOffset))
+        .mul(float(CONFIG.glow.glowPulseAmplitude)).add(1.0).mul(float(0.5))
+        .mul(uAudioLow.mul(0.3).add(0.7));
+    const targetGlowColor = color(CONFIG.glow.glowColorMap['lotus']);
+    const twilightGlowTint = targetGlowColor
+        .mul(uTwilight)
+        .mul(float(CONFIG.glow.glowIntensityMax))
+        .mul(float(0.3).add(idlePulse));
 
-        const glowPhaseOffset = positionLocal.x.add(positionLocal.z).mul(2.0);
-        const idlePulse = sin(uTime.mul(float(CONFIG.glow.glowPulseFrequency)).add(glowPhaseOffset)).mul(float(CONFIG.glow.glowPulseAmplitude)).add(1.0).mul(float(0.5)).mul(uAudioLow.mul(0.3).add(0.7));
-        const targetGlowColor = color(CONFIG.glow.glowColorMap['lotus']);
-        const twilightGlowTint = targetGlowColor
-            .mul(uTwilight)
-            .mul(float(CONFIG.glow.glowIntensityMax))
-            .mul(float(0.3).add(idlePulse));
-        ringMat.emissiveNode = emission.add(twilightGlowTint).add(createJuicyRimLight(color(0x00FFFF), float(2.0), float(3.0), normalLocal));
+    // 🎨 PALETTE: Juicy Rim Light (good)
+    const rimLight = createJuicyRimLight(finalColor, float(2.0), float(3.0), normalLocal);
+    mat.emissiveNode = emission.add(twilightGlowTint).add(rimLight);
 
-        const newPos = positionLocal.add(vec3(0.0, displacement, 0.0));
-        ringMat.positionNode = applyPlayerInteraction(newPos.add(calculateWindSway(newPos)));
+    // 🎨 PALETTE: Correct Wind Sway + Player Interaction composition
+    const newPos = positionLocal.add(vec3(0.0, displacement, 0.0));
+    mat.positionNode = applyPlayerInteraction(newPos.add(calculateWindSway(newPos)));
+
+    return mat;
+});
 
         registerReactiveMaterial(ringMat);
 
