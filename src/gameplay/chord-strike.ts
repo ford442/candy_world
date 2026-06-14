@@ -131,7 +131,10 @@ export class ChordStrikeSystem {
 
         // Physics Push: The beam provides a massive updraft
         // Check if player is near the beam
-        const distSq = player.position.distanceToSquared(this.position);
+        const dx = player.position.x - this.position.x;
+        const dy = player.position.y - this.position.y;
+        const dz = player.position.z - this.position.z;
+        const distSq = dx * dx + dy * dy + dz * dz;
         if (distSq < (this.radius + 5.0) * (this.radius + 5.0)) {
             // Push player up!
             player.velocity.y += 20.0 * dt;

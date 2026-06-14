@@ -356,7 +356,8 @@ export async function loadEmscriptenModule(forceSingleThreaded = false): Promise
         const prefix = wasmCheck.path || '';
         const cleanPrefix = prefix.endsWith('/') ? prefix : (prefix ? `${prefix}/` : '');
         const resolvedWasmPath = `${cleanPrefix}${wasmFilename}`;
-        const resolvedJsPath = jsFilename.includes('://') ? jsFilename : `${cleanPrefix}${jsFilename}`;
+        const resolvedJsPath = jsFilename.includes('://') ? jsFilename : `/${jsFilename}`;
+        console.log("Loading WASM:", resolvedJsPath);
 
         // Load the JS factory
         let createCandyNative: ((config: Record<string, unknown>) => Promise<ExtendedEmscriptenModule>) | undefined;

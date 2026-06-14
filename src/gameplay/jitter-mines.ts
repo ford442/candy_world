@@ -283,7 +283,10 @@ class JitterMineSystem {
             mine.time += delta;
 
             // Proximity Check
-            const distSq = mine.position.distanceToSquared(playerPos);
+            const dx = mine.position.x - playerPos.x;
+            const dy = mine.position.y - playerPos.y;
+            const dz = mine.position.z - playerPos.z;
+            const distSq = dx * dx + dy * dy + dz * dz;
             if (distSq < TRIGGER_RADIUS * TRIGGER_RADIUS) {
                 this.explode(i);
             }
