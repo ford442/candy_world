@@ -91,8 +91,11 @@ export function updateHarpoonLine(
     line.visible = true;
 
     // Calculate distance and midpoint
-    // ⚡ OPTIMIZATION: Avoid .distanceTo() to prevent intermediate allocations.
-    const distance = Math.sqrt(playerPos.distanceToSquared(anchor));
+    // ⚡ OPTIMIZATION: Avoid .distanceTo() and .distanceToSquared() overhead
+    const dx = playerPos.x - anchor.x;
+    const dy = playerPos.y - anchor.y;
+    const dz = playerPos.z - anchor.z;
+    const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
 
     // Start slightly below player center for visual alignment
     _scratchPos.copy(playerPos);

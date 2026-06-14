@@ -77,9 +77,11 @@ let warmupMetrics = {
 let generationChunksStreamed = 0;
 
 // UI Elements
-let overlayContainer: HTMLElement | null = null;
-let overlayCanvas: HTMLCanvasElement | null = null;
-let overlayCtx: CanvasRenderingContext2D | null = null;
+export const uiState = {
+  overlayContainer: null as HTMLElement | null,
+  overlayCanvas: null as HTMLCanvasElement | null,
+  overlayCtx: null as CanvasRenderingContext2D | null,
+};
 
 // Original console methods (for hooking)
 let originalConsoleTime: typeof console.time;
@@ -648,7 +650,7 @@ export function finalizeStartupProfile(): StartupReport {
  * Toggle the profiler overlay visibility
  */
 export function toggleOverlay(): void {
-  if (!overlayContainer || overlayContainer.style.display === 'none') {
+  if (!uiState.overlayContainer || uiState.overlayContainer.style.display === 'none') {
     showOverlay();
   } else {
     hideOverlay();
