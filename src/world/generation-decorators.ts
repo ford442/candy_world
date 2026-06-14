@@ -524,10 +524,16 @@ export async function populateProceduralExtras(
     const capturedTaskToken = worldGenerationToken;
     for (const item of deferredItems) {
         const priority = Math.max(1, 60 - Math.floor(Math.sqrt(item.distSq) / 4));
-        globalBackgroundProcessor.enqueue({ id: item.id, execute: () => {
-             if (capturedTaskToken !== -1 && capturedTaskToken !== worldGenerationToken) return;
-             item.execute();
-         }, priority });
+        const taskToken = (window as any).__currentWorldGenerationToken ?? worldGenerationToken;
+        globalBackgroundProcessor.enqueue({
+            id: item.id,
+            execute: () => {
+                const currentToken = (window as any).__currentWorldGenerationToken ?? 0;
+                if (taskToken !== currentToken) { return; }
+                item.execute();
+            },
+            priority
+        });
     }
 
     console.log(`[World] Procedural Extras: ${criticalCount} critical spawned, ${deferredItems.length} deferred (sorted near-first).`);
