@@ -504,12 +504,12 @@ export function initInput(
             case 'KeyD': keyStates.right = true; break;
             case 'KeyF':
                 keyStates.action = true;
-                if (hudMine) hudMine.setAttribute('aria-pressed', 'true');
+                if (hudMine) hudMine.classList.add('keyboard-active');
                 break; // Jitter Mine Ability
             case 'KeyE':
             case 'e':
                 keyStates.dash = true;
-                if (hudDash) hudDash.setAttribute('aria-pressed', 'true');
+                if (hudDash) hudDash.classList.add('keyboard-active');
                 break; // Dash Ability
             case 'KeyX':
             case 'x':
@@ -518,7 +518,7 @@ export function initInput(
             case 'KeyZ':
             case 'z':
                 keyStates.phase = true;
-                if (hudPhase) hudPhase.setAttribute('aria-pressed', 'true');
+                if (hudPhase) hudPhase.classList.add('keyboard-active');
                 break; // Phase Shift Ability
             case 'KeyC':
             case 'c':
@@ -599,12 +599,12 @@ export function initInput(
             case 'KeyD': keyStates.right = false; break;
             case 'KeyF':
                 keyStates.action = false;
-                if (hudMine) hudMine.setAttribute('aria-pressed', 'false');
+                if (hudMine) hudMine.classList.remove('keyboard-active');
                 break;
             case 'KeyE':
             case 'e':
                 keyStates.dash = false;
-                if (hudDash) hudDash.setAttribute('aria-pressed', 'false');
+                if (hudDash) hudDash.classList.remove('keyboard-active');
                 break;
             case 'KeyX':
             case 'x':
@@ -613,7 +613,7 @@ export function initInput(
             case 'KeyZ':
             case 'z':
                 keyStates.phase = false;
-                if (hudPhase) hudPhase.setAttribute('aria-pressed', 'false');
+                if (hudPhase) hudPhase.classList.remove('keyboard-active');
                 break;
             case 'KeyR':
             case 'r':
