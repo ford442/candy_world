@@ -39,12 +39,12 @@ jobs:
       - name: Install dependencies
         run: |
           # Use pnpm since there is a pnpm-lock.yaml file
-          npm install -g pnpm
+          npm install -g pnpm@9
           pnpm config set ignore-scripts false
-          pnpm install --ignore-scripts=false
+          pnpm install
           cd tools/visual-regression
           pnpm config set ignore-scripts false
-          pnpm install --ignore-scripts=false
+          pnpm install
 
       - name: Install Playwright
         run: |
