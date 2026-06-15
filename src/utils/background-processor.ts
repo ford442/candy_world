@@ -77,7 +77,11 @@ export class BackgroundProcessor {
      * Start processing the queue
      */
     public start(): void {
-        if (this.isRunning || this.queue.length === 0) return;
+        if (this.isRunning) return;
+        if (this.queue.length === 0) {
+            this.onCompleteCallback?.(this.completedTasks, this.totalTasks, this.failedTasks);
+            return;
+        }
         this.isRunning = true;
         this.startTimeMs = performance.now();
 
@@ -211,6 +215,7 @@ export class BackgroundProcessor {
     public resetCounters(): void {
         this.totalTasks = this.queue.length;
         this.completedTasks = 0;
+        this.failedTasks = 0;
         this.startTimeMs = 0;
         this.isRunning = false;
         this.onCompleteCallback = null;
