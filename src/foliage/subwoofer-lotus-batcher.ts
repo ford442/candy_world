@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import {
-    color, float, vec3, positionLocal,
+    color, float, vec3, positionLocal, normalLocal,
     mix, sin, abs, smoothstep,
     mx_noise_float, uv, length, atan2, max
 } from 'three/tsl';
@@ -11,7 +11,12 @@ import {
     registerReactiveMaterial,
     uAudioLow,
     uGlitchIntensity,
-    uTime
+    uTime,
+    getCachedProceduralMaterial,
+    createJuicyRimLight,
+    calculateWindSway,
+      applyPlayerInteraction
+
 } from './index.ts';
 import { BiomeUniforms } from '../systems/biome-uniforms.ts';
 import { makeInteractive } from '../utils/interaction-utils.ts';
@@ -44,6 +49,7 @@ export class SubwooferLotusBatcher {
 
         // 1. Base Pad
         const padMat = createClayMaterial(hexColor);
+        padMat.positionNode = applyPlayerInteraction(positionLocal.add(calculateWindSway(positionLocal)));
         this.padMesh = new THREE.InstancedMesh(sharedGeometries.unitCylinder, padMat, MAX_LOTUS);
         this.padMesh.count = 0;
         this.padMesh.castShadow = true;
@@ -52,36 +58,49 @@ export class SubwooferLotusBatcher {
         foliageGroup.add(this.padMesh);
 
         // 2. Rings
-        const ringMat = new MeshStandardNodeMaterial();
-        ringMat.colorNode = color(0xFFFFFF);
-        ringMat.roughnessNode = float(0.2);
-        ringMat.metalnessNode = float(0.5);
+const ringMat = getCachedProceduralMaterial('subwoofer_lotus_ring', 0xFFFFFF, () => {
+    const mat = new MeshStandardNodeMaterial();
+    mat.colorNode = color(0xFFFFFF);
+    mat.roughnessNode = float(0.2);
+    mat.metalnessNode = float(0.5);
 
-        const bassPulse = uAudioLow.mul(0.8).mul(BiomeUniforms.crystallineNebula.amplitudeScale);
-        const glitchShake = mx_noise_float(vec3(uTime.mul(20.0), float(0.0), float(0.0))).mul(uGlitchIntensity).mul(0.5);
-        const displacement = bassPulse.add(glitchShake);
+    // Audio + glitch driven displacement (keep this)
+    const bassPulse = uAudioLow.mul(0.8).mul(BiomeUniforms.crystallineNebula.amplitudeScale);
+    const glitchShake = mx_noise_float(vec3(uTime.mul(20.0), float(0.0), float(0.0)))
+        .mul(uGlitchIntensity).mul(0.5);
+    const displacement = bassPulse.add(glitchShake);
 
-        const normalColor = vec3(1.0, 1.0, 1.0);
-        const glitchColor = vec3(0.8, 0.0, 1.0);
-        const finalColor = mix(normalColor, glitchColor, uGlitchIntensity);
+    // Color + emission logic (keep this)
+    const normalColor = vec3(1.0, 1.0, 1.0);
+    const glitchColor = vec3(0.8, 0.0, 1.0);
+    const finalColor = mix(normalColor, glitchColor, uGlitchIntensity);
+    const shimmerTint = vec3(0.4, 0.0, 1.0);
+    const shimmerGlow = BiomeUniforms.crystallineNebula.shimmer.mul(shimmerTint).mul(2.5);
+    const emission = finalColor.mul(bassPulse.add(0.2)).add(shimmerGlow);
 
-        const shimmerTint = vec3(0.4, 0.0, 1.0);
-        const shimmerGlow = BiomeUniforms.crystallineNebula.shimmer.mul(shimmerTint).mul(2.5);
-        const emission = finalColor.mul(bassPulse.add(0.2)).add(shimmerGlow);
+    mat.colorNode = finalColor;
 
-        ringMat.colorNode = finalColor;
+    // Glow / twilight logic (keep this)
+    const glowPhaseOffset = positionLocal.x.add(positionLocal.z).mul(2.0);
+    const idlePulse = sin(uTime.mul(float(CONFIG.glow.glowPulseFrequency)).add(glowPhaseOffset))
+        .mul(float(CONFIG.glow.glowPulseAmplitude)).add(1.0).mul(float(0.5))
+        .mul(uAudioLow.mul(0.3).add(0.7));
+    const targetGlowColor = color(CONFIG.glow.glowColorMap['lotus']);
+    const twilightGlowTint = targetGlowColor
+        .mul(uTwilight)
+        .mul(float(CONFIG.glow.glowIntensityMax))
+        .mul(float(0.3).add(idlePulse));
 
-        const glowPhaseOffset = positionLocal.x.add(positionLocal.z).mul(2.0);
-        const idlePulse = sin(uTime.mul(float(CONFIG.glow.glowPulseFrequency)).add(glowPhaseOffset)).mul(float(CONFIG.glow.glowPulseAmplitude)).add(1.0).mul(float(0.5)).mul(uAudioLow.mul(0.3).add(0.7));
-        const targetGlowColor = color(CONFIG.glow.glowColorMap['lotus']);
-        const twilightGlowTint = targetGlowColor
-            .mul(uTwilight)
-            .mul(float(CONFIG.glow.glowIntensityMax))
-            .mul(float(0.3).add(idlePulse));
-        ringMat.emissiveNode = emission.add(twilightGlowTint);
+    // 🎨 PALETTE: Juicy Rim Light (good)
+    const rimLight = createJuicyRimLight(finalColor, float(2.0), float(3.0), normalLocal);
+    mat.emissiveNode = emission.add(twilightGlowTint).add(rimLight);
 
-        const newPos = positionLocal.add(vec3(0.0, displacement, 0.0));
-        ringMat.positionNode = newPos;
+    // 🎨 PALETTE: Correct Wind Sway + Player Interaction composition
+    const newPos = positionLocal.add(vec3(0.0, displacement, 0.0));
+    mat.positionNode = applyPlayerInteraction(newPos.add(calculateWindSway(newPos)));
+
+    return mat;
+});
 
         registerReactiveMaterial(ringMat);
 
@@ -124,6 +143,7 @@ export class SubwooferLotusBatcher {
 
         centerMat.colorNode = vec3(0.0);
         centerMat.emissiveNode = finalPortal.add(hotCenter);
+        centerMat.positionNode = applyPlayerInteraction(positionLocal.add(calculateWindSway(positionLocal)));
 
         this.centerMesh = new THREE.InstancedMesh(centerGeo, centerMat, MAX_LOTUS);
         this.centerMesh.count = 0;
@@ -146,8 +166,8 @@ export class SubwooferLotusBatcher {
         this.centerMesh.count = this._count;
 
         // Apply Transform initially to prevent frame 1 blip at origin
-        proxy.updateMatrixWorld(true);
-        this._scratchMatrix.copy(proxy.matrixWorld);
+        // ⚡ OPTIMIZATION: Bypassed THREE.Object3D proxy and setMatrixAt() overhead by writing directly to instanceMatrix.
+        this._scratchMatrix.compose(proxy.position, proxy.quaternion, proxy.scale);
 
         const padScale = new THREE.Vector3(1.5 * scale, 0.2 * scale, 1.5 * scale);
         const padMatrix = new THREE.Matrix4().compose(proxy.position, proxy.quaternion, padScale);

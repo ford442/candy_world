@@ -102,8 +102,8 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
       font-size: 1.2rem;
     `;
     closeBtn.onclick = () => {
-      closeBtn.setAttribute('aria-pressed', 'true');
-      setTimeout(() => closeBtn.setAttribute('aria-pressed', 'false'), 150);
+      closeBtn.classList.add('keyboard-active');
+      setTimeout(() => closeBtn.classList.remove('keyboard-active'), 150);
       this.close();
     };
     closeBtn.setAttribute('aria-label', 'Close accessibility menu');
@@ -172,8 +172,8 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
         text-align: left;
       `;
       tab.onclick = () => {
-        tab.setAttribute('aria-pressed', 'true');
-        setTimeout(() => tab.setAttribute('aria-pressed', 'false'), 150);
+        tab.classList.add('keyboard-active');
+        setTimeout(() => tab.classList.remove('keyboard-active'), 150);
         this.switchSection(section as MenuSection);
       };
 
@@ -355,8 +355,8 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
       btn.textContent = binding.key || 'Unbound';
       btn.style.cssText = `${this.getButtonStyle()} width: 120px;`;
       btn.onclick = () => {
-        btn.setAttribute('aria-pressed', 'true');
-        setTimeout(() => btn.setAttribute('aria-pressed', 'false'), 150);
+        btn.classList.add('keyboard-active');
+        setTimeout(() => btn.classList.remove('keyboard-active'), 150);
         this.startKeyRebind(action, btn);
       };
 
