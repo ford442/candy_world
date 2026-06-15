@@ -167,6 +167,8 @@ export function computeWaveDistSq(plantWorldPos: THREE.Vector3, activeWave: Acti
 }
 const _waveColor = new THREE.Color(); // scratch for beat capture
 const _whiteColor = new THREE.Color(0xffffff);
+// Pre-allocated static fallback to prevent per-frame object allocation when audio is inactive
+const _emptyAudioState: AudioData = { low: 0, mid: 0, high: 0, channels: [], isPlaying: false, timestamp: 0 };
 let _waveDecayStartTime = 0;
 
 // One-time validation flag for channel range checks against music-bindings.json
@@ -576,7 +578,8 @@ export class MusicReactivitySystem {
         if (isVisible) {
             rendered++;
             // Using animateFoliage (assumed typed correctly in animation.ts)
-            animateFoliage(obj, time, audioState || {}, isDay, isDeepNight);
+            // ⚡ OPTIMIZATION: Use static _emptyAudioState instead of allocating {} per frame
+            animateFoliage(obj, time, audioState || _emptyAudioState, isDay, isDeepNight);
         } else {
             culledByFrustum++;
         }

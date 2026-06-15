@@ -146,8 +146,8 @@ export class SubwooferLotusBatcher {
         this.centerMesh.count = this._count;
 
         // Apply Transform initially to prevent frame 1 blip at origin
-        proxy.updateMatrixWorld(true);
-        this._scratchMatrix.copy(proxy.matrixWorld);
+        // ⚡ OPTIMIZATION: Bypassed THREE.Object3D proxy and setMatrixAt() overhead by writing directly to instanceMatrix.
+        this._scratchMatrix.compose(proxy.position, proxy.quaternion, proxy.scale);
 
         const padScale = new THREE.Vector3(1.5 * scale, 0.2 * scale, 1.5 * scale);
         const padMatrix = new THREE.Matrix4().compose(proxy.position, proxy.quaternion, padScale);
