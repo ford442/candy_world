@@ -733,6 +733,17 @@ if (startButton) {
                 finalizeStartupProfile();
                 console.log('[Startup] All deferred background tasks completed.');
 
+                // Explicitly set worldHealth after generation is done
+                if (typeof window !== 'undefined') {
+                    try {
+                        const health = validateWorldPopulation(activeWorldMode ?? 'UNKNOWN');
+                        (window as any).__worldHealth = health;
+                        console.log('✅ window.__worldHealth successfully set via background completion');
+                    } catch(e) {
+                         console.error(e);
+                    }
+                }
+
                 // Surface spawn report
                 try {
                     const r = getSpawnReport();
@@ -763,6 +774,9 @@ if (startButton) {
                                 : `${health.warnings.length} world health warnings — see console`;
                             showToast(summary, '⚠️', 7000);
                         }).catch(() => {});
+                    }
+                    if (typeof window !== 'undefined') {
+                        (window as any).__worldHealth = health;
                     }
                 } catch (e) {
                     console.warn('[WorldHealth] Validation threw:', e);

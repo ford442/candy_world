@@ -79,7 +79,7 @@ let generationChunksStreamed = 0;
 // UI Elements
 let overlayContainer: HTMLElement | null = null;
 let overlayCanvas: HTMLCanvasElement | null = null;
-let overlayCtx: CanvasRenderingContext2D | null = null;
+
 
 // Original console methods (for hooking)
 let originalConsoleTime: typeof console.time;

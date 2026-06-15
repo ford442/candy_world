@@ -1,3 +1,7 @@
+let overlayContainer: HTMLDivElement | null = null;
+let overlayCanvas: HTMLCanvasElement | null = null;
+let overlayCtx: CanvasRenderingContext2D | null = null;
+
 import { PhaseTiming, InstancedMeshMetrics, WebGPUMetrics, ProfilerConfig, StartupReport } from './startup-profiler-types.ts';
 import { formatBytes, formatDuration, getMemoryUsage } from './startup-profiler-utils.ts';
 
@@ -75,6 +79,10 @@ export function createOverlay(): void {
   `;
   overlayContainer.appendChild(overlayCanvas);
   overlayCtx = overlayCanvas.getContext('2d');
+  if (typeof window !== 'undefined') {
+    (window as any).overlayCtx = overlayCtx;
+    (window as any)._overlayCanvas = overlayCanvas;
+  }
 
   // Footer with actions
   const footer = document.createElement('div');
@@ -121,6 +129,10 @@ export function createOverlay(): void {
 }
 
 export function drawOverlay(): void {
+  if (!overlayCtx && typeof window !== 'undefined' && (window as any).overlayCtx) {
+     overlayCtx = (window as any).overlayCtx;
+     overlayCanvas = (window as any)._overlayCanvas;
+  }
   if (!overlayCtx || !overlayCanvas) return;
 
   const ctx = overlayCtx;

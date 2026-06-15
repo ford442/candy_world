@@ -198,6 +198,12 @@ export class SubwooferLotusBatcher {
     // Since we need caller to actually place the proxy first, we provide an updateInstance
     // This allows world generation to register first, then set position, then call updateInstance if needed.
     // Or we can just read the proxy position directly here.
+        private pendingRegistrations: { proxy: THREE.Object3D, options: { scale?: number, color?: number } }[] = [];
+
+    flushRegistrations() {
+        this.pendingRegistrations = [];
+    }
+
     updateInstance(index: number, proxy: THREE.Object3D) {
          if (index >= this._count) return;
          const scale = proxy.userData.lotusScale ?? 1.0;

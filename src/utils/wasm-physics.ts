@@ -1,3 +1,4 @@
+import { getEmscriptenInstance } from "./wasm-loader-cpp.ts";
 /**
  * @file wasm-physics.ts
  * @brief Physics Functions with WASM and JavaScript Fallbacks
@@ -20,7 +21,7 @@ import {
     wasmAddCollisionObject,
     wasmResolveGameCollisions,
     wasmCheckPositionValidity,
-    emscriptenInstance,
+
     emscriptenMemory,
     playerStateView,
     wasmGetGroundHeight,
@@ -706,20 +707,20 @@ export function batchGroundHeight(positions: Float32Array): Float32Array {
     const output = new Float32Array(count);
 
     // 1. C++ SIMD (fastest, but optional)
-    if (cppBatchGroundHeightSimd && emscriptenInstance && emscriptenInstance._malloc && emscriptenInstance._free) {
+    if (cppBatchGroundHeightSimd && getEmscriptenInstance() && getEmscriptenInstance()._malloc && getEmscriptenInstance()._free) {
         if (_batchGroundHeightCapacity < count) {
-            if (_batchGroundHeightInPtr) emscriptenInstance._free(_batchGroundHeightInPtr);
-            if (_batchGroundHeightOutPtr) emscriptenInstance._free(_batchGroundHeightOutPtr);
+            if (_batchGroundHeightInPtr) getEmscriptenInstance()._free(_batchGroundHeightInPtr);
+            if (_batchGroundHeightOutPtr) getEmscriptenInstance()._free(_batchGroundHeightOutPtr);
             const newCapacity = Math.max(count, _batchGroundHeightCapacity * 2 || 1024);
-            _batchGroundHeightInPtr = emscriptenInstance._malloc(newCapacity * 2 * 4); // x, z pairs
-            _batchGroundHeightOutPtr = emscriptenInstance._malloc(newCapacity * 4);
+            _batchGroundHeightInPtr = getEmscriptenInstance()._malloc(newCapacity * 2 * 4); // x, z pairs
+            _batchGroundHeightOutPtr = getEmscriptenInstance()._malloc(newCapacity * 4);
             _batchGroundHeightCapacity = newCapacity;
         }
 
         if (_batchGroundHeightInPtr && _batchGroundHeightOutPtr) {
-            emscriptenInstance.HEAPF32!.set(positions, _batchGroundHeightInPtr >> 2);
+            getEmscriptenInstance().HEAPF32!.set(positions, _batchGroundHeightInPtr >> 2);
             cppBatchGroundHeightSimd(_batchGroundHeightInPtr, count, _batchGroundHeightOutPtr);
-            output.set(emscriptenInstance.HEAPF32!.subarray(_batchGroundHeightOutPtr >> 2, (_batchGroundHeightOutPtr >> 2) + count));
+            output.set(getEmscriptenInstance().HEAPF32!.subarray(_batchGroundHeightOutPtr >> 2, (_batchGroundHeightOutPtr >> 2) + count));
             return output;
         }
     }

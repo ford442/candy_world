@@ -1,3 +1,5 @@
+import { getEmscriptenInstance, getEmscriptenMemory, setEmscriptenInstance, setEmscriptenMemory } from "./wasm-loader-cpp.ts";
+import { getEmscriptenInstance, getEmscriptenMemory } from "./wasm-loader-cpp.ts";
 /**
  * @file wasm-loader-core.ts
  * @brief Core WASM Module Initialization and State Management
@@ -467,7 +469,7 @@ export async function loadEmscriptenModule(forceSingleThreaded = false): Promise
             };
 
             // Initialize Emscripten (will use Native WA for Memory creation)
-            emscriptenInstance = await createCandyNative(config);
+            setEmscriptenInstance(await createCandyNative(config));
 
             console.log(`[WASM] Emscripten ${isThreaded ? 'Pthreads' : 'Single-Threaded'} Ready`);
         } catch (e) {
@@ -489,10 +491,10 @@ export async function loadEmscriptenModule(forceSingleThreaded = false): Promise
             restore();
         }
 
-        if (emscriptenInstance!.wasmMemory) {
-            emscriptenMemory = emscriptenInstance!.wasmMemory.buffer as ArrayBuffer;
-        } else if (emscriptenInstance!.HEAP8) {
-            emscriptenMemory = emscriptenInstance!.HEAP8.buffer as ArrayBuffer;
+        if (getEmscriptenInstance()!.wasmMemory) {
+            setEmscriptenMemory(getEmscriptenInstance()!.wasmMemory.buffer as ArrayBuffer);
+        } else if (getEmscriptenInstance()!.HEAP8) {
+            setEmscriptenMemory(getEmscriptenInstance()!.HEAP8.buffer as ArrayBuffer);
         }
 
         // Initialize cached C++ function references
@@ -521,9 +523,9 @@ export function getWasmMemory(): ArrayBuffer | null {
  * Get the Emscripten memory buffer
  * @returns The Emscripten memory ArrayBuffer or null if not initialized
  */
-export function getEmscriptenMemory(): ArrayBuffer | null {
-    return emscriptenMemory;
-}
+// export function getEmscriptenMemory(): ArrayBuffer | null {
+//     return getEmscriptenMemory();
+// }
 
 /**
  * Get a native C++ function from the Emscripten module.
@@ -531,8 +533,8 @@ export function getEmscriptenMemory(): ArrayBuffer | null {
  * @returns The function or null if not found
  */
 export function getNativeFunc(name: string): ((...args: number[]) => number) | null {
-    if (!emscriptenInstance) return null;
-    const inst = emscriptenInstance as ExtendedEmscriptenModule;
+    if (!getEmscriptenInstance()) return null;
+    const inst = getEmscriptenInstance() as ExtendedEmscriptenModule;
     const underscoreName = '_' + name;
     if (typeof inst[underscoreName] === 'function') {
         return inst[underscoreName] as (...args: number[]) => number;
@@ -560,7 +562,7 @@ export function isWasmReady(): boolean {
  * @returns True if Emscripten instance is initialized
  */
 export function isEmscriptenReady(): boolean { 
-    return emscriptenInstance !== null; 
+    return getEmscriptenInstance() !== null;
 }
 
 /**
@@ -575,9 +577,9 @@ export function getWasmInstance(): WebAssembly.Instance | null {
  * Get the Emscripten instance
  * @returns The Emscripten instance or null
  */
-export function getEmscriptenInstance(): EmscriptenModule | null {
-    return emscriptenInstance;
-}
+// export function getEmscriptenInstance(): EmscriptenModule | null {
+//     return getEmscriptenInstance();
+// }
 
 // =============================================================================
 // INITIALIZATION FUNCTIONS
@@ -623,8 +625,8 @@ export async function initWasm(): Promise<boolean> {
 
             const result = await loadEmscriptenModule();
 
-            if (result && emscriptenInstance) {
-                await startBootstrapIfAvailable(emscriptenInstance);
+            if (result && getEmscriptenInstance()) {
+                await startBootstrapIfAvailable(getEmscriptenInstance());
                 setWasmPhase('Physics Engine ready', 100);
                 loaded = true;
                 lastError = null;

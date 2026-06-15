@@ -510,7 +510,7 @@ export class MusicReactivitySystem {
         _projScreenMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
         _frustum.setFromProjectionMatrix(_projScreenMatrix);
 
-        const isDay = !isNight;
+
 
         // ⚡ PERFORMANCE: Debug counters
         let totalObjects = 0;
@@ -813,6 +813,7 @@ export class MusicReactivitySystem {
         // ⚡ LUMINOUS PLANTS (Scenic System)
         // Tracker channel defined in assets/music-bindings.json.
         // ---------------------------------------------------------------
+        const channels = audioState ? audioState.trackerChannels : [];
         if (channels && MRState.luminousPlantTrackerChannel < channels.length) {
             const lpData = channels[MRState.luminousPlantTrackerChannel];
 
@@ -839,10 +840,11 @@ export class MusicReactivitySystem {
             }
         }
         // Day guard: clamp intensity to 0 when daytime so sky/moon are unchanged.
-        SkyUniforms.intensity.value = isNight ? Math.min(MRState.smoothedSkyIntensity, 1.0) : 0.0;
+        const isDayVal = this.weatherSystem ? !this.weatherSystem.isNight() : false;
+        SkyUniforms.intensity.value = !isDayVal ? Math.min(MRState.smoothedSkyIntensity, 1.0) : 0.0;
     }
 
-    private updateSkyWavePropagation(audioState: AudioData | null, isDay: boolean, cameraPosition?: THREE.Vector3) {
+    private updateSkyWavePropagation(audioState: AudioData | null, isDay: boolean, cameraPosition?: THREE.Vector3, deltaTime: number = 0.016) {
         const nightGate = isDay ? 0.0 : 1.0;
 // ---------------------------------------------------------------
         // ⚡ SKY WAVE — Per-channel MOD note-color wave propagation
@@ -863,7 +865,7 @@ export class MusicReactivitySystem {
                 let allComplete = true;
                 for (let i = 0; i < targets.length; i++) {
                     const key = targets[i];
-                    const uni = skyWaveUniformMap[key];
+                    const uni = _skyWaveUniformMap[key];
                     if (!uni) continue;
 
                     // Stagger arrival: ~0.22 of propagation per step in the list
@@ -886,13 +888,13 @@ export class MusicReactivitySystem {
 
                 if (decayElapsed < MRState.skyWaveDecayMs) {
                     for (const key of targets) {
-                        const uni = skyWaveUniformMap[key];
+                        const uni = _skyWaveUniformMap[key];
                         if (uni) uni.value.lerp(_whiteColor, 0.06);
                     }
                 } else {
                     MRState.waveDecayStartTime = 0;
                     for (const key of targets) {
-                        const uni = skyWaveUniformMap[key];
+                        const uni = _skyWaveUniformMap[key];
                         if (uni) uni.value.copy(_whiteColor);
                     }
                 }
@@ -906,7 +908,7 @@ export class MusicReactivitySystem {
             // Also gently clear any lingering wave color on targets (defensive)
             const targets: readonly string[] = MRState.skyWaveTargets;
             for (const key of targets) {
-                const uni = skyWaveUniformMap[key];
+                const uni = _skyWaveUniformMap[key];
                 if (uni) uni.value.lerp(_whiteColor, 0.04);
             }
         }
@@ -1015,7 +1017,7 @@ export class MusicReactivitySystem {
 
                 // One-pole IIR smoothing — eliminates staccato strobe on note-on events.
                 // Time constant ≈ 1/12 s (~83 ms): fast enough to track melody, slow enough to avoid flicker.
-                MRState.smoothedSkyIntensity += (rawVolume - MRState.smoothedSkyIntensity) * (1.0 - Math.exp(-deltaTime * 12.0));
+                MRState.smoothedSkyIntensity += (rawVolume - MRState.smoothedSkyIntensity) * (1.0 - Math.exp(-(typeof deltaTime === "undefined" ? 0.016 : deltaTime) * 12.0));
             } else {
                 // No channel data — decay intensity to zero smoothly.
                 MRState.smoothedSkyIntensity *= 0.9;
@@ -1026,7 +1028,8 @@ export class MusicReactivitySystem {
             SkyUniforms.noteIndex.value = MRState.lastSkyNoteIndex;
                     this.updateLuminousPlants(audioState);
 
-        this.updateSkyWavePropagation(audioState, !isNight, camera.position);
+        const isNightLocal = this.weatherSystem ? this.weatherSystem.isNight() : true;
+        this.updateSkyWavePropagation(audioState, !isNightLocal, camera.position, typeof deltaTime === "undefined" ? 0.016 : deltaTime);
         }
 
     updateMoon(time: number, deltaTime: number) {

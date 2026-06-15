@@ -1,3 +1,4 @@
+import { getEmscriptenInstance } from "./wasm-loader-cpp.ts";
 // src/utils/bootstrap-loader.ts
 // TypeScript wrapper for the Emscripten pthread bootstrap loader
 // Manages terrain pre-computation and loading UI integration
@@ -38,8 +39,8 @@ let bootstrapStartTime = 0;
  * @returns Function or null if not found
  */
 function getNativeFunc(name: string, emscriptenInstance: EmscriptenModule | null): ((...args: number[]) => number) | null {
-    if (!emscriptenInstance) return null;
-    const inst = emscriptenInstance as ExtendedEmscriptenModule;
+    if (!getEmscriptenInstance()) return null;
+    const inst = getEmscriptenInstance() as ExtendedEmscriptenModule;
     const fn = inst['_' + name];
     return typeof fn === 'function' ? fn as (...args: number[]) => number : null;
 }
@@ -50,12 +51,12 @@ function getNativeFunc(name: string, emscriptenInstance: EmscriptenModule | null
  * @returns True if bootstrap started successfully
  */
 export function startBootstrap(emscriptenInstance: EmscriptenModule | null): boolean {
-    if (!emscriptenInstance) {
+    if (!getEmscriptenInstance()) {
         console.warn('[Bootstrap] Emscripten module not available');
         return false;
     }
 
-    const startFn = getNativeFunc('startBootstrapInit', emscriptenInstance);
+    const startFn = getNativeFunc('startBootstrapInit', getEmscriptenInstance());
     if (!startFn) {
         console.warn('[Bootstrap] startBootstrapInit not found in WASM exports');
         return false;
@@ -79,11 +80,11 @@ export function startBootstrap(emscriptenInstance: EmscriptenModule | null): boo
  * @returns Progress percentage (0-100)
  */
 export function getBootstrapProgress(emscriptenInstance: EmscriptenModule | null): number {
-    if (!emscriptenInstance || !bootstrapActive) {
+    if (!getEmscriptenInstance() || !bootstrapActive) {
         return 0;
     }
 
-    const progressFn = getNativeFunc('getBootstrapProgress', emscriptenInstance);
+    const progressFn = getNativeFunc('getBootstrapProgress', getEmscriptenInstance());
     if (!progressFn) {
         return 0;
     }
@@ -102,11 +103,11 @@ export function getBootstrapProgress(emscriptenInstance: EmscriptenModule | null
  * @returns True if bootstrap is complete
  */
 export function isBootstrapComplete(emscriptenInstance: EmscriptenModule | null): boolean {
-    if (!emscriptenInstance || !bootstrapActive) {
+    if (!getEmscriptenInstance() || !bootstrapActive) {
         return false;
     }
 
-    const completeFn = getNativeFunc('isBootstrapComplete', emscriptenInstance);
+    const completeFn = getNativeFunc('isBootstrapComplete', getEmscriptenInstance());
     if (!completeFn) {
         return false;
     }
@@ -155,7 +156,7 @@ export function pollBootstrapProgress(
     onComplete: CompletionCallback | null | undefined, 
     pollInterval = 50
 ): CleanupFunction {
-    if (!emscriptenInstance || !bootstrapActive) {
+    if (!getEmscriptenInstance() || !bootstrapActive) {
         return () => {};
     }
 
@@ -171,7 +172,7 @@ export function pollBootstrapProgress(
     
     intervalId = setInterval(() => {
         try {
-            const progress = getBootstrapProgress(emscriptenInstance);
+            const progress = getBootstrapProgress(getEmscriptenInstance());
             
             if (progress !== lastProgress) {
                 lastProgress = progress;
@@ -184,7 +185,7 @@ export function pollBootstrapProgress(
                 }
             }
 
-            if (isBootstrapComplete(emscriptenInstance)) {
+            if (isBootstrapComplete(getEmscriptenInstance())) {
                 cleanup();
                 if (onComplete) {
                     try {
@@ -209,11 +210,11 @@ export function pollBootstrapProgress(
  * @param emscriptenInstance - The loaded Emscripten module
  */
 export function resetBootstrap(emscriptenInstance: EmscriptenModule | null): void {
-    if (!emscriptenInstance) {
+    if (!getEmscriptenInstance()) {
         return;
     }
 
-    const resetFn = getNativeFunc('resetBootstrap', emscriptenInstance);
+    const resetFn = getNativeFunc('resetBootstrap', getEmscriptenInstance());
     if (resetFn) {
         try {
             resetFn();
@@ -235,11 +236,11 @@ export function resetBootstrap(emscriptenInstance: EmscriptenModule | null): voi
  * @returns Terrain height at (x, z)
  */
 export function getBootstrapHeight(emscriptenInstance: EmscriptenModule | null, x: number, z: number): number {
-    if (!emscriptenInstance) {
+    if (!getEmscriptenInstance()) {
         return 0;
     }
 
-    const heightFn = getNativeFunc('getBootstrapHeight', emscriptenInstance);
+    const heightFn = getNativeFunc('getBootstrapHeight', getEmscriptenInstance());
     if (!heightFn) {
         return 0;
     }
@@ -269,7 +270,7 @@ declare global {
  */
 export function integrateWithLoadingUI(emscriptenInstance: EmscriptenModule | null): Promise<void> {
     return new Promise((resolve) => {
-        if (!startBootstrap(emscriptenInstance)) {
+        if (!startBootstrap(getEmscriptenInstance())) {
             // Bootstrap failed to start, resolve immediately
             resolve();
             return;
@@ -282,7 +283,7 @@ export function integrateWithLoadingUI(emscriptenInstance: EmscriptenModule | nu
 
         // Poll progress
         pollBootstrapProgress(
-            emscriptenInstance,
+            getEmscriptenInstance(),
             (progress) => {
                 // Update UI with progress
                 if (window.setLoadingStatus) {

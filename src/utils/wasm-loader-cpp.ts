@@ -28,6 +28,22 @@ export let cppBatchRetriggerSimd: ((inputPtr: number, count: number, time: numbe
 export let emscriptenInstance: EmscriptenModule | null = null;
 export let emscriptenMemory: ArrayBuffer | null = null;
 
+export function setEmscriptenInstance(instance: EmscriptenModule | null) {
+  emscriptenInstance = instance;
+}
+
+export function setEmscriptenMemory(mem: ArrayBuffer | null) {
+  emscriptenMemory = mem;
+}
+
+export function getEmscriptenInstance(): EmscriptenModule | null {
+  return emscriptenInstance;
+}
+
+export function getEmscriptenMemory(): ArrayBuffer | null {
+  return emscriptenMemory;
+}
+
 
 // =============================================================================
 // INITIALIZE C++ EMSCRIPTEN FUNCTIONS
