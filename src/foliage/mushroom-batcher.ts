@@ -16,7 +16,7 @@ const modFloat = (x: any, y: any) => {
 import {
     sharedGeometries, foliageMaterials, uTime,
     uAudioLow, uAudioHigh, createRimLight, createJuicyRimLight, uPlayerPosition, colorFromNote,
-    createSugarSparkle, applyPlayerInteraction
+    createSugarSparkle, applyPlayerInteraction, calculateWindSway, getCachedProceduralMaterial
 } from './index.ts';
 import { uTwilight } from './sky.ts';
 import { BiomeUniforms, uCircadianPhase } from '../systems/biome-uniforms.ts';
@@ -529,15 +529,23 @@ export class MushroomBatcher {
         // --- Material Definitions ---
 
         // 0. Stem
-        const stemMat = (foliageMaterials.mushroomStem as MeshStandardNodeMaterial).clone();
-        stemMat.positionNode = applyPlayerInteraction(deform(positionLocal));
+        const stemMat = getCachedProceduralMaterial('mushroom_stem_wind', 0xFFFFFF, () => {
+            const m = (foliageMaterials.mushroomStem as MeshStandardNodeMaterial).clone();
+            const defPos = deform(positionLocal);
+            m.positionNode = applyPlayerInteraction(defPos.add(calculateWindSway(defPos)));
+            return m;
+        }) as MeshStandardNodeMaterial;
 
         // 1. Cap
         // PALETTE: Upgraded to use instanceColor + Juicy Rim Light
         // mushroomCap is an array of materials in common.ts
         const capList = foliageMaterials.mushroomCap as MeshStandardNodeMaterial[];
-        const capMat = capList[0].clone();
-        capMat.positionNode = applyPlayerInteraction(deform(positionLocal));
+        const capMat = getCachedProceduralMaterial('mushroom_cap_wind', 0xFFFFFF, () => {
+            const m = capList[0].clone();
+            const defPos = deform(positionLocal);
+            m.positionNode = applyPlayerInteraction(defPos.add(calculateWindSway(defPos)));
+            return m;
+        }) as MeshStandardNodeMaterial;
 
         // Base color from instance (set via register/setColorAt)
         // Uses the vInstanceColor varying populated by InstancedMeshNode
@@ -600,13 +608,21 @@ export class MushroomBatcher {
         capMat.emissiveIntensityNode = float(1.0); // Resetting multiplier since we multiply inside node
 
         // 2. Gills
-        const gillMat = (foliageMaterials.mushroomGills as MeshStandardNodeMaterial).clone();
-        gillMat.positionNode = applyPlayerInteraction(deform(positionLocal));
-        gillMat.emissiveIntensityNode = totalGlow.mul(0.3);
+        const gillMat = getCachedProceduralMaterial('mushroom_gill_wind', 0xFFFFFF, () => {
+            const m = (foliageMaterials.mushroomGills as MeshStandardNodeMaterial).clone();
+            const defPos = deform(positionLocal);
+            m.positionNode = applyPlayerInteraction(defPos.add(calculateWindSway(defPos)));
+            m.emissiveIntensityNode = totalGlow.mul(0.3);
+            return m;
+        }) as MeshStandardNodeMaterial;
 
         // 3. Spots
-        const spotMat = (foliageMaterials.mushroomSpots as MeshStandardNodeMaterial).clone();
-        spotMat.positionNode = applyPlayerInteraction(deform(positionLocal));
+        const spotMat = getCachedProceduralMaterial('mushroom_spot_wind', 0xFFFFFF, () => {
+            const m = (foliageMaterials.mushroomSpots as MeshStandardNodeMaterial).clone();
+            const defPos = deform(positionLocal);
+            m.positionNode = applyPlayerInteraction(defPos.add(calculateWindSway(defPos)));
+            return m;
+        }) as MeshStandardNodeMaterial;
         const spotPulse = sin(uTime.mul(3.0)).mul(0.1).add(0.3);
         const spotAudio = uAudioHigh.mul(0.8); // 🎨 PALETTE: Make spots pop more on highs
         spotMat.emissiveIntensityNode = flashIntensity.add(spotPulse).add(spotAudio);
