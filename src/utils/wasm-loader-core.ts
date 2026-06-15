@@ -89,7 +89,7 @@ export let wasmUpdateParticles: ((positionsPtr: number, count: number, dt: numbe
 export let wasmSpawnBurst: ((outputPtr: number, count: number, centerX: number, centerY: number, centerZ: number, speed: number, time: number) => void) | null = null;
 
 export * from './wasm-loader-cpp.ts';
-import { initCppFunctions } from './wasm-loader-cpp.ts';
+import { initCppFunctions, setEmscriptenInstance, setEmscriptenMemory, emscriptenInstance } from './wasm-loader-cpp.ts';
 
 // =============================================================================
 // CONSTANTS
@@ -468,7 +468,8 @@ export async function loadEmscriptenModule(forceSingleThreaded = false): Promise
             };
 
             // Initialize Emscripten (will use Native WA for Memory creation)
-            emscriptenInstance = await createCandyNative(config);
+            const _emscriptenInstance = await createCandyNative(config);
+            setEmscriptenInstance(_emscriptenInstance);
 
             console.log(`[WASM] Emscripten ${isThreaded ? 'Pthreads' : 'Single-Threaded'} Ready`);
         } catch (e) {
@@ -491,9 +492,9 @@ export async function loadEmscriptenModule(forceSingleThreaded = false): Promise
         }
 
         if (emscriptenInstance!.wasmMemory) {
-            emscriptenMemory = emscriptenInstance!.wasmMemory.buffer as ArrayBuffer;
+            setEmscriptenMemory(emscriptenInstance!.wasmMemory.buffer as ArrayBuffer);
         } else if (emscriptenInstance!.HEAP8) {
-            emscriptenMemory = emscriptenInstance!.HEAP8.buffer as ArrayBuffer;
+            setEmscriptenMemory(emscriptenInstance!.HEAP8.buffer as ArrayBuffer);
         }
 
         // Initialize cached C++ function references

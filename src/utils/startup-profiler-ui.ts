@@ -1,3 +1,4 @@
+import { uiState } from './startup-profiler.ts';
 import { PhaseTiming, InstancedMeshMetrics, WebGPUMetrics, ProfilerConfig, StartupReport } from './startup-profiler-types.ts';
 import { formatBytes, formatDuration, getMemoryUsage } from './startup-profiler-utils.ts';
 import { uiState } from './startup-profiler.ts';

@@ -506,6 +506,7 @@ export class MusicReactivitySystem {
     }
 
     private updateFoliageAnimationLoop(time: number, deltaTime: number, audioState: AudioData | null, cpuAnimatedFoliage: FoliageObject[], camera: THREE.Camera, isDay: boolean, isDeepNight: boolean) {
+        const isNight = !isDay;
         if (typeof isDay !== 'boolean') {
             console.warn('[Music] isDay parameter missing');
             return;
@@ -516,6 +517,8 @@ export class MusicReactivitySystem {
         // Update Frustum for Culling
         _projScreenMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
         _frustum.setFromProjectionMatrix(_projScreenMatrix);
+
+
 
         // ⚡ PERFORMANCE: Debug counters
         let totalObjects = 0;
@@ -814,7 +817,7 @@ export class MusicReactivitySystem {
         }
     }
 
-    private updateLuminousPlants(audioState: AudioData | null) {
+    private updateLuminousPlants(audioState: AudioData | null, isDay: boolean) {
 // ---------------------------------------------------------------
         // ⚡ LUMINOUS PLANTS (Scenic System)
         // Tracker channel defined in assets/music-bindings.json.
@@ -846,11 +849,10 @@ export class MusicReactivitySystem {
             }
         }
         // Day guard: clamp intensity to 0 when daytime so sky/moon are unchanged.
-        const isNightNow = this.weatherSystem ? this.weatherSystem.isNight() : true;
-        SkyUniforms.intensity.value = isNightNow ? Math.min(MRState.smoothedSkyIntensity, 1.0) : 0.0;
+        SkyUniforms.intensity.value = (!isDay) ? Math.min(MRState.smoothedSkyIntensity, 1.0) : 0.0;
     }
 
-    private updateSkyWavePropagation(audioState: AudioData | null, isDay: boolean, cameraPosition?: THREE.Vector3) {
+    private updateSkyWavePropagation(audioState: AudioData | null, isDay: boolean, cameraPosition?: THREE.Vector3, deltaTime: number = 0.016) {
         const nightGate = isDay ? 0.0 : 1.0;
 // ---------------------------------------------------------------
         // ⚡ SKY WAVE — Per-channel MOD note-color wave propagation
@@ -871,7 +873,7 @@ export class MusicReactivitySystem {
                 let allComplete = true;
                 for (let i = 0; i < targets.length; i++) {
                     const key = targets[i];
-                    const uni = skyWaveUniformMap[key];
+                    const uni = _skyWaveUniformMap[key];
                     if (!uni) continue;
 
                     // Stagger arrival: ~0.22 of propagation per step in the list
@@ -894,13 +896,13 @@ export class MusicReactivitySystem {
 
                 if (decayElapsed < MRState.skyWaveDecayMs) {
                     for (const key of targets) {
-                        const uni = skyWaveUniformMap[key];
+                        const uni = _skyWaveUniformMap[key];
                         if (uni) uni.value.lerp(_whiteColor, 0.06);
                     }
                 } else {
                     MRState.waveDecayStartTime = 0;
                     for (const key of targets) {
-                        const uni = skyWaveUniformMap[key];
+                        const uni = _skyWaveUniformMap[key];
                         if (uni) uni.value.copy(_whiteColor);
                     }
                 }
@@ -914,7 +916,7 @@ export class MusicReactivitySystem {
             // Also gently clear any lingering wave color on targets (defensive)
             const targets: readonly string[] = MRState.skyWaveTargets;
             for (const key of targets) {
-                const uni = skyWaveUniformMap[key];
+                const uni = _skyWaveUniformMap[key];
                 if (uni) uni.value.lerp(_whiteColor, 0.04);
             }
         }
@@ -983,7 +985,7 @@ export class MusicReactivitySystem {
         weatherSystem: IWeatherSystem,
         cpuAnimatedFoliage: FoliageObject[],
         camera: THREE.Camera,
-        isNight: boolean,
+        isDay: boolean,
         isDeepNight: boolean
     ) {
         syncMapMusicContext();
@@ -993,7 +995,7 @@ export class MusicReactivitySystem {
         // 2. Update Twilight Glow
         this.updateTwilightGlow(time);
 
-                this.updateFoliageAnimationLoop(time, deltaTime, audioState, cpuAnimatedFoliage, camera, !isNight, isDeepNight);
+                this.updateFoliageAnimationLoop(time, deltaTime, audioState, cpuAnimatedFoliage, camera, isDay, isDeepNight);
 
         this.updateBiomeChannelBindings(audioState, getDayNightBias(time % CYCLE_DURATION));
 
@@ -1032,9 +1034,9 @@ export class MusicReactivitySystem {
 
             // Push to TSL uniforms — mutate .value only, never reassign nodes.
             SkyUniforms.noteIndex.value = MRState.lastSkyNoteIndex;
-                    this.updateLuminousPlants(audioState);
+                    this.updateLuminousPlants(audioState, !isDay);
 
-        this.updateSkyWavePropagation(audioState, !isNight, camera.position);
+        this.updateSkyWavePropagation(audioState, isDay, camera.position, deltaTime);
         }
 
     updateMoon(time: number, deltaTime: number) {
