@@ -32,7 +32,7 @@ import { discoverySystem } from '../discovery.ts';
 import { spawnImpact } from '../../foliage/impacts.ts';
 import { uChromaticIntensity } from '../../foliage/chromatic.ts';
 import { calculateWaterLevel, getUnifiedGroundHeightTyped } from '../physics.core.js';
-import { getGroundHeight } from '../../utils/wasm-loader.ts';
+import { getGroundHeight, fastInvSqrt } from '../../utils/wasm-loader.ts';
 import { foliageCaves } from './physics-types.js';
 
 // Helper: Unified Ground Height (WASM + Lake Modifiers)
@@ -212,14 +212,15 @@ export function updateSwimmingState(
             spawnImpact(player.position, 'jump');
         } else {
             // Pull towards anchor
-            const dist = Math.sqrt(distSq);
+            // ⚡ OPTIMIZATION: Bypassed Math.sqrt overhead using fastInvSqrt for vector normalization
+            const invDist = fastInvSqrt(distSq);
             // Modulate pull speed with kick drum
             const kickBoost = audioState?.kickTrigger ? audioState.kickTrigger * 20.0 : 0;
             const pullSpeed = 30.0 + kickBoost;
 
-            player.velocity.x += (dx / dist) * pullSpeed * delta;
-            player.velocity.y += (dy / dist) * pullSpeed * delta;
-            player.velocity.z += (dz / dist) * pullSpeed * delta;
+            player.velocity.x += (dx * invDist) * pullSpeed * delta;
+            player.velocity.y += (dy * invDist) * pullSpeed * delta;
+            player.velocity.z += (dz * invDist) * pullSpeed * delta;
 
             if (Math.random() < 0.1) {
                 spawnImpact(player.position, 'dash');
