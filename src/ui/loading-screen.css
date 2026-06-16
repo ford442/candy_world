@@ -419,7 +419,9 @@
 }
 
 .skip-button:active,
-.fatal-error-reload:active {
+.skip-button.keyboard-active,
+.fatal-error-reload:active,
+.fatal-error-reload.keyboard-active {
   transform: translateY(0) scale(0.95);
   transition-duration: 0.05s;
   box-shadow: 
