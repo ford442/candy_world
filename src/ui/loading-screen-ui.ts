@@ -207,6 +207,12 @@ export class LoadingScreen {
             this.skipButton.innerHTML = '<span aria-hidden="true">⏭️ </span>Skip Optional Content';
             this.skipButton.style.display = 'none';
             this.skipButton.addEventListener('click', () => this.skipCurrentPhase());
+            this.skipButton.addEventListener('keydown', (e: KeyboardEvent) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    this.skipButton!.classList.add('keyboard-active');
+                    setTimeout(() => this.skipButton!.classList.remove('keyboard-active'), 150);
+                }
+            });
             content.appendChild(this.skipButton);
         }
 
@@ -925,6 +931,12 @@ export class LoadingScreen {
                 reloadBtn.setAttribute('aria-label', 'Reload page to try again');
                 reloadBtn.innerHTML = '<span aria-hidden="true">🔄</span> Reload Page';
                 reloadBtn.addEventListener('click', () => window.location.reload());
+                reloadBtn.addEventListener('keydown', (e: KeyboardEvent) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        reloadBtn.classList.add('keyboard-active');
+                        setTimeout(() => reloadBtn.classList.remove('keyboard-active'), 150);
+                    }
+                });
                 this.container.querySelector('.loading-content')?.appendChild(reloadBtn);
             }
         }
