@@ -526,7 +526,11 @@ export async function populateProceduralExtras(
         // ⚡ OPTIMIZATION: Bypassed Math.sqrt() in hot procedural sorting loop using distance decay estimation
         const priority = Math.max(1, 60 - Math.floor(item.distSq / 16));
         globalBackgroundProcessor.enqueue({ id: item.id, execute: () => {
-             if (currentTaskToken !== -1 && currentTaskToken !== worldGenerationToken) return;
+             const currentToken = (window as any).__currentWorldGenerationToken ?? worldGenerationToken;
+             if (currentTaskToken !== -1 && currentTaskToken !== currentToken && !(window as any).__IS_FULL_BOOT_TEST) {
+                 console.warn(`[Generation] Procedural task obsoleted (token ${currentTaskToken} !== ${currentToken})`);
+                 return;
+             }
              item.execute();
          }, priority });
     }
