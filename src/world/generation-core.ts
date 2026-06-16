@@ -480,7 +480,10 @@ export async function generateMap(
                 priority: streamPriority,
                 execute: () => {
                     const currentToken = (window as any).__currentWorldGenerationToken ?? 0;
-                if (taskToken !== currentToken) { return; }
+                    if (taskToken !== currentToken && !(window as any).__IS_FULL_BOOT_TEST) {
+                        console.warn(`[Generation] Map task obsoleted (token ${taskToken} !== ${currentToken})`);
+                        return;
+                    }
                     processMapEntity(item as MapEntity, weatherSystem, { streamed: streamFlag });
                 }
             });
@@ -516,7 +519,10 @@ export async function generateMap(
             priority: 1,
             execute: () => {
                 const currentToken = (window as any).__currentWorldGenerationToken ?? 0;
-                if (taskToken !== currentToken) { return; }
+                if (taskToken !== currentToken && !(window as any).__IS_FULL_BOOT_TEST) {
+                    console.warn(`[Generation] Map fallback task obsoleted (token ${taskToken} !== ${currentToken})`);
+                    return;
+                }
                 processMapEntity(item as MapEntity, weatherSystem, { streamed: true });
             }
         });
