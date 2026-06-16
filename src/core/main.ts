@@ -541,10 +541,31 @@ if (startButton) {
 
     updateStartupMode('CORE');
 
+    let worldGenerated = false;
+    let isGenerating = false;
+
+    function yieldFrame(): Promise<void> {
+        return new Promise(resolve => setTimeout(resolve, 50));
+    }
+
     if (btnCoreOnly && btnFullGame && btnFastFull) {
-        btnCoreOnly.addEventListener('click', () => updateStartupMode('CORE'));
-        btnFullGame.addEventListener('click', () => updateStartupMode('FULL'));
-        btnFastFull.addEventListener('click', () => updateStartupMode('FAST_FULL'));
+        const setupModeButton = (btn: HTMLButtonElement, mode: 'CORE' | 'FULL' | 'FAST_FULL') => {
+            btn.addEventListener('click', async () => {
+                btn.setAttribute('aria-busy', 'true');
+                btn.setAttribute('aria-disabled', 'true');
+                try {
+                    updateStartupMode(mode);
+                    await yieldFrame();
+                } finally {
+                    btn.setAttribute('aria-busy', 'false');
+                    btn.setAttribute('aria-disabled', 'false');
+                }
+            });
+        };
+
+        setupModeButton(btnCoreOnly, 'CORE');
+        setupModeButton(btnFullGame, 'FULL');
+        setupModeButton(btnFastFull, 'FAST_FULL');
     }
 
     // Wire the wait-for-full checkbox
@@ -555,13 +576,6 @@ if (startButton) {
             waitForFullPopulation = waitFullCheckbox.checked;
             localStorage.setItem(WAIT_FULL_KEY, waitForFullPopulation ? '1' : '0');
         });
-    }
-
-    let worldGenerated = false;
-    let isGenerating = false;
-
-    function yieldFrame(): Promise<void> {
-        return new Promise(resolve => setTimeout(resolve, 50));
     }
 
     async function enterWorld() {

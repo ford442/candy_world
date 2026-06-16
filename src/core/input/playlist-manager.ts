@@ -204,23 +204,56 @@ function handlePlaylistUpload(e: Event): void {
     const target = e.target as HTMLInputElement;
     const files = target.files;
     if (files && files.length > 0) {
-        const { validFiles, invalidFiles } = filterValidMusicFiles(files);
-        if (validFiles.length > 0) {
-            audioSystemRef.addToQueue(validFiles);
-            import('../../utils/toast.ts').then(({ showToast }) => {
-                if (invalidFiles.length > 0) {
-                    showToast(`Added ${validFiles.length} song${validFiles.length > 1 ? 's' : ''}. (${invalidFiles.length} ignored)`, '⚠️');
-                } else {
-                    showToast(`Added ${validFiles.length} Song${validFiles.length > 1 ? 's' : ''}! 🎶`, '📂');
-                }
-            });
-        } else {
-            import('../../utils/toast.ts').then(({ showToast }) => {
-                showToast("❌ Only .mod, .xm, .it, .s3m allowed!", '🚫');
-            });
-        }
+        const browseBtn = playlistList?.querySelector('.jukebox-browse-btn') as HTMLElement | null;
+
+        const originalAddSongsHtml = addSongsBtn ? addSongsBtn.innerHTML : '';
+        const originalBrowseHtml = browseBtn ? browseBtn.innerHTML : '';
+
+        const setBusy = (btn: HTMLElement | null) => {
+            if (btn) {
+                btn.setAttribute('aria-busy', 'true');
+                btn.setAttribute('aria-disabled', 'true');
+                btn.innerHTML = '<span class="spinner" aria-hidden="true"></span> Processing...';
+            }
+        };
+
+        const restoreBusy = (btn: HTMLElement | null, originalHtml: string) => {
+            if (btn) {
+                btn.removeAttribute('aria-busy');
+                btn.removeAttribute('aria-disabled');
+                btn.innerHTML = originalHtml;
+            }
+        };
+
+        setBusy(addSongsBtn);
+        setBusy(browseBtn);
+
+        // Brief delay for satisfying UX feedback
+        setTimeout(() => {
+            const { validFiles, invalidFiles } = filterValidMusicFiles(files);
+
+            if (validFiles.length > 0) {
+                audioSystemRef!.addToQueue(validFiles);
+                import('../../utils/toast.ts').then(({ showToast }) => {
+                    if (invalidFiles.length > 0) {
+                        showToast(`Added ${validFiles.length} song${validFiles.length > 1 ? 's' : ''}. (${invalidFiles.length} ignored)`, '⚠️');
+                    } else {
+                        showToast(`Added ${validFiles.length} Song${validFiles.length > 1 ? 's' : ''}! 🎶`, '📂');
+                    }
+                });
+            } else {
+                import('../../utils/toast.ts').then(({ showToast }) => {
+                    showToast("❌ Only .mod, .xm, .it, .s3m allowed!", '🚫');
+                });
+            }
+
+            restoreBusy(addSongsBtn, originalAddSongsHtml);
+            restoreBusy(browseBtn, originalBrowseHtml);
+            target.value = '';
+        }, 500);
+    } else {
+        target.value = '';
     }
-    target.value = '';
 }
 
 /**
