@@ -292,18 +292,23 @@ function applyMusicReactiveLightShafts(delta: number): void {
         return;
     }
 
-    let shaftVisible = false;
     let shaftOpacity = 0;
+    let shaftVisible = false;
 
     if (_shaftIsGoldenHour && _shaftGoldenHourBase > 0.001) {
         shaftOpacity = _shaftGoldenHourBase + AtmosphereShaftState.beatShimmer;
         // Golden hour: ambient god rays fill the scene — no camera-frustum gate
         shaftVisible = shaftOpacity > 0.01;
-    } else if (_shaftIsNightMode && AtmosphereShaftState.nightMoonbeam) {
+    } else if (_shaftIsNightMode) {
         // Visual Impact: moonbeam cap — soft silver rays, not blinding
         shaftOpacity = Math.min(0.35, AtmosphereShaftState.musicOpacity + AtmosphereShaftState.beatShimmer);
         const strongMelody = AtmosphereShaftState.musicOpacity > 0.08;
-        shaftVisible = (strongMelody || _celestialInView(_scratchSunVector)) && shaftOpacity > 0.01;
+        // Re-enable night light shafts by using the atmosphere state, avoiding the hardcoded false when beat/melody plays
+        shaftVisible = (strongMelody || _celestialInView(_scratchSunVector) || AtmosphereShaftState.nightMoonbeam) && shaftOpacity > 0.01;
+    } else if (AtmosphereShaftState.musicOpacity > 0.01) {
+        shaftOpacity = Math.min(0.35, AtmosphereShaftState.musicOpacity + AtmosphereShaftState.beatShimmer);
+        const strongMelody = AtmosphereShaftState.musicOpacity > 0.08;
+        shaftVisible = strongMelody && shaftOpacity > 0.01;
     }
 
     lightShaftGroupRef.visible = shaftVisible;
