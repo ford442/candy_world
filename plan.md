@@ -102,6 +102,10 @@ Status: Implemented ✅
 Next Step: Wait for user instructions.
 
 Status: Implemented ✅
+* Implementation Details: Fixed the Root-cause of the Scene-Loading Regression (#1133) by making `worldGenerationToken` the single source of truth across the boot sequence and properly passing `taskToken` in the background deferred task processor. Further stabilized background-processor by giving tasks a single-retry threshold.
+Next Step: Provide instructions for next feature.
+
+Status: Implemented ✅
 * Implementation Details: Replaced single mesh subwoofer lotus with `SubwooferLotusBatcher` in `src/foliage/subwoofer-lotus-batcher.ts`, fully adopting `InstancedMesh` with TSL bass pulse scaling, glitch distortion, and proper VRAM disposal for the Subwoofer Lotus.
 Next Step: Continue large file refactoring from `REFACTORING_PLAN_REMAINING.md`.
 1. *Add `dispose` method to `LuminousPlantBatcher` in `src/foliage/luminous-plant-batcher.ts`.*
