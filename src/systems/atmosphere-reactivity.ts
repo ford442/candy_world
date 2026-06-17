@@ -158,7 +158,8 @@ export function updateAtmosphereReactivity(
     audioState: AudioData | null,
     deltaTime: number,
     dayNightBias: number,
-    isDay: boolean
+    isDay: boolean,
+    weatherFogBoost = 0,
 ): void {
     const channels = audioState?.channelData;
     const bloomCh = _bloomBinding.channels;
@@ -184,6 +185,9 @@ export function updateAtmosphereReactivity(
         const averageVolume = totalVolume / channels.length;
         mixTarget = Math.min(_fogBinding.max, averageVolume * _fogBinding.scale);
     }
+    if (weatherFogBoost > 0) {
+        mixTarget = Math.min(_fogBinding.max, mixTarget + weatherFogBoost * 0.35);
+    }
     _smoothedMixEnergy = _smooth(_smoothedMixEnergy, mixTarget, _fogBinding.smoothing, deltaTime);
 
     // Melody channel (sky_moon.melody_channel via MRState.skyMoonCh) → shaft opacity driver
@@ -200,9 +204,9 @@ export function updateAtmosphereReactivity(
     if (_beatBloomSpike < 0.001) _beatBloomSpike = 0;
     if (_beatShaftShimmer < 0.001) _beatShaftShimmer = 0;
 
-  if (!channels) {
+    if (!channels) {
         _smoothedBassEnergy = _smooth(_smoothedBassEnergy, 0, _bloomBinding.smoothing, deltaTime);
-        _smoothedMixEnergy = _smooth(_smoothedMixEnergy, 0, _fogBinding.smoothing, deltaTime);
+        _smoothedMixEnergy = _smooth(_smoothedMixEnergy, weatherFogBoost > 0 ? Math.min(_fogBinding.max, weatherFogBoost * 0.35) : 0, _fogBinding.smoothing, deltaTime);
         _smoothedMelodyEnergy = _smooth(_smoothedMelodyEnergy, 0, _shaftBinding.smoothing, deltaTime);
     }
 

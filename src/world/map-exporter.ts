@@ -33,7 +33,8 @@ const SUPPORTED_EXPORT_TYPES = new Set<string>([
     'luminous_plant',
     'melody_mirror',
     'cave',
-    'gem_canopy_tree'
+    'gem_canopy_tree',
+    'glass_mushroom'
 ]);
 
 const _worldPos = new THREE.Vector3();
@@ -77,6 +78,7 @@ function normalizeScale(scale: THREE.Vector3): number | [number, number, number]
 function inferCategory(type: string): string {
     if (type === 'bubble_willow' || type === 'portamento_pine' || type === 'fiber_optic_willow' || type === 'gem_canopy_tree') return 'mushroom-trees';
     if (type === 'mushroom' || type === 'retrigger_mushroom') return 'face-mushrooms';
+    if (type === 'glass_mushroom') return 'mycelium';
     if (type === 'cloud') return 'clouds';
     if (
         type === 'arpeggio_fern' ||

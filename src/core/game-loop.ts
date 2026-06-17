@@ -32,6 +32,7 @@ import { getGroundHeight } from '../utils/wasm-loader.ts';
 import { updateImpacts } from '../foliage/impacts.ts';
 import { createShield } from '../foliage/shield.ts';
 import { updateFoliageMaterials } from '../foliage/animation.ts';
+import { updateFoliageBatcherLOD } from '../systems/batcher-lod.ts';
 import { circadianController } from '../systems/circadian-controller.ts';
 import { windComputeSystem } from '../foliage/wind-compute.ts';
 import { chordStrikeSystem } from '../gameplay/chord-strike.ts';
@@ -77,6 +78,7 @@ import { jitterMineSystem } from '../gameplay/jitter-mines.ts';
 import { glitchGrenadeSystem } from '../systems/glitch-grenade.ts';
 import { updateHarpoonLine } from '../gameplay/harpoon-line.ts';
 import { musicReactivitySystem, AtmosphereShaftState } from '../systems/music-reactivity.ts';
+import { updateExploreCamera, getExploreCamera, isExploreActive } from './camera-modes.ts';
 import { unlockSystem } from '../systems/unlocks.ts';
 import { profiler } from '../utils/profiler.ts';
 import { WeatherSystem } from '../systems/weather.ts';
@@ -91,8 +93,13 @@ import {
     DURATION_DAY,
     DURATION_SUNSET,
     DURATION_DUSK_NIGHT,
-    DURATION_DEEP_NIGHT
+    DURATION_DEEP_NIGHT,
+    CONFIG,
+    areGodRaysEnabled,
+    isDofEnabled,
+    isDofManual
 } from './config.ts';
+import { uDofFocus, uDofMix } from '../foliage/post-processing.ts';
 import { keyStates } from './input/index.js';
 import {
     updateHUD,
@@ -150,6 +157,20 @@ let _shaftIsGoldenHour = false;
 let _shaftIsNightMode = false;
 // Visual Impact: minimum dot(cameraForward, celestialDir) to show god rays (frustum gate)
 const _SHAFT_FRUSTUM_DOT = 0.28;
+
+// Post-FX enablement resolved once per session (URL overrides + CONFIG.postfx tier).
+const _godRaysEnabled = areGodRaysEnabled();
+const _dofEnabled = isDofEnabled();
+// Manual DoF: always-on (not proximity-gated) when explicitly enabled via ?dof / config.
+const _dofManual = _dofEnabled && isDofManual();
+
+// Scenic flora zone centres (X,Z) that auto-engage Depth of Field when 'high' tier.
+// Kept in sync with generation-core luminous placement (~-40,40) and
+// generation-utils MYCELIUM_GROVE (-78,78). Hardcoded to avoid a world→core import.
+const _DOF_FLORA_ZONES: ReadonlyArray<readonly [number, number]> = [
+    [-40, 40], // Melody Lake luminous plants
+    [-78, 78], // Luminous Mycelium grove (glass mushrooms)
+];
 
 const _interactionLists: (any[] | null)[] = [null, null, null]; // Reusable array for interaction lists
 
@@ -261,16 +282,28 @@ function _setShaftOpacity(opacity: number): void {
 function applyMusicReactiveLightShafts(delta: number): void {
     if (!lightShaftGroupRef) return;
 
+    // Respect the post-FX quality tier — ?postfx=off (or CONFIG.postfx.godRays=false)
+    // disables god rays entirely, keeping the group hidden with zero per-frame cost.
+    if (!_godRaysEnabled) {
+        if (lightShaftGroupRef.visible) {
+            lightShaftGroupRef.visible = false;
+            _setShaftOpacity(0);
+        }
+        return;
+    }
+
     let shaftVisible = false;
     let shaftOpacity = 0;
 
     if (_shaftIsGoldenHour && _shaftGoldenHourBase > 0.001) {
         shaftOpacity = _shaftGoldenHourBase + AtmosphereShaftState.beatShimmer;
-        shaftVisible = _celestialInView(_scratchSunVector) && shaftOpacity > 0.01;
+        // Golden hour: ambient god rays fill the scene — no camera-frustum gate
+        shaftVisible = shaftOpacity > 0.01;
     } else if (_shaftIsNightMode && AtmosphereShaftState.nightMoonbeam) {
         // Visual Impact: moonbeam cap — soft silver rays, not blinding
         shaftOpacity = Math.min(0.35, AtmosphereShaftState.musicOpacity + AtmosphereShaftState.beatShimmer);
-        shaftVisible = _celestialInView(_scratchSunVector) && shaftOpacity > 0.01;
+        const strongMelody = AtmosphereShaftState.musicOpacity > 0.08;
+        shaftVisible = (strongMelody || _celestialInView(_scratchSunVector)) && shaftOpacity > 0.01;
     }
 
     lightShaftGroupRef.visible = shaftVisible;
@@ -280,6 +313,41 @@ function applyMusicReactiveLightShafts(delta: number): void {
     } else {
         _setShaftOpacity(0);
     }
+}
+
+/**
+ * Drive Depth-of-Field focus + blend each frame (zero-alloc scalar math).
+ * Engages near luminous / mycelium flora (or always, when manually enabled), with
+ * the focal plane following the player's look distance toward that flora.
+ * No-op unless DoF was built into the pipeline at boot.
+ */
+function _updateDepthOfField(delta: number): void {
+    if (!_dofEnabled || !player?.position) return;
+
+    const px = player.position.x;
+    const pz = player.position.z;
+    let nearest = Infinity;
+    for (let i = 0; i < _DOF_FLORA_ZONES.length; i++) {
+        const dx = px - _DOF_FLORA_ZONES[i][0];
+        const dz = pz - _DOF_FLORA_ZONES[i][1];
+        const d = Math.sqrt(dx * dx + dz * dz);
+        if (d < nearest) nearest = d;
+    }
+
+    const prox = CONFIG.postfx.dofProximity;
+    // Proximity ramp: full DoF within (prox-2), fading out by (prox+6).
+    const proxMix = 1.0 - THREE.MathUtils.smoothstep(nearest, prox - 2.0, prox + 6.0);
+    const targetMix = _dofManual ? 1.0 : proxMix;
+
+    // Focus-follow: settle the focal plane on the flora we're approaching; otherwise rest.
+    const targetFocus = CONFIG.postfx.dofFocusFollow
+        ? THREE.MathUtils.clamp(nearest, 3.0, 40.0)
+        : CONFIG.postfx.dofFocusDistance;
+
+    // Frame-rate-independent smoothing toward targets.
+    const k = 1.0 - Math.exp(-delta * 4.0);
+    uDofMix.value += (targetMix - uDofMix.value) * k;
+    uDofFocus.value += (targetFocus - uDofFocus.value) * k;
 }
 
 // addCameraShake re-exported from ./camera-shake.ts
@@ -620,6 +688,9 @@ export function animate() {
     if (weatherState === WeatherState.STORM) weatherStateStr = 'storm';
     else if (weatherState === WeatherState.RAIN) weatherStateStr = 'rain';
     updateFoliageMaterials(audioState, isNightNow, weatherStateStr, weatherIntensity);
+    if (cameraRef) {
+        updateFoliageBatcherLOD(cameraRef, delta);
+    }
 
     const deepNightStart = DURATION_SUNRISE + DURATION_DAY + DURATION_SUNSET + DURATION_DUSK_NIGHT;
     const deepNightEnd = deepNightStart + DURATION_DEEP_NIGHT;
@@ -668,6 +739,19 @@ export function animate() {
     });
 
     applyMusicReactiveLightShafts(delta);
+    _updateDepthOfField(delta);
+    updateExploreCamera(delta);
+
+    const exploreActive = isExploreActive();
+    if (exploreActive && getExploreCamera()?.isHybrid()) {
+        let forward = 0;
+        let strafe = 0;
+        if (keyStates.forward) forward += 1;
+        if (keyStates.backward) forward -= 1;
+        if (keyStates.left) strafe -= 1;
+        if (keyStates.right) strafe += 1;
+        getExploreCamera()?.panTargetXZ(forward, strafe, delta);
+    }
 
     if (firefliesRef) {
         firefliesRef.visible = isDeepNight;
@@ -704,7 +788,7 @@ export function animate() {
     let playerShieldMesh = getPlayerShieldMesh();
 
     profiler.measure('Physics', () => {
-        const devOrbitActive = Boolean((window as Window & { __devOrbitActive?: boolean }).__devOrbitActive);
+        const devOrbitActive = exploreActive;
         if (!devOrbitActive) {
             updatePhysics(delta, cameraRef!, controlsRef, keyStates, audioState);
         }
@@ -734,6 +818,21 @@ export function animate() {
     const harpoonLine = getHarpoonLine();
 
     profiler.measure('Gameplay', () => {
+        if (exploreActive) {
+            updateHUD({
+                player: {
+                    energy: player.energy,
+                    maxEnergy: player.maxEnergy,
+                    dashCooldown: (player as any).dashCooldown || 0,
+                    isPhasing: (player as any).isPhasing || false,
+                    phaseTimer: (player as any).phaseTimer || 0
+                },
+                audioState,
+                delta
+            });
+            return;
+        }
+
         updateFallingBerries(delta, rendererRef);
         const berriesCollected = collectFallingBerries(cameraRef!.position, 1.5);
 
@@ -787,13 +886,7 @@ export function animate() {
         });
     });
 
-    // Update Post-Processing audio reactivity
-    if (audioState) {
-        postProcessingRef.uniforms.bloomStrength.value = 0.5 + (uAudioLow.value * 1.5);
-    } else {
-        postProcessingRef.uniforms.bloomStrength.value = 0.5;
-    }
-
+    // uBloomStrength is driven by atmosphere-reactivity.ts (also synced to WebGL bloom in post-processing render).
     profiler.measure('Render', () => postProcessingRef.render());
 
     profiler.endFrame();

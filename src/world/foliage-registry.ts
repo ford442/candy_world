@@ -27,6 +27,7 @@ import {
     createRetriggerMushroom,
     createCaveEntrance,
     createLuminousPlant,
+    createGlassMushroom,
     createVineLadder,
 } from '../foliage/index.ts';
 import { createWisteriaCluster } from '../foliage/wisteria-cluster.ts';
@@ -160,6 +161,9 @@ export function registerBuiltinWorldObjectTypes(): void {
     registerType('balloon_bush', () => createBalloonBush(), { defaultIsObstacle: true, defaultRadius: 1.5 });
     registerType('wisteria_cluster', () => createWisteriaCluster(), { supportsMusic: true, batcherHint: 'musical_flora' });
     registerType('luminous_plant', () => createLuminousPlant(), { supportsMusic: true, batcherHint: 'luminous' });
+    registerType('glass_mushroom', (params) => createGlassMushroom({
+        scale: typeof params?.scale === 'number' ? params.scale : 1.0,
+    }), { defaultIsObstacle: true, defaultRadius: 0.6, supportsMusic: true, batcherHint: 'glass_mushroom' });
     registerType('melody_mirror', (params) => createMelodyMirror({ scale: typeof params?.scale === 'number' ? params.scale : 1.0 }), { supportsMusic: true });
     registerType('cave', (params) => createCaveEntrance({ scale: typeof params?.scale === 'number' ? params.scale : 2.0 }));
 }

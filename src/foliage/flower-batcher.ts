@@ -4,12 +4,12 @@ import { foliageGroup } from '../world/state.ts';
 import {
     foliageMaterials,
     sharedGeometries,
-    calculateFlowerBloom,
-    calculateWindSway,
-    applyPlayerInteraction
 } from './index.ts';
 import { attachReactivity } from './foliage-reactivity.ts';
-import { CandyPresets, uAudioHigh, uAudioLow, uTime, createJuicyRimLight, getCachedProceduralMaterial, createStandardNodeMaterial } from './material-core.ts';
+import { CandyPresets, uAudioHigh, uAudioLow, uTime, createJuicyRimLight, getCachedProceduralMaterial, createStandardNodeMaterial, calculateFlowerBloom } from './material-core.ts';
+import { foliageMotionPosition, scaleEmissiveByLod } from './lod-nodes.ts';
+import { initInstanceLodAttribute } from './batcher-lod-utils.ts';
+import { registerFoliageBatcherLod } from '../systems/batcher-lod.ts';
 import { CONFIG } from '../core/config.ts';
 import { uTwilight } from './sky.ts';
 import { attribute, positionLocal, mix, color, float, sin, varyingProperty } from 'three/tsl';
@@ -90,10 +90,7 @@ export class FlowerBatcher {
         this._poseMachine = new PlantPoseMachine(MAX_PETALS);
 
         // --- Common TSL Logic ---
-        // Apply Bloom -> Wind -> Player Interaction
-        const posBloom = calculateFlowerBloom(positionLocal);
-        const posWind = posBloom.add(calculateWindSway(posBloom));
-        const posFinal = applyPlayerInteraction(posWind);
+        const posFinal = foliageMotionPosition(calculateFlowerBloom(positionLocal));
 
         // --- 1. Stems (Cylinder) ---
         const stemMat = getCachedProceduralMaterial('flower_batch_stem', 0xFFFFFF, () => {
@@ -180,7 +177,7 @@ export class FlowerBatcher {
                 .mul(float(0.3).add(idlePulse));
             const biomeTint = BiomeUniforms.musicalFlora.noteColor.mul(BiomeUniforms.musicalFlora.shimmer.mul(0.35));
 
-            mat.emissiveNode = audioRim.add(innerGlow).add(twilightGlowTint).add(biomeTint);
+            mat.emissiveNode = scaleEmissiveByLod(audioRim.add(innerGlow).add(twilightGlowTint).add(biomeTint));
 
             return mat;
         });
@@ -227,8 +224,18 @@ export class FlowerBatcher {
         this.petalsSpiral.geometry.setAttribute('aPoseState', new THREE.InstancedBufferAttribute(new Float32Array(MAX_PETALS), 1));
         foliageGroup.add(this.petalsSpiral);
 
+        for (const mesh of [this.stems, this.centers, this.stamens, this.petalsSimple, this.petalsMulti, this.petalsSpiral]) {
+            initInstanceLodAttribute(mesh, mesh.instanceMatrix.count);
+        }
+
         this.initialized = true;
+        registerFoliageBatcherLod({ id: 'flower', getMeshes: () => this.getLODMeshes() });
         console.log('[FlowerBatcher] Initialized');
+    }
+
+    getLODMeshes(): THREE.InstancedMesh[] {
+        if (!this.initialized) return [];
+        return [this.stems, this.centers, this.stamens, this.petalsSimple, this.petalsMulti, this.petalsSpiral];
     }
 
     register(group: THREE.Group, type: string, options: any = {}) {

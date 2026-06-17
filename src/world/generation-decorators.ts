@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { createIntegratedPollen, createIntegratedSparks, registerIntegratedSystem } from '../particles/index.ts';
+import { createIntegratedPollen, createIntegratedSparks, createIntegratedSpores, registerIntegratedSystem } from '../particles/index.ts';
 import { animatedFoliage, cpuAnimatedFoliage } from './state.ts';
 import { globalBackgroundProcessor } from '../utils/background-processor.ts';
 import { recordSpawnAttempt } from './spawn-tracker.ts';
@@ -12,7 +12,7 @@ import {
     ENTITY_BUDGET_MS, WeatherSystem, FoliageGrowthOptions, yieldControl,
     getUnifiedGroundHeight, isPositionValid, normalizeMapEntityType,
     ARPEGGIO_GROVE_FERN_COUNT, ARPEGGIO_GROVE_OUTER_COUNT,
-    LAKE_ARPEGGIO_FERN_COUNT, LAKE_DANDELION_COUNT, GEM_CANOPY
+    LAKE_ARPEGGIO_FERN_COUNT, LAKE_DANDELION_COUNT, GEM_CANOPY, MYCELIUM_GROVE
 } from './generation-utils.ts';
 import { create, registerBuiltinWorldObjectTypes } from './foliage-registry.ts';
 import { FEATURE_FLAGS } from '../core/config.ts';
@@ -300,6 +300,65 @@ export async function populateGemCanopyCorridor(weatherSystem: WeatherSystem): P
     }
 
     console.log(`[World] Gem Canopy corridor populated (${treeCount} trees along path)`);
+}
+
+/**
+ * Luminous Mycelium Realm — a grove of glass mushrooms wrapped in an ambient,
+ * audio-reactive spore field. Companion biome to the Luminous Plants near Melody Lake.
+ * Feature-flagged via FEATURE_FLAGS.myceliumRealm for safe boot.
+ */
+export async function populateMyceliumGrove(weatherSystem: WeatherSystem): Promise<void> {
+    if (!FEATURE_FLAGS.myceliumRealm || !MYCELIUM_GROVE.enabled) {
+        console.log('[World] Mycelium grove skipped (flag/disabled)');
+        return;
+    }
+
+    console.log('[World] Populating Luminous Mycelium Realm...');
+    const { centerX, centerZ, radius, mushroomCount, sporeCount } = MYCELIUM_GROVE;
+
+    let placed = 0;
+    for (let i = 0; i < mushroomCount; i++) {
+        // Bias toward the centre (sqrt for area-uniform, squared to cluster inward).
+        const angle = Math.random() * Math.PI * 2;
+        const dist = Math.pow(Math.random(), 1.6) * radius;
+        const x = centerX + Math.cos(angle) * dist;
+        const z = centerZ + Math.sin(angle) * dist;
+
+        if (!isPositionValid(x, z, 1.0)) {
+            recordSpawnAttempt('glass_mushroom', false, new Error('placement invalid'));
+            continue;
+        }
+        const y = getUnifiedGroundHeight(x, z);
+        const mushroom = create('glass_mushroom', { scale: 0.8 + Math.random() * 0.9 });
+        if (!mushroom) {
+            recordSpawnAttempt('glass_mushroom', false, new Error('factory returned null'));
+            continue;
+        }
+        mushroom.position.set(x, y, z);
+        mushroom.rotation.y = Math.random() * Math.PI * 2;
+        const ok = safeAddFoliage(mushroom, true, 0.6, weatherSystem);
+        recordSpawnAttempt('glass_mushroom', ok, ok ? undefined : new Error('placement failed'));
+        if (ok) placed++;
+
+        if (i % 8 === 7) await yieldControl();
+    }
+
+    // Ambient spore field — cyan/purple drift, audio-reactive blink. Registered for
+    // per-frame compute updates so bass/melody drive intensity (zero-alloc hot path).
+    const groundY = getUnifiedGroundHeight(centerX, centerZ);
+    const spores = createIntegratedSpores({
+        count: sporeCount,
+        areaSize: radius * 1.4,
+        center: new THREE.Vector3(centerX, groundY + 2.5, centerZ),
+        useCompute: true,
+    });
+    safeAddFoliage(spores, false, 0, weatherSystem);
+    const sporeSystem = (spores as any).userData?.computeParticleSystem;
+    if (sporeSystem) {
+        registerIntegratedSystem('mycelium_spores', spores, sporeSystem);
+    }
+
+    console.log(`[World] Mycelium Realm populated (${placed}/${mushroomCount} glass mushrooms, ~${sporeCount} spores)`);
 }
 
 export async function populateProceduralExtras(

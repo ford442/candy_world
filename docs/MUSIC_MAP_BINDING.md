@@ -116,5 +116,7 @@ Optional top-level `atmosphere` block (parallel to `weatherReactivity`). Drives 
 
 Map-level overrides: add `"atmosphere": { ... }` under `music` in map JSON (same precedence as other music overrides).
 
+**Ownership:** `atmosphere-reactivity.ts` is the sole writer of `uBloomStrength` and `uCrescendoFogDensity`. `weather-atmosphere.ts` reads fog density for visibility; `game-loop.ts` must not overwrite bloom before render.
+
 WebGL parity: `post-processing.ts` syncs `uBloomStrength.value` to `UnrealBloomPass.strength` each frame; `game-loop.ts` mirrors `uShaftOpacity` to the shared WebGL shaft material.
 

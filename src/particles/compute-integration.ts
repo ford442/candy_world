@@ -187,6 +187,78 @@ export function createIntegratedPollen(options: IntegratedPollenOptions = {}): T
     return legacy;
 }
 
+export interface IntegratedSporesOptions {
+    count?: number;
+    areaSize?: number;
+    center?: THREE.Vector3;
+    useCompute?: boolean;
+}
+
+/**
+ * Ambient mycelium spore field. Built on the `pollen` compute type, whose color
+ * node already blends cyan↔magenta and blinks on `uAudioHigh` — exactly the
+ * cyan/purple, audio-reactive aesthetic the Mycelium Realm calls for. Spores
+ * drift slowly within the supplied bounds.
+ *
+ * Returns the particle mesh with `userData.computeParticleSystem` attached so the
+ * caller can `registerIntegratedSystem(...)` it for zero-alloc per-frame updates.
+ * Degrades gracefully: empty Group in CI, legacy CPU pollen when WebGPU is absent.
+ */
+export function createIntegratedSpores(options: IntegratedSporesOptions = {}): THREE.Object3D {
+    const {
+        count = 240,
+        areaSize = 18,
+        center = new THREE.Vector3(0, 3, 0),
+        useCompute = true,
+    } = options;
+
+    const hasWebGPU = typeof navigator !== 'undefined' && 'gpu' in navigator;
+    const skipHeavyParticles = typeof window !== 'undefined' && (window as any).__fastPopulationOverride;
+    const ciScale = PARTICLE_QUALITY === 'ci' ? 0.01 : 1.0;
+
+    if (PARTICLE_QUALITY === 'ci') return new THREE.Group();
+
+    if (useCompute && hasWebGPU) {
+        // Spores hang in the air — keep multiplier modest so 200+ stay visible but cheap.
+        const targetCount = skipHeavyParticles ? count : Math.min(count * 4, 6000);
+        const computeCount = Math.max(Math.floor(targetCount * ciScale), 200);
+
+        try {
+            const system = createComputePollen({
+                count: computeCount,
+                bounds: { x: areaSize, y: 8, z: areaSize }, // low ceiling → slow misty drift
+                center,
+            });
+
+            metrics.set('spores', {
+                particleCount: computeCount,
+                frameTime: 0,
+                gpuTime: 0,
+                cpuFallback: false,
+            });
+
+            console.log(`[Particles] GPU Spores: ${computeCount.toLocaleString()} particles`);
+
+            // Tag so callers can register it for per-frame audio updates.
+            system.mesh.userData.computeParticleSystem = system;
+            return system.mesh;
+        } catch (error) {
+            console.warn('[Particles] GPU compute failed for spores, falling back to CPU:', error);
+        }
+    }
+
+    // CPU fallback: legacy neon pollen (cyan/purple is approximated by its palette).
+    const legacy = createLegacyPollen(count, areaSize, center);
+    metrics.set('spores', {
+        particleCount: count,
+        frameTime: 0,
+        gpuTime: 0,
+        cpuFallback: true,
+    });
+    console.log(`[Particles] CPU Spores: ${count} particles (WebGPU unavailable or disabled)`);
+    return legacy;
+}
+
 export interface IntegratedSparksOptions {
     count?: number;
     areaSize?: number;

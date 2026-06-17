@@ -55,6 +55,17 @@ export const GEM_CANOPY = {
     treeCount: 24,
 };
 
+// Luminous Mycelium Realm — glass-mushroom grove + ambient spore field, sited as a
+// companion biome near Melody Lake (the lake island sits around -40, 40).
+export const MYCELIUM_GROVE = {
+    enabled: true,
+    centerX: -78,
+    centerZ: 78,
+    radius: 16,
+    mushroomCount: 28, // glass mushrooms scattered through the grove
+    sporeCount: 260,   // ambient compute spores drifting in the misty air
+};
+
 // Note: Actual fern/outer counts for the grove now come from
 // CONFIG.world.population (see above) and are consumed in generation-decorators.ts.
 

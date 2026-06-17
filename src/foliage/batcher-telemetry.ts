@@ -6,6 +6,7 @@ import { simpleFlowerBatcher } from './simple-flower-batcher.ts';
 import { CloudBatcher } from './cloud-batcher.ts';
 import { luminousPlantBatcher } from './luminous-plant-batcher.ts';
 import { gemFruitBatcher } from './gem-fruit-batcher.ts';
+import { glassMushroomBatcher } from './glass-mushroom-batcher.ts';
 import { waterfallBatcher } from './waterfall-batcher.ts';
 import { arpeggioFernBatcher } from './arpeggio-batcher.ts';
 import { portamentoPineBatcher } from './portamento-batcher.ts';
@@ -117,6 +118,7 @@ export function collectBatcherTelemetry(): BatcherTelemetryReport {
         ),
         summarize('LuminousPlantBatcher', 'luminous', [luminousPlantBatcher?.mesh].filter((m): m is THREE.InstancedMesh => !!m)),
         summarize('GemFruitBatcher', 'gem_canopy', gemFruitBatcher?.meshes ?? []),
+        summarize('GlassMushroomBatcher', 'glass_mushroom', [glassMushroomBatcher?.mesh].filter((m): m is THREE.InstancedMesh => !!m)),
         summarize('WaterfallBatcher', 'waterfall', [waterfallBatcher?.mesh, waterfallBatcher?.splashMesh].filter((m): m is THREE.InstancedMesh => !!m)),
         summarize('ArpeggioFernBatcher', 'arpeggio', arpeggioRecord ? getMeshesFromRecord(arpeggioRecord, ['mesh']) : []),
         summarize('PortamentoPineBatcher', 'portamento', portamentoRecord ? getMeshesFromRecord(portamentoRecord, ['trunkMesh', 'needleMesh']) : []),

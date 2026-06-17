@@ -7,6 +7,10 @@ import WebGPU from 'three/examples/jsm/capabilities/WebGPU.js';
 import { WebGPURenderer, MeshBasicNodeMaterial, StorageInstancedBufferAttribute, StorageBufferAttribute } from 'three/webgpu';
 import { PALETTE, CONFIG } from './config.ts';
 import { createCrescendoFogNode } from '../foliage/sky.ts';
+import {
+    resolveRendererBackend,
+    type RendererBackend,
+} from '../rendering/renderer-mode.ts';
 
 /**
  * Type union for supported renderers (WebGPU or WebGL fallback)
@@ -28,6 +32,8 @@ export interface SceneInitResult {
     camera: THREE.PerspectiveCamera;
     renderer: CandyRenderer;
     mode: 'webgpu' | 'webgl';
+    requested: RendererBackend;
+    fallbackReason: string | null;
     ambientLight: THREE.HemisphereLight;
     sunLight: THREE.DirectionalLight;
     sunGlow: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
@@ -48,19 +54,51 @@ declare global {
     }
 }
 
+function createWebGLRenderer(canvas: HTMLCanvasElement): THREE.WebGLRenderer {
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.0;
+    return renderer;
+}
+
+export interface CreateRendererResult {
+    renderer: CandyRenderer;
+    mode: 'webgpu' | 'webgl';
+    requested: RendererBackend;
+    fallbackReason: string | null;
+}
+
 /**
- * Create a renderer with automatic WebGL fallback if WebGPU is unavailable
- * or if the WebGPURenderer constructor throws at runtime (e.g. Safari 17.4 where
- * navigator.gpu exists but requestAdapter() returns null).
+ * Create a renderer from an explicit preference.
+ *
+ * Priority:
+ *   - `webgl`  → always WebGLRenderer (reference / debug / CI path)
+ *   - `webgpu` → WebGPURenderer when available; falls back to WebGL on failure
+ *
  * @param canvas The canvas element to render to
- * @returns Object containing the renderer and mode
+ * @param preference Resolved renderer preference from URL/localStorage
  */
-function createRenderer(canvas: HTMLCanvasElement): { renderer: CandyRenderer; mode: 'webgpu' | 'webgl' } {
+export function createRenderer(
+    canvas: HTMLCanvasElement,
+    preference: RendererBackend = resolveRendererBackend(),
+): CreateRendererResult {
+    if (preference === 'webgl') {
+        console.log('[Init] WebGL requested — creating WebGLRenderer');
+        return {
+            renderer: createWebGLRenderer(canvas),
+            mode: 'webgl',
+            requested: 'webgl',
+            fallbackReason: 'explicit-webgl',
+        };
+    }
+
     if (WebGPU.isAvailable()) {
         try {
             console.log('[Init] WebGPU available, creating WebGPURenderer');
             const renderer = new WebGPURenderer({ canvas, antialias: true });
-            return { renderer, mode: 'webgpu' };
+            return { renderer, mode: 'webgpu', requested: 'webgpu', fallbackReason: null };
         } catch (err) {
             // Issue #2: WebGPU may be declared available but fail at runtime
             // (e.g. requestAdapter returns null on Safari 17.4 / Chrome with
@@ -77,13 +115,13 @@ function createRenderer(canvas: HTMLCanvasElement): { renderer: CandyRenderer; m
         warning.style.zIndex = '1';  // Behind loading screen
         document.body.appendChild(warning);
     }
-    
-    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
-    renderer.outputColorSpace = THREE.SRGBColorSpace;
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.0;
-    return { renderer, mode: 'webgl' };
+
+    return {
+        renderer: createWebGLRenderer(canvas),
+        mode: 'webgl',
+        requested: 'webgpu',
+        fallbackReason: 'webgpu-unavailable',
+    };
 }
 
 /**
@@ -103,8 +141,8 @@ export function initScene(): SceneInitResult {
     const canvas = document.querySelector('#glCanvas') as HTMLCanvasElement;
     const scene = new THREE.Scene();
 
-    // Create renderer with automatic fallback from WebGPU to WebGL
-    const { renderer, mode } = createRenderer(canvas);
+    const requested = resolveRendererBackend();
+    const { renderer, mode, fallbackReason } = createRenderer(canvas, requested);
 
     // TSL-driven Crescendo Fog initialization (WebGPU only)
     if (mode === 'webgpu') {
@@ -263,6 +301,8 @@ export function initScene(): SceneInitResult {
         camera,
         renderer,
         mode,
+        requested,
+        fallbackReason,
         ambientLight,
         sunLight,
         sunGlow,

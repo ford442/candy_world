@@ -1082,9 +1082,10 @@ export class MusicReactivitySystem {
             audioState,
             deltaTime,
             getDayNightBias(time % CYCLE_DURATION),
-            isDay
+            isDay,
+            WeatherMusicTargets.fogDensity
         );
-        }
+    }
 
     updateMoon(time: number, deltaTime: number) {
         if (!this.moon) return;

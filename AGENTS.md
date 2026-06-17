@@ -178,6 +178,9 @@ npm run test:wasm
 # Integration: builds WASM then runs both test suites above
 npm run test:integration
 
+# Smoke test on WebGL2 path (recommended for headless / SwiftShader CI)
+RENDERER=webgl npm run test
+
 # Verify Emscripten exports after a build
 npm run verify:emcc
 ```
@@ -256,6 +259,24 @@ The build system gracefully handles missing Emscripten:
 - SharedArrayBuffer requires COOP/COEP headers (configured in Vite dev server)
 - Uses Three.js WebGPU renderer with TSL (Three.js Shading Language)
 - Top-level await in dependencies is preserved by targeting `es2022` / `esnext`
+
+### WebGL2 Fallback Renderer
+Opt-in reference renderer for debugging, CI, and agent visual inspection (same pattern as Watershed, power_gen, BespokeSynth_WASM):
+
+| Toggle | Value |
+|--------|-------|
+| URL | `?renderer=webgl` or `?renderer=webgpu` |
+| localStorage | `candy.renderer` |
+| Console | `window.setRenderer('webgl')` |
+| Debug panel | `?debug=1` → WebGPU / WebGL2 buttons |
+
+WebGL debug helpers (`?renderer=webgl`): `?wireframe=1` / **G**, `?matDebug=1` / **M**, `?webglLite=1` (disable compute, CORE world).
+
+CI smoke on WebGL path: `RENDERER=webgl npm run test`
+
+Key files: `src/rendering/renderer-mode.ts`, `src/rendering/webgl-debug.ts`, `src/core/init.ts`, `src/foliage/post-processing.ts`, `docs/webgl-fallback.md`
+
+Window breadcrumbs for Playwright: `window.rendererType`, `window.usingWebGL`, `window.rendererFallbackReason`, `#glCanvas.dataset.renderer`
 
 ### Memory Layout (AssemblyScript)
 The physics module uses a fixed memory layout:
@@ -455,7 +476,7 @@ When implementing large visual changes:
 - `WEATHER_INTEGRATION_SUMMARY.md` — Weather system architecture
 - `plan.md` and `weekly_plan.md` — Living task boards and completed work log (highest signal for "what just landed")
 - `DEVELOPER_CONTEXT.md` — High-level architecture, hotspots, and gotchas (read on onboarding)
-- `docs/` — Additional deep-dive docs (analytics, compute particles, culling, map generation, save system, wind optimization, accessibility, asset streaming, musical ecosystem plans in archive/, etc.)
+- `docs/webgl-fallback.md` — WebGL2 fallback renderer toggle, debug helpers, and WebGL→WebGPU porting notes
 - `CLAUDE.md` — Additional developer context and conventions
 
 For music/biome/shader reactivity changes, also create or append a focused note (e.g. `MUSIC_WAVE_PROPAGATION.md` or `BIOME_BINDING.md`) and reference `music-bindings.json` + affected batchers.
