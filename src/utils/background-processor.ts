@@ -18,6 +18,7 @@ export interface DeferredTask {
     id: string;
     execute: () => void | Promise<void>;
     priority?: number;
+    retryCount?: number;
 }
 
 // Detect requestIdleCallback at module level to avoid repeated property lookups.
@@ -164,6 +165,12 @@ export class BackgroundProcessor {
                     await result;
                 }
             } catch (e) {
+                if ((task.retryCount || 0) < 1) {
+                    task.retryCount = (task.retryCount || 0) + 1;
+                    console.warn(`[BackgroundProcessor] Task ${task.id} failed, retrying once. Error:`, e);
+                    this.queue.unshift(task);
+                    continue;
+                }
                 console.error(`[BackgroundProcessor] Error executing task ${task.id}:`, e);
                 maybeRecordBackgroundFailure(task.id, e);
                 this.failedTasks++;

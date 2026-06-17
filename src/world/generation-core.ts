@@ -479,7 +479,7 @@ export async function generateMap(
                 id: `map_stream_${queuedType}_${queuedId}`,
                 priority: streamPriority,
                 execute: () => {
-                    const currentToken = (window as any).__currentWorldGenerationToken ?? 0;
+                    const currentToken = worldGenerationToken;
                     if (taskToken !== currentToken && !(window as any).__IS_FULL_BOOT_TEST) {
                         console.warn(`[Generation] Map task obsoleted (token ${taskToken} !== ${currentToken})`);
                         return;
@@ -518,7 +518,7 @@ export async function generateMap(
             id: `map_fallback_${item.type}_${item.id}`,
             priority: 1,
             execute: () => {
-                const currentToken = (window as any).__currentWorldGenerationToken ?? 0;
+                const currentToken = worldGenerationToken;
                 if (taskToken !== currentToken && !(window as any).__IS_FULL_BOOT_TEST) {
                     console.warn(`[Generation] Map fallback task obsoleted (token ${taskToken} !== ${currentToken})`);
                     return;
@@ -708,7 +708,6 @@ export async function populateWorld(
 ): Promise<WorldMode> {
     worldGenerationToken = Date.now();
     const currentToken = worldGenerationToken;
-    (window as any).__currentWorldGenerationToken = currentToken;
     console.log(`[World] Starting populateWorld() in ${mode} mode`);
 
     // Fast Full Mode: apply aggressive population reduction on top of user config
