@@ -527,8 +527,8 @@ export async function populateProceduralExtras(
         const priority = Math.max(1, 60 - Math.floor(item.distSq / 16));
         globalBackgroundProcessor.enqueue({ id: item.id, execute: () => {
              const currentToken = (window as any).__currentWorldGenerationToken ?? worldGenerationToken;
-             if (currentTaskToken !== -1 && currentTaskToken !== currentToken && !(window as any).__IS_FULL_BOOT_TEST) {
-                 console.warn(`[Generation] Procedural task obsoleted (token ${currentTaskToken} !== ${currentToken})`);
+             if (taskToken !== -1 && taskToken !== currentToken && !(window as any).__IS_FULL_BOOT_TEST) {
+                 console.warn(`[Generation] Procedural task obsoleted (token ${taskToken} !== ${currentToken})`);
                  return;
              }
              item.execute();
