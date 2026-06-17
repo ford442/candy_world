@@ -24,6 +24,7 @@ import { batchAnimationCalc, uploadPositions } from '../utils/wasm-loader.ts';
 import { arpeggioFernBatcher } from './arpeggio-batcher.ts';
 import { dandelionBatcher } from './dandelion-batcher.ts';
 import { portamentoPineBatcher } from './portamento-batcher.ts';
+import { gemFruitBatcher } from './gem-fruit-batcher.ts';
 import { spawnDandelionExplosion } from './dandelion-seeds.ts';
 
 // Interfaces for options
@@ -311,6 +312,9 @@ export function createPortamentoPine(options: PortamentoPineOptions = {}) {
 
     group.userData.onPlacement = () => {
         portamentoPineBatcher.register(group, options);
+        if (group.userData.attachGemFruits) {
+            gemFruitBatcher.attachToTree(group, { height, gemCount: 5 + Math.floor(Math.random() * 3) });
+        }
     };
 
     const interactive = makeInteractive(group);

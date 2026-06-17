@@ -12,7 +12,7 @@ import {
     ENTITY_BUDGET_MS, WeatherSystem, FoliageGrowthOptions, yieldControl,
     getUnifiedGroundHeight, isPositionValid, normalizeMapEntityType,
     ARPEGGIO_GROVE_FERN_COUNT, ARPEGGIO_GROVE_OUTER_COUNT,
-    LAKE_ARPEGGIO_FERN_COUNT, LAKE_DANDELION_COUNT
+    LAKE_ARPEGGIO_FERN_COUNT, LAKE_DANDELION_COUNT, GEM_CANOPY
 } from './generation-utils.ts';
 import { create, registerBuiltinWorldObjectTypes } from './foliage-registry.ts';
 import { FEATURE_FLAGS } from '../core/config.ts';
@@ -246,6 +246,60 @@ function populateLakeIsland(weatherSystem: WeatherSystem): void {
     safeAddFoliage(globalSparks, false, 0, null);
 
     console.log(`[World] Lake Island populated with musical flora at (${centerX}, ${centerZ})`);
+}
+
+/** Gem Canopy corridor — tree-lined jewel path receding into foggy distance. */
+export async function populateGemCanopyCorridor(weatherSystem: WeatherSystem): Promise<void> {
+    if (!GEM_CANOPY.enabled) return;
+
+    console.log('[World] Populating Gem Canopy corridor...');
+    const { startX, startZ, endX, endZ, corridorWidth, treeCount } = GEM_CANOPY;
+    const dx = endX - startX;
+    const dz = endZ - startZ;
+    const len = Math.sqrt(dx * dx + dz * dz) || 1;
+    const perpX = -dz / len;
+    const perpZ = dx / len;
+
+    for (let i = 0; i < treeCount; i++) {
+        const t = treeCount > 1 ? i / (treeCount - 1) : 0;
+        const side = i % 2 === 0 ? 1 : -1;
+        const lateral = (corridorWidth * 0.5 + Math.random() * 2.5) * side;
+        const x = startX + dx * t + perpX * lateral + (Math.random() - 0.5) * 2;
+        const z = startZ + dz * t + perpZ * lateral + (Math.random() - 0.5) * 2;
+
+        if (!isPositionValid(x, z, 2.0)) continue;
+        const y = getUnifiedGroundHeight(x, z);
+        const tree = create('gem_canopy_tree', { height: 4.2 + Math.random() * 1.8 });
+        if (!tree) continue;
+        tree.position.set(x, y, z);
+        tree.rotation.y = Math.atan2(dx, dz) + (Math.random() - 0.5) * 0.35;
+        tree.userData.biome = 'gem_canopy';
+        const placed = safeAddFoliage(tree, true, 1.5, weatherSystem);
+        recordSpawnAttempt('gem_canopy_tree', placed, placed ? undefined : new Error('placement failed'));
+
+        if (i % 4 === 3) await yieldControl();
+    }
+
+    // Corridor accent trees: occasional portamento / bubble willow with hanging gems
+    for (let i = 0; i < 6; i++) {
+        const t = (i + 0.5) / 6;
+        const x = GEM_CANOPY.startX + (GEM_CANOPY.endX - GEM_CANOPY.startX) * t + (Math.random() - 0.5) * 8;
+        const z = GEM_CANOPY.startZ + (GEM_CANOPY.endZ - GEM_CANOPY.startZ) * t + (Math.random() - 0.5) * 8;
+        if (!isPositionValid(x, z, 2.0)) continue;
+        const y = getUnifiedGroundHeight(x, z);
+        const usePine = i % 2 === 0;
+        const tree = usePine
+            ? create('portamento_pine', { height: 4.0 + Math.random() * 1.5 })
+            : create('bubble_willow');
+        if (!tree) continue;
+        tree.userData.attachGemFruits = true;
+        tree.position.set(x, y, z);
+        tree.rotation.y = Math.random() * Math.PI * 2;
+        safeAddFoliage(tree, true, 1.5, weatherSystem);
+        recordSpawnAttempt(usePine ? 'portamento_pine' : 'bubble_willow', true);
+    }
+
+    console.log(`[World] Gem Canopy corridor populated (${treeCount} trees along path)`);
 }
 
 export async function populateProceduralExtras(

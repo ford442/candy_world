@@ -22,7 +22,7 @@ import { globalBackgroundProcessor } from '../utils/background-processor.ts';
 import { recordSpawnAttempt, getReport, reset as resetSpawnTracker } from './spawn-tracker.ts';
 import { updateProgress } from '../ui/index.ts';
 import { endPhase, recordGenerationChunk, startPhase } from '../utils/startup-profiler.ts';
-import { populateProceduralExtras } from './generation-decorators.ts';
+import { populateProceduralExtras, populateGemCanopyCorridor } from './generation-decorators.ts';
 import {
     DEFAULT_MAP_CHUNK_SIZE, ENTITY_BUDGET_MS, YIELD_ENTITY_BATCH_SIZE, PROCEDURAL_ENTITY_COUNT,
     obstaclesData, WeatherSystem, WorldObjects, WorldMode, MapEntity, WorldProgressCallback,
@@ -282,6 +282,7 @@ export function safeAddFoliage(
         obj.userData.type === 'lanternFlower' ||
         obj.userData.type === 'arpeggio_fern' ||
         obj.userData.type === 'portamento_pine' ||
+        obj.userData.type === 'gem_canopy_tree' ||
         obj.userData.type === 'prismRoseBush' ||
         obj.userData.isFlower;
 
@@ -507,6 +508,7 @@ export async function generateMap(
     // 3. Queue Procedural Extras
     console.time('[World] procedural-extras');
     await populateProceduralExtras(weatherSystem, generationToken, chunkSize);
+    await populateGemCanopyCorridor(weatherSystem);
     console.timeEnd('[World] procedural-extras');
 
     // Keep a lightweight final fallback for any entities excluded from the streaming query.

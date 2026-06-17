@@ -248,6 +248,7 @@ export function initScene(): SceneInitResult {
         lightShaftGroup.add(shaft);
     }
     lightShaftGroup.position.copy(sunLight.position.clone().normalize().multiplyScalar(380));
+    lightShaftGroup.userData.shaftMaterial = shaftMaterial;
     lightShaftGroup.visible = false; // Only visible during sunrise/sunset
     scene.add(lightShaftGroup);
 
@@ -269,7 +270,7 @@ export function initScene(): SceneInitResult {
         lightShaftGroup,
         sunGlowMat,
         coronaMat,
-        uShaftOpacity // Export the uniform so main.ts can access it
+        uShaftOpacity
     };
 }
 

@@ -365,6 +365,12 @@ export const CONFIG: ConfigType = {
             'C': 0x00FF88, 'C#': 0x00FFCC, 'D': 0x00FFFF, 'D#': 0x00CCFF,
             'E': 0x0088FF, 'F': 0x0044FF, 'F#': 0x4400FF, 'G': 0x8800FF,
             'G#': 0xCC00FF, 'A': 0xFF00FF, 'A#': 0xFF00CC, 'B': 0xFF0088
+        },
+        // Species: Gem Canopy — jewel tones (ruby, sapphire, amethyst, emerald…)
+        'gem_canopy': {
+            'C': 0xE0115F, 'C#': 0xFF4D6D, 'D': 0xFF6B9D, 'D#': 0x9966CC,
+            'E': 0x7B68EE, 'F': 0x0F52BA, 'F#': 0x4169E1, 'G': 0x00CED1,
+            'G#': 0x2E8B57, 'A': 0x50C878, 'A#': 0xFFD700, 'B': 0xFF69B4
         }
     },
 

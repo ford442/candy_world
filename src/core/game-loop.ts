@@ -76,7 +76,7 @@ import { fireRainbow, updateBlaster } from '../gameplay/rainbow-blaster.ts';
 import { jitterMineSystem } from '../gameplay/jitter-mines.ts';
 import { glitchGrenadeSystem } from '../systems/glitch-grenade.ts';
 import { updateHarpoonLine } from '../gameplay/harpoon-line.ts';
-import { musicReactivitySystem } from '../systems/music-reactivity.ts';
+import { musicReactivitySystem, AtmosphereShaftState } from '../systems/music-reactivity.ts';
 import { unlockSystem } from '../systems/unlocks.ts';
 import { profiler } from '../utils/profiler.ts';
 import { WeatherSystem } from '../systems/weather.ts';
@@ -142,6 +142,14 @@ const _scratchBaseSkyBot = new THREE.Color();
 const _scratchBaseFog = new THREE.Color();
 const _scratchSunVector = new THREE.Vector3();
 const _scratchAuroraColor = new THREE.Color();
+const _scratchCameraForward = new THREE.Vector3();
+
+// Light shaft cycle state — base golden-hour intensity set before music; opacity finalized after.
+let _shaftGoldenHourBase = 0;
+let _shaftIsGoldenHour = false;
+let _shaftIsNightMode = false;
+// Visual Impact: minimum dot(cameraForward, celestialDir) to show god rays (frustum gate)
+const _SHAFT_FRUSTUM_DOT = 0.28;
 
 const _interactionLists: (any[] | null)[] = [null, null, null]; // Reusable array for interaction lists
 
@@ -232,6 +240,46 @@ export function initGameLoopDependencies(deps: {
             cameraZoomPulse = Math.max(cameraZoomPulse, 1 + kickTrigger * 3);
         }
     });
+}
+
+function _celestialInView(direction: THREE.Vector3): boolean {
+    if (!cameraRef) return false;
+    cameraRef.getWorldDirection(_scratchCameraForward);
+    return direction.dot(_scratchCameraForward) > _SHAFT_FRUSTUM_DOT;
+}
+
+function _setShaftOpacity(opacity: number): void {
+    if (!uShaftOpacityRef) return;
+    uShaftOpacityRef.value = opacity;
+    const shaftMat = lightShaftGroupRef?.userData?.shaftMaterial as THREE.MeshBasicMaterial | undefined;
+    if (shaftMat && typeof shaftMat.opacity === 'number') {
+        shaftMat.opacity = opacity;
+    }
+}
+
+/** Apply melody/beat-driven shaft opacity after MusicReactivitySystem.update(). */
+function applyMusicReactiveLightShafts(delta: number): void {
+    if (!lightShaftGroupRef) return;
+
+    let shaftVisible = false;
+    let shaftOpacity = 0;
+
+    if (_shaftIsGoldenHour && _shaftGoldenHourBase > 0.001) {
+        shaftOpacity = _shaftGoldenHourBase + AtmosphereShaftState.beatShimmer;
+        shaftVisible = _celestialInView(_scratchSunVector) && shaftOpacity > 0.01;
+    } else if (_shaftIsNightMode && AtmosphereShaftState.nightMoonbeam) {
+        // Visual Impact: moonbeam cap — soft silver rays, not blinding
+        shaftOpacity = Math.min(0.35, AtmosphereShaftState.musicOpacity + AtmosphereShaftState.beatShimmer);
+        shaftVisible = _celestialInView(_scratchSunVector) && shaftOpacity > 0.01;
+    }
+
+    lightShaftGroupRef.visible = shaftVisible;
+    if (shaftVisible) {
+        lightShaftGroupRef.rotation.z += delta * 0.1;
+        _setShaftOpacity(Math.min(0.4, shaftOpacity));
+    } else {
+        _setShaftOpacity(0);
+    }
 }
 
 // addCameraShake re-exported from ./camera-shake.ts
@@ -428,6 +476,7 @@ export function animate() {
         moonRef!.visible = false;
 
         _scratchSunVector.copy(sunLightRef!.position).normalize();
+        _shaftIsNightMode = false;
 
         sunGlowRef.position.copy(_scratchSunVector).multiplyScalar(400);
         (sunGlowRef as any).lookAt(cameraRef.position);
@@ -439,14 +488,16 @@ export function animate() {
         let glowIntensity = 0.25;
         let coronaIntensity = 0.15;
         let shaftIntensity = 0.0;
-        let shaftVisible = false;
+        _shaftIsGoldenHour = false;
+        _shaftGoldenHourBase = 0;
 
         if (sunProgress < 0.15) {
             const factor = 1.0 - (sunProgress / 0.15);
             glowIntensity = 0.25 + factor * 0.35;
             coronaIntensity = 0.15 + factor * 0.25;
             shaftIntensity = factor * 0.12;
-            shaftVisible = false;
+            _shaftGoldenHourBase = shaftIntensity;
+            _shaftIsGoldenHour = true;
             (sunGlowMatRef as any).color.setHex(0xFFB366);
             (coronaMatRef as any).color.setHex(0xFFD6A3);
         } else if (sunProgress > 0.85) {
@@ -454,7 +505,8 @@ export function animate() {
             glowIntensity = 0.25 + factor * 0.45;
             coronaIntensity = 0.15 + factor * 0.35;
             shaftIntensity = factor * 0.18;
-            shaftVisible = false;
+            _shaftGoldenHourBase = shaftIntensity;
+            _shaftIsGoldenHour = true;
             (sunGlowMatRef as any).color.setHex(0xFF9966);
             (coronaMatRef as any).color.setHex(0xFFCC99);
         } else {
@@ -462,29 +514,34 @@ export function animate() {
             (coronaMatRef as any).color.setHex(0xFFF4D6);
         }
 
+        const shaftMat = lightShaftGroupRef!.userData?.shaftMaterial as THREE.MeshBasicMaterial | undefined;
+        if (shaftMat?.color) shaftMat.color.setHex(0xFFE5A0);
+
         (sunGlowMatRef as any).opacity = glowIntensity;
         (coronaMatRef as any).opacity = coronaIntensity;
-        lightShaftGroupRef!.visible = shaftVisible;
-        if (shaftVisible) {
-            lightShaftGroupRef!.rotation.z += delta * 0.1;
-            // Update light shaft opacity
-            // Note: In WebGPU mode, this updates the uShaftOpacity uniform which affects rendering via TSL.
-            // In WebGL mode, the light shaft material opacity should also be updated here (TODO for future).
-            // See src/core/init.ts for WebGL light shaft material initialization.
-            uShaftOpacityRef!.value = shaftIntensity;
-        }
     } else {
         sunLightRef!.visible = false;
         sunGlowRef!.visible = false;
         sunCoronaRef!.visible = false;
-        lightShaftGroupRef!.visible = false;
         moonRef!.visible = true;
+
+        _shaftIsGoldenHour = false;
+        _shaftGoldenHourBase = 0;
+        _shaftIsNightMode = true;
 
         const nightProgress = (cyclePos - 540) / (CYCLE_DURATION - 540);
         const moonAngle = nightProgress * Math.PI;
         const r = 90;
         moonRef.position.set(Math.cos(moonAngle) * -r, Math.sin(moonAngle) * r, -30);
         (moonRef as any).lookAt(0, 0, 0);
+
+        if (lightShaftGroupRef && moonRef && cameraRef) {
+            lightShaftGroupRef.position.copy(moonRef.position);
+            lightShaftGroupRef.lookAt(cameraRef.position);
+            _scratchSunVector.copy(moonRef.position).sub(cameraRef.position).normalize();
+            const shaftMat = lightShaftGroupRef.userData?.shaftMaterial as THREE.MeshBasicMaterial | undefined;
+            if (shaftMat?.color) shaftMat.color.setHex(0xC8E0FF);
+        }
     }
 
     const progress = cyclePos / CYCLE_DURATION;
@@ -609,6 +666,8 @@ export function animate() {
             }
         }
     });
+
+    applyMusicReactiveLightShafts(delta);
 
     if (firefliesRef) {
         firefliesRef.visible = isDeepNight;

@@ -76,6 +76,15 @@ export const BiomeUniforms = {
         noteColor: uniform(new THREE.Color(0xffffff)),
     },
 
+    /**
+     * Gem Canopy — hanging jewel fruits; channels in music-bindings.json gem_canopy.
+     */
+    gemCanopy: {
+        shimmer: uniform(0.0),
+        hueShift: uniform(0.0),
+        noteColor: uniform(new THREE.Color(0xffffff)),
+    },
+
     global: {
         /** 0–1 shimmer emissive boost for global effects. */
         shimmer: uniform(0.0),
@@ -198,6 +207,9 @@ _luminousPlantsLutTex.needsUpdate = true;
  */
 export const luminousPlantsNoteColorNode = texture(_luminousPlantsLutTex, vec2(LuminousPlantUniforms.noteIndex.add(0.5).div(128.0), 0.5)).rgb;
 
+/** Gem canopy note tint — driven by music-reactivity noteColor lerp (same pattern as arpeggio grove). */
+export const gemCanopyNoteColorNode = BiomeUniforms.gemCanopy.noteColor;
+
 // ---------------------------------------------------------------------------
 // Biome tagging & uniform lookup (foundational for scalable music reactivity)
 // ---------------------------------------------------------------------------
@@ -210,7 +222,7 @@ export const luminousPlantsNoteColorNode = texture(_luminousPlantsLutTex, vec2(L
  * Add new values here + corresponding entry in BiomeUniforms (or alias) when
  * introducing a new musical biome.
  */
-export type BiomeId = 'arpeggio_grove' | 'crystalline_nebula' | 'luminous_plants' | 'sky_moon' | 'global' | 'musical_flora' | 'lake_features';
+export type BiomeId = 'arpeggio_grove' | 'crystalline_nebula' | 'luminous_plants' | 'sky_moon' | 'global' | 'musical_flora' | 'lake_features' | 'gem_canopy';
 
 /**
  * Returns the appropriate uniform group for a given biome tag.
@@ -247,6 +259,8 @@ export function getBiomeUniforms(biome: BiomeId | string | undefined) {
             return BiomeUniforms.musicalFlora;
         case 'lake_features':
             return BiomeUniforms.lakeFeatures;
+        case 'gem_canopy':
+            return BiomeUniforms.gemCanopy;
         case 'global':
             return BiomeUniforms.global;
         default:
