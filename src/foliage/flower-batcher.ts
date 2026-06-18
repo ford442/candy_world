@@ -445,6 +445,8 @@ export class FlowerBatcher {
 
         // Update aPoseState for all active instances across all meshes
         const meshes = [this.stems, this.centers, this.stamens, this.petalsSimple, this.petalsMulti, this.petalsSpiral];
+        // ⚡ OPTIMIZATION: Get reference to the entire pose array once instead of calling getPose(i) in the inner loop
+        const poses = this._poseMachine.currentPoses;
         for (const mesh of meshes) {
             if (!mesh || mesh.count === 0) continue;
             const attr = mesh.geometry.attributes.aPoseState as THREE.InstancedBufferAttribute;
@@ -452,11 +454,12 @@ export class FlowerBatcher {
             
             // ⚡ OPTIMIZATION: Bypassed THREE.BufferAttribute.setX overhead by writing directly to typed array
             const array = attr.array as Float32Array;
-            for (let i = 0; i < mesh.count; i++) {
+            const count = mesh.count;
+            for (let i = 0; i < count; i++) {
                 // _poseMachine covers up to MAX_PETALS, which is MAX_FLOWERS * 8
                 // Ensure we don't read out of bounds. Stamens can have up to MAX_FLOWERS * 3 instances.
                 // Stems and Centers have up to MAX_FLOWERS instances.
-                array[i * attr.itemSize] = this._poseMachine.getPose(i);
+                array[i] = poses[i];
             }
             attr.needsUpdate = true;
         }
