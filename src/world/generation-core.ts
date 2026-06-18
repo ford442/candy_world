@@ -394,6 +394,8 @@ export async function generateMap(
     chunkSize: number = DEFAULT_MAP_CHUNK_SIZE,
     onProgress?: WorldProgressCallback
 ): Promise<void> {
+    worldGenerationToken = Date.now();
+    (window as any).__currentWorldGenerationToken = worldGenerationToken;
     const generationToken = worldGenerationToken;
     resetSpawnTracker();
     performance.mark('candy:map-generation-start');
@@ -481,8 +483,8 @@ export async function generateMap(
                 id: `map_stream_${queuedType}_${queuedId}`,
                 priority: streamPriority,
                 execute: () => {
-                    const currentToken = worldGenerationToken;
-                    if (taskToken !== currentToken && !(window as any).__IS_FULL_BOOT_TEST) {
+                    const currentToken = (window as any).__currentWorldGenerationToken ?? 0;
+                    if (taskToken !== -1 && taskToken !== currentToken && !(window as any).__IS_FULL_BOOT_TEST) {
                         console.warn(`[Generation] Map task obsoleted (token ${taskToken} !== ${currentToken})`);
                         return;
                     }
@@ -522,8 +524,8 @@ export async function generateMap(
             id: `map_fallback_${item.type}_${item.id}`,
             priority: 1,
             execute: () => {
-                const currentToken = worldGenerationToken;
-                if (taskToken !== currentToken && !(window as any).__IS_FULL_BOOT_TEST) {
+                const currentToken = (window as any).__currentWorldGenerationToken ?? 0;
+                if (taskToken !== -1 && taskToken !== currentToken && !(window as any).__IS_FULL_BOOT_TEST) {
                     console.warn(`[Generation] Map fallback task obsoleted (token ${taskToken} !== ${currentToken})`);
                     return;
                 }
