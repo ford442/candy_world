@@ -128,20 +128,16 @@ export class AtmosphereManager {
         }
 
         let crescendoFactor = 0;
-        if (audioData && audioData.channelData && audioData.channelData.length > 0) {
+        if (uCrescendoFogDensity) {
+            // Atmosphere reactivity owns uCrescendoFogDensity — read, do not overwrite.
+            crescendoFactor = uCrescendoFogDensity.value as number;
+        } else if (audioData && audioData.channelData && audioData.channelData.length > 0) {
             let totalVolume = 0;
             for (let i = 0; i < audioData.channelData.length; i++) {
                 totalVolume += audioData.channelData[i].volume;
             }
             const averageVolume = totalVolume / audioData.channelData.length;
             crescendoFactor = Math.min(1.0, averageVolume * 0.5);
-        }
-
-        // TSL Crescendo Fog Update
-        if (uCrescendoFogDensity) {
-            // Smoothly interpolate to new crescendo factor to avoid sudden jumps
-            const currentDensity = uCrescendoFogDensity.value as number;
-            uCrescendoFogDensity.value = currentDensity + (crescendoFactor - currentDensity) * 0.1;
         }
 
         const weatherVisibility = (1.0 - intensity * (1.0 - fogMultiplier));

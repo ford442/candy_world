@@ -5,6 +5,9 @@
 
 import { GridCell, CellState, SpatialQueryResult, RegionManager } from './region-manager-core.ts';
 import { distanceToCellSq, cellToBounds, getCellKey } from './region-manager-core.ts';
+import * as THREE from 'three';
+import { CONFIG } from '../core/config.ts';
+import { updateFoliageBatcherLOD } from './batcher-lod.ts';
 
 const _scratchCells: GridCell[] = [];
 
@@ -192,13 +195,41 @@ export function getLODLevelForCell(manager: RegionManager, cell: GridCell): numb
         manager.config.cellSize
     );
 
-    for (let i = 0; i < manager.config.lodRadii.length; i++) {
-        if (distanceSq <= manager.config.lodRadii[i] * manager.config.lodRadii[i]) {
+    const radii = getFoliageLodRadiiForRegion();
+
+    for (let i = 0; i < radii.length; i++) {
+        if (distanceSq <= radii[i] * radii[i]) {
             return i;
         }
     }
 
-    return manager.config.lodRadii.length - 1;
+    return radii.length - 1;
+}
+
+/** Align region streaming LOD radii with CONFIG.foliage.lod batcher thresholds */
+export function getFoliageLodRadiiForRegion(): number[] {
+    const lod = CONFIG.foliage?.lod;
+    if (!lod) return [120, 365, 480, 640];
+    return [
+        lod.heroMax ?? 120,
+        lod.midMax ?? 365,
+        lod.farCull ?? 480,
+        (lod.farCull ?? 480) + 160
+    ];
+}
+
+export function syncRegionLodConfig(manager: RegionManager): void {
+    manager.config.lodRadii = getFoliageLodRadiiForRegion();
+}
+
+export function updateRegionFoliageLod(
+    manager: RegionManager,
+    camera: THREE.Camera,
+    delta: number
+): void {
+    manager.playerWorldX = camera.position.x;
+    manager.playerWorldZ = camera.position.z;
+    updateFoliageBatcherLOD(camera, delta);
 }
 
 export class CellLoader {

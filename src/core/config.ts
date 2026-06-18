@@ -25,8 +25,18 @@ function _hasFlag(key: string): boolean {
     }
 }
 
+/** Read a *valued* URL flag, e.g. ?postfx=low → 'low'. Returns null when absent. */
+function _getFlag(key: string): string | null {
+    try {
+        return new URLSearchParams(window.location.search).get(key);
+    } catch {
+        return null; // non-browser (test) environment
+    }
+}
+
 export const FEATURE_FLAGS = {
     luminousPlants:   !_hasFlag('no_luminous'),
+    myceliumRealm:    !_hasFlag('no_mycelium'),
     musicalFlora:     !_hasFlag('no_musical'),
     proceduralExtras: !_hasFlag('no_procedural'),
     batchers:         !_hasFlag('no_batchers'),
@@ -241,6 +251,30 @@ export interface ConfigType {
             scale: number;
         };
     };
+
+    foliage: {
+        lod: {
+            enabled: boolean;
+            heroMax: number;
+            midMax: number;
+            blendWidth: number;
+            blendSeconds: number;
+            farCull: number;
+            useImpostors: boolean;
+            impostorMinFactor: number;
+        };
+    };
+
+    postfx: {
+        quality: 'off' | 'low' | 'high';
+        godRays: boolean;
+        dofEnabled: boolean;
+        dofFocusFollow: boolean;
+        dofFocusDistance: number;
+        dofAperture: number;
+        dofMaxBlur: number;
+        dofProximity: number;
+    };
 }
 
 export const CONFIG: ConfigType = {
@@ -365,6 +399,12 @@ export const CONFIG: ConfigType = {
             'C': 0x00FF88, 'C#': 0x00FFCC, 'D': 0x00FFFF, 'D#': 0x00CCFF,
             'E': 0x0088FF, 'F': 0x0044FF, 'F#': 0x4400FF, 'G': 0x8800FF,
             'G#': 0xCC00FF, 'A': 0xFF00FF, 'A#': 0xFF00CC, 'B': 0xFF0088
+        },
+        // Species: Gem Canopy — jewel tones (ruby, sapphire, amethyst, emerald…)
+        'gem_canopy': {
+            'C': 0xE0115F, 'C#': 0xFF4D6D, 'D': 0xFF6B9D, 'D#': 0x9966CC,
+            'E': 0x7B68EE, 'F': 0x0F52BA, 'F#': 0x4169E1, 'G': 0x00CED1,
+            'G#': 0x2E8B57, 'A': 0x50C878, 'A#': 0xFFD700, 'B': 0xFF69B4
         }
     },
 
@@ -433,6 +473,25 @@ export const CONFIG: ConfigType = {
         }
     },
 
+    // --- FOLIAGE LOD (three-tier batcher system) ---
+    // Hero 0–heroMax: full TSL; mid heroMax–midMax: simplified; far midMax+: proxy collapse + impostors
+    foliage: {
+        lod: {
+            enabled: true,
+            heroMax: 120,
+            midMax: 365,
+            /** Cross-fade zone width (units) at each tier boundary */
+            blendWidth: 30,
+            /** Temporal blend duration at tier boundaries (seconds) */
+            blendSeconds: 0.5,
+            /** Distance beyond which instances are frustum/distance culled */
+            farCull: 480,
+            /** Shared far-tier billboard impostor layer */
+            useImpostors: true,
+            impostorMinFactor: 1.65
+        }
+    },
+
     // --- CIRCADIAN SYSTEM ---
     // Controls smooth day/night plant behaviour (pose + bioluminescence).
     // Separate from music-bindings.json — circadian is a time-domain signal, not audio.
@@ -449,5 +508,78 @@ export const CONFIG: ConfigType = {
             crystalline_nebula: { nightGlowMultiplier: 5.0 },
             arpeggio_grove:     { nightPoseOffset: 0.1 }
         }
+    },
+
+    // -----------------------------------------------------------------------
+    // Atmospheric post-FX (god rays + depth of field).
+    //
+    // Quality tier — override at runtime with ?postfx=off|low|high :
+    //   off  — no god rays, no DoF (cheapest; for low-end GPUs / debugging)
+    //   low  — god rays ON, DoF OFF   ← DEFAULT first boot (60fps budget)
+    //   high — god rays ON, DoF ON near luminous / mycelium flora
+    //
+    // God rays themselves live in game-loop.ts (sunrise/sunset/moon shafts,
+    // music-driven opacity). DoF is a bokeh pass added to post-processing.ts.
+    // DoF is only *built into* the render graph when enabled at boot, so the
+    // default `low` tier carries zero DoF cost.
+    // -----------------------------------------------------------------------
+    postfx: {
+        /** 'off' | 'low' | 'high'. URL override: ?postfx=<tier>. */
+        quality: 'low' as 'off' | 'low' | 'high',
+        /** Master toggle for sunrise/sunset/moon god-ray shafts. */
+        godRays: true,
+        /**
+         * Force-enable DoF independent of tier (also ?dof / ?no_dof URL flags).
+         * Resolved via isDofEnabled(); 'high' tier implies DoF on.
+         */
+        dofEnabled: false,
+        /** Focus distance (world units) follows the camera look vector when true. */
+        dofFocusFollow: true,
+        /** Resting focus distance (units) used when focus-follow is disabled. */
+        dofFocusDistance: 9.0,
+        /** Aperture — candy bokeh: subtle, not clinical. Higher = stronger blur falloff. */
+        dofAperture: 0.015,
+        /** Max blur clamp (0–1) — keeps the look soft, never smeared. */
+        dofMaxBlur: 0.5,
+        /** Distance (units) from luminous / mycelium flora that auto-engages DoF. */
+        dofProximity: 14.0,
     }
 };
+
+// ---------------------------------------------------------------------------
+// Post-FX resolution helpers — read URL overrides on top of CONFIG.postfx.
+// Defined after CONFIG so they can reference it; only ever called at runtime.
+// ---------------------------------------------------------------------------
+
+/** Effective post-FX quality tier (URL ?postfx= wins over CONFIG default). */
+export function resolvePostfxQuality(): 'off' | 'low' | 'high' {
+    const q = _getFlag('postfx');
+    if (q === 'off' || q === 'low' || q === 'high') return q;
+    return CONFIG.postfx.quality;
+}
+
+/** Whether sunrise/sunset/moon god-ray shafts should render this session. */
+export function areGodRaysEnabled(): boolean {
+    if (resolvePostfxQuality() === 'off') return false;
+    return CONFIG.postfx.godRays;
+}
+
+/**
+ * Whether the Depth-of-Field bokeh pass should be built into the pipeline.
+ * ?no_dof force-off wins; ?dof force-on next; otherwise the 'high' tier or the
+ * CONFIG.postfx.dofEnabled flag enables it.
+ */
+export function isDofEnabled(): boolean {
+    if (_hasFlag('no_dof')) return false;
+    if (_hasFlag('dof')) return true;
+    return resolvePostfxQuality() === 'high' || CONFIG.postfx.dofEnabled;
+}
+
+/**
+ * Manual (always-on) DoF — not gated by flora proximity. True when force-enabled
+ * via ?dof or CONFIG.postfx.dofEnabled; the 'high' tier alone stays proximity-driven.
+ */
+export function isDofManual(): boolean {
+    if (_hasFlag('no_dof')) return false;
+    return _hasFlag('dof') || CONFIG.postfx.dofEnabled;
+}

@@ -24,6 +24,11 @@ import { initScene } from './init.ts';
 import { ShaderWarmup } from '../rendering/shader-warmup.ts';
 import { initInput, keyStates } from './input/index.ts';
 import { initPostProcessing } from '../foliage/post-processing.ts';
+import {
+    publishRendererBreadcrumbs,
+    installRendererHotSwitch,
+} from '../rendering/renderer-mode.ts';
+import { initWebGLDebug, isWebGLLiteMode } from '../rendering/webgl-debug.ts';
 
 // World & System imports
 import { initCriticalWorld, initDeferredWorldContent, initWorld, initWorldCritical, initWorldContent, generateMap, populateWorld, WorldMode, DEFAULT_MAP_CHUNK_SIZE } from '../world/generation.ts';
@@ -42,7 +47,7 @@ import { showDeferredIndicator, hideDeferredIndicator } from '../ui/index.ts';
 import { reset as resetSpawnTracker, getReport as getSpawnReport } from '../world/spawn-tracker.ts';
 import { globalLoadingManager } from '../systems/loading-manager.ts';
 import { validateWorldPopulation } from '../world/world-health.ts';
-import { showModeBadge } from '../ui/mode-badge.ts';
+import { showModeBadge, showRendererBadge } from '../ui/mode-badge.ts';
 import { DeferredLoader, LoadPriority } from '../systems/deferred-loader.ts';
 import { initLoadingScreen, installLegacyAPI } from '../ui/loading-screen.ts';
 import { installBatcherTelemetry } from '../foliage/batcher-telemetry.ts';
@@ -144,12 +149,17 @@ if (!sceneInitResult) {
     throw new Error(msg);
 }
 
-const { mode, ambientLight, sunLight, sunGlow, sunCorona, lightShaftGroup, sunGlowMat, coronaMat, uShaftOpacity } = sceneInitResult;
+const { mode, requested, fallbackReason, ambientLight, sunLight, sunGlow, sunCorona, lightShaftGroup, sunGlowMat, coronaMat, uShaftOpacity } = sceneInitResult;
 scene = sceneInitResult.scene;
 camera = sceneInitResult.camera;
 import { setCameraRef } from './camera-ref.ts';
 setCameraRef(camera);
 renderer = sceneInitResult.renderer;
+
+installRendererHotSwitch();
+publishRendererBreadcrumbs(requested, mode, fallbackReason);
+showRendererBadge(mode, requested, fallbackReason);
+initWebGLDebug(scene, mode);
 
 // Set global game object so playwright tests can interact with camera, etc
 (window as any).game = { camera, scene, animatedFoliage, interactiveObjects };
@@ -540,6 +550,9 @@ if (startButton) {
     };
 
     updateStartupMode('CORE');
+    if (mode === 'webgl' && isWebGLLiteMode()) {
+        console.warn('[Startup] WebGL lite mode — CORE world generation recommended');
+    }
 
     let worldGenerated = false;
     let isGenerating = false;
@@ -572,8 +585,10 @@ if (startButton) {
     const waitFullCheckbox = document.getElementById('wait-full-checkbox') as HTMLInputElement | null;
     if (waitFullCheckbox) {
         waitFullCheckbox.checked = waitForFullPopulation;
+        waitFullCheckbox.setAttribute('aria-checked', String(waitForFullPopulation));
         waitFullCheckbox.addEventListener('change', () => {
             waitForFullPopulation = waitFullCheckbox.checked;
+            waitFullCheckbox.setAttribute('aria-checked', String(waitForFullPopulation));
             localStorage.setItem(WAIT_FULL_KEY, waitForFullPopulation ? '1' : '0');
         });
     }

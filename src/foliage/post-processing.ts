@@ -2,11 +2,14 @@ import * as THREE from 'three';
 import { PostProcessing } from 'three/webgpu';
 import { pass, mix, vec3, uniform, Fn, float, uv, vec2, distance, smoothstep } from 'three/tsl';
 import { bloom } from 'three/examples/jsm/tsl/display/BloomNode.js';
+import { dof } from 'three/examples/jsm/tsl/display/DepthOfFieldNode.js';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
+import { BokehPass } from 'three/examples/jsm/postprocessing/BokehPass.js';
 import type { CandyRenderer } from '../core/init.ts';
 import { isWebGPUMode } from '../core/init.ts';
+import { CONFIG, isDofEnabled } from '../core/config.ts';
 
 // Global uniforms for reactivity
 export const uBloomStrength = uniform(1.0);
@@ -14,6 +17,13 @@ export const uColorSaturation = uniform(1.1); // Slightly boosted by default
 export const uColorContrast = uniform(1.05);
 export const uVignetteStrength = uniform(0.5);
 export const uAberrationStrength = uniform(0.002); // Very subtle by default (harsh RGB split removed in favor of prettier candy glow)
+
+// Depth-of-Field controls (read by both pipelines; driven per-frame from game-loop.ts).
+//   uDofFocus — focal-plane distance in world units (follows the camera look vector)
+//   uDofMix   — 0 = fully sharp, 1 = full bokeh. Lets us fade DoF in near flora and
+//               snap back to a sharp world instantly without recompiling shaders.
+export const uDofFocus = uniform(CONFIG.postfx.dofFocusDistance);
+export const uDofMix = uniform(0.0);
 
 /**
  * Initializes the Post-Processing pipeline for Candy World.
@@ -60,6 +70,24 @@ function initWebGPUPostProcessing(renderer: CandyRenderer, scene: THREE.Scene, c
 
     const bloomPass = bloom(scenePass, uBloomStrength, radius, threshold);
 
+    // 3b. Depth of Field (bokeh) — only built into the graph when enabled at boot,
+    // so the default `low` tier carries zero DoF cost. When present it is blended by
+    // uDofMix, giving instant sharp↔blur transitions without a shader recompile.
+    const dofActive = isDofEnabled();
+    let dofColorNode: any = null;
+    if (dofActive) {
+        // viewZ drives the circle-of-confusion; aperture/maxblur kept subtle (candy bokeh).
+        const viewZ = scenePass.getViewZNode();
+        dofColorNode = dof(
+            scenePass,
+            viewZ,
+            uDofFocus,
+            uniform(CONFIG.postfx.dofAperture),
+            uniform(CONFIG.postfx.dofMaxBlur)
+        );
+        console.log('[PostFX] Depth of Field enabled (WebGPU TSL bokeh)');
+    }
+
     // 4. Color Correction Logic
     const colorCorrection = Fn(() => {
         // Very subtle, soft chromatic aberration (mostly disabled by default for candy aesthetic)
@@ -75,7 +103,13 @@ function initWebGPUPostProcessing(renderer: CandyRenderer, scene: THREE.Scene, c
         const g = sceneTex.uv(uvG).g;
         const b = sceneTex.uv(uvB).b;
 
-        const caColor = vec3(r, g, b);
+        let caColor = vec3(r, g, b);
+
+        // Blend in the bokeh result when DoF is built into the graph. uDofMix=0 keeps
+        // the sharp (chromatic-aberrated) scene; uDofMix=1 is full DoF.
+        if (dofColorNode) {
+            caColor = mix(caColor, dofColorNode.rgb, uDofMix);
+        }
 
         // Base color + Bloom
         const color = caColor.add(bloomPass);
@@ -145,6 +179,21 @@ function initWebGLPostProcessing(renderer: CandyRenderer, scene: THREE.Scene, ca
     const renderPass = new RenderPass(scene, camera);
     composer.addPass(renderPass);
 
+    // 2b. Depth of Field (WebGL fallback) — degraded but functional bokeh.
+    // Only added when DoF is enabled at boot. Toggled per-frame via pass.enabled
+    // (uDofMix), so disabling returns to a sharp world instantly.
+    let bokehPass: BokehPass | null = null;
+    if (isDofEnabled()) {
+        bokehPass = new BokehPass(scene, camera, {
+            focus: CONFIG.postfx.dofFocusDistance,
+            aperture: CONFIG.postfx.dofAperture,
+            maxblur: CONFIG.postfx.dofMaxBlur,
+        });
+        bokehPass.enabled = false; // off until uDofMix rises
+        composer.addPass(bokehPass);
+        console.log('[PostFX] Depth of Field enabled (WebGL BokehPass)');
+    }
+
     // 3. Add Bloom Pass
     // UnrealBloomPass parameters: (resolution, strength, radius, threshold)
     const resolution = new THREE.Vector2(window.innerWidth, window.innerHeight);
@@ -172,6 +221,11 @@ function initWebGLPostProcessing(renderer: CandyRenderer, scene: THREE.Scene, ca
             // manual synchronization on every frame. This is an acceptable trade-off for fallback support.
             // TODO: Consider implementing an automatic sync mechanism to improve efficiency.
             bloomPass.strength = uBloomStrength.value || 1.0;
+            // Sync DoF: enable only while mixed in, and track the focal plane.
+            if (bokehPass) {
+                bokehPass.enabled = uDofMix.value > 0.01;
+                (bokehPass.uniforms as any)['focus'].value = uDofFocus.value;
+            }
             composer.render();
         },
         // Expose uniforms for compatibility

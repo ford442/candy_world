@@ -10,7 +10,7 @@
         *   *Emscripten (C++):* Stateless, heavy compute (noise generation, batch processing).
     *   **Tooling:** Vite (Build/Dev), Playwright (Verification).
 *   **Design Patterns:**
-    *   **Orchestrator Pattern:** `main.js` initializes and manages the loop, delegating logic to specialized systems (`src/systems/*`).
+    *   **Orchestrator Pattern:** `src/core/main.ts` initializes; `src/core/game-loop.ts` runs the loop, delegating logic to specialized systems (`src/systems/*`).
     *   **Factory Pattern:** Foliage creation (flowers, mushrooms) uses factory functions in `src/foliage/*` to generate complex instanced meshes with shared geometries.
     *   **Data-Driven Design:** World layout is defined in `assets/map.json`.
     *   **Shared Mutable State:** To avoid Garbage Collection (GC) in the render loop, systems share mutable global objects (e.g., `_weatherBiasOutput`, `keyStates`) rather than passing new objects.
@@ -19,14 +19,14 @@
 
 | Feature | Entry Point / Key File | Description |
 | :--- | :--- | :--- |
-| **Main Loop** | `main.js` | Orchestrates Audio, Physics, Weather, and Rendering. Handles the startup sequence. |
-| **World Gen** | `src/world/generation.js` | Loads `assets/map.json`, spawns static assets (grass) and procedural extras (mushrooms/flowers). |
-| **Physics** | `src/systems/physics.js` | Bridges JS and WASM. Handles player movement, collision, and gravity. |
-| **Weather** | `src/systems/weather.js` | Simulates wind, rain, and storm cycles. Controls global light levels. |
-| **Audio/Music** | `src/audio/audio-system.js` | Wraps `libopenmpt` (WASM) to play tracker music. Analyzes channels for reactivity. |
-| **Reactivity** | `src/systems/music-reactivity.js` | Maps specific audio channels to visual effects (color shift, bounce, scale). |
-| **Foliage** | `src/foliage/common.js` | Shared TSL material factories (`createClayMaterial`) and geometry management. |
-| **Input** | `src/core/input.js` | Handles Pointer Lock, Keyboard, and Mouse interaction. |
+| **Main Loop** | `src/core/main.ts` + `src/core/game-loop.ts` | Orchestrate Audio, Physics, Weather, and Rendering. Handle the startup sequence. |
+| **World Gen** | `src/world/generation-core.ts` | Loads `assets/map.json`, spawns static assets (grass) and procedural extras (mushrooms/flowers). |
+| **Physics** | `src/systems/physics/index.ts` | Bridges JS and WASM. Handles player movement, collision, and gravity. |
+| **Weather** | `src/systems/weather.ts` | Simulates wind, rain, and storm cycles. Controls global light levels. |
+| **Audio/Music** | `src/audio/audio-system.ts` | Wraps `libopenmpt` (WASM) to play tracker music. Analyzes channels for reactivity. |
+| **Reactivity** | `src/systems/music-reactivity.ts` | Maps specific audio channels to visual effects (color shift, bounce, scale). |
+| **Foliage / Materials** | `src/foliage/material-core.ts` | Shared TSL material factories (`CandyPresets`, `createClayMaterial`) and geometry helpers. |
+| **Input** | `src/core/input/index.ts` | Handles Pointer Lock, Keyboard, and Mouse interaction. |
 
 ## 3. Complexity Hotspots (The "Complex Parts")
 
@@ -36,14 +36,14 @@
     *   **Do not** attempt to write GLSL. Use `three/tsl` imports (`float`, `vec3`, `color`, `Fn`).
     *   **Imperative Logic:** Conditionals and assignments inside shaders must be wrapped in `Fn(() => { ... })` blocks.
     *   **Uniforms:** When binding a `Vector3` to a TSL `uniform()`, you must pass a Javascript `new THREE.Vector3()`, not a TSL `vec3()`.
-    *   **Attributes:** Geometries *must* have `position` and `normal` attributes. `src/foliage/common.js` has a `validateNodeGeometries` helper to patch this, but you should ensure factories create valid geometry.
+    *   **Attributes:** Geometries *must* have `position` and `normal` attributes. `src/foliage/material-core.ts` has a `validateNodeGeometries` helper to patch this, but you should ensure factories create valid geometry.
 
 ### B. Hybrid WASM Architecture
 *   **Why it's complex:** The app loads *two* separate WASM modules that run simultaneously.
     *   `candy_physics.wasm` (AssemblyScript): Handles stateful objects (player, trampolines).
     *   `candy_native.wasm` (C++): Handles raw compute.
 *   **Agent Note:**
-    *   Be careful when modifying `src/utils/wasm-loader.js`. It manages the initialization order and fallback strategies.
+    *   Be careful when modifying `src/utils/wasm-loader.ts`. It manages the initialization order and fallback strategies.
     *   The AssemblyScript side is "Memory-First"—it expects linear memory layouts.
     *   Watch out for `SharedArrayBuffer` requirements (headers in `vite.config.js`).
 
@@ -60,17 +60,17 @@
 *   **Build Pipeline:** `npm run dev` builds the WASM modules before starting the server. This can be slow.
     *   *Constraint:* Do not remove the `build:wasm` step from the dev script, or the physics will be out of sync.
 *   **Garbage Collection:** The render loop is highly optimized to avoid GC.
-    *   *Constraint:* Do not create `new THREE.Vector3` or `new THREE.Color` inside `animate()` or `update()` functions. Use module-scope scratch variables (e.g., `_scratchSunVector` in `main.js`).
+    *   *Constraint:* Do not create `new THREE.Vector3` or `new THREE.Color` inside `animate()` or `update()` functions. Use module-scope scratch variables (e.g., `_scratchSunVector` in `src/core/game-loop.ts`).
 *   **Physics "Floatiness":** The gravity is intentionally "floaty" to match the dream-like candy aesthetic. Do not "fix" this to be realistic earth gravity unless explicitly asked.
 *   **File System:** The runtime environment initially lacks `node_modules` at the root. You must run `npm install` before running verification scripts that utilize non-native node modules.
 
 ## 5. Dependency Graph & Key Flows
 
 ### Startup Sequence
-1.  **Entry:** `index.html` loads `main.js`.
-2.  **WASM Init:** `main.js` triggers `initWasmParallel` (in `wasm-loader.js`).
+1.  **Entry:** `index.html` loads the bundled entry (`src/core/main.ts`).
+2.  **WASM Init:** `main.ts` triggers `initWasmParallel` (in `src/utils/wasm-loader.ts`).
     *   Loads `candy_physics.wasm` and `candy_native.js` simultaneously.
-3.  **World Gen:** Once WASM is ready, `initWorld` (in `generation.js`) is called.
+3.  **World Gen:** Once WASM is ready, `initWorld` (in `src/world/generation-core.ts`) is called.
     *   Parses `assets/map.json`.
     *   Spawns specific foliage types using factories.
 4.  **Loop Start:** `startAnimationLoop` begins the `requestAnimationFrame` cycle.

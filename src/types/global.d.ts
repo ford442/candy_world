@@ -41,6 +41,21 @@ declare global {
     // Scene ready flag
     __sceneReady?: boolean;
     __devOrbitActive?: boolean;
+    __exploreActive?: boolean;
+
+    // Renderer breadcrumbs (Playwright / agents)
+    rendererType?: 'webgpu' | 'webgl';
+    currentRenderer?: 'webgpu' | 'webgl';
+    usingWebGPU?: boolean;
+    usingWebGL?: boolean;
+    rendererFallbackReason?: string | null;
+    setRenderer?: (backend: 'webgpu' | 'webgl') => void;
+    candy_set_webgl_debug_mode?: (mode: 'wireframe' | 'material' | 'lite', enabled: boolean) => void;
+    candy_get_webgl_debug_state?: () => {
+      wireframe: boolean;
+      materialDebug: boolean;
+      liteGeneration: boolean;
+    };
     
     // Audio
     libopenmptReady?: Promise<any>;

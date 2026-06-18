@@ -4,7 +4,8 @@ import { color as tslColor, mix, float, sin, cos, vec3, positionLocal, positionW
 import { uTwilight } from './sky.ts';
 import { createBerryCluster } from './berries.ts';
 import { FoliageObject } from './types.ts';
-import { treeBatcher } from './tree-batcher.ts'; // ⚡ OPTIMIZATION: Import Batcher
+import { treeBatcher } from './tree-batcher.ts';
+import { gemFruitBatcher } from './gem-fruit-batcher.ts'; // ⚡ OPTIMIZATION: Import Batcher
 import { MeshStandardNodeMaterial } from 'three/webgpu'; // Import explicit type for cast
 
 // Configuration interfaces for tree creation options
@@ -307,6 +308,9 @@ export function createBubbleWillow(options: BubbleWillowOptions = {}): THREE.Gro
     // ⚡ OPTIMIZATION: Register to Batcher
     group.userData.onPlacement = () => {
         treeBatcher.register(group, 'bubbleWillow');
+        if (group.userData.attachGemFruits) {
+            gemFruitBatcher.attachToTree(group, { height: trunkH, gemCount: 5 + Math.floor(Math.random() * 3) });
+        }
         group.userData.isBatched = true;
         group.userData.onPlacement = null;
     };

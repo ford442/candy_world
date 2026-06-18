@@ -73,5 +73,50 @@ Entity and region hints are normalized by `MapLoader` and folded into runtime ma
 1. `src/world/generation-core.ts` loads the map and derives map music context.
 2. `src/world/map-music-context.ts` stores normalized overrides.
 3. `src/systems/music-reactivity.ts` atomically reapplies bindings when context version changes.
-4. Foliage/atmospheric batchers consume `BiomeUniforms` and reflect the new profile.
+4. `src/systems/atmosphere-reactivity.ts` maps audio energy to `uBloomStrength`, `uCrescendoFogDensity`, and shaft state (called from `MusicReactivitySystem.update()`).
+5. Foliage/atmospheric batchers consume `BiomeUniforms` and reflect the new profile.
+
+## Atmosphere Reactivity (`assets/music-bindings.json` → post-processing + sky)
+
+Optional top-level `atmosphere` block (parallel to `weatherReactivity`). Drives bloom, candy-dream fog, and moonbeam/golden-hour god rays with zero per-frame allocations.
+
+```json
+{
+  "atmosphere": {
+    "bloom": {
+      "channels": [0, 6],
+      "rest": 1.0,
+      "peak": 2.5,
+      "smoothing": 8.0
+    },
+    "fogDensity": {
+      "scale": 0.65,
+      "max": 0.85,
+      "smoothing": 6.0
+    },
+    "shaftMelody": {
+      "peak": 0.35,
+      "smoothing": 10.0
+    },
+    "beatPulse": {
+      "bloomSpike": 0.45,
+      "shaftShimmer": 0.12,
+      "decay": 12.0
+    }
+  }
+}
+```
+
+| Signal | Source | Target uniform |
+|--------|--------|----------------|
+| Kick / bass energy | `atmosphere.bloom.channels` (fallback: ch0 + `global.shimmer`) | `uBloomStrength` (rest → peak on crescendo) |
+| Mix energy / avg volume | All tracker channels (smoothed) | `uCrescendoFogDensity` |
+| Melody channel hits | `sky_moon.melody_channel` (via `MRState.skyMoonCh`) | `uShaftOpacity` + night shaft visibility |
+| BeatSync downbeats | `atmosphere.beatPulse` | Brief bloom spike + shaft shimmer (smooth decay) |
+
+Map-level overrides: add `"atmosphere": { ... }` under `music` in map JSON (same precedence as other music overrides).
+
+**Ownership:** `atmosphere-reactivity.ts` is the sole writer of `uBloomStrength` and `uCrescendoFogDensity`. `weather-atmosphere.ts` reads fog density for visibility; `game-loop.ts` must not overwrite bloom before render.
+
+WebGL parity: `post-processing.ts` syncs `uBloomStrength.value` to `UnrealBloomPass.strength` each frame; `game-loop.ts` mirrors `uShaftOpacity` to the shared WebGL shaft material.
 
