@@ -673,8 +673,16 @@ export class TreeBatcher {
 
         const typeAttr = mesh.geometry.attributes.instanceAnimType as THREE.InstancedBufferAttribute;
         const offsetAttr = mesh.geometry.attributes.instanceAnimOffset as THREE.InstancedBufferAttribute;
-        if (typeAttr) { typeAttr.setX(index, animType); typeAttr.needsUpdate = true; }
-        if (offsetAttr) { offsetAttr.setX(index, animOffset); offsetAttr.needsUpdate = true; }
+
+        // ⚡ OPTIMIZATION: Direct array write bypasses setX() overhead
+        if (typeAttr?.array) {
+            (typeAttr.array as Float32Array)[index] = animType;
+            typeAttr.needsUpdate = true;
+        }
+        if (offsetAttr?.array) {
+            (offsetAttr.array as Float32Array)[index] = animOffset;
+            offsetAttr.needsUpdate = true;
+        }
 
         // Update count
         switch (countProp) {

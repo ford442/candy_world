@@ -713,7 +713,13 @@ export class MushroomBatcher {
         const packedFlags = (noteIndex + 1) + hasFace * 20 + isGiant * 40;
         
         // instanceData: x=packedFlags, y=spawnTime, z=triggerTime, w=velocity
-        this.instanceData!.setXYZW(i, packedFlags, spawnTime, -100.0, 0);
+        // ⚡ OPTIMIZATION: Bypassed THREE.BufferAttribute.setXYZW overhead by writing directly to typed array
+        const instanceDataArray = this.instanceData!.array as Float32Array;
+        const i4 = i * 4;
+        instanceDataArray[i4] = packedFlags;
+        instanceDataArray[i4 + 1] = spawnTime;
+        instanceDataArray[i4 + 2] = -100.0;
+        instanceDataArray[i4 + 3] = 0;
 
         // 3. Update Mapping
         if (noteIndex >= 0) {
@@ -739,7 +745,8 @@ export class MushroomBatcher {
 
         // 1. Remove from Note Mapping
         // Decode noteIndex from packedFlags: noteIndex = (packed % 20) - 1
-        const removedPackedFlags = this.instanceData!.getX(indexToRemove);
+        const instanceDataArray = this.instanceData!.array as Float32Array;
+        const removedPackedFlags = instanceDataArray[indexToRemove * 4];
         const removedNoteIndex = (removedPackedFlags % 20) - 1;
         if (removedNoteIndex >= 0) {
             const list = this.noteToInstances.get(removedNoteIndex);
@@ -753,7 +760,7 @@ export class MushroomBatcher {
         if (indexToRemove !== lastIndex) {
             const lastId = this.instanceToLogicId[lastIndex];
             // Decode noteIndex from packedFlags
-            const lastPackedFlags = this.instanceData!.getX(lastIndex);
+            const lastPackedFlags = instanceDataArray[lastIndex * 4];
             const movedNoteIndex = (lastPackedFlags % 20) - 1;
 
             // A. Copy Attributes from Last to Removed
@@ -774,13 +781,13 @@ export class MushroomBatcher {
             }
 
             // Single packed attribute
-            this.instanceData!.setXYZW(
-                indexToRemove,
-                this.instanceData!.getX(lastIndex),
-                this.instanceData!.getY(lastIndex),
-                this.instanceData!.getZ(lastIndex),
-                this.instanceData!.getW(lastIndex)
-            );
+            // ⚡ OPTIMIZATION: Bypassed setXYZW overhead
+            const iRem4 = indexToRemove * 4;
+            const iLast4 = lastIndex * 4;
+            instanceDataArray[iRem4] = instanceDataArray[iLast4];
+            instanceDataArray[iRem4 + 1] = instanceDataArray[iLast4 + 1];
+            instanceDataArray[iRem4 + 2] = instanceDataArray[iLast4 + 2];
+            instanceDataArray[iRem4 + 3] = instanceDataArray[iLast4 + 3];
 
             // B. Update Note Mapping for the MOVED instance
             if (movedNoteIndex >= 0) {
@@ -818,10 +825,13 @@ export class MushroomBatcher {
             const now = ((uTime as any).value !== undefined) ? (uTime as any).value : performance.now() / 1000.0;
             const normalizedVelocity = velocity / 127.0;
 
+            const instanceDataArray = this.instanceData!.array as Float32Array;
+
             for (const i of indices) {
                 // Update triggerTime (z) and velocity (w) in packed attribute
-                this.instanceData!.setZ(i, now);
-                this.instanceData!.setW(i, normalizedVelocity); // Normalize velocity
+                // ⚡ OPTIMIZATION: Bypassed BufferAttribute setters
+                instanceDataArray[i * 4 + 2] = now;
+                instanceDataArray[i * 4 + 3] = normalizedVelocity; // Normalize velocity
 
                 // PALETTE: Spawn Spores!
                 if (this.mesh) {
