@@ -13,7 +13,8 @@ import {
     uAudioHigh,
     uAudioLow,
     uWindSpeed,
-    uGlitchIntensity
+    uGlitchIntensity,
+    applyPlayerInteraction
 } from './index.ts';
 import {
     color, float, vec3, positionLocal, mix, attribute, uv, sin, cos, positionWorld, smoothstep,
@@ -117,7 +118,7 @@ export class TreeBatcher {
             roughness: 0.8,
             bumpStrength: 0.2, // Bark texture
             rimStrength: 0.3,  // Subtle separation
-            deformationNode: trunkDeform,
+            deformationNode: applyPlayerInteraction(trunkDeform), // 🎨 PALETTE: Add player interaction
             triplanar: true    // Avoid UV seams on cylinder
         });
 
@@ -188,7 +189,7 @@ export class TreeBatcher {
             roughness: 0.4,
             transmission: 0.3, // Semi-opaque
             thickness: 1.0,
-            deformationNode: sphereFinalDeform,
+            deformationNode: applyPlayerInteraction(sphereFinalDeform), // 🎨 PALETTE: Add player interaction
             rimStrength: 0.6, // Strong rim for pop
             audioReactStrength: 0.5 // Inner glow pulse
         });
@@ -218,7 +219,7 @@ export class TreeBatcher {
         const capsuleMat = CandyPresets.Clay(0x8B4513, {
             colorNode: capsuleColor,
             roughness: 0.7,
-            deformationNode: capsuleDeform,
+            deformationNode: applyPlayerInteraction(capsuleDeform), // 🎨 PALETTE: Add player interaction
             rimStrength: 0.4
         });
 
@@ -256,7 +257,7 @@ export class TreeBatcher {
         const helixMat = CandyPresets.Gummy(0x00FA9A, {
             colorNode: helixColor,
             roughness: 0.2,
-            deformationNode: helixDeform,
+            deformationNode: applyPlayerInteraction(helixDeform), // 🎨 PALETTE: Add player interaction
             emissive: 0xFFFFFF,
             emissiveIntensity: pulse.mul(0.5).add(audioBoost), // Dynamic glow
             rimStrength: 0.8
@@ -289,7 +290,7 @@ export class TreeBatcher {
         const roseMat = CandyPresets.Sugar(0xFF69B4, {
             colorNode: roseColor,
             roughness: 0.4,
-            deformationNode: roseDeform,
+            deformationNode: applyPlayerInteraction(roseDeform), // 🎨 PALETTE: Add player interaction
             sheen: 1.0,
             audioReactStrength: 0.8 // Strong glow response
         });

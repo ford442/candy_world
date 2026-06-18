@@ -133,3 +133,7 @@ Next Step: Ask the user for the next task.
 Status: Implemented ✅
 * Implementation Details: Wired zero-allocation Atmosphere Reactivity block mapping audio to bloom, fog, and light shafts. Re-enabled night light shafts by fixing `shaftVisible` logic in `src/core/game-loop.ts`.
 Next Step: Ask the user for the next task.
+
+Status: Implemented ✅
+* Implementation Details: Applied "Juice" to the `TreeBatcher` component in `src/foliage/tree-batcher.ts` by adding `applyPlayerInteraction` TSL logic into the position graph for `trunkMat`, `sphereMat`, `capsuleMat`, `helixMat`, and `roseMat`.
+Next Step: Ask the user for the next task.
