@@ -508,3 +508,27 @@ Imports must use `.ts` extensions (e.g., `import { foo } from './bar.ts'`). Vite
 
 ### Smoke test fails with timeout
 The smoke test waits up to 25 seconds for `window.__sceneReady`. If it times out, check the browser console for shader compilation errors or WASM initialization failures.
+
+---
+
+## Cursor Cloud specific instructions
+
+These notes are for agents running in the Cursor Cloud VM. The startup update script already runs `pnpm install`, `pnpm run build:wasm`, and `npx playwright install chromium`, so dependencies, the required physics WASM, and the Playwright browser are already in place when a session starts.
+
+### Package manager
+- Use **pnpm** at the repo root (a `pnpm-lock.yaml` is present and the root is a pnpm workspace that also includes `tools/visual-regression`). The `npm run <script>` aliases still work because they just invoke the same `package.json` scripts.
+
+### Required physics WASM is not committed
+- `src/wasm/candy_physics.wasm` is **gitignored** and is NOT produced by `npm run dev` / `dev.sh`. It must be generated with `pnpm run build:wasm` (the update script does this on startup). If physics/ground-height behaves oddly, rebuild it with `pnpm run build:wasm`.
+
+### Emscripten is intentionally absent
+- `em++` is not installed, so `dev.sh` / `build:emcc` print a warning and skip the optional C++ native module — the app runs in JavaScript fallback mode. This is expected, not an error. `candy_native*` 404s in the browser console are also expected.
+
+### Headless GPU limitation (important)
+- This VM has **no real GPU**. The app's logic fully boots headless (`window.__sceneReady === true`), physics/WASM run, and all DOM/HUD UI (start screen, jukebox, accessibility) is interactive — but actual 3D geometry often does **not** rasterize: WebGL falls back to software (blank/clear-color canvas) and WebGPU via SwiftShader is unstable (frequent "WebGPU Device Lost: Device was destroyed" during draw).
+- Do not expect pixel-perfect 3D screenshots from the cloud VM. Treat `npm run test` (the smoke runner) as the canonical end-to-end check — it boots the full app, verifies scene readiness, and asserts the jukebox UI, and it **passes headless**.
+
+### Running the app and tests
+- Dev server: `npm run dev` → http://localhost:5173 (Vite default; emits required COOP/COEP headers).
+- Smoke test: `npm run test` builds nothing itself but runs `vite preview` on port 4173, so it needs a `dist/` first — run `npm run build:ci` (WASM + Vite, no Emscripten) before the first smoke run. `dist/` is gitignored.
+- Fast checks that need no browser/GPU: `npm run test:wasm` (physics bounds, ~1s).
