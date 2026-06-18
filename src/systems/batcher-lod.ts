@@ -93,6 +93,42 @@ export function computeTargetLodFactor(
     return 2;
 }
 
+/**
+ * ⚡ OPTIMIZATION: Pure squared distance → target LOD factor.
+ * Defers Math.sqrt() until we are exactly within a blend range.
+ */
+export function computeTargetLodFactorSq(
+    distSq: number,
+    cfg: Pick<FoliageLodConfig, 'heroMax' | 'midMax' | 'blendWidth' | 'farCull'> = getFoliageLodConfig()
+): number {
+    if (distSq >= cfg.farCull * cfg.farCull) return 3;
+
+    const bw = Math.max(1, cfg.blendWidth);
+    const heroEdge = cfg.heroMax;
+    const midEdge = cfg.midMax;
+
+    const heroMin = heroEdge - bw;
+    if (heroMin >= 0 && distSq <= heroMin * heroMin) return 0;
+
+    const heroMax = heroEdge + bw;
+    if (distSq <= heroMax * heroMax) {
+        const distance = Math.sqrt(distSq);
+        const t = (distance - heroMin) / (2 * bw);
+        return smoothstep01(t);
+    }
+
+    const midMin = midEdge - bw;
+    if (midMin >= 0 && distSq <= midMin * midMin) return 1;
+
+    const midMax = midEdge + bw;
+    if (distSq <= midMax * midMax) {
+        const distance = Math.sqrt(distSq);
+        const t = (distance - midMin) / (2 * bw);
+        return 1 + smoothstep01(t);
+    }
+    return 2;
+}
+
 function smoothstep01(t: number): number {
     const x = Math.max(0, Math.min(1, t));
     return x * x * (3 - 2 * x);
@@ -149,6 +185,8 @@ function updateImpostors(
     let impostorCount = 0;
     camera.getWorldPosition(_cameraPos);
 
+    const farCullSq = cfg.farCull * cfg.farCull;
+
     for (const [mesh, factors] of smoothed) {
         const count = mesh.count;
         if (count === 0) continue;
@@ -167,8 +205,9 @@ function updateImpostors(
             const dx = _instancePos.x - _cameraPos.x;
             const dy = _instancePos.y - _cameraPos.y;
             const dz = _instancePos.z - _cameraPos.z;
-            const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
-            if (dist >= cfg.farCull) continue;
+            const distSq = dx * dx + dy * dy + dz * dz;
+            // ⚡ OPTIMIZATION: Deferred Math.sqrt() by using squared distance for early-out far cull check.
+            if (distSq >= farCullSq) continue;
 
             const size = Math.max(_scratchScale.x, _scratchScale.y, _scratchScale.z) * 2.2;
             _billboardMatrix.makeRotationFromQuaternion(camera.quaternion);
@@ -240,9 +279,10 @@ export function updateFoliageBatcherLOD(camera: THREE.Camera, delta: number): vo
             const dx = _instancePos.x - _cameraPos.x;
             const dy = _instancePos.y - _cameraPos.y;
             const dz = _instancePos.z - _cameraPos.z;
-            const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+            const distSq = dx * dx + dy * dy + dz * dz;
 
-            const target = computeTargetLodFactor(dist, cfg);
+            // ⚡ OPTIMIZATION: Pass squared distance to defer Math.sqrt() in LOD computation.
+            const target = computeTargetLodFactorSq(distSq, cfg);
             const current = smoothed[i];
             const next = current + (target - current) * blendT;
             smoothed[i] = next;
