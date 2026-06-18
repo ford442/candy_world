@@ -738,7 +738,6 @@ export async function populateWorld(
         await generateMap(weatherSystem, DEFAULT_MAP_CHUNK_SIZE, onProgress);
         console.log('[World] Full mode population complete.');
         console.log('[World] populateWorld() complete in FULL mode');
-        subwooferLotusBatcher.flushRegistrations();
     return 'FULL';
     } catch (error) {
         console.error('[World] Full population failed. Falling back from FULL to CORE.', error);
