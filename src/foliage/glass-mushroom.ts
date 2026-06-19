@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import { glassMushroomBatcher } from './glass-mushroom-batcher.ts';
 import { makeInteractive } from '../utils/interaction-utils.ts';
 import type { FoliageObject } from './types.ts';
+import { discoverySystem } from '../systems/discovery.ts';
+import { spawnImpact } from './impacts.ts';
 
 export interface GlassMushroomOptions {
     scale?: number;
@@ -24,9 +26,29 @@ export function createGlassMushroom(options: GlassMushroomOptions = {}): Foliage
     group.userData.radius = 0.6 * scale; // physics hitbox estimate
 
     group.userData.onPlacement = () => {
-        glassMushroomBatcher.register(group);
+        const id = glassMushroomBatcher.register(group);
+        group.userData.batchIndex = id;
         group.userData.isBatched = true;
         group.userData.onPlacement = null;
+    };
+
+    group.userData.onInteract = () => {
+        // Discovery & Particle Impact
+        discoverySystem.discover('glass_mushroom', 'Glass Mycelium', '🍄');
+        spawnImpact(group.position, 'spore', 0x4DE2FF);
+
+        // Tactile Game Feel Scale Bounce
+        if (group.userData.batchIndex !== undefined && group.userData.batchIndex !== -1) {
+            group.scale.setScalar(scale * 1.2);
+            group.updateMatrixWorld(true);
+            glassMushroomBatcher.updateInstance(group.userData.batchIndex, group.matrixWorld);
+
+            setTimeout(() => {
+                group.scale.setScalar(scale);
+                group.updateMatrixWorld(true);
+                glassMushroomBatcher.updateInstance(group.userData.batchIndex, group.matrixWorld);
+            }, 150);
+        }
     };
 
     return makeInteractive(group) as FoliageObject;

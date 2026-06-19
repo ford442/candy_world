@@ -188,6 +188,13 @@ export class GlassMushroomBatcher {
         return id;
     }
 
+    /** Update a specific instance matrix after registration */
+    updateInstance(index: number, matrix: THREE.Matrix4): void {
+        if (index < 0 || index >= this.count) return;
+        matrix.toArray(this.mesh.instanceMatrix.array, index * 16);
+        this.mesh.instanceMatrix.needsUpdate = true;
+    }
+
     /** Live instance count — used by world-health / telemetry callers. */
     getCount(): number {
         return this.count;
