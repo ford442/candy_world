@@ -132,17 +132,18 @@
         #btn-full-game:hover, #btn-full-game:focus-visible { background: #38bdf8; }
         #btn-fast-full:hover, #btn-fast-full:focus-visible { background: #81c784; }
 
-        .mode-btn[aria-pressed="true"] {
+        .mode-btn[aria-checked="true"] {
             border-color: #fff;
             transform: scale(1.1);
             box-shadow: 0 4px 15px rgba(0,0,0,0.2);
         }
-        #btn-core-only[aria-pressed="true"] { box-shadow: 0 5px 18px rgba(255, 158, 205, 0.7); }
-        #btn-full-game[aria-pressed="true"] { box-shadow: 0 5px 18px rgba(125, 211, 252, 0.55); }
-        #btn-fast-full[aria-pressed="true"] { box-shadow: 0 5px 18px rgba(165, 214, 167, 0.7); }
+        #btn-core-only[aria-checked="true"] { box-shadow: 0 5px 18px rgba(255, 158, 205, 0.7); }
+        #btn-full-game[aria-checked="true"] { box-shadow: 0 5px 18px rgba(125, 211, 252, 0.55); }
+        #btn-fast-full[aria-checked="true"] { box-shadow: 0 5px 18px rgba(165, 214, 167, 0.7); }
         .cta-button:active,
         .cta-button.keyboard-active,
         .cta-button[aria-pressed="true"],
+        .cta-button[aria-checked="true"],
         .toggle-button:active,
         .toggle-button.keyboard-active,
         .toggle-button[aria-pressed="true"],
@@ -663,15 +664,15 @@
             <span class="spinner" aria-hidden="true"></span>Loading World... 🍭
         </button>
 
-        <div id="mode-select" style="margin: 20px 0; text-align: center;" role="group" aria-label="Game Mode Selection">
+        <div id="mode-select" style="margin: 20px 0; text-align: center;" role="radiogroup" aria-label="Game Mode Selection">
             <p id="mode-description" style="margin-bottom: 8px; opacity: 0.9;" aria-live="polite" aria-atomic="true">Choose startup mode:</p>
-            <button id="btn-core-only" type="button" class="cta-button mode-btn" aria-describedby="mode-description">
+            <button id="btn-core-only" type="button" role="radio" aria-checked="true" class="cta-button mode-btn" aria-describedby="mode-description">
                 🍭 Core Only (Fast)
             </button>
-            <button id="btn-full-game" type="button" class="cta-button mode-btn" aria-describedby="mode-description">
+            <button id="btn-full-game" type="button" role="radio" aria-checked="false" class="cta-button mode-btn" aria-describedby="mode-description">
                 🌸 Full Game
             </button>
-            <button id="btn-fast-full" type="button" class="cta-button mode-btn fast-full-btn" aria-describedby="mode-description">
+            <button id="btn-fast-full" type="button" role="radio" aria-checked="false" class="cta-button mode-btn fast-full-btn" aria-describedby="mode-description">
                 🌿 Fast Full (Light)
             </button>
             <label id="wait-full-label" class="wait-full-option" style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:12px;cursor:pointer;font-size:0.82rem;opacity:0.85;">
