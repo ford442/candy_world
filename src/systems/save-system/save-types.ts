@@ -65,6 +65,16 @@ export interface WorldSaveData {
 }
 
 /**
+ * State for a specific persistent awakened flora instance.
+ */
+export interface AwakenedFloraState {
+    id: string;
+    awakened: boolean;
+    interactionCount: number;
+    lastAwakenedTimestamp: number;
+}
+
+/**
  * Progress tracking for save data
  */
 export interface ProgressSaveData {
@@ -74,6 +84,7 @@ export interface ProgressSaveData {
     playtime: number; // Total playtime in seconds
     unlocks: string[];
     inventory: Record<string, number>;
+    awakenedFlora?: AwakenedFloraState[];
 }
 
 /**

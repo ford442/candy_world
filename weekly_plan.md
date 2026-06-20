@@ -35,7 +35,7 @@ Routine will mark picked items as "[in progress — YYYY-MM-DD]".
 - [ ] **#1173 TSL Volumetric God Rays + selective DoF** — performant revival of golden-hour shafts; overlaps #1169 on shaft work (sequence after).
 - [ ] **#1174 Distance LOD Tiers for instanced batchers** — three-tier (hero/mid/far) for trees/mushrooms/flowers/luminous. Performance lever.
 - [ ] **#1175 Candy Material Cookbook + grok.md onboarding upgrade** — docs-only; canonical material/music-binding quick-start. Fully decoupled from code work.
-- [ ] **#1176 / #1182 Awakened Flora Persistence** — world that "remembers" you; #1182 is the narrow v1 slice (scope-guarded away from atmosphere/render files). ← Copilot prep target today (decoupled from #1169).
+- [x] **#1176 / #1182 Awakened Flora Persistence** — world that "remembers" you; #1182 is the narrow v1 slice (scope-guarded away from atmosphere/render files). ← Copilot prep target today (decoupled from #1169).
 
 ## Backlog
 <!--
