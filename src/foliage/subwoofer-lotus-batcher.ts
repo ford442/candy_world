@@ -20,7 +20,7 @@ import {
 } from './index.ts';
 import { BiomeUniforms } from '../systems/biome-uniforms.ts';
 import { makeInteractive } from '../utils/interaction-utils.ts';
-import { CONFIG } from '../core/config.ts';
+import { CONFIG, getCIAdjustedCount } from '../core/config.ts';
 import { uTwilight } from './sky.ts';
 import { discoverySystem } from '../systems/discovery.ts';
 import { showToast } from '../utils/toast.ts';
@@ -28,7 +28,7 @@ import { spawnImpact } from './impacts.ts';
 import { foliageGroup } from '../world/state.ts';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
-const MAX_LOTUS = 100;
+const MAX_LOTUS = getCIAdjustedCount(100, 0.2, 20);
 
 export class SubwooferLotusBatcher {
     padMesh!: THREE.InstancedMesh;

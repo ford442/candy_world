@@ -27,8 +27,9 @@ import { musicReactivitySystem } from '../systems/music-reactivity.ts';
 import { camera } from '../core/camera-ref.ts';
 import { CONFIG } from '../core/config.ts';
 import { dynamicRadiiView } from '../utils/wasm-physics.ts';
+import { getCIAdjustedCount } from '../core/config.ts';
 
-const MAX_FERNS = 500; // Reduced from 2000 for WebGPU uniform buffer limits
+const MAX_FERNS = getCIAdjustedCount(500, 0.1, 50); // Reduced from 2000 for WebGPU uniform buffer limits
 const FRONDS_PER_FERN = 5;
 const _scratchMatrix = new THREE.Matrix4();
 

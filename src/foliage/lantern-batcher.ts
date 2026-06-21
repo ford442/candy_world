@@ -17,8 +17,9 @@ import { getTorusGeometry, getConeGeometry } from '../utils/geometry-dedup.ts';
 import { CONFIG } from '../core/config.ts';
 import { uTwilight } from './sky.ts';
 import { BiomeUniforms } from '../systems/biome-uniforms.ts';
+import { getCIAdjustedCount } from '../core/config.ts';
 
-const MAX_LANTERNS = 250; // Reduced from 1000 for WebGPU uniform buffer limits
+const MAX_LANTERNS = getCIAdjustedCount(250, 0.2, 50); // Reduced from 1000 for WebGPU uniform buffer limits
 
 // ⚡ OPTIMIZATION: Module scoped scratch variables to avoid GC spikes
 const _scratchMatrixBatch = new THREE.Matrix4();
