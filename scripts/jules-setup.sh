@@ -6,12 +6,14 @@ set -euo pipefail
 
 echo "🚀 [Jules] Setting up candy_world environment..."
 
-echo "🔧 Enabling corepack + pnpm install..."
+echo "🔧 Enabling corepack..."
 corepack enable
-pnpm install --frozen-lockfile --prefer-offline
 
-# Fix pnpm ignored builds warning (esbuild + swc are safe and needed)
-echo "🔧 Approving pnpm build scripts for esbuild and @swc/core..."
-pnpm approve-builds esbuild @swc/core 2>/dev/null || true
+# Pre-approve safe native build scripts before install (best for Jules/CI)
+echo "🔧 Pre-approving esbuild and @swc/core build scripts..."
+pnpm config set approve-builds esbuild,@swc/core 2>/dev/null || true
+
+echo "📦 Running pnpm install..."
+pnpm install --frozen-lockfile --prefer-offline
 
 echo "✅ [Jules] candy_world environment ready!"
