@@ -63,8 +63,12 @@ export class FlowerBatcher {
     getRandomPosition(out: THREE.Vector3): boolean {
         if (!this.stems || this.stemCount === 0) return false;
         const idx = Math.floor(Math.random() * this.stemCount);
-        this.stems.getMatrixAt(idx, _scratchMatrix);
-        out.setFromMatrixPosition(_scratchMatrix);
+
+        // ⚡ OPTIMIZATION: Bypassed THREE.InstancedMesh.getMatrixAt() overhead by reading directly from typed array
+        const array = this.stems.instanceMatrix.array as Float32Array;
+        const offset = idx * 16;
+        out.set(array[offset + 12], array[offset + 13], array[offset + 14]);
+
         return true;
     }
 

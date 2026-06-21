@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import { floraPersistenceManager } from '../systems/flora-persistence.ts';
+import { saveSystem } from '../systems/save-system/save-system.ts';
 
 const _inverseMatrix = new THREE.Matrix4();
 const _ray = new THREE.Ray();
@@ -186,11 +188,22 @@ export function makeInteractive(group: THREE.Object3D) {
         group.userData.isHovered = false;
     };
 
+    const originalInteract = group.userData.onInteract;
+
     group.userData.onInteract = () => {
-        // Simple visual feedback (spin or pulse)
-        // Since we don't have tweening here easily, we rely on system updates
-        // or just a momentary scale bump
-        // group.scale.multiplyScalar(1.2); // Just for a frame, logic loop will reset it if using lerp
+        // Record persistence
+        const id = group.userData.id || `flora_${Math.round(group.position.x)}_${Math.round(group.position.z)}`;
+        floraPersistenceManager.recordInteraction(id);
+        saveSystem.triggerEventSave('flora_awakened');
+
+        if (originalInteract) {
+            originalInteract();
+        } else {
+            // Simple visual feedback (spin or pulse)
+            // Since we don't have tweening here easily, we rely on system updates
+            // or just a momentary scale bump
+            // group.scale.multiplyScalar(1.2); // Just for a frame, logic loop will reset it if using lerp
+        }
     };
 
     return group;

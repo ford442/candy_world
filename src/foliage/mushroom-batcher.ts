@@ -73,8 +73,12 @@ export class MushroomBatcher {
     getRandomPosition(out: THREE.Vector3): boolean {
         if (!this.mesh || this.count === 0) return false;
         const idx = Math.floor(Math.random() * this.count);
-        this.mesh.getMatrixAt(idx, _scratchMatrix);
-        out.setFromMatrixPosition(_scratchMatrix);
+
+        // ⚡ OPTIMIZATION: Bypassed THREE.InstancedMesh.getMatrixAt() overhead by reading directly from typed array
+        const array = this.mesh.instanceMatrix.array as Float32Array;
+        const offset = idx * 16;
+        out.set(array[offset + 12], array[offset + 13], array[offset + 14]);
+
         return true;
     }
 
@@ -765,19 +769,22 @@ export class MushroomBatcher {
 
             // A. Copy Attributes from Last to Removed
             // Matrix
-            this.mesh!.getMatrixAt(lastIndex, _scratchMatrix);
-            // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
-        _scratchMatrix.toArray(this.mesh!.instanceMatrix.array, (indexToRemove) * 16);
+            // ⚡ OPTIMIZATION: Fast memory copy bypassing object instantiation and setMatrixAt overhead
+            const matrixArray = this.mesh!.instanceMatrix.array as Float32Array;
+            const destOffset = indexToRemove * 16;
+            const srcOffset = lastIndex * 16;
+            for(let k = 0; k < 16; k++) {
+                matrixArray[destOffset + k] = matrixArray[srcOffset + k];
+            }
 
             // Color
-            this.mesh!.getColorAt(lastIndex, _scratchColor);
-            // ⚡ OPTIMIZATION: Write directly to instanceColor array to bypass .setColorAt overhead.
             if (this.mesh!.instanceColor) {
                 const colorArray = this.mesh!.instanceColor.array as Float32Array;
-                const colorOffset = indexToRemove * 3;
-                colorArray[colorOffset] = _scratchColor.r;
-                colorArray[colorOffset + 1] = _scratchColor.g;
-                colorArray[colorOffset + 2] = _scratchColor.b;
+                const destColorOffset = indexToRemove * 3;
+                const srcColorOffset = lastIndex * 3;
+                colorArray[destColorOffset] = colorArray[srcColorOffset];
+                colorArray[destColorOffset + 1] = colorArray[srcColorOffset + 1];
+                colorArray[destColorOffset + 2] = colorArray[srcColorOffset + 2];
             }
 
             // Single packed attribute
@@ -835,12 +842,27 @@ export class MushroomBatcher {
 
                 // PALETTE: Spawn Spores!
                 if (this.mesh) {
-                    this.mesh.getMatrixAt(i, _scratchMatrix);
-                    _scratchMatrix.decompose(_scratchPos, _scratchQuat, _scratchScale);
-                    this.mesh.getColorAt(i, _scratchColor);
+                    // ⚡ OPTIMIZATION: Bypassed .getMatrixAt(), .decompose() and .getColorAt() for fast spawn extraction
+                    const matrixArray = this.mesh.instanceMatrix.array as Float32Array;
+                    const matOffset = i * 16;
+
+                    // Extract position
+                    _scratchPos.set(matrixArray[matOffset + 12], matrixArray[matOffset + 13], matrixArray[matOffset + 14]);
+
+                    // Extract scale Y (magnitude of the second column)
+                    const m10 = matrixArray[matOffset + 4], m11 = matrixArray[matOffset + 5], m12 = matrixArray[matOffset + 6];
+                    const scaleY = Math.sqrt(m10 * m10 + m11 * m11 + m12 * m12);
+
+                    if (this.mesh.instanceColor) {
+                        const colorArray = this.mesh.instanceColor.array as Float32Array;
+                        const colOffset = i * 3;
+                        _scratchColor.setRGB(colorArray[colOffset], colorArray[colOffset + 1], colorArray[colOffset + 2]);
+                    } else {
+                        _scratchColor.setHex(0xFFFFFF);
+                    }
 
                     // Offset slightly up (cap height approx 1.0 * scale.y)
-                    _scratchPos.y += 0.8 * _scratchScale.y;
+                    _scratchPos.y += 0.8 * scaleY;
 
                     // Spawn impact
                     spawnImpact(_scratchPos, 'spore', _scratchColor);
