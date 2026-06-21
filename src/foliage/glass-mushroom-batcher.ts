@@ -30,6 +30,7 @@ import {
     uCircadianPhase,
 } from '../systems/biome-uniforms.ts';
 import { CONFIG } from '../core/config.ts';
+import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 
 /** Visual Impact: cyan candy-glass base tint (cool bioluminescent fungus). */
 const GLASS_BASE_COLOR = 0x4DE2FF;
@@ -40,6 +41,7 @@ const STEM_H = 0.7;
 const CAP_Y = STEM_H * 0.92;
 
 let _sharedGlassGeo: THREE.BufferGeometry | null = null;
+const _scratchMatrix = new THREE.Matrix4();
 
 function getGlassMushroomGeometry(): THREE.BufferGeometry {
     if (!_sharedGlassGeo) {
@@ -175,11 +177,12 @@ export class GlassMushroomBatcher {
         }
         const id = this.count;
 
-        group.updateWorldMatrix(true, false);
-        group.matrixWorld.toArray(this.mesh.instanceMatrix.array, id * 16);
+        // ⚡ OPTIMIZATION: Bypassed THREE.Object3D proxy and setX() overhead by writing directly to buffer arrays
+        _scratchMatrix.compose(group.position, group.quaternion, group.scale);
+        _scratchMatrix.toArray(this.mesh.instanceMatrix.array, id * 16);
 
         const phaseAttr = this.mesh.geometry.getAttribute('aPhase') as THREE.InstancedBufferAttribute;
-        phaseAttr.setX(id, Math.random() * Math.PI * 2);
+        phaseAttr.array[id] = Math.random() * Math.PI * 2;
 
         this.count++;
         this.mesh.count = this.count;
@@ -219,7 +222,9 @@ export class GlassMushroomBatcher {
             if (this.mesh.instanceMatrix && typeof (this.mesh.instanceMatrix as any).dispose === 'function') {
                 try { (this.mesh.instanceMatrix as any).dispose(); } catch { /* noop */ }
             }
-            foliageGroup?.remove(this.mesh);
+            if (foliageGroup) {
+                safeRemoveAndDispose(foliageGroup as unknown as THREE.Scene, this.mesh);
+            }
         }
         if (_sharedGlassGeo) {
             _sharedGlassGeo.dispose();
