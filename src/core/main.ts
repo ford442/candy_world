@@ -520,13 +520,13 @@ if (startButton) {
         const isFast = mode === 'FAST_FULL';
 
         if (btnCoreOnly) {
-            btnCoreOnly.setAttribute('aria-pressed', String(isCore));
+            btnCoreOnly.setAttribute('aria-checked', String(isCore));
         }
         if (btnFullGame) {
-            btnFullGame.setAttribute('aria-pressed', String(mode === 'FULL'));
+            btnFullGame.setAttribute('aria-checked', String(mode === 'FULL'));
         }
         if (btnFastFull) {
-            btnFastFull.setAttribute('aria-pressed', String(isFast));
+            btnFastFull.setAttribute('aria-checked', String(isFast));
         }
 
         if (modeDescription) {

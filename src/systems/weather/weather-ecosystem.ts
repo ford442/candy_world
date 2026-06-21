@@ -17,6 +17,7 @@ import { flowerBatcher } from '../../foliage/flower-batcher.ts';
 import { waterfallBatcher } from '../../foliage/waterfall-batcher.ts';
 import { musicReactivitySystem } from '../music-reactivity.ts';
 import type { WeatherSystem } from './weather.ts';
+import { safeRemoveAndDispose } from '../../utils/dispose-utils.ts';
 
 // Scratch objects for optimization
 const _scratchSunDir = new THREE.Vector3();
@@ -176,7 +177,7 @@ export class EcosystemManager {
 
             if (toRemove) {
                 // Remove from Scene so it doesn't double-register when pooled
-                if (toRemove.parent) toRemove.parent.remove(toRemove);
+                if (toRemove.parent) safeRemoveAndDispose(toRemove.parent as THREE.Scene, toRemove);
                 if (mushroomBatcher && mushroomBatcher.removeInstance) {
                     mushroomBatcher.removeInstance(toRemove);
                 }

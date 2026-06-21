@@ -137,3 +137,7 @@ Next Step: Ask the user for the next task.
 Status: Implemented ✅
 * Implementation Details: Applied "Juice" to the `TreeBatcher` component in `src/foliage/tree-batcher.ts` by adding `applyPlayerInteraction` TSL logic into the position graph for `trunkMat`, `sphereMat`, `capsuleMat`, `helixMat`, and `roseMat`.
 Next Step: Ask the user for the next task.
+
+Status: Implemented ✅
+* Implementation Details: Integrated Awakened Flora Persistence (v1) by adding `FloraPersistenceManager` in `src/systems/flora-persistence.ts` mapped directly to the Save System's `ProgressSaveData`. Auto-saves and updates state across sessions when players interact with flora.
+Next Step: Ask the user for the next task.

@@ -659,6 +659,35 @@ export function initInput(
     document.addEventListener('mousedown', onMouseDown);
     document.addEventListener('mouseup', onMouseUp);
 
+    // --- UX: Keyboard Interactions for HUD Abilities ---
+    function setupAbilityKeyboardInteractions(element: HTMLElement | null, keyCode: string) {
+        if (!element) return;
+
+        element.addEventListener('keydown', (e: KeyboardEvent) => {
+            if (e.key === 'Enter' || e.code === 'Space') {
+                e.preventDefault(); // Prevent scrolling for space
+                onKeyDown(new KeyboardEvent('keydown', { code: keyCode }));
+            }
+        });
+
+        element.addEventListener('keyup', (e: KeyboardEvent) => {
+            if (e.key === 'Enter' || e.code === 'Space') {
+                e.preventDefault();
+                onKeyUp(new KeyboardEvent('keyup', { code: keyCode }));
+            }
+        });
+
+        element.addEventListener('blur', () => {
+            // Ensure ability isn't stuck on if focus is lost while pressing
+            onKeyUp(new KeyboardEvent('keyup', { code: keyCode }));
+        });
+    }
+
+    setupAbilityKeyboardInteractions(hudDash, 'KeyE');
+    setupAbilityKeyboardInteractions(hudMine, 'KeyF');
+    setupAbilityKeyboardInteractions(hudPhase, 'KeyZ');
+    // ---------------------------------------------------
+
 
 // Cache timeouts to debounce rapid key presses
 const buttonPressTimeouts = new Map<string, NodeJS.Timeout | number>();
