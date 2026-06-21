@@ -10,11 +10,8 @@ echo "🔧 Enabling corepack + pnpm install..."
 corepack enable
 pnpm install --frozen-lockfile --prefer-offline
 
-# === Heavy steps intentionally left out of normal Jules setup ===
-# Full WASM/Emscripten builds are slow and not needed for most code edits.
-# Only run these during one-time validation or when explicitly asked:
-#   pnpm run build:wasm
-#   pnpm run build:emcc
-#   pnpm run build
+# Fix pnpm ignored builds warning (esbuild + swc are safe and needed)
+echo "🔧 Approving pnpm build scripts for esbuild and @swc/core..."
+pnpm approve-builds esbuild @swc/core 2>/dev/null || true
 
 echo "✅ [Jules] candy_world environment ready!"
