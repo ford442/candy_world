@@ -30,9 +30,9 @@ import { BiomeUniforms, uCircadianPhase } from '../systems/biome-uniforms.ts';
 import { foliageGroup } from '../world/state.ts'; // Assuming state.ts exports foliageGroup
 import { spawnImpact } from './impacts.ts';
 import { uChromaticIntensity } from './chromatic.ts';
-import { CONFIG } from '../core/config.ts';
+import { CONFIG, getCIAdjustedCount } from '../core/config.ts';
 
-const MAX_MUSHROOMS = 1000; // Reduced from 4000 for WebGPU uniform buffer limits
+const MAX_MUSHROOMS = getCIAdjustedCount(1000, 0.1, 50); // Reduced from 4000 for WebGPU uniform buffer limits
 
 // Scratch variables to prevent GC
 const _scratchMatrix = new THREE.Matrix4();

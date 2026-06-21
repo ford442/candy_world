@@ -19,9 +19,9 @@ import {
     uAudioLow, uAudioHigh, CandyPresets, registerReactiveMaterial, createJuicyRimLight
 } from './index.ts';
 import { getBiomeUniforms, type BiomeId } from '../systems/biome-uniforms.ts';
-import { foliageGroup } from '../world/state.ts';
+import { CONFIG, getCIAdjustedCount } from '../core/config.ts';
 
-const MAX_WATERFALLS = 50; // Reduced from 200 for WebGPU uniform buffer limits
+const MAX_WATERFALLS = getCIAdjustedCount(50, 0.2, 10); // Reduced from 200 for WebGPU uniform buffer limits
 const SPLASHES_PER_WATERFALL = 8;
 const MAX_SPLASHES = MAX_WATERFALLS * SPLASHES_PER_WATERFALL;
 

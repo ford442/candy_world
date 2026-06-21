@@ -29,11 +29,11 @@ import {
     luminousPlantsNoteColorNode,
     uCircadianPhase,
 } from '../systems/biome-uniforms.ts';
-import { CONFIG } from '../core/config.ts';
+import { CONFIG, getCIAdjustedCount } from '../core/config.ts';
 
 /** Visual Impact: cyan candy-glass base tint (cool bioluminescent fungus). */
 const GLASS_BASE_COLOR = 0x4DE2FF;
-const MAX_GLASS_MUSHROOMS = 600;
+const MAX_GLASS_MUSHROOMS = getCIAdjustedCount(600, 0.1, 50);
 
 // Baked proportions: wider cap, shorter stem (the brief's biomorphic silhouette).
 const STEM_H = 0.7;

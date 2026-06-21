@@ -17,8 +17,9 @@ import { PlantPoseMachine } from './plant-pose-machine.ts';
 import { BiomeUniforms } from '../systems/biome-uniforms.ts';
 import { musicReactivitySystem } from '../systems/music-reactivity.ts';
 import { camera } from '../core/camera-ref.ts';
+import { getCIAdjustedCount } from '../core/config.ts';
 
-const MAX_FLOWERS = 1000; // Reduced from 5000 for WebGPU uniform buffer limits
+const MAX_FLOWERS = getCIAdjustedCount(1000, 0.05, 50); // Reduced from 5000 for WebGPU uniform buffer limits
 const MAX_PETALS = MAX_FLOWERS * 8; // Up to 8 petals per flower (reduced from 15 for WebGPU limits)
 
 // ⚡ OPTIMIZATION: Scratch variables to prevent GC spikes during registration

@@ -36,6 +36,7 @@ import {
 } from './lod-nodes.ts';
 import { initInstanceLodAttribute, copyInstanceLodOnGrow } from './batcher-lod-utils.ts';
 import { registerFoliageBatcherLod, refreshFoliageLodMesh } from '../systems/batcher-lod.ts';
+import { getCIAdjustedCount } from '../core/config.ts';
 
 const _scratchTreeMatrix = new THREE.Matrix4();
 
@@ -44,8 +45,8 @@ const _defaultColorOrange = new THREE.Color(0xFF4500);
 const _defaultColorGreen = new THREE.Color(0x00FA9A);
 
 // Initial capacity - grows dynamically as needed (doubles each time, capped at MAX)
-const INITIAL_INSTANCES = 100;
-const MAX_INSTANCES = 500; // Cap to prevent WebGPU uniform buffer overflow (64KB limit)
+const INITIAL_INSTANCES = getCIAdjustedCount(100, 0.5, 50);
+const MAX_INSTANCES = getCIAdjustedCount(500, 0.1, 50); // Cap to prevent WebGPU uniform buffer overflow (64KB limit)
 
 export class TreeBatcher {
     private static instance: TreeBatcher;

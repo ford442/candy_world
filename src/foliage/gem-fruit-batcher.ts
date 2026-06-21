@@ -16,13 +16,14 @@ import {
 import { registerReactiveMaterial } from './foliage-reactivity.ts';
 import { foliageGroup } from '../world/state.ts';
 import { getBiomeUniforms, gemCanopyNoteColorNode, type BiomeId } from '../systems/biome-uniforms.ts';
+import { getCIAdjustedCount } from '../core/config.ts';
 
 const GEM_BIOME: BiomeId = 'gem_canopy';
 const gemUniforms = getBiomeUniforms(GEM_BIOME);
 
 /** Visual Impact: jewel base tints (ruby, sapphire, amethyst) */
 const GEM_BASE_COLORS = [0xE0115F, 0x0F52BA, 0x9966CC] as const;
-const MAX_GEMS_PER_TYPE = 512;
+const MAX_GEMS_PER_TYPE = getCIAdjustedCount(512, 0.1, 50);
 
 type GemTypeIndex = 0 | 1 | 2;
 

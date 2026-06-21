@@ -190,8 +190,10 @@ export function getSharedCloudMaterial() {
     return _sharedCloudMaterial;
 }
 
+import { getCIAdjustedCount } from '../core/config.ts';
+
 // --- Cloud Batcher ---
-const MAX_PUFFS = 400; // Reduced from 1000 for WebGPU uniform buffer limits (64KB max)
+const MAX_PUFFS = getCIAdjustedCount(400, 0.1, 50); // Reduced from 1000 for WebGPU uniform buffer limits (64KB max)
 const _scratchMat = new THREE.Matrix4();
 const _scratchWorldMat = new THREE.Matrix4();
 const _scratchPos = new THREE.Vector3();
