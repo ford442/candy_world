@@ -11,6 +11,7 @@ import {
     SaveSlotInfo
 } from '../../systems/save-system/index.js';
 import { showToast } from '../../utils/toast.ts';
+import { yieldToPaint } from '../../utils/yield-to-paint.ts';
 import type { SaveMenu } from './save-menu.js';
 
 /**
@@ -179,6 +180,7 @@ export async function handleSlotAction(
         };
 
         try {
+            await yieldToPaint();
             switch (action) {
                 case 'load':
                     await loadSave(slotId, onLoadCallback, menu);

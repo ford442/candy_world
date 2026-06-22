@@ -21,6 +21,7 @@ import { showToast } from '../../utils/toast.ts';
 import { trapFocusInside } from '../../utils/interaction-utils.ts';
 import { announce } from '../announcer.ts';
 import { MENU_STYLES } from './save-menu-styles.js';
+import { yieldToPaint } from '../../utils/yield-to-paint.ts';
 import { 
     renderLoadTab, 
     renderSaveTab, 
@@ -204,7 +205,7 @@ export class SaveMenu {
     // -------------------------------------------------------------------------
 
     private async refreshSlots(): Promise<void> {
-        this.slots = await saveSystem.listSlots();
+        this.slots = await saveSystem.getSaveSlots();
     }
 
     // -------------------------------------------------------------------------
@@ -586,6 +587,7 @@ export class SaveMenu {
                 break;
             case 'save-settings':
                 setWorkingState();
+                await yieldToPaint();
                 saveSystem.updateSettings(this.settings);
                 showToast('Settings saved!', '⚙️', 3000);
                 setTimeout(restoreState, 300); // Brief delay for visual feedback
@@ -598,16 +600,19 @@ export class SaveMenu {
                 break;
             case 'export-current':
                 setWorkingState();
+                await yieldToPaint();
                 await this.exportCurrent();
                 setTimeout(restoreState, 300);
                 break;
             case 'export-all':
                 setWorkingState();
+                await yieldToPaint();
                 await this.exportAll();
                 setTimeout(restoreState, 300);
                 break;
             case 'copy-export':
                 setWorkingState();
+                await yieldToPaint();
                 await this.copyExport();
                 setTimeout(restoreState, 300);
                 break;
