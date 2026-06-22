@@ -1,3 +1,4 @@
+import { safeRemoveAndDispose } from "../utils/dispose-utils.ts";
 import * as THREE from 'three';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import {
@@ -270,7 +271,7 @@ const ringMat = getCachedProceduralMaterial('subwoofer_lotus_ring', 0xFFFFFF, ()
             foliageGroup.remove(this.centerMesh);
         }
         for (const obj of this.logicObjects) {
-            if(obj.parent) obj.parent.remove(obj);
+            safeRemoveAndDispose(obj.parent as THREE.Scene, obj);
         }
         this.logicObjects = [];
         this._count = 0;

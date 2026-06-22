@@ -1,3 +1,4 @@
+import { safeRemoveAndDispose } from "../utils/dispose-utils.ts";
 // src/foliage/tree-batcher.ts
 // Lazy dynamic buffer growth: Starts with INITIAL_INSTANCES=100, doubles capacity as needed.
 // Reduces startup allocation from 93,000 to ~500 instances for typical maps.
@@ -383,9 +384,9 @@ export class TreeBatcher {
         newMesh.count = oldMesh.count;
         
         // Replace in scene
-        foliageGroup.remove(oldMesh);
+        safeRemoveAndDispose(foliageGroup, oldMesh);
         foliageGroup.add(newMesh);
-        this.disposeInstancedMesh(oldMesh);
+
         
         this.trunks = newMesh;
         refreshFoliageLodMesh(newMesh);
@@ -432,9 +433,9 @@ export class TreeBatcher {
         newMesh.receiveShadow = oldMesh.receiveShadow;
         newMesh.count = oldMesh.count;
         
-        foliageGroup.remove(oldMesh);
+        safeRemoveAndDispose(foliageGroup, oldMesh);
         foliageGroup.add(newMesh);
-        this.disposeInstancedMesh(oldMesh);
+
         
         this.spheres = newMesh;
         refreshFoliageLodMesh(newMesh);
@@ -481,9 +482,9 @@ export class TreeBatcher {
         newMesh.receiveShadow = oldMesh.receiveShadow;
         newMesh.count = oldMesh.count;
         
-        foliageGroup.remove(oldMesh);
+        safeRemoveAndDispose(foliageGroup, oldMesh);
         foliageGroup.add(newMesh);
-        this.disposeInstancedMesh(oldMesh);
+
         
         this.capsules = newMesh;
         refreshFoliageLodMesh(newMesh);
@@ -530,9 +531,9 @@ export class TreeBatcher {
         newMesh.receiveShadow = oldMesh.receiveShadow;
         newMesh.count = oldMesh.count;
         
-        foliageGroup.remove(oldMesh);
+        safeRemoveAndDispose(foliageGroup, oldMesh);
         foliageGroup.add(newMesh);
-        this.disposeInstancedMesh(oldMesh);
+
         
         this.helices = newMesh;
         refreshFoliageLodMesh(newMesh);
@@ -579,9 +580,9 @@ export class TreeBatcher {
         newMesh.receiveShadow = oldMesh.receiveShadow;
         newMesh.count = oldMesh.count;
         
-        foliageGroup.remove(oldMesh);
+        safeRemoveAndDispose(foliageGroup, oldMesh);
         foliageGroup.add(newMesh);
-        this.disposeInstancedMesh(oldMesh);
+
         
         this.roses = newMesh;
         refreshFoliageLodMesh(newMesh);

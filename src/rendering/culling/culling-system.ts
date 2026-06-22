@@ -1,3 +1,4 @@
+import { safeRemoveAndDispose } from "../../../utils/dispose-utils.ts";
 /**
  * @file culling-system.ts
  * @description Advanced culling and visibility system for candy_world
@@ -189,7 +190,7 @@ export class CullingSystem {
 
         if (currentMesh && newMesh) {
             // Perform LOD switch
-            obj.object.remove(currentMesh);
+            obj.object.remove(currentMesh); // Intentionally not disposing here because it is just a LOD swap
             obj.object.add(newMesh);
             obj.currentLOD = newLOD;
             this.stats.lodSwitches++;
