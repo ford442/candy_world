@@ -119,6 +119,9 @@ async function runSmokeTest() {
         '--enable-features=Vulkan,WebGPU',
         '--enable-unsafe-webgpu',
         '--disable-features=IsolateOrigins,site-per-process',
+        '--use-gl=angle',
+        '--ignore-gpu-blocklist',
+        '--disable-gpu-sandbox',
       ],
     });
 
@@ -226,6 +229,7 @@ async function runSmokeTest() {
     console.log('Waiting for window.__sceneReady (up to 25s)...');
 
     try {
+      await page.waitForTimeout(4000);
       await page.waitForFunction(
         () => (window).__sceneReady === true,
         { timeout: 25000 }
@@ -280,6 +284,7 @@ async function runSmokeTest() {
         const btn = document.getElementById('openJukeboxBtn');
         if (btn) btn.click();
       });
+      await page.waitForTimeout(4000);
       await page.waitForFunction(
         () => {
           const overlay = document.getElementById('playlist-overlay');
@@ -328,6 +333,7 @@ async function runSmokeTest() {
             if (btn) btn.click();
           });
           console.log('⏳ Waiting for full world population (up to 60s)...');
+          await page.waitForTimeout(4000);
           await page.waitForFunction(
             () => window.__worldHealth !== undefined,
             { timeout: 60000 }
@@ -421,6 +427,7 @@ async function runSmokeTest() {
       // CORE default path: optional best-effort wait for world health report
       // -----------------------------------------------------------------------
       try {
+        await page.waitForTimeout(4000);
         await page.waitForFunction(
           () => window.__worldHealth !== undefined,
           { timeout: 30000 }

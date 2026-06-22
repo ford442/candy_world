@@ -1,3 +1,4 @@
+import { isCIorHeadless } from '../core/config.ts';
 /**
  * Time-Budgeted Background Processor
  *
@@ -77,7 +78,24 @@ export class BackgroundProcessor {
     /**
      * Start processing the queue
      */
-    public start(): void {
+    public async start(): Promise<void> {
+        if (isCIorHeadless()) {
+            console.log('[BackgroundProcessor] CI/Headless mode detected, running synchronously.');
+            while (this.queue.length > 0) {
+                const task = this.queue.shift();
+                if (task) {
+                    try {
+                        const result = task.execute(); if (result instanceof Promise) { await result; }
+                        this.completedTasks++;
+                    } catch (e) {
+                        console.error(`[BackgroundProcessor] Error executing task ${task.id}:`, e);
+                        this.failedTasks++;
+                    }
+                }
+            }
+            this.onCompleteCallback?.(this.completedTasks, this.totalTasks, this.failedTasks);
+            return;
+        }
         if (this.isRunning) return;
         if (this.queue.length === 0) {
             this.onCompleteCallback?.(this.completedTasks, this.totalTasks, this.failedTasks);
