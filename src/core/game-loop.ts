@@ -1,3 +1,4 @@
+import { isCIorHeadless } from './config.ts';
 // src/core/game-loop.ts
 // Main animation loop and game state management
 
@@ -771,17 +772,17 @@ export function animate() {
         try {
             const windComputeNode = windComputeSystem.getComputeNode();
             if (windComputeNode) {
-                rendererRef.compute(windComputeNode);
+                if (!isCIorHeadless()) { rendererRef.compute(windComputeNode); }
             }
 
             if (harmonyOrbSystem.computeNode) {
-                rendererRef.compute(harmonyOrbSystem.computeNode);
+                if (!isCIorHeadless()) { rendererRef.compute(harmonyOrbSystem.computeNode); }
             }
 
             for (const obj of animatedFoliage) {
                 if (obj.userData.computeNode) {
                     if (obj.userData.type === 'waterfall' || obj.userData.isPollen) {
-                        rendererRef.compute(obj.userData.computeNode);
+                        if (!isCIorHeadless()) { rendererRef.compute(obj.userData.computeNode); }
                     }
                 }
             }
@@ -897,7 +898,7 @@ export function animate() {
     });
 
     // uBloomStrength is driven by atmosphere-reactivity.ts (also synced to WebGL bloom in post-processing render).
-    profiler.measure('Render', () => postProcessingRef.render());
+    if (!isCIorHeadless()) { profiler.measure('Render', () => postProcessingRef.render()); }
 
     profiler.endFrame();
 }

@@ -1,3 +1,4 @@
+import { isCIorHeadless } from './config.ts';
 // src/core/main.ts
 // Main entry point - Core initialization and game startup
 
@@ -64,7 +65,7 @@ let scene: any, camera: any, renderer: any;
 export { scene, camera, renderer, player, addCameraShake };
 
 // --- Initialize Loading Screen (replaces old spinner overlay) ---
-if (CONFIG.safeMode) {
+if (CONFIG.safeMode || isCIorHeadless()) {
     console.warn('[Startup] safeMode active (?safe=1) — shader warmup and compute disabled');
     (window as any).__computeDisabled = true;
 }
@@ -422,7 +423,7 @@ loadingScreen.completePhase('wasm-init');
 // --- SHADER WARMUP (before loop starts to prevent first-frame stutter) ---
 (async function warmupAndStartLoop() {
     await StageLoader.loadStage('shaderWarmup', async () => {
-        if (CONFIG.safeMode) {
+        if (CONFIG.safeMode || isCIorHeadless()) {
             console.warn('[Startup] safeMode active — skipping shader warmup and compileAsync');
             return;
         }
@@ -436,6 +437,10 @@ loadingScreen.completePhase('wasm-init');
         let batchCount = 0;
 
         try {
+            if (CONFIG.safeMode || isCIorHeadless()) {
+                console.warn('[Startup] safeMode active — skipping shader warmup');
+                return;
+            }
             const warmup = new ShaderWarmup();
             const targets = warmup.getTargets();
 
@@ -803,7 +808,7 @@ if (startButton) {
                 }
             });
 
-            globalBackgroundProcessor.start();
+            await globalBackgroundProcessor.start();
 
             worldGenerated = true;
             startButton.style.background = '';
