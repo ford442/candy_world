@@ -141,3 +141,7 @@ Next Step: Ask the user for the next task.
 Status: Implemented ✅
 * Implementation Details: Integrated Awakened Flora Persistence (v1) by adding `FloraPersistenceManager` in `src/systems/flora-persistence.ts` mapped directly to the Save System's `ProgressSaveData`. Auto-saves and updates state across sessions when players interact with flora.
 Next Step: Ask the user for the next task.
+
+Status: Implemented ✅
+* Implementation Details: Implemented TSL Volumetric God Rays + selective DoF (#1173). Replaced standard material opacity in `src/core/init.ts` with volumetric `uv()` fading to prevent hard intersections, and updated `_updateDepthOfField` in `src/core/game-loop.ts` to dynamically boost DoF mix based on active light shaft opacity, enhancing the cinematic feel.
+Next Step: Ask the user for the next task, potentially `#1134` (Stable release process) or `#1136` (Consolidate LoadingScreen).

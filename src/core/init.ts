@@ -2,7 +2,7 @@
 
 import * as THREE from 'three';
 import { DisplayP3ColorSpace } from './three-compat.ts';
-import { color, uniform } from 'three/tsl';
+import { color, uniform, uv, float, smoothstep } from 'three/tsl';
 import type UniformNode from 'three/src/nodes/core/UniformNode.js';
 import WebGPU from 'three/examples/jsm/capabilities/WebGPU.js';
 import { WebGPURenderer, MeshBasicNodeMaterial, StorageInstancedBufferAttribute, StorageBufferAttribute } from 'three/webgpu';
@@ -263,8 +263,21 @@ export function initScene(): SceneInitResult {
             side: THREE.DoubleSide,
             depthWrite: false
         });
-        // Link opacity to a global TSL uniform
-        (shaftMaterial as MeshBasicNodeMaterial).opacityNode = uShaftOpacity;
+
+        // TSL Volumetric God Rays:
+        // Fade out horizontally at edges to prevent hard intersections
+        const uvNode = uv();
+        // Use proper boundaries: edge0 < edge1, then invert the result for the right side
+        const leftFade = smoothstep(0.0, 0.4, uvNode.x);
+        const rightFade = float(1.0).sub(smoothstep(0.6, 1.0, uvNode.x));
+        const fadeX = leftFade.mul(rightFade);
+
+        // Fade vertically to give a sense of scattering/dissipation (invert correctly)
+        const fadeY = float(1.0).sub(smoothstep(0.0, 1.0, uvNode.y)).pow(float(1.5));
+
+        // Link combined soft edges to global TSL uniform
+        const softOpacity = fadeX.mul(fadeY).mul(uShaftOpacity);
+        (shaftMaterial as MeshBasicNodeMaterial).opacityNode = softOpacity;
     } else {
         // WebGL fallback: use standard material with static opacity
         // Note: Opacity is updated dynamically in game-loop.ts based on sunrise/sunset.
