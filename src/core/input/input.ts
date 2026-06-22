@@ -682,10 +682,6 @@ export function initInput(
             onKeyUp(new KeyboardEvent('keyup', { code: keyCode }));
         });
     }
-
-    setupAbilityKeyboardInteractions(hudDash, 'KeyE');
-    setupAbilityKeyboardInteractions(hudMine, 'KeyF');
-    setupAbilityKeyboardInteractions(hudPhase, 'KeyZ');
     // ---------------------------------------------------
 
 
@@ -777,66 +773,10 @@ function triggerButtonPress(buttonId: string): void {
 
     // --- UX: Interactive Ability HUD ---
     // (Variables moved to top of initInput)
-
-    if (hudDash) {
-        hudDash.addEventListener('click', (e) => {
-            e.stopPropagation();
-            if (isExploreActive()) return;
-            if (hudDash.getAttribute('aria-disabled') !== 'true') {
-                triggerAbility('dash', hudDash);
-            }
-        });
-        // Add keyboard activation for accessibility (Enter/Space)
-        hudDash.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                e.stopPropagation();
-                if (hudDash.getAttribute('aria-disabled') !== 'true') {
-                    triggerAbility('dash', hudDash);
-                }
-            }
-        });
-    }
-
-    if (hudMine) {
-        hudMine.addEventListener('click', (e) => {
-            e.stopPropagation();
-            if (isExploreActive()) return;
-            if (hudMine.getAttribute('aria-disabled') !== 'true') {
-                triggerAbility('action', hudMine); // 'action' corresponds to Jitter Mine (KeyF)
-            }
-        });
-        // Add keyboard activation for accessibility (Enter/Space)
-        hudMine.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                e.stopPropagation();
-                if (hudMine.getAttribute('aria-disabled') !== 'true') {
-                    triggerAbility('action', hudMine);
-                }
-            }
-        });
-    }
-
-    if (hudPhase) {
-        hudPhase.addEventListener('click', (e) => {
-            e.stopPropagation();
-            if (isExploreActive()) return;
-            if (hudPhase.getAttribute('aria-disabled') !== 'true') {
-                triggerAbility('phase', hudPhase);
-            }
-        });
-        // Add keyboard activation for accessibility (Enter/Space)
-        hudPhase.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                e.stopPropagation();
-                if (hudPhase.getAttribute('aria-disabled') !== 'true') {
-                    triggerAbility('phase', hudPhase);
-                }
-            }
-        });
-    }
+    // Wire up the unified keyboard + click handling for ability buttons
+    setupAbilityKeyboardInteractions(hudDash, 'KeyE');
+    setupAbilityKeyboardInteractions(hudMine, 'KeyF');
+    setupAbilityKeyboardInteractions(hudPhase, 'KeyZ');
 
     const openA11yBtn = document.getElementById('openA11yBtn');
     if (openA11yBtn) {
