@@ -342,7 +342,12 @@ function _updateDepthOfField(delta: number): void {
     const prox = CONFIG.postfx.dofProximity;
     // Proximity ramp: full DoF within (prox-2), fading out by (prox+6).
     const proxMix = 1.0 - THREE.MathUtils.smoothstep(nearest, prox - 2.0, prox + 6.0);
-    const targetMix = _dofManual ? 1.0 : proxMix;
+
+    // TSL Volumetric God Rays: boost DoF when shafts are highly visible
+    const shaftBoost = uShaftOpacityRef ? (uShaftOpacityRef.value * 2.0) : 0.0;
+    const combinedMix = THREE.MathUtils.clamp(proxMix + shaftBoost, 0.0, 1.0);
+
+    const targetMix = _dofManual ? 1.0 : combinedMix;
 
     // Focus-follow: settle the focal plane on the flora we're approaching; otherwise rest.
     const targetFocus = CONFIG.postfx.dofFocusFollow
