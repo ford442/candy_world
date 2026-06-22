@@ -1,6 +1,7 @@
 // src/core/init.ts
 
 import * as THREE from 'three';
+import { DisplayP3ColorSpace } from './three-compat.ts';
 import { color, uniform } from 'three/tsl';
 import type UniformNode from 'three/src/nodes/core/UniformNode.js';
 import WebGPU from 'three/examples/jsm/capabilities/WebGPU.js';
@@ -181,7 +182,7 @@ export function initScene(): SceneInitResult {
             console.log('[Init] HDR supported, configuring WebGPURenderer for extended dynamic range and Display P3.');
             try {
                 // Fallback to string literals since THREE.DisplayP3ColorSpace might not be available in this three.js version
-                webgpuRenderer.outputColorSpace = 'display-p3' as THREE.ColorSpace;
+                webgpuRenderer.outputColorSpace = DisplayP3ColorSpace;
             } catch (e) {
                 console.warn('[Init] Failed to set display-p3, falling back to srgb.');
                 webgpuRenderer.outputColorSpace = 'srgb';

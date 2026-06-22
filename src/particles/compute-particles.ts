@@ -29,6 +29,7 @@
  */
 
 import * as THREE from 'three';
+import { isCIorHeadless } from '../core/config.ts';
 import { 
     MeshStandardNodeMaterial, 
     PointsNodeMaterial, 
