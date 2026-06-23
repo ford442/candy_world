@@ -332,13 +332,15 @@ function _updateDepthOfField(delta: number): void {
 
     const px = player.position.x;
     const pz = player.position.z;
-    let nearest = Infinity;
+    // ⚡ OPTIMIZATION: Deferred Math.sqrt() by tracking squared distances in the hot loop
+    let nearestSq = Infinity;
     for (let i = 0; i < _DOF_FLORA_ZONES.length; i++) {
         const dx = px - _DOF_FLORA_ZONES[i][0];
         const dz = pz - _DOF_FLORA_ZONES[i][1];
-        const d = Math.sqrt(dx * dx + dz * dz);
-        if (d < nearest) nearest = d;
+        const dSq = dx * dx + dz * dz;
+        if (dSq < nearestSq) nearestSq = dSq;
     }
+    const nearest = nearestSq === Infinity ? Infinity : Math.sqrt(nearestSq);
 
     const prox = CONFIG.postfx.dofProximity;
     // Proximity ramp: full DoF within (prox-2), fading out by (prox+6).
