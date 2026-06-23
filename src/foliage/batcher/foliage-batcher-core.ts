@@ -23,6 +23,7 @@ import {
     getAverageVolume,
     getPanActivity
 } from './foliage-batcher-audio.ts';
+import { isCIorHeadless } from '../../core/config.ts';
 import {
     applySnareSnap,
     applyAccordion,
@@ -235,6 +236,12 @@ export class FoliageBatcher {
         const instance = getWasmInstance();
         if (this.extendedInitialized || !instance) return;
 
+        if (isCIorHeadless()) {
+            console.log('[FoliageBatcher] Skipping extended WASM allocation in CI to prevent crash');
+            this.extendedInitialized = true;
+            return;
+        }
+
         let currentOffset = EXTENDED_BATCH_START;
         const batchSize = (BATCH_SIZE * ENTRY_SIZE) + (BATCH_SIZE * RESULT_STRIDE * 4);
 
@@ -274,6 +281,12 @@ export class FoliageBatcher {
     private initSimpleBatches() {
         const instance = getWasmInstance();
         if (this.simpleBatchesInitialized || !instance) return;
+
+        if (isCIorHeadless()) {
+            console.log('[FoliageBatcher] Skipping simple WASM allocation in CI to prevent crash');
+            this.simpleBatchesInitialized = true;
+            return;
+        }
 
         let currentOffset = EXTENDED_BATCH_START + (BATCH_SIZE * (ENTRY_SIZE + RESULT_STRIDE * 4) * 9); // After existing batches
         const batchSize = (BATCH_SIZE * ENTRY_SIZE) + (BATCH_SIZE * RESULT_STRIDE * 4);

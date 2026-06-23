@@ -255,6 +255,11 @@ export class SubwooferLotusBatcher {
         this.logicObjects = [];
         this._count = 0;
     }
+
+    flushRegistrations(): void {
+        // No-op: SubwooferLotusBatcher registers immediately in register()
+        // This exists only for API compatibility with other batchers
+    }
 }
 
 export const subwooferLotusBatcher = new SubwooferLotusBatcher();

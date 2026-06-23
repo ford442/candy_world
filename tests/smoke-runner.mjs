@@ -202,13 +202,14 @@ async function runSmokeTest() {
     // so the particle systems know to scale down their buffer allocations early
     await page.addInitScript(() => {
       window.__IS_FULL_BOOT_TEST = true;
+      window.__IS_CI_TEST = true;
       localStorage.setItem('__IS_FULL_BOOT_TEST', 'true');
     });
 
     // Navigate to localhost:4173
-    console.log('\nNavigating to http://localhost:4173');
+    console.log('\nNavigating to http://localhost:4173/?ci=true');
     try {
-      await page.goto('http://localhost:4173', {
+      await page.goto('http://localhost:4173/?ci=true', {
         waitUntil: 'domcontentloaded',
         timeout: 30000,
       });

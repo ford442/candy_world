@@ -76,11 +76,6 @@ let warmupMetrics = {
 // Generation chunk streaming counter
 let generationChunksStreamed = 0;
 
-// UI Elements
-let overlayContainer: HTMLElement | null = null;
-let overlayCanvas: HTMLCanvasElement | null = null;
-let overlayCtx: CanvasRenderingContext2D | null = null;
-
 // Original console methods (for hooking)
 let originalConsoleTime: typeof console.time;
 let originalConsoleTimeEnd: typeof console.timeEnd;
@@ -526,6 +521,8 @@ function outputReportToConsole(report: StartupReport): void {
 // Overlay UI
 // ============================================================================
 import { createOverlay, drawOverlay, hideOverlay, showOverlay } from './startup-profiler-ui.ts';
+import { toggleOverlay } from './startup-profiler-ui.ts';
+
 // ============================================================================
 // Public API
 // ============================================================================
@@ -644,16 +641,6 @@ export function finalizeStartupProfile(): StartupReport {
   return report;
 }
 
-/**
- * Toggle the profiler overlay visibility
- */
-export function toggleOverlay(): void {
-  if (!overlayContainer || overlayContainer.style.display === 'none') {
-    showOverlay();
-  } else {
-    hideOverlay();
-  }
-}
 
 /**
  * Get current profiler status
@@ -715,3 +702,4 @@ export default {
   recordTSLCompile,
   recordCustomPhase,
 };
+export { toggleOverlay };

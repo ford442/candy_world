@@ -242,6 +242,30 @@ export interface ConfigType {
     };
 }
 
+// Runtime detection (runs early)
+export const isCIorHeadless = (): boolean => {
+    const isFullBoot =
+      (window as any).__IS_FULL_BOOT_TEST === true ||
+      localStorage.getItem('__IS_FULL_BOOT_TEST') === 'true';
+
+    const checks = {
+      __IS_FULL_BOOT_TEST: isFullBoot,
+      __IS_CI_TEST: (window as any).__IS_CI_TEST === true,
+      __IS_HEADLESS: (window as any).__IS_HEADLESS === true,
+      uaHeadless: navigator.userAgent.includes('Headless'),
+      uaPlaywright: navigator.userAgent.includes('Playwright'),
+      innerWidthZero: window.innerWidth === 0,
+      testModeClass: document.documentElement.classList.contains('test-mode'),
+      ciParam: new URLSearchParams(window.location.search).get('ci') === 'true',
+    };
+
+    const result = Object.values(checks).some(Boolean);
+
+    console.log('[DEBUG] isCIorHeadless →', result ? 'TRUE ✓' : 'FALSE ✗', checks, 'URL=', window.location.href);
+
+    return result;
+  };
+
 export const CONFIG: ConfigType = {
     safeMode: typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('safe'),
     terrain: {

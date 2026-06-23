@@ -11,6 +11,7 @@ import {
 import { BiomeId } from '../systems/biome-uniforms.ts';
 import { computeWaveDistSq } from '../systems/music-reactivity.ts';
 import { foliageGroup } from '../world/state.ts';
+import { computeWaveTimeSinceArrival } from '../systems/music-reactivity-core.ts';
 
 const MAX_GEYSERS = 500;
 
@@ -147,7 +148,7 @@ export class KickDrumGeyserBatcher {
             this._scratchPos.set(x, y, z);
 
             // Calculate distance-based wave timing
-            const waveTime = computeWaveTimeSinceArrival(activeWave, this._scratchPos);
+            const waveTime = computeWaveTimeSinceArrival(this._scratchPos, activeWave);
 
             // Simulate local kick intensity. If wave hasn't reached, it's 0.
             // If it reached recently, apply a sharp spike that decays.

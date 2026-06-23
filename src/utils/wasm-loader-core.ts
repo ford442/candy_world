@@ -89,7 +89,7 @@ export let wasmUpdateParticles: ((positionsPtr: number, count: number, dt: numbe
 export let wasmSpawnBurst: ((outputPtr: number, count: number, centerX: number, centerY: number, centerZ: number, speed: number, time: number) => void) | null = null;
 
 export * from './wasm-loader-cpp.ts';
-import { initCppFunctions } from './wasm-loader-cpp.ts';
+import { initCppFunctions, setEmscriptenInstance, emscriptenInstance } from './wasm-loader-cpp.ts';
 
 // =============================================================================
 // CONSTANTS
@@ -467,7 +467,8 @@ export async function loadEmscriptenModule(forceSingleThreaded = false): Promise
             };
 
             // Initialize Emscripten (will use Native WA for Memory creation)
-            emscriptenInstance = await createCandyNative(config);
+            const instance = await createCandyNative(config);
+            setEmscriptenInstance(instance);
 
             console.log(`[WASM] Emscripten ${isThreaded ? 'Pthreads' : 'Single-Threaded'} Ready`);
         } catch (e) {

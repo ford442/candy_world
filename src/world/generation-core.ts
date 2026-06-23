@@ -37,6 +37,7 @@ import { subwooferLotusBatcher } from '../foliage/subwoofer-lotus-batcher.ts';
 
 let loadedMapPromise: Promise<LoadedCandyMap> | null = null;
 
+// Single source of truth. Used to invalidate stale procedural generation tasks.
 export let worldGenerationToken = 0;
 registerBuiltinWorldObjectTypes();
 
@@ -386,8 +387,6 @@ function applyDreamyPopIn(obj: THREE.Object3D): void {
     };
     requestAnimationFrame(tick);
 }
-
-export let worldGenerationToken = 0;
 
 export async function generateMap(
     weatherSystem: WeatherSystem,

@@ -503,14 +503,14 @@ export class MusicReactivitySystem {
         this.moonState.blinkStartTime = performance.now();
     }
 
-    private updateFoliageAnimationLoop(time: number, deltaTime: number, audioState: AudioData | null, cpuAnimatedFoliage: FoliageObject[], camera: THREE.Camera, isDay: boolean, isDeepNight: boolean) {
+    private updateFoliageAnimationLoop(time: number, deltaTime: number, audioState: AudioData | null, cpuAnimatedFoliage: FoliageObject[], camera: THREE.Camera, isDayParameter: boolean, isDeepNight: boolean) {
 // 3. Update Foliage Animation Loop
     if (cpuAnimatedFoliage && camera) {
         // Update Frustum for Culling
         _projScreenMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
         _frustum.setFromProjectionMatrix(_projScreenMatrix);
 
-        const isDay = !isNight;
+        const isDay = isDayParameter;
 
         // ⚡ PERFORMANCE: Debug counters
         let totalObjects = 0;
@@ -809,10 +809,12 @@ export class MusicReactivitySystem {
     }
 
     private updateLuminousPlants(audioState: AudioData | null) {
+        const isNight = this.weatherSystem?.isNight?.() ?? true;
 // ---------------------------------------------------------------
         // ⚡ LUMINOUS PLANTS (Scenic System)
         // Tracker channel defined in assets/music-bindings.json.
         // ---------------------------------------------------------------
+        const channels = audioState?.channelData;
         if (channels && MRState.luminousPlantTrackerChannel < channels.length) {
             const lpData = channels[MRState.luminousPlantTrackerChannel];
 
@@ -842,7 +844,7 @@ export class MusicReactivitySystem {
         SkyUniforms.intensity.value = isNight ? Math.min(MRState.smoothedSkyIntensity, 1.0) : 0.0;
     }
 
-    private updateSkyWavePropagation(audioState: AudioData | null, isDay: boolean, cameraPosition?: THREE.Vector3) {
+    private updateSkyWavePropagation(audioState: AudioData | null, isDay: boolean, cameraPosition?: THREE.Vector3, deltaTime: number = 0.016) {
         const nightGate = isDay ? 0.0 : 1.0;
 // ---------------------------------------------------------------
         // ⚡ SKY WAVE — Per-channel MOD note-color wave propagation
@@ -1026,7 +1028,7 @@ export class MusicReactivitySystem {
             SkyUniforms.noteIndex.value = MRState.lastSkyNoteIndex;
                     this.updateLuminousPlants(audioState);
 
-        this.updateSkyWavePropagation(audioState, !isNight, camera.position);
+    this.updateSkyWavePropagation(audioState, !isNight, camera.position, deltaTime);
         }
 
     updateMoon(time: number, deltaTime: number) {

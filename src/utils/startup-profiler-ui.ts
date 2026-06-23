@@ -2,6 +2,10 @@ import { PhaseTiming, InstancedMeshMetrics, WebGPUMetrics, ProfilerConfig, Start
 import { formatBytes, formatDuration, getMemoryUsage } from './startup-profiler-utils.ts';
 
 
+let overlayContainer: HTMLElement | null = null;
+let overlayCanvas: HTMLCanvasElement | null = null;
+let overlayCtx: CanvasRenderingContext2D | null = null;
+
 export function createOverlay(): void {
   if (overlayContainer) return;
 
@@ -239,5 +243,16 @@ export function hideOverlay(): void {
     setTimeout(() => {
       if (overlayContainer) overlayContainer.style.display = 'none';
     }, 300);
+  }
+}
+
+/**
+ * Toggle the profiler overlay visibility
+ */
+export function toggleOverlay(): void {
+  if (!overlayContainer || overlayContainer.style.display === 'none') {
+    showOverlay();
+  } else {
+    hideOverlay();
   }
 }

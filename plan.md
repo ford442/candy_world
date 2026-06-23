@@ -105,3 +105,6 @@ Status: Implemented ✅
 Next Step: Ask the user for the next task.
 * Implementation Details: Applied "Juice" to the `flowers.ts` component by adding `calculateWindSway` and `applyPlayerInteraction` TSL logic into the position graph so that it responds dynamically to weather and player forces.
 Next Step: Ask the user for the next task.
+
+Status: Implemented ✅
+* Implementation Details: Stabilized headless CI boot by adding synchronous task drain in `BackgroundProcessor.start()` for CI/headless. Expanded `isCIorHeadless()` guards across music reactivity, compute, foliage, and rendering to bypass heavy memory allocations. Fixed `computeWaveTimeSinceArrival` import and argument order. Fixed `overlayCtx` scoping in `startup-profiler-ui.ts`.
