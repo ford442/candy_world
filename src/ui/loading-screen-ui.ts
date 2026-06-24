@@ -104,8 +104,9 @@ export class LoadingScreen {
     private createDOM(): void {
         if (typeof document === 'undefined') return;
 
-        // Create Deferred HUD Indicator
-        if (!document.getElementById('candy-deferred-indicator')) {
+        // Try to find the existing Deferred HUD Indicator from index.html
+        this.deferredIndicator = document.getElementById('candy-deferred-indicator');
+        if (!this.deferredIndicator) {
             this.deferredIndicator = document.createElement('div');
             this.deferredIndicator.id = 'candy-deferred-indicator';
             this.deferredIndicator.className = 'deferred-indicator';
@@ -114,135 +115,153 @@ export class LoadingScreen {
             document.body.appendChild(this.deferredIndicator);
         }
 
-        // Check if already exists
-        if (document.getElementById('candy-loading-screen')) {
-            this.container = document.getElementById('candy-loading-screen');
-            this.overlay = document.getElementById('candy-loading-overlay');
-            return;
-        }
+        // Check if loading screen already exists in index.html (FCP Optimization)
+        this.container = document.getElementById('candy-loading-screen');
+        this.overlay = document.getElementById('candy-loading-overlay');
 
-        // Create overlay
-        this.overlay = document.createElement('div');
-        this.overlay.id = 'candy-loading-overlay';
-        this.overlay.className = `loading-overlay theme-${this.options.theme}`;
-        this.overlay.setAttribute('role', 'dialog');
-        this.overlay.setAttribute('aria-modal', 'true');
+        if (!this.container || !this.overlay) {
+            // Fallback: Create overlay
+            this.overlay = document.createElement('div');
+            this.overlay.id = 'candy-loading-overlay';
+            this.overlay.className = `loading-overlay theme-${this.options.theme}`;
+            this.overlay.setAttribute('role', 'dialog');
+            this.overlay.setAttribute('aria-modal', 'true');
 
-        // Create main container
-        this.container = document.createElement('div');
-        this.container.id = 'candy-loading-screen';
-        this.container.className = `loading-screen theme-${this.options.theme}`;
-        this.container.setAttribute('role', 'progressbar');
-        this.container.setAttribute('aria-valuemin', '0');
-        this.container.setAttribute('aria-valuemax', '100');
-        this.container.setAttribute('aria-valuenow', '0');
-        this.container.setAttribute('aria-label', 'Game loading progress');
-        this.container.setAttribute('aria-live', 'polite');
-        this.container.setAttribute('aria-atomic', 'true');
+            // Fallback: Create main container
+            this.container = document.createElement('div');
+            this.container.id = 'candy-loading-screen';
+            this.container.className = `loading-screen theme-${this.options.theme}`;
+            this.container.setAttribute('role', 'progressbar');
+            this.container.setAttribute('aria-valuemin', '0');
+            this.container.setAttribute('aria-valuemax', '100');
+            this.container.setAttribute('aria-valuenow', '0');
+            this.container.setAttribute('aria-label', 'Game loading progress');
+            this.container.setAttribute('aria-live', 'polite');
+            this.container.setAttribute('aria-atomic', 'true');
 
-        // Create content wrapper
-        const content = document.createElement('div');
-        content.className = 'loading-content';
+            // Create content wrapper
+            const content = document.createElement('div');
+            content.className = 'loading-content';
 
-        // Title
-        const title = document.createElement('h1');
-        title.className = 'loading-title';
-        title.innerHTML = '🍭 Candy World <span class="loading-dots">...</span>';
-        content.appendChild(title);
+            // Title
+            const title = document.createElement('h1');
+            title.className = 'loading-title';
+            title.innerHTML = '🍭 Candy World <span class="loading-dots">...</span>';
+            content.appendChild(title);
 
-        // Spinner
-        this.spinner = document.createElement('div');
-        this.spinner.className = 'loading-spinner';
-        this.spinner.setAttribute('aria-hidden', 'true');
-        content.appendChild(this.spinner);
+            // Spinner
+            this.spinner = document.createElement('div');
+            this.spinner.className = 'loading-spinner';
+            this.spinner.setAttribute('aria-hidden', 'true');
+            content.appendChild(this.spinner);
 
-        // Progress section
-        const progressSection = document.createElement('div');
-        progressSection.className = 'progress-section';
+            // Progress section
+            const progressSection = document.createElement('div');
+            progressSection.className = 'progress-section';
 
-        // Progress bar container
-        this.progressBar = document.createElement('div');
-        this.progressBar.className = 'progress-bar';
+            // Progress bar container
+            this.progressBar = document.createElement('div');
+            this.progressBar.className = 'progress-bar';
 
-        // Progress fill
-        this.progressFill = document.createElement('div');
-        this.progressFill.className = 'progress-fill';
-        this.progressFill.style.transform = 'scaleX(0)';
-        this.progressFill.style.transformOrigin = 'left';
-        this.progressBar.appendChild(this.progressFill);
+            // Progress fill
+            this.progressFill = document.createElement('div');
+            this.progressFill.className = 'progress-fill';
+            this.progressFill.style.transform = 'scaleX(0)';
+            this.progressFill.style.transformOrigin = 'left';
+            this.progressBar.appendChild(this.progressFill);
 
-        // Progress details
-        const progressDetails = document.createElement('div');
-        progressDetails.className = 'progress-details';
+            // Progress details
+            const progressDetails = document.createElement('div');
+            progressDetails.className = 'progress-details';
 
-        // Percentage text
-        this.percentageText = document.createElement('span');
-        this.percentageText.className = 'progress-percentage';
-        this.percentageText.textContent = '0%';
+            // Percentage text
+            this.percentageText = document.createElement('span');
+            this.percentageText.className = 'progress-percentage';
+            this.percentageText.textContent = '0%';
 
-        // Task description
-        this.taskText = document.createElement('span');
-        this.taskText.className = 'progress-task';
-        this.taskText.textContent = 'Initializing...';
+            // Task description
+            this.taskText = document.createElement('span');
+            this.taskText.className = 'progress-task';
+            this.taskText.textContent = 'Initializing...';
 
-        progressDetails.appendChild(this.percentageText);
-        progressDetails.appendChild(this.taskText);
+            progressDetails.appendChild(this.percentageText);
+            progressDetails.appendChild(this.taskText);
 
-        progressSection.appendChild(this.progressBar);
-        progressSection.appendChild(progressDetails);
-        content.appendChild(progressSection);
+            progressSection.appendChild(this.progressBar);
+            progressSection.appendChild(progressDetails);
+            content.appendChild(progressSection);
 
-        // Time remaining
-        if (this.options.showEstimatedTime) {
-            this.timeText = document.createElement('div');
-            this.timeText.className = 'time-remaining';
-            this.timeText.textContent = 'Calculating time...';
-            content.appendChild(this.timeText);
-        }
+            // Time remaining
+            if (this.options.showEstimatedTime) {
+                this.timeText = document.createElement('div');
+                this.timeText.className = 'time-remaining';
+                this.timeText.textContent = 'Calculating time...';
+                content.appendChild(this.timeText);
+            }
 
-        // Skip button (for deferred phases)
-        if (this.options.allowSkipDeferred) {
-            this.skipButton = document.createElement('button');
-            this.skipButton.className = 'skip-button';
-            this.skipButton.innerHTML = '<span aria-hidden="true">⏭️ </span>Skip Optional Content';
-            this.skipButton.style.display = 'none';
-            this.skipButton.addEventListener('click', () => this.skipCurrentPhase());
-            this.skipButton.addEventListener('keydown', (e: KeyboardEvent) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                    this.skipButton!.classList.add('keyboard-active');
-                    setTimeout(() => this.skipButton!.classList.remove('keyboard-active'), 150);
-                }
+            // Skip button (for deferred phases)
+            if (this.options.allowSkipDeferred) {
+                this.skipButton = document.createElement('button');
+                this.skipButton.className = 'skip-button';
+                this.skipButton.innerHTML = '<span aria-hidden="true">⏭️ </span>Skip Optional Content';
+                this.skipButton.style.display = 'none';
+                this.skipButton.addEventListener('click', () => this.skipCurrentPhase());
+                this.skipButton.addEventListener('keydown', (e: KeyboardEvent) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        this.skipButton!.classList.add('keyboard-active');
+                        setTimeout(() => this.skipButton!.classList.remove('keyboard-active'), 150);
+                    }
+                });
+                content.appendChild(this.skipButton);
+            }
+
+            // Status indicators
+            const statusIndicators = document.createElement('div');
+            statusIndicators.className = 'status-indicators';
+
+            this.phases.forEach((phase, index) => {
+                const indicator = document.createElement('div');
+                indicator.className = 'phase-indicator';
+                indicator.dataset.phaseId = phase.id;
+                indicator.dataset.phaseIndex = index.toString();
+
+                const dot = document.createElement('span');
+                dot.className = 'phase-dot';
+
+                const label = document.createElement('span');
+                label.className = 'phase-label';
+                label.textContent = phase.name;
+
+                indicator.appendChild(dot);
+                indicator.appendChild(label);
+                statusIndicators.appendChild(indicator);
             });
-            content.appendChild(this.skipButton);
+
+            content.appendChild(statusIndicators);
+
+            this.container.appendChild(content);
+            this.overlay.appendChild(this.container);
+            document.body.appendChild(this.overlay);
+        } else {
+            // FCP Element wiring: Grab references to existing HTML components
+            this.spinner = this.container.querySelector('.loading-spinner') as HTMLElement;
+            this.progressBar = this.container.querySelector('.progress-bar') as HTMLElement;
+            this.progressFill = this.container.querySelector('.progress-fill') as HTMLElement;
+            this.percentageText = this.container.querySelector('.progress-percentage') as HTMLElement;
+            this.taskText = this.container.querySelector('.progress-task') as HTMLElement;
+            this.timeText = this.container.querySelector('.time-remaining') as HTMLElement;
+            this.skipButton = this.container.querySelector('.skip-button') as HTMLButtonElement;
+
+            if (this.skipButton) {
+                this.skipButton.addEventListener('click', () => this.skipCurrentPhase());
+                this.skipButton.addEventListener('keydown', (e: KeyboardEvent) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        this.skipButton!.classList.add('keyboard-active');
+                        setTimeout(() => this.skipButton!.classList.remove('keyboard-active'), 150);
+                    }
+                });
+            }
         }
-
-        // Status indicators
-        const statusIndicators = document.createElement('div');
-        statusIndicators.className = 'status-indicators';
-
-        this.phases.forEach((phase, index) => {
-            const indicator = document.createElement('div');
-            indicator.className = 'phase-indicator';
-            indicator.dataset.phaseId = phase.id;
-            indicator.dataset.phaseIndex = index.toString();
-
-            const dot = document.createElement('span');
-            dot.className = 'phase-dot';
-
-            const label = document.createElement('span');
-            label.className = 'phase-label';
-            label.textContent = phase.name;
-
-            indicator.appendChild(dot);
-            indicator.appendChild(label);
-            statusIndicators.appendChild(indicator);
-        });
-
-        content.appendChild(statusIndicators);
-
-        this.container.appendChild(content);
-        this.overlay.appendChild(this.container);
-        document.body.appendChild(this.overlay);
 
         if (this.options.debug) {
             console.log('[LoadingScreen] DOM created');
