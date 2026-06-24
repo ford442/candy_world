@@ -274,6 +274,12 @@ export async function populateGemCanopyCorridor(weatherSystem: WeatherSystem): P
         tree.position.set(x, y, z);
         tree.rotation.y = Math.atan2(dx, dz) + (Math.random() - 0.5) * 0.35;
         tree.userData.biome = 'gem_canopy';
+        tree.userData.mapEntityType = 'gem_canopy_tree';
+        tree.userData.mapExport = {
+            type: 'gem_canopy_tree',
+            provenance: 'procedural-extra',
+            placement: 'ground'
+        };
         const placed = safeAddFoliage(tree, true, 1.5, weatherSystem);
         recordSpawnAttempt('gem_canopy_tree', placed, placed ? undefined : new Error('placement failed'));
 
@@ -292,6 +298,13 @@ export async function populateGemCanopyCorridor(weatherSystem: WeatherSystem): P
             ? create('portamento_pine', { height: 4.0 + Math.random() * 1.5 })
             : create('bubble_willow');
         if (!tree) continue;
+        const exportType = usePine ? 'portamento_pine' : 'bubble_willow';
+        tree.userData.mapEntityType = exportType;
+        tree.userData.mapExport = {
+            type: exportType,
+            provenance: 'procedural-extra',
+            placement: 'ground'
+        };
         tree.userData.attachGemFruits = true;
         tree.position.set(x, y, z);
         tree.rotation.y = Math.random() * Math.PI * 2;

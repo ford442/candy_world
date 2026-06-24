@@ -32,7 +32,7 @@ Routine will mark picked items as "[in progress — YYYY-MM-DD]".
 **User idea pool — GitHub issues filed 2026-06-09 (Noah's in-context backlog, primary source this phase):**
 - [x] **#1169 Music-Reactive Atmosphere Bridge** — audio → bloom/fog/light-shafts. LANDED 2026-06-23 (#1221).
 - [x] **#1168 WebGL2 fallback renderer** — toggleable WebGLRenderer alongside WebGPU for debugging/CI/agent porting; unblocks visual inspection. Foundational for several others.
-- [ ] **#1170 Gem Canopy** — hanging faceted crystal fruits on trees (`GemFruitBatcher`), music-channel shimmer. Signature scenic biome. `[in progress — 2026-06-23]` ← today's focus (batcher + tree + registry built; corridor placement + binding + verify remain).
+- [x] **#1170 Gem Canopy** — hanging faceted crystal fruits on trees (`GemFruitBatcher`), music-channel shimmer. Signature scenic biome. LANDED 2026-06-23.
 - [x] **#1171 Luminous Mycelium Realm** — glass mushrooms + ambient spore particle field; companion biome to luminous plants. Verified #1237.
 - [x] **#1172 Cinematic Explore Mode** — promote dev orbit prototype to player-facing hybrid FP+orbit camera.
 - [x] **#1173 TSL Volumetric God Rays + selective DoF** — performant revival of golden-hour shafts. LANDED 2026-06-23 (#1241; DoF math optimized #1244).
