@@ -89,7 +89,7 @@ export let wasmUpdateParticles: ((positionsPtr: number, count: number, dt: numbe
 export let wasmSpawnBurst: ((outputPtr: number, count: number, centerX: number, centerY: number, centerZ: number, speed: number, time: number) => void) | null = null;
 
 export * from './wasm-loader-cpp.ts';
-import { initCppFunctions, setEmscriptenInstance, emscriptenInstance } from './wasm-loader-cpp.ts';
+import { initCppFunctions, setEmscriptenInstance, setEmscriptenMemory, emscriptenInstance } from './wasm-loader-cpp.ts';
 
 // =============================================================================
 // CONSTANTS
@@ -356,7 +356,8 @@ export async function loadEmscriptenModule(forceSingleThreaded = false): Promise
         const prefix = wasmCheck.path || '';
         const cleanPrefix = prefix.endsWith('/') ? prefix : (prefix ? `${prefix}/` : '');
         const resolvedWasmPath = `${cleanPrefix}${wasmFilename}`;
-        const resolvedJsPath = jsFilename.includes('://') ? jsFilename : `${cleanPrefix}${jsFilename}`;
+        const resolvedJsPath = jsFilename.includes('://') ? jsFilename : `/${jsFilename}`;
+        console.log("Loading WASM:", resolvedJsPath);
 
         // Load the JS factory
         let createCandyNative: ((config: Record<string, unknown>) => Promise<ExtendedEmscriptenModule>) | undefined;
@@ -491,9 +492,9 @@ export async function loadEmscriptenModule(forceSingleThreaded = false): Promise
         }
 
         if (emscriptenInstance!.wasmMemory) {
-            emscriptenMemory = emscriptenInstance!.wasmMemory.buffer as ArrayBuffer;
+            setEmscriptenMemory(emscriptenInstance!.wasmMemory.buffer as ArrayBuffer);
         } else if (emscriptenInstance!.HEAP8) {
-            emscriptenMemory = emscriptenInstance!.HEAP8.buffer as ArrayBuffer;
+            setEmscriptenMemory(emscriptenInstance!.HEAP8.buffer as ArrayBuffer);
         }
 
         // Initialize cached C++ function references

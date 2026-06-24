@@ -249,9 +249,10 @@ export class AssetStreamer {
      * Load multiple assets in a batch.
      */
     async loadBatch(batch: AssetBatch): Promise<LoadedAsset[]> {
-        const loads = batch.assetIds.map(id => 
-            this.loadAsset(id, batch.priority)
-        );
+        const loads: Promise<LoadedAsset>[] = [];
+        for (let i = 0; i < batch.assetIds.length; i++) {
+            loads.push(this.loadAsset(batch.assetIds[i], batch.priority));
+        }
         return Promise.all(loads);
     }
 

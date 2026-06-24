@@ -1,12 +1,17 @@
 // src/core/init.ts
 
 import * as THREE from 'three';
-import { color, uniform } from 'three/tsl';
+import { DisplayP3ColorSpace } from './three-compat.ts';
+import { color, uniform, uv, float, smoothstep } from 'three/tsl';
 import type UniformNode from 'three/src/nodes/core/UniformNode.js';
 import WebGPU from 'three/examples/jsm/capabilities/WebGPU.js';
 import { WebGPURenderer, MeshBasicNodeMaterial, StorageInstancedBufferAttribute, StorageBufferAttribute } from 'three/webgpu';
 import { PALETTE, CONFIG } from './config.ts';
 import { createCrescendoFogNode } from '../foliage/sky.ts';
+import {
+    resolveRendererBackend,
+    type RendererBackend,
+} from '../rendering/renderer-mode.ts';
 
 /**
  * Type union for supported renderers (WebGPU or WebGL fallback)
@@ -28,6 +33,8 @@ export interface SceneInitResult {
     camera: THREE.PerspectiveCamera;
     renderer: CandyRenderer;
     mode: 'webgpu' | 'webgl';
+    requested: RendererBackend;
+    fallbackReason: string | null;
     ambientLight: THREE.HemisphereLight;
     sunLight: THREE.DirectionalLight;
     sunGlow: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
@@ -48,19 +55,51 @@ declare global {
     }
 }
 
+function createWebGLRenderer(canvas: HTMLCanvasElement): THREE.WebGLRenderer {
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.0;
+    return renderer;
+}
+
+export interface CreateRendererResult {
+    renderer: CandyRenderer;
+    mode: 'webgpu' | 'webgl';
+    requested: RendererBackend;
+    fallbackReason: string | null;
+}
+
 /**
- * Create a renderer with automatic WebGL fallback if WebGPU is unavailable
- * or if the WebGPURenderer constructor throws at runtime (e.g. Safari 17.4 where
- * navigator.gpu exists but requestAdapter() returns null).
+ * Create a renderer from an explicit preference.
+ *
+ * Priority:
+ *   - `webgl`  → always WebGLRenderer (reference / debug / CI path)
+ *   - `webgpu` → WebGPURenderer when available; falls back to WebGL on failure
+ *
  * @param canvas The canvas element to render to
- * @returns Object containing the renderer and mode
+ * @param preference Resolved renderer preference from URL/localStorage
  */
-function createRenderer(canvas: HTMLCanvasElement): { renderer: CandyRenderer; mode: 'webgpu' | 'webgl' } {
+export function createRenderer(
+    canvas: HTMLCanvasElement,
+    preference: RendererBackend = resolveRendererBackend(),
+): CreateRendererResult {
+    if (preference === 'webgl') {
+        console.log('[Init] WebGL requested — creating WebGLRenderer');
+        return {
+            renderer: createWebGLRenderer(canvas),
+            mode: 'webgl',
+            requested: 'webgl',
+            fallbackReason: 'explicit-webgl',
+        };
+    }
+
     if (WebGPU.isAvailable()) {
         try {
             console.log('[Init] WebGPU available, creating WebGPURenderer');
             const renderer = new WebGPURenderer({ canvas, antialias: true });
-            return { renderer, mode: 'webgpu' };
+            return { renderer, mode: 'webgpu', requested: 'webgpu', fallbackReason: null };
         } catch (err) {
             // Issue #2: WebGPU may be declared available but fail at runtime
             // (e.g. requestAdapter returns null on Safari 17.4 / Chrome with
@@ -77,13 +116,13 @@ function createRenderer(canvas: HTMLCanvasElement): { renderer: CandyRenderer; m
         warning.style.zIndex = '1';  // Behind loading screen
         document.body.appendChild(warning);
     }
-    
-    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
-    renderer.outputColorSpace = THREE.SRGBColorSpace;
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.0;
-    return { renderer, mode: 'webgl' };
+
+    return {
+        renderer: createWebGLRenderer(canvas),
+        mode: 'webgl',
+        requested: 'webgpu',
+        fallbackReason: 'webgpu-unavailable',
+    };
 }
 
 /**
@@ -103,8 +142,8 @@ export function initScene(): SceneInitResult {
     const canvas = document.querySelector('#glCanvas') as HTMLCanvasElement;
     const scene = new THREE.Scene();
 
-    // Create renderer with automatic fallback from WebGPU to WebGL
-    const { renderer, mode } = createRenderer(canvas);
+    const requested = resolveRendererBackend();
+    const { renderer, mode, fallbackReason } = createRenderer(canvas, requested);
 
     // TSL-driven Crescendo Fog initialization (WebGPU only)
     if (mode === 'webgpu') {
@@ -143,7 +182,7 @@ export function initScene(): SceneInitResult {
             console.log('[Init] HDR supported, configuring WebGPURenderer for extended dynamic range and Display P3.');
             try {
                 // Fallback to string literals since THREE.DisplayP3ColorSpace might not be available in this three.js version
-                webgpuRenderer.outputColorSpace = 'display-p3' as THREE.ColorSpace;
+                webgpuRenderer.outputColorSpace = DisplayP3ColorSpace;
             } catch (e) {
                 console.warn('[Init] Failed to set display-p3, falling back to srgb.');
                 webgpuRenderer.outputColorSpace = 'srgb';
@@ -224,8 +263,21 @@ export function initScene(): SceneInitResult {
             side: THREE.DoubleSide,
             depthWrite: false
         });
-        // Link opacity to a global TSL uniform
-        (shaftMaterial as MeshBasicNodeMaterial).opacityNode = uShaftOpacity;
+
+        // TSL Volumetric God Rays:
+        // Fade out horizontally at edges to prevent hard intersections
+        const uvNode = uv();
+        // Use proper boundaries: edge0 < edge1, then invert the result for the right side
+        const leftFade = smoothstep(0.0, 0.4, uvNode.x);
+        const rightFade = float(1.0).sub(smoothstep(0.6, 1.0, uvNode.x));
+        const fadeX = leftFade.mul(rightFade);
+
+        // Fade vertically to give a sense of scattering/dissipation (invert correctly)
+        const fadeY = float(1.0).sub(smoothstep(0.0, 1.0, uvNode.y)).pow(float(1.5));
+
+        // Link combined soft edges to global TSL uniform
+        const softOpacity = fadeX.mul(fadeY).mul(uShaftOpacity);
+        (shaftMaterial as MeshBasicNodeMaterial).opacityNode = softOpacity;
     } else {
         // WebGL fallback: use standard material with static opacity
         // Note: Opacity is updated dynamically in game-loop.ts based on sunrise/sunset.
@@ -248,6 +300,7 @@ export function initScene(): SceneInitResult {
         lightShaftGroup.add(shaft);
     }
     lightShaftGroup.position.copy(sunLight.position.clone().normalize().multiplyScalar(380));
+    lightShaftGroup.userData.shaftMaterial = shaftMaterial;
     lightShaftGroup.visible = false; // Only visible during sunrise/sunset
     scene.add(lightShaftGroup);
 
@@ -262,6 +315,8 @@ export function initScene(): SceneInitResult {
         camera,
         renderer,
         mode,
+        requested,
+        fallbackReason,
         ambientLight,
         sunLight,
         sunGlow,
@@ -269,7 +324,7 @@ export function initScene(): SceneInitResult {
         lightShaftGroup,
         sunGlowMat,
         coronaMat,
-        uShaftOpacity // Export the uniform so main.ts can access it
+        uShaftOpacity
     };
 }
 

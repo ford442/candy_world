@@ -1,8 +1,14 @@
 import * as THREE from 'three';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { color, float, sin, positionLocal, normalLocal, mix, attribute } from 'three/tsl';
-import { uTime, createJuicyRimLight, createStandardNodeMaterial, applyPlayerInteraction } from './material-core.ts';
-import { calculateWindSway } from './index.ts';
+import { uTime, createJuicyRimLight, createStandardNodeMaterial } from './material-core.ts';
+import {
+    applyPlayerInteractionWithLod,
+    calculateWindSwayWithLod,
+    scaleEmissiveByLod
+} from './lod-nodes.ts';
+import { initInstanceLodAttribute } from './batcher-lod-utils.ts';
+import { registerFoliageBatcherLod } from '../systems/batcher-lod.ts';
 import { LuminousPlantUniforms, luminousPlantsNoteColorNode, getBiomeUniforms, uCircadianPhase, uCircadianPoseOffset, type BiomeId } from '../systems/biome-uniforms.ts';
 
 const LUMINOUS_BIOME: BiomeId = 'luminous_plants';
@@ -58,7 +64,9 @@ export class LuminousPlantBatcher {
         // Circadian pose: additive radial swell that opens plants by day, closes at night
         const circadianSwell = normalLocal.mul(uCircadianPoseOffset).mul(heightFactor);
         const totalDisplacement = normalLocal.mul(breathe.add(shockwave)).add(circadianSwell);
-        mat.positionNode = applyPlayerInteraction(positionLocal.add(totalDisplacement).add(calculateWindSway(positionLocal)));
+        const animatedBase = positionLocal.add(totalDisplacement);
+        const winded = animatedBase.add(calculateWindSwayWithLod(positionLocal));
+        mat.positionNode = applyPlayerInteractionWithLod(winded);
 
         const sssStrength = float(CONFIG.luminousPlants?.subsurfaceStrength || 0.8);
         const musicColor = mix(baseColor, luminousPlantsNoteColorNode, LuminousPlantUniforms.intensity);
@@ -82,7 +90,9 @@ export class LuminousPlantBatcher {
         // Multiplier lerps from nightGlowMultiplier → 1.0 as phase goes 0 → 1.
         const nightMult = float(CONFIG.circadian.nightGlowMultiplier);
         const circadianGlowMult = mix(nightMult, float(1.0), uCircadianPhase);
-        mat.emissiveNode = emissiveBase.mul(circadianGlowMult).add(rimLight.mul(sssStrength)).add(twilightGlowTint);
+        mat.emissiveNode = scaleEmissiveByLod(
+            emissiveBase.mul(circadianGlowMult).add(rimLight.mul(sssStrength)).add(twilightGlowTint)
+        );
 
         // Music Impact: subtle direct contribution from the sky-wave-driven noteColor uniform.
         // When the Sky Wave (see music-reactivity.ts + sky_wave in music-bindings.json) fires,
@@ -99,9 +109,16 @@ export class LuminousPlantBatcher {
 
         const phaseArray = new Float32Array(maxInstances);
         this.mesh.geometry.setAttribute('aPhaseOffset', new THREE.InstancedBufferAttribute(phaseArray, 1));
+        initInstanceLodAttribute(this.mesh, maxInstances);
 
         this.mesh.userData.type = 'luminous_plant';
         this.mesh.count = 0;
+
+        registerFoliageBatcherLod({ id: 'luminous', getMeshes: () => [this.mesh] });
+    }
+
+    getLODMeshes(): THREE.InstancedMesh[] {
+        return [this.mesh];
     }
 
 

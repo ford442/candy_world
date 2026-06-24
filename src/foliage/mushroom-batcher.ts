@@ -16,16 +16,23 @@ const modFloat = (x: any, y: any) => {
 import {
     sharedGeometries, foliageMaterials, uTime,
     uAudioLow, uAudioHigh, createRimLight, createJuicyRimLight, uPlayerPosition, colorFromNote,
-    createSugarSparkle, applyPlayerInteraction
+    createSugarSparkle, getCachedProceduralMaterial
 } from './index.ts';
+import {
+    applyPlayerInteractionWithLod,
+    calculateWindSwayWithLod,
+    scaleEmissiveByLod
+} from './lod-nodes.ts';
+import { initInstanceLodAttribute } from './batcher-lod-utils.ts';
+import { registerFoliageBatcherLod } from '../systems/batcher-lod.ts';
 import { uTwilight } from './sky.ts';
 import { BiomeUniforms, uCircadianPhase } from '../systems/biome-uniforms.ts';
 import { foliageGroup } from '../world/state.ts'; // Assuming state.ts exports foliageGroup
 import { spawnImpact } from './impacts.ts';
 import { uChromaticIntensity } from './chromatic.ts';
-import { CONFIG } from '../core/config.ts';
+import { CONFIG, getCIAdjustedCount } from '../core/config.ts';
 
-const MAX_MUSHROOMS = 1000; // Reduced from 4000 for WebGPU uniform buffer limits
+const MAX_MUSHROOMS = getCIAdjustedCount(1000, 0.1, 50); // Reduced from 4000 for WebGPU uniform buffer limits
 
 // Scratch variables to prevent GC
 const _scratchMatrix = new THREE.Matrix4();
@@ -66,8 +73,12 @@ export class MushroomBatcher {
     getRandomPosition(out: THREE.Vector3): boolean {
         if (!this.mesh || this.count === 0) return false;
         const idx = Math.floor(Math.random() * this.count);
-        this.mesh.getMatrixAt(idx, _scratchMatrix);
-        out.setFromMatrixPosition(_scratchMatrix);
+
+        // ⚡ OPTIMIZATION: Bypassed THREE.InstancedMesh.getMatrixAt() overhead by reading directly from typed array
+        const array = this.mesh.instanceMatrix.array as Float32Array;
+        const offset = idx * 16;
+        out.set(array[offset + 12], array[offset + 13], array[offset + 14]);
+
         return true;
     }
 
@@ -98,6 +109,7 @@ export class MushroomBatcher {
         const colors = new Float32Array(MAX_MUSHROOMS * 3);
         this.mesh.instanceColor = new THREE.InstancedBufferAttribute(colors, 3);
         this.mesh.geometry.setAttribute('instanceColor', this.mesh.instanceColor);
+        initInstanceLodAttribute(this.mesh, MAX_MUSHROOMS);
 
         this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
         this.mesh.count = 0;
@@ -113,7 +125,12 @@ export class MushroomBatcher {
         }
 
         this.initialized = true;
+        registerFoliageBatcherLod({ id: 'mushroom', getMeshes: () => this.mesh ? [this.mesh] : [] });
         console.log('[MushroomBatcher] Initialized with capacity ' + MAX_MUSHROOMS);
+    }
+
+    getLODMeshes(): THREE.InstancedMesh[] {
+        return this.mesh ? [this.mesh] : [];
     }
 
     private createMergedGeometry(): THREE.BufferGeometry {
@@ -529,15 +546,25 @@ export class MushroomBatcher {
         // --- Material Definitions ---
 
         // 0. Stem
-        const stemMat = (foliageMaterials.mushroomStem as MeshStandardNodeMaterial).clone();
-        stemMat.positionNode = applyPlayerInteraction(deform(positionLocal));
+        const stemMat = getCachedProceduralMaterial('mushroom_stem_wind', 0xFFFFFF, () => {
+            const m = (foliageMaterials.mushroomStem as MeshStandardNodeMaterial).clone();
+            const defPos = deform(positionLocal);
+            const winded = defPos.add(calculateWindSwayWithLod(defPos));
+            m.positionNode = applyPlayerInteractionWithLod(winded);
+            return m;
+        }) as MeshStandardNodeMaterial;
 
         // 1. Cap
         // PALETTE: Upgraded to use instanceColor + Juicy Rim Light
         // mushroomCap is an array of materials in common.ts
         const capList = foliageMaterials.mushroomCap as MeshStandardNodeMaterial[];
-        const capMat = capList[0].clone();
-        capMat.positionNode = applyPlayerInteraction(deform(positionLocal));
+        const capMat = getCachedProceduralMaterial('mushroom_cap_wind', 0xFFFFFF, () => {
+            const m = capList[0].clone();
+            const defPos = deform(positionLocal);
+            const winded = defPos.add(calculateWindSwayWithLod(defPos));
+            m.positionNode = applyPlayerInteractionWithLod(winded);
+            return m;
+        }) as MeshStandardNodeMaterial;
 
         // Base color from instance (set via register/setColorAt)
         // Uses the vInstanceColor varying populated by InstancedMeshNode
@@ -596,17 +623,29 @@ export class MushroomBatcher {
         // Add twilight glow directly to emissive node output
         // Circadian night-glow: mushroom caps brighten at night (phase=0), dim by day (phase=1).
         const circadianGlowMult = mix(float(CONFIG.circadian.nightGlowMultiplier), float(1.0), uCircadianPhase);
-        capMat.emissiveNode = twilightGlowTint.mul(BiomeUniforms.crystallineNebula.noteColor).mul(totalGlow).mul(circadianGlowMult);
+        capMat.emissiveNode = scaleEmissiveByLod(
+            twilightGlowTint.mul(BiomeUniforms.crystallineNebula.noteColor).mul(totalGlow).mul(circadianGlowMult)
+        );
         capMat.emissiveIntensityNode = float(1.0); // Resetting multiplier since we multiply inside node
 
         // 2. Gills
-        const gillMat = (foliageMaterials.mushroomGills as MeshStandardNodeMaterial).clone();
-        gillMat.positionNode = applyPlayerInteraction(deform(positionLocal));
-        gillMat.emissiveIntensityNode = totalGlow.mul(0.3);
+        const gillMat = getCachedProceduralMaterial('mushroom_gill_wind', 0xFFFFFF, () => {
+            const m = (foliageMaterials.mushroomGills as MeshStandardNodeMaterial).clone();
+            const defPos = deform(positionLocal);
+            const winded = defPos.add(calculateWindSwayWithLod(defPos));
+            m.positionNode = applyPlayerInteractionWithLod(winded);
+            m.emissiveIntensityNode = totalGlow.mul(0.3);
+            return m;
+        }) as MeshStandardNodeMaterial;
 
         // 3. Spots
-        const spotMat = (foliageMaterials.mushroomSpots as MeshStandardNodeMaterial).clone();
-        spotMat.positionNode = applyPlayerInteraction(deform(positionLocal));
+        const spotMat = getCachedProceduralMaterial('mushroom_spot_wind', 0xFFFFFF, () => {
+            const m = (foliageMaterials.mushroomSpots as MeshStandardNodeMaterial).clone();
+            const defPos = deform(positionLocal);
+            const winded = defPos.add(calculateWindSwayWithLod(defPos));
+            m.positionNode = applyPlayerInteractionWithLod(winded);
+            return m;
+        }) as MeshStandardNodeMaterial;
         const spotPulse = sin(uTime.mul(3.0)).mul(0.1).add(0.3);
         const spotAudio = uAudioHigh.mul(0.8); // 🎨 PALETTE: Make spots pop more on highs
         spotMat.emissiveIntensityNode = flashIntensity.add(spotPulse).add(spotAudio);
@@ -678,7 +717,13 @@ export class MushroomBatcher {
         const packedFlags = (noteIndex + 1) + hasFace * 20 + isGiant * 40;
         
         // instanceData: x=packedFlags, y=spawnTime, z=triggerTime, w=velocity
-        this.instanceData!.setXYZW(i, packedFlags, spawnTime, -100.0, 0);
+        // ⚡ OPTIMIZATION: Bypassed THREE.BufferAttribute.setXYZW overhead by writing directly to typed array
+        const instanceDataArray = this.instanceData!.array as Float32Array;
+        const i4 = i * 4;
+        instanceDataArray[i4] = packedFlags;
+        instanceDataArray[i4 + 1] = spawnTime;
+        instanceDataArray[i4 + 2] = -100.0;
+        instanceDataArray[i4 + 3] = 0;
 
         // 3. Update Mapping
         if (noteIndex >= 0) {
@@ -704,7 +749,8 @@ export class MushroomBatcher {
 
         // 1. Remove from Note Mapping
         // Decode noteIndex from packedFlags: noteIndex = (packed % 20) - 1
-        const removedPackedFlags = this.instanceData!.getX(indexToRemove);
+        const instanceDataArray = this.instanceData!.array as Float32Array;
+        const removedPackedFlags = instanceDataArray[indexToRemove * 4];
         const removedNoteIndex = (removedPackedFlags % 20) - 1;
         if (removedNoteIndex >= 0) {
             const list = this.noteToInstances.get(removedNoteIndex);
@@ -718,34 +764,37 @@ export class MushroomBatcher {
         if (indexToRemove !== lastIndex) {
             const lastId = this.instanceToLogicId[lastIndex];
             // Decode noteIndex from packedFlags
-            const lastPackedFlags = this.instanceData!.getX(lastIndex);
+            const lastPackedFlags = instanceDataArray[lastIndex * 4];
             const movedNoteIndex = (lastPackedFlags % 20) - 1;
 
             // A. Copy Attributes from Last to Removed
             // Matrix
-            this.mesh!.getMatrixAt(lastIndex, _scratchMatrix);
-            // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
-        _scratchMatrix.toArray(this.mesh!.instanceMatrix.array, (indexToRemove) * 16);
+            // ⚡ OPTIMIZATION: Fast memory copy bypassing object instantiation and setMatrixAt overhead
+            const matrixArray = this.mesh!.instanceMatrix.array as Float32Array;
+            const destOffset = indexToRemove * 16;
+            const srcOffset = lastIndex * 16;
+            for(let k = 0; k < 16; k++) {
+                matrixArray[destOffset + k] = matrixArray[srcOffset + k];
+            }
 
             // Color
-            this.mesh!.getColorAt(lastIndex, _scratchColor);
-            // ⚡ OPTIMIZATION: Write directly to instanceColor array to bypass .setColorAt overhead.
             if (this.mesh!.instanceColor) {
                 const colorArray = this.mesh!.instanceColor.array as Float32Array;
-                const colorOffset = indexToRemove * 3;
-                colorArray[colorOffset] = _scratchColor.r;
-                colorArray[colorOffset + 1] = _scratchColor.g;
-                colorArray[colorOffset + 2] = _scratchColor.b;
+                const destColorOffset = indexToRemove * 3;
+                const srcColorOffset = lastIndex * 3;
+                colorArray[destColorOffset] = colorArray[srcColorOffset];
+                colorArray[destColorOffset + 1] = colorArray[srcColorOffset + 1];
+                colorArray[destColorOffset + 2] = colorArray[srcColorOffset + 2];
             }
 
             // Single packed attribute
-            this.instanceData!.setXYZW(
-                indexToRemove,
-                this.instanceData!.getX(lastIndex),
-                this.instanceData!.getY(lastIndex),
-                this.instanceData!.getZ(lastIndex),
-                this.instanceData!.getW(lastIndex)
-            );
+            // ⚡ OPTIMIZATION: Bypassed setXYZW overhead
+            const iRem4 = indexToRemove * 4;
+            const iLast4 = lastIndex * 4;
+            instanceDataArray[iRem4] = instanceDataArray[iLast4];
+            instanceDataArray[iRem4 + 1] = instanceDataArray[iLast4 + 1];
+            instanceDataArray[iRem4 + 2] = instanceDataArray[iLast4 + 2];
+            instanceDataArray[iRem4 + 3] = instanceDataArray[iLast4 + 3];
 
             // B. Update Note Mapping for the MOVED instance
             if (movedNoteIndex >= 0) {
@@ -783,19 +832,37 @@ export class MushroomBatcher {
             const now = ((uTime as any).value !== undefined) ? (uTime as any).value : performance.now() / 1000.0;
             const normalizedVelocity = velocity / 127.0;
 
+            const instanceDataArray = this.instanceData!.array as Float32Array;
+
             for (const i of indices) {
                 // Update triggerTime (z) and velocity (w) in packed attribute
-                this.instanceData!.setZ(i, now);
-                this.instanceData!.setW(i, normalizedVelocity); // Normalize velocity
+                // ⚡ OPTIMIZATION: Bypassed BufferAttribute setters
+                instanceDataArray[i * 4 + 2] = now;
+                instanceDataArray[i * 4 + 3] = normalizedVelocity; // Normalize velocity
 
                 // PALETTE: Spawn Spores!
                 if (this.mesh) {
-                    this.mesh.getMatrixAt(i, _scratchMatrix);
-                    _scratchMatrix.decompose(_scratchPos, _scratchQuat, _scratchScale);
-                    this.mesh.getColorAt(i, _scratchColor);
+                    // ⚡ OPTIMIZATION: Bypassed .getMatrixAt(), .decompose() and .getColorAt() for fast spawn extraction
+                    const matrixArray = this.mesh.instanceMatrix.array as Float32Array;
+                    const matOffset = i * 16;
+
+                    // Extract position
+                    _scratchPos.set(matrixArray[matOffset + 12], matrixArray[matOffset + 13], matrixArray[matOffset + 14]);
+
+                    // Extract scale Y (magnitude of the second column)
+                    const m10 = matrixArray[matOffset + 4], m11 = matrixArray[matOffset + 5], m12 = matrixArray[matOffset + 6];
+                    const scaleY = Math.sqrt(m10 * m10 + m11 * m11 + m12 * m12);
+
+                    if (this.mesh.instanceColor) {
+                        const colorArray = this.mesh.instanceColor.array as Float32Array;
+                        const colOffset = i * 3;
+                        _scratchColor.setRGB(colorArray[colOffset], colorArray[colOffset + 1], colorArray[colOffset + 2]);
+                    } else {
+                        _scratchColor.setHex(0xFFFFFF);
+                    }
 
                     // Offset slightly up (cap height approx 1.0 * scale.y)
-                    _scratchPos.y += 0.8 * _scratchScale.y;
+                    _scratchPos.y += 0.8 * scaleY;
 
                     // Spawn impact
                     spawnImpact(_scratchPos, 'spore', _scratchColor);

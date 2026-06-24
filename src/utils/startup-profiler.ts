@@ -76,6 +76,13 @@ let warmupMetrics = {
 // Generation chunk streaming counter
 let generationChunksStreamed = 0;
 
+// UI Elements
+export const uiState = {
+  overlayContainer: null as HTMLElement | null,
+  overlayCanvas: null as HTMLCanvasElement | null,
+  overlayCtx: null as CanvasRenderingContext2D | null,
+};
+
 // Original console methods (for hooking)
 let originalConsoleTime: typeof console.time;
 let originalConsoleTimeEnd: typeof console.timeEnd;
@@ -641,6 +648,16 @@ export function finalizeStartupProfile(): StartupReport {
   return report;
 }
 
+/**
+ * Toggle the profiler overlay visibility
+ */
+export function toggleOverlay(): void {
+  if (!uiState.overlayContainer || uiState.overlayContainer.style.display === 'none') {
+    showOverlay();
+  } else {
+    hideOverlay();
+  }
+}
 
 /**
  * Get current profiler status

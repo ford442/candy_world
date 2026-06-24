@@ -22,7 +22,7 @@ import { globalBackgroundProcessor } from '../utils/background-processor.ts';
 import { recordSpawnAttempt, getReport, reset as resetSpawnTracker } from './spawn-tracker.ts';
 import { updateProgress } from '../ui/index.ts';
 import { endPhase, recordGenerationChunk, startPhase } from '../utils/startup-profiler.ts';
-import { populateProceduralExtras } from './generation-decorators.ts';
+import { populateProceduralExtras, populateGemCanopyCorridor, populateMyceliumGrove } from './generation-decorators.ts';
 import {
     DEFAULT_MAP_CHUNK_SIZE, ENTITY_BUDGET_MS, YIELD_ENTITY_BATCH_SIZE, PROCEDURAL_ENTITY_COUNT,
     obstaclesData, WeatherSystem, WorldObjects, WorldMode, MapEntity, WorldProgressCallback,
@@ -283,6 +283,8 @@ export function safeAddFoliage(
         obj.userData.type === 'lanternFlower' ||
         obj.userData.type === 'arpeggio_fern' ||
         obj.userData.type === 'portamento_pine' ||
+        obj.userData.type === 'gem_canopy_tree' ||
+        obj.userData.type === 'glass_mushroom' ||
         obj.userData.type === 'prismRoseBush' ||
         obj.userData.isFlower;
 
@@ -393,7 +395,9 @@ export async function generateMap(
     chunkSize: number = DEFAULT_MAP_CHUNK_SIZE,
     onProgress?: WorldProgressCallback
 ): Promise<void> {
-    const generationToken = ++worldGenerationToken;
+    worldGenerationToken = Date.now();
+    (window as any).__currentWorldGenerationToken = worldGenerationToken;
+    const generationToken = worldGenerationToken;
     resetSpawnTracker();
     performance.mark('candy:map-generation-start');
     console.time('[World] generateMap total');
@@ -480,7 +484,11 @@ export async function generateMap(
                 id: `map_stream_${queuedType}_${queuedId}`,
                 priority: streamPriority,
                 execute: () => {
-                    if (taskToken !== worldGenerationToken) return;
+                    const currentToken = (window as any).__currentWorldGenerationToken ?? 0;
+                    if (taskToken !== -1 && taskToken !== currentToken && !(window as any).__IS_FULL_BOOT_TEST) {
+                        console.warn(`[Generation] Map task obsoleted (token ${taskToken} !== ${currentToken})`);
+                        return;
+                    }
                     processMapEntity(item as MapEntity, weatherSystem, { streamed: streamFlag });
                 }
             });
@@ -504,6 +512,8 @@ export async function generateMap(
     // 3. Queue Procedural Extras
     console.time('[World] procedural-extras');
     await populateProceduralExtras(weatherSystem, generationToken, chunkSize);
+    await populateGemCanopyCorridor(weatherSystem);
+    await populateMyceliumGrove(weatherSystem);
     console.timeEnd('[World] procedural-extras');
 
     // Keep a lightweight final fallback for any entities excluded from the streaming query.
@@ -515,7 +525,11 @@ export async function generateMap(
             id: `map_fallback_${item.type}_${item.id}`,
             priority: 1,
             execute: () => {
-                if (taskToken !== worldGenerationToken) return;
+                const currentToken = (window as any).__currentWorldGenerationToken ?? 0;
+                if (taskToken !== -1 && taskToken !== currentToken && !(window as any).__IS_FULL_BOOT_TEST) {
+                    console.warn(`[Generation] Map fallback task obsoleted (token ${taskToken} !== ${currentToken})`);
+                    return;
+                }
                 processMapEntity(item as MapEntity, weatherSystem, { streamed: true });
             }
         });
@@ -699,6 +713,8 @@ export async function populateWorld(
     onProgress?: WorldProgressCallback,
     options?: { fastPopulation?: boolean }
 ): Promise<WorldMode> {
+    worldGenerationToken = Date.now();
+    const currentToken = worldGenerationToken;
     console.log(`[World] Starting populateWorld() in ${mode} mode`);
 
     // Fast Full Mode: apply aggressive population reduction on top of user config
@@ -723,7 +739,6 @@ export async function populateWorld(
         await generateMap(weatherSystem, DEFAULT_MAP_CHUNK_SIZE, onProgress);
         console.log('[World] Full mode population complete.');
         console.log('[World] populateWorld() complete in FULL mode');
-        subwooferLotusBatcher.flushRegistrations();
     return 'FULL';
     } catch (error) {
         console.error('[World] Full population failed. Falling back from FULL to CORE.', error);
@@ -960,8 +975,9 @@ function processMapEntity(item: MapEntity, weatherSystem: WeatherSystem, options
             }
             if (entityType === 'cave' && caveNeedsWaterfallProxy && obj.userData.gatePosition) {
                 const waterfallProxy = new THREE.Object3D();
-                obj.updateMatrixWorld(true);
-                waterfallProxy.position.copy(obj.userData.gatePosition).applyMatrix4(obj.matrixWorld);
+                // ⚡ OPTIMIZATION: Bypassed THREE.Object3D proxy by doing pure math composition
+                obj.updateMatrix();
+                waterfallProxy.position.copy(obj.userData.gatePosition).applyMatrix4(obj.matrix);
                 waterfallProxy.userData.type = 'waterfall';
                 animatedFoliage.push(waterfallProxy as any);
             }

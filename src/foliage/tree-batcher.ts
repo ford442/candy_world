@@ -1,3 +1,4 @@
+import { safeRemoveAndDispose } from "../utils/dispose-utils.ts";
 // src/foliage/tree-batcher.ts
 // Lazy dynamic buffer growth: Starts with INITIAL_INSTANCES=100, doubles capacity as needed.
 // Reduces startup allocation from 93,000 to ~500 instances for typical maps.
@@ -8,14 +9,13 @@ import {
     CandyPresets,
     createStandardNodeMaterial,
     sharedGeometries,
-    applyPlayerInteraction,
-    calculateWindSway,
     createJuicyRimLight,
     uTime,
     uAudioHigh,
     uAudioLow,
     uWindSpeed,
-    uGlitchIntensity
+    uGlitchIntensity,
+    applyPlayerInteraction
 } from './index.ts';
 import {
     color, float, vec3, positionLocal, mix, attribute, uv, sin, cos, positionWorld, smoothstep,
@@ -28,6 +28,16 @@ import { uTwilight } from './sky.ts';
 import { BiomeUniforms } from '../systems/biome-uniforms.ts';
 import { CONFIG } from '../core/config.ts';
 import { applyInstanceAnimation, ANIMATION_TYPES } from './animation-nodes.ts';
+import {
+    foliageDeformationOffset,
+    scaleEmissiveByLod,
+    lodHeroOnlyMultiplier,
+    lodHeroGate,
+    lodMidOnlyGate
+} from './lod-nodes.ts';
+import { initInstanceLodAttribute, copyInstanceLodOnGrow } from './batcher-lod-utils.ts';
+import { registerFoliageBatcherLod, refreshFoliageLodMesh } from '../systems/batcher-lod.ts';
+import { getCIAdjustedCount } from '../core/config.ts';
 
 const _scratchTreeMatrix = new THREE.Matrix4();
 
@@ -36,8 +46,8 @@ const _defaultColorOrange = new THREE.Color(0xFF4500);
 const _defaultColorGreen = new THREE.Color(0x00FA9A);
 
 // Initial capacity - grows dynamically as needed (doubles each time, capped at MAX)
-const INITIAL_INSTANCES = 100;
-const MAX_INSTANCES = 500; // Cap to prevent WebGPU uniform buffer overflow (64KB limit)
+const INITIAL_INSTANCES = getCIAdjustedCount(100, 0.5, 50);
+const MAX_INSTANCES = getCIAdjustedCount(500, 0.1, 50); // Cap to prevent WebGPU uniform buffer overflow (64KB limit)
 
 export class TreeBatcher {
     private static instance: TreeBatcher;
@@ -102,7 +112,7 @@ export class TreeBatcher {
         // Combined Deformation: Interaction + Wind
         const animOffsetTrunk = applyInstanceAnimation();
         const baseTrunkPos = positionLocal.add(animOffsetTrunk);
-        const trunkDeform = baseTrunkPos.add(applyPlayerInteraction(baseTrunkPos)).add(calculateWindSway(baseTrunkPos)).sub(positionLocal);
+        const trunkDeform = foliageDeformationOffset(baseTrunkPos);
 
         // Create Material using CandyPresets.Clay for nice bump/rim
         const trunkMat = CandyPresets.Clay(0x8B4513, {
@@ -110,7 +120,7 @@ export class TreeBatcher {
             roughness: 0.8,
             bumpStrength: 0.2, // Bark texture
             rimStrength: 0.3,  // Subtle separation
-            deformationNode: trunkDeform,
+            deformationNode: applyPlayerInteraction(trunkDeform), // 🎨 PALETTE: Add player interaction
             triplanar: true    // Avoid UV seams on cylinder
         });
 
@@ -119,6 +129,7 @@ export class TreeBatcher {
         this.trunks.geometry.setAttribute('instanceColor', this.trunks.instanceColor);
         this.trunks.geometry.setAttribute('instanceAnimType', new THREE.InstancedBufferAttribute(new Float32Array(this.trunkCapacity), 1));
         this.trunks.geometry.setAttribute('instanceAnimOffset', new THREE.InstancedBufferAttribute(new Float32Array(this.trunkCapacity), 1));
+        initInstanceLodAttribute(this.trunks, this.trunkCapacity);
         this.trunks.castShadow = true;
         this.trunks.receiveShadow = true;
         this.trunks.count = 0;
@@ -148,12 +159,11 @@ export class TreeBatcher {
 
         const animOffsetSphere = applyInstanceAnimation();
         const baseSpherePos = positionLocal.add(animOffsetSphere);
-        // Base deform (Interaction + Wind)
-        const sphereBaseDeform = baseSpherePos.add(applyPlayerInteraction(baseSpherePos)).add(calculateWindSway(baseSpherePos)).sub(positionLocal);
-        // Add Flutter
-        const sphereFluttered = sphereBaseDeform.add(flutterOffset);
-        // Apply Squash (Multiplicative scale)
-        const sphereFinalDeform = sphereFluttered.mul(squashScale);
+        const sphereBaseDeform = foliageDeformationOffset(baseSpherePos);
+        const flutterWeight = lodHeroGate().add(lodMidOnlyGate().mul(0.25));
+        const sphereFluttered = sphereBaseDeform.add(flutterOffset.mul(flutterWeight));
+        const squashScaleLod = lodHeroOnlyMultiplier(squashScale);
+        const sphereFinalDeform = sphereFluttered.mul(squashScaleLod);
 
         // Base Emissive logic based on High Freq Audio
         const sphereEmissive = sphereColor.mul(uAudioHigh.mul(1.5).add(0.2));
@@ -181,19 +191,22 @@ export class TreeBatcher {
             roughness: 0.4,
             transmission: 0.3, // Semi-opaque
             thickness: 1.0,
-            deformationNode: sphereFinalDeform,
+            deformationNode: applyPlayerInteraction(sphereFinalDeform), // 🎨 PALETTE: Add player interaction
             rimStrength: 0.6, // Strong rim for pop
             audioReactStrength: 0.5 // Inner glow pulse
         });
 
         // 🎨 PALETTE: Make tree leaves pop with sparkly glow, base audio emissive, and twilight glow
-        sphereMat.emissiveNode = sphereEmissive.mul(BiomeUniforms.arpeggioGrove.noteColor).add(sugarSparkle).add(twilightGlowTint).add(createJuicyRimLight(color(0xFFFFFF), float(1.5), float(3.0), null));
+        sphereMat.emissiveNode = scaleEmissiveByLod(
+            sphereEmissive.mul(BiomeUniforms.arpeggioGrove.noteColor).add(sugarSparkle).add(twilightGlowTint).add(createJuicyRimLight(color(0xFFFFFF), float(1.5), float(3.0), null))
+        );
 
         this.spheres = new THREE.InstancedMesh(sharedGeometries.unitSphere, sphereMat, this.sphereCapacity);
         this.spheres.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(this.sphereCapacity * 3), 3);
         this.spheres.geometry.setAttribute('instanceColor', this.spheres.instanceColor);
         this.spheres.geometry.setAttribute('instanceAnimType', new THREE.InstancedBufferAttribute(new Float32Array(this.sphereCapacity), 1));
         this.spheres.geometry.setAttribute('instanceAnimOffset', new THREE.InstancedBufferAttribute(new Float32Array(this.sphereCapacity), 1));
+        initInstanceLodAttribute(this.spheres, this.sphereCapacity);
         this.spheres.castShadow = true;
         this.spheres.receiveShadow = true;
         this.spheres.count = 0;
@@ -203,12 +216,12 @@ export class TreeBatcher {
         const capsuleColor = varyingProperty('vec3', 'vInstanceColor');
         const animOffsetCapsule = applyInstanceAnimation();
         const baseCapsulePos = positionLocal.add(animOffsetCapsule);
-        const capsuleDeform = baseCapsulePos.add(applyPlayerInteraction(baseCapsulePos)).add(calculateWindSway(baseCapsulePos)).sub(positionLocal);
+        const capsuleDeform = foliageDeformationOffset(baseCapsulePos);
 
         const capsuleMat = CandyPresets.Clay(0x8B4513, {
             colorNode: capsuleColor,
             roughness: 0.7,
-            deformationNode: capsuleDeform,
+            deformationNode: applyPlayerInteraction(capsuleDeform), // 🎨 PALETTE: Add player interaction
             rimStrength: 0.4
         });
 
@@ -217,6 +230,7 @@ export class TreeBatcher {
         this.capsules.geometry.setAttribute('instanceColor', this.capsules.instanceColor);
         this.capsules.geometry.setAttribute('instanceAnimType', new THREE.InstancedBufferAttribute(new Float32Array(this.capsuleCapacity), 1));
         this.capsules.geometry.setAttribute('instanceAnimOffset', new THREE.InstancedBufferAttribute(new Float32Array(this.capsuleCapacity), 1));
+        initInstanceLodAttribute(this.capsules, this.capsuleCapacity);
         this.capsules.castShadow = true;
         this.capsules.receiveShadow = true;
         this.capsules.count = 0;
@@ -234,7 +248,7 @@ export class TreeBatcher {
         const spiralPos = vec3(cos(angle).mul(radius), t, sin(angle).mul(radius));
         const animOffsetHelix = applyInstanceAnimation();
         const baseHelixPos = spiralPos.add(animOffsetHelix);
-        const helixDeform = baseHelixPos.add(applyPlayerInteraction(baseHelixPos)).add(calculateWindSway(baseHelixPos)).sub(spiralPos);
+        const helixDeform = foliageDeformationOffset(baseHelixPos, undefined, spiralPos);
 
         // Emissive Pulse (Scrolling light)
         const pulseSpeed = float(2.0);
@@ -245,7 +259,7 @@ export class TreeBatcher {
         const helixMat = CandyPresets.Gummy(0x00FA9A, {
             colorNode: helixColor,
             roughness: 0.2,
-            deformationNode: helixDeform,
+            deformationNode: applyPlayerInteraction(helixDeform), // 🎨 PALETTE: Add player interaction
             emissive: 0xFFFFFF,
             emissiveIntensity: pulse.mul(0.5).add(audioBoost), // Dynamic glow
             rimStrength: 0.8
@@ -261,6 +275,7 @@ export class TreeBatcher {
         this.helices.geometry.setAttribute('instanceColor', this.helices.instanceColor);
         this.helices.geometry.setAttribute('instanceAnimType', new THREE.InstancedBufferAttribute(new Float32Array(this.helixCapacity), 1));
         this.helices.geometry.setAttribute('instanceAnimOffset', new THREE.InstancedBufferAttribute(new Float32Array(this.helixCapacity), 1));
+        initInstanceLodAttribute(this.helices, this.helixCapacity);
         this.helices.castShadow = true;
         this.helices.receiveShadow = true;
         this.helices.count = 0;
@@ -271,13 +286,13 @@ export class TreeBatcher {
         const roseColor = varyingProperty('vec3', 'vInstanceColor');
         const animOffsetRose = applyInstanceAnimation();
         const baseRosePos = positionLocal.add(animOffsetRose);
-        const roseDeform = baseRosePos.add(applyPlayerInteraction(baseRosePos)).add(calculateWindSway(baseRosePos)).sub(positionLocal);
+        const roseDeform = foliageDeformationOffset(baseRosePos);
 
         // Use Sugar preset for crystalline/sparkly look
         const roseMat = CandyPresets.Sugar(0xFF69B4, {
             colorNode: roseColor,
             roughness: 0.4,
-            deformationNode: roseDeform,
+            deformationNode: applyPlayerInteraction(roseDeform), // 🎨 PALETTE: Add player interaction
             sheen: 1.0,
             audioReactStrength: 0.8 // Strong glow response
         });
@@ -289,13 +304,20 @@ export class TreeBatcher {
         this.roses.geometry.setAttribute('instanceColor', this.roses.instanceColor);
         this.roses.geometry.setAttribute('instanceAnimType', new THREE.InstancedBufferAttribute(new Float32Array(this.roseCapacity), 1));
         this.roses.geometry.setAttribute('instanceAnimOffset', new THREE.InstancedBufferAttribute(new Float32Array(this.roseCapacity), 1));
+        initInstanceLodAttribute(this.roses, this.roseCapacity);
         this.roses.castShadow = true;
         this.roses.receiveShadow = true;
         this.roses.count = 0;
         foliageGroup.add(this.roses);
 
         this.initialized = true;
+        registerFoliageBatcherLod({ id: 'tree', getMeshes: () => this.getLODMeshes() });
         console.log('[TreeBatcher] Initialized tree batching system with Juicy Materials');
+    }
+
+    getLODMeshes(): THREE.InstancedMesh[] {
+        if (!this.initialized) return [];
+        return [this.trunks, this.spheres, this.capsules, this.helices, this.roses];
     }
 
     // --- Dynamic Buffer Growth ---
@@ -355,16 +377,19 @@ export class TreeBatcher {
             newMesh.geometry.setAttribute('instanceAnimOffset', new THREE.InstancedBufferAttribute(newAnimOffsetArray, 1));
         }
 
+        copyInstanceLodOnGrow(oldMesh, newMesh, this.trunkCapacity);
+
         newMesh.castShadow = oldMesh.castShadow;
         newMesh.receiveShadow = oldMesh.receiveShadow;
         newMesh.count = oldMesh.count;
         
         // Replace in scene
-        foliageGroup.remove(oldMesh);
+        safeRemoveAndDispose(foliageGroup, oldMesh);
         foliageGroup.add(newMesh);
-        this.disposeInstancedMesh(oldMesh);
+
         
         this.trunks = newMesh;
+        refreshFoliageLodMesh(newMesh);
         console.log(`[TreeBatcher] Grew trunk buffer to ${this.trunkCapacity}`);
     }
 
@@ -402,15 +427,18 @@ export class TreeBatcher {
             newMesh.geometry.setAttribute('instanceAnimOffset', new THREE.InstancedBufferAttribute(newAnimOffsetArray, 1));
         }
 
+        copyInstanceLodOnGrow(oldMesh, newMesh, this.sphereCapacity);
+
         newMesh.castShadow = oldMesh.castShadow;
         newMesh.receiveShadow = oldMesh.receiveShadow;
         newMesh.count = oldMesh.count;
         
-        foliageGroup.remove(oldMesh);
+        safeRemoveAndDispose(foliageGroup, oldMesh);
         foliageGroup.add(newMesh);
-        this.disposeInstancedMesh(oldMesh);
+
         
         this.spheres = newMesh;
+        refreshFoliageLodMesh(newMesh);
         console.log(`[TreeBatcher] Grew sphere buffer to ${this.sphereCapacity}`);
     }
 
@@ -448,15 +476,18 @@ export class TreeBatcher {
             newMesh.geometry.setAttribute('instanceAnimOffset', new THREE.InstancedBufferAttribute(newAnimOffsetArray, 1));
         }
 
+        copyInstanceLodOnGrow(oldMesh, newMesh, this.capsuleCapacity);
+
         newMesh.castShadow = oldMesh.castShadow;
         newMesh.receiveShadow = oldMesh.receiveShadow;
         newMesh.count = oldMesh.count;
         
-        foliageGroup.remove(oldMesh);
+        safeRemoveAndDispose(foliageGroup, oldMesh);
         foliageGroup.add(newMesh);
-        this.disposeInstancedMesh(oldMesh);
+
         
         this.capsules = newMesh;
+        refreshFoliageLodMesh(newMesh);
         console.log(`[TreeBatcher] Grew capsule buffer to ${this.capsuleCapacity}`);
     }
 
@@ -494,15 +525,18 @@ export class TreeBatcher {
             newMesh.geometry.setAttribute('instanceAnimOffset', new THREE.InstancedBufferAttribute(newAnimOffsetArray, 1));
         }
 
+        copyInstanceLodOnGrow(oldMesh, newMesh, this.helixCapacity);
+
         newMesh.castShadow = oldMesh.castShadow;
         newMesh.receiveShadow = oldMesh.receiveShadow;
         newMesh.count = oldMesh.count;
         
-        foliageGroup.remove(oldMesh);
+        safeRemoveAndDispose(foliageGroup, oldMesh);
         foliageGroup.add(newMesh);
-        this.disposeInstancedMesh(oldMesh);
+
         
         this.helices = newMesh;
+        refreshFoliageLodMesh(newMesh);
         console.log(`[TreeBatcher] Grew helix buffer to ${this.helixCapacity}`);
     }
 
@@ -540,15 +574,18 @@ export class TreeBatcher {
             newMesh.geometry.setAttribute('instanceAnimOffset', new THREE.InstancedBufferAttribute(newAnimOffsetArray, 1));
         }
 
+        copyInstanceLodOnGrow(oldMesh, newMesh, this.roseCapacity);
+
         newMesh.castShadow = oldMesh.castShadow;
         newMesh.receiveShadow = oldMesh.receiveShadow;
         newMesh.count = oldMesh.count;
         
-        foliageGroup.remove(oldMesh);
+        safeRemoveAndDispose(foliageGroup, oldMesh);
         foliageGroup.add(newMesh);
-        this.disposeInstancedMesh(oldMesh);
+
         
         this.roses = newMesh;
+        refreshFoliageLodMesh(newMesh);
         console.log(`[TreeBatcher] Grew rose buffer to ${this.roseCapacity}`);
     }
 
@@ -638,8 +675,16 @@ export class TreeBatcher {
 
         const typeAttr = mesh.geometry.attributes.instanceAnimType as THREE.InstancedBufferAttribute;
         const offsetAttr = mesh.geometry.attributes.instanceAnimOffset as THREE.InstancedBufferAttribute;
-        if (typeAttr) { typeAttr.setX(index, animType); typeAttr.needsUpdate = true; }
-        if (offsetAttr) { offsetAttr.setX(index, animOffset); offsetAttr.needsUpdate = true; }
+
+        // ⚡ OPTIMIZATION: Direct array write bypasses setX() overhead
+        if (typeAttr?.array) {
+            (typeAttr.array as Float32Array)[index] = animType;
+            typeAttr.needsUpdate = true;
+        }
+        if (offsetAttr?.array) {
+            (offsetAttr.array as Float32Array)[index] = animOffset;
+            offsetAttr.needsUpdate = true;
+        }
 
         // Update count
         switch (countProp) {

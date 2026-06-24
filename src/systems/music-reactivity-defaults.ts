@@ -14,6 +14,9 @@ export const defaultSkyMoonIntensityCh: readonly number[] = musicBindings.biomes
 export const defaultGlobalShimmerCh: readonly number[] = musicBindings.biomes.global.shimmer;
 export const defaultGlobalHueShiftCh: readonly number[] = musicBindings.biomes.global.hueShift;
 export const defaultGlobalNoteColorCh: readonly number[] = musicBindings.biomes.global.noteColor;
+export const defaultGemCanopyShimmerCh: readonly number[] = (musicBindings as any).biomes.gem_canopy.shimmer;
+export const defaultGemCanopyHueShiftCh: readonly number[] = (musicBindings as any).biomes.gem_canopy.hueShift;
+export const defaultGemCanopyNoteColorCh: readonly number[] = (musicBindings as any).biomes.gem_canopy.noteColor;
 
 const _skyMoonConfig = (musicBindings as any).sky_moon;
 if (!_skyMoonConfig || typeof _skyMoonConfig.melody_channel !== 'number') {
@@ -45,6 +48,7 @@ export const skyWaveUniformMap: Record<string, { value: THREE.Color }> = {
   musical_flora: BiomeUniforms.musicalFlora.noteColor,
   lake_features: BiomeUniforms.lakeFeatures.noteColor,
   global: BiomeUniforms.global.noteColor,
+  gem_canopy: BiomeUniforms.gemCanopy.noteColor,
   sky_moon: BiomeUniforms.skyMoon.moonNoteColor as any,
 };
 

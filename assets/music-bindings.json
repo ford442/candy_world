@@ -68,6 +68,18 @@
       "noteColor": [
         6
       ]
+    },
+    "gem_canopy": {
+      "shimmer": [
+        1,
+        2
+      ],
+      "hueShift": [
+        3
+      ],
+      "noteColor": [
+        1
+      ]
     }
   },
   "portamento_pine": {
@@ -95,6 +107,28 @@
     ],
     "decay_ms": 2000,
     "_comment": "Order in target_biomes controls stagger (earlier = hits first). Wave lerps the corresponding noteColor uniform so any foliage already consuming that uniform (portamento, wisteria, trees, mushrooms, etc.) receives the sky hue automatically."
+  },
+  "atmosphere": {
+    "bloom": {
+      "channels": [0, 6],
+      "rest": 1.0,
+      "peak": 2.5,
+      "smoothing": 8.0
+    },
+    "fogDensity": {
+      "scale": 0.65,
+      "max": 0.85,
+      "smoothing": 6.0
+    },
+    "shaftMelody": {
+      "peak": 0.35,
+      "smoothing": 10.0
+    },
+    "beatPulse": {
+      "bloomSpike": 0.45,
+      "shaftShimmer": 0.12,
+      "decay": 12.0
+    }
   },
   "weatherReactivity": {
     "rainIntensity": {

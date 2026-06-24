@@ -337,7 +337,11 @@ export class LoadingManager {
     }
 
     getAllTasks(): TaskState[] {
-        return this.taskOrder.map(id => this.tasks.get(id)!);
+        const tasks: TaskState[] = [];
+        for (let i = 0; i < this.taskOrder.length; i++) {
+            tasks.push(this.tasks.get(this.taskOrder[i])!);
+        }
+        return tasks;
     }
 }
 

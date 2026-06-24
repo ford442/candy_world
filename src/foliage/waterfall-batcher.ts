@@ -19,9 +19,9 @@ import {
     uAudioLow, uAudioHigh, CandyPresets, registerReactiveMaterial, createJuicyRimLight
 } from './index.ts';
 import { getBiomeUniforms, type BiomeId } from '../systems/biome-uniforms.ts';
-import { foliageGroup } from '../world/state.ts';
+import { CONFIG, getCIAdjustedCount } from '../core/config.ts';
 
-const MAX_WATERFALLS = 50; // Reduced from 200 for WebGPU uniform buffer limits
+const MAX_WATERFALLS = getCIAdjustedCount(50, 0.2, 10); // Reduced from 200 for WebGPU uniform buffer limits
 const SPLASHES_PER_WATERFALL = 8;
 const MAX_SPLASHES = MAX_WATERFALLS * SPLASHES_PER_WATERFALL;
 
@@ -328,9 +328,13 @@ export class WaterfallBatcher {
 
         if (indexToRemove !== lastIndex) {
             // Swap Column
-            this.mesh!.getMatrixAt(lastIndex, _scratchMatrix);
-            // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
-        _scratchMatrix.toArray(this.mesh!.instanceMatrix.array, (indexToRemove) * 16);
+            // ⚡ OPTIMIZATION: Fast memory copy bypassing object instantiation and setMatrixAt overhead
+            const matrixArray = this.mesh!.instanceMatrix.array as Float32Array;
+            const destOffset = indexToRemove * 16;
+            const srcOffset = lastIndex * 16;
+            for(let k = 0; k < 16; k++) {
+                matrixArray[destOffset + k] = matrixArray[srcOffset + k];
+            }
 
             // Swap Splashes (Block of 8)
             const srcStart = lastIndex * SPLASHES_PER_WATERFALL;
@@ -383,21 +387,33 @@ export class WaterfallBatcher {
         // But we didn't store it.
         // We can get it from matrix.
         const index = this.idToIndex.get(id)!;
-        this.mesh!.getMatrixAt(index, _scratchMatrix);
-        _scratchMatrix.decompose(_scratchPos, _scratchQuat, _scratchScale);
 
-        // Original logic:
-        // width (X) and height (Y) are fixed.
-        // thickness (Z) is modified.
-        // But if we only stored the matrix, how do we know the "base" Z?
+        // ⚡ OPTIMIZATION: Bypassed .getMatrixAt() and .decompose() overhead.
+        // Scale is encoded in the lengths of the column vectors of the 4x4 matrix.
+        // We need to change the Z scale. We can modify the 3rd column directly.
+        const matrixArray = this.mesh!.instanceMatrix.array as Float32Array;
+        const offset = index * 16;
+
         // Assuming X and Z were equal initially (circular).
-        // So base Z = current X.
+        // Current X scale is the magnitude of the 1st column.
+        const m00 = matrixArray[offset + 0], m01 = matrixArray[offset + 1], m02 = matrixArray[offset + 2];
+        const scaleX = Math.sqrt(m00 * m00 + m01 * m01 + m02 * m02);
 
-        _scratchScale.z = _scratchScale.x * thicknessScale;
+        // Current Z scale is the magnitude of the 3rd column.
+        const m20 = matrixArray[offset + 8], m21 = matrixArray[offset + 9], m22 = matrixArray[offset + 10];
+        const currentScaleZ = Math.sqrt(m20 * m20 + m21 * m21 + m22 * m22);
 
-        _scratchMatrix.compose(_scratchPos, _scratchQuat, _scratchScale);
-        // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
-        _scratchMatrix.toArray(this.mesh!.instanceMatrix.array, (index) * 16);
+        // Compute target scale
+        const targetScaleZ = scaleX * thicknessScale;
+
+        // Apply scaling factor to the 3rd column
+        if (currentScaleZ > 0.0001) {
+            const ratio = targetScaleZ / currentScaleZ;
+            matrixArray[offset + 8] *= ratio;
+            matrixArray[offset + 9] *= ratio;
+            matrixArray[offset + 10] *= ratio;
+        }
+
         this.mesh!.instanceMatrix.needsUpdate = true;
     }
 }

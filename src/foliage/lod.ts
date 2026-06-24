@@ -42,7 +42,7 @@ export interface LODConfig {
 }
 
 export const DEFAULT_LOD_CONFIG: LODConfig = {
-    thresholds: [20, 50, 100], // LOD0: 0-20m, LOD1: 20-50m, LOD2: 50-100m, Culled: >100m
+    thresholds: [120, 365, 480], // Hero / mid / far+cull — aligned with CONFIG.foliage.lod
     geometrySegments: {
         sphere: [16, 8, 4],
         cylinder: [12, 8, 6],

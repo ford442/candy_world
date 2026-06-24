@@ -75,3 +75,6 @@ export function initCppFunctions(): void {
 
   console.log('[WASM] C++ Physics & Math functions mapped successfully');
 }
+
+export function setEmscriptenInstance(val: EmscriptenModule | null) { emscriptenInstance = val; }
+export function setEmscriptenMemory(val: ArrayBuffer | null) { emscriptenMemory = val; }

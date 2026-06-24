@@ -1,3 +1,4 @@
+import { isCIorHeadless } from './config.ts';
 // src/core/main.ts
 // Main entry point - Core initialization and game startup
 
@@ -24,6 +25,11 @@ import { initScene } from './init.ts';
 import { ShaderWarmup } from '../rendering/shader-warmup.ts';
 import { initInput, keyStates } from './input/index.ts';
 import { initPostProcessing } from '../foliage/post-processing.ts';
+import {
+    publishRendererBreadcrumbs,
+    installRendererHotSwitch,
+} from '../rendering/renderer-mode.ts';
+import { initWebGLDebug, isWebGLLiteMode } from '../rendering/webgl-debug.ts';
 
 // World & System imports
 import { initCriticalWorld, initDeferredWorldContent, initWorld, initWorldCritical, initWorldContent, generateMap, populateWorld, WorldMode, DEFAULT_MAP_CHUNK_SIZE } from '../world/generation.ts';
@@ -31,6 +37,7 @@ import { animatedFoliage, interactiveObjects } from '../world/state.ts';
 import { installWorldExportTools } from '../world/map-exporter.ts';
 import { fireRainbow } from '../gameplay/rainbow-blaster.ts';
 import { player, populatePhysicsGrids } from '../systems/physics/index.ts';
+import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 
 // Refactored module imports
 import { animate, initGameLoopDependencies, addCameraShake } from './game-loop.ts';
@@ -41,7 +48,7 @@ import { showDeferredIndicator, hideDeferredIndicator } from '../ui/index.ts';
 import { reset as resetSpawnTracker, getReport as getSpawnReport } from '../world/spawn-tracker.ts';
 import { globalLoadingManager } from '../systems/loading-manager.ts';
 import { validateWorldPopulation } from '../world/world-health.ts';
-import { showModeBadge } from '../ui/mode-badge.ts';
+import { showModeBadge, showRendererBadge } from '../ui/mode-badge.ts';
 import { DeferredLoader, LoadPriority } from '../systems/deferred-loader.ts';
 import { initLoadingScreen, installLegacyAPI } from '../ui/loading-screen.ts';
 import { installBatcherTelemetry } from '../foliage/batcher-telemetry.ts';
@@ -58,7 +65,7 @@ let scene: any, camera: any, renderer: any;
 export { scene, camera, renderer, player, addCameraShake };
 
 // --- Initialize Loading Screen (replaces old spinner overlay) ---
-if (CONFIG.safeMode) {
+if (CONFIG.safeMode || isCIorHeadless()) {
     console.warn('[Startup] safeMode active (?safe=1) — shader warmup and compute disabled');
     (window as any).__computeDisabled = true;
 }
@@ -143,12 +150,17 @@ if (!sceneInitResult) {
     throw new Error(msg);
 }
 
-const { mode, ambientLight, sunLight, sunGlow, sunCorona, lightShaftGroup, sunGlowMat, coronaMat, uShaftOpacity } = sceneInitResult;
+const { mode, requested, fallbackReason, ambientLight, sunLight, sunGlow, sunCorona, lightShaftGroup, sunGlowMat, coronaMat, uShaftOpacity } = sceneInitResult;
 scene = sceneInitResult.scene;
 camera = sceneInitResult.camera;
 import { setCameraRef } from './camera-ref.ts';
 setCameraRef(camera);
 renderer = sceneInitResult.renderer;
+
+installRendererHotSwitch();
+publishRendererBreadcrumbs(requested, mode, fallbackReason);
+showRendererBadge(mode, requested, fallbackReason);
+initWebGLDebug(scene, mode);
 
 // Set global game object so playwright tests can interact with camera, etc
 (window as any).game = { camera, scene, animatedFoliage, interactiveObjects };
@@ -411,7 +423,7 @@ loadingScreen.completePhase('wasm-init');
 // --- SHADER WARMUP (before loop starts to prevent first-frame stutter) ---
 (async function warmupAndStartLoop() {
     await StageLoader.loadStage('shaderWarmup', async () => {
-        if (CONFIG.safeMode) {
+        if (CONFIG.safeMode || isCIorHeadless()) {
             console.warn('[Startup] safeMode active — skipping shader warmup and compileAsync');
             return;
         }
@@ -425,6 +437,10 @@ loadingScreen.completePhase('wasm-init');
         let batchCount = 0;
 
         try {
+            if (CONFIG.safeMode || isCIorHeadless()) {
+                console.warn('[Startup] safeMode active — skipping shader warmup');
+                return;
+            }
             const warmup = new ShaderWarmup();
             const targets = warmup.getTargets();
 
@@ -509,13 +525,13 @@ if (startButton) {
         const isFast = mode === 'FAST_FULL';
 
         if (btnCoreOnly) {
-            btnCoreOnly.setAttribute('aria-pressed', String(isCore));
+            btnCoreOnly.setAttribute('aria-checked', String(isCore));
         }
         if (btnFullGame) {
-            btnFullGame.setAttribute('aria-pressed', String(mode === 'FULL'));
+            btnFullGame.setAttribute('aria-checked', String(mode === 'FULL'));
         }
         if (btnFastFull) {
-            btnFastFull.setAttribute('aria-pressed', String(isFast));
+            btnFastFull.setAttribute('aria-checked', String(isFast));
         }
 
         if (modeDescription) {
@@ -539,21 +555,8 @@ if (startButton) {
     };
 
     updateStartupMode('CORE');
-
-    if (btnCoreOnly && btnFullGame && btnFastFull) {
-        btnCoreOnly.addEventListener('click', () => updateStartupMode('CORE'));
-        btnFullGame.addEventListener('click', () => updateStartupMode('FULL'));
-        btnFastFull.addEventListener('click', () => updateStartupMode('FAST_FULL'));
-    }
-
-    // Wire the wait-for-full checkbox
-    const waitFullCheckbox = document.getElementById('wait-full-checkbox') as HTMLInputElement | null;
-    if (waitFullCheckbox) {
-        waitFullCheckbox.checked = waitForFullPopulation;
-        waitFullCheckbox.addEventListener('change', () => {
-            waitForFullPopulation = waitFullCheckbox.checked;
-            localStorage.setItem(WAIT_FULL_KEY, waitForFullPopulation ? '1' : '0');
-        });
+    if (mode === 'webgl' && isWebGLLiteMode()) {
+        console.warn('[Startup] WebGL lite mode — CORE world generation recommended');
     }
 
     let worldGenerated = false;
@@ -561,6 +564,69 @@ if (startButton) {
 
     function yieldFrame(): Promise<void> {
         return new Promise(resolve => setTimeout(resolve, 50));
+    }
+
+    if (btnCoreOnly && btnFullGame && btnFastFull) {
+        const modeButtons = [
+            { btn: btnCoreOnly, mode: 'CORE' as const },
+            { btn: btnFullGame, mode: 'FULL' as const },
+            { btn: btnFastFull, mode: 'FAST_FULL' as const }
+        ];
+
+        const setupModeButton = (btn: HTMLButtonElement, mode: 'CORE' | 'FULL' | 'FAST_FULL', index: number) => {
+            btn.addEventListener('click', async () => {
+                btn.setAttribute('aria-busy', 'true');
+                btn.setAttribute('aria-disabled', 'true');
+                try {
+                    updateStartupMode(mode);
+                    await yieldFrame();
+                } finally {
+                    btn.setAttribute('aria-busy', 'false');
+                    btn.setAttribute('aria-disabled', 'false');
+                }
+            });
+
+            // ♿ Aria: Keyboard navigation for radiogroup
+            btn.addEventListener('keydown', (e) => {
+                let nextIndex = -1;
+                if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+                    nextIndex = (index + 1) % modeButtons.length;
+                } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+                    nextIndex = (index - 1 + modeButtons.length) % modeButtons.length;
+                }
+
+                if (nextIndex !== -1) {
+                    e.preventDefault();
+                    const nextBtn = modeButtons[nextIndex].btn;
+                    nextBtn.focus();
+                    nextBtn.click();
+                }
+            });
+
+            // ♿ Aria: Roving tabindex management
+            btn.addEventListener('focus', () => {
+                modeButtons.forEach(mb => mb.btn.setAttribute('tabindex', '-1'));
+                btn.setAttribute('tabindex', '0');
+            });
+        };
+
+        modeButtons.forEach((mb, index) => {
+            // Initialize roving tabindex: checked item is 0, others -1
+            mb.btn.setAttribute('tabindex', mb.btn.getAttribute('aria-checked') === 'true' ? '0' : '-1');
+            setupModeButton(mb.btn, mb.mode, index);
+        });
+    }
+
+    // Wire the wait-for-full checkbox
+    const waitFullCheckbox = document.getElementById('wait-full-checkbox') as HTMLInputElement | null;
+    if (waitFullCheckbox) {
+        waitFullCheckbox.checked = waitForFullPopulation;
+        waitFullCheckbox.setAttribute('aria-checked', String(waitForFullPopulation));
+        waitFullCheckbox.addEventListener('change', () => {
+            waitForFullPopulation = waitFullCheckbox.checked;
+            waitFullCheckbox.setAttribute('aria-checked', String(waitForFullPopulation));
+            localStorage.setItem(WAIT_FULL_KEY, waitForFullPopulation ? '1' : '0');
+        });
     }
 
     async function enterWorld() {
@@ -590,26 +656,7 @@ if (startButton) {
             // Note: previewMushroom is defined in previous world generation runs
             const previewMushroom = (window as any).previewMushroom;
             if (typeof previewMushroom !== 'undefined' && previewMushroom) {
-                scene.remove(previewMushroom);
-                if (previewMushroom.geometry) previewMushroom.geometry.dispose();
-                if (previewMushroom.material) {
-                    if (Array.isArray(previewMushroom.material)) {
-                        previewMushroom.material.forEach((m: any) => m.dispose());
-                    } else {
-                        previewMushroom.material.dispose();
-                    }
-                }
-                previewMushroom.traverse((child: any) => {
-                    const mesh = child as THREE.Mesh;
-                    if (mesh.geometry) mesh.geometry.dispose();
-                    if (mesh.material) {
-                        if (Array.isArray(mesh.material)) {
-                            mesh.material.forEach((m: any) => m.dispose());
-                        } else {
-                            mesh.material.dispose();
-                        }
-                    }
-                });
+                safeRemoveAndDispose(scene, previewMushroom);
                 const idx = animatedFoliage.indexOf(previewMushroom);
                 if (idx > -1) animatedFoliage.splice(idx, 1);
                 const intIdx = interactiveObjects.indexOf(previewMushroom);
@@ -792,7 +839,7 @@ if (startButton) {
                 }
             });
 
-            globalBackgroundProcessor.start();
+            await globalBackgroundProcessor.start();
 
             worldGenerated = true;
             startButton.style.background = '';

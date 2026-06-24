@@ -1,3 +1,15 @@
+1. **Understand the goal**: As Palette 🎨, I will add high-impact visual polish to `src/foliage/subwoofer-lotus-batcher.ts`. Specifically, I will add a **TSL Juicy Rim Light** and **TSL Wind Sway** to the newly implemented Subwoofer Lotus rings.
+2. **Implementation details**:
+   - In `subwoofer-lotus-batcher.ts`, update `init()` to construct `ringMat` using `getCachedProceduralMaterial('subwoofer_lotus_ring', 0xFFFFFF, () => { ... })` instead of a naked `new MeshStandardNodeMaterial()`. This respects the crucial "Module-level Material Cache" rule to prevent WebGPU compilation freezes.
+   - Import `getCachedProceduralMaterial`, `createJuicyRimLight`, and `calculateWindSway` from `./index.ts`.
+   - In the `ringMat` TSL setup:
+     - Compute the normal emission.
+     - Add `createJuicyRimLight(finalColor, float(2.0), float(3.0), null)` to the emissive node.
+     - Compute `calculateWindSway(newPos)` and add it to the position node.
+3. **Pre-commit**:
+   - Run `pre_commit_instructions` tool to get the pre-commit instructions, and ensure all checks (like tests, formatting) pass.
+4. **Submit**:
+   - Submit the PR with the exact title format required: "🎨 Palette: [Visual/UX Improvement]" such as "🎨 Palette: Add TSL Rim Light and Wind Sway to Subwoofer Lotus". Include the description mentioning the Visual Change, Juice Factor, and Technical details.
 Status: Implemented ✅
 * Implementation Details: Appended `createJuicyRimLight` to the `sphereMat.emissiveNode` in `src/foliage/tree-batcher.ts` to add visual TSL juice (Rim Lighting) to the tree canopy.
 Accomplished:
@@ -86,6 +98,14 @@ Status: Implemented ✅
 Next Step: Ask the user for the next task.
 
 Status: Implemented ✅
+* Implementation Details: Fixed the Scene-Loading Regression (#1133) by replacing mutating tokens with a stable per-boot `worldGenerationToken` orchestration strategy and adding `reliableBoot` fallback guards inside `config.ts`. Eliminated Out of Bounds Float32Array WASM crashes using explicit clamping boundaries.
+Next Step: Wait for user instructions.
+
+Status: Implemented ✅
+* Implementation Details: Fixed the Root-cause of the Scene-Loading Regression (#1133) by making `worldGenerationToken` the single source of truth across the boot sequence and properly passing `taskToken` in the background deferred task processor. Further stabilized background-processor by giving tasks a single-retry threshold.
+Next Step: Provide instructions for next feature.
+
+Status: Implemented ✅
 * Implementation Details: Replaced single mesh subwoofer lotus with `SubwooferLotusBatcher` in `src/foliage/subwoofer-lotus-batcher.ts`, fully adopting `InstancedMesh` with TSL bass pulse scaling, glitch distortion, and proper VRAM disposal for the Subwoofer Lotus.
 Next Step: Continue large file refactoring from `REFACTORING_PLAN_REMAINING.md`.
 1. *Add `dispose` method to `LuminousPlantBatcher` in `src/foliage/luminous-plant-batcher.ts`.*
@@ -108,3 +128,21 @@ Next Step: Ask the user for the next task.
 
 Status: Implemented ✅
 * Implementation Details: Stabilized headless CI boot by adding synchronous task drain in `BackgroundProcessor.start()` for CI/headless. Expanded `isCIorHeadless()` guards across music reactivity, compute, foliage, and rendering to bypass heavy memory allocations. Fixed `computeWaveTimeSinceArrival` import and argument order. Fixed `overlayCtx` scoping in `startup-profiler-ui.ts`.
+* Implementation Details: Applied "Juice" to the `subwoofer-lotus-batcher.ts` component by adding `calculateWindSway`, `applyPlayerInteraction`, and `createJuicyRimLight` TSL logic to the base pad, rings, and center portal.
+Next Step: Ask the user for the next task.
+
+Status: Implemented ✅
+* Implementation Details: Wired zero-allocation Atmosphere Reactivity block mapping audio to bloom, fog, and light shafts. Re-enabled night light shafts by fixing `shaftVisible` logic in `src/core/game-loop.ts`.
+Next Step: Ask the user for the next task.
+
+Status: Implemented ✅
+* Implementation Details: Applied "Juice" to the `TreeBatcher` component in `src/foliage/tree-batcher.ts` by adding `applyPlayerInteraction` TSL logic into the position graph for `trunkMat`, `sphereMat`, `capsuleMat`, `helixMat`, and `roseMat`.
+Next Step: Ask the user for the next task.
+
+Status: Implemented ✅
+* Implementation Details: Integrated Awakened Flora Persistence (v1) by adding `FloraPersistenceManager` in `src/systems/flora-persistence.ts` mapped directly to the Save System's `ProgressSaveData`. Auto-saves and updates state across sessions when players interact with flora.
+Next Step: Ask the user for the next task.
+
+Status: Implemented ✅
+* Implementation Details: Implemented TSL Volumetric God Rays + selective DoF (#1173). Replaced standard material opacity in `src/core/init.ts` with volumetric `uv()` fading to prevent hard intersections, and updated `_updateDepthOfField` in `src/core/game-loop.ts` to dynamically boost DoF mix based on active light shaft opacity, enhancing the cinematic feel.
+Next Step: Ask the user for the next task, potentially `#1134` (Stable release process) or `#1136` (Consolidate LoadingScreen).

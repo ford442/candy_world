@@ -3,10 +3,13 @@ import { MeshStandardNodeMaterial } from 'three/webgpu';
 import {
     CandyPresets,
     uTime,
-    registerReactiveMaterial
+    registerReactiveMaterial,
+    calculateWindSway,
+    applyPlayerInteraction,
+    createJuicyRimLight
 } from './index.ts';
 import {
-    color, float, vec3, vec4, sin, cos, positionLocal, time, uniform
+    color, float, vec3, vec4, sin, cos, positionLocal, time, uniform, normalLocal
 } from 'three/tsl';
 import { BiomeId } from '../systems/biome-uniforms.ts';
 import { computeWaveDistSq } from '../systems/music-reactivity.ts';
@@ -59,6 +62,8 @@ export class KickDrumGeyserBatcher {
             emissive: 0xFF4500,
             emissiveIntensity: 0.8
         });
+        // 🎨 PALETTE: Add juicy rim light to geyser core
+        coreMat.emissiveNode = (coreMat.emissiveNode || color(0x000000)).add(createJuicyRimLight(color(0xFF4500), float(1.5), float(3.0), normalLocal));
         registerReactiveMaterial(coreMat);
         this.coreMesh = new THREE.InstancedMesh(coreGeo, coreMat, MAX_GEYSERS);
         this.coreMesh.count = 0;
@@ -80,11 +85,14 @@ export class KickDrumGeyserBatcher {
         const jitterX = sin(uTime.mul(10.0).add(positionLocal.y.mul(10.0))).mul(0.1);
         const jitterZ = cos(uTime.mul(12.0).add(positionLocal.y.mul(10.0))).mul(0.1);
 
-        plumeMat.positionNode = vec3(
+        const plumePos = vec3(
             positionLocal.x.add(jitterX),
             positionLocal.y,
             positionLocal.z.add(jitterZ)
         );
+
+        // 🎨 PALETTE: Add wind sway and player interaction to the geyser plumes
+        plumeMat.positionNode = applyPlayerInteraction(plumePos.add(calculateWindSway(plumePos)));
         plumeMat.colorNode = vec4(color(0xFF4500), float(0.8));
 
         this.plumeMesh = new THREE.InstancedMesh(plumeGeo, plumeMat, MAX_GEYSERS);

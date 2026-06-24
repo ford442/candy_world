@@ -28,6 +28,14 @@ import {
     handleMuteKey,
     handleVolumeKey
 } from './audio-controls.ts';
+import {
+    bootstrapExploreFromPreference,
+    initExploreCamera,
+    isExploreActive,
+    resolveExploreVariant,
+    type ExploreVariant,
+} from '../camera-modes.ts';
+import { announcePolite } from '../../ui/announcer.ts';
 
 export { keyStates } from './input-types.ts';
 export type { KeyStates, InitInputResult } from './input-types.ts';
@@ -52,15 +60,8 @@ export function initInput(
     // Modal Focus Trap Cleanups
     let releasePauseMenuFocus: (() => void) | null = null;
     let lastFocusedElement: HTMLElement | null = null;
-    let isDevOrbitMode = false;
-    let orbitControls: { update: () => void; dispose: () => void; target: THREE.Vector3 } | null = null;
-    let orbitUpdateHandle: number | null = null;
 
-    const setDevOrbitFlag = (active: boolean) => {
-        (window as Window & { __devOrbitActive?: boolean }).__devOrbitActive = active;
-    };
-
-    const resetMovementInput = () => {
+    function resetMovementInput() {
         keyStates.forward = false;
         keyStates.backward = false;
         keyStates.left = false;
@@ -75,7 +76,24 @@ export function initInput(
         keyStates.strike = false;
         keyStates.dance = false;
         keyStates.dodgeRoll = false;
+    }
+
+    const hideInstructionsImmediately = () => {
+        if (!instructions) return;
+        instructions.style.display = 'none';
+        instructions.style.opacity = '0';
+        instructions.style.backdropFilter = 'blur(0px)';
     };
+
+    const exploreVariant: ExploreVariant = resolveExploreVariant();
+    const exploreCamera = initExploreCamera({
+        camera: camera as THREE.PerspectiveCamera,
+        canvas: canvas ?? document.body as unknown as HTMLCanvasElement,
+        controls,
+        variant: exploreVariant,
+        onResetInput: resetMovementInput,
+        onHidePauseMenu: hideInstructionsImmediately,
+    });
 
     const isInteractiveTarget = (eventTarget: EventTarget | null) => {
         if (!(eventTarget instanceof HTMLElement)) return false;
@@ -84,19 +102,7 @@ export function initInput(
         );
     };
 
-    const stopDevOrbitLoop = () => {
-        if (orbitUpdateHandle !== null) {
-            cancelAnimationFrame(orbitUpdateHandle);
-            orbitUpdateHandle = null;
-        }
-    };
-
-    const hideInstructionsImmediately = () => {
-        if (!instructions) return;
-        instructions.style.display = 'none';
-        instructions.style.opacity = '0';
-        instructions.style.backdropFilter = 'blur(0px)';
-    };
+    const stopDevOrbitLoop = () => { /* orbit updates run in game-loop via updateExploreCamera */ };
 
     const setPausedTitle = (paused: boolean) => {
         const title = instructions ? instructions.querySelector('h1') : null;
@@ -119,57 +125,12 @@ export function initInput(
         }
     };
 
-    const startDevOrbitLoop = () => {
-        const tick = () => {
-            if (!isDevOrbitMode || !orbitControls) return;
-            orbitControls.update();
-            orbitUpdateHandle = requestAnimationFrame(tick);
-        };
-        stopDevOrbitLoop();
-        orbitUpdateHandle = requestAnimationFrame(tick);
+    const disableExploreMode = (relock = true) => {
+        exploreCamera.exitToFirstPerson(relock);
     };
 
-    const disableDevOrbitMode = (relock = true) => {
-        if (!isDevOrbitMode) return;
-        isDevOrbitMode = false;
-        setDevOrbitFlag(false);
-        stopDevOrbitLoop();
-        if (orbitControls) {
-            orbitControls.dispose();
-            orbitControls = null;
-        }
-        resetMovementInput();
-        if (relock) {
-            controls.lock();
-        }
-    };
-
-    const enableDevOrbitMode = async () => {
-        if (!isDevBuild || isDevOrbitMode) return;
-        controls.unlock();
-        hideInstructionsImmediately();
-        resetMovementInput();
-        setPausedTitle(false);
-        setStartButtonEnterLabel();
-        isDevOrbitMode = true;
-        setDevOrbitFlag(true);
-
-        const { OrbitControls } = await import('three/examples/jsm/controls/OrbitControls.js');
-        if (!isDevOrbitMode) return;
-
-        const activeElement = (canvas ?? document.body) as HTMLElement;
-        const orbit = new OrbitControls(camera as THREE.PerspectiveCamera, activeElement);
-        orbit.enableDamping = true;
-        orbit.dampingFactor = 0.08;
-        orbit.enablePan = true;
-        orbit.maxPolarAngle = Math.PI * 0.49;
-        orbit.minDistance = 3;
-        orbit.maxDistance = 280;
-        orbit.target.copy((camera as THREE.PerspectiveCamera).position).add(
-            new THREE.Vector3(0, 0, -1).applyQuaternion((camera as THREE.PerspectiveCamera).quaternion).multiplyScalar(8)
-        );
-        orbitControls = orbit;
-        startDevOrbitLoop();
+    const enableExploreMode = async (options?: { temporary?: boolean; fromToggle?: boolean }) => {
+        await exploreCamera.enter(options);
     };
 
     // --- NEW: Visual Reticle (Crosshair) ---
@@ -230,8 +191,8 @@ export function initInput(
     }
 
     controls.addEventListener('lock', () => {
-        if (isDevOrbitMode) {
-            disableDevOrbitMode(false);
+        if (isExploreActive()) {
+            disableExploreMode(false);
         }
         // UX: If generating the world, keep the "Generating..." message visible
         // The main.js logic will hide it when done.
@@ -287,7 +248,7 @@ export function initInput(
     });
 
     controls.addEventListener('unlock', () => {
-        if (isDevOrbitMode) return;
+        if (isExploreActive()) return;
         // CRITICAL: Only show Main Menu if Playlist ISN'T open.
         // If Playlist is open, we *want* to be unlocked, but seeing the Playlist, not the start screen.
         if (!getIsPlaylistOpen()) {
@@ -344,7 +305,7 @@ export function initInput(
         // 4. We are NOT currently prevented from locking (i.e. not dancing)
         const target = event.target;
         if (!controls.isLocked &&
-            !isDevOrbitMode &&
+            !isExploreActive() &&
             !getIsPlaylistOpen() &&
             instructions && instructions.style.display === 'none' &&
             !isInteractiveTarget(target) &&
@@ -364,12 +325,36 @@ export function initInput(
     const onKeyDown = function (event: KeyboardEvent) {
         if (isDevBuild && event.ctrlKey && event.shiftKey && event.code === 'KeyO') {
             event.preventDefault();
-            if (isDevOrbitMode) {
-                disableDevOrbitMode(true);
+            if (isExploreActive()) {
+                disableExploreMode(true);
             } else {
-                void enableDevOrbitMode();
+                void enableExploreMode({ fromToggle: true });
             }
             return;
+        }
+
+        if (event.code === 'Tab') {
+            event.preventDefault();
+            exploreCamera.onTabDown();
+            return;
+        }
+
+        if (isExploreActive()) {
+            if (event.code === 'Escape') {
+                event.preventDefault();
+                disableExploreMode(true);
+                return;
+            }
+            if (event.code === 'Enter') {
+                event.preventDefault();
+                disableExploreMode(true);
+                return;
+            }
+            if (exploreCamera.isHybrid()) {
+                // Hybrid pan handled via movement keys below when explore active
+            } else {
+                return;
+            }
         }
 
         // Prevent default browser actions (like Ctrl+S)
@@ -378,13 +363,6 @@ export function initInput(
         }
 
         const isPlaylistOpen = getIsPlaylistOpen();
-        if (isDevOrbitMode) {
-            if (event.code === 'Escape') {
-                event.preventDefault();
-                disableDevOrbitMode(true);
-            }
-            return;
-        }
 
         // Escape: Special Handling to FORCE menu open if it was suppressed (e.g. by dancing)
         if (event.code === 'Escape') {
@@ -392,8 +370,8 @@ export function initInput(
                 event.preventDefault();
                 const closePlaylistBtn = document.getElementById('closePlaylistBtn');
                 if (closePlaylistBtn) {
-                    closePlaylistBtn.setAttribute('aria-pressed', 'true');
-                    setTimeout(() => closePlaylistBtn.setAttribute('aria-pressed', 'false'), 150);
+                    closePlaylistBtn.classList.add('keyboard-active');
+                    setTimeout(() => closePlaylistBtn.classList.remove('keyboard-active'), 150);
                 }
                 togglePlaylist();
                 return;
@@ -498,41 +476,63 @@ export function initInput(
                 triggerButtonPress('openJukeboxBtn');
                 togglePlaylist();
                 break;
-            case 'KeyW': keyStates.forward = true; break;
-            case 'KeyA': keyStates.left = true; break;
-            case 'KeyS': keyStates.backward = true; break;
-            case 'KeyD': keyStates.right = true; break;
+            case 'KeyW':
+                if (isExploreActive() && !exploreCamera.isHybrid()) break;
+                keyStates.forward = true;
+                break;
+            case 'KeyA':
+                if (isExploreActive() && !exploreCamera.isHybrid()) break;
+                keyStates.left = true;
+                break;
+            case 'KeyS':
+                if (isExploreActive() && !exploreCamera.isHybrid()) break;
+                keyStates.backward = true;
+                break;
+            case 'KeyD':
+                if (isExploreActive() && !exploreCamera.isHybrid()) break;
+                keyStates.right = true;
+                break;
             case 'KeyF':
+                if (isExploreActive()) break;
                 keyStates.action = true;
-                if (hudMine) hudMine.setAttribute('aria-pressed', 'true');
+                if (hudMine) hudMine.classList.add('keyboard-active');
                 break; // Jitter Mine Ability
             case 'KeyE':
             case 'e':
+                if (isExploreActive()) break;
                 keyStates.dash = true;
-                if (hudDash) hudDash.setAttribute('aria-pressed', 'true');
+                if (hudDash) hudDash.classList.add('keyboard-active');
                 break; // Dash Ability
             case 'KeyX':
             case 'x':
+                if (isExploreActive()) break;
                 keyStates.dodgeRoll = true;
                 break; // Dodge Roll Ability
             case 'KeyZ':
             case 'z':
+                if (isExploreActive()) break;
                 keyStates.phase = true;
-                if (hudPhase) hudPhase.setAttribute('aria-pressed', 'true');
+                if (hudPhase) hudPhase.classList.add('keyboard-active');
                 break; // Phase Shift Ability
             case 'KeyC':
             case 'c':
+                if (isExploreActive()) break;
                 keyStates.clap = true;
                 break; // Sonic Clap Ability
             case 'KeyV':
             case 'v':
+                if (isExploreActive()) break;
                 keyStates.strike = true;
                 break; // Chord Strike Ability
             case 'KeyR':
             case 'r':
+                if (isExploreActive()) break;
                 keyStates.dance = true;
                 break; // Dance Ability
-            case 'Space': keyStates.jump = true; break;
+            case 'Space':
+                if (isExploreActive()) break;
+                keyStates.jump = true;
+                break;
             case 'KeyN':
                 triggerButtonPress('toggleDayNight');
                 if(toggleDayNightCallback) toggleDayNightCallback();
@@ -558,19 +558,25 @@ export function initInput(
                 break;
             case 'ControlLeft':
             case 'ControlRight':
+                if (isExploreActive()) break;
                 keyStates.sneak = true;
                 event.preventDefault();
                 break;
             case 'ShiftLeft':
             case 'ShiftRight':
+                if (isExploreActive()) break;
                 keyStates.sprint = true;
                 break;
         }
     };
 
     const onKeyUp = function (event: KeyboardEvent) {
-        // 🎨 Palette: Remove Key Hints
-        if (isDevOrbitMode) return;
+        if (event.code === 'Tab') {
+            exploreCamera.onTabUp();
+            return;
+        }
+
+        if (isExploreActive()) return;
         if (instructions && instructions.style.display !== 'none') {
             const keyChar = event.key.toUpperCase();
             const code = event.code;
@@ -599,12 +605,12 @@ export function initInput(
             case 'KeyD': keyStates.right = false; break;
             case 'KeyF':
                 keyStates.action = false;
-                if (hudMine) hudMine.setAttribute('aria-pressed', 'false');
+                if (hudMine) hudMine.classList.remove('keyboard-active');
                 break;
             case 'KeyE':
             case 'e':
                 keyStates.dash = false;
-                if (hudDash) hudDash.setAttribute('aria-pressed', 'false');
+                if (hudDash) hudDash.classList.remove('keyboard-active');
                 break;
             case 'KeyX':
             case 'x':
@@ -613,7 +619,7 @@ export function initInput(
             case 'KeyZ':
             case 'z':
                 keyStates.phase = false;
-                if (hudPhase) hudPhase.setAttribute('aria-pressed', 'false');
+                if (hudPhase) hudPhase.classList.remove('keyboard-active');
                 break;
             case 'KeyR':
             case 'r':
@@ -633,12 +639,18 @@ export function initInput(
 
     // Standard Mouse State (Right click to move)
     const onMouseDown = function (event: MouseEvent) {
-        if (getIsPlaylistOpen()) return; // Block game mouse input
+        if (getIsPlaylistOpen()) return;
+        exploreCamera.onHybridMouseDown(event.button);
+        if (isExploreActive() && event.button === 0 && !isInteractiveTarget(event.target)) {
+            disableExploreMode(true);
+            return;
+        }
         if (event.button === 2) keyStates.forward = true;
     };
 
     const onMouseUp = function (event: MouseEvent) {
-        if (getIsPlaylistOpen()) return; // Block game mouse input
+        if (getIsPlaylistOpen()) return;
+        exploreCamera.onHybridMouseUp(event.button);
         if (event.button === 2) keyStates.forward = false;
     };
 
@@ -647,20 +659,45 @@ export function initInput(
     document.addEventListener('mousedown', onMouseDown);
     document.addEventListener('mouseup', onMouseUp);
 
+    // --- UX: Keyboard Interactions for HUD Abilities ---
+    function setupAbilityKeyboardInteractions(element: HTMLElement | null, keyCode: string) {
+        if (!element) return;
+
+        element.addEventListener('keydown', (e: KeyboardEvent) => {
+            if (e.key === 'Enter' || e.code === 'Space') {
+                e.preventDefault(); // Prevent scrolling for space
+                onKeyDown(new KeyboardEvent('keydown', { code: keyCode }));
+            }
+        });
+
+        element.addEventListener('keyup', (e: KeyboardEvent) => {
+            if (e.key === 'Enter' || e.code === 'Space') {
+                e.preventDefault();
+                onKeyUp(new KeyboardEvent('keyup', { code: keyCode }));
+            }
+        });
+
+        element.addEventListener('blur', () => {
+            // Ensure ability isn't stuck on if focus is lost while pressing
+            onKeyUp(new KeyboardEvent('keyup', { code: keyCode }));
+        });
+    }
+    // ---------------------------------------------------
+
 
 // Cache timeouts to debounce rapid key presses
 const buttonPressTimeouts = new Map<string, NodeJS.Timeout | number>();
 function triggerButtonPress(buttonId: string): void {
     const btn = document.getElementById(buttonId);
     if (btn && btn.getAttribute('aria-disabled') !== 'true') {
-        btn.setAttribute('aria-pressed', 'true');
+        btn.classList.add('keyboard-active');
 
         if (buttonPressTimeouts.has(buttonId)) {
             clearTimeout(buttonPressTimeouts.get(buttonId) as any);
         }
 
         const timeoutId = setTimeout(() => {
-            btn.setAttribute('aria-pressed', 'false');
+            btn.classList.remove('keyboard-active');
             buttonPressTimeouts.delete(buttonId);
         }, 150);
 
@@ -736,63 +773,10 @@ function triggerButtonPress(buttonId: string): void {
 
     // --- UX: Interactive Ability HUD ---
     // (Variables moved to top of initInput)
-
-    if (hudDash) {
-        hudDash.addEventListener('click', (e) => {
-            e.stopPropagation();
-            if (hudDash.getAttribute('aria-disabled') !== 'true') {
-                triggerAbility('dash', hudDash);
-            }
-        });
-        // Add keyboard activation for accessibility (Enter/Space)
-        hudDash.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                e.stopPropagation();
-                if (hudDash.getAttribute('aria-disabled') !== 'true') {
-                    triggerAbility('dash', hudDash);
-                }
-            }
-        });
-    }
-
-    if (hudMine) {
-        hudMine.addEventListener('click', (e) => {
-            e.stopPropagation();
-            if (hudMine.getAttribute('aria-disabled') !== 'true') {
-                triggerAbility('action', hudMine); // 'action' corresponds to Jitter Mine (KeyF)
-            }
-        });
-        // Add keyboard activation for accessibility (Enter/Space)
-        hudMine.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                e.stopPropagation();
-                if (hudMine.getAttribute('aria-disabled') !== 'true') {
-                    triggerAbility('action', hudMine);
-                }
-            }
-        });
-    }
-
-    if (hudPhase) {
-        hudPhase.addEventListener('click', (e) => {
-            e.stopPropagation();
-            if (hudPhase.getAttribute('aria-disabled') !== 'true') {
-                triggerAbility('phase', hudPhase);
-            }
-        });
-        // Add keyboard activation for accessibility (Enter/Space)
-        hudPhase.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                e.stopPropagation();
-                if (hudPhase.getAttribute('aria-disabled') !== 'true') {
-                    triggerAbility('phase', hudPhase);
-                }
-            }
-        });
-    }
+    // Wire up the unified keyboard + click handling for ability buttons
+    setupAbilityKeyboardInteractions(hudDash, 'KeyE');
+    setupAbilityKeyboardInteractions(hudMine, 'KeyF');
+    setupAbilityKeyboardInteractions(hudPhase, 'KeyZ');
 
     const openA11yBtn = document.getElementById('openA11yBtn');
     if (openA11yBtn) {
@@ -872,12 +856,24 @@ function triggerButtonPress(buttonId: string): void {
         window.addEventListener('drop', onDrop);
     }
 
+    const toggleExploreBtn = document.getElementById('toggleExploreBtn');
+    if (toggleExploreBtn) {
+        toggleExploreBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            exploreCamera.togglePersistent();
+            const active = isExploreActive();
+            toggleExploreBtn.setAttribute('aria-pressed', String(active));
+            announcePolite(active ? 'Explore mode enabled' : 'First-person mode');
+        });
+    }
+
+    void bootstrapExploreFromPreference();
+
     return {
         controls,
         updateReticleState,
         cleanup: () => {
-            disableDevOrbitMode(false);
-            setDevOrbitFlag(false);
+            exploreCamera.dispose();
             document.body.removeEventListener('click', onBodyClick);
             document.removeEventListener('keydown', onKeyDown);
             document.removeEventListener('keyup', onKeyUp);

@@ -4,7 +4,8 @@ import { color as tslColor, mix, float, sin, cos, vec3, positionLocal, positionW
 import { uTwilight } from './sky.ts';
 import { createBerryCluster } from './berries.ts';
 import { FoliageObject } from './types.ts';
-import { treeBatcher } from './tree-batcher.ts'; // ⚡ OPTIMIZATION: Import Batcher
+import { treeBatcher } from './tree-batcher.ts';
+import { gemFruitBatcher } from './gem-fruit-batcher.ts'; // ⚡ OPTIMIZATION: Import Batcher
 import { MeshStandardNodeMaterial } from 'three/webgpu'; // Import explicit type for cast
 
 // Configuration interfaces for tree creation options
@@ -233,7 +234,7 @@ export function createVine(options: VineOptions = {}): THREE.Group {
     // Create the material ONCE outside the loop, add TSL Juice, and register it.
     const vineMat = getCachedProceduralMaterial(`vine_${color}`, color, () => {
         const mat = createClayMaterial(color);
-        mat.positionNode = applyPlayerInteraction(positionLocal).add(calculateWindSway(positionLocal));
+        mat.positionNode = applyPlayerInteraction(positionLocal.add(calculateWindSway(positionLocal)));
         const audioRimIntensity = float(1.0).add(uAudioLow.mul(0.5));
         mat.emissiveNode = (mat.emissiveNode || tslColor(0x000000)).add(createJuicyRimLight(tslColor(color), audioRimIntensity, float(3.0), mat.normalNode));
         return mat;
@@ -307,6 +308,9 @@ export function createBubbleWillow(options: BubbleWillowOptions = {}): THREE.Gro
     // ⚡ OPTIMIZATION: Register to Batcher
     group.userData.onPlacement = () => {
         treeBatcher.register(group, 'bubbleWillow');
+        if (group.userData.attachGemFruits) {
+            gemFruitBatcher.attachToTree(group, { height: trunkH, gemCount: 5 + Math.floor(Math.random() * 3) });
+        }
         group.userData.isBatched = true;
         group.userData.onPlacement = null;
     };
@@ -649,7 +653,7 @@ export function createSwingableVine(options: SwingableVineOptions = {}): THREE.G
 
     const vineMat = getCachedProceduralMaterial(`swingable_vine_${color}`, color, () => {
         const mat = createClayMaterial(color);
-        mat.positionNode = applyPlayerInteraction(positionLocal).add(calculateWindSway(positionLocal));
+        mat.positionNode = applyPlayerInteraction(positionLocal.add(calculateWindSway(positionLocal)));
         const audioRimIntensity = float(1.0).add(uAudioLow.mul(0.5));
         mat.emissiveNode = (mat.emissiveNode || tslColor(0x000000)).add(createJuicyRimLight(tslColor(color), audioRimIntensity, float(3.0), mat.normalNode));
         return mat;
@@ -702,7 +706,7 @@ export function createVineLadder(options: VineLadderOptions = {}): THREE.Group {
 
     const vineMat = getCachedProceduralMaterial(`vine_ladder_${color}`, color, () => {
         const mat = createClayMaterial(color);
-        mat.positionNode = applyPlayerInteraction(positionLocal).add(calculateWindSway(positionLocal));
+        mat.positionNode = applyPlayerInteraction(positionLocal.add(calculateWindSway(positionLocal)));
         const audioRimIntensity = float(1.0).add(uAudioLow.mul(0.5));
         mat.emissiveNode = (mat.emissiveNode || tslColor(0x000000)).add(createJuicyRimLight(tslColor(color), audioRimIntensity, float(3.0), mat.normalNode));
         return mat;

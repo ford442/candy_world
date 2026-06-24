@@ -132,27 +132,35 @@
         #btn-full-game:hover, #btn-full-game:focus-visible { background: #38bdf8; }
         #btn-fast-full:hover, #btn-fast-full:focus-visible { background: #81c784; }
 
-        .mode-btn[aria-pressed="true"] {
+        .mode-btn[aria-checked="true"] {
             border-color: #fff;
             transform: scale(1.1);
             box-shadow: 0 4px 15px rgba(0,0,0,0.2);
         }
-        #btn-core-only[aria-pressed="true"] { box-shadow: 0 5px 18px rgba(255, 158, 205, 0.7); }
-        #btn-full-game[aria-pressed="true"] { box-shadow: 0 5px 18px rgba(125, 211, 252, 0.55); }
-        #btn-fast-full[aria-pressed="true"] { box-shadow: 0 5px 18px rgba(165, 214, 167, 0.7); }
+        #btn-core-only[aria-checked="true"] { box-shadow: 0 5px 18px rgba(255, 158, 205, 0.7); }
+        #btn-full-game[aria-checked="true"] { box-shadow: 0 5px 18px rgba(125, 211, 252, 0.55); }
+        #btn-fast-full[aria-checked="true"] { box-shadow: 0 5px 18px rgba(165, 214, 167, 0.7); }
         .cta-button:active,
+        .cta-button.keyboard-active,
         .cta-button[aria-pressed="true"],
+        .cta-button[aria-checked="true"],
         .toggle-button:active,
+        .toggle-button.keyboard-active,
         .toggle-button[aria-pressed="true"],
         .secondary-button:active,
+        .secondary-button.keyboard-active,
         .secondary-button[aria-pressed="true"],
         .playlist-btn:active,
+        .playlist-btn.keyboard-active,
         .playlist-btn[aria-pressed="true"],
         .close-icon-btn:active,
+        .close-icon-btn.keyboard-active,
         .close-icon-btn[aria-pressed="true"],
         .file-label:active,
+        .file-label.keyboard-active,
         .file-label[aria-pressed="true"],
         .playlist-remove-btn:active,
+        .playlist-remove-btn.keyboard-active,
         .playlist-remove-btn[aria-pressed="true"] {
             transform: scale(0.95);
             transition-duration: 0.05s;
@@ -656,19 +664,19 @@
             <span class="spinner" aria-hidden="true"></span>Loading World... 🍭
         </button>
 
-        <div id="mode-select" style="margin: 20px 0; text-align: center;" role="group" aria-label="Game Mode Selection">
+        <div id="mode-select" style="margin: 20px 0; text-align: center;" role="radiogroup" aria-label="Game Mode Selection">
             <p id="mode-description" style="margin-bottom: 8px; opacity: 0.9;" aria-live="polite" aria-atomic="true">Choose startup mode:</p>
-            <button id="btn-core-only" type="button" class="cta-button mode-btn" aria-describedby="mode-description">
+            <button id="btn-core-only" type="button" role="radio" aria-checked="true" class="cta-button mode-btn" aria-describedby="mode-description">
                 🍭 Core Only (Fast)
             </button>
-            <button id="btn-full-game" type="button" class="cta-button mode-btn" aria-describedby="mode-description">
+            <button id="btn-full-game" type="button" role="radio" aria-checked="false" class="cta-button mode-btn" aria-describedby="mode-description">
                 🌸 Full Game
             </button>
-            <button id="btn-fast-full" type="button" class="cta-button mode-btn fast-full-btn" aria-describedby="mode-description">
+            <button id="btn-fast-full" type="button" role="radio" aria-checked="false" class="cta-button mode-btn fast-full-btn" aria-describedby="mode-description">
                 🌿 Fast Full (Light)
             </button>
             <label id="wait-full-label" class="wait-full-option" style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:12px;cursor:pointer;font-size:0.82rem;opacity:0.85;">
-                <input type="checkbox" id="wait-full-checkbox" style="width:15px;height:15px;cursor:pointer;accent-color:#FFB6C1;">
+                <input type="checkbox" id="wait-full-checkbox" role="switch" aria-checked="false" style="width:15px;height:15px;cursor:pointer;accent-color:#FFB6C1;">
                 <span>Wait for complete scenery before entering</span>
             </label>
         </div>
@@ -697,6 +705,10 @@
 
             <button id="openJukeboxBtn" class="toggle-button" aria-keyshortcuts="Q" aria-label="Open Jukebox playlist" aria-haspopup="dialog" aria-expanded="false">
                 Open Jukebox <span class="key-badge" aria-hidden="true">Q</span>
+            </button>
+
+            <button id="toggleExploreBtn" class="toggle-button" aria-pressed="false" aria-keyshortcuts="Tab" aria-label="Toggle Explore camera mode" title="Cinematic orbit camera (hold Tab)">
+                <span aria-hidden="true">🎥</span> Explore Mode <span class="key-badge" aria-hidden="true">Tab</span>
             </button>
 
             <button id="openA11yBtn" class="toggle-button" aria-label="Open Accessibility Settings" aria-haspopup="dialog" aria-expanded="false" title="Accessibility Settings">
@@ -739,6 +751,23 @@
 
                     <dt><kbd class="key">Space</kbd><span class="combo-badge" aria-label="Double Press">×2</span></dt>
                     <dd>Double Jump</dd>
+                </dl>
+            </div>
+
+            <div class="controls-section">
+                <h3 class="controls-header">Explore / Wander</h3>
+                <dl class="controls-list">
+                    <dt><kbd class="key">Tab</kbd> (hold)</dt>
+                    <dd>Cinematic orbit camera — release to return</dd>
+
+                    <dt><kbd class="key">Tab</kbd> toggle / Pause menu</dt>
+                    <dd>Persistent explore mode (saved in browser)</dd>
+
+                    <dt><span class="mouse-icon" aria-hidden="true"></span>Drag / Scroll</dt>
+                    <dd>Orbit and zoom while exploring</dd>
+
+                    <dt><kbd class="key">Enter</kbd> / Click</dt>
+                    <dd>Return to first-person at current view (ground-snapped)</dd>
                 </dl>
             </div>
 
@@ -839,7 +868,57 @@
 
     <canvas id="glCanvas" role="img" aria-label="Immersive pastel candy forest world with glowing mushrooms, floating clouds, and music-reactive elements" tabindex="0" aria-live="polite" aria-describedby="world-status"></canvas>
     <div id="world-status" aria-live="polite" class="visually-hidden">Loading candy world...</div>
+
+    <!-- Deferred HUD Indicator -->
+    <div id="candy-deferred-indicator" class="deferred-indicator" aria-hidden="true">
+        <span class="deferred-spinner"></span>
+        <span class="deferred-text">Populating...</span>
+        <span class="deferred-count" aria-hidden="true"></span>
+        <span class="deferred-eta" aria-hidden="true"></span>
+        <span class="deferred-fail" aria-hidden="true" role="button" tabindex="0" style="display:none;color:#ff6b6b;font-weight:600;margin-left:6px;cursor:pointer;">⚠ <span class="fail-count">0</span></span>
+        <span class="deferred-bar"><span class="deferred-bar-fill"></span></span>
+    </div>
+
+    <!-- Loading Screen Overlay -->
+    <div id="candy-loading-overlay" class="loading-overlay theme-candy" role="dialog" aria-modal="true" style="display: none;">
+        <!-- Main Loading Screen Container -->
+        <div id="candy-loading-screen" class="loading-screen theme-candy" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Game loading progress" aria-live="polite" aria-atomic="true" style="display: none;" tabindex="-1">
+            <div class="loading-content">
+                <h1 class="loading-title">🍭 Candy World <span class="loading-dots">...</span></h1>
+                <div class="loading-spinner"></div>
+                <div class="progress-section">
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="transform: scaleX(0); transform-origin: left;"></div>
+                    </div>
+                    <div class="progress-details">
+                        <span class="progress-percentage">0%</span>
+                        <span class="progress-task">Initializing...</span>
+                    </div>
+                </div>
+                <div class="time-remaining">Calculating time...</div>
+                <button class="skip-button" aria-label="Skip Background Loading" style="display: none;">
+                    Skip Background Loading <span class="key-badge">Space</span>
+                </button>
+                <div class="status-indicators">
+                    <div class="phase-indicator" data-phase-id="init" data-phase-index="0">
+                        <span class="phase-dot"></span>
+                        <span class="phase-label">INIT</span>
+                    </div>
+                    <div class="phase-indicator" data-phase-id="assets" data-phase-index="1">
+                        <span class="phase-dot"></span>
+                        <span class="phase-label">ASSETS</span>
+                    </div>
+                    <div class="phase-indicator" data-phase-id="world" data-phase-index="2">
+                        <span class="phase-dot"></span>
+                        <span class="phase-label">WORLD</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script type="module" src="src/main.ts"></script>
 </body>
+
 
 </html>

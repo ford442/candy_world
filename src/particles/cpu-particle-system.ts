@@ -226,6 +226,11 @@ export class CPUParticleSystem {
         const posAttr = this.mesh.geometry.getAttribute('position') as THREE.BufferAttribute;
         const positions = posAttr.array as Float32Array;
         
+        // ⚡ OPTIMIZATION: Cache timestamp once per frame
+        const now = Date.now();
+        const timeOffsetFirefly = Math.cos(now * 0.001);
+        const timeOffsetPollen = now * 0.0005;
+
         // Update each particle
         for (let i = 0; i < this.count; i++) {
             const idx = i * 3;
@@ -240,10 +245,10 @@ export class CPUParticleSystem {
                 // Update based on type
                 switch (this.type) {
                     case 'fireflies':
-                        this.updateFirefly(i, deltaTime, playerPosition, audioData);
+                        this.updateFirefly(i, deltaTime, playerPosition, audioData, timeOffsetFirefly);
                         break;
                     case 'pollen':
-                        this.updatePollen(i, deltaTime, playerPosition, audioData);
+                        this.updatePollen(i, deltaTime, playerPosition, audioData, timeOffsetPollen);
                         break;
                     case 'berries':
                         this.updateBerry(i, deltaTime);
@@ -264,13 +269,13 @@ export class CPUParticleSystem {
         posAttr.needsUpdate = true;
     }
     
-    private updateFirefly(i: number, deltaTime: number, playerPosition: THREE.Vector3, audioData: ParticleAudioData): void {
+    private updateFirefly(i: number, deltaTime: number, playerPosition: THREE.Vector3, audioData: ParticleAudioData, timeOffset: number): void {
         const idx = i * 3;
         
         // Curl noise approximation
-        const noiseX = Math.sin(this.positions[idx] * 0.1 + this.seeds[i]) * Math.cos(Date.now() * 0.001);
-        const noiseY = Math.sin(this.positions[idx + 1] * 0.1 + this.seeds[i] + 10) * Math.cos(Date.now() * 0.001);
-        const noiseZ = Math.sin(this.positions[idx + 2] * 0.1 + this.seeds[i] + 20) * Math.cos(Date.now() * 0.001);
+        const noiseX = Math.sin(this.positions[idx] * 0.1 + this.seeds[i]) * timeOffset;
+        const noiseY = Math.sin(this.positions[idx + 1] * 0.1 + this.seeds[i] + 10) * timeOffset;
+        const noiseZ = Math.sin(this.positions[idx + 2] * 0.1 + this.seeds[i] + 20) * timeOffset;
         
         // Spring force to center
         const springX = (this.center.x - this.positions[idx]) * 0.5;
@@ -317,7 +322,7 @@ export class CPUParticleSystem {
         }
     }
     
-    private updatePollen(i: number, deltaTime: number, playerPosition: THREE.Vector3, audioData: ParticleAudioData): void {
+    private updatePollen(i: number, deltaTime: number, playerPosition: THREE.Vector3, audioData: ParticleAudioData, timeOffset: number): void {
         const idx = i * 3;
         
         // Wind force
@@ -328,9 +333,9 @@ export class CPUParticleSystem {
         
         // Curl noise
         const noiseScale = 0.2;
-        const noiseX = Math.sin(this.positions[idx] * noiseScale + Date.now() * 0.0005);
-        const noiseY = Math.sin(this.positions[idx + 1] * noiseScale + Date.now() * 0.0005 + 10);
-        const noiseZ = Math.sin(this.positions[idx + 2] * noiseScale + Date.now() * 0.0005 + 20);
+        const noiseX = Math.sin(this.positions[idx] * noiseScale + timeOffset);
+        const noiseY = Math.sin(this.positions[idx + 1] * noiseScale + timeOffset + 10);
+        const noiseZ = Math.sin(this.positions[idx + 2] * noiseScale + timeOffset + 20);
         
         // Player repulsion
         const toPlayerX = this.positions[idx] - playerPosition.x;

@@ -1,5 +1,6 @@
-import { MRState, computeWaveTimeSinceArrival, ActiveWave, applyMapMusicContext, syncMapMusicContext, toChannels, mapNoteToColor, WeatherReactivityBinding, WeatherMusicTargets, _frustum, _projScreenMatrix, _scratchSphere, _targetMoonColor, _targetArpeggioColor, _targetNebulaColor, _targetGlobalColor, _zeroVec, _waveColor, _whiteColor } from './music-reactivity-core.ts';
+import { MRState, computeWaveTimeSinceArrival, ActiveWave, applyMapMusicContext, syncMapMusicContext, toChannels, mapNoteToColor, WeatherReactivityBinding, WeatherMusicTargets, _frustum, _projScreenMatrix, _scratchSphere, _targetMoonColor, _targetArpeggioColor, _targetNebulaColor, _targetGlobalColor, _targetGemCanopyColor, _zeroVec, _waveColor, _whiteColor } from './music-reactivity-core.ts';
 export * from './music-reactivity-core.ts';
+export { AtmosphereShaftState } from './atmosphere-reactivity.ts';
 import * as THREE from 'three';
 import { CONFIG, CYCLE_DURATION } from '../core/config.ts';
 import { getDayNightBias } from '../core/cycle.ts';
@@ -19,6 +20,11 @@ import { BeatSync } from '../audio/beat-sync.ts';
 import musicBindings from '../../assets/music-bindings.json';
 import { getMapMusicContext } from '../world/map-music-context.ts';
 import type { MapMusicOverrides } from '../world/map-loader.ts';
+import {
+    updateAtmosphereReactivity,
+    registerAtmosphereBeatSync,
+    applyAtmosphereMapOverrides,
+} from './atmosphere-reactivity.ts';
 
 // ⚡ OPTIMIZATION: Pre-parsed channel index arrays from music-bindings.json.
 // Resolved once at module init — immutable after that, zero per-frame allocations.
@@ -145,6 +151,7 @@ const _skyWaveUniformMap: Record<string, { value: THREE.Color }> = {
   musical_flora: BiomeUniforms.musicalFlora.noteColor,
   lake_features: BiomeUniforms.lakeFeatures.noteColor,
   global: BiomeUniforms.global.noteColor,
+  gem_canopy: BiomeUniforms.gemCanopy.noteColor,
   sky_moon: BiomeUniforms.skyMoon.moonNoteColor as any,
 };
 
@@ -167,6 +174,8 @@ export function computeWaveDistSq(plantWorldPos: THREE.Vector3, activeWave: Acti
 }
 const _waveColor = new THREE.Color(); // scratch for beat capture
 const _whiteColor = new THREE.Color(0xffffff);
+// Pre-allocated static fallback to prevent per-frame object allocation when audio is inactive
+const _emptyAudioState: AudioData = { low: 0, mid: 0, high: 0, channels: [], isPlaying: false, timestamp: 0 };
 let _waveDecayStartTime = 0;
 
 // One-time validation flag for channel range checks against music-bindings.json
@@ -287,6 +296,8 @@ function applyMapMusicContext(overrides: MapMusicOverrides | undefined): void {
         }
     }
 
+    applyAtmosphereMapOverrides(overrides as { atmosphere?: Record<string, unknown> } | undefined);
+
     _channelValidationDone = false;
 }
 
@@ -295,19 +306,6 @@ function syncMapMusicContext(): void {
     if (context.version === _appliedMapMusicVersion) return;
     _appliedMapMusicVersion = context.version;
     applyMapMusicContext(context.overrides);
-}
-
-// Helper to map MIDI note (0-127) to a color hue
-// Helper to map MIDI note (0-127) to a color using CONFIG.noteColorMap.sky
-function mapNoteToColor(note: number, outColor: THREE.Color) {
-    if (note <= 0) return outColor.setHex(0xffffff); // Default white
-    // Standard map: C=0, C#=1 ... B=11
-    const CHROMATIC_SCALE = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-    const pitchClass = note % 12;
-    const noteName = CHROMATIC_SCALE[pitchClass];
-    const hexColor = CONFIG.noteColorMap['global'][noteName] || 0xffffff;
-    outColor.setHex(hexColor);
-    return outColor;
 }
 
 // --- Type Definitions ---
@@ -356,6 +354,7 @@ export class MusicReactivitySystem {
         this.weatherSystem = weatherSystem;
         if (beatSync) {
             this.registerBeatSync(beatSync);
+            registerAtmosphereBeatSync(beatSync);
         }
         // Moon registration is handled explicitly via registerMoon()
     }
@@ -503,14 +502,20 @@ export class MusicReactivitySystem {
         this.moonState.blinkStartTime = performance.now();
     }
 
-    private updateFoliageAnimationLoop(time: number, deltaTime: number, audioState: AudioData | null, cpuAnimatedFoliage: FoliageObject[], camera: THREE.Camera, isDayParameter: boolean, isDeepNight: boolean) {
+    private updateFoliageAnimationLoop(time: number, deltaTime: number, audioState: AudioData | null, cpuAnimatedFoliage: FoliageObject[], camera: THREE.Camera, isDay: boolean, isDeepNight: boolean) {
+        const isNight = !isDay;
+        if (typeof isDay !== 'boolean') {
+            console.warn('[Music] isDay parameter missing');
+            return;
+        }
+
 // 3. Update Foliage Animation Loop
     if (cpuAnimatedFoliage && camera) {
         // Update Frustum for Culling
         _projScreenMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
         _frustum.setFromProjectionMatrix(_projScreenMatrix);
 
-        const isDay = isDayParameter;
+
 
         // ⚡ PERFORMANCE: Debug counters
         let totalObjects = 0;
@@ -576,7 +581,8 @@ export class MusicReactivitySystem {
         if (isVisible) {
             rendered++;
             // Using animateFoliage (assumed typed correctly in animation.ts)
-            animateFoliage(obj, time, audioState || {}, isDay, isDeepNight);
+            // ⚡ OPTIMIZATION: Use static _emptyAudioState instead of allocating {} per frame
+            animateFoliage(obj, time, audioState || _emptyAudioState, isDay, isDeepNight);
         } else {
             culledByFrustum++;
         }
@@ -635,7 +641,8 @@ export class MusicReactivitySystem {
             ..._arpeggioShimmerCh, ..._arpeggioHueShiftCh, ..._arpeggioNoteColorCh,
             ..._nebulaShimmerCh, ..._nebulaAmplitudeCh, ..._nebulaNoteColorCh,
             ..._skyMoonNoteColorCh, ..._skyMoonIntensityCh,
-            ..._globalShimmerCh, ..._globalHueShiftCh, ..._globalNoteColorCh
+            ...MRState.globalShimmerCh, ...MRState.globalHueShiftCh, ...MRState.globalNoteColorCh,
+            ...MRState.gemCanopyShimmerCh, ...MRState.gemCanopyHueShiftCh, ...MRState.gemCanopyNoteColorCh
             ];
             const maxNeeded = Math.max(0, ...allConfiguredChannels);
             if (maxNeeded >= channels.length) {
@@ -671,6 +678,20 @@ export class MusicReactivitySystem {
             if (idx < channels.length) MRState.globalHueShiftAccum += channels[idx].volume;
         }
 
+        // --- Gem Canopy: shimmer ---
+        MRState.gemCanopyShimmerAccum = 0.0;
+        for (let i = 0; i < MRState.gemCanopyShimmerCh.length; i++) {
+            const idx = MRState.gemCanopyShimmerCh[i];
+            if (idx < channels.length) MRState.gemCanopyShimmerAccum += channels[idx].volume;
+        }
+
+        // --- Gem Canopy: hue shift (note-hit twist driver) ---
+        MRState.gemCanopyHueShiftAccum = 0.0;
+        for (let i = 0; i < MRState.gemCanopyHueShiftCh.length; i++) {
+            const idx = MRState.gemCanopyHueShiftCh[i];
+            if (idx < channels.length) MRState.gemCanopyHueShiftAccum += channels[idx].volume;
+        }
+
         // --- Crystalline Nebula: shimmer ---
         MRState.nebulaShimmerAccum = 0.0;
         for (let i = 0; i < MRState.nebulaShimmerCh.length; i++) {
@@ -689,6 +710,7 @@ export class MusicReactivitySystem {
         MRState.skyMoonNoteVal = 0;
         MRState.arpeggioNoteVal = 0;
         MRState.nebulaNoteVal = 0;
+        MRState.gemCanopyNoteVal = 0;
         // Read Intensity
         for (let i = 0; i < MRState.skyMoonIntensityCh.length; i++) {
             const idx = MRState.skyMoonIntensityCh[i];
@@ -728,7 +750,16 @@ export class MusicReactivitySystem {
             }
         }
 
-        // Push to TSL uniforms — clamp sums to [0,1] then gate by night.
+        // Read Gem Canopy Note Color
+        for (let i = 0; i < MRState.gemCanopyNoteColorCh.length; i++) {
+            const idx = MRState.gemCanopyNoteColorCh[i];
+            if (idx < channels.length && channels[idx].volume > 0.05) {
+            MRState.gemCanopyNoteVal = channels[idx].note;
+            break;
+            }
+        }
+
+        // Push to TSL uniforms
         // Mutate .value in place: never reassign the uniform node itself.
         BiomeUniforms.arpeggioGrove.shimmer.value =
             Math.min(MRState.arpeggioShimmerAccum / Math.max(MRState.arpeggioShimmerCh.length, 1), 1.0) * nightGate * MRState.arpeggioIntensityScale;
@@ -744,6 +775,11 @@ export class MusicReactivitySystem {
             Math.min(MRState.globalShimmerAccum / Math.max(MRState.globalShimmerCh.length, 1), 1.0) * nightGate * MRState.globalIntensityScale;
         BiomeUniforms.global.hueShift.value =
             Math.min(MRState.globalHueShiftAccum / Math.max(MRState.globalHueShiftCh.length, 1), 1.0) * nightGate * MRState.globalIntensityScale;
+
+        BiomeUniforms.gemCanopy.shimmer.value =
+            Math.min(MRState.gemCanopyShimmerAccum / Math.max(MRState.gemCanopyShimmerCh.length, 1), 1.0) * nightGate * MRState.gemCanopyIntensityScale;
+        BiomeUniforms.gemCanopy.hueShift.value =
+            Math.min(MRState.gemCanopyHueShiftAccum / Math.max(MRState.gemCanopyHueShiftCh.length, 1), 1.0) * nightGate * MRState.gemCanopyIntensityScale;
 
         BiomeUniforms.skyMoon.moonIntensity.value =
             Math.min(MRState.skyMoonIntensityAccum / Math.max(MRState.skyMoonIntensityCh.length, 1), 1.0) * nightGate * MRState.skyMoonIntensityScale;
@@ -775,11 +811,19 @@ export class MusicReactivitySystem {
         }
 
         if (MRState.globalNoteVal > 0) {
-            mapNoteToColor(MRState.globalNoteVal, _targetGlobalColor);
+            mapNoteToColor(MRState.globalNoteVal, _targetGlobalColor, 'global');
             BiomeUniforms.global.noteColor.value.lerp(_targetGlobalColor, 0.1);
         } else {
             _targetGlobalColor.setHex(0xffffff);
             BiomeUniforms.global.noteColor.value.lerp(_targetGlobalColor, 0.05);
+        }
+
+        if (MRState.gemCanopyNoteVal > 0) {
+            mapNoteToColor(MRState.gemCanopyNoteVal, _targetGemCanopyColor, 'gem_canopy');
+            BiomeUniforms.gemCanopy.noteColor.value.lerp(_targetGemCanopyColor, 0.12);
+        } else {
+            _targetGemCanopyColor.setHex(0xffffff);
+            BiomeUniforms.gemCanopy.noteColor.value.lerp(_targetGemCanopyColor, 0.05);
         }
         } else {
         // No audio data — smoothly decay towards resting values (no snapping).
@@ -792,6 +836,8 @@ export class MusicReactivitySystem {
 
         BiomeUniforms.global.shimmer.value *= 0.9;
         BiomeUniforms.global.hueShift.value *= 0.9;
+        BiomeUniforms.gemCanopy.shimmer.value *= 0.9;
+        BiomeUniforms.gemCanopy.hueShift.value *= 0.9;
 
         BiomeUniforms.skyMoon.moonIntensity.value *= 0.9;
         _targetMoonColor.setHex(0xffffff);
@@ -805,11 +851,13 @@ export class MusicReactivitySystem {
 
         _targetGlobalColor.setHex(0xffffff);
         BiomeUniforms.global.noteColor.value.lerp(_targetGlobalColor, 0.05);
+
+        _targetGemCanopyColor.setHex(0xffffff);
+        BiomeUniforms.gemCanopy.noteColor.value.lerp(_targetGemCanopyColor, 0.05);
         }
     }
 
-    private updateLuminousPlants(audioState: AudioData | null) {
-        const isNight = this.weatherSystem?.isNight?.() ?? true;
+    private updateLuminousPlants(audioState: AudioData | null, isDay: boolean) {
 // ---------------------------------------------------------------
         // ⚡ LUMINOUS PLANTS (Scenic System)
         // Tracker channel defined in assets/music-bindings.json.
@@ -841,7 +889,7 @@ export class MusicReactivitySystem {
             }
         }
         // Day guard: clamp intensity to 0 when daytime so sky/moon are unchanged.
-        SkyUniforms.intensity.value = isNight ? Math.min(MRState.smoothedSkyIntensity, 1.0) : 0.0;
+        SkyUniforms.intensity.value = (!isDay) ? Math.min(MRState.smoothedSkyIntensity, 1.0) : 0.0;
     }
 
     private updateSkyWavePropagation(audioState: AudioData | null, isDay: boolean, cameraPosition?: THREE.Vector3, deltaTime: number = 0.016) {
@@ -865,7 +913,7 @@ export class MusicReactivitySystem {
                 let allComplete = true;
                 for (let i = 0; i < targets.length; i++) {
                     const key = targets[i];
-                    const uni = skyWaveUniformMap[key];
+                    const uni = _skyWaveUniformMap[key];
                     if (!uni) continue;
 
                     // Stagger arrival: ~0.22 of propagation per step in the list
@@ -888,13 +936,13 @@ export class MusicReactivitySystem {
 
                 if (decayElapsed < MRState.skyWaveDecayMs) {
                     for (const key of targets) {
-                        const uni = skyWaveUniformMap[key];
+                        const uni = _skyWaveUniformMap[key];
                         if (uni) uni.value.lerp(_whiteColor, 0.06);
                     }
                 } else {
                     MRState.waveDecayStartTime = 0;
                     for (const key of targets) {
-                        const uni = skyWaveUniformMap[key];
+                        const uni = _skyWaveUniformMap[key];
                         if (uni) uni.value.copy(_whiteColor);
                     }
                 }
@@ -908,7 +956,7 @@ export class MusicReactivitySystem {
             // Also gently clear any lingering wave color on targets (defensive)
             const targets: readonly string[] = MRState.skyWaveTargets;
             for (const key of targets) {
-                const uni = skyWaveUniformMap[key];
+                const uni = _skyWaveUniformMap[key];
                 if (uni) uni.value.lerp(_whiteColor, 0.04);
             }
         }
@@ -977,7 +1025,7 @@ export class MusicReactivitySystem {
         weatherSystem: IWeatherSystem,
         cpuAnimatedFoliage: FoliageObject[],
         camera: THREE.Camera,
-        isNight: boolean,
+        isDay: boolean,
         isDeepNight: boolean
     ) {
         syncMapMusicContext();
@@ -987,7 +1035,7 @@ export class MusicReactivitySystem {
         // 2. Update Twilight Glow
         this.updateTwilightGlow(time);
 
-                this.updateFoliageAnimationLoop(time, deltaTime, audioState, cpuAnimatedFoliage, camera, !isNight, isDeepNight);
+                this.updateFoliageAnimationLoop(time, deltaTime, audioState, cpuAnimatedFoliage, camera, isDay, isDeepNight);
 
         this.updateBiomeChannelBindings(audioState, getDayNightBias(time % CYCLE_DURATION));
 
@@ -1026,10 +1074,18 @@ export class MusicReactivitySystem {
 
             // Push to TSL uniforms — mutate .value only, never reassign nodes.
             SkyUniforms.noteIndex.value = MRState.lastSkyNoteIndex;
-                    this.updateLuminousPlants(audioState);
+                    this.updateLuminousPlants(audioState, !isDay);
 
-    this.updateSkyWavePropagation(audioState, !isNight, camera.position, deltaTime);
-        }
+        this.updateSkyWavePropagation(audioState, isDay, camera.position, deltaTime);
+
+        updateAtmosphereReactivity(
+            audioState,
+            deltaTime,
+            getDayNightBias(time % CYCLE_DURATION),
+            isDay,
+            WeatherMusicTargets.fogDensity
+        );
+    }
 
     updateMoon(time: number, deltaTime: number) {
         if (!this.moon) return;

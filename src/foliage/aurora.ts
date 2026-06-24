@@ -83,9 +83,11 @@ export function createAurora(): THREE.Mesh {
     return mesh;
 }
 
+import { getCIAdjustedCount } from '../core/config.ts';
+
 // --- HARMONY ORBS SYSTEM ---
 
-const MAX_ORBS = 50;
+const MAX_ORBS = getCIAdjustedCount(50, 0.2, 10);
 
 interface HarmonyOrb {
     active: boolean;

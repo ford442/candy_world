@@ -1,3 +1,4 @@
+import { isCIorHeadless } from '../core/config.ts';
 /**
  * Time-Budgeted Background Processor
  *
@@ -18,6 +19,7 @@ export interface DeferredTask {
     id: string;
     execute: () => void | Promise<void>;
     priority?: number;
+    retryCount?: number;
 }
 
 // Detect requestIdleCallback at module level to avoid repeated property lookups.
@@ -77,8 +79,29 @@ export class BackgroundProcessor {
     /**
      * Start processing the queue
      */
-    public start(): void {
-        if (this.isRunning || this.queue.length === 0) return;
+    public async start(): Promise<void> {
+        if (isCIorHeadless()) {
+            console.log('[BackgroundProcessor] CI/Headless mode detected, running synchronously.');
+            while (this.queue.length > 0) {
+                const task = this.queue.shift();
+                if (task) {
+                    try {
+                        const result = task.execute(); if (result instanceof Promise) { await result; }
+                        this.completedTasks++;
+                    } catch (e) {
+                        console.error(`[BackgroundProcessor] Error executing task ${task.id}:`, e);
+                        this.failedTasks++;
+                    }
+                }
+            }
+            this.onCompleteCallback?.(this.completedTasks, this.totalTasks, this.failedTasks);
+            return;
+        }
+        if (this.isRunning) return;
+        if (this.queue.length === 0) {
+            this.onCompleteCallback?.(this.completedTasks, this.totalTasks, this.failedTasks);
+            return;
+        }
         this.isRunning = true;
         this.startTimeMs = performance.now();
 
@@ -188,6 +211,12 @@ export class BackgroundProcessor {
                     await result;
                 }
             } catch (e) {
+                if ((task.retryCount || 0) < 1) {
+                    task.retryCount = (task.retryCount || 0) + 1;
+                    console.warn(`[BackgroundProcessor] Task ${task.id} failed, retrying once. Error:`, e);
+                    this.queue.unshift(task);
+                    continue;
+                }
                 console.error(`[BackgroundProcessor] Error executing task ${task.id}:`, e);
                 maybeRecordBackgroundFailure(task.id, e);
                 this.failedTasks++;
@@ -239,6 +268,7 @@ export class BackgroundProcessor {
     public resetCounters(): void {
         this.totalTasks = this.queue.length;
         this.completedTasks = 0;
+        this.failedTasks = 0;
         this.startTimeMs = 0;
         this.isRunning = false;
         this.onCompleteCallback = null;
