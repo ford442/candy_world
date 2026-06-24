@@ -24,6 +24,7 @@ import { getGroundHeight } from '../utils/wasm-loader.ts';
 import { ShaderWarmup } from '../rendering/shader-warmup.ts';
 import { startPhase, endPhase, recordWarmupMetrics } from '../utils/startup-profiler.ts';
 import { initGPUCompute } from '../compute/compute-init.ts';
+import { isCIorHeadless } from './config.ts';
 
 // Deferred visual elements
 let aurora: THREE.Object3D | null = null;
@@ -189,6 +190,13 @@ export function runDeferredWarmup(
         startPhase('Shader Warmup');
         performance.mark('candy:shader-warmup-start');
         console.log('[Deferred] Starting incremental shader pre-compilation...');
+
+        // Check CI bypass here
+        if (isCIorHeadless()) {
+            console.log('[Deferred] Skipping incremental shader pre-compilation in CI mode to prevent WebGPU Device Lost');
+            endPhase('Shader Warmup');
+            return;
+        }
 
         // FIX: Ensure clipping planes are defined before compilation.
         // WebGPURenderer 0.171.0+ can crash in setupHardwareClipping if undefined.
