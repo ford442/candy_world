@@ -127,6 +127,7 @@ Next Step: Ask the user for the next task.
 Next Step: Ask the user for the next task.
 
 Status: Implemented ✅
+* Implementation Details: Stabilized headless CI boot by adding synchronous task drain in `BackgroundProcessor.start()` for CI/headless. Expanded `isCIorHeadless()` guards across music reactivity, compute, foliage, and rendering to bypass heavy memory allocations. Fixed `computeWaveTimeSinceArrival` import and argument order. Fixed `overlayCtx` scoping in `startup-profiler-ui.ts`.
 * Implementation Details: Applied "Juice" to the `subwoofer-lotus-batcher.ts` component by adding `calculateWindSway`, `applyPlayerInteraction`, and `createJuicyRimLight` TSL logic to the base pad, rings, and center portal.
 Next Step: Ask the user for the next task.
 

@@ -61,6 +61,7 @@ import {
 
 import { UPDATE_PARTICLES_WGSL, RENDER_PARTICLES_WGSL, FRAGMENT_PARTICLES_WGSL } from './compute-particles-shaders.ts';
 import { CPUParticleSystem } from './cpu-particle-system.ts';
+import { isCIorHeadless } from '../core/config.ts';
 
 // Default spawn center used when no config.center is provided
 const DEFAULT_SPAWN_CENTER = new THREE.Vector3(0, 5, 0);
@@ -118,6 +119,17 @@ export class ComputeParticleSystem {
         this.type = config.type;
         this.count = config.count || 10000;
         
+        // Check CI bypass here
+        if (isCIorHeadless() && config.type === 'berries') {
+            console.log('[ComputeParticles] 🍓 Stub mode activated for berries in CI/test (headless memory limit)');
+            this.count = 1;
+            this.buffers = this.createBuffers();
+            this.mesh = this.createMesh();
+            this.mesh.userData.computeParticleSystem = this;
+            this.initPromise = Promise.resolve();
+            return;
+        }
+
         // Initialize buffers
         this.buffers = this.createBuffers();
         
@@ -665,6 +677,12 @@ export function createComputePollen(config: PollenConfig = {}): ComputeParticleS
  * @returns ComputeParticleSystem instance
  */
 export function createComputeBerries(config: BerryConfig = {}): ComputeParticleSystem {
+    if (isCIorHeadless()) {
+        return new ComputeParticleSystem({
+            type: 'berries', count: 1, bounds: {x: 1, y: 1, z: 1}, center: new THREE.Vector3()
+        });
+    }
+
     return new ComputeParticleSystem({
         type: 'berries',
         count: config.count || 5000,

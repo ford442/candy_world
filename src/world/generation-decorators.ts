@@ -634,6 +634,7 @@ export async function populateProceduralExtras(
     // Sort deferred extras nearest-first so the background processor populates the
     // area around the player before filling in the far horizon.
     deferredItems.sort((a, b) => a.distSq - b.distSq);
+    const proceduralTaskToken = worldGenerationToken;
     for (const item of deferredItems) {
         // ⚡ OPTIMIZATION: Bypassed Math.sqrt() in hot procedural sorting loop using distance decay estimation
         const priority = Math.max(1, 60 - Math.floor(item.distSq / 16));
