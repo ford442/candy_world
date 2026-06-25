@@ -7,7 +7,7 @@ import {
 } from 'three/tsl';
 import {
     uTime, createJuicyRimLight, uAudioLow, uAudioHigh,
-    uWindSpeed, uWindDirection, triplanarNoise, uPlayerPosition, uPlayerVelocity
+    uWindSpeed, uWindDirection, triplanarNoise, uPlayerPosition
 } from './index.ts';
 import { attribute } from 'three/tsl';
 import { foliageGroup } from '../world/state.ts';
@@ -46,18 +46,12 @@ function createCloudMaterial() {
     // Strength: 1.0 at center, 0.0 at edge
     const playerStrength = float(1.0).sub(smoothstep(0.0, 1.0, distFactor));
 
-    // Enhanced Squash Y down, Bulge XZ out + Velocity impact (Juicy jump through)
-    const baseSquash = playerStrength.mul(0.6);
-    // If player is moving fast vertically (jumping), add extra vertical squash
-    const verticalVelSquash = uPlayerVelocity.y.abs().mul(0.015).mul(playerStrength).clamp(0.0, 0.4);
-    const totalSquashY = baseSquash.add(verticalVelSquash);
-    // Expand radially to preserve volume (ish)
-    const expandXZ = totalSquashY.mul(0.5);
-
+    // Squash Y down, Bulge XZ out
+    const playerSquashAmount = playerStrength.mul(0.6); // Max 60% squash
     const playerSquishScale = vec3(
-        float(1.0).add(expandXZ), // Expand X
-        float(1.0).sub(totalSquashY).max(0.4), // Compress Y, clamp at 0.4
-        float(1.0).add(expandXZ)  // Expand Z
+        float(1.0).add(playerSquashAmount.mul(0.5)), // Expand X
+        float(1.0).sub(playerSquashAmount),          // Compress Y
+        float(1.0).add(playerSquashAmount.mul(0.5))  // Expand Z
     );
 
     // 2. Wind Shearing (Clouds drift faster at the top)
@@ -114,14 +108,7 @@ function createCloudMaterial() {
     const floatOffset = sin(uTime.mul(floatSpeed).add(worldPhase)).mul(floatAmp);
     const floatDisp = vec3(0.0, floatOffset, 0.0);
 
-    // Spring Bounce: When player lands/jumps, the cloud "springs" back.
-    // We create a ringing overshoot based on uTime and the interaction strength.
-    // timeSince interaction is tough without state, so we simulate an instant response
-    // by adding a high-frequency time wave multiplied by player strength.
-    const bounceRinging = sin(uTime.mul(15.0)).mul(playerStrength).mul(0.15);
-    const bounceDisp = vec3(0.0, bounceRinging, 0.0);
-
-    material.positionNode = squishedPos.add(fluffOffset).add(floatDisp).add(bounceDisp);
+    material.positionNode = squishedPos.add(fluffOffset).add(floatDisp);
 
     // 4. Surface Detail (Triplanar Noise for "Cotton" Texture)
     // Adds high-frequency noise to Roughness and slightly to Color

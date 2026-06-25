@@ -529,7 +529,6 @@ function outputReportToConsole(report: StartupReport): void {
 // ============================================================================
 import { createOverlay, drawOverlay, hideOverlay, showOverlay } from './startup-profiler-ui.ts';
 import { toggleOverlay } from './startup-profiler-ui.ts';
-export { toggleOverlay };
 
 // ============================================================================
 // Public API
@@ -650,6 +649,10 @@ export function finalizeStartupProfile(): StartupReport {
 }
 
 /**
+ * Toggle the profiler overlay visibility
+ */
+
+/**
  * Get current profiler status
  */
 export function getProfilerStatus(): {
@@ -709,3 +712,4 @@ export default {
   recordTSLCompile,
   recordCustomPhase,
 };
+export { toggleOverlay };

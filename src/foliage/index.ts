@@ -23,7 +23,6 @@ export {
     uAudioLow,
     uAudioHigh,
     uPlayerPosition,
-    uPlayerVelocity,
     // Utility functions
     median,
     generateNoiseTexture,

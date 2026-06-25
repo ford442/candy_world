@@ -146,7 +146,3 @@ Next Step: Ask the user for the next task.
 Status: Implemented ✅
 * Implementation Details: Implemented TSL Volumetric God Rays + selective DoF (#1173). Replaced standard material opacity in `src/core/init.ts` with volumetric `uv()` fading to prevent hard intersections, and updated `_updateDepthOfField` in `src/core/game-loop.ts` to dynamically boost DoF mix based on active light shaft opacity, enhancing the cinematic feel.
 Next Step: Ask the user for the next task, potentially `#1134` (Stable release process) or `#1136` (Consolidate LoadingScreen).
-
-Status: Implemented ✅
-* Implementation Details: Placed the Gem Canopy corridor (24 procedural gem canopy trees) in the world via `assets/map.json` and export logic in `src/world/generation-decorators.ts`. Completed the `gem_canopy` music-binding block in `assets/music-bindings.json` (adding it to `target_biomes`).
-Next Step: #1175 Candy Material Cookbook + grok.md onboarding upgrade.
