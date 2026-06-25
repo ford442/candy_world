@@ -529,6 +529,7 @@ function outputReportToConsole(report: StartupReport): void {
 // ============================================================================
 import { createOverlay, drawOverlay, hideOverlay, showOverlay } from './startup-profiler-ui.ts';
 import { toggleOverlay } from './startup-profiler-ui.ts';
+export { toggleOverlay };
 
 // ============================================================================
 // Public API
@@ -712,4 +713,3 @@ export default {
   recordTSLCompile,
   recordCustomPhase,
 };
-export { toggleOverlay };
