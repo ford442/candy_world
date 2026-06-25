@@ -651,13 +651,6 @@ export function finalizeStartupProfile(): StartupReport {
 /**
  * Toggle the profiler overlay visibility
  */
-export function toggleOverlay(): void {
-  if (!uiState.overlayContainer || uiState.overlayContainer.style.display === 'none') {
-    showOverlay();
-  } else {
-    hideOverlay();
-  }
-}
 
 /**
  * Get current profiler status
@@ -719,3 +712,4 @@ export default {
   recordTSLCompile,
   recordCustomPhase,
 };
+export { toggleOverlay };
