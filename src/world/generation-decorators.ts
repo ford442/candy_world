@@ -15,6 +15,7 @@ import {
     LAKE_ARPEGGIO_FERN_COUNT, LAKE_DANDELION_COUNT, GEM_CANOPY, MYCELIUM_GROVE
 } from './generation-utils.ts';
 import { create, registerBuiltinWorldObjectTypes } from './foliage-registry.ts';
+import { gemFruitBatcher } from '../foliage/gem-fruit-batcher.ts';
 import { FEATURE_FLAGS } from '../core/config.ts';
 
 registerBuiltinWorldObjectTypes();
@@ -286,7 +287,9 @@ export async function populateGemCanopyCorridor(weatherSystem: WeatherSystem): P
         if (i % 4 === 3) await yieldControl();
     }
 
-    // Corridor accent trees: occasional portamento / bubble willow with hanging gems
+    // Corridor accent trees: occasional portamento / bubble willow with hanging gems.
+    // These reuse GemFruitBatcher.attachToTree so the corridor sparkles even on
+    // non-gem-canopy trunks, keeping the jewel motif consistent.
     for (let i = 0; i < 6; i++) {
         const t = (i + 0.5) / 6;
         const x = GEM_CANOPY.startX + (GEM_CANOPY.endX - GEM_CANOPY.startX) * t + (Math.random() - 0.5) * 8;
@@ -308,8 +311,14 @@ export async function populateGemCanopyCorridor(weatherSystem: WeatherSystem): P
         tree.userData.attachGemFruits = true;
         tree.position.set(x, y, z);
         tree.rotation.y = Math.random() * Math.PI * 2;
-        safeAddFoliage(tree, true, 1.5, weatherSystem);
-        recordSpawnAttempt(usePine ? 'portamento_pine' : 'bubble_willow', true);
+        const placed = safeAddFoliage(tree, true, 1.5, weatherSystem);
+        recordSpawnAttempt(usePine ? 'portamento_pine' : 'bubble_willow', placed, placed ? undefined : new Error('placement failed'));
+        if (placed) {
+            gemFruitBatcher.attachToTree(tree, {
+                height: usePine ? 4.0 + Math.random() * 1.5 : 4.5,
+                gemCount: 4 + Math.floor(Math.random() * 3),
+            });
+        }
     }
 
     console.log(`[World] Gem Canopy corridor populated (${treeCount} trees along path)`);

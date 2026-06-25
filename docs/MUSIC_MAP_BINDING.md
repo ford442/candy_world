@@ -120,3 +120,33 @@ Map-level overrides: add `"atmosphere": { ... }` under `music` in map JSON (same
 
 WebGL parity: `post-processing.ts` syncs `uBloomStrength.value` to `UnrealBloomPass.strength` each frame; `game-loop.ts` mirrors `uShaftOpacity` to the shared WebGL shaft material.
 
+## Gem Canopy Binding (`gem_canopy`)
+
+The Gem Canopy corridor is placed procedurally by `src/world/generation-decorators.ts` (`populateGemCanopyCorridor`). It is **not** authored in `assets/map.json`; the primary placement mechanism is the procedural decorator so the tree-lined jewel path can recede into fog with consistent density.
+
+```json
+{
+  "biomes": {
+    "gem_canopy": {
+      "shimmer": [1, 2],
+      "hueShift": [3],
+      "noteColor": [1]
+    }
+  },
+  "sky_wave": {
+    "target_biomes": ["arpeggio_grove", "crystalline_nebula", "luminous_plants", "sky_moon", "global", "gem_canopy"]
+  }
+}
+```
+
+| Signal | Source | Target uniform | Visual effect |
+|--------|--------|----------------|---------------|
+| Melody / chord shimmer | `gem_canopy.shimmer` | `BiomeUniforms.gemCanopy.shimmer` | Gems brighten and bloom; emissive pulse intensifies |
+| Note-hit twist driver | `gem_canopy.hueShift` | `BiomeUniforms.gemCanopy.hueShift` | Subtle pendulum twist on melody notes |
+| Note color | `gem_canopy.noteColor` | `BiomeUniforms.gemCanopy.noteColor` | Ruby / sapphire / amethyst tints shift toward the active tracker note |
+| Sky wave cascade | `sky_wave.target_biomes` includes `gem_canopy` | `BiomeUniforms.gemCanopy.noteColor` | Moon melody hue travels down to the corridor on the beat |
+
+Batcher implementation: `src/foliage/gem-fruit-batcher.ts` creates one `InstancedMesh` per jewel type (ruby, sapphire, amethyst) → three draw calls total. Each mesh uses `CandyPresets.Crystal` for the candy-glass clearcoat look, with `calculateWindSway` pendulum motion and a `gemCanopyNoteColorNode` tint in the TSL graph. `GemFruitBatcher.attachToTree` is also used for corridor accent portamento/bubble-willow trees so the jewel motif stays consistent.
+
+Map export: `gem_canopy_tree` is in `SUPPORTED_EXPORT_TYPES` with `category: 'mushroom-trees'` and `biome: 'gem_canopy'`. Spawn tracker records attempts as type `gem_canopy_tree`, and batcher telemetry reports the instanced gem count under id `gem_canopy`.
+
