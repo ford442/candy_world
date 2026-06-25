@@ -34,6 +34,15 @@ function _getFlag(key: string): string | null {
     }
 }
 
+export function isCIorHeadless(): boolean {
+    return (
+        (typeof navigator !== 'undefined' && /headless|playwright|ci|test/i.test(navigator.userAgent || '')) ||
+        (typeof window !== 'undefined' && (window as any).__IS_FULL_BOOT_TEST === true) ||
+        (typeof localStorage !== 'undefined' && localStorage.getItem('__IS_FULL_BOOT_TEST') === 'true') ||
+        (typeof navigator !== 'undefined' && (navigator as any).webdriver === true)
+    );
+}
+
 /**
  * Returns a CI/headless-adjusted count to prevent memory crashes in Playwright/CI.
  * Uses full count in normal browsers, reduced count in CI.

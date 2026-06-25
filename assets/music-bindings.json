@@ -103,8 +103,7 @@
       "crystalline_nebula",
       "luminous_plants",
       "sky_moon",
-      "global",
-      "gem_canopy"
+      "global"
     ],
     "decay_ms": 2000,
     "_comment": "Order in target_biomes controls stagger (earlier = hits first). Wave lerps the corresponding noteColor uniform so any foliage already consuming that uniform (portamento, wisteria, trees, mushrooms, etc.) receives the sky hue automatically."
