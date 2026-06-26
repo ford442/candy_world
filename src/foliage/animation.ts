@@ -249,70 +249,61 @@ function applyWetEffect(material: FoliageMaterial, wetAmount: number): void {
     }
 }
 
-export function updateMaterialsForWeather(materials: FoliageMaterial[], weatherState: string | null, weatherIntensity: number): void {
-    // ⚡ OPTIMIZATION: Use for-loop to avoid closure
-    for (let i = 0; i < materials.length; i++) {
-        const mat = materials[i];
-        // Basic check if it's a material
-        if (!mat || !(mat as any).isMaterial) continue;
-
-        let wetAmount = 0;
-
-        if (weatherState === 'rain') {
-            wetAmount = weatherIntensity * 0.5;
-        } else if (weatherState === 'storm') {
-            wetAmount = weatherIntensity * 0.8;
-        }
-
-        applyWetEffect(mat, wetAmount);
-    }
-}
-
 export function updateFoliageMaterials(audioData: AudioData | null, isNight: boolean, weatherState: string | null = null, weatherIntensity: number = 0): void {
     if (!audioData) return;
 
-    if (isNight) {
-        const channels = audioData.channelData;
-        if (channels && channels.length > 0) {
-            // ⚡ OPTIMIZATION: Cast and use for-loop to avoid closure
-            const mats = reactiveMaterials as unknown as FoliageMaterial[];
-            for (let i = 0; i < mats.length; i++) {
-                const mat = mats[i];
-                const chIndex = (i % 4) + 1;
-                const ch = channels[Math.min(chIndex, channels.length - 1)];
+    const channels = audioData.channelData;
+    const hasChannels = channels && channels.length > 0;
 
-                if (ch && ch.freq > 0) {
-                    const hue = freqToHue(ch.freq);
-                    _foliageReactiveColor.setHSL(hue, 1.0, 0.6);
+    // Calculate global wetAmount once per frame outside the loop
+    let globalWetAmount = 0;
+    if (weatherState && weatherIntensity > 0) {
+        if (weatherState === 'rain') {
+            globalWetAmount = weatherIntensity * 0.5;
+        } else if (weatherState === 'storm') {
+            globalWetAmount = weatherIntensity * 0.8;
+        }
+    }
 
-                    // Check material type using 'type' string or property presence
-                    if ((mat as any).isMeshBasicMaterial && mat.color) {
-                        mat.color.lerp(_foliageReactiveColor, 0.3);
-                    } else if (mat.emissive) {
-                        mat.emissive.lerp(_foliageReactiveColor, 0.3);
-                    }
-                }
-                const intensity = 0.2 + (ch?.volume || 0) + (ch?.trigger || 0) * 2.0;
+    // ⚡ OPTIMIZATION: Single O(N) loop over reactiveMaterials combining audio and weather reactivity
+    const mats = reactiveMaterials as unknown as FoliageMaterial[];
+    for (let i = 0; i < mats.length; i++) {
+        const mat = mats[i];
+        if (!mat) continue;
 
-                if (!(mat as any).isMeshBasicMaterial && mat.emissiveIntensity !== undefined) {
-                     mat.emissiveIntensity = intensity;
+        // 1. Audio Reactivity (Night/Day)
+        if (isNight && hasChannels) {
+            const chIndex = (i % 4) + 1;
+            const ch = channels[Math.min(chIndex, channels.length - 1)];
+
+            if (ch && ch.freq > 0) {
+                const hue = freqToHue(ch.freq);
+                _foliageReactiveColor.setHSL(hue, 1.0, 0.6);
+
+                // Check material type using 'type' string or property presence
+                if ((mat as any).isMeshBasicMaterial && mat.color) {
+                    mat.color.lerp(_foliageReactiveColor, 0.3);
+                } else if (mat.emissive) {
+                    mat.emissive.lerp(_foliageReactiveColor, 0.3);
                 }
             }
-        }
-    } else {
-        // ⚡ OPTIMIZATION: Cast and use for-loop to avoid closure
-        const mats = reactiveMaterials as unknown as FoliageMaterial[];
-        for (let i = 0; i < mats.length; i++) {
-            const mat = mats[i];
+            const intensity = 0.2 + (ch?.volume || 0) + (ch?.trigger || 0) * 2.0;
+
+            if (!(mat as any).isMeshBasicMaterial && mat.emissiveIntensity !== undefined) {
+                 mat.emissiveIntensity = intensity;
+            }
+        } else if (!isNight) {
+            // Day mode - reset emissive
             if (mat.emissive) {
                 mat.emissive.setHex(0x000000);
                 mat.emissiveIntensity = 0;
             }
         }
-    }
 
-    if (weatherState && weatherIntensity > 0) {
-        updateMaterialsForWeather(reactiveMaterials as unknown as FoliageMaterial[], weatherState, weatherIntensity);
+        // 2. Weather Reactivity (Wet Effect)
+        if (globalWetAmount > 0 && (mat as any).isMaterial) {
+            applyWetEffect(mat, globalWetAmount);
+        }
     }
 }
 
