@@ -627,6 +627,17 @@ if (startButton) {
             waitFullCheckbox.setAttribute('aria-checked', String(waitForFullPopulation));
             localStorage.setItem(WAIT_FULL_KEY, waitForFullPopulation ? '1' : '0');
         });
+
+        // ♿ Aria: Keyboard support for custom switch behavior on Enter
+        waitFullCheckbox.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                waitFullCheckbox.checked = !waitFullCheckbox.checked;
+                waitForFullPopulation = waitFullCheckbox.checked;
+                waitFullCheckbox.setAttribute('aria-checked', String(waitForFullPopulation));
+                localStorage.setItem(WAIT_FULL_KEY, waitForFullPopulation ? '1' : '0');
+            }
+        });
     }
 
     async function enterWorld() {
