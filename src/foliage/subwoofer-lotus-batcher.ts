@@ -38,6 +38,7 @@ export class SubwooferLotusBatcher {
 
     private _count = 0;
     private _scratchMatrix = new THREE.Matrix4();
+    private _scratchScale = new THREE.Vector3();
     private _color = new THREE.Color();
     private logicObjects: THREE.Object3D[] = [];
 
@@ -223,14 +224,15 @@ const ringMat = getCachedProceduralMaterial('subwoofer_lotus_ring', 0xFFFFFF, ()
          if (index >= this._count) return;
          const scale = proxy.userData.lotusScale ?? 1.0;
 
-         const padScale = new THREE.Vector3(1.5 * scale, 0.2 * scale, 1.5 * scale);
-         const padMatrix = new THREE.Matrix4().compose(proxy.position, proxy.quaternion, padScale);
-         padMatrix.toArray(this.padMesh.instanceMatrix.array, index * 16);
+         // ⚡ OPTIMIZATION: Bypassed THREE.Object3D proxy, THREE.Matrix4 instantiation and THREE.Vector3 instantiation by utilizing scratch objects
+         this._scratchScale.set(1.5 * scale, 0.2 * scale, 1.5 * scale);
+         this._scratchMatrix.compose(proxy.position, proxy.quaternion, this._scratchScale);
+         this._scratchMatrix.toArray(this.padMesh.instanceMatrix.array, index * 16);
 
-         const nonPadScale = new THREE.Vector3(scale, scale, scale);
-         const nonPadMatrix = new THREE.Matrix4().compose(proxy.position, proxy.quaternion, nonPadScale);
-         nonPadMatrix.toArray(this.ringsMesh.instanceMatrix.array, index * 16);
-         nonPadMatrix.toArray(this.centerMesh.instanceMatrix.array, index * 16);
+         this._scratchScale.set(scale, scale, scale);
+         this._scratchMatrix.compose(proxy.position, proxy.quaternion, this._scratchScale);
+         this._scratchMatrix.toArray(this.ringsMesh.instanceMatrix.array, index * 16);
+         this._scratchMatrix.toArray(this.centerMesh.instanceMatrix.array, index * 16);
 
          this.padMesh.instanceMatrix.needsUpdate = true;
          this.ringsMesh.instanceMatrix.needsUpdate = true;
