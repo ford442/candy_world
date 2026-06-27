@@ -641,7 +641,7 @@
 </head>
 
 <body>
-    <div id="now-playing-toast" role="status" aria-live="polite" aria-atomic="true">
+    <div id="now-playing-toast" role="status"  aria-atomic="true">
         <span class="icon" aria-hidden="true">🎵</span>
         <span id="now-playing-text">Now Playing...</span>
     </div>
@@ -657,15 +657,15 @@
         <div class="instructions-content">
         <h1 id="instructions-title"><span aria-hidden="true">🍭</span> Candy World</h1>
         <p class="dream-subtitle">Click to enter the dream. Press <kbd class="key">Esc</kbd> any time to pause.</p>
-        <div id="nowPlayingContainer" class="now-playing-info" role="status" aria-live="polite" style="display: none;">
+        <div id="nowPlayingContainer" class="now-playing-info" role="status"  style="display: none;">
             <span class="music-note" aria-hidden="true">🎵</span> <span id="nowPlayingText"></span>
         </div>
-        <button id="startButton" class="cta-button" disabled aria-live="polite" aria-busy="true" title="Please wait while game assets load...">
+        <button id="startButton" class="cta-button" disabled  aria-busy="true" title="Please wait while game assets load...">
             <span class="spinner" aria-hidden="true"></span>Loading World... 🍭
         </button>
 
         <div id="mode-select" style="margin: 20px 0; text-align: center;" role="radiogroup" aria-label="Game Mode Selection">
-            <p id="mode-description" style="margin-bottom: 8px; opacity: 0.9;" aria-live="polite" aria-atomic="true">Choose startup mode:</p>
+            <p id="mode-description" style="margin-bottom: 8px; opacity: 0.9;"  aria-atomic="true">Choose startup mode:</p>
             <button id="btn-core-only" type="button" role="radio" aria-checked="true" class="cta-button mode-btn" aria-describedby="mode-description">
                 🍭 Core Only (Fast)
             </button>
@@ -799,7 +799,7 @@
     <div id="playlist-overlay" role="dialog" aria-modal="true" aria-labelledby="playlist-title" tabindex="-1">
         <button id="playlistCloseX" class="close-icon-btn" aria-label="Close Jukebox" title="Close Jukebox (Esc)"><span aria-hidden="true">×</span></button>
         <h2 id="playlist-title"><span aria-hidden="true">🎵</span> Jukebox</h2>
-        <ul id="playlist-list" aria-label="Current playlist" aria-live="polite">
+        <ul id="playlist-list" aria-label="Current playlist" >
         </ul>
         
         <div class="playlist-controls">
@@ -815,7 +815,7 @@
         </div>
     </div>
 
-    <div id="reticle-label" aria-live="polite"></div>
+    <div id="reticle-label" ></div>
 
     <div id="tracker-status" role="region" aria-label="Tracker Status" style="position: absolute; top: 15px; right: 15px; background: rgba(0,0,0,0.6); padding: 10px; border-radius: 8px; color: #FFF; font-family: monospace; display: flex; flex-direction: column; gap: 5px; pointer-events: none; z-index: 100; border: 2px solid #ff69b4;">
         <div style="font-weight: bold; color: #ff69b4; text-transform: uppercase; font-size: 0.9em; letter-spacing: 1px;">Tracker Status</div>
@@ -866,8 +866,8 @@
         </button>
     </div>
 
-    <canvas id="glCanvas" role="img" aria-label="Immersive pastel candy forest world with glowing mushrooms, floating clouds, and music-reactive elements" tabindex="0" aria-live="polite" aria-describedby="world-status"></canvas>
-    <div id="world-status" aria-live="polite" class="visually-hidden">Loading candy world...</div>
+    <canvas id="glCanvas" role="img" aria-label="Immersive pastel candy forest world with glowing mushrooms, floating clouds, and music-reactive elements" tabindex="0"  aria-describedby="world-status"></canvas>
+    <div id="world-status"  class="visually-hidden">Loading candy world...</div>
     <script type="module" src="src/main.ts"></script>
 </body>
 

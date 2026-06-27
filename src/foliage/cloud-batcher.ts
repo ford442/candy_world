@@ -7,7 +7,7 @@ import {
 } from 'three/tsl';
 import {
     uTime, createJuicyRimLight, uAudioLow, uAudioHigh,
-    uWindSpeed, uWindDirection, triplanarNoise, uPlayerPosition
+    uWindSpeed, uWindDirection, triplanarNoise, uPlayerPosition, applyPlayerInteraction
 } from './index.ts';
 import { attribute } from 'three/tsl';
 import { foliageGroup } from '../world/state.ts';
@@ -98,7 +98,9 @@ function createCloudMaterial() {
     const squishedPos = shearedPos.mul(verticalSquish).mul(playerSquishScale);
 
     // Apply Fluff Displacement along Normal
-    const fluffOffset = normalLocal.mul(shapeNoise.mul(displacementStrength));
+    // Audio-reactive puff intensity during deformation
+    const puffIntensity = float(1.0).add(uAudioHigh.mul(0.8));
+    const fluffOffset = normalLocal.mul(shapeNoise.mul(displacementStrength)).mul(puffIntensity);
 
     // ⚡ OPTIMIZATION: TSL Floating Animation (Replaces CPU update)
     // Use world X/Z as phase seed for coherent bobbing
@@ -108,7 +110,7 @@ function createCloudMaterial() {
     const floatOffset = sin(uTime.mul(floatSpeed).add(worldPhase)).mul(floatAmp);
     const floatDisp = vec3(0.0, floatOffset, 0.0);
 
-    material.positionNode = squishedPos.add(fluffOffset).add(floatDisp);
+    material.positionNode = applyPlayerInteraction(squishedPos.add(fluffOffset).add(floatDisp));
 
     // 4. Surface Detail (Triplanar Noise for "Cotton" Texture)
     // Adds high-frequency noise to Roughness and slightly to Color

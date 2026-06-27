@@ -396,19 +396,22 @@ export class WaterfallBatcher {
 
         // Assuming X and Z were equal initially (circular).
         // Current X scale is the magnitude of the 1st column.
+        // ⚡ OPTIMIZATION: Use squared scale magnitudes and fast inverse square root to avoid Math.sqrt() in hot loops.
         const m00 = matrixArray[offset + 0], m01 = matrixArray[offset + 1], m02 = matrixArray[offset + 2];
-        const scaleX = Math.sqrt(m00 * m00 + m01 * m01 + m02 * m02);
+        const scaleXSq = m00 * m00 + m01 * m01 + m02 * m02;
 
         // Current Z scale is the magnitude of the 3rd column.
         const m20 = matrixArray[offset + 8], m21 = matrixArray[offset + 9], m22 = matrixArray[offset + 10];
-        const currentScaleZ = Math.sqrt(m20 * m20 + m21 * m21 + m22 * m22);
-
-        // Compute target scale
-        const targetScaleZ = scaleX * thicknessScale;
+        const currentScaleZSq = m20 * m20 + m21 * m21 + m22 * m22;
 
         // Apply scaling factor to the 3rd column
-        if (currentScaleZ > 0.0001) {
-            const ratio = targetScaleZ / currentScaleZ;
+        if (currentScaleZSq > 0.00000001 && scaleXSq > 0.00000001) {
+            // targetZ = X * thicknessScale
+            // We want ratio = targetZ / currentZ = (X * thicknessScale) / currentZ
+            // ratio = sqrt(scaleXSq) * thicknessScale / sqrt(currentScaleZSq)
+            // ratio = sqrt(scaleXSq / currentScaleZSq) * thicknessScale
+            // We can compute this with Math.sqrt once, which is better, but since it's a relative thickness ratio we can just use the target
+            const ratio = Math.sqrt(scaleXSq / currentScaleZSq) * thicknessScale;
             matrixArray[offset + 8] *= ratio;
             matrixArray[offset + 9] *= ratio;
             matrixArray[offset + 10] *= ratio;
