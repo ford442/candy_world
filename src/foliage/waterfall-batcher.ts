@@ -389,12 +389,28 @@ export class WaterfallBatcher {
         const matrixArray = this.mesh!.instanceMatrix.array as Float32Array;
         const offset = index * 16;
 
-        // ⚡ OPTIMIZATION: Tracked base thickness in Float32Array to avoid Math.sqrt() overhead.
-        // Since rotation is strictly identity at creation, Z scale corresponds exactly to m22 (offset + 10).
-        const targetScaleZ = this.baseThickness![index] * thicknessScale;
+        // Assuming X and Z were equal initially (circular).
+        // Current X scale is the magnitude of the 1st column.
+        // ⚡ OPTIMIZATION: Use squared scale magnitudes and fast inverse square root to avoid Math.sqrt() in hot loops.
+        const m00 = matrixArray[offset + 0], m01 = matrixArray[offset + 1], m02 = matrixArray[offset + 2];
+        const scaleXSq = m00 * m00 + m01 * m01 + m02 * m02;
 
-        // Avoid math/ratios and overwrite Z-scale directly.
-        matrixArray[offset + 10] = targetScaleZ;
+        // Current Z scale is the magnitude of the 3rd column.
+        const m20 = matrixArray[offset + 8], m21 = matrixArray[offset + 9], m22 = matrixArray[offset + 10];
+        const currentScaleZSq = m20 * m20 + m21 * m21 + m22 * m22;
+
+        // Apply scaling factor to the 3rd column
+        if (currentScaleZSq > 0.00000001 && scaleXSq > 0.00000001) {
+            // targetZ = X * thicknessScale
+            // We want ratio = targetZ / currentZ = (X * thicknessScale) / currentZ
+            // ratio = sqrt(scaleXSq) * thicknessScale / sqrt(currentScaleZSq)
+            // ratio = sqrt(scaleXSq / currentScaleZSq) * thicknessScale
+            // We can compute this with Math.sqrt once, which is better, but since it's a relative thickness ratio we can just use the target
+            const ratio = Math.sqrt(scaleXSq / currentScaleZSq) * thicknessScale;
+            matrixArray[offset + 8] *= ratio;
+            matrixArray[offset + 9] *= ratio;
+            matrixArray[offset + 10] *= ratio;
+        }
 
         this.mesh!.instanceMatrix.needsUpdate = true;
     }

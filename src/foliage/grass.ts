@@ -93,14 +93,14 @@ export function initGrassSystem(scene: THREE.Scene, count = 5000): THREE.Instanc
     mat.positionNode = vec3(newX, newY, newZ);
 
     // --- Material Colors ---
-    // Rim Light Logic
-    const viewDir = vec3(0, 0, 1); // Approximation for simple rim
-    const NdotV = max(0.0, dot(normalView, viewDir));
-    const rimFactor = float(1.0).sub(NdotV).pow(3.0).mul(0.6);
-
     // Base Colors
     const baseColor = color(0x7CFC00);
-    const rimColor = color(0xAAFFAA);
+
+    // --- 🎨 PALETTE: Juicy Rim Light ---
+    // Audio-reactive juicy rim light for music reactivity + visual consistency with other foliage.
+    // Tuned with a cooler teal bias and lower intensity specifically for dense grass.
+    const grassRimColor = color(0x00FFAA);
+    const rimLight = createJuicyRimLight(grassRimColor, float(1.2), float(3.0), null);
 
     // 4. Night Glow (Bioluminescence)
     // Grass tips glow Cyan/Green when it's dark AND there is high-freq audio
@@ -114,15 +114,11 @@ export function initGrassSystem(scene: THREE.Scene, count = 5000): THREE.Instanc
     const touchGlowColor = color(0xFF00FF);
     const touchGlowStrength = pushStrength.mul(2.0); // Bright flash on touch
 
-    // Mix: Base + Rim + NightGlow
-    // We add NightGlow to Emissive for bloom, or just mix it into color
-    const mixedColor = baseColor.add(rimColor.mul(rimFactor));
+    mat.colorNode = baseColor;
 
-    mat.colorNode = mixedColor;
-
-    // Add Glow to Emissive Node (so it blooms)
-    // Combine Audio Glow + Touch Glow
-    const totalEmissive = glowColor.mul(glowStrength).add(touchGlowColor.mul(touchGlowStrength));
+    // Add Glow and Rim to Emissive Node (so it blooms and respects the "Palette Juice" standards)
+    // Combine Audio Glow + Touch Glow + Rim Light
+    const totalEmissive = glowColor.mul(glowStrength).add(touchGlowColor.mul(touchGlowStrength)).add(rimLight);
     mat.emissiveNode = totalEmissive;
 
     const meshCount = Math.ceil(count / MAX_PER_MESH);

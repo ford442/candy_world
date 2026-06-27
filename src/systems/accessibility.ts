@@ -835,10 +835,10 @@ export class AccessibilitySystem {
 
     if (event.shiftKey && activeElement === firstElement) {
       event.preventDefault();
-      lastElement.focus();
+      lastElement.focus({ preventScroll: true });
     } else if (!event.shiftKey && activeElement === lastElement) {
       event.preventDefault();
-      firstElement.focus();
+      firstElement.focus({ preventScroll: true });
     }
   }
 
@@ -849,7 +849,7 @@ export class AccessibilitySystem {
       'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
     ) as HTMLElement;
     if (firstFocusable) {
-      firstFocusable.focus();
+      firstFocusable.focus({ preventScroll: true });
     }
   }
 

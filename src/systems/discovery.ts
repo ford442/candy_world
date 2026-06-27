@@ -106,7 +106,7 @@ class DiscoverySystem {
                 existingLog.remove();
             }, 300);
             if (this.lastFocusedElement && typeof this.lastFocusedElement.focus === 'function') {
-                this.lastFocusedElement.focus();
+                this.lastFocusedElement.focus({ preventScroll: true });
                 this.lastFocusedElement = null;
             }
             return; // Toggle behavior
@@ -173,7 +173,7 @@ class DiscoverySystem {
             }, 300);
 
             if (this.lastFocusedElement && typeof this.lastFocusedElement.focus === 'function') {
-                this.lastFocusedElement.focus();
+                this.lastFocusedElement.focus({ preventScroll: true });
                 this.lastFocusedElement = null;
             }
         };
@@ -221,7 +221,7 @@ class DiscoverySystem {
             if (document.getElementById('discovery-log-overlay')) {
                 this.releaseFocusTrap = trapFocusInside(overlay);
                 // Focus close button for accessibility
-                closeBtn.focus();
+                closeBtn.focus({ preventScroll: true });
             }
         }, 300);
     }

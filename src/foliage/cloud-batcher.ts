@@ -7,7 +7,7 @@ import {
 } from 'three/tsl';
 import {
     uTime, createJuicyRimLight, uAudioLow, uAudioHigh,
-    uWindSpeed, uWindDirection, triplanarNoise, uPlayerPosition, uPlayerVelocity
+    uWindSpeed, uWindDirection, triplanarNoise, uPlayerPosition, applyPlayerInteraction, uPlayerVelocity
 } from './index.ts';
 import { attribute } from 'three/tsl';
 import { foliageGroup } from '../world/state.ts';
@@ -104,25 +104,40 @@ function createCloudMaterial() {
     const squishedPos = shearedPos.mul(verticalSquish).mul(playerSquishScale);
 
     // Apply Fluff Displacement along Normal
-    const fluffOffset = normalLocal.mul(shapeNoise.mul(displacementStrength));
+    // Audio-reactive puff intensity during deformation
+    const puffIntensity = float(1.0).add(uAudioHigh.mul(0.8));
+    const fluffOffset = normalLocal.mul(shapeNoise.mul(displacementStrength)).mul(puffIntensity);
 
     // ⚡ OPTIMIZATION: TSL Floating Animation (Replaces CPU update)
     // Use world X/Z as phase seed for coherent bobbing
     const floatSpeed = float(0.5);
     const floatAmp = float(0.5);
     const worldPhase = positionWorld.x.mul(0.05).add(positionWorld.z.mul(0.05));
-    const floatOffset = sin(uTime.mul(floatSpeed).add(worldPhase)).mul(floatAmp);
-    const floatDisp = vec3(0.0, floatOffset, 0.0);
+  
+const squishedPos   = /* your existing player-proximity squash calculation */;
+const fluffOffset   = /* per-vertex fluff / shape variation */;
+const floatDisp     = sin(uTime.mul(floatSpeed)).mul(floatAmount); // gentle idle bob
 
-    // Spring Bounce: When player lands/jumps, the cloud "springs" back.
-    // We create a ringing overshoot based on uTime and the interaction strength.
-    // timeSince interaction is tough without state, so we simulate an instant response
-    // by adding a high-frequency time wave multiplied by player strength.
-    const bounceRinging = sin(uTime.mul(15.0)).mul(playerStrength).mul(0.15);
-    const bounceDisp = vec3(0.0, bounceRinging, 0.0);
+// === SPRING BOUNCE (player land/jump response) ===
+// High-frequency sine gives that satisfying candy "boing" overshoot
+// playerStrength (0–1) can come from distance falloff or a short-lived pulse
+// when the player enters the cloud’s interaction radius or lands beneath it.
+const bounceRinging = sin(uTime.mul(15.0))
+  .mul(playerStrength)
+  .mul(0.15);
 
-    material.positionNode = squishedPos.add(fluffOffset).add(floatDisp).add(bounceDisp);
+const bounceDisp = vec3(0.0, bounceRinging, 0.0);
 
+// Compose everything
+// We apply player interaction last so the squash still feels responsive
+// even while the cloud is jiggling from a previous bounce.
+const animatedPos = squishedPos
+  .add(fluffOffset)
+  .add(floatDisp)
+  .add(bounceDisp);
+
+material.positionNode = applyPlayerInteraction(animatedPos);
+  
     // 4. Surface Detail (Triplanar Noise for "Cotton" Texture)
     // Adds high-frequency noise to Roughness and slightly to Color
     // Scale 10.0 for micro-detail
