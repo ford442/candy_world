@@ -163,22 +163,25 @@ export function checkRetriggerMushrooms(delta: number, audioState: AudioState | 
     const playerPos = player.position;
     let inStrobeField = false;
     let maxIntensity = 0;
-    const nearbyObjects = physicsFoliageGrid.findNearby(playerPos.x, playerPos.z, 15.0);
-    for (let i = 0; i < nearbyObjects.length; i++) {
-        const obj = nearbyObjects[i];
-        if (obj.userData?.type === 'retrigger_mushroom') {
-            const dx = playerPos.x - obj.position.x;
-            const dz = playerPos.z - obj.position.z;
-            const distSq = dx * dx + dz * dz;
-            if (distSq < 15.0 * 15.0) {
-                let isStrobing = false;
-                for (const ch of audioState.channelData) {
-                    if (ch.activeEffect === 5 && ch.effectValue > 0) {
-                        isStrobing = true;
-                        break;
-                    }
-                }
-                if (isStrobing) {
+
+    // ⚡ OPTIMIZATION: Hoisted O(N) audio channel scan outside the spatial query loop
+    let isStrobing = false;
+    for (const ch of audioState.channelData) {
+        if (ch.activeEffect === 5 && ch.effectValue > 0) {
+            isStrobing = true;
+            break;
+        }
+    }
+
+    if (isStrobing) {
+        const nearbyObjects = physicsFoliageGrid.findNearby(playerPos.x, playerPos.z, 15.0);
+        for (let i = 0; i < nearbyObjects.length; i++) {
+            const obj = nearbyObjects[i];
+            if (obj.userData?.type === 'retrigger_mushroom') {
+                const dx = playerPos.x - obj.position.x;
+                const dz = playerPos.z - obj.position.z;
+                const distSq = dx * dx + dz * dz;
+                if (distSq < 15.0 * 15.0) {
                     inStrobeField = true;
                     const localIntensity = 1.0 - (distSq / 225.0);
                     if (localIntensity > maxIntensity) {
@@ -188,6 +191,7 @@ export function checkRetriggerMushrooms(delta: number, audioState: AudioState | 
             }
         }
     }
+
     if (inStrobeField) {
         if (typeof uStrobeIntensity !== 'undefined') {
             uStrobeIntensity.value = Math.max(uStrobeIntensity.value, maxIntensity * 0.8);
@@ -206,6 +210,18 @@ export function checkVibratoViolets(delta: number, audioState: AudioState | null
     if (!audioState || !audioState.channelData) return;
     const playerPos = player.position;
     let inDistortionField = false;
+
+    // ⚡ OPTIMIZATION: Hoisted O(N) audio channel scan outside the spatial query loop
+    let isVibrating = false;
+    for (const ch of audioState.channelData) {
+        if (ch.activeEffect === 4 && ch.effectValue > 0) {
+            isVibrating = true;
+            break;
+        }
+    }
+
+    if (!isVibrating) return; // Early out if no vibration is active
+
     const nearbyObjects = physicsFoliageGrid.findNearby(playerPos.x, playerPos.z, 20.0);
     for (let i = 0; i < nearbyObjects.length; i++) {
         const obj = nearbyObjects[i];
@@ -214,20 +230,11 @@ export function checkVibratoViolets(delta: number, audioState: AudioState | null
             const dz = playerPos.z - obj.position.z;
             const distSq = dx * dx + dz * dz;
             if (distSq < 20.0 * 20.0) {
-                let isVibrating = false;
-                for (const ch of audioState.channelData) {
-                    if (ch.activeEffect === 4 && ch.effectValue > 0) {
-                        isVibrating = true;
-                        break;
-                    }
+                inDistortionField = true;
+                if (typeof uChromaticIntensity !== 'undefined' && uChromaticIntensity.value < 0.3) {
+                     uChromaticIntensity.value += delta * 1.5;
                 }
-                if (isVibrating) {
-                    inDistortionField = true;
-                    if (typeof uChromaticIntensity !== 'undefined' && uChromaticIntensity.value < 0.3) {
-                         uChromaticIntensity.value += delta * 1.5;
-                    }
-                    break;
-                }
+                break;
             }
         }
     }
