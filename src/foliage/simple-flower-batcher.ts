@@ -9,6 +9,7 @@ import {
     calculateFlowerBloom,
     calculateWindSway,
     applyPlayerInteraction,
+    applyStandardDeformation,
     createJuicyRimLight,
     uTime,
     uAudioHigh,
@@ -132,8 +133,7 @@ export class SimpleFlowerBatcher {
 
         // Petal: Velvet with Instance Color + Bloom + Wind + Push
         const posBloom = calculateFlowerBloom(positionLocal);
-        const posWind = posBloom.add(calculateWindSway(posBloom));
-        const posFinal = applyPlayerInteraction(posWind);
+        const posFinal = applyStandardDeformation(posBloom);
 
         // PALETTE: Enhance Petal Material with "Juice"
         const petalMat = CandyPresets.Velvet(0xFFFFFF, {

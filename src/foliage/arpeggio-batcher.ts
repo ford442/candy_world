@@ -5,6 +5,7 @@ import {
     registerReactiveMaterial,
     sharedGeometries,
     applyPlayerInteraction,
+    applyStandardDeformation,
     calculateWindSway,
     createJuicyRimLight,
     createStandardNodeMaterial,
@@ -286,10 +287,7 @@ export class ArpeggioFernBatcher {
         );
 
         // Interaction (Bending)
-        const withInteraction = applyPlayerInteraction(pulsedPos);
-
-        // Wind Sway
-        const withWind = withInteraction.add(calculateWindSway(pulsedPos));
+        const withWind = applyStandardDeformation(pulsedPos);
 
         // Bobbing (Unfurl bounce)
         const bob = instanceUnfurl.mul(0.2);

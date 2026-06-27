@@ -9,7 +9,7 @@ import {
 const instanceColor = varyingProperty('vec3', 'vInstanceColor');
 import {
     sharedGeometries, foliageMaterials, uTime,
-    uAudioLow, uAudioHigh, createRimLight, createJuicyRimLight, calculateWindSway, applyPlayerInteraction,
+    uAudioLow, uAudioHigh, createRimLight, createJuicyRimLight, calculateWindSway, applyPlayerInteraction, applyStandardDeformation,
     createStandardNodeMaterial, createUnifiedMaterial
 } from './index.ts';
 import { foliageGroup } from '../world/state.ts';
@@ -103,10 +103,7 @@ export class LanternBatcher {
 
         // Apply Sway (Scaled by height factor so bottom is fixed)
         // We use positionLocal.y (0 to 1) as factor
-        const sway = calculateWindSway(scaledPos);
-        const push = applyPlayerInteraction(scaledPos);
-
-        mat.positionNode = scaledPos.add(sway).add(push);
+        mat.positionNode = applyStandardDeformation(scaledPos);
 
         // Mesh
         this.stemMesh = new THREE.InstancedMesh(geometry, mat, MAX_LANTERNS);
@@ -167,10 +164,8 @@ export class LanternBatcher {
 
         // Apply global wind sway (tip of stem)
         const stemTipPos = vec3(0, height, 0);
-        const tipSway = calculateWindSway(stemTipPos);
-        const tipPush = applyPlayerInteraction(stemTipPos);
-
-        const finalPos = offsetPos.add(tipSway).add(tipPush).add(swingOffset);
+        const tipDeform = applyStandardDeformation(stemTipPos).sub(stemTipPos);
+        const finalPos = offsetPos.add(tipDeform).add(swingOffset);
 
         // Apply to both materials
         darkMat.positionNode = finalPos;

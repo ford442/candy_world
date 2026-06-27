@@ -5,6 +5,7 @@ import {
     createStandardNodeMaterial,
     calculateWindSway,
     applyPlayerInteraction,
+    applyStandardDeformation,
     uAudioLow,
     uAudioHigh,
     uTime,
@@ -237,8 +238,7 @@ export class DandelionBatcher {
             // C. Global Sway & Player Interaction
             // Apply to the *entire* geometry (Stem + Seeds)
             // This makes the stem bend, and seeds (being part of same geo) move with it.
-            const posSwayed = posPuffed.add(calculateWindSway(posPuffed));
-            const posFinal = applyPlayerInteraction(posSwayed);
+            const posFinal = applyStandardDeformation(posPuffed);
 
             m.positionNode = posFinal;
 

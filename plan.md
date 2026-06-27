@@ -170,6 +170,10 @@ Status: Implemented ✅
 Status: Implemented ✅
 * Implementation Details: **Bolt Phase 1 (Batchers)**: Eliminated Math.sqrt overhead in waterfall-batcher.ts using squared scale magnitudes. Eliminated Math.sqrt in ribbons.ts using squared distance thresholds and WASM fastInvSqrt for normalization. Reverted experimental squared timing curve in music-reactivity-core.ts since true linear distance is mathematically required for accurate wave propagation.
 * Implementation Details: Placed the Gem Canopy corridor (24 procedural gem canopy trees) in the world via `assets/map.json` and export logic in `src/world/generation-decorators.ts`. Completed the `gem_canopy` music-binding block in `assets/music-bindings.json` (adding it to `target_biomes`).
+* Implementation Details: Standardized the TSL deformation chain across the codebase. Created `applyStandardDeformation` and `applyStandardDeformationWithLod` to ensure wind sway and player push are cleanly composed, eliminating double-applications in LOD batchers.
+Next Step: #1175 Candy Material Cookbook + grok.md onboarding upgrade or Graphic Rewire / Partial ECS.
+
+Status: Implemented ✅
 Status: Implemented ✅
 * Implementation Details: Restored proper `THREE.DisplayP3ColorSpace` and `THREE.SRGBColorSpace` enums in `src/core/init.ts` and removed `src/core/three-compat.ts`. Expanded `docs/CANDY_MATERIAL_COOKBOOK.md` with advanced foliage-specific patterns, instanced mesh instructions, and zero-allocation / WASM boundary performance gotchas. Updated `grok.md` to point to these new resources for new contributor onboarding.
 Next Step: Review backlog for unresolved bugs or continue with remaining refactoring.
