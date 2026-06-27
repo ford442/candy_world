@@ -5,7 +5,8 @@ import { uTime, createJuicyRimLight, createStandardNodeMaterial } from './materi
 import {
     applyPlayerInteractionWithLod,
     calculateWindSwayWithLod,
-    scaleEmissiveByLod
+    scaleEmissiveByLod,
+    applyStandardDeformationWithLod
 } from './lod-nodes.ts';
 import { initInstanceLodAttribute } from './batcher-lod-utils.ts';
 import { registerFoliageBatcherLod } from '../systems/batcher-lod.ts';
@@ -65,8 +66,7 @@ export class LuminousPlantBatcher {
         const circadianSwell = normalLocal.mul(uCircadianPoseOffset).mul(heightFactor);
         const totalDisplacement = normalLocal.mul(breathe.add(shockwave)).add(circadianSwell);
         const animatedBase = positionLocal.add(totalDisplacement);
-        const winded = animatedBase.add(calculateWindSwayWithLod(positionLocal));
-        mat.positionNode = applyPlayerInteractionWithLod(winded);
+        mat.positionNode = applyStandardDeformationWithLod(animatedBase);
 
         const sssStrength = float(CONFIG.luminousPlants?.subsurfaceStrength || 0.8);
         const musicColor = mix(baseColor, luminousPlantsNoteColorNode, LuminousPlantUniforms.intensity);

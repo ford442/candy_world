@@ -16,7 +16,8 @@ import {
     getCachedProceduralMaterial,
     createJuicyRimLight,
     calculateWindSway,
-      applyPlayerInteraction
+      applyPlayerInteraction,
+    applyStandardDeformation
 
 } from './index.ts';
 import { BiomeUniforms } from '../systems/biome-uniforms.ts';
@@ -50,7 +51,7 @@ export class SubwooferLotusBatcher {
 
         // 1. Base Pad
         const padMat = createClayMaterial(hexColor);
-        padMat.positionNode = applyPlayerInteraction(positionLocal.add(calculateWindSway(positionLocal)));
+        padMat.positionNode = applyStandardDeformation(positionLocal);
         this.padMesh = new THREE.InstancedMesh(sharedGeometries.unitCylinder, padMat, MAX_LOTUS);
         this.padMesh.count = 0;
         this.padMesh.castShadow = true;
@@ -98,7 +99,7 @@ const ringMat = getCachedProceduralMaterial('subwoofer_lotus_ring', 0xFFFFFF, ()
 
     // 🎨 PALETTE: Correct Wind Sway + Player Interaction composition
     const newPos = positionLocal.add(vec3(0.0, displacement, 0.0));
-    mat.positionNode = applyPlayerInteraction(newPos.add(calculateWindSway(newPos)));
+    mat.positionNode = applyStandardDeformation(newPos);
 
     return mat;
 });
@@ -144,7 +145,7 @@ const ringMat = getCachedProceduralMaterial('subwoofer_lotus_ring', 0xFFFFFF, ()
 
         centerMat.colorNode = vec3(0.0);
         centerMat.emissiveNode = finalPortal.add(hotCenter);
-        centerMat.positionNode = applyPlayerInteraction(positionLocal.add(calculateWindSway(positionLocal)));
+        centerMat.positionNode = applyStandardDeformation(positionLocal);
 
         this.centerMesh = new THREE.InstancedMesh(centerGeo, centerMat, MAX_LOTUS);
         this.centerMesh.count = 0;

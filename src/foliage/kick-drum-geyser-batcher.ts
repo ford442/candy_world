@@ -6,6 +6,7 @@ import {
     registerReactiveMaterial,
     calculateWindSway,
     applyPlayerInteraction,
+    applyStandardDeformation,
     createJuicyRimLight
 } from './index.ts';
 import {
@@ -92,7 +93,7 @@ export class KickDrumGeyserBatcher {
         );
 
         // 🎨 PALETTE: Add wind sway and player interaction to the geyser plumes
-        plumeMat.positionNode = applyPlayerInteraction(plumePos.add(calculateWindSway(plumePos)));
+        plumeMat.positionNode = applyStandardDeformation(plumePos);
         plumeMat.colorNode = vec4(color(0xFF4500), float(0.8));
 
         this.plumeMesh = new THREE.InstancedMesh(plumeGeo, plumeMat, MAX_GEYSERS);

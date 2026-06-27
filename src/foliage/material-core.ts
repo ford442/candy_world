@@ -810,3 +810,11 @@ export function createTransparentNodeMaterial(options: any = {}) {
     mat.depthWrite = options.depthWrite !== undefined ? options.depthWrite : false; 
     return mat;
 }
+
+/**
+ * 🏗️ ARCHITECT: Standardized TSL deformation chain for non-LOD objects.
+ * Strictly composes wind sway followed by player interaction push.
+ */
+export const applyStandardDeformation = (basePosNode: any) => {
+    return applyPlayerInteraction(basePosNode.add(calculateWindSway(basePosNode)));
+};

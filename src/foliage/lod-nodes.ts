@@ -30,7 +30,10 @@ export const calculateWindSwayWithLod = (posNode: Parameters<typeof calculateWin
 };
 
 /**
- * Full foliage motion offset (deformationNode semantics: displaced position minus positionLocal).
+ * Full foliage motion offset for LOD-enabled objects.
+ * (deformationNode semantics: displaced position minus positionLocal).
+ * 🏗️ ARCHITECT: Single source of truth for LOD deformation.
+ * Internally composes wind sway and player push. DO NOT wrap with applyPlayerInteraction.
  */
 export const foliageDeformationOffset = (
     baseWithAnimPos: Parameters<typeof calculatePlayerPush>[0],
@@ -73,3 +76,11 @@ export const scaleEmissiveByLod = (emissiveNode: ReturnType<typeof float>) => {
 /** Mix a hero-only multiplier toward 1.0 in mid/far (e.g. audio squash) */
 export const lodHeroOnlyMultiplier = (heroValue: ReturnType<typeof vec3>, identity = vec3(1, 1, 1)) =>
     mix(identity, heroValue, lodHeroGate());
+
+/**
+ * 🏗️ ARCHITECT: Standardized TSL deformation chain for LOD-enabled objects
+ * that manually compose their offsets instead of using foliageDeformationOffset.
+ */
+export const applyStandardDeformationWithLod = (basePosNode: any) => {
+    return applyPlayerInteractionWithLod(basePosNode.add(calculateWindSwayWithLod(basePosNode)));
+};

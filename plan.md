@@ -149,4 +149,7 @@ Next Step: Ask the user for the next task, potentially `#1134` (Stable release p
 
 Status: Implemented ✅
 * Implementation Details: Placed the Gem Canopy corridor (24 procedural gem canopy trees) in the world via `assets/map.json` and export logic in `src/world/generation-decorators.ts`. Completed the `gem_canopy` music-binding block in `assets/music-bindings.json` (adding it to `target_biomes`).
-Next Step: #1175 Candy Material Cookbook + grok.md onboarding upgrade.
+* Implementation Details: Standardized the TSL deformation chain across the codebase. Created `applyStandardDeformation` and `applyStandardDeformationWithLod` to ensure wind sway and player push are cleanly composed, eliminating double-applications in LOD batchers.
+Next Step: #1175 Candy Material Cookbook + grok.md onboarding upgrade or Graphic Rewire / Partial ECS.
+
+Status: Implemented ✅

@@ -9,7 +9,7 @@ import {
 import {
     sharedGeometries, foliageMaterials, uTime,
     uAudioLow, uAudioHigh, uWindSpeed, uWindDirection,
-    createJuicyRimLight, calculateWindSway, applyPlayerInteraction,
+    createJuicyRimLight, calculateWindSway, applyPlayerInteraction, applyStandardDeformation,
     createStandardNodeMaterial
 } from './index.ts';
 import { uTwilight } from './sky.ts';
@@ -125,7 +125,7 @@ export class GlowingFlowerBatcher {
         // Stem tip movement = calculateWindSway(vec3(0, 1, 0)) [since stem is unit cylinder, top is 1]
 
         const windSway = calculateWindSway(vec3(0, 1, 0)); // Sway amount at top of unit
-        const playerPush = applyPlayerInteraction(vec3(0, 1, 0)); // Push amount at top
+        const playerPush = applyStandardDeformation(vec3(0, 1, 0)).sub(vec3(0, 1, 0)); // Push amount at top
 
         // Apply to Head
         const headPos = positionLocal.mul(visibilityScale).add(windSway).add(playerPush);

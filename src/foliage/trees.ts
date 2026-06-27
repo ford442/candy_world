@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { foliageMaterials, registerReactiveMaterial, attachReactivity, pickAnimation, createClayMaterial, createGradientMaterial, sharedGeometries, uAudioLow, uWindSpeed, calculatePlayerPush, createStandardNodeMaterial, createJuicyRimLight, getCachedProceduralMaterial, calculateWindSway, applyPlayerInteraction } from './index.ts';
+import { foliageMaterials, registerReactiveMaterial, attachReactivity, pickAnimation, createClayMaterial, createGradientMaterial, sharedGeometries, uAudioLow, uWindSpeed, calculatePlayerPush, createStandardNodeMaterial, createJuicyRimLight, getCachedProceduralMaterial, calculateWindSway, applyPlayerInteraction, applyStandardDeformation } from './index.ts';
 import { color as tslColor, mix, float, sin, cos, vec3, positionLocal, positionWorld, time, normalWorld } from 'three/tsl';
 import { uTwilight } from './sky.ts';
 import { createBerryCluster } from './berries.ts';
@@ -234,7 +234,7 @@ export function createVine(options: VineOptions = {}): THREE.Group {
     // Create the material ONCE outside the loop, add TSL Juice, and register it.
     const vineMat = getCachedProceduralMaterial(`vine_${color}`, color, () => {
         const mat = createClayMaterial(color);
-        mat.positionNode = applyPlayerInteraction(positionLocal.add(calculateWindSway(positionLocal)));
+        mat.positionNode = applyStandardDeformation(positionLocal);
         const audioRimIntensity = float(1.0).add(uAudioLow.mul(0.5));
         mat.emissiveNode = (mat.emissiveNode || tslColor(0x000000)).add(createJuicyRimLight(tslColor(color), audioRimIntensity, float(3.0), mat.normalNode));
         return mat;
@@ -653,7 +653,7 @@ export function createSwingableVine(options: SwingableVineOptions = {}): THREE.G
 
     const vineMat = getCachedProceduralMaterial(`swingable_vine_${color}`, color, () => {
         const mat = createClayMaterial(color);
-        mat.positionNode = applyPlayerInteraction(positionLocal.add(calculateWindSway(positionLocal)));
+        mat.positionNode = applyStandardDeformation(positionLocal);
         const audioRimIntensity = float(1.0).add(uAudioLow.mul(0.5));
         mat.emissiveNode = (mat.emissiveNode || tslColor(0x000000)).add(createJuicyRimLight(tslColor(color), audioRimIntensity, float(3.0), mat.normalNode));
         return mat;
@@ -706,7 +706,7 @@ export function createVineLadder(options: VineLadderOptions = {}): THREE.Group {
 
     const vineMat = getCachedProceduralMaterial(`vine_ladder_${color}`, color, () => {
         const mat = createClayMaterial(color);
-        mat.positionNode = applyPlayerInteraction(positionLocal.add(calculateWindSway(positionLocal)));
+        mat.positionNode = applyStandardDeformation(positionLocal);
         const audioRimIntensity = float(1.0).add(uAudioLow.mul(0.5));
         mat.emissiveNode = (mat.emissiveNode || tslColor(0x000000)).add(createJuicyRimLight(tslColor(color), audioRimIntensity, float(3.0), mat.normalNode));
         return mat;

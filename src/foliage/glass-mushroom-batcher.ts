@@ -21,6 +21,7 @@ import {
     calculateWindSway,
     createJuicyRimLight,
     applyPlayerInteraction,
+    applyStandardDeformation,
 } from './material-core.ts';
 import { registerReactiveMaterial } from './foliage-reactivity.ts';
 import { foliageGroup } from '../world/state.ts';
@@ -94,7 +95,7 @@ function createGlassMushroomMaterial(): MeshStandardNodeMaterial {
     const ripple = rippleWave.mul(uAudioLow).mul(0.12).mul(capMask);
     const idleSway = sin(uTime.mul(1.1).add(aPhase)).mul(0.015).mul(capMask);
     const displaced = positionLocal.add(normalLocal.mul(ripple.add(idleSway)));
-    mat.positionNode = applyPlayerInteraction(displaced.add(calculateWindSway(displaced)));
+    mat.positionNode = applyStandardDeformation(displaced);
 
     // --- Emissive vein network (fake SSS along the stem) ---------------------
     // Glowing filaments climb the body; brighter/denser on the stem than the cap.

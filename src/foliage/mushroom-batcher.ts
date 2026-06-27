@@ -21,7 +21,8 @@ import {
 import {
     applyPlayerInteractionWithLod,
     calculateWindSwayWithLod,
-    scaleEmissiveByLod
+    scaleEmissiveByLod,
+    applyStandardDeformationWithLod
 } from './lod-nodes.ts';
 import { initInstanceLodAttribute } from './batcher-lod-utils.ts';
 import { registerFoliageBatcherLod } from '../systems/batcher-lod.ts';
@@ -549,8 +550,7 @@ export class MushroomBatcher {
         const stemMat = getCachedProceduralMaterial('mushroom_stem_wind', 0xFFFFFF, () => {
             const m = (foliageMaterials.mushroomStem as MeshStandardNodeMaterial).clone();
             const defPos = deform(positionLocal);
-            const winded = defPos.add(calculateWindSwayWithLod(defPos));
-            m.positionNode = applyPlayerInteractionWithLod(winded);
+            m.positionNode = applyStandardDeformationWithLod(defPos);
             return m;
         }) as MeshStandardNodeMaterial;
 
@@ -561,8 +561,7 @@ export class MushroomBatcher {
         const capMat = getCachedProceduralMaterial('mushroom_cap_wind', 0xFFFFFF, () => {
             const m = capList[0].clone();
             const defPos = deform(positionLocal);
-            const winded = defPos.add(calculateWindSwayWithLod(defPos));
-            m.positionNode = applyPlayerInteractionWithLod(winded);
+            m.positionNode = applyStandardDeformationWithLod(defPos);
             return m;
         }) as MeshStandardNodeMaterial;
 
@@ -632,8 +631,7 @@ export class MushroomBatcher {
         const gillMat = getCachedProceduralMaterial('mushroom_gill_wind', 0xFFFFFF, () => {
             const m = (foliageMaterials.mushroomGills as MeshStandardNodeMaterial).clone();
             const defPos = deform(positionLocal);
-            const winded = defPos.add(calculateWindSwayWithLod(defPos));
-            m.positionNode = applyPlayerInteractionWithLod(winded);
+            m.positionNode = applyStandardDeformationWithLod(defPos);
             m.emissiveIntensityNode = totalGlow.mul(0.3);
             return m;
         }) as MeshStandardNodeMaterial;
@@ -642,8 +640,7 @@ export class MushroomBatcher {
         const spotMat = getCachedProceduralMaterial('mushroom_spot_wind', 0xFFFFFF, () => {
             const m = (foliageMaterials.mushroomSpots as MeshStandardNodeMaterial).clone();
             const defPos = deform(positionLocal);
-            const winded = defPos.add(calculateWindSwayWithLod(defPos));
-            m.positionNode = applyPlayerInteractionWithLod(winded);
+            m.positionNode = applyStandardDeformationWithLod(defPos);
             return m;
         }) as MeshStandardNodeMaterial;
         const spotPulse = sin(uTime.mul(3.0)).mul(0.1).add(0.3);
