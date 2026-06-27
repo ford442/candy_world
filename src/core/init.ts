@@ -1,7 +1,6 @@
 // src/core/init.ts
 
 import * as THREE from 'three';
-import { DisplayP3ColorSpace } from './three-compat.ts';
 import { color, uniform, uv, float, smoothstep } from 'three/tsl';
 import type UniformNode from 'three/src/nodes/core/UniformNode.js';
 import WebGPU from 'three/examples/jsm/capabilities/WebGPU.js';
@@ -181,17 +180,16 @@ export function initScene(): SceneInitResult {
         if (supportsHDR) {
             console.log('[Init] HDR supported, configuring WebGPURenderer for extended dynamic range and Display P3.');
             try {
-                // Fallback to string literals since THREE.DisplayP3ColorSpace might not be available in this three.js version
-                webgpuRenderer.outputColorSpace = DisplayP3ColorSpace;
+                webgpuRenderer.outputColorSpace = THREE.DisplayP3ColorSpace || 'display-p3';
             } catch (e) {
                 console.warn('[Init] Failed to set display-p3, falling back to srgb.');
-                webgpuRenderer.outputColorSpace = 'srgb';
+                webgpuRenderer.outputColorSpace = THREE.SRGBColorSpace || 'srgb';
             }
             // Extended tone mapping for values > 1.0
             webgpuRenderer.toneMapping = THREE.LinearToneMapping;
         } else {
             console.log('[Init] HDR not supported, using standard SDR configuration.');
-            webgpuRenderer.outputColorSpace = 'srgb';
+            webgpuRenderer.outputColorSpace = THREE.SRGBColorSpace || 'srgb';
             webgpuRenderer.toneMapping = THREE.ACESFilmicToneMapping;
         }
     }

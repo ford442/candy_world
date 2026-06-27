@@ -623,6 +623,12 @@ button[aria-pressed="true"],
     box-shadow: 0 5px 18px rgba(125, 211, 252, 0.55);
 }
 
+/* ♿ Aria: Keyboard focus for wait full checkbox */
+#wait-full-checkbox:focus-visible {
+    outline: 2px solid #FF4081;
+    outline-offset: 2px;
+}
+
 /* 🎨 Palette: Tactile feedback on interactive elements */
 .toggle-button:not([aria-disabled="true"]):active,
 .toggle-button:not([aria-disabled="true"]).keyboard-active,

@@ -528,6 +528,9 @@ function outputReportToConsole(report: StartupReport): void {
 // Overlay UI
 // ============================================================================
 import { createOverlay, drawOverlay, hideOverlay, showOverlay } from './startup-profiler-ui.ts';
+import { toggleOverlay } from './startup-profiler-ui.ts';
+export { toggleOverlay };
+
 // ============================================================================
 // Public API
 // ============================================================================
@@ -644,17 +647,6 @@ export function finalizeStartupProfile(): StartupReport {
   }, 10000);
   
   return report;
-}
-
-/**
- * Toggle the profiler overlay visibility
- */
-export function toggleOverlay(): void {
-  if (!uiState.overlayContainer || uiState.overlayContainer.style.display === 'none') {
-    showOverlay();
-  } else {
-    hideOverlay();
-  }
 }
 
 /**

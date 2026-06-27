@@ -176,6 +176,32 @@ in both renderers (`?renderer=webgl`).
 
 ---
 
+
+## Core Candy Material Foundations
+
+Candy World materials favor atmosphere and glossy specularity over physical realism.
+
+- **MeshPhysicalMaterial:** Most materials derive from this to support clearcoat and transmission.
+- **Clearcoat:** The secret to the "Candy" look. Typically set high (`0.8`-`1.0`).
+- **Roughness:** Keep low to mid (`0.1`-`0.4`) for gloss, unless aiming for matte clay.
+- **Metalness:** Almost always `0`. Candy world relies on specular reflection and clearcoat, not metalness.
+- **Transmission:** Used heavily for gummy, glass, or gem-like foliage.
+
+## Foliage-Specific Patterns
+
+When dealing with thousands of objects, **InstancedMesh Batchers** are required to maintain performance.
+
+- **Use InstancedMesh:** Never add individual `Mesh` objects to the scene in hot loops or for dense foliage.
+- **Batcher Registration:** Build a `THREE.Group` proxy, position/scale it, and register it with the appropriate batcher (e.g., `mushroomBatcher.register(proxy)`).
+- **LOD Considerations:** Use squared distance comparisons (`distSq < limit * limit`) instead of `Math.sqrt` inside LOD culling loops.
+
+## Common Gotchas & Performance Notes
+
+- **Zero-Allocation Hot Paths:** Do not instantiate new `THREE.Vector3` or `THREE.Color` objects inside `animate()` or `update()` functions. Use module-scope `_scratch` variables.
+- **Shader Recompilation Freezes:** Always use `getCachedProceduralMaterial` instead of instantiating new `MeshStandardNodeMaterial`s per object archetype to prevent WebGPU compilation stutter.
+- **WASM Boundary:** Minimize crossing the JS/WASM bridge in loops. Calculate heavy bulk operations inside WASM or use flat typed array getters.
+- **Attribute Disposal:** When disposing of InstancedMeshes, remember to explicitly dispose of custom `StorageInstancedBufferAttribute`s to prevent VRAM leaks.
+
 ## Appendix: `// Visual Impact:` inventory
 
 Tunable visual constants are tagged with a `// Visual Impact:` comment explaining what

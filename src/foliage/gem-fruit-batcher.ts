@@ -23,7 +23,7 @@ const gemUniforms = getBiomeUniforms(GEM_BIOME);
 
 /** Visual Impact: jewel base tints (ruby, sapphire, amethyst) */
 const GEM_BASE_COLORS = [0xE0115F, 0x0F52BA, 0x9966CC] as const;
-const MAX_GEMS_PER_TYPE = getCIAdjustedCount(512, 0.1, 50);
+const MAX_GEMS_PER_TYPE = getCIAdjustedCount(512, 0.1, 80);
 
 type GemTypeIndex = 0 | 1 | 2;
 
@@ -31,10 +31,11 @@ let _sharedGemGeo: THREE.BufferGeometry | null = null;
 
 function getGemGeometry(): THREE.BufferGeometry {
     if (!_sharedGemGeo) {
+        // Faceted low-poly crystal shape (Icosahedron detail 0 gives sharp candy-facet highlights).
         const geo = new THREE.IcosahedronGeometry(0.14, 0);
         geo.computeBoundingBox();
         const maxY = geo.boundingBox!.max.y;
-        // Anchor hang point at local origin (top of strand)
+        // Anchor hang point at local origin (top of strand) so gems dangle downward.
         geo.translate(0, -maxY, 0);
         geo.computeVertexNormals();
         _sharedGemGeo = geo;
@@ -43,14 +44,16 @@ function getGemGeometry(): THREE.BufferGeometry {
 }
 
 function createGemMaterial(baseHex: number): MeshStandardNodeMaterial {
-    // Visual Impact: high clearcoat crystal gloss + strong emissive for candy-jewel pop
+    // Visual Impact: CandyPresets.Crystal provides the "clearcoat" candy-glass look via
+    // transmission:1.0, roughness:0.0 and ior:2.0 (diamond-like).  The rim + emissive
+    // values below tune how juicy the gem appears inside god-ray light shafts.
     const mat = CandyPresets.Crystal(baseHex, {
         emissive: baseHex,
-        emissiveIntensity: 0.45,
-        audioReactStrength: 0.6,
-        rimStrength: 1.25,
+        emissiveIntensity: 0.75, // Visual Impact: base inner glow (raise for stronger bloom)
+        audioReactStrength: 0.8, // Visual Impact: surface vibration on loud notes
+        rimStrength: 1.4,        // Visual Impact: edge fairy-light intensity
         rimColor: 0xffffff,
-        rimPower: 3.5,
+        rimPower: 3.0,           // Visual Impact: rim tightness (lower = softer halo)
         side: THREE.DoubleSide,
     }) as MeshStandardNodeMaterial;
 
@@ -58,18 +61,24 @@ function createGemMaterial(baseHex: number): MeshStandardNodeMaterial {
     const aArmLen = attribute('aArmLen', 'float');
 
     const baseColor = color(baseHex);
+    // Music Impact: gems inherit noteColor from the bound tracker channel via gemUniforms.noteColor.
     const musicTint = mix(baseColor, gemCanopyNoteColorNode, gemUniforms.shimmer);
     mat.colorNode = musicTint;
 
-    // Pendulum sway — bottom of gem swings more (wisteria-style normalized height)
+    // Pendulum sway — bottom of gem swings more (wisteria-style normalized height).
     const armLen = aArmLen.max(0.15);
     const normH = positionLocal.y.abs().div(armLen).clamp(0.0, 1.0);
     const swayPhase = uTime.mul(1.4).add(aPhase);
+    // Music Impact: bass (uAudioLow) gently pumps the sway amplitude.
     const audioBoost = uAudioLow.mul(0.35).add(1.0);
     const swayX = sin(swayPhase).mul(0.09).mul(normH).mul(audioBoost);
     const swayZ = cos(swayPhase.mul(0.85)).mul(0.07).mul(normH).mul(audioBoost);
-    // Visual Impact: note-hit twist driven by hueShift uniform (beat shimmer proxy)
-    const twist = sin(uTime.mul(4.0).add(aPhase.mul(2.0))).mul(gemUniforms.hueShift).mul(0.12).mul(normH);
+
+    // Music Impact: subtle note-hit twist scales with hueShift (melody channel energy).
+    const twist = sin(uTime.mul(4.0).add(aPhase.mul(2.0)))
+        .mul(gemUniforms.hueShift.add(uAudioLow.mul(0.5)))
+        .mul(0.15)
+        .mul(normH);
 
     const swayed = positionLocal.add(vec3(swayX, float(0.0), swayZ));
     const twisted = vec3(
@@ -77,13 +86,20 @@ function createGemMaterial(baseHex: number): MeshStandardNodeMaterial {
         swayed.y,
         swayed.x.mul(sin(twist)).add(swayed.z.mul(cos(twist)))
     );
+    // Pendulum + wind: calculateWindSway gives the broad atmospheric drift.
     mat.positionNode = twisted.add(calculateWindSway(twisted));
 
-    // Visual Impact: emissive pulse on shimmer — visible bloom response on crescendo
-    const shimmerGlow = gemUniforms.shimmer.mul(2.8).add(0.35);
-    const beatPulse = smoothstep(0.3, 1.0, uAudioLow).mul(0.5);
-    const rim = createJuicyRimLight(musicTint, float(1.2).add(gemUniforms.shimmer.mul(1.8)), float(3.5), null);
-    mat.emissiveNode = musicTint.mul(shimmerGlow.add(beatPulse)).add(rim.mul(0.65));
+    // Visual Impact: emissive pulse on shimmer — visible bloom response on crescendo.
+    // shimmerGlow is the sustained melody glow; beatPulse is the kick-hit flash.
+    const shimmerGlow = gemUniforms.shimmer.mul(3.0).add(0.4);
+    const beatPulse = smoothstep(0.3, 1.0, uAudioLow).mul(0.6);
+    const rim = createJuicyRimLight(
+        musicTint,
+        float(1.3).add(gemUniforms.shimmer.mul(2.0)), // Visual Impact: rim intensity swells with music
+        float(3.0),                                   // Visual Impact: rim falloff
+        null
+    );
+    mat.emissiveNode = musicTint.mul(shimmerGlow.add(beatPulse)).add(rim.mul(0.7));
 
     registerReactiveMaterial(mat);
     return mat;
@@ -111,7 +127,11 @@ export class GemFruitBatcher {
         const geo = getGemGeometry();
         for (let t = 0; t < 3; t++) {
             const mat = createGemMaterial(GEM_BASE_COLORS[t as GemTypeIndex]);
-            const mesh = new THREE.InstancedMesh(geo, mat, MAX_GEMS_PER_TYPE);
+            // Each jewel type must own its InstancedBufferAttributes (aPhase / aArmLen).
+            // Cloning the shared geometry keeps the draw-call count at one per type while
+            // isolating per-instance attribute storage.
+            const meshGeo = geo.clone();
+            const mesh = new THREE.InstancedMesh(meshGeo, mat, MAX_GEMS_PER_TYPE);
             mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
             mesh.frustumCulled = true;
             mesh.castShadow = true;
@@ -133,6 +153,7 @@ export class GemFruitBatcher {
 
     /**
      * Place hanging gems along branch arcs on a tree group (world-space instance matrices).
+     * Mirrors wisteria-cluster hanging-math: gems dangle from canopy radius with increasing drop.
      */
     attachToTree(
         treeGroup: THREE.Object3D,
@@ -202,16 +223,17 @@ export class GemFruitBatcher {
     dispose(): void {
         for (let t = 0; t < this.meshes.length; t++) {
             const mesh = this.meshes[t];
-            if (mesh.geometry && mesh.geometry !== _sharedGemGeo) {
+            // Each mesh now owns a cloned geometry; dispose it directly.
+            if (mesh.geometry) {
                 mesh.geometry.dispose();
-            }
-            const phaseAttr = mesh.geometry?.getAttribute('aPhase');
-            const armAttr = mesh.geometry?.getAttribute('aArmLen');
-            if (phaseAttr && typeof (phaseAttr as any).dispose === 'function') {
-                try { (phaseAttr as any).dispose(); } catch { /* noop */ }
-            }
-            if (armAttr && typeof (armAttr as any).dispose === 'function') {
-                try { (armAttr as any).dispose(); } catch { /* noop */ }
+                const phaseAttr = mesh.geometry.getAttribute('aPhase');
+                const armAttr = mesh.geometry.getAttribute('aArmLen');
+                if (phaseAttr && typeof (phaseAttr as any).dispose === 'function') {
+                    try { (phaseAttr as any).dispose(); } catch { /* noop */ }
+                }
+                if (armAttr && typeof (armAttr as any).dispose === 'function') {
+                    try { (armAttr as any).dispose(); } catch { /* noop */ }
+                }
             }
             if (mesh.material) {
                 if (Array.isArray(mesh.material)) {

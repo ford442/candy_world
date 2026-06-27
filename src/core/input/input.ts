@@ -660,6 +660,7 @@ export function initInput(
     document.addEventListener('mouseup', onMouseUp);
 
     // --- UX: Keyboard Interactions for HUD Abilities ---
+    // ♿ Aria: Support pointer hold for ability buttons
     function setupAbilityKeyboardInteractions(element: HTMLElement | null, keyCode: string) {
         if (!element) return;
 
@@ -675,6 +676,29 @@ export function initInput(
                 e.preventDefault();
                 onKeyUp(new KeyboardEvent('keyup', { code: keyCode }));
             }
+        });
+
+        element.addEventListener('pointerdown', (e: PointerEvent) => {
+            e.preventDefault();
+            e.stopPropagation();
+            element.setPointerCapture(e.pointerId);
+            onKeyDown(new KeyboardEvent('keydown', { code: keyCode }));
+        });
+
+        element.addEventListener('pointerup', (e: PointerEvent) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onKeyUp(new KeyboardEvent('keyup', { code: keyCode }));
+        });
+
+        element.addEventListener('pointercancel', (e: PointerEvent) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onKeyUp(new KeyboardEvent('keyup', { code: keyCode }));
+        });
+
+        element.addEventListener('contextmenu', (e: MouseEvent) => {
+            e.preventDefault();
         });
 
         element.addEventListener('blur', () => {

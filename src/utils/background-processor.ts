@@ -26,6 +26,7 @@ export interface DeferredTask {
 const hasIdleCallback = typeof requestIdleCallback !== 'undefined';
 
 import { maybeRecordBackgroundFailure } from '../world/spawn-tracker.ts';
+import { isCIorHeadless } from '../core/config.ts';
 
 export class BackgroundProcessor {
     private queue: DeferredTask[] = [];
@@ -105,6 +106,33 @@ export class BackgroundProcessor {
         this.startTimeMs = performance.now();
 
         console.log(`[BackgroundProcessor] Starting with ${this.queue.length} tasks`);
+
+        if (isCIorHeadless()) {
+            console.log(`[BackgroundProcessor] CI bypass: Synchronously processing ${this.queue.length} tasks...`);
+
+            // We create an async wrapper so we can await the tasks without making start() return a Promise
+            const processAllSync = async () => {
+                while (this.queue.length > 0) {
+                    const task = this.queue.shift()!;
+                    try {
+                        const result = task.execute();
+                        if (result instanceof Promise) {
+                            await result;
+                        }
+                        this.completedTasks++;
+                    } catch (e) {
+                        console.error(`[BackgroundProcessor] Error executing task ${task.id}:`, e);
+                        maybeRecordBackgroundFailure(task.id, e);
+                        this.failedTasks++;
+                    }
+                }
+                this.complete();
+            };
+
+            processAllSync();
+            return;
+        }
+
         this.scheduleNext();
     }
 
