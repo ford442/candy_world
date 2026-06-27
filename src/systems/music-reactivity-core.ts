@@ -149,11 +149,15 @@ export function computeWaveTimeSinceArrival(plantWorldPos: THREE.Vector3, active
     if (!activeWave) return -999;
     const origin = activeWave.origin || cameraPosition || _zeroVec;
     const speed = activeWave.speed || 25.0;
-    // ⚡ OPTIMIZATION: Bypassed THREE.Vector3.distanceTo() overhead in hot loop with raw math
+    // ⚡ OPTIMIZATION: Bypassed THREE.Vector3.distanceTo() overhead in hot loop with raw math.
     const dx = plantWorldPos.x - origin.x;
     const dy = plantWorldPos.y - origin.y;
     const dz = plantWorldPos.z - origin.z;
+
+    // Reverted: Using Math.sqrt() because we actually need linear arrival distance for timing logic.
+    // The previous optimization attempt distorted wave propagation.
     const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
     const arrivalTime = activeWave.timestamp + (distance / speed) * 1000;
     return (performance.now() - arrivalTime) / 1000;
 }

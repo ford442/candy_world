@@ -242,12 +242,12 @@ export function trapFocusInside(element: HTMLElement): () => void {
 
         if (e.shiftKey) /* Shift + Tab */ {
             if (document.activeElement === firstFocusableEl) {
-                lastFocusableEl.focus();
+                lastFocusableEl.focus({ preventScroll: true });
                 e.preventDefault(); // Prevent default browser tab behavior
             }
         } else /* Tab */ {
             if (document.activeElement === lastFocusableEl) {
-                firstFocusableEl.focus();
+                firstFocusableEl.focus({ preventScroll: true });
                 e.preventDefault();
             }
         }
@@ -259,7 +259,7 @@ export function trapFocusInside(element: HTMLElement): () => void {
     // 3. Auto-focus the first element when triggered
     const initialFocusableEls = element.querySelectorAll<HTMLElement>(focusableSelectors);
     if (initialFocusableEls.length > 0) {
-        initialFocusableEls[0].focus();
+        initialFocusableEls[0].focus({ preventScroll: true });
     }
 
     // 4. Return a cleanup function to prevent memory leaks

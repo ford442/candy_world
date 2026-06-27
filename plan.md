@@ -103,7 +103,13 @@ Next Step: Wait for user instructions.
 
 Status: Implemented ✅
 * Implementation Details: Fixed the Root-cause of the Scene-Loading Regression (#1133) by making `worldGenerationToken` the single source of truth across the boot sequence and properly passing `taskToken` in the background deferred task processor. Further stabilized background-processor by giving tasks a single-retry threshold.
-Next Step: Provide instructions for next feature.
+Status: Implemented ✅
+* Implementation Details: Replaced uniform channel intensity logic with wave-swept geographic distance updates. Introduced `ActiveWave` and `computeWaveTimeSinceArrival` in `music-reactivity.ts`. Updated `PlantPoseMachine.update` to perform zero-allocation per-instance wave delay calculations based on their distance from the propagating wave. Modified `flowerBatcher`, `portamentoBatcher`, and `arpeggioBatcher` to pass zero-allocation getters referencing their internal `instanceMatrix.array` values directly to calculate localized bloom times.
+
+Next Step: Review and continue clearing remaining items from `weekly_plan.md` or `REFACTORING_PLAN_REMAINING.md`.
+
+Status: Implemented ✅
+* Implementation Details: Fixed #702 auto-scroll issue by adding `preventScroll: true` to `.focus()` calls in `accessibility.ts`, `discovery.ts`, and `interaction-utils.ts`. Marked #1134 and #1136 as completed in `weekly_plan.md`.
 
 Status: Implemented ✅
 * Implementation Details: Replaced single mesh subwoofer lotus with `SubwooferLotusBatcher` in `src/foliage/subwoofer-lotus-batcher.ts`, fully adopting `InstancedMesh` with TSL bass pulse scaling, glitch distortion, and proper VRAM disposal for the Subwoofer Lotus.
@@ -148,6 +154,21 @@ Status: Implemented ✅
 Next Step: Ask the user for the next task, potentially `#1134` (Stable release process) or `#1136` (Consolidate LoadingScreen).
 
 Status: Implemented ✅
+* Implementation Details: Enhanced cloud batcher `src/foliage/cloud-batcher.ts` with `applyPlayerInteraction` for squash/deformation when player jumps through/lands on them, and added audio-reactive puff intensity during deformation.
+* Implementation Details: Enhanced cave stalactites `src/foliage/cave.ts` with `createJuicyRimLight` and `applyPlayerInteraction` for a gentle jiggle when the player runs underneath.
+
+Next Step: Ask the user for the next task.
+
+Status: Implemented ✅
+* Implementation Details: Enhanced cave stalactites `src/foliage/cave.ts` with `createJuicyRimLight` and `applyPlayerInteraction` for a gentle jiggle when the player runs underneath.
+
+
+Status: Implemented ✅
+* Implementation Details: **Bolt Phase 1 (Batchers)**: Eliminated  overhead in  using squared scale magnitudes. Eliminated  in  using squared distance thresholds and WASM  for normalization. Reverted experimental squared timing curve in  since true linear distance is mathematically required for accurate wave propagation.
+
+
+Status: Implemented ✅
+* Implementation Details: **Bolt Phase 1 (Batchers)**: Eliminated Math.sqrt overhead in waterfall-batcher.ts using squared scale magnitudes. Eliminated Math.sqrt in ribbons.ts using squared distance thresholds and WASM fastInvSqrt for normalization. Reverted experimental squared timing curve in music-reactivity-core.ts since true linear distance is mathematically required for accurate wave propagation.
 * Implementation Details: Placed the Gem Canopy corridor (24 procedural gem canopy trees) in the world via `assets/map.json` and export logic in `src/world/generation-decorators.ts`. Completed the `gem_canopy` music-binding block in `assets/music-bindings.json` (adding it to `target_biomes`).
 Status: Implemented ✅
 * Implementation Details: Restored proper `THREE.DisplayP3ColorSpace` and `THREE.SRGBColorSpace` enums in `src/core/init.ts` and removed `src/core/three-compat.ts`. Expanded `docs/CANDY_MATERIAL_COOKBOOK.md` with advanced foliage-specific patterns, instanced mesh instructions, and zero-allocation / WASM boundary performance gotchas. Updated `grok.md` to point to these new resources for new contributor onboarding.
