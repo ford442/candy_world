@@ -113,14 +113,17 @@ function createCloudMaterial() {
     const floatSpeed = float(0.5);
     const floatAmp = float(0.5);
     const worldPhase = positionWorld.x.mul(0.05).add(positionWorld.z.mul(0.05));
-  
-    const floatDisp = vec3(0.0, sin(uTime.mul(floatSpeed).add(worldPhase)).mul(floatAmp), 0.0);
+    const floatDisp = sin(uTime.mul(floatSpeed).add(worldPhase)).mul(floatAmp);
+    const floatOffset = vec3(0.0, floatDisp, 0.0);
 
-    // Compose everything
-    const animatedPos = squishedPos
-      .add(fluffOffset)
-      .add(floatDisp);
+    // === SPRING BOUNCE (player land/jump response) ===
+    // High-frequency sine gives that satisfying candy "boing" overshoot
+    const bounceRinging = sin(uTime.mul(15.0)).mul(playerStrength).mul(0.15);
+    const bounceDisp = vec3(0.0, bounceRinging, 0.0);
 
+    const animatedPos = squishedPos.add(fluffOffset).add(floatOffset).add(bounceDisp);
+
+    // Apply player interaction
     material.positionNode = applyPlayerInteraction(animatedPos);
   
     // 4. Surface Detail (Triplanar Noise for "Cotton" Texture)

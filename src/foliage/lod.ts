@@ -384,7 +384,7 @@ export class FoliageLODManager {
                 mesh.castShadow = lodLevel === LODLevel.LOD0; // Only cast shadows for LOD0
                 mesh.receiveShadow = lodLevel !== LODLevel.LOD2;
                 mesh.count = 0;
-                mesh.visible = true;
+                if (mesh) mesh.visible = true;
 
                 // Store reference for cleanup
                 mesh.userData.isLODMesh = true;
@@ -448,7 +448,7 @@ export class FoliageLODManager {
             3
         );
         this.billboardMesh.count = 0;
-        this.billboardMesh.visible = false; // Hidden by default
+        this.if (billboardMesh) billboardMesh.visible = false; // Hidden by default
         this.billboardMesh.userData.isBillboard = true;
 
         foliageGroup.add(this.billboardMesh);
@@ -843,7 +843,7 @@ export class LODTreeBatcher {
                         mat
                     );
                     componentIds[geometryType] = instanceId;
-                    mesh.visible = false; // Hide original mesh
+                    if (mesh) mesh.visible = false; // Hide original mesh
                 }
             }
         });
