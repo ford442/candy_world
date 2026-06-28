@@ -77,7 +77,7 @@ export function applyFiberWhip(obj: FoliageObject, data: Float32Array, offset: n
 
             // Handle Tip Visibility (Flicker)
             // This logic was in JS. We can approximate it or skip it.
-            // "tip.visible = Math.random() < (0.5 + whip);"
+            // "if (tip) tip.visible = Math.random() < (0.5 + whip);"
             // Let's implement a stable flicker using time
             const tip = whip.children[1]; // Cable is 0, Tip is 1
             if (tip) {
@@ -86,7 +86,7 @@ export function applyFiberWhip(obj: FoliageObject, data: Float32Array, offset: n
                 // without passing it through `out`.
                 // Let's assume out[2] or similar holds intensity, or just use out[1] magnitude.
                 // Simplified: Always visible or simple flicker based on time
-                // tip.visible = true; // Optimization: Keep visible to avoid state thrashing
+                // if (tip) tip.visible = true; // Optimization: Keep visible to avoid state thrashing
             }
         }
     }
@@ -222,7 +222,7 @@ export function applySpiritFade(obj: FoliageObject, data: Float32Array, offset: 
     const mat = obj.userData.spiritMaterial;
     if (mat) {
         mat.opacity = opacity;
-        mat.visible = opacity > 0.01;
+        if (mat) mat.visible = opacity > 0.01;
     }
 
     if (opacity > 0.01) {

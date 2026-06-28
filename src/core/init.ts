@@ -399,7 +399,7 @@ export async function forceFullSceneWarmup(
     // 4. Restore
     renderer.setViewport(scissor.x, scissor.y, scissor.z, scissor.w);
     restoreList.forEach(o => o.frustumCulled = true);
-    visibleRestoreList.forEach(o => o.visible = true);
+    visibleRestoreList.forEach(o => { if (o) o.visible = true; });
     camera.layers.mask = originalMask;
     camera.position.copy(originalPos);
     camera.rotation.copy(originalRot);
