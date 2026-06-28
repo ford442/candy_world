@@ -113,30 +113,18 @@ function createCloudMaterial() {
     const floatSpeed = float(0.5);
     const floatAmp = float(0.5);
     const worldPhase = positionWorld.x.mul(0.05).add(positionWorld.z.mul(0.05));
-  
-const squishedPos   = /* your existing player-proximity squash calculation */;
-const fluffOffset   = /* per-vertex fluff / shape variation */;
-const floatDisp     = sin(uTime.mul(floatSpeed)).mul(floatAmount); // gentle idle bob
+    const floatDisp = sin(uTime.mul(floatSpeed).add(worldPhase)).mul(floatAmp);
+    const floatOffset = vec3(0.0, floatDisp, 0.0);
 
-// === SPRING BOUNCE (player land/jump response) ===
-// High-frequency sine gives that satisfying candy "boing" overshoot
-// playerStrength (0–1) can come from distance falloff or a short-lived pulse
-// when the player enters the cloud’s interaction radius or lands beneath it.
-const bounceRinging = sin(uTime.mul(15.0))
-  .mul(playerStrength)
-  .mul(0.15);
+    // === SPRING BOUNCE (player land/jump response) ===
+    // High-frequency sine gives that satisfying candy "boing" overshoot
+    const bounceRinging = sin(uTime.mul(15.0)).mul(playerStrength).mul(0.15);
+    const bounceDisp = vec3(0.0, bounceRinging, 0.0);
 
-const bounceDisp = vec3(0.0, bounceRinging, 0.0);
+    const animatedPos = squishedPos.add(fluffOffset).add(floatOffset).add(bounceDisp);
 
-// Compose everything
-// We apply player interaction last so the squash still feels responsive
-// even while the cloud is jiggling from a previous bounce.
-const animatedPos = squishedPos
-  .add(fluffOffset)
-  .add(floatDisp)
-  .add(bounceDisp);
-
-material.positionNode = applyPlayerInteraction(animatedPos);
+    // Apply player interaction
+    material.positionNode = applyPlayerInteraction(animatedPos);
   
     // 4. Surface Detail (Triplanar Noise for "Cotton" Texture)
     // Adds high-frequency noise to Roughness and slightly to Color
