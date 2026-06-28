@@ -4,6 +4,7 @@
  */
 import * as THREE from 'three';
 import { CONFIG } from '../core/config.ts';
+import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { INSTANCE_LOD_ATTR, ensureInstanceLodAttribute } from '../foliage/batcher-lod-utils.ts';
 import { foliageGroup } from '../world/state.ts';
 
@@ -314,9 +315,7 @@ export function disposeFoliageBatcherLOD(): void {
     _targets.length = 0;
     _meshTracks.clear();
     if (_impostorMesh) {
-        foliageGroup.remove(_impostorMesh);
-        _impostorMesh.geometry.dispose();
-        (_impostorMesh.material as THREE.Material).dispose();
+        safeRemoveAndDispose(foliageGroup as unknown as THREE.Scene, _impostorMesh);
         _impostorMesh = null;
     }
 }

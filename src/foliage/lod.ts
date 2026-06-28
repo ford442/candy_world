@@ -8,6 +8,7 @@ import {
     normalLocal, varyingProperty
 } from 'three/tsl';
 import { foliageGroup } from '../world/state.ts';
+import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 
 const _scratchLODMatrix = new THREE.Matrix4();
 import {
@@ -747,8 +748,9 @@ export class FoliageLODManager {
         // Dispose of all meshes
         for (const lodMap of this.lodMeshes.values()) {
             for (const mesh of lodMap.values()) {
+                // Since materials are shared, we'll manually dispose geometry and remove
+                // to avoid safeRemoveAndDispose from disposing the shared materials
                 mesh.geometry.dispose();
-                // Don't dispose materials that are shared
                 foliageGroup.remove(mesh);
             }
         }
@@ -756,13 +758,7 @@ export class FoliageLODManager {
 
         // Dispose billboard
         if (this.billboardMesh) {
-            this.billboardMesh.geometry.dispose();
-            if (Array.isArray(this.billboardMesh.material)) {
-                for (let i = 0; i < this.billboardMesh.material.length; i++) { this.billboardMesh.material[i].dispose(); }
-            } else {
-                this.billboardMesh.material.dispose();
-            }
-            foliageGroup.remove(this.billboardMesh);
+            safeRemoveAndDispose(foliageGroup as unknown as THREE.Scene, this.billboardMesh);
         }
 
         // Clear caches
