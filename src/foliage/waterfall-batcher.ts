@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
+import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import {
     color, float, vec3, vec2, attribute, positionLocal,
     sin, cos, mix, smoothstep, uniform, If, time, uv,
@@ -230,18 +231,7 @@ export class WaterfallBatcher {
 
         [this.mesh, this.splashMesh].forEach(mesh => {
             if (!mesh) return;
-            if (mesh.geometry) mesh.geometry.dispose();
-            if (mesh.material) {
-                if (Array.isArray(mesh.material)) {
-                    mesh.material.forEach(m => m.dispose());
-                } else {
-                    mesh.material.dispose();
-                }
-            }
-            if (mesh.instanceColor && typeof (mesh.instanceColor as any).dispose === 'function') {
-                try { (mesh.instanceColor as any).dispose(); } catch (e) {}
-            }
-            foliageGroup.remove(mesh);
+            safeRemoveAndDispose(foliageGroup as unknown as THREE.Scene, mesh);
         });
 
         this.initialized = false;

@@ -3,6 +3,7 @@
 
 import * as THREE from 'three';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
+import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import {
     color, float, vec3, positionLocal, sin, cos, mix, attribute, smoothstep
 } from 'three/tsl';
@@ -223,31 +224,9 @@ export class GemFruitBatcher {
     dispose(): void {
         for (let t = 0; t < this.meshes.length; t++) {
             const mesh = this.meshes[t];
-            // Each mesh now owns a cloned geometry; dispose it directly.
-            if (mesh.geometry) {
-                mesh.geometry.dispose();
-                const phaseAttr = mesh.geometry.getAttribute('aPhase');
-                const armAttr = mesh.geometry.getAttribute('aArmLen');
-                if (phaseAttr && typeof (phaseAttr as any).dispose === 'function') {
-                    try { (phaseAttr as any).dispose(); } catch { /* noop */ }
-                }
-                if (armAttr && typeof (armAttr as any).dispose === 'function') {
-                    try { (armAttr as any).dispose(); } catch { /* noop */ }
-                }
-            }
-            if (mesh.material) {
-                if (Array.isArray(mesh.material)) {
-                    mesh.material.forEach((m) => m.dispose());
-                } else {
-                    (mesh.material as THREE.Material).dispose();
-                }
-            }
-            if (mesh.instanceMatrix && typeof (mesh.instanceMatrix as any).dispose === 'function') {
-                try { (mesh.instanceMatrix as any).dispose(); } catch { /* noop */ }
-            }
-            foliageGroup.remove(mesh);
+            safeRemoveAndDispose(foliageGroup as unknown as THREE.Scene, mesh);
         }
-        foliageGroup.remove(this.group);
+        safeRemoveAndDispose(foliageGroup as unknown as THREE.Scene, this.group);
         if (_sharedGemGeo) {
             _sharedGemGeo.dispose();
             _sharedGemGeo = null;

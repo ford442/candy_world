@@ -180,7 +180,7 @@ export function initScene(): SceneInitResult {
         if (supportsHDR) {
             console.log('[Init] HDR supported, configuring WebGPURenderer for extended dynamic range and Display P3.');
             try {
-                webgpuRenderer.outputColorSpace = THREE.DisplayP3ColorSpace || 'display-p3';
+                webgpuRenderer.outputColorSpace = (THREE as any).DisplayP3ColorSpace || 'display-p3';
             } catch (e) {
                 console.warn('[Init] Failed to set display-p3, falling back to srgb.');
                 webgpuRenderer.outputColorSpace = THREE.SRGBColorSpace || 'srgb';
@@ -399,7 +399,12 @@ export async function forceFullSceneWarmup(
     // 4. Restore
     renderer.setViewport(scissor.x, scissor.y, scissor.z, scissor.w);
     restoreList.forEach(o => o.frustumCulled = true);
-    visibleRestoreList.forEach(o => o.visible = true);
+    visibleRestoreList.forEach(o => {
+        if (o && typeof o.visible !== 'undefined') {
+            o.visible = true;
+        }
+    });
+    visibleRestoreList.length = 0; // prevent stale references
     camera.layers.mask = originalMask;
     camera.position.copy(originalPos);
     camera.rotation.copy(originalRot);

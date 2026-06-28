@@ -268,6 +268,8 @@ export class CullingSystem {
 
     /** Process a single object for culling */
     private processObject(obj: CullableObject, camera: THREE.Camera, cameraMoved: boolean): void {
+        if (!obj || !obj.object) return;
+
         // ALWAYS_VISIBLE group - skip culling
         if (obj.group === CullingGroup.ALWAYS_VISIBLE) {
             obj.visible = true;
