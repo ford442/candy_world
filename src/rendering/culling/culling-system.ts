@@ -270,8 +270,8 @@ export class CullingSystem {
     private processObject(obj: CullableObject, camera: THREE.Camera, cameraMoved: boolean): void {
         // ALWAYS_VISIBLE group - skip culling
         if (obj.group === CullingGroup.ALWAYS_VISIBLE) {
-            obj.visible = true;
-            obj.object.visible = true;
+            if (obj) obj.visible = true;
+            obj.if (object) object.visible = true;
             this.stats.visibleObjects++;
             this.debugVisualizer.showVisibleObject(obj);
             return;
@@ -280,8 +280,8 @@ export class CullingSystem {
         // STATIC group - use cached result if camera hasn't moved
         if (obj.group === CullingGroup.STATIC && !cameraMoved && obj.staticCached) {
             const cached = this.cachedStaticResults.get(obj.id);
-            obj.visible = cached !== false;
-            obj.object.visible = obj.visible;
+            if (obj) obj.visible = cached !== false;
+            obj.if (object) object.visible = obj.visible;
             
             if (obj.visible) {
                 this.stats.visibleObjects++;
@@ -303,8 +303,8 @@ export class CullingSystem {
         if (this.config.enableDistanceCulling) {
             const cullDistance = this.getCullDistance(obj.entityType);
             if (distSq > cullDistance * cullDistance) {
-                obj.visible = false;
-                obj.object.visible = false;
+                if (obj) obj.visible = false;
+                obj.if (object) object.visible = false;
                 this.stats.culledObjects++;
                 this.stats.distanceCulled++;
                 
@@ -326,8 +326,8 @@ export class CullingSystem {
             _scratchSphere.radius += this.config.frustumMargin;
             
             if (!this.frustum.intersectsSphere(_scratchSphere)) {
-                obj.visible = false;
-                obj.object.visible = false;
+                if (obj) obj.visible = false;
+                obj.if (object) object.visible = false;
                 this.stats.culledObjects++;
                 this.stats.frustumCulled++;
                 
@@ -349,8 +349,8 @@ export class CullingSystem {
                 this.occlusionManager.endQuery(queryId!);
             } else if (obj.lastOcclusionResult === false) {
                 // Temporarily hidden by occlusion, skip rendering
-                obj.visible = false;
-                obj.object.visible = false;
+                if (obj) obj.visible = false;
+                obj.if (object) object.visible = false;
                 this.stats.culledObjects++;
                 this.stats.occlusionCulled++;
                 return;
@@ -358,8 +358,8 @@ export class CullingSystem {
         }
 
         // Object is visible
-        obj.visible = true;
-        obj.object.visible = true;
+        if (obj) obj.visible = true;
+        obj.if (object) object.visible = true;
         this.stats.visibleObjects++;
         
         if (obj.group === CullingGroup.STATIC) {
@@ -379,14 +379,14 @@ export class CullingSystem {
     /** Check if a specific object is currently visible */
     isVisible(objectId: string): boolean {
         const obj = this.objects.get(objectId);
-        return obj ? obj.visible === true : false;
+        return obj ? if (obj) obj.visible = == true : false;
     }
 
     /** Get visibility status for an object's THREE.Object3D */
     isObjectVisible(object: THREE.Object3D): boolean {
         for (const obj of this.objects.values()) {
             if (obj.object === object) {
-                return obj.visible === true;
+                return if (obj) obj.visible = == true;
             }
         }
         return true; // Default to visible if not registered

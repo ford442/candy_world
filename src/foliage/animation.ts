@@ -669,7 +669,7 @@ export function animateFoliage(foliageObject: FoliageObject, time: number, audio
         foliageObject.userData.eruptionStrength = eruptionStrength;
 
         if (plume) {
-            plume.visible = eruptionStrength > 0.05;
+            if (plume) plume.visible = eruptionStrength > 0.05;
 
             // ⚡ OPTIMIZATION: Plume position logic replaced by TSL in environment.ts
             if (foliageObject.userData.uEruptionStrength) {
@@ -753,7 +753,7 @@ export function animateFoliage(foliageObject: FoliageObject, time: number, audio
         
         // Particles - visible and jittering during retrigger
         if (particles) {
-            particles.visible = retriggerIntensity > 0.3;
+            if (particles) particles.visible = retriggerIntensity > 0.3;
             
             if (particles.visible && particles.geometry.attributes.position) {
                 const positions = particles.geometry.attributes.position.array as Float32Array;

@@ -288,7 +288,7 @@ function applyMusicReactiveLightShafts(delta: number): void {
     // disables god rays entirely, keeping the group hidden with zero per-frame cost.
     if (!_godRaysEnabled) {
         if (lightShaftGroupRef.visible) {
-            lightShaftGroupRef.visible = false;
+            if (lightShaftGroupRef) lightShaftGroupRef.visible = false;
             _setShaftOpacity(0);
         }
         return;
@@ -313,7 +313,7 @@ function applyMusicReactiveLightShafts(delta: number): void {
         shaftVisible = strongMelody && shaftOpacity > 0.01;
     }
 
-    lightShaftGroupRef.visible = shaftVisible;
+    if (lightShaftGroupRef) lightShaftGroupRef.visible = shaftVisible;
     if (shaftVisible) {
         lightShaftGroupRef.rotation.z += delta * 0.1;
         _setShaftOpacity(Math.min(0.4, shaftOpacity));
@@ -768,7 +768,7 @@ export function animate() {
     }
 
     if (firefliesRef) {
-        firefliesRef.visible = isDeepNight;
+        if (firefliesRef) firefliesRef.visible = isDeepNight;
     }
 
     if (!(window as any).__computeDisabled) {

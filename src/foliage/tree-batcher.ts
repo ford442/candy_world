@@ -714,10 +714,10 @@ export class TreeBatcher {
 
                 if (mesh.geometry.type === 'CylinderGeometry') {
                      this.addInstance(this.trunks, _scratchTreeMatrix, col, 'trunkCount', animType, animOffset);
-                     mesh.visible = false;
+                     if (mesh) if (mesh) mesh.visible = false;
                 } else if (mesh.geometry.type === 'CapsuleGeometry') {
                      this.addInstance(this.capsules, _scratchTreeMatrix, col, 'capsuleCount', animType, animOffset);
-                     mesh.visible = false;
+                     if (mesh) if (mesh) mesh.visible = false;
                 }
             }
         }
@@ -736,7 +736,7 @@ export class TreeBatcher {
 
                 if (mesh.geometry.type === 'SphereGeometry') {
                     this.addInstance(this.spheres, _scratchTreeMatrix, col, 'sphereCount', animType, animOffset);
-                    mesh.visible = false;
+                    if (mesh) if (mesh) mesh.visible = false;
                 }
             }
         }
@@ -755,10 +755,10 @@ export class TreeBatcher {
 
                 if (mesh.geometry.type === 'TubeGeometry') {
                     this.addInstance(this.helices, _scratchTreeMatrix, col, 'helixCount', animType, animOffset);
-                    mesh.visible = false;
+                    if (mesh) if (mesh) mesh.visible = false;
                 } else if (mesh.geometry.type === 'SphereGeometry') {
                     this.addInstance(this.spheres, _scratchTreeMatrix, col, 'sphereCount', animType, animOffset);
-                    mesh.visible = false;
+                    if (mesh) if (mesh) mesh.visible = false;
                 }
             }
         }
@@ -782,7 +782,7 @@ export class TreeBatcher {
                 } else if (mesh.geometry.type === 'TorusKnotGeometry') {
                     this.addInstance(this.roses, _scratchTreeMatrix, col, 'roseCount', animType, animOffset);
                 }
-                mesh.visible = false;
+                if (mesh) if (mesh) mesh.visible = false;
             }
         }
     }
