@@ -26,6 +26,8 @@ import {
     applyAtmosphereMapOverrides,
 } from './atmosphere-reactivity.ts';
 
+const _WEATHER_KEYS: Array<'rainIntensity' | 'thunderPulse' | 'fogDensity'> = ['rainIntensity', 'thunderPulse', 'fogDensity'];
+
 // ⚡ OPTIMIZATION: Pre-parsed channel index arrays from music-bindings.json.
 // Resolved once at module init — immutable after that, zero per-frame allocations.
 const _defaultArpeggioShimmerCh: readonly number[] = musicBindings.biomes.arpeggio_grove.shimmer;
@@ -138,7 +140,7 @@ const _defaultSkyWaveDecayMs = _skyWaveConfig?.decay_ms ?? 2000;
 const _defaultSkyWaveTargets: readonly string[] = _skyWaveConfig?.target_biomes ?? ['arpeggio_grove', 'crystalline_nebula', 'luminous_plants', 'sky_moon', 'global', 'musical_flora', 'lake_features'];
 let _skyWavePropagationMs = _defaultSkyWavePropagationMs;
 let _skyWaveDecayMs = _defaultSkyWaveDecayMs;
-let _skyWaveTargets: readonly string[] = _defaultSkyWaveTargets;
+let _skyWaveTargets: string[] = [..._defaultSkyWaveTargets];
 
 // Map from sky_wave.target_biomes keys (in music-bindings.json) → the Color uniform to receive the propagating hue.
 // This makes the wave fully data-driven. Adding a new target = add key here + entry in JSON list.
@@ -221,7 +223,10 @@ function applyMapMusicContext(overrides: MapMusicOverrides | undefined): void {
     };
     _skyWavePropagationMs = _defaultSkyWavePropagationMs;
     _skyWaveDecayMs = _defaultSkyWaveDecayMs;
-    _skyWaveTargets = _defaultSkyWaveTargets;
+    _skyWaveTargets.length = 0;
+    for (let i = 0; i < _defaultSkyWaveTargets.length; i++) {
+        _skyWaveTargets.push(_defaultSkyWaveTargets[i]);
+    }
 
     const biomeOverrides = overrides?.biomes;
     if (biomeOverrides && typeof biomeOverrides === 'object') {
@@ -278,12 +283,24 @@ function applyMapMusicContext(overrides: MapMusicOverrides | undefined): void {
         _skyWaveDecayMs = Math.max(100, overrides.skyWave.decayMs);
     }
     if (Array.isArray(overrides?.skyWave?.targetBiomes) && overrides.skyWave.targetBiomes.length > 0) {
-        const filteredTargets = overrides.skyWave.targetBiomes.filter((name: string) => typeof name === 'string');
-        if (filteredTargets.length > 0) _skyWaveTargets = filteredTargets;
+        // ⚡ OPTIMIZATION: Replaced .filter() with manual loop + in-place mutation to eliminate array allocation in context syncs.
+        _skyWaveTargets.length = 0;
+        for (let i = 0; i < overrides.skyWave.targetBiomes.length; i++) {
+            const name = overrides.skyWave.targetBiomes[i];
+            if (typeof name === 'string') {
+                _skyWaveTargets.push(name);
+            }
+        }
+        // Fallback to default if empty
+        if (_skyWaveTargets.length === 0) {
+            for (let i = 0; i < _defaultSkyWaveTargets.length; i++) {
+                _skyWaveTargets.push(_defaultSkyWaveTargets[i]);
+            }
+        }
     }
     if (overrides?.weatherReactivity && typeof overrides.weatherReactivity === 'object') {
-        const keys: Array<'rainIntensity' | 'thunderPulse' | 'fogDensity'> = ['rainIntensity', 'thunderPulse', 'fogDensity'];
-        for (const key of keys) {
+        for (let i = 0; i < _WEATHER_KEYS.length; i++) {
+            const key = _WEATHER_KEYS[i];
             const current = _weatherBindings[key];
             const override = overrides.weatherReactivity[key];
             if (!override || typeof override !== 'object') continue;
@@ -1146,3 +1163,4 @@ export class MusicReactivitySystem {
 
 export const musicReactivitySystem = new MusicReactivitySystem();
 
+// ⚡ Bolt: Removed array allocations from applyMapMusicContext
