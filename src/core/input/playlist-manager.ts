@@ -8,6 +8,7 @@ import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockCont
 import { trapFocusInside } from '../../utils/interaction-utils.ts';
 import { formatSongTitle, filterValidMusicFiles } from './input-types.ts';
 import { announce } from '../../ui/announcer.ts';
+import { yieldToPaint } from '../../utils/yield-to-paint.ts';
 
 // State
 let isPlaylistOpen = false;
@@ -489,10 +490,10 @@ export function togglePlaylist(): void {
             playlistOverlay.style.opacity = '1';
             playlistOverlay.style.transform = 'translate(-50%, -50%) scale(1)';
 
-            setTimeout(() => {
+            // 🎨 Palette: Wait for paint before intensive DOM manipulations and focus trapping
+            yieldToPaint(50).then(() => {
                 if (isPlaylistOpen && playlistOverlay) {
                     releaseJukeboxFocus = trapFocusInside(playlistOverlay);
-
 
                     // UX: Auto-focus the currently playing track for immediate context
                     if (!audioSystemRef || !playlistList) return;
@@ -508,7 +509,9 @@ export function togglePlaylist(): void {
                         closePlaylistBtn.focus({ preventScroll: true });
                     }
                 }
-            }, 300);
+            });
+
+            announce('Jukebox opened. Use Tab to navigate, Enter to select.', 'polite');
         }
         if (playlistBackdrop) playlistBackdrop.style.display = 'block';
         renderPlaylist();
@@ -523,6 +526,8 @@ export function togglePlaylist(): void {
             playlistOverlay.style.opacity = '0';
             playlistOverlay.style.transform = 'translate(-50%, -50%) scale(0.95)';
         }
+
+        announce('Jukebox closed', 'polite');
 
         setTimeout(() => {
             if (!isPlaylistOpen) {
