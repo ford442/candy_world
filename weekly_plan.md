@@ -1,23 +1,20 @@
 # candy_world — Weekly Plan
 
 ## Today's focus
-**2026-06-23 — USER IDEA: Gem Canopy — Hanging Faceted Crystal Fruits on Trees (#1170).**
-Last week was a landslide: #1169 Atmosphere Bridge landed (`atmosphere-reactivity.ts` + `atmosphere` block in
-music-bindings.json, audio→bloom/fog/shafts, WebGL parity — #1221), #1182 Awakened Flora Persistence v1 landed
-(#1232), #1173 TSL Volumetric God Rays + selective DoF landed (#1241, DoF math optimized #1244), and #1171
-Luminous Mycelium was verified (#1237). The atmospheric framing the Gem Canopy was *waiting on* — light shafts
-through hanging gems — now exists, so this is exactly the moment to ship the last unfinished signature scenic
-biome from the 2026-06-09 idea batch. **Gem Canopy is already ~80% built**: `src/foliage/gem-fruit-batcher.ts`
-(238 lines, `GemFruitBatcher` singleton + `dispose`), `src/foliage/gem-canopy-tree.ts` (`createGemCanopyTree`),
-registered as `gem_canopy_tree` in `foliage-registry.ts` (`batcherHint: 'gem_canopy'`, `supportsMusic: true`),
-and a `gem`-keyed entry in music-bindings.json. **What's missing (the acceptance gap):** no canopy corridor is
-placed in the world (`assets/map.json` has 0 gem refs) — need a procedural decorator in
-`generation-decorators.ts` or a map region spawning a 20+ tree corridor receding into fog; the `gem_canopy`
-music-binding block needs completing/verifying (shimmer + noteColor per the arpeggio_grove recipe);
-beat-pulse/bloom response, single-draw-call perf, map-export + spawn-tracker type reporting, and dispose/VRAM
-all need verification. This is a finish-integrate-tune swarm, not greenfield.
-**2026-06-24 — USER IDEA: Gem Canopy scenic biome finish & ship (#1170).**
-Finish and ship the Gem Canopy scenic biome: a procedural corridor of 24+ bubble-willow trees with hanging faceted crystal gem fruits (ruby, sapphire, amethyst) that sway and pulse to tracker music. Work includes verifying `GemFruitBatcher` capacity, confirming `createGemCanopyTree`/`generation-decorators` wiring, and updating `assets/music-bindings.json` + docs.
+**2026-06-30 — USER IDEA (GitHub issue #1265): Player ground level, eye height & object alignment.**
+Foundational locomotion/collision hygiene — unify ground sampling so eye height is consistent across terrain +
+all static objects, and so batcher-placed instances (mushroom stems, rocks, tree roots) sit flush on the ground
+instead of clipping/floating. This is the freshest in-context user idea (Noah filed #1265 + #1266 on 2026-06-28),
+it carries a `bug` label (eye view drifts/snaps, players sink or hover near clusters), AND it is the hard
+prerequisite #1266 (walkable cloud platforms) explicitly blocks on. Picking the foundation before the feature.
+**Why now:** Gem Canopy (#1170) landed clean last week with all tests green — foundation is stable, so this is
+the moment to fix the locomotion quality issue that's been nagging and to unblock the next vertical-exploration
+feature. **Scope of the swarm:** audit where ground height is currently computed (scattered across
+game-loop / player / `physics.core.ts` `getUnifiedGroundHeightTyped` / `wasm-loader.js`), centralize/strengthen a
+unified ground query with terrain→object→platform priority, drive player foot + `eyeHeight` off it with smooth
+lerp, add a `?debugPlayer`/`?debugHeights` viz, and ensure batchers sample base-Y at spawn. Keep it kinematic
+raycast + capsule — NO physics engine, NO jumping/climbing, NO music/material changes. Audit-centralize-tune;
+the debug viz is the acceptance lever.
 
 ## Ideas
 <!--
@@ -30,6 +27,10 @@ Routine will mark picked items as "[in progress — YYYY-MM-DD]".
 
 <!-- Completed ideas archived to Done below (2026-05-19 sky→foliage propagation, 2026-05-26 channel-to-biome completeness, 2026-05-30 sky-wave→plant-pose, TSL/VRAM audit). -->
 - [ ] **Day/night plant behaviour** *(promoted to Copilot issue 2026-06-02)* — Plants physically open/glow by day, close/dim at night driven by the day/night cycle, not just music-channel intensity. Builds on `plant-pose-machine.ts`. Landed for `SimpleFlowerBatcher` (commit 99fcbad, #1208) — verify coverage across remaining batchers, then close.
+
+**User idea pool — GitHub issues filed 2026-06-28 (Noah's freshest in-context backlog — vertical-exploration arc):**
+- [ ] **#1265 Player ground level, eye height & object alignment** — unify ground sampling; consistent eye height across terrain+objects; batcher base-Y at spawn; `?debugPlayer` viz. `bug`+`enhancement`. Hard prerequisite for #1266. `[in progress — 2026-06-30]` ← today's focus
+- [ ] **#1266 Walkable cloud blocks / platforms** — placeable solid candy-cloud surfaces the player can stand on; instanced, music-reactive glow, map.json persistence. **Blocked on #1265** — do not start cloud integration until ground system is merged & stable. Next in the arc.
 
 **User idea pool — GitHub issues filed 2026-06-09 (Noah's in-context backlog, primary source this phase):**
 - [x] **#1169 Music-Reactive Atmosphere Bridge** — audio → bloom/fog/light-shafts. `[in progress — 2026-06-16]` ← today's focus
@@ -69,6 +70,10 @@ Routine maintains this automatically — you can add items too.
 - [ ] Accessibility note: `Announcer` in `src/ui/announcer.ts` dynamically injects `aria-live` regions rather than relying on static HTML — future ARIA work should use the dynamic path, not add static tags.
 - [ ] **[ui bug — #702]** Auto-scroll forces page to bottom on load, blocking top-row links — *likely resolved* by `preventScroll: true` on all `.focus()` calls (commit 88f2bf3, PR #1125). Verify on live site, then close.
 - [ ] Three.js ColorSpace enum — opportunistic, activate when upgrading Three.js version (not a standalone sprint).
+- [ ] **#1266 — Walkable cloud blocks / platforms** — next in the vertical-exploration arc; **blocked on #1265** (today's focus). Pick this up once the unified ground system lands & is stable.
+- [ ] **#1249 — Candy Material Cookbook v2 (docs de-drift + enrich)** — docs-only, fully decoupled from runtime/foliage work; fixes verified broken `uTwilight` import path, reconciles 3 contradictory position-node orderings, documents all 7 `CandyPresets`, adds LUT/r32float/circadian gotchas, + one preset-coverage guard script. **Today's Copilot prep target** (collision-free with #1265). Open since 2026-06-24.
+- [ ] **Issue-hygiene: close landed-but-OPEN issues** — #1170 (Gem Canopy, landed 2026-06-24), #1173 (god rays, #1241), #1182 + #1176 (awakened flora v1, #1232) all still show OPEN on GitHub despite landing. Verify on live site, then close to stop them re-surfacing as "unfinished."
+- [ ] **Open draft PRs (Jules, decoupled — review/merge independently):** #1275 Bolt LOD matrix-array bypass (perf, `O(N)` decompose elimination); #1274 Aria Jukebox upload screen-reader announcements + `announce` import fix; #1273 Palette Jukebox a11y focus-trap polish (overlaps #1274 — check before merging both); #1255 Palette HUD ability-button interaction/glow/ARIA polish.
 
 ## Done
 <!--
@@ -114,6 +119,12 @@ Prune occasionally when this gets long.
 
 ## Last run
 <!-- Routine writes summary here each run. Overwrites previous. -->
+Date: 2026-06-30
+Mode: USER IDEA — no Fix First trigger (last week's #1170 Gem Canopy LANDED clean, all tests green, 24 trees spawning). Picked the freshest in-context user idea: GitHub issue #1265 (filed 2026-06-28 alongside #1266). #1265 is `bug`-tagged (eye-height drift, player sink/hover near clusters) and is the hard prerequisite #1266 (walkable cloud platforms) blocks on — foundation before feature.
+Focus: #1265 Player ground level / eye height / object alignment. kimi-cli: audit scattered ground-height computation (game-loop / player / `physics.core.ts getUnifiedGroundHeightTyped` / `wasm-loader.js`), centralize a unified ground query (terrain→object→platform priority), drive player foot + eyeHeight off it with smooth lerp, add `?debugPlayer`/`?debugHeights` viz, ensure batchers sample base-Y at spawn. Kinematic raycast + capsule only — NO physics engine / jumping / music / material changes. Copilot prep (decoupled from player/ground files): NEW issue — audio-reactive ambient sparkle/mote field for the Gem Canopy corridor (new particle module + music binding, builds on last week's landing). Claude Code: full-stack build → deploy dry-run → cut first known-good release tag (#1134 tooling exists).
+Outcome: <!-- fill in at end of day after kimi-cli loop -->
+Context gap: No access to recent_chats / conversation_search in this environment — prior-session reconstruction from git history, open/closed issues, weekly_plan.md only. Could not confirm live-site behaviour (#702 auto-scroll, deploy state, actual severity of #1265 eye-height drift in-world). #1170/#1173/#1182/#1176 GitHub issues still show OPEN despite landing — close after verification.
+
 Date: 2026-06-23
 Mode: USER IDEA — no Fix First trigger (last week's #1169 atmosphere bridge, #1182 awakened flora, #1173 god rays all LANDED; `isNight` ReferenceError flagged by draft PR #1245 is NOT live on main — defined at music-reactivity.ts:506). Remaining unfinished items in the 2026-06-09 idea batch: #1170 Gem Canopy and #1175 docs cookbook. Picked #1170 — last unfinished signature scenic biome, and its atmospheric framing (#1169 + #1173) just landed.
 Focus: #1170 Gem Canopy. Batcher/tree/registry already built (`gem-fruit-batcher.ts`, `gem-canopy-tree.ts`, `gem_canopy_tree` registered). kimi-cli finishes it: place a 20+ tree canopy corridor (procedural decorator or map.json region — currently 0 gem refs in map.json), complete/verify the `gem_canopy` music-binding block (shimmer + noteColor), verify beat-pulse/single-draw-call/dispose/map-export. Copilot prep (decoupled, docs-only): #1175 Candy Material Cookbook + grok.md onboarding. Claude Code: full-stack build→deploy-dry-run→first known-good release tag (#1134 tooling now exists).
