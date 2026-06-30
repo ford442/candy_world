@@ -157,7 +157,7 @@ export function initScene(): SceneInitResult {
         0.1, 
         2000
     );
-    camera.position.set(0, 5, 0);
+    camera.position.set(0, CONFIG.player.spawnEyeHeightY, 0);
 
     // WebGPU-specific fixes and configuration
     if (mode === 'webgpu') {

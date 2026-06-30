@@ -1,7 +1,6 @@
 import * as THREE from 'three';
 import { DataUtils } from 'three';
-import { getUnifiedGroundHeightTyped } from '../systems/physics.core.js';
-import { getGroundHeight } from '../utils/wasm-loader.ts';
+import { getGroundHeight as getAuthoritativeGroundHeight } from '../systems/ground-system.ts';
 
 export interface HeightmapTextures {
     heights: Float32Array;
@@ -34,7 +33,7 @@ export async function generateGroundHeightmap(
             // Since geometry is PlaneGeometry rotated -90 on X, the Y grid maps to -Z in world space
             const zWorld = -((iy * step) - halfSize);
 
-            const height = getUnifiedGroundHeightTyped(x, zWorld, getGroundHeight);
+            const height = getAuthoritativeGroundHeight(x, zWorld);
             heights[index] = height;
         }
         if (iy % yieldEvery === yieldEvery - 1) {
@@ -53,10 +52,10 @@ export async function generateGroundHeightmap(
             const zWorld = -((iy * step) - halfSize);
 
             // Sample adjacent points for central difference in world space
-            const hL = getUnifiedGroundHeightTyped(x - delta, zWorld, getGroundHeight);
-            const hR = getUnifiedGroundHeightTyped(x + delta, zWorld, getGroundHeight);
-            const hD = getUnifiedGroundHeightTyped(x, zWorld - delta, getGroundHeight); // Z- (backward)
-            const hU = getUnifiedGroundHeightTyped(x, zWorld + delta, getGroundHeight); // Z+ (forward)
+            const hL = getAuthoritativeGroundHeight(x - delta, zWorld);
+            const hR = getAuthoritativeGroundHeight(x + delta, zWorld);
+            const hD = getAuthoritativeGroundHeight(x, zWorld - delta); // Z- (backward)
+            const hU = getAuthoritativeGroundHeight(x, zWorld + delta); // Z+ (forward)
 
             // Compute tangent vectors
             const tx = new THREE.Vector3(delta * 2, hR - hL, 0).normalize();

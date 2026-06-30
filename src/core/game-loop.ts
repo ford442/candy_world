@@ -30,7 +30,7 @@ import {
 import { updateMelodyRibbons } from '../foliage/ribbons.ts';
 import { updateSparkleTrail } from '../foliage/sparkle-trail.ts';
 import { updateDandelionSeeds } from '../foliage/dandelion-seeds.ts';
-import { getGroundHeight } from '../utils/wasm-loader.ts';
+import { getGroundHeight as getAuthoritativeGroundHeight } from '../systems/ground-system.ts';
 import { updateImpacts } from '../foliage/impacts.ts';
 import { createShield } from '../foliage/shield.ts';
 import { updateFoliageMaterials } from '../foliage/animation.ts';
@@ -40,6 +40,7 @@ import { windComputeSystem } from '../foliage/wind-compute.ts';
 import { chordStrikeSystem } from '../gameplay/chord-strike.ts';
 import { updateFallingClouds } from '../foliage/clouds.ts';
 import { updateAllIntegratedSystems, type ParticleAudioData } from '../particles/index.ts';
+import { initGroundDebug, updateGroundDebug, isGroundDebugEnabled } from '../debug/ground-debug.ts';
 
 const _scratchParticleAudioData: ParticleAudioData = {
     low: 0,
@@ -254,6 +255,8 @@ export function initGameLoopDependencies(deps: {
     coronaMatRef = deps.coronaMat;
     uShaftOpacityRef = deps.uShaftOpacity;
     timeOffsetRef = deps.timeOffset;
+
+    initGroundDebug(deps.scene);
 
     // Register Beat Effects
     beatSyncRef.onBeat((state) => {
@@ -817,6 +820,10 @@ export function animate() {
             updateSparkleTrail(sparkleTrail, player.position, player.velocity, gameTime, rendererRef);
         }
 
+        if (isGroundDebugEnabled() && player.position && cameraRef) {
+            updateGroundDebug(player.position, cameraRef.position);
+        }
+
         if (unlockSystem.isUnlocked('arpeggio_shield')) {
             if (!playerShieldMesh) {
                 playerShieldMesh = createShield();
@@ -883,7 +890,7 @@ export function animate() {
         harmonyOrbSystem.update(delta, audioState, player.position);
 
         safeSystemUpdate(
-            () => updateFallingClouds(delta, foliageClouds, getGroundHeight),
+            () => updateFallingClouds(delta, foliageClouds, getAuthoritativeGroundHeight),
             'updateFallingClouds'
         );
         safeUpdateBatcher(CloudBatcher.getInstance(), delta, 'CloudBatcher');

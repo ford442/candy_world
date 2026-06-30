@@ -448,7 +448,7 @@ export class FoliageLODManager {
             3
         );
         this.billboardMesh.count = 0;
-        this.if (billboardMesh) billboardMesh.visible = false; // Hidden by default
+        this.billboardMesh.visible = false; // Hidden by default
         this.billboardMesh.userData.isBillboard = true;
 
         foliageGroup.add(this.billboardMesh);

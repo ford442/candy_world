@@ -254,6 +254,27 @@ export interface ConfigType {
         }>>;
     };
 
+    /**
+     * Player avatar / first-person camera height tuning.
+     * eyeHeight is added to the authoritative ground height to place the camera.
+     * spawnEyeHeightY is the transient starting height before the first ground snap.
+     */
+    player: {
+        eyeHeight: number;
+        spawnEyeHeightY: number;
+    };
+
+    /**
+     * Ground-follow tuning. The camera/player Y is lerped toward the authoritative
+     * ground height + eyeHeight to avoid snapping over small terrain bumps.
+     */
+    ground: {
+        followLerpSpeed: number;
+        followMaxStep: number;
+        cacheCellSize: number;
+        cacheTTL: number;
+    };
+
     world: {
         population: {
             proceduralExtras: number;
@@ -320,6 +341,21 @@ export const CONFIG: ConfigType = {
         useGpuHeightmap: true, // Default to true as it is the goal
         heightmapResolution: 256
     },
+
+    // --- PLAYER / CAMERA HEIGHT ---
+    // Issue #1265: centralised eye height and ground-follow tuning so the
+    // first-person camera no longer snaps over small terrain bumps.
+    player: {
+        eyeHeight: 1.8,        // Height of the camera above the ground surface
+        spawnEyeHeightY: 5.0,  // Transient camera Y before the first authoritative ground snap
+    },
+    ground: {
+        followLerpSpeed: 12.0, // Units/sec for smoothing eye height over terrain bumps
+        followMaxStep: 2.5,    // Max vertical change per frame to prevent huge jumps
+        cacheCellSize: 2.0,    // GroundSystem height-cache cell size (0.01-unit quantised)
+        cacheTTL: 1.0,         // Seconds before a cached height sample expires
+    },
+
     colors: {
         ground: 0x222222,
         fog: 0x1A1A2E

@@ -31,14 +31,12 @@ import {
 import { discoverySystem } from '../discovery.ts';
 import { spawnImpact } from '../../foliage/impacts.ts';
 import { uChromaticIntensity } from '../../foliage/chromatic.ts';
-import { calculateWaterLevel, getUnifiedGroundHeightTyped } from '../physics.core.js';
-import { getGroundHeight, fastInvSqrt } from '../../utils/wasm-loader.ts';
-import { foliageCaves } from './physics-types.js';
+import { calculateWaterLevel } from '../physics.core.js';
+import { getGroundHeight as getAuthoritativeGroundHeight } from '../ground-system.ts';
 
-// Helper: Unified Ground Height (WASM + Lake Modifiers)
-// This prevents the player from floating on "invisible" ground over the lake
+// Helper: Unified Ground Height (authoritative terrain + lake + island + platforms)
 function getUnifiedGroundHeight(x: number, z: number): number {
-    return getUnifiedGroundHeightTyped(x, z, getGroundHeight);
+    return getAuthoritativeGroundHeight(x, z);
 }
 
 // --- Environmental Modifiers ---

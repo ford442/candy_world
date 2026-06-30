@@ -20,7 +20,6 @@ import { chordStrikeSystem } from '../gameplay/chord-strike.ts';
 import { createHarpoonLine } from '../gameplay/harpoon-line.ts';
 import { fireRainbow } from '../gameplay/rainbow-blaster.ts';
 import { animatedFoliage } from '../world/state.ts';
-import { getGroundHeight } from '../utils/wasm-loader.ts';
 import { ShaderWarmup } from '../rendering/shader-warmup.ts';
 import { startPhase, endPhase, recordWarmupMetrics } from '../utils/startup-profiler.ts';
 import { initGPUCompute } from '../compute/compute-init.ts';

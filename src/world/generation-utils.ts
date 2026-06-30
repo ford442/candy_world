@@ -1,5 +1,11 @@
 import * as THREE from 'three';
-import { getGroundHeight, checkPositionValidity } from '../utils/wasm-loader.ts';
+import { checkPositionValidity } from '../utils/wasm-loader.ts';
+import {
+    LAKE_BOUNDS,
+    LAKE_BOTTOM,
+    LAKE_ISLAND,
+    getGroundHeight as getAuthoritativeGroundHeight
+} from '../systems/ground-system.ts';
 import { CONFIG } from '../core/config.ts';
 
 export const DEFAULT_MAP_CHUNK_SIZE = 100;
@@ -27,17 +33,9 @@ export const ARPEGGIO_GROVE_OUTER_COUNT = Math.max(2, Math.floor((pop.arpeggioGr
 export const LAKE_ARPEGGIO_FERN_COUNT = Math.max(1, Math.floor((pop.lakeArpeggioFerns ?? 3) * popScale));
 export const LAKE_DANDELION_COUNT = Math.max(2, Math.floor((pop.lakeDandelions ?? 6) * popScale));
 
-// Constants
-export const LAKE_BOUNDS = { minX: -38, maxX: 78, minZ: -28, maxZ: 68 };
-export const LAKE_BOTTOM = -2.0;
-export const LAKE_ISLAND = {
-    centerX: 20,
-    centerZ: 20,
-    radius: 12,
-    peakHeight: 3.0,
-    falloffRadius: 4,
-    enabled: true
-};
+// Re-export lake constants from the single authoritative source.
+export { LAKE_BOUNDS, LAKE_BOTTOM, LAKE_ISLAND };
+
 export const ARPEGGIO_GROVE = {
     centerX: -60,
     centerZ: 60,
@@ -148,56 +146,10 @@ export function shouldLogYieldProgress(current: number, total: number): boolean 
 }
 
 // Helper: Calculate Unified Ground Height (WASM + Visual Lake Modifiers + Island)
-// Matches logic in src/systems/physics.js
+// The authoritative logic now lives in GroundSystem; this wrapper preserves the
+// existing generation-utils API.
 export function getUnifiedGroundHeight(x: number, z: number): number {
-    let height = getGroundHeight(x, z);
-
-    // Check if we're in the lake bounds
-    if (x > LAKE_BOUNDS.minX && x < LAKE_BOUNDS.maxX && z > LAKE_BOUNDS.minZ && z < LAKE_BOUNDS.maxZ) {
-        // Calculate distance from lake edges
-        const distX = Math.min(x - LAKE_BOUNDS.minX, LAKE_BOUNDS.maxX - x);
-        const distZ = Math.min(z - LAKE_BOUNDS.minZ, LAKE_BOUNDS.maxZ - z);
-        const distEdge = Math.min(distX, distZ);
-
-        // Check if we're on the island
-        if (LAKE_ISLAND.enabled) {
-            const dx = x - LAKE_ISLAND.centerX;
-            const dz = z - LAKE_ISLAND.centerZ;
-
-            // ⚡ OPTIMIZATION: Deferred Math.sqrt() by using squared distance for early-out bounds check.
-            const distFromIslandCenterSq = dx * dx + dz * dz;
-            const islandRadiusSq = LAKE_ISLAND.radius * LAKE_ISLAND.radius;
-
-            if (distFromIslandCenterSq < islandRadiusSq) {
-                const distFromIslandCenter = Math.sqrt(distFromIslandCenterSq);
-                // On the island - calculate height above water
-                const normalizedDist = distFromIslandCenter / LAKE_ISLAND.radius;
-
-                // Smooth falloff using cosine curve for natural hill shape
-                const islandHeight = LAKE_ISLAND.peakHeight * Math.cos(normalizedDist * Math.PI / 2);
-
-                // Blend at the edge of the island
-                const edgeDist = LAKE_ISLAND.radius - distFromIslandCenter;
-                const edgeBlend = Math.min(1.0, edgeDist / LAKE_ISLAND.falloffRadius);
-
-                // Island height above water level (water is at ~1.5)
-                const waterLevel = 1.5;
-                const finalIslandHeight = waterLevel + (islandHeight * edgeBlend);
-
-                // Return island height (don't apply lake depression)
-                return Math.max(height, finalIslandHeight);
-            }
-        }
-
-        // Not on island - apply lake depression
-        const blend = Math.min(1.0, distEdge / 10.0);
-        const targetHeight = THREE.MathUtils.lerp(height, LAKE_BOTTOM, blend);
-
-        if (targetHeight < height) {
-            height = targetHeight;
-        }
-    }
-    return height;
+    return getAuthoritativeGroundHeight(x, z);
 }
 
 // --- HELPER: Position Validation ---

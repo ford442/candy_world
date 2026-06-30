@@ -30,9 +30,11 @@ import { unlockSystem } from '../unlocks.ts';
 import { uChromaticIntensity } from '../../foliage/chromatic.ts';
 import { uStrobeIntensity } from '../../foliage/strobe.ts';
 import {
-    getGroundHeight, initPhysics, uploadObstaclesBatch,
+    initPhysics, uploadObstaclesBatch,
     uploadCollisionObjects, initDynamicFoliageBridge
 } from '../../utils/wasm-loader.ts';
+import { getGroundHeight as getAuthoritativeGroundHeight } from '../ground-system.ts';
+import { CONFIG } from '../../core/config.ts';
 import {
     foliageMushrooms, foliageTrampolines, foliageClouds,
     foliageTraps, foliageGeysers, foliagePortamentoPines,
@@ -49,13 +51,10 @@ import {
     _scratchCamRight,
     _scratchTargetVel,
     _scratchUp,
-    PLAYER_HEIGHT_OFFSET,
     foliageCaves
 } from './physics-types.js';
 import {
-    calculateMovementInput,
-    isInLakeBasin,
-    getUnifiedGroundHeightTyped
+    calculateMovementInput
 } from '../physics.core.js';
 import {
     physicsFoliageGrid,
@@ -419,10 +418,10 @@ export function updateJSFallbackMovement(delta: number, camera: THREE.Camera, co
     player.position.x += player.velocity.x * delta;
     player.position.z += player.velocity.z * delta;
     player.position.y += player.velocity.y * delta;
-    const groundY = getUnifiedGroundHeightTyped(player.position.x, player.position.z, getGroundHeight);
+    const groundY = getAuthoritativeGroundHeight(player.position.x, player.position.z);
     const wasGrounded = player.isGrounded;
-    if (player.position.y < groundY + PLAYER_HEIGHT_OFFSET && player.velocity.y <= 0) {
-        player.position.y = groundY + PLAYER_HEIGHT_OFFSET;
+    if (player.position.y < groundY + CONFIG.player.eyeHeight && player.velocity.y <= 0) {
+        player.position.y = groundY + CONFIG.player.eyeHeight;
         player.velocity.y = 0;
         player.isGrounded = true;
         if (!wasGrounded) {

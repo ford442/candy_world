@@ -12,8 +12,8 @@ import { fluidSystem } from '../systems/fluid_system.ts';
 import { AudioSystem } from '../audio/audio-system.ts';
 import { BeatSync } from '../audio/beat-sync.ts';
 import { WeatherSystem } from '../systems/weather.ts';
-import { initWasm, getGroundHeight } from '../utils/wasm-loader.ts';
-import { getUnifiedGroundHeightTyped } from '../systems/physics.core.ts';
+import { initWasm } from '../utils/wasm-loader.ts';
+import { getGroundHeight as getAuthoritativeGroundHeight } from '../systems/ground-system.ts';
 import { profiler } from '../utils/profiler.ts';
 import { enableStartupProfiler, finalizeStartupProfile, recordWASMInit, toggleOverlay } from '../utils/startup-profiler.ts';
 import { startPhase, endPhase } from '../utils/startup-profiler.ts';
@@ -385,8 +385,8 @@ window.addEventListener('mousedown', (e) => {
 });
 
 // --- IMMEDIATE: Position player (AS WASM already loaded via TLA) ---
-const initialGroundY = getUnifiedGroundHeightTyped(camera.position.x, camera.position.z, getGroundHeight);
-camera.position.y = initialGroundY + 1.8;
+const initialGroundY = getAuthoritativeGroundHeight(camera.position.x, camera.position.z);
+camera.position.y = initialGroundY + CONFIG.player.eyeHeight;
 // ⚡ FIX: Sync player explicitly to prevent a massive camera swoop frame 1
 player.position.copy(camera.position);
 player.velocity.set(0, 0, 0);

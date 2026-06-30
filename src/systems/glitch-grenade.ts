@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { uGlitchExplosionCenter, uGlitchExplosionRadius, sharedGeometries } from '../foliage/index.ts';
 import { MeshStandardNodeMaterial, StorageInstancedBufferAttribute } from 'three/webgpu';
 import { color, float, attribute, storage, instanceIndex, Fn, If, vec4, uniform, positionLocal, smoothstep } from 'three/tsl';
-import { getGroundHeight } from '../utils/wasm-loader.ts';
+import { getGroundHeight as getAuthoritativeGroundHeight } from '../systems/ground-system.ts';
 import { spawnImpact } from '../foliage/impacts.ts';
 import { addCameraShake } from '../core/camera-shake.ts';
 
@@ -224,7 +224,7 @@ class GlitchGrenadeSystem {
             grenade.lifetime += delta;
 
             // Check Ground Collision using unified ground height
-            const groundY = getGroundHeight(grenade.position.x, grenade.position.z);
+            const groundY = getAuthoritativeGroundHeight(grenade.position.x, grenade.position.z);
 
             if (grenade.position.y <= groundY || grenade.lifetime > this.maxLifetime) {
                 // Snap to ground level if it hit

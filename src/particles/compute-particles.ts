@@ -44,7 +44,6 @@ import {
 } from 'three/tsl';
 
 import { uTime, uAudioLow, uAudioHigh, uPlayerPosition, uWindSpeed, uWindDirection } from '../foliage/material-core.ts';
-import { getGroundHeight } from '../utils/wasm-loader.ts';
 
 import { 
     ComputeParticleType, 
@@ -61,7 +60,6 @@ import {
 
 import { UPDATE_PARTICLES_WGSL, RENDER_PARTICLES_WGSL, FRAGMENT_PARTICLES_WGSL } from './compute-particles-shaders.ts';
 import { CPUParticleSystem } from './cpu-particle-system.ts';
-import { isCIorHeadless } from '../core/config.ts';
 
 // Default spawn center used when no config.center is provided
 const DEFAULT_SPAWN_CENTER = new THREE.Vector3(0, 5, 0);

@@ -18,10 +18,7 @@
  */
 
 import * as THREE from 'three';
-import {
-    getGroundHeight, initPhysics, uploadObstaclesBatch, setPlayerState, getPlayerState, updatePhysicsCPP,
-    uploadCollisionObjects, resolveGameCollisionsWASM, initDynamicFoliageBridge
-} from '../../utils/wasm-loader.ts';
+
 import {
     foliageMushrooms, foliageTrampolines, foliageClouds, vineSwings, animatedFoliage,
     foliageTraps, foliageGeysers, foliagePortamentoPines, foliagePanningPads,
@@ -35,10 +32,14 @@ import { showToast } from '../../utils/toast.ts';
 import { addCameraShake } from '../../core/camera-shake.ts';
 import { unlockSystem } from '../unlocks.ts';
 import {
-    calculateMovementInput,
-    isInLakeBasin,
-    getUnifiedGroundHeightTyped
+    calculateMovementInput
 } from '../physics.core.js';
+import { CONFIG } from '../../core/config.ts';
+import { isInLakeBasin, getGroundHeight as getAuthoritativeGroundHeight } from '../ground-system.ts';
+import {
+    initPhysics, uploadObstaclesBatch, setPlayerState, getPlayerState, updatePhysicsCPP,
+    uploadCollisionObjects, resolveGameCollisionsWASM, initDynamicFoliageBridge
+} from '../../utils/wasm-loader.ts';
 
 import { 
     player, 
@@ -296,7 +297,12 @@ export function updatePhysics(delta: number, camera: THREE.Camera, controls: any
     camera.position.x = player.position.x;
     camera.position.z = player.position.z;
     // 🎨 PALETTE: Smooth vertical tracking (LERP) for better game feel
-    camera.position.y = THREE.MathUtils.lerp(camera.position.y, player.position.y, Math.min(delta * 15.0, 1.0));
+    const targetY = player.position.y;
+    const lerpSpeed = CONFIG.ground.followLerpSpeed;
+    const maxStep = CONFIG.ground.followMaxStep;
+    let nextY = THREE.MathUtils.lerp(camera.position.y, targetY, Math.min(delta * lerpSpeed, 1.0));
+    nextY = THREE.MathUtils.clamp(nextY, camera.position.y - maxStep, camera.position.y + maxStep);
+    camera.position.y = nextY;
 }
 
 // --- State: DEFAULT (Walking/Falling) ---
@@ -476,6 +482,19 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
         updateJSFallbackMovement(delta, camera, controls, keyStates, moveSpeed);
         player.position.x += windForceX;
         player.position.z += windForceZ;
+    }
+
+    // Issue #1265: Reconcile C++ / fallback Y with the authoritative ground query.
+    // The AssemblyScript physics module samples raw WASM terrain and can disagree
+    // with the visually carved lake/island surface. This prevents floating/sinking.
+    if (player.isGrounded || player.velocity.y <= 0) {
+        const authGroundY = getAuthoritativeGroundHeight(player.position.x, player.position.z);
+        const eyeY = authGroundY + CONFIG.player.eyeHeight;
+        if (player.position.y < eyeY) {
+            player.position.y = eyeY;
+            player.velocity.y = 0;
+            player.isGrounded = true;
+        }
     }
 
     // --- WASM COLLISION RESOLVER (New) ---
