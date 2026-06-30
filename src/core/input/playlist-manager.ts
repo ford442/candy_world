@@ -182,14 +182,23 @@ export function initPlaylistManager(
 
                     import('../../utils/toast.ts').then(({ showToast }) => {
                         if (invalidFiles.length > 0) {
-                            showToast(`Added ${validFiles.length} song${validFiles.length > 1 ? 's' : ''}. (${invalidFiles.length} ignored)`, '⚠️');
+                            const msg = `Added ${validFiles.length} song${validFiles.length > 1 ? 's' : ''}. (${invalidFiles.length} ignored)`;
+                            showToast(msg, '⚠️');
+                            announce(msg, 'polite');
                         } else {
-                            showToast(`Added ${validFiles.length} Song${validFiles.length > 1 ? 's' : ''}! 🎶`, '📂');
+                            const msg = `Added ${validFiles.length} Song${validFiles.length > 1 ? 's' : ''}! 🎶`;
+                            showToast(msg, '📂');
+                            if (validFiles.length === 1) {
+                                announce(`Song '${validFiles[0].name}' has been added and is ready to play.`, 'polite');
+                            } else {
+                                announce(`Added ${validFiles.length} songs to the playlist.`, 'polite');
+                            }
                         }
                     });
                 } else {
                     import('../../utils/toast.ts').then(({ showToast }) => {
                         showToast("❌ Only .mod, .xm, .it, .s3m allowed!", '🚫');
+                        announce("Failed to add songs, invalid format.", 'polite');
                     });
                 }
             }
@@ -238,14 +247,23 @@ function handlePlaylistUpload(e: Event): void {
                 audioSystemRef!.addToQueue(validFiles);
                 import('../../utils/toast.ts').then(({ showToast }) => {
                     if (invalidFiles.length > 0) {
-                        showToast(`Added ${validFiles.length} song${validFiles.length > 1 ? 's' : ''}. (${invalidFiles.length} ignored)`, '⚠️');
+                        const msg = `Added ${validFiles.length} song${validFiles.length > 1 ? 's' : ''}. (${invalidFiles.length} ignored)`;
+                        showToast(msg, '⚠️');
+                        announce(msg, 'polite');
                     } else {
-                        showToast(`Added ${validFiles.length} Song${validFiles.length > 1 ? 's' : ''}! 🎶`, '📂');
+                        const msg = `Added ${validFiles.length} Song${validFiles.length > 1 ? 's' : ''}! 🎶`;
+                        showToast(msg, '📂');
+                        if (validFiles.length === 1) {
+                            announce(`Song '${validFiles[0].name}' has been added and is ready to play.`, 'polite');
+                        } else {
+                            announce(`Added ${validFiles.length} songs to the playlist.`, 'polite');
+                        }
                     }
                 });
             } else {
                 import('../../utils/toast.ts').then(({ showToast }) => {
                     showToast("❌ Only .mod, .xm, .it, .s3m allowed!", '🚫');
+                    announce("Failed to add songs, invalid format.", 'polite');
                 });
             }
 
