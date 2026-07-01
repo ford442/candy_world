@@ -287,7 +287,7 @@ function applyMusicReactiveLightShafts(delta: number): void {
     // Respect the post-FX quality tier — ?postfx=off (or CONFIG.postfx.godRays=false)
     // disables god rays entirely, keeping the group hidden with zero per-frame cost.
     if (!_godRaysEnabled) {
-        if (lightShaftGroupRef.visible) {
+        if (lightShaftGroupRef && lightShaftGroupRef.visible) {
             lightShaftGroupRef.visible = false;
             _setShaftOpacity(0);
         }
@@ -313,7 +313,7 @@ function applyMusicReactiveLightShafts(delta: number): void {
         shaftVisible = strongMelody && shaftOpacity > 0.01;
     }
 
-    lightShaftGroupRef.visible = shaftVisible;
+    if (lightShaftGroupRef) lightShaftGroupRef.visible = shaftVisible;
     if (shaftVisible) {
         lightShaftGroupRef.rotation.z += delta * 0.1;
         _setShaftOpacity(Math.min(0.4, shaftOpacity));
@@ -552,10 +552,10 @@ export function animate() {
         const angle = sunProgress * Math.PI;
         const r = 100;
         sunLightRef!.position.set(Math.cos(angle) * -r, Math.sin(angle) * r, 20);
-        sunLightRef!.visible = true;
-        sunGlowRef!.visible = true;
-        sunCoronaRef!.visible = true;
-        moonRef!.visible = false;
+        if (sunLightRef) sunLightRef.visible = true;
+        if (sunGlowRef) sunGlowRef.visible = true;
+        if (sunCoronaRef) sunCoronaRef.visible = true;
+        if (moonRef) moonRef.visible = false;
 
         _scratchSunVector.copy(sunLightRef!.position).normalize();
         _shaftIsNightMode = false;
@@ -602,10 +602,10 @@ export function animate() {
         (sunGlowMatRef as any).opacity = glowIntensity;
         (coronaMatRef as any).opacity = coronaIntensity;
     } else {
-        sunLightRef!.visible = false;
-        sunGlowRef!.visible = false;
-        sunCoronaRef!.visible = false;
-        moonRef!.visible = true;
+        if (sunLightRef) sunLightRef.visible = false;
+        if (sunGlowRef) sunGlowRef.visible = false;
+        if (sunCoronaRef) sunCoronaRef.visible = false;
+        if (moonRef) moonRef.visible = true;
 
         _shaftIsGoldenHour = false;
         _shaftGoldenHourBase = 0;
