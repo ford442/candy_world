@@ -18,7 +18,8 @@ import {
     bpmWind,
     grooveGravity,
     AudioState,
-    KeyStates
+    KeyStates,
+    foliageCaves
 } from './physics-types.js';
 import { 
     activeVineSwing, 
