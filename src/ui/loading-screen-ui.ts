@@ -833,6 +833,8 @@ export class LoadingScreen {
 
         // Update ARIA
         this.container.setAttribute('aria-valuenow', Math.round(this.displayedOverallProgress).toString());
+        const currentPhaseName = this.phases[this.currentPhaseIndex]?.name || 'Loading';
+        this.container.setAttribute('aria-valuetext', `${currentPhaseName}: ${Math.round(this.displayedOverallProgress)}%`);
 
         // Update active phase indicator progress
         const activeIndicator = this.container.querySelector('.phase-indicator.active') as HTMLElement;

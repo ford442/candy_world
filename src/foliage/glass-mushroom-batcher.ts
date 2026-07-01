@@ -98,11 +98,11 @@ function createGlassMushroomMaterial(): MeshStandardNodeMaterial {
     // 🎨 PALETTE: added calculateWindSway + applyPlayerInteraction to glass mushrooms
     // so they feel alive and consistent with the rest of the foliage.
     // Wind and player interaction MUST run *before* any other vertex offsets!
-    const interactiveBase = calculateWindSway(applyPlayerInteraction(positionLocal));
+    const interactiveBase = applyStandardDeformation(positionLocal);
 
     // Then add the local cap ripple and standard deformation
     const displaced = interactiveBase.add(normalLocal.mul(ripple.add(idleSway)));
-    mat.positionNode = applyStandardDeformation(displaced);
+    mat.positionNode = displaced;
 
     // --- Emissive vein network (fake SSS along the stem) ---------------------
     // Glowing filaments climb the body; brighter/denser on the stem than the cap.
