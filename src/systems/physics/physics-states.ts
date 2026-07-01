@@ -18,7 +18,8 @@ import {
     bpmWind,
     grooveGravity,
     AudioState,
-    KeyStates
+    KeyStates,
+    foliageCaves
 } from './physics-types.js';
 import { 
     activeVineSwing, 
@@ -31,7 +32,7 @@ import {
 import { discoverySystem } from '../discovery.ts';
 import { spawnImpact } from '../../foliage/impacts.ts';
 import { uChromaticIntensity } from '../../foliage/chromatic.ts';
-import { calculateWaterLevel } from '../physics.core.js';
+import { calculateWaterLevel } from '../physics.core.ts';
 import { getGroundHeight as getAuthoritativeGroundHeight } from '../ground-system.ts';
 
 // Helper: Unified Ground Height (authoritative terrain + lake + island + platforms)
