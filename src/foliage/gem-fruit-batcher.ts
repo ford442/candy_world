@@ -3,7 +3,6 @@
 
 import * as THREE from 'three';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
-import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import {
     color, float, vec3, positionLocal, sin, cos, mix, attribute, smoothstep
 } from 'three/tsl';
@@ -224,9 +223,33 @@ export class GemFruitBatcher {
     dispose(): void {
         for (let t = 0; t < this.meshes.length; t++) {
             const mesh = this.meshes[t];
-            safeRemoveAndDispose(foliageGroup as unknown as THREE.Scene, mesh);
+            if (mesh.geometry) {
+                mesh.geometry.dispose();
+                const phaseAttr = mesh.geometry.getAttribute('aPhase');
+                const armAttr = mesh.geometry.getAttribute('aArmLen');
+                if (phaseAttr && typeof (phaseAttr as { dispose?: () => void }).dispose === 'function') {
+                    try { (phaseAttr as { dispose: () => void }).dispose(); } catch { /* ignore */ }
+                }
+                if (armAttr && typeof (armAttr as { dispose?: () => void }).dispose === 'function') {
+                    try { (armAttr as { dispose: () => void }).dispose(); } catch { /* ignore */ }
+                }
+            }
+            if (mesh.material) {
+                if (Array.isArray(mesh.material)) {
+                    mesh.material.forEach((m) => m.dispose());
+                } else {
+                    mesh.material.dispose();
+                }
+            }
+            if (mesh.instanceColor && typeof (mesh.instanceColor as { dispose?: () => void }).dispose === 'function') {
+                try { (mesh.instanceColor as { dispose: () => void }).dispose(); } catch { /* ignore */ }
+            }
+            if (mesh.instanceMatrix && typeof (mesh.instanceMatrix as { dispose?: () => void }).dispose === 'function') {
+                try { (mesh.instanceMatrix as { dispose: () => void }).dispose(); } catch { /* ignore */ }
+            }
+            foliageGroup.remove(mesh);
         }
-        safeRemoveAndDispose(foliageGroup as unknown as THREE.Scene, this.group);
+        foliageGroup.remove(this.group);
         if (_sharedGemGeo) {
             _sharedGemGeo.dispose();
             _sharedGemGeo = null;

@@ -20,7 +20,7 @@ import { startPhase, endPhase } from '../utils/startup-profiler.ts';
 import { glitchGrenadeSystem } from '../systems/glitch-grenade.ts';
 
 // Core imports
-import { CONFIG } from './config.ts';
+import { CONFIG, resolvePostfxQuality, areGodRaysEnabled, isDofEnabled } from './config.ts';
 import { initScene } from './init.ts';
 import { ShaderWarmup } from '../rendering/shader-warmup.ts';
 import { initInput, keyStates } from './input/index.ts';
@@ -179,6 +179,11 @@ let postProcessing: any;
 await StageLoader.loadStage('postProcessing', () => {
     postProcessing = initPostProcessing(renderer, scene, camera, mode);
 });
+const _postfxTier = resolvePostfxQuality();
+console.log(
+    `[PostFX] tier=${_postfxTier} godRays=${areGodRaysEnabled()} dof=${isDofEnabled()} renderer=${mode}` +
+    ' (override: ?postfx=off|low|high, ?dof, ?no_dof)'
+);
 
 console.timeEnd('Core Scene Setup');
 loadingScreen.updateProgress(100);

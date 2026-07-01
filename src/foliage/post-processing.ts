@@ -24,6 +24,8 @@ export const uAberrationStrength = uniform(0.002); // Very subtle by default (ha
 //               snap back to a sharp world instantly without recompiling shaders.
 export const uDofFocus = uniform(CONFIG.postfx.dofFocusDistance);
 export const uDofMix = uniform(0.0);
+/** 0–1 bloom swell driven by visible god-ray opacity (screen-space scatter companion). */
+export const uShaftScatterBoost = uniform(0.0);
 
 /**
  * Initializes the Post-Processing pipeline for Candy World.
@@ -111,8 +113,9 @@ function initWebGPUPostProcessing(renderer: CandyRenderer, scene: THREE.Scene, c
             caColor = mix(caColor, dofColorNode.rgb, uDofMix);
         }
 
-        // Base color + Bloom
-        const color = caColor.add(bloomPass);
+        // Base color + Bloom (shaft scatter boost swells bloom when god rays are visible)
+        const scatterMul = float(1.0).add(uShaftScatterBoost);
+        const color = caColor.add(bloomPass.mul(scatterMul));
 
         // Saturation
         // Simple luminance dot product
@@ -219,8 +222,8 @@ function initWebGLPostProcessing(renderer: CandyRenderer, scene: THREE.Scene, ca
             // Sync bloom strength: This per-frame read is necessary for audio reactivity.
             // Performance note: Uniforms are reactive in WebGPU mode (TSL), but WebGL requires
             // manual synchronization on every frame. This is an acceptable trade-off for fallback support.
-            // TODO: Consider implementing an automatic sync mechanism to improve efficiency.
-            bloomPass.strength = uBloomStrength.value || 1.0;
+            const scatter = uShaftScatterBoost.value || 0;
+            bloomPass.strength = (uBloomStrength.value || 1.0) * (1.0 + scatter);
             // Sync DoF: enable only while mixed in, and track the focal plane.
             if (bokehPass) {
                 bokehPass.enabled = uDofMix.value > 0.01;

@@ -302,6 +302,12 @@ export interface ConfigType {
     postfx: {
         quality: 'off' | 'low' | 'high';
         godRays: boolean;
+        /** Max combined shaft opacity (golden hour + melody). Visual Impact: 0.4 keeps beams dreamy, not blinding. */
+        shaftOpacityCap: number;
+        /** Min dot(cameraForward, celestialDir) before shafts render (performance frustum gate). */
+        shaftFrustumDot: number;
+        /** Bloom scatter boost at full shaft opacity (0 = off). Pairs with additive shaft planes. */
+        shaftScatterBoost: number;
         dofEnabled: boolean;
         dofFocusFollow: boolean;
         dofFocusDistance: number;
@@ -601,6 +607,12 @@ export const CONFIG: ConfigType = {
         quality: 'low' as 'off' | 'low' | 'high',
         /** Master toggle for sunrise/sunset/moon god-ray shafts. */
         godRays: true,
+        /** Visual Impact: opacity cap — prevents multi-second GPU stalls from over-bright additive stacks. */
+        shaftOpacityCap: 0.4,
+        /** Performance: shafts hidden when sun/moon is behind the camera (dot threshold). */
+        shaftFrustumDot: 0.28,
+        /** Screen-space bloom swell when shafts are visible (radial-scatter feel without a second pass). */
+        shaftScatterBoost: 0.45,
         /**
          * Force-enable DoF independent of tier (also ?dof / ?no_dof URL flags).
          * Resolved via isDofEnabled(); 'high' tier implies DoF on.

@@ -100,9 +100,10 @@ import {
     CONFIG,
     areGodRaysEnabled,
     isDofEnabled,
-    isDofManual
+    isDofManual,
 } from './config.ts';
-import { uDofFocus, uDofMix } from '../foliage/post-processing.ts';
+import { uDofFocus, uDofMix, uShaftScatterBoost } from '../foliage/post-processing.ts';
+import { BiomeUniforms } from '../systems/biome-uniforms.ts';
 import { keyStates } from './input/index.js';
 import {
     updateHUD,
@@ -159,7 +160,8 @@ let _shaftGoldenHourBase = 0;
 let _shaftIsGoldenHour = false;
 let _shaftIsNightMode = false;
 // Visual Impact: minimum dot(cameraForward, celestialDir) to show god rays (frustum gate)
-const _SHAFT_FRUSTUM_DOT = 0.28;
+const _SHAFT_FRUSTUM_DOT = CONFIG.postfx.shaftFrustumDot;
+const _SHAFT_OPACITY_CAP = CONFIG.postfx.shaftOpacityCap;
 
 // Post-FX enablement resolved once per session (URL overrides + CONFIG.postfx tier).
 const _godRaysEnabled = areGodRaysEnabled();
@@ -168,11 +170,12 @@ const _dofEnabled = isDofEnabled();
 const _dofManual = _dofEnabled && isDofManual();
 
 // Scenic flora zone centres (X,Z) that auto-engage Depth of Field when 'high' tier.
-// Kept in sync with generation-core luminous placement (~-40,40) and
-// generation-utils MYCELIUM_GROVE (-78,78). Hardcoded to avoid a world→core import.
+// Kept in sync with generation-core luminous placement (~-40,40),
+// generation-utils MYCELIUM_GROVE (-78,78), and GEM_CANOPY corridor midpoint (~100,-80).
 const _DOF_FLORA_ZONES: ReadonlyArray<readonly [number, number]> = [
-    [-40, 40], // Melody Lake luminous plants
-    [-78, 78], // Luminous Mycelium grove (glass mushrooms)
+    [-40, 40],  // Melody Lake luminous plants
+    [-78, 78],  // Luminous Mycelium grove (glass mushrooms)
+    [100, -80], // Gem Canopy jewel corridor
 ];
 
 const _interactionLists: (any[] | null)[] = [null, null, null]; // Reusable array for interaction lists
@@ -274,6 +277,20 @@ function _celestialInView(direction: THREE.Vector3): boolean {
     return direction.dot(_scratchCameraForward) > _SHAFT_FRUSTUM_DOT;
 }
 
+/** Night shaft tint: cool silver by default; purple when crystalline_nebula channels are active. */
+function _applyShaftColor(shaftMat: THREE.MeshBasicMaterial | undefined, isNight: boolean): void {
+    if (!shaftMat?.color) return;
+    if (!isNight) {
+        shaftMat.color.setHex(0xFFE5A0);
+        return;
+    }
+    const nebulaShimmer = BiomeUniforms.crystallineNebula.shimmer.value as number;
+    const nebulaAmp = BiomeUniforms.crystallineNebula.amplitudeScale.value as number;
+    // Music Impact: purple moonbeams during crystalline_nebula tracker passages
+    const nebulaPassage = nebulaShimmer > 0.12 || nebulaAmp > 1.15;
+    shaftMat.color.setHex(nebulaPassage ? 0xB388FF : 0xC8E0FF);
+}
+
 function _setShaftOpacity(opacity: number): void {
     if (!uShaftOpacityRef) return;
     uShaftOpacityRef.value = opacity;
@@ -302,16 +319,17 @@ function applyMusicReactiveLightShafts(delta: number): void {
 
     if (_shaftIsGoldenHour && _shaftGoldenHourBase > 0.001) {
         shaftOpacity = _shaftGoldenHourBase + AtmosphereShaftState.beatShimmer;
-        // Golden hour: ambient god rays fill the scene — no camera-frustum gate
-        shaftVisible = shaftOpacity > 0.01;
+        // Performance: frustum-gate golden-hour shafts (sun must be in view)
+        shaftVisible = _celestialInView(_scratchSunVector) && shaftOpacity > 0.01;
     } else if (_shaftIsNightMode) {
-        // Visual Impact: moonbeam cap — soft silver rays, not blinding
-        shaftOpacity = Math.min(0.35, AtmosphereShaftState.musicOpacity + AtmosphereShaftState.beatShimmer);
+        // Visual Impact: moonbeam cap — soft silver/purple rays, not blinding
+        shaftOpacity = Math.min(_SHAFT_OPACITY_CAP * 0.875, AtmosphereShaftState.musicOpacity + AtmosphereShaftState.beatShimmer);
         const strongMelody = AtmosphereShaftState.musicOpacity > 0.08;
-        // Re-enable night light shafts by using the atmosphere state, avoiding the hardcoded false when beat/melody plays
         shaftVisible = (strongMelody || _celestialInView(_scratchSunVector) || AtmosphereShaftState.nightMoonbeam) && shaftOpacity > 0.01;
+        const shaftMat = lightShaftGroupRef.userData?.shaftMaterial as THREE.MeshBasicMaterial | undefined;
+        _applyShaftColor(shaftMat, true);
     } else if (AtmosphereShaftState.musicOpacity > 0.01) {
-        shaftOpacity = Math.min(0.35, AtmosphereShaftState.musicOpacity + AtmosphereShaftState.beatShimmer);
+        shaftOpacity = Math.min(_SHAFT_OPACITY_CAP * 0.875, AtmosphereShaftState.musicOpacity + AtmosphereShaftState.beatShimmer);
         const strongMelody = AtmosphereShaftState.musicOpacity > 0.08;
         shaftVisible = strongMelody && shaftOpacity > 0.01;
     }
@@ -319,9 +337,13 @@ function applyMusicReactiveLightShafts(delta: number): void {
     if (lightShaftGroupRef) lightShaftGroupRef.visible = shaftVisible;
     if (shaftVisible) {
         lightShaftGroupRef.rotation.z += delta * 0.1;
-        _setShaftOpacity(Math.min(0.4, shaftOpacity));
+        const capped = Math.min(_SHAFT_OPACITY_CAP, shaftOpacity);
+        _setShaftOpacity(capped);
+        // Screen-space radial scatter companion (bloom swell, no extra render pass)
+        uShaftScatterBoost.value = capped * CONFIG.postfx.shaftScatterBoost;
     } else {
         _setShaftOpacity(0);
+        uShaftScatterBoost.value = 0;
     }
 }
 
@@ -332,17 +354,29 @@ function applyMusicReactiveLightShafts(delta: number): void {
  * No-op unless DoF was built into the pipeline at boot.
  */
 function _updateDepthOfField(delta: number): void {
-    if (!_dofEnabled || !player?.position) return;
+    if (!_dofEnabled || !player?.position || !cameraRef) return;
 
     const px = player.position.x;
     const pz = player.position.z;
+    cameraRef.getWorldDirection(_scratchCameraForward);
+
     // ⚡ OPTIMIZATION: Deferred Math.sqrt() by tracking squared distances in the hot loop
     let nearestSq = Infinity;
+    let lookFocusDist = Infinity;
     for (let i = 0; i < _DOF_FLORA_ZONES.length; i++) {
         const dx = px - _DOF_FLORA_ZONES[i][0];
         const dz = pz - _DOF_FLORA_ZONES[i][1];
         const dSq = dx * dx + dz * dz;
         if (dSq < nearestSq) nearestSq = dSq;
+
+        // Focus-follow: distance along the camera look vector toward scenic flora
+        const toX = _DOF_FLORA_ZONES[i][0] - px;
+        const toZ = _DOF_FLORA_ZONES[i][1] - pz;
+        const horizLen = Math.sqrt(toX * toX + toZ * toZ) || 1;
+        const lookAlong = toX * _scratchCameraForward.x + toZ * _scratchCameraForward.z;
+        if (lookAlong > 2.0 && lookAlong < lookFocusDist) {
+            lookFocusDist = lookAlong;
+        }
     }
     const nearest = nearestSq === Infinity ? Infinity : Math.sqrt(nearestSq);
 
@@ -356,9 +390,10 @@ function _updateDepthOfField(delta: number): void {
 
     const targetMix = _dofManual ? 1.0 : combinedMix;
 
-    // Focus-follow: settle the focal plane on the flora we're approaching; otherwise rest.
+    // Focal plane follows look-vector distance to flora when in view, else nearest proximity.
+    const focusFromLook = lookFocusDist < Infinity ? lookFocusDist : nearest;
     const targetFocus = CONFIG.postfx.dofFocusFollow
-        ? THREE.MathUtils.clamp(nearest, 3.0, 40.0)
+        ? THREE.MathUtils.clamp(focusFromLook, 3.0, 40.0)
         : CONFIG.postfx.dofFocusDistance;
 
     // Frame-rate-independent smoothing toward targets.
@@ -625,7 +660,7 @@ export function animate() {
             lightShaftGroupRef.lookAt(cameraRef.position);
             _scratchSunVector.copy(moonRef.position).sub(cameraRef.position).normalize();
             const shaftMat = lightShaftGroupRef.userData?.shaftMaterial as THREE.MeshBasicMaterial | undefined;
-            if (shaftMat?.color) shaftMat.color.setHex(0xC8E0FF);
+            _applyShaftColor(shaftMat, true);
         }
     }
 
@@ -755,8 +790,10 @@ export function animate() {
         }
     });
 
-    applyMusicReactiveLightShafts(delta);
-    _updateDepthOfField(delta);
+    profiler.measure('PostFX', () => {
+        applyMusicReactiveLightShafts(delta);
+        _updateDepthOfField(delta);
+    });
     updateExploreCamera(delta);
 
     const exploreActive = isExploreActive();
