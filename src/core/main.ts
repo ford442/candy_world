@@ -35,6 +35,7 @@ import { initWebGLDebug, isWebGLLiteMode } from '../rendering/webgl-debug.ts';
 import { initCriticalWorld, initDeferredWorldContent, initWorld, initWorldCritical, initWorldContent, generateMap, populateWorld, WorldMode, DEFAULT_MAP_CHUNK_SIZE } from '../world/generation.ts';
 import { animatedFoliage, interactiveObjects } from '../world/state.ts';
 import { installWorldExportTools } from '../world/map-exporter.ts';
+import { initCloudPlacer } from '../world/cloud-placer.ts';
 import { fireRainbow } from '../gameplay/rainbow-blaster.ts';
 import { player, populatePhysicsGrids } from '../systems/physics/index.ts';
 import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
@@ -729,6 +730,8 @@ if (startButton) {
 
             // ⚡ Critical: Populate physics grids right after map generation
             populatePhysicsGrids();
+
+            initCloudPlacer({ scene, camera, weatherSystem: weatherSystem ?? null });
 
             applyAwakenedPersistenceAfterWorldLoad();
 

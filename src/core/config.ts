@@ -286,6 +286,26 @@ export interface ConfigType {
         cacheTTL: number;
     };
 
+    /** Walkable cloud platform tuning (#1266). */
+    cloud: {
+        defaultSize: number;
+        sizePresets: { small: number; medium: number; large: number };
+        /** Grid snap for dev placement (0 = off). */
+        gridSnap: number;
+        snapY: boolean;
+        placementRayDistance: number;
+        /** Default float height when raycast misses geometry. */
+        defaultFloatHeight: number;
+        /** Small lift applied on raycast hits so clouds sit on surfaces. */
+        surfaceYOffset: number;
+        walkableTier: number;
+        /** Visual Impact: candy pastel cloud palette */
+        pastelTint: number;
+        creamHighlight: number;
+        lavenderShadow: number;
+        emissivePulse: number;
+    };
+
     world: {
         population: {
             proceduralExtras: number;
@@ -372,6 +392,22 @@ export const CONFIG: ConfigType = {
         platformElevationThreshold: 1.25, // Above terrain eye Y → trust physics (clouds, pads)
         cacheCellSize: 2.0,    // GroundSystem height-cache cell size (0.01-unit quantised)
         cacheTTL: 1.0,         // Seconds before a cached height sample expires
+    },
+
+    cloud: {
+        defaultSize: 1.5,
+        sizePresets: { small: 1.0, medium: 1.5, large: 2.2 },
+        gridSnap: 2.0,
+        snapY: false,
+        placementRayDistance: 40,
+        defaultFloatHeight: 12,
+        surfaceYOffset: 0.15,
+        walkableTier: 1,
+        // Visual Impact: dreamy candy cloud pastels (lavender / pink / cream)
+        pastelTint: 0xFFD1DC,
+        creamHighlight: 0xFFF8E7,
+        lavenderShadow: 0xE6E6FA,
+        emissivePulse: 0.35,
     },
 
     colors: {
@@ -474,11 +510,11 @@ export const CONFIG: ConfigType = {
             'E': 0x00FF00, 'F': 0x00FF7F, 'F#': 0x00FFFF, 'G': 0x007FFF,
             'G#': 0x0000FF, 'A': 0x7F00FF, 'A#': 0xFF00FF, 'B': 0xFF007F
         },
-        // Species: Cloud (Ethereal)
+        // Species: Cloud (Ethereal candy pastels — lavender / pink / cream)
         'cloud': {
-            'C': 0xF0F8FF, 'C#': 0xE6E6FA, 'D': 0xB0C4DE, 'D#': 0xADD8E6,
-            'E': 0x87CEEB, 'F': 0x87CEFA, 'F#': 0x00BFFF, 'G': 0x1E90FF,
-            'G#': 0x6495ED, 'A': 0x4682B4, 'A#': 0x5F9EA0, 'B': 0x2F4F4F
+            'C': 0xFFD1DC, 'C#': 0xFFE4E1, 'D': 0xFFF0F5, 'D#': 0xE6E6FA,
+            'E': 0xDDA0DD, 'F': 0xF0E6FF, 'F#': 0xFFF8E7, 'G': 0xFFE4C4,
+            'G#': 0xFFB6C1, 'A': 0xFFC0CB, 'A#': 0xE0B0FF, 'B': 0xC8A2C8
         },
         // Species: Sky & Moon (Note-Color Reactivity)
         'sky': {
@@ -502,7 +538,8 @@ export const CONFIG: ConfigType = {
 
     // Per-species reaction tuning
     reactivity: {
-        mushroom: { medianWindow: 5, smoothingRate: 8, scale: 0.6, maxAmplitude: 1.0, minThreshold: 0.02 }
+        mushroom: { medianWindow: 5, smoothingRate: 8, scale: 0.6, maxAmplitude: 1.0, minThreshold: 0.02 },
+        cloud: { medianWindow: 4, smoothingRate: 10, scale: 0.45, maxAmplitude: 0.8, minThreshold: 0.015 },
     },
     // Global flash strength scaler
     flashScale: 2.0,

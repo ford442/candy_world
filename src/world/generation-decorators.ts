@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { createIntegratedPollen, createIntegratedSparks, createIntegratedSpores, registerIntegratedSystem } from '../particles/index.ts';
+import { createIntegratedPollen, createIntegratedSparks, createIntegratedSpores, createIntegratedGemSparks, registerIntegratedSystem } from '../particles/index.ts';
+import { getCIAdjustedCount } from '../core/config.ts';
 import { animatedFoliage, cpuAnimatedFoliage } from './state.ts';
 import { globalBackgroundProcessor } from '../utils/background-processor.ts';
 import { recordSpawnAttempt } from './spawn-tracker.ts';
@@ -313,6 +314,27 @@ export async function populateGemCanopyCorridor(weatherSystem: WeatherSystem): P
         tree.rotation.y = Math.random() * Math.PI * 2;
         const placed = safeAddFoliage(tree, true, 1.5, weatherSystem);
         recordSpawnAttempt(usePine ? 'portamento_pine' : 'bubble_willow', placed, placed ? undefined : new Error('placement failed'));
+    }
+
+    // Global sparkle field — one corridor-wide system (not per-tree).
+    const centerX = (GEM_CANOPY.startX + GEM_CANOPY.endX) * 0.5;
+    const centerZ = (GEM_CANOPY.startZ + GEM_CANOPY.endZ) * 0.5;
+    const centerY = getUnifiedGroundHeight(centerX, centerZ) + 6;
+    const corridorLen = Math.sqrt(dx * dx + dz * dz);
+    const sparkBounds = {
+        x: corridorLen * 1.15,
+        y: 16,
+        z: GEM_CANOPY.corridorWidth * 1.8,
+    };
+    const gemSparks = createIntegratedGemSparks({
+        count: getCIAdjustedCount(512, 0.1, 80),
+        bounds: sparkBounds,
+        center: new THREE.Vector3(centerX, centerY, centerZ),
+        useCompute: true,
+    });
+    safeAddFoliage(gemSparks, false, 0, null);
+    if ((gemSparks as any).userData?.computeParticleSystem) {
+        registerIntegratedSystem('gem_canopy_sparks', gemSparks, (gemSparks as any).userData.computeParticleSystem);
     }
 
     console.log(`[World] Gem Canopy corridor populated (${treeCount} trees along path)`);
