@@ -74,6 +74,8 @@ export interface MapEntity {
     id?: string;
     type: string;
     position: [number, number, number];
+    /** Stable ID for awakened-persistence across reloads (hand-placed landmarks) */
+    persistentId?: string;
     variant?: string;
     scale?: number | [number, number, number];
     rotation?: number | [number, number, number] | [number, number, number, number] | {

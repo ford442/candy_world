@@ -31,7 +31,7 @@ import {
 import { getMapSourceFromUrl, loadMap, setupMapHotReload, type LoadedCandyMap } from './map-loader.ts';
 import { clearMapMusicContext, deriveMapMusicContext, setMapMusicContext } from './map-music-context.ts';
 import { create, getTypeMeta, registerBuiltinWorldObjectTypes, registerWorldObject } from './foliage-registry.ts';
-import { treeBatcher } from '../foliage/tree-batcher.ts';
+import { plantOnSurface } from './placement-utils.ts';
 import { treeBatcher } from '../foliage/tree-batcher.ts';
 import { subwooferLotusBatcher } from '../foliage/subwoofer-lotus-batcher.ts';
 
@@ -621,7 +621,7 @@ export async function generateCoreWorld(
         if (pos) {
             const obj = factory();
             if (!obj) continue;
-            obj.position.set(pos.x, pos.y, pos.z);
+            plantOnSurface(obj, pos.x, pos.z, { groundY: pos.y });
             obj.rotation.y = Math.random() * Math.PI * 2;
             safeAddFoliage(obj, true, 1.5, weatherSystem);
         }
@@ -639,7 +639,7 @@ export async function generateCoreWorld(
         if (pos) {
             const obj = create('mushroom', { size: 'regular', scale: 0.8 + Math.random() * 0.5, hasFace: true, isBouncy: true });
             if (!obj) continue;
-            obj.position.set(pos.x, pos.y, pos.z);
+            plantOnSurface(obj, pos.x, pos.z, { groundY: pos.y });
             obj.rotation.y = Math.random() * Math.PI * 2;
             safeAddFoliage(obj, true, 0.5, weatherSystem);
         }
@@ -678,7 +678,7 @@ export async function generateCoreWorld(
         if (pos) {
             const obj = factory();
             if (!obj) continue;
-            obj.position.set(pos.x, pos.y, pos.z);
+            plantOnSurface(obj, pos.x, pos.z, { groundY: pos.y });
             obj.rotation.y = Math.random() * Math.PI * 2;
             safeAddFoliage(obj, false, 0.4, weatherSystem);
         }
@@ -696,7 +696,7 @@ export async function generateCoreWorld(
         const factory = islandItems[i % islandItems.length];
         const obj = factory();
         if (!obj) continue;
-        obj.position.set(pos.x, pos.y, pos.z);
+        plantOnSurface(obj, pos.x, pos.z, { groundY: pos.y });
         obj.rotation.y = Math.random() * Math.PI * 2;
         safeAddFoliage(obj, false, 0.4, weatherSystem);
     }
@@ -787,11 +787,20 @@ function processMapEntity(item: MapEntity, weatherSystem: WeatherSystem, options
         const value = params[key];
         return typeof value === 'boolean' ? value : fallback;
     };
+    const mapPersistentId = typeof item.persistentId === 'string'
+        ? item.persistentId
+        : (typeof params.persistentId === 'string'
+            ? params.persistentId
+            : (typeof item.id === 'string' ? item.id : undefined));
+
     const annotateMapExport = (obj: THREE.Object3D, resolvedType: string) => {
         const resolvedBiome = item.music?.biomeOverride ?? item.music?.biome ?? item.music?.biomeTag ?? item.biome;
         obj.userData.mapEntityType = resolvedType;
         obj.userData.mapEntityId = item.id;
         obj.userData.biome = resolvedBiome;
+        if (mapPersistentId) {
+            obj.userData.persistentId = mapPersistentId;
+        }
         if (typeof item.music?.trackerChannel === 'number') {
             obj.userData.trackerChannel = item.music.trackerChannel;
         }
@@ -827,6 +836,7 @@ function processMapEntity(item: MapEntity, weatherSystem: WeatherSystem, options
         let caveNeedsWaterfallProxy = false;
         const createParams: Record<string, unknown> = { ...params };
         if (item.variant !== undefined) createParams.variant = item.variant;
+        if (mapPersistentId) createParams.persistentId = mapPersistentId;
         if (item.note !== undefined) createParams.note = item.note;
         if (item.noteIndex !== undefined) createParams.noteIndex = item.noteIndex;
         let cloudTier = 1;
@@ -936,7 +946,11 @@ function processMapEntity(item: MapEntity, weatherSystem: WeatherSystem, options
         // --- Spawning ---
         if (obj) {
             annotateMapExport(obj, entityType);
-            obj.position.set(x, y, z);
+            if (placement === 'ground' && entityType !== 'cloud') {
+                plantOnSurface(obj, x, z, { groundY: y });
+            } else {
+                obj.position.set(x, y, z);
+            }
             if (itemRotation && typeof itemRotation === 'object' && !Array.isArray(itemRotation) && 'quat' in itemRotation && Array.isArray(itemRotation.quat)) {
                 const [qx, qy, qz, qw] = itemRotation.quat;
                 obj.quaternion.set(qx, qy, qz, qw);

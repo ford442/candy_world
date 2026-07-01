@@ -12,6 +12,7 @@ import type { PlantPoseConfig } from '../foliage/plant-pose-machine.ts';
 //   ?no_audio_react       — skip beat-sync and music-reactivity hooks
 //   ?no_fireflies         — skip firefly particle system
 //   ?no_grass             — skip GPU grass instancing
+//   ?awakened             — enable durable glow for music-awakened flora (default off)
 //
 // Combine flags to isolate regressions: ?no_luminous&no_musical
 // All flags default to ENABLED (absent = feature on).
@@ -57,6 +58,12 @@ export const FEATURE_FLAGS = {
     fireflies:        !_hasFlag('no_fireflies'),
     grass:            !_hasFlag('no_grass'),
     reliableBoot:     !_hasFlag('no_reliable_boot'),
+    /**
+     * Persist soft glow for music-awakened flora across reloads.
+     * Runtime URL flag (?awakened) — default off for safe rollout.
+     * Rollup cannot prune this branch; use import.meta.env for zero bundle cost later.
+     */
+    awakenedPersistence: _hasFlag('awakened'),
 } as const;
 
 // Log active overrides once at startup so the console makes the state obvious.
@@ -184,6 +191,8 @@ export interface ConfigType {
         glowPulseFrequency: number;
         glowPulseAmplitude: number;
         glowIntensityMax: number;
+        /** Visual Impact: soft emissive boost for previously awakened flora (remembered, not noisy) */
+        awakenedGlowMultiplier: number;
         glowColorMap: Record<string, number>;
     };
     luminousPlants: {
@@ -271,6 +280,8 @@ export interface ConfigType {
     ground: {
         followLerpSpeed: number;
         followMaxStep: number;
+        /** Eye Y above terrain before we treat the player as standing on a platform. */
+        platformElevationThreshold: number;
         cacheCellSize: number;
         cacheTTL: number;
     };
@@ -358,6 +369,7 @@ export const CONFIG: ConfigType = {
     ground: {
         followLerpSpeed: 12.0, // Units/sec for smoothing eye height over terrain bumps
         followMaxStep: 2.5,    // Max vertical change per frame to prevent huge jumps
+        platformElevationThreshold: 1.25, // Above terrain eye Y → trust physics (clouds, pads)
         cacheCellSize: 2.0,    // GroundSystem height-cache cell size (0.01-unit quantised)
         cacheTTL: 1.0,         // Seconds before a cached height sample expires
     },
@@ -381,6 +393,7 @@ export const CONFIG: ConfigType = {
         glowPulseFrequency: 1.0,
         glowPulseAmplitude: 0.5,
         glowIntensityMax: 2.0,
+        awakenedGlowMultiplier: 0.5,
         glowColorMap: {
             'mushroom': 0xFFDDDD,
             'tree': 0xAAFFCC,

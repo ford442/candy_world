@@ -35,7 +35,7 @@ import {
     calculateMovementInput
 } from '../physics.core.js';
 import { CONFIG } from '../../core/config.ts';
-import { isInLakeBasin, getGroundHeight as getAuthoritativeGroundHeight } from '../ground-system.ts';
+import { isInLakeBasin, reconcileGroundedEyeY } from '../ground-system.ts';
 import {
     initPhysics, uploadObstaclesBatch, setPlayerState, getPlayerState, updatePhysicsCPP,
     uploadCollisionObjects, resolveGameCollisionsWASM, initDynamicFoliageBridge
@@ -485,15 +485,21 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
     }
 
     // Issue #1265: Reconcile C++ / fallback Y with the authoritative ground query.
-    // The AssemblyScript physics module samples raw WASM terrain and can disagree
-    // with the visually carved lake/island surface. This prevents floating/sinking.
+    // Smoothly tracks terrain when grounded; preserves platform elevation when high.
     if (player.isGrounded || player.velocity.y <= 0) {
-        const authGroundY = getAuthoritativeGroundHeight(player.position.x, player.position.z);
-        const eyeY = authGroundY + CONFIG.player.eyeHeight;
-        if (player.position.y < eyeY) {
-            player.position.y = eyeY;
-            player.velocity.y = 0;
-            player.isGrounded = true;
+        const prevY = player.position.y;
+        const nextY = reconcileGroundedEyeY(
+            prevY,
+            player.position.x,
+            player.position.z,
+            delta,
+            { isGrounded: player.isGrounded, velocityY: player.velocity.y }
+        );
+        if (nextY !== prevY) {
+            player.position.y = nextY;
+            if (player.isGrounded) {
+                player.velocity.y = 0;
+            }
         }
     }
 

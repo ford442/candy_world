@@ -42,7 +42,7 @@ import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 // Refactored module imports
 import { animate, initGameLoopDependencies, addCameraShake } from './game-loop.ts';
 import { updateTheme, toggleDayNight, setInputSystem } from './hud.ts';
-import { initDeferredVisuals, initDeferredVisualsDependencies, runDeferredWarmup } from './deferred-init.ts';
+import { initDeferredVisuals, initDeferredVisualsDependencies, runDeferredWarmup, applyAwakenedPersistenceAfterWorldLoad } from './deferred-init.ts';
 import { globalBackgroundProcessor } from '../utils/background-processor.ts';
 import { showDeferredIndicator, hideDeferredIndicator } from '../ui/index.ts';
 import { reset as resetSpawnTracker, getReport as getSpawnReport } from '../world/spawn-tracker.ts';
@@ -131,6 +131,9 @@ enableStartupProfiler({
 // --- Initialize Debug Panel (if ?debug=1) ---
 initDebugPanel();
 installBatcherTelemetry();
+
+import { initializeSaveSystemIntegration } from '../systems/save-integration.ts';
+initializeSaveSystemIntegration();
 
 // --- Initialization Pipeline with Debug Staging ---
 
@@ -726,6 +729,8 @@ if (startButton) {
 
             // ⚡ Critical: Populate physics grids right after map generation
             populatePhysicsGrids();
+
+            applyAwakenedPersistenceAfterWorldLoad();
 
             loadingScreen.updateProgress(100, 'World generation complete!');
             loadingScreen.completePhase('map-generation');

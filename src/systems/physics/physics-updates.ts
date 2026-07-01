@@ -33,7 +33,7 @@ import {
     initPhysics, uploadObstaclesBatch,
     uploadCollisionObjects, initDynamicFoliageBridge
 } from '../../utils/wasm-loader.ts';
-import { getGroundHeight as getAuthoritativeGroundHeight } from '../ground-system.ts';
+import { getGroundHeight as getAuthoritativeGroundHeight, reconcileGroundedEyeY } from '../ground-system.ts';
 import { CONFIG } from '../../core/config.ts';
 import {
     foliageMushrooms, foliageTrampolines, foliageClouds,
@@ -419,9 +419,10 @@ export function updateJSFallbackMovement(delta: number, camera: THREE.Camera, co
     player.position.z += player.velocity.z * delta;
     player.position.y += player.velocity.y * delta;
     const groundY = getAuthoritativeGroundHeight(player.position.x, player.position.z);
+    const eyeY = groundY + CONFIG.player.eyeHeight;
     const wasGrounded = player.isGrounded;
-    if (player.position.y < groundY + CONFIG.player.eyeHeight && player.velocity.y <= 0) {
-        player.position.y = groundY + CONFIG.player.eyeHeight;
+    if (player.position.y < eyeY && player.velocity.y <= 0) {
+        player.position.y = eyeY;
         player.velocity.y = 0;
         player.isGrounded = true;
         if (!wasGrounded) {
@@ -452,6 +453,21 @@ export function updateJSFallbackMovement(delta: number, camera: THREE.Camera, co
     } else {
         player.isGrounded = false;
     }
+
+    if (player.isGrounded) {
+        const smoothedY = reconcileGroundedEyeY(
+            player.position.y,
+            player.position.x,
+            player.position.z,
+            delta,
+            { isGrounded: true, velocityY: player.velocity.y }
+        );
+        if (smoothedY !== player.position.y) {
+            player.position.y = smoothedY;
+            player.velocity.y = 0;
+        }
+    }
+
     if (player.isGrounded && keyStates.jump) {
         player.velocity.y = 8.0;
         player.isGrounded = false;

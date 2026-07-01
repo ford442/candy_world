@@ -11,7 +11,7 @@
  */
 
 import * as THREE from 'three';
-import { getGroundHeight } from '../systems/ground-system.ts';
+import { getGroundHeight, getEyeTargetY } from '../systems/ground-system.ts';
 import { CONFIG } from '../core/config.ts';
 
 const _hasFlag = (key: string): boolean => {
@@ -39,10 +39,21 @@ const _green = new THREE.Color(0x00ff00);
 const _red = new THREE.Color(0xff0000);
 const _yellow = new THREE.Color(0xffff00);
 
+let _metricsEl: HTMLElement | null = null;
+let _lastMetricsLog = 0;
+
 /** Initialize the debug overlay. Call once after the scene is available. */
 export function initGroundDebug(scene: THREE.Scene): void {
     if (!_enabled) return;
     _scene = scene;
+
+    (window as any).__groundMetrics = null;
+    (window as any).logGroundMetrics = () => {
+        const m = (window as any).__groundMetrics;
+        if (m) console.table(m);
+        else console.log('[ground-debug] No metrics yet — enable ?debugPlayer=1');
+        return m;
+    };
 
     if (DEBUG_PLAYER) {
         const sphereGeo = new THREE.SphereGeometry(0.08, 8, 8);
@@ -59,6 +70,19 @@ export function initGroundDebug(scene: THREE.Scene): void {
         _eyeLine.renderOrder = 9999;
         _eyeLine.frustumCulled = false;
         scene.add(_eyeLine);
+
+        let el = document.getElementById('ground-debug-metrics');
+        if (!el) {
+            el = document.createElement('div');
+            el.id = 'ground-debug-metrics';
+            el.style.cssText = [
+                'position:fixed', 'left:8px', 'bottom:8px', 'z-index:10000',
+                'font:12px/1.4 monospace', 'color:#fff', 'background:rgba(0,0,0,0.55)',
+                'padding:6px 8px', 'border-radius:4px', 'pointer-events:none',
+            ].join(';');
+            document.body.appendChild(el);
+        }
+        _metricsEl = el;
     }
 
     if (DEBUG_HEIGHTS) {
@@ -116,7 +140,34 @@ export function updateGroundDebug(playerPos: THREE.Vector3, cameraPos: THREE.Vec
 
     if (DEBUG_PLAYER && _playerMesh && _groundMesh && _eyeLine) {
         const groundY = getGroundHeight(playerPos.x, playerPos.z);
-        const eyeY = groundY + CONFIG.player.eyeHeight;
+        const eyeY = getEyeTargetY(playerPos.x, playerPos.z);
+        const deltaEye = playerPos.y - eyeY;
+        const deltaCam = cameraPos.y - eyeY;
+
+        const metrics = {
+            groundY: Number(groundY.toFixed(3)),
+            eyeTargetY: Number(eyeY.toFixed(3)),
+            playerY: Number(playerPos.y.toFixed(3)),
+            cameraY: Number(cameraPos.y.toFixed(3)),
+            playerAboveEye: Number(deltaEye.toFixed(3)),
+            cameraAboveEye: Number(deltaCam.toFixed(3)),
+            eyeHeight: CONFIG.player.eyeHeight,
+        };
+        (window as any).__groundMetrics = metrics;
+
+        if (_metricsEl) {
+            _metricsEl.textContent = [
+                `ground ${metrics.groundY}`,
+                `eye→${metrics.eyeTargetY}`,
+                `player ${metrics.playerY} (Δ${metrics.playerAboveEye})`,
+                `camera ${metrics.cameraY} (Δ${metrics.cameraAboveEye})`,
+            ].join(' | ');
+        }
+
+        const now = performance.now();
+        if (now - _lastMetricsLog > 2000) {
+            _lastMetricsLog = now;
+        }
 
         _playerMesh.position.set(playerPos.x, playerPos.y, playerPos.z);
         _groundMesh.position.set(playerPos.x, groundY, playerPos.z);

@@ -318,3 +318,89 @@ export function getGroundHeightBatch(positions: Float32Array): Float32Array {
     }
     return out;
 }
+
+/**
+ * Target first-person eye Y at (x, z): authoritative ground + configured eye offset.
+ */
+export function getEyeTargetY(x: number, z: number): number {
+    return getGroundHeight(x, z) + CONFIG.player.eyeHeight;
+}
+
+export interface GroundedEyeReconcileOptions {
+    isGrounded: boolean;
+    velocityY: number;
+}
+
+/**
+ * Reconcile player/camera Y with the authoritative ground surface.
+ * - Always raises when below terrain eye level (prevents sinking).
+ * - When grounded near terrain, smoothly lerps toward eye target (handles downhill).
+ * - When clearly on a platform (cloud, pad), leaves Y unchanged.
+ */
+export function reconcileGroundedEyeY(
+    currentY: number,
+    x: number,
+    z: number,
+    delta: number,
+    opts: GroundedEyeReconcileOptions
+): number {
+    const eyeY = getEyeTargetY(x, z);
+
+    // Sinking below carved terrain / lake surface — snap up immediately.
+    if (currentY < eyeY) {
+        return eyeY;
+    }
+
+    if (!opts.isGrounded || opts.velocityY > 0.05) {
+        return currentY;
+    }
+
+    const threshold = CONFIG.ground.platformElevationThreshold;
+    const heightAboveTerrain = currentY - eyeY;
+    if (heightAboveTerrain > threshold) {
+        return currentY;
+    }
+
+    const lerpSpeed = CONFIG.ground.followLerpSpeed;
+    const maxStep = CONFIG.ground.followMaxStep;
+    let nextY = THREE.MathUtils.lerp(currentY, eyeY, Math.min(delta * lerpSpeed, 1.0));
+    nextY = THREE.MathUtils.clamp(nextY, currentY - maxStep, currentY + maxStep);
+    return nextY;
+}
+
+/** Approximate walkable top surface for a tier-1 cloud group. */
+export function registerWalkableCloudPlatform(cloud: THREE.Object3D): void {
+    if (!cloud.userData.isWalkable) return;
+
+    const scale = cloud.scale;
+    const sizeMul = typeof cloud.userData.cloudScale === 'number' ? cloud.userData.cloudScale : 1.0;
+    const halfX = 3.5 * scale.x * sizeMul * 0.5;
+    const halfZ = 3.5 * scale.z * sizeMul * 0.5;
+    const topY = cloud.position.y + scale.y * sizeMul * 0.35;
+
+    const id = typeof cloud.userData.persistentId === 'string'
+        ? `cloud:${cloud.userData.persistentId}`
+        : typeof cloud.userData.mapEntityId === 'string'
+            ? `cloud:${cloud.userData.mapEntityId}`
+            : `cloud:${cloud.position.x.toFixed(1)}_${cloud.position.z.toFixed(1)}_${cloud.position.y.toFixed(1)}`;
+
+    registerPlatform({
+        id,
+        minX: cloud.position.x - halfX,
+        maxX: cloud.position.x + halfX,
+        minZ: cloud.position.z - halfZ,
+        maxZ: cloud.position.z + halfZ,
+        minY: topY - 0.6,
+        maxY: topY,
+        priority: 2,
+    });
+}
+
+export function unregisterWalkableCloudPlatform(cloud: THREE.Object3D): void {
+    const id = typeof cloud.userData.persistentId === 'string'
+        ? `cloud:${cloud.userData.persistentId}`
+        : typeof cloud.userData.mapEntityId === 'string'
+            ? `cloud:${cloud.userData.mapEntityId}`
+            : `cloud:${cloud.position.x.toFixed(1)}_${cloud.position.z.toFixed(1)}_${cloud.position.y.toFixed(1)}`;
+    unregisterPlatform(id);
+}

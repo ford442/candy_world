@@ -23,7 +23,8 @@ import { animatedFoliage } from '../world/state.ts';
 import { ShaderWarmup } from '../rendering/shader-warmup.ts';
 import { startPhase, endPhase, recordWarmupMetrics } from '../utils/startup-profiler.ts';
 import { initGPUCompute } from '../compute/compute-init.ts';
-import { isCIorHeadless } from './config.ts';
+import { isCIorHeadless, FEATURE_FLAGS } from './config.ts';
+import { getAwakenedStore } from '../systems/awakened-persistence.ts';
 
 // Deferred visual elements
 let aurora: THREE.Object3D | null = null;
@@ -158,6 +159,15 @@ export function initDeferredVisuals() {
     console.timeEnd('Musical Elements');
 
     console.timeEnd('Deferred Visuals Init');
+}
+
+/**
+ * Apply persisted awakened glow to batchers after world entities are placed.
+ * Called once post-populateWorld — O(awakened) GPU upload, no scene traversal.
+ */
+export function applyAwakenedPersistenceAfterWorldLoad(): void {
+    if (!FEATURE_FLAGS.awakenedPersistence) return;
+    getAwakenedStore()?.reconcileAndApplyToBatchers();
 }
 
 // --- DEFERRED INCREMENTAL SHADER WARMUP ---

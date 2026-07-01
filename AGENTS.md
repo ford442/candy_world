@@ -325,7 +325,10 @@ Cross-Origin-Embedder-Policy: require-corp
 - **Palette**: Pastel candy colors (e.g., `#FF69B4`, `#87CEFA`, `#98FB98`, `#FFD1DC`)
 - **Materials**: Prefer `MeshPhysicalMaterial` with `clearcoat` for glossy surfaces; `MeshStandardMaterial` for matte/ground
 - **Roughness**: Low (0.2–0.4) for shiny candy, high (~0.8) for clay-like matte
-- **Comments**: Mark uniform/aesthetic values with "Visual Impact" notes so future agents know they define the look
+- **Comment tags for tunable aesthetics** (pick the tag that matches the file):
+  - `// PALETTE:` or `// 🎨 PALETTE:` — **primary in `src/foliage/*`** for material/color tuning
+  - `// Visual Impact:` — systems, config, and cross-cutting render knobs (`grep -rn "Visual Impact:" src/`)
+  - `// Music Impact:` — channel / uniform strength in batchers and `music-reactivity.ts`
 - **Geometry**: Anchor objects at their base by translating geometry after creation; call `computeVertexNormals()` after modification
 
 ### Music Reactivity & Biome / Channel-to-Shader Binding Conventions
@@ -349,7 +352,7 @@ Cross-Origin-Embedder-Policy: require-corp
   );
   // Often combined with uTwilight (from foliage/sky.ts) and CONFIG noteColorMap
   ```
-  Mark tunable values with `// Music Impact:` or `// Visual Impact:` comments.
+  Mark tunable values with `// Music Impact:` (bindings), `// PALETTE:` (foliage aesthetics), or `// Visual Impact:` (systems-level). See **docs/CANDY_MATERIAL_COOKBOOK.md** → Comment tags.
   Prefer `getBiomeUniforms(biomeTag)` + `userData.biome` on objects over direct `BiomeUniforms.xxx` access when possible.
 - **Batcher responsibilities**: `arpeggio-batcher.ts`, `mushroom-batcher.ts`, `tree-batcher.ts`, `portamento-batcher.ts` (and flower/wisteria/luminous variants) each own their TSL graphs + per-instance state machines (PlantPoseMachine). They consume the shared uniforms; MusicReactivitySystem owns the values.
 - **Adding or extending a binding** (follow exactly):
@@ -469,6 +472,8 @@ When implementing large visual changes:
 
 ### Existing Documentation Files
 - `README.md` — Human-facing project overview and quick start
+- `docs/CANDY_MATERIAL_COOKBOOK.md` — Material presets, TSL patterns, music-reactivity gotchas (deep-links to source)
+- `docs/MUSIC_MAP_BINDING.md` — Map/entity music override precedence and atmosphere bindings
 - `SETUP_GUIDE.md` — Development environment setup and Emscripten installation
 - `IMPLEMENTATION_SUMMARY.md` — Feature implementation history
 - `PERFORMANCE_MIGRATION_STRATEGY.md` — WASM migration guidelines (includes the "15% Rule")

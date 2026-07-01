@@ -15,6 +15,7 @@ import {
     LAKE_ARPEGGIO_FERN_COUNT, LAKE_DANDELION_COUNT, GEM_CANOPY, MYCELIUM_GROVE
 } from './generation-utils.ts';
 import { create, registerBuiltinWorldObjectTypes } from './foliage-registry.ts';
+import { plantOnSurface } from './placement-utils.ts';
 import { FEATURE_FLAGS } from '../core/config.ts';
 
 registerBuiltinWorldObjectTypes();
@@ -271,7 +272,7 @@ export async function populateGemCanopyCorridor(weatherSystem: WeatherSystem): P
         const y = getUnifiedGroundHeight(x, z);
         const tree = create('gem_canopy_tree', { height: 4.2 + Math.random() * 1.8 });
         if (!tree) continue;
-        tree.position.set(x, y, z);
+        plantOnSurface(tree, x, z, { groundY: y });
         tree.rotation.y = Math.atan2(dx, dz) + (Math.random() - 0.5) * 0.35;
         tree.userData.biome = 'gem_canopy';
         tree.userData.mapEntityType = 'gem_canopy_tree';
@@ -308,7 +309,7 @@ export async function populateGemCanopyCorridor(weatherSystem: WeatherSystem): P
             placement: 'ground'
         };
         tree.userData.attachGemFruits = true;
-        tree.position.set(x, y, z);
+        plantOnSurface(tree, x, z, { groundY: y });
         tree.rotation.y = Math.random() * Math.PI * 2;
         const placed = safeAddFoliage(tree, true, 1.5, weatherSystem);
         recordSpawnAttempt(usePine ? 'portamento_pine' : 'bubble_willow', placed, placed ? undefined : new Error('placement failed'));
@@ -349,7 +350,7 @@ export async function populateMyceliumGrove(weatherSystem: WeatherSystem): Promi
             recordSpawnAttempt('glass_mushroom', false, new Error('factory returned null'));
             continue;
         }
-        mushroom.position.set(x, y, z);
+        plantOnSurface(mushroom, x, z, { groundY: y });
         mushroom.rotation.y = Math.random() * Math.PI * 2;
         const ok = safeAddFoliage(mushroom, true, 0.6, weatherSystem);
         recordSpawnAttempt('glass_mushroom', ok, ok ? undefined : new Error('placement failed'));
@@ -709,7 +710,7 @@ export function spawnNearbyFoliage(origin: THREE.Vector3, type: string, options:
                 : create(type);
 
             if (obj) {
-                obj.position.set(nx, groundY, nz);
+                plantOnSurface(obj, nx, nz, { groundY });
                 obj.userData.age = 0;
                 obj.userData.lastSpawnTime = Date.now();
                 const placed = safeAddFoliage(obj, false, 0.5, weatherSystem);
