@@ -125,19 +125,6 @@ export function calculateMovementInput(
     return _movementInputResult;
 }
 
-/**
- * Get unified ground height with lake carving and island applied.
- *
- * Kept for backward compatibility with existing call sites. New code should
- * import {@link getGroundHeight} from `./ground-system.ts` directly.
- */
-export function getUnifiedGroundHeightTyped(
-    x: number,
-    z: number,
-    _getGroundHeight?: (x: number, z: number) => number
-): number {
-    return getAuthoritativeGroundHeight(x, z);
-}
 
 /**
  * Apply damping to velocity

@@ -26,12 +26,12 @@ import { populateProceduralExtras, populateGemCanopyCorridor, populateMyceliumGr
 import {
     DEFAULT_MAP_CHUNK_SIZE, ENTITY_BUDGET_MS, YIELD_ENTITY_BATCH_SIZE, PROCEDURAL_ENTITY_COUNT,
     obstaclesData, WeatherSystem, WorldObjects, WorldMode, MapEntity, WorldProgressCallback,
-    getUnifiedGroundHeight, isPositionValid, yieldControl, normalizeMapEntityType
+    sampleGroundY, isPositionValid, yieldControl, normalizeMapEntityType
 } from './generation-utils.ts';
 import { getMapSourceFromUrl, loadMap, setupMapHotReload, type LoadedCandyMap } from './map-loader.ts';
 import { clearMapMusicContext, deriveMapMusicContext, setMapMusicContext } from './map-music-context.ts';
 import { create, getTypeMeta, registerBuiltinWorldObjectTypes, registerWorldObject } from './foliage-registry.ts';
-import { plantOnSurface } from './placement-utils.ts';
+import { plantOnSurface, sampleGroundY } from './placement-utils.ts';
 import { treeBatcher } from '../foliage/tree-batcher.ts';
 import { subwooferLotusBatcher } from '../foliage/subwoofer-lotus-batcher.ts';
 
@@ -161,7 +161,7 @@ export async function initWorld(scene: THREE.Scene, weatherSystem: WeatherSystem
             const zWorld = -y;
 
             // Use the Unified Height that accounts for the Lake
-            const height = getUnifiedGroundHeight(x, zWorld);
+            const height = sampleGroundY(x, zWorld);
             posAttribute.setZ(i, height);
 
             if (i % cpuYieldEvery === cpuYieldEvery - 1) {
@@ -233,7 +233,7 @@ export async function initWorld(scene: THREE.Scene, weatherSystem: WeatherSystem
 
             const lx = -40 + Math.cos(angle) * dist;
             const lz = 40 + Math.sin(angle) * dist;
-            const ly = getUnifiedGroundHeight(lx, lz);
+            const ly = sampleGroundY(lx, lz);
 
             if (lx > -10) continue;
             if (ly > 2.0 && ly < 8.0) {
@@ -562,7 +562,7 @@ export async function generateCoreWorld(
             const x = (Math.random() - 0.5) * areaSize;
             const z = (Math.random() - 0.5) * areaSize;
             if (!isPositionValid(x, z, radius)) continue;
-            return { x, z, y: getUnifiedGroundHeight(x, z) };
+            return { x, z, y: sampleGroundY(x, z) };
         }
         return null;
     };
@@ -596,7 +596,7 @@ export async function generateCoreWorld(
         const ringRadius = SEED_RING_INNER + (i % 2) * (SEED_RING_OUTER - SEED_RING_INNER);
         const sx = Math.cos(angle) * ringRadius;
         const sz = Math.sin(angle) * ringRadius;
-        const sy = getUnifiedGroundHeight(sx, sz);
+        const sy = sampleGroundY(sx, sz);
         const seedObj = seedFactories[i % seedFactories.length]();
         if (!seedObj) continue;
         seedObj.position.set(sx, sy, sz);
@@ -771,7 +771,7 @@ function processMapEntity(item: MapEntity, weatherSystem: WeatherSystem, options
     const params = item.params ?? {};
     const placement = item.placement ?? (entityType === 'cloud' ? 'absolute' : 'ground');
     // USE UNIFIED HEIGHT for placement
-    const groundY = getUnifiedGroundHeight(x, z);
+    const groundY = sampleGroundY(x, z);
     let y = groundY;
     if (placement === 'absolute' || entityType === 'cloud') y = yInput;
     if (placement === 'offset') y = groundY + yInput;

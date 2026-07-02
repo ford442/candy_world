@@ -147,12 +147,6 @@ export function shouldLogYieldProgress(current: number, total: number): boolean 
     return current === YIELD_ENTITY_BATCH_SIZE || current === total || current % YIELD_LOG_INTERVAL === 0;
 }
 
-// Helper: Calculate Unified Ground Height (WASM + Visual Lake Modifiers + Island)
-// The authoritative logic now lives in GroundSystem; this wrapper preserves the
-// existing generation-utils API.
-export function getUnifiedGroundHeight(x: number, z: number): number {
-    return getAuthoritativeGroundHeight(x, z);
-}
 
 // --- HELPER: Position Validation ---
 export function isPositionValid(x: number, z: number, radius: number): boolean {

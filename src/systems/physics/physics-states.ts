@@ -36,9 +36,6 @@ import { calculateWaterLevel } from '../physics.core.js';
 import { getGroundHeight as getAuthoritativeGroundHeight } from '../ground-system.ts';
 
 // Helper: Unified Ground Height (authoritative terrain + lake + island + platforms)
-function getUnifiedGroundHeight(x: number, z: number): number {
-    return getAuthoritativeGroundHeight(x, z);
-}
 
 // --- Environmental Modifiers ---
 export function updateEnvironmentalModifiers(delta: number, audioState: AudioState) {
@@ -390,7 +387,7 @@ export function updateDancingState(
     if (isFirstFrame || !player.danceStartPos) {
         player.danceStartPos = player.danceStartPos || new THREE.Vector3();
         player.danceStartPos.copy(player.position);
-        player.danceStartY = getUnifiedGroundHeight(player.position.x, player.position.z) + PLAYER_HEIGHT_OFFSET;
+        player.danceStartY = getAuthoritativeGroundHeight(player.position.x, player.position.z) + PLAYER_HEIGHT_OFFSET;
     }
     
     // Move in a circle around starting position

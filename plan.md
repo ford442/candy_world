@@ -177,3 +177,9 @@ Status: Implemented ✅
 Status: Implemented ✅
 * Implementation Details: Restored proper `THREE.DisplayP3ColorSpace` and `THREE.SRGBColorSpace` enums in `src/core/init.ts` and removed `src/core/three-compat.ts`. Expanded `docs/CANDY_MATERIAL_COOKBOOK.md` with advanced foliage-specific patterns, instanced mesh instructions, and zero-allocation / WASM boundary performance gotchas. Updated `grok.md` to point to these new resources for new contributor onboarding.
 Next Step: Review backlog for unresolved bugs or continue with remaining refactoring.
+
+
+Status: Implemented ✅
+* Implementation Details: Replaced legacy `getUnifiedGroundHeight` and `getUnifiedGroundHeightTyped` with the centralized `getAuthoritativeGroundHeight` across generators, batchers, and physics loops. Migrated all hardcoded decorator placement offsets to use `computePlacementY` and `plantOnSurface` to ensure batcher-placed instances are perfectly grounded according to their `ENTITY_BASE_OFFSETS`. Wired `reconcileGroundedEyeY` in the player fallback loop so the first-person camera smoothly tracks terrain height and platform limits without snapping or drift.
+
+Next Step: Ask the user for the next task.
