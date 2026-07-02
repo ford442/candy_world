@@ -177,3 +177,7 @@ Status: Implemented ✅
 Status: Implemented ✅
 * Implementation Details: Restored proper `THREE.DisplayP3ColorSpace` and `THREE.SRGBColorSpace` enums in `src/core/init.ts` and removed `src/core/three-compat.ts`. Expanded `docs/CANDY_MATERIAL_COOKBOOK.md` with advanced foliage-specific patterns, instanced mesh instructions, and zero-allocation / WASM boundary performance gotchas. Updated `grok.md` to point to these new resources for new contributor onboarding.
 Next Step: Review backlog for unresolved bugs or continue with remaining refactoring.
+
+Status: Implemented ✅
+* Implementation Details: **Bolt Phase 2 (GC Spikes)**: Eliminated hidden GC spikes in worker paths and update loops by replacing `.map()` and `.join()` with pre-allocated loops and string accumulation in `worker-pool.ts`, `worldgen-worker.ts`, `physics-worker.ts`, and `analytics-debug-ui.ts`. Replaced `Object.keys()` array allocations with zero-allocation `for...in` loops and IIFEs in `spawn-tracker.ts`, `generation-decorators.ts`, and `map-exporter.ts`.
+Next Step: Tackle #1265 Player ground level, eye height & object alignment.
