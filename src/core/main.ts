@@ -616,6 +616,10 @@ if (startButton) {
             btn.addEventListener('focus', () => {
                 modeButtons.forEach(mb => mb.btn.setAttribute('tabindex', '-1'));
                 btn.setAttribute('tabindex', '0');
+                // Ensure selection follows focus (Arrow key navigation updates selection)
+                if (btn.getAttribute('aria-checked') !== 'true') {
+                    btn.click();
+                }
             });
         };
 
