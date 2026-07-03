@@ -102,7 +102,7 @@ async function initWasm(wasmUrl: string): Promise<boolean> {
  * Calculate unified ground height (WASM + Lake modifiers + Island)
  * Mirrors the logic in generation.ts
  */
-function exports.getGroundHeight(x: number, z: number): number {
+function getGroundHeight(x: number, z: number): number {
   if (!exports || !exports.getGroundHeight) {
     // Fallback to simple noise approximation
     return Math.sin(x * 0.1) * Math.cos(z * 0.1) * 2;
@@ -185,7 +185,7 @@ function processRequest(request: PhysicsRequest): PhysicsResponse {
     switch (request.type) {
       case 'getGroundHeight': {
         const { x, z } = request as GroundHeightRequest;
-        const height = exports.getGroundHeight(x, z);
+        const height = getGroundHeight(x, z);
         return {
           type: 'getGroundHeight',
           requestId: request.requestId,
@@ -218,7 +218,7 @@ function processRequest(request: PhysicsRequest): PhysicsResponse {
       
       case 'batchGroundHeight': {
         const { positions } = request as BatchGroundHeightRequest;
-        const heights = positions.map(pos => exports.getGroundHeight(pos.x, pos.z));
+        const heights = positions.map(pos => getGroundHeight(pos.x, pos.z));
         return {
           type: 'batchGroundHeight',
           requestId: request.requestId,
