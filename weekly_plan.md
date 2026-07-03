@@ -29,7 +29,7 @@ Routine will mark picked items as "[in progress — YYYY-MM-DD]".
 - [ ] **Day/night plant behaviour** *(promoted to Copilot issue 2026-06-02)* — Plants physically open/glow by day, close/dim at night driven by the day/night cycle, not just music-channel intensity. Builds on `plant-pose-machine.ts`. Landed for `SimpleFlowerBatcher` (commit 99fcbad, #1208) — verify coverage across remaining batchers, then close.
 
 **User idea pool — GitHub issues filed 2026-06-28 (Noah's freshest in-context backlog — vertical-exploration arc):**
-- [ ] **#1265 Player ground level, eye height & object alignment** — unify ground sampling; consistent eye height across terrain+objects; batcher base-Y at spawn; `?debugPlayer` viz. `bug`+`enhancement`. Hard prerequisite for #1266. `[in progress — 2026-06-30]` ← today's focus
+- [x] **#1265 Player ground level, eye height & object alignment** — unify ground sampling; consistent eye height across terrain+objects; batcher base-Y at spawn; `?debugPlayer` viz. `bug`+`enhancement`. Hard prerequisite for #1266. `[landed — 2026-06-30]` ← today's focus
 - [ ] **#1266 Walkable cloud blocks / platforms** — placeable solid candy-cloud surfaces the player can stand on; instanced, music-reactive glow, map.json persistence. **Blocked on #1265** — do not start cloud integration until ground system is merged & stable. Next in the arc.
 
 **User idea pool — GitHub issues filed 2026-06-09 (Noah's in-context backlog, primary source this phase):**

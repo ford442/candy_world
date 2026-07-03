@@ -11,7 +11,7 @@ import { safeAddFoliage, worldGenerationToken } from './generation-core.ts';
 import {
     ARPEGGIO_GROVE, LAKE_ISLAND, PROCEDURAL_ENTITY_COUNT, DEFAULT_PROCEDURAL_CHUNK_SIZE,
     ENTITY_BUDGET_MS, WeatherSystem, FoliageGrowthOptions, yieldControl,
-    getUnifiedGroundHeight, isPositionValid, normalizeMapEntityType,
+    isPositionValid, normalizeMapEntityType,
     ARPEGGIO_GROVE_FERN_COUNT, ARPEGGIO_GROVE_OUTER_COUNT,
     LAKE_ARPEGGIO_FERN_COUNT, LAKE_DANDELION_COUNT, GEM_CANOPY, MYCELIUM_GROVE
 } from './generation-utils.ts';
@@ -37,7 +37,7 @@ async function populateArpeggioGrove(weatherSystem: WeatherSystem): Promise<void
     // Central feature: Subwoofer Lotus
     const centralLotus = create('subwoofer_lotus', { scale: 1.5 });
     if (!centralLotus) return;
-    const centralY = getUnifiedGroundHeight(centerX, centerZ);
+    const centralY = sampleGroundY(centerX, centerZ);
     centralLotus.position.set(centerX, centralY, centerZ);
     safeAddFoliage(centralLotus, false, 0, weatherSystem);
     await yieldControl();
@@ -49,7 +49,7 @@ async function populateArpeggioGrove(weatherSystem: WeatherSystem): Promise<void
         const angle = (i / fernCount) * Math.PI * 2;
         const fx = centerX + Math.cos(angle) * fernRadius;
         const fz = centerZ + Math.sin(angle) * fernRadius;
-        const fy = getUnifiedGroundHeight(fx, fz);
+        const fy = sampleGroundY(fx, fz);
 
         const fern = create('arpeggio_fern', { scale: 1.2 + Math.random() * 0.3 });
         if (!fern) continue;
@@ -66,7 +66,7 @@ async function populateArpeggioGrove(weatherSystem: WeatherSystem): Promise<void
         const angle = (i / outerCount) * Math.PI * 2 + 0.2;
         const ox = centerX + Math.cos(angle) * outerRadius;
         const oz = centerZ + Math.sin(angle) * outerRadius;
-        const oy = getUnifiedGroundHeight(ox, oz);
+        const oy = sampleGroundY(ox, oz);
 
         if (i % 2 === 0) {
             const geyser = create('kick_drum_geyser', { maxHeight: 5.0 + Math.random() * 2.0 });
@@ -91,7 +91,7 @@ async function populateArpeggioGrove(weatherSystem: WeatherSystem): Promise<void
         const randRadius = Math.random() * radius;
         const fx = centerX + Math.cos(randAngle) * randRadius;
         const fz = centerZ + Math.sin(randAngle) * randRadius;
-        const fy = getUnifiedGroundHeight(fx, fz);
+        const fy = sampleGroundY(fx, fz);
 
         const flower = create('flower', { variant: 'glowing' });
         if (!flower) continue;
@@ -122,7 +122,7 @@ function populateLakeIsland(weatherSystem: WeatherSystem): void {
         color: 0x00FFFF
     });
     if (!centralMushroom) return;
-    const centralY = getUnifiedGroundHeight(centerX, centerZ);
+    const centralY = sampleGroundY(centerX, centerZ);
     centralMushroom.position.set(centerX, centralY, centerZ);
     makeInteractive(centralMushroom);
     centralMushroom.userData.interactionText = "Harvest Lake Core";
@@ -141,7 +141,7 @@ function populateLakeIsland(weatherSystem: WeatherSystem): void {
         const angle = (i / geyserCount) * Math.PI * 2;
         const gx = centerX + Math.cos(angle) * geyserRadius;
         const gz = centerZ + Math.sin(angle) * geyserRadius;
-        const gy = getUnifiedGroundHeight(gx, gz);
+        const gy = sampleGroundY(gx, gz);
 
         const geyser = create('kick_drum_geyser', { maxHeight: 4.0 + Math.random() * 2.0 });
         if (!geyser) continue;
@@ -157,7 +157,7 @@ function populateLakeIsland(weatherSystem: WeatherSystem): void {
         const angle = (i / flowerCount) * Math.PI * 2 + 0.3; // Offset from geysers
         const fx = centerX + Math.cos(angle) * flowerRadius;
         const fz = centerZ + Math.sin(angle) * flowerRadius;
-        const fy = getUnifiedGroundHeight(fx, fz);
+        const fy = sampleGroundY(fx, fz);
 
         const flower = i % 2 === 0
             ? create('vibrato_violet', { intensity: 1.2 })
@@ -176,7 +176,7 @@ function populateLakeIsland(weatherSystem: WeatherSystem): void {
         const randRadius = Math.random() * (radius * 0.6);
         const fx = centerX + Math.cos(randAngle) * randRadius;
         const fz = centerZ + Math.sin(randAngle) * randRadius;
-        const fy = getUnifiedGroundHeight(fx, fz);
+        const fy = sampleGroundY(fx, fz);
 
         const fern = create('arpeggio_fern', { scale: 0.8 + Math.random() * 0.4 });
         if (!fern) continue;
@@ -192,7 +192,7 @@ function populateLakeIsland(weatherSystem: WeatherSystem): void {
         const edgeOffset = radius * 0.85 + Math.random() * (radius * 0.1);
         const dx = centerX + Math.cos(angle) * edgeOffset;
         const dz = centerZ + Math.sin(angle) * edgeOffset;
-        const dy = getUnifiedGroundHeight(dx, dz);
+        const dy = sampleGroundY(dx, dz);
 
         // Only place if we're still above water
         if (dy > 1.6) {
@@ -210,7 +210,7 @@ function populateLakeIsland(weatherSystem: WeatherSystem): void {
         const angle = (i / trapCount) * Math.PI * 2 + Math.PI / 6;
         const tx = centerX + Math.cos(angle) * (radius * 0.55);
         const tz = centerZ + Math.sin(angle) * (radius * 0.55);
-        const ty = getUnifiedGroundHeight(tx, tz);
+        const ty = sampleGroundY(tx, tz);
 
         const trap = create('snare_trap', { scale: 0.9 });
         if (!trap) continue;
@@ -270,7 +270,7 @@ export async function populateGemCanopyCorridor(weatherSystem: WeatherSystem): P
         const z = startZ + dz * t + perpZ * lateral + (Math.random() - 0.5) * 2;
 
         if (!isPositionValid(x, z, 2.0)) continue;
-        const y = getUnifiedGroundHeight(x, z);
+        const y = sampleGroundY(x, z);
         const tree = create('gem_canopy_tree', { height: 4.2 + Math.random() * 1.8 });
         if (!tree) continue;
         plantOnSurface(tree, x, z, { groundY: y });
@@ -296,7 +296,7 @@ export async function populateGemCanopyCorridor(weatherSystem: WeatherSystem): P
         const x = GEM_CANOPY.startX + (GEM_CANOPY.endX - GEM_CANOPY.startX) * t + (Math.random() - 0.5) * 8;
         const z = GEM_CANOPY.startZ + (GEM_CANOPY.endZ - GEM_CANOPY.startZ) * t + (Math.random() - 0.5) * 8;
         if (!isPositionValid(x, z, 2.0)) continue;
-        const y = getUnifiedGroundHeight(x, z);
+        const y = sampleGroundY(x, z);
         const usePine = i % 2 === 0;
         const tree = usePine
             ? create('portamento_pine', { height: 4.0 + Math.random() * 1.5 })
@@ -319,7 +319,7 @@ export async function populateGemCanopyCorridor(weatherSystem: WeatherSystem): P
     // Global sparkle field — one corridor-wide system (not per-tree).
     const centerX = (GEM_CANOPY.startX + GEM_CANOPY.endX) * 0.5;
     const centerZ = (GEM_CANOPY.startZ + GEM_CANOPY.endZ) * 0.5;
-    const centerY = getUnifiedGroundHeight(centerX, centerZ) + 6;
+    const centerY = sampleGroundY(centerX, centerZ) + 6;
     const corridorLen = Math.sqrt(dx * dx + dz * dz);
     const sparkBounds = {
         x: corridorLen * 1.15,
@@ -366,7 +366,7 @@ export async function populateMyceliumGrove(weatherSystem: WeatherSystem): Promi
             recordSpawnAttempt('glass_mushroom', false, new Error('placement invalid'));
             continue;
         }
-        const y = getUnifiedGroundHeight(x, z);
+        const y = sampleGroundY(x, z);
         const mushroom = create('glass_mushroom', { scale: 0.8 + Math.random() * 0.9 });
         if (!mushroom) {
             recordSpawnAttempt('glass_mushroom', false, new Error('factory returned null'));
@@ -383,7 +383,7 @@ export async function populateMyceliumGrove(weatherSystem: WeatherSystem): Promi
 
     // Ambient spore field — cyan/purple drift, audio-reactive blink. Registered for
     // per-frame compute updates so bass/melody drive intensity (zero-alloc hot path).
-    const groundY = getUnifiedGroundHeight(centerX, centerZ);
+    const groundY = sampleGroundY(centerX, centerZ);
     const spores = createIntegratedSpores({
         count: sporeCount,
         areaSize: radius * 1.4,
@@ -441,7 +441,7 @@ export async function populateProceduralExtras(
         }
 
         if (!validPosition) continue;
-        const groundY = getUnifiedGroundHeight(x, z);
+        const groundY = sampleGroundY(x, z);
 
         // Determine object type and criticality
         const rand = Math.random();
@@ -726,7 +726,7 @@ export function spawnNearbyFoliage(origin: THREE.Vector3, type: string, options:
         }
 
         if (valid) {
-            const groundY = getUnifiedGroundHeight(nx, nz);
+            const groundY = sampleGroundY(nx, nz);
             const obj = type === 'mushroom'
                 ? create('mushroom', { size: 'regular', scale: 0.8 })
                 : create(type);
