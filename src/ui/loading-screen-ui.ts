@@ -135,6 +135,7 @@ export class LoadingScreen {
             this.container.setAttribute('aria-valuemin', '0');
             this.container.setAttribute('aria-valuemax', '100');
             this.container.setAttribute('aria-valuenow', '0');
+            this.container.setAttribute('aria-valuetext', 'Initializing...');
             this.container.setAttribute('aria-label', 'Game loading progress');
             this.container.setAttribute('aria-live', 'polite');
             this.container.setAttribute('aria-atomic', 'true');
@@ -671,6 +672,10 @@ export class LoadingScreen {
             }
             this.taskChangeTimeout = null;
         }, 150);
+
+        if (this.container) {
+            this.container.setAttribute('aria-valuetext', text);
+        }
     }
 
     /**
