@@ -323,6 +323,14 @@ export function renderPlaylist(): void {
     const songs = audioSystemRef.getPlaylist();
     const currentIdx = audioSystemRef.getCurrentIndex();
 
+    if (songs.length === 0) {
+        const li = document.createElement('li');
+        li.className = 'playlist-empty-state';
+        li.setAttribute('aria-live', 'polite');
+        li.innerHTML = '<span aria-hidden="true" style="font-size: 2em; margin-bottom: 5px;">🎧</span>The Jukebox is silent.<br><span style="font-size: 0.85em; opacity: 0.8; font-weight: normal;">Upload some songs to start the party!</span>';
+        playlistList.appendChild(li);
+    }
+
     songs.forEach((file: File, index: number) => {
         const li = document.createElement('li');
         li.className = `playlist-item ${index === currentIdx ? 'active' : ''}`;
