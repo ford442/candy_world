@@ -16,7 +16,7 @@ import {
     LAKE_ARPEGGIO_FERN_COUNT, LAKE_DANDELION_COUNT, GEM_CANOPY, MYCELIUM_GROVE
 } from './generation-utils.ts';
 import { create, registerBuiltinWorldObjectTypes } from './foliage-registry.ts';
-import { plantOnSurface } from './placement-utils.ts';
+import { plantOnSurface, sampleGroundY } from './placement-utils.ts';
 import { FEATURE_FLAGS } from '../core/config.ts';
 
 registerBuiltinWorldObjectTypes();
