@@ -748,17 +748,14 @@ export class FoliageLODManager {
         // Dispose of all meshes
         for (const lodMap of this.lodMeshes.values()) {
             for (const mesh of lodMap.values()) {
-                // Since materials are shared, we'll manually dispose geometry and remove
-                // to avoid safeRemoveAndDispose from disposing the shared materials
-                mesh.geometry.dispose();
-                foliageGroup.remove(mesh);
+                safeRemoveAndDispose(foliageGroup, mesh, true);
             }
         }
         this.lodMeshes.clear();
 
         // Dispose billboard
         if (this.billboardMesh) {
-            safeRemoveAndDispose(foliageGroup as unknown as THREE.Scene, this.billboardMesh);
+            safeRemoveAndDispose(foliageGroup, this.billboardMesh, true);
         }
 
         // Clear caches

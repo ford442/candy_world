@@ -16,6 +16,7 @@ import {
 import { registerReactiveMaterial } from './foliage-reactivity.ts';
 import { foliageGroup } from '../world/state.ts';
 import { getBiomeUniforms, gemCanopyNoteColorNode, type BiomeId } from '../systems/biome-uniforms.ts';
+import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { getCIAdjustedCount } from '../core/config.ts';
 import type { BatcherInstanceRef } from '../systems/awakened-persistence.ts';
 
@@ -249,33 +250,9 @@ export class GemFruitBatcher {
     dispose(): void {
         for (let t = 0; t < this.meshes.length; t++) {
             const mesh = this.meshes[t];
-            if (mesh.geometry) {
-                mesh.geometry.dispose();
-                const phaseAttr = mesh.geometry.getAttribute('aPhase');
-                const armAttr = mesh.geometry.getAttribute('aArmLen');
-                if (phaseAttr && typeof (phaseAttr as { dispose?: () => void }).dispose === 'function') {
-                    try { (phaseAttr as { dispose: () => void }).dispose(); } catch { /* ignore */ }
-                }
-                if (armAttr && typeof (armAttr as { dispose?: () => void }).dispose === 'function') {
-                    try { (armAttr as { dispose: () => void }).dispose(); } catch { /* ignore */ }
-                }
-            }
-            if (mesh.material) {
-                if (Array.isArray(mesh.material)) {
-                    mesh.material.forEach((m) => m.dispose());
-                } else {
-                    mesh.material.dispose();
-                }
-            }
-            if (mesh.instanceColor && typeof (mesh.instanceColor as { dispose?: () => void }).dispose === 'function') {
-                try { (mesh.instanceColor as { dispose: () => void }).dispose(); } catch { /* ignore */ }
-            }
-            if (mesh.instanceMatrix && typeof (mesh.instanceMatrix as { dispose?: () => void }).dispose === 'function') {
-                try { (mesh.instanceMatrix as { dispose: () => void }).dispose(); } catch { /* ignore */ }
-            }
-            foliageGroup.remove(mesh);
+            safeRemoveAndDispose(foliageGroup, mesh);
         }
-        foliageGroup.remove(this.group);
+        safeRemoveAndDispose(foliageGroup, this.group);
         if (_sharedGemGeo) {
             _sharedGemGeo.dispose();
             _sharedGemGeo = null;
