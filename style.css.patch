@@ -1,0 +1,41 @@
+<<<<<<< SEARCH
+/* 🎨 Palette: Active Item Remove Style */
+.playlist-item.active .playlist-remove-btn {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.playlist-item.active .playlist-remove-btn:hover {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.2);
+}
+
+/* 🎨 Palette: Ability HUD */
+=======
+/* 🎨 Palette: Active Item Remove Style */
+.playlist-item.active .playlist-remove-btn {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.playlist-item.active .playlist-remove-btn:hover {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.2);
+}
+
+/* ♿ Aria: Jukebox Empty State */
+.playlist-empty-state {
+    text-align: center;
+    padding: 2rem 1rem;
+    color: #FF6B6B;
+    font-weight: bold;
+    font-size: 1.1em;
+    border: 2px dashed #FFB6C1;
+    border-radius: 8px;
+    margin: 10px;
+    background: rgba(255, 255, 255, 0.5);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* 🎨 Palette: Ability HUD */
+>>>>>>> REPLACE
