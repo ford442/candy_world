@@ -11,7 +11,9 @@ export const reactiveMaterials: THREE.Material[] = [];
 export const _foliageReactiveColor = new THREE.Color(); 
 
 export function registerReactiveMaterial(mat: THREE.Material) { 
-    reactiveMaterials.push(mat); 
+    if (!reactiveMaterials.includes(mat)) {
+        reactiveMaterials.push(mat);
+    }
 }
 
 export function pickAnimation(types: string[]) { 
