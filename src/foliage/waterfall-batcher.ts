@@ -231,7 +231,7 @@ export class WaterfallBatcher {
 
         [this.mesh, this.splashMesh].forEach(mesh => {
             if (!mesh) return;
-            safeRemoveAndDispose(foliageGroup as unknown as THREE.Scene, mesh);
+            safeRemoveAndDispose(foliageGroup, mesh);
         });
 
         this.initialized = false;
