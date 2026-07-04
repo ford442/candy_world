@@ -301,6 +301,7 @@ export class SaveMenu {
                         role="tab"
                         aria-selected="${this.currentTab === tab.id}"
                         aria-controls="panel-${tab.id}"
+                        tabindex="${this.currentTab === tab.id ? '0' : '-1'}"
                         class="candy-save-menu__tab ${this.currentTab === tab.id ? 'candy-save-menu__tab--active' : ''}"
                         data-tab="${tab.id}"
                     >
@@ -482,6 +483,7 @@ export class SaveMenu {
 
                     const nextTab = tabs[nextIndex];
                     nextTab.focus({ preventScroll: true });
+                    nextTab.click(); // Selection follows focus
 
                     const tabId = nextTab.dataset.tab as MenuTab;
                     if (tabId) {
