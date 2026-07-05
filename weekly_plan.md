@@ -30,7 +30,7 @@ Routine will mark picked items as "[in progress — YYYY-MM-DD]".
 
 **User idea pool — GitHub issues filed 2026-06-28 (Noah's freshest in-context backlog — vertical-exploration arc):**
 - [x] **#1265 Player ground level, eye height & object alignment** — unify ground sampling; consistent eye height across terrain+objects; batcher base-Y at spawn; `?debugPlayer` viz. `bug`+`enhancement`. Hard prerequisite for #1266. `[landed — 2026-06-30]` ← today's focus
-- [ ] **#1266 Walkable cloud blocks / platforms** — placeable solid candy-cloud surfaces the player can stand on; instanced, music-reactive glow, map.json persistence. **Blocked on #1265** — do not start cloud integration until ground system is merged & stable. Next in the arc.
+- [x] **#1266 Walkable cloud blocks / platforms** — placeable solid candy-cloud surfaces the player can stand on; instanced, music-reactive glow, map.json persistence.
 
 **User idea pool — GitHub issues filed 2026-06-09 (Noah's in-context backlog, primary source this phase):**
 - [x] **#1169 Music-Reactive Atmosphere Bridge** — audio → bloom/fog/light-shafts. `[in progress — 2026-06-16]` ← today's focus
@@ -70,7 +70,7 @@ Routine maintains this automatically — you can add items too.
 - [ ] Accessibility note: `Announcer` in `src/ui/announcer.ts` dynamically injects `aria-live` regions rather than relying on static HTML — future ARIA work should use the dynamic path, not add static tags.
 - [ ] **[ui bug — #702]** Auto-scroll forces page to bottom on load, blocking top-row links — *likely resolved* by `preventScroll: true` on all `.focus()` calls (commit 88f2bf3, PR #1125). Verify on live site, then close.
 - [ ] Three.js ColorSpace enum — opportunistic, activate when upgrading Three.js version (not a standalone sprint).
-- [ ] **#1266 — Walkable cloud blocks / platforms** — next in the vertical-exploration arc; **blocked on #1265** (today's focus). Pick this up once the unified ground system lands & is stable.
+- [x] **#1266 — Walkable cloud blocks / platforms** — next in the vertical-exploration arc.
 - [ ] **#1249 — Candy Material Cookbook v2 (docs de-drift + enrich)** — docs-only, fully decoupled from runtime/foliage work; fixes verified broken `uTwilight` import path, reconciles 3 contradictory position-node orderings, documents all 7 `CandyPresets`, adds LUT/r32float/circadian gotchas, + one preset-coverage guard script. **Today's Copilot prep target** (collision-free with #1265). Open since 2026-06-24.
 - [ ] **Issue-hygiene: close landed-but-OPEN issues** — #1170 (Gem Canopy, landed 2026-06-24), #1173 (god rays, #1241), #1182 + #1176 (awakened flora v1, #1232) all still show OPEN on GitHub despite landing. Verify on live site, then close to stop them re-surfacing as "unfinished."
 - [ ] **Open draft PRs (Jules, decoupled — review/merge independently):** #1275 Bolt LOD matrix-array bypass (perf, `O(N)` decompose elimination); #1274 Aria Jukebox upload screen-reader announcements + `announce` import fix; #1273 Palette Jukebox a11y focus-trap polish (overlaps #1274 — check before merging both); #1255 Palette HUD ability-button interaction/glow/ARIA polish.

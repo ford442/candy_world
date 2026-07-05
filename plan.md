@@ -186,3 +186,6 @@ Next Step: Ask the user for the next task.
 Status: Implemented ✅
 * Implementation Details: **Bolt Phase 2 (GC Spikes)**: Eliminated hidden GC spikes in worker paths and update loops by replacing `.map()` and `.join()` with pre-allocated loops and string accumulation in `worker-pool.ts`, `worldgen-worker.ts`, `physics-worker.ts`, and `analytics-debug-ui.ts`. Replaced `Object.keys()` array allocations with zero-allocation `for...in` loops and IIFEs in `spawn-tracker.ts`, `generation-decorators.ts`, and `map-exporter.ts`.
 Next Step: Tackle #1265 Player ground level, eye height & object alignment.
+Status: Implemented ✅
+* Implementation Details: **#1266 Walkable cloud blocks / platforms**: Added `cloud_archipelago` to `assets/map.json`. Enhanced `cloud-batcher.ts` visuals with a sine-wave bob tied to `uTime` and `positionWorld.x` and multiplied by an audio-reactive pulse (`uAudioHigh`) for the cyan edge glow. Relied on existing landing logic for particle bursts to avoid visual spam.
+Next Step: Wait for user instructions.
