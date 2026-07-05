@@ -26,7 +26,7 @@ import { populateProceduralExtras, populateGemCanopyCorridor, populateMyceliumGr
 import {
     DEFAULT_MAP_CHUNK_SIZE, ENTITY_BUDGET_MS, YIELD_ENTITY_BATCH_SIZE, PROCEDURAL_ENTITY_COUNT,
     obstaclesData, WeatherSystem, WorldObjects, WorldMode, MapEntity, WorldProgressCallback,
-    sampleGroundY, isPositionValid, yieldControl, normalizeMapEntityType
+    isPositionValid, yieldControl, normalizeMapEntityType
 } from './generation-utils.ts';
 import { getMapSourceFromUrl, loadMap, setupMapHotReload, type LoadedCandyMap } from './map-loader.ts';
 import { clearMapMusicContext, deriveMapMusicContext, setMapMusicContext } from './map-music-context.ts';

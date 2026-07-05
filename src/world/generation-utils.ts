@@ -4,7 +4,7 @@ import {
     LAKE_BOUNDS,
     LAKE_BOTTOM,
     LAKE_ISLAND,
-    getGroundHeight as getAuthoritativeGroundHeight
+    getGroundHeight
 } from '../systems/ground-system.ts';
 import { CONFIG } from '../core/config.ts';
 

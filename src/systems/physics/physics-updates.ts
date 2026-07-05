@@ -33,7 +33,7 @@ import {
     initPhysics, uploadObstaclesBatch,
     uploadCollisionObjects, initDynamicFoliageBridge
 } from '../../utils/wasm-loader.ts';
-import { getGroundHeight as getAuthoritativeGroundHeight, reconcileGroundedEyeY } from '../ground-system.ts';
+import { getGroundHeight, reconcileGroundedEyeY } from '../ground-system.ts';
 import { CONFIG } from '../../core/config.ts';
 import {
     foliageMushrooms, foliageTrampolines, foliageClouds,
@@ -418,7 +418,7 @@ export function updateJSFallbackMovement(delta: number, camera: THREE.Camera, co
     player.position.x += player.velocity.x * delta;
     player.position.z += player.velocity.z * delta;
     player.position.y += player.velocity.y * delta;
-    const groundY = getAuthoritativeGroundHeight(player.position.x, player.position.z);
+    const groundY = getGroundHeight(player.position.x, player.position.z);
     const eyeY = groundY + CONFIG.player.eyeHeight;
     const wasGrounded = player.isGrounded;
     if (player.position.y < eyeY && player.velocity.y <= 0) {

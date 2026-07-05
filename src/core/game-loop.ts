@@ -30,7 +30,7 @@ import {
 import { updateMelodyRibbons } from '../foliage/ribbons.ts';
 import { updateSparkleTrail } from '../foliage/sparkle-trail.ts';
 import { updateDandelionSeeds } from '../foliage/dandelion-seeds.ts';
-import { getGroundHeight as getAuthoritativeGroundHeight } from '../systems/ground-system.ts';
+import { getGroundHeight } from '../systems/ground-system.ts';
 import { updateImpacts } from '../foliage/impacts.ts';
 import { createShield } from '../foliage/shield.ts';
 import { updateFoliageMaterials } from '../foliage/animation.ts';
@@ -927,7 +927,7 @@ export function animate() {
         harmonyOrbSystem.update(delta, audioState, player.position);
 
         safeSystemUpdate(
-            () => updateFallingClouds(delta, foliageClouds, getAuthoritativeGroundHeight),
+            () => updateFallingClouds(delta, foliageClouds, getGroundHeight),
             'updateFallingClouds'
         );
         safeUpdateBatcher(CloudBatcher.getInstance(), delta, 'CloudBatcher');
