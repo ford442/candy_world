@@ -30,7 +30,7 @@ Routine will mark picked items as "[in progress — YYYY-MM-DD]".
 
 **User idea pool — GitHub issues filed 2026-06-28 (Noah's freshest in-context backlog — vertical-exploration arc):**
 - [x] **#1265 Player ground level, eye height & object alignment** — unify ground sampling; consistent eye height across terrain+objects; batcher base-Y at spawn; `?debugPlayer` viz. `bug`+`enhancement`. Hard prerequisite for #1266. `[landed — 2026-06-30]` ← today's focus
-- [ ] **#1266 Walkable cloud blocks / platforms** — placeable solid candy-cloud surfaces the player can stand on; instanced, music-reactive glow, map.json persistence. **Blocked on #1265** — do not start cloud integration until ground system is merged & stable. Next in the arc.
+- [x] **#1266 Walkable cloud blocks / platforms** — placeable solid candy-cloud surfaces the player can stand on; instanced, music-reactive glow, map.json persistence.
 
 **User idea pool — GitHub issues filed 2026-06-09 (Noah's in-context backlog, primary source this phase):**
 - [x] **#1169 Music-Reactive Atmosphere Bridge** — audio → bloom/fog/light-shafts. `[in progress — 2026-06-16]` ← today's focus
