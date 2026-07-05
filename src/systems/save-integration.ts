@@ -115,7 +115,8 @@ export function applyLoadedData(data: SaveData): void {
         unlocksInternal.unlocks.add(id);
     }
 
-    for (const key of Object.keys(unlocksInternal.inventory)) {
+    // ⚡ OPTIMIZATION: Replaced Object.keys() with fast zero-allocation for..in loop to prevent GC spikes
+    for (const key in unlocksInternal.inventory) {
         delete unlocksInternal.inventory[key];
     }
     Object.assign(unlocksInternal.inventory, data.progress.inventory);

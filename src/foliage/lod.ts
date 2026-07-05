@@ -748,6 +748,8 @@ export class FoliageLODManager {
         // Dispose of all meshes
         for (const lodMap of this.lodMeshes.values()) {
             for (const mesh of lodMap.values()) {
+                // ⚡ OPTIMIZATION: Replaced manual removal with safeRemoveAndDispose to prevent VRAM leaks
+                mesh.userData.preventMaterialDispose = true;
                 safeRemoveAndDispose(foliageGroup, mesh, true);
             }
         }

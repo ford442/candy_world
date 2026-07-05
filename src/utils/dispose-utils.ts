@@ -16,7 +16,7 @@ export function safeRemoveAndDispose(scene: THREE.Object3D, obj: THREE.Object3D 
             child.geometry.dispose();
         }
 
-        if (!skipMaterialDispose && child.material) {
+        if (child.material && !child.userData?.preventMaterialDispose) {
             if (Array.isArray(child.material)) {
                 child.material.forEach((m: any) => {
                     m.dispose();

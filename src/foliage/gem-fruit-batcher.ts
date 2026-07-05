@@ -2,6 +2,7 @@
 // One InstancedMesh draw call per jewel type; music-driven via gem_canopy biome uniforms.
 
 import * as THREE from 'three';
+import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import {
     color, float, vec3, positionLocal, sin, cos, mix, attribute, smoothstep
@@ -250,6 +251,18 @@ export class GemFruitBatcher {
     dispose(): void {
         for (let t = 0; t < this.meshes.length; t++) {
             const mesh = this.meshes[t];
+            if (mesh.geometry) {
+                mesh.geometry.dispose();
+                const phaseAttr = mesh.geometry.getAttribute('aPhase');
+                const armAttr = mesh.geometry.getAttribute('aArmLen');
+                if (phaseAttr && typeof (phaseAttr as { dispose?: () => void }).dispose === 'function') {
+                    try { (phaseAttr as { dispose: () => void }).dispose(); } catch { /* ignore */ }
+                }
+                if (armAttr && typeof (armAttr as { dispose?: () => void }).dispose === 'function') {
+                    try { (armAttr as { dispose: () => void }).dispose(); } catch { /* ignore */ }
+                }
+            }
+            // ⚡ OPTIMIZATION: Replaced manual removal with safeRemoveAndDispose to prevent VRAM leaks
             safeRemoveAndDispose(foliageGroup, mesh);
         }
         safeRemoveAndDispose(foliageGroup, this.group);
