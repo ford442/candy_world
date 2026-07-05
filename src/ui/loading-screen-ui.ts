@@ -1,4 +1,5 @@
 import { trapFocusInside } from '../utils/interaction-utils';
+import { yieldToPaint } from '../utils/yield-to-paint';
 import { globalLoadingManager, GlobalProgressState, TaskState } from '../systems/loading-manager';
 import { LoadingPhase, LoadingProgress, LoadingScreenOptions, DEFAULT_LOADING_PHASES } from './loading-screen-types';
 import { getReport } from '../world/spawn-tracker.ts';
@@ -327,11 +328,11 @@ export class LoadingScreen {
             this.container.classList.add('visible');
         }
 
-        setTimeout(() => {
+        yieldToPaint(50).then(() => {
             if (this.container && this.isVisible) {
                 this.releaseFocusTrap = trapFocusInside(this.container);
             }
-        }, 300);
+        });
 
         this.lastTime = performance.now();
         if (this.animationFrameId === null) {

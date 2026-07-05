@@ -750,14 +750,14 @@ export class FoliageLODManager {
             for (const mesh of lodMap.values()) {
                 // ⚡ OPTIMIZATION: Replaced manual removal with safeRemoveAndDispose to prevent VRAM leaks
                 mesh.userData.preventMaterialDispose = true;
-                safeRemoveAndDispose(foliageGroup, mesh);
+                safeRemoveAndDispose(foliageGroup, mesh, true);
             }
         }
         this.lodMeshes.clear();
 
         // Dispose billboard
         if (this.billboardMesh) {
-            safeRemoveAndDispose(foliageGroup, this.billboardMesh);
+            safeRemoveAndDispose(foliageGroup, this.billboardMesh, true);
         }
 
         // Clear caches
