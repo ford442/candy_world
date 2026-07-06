@@ -377,7 +377,8 @@ export class CloudBatcher {
         // Iterate over clouds
         // ⚡ OPTIMIZATION: Only update moving clouds (e.g. falling or dragged)
         // Static clouds are now animated via TSL (Vertex Shader)
-        for (const cloud of this.clouds) {
+        for (let i = 0; i < this.clouds.length; i++) {
+            const cloud = this.clouds[i];
             // Run Cloud Logic (Sine Wave / Falling)
             // Note: updateFallingClouds in clouds.js handles falling physics on cloud.position externally.
             // Here we just handle the "Animation" callback if it exists.

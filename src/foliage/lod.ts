@@ -579,7 +579,10 @@ export class FoliageLODManager {
         }
 
         // Calculate LOD for each instance
-        for (const [id, data] of this.instanceData) {
+        const entries = Array.from(this.instanceData.entries());
+        for (let i = 0; i < entries.length; i++) {
+            const id = entries[i][0];
+            const data = entries[i][1];
             const dx = data.position.x - cameraPosition.x; const dy = data.position.y - cameraPosition.y; const dz = data.position.z - cameraPosition.z; const distanceSq = dx*dx + dy*dy + dz*dz;
             const newLOD = this.calculateLODLevel(distanceSq);
 
@@ -605,7 +608,10 @@ export class FoliageLODManager {
         }
 
         // Apply updates to InstancedMeshes
-        for (const [geomType, geomUpdates] of this._lodUpdates) {
+        const lodEntries = Array.from(this._lodUpdates.entries());
+        for (let i = 0; i < lodEntries.length; i++) {
+            const geomType = lodEntries[i][0];
+            const geomUpdates = lodEntries[i][1];
             for (let lod = 0; lod < 3; lod++) {
                 const lodLevel = lod as LODLevel;
                 const update = geomUpdates.get(lodLevel);
@@ -710,7 +716,9 @@ export class FoliageLODManager {
         const geometryCounts: { [geometryType: string]: { [lod in LODLevel]?: number } } = {};
 
         // Count by LOD level
-        for (const data of this.instanceData.values()) {
+        const values = Array.from(this.instanceData.values());
+        for (let i = 0; i < values.length; i++) {
+            const data = values[i];
             lodDistribution[data.currentLOD]++;
 
             if (!geometryCounts[data.geometryType]) {
