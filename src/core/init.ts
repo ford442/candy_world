@@ -57,7 +57,7 @@ declare global {
 function createWebGLRenderer(canvas: HTMLCanvasElement): THREE.WebGLRenderer {
     const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
-    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.outputColorSpace = 'srgb';
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.0;
     return renderer;
@@ -180,16 +180,16 @@ export function initScene(): SceneInitResult {
         if (supportsHDR) {
             console.log('[Init] HDR supported, configuring WebGPURenderer for extended dynamic range and Display P3.');
             try {
-                webgpuRenderer.outputColorSpace = (THREE as any).DisplayP3ColorSpace || 'display-p3';
+                webgpuRenderer.outputColorSpace = 'display-p3';
             } catch (e) {
                 console.warn('[Init] Failed to set display-p3, falling back to srgb.');
-                webgpuRenderer.outputColorSpace = THREE.SRGBColorSpace || 'srgb';
+                webgpuRenderer.outputColorSpace = 'srgb';
             }
             // Extended tone mapping for values > 1.0
             webgpuRenderer.toneMapping = THREE.LinearToneMapping;
         } else {
             console.log('[Init] HDR not supported, using standard SDR configuration.');
-            webgpuRenderer.outputColorSpace = THREE.SRGBColorSpace || 'srgb';
+            webgpuRenderer.outputColorSpace = 'srgb';
             webgpuRenderer.toneMapping = THREE.ACESFilmicToneMapping;
         }
     }
