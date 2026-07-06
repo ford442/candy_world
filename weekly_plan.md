@@ -1,20 +1,13 @@
 # candy_world — Weekly Plan
 
 ## Today's focus
-**2026-06-30 — USER IDEA (GitHub issue #1265): Player ground level, eye height & object alignment.**
-Foundational locomotion/collision hygiene — unify ground sampling so eye height is consistent across terrain +
-all static objects, and so batcher-placed instances (mushroom stems, rocks, tree roots) sit flush on the ground
-instead of clipping/floating. This is the freshest in-context user idea (Noah filed #1265 + #1266 on 2026-06-28),
-it carries a `bug` label (eye view drifts/snaps, players sink or hover near clusters), AND it is the hard
-prerequisite #1266 (walkable cloud platforms) explicitly blocks on. Picking the foundation before the feature.
-**Why now:** Gem Canopy (#1170) landed clean last week with all tests green — foundation is stable, so this is
-the moment to fix the locomotion quality issue that's been nagging and to unblock the next vertical-exploration
-feature. **Scope of the swarm:** audit where ground height is currently computed (scattered across
-game-loop / player / `physics.core.ts` `getUnifiedGroundHeightTyped` / `wasm-loader.js`), centralize/strengthen a
-unified ground query with terrain→object→platform priority, drive player foot + `eyeHeight` off it with smooth
-lerp, add a `?debugPlayer`/`?debugHeights` viz, and ensure batchers sample base-Y at spawn. Keep it kinematic
-raycast + capsule — NO physics engine, NO jumping/climbing, NO music/material changes. Audit-centralize-tune;
-the debug viz is the acceptance lever.
+**2026-07-06 — Hygiene pass + foundation continuation + spatial coherence tests — DONE.**
+#1265/#1266 are landed, the build/PLAN hygiene pass is complete, #1303 (per-entity base offsets) is landed, and #1311
+(spatial-coherence visual regression) is landed. The four new viewpoints (`slope_foot`, `lake_edge`, `horizon_lod`,
+`gem_corridor_scale`) are added to `tools/visual-regression`, the CI workflow now runs on the WebGL path, and local
+baselines are captured. Test baseline remains green.
+**Scope of the swarm:** close out the approved three-phase plan and leave the repo ready for the next vertical-exploration
+feature or a further bug/hygiene pass.
 
 ## Ideas
 <!--
@@ -30,7 +23,7 @@ Routine will mark picked items as "[in progress — YYYY-MM-DD]".
 
 **User idea pool — GitHub issues filed 2026-06-28 (Noah's freshest in-context backlog — vertical-exploration arc):**
 - [x] **#1265 Player ground level, eye height & object alignment** — unify ground sampling; consistent eye height across terrain+objects; batcher base-Y at spawn; `?debugPlayer` viz. `bug`+`enhancement`. Hard prerequisite for #1266. `[landed — 2026-06-30]` ← today's focus
-- [ ] **#1266 Walkable cloud blocks / platforms** — placeable solid candy-cloud surfaces the player can stand on; instanced, music-reactive glow, map.json persistence. **Blocked on #1265** — do not start cloud integration until ground system is merged & stable. Next in the arc.
+- [x] **#1266 Walkable cloud blocks / platforms** — placeable solid candy-cloud surfaces the player can stand on; instanced, music-reactive glow, map.json persistence. **Blocked on #1265** — do not start cloud integration until ground system is merged & stable. Next in the arc. `[landed — 2026-07-05]`
 
 **User idea pool — GitHub issues filed 2026-06-09 (Noah's in-context backlog, primary source this phase):**
 - [x] **#1169 Music-Reactive Atmosphere Bridge** — audio → bloom/fog/light-shafts. `[in progress — 2026-06-16]` ← today's focus
@@ -58,28 +51,26 @@ Unfinished items, known bugs, deferred ideas.
 Routine maintains this automatically — you can add items too.
 -->
 - [x] **#1134 — Stable release / pinned-build process** — annotated tags + GitHub Releases for known-good states; feature flags to disable heavy subsystems. **Partially landed**: `scripts/make-release.mjs` + `npm run release:tag` / `npm run release` now exist. Remaining: cut the first known-good tag now that loading is stable; confirm feature-flag fallbacks. Now actionable.
-- [x] **#1136 — Consolidate duplicated `LoadingScreen` class** (`loading-screen.ts` vs `loading-screen-ui.ts`) — leftover from loading cluster; .swarm-state noted a duplicate-declaration build blocker was patched, not consolidated. Small decoupled refactor — good future Copilot candidate.
-- [x] **Open draft PR #1214 (Jules)** — Palette: keyboard active state on loading-screen skip/reload buttons. Decoupled (CSS + loading-screen buttons). Review/merge independently.
-- [x] Accessibility note: `Announcer` in `src/ui/announcer.ts` dynamically injects `aria-live` regions rather than relying on static HTML — future ARIA work should use the dynamic path, not add static tags.
-- [x] **[ui bug — #702]** Auto-scroll forces page to bottom on load, blocking top-row links — *likely resolved* by `preventScroll: true` on all `.focus()` calls (commit 88f2bf3, PR #1125). Verify on live site, then close.
-- [ ] **#1134 — Stable release / pinned-build process** — annotated tags + GitHub Releases for known-good states; feature flags to disable heavy subsystems. **Partially landed**: `scripts/make-release.mjs` + `npm run release:tag` / `npm run release` now exist. Remaining: cut the first known-good tag now that loading is stable; confirm feature-flag fallbacks. Now actionable.
+- [ ] **#1134 — Stable release / pinned-build process** — annotated tags + GitHub Releases for known-good states; feature flags to disable heavy subsystems. **Partially landed**: `scripts/make-release.mjs` + `npm run release:tag` / `npm run release` now exist. Remaining: cut the first known-good tag now that loading is stable; confirm feature-flag fallbacks.
 - [ ] **#1136 — Consolidate duplicated `LoadingScreen` class** (`loading-screen.ts` vs `loading-screen-ui.ts`) — leftover from loading cluster; .swarm-state noted a duplicate-declaration build blocker was patched, not consolidated. Small decoupled refactor — good future Copilot candidate.
-- [ ] **Open draft PR #1245 (Jules)** — Stabilize headless boot + background processing in CI: replaces non-deterministic `requestIdleCallback` in `BackgroundProcessor` with a sync wait loop under `isCIorHeadless()`, bypasses `createComputeBerries()` / gates `initExtended()` VRAM spikes on headless, and claims to fix an `isNight is not defined` ReferenceError in `music-reactivity.ts`. **NOTE:** that ReferenceError is NOT live on main (`isNight` is defined at `music-reactivity.ts:506`) — this PR likely branched pre-fix. Review carefully so it doesn't re-introduce churn; the CI-stability parts are valuable. Decoupled from #1170.
-- [ ] **Open draft PR #1246 (Jules)** — Palette: move loading-screen base HTML into `index.html` for faster FCP, fetch via `getElementById` with fallback generation. Decoupled cosmetic/loading. Review/merge independently. (Touches `loading-screen-ui.ts` — coordinate with #1136 consolidation.)
-- [ ] **Open draft PR #1214 (Jules)** — Palette: keyboard active state on loading-screen skip/reload buttons. Decoupled (CSS + loading-screen buttons). Review/merge independently — possibly superseded by #1246's loading-screen rework; check for overlap.
-- [ ] Accessibility note: `Announcer` in `src/ui/announcer.ts` dynamically injects `aria-live` regions rather than relying on static HTML — future ARIA work should use the dynamic path, not add static tags.
-- [ ] **[ui bug — #702]** Auto-scroll forces page to bottom on load, blocking top-row links — *likely resolved* by `preventScroll: true` on all `.focus()` calls (commit 88f2bf3, PR #1125). Verify on live site, then close.
-- [ ] Three.js ColorSpace enum — opportunistic, activate when upgrading Three.js version (not a standalone sprint).
-- [ ] **#1266 — Walkable cloud blocks / platforms** — next in the vertical-exploration arc. Pick this up once the unified ground system lands & is stable.
-- [ ] **#1249 — Candy Material Cookbook v2 (docs de-drift + enrich)** — docs-only, fully decoupled from runtime/foliage work; fixes verified broken `uTwilight` import path, reconciles 3 contradictory position-node orderings, documents all 7 `CandyPresets`, adds LUT/r32float/circadian gotchas, + one preset-coverage guard script. **Today's Copilot prep target** (collision-free with #1265). Open since 2026-06-24.
-- [ ] **Issue-hygiene: close landed-but-OPEN issues** — #1170 (Gem Canopy, landed 2026-06-24), #1173 (god rays, #1241), #1182 + #1176 (awakened flora v1, #1232) all still show OPEN on GitHub despite landing. Verify on live site, then close to stop them re-surfacing as "unfinished."
-- [ ] **Open draft PRs (Jules, decoupled — review/merge independently):** #1275 Bolt LOD matrix-array bypass (perf, `O(N)` decompose elimination); #1274 Aria Jukebox upload screen-reader announcements + `announce` import fix; #1273 Palette Jukebox a11y focus-trap polish (overlaps #1274 — check before merging both); #1255 Palette HUD ability-button interaction/glow/ARIA polish.
+- [ ] **#1249 — Candy Material Cookbook v2 (docs de-drift + enrich)** — docs-only, fully decoupled from runtime/foliage work; fixes verified broken `uTwilight` import path, reconciles 3 contradictory position-node orderings, documents all 7 `CandyPresets`, adds LUT/r32float/circadian gotchas, + one preset-coverage guard script. Open since 2026-06-24.
+- [x] **#1303 — Calibrate per-entity base offsets** — landed 2026-07-06. `ENTITY_BASE_OFFSETS` populated in `src/world/placement-utils.ts`; `plantOnSurface()` centralizes ground placement; `src/debug/ground-debug.ts` draws green base-contact rings when `?debugHeights=1`.
+- [x] **#1311 — Spatial-coherence visual regression viewpoints** — landed 2026-07-06. Viewpoints added to `src/screenshot-capture.ts`; workflow updated to WebGL path; local baselines captured for all four viewpoints at medium/high desktop.
+- [x] **Issue-hygiene: verify landed issues are closed** — #1170 (Gem Canopy), #1173 (god rays), #1182 + #1176 (awakened flora v1) all confirmed CLOSED on GitHub as of 2026-07-01. Nothing further to do.
+- [x] **Open draft PRs hygiene** — #1170/#1173/#1182/#1176 confirmed already closed on GitHub. #1255 was the only remaining open PR; reviewed and closed as superseded because its diff largely reverted landed Gem Canopy work rather than delivering the titled HUD ability-button polish.
+
+### Notes / not standalone tasks
+- Accessibility: `Announcer` in `src/ui/announcer.ts` dynamically injects `aria-live` regions — future ARIA work should use the dynamic path, not add static tags.
+- UI bug #702: auto-scroll likely resolved by `preventScroll: true` on `.focus()` calls; verify on live site, then close.
+- Three.js ColorSpace enum regression: fixed 2026-07-06 by using string literals (`'display-p3'`, `'srgb'`) in `src/core/init.ts`; revert to enum when upgrading Three.js.
 
 ## Done
 <!--
 Completed items, routine archives here with date.
 Prune occasionally when this gets long.
 -->
+- [x] **2026-07-06** 📸 SPATIAL-COHERENCE VISUAL REGRESSION VIEWPOINTS (#1311) — Added `slope_foot`, `lake_edge`, `horizon_lod`, and `gem_corridor_scale` viewpoints to `tools/visual-regression`; updated workflow to WebGL path; fixed ESM `require('crypto')` in `baseline-manager.ts`; captured 8 local baselines. Build/test green: `npm run build:ci`, `npm run test:wasm`, visual-regression `--update` run succeeds.
+- [x] **2026-07-06** 🌱 PER-ENTITY BASE OFFSETS (#1303) — Populated `ENTITY_BASE_OFFSETS` in `src/world/placement-utils.ts` with all major ground-placed entity types; refactored `src/world/generation-decorators.ts` standalone placement loops to use `plantOnSurface()`; extended `src/debug/ground-debug.ts` with `registerPlantedInstance()` and green base-contact rings for `?debugHeights=1`. Build/test green: `npm run build:ci`, `npm run test:wasm`, `npm run test`, `RENDERER=webgl npm run test`.
 - [x] **2026-06-24** 📚 CANDY MATERIAL COOKBOOK + GROK.MD ONBOARDING (#1175) — Added Foliage-Specific Patterns, Common Gotchas, and Performance Notes to the material cookbook; updated grok.md references.
 - [x] **2026-06-24** **#1170 Gem Canopy scenic biome landed** — procedural corridor of 24+ bubble-willow trees with hanging faceted crystal gem fruits (ruby/sapphire/amethyst). `GemFruitBatcher` creates one `InstancedMesh` per jewel type (3 draw calls), consumes `BiomeUniforms.gemCanopy` for shimmer/hueShift/noteColor reactivity, and receives the `sky_wave` moon-melody cascade. Capacity tuned to `getCIAdjustedCount(512, 0.1, 80)` to eliminate CI overflow warnings. Build/test green: `npm run build:ci`, `npm run test:wasm`, `npm run test`, `FULL_BOOT=fast npm run test`, and `RENDERER=webgl npm run test` all pass. Docs updated: `docs/GEM_CANOPY_SHIP.md` + `docs/MUSIC_MAP_BINDING.md`.
 - [x] **2026-06-23** 🎵 MUSIC-REACTIVE ATMOSPHERE BRIDGE (#1169) LANDED — `src/systems/atmosphere-reactivity.ts` (new, zero-alloc) maps kick/bass→`uBloomStrength` (1.0→2.5), mix energy→`uCrescendoFogDensity` (cap 0.85), melody→`uShaftOpacity` + re-enabled frustum-gated golden-hour & night moonbeam shafts in `game-loop.ts`, BeatSync downbeats→bloom/shaft shimmer; `atmosphere` block added to music-bindings.json; WebGL opacity parity via `lightShaftGroup.userData.shaftMaterial`. Wired in #1221; build:ci + test:wasm + smoke `__sceneReady` green (per `.swarm-state.md`). Last week's focus — DONE.
@@ -119,6 +110,16 @@ Prune occasionally when this gets long.
 
 ## Last run
 <!-- Routine writes summary here each run. Overwrites previous. -->
+Date: 2026-07-06
+Mode: USER IDEA continuation — all four approved phases complete.
+Focus:
+- Phase 1: Verified #1170/#1173/#1182/#1176 closed; reviewed/closed stale draft PR #1255 as superseded.
+- Phase 2: Split remaining >700-line files (`generation-core.ts`, `generation-decorators.ts`, `loading-screen-ui.ts`) via coder subagent.
+- Phase 3: Hardened walkable cloud platforms — added `registerCloudPlatform`/`unregisterCloudPlatform` debug visualization to `src/debug/ground-debug.ts` (enabled via `?debugClouds=1` or `?debugHeights=1`), wired registration from `src/foliage/clouds.ts` and explicit registration in `src/world/cloud-placer.ts`, fixed dev-placed cloud collision extents to match ground-system bounds, and set `cloudScale` before registration.
+- Phase 4: Made visual-regression CI-ready — added root `.gitattributes` to track baselines under Git LFS, activated the `update-baselines` job on `main` to capture and commit baselines, added `--seed` deterministic random-seed support via `src/utils/seeded-random.ts` and the visual-regression CLI, cleaned up TypeScript errors so `cd tools/visual-regression && pnpm run typecheck` passes, added `test:visual` / `test:visual:typecheck` root scripts, and fixed `validate.ts` root-path bug.
+Outcome: `pnpm run build:ci`, `pnpm run test:wasm`, `RENDERER=webgl pnpm run test`, and `cd tools/visual-regression && pnpm run typecheck && pnpm run validate` all pass.
+Context gap: Root `npx tsc --noEmit` still has many pre-existing TypeScript errors unrelated to this work. No live-site verification performed.
+
 Date: 2026-06-30
 Mode: USER IDEA — no Fix First trigger (last week's #1170 Gem Canopy LANDED clean, all tests green, 24 trees spawning). Picked the freshest in-context user idea: GitHub issue #1265 (filed 2026-06-28 alongside #1266). #1265 is `bug`-tagged (eye-height drift, player sink/hover near clusters) and is the hard prerequisite #1266 (walkable cloud platforms) blocks on — foundation before feature.
 Focus: #1265 Player ground level / eye height / object alignment. kimi-cli: audit scattered ground-height computation (game-loop / player / `physics.core.ts getUnifiedGroundHeightTyped` / `wasm-loader.js`), centralize a unified ground query (terrain→object→platform priority), drive player foot + eyeHeight off it with smooth lerp, add `?debugPlayer`/`?debugHeights` viz, ensure batchers sample base-Y at spawn. Kinematic raycast + capsule only — NO physics engine / jumping / music / material changes. Copilot prep (decoupled from player/ground files): NEW issue — audio-reactive ambient sparkle/mote field for the Gem Canopy corridor (new particle module + music binding, builds on last week's landing). Claude Code: full-stack build → deploy dry-run → cut first known-good release tag (#1134 tooling exists).

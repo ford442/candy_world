@@ -5,7 +5,7 @@
  */
 
 // Loading Screen
-export type { LoadingScreenOptions, LoadingPhase, LoadingProgress } from './loading-screen';
+export type { LoadingScreenOptions, LoadingPhase, LoadingProgress } from './loading-screen.ts';
 export {
     LoadingScreen,
 
@@ -26,7 +26,7 @@ export {
     setWasmPhase,
     setWasmError,
     installLegacyAPI
-} from './loading-screen';
+} from './loading-screen.ts';
 
 // Save Menu
 export type { MenuTab, MenuMode, SaveMenuOptions };

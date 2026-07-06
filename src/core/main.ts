@@ -2,6 +2,9 @@ import { isCIorHeadless } from './config.ts';
 // src/core/main.ts
 // Main entry point - Core initialization and game startup
 
+// Deterministic random seed override must load before any world-generation logic.
+import '../utils/seeded-random.ts';
+
 import * as THREE from 'three';
 import '../../style.css';
 import { validateNodeGeometries } from '../foliage/index.ts';

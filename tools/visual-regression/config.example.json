@@ -3,7 +3,7 @@
   "baseUrl": "http://localhost:5173",
   "outputDir": "./test/screenshots",
   "baselineDir": "./test/baselines",
-  "viewpoints": ["spawn", "lake", "forest", "night", "particles", "weather"],
+  "viewpoints": ["spawn", "lake", "forest", "night", "particles", "weather", "sunset", "slope_foot", "lake_edge", "horizon_lod", "gem_corridor_scale"],
   "qualities": ["medium", "high"],
   "viewports": ["desktop"],
   "threshold": 0.05,

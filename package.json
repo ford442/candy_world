@@ -37,6 +37,8 @@
     "test:smoke:full": "FULL_BOOT=1 npm run test",
     "test:smoke:fast": "FULL_BOOT=fast npm run test",
     "test:smoke:webgl": "RENDERER=webgl npm run test",
+    "test:visual": "cd tools/visual-regression && pnpm run test:visual",
+    "test:visual:typecheck": "cd tools/visual-regression && pnpm run typecheck",
     "verify:emcc": "node verification/verify_emcc_exports.js",
     "generate:map": "tsx tools/map-generator/cli.ts",
     "export:map": "tsx tools/map-generator/export-current-world.ts",

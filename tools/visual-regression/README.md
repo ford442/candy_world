@@ -4,7 +4,7 @@ A comprehensive visual regression testing and screenshot comparison system for c
 
 ## Features
 
-- 📸 **Multi-viewpoint Capture**: Test spawn, lake, forest, night, particles, and weather scenes
+- 📸 **Multi-viewpoint Capture**: Test spawn, lake, forest, night, particles, weather, sunset, slope_foot, lake_edge, horizon_lod, and gem_corridor_scale scenes
 - 🖥️ **Multi-resolution Support**: Mobile (375x667), Desktop (1920x1080), Ultrawide (3440x1440)
 - ⚙️ **Quality Settings**: Low, Medium, High, Ultra presets for different test scenarios
 - 🔍 **Pixel-perfect Comparison**: Detect even the smallest visual changes
@@ -53,6 +53,10 @@ npm run test:visual -- --update
 | `particles` | Fireflies, pollen effects | 4s |
 | `weather` | Rain/storm conditions | 3.5s |
 | `sunset` | Atmospheric scattering | 2s |
+| `slope_foot` | Terrain slope / ground continuity | 2.5s |
+| `lake_edge` | Lake shoreline and reflection consistency | 3s |
+| `horizon_lod` | Distant LOD tier transitions | 3s |
+| `gem_corridor_scale` | Gem canopy corridor scale/population | 3s |
 
 ## Quality Settings
 
@@ -121,7 +125,7 @@ Create a `visual-regression.config.json` in your project root:
   "baseUrl": "http://localhost:5173",
   "outputDir": "./test/screenshots",
   "baselineDir": "./test/baselines",
-  "viewpoints": ["spawn", "lake", "forest", "night"],
+  "viewpoints": ["spawn", "lake", "forest", "night", "particles", "weather", "sunset", "slope_foot", "lake_edge", "horizon_lod", "gem_corridor_scale"],
   "qualities": ["medium", "high"],
   "viewports": ["desktop"],
   "threshold": 0.05,

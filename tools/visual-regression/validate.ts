@@ -30,7 +30,7 @@ function check(name: string, condition: boolean, message?: string): boolean {
 async function validate() {
   console.log('🎮 Candy World Visual Regression Validation\n');
   
-  const rootDir = path.join(__dirname, '..', '..', '..');
+  const rootDir = path.join(__dirname, '..', '..');
   const vrDir = path.join(rootDir, 'tools', 'visual-regression');
   
   let passed = 0;

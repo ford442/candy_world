@@ -1,0 +1,2 @@
+# Track visual-regression baseline PNGs under Git LFS.
+tools/visual-regression/test/baselines/**/*.png filter=lfs diff=lfs merge=lfs -text

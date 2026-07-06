@@ -1,19 +1,35 @@
 # Remaining Large File Refactoring Plan
 
-This document outlines the remaining 5 files (5,275 lines) that need to be refactored to break them into smaller, more manageable modules. This is a continuation of the large file refactoring task.
+This document tracks the large-file refactoring task. All 5 original monoliths have been split into modules, but several resulting files still exceed the 700-line target and need a second pass.
 
-**Status**: 80% Complete (8 of 10 files refactored)
+**Status**: Phase 2 complete — all non-barrel modules are now under the 700-line target.
 
-## Remaining Files Summary
+## Current Module Sizes
 
-| File | Lines | Target Split | Status |
-|------|-------|--------------|--------|
-| src/world/generation.ts | 1078 | 4 files | ✅ DONE |
-| src/systems/region-manager.ts | 1064 | 3 files | ✅ DONE |
-| src/ui/loading-screen.ts | 1063 | 3 files | ✅ DONE |
-| src/audio/audio-system.ts | 1047 | 3 files | ✅ DONE |
-| src/ui/analytics-debug.ts | 1023 | 3 files | ✅ DONE |
-| **TOTAL** | **5,275** | **16 files** | **⏳ 0%** |
+| Original file | Split module | Lines | Target | Status |
+|---------------|--------------|-------|--------|--------|
+| src/world/generation.ts | src/world/generation-core.ts | 646 | < 700 | ✅ |
+| src/world/generation.ts | src/world/generation-entities.ts | 393 | < 700 | ✅ |
+| src/world/generation.ts | src/world/generation-setpieces.ts | 242 | < 700 | ✅ |
+| src/world/generation.ts | src/world/generation-decorators.ts | 519 | < 700 | ✅ |
+| src/world/generation.ts | src/world/generation-utils.ts | 236 | < 700 | ✅ |
+| src/world/generation.ts | src/world/generation.ts (barrel) | 5 | < 50 | ✅ |
+| src/systems/region-manager.ts | src/systems/region-manager-core.ts | 565 | < 700 | ✅ |
+| src/systems/region-manager.ts | src/systems/region-manager-lod.ts | 289 | < 700 | ✅ |
+| src/systems/region-manager.ts | src/systems/region-manager.ts (barrel) | 10 | < 50 | ✅ |
+| src/ui/loading-screen.ts | src/ui/loading-screen-ui.ts | 692 | < 700 | ✅ |
+| src/ui/loading-screen.ts | src/ui/loading-screen-progress.ts | 426 | < 700 | ✅ |
+| src/ui/loading-screen.ts | src/ui/loading-screen-dom.ts | 165 | < 700 | ✅ |
+| src/ui/loading-screen.ts | src/ui/loading-screen-reporting.ts | 53 | < 700 | ✅ |
+| src/ui/loading-screen.ts | src/ui/loading-screen-types.ts | 97 | < 700 | ✅ |
+| src/ui/loading-screen.ts | src/ui/loading-screen.ts (barrel) | 17 | < 50 | ✅ |
+| src/audio/audio-system.ts | src/audio/audio-system-core.ts | 464 | < 700 | ✅ |
+| src/audio/audio-system.ts | src/audio/audio-system-playback.ts | 593 | < 700 | ✅ |
+| src/audio/audio-system.ts | src/audio/audio-system.ts (barrel) | 3 | < 50 | ✅ |
+| src/ui/analytics-debug.ts | src/ui/analytics-debug-handlers.ts | 348 | < 700 | ✅ |
+| src/ui/analytics-debug.ts | src/ui/analytics-debug-ui.ts | 669 | < 700 | ✅ |
+| src/ui/analytics-debug.ts | src/ui/analytics-debug.ts (barrel) | 15 | < 50 | ✅ |
+| **TOTAL** | | **~6,397** (excluding barrels) | | **100% under target** |
 
 ## Detailed Refactoring Plans
 
@@ -300,17 +316,22 @@ After all 5 files are refactored:
 
 ## Summary
 
-- **Remaining Work**: 5,275 lines across 5 files
-- **Target Split**: 16 new modules + 5 barrel files
-- **Expected Result**: All files under 750 lines
-- **Completion Time**: ~2-3 hours of focused work
+- **Original refactor**: 5 monoliths split into 17 modules + 5 barrel files ✅
+- **Phase 2 cleanup**: 3 target files split further into 6 new modules; all non-barrel modules now under 700 lines ✅
+  - `src/world/generation-core.ts` (1029 → 646)
+  - `src/world/generation-decorators.ts` (751 → 519)
+  - `src/ui/loading-screen-ui.ts` (1015 → 692)
+- **New modules added**:
+  - `src/world/generation-entities.ts` (393)
+  - `src/world/generation-setpieces.ts` (242)
+  - `src/ui/loading-screen-dom.ts` (165)
+  - `src/ui/loading-screen-reporting.ts` (53)
+- **Expected Result**: All non-barrel modules under 700 lines ✅
 - **Breaking Changes**: None (100% backward compatible)
 
 ---
 
-**Next Steps:**
-1. Start with generation.ts (largest remaining)
-2. Follow the split plan exactly as outlined
-3. Test each file after splitting
-4. Commit after each file is complete
-5. Run full test suite at the end
+**Verification:**
+- `pnpm run build:ci` ✅
+- `pnpm run test:wasm` ✅
+- `pnpm run test` (smoke) ✅ — ran on the WebGL fallback path (`RENDERER=webgl`) because the VM's SwiftShader WebGPU path loses the device during draw; the WebGL path boots to `window.__sceneReady` and passes the jukebox UI assertion

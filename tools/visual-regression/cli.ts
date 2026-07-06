@@ -26,6 +26,7 @@ interface TestConfig {
   generateReport: boolean;
   capturePerformance: boolean;
   skipComparison: boolean;
+  seed?: number | string;
 }
 
 /**
@@ -104,6 +105,9 @@ async function runVisualTests(config: TestConfig): Promise<void> {
   console.log(`   Viewports: ${viewports.map(v => v.name).join(', ')}`);
   console.log(`   Threshold: ${(config.threshold * 100).toFixed(1)}%`);
   console.log(`   Update baselines: ${config.updateBaselines ? 'Yes' : 'No'}`);
+  if (config.seed !== undefined) {
+    console.log(`   Random seed: ${config.seed}`);
+  }
   console.log('');
   
   const totalTests = viewpoints.length * qualities.length * viewports.length;
@@ -129,7 +133,8 @@ async function runVisualTests(config: TestConfig): Promise<void> {
             viewpoint,
             quality,
             viewport,
-            outputDir: path.join(config.outputDir, viewpoint.name)
+            outputDir: path.join(config.outputDir, viewpoint.name),
+            seed: config.seed
           };
           
           await capture.navigate(screenshotOptions);
@@ -286,11 +291,12 @@ Usage: npm run test:visual [options]
 Options:
   --config, -c <path>       Config file path
   --url, -u <url>           Base URL (default: http://localhost:5173)
-  --viewpoints, -v <list>   Comma-separated viewpoints (spawn,lake,forest,night,particles,weather)
+  --viewpoints, -v <list>   Comma-separated viewpoints (spawn,lake,forest,night,particles,weather,sunset,slope_foot,lake_edge,horizon_lod,gem_corridor_scale)
   --qualities, -q <list>    Comma-separated qualities (low,medium,high,ultra)
   --viewports, -p <list>    Comma-separated viewports (mobile,desktop,ultrawide,tablet)
   --threshold, -t <float>   Diff threshold (default: 0.05)
   --update, -U              Update baselines
+  --seed <number|string>    Deterministic random seed for reproducible screenshots
   --no-report               Skip report generation
   --performance, -perf      Capture performance profiles
   --help, -h                Show this help
@@ -306,7 +312,7 @@ Examples:
 /**
  * Parse CLI arguments
  */
-function parseArgs(): Partial<TestConfig> & { help?: boolean } {
+function parseArgs(): Partial<TestConfig> & { help?: boolean; config?: string } {
   const args = process.argv.slice(2);
   const options: any = {};
   
@@ -341,6 +347,9 @@ function parseArgs(): Partial<TestConfig> & { help?: boolean } {
       case '--update':
       case '-U':
         options.updateBaselines = true;
+        break;
+      case '--seed':
+        options.seed = args[++i];
         break;
       case '--no-report':
         options.generateReport = false;

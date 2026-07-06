@@ -52,6 +52,7 @@ export interface ScreenshotOptions {
   outputDir: string;
   fullPage?: boolean;
   mask?: Array<{ x: number; y: number; width: number; height: number }>;
+  seed?: number | string;
 }
 
 /**
@@ -178,6 +179,38 @@ export const VIEWPOINTS: Viewpoint[] = [
     cameraTarget: { x: 0, y: 0, z: 0 },
     timeOfDay: 'sunset',
     waitForStable: 2000
+  },
+  {
+    name: 'slope_foot',
+    description: 'Terrain slope at the foot of a hill - tests ground continuity and object grounding',
+    cameraPosition: { x: -35, y: 12, z: -25 },
+    cameraTarget: { x: -55, y: 2, z: -45 },
+    timeOfDay: 'day',
+    waitForStable: 2500
+  },
+  {
+    name: 'lake_edge',
+    description: 'Lake shoreline - tests water edge, island silhouette, and reflective surface consistency',
+    cameraPosition: { x: 70, y: 10, z: 20 },
+    cameraTarget: { x: 20, y: 0, z: 20 },
+    timeOfDay: 'day',
+    waitForStable: 3000
+  },
+  {
+    name: 'horizon_lod',
+    description: 'Distant horizon from an elevated vantage - tests LOD tier transitions and far-field coherence',
+    cameraPosition: { x: 0, y: 50, z: 180 },
+    cameraTarget: { x: 0, y: 0, z: 0 },
+    timeOfDay: 'day',
+    waitForStable: 3000
+  },
+  {
+    name: 'gem_corridor_scale',
+    description: 'Gem canopy corridor - tests instanced gem-fruit scale and corridor population',
+    cameraPosition: { x: 95, y: 12, z: -110 },
+    cameraTarget: { x: 110, y: 5, z: -60 },
+    timeOfDay: 'day',
+    waitForStable: 3000
   }
 ];
 
@@ -292,6 +325,10 @@ export class ScreenshotCapture {
       skipIntro: 'true'
     });
 
+    if (options.seed !== undefined) {
+      params.set('seed', String(options.seed));
+    }
+
     // Inject the CI flag into window BEFORE the page loads so
     // heavy particle buffer allocations are aggressively scaled down
     await this.page.addInitScript(() => {
@@ -299,7 +336,14 @@ export class ScreenshotCapture {
       localStorage.setItem('__IS_FULL_BOOT_TEST', 'true');
     });
 
-    await this.page.goto(`${this.baseUrl}?${params.toString()}`, {
+    // Merge quality/query params with any params already present in baseUrl
+    // (e.g. ?renderer=webgl&webglLite=1 for the CI WebGL path).
+    const url = new URL(this.baseUrl);
+    params.forEach((value, key) => {
+      url.searchParams.set(key, value);
+    });
+
+    await this.page.goto(url.toString(), {
       waitUntil: 'networkidle',
       timeout: 120000
     });
@@ -318,7 +362,7 @@ export class ScreenshotCapture {
 
         // Wait for it to become enabled (if generation is slow)
         await this.page.waitForFunction(() => {
-            const btn = document.getElementById('startButton');
+            const btn = document.getElementById('startButton') as HTMLButtonElement | null;
             return btn && (btn.disabled === false || btn.getAttribute('disabled') === null) && btn.getAttribute('aria-disabled') !== 'true' && btn.getAttribute('aria-busy') !== 'true';
         }, { timeout: 120000 });
 
