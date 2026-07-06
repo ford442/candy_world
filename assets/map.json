@@ -23177,6 +23177,54 @@
       ],
       "scale": 1.1877219706171978,
       "rotation": 0.6819829544968337
+    },
+    {
+      "type": "cloud",
+      "placement": "absolute",
+      "tier": 1,
+      "position": [
+        50,
+        10,
+        50
+      ],
+      "scale": 2,
+      "rotation": 0,
+      "params": {
+        "provenance": "dev-placer",
+        "sourceId": "dev:cloud:l1a2b3c4:1"
+      }
+    },
+    {
+      "type": "cloud",
+      "placement": "absolute",
+      "tier": 1,
+      "position": [
+        55,
+        12,
+        55
+      ],
+      "scale": 1.5,
+      "rotation": 0.5,
+      "params": {
+        "provenance": "dev-placer",
+        "sourceId": "dev:cloud:l1a2b3c4:2"
+      }
+    },
+    {
+      "type": "cloud",
+      "placement": "absolute",
+      "tier": 1,
+      "position": [
+        60,
+        14,
+        60
+      ],
+      "scale": 1,
+      "rotation": 1,
+      "params": {
+        "provenance": "dev-placer",
+        "sourceId": "dev:cloud:l1a2b3c4:3"
+      }
     }
   ],
   "paths": [

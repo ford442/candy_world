@@ -196,7 +196,8 @@ function createCloudMaterial() {
     // Walkable clouds (tier 1) get a subtle cyan ice-crystal edge glow
     const walkableFlag = attribute('aIsWalkable', 'float');
     const crystalColor = color(0xE0FFFF);
-    const crystalRim = createJuicyRimLight(crystalColor, float(0.8), float(2.5), normalWorld).mul(walkableFlag);
+    const bobPulse = sin(uTime.mul(2.0).add(positionWorld.x.mul(0.1))).mul(0.3).add(0.7);
+    const crystalRim = createJuicyRimLight(crystalColor, float(0.8), float(2.5), normalWorld).mul(walkableFlag).mul(bobPulse).add(walkableFlag.mul(melodyGlow));
 
     // Dim emissive effects during storms too, except lightning
     material.emissiveNode = lightningGlow
@@ -376,7 +377,8 @@ export class CloudBatcher {
         // Iterate over clouds
         // ⚡ OPTIMIZATION: Only update moving clouds (e.g. falling or dragged)
         // Static clouds are now animated via TSL (Vertex Shader)
-        for (const cloud of this.clouds) {
+        for (let i = 0; i < this.clouds.length; i++) {
+            const cloud = this.clouds[i];
             // Run Cloud Logic (Sine Wave / Falling)
             // Note: updateFallingClouds in clouds.js handles falling physics on cloud.position externally.
             // Here we just handle the "Animation" callback if it exists.

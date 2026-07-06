@@ -896,21 +896,25 @@
                     </div>
                 </div>
                 <div class="time-remaining">Calculating time...</div>
-                <button class="skip-button" aria-label="Skip Background Loading" style="display: none;">
-                    Skip Background Loading <span class="key-badge">Space</span>
+                <button class="skip-button" style="display: none;">
+                    <span aria-hidden="true">⏭️ </span>Skip Optional Content <span class="key-badge">Space</span>
                 </button>
                 <div class="status-indicators">
                     <div class="phase-indicator" data-phase-id="init" data-phase-index="0">
                         <span class="phase-dot"></span>
-                        <span class="phase-label">INIT</span>
+                        <span class="phase-label">Boot Sequence</span>
                     </div>
                     <div class="phase-indicator" data-phase-id="assets" data-phase-index="1">
                         <span class="phase-dot"></span>
-                        <span class="phase-label">ASSETS</span>
+                        <span class="phase-label">Asset Pipeline</span>
                     </div>
                     <div class="phase-indicator" data-phase-id="world" data-phase-index="2">
                         <span class="phase-dot"></span>
-                        <span class="phase-label">WORLD</span>
+                        <span class="phase-label">World Generation</span>
+                    </div>
+                    <div class="phase-indicator" data-phase-id="deferred-population" data-phase-index="3">
+                        <span class="phase-dot"></span>
+                        <span class="phase-label">Population</span>
                     </div>
                 </div>
             </div>

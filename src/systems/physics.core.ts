@@ -6,7 +6,7 @@ import * as THREE from 'three';
 import {
     isInLakeBasin as _isInLakeBasin,
     isOnLakeIsland as _isOnLakeIsland,
-    getGroundHeight as getAuthoritativeGroundHeight
+    getGroundHeight
 } from './ground-system.ts';
 
 // Re-export lake helpers so existing call sites keep working without edits.

@@ -126,3 +126,7 @@ npm run test         # smoke / boot sequence (~2–3m)
 - [`SETUP_GUIDE.md`](./SETUP_GUIDE.md) — native module / Emscripten setup
 
 This world already feels magical — keep it documented so it stays effortless. 🍭✨
+
+### Player Ground Level and Alignment
+- All operations attempting to acquire or align to the ground height MUST query `getGroundHeight(x, z)` from `src/systems/ground-system.ts`.
+- Player camera/ground height adjustments should use `reconcileGroundedEyeY` inside `physics-updates.ts` to seamlessly update `player.position.y` when `player.isGrounded`.

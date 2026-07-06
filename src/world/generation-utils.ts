@@ -4,7 +4,7 @@ import {
     LAKE_BOUNDS,
     LAKE_BOTTOM,
     LAKE_ISLAND,
-    getGroundHeight as getAuthoritativeGroundHeight
+    getGroundHeight
 } from '../systems/ground-system.ts';
 import { CONFIG } from '../core/config.ts';
 
@@ -62,6 +62,16 @@ export const MYCELIUM_GROVE = {
     radius: 16,
     mushroomCount: 28, // glass mushrooms scattered through the grove
     sporeCount: 260,   // ambient compute spores drifting in the misty air
+};
+
+export const CLOUD_ARCHIPELAGO = {
+    enabled: true,
+    startX: -100,
+    startZ: 100,
+    platforms: 15,
+    stepY: 3.5,
+    radius: 12,
+    heightOffset: 25
 };
 
 // Note: Actual fern/outer counts for the grove now come from

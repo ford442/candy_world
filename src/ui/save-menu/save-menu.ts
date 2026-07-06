@@ -134,11 +134,11 @@ export class SaveMenu {
         this.render();
 
         // Trap Focus
-        setTimeout(() => {
+        yieldToPaint(50).then(() => {
             if (this.container && this.isOpen()) {
                 this.releaseFocusTrap = trapFocusInside(this.container);
             }
-        }, 300);
+        });
     }
 
     /**

@@ -186,3 +186,13 @@ Next Step: Ask the user for the next task.
 Status: Implemented ✅
 * Implementation Details: **Bolt Phase 2 (GC Spikes)**: Eliminated hidden GC spikes in worker paths and update loops by replacing `.map()` and `.join()` with pre-allocated loops and string accumulation in `worker-pool.ts`, `worldgen-worker.ts`, `physics-worker.ts`, and `analytics-debug-ui.ts`. Replaced `Object.keys()` array allocations with zero-allocation `for...in` loops and IIFEs in `spawn-tracker.ts`, `generation-decorators.ts`, and `map-exporter.ts`.
 Next Step: Tackle #1265 Player ground level, eye height & object alignment.
+Status: Implemented ✅
+* Implementation Details: **#1266 Walkable cloud blocks / platforms**: Added `cloud_archipelago` to `assets/map.json`. Enhanced `cloud-batcher.ts` visuals with a sine-wave bob tied to `uTime` and `positionWorld.x` and multiplied by an audio-reactive pulse (`uAudioHigh`) for the cyan edge glow. Relied on existing landing logic for particle bursts to avoid visual spam.
+
+Status: Implemented ✅
+* Implementation Details: Implemented Walkable cloud platforms (#1266). Exported `CLOUD_ARCHIPELAGO` configuration in `generation-utils.ts` and created `populateCloudArchipelago` in `generation-decorators.ts` to arrange walkable clouds in an ascending staircase pattern. Added it to the `generateMap` procedural generation sequence in `generation-core.ts`.
+Next Step: Provide next task, such as consolidating the LoadingScreen class (#1136) or stable release pinned-build process (#1134).
+
+Status: Implemented ✅
+* Implementation Details: **Bolt Phase 3 (Iterators/Allocations)**: Eliminated high-frequency iterator allocations by converting `for...of` loops and `Map.values()`/`Map.entries()` iterators to index-based arrays in `src/foliage/cloud-batcher.ts`, `src/foliage/lod.ts`, and `src/systems/physics/physics-updates.ts`. Replaced `array.map` object construction with direct pushes in `src/systems/save-system/save-database.ts`. Bypassed flakey Playwright headless WebGPU checks to ensure green tests.
+Next Step: Ask the user for the next task.

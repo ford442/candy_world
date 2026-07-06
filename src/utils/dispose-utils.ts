@@ -7,7 +7,7 @@ import * as THREE from 'three';
  * ⚡ OPTIMIZATION: Recursively traverses children to ensure complex objects
  * (like preview meshes) are completely freed from GPU memory.
  */
-export function safeRemoveAndDispose(scene: THREE.Object3D, obj: THREE.Object3D | undefined | null) {
+export function safeRemoveAndDispose(scene: THREE.Object3D, obj: THREE.Object3D | undefined | null, skipMaterialDispose: boolean = false) {
     if (!obj) return;
 
     // Traverse and dispose all children

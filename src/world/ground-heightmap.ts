@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { DataUtils } from 'three';
-import { getGroundHeight as getAuthoritativeGroundHeight } from '../systems/ground-system.ts';
+import { getGroundHeight } from '../systems/ground-system.ts';
 
 export interface HeightmapTextures {
     heights: Float32Array;
@@ -33,7 +33,7 @@ export async function generateGroundHeightmap(
             // Since geometry is PlaneGeometry rotated -90 on X, the Y grid maps to -Z in world space
             const zWorld = -((iy * step) - halfSize);
 
-            const height = getAuthoritativeGroundHeight(x, zWorld);
+            const height = getGroundHeight(x, zWorld);
             heights[index] = height;
         }
         if (iy % yieldEvery === yieldEvery - 1) {
@@ -52,10 +52,10 @@ export async function generateGroundHeightmap(
             const zWorld = -((iy * step) - halfSize);
 
             // Sample adjacent points for central difference in world space
-            const hL = getAuthoritativeGroundHeight(x - delta, zWorld);
-            const hR = getAuthoritativeGroundHeight(x + delta, zWorld);
-            const hD = getAuthoritativeGroundHeight(x, zWorld - delta); // Z- (backward)
-            const hU = getAuthoritativeGroundHeight(x, zWorld + delta); // Z+ (forward)
+            const hL = getGroundHeight(x - delta, zWorld);
+            const hR = getGroundHeight(x + delta, zWorld);
+            const hD = getGroundHeight(x, zWorld - delta); // Z- (backward)
+            const hU = getGroundHeight(x, zWorld + delta); // Z+ (forward)
 
             // Compute tangent vectors
             const tx = new THREE.Vector3(delta * 2, hR - hL, 0).normalize();

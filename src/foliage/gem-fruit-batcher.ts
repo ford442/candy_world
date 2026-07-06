@@ -17,6 +17,7 @@ import {
 import { registerReactiveMaterial } from './foliage-reactivity.ts';
 import { foliageGroup } from '../world/state.ts';
 import { getBiomeUniforms, gemCanopyNoteColorNode, type BiomeId } from '../systems/biome-uniforms.ts';
+import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { getCIAdjustedCount } from '../core/config.ts';
 import type { BatcherInstanceRef } from '../systems/awakened-persistence.ts';
 
