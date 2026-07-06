@@ -188,4 +188,7 @@ Status: Implemented ✅
 Next Step: Tackle #1265 Player ground level, eye height & object alignment.
 Status: Implemented ✅
 * Implementation Details: **#1266 Walkable cloud blocks / platforms**: Added `cloud_archipelago` to `assets/map.json`. Enhanced `cloud-batcher.ts` visuals with a sine-wave bob tied to `uTime` and `positionWorld.x` and multiplied by an audio-reactive pulse (`uAudioHigh`) for the cyan edge glow. Relied on existing landing logic for particle bursts to avoid visual spam.
-Next Step: Wait for user instructions.
+
+Status: Implemented ✅
+* Implementation Details: Implemented Walkable cloud platforms (#1266). Exported `CLOUD_ARCHIPELAGO` configuration in `generation-utils.ts` and created `populateCloudArchipelago` in `generation-decorators.ts` to arrange walkable clouds in an ascending staircase pattern. Added it to the `generateMap` procedural generation sequence in `generation-core.ts`.
+Next Step: Provide next task, such as consolidating the LoadingScreen class (#1136) or stable release pinned-build process (#1134).
