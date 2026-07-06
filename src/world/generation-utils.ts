@@ -64,6 +64,16 @@ export const MYCELIUM_GROVE = {
     sporeCount: 260,   // ambient compute spores drifting in the misty air
 };
 
+export const CLOUD_ARCHIPELAGO = {
+    enabled: true,
+    startX: -100,
+    startZ: 100,
+    platforms: 15,
+    stepY: 3.5,
+    radius: 12,
+    heightOffset: 25
+};
+
 // Note: Actual fern/outer counts for the grove now come from
 // CONFIG.world.population (see above) and are consumed in generation-decorators.ts.
 

@@ -13,7 +13,7 @@ import {
     ENTITY_BUDGET_MS, WeatherSystem, FoliageGrowthOptions, yieldControl,
     isPositionValid, normalizeMapEntityType,
     ARPEGGIO_GROVE_FERN_COUNT, ARPEGGIO_GROVE_OUTER_COUNT,
-    LAKE_ARPEGGIO_FERN_COUNT, LAKE_DANDELION_COUNT, GEM_CANOPY, MYCELIUM_GROVE
+    LAKE_ARPEGGIO_FERN_COUNT, LAKE_DANDELION_COUNT, GEM_CANOPY, MYCELIUM_GROVE, CLOUD_ARCHIPELAGO
 } from './generation-utils.ts';
 import { create, registerBuiltinWorldObjectTypes } from './foliage-registry.ts';
 import { plantOnSurface, sampleGroundY } from './placement-utils.ts';
@@ -748,4 +748,47 @@ export function spawnNearbyFoliage(origin: THREE.Vector3, type: string, options:
             }
         }
     }
+}
+
+/**
+ * Cloud Archipelago — a floating set of walkable cloud platforms arranged
+ * in a gentle staircase/spiral pattern in the sky.
+ */
+export async function populateCloudArchipelago(weatherSystem: WeatherSystem): Promise<void> {
+    if (!CLOUD_ARCHIPELAGO.enabled) return;
+
+    console.log('[World] Populating Cloud Archipelago...');
+    const { startX, startZ, platforms, stepY, radius, heightOffset } = CLOUD_ARCHIPELAGO;
+
+    // Base altitude roughly above the terrain
+    const baseGroundY = sampleGroundY(startX, startZ);
+    const startY = Math.max(baseGroundY + 15, heightOffset);
+
+    for (let i = 0; i < platforms; i++) {
+        // Spiral layout: angle increases, radius can fluctuate or stay constant
+        const angle = i * 0.8;
+        const currentRadius = radius + (Math.sin(i * 0.5) * 4); // Organic spread
+
+        const x = startX + Math.cos(angle) * currentRadius;
+        const z = startZ + Math.sin(angle) * currentRadius;
+        const y = startY + (i * stepY);
+
+        const cloud = create('cloud', { scale: 1.5 + Math.random() * 0.8 });
+        if (!cloud) continue;
+
+        // Ensure the cloud is a platform
+        cloud.userData.tier = 1;
+        cloud.userData.isWalkable = true;
+
+        // Direct placement in the sky
+        cloud.position.set(x, y, z);
+
+        // Random slight rotation
+        cloud.rotation.y = Math.random() * Math.PI * 2;
+
+        // safeAddFoliage handles collision adding via addFoliage logic
+        safeAddFoliage(cloud, false, 0.8, weatherSystem);
+    }
+
+    console.log(`[World] Cloud Archipelago populated with ${platforms} platforms`);
 }
