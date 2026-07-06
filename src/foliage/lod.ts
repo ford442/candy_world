@@ -152,7 +152,7 @@ export function getLODMaterial(
     switch (lodLevel) {
         case LODLevel.LOD0:
             // Use base material with full effects (already set up in TreeBatcher)
-            material = baseMaterial.clone();
+            material = baseMaterial;
             break;
 
         case LODLevel.LOD1:
@@ -166,7 +166,7 @@ export function getLODMaterial(
             break;
 
         default:
-            material = baseMaterial.clone();
+            material = baseMaterial;
     }
 
     materialCache.set(cacheKey, material);
@@ -249,7 +249,7 @@ function createLOD1Material(geometryType: string, baseMaterial: THREE.Material):
         }
 
         default:
-            return baseMaterial.clone();
+            return baseMaterial;
     }
 }
 
@@ -309,7 +309,7 @@ function createLOD2Material(geometryType: string, baseMaterial: THREE.Material):
             });
 
         default:
-            return baseMaterial.clone();
+            return baseMaterial;
     }
 }
 
