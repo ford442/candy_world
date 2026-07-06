@@ -283,7 +283,7 @@
   position: relative;
   overflow: hidden;
   box-shadow: 0 0 10px rgba(255, 107, 157, 0.3);
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 120ms cubic-bezier(0.25, 0.1, 0.25, 1), background-color 80ms ease;
 }
 
 /* Shimmer effect on progress bar */
