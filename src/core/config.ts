@@ -12,6 +12,7 @@ import type { PlantPoseConfig } from '../foliage/plant-pose-machine.ts';
 //   ?no_audio_react       — skip beat-sync and music-reactivity hooks
 //   ?no_fireflies         — skip firefly particle system
 //   ?no_grass             — skip GPU grass instancing
+//   ?awakened             — enable durable glow for music-awakened flora (default off)
 //
 // Combine flags to isolate regressions: ?no_luminous&no_musical
 // All flags default to ENABLED (absent = feature on).
@@ -57,6 +58,12 @@ export const FEATURE_FLAGS = {
     fireflies:        !_hasFlag('no_fireflies'),
     grass:            !_hasFlag('no_grass'),
     reliableBoot:     !_hasFlag('no_reliable_boot'),
+    /**
+     * Persist soft glow for music-awakened flora across reloads.
+     * Runtime URL flag (?awakened) — default off for safe rollout.
+     * Rollup cannot prune this branch; use import.meta.env for zero bundle cost later.
+     */
+    awakenedPersistence: _hasFlag('awakened'),
 } as const;
 
 // Log active overrides once at startup so the console makes the state obvious.
@@ -184,6 +191,8 @@ export interface ConfigType {
         glowPulseFrequency: number;
         glowPulseAmplitude: number;
         glowIntensityMax: number;
+        /** Visual Impact: soft emissive boost for previously awakened flora (remembered, not noisy) */
+        awakenedGlowMultiplier: number;
         glowColorMap: Record<string, number>;
     };
     luminousPlants: {
@@ -254,6 +263,49 @@ export interface ConfigType {
         }>>;
     };
 
+    /**
+     * Player avatar / first-person camera height tuning.
+     * eyeHeight is added to the authoritative ground height to place the camera.
+     * spawnEyeHeightY is the transient starting height before the first ground snap.
+     */
+    player: {
+        eyeHeight: number;
+        spawnEyeHeightY: number;
+    };
+
+    /**
+     * Ground-follow tuning. The camera/player Y is lerped toward the authoritative
+     * ground height + eyeHeight to avoid snapping over small terrain bumps.
+     */
+    ground: {
+        followLerpSpeed: number;
+        followMaxStep: number;
+        /** Eye Y above terrain before we treat the player as standing on a platform. */
+        platformElevationThreshold: number;
+        cacheCellSize: number;
+        cacheTTL: number;
+    };
+
+    /** Walkable cloud platform tuning (#1266). */
+    cloud: {
+        defaultSize: number;
+        sizePresets: { small: number; medium: number; large: number };
+        /** Grid snap for dev placement (0 = off). */
+        gridSnap: number;
+        snapY: boolean;
+        placementRayDistance: number;
+        /** Default float height when raycast misses geometry. */
+        defaultFloatHeight: number;
+        /** Small lift applied on raycast hits so clouds sit on surfaces. */
+        surfaceYOffset: number;
+        walkableTier: number;
+        /** Visual Impact: candy pastel cloud palette */
+        pastelTint: number;
+        creamHighlight: number;
+        lavenderShadow: number;
+        emissivePulse: number;
+    };
+
     world: {
         population: {
             proceduralExtras: number;
@@ -281,6 +333,12 @@ export interface ConfigType {
     postfx: {
         quality: 'off' | 'low' | 'high';
         godRays: boolean;
+        /** Max combined shaft opacity (golden hour + melody). Visual Impact: 0.4 keeps beams dreamy, not blinding. */
+        shaftOpacityCap: number;
+        /** Min dot(cameraForward, celestialDir) before shafts render (performance frustum gate). */
+        shaftFrustumDot: number;
+        /** Bloom scatter boost at full shaft opacity (0 = off). Pairs with additive shaft planes. */
+        shaftScatterBoost: number;
         dofEnabled: boolean;
         dofFocusFollow: boolean;
         dofFocusDistance: number;
@@ -320,6 +378,38 @@ export const CONFIG: ConfigType = {
         useGpuHeightmap: true, // Default to true as it is the goal
         heightmapResolution: 256
     },
+
+    // --- PLAYER / CAMERA HEIGHT ---
+    // Issue #1265: centralised eye height and ground-follow tuning so the
+    // first-person camera no longer snaps over small terrain bumps.
+    player: {
+        eyeHeight: 1.8,        // Height of the camera above the ground surface
+        spawnEyeHeightY: 5.0,  // Transient camera Y before the first authoritative ground snap
+    },
+    ground: {
+        followLerpSpeed: 12.0, // Units/sec for smoothing eye height over terrain bumps
+        followMaxStep: 2.5,    // Max vertical change per frame to prevent huge jumps
+        platformElevationThreshold: 1.25, // Above terrain eye Y → trust physics (clouds, pads)
+        cacheCellSize: 2.0,    // GroundSystem height-cache cell size (0.01-unit quantised)
+        cacheTTL: 1.0,         // Seconds before a cached height sample expires
+    },
+
+    cloud: {
+        defaultSize: 1.5,
+        sizePresets: { small: 1.0, medium: 1.5, large: 2.2 },
+        gridSnap: 2.0,
+        snapY: false,
+        placementRayDistance: 40,
+        defaultFloatHeight: 12,
+        surfaceYOffset: 0.15,
+        walkableTier: 1,
+        // Visual Impact: dreamy candy cloud pastels (lavender / pink / cream)
+        pastelTint: 0xFFD1DC,
+        creamHighlight: 0xFFF8E7,
+        lavenderShadow: 0xE6E6FA,
+        emissivePulse: 0.35,
+    },
+
     colors: {
         ground: 0x222222,
         fog: 0x1A1A2E
@@ -339,6 +429,7 @@ export const CONFIG: ConfigType = {
         glowPulseFrequency: 1.0,
         glowPulseAmplitude: 0.5,
         glowIntensityMax: 2.0,
+        awakenedGlowMultiplier: 0.5,
         glowColorMap: {
             'mushroom': 0xFFDDDD,
             'tree': 0xAAFFCC,
@@ -419,11 +510,11 @@ export const CONFIG: ConfigType = {
             'E': 0x00FF00, 'F': 0x00FF7F, 'F#': 0x00FFFF, 'G': 0x007FFF,
             'G#': 0x0000FF, 'A': 0x7F00FF, 'A#': 0xFF00FF, 'B': 0xFF007F
         },
-        // Species: Cloud (Ethereal)
+        // Species: Cloud (Ethereal candy pastels — lavender / pink / cream)
         'cloud': {
-            'C': 0xF0F8FF, 'C#': 0xE6E6FA, 'D': 0xB0C4DE, 'D#': 0xADD8E6,
-            'E': 0x87CEEB, 'F': 0x87CEFA, 'F#': 0x00BFFF, 'G': 0x1E90FF,
-            'G#': 0x6495ED, 'A': 0x4682B4, 'A#': 0x5F9EA0, 'B': 0x2F4F4F
+            'C': 0xFFD1DC, 'C#': 0xFFE4E1, 'D': 0xFFF0F5, 'D#': 0xE6E6FA,
+            'E': 0xDDA0DD, 'F': 0xF0E6FF, 'F#': 0xFFF8E7, 'G': 0xFFE4C4,
+            'G#': 0xFFB6C1, 'A': 0xFFC0CB, 'A#': 0xE0B0FF, 'B': 0xC8A2C8
         },
         // Species: Sky & Moon (Note-Color Reactivity)
         'sky': {
@@ -447,7 +538,8 @@ export const CONFIG: ConfigType = {
 
     // Per-species reaction tuning
     reactivity: {
-        mushroom: { medianWindow: 5, smoothingRate: 8, scale: 0.6, maxAmplitude: 1.0, minThreshold: 0.02 }
+        mushroom: { medianWindow: 5, smoothingRate: 8, scale: 0.6, maxAmplitude: 1.0, minThreshold: 0.02 },
+        cloud: { medianWindow: 4, smoothingRate: 10, scale: 0.45, maxAmplitude: 0.8, minThreshold: 0.015 },
     },
     // Global flash strength scaler
     flashScale: 2.0,
@@ -565,6 +657,12 @@ export const CONFIG: ConfigType = {
         quality: 'low' as 'off' | 'low' | 'high',
         /** Master toggle for sunrise/sunset/moon god-ray shafts. */
         godRays: true,
+        /** Visual Impact: opacity cap — prevents multi-second GPU stalls from over-bright additive stacks. */
+        shaftOpacityCap: 0.4,
+        /** Performance: shafts hidden when sun/moon is behind the camera (dot threshold). */
+        shaftFrustumDot: 0.28,
+        /** Screen-space bloom swell when shafts are visible (radial-scatter feel without a second pass). */
+        shaftScatterBoost: 0.45,
         /**
          * Force-enable DoF independent of tier (also ?dof / ?no_dof URL flags).
          * Resolved via isDofEnabled(); 'high' tier implies DoF on.

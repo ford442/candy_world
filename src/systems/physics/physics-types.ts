@@ -2,6 +2,7 @@
 // Types, constants, and shared state for physics system
 
 import * as THREE from 'three';
+import { CONFIG } from '../../core/config.ts';
 import { PlayerState as CorePlayerState, KeyStates } from '../physics.core.js';
 
 // Re-export KeyStates for convenience
@@ -46,7 +47,8 @@ export interface PlayerExtended extends CorePlayerState {
 export const GRAVITY = 21.5;
 export const SWIMMING_GRAVITY = 2.0; // Much lower gravity in water
 export const SWIMMING_DRAG = 4.0;    // High friction in water
-export const PLAYER_HEIGHT_OFFSET = 1.8; // Height above ground
+// Re-export the config value so legacy call sites keep working without edits.
+export const PLAYER_HEIGHT_OFFSET = CONFIG.player.eyeHeight;
 export const DANCE_KICK_THRESHOLD = 0.5; // Threshold for kick-triggered camera roll
 
 // Movement constants

@@ -11,7 +11,7 @@ import { getCelestialState } from '../core/cycle.ts';
 import { spawnImpact } from '../foliage/impacts.ts';
 import { unlockSystem } from '../systems/unlocks.ts';
 import { triggerHarpoon } from '../systems/physics/index.js';
-import { isInLakeBasin } from '../systems/physics.core.ts';
+import { isInLakeBasin } from '../systems/ground-system.ts';
 
 // Projectile Configuration
 const SPEED = 60.0;

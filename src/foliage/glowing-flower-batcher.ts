@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
+import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import type { Node } from 'three/webgpu';
 import {
     color, float, vec3, attribute, positionLocal, positionWorld,
@@ -124,11 +125,10 @@ export class GlowingFlowerBatcher {
         // Or we can assume the head moves with the stem tip.
         // Stem tip movement = calculateWindSway(vec3(0, 1, 0)) [since stem is unit cylinder, top is 1]
 
-        const windSway = calculateWindSway(vec3(0, 1, 0)); // Sway amount at top of unit
-        const playerPush = applyStandardDeformation(vec3(0, 1, 0)).sub(vec3(0, 1, 0)); // Push amount at top
+        const standardDef = applyStandardDeformation(vec3(0, 1, 0)).sub(vec3(0, 1, 0)); // Sway & Push at top
 
         // Apply to Head
-        const headPos = positionLocal.mul(visibilityScale).add(windSway).add(playerPush);
+        const headPos = positionLocal.mul(visibilityScale).add(standardDef);
         headMat.positionNode = headPos;
 
 
@@ -208,18 +208,7 @@ export class GlowingFlowerBatcher {
 
         [this.stemMesh, this.headMesh, this.washMesh].forEach(mesh => {
             if (!mesh) return;
-            if (mesh.geometry) mesh.geometry.dispose();
-            if (mesh.material) {
-                if (Array.isArray(mesh.material)) {
-                    mesh.material.forEach(m => m.dispose());
-                } else {
-                    mesh.material.dispose();
-                }
-            }
-            if (mesh.instanceColor && typeof (mesh.instanceColor as any).dispose === 'function') {
-                try { (mesh.instanceColor as any).dispose(); } catch (e) {}
-            }
-            foliageGroup.remove(mesh);
+            safeRemoveAndDispose(foliageGroup as unknown as THREE.Scene, mesh);
         });
 
         this.initialized = false;

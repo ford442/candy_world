@@ -12,7 +12,8 @@
  */
 
 import { showToast } from '../../utils/toast.ts';
-import { floraPersistenceManager } from '../flora-persistence.ts';
+import { FEATURE_FLAGS } from '../../core/config.ts';
+import { awakenedPersistence } from '../awakened-persistence.ts';
 import {
     SAVE_VERSION,
     SAVE_VERSION as SAVE_VERSION_CONST,
@@ -172,7 +173,10 @@ export class SaveSystem {
             this.currentSlotId = slotId;
             this.sessionStartTime = Date.now() - (saveData.progress.playtime * 1000);
             
-            floraPersistenceManager.deserialize(saveData.progress.awakenedFlora || []);
+            if (FEATURE_FLAGS.awakenedPersistence) {
+                awakenedPersistence.deserialize(saveData.progress.awakenedFlora || []);
+                awakenedPersistence.applyLoadedStatesToBatchers();
+            }
 
             console.log(`[SaveSystem] Loaded from slot: ${slotId}`);
             this.onLoadComplete?.(saveData);
@@ -635,7 +639,9 @@ export class SaveSystem {
             playtime,
             unlocks: [],
             inventory: {},
-            awakenedFlora: floraPersistenceManager.serialize()
+            awakenedFlora: FEATURE_FLAGS.awakenedPersistence
+                ? awakenedPersistence.serialize()
+                : undefined,
         };
     }
 

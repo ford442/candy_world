@@ -247,31 +247,13 @@ const ringMat = getCachedProceduralMaterial('subwoofer_lotus_ring', 0xFFFFFF, ()
 
     dispose() {
         if (this.padMesh) {
-            this.padMesh.geometry.dispose();
-            if (Array.isArray(this.padMesh.material)) {
-                this.padMesh.material.forEach(m => m.dispose());
-            } else {
-                this.padMesh.material.dispose();
-            }
-            foliageGroup.remove(this.padMesh);
+            safeRemoveAndDispose(foliageGroup as unknown as THREE.Scene, this.padMesh);
         }
         if (this.ringsMesh) {
-            this.ringsMesh.geometry.dispose();
-            if (Array.isArray(this.ringsMesh.material)) {
-                this.ringsMesh.material.forEach(m => m.dispose());
-            } else {
-                this.ringsMesh.material.dispose();
-            }
-            foliageGroup.remove(this.ringsMesh);
+            safeRemoveAndDispose(foliageGroup as unknown as THREE.Scene, this.ringsMesh);
         }
         if (this.centerMesh) {
-            this.centerMesh.geometry.dispose();
-            if (Array.isArray(this.centerMesh.material)) {
-                this.centerMesh.material.forEach(m => m.dispose());
-            } else {
-                this.centerMesh.material.dispose();
-            }
-            foliageGroup.remove(this.centerMesh);
+            safeRemoveAndDispose(foliageGroup as unknown as THREE.Scene, this.centerMesh);
         }
         for (const obj of this.logicObjects) {
             safeRemoveAndDispose(obj.parent as THREE.Scene, obj);

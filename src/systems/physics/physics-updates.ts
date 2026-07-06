@@ -30,9 +30,11 @@ import { unlockSystem } from '../unlocks.ts';
 import { uChromaticIntensity } from '../../foliage/chromatic.ts';
 import { uStrobeIntensity } from '../../foliage/strobe.ts';
 import {
-    getGroundHeight, initPhysics, uploadObstaclesBatch,
+    initPhysics, uploadObstaclesBatch,
     uploadCollisionObjects, initDynamicFoliageBridge
 } from '../../utils/wasm-loader.ts';
+import { getGroundHeight, reconcileGroundedEyeY } from '../ground-system.ts';
+import { CONFIG } from '../../core/config.ts';
 import {
     foliageMushrooms, foliageTrampolines, foliageClouds,
     foliageTraps, foliageGeysers, foliagePortamentoPines,
@@ -49,13 +51,10 @@ import {
     _scratchCamRight,
     _scratchTargetVel,
     _scratchUp,
-    PLAYER_HEIGHT_OFFSET,
     foliageCaves
 } from './physics-types.js';
 import {
-    calculateMovementInput,
-    isInLakeBasin,
-    getUnifiedGroundHeightTyped
+    calculateMovementInput
 } from '../physics.core.js';
 import {
     physicsFoliageGrid,
@@ -166,7 +165,8 @@ export function checkRetriggerMushrooms(delta: number, audioState: AudioState | 
 
     // ⚡ OPTIMIZATION: Hoisted O(N) audio channel scan outside the spatial query loop
     let isStrobing = false;
-    for (const ch of audioState.channelData) {
+    for (let i = 0; i < audioState.channelData.length; i++) {
+        const ch = audioState.channelData[i];
         if (ch.activeEffect === 5 && ch.effectValue > 0) {
             isStrobing = true;
             break;
@@ -213,7 +213,8 @@ export function checkVibratoViolets(delta: number, audioState: AudioState | null
 
     // ⚡ OPTIMIZATION: Hoisted O(N) audio channel scan outside the spatial query loop
     let isVibrating = false;
-    for (const ch of audioState.channelData) {
+    for (let i = 0; i < audioState.channelData.length; i++) {
+        const ch = audioState.channelData[i];
         if (ch.activeEffect === 4 && ch.effectValue > 0) {
             isVibrating = true;
             break;
@@ -419,10 +420,11 @@ export function updateJSFallbackMovement(delta: number, camera: THREE.Camera, co
     player.position.x += player.velocity.x * delta;
     player.position.z += player.velocity.z * delta;
     player.position.y += player.velocity.y * delta;
-    const groundY = getUnifiedGroundHeightTyped(player.position.x, player.position.z, getGroundHeight);
+    const groundY = getGroundHeight(player.position.x, player.position.z);
+    const eyeY = groundY + CONFIG.player.eyeHeight;
     const wasGrounded = player.isGrounded;
-    if (player.position.y < groundY + PLAYER_HEIGHT_OFFSET && player.velocity.y <= 0) {
-        player.position.y = groundY + PLAYER_HEIGHT_OFFSET;
+    if (player.position.y < eyeY && player.velocity.y <= 0) {
+        player.position.y = eyeY;
         player.velocity.y = 0;
         player.isGrounded = true;
         if (!wasGrounded) {
@@ -453,6 +455,21 @@ export function updateJSFallbackMovement(delta: number, camera: THREE.Camera, co
     } else {
         player.isGrounded = false;
     }
+
+    if (player.isGrounded) {
+        const smoothedY = reconcileGroundedEyeY(
+            player.position.y,
+            player.position.x,
+            player.position.z,
+            delta,
+            { isGrounded: true, velocityY: player.velocity.y }
+        );
+        if (smoothedY !== player.position.y) {
+            player.position.y = smoothedY;
+            player.velocity.y = 0;
+        }
+    }
+
     if (player.isGrounded && keyStates.jump) {
         player.velocity.y = 8.0;
         player.isGrounded = false;
@@ -467,7 +484,8 @@ export function checkVineAttachment(camera: THREE.Camera) {
         if (!vineStateModule) return;
         const { vineSwings, setActiveVineSwing } = vineStateModule;
         const playerPos = player.position;
-        for (const vineManager of vineSwings) {
+        for (let i = 0; i < vineSwings.length; i++) {
+            const vineManager = vineSwings[i];
             if (!vineManager || !vineManager.anchorPoint) continue;
             const anchor = vineManager.anchorPoint;
             if (typeof anchor.x !== 'number' || typeof anchor.y !== 'number' || typeof anchor.z !== 'number') continue;
@@ -501,7 +519,8 @@ export async function initCppPhysics(camera: THREE.Camera) {
     if (totalCount > 0) {
         const batchData = new Float32Array(totalCount * 9);
         let ptr = 0;
-        for (const m of validMushrooms) {
+        for (let i = 0; i < validMushrooms.length; i++) {
+            const m = validMushrooms[i];
             batchData[ptr++] = 0;
             batchData[ptr++] = m.position.x;
             batchData[ptr++] = m.position.y;
@@ -512,7 +531,8 @@ export async function initCppPhysics(camera: THREE.Camera) {
             batchData[ptr++] = (m.userData as any).capRadius || 2;
             batchData[ptr++] = (m.userData as any).isTrampoline ? 1 : 0;
         }
-        for (const c of validClouds) {
+        for (let i = 0; i < validClouds.length; i++) {
+            const c = validClouds[i];
             batchData[ptr++] = 1;
             batchData[ptr++] = c.position.x;
             batchData[ptr++] = c.position.y;
@@ -523,7 +543,8 @@ export async function initCppPhysics(camera: THREE.Camera) {
             batchData[ptr++] = (c.userData as any).tier || 1;
             batchData[ptr++] = 0;
         }
-        for (const t of validTrampolines) {
+        for (let i = 0; i < validTrampolines.length; i++) {
+            const t = validTrampolines[i];
             batchData[ptr++] = 2;
             batchData[ptr++] = t.position.x;
             batchData[ptr++] = t.position.y;

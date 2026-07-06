@@ -22,6 +22,7 @@ import {
 } from '../systems/accessibility';
 import { announce } from './announcer';
 import { trapFocusInside } from '../utils/interaction-utils';
+import { yieldToPaint } from '../utils/yield-to-paint';
 
 // ============================================================================
 // Menu Section Types
@@ -98,11 +99,11 @@ export class AccessibilityMenuCore {
 
     // Trap focus after transition
     if (this.container) {
-      setTimeout(() => {
+      yieldToPaint(50).then(() => {
         if (this.container && this.isOpen) {
           this.releaseFocusTrap = trapFocusInside(this.container);
         }
-      }, 300);
+      });
       announce('Accessibility menu opened. Use Tab to navigate, Enter to select.', 'polite');
     }
 

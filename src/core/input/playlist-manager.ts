@@ -7,6 +7,8 @@ import { AudioSystem } from '../../audio/audio-system';
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js';
 import { trapFocusInside } from '../../utils/interaction-utils.ts';
 import { formatSongTitle, filterValidMusicFiles } from './input-types.ts';
+import { announce } from '../../ui/announcer.ts';
+import { yieldToPaint } from '../../utils/yield-to-paint.ts';
 
 // State
 let isPlaylistOpen = false;
@@ -180,14 +182,23 @@ export function initPlaylistManager(
 
                     import('../../utils/toast.ts').then(({ showToast }) => {
                         if (invalidFiles.length > 0) {
-                            showToast(`Added ${validFiles.length} song${validFiles.length > 1 ? 's' : ''}. (${invalidFiles.length} ignored)`, '⚠️');
+                            const msg = `Added ${validFiles.length} song${validFiles.length > 1 ? 's' : ''}. (${invalidFiles.length} ignored)`;
+                            showToast(msg, '⚠️');
+                            announce(msg, 'polite');
                         } else {
-                            showToast(`Added ${validFiles.length} Song${validFiles.length > 1 ? 's' : ''}! 🎶`, '📂');
+                            const msg = `Added ${validFiles.length} Song${validFiles.length > 1 ? 's' : ''}! 🎶`;
+                            showToast(msg, '📂');
+                            if (validFiles.length === 1) {
+                                announce(`Song '${validFiles[0].name}' has been added and is ready to play.`, 'polite');
+                            } else {
+                                announce(`Added ${validFiles.length} songs to the playlist.`, 'polite');
+                            }
                         }
                     });
                 } else {
                     import('../../utils/toast.ts').then(({ showToast }) => {
                         showToast("❌ Only .mod, .xm, .it, .s3m allowed!", '🚫');
+                        announce("Failed to add songs, invalid format.", 'polite');
                     });
                 }
             }
@@ -236,14 +247,23 @@ function handlePlaylistUpload(e: Event): void {
                 audioSystemRef!.addToQueue(validFiles);
                 import('../../utils/toast.ts').then(({ showToast }) => {
                     if (invalidFiles.length > 0) {
-                        showToast(`Added ${validFiles.length} song${validFiles.length > 1 ? 's' : ''}. (${invalidFiles.length} ignored)`, '⚠️');
+                        const msg = `Added ${validFiles.length} song${validFiles.length > 1 ? 's' : ''}. (${invalidFiles.length} ignored)`;
+                        showToast(msg, '⚠️');
+                        announce(msg, 'polite');
                     } else {
-                        showToast(`Added ${validFiles.length} Song${validFiles.length > 1 ? 's' : ''}! 🎶`, '📂');
+                        const msg = `Added ${validFiles.length} Song${validFiles.length > 1 ? 's' : ''}! 🎶`;
+                        showToast(msg, '📂');
+                        if (validFiles.length === 1) {
+                            announce(`Song '${validFiles[0].name}' has been added and is ready to play.`, 'polite');
+                        } else {
+                            announce(`Added ${validFiles.length} songs to the playlist.`, 'polite');
+                        }
                     }
                 });
             } else {
                 import('../../utils/toast.ts').then(({ showToast }) => {
                     showToast("❌ Only .mod, .xm, .it, .s3m allowed!", '🚫');
+                    announce("Failed to add songs, invalid format.", 'polite');
                 });
             }
 
@@ -302,6 +322,14 @@ export function renderPlaylist(): void {
     playlistList.innerHTML = '';
     const songs = audioSystemRef.getPlaylist();
     const currentIdx = audioSystemRef.getCurrentIndex();
+
+    if (songs.length === 0) {
+        const li = document.createElement('li');
+        li.className = 'playlist-empty-state';
+        li.setAttribute('aria-live', 'polite');
+        li.innerHTML = '<span aria-hidden="true" style="font-size: 2em; margin-bottom: 5px;">🎧</span>The Jukebox is silent.<br><span style="font-size: 0.85em; opacity: 0.8; font-weight: normal;">Upload some songs to start the party!</span>';
+        playlistList.appendChild(li);
+    }
 
     songs.forEach((file: File, index: number) => {
         const li = document.createElement('li');
@@ -470,10 +498,10 @@ export function togglePlaylist(): void {
             playlistOverlay.style.opacity = '1';
             playlistOverlay.style.transform = 'translate(-50%, -50%) scale(1)';
 
-            setTimeout(() => {
+            // 🎨 Palette: Wait for paint before intensive DOM manipulations and focus trapping
+            yieldToPaint(50).then(() => {
                 if (isPlaylistOpen && playlistOverlay) {
                     releaseJukeboxFocus = trapFocusInside(playlistOverlay);
-
 
                     // UX: Auto-focus the currently playing track for immediate context
                     if (!audioSystemRef || !playlistList) return;
@@ -489,7 +517,9 @@ export function togglePlaylist(): void {
                         closePlaylistBtn.focus({ preventScroll: true });
                     }
                 }
-            }, 300);
+            });
+
+            announce('Jukebox opened. Use Tab to navigate, Enter to select.', 'polite');
         }
         if (playlistBackdrop) playlistBackdrop.style.display = 'block';
         renderPlaylist();
@@ -504,6 +534,8 @@ export function togglePlaylist(): void {
             playlistOverlay.style.opacity = '0';
             playlistOverlay.style.transform = 'translate(-50%, -50%) scale(0.95)';
         }
+
+        announce('Jukebox closed', 'polite');
 
         setTimeout(() => {
             if (!isPlaylistOpen) {

@@ -1,6 +1,9 @@
 # Music Map Binding
 
-Map data can now layer music personality on top of `assets/music-bindings.json` defaults without code edits.
+Map data can layer music personality on top of `assets/music-bindings.json` defaults
+without code edits. For material / TSL conventions when wiring new reactive foliage,
+see **[`CANDY_MATERIAL_COOKBOOK.md`](./CANDY_MATERIAL_COOKBOOK.md)** and
+**[`AGENTS.md`](../AGENTS.md)** (music-binding section).
 
 ## Override Precedence
 
@@ -146,7 +149,7 @@ The Gem Canopy corridor is placed procedurally by `src/world/generation-decorato
 | Note color | `gem_canopy.noteColor` | `BiomeUniforms.gemCanopy.noteColor` | Ruby / sapphire / amethyst tints shift toward the active tracker note |
 | Sky wave cascade | `sky_wave.target_biomes` includes `gem_canopy` | `BiomeUniforms.gemCanopy.noteColor` | Moon melody hue travels down to the corridor on the beat |
 
-Batcher implementation: `src/foliage/gem-fruit-batcher.ts` creates one `InstancedMesh` per jewel type (ruby, sapphire, amethyst) → three draw calls total. Each mesh uses `CandyPresets.Crystal` for the candy-glass clearcoat look, with `calculateWindSway` pendulum motion and a `gemCanopyNoteColorNode` tint in the TSL graph. `GemFruitBatcher.attachToTree` is also used for corridor accent portamento/bubble-willow trees so the jewel motif stays consistent.
+Batcher implementation: `src/foliage/gem-fruit-batcher.ts` creates one `InstancedMesh` per jewel type (ruby, sapphire, amethyst) → three draw calls total. Each mesh uses `CandyPresets.Crystal` for the candy-glass clearcoat look, with `calculateWindSway` pendulum motion and a `gemCanopyNoteColorNode` tint in the TSL graph. Resolve uniforms via `getBiomeUniforms('gem_canopy')` — see the [Material Cookbook](./CANDY_MATERIAL_COOKBOOK.md). `GemFruitBatcher.attachToTree` is also used for corridor accent portamento/bubble-willow trees so the jewel motif stays consistent.
 
 Map export: `gem_canopy_tree` is in `SUPPORTED_EXPORT_TYPES` with `category: 'mushroom-trees'` and `biome: 'gem_canopy'`. Spawn tracker records attempts as type `gem_canopy_tree`, and batcher telemetry reports the instanced gem count under id `gem_canopy`.
 

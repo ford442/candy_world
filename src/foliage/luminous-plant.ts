@@ -1,26 +1,40 @@
 import * as THREE from 'three';
 import { LuminousPlantBatcher } from './luminous-plant-batcher.ts';
 import { attachReactivity } from './index.ts';
+import { awakenedPersistence } from '../systems/awakened-persistence.ts';
 
 export interface LuminousPlantOptions {
     scale?: number;
+    persistentId?: string;
 }
 
 export function createLuminousPlant(options: LuminousPlantOptions = {}): THREE.Group {
-    const { scale = 1.0 } = options;
+    const { scale = 1.0, persistentId } = options;
 
     const group = new THREE.Group();
     group.scale.setScalar(scale);
 
     group.userData.type = 'luminous_plant';
-    group.userData.radius = 2.0 * scale; // Hitbox estimation for physics
+    group.userData.biome = 'luminous_plants';
+    group.userData.radius = 2.0 * scale;
+    if (persistentId) {
+        group.userData.persistentId = persistentId;
+    }
 
-    // Register with batcher for rendering
     group.userData.onPlacement = () => {
-        LuminousPlantBatcher.getInstance().register(group);
+        const instanceIndex = LuminousPlantBatcher.getInstance().register(group);
+        if (instanceIndex >= 0) {
+            const entityId = awakenedPersistence.resolvePersistentId(group);
+            awakenedPersistence.registerPlacedEntity(
+                entityId,
+                'luminous_plant',
+                'luminous_plants',
+                group.position,
+                [{ batcher: 'luminous', instanceIndex }]
+            );
+        }
         group.userData.onPlacement = null;
     };
 
-    // Make it musically reactive just in case it needs collision or logic updates later
     return attachReactivity(group);
 }

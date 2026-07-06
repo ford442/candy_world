@@ -1,0 +1,1 @@
+sed -i 's/import { uWindSpeed, uWindDirection, createClayMaterial, uAudioLow, uAudioHigh, uPlayerPosition } from '"'"'.\/material-core.ts'"'"';/import { uWindSpeed, uWindDirection, createClayMaterial, uAudioLow, uAudioHigh, uPlayerPosition, createJuicyRimLight } from '"'"'.\/material-core.ts'"'"';/' src/foliage/grass.ts

@@ -817,7 +817,7 @@
 
     <div id="reticle-label" ></div>
 
-    <div id="tracker-status" role="region" aria-label="Tracker Status" style="position: absolute; top: 15px; right: 15px; background: rgba(0,0,0,0.6); padding: 10px; border-radius: 8px; color: #FFF; font-family: monospace; display: flex; flex-direction: column; gap: 5px; pointer-events: none; z-index: 100; border: 2px solid #ff69b4;">
+    <div id="tracker-status" role="region" aria-label="Tracker Status" aria-live="polite" aria-atomic="true" style="position: absolute; top: 15px; right: 15px; background: rgba(0,0,0,0.6); padding: 10px; border-radius: 8px; color: #FFF; font-family: monospace; display: flex; flex-direction: column; gap: 5px; pointer-events: none; z-index: 100; border: 2px solid #ff69b4;">
         <div style="font-weight: bold; color: #ff69b4; text-transform: uppercase; font-size: 0.9em; letter-spacing: 1px;">Tracker Status</div>
         <div>Pattern: <span id="tracker-pattern">00</span></div>
         <div>Row: <span id="tracker-row">00</span></div>
@@ -882,7 +882,7 @@
     <!-- Loading Screen Overlay -->
     <div id="candy-loading-overlay" class="loading-overlay theme-candy" role="dialog" aria-modal="true" style="display: none;">
         <!-- Main Loading Screen Container -->
-        <div id="candy-loading-screen" class="loading-screen theme-candy" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Game loading progress" aria-live="polite" aria-atomic="true" style="display: none;" tabindex="-1">
+        <div id="candy-loading-screen" class="loading-screen theme-candy" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-valuetext="Initializing..." aria-label="Game loading progress" aria-live="polite" aria-atomic="true" style="display: none;" tabindex="-1">
             <div class="loading-content">
                 <h1 class="loading-title">🍭 Candy World <span class="loading-dots">...</span></h1>
                 <div class="loading-spinner"></div>
@@ -896,21 +896,25 @@
                     </div>
                 </div>
                 <div class="time-remaining">Calculating time...</div>
-                <button class="skip-button" aria-label="Skip Background Loading" style="display: none;">
-                    Skip Background Loading <span class="key-badge">Space</span>
+                <button class="skip-button" style="display: none;">
+                    <span aria-hidden="true">⏭️ </span>Skip Optional Content <span class="key-badge">Space</span>
                 </button>
                 <div class="status-indicators">
                     <div class="phase-indicator" data-phase-id="init" data-phase-index="0">
                         <span class="phase-dot"></span>
-                        <span class="phase-label">INIT</span>
+                        <span class="phase-label">Boot Sequence</span>
                     </div>
                     <div class="phase-indicator" data-phase-id="assets" data-phase-index="1">
                         <span class="phase-dot"></span>
-                        <span class="phase-label">ASSETS</span>
+                        <span class="phase-label">Asset Pipeline</span>
                     </div>
                     <div class="phase-indicator" data-phase-id="world" data-phase-index="2">
                         <span class="phase-dot"></span>
-                        <span class="phase-label">WORLD</span>
+                        <span class="phase-label">World Generation</span>
+                    </div>
+                    <div class="phase-indicator" data-phase-id="deferred-population" data-phase-index="3">
+                        <span class="phase-dot"></span>
+                        <span class="phase-label">Population</span>
                     </div>
                 </div>
             </div>

@@ -25,6 +25,9 @@ import {
     registerAtmosphereBeatSync,
     applyAtmosphereMapOverrides,
 } from './atmosphere-reactivity.ts';
+import { awakenedPersistence } from './awakened-persistence.ts';
+
+const _WEATHER_KEYS: Array<'rainIntensity' | 'thunderPulse' | 'fogDensity'> = ['rainIntensity', 'thunderPulse', 'fogDensity'];
 
 // ⚡ OPTIMIZATION: Pre-parsed channel index arrays from music-bindings.json.
 // Resolved once at module init — immutable after that, zero per-frame allocations.
@@ -138,7 +141,7 @@ const _defaultSkyWaveDecayMs = _skyWaveConfig?.decay_ms ?? 2000;
 const _defaultSkyWaveTargets: readonly string[] = _skyWaveConfig?.target_biomes ?? ['arpeggio_grove', 'crystalline_nebula', 'luminous_plants', 'sky_moon', 'global', 'musical_flora', 'lake_features'];
 let _skyWavePropagationMs = _defaultSkyWavePropagationMs;
 let _skyWaveDecayMs = _defaultSkyWaveDecayMs;
-let _skyWaveTargets: readonly string[] = _defaultSkyWaveTargets;
+let _skyWaveTargets: string[] = [..._defaultSkyWaveTargets];
 
 // Map from sky_wave.target_biomes keys (in music-bindings.json) → the Color uniform to receive the propagating hue.
 // This makes the wave fully data-driven. Adding a new target = add key here + entry in JSON list.
@@ -221,7 +224,10 @@ function applyMapMusicContext(overrides: MapMusicOverrides | undefined): void {
     };
     _skyWavePropagationMs = _defaultSkyWavePropagationMs;
     _skyWaveDecayMs = _defaultSkyWaveDecayMs;
-    _skyWaveTargets = _defaultSkyWaveTargets;
+    _skyWaveTargets.length = 0;
+    for (let i = 0; i < _defaultSkyWaveTargets.length; i++) {
+        _skyWaveTargets.push(_defaultSkyWaveTargets[i]);
+    }
 
     const biomeOverrides = overrides?.biomes;
     if (biomeOverrides && typeof biomeOverrides === 'object') {
@@ -278,12 +284,24 @@ function applyMapMusicContext(overrides: MapMusicOverrides | undefined): void {
         _skyWaveDecayMs = Math.max(100, overrides.skyWave.decayMs);
     }
     if (Array.isArray(overrides?.skyWave?.targetBiomes) && overrides.skyWave.targetBiomes.length > 0) {
-        const filteredTargets = overrides.skyWave.targetBiomes.filter((name: string) => typeof name === 'string');
-        if (filteredTargets.length > 0) _skyWaveTargets = filteredTargets;
+        // ⚡ OPTIMIZATION: Replaced .filter() with manual loop + in-place mutation to eliminate array allocation in context syncs.
+        _skyWaveTargets.length = 0;
+        for (let i = 0; i < overrides.skyWave.targetBiomes.length; i++) {
+            const name = overrides.skyWave.targetBiomes[i];
+            if (typeof name === 'string') {
+                _skyWaveTargets.push(name);
+            }
+        }
+        // Fallback to default if empty
+        if (_skyWaveTargets.length === 0) {
+            for (let i = 0; i < _defaultSkyWaveTargets.length; i++) {
+                _skyWaveTargets.push(_defaultSkyWaveTargets[i]);
+            }
+        }
     }
     if (overrides?.weatherReactivity && typeof overrides.weatherReactivity === 'object') {
-        const keys: Array<'rainIntensity' | 'thunderPulse' | 'fogDensity'> = ['rainIntensity', 'thunderPulse', 'fogDensity'];
-        for (const key of keys) {
+        for (let i = 0; i < _WEATHER_KEYS.length; i++) {
+            const key = _WEATHER_KEYS[i];
             const current = _weatherBindings[key];
             const override = overrides.weatherReactivity[key];
             if (!override || typeof override !== 'object') continue;
@@ -345,6 +363,7 @@ export class MusicReactivitySystem {
     };
 
     private _lastLogTime: number = 0;
+    private _lastCameraPos = new THREE.Vector3();
 
     constructor() {
         this.scheduleNextBlink();
@@ -821,6 +840,15 @@ export class MusicReactivitySystem {
         if (MRState.gemCanopyNoteVal > 0) {
             mapNoteToColor(MRState.gemCanopyNoteVal, _targetGemCanopyColor, 'gem_canopy');
             BiomeUniforms.gemCanopy.noteColor.value.lerp(_targetGemCanopyColor, 0.12);
+            const shimmer = BiomeUniforms.gemCanopy.shimmer.value;
+            if (shimmer > 0.2) {
+                awakenedPersistence.tryAwakenNearby(
+                    'gem_canopy_tree',
+                    this._lastCameraPos,
+                    shimmer,
+                    _targetGemCanopyColor.getHex()
+                );
+            }
         } else {
             _targetGemCanopyColor.setHex(0xffffff);
             BiomeUniforms.gemCanopy.noteColor.value.lerp(_targetGemCanopyColor, 0.05);
@@ -886,6 +914,17 @@ export class MusicReactivitySystem {
             if (targetIntensity > 0.2) {
             // Map chromatic note index (0-11) across 128 LUT slots exactly like sky_moon
             LuminousPlantUniforms.noteIndex.value = Math.min(Math.floor((dominantNote / 12) * 128), 127);
+
+            // Awakened persistence: first music reaction near player awakens nearby luminous plants
+                const noteName = CHROMATIC_SCALE[dominantNote];
+                const noteColor = CONFIG.noteColorMap.luminous_plants?.[noteName]
+                    ?? CONFIG.noteColorMap.global?.[noteName];
+                awakenedPersistence.tryAwakenNearby(
+                    'luminous_plant',
+                    this._lastCameraPos,
+                    targetIntensity,
+                    typeof noteColor === 'number' ? noteColor : undefined
+                );
             }
         }
         // Day guard: clamp intensity to 0 when daytime so sky/moon are unchanged.
@@ -1037,6 +1076,8 @@ export class MusicReactivitySystem {
 
                 this.updateFoliageAnimationLoop(time, deltaTime, audioState, cpuAnimatedFoliage, camera, isDay, isDeepNight);
 
+        this._lastCameraPos.copy(camera.position);
+
         this.updateBiomeChannelBindings(audioState, getDayNightBias(time % CYCLE_DURATION));
 
 // ---------------------------------------------------------------
@@ -1146,3 +1187,4 @@ export class MusicReactivitySystem {
 
 export const musicReactivitySystem = new MusicReactivitySystem();
 
+// ⚡ Bolt: Removed array allocations from applyMapMusicContext

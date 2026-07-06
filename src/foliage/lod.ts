@@ -8,6 +8,7 @@ import {
     normalLocal, varyingProperty
 } from 'three/tsl';
 import { foliageGroup } from '../world/state.ts';
+import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 
 const _scratchLODMatrix = new THREE.Matrix4();
 import {
@@ -151,7 +152,7 @@ export function getLODMaterial(
     switch (lodLevel) {
         case LODLevel.LOD0:
             // Use base material with full effects (already set up in TreeBatcher)
-            material = baseMaterial.clone();
+            material = baseMaterial;
             break;
 
         case LODLevel.LOD1:
@@ -165,7 +166,7 @@ export function getLODMaterial(
             break;
 
         default:
-            material = baseMaterial.clone();
+            material = baseMaterial;
     }
 
     materialCache.set(cacheKey, material);
@@ -248,7 +249,7 @@ function createLOD1Material(geometryType: string, baseMaterial: THREE.Material):
         }
 
         default:
-            return baseMaterial.clone();
+            return baseMaterial;
     }
 }
 
@@ -308,7 +309,7 @@ function createLOD2Material(geometryType: string, baseMaterial: THREE.Material):
             });
 
         default:
-            return baseMaterial.clone();
+            return baseMaterial;
     }
 }
 
@@ -383,7 +384,7 @@ export class FoliageLODManager {
                 mesh.castShadow = lodLevel === LODLevel.LOD0; // Only cast shadows for LOD0
                 mesh.receiveShadow = lodLevel !== LODLevel.LOD2;
                 mesh.count = 0;
-                mesh.visible = true;
+                if (mesh) mesh.visible = true;
 
                 // Store reference for cleanup
                 mesh.userData.isLODMesh = true;
@@ -578,7 +579,10 @@ export class FoliageLODManager {
         }
 
         // Calculate LOD for each instance
-        for (const [id, data] of this.instanceData) {
+        const entries = Array.from(this.instanceData.entries());
+        for (let i = 0; i < entries.length; i++) {
+            const id = entries[i][0];
+            const data = entries[i][1];
             const dx = data.position.x - cameraPosition.x; const dy = data.position.y - cameraPosition.y; const dz = data.position.z - cameraPosition.z; const distanceSq = dx*dx + dy*dy + dz*dz;
             const newLOD = this.calculateLODLevel(distanceSq);
 
@@ -604,7 +608,10 @@ export class FoliageLODManager {
         }
 
         // Apply updates to InstancedMeshes
-        for (const [geomType, geomUpdates] of this._lodUpdates) {
+        const lodEntries = Array.from(this._lodUpdates.entries());
+        for (let i = 0; i < lodEntries.length; i++) {
+            const geomType = lodEntries[i][0];
+            const geomUpdates = lodEntries[i][1];
             for (let lod = 0; lod < 3; lod++) {
                 const lodLevel = lod as LODLevel;
                 const update = geomUpdates.get(lodLevel);
@@ -709,7 +716,9 @@ export class FoliageLODManager {
         const geometryCounts: { [geometryType: string]: { [lod in LODLevel]?: number } } = {};
 
         // Count by LOD level
-        for (const data of this.instanceData.values()) {
+        const values = Array.from(this.instanceData.values());
+        for (let i = 0; i < values.length; i++) {
+            const data = values[i];
             lodDistribution[data.currentLOD]++;
 
             if (!geometryCounts[data.geometryType]) {
@@ -747,22 +756,16 @@ export class FoliageLODManager {
         // Dispose of all meshes
         for (const lodMap of this.lodMeshes.values()) {
             for (const mesh of lodMap.values()) {
-                mesh.geometry.dispose();
-                // Don't dispose materials that are shared
-                foliageGroup.remove(mesh);
+                // ⚡ OPTIMIZATION: Replaced manual removal with safeRemoveAndDispose to prevent VRAM leaks
+                mesh.userData.preventMaterialDispose = true;
+                safeRemoveAndDispose(foliageGroup, mesh, true);
             }
         }
         this.lodMeshes.clear();
 
         // Dispose billboard
         if (this.billboardMesh) {
-            this.billboardMesh.geometry.dispose();
-            if (Array.isArray(this.billboardMesh.material)) {
-                for (let i = 0; i < this.billboardMesh.material.length; i++) { this.billboardMesh.material[i].dispose(); }
-            } else {
-                this.billboardMesh.material.dispose();
-            }
-            foliageGroup.remove(this.billboardMesh);
+            safeRemoveAndDispose(foliageGroup, this.billboardMesh, true);
         }
 
         // Clear caches
@@ -847,7 +850,7 @@ export class LODTreeBatcher {
                         mat
                     );
                     componentIds[geometryType] = instanceId;
-                    mesh.visible = false; // Hide original mesh
+                    if (mesh) mesh.visible = false; // Hide original mesh
                 }
             }
         });

@@ -5,7 +5,7 @@
 
 import * as THREE from 'three';
 
-export type ComputeParticleType = 'fireflies' | 'pollen' | 'berries' | 'rain' | 'sparks';
+export type ComputeParticleType = 'fireflies' | 'pollen' | 'berries' | 'rain' | 'sparks' | 'gem_sparks';
 
 export interface ComputeParticleConfig {
     /** Particle system type */
@@ -70,10 +70,18 @@ export interface SparkConfig extends Omit<ComputeParticleConfig, 'type'> {
     decayRate?: number;
 }
 
+export interface GemSparkConfig extends Omit<ComputeParticleConfig, 'type'> {
+    /** Base twinkle frequency multiplier (visual tuning). */
+    twinkleRate?: number;
+    /** Drift speed scale for noise-driven motion. */
+    driftSpeed?: number;
+}
+
 export interface ComputeSystemCollection {
     fireflies?: any; // ComputeParticleSystem
     pollen?: any; // ComputeParticleSystem
     berries?: any; // ComputeParticleSystem
     rain?: any; // ComputeParticleSystem
     sparks?: any; // ComputeParticleSystem
+    gem_sparks?: any; // ComputeParticleSystem
 }
