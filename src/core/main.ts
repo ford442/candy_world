@@ -12,15 +12,15 @@ import { fluidSystem } from '../systems/fluid_system.ts';
 import { AudioSystem } from '../audio/audio-system.ts';
 import { BeatSync } from '../audio/beat-sync.ts';
 import { WeatherSystem } from '../systems/weather.ts';
-import { initWasm, getGroundHeight } from '../utils/wasm-loader.ts';
-import { getUnifiedGroundHeightTyped } from '../systems/physics.core.ts';
+import { initWasm } from '../utils/wasm-loader.ts';
+import { getGroundHeight } from '../systems/ground-system.ts';
 import { profiler } from '../utils/profiler.ts';
 import { enableStartupProfiler, finalizeStartupProfile, recordWASMInit, toggleOverlay } from '../utils/startup-profiler.ts';
 import { startPhase, endPhase } from '../utils/startup-profiler.ts';
 import { glitchGrenadeSystem } from '../systems/glitch-grenade.ts';
 
 // Core imports
-import { CONFIG } from './config.ts';
+import { CONFIG, resolvePostfxQuality, areGodRaysEnabled, isDofEnabled } from './config.ts';
 import { initScene } from './init.ts';
 import { ShaderWarmup } from '../rendering/shader-warmup.ts';
 import { initInput, keyStates } from './input/index.ts';
@@ -35,6 +35,7 @@ import { initWebGLDebug, isWebGLLiteMode } from '../rendering/webgl-debug.ts';
 import { initCriticalWorld, initDeferredWorldContent, initWorld, initWorldCritical, initWorldContent, generateMap, populateWorld, WorldMode, DEFAULT_MAP_CHUNK_SIZE } from '../world/generation.ts';
 import { animatedFoliage, interactiveObjects } from '../world/state.ts';
 import { installWorldExportTools } from '../world/map-exporter.ts';
+import { initCloudPlacer } from '../world/cloud-placer.ts';
 import { fireRainbow } from '../gameplay/rainbow-blaster.ts';
 import { player, populatePhysicsGrids } from '../systems/physics/index.ts';
 import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
@@ -42,7 +43,7 @@ import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 // Refactored module imports
 import { animate, initGameLoopDependencies, addCameraShake } from './game-loop.ts';
 import { updateTheme, toggleDayNight, setInputSystem } from './hud.ts';
-import { initDeferredVisuals, initDeferredVisualsDependencies, runDeferredWarmup } from './deferred-init.ts';
+import { initDeferredVisuals, initDeferredVisualsDependencies, runDeferredWarmup, applyAwakenedPersistenceAfterWorldLoad } from './deferred-init.ts';
 import { globalBackgroundProcessor } from '../utils/background-processor.ts';
 import { showDeferredIndicator, hideDeferredIndicator } from '../ui/index.ts';
 import { reset as resetSpawnTracker, getReport as getSpawnReport } from '../world/spawn-tracker.ts';
@@ -132,6 +133,9 @@ enableStartupProfiler({
 initDebugPanel();
 installBatcherTelemetry();
 
+import { initializeSaveSystemIntegration } from '../systems/save-integration.ts';
+initializeSaveSystemIntegration();
+
 // --- Initialization Pipeline with Debug Staging ---
 
 // Phase 1: Core Scene Setup (Immediate)
@@ -179,6 +183,11 @@ let postProcessing: any;
 await StageLoader.loadStage('postProcessing', () => {
     postProcessing = initPostProcessing(renderer, scene, camera, mode);
 });
+const _postfxTier = resolvePostfxQuality();
+console.log(
+    `[PostFX] tier=${_postfxTier} godRays=${areGodRaysEnabled()} dof=${isDofEnabled()} renderer=${mode}` +
+    ' (override: ?postfx=off|low|high, ?dof, ?no_dof)'
+);
 
 console.timeEnd('Core Scene Setup');
 loadingScreen.updateProgress(100);
@@ -385,8 +394,8 @@ window.addEventListener('mousedown', (e) => {
 });
 
 // --- IMMEDIATE: Position player (AS WASM already loaded via TLA) ---
-const initialGroundY = getUnifiedGroundHeightTyped(camera.position.x, camera.position.z, getGroundHeight);
-camera.position.y = initialGroundY + 1.8;
+const initialGroundY = getGroundHeight(camera.position.x, camera.position.z);
+camera.position.y = initialGroundY + CONFIG.player.eyeHeight;
 // ⚡ FIX: Sync player explicitly to prevent a massive camera swoop frame 1
 player.position.copy(camera.position);
 player.velocity.set(0, 0, 0);
@@ -607,6 +616,10 @@ if (startButton) {
             btn.addEventListener('focus', () => {
                 modeButtons.forEach(mb => mb.btn.setAttribute('tabindex', '-1'));
                 btn.setAttribute('tabindex', '0');
+                // Ensure selection follows focus (Arrow key navigation updates selection)
+                if (btn.getAttribute('aria-checked') !== 'true') {
+                    btn.click();
+                }
             });
         };
 
@@ -721,6 +734,10 @@ if (startButton) {
 
             // ⚡ Critical: Populate physics grids right after map generation
             populatePhysicsGrids();
+
+            initCloudPlacer({ scene, camera, weatherSystem: weatherSystem ?? null });
+
+            applyAwakenedPersistenceAfterWorldLoad();
 
             loadingScreen.updateProgress(100, 'World generation complete!');
             loadingScreen.completePhase('map-generation');

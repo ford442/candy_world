@@ -54,10 +54,13 @@ function getMeshesFromRecord(record: Record<string, unknown>, keys: readonly str
 function estimateGeometryBytes(geometry: THREE.BufferGeometry): number {
     let bytes = 0;
     const attrs = geometry.attributes;
-    for (const key of Object.keys(attrs)) {
-        const attr = attrs[key] as THREE.BufferAttribute | THREE.InterleavedBufferAttribute;
-        const attrArray = (attr as { array?: ArrayBufferView }).array;
-        if (attrArray && 'byteLength' in attrArray) bytes += attrArray.byteLength;
+    // ⚡ OPTIMIZATION: Bypassed Object.keys() to prevent GC spikes when estimating geometry sizes
+    for (const key in attrs) {
+        if (Object.prototype.hasOwnProperty.call(attrs, key)) {
+            const attr = attrs[key] as THREE.BufferAttribute | THREE.InterleavedBufferAttribute;
+            const attrArray = (attr as { array?: ArrayBufferView }).array;
+            if (attrArray && 'byteLength' in attrArray) bytes += attrArray.byteLength;
+        }
     }
     if (geometry.index?.array) bytes += geometry.index.array.byteLength;
     return bytes;

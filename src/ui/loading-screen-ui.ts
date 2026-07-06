@@ -1,4 +1,5 @@
 import { trapFocusInside } from '../utils/interaction-utils';
+import { yieldToPaint } from '../utils/yield-to-paint';
 import { globalLoadingManager, GlobalProgressState, TaskState } from '../systems/loading-manager';
 import { LoadingPhase, LoadingProgress, LoadingScreenOptions, DEFAULT_LOADING_PHASES } from './loading-screen-types';
 import { getReport } from '../world/spawn-tracker.ts';
@@ -60,6 +61,7 @@ export class LoadingScreen {
     private releaseFocusTrap: (() => void) | null = null;
     private lastFocusedElement: HTMLElement | null = null;
 
+    private isFCP = false;
     private unsubscribeProgress: (() => void) | null = null;
 
     constructor(options: LoadingScreenOptions = {}) {
@@ -120,6 +122,7 @@ export class LoadingScreen {
         this.overlay = document.getElementById('candy-loading-overlay');
 
         if (!this.container || !this.overlay) {
+            this.isFCP = false;
             // Fallback: Create overlay
             this.overlay = document.createElement('div');
             this.overlay.id = 'candy-loading-overlay';
@@ -135,6 +138,7 @@ export class LoadingScreen {
             this.container.setAttribute('aria-valuemin', '0');
             this.container.setAttribute('aria-valuemax', '100');
             this.container.setAttribute('aria-valuenow', '0');
+            this.container.setAttribute('aria-valuetext', 'Initializing...');
             this.container.setAttribute('aria-label', 'Game loading progress');
             this.container.setAttribute('aria-live', 'polite');
             this.container.setAttribute('aria-atomic', 'true');
@@ -203,7 +207,7 @@ export class LoadingScreen {
             if (this.options.allowSkipDeferred) {
                 this.skipButton = document.createElement('button');
                 this.skipButton.className = 'skip-button';
-                this.skipButton.innerHTML = '<span aria-hidden="true">⏭️ </span>Skip Optional Content';
+                this.skipButton.innerHTML = '<span aria-hidden="true">⏭️ </span>Skip Optional Content <span class="key-badge">Space</span>';
                 this.skipButton.style.display = 'none';
                 this.skipButton.addEventListener('click', () => this.skipCurrentPhase());
                 this.skipButton.addEventListener('keydown', (e: KeyboardEvent) => {
@@ -243,6 +247,7 @@ export class LoadingScreen {
             this.overlay.appendChild(this.container);
             document.body.appendChild(this.overlay);
         } else {
+            this.isFCP = true;
             // FCP Element wiring: Grab references to existing HTML components
             this.spinner = this.container.querySelector('.loading-spinner') as HTMLElement;
             this.progressBar = this.container.querySelector('.progress-bar') as HTMLElement;
@@ -326,11 +331,11 @@ export class LoadingScreen {
             this.container.classList.add('visible');
         }
 
-        setTimeout(() => {
+        yieldToPaint(50).then(() => {
             if (this.container && this.isVisible) {
                 this.releaseFocusTrap = trapFocusInside(this.container);
             }
-        }, 300);
+        });
 
         this.lastTime = performance.now();
         if (this.animationFrameId === null) {
@@ -671,6 +676,10 @@ export class LoadingScreen {
             }
             this.taskChangeTimeout = null;
         }, 150);
+
+        if (this.container) {
+            this.container.setAttribute('aria-valuetext', text);
+        }
     }
 
     /**
@@ -833,6 +842,8 @@ export class LoadingScreen {
 
         // Update ARIA
         this.container.setAttribute('aria-valuenow', Math.round(this.displayedOverallProgress).toString());
+        const currentPhaseName = this.phases[this.currentPhaseIndex]?.name || 'Loading';
+        this.container.setAttribute('aria-valuetext', `${currentPhaseName}: ${Math.round(this.displayedOverallProgress)}%`);
 
         // Update active phase indicator progress
         const activeIndicator = this.container.querySelector('.phase-indicator.active') as HTMLElement;
@@ -980,13 +991,18 @@ export class LoadingScreen {
 
         if (this.overlay && this.overlay.parentNode) {
             this.overlay.style.display = 'none';
-            this.overlay.parentNode.removeChild(this.overlay);
+            if (!this.isFCP) {
+                this.overlay.parentNode.removeChild(this.overlay);
+            }
         }
         if (this.container) {
             this.container.style.display = 'none';
         }
-        this.container = null;
-        this.overlay = null;
+
+        if (!this.isFCP) {
+            this.container = null;
+            this.overlay = null;
+        }
         this.progressBar = null;
         this.progressFill = null;
         this.percentageText = null;

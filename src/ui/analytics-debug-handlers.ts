@@ -1,5 +1,6 @@
 import { analytics, trackEvent } from '../systems/analytics';
 import { trapFocusInside } from '../utils/interaction-utils.ts';
+import { yieldToPaint } from '../utils/yield-to-paint.ts';
 import {
   DebugPanelElements,
   DebugStats,
@@ -145,11 +146,11 @@ export class AnalyticsDebugOverlay {
     this.elements.container.style.transform = 'scale(1)';
 
     // Trap focus inside the overlay
-    setTimeout(() => {
+    yieldToPaint(50).then(() => {
       if (this.isVisible && this.elements?.container) {
         this.releaseFocusTrap = trapFocusInside(this.elements.container);
       }
-    }, 300);
+    });
 
     // Setup control handlers
     this.setupControls();

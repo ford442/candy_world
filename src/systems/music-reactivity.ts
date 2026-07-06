@@ -25,6 +25,7 @@ import {
     registerAtmosphereBeatSync,
     applyAtmosphereMapOverrides,
 } from './atmosphere-reactivity.ts';
+import { awakenedPersistence } from './awakened-persistence.ts';
 
 const _WEATHER_KEYS: Array<'rainIntensity' | 'thunderPulse' | 'fogDensity'> = ['rainIntensity', 'thunderPulse', 'fogDensity'];
 
@@ -362,6 +363,7 @@ export class MusicReactivitySystem {
     };
 
     private _lastLogTime: number = 0;
+    private _lastCameraPos = new THREE.Vector3();
 
     constructor() {
         this.scheduleNextBlink();
@@ -838,6 +840,15 @@ export class MusicReactivitySystem {
         if (MRState.gemCanopyNoteVal > 0) {
             mapNoteToColor(MRState.gemCanopyNoteVal, _targetGemCanopyColor, 'gem_canopy');
             BiomeUniforms.gemCanopy.noteColor.value.lerp(_targetGemCanopyColor, 0.12);
+            const shimmer = BiomeUniforms.gemCanopy.shimmer.value;
+            if (shimmer > 0.2) {
+                awakenedPersistence.tryAwakenNearby(
+                    'gem_canopy_tree',
+                    this._lastCameraPos,
+                    shimmer,
+                    _targetGemCanopyColor.getHex()
+                );
+            }
         } else {
             _targetGemCanopyColor.setHex(0xffffff);
             BiomeUniforms.gemCanopy.noteColor.value.lerp(_targetGemCanopyColor, 0.05);
@@ -903,6 +914,17 @@ export class MusicReactivitySystem {
             if (targetIntensity > 0.2) {
             // Map chromatic note index (0-11) across 128 LUT slots exactly like sky_moon
             LuminousPlantUniforms.noteIndex.value = Math.min(Math.floor((dominantNote / 12) * 128), 127);
+
+            // Awakened persistence: first music reaction near player awakens nearby luminous plants
+                const noteName = CHROMATIC_SCALE[dominantNote];
+                const noteColor = CONFIG.noteColorMap.luminous_plants?.[noteName]
+                    ?? CONFIG.noteColorMap.global?.[noteName];
+                awakenedPersistence.tryAwakenNearby(
+                    'luminous_plant',
+                    this._lastCameraPos,
+                    targetIntensity,
+                    typeof noteColor === 'number' ? noteColor : undefined
+                );
             }
         }
         // Day guard: clamp intensity to 0 when daytime so sky/moon are unchanged.
@@ -1053,6 +1075,8 @@ export class MusicReactivitySystem {
         this.updateTwilightGlow(time);
 
                 this.updateFoliageAnimationLoop(time, deltaTime, audioState, cpuAnimatedFoliage, camera, isDay, isDeepNight);
+
+        this._lastCameraPos.copy(camera.position);
 
         this.updateBiomeChannelBindings(audioState, getDayNightBias(time % CYCLE_DURATION));
 

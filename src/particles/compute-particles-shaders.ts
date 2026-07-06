@@ -35,7 +35,7 @@ struct Uniforms {
     playerZ: f32,
     audioLow: f32,
     audioHigh: f32,
-    particleType: u32,  // 0=fireflies, 1=pollen, 2=berries, 3=rain, 4=sparks
+    particleType: u32,  // 0=fireflies, 1=pollen, 2=berries, 3=rain, 4=sparks, 5=gem_sparks
 };
 
 @group(0) @binding(0) var<storage, read_write> particles: ParticleData;
@@ -106,6 +106,18 @@ fn seedRand(seed: u32) {
     rngState = seed;
 }
 
+// Soft wrap — motes re-enter on the opposite side for endless drift.
+fn wrapAxis(pos: f32, center: f32, extent: f32) -> f32 {
+    let half = extent * 0.5;
+    var rel = pos - center;
+    if (rel > half) {
+        rel = rel - extent;
+    } else if (rel < -half) {
+        rel = rel + extent;
+    }
+    return center + rel;
+}
+
 @compute @workgroup_size(64)
 fn main(@builtin(global_invocation_id) globalId: vec3<u32>) {
     let index = globalId.x;
@@ -152,6 +164,13 @@ fn main(@builtin(global_invocation_id) globalId: vec3<u32>) {
                 let speed = 3.0 + rand() * 5.0;
                 vel = vec3<f32>(cos(angle) * speed, rand() * speed, sin(angle) * speed);
             }
+            case 5u: { // Gem sparks — slow enchanted drift
+                vel = vec3<f32>(
+                    (rand() - 0.5) * 0.12,
+                    (rand() - 0.5) * 0.06,
+                    (rand() - 0.5) * 0.12
+                );
+            }
             default: {
                 vel = vec3<f32>(0.0, 0.0, 0.0);
             }
@@ -161,6 +180,9 @@ fn main(@builtin(global_invocation_id) globalId: vec3<u32>) {
         life = 2.0 + rand() * 4.0;
         if (uniforms.particleType == 4u) { // Sparks have short life
             life = 0.3 + rand() * 0.5;
+        }
+        if (uniforms.particleType == 5u) { // Gem motes linger
+            life = 10.0 + rand() * 14.0;
         }
     } else {
         // Update physics based on particle type
@@ -249,11 +271,32 @@ fn main(@builtin(global_invocation_id) globalId: vec3<u32>) {
                 vel.y = vel.y - uniforms.gravity * 0.5 * uniforms.deltaTime;
                 vel = vel * 0.99; // Air resistance
             }
+            case 5u: { // Gem sparks — noise drift + gentle bob (magical air, not snow)
+                let noisePos = pos * 0.12 + vec3<f32>(
+                    uniforms.time * 0.11,
+                    uniforms.time * 0.07,
+                    uniforms.time * 0.09
+                );
+                let curl = curlNoise(noisePos, uniforms.time) * 0.35;
+                let bobY = sin(uniforms.time * 0.85 + seed * 6.28318) * 0.14;
+                let audioLift = uniforms.audioHigh * 0.25;
+                let acceleration = curl * 0.55 + vec3<f32>(0.0, bobY * 0.08 + audioLift, 0.0);
+                // Future #1265 hook: player repulsion via uniforms.playerX/Y/Z
+                vel = vel + acceleration * uniforms.deltaTime;
+                vel = vel * 0.92;
+            }
             default: {}
         }
         
         // Update position
         pos = pos + vel * uniforms.deltaTime;
+
+        // Gem spark soft bounds — wrap instead of pop
+        if (uniforms.particleType == 5u) {
+            pos.x = wrapAxis(pos.x, uniforms.centerX, uniforms.boundsX);
+            pos.y = wrapAxis(pos.y, uniforms.centerY, uniforms.boundsY);
+            pos.z = wrapAxis(pos.z, uniforms.centerZ, uniforms.boundsZ);
+        }
     }
     
     // Write back
@@ -325,6 +368,10 @@ fn main(input: VertexInput) -> VertexOutput {
         }
         case 4u: { // Sparks - shrink with life
             finalSize = finalSize * input.life;
+        }
+        case 5u: { // Gem sparks — tiny twinkle
+            let twinkle = sin(uniforms.time * 4.0 + input.seed * 6.28318) * 0.35 + 1.0;
+            finalSize = finalSize * twinkle;
         }
         default: {}
     }
@@ -418,6 +465,15 @@ fn main(input: FragmentInput) -> FragmentOutput {
             );
             finalColor.rgb = sparkColor;
             finalColor.a = alpha * input.life * 2.0;
+        }
+        case 5u: { // Gem sparks — jewel pastel with melody boost
+            let huePick = fract(sin(input.seed * 12.9898) * 43758.5453);
+            let ruby = vec3<f32>(0.88, 0.07, 0.37);
+            let sapphire = vec3<f32>(0.06, 0.32, 0.73);
+            let amethyst = vec3<f32>(0.60, 0.40, 0.80);
+            let baseJewel = mix(mix(ruby, sapphire, huePick), amethyst, huePick * huePick);
+            finalColor.rgb = baseJewel * (1.0 + uniforms.audioHigh * 0.6);
+            finalColor.a = alpha * 0.85;
         }
         default: {}
     }

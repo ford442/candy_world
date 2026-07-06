@@ -200,19 +200,32 @@ function updateImpostors(
             if (factor < cfg.impostorMinFactor || factor >= 3) continue;
             if (impostorCount >= _impostorCapacity) break;
 
-            _scratchMatrix.fromArray(matrixArray, i * 16);
-            _scratchMatrix.decompose(_instancePos, _scratchQuat, _scratchScale);
+            const offset = i * 16;
+            const px = matrixArray[offset + 12];
+            const py = matrixArray[offset + 13];
+            const pz = matrixArray[offset + 14];
 
-            const dx = _instancePos.x - _cameraPos.x;
-            const dy = _instancePos.y - _cameraPos.y;
-            const dz = _instancePos.z - _cameraPos.z;
+            const dx = px - _cameraPos.x;
+            const dy = py - _cameraPos.y;
+            const dz = pz - _cameraPos.z;
             const distSq = dx * dx + dy * dy + dz * dz;
             // ⚡ OPTIMIZATION: Deferred Math.sqrt() by using squared distance for early-out far cull check.
             if (distSq >= farCullSq) continue;
 
-            const size = Math.max(_scratchScale.x, _scratchScale.y, _scratchScale.z) * 2.2;
+            // ⚡ OPTIMIZATION: Extract max scale directly from squared column magnitudes to avoid full matrix decomposition overhead
+            const m00 = matrixArray[offset + 0], m01 = matrixArray[offset + 1], m02 = matrixArray[offset + 2];
+            const m10 = matrixArray[offset + 4], m11 = matrixArray[offset + 5], m12 = matrixArray[offset + 6];
+            const m20 = matrixArray[offset + 8], m21 = matrixArray[offset + 9], m22 = matrixArray[offset + 10];
+
+            const scaleXSq = m00*m00 + m01*m01 + m02*m02;
+            const scaleYSq = m10*m10 + m11*m11 + m12*m12;
+            const scaleZSq = m20*m20 + m21*m21 + m22*m22;
+
+            const maxScaleSq = Math.max(scaleXSq, scaleYSq, scaleZSq);
+            const size = Math.sqrt(maxScaleSq) * 2.2;
+
             _billboardMatrix.makeRotationFromQuaternion(camera.quaternion);
-            _billboardMatrix.setPosition(_instancePos);
+            _billboardMatrix.setPosition(px, py, pz);
             _billboardMatrix.scale(new THREE.Vector3(size, size * 1.15, 1));
             _billboardMatrix.toArray(impostor.instanceMatrix.array, impostorCount * 16);
 
@@ -275,11 +288,14 @@ export function updateFoliageBatcherLOD(camera: THREE.Camera, delta: number): vo
         const matrixArray = mesh.instanceMatrix.array as Float32Array;
 
         for (let i = 0; i < count; i++) {
-            _scratchMatrix.fromArray(matrixArray, i * 16);
-            _instancePos.setFromMatrixPosition(_scratchMatrix);
-            const dx = _instancePos.x - _cameraPos.x;
-            const dy = _instancePos.y - _cameraPos.y;
-            const dz = _instancePos.z - _cameraPos.z;
+            const offset = i * 16;
+            const px = matrixArray[offset + 12];
+            const py = matrixArray[offset + 13];
+            const pz = matrixArray[offset + 14];
+
+            const dx = px - _cameraPos.x;
+            const dy = py - _cameraPos.y;
+            const dz = pz - _cameraPos.z;
             const distSq = dx * dx + dy * dy + dz * dz;
 
             // ⚡ OPTIMIZATION: Pass squared distance to defer Math.sqrt() in LOD computation.

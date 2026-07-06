@@ -14,6 +14,7 @@ import { foliageGroup } from '../world/state.ts';
 import { getIcosahedronGeometry } from '../utils/geometry-dedup.ts';
 import { uSkyDarkness, uTwilight } from './sky.ts';
 import { BiomeUniforms } from '../systems/biome-uniforms.ts';
+import { CONFIG } from '../core/config.ts';
 
 // --- Global Uniforms (Moved from clouds.js) ---
 export const uCloudRainbowIntensity = uniform(0.0);
@@ -93,6 +94,9 @@ function createCloudMaterial() {
     // Melody Puff: Expands the cloud slightly on Highs
     const melodyPuff = uAudioHigh.mul(0.2);
 
+    // Music Impact: soft internal starlight pulse on melody hits
+    const melodyGlow = uAudioHigh.mul(float(CONFIG.cloud.emissivePulse));
+
     // Total Displacement Magnitude
     // Base fluff + Melody expansion
     const displacementStrength = float(0.2).add(melodyPuff);
@@ -163,9 +167,11 @@ function createCloudMaterial() {
     // Darken the bottom of the cloud (y < 0)
     // We use positionLocal.y from before displacement for stability
     const aoGradient = smoothstep(-1.0, 1.0, positionLocal.y); // 0 at bottom, 1 at top
-    // Mix shadow color (Blue-Grey) with White
-    const shadowColor = color(0x8899AA);
-    const baseColor = mix(shadowColor, color(0xFFFFFF), aoGradient);
+    // PALETTE: Candy cloud pastels — lavender shadow, pink body, cream highlights
+    const shadowColor = color(CONFIG.cloud.lavenderShadow);
+    const candyBody = color(CONFIG.cloud.pastelTint);
+    const highlightColor = color(CONFIG.cloud.creamHighlight);
+    const baseColor = mix(shadowColor, mix(candyBody, highlightColor, aoGradient), aoGradient);
 
     // Apply cotton detail to base color (subtle dirtying)
     const texturedColor = baseColor.mul(float(0.95).add(cottonDetail.mul(0.05)));
@@ -190,10 +196,15 @@ function createCloudMaterial() {
     // Walkable clouds (tier 1) get a subtle cyan ice-crystal edge glow
     const walkableFlag = attribute('aIsWalkable', 'float');
     const crystalColor = color(0xE0FFFF);
-    const crystalRim = createJuicyRimLight(crystalColor, float(0.8), float(2.5), normalWorld).mul(walkableFlag);
+    const bobPulse = sin(uTime.mul(2.0).add(positionWorld.x.mul(0.1))).mul(0.3).add(0.7);
+    const crystalRim = createJuicyRimLight(crystalColor, float(0.8), float(2.5), normalWorld).mul(walkableFlag).mul(bobPulse).add(walkableFlag.mul(melodyGlow));
 
     // Dim emissive effects during storms too, except lightning
-    material.emissiveNode = lightningGlow.add(juicyRim.mul(stormDarkness)).add(rainbowSheen.mul(stormDarkness)).add(crystalRim);
+    material.emissiveNode = lightningGlow
+        .add(juicyRim.mul(stormDarkness))
+        .add(rainbowSheen.mul(stormDarkness))
+        .add(crystalRim)
+        .add(candyBody.mul(melodyGlow));
 
     return material;
 }
@@ -366,7 +377,8 @@ export class CloudBatcher {
         // Iterate over clouds
         // ⚡ OPTIMIZATION: Only update moving clouds (e.g. falling or dragged)
         // Static clouds are now animated via TSL (Vertex Shader)
-        for (const cloud of this.clouds) {
+        for (let i = 0; i < this.clouds.length; i++) {
+            const cloud = this.clouds[i];
             // Run Cloud Logic (Sine Wave / Falling)
             // Note: updateFallingClouds in clouds.js handles falling physics on cloud.position externally.
             // Here we just handle the "Animation" callback if it exists.

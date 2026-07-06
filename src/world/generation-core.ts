@@ -22,16 +22,16 @@ import { globalBackgroundProcessor } from '../utils/background-processor.ts';
 import { recordSpawnAttempt, getReport, reset as resetSpawnTracker } from './spawn-tracker.ts';
 import { updateProgress } from '../ui/index.ts';
 import { endPhase, recordGenerationChunk, startPhase } from '../utils/startup-profiler.ts';
-import { populateProceduralExtras, populateGemCanopyCorridor, populateMyceliumGrove } from './generation-decorators.ts';
+import { populateProceduralExtras, populateGemCanopyCorridor, populateMyceliumGrove, populateCloudArchipelago } from './generation-decorators.ts';
 import {
     DEFAULT_MAP_CHUNK_SIZE, ENTITY_BUDGET_MS, YIELD_ENTITY_BATCH_SIZE, PROCEDURAL_ENTITY_COUNT,
     obstaclesData, WeatherSystem, WorldObjects, WorldMode, MapEntity, WorldProgressCallback,
-    getUnifiedGroundHeight, isPositionValid, yieldControl, normalizeMapEntityType
+    isPositionValid, yieldControl, normalizeMapEntityType
 } from './generation-utils.ts';
 import { getMapSourceFromUrl, loadMap, setupMapHotReload, type LoadedCandyMap } from './map-loader.ts';
 import { clearMapMusicContext, deriveMapMusicContext, setMapMusicContext } from './map-music-context.ts';
 import { create, getTypeMeta, registerBuiltinWorldObjectTypes, registerWorldObject } from './foliage-registry.ts';
-import { treeBatcher } from '../foliage/tree-batcher.ts';
+import { plantOnSurface, sampleGroundY } from './placement-utils.ts';
 import { treeBatcher } from '../foliage/tree-batcher.ts';
 import { subwooferLotusBatcher } from '../foliage/subwoofer-lotus-batcher.ts';
 
@@ -161,7 +161,7 @@ export async function initWorld(scene: THREE.Scene, weatherSystem: WeatherSystem
             const zWorld = -y;
 
             // Use the Unified Height that accounts for the Lake
-            const height = getUnifiedGroundHeight(x, zWorld);
+            const height = sampleGroundY(x, zWorld);
             posAttribute.setZ(i, height);
 
             if (i % cpuYieldEvery === cpuYieldEvery - 1) {
@@ -233,7 +233,7 @@ export async function initWorld(scene: THREE.Scene, weatherSystem: WeatherSystem
 
             const lx = -40 + Math.cos(angle) * dist;
             const lz = 40 + Math.sin(angle) * dist;
-            const ly = getUnifiedGroundHeight(lx, lz);
+            const ly = sampleGroundY(lx, lz);
 
             if (lx > -10) continue;
             if (ly > 2.0 && ly < 8.0) {
@@ -514,6 +514,7 @@ export async function generateMap(
     await populateProceduralExtras(weatherSystem, generationToken, chunkSize);
     await populateGemCanopyCorridor(weatherSystem);
     await populateMyceliumGrove(weatherSystem);
+    await populateCloudArchipelago(weatherSystem);
     console.timeEnd('[World] procedural-extras');
 
     // Keep a lightweight final fallback for any entities excluded from the streaming query.
@@ -562,7 +563,7 @@ export async function generateCoreWorld(
             const x = (Math.random() - 0.5) * areaSize;
             const z = (Math.random() - 0.5) * areaSize;
             if (!isPositionValid(x, z, radius)) continue;
-            return { x, z, y: getUnifiedGroundHeight(x, z) };
+            return { x, z, y: sampleGroundY(x, z) };
         }
         return null;
     };
@@ -596,7 +597,7 @@ export async function generateCoreWorld(
         const ringRadius = SEED_RING_INNER + (i % 2) * (SEED_RING_OUTER - SEED_RING_INNER);
         const sx = Math.cos(angle) * ringRadius;
         const sz = Math.sin(angle) * ringRadius;
-        const sy = getUnifiedGroundHeight(sx, sz);
+        const sy = sampleGroundY(sx, sz);
         const seedObj = seedFactories[i % seedFactories.length]();
         if (!seedObj) continue;
         seedObj.position.set(sx, sy, sz);
@@ -621,7 +622,7 @@ export async function generateCoreWorld(
         if (pos) {
             const obj = factory();
             if (!obj) continue;
-            obj.position.set(pos.x, pos.y, pos.z);
+            plantOnSurface(obj, pos.x, pos.z, { groundY: pos.y });
             obj.rotation.y = Math.random() * Math.PI * 2;
             safeAddFoliage(obj, true, 1.5, weatherSystem);
         }
@@ -639,7 +640,7 @@ export async function generateCoreWorld(
         if (pos) {
             const obj = create('mushroom', { size: 'regular', scale: 0.8 + Math.random() * 0.5, hasFace: true, isBouncy: true });
             if (!obj) continue;
-            obj.position.set(pos.x, pos.y, pos.z);
+            plantOnSurface(obj, pos.x, pos.z, { groundY: pos.y });
             obj.rotation.y = Math.random() * Math.PI * 2;
             safeAddFoliage(obj, true, 0.5, weatherSystem);
         }
@@ -678,7 +679,7 @@ export async function generateCoreWorld(
         if (pos) {
             const obj = factory();
             if (!obj) continue;
-            obj.position.set(pos.x, pos.y, pos.z);
+            plantOnSurface(obj, pos.x, pos.z, { groundY: pos.y });
             obj.rotation.y = Math.random() * Math.PI * 2;
             safeAddFoliage(obj, false, 0.4, weatherSystem);
         }
@@ -696,7 +697,7 @@ export async function generateCoreWorld(
         const factory = islandItems[i % islandItems.length];
         const obj = factory();
         if (!obj) continue;
-        obj.position.set(pos.x, pos.y, pos.z);
+        plantOnSurface(obj, pos.x, pos.z, { groundY: pos.y });
         obj.rotation.y = Math.random() * Math.PI * 2;
         safeAddFoliage(obj, false, 0.4, weatherSystem);
     }
@@ -771,7 +772,7 @@ function processMapEntity(item: MapEntity, weatherSystem: WeatherSystem, options
     const params = item.params ?? {};
     const placement = item.placement ?? (entityType === 'cloud' ? 'absolute' : 'ground');
     // USE UNIFIED HEIGHT for placement
-    const groundY = getUnifiedGroundHeight(x, z);
+    const groundY = sampleGroundY(x, z);
     let y = groundY;
     if (placement === 'absolute' || entityType === 'cloud') y = yInput;
     if (placement === 'offset') y = groundY + yInput;
@@ -787,11 +788,20 @@ function processMapEntity(item: MapEntity, weatherSystem: WeatherSystem, options
         const value = params[key];
         return typeof value === 'boolean' ? value : fallback;
     };
+    const mapPersistentId = typeof item.persistentId === 'string'
+        ? item.persistentId
+        : (typeof params.persistentId === 'string'
+            ? params.persistentId
+            : (typeof item.id === 'string' ? item.id : undefined));
+
     const annotateMapExport = (obj: THREE.Object3D, resolvedType: string) => {
         const resolvedBiome = item.music?.biomeOverride ?? item.music?.biome ?? item.music?.biomeTag ?? item.biome;
         obj.userData.mapEntityType = resolvedType;
         obj.userData.mapEntityId = item.id;
         obj.userData.biome = resolvedBiome;
+        if (mapPersistentId) {
+            obj.userData.persistentId = mapPersistentId;
+        }
         if (typeof item.music?.trackerChannel === 'number') {
             obj.userData.trackerChannel = item.music.trackerChannel;
         }
@@ -827,6 +837,7 @@ function processMapEntity(item: MapEntity, weatherSystem: WeatherSystem, options
         let caveNeedsWaterfallProxy = false;
         const createParams: Record<string, unknown> = { ...params };
         if (item.variant !== undefined) createParams.variant = item.variant;
+        if (mapPersistentId) createParams.persistentId = mapPersistentId;
         if (item.note !== undefined) createParams.note = item.note;
         if (item.noteIndex !== undefined) createParams.noteIndex = item.noteIndex;
         let cloudTier = 1;
@@ -936,7 +947,11 @@ function processMapEntity(item: MapEntity, weatherSystem: WeatherSystem, options
         // --- Spawning ---
         if (obj) {
             annotateMapExport(obj, entityType);
-            obj.position.set(x, y, z);
+            if (placement === 'ground' && entityType !== 'cloud') {
+                plantOnSurface(obj, x, z, { groundY: y });
+            } else {
+                obj.position.set(x, y, z);
+            }
             if (itemRotation && typeof itemRotation === 'object' && !Array.isArray(itemRotation) && 'quat' in itemRotation && Array.isArray(itemRotation.quat)) {
                 const [qx, qy, qz, qw] = itemRotation.quat;
                 obj.quaternion.set(qx, qy, qz, qw);

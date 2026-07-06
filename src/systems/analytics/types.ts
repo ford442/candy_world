@@ -41,7 +41,7 @@ export type EventType =
   // Exploration events
   | 'biome_entered' | 'biome_exited' | 'distance_traveled' | 'area_discovered'
   // Interaction events
-  | 'entity_discovered' | 'ability_used' | 'item_collected' | 'interaction_made'
+  | 'entity_discovered' | 'entity_awakened' | 'ability_used' | 'item_collected' | 'interaction_made'
   // Progression events
   | 'unlock_achieved' | 'milestone_reached' | 'level_completed'
   // Performance events

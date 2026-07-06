@@ -5,7 +5,9 @@
 
 import * as THREE from 'three';
 import { PointsNodeMaterial } from 'three/webgpu';
-import { uv, distance, vec2, vec3, smoothstep } from 'three/tsl';
+import { uv, distance, vec2, vec3, smoothstep, sin, float, mix, color, Fn } from 'three/tsl';
+import { uTime, uAudioHigh } from '../foliage/material-core.ts';
+import { gemCanopyNoteColorNode, BiomeUniforms } from '../systems/biome-uniforms.ts';
 import { ComputeParticleType, ComputeParticleConfig, ParticleAudioData } from './compute-particles-types.ts';
 
 /**
@@ -89,6 +91,9 @@ export class CPUParticleSystem {
         this.mesh = new THREE.Points(geometry, material);
         this.mesh.frustumCulled = false;
         this.mesh.userData.isCPUParticles = true;
+        if (this.type === 'gem_sparks') {
+            this.mesh.renderOrder = -10;
+        }
     }
     
     private respawnParticle(i: number, initial: boolean = false): void {
@@ -135,6 +140,12 @@ export class CPUParticleSystem {
                 this.velocities[idx + 2] = Math.sin(angle) * speed;
                 this.lives[i] = 0.3 + Math.random() * 0.5;
                 break;
+            case 'gem_sparks':
+                this.velocities[idx] = (Math.random() - 0.5) * 0.12;
+                this.velocities[idx + 1] = (Math.random() - 0.5) * 0.06;
+                this.velocities[idx + 2] = (Math.random() - 0.5) * 0.12;
+                this.lives[i] = 10 + Math.random() * 14;
+                break;
         }
         
         this.sizes[i] = this.sizeRange.min + Math.random() * (this.sizeRange.max - this.sizeRange.min);
@@ -177,6 +188,17 @@ export class CPUParticleSystem {
                 this.colors[idx + 2] = 0.5;
                 this.colors[idx + 3] = 1.0;
                 break;
+            case 'gem_sparks': {
+                const huePick = (Math.sin(this.seeds[i] * 12.9898) * 0.5 + 0.5);
+                const ruby = [0.88, 0.07, 0.37];
+                const sapphire = [0.06, 0.32, 0.73];
+                const amethyst = [0.60, 0.40, 0.80];
+                this.colors[idx] = ruby[0] * (1 - huePick) + sapphire[0] * huePick;
+                this.colors[idx + 1] = ruby[1] * (1 - huePick) + amethyst[1] * huePick * huePick;
+                this.colors[idx + 2] = ruby[2] * (1 - huePick) + amethyst[2] * huePick;
+                this.colors[idx + 3] = 0.85;
+                break;
+            }
         }
     }
     
@@ -213,6 +235,17 @@ export class CPUParticleSystem {
             case 'sparks':
                 finalColor = vec3(1.0, 0.9, 0.5);
                 break;
+            case 'gem_sparks':
+                material.colorNode = Fn(() => {
+                    const jewelRuby = color(0xE0115F);
+                    const jewelSapphire = color(0x0F52BA);
+                    const jewelAmethyst = color(0x9966CC);
+                    const baseJewel = mix(jewelRuby, mix(jewelSapphire, jewelAmethyst, float(0.5)));
+                    const musicTint = mix(baseJewel, gemCanopyNoteColorNode, BiomeUniforms.gemCanopy.shimmer);
+                    const beatBoost = uAudioHigh.mul(0.5).add(1.0);
+                    return musicTint.mul(beatBoost);
+                })();
+                return material;
             default:
                 finalColor = vec3(1.0, 1.0, 1.0);
         }
@@ -230,6 +263,7 @@ export class CPUParticleSystem {
         const now = Date.now();
         const timeOffsetFirefly = Math.cos(now * 0.001);
         const timeOffsetPollen = now * 0.0005;
+        const timeSec = now * 0.001;
 
         // Update each particle
         for (let i = 0; i < this.count; i++) {
@@ -258,6 +292,9 @@ export class CPUParticleSystem {
                         break;
                     case 'sparks':
                         this.updateSpark(i, deltaTime);
+                        break;
+                    case 'gem_sparks':
+                        this.updateGemSpark(i, deltaTime, audioData, timeSec);
                         break;
                 }
             }
@@ -432,6 +469,42 @@ export class CPUParticleSystem {
         }
     }
     
+    private wrapAxis(pos: number, center: number, extent: number): number {
+        const half = extent * 0.5;
+        let rel = pos - center;
+        if (rel > half) rel -= extent;
+        else if (rel < -half) rel += extent;
+        return center + rel;
+    }
+
+    private updateGemSpark(i: number, deltaTime: number, audioData: ParticleAudioData, timeSec: number): void {
+        const idx = i * 3;
+        const seed = this.seeds[i];
+
+        // Simplified curl-noise drift (visually consistent with GPU path)
+        const noiseX = Math.sin(this.positions[idx] * 0.12 + timeSec * 0.11 + seed) * 0.35;
+        const noiseY = Math.sin(this.positions[idx + 1] * 0.12 + timeSec * 0.07 + seed * 1.3) * 0.2;
+        const noiseZ = Math.sin(this.positions[idx + 2] * 0.12 + timeSec * 0.09 + seed * 0.7) * 0.35;
+        const bobY = Math.sin(timeSec * 0.85 + seed) * 0.14;
+        const audioLift = (audioData.high || 0) * 0.25;
+
+        this.velocities[idx] += (noiseX * 0.55) * deltaTime;
+        this.velocities[idx + 1] += (noiseY * 0.08 + bobY * 0.08 + audioLift) * deltaTime;
+        this.velocities[idx + 2] += (noiseZ * 0.55) * deltaTime;
+
+        this.velocities[idx] *= 0.92;
+        this.velocities[idx + 1] *= 0.92;
+        this.velocities[idx + 2] *= 0.92;
+
+        this.positions[idx] += this.velocities[idx] * deltaTime;
+        this.positions[idx + 1] += this.velocities[idx + 1] * deltaTime;
+        this.positions[idx + 2] += this.velocities[idx + 2] * deltaTime;
+
+        this.positions[idx] = this.wrapAxis(this.positions[idx], this.center.x, this.bounds.x);
+        this.positions[idx + 1] = this.wrapAxis(this.positions[idx + 1], this.center.y, this.bounds.y);
+        this.positions[idx + 2] = this.wrapAxis(this.positions[idx + 2], this.center.z, this.bounds.z);
+    }
+
     private updateSpark(i: number, deltaTime: number): void {
         const idx = i * 3;
         

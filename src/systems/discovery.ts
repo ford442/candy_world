@@ -186,7 +186,13 @@ class DiscoverySystem {
         grid.style.marginTop = '20px';
 
         let count = 0;
-        for (const [id, info] of Object.entries(DISCOVERY_MAP)) {
+        let totalItems = 0;
+
+        // ⚡ OPTIMIZATION: Bypassed Object.entries() and Object.keys() to prevent GC spikes
+        for (const id in DISCOVERY_MAP) {
+            const info = DISCOVERY_MAP[id];
+            totalItems++;
+
             const itemDiv = document.createElement('div');
             itemDiv.style.padding = '10px';
             itemDiv.style.borderRadius = '10px';
@@ -206,7 +212,7 @@ class DiscoverySystem {
         }
 
         const subtitle = document.createElement('p');
-        subtitle.innerText = `Found ${count} of ${Object.keys(DISCOVERY_MAP).length} rare species`;
+        subtitle.innerText = `Found ${count} of ${totalItems} rare species`;
         subtitle.style.textAlign = 'center';
         subtitle.style.color = '#ff69b4';
         subtitle.style.fontWeight = 'bold';

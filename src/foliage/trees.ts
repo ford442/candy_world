@@ -107,8 +107,11 @@ export function createFloweringTree(options: TreeOptions = {}): THREE.Group {
     trunk.castShadow = true;
     group.add(trunk);
 
-    const bloomMat = createClayMaterial(color);
-    enhanceWithFloralJuice(bloomMat);
+    const bloomMat = getCachedProceduralMaterial(`flowering_tree_bloom_${color}`, color, () => {
+        const mat = createClayMaterial(color);
+        enhanceWithFloralJuice(mat);
+        return mat;
+    });
     registerReactiveMaterial(bloomMat);
 
     const bloomCount = 3 + Math.floor(Math.random() * 3);
@@ -179,8 +182,11 @@ export function createShrub(options: ShrubOptions = {}): THREE.Group {
     base.castShadow = true;
     group.add(base);
 
-    const flowerMat = createClayMaterial(0xFF69B4);
-    enhanceWithFloralJuice(flowerMat);
+    const flowerMat = getCachedProceduralMaterial(`shrub_flower`, 0xFF69B4, () => {
+        const mat = createClayMaterial(0xFF69B4);
+        enhanceWithFloralJuice(mat);
+        return mat;
+    });
     registerReactiveMaterial(flowerMat);
 
     const flowerCount = 2 + Math.floor(Math.random() * 2);
@@ -282,7 +288,11 @@ export function createBubbleWillow(options: BubbleWillowOptions = {}): THREE.Gro
     group.add(trunk);
 
     const branchCount = 4 + Math.floor(Math.random() * 2);
-    const branchMat = createClayMaterial(color);
+    const branchMat = getCachedProceduralMaterial(`bubble_willow_branch_${color}`, color, () => {
+        const mat = createClayMaterial(color);
+        enhanceWithFloralJuice(mat);
+        return mat;
+    });
     registerReactiveMaterial(branchMat);
 
     for (let i = 0; i < branchCount; i++) {
@@ -342,7 +352,11 @@ export function createHelixPlant(options: HelixPlantOptions = {}): THREE.Group {
 
     const path = new SpiralCurve(1.0 + Math.random() * 0.5);
     const tubeGeo = new THREE.TubeGeometry(path, 20, 0.08, 8, false);
-    const mat = createClayMaterial(color);
+    const mat = getCachedProceduralMaterial(`helix_plant_${color}`, color, () => {
+        const m = createClayMaterial(color);
+        enhanceWithFloralJuice(m);
+        return m;
+    });
     registerReactiveMaterial(mat);
 
     const mesh = new THREE.Mesh(tubeGeo, mat);
@@ -379,7 +393,11 @@ export function createBalloonBush(options: BalloonBushOptions = {}): THREE.Group
     const group = new THREE.Group();
 
     const sphereCount = 5 + Math.floor(Math.random() * 5);
-    const mat = createClayMaterial(color);
+    const mat = getCachedProceduralMaterial(`balloon_bush_${color}`, color, () => {
+        const m = createClayMaterial(color);
+        enhanceWithFloralJuice(m);
+        return m;
+    });
     registerReactiveMaterial(mat);
 
     for (let i = 0; i < sphereCount; i++) {

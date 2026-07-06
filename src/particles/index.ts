@@ -16,6 +16,7 @@ export type {
     BerryConfig,
     RainConfig,
     SparkConfig,
+    GemSparkConfig,
     ComputeSystemCollection
 } from './compute-particles-types.ts';
 
@@ -37,6 +38,7 @@ export {
     createComputeBerries,
     createComputeRain,
     createComputeSparks,
+    createComputeGemSparks,
     initComputeParticleSystems,
     addComputeSystem,
     removeComputeSystem,
@@ -55,6 +57,7 @@ export {
     createIntegratedSpores,
     createIntegratedSparks,
     createIntegratedBerries,
+    createIntegratedGemSparks,
     createIntegratedRain,
     updateAllIntegratedSystems,
     registerIntegratedSystem,

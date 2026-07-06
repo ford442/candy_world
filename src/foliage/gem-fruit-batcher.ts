@@ -2,8 +2,8 @@
 // One InstancedMesh draw call per jewel type; music-driven via gem_canopy biome uniforms.
 
 import * as THREE from 'three';
-import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
+import { MeshStandardNodeMaterial } from 'three/webgpu';
 import {
     color, float, vec3, positionLocal, sin, cos, mix, attribute, smoothstep
 } from 'three/tsl';
@@ -17,7 +17,9 @@ import {
 import { registerReactiveMaterial } from './foliage-reactivity.ts';
 import { foliageGroup } from '../world/state.ts';
 import { getBiomeUniforms, gemCanopyNoteColorNode, type BiomeId } from '../systems/biome-uniforms.ts';
+import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { getCIAdjustedCount } from '../core/config.ts';
+import type { BatcherInstanceRef } from '../systems/awakened-persistence.ts';
 
 const GEM_BIOME: BiomeId = 'gem_canopy';
 const gemUniforms = getBiomeUniforms(GEM_BIOME);
@@ -60,6 +62,8 @@ function createGemMaterial(baseHex: number): MeshStandardNodeMaterial {
 
     const aPhase = attribute('aPhase', 'float');
     const aArmLen = attribute('aArmLen', 'float');
+    const aAwakened = attribute('aAwakened', 'float');
+    const aEmissiveScale = attribute('aEmissiveScale', 'float');
 
     const baseColor = color(baseHex);
     // Music Impact: gems inherit noteColor from the bound tracker channel via gemUniforms.noteColor.
@@ -100,7 +104,8 @@ function createGemMaterial(baseHex: number): MeshStandardNodeMaterial {
         float(3.0),                                   // Visual Impact: rim falloff
         null
     );
-    mat.emissiveNode = musicTint.mul(shimmerGlow.add(beatPulse)).add(rim.mul(0.7));
+    mat.emissiveNode = musicTint.mul(shimmerGlow.add(beatPulse)).add(rim.mul(0.7))
+        .add(musicTint.mul(aAwakened.mul(aEmissiveScale).mul(0.45)));
 
     registerReactiveMaterial(mat);
     return mat;
@@ -141,8 +146,12 @@ export class GemFruitBatcher {
 
             const phaseArray = new Float32Array(MAX_GEMS_PER_TYPE);
             const armArray = new Float32Array(MAX_GEMS_PER_TYPE);
+            const awakenedArray = new Float32Array(MAX_GEMS_PER_TYPE);
+            const emissiveArray = new Float32Array(MAX_GEMS_PER_TYPE);
             mesh.geometry.setAttribute('aPhase', new THREE.InstancedBufferAttribute(phaseArray, 1));
             mesh.geometry.setAttribute('aArmLen', new THREE.InstancedBufferAttribute(armArray, 1));
+            mesh.geometry.setAttribute('aAwakened', new THREE.InstancedBufferAttribute(awakenedArray, 1));
+            mesh.geometry.setAttribute('aEmissiveScale', new THREE.InstancedBufferAttribute(emissiveArray, 1));
 
             mesh.userData.gemType = t;
             this.meshes.push(mesh);
@@ -159,13 +168,14 @@ export class GemFruitBatcher {
     attachToTree(
         treeGroup: THREE.Object3D,
         options: { height?: number; gemCount?: number } = {}
-    ): number {
+    ): { placed: number; refs: BatcherInstanceRef[] } {
         treeGroup.updateWorldMatrix(true, true);
         const treeScale = treeGroup.scale.y || 1;
         const height = (options.height ?? 4.0) * treeScale;
         const targetGems = options.gemCount ?? (5 + Math.floor(Math.random() * 4));
         const branchCount = Math.max(4, Math.min(7, Math.floor(targetGems / 1.5)));
         let placed = 0;
+        const refs: BatcherInstanceRef[] = [];
 
         for (let b = 0; b < branchCount && placed < targetGems; b++) {
             const angle = (b / branchCount) * Math.PI * 2 + Math.random() * 0.4;
@@ -191,42 +201,71 @@ export class GemFruitBatcher {
 
                 this._scratchMatrix.compose(this._scratchPos, this._scratchQuat, this._scratchScale);
 
-                if (this._registerInstance(gemType, this._scratchMatrix, drop + 0.2)) {
+                const instanceIndex = this._registerInstance(gemType, this._scratchMatrix, drop + 0.2);
+                if (instanceIndex >= 0) {
                     placed++;
+                    refs.push({ batcher: 'gem_fruit', instanceIndex, gemType });
                 }
             }
         }
-        return placed;
+        return { placed, refs };
     }
 
-    private _registerInstance(type: GemTypeIndex, matrix: THREE.Matrix4, armLen: number): boolean {
+    setAwakened(gemType: number, instanceIndex: number, emissiveScale: number): void {
+        const mesh = this.meshes[gemType];
+        if (!mesh || instanceIndex < 0 || instanceIndex >= this._counts[gemType]) return;
+        const awakenedAttr = mesh.geometry.getAttribute('aAwakened') as THREE.InstancedBufferAttribute;
+        const emissiveAttr = mesh.geometry.getAttribute('aEmissiveScale') as THREE.InstancedBufferAttribute;
+        awakenedAttr.setX(instanceIndex, 1);
+        emissiveAttr.setX(instanceIndex, emissiveScale);
+        awakenedAttr.needsUpdate = true;
+        emissiveAttr.needsUpdate = true;
+    }
+
+    private _registerInstance(type: GemTypeIndex, matrix: THREE.Matrix4, armLen: number): number {
         const mesh = this.meshes[type];
         const idx = this._counts[type];
         if (idx >= MAX_GEMS_PER_TYPE) {
             console.warn('[GemFruitBatcher] Max capacity reached for type', type);
-            return false;
+            return -1;
         }
 
         matrix.toArray(mesh.instanceMatrix.array, idx * 16);
         const phaseAttr = mesh.geometry.getAttribute('aPhase') as THREE.InstancedBufferAttribute;
         const armAttr = mesh.geometry.getAttribute('aArmLen') as THREE.InstancedBufferAttribute;
+        const awakenedAttr = mesh.geometry.getAttribute('aAwakened') as THREE.InstancedBufferAttribute;
+        const emissiveAttr = mesh.geometry.getAttribute('aEmissiveScale') as THREE.InstancedBufferAttribute;
         phaseAttr.setX(idx, Math.random() * Math.PI * 2);
         armAttr.setX(idx, armLen);
+        awakenedAttr.setX(idx, 0);
+        emissiveAttr.setX(idx, 0);
 
         this._counts[type] = idx + 1;
         mesh.count = idx + 1;
         mesh.instanceMatrix.needsUpdate = true;
         phaseAttr.needsUpdate = true;
         armAttr.needsUpdate = true;
-        return true;
+        return idx;
     }
 
     dispose(): void {
         for (let t = 0; t < this.meshes.length; t++) {
             const mesh = this.meshes[t];
-            safeRemoveAndDispose(foliageGroup as unknown as THREE.Scene, mesh);
+            if (mesh.geometry) {
+                mesh.geometry.dispose();
+                const phaseAttr = mesh.geometry.getAttribute('aPhase');
+                const armAttr = mesh.geometry.getAttribute('aArmLen');
+                if (phaseAttr && typeof (phaseAttr as { dispose?: () => void }).dispose === 'function') {
+                    try { (phaseAttr as { dispose: () => void }).dispose(); } catch { /* ignore */ }
+                }
+                if (armAttr && typeof (armAttr as { dispose?: () => void }).dispose === 'function') {
+                    try { (armAttr as { dispose: () => void }).dispose(); } catch { /* ignore */ }
+                }
+            }
+            // ⚡ OPTIMIZATION: Replaced manual removal with safeRemoveAndDispose to prevent VRAM leaks
+            safeRemoveAndDispose(foliageGroup, mesh);
         }
-        safeRemoveAndDispose(foliageGroup as unknown as THREE.Scene, this.group);
+        safeRemoveAndDispose(foliageGroup, this.group);
         if (_sharedGemGeo) {
             _sharedGemGeo.dispose();
             _sharedGemGeo = null;
