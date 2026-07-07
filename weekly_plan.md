@@ -1,20 +1,25 @@
 # candy_world — Weekly Plan
 
 ## Today's focus
-**2026-06-30 — USER IDEA (GitHub issue #1265): Player ground level, eye height & object alignment.**
-Foundational locomotion/collision hygiene — unify ground sampling so eye height is consistent across terrain +
-all static objects, and so batcher-placed instances (mushroom stems, rocks, tree roots) sit flush on the ground
-instead of clipping/floating. This is the freshest in-context user idea (Noah filed #1265 + #1266 on 2026-06-28),
-it carries a `bug` label (eye view drifts/snaps, players sink or hover near clusters), AND it is the hard
-prerequisite #1266 (walkable cloud platforms) explicitly blocks on. Picking the foundation before the feature.
-**Why now:** Gem Canopy (#1170) landed clean last week with all tests green — foundation is stable, so this is
-the moment to fix the locomotion quality issue that's been nagging and to unblock the next vertical-exploration
-feature. **Scope of the swarm:** audit where ground height is currently computed (scattered across
-game-loop / player / `physics.core.ts` `getUnifiedGroundHeightTyped` / `wasm-loader.js`), centralize/strengthen a
-unified ground query with terrain→object→platform priority, drive player foot + `eyeHeight` off it with smooth
-lerp, add a `?debugPlayer`/`?debugHeights` viz, and ensure batchers sample base-Y at spawn. Keep it kinematic
-raycast + capsule — NO physics engine, NO jumping/climbing, NO music/material changes. Audit-centralize-tune;
-the debug viz is the acceptance lever.
+**2026-07-07 — USER IDEA (grounding cluster: #1303 + #1302 + #1310): Make props actually sit on the terrain.**
+The visible follow-through on last week's #1265 (unified ground query, LANDED). #1265 gave us one authoritative
+`getGroundHeight()`; now the *props* need to consume it correctly. Three tightly-coupled user issues Noah filed
+2026-07-05 all live in `placement-utils.ts` / `ground-system.ts` / `ground-heightmap.ts`:
+- **#1303 — Calibrate `ENTITY_BASE_OFFSETS`.** Every entity type is currently `0`, so geometry authored with
+  pivots at stem base / cap underside / gem-attachment floats or clips. Measure + populate per-type offsets.
+- **#1302 — Slope-aware planting.** `plantOnSurface()` samples a single Y and keeps objects world-up; on slopes
+  bases float/bury. We already bake terrain normals in `ground-heightmap.ts` but placement never reads them.
+  Add `sampleGroundNormal()`, tilt to surface normal (cap ~25°), per-type opt-in, baked into instance matrix.
+- **#1310 — Multi-point footprint sampling** for wide props (tree canopies, rock clusters): sample 3–5 footprint
+  points, derive placement Y from min/avg, keep single-point fast path for flowers/gems.
+**Why now:** #1265 just unified the query and #1266 walkable clouds landed — this is the moment to cash in that
+foundation so the candy forest reads as rooted, not stickered. All three share the same 2–3 files and the same
+`?debugHeights=1` acceptance viz, so they're one coherent swarm, not three.
+**Scope of the swarm:** ONLY `placement-utils.ts`, `ground-system.ts`, `ground-heightmap.ts`,
+`generation-core.ts`, `generation-decorators.ts`, `debug/ground-debug.ts`, and batcher *spawn* paths that set Y.
+Keep new tuning constants in `placement-utils.ts` (NOT `config.ts` — reserved for the decoupled Copilot shadow
+work). NO player/eye/camera changes (owned & DONE by #1265 — scope-guarded away), NO physics engine, NO music /
+material / render-loop changes. `?debugHeights=1` footprint rings + normal arrows are the acceptance lever.
 
 ## Ideas
 <!--
@@ -28,9 +33,21 @@ Routine will mark picked items as "[in progress — YYYY-MM-DD]".
 <!-- Completed ideas archived to Done below (2026-05-19 sky→foliage propagation, 2026-05-26 channel-to-biome completeness, 2026-05-30 sky-wave→plant-pose, TSL/VRAM audit). -->
 - [ ] **Day/night plant behaviour** *(promoted to Copilot issue 2026-06-02)* — Plants physically open/glow by day, close/dim at night driven by the day/night cycle, not just music-channel intensity. Builds on `plant-pose-machine.ts`. Landed for `SimpleFlowerBatcher` (commit 99fcbad, #1208) — verify coverage across remaining batchers, then close.
 
-**User idea pool — GitHub issues filed 2026-06-28 (Noah's freshest in-context backlog — vertical-exploration arc):**
-- [x] **#1265 Player ground level, eye height & object alignment** — unify ground sampling; consistent eye height across terrain+objects; batcher base-Y at spawn; `?debugPlayer` viz. `bug`+`enhancement`. Hard prerequisite for #1266. `[landed — 2026-06-30]` ← today's focus
-- [x] **#1266 Walkable cloud blocks / platforms** — placeable solid candy-cloud surfaces the player can stand on; instanced, music-reactive glow, map.json persistence.
+**User idea pool — GitHub issues filed 2026-07-05 (Noah's FRESHEST in-context backlog — spatial-coherence / grounding polish arc, all building on #1265):**
+- [ ] **#1303 Calibrate `ENTITY_BASE_OFFSETS`** — per-type offsets so visual contact point sits flush (all `0` today). `[in progress — 2026-07-07]` ← today's focus (kimi-cli, w/ #1302 + #1310)
+- [ ] **#1302 Slope-aware planting via terrain normals** — tilt props to surface normal, cap ~25°, per-type opt-in. `[in progress — 2026-07-07]` ← today's focus
+- [ ] **#1310 Multi-point footprint sampling for wide props** — 3–5 footprint points, min/avg placement Y, tilt. `[in progress — 2026-07-07]` ← today's focus
+- [ ] **#1306 Directional shadow camera follow + contact shadows** — tight ortho bounds, player-follow, contact shadows sell grounding. ← **decoupled Copilot target today** (rendering/lighting only — collision-free with grounding cluster)
+- [ ] **#1309 TSL ground-contact darkening (base AO)** — shader-side grounding complement; smoothstep base darkening in batcher color graphs.
+- [ ] **#1304 Aerial perspective** — distance-based desaturation in foliage TSL; recede into atmosphere.
+- [ ] **#1305 Fog depth curve** — derive near/far from FOV + terrain extent; extend beyond 100u.
+- [ ] **#1307 LOD tier boundary blend polish** — kill mid→far impostor pop (follow-up to #1174).
+- [ ] **#1308 Biome scale consistency** — canonical per-type scale table; kill 2× adjacent size jumps.
+- [ ] **#1311 Spatial coherence visual regression viewpoints** — slope_foot / lake_edge / horizon_lod captures; guards the whole arc in CI. Fully decoupled (tools/ + workflows only).
+
+**User idea pool — GitHub issues filed 2026-06-28 (vertical-exploration arc — COMPLETE):**
+- [x] **#1265 Player ground level, eye height & object alignment** — unify ground sampling; consistent eye height across terrain+objects; batcher base-Y at spawn; `?debugPlayer` viz. `[landed — 2026-07-01, follow-up crash fixed #1286]`
+- [x] **#1266 Walkable cloud blocks / platforms** — placeable solid candy-cloud surfaces the player can stand on; instanced, music-reactive glow, map.json persistence. `[landed — 2026-07-05]`
 
 **User idea pool — GitHub issues filed 2026-06-09 (Noah's in-context backlog, primary source this phase):**
 - [x] **#1169 Music-Reactive Atmosphere Bridge** — audio → bloom/fog/light-shafts. `[in progress — 2026-06-16]` ← today's focus
@@ -74,12 +91,19 @@ Routine maintains this automatically — you can add items too.
 - [ ] **#1249 — Candy Material Cookbook v2 (docs de-drift + enrich)** — docs-only, fully decoupled from runtime/foliage work; fixes verified broken `uTwilight` import path, reconciles 3 contradictory position-node orderings, documents all 7 `CandyPresets`, adds LUT/r32float/circadian gotchas, + one preset-coverage guard script. **Today's Copilot prep target** (collision-free with #1265). Open since 2026-06-24.
 - [ ] **Issue-hygiene: close landed-but-OPEN issues** — #1170 (Gem Canopy, landed 2026-06-24), #1173 (god rays, #1241), #1182 + #1176 (awakened flora v1, #1232) all still show OPEN on GitHub despite landing. Verify on live site, then close to stop them re-surfacing as "unfinished."
 - [ ] **Open draft PRs (Jules, decoupled — review/merge independently):** #1275 Bolt LOD matrix-array bypass (perf, `O(N)` decompose elimination); #1274 Aria Jukebox upload screen-reader announcements + `announce` import fix; #1273 Palette Jukebox a11y focus-trap polish (overlaps #1274 — check before merging both); #1255 Palette HUD ability-button interaction/glow/ARIA polish.
+- [ ] **Open draft PRs (Jules, NEW this week — review/merge independently):** #1319 Palette TSL rim light + wind sway on Fiber Optic Willow (eliminates a `.clone()` in a hot loop — verify no WebGPU crash); #1318 Aria now-playing/toast `aria-live` regions (index.html only); #1317 Architect "fix DisplayP3ColorSpace enum regression" — **VERIFY BEFORE MERGE: main's `init.ts` already uses the safe `(THREE as any).DisplayP3ColorSpace || 'display-p3'` + `THREE.SRGBColorSpace` defensive pattern (lines 183/186/192), so the "build-breaking regression" this PR claims is NOT live on HEAD. PR likely branched from a bad intermediate state. Close as redundant or confirm it's a genuine no-op cleanup.**
+- [x] **#1265 Player ground/eye alignment + #1266 Walkable cloud platforms — BOTH LANDED** (see Done 2026-07-07). Follow-up crash in game-loop/cloud-batcher fixed & merged (#1286). Unified authoritative ground sampling consolidated (#1292).
+- [ ] **Spatial-coherence / grounding polish arc (#1302–#1311, filed 2026-07-05)** — Noah's fresh in-context pool, all extending #1265. Grounding cluster (#1303/#1302/#1310) is today's kimi-cli focus; #1306 is today's decoupled Copilot target. Remaining (#1304/#1305/#1307/#1308/#1309/#1311) queued as future foci — see Ideas.
+- [ ] **#1281 — Audio-reactive sparkle/mote field for Gem Canopy** — last week's Copilot prep target; issue is fully expanded (3-model review, verified file:line refs) but NOT yet built (no `gem_sparks` in tree). Ready-to-go Copilot task whenever; decoupled from grounding work (particles + music-binding only).
+- [ ] **Issue-hygiene: verify #1265/#1266 closed on GitHub** (both absent from open list — likely already closed; confirm). Prior landed-but-open set (#1170/#1173/#1182/#1176) — recheck & close if still open.
 
 ## Done
 <!--
 Completed items, routine archives here with date.
 Prune occasionally when this gets long.
 -->
+- [x] **2026-07-07** 🧍 PLAYER GROUND / EYE ALIGNMENT (#1265) LANDED — unified authoritative ground query, consistent eye height across terrain + static objects, batcher base-Y at spawn, `?debugPlayer`/`?debugHeights` viz. Consolidated further in #1292 (unified authoritative ground sampling queries). Follow-up `undefined visible` crash in `game-loop.ts` + cloud-batcher pseudo-code cleanup fixed & merged (#1286). Was last week's focus — DONE.
+- [x] **2026-07-07** ☁️ WALKABLE CLOUD PLATFORMS (#1266) LANDED (#1314) — placeable solid candy-cloud surfaces the player can stand on; instanced, music-reactive glow, map.json persistence. The vertical-exploration feature #1265 unblocked. (Introduced the crash later fixed by #1286.)
 - [x] **2026-06-24** 📚 CANDY MATERIAL COOKBOOK + GROK.MD ONBOARDING (#1175) — Added Foliage-Specific Patterns, Common Gotchas, and Performance Notes to the material cookbook; updated grok.md references.
 - [x] **2026-06-24** **#1170 Gem Canopy scenic biome landed** — procedural corridor of 24+ bubble-willow trees with hanging faceted crystal gem fruits (ruby/sapphire/amethyst). `GemFruitBatcher` creates one `InstancedMesh` per jewel type (3 draw calls), consumes `BiomeUniforms.gemCanopy` for shimmer/hueShift/noteColor reactivity, and receives the `sky_wave` moon-melody cascade. Capacity tuned to `getCIAdjustedCount(512, 0.1, 80)` to eliminate CI overflow warnings. Build/test green: `npm run build:ci`, `npm run test:wasm`, `npm run test`, `FULL_BOOT=fast npm run test`, and `RENDERER=webgl npm run test` all pass. Docs updated: `docs/GEM_CANOPY_SHIP.md` + `docs/MUSIC_MAP_BINDING.md`.
 - [x] **2026-06-23** 🎵 MUSIC-REACTIVE ATMOSPHERE BRIDGE (#1169) LANDED — `src/systems/atmosphere-reactivity.ts` (new, zero-alloc) maps kick/bass→`uBloomStrength` (1.0→2.5), mix energy→`uCrescendoFogDensity` (cap 0.85), melody→`uShaftOpacity` + re-enabled frustum-gated golden-hour & night moonbeam shafts in `game-loop.ts`, BeatSync downbeats→bloom/shaft shimmer; `atmosphere` block added to music-bindings.json; WebGL opacity parity via `lightShaftGroup.userData.shaftMaterial`. Wired in #1221; build:ci + test:wasm + smoke `__sceneReady` green (per `.swarm-state.md`). Last week's focus — DONE.
@@ -119,6 +143,12 @@ Prune occasionally when this gets long.
 
 ## Last run
 <!-- Routine writes summary here each run. Overwrites previous. -->
+Date: 2026-07-07
+Mode: USER IDEA — no Fix First trigger. Last week's focus #1265 (player ground/eye alignment) LANDED, #1266 walkable clouds LANDED, and the one follow-up crash (#1286, cloud-batcher/game-loop `undefined visible`) is already fixed & merged — foundation stable. Checked the one live Fix-First candidate: Jules PR #1317 claims a build-breaking `DisplayP3ColorSpace` enum regression, but HEAD `init.ts` already uses the safe `(THREE as any).X || 'string'` defensive pattern (three@0.171 exports `SRGBColorSpace`), so main is NOT broken — flagged the PR for verify/close, not a Fix First. Picked Noah's freshest in-context pool: the spatial-coherence/grounding arc (#1302–#1311) he filed 2026-07-05, directly extending #1265.
+Focus: Grounding cluster #1303 + #1302 + #1310 — cash in #1265's unified query so props actually sit on terrain. kimi-cli: calibrate `ENTITY_BASE_OFFSETS` (all 0 today), slope-aware planting via baked terrain normals (`sampleGroundNormal`, ~25° cap), multi-point footprint sampling for wide props; `?debugHeights=1` rings/arrows as acceptance. Scope-guarded to placement/ground/generation files ONLY — no player/eye/camera (DONE by #1265), no config.ts (reserved for Copilot shadow work). Copilot prep (decoupled): #1306 directional shadow camera follow + contact shadows (init.ts + game-loop render section + CONFIG.lighting.shadows — collision-free with grounding cluster; thematically completes grounding via contact shadows). Claude Code: full-stack build → deploy dry-run → verify first known-good release tag (#1134 tooling exists).
+Outcome: <!-- fill in at end of day after kimi-cli loop -->
+Context gap: No recent_chats / conversation_search in this environment — reconstruction from git history, open issues/PRs, weekly_plan.md only. Could not confirm live-site behaviour (deploy state, in-world severity of prop float/clip, #702 auto-scroll). #1281 gem-sparkle Copilot task from last week still OPEN & unbuilt. Did not run the full build to confirm green (kimi-cli/Jules will).
+
 Date: 2026-06-30
 Mode: USER IDEA — no Fix First trigger (last week's #1170 Gem Canopy LANDED clean, all tests green, 24 trees spawning). Picked the freshest in-context user idea: GitHub issue #1265 (filed 2026-06-28 alongside #1266). #1265 is `bug`-tagged (eye-height drift, player sink/hover near clusters) and is the hard prerequisite #1266 (walkable cloud platforms) blocks on — foundation before feature.
 Focus: #1265 Player ground level / eye height / object alignment. kimi-cli: audit scattered ground-height computation (game-loop / player / `physics.core.ts getUnifiedGroundHeightTyped` / `wasm-loader.js`), centralize a unified ground query (terrain→object→platform priority), drive player foot + eyeHeight off it with smooth lerp, add `?debugPlayer`/`?debugHeights` viz, ensure batchers sample base-Y at spawn. Kinematic raycast + capsule only — NO physics engine / jumping / music / material changes. Copilot prep (decoupled from player/ground files): NEW issue — audio-reactive ambient sparkle/mote field for the Gem Canopy corridor (new particle module + music binding, builds on last week's landing). Claude Code: full-stack build → deploy dry-run → cut first known-good release tag (#1134 tooling exists).
