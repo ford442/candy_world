@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { foliageMaterials, registerReactiveMaterial, attachReactivity, pickAnimation, createClayMaterial, createGradientMaterial, sharedGeometries, uAudioLow, uWindSpeed, calculatePlayerPush, createStandardNodeMaterial, createJuicyRimLight, getCachedProceduralMaterial, calculateWindSway, applyPlayerInteraction, applyStandardDeformation } from './index.ts';
-import { color as tslColor, mix, float, sin, cos, vec3, positionLocal, positionWorld, time, normalWorld } from 'three/tsl';
+import { foliageMaterials, registerReactiveMaterial, attachReactivity, pickAnimation, createClayMaterial, createGradientMaterial, sharedGeometries, uAudioLow, uAudioHigh, uWindSpeed, calculatePlayerPush, createStandardNodeMaterial, createJuicyRimLight, getCachedProceduralMaterial, calculateWindSway, applyPlayerInteraction, applyStandardDeformation } from './index.ts';
+import { color as tslColor, mix, float, sin, cos, vec3, positionLocal, positionWorld, time, normalWorld, normalLocal } from 'three/tsl';
 import { uTwilight } from './sky.ts';
 import { createBerryCluster } from './berries.ts';
 import { FoliageObject } from './types.ts';
@@ -498,13 +498,25 @@ export function createFiberOpticWillow(options: FiberOpticWillowOptions = {}): T
     group.add(trunk);
 
     const branchCount = 8;
-    const cableMat = foliageMaterials.opticCable;
-    const tipMat = foliageMaterials.opticTip.clone() as THREE.MeshStandardNodeMaterial;
 
-    const baseEmissive = tslColor(color).mul(0.8);
-    const twilightBoost = baseEmissive.mul(uTwilight).mul(2.0);
-    tipMat.emissiveNode = baseEmissive.add(twilightBoost);
+    const cableMat = getCachedProceduralMaterial('optic_cable_willow', 0x111111, () => {
+        const m = createClayMaterial(0x111111);
+        m.roughness = 0.4;
+        m.positionNode = applyStandardDeformation(positionLocal);
+        m.emissiveNode = (m.emissiveNode || tslColor(0x000000)).add(createJuicyRimLight(tslColor(0x222222), float(1.0).add(uAudioLow.mul(0.5)), float(3.0), normalLocal));
+        return m;
+    });
+    registerReactiveMaterial(cableMat);
 
+    const tipMat = getCachedProceduralMaterial(`optic_tip_willow_${color}`, color, () => {
+        const m = createStandardNodeMaterial({ color: 0xFFFFFF, roughness: 0.2 });
+        const baseEmissive = tslColor(color).mul(0.8);
+        const twilightBoost = baseEmissive.mul(uTwilight).mul(2.0);
+        const rimLight = createJuicyRimLight(tslColor(color), float(2.0).add(uAudioHigh.mul(2.0)), float(2.0), normalLocal);
+        m.emissiveNode = baseEmissive.add(twilightBoost).add(rimLight);
+        m.positionNode = applyStandardDeformation(positionLocal);
+        return m;
+    });
     registerReactiveMaterial(tipMat);
 
     for (let i = 0; i < branchCount; i++) {
