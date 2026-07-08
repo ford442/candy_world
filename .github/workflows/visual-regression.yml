@@ -64,11 +64,8 @@ jobs:
         run: |
           cd tools/visual-regression
           pnpm run test:visual -- \
-            --url "http://localhost:5173/?renderer=webgl&webglLite=1" \
-            --viewpoints spawn,lake,forest,night,particles,weather,sunset,slope_foot,lake_edge,horizon_lod,gem_corridor_scale \
-            --qualities medium,high \
-            --threshold 0.05 \
-            --seed 42
+            --config ci.config.json \
+            --threshold 0.05
 
       - name: Upload test results
         if: always()
@@ -168,10 +165,7 @@ jobs:
         run: |
           cd tools/visual-regression
           pnpm run test:visual -- \
-            --url "http://localhost:5173/?renderer=webgl&webglLite=1" \
-            --viewpoints spawn,lake,forest,night,particles,weather,sunset,slope_foot,lake_edge,horizon_lod,gem_corridor_scale \
-            --qualities medium,high \
-            --seed 42 \
+            --config ci.config.json \
             --update
 
       - name: Configure Git

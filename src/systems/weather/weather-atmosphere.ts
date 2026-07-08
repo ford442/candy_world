@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { WeatherState } from '../weather-types.ts';
 import { CYCLE_DURATION, DURATION_SUNRISE, DURATION_DAY, DURATION_SUNSET, DURATION_PRE_DAWN, CONFIG } from '../../core/config.ts';
 import { uSkyDarkness, uTwilight, uCrescendoFogDensity, uFogNear, uFogFar } from '../../foliage/sky.ts';
+import { syncFogTelemetryFromScene } from '../atmosphere-fog.ts';
 import { chargeBerries, shakeBerriesLoose, updateGlobalBerryScale } from '../../foliage/berries.ts';
 import type { VisualState } from '../../audio/audio-system.ts';
 import type { WeatherSystem } from './weather.ts';
@@ -106,7 +107,7 @@ export class AtmosphereManager {
     /**
      * Update fog based on weather state and audio
      */
-    updateFog(audioData: VisualState, state: WeatherState, intensity: number, darknessFactor: number, baseFogNear: number, baseFogFar: number, weatherType: string, fog: THREE.Fog | THREE.FogExp2 | null): void {
+    updateFog(audioData: VisualState, state: WeatherState, intensity: number, darknessFactor: number, baseFogNear: number, baseFogFar: number, weatherType: string, fog: THREE.Fog | THREE.FogExp2 | null, deltaTime = 0.016): void {
         if (!fog) return;
 
         let fogMultiplier = 1.0;
@@ -149,19 +150,23 @@ export class AtmosphereManager {
         const targetNear = (baseFogNear * nearModifier) * totalVisibility;
         const targetFar = baseFogFar * totalVisibility;
 
-        // Update TSL Fog Global Limits
+        const lerpK = 1.0 - Math.exp(-CONFIG.atmosphere.fog.lerpSpeed * deltaTime);
+
+        // Update TSL Fog Global Limits (WebGPU fogNode reads these)
         if (uFogNear && uFogFar) {
             const curNear = uFogNear.value as number;
             const curFar = uFogFar.value as number;
-            uFogNear.value = curNear + (targetNear - curNear) * 0.05;
-            uFogFar.value = curFar + (targetFar - curFar) * 0.05;
+            uFogNear.value = curNear + (targetNear - curNear) * lerpK;
+            uFogFar.value = curFar + (targetFar - curFar) * lerpK;
         }
 
-        // Keep standard THREE.Fog fallback updated
+        // Keep standard THREE.Fog fallback updated (WebGL path)
         if (fog instanceof THREE.Fog) {
-            fog.near += (targetNear - fog.near) * 0.05;
-            fog.far += (targetFar - fog.far) * 0.05;
+            fog.near += (targetNear - fog.near) * lerpK;
+            fog.far += (targetFar - fog.far) * lerpK;
         }
+
+        syncFogTelemetryFromScene(fog instanceof THREE.Fog ? fog : null);
     }
 
     /**

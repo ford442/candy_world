@@ -19,6 +19,7 @@ import type {
   BatchEntityRequest,
   BatchEntityResponse
 } from './worker-types';
+import { sampleEntityScale, sampleEntityHeight } from '../world/entity-scale.ts';
 
 // Worker state
 let wasmModule: WebAssembly.Module | null = null;
@@ -55,6 +56,23 @@ const MUSICAL_SUBTYPES = [
 
 // Tree subtypes
 const TREE_SUBTYPES = ['bubbleWillow', 'balloonBush', 'helixPlant'];
+
+const MUSICAL_ENTITY_TYPES: Record<string, string> = {
+  arpeggioFern: 'arpeggio_fern',
+  kickDrumGeyser: 'kick_drum_geyser',
+  snareTrap: 'snare_trap',
+  retriggerMushroom: 'retrigger_mushroom',
+  portamentoPine: 'portamento_pine',
+  tremoloTulip: 'tremolo_tulip',
+  cymbalDandelion: 'cymbal_dandelion',
+  vibratoViolet: 'vibrato_violet',
+};
+
+const TREE_ENTITY_TYPES: Record<string, string> = {
+  bubbleWillow: 'bubble_willow',
+  balloonBush: 'balloon_bush',
+  helixPlant: 'helix_plant',
+};
 
 /**
  * Initialize WASM for ground height calculations
@@ -213,7 +231,7 @@ function generateEntity(
     y: groundY,
     z,
     rotationY: Math.random() * Math.PI * 2,
-    scale: 0.8 + Math.random() * 0.5,
+    scale: sampleEntityScale(type === 'musical' ? 'flower' : type),
     radius: 0.5,
     isObstacle: false,
     variant: null
@@ -222,7 +240,7 @@ function generateEntity(
   // Type-specific customization
   switch (type) {
     case 'mushroom': {
-      entity.scale = 0.8 + Math.random() * 0.5;
+      entity.scale = sampleEntityScale('mushroom');
       entity.radius = 0.5;
       entity.isObstacle = true;
       entity.variant = {
@@ -234,25 +252,28 @@ function generateEntity(
     }
     
     case 'tree': {
-      entity.scale = 1.0 + Math.random() * 0.5;
+      const subtype = selectTreeSubtype();
+      const treeType = TREE_ENTITY_TYPES[subtype] ?? 'tree';
+      entity.scale = sampleEntityScale(treeType);
       entity.radius = 1.5;
       entity.isObstacle = true;
       entity.variant = {
-        subtype: selectTreeSubtype()
+        subtype
       };
       break;
     }
     
     case 'musical': {
       const subtype = selectMusicalSubtype();
+      const floraType = MUSICAL_ENTITY_TYPES[subtype] ?? 'flower';
       entity.variant = { subtype };
-      entity.scale = 0.8 + Math.random() * 0.4;
+      entity.scale = sampleEntityScale(floraType);
       
       // Subtype-specific properties
       switch (subtype) {
         case 'kickDrumGeyser':
           entity.radius = 1.0;
-          entity.variant.maxHeight = 5.0 + Math.random() * 3.0;
+          entity.variant.maxHeight = sampleEntityHeight('kick_drum_geyser');
           break;
         case 'snareTrap':
           entity.radius = 0.8;
@@ -261,7 +282,7 @@ function generateEntity(
         case 'portamentoPine':
           entity.radius = 0.5;
           entity.isObstacle = true;
-          entity.variant.height = 4.0 + Math.random() * 2.0;
+          entity.variant.height = sampleEntityHeight('portamento_pine');
           break;
         case 'retriggerMushroom':
           entity.variant.retriggerSpeed = 2 + Math.floor(Math.random() * 6);
@@ -291,7 +312,7 @@ function generateEntity(
     case 'shrine': {
       entity.radius = 1.0;
       entity.isObstacle = true;
-      entity.scale = 1.0 + Math.random() * 0.5;
+      entity.scale = sampleEntityScale('instrument_shrine');
       entity.variant = {
         instrumentId: Math.floor(Math.random() * 16)
       };

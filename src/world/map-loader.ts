@@ -101,6 +101,8 @@ export interface CandyMapEntity {
     music?: MapMusicHints;
     params?: Record<string, unknown>;
     placement?: 'ground' | 'absolute' | 'offset';
+    /** Optional Y offset from authoritative ground (overrides ENTITY_BASE_OFFSETS). */
+    baseOffset?: number;
     critical?: boolean;
     isObstacle?: boolean;
 }

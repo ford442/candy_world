@@ -11,6 +11,7 @@ import {
 } from './generation-utils.ts';
 import { create, registerBuiltinWorldObjectTypes } from './foliage-registry.ts';
 import { plantOnSurface, sampleGroundY } from './placement-utils.ts';
+import { sampleEntityScale, sampleEntityHeight, biomeNormalizedDistance } from './entity-scale.ts';
 
 registerBuiltinWorldObjectTypes();
 
@@ -43,7 +44,12 @@ async function populateArpeggioGrove(weatherSystem: WeatherSystem): Promise<void
         const fz = centerZ + Math.sin(angle) * fernRadius;
         const fy = sampleGroundY(fx, fz);
 
-        const fern = create('arpeggio_fern', { scale: 1.2 + Math.random() * 0.3 });
+        const fern = create('arpeggio_fern', {
+            scale: sampleEntityScale('arpeggio_fern', {
+                biome: 'arpeggio_grove',
+                normalizedDistance: biomeNormalizedDistance(centerX, centerZ, radius, fx, fz),
+            }),
+        });
         if (!fern) continue;
         plantOnSurface(fern, fx, fz, { groundY: fy });
         fern.rotation.y = angle + Math.PI; // Face outward or inward? Let's say outward
@@ -61,7 +67,7 @@ async function populateArpeggioGrove(weatherSystem: WeatherSystem): Promise<void
         const oy = sampleGroundY(ox, oz);
 
         if (i % 2 === 0) {
-            const geyser = create('kick_drum_geyser', { maxHeight: 5.0 + Math.random() * 2.0 });
+            const geyser = create('kick_drum_geyser', { maxHeight: sampleEntityHeight('kick_drum_geyser', { biome: 'arpeggio_grove' }) });
             if (!geyser) continue;
             plantOnSurface(geyser, ox, oz, { groundY: oy });
             geyser.rotation.y = angle;
@@ -134,7 +140,7 @@ function populateLakeIsland(weatherSystem: WeatherSystem): void {
         const gz = centerZ + Math.sin(angle) * geyserRadius;
         const gy = sampleGroundY(gx, gz);
 
-        const geyser = create('kick_drum_geyser', { maxHeight: 4.0 + Math.random() * 2.0 });
+        const geyser = create('kick_drum_geyser', { maxHeight: sampleEntityHeight('kick_drum_geyser') });
         if (!geyser) continue;
         plantOnSurface(geyser, gx, gz, { groundY: gy });
         geyser.rotation.y = angle + Math.PI; // Face outward
@@ -169,7 +175,12 @@ function populateLakeIsland(weatherSystem: WeatherSystem): void {
         const fz = centerZ + Math.sin(randAngle) * randRadius;
         const fy = sampleGroundY(fx, fz);
 
-        const fern = create('arpeggio_fern', { scale: 0.8 + Math.random() * 0.4 });
+        const fern = create('arpeggio_fern', {
+            scale: sampleEntityScale('arpeggio_fern', {
+                biome: 'arpeggio_grove',
+                normalizedDistance: biomeNormalizedDistance(centerX, centerZ, radius, fx, fz),
+            }),
+        });
         if (!fern) continue;
         plantOnSurface(fern, fx, fz, { groundY: fy });
         fern.rotation.y = Math.random() * Math.PI * 2;
@@ -187,7 +198,12 @@ function populateLakeIsland(weatherSystem: WeatherSystem): void {
 
         // Only place if we're still above water
         if (dy > 1.6) {
-            const dandelion = create('cymbal_dandelion', { scale: 0.7 + Math.random() * 0.3 });
+            const dandelion = create('cymbal_dandelion', {
+                scale: sampleEntityScale('cymbal_dandelion', {
+                    biome: 'lake_features',
+                    normalizedDistance: biomeNormalizedDistance(centerX, centerZ, radius, dx, dz),
+                }),
+            });
             if (!dandelion) continue;
             plantOnSurface(dandelion, dx, dz, { groundY: dy });
             dandelion.rotation.y = Math.random() * Math.PI * 2;

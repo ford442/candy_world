@@ -17,6 +17,7 @@ import {
 import { registerReactiveMaterial } from './foliage-reactivity.ts';
 import { foliageGroup } from '../world/state.ts';
 import { getBiomeUniforms, gemCanopyNoteColorNode, type BiomeId } from '../systems/biome-uniforms.ts';
+import { sampleEntityScale } from '../world/entity-scale.ts';
 import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { getCIAdjustedCount } from '../core/config.ts';
 import type { BatcherInstanceRef } from '../systems/awakened-persistence.ts';
@@ -195,7 +196,7 @@ export class GemFruitBatcher {
                 this._scratchPos.applyMatrix4(treeGroup.matrixWorld);
 
                 const gemType = (placed % 3) as GemTypeIndex;
-                const scale = 0.75 + Math.random() * 0.55;
+                const scale = sampleEntityScale('gem_fruit', { biome: 'gem_canopy' });
                 this._scratchScale.set(scale, scale * (1.1 + drop * 0.15), scale);
                 this._scratchQuat.setFromEuler(new THREE.Euler(0, angle + Math.random() * 0.5, Math.random() * 0.3));
 

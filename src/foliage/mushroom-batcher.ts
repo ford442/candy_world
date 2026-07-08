@@ -16,13 +16,15 @@ const modFloat = (x: any, y: any) => {
 import {
     sharedGeometries, foliageMaterials, uTime,
     uAudioLow, uAudioHigh, createRimLight, createJuicyRimLight, uPlayerPosition, colorFromNote,
-    createSugarSparkle, getCachedProceduralMaterial
+    createSugarSparkle, getCachedProceduralMaterial,
+    applyBaseContactAO, getBaseContactHeight,
 } from './index.ts';
 import {
     applyPlayerInteractionWithLod,
     calculateWindSwayWithLod,
     scaleEmissiveByLod,
-    applyStandardDeformationWithLod
+    applyStandardDeformationWithLod,
+    applyFoliageLodMaterialFade,
 } from './lod-nodes.ts';
 import { initInstanceLodAttribute } from './batcher-lod-utils.ts';
 import { registerFoliageBatcherLod } from '../systems/batcher-lod.ts';
@@ -32,6 +34,7 @@ import { foliageGroup } from '../world/state.ts'; // Assuming state.ts exports f
 import { spawnImpact } from './impacts.ts';
 import { uChromaticIntensity } from './chromatic.ts';
 import { CONFIG, getCIAdjustedCount } from '../core/config.ts';
+import { applyAerialPerspective, aerialPerspectiveLodBoost } from './aerial-perspective.ts';
 
 const MAX_MUSHROOMS = getCIAdjustedCount(1000, 0.1, 50); // Reduced from 4000 for WebGPU uniform buffer limits
 
@@ -551,6 +554,12 @@ export class MushroomBatcher {
             const m = (foliageMaterials.mushroomStem as MeshStandardNodeMaterial).clone();
             const defPos = deform(positionLocal);
             m.positionNode = applyStandardDeformationWithLod(defPos);
+            m.colorNode = applyBaseContactAO(
+                color(0xF5F5DC),
+                positionLocal.y,
+                float(getBaseContactHeight('mushroom')),
+            );
+            applyFoliageLodMaterialFade(m);
             return m;
         }) as MeshStandardNodeMaterial;
 
@@ -562,6 +571,7 @@ export class MushroomBatcher {
             const m = capList[0].clone();
             const defPos = deform(positionLocal);
             m.positionNode = applyStandardDeformationWithLod(defPos);
+            applyFoliageLodMaterialFade(m);
             return m;
         }) as MeshStandardNodeMaterial;
 
@@ -592,8 +602,9 @@ export class MushroomBatcher {
         // Warm/Pink tint for the inner light
         const innerGlowColor = mix(baseColor, color(0xFFDDDD), 0.5).mul(innerGlowFactor);
 
-        // Final Color: Base + Rim + Inner Glow
-        capMat.colorNode = baseColor.add(rimLight).add(innerGlowColor);
+        // Final Color: Base + Rim + Inner Glow, then aerial recession
+        const capDiffuse = baseColor.add(rimLight).add(innerGlowColor);
+        capMat.colorNode = applyAerialPerspective(capDiffuse, positionWorld, aerialPerspectiveLodBoost());
 
         // Emissive Logic for Cap (Bioluminescence + Flash)
         const flashIntensity = smoothstep(0.2, 0.0, noteAge).mul(velocity).mul(2.0);
@@ -633,6 +644,7 @@ export class MushroomBatcher {
             const defPos = deform(positionLocal);
             m.positionNode = applyStandardDeformationWithLod(defPos);
             m.emissiveIntensityNode = totalGlow.mul(0.3);
+            applyFoliageLodMaterialFade(m);
             return m;
         }) as MeshStandardNodeMaterial;
 
@@ -641,6 +653,7 @@ export class MushroomBatcher {
             const m = (foliageMaterials.mushroomSpots as MeshStandardNodeMaterial).clone();
             const defPos = deform(positionLocal);
             m.positionNode = applyStandardDeformationWithLod(defPos);
+            applyFoliageLodMaterialFade(m);
             return m;
         }) as MeshStandardNodeMaterial;
         const spotPulse = sin(uTime.mul(3.0)).mul(0.1).add(0.3);

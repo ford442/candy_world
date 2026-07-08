@@ -125,6 +125,7 @@ export class ComputeParticleSystem {
             console.log(`[ComputeParticles] Stub mode activated for ${config.type} in CI/test (headless memory limit)`);
             this.count = 1;
             this.buffers = this.createBuffers();
+            this.initializeParticleBuffers();
             this.mesh = this.createMesh();
             this.mesh.userData.computeParticleSystem = this;
             this.initPromise = Promise.resolve();
@@ -133,6 +134,7 @@ export class ComputeParticleSystem {
 
         // Initialize buffers
         this.buffers = this.createBuffers();
+        this.initializeParticleBuffers();
         
         // Create mesh (will be used for both GPU and CPU)
         this.mesh = this.createMesh();
@@ -159,6 +161,86 @@ export class ComputeParticleSystem {
             color: new StorageBufferAttribute(count, 4),
             seed: new StorageBufferAttribute(count, 1)
         };
+    }
+
+    /** Seed GPU storage buffers so first-frame render has valid size/seed/life before compute runs. */
+    private initializeParticleBuffers(): void {
+        const bounds = this.config.bounds || { x: 100, y: 20, z: 100 };
+        const center = this.config.center || DEFAULT_SPAWN_CENTER;
+        const sizeRange = this.config.sizeRange || { min: 0.1, max: 0.3 };
+
+        const posArr = this.buffers.position.array as Float32Array;
+        const velArr = this.buffers.velocity.array as Float32Array;
+        const lifeArr = this.buffers.life.array as Float32Array;
+        const sizeArr = this.buffers.size.array as Float32Array;
+        const seedArr = this.buffers.seed.array as Float32Array;
+
+        for (let i = 0; i < this.count; i++) {
+            const pi = i * 4;
+            const vi = i * 4;
+
+            posArr[pi] = (Math.random() - 0.5) * bounds.x + center.x;
+            posArr[pi + 1] = Math.random() * bounds.y + center.y;
+            posArr[pi + 2] = (Math.random() - 0.5) * bounds.z + center.z;
+            posArr[pi + 3] = 0;
+
+            seedArr[i] = Math.random() * 1000;
+            sizeArr[i] = sizeRange.min + Math.random() * (sizeRange.max - sizeRange.min);
+
+            switch (this.type) {
+                case 'fireflies':
+                    velArr[vi] = (Math.random() - 0.5) * 2;
+                    velArr[vi + 1] = (Math.random() - 0.5) * 0.5;
+                    velArr[vi + 2] = (Math.random() - 0.5) * 2;
+                    lifeArr[i] = 2 + Math.random() * 4;
+                    break;
+                case 'pollen':
+                    velArr[vi] = (Math.random() - 0.5) * 0.5;
+                    velArr[vi + 1] = (Math.random() - 0.5) * 0.2;
+                    velArr[vi + 2] = (Math.random() - 0.5) * 0.5;
+                    lifeArr[i] = 2 + Math.random() * 4;
+                    break;
+                case 'berries':
+                    velArr[vi] = (Math.random() - 0.5) * 3;
+                    velArr[vi + 1] = Math.random() * 2;
+                    velArr[vi + 2] = (Math.random() - 0.5) * 3;
+                    lifeArr[i] = 3 + Math.random() * 5;
+                    break;
+                case 'rain':
+                    velArr[vi] = (Math.random() - 0.5) * 0.5;
+                    velArr[vi + 1] = -5 - Math.random() * 3;
+                    velArr[vi + 2] = (Math.random() - 0.5) * 0.5;
+                    lifeArr[i] = 5;
+                    break;
+                case 'sparks': {
+                    const angle = Math.random() * Math.PI * 2;
+                    const speed = 3 + Math.random() * 5;
+                    velArr[vi] = Math.cos(angle) * speed;
+                    velArr[vi + 1] = Math.random() * speed;
+                    velArr[vi + 2] = Math.sin(angle) * speed;
+                    lifeArr[i] = 0.3 + Math.random() * 0.5;
+                    break;
+                }
+                case 'gem_sparks':
+                    velArr[vi] = (Math.random() - 0.5) * 0.12;
+                    velArr[vi + 1] = (Math.random() - 0.5) * 0.06;
+                    velArr[vi + 2] = (Math.random() - 0.5) * 0.12;
+                    lifeArr[i] = 10 + Math.random() * 14;
+                    break;
+                default:
+                    velArr[vi] = 0;
+                    velArr[vi + 1] = 0;
+                    velArr[vi + 2] = 0;
+                    lifeArr[i] = 2 + Math.random() * 4;
+            }
+            velArr[vi + 3] = 0;
+        }
+
+        this.buffers.position.needsUpdate = true;
+        this.buffers.velocity.needsUpdate = true;
+        this.buffers.life.needsUpdate = true;
+        this.buffers.size.needsUpdate = true;
+        this.buffers.seed.needsUpdate = true;
     }
     
     private ensureUVAttribute(geometry: THREE.BufferGeometry): void {
@@ -200,7 +282,10 @@ export class ComputeParticleSystem {
         
         // TSL Nodes for color with type-specific effects
         material.colorNode = this.getColorNode();
-        // Note: sizeNode is handled via TSL position logic
+        const sizeNode = this.getSizeNode();
+        if (sizeNode) {
+            material.sizeNode = sizeNode;
+        }
         material.opacityNode = this.getOpacityNode();
         
         const mesh = new THREE.Points(geometry, material);
@@ -307,7 +392,7 @@ case 'pollen':
                 })();
             
             default:
-                return baseSize;
+                return null;
         }
     }
 private getOpacityNode(): any {

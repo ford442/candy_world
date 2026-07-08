@@ -2,11 +2,19 @@
  * TSL nodes for three-tier foliage LOD (hero / mid / far).
  * Hero tier (factor ≈ 0) preserves pre-LOD visuals; mid/far simplify motion and emissive.
  */
-import { attribute, float, mix, positionLocal, smoothstep, vec3 } from 'three/tsl';
+import { attribute, float, mix, positionLocal, smoothstep, uniform, vec3, floor, mod } from 'three/tsl';
 import { calculatePlayerPush, calculateWindSway } from './material-core.ts';
+import type { MeshStandardNodeMaterial } from 'three/webgpu';
+import { CONFIG } from '../core/config.ts';
 
 /** Continuous LOD factor: 0 = hero, 1 = mid, 2 = far, 3+ = culled */
 export const aInstanceLodFactor = attribute('instanceLodFactor', 'float');
+
+/** Synced from CONFIG.foliage.lod each frame (batcher-lod.ts). */
+export const uLodImpostorMin = uniform(1.55);
+export const uLodImpostorMax = uniform(2.05);
+/** Debug: tint instances in tier blend bands (set via ?debug=1 panel). */
+export const uLodDebugHighlight = uniform(0.0);
 
 export const lodHeroGate = () => smoothstep(float(1.05), float(0.85), aInstanceLodFactor);
 export const lodMidOnlyGate = () => {
@@ -15,6 +23,53 @@ export const lodMidOnlyGate = () => {
     return aboveHero.mul(belowFar);
 };
 export const lodFarGate = () => smoothstep(float(1.55), float(1.95), aInstanceLodFactor);
+
+/** 0→1 weight for impostor cross-fade (meshes fade out as this rises). */
+export const lodImpostorBlend = () =>
+    smoothstep(uLodImpostorMin, uLodImpostorMax, aInstanceLodFactor);
+
+/** Mesh opacity during impostor handoff — dither-friendly alpha multiplier. */
+export const lodMeshOpacity = () => float(1.0).sub(lodImpostorBlend());
+
+/** Instances actively cross-fading between tiers (hero↔mid or mid↔far/impostor). */
+export const lodBlendBandGate = () => {
+    const f = aInstanceLodFactor;
+    const heroMid = smoothstep(float(0.75), float(0.85), f).mul(smoothstep(float(1.15), float(1.05), f));
+    const midFar = smoothstep(float(1.45), float(1.55), f).mul(smoothstep(float(2.15), float(1.95), f));
+    return heroMid.add(midFar).clamp(0.0, 1.0);
+};
+
+/** Bayer-style screen dither for opacity (reduces hard alpha pops). */
+export const lodDitheredOpacity = (baseOpacity: ReturnType<typeof float> = lodMeshOpacity()) => {
+    const cell = floor(positionLocal.x.mul(40.0)).add(floor(positionLocal.y.mul(40.0)).mul(3.0));
+    const threshold = mod(cell, float(4.0)).div(4.0);
+    return baseOpacity.sub(threshold).mul(4.0).clamp(0.0, 1.0);
+};
+
+/**
+ * Apply impostor cross-fade opacity to a foliage material (call once per material).
+ * Hero tier (<120u) opacity stays 1.0 — only far handoff fades.
+ */
+export function applyFoliageLodMaterialFade(material: MeshStandardNodeMaterial): void {
+    if ((material as unknown as { userData: Record<string, unknown> }).userData?.foliageLodFadeApplied) return;
+    (material as unknown as { userData: Record<string, unknown> }).userData.foliageLodFadeApplied = true;
+    material.transparent = true;
+    const existing = material.opacityNode;
+    const fade = lodDitheredOpacity();
+    material.opacityNode = existing ? existing.mul(fade) : fade;
+    const debugTint = vec3(1.0, 0.55, 1.0);
+    const band = lodBlendBandGate().mul(uLodDebugHighlight);
+    if (material.colorNode) {
+        material.colorNode = mix(material.colorNode, material.colorNode.mul(debugTint), band);
+    }
+}
+
+/** Push CONFIG.foliage.lod impostor thresholds to TSL uniforms (zero alloc). */
+export function syncFoliageLodUniforms(): void {
+    const lod = CONFIG.foliage?.lod;
+    uLodImpostorMin.value = lod?.impostorMinFactor ?? 1.55;
+    uLodImpostorMax.value = lod?.impostorMaxFactor ?? 2.05;
+}
 
 /** Player push only within hero band */
 export const applyPlayerInteractionWithLod = (basePosNode: Parameters<typeof calculatePlayerPush>[0]) => {
@@ -54,8 +109,9 @@ export const foliageDeformationOffset = (
         blended = blended.add(extraOffset.mul(extraWeight));
     }
 
-    // Far tier: collapse toward instance origin (impostor-style proxy)
-    const collapse = float(1).sub(lodFarGate().mul(0.72));
+    // Far tier: collapse in sync with impostor cross-fade (not a hard pop)
+    const impostorBlend = lodImpostorBlend();
+    const collapse = float(1.0).sub(impostorBlend.mul(0.85));
     blended = blended.mul(collapse);
 
     return blended.sub(subtractNode);

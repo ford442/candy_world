@@ -11,7 +11,7 @@
  */
 
 import * as THREE from 'three';
-import { getGroundHeight, getEyeTargetY } from '../systems/ground-system.ts';
+import { getGroundHeight, getEyeTargetY, sampleGroundNormal } from '../systems/ground-system.ts';
 import { CONFIG } from '../core/config.ts';
 
 const _hasFlag = (key: string): boolean => {
@@ -33,10 +33,12 @@ let _playerMesh: THREE.Mesh | null = null;
 let _groundMesh: THREE.Mesh | null = null;
 let _eyeLine: THREE.Line | null = null;
 let _gridLines: THREE.LineSegments | null = null;
+let _gridNormalLines: THREE.LineSegments | null = null;
 let _gridBoxes: THREE.InstancedMesh | null = null;
 let _plantedRings: THREE.InstancedMesh | null = null;
 let _nearestBaseRing: THREE.Mesh | null = null;
 let _nearestFootprintRing: THREE.Mesh | null = null;
+let _nearestFootprintSamples: THREE.InstancedMesh | null = null;
 let _nearestNormalArrow: THREE.Line | null = null;
 
 // Cloud platform debug state (#1266)
@@ -64,6 +66,17 @@ interface PlantedInstance {
 }
 
 const _plantedInstances: PlantedInstance[] = [];
+
+/** Stable pastel hue per entity type for base-contact ring verification. */
+function typeColorForEntity(type?: string): THREE.Color {
+    if (!type) return _green;
+    let hash = 0;
+    for (let i = 0; i < type.length; i++) {
+        hash = (hash * 31 + type.charCodeAt(i)) | 0;
+    }
+    const hue = ((hash % 360) + 360) % 360;
+    return new THREE.Color().setHSL(hue / 360, 0.65, 0.55);
+}
 
 const _white = new THREE.Color(0xffffff);
 const _green = new THREE.Color(0x00ff00);
@@ -156,6 +169,24 @@ export function initGroundDebug(scene: THREE.Scene): void {
         _gridLines.frustumCulled = false;
         scene.add(_gridLines);
 
+        // Surface-normal arrows at each grid sample (base → base + normal * len).
+        const arrowLen = 0.45;
+        const normalPositions: number[] = [];
+        for (let ix = -half; ix <= half; ix++) {
+            for (let iz = -half; iz <= half; iz++) {
+                normalPositions.push(0, 0, 0, 0, arrowLen, 0);
+            }
+        }
+        const normalGeo = new THREE.BufferGeometry();
+        normalGeo.setAttribute('position', new THREE.Float32BufferAttribute(normalPositions, 3));
+        _gridNormalLines = new THREE.LineSegments(
+            normalGeo,
+            new THREE.LineBasicMaterial({ color: _cyan, depthTest: false })
+        );
+        _gridNormalLines.renderOrder = 9999;
+        _gridNormalLines.frustumCulled = false;
+        scene.add(_gridNormalLines);
+
         // Ground-height boxes: one instanced mesh updated each frame.
         const boxGeo = new THREE.BoxGeometry(0.08, 0.08, 0.08);
         const boxMat = new THREE.MeshBasicMaterial({ color: _white, depthTest: false });
@@ -171,24 +202,29 @@ export function initGroundDebug(scene: THREE.Scene): void {
             const ringGeo = new THREE.RingGeometry(0.12, 0.16, 16);
             ringGeo.rotateX(-Math.PI / 2);
             const ringMat = new THREE.MeshBasicMaterial({
-                color: _green,
                 transparent: true,
-                opacity: 0.6,
+                opacity: 0.75,
                 depthTest: false,
                 side: THREE.DoubleSide,
+                vertexColors: true,
             });
             _plantedRings = new THREE.InstancedMesh(ringGeo, ringMat, ringCount);
+            _plantedRings.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(ringCount * 3), 3);
             _plantedRings.renderOrder = 9999;
             _plantedRings.frustumCulled = false;
 
             const dummy = new THREE.Object3D();
+            const typeColor = new THREE.Color();
             for (let i = 0; i < ringCount; i++) {
                 const p = _plantedInstances[i];
                 dummy.position.set(p.x, p.y + 0.02, p.z);
                 dummy.updateMatrix();
                 _plantedRings.setMatrixAt(i, dummy.matrix);
+                typeColor.copy(typeColorForEntity(p.type));
+                _plantedRings.setColorAt(i, typeColor);
             }
             _plantedRings.instanceMatrix.needsUpdate = true;
+            if (_plantedRings.instanceColor) _plantedRings.instanceColor.needsUpdate = true;
             scene.add(_plantedRings);
         }
 
@@ -211,6 +247,18 @@ export function initGroundDebug(scene: THREE.Scene): void {
         _nearestFootprintRing.renderOrder = 9999;
         _nearestFootprintRing.visible = false;
         scene.add(_nearestFootprintRing);
+
+        const maxFootprintSamples = CONFIG.ground.footprintSamples + 1;
+        const sampleGeo = new THREE.SphereGeometry(0.06, 6, 6);
+        _nearestFootprintSamples = new THREE.InstancedMesh(
+            sampleGeo,
+            new THREE.MeshBasicMaterial({ color: _white, depthTest: false }),
+            maxFootprintSamples
+        );
+        _nearestFootprintSamples.renderOrder = 9999;
+        _nearestFootprintSamples.frustumCulled = false;
+        _nearestFootprintSamples.visible = false;
+        scene.add(_nearestFootprintSamples);
 
         const arrowGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3(0, 1, 0)]);
         _nearestNormalArrow = new THREE.Line(
@@ -382,6 +430,7 @@ export function unregisterCloudPlatform(cloud: THREE.Object3D): void {
 }
 
 const _dummy = new THREE.Object3D();
+const _debugNormalScratch = new THREE.Vector3();
 
 /**
  * Update debug visuals. Should be called once per frame from the game loop.
@@ -467,6 +516,29 @@ export function updateGroundDebug(playerPos: THREE.Vector3, cameraPos: THREE.Vec
         _gridLines.geometry.attributes.position.needsUpdate = true;
         _gridBoxes.instanceMatrix.needsUpdate = true;
 
+        if (_gridNormalLines) {
+            const normalPositions = (_gridNormalLines.geometry.attributes.position as THREE.BufferAttribute).array as Float32Array;
+            let nIdx = 0;
+            const arrowLen = 0.45;
+            for (let ix = -half; ix <= half; ix++) {
+                for (let iz = -half; iz <= half; iz++) {
+                    const x = playerPos.x + ix * step;
+                    const z = playerPos.z + iz * step;
+                    const groundY = getGroundHeight(x, z);
+                    const n = sampleGroundNormal(x, z, _debugNormalScratch);
+                    const base = nIdx * 6;
+                    normalPositions[base] = x;
+                    normalPositions[base + 1] = groundY + 0.04;
+                    normalPositions[base + 2] = z;
+                    normalPositions[base + 3] = x + n.x * arrowLen;
+                    normalPositions[base + 4] = groundY + 0.04 + n.y * arrowLen;
+                    normalPositions[base + 5] = z + n.z * arrowLen;
+                    nIdx++;
+                }
+            }
+            _gridNormalLines.geometry.attributes.position.needsUpdate = true;
+        }
+
         // Update nearest-wide-prop debug overlay.
         if (_nearestBaseRing && _nearestFootprintRing && _nearestNormalArrow) {
             let nearest: PlantedInstance | null = null;
@@ -486,10 +558,34 @@ export function updateGroundDebug(playerPos: THREE.Vector3, cameraPos: THREE.Vec
                 _nearestBaseRing.visible = true;
                 _nearestFootprintRing.visible = true;
                 _nearestNormalArrow.visible = true;
+                if (_nearestFootprintSamples) _nearestFootprintSamples.visible = true;
 
                 _nearestBaseRing.position.set(nearest.x, nearest.y + 0.03, nearest.z);
                 _nearestFootprintRing.position.set(nearest.x, nearest.y + 0.01, nearest.z);
                 _nearestFootprintRing.scale.setScalar(nearest.footprintRadius!);
+
+                const perimeter = CONFIG.ground.footprintSamples;
+                const sampleCount = perimeter + 1;
+                if (_nearestFootprintSamples) {
+                    for (let i = 0; i < sampleCount; i++) {
+                        let sx: number;
+                        let sz: number;
+                        if (i === 0) {
+                            sx = nearest.x;
+                            sz = nearest.z;
+                        } else {
+                            const angle = ((i - 1) / perimeter) * Math.PI * 2;
+                            sx = nearest.x + Math.cos(angle) * nearest.footprintRadius!;
+                            sz = nearest.z + Math.sin(angle) * nearest.footprintRadius!;
+                        }
+                        const sy = getGroundHeight(sx, sz);
+                        _dummy.position.set(sx, sy + 0.04, sz);
+                        _dummy.updateMatrix();
+                        _nearestFootprintSamples.setMatrixAt(i, _dummy.matrix);
+                    }
+                    _nearestFootprintSamples.count = sampleCount;
+                    _nearestFootprintSamples.instanceMatrix.needsUpdate = true;
+                }
 
                 const arrowLen = 1.2;
                 const positions = (_nearestNormalArrow.geometry.attributes.position as THREE.BufferAttribute).array as Float32Array;
@@ -504,6 +600,7 @@ export function updateGroundDebug(playerPos: THREE.Vector3, cameraPos: THREE.Vec
                 _nearestBaseRing.visible = false;
                 _nearestFootprintRing.visible = false;
                 _nearestNormalArrow.visible = false;
+                if (_nearestFootprintSamples) _nearestFootprintSamples.visible = false;
             }
         }
     }

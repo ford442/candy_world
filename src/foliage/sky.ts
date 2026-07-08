@@ -21,8 +21,10 @@ export const uTwilight = uniform(0.0);
 
 // --- Crescendo Fog (Audio Reactive Volumetric Fog) ---
 export const uCrescendoFogDensity = uniform(0.0); // 0.0 = clear, 1.0 = dense
-export const uFogNear = uniform(20.0); // Base weather near
-export const uFogFar = uniform(100.0); // Base weather far
+/** Base fog near — synced from atmosphere-fog + weather each frame. */
+export const uFogNear = uniform(20.0);
+/** Base fog far — synced from atmosphere-fog + weather each frame. */
+export const uFogFar = uniform(100.0);
 
 export function createCrescendoFogNode(colorNode: any) {
     // Dense fog parameters (computed dynamically from the base uniform values)

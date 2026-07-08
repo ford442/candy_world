@@ -158,6 +158,13 @@ function buildEntityFromObject(obj: THREE.Object3D, index: number): CandyMapEnti
         params
     };
 
+    const storedBaseOffset = typeof exportMeta.baseOffset === 'number'
+        ? exportMeta.baseOffset
+        : (typeof params?.baseOffset === 'number' ? params.baseOffset : undefined);
+    if (storedBaseOffset !== undefined && Number.isFinite(storedBaseOffset)) {
+        entity.baseOffset = storedBaseOffset;
+    }
+
     const variant = exportMeta.variant ?? obj.userData?.variant ?? obj.userData?.size;
     if (typeof variant === 'string') entity.variant = variant;
     if (typeof exportMeta.note === 'string') entity.note = exportMeta.note;

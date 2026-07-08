@@ -202,6 +202,25 @@ All commands exit with:
 - `tests/smoke-runner.mjs` — Boot sequence smoke test (Playwright)
 - `tests/README.md` — This file
 
+## Visual regression (spatial coherence)
+
+The smoke test verifies boot and console health only — it does **not** catch floating props, scale mismatches, fog discontinuities, or LOD pops.
+
+```bash
+# From repo root (requires dist/ + preview server, or run dev in another terminal)
+pnpm run build:ci
+pnpm exec vite preview --port 5173 &
+
+cd tools/visual-regression
+pnpm run test:visual -- \
+  --config ci.config.json \
+  --viewpoints slope_foot,lake_edge,horizon_lod,gem_corridor_scale
+```
+
+**CI** (`.github/workflows/visual-regression.yml`): WebGL2 path (`?renderer=webgl&webglLite=1`), `medium` quality, threshold **5%**. Required spatial viewpoints: `slope_foot`, `horizon_lod` (plus `lake_edge`, `gem_corridor_scale`).
+
+See [`tools/visual-regression/README.md`](../tools/visual-regression/README.md) → *Spatial coherence regression* for the full checklist and `viewpoints.json` camera poses.
+
 ## Known Issues
 
 ### CloudBatcher capacity warnings

@@ -14,6 +14,7 @@ import {
 } from './generation-utils.ts';
 import { create, registerBuiltinWorldObjectTypes } from './foliage-registry.ts';
 import { plantOnSurface, sampleGroundY } from './placement-utils.ts';
+import { sampleEntityScale, sampleEntityHeight, biomeNormalizedDistance } from './entity-scale.ts';
 import { FEATURE_FLAGS } from '../core/config.ts';
 
 registerBuiltinWorldObjectTypes();
@@ -39,9 +40,11 @@ export async function populateGemCanopyCorridor(weatherSystem: WeatherSystem): P
 
         if (!isPositionValid(x, z, 2.0)) continue;
         const y = sampleGroundY(x, z);
-        const tree = create('gem_canopy_tree', { height: 4.2 + Math.random() * 1.8 });
+        const tree = create('gem_canopy_tree', {
+            height: sampleEntityHeight('gem_canopy_tree', { biome: 'gem_canopy', normalizedDistance: t }),
+        });
         if (!tree) continue;
-        plantOnSurface(tree, x, z, { groundY: y });
+        plantOnSurface(tree, x, z, { groundY: y, entityType: 'gem_canopy_tree' });
         tree.rotation.y = Math.atan2(dx, dz) + (Math.random() - 0.5) * 0.35;
         tree.userData.biome = 'gem_canopy';
         tree.userData.mapEntityType = 'gem_canopy_tree';
@@ -67,8 +70,8 @@ export async function populateGemCanopyCorridor(weatherSystem: WeatherSystem): P
         const y = sampleGroundY(x, z);
         const usePine = i % 2 === 0;
         const tree = usePine
-            ? create('portamento_pine', { height: 4.0 + Math.random() * 1.5 })
-            : create('bubble_willow');
+            ? create('portamento_pine', { height: sampleEntityHeight('portamento_pine', { biome: 'gem_canopy', normalizedDistance: t }) })
+            : create('bubble_willow', { scale: sampleEntityScale('bubble_willow', { biome: 'gem_canopy', normalizedDistance: t }) });
         if (!tree) continue;
         const exportType = usePine ? 'portamento_pine' : 'bubble_willow';
         tree.userData.mapEntityType = exportType;
@@ -78,7 +81,7 @@ export async function populateGemCanopyCorridor(weatherSystem: WeatherSystem): P
             placement: 'ground'
         };
         tree.userData.attachGemFruits = true;
-        plantOnSurface(tree, x, z, { groundY: y });
+        plantOnSurface(tree, x, z, { groundY: y, entityType: exportType });
         tree.rotation.y = Math.random() * Math.PI * 2;
         const placed = safeAddFoliage(tree, true, 1.5, weatherSystem);
         recordSpawnAttempt(usePine ? 'portamento_pine' : 'bubble_willow', placed, placed ? undefined : new Error('placement failed'));
@@ -135,12 +138,15 @@ export async function populateMyceliumGrove(weatherSystem: WeatherSystem): Promi
             continue;
         }
         const y = sampleGroundY(x, z);
-        const mushroom = create('glass_mushroom', { scale: 0.8 + Math.random() * 0.9 });
+        const normDist = biomeNormalizedDistance(centerX, centerZ, radius, x, z);
+        const mushroom = create('glass_mushroom', {
+            scale: sampleEntityScale('glass_mushroom', { biome: 'mycelium_grove', normalizedDistance: normDist }),
+        });
         if (!mushroom) {
             recordSpawnAttempt('glass_mushroom', false, new Error('factory returned null'));
             continue;
         }
-        plantOnSurface(mushroom, x, z, { groundY: y });
+        plantOnSurface(mushroom, x, z, { groundY: y, entityType: 'glass_mushroom' });
         mushroom.rotation.y = Math.random() * Math.PI * 2;
         const ok = safeAddFoliage(mushroom, true, 0.6, weatherSystem);
         recordSpawnAttempt('glass_mushroom', ok, ok ? undefined : new Error('placement failed'));
@@ -236,19 +242,19 @@ export async function populateProceduralExtras(
                          exportType = 'flower';
                          exportVariant = 'glowing';
                      }
-                     if (obj) plantOnSurface(obj, x, z, { groundY: currentY });
+                     if (obj) plantOnSurface(obj, x, z, { groundY: currentY, entityType: exportType ?? undefined });
                 }
                 else if (rand < 0.45) {
                     obj = create('mushroom', {
                          size: 'regular',
-                         scale: 0.8 + Math.random() * 0.5,
+                         scale: sampleEntityScale('mushroom'),
                          hasFace: true,
                          isBouncy: true
                      });
                      exportType = 'mushroom';
                      exportVariant = 'regular';
                      exportHasFace = true;
-                     if (obj) plantOnSurface(obj, x, z, { groundY: currentY });
+                     if (obj) plantOnSurface(obj, x, z, { groundY: currentY, entityType: exportType ?? undefined });
                      isObstacle = true;
                 }
                 else if (rand < 0.55) {
@@ -264,7 +270,7 @@ export async function populateProceduralExtras(
                          exportType = 'helix_plant';
                      }
 
-                     if (obj) plantOnSurface(obj, x, z, { groundY: currentY });
+                     if (obj) plantOnSurface(obj, x, z, { groundY: currentY, entityType: exportType ?? undefined });
                      isObstacle = true;
                      radius = 1.5;
                 }
@@ -272,30 +278,30 @@ export async function populateProceduralExtras(
                      if (FEATURE_FLAGS.musicalFlora) {
                          const type = Math.random();
                          if (type < 0.15) {
-                             obj = create('arpeggio_fern', { scale: 1.0 + Math.random() * 0.5 });
+                             obj = create('arpeggio_fern', { scale: sampleEntityScale('arpeggio_fern') });
                              exportType = 'arpeggio_fern';
                          } else if (type < 0.28) {
-                             obj = create('kick_drum_geyser', { maxHeight: 5.0 + Math.random() * 3.0 });
+                             obj = create('kick_drum_geyser', { maxHeight: sampleEntityHeight('kick_drum_geyser') });
                              exportType = 'kick_drum_geyser';
                              radius = 1.0;
                          } else if (type < 0.40) {
-                             obj = create('snare_trap', { scale: 0.8 + Math.random() * 0.4 });
+                             obj = create('snare_trap', { scale: sampleEntityScale('snare_trap') });
                              exportType = 'snare_trap';
                              isObstacle = true;
                              radius = 0.8;
                          } else if (type < 0.50) {
-                             obj = create('retrigger_mushroom', { scale: 0.8 + Math.random() * 0.4, retriggerSpeed: 2 + Math.floor(Math.random() * 6) });
+                             obj = create('retrigger_mushroom', { scale: sampleEntityScale('retrigger_mushroom'), retriggerSpeed: 2 + Math.floor(Math.random() * 6) });
                              exportType = 'retrigger_mushroom';
                          } else if (type < 0.60) {
-                             obj = create('portamento_pine', { height: 4.0 + Math.random() * 2.0 });
+                             obj = create('portamento_pine', { height: sampleEntityHeight('portamento_pine') });
                              exportType = 'portamento_pine';
                              isObstacle = true;
                              radius = 0.5;
                          } else if (type < 0.75) {
-                             obj = create('tremolo_tulip', { size: 1.0 + Math.random() * 0.5 });
+                             obj = create('tremolo_tulip', { size: sampleEntityScale('tremolo_tulip') });
                              exportType = 'tremolo_tulip';
                          } else if (type < 0.85) {
-                             obj = create('cymbal_dandelion', { scale: 0.8 + Math.random() * 0.4 });
+                             obj = create('cymbal_dandelion', { scale: sampleEntityScale('cymbal_dandelion') });
                              exportType = 'cymbal_dandelion';
                          } else {
                              const panBias = x < 0 ? -1 : 1;
@@ -310,7 +316,7 @@ export async function populateProceduralExtras(
                              if (exportType === 'panning_pad') {
                                  obj.position.set(x, currentY, z);
                              } else {
-                                 plantOnSurface(obj, x, z, { groundY: currentY });
+                                 plantOnSurface(obj, x, z, { groundY: currentY, entityType: exportType ?? undefined });
                              }
                          }
                      }
@@ -320,7 +326,7 @@ export async function populateProceduralExtras(
                      const tierRoll = Math.random();
                      if (tierRoll < 0.35) {
                          currentY = 35 + Math.random() * 20;
-                         const cloudSize = 1.5 + Math.random() * 0.8;
+                         const cloudSize = sampleEntityScale('cloud_tier1');
                          obj = create('cloud', { size: cloudSize });
                          exportType = 'cloud';
                          exportParams.size = cloudSize;
@@ -353,7 +359,7 @@ export async function populateProceduralExtras(
                          }
                      } else {
                          currentY = 12 + Math.random() * 16;
-                         const cloudSize = 0.8 + Math.random() * 0.6;
+                         const cloudSize = sampleEntityScale('cloud_tier2');
                          obj = create('cloud', { size: cloudSize });
                          exportType = 'cloud';
                          exportParams.size = cloudSize;
@@ -368,7 +374,7 @@ export async function populateProceduralExtras(
                  else if (rand < 0.95) {
                     obj = create('silence_spirit');
                      exportType = 'silence_spirit';
-                     if (obj) plantOnSurface(obj, x, z, { groundY: currentY });
+                     if (obj) plantOnSurface(obj, x, z, { groundY: currentY, entityType: exportType ?? undefined });
                  }
                  else if (rand < 0.97) {
                     obj = create('melody_mirror', { scale: 2.0 });
@@ -381,7 +387,7 @@ export async function populateProceduralExtras(
                  exportType = 'instrument_shrine';
                  exportVariant = String(id);
                  exportParams.instrumentID = id;
-                 if (obj) plantOnSurface(obj, x, z, { groundY: currentY });
+                 if (obj) plantOnSurface(obj, x, z, { groundY: currentY, entityType: exportType });
                  isObstacle = true;
             }
 
@@ -506,7 +512,7 @@ export function spawnNearbyFoliage(origin: THREE.Vector3, type: string, options:
                 : create(type);
 
             if (obj) {
-                plantOnSurface(obj, nx, nz, { groundY });
+                plantOnSurface(obj, nx, nz, { groundY, entityType: type });
                 obj.userData.age = 0;
                 obj.userData.lastSpawnTime = Date.now();
                 const placed = safeAddFoliage(obj, false, 0.5, weatherSystem);

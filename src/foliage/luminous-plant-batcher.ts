@@ -1,12 +1,13 @@
 import * as THREE from 'three';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { color, float, sin, positionLocal, normalLocal, mix, attribute } from 'three/tsl';
-import { uTime, createJuicyRimLight } from './material-core.ts';
+import { uTime, createJuicyRimLight, applyBaseContactAO, getBaseContactHeight } from './material-core.ts';
 import {
     applyPlayerInteractionWithLod,
     calculateWindSwayWithLod,
     scaleEmissiveByLod,
-    applyStandardDeformationWithLod
+    applyStandardDeformationWithLod,
+    applyFoliageLodMaterialFade,
 } from './lod-nodes.ts';
 import { initInstanceLodAttribute } from './batcher-lod-utils.ts';
 import { registerFoliageBatcherLod } from '../systems/batcher-lod.ts';
@@ -93,7 +94,11 @@ export class LuminousPlantBatcher {
 
         const sssStrength = float(CONFIG.luminousPlants?.subsurfaceStrength || 0.8);
         const musicColor = mix(baseColor, luminousPlantsNoteColorNode, LuminousPlantUniforms.intensity);
-        mat.colorNode = musicColor;
+        mat.colorNode = applyBaseContactAO(
+            musicColor,
+            positionLocal.y,
+            float(getBaseContactHeight('luminous_plant')),
+        );
 
         const musicEnergy = LuminousPlantUniforms.intensity;
         const pulse = musicEnergy.mul(0.6).add(sin(localTime).mul(0.4));
@@ -133,6 +138,8 @@ export class LuminousPlantBatcher {
 
         const skyWaveTint = luminousUniforms.noteColor.mul(0.18);
         mat.emissiveNode = (mat.emissiveNode as any).add(skyWaveTint);
+
+        applyFoliageLodMaterialFade(mat);
 
         this.mesh = new THREE.InstancedMesh(stemGeo, mat, this.maxInstances);
         this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);

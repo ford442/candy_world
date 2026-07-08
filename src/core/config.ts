@@ -97,6 +97,24 @@ export interface PaletteEntry {
     atmosphereIntensity: number;
 }
 
+/** Uniform scale range for a procedural entity archetype. */
+export interface EntityScaleRange {
+    base: number;
+    min: number;
+    max: number;
+}
+
+/**
+ * Canonical procedural scale entry. `refHeight` documents world-unit proportions at
+ * `base` scale (tree trunk ≈ 4–6u, mushroom cap ≈ 1–2u, gem fruit ≈ 0.25u).
+ * Types that pass `height` / `size` instead of `scale` may supply `height`.
+ */
+export interface EntityScaleEntry extends EntityScaleRange {
+    refHeight?: number;
+    height?: EntityScaleRange;
+    biomeOverrides?: Record<string, Partial<EntityScaleEntry>>;
+}
+
 export const PALETTE: Record<string, PaletteEntry> = {
     // Standard Season (Spring/Default)
     day: {
@@ -263,6 +281,60 @@ export interface ConfigType {
         }>>;
     };
 
+    lighting: {
+        shadows: {
+            enabled: boolean;
+            /** Hard off switch (e.g. CI sets via runtime). */
+            forceDisable: boolean;
+            /** Skip shadows when postfx tier is low (perf mode). */
+            disableOnLowPostfx: boolean;
+            /** Visual Impact: shadow map resolution at default quality. */
+            mapSize: number;
+            /** Visual Impact: shadow map resolution when postfx=high. */
+            mapSizeHigh: number;
+            /** Visual Impact: ortho half-extent — ±followRadius covers player neighborhood. */
+            followRadius: number;
+            /** Extra ortho margin (render ±(followRadius+snapHeadroom)) for texel-snap headroom. */
+            snapHeadroom: number;
+            /** Light placed at player + normalizedSunDir * sunDistance. */
+            sunDistance: number;
+            cameraNear: number;
+            cameraFar: number;
+            /** Depth bias — reduces acne on glossy MeshPhysicalMaterial. */
+            bias: number;
+            normalBias: number;
+            /** PCF soft shadow filter radius. */
+            pcfRadius: number;
+        };
+    };
+
+    atmosphere: {
+        fog: {
+            /** Visual Impact: day near as ratio of camera.far (≈20u at far=2000). */
+            nearRatio: number;
+            /** Visual Impact: day far as ratio of camera.far (≈320u at far=2000). */
+            farRatio: number;
+            nightNearRatio: number;
+            nightFarRatio: number;
+            minNear: number;
+            maxNear: number;
+            minFar: number;
+            maxFar: number;
+            /** Visual Impact: cap near so foreground (<30u) stays crisp. */
+            maxForegroundNear: number;
+            minSpan: number;
+            fovScale: number;
+            referenceFov: number;
+            altitudeBaseline: number;
+            /** Extra fog far per meter above altitudeBaseline (vantage / cloud pads). */
+            altitudeScale: number;
+            /** Cap far as ratio of camera.far — aligns with sky horizon band. */
+            horizonFarCap: number;
+            /** Exponential lerp rate for near/far transitions (frame-rate aware). */
+            lerpSpeed: number;
+        };
+    };
+
     /**
      * Player avatar / first-person camera height tuning.
      * eyeHeight is added to the authoritative ground height to place the camera.
@@ -284,6 +356,14 @@ export interface ConfigType {
         platformElevationThreshold: number;
         cacheCellSize: number;
         cacheTTL: number;
+        /** Perimeter samples for circular footprint queries (center is always included). */
+        footprintSamples: number;
+        /** Max tilt from world-up when aligning props to terrain slope (radians). */
+        maxSlopeAngle: number;
+        /** Per-entity footprint radius (world units). 0 / absent = single-point sample. */
+        footprintRadius: Record<string, number>;
+        /** Footprint Y policy: `min` = lowest contact (trees/rocks), `avg` = level pads. */
+        footprintPlacementY: Record<string, 'min' | 'avg'>;
     };
 
     /** Walkable cloud platform tuning (#1266). */
@@ -315,6 +395,14 @@ export interface ConfigType {
             lakeDandelions: number;
             scale: number;
         };
+        /** Single source of truth for procedural instance scale / height sampling. */
+        scaleTable: Record<string, EntityScaleEntry>;
+        /** Subtle forced-perspective shrink toward biome outer radius. */
+        scaleDistanceBias: {
+            enabled: boolean;
+            /** Max scale reduction at normalizedDistance = 1 (e.g. 0.08 → 8% smaller). */
+            outerShrink: number;
+        };
     };
 
     foliage: {
@@ -327,6 +415,34 @@ export interface ConfigType {
             farCull: number;
             useImpostors: boolean;
             impostorMinFactor: number;
+            impostorMaxFactor: number;
+            impostorScaleMul: number;
+            impostorAspect: number;
+        };
+        aerialPerspective: {
+            enabled: boolean;
+            /** Visual Impact: master blend — 0.85 reads natural without greying heroes. */
+            strength: number;
+            /** Visual Impact: first distance (units) where recession begins. */
+            startDist: number;
+            /** Visual Impact: full atmospheric blend distance (horizon tree line). */
+            endDist: number;
+            /** Visual Impact: desaturation amount at far end (0–1). */
+            desatAmount: number;
+            /** Visual Impact: fog-color lift at far end (0–1). */
+            fogBlend: number;
+            /** Visual Impact: strength retained at night when linear fog is already tight. */
+            nightFactor: number;
+        };
+        /** Ground-contact ambient-occlusion-style darkening on diffuse (not emissive). */
+        baseContactAO: {
+            enabled: boolean;
+            /** Visual Impact: 0.25–0.4 reads grounded without muddy bases. */
+            strength: number;
+            /** Extra strength at night for moonlit grounding. */
+            nightBoost: number;
+            groundTint: number;
+            contactHeight: Record<string, number> & { _default: number };
         };
     };
 
@@ -392,6 +508,31 @@ export const CONFIG: ConfigType = {
         platformElevationThreshold: 1.25, // Above terrain eye Y → trust physics (clouds, pads)
         cacheCellSize: 2.0,    // GroundSystem height-cache cell size (0.01-unit quantised)
         cacheTTL: 1.0,         // Seconds before a cached height sample expires
+        footprintSamples: 4,   // Perimeter ring samples (+ center) for wide-prop grounding
+        maxSlopeAngle: (25 * Math.PI) / 180,
+        footprintRadius: {
+            tree: 0.4,
+            shrub: 0.4,
+            portamento_pine: 0.5,
+            bubble_willow: 0.6,
+            balloon_bush: 0.6,
+            helix_plant: 0.4,
+            gem_canopy_tree: 0.6,
+            subwoofer_lotus: 0.7,
+            kick_drum_geyser: 0.5,
+            snare_trap: 0.5,
+            instrument_shrine: 0.6,
+            panning_pad: 0.5,
+            mushroom: 0.25,
+            retrigger_mushroom: 0.35,
+            glass_mushroom: 0.25,
+            rock: 0.3,
+            grass: 0.15,
+        },
+        footprintPlacementY: {
+            panning_pad: 'avg',
+            subwoofer_lotus: 'avg',
+        },
     },
 
     cloud: {
@@ -481,7 +622,66 @@ export const CONFIG: ConfigType = {
             // Global multiplier for quick experimentation (1.0 = use the numbers above)
             // Set to 0.5 for a very light Full mode, or 1.5 if you have a powerful machine.
             scale: 1.0
-        }
+        },
+        // Procedural scale table — reference heights at `base` (world units):
+        //   tree trunk 4–6u | mushroom cap 1–2u | fern 1.2–1.6u | dandelion ~0.9u | gem fruit ~0.25u
+        // Variance clamped to 0.7×–1.5× of `base` unless a biome override widens it.
+        scaleTable: {
+            _default: { base: 1.0, min: 0.85, max: 1.15 },
+
+            mushroom: { base: 1.0, min: 0.85, max: 1.15, refHeight: 1.2 },
+            glass_mushroom: {
+                base: 1.0, min: 0.85, max: 1.15, refHeight: 1.4,
+                biomeOverrides: { mycelium_grove: { min: 0.9, max: 1.1 } },
+            },
+            retrigger_mushroom: { base: 1.0, min: 0.85, max: 1.15, refHeight: 1.3 },
+
+            tree: { base: 1.0, min: 0.9, max: 1.1, refHeight: 5.0 },
+            bubble_willow: { base: 1.0, min: 0.9, max: 1.1, refHeight: 5.5 },
+            balloon_bush: { base: 1.0, min: 0.9, max: 1.1, refHeight: 4.5 },
+            helix_plant: { base: 1.0, min: 0.9, max: 1.1, refHeight: 4.0 },
+            portamento_pine: {
+                base: 1.0, min: 0.9, max: 1.1, refHeight: 5.0,
+                height: { base: 5.0, min: 4.2, max: 5.8 },
+            },
+            gem_canopy_tree: {
+                base: 1.0, min: 0.9, max: 1.1, refHeight: 5.0,
+                height: { base: 5.0, min: 4.5, max: 5.5 },
+                biomeOverrides: { gem_canopy: { height: { base: 5.2, min: 4.8, max: 5.8 } } },
+            },
+
+            arpeggio_fern: {
+                base: 1.0, min: 0.9, max: 1.1, refHeight: 1.5,
+                biomeOverrides: { arpeggio_grove: { min: 0.95, max: 1.1 } },
+            },
+            cymbal_dandelion: { base: 0.9, min: 0.8, max: 1.0, refHeight: 0.9 },
+            snare_trap: { base: 0.9, min: 0.8, max: 1.0, refHeight: 0.8 },
+            luminous_plant: { base: 1.0, min: 0.85, max: 1.15, refHeight: 1.8 },
+            gem_fruit: {
+                base: 1.0, min: 0.85, max: 1.15, refHeight: 0.25,
+                biomeOverrides: { gem_canopy: { min: 0.9, max: 1.1 } },
+            },
+
+            flower: { base: 1.0, min: 0.85, max: 1.15, refHeight: 0.6 },
+            rock: { base: 1.15, min: 1.0, max: 1.3, refHeight: 0.8 },
+            tremolo_tulip: { base: 1.0, min: 0.85, max: 1.15, refHeight: 1.0 },
+            vibrato_violet: { base: 1.0, min: 0.85, max: 1.15, refHeight: 0.8 },
+            kick_drum_geyser: {
+                base: 1.0, min: 0.9, max: 1.1, refHeight: 6.0,
+                height: { base: 6.0, min: 5.0, max: 7.5 },
+            },
+
+            cloud: { base: 1.0, min: 0.85, max: 1.15, refHeight: 12 },
+            cloud_tier1: { base: 1.5, min: 1.35, max: 1.5, refHeight: 35 },
+            cloud_tier2: { base: 0.9, min: 0.8, max: 1.0, refHeight: 12 },
+
+            instrument_shrine: { base: 1.0, min: 0.9, max: 1.1, refHeight: 2.5 },
+            silence_spirit: { base: 1.0, min: 0.9, max: 1.1, refHeight: 1.2 },
+        },
+        scaleDistanceBias: {
+            enabled: true,
+            outerShrink: 0.08,
+        },
     },
 
     // --- NOTE COLOR MAPPING ---
@@ -617,8 +817,38 @@ export const CONFIG: ConfigType = {
             farCull: 480,
             /** Shared far-tier billboard impostor layer */
             useImpostors: true,
-            impostorMinFactor: 1.65
-        }
+            /** Cross-fade begins — mesh dithers out as impostor dithers in */
+            impostorMinFactor: 1.55,
+            impostorMaxFactor: 2.05,
+            /** Visual Impact: billboard size ≈ instance bounds × this at handoff */
+            impostorScaleMul: 2.15,
+            impostorAspect: 1.12,
+        },
+        aerialPerspective: {
+            enabled: true,
+            strength: 0.85,
+            startDist: 35,
+            endDist: 130,
+            desatAmount: 0.62,
+            fogBlend: 0.42,
+            nightFactor: 0.12,
+        },
+        // Ground-contact AO — height-based diffuse darkening at instance bases (#1307)
+        baseContactAO: {
+            enabled: true,
+            strength: 0.32,
+            nightBoost: 0.25,
+            groundTint: 0x1a1410,
+            // Local mesh Y units from instance base (y=0); pairs with placement-utils (#1303)
+            contactHeight: {
+                _default: 0.25,
+                tree: 0.22,
+                mushroom: 0.35,
+                arpeggio_fern: 0.45,
+                luminous_plant: 0.5,
+                portamento_pine: 0.22,
+            },
+        },
     },
 
     // --- CIRCADIAN SYSTEM ---
@@ -678,7 +908,48 @@ export const CONFIG: ConfigType = {
         dofMaxBlur: 0.5,
         /** Distance (units) from luminous / mycelium flora that auto-engages DoF. */
         dofProximity: 14.0,
-    }
+    },
+
+    // --- SUN SHADOWS (player-following ortho) ---
+    lighting: {
+        shadows: {
+            enabled: true,
+            forceDisable: false,
+            disableOnLowPostfx: false,
+            mapSize: 1024,
+            mapSizeHigh: 2048,
+            followRadius: 40,
+            snapHeadroom: 2,
+            sunDistance: 100,
+            cameraNear: 1,
+            cameraFar: 200,
+            bias: -0.0005,
+            normalBias: 0.02,
+            pcfRadius: 2,
+        },
+    },
+
+    // --- ATMOSPHERIC FOG (camera-derived distances) ---
+    atmosphere: {
+        fog: {
+            nearRatio: 0.01,
+            farRatio: 0.16,
+            nightNearRatio: 0.0025,
+            nightFarRatio: 0.04,
+            minNear: 6,
+            maxNear: 26,
+            minFar: 120,
+            maxFar: 420,
+            maxForegroundNear: 28,
+            minSpan: 50,
+            fovScale: 0.75,
+            referenceFov: 60,
+            altitudeBaseline: 1.8,
+            altitudeScale: 2.5,
+            horizonFarCap: 0.21,
+            lerpSpeed: 3.0,
+        },
+    },
 };
 
 // ---------------------------------------------------------------------------
@@ -717,4 +988,31 @@ export function isDofEnabled(): boolean {
 export function isDofManual(): boolean {
     if (_hasFlag('no_dof')) return false;
     return _hasFlag('dof') || CONFIG.postfx.dofEnabled;
+}
+
+export interface ShadowSettings {
+    enabled: boolean;
+    mapSize: number;
+}
+
+/**
+ * Whether directional sun shadows are active and at what map resolution.
+ * Disabled on CI/headless, postfx=off, or CONFIG.lighting.shadows.enabled=false.
+ */
+export function resolveShadowSettings(): ShadowSettings {
+    const cfg = CONFIG.lighting.shadows;
+    if (!cfg.enabled || cfg.forceDisable || isCIorHeadless()) {
+        return { enabled: false, mapSize: 0 };
+    }
+
+    const quality = resolvePostfxQuality();
+    if (quality === 'off') {
+        return { enabled: false, mapSize: 0 };
+    }
+    if (quality === 'low' && cfg.disableOnLowPostfx) {
+        return { enabled: false, mapSize: 0 };
+    }
+
+    const mapSize = quality === 'high' ? cfg.mapSizeHigh : cfg.mapSize;
+    return { enabled: true, mapSize };
 }

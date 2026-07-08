@@ -101,6 +101,18 @@ declare global {
         estimatedVramBytes: number;
       }>;
     };
+    __getFogTelemetry?: () => {
+      targetNear: number;
+      targetFar: number;
+      currentNear: number;
+      currentFar: number;
+      tslNear: number;
+      tslFar: number;
+      cameraFar: number;
+      cameraFov: number;
+      dayNightBias: number;
+      playerY: number;
+    };
   }
   
   // Loading Screen instance interface

@@ -158,6 +158,9 @@ export function processMapEntity(item: MapEntity, weatherSystem: WeatherSystem, 
 
     const params = item.params ?? {};
     const placement = item.placement ?? (entityType === 'cloud' ? 'absolute' : 'ground');
+    const mapBaseOffset = typeof item.baseOffset === 'number'
+        ? item.baseOffset
+        : (typeof params.baseOffset === 'number' ? params.baseOffset : undefined);
     // USE UNIFIED HEIGHT for placement
     const groundY = sampleGroundY(x, z);
     let y = groundY;
@@ -335,7 +338,7 @@ export function processMapEntity(item: MapEntity, weatherSystem: WeatherSystem, 
         if (obj) {
             annotateMapExport(obj, entityType);
             if (placement === 'ground' && entityType !== 'cloud') {
-                plantOnSurface(obj, x, z, { groundY: y });
+                plantOnSurface(obj, x, z, { groundY: y, baseOffset: mapBaseOffset, entityType });
             } else {
                 obj.position.set(x, y, z);
             }

@@ -7,7 +7,7 @@ import {
 } from './index.ts';
 import { attachReactivity } from './foliage-reactivity.ts';
 import { CandyPresets, uAudioHigh, uAudioLow, uTime, createJuicyRimLight, getCachedProceduralMaterial, createStandardNodeMaterial, calculateFlowerBloom } from './material-core.ts';
-import { foliageMotionPosition, scaleEmissiveByLod } from './lod-nodes.ts';
+import { foliageMotionPosition, scaleEmissiveByLod, applyFoliageLodMaterialFade } from './lod-nodes.ts';
 import { initInstanceLodAttribute } from './batcher-lod-utils.ts';
 import { registerFoliageBatcherLod } from '../systems/batcher-lod.ts';
 import { CONFIG } from '../core/config.ts';
@@ -117,6 +117,7 @@ export class FlowerBatcher {
         const centerMat = getCachedProceduralMaterial('flower_batch_center', 0xFFFFFF, () => {
             const mat = (foliageMaterials.flowerCenter as THREE.Material).clone();
             (mat as any).positionNode = posFinal; // Apply full deformation chain
+            applyFoliageLodMaterialFade(mat as import('three/webgpu').MeshStandardNodeMaterial);
             return mat;
         });
 
@@ -132,7 +133,9 @@ export class FlowerBatcher {
 
         // --- 3. Stamens (Cylinder) ---
         const stamenMat = getCachedProceduralMaterial('flower_batch_stamen', 0xFFFF00, () => {
-            return CandyPresets.Clay(0xFFFF00, { deformationNode: posFinal });
+            const mat = CandyPresets.Clay(0xFFFF00, { deformationNode: posFinal });
+            applyFoliageLodMaterialFade(mat);
+            return mat;
         });
 
         const stamenGeo = sharedGeometries.unitCylinder.clone();
@@ -183,6 +186,8 @@ export class FlowerBatcher {
             const biomeTint = BiomeUniforms.musicalFlora.noteColor.mul(BiomeUniforms.musicalFlora.shimmer.mul(0.35));
 
             mat.emissiveNode = scaleEmissiveByLod(audioRim.add(innerGlow).add(twilightGlowTint).add(biomeTint));
+
+            applyFoliageLodMaterialFade(mat);
 
             return mat;
         });

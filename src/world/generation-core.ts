@@ -28,6 +28,7 @@ import { getMapSourceFromUrl, loadMap, setupMapHotReload, type LoadedCandyMap } 
 import { clearMapMusicContext, deriveMapMusicContext, setMapMusicContext } from './map-music-context.ts';
 import { create, registerBuiltinWorldObjectTypes } from './foliage-registry.ts';
 import { plantOnSurface, sampleGroundY } from './placement-utils.ts';
+import { sampleEntityScale, sampleEntityHeight } from './entity-scale.ts';
 import { treeBatcher } from '../foliage/tree-batcher.ts';
 
 let loadedMapPromise: Promise<LoadedCandyMap> | null = null;
@@ -232,7 +233,7 @@ export async function initWorld(scene: THREE.Scene, weatherSystem: WeatherSystem
 
             if (lx > -10) continue;
             if (ly > 2.0 && ly < 8.0) {
-                const plant = create('luminous_plant', { scale: 0.8 + Math.random() * 0.6 });
+                const plant = create('luminous_plant', { scale: sampleEntityScale('luminous_plant') });
                 if (!plant) continue;
                 plantOnSurface(plant, lx, lz, { groundY: ly });
                 plant.rotation.y = Math.random() * Math.PI * 2;
@@ -457,10 +458,10 @@ export async function generateCoreWorld(
         () => create('flower', { variant: 'glowing' }),
         () => create('flower'),
         () => create('flower', { variant: 'glowing' }),
-        () => create('arpeggio_fern', { scale: 1.0 }),
+        () => create('arpeggio_fern', { scale: sampleEntityScale('arpeggio_fern') }),
         () => create('flower'),
         () => create('flower', { variant: 'glowing' }),
-        () => create('arpeggio_fern', { scale: 0.8 }),
+        () => create('arpeggio_fern', { scale: sampleEntityScale('arpeggio_fern') }),
     ];
     for (let i = 0; i < SEED_RING_COUNT; i++) {
         const angle = (i / SEED_RING_COUNT) * Math.PI * 2;
@@ -484,7 +485,7 @@ export async function generateCoreWorld(
         () => create('bubble_willow'),
         () => create('balloon_bush'),
         () => create('helix_plant'),
-        () => create('portamento_pine', { height: 4.5 }),
+        () => create('portamento_pine', { height: sampleEntityHeight('portamento_pine') }),
     ];
     let chunkStart = performance.now();
     for (let i = 0; i < 18; i++) {
@@ -509,7 +510,7 @@ export async function generateCoreWorld(
     for (let i = 0; i < 24; i++) {
         const pos = getRandomGroundPosition(0.5);
         if (pos) {
-            const obj = create('mushroom', { size: 'regular', scale: 0.8 + Math.random() * 0.5, hasFace: true, isBouncy: true });
+            const obj = create('mushroom', { size: 'regular', scale: sampleEntityScale('mushroom'), hasFace: true, isBouncy: true });
             if (!obj) continue;
             plantOnSurface(obj, pos.x, pos.z, { groundY: pos.y });
             obj.rotation.y = Math.random() * Math.PI * 2;
@@ -528,7 +529,7 @@ export async function generateCoreWorld(
         const pos = getRandomGroundPosition(0.8);
         if (!pos) continue;
         const height = 10 + Math.random() * 18;
-        const cloud = create('cloud', { size: 1.0 + Math.random() * 0.8 });
+        const cloud = create('cloud', { size: sampleEntityScale('cloud') });
         if (!cloud) continue;
         cloud.position.set(pos.x, height, pos.z);
         cloud.userData.tier = 1;

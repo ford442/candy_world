@@ -236,6 +236,7 @@ function purgeStaleCacheEntries(now: number): void {
 export function invalidateHeightCache(): void {
     _cache.fill(EMPTY_KEY);
     _lastPurge = performance.now();
+    invalidateFootprintCache();
 }
 
 // -----------------------------------------------------------------------------
@@ -311,12 +312,18 @@ export function getGroundHeight(x: number, z: number): number {
 export function getGroundHeightBatch(positions: Float32Array): Float32Array {
     const count = positions.length / 2;
     const out = new Float32Array(count);
-    for (let i = 0; i < count; i++) {
-        const x = positions[i * 2];
-        const z = positions[i * 2 + 1];
-        out[i] = getGroundHeight(x, z);
-    }
+    fillGroundHeightsBatch(positions, out, count);
     return out;
+}
+
+/**
+ * Write authoritative ground heights into `out` without allocating.
+ * `positions` is [x0,z0, x1,z1, ...]; `out[i]` receives the height at sample i.
+ */
+export function fillGroundHeightsBatch(positions: Float32Array, out: Float32Array, count: number): void {
+    for (let i = 0; i < count; i++) {
+        out[i] = getGroundHeight(positions[i * 2], positions[i * 2 + 1]);
+    }
 }
 
 /**
@@ -416,15 +423,21 @@ export function registerGroundNormalData(
     _bakedNormalData = { normals, size, resolution };
 }
 
-function sampleBakedGroundNormal(x: number, z: number): THREE.Vector3 | null {
-    if (!_bakedNormalData) return null;
+const _fdDelta = 0.05;
+const _fdTx = new THREE.Vector3();
+const _fdTz = new THREE.Vector3();
+const _normalScratch = new THREE.Vector3();
+const _fpNormalScratch = new THREE.Vector3();
+
+function sampleBakedGroundNormalInto(x: number, z: number, out: THREE.Vector3): boolean {
+    if (!_bakedNormalData) return false;
     const { normals, size, resolution } = _bakedNormalData;
     const halfSize = size * 0.5;
     if (
         x < -halfSize || x > halfSize ||
         z < -halfSize || z > halfSize
     ) {
-        return null;
+        return false;
     }
 
     const step = size / resolution;
@@ -434,7 +447,7 @@ function sampleBakedGroundNormal(x: number, z: number): THREE.Vector3 | null {
     const iy = Math.floor(fy);
 
     if (ix < 0 || ix >= resolution || iy < 0 || iy >= resolution) {
-        return null;
+        return false;
     }
 
     const u = fx - ix;
@@ -461,21 +474,21 @@ function sampleBakedGroundNormal(x: number, z: number): THREE.Vector3 | null {
         v
     );
 
-    return new THREE.Vector3(nx, ny, nz).normalize();
+    out.set(nx, ny, nz).normalize();
+    return true;
 }
-
-const _fdDelta = 0.05;
-const _fdTx = new THREE.Vector3();
-const _fdTz = new THREE.Vector3();
 
 /**
  * Compute the terrain surface normal at (x, z).
  * Uses the baked normal map when available; otherwise falls back to a cheap
  * 3-point finite difference over the authoritative getGroundHeight() query.
+ *
+ * Pass `out` to avoid allocation (recommended in per-frame debug paths).
  */
-export function sampleGroundNormal(x: number, z: number): THREE.Vector3 {
-    const baked = sampleBakedGroundNormal(x, z);
-    if (baked) return baked;
+export function sampleGroundNormal(x: number, z: number, out: THREE.Vector3 = _normalScratch): THREE.Vector3 {
+    if (sampleBakedGroundNormalInto(x, z, out)) {
+        return out;
+    }
 
     const hL = getGroundHeight(x - _fdDelta, z);
     const hR = getGroundHeight(x + _fdDelta, z);
@@ -485,13 +498,12 @@ export function sampleGroundNormal(x: number, z: number): THREE.Vector3 {
     _fdTx.set(_fdDelta * 2, hR - hL, 0).normalize();
     _fdTz.set(0, hU - hD, _fdDelta * 2).normalize();
 
-    const normal = new THREE.Vector3().crossVectors(_fdTz, _fdTx).normalize();
-    if (normal.y < 0.2) {
-        // Avoid near-vertical or inverted normals that would put props upside-down.
-        normal.y = 0.2;
-        normal.normalize();
+    out.crossVectors(_fdTz, _fdTx).normalize();
+    if (out.y < 0.2) {
+        out.y = 0.2;
+        out.normalize();
     }
-    return normal;
+    return out;
 }
 
 export interface GroundFootprintResult {
@@ -502,12 +514,187 @@ export interface GroundFootprintResult {
 }
 
 const _fpCenter = new THREE.Vector3();
+const _fpResult: GroundFootprintResult = {
+    minY: 0,
+    avgY: 0,
+    maxY: 0,
+    normal: new THREE.Vector3(0, 1, 0),
+};
+
+// -----------------------------------------------------------------------------
+// Footprint result cache (whole-ring samples, keyed by center + radius + count)
+// -----------------------------------------------------------------------------
+
+const FOOTPRINT_CACHE_SIZE = 64;
+
+const _fpCacheV2 = new Float64Array(FOOTPRINT_CACHE_SIZE * 11);
+
+const _fpCacheScratch = {
+    qx: EMPTY_KEY,
+    qz: EMPTY_KEY,
+    qr: 0,
+    qp: 0,
+    minY: 0,
+    avgY: 0,
+    maxY: 0,
+    time: 0,
+    nx: 0,
+    ny: 1,
+    nz: 0,
+};
+
+function quantizeRadius(r: number): number {
+    return Math.round(r * 100);
+}
+
+function footprintHashSlot(qx: number, qz: number, qr: number, qp: number): number {
+    let h = qx * 73856093;
+    h ^= qz * 19349663;
+    h ^= qr * 83492791;
+    h ^= qp * 50331653;
+    h ^= h >>> 16;
+    return Math.abs(h) % FOOTPRINT_CACHE_SIZE;
+}
+function readFootprintSlotV2(slot: number): void {
+    const off = slot * 11;
+    _fpCacheScratch.qx = _fpCacheV2[off];
+    _fpCacheScratch.qz = _fpCacheV2[off + 1];
+    _fpCacheScratch.qr = _fpCacheV2[off + 2];
+    _fpCacheScratch.qp = _fpCacheV2[off + 3];
+    _fpCacheScratch.minY = _fpCacheV2[off + 4];
+    _fpCacheScratch.avgY = _fpCacheV2[off + 5];
+    _fpCacheScratch.maxY = _fpCacheV2[off + 6];
+    _fpCacheScratch.nx = _fpCacheV2[off + 7];
+    _fpCacheScratch.ny = _fpCacheV2[off + 8];
+    _fpCacheScratch.nz = _fpCacheV2[off + 9];
+    _fpCacheScratch.time = _fpCacheV2[off + 10];
+}
+
+function writeFootprintSlotV2(
+    slot: number,
+    qx: number,
+    qz: number,
+    qr: number,
+    qp: number,
+    minY: number,
+    avgY: number,
+    maxY: number,
+    nx: number,
+    ny: number,
+    nz: number,
+    time: number
+): void {
+    const off = slot * 11;
+    _fpCacheV2[off] = qx;
+    _fpCacheV2[off + 1] = qz;
+    _fpCacheV2[off + 2] = qr;
+    _fpCacheV2[off + 3] = qp;
+    _fpCacheV2[off + 4] = minY;
+    _fpCacheV2[off + 5] = avgY;
+    _fpCacheV2[off + 6] = maxY;
+    _fpCacheV2[off + 7] = nx;
+    _fpCacheV2[off + 8] = ny;
+    _fpCacheV2[off + 9] = nz;
+    _fpCacheV2[off + 10] = time;
+}
+
+function lookupFootprintCache(
+    qx: number,
+    qz: number,
+    qr: number,
+    qp: number,
+    now: number
+): GroundFootprintResult | null {
+    ensureCacheConfig();
+    const ttlMs = _cacheTTL * 1000;
+    let slot = footprintHashSlot(qx, qz, qr, qp);
+    for (let probe = 0; probe < FOOTPRINT_CACHE_SIZE; probe++) {
+        readFootprintSlotV2(slot);
+        if (_fpCacheScratch.qx === EMPTY_KEY) return null;
+        if (
+            _fpCacheScratch.qx === qx &&
+            _fpCacheScratch.qz === qz &&
+            _fpCacheScratch.qr === qr &&
+            _fpCacheScratch.qp === qp
+        ) {
+            if (now - _fpCacheScratch.time > ttlMs) {
+                writeFootprintSlotV2(slot, EMPTY_KEY, EMPTY_KEY, 0, 0, 0, 0, 0, 0, 1, 0, 0);
+                return null;
+            }
+            _fpResult.minY = _fpCacheScratch.minY;
+            _fpResult.avgY = _fpCacheScratch.avgY;
+            _fpResult.maxY = _fpCacheScratch.maxY;
+            _fpResult.normal.set(_fpCacheScratch.nx, _fpCacheScratch.ny, _fpCacheScratch.nz);
+            return _fpResult;
+        }
+        slot = (slot + 1) % FOOTPRINT_CACHE_SIZE;
+    }
+    return null;
+}
+
+function storeFootprintCache(
+    qx: number,
+    qz: number,
+    qr: number,
+    qp: number,
+    result: GroundFootprintResult,
+    now: number
+): void {
+    let slot = footprintHashSlot(qx, qz, qr, qp);
+    for (let probe = 0; probe < FOOTPRINT_CACHE_SIZE; probe++) {
+        readFootprintSlotV2(slot);
+        if (
+            _fpCacheScratch.qx === EMPTY_KEY ||
+            (_fpCacheScratch.qx === qx && _fpCacheScratch.qz === qz && _fpCacheScratch.qr === qr && _fpCacheScratch.qp === qp)
+        ) {
+            writeFootprintSlotV2(
+                slot,
+                qx,
+                qz,
+                qr,
+                qp,
+                result.minY,
+                result.avgY,
+                result.maxY,
+                result.normal.x,
+                result.normal.y,
+                result.normal.z,
+                now
+            );
+            return;
+        }
+        slot = (slot + 1) % FOOTPRINT_CACHE_SIZE;
+    }
+    writeFootprintSlotV2(
+        slot,
+        qx,
+        qz,
+        qr,
+        qp,
+        result.minY,
+        result.avgY,
+        result.maxY,
+        result.normal.x,
+        result.normal.y,
+        result.normal.z,
+        now
+    );
+}
+
+export function invalidateFootprintCache(): void {
+    _fpCacheV2.fill(EMPTY_KEY);
+}
+
+const _fpBatchPositions = new Float32Array(20); // up to 9 samples (4 perimeter + center)
+const _fpBatchHeights = new Float32Array(10);
 
 /**
  * Sample a circular footprint around (x, z) to find the lowest/average ground
- * contact and a representative surface normal. Uses getGroundHeight() so all
- * lake/island/platform overrides are respected and the existing exact cache
- * absorbs repeated samples.
+ * contact and a representative surface normal. Uses batched getGroundHeight()
+ * queries and a small footprint-level cache so repeated placements at the same
+ * cell during world-gen do not re-walk the ring.
+ *
+ * Returns a reused module-scope object — clone fields if you need to retain them.
  */
 export function sampleGroundFootprint(
     x: number,
@@ -515,24 +702,37 @@ export function sampleGroundFootprint(
     radius: number,
     points: number
 ): GroundFootprintResult {
+    ensureCacheConfig();
+    const now = performance.now();
+    const qx = quantizeCoord(x);
+    const qz = quantizeCoord(z);
+    const qr = quantizeRadius(radius);
+    const qp = points;
+    const cached = lookupFootprintCache(qx, qz, qr, qp, now);
+    if (cached) return cached;
+
     const count = points + 1; // center + perimeter points
+    _fpBatchPositions[0] = x;
+    _fpBatchPositions[1] = z;
+
+    for (let i = 0; i < points; i++) {
+        const angle = (i / points) * Math.PI * 2;
+        const off = (i + 1) * 2;
+        _fpBatchPositions[off] = x + Math.cos(angle) * radius;
+        _fpBatchPositions[off + 1] = z + Math.sin(angle) * radius;
+    }
+
+    fillGroundHeightsBatch(_fpBatchPositions, _fpBatchHeights, count);
+
     let minY = Number.POSITIVE_INFINITY;
     let maxY = Number.NEGATIVE_INFINITY;
     let sumY = 0;
     _fpCenter.set(0, 0, 0);
 
-    // Center sample
-    const cy = getGroundHeight(x, z);
-    minY = Math.min(minY, cy);
-    maxY = Math.max(maxY, cy);
-    sumY += cy;
-    _fpCenter.set(x, cy, z);
-
-    for (let i = 0; i < points; i++) {
-        const angle = (i / points) * Math.PI * 2;
-        const sx = x + Math.cos(angle) * radius;
-        const sz = z + Math.sin(angle) * radius;
-        const sy = getGroundHeight(sx, sz);
+    for (let i = 0; i < count; i++) {
+        const sy = _fpBatchHeights[i];
+        const sx = _fpBatchPositions[i * 2];
+        const sz = _fpBatchPositions[i * 2 + 1];
         minY = Math.min(minY, sy);
         maxY = Math.max(maxY, sy);
         sumY += sy;
@@ -543,9 +743,14 @@ export function sampleGroundFootprint(
 
     _fpCenter.divideScalar(count);
     const avgY = sumY / count;
-    const normal = sampleGroundNormal(_fpCenter.x, _fpCenter.z);
+    sampleGroundNormal(_fpCenter.x, _fpCenter.z, _fpResult.normal);
 
-    return { minY, avgY, maxY, normal };
+    _fpResult.minY = minY;
+    _fpResult.avgY = avgY;
+    _fpResult.maxY = maxY;
+
+    storeFootprintCache(qx, qz, qr, qp, _fpResult, now);
+    return _fpResult;
 }
 
 export function unregisterWalkableCloudPlatform(cloud: THREE.Object3D): void {

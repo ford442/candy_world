@@ -89,7 +89,7 @@ import { InteractionSystem } from '../systems/interaction.ts';
 import { AudioSystem } from '../audio/audio-system.ts';
 import { BeatSync } from '../audio/beat-sync.ts';
 import { animatedFoliage, cpuAnimatedFoliage, foliageClouds, foliageMushrooms } from '../world/state.ts';
-import { getCycleState } from './cycle.ts';
+import { getCycleState, getDayNightBias } from './cycle.ts';
 import {
     CYCLE_DURATION,
     DURATION_SUNRISE,
@@ -101,8 +101,11 @@ import {
     areGodRaysEnabled,
     isDofEnabled,
     isDofManual,
+    resolveShadowSettings,
 } from './config.ts';
 import { uDofFocus, uDofMix, uShaftScatterBoost } from '../foliage/post-processing.ts';
+import { updateAerialPerspectiveUniforms } from '../foliage/aerial-perspective.ts';
+import { updateBaseContactAOUniforms } from '../foliage/material-core.ts';
 import { BiomeUniforms } from '../systems/biome-uniforms.ts';
 import { keyStates } from './input/index.js';
 import {
@@ -152,6 +155,11 @@ const _scratchBaseSkyTop = new THREE.Color();
 const _scratchBaseSkyBot = new THREE.Color();
 const _scratchBaseFog = new THREE.Color();
 const _scratchSunVector = new THREE.Vector3();
+const _scratchLightDir = new THREE.Vector3();
+const _shadowLightView = new THREE.Vector3();
+const _shadowSnap = new THREE.Vector3();
+let _shadowSnapCellX = Number.NaN;
+let _shadowSnapCellZ = Number.NaN;
 const _scratchAuroraColor = new THREE.Color();
 const _scratchCameraForward = new THREE.Vector3();
 
@@ -162,6 +170,57 @@ let _shaftIsNightMode = false;
 // Visual Impact: minimum dot(cameraForward, celestialDir) to show god rays (frustum gate)
 const _SHAFT_FRUSTUM_DOT = CONFIG.postfx.shaftFrustumDot;
 const _SHAFT_OPACITY_CAP = CONFIG.postfx.shaftOpacityCap;
+
+/**
+ * Player-following sun shadow rig with light-view texel snapping.
+ * Sky visuals use `_scratchSunVector` separately — do not drive corona/shafts from light.position.
+ */
+function updateSunShadowFollow(
+    sunLight: THREE.DirectionalLight,
+    playerPos: THREE.Vector3,
+    normalizedSunDir: THREE.Vector3,
+): void {
+    if (!sunLight.castShadow) return;
+
+    const cfg = CONFIG.lighting.shadows;
+    const renderRadius = cfg.followRadius + cfg.snapHeadroom;
+    const mapSize = sunLight.shadow.mapSize.width;
+    const texelWorld = (renderRadius * 2) / mapSize;
+
+    sunLight.position.copy(playerPos).addScaledVector(normalizedSunDir, cfg.sunDistance);
+    sunLight.target.position.copy(playerPos);
+    sunLight.target.updateMatrixWorld();
+
+    const cam = sunLight.shadow.camera as THREE.OrthographicCamera;
+    cam.position.copy(sunLight.position);
+    cam.lookAt(sunLight.target.position);
+    cam.updateMatrixWorld();
+
+    _shadowLightView.copy(playerPos);
+    cam.worldToLocal(_shadowLightView);
+
+    const snappedX = Math.floor(_shadowLightView.x / texelWorld) * texelWorld;
+    const snappedY = Math.floor(_shadowLightView.y / texelWorld) * texelWorld;
+    _shadowSnap.set(
+        snappedX - _shadowLightView.x,
+        snappedY - _shadowLightView.y,
+        0,
+    );
+    _shadowSnap.applyQuaternion(cam.quaternion);
+    cam.position.add(_shadowSnap);
+    cam.updateMatrixWorld();
+    cam.updateProjectionMatrix();
+
+    const cellX = Math.floor(playerPos.x / texelWorld);
+    const cellZ = Math.floor(playerPos.z / texelWorld);
+    if (cellX !== _shadowSnapCellX || cellZ !== _shadowSnapCellZ) {
+        _shadowSnapCellX = cellX;
+        _shadowSnapCellZ = cellZ;
+        sunLight.shadow.map.autoUpdate = true;
+    } else {
+        sunLight.shadow.map.autoUpdate = false;
+    }
+}
 
 // Post-FX enablement resolved once per session (URL overrides + CONFIG.postfx tier).
 const _godRaysEnabled = areGodRaysEnabled();
@@ -564,10 +623,13 @@ export function animate() {
     uAtmosphereIntensity.value = currentState.atmosphereIntensity;
     sceneRef.fog!.color.copy(baseFog);
 
-    const targetNear = isNightNow ? 5 : 20;
-    const targetFar = isNightNow ? 40 : 100;
-    (sceneRef.fog as any).near += (targetNear - (sceneRef.fog as any).near) * delta * 0.5;
-    (sceneRef.fog as any).far += (targetFar - (sceneRef.fog as any).far) * delta * 0.5;
+    updateAerialPerspectiveUniforms(
+        baseFog,
+        getDayNightBias(cyclePos),
+        (sceneRef.fog as THREE.Fog).near,
+        (sceneRef.fog as THREE.Fog).far,
+    );
+    updateBaseContactAOUniforms(getDayNightBias(cyclePos));
 
     let sunIntensity = currentState.sunInt;
     let ambIntensity = currentState.ambInt;
@@ -589,13 +651,24 @@ export function animate() {
         const sunProgress = cyclePos / 540;
         const angle = sunProgress * Math.PI;
         const r = 100;
-        sunLightRef!.position.set(Math.cos(angle) * -r, Math.sin(angle) * r, 20);
+        const celestialX = Math.cos(angle) * -r;
+        const celestialY = Math.sin(angle) * r;
+        const celestialZ = 20;
+
+        // Pure sky direction — drives corona/shafts/_celestialInView (decoupled from shadow rig).
+        _scratchLightDir.set(celestialX, celestialY, celestialZ).normalize();
+        _scratchSunVector.copy(_scratchLightDir);
+
+        const shadowSettings = resolveShadowSettings();
+        sunLightRef!.castShadow = shadowSettings.enabled;
+        if (shadowSettings.enabled) {
+            updateSunShadowFollow(sunLightRef!, player.position, _scratchLightDir);
+        }
+
         sunLightRef!.visible = true;
         sunGlowRef!.visible = true;
         sunCoronaRef!.visible = true;
         moonRef!.visible = false;
-
-        _scratchSunVector.copy(sunLightRef!.position).normalize();
         _shaftIsNightMode = false;
 
         sunGlowRef.position.copy(_scratchSunVector).multiplyScalar(400);
@@ -641,6 +714,7 @@ export function animate() {
         (coronaMatRef as any).opacity = coronaIntensity;
     } else {
         sunLightRef!.visible = false;
+        sunLightRef!.castShadow = false;
         sunGlowRef!.visible = false;
         sunCoronaRef!.visible = false;
         moonRef!.visible = true;

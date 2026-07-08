@@ -9,6 +9,9 @@ import { AtmosphereManager } from './weather-atmosphere.ts';
 import { EffectsManager } from './weather-effects.ts';
 import { CYCLE_DURATION, DURATION_SUNRISE, DURATION_DAY, CONFIG } from '../../core/config.ts';
 import * as Cycle from '../../core/cycle.ts';
+import { getDayNightBias } from '../../core/cycle.ts';
+import { camera } from '../../core/camera-ref.ts';
+import { computeAtmosphereFogTargets } from '../atmosphere-fog.ts';
 import { VisualState } from '../../audio/audio-system.ts';
 import { WeatherMusicTargets } from '../music-reactivity.ts';
 
@@ -411,7 +414,17 @@ export class WeatherSystem {
             this.scene
         );
 
-        // Fog update
+        // Fog update — base distances derived from camera + day/night; weather applies modifiers
+        if (camera) {
+            const fogTargets = computeAtmosphereFogTargets(
+                camera,
+                camera.position.y,
+                getDayNightBias(cyclePos),
+            );
+            this.baseFogNear = fogTargets.near;
+            this.baseFogFar = fogTargets.far;
+        }
+
         this.atmosphereManager.updateFog(
             audioData,
             this.state,
@@ -420,7 +433,8 @@ export class WeatherSystem {
             this.baseFogNear,
             this.baseFogFar,
             this.weatherType,
-            this.fog
+            this.fog,
+            dt,
         );
     }
 
@@ -574,6 +588,16 @@ export class WeatherSystem {
     }
 
     updateFog(audioData: VisualState): void {
+        if (camera) {
+            const cyclePos = (audioData as any)?.time ? (audioData as any).time % CYCLE_DURATION : 0;
+            const fogTargets = computeAtmosphereFogTargets(
+                camera,
+                camera.position.y,
+                getDayNightBias(cyclePos),
+            );
+            this.baseFogNear = fogTargets.near;
+            this.baseFogFar = fogTargets.far;
+        }
         this.atmosphereManager.updateFog(
             audioData,
             this.state,
@@ -582,7 +606,8 @@ export class WeatherSystem {
             this.baseFogNear,
             this.baseFogFar,
             this.weatherType,
-            this.fog
+            this.fog,
+            0.016,
         );
     }
 

@@ -59,6 +59,9 @@ export {
     createGradientMaterial,
     createStandardNodeMaterial,
     createTransparentNodeMaterial,
+    applyBaseContactAO,
+    getBaseContactHeight,
+    updateBaseContactAOUniforms,
 } from './material-core.ts';
 
 // =============================================================================
