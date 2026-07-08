@@ -30,11 +30,13 @@ import { PlantPoseMachine } from './plant-pose-machine.ts';
 import { musicReactivitySystem } from '../systems/music-reactivity.ts';
 import { camera } from '../core/camera-ref.ts';
 import { CONFIG } from '../core/config.ts';
+import { getGroundAlignedQuaternion } from '../world/placement-utils.ts';
 
 const MAX_PINES = 200; // conservative default for performance
 /** Default melody channel index used when config does not specify channelIndex. */
 const DEFAULT_MELODY_CHANNEL_INDEX = 2;
 const _scratchMatrix = new THREE.Matrix4();
+const _scratchQuaternion = new THREE.Quaternion();
 
 export class PortamentoPineBatcher {
   initialized = false;
@@ -207,7 +209,7 @@ export class PortamentoPineBatcher {
 
     // ⚡ OPTIMIZATION: Eliminate CPU overhead and GC spikes from Matrix4 composition by writing directly to instanceMatrix.array
     // Compose directly from the logic object's properties without using a proxy THREE.Object3D
-    _scratchMatrix.compose(dummy.position, dummy.quaternion, dummy.scale);
+    _scratchMatrix.compose(dummy.position, getGroundAlignedQuaternion(dummy, _scratchQuaternion), dummy.scale);
     _scratchMatrix.toArray(this.trunkMesh!.instanceMatrix.array, i * 16);
     _scratchMatrix.toArray(this.needleMesh!.instanceMatrix.array, i * 16);
 
@@ -227,7 +229,7 @@ export class PortamentoPineBatcher {
 
     // ⚡ OPTIMIZATION: Eliminate CPU overhead and GC spikes from Matrix4 composition by writing directly to instanceMatrix.array
     // Compose directly from the logic object's properties without using a proxy THREE.Object3D
-    _scratchMatrix.compose(dummy.position, dummy.quaternion, dummy.scale);
+    _scratchMatrix.compose(dummy.position, getGroundAlignedQuaternion(dummy, _scratchQuaternion), dummy.scale);
     _scratchMatrix.toArray(this.trunkMesh!.instanceMatrix.array, idx * 16);
     _scratchMatrix.toArray(this.needleMesh!.instanceMatrix.array, idx * 16);
 

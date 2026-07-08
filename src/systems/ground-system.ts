@@ -396,6 +396,158 @@ export function registerWalkableCloudPlatform(cloud: THREE.Object3D): void {
     });
 }
 
+// -----------------------------------------------------------------------------
+// Baked normal data registration (populated by ground-heightmap.ts)
+// -----------------------------------------------------------------------------
+
+interface BakedNormalData {
+    normals: Float32Array;
+    size: number;
+    resolution: number;
+}
+
+let _bakedNormalData: BakedNormalData | null = null;
+
+export function registerGroundNormalData(
+    normals: Float32Array,
+    size: number,
+    resolution: number
+): void {
+    _bakedNormalData = { normals, size, resolution };
+}
+
+function sampleBakedGroundNormal(x: number, z: number): THREE.Vector3 | null {
+    if (!_bakedNormalData) return null;
+    const { normals, size, resolution } = _bakedNormalData;
+    const halfSize = size * 0.5;
+    if (
+        x < -halfSize || x > halfSize ||
+        z < -halfSize || z > halfSize
+    ) {
+        return null;
+    }
+
+    const step = size / resolution;
+    const fx = (x + halfSize) / step;
+    const fy = (-z + halfSize) / step;
+    const ix = Math.floor(fx);
+    const iy = Math.floor(fy);
+
+    if (ix < 0 || ix >= resolution || iy < 0 || iy >= resolution) {
+        return null;
+    }
+
+    const u = fx - ix;
+    const v = fy - iy;
+    const row = resolution + 1;
+    const i00 = (iy * row + ix) * 3;
+    const i10 = i00 + 3;
+    const i01 = ((iy + 1) * row + ix) * 3;
+    const i11 = i01 + 3;
+
+    const nx = THREE.MathUtils.lerp(
+        THREE.MathUtils.lerp(normals[i00], normals[i10], u),
+        THREE.MathUtils.lerp(normals[i01], normals[i11], u),
+        v
+    );
+    const ny = THREE.MathUtils.lerp(
+        THREE.MathUtils.lerp(normals[i00 + 1], normals[i10 + 1], u),
+        THREE.MathUtils.lerp(normals[i01 + 1], normals[i11 + 1], u),
+        v
+    );
+    const nz = THREE.MathUtils.lerp(
+        THREE.MathUtils.lerp(normals[i00 + 2], normals[i10 + 2], u),
+        THREE.MathUtils.lerp(normals[i01 + 2], normals[i11 + 2], u),
+        v
+    );
+
+    return new THREE.Vector3(nx, ny, nz).normalize();
+}
+
+const _fdDelta = 0.05;
+const _fdTx = new THREE.Vector3();
+const _fdTz = new THREE.Vector3();
+
+/**
+ * Compute the terrain surface normal at (x, z).
+ * Uses the baked normal map when available; otherwise falls back to a cheap
+ * 3-point finite difference over the authoritative getGroundHeight() query.
+ */
+export function sampleGroundNormal(x: number, z: number): THREE.Vector3 {
+    const baked = sampleBakedGroundNormal(x, z);
+    if (baked) return baked;
+
+    const hL = getGroundHeight(x - _fdDelta, z);
+    const hR = getGroundHeight(x + _fdDelta, z);
+    const hD = getGroundHeight(x, z - _fdDelta);
+    const hU = getGroundHeight(x, z + _fdDelta);
+
+    _fdTx.set(_fdDelta * 2, hR - hL, 0).normalize();
+    _fdTz.set(0, hU - hD, _fdDelta * 2).normalize();
+
+    const normal = new THREE.Vector3().crossVectors(_fdTz, _fdTx).normalize();
+    if (normal.y < 0.2) {
+        // Avoid near-vertical or inverted normals that would put props upside-down.
+        normal.y = 0.2;
+        normal.normalize();
+    }
+    return normal;
+}
+
+export interface GroundFootprintResult {
+    minY: number;
+    avgY: number;
+    maxY: number;
+    normal: THREE.Vector3;
+}
+
+const _fpCenter = new THREE.Vector3();
+
+/**
+ * Sample a circular footprint around (x, z) to find the lowest/average ground
+ * contact and a representative surface normal. Uses getGroundHeight() so all
+ * lake/island/platform overrides are respected and the existing exact cache
+ * absorbs repeated samples.
+ */
+export function sampleGroundFootprint(
+    x: number,
+    z: number,
+    radius: number,
+    points: number
+): GroundFootprintResult {
+    const count = points + 1; // center + perimeter points
+    let minY = Number.POSITIVE_INFINITY;
+    let maxY = Number.NEGATIVE_INFINITY;
+    let sumY = 0;
+    _fpCenter.set(0, 0, 0);
+
+    // Center sample
+    const cy = getGroundHeight(x, z);
+    minY = Math.min(minY, cy);
+    maxY = Math.max(maxY, cy);
+    sumY += cy;
+    _fpCenter.set(x, cy, z);
+
+    for (let i = 0; i < points; i++) {
+        const angle = (i / points) * Math.PI * 2;
+        const sx = x + Math.cos(angle) * radius;
+        const sz = z + Math.sin(angle) * radius;
+        const sy = getGroundHeight(sx, sz);
+        minY = Math.min(minY, sy);
+        maxY = Math.max(maxY, sy);
+        sumY += sy;
+        _fpCenter.x += sx;
+        _fpCenter.y += sy;
+        _fpCenter.z += sz;
+    }
+
+    _fpCenter.divideScalar(count);
+    const avgY = sumY / count;
+    const normal = sampleGroundNormal(_fpCenter.x, _fpCenter.z);
+
+    return { minY, avgY, maxY, normal };
+}
+
 export function unregisterWalkableCloudPlatform(cloud: THREE.Object3D): void {
     const id = typeof cloud.userData.persistentId === 'string'
         ? `cloud:${cloud.userData.persistentId}`

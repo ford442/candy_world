@@ -21,11 +21,14 @@ import {
     persistentIdFromString,
     LUMINOUS_PLANT_TYPE_ID,
 } from '../systems/awakened-persistent-id.ts';
+import { getGroundAlignedQuaternion } from '../world/placement-utils.ts';
 
 const AWAKENED_ATTR_ENABLED = FEATURE_FLAGS.awakenedPersistence;
 const LUMINOUS_TYPE_ID = LUMINOUS_PLANT_TYPE_ID;
 
 const _scratchPos = new THREE.Vector3();
+const _scratchOriginalQuaternion = new THREE.Quaternion();
+const _scratchFinalQuaternion = new THREE.Quaternion();
 
 export class LuminousPlantBatcher {
     private static instance: LuminousPlantBatcher;
@@ -186,7 +189,15 @@ export class LuminousPlantBatcher {
 
         const id = this.count;
 
-        group.updateWorldMatrix(false, false);
+        const slopeQ = group.userData.groundSlopeQuaternion as THREE.Quaternion | undefined;
+        if (slopeQ) {
+            _scratchOriginalQuaternion.copy(group.quaternion);
+            group.quaternion.copy(getGroundAlignedQuaternion(group, _scratchFinalQuaternion));
+            group.updateWorldMatrix(false, false);
+            group.quaternion.copy(_scratchOriginalQuaternion);
+        } else {
+            group.updateWorldMatrix(false, false);
+        }
         group.matrixWorld.toArray(this.mesh.instanceMatrix.array, id * 16);
 
         const phaseAttr = this.mesh.geometry.getAttribute('aPhaseOffset') as THREE.InstancedBufferAttribute;

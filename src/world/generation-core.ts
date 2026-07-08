@@ -234,7 +234,7 @@ export async function initWorld(scene: THREE.Scene, weatherSystem: WeatherSystem
             if (ly > 2.0 && ly < 8.0) {
                 const plant = create('luminous_plant', { scale: 0.8 + Math.random() * 0.6 });
                 if (!plant) continue;
-                plant.position.set(lx, ly, lz);
+                plantOnSurface(plant, lx, lz, { groundY: ly });
                 plant.rotation.y = Math.random() * Math.PI * 2;
                 safeAddFoliage(plant, false, 0, weatherSystem);
             }
@@ -471,7 +471,7 @@ export async function generateCoreWorld(
         const sy = sampleGroundY(sx, sz);
         const seedObj = seedFactories[i % seedFactories.length]();
         if (!seedObj) continue;
-        seedObj.position.set(sx, sy, sz);
+        plantOnSurface(seedObj, sx, sz, { groundY: sy });
         seedObj.rotation.y = Math.random() * Math.PI * 2;
         safeAddFoliage(seedObj, false, 0.3, weatherSystem);
     }

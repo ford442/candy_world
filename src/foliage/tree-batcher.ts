@@ -1,4 +1,5 @@
 import { safeRemoveAndDispose } from "../utils/dispose-utils.ts";
+import { getGroundAlignedQuaternion } from '../world/placement-utils.ts';
 // src/foliage/tree-batcher.ts
 // Lazy dynamic buffer growth: Starts with INITIAL_INSTANCES=100, doubles capacity as needed.
 // Reduces startup allocation from 93,000 to ~500 instances for typical maps.
@@ -40,6 +41,8 @@ import { registerFoliageBatcherLod, refreshFoliageLodMesh } from '../systems/bat
 import { getCIAdjustedCount } from '../core/config.ts';
 
 const _scratchTreeMatrix = new THREE.Matrix4();
+const _scratchTreeOriginalQuaternion = new THREE.Quaternion();
+const _scratchTreeFinalQuaternion = new THREE.Quaternion();
 
 const _defaultColorWhite = new THREE.Color(0xFFFFFF);
 const _defaultColorOrange = new THREE.Color(0xFF4500);
@@ -594,7 +597,15 @@ export class TreeBatcher {
 
         // ⚡ OPTIMIZATION: Ensure world matrix is ready for child components
         // Avoids multiple updateWorldMatrix calls or manual premultiplications later
-        group.updateWorldMatrix(false, false);
+        const slopeQ = group.userData.groundSlopeQuaternion as THREE.Quaternion | undefined;
+        if (slopeQ) {
+            _scratchTreeOriginalQuaternion.copy(group.quaternion);
+            group.quaternion.copy(getGroundAlignedQuaternion(group, _scratchTreeFinalQuaternion));
+            group.updateWorldMatrix(false, false);
+            group.quaternion.copy(_scratchTreeOriginalQuaternion);
+        } else {
+            group.updateWorldMatrix(false, false);
+        }
 
         let animTypeEnum = ANIMATION_TYPES.STATIC;
         const typeStr = group.userData.animationType;

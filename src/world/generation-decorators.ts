@@ -236,7 +236,7 @@ export async function populateProceduralExtras(
                          exportType = 'flower';
                          exportVariant = 'glowing';
                      }
-                     if (obj) obj.position.set(x, currentY, z);
+                     if (obj) plantOnSurface(obj, x, z, { groundY: currentY });
                 }
                 else if (rand < 0.45) {
                     obj = create('mushroom', {
@@ -248,7 +248,7 @@ export async function populateProceduralExtras(
                      exportType = 'mushroom';
                      exportVariant = 'regular';
                      exportHasFace = true;
-                     if (obj) obj.position.set(x, currentY, z);
+                     if (obj) plantOnSurface(obj, x, z, { groundY: currentY });
                      isObstacle = true;
                 }
                 else if (rand < 0.55) {
@@ -264,7 +264,7 @@ export async function populateProceduralExtras(
                          exportType = 'helix_plant';
                      }
 
-                     if (obj) obj.position.set(x, currentY, z);
+                     if (obj) plantOnSurface(obj, x, z, { groundY: currentY });
                      isObstacle = true;
                      radius = 1.5;
                 }
@@ -306,7 +306,13 @@ export async function populateProceduralExtras(
                              currentY = groundY + 0.5;
                              if (obj) obj.position.y = currentY;
                          }
-                         if (obj) obj.position.set(x, currentY, z);
+                         if (obj) {
+                             if (exportType === 'panning_pad') {
+                                 obj.position.set(x, currentY, z);
+                             } else {
+                                 plantOnSurface(obj, x, z, { groundY: currentY });
+                             }
+                         }
                      }
                 }
                  else if (rand < 0.90) {
@@ -362,7 +368,7 @@ export async function populateProceduralExtras(
                  else if (rand < 0.95) {
                     obj = create('silence_spirit');
                      exportType = 'silence_spirit';
-                     if (obj) obj.position.set(x, currentY, z);
+                     if (obj) plantOnSurface(obj, x, z, { groundY: currentY });
                  }
                  else if (rand < 0.97) {
                     obj = create('melody_mirror', { scale: 2.0 });
@@ -375,7 +381,7 @@ export async function populateProceduralExtras(
                  exportType = 'instrument_shrine';
                  exportVariant = String(id);
                  exportParams.instrumentID = id;
-                 if (obj) obj.position.set(x, currentY, z);
+                 if (obj) plantOnSurface(obj, x, z, { groundY: currentY });
                  isObstacle = true;
             }
 

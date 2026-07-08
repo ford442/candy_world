@@ -35,6 +35,9 @@ let _eyeLine: THREE.Line | null = null;
 let _gridLines: THREE.LineSegments | null = null;
 let _gridBoxes: THREE.InstancedMesh | null = null;
 let _plantedRings: THREE.InstancedMesh | null = null;
+let _nearestBaseRing: THREE.Mesh | null = null;
+let _nearestFootprintRing: THREE.Mesh | null = null;
+let _nearestNormalArrow: THREE.Line | null = null;
 
 // Cloud platform debug state (#1266)
 interface CloudPlatformEntry {
@@ -56,6 +59,8 @@ interface PlantedInstance {
     y: number;
     z: number;
     type?: string;
+    footprintRadius?: number;
+    normal?: THREE.Vector3;
 }
 
 const _plantedInstances: PlantedInstance[] = [];
@@ -186,6 +191,36 @@ export function initGroundDebug(scene: THREE.Scene): void {
             _plantedRings.instanceMatrix.needsUpdate = true;
             scene.add(_plantedRings);
         }
+
+        // Nearest-wide-prop overlay: larger base ring, footprint ring, normal arrow.
+        const baseRingGeo = new THREE.RingGeometry(0.25, 0.30, 24);
+        baseRingGeo.rotateX(-Math.PI / 2);
+        _nearestBaseRing = new THREE.Mesh(
+            baseRingGeo,
+            new THREE.MeshBasicMaterial({ color: _magenta, transparent: true, opacity: 0.75, depthTest: false, side: THREE.DoubleSide })
+        );
+        _nearestBaseRing.renderOrder = 9999;
+        _nearestBaseRing.visible = false;
+        scene.add(_nearestBaseRing);
+
+        _nearestFootprintRing = new THREE.Mesh(
+            new THREE.RingGeometry(0.9, 0.95, 32),
+            new THREE.MeshBasicMaterial({ color: _cyan, transparent: true, opacity: 0.45, depthTest: false, side: THREE.DoubleSide })
+        );
+        _nearestFootprintRing.geometry.rotateX(-Math.PI / 2);
+        _nearestFootprintRing.renderOrder = 9999;
+        _nearestFootprintRing.visible = false;
+        scene.add(_nearestFootprintRing);
+
+        const arrowGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3(0, 1, 0)]);
+        _nearestNormalArrow = new THREE.Line(
+            arrowGeo,
+            new THREE.LineBasicMaterial({ color: _yellow, depthTest: false })
+        );
+        _nearestNormalArrow.renderOrder = 9999;
+        _nearestNormalArrow.frustumCulled = false;
+        _nearestNormalArrow.visible = false;
+        scene.add(_nearestNormalArrow);
     }
 }
 
@@ -197,10 +232,12 @@ export function registerPlantedInstance(
     x: number,
     y: number,
     z: number,
-    type?: string
+    type?: string,
+    footprintRadius?: number,
+    normal?: THREE.Vector3
 ): void {
     if (!DEBUG_HEIGHTS) return;
-    _plantedInstances.push({ x, y, z, type });
+    _plantedInstances.push({ x, y, z, type, footprintRadius, normal: normal?.clone() });
 }
 
 // ---------------------------------------------------------------------------
@@ -429,6 +466,46 @@ export function updateGroundDebug(playerPos: THREE.Vector3, cameraPos: THREE.Vec
 
         _gridLines.geometry.attributes.position.needsUpdate = true;
         _gridBoxes.instanceMatrix.needsUpdate = true;
+
+        // Update nearest-wide-prop debug overlay.
+        if (_nearestBaseRing && _nearestFootprintRing && _nearestNormalArrow) {
+            let nearest: PlantedInstance | null = null;
+            let nearestDist = Number.POSITIVE_INFINITY;
+            for (const p of _plantedInstances) {
+                if (!p.footprintRadius) continue;
+                const dx = p.x - playerPos.x;
+                const dz = p.z - playerPos.z;
+                const d = dx * dx + dz * dz;
+                if (d < nearestDist) {
+                    nearestDist = d;
+                    nearest = p;
+                }
+            }
+
+            if (nearest && nearest.normal) {
+                _nearestBaseRing.visible = true;
+                _nearestFootprintRing.visible = true;
+                _nearestNormalArrow.visible = true;
+
+                _nearestBaseRing.position.set(nearest.x, nearest.y + 0.03, nearest.z);
+                _nearestFootprintRing.position.set(nearest.x, nearest.y + 0.01, nearest.z);
+                _nearestFootprintRing.scale.setScalar(nearest.footprintRadius!);
+
+                const arrowLen = 1.2;
+                const positions = (_nearestNormalArrow.geometry.attributes.position as THREE.BufferAttribute).array as Float32Array;
+                positions[0] = nearest.x;
+                positions[1] = nearest.y + 0.05;
+                positions[2] = nearest.z;
+                positions[3] = nearest.x + nearest.normal.x * arrowLen;
+                positions[4] = nearest.y + 0.05 + nearest.normal.y * arrowLen;
+                positions[5] = nearest.z + nearest.normal.z * arrowLen;
+                _nearestNormalArrow.geometry.attributes.position.needsUpdate = true;
+            } else {
+                _nearestBaseRing.visible = false;
+                _nearestFootprintRing.visible = false;
+                _nearestNormalArrow.visible = false;
+            }
+        }
     }
 }
 
