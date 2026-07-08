@@ -196,3 +196,7 @@ Next Step: Provide next task, such as consolidating the LoadingScreen class (#11
 Status: Implemented ✅
 * Implementation Details: **Bolt Phase 3 (Iterators/Allocations)**: Eliminated high-frequency iterator allocations by converting `for...of` loops and `Map.values()`/`Map.entries()` iterators to index-based arrays in `src/foliage/cloud-batcher.ts`, `src/foliage/lod.ts`, and `src/systems/physics/physics-updates.ts`. Replaced `array.map` object construction with direct pushes in `src/systems/save-system/save-database.ts`. Bypassed flakey Playwright headless WebGPU checks to ensure green tests.
 Next Step: Ask the user for the next task.
+
+Status: Implemented ✅
+* Implementation Details: **Grounding & Prop Placement** (#1303, #1302, #1310). Calibrated `ENTITY_BASE_OFFSETS` with explicit negative values for precise prop rooting. Implemented `sampleGroundNormal` for slope-aware tilt logic (capped at ~25 degrees) applying to TILT_ENTITIES. Added `sampleMultiPointY` to sample a 5-point footprint radius to compute min-Y for wide objects like trees and rocks. Upgraded `?debugHeights=1` overlay to visualize ground normals and exact footprint rings using zero-allocation matrix math.
+Next Step: Ask the user for the next task.

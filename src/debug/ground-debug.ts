@@ -12,6 +12,7 @@
 
 import * as THREE from 'three';
 import { getGroundHeight, getEyeTargetY } from '../systems/ground-system.ts';
+import { sampleGroundNormal } from '../world/placement-utils.ts';
 import { CONFIG } from '../core/config.ts';
 
 const _hasFlag = (key: string): boolean => {
@@ -33,6 +34,7 @@ let _groundMesh: THREE.Mesh | null = null;
 let _eyeLine: THREE.Line | null = null;
 let _gridLines: THREE.LineSegments | null = null;
 let _gridBoxes: THREE.InstancedMesh | null = null;
+let _footprintRings: THREE.InstancedMesh | null = null;
 
 const _white = new THREE.Color(0xffffff);
 const _green = new THREE.Color(0x00ff00);
@@ -125,10 +127,20 @@ export function initGroundDebug(scene: THREE.Scene): void {
         _gridBoxes.frustumCulled = false;
         _gridBoxes.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
         scene.add(_gridBoxes);
+
+        const ringGeo = new THREE.RingGeometry(0.5, 0.55, 16);
+        ringGeo.rotateX(-Math.PI / 2); // face upwards
+        const ringMat = new THREE.MeshBasicMaterial({ color: _red, depthTest: false, side: THREE.DoubleSide });
+        _footprintRings = new THREE.InstancedMesh(ringGeo, ringMat, count);
+        _footprintRings.renderOrder = 9999;
+        _footprintRings.frustumCulled = false;
+        _footprintRings.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+        scene.add(_footprintRings);
     }
 }
 
 const _dummy = new THREE.Object3D();
+const _upVector = new THREE.Vector3(0, 1, 0);
 
 /**
  * Update debug visuals. Should be called once per frame from the game loop.
@@ -193,26 +205,38 @@ export function updateGroundDebug(playerPos: THREE.Vector3, cameraPos: THREE.Vec
                 const x = playerPos.x + ix * step;
                 const z = playerPos.z + iz * step;
                 const groundY = getGroundHeight(x, z);
+                const normal = sampleGroundNormal(x, z);
 
-                // Update vertical post endpoints.
+                // Update vertical post endpoints (draw normal arrows)
                 const base = idx * 6;
                 positions[base] = x;
                 positions[base + 1] = groundY;
                 positions[base + 2] = z;
-                positions[base + 3] = x;
-                positions[base + 4] = groundY + 0.5;
-                positions[base + 5] = z;
+                positions[base + 3] = x + normal.x * 0.5;
+                positions[base + 4] = groundY + normal.y * 0.5;
+                positions[base + 5] = z + normal.z * 0.5;
 
                 // Update box at the ground surface.
                 _dummy.position.set(x, groundY, z);
+                _dummy.quaternion.identity();
                 _dummy.updateMatrix();
                 _gridBoxes.setMatrixAt(idx, _dummy.matrix);
+
+                // Update footprint rings
+                if (_footprintRings) {
+                    _dummy.position.set(x, groundY + 0.02, z);
+                    _dummy.quaternion.setFromUnitVectors(_upVector, normal);
+                    _dummy.updateMatrix();
+                    _footprintRings.setMatrixAt(idx, _dummy.matrix);
+                }
+
                 idx++;
             }
         }
 
         _gridLines.geometry.attributes.position.needsUpdate = true;
         _gridBoxes.instanceMatrix.needsUpdate = true;
+        if (_footprintRings) _footprintRings.instanceMatrix.needsUpdate = true;
     }
 }
 
