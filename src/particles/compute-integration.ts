@@ -555,7 +555,8 @@ export function updateAllIntegratedSystems(
     playerPosition: THREE.Vector3,
     audioData: ParticleAudioData
 ): void {
-    for (const [id, system] of activeSystems) {
+    // ⚡ OPTIMIZATION: Swapped Map entry destructuring to .values() to eliminate array allocation and GC spikes in hot update loop.
+    for (const system of activeSystems.values()) {
         system.update(renderer, deltaTime, playerPosition, audioData);
     }
 }
@@ -572,7 +573,8 @@ export function disposeIntegratedSystem(id: string): void {
 }
 
 export function disposeAllIntegratedSystems(): void {
-    for (const [id] of activeSystems) {
+    // ⚡ OPTIMIZATION: Swapped Map entry destructuring to .keys() to eliminate array allocation and GC spikes during cleanup.
+    for (const id of activeSystems.keys()) {
         disposeIntegratedSystem(id);
     }
 }
