@@ -492,15 +492,16 @@ export function checkVineAttachment(camera: THREE.Camera) {
             const dx = playerPos.x - anchor.x;
             const dz = playerPos.z - anchor.z;
             const distHSq = dx*dx + dz*dz;
-            const tipY = anchor.y - (typeof vineManager.length === 'number' ? vineManager.length : 0);
-            if (distHSq < 4.0 && playerPos.y < anchor.y && playerPos.y > tipY) {
-                 if (distHSq < 1.0) {
-                     if (typeof vineManager.attach === 'function') {
-                         vineManager.attach(player, player.velocity);
-                         setActiveVineSwing(vineManager);
-                         break;
-                     }
-                 }
+            // ⚡ OPTIMIZATION: Quick horizontal distance check before more expensive math
+            if (distHSq < 1.0) {
+                const tipY = anchor.y - (typeof vineManager.length === 'number' ? vineManager.length : 0);
+                if (playerPos.y < anchor.y && playerPos.y > tipY) {
+                    if (typeof vineManager.attach === 'function') {
+                        vineManager.attach(player, player.velocity);
+                        setActiveVineSwing(vineManager);
+                        break;
+                    }
+                }
             }
         }
     });
