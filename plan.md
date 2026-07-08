@@ -1,42 +1,4 @@
-1. **Optimize `findNearby` in `PhysicsSpatialGrid`**
-   - File: `src/systems/physics/physics-core.ts`
-   - Issue: Using a `Set` for deduplication every frame causes GC spikes in `_querySet.clear()` and `_querySet.add()` for high-frequency queries.
-   - Fix: Replace the `Set` with an incrementing query ID tag on objects (e.g., `obj.userData._lastQueryId`).
-   - Implementation:
-     ```typescript
-     let physicsQueryId = 0;
-     ```
-     Inside `findNearby`:
-     ```typescript
-     physicsQueryId++;
-     this._queryResult.length = 0;
-     // ... loops
-     const obj = cell[i];
-     if (!obj.userData) obj.userData = {};
-     if (obj.userData._lastQueryId !== physicsQueryId) {
-         obj.userData._lastQueryId = physicsQueryId;
-         this._queryResult.push(obj);
-     }
-     ```
-     Actually, since `PhysicsSpatialGrid` is generic `any[]`, adding `userData` assumes `THREE.Object3D`. We can just use a unique symbol or `_lastQueryId` directly on the object.
-     ```typescript
-     let globalQueryId = 0;
-
-     class PhysicsSpatialGrid {
-         findNearby() {
-             globalQueryId++;
-             this._queryResult.length = 0;
-             // ...
-             if (obj._lastQueryId !== globalQueryId) {
-                 obj._lastQueryId = globalQueryId;
-                 this._queryResult.push(obj);
-             }
-         }
-     }
-     ```
-     This completely eliminates `Set` allocation and clearing overhead.
-
-2. **Optimize Math in `waterfall-batcher.ts`**
+1. **Optimize Math in `waterfall-batcher.ts`**
    - File: `src/foliage/waterfall-batcher.ts`
    - Issue: `updateInstance` uses `Math.sqrt` in a hot loop.
    - Fix: Import `fastInvSqrt` from `../utils/wasm-loader.ts` and replace:
@@ -75,6 +37,13 @@
 Status: Implemented ✅
 * Implementation Details: Appended `createJuicyRimLight` to the `sphereMat.emissiveNode` in `src/foliage/tree-batcher.ts` to add visual TSL juice (Rim Lighting) to the tree canopy.
 Accomplished:
+- **Optimize `findNearby` in `PhysicsSpatialGrid`**
+   - File: `src/systems/physics/physics-core.ts`
+   - Issue: Using a `Set` for deduplication every frame causes GC spikes in `_querySet.clear()` and `_querySet.add()` for high-frequency queries.
+   - Fix: Replace the `Set` with an incrementing query ID tag on objects (e.g., `obj.userData._lastQueryId`).
+Status: Implemented ✅
+* Implementation Details: Replaced `Set` deduplication in `PhysicsSpatialGrid` with an integer tagging approach using a global query ID to eliminate high-frequency GC spikes.
+
 - Refactored `startup-profiler.ts`, `wasm-loader-core.ts`, `music-reactivity.ts` (files > 1000 lines) into smaller files under 700 lines each.
 
 - Refactored `startup-profiler.ts`, `wasm-loader-core.ts`, `music-reactivity.ts` (files > 1000 lines) into smaller files under 700 lines each.
