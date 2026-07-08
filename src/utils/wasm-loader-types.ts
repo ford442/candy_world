@@ -250,6 +250,7 @@ export interface WasmExports {
     clearGroundPlatforms?: () => void;
     addGroundPlatform?: (minX: number, maxX: number, minZ: number, maxZ: number, maxY: number) => void;
     invalidateGroundCache?: () => void;
+    setGroundCacheTTL?: (seconds: number) => void;
     dampVelocity?: (velocityPtr: number, count: number, damping: number) => void;
     batchDistanceCalc?: (positionsPtr: number, count: number, camX: number, camY: number, camZ: number, outputPtr: number) => void;
     batchFrustumTest?: (positionsPtr: number, count: number, frustumPlanesPtr: number, outputPtr: number) => number;

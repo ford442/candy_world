@@ -39,6 +39,11 @@ export declare function addGroundPlatform(minX: number, maxX: number, minZ: numb
  * assembly/ground/invalidateGroundCache
  */
 export declare function invalidateGroundCache(): void;
+/**
+ * assembly/ground/setGroundCacheTTL
+ * @param seconds `f32`
+ */
+export declare function setGroundCacheTTL(seconds: number): void;
 /** assembly/constants/POSITION_OFFSET */
 export declare const POSITION_OFFSET: {
   /** @type `i32` */

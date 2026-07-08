@@ -21,6 +21,7 @@ export let cppBatchUnifiedGroundHeight: ((positionsPtr: number, count: number, o
 export let cppClearGroundPlatforms: (() => void) | null = null;
 export let cppAddGroundPlatform: ((minX: number, maxX: number, minZ: number, maxZ: number, maxY: number) => void) | null = null;
 export let cppInvalidateGroundCache: (() => void) | null = null;
+export let cppSetGroundCacheTTL: ((seconds: number) => void) | null = null;
 
 /** Foliage interaction batches from emscripten/foliage_interact.cpp */
 export let cppBatchGeyserLaunch: ((
@@ -105,6 +106,7 @@ export function initCppFunctions(): void {
   cppClearGroundPlatforms = getNativeFuncVoid('clearGroundPlatforms');
   cppAddGroundPlatform = getNativeFuncVoid('addGroundPlatform');
   cppInvalidateGroundCache = getNativeFuncVoid('invalidateGroundCache');
+  cppSetGroundCacheTTL = getNativeFuncVoid('setGroundCacheTTL');
 
   // Foliage interaction (emscripten/foliage_interact.cpp)
   cppBatchGeyserLaunch = getNativeFuncVoid('batchGeyserLaunch_c');

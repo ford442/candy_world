@@ -45,7 +45,7 @@ static int _platformCount = 0;
 static constexpr int CACHE_SLOTS = 256;
 static constexpr int CACHE_STRIDE = 4;
 static constexpr double EMPTY_KEY = 1.0e300;
-static constexpr double CACHE_TTL_MS = 1000.0;
+static double _cacheTTLMs = 1000.0;
 
 static double _cache[CACHE_SLOTS * CACHE_STRIDE];
 static int _cacheInitialized = 0;
@@ -87,7 +87,7 @@ static bool lookupCachedHeight(int qx, int qz, double now, float& outHeight) {
         double kx = _cache[off];
         if (kx == EMPTY_KEY) return false;
         if ((int)kx == qx && (int)_cache[off + 1] == qz) {
-            if (now - _cache[off + 3] <= CACHE_TTL_MS) {
+            if (now - _cache[off + 3] <= _cacheTTLMs) {
                 outHeight = (float)_cache[off + 2];
                 return true;
             }
@@ -115,7 +115,7 @@ static void storeCachedHeight(int qx, int qz, float height, double now) {
     if (now - _lastPurge > 1000.0) {
         for (int s = 0; s < CACHE_SLOTS; s++) {
             int off = s * CACHE_STRIDE;
-            if (_cache[off] != EMPTY_KEY && now - _cache[off + 3] > CACHE_TTL_MS) {
+            if (_cache[off] != EMPTY_KEY && now - _cache[off + 3] > _cacheTTLMs) {
                 cacheWrite(s, EMPTY_KEY, EMPTY_KEY, 0.0, 0.0);
             }
         }
@@ -195,6 +195,11 @@ void addGroundPlatform(float minX, float maxX, float minZ, float maxZ, float max
     _platformData[base + 3] = maxZ;
     _platformData[base + 4] = maxY;
     _platformCount++;
+}
+
+EMSCRIPTEN_KEEPALIVE
+void setGroundCacheTTL(float seconds) {
+    _cacheTTLMs = seconds * 1000.0;
 }
 
 EMSCRIPTEN_KEEPALIVE

@@ -9,11 +9,13 @@ import {
     wasmClearGroundPlatforms,
     wasmAddGroundPlatform,
     wasmInvalidateGroundCache,
+    wasmSetGroundCacheTTL,
     cppGetUnifiedGroundHeight,
     cppBatchUnifiedGroundHeight,
     cppClearGroundPlatforms,
     cppAddGroundPlatform,
     cppInvalidateGroundCache,
+    cppSetGroundCacheTTL,
     getWasmInstance,
     getWasmMemory,
     getEmscriptenInstance,
@@ -39,6 +41,11 @@ let _cppBatchCapacity = 0;
 
 export function isNativeUnifiedGroundReady(): boolean {
     return wasmGetUnifiedGroundHeight !== null;
+}
+
+export function syncGroundCacheTTLToNative(seconds: number): void {
+    wasmSetGroundCacheTTL?.(seconds);
+    cppSetGroundCacheTTL?.(seconds);
 }
 
 export function syncGroundPlatformsToNative(platforms: readonly GroundPlatform[]): void {

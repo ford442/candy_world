@@ -26,6 +26,7 @@ import {
     queryUnifiedGroundHeight,
     fillUnifiedGroundHeights,
     syncGroundPlatformsToNative,
+    syncGroundCacheTTLToNative,
     invalidateNativeGroundCache,
     isNativeUnifiedGroundReady,
     getUnifiedGroundBackend,
@@ -65,8 +66,9 @@ export function isOnLakeIsland(x: number, z: number): boolean {
 const _platforms: GroundPlatform[] = [];
 
 function ensureCacheConfig(): void {
-    const cfg = CONFIG.ground;
-    setGroundCacheTTL(cfg.cacheTTL ?? 1.0);
+    const ttl = CONFIG.ground.cacheTTL ?? 1.0;
+    setGroundCacheTTL(ttl);
+    syncGroundCacheTTLToNative(ttl);
 }
 
 function syncPlatforms(): void {

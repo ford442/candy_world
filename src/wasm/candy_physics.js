@@ -98,6 +98,7 @@ export const {
   clearGroundPlatforms,
   addGroundPlatform,
   invalidateGroundCache,
+  setGroundCacheTTL,
   POSITION_OFFSET,
   ANIMATION_OFFSET,
   OUTPUT_OFFSET,

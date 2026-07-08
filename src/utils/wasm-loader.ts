@@ -73,6 +73,7 @@ export {
     wasmClearGroundPlatforms,
     wasmAddGroundPlatform,
     wasmInvalidateGroundCache,
+    wasmSetGroundCacheTTL,
     wasmDampVelocity,
     wasmBatchDistanceCalc,
     wasmBatchFrustumTest,
@@ -110,6 +111,7 @@ export {
     cppClearGroundPlatforms,
     cppAddGroundPlatform,
     cppInvalidateGroundCache,
+    cppSetGroundCacheTTL,
     cppBatchShiverSimd,
     cppBatchSpringSimd,
     cppBatchFloatSimd,
@@ -328,10 +330,12 @@ export {
 export {
     isNativeUnifiedGroundReady,
     syncGroundPlatformsToNative,
+    syncGroundCacheTTLToNative,
     invalidateNativeGroundCache,
     queryUnifiedGroundHeight,
     fillUnifiedGroundHeights,
     getUnifiedGroundBackend,
+    batchGroundHeightWithPlatforms,
 } from './wasm-ground.ts';
 
 // Foliage interaction batches

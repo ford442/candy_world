@@ -16,4 +16,5 @@ export {
   clearGroundPlatforms,
   addGroundPlatform,
   invalidateGroundCache,
+  setGroundCacheTTL,
 } from "./ground";

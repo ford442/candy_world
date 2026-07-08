@@ -212,6 +212,7 @@ declare -A ANIMATION_FUNCTIONS=(
     ["clearGroundPlatforms"]="ground"
     ["addGroundPlatform"]="ground"
     ["invalidateGroundCache"]="ground"
+    ["setGroundCacheTTL"]="ground"
     ["getUnifiedGroundHeight"]="ground"
     ["batchUnifiedGroundHeight"]="ground"
 

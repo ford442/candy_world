@@ -6,12 +6,23 @@ import * as THREE from 'three';
 import {
     isInLakeBasin as _isInLakeBasin,
     isOnLakeIsland as _isOnLakeIsland,
-    getGroundHeight
+    getGroundHeight,
 } from './ground-system.ts';
 
 // Re-export lake helpers so existing call sites keep working without edits.
 export const isInLakeBasin = _isInLakeBasin;
 export const isOnLakeIsland = _isOnLakeIsland;
+
+/**
+ * Backward-compatible alias. Prefer {@link getGroundHeight} from `ground-system.ts`.
+ */
+export function getUnifiedGroundHeightTyped(
+    x: number,
+    z: number,
+    _getGroundHeight?: (x: number, z: number) => number
+): number {
+    return getGroundHeight(x, z);
+}
 
 // --- Type Definitions ---
 

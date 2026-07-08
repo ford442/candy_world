@@ -70,6 +70,7 @@ export let wasmBatchUnifiedGroundHeight: ((positionsPtr: number, count: number, 
 export let wasmClearGroundPlatforms: (() => void) | null = null;
 export let wasmAddGroundPlatform: ((minX: number, maxX: number, minZ: number, maxZ: number, maxY: number) => void) | null = null;
 export let wasmInvalidateGroundCache: (() => void) | null = null;
+export let wasmSetGroundCacheTTL: ((seconds: number) => void) | null = null;
 export let wasmDampVelocity: ((velocityPtr: number, count: number, damping: number) => void) | null = null;
 export let wasmBatchDistanceCalc: ((positionsPtr: number, count: number, camX: number, camY: number, camZ: number, outputPtr: number) => void) | null = null;
 export let wasmBatchFrustumTest: ((positionsPtr: number, count: number, frustumPlanesPtr: number, outputPtr: number) => number) | null = null;
@@ -229,6 +230,7 @@ function cacheWasmFunctions(instance: WebAssembly.Instance): void {
     wasmClearGroundPlatforms = exports.clearGroundPlatforms || null;
     wasmAddGroundPlatform = exports.addGroundPlatform || null;
     wasmInvalidateGroundCache = exports.invalidateGroundCache || null;
+    wasmSetGroundCacheTTL = exports.setGroundCacheTTL || null;
     wasmDampVelocity = exports.dampVelocity || null;
     wasmBatchDistanceCalc = exports.batchDistanceCalc || null;
     wasmBatchFrustumTest = exports.batchFrustumTest || null;

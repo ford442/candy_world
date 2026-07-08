@@ -48,7 +48,7 @@ const EMPTY_KEY: f64 = 1.0e300;
 const _cache = new StaticArray<f64>(CACHE_SLOTS * CACHE_STRIDE);
 let _cacheInitialized: i32 = 0;
 let _lastPurge: f64 = 0.0;
-const CACHE_TTL_MS: f64 = 1000.0;
+let _cacheTTLMs: f64 = 1000.0;
 
 function ensureCacheInit(): void {
   if (_cacheInitialized != 0) return;
@@ -90,7 +90,7 @@ function lookupCachedHeight(qx: i32, qz: i32, now: f64): f32 {
     if (kx == EMPTY_KEY) return -1.0e30; // miss sentinel
     if (i32(kx) == qx && i32(_cache[off + 1]) == qz) {
       const age = now - _cache[off + 3];
-      if (age <= CACHE_TTL_MS) return <f32>_cache[off + 2];
+      if (age <= _cacheTTLMs) return <f32>_cache[off + 2];
       cacheWrite(slot, EMPTY_KEY, EMPTY_KEY, 0.0, 0.0);
       return -1.0e30;
     }
@@ -124,7 +124,7 @@ function purgeStaleCacheEntries(now: f64): void {
   for (let slot: i32 = 0; slot < CACHE_SLOTS; slot++) {
     const off = slot * CACHE_STRIDE;
     const kx = _cache[off];
-    if (kx != EMPTY_KEY && now - _cache[off + 3] > CACHE_TTL_MS) {
+    if (kx != EMPTY_KEY && now - _cache[off + 3] > _cacheTTLMs) {
       cacheWrite(slot, EMPTY_KEY, EMPTY_KEY, 0.0, 0.0);
     }
   }
@@ -202,6 +202,11 @@ export function addGroundPlatform(
   _platformData[base + 3] = maxZ;
   _platformData[base + 4] = maxY;
   _platformCount++;
+}
+
+/** Sync cache TTL from CONFIG.ground.cacheTTL (seconds). */
+export function setGroundCacheTTL(seconds: f32): void {
+  _cacheTTLMs = f64(seconds) * 1000.0;
 }
 
 /** Invalidate the native height cache (call when platforms change). */
