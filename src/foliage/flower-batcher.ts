@@ -99,7 +99,7 @@ export class FlowerBatcher {
 
         // --- 1. Stems (Cylinder) ---
         const stemMat = getCachedProceduralMaterial('flower_batch_stem', 0xFFFFFF, () => {
-            return (foliageMaterials.flowerStem as THREE.Material).clone();
+            return CandyPresets.Clay(0x4ade80, { deformationNode: posFinal, rimStrength: 0.5 });
         });
 
         const stemGeo = sharedGeometries.unitCylinder.clone();
@@ -115,9 +115,7 @@ export class FlowerBatcher {
 
         // --- 2. Centers (Sphere) ---
         const centerMat = getCachedProceduralMaterial('flower_batch_center', 0xFFFFFF, () => {
-            const mat = (foliageMaterials.flowerCenter as THREE.Material).clone();
-            (mat as any).positionNode = posFinal; // Apply full deformation chain
-            return mat;
+            return CandyPresets.Clay(0xfacc15, { deformationNode: posFinal });
         });
 
         const centerGeo = sharedGeometries.unitSphere.clone();

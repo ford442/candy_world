@@ -178,6 +178,7 @@ export class AccessibilityMenuCore {
   protected switchSection(section: MenuSection): void {
     this.currentSection = section;
     this.refreshMainPanel();
+    this.updateSidebarSelection();
     announce(`Switched to ${this.formatActionName(section)} settings`, 'polite');
     const newTab = this.container?.querySelector(`#tab-${section}`) as HTMLElement;
     if (newTab) newTab.focus({ preventScroll: true });
