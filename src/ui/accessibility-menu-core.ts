@@ -184,20 +184,16 @@ export class AccessibilityMenuCore {
   }
 
   protected refreshMainPanel(): void {
-    const panel = this.container?.querySelector('[role="tabpanel"]');
+    const panel = this.container?.querySelector('[role="tabpanel"]') as HTMLElement;
     if (!panel) return;
 
-    const panels = this.container?.querySelectorAll('[role="tabpanel"]');
-    panels?.forEach(p => {
-      (p as HTMLElement).style.display = 'none';
-    });
+    panel.id = `panel-${this.currentSection}`;
+    panel.setAttribute('aria-labelledby', `tab-${this.currentSection}`);
+    this.renderSection(panel, this.currentSection);
+  }
 
-    const currentPanel = this.container?.querySelector(`#panel-${this.currentSection}`) as HTMLElement;
-    if (currentPanel) {
-      currentPanel.style.display = 'block';
-      currentPanel.id = `panel-${this.currentSection}`;
-      currentPanel.setAttribute('aria-labelledby', `tab-${this.currentSection}`);
-    }
+  protected renderSection(container: HTMLElement, section: MenuSection): void {
+    // To be overridden by rendering subclass
   }
 
   protected updateSidebarSelection(): void {
