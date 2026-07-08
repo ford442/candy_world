@@ -29,8 +29,8 @@ import {
     SettingsSaveData,
     SaveSlotInfo,
     SaveMetadata
-} from './save-types.js';
-import { SaveDatabase, MigrationSystem, LZString } from './save-database.js';
+} from './save-types.ts';
+import { SaveDatabase, MigrationSystem, LZString } from './save-database.ts';
 
 // =============================================================================
 // MAIN SAVE SYSTEM

@@ -93,7 +93,7 @@ These files have both `.js` and `.ts` versions and need cleanup:
 - [ ] Compare functionality between JS and TS versions
 - [ ] Ensure TS version has full feature parity
 - [ ] Add migration stub header to JS files
-- [ ] Update all imports to use TS version
+- [x] Update all imports to use TS version (`.ts` extension specifiers; completed 2026-07-08)
 - [ ] Remove JS files after verification
 
 ---

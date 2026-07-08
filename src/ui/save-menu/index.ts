@@ -13,17 +13,17 @@ export {
     closeSaveMenu,
     isSaveMenuOpen,
     showSaveIndicator
-} from './save-menu.js';
+} from './save-menu.ts';
 
 // Types
 export type { 
     MenuTab, 
     MenuMode, 
     SaveMenuOptions 
-} from './save-menu.js';
+} from './save-menu.ts';
 
 // Styles
-export { MENU_STYLES } from './save-menu-styles.js';
+export { MENU_STYLES } from './save-menu-styles.ts';
 
 // Slot functions
 export {
@@ -33,7 +33,7 @@ export {
     formatPlaytime,
     handleSlotAction,
     handleQuickSave
-} from './save-slots.js';
+} from './save-slots.ts';
 
 // Settings functions
 export {
@@ -45,7 +45,7 @@ export {
     updateKeybind,
     formatKey,
     formatKeybindAction
-} from './save-settings.js';
+} from './save-settings.ts';
 
 // Default export
-export { SaveMenu as default } from './save-menu.js';
+export { SaveMenu as default } from './save-menu.ts';

@@ -8,7 +8,7 @@ import {
 } from './state.ts';
 import { recordSpawnAttempt } from './spawn-tracker.ts';
 import { WeatherSystem, normalizeMapEntityType, MapEntity, obstaclesData } from './generation-utils.ts';
-import { registerPhysicsCave } from '../systems/physics/index.js';
+import { registerPhysicsCave } from '../systems/physics/index.ts';
 import { create, getTypeMeta, registerBuiltinWorldObjectTypes, registerWorldObject } from './foliage-registry.ts';
 import { plantOnSurface, sampleGroundY } from './placement-utils.ts';
 

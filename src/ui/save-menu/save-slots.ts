@@ -9,10 +9,10 @@ import {
     saveSystem, 
     SaveData, 
     SaveSlotInfo
-} from '../../systems/save-system/index.js';
+} from '../../systems/save-system/index.ts';
 import { showToast } from '../../utils/toast.ts';
 import { yieldToPaint } from '../../utils/yield-to-paint.ts';
-import type { SaveMenu } from './save-menu.js';
+import type { SaveMenu } from './save-menu.ts';
 
 /**
  * Format playtime in seconds to human-readable string

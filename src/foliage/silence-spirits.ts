@@ -14,7 +14,7 @@ import {
     uPlayerPosition
 } from './index.ts';
 import { getBiomeUniforms, type BiomeId } from '../systems/biome-uniforms.ts';
-import { grantInvisibility } from '../systems/physics/index.js';
+import { grantInvisibility } from '../systems/physics/index.ts';
 
 export interface SilenceSpiritOptions {
     scale?: number;

@@ -16,18 +16,18 @@ import {
     SaveSlotInfo,
     SettingsSaveData,
     KeyBindings
-} from '../../systems/save-system/index.js';
+} from '../../systems/save-system/index.ts';
 import { showToast } from '../../utils/toast.ts';
 import { trapFocusInside } from '../../utils/interaction-utils.ts';
 import { announce } from '../announcer.ts';
-import { MENU_STYLES } from './save-menu-styles.js';
+import { MENU_STYLES } from './save-menu-styles.ts';
 import { yieldToPaint } from '../../utils/yield-to-paint.ts';
 import { 
     renderLoadTab, 
     renderSaveTab, 
     handleSlotAction, 
     handleQuickSave 
-} from './save-slots.js';
+} from './save-slots.ts';
 import { 
     renderSettingsTab, 
     handleSettingChange, 
@@ -35,7 +35,7 @@ import {
     handleKeybindClick,
     cancelKeybindListen as cancelKeybindListenBase,
     updateKeybind as updateKeybindBase
-} from './save-settings.js';
+} from './save-settings.ts';
 
 // =============================================================================
 // TYPES

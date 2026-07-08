@@ -1,7 +1,7 @@
 // Example: Using a SharedArrayBuffer for positions and copying it into WASM memory
 // NOTE: In production, SharedArrayBuffer usage requires proper COOP/COEP headers.
 
-import { uploadPositions } from './wasm-loader.js';
+import { uploadPositions } from './wasm-loader.ts';
 
 /**
  * Create a SharedArrayBuffer-backed Float32Array for positions

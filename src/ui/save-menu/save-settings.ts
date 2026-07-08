@@ -9,7 +9,7 @@ import {
     saveSystem, 
     SettingsSaveData,
     KeyBindings
-} from '../../systems/save-system/index.js';
+} from '../../systems/save-system/index.ts';
 import { showToast } from '../../utils/toast.ts';
 
 /** Key map for displaying keys */

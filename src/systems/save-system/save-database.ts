@@ -11,7 +11,7 @@ import {
     SaveSlotInfo,
     SettingsSaveData,
     MigrationFunction
-} from './save-types.js';
+} from './save-types.ts';
 
 // =============================================================================
 // LZ-STRING COMPRESSION (Embedded to avoid dependency)

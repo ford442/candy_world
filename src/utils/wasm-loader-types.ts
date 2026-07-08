@@ -245,6 +245,11 @@ export interface WasmExports {
     batchDistanceCull?: (cameraX: number, cameraY: number, cameraZ: number, maxDistSq: number, objectCount: number) => number;
     // Hot-path Physics exports (from assembly/physics.ts)
     batchGroundHeight?: (positionsPtr: number, count: number, outputPtr: number) => void;
+    getUnifiedGroundHeight?: (x: number, z: number, nowMs: number) => number;
+    batchUnifiedGroundHeight?: (positionsPtr: number, count: number, outputPtr: number, nowMs: number) => void;
+    clearGroundPlatforms?: () => void;
+    addGroundPlatform?: (minX: number, maxX: number, minZ: number, maxZ: number, maxY: number) => void;
+    invalidateGroundCache?: () => void;
     dampVelocity?: (velocityPtr: number, count: number, damping: number) => void;
     batchDistanceCalc?: (positionsPtr: number, count: number, camX: number, camY: number, camZ: number, outputPtr: number) => void;
     batchFrustumTest?: (positionsPtr: number, count: number, frustumPlanesPtr: number, outputPtr: number) => number;

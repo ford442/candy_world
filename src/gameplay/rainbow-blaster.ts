@@ -10,7 +10,7 @@ import { createCandyMaterial, uTime, uAudioHigh, createJuicyRimLight } from '../
 import { getCelestialState } from '../core/cycle.ts';
 import { spawnImpact } from '../foliage/impacts.ts';
 import { unlockSystem } from '../systems/unlocks.ts';
-import { triggerHarpoon } from '../systems/physics/index.js';
+import { triggerHarpoon } from '../systems/physics/index.ts';
 import { isInLakeBasin } from '../systems/ground-system.ts';
 
 // Projectile Configuration

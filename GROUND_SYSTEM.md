@@ -20,16 +20,21 @@ platforms).
   3. Lake Melody carving + Lake Island rise.
 - Fixed-size exact-position cache (256 slots) avoids redundant WASM calls when
   multiple systems ask for the same point.
-- `registerPlatform` / `unregisterPlatform` / `getPlatforms` hooks.
-- `getGroundHeightBatch(positions)` for batched queries.
+- **Native hot path** (2026-07): terrain + platform override + lake/island +
+  cache run in `assembly/ground.ts` (always) and `emscripten/ground.cpp`
+  (optional SIMD batch). JS fallback in `ground-height-core.ts` via
+  `wasm-ground.ts`. Priority: C++ → AS → JS.
+- `registerPlatform` / `unregisterPlatform` / `getPlatforms` hooks (synced to
+  native on change).
+- `getGroundHeightBatch(positions)` / `fillGroundHeightsBatch` for batched queries.
+- `batchGroundHeightWithPlatforms` in `wasm-ground.ts` for batch tooling.
 
 ### 2. Centralized consumers
 
 All main-thread systems now read from `GroundSystem` instead of duplicating
 lake/island math or calling the raw WASM terrain function directly:
 
-- `src/systems/physics.core.ts` — `getUnifiedGroundHeightTyped()` delegates to
-  GroundSystem; lake helpers re-exported for compatibility.
+- `src/systems/physics.core.ts` — re-exports lake helpers; height via GroundSystem.
 - `src/systems/physics/physics-core.ts` — uses `isInLakeBasin` from GroundSystem.
 - `src/systems/physics/physics-states.ts` — local unified helper delegates to
   GroundSystem.

@@ -6,6 +6,39 @@ export declare function __pin(ptr: number): number;
 export declare function __unpin(ptr: number): void;
 export declare function __collect(): void;
 export declare const __rtti_base: number;
+/**
+ * assembly/ground/getUnifiedGroundHeight
+ * @param x `f32`
+ * @param z `f32`
+ * @param nowMs `f64`
+ * @returns `f32`
+ */
+export declare function getUnifiedGroundHeight(x: number, z: number, nowMs: number): number;
+/**
+ * assembly/ground/batchUnifiedGroundHeight
+ * @param positionsPtr `usize`
+ * @param count `i32`
+ * @param outputPtr `usize`
+ * @param nowMs `f64`
+ */
+export declare function batchUnifiedGroundHeight(positionsPtr: number, count: number, outputPtr: number, nowMs: number): void;
+/**
+ * assembly/ground/clearGroundPlatforms
+ */
+export declare function clearGroundPlatforms(): void;
+/**
+ * assembly/ground/addGroundPlatform
+ * @param minX `f32`
+ * @param maxX `f32`
+ * @param minZ `f32`
+ * @param maxZ `f32`
+ * @param maxY `f32`
+ */
+export declare function addGroundPlatform(minX: number, maxX: number, minZ: number, maxZ: number, maxY: number): void;
+/**
+ * assembly/ground/invalidateGroundCache
+ */
+export declare function invalidateGroundCache(): void;
 /** assembly/constants/POSITION_OFFSET */
 export declare const POSITION_OFFSET: {
   /** @type `i32` */

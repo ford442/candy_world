@@ -25,6 +25,8 @@
     "test:wasm": "node tests/wasm.mjs",
     "test:awakened": "node tests/awakened-persistence.mjs",
     "test:ground": "node tests/ground-system.test.mjs",
+    "test:ground-unified": "node tests/ground-unified-parity.mjs",
+    "test:foliage-interact": "node tests/foliage-interact.test.mjs",
     "test:cookbook-presets": "node scripts/check-cookbook-presets.mjs",
     "test:spawn-tracker": "node tests/spawn-tracker.test.mjs",
     "test:world-health": "node tests/world-health.test.mjs",

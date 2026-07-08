@@ -91,7 +91,7 @@ WebAssembly physics module
 - **Estimated Size**: 98 KB
 - **Files**: 
   - `src/wasm/candy_physics.wasm`
-  - `src/utils/wasm-loader.js`
+  - `src/utils/wasm-loader.ts`
 - **Dependencies**: core
 
 #### weather
@@ -217,12 +217,12 @@ const { treeBatcher, flowerBatcher } = await import('./foliage/index.ts');
 
 **Current:**
 ```typescript
-import { initWasm } from './utils/wasm-loader.js';
+import { initWasm } from './utils/wasm-loader.ts';
 ```
 
 **Proposed:**
 ```typescript
-const { initWasm } = await import('./utils/wasm-loader.js');
+const { initWasm } = await import('./utils/wasm-loader.ts');
 ```
 
 - **Trigger**: After core scene initialization

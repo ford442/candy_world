@@ -118,7 +118,7 @@ Exports: `scene`, `camera`, `renderer`, `player`, `addCameraShake`
 - Compute shader implementations for performance-critical tasks
 
 #### `/src/utils` — Utilities
-- **`wasm-loader.js`**: WASM initialization and ground height queries
+- **`wasm-loader.ts`**: WASM initialization and ground height queries
 - **`profiler.js`**: Performance profiling
 - **`startup-profiler.ts`**: Boot sequence instrumentation
 
@@ -161,7 +161,7 @@ import { getUnifiedGroundHeightTyped } from '../systems/physics.core.ts';
 const height = getUnifiedGroundHeightTyped(x, z);
 
 // Alternative (direct WASM call)
-import { getGroundHeight } from '../utils/wasm-loader.js';
+import { getGroundHeight } from '../utils/wasm-loader.ts';
 const height = await getGroundHeight(x, z);
 ```
 

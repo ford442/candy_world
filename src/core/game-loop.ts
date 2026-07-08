@@ -107,7 +107,7 @@ import { uDofFocus, uDofMix, uShaftScatterBoost } from '../foliage/post-processi
 import { updateAerialPerspectiveUniforms } from '../foliage/aerial-perspective.ts';
 import { updateBaseContactAOUniforms } from '../foliage/material-core.ts';
 import { BiomeUniforms } from '../systems/biome-uniforms.ts';
-import { keyStates } from './input/index.js';
+import { keyStates } from './input/index.ts';
 import {
     updateHUD,
     getLastIsNight,

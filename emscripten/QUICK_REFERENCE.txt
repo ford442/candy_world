@@ -136,6 +136,15 @@ Then read:
 Each file is ~30-40 minutes of reading.
 
 
+FOLIAGE INTERACTION (foliage_interact.cpp) — added 2026-07
+├─ batchGeyserLaunch_c       - Player ↔ geyser lift (dist + height band + vy lerp)
+├─ batchPadForces_c          - Panning pad snap/launch (first-match)
+└─ batchVineInteraction_c    - Vine swing proximity (attach candidate index)
+
+TS bridge: src/utils/wasm-foliage-interact.ts
+Call sites: physics-updates.ts checkGeysers, checkPanningPads, checkVineAttachment
+
+
 ✨ KEY FACTS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 • 1891 lines → 5 focused modules

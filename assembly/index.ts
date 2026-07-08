@@ -10,3 +10,10 @@ export * from "./batch";
 export * from "./foliage";
 export * from "./particles";
 export * from "./ecs";
+export {
+  getUnifiedGroundHeight,
+  batchUnifiedGroundHeight,
+  clearGroundPlatforms,
+  addGroundPlatform,
+  invalidateGroundCache,
+} from "./ground";
