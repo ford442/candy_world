@@ -1,3 +1,65 @@
+1. **Optimize `findNearby` in `PhysicsSpatialGrid`**
+   - File: `src/systems/physics/physics-core.ts`
+   - Issue: Using a `Set` for deduplication every frame causes GC spikes in `_querySet.clear()` and `_querySet.add()` for high-frequency queries.
+   - Fix: Replace the `Set` with an incrementing query ID tag on objects (e.g., `obj.userData._lastQueryId`).
+   - Implementation:
+     ```typescript
+     let physicsQueryId = 0;
+     ```
+     Inside `findNearby`:
+     ```typescript
+     physicsQueryId++;
+     this._queryResult.length = 0;
+     // ... loops
+     const obj = cell[i];
+     if (!obj.userData) obj.userData = {};
+     if (obj.userData._lastQueryId !== physicsQueryId) {
+         obj.userData._lastQueryId = physicsQueryId;
+         this._queryResult.push(obj);
+     }
+     ```
+     Actually, since `PhysicsSpatialGrid` is generic `any[]`, adding `userData` assumes `THREE.Object3D`. We can just use a unique symbol or `_lastQueryId` directly on the object.
+     ```typescript
+     let globalQueryId = 0;
+
+     class PhysicsSpatialGrid {
+         findNearby() {
+             globalQueryId++;
+             this._queryResult.length = 0;
+             // ...
+             if (obj._lastQueryId !== globalQueryId) {
+                 obj._lastQueryId = globalQueryId;
+                 this._queryResult.push(obj);
+             }
+         }
+     }
+     ```
+     This completely eliminates `Set` allocation and clearing overhead.
+
+2. **Optimize Math in `waterfall-batcher.ts`**
+   - File: `src/foliage/waterfall-batcher.ts`
+   - Issue: `updateInstance` uses `Math.sqrt` in a hot loop.
+   - Fix: Import `fastInvSqrt` from `../utils/wasm-loader.ts` and replace:
+     ```typescript
+     const ratio = Math.sqrt(scaleXSq / currentScaleZSq) * thicknessScale;
+     ```
+     With:
+     ```typescript
+     // Math.sqrt(scaleXSq / currentScaleZSq) = Math.sqrt(scaleXSq) * fastInvSqrt(currentScaleZSq)
+     // To strictly eliminate Math.sqrt:
+     // If we really need sqrt(scaleXSq), we might still need one sqrt, or we can approximate it.
+     // Alternatively, we could just do:
+     // const invRatio = fastInvSqrt(scaleXSq / currentScaleZSq);
+     // const ratio = (1.0 / invRatio) * thicknessScale;
+     // Wait, 1.0 / invRatio is the same speed as Math.sqrt, probably. Let's just use fastInvSqrt on the denominator:
+     const ratio = scaleXSq * fastInvSqrt(scaleXSq * currentScaleZSq) * thicknessScale; // since sqrt(x/y) = sqrt(x)/sqrt(y) = x / sqrt(x*y)
+     ```
+     Actually, `ratio = scaleXSq * fastInvSqrt(scaleXSq * currentScaleZSq)` is equivalent to `Math.sqrt(scaleXSq / currentScaleZSq)`. Let's use this!
+
+3. **Check `culling-system.ts` for object array iteration**
+   - Just confirm there's no `Array.from` or `filter` left that I can fix easily. I checked it earlier, the scratch arrays are already used.
+
+4. **Verify changes and Submit**
 1. **Understand the goal**: As Palette 🎨, I will add high-impact visual polish to `src/foliage/subwoofer-lotus-batcher.ts`. Specifically, I will add a **TSL Juicy Rim Light** and **TSL Wind Sway** to the newly implemented Subwoofer Lotus rings.
 2. **Implementation details**:
    - In `subwoofer-lotus-batcher.ts`, update `init()` to construct `ringMat` using `getCachedProceduralMaterial('subwoofer_lotus_ring', 0xFFFFFF, () => { ... })` instead of a naked `new MeshStandardNodeMaterial()`. This respects the crucial "Module-level Material Cache" rule to prevent WebGPU compilation freezes.
@@ -200,3 +262,6 @@ Next Step: Ask the user for the next task.
 Status: Implemented ✅
 * Implementation Details: **Grounding & Prop Placement** (#1303, #1302, #1310). Calibrated `ENTITY_BASE_OFFSETS` with explicit negative values for precise prop rooting. Implemented `sampleGroundNormal` for slope-aware tilt logic (capped at ~25 degrees) applying to TILT_ENTITIES. Added `sampleMultiPointY` to sample a 5-point footprint radius to compute min-Y for wide objects like trees and rocks. Upgraded `?debugHeights=1` overlay to visualize ground normals and exact footprint rings using zero-allocation matrix math.
 Next Step: Ask the user for the next task.
+Status: Implemented ✅
+* Implementation Details: Fixed the `DisplayP3ColorSpace` build error in `src/core/init.ts` that caused `npm run build:ci` to fail when running against Three.js v0.171.0. Reverted the enums to the proper string literal fallbacks `display-p3` and `srgb`. Validated successful compilation and tested WebGL fallback and core loops via `npm test`.
+Next Step: Address missing `loading-screen` consolidation or any further uncompleted PRs.
