@@ -186,7 +186,9 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
   private createMainPanel(): HTMLElement {
     const main = document.createElement('main');
     main.id = `panel-${this.currentSection}`;
+    main.setAttribute('role', 'tabpanel');
     main.setAttribute('aria-labelledby', `tab-${this.currentSection}`);
+    main.tabIndex = 0;
     main.style.cssText = `
       flex: 1;
       overflow-y: auto;
