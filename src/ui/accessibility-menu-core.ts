@@ -34,7 +34,7 @@ export type MenuSection =
   | 'visual'
   | 'cognitive'
   | 'auditory'
-  | 'screenReader';
+  | 'screen-reader';
 
 export interface MenuItem {
   id: string;
@@ -178,6 +178,7 @@ export class AccessibilityMenuCore {
   protected switchSection(section: MenuSection): void {
     this.currentSection = section;
     this.refreshMainPanel();
+    this.updateSidebarSelection();
     announce(`Switched to ${this.formatActionName(section)} settings`, 'polite');
     const newTab = this.container?.querySelector(`#tab-${section}`) as HTMLElement;
     if (newTab) newTab.focus({ preventScroll: true });
@@ -198,7 +199,7 @@ export class AccessibilityMenuCore {
 
   protected updateSidebarSelection(): void {
     const buttons = this.container?.querySelectorAll('[role="tab"]') as NodeListOf<HTMLButtonElement>;
-    const sections = ['presets', 'motor', 'visual', 'cognitive', 'auditory', 'screenReader'] as const;
+    const sections = ['presets', 'motor', 'visual', 'cognitive', 'auditory', 'screen-reader'] as const;
     
     buttons?.forEach((btn, index) => {
       const isActive = sections[index] === this.currentSection;

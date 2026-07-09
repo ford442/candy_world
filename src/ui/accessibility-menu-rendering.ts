@@ -160,6 +160,7 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
       tab.id = `tab-${section}`;
       tab.role = 'tab';
       tab.setAttribute('aria-selected', isActive ? 'true' : 'false');
+      tab.tabIndex = isActive ? 0 : -1;
       tab.setAttribute('aria-controls', `panel-${section}`);
       tab.textContent = labels[section];
       tab.style.cssText = `
@@ -174,7 +175,7 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
       tab.onclick = () => {
         tab.classList.add('keyboard-active');
         setTimeout(() => tab.classList.remove('keyboard-active'), 150);
-        this.switchSection(section as MenuSection);
+        this.switchSection(section);
       };
 
       sidebar.appendChild(tab);
