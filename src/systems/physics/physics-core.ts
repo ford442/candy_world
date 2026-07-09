@@ -74,12 +74,13 @@ export { player, PlayerState };
 export type { AudioState, KeyStates } from './physics-types.js';
 
 // --- Lightweight Physics Spatial Grid (⚡ OPTIMIZATION) ---
+let _globalQueryId = 0;
+
 export class PhysicsSpatialGrid {
     private cellSize: number;
     private cells: Map<string, any[]>;
     // ⚡ OPTIMIZATION: Reusable array to avoid GC spikes on findNearby
     private _queryResult: any[] = [];
-    private _querySet: Set<any> = new Set();
 
     constructor(cellSize: number) {
         this.cellSize = cellSize;
@@ -106,8 +107,8 @@ export class PhysicsSpatialGrid {
     }
 
     findNearby(x: number, z: number, radius: number): any[] {
+        _globalQueryId++;
         this._queryResult.length = 0;
-        this._querySet.clear();
 
         const minX = Math.floor((x - radius) / this.cellSize);
         const maxX = Math.floor((x + radius) / this.cellSize);
@@ -121,8 +122,8 @@ export class PhysicsSpatialGrid {
                 if (cell) {
                     for (let i = 0; i < cell.length; i++) {
                         const obj = cell[i];
-                        if (!this._querySet.has(obj)) {
-                            this._querySet.add(obj);
+                        if (obj._lastQueryId !== _globalQueryId) {
+                            obj._lastQueryId = _globalQueryId;
                             this._queryResult.push(obj);
                         }
                     }
