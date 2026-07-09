@@ -829,7 +829,9 @@ export function updateAllComputeSystems(
     playerPosition: THREE.Vector3,
     audioData: ParticleAudioData
 ): void {
-    for (const [type, system] of Object.entries(activeSystems)) {
+    // ⚡ OPTIMIZATION: Bypassed Object.entries() to eliminate array allocations and GC spikes in hot update loop.
+    for (const type in activeSystems) {
+        const system = activeSystems[type];
         if (system) {
             system.update(renderer, deltaTime, playerPosition, audioData);
         }
@@ -837,7 +839,9 @@ export function updateAllComputeSystems(
 }
 
 export function disposeAllComputeSystems(): void {
-    for (const [type, system] of Object.entries(activeSystems)) {
+    // ⚡ OPTIMIZATION: Bypassed Object.entries() to eliminate array allocations and GC spikes during cleanup.
+    for (const type in activeSystems) {
+        const system = activeSystems[type];
         if (system) {
             system.dispose();
         }
