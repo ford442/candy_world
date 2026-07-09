@@ -359,6 +359,7 @@ declare -A ANIMATION_FUNCTIONS=(
     
     # Particle physics functions (particle_physics.cpp)
     ["updateParticlesWASM"]="particle_physics"
+    ["updateCpuParticlesWASM"]="particle_physics"
     ["getParticlePhysicsVersion"]="particle_physics"
     ["initParticleRandom"]="particle_physics"
 
