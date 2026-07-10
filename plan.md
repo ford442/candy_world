@@ -107,7 +107,7 @@ Status: Implemented ✅
 Next Step: Ask the user for the next task.
 * Implementation Details: Refactored `src/audio/audio-system.ts` into `audio-system-core.ts` and `audio-system-playback.ts` with a barrel export, separating the core types and web audio setup logic from the actual module playback logic.
 Next Step: Continue large file refactoring from `REFACTORING_PLAN_REMAINING.md`.
-nStatus: Implemented ✅
+Status: Implemented ✅
 * Implementation Details: Removed redundant `group.updateMatrix()` calls in `src/foliage/tree-batcher.ts` and replaced multiple matrix clone/premultiply calls with a single `group.updateWorldMatrix(false, false)` followed by manual local matrix multiplication. Added module-level scratch variables (`_scratchMPos`, `_scratchFPos`) in `src/systems/weather/weather-ecosystem.ts` to eliminate `new THREE.Vector3()` instantiations and `.clone()` calls inside the high-frequency tick loop, removing major GC spikes.
 
 Status: Implemented ✅
@@ -234,3 +234,6 @@ Next Step: Ask the user for the next task.
 Status: Implemented ✅
 * Implementation Details: Fixed the `DisplayP3ColorSpace` build error in `src/core/init.ts` that caused `npm run build:ci` to fail when running against Three.js v0.171.0. Reverted the enums to the proper string literal fallbacks `display-p3` and `srgb`. Validated successful compilation and tested WebGL fallback and core loops via `npm test`.
 Next Step: Address missing `loading-screen` consolidation or any further uncompleted PRs.
+Status: Implemented ✅
+* Implementation Details: Completed refactoring of all large files listed in `REFACTORING_PLAN_REMAINING.md` (`generation.ts`, `region-manager.ts`, `loading-screen.ts`, `audio-system.ts`, `analytics-debug.ts`) into smaller, modular components to improve maintainability.
+Next Step: Ask the user for the next task.
