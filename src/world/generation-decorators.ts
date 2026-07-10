@@ -621,8 +621,16 @@ export async function populateProceduralExtras(
                     variant: exportVariant,
                     hasFace: exportHasFace,
                     placement: normalizedExportType === 'cloud' ? 'absolute' : 'ground',
-                    params: Object.keys(exportParams).length > 0 ? exportParams : undefined
                 };
+
+                // ⚡ OPTIMIZATION: Bypassed Object.keys() array allocation
+                let hasParams = false;
+                for (const _ in exportParams) {
+                    hasParams = true;
+                    break;
+                }
+                if (hasParams) obj.userData.mapExport.params = exportParams;
+
                 const placed = safeAddFoliage(obj, isObstacle, radius, weatherSystem);
                  if (!placed) {
                      recordSpawnAttempt('procedural_extra', false, new Error('CPU animation limit reached; object dropped'));
