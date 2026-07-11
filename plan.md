@@ -237,3 +237,7 @@ Next Step: Address missing `loading-screen` consolidation or any further uncompl
 Status: Implemented ✅
 * Implementation Details: Completed refactoring of all large files listed in `REFACTORING_PLAN_REMAINING.md` (`generation.ts`, `region-manager.ts`, `loading-screen.ts`, `audio-system.ts`, `analytics-debug.ts`) into smaller, modular components to improve maintainability.
 Next Step: Ask the user for the next task.
+
+Status: Implemented ✅
+* Implementation Details: **#1281 Gem Sparks**: Audio-reactive sparkle/mote field for Gem Canopy using `createIntegratedGemSparks` within `src/world/generation-decorators.ts` driven by `gem_canopy` music bindings.
+Next Step: Ask the user for the next task.
