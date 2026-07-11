@@ -135,11 +135,11 @@ export class PhysicsSpatialGrid {
 }
 
 // Global grids for different collision types
-export const physicsFoliageGrid = new PhysicsSpatialGrid(20);
-export const physicsTrapsGrid = new PhysicsSpatialGrid(20);
-export const physicsGeysersGrid = new PhysicsSpatialGrid(20);
-export const physicsPinesGrid = new PhysicsSpatialGrid(20);
-export const physicsPanningPadsGrid = new PhysicsSpatialGrid(20);
+export const physicsFoliageGrid = new PhysicsSpatialGrid(30);
+export const physicsTrapsGrid = new PhysicsSpatialGrid(30);
+export const physicsGeysersGrid = new PhysicsSpatialGrid(30);
+export const physicsPinesGrid = new PhysicsSpatialGrid(30);
+export const physicsPanningPadsGrid = new PhysicsSpatialGrid(30);
 
 /**
  * Populates physics grids from world state.
