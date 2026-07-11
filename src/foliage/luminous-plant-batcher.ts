@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { color, float, sin, positionLocal, normalLocal, mix, attribute } from 'three/tsl';
-import { uTime, createJuicyRimLight } from './material-core.ts';
+import { uTime, createJuicyRimLight, getCachedProceduralMaterial } from './material-core.ts';
+import { registerReactiveMaterial } from './foliage-reactivity.ts';
 import {
     applyPlayerInteractionWithLod,
     calculateWindSwayWithLod,
@@ -66,72 +67,79 @@ export class LuminousPlantBatcher {
         }
         stemGeo.computeVertexNormals();
 
-        const mat = new MeshStandardNodeMaterial({
-            roughness: 0.3,
-            metalness: 0.1,
-            transparent: true,
-            opacity: 0.95
+        // 🎨 Palette: Module-level Material Cache and Audio Reactivity
+        const mat = getCachedProceduralMaterial('luminous_plant', 0x66CCFF, () => {
+            const m = new MeshStandardNodeMaterial({
+                roughness: 0.3,
+                metalness: 0.1,
+                transparent: true,
+                opacity: 0.95
+            });
+
+            const aPhaseOffset = attribute('aPhaseOffset', 'float');
+            const baseColor = color(0x66CCFF);
+
+            const pulseSpeed = float(CONFIG.luminousPlants?.pulseSpeed || 1.5);
+            const pulseDepth = float(CONFIG.luminousPlants?.pulseDepth || 0.3);
+            const localTime = uTime.mul(pulseSpeed).add(aPhaseOffset);
+
+            const heightFactor = positionLocal.y.div(4.0);
+            const breathe = sin(localTime).mul(pulseDepth).mul(heightFactor);
+            const shockwave = LuminousPlantUniforms.intensity.mul(heightFactor).mul(1.5);
+            const circadianSwell = normalLocal.mul(uCircadianPoseOffset).mul(heightFactor);
+            const totalDisplacement = normalLocal.mul(breathe.add(shockwave)).add(circadianSwell);
+            const animatedBase = positionLocal.add(totalDisplacement);
+            m.positionNode = applyStandardDeformationWithLod(animatedBase);
+
+            const sssStrength = float(CONFIG.luminousPlants?.subsurfaceStrength || 0.8);
+            const musicColor = mix(baseColor, luminousPlantsNoteColorNode, LuminousPlantUniforms.intensity);
+            m.colorNode = musicColor;
+
+            const musicEnergy = LuminousPlantUniforms.intensity;
+            const pulse = musicEnergy.mul(0.6).add(sin(localTime).mul(0.4));
+            const activeGlow = float(0.7).add(pulse.mul(float(CONFIG.luminousPlants?.glowIntensity || 2.0)));
+            const emissiveBase = musicColor.mul(activeGlow);
+
+            const rimIntensity = float(1.0).add(LuminousPlantUniforms.intensity.mul(2.0));
+            const rimLight = createJuicyRimLight(musicColor, rimIntensity, float(3.0), null);
+            const glowPhaseOffset = positionLocal.x.add(positionLocal.z).mul(2.0);
+            const idlePulse = sin(uTime.mul(float(CONFIG.glow.glowPulseFrequency)).add(glowPhaseOffset)).mul(float(CONFIG.glow.glowPulseAmplitude)).add(1.0).mul(float(0.5)).mul(LuminousPlantUniforms.intensity.mul(0.3).add(0.7));
+            const targetGlowColor = color(CONFIG.glow.glowColorMap['luminous_plants'] || 0x66CCFF);
+            const twilightGlowTint = targetGlowColor
+                .mul(uTwilight)
+                .mul(float(CONFIG.glow.glowIntensityMax))
+                .mul(float(0.3).add(idlePulse));
+            const nightMult = float(CONFIG.circadian.nightGlowMultiplier);
+            const circadianGlowMult = mix(nightMult, float(1.0), uCircadianPhase);
+
+            let emissiveWithCircadian = emissiveBase.mul(circadianGlowMult).add(rimLight.mul(sssStrength)).add(twilightGlowTint);
+
+            if (AWAKENED_ATTR_ENABLED) {
+                const aAwakened = attribute('aAwakened', 'float');
+                const aEmissiveScale = attribute('aEmissiveScale', 'float');
+                const awakenedBoost = mix(
+                    float(1.0),
+                    float(1.0).add(float(CONFIG.glow.awakenedGlowMultiplier)),
+                    aAwakened
+                );
+                const persistentGlow = musicColor
+                    .mul(aAwakened)
+                    .mul(aEmissiveScale)
+                    .mul(float(CONFIG.glow.awakenedGlowMultiplier).mul(0.55));
+                emissiveWithCircadian = emissiveWithCircadian.mul(awakenedBoost).add(persistentGlow);
+            }
+
+            m.emissiveNode = scaleEmissiveByLod(emissiveWithCircadian);
+
+            const skyWaveTint = luminousUniforms.noteColor.mul(0.18);
+            m.emissiveNode = (m.emissiveNode as any).add(skyWaveTint);
+
+            return m;
         });
 
-        const aPhaseOffset = attribute('aPhaseOffset', 'float');
-        const baseColor = color(0x66CCFF);
+        registerReactiveMaterial(mat);
 
-        const pulseSpeed = float(CONFIG.luminousPlants?.pulseSpeed || 1.5);
-        const pulseDepth = float(CONFIG.luminousPlants?.pulseDepth || 0.3);
-        const localTime = uTime.mul(pulseSpeed).add(aPhaseOffset);
-
-        const heightFactor = positionLocal.y.div(4.0);
-        const breathe = sin(localTime).mul(pulseDepth).mul(heightFactor);
-        const shockwave = LuminousPlantUniforms.intensity.mul(heightFactor).mul(1.5);
-        const circadianSwell = normalLocal.mul(uCircadianPoseOffset).mul(heightFactor);
-        const totalDisplacement = normalLocal.mul(breathe.add(shockwave)).add(circadianSwell);
-        const animatedBase = positionLocal.add(totalDisplacement);
-        mat.positionNode = applyStandardDeformationWithLod(animatedBase);
-
-        const sssStrength = float(CONFIG.luminousPlants?.subsurfaceStrength || 0.8);
-        const musicColor = mix(baseColor, luminousPlantsNoteColorNode, LuminousPlantUniforms.intensity);
-        mat.colorNode = musicColor;
-
-        const musicEnergy = LuminousPlantUniforms.intensity;
-        const pulse = musicEnergy.mul(0.6).add(sin(localTime).mul(0.4));
-        const activeGlow = float(0.7).add(pulse.mul(float(CONFIG.luminousPlants?.glowIntensity || 2.0)));
-        const emissiveBase = musicColor.mul(activeGlow);
-
-        const rimIntensity = float(1.0).add(LuminousPlantUniforms.intensity.mul(2.0));
-        const rimLight = createJuicyRimLight(musicColor, rimIntensity, float(3.0), null);
-        const glowPhaseOffset = positionLocal.x.add(positionLocal.z).mul(2.0);
-        const idlePulse = sin(uTime.mul(float(CONFIG.glow.glowPulseFrequency)).add(glowPhaseOffset)).mul(float(CONFIG.glow.glowPulseAmplitude)).add(1.0).mul(float(0.5)).mul(LuminousPlantUniforms.intensity.mul(0.3).add(0.7));
-        const targetGlowColor = color(CONFIG.glow.glowColorMap['luminous_plants'] || 0x66CCFF);
-        const twilightGlowTint = targetGlowColor
-            .mul(uTwilight)
-            .mul(float(CONFIG.glow.glowIntensityMax))
-            .mul(float(0.3).add(idlePulse));
-        const nightMult = float(CONFIG.circadian.nightGlowMultiplier);
-        const circadianGlowMult = mix(nightMult, float(1.0), uCircadianPhase);
-
-        let emissiveWithCircadian = emissiveBase.mul(circadianGlowMult).add(rimLight.mul(sssStrength)).add(twilightGlowTint);
-
-        if (AWAKENED_ATTR_ENABLED) {
-            const aAwakened = attribute('aAwakened', 'float');
-            const aEmissiveScale = attribute('aEmissiveScale', 'float');
-            const awakenedBoost = mix(
-                float(1.0),
-                float(1.0).add(float(CONFIG.glow.awakenedGlowMultiplier)),
-                aAwakened
-            );
-            const persistentGlow = musicColor
-                .mul(aAwakened)
-                .mul(aEmissiveScale)
-                .mul(float(CONFIG.glow.awakenedGlowMultiplier).mul(0.55));
-            emissiveWithCircadian = emissiveWithCircadian.mul(awakenedBoost).add(persistentGlow);
-        }
-
-        mat.emissiveNode = scaleEmissiveByLod(emissiveWithCircadian);
-
-        const skyWaveTint = luminousUniforms.noteColor.mul(0.18);
-        mat.emissiveNode = (mat.emissiveNode as any).add(skyWaveTint);
-
-        this.mesh = new THREE.InstancedMesh(stemGeo, mat, this.maxInstances);
+        this.mesh = new THREE.InstancedMesh(stemGeo, mat as MeshStandardNodeMaterial, this.maxInstances);
         this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
         this.mesh.castShadow = true;
         this.mesh.receiveShadow = true;
