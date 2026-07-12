@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { instanceIndex, color, float, vec3, vec4, attribute, positionLocal,
     sin, cos, mix, smoothstep, uniform, If, time,
@@ -874,6 +875,12 @@ export class MushroomBatcher {
             if (typeof uChromaticIntensity !== 'undefined' && normalizedVelocity > 0.5) {
                 uChromaticIntensity.value = Math.max(uChromaticIntensity.value, normalizedVelocity * 0.3);
             }
+        }
+    }
+
+    dispose(): void {
+        if (this.mesh && this.mesh.parent) {
+            safeRemoveAndDispose(this.mesh.parent, this.mesh);
         }
     }
 }

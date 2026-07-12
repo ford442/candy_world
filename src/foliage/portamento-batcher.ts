@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { applyInstanceAnimation, ANIMATION_TYPES } from './animation-nodes.ts';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { foliageGroup } from '../world/state.ts';
@@ -303,6 +304,15 @@ export class PortamentoPineBatcher {
 
     if (needsUpdate) {
         this.bendAttribute!.needsUpdate = true;
+    }
+  }
+
+  dispose(): void {
+    if (this.trunkMesh && this.trunkMesh.parent) {
+      safeRemoveAndDispose(this.trunkMesh.parent, this.trunkMesh);
+    }
+    if (this.needleMesh && this.needleMesh.parent) {
+      safeRemoveAndDispose(this.needleMesh.parent, this.needleMesh);
     }
   }
 }

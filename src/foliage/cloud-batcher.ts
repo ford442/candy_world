@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import {
     color, uniform, mix, vec3, positionLocal, normalLocal, mx_noise_float,
@@ -408,6 +409,12 @@ export class CloudBatcher {
         if (needsUpdate) {
             this.mesh.count = this.count;
             this.mesh.instanceMatrix.needsUpdate = true;
+        }
+    }
+
+    dispose(): void {
+        if (this.mesh && this.mesh.parent) {
+            safeRemoveAndDispose(this.mesh.parent, this.mesh);
         }
     }
 }

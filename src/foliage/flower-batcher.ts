@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { foliageGroup } from '../world/state.ts';
 import {
@@ -466,6 +467,22 @@ export class FlowerBatcher {
             }
             attr.needsUpdate = true;
         }
+    }
+
+    dispose(): void {
+        const meshes = [
+            this.stems,
+            this.centers,
+            this.stamens,
+            this.petalsSimple,
+            this.petalsMulti,
+            this.petalsSpiral
+        ];
+        meshes.forEach(mesh => {
+            if (mesh && mesh.parent) {
+                safeRemoveAndDispose(mesh.parent, mesh);
+            }
+        });
     }
 }
 

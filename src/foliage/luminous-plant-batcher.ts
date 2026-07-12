@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { color, float, sin, positionLocal, normalLocal, mix, attribute } from 'three/tsl';
 import { uTime, createJuicyRimLight, getCachedProceduralMaterial } from './material-core.ts';
@@ -331,25 +332,15 @@ export class LuminousPlantBatcher {
 
     dispose(): void {
         if (this.mesh) {
+            // Preserve specific attribute disposal logic
             if (this.mesh.geometry) {
-                this.mesh.geometry.dispose();
                 const phaseAttr = this.mesh.geometry.getAttribute('aPhaseOffset');
                 if (phaseAttr && typeof (phaseAttr as any).dispose === 'function') {
                     try { (phaseAttr as any).dispose(); } catch (e) { /* ignore */ }
                 }
             }
-            if (this.mesh.material) {
-                if (Array.isArray(this.mesh.material)) {
-                    this.mesh.material.forEach(m => m.dispose());
-                } else {
-                    (this.mesh.material as any).dispose();
-                }
-            }
-            if (this.mesh.instanceColor && typeof (this.mesh.instanceColor as any).dispose === 'function') {
-                try { (this.mesh.instanceColor as any).dispose(); } catch (e) { /* ignore */ }
-            }
-            if (this.mesh.instanceMatrix && typeof (this.mesh.instanceMatrix as any).dispose === 'function') {
-                try { (this.mesh.instanceMatrix as any).dispose(); } catch (e) { /* ignore */ }
+            if (this.mesh.parent) {
+                safeRemoveAndDispose(this.mesh.parent, this.mesh);
             }
         }
     }
