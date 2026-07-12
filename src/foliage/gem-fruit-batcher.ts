@@ -12,6 +12,7 @@ import {
     uTime,
     uAudioLow,
     calculateWindSway,
+    applyStandardDeformation,
     createJuicyRimLight,
 } from './material-core.ts';
 import { registerReactiveMaterial } from './foliage-reactivity.ts';
@@ -92,7 +93,7 @@ function createGemMaterial(baseHex: number): MeshStandardNodeMaterial {
         swayed.x.mul(sin(twist)).add(swayed.z.mul(cos(twist)))
     );
     // Pendulum + wind: calculateWindSway gives the broad atmospheric drift.
-    mat.positionNode = twisted.add(calculateWindSway(twisted));
+    mat.positionNode = applyStandardDeformation(twisted);
 
     // Visual Impact: emissive pulse on shimmer — visible bloom response on crescendo.
     // shimmerGlow is the sustained melody glow; beatPulse is the kick-hit flash.
