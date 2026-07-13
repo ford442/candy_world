@@ -1,3 +1,4 @@
+import * as crypto from "crypto";
 import * as fs from 'fs';
 import * as path from 'path';
 import { execSync } from 'child_process';
@@ -165,7 +166,7 @@ export class BaselineManager {
    * Calculate file hash
    */
   private calculateHash(filepath: string): string {
-    const crypto = require('crypto');
+
     const content = fs.readFileSync(filepath);
     return crypto.createHash('sha256').update(content).digest('hex').substring(0, 16);
   }
