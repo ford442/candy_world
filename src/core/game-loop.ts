@@ -12,7 +12,6 @@ import {
     uGlitchIntensity,
     uTime,
     uPlayerPosition,
-    uPlayerVelocity,
 } from '../foliage/index.ts';
 import {
     uSkyTopColor,
@@ -868,9 +867,6 @@ export function animate() {
         // Safety check: ensure player position is valid before copying
         if (player.position && uPlayerPosition.value) {
             uPlayerPosition.value.copy(devOrbitActive ? cameraRef!.position : player.position);
-            if (uPlayerVelocity.value && player.velocity) {
-                uPlayerVelocity.value.copy(player.velocity);
-            }
         }
         if (sparkleTrail && player.position && player.velocity) {
             updateSparkleTrail(sparkleTrail, player.position, player.velocity, gameTime, rendererRef);

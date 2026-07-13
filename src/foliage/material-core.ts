@@ -61,7 +61,6 @@ export const uAudioHigh = uniform(0.0);  // Treble energy (Hi-hats/Cymbals)
 
 // --- PALETTE UPDATE: New Uniforms for Player Interaction ---
 export const uPlayerPosition = uniform(vec3(0, 0, 0)); // Player position in world space
-export const uPlayerVelocity = uniform(vec3(0, 0, 0)); // Player velocity
 // -----------------------------------------------------------
 
 // --- MATERIAL CACHE ---

@@ -5,8 +5,7 @@
     "biomes": [
       "meadow",
       "crystallineNebula",
-      "lake",
-      "gem_canopy"
+      "lake"
     ],
     "bounds": {
       "min": [
@@ -18,7 +17,7 @@
         250
       ]
     },
-    "entityCount": 2216,
+    "entityCount": 2192,
     "pathCount": 23,
     "poiCount": 10,
     "generationTime": 22280
