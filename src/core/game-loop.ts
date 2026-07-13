@@ -32,6 +32,7 @@ import { updateMelodyRibbons } from '../foliage/ribbons.ts';
 import { updateSparkleTrail } from '../foliage/sparkle-trail.ts';
 import { updateDandelionSeeds } from '../foliage/dandelion-seeds.ts';
 import { getGroundHeight } from '../systems/ground-system.ts';
+import { fastInvSqrt } from '../utils/wasm-loader.ts';
 import { updateImpacts } from '../foliage/impacts.ts';
 import { createShield } from '../foliage/shield.ts';
 import { updateFoliageMaterials } from '../foliage/animation.ts';
@@ -376,7 +377,8 @@ function _updateDepthOfField(delta: number): void {
         // Focus-follow: distance along the camera look vector toward scenic flora
         const toX = _DOF_FLORA_ZONES[i][0] - px;
         const toZ = _DOF_FLORA_ZONES[i][1] - pz;
-        const horizLen = Math.sqrt(toX * toX + toZ * toZ) || 1;
+        const horizLenSq = toX * toX + toZ * toZ;
+        const horizLen = horizLenSq > 0 ? 1.0 / fastInvSqrt(horizLenSq) : 1;
         const lookAlong = toX * _scratchCameraForward.x + toZ * _scratchCameraForward.z;
         if (lookAlong > 2.0 && lookAlong < lookFocusDist) {
             lookFocusDist = lookAlong;
