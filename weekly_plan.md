@@ -1,6 +1,19 @@
 # candy_world — Weekly Plan
 
 ## Today's focus
+**2026-06-09 — USER IDEA: Music-Reactive Atmosphere Bridge (Audio → Bloom, Fog & Light Shafts) (#1169).**
+Loading foundation restored (#1133 cluster closed 2026-06-03; circadian #1144 landed) — back to feature work.
+Foliage music-reactivity is mature (sky wave, circadian, batcher TSL); the *air itself* still ignores the
+tracker. Build a zero-allocation Atmosphere Reactivity block inside `MusicReactivitySystem.update()` (or a
+small `src/systems/atmosphere-reactivity.ts`) mapping audio channels → post-processing/sky uniforms:
+kick/bass → `uBloomStrength` (1.0 → ~2.5 crescendo), mix energy → `uCrescendoFogDensity`, melody hits →
+`uShaftOpacity` + re-enable night shaft visibility (fix `shaftVisible` hardcoded `false` in
+`game-loop.ts` ~lines 444–467), BeatSync downbeats → brief bloom spike. Add an optional `atmosphere`
+section to `assets/music-bindings.json` (parallel to `weatherReactivity`) for per-biome tuning. Follow the
+`_arpeggioShimmerAccum` zero-alloc accumulator pattern; mutate only `.value` on existing TSL uniforms,
+never reassign nodes. WebGL fallback branch in `post-processing.ts` must receive the same values.
+Verify: `npm run build` green, smoke reaches `__sceneReady` with no new console errors, visible bloom
+modulation on playback that decays smoothly to rest on silence (no pops, flat GC heap).
 **2026-07-07 — USER IDEA (grounding cluster: #1303 + #1302 + #1310): Make props actually sit on the terrain.**
 The visible follow-through on last week's #1265 (unified ground query, LANDED). #1265 gave us one authoritative
 `getGroundHeight()`; now the *props* need to consume it correctly. Three tightly-coupled user issues Noah filed
@@ -30,6 +43,19 @@ Routine will mark picked items as "[in progress — YYYY-MM-DD]".
 -->
 - [x] **Three.js ColorSpace enum regression** — In `src/core/init.js` we fall back to string literals (`'display-p3'`, `'srgb'`) for `outputColorSpace` because `THREE.DisplayP3ColorSpace` / `THREE.SRGBColorSpace` produced TS/build warnings with the current `three` version. When updating Three.js, revert to the proper enum. Opportunistic — activate when upgrading Three.js version, not a standalone sprint.
 
+<!-- Completed ideas archived to Done below (2026-05-19 sky→foliage propagation, 2026-05-26 channel-to-biome completeness, 2026-05-30 sky-wave→plant-pose, TSL/VRAM audit, 2026-06-03 day/night circadian #1144). -->
+
+### Live idea stream — GitHub issues filed 2026-06-09 (Siphon Part I vision)
+Noah filed 9 issues today; these ARE this week's accumulated ideas. Priority pool for upcoming runs:
+- [ ] **#1169 Music-Reactive Atmosphere Bridge** `[in progress — 2026-06-09]` — audio → bloom/fog/light-shaft uniforms. *Today's kimi-cli focus.* Highest-impact remaining reactivity step; core active focus area.
+- [ ] **#1168 WebGL2 fallback renderer** — toggleable WebGLRenderer alongside WebGPU; unblocks agent/Playwright visual debugging. Infrastructure multiplier for everything below.
+- [ ] **#1170 Gem Canopy** — hanging faceted crystal fruits on trees (`GemFruitBatcher`). New signature scenic biome.
+- [ ] **#1171 Luminous Mycelium Realm** — glass mushrooms + ambient spore particle field near Melody Lake.
+- [ ] **#1172 Cinematic Explore Mode** — promote dev-orbit prototype to player-facing hybrid FP/orbit camera.
+- [ ] **#1173 TSL Volumetric God Rays + selective DoF** — performant revival of golden-hour shafts + macro bokeh. (Overlaps #1169 shaft work — sequence after.)
+- [ ] **#1174 Distance LOD tiers for instanced foliage** — 3-tier hero/mid/far for tree/mushroom/flower/luminous batchers.
+- [ ] **#1175 Candy Material Cookbook + grok.md onboarding** — docs (`docs/CANDY_MATERIAL_COOKBOOK.md`).
+- [ ] **#1176 Awakened Flora Persistence** — persist discovery glow states across sessions (save-system + discovery-persistence).
 <!-- Completed ideas archived to Done below (2026-05-19 sky→foliage propagation, 2026-05-26 channel-to-biome completeness, 2026-05-30 sky-wave→plant-pose, TSL/VRAM audit). -->
 - [ ] **Day/night plant behaviour** *(promoted to Copilot issue 2026-06-02)* — Plants physically open/glow by day, close/dim at night driven by the day/night cycle, not just music-channel intensity. Builds on `plant-pose-machine.ts`. Landed for `SimpleFlowerBatcher` (commit 99fcbad, #1208) — verify coverage across remaining batchers, then close.
 
@@ -74,6 +100,8 @@ Routine will mark picked items as "[in progress — YYYY-MM-DD]".
 Unfinished items, known bugs, deferred ideas.
 Routine maintains this automatically — you can add items too.
 -->
+- [ ] **🟡 PR REVIEW BACKLOG — stacking up unreviewed (2026-06-09)** — open draft PRs awaiting triage: **#1178** (Palette: unify foliage materials + juicy rim + UI micro-interactions), **#1167** (Aria: a11y menu `role="switch"`), **#1161** (Palette: a11y momentary-ARIA fix — *appears superseded by merged #1162/#1166 keyboard-active work; likely close as dup*), **#1150** (Bolt: rainbow-blaster spatial-hash queries). Plus **#1138** (Copilot spawn-tracker telemetry — non-draft, the loading-cluster telemetry layer; **verify it's still needed now the cluster is closed**, then land or close). Sweep + merge/close to stop drift.
+- [ ] **#1134 — Stable release / pinned-build process** — annotated tags + GitHub Releases for known-good states; feature flags to disable heavy subsystems so boot is always usable. Process decision; now that loading is fixed this is a good candidate for a quiet day.
 - [x] **#1134 — Stable release / pinned-build process** — annotated tags + GitHub Releases for known-good states; feature flags to disable heavy subsystems. **Partially landed**: `scripts/make-release.mjs` + `npm run release:tag` / `npm run release` now exist. Remaining: cut the first known-good tag now that loading is stable; confirm feature-flag fallbacks. Now actionable.
 - [x] **#1136 — Consolidate duplicated `LoadingScreen` class** (`loading-screen.ts` vs `loading-screen-ui.ts`) — leftover from loading cluster; .swarm-state noted a duplicate-declaration build blocker was patched, not consolidated. Small decoupled refactor — good future Copilot candidate.
 - [x] **Open draft PR #1214 (Jules)** — Palette: keyboard active state on loading-screen skip/reload buttons. Decoupled (CSS + loading-screen buttons). Review/merge independently.
@@ -102,6 +130,8 @@ Routine maintains this automatically — you can add items too.
 Completed items, routine archives here with date.
 Prune occasionally when this gets long.
 -->
+- [x] **2026-06-03** 🟢 LOADING REGRESSION CLUSTER RESOLVED — #1133 (parent) + sub-tasks #1135–#1142 all closed/completed. Full-world population reliable again; SpawnTracker telemetry (`window.__worldPopulationReport`) + feature-flag boot fallback landed. Confirmed by #1170 ("Loading reliability is restored (#1133 cluster closed)"). *Last week's Fix First landed cleanly.*
+- [x] **2026-06-03** Day/night plant behaviour (#1144) — circadian baseline via `uCircadianPhase` + `uCircadianPoseOffset` global uniforms (NOT overloading `uTwilight`), `circadian-controller.ts` owns the lerp, HUD toggle fires `setDayTarget`, opt-in luminous + mushroom batchers compose pose/emissive in TSL. Pose machine left untouched. (Was the deferred Ideas item — now done.)
 - [x] **2026-07-11** TSL GROUND-CONTACT DARKENING (BASE AO) (#1309) LANDED — shader-side grounding complement; added `contactDarkening` to `UnifiedMaterialOptions` to perform a smoothstep base darkening on batcher color graphs, added defaults to `Clay`/`Sugar`/`Gummy` presets.
 - [x] **2026-07-07** 🧍 PLAYER GROUND / EYE ALIGNMENT (#1265) LANDED — unified authoritative ground query, consistent eye height across terrain + static objects, batcher base-Y at spawn, `?debugPlayer`/`?debugHeights` viz. Consolidated further in #1292 (unified authoritative ground sampling queries). Follow-up `undefined visible` crash in `game-loop.ts` + cloud-batcher pseudo-code cleanup fixed & merged (#1286). Was last week's focus — DONE.
 - [x] **2026-07-07** ☁️ WALKABLE CLOUD PLATFORMS (#1266) LANDED (#1314) — placeable solid candy-cloud surfaces the player can stand on; instanced, music-reactive glow, map.json persistence. The vertical-exploration feature #1265 unblocked. (Introduced the crash later fixed by #1286.)
@@ -144,6 +174,11 @@ Prune occasionally when this gets long.
 
 ## Last run
 <!-- Routine writes summary here each run. Overwrites previous. -->
+Date: 2026-06-09
+Mode: USER IDEA — last week's Fix First (loading regression #1133 cluster) closed/completed 2026-06-03, and the deferred day/night circadian idea (#1144) also landed; both moved to Done. Foundation solid, no crack → feature work resumes. Noah filed 9 fresh vision issues today (#1168–#1176) = this week's live idea stream; picked the highest-impact one in the core music-reactivity focus area.
+Focus: Music-Reactive Atmosphere Bridge (#1169) — zero-alloc Atmosphere Reactivity block mapping audio channels → `uBloomStrength` / `uCrescendoFogDensity` / `uShaftOpacity` (+ re-enable night light shafts), optional `atmosphere` block in `music-bindings.json`, WebGL fallback parity. Decoupled Copilot track drafted in the save/discovery domain (Awakened Flora persistence) to avoid file collision with kimi.
+Outcome: <!-- fill in at end of day after kimi-cli loop -->
+Context gap: No access to recent_chats / conversation_search in this environment — prior-session reconstruction is from git history, open/closed issues, open PRs, weekly_plan.md, and .swarm-state.md only. Could not directly read live-site behaviour; reactivity "maturity" claims are from issue text + Done log, not runtime verification.
 Date: 2026-07-07
 Mode: USER IDEA — no Fix First trigger. Last week's focus #1265 (player ground/eye alignment) LANDED, #1266 walkable clouds LANDED, and the one follow-up crash (#1286, cloud-batcher/game-loop `undefined visible`) is already fixed & merged — foundation stable. Checked the one live Fix-First candidate: Jules PR #1317 claims a build-breaking `DisplayP3ColorSpace` enum regression, but HEAD `init.ts` already uses the safe `(THREE as any).X || 'string'` defensive pattern (three@0.171 exports `SRGBColorSpace`), so main is NOT broken — flagged the PR for verify/close, not a Fix First. Picked Noah's freshest in-context pool: the spatial-coherence/grounding arc (#1302–#1311) he filed 2026-07-05, directly extending #1265.
 Focus: Grounding cluster #1303 + #1302 + #1310 — cash in #1265's unified query so props actually sit on terrain. kimi-cli: calibrate `ENTITY_BASE_OFFSETS` (all 0 today), slope-aware planting via baked terrain normals (`sampleGroundNormal`, ~25° cap), multi-point footprint sampling for wide props; `?debugHeights=1` rings/arrows as acceptance. Scope-guarded to placement/ground/generation files ONLY — no player/eye/camera (DONE by #1265), no config.ts (reserved for Copilot shadow work). Copilot prep (decoupled): #1306 directional shadow camera follow + contact shadows (init.ts + game-loop render section + CONFIG.lighting.shadows — collision-free with grounding cluster; thematically completes grounding via contact shadows). Claude Code: full-stack build → deploy dry-run → verify first known-good release tag (#1134 tooling exists).
