@@ -1,4 +1,5 @@
 import { isCIorHeadless } from './config.ts';
+import { getGroundHeight } from '../systems/ground-system.ts';
 // src/core/game-loop.ts
 // Main animation loop and game state management
 
@@ -202,6 +203,7 @@ let lightShaftGroupRef: THREE.Object3D | null = null;
 let sunGlowMatRef: THREE.Material | null = null;
 let coronaMatRef: THREE.Material | null = null;
 let uShaftOpacityRef: { value: number } | null = null;
+let playerBlobShadowRef: THREE.Mesh | null = null;
 
 // Time offset reference (shared with main)
 let timeOffsetRef: { value: number } = { value: 0 };
@@ -237,6 +239,7 @@ export function initGameLoopDependencies(deps: {
     coronaMat: THREE.Material;
     uShaftOpacity: { value: number };
     timeOffset: { value: number };
+    playerBlobShadow: THREE.Mesh;
 }) {
     sceneRef = deps.scene;
     cameraRef = deps.camera;
@@ -258,6 +261,7 @@ export function initGameLoopDependencies(deps: {
     coronaMatRef = deps.coronaMat;
     uShaftOpacityRef = deps.uShaftOpacity;
     timeOffsetRef = deps.timeOffset;
+    playerBlobShadowRef = deps.playerBlobShadow;
 
     initGroundDebug(deps.scene);
 
@@ -589,20 +593,33 @@ export function animate() {
         const sunProgress = cyclePos / 540;
         const angle = sunProgress * Math.PI;
         const r = 100;
-        sunLightRef!.position.set(Math.cos(angle) * -r, Math.sin(angle) * r, 20);
+
+        // Directional shadow camera follow
+        const sunOffsetX = Math.cos(angle) * -r;
+        const sunOffsetY = Math.sin(angle) * r;
+        const sunOffsetZ = 20;
+
+        sunLightRef!.position.set(
+            cameraRef.position.x + sunOffsetX,
+            cameraRef.position.y + sunOffsetY,
+            cameraRef.position.z + sunOffsetZ
+        );
+        sunLightRef!.target.position.copy(cameraRef.position);
+        sunLightRef!.target.updateMatrixWorld();
+
         if (sunLightRef) sunLightRef.visible = true;
         if (sunGlowRef) sunGlowRef.visible = true;
         if (sunCoronaRef) sunCoronaRef.visible = true;
         if (moonRef) moonRef.visible = false;
 
-        _scratchSunVector.copy(sunLightRef!.position).normalize();
+        _scratchSunVector.set(sunOffsetX, sunOffsetY, sunOffsetZ).normalize();
         _shaftIsNightMode = false;
 
-        sunGlowRef.position.copy(_scratchSunVector).multiplyScalar(400);
+        sunGlowRef.position.copy(cameraRef.position).addScaledVector(_scratchSunVector, 400);
         (sunGlowRef as any).lookAt(cameraRef.position);
-        sunCoronaRef.position.copy(_scratchSunVector).multiplyScalar(390);
+        sunCoronaRef.position.copy(cameraRef.position).addScaledVector(_scratchSunVector, 390);
         (sunCoronaRef as any).lookAt(cameraRef.position);
-        lightShaftGroupRef!.position.copy(_scratchSunVector).multiplyScalar(380);
+        lightShaftGroupRef!.position.copy(cameraRef.position).addScaledVector(_scratchSunVector, 380);
         (lightShaftGroupRef as any).lookAt(cameraRef.position);
 
         let glowIntensity = 0.25;
@@ -859,6 +876,12 @@ export function animate() {
 
         if (isGroundDebugEnabled() && player.position && cameraRef) {
             updateGroundDebug(player.position, cameraRef.position);
+        }
+
+        if (playerBlobShadowRef && player.position) {
+            playerBlobShadowRef.position.x = player.position.x;
+            playerBlobShadowRef.position.z = player.position.z;
+            playerBlobShadowRef.position.y = getGroundHeight(player.position.x, player.position.z) + 0.05;
         }
 
         if (unlockSystem.isUnlocked('arpeggio_shield')) {

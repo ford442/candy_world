@@ -37,7 +37,7 @@ Routine will mark picked items as "[in progress — YYYY-MM-DD]".
 - [ ] **#1303 Calibrate `ENTITY_BASE_OFFSETS`** — per-type offsets so visual contact point sits flush (all `0` today). `[in progress — 2026-07-07]` ← today's focus (kimi-cli, w/ #1302 + #1310)
 - [ ] **#1302 Slope-aware planting via terrain normals** — tilt props to surface normal, cap ~25°, per-type opt-in. `[in progress — 2026-07-07]` ← today's focus
 - [ ] **#1310 Multi-point footprint sampling for wide props** — 3–5 footprint points, min/avg placement Y, tilt. `[in progress — 2026-07-07]` ← today's focus
-- [ ] **#1306 Directional shadow camera follow + contact shadows** — tight ortho bounds, player-follow, contact shadows sell grounding. ← **decoupled Copilot target today** (rendering/lighting only — collision-free with grounding cluster)
+- [x] **#1306 Directional shadow camera follow + contact shadows** — tight ortho bounds, player-follow, contact shadows sell grounding. `[Status: Implemented ✅]`
 - [x] **#1309 TSL ground-contact darkening (base AO)** — shader-side grounding complement; smoothstep base darkening in batcher color graphs. `[Status: Implemented ✅]`
 - [ ] **#1304 Aerial perspective** — distance-based desaturation in foliage TSL; recede into atmosphere.
 - [ ] **#1305 Fog depth curve** — derive near/far from FOV + terrain extent; extend beyond 100u.

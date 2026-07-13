@@ -241,3 +241,8 @@ Next Step: Ask the user for the next task.
 Status: Implemented ✅
 * Implementation Details: **#1281 Gem Sparks**: Audio-reactive sparkle/mote field for Gem Canopy using `createIntegratedGemSparks` within `src/world/generation-decorators.ts` driven by `gem_canopy` music bindings.
 Next Step: Ask the user for the next task.
+
+Status: Implemented ✅
+* Implementation Details: **#1306 Directional shadow camera follow + contact shadows**. Enabled `renderer.shadowMap`, configured a tight 1024x1024 ortho frustum for `sunLight`, and clamped it to the camera target during the update loop. Implemented a zero-allocation TSL blob contact shadow under the player using `MeshBasicNodeMaterial` with a `length(uv().sub(0.5))` radial smoothstep to prevent z-fighting and add a tactile grounding effect.
+
+Next Step: Ask the user for the next task.
