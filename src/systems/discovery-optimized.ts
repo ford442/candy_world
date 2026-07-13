@@ -89,7 +89,11 @@ export class OptimizedDiscoverySystem {
     private cppHeap32: Int32Array | null = null;
     private cppOutPtr = 0; // pre-allocated output buffer in Emscripten heap
 
-    constructor() {
+    private _initialized = false;
+
+    private ensureInitialized(): void {
+        if (this._initialized) return;
+        this._initialized = true;
         this.initWasm();
         this.loadPersistedDiscoveries();
     }
@@ -212,6 +216,7 @@ export class OptimizedDiscoverySystem {
      * @returns Registration ID, or -1 if failed
      */
     registerObject(position: THREE.Vector3, type: string): number {
+        this.ensureInitialized();
         const discoveryInfo = DISCOVERY_MAP[type];
         if (!discoveryInfo) {
             return -1;
@@ -252,6 +257,7 @@ export class OptimizedDiscoverySystem {
      * @returns Discovery info if something was discovered, null otherwise
      */
     checkDiscovery(playerPos: THREE.Vector3): DiscoveryInfo | null {
+        this.ensureInitialized();
         if (this.cppInitialized) {
             return this.checkDiscoveryCpp(playerPos);
         }
@@ -390,6 +396,7 @@ export class OptimizedDiscoverySystem {
      * Get count of undiscovered objects
      */
     getUndiscoveredCount(): number {
+        this.ensureInitialized();
         if (this.wasmInitialized && this.wasmGetUndiscoveredCount) {
             return this.wasmGetUndiscoveredCount();
         }
@@ -408,6 +415,7 @@ export class OptimizedDiscoverySystem {
      * Reset all discoveries
      */
     reset(): void {
+        this.ensureInitialized();
         discoveryPersistence.clear();
         discoverySystem.reset();
 
@@ -423,14 +431,18 @@ export class OptimizedDiscoverySystem {
      * @param serverDiscoveries - Array of discoveries from server
      */
     syncWithServer(serverDiscoveries: Array<{ id: string; timestamp: number }>): void {
-        const formatted = serverDiscoveries.map(d => ({
+        const formatted: any[] = [];
+        for (let i = 0; i < serverDiscoveries.length; i++) {
+            const d = serverDiscoveries[i];
+            formatted.push({
             id: d.id,
             timestamp: d.timestamp,
             metadata: DISCOVERY_MAP[d.id] ? {
                 displayName: DISCOVERY_MAP[d.id].name,
                 icon: DISCOVERY_MAP[d.id].icon
             } : undefined
-        }));
+        });
+        }
 
         discoveryPersistence.mergeWithServer(formatted);
         
@@ -473,6 +485,7 @@ export class OptimizedDiscoverySystem {
         persistedCount: number;
         pendingSync: number;
     } {
+        this.ensureInitialized();
         const persistenceStats = discoveryPersistence.getStats();
         
         return {
@@ -489,6 +502,7 @@ export class OptimizedDiscoverySystem {
      * Check if using WASM acceleration (either C++ or AssemblyScript)
      */
     isUsingWasm(): boolean {
+        this.ensureInitialized();
         return this.cppInitialized || this.wasmInitialized;
     }
 

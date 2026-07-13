@@ -12,7 +12,7 @@ import { discoverySystem } from '../discovery.ts';
 import { unlockSystem } from '../unlocks.ts';
 import { showToast } from '../../utils/toast.ts';
 import { uChromaticIntensity } from '../../foliage/chromatic.ts';
-import { addCameraShake } from '../../core/game-loop.ts';
+import { addCameraShake } from '../../core/camera-shake.ts';
 
 // --- Ability Handler ---
 export function handleAbilities(delta: number, camera: THREE.Camera, keyStates: KeyStates) {

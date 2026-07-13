@@ -65,8 +65,8 @@ Three.js Renderer -> WebGPU RenderPipeline (Raw Draw Calls)
 1. **Phase 4: The Graphics Rewire (Three.js → Raw WebGPU) Stage A — Compute Shaders (GPGPU)** (Status: Implemented ✅)
    - *Implementation Details:* Implemented the GPGPU compute passes for particle updates and transitioned the particle systems (fireflies, pollen, berries, rain, sparks) entirely to WebGPU Compute Shaders to realize Phase 4 Stage A objectives.
 
-2. **Moon Dance & Note-Color Reactivity** (Status: Implemented ✅)
-   - *Implementation Details:* Finalised visual integration for Moon Dance sky reactivity by adding a specific `sky` property to `CONFIG.noteColorMap` (mirroring `assets/colorcode.json`), routing the note color maps in `getNoteColorTyped`, and updating `BiomeUniforms` and `mapNoteToColor` to use the configured hex values instead of calculating HSL offsets dynamically.
+2. **Subwoofer Lotus InstancedMesh Batcher** (Status: Implemented ✅)
+   - *Implementation Details:* Created `SubwooferLotusBatcher` using TSL and InstancedMesh to handle Subwoofer Lotus rendering efficiently at massive scale with bass reactivity.
 
 3. **Foliage Growth & Rain-Driven Spreading** (Status: Implemented ✅)
    - *Implementation Details:* Implemented `spawnNearbyFoliage` in `src/world/generation.ts` and integrated it into the weather ecosystem's update loop (`src/systems/weather/weather-ecosystem.ts`). It pulls source positions from existing batched mushrooms and flowers, and uses a distance threshold check to cap local density.
@@ -80,6 +80,9 @@ Three.js Renderer -> WebGPU RenderPipeline (Raw Draw Calls)
 6. **Refactoring Large Files: generation.ts** (Status: Implemented ✅)
    - *Implementation Details:* Modularized `src/world/generation.ts` into `generation-core.ts`, `generation-decorators.ts`, and `generation-utils.ts`, reducing file size and improving maintainability.
 
+7. **Subwoofer Lotus InstancedMesh Batcher** (Status: Implemented ✅)
+   - *Implementation Details:* Created `SubwooferLotusBatcher` using TSL and InstancedMesh to handle Subwoofer Lotus rendering efficiently at massive scale with bass reactivity.
+
 ## Next Steps
 
 1. **Refactoring Large Files: region-manager.ts** (Status: Implemented ✅)
@@ -87,3 +90,7 @@ Three.js Renderer -> WebGPU RenderPipeline (Raw Draw Calls)
 1. **Phase 4: The Graphics Rewire (Three.js → Raw WebGPU) Stage C — Scene Graph Replacement** (Status: Implemented ✅)
    - *Implementation Details:* Implemented AssemblyScript WASM ECS system using high-performance pointer arrays and memory mappings. Exported `ecs_createEntity`, `ecs_addComponent`, etc. to typescript.
    - *Next Step Suggestion:* Replace the large file refactoring tasks from `REFACTORING_PLAN_REMAINING.md`, starting with `src/world/generation.ts`.
+
+1. **Refactoring Large Files: Finalization** (Status: Implemented ✅)
+   - *Implementation Details:* Completed refactoring of all large files listed in `REFACTORING_PLAN_REMAINING.md` (`generation.ts`, `region-manager.ts`, `loading-screen.ts`, `audio-system.ts`, `analytics-debug.ts`) into smaller, modular components.
+   - *Next Step Suggestion:* Implement TSL Volumetric God Rays + selective DoF (#1173) or Awakened Flora Persistence (#1176).

@@ -5,7 +5,7 @@ import {
     sin, dot, time, attribute,
     storage, instanceIndex, Fn, If, vec4, varyingProperty
 } from 'three/tsl';
-import { CandyPresets, uAudioLow, uTime, createJuicyRimLight, calculateWindSway, applyPlayerInteraction } from './index.ts';
+import { CandyPresets, uAudioLow, uTime, createJuicyRimLight, calculateWindSway, applyPlayerInteraction, applyStandardDeformation } from './index.ts';
 import { spawnImpact } from './impacts.ts';
 import { uChromaticIntensity } from './chromatic.ts';
 import { foliageGroup } from '../world/state.ts';
@@ -367,8 +367,7 @@ function createHeartbeatMaterial(): THREE.Material {
 
     // 🎨 PALETTE: Add TSL Wind Sway and Player Interaction
     const posScaled = positionLocal.mul(scaleFactor);
-    const posWind = posScaled.add(calculateWindSway(posScaled));
-    material.positionNode = applyPlayerInteraction(posWind);
+    material.positionNode = applyStandardDeformation(posScaled);
 
     // 3. Reactive Glow (Emissive)
     const aGlow = attribute('aGlow', 'float'); // FROM BATCHER

@@ -102,8 +102,8 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
       font-size: 1.2rem;
     `;
     closeBtn.onclick = () => {
-      closeBtn.setAttribute('aria-pressed', 'true');
-      setTimeout(() => closeBtn.setAttribute('aria-pressed', 'false'), 150);
+      closeBtn.classList.add('keyboard-active');
+      setTimeout(() => closeBtn.classList.remove('keyboard-active'), 150);
       this.close();
     };
     closeBtn.setAttribute('aria-label', 'Close accessibility menu');
@@ -160,6 +160,7 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
       tab.id = `tab-${section}`;
       tab.role = 'tab';
       tab.setAttribute('aria-selected', isActive ? 'true' : 'false');
+      tab.tabIndex = isActive ? 0 : -1;
       tab.setAttribute('aria-controls', `panel-${section}`);
       tab.textContent = labels[section];
       tab.style.cssText = `
@@ -172,9 +173,9 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
         text-align: left;
       `;
       tab.onclick = () => {
-        tab.setAttribute('aria-pressed', 'true');
-        setTimeout(() => tab.setAttribute('aria-pressed', 'false'), 150);
-        this.switchSection(section as MenuSection);
+        tab.classList.add('keyboard-active');
+        setTimeout(() => tab.classList.remove('keyboard-active'), 150);
+        this.switchSection(section);
       };
 
       sidebar.appendChild(tab);
@@ -186,7 +187,9 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
   private createMainPanel(): HTMLElement {
     const main = document.createElement('main');
     main.id = `panel-${this.currentSection}`;
+    main.setAttribute('role', 'tabpanel');
     main.setAttribute('aria-labelledby', `tab-${this.currentSection}`);
+    main.tabIndex = 0;
     main.style.cssText = `
       flex: 1;
       overflow-y: auto;
@@ -355,8 +358,8 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
       btn.textContent = binding.key || 'Unbound';
       btn.style.cssText = `${this.getButtonStyle()} width: 120px;`;
       btn.onclick = () => {
-        btn.setAttribute('aria-pressed', 'true');
-        setTimeout(() => btn.setAttribute('aria-pressed', 'false'), 150);
+        btn.classList.add('keyboard-active');
+        setTimeout(() => btn.classList.remove('keyboard-active'), 150);
         this.startKeyRebind(action, btn);
       };
 
@@ -537,8 +540,13 @@ export class AccessibilityMenuRendering extends AccessibilityMenuCore {
     checkbox.type = 'checkbox';
     checkbox.id = id;
     checkbox.checked = checked;
+    checkbox.setAttribute('role', 'switch');
+    checkbox.setAttribute('aria-checked', String(checked));
     checkbox.style.cssText = 'width: 20px; height: 20px; cursor: pointer;';
-    checkbox.onchange = () => onChange(checkbox.checked);
+    checkbox.onchange = () => {
+      checkbox.setAttribute('aria-checked', String(checkbox.checked));
+      onChange(checkbox.checked);
+    };
 
     wrapper.appendChild(labelEl);
     wrapper.appendChild(checkbox);

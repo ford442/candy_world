@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { applyInstanceAnimation, ANIMATION_TYPES } from './animation-nodes.ts';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { foliageGroup } from '../world/state.ts';
@@ -28,7 +29,7 @@ import {
 } from 'three/tsl';
 import { PlantPoseMachine } from './plant-pose-machine.ts';
 import { musicReactivitySystem } from '../systems/music-reactivity.ts';
-import { camera } from '../core/main.ts';
+import { camera } from '../core/camera-ref.ts';
 import { CONFIG } from '../core/config.ts';
 
 const MAX_PINES = 200; // conservative default for performance
@@ -53,10 +54,11 @@ export class PortamentoPineBatcher {
    * Per-instance ADSR pose machine — drives the spring rest position for each pine.
    * Allocated once with MAX_PINES capacity; no per-frame allocations.
    */
-  private _poseMachine: PlantPoseMachine = new PlantPoseMachine(MAX_PINES);
+  private _poseMachine!: PlantPoseMachine;
 
   init() {
     if (this.initialized) return;
+    this._poseMachine = new PlantPoseMachine(MAX_PINES);
 
     // Geometry: merged trunk + needles (pr-281 approach)
     const height = 4.0;
@@ -302,6 +304,15 @@ export class PortamentoPineBatcher {
 
     if (needsUpdate) {
         this.bendAttribute!.needsUpdate = true;
+    }
+  }
+
+  dispose(): void {
+    if (this.trunkMesh && this.trunkMesh.parent) {
+      safeRemoveAndDispose(this.trunkMesh.parent, this.trunkMesh);
+    }
+    if (this.needleMesh && this.needleMesh.parent) {
+      safeRemoveAndDispose(this.needleMesh.parent, this.needleMesh);
     }
   }
 }

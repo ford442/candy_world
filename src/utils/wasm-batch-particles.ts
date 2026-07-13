@@ -2,7 +2,7 @@ import {
     wasmUpdateParticles,
     wasmSpawnBurst,
     cppBatchGroundHeightSimd,
-    emscriptenInstance,
+    getEmscriptenInstance,
     emscriptenMemory
 } from './wasm-loader-core.ts';
 
@@ -107,7 +107,7 @@ export function getHeightmapBatch(coordinates: Float32Array): Float32Array {
     const inputBytes = coordinates.length * 4;
     const outputBytes = count * 4;
 
-    const emModule = emscriptenInstance as any;
+    const emModule = getEmscriptenInstance() as any;
 
     // Allocate memory in WASM heap
     const inputPtr = emModule._malloc(inputBytes);

@@ -1,6 +1,8 @@
 import { trapFocusInside } from '../utils/interaction-utils';
+import { yieldToPaint } from '../utils/yield-to-paint';
 import { globalLoadingManager, GlobalProgressState, TaskState } from '../systems/loading-manager';
 import { LoadingPhase, LoadingProgress, LoadingScreenOptions, DEFAULT_LOADING_PHASES } from './loading-screen-types';
+import { getReport } from '../world/spawn-tracker.ts';
 import './loading-screen.css';
 
 // =============================================================================
@@ -59,6 +61,7 @@ export class LoadingScreen {
     private releaseFocusTrap: (() => void) | null = null;
     private lastFocusedElement: HTMLElement | null = null;
 
+    private isFCP = false;
     private unsubscribeProgress: (() => void) | null = null;
 
     constructor(options: LoadingScreenOptions = {}) {
@@ -103,139 +106,167 @@ export class LoadingScreen {
     private createDOM(): void {
         if (typeof document === 'undefined') return;
 
-        // Create Deferred HUD Indicator
-        if (!document.getElementById('candy-deferred-indicator')) {
+        // Try to find the existing Deferred HUD Indicator from index.html
+        this.deferredIndicator = document.getElementById('candy-deferred-indicator');
+        if (!this.deferredIndicator) {
             this.deferredIndicator = document.createElement('div');
             this.deferredIndicator.id = 'candy-deferred-indicator';
             this.deferredIndicator.className = 'deferred-indicator';
             this.deferredIndicator.setAttribute('aria-hidden', 'true');
-            this.deferredIndicator.innerHTML = '<span class="deferred-spinner"></span><span class="deferred-text">Populating...</span><span class="deferred-count" aria-hidden="true"></span><span class="deferred-fail" aria-live="polite" aria-atomic="true"></span><span class="deferred-bar"><span class="deferred-bar-fill"></span></span>';
+            this.deferredIndicator.innerHTML = '<span class="deferred-spinner"></span><span class="deferred-text">Populating...</span><span class="deferred-count" aria-hidden="true"></span><span class="deferred-eta" aria-hidden="true"></span><span class="deferred-fail" aria-hidden="true" role="button" tabindex="0" style="display:none;color:#ff6b6b;font-weight:600;margin-left:6px;cursor:pointer;">⚠ <span class="fail-count">0</span></span><span class="deferred-bar"><span class="deferred-bar-fill"></span></span>';
             document.body.appendChild(this.deferredIndicator);
         }
 
-        // Check if already exists
-        if (document.getElementById('candy-loading-screen')) {
-            this.container = document.getElementById('candy-loading-screen');
-            this.overlay = document.getElementById('candy-loading-overlay');
-            return;
+        // Check if loading screen already exists in index.html (FCP Optimization)
+        this.container = document.getElementById('candy-loading-screen');
+        this.overlay = document.getElementById('candy-loading-overlay');
+
+        if (!this.container || !this.overlay) {
+            this.isFCP = false;
+            // Fallback: Create overlay
+            this.overlay = document.createElement('div');
+            this.overlay.id = 'candy-loading-overlay';
+            this.overlay.className = `loading-overlay theme-${this.options.theme}`;
+            this.overlay.setAttribute('role', 'dialog');
+            this.overlay.setAttribute('aria-modal', 'true');
+
+            // Fallback: Create main container
+            this.container = document.createElement('div');
+            this.container.id = 'candy-loading-screen';
+            this.container.className = `loading-screen theme-${this.options.theme}`;
+            this.container.setAttribute('role', 'progressbar');
+            this.container.setAttribute('aria-valuemin', '0');
+            this.container.setAttribute('aria-valuemax', '100');
+            this.container.setAttribute('aria-valuenow', '0');
+            this.container.setAttribute('aria-valuetext', 'Initializing...');
+            this.container.setAttribute('aria-label', 'Game loading progress');
+            this.container.setAttribute('aria-live', 'polite');
+            this.container.setAttribute('aria-atomic', 'true');
+
+            // Create content wrapper
+            const content = document.createElement('div');
+            content.className = 'loading-content';
+
+            // Title
+            const title = document.createElement('h1');
+            title.className = 'loading-title';
+            title.innerHTML = '🍭 Candy World <span class="loading-dots">...</span>';
+            content.appendChild(title);
+
+            // Spinner
+            this.spinner = document.createElement('div');
+            this.spinner.className = 'loading-spinner';
+            this.spinner.setAttribute('aria-hidden', 'true');
+            content.appendChild(this.spinner);
+
+            // Progress section
+            const progressSection = document.createElement('div');
+            progressSection.className = 'progress-section';
+
+            // Progress bar container
+            this.progressBar = document.createElement('div');
+            this.progressBar.className = 'progress-bar';
+
+            // Progress fill
+            this.progressFill = document.createElement('div');
+            this.progressFill.className = 'progress-fill';
+            this.progressFill.style.transform = 'scaleX(0)';
+            this.progressFill.style.transformOrigin = 'left';
+            this.progressBar.appendChild(this.progressFill);
+
+            // Progress details
+            const progressDetails = document.createElement('div');
+            progressDetails.className = 'progress-details';
+
+            // Percentage text
+            this.percentageText = document.createElement('span');
+            this.percentageText.className = 'progress-percentage';
+            this.percentageText.textContent = '0%';
+
+            // Task description
+            this.taskText = document.createElement('span');
+            this.taskText.className = 'progress-task';
+            this.taskText.textContent = 'Initializing...';
+
+            progressDetails.appendChild(this.percentageText);
+            progressDetails.appendChild(this.taskText);
+
+            progressSection.appendChild(this.progressBar);
+            progressSection.appendChild(progressDetails);
+            content.appendChild(progressSection);
+
+            // Time remaining
+            if (this.options.showEstimatedTime) {
+                this.timeText = document.createElement('div');
+                this.timeText.className = 'time-remaining';
+                this.timeText.textContent = 'Calculating time...';
+                content.appendChild(this.timeText);
+            }
+
+            // Skip button (for deferred phases)
+            if (this.options.allowSkipDeferred) {
+                this.skipButton = document.createElement('button');
+                this.skipButton.className = 'skip-button';
+                this.skipButton.innerHTML = '<span aria-hidden="true">⏭️ </span>Skip Optional Content <span class="key-badge">Space</span>';
+                this.skipButton.style.display = 'none';
+                this.skipButton.addEventListener('click', () => this.skipCurrentPhase());
+                this.skipButton.addEventListener('keydown', (e: KeyboardEvent) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        this.skipButton!.classList.add('keyboard-active');
+                        setTimeout(() => this.skipButton!.classList.remove('keyboard-active'), 150);
+                    }
+                });
+                content.appendChild(this.skipButton);
+            }
+
+            // Status indicators
+            const statusIndicators = document.createElement('div');
+            statusIndicators.className = 'status-indicators';
+
+            this.phases.forEach((phase, index) => {
+                const indicator = document.createElement('div');
+                indicator.className = 'phase-indicator';
+                indicator.dataset.phaseId = phase.id;
+                indicator.dataset.phaseIndex = index.toString();
+
+                const dot = document.createElement('span');
+                dot.className = 'phase-dot';
+
+                const label = document.createElement('span');
+                label.className = 'phase-label';
+                label.textContent = phase.name;
+
+                indicator.appendChild(dot);
+                indicator.appendChild(label);
+                statusIndicators.appendChild(indicator);
+            });
+
+            content.appendChild(statusIndicators);
+
+            this.container.appendChild(content);
+            this.overlay.appendChild(this.container);
+            document.body.appendChild(this.overlay);
+        } else {
+            this.isFCP = true;
+            // FCP Element wiring: Grab references to existing HTML components
+            this.spinner = this.container.querySelector('.loading-spinner') as HTMLElement;
+            this.progressBar = this.container.querySelector('.progress-bar') as HTMLElement;
+            this.progressFill = this.container.querySelector('.progress-fill') as HTMLElement;
+            this.percentageText = this.container.querySelector('.progress-percentage') as HTMLElement;
+            this.taskText = this.container.querySelector('.progress-task') as HTMLElement;
+            this.timeText = this.container.querySelector('.time-remaining') as HTMLElement;
+            this.skipButton = this.container.querySelector('.skip-button') as HTMLButtonElement;
+
+            if (this.skipButton) {
+                this.skipButton.addEventListener('click', () => this.skipCurrentPhase());
+                this.skipButton.addEventListener('keydown', (e: KeyboardEvent) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        this.skipButton!.classList.add('keyboard-active');
+                        setTimeout(() => this.skipButton!.classList.remove('keyboard-active'), 150);
+                    }
+                });
+            }
         }
-
-        // Create overlay
-        this.overlay = document.createElement('div');
-        this.overlay.id = 'candy-loading-overlay';
-        this.overlay.className = `loading-overlay theme-${this.options.theme}`;
-        this.overlay.setAttribute('role', 'dialog');
-        this.overlay.setAttribute('aria-modal', 'true');
-
-        // Create main container
-        this.container = document.createElement('div');
-        this.container.id = 'candy-loading-screen';
-        this.container.className = `loading-screen theme-${this.options.theme}`;
-        this.container.setAttribute('role', 'progressbar');
-        this.container.setAttribute('aria-valuemin', '0');
-        this.container.setAttribute('aria-valuemax', '100');
-        this.container.setAttribute('aria-valuenow', '0');
-        this.container.setAttribute('aria-label', 'Game loading progress');
-        this.container.setAttribute('aria-live', 'polite');
-        this.container.setAttribute('aria-atomic', 'true');
-
-        // Create content wrapper
-        const content = document.createElement('div');
-        content.className = 'loading-content';
-
-        // Title
-        const title = document.createElement('h1');
-        title.className = 'loading-title';
-        title.innerHTML = '🍭 Candy World <span class="loading-dots">...</span>';
-        content.appendChild(title);
-
-        // Spinner
-        this.spinner = document.createElement('div');
-        this.spinner.className = 'loading-spinner';
-        this.spinner.setAttribute('aria-hidden', 'true');
-        content.appendChild(this.spinner);
-
-        // Progress section
-        const progressSection = document.createElement('div');
-        progressSection.className = 'progress-section';
-
-        // Progress bar container
-        this.progressBar = document.createElement('div');
-        this.progressBar.className = 'progress-bar';
-
-        // Progress fill
-        this.progressFill = document.createElement('div');
-        this.progressFill.className = 'progress-fill';
-        this.progressFill.style.transform = 'scaleX(0)';
-        this.progressFill.style.transformOrigin = 'left';
-        this.progressBar.appendChild(this.progressFill);
-
-        // Progress details
-        const progressDetails = document.createElement('div');
-        progressDetails.className = 'progress-details';
-
-        // Percentage text
-        this.percentageText = document.createElement('span');
-        this.percentageText.className = 'progress-percentage';
-        this.percentageText.textContent = '0%';
-
-        // Task description
-        this.taskText = document.createElement('span');
-        this.taskText.className = 'progress-task';
-        this.taskText.textContent = 'Initializing...';
-
-        progressDetails.appendChild(this.percentageText);
-        progressDetails.appendChild(this.taskText);
-
-        progressSection.appendChild(this.progressBar);
-        progressSection.appendChild(progressDetails);
-        content.appendChild(progressSection);
-
-        // Time remaining
-        if (this.options.showEstimatedTime) {
-            this.timeText = document.createElement('div');
-            this.timeText.className = 'time-remaining';
-            this.timeText.textContent = 'Calculating time...';
-            content.appendChild(this.timeText);
-        }
-
-        // Skip button (for deferred phases)
-        if (this.options.allowSkipDeferred) {
-            this.skipButton = document.createElement('button');
-            this.skipButton.className = 'skip-button';
-            this.skipButton.innerHTML = '<span aria-hidden="true">⏭️ </span>Skip Optional Content';
-            this.skipButton.style.display = 'none';
-            this.skipButton.addEventListener('click', () => this.skipCurrentPhase());
-            content.appendChild(this.skipButton);
-        }
-
-        // Status indicators
-        const statusIndicators = document.createElement('div');
-        statusIndicators.className = 'status-indicators';
-
-        this.phases.forEach((phase, index) => {
-            const indicator = document.createElement('div');
-            indicator.className = 'phase-indicator';
-            indicator.dataset.phaseId = phase.id;
-            indicator.dataset.phaseIndex = index.toString();
-
-            const dot = document.createElement('span');
-            dot.className = 'phase-dot';
-
-            const label = document.createElement('span');
-            label.className = 'phase-label';
-            label.textContent = phase.name;
-
-            indicator.appendChild(dot);
-            indicator.appendChild(label);
-            statusIndicators.appendChild(indicator);
-        });
-
-        content.appendChild(statusIndicators);
-
-        this.container.appendChild(content);
-        this.overlay.appendChild(this.container);
-        document.body.appendChild(this.overlay);
 
         if (this.options.debug) {
             console.log('[LoadingScreen] DOM created');
@@ -300,11 +331,11 @@ export class LoadingScreen {
             this.container.classList.add('visible');
         }
 
-        setTimeout(() => {
+        yieldToPaint(50).then(() => {
             if (this.container && this.isVisible) {
                 this.releaseFocusTrap = trapFocusInside(this.container);
             }
-        }, 300);
+        });
 
         this.lastTime = performance.now();
         if (this.animationFrameId === null) {
@@ -331,14 +362,77 @@ export class LoadingScreen {
     /**
      * Update the deferred indicator's progress bar and count
      */
-    setDeferredProgress(completed: number, total: number): void {
+    /**
+     * @param failedHint  Optional pre-computed failed count from LoadingManager state;
+     *                    falls back to SpawnTracker.getReport() when omitted.
+     * @param etaMs       Estimated milliseconds remaining (-1 = unknown).
+     */
+    setDeferredProgress(completed: number, total: number, failedHint?: number, etaMs: number = -1): void {
         if (!this.deferredIndicator) return;
         const pct = total > 0 ? Math.min(100, Math.max(0, (completed / total) * 100)) : 0;
         const fill = this.deferredIndicator.querySelector('.deferred-bar-fill') as HTMLElement | null;
-        if (fill) fill.style.width = `${pct.toFixed(1)}%`;
+        if (fill) { fill.style.transform = `scaleX(${pct / 100})`; fill.style.transformOrigin = 'left'; }
         const count = this.deferredIndicator.querySelector('.deferred-count') as HTMLElement | null;
         if (count) count.textContent = `${completed} / ${total}`;
         this.deferredIndicator.setAttribute('aria-valuenow', String(Math.round(pct)));
+
+        // ETA display
+        const etaEl = this.deferredIndicator.querySelector('.deferred-eta') as HTMLElement | null;
+        if (etaEl) {
+            if (etaMs > 0) {
+                const secs = Math.ceil(etaMs / 1000);
+                etaEl.textContent = secs < 60 ? `~${secs}s` : `~${Math.ceil(secs / 60)}m`;
+            } else {
+                etaEl.textContent = '';
+            }
+        }
+
+        // Spawn failure badge — use hint from manager when available, else query tracker.
+        try {
+            const failedCount = failedHint !== undefined ? failedHint : (getReport ? getReport().failed : 0);
+            const failEl = this.deferredIndicator.querySelector('.deferred-fail') as HTMLElement | null;
+            const failCountEl = this.deferredIndicator.querySelector('.fail-count') as HTMLElement | null;
+            if (failEl && failCountEl) {
+                if (failedCount > 0) {
+                    failCountEl.textContent = String(failedCount);
+                    failEl.style.display = 'inline';
+                    failEl.setAttribute('aria-hidden', 'false');
+                    failEl.setAttribute('title', `${failedCount} object(s) failed to spawn — click for details`);
+                    if (!(failEl as any)._spawnClickWired) {
+                        (failEl as any)._spawnClickWired = true;
+                        const handleActivate = (ev: Event) => {
+                            ev.stopPropagation();
+                            try {
+                                const r = getReport();
+                                const summary = `Spawn failures: ${r.failed}/${r.attempted} (succeeded ${r.succeeded}). By type: ${Object.entries(r.failuresByType).map(([k,v])=>k+':'+v).join(', ') || 'n/a'}`;
+                                console.group('[SpawnTracker] Failures during population');
+                                console.table(r.failuresByType);
+                                console.log('Last errors:', r.lastErrors);
+                                console.groupEnd();
+                                import('../utils/toast.ts').then(({ showToast }) => {
+                                    showToast(summary + ' — see console for full list', '⚠️', 6000);
+                                }).catch(() => {
+                                    const t = document.createElement('div');
+                                    t.textContent = summary;
+                                    t.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#3a2a2a;color:#ffdddd;padding:6px 10px;border-radius:4px;z-index:99999;font-size:12px';
+                                    document.body.appendChild(t);
+                                    setTimeout(() => t.remove(), 5000);
+                                });
+                            } catch (e) { console.warn('[Deferred] failed to show spawn report', e); }
+                        };
+                        failEl.addEventListener('click', handleActivate);
+                        failEl.addEventListener('keydown', (ev: KeyboardEvent) => {
+                            if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); handleActivate(ev); }
+                        });
+                    }
+                } else {
+                    failEl.style.display = 'none';
+                    failEl.setAttribute('aria-hidden', 'true');
+                }
+            }
+        } catch {
+            // tracker not ready — silent
+        }
     }
 
     setDeferredFailures(failed: number): void {
@@ -449,6 +543,15 @@ export class LoadingScreen {
     }
 
     /**
+     * Mark a phase as non-skippable so the skip button won't appear when it is active.
+     * Call before startPhase when the caller wants to enforce completion (e.g. waitForFull mode).
+     */
+    markPhaseNonSkippable(phaseId: string): void {
+        const phase = this.phases.find(p => p.id === phaseId);
+        if (phase) phase.nonSkippable = true;
+    }
+
+    /**
      * Start a specific loading phase
      */
     startPhase(phaseId: string): void {
@@ -472,9 +575,10 @@ export class LoadingScreen {
         this.updateUI(phase);
         this.updatePhaseIndicators();
 
-        // Show skip button for deferred phases
+        // Show skip button for deferred phases that haven't been marked non-skippable
         if (this.skipButton) {
-            this.skipButton.style.display = phase.isDeferred ? 'block' : 'none';
+            const showSkip = phase.isDeferred && !phase.nonSkippable && this.options.allowSkipDeferred;
+            this.skipButton.style.display = showSkip ? 'block' : 'none';
         }
 
         if (this.options.debug) {
@@ -531,7 +635,11 @@ export class LoadingScreen {
         // Forward to Manager
         globalLoadingManager.completeTask(targetPhaseId);
 
-        if (globalLoadingManager.getOverallProgress() >= 99 || targetPhaseId === 'map-generation' || this.currentPhaseIndex >= this.phases.length - 1) {
+        // Hide when all non-deferred phases are done (last phase in list, or overall ≥99%).
+        // The deferred-population phase is isDeferred:true, so skipping it also hides.
+        const isLastPhase = this.currentPhaseIndex >= this.phases.length - 1;
+        const currentPhaseIsDeferred = this.phases[this.currentPhaseIndex]?.isDeferred;
+        if (globalLoadingManager.getOverallProgress() >= 99 || isLastPhase || currentPhaseIsDeferred) {
             this.hide();
         }
     }
@@ -582,6 +690,10 @@ export class LoadingScreen {
             }
             this.taskChangeTimeout = null;
         }, 150);
+
+        if (this.container) {
+            this.container.setAttribute('aria-valuetext', text);
+        }
     }
 
     /**
@@ -744,6 +856,8 @@ export class LoadingScreen {
 
         // Update ARIA
         this.container.setAttribute('aria-valuenow', Math.round(this.displayedOverallProgress).toString());
+        const currentPhaseName = this.phases[this.currentPhaseIndex]?.name || 'Loading';
+        this.container.setAttribute('aria-valuetext', `${currentPhaseName}: ${Math.round(this.displayedOverallProgress)}%`);
 
         // Update active phase indicator progress
         const activeIndicator = this.container.querySelector('.phase-indicator.active') as HTMLElement;
@@ -753,7 +867,17 @@ export class LoadingScreen {
     }
 
     private handleManagerProgress(state: GlobalProgressState, tasks: Map<string, TaskState>): void {
-        if (!this.isVisible || this.hasFatalError) return;
+        if (this.hasFatalError) return;
+
+        // Always update the deferred indicator from manager state, even after loading screen hides.
+        if (state.deferredTotal > 0) {
+            this.setDeferredProgress(
+                state.deferredCompleted, state.deferredTotal,
+                state.deferredFailed, state.deferredEtaMs
+            );
+        }
+
+        if (!this.isVisible) return;
 
         this.targetOverallProgress = state.overallPercent;
 
@@ -851,6 +975,12 @@ export class LoadingScreen {
                 reloadBtn.setAttribute('aria-label', 'Reload page to try again');
                 reloadBtn.innerHTML = '<span aria-hidden="true">🔄</span> Reload Page';
                 reloadBtn.addEventListener('click', () => window.location.reload());
+                reloadBtn.addEventListener('keydown', (e: KeyboardEvent) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        reloadBtn.classList.add('keyboard-active');
+                        setTimeout(() => reloadBtn.classList.remove('keyboard-active'), 150);
+                    }
+                });
                 this.container.querySelector('.loading-content')?.appendChild(reloadBtn);
             }
         }
@@ -875,13 +1005,18 @@ export class LoadingScreen {
 
         if (this.overlay && this.overlay.parentNode) {
             this.overlay.style.display = 'none';
-            this.overlay.parentNode.removeChild(this.overlay);
+            if (!this.isFCP) {
+                this.overlay.parentNode.removeChild(this.overlay);
+            }
         }
         if (this.container) {
             this.container.style.display = 'none';
         }
-        this.container = null;
-        this.overlay = null;
+
+        if (!this.isFCP) {
+            this.container = null;
+            this.overlay = null;
+        }
         this.progressBar = null;
         this.progressFill = null;
         this.percentageText = null;

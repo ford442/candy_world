@@ -1,16 +1,22 @@
 import * as THREE from 'three';
+import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import {
     CandyPresets,
     uTime,
-    registerReactiveMaterial
+    registerReactiveMaterial,
+    calculateWindSway,
+    applyPlayerInteraction,
+    applyStandardDeformation,
+    createJuicyRimLight
 } from './index.ts';
 import {
-    color, float, vec3, vec4, sin, cos, positionLocal, time, uniform
+    color, float, vec3, vec4, sin, cos, positionLocal, time, uniform, normalLocal
 } from 'three/tsl';
 import { BiomeId } from '../systems/biome-uniforms.ts';
-import { computeWaveTimeSinceArrival } from '../systems/music-reactivity.ts';
+import { computeWaveDistSq } from '../systems/music-reactivity.ts';
 import { foliageGroup } from '../world/state.ts';
+import { computeWaveTimeSinceArrival } from '../systems/music-reactivity-core.ts';
 
 const MAX_GEYSERS = 500;
 
@@ -58,6 +64,8 @@ export class KickDrumGeyserBatcher {
             emissive: 0xFF4500,
             emissiveIntensity: 0.8
         });
+        // 🎨 PALETTE: Add juicy rim light to geyser core
+        coreMat.emissiveNode = (coreMat.emissiveNode || color(0x000000)).add(createJuicyRimLight(color(0xFF4500), float(1.5), float(3.0), normalLocal));
         registerReactiveMaterial(coreMat);
         this.coreMesh = new THREE.InstancedMesh(coreGeo, coreMat, MAX_GEYSERS);
         this.coreMesh.count = 0;
@@ -79,11 +87,14 @@ export class KickDrumGeyserBatcher {
         const jitterX = sin(uTime.mul(10.0).add(positionLocal.y.mul(10.0))).mul(0.1);
         const jitterZ = cos(uTime.mul(12.0).add(positionLocal.y.mul(10.0))).mul(0.1);
 
-        plumeMat.positionNode = vec3(
+        const plumePos = vec3(
             positionLocal.x.add(jitterX),
             positionLocal.y,
             positionLocal.z.add(jitterZ)
         );
+
+        // 🎨 PALETTE: Add wind sway and player interaction to the geyser plumes
+        plumeMat.positionNode = applyStandardDeformation(plumePos);
         plumeMat.colorNode = vec4(color(0xFF4500), float(0.8));
 
         this.plumeMesh = new THREE.InstancedMesh(plumeGeo, plumeMat, MAX_GEYSERS);
@@ -106,12 +117,15 @@ export class KickDrumGeyserBatcher {
         this.plumeMesh.count = this._count;
 
         // Apply Transform
-        proxy.updateMatrixWorld(true);
-        this.baseMesh.setMatrixAt(i, proxy.matrixWorld);
-        this.coreMesh.setMatrixAt(i, proxy.matrixWorld);
+        // ⚡ OPTIMIZATION: Bypassed THREE.Object3D proxy and setMatrixAt() overhead by writing directly to instanceMatrix
+        proxy.updateWorldMatrix(false, false);
+        const matrixArray = proxy.matrixWorld.elements;
 
-        // Plume will be scaled dynamically
-        this.plumeMesh.setMatrixAt(i, proxy.matrixWorld);
+        for (let j = 0; j < 16; j++) {
+            this.baseMesh.instanceMatrix.array[i * 16 + j] = matrixArray[j];
+            this.coreMesh.instanceMatrix.array[i * 16 + j] = matrixArray[j];
+            this.plumeMesh.instanceMatrix.array[i * 16 + j] = matrixArray[j]; // Plume will be scaled dynamically later
+        }
 
         this.baseMesh.instanceMatrix.needsUpdate = true;
         this.coreMesh.instanceMatrix.needsUpdate = true;
@@ -144,7 +158,7 @@ export class KickDrumGeyserBatcher {
             this._scratchPos.set(x, y, z);
 
             // Calculate distance-based wave timing
-            const waveTime = computeWaveTimeSinceArrival(activeWave, this._scratchPos);
+            const waveTime = computeWaveTimeSinceArrival(this._scratchPos, activeWave);
 
             // Simulate local kick intensity. If wave hasn't reached, it's 0.
             // If it reached recently, apply a sharp spike that decays.
@@ -166,44 +180,44 @@ export class KickDrumGeyserBatcher {
 
             // Manual matrix composition for plume
             // Keep base transform, but scale Y axis
-            this._scratchMatrix.fromArray(baseArray, i * 16);
+            // ⚡ OPTIMIZATION: Bypassed Matrix4 composition overhead by directly modifying the Y-axis basis vector in the Float32Array
+            const scaleY = targetHeight + 0.01; // 0.01 to prevent singular matrix warning
+            const baseIndex = i * 16;
 
-            // Scale the y axis by targetHeight
-            this._scratchVec3.set(1, targetHeight + 0.01, 1); // 0.01 to prevent singular matrix warning
-            this._scratchMatrix.scale(this._scratchVec3);
+            plumeArray[baseIndex + 0] = baseArray[baseIndex + 0];
+            plumeArray[baseIndex + 1] = baseArray[baseIndex + 1];
+            plumeArray[baseIndex + 2] = baseArray[baseIndex + 2];
+            plumeArray[baseIndex + 3] = baseArray[baseIndex + 3];
 
-            this._scratchMatrix.toArray(plumeArray, i * 16);
+            // Scale Y-axis basis vector
+            plumeArray[baseIndex + 4] = baseArray[baseIndex + 4] * scaleY;
+            plumeArray[baseIndex + 5] = baseArray[baseIndex + 5] * scaleY;
+            plumeArray[baseIndex + 6] = baseArray[baseIndex + 6] * scaleY;
+            plumeArray[baseIndex + 7] = baseArray[baseIndex + 7] * scaleY;
+
+            plumeArray[baseIndex + 8] = baseArray[baseIndex + 8];
+            plumeArray[baseIndex + 9] = baseArray[baseIndex + 9];
+            plumeArray[baseIndex + 10] = baseArray[baseIndex + 10];
+            plumeArray[baseIndex + 11] = baseArray[baseIndex + 11];
+
+            plumeArray[baseIndex + 12] = baseArray[baseIndex + 12];
+            plumeArray[baseIndex + 13] = baseArray[baseIndex + 13];
+            plumeArray[baseIndex + 14] = baseArray[baseIndex + 14];
+            plumeArray[baseIndex + 15] = baseArray[baseIndex + 15];
         }
 
         this.plumeMesh.instanceMatrix.needsUpdate = true;
     }
 
     dispose() {
-        if (this.baseMesh) {
-            this.baseMesh.geometry.dispose();
-            if (Array.isArray(this.baseMesh.material)) {
-                this.baseMesh.material.forEach(m => m.dispose());
-            } else {
-                this.baseMesh.material.dispose();
-            }
+        if (this.baseMesh && this.baseMesh.parent) {
+            safeRemoveAndDispose(this.baseMesh.parent, this.baseMesh);
         }
-
-        if (this.coreMesh) {
-            this.coreMesh.geometry.dispose();
-            if (Array.isArray(this.coreMesh.material)) {
-                this.coreMesh.material.forEach(m => m.dispose());
-            } else {
-                this.coreMesh.material.dispose();
-            }
+        if (this.coreMesh && this.coreMesh.parent) {
+            safeRemoveAndDispose(this.coreMesh.parent, this.coreMesh);
         }
-
-        if (this.plumeMesh) {
-            this.plumeMesh.geometry.dispose();
-            if (Array.isArray(this.plumeMesh.material)) {
-                this.plumeMesh.material.forEach(m => m.dispose());
-            } else {
-                this.plumeMesh.material.dispose();
-            }
+        if (this.plumeMesh && this.plumeMesh.parent) {
+            safeRemoveAndDispose(this.plumeMesh.parent, this.plumeMesh);
         }
     }
 }

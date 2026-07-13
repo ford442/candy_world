@@ -21,6 +21,7 @@ import { showToast } from '../../utils/toast.ts';
 import { trapFocusInside } from '../../utils/interaction-utils.ts';
 import { announce } from '../announcer.ts';
 import { MENU_STYLES } from './save-menu-styles.js';
+import { yieldToPaint } from '../../utils/yield-to-paint.ts';
 import { 
     renderLoadTab, 
     renderSaveTab, 
@@ -133,11 +134,11 @@ export class SaveMenu {
         this.render();
 
         // Trap Focus
-        setTimeout(() => {
+        yieldToPaint(50).then(() => {
             if (this.container && this.isOpen()) {
                 this.releaseFocusTrap = trapFocusInside(this.container);
             }
-        }, 300);
+        });
     }
 
     /**
@@ -204,7 +205,7 @@ export class SaveMenu {
     // -------------------------------------------------------------------------
 
     private async refreshSlots(): Promise<void> {
-        this.slots = await saveSystem.listSlots();
+        this.slots = await saveSystem.getSaveSlots();
     }
 
     // -------------------------------------------------------------------------
@@ -300,6 +301,7 @@ export class SaveMenu {
                         role="tab"
                         aria-selected="${this.currentTab === tab.id}"
                         aria-controls="panel-${tab.id}"
+                        tabindex="${this.currentTab === tab.id ? '0' : '-1'}"
                         class="candy-save-menu__tab ${this.currentTab === tab.id ? 'candy-save-menu__tab--active' : ''}"
                         data-tab="${tab.id}"
                     >
@@ -449,6 +451,24 @@ export class SaveMenu {
             return;
         }
 
+        // ♿ Aria: Keyboard tactile feedback for interactive elements
+        if (e.key === 'Enter' || e.key === ' ') {
+            const activeElement = document.activeElement as HTMLElement;
+            if (activeElement && (
+                activeElement.classList.contains('candy-save-menu__tab') ||
+                activeElement.classList.contains('candy-save-menu__btn') ||
+                activeElement.classList.contains('candy-save-slot__btn') ||
+                activeElement.classList.contains('candy-toggle') ||
+                activeElement.classList.contains('candy-keybind') ||
+                activeElement.classList.contains('candy-save-menu__close')
+            )) {
+                activeElement.classList.add('keyboard-active');
+                setTimeout(() => {
+                    if (activeElement) activeElement.classList.remove('keyboard-active');
+                }, 150);
+            }
+        }
+
         // ♿ Aria: Keyboard navigation for Tabs (Left/Right Arrows)
         if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
             const activeElement = document.activeElement as HTMLElement;
@@ -463,6 +483,7 @@ export class SaveMenu {
 
                     const nextTab = tabs[nextIndex];
                     nextTab.focus({ preventScroll: true });
+                    nextTab.click(); // Selection follows focus
 
                     const tabId = nextTab.dataset.tab as MenuTab;
                     if (tabId) {
@@ -568,6 +589,7 @@ export class SaveMenu {
                 break;
             case 'save-settings':
                 setWorkingState();
+                await yieldToPaint();
                 saveSystem.updateSettings(this.settings);
                 showToast('Settings saved!', '⚙️', 3000);
                 setTimeout(restoreState, 300); // Brief delay for visual feedback
@@ -580,16 +602,19 @@ export class SaveMenu {
                 break;
             case 'export-current':
                 setWorkingState();
+                await yieldToPaint();
                 await this.exportCurrent();
                 setTimeout(restoreState, 300);
                 break;
             case 'export-all':
                 setWorkingState();
+                await yieldToPaint();
                 await this.exportAll();
                 setTimeout(restoreState, 300);
                 break;
             case 'copy-export':
                 setWorkingState();
+                await yieldToPaint();
                 await this.copyExport();
                 setTimeout(restoreState, 300);
                 break;

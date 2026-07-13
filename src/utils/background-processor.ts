@@ -1,3 +1,4 @@
+import { isCIorHeadless } from '../core/config.ts';
 /**
  * Time-Budgeted Background Processor
  *
@@ -20,6 +21,7 @@ export interface DeferredTask {
     id: string;
     execute: () => void | Promise<void>;
     priority?: number;
+    retryCount?: number;
 }
 
 // Detect requestIdleCallback at module level to avoid repeated property lookups.
@@ -43,15 +45,19 @@ function inferFailureTypeFromTaskId(taskId: string): string {
     }
     return 'background_task';
 }
+import { maybeRecordBackgroundFailure } from '../world/spawn-tracker.ts';
+import { isCIorHeadless } from '../core/config.ts';
 
 export class BackgroundProcessor {
     private queue: DeferredTask[] = [];
     private isRunning: boolean = false;
     private maxMsPerFrame: number;
-    private onCompleteCallback: (() => void) | null = null;
+    private onCompleteCallback: ((completed: number, total: number, failed: number) => void) | null = null;
     private onProgressCallback: ((completed: number, total: number) => void) | null = null;
     private totalTasks: number = 0;
     private completedTasks: number = 0;
+    private failedTasks: number = 0;
+    private startTimeMs: number = 0;
 
     constructor(maxMsPerFrame: number = 8) {
         this.maxMsPerFrame = maxMsPerFrame;
@@ -76,9 +82,10 @@ export class BackgroundProcessor {
     }
 
     /**
-     * Set a callback for when the queue is fully processed
+     * Set a callback for when the queue is fully processed.
+     * Receives (completed, total, failed) counts.
      */
-    public onComplete(callback: () => void): void {
+    public onComplete(callback: (completed: number, total: number, failed: number) => void): void {
         this.onCompleteCallback = callback;
     }
 
@@ -92,12 +99,78 @@ export class BackgroundProcessor {
     /**
      * Start processing the queue
      */
-    public start(): void {
-        if (this.isRunning || this.queue.length === 0) return;
+    public async start(): Promise<void> {
+        if (isCIorHeadless()) {
+            console.log('[BackgroundProcessor] CI/Headless mode detected, running synchronously.');
+            while (this.queue.length > 0) {
+                const task = this.queue.shift();
+                if (task) {
+                    try {
+                        const result = task.execute(); if (result instanceof Promise) { await result; }
+                        this.completedTasks++;
+                    } catch (e) {
+                        console.error(`[BackgroundProcessor] Error executing task ${task.id}:`, e);
+                        this.failedTasks++;
+                    }
+                }
+            }
+            this.onCompleteCallback?.(this.completedTasks, this.totalTasks, this.failedTasks);
+            return;
+        }
+        if (this.isRunning) return;
+        if (this.queue.length === 0) {
+            this.onCompleteCallback?.(this.completedTasks, this.totalTasks, this.failedTasks);
+            return;
+        }
         this.isRunning = true;
+        this.startTimeMs = performance.now();
 
         console.log(`[BackgroundProcessor] Starting with ${this.queue.length} tasks`);
+
+        if (isCIorHeadless()) {
+            console.log(`[BackgroundProcessor] CI bypass: Synchronously processing ${this.queue.length} tasks...`);
+
+            // We create an async wrapper so we can await the tasks without making start() return a Promise
+            const processAllSync = async () => {
+                while (this.queue.length > 0) {
+                    const task = this.queue.shift()!;
+                    try {
+                        const result = task.execute();
+                        if (result instanceof Promise) {
+                            await result;
+                        }
+                        this.completedTasks++;
+                    } catch (e) {
+                        console.error(`[BackgroundProcessor] Error executing task ${task.id}:`, e);
+                        maybeRecordBackgroundFailure(task.id, e);
+                        this.failedTasks++;
+                    }
+                }
+                this.complete();
+            };
+
+            processAllSync();
+            return;
+        }
+
         this.scheduleNext();
+    }
+
+    /** Current number of failed tasks (readable mid-run for progress reporting). */
+    public getFailedCount(): number {
+        return this.failedTasks;
+    }
+
+    /**
+     * Estimated milliseconds until the queue drains, based on observed task rate.
+     * Returns -1 when no tasks have completed yet (rate unknown).
+     */
+    public getEstimatedTimeRemainingMs(): number {
+        if (this.completedTasks === 0 || this.startTimeMs === 0) return -1;
+        const elapsedMs = performance.now() - this.startTimeMs;
+        const msPerTask = elapsedMs / this.completedTasks;
+        const remaining = this.totalTasks - this.completedTasks;
+        return remaining > 0 ? Math.ceil(remaining * msPerTask) : 0;
     }
 
     /**
@@ -112,12 +185,12 @@ export class BackgroundProcessor {
      */
     private scheduleNext(): void {
         if (hasIdleCallback) {
-            // idleDeadline.timeRemaining() tells us how long the browser is idle.
-            // We cap at maxMsPerFrame so we never hog an entire idle period.
             requestIdleCallback((deadline) => {
-                const budget = Math.min(deadline.timeRemaining(), this.maxMsPerFrame);
+                // Guarantee at least 2 ms so a forced-timeout callback (timeRemaining≈0)
+                // still makes forward progress instead of spinning with zero work done.
+                const budget = Math.max(2, Math.min(deadline.timeRemaining(), this.maxMsPerFrame));
                 this.processChunk(budget);
-            }, { timeout: 1000 }); // 1 s timeout ensures progress even under load
+            }, { timeout: 500 }); // tighter timeout so forced callbacks fire sooner under load
         } else {
             requestAnimationFrame(() => {
                 this.processChunk(this.maxMsPerFrame);
@@ -127,6 +200,8 @@ export class BackgroundProcessor {
 
     /**
      * Process tasks until the given time budget (ms) is consumed.
+     * Always processes at least one task per call so the queue makes forward
+     * progress even when the budget is tight (e.g. forced idle callback).
      */
     private async processChunk(budgetMs: number): Promise<void> {
         if (!this.isRunning) return;
@@ -137,11 +212,13 @@ export class BackgroundProcessor {
         }
 
         const chunkStart = performance.now();
+        let processed = 0;
 
         while (this.queue.length > 0) {
-            // Check budget BEFORE starting the next task so a single slow task
-            // only overruns once rather than accumulating overruns.
-            if (performance.now() - chunkStart >= budgetMs) {
+            // Check budget only after we've done at least one task, so a forced
+            // callback with timeRemaining()=0 still drains one entry per slot
+            // rather than spinning forever without touching the queue.
+            if (processed > 0 && performance.now() - chunkStart >= budgetMs) {
                 break;
             }
 
@@ -153,8 +230,21 @@ export class BackgroundProcessor {
                 if (result instanceof Promise) {
                     await result;
                 }
+            } catch (e) {
+                if ((task.retryCount || 0) < 1) {
+                    task.retryCount = (task.retryCount || 0) + 1;
+                    console.warn(`[BackgroundProcessor] Task ${task.id} failed, retrying once. Error:`, e);
+                    this.queue.unshift(task);
+                    continue;
+                }
+                console.error(`[BackgroundProcessor] Error executing task ${task.id}:`, e);
+                maybeRecordBackgroundFailure(task.id, e);
+                this.failedTasks++;
+            } finally {
+                // Count every dequeued task (success or failure) so the progress
+                // counter stays in sync with totalTasks and onComplete fires correctly.
                 this.completedTasks++;
-
+                processed++;
                 if (this.onProgressCallback) {
                     this.onProgressCallback(this.completedTasks, this.totalTasks);
                 }
@@ -176,18 +266,39 @@ export class BackgroundProcessor {
 
     private complete(): void {
         this.isRunning = false;
-        console.log('[BackgroundProcessor] Queue complete');
-        if (this.onCompleteCallback) this.onCompleteCallback();
+        console.log(`[BackgroundProcessor] Queue complete (${this.completedTasks}/${this.totalTasks}, ${this.failedTasks} failed)`);
+        if (this.onCompleteCallback) this.onCompleteCallback(this.completedTasks, this.totalTasks, this.failedTasks);
     }
 
     /**
-     * Clear all pending tasks
+     * Clear all pending tasks and reset counters.
+     * Call before re-enqueuing a new generation run so totalTasks/completedTasks
+     * start fresh and start() is not blocked by a stale isRunning=true state.
      */
     public clear(): void {
         this.queue = [];
         this.totalTasks = 0;
         this.completedTasks = 0;
+        this.failedTasks = 0;
+        this.startTimeMs = 0;
         this.isRunning = false;
+        this.onCompleteCallback = null;
+        this.onProgressCallback = null;
+    }
+
+    /**
+     * Reset counters and running state without dropping queued tasks.
+     * Use this when tasks were enqueued before the caller is ready to start()
+     * so progress/completion tracking stays accurate.
+     */
+    public resetCounters(): void {
+        this.totalTasks = this.queue.length;
+        this.completedTasks = 0;
+        this.failedTasks = 0;
+        this.startTimeMs = 0;
+        this.isRunning = false;
+        this.onCompleteCallback = null;
+        this.onProgressCallback = null;
     }
 }
 

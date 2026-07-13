@@ -19,10 +19,11 @@
 
 import * as THREE from 'three';
 import { MeshStandardNodeMaterial, MeshBasicNodeMaterial } from 'three/webgpu';
+import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { vec3, positionLocal } from 'three/tsl';
 import { CandyPresets, foliageMaterials } from '../foliage/index.ts';
 import { createTerrainMaterial } from '../foliage/terrain.ts';
-import { CONFIG } from '../core/config.ts';
+import { CONFIG, isCIorHeadless } from '../core/config.ts';
 
 // Warm-up target types
 export type WarmupTarget = {
@@ -298,22 +299,14 @@ export class ShaderWarmup {
         }
       }
 
-      if (mesh.geometry) mesh.geometry.dispose();
-      scene.remove(mesh);
-
-      if (mesh.instanceColor) {
-        if (typeof (mesh.instanceColor as any).dispose === 'function') {
-          try { (mesh.instanceColor as any).dispose(); } catch (e) {}
-        }
-      }
+      safeRemoveAndDispose(scene, mesh);
 
       if (material instanceof MeshStandardNodeMaterial) {
         for (let i = scene.children.length - 1; i >= 0; i--) {
           const child = scene.children[i];
           if (child instanceof THREE.Light) {
              // ⚡ OPTIMIZATION: Dispose temporary warmup lights to prevent VRAM leaks. Iterate backwards to safely remove from array.
-             child.dispose();
-             scene.remove(child);
+             safeRemoveAndDispose(scene, child);
           }
         }
       }
@@ -553,8 +546,8 @@ export async function warmupAllShaders(
   onProgress?: WarmupProgressCallback,
   options?: Partial<ShaderWarmupOptions>
 ): Promise<WarmupStats> {
-  if (CONFIG.safeMode) {
-    console.warn('[ShaderWarmup] Bypassed due to safeMode');
+  if (CONFIG.safeMode || isCIorHeadless()) {
+    console.warn('[ShaderWarmup] Bypassed due to safeMode or CI mode');
     return { total: 0, completed: 0, failed: 0, totalTime: 0, averageTime: 0 };
   }
   const warmup = new ShaderWarmup(options);

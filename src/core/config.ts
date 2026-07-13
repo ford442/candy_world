@@ -1,6 +1,81 @@
 import * as THREE from 'three';
 import type { PlantPoseConfig } from '../foliage/plant-pose-machine.ts';
 
+// ---------------------------------------------------------------------------
+// FEATURE FLAGS
+//
+// URL query params let you disable heavy subsystems without touching code:
+//   ?no_luminous          — skip luminous plant batcher + lake-island plants
+//   ?no_musical           — skip musical flora (arpeggio fern, vibrato violet, etc.)
+//   ?no_procedural        — skip procedural extras (random filler objects)
+//   ?no_batchers          — skip tree / mushroom / flower GPU batch systems
+//   ?no_audio_react       — skip beat-sync and music-reactivity hooks
+//   ?no_fireflies         — skip firefly particle system
+//   ?no_grass             — skip GPU grass instancing
+//   ?awakened             — enable durable glow for music-awakened flora (default off)
+//
+// Combine flags to isolate regressions: ?no_luminous&no_musical
+// All flags default to ENABLED (absent = feature on).
+// ---------------------------------------------------------------------------
+
+function _hasFlag(key: string): boolean {
+    try {
+        return new URLSearchParams(window.location.search).has(key);
+    } catch {
+        return false; // non-browser (test) environment — all features on
+    }
+}
+
+/** Read a *valued* URL flag, e.g. ?postfx=low → 'low'. Returns null when absent. */
+function _getFlag(key: string): string | null {
+    try {
+        return new URLSearchParams(window.location.search).get(key);
+    } catch {
+        return null; // non-browser (test) environment
+    }
+}
+
+/**
+ * Returns a CI/headless-adjusted count to prevent memory crashes in Playwright/CI.
+ * Uses full count in normal browsers, reduced count in CI.
+ */
+export function getCIAdjustedCount(fullCount: number, ciMultiplier = 0.15, minCount = 5): number {
+  if (isCIorHeadless()) {
+    const adjusted = Math.max(minCount, Math.floor(fullCount * ciMultiplier));
+    console.log(`[CI Adjusted] ${fullCount} → ${adjusted} (multiplier: ${ciMultiplier})`);
+    return adjusted;
+  }
+  return fullCount;
+}
+
+export const FEATURE_FLAGS = {
+    luminousPlants:   !_hasFlag('no_luminous'),
+    myceliumRealm:    !_hasFlag('no_mycelium'),
+    musicalFlora:     !_hasFlag('no_musical'),
+    proceduralExtras: !_hasFlag('no_procedural'),
+    batchers:         !_hasFlag('no_batchers'),
+    audioReactivity:  !_hasFlag('no_audio_react'),
+    fireflies:        !_hasFlag('no_fireflies'),
+    grass:            !_hasFlag('no_grass'),
+    reliableBoot:     !_hasFlag('no_reliable_boot'),
+    /**
+     * Persist soft glow for music-awakened flora across reloads.
+     * Runtime URL flag (?awakened) — default off for safe rollout.
+     * Rollup cannot prune this branch; use import.meta.env for zero bundle cost later.
+     */
+    awakenedPersistence: _hasFlag('awakened'),
+} as const;
+
+// Log active overrides once at startup so the console makes the state obvious.
+if (typeof window !== 'undefined') {
+    const disabled = Object.entries(FEATURE_FLAGS)
+        .filter(([, v]) => !v)
+        .map(([k]) => k);
+    if (disabled.length > 0) {
+        console.warn(`[FeatureFlags] Disabled via URL: ${disabled.join(', ')}`);
+    }
+}
+
 // Cycle: Sunrise (1m), Day (7m), Sunset (1m), Night (7m) = Total 16m = 960s
 export const DURATION_SUNRISE = 60;
 export const DURATION_DAY = 420;
@@ -116,6 +191,8 @@ export interface ConfigType {
         glowPulseFrequency: number;
         glowPulseAmplitude: number;
         glowIntensityMax: number;
+        /** Visual Impact: soft emissive boost for previously awakened flora (remembered, not noisy) */
+        awakenedGlowMultiplier: number;
         glowColorMap: Record<string, number>;
     };
     luminousPlants: {
@@ -173,6 +250,62 @@ export interface ConfigType {
         flower: PlantPoseConfig;
     };
 
+    circadian: {
+        transitionSeconds: number;
+        dayPoseOffset: number;
+        nightPoseOffset: number;
+        nightGlowMultiplier: number;
+        biomeOverrides: Record<string, Partial<{
+            transitionSeconds: number;
+            dayPoseOffset: number;
+            nightPoseOffset: number;
+            nightGlowMultiplier: number;
+        }>>;
+    };
+
+    /**
+     * Player avatar / first-person camera height tuning.
+     * eyeHeight is added to the authoritative ground height to place the camera.
+     * spawnEyeHeightY is the transient starting height before the first ground snap.
+     */
+    player: {
+        eyeHeight: number;
+        spawnEyeHeightY: number;
+    };
+
+    /**
+     * Ground-follow tuning. The camera/player Y is lerped toward the authoritative
+     * ground height + eyeHeight to avoid snapping over small terrain bumps.
+     */
+    ground: {
+        followLerpSpeed: number;
+        followMaxStep: number;
+        /** Eye Y above terrain before we treat the player as standing on a platform. */
+        platformElevationThreshold: number;
+        cacheCellSize: number;
+        cacheTTL: number;
+    };
+
+    /** Walkable cloud platform tuning (#1266). */
+    cloud: {
+        defaultSize: number;
+        sizePresets: { small: number; medium: number; large: number };
+        /** Grid snap for dev placement (0 = off). */
+        gridSnap: number;
+        snapY: boolean;
+        placementRayDistance: number;
+        /** Default float height when raycast misses geometry. */
+        defaultFloatHeight: number;
+        /** Small lift applied on raycast hits so clouds sit on surfaces. */
+        surfaceYOffset: number;
+        walkableTier: number;
+        /** Visual Impact: candy pastel cloud palette */
+        pastelTint: number;
+        creamHighlight: number;
+        lavenderShadow: number;
+        emissivePulse: number;
+    };
+
     world: {
         population: {
             proceduralExtras: number;
@@ -183,7 +316,61 @@ export interface ConfigType {
             scale: number;
         };
     };
+
+    foliage: {
+        lod: {
+            enabled: boolean;
+            heroMax: number;
+            midMax: number;
+            blendWidth: number;
+            blendSeconds: number;
+            farCull: number;
+            useImpostors: boolean;
+            impostorMinFactor: number;
+        };
+    };
+
+    postfx: {
+        quality: 'off' | 'low' | 'high';
+        godRays: boolean;
+        /** Max combined shaft opacity (golden hour + melody). Visual Impact: 0.4 keeps beams dreamy, not blinding. */
+        shaftOpacityCap: number;
+        /** Min dot(cameraForward, celestialDir) before shafts render (performance frustum gate). */
+        shaftFrustumDot: number;
+        /** Bloom scatter boost at full shaft opacity (0 = off). Pairs with additive shaft planes. */
+        shaftScatterBoost: number;
+        dofEnabled: boolean;
+        dofFocusFollow: boolean;
+        dofFocusDistance: number;
+        dofAperture: number;
+        dofMaxBlur: number;
+        dofProximity: number;
+    };
 }
+
+// Runtime detection (runs early)
+export const isCIorHeadless = (): boolean => {
+    const isFullBoot =
+      (window as any).__IS_FULL_BOOT_TEST === true ||
+      localStorage.getItem('__IS_FULL_BOOT_TEST') === 'true';
+
+    const checks = {
+      __IS_FULL_BOOT_TEST: isFullBoot,
+      __IS_CI_TEST: (window as any).__IS_CI_TEST === true,
+      __IS_HEADLESS: (window as any).__IS_HEADLESS === true,
+      uaHeadless: navigator.userAgent.includes('Headless'),
+      uaPlaywright: navigator.userAgent.includes('Playwright'),
+      innerWidthZero: window.innerWidth === 0,
+      testModeClass: document.documentElement.classList.contains('test-mode'),
+      ciParam: new URLSearchParams(window.location.search).get('ci') === 'true',
+    };
+
+    const result = Object.values(checks).some(Boolean);
+
+    console.log('[DEBUG] isCIorHeadless →', result ? 'TRUE ✓' : 'FALSE ✗', checks, 'URL=', window.location.href);
+
+    return result;
+  };
 
 export const CONFIG: ConfigType = {
     safeMode: typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('safe'),
@@ -191,6 +378,38 @@ export const CONFIG: ConfigType = {
         useGpuHeightmap: true, // Default to true as it is the goal
         heightmapResolution: 256
     },
+
+    // --- PLAYER / CAMERA HEIGHT ---
+    // Issue #1265: centralised eye height and ground-follow tuning so the
+    // first-person camera no longer snaps over small terrain bumps.
+    player: {
+        eyeHeight: 1.8,        // Height of the camera above the ground surface
+        spawnEyeHeightY: 5.0,  // Transient camera Y before the first authoritative ground snap
+    },
+    ground: {
+        followLerpSpeed: 12.0, // Units/sec for smoothing eye height over terrain bumps
+        followMaxStep: 2.5,    // Max vertical change per frame to prevent huge jumps
+        platformElevationThreshold: 1.25, // Above terrain eye Y → trust physics (clouds, pads)
+        cacheCellSize: 2.0,    // GroundSystem height-cache cell size (0.01-unit quantised)
+        cacheTTL: 1.0,         // Seconds before a cached height sample expires
+    },
+
+    cloud: {
+        defaultSize: 1.5,
+        sizePresets: { small: 1.0, medium: 1.5, large: 2.2 },
+        gridSnap: 2.0,
+        snapY: false,
+        placementRayDistance: 40,
+        defaultFloatHeight: 12,
+        surfaceYOffset: 0.15,
+        walkableTier: 1,
+        // Visual Impact: dreamy candy cloud pastels (lavender / pink / cream)
+        pastelTint: 0xFFD1DC,
+        creamHighlight: 0xFFF8E7,
+        lavenderShadow: 0xE6E6FA,
+        emissivePulse: 0.35,
+    },
+
     colors: {
         ground: 0x222222,
         fog: 0x1A1A2E
@@ -210,6 +429,7 @@ export const CONFIG: ConfigType = {
         glowPulseFrequency: 1.0,
         glowPulseAmplitude: 0.5,
         glowIntensityMax: 2.0,
+        awakenedGlowMultiplier: 0.5,
         glowColorMap: {
             'mushroom': 0xFFDDDD,
             'tree': 0xAAFFCC,
@@ -290,11 +510,11 @@ export const CONFIG: ConfigType = {
             'E': 0x00FF00, 'F': 0x00FF7F, 'F#': 0x00FFFF, 'G': 0x007FFF,
             'G#': 0x0000FF, 'A': 0x7F00FF, 'A#': 0xFF00FF, 'B': 0xFF007F
         },
-        // Species: Cloud (Ethereal)
+        // Species: Cloud (Ethereal candy pastels — lavender / pink / cream)
         'cloud': {
-            'C': 0xF0F8FF, 'C#': 0xE6E6FA, 'D': 0xB0C4DE, 'D#': 0xADD8E6,
-            'E': 0x87CEEB, 'F': 0x87CEFA, 'F#': 0x00BFFF, 'G': 0x1E90FF,
-            'G#': 0x6495ED, 'A': 0x4682B4, 'A#': 0x5F9EA0, 'B': 0x2F4F4F
+            'C': 0xFFD1DC, 'C#': 0xFFE4E1, 'D': 0xFFF0F5, 'D#': 0xE6E6FA,
+            'E': 0xDDA0DD, 'F': 0xF0E6FF, 'F#': 0xFFF8E7, 'G': 0xFFE4C4,
+            'G#': 0xFFB6C1, 'A': 0xFFC0CB, 'A#': 0xE0B0FF, 'B': 0xC8A2C8
         },
         // Species: Sky & Moon (Note-Color Reactivity)
         'sky': {
@@ -307,12 +527,19 @@ export const CONFIG: ConfigType = {
             'C': 0x00FF88, 'C#': 0x00FFCC, 'D': 0x00FFFF, 'D#': 0x00CCFF,
             'E': 0x0088FF, 'F': 0x0044FF, 'F#': 0x4400FF, 'G': 0x8800FF,
             'G#': 0xCC00FF, 'A': 0xFF00FF, 'A#': 0xFF00CC, 'B': 0xFF0088
+        },
+        // Species: Gem Canopy — jewel tones (ruby, sapphire, amethyst, emerald…)
+        'gem_canopy': {
+            'C': 0xE0115F, 'C#': 0xFF4D6D, 'D': 0xFF6B9D, 'D#': 0x9966CC,
+            'E': 0x7B68EE, 'F': 0x0F52BA, 'F#': 0x4169E1, 'G': 0x00CED1,
+            'G#': 0x2E8B57, 'A': 0x50C878, 'A#': 0xFFD700, 'B': 0xFF69B4
         }
     },
 
     // Per-species reaction tuning
     reactivity: {
-        mushroom: { medianWindow: 5, smoothingRate: 8, scale: 0.6, maxAmplitude: 1.0, minThreshold: 0.02 }
+        mushroom: { medianWindow: 5, smoothingRate: 8, scale: 0.6, maxAmplitude: 1.0, minThreshold: 0.02 },
+        cloud: { medianWindow: 4, smoothingRate: 10, scale: 0.45, maxAmplitude: 0.8, minThreshold: 0.015 },
     },
     // Global flash strength scaler
     flashScale: 2.0,
@@ -368,10 +595,126 @@ export const CONFIG: ConfigType = {
         flower: {
             attackRate: 4.0,        // bloom response to kick
             releaseRate: 1.0,       // settle back down
-            sustainLevel: 1.0,      // envelope peak 
+            sustainLevel: 1.0,      // envelope peak
             dayTarget: 1.0,         // fully blooming during day
             nightTarget: 0.0,       // closed during night
             triggerThreshold: 0.05  // minimum kick channel volume to trigger bloom
         }
+    },
+
+    // --- FOLIAGE LOD (three-tier batcher system) ---
+    // Hero 0–heroMax: full TSL; mid heroMax–midMax: simplified; far midMax+: proxy collapse + impostors
+    foliage: {
+        lod: {
+            enabled: true,
+            heroMax: 120,
+            midMax: 365,
+            /** Cross-fade zone width (units) at each tier boundary */
+            blendWidth: 30,
+            /** Temporal blend duration at tier boundaries (seconds) */
+            blendSeconds: 0.5,
+            /** Distance beyond which instances are frustum/distance culled */
+            farCull: 480,
+            /** Shared far-tier billboard impostor layer */
+            useImpostors: true,
+            impostorMinFactor: 1.65
+        }
+    },
+
+    // --- CIRCADIAN SYSTEM ---
+    // Controls smooth day/night plant behaviour (pose + bioluminescence).
+    // Separate from music-bindings.json — circadian is a time-domain signal, not audio.
+    circadian: {
+        transitionSeconds: 3.0,
+        // uCircadianPoseOffset value at full day (1.0) and full night (0.0).
+        // Added to the music-driven pose in opted-in batcher TSL graphs.
+        dayPoseOffset: 0.3,
+        nightPoseOffset: 0.0,
+        // Emissive glow multiplier for luminous plants / mushroom caps at night.
+        nightGlowMultiplier: 3.5,
+        // Per-biome overrides: any key matching a BiomeId can override the above.
+        biomeOverrides: {
+            crystalline_nebula: { nightGlowMultiplier: 5.0 },
+            arpeggio_grove:     { nightPoseOffset: 0.1 }
+        }
+    },
+
+    // -----------------------------------------------------------------------
+    // Atmospheric post-FX (god rays + depth of field).
+    //
+    // Quality tier — override at runtime with ?postfx=off|low|high :
+    //   off  — no god rays, no DoF (cheapest; for low-end GPUs / debugging)
+    //   low  — god rays ON, DoF OFF   ← DEFAULT first boot (60fps budget)
+    //   high — god rays ON, DoF ON near luminous / mycelium flora
+    //
+    // God rays themselves live in game-loop.ts (sunrise/sunset/moon shafts,
+    // music-driven opacity). DoF is a bokeh pass added to post-processing.ts.
+    // DoF is only *built into* the render graph when enabled at boot, so the
+    // default `low` tier carries zero DoF cost.
+    // -----------------------------------------------------------------------
+    postfx: {
+        /** 'off' | 'low' | 'high'. URL override: ?postfx=<tier>. */
+        quality: 'low' as 'off' | 'low' | 'high',
+        /** Master toggle for sunrise/sunset/moon god-ray shafts. */
+        godRays: true,
+        /** Visual Impact: opacity cap — prevents multi-second GPU stalls from over-bright additive stacks. */
+        shaftOpacityCap: 0.4,
+        /** Performance: shafts hidden when sun/moon is behind the camera (dot threshold). */
+        shaftFrustumDot: 0.28,
+        /** Screen-space bloom swell when shafts are visible (radial-scatter feel without a second pass). */
+        shaftScatterBoost: 0.45,
+        /**
+         * Force-enable DoF independent of tier (also ?dof / ?no_dof URL flags).
+         * Resolved via isDofEnabled(); 'high' tier implies DoF on.
+         */
+        dofEnabled: false,
+        /** Focus distance (world units) follows the camera look vector when true. */
+        dofFocusFollow: true,
+        /** Resting focus distance (units) used when focus-follow is disabled. */
+        dofFocusDistance: 9.0,
+        /** Aperture — candy bokeh: subtle, not clinical. Higher = stronger blur falloff. */
+        dofAperture: 0.015,
+        /** Max blur clamp (0–1) — keeps the look soft, never smeared. */
+        dofMaxBlur: 0.5,
+        /** Distance (units) from luminous / mycelium flora that auto-engages DoF. */
+        dofProximity: 14.0,
     }
 };
+
+// ---------------------------------------------------------------------------
+// Post-FX resolution helpers — read URL overrides on top of CONFIG.postfx.
+// Defined after CONFIG so they can reference it; only ever called at runtime.
+// ---------------------------------------------------------------------------
+
+/** Effective post-FX quality tier (URL ?postfx= wins over CONFIG default). */
+export function resolvePostfxQuality(): 'off' | 'low' | 'high' {
+    const q = _getFlag('postfx');
+    if (q === 'off' || q === 'low' || q === 'high') return q;
+    return CONFIG.postfx.quality;
+}
+
+/** Whether sunrise/sunset/moon god-ray shafts should render this session. */
+export function areGodRaysEnabled(): boolean {
+    if (resolvePostfxQuality() === 'off') return false;
+    return CONFIG.postfx.godRays;
+}
+
+/**
+ * Whether the Depth-of-Field bokeh pass should be built into the pipeline.
+ * ?no_dof force-off wins; ?dof force-on next; otherwise the 'high' tier or the
+ * CONFIG.postfx.dofEnabled flag enables it.
+ */
+export function isDofEnabled(): boolean {
+    if (_hasFlag('no_dof')) return false;
+    if (_hasFlag('dof')) return true;
+    return resolvePostfxQuality() === 'high' || CONFIG.postfx.dofEnabled;
+}
+
+/**
+ * Manual (always-on) DoF — not gated by flora proximity. True when force-enabled
+ * via ?dof or CONFIG.postfx.dofEnabled; the 'high' tier alone stays proximity-driven.
+ */
+export function isDofManual(): boolean {
+    if (_hasFlag('no_dof')) return false;
+    return _hasFlag('dof') || CONFIG.postfx.dofEnabled;
+}

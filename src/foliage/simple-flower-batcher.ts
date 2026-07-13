@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { PointsNodeMaterial } from 'three/webgpu';
 import {
@@ -9,6 +10,7 @@ import {
     calculateFlowerBloom,
     calculateWindSway,
     applyPlayerInteraction,
+    applyStandardDeformation,
     createJuicyRimLight,
     uTime,
     uAudioHigh,
@@ -19,6 +21,9 @@ import { attribute, color as tslColor, positionLocal, vec3, float, mx_noise_floa
 import { foliageGroup } from '../world/state.ts';
 import { CONFIG } from '../core/config.ts';
 import { uTwilight } from './sky.ts';
+import { PlantPoseMachine } from './plant-pose-machine.ts';
+import { musicReactivitySystem } from '../systems/music-reactivity.ts';
+import { camera } from '../world/state.ts';
 import { BiomeUniforms } from '../systems/biome-uniforms.ts';
 
 // Use the instanced color varying populated by InstancedMeshNode
@@ -29,6 +34,7 @@ const GRAINS_PER_FLOWER = 5;
 const MAX_POLLEN = MAX_FLOWERS * GRAINS_PER_FLOWER;
 
 const _scratchMat = new THREE.Matrix4();
+const _scratchMat2 = new THREE.Matrix4();
 const _scratchPos = new THREE.Vector3();
 const _scratchQuat = new THREE.Quaternion();
 const _scratchEuler = new THREE.Euler();
@@ -36,6 +42,7 @@ const _scratchScale = new THREE.Vector3();
 const _scratchColor = new THREE.Color();
 
 export class SimpleFlowerBatcher {
+    private _poseMachine!: PlantPoseMachine;
     initialized: boolean;
     count: number;
 
@@ -127,8 +134,7 @@ export class SimpleFlowerBatcher {
 
         // Petal: Velvet with Instance Color + Bloom + Wind + Push
         const posBloom = calculateFlowerBloom(positionLocal);
-        const posWind = posBloom.add(calculateWindSway(posBloom));
-        const posFinal = applyPlayerInteraction(posWind);
+        const posFinal = applyStandardDeformation(posBloom);
 
         // PALETTE: Enhance Petal Material with "Juice"
         const petalMat = CandyPresets.Velvet(0xFFFFFF, {
@@ -205,6 +211,7 @@ export class SimpleFlowerBatcher {
         // 4. Pollen System (Juice)
         this.initPollenSystem();
 
+        this._poseMachine = new PlantPoseMachine(MAX_FLOWERS);
         this.initialized = true;
         console.log(`[SimpleFlowerBatcher] Initialized with capacity ${MAX_FLOWERS}`);
     }
@@ -301,8 +308,8 @@ export class SimpleFlowerBatcher {
         return mesh;
     }
 
-    update(audioState: any) {
-        if (!this.initialized || this.count === 0) return;
+    update(time: number, deltaTime: number, audioState: any, dayNightBias: number) {
+        if (!this.initialized || this.count === 0 || !this._poseMachine) return;
         const kick = audioState?.kickTrigger || 0;
         const bloom = Math.min(kick * 0.3, 0.5);
         const meshes = [this.stemMesh, this.petalMesh, this.centerMesh, this.stamenMesh, this.beamMesh];
@@ -456,6 +463,22 @@ export class SimpleFlowerBatcher {
             // Yes, unless we set drawRange.
             this.pollenPoints.geometry.setDrawRange(0, this.count * GRAINS_PER_FLOWER);
         }
+    }
+
+    dispose(): void {
+        const meshes = [
+            this.stemMesh,
+            this.petalMesh,
+            this.centerMesh,
+            this.stamenMesh,
+            this.beamMesh,
+            this.pollenPoints
+        ];
+        meshes.forEach(mesh => {
+            if (mesh && mesh.parent) {
+                safeRemoveAndDispose(mesh.parent, mesh);
+            }
+        });
     }
 }
 

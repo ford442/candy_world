@@ -1,3 +1,4 @@
+import { isCIorHeadless } from './config.ts';
 // src/core/main.ts
 // Main entry point - Core initialization and game startup
 
@@ -11,34 +12,44 @@ import { fluidSystem } from '../systems/fluid_system.ts';
 import { AudioSystem } from '../audio/audio-system.ts';
 import { BeatSync } from '../audio/beat-sync.ts';
 import { WeatherSystem } from '../systems/weather.ts';
-import { initWasm, getGroundHeight } from '../utils/wasm-loader.ts';
-import { getUnifiedGroundHeightTyped } from '../systems/physics.core.ts';
+import { initWasm } from '../utils/wasm-loader.ts';
+import { getGroundHeight } from '../systems/ground-system.ts';
 import { profiler } from '../utils/profiler.ts';
 import { enableStartupProfiler, finalizeStartupProfile, recordWASMInit, toggleOverlay } from '../utils/startup-profiler.ts';
 import { startPhase, endPhase } from '../utils/startup-profiler.ts';
 import { glitchGrenadeSystem } from '../systems/glitch-grenade.ts';
 
 // Core imports
-import { CONFIG } from './config.ts';
+import { CONFIG, resolvePostfxQuality, areGodRaysEnabled, isDofEnabled } from './config.ts';
 import { initScene } from './init.ts';
 import { ShaderWarmup } from '../rendering/shader-warmup.ts';
 import { initInput, keyStates } from './input/index.ts';
 import { initPostProcessing } from '../foliage/post-processing.ts';
+import {
+    publishRendererBreadcrumbs,
+    installRendererHotSwitch,
+} from '../rendering/renderer-mode.ts';
+import { initWebGLDebug, isWebGLLiteMode } from '../rendering/webgl-debug.ts';
 
 // World & System imports
 import { initCriticalWorld, initDeferredWorldContent, initWorld, initWorldCritical, initWorldContent, generateMap, populateWorld, WorldMode, DEFAULT_MAP_CHUNK_SIZE } from '../world/generation.ts';
 import { animatedFoliage, interactiveObjects } from '../world/state.ts';
 import { installWorldExportTools } from '../world/map-exporter.ts';
+import { initCloudPlacer } from '../world/cloud-placer.ts';
 import { fireRainbow } from '../gameplay/rainbow-blaster.ts';
 import { player, populatePhysicsGrids } from '../systems/physics/index.ts';
+import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 
 // Refactored module imports
 import { animate, initGameLoopDependencies, addCameraShake } from './game-loop.ts';
 import { updateTheme, toggleDayNight, setInputSystem } from './hud.ts';
-import { initDeferredVisuals, initDeferredVisualsDependencies, runDeferredWarmup } from './deferred-init.ts';
+import { initDeferredVisuals, initDeferredVisualsDependencies, runDeferredWarmup, applyAwakenedPersistenceAfterWorldLoad } from './deferred-init.ts';
 import { globalBackgroundProcessor } from '../utils/background-processor.ts';
 import { showDeferredIndicator, hideDeferredIndicator, setDeferredProgress, setDeferredFailures } from '../ui/index.ts';
-import { showModeBadge } from '../ui/mode-badge.ts';
+import { reset as resetSpawnTracker, getReport as getSpawnReport } from '../world/spawn-tracker.ts';
+import { globalLoadingManager } from '../systems/loading-manager.ts';
+import { validateWorldPopulation } from '../world/world-health.ts';
+import { showModeBadge, showRendererBadge } from '../ui/mode-badge.ts';
 import { DeferredLoader, LoadPriority } from '../systems/deferred-loader.ts';
 import { initLoadingScreen, installLegacyAPI } from '../ui/loading-screen.ts';
 import { installBatcherTelemetry } from '../foliage/batcher-telemetry.ts';
@@ -56,10 +67,17 @@ let scene: any, camera: any, renderer: any;
 export { scene, camera, renderer, player, addCameraShake };
 
 // --- Initialize Loading Screen (replaces old spinner overlay) ---
-if (CONFIG.safeMode) {
+if (CONFIG.safeMode || isCIorHeadless()) {
     console.warn('[Startup] safeMode active (?safe=1) — shader warmup and compute disabled');
     (window as any).__computeDisabled = true;
 }
+
+// Wait-for-full preference: URL param (?waitForFull) or localStorage key.
+// URL param wins; localStorage persists the checkbox choice across sessions.
+const WAIT_FULL_KEY = 'candy_waitForFull';
+let waitForFullPopulation =
+    new URLSearchParams(location.search).has('waitForFull') ||
+    localStorage.getItem(WAIT_FULL_KEY) === '1';
 
 const loadingScreen = initLoadingScreen({ theme: 'candy', showEstimatedTime: true });
 loadingScreen.show();
@@ -116,6 +134,9 @@ enableStartupProfiler({
 initDebugPanel();
 installBatcherTelemetry();
 
+import { initializeSaveSystemIntegration } from '../systems/save-integration.ts';
+initializeSaveSystemIntegration();
+
 // --- Initialization Pipeline with Debug Staging ---
 
 // Phase 1: Core Scene Setup (Immediate)
@@ -134,13 +155,20 @@ if (!sceneInitResult) {
     throw new Error(msg);
 }
 
-const { mode, ambientLight, sunLight, sunGlow, sunCorona, lightShaftGroup, sunGlowMat, coronaMat, uShaftOpacity } = sceneInitResult;
+const { mode, requested, fallbackReason, ambientLight, sunLight, sunGlow, sunCorona, lightShaftGroup, sunGlowMat, coronaMat, uShaftOpacity } = sceneInitResult;
 scene = sceneInitResult.scene;
 camera = sceneInitResult.camera;
+import { setCameraRef } from './camera-ref.ts';
+setCameraRef(camera);
 renderer = sceneInitResult.renderer;
 
+installRendererHotSwitch();
+publishRendererBreadcrumbs(requested, mode, fallbackReason);
+showRendererBadge(mode, requested, fallbackReason);
+initWebGLDebug(scene, mode);
+
 // Set global game object so playwright tests can interact with camera, etc
-(window as any).game = { camera, scene };
+(window as any).game = { camera, scene, animatedFoliage, interactiveObjects };
 installWorldExportTools();
 
 // Notify user if using WebGL fallback
@@ -156,6 +184,11 @@ let postProcessing: any;
 await StageLoader.loadStage('postProcessing', () => {
     postProcessing = initPostProcessing(renderer, scene, camera, mode);
 });
+const _postfxTier = resolvePostfxQuality();
+console.log(
+    `[PostFX] tier=${_postfxTier} godRays=${areGodRaysEnabled()} dof=${isDofEnabled()} renderer=${mode}` +
+    ' (override: ?postfx=off|low|high, ?dof, ?no_dof)'
+);
 
 console.timeEnd('Core Scene Setup');
 loadingScreen.updateProgress(100);
@@ -211,7 +244,7 @@ await StageLoader.loadStage('musicReactivity', () => {
     if (moon) {
         musicReactivitySystem.registerMoon(moon);
     }
-    
+
     // Hook up audio system note events to music reactivity
     if (audioSystem) {
         if (audioSystem.onNote) {
@@ -243,8 +276,8 @@ const timeOffset = { value: 0 };
 let inputSystem: any;
 let controls: any;
 await StageLoader.loadStage('input', () => {
-    inputSystem = initInput(camera, audioSystem!, 
-        () => toggleDayNight(timeOffset), 
+    inputSystem = initInput(camera, audioSystem!,
+        () => toggleDayNight(timeOffset),
         () => (player as any).isDancing
     );
     setInputSystem(inputSystem);
@@ -362,8 +395,8 @@ window.addEventListener('mousedown', (e) => {
 });
 
 // --- IMMEDIATE: Position player (AS WASM already loaded via TLA) ---
-const initialGroundY = getUnifiedGroundHeightTyped(camera.position.x, camera.position.z, getGroundHeight);
-camera.position.y = initialGroundY + 1.8;
+const initialGroundY = getGroundHeight(camera.position.x, camera.position.z);
+camera.position.y = initialGroundY + CONFIG.player.eyeHeight;
 // ⚡ FIX: Sync player explicitly to prevent a massive camera swoop frame 1
 player.position.copy(camera.position);
 player.velocity.set(0, 0, 0);
@@ -400,7 +433,7 @@ loadingScreen.completePhase('wasm-init');
 // --- SHADER WARMUP (before loop starts to prevent first-frame stutter) ---
 (async function warmupAndStartLoop() {
     await StageLoader.loadStage('shaderWarmup', async () => {
-        if (CONFIG.safeMode) {
+        if (CONFIG.safeMode || isCIorHeadless()) {
             console.warn('[Startup] safeMode active — skipping shader warmup and compileAsync');
             return;
         }
@@ -414,6 +447,10 @@ loadingScreen.completePhase('wasm-init');
         let batchCount = 0;
 
         try {
+            if (CONFIG.safeMode || isCIorHeadless()) {
+                console.warn('[Startup] safeMode active — skipping shader warmup');
+                return;
+            }
             const warmup = new ShaderWarmup();
             const targets = warmup.getTargets();
 
@@ -464,6 +501,7 @@ loadingScreen.completePhase('wasm-init');
 
 // --- START BUTTON + MAP GENERATION (unchanged UX) ---
 const startButton = document.getElementById('startButton') as HTMLButtonElement | null;
+const statusEl = document.getElementById('world-status');
 
 if (startButton) {
     startButton.disabled = false;
@@ -497,13 +535,13 @@ if (startButton) {
         const isFast = mode === 'FAST_FULL';
 
         if (btnCoreOnly) {
-            btnCoreOnly.setAttribute('aria-pressed', String(isCore));
+            btnCoreOnly.setAttribute('aria-checked', String(isCore));
         }
         if (btnFullGame) {
-            btnFullGame.setAttribute('aria-pressed', String(mode === 'FULL'));
+            btnFullGame.setAttribute('aria-checked', String(mode === 'FULL'));
         }
         if (btnFastFull) {
-            btnFastFull.setAttribute('aria-pressed', String(isFast));
+            btnFastFull.setAttribute('aria-checked', String(isFast));
         }
 
         if (modeDescription) {
@@ -527,11 +565,8 @@ if (startButton) {
     };
 
     updateStartupMode('CORE');
-
-    if (btnCoreOnly && btnFullGame && btnFastFull) {
-        btnCoreOnly.addEventListener('click', () => updateStartupMode('CORE'));
-        btnFullGame.addEventListener('click', () => updateStartupMode('FULL'));
-        btnFastFull.addEventListener('click', () => updateStartupMode('FAST_FULL'));
+    if (mode === 'webgl' && isWebGLLiteMode()) {
+        console.warn('[Startup] WebGL lite mode — CORE world generation recommended');
     }
 
     let worldGenerated = false;
@@ -539,6 +574,97 @@ if (startButton) {
 
     function yieldFrame(): Promise<void> {
         return new Promise(resolve => setTimeout(resolve, 50));
+    }
+
+    if (btnCoreOnly && btnFullGame && btnFastFull) {
+        const modeButtons = [
+            { btn: btnCoreOnly, mode: 'CORE' as const },
+            { btn: btnFullGame, mode: 'FULL' as const },
+            { btn: btnFastFull, mode: 'FAST_FULL' as const }
+        ];
+
+        const setupModeButton = (btn: HTMLButtonElement, mode: 'CORE' | 'FULL' | 'FAST_FULL', index: number) => {
+            btn.addEventListener('click', async () => {
+                btn.setAttribute('aria-busy', 'true');
+                btn.setAttribute('aria-disabled', 'true');
+                try {
+                    updateStartupMode(mode);
+                    await yieldFrame();
+                } finally {
+                    btn.setAttribute('aria-busy', 'false');
+                    btn.setAttribute('aria-disabled', 'false');
+                }
+            });
+
+            // ♿ Aria: Keyboard navigation for radiogroup and tactile feedback
+            btn.addEventListener('keydown', (e) => {
+                let nextIndex = -1;
+                if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+                    nextIndex = (index + 1) % modeButtons.length;
+                } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+                    nextIndex = (index - 1 + modeButtons.length) % modeButtons.length;
+                } else if (e.key === 'Enter' || e.key === ' ') {
+                    // Tactile keyboard press down
+                    btn.classList.add('keyboard-active');
+                }
+
+                if (nextIndex !== -1) {
+                    e.preventDefault();
+                    const nextBtn = modeButtons[nextIndex].btn;
+                    nextBtn.focus();
+                    nextBtn.click();
+                }
+            });
+
+            btn.addEventListener('keyup', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    btn.classList.remove('keyboard-active');
+                }
+            });
+
+            btn.addEventListener('blur', () => {
+                btn.classList.remove('keyboard-active');
+            });
+
+            // ♿ Aria: Roving tabindex management
+            btn.addEventListener('focus', () => {
+                modeButtons.forEach(mb => mb.btn.setAttribute('tabindex', '-1'));
+                btn.setAttribute('tabindex', '0');
+                // Ensure selection follows focus (Arrow key navigation updates selection)
+                if (btn.getAttribute('aria-checked') !== 'true') {
+                    btn.click();
+                }
+            });
+        };
+
+        modeButtons.forEach((mb, index) => {
+            // Initialize roving tabindex: checked item is 0, others -1
+            mb.btn.setAttribute('tabindex', mb.btn.getAttribute('aria-checked') === 'true' ? '0' : '-1');
+            setupModeButton(mb.btn, mb.mode, index);
+        });
+    }
+
+    // Wire the wait-for-full checkbox
+    const waitFullCheckbox = document.getElementById('wait-full-checkbox') as HTMLInputElement | null;
+    if (waitFullCheckbox) {
+        waitFullCheckbox.checked = waitForFullPopulation;
+        waitFullCheckbox.setAttribute('aria-checked', String(waitForFullPopulation));
+        waitFullCheckbox.addEventListener('change', () => {
+            waitForFullPopulation = waitFullCheckbox.checked;
+            waitFullCheckbox.setAttribute('aria-checked', String(waitForFullPopulation));
+            localStorage.setItem(WAIT_FULL_KEY, waitForFullPopulation ? '1' : '0');
+        });
+
+        // ♿ Aria: Keyboard support for custom switch behavior on Enter
+        waitFullCheckbox.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                waitFullCheckbox.checked = !waitFullCheckbox.checked;
+                waitForFullPopulation = waitFullCheckbox.checked;
+                waitFullCheckbox.setAttribute('aria-checked', String(waitForFullPopulation));
+                localStorage.setItem(WAIT_FULL_KEY, waitForFullPopulation ? '1' : '0');
+            }
+        });
     }
 
     async function enterWorld() {
@@ -568,26 +694,7 @@ if (startButton) {
             // Note: previewMushroom is defined in previous world generation runs
             const previewMushroom = (window as any).previewMushroom;
             if (typeof previewMushroom !== 'undefined' && previewMushroom) {
-                scene.remove(previewMushroom);
-                if (previewMushroom.geometry) previewMushroom.geometry.dispose();
-                if (previewMushroom.material) {
-                    if (Array.isArray(previewMushroom.material)) {
-                        previewMushroom.material.forEach((m: any) => m.dispose());
-                    } else {
-                        previewMushroom.material.dispose();
-                    }
-                }
-                previewMushroom.traverse((child: any) => {
-                    const mesh = child as THREE.Mesh;
-                    if (mesh.geometry) mesh.geometry.dispose();
-                    if (mesh.material) {
-                        if (Array.isArray(mesh.material)) {
-                            mesh.material.forEach((m: any) => m.dispose());
-                        } else {
-                            mesh.material.dispose();
-                        }
-                    }
-                });
+                safeRemoveAndDispose(scene, previewMushroom);
                 const idx = animatedFoliage.indexOf(previewMushroom);
                 if (idx > -1) animatedFoliage.splice(idx, 1);
                 const intIdx = interactiveObjects.indexOf(previewMushroom);
@@ -604,6 +711,7 @@ if (startButton) {
             loadingScreen.show();
             loadingScreen.startPhase('map-generation');
             loadingScreen.updateProgress(0, getGenerationLabel(requestedMode));
+            resetSpawnTracker(); // fresh counts for this population attempt
 
             let lastAnnounced = -1;
             startPhase('Map Generation');
@@ -613,6 +721,11 @@ if (startButton) {
                 const baseLabel = label ?? getGenerationLabel(requestedMode);
                 const progressLabel = entityType ? `${baseLabel} · ${entityType}` : baseLabel;
                 loadingScreen.updateProgress(percent, progressLabel);
+
+                if (statusEl) {
+                    statusEl.textContent = progressLabel;
+                }
+
                 startButton.style.background = requestedMode === 'CORE'
                     ? `linear-gradient(90deg, #FF9ECD ${percent}%, #FFD4E3 ${percent}%)`
                     : `linear-gradient(90deg, #FF6B6B ${percent}%, #FFB6C1 ${percent}%)`;
@@ -636,9 +749,17 @@ if (startButton) {
             // ⚡ Critical: Populate physics grids right after map generation
             populatePhysicsGrids();
 
+            initCloudPlacer({ scene, camera, weatherSystem: weatherSystem ?? null });
+
+            applyAwakenedPersistenceAfterWorldLoad();
+
             loadingScreen.updateProgress(100, 'World generation complete!');
             loadingScreen.completePhase('map-generation');
             loadingScreen.hide();
+
+            if (statusEl) {
+                statusEl.textContent = 'World generated. Welcome to Candy World.';
+            }
 
             // ♿ Aria: Announce that the game is fully loaded and exploration has started
             import('../ui/announcer.ts').then(({ announce }) => {
@@ -664,16 +785,83 @@ if (startButton) {
             globalBackgroundProcessor.onProgress((completed, total) => {
                 setDeferredProgress(completed, total);
                 setDeferredFailures(spawnTracker.getReport().failCount);
+            // Start background processor for deferred work.
+            // resetCounters() syncs totalTasks to the queue length (which already
+            // contains horizon tasks from generateMap) and clears stale callbacks
+            // so start() isn't blocked by isRunning=true.
+            globalBackgroundProcessor.resetCounters();
+
+            // In waitForFull mode, keep the main loading screen up as a 'deferred-population'
+            // phase. Mark it non-skippable so users see the full progress.
+            if (waitForFullPopulation) {
+                if (!globalLoadingManager.getTask('deferred-population')) {
+                    globalLoadingManager.registerTask({
+                        id: 'deferred-population',
+                        name: 'World Population',
+                        weight: 0.2,
+                        description: 'Populating horizon...',
+                        isDeferred: true,
+                    });
+                }
+                loadingScreen.markPhaseNonSkippable('deferred-population');
+                loadingScreen.startPhase('deferred-population');
+            } else {
+                showDeferredIndicator();
+            }
+
+            globalBackgroundProcessor.onProgress((completed, total) => {
+                const failedSoFar = globalBackgroundProcessor.getFailedCount();
+                const etaMs = globalBackgroundProcessor.getEstimatedTimeRemainingMs();
+                globalLoadingManager.reportDeferredProgress(completed, total, failedSoFar, etaMs);
             });
-            globalBackgroundProcessor.onComplete(() => {
-                hideDeferredIndicator();
+
+            globalBackgroundProcessor.onComplete((completed, total, bgFailed) => {
+                if (waitForFullPopulation) {
+                    globalLoadingManager.reportDeferredProgress(completed, total, bgFailed);
+                    globalLoadingManager.completeTask('deferred-population');
+                    loadingScreen.completePhase('deferred-population');
+                } else {
+                    hideDeferredIndicator();
+                }
+
                 populatePhysicsGrids();
                 finalizeStartupProfile();
                 console.log('[Startup] All deferred background tasks completed.');
-                // Notify interested systems (music reactivity, discovery, etc.) that the
-                // world is now fully populated.  A CustomEvent on `document` keeps this
-                // decoupled from any specific module.
+
+                // Surface spawn report
+                try {
+                    const r = getSpawnReport();
+                    const report = { ...r, backgroundFailed: bgFailed };
+                    (window as any).__worldPopulationReport = report;
+                    if (r.failed > 0) {
+                        console.warn(`[Startup] Population complete with ${r.failed} spawn failures out of ${r.attempted}. See spawn tracker report.`);
+                        if (!waitForFullPopulation) {
+                            // Badge already visible; toast as last-resort hint if missed
+                            import('../utils/toast.ts').then(({ showToast }) => {
+                                showToast(`Some objects failed to load (${r.failed}). Click the ⚠ badge or check console.`, '⚠️', 5000);
+                            }).catch(() => {});
+                        }
+                    } else if (r.attempted > 0) {
+                        console.log(`[Startup] Population complete: ${r.succeeded}/${r.attempted} objects spawned cleanly.`);
+                    }
+                } catch {}
+
                 document.dispatchEvent(new CustomEvent('worldFullyPopulated'));
+
+                // Run world health validation and surface any warnings.
+                try {
+                    const health = validateWorldPopulation(activeWorldMode ?? 'UNKNOWN');
+                    if (!health.healthy) {
+                        import('../utils/toast.ts').then(({ showToast }) => {
+                            const summary = health.warnings.length === 1
+                                ? health.warnings[0]
+                                : `${health.warnings.length} world health warnings — see console`;
+                            showToast(summary, '⚠️', 7000);
+                        }).catch(() => {});
+                    }
+                } catch (e) {
+                    console.warn('[WorldHealth] Validation threw:', e);
+                }
             });
 
             // Queue non-critical visuals
@@ -699,7 +887,7 @@ if (startButton) {
                 }
             });
 
-            globalBackgroundProcessor.start();
+            await globalBackgroundProcessor.start();
 
             worldGenerated = true;
             startButton.style.background = '';

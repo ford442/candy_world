@@ -12,6 +12,8 @@ export default defineConfig({
   ],
   base: './',
   build: {
+    sourcemap: true,
+    minify: true,
     target: 'es2022',
     // Ensures assets don't get lost in complex folder structures
     assetsDir: './',
@@ -36,40 +38,27 @@ export default defineConfig({
           if (id.includes('/src/audio/')) {
             return 'audio';
           }
-          // Gameplay mechanics (weapons, abilities)
-          if (id.includes('/src/gameplay/')) {
-            return 'gameplay';
-          }
-          // Weather system and effects
-          if (id.includes('/src/systems/weather/')) {
-            return 'weather';
-          }
-          // UI modules
-          if (id.includes('/src/ui/')) {
-            return 'ui';
-          }
-          // Core config and constants — must load before world and main chunks
-          // to break the circular chunk dependency (main→world→config→main).
-          if (id.includes('/src/core/config.ts') || id.includes('/src/core/config.js')) {
-            return 'utils';
-          }
-          // Utility modules (WASM loaders, profilers)
-          if (id.includes('/src/utils/')) {
-            return 'utils';
-          }
-          // Foliage - large module set
-          if (id.includes('/src/foliage/')) {
-            return 'foliage';
-          }
           // Workers
           if (id.includes('/src/workers/')) {
             return 'workers';
           }
-          // World generation
-          if (id.includes('/src/world/')) {
-            return 'world';
+          // Merge all app code with circular dependencies into a single chunk.
+          // Rollup does not handle circular *chunk* dependencies well; keeping
+          // related modules in one chunk avoids undefined bindings in production.
+          if (
+            id.includes('/src/core/') ||
+            id.includes('/src/foliage/') ||
+            id.includes('/src/gameplay/') ||
+            id.includes('/src/particles/') ||
+            id.includes('/src/rendering/') ||
+            id.includes('/src/systems/') ||
+            id.includes('/src/ui/') ||
+            id.includes('/src/utils/') ||
+            id.includes('/src/world/')
+          ) {
+            return 'app';
           }
-          // Remaining systems (physics, discovery, etc.) stay in main
+          // Remaining modules stay in main
         },
         chunkFileNames: (chunkInfo) => {
           const prefix = chunkInfo.name === 'vendor' ? 'chunks/vendor' : 'chunks/[name]';

@@ -34,6 +34,8 @@
  *   ecsRemoveComponent  – clear component bit
  *   ecsHasComponent     – test presence
  *   ecsQueryComponents  – batch query by bitmask → fills outIds, returns count
+ *   ecsQueryComponentPointers – batch query by bitmask → fills out pointers for one slab
+ *   ecsGetComponentStride – bytes per entry for a component slab
  *   ecsGetComponentMask – raw bitmask for an entity
  */
 
@@ -48,7 +50,7 @@ extern "C" {
 // CONSTANTS
 // =============================================================================
 
-static const int MAX_ENTITIES        = 65536;
+static const uint32_t MAX_ENTITIES   = 65536u;
 static const int MAX_COMPONENT_TYPES = 32;    // fits in uint32_t bitmask
 
 // =============================================================================
@@ -63,7 +65,7 @@ struct Slot {
 static Slot     s_slots[MAX_ENTITIES];
 static int      s_freeList[MAX_ENTITIES];
 static int      s_freeCount = 0;
-static uint16_t s_nextSlot  = 1; // slot 0 is reserved (null entity)
+static uint32_t s_nextSlot  = 1; // slot 0 is reserved (null entity)
 static int      s_aliveCount = 0;
 
 // Per-entity bitmask of which component types are present
@@ -87,18 +89,18 @@ static int  s_slabCount = 0;
 // HELPERS
 // =============================================================================
 
-static inline uint16_t slotOf(uint32_t id) {
-    return (uint16_t)(id & 0xFFFF);
+static inline uint32_t slotOf(uint32_t id) {
+    return (id & 0xFFFFu);
 }
 static inline uint16_t genOf(uint32_t id) {
     return (uint16_t)(id >> 16);
 }
-static inline uint32_t makeId(uint16_t slot, uint16_t gen) {
+static inline uint32_t makeId(uint32_t slot, uint16_t gen) {
     return ((uint32_t)gen << 16) | slot;
 }
 
 static bool validId(uint32_t id) {
-    uint16_t slot = slotOf(id);
+    uint32_t slot = slotOf(id);
     uint16_t gen  = genOf(id);
     if (slot == 0 || slot >= MAX_ENTITIES) return false;
     return s_slots[slot].alive && s_slots[slot].generation == gen;
@@ -138,9 +140,9 @@ void ecsInit() {
  */
 EMSCRIPTEN_KEEPALIVE
 uint32_t ecsCreateEntity() {
-    uint16_t slot;
+    uint32_t slot;
     if (s_freeCount > 0) {
-        slot = (uint16_t)s_freeList[--s_freeCount];
+        slot = (uint32_t)s_freeList[--s_freeCount];
     } else {
         if (s_nextSlot >= MAX_ENTITIES) return 0;
         slot = s_nextSlot++;
@@ -163,7 +165,7 @@ uint32_t ecsCreateEntity() {
 EMSCRIPTEN_KEEPALIVE
 void ecsDestroyEntity(uint32_t id) {
     if (!validId(id)) return;
-    uint16_t slot         = slotOf(id);
+    uint32_t slot         = slotOf(id);
     s_slots[slot].alive   = false;
     s_componentMask[slot] = 0;
     s_freeList[s_freeCount++] = slot;
@@ -221,9 +223,9 @@ void* ecsGetComponent(uint32_t entityId, int componentType) {
     if (componentType < 0 || componentType >= s_slabCount) return nullptr;
     if (!s_slabs[componentType].registered) return nullptr;
 
-    uint16_t slot = slotOf(entityId);
+    uint32_t slot = slotOf(entityId);
     if (!(s_componentMask[slot] & (1u << componentType))) return nullptr;
-    if (slot >= (uint16_t)s_slabs[componentType].maxEntities) return nullptr;
+    if (slot >= (uint32_t)s_slabs[componentType].maxEntities) return nullptr;
 
     return s_slabs[componentType].data + (slot * s_slabs[componentType].strideBytes);
 }
@@ -239,8 +241,8 @@ void ecsSetComponent(uint32_t entityId, int componentType, void* data) {
     if (componentType < 0 || componentType >= s_slabCount) return;
     if (!s_slabs[componentType].registered || !data) return;
 
-    uint16_t slot = slotOf(entityId);
-    if (slot >= (uint16_t)s_slabs[componentType].maxEntities) return;
+    uint32_t slot = slotOf(entityId);
+    if (slot >= (uint32_t)s_slabs[componentType].maxEntities) return;
 
     uint8_t* dest = s_slabs[componentType].data + (slot * s_slabs[componentType].strideBytes);
     memcpy(dest, data, s_slabs[componentType].strideBytes);
@@ -254,7 +256,7 @@ EMSCRIPTEN_KEEPALIVE
 void ecsAddComponent(uint32_t entityId, int componentType) {
     if (!validId(entityId)) return;
     if (componentType < 0 || componentType >= s_slabCount) return;
-    uint16_t slot = slotOf(entityId);
+    uint32_t slot = slotOf(entityId);
     s_componentMask[slot] |= (1u << componentType);
 }
 
@@ -265,7 +267,7 @@ EMSCRIPTEN_KEEPALIVE
 void ecsRemoveComponent(uint32_t entityId, int componentType) {
     if (!validId(entityId)) return;
     if (componentType < 0 || componentType >= MAX_COMPONENT_TYPES) return;
-    uint16_t slot = slotOf(entityId);
+    uint32_t slot = slotOf(entityId);
     s_componentMask[slot] &= ~(1u << componentType);
 }
 
@@ -307,6 +309,50 @@ int ecsQueryComponents(int componentTypeMask, uint32_t* outIds, int maxResults) 
         }
     }
     return found;
+}
+
+/**
+ * Batch query: fill outPtrs with slab pointers for a specific component type
+ * across entities matching componentTypeMask. The returned order matches
+ * ecsQueryComponents() for the same mask.
+ *
+ * @param componentTypeMask  Bitmask of required component types.
+ * @param componentType      Specific slab whose pointers should be emitted.
+ * @param outPtrs            Caller-allocated pointer array.
+ * @param maxResults         Maximum pointers to write.
+ * @returns                  Number of pointers written.
+ */
+EMSCRIPTEN_KEEPALIVE
+int ecsQueryComponentPointers(int componentTypeMask, int componentType, uintptr_t* outPtrs, int maxResults) {
+    if (maxResults <= 0) return 0;
+    if (componentType < 0 || componentType >= s_slabCount) return 0;
+    if (!s_slabs[componentType].registered) return 0;
+
+    const uint32_t requiredMask = (uint32_t)componentTypeMask;
+    const uint32_t componentBit = (1u << componentType);
+    int found = 0;
+    const int limit = (int)s_nextSlot;
+
+    for (int i = 1; i < limit && found < maxResults; i++) {
+        if (!s_slots[i].alive) continue;
+        const uint32_t entityMask = s_componentMask[i];
+        if ((entityMask & requiredMask) != requiredMask) continue;
+        if ((entityMask & componentBit) == 0) continue;
+        if (i >= s_slabs[componentType].maxEntities) continue;
+
+        outPtrs[found++] = (uintptr_t)(s_slabs[componentType].data + (i * s_slabs[componentType].strideBytes));
+    }
+    return found;
+}
+
+/**
+ * Bytes per component entry for a registered slab.
+ */
+EMSCRIPTEN_KEEPALIVE
+int ecsGetComponentStride(int componentType) {
+    if (componentType < 0 || componentType >= s_slabCount) return 0;
+    if (!s_slabs[componentType].registered) return 0;
+    return s_slabs[componentType].strideBytes;
 }
 
 /**

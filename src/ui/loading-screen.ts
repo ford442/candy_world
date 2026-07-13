@@ -1,14 +1,14 @@
 /**
- * Loading Screen and Progress Tracking System for Candy World
- * 
- * Features:
- * - Visual progress bar with percentage
- * - Current task description
- * - Estimated time remaining
- * - Cancel/Skip button for non-critical deferred loads
- * - Fade-out transition when complete
- * - Integration with all loading phases
- * - Debug toggle
+ * Loading Screen — barrel re-export.
+ *
+ * Implementation lives in:
+ *   loading-screen-ui.ts      — LoadingScreen class
+ *   loading-screen-progress.ts — singleton API & legacy window bindings
+ *   loading-screen-types.ts   — shared types & DEFAULT_LOADING_PHASES
+ *
+ * Do NOT add implementation here; keeping everything in one place prevents
+ * the duplicate-singleton bug that arose when this file also defined its own
+ * LoadingScreen class and API functions.
  */
 
 import { trapFocusInside } from '../utils/interaction-utils';
