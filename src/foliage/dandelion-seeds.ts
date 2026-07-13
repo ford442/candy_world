@@ -1,3 +1,4 @@
+import { isCIorHeadless } from '../core/config.ts';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { MeshStandardNodeMaterial, StorageInstancedBufferAttribute } from 'three/webgpu';
@@ -324,7 +325,7 @@ export function updateDandelionSeeds(renderer: any) {
         ud.uSpawnCount.value = _currentStageOffset;
         ud.uSpawnIndex.value = _spawnHeadStart;
 
-        renderer.compute(ud.computeNode);
+        if (!isCIorHeadless()) { renderer.compute(ud.computeNode); }
 
         _currentStageOffset = 0;
     } else {

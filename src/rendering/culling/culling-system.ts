@@ -1,3 +1,4 @@
+import { safeRemoveAndDispose } from "../../../utils/dispose-utils.ts";
 /**
  * @file culling-system.ts
  * @description Advanced culling and visibility system for candy_world
@@ -189,7 +190,7 @@ export class CullingSystem {
 
         if (currentMesh && newMesh) {
             // Perform LOD switch
-            obj.object.remove(currentMesh);
+            obj.object.remove(currentMesh); // Intentionally not disposing here because it is just a LOD swap
             obj.object.add(newMesh);
             obj.currentLOD = newLOD;
             this.stats.lodSwitches++;
@@ -267,10 +268,12 @@ export class CullingSystem {
 
     /** Process a single object for culling */
     private processObject(obj: CullableObject, camera: THREE.Camera, cameraMoved: boolean): void {
+        if (!obj || !obj.object) return;
+
         // ALWAYS_VISIBLE group - skip culling
         if (obj.group === CullingGroup.ALWAYS_VISIBLE) {
-            obj.visible = true;
-            obj.object.visible = true;
+            if (obj) obj.visible = true;
+            if (obj.object) obj.object.visible = true;
             this.stats.visibleObjects++;
             this.debugVisualizer.showVisibleObject(obj);
             return;
@@ -279,8 +282,8 @@ export class CullingSystem {
         // STATIC group - use cached result if camera hasn't moved
         if (obj.group === CullingGroup.STATIC && !cameraMoved && obj.staticCached) {
             const cached = this.cachedStaticResults.get(obj.id);
-            obj.visible = cached !== false;
-            obj.object.visible = obj.visible;
+            if (obj) obj.visible = cached !== false;
+            if (obj.object) obj.object.visible = obj.visible ?? false;
             
             if (obj.visible) {
                 this.stats.visibleObjects++;
@@ -302,8 +305,8 @@ export class CullingSystem {
         if (this.config.enableDistanceCulling) {
             const cullDistance = this.getCullDistance(obj.entityType);
             if (distSq > cullDistance * cullDistance) {
-                obj.visible = false;
-                obj.object.visible = false;
+                if (obj) obj.visible = false;
+                if (obj.object) obj.object.visible = false;
                 this.stats.culledObjects++;
                 this.stats.distanceCulled++;
                 
@@ -325,8 +328,8 @@ export class CullingSystem {
             _scratchSphere.radius += this.config.frustumMargin;
             
             if (!this.frustum.intersectsSphere(_scratchSphere)) {
-                obj.visible = false;
-                obj.object.visible = false;
+                if (obj) obj.visible = false;
+                if (obj.object) obj.object.visible = false;
                 this.stats.culledObjects++;
                 this.stats.frustumCulled++;
                 
@@ -348,8 +351,8 @@ export class CullingSystem {
                 this.occlusionManager.endQuery(queryId!);
             } else if (obj.lastOcclusionResult === false) {
                 // Temporarily hidden by occlusion, skip rendering
-                obj.visible = false;
-                obj.object.visible = false;
+                if (obj) obj.visible = false;
+                if (obj.object) obj.object.visible = false;
                 this.stats.culledObjects++;
                 this.stats.occlusionCulled++;
                 return;
@@ -357,8 +360,8 @@ export class CullingSystem {
         }
 
         // Object is visible
-        obj.visible = true;
-        obj.object.visible = true;
+        if (obj) obj.visible = true;
+        if (obj.object) obj.object.visible = true;
         this.stats.visibleObjects++;
         
         if (obj.group === CullingGroup.STATIC) {

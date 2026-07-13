@@ -23,6 +23,7 @@ export {
     uAudioLow,
     uAudioHigh,
     uPlayerPosition,
+    uPlayerVelocity,
     // Utility functions
     median,
     generateNoiseTexture,
@@ -38,6 +39,7 @@ export {
     // Player interaction
     calculatePlayerPush,
     applyPlayerInteraction,
+    applyStandardDeformation,
     // Wind and bloom
     calculateWindSway,
     calculateWindSwayLegacy,
@@ -161,6 +163,10 @@ export { createPanningPad } from './panning-pads.ts';
 export { createSilenceSpirit } from './silence-spirits.ts';
 export { createInstrumentShrine } from './instrument.ts';
 export { createMelodyMirror } from './mirrors.ts';
+export { createGemCanopyTree } from './gem-canopy-tree.ts';
+export { GemFruitBatcher, gemFruitBatcher } from './gem-fruit-batcher.ts';
+export { createGlassMushroom } from './glass-mushroom.ts';
+export { GlassMushroomBatcher, glassMushroomBatcher } from './glass-mushroom-batcher.ts';
 export { createIsland } from './lake_features.ts';
 export { createCaveEntrance } from './cave.ts';
 export { createNeonPollen } from './pollen.ts';

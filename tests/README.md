@@ -62,6 +62,18 @@ This test:
 
 **Note**: Warnings (e.g., `CloudBatcher` capacity warnings) are OK and don't cause failure. Only errors fail the test.
 
+#### WebGL2 Smoke Test (`RENDERER=webgl`)
+
+For headless CI or environments where WebGPU is unavailable (SwiftShader, software stacks):
+
+```bash
+RENDERER=webgl npm run test
+# or
+npm run test:smoke:webgl
+```
+
+Boots with `?renderer=webgl&webglLite=1` and asserts `window.usingWebGL === true`. See [docs/webgl-fallback.md](../docs/webgl-fallback.md).
+
 #### Full-Boot Smoke Test (`FULL_BOOT=1`)
 
 You can run the smoke test in **FULL** or **FAST_FULL** mode to verify the complete world population path (the same path that regressed in #1133):

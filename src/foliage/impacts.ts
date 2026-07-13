@@ -1,3 +1,4 @@
+import { isCIorHeadless } from '../core/config.ts';
 import * as THREE from 'three';
 import { MeshStandardNodeMaterial, StorageInstancedBufferAttribute } from 'three/webgpu';
 import {
@@ -512,7 +513,7 @@ export function updateImpacts(renderer: any, time: number) {
             userData.uSpawnIndex.value = userData.head;
 
             // Execute compute
-            renderer.compute(userData.computeNode);
+            if (!isCIorHeadless()) { renderer.compute(userData.computeNode); }
 
             // Advance head
             userData.head = (userData.head + totalSpawns) % userData.bufferSize;

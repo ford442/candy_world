@@ -18,10 +18,7 @@
  */
 
 import * as THREE from 'three';
-import {
-    getGroundHeight, initPhysics, uploadObstaclesBatch, setPlayerState, getPlayerState, updatePhysicsCPP,
-    uploadCollisionObjects, resolveGameCollisionsWASM, initDynamicFoliageBridge
-} from '../../utils/wasm-loader.ts';
+
 import {
     foliageMushrooms, foliageTrampolines, foliageClouds, vineSwings, animatedFoliage,
     foliageTraps, foliageGeysers, foliagePortamentoPines, foliagePanningPads,
@@ -35,10 +32,14 @@ import { showToast } from '../../utils/toast.ts';
 import { addCameraShake } from '../../core/camera-shake.ts';
 import { unlockSystem } from '../unlocks.ts';
 import {
-    calculateMovementInput,
-    isInLakeBasin,
-    getUnifiedGroundHeightTyped
+    calculateMovementInput
 } from '../physics.core.js';
+import { CONFIG } from '../../core/config.ts';
+import { isInLakeBasin, reconcileGroundedEyeY } from '../ground-system.ts';
+import {
+    initPhysics, uploadObstaclesBatch, setPlayerState, getPlayerState, updatePhysicsCPP,
+    uploadCollisionObjects, resolveGameCollisionsWASM, initDynamicFoliageBridge
+} from '../../utils/wasm-loader.ts';
 
 import { 
     player, 
@@ -73,12 +74,13 @@ export { player, PlayerState };
 export type { AudioState, KeyStates } from './physics-types.js';
 
 // --- Lightweight Physics Spatial Grid (⚡ OPTIMIZATION) ---
+let _globalQueryId = 0;
+
 export class PhysicsSpatialGrid {
     private cellSize: number;
     private cells: Map<string, any[]>;
     // ⚡ OPTIMIZATION: Reusable array to avoid GC spikes on findNearby
     private _queryResult: any[] = [];
-    private _querySet: Set<any> = new Set();
 
     constructor(cellSize: number) {
         this.cellSize = cellSize;
@@ -105,8 +107,8 @@ export class PhysicsSpatialGrid {
     }
 
     findNearby(x: number, z: number, radius: number): any[] {
+        _globalQueryId++;
         this._queryResult.length = 0;
-        this._querySet.clear();
 
         const minX = Math.floor((x - radius) / this.cellSize);
         const maxX = Math.floor((x + radius) / this.cellSize);
@@ -120,8 +122,8 @@ export class PhysicsSpatialGrid {
                 if (cell) {
                     for (let i = 0; i < cell.length; i++) {
                         const obj = cell[i];
-                        if (!this._querySet.has(obj)) {
-                            this._querySet.add(obj);
+                        if (obj._lastQueryId !== _globalQueryId) {
+                            obj._lastQueryId = _globalQueryId;
                             this._queryResult.push(obj);
                         }
                     }
@@ -133,11 +135,11 @@ export class PhysicsSpatialGrid {
 }
 
 // Global grids for different collision types
-export const physicsFoliageGrid = new PhysicsSpatialGrid(20);
-export const physicsTrapsGrid = new PhysicsSpatialGrid(20);
-export const physicsGeysersGrid = new PhysicsSpatialGrid(20);
-export const physicsPinesGrid = new PhysicsSpatialGrid(20);
-export const physicsPanningPadsGrid = new PhysicsSpatialGrid(20);
+export const physicsFoliageGrid = new PhysicsSpatialGrid(30);
+export const physicsTrapsGrid = new PhysicsSpatialGrid(30);
+export const physicsGeysersGrid = new PhysicsSpatialGrid(30);
+export const physicsPinesGrid = new PhysicsSpatialGrid(30);
+export const physicsPanningPadsGrid = new PhysicsSpatialGrid(30);
 
 /**
  * Populates physics grids from world state.
@@ -233,23 +235,23 @@ export function updatePhysics(delta: number, camera: THREE.Camera, controls: any
     updateEnvironmentalModifiers(delta, audioState);
 
     // Check if player is within active glitch grenade field
-    if (uGlitchExplosionRadius.value > 0) {
-
+    // ⚡ OPTIMIZATION: Faster radius squared check
+    const glitchRad = uGlitchExplosionRadius.value;
+    if (glitchRad > 0) {
         const center = uGlitchExplosionCenter.value as THREE.Vector3;
         const dx = player.position.x - center.x;
         const dy = player.position.y - center.y;
         const dz = player.position.z - center.z;
         const distSq = dx*dx + dy*dy + dz*dz;
 
-        const radiusSq = uGlitchExplosionRadius.value * uGlitchExplosionRadius.value;
-        if (distSq < radiusSq) {
+        if (distSq < glitchRad * glitchRad) {
             // Player is inside the glitch field - grant intangibility/phasing
             if (!player.isPhasing) {
                 player.isPhasing = true;
                 player.phaseTimer = 0.5; // Short duration, refreshed each frame while inside
             } else {
                 // Refresh timer while inside
-                player.phaseTimer = Math.max(player.phaseTimer, 0.5);
+                if (player.phaseTimer < 0.5) player.phaseTimer = 0.5;
             }
         }
     }
@@ -296,7 +298,12 @@ export function updatePhysics(delta: number, camera: THREE.Camera, controls: any
     camera.position.x = player.position.x;
     camera.position.z = player.position.z;
     // 🎨 PALETTE: Smooth vertical tracking (LERP) for better game feel
-    camera.position.y = THREE.MathUtils.lerp(camera.position.y, player.position.y, Math.min(delta * 15.0, 1.0));
+    const targetY = player.position.y;
+    const lerpSpeed = CONFIG.ground.followLerpSpeed;
+    const maxStep = CONFIG.ground.followMaxStep;
+    let nextY = THREE.MathUtils.lerp(camera.position.y, targetY, Math.min(delta * lerpSpeed, 1.0));
+    nextY = THREE.MathUtils.clamp(nextY, camera.position.y - maxStep, camera.position.y + maxStep);
+    camera.position.y = nextY;
 }
 
 // --- State: DEFAULT (Walking/Falling) ---
@@ -310,12 +317,27 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
         setCppPhysicsInitialized(true);
     }
 
+    // ⚡ OPTIMIZATION: Caching time to avoid multiple Date.now() calls
+    const now = performance.now(); // More precise than Date.now()
+
+    // ⚡ OPTIMIZATION: Only update vines if they are somewhat near the player.
     for (let i = 0; i < vineSwings.length; i++) {
         const v = vineSwings[i];
-        if (v !== activeVineSwing) v.update(player as any, delta, null);
+        if (v !== activeVineSwing) {
+            // Simple distance check (e.g. 50 units) before calling update to save CPU
+            if (v.anchorPoint) {
+                const dx = player.position.x - v.anchorPoint.x;
+                const dz = player.position.z - v.anchorPoint.z;
+                if (dx*dx + dz*dz < 2500) {
+                    v.update(player as any, delta, null);
+                }
+            } else {
+                v.update(player as any, delta, null);
+            }
+        }
     }
 
-    if (Date.now() - lastVineDetachTime > 500) {
+    if (now - lastVineDetachTime > 500) {
         checkVineAttachment(camera);
     }
 
@@ -476,6 +498,25 @@ function updateDefaultState(delta: number, camera: THREE.Camera, controls: any, 
         updateJSFallbackMovement(delta, camera, controls, keyStates, moveSpeed);
         player.position.x += windForceX;
         player.position.z += windForceZ;
+    }
+
+    // Issue #1265: Reconcile C++ / fallback Y with the authoritative ground query.
+    // Smoothly tracks terrain when grounded; preserves platform elevation when high.
+    if (player.isGrounded || player.velocity.y <= 0) {
+        const prevY = player.position.y;
+        const nextY = reconcileGroundedEyeY(
+            prevY,
+            player.position.x,
+            player.position.z,
+            delta,
+            { isGrounded: player.isGrounded, velocityY: player.velocity.y }
+        );
+        if (nextY !== prevY) {
+            player.position.y = nextY;
+            if (player.isGrounded) {
+                player.velocity.y = 0;
+            }
+        }
     }
 
     // --- WASM COLLISION RESOLVER (New) ---

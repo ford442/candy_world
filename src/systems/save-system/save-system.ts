@@ -12,6 +12,8 @@
  */
 
 import { showToast } from '../../utils/toast.ts';
+import { FEATURE_FLAGS } from '../../core/config.ts';
+import { awakenedPersistence } from '../awakened-persistence.ts';
 import {
     SAVE_VERSION,
     SAVE_VERSION as SAVE_VERSION_CONST,
@@ -171,6 +173,11 @@ export class SaveSystem {
             this.currentSlotId = slotId;
             this.sessionStartTime = Date.now() - (saveData.progress.playtime * 1000);
             
+            if (FEATURE_FLAGS.awakenedPersistence) {
+                awakenedPersistence.deserialize(saveData.progress.awakenedFlora || []);
+                awakenedPersistence.applyLoadedStatesToBatchers();
+            }
+
             console.log(`[SaveSystem] Loaded from slot: ${slotId}`);
             this.onLoadComplete?.(saveData);
             return saveData;
@@ -631,7 +638,10 @@ export class SaveSystem {
             milestones: [],
             playtime,
             unlocks: [],
-            inventory: {}
+            inventory: {},
+            awakenedFlora: FEATURE_FLAGS.awakenedPersistence
+                ? awakenedPersistence.serialize()
+                : undefined,
         };
     }
 

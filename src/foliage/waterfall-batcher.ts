@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
+import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import {
     color, float, vec3, vec2, attribute, positionLocal,
     sin, cos, mix, smoothstep, uniform, If, time, uv,
@@ -19,9 +20,10 @@ import {
     uAudioLow, uAudioHigh, CandyPresets, registerReactiveMaterial, createJuicyRimLight
 } from './index.ts';
 import { getBiomeUniforms, type BiomeId } from '../systems/biome-uniforms.ts';
-import { foliageGroup } from '../world/state.ts';
+import { CONFIG, getCIAdjustedCount } from '../core/config.ts';
+import { fastInvSqrt } from '../utils/wasm-loader.ts';
 
-const MAX_WATERFALLS = 50; // Reduced from 200 for WebGPU uniform buffer limits
+const MAX_WATERFALLS = getCIAdjustedCount(50, 0.2, 10); // Reduced from 200 for WebGPU uniform buffer limits
 const SPLASHES_PER_WATERFALL = 8;
 const MAX_SPLASHES = MAX_WATERFALLS * SPLASHES_PER_WATERFALL;
 
@@ -47,6 +49,7 @@ export class WaterfallBatcher {
     // Splash Attributes
     private splashOrigin: THREE.InstancedBufferAttribute | null = null;
     private splashVelocity: THREE.InstancedBufferAttribute | null = null; // Stores random velocity params
+    private baseThickness: Float32Array | null = null;
 
     private constructor() {}
 
@@ -144,6 +147,7 @@ export class WaterfallBatcher {
         this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
         this.mesh.count = 0;
         this.mesh.frustumCulled = false; // Always update (audio reactivity)
+        this.baseThickness = new Float32Array(MAX_WATERFALLS);
 
         // 2. Splash Mesh
         const splashGeo = new THREE.SphereGeometry(1, 8, 8); // Base radius 1, scaled down later
@@ -228,24 +232,12 @@ export class WaterfallBatcher {
 
         [this.mesh, this.splashMesh].forEach(mesh => {
             if (!mesh) return;
-            if (mesh.geometry) mesh.geometry.dispose();
-            if (mesh.material) {
-                if (Array.isArray(mesh.material)) {
-                    mesh.material.forEach(m => m.dispose());
-                } else {
-                    mesh.material.dispose();
-                }
-            }
-            if (mesh.instanceColor && typeof (mesh.instanceColor as any).dispose === 'function') {
-                try { (mesh.instanceColor as any).dispose(); } catch (e) {}
-            }
-            foliageGroup.remove(mesh);
+            safeRemoveAndDispose(foliageGroup, mesh);
         });
 
         this.initialized = false;
         this.count = 0;
         this.idToIndex.clear();
-        this.waterfalls.length = 0;
     }
 
     /**
@@ -265,6 +257,7 @@ export class WaterfallBatcher {
 
         this.idToIndex.set(id, index);
         this.indexToId[index] = id;
+        this.baseThickness![index] = width;
 
         // 1. Setup Column
         // Cylinder Base: R=1, H=1.
@@ -327,33 +320,33 @@ export class WaterfallBatcher {
         const lastId = this.indexToId[lastIndex];
 
         if (indexToRemove !== lastIndex) {
+            // Swap Base Thickness
+            this.baseThickness![indexToRemove] = this.baseThickness![lastIndex];
+
             // Swap Column
-            this.mesh!.getMatrixAt(lastIndex, _scratchMatrix);
-            // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
-        _scratchMatrix.toArray(this.mesh!.instanceMatrix.array, (indexToRemove) * 16);
+            // ⚡ OPTIMIZATION: Fast memory copy bypassing object instantiation and setMatrixAt overhead
+            const matrixArray = this.mesh!.instanceMatrix.array as Float32Array;
+            const destOffset = indexToRemove * 16;
+            const srcOffset = lastIndex * 16;
+            matrixArray.copyWithin(destOffset, srcOffset, srcOffset + 16);
 
             // Swap Splashes (Block of 8)
             const srcStart = lastIndex * SPLASHES_PER_WATERFALL;
             const destStart = indexToRemove * SPLASHES_PER_WATERFALL;
 
-            for (let i = 0; i < SPLASHES_PER_WATERFALL; i++) {
-                const src = srcStart + i;
-                const dest = destStart + i;
+            const splashSrcOffset = srcStart * 3;
+            const splashDestOffset = destStart * 3;
+            const splashLength = SPLASHES_PER_WATERFALL * 3;
 
-                // Copy Origin
-                this.splashOrigin!.setXYZ(dest,
-                    this.splashOrigin!.getX(src),
-                    this.splashOrigin!.getY(src),
-                    this.splashOrigin!.getZ(src)
-                );
+            (this.splashOrigin!.array as Float32Array).copyWithin(splashDestOffset, splashSrcOffset, splashSrcOffset + splashLength);
+            (this.splashVelocity!.array as Float32Array).copyWithin(splashDestOffset, splashSrcOffset, splashSrcOffset + splashLength);
 
-                // Copy Velocity
-                this.splashVelocity!.setXYZ(dest,
-                    this.splashVelocity!.getX(src),
-                    this.splashVelocity!.getY(src),
-                    this.splashVelocity!.getZ(src)
-                );
-            }
+            // Swap Splash Matrix
+            const splashMatArray = this.splashMesh!.instanceMatrix.array as Float32Array;
+            const splashMatSrcOffset = srcStart * 16;
+            const splashMatDestOffset = destStart * 16;
+            const splashMatLength = SPLASHES_PER_WATERFALL * 16;
+            splashMatArray.copyWithin(splashMatDestOffset, splashMatSrcOffset, splashMatSrcOffset + splashMatLength);
 
             // Update Map
             this.idToIndex.set(lastId, indexToRemove);
@@ -367,6 +360,7 @@ export class WaterfallBatcher {
         this.splashMesh!.count = this.count * SPLASHES_PER_WATERFALL;
 
         this.mesh!.instanceMatrix.needsUpdate = true;
+        this.splashMesh!.instanceMatrix.needsUpdate = true;
         this.splashOrigin!.needsUpdate = true;
         this.splashVelocity!.needsUpdate = true;
     }
@@ -379,25 +373,36 @@ export class WaterfallBatcher {
     updateInstance(id: string, thicknessScale: number) {
         if (!this.initialized || !this.idToIndex.has(id)) return;
 
-        // Note: We need to know the original scale to modify it.
-        // But we didn't store it.
-        // We can get it from matrix.
         const index = this.idToIndex.get(id)!;
-        this.mesh!.getMatrixAt(index, _scratchMatrix);
-        _scratchMatrix.decompose(_scratchPos, _scratchQuat, _scratchScale);
 
-        // Original logic:
-        // width (X) and height (Y) are fixed.
-        // thickness (Z) is modified.
-        // But if we only stored the matrix, how do we know the "base" Z?
+        // ⚡ OPTIMIZATION: Bypassed .getMatrixAt() and .decompose() overhead.
+        // We need to change the Z scale. We can modify the 3rd column directly.
+        const matrixArray = this.mesh!.instanceMatrix.array as Float32Array;
+        const offset = index * 16;
+
         // Assuming X and Z were equal initially (circular).
-        // So base Z = current X.
+        // Current X scale is the magnitude of the 1st column.
+        // ⚡ OPTIMIZATION: Use squared scale magnitudes and fast inverse square root to avoid Math.sqrt() in hot loops.
+        const m00 = matrixArray[offset + 0], m01 = matrixArray[offset + 1], m02 = matrixArray[offset + 2];
+        const scaleXSq = m00 * m00 + m01 * m01 + m02 * m02;
 
-        _scratchScale.z = _scratchScale.x * thicknessScale;
+        // Current Z scale is the magnitude of the 3rd column.
+        const m20 = matrixArray[offset + 8], m21 = matrixArray[offset + 9], m22 = matrixArray[offset + 10];
+        const currentScaleZSq = m20 * m20 + m21 * m21 + m22 * m22;
 
-        _scratchMatrix.compose(_scratchPos, _scratchQuat, _scratchScale);
-        // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
-        _scratchMatrix.toArray(this.mesh!.instanceMatrix.array, (index) * 16);
+        // Apply scaling factor to the 3rd column
+        if (currentScaleZSq > 0.00000001 && scaleXSq > 0.00000001) {
+            // targetZ = X * thicknessScale
+            // We want ratio = targetZ / currentZ = (X * thicknessScale) / currentZ
+            // ratio = sqrt(scaleXSq) * thicknessScale / sqrt(currentScaleZSq)
+            // ratio = sqrt(scaleXSq / currentScaleZSq) * thicknessScale
+            // We can compute this with Math.sqrt once, which is better, but since it's a relative thickness ratio we can just use the target
+            const ratio = (fastInvSqrt(currentScaleZSq) / fastInvSqrt(scaleXSq)) * thicknessScale;
+            matrixArray[offset + 8] *= ratio;
+            matrixArray[offset + 9] *= ratio;
+            matrixArray[offset + 10] *= ratio;
+        }
+
         this.mesh!.instanceMatrix.needsUpdate = true;
     }
 }

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import {
     color, float, vec3, vec4, attribute, positionLocal, positionWorld,
@@ -9,7 +10,7 @@ import {
 const instanceColor = varyingProperty('vec3', 'vInstanceColor');
 import {
     sharedGeometries, foliageMaterials, uTime,
-    uAudioLow, uAudioHigh, createRimLight, createJuicyRimLight, calculateWindSway, applyPlayerInteraction,
+    uAudioLow, uAudioHigh, createRimLight, createJuicyRimLight, calculateWindSway, applyPlayerInteraction, applyStandardDeformation,
     createStandardNodeMaterial, createUnifiedMaterial
 } from './index.ts';
 import { foliageGroup } from '../world/state.ts';
@@ -17,8 +18,9 @@ import { getTorusGeometry, getConeGeometry } from '../utils/geometry-dedup.ts';
 import { CONFIG } from '../core/config.ts';
 import { uTwilight } from './sky.ts';
 import { BiomeUniforms } from '../systems/biome-uniforms.ts';
+import { getCIAdjustedCount } from '../core/config.ts';
 
-const MAX_LANTERNS = 250; // Reduced from 1000 for WebGPU uniform buffer limits
+const MAX_LANTERNS = getCIAdjustedCount(250, 0.2, 50); // Reduced from 1000 for WebGPU uniform buffer limits
 
 // ⚡ OPTIMIZATION: Module scoped scratch variables to avoid GC spikes
 const _scratchMatrixBatch = new THREE.Matrix4();
@@ -102,10 +104,7 @@ export class LanternBatcher {
 
         // Apply Sway (Scaled by height factor so bottom is fixed)
         // We use positionLocal.y (0 to 1) as factor
-        const sway = calculateWindSway(scaledPos);
-        const push = applyPlayerInteraction(scaledPos);
-
-        mat.positionNode = scaledPos.add(sway).add(push);
+        mat.positionNode = applyStandardDeformation(scaledPos);
 
         // Mesh
         this.stemMesh = new THREE.InstancedMesh(geometry, mat, MAX_LANTERNS);
@@ -166,10 +165,8 @@ export class LanternBatcher {
 
         // Apply global wind sway (tip of stem)
         const stemTipPos = vec3(0, height, 0);
-        const tipSway = calculateWindSway(stemTipPos);
-        const tipPush = applyPlayerInteraction(stemTipPos);
-
-        const finalPos = offsetPos.add(tipSway).add(tipPush).add(swingOffset);
+        const tipDeform = applyStandardDeformation(stemTipPos).sub(stemTipPos);
+        const finalPos = offsetPos.add(tipDeform).add(swingOffset);
 
         // Apply to both materials
         darkMat.positionNode = finalPos;
@@ -359,6 +356,18 @@ export class LanternBatcher {
         this.stemParams!.needsUpdate = true;
         this.topParams!.needsUpdate = true;
         if (this.topMesh!.instanceColor) this.topMesh!.instanceColor.needsUpdate = true;
+    }
+
+    dispose(): void {
+        const meshes = [
+            this.stemMesh,
+            this.topMesh
+        ];
+        meshes.forEach(mesh => {
+            if (mesh && mesh.parent) {
+                safeRemoveAndDispose(mesh.parent, mesh);
+            }
+        });
     }
 }
 

@@ -27,9 +27,11 @@ import {
     createRetriggerMushroom,
     createCaveEntrance,
     createLuminousPlant,
+    createGlassMushroom,
     createVineLadder,
 } from '../foliage/index.ts';
 import { createWisteriaCluster } from '../foliage/wisteria-cluster.ts';
+import { createGemCanopyTree } from '../foliage/gem-canopy-tree.ts';
 import { subwooferLotusBatcher } from '../foliage/subwoofer-lotus-batcher.ts';
 import { kickDrumGeyserBatcher } from '../foliage/kick-drum-geyser-batcher.ts';
 
@@ -151,10 +153,17 @@ export function registerBuiltinWorldObjectTypes(): void {
         scale: typeof params?.scale === 'number' ? params.scale : 1.0
     }), { defaultIsObstacle: true, defaultRadius: 1.0, supportsMusic: true });
     registerType('bubble_willow', () => createBubbleWillow(), { defaultIsObstacle: true, defaultRadius: 1.5 });
+    registerType('gem_canopy_tree', (params) => createGemCanopyTree({
+        height: typeof params?.height === 'number' ? params.height : 4.5,
+        gems: params?.gems !== false,
+    }), { defaultIsObstacle: true, defaultRadius: 1.5, supportsMusic: true, batcherHint: 'gem_canopy' });
     registerType('helix_plant', () => createHelixPlant(), { defaultIsObstacle: true, defaultRadius: 1.5 });
     registerType('balloon_bush', () => createBalloonBush(), { defaultIsObstacle: true, defaultRadius: 1.5 });
     registerType('wisteria_cluster', () => createWisteriaCluster(), { supportsMusic: true, batcherHint: 'musical_flora' });
     registerType('luminous_plant', () => createLuminousPlant(), { supportsMusic: true, batcherHint: 'luminous' });
+    registerType('glass_mushroom', (params) => createGlassMushroom({
+        scale: typeof params?.scale === 'number' ? params.scale : 1.0,
+    }), { defaultIsObstacle: true, defaultRadius: 0.6, supportsMusic: true, batcherHint: 'glass_mushroom' });
     registerType('melody_mirror', (params) => createMelodyMirror({ scale: typeof params?.scale === 'number' ? params.scale : 1.0 }), { supportsMusic: true });
     registerType('cave', (params) => createCaveEntrance({ scale: typeof params?.scale === 'number' ? params.scale : 2.0 }));
 }

@@ -11,6 +11,7 @@ import {
     SaveSlotInfo
 } from '../../systems/save-system/index.js';
 import { showToast } from '../../utils/toast.ts';
+import { yieldToPaint } from '../../utils/yield-to-paint.ts';
 import type { SaveMenu } from './save-menu.js';
 
 /**
@@ -86,7 +87,7 @@ export function renderLoadTab(
     
     if (manualSlots.length === 0 && autoSlots.length === 0) {
         return `
-            <div class="candy-empty-state">
+            <div class="candy-empty-state" role="status" aria-live="polite">
                 <div class="candy-empty-state__icon" aria-hidden="true">📝</div>
                 <div class="candy-empty-state__text">No memories found yet. Embark on a journey to save your progress!</div>
                 ${currentMode === 'full' ? `
@@ -179,6 +180,7 @@ export async function handleSlotAction(
         };
 
         try {
+            await yieldToPaint();
             switch (action) {
                 case 'load':
                     await loadSave(slotId, onLoadCallback, menu);

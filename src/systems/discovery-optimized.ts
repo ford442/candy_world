@@ -431,14 +431,18 @@ export class OptimizedDiscoverySystem {
      * @param serverDiscoveries - Array of discoveries from server
      */
     syncWithServer(serverDiscoveries: Array<{ id: string; timestamp: number }>): void {
-        const formatted = serverDiscoveries.map(d => ({
+        const formatted: any[] = [];
+        for (let i = 0; i < serverDiscoveries.length; i++) {
+            const d = serverDiscoveries[i];
+            formatted.push({
             id: d.id,
             timestamp: d.timestamp,
             metadata: DISCOVERY_MAP[d.id] ? {
                 displayName: DISCOVERY_MAP[d.id].name,
                 icon: DISCOVERY_MAP[d.id].icon
             } : undefined
-        }));
+        });
+        }
 
         discoveryPersistence.mergeWithServer(formatted);
         

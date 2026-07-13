@@ -94,7 +94,8 @@ export const MENU_STYLES = `
     transform: rotate(90deg);
 }
 
-.candy-save-menu__close:active {
+.candy-save-menu__close:active,
+.candy-save-menu__close.keyboard-active {
     transform: rotate(90deg) scale(0.95);
     transition-duration: 0.05s;
 }
@@ -130,7 +131,8 @@ export const MENU_STYLES = `
     color: #fff;
 }
 
-.candy-save-menu__tab:active {
+.candy-save-menu__tab:active,
+.candy-save-menu__tab.keyboard-active {
     transform: scale(0.95);
     transition-duration: 0.05s;
 }
@@ -182,7 +184,8 @@ export const MENU_STYLES = `
     transform: translateY(-2px);
 }
 
-.candy-save-slot:active {
+.candy-save-slot:active,
+.candy-save-slot.keyboard-active {
     transform: translateY(0) scale(0.98);
     filter: brightness(0.95);
     transition-duration: 0.05s;
@@ -268,7 +271,8 @@ export const MENU_STYLES = `
     transform: scale(1.05);
 }
 
-.candy-save-slot__btn:active {
+.candy-save-slot__btn:active,
+.candy-save-slot__btn.keyboard-active {
     transform: scale(0.95);
     transition-duration: 0.05s;
 }
@@ -343,7 +347,8 @@ export const MENU_STYLES = `
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
 }
 
-.candy-save-menu__btn:active {
+.candy-save-menu__btn:active,
+.candy-save-menu__btn.keyboard-active {
     transform: translateY(0) scale(0.95);
     transition-duration: 0.05s;
 }
@@ -498,7 +503,8 @@ export const MENU_STYLES = `
     background: rgba(255, 105, 180, 0.1);
 }
 
-.candy-keybind:active {
+.candy-keybind:active,
+.candy-keybind.keyboard-active {
     transform: scale(0.95);
     transition-duration: 0.05s;
 }
@@ -575,7 +581,8 @@ export const MENU_STYLES = `
     background: rgba(255, 255, 255, 0.2);
 }
 
-.candy-file-label:active {
+.candy-file-label:active,
+.candy-file-label.keyboard-active {
     transform: scale(0.95);
     transition-duration: 0.05s;
 }
