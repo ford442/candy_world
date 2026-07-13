@@ -23,6 +23,7 @@ export {
     uAudioLow,
     uAudioHigh,
     uPlayerPosition,
+    uPlayerVelocity,
     // Utility functions
     median,
     generateNoiseTexture,
@@ -38,6 +39,7 @@ export {
     // Player interaction
     calculatePlayerPush,
     applyPlayerInteraction,
+    applyStandardDeformation,
     // Wind and bloom
     calculateWindSway,
     calculateWindSwayLegacy,

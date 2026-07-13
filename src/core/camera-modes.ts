@@ -7,12 +7,14 @@
 import * as THREE from 'three';
 import type { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js';
 import type { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { getGroundHeight } from '../utils/wasm-loader.ts';
-import { getUnifiedGroundHeightTyped } from '../systems/physics.core.ts';
-import { player, PLAYER_HEIGHT_OFFSET } from '../systems/physics/index.ts';
+import { getGroundHeight } from '../systems/ground-system.ts';
+import { player } from '../systems/physics/index.ts';
+import { CONFIG } from './config.ts';
 import { announcePolite } from '../ui/announcer.ts';
 
 export const EXPLORE_STORAGE_KEY = 'candy.exploreMode';
+
+const TRANSITION_DURATION = 0.5; // seconds for orbit → first-person transition
 
 export type ExploreVariant = 'off' | 'orbit' | 'hybrid';
 
@@ -60,8 +62,8 @@ export function isExploreActive(): boolean {
 }
 
 export function snapCameraToGround(camera: THREE.PerspectiveCamera): THREE.Vector3 {
-    const groundY = getUnifiedGroundHeightTyped(camera.position.x, camera.position.z, getGroundHeight);
-    const eyeY = groundY + PLAYER_HEIGHT_OFFSET;
+    const groundY = getGroundHeight(camera.position.x, camera.position.z);
+    const eyeY = groundY + CONFIG.player.eyeHeight;
     player.position.set(camera.position.x, eyeY, camera.position.z);
     player.velocity.set(0, 0, 0);
     camera.position.set(camera.position.x, eyeY, camera.position.z);

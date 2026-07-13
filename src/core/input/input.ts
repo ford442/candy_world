@@ -169,6 +169,66 @@ export function initInput(
         }
     }
 
+    // ♿ Aria: Map HUD Ability Slots to game inputs
+    const abilitySlots = document.querySelectorAll('.ability-slot[role="button"]');
+    abilitySlots.forEach(slot => {
+        const actionKey = slot.getAttribute('aria-keyshortcuts');
+        if (!actionKey) return;
+
+        // Pointer / touch support (hold)
+        slot.addEventListener('pointerdown', (e) => {
+            const ev = e as PointerEvent;
+            if (ev.button !== 0) return; // Only left click / primary touch
+            const keyEvent = new KeyboardEvent('keydown', { key: actionKey, code: `Key${actionKey.toUpperCase()}`, bubbles: true });
+            document.dispatchEvent(keyEvent);
+            slot.classList.add('keyboard-active');
+        });
+
+        slot.addEventListener('pointerup', () => {
+            const keyEvent = new KeyboardEvent('keyup', { key: actionKey, code: `Key${actionKey.toUpperCase()}`, bubbles: true });
+            document.dispatchEvent(keyEvent);
+            slot.classList.remove('keyboard-active');
+        });
+
+        slot.addEventListener('pointercancel', () => {
+            const keyEvent = new KeyboardEvent('keyup', { key: actionKey, code: `Key${actionKey.toUpperCase()}`, bubbles: true });
+            document.dispatchEvent(keyEvent);
+            slot.classList.remove('keyboard-active');
+        });
+
+        slot.addEventListener('pointerout', () => {
+             // In case pointer leaves element while held
+             if(slot.classList.contains('keyboard-active')) {
+                 const keyEvent = new KeyboardEvent('keyup', { key: actionKey, code: `Key${actionKey.toUpperCase()}`, bubbles: true });
+                 document.dispatchEvent(keyEvent);
+                 slot.classList.remove('keyboard-active');
+             }
+        });
+
+        // Keyboard (Enter/Space)
+        slot.addEventListener('keydown', (e) => {
+            const ev = e as KeyboardEvent;
+            if (ev.key === 'Enter' || ev.key === ' ') {
+                ev.preventDefault();
+                const keyEvent = new KeyboardEvent('keydown', { key: actionKey, code: `Key${actionKey.toUpperCase()}`, bubbles: true });
+                document.dispatchEvent(keyEvent);
+                slot.classList.add('keyboard-active');
+            }
+        });
+
+        slot.addEventListener('keyup', (e) => {
+            const ev = e as KeyboardEvent;
+            if (ev.key === 'Enter' || ev.key === ' ') {
+                const keyEvent = new KeyboardEvent('keyup', { key: actionKey, code: `Key${actionKey.toUpperCase()}`, bubbles: true });
+                document.dispatchEvent(keyEvent);
+                slot.classList.remove('keyboard-active');
+            }
+        });
+
+        // Prevent context menu on long-press/touch
+        slot.addEventListener('contextmenu', (e) => e.preventDefault());
+    });
+
     // Initialize sub-modules
     initPlaylistManager(audioSystem, controls, instructions);
     initAudioControls(audioSystem);
@@ -660,6 +720,7 @@ export function initInput(
     document.addEventListener('mouseup', onMouseUp);
 
     // --- UX: Keyboard Interactions for HUD Abilities ---
+    // ♿ Aria: Support pointer hold for ability buttons
     function setupAbilityKeyboardInteractions(element: HTMLElement | null, keyCode: string) {
         if (!element) return;
 
@@ -675,6 +736,29 @@ export function initInput(
                 e.preventDefault();
                 onKeyUp(new KeyboardEvent('keyup', { code: keyCode }));
             }
+        });
+
+        element.addEventListener('pointerdown', (e: PointerEvent) => {
+            e.preventDefault();
+            e.stopPropagation();
+            element.setPointerCapture(e.pointerId);
+            onKeyDown(new KeyboardEvent('keydown', { code: keyCode }));
+        });
+
+        element.addEventListener('pointerup', (e: PointerEvent) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onKeyUp(new KeyboardEvent('keyup', { code: keyCode }));
+        });
+
+        element.addEventListener('pointercancel', (e: PointerEvent) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onKeyUp(new KeyboardEvent('keyup', { code: keyCode }));
+        });
+
+        element.addEventListener('contextmenu', (e: MouseEvent) => {
+            e.preventDefault();
         });
 
         element.addEventListener('blur', () => {

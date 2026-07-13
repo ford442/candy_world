@@ -242,7 +242,7 @@ class JitterMineSystem {
 
         const mine = this.mines[index];
         mine.active = true;
-        mine.visible = true;
+        if (mine) mine.visible = true;
         mine.position.copy(position);
         mine.time = 0;
 
@@ -312,7 +312,7 @@ class JitterMineSystem {
         if (!mine.active) return;
 
         mine.active = false;
-        mine.visible = false;
+        if (mine) mine.visible = false;
 
         // Hide on GPU
         const stateArray = this.stateBuffer.array as Float32Array;

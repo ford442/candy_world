@@ -217,7 +217,10 @@ export class SaveDatabase {
             const request = store.getAll();
 
             request.onsuccess = () => {
-                const slots: SaveSlotInfo[] = request.result.map((item: any) => ({
+                const slots: SaveSlotInfo[] = [];
+                for (let i = 0; i < request.result.length; i++) {
+                    const item = request.result[i];
+                    slots.push({
                     slotId: item.slotId,
                     slotName: item.data?.metadata?.slotName || item.slotId,
                     exists: true,
@@ -225,7 +228,8 @@ export class SaveDatabase {
                     playtime: item.data?.metadata?.playtime || 0,
                     isAutoSave: item.isAutoSave,
                     thumbnail: item.data?.metadata?.thumbnail
-                }));
+                });
+                }
                 resolve(slots);
             };
             request.onerror = () => reject(request.error);

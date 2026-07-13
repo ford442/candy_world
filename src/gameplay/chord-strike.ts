@@ -61,7 +61,7 @@ export class ChordStrikeSystem {
         material.positionNode = positionLocal.add(normalLocal.mul(ripple.mul(float(2.0))));
 
         this.mesh = new THREE.Mesh(geometry, material);
-        this.mesh.visible = false;
+        if (this.mesh) this.mesh.visible = false;
         this.mesh.frustumCulled = false;
     }
 
@@ -87,7 +87,7 @@ export class ChordStrikeSystem {
         this.position.z -= 5.0;
 
         this.mesh.position.copy(this.position);
-        this.mesh.visible = true;
+        if (this.mesh) this.mesh.visible = true;
         this.mesh.scale.set(0.1, 1, 0.1);
 
         showToast("CHORD STRIKE!! 🎶💥", "⚡");
@@ -106,7 +106,7 @@ export class ChordStrikeSystem {
 
         if (this.duration <= 0) {
             this.active = false;
-            this.mesh.visible = false;
+            if (this.mesh) this.mesh.visible = false;
             return;
         }
 

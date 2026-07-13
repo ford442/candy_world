@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { PointsNodeMaterial } from 'three/webgpu';
 import {
@@ -9,6 +10,7 @@ import {
     calculateFlowerBloom,
     calculateWindSway,
     applyPlayerInteraction,
+    applyStandardDeformation,
     createJuicyRimLight,
     uTime,
     uAudioHigh,
@@ -132,8 +134,7 @@ export class SimpleFlowerBatcher {
 
         // Petal: Velvet with Instance Color + Bloom + Wind + Push
         const posBloom = calculateFlowerBloom(positionLocal);
-        const posWind = posBloom.add(calculateWindSway(posBloom));
-        const posFinal = applyPlayerInteraction(posWind);
+        const posFinal = applyStandardDeformation(posBloom);
 
         // PALETTE: Enhance Petal Material with "Juice"
         const petalMat = CandyPresets.Velvet(0xFFFFFF, {
@@ -462,6 +463,22 @@ export class SimpleFlowerBatcher {
             // Yes, unless we set drawRange.
             this.pollenPoints.geometry.setDrawRange(0, this.count * GRAINS_PER_FLOWER);
         }
+    }
+
+    dispose(): void {
+        const meshes = [
+            this.stemMesh,
+            this.petalMesh,
+            this.centerMesh,
+            this.stamenMesh,
+            this.beamMesh,
+            this.pollenPoints
+        ];
+        meshes.forEach(mesh => {
+            if (mesh && mesh.parent) {
+                safeRemoveAndDispose(mesh.parent, mesh);
+            }
+        });
     }
 }
 

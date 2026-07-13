@@ -86,6 +86,8 @@ export interface CandyMapEntity {
     id?: string;
     type: string;
     position: Vec3;
+    /** Stable ID for awakened-persistence (overrides position-hash when set) */
+    persistentId?: string;
     rotation?: number | Vec3 | Quat | MapRotation;
     scale?: MapScale;
     variant?: string;

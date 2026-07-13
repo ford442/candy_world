@@ -7,8 +7,9 @@
  */
 
 import * as THREE from 'three';
-import { ComputeParticleSystem, createComputeFireflies, createComputePollen, createComputeSparks, createComputeBerries, createComputeRain } from './compute-particles.ts';
+import { ComputeParticleSystem, createComputeFireflies, createComputePollen, createComputeSparks, createComputeBerries, createComputeRain, createComputeGemSparks, addComputeSystem } from './compute-particles.ts';
 import type { ParticleAudioData } from './compute-particles.ts';
+import { getCIAdjustedCount } from '../core/config.ts';
 import { createFireflies as createLegacyFireflies } from '../foliage/fireflies.ts';
 import { createNeonPollen as createLegacyPollen } from '../foliage/pollen.ts';
 
@@ -403,6 +404,54 @@ export function createIntegratedBerries(options: IntegratedBerriesOptions = {}):
     return legacyGroup;
 }
 
+export interface IntegratedGemSparksOptions {
+    count?: number;
+    bounds?: { x: number; y: number; z: number };
+    center?: THREE.Vector3;
+    useCompute?: boolean;
+}
+
+/**
+ * Gem Canopy corridor sparkle field — noise-driven dust motes that twinkle to
+ * gem_canopy music bindings. Reuses ComputeParticleSystem (GPU + CPU fallback).
+ */
+export function createIntegratedGemSparks(options: IntegratedGemSparksOptions = {}): THREE.Object3D {
+    const {
+        count = getCIAdjustedCount(512, 0.1, 80),
+        bounds = { x: 40, y: 14, z: 18 },
+        center = new THREE.Vector3(0, 6, 0),
+        useCompute = true,
+    } = options;
+
+    const ciScale = PARTICLE_QUALITY === 'ci' ? 0.01 : 1.0;
+
+    if (PARTICLE_QUALITY === 'ci') return new THREE.Group();
+
+    if (!useCompute) return new THREE.Group();
+
+    try {
+        const computeCount = Math.max(Math.floor(count * ciScale), 50);
+        const system = createComputeGemSparks({ count: computeCount, bounds, center });
+
+        system.mesh.userData.computeParticleSystem = system;
+        addComputeSystem('gem_sparks', system);
+
+        metrics.set('gem_sparks', {
+            particleCount: computeCount,
+            frameTime: 0,
+            gpuTime: 0,
+            cpuFallback: !system.mesh.userData.isCPUParticles,
+        });
+
+        console.log(`[Particles] Gem Sparks: ${computeCount.toLocaleString()} motes`);
+
+        return system.mesh;
+    } catch (error) {
+        console.warn('[Particles] Gem sparks failed to initialize:', error);
+        return new THREE.Group();
+    }
+}
+
 
 /**
  * Creates an integrated rain system.
@@ -506,7 +555,8 @@ export function updateAllIntegratedSystems(
     playerPosition: THREE.Vector3,
     audioData: ParticleAudioData
 ): void {
-    for (const [id, system] of activeSystems) {
+    // ⚡ OPTIMIZATION: Swapped Map entry destructuring to .values() to eliminate array allocation and GC spikes in hot update loop.
+    for (const system of activeSystems.values()) {
         system.update(renderer, deltaTime, playerPosition, audioData);
     }
 }
@@ -523,7 +573,8 @@ export function disposeIntegratedSystem(id: string): void {
 }
 
 export function disposeAllIntegratedSystems(): void {
-    for (const [id] of activeSystems) {
+    // ⚡ OPTIMIZATION: Swapped Map entry destructuring to .keys() to eliminate array allocation and GC spikes during cleanup.
+    for (const id of activeSystems.keys()) {
         disposeIntegratedSystem(id);
     }
 }
@@ -534,7 +585,7 @@ export function disposeAllIntegratedSystems(): void {
 
 interface DeferredSystemConfig {
     id: string;
-    type: 'fireflies' | 'pollen' | 'rain' | 'sparks' | 'berries';
+    type: 'fireflies' | 'pollen' | 'rain' | 'sparks' | 'berries' | 'gem_sparks';
     options: any;
     priority: number;  // Lower = load first
 }
@@ -577,6 +628,10 @@ export async function loadDeferredSystems(
                     break;
                 case 'berries':
                     mesh = createIntegratedBerries(config.options);
+                    system = (mesh as any).userData?.computeParticleSystem;
+                    break;
+                case 'gem_sparks':
+                    mesh = createIntegratedGemSparks(config.options);
                     system = (mesh as any).userData?.computeParticleSystem;
                     break;
                 default:
@@ -735,5 +790,6 @@ export {
     createComputePollen,
     createComputeSparks,
     createComputeBerries,
+    createComputeGemSparks,
     type ParticleAudioData
 } from './compute-particles.ts';

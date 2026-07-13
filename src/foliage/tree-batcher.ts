@@ -120,7 +120,7 @@ export class TreeBatcher {
             roughness: 0.8,
             bumpStrength: 0.2, // Bark texture
             rimStrength: 0.3,  // Subtle separation
-            deformationNode: applyPlayerInteraction(trunkDeform), // 🎨 PALETTE: Add player interaction
+            deformationNode: trunkDeform, // 🏗️ ARCHITECT: Removed double-application of player interaction
             triplanar: true    // Avoid UV seams on cylinder
         });
 
@@ -191,15 +191,13 @@ export class TreeBatcher {
             roughness: 0.4,
             transmission: 0.3, // Semi-opaque
             thickness: 1.0,
-            deformationNode: applyPlayerInteraction(sphereFinalDeform), // 🎨 PALETTE: Add player interaction
+            deformationNode: sphereFinalDeform, // 🏗️ ARCHITECT: Removed double-application of player interaction
             rimStrength: 0.6, // Strong rim for pop
             audioReactStrength: 0.5 // Inner glow pulse
         });
 
         // 🎨 PALETTE: Make tree leaves pop with sparkly glow, base audio emissive, and twilight glow
-        sphereMat.emissiveNode = scaleEmissiveByLod(
-            sphereEmissive.mul(BiomeUniforms.arpeggioGrove.noteColor).add(sugarSparkle).add(twilightGlowTint).add(createJuicyRimLight(color(0xFFFFFF), float(1.5), float(3.0), null))
-        );
+        sphereMat.emissiveNode = sphereEmissive.mul(BiomeUniforms.arpeggioGrove.noteColor).add(sugarSparkle).add(twilightGlowTint).add(createJuicyRimLight(color(0xFFFFFF), float(1.5), float(3.0), null));
 
         this.spheres = new THREE.InstancedMesh(sharedGeometries.unitSphere, sphereMat, this.sphereCapacity);
         this.spheres.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(this.sphereCapacity * 3), 3);
@@ -221,7 +219,7 @@ export class TreeBatcher {
         const capsuleMat = CandyPresets.Clay(0x8B4513, {
             colorNode: capsuleColor,
             roughness: 0.7,
-            deformationNode: applyPlayerInteraction(capsuleDeform), // 🎨 PALETTE: Add player interaction
+            deformationNode: capsuleDeform, // 🏗️ ARCHITECT: Removed double-application of player interaction
             rimStrength: 0.4
         });
 
@@ -259,7 +257,7 @@ export class TreeBatcher {
         const helixMat = CandyPresets.Gummy(0x00FA9A, {
             colorNode: helixColor,
             roughness: 0.2,
-            deformationNode: applyPlayerInteraction(helixDeform), // 🎨 PALETTE: Add player interaction
+            deformationNode: helixDeform, // 🏗️ ARCHITECT: Removed double-application of player interaction
             emissive: 0xFFFFFF,
             emissiveIntensity: pulse.mul(0.5).add(audioBoost), // Dynamic glow
             rimStrength: 0.8
@@ -292,7 +290,7 @@ export class TreeBatcher {
         const roseMat = CandyPresets.Sugar(0xFF69B4, {
             colorNode: roseColor,
             roughness: 0.4,
-            deformationNode: applyPlayerInteraction(roseDeform), // 🎨 PALETTE: Add player interaction
+            deformationNode: roseDeform, // 🏗️ ARCHITECT: Removed double-application of player interaction
             sheen: 1.0,
             audioReactStrength: 0.8 // Strong glow response
         });
@@ -714,10 +712,10 @@ export class TreeBatcher {
 
                 if (mesh.geometry.type === 'CylinderGeometry') {
                      this.addInstance(this.trunks, _scratchTreeMatrix, col, 'trunkCount', animType, animOffset);
-                     mesh.visible = false;
+                     if (mesh) if (mesh) mesh.visible = false;
                 } else if (mesh.geometry.type === 'CapsuleGeometry') {
                      this.addInstance(this.capsules, _scratchTreeMatrix, col, 'capsuleCount', animType, animOffset);
-                     mesh.visible = false;
+                     if (mesh) if (mesh) mesh.visible = false;
                 }
             }
         }
@@ -736,7 +734,7 @@ export class TreeBatcher {
 
                 if (mesh.geometry.type === 'SphereGeometry') {
                     this.addInstance(this.spheres, _scratchTreeMatrix, col, 'sphereCount', animType, animOffset);
-                    mesh.visible = false;
+                    if (mesh) if (mesh) mesh.visible = false;
                 }
             }
         }
@@ -755,10 +753,10 @@ export class TreeBatcher {
 
                 if (mesh.geometry.type === 'TubeGeometry') {
                     this.addInstance(this.helices, _scratchTreeMatrix, col, 'helixCount', animType, animOffset);
-                    mesh.visible = false;
+                    if (mesh) if (mesh) mesh.visible = false;
                 } else if (mesh.geometry.type === 'SphereGeometry') {
                     this.addInstance(this.spheres, _scratchTreeMatrix, col, 'sphereCount', animType, animOffset);
-                    mesh.visible = false;
+                    if (mesh) if (mesh) mesh.visible = false;
                 }
             }
         }
@@ -782,7 +780,7 @@ export class TreeBatcher {
                 } else if (mesh.geometry.type === 'TorusKnotGeometry') {
                     this.addInstance(this.roses, _scratchTreeMatrix, col, 'roseCount', animType, animOffset);
                 }
-                mesh.visible = false;
+                if (mesh) if (mesh) mesh.visible = false;
             }
         }
     }

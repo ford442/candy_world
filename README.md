@@ -66,8 +66,9 @@ npm run preview
 ### Requirements
 
 - Node.js 16+ and npm
-- A modern browser with WebGPU support (Chrome 113+, Edge 113+, or other browsers with WebGPU enabled)
-- **WebGL2 fallback**: any browser with WebGL2 — use `?renderer=webgl` when WebGPU is unavailable or for visual debugging
+- A modern browser with **WebGPU** (Chrome/Edge 113+, Firefox ≥141, Safari ≥26) or **WebGL2** for the fallback path
+- **`WebGPURenderer`** is default; use `?renderer=webgl` when WebGPU is unavailable or for visual debugging
+- **COOP/COEP**: dev/preview servers emit cross-origin isolation headers for `SharedArrayBuffer` / libopenmpt — check `window.crossOriginIsolated` if audio pthreads fail
 
 ## Controls
 
@@ -88,8 +89,8 @@ npm run preview
 
 ## Technical Details
 
-- Built with Three.js and WebGPU renderer (with opt-in WebGL2 fallback)
-- Modern WebGPU API for next-generation graphics
+- Built with Three.js ^0.171 (`three/webgpu` + `three/tsl`) and WebGPU-first rendering (opt-in WebGL2 fallback)
+- WebGPU in evergreen browsers; `WebGPURenderer` falls back to WebGL2 automatically when needed
 - Advanced materials:
   - MeshPhysicalMaterial with clearcoat for candy surfaces
   - MeshStandardMaterial for ground and other elements

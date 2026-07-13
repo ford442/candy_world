@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import {
     CandyPresets,
@@ -6,6 +7,7 @@ import {
     registerReactiveMaterial,
     calculateWindSway,
     applyPlayerInteraction,
+    applyStandardDeformation,
     createJuicyRimLight
 } from './index.ts';
 import {
@@ -14,6 +16,7 @@ import {
 import { BiomeId } from '../systems/biome-uniforms.ts';
 import { computeWaveDistSq } from '../systems/music-reactivity.ts';
 import { foliageGroup } from '../world/state.ts';
+import { computeWaveTimeSinceArrival } from '../systems/music-reactivity-core.ts';
 
 const MAX_GEYSERS = 500;
 
@@ -91,7 +94,7 @@ export class KickDrumGeyserBatcher {
         );
 
         // 🎨 PALETTE: Add wind sway and player interaction to the geyser plumes
-        plumeMat.positionNode = applyPlayerInteraction(plumePos.add(calculateWindSway(plumePos)));
+        plumeMat.positionNode = applyStandardDeformation(plumePos);
         plumeMat.colorNode = vec4(color(0xFF4500), float(0.8));
 
         this.plumeMesh = new THREE.InstancedMesh(plumeGeo, plumeMat, MAX_GEYSERS);
@@ -155,7 +158,7 @@ export class KickDrumGeyserBatcher {
             this._scratchPos.set(x, y, z);
 
             // Calculate distance-based wave timing
-            const waveTime = computeWaveTimeSinceArrival(activeWave, this._scratchPos);
+            const waveTime = computeWaveTimeSinceArrival(this._scratchPos, activeWave);
 
             // Simulate local kick intensity. If wave hasn't reached, it's 0.
             // If it reached recently, apply a sharp spike that decays.
@@ -207,31 +210,14 @@ export class KickDrumGeyserBatcher {
     }
 
     dispose() {
-        if (this.baseMesh) {
-            this.baseMesh.geometry.dispose();
-            if (Array.isArray(this.baseMesh.material)) {
-                this.baseMesh.material.forEach(m => m.dispose());
-            } else {
-                this.baseMesh.material.dispose();
-            }
+        if (this.baseMesh && this.baseMesh.parent) {
+            safeRemoveAndDispose(this.baseMesh.parent, this.baseMesh);
         }
-
-        if (this.coreMesh) {
-            this.coreMesh.geometry.dispose();
-            if (Array.isArray(this.coreMesh.material)) {
-                this.coreMesh.material.forEach(m => m.dispose());
-            } else {
-                this.coreMesh.material.dispose();
-            }
+        if (this.coreMesh && this.coreMesh.parent) {
+            safeRemoveAndDispose(this.coreMesh.parent, this.coreMesh);
         }
-
-        if (this.plumeMesh) {
-            this.plumeMesh.geometry.dispose();
-            if (Array.isArray(this.plumeMesh.material)) {
-                this.plumeMesh.material.forEach(m => m.dispose());
-            } else {
-                this.plumeMesh.material.dispose();
-            }
+        if (this.plumeMesh && this.plumeMesh.parent) {
+            safeRemoveAndDispose(this.plumeMesh.parent, this.plumeMesh);
         }
     }
 }

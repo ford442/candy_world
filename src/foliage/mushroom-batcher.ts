@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { instanceIndex, color, float, vec3, vec4, attribute, positionLocal,
     sin, cos, mix, smoothstep, uniform, If, time,
@@ -18,10 +19,12 @@ import {
     uAudioLow, uAudioHigh, createRimLight, createJuicyRimLight, uPlayerPosition, colorFromNote,
     createSugarSparkle, getCachedProceduralMaterial
 } from './index.ts';
+import { getCachedProceduralMaterial } from './material-core.ts';
 import {
     applyPlayerInteractionWithLod,
     calculateWindSwayWithLod,
-    scaleEmissiveByLod
+    scaleEmissiveByLod,
+    applyStandardDeformationWithLod
 } from './lod-nodes.ts';
 import { initInstanceLodAttribute } from './batcher-lod-utils.ts';
 import { registerFoliageBatcherLod } from '../systems/batcher-lod.ts';
@@ -31,6 +34,7 @@ import { foliageGroup } from '../world/state.ts'; // Assuming state.ts exports f
 import { spawnImpact } from './impacts.ts';
 import { uChromaticIntensity } from './chromatic.ts';
 import { CONFIG, getCIAdjustedCount } from '../core/config.ts';
+import { fastInvSqrt } from '../utils/wasm-loader.ts';
 
 const MAX_MUSHROOMS = getCIAdjustedCount(1000, 0.1, 50); // Reduced from 4000 for WebGPU uniform buffer limits
 
@@ -546,11 +550,14 @@ export class MushroomBatcher {
         // --- Material Definitions ---
 
         // 0. Stem
+        const stemMat = getCachedProceduralMaterial('mushroom-batcher-stem', 0xFFFFFF, () => {
+            const mat = (foliageMaterials.mushroomStem as MeshStandardNodeMaterial).clone();
+            mat.positionNode = applyPlayerInteraction(deform(positionLocal));
+            return mat;
         const stemMat = getCachedProceduralMaterial('mushroom_stem_wind', 0xFFFFFF, () => {
             const m = (foliageMaterials.mushroomStem as MeshStandardNodeMaterial).clone();
             const defPos = deform(positionLocal);
-            const winded = defPos.add(calculateWindSwayWithLod(defPos));
-            m.positionNode = applyPlayerInteractionWithLod(winded);
+            m.positionNode = applyStandardDeformationWithLod(defPos);
             return m;
         }) as MeshStandardNodeMaterial;
 
@@ -561,64 +568,50 @@ export class MushroomBatcher {
         const capMat = getCachedProceduralMaterial('mushroom_cap_wind', 0xFFFFFF, () => {
             const m = capList[0].clone();
             const defPos = deform(positionLocal);
-            const winded = defPos.add(calculateWindSwayWithLod(defPos));
-            m.positionNode = applyPlayerInteractionWithLod(winded);
+            m.positionNode = applyStandardDeformationWithLod(defPos);
             return m;
         }) as MeshStandardNodeMaterial;
 
         // Base color from instance (set via register/setColorAt)
         // Uses the vInstanceColor varying populated by InstancedMeshNode
         const baseColor = varyingProperty('vec3', 'vInstanceColor');
-
-        // Add Juicy Rim Light! (Pop against background)
-        // 🎨 PALETTE: Make rim light react to bass for pulsing edge glow
         const audioRimThickness = float(3.0).add(uAudioLow.mul(2.0));
         const audioRimIntensity = float(1.5).add(uAudioLow.mul(1.0));
         const rimLight = createJuicyRimLight(baseColor, audioRimIntensity, audioRimThickness, null);
-
-        // Add Sugar Sparkle! (Palette Polish)
-        // Scale 15.0 for fine grain, Density 0.3 for sparse twinkle, Intensity 2.0
         const sugarSparkle = createSugarSparkle(normalWorld, float(15.0), float(0.3), float(2.0));
-
-        // --- PALETTE: Bioluminescent Inner Glow (Fake SSS) ---
-        // Simulates light scattering inside the gummy cap
         const viewDir = normalize(cameraPosition.sub(positionWorld));
-        const NdotV = dot(normalWorld, viewDir).abs(); // 1.0 at center, 0.0 at edge
-
-        // Glow is strongest at center (thickest looking part) and driven by High Freq Audio
-        // 🎨 PALETTE: Enhance High Freq glow response
-        const sssIntensity = uAudioHigh.mul(1.5).add(0.2); // Base glow + Audio boost
+        const NdotV = dot(normalWorld, viewDir).abs();
+        const sssIntensity = uAudioHigh.mul(1.5).add(0.2);
         const innerGlowFactor = NdotV.pow(2.0).mul(sssIntensity);
-
-        // Warm/Pink tint for the inner light
         const innerGlowColor = mix(baseColor, color(0xFFDDDD), 0.5).mul(innerGlowFactor);
-
-        // Final Color: Base + Rim + Inner Glow
-        capMat.colorNode = baseColor.add(rimLight).add(innerGlowColor);
-
-        // Emissive Logic for Cap (Bioluminescence + Flash)
         const flashIntensity = smoothstep(0.2, 0.0, noteAge).mul(velocity).mul(2.0);
-
-        // 🎨 PALETTE: Twilight Glow System Support
-        // Apply phase offset based on instance index to prevent unison pulsing
         const glowPhaseOffset = float(instanceIndex).mul(0.1);
         const glowPulseFreq = float(CONFIG.glow.glowPulseFrequency);
         const glowPulseAmp = float(CONFIG.glow.glowPulseAmplitude);
-
-        // Use a base idle pulse that responds to audio and time with the phase offset
         const idlePulse = sin(uTime.mul(glowPulseFreq).add(glowPhaseOffset)).mul(glowPulseAmp).add(1.0).mul(float(0.5)).mul(uAudioLow.mul(0.5));
-
-        // Get the specific twilight glow color from config and multiply by twilight window
         const targetGlowColor = color(CONFIG.glow.glowColorMap['mushroom']);
         const twilightGlowTint = targetGlowColor.mul(uTwilight).mul(float(CONFIG.glow.glowIntensityMax));
         const baseGlow = uTwilight.mul(float(0.5).add(idlePulse));
-
-        // Combine Glow + Flash + Sparkle
-        // Note: innerGlowColor is added to diffuse colorNode, so it responds to light but also self-illuminates if unlit?
-        // Actually, adding to colorNode makes it appear as surface color.
-        // To make it truly glow in dark, we should add some of it to emissive too?
-        // Yes, let's add a fraction of inner glow to emissive for night visibility.
         const totalGlow = baseGlow.add(flashIntensity).add(sugarSparkle).add(innerGlowFactor.mul(0.3));
+
+        const capMat = getCachedProceduralMaterial('mushroom-batcher-cap', 0xFFFFFF, () => {
+            const mat = capList[0].clone();
+            mat.positionNode = applyPlayerInteraction(deform(positionLocal));
+            mat.colorNode = baseColor.add(rimLight).add(innerGlowColor);
+            mat.emissiveNode = twilightGlowTint.mul(BiomeUniforms.crystallineNebula.noteColor).mul(totalGlow).mul(circadianGlowMult);
+            mat.emissiveIntensityNode = float(1.0);
+            return mat;
+        }) as MeshStandardNodeMaterial;
+
+        // 2. Gills
+        const gillMat = getCachedProceduralMaterial('mushroom-batcher-gills', 0xFFFFFF, () => {
+            const mat = (foliageMaterials.mushroomGills as MeshStandardNodeMaterial).clone();
+            mat.positionNode = applyPlayerInteraction(deform(positionLocal));
+            mat.emissiveIntensityNode = totalGlow.mul(0.3);
+            return mat;
+        }) as MeshStandardNodeMaterial;
+
+        // 3. Spots
 
         // Add twilight glow directly to emissive node output
         // Circadian night-glow: mushroom caps brighten at night (phase=0), dim by day (phase=1).
@@ -632,8 +625,7 @@ export class MushroomBatcher {
         const gillMat = getCachedProceduralMaterial('mushroom_gill_wind', 0xFFFFFF, () => {
             const m = (foliageMaterials.mushroomGills as MeshStandardNodeMaterial).clone();
             const defPos = deform(positionLocal);
-            const winded = defPos.add(calculateWindSwayWithLod(defPos));
-            m.positionNode = applyPlayerInteractionWithLod(winded);
+            m.positionNode = applyStandardDeformationWithLod(defPos);
             m.emissiveIntensityNode = totalGlow.mul(0.3);
             return m;
         }) as MeshStandardNodeMaterial;
@@ -642,13 +634,17 @@ export class MushroomBatcher {
         const spotMat = getCachedProceduralMaterial('mushroom_spot_wind', 0xFFFFFF, () => {
             const m = (foliageMaterials.mushroomSpots as MeshStandardNodeMaterial).clone();
             const defPos = deform(positionLocal);
-            const winded = defPos.add(calculateWindSwayWithLod(defPos));
-            m.positionNode = applyPlayerInteractionWithLod(winded);
+            m.positionNode = applyStandardDeformationWithLod(defPos);
             return m;
         }) as MeshStandardNodeMaterial;
         const spotPulse = sin(uTime.mul(3.0)).mul(0.1).add(0.3);
-        const spotAudio = uAudioHigh.mul(0.8); // 🎨 PALETTE: Make spots pop more on highs
-        spotMat.emissiveIntensityNode = flashIntensity.add(spotPulse).add(spotAudio);
+        const spotAudio = uAudioHigh.mul(0.8);
+        const spotMat = getCachedProceduralMaterial('mushroom-batcher-spots', 0xFFFFFF, () => {
+            const mat = (foliageMaterials.mushroomSpots as MeshStandardNodeMaterial).clone();
+            mat.positionNode = applyPlayerInteraction(deform(positionLocal));
+            mat.emissiveIntensityNode = flashIntensity.add(spotPulse).add(spotAudio);
+            return mat;
+        }) as MeshStandardNodeMaterial;
 
         // Face Hiding Logic
         // If hasFace < 0.5, scale vertices to 0
@@ -658,20 +654,32 @@ export class MushroomBatcher {
         };
 
         // 4. Eye
-        const eyeMat = (foliageMaterials.eye as MeshStandardNodeMaterial).clone();
-        eyeMat.positionNode = faceDeform(positionLocal);
+        const eyeMat = getCachedProceduralMaterial('mushroom-batcher-eye', 0xFFFFFF, () => {
+            const mat = (foliageMaterials.eye as MeshStandardNodeMaterial).clone();
+            mat.positionNode = faceDeform(positionLocal);
+            return mat;
+        }) as MeshStandardNodeMaterial;
 
         // 5. Pupil
-        const pupilMat = (foliageMaterials.pupil as MeshStandardNodeMaterial).clone();
-        pupilMat.positionNode = faceDeform(positionLocal);
+        const pupilMat = getCachedProceduralMaterial('mushroom-batcher-pupil', 0xFFFFFF, () => {
+            const mat = (foliageMaterials.pupil as MeshStandardNodeMaterial).clone();
+            mat.positionNode = faceDeform(positionLocal);
+            return mat;
+        }) as MeshStandardNodeMaterial;
 
         // 6. Mouth
-        const mouthMat = (foliageMaterials.clayMouth as MeshStandardNodeMaterial).clone();
-        mouthMat.positionNode = faceDeform(positionLocal);
+        const mouthMat = getCachedProceduralMaterial('mushroom-batcher-mouth', 0xFFFFFF, () => {
+            const mat = (foliageMaterials.clayMouth as MeshStandardNodeMaterial).clone();
+            mat.positionNode = faceDeform(positionLocal);
+            return mat;
+        }) as MeshStandardNodeMaterial;
 
         // 7. Cheek
-        const cheekMat = (foliageMaterials.mushroomCheek as MeshStandardNodeMaterial).clone();
-        cheekMat.positionNode = faceDeform(positionLocal);
+        const cheekMat = getCachedProceduralMaterial('mushroom-batcher-cheek', 0xFFFFFF, () => {
+            const mat = (foliageMaterials.mushroomCheek as MeshStandardNodeMaterial).clone();
+            mat.positionNode = faceDeform(positionLocal);
+            return mat;
+        }) as MeshStandardNodeMaterial;
 
         return [stemMat, capMat, gillMat, spotMat, eyeMat, pupilMat, mouthMat, cheekMat];
     }
@@ -851,7 +859,8 @@ export class MushroomBatcher {
 
                     // Extract scale Y (magnitude of the second column)
                     const m10 = matrixArray[matOffset + 4], m11 = matrixArray[matOffset + 5], m12 = matrixArray[matOffset + 6];
-                    const scaleY = Math.sqrt(m10 * m10 + m11 * m11 + m12 * m12);
+                    const scaleYSq = m10 * m10 + m11 * m11 + m12 * m12;
+                    const scaleY = scaleYSq > 0.000001 ? 1.0 / fastInvSqrt(scaleYSq) : 0;
 
                     if (this.mesh.instanceColor) {
                         const colorArray = this.mesh.instanceColor.array as Float32Array;
@@ -877,6 +886,12 @@ export class MushroomBatcher {
             if (typeof uChromaticIntensity !== 'undefined' && normalizedVelocity > 0.5) {
                 uChromaticIntensity.value = Math.max(uChromaticIntensity.value, normalizedVelocity * 0.3);
             }
+        }
+    }
+
+    dispose(): void {
+        if (this.mesh && this.mesh.parent) {
+            safeRemoveAndDispose(this.mesh.parent, this.mesh);
         }
     }
 }

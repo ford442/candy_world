@@ -207,6 +207,7 @@ async function runSmokeTest() {
     // so the particle systems know to scale down their buffer allocations early
     await page.addInitScript(() => {
       window.__IS_FULL_BOOT_TEST = true;
+      window.__IS_CI_TEST = true;
       localStorage.setItem('__IS_FULL_BOOT_TEST', 'true');
     });
 

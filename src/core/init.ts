@@ -1,8 +1,7 @@
 // src/core/init.ts
 
 import * as THREE from 'three';
-import { DisplayP3ColorSpace } from './three-compat.ts';
-import { color, uniform, uv, float, smoothstep } from 'three/tsl';
+import { color, uniform, uv, float, smoothstep, length } from 'three/tsl';
 import type UniformNode from 'three/src/nodes/core/UniformNode.js';
 import WebGPU from 'three/examples/jsm/capabilities/WebGPU.js';
 import { WebGPURenderer, MeshBasicNodeMaterial, StorageInstancedBufferAttribute, StorageBufferAttribute } from 'three/webgpu';
@@ -43,6 +42,7 @@ export interface SceneInitResult {
     sunGlowMat: THREE.MeshBasicMaterial;
     coronaMat: THREE.MeshBasicMaterial;
     uShaftOpacity: ReturnType<typeof uniform<number>>;
+    playerBlobShadow: THREE.Mesh;
 }
 
 /**
@@ -58,7 +58,7 @@ declare global {
 function createWebGLRenderer(canvas: HTMLCanvasElement): THREE.WebGLRenderer {
     const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
-    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.outputColorSpace = 'srgb';
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.0;
     return renderer;
@@ -158,7 +158,7 @@ export function initScene(): SceneInitResult {
         0.1, 
         2000
     );
-    camera.position.set(0, 5, 0);
+    camera.position.set(0, CONFIG.player.spawnEyeHeightY, 0);
 
     // WebGPU-specific fixes and configuration
     if (mode === 'webgpu') {
@@ -181,8 +181,7 @@ export function initScene(): SceneInitResult {
         if (supportsHDR) {
             console.log('[Init] HDR supported, configuring WebGPURenderer for extended dynamic range and Display P3.');
             try {
-                // Fallback to string literals since THREE.DisplayP3ColorSpace might not be available in this three.js version
-                webgpuRenderer.outputColorSpace = DisplayP3ColorSpace;
+                webgpuRenderer.outputColorSpace = 'display-p3';
             } catch (e) {
                 console.warn('[Init] Failed to set display-p3, falling back to srgb.');
                 webgpuRenderer.outputColorSpace = 'srgb';
@@ -200,6 +199,10 @@ export function initScene(): SceneInitResult {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5)); // Cap pixel ratio for better performance
     renderer.toneMappingExposure = 1.0;
 
+    // Shadow Map configuration
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
     // --- Lighting ---
     const ambientLight = new THREE.HemisphereLight(
         PALETTE.day.skyTop, 
@@ -215,7 +218,18 @@ export function initScene(): SceneInitResult {
     
     sunLight.shadow.mapSize.width = 1024;
     sunLight.shadow.mapSize.height = 1024;
+
+    const d = 40;
+    sunLight.shadow.camera.left = -d;
+    sunLight.shadow.camera.right = d;
+    sunLight.shadow.camera.top = d;
+    sunLight.shadow.camera.bottom = -d;
+    sunLight.shadow.camera.near = 0.5;
+    sunLight.shadow.camera.far = 150;
+    sunLight.shadow.bias = -0.0005;
+
     scene.add(sunLight);
+    scene.add(sunLight.target); // Needed for dynamically moving targets
 
     // Enhanced Sun Glow with dynamic corona effect
     const sunGlowMat = new THREE.MeshBasicMaterial({
@@ -304,6 +318,44 @@ export function initScene(): SceneInitResult {
     lightShaftGroup.visible = false; // Only visible during sunrise/sunset
     scene.add(lightShaftGroup);
 
+    // Player Blob Shadow (Contact Shadow)
+    const blobShadowGeo = new THREE.PlaneGeometry(3, 3);
+    blobShadowGeo.rotateX(-Math.PI / 2); // Lay flat
+
+    let blobShadowMat: THREE.Material;
+    if (mode === 'webgpu') {
+        blobShadowMat = new MeshBasicNodeMaterial({
+            transparent: true,
+            depthWrite: false,
+            color: 0x000000,
+        });
+        const dist = length(uv().sub(0.5));
+        const alpha = smoothstep(0.5, 0.0, dist);
+        (blobShadowMat as MeshBasicNodeMaterial).opacityNode = alpha.mul(0.6);
+    } else {
+        // Fallback for WebGL using a canvas gradient
+        const shadowCanvas = document.createElement('canvas');
+        shadowCanvas.width = 64;
+        shadowCanvas.height = 64;
+        const ctx = shadowCanvas.getContext('2d')!;
+        const gradient = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+        gradient.addColorStop(0, 'rgba(0, 0, 0, 0.6)');
+        gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, 64, 64);
+
+        const shadowTex = new THREE.CanvasTexture(shadowCanvas);
+        blobShadowMat = new THREE.MeshBasicMaterial({
+            transparent: true,
+            depthWrite: false,
+            map: shadowTex
+        });
+    }
+
+    const playerBlobShadow = new THREE.Mesh(blobShadowGeo, blobShadowMat);
+    // Y position will be dynamically updated in game-loop.ts
+    scene.add(playerBlobShadow);
+
     window.addEventListener('resize', () => {
         camera.aspect = window.innerWidth / window.innerHeight;
         camera.updateProjectionMatrix();
@@ -324,7 +376,8 @@ export function initScene(): SceneInitResult {
         lightShaftGroup,
         sunGlowMat,
         coronaMat,
-        uShaftOpacity
+        uShaftOpacity,
+        playerBlobShadow
     };
 }
 
@@ -401,7 +454,12 @@ export async function forceFullSceneWarmup(
     // 4. Restore
     renderer.setViewport(scissor.x, scissor.y, scissor.z, scissor.w);
     restoreList.forEach(o => o.frustumCulled = true);
-    visibleRestoreList.forEach(o => o.visible = true);
+    visibleRestoreList.forEach(o => {
+        if (o && typeof o.visible !== 'undefined') {
+            o.visible = true;
+        }
+    });
+    visibleRestoreList.length = 0; // prevent stale references
     camera.layers.mask = originalMask;
     camera.position.copy(originalPos);
     camera.rotation.copy(originalRot);

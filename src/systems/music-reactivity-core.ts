@@ -28,7 +28,7 @@ import {
 import { getMapMusicContext } from '../world/map-music-context.ts';
 import type { MapMusicOverrides } from '../world/map-loader.ts';
 
-
+const _WEATHER_KEYS: Array<'rainIntensity' | 'thunderPulse' | 'fogDensity'> = ['rainIntensity', 'thunderPulse', 'fogDensity'];
 
 
 
@@ -97,7 +97,7 @@ export const MRState = {
     } as any,
     skyWavePropagationMs: defaultSkyWavePropagationMs,
     skyWaveDecayMs: defaultSkyWaveDecayMs,
-    skyWaveTargets: defaultSkyWaveTargets as readonly string[],
+    skyWaveTargets: [...defaultSkyWaveTargets] as string[],
     activeWave: null as any,
     waveDecayStartTime: 0,
     channelValidationDone: false,
@@ -149,11 +149,15 @@ export function computeWaveTimeSinceArrival(plantWorldPos: THREE.Vector3, active
     if (!activeWave) return -999;
     const origin = activeWave.origin || cameraPosition || _zeroVec;
     const speed = activeWave.speed || 25.0;
-    // ⚡ OPTIMIZATION: Bypassed THREE.Vector3.distanceTo() overhead in hot loop with raw math
+    // ⚡ OPTIMIZATION: Bypassed THREE.Vector3.distanceTo() overhead in hot loop with raw math.
     const dx = plantWorldPos.x - origin.x;
     const dy = plantWorldPos.y - origin.y;
     const dz = plantWorldPos.z - origin.z;
+
+    // Reverted: Using Math.sqrt() because we actually need linear arrival distance for timing logic.
+    // The previous optimization attempt distorted wave propagation.
     const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
     const arrivalTime = activeWave.timestamp + (distance / speed) * 1000;
     return (performance.now() - arrivalTime) / 1000;
 }
@@ -208,7 +212,10 @@ export function applyMapMusicContext(overrides: MapMusicOverrides | undefined): 
     };
     MRState.skyWavePropagationMs = defaultSkyWavePropagationMs;
     MRState.skyWaveDecayMs = defaultSkyWaveDecayMs;
-    MRState.skyWaveTargets = defaultSkyWaveTargets;
+    MRState.skyWaveTargets.length = 0;
+    for (let i = 0; i < defaultSkyWaveTargets.length; i++) {
+        MRState.skyWaveTargets.push(defaultSkyWaveTargets[i]);
+    }
 
     const biomeOverrides = overrides?.biomes;
     if (biomeOverrides && typeof biomeOverrides === 'object') {
@@ -274,12 +281,24 @@ export function applyMapMusicContext(overrides: MapMusicOverrides | undefined): 
         MRState.skyWaveDecayMs = Math.max(100, overrides.skyWave.decayMs);
     }
     if (Array.isArray(overrides?.skyWave?.targetBiomes) && overrides.skyWave.targetBiomes.length > 0) {
-        const filteredTargets = overrides.skyWave.targetBiomes.filter((name: string) => typeof name === 'string');
-        if (filteredTargets.length > 0) MRState.skyWaveTargets = filteredTargets;
+        // ⚡ OPTIMIZATION: Replaced .filter() with manual loop + in-place mutation to eliminate array allocation in context syncs.
+        MRState.skyWaveTargets.length = 0;
+        for (let i = 0; i < overrides.skyWave.targetBiomes.length; i++) {
+            const name = overrides.skyWave.targetBiomes[i];
+            if (typeof name === 'string') {
+                MRState.skyWaveTargets.push(name);
+            }
+        }
+        // Fallback to default if empty
+        if (MRState.skyWaveTargets.length === 0) {
+            for (let i = 0; i < defaultSkyWaveTargets.length; i++) {
+                MRState.skyWaveTargets.push(defaultSkyWaveTargets[i]);
+            }
+        }
     }
     if (overrides?.weatherReactivity && typeof overrides.weatherReactivity === 'object') {
-        const keys: Array<'rainIntensity' | 'thunderPulse' | 'fogDensity'> = ['rainIntensity', 'thunderPulse', 'fogDensity'];
-        for (const key of keys) {
+        for (let i = 0; i < _WEATHER_KEYS.length; i++) {
+            const key = _WEATHER_KEYS[i];
             const current = MRState.weatherBindings[key];
             const override = overrides.weatherReactivity[key];
             if (!override || typeof override !== 'object') continue;

@@ -24,9 +24,9 @@ mycelium, floating clouds) with a strong bias toward **atmosphere over realism**
    palette is soft sky-blue → peachy horizon → pink fog.
 3. **Atmosphere > realism.** Soft pastels, rounded shapes, dreamy light. Gravity is
    intentionally floaty; god rays and bloom are features, not bugs.
-4. **Annotate aesthetic choices.** Tag tunable visual constants with a
-   `// Visual Impact:` comment so the next contributor knows what a value does
-   (`grep -rn "Visual Impact:" src/`).
+4. **Annotate aesthetic choices.** In foliage, tag tunables with `// PALETTE:`; in
+   systems/config use `// Visual Impact:` (`grep -rn "PALETTE:" src/foliage/`).
+   Full tag guide: [Material Cookbook](./docs/CANDY_MATERIAL_COOKBOOK.md).
 5. **60fps on mid-range.** Batch with InstancedMesh, reuse geometries/materials,
    zero allocations in the render loop (module-scope `_scratch*` only).
 
@@ -88,7 +88,7 @@ const cap = CandyPresets.Gummy(0xFF69B4); // translucent, inner glow, soft
 Presets: `Clay` (matte ground), `Sugar` (frosted), `Gummy` (translucent),
 `SeaJelly` (wet/wobbly), `Crystal` (refractive gem), `Velvet` (sheen), `OilSlick`
 (iridescent). Recipes, key uniforms, music hooks, and copy-paste TSL snippets:
-**[docs/CANDY_MATERIAL_COOKBOOK.md](./docs/CANDY_MATERIAL_COOKBOOK.md)**.
+**[docs/CANDY_MATERIAL_COOKBOOK.md](./docs/CANDY_MATERIAL_COOKBOOK.md)** (includes Foliage-Specific Patterns and Common Gotchas).
 
 ---
 
@@ -96,14 +96,15 @@ Presets: `Clay` (matte ground), `Sugar` (frosted), `Gummy` (translucent),
 
 ```bash
 npm install
-npm run dev          # http://localhost:5173 (WebGPU: Chrome/Edge 113+)
+npm run dev          # http://localhost:5173 (WebGPU; WebGL2 via ?renderer=webgl)
 npm run build        # full WASM + Emscripten + Vite build
 npm run test:wasm    # particle physics bounds (~2s)
 npm run test         # smoke / boot sequence (~2–3m)
 ```
 
 - [ ] Materials reuse a `CandyPresets.*` recipe (or document why not).
-- [ ] New visual tunables carry `// Visual Impact:` comments.
+- [ ] New visual tunables use the right comment tag (`PALETTE:` in foliage,
+      `Visual Impact:` in systems) — see cookbook.
 - [ ] No `new THREE.Vector3/Color` inside `animate()`/`update()` — scratch vars only.
 - [ ] Reactive content goes through a batcher + TSL (not legacy per-mesh callbacks).
 - [ ] Placement records via `recordSpawnAttempt(...)`; verify with
@@ -119,9 +120,13 @@ npm run test         # smoke / boot sequence (~2–3m)
 
 - [`AGENTS.md`](./AGENTS.md) — architecture, music-binding conventions, invariants (authoritative)
 - [`CLAUDE.md`](./CLAUDE.md) — commands, directory guide, patterns
-- [`docs/CANDY_MATERIAL_COOKBOOK.md`](./docs/CANDY_MATERIAL_COOKBOOK.md) — material recipes + reactive-plant tutorial
+- [`docs/CANDY_MATERIAL_COOKBOOK.md`](./docs/CANDY_MATERIAL_COOKBOOK.md) — material recipes, reactive-plant tutorial, Foliage-Specific Patterns, & Common Gotchas / Performance Notes
 - [`docs/webgl-fallback.md`](./docs/webgl-fallback.md) — WebGPU↔WebGL2 parity & porting
 - [`DEVELOPER_CONTEXT.md`](./DEVELOPER_CONTEXT.md) — complexity hotspots & "here be dragons"
 - [`SETUP_GUIDE.md`](./SETUP_GUIDE.md) — native module / Emscripten setup
 
 This world already feels magical — keep it documented so it stays effortless. 🍭✨
+
+### Player Ground Level and Alignment
+- All operations attempting to acquire or align to the ground height MUST query `getGroundHeight(x, z)` from `src/systems/ground-system.ts`.
+- Player camera/ground height adjustments should use `reconcileGroundedEyeY` inside `physics-updates.ts` to seamlessly update `player.position.y` when `player.isGrounded`.

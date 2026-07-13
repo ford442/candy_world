@@ -67,7 +67,7 @@ export function createHarpoonLine(): THREE.Mesh {
     );
 
     const mesh = new THREE.Mesh(geometry, material);
-    mesh.visible = false; // Hidden by default
+    if (mesh) mesh.visible = false; // Hidden by default
     mesh.castShadow = false;
     mesh.receiveShadow = false;
 
@@ -84,11 +84,11 @@ export function updateHarpoonLine(
     active: boolean
 ) {
     if (!active) {
-        line.visible = false;
+        if (line) line.visible = false;
         return;
     }
 
-    line.visible = true;
+    if (line) line.visible = true;
 
     // Calculate distance and midpoint
     // ⚡ OPTIMIZATION: Avoid .distanceTo() and .distanceToSquared() overhead
