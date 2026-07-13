@@ -1,6 +1,46 @@
 # candy_world — Weekly Plan
 
 ## Today's focus
+**2026-06-23 — USER IDEA: Gem Canopy — Hanging Faceted Crystal Fruits on Trees (#1170).**
+Last week was a landslide: #1169 Atmosphere Bridge landed (`atmosphere-reactivity.ts` + `atmosphere` block in
+music-bindings.json, audio→bloom/fog/shafts, WebGL parity — #1221), #1182 Awakened Flora Persistence v1 landed
+(#1232), #1173 TSL Volumetric God Rays + selective DoF landed (#1241, DoF math optimized #1244), and #1171
+Luminous Mycelium was verified (#1237). The atmospheric framing the Gem Canopy was *waiting on* — light shafts
+through hanging gems — now exists, so this is exactly the moment to ship the last unfinished signature scenic
+biome from the 2026-06-09 idea batch. **Gem Canopy is already ~80% built**: `src/foliage/gem-fruit-batcher.ts`
+(238 lines, `GemFruitBatcher` singleton + `dispose`), `src/foliage/gem-canopy-tree.ts` (`createGemCanopyTree`),
+registered as `gem_canopy_tree` in `foliage-registry.ts` (`batcherHint: 'gem_canopy'`, `supportsMusic: true`),
+and a `gem`-keyed entry in music-bindings.json. **What's missing (the acceptance gap):** no canopy corridor is
+placed in the world (`assets/map.json` has 0 gem refs) — need a procedural decorator in
+`generation-decorators.ts` or a map region spawning a 20+ tree corridor receding into fog; the `gem_canopy`
+music-binding block needs completing/verifying (shimmer + noteColor per the arpeggio_grove recipe);
+beat-pulse/bloom response, single-draw-call perf, map-export + spawn-tracker type reporting, and dispose/VRAM
+all need verification. This is a finish-integrate-tune swarm, not greenfield.
+**2026-06-16 — USER IDEA: Music-Reactive Atmosphere Bridge — Audio → Bloom, Fog & Light Shafts (#1169).**
+The loading Fix First from 2026-06-02 landed (cluster #1133–#1142 closed; orchestration stabilized via
+single-boot `worldGenerationToken`, `reliableBoot` guards, silent-entity-drop fix #1211, background-processor
+empty-queue fix). Foundation is stable — back to feature work. Foliage reactivity is mature (sky wave,
+circadian, batcher TSL), but the *air itself* still ignores the tracker. Wire a zero-allocation Atmosphere
+Reactivity block (in `music-reactivity.ts` or a new `atmosphere-reactivity.ts`) mapping audio channels to
+post-processing + sky uniforms: kick/bass → `uBloomStrength` (1.0→~2.5 crescendo), mix energy →
+`uCrescendoFogDensity`, melody → `uShaftOpacity` + re-enable night shaft visibility (fix `shaftVisible`
+hardcoded `false` in `game-loop.ts` ~444–467), BeatSync downbeats → brief bloom/shaft shimmer. Extend
+`music-bindings.json` with an optional `atmosphere` section parallel to `weatherReactivity`. WebGL fallback
+path must receive the same uniform values. This is the highest-impact remaining step to make the forest
+feel like a single breathing instrument.
+**2026-06-09 — USER IDEA: Music-Reactive Atmosphere Bridge (Audio → Bloom, Fog & Light Shafts) (#1169).**
+Loading foundation restored (#1133 cluster closed 2026-06-03; circadian #1144 landed) — back to feature work.
+Foliage music-reactivity is mature (sky wave, circadian, batcher TSL); the *air itself* still ignores the
+tracker. Build a zero-allocation Atmosphere Reactivity block inside `MusicReactivitySystem.update()` (or a
+small `src/systems/atmosphere-reactivity.ts`) mapping audio channels → post-processing/sky uniforms:
+kick/bass → `uBloomStrength` (1.0 → ~2.5 crescendo), mix energy → `uCrescendoFogDensity`, melody hits →
+`uShaftOpacity` + re-enable night shaft visibility (fix `shaftVisible` hardcoded `false` in
+`game-loop.ts` ~lines 444–467), BeatSync downbeats → brief bloom spike. Add an optional `atmosphere`
+section to `assets/music-bindings.json` (parallel to `weatherReactivity`) for per-biome tuning. Follow the
+`_arpeggioShimmerAccum` zero-alloc accumulator pattern; mutate only `.value` on existing TSL uniforms,
+never reassign nodes. WebGL fallback branch in `post-processing.ts` must receive the same values.
+Verify: `npm run build` green, smoke reaches `__sceneReady` with no new console errors, visible bloom
+modulation on playback that decays smoothly to rest on silence (no pops, flat GC heap).
 **2026-07-07 — USER IDEA (grounding cluster: #1303 + #1302 + #1310): Make props actually sit on the terrain.**
 The visible follow-through on last week's #1265 (unified ground query, LANDED). #1265 gave us one authoritative
 `getGroundHeight()`; now the *props* need to consume it correctly. Three tightly-coupled user issues Noah filed
@@ -30,9 +70,41 @@ Routine will mark picked items as "[in progress — YYYY-MM-DD]".
 -->
 - [x] **Three.js ColorSpace enum regression** — In `src/core/init.js` we fall back to string literals (`'display-p3'`, `'srgb'`) for `outputColorSpace` because `THREE.DisplayP3ColorSpace` / `THREE.SRGBColorSpace` produced TS/build warnings with the current `three` version. When updating Three.js, revert to the proper enum. Opportunistic — activate when upgrading Three.js version, not a standalone sprint.
 
+<!-- Completed ideas archived to Done below (2026-05-19 sky→foliage propagation, 2026-05-26 channel-to-biome completeness, 2026-05-30 sky-wave→plant-pose, TSL/VRAM audit, 2026-06-03 day/night circadian #1144). -->
+
+### Live idea stream — GitHub issues filed 2026-06-09 (Siphon Part I vision)
+Noah filed 9 issues today; these ARE this week's accumulated ideas. Priority pool for upcoming runs:
+- [ ] **#1169 Music-Reactive Atmosphere Bridge** `[in progress — 2026-06-09]` — audio → bloom/fog/light-shaft uniforms. *Today's kimi-cli focus.* Highest-impact remaining reactivity step; core active focus area.
+- [ ] **#1168 WebGL2 fallback renderer** — toggleable WebGLRenderer alongside WebGPU; unblocks agent/Playwright visual debugging. Infrastructure multiplier for everything below.
+- [ ] **#1170 Gem Canopy** — hanging faceted crystal fruits on trees (`GemFruitBatcher`). New signature scenic biome.
+- [ ] **#1171 Luminous Mycelium Realm** — glass mushrooms + ambient spore particle field near Melody Lake.
+- [ ] **#1172 Cinematic Explore Mode** — promote dev-orbit prototype to player-facing hybrid FP/orbit camera.
+- [ ] **#1173 TSL Volumetric God Rays + selective DoF** — performant revival of golden-hour shafts + macro bokeh. (Overlaps #1169 shaft work — sequence after.)
+- [ ] **#1174 Distance LOD tiers for instanced foliage** — 3-tier hero/mid/far for tree/mushroom/flower/luminous batchers.
+- [ ] **#1175 Candy Material Cookbook + grok.md onboarding** — docs (`docs/CANDY_MATERIAL_COOKBOOK.md`).
+- [ ] **#1176 Awakened Flora Persistence** — persist discovery glow states across sessions (save-system + discovery-persistence).
 <!-- Completed ideas archived to Done below (2026-05-19 sky→foliage propagation, 2026-05-26 channel-to-biome completeness, 2026-05-30 sky-wave→plant-pose, TSL/VRAM audit). -->
 - [ ] **Day/night plant behaviour** *(promoted to Copilot issue 2026-06-02)* — Plants physically open/glow by day, close/dim at night driven by the day/night cycle, not just music-channel intensity. Builds on `plant-pose-machine.ts`. Landed for `SimpleFlowerBatcher` (commit 99fcbad, #1208) — verify coverage across remaining batchers, then close.
 
+**User idea pool — GitHub issues filed 2026-06-09 (Noah's in-context backlog, primary source this phase):**
+- [x] **#1169 Music-Reactive Atmosphere Bridge** — audio → bloom/fog/light-shafts. LANDED 2026-06-23 (#1221).
+- [x] **#1168 WebGL2 fallback renderer** — toggleable WebGLRenderer alongside WebGPU for debugging/CI/agent porting; unblocks visual inspection. Foundational for several others.
+- [ ] **#1170 Gem Canopy** — hanging faceted crystal fruits on trees (`GemFruitBatcher`), music-channel shimmer. Signature scenic biome. `[in progress — 2026-06-23]` ← today's focus (batcher + tree + registry built; corridor placement + binding + verify remain).
+- [x] **#1171 Luminous Mycelium Realm** — glass mushrooms + ambient spore particle field; companion biome to luminous plants. Verified #1237.
+- [x] **#1172 Cinematic Explore Mode** — promote dev orbit prototype to player-facing hybrid FP+orbit camera.
+- [x] **#1173 TSL Volumetric God Rays + selective DoF** — performant revival of golden-hour shafts. LANDED 2026-06-23 (#1241; DoF math optimized #1244).
+- [x] **#1174 Distance LOD Tiers for instanced batchers** — three-tier (hero/mid/far) for trees/mushrooms/flowers/luminous. Performance lever.
+- [x] **#1175 Candy Material Cookbook + grok.md onboarding** — SHIPPED & closed 2026-06-17 (`docs/CANDY_MATERIAL_COOKBOOK.md`, `docs/MUSIC_MAP_BINDING.md`). A 3-model review (Gemini/Grok/Kimi), verified against HEAD, found real drift in the shipped doc → filed **#1249 Cookbook v2 (de-drift + enrich)** as the decoupled Copilot prep target today (docs-only).
+- [x] **#1176 / #1182 Awakened Flora Persistence** — world that "remembers" you; #1182 narrow v1 slice. LANDED 2026-06-23 (#1232).
+- [ ] **#1169 Music-Reactive Atmosphere Bridge** — audio → bloom/fog/light-shafts. `[in progress — 2026-06-16]` ← today's focus
+- [ ] **#1168 WebGL2 fallback renderer** — toggleable WebGLRenderer alongside WebGPU for debugging/CI/agent porting; unblocks visual inspection. Foundational for several others.
+- [ ] **#1170 Gem Canopy** — hanging faceted crystal fruits on trees (`GemFruitBatcher`), music-channel shimmer. Signature scenic biome.
+- [ ] **#1171 Luminous Mycelium Realm** — glass mushrooms + ambient spore particle field; companion biome to luminous plants.
+- [ ] **#1172 Cinematic Explore Mode** — promote dev orbit prototype to player-facing hybrid FP+orbit camera.
+- [ ] **#1173 TSL Volumetric God Rays + selective DoF** — performant revival of golden-hour shafts; overlaps #1169 on shaft work (sequence after).
+- [ ] **#1174 Distance LOD Tiers for instanced batchers** — three-tier (hero/mid/far) for trees/mushrooms/flowers/luminous. Performance lever.
+- [ ] **#1175 Candy Material Cookbook + grok.md onboarding upgrade** — docs-only; canonical material/music-binding quick-start. Fully decoupled from code work.
+- [ ] **#1176 / #1182 Awakened Flora Persistence** — world that "remembers" you; #1182 is the narrow v1 slice (scope-guarded away from atmosphere/render files). ← Copilot prep target today (decoupled from #1169).
 **User idea pool — GitHub issues filed 2026-07-05 (Noah's FRESHEST in-context backlog — spatial-coherence / grounding polish arc, all building on #1265):**
 - [ ] **#1303 Calibrate `ENTITY_BASE_OFFSETS`** — per-type offsets so visual contact point sits flush (all `0` today). `[in progress — 2026-07-07]` ← today's focus (kimi-cli, w/ #1302 + #1310)
 - [ ] **#1302 Slope-aware planting via terrain normals** — tilt props to surface normal, cap ~25°, per-type opt-in. `[in progress — 2026-07-07]` ← today's focus
@@ -74,6 +146,11 @@ Routine will mark picked items as "[in progress — YYYY-MM-DD]".
 Unfinished items, known bugs, deferred ideas.
 Routine maintains this automatically — you can add items too.
 -->
+- [ ] **#1134 — Stable release / pinned-build process** — annotated tags + GitHub Releases for known-good states; feature flags to disable heavy subsystems. **Partially landed**: `scripts/make-release.mjs` + `npm run release:tag` / `npm run release` now exist. Remaining: cut the first known-good tag now that loading is stable; confirm feature-flag fallbacks. Now actionable.
+- [ ] **#1136 — Consolidate duplicated `LoadingScreen` class** (`loading-screen.ts` vs `loading-screen-ui.ts`) — leftover from loading cluster; .swarm-state noted a duplicate-declaration build blocker was patched, not consolidated. Small decoupled refactor — good future Copilot candidate.
+- [ ] **Open draft PR #1214 (Jules)** — Palette: keyboard active state on loading-screen skip/reload buttons. Decoupled (CSS + loading-screen buttons). Review/merge independently.
+- [ ] **🟡 PR REVIEW BACKLOG — stacking up unreviewed (2026-06-09)** — open draft PRs awaiting triage: **#1178** (Palette: unify foliage materials + juicy rim + UI micro-interactions), **#1167** (Aria: a11y menu `role="switch"`), **#1161** (Palette: a11y momentary-ARIA fix — *appears superseded by merged #1162/#1166 keyboard-active work; likely close as dup*), **#1150** (Bolt: rainbow-blaster spatial-hash queries). Plus **#1138** (Copilot spawn-tracker telemetry — non-draft, the loading-cluster telemetry layer; **verify it's still needed now the cluster is closed**, then land or close). Sweep + merge/close to stop drift.
+- [ ] **#1134 — Stable release / pinned-build process** — annotated tags + GitHub Releases for known-good states; feature flags to disable heavy subsystems so boot is always usable. Process decision; now that loading is fixed this is a good candidate for a quiet day.
 - [x] **#1134 — Stable release / pinned-build process** — annotated tags + GitHub Releases for known-good states; feature flags to disable heavy subsystems. **Partially landed**: `scripts/make-release.mjs` + `npm run release:tag` / `npm run release` now exist. Remaining: cut the first known-good tag now that loading is stable; confirm feature-flag fallbacks. Now actionable.
 - [x] **#1136 — Consolidate duplicated `LoadingScreen` class** (`loading-screen.ts` vs `loading-screen-ui.ts`) — leftover from loading cluster; .swarm-state noted a duplicate-declaration build blocker was patched, not consolidated. Small decoupled refactor — good future Copilot candidate.
 - [x] **Open draft PR #1214 (Jules)** — Palette: keyboard active state on loading-screen skip/reload buttons. Decoupled (CSS + loading-screen buttons). Review/merge independently.
@@ -91,10 +168,10 @@ Routine maintains this automatically — you can add items too.
 - [ ] **#1249 — Candy Material Cookbook v2 (docs de-drift + enrich)** — docs-only, fully decoupled from runtime/foliage work; fixes verified broken `uTwilight` import path, reconciles 3 contradictory position-node orderings, documents all 7 `CandyPresets`, adds LUT/r32float/circadian gotchas, + one preset-coverage guard script. **Today's Copilot prep target** (collision-free with #1265). Open since 2026-06-24.
 - [ ] **Issue-hygiene: close landed-but-OPEN issues** — #1170 (Gem Canopy, landed 2026-06-24), #1173 (god rays, #1241), #1182 + #1176 (awakened flora v1, #1232) all still show OPEN on GitHub despite landing. Verify on live site, then close to stop them re-surfacing as "unfinished."
 - [ ] **Open draft PRs (Jules, decoupled — review/merge independently):** #1275 Bolt LOD matrix-array bypass (perf, `O(N)` decompose elimination); #1274 Aria Jukebox upload screen-reader announcements + `announce` import fix; #1273 Palette Jukebox a11y focus-trap polish (overlaps #1274 — check before merging both); #1255 Palette HUD ability-button interaction/glow/ARIA polish.
-- [ ] **Open draft PRs (Jules, NEW this week — review/merge independently):** #1319 Palette TSL rim light + wind sway on Fiber Optic Willow (eliminates a `.clone()` in a hot loop — verify no WebGPU crash); #1318 Aria now-playing/toast `aria-live` regions (index.html only); #1317 Architect "fix DisplayP3ColorSpace enum regression" — **VERIFY BEFORE MERGE: main's `init.ts` already uses the safe `(THREE as any).DisplayP3ColorSpace || 'display-p3'` + `THREE.SRGBColorSpace` defensive pattern (lines 183/186/192), so the "build-breaking regression" this PR claims is NOT live on HEAD. PR likely branched from a bad intermediate state. Close as redundant or confirm it's a genuine no-op cleanup.**
+- [x] **Open draft PRs (Jules, NEW this week — review/merge independently):** #1319 Palette TSL rim light + wind sway on Fiber Optic Willow (eliminates a `.clone()` in a hot loop — verify no WebGPU crash); #1318 Aria now-playing/toast `aria-live` regions (index.html only); #1317 Architect "fix DisplayP3ColorSpace enum regression" — **VERIFY BEFORE MERGE: main's `init.ts` already uses the safe `(THREE as any).DisplayP3ColorSpace || 'display-p3'` + `THREE.SRGBColorSpace` defensive pattern (lines 183/186/192), so the "build-breaking regression" this PR claims is NOT live on HEAD. PR likely branched from a bad intermediate state. Close as redundant or confirm it's a genuine no-op cleanup.**
 - [x] **#1265 Player ground/eye alignment + #1266 Walkable cloud platforms — BOTH LANDED** (see Done 2026-07-07). Follow-up crash in game-loop/cloud-batcher fixed & merged (#1286). Unified authoritative ground sampling consolidated (#1292).
 - [ ] **Spatial-coherence / grounding polish arc (#1302–#1311, filed 2026-07-05)** — Noah's fresh in-context pool, all extending #1265. Grounding cluster (#1303/#1302/#1310) is today's kimi-cli focus; #1306 is today's decoupled Copilot target. Remaining (#1304/#1305/#1307/#1308/#1309/#1311) queued as future foci — see Ideas.
-- [ ] **#1281 — Audio-reactive sparkle/mote field for Gem Canopy** — last week's Copilot prep target; issue is fully expanded (3-model review, verified file:line refs) but NOT yet built (no `gem_sparks` in tree). Ready-to-go Copilot task whenever; decoupled from grounding work (particles + music-binding only).
+- [x] **#1281 — Audio-reactive sparkle/mote field for Gem Canopy** — Built using `createIntegratedGemSparks` and hooked into `src/world/generation-decorators.ts` via the `gem_canopy` music binding.
 - [ ] **Issue-hygiene: verify #1265/#1266 closed on GitHub** (both absent from open list — likely already closed; confirm). Prior landed-but-open set (#1170/#1173/#1182/#1176) — recheck & close if still open.
 
 ## Done
@@ -102,6 +179,14 @@ Routine maintains this automatically — you can add items too.
 Completed items, routine archives here with date.
 Prune occasionally when this gets long.
 -->
+- [x] **2026-06-23** 🎵 MUSIC-REACTIVE ATMOSPHERE BRIDGE (#1169) LANDED — `src/systems/atmosphere-reactivity.ts` (new, zero-alloc) maps kick/bass→`uBloomStrength` (1.0→2.5), mix energy→`uCrescendoFogDensity` (cap 0.85), melody→`uShaftOpacity` + re-enabled frustum-gated golden-hour & night moonbeam shafts in `game-loop.ts`, BeatSync downbeats→bloom/shaft shimmer; `atmosphere` block added to music-bindings.json; WebGL opacity parity via `lightShaftGroup.userData.shaftMaterial`. Wired in #1221; build:ci + test:wasm + smoke `__sceneReady` green (per `.swarm-state.md`). Last week's focus — DONE.
+- [x] **2026-06-23** ✨ AWAKENED FLORA PERSISTENCE v1 (#1182) LANDED (#1232) — feature-flagged (`FEATURE_FLAGS.awakenedPersistence`, default off) persistence of awakened glow across reloads via stable position-hash `persistentId`, separate `awakened-persistence.ts` store, bulk GPU upload + orphan reconciliation + schema version, `luminous-plant-batcher.ts` `aAwakened` attribute. The decoupled Copilot prep target from last run.
+- [x] **2026-06-23** 🌅 TSL VOLUMETRIC GOD RAYS + SELECTIVE DoF (#1173) LANDED (#1241) — performant revival of golden-hour/moonlit shafts + proximity DoF, with DoF math subsequently optimized (Bolt #1244). Was sequenced after #1169 shaft work; both shipped same week.
+- [x] **2026-06-23** Supporting landings — #1171 Luminous Mycelium verified + `getCIAdjustedCount` (#1237), CI WebGPU smoke stabilization (#1242), HUD ability hold/keyboard support (#1226/#1243), radiogroup/switch ARIA semantics (#1233/#1235/#1217), low-energy announcer (#1230), save-menu paint-yield + API fix (#1240), Kick-Drum-Geyser rim light/wind sway (#1218), TreeBatcher player interaction (#1223), and a run of Bolt GC/VRAM/typed-array/LOD optimizations (#1224/#1227/#1231/#1234/#1239).
+- [x] **2026-06-16** 🔴 LOADING REGRESSION CLUSTER (#1133–#1142) RESOLVED — scene/world population now reliable. Root cause fixed via single-boot stable `worldGenerationToken` orchestration across async phases (340dfe0), `reliableBoot` guards, silent-entity-drop fix on map-load token invalidation (#1211 / 5bd3266), and background-processor empty-queue/failure-counter-reset fix (4db0404). SpawnTracker + `window.__worldHealth` telemetry + spawn-count smoke assertions landed (Copilot PR #1138 merged; `test:spawn-tracker` / `test:world-health` now in `test:integration`). Cluster issues closed; #1170 confirms "loading reliability restored." Follow-ups parked in Backlog: #1134 release tagging (tooling now exists), #1136 LoadingScreen consolidation.
+- [x] **2026-06-03** 🟢 LOADING REGRESSION CLUSTER RESOLVED — #1133 (parent) + sub-tasks #1135–#1142 all closed/completed. Full-world population reliable again; SpawnTracker telemetry (`window.__worldPopulationReport`) + feature-flag boot fallback landed. Confirmed by #1170 ("Loading reliability is restored (#1133 cluster closed)"). *Last week's Fix First landed cleanly.*
+- [x] **2026-06-03** Day/night plant behaviour (#1144) — circadian baseline via `uCircadianPhase` + `uCircadianPoseOffset` global uniforms (NOT overloading `uTwilight`), `circadian-controller.ts` owns the lerp, HUD toggle fires `setDayTarget`, opt-in luminous + mushroom batchers compose pose/emissive in TSL. Pose machine left untouched. (Was the deferred Ideas item — now done.)
+- [x] **2026-07-11** TSL GROUND-CONTACT DARKENING (BASE AO) (#1309) LANDED — shader-side grounding complement; added `contactDarkening` to `UnifiedMaterialOptions` to perform a smoothstep base darkening on batcher color graphs, added defaults to `Clay`/`Sugar`/`Gummy` presets.
 - [x] **2026-07-07** 🧍 PLAYER GROUND / EYE ALIGNMENT (#1265) LANDED — unified authoritative ground query, consistent eye height across terrain + static objects, batcher base-Y at spawn, `?debugPlayer`/`?debugHeights` viz. Consolidated further in #1292 (unified authoritative ground sampling queries). Follow-up `undefined visible` crash in `game-loop.ts` + cloud-batcher pseudo-code cleanup fixed & merged (#1286). Was last week's focus — DONE.
 - [x] **2026-07-07** ☁️ WALKABLE CLOUD PLATFORMS (#1266) LANDED (#1314) — placeable solid candy-cloud surfaces the player can stand on; instanced, music-reactive glow, map.json persistence. The vertical-exploration feature #1265 unblocked. (Introduced the crash later fixed by #1286.)
 - [x] **2026-06-24** 📚 CANDY MATERIAL COOKBOOK + GROK.MD ONBOARDING (#1175) — Added Foliage-Specific Patterns, Common Gotchas, and Performance Notes to the material cookbook; updated grok.md references.
@@ -111,7 +196,6 @@ Prune occasionally when this gets long.
 - [x] **2026-06-23** 🌅 TSL VOLUMETRIC GOD RAYS + SELECTIVE DoF (#1173) LANDED (#1241) — performant revival of golden-hour/moonlit shafts + proximity DoF, with DoF math subsequently optimized (Bolt #1244). Was sequenced after #1169 shaft work; both shipped same week.
 - [x] **2026-06-23** Supporting landings — #1171 Luminous Mycelium verified + `getCIAdjustedCount` (#1237), CI WebGPU smoke stabilization (#1242), HUD ability hold/keyboard support (#1226/#1243), radiogroup/switch ARIA semantics (#1233/#1235/#1217), low-energy announcer (#1230), save-menu paint-yield + API fix (#1240), Kick-Drum-Geyser rim light/wind sway (#1218), TreeBatcher player interaction (#1223), and a run of Bolt GC/VRAM/typed-array/LOD optimizations (#1224/#1227/#1231/#1234/#1239).
 - [x] **2026-06-16** 🔴 LOADING REGRESSION CLUSTER (#1133–#1142) RESOLVED — scene/world population now reliable. Root cause fixed via single-boot stable `worldGenerationToken` orchestration across async phases (340dfe0), `reliableBoot` guards, silent-entity-drop fix on map-load token invalidation (#1211 / 5bd3266), and background-processor empty-queue/failure-counter-reset fix (4db0404). SpawnTracker + `window.__worldHealth` telemetry + spawn-count smoke assertions landed (Copilot PR #1138 merged; `test:spawn-tracker` / `test:world-health` now in `test:integration`). Cluster issues closed; #1170 confirms "loading reliability restored." Follow-ups parked in Backlog: #1134 release tagging (tooling now exists), #1136 LoadingScreen consolidation.
-- [x] **2026-06-16** 🔴 LOADING REGRESSION CLUSTER (#1133–#1142) RESOLVED — scene/world population now reliable. Root cause fixed via single-boot stable `worldGenerationToken` orchestration across async phases (340dfe0), `reliableBoot` guards, silent-entity-drop fix on map-load token invalidation (#1211 / 5bd3266), and background-processor empty-queue/failure-counter-reset fix (4db0404). SpawnTracker + `window.__worldHealth` telemetry + spawn-count smoke assertions landed (Copilot PR #1138 merged; `test:spawn-tracker` / `test:world-health` now in `test:integration`). Cluster issues closed. Follow-ups parked in Backlog: #1134 release tagging (tooling now exists), #1136 LoadingScreen consolidation.
 - [x] **2026-06-14** Day/night plant behaviour for `SimpleFlowerBatcher` via `PlantPoseMachine` (#1208) — circadian open/glow by day, close/dim at night. Plus music-reactivity per-frame allocation + proxy-overhead elimination (#1207), batched-mushroom wind sway + caching (#1210), subwoofer-lotus TSL rim light + wind sway (#1204/#1206), Harpoon Math.sqrt removal (#1212), ARIA aria-busy/momentary-state fixes (#1161/#1206/#1213).
 - [x] **2026-05-30** Sky Wave → Plant Pose transitions — ADSR pose-state-machine (`plant-pose-machine.ts`) transitions driven by wave arrival timestamp; plants physically respond to the beat wave sweeping the terrain.
 - [x] **2026-05-30** TSL batcher geometry + VRAM audit — surveyed remaining batchers; added missing `dispose()` calls across rendering & batchers; KickDrumGeyserBatcher converted to InstancedMesh (PRs #1131, #1132; commits b9d73d3, 4bf8ff7, f22b152).
@@ -122,7 +206,7 @@ Prune occasionally when this gets long.
 - [x] **2026-05-19** Twilight Glow Completion — `glowColorMap` expanded to 9 species (mushroom, tree, flower, dandelion, wisteria, lotus, lantern, portamento, global). `uTwilight` wired into all major foliage batchers.
 - [x] **2026-05-19** Startup error fixes — dev.sh emsdk guard, game-loop weather state bug, import corrections, flower-batcher/lantern-batcher fixes (PR #833).
 - [x] **2026-05-13** Portamento-batcher + wisteria-cluster audio reactivity wiring — `BiomeUniforms.arpeggioGrove.noteColor` and `BiomeUniforms.crystallineNebula.noteColor` multiplied into emissive nodes for tree-batcher, mushroom-batcher, portamento-batcher, wisteria-cluster (PR #825).
-- [x] **2026-05-30** Zero-allocation WASM boundary + audio reactivity (PR #830). Cloud-batcher `updateMatrixWorld` bypass (PR #829). UI: Save Menu focus trap, active toggle styling, upload tactile feedback (PRs #828, #824, #822, #831).
+- [x] **2026-05-19** Zero-allocation WASM boundary + audio reactivity (PR #830). Cloud-batcher `updateMatrixWorld` bypass (PR #829). UI: Save Menu focus trap, active toggle styling, upload tactile feedback (PRs #828, #824, #822, #831).
 - [x] **2026-05-13** Loading Architecture Fixes — Batched WASM heightmap calls, deferred world content via initWorldCritical/initWorldContent split, recalibrated progress bar, and fixed enterWorld race condition.
 - [x] **2026-05-12** Planning Debt — archive completed plan files — 34 root `.md` docs archived to `docs/archive/` (commits 4e375df, c1d93cb). Root down to 8 live docs.
 - [x] **2026-05-12** Moon Dance sky reactivity — note-colour-driven hue reactivity for sky and moon glow (PR #764).
@@ -143,6 +227,16 @@ Prune occasionally when this gets long.
 
 ## Last run
 <!-- Routine writes summary here each run. Overwrites previous. -->
+Date: 2026-06-23
+Mode: USER IDEA — no Fix First trigger (last week's #1169 atmosphere bridge, #1182 awakened flora, #1173 god rays all LANDED; `isNight` ReferenceError flagged by draft PR #1245 is NOT live on main — defined at music-reactivity.ts:506). Remaining unfinished items in the 2026-06-09 idea batch: #1170 Gem Canopy and #1175 docs cookbook. Picked #1170 — last unfinished signature scenic biome, and its atmospheric framing (#1169 + #1173) just landed.
+Focus: #1170 Gem Canopy. Batcher/tree/registry already built (`gem-fruit-batcher.ts`, `gem-canopy-tree.ts`, `gem_canopy_tree` registered). kimi-cli finishes it: place a 20+ tree canopy corridor (procedural decorator or map.json region — currently 0 gem refs in map.json), complete/verify the `gem_canopy` music-binding block (shimmer + noteColor), verify beat-pulse/single-draw-call/dispose/map-export. Copilot prep (decoupled, docs-only): #1249 Candy Material Cookbook v2 — de-drift the v1 doc that shipped under #1175 (closed 6/17); fixes a verified broken `uTwilight` import path, 3 contradictory node-orderings, 2 undocumented presets, plus adds LUT/circadian/r32float gotchas and r171 currency. Filed from a Gemini/Grok/Kimi review verified against HEAD. Claude Code: full-stack build→deploy-dry-run→first known-good release tag (#1134 tooling now exists).
+Outcome: <!-- fill in at end of day after kimi-cli loop -->
+Context gap: No access to recent_chats / conversation_search in this environment — prior-session reconstruction from git history, open/closed issues, weekly_plan.md, and `.swarm-state.md` only. Could not confirm live-site behaviour (#702 auto-scroll, deploy state, live bloom/shaft visual regression). #1169/#1173/#1182/#1171 GitHub issues still show OPEN despite landing — close them after verification.
+Date: 2026-06-09
+Mode: USER IDEA — last week's Fix First (loading regression #1133 cluster) closed/completed 2026-06-03, and the deferred day/night circadian idea (#1144) also landed; both moved to Done. Foundation solid, no crack → feature work resumes. Noah filed 9 fresh vision issues today (#1168–#1176) = this week's live idea stream; picked the highest-impact one in the core music-reactivity focus area.
+Focus: Music-Reactive Atmosphere Bridge (#1169) — zero-alloc Atmosphere Reactivity block mapping audio channels → `uBloomStrength` / `uCrescendoFogDensity` / `uShaftOpacity` (+ re-enable night light shafts), optional `atmosphere` block in `music-bindings.json`, WebGL fallback parity. Decoupled Copilot track drafted in the save/discovery domain (Awakened Flora persistence) to avoid file collision with kimi.
+Outcome: <!-- fill in at end of day after kimi-cli loop -->
+Context gap: No access to recent_chats / conversation_search in this environment — prior-session reconstruction is from git history, open/closed issues, open PRs, weekly_plan.md, and .swarm-state.md only. Could not directly read live-site behaviour; reactivity "maturity" claims are from issue text + Done log, not runtime verification.
 Date: 2026-07-07
 Mode: USER IDEA — no Fix First trigger. Last week's focus #1265 (player ground/eye alignment) LANDED, #1266 walkable clouds LANDED, and the one follow-up crash (#1286, cloud-batcher/game-loop `undefined visible`) is already fixed & merged — foundation stable. Checked the one live Fix-First candidate: Jules PR #1317 claims a build-breaking `DisplayP3ColorSpace` enum regression, but HEAD `init.ts` already uses the safe `(THREE as any).X || 'string'` defensive pattern (three@0.171 exports `SRGBColorSpace`), so main is NOT broken — flagged the PR for verify/close, not a Fix First. Picked Noah's freshest in-context pool: the spatial-coherence/grounding arc (#1302–#1311) he filed 2026-07-05, directly extending #1265.
 Focus: Grounding cluster #1303 + #1302 + #1310 — cash in #1265's unified query so props actually sit on terrain. kimi-cli: calibrate `ENTITY_BASE_OFFSETS` (all 0 today), slope-aware planting via baked terrain normals (`sampleGroundNormal`, ~25° cap), multi-point footprint sampling for wide props; `?debugHeights=1` rings/arrows as acceptance. Scope-guarded to placement/ground/generation files ONLY — no player/eye/camera (DONE by #1265), no config.ts (reserved for Copilot shadow work). Copilot prep (decoupled): #1306 directional shadow camera follow + contact shadows (init.ts + game-loop render section + CONFIG.lighting.shadows — collision-free with grounding cluster; thematically completes grounding via contact shadows). Claude Code: full-stack build → deploy dry-run → verify first known-good release tag (#1134 tooling exists).
@@ -152,7 +246,7 @@ Context gap: No recent_chats / conversation_search in this environment — recon
 Date: 2026-06-30
 Mode: USER IDEA — no Fix First trigger (last week's #1170 Gem Canopy LANDED clean, all tests green, 24 trees spawning). Picked the freshest in-context user idea: GitHub issue #1265 (filed 2026-06-28 alongside #1266). #1265 is `bug`-tagged (eye-height drift, player sink/hover near clusters) and is the hard prerequisite #1266 (walkable cloud platforms) blocks on — foundation before feature.
 Focus: #1265 Player ground level / eye height / object alignment. kimi-cli: audit scattered ground-height computation (game-loop / player / `physics.core.ts getUnifiedGroundHeightTyped` / `wasm-loader.js`), centralize a unified ground query (terrain→object→platform priority), drive player foot + eyeHeight off it with smooth lerp, add `?debugPlayer`/`?debugHeights` viz, ensure batchers sample base-Y at spawn. Kinematic raycast + capsule only — NO physics engine / jumping / music / material changes. Copilot prep (decoupled from player/ground files): NEW issue — audio-reactive ambient sparkle/mote field for the Gem Canopy corridor (new particle module + music binding, builds on last week's landing). Claude Code: full-stack build → deploy dry-run → cut first known-good release tag (#1134 tooling exists).
-Outcome: Phase 1 (GC Spike elimination in workers and spawn tracker) completed. Proceeding to #1265 player alignment.
+Outcome: Phase 2 (Grounding/Prop Placement) completed. Issues #1303, #1302, and #1310 have been addressed. Props now use calibrated ENTITY_BASE_OFFSETS, 5-point footprint footprint radius to prevent wide objects floating, and a capped normal tilt calculation for realistic placement on sloped terrain. Proceeding to #1136 LoadingScreen refactoring or #1249 Cookbook docs.
 Context gap: No access to recent_chats / conversation_search in this environment — prior-session reconstruction from git history, open/closed issues, weekly_plan.md only. Could not confirm live-site behaviour (#702 auto-scroll, deploy state, actual severity of #1265 eye-height drift in-world). #1170/#1173/#1182/#1176 GitHub issues still show OPEN despite landing — close after verification.
 
 Date: 2026-06-23
@@ -160,7 +254,3 @@ Mode: USER IDEA — no Fix First trigger (last week's #1169 atmosphere bridge, #
 Focus: #1170 Gem Canopy. Batcher/tree/registry already built (`gem-fruit-batcher.ts`, `gem-canopy-tree.ts`, `gem_canopy_tree` registered). kimi-cli finishes it: place a 20+ tree canopy corridor (procedural decorator or map.json region — currently 0 gem refs in map.json), complete/verify the `gem_canopy` music-binding block (shimmer + noteColor), verify beat-pulse/single-draw-call/dispose/map-export. Copilot prep (decoupled, docs-only): #1175 Candy Material Cookbook + grok.md onboarding. Claude Code: full-stack build→deploy-dry-run→first known-good release tag (#1134 tooling now exists).
 Outcome: <!-- fill in at end of day after kimi-cli loop -->
 Context gap: No access to recent_chats / conversation_search in this environment — prior-session reconstruction from git history, open/closed issues, weekly_plan.md, and `.swarm-state.md` only. Could not confirm live-site behaviour (#702 auto-scroll, deploy state, live bloom/shaft visual regression). #1169/#1173/#1182/#1171 GitHub issues still show OPEN despite landing — close them after verification.
-Date: 2026-06-24
-Mode: USER IDEA — #1170 Gem Canopy finish & ship.
-Focus: Finalize the Gem Canopy biome: verify existing `GemFruitBatcher`/`createGemCanopyTree`/decorator wiring, fix pre-existing duplicate-export build blockers, tune `MAX_GEMS_PER_TYPE` to eliminate CI overflow warnings, run build + WASM + smoke (CORE and FAST_FULL) + WebGL fallback, and update `.swarm-state.md`, `weekly_plan.md`, and `docs/MUSIC_MAP_BINDING.md`.
-Outcome: #1170 LANDED. `npm run build:ci`, `npm run test:wasm`, `npm run test`, `FULL_BOOT=fast npm run test`, and `RENDERER=webgl npm run test` all pass. FAST_FULL reports 24 gem_canopy_trees spawned, 2322/2322 objects, no GemFruitBatcher capacity warnings. Docs updated with Gem Canopy binding reference.

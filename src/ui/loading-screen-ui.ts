@@ -355,6 +355,7 @@ export class LoadingScreen {
         this.isDeferredVisible = true;
         this.deferredIndicator.classList.add('visible');
         this.deferredIndicator.setAttribute('aria-hidden', 'false');
+        this.setDeferredFailures(0);
         if (this.options.debug) console.log('[LoadingScreen] Deferred indicator shown');
     }
 
@@ -431,6 +432,19 @@ export class LoadingScreen {
             }
         } catch {
             // tracker not ready — silent
+        }
+    }
+
+    setDeferredFailures(failed: number): void {
+        if (!this.deferredIndicator) return;
+        const badge = this.deferredIndicator.querySelector('.deferred-fail') as HTMLElement | null;
+        if (!badge) return;
+        if (failed > 0) {
+            badge.textContent = `${failed} objects failed to load`;
+            badge.classList.add('visible');
+        } else {
+            badge.textContent = '';
+            badge.classList.remove('visible');
         }
     }
 

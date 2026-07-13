@@ -33,6 +33,7 @@ import { clearMapMusicContext, deriveMapMusicContext, setMapMusicContext } from 
 import { create, getTypeMeta, registerBuiltinWorldObjectTypes, registerWorldObject } from './foliage-registry.ts';
 import { plantOnSurface, sampleGroundY } from './placement-utils.ts';
 import { treeBatcher } from '../foliage/tree-batcher.ts';
+import { resetSpawnTracker, spawnTracker } from './spawn-tracker.ts';
 import { subwooferLotusBatcher } from '../foliage/subwoofer-lotus-batcher.ts';
 
 let loadedMapPromise: Promise<LoadedCandyMap> | null = null;
@@ -256,6 +257,8 @@ export async function initWorld(scene: THREE.Scene, weatherSystem: WeatherSystem
 
     // Add the main world group (containing all generated foliage) to the scene
     scene.add(worldGroup);
+    // ⚡ OPTIMIZATION: Flattened scene hierarchy. foliageGroup is added directly to scene instead of worldGroup.
+    scene.add(foliageGroup);
 
     // Generate Content if requested (triggered by start button in main.ts)
     if (loadContent) {
@@ -390,6 +393,8 @@ function applyDreamyPopIn(obj: THREE.Object3D): void {
     requestAnimationFrame(tick);
 }
 
+export let worldGenerationToken = 0;
+
 export async function generateMap(
     weatherSystem: WeatherSystem,
     chunkSize: number = DEFAULT_MAP_CHUNK_SIZE,
@@ -397,7 +402,7 @@ export async function generateMap(
 ): Promise<void> {
     worldGenerationToken = Date.now();
     (window as any).__currentWorldGenerationToken = worldGenerationToken;
-    const generationToken = worldGenerationToken;
+    const generationToken = ++worldGenerationToken;
     resetSpawnTracker();
     performance.mark('candy:map-generation-start');
     console.time('[World] generateMap total');
@@ -764,6 +769,7 @@ const MUSICAL_FLORA_TYPES = new Set([
 function processMapEntity(item: MapEntity, weatherSystem: WeatherSystem, options?: ProcessEntityOptions): void {
     const [x, yInput, z] = item.position;
     const entityType = normalizeMapEntityType(item.type);
+    spawnTracker.recordAttempt(entityType);
 
     // Feature flag gates — skip entire entity without counting as a failure.
     if (!FEATURE_FLAGS.musicalFlora && MUSICAL_FLORA_TYPES.has(entityType)) return;
@@ -844,6 +850,7 @@ function processMapEntity(item: MapEntity, weatherSystem: WeatherSystem, options
 
         if (entityType === 'grass') {
             if (FEATURE_FLAGS.grass) addGrassInstance(x, y, z);
+            spawnTracker.recordSuccess(entityType);
             return;
         }
         switch (entityType) {
@@ -928,6 +935,9 @@ function processMapEntity(item: MapEntity, weatherSystem: WeatherSystem, options
 
         obj = create(entityType, createParams);
         if (!obj) {
+            spawnTracker.recordFailure(entityType, new Error(`Factory returned null for ${entityType}`), {
+                context: `map-entity:${item.id}`,
+            });
             recordSpawnAttempt(entityType, false, new Error(`Factory returned null for type "${entityType}"`));
             return;
         }
@@ -990,16 +1000,19 @@ function processMapEntity(item: MapEntity, weatherSystem: WeatherSystem, options
             }
             if (entityType === 'cave' && caveNeedsWaterfallProxy && obj.userData.gatePosition) {
                 const waterfallProxy = new THREE.Object3D();
-                // ⚡ OPTIMIZATION: Bypassed THREE.Object3D proxy by doing pure math composition
-                obj.updateMatrix();
+                // ⚡ OPTIMIZATION: Bypassed THREE.Object3D proxy overhead by doing pure math composition
+                obj.matrix.compose(obj.position, obj.quaternion, obj.scale);
+                obj.matrixWorldNeedsUpdate = true; // Ensure world matrix propagates downstream
                 waterfallProxy.position.copy(obj.userData.gatePosition).applyMatrix4(obj.matrix);
                 waterfallProxy.userData.type = 'waterfall';
                 animatedFoliage.push(waterfallProxy as any);
             }
+            spawnTracker.recordSuccess(entityType);
         }
 
         recordSpawnAttempt(entityType, true);
     } catch (e) {
+        spawnTracker.recordFailure(entityType, e, { context: `map-entity:${item.id}` });
         console.warn(`[World] Failed to spawn ${item.type} at ${x},${z}`, e);
         recordSpawnAttempt(item.type || 'unknown', false, e);
     }

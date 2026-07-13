@@ -34,7 +34,7 @@ export type MenuSection =
   | 'visual'
   | 'cognitive'
   | 'auditory'
-  | 'screenReader';
+  | 'screen-reader';
 
 export interface MenuItem {
   id: string;
@@ -178,31 +178,28 @@ export class AccessibilityMenuCore {
   protected switchSection(section: MenuSection): void {
     this.currentSection = section;
     this.refreshMainPanel();
+    this.updateSidebarSelection();
     announce(`Switched to ${this.formatActionName(section)} settings`, 'polite');
     const newTab = this.container?.querySelector(`#tab-${section}`) as HTMLElement;
     if (newTab) newTab.focus({ preventScroll: true });
   }
 
   protected refreshMainPanel(): void {
-    const panel = this.container?.querySelector('[role="tabpanel"]');
+    const panel = this.container?.querySelector('[role="tabpanel"]') as HTMLElement;
     if (!panel) return;
 
-    const panels = this.container?.querySelectorAll('[role="tabpanel"]');
-    panels?.forEach(p => {
-      (p as HTMLElement).style.display = 'none';
-    });
+    panel.id = `panel-${this.currentSection}`;
+    panel.setAttribute('aria-labelledby', `tab-${this.currentSection}`);
+    this.renderSection(panel, this.currentSection);
+  }
 
-    const currentPanel = this.container?.querySelector(`#panel-${this.currentSection}`) as HTMLElement;
-    if (currentPanel) {
-      currentPanel.style.display = 'block';
-      currentPanel.id = `panel-${this.currentSection}`;
-      currentPanel.setAttribute('aria-labelledby', `tab-${this.currentSection}`);
-    }
+  protected renderSection(container: HTMLElement, section: MenuSection): void {
+    // To be overridden by rendering subclass
   }
 
   protected updateSidebarSelection(): void {
     const buttons = this.container?.querySelectorAll('[role="tab"]') as NodeListOf<HTMLButtonElement>;
-    const sections = ['presets', 'motor', 'visual', 'cognitive', 'auditory', 'screenReader'] as const;
+    const sections = ['presets', 'motor', 'visual', 'cognitive', 'auditory', 'screen-reader'] as const;
     
     buttons?.forEach((btn, index) => {
       const isActive = sections[index] === this.currentSection;

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import {
     color, float, vec3, vec4, attribute, positionLocal, positionWorld,
@@ -355,6 +356,18 @@ export class LanternBatcher {
         this.stemParams!.needsUpdate = true;
         this.topParams!.needsUpdate = true;
         if (this.topMesh!.instanceColor) this.topMesh!.instanceColor.needsUpdate = true;
+    }
+
+    dispose(): void {
+        const meshes = [
+            this.stemMesh,
+            this.topMesh
+        ];
+        meshes.forEach(mesh => {
+            if (mesh && mesh.parent) {
+                safeRemoveAndDispose(mesh.parent, mesh);
+            }
+        });
     }
 }
 

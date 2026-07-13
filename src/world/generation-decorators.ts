@@ -16,6 +16,7 @@ import {
     LAKE_ARPEGGIO_FERN_COUNT, LAKE_DANDELION_COUNT, GEM_CANOPY, MYCELIUM_GROVE, CLOUD_ARCHIPELAGO
 } from './generation-utils.ts';
 import { create, registerBuiltinWorldObjectTypes } from './foliage-registry.ts';
+import { spawnTracker } from './spawn-tracker.ts';
 import { plantOnSurface, sampleGroundY } from './placement-utils.ts';
 import { FEATURE_FLAGS } from '../core/config.ts';
 
@@ -276,21 +277,13 @@ export async function populateGemCanopyCorridor(weatherSystem: WeatherSystem): P
         plantOnSurface(tree, x, z, { groundY: y });
         tree.rotation.y = Math.atan2(dx, dz) + (Math.random() - 0.5) * 0.35;
         tree.userData.biome = 'gem_canopy';
-        tree.userData.mapEntityType = 'gem_canopy_tree';
-        tree.userData.mapExport = {
-            type: 'gem_canopy_tree',
-            provenance: 'procedural-extra',
-            placement: 'ground'
-        };
         const placed = safeAddFoliage(tree, true, 1.5, weatherSystem);
         recordSpawnAttempt('gem_canopy_tree', placed, placed ? undefined : new Error('placement failed'));
 
         if (i % 4 === 3) await yieldControl();
     }
 
-    // Corridor accent trees: occasional portamento / bubble willow with hanging gems.
-    // These reuse GemFruitBatcher.attachToTree so the corridor sparkles even on
-    // non-gem-canopy trunks, keeping the jewel motif consistent.
+    // Corridor accent trees: occasional portamento / bubble willow with hanging gems
     for (let i = 0; i < 6; i++) {
         const t = (i + 0.5) / 6;
         const x = GEM_CANOPY.startX + (GEM_CANOPY.endX - GEM_CANOPY.startX) * t + (Math.random() - 0.5) * 8;
@@ -302,16 +295,11 @@ export async function populateGemCanopyCorridor(weatherSystem: WeatherSystem): P
             ? create('portamento_pine', { height: 4.0 + Math.random() * 1.5 })
             : create('bubble_willow');
         if (!tree) continue;
-        const exportType = usePine ? 'portamento_pine' : 'bubble_willow';
-        tree.userData.mapEntityType = exportType;
-        tree.userData.mapExport = {
-            type: exportType,
-            provenance: 'procedural-extra',
-            placement: 'ground'
-        };
         tree.userData.attachGemFruits = true;
         plantOnSurface(tree, x, z, { groundY: y });
         tree.rotation.y = Math.random() * Math.PI * 2;
+        safeAddFoliage(tree, true, 1.5, weatherSystem);
+
         const placed = safeAddFoliage(tree, true, 1.5, weatherSystem);
         recordSpawnAttempt(usePine ? 'portamento_pine' : 'bubble_willow', placed, placed ? undefined : new Error('placement failed'));
     }
@@ -456,6 +444,15 @@ export async function populateProceduralExtras(
             let exportVariant: string | undefined;
             let exportHasFace: boolean | undefined;
             const exportParams: Record<string, unknown> = {};
+            let hasTrackedAttempt = false;
+            let trackedType = 'procedural_extra';
+            const resolveSpawnType = () => normalizeMapEntityType(exportType ?? obj?.userData?.type ?? 'procedural_extra');
+            const recordAttemptOnce = () => {
+                if (hasTrackedAttempt) return;
+                trackedType = resolveSpawnType();
+                spawnTracker.recordAttempt(trackedType);
+                hasTrackedAttempt = true;
+            };
 
             try {
                 if (rand < 0.3) {
@@ -612,6 +609,7 @@ export async function populateProceduralExtras(
             }
 
             if (obj) {
+                recordAttemptOnce();
                 obj.rotation.y = Math.random() * Math.PI * 2;
                 const normalizedExportType = normalizeMapEntityType(exportType ?? obj.userData?.type ?? '');
                 obj.userData.mapEntityType = normalizedExportType;
@@ -621,8 +619,23 @@ export async function populateProceduralExtras(
                     variant: exportVariant,
                     hasFace: exportHasFace,
                     placement: normalizedExportType === 'cloud' ? 'absolute' : 'ground',
-                    params: Object.keys(exportParams).length > 0 ? exportParams : undefined
                 };
+                safeAddFoliage(obj, isObstacle, radius, weatherSystem);
+                spawnTracker.recordSuccess(trackedType);
+            } else {
+                recordAttemptOnce();
+                spawnTracker.recordFailure(trackedType, new Error(`Factory returned null for ${trackedType}`), {
+                    context: 'procedural-extra',
+                });
+
+                // ⚡ OPTIMIZATION: Bypassed Object.keys() array allocation
+                let hasParams = false;
+                for (const _ in exportParams) {
+                    hasParams = true;
+                    break;
+                }
+                if (hasParams) obj.userData.mapExport.params = exportParams;
+
                 const placed = safeAddFoliage(obj, isObstacle, radius, weatherSystem);
                  if (!placed) {
                      recordSpawnAttempt('procedural_extra', false, new Error('CPU animation limit reached; object dropped'));
@@ -631,6 +644,8 @@ export async function populateProceduralExtras(
                  }
             }
             } catch (e) {
+                recordAttemptOnce();
+                spawnTracker.recordFailure(trackedType, e, { context: 'procedural-extra' });
                 console.warn(`[World] Failed to spawn procedural extra at ${x},${z}`, e);
                 recordSpawnAttempt('procedural_extra', false, e);
             }
@@ -675,7 +690,7 @@ export async function populateProceduralExtras(
     const proceduralTaskToken = worldGenerationToken;
     for (const item of deferredItems) {
         // ⚡ OPTIMIZATION: Bypassed Math.sqrt() in hot procedural sorting loop using distance decay estimation
-        const priority = Math.max(1, 60 - Math.floor(item.distSq / 16));
+        const priority = Math.max(1, 60 - Math.floor(Math.sqrt(item.distSq) / 4));
         globalBackgroundProcessor.enqueue({ id: item.id, execute: () => {
              const currentToken = (window as any).__currentWorldGenerationToken ?? worldGenerationToken;
              if (taskToken !== -1 && taskToken !== currentToken && !(window as any).__IS_FULL_BOOT_TEST) {
