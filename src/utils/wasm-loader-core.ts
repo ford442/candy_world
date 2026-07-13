@@ -64,6 +64,13 @@ export let wasmBatchScaleAnimation: ((dataPtr: number, count: number) => void) |
 
 /** Hot-path Physics exports (Migrated from TS) */
 export let wasmBatchGroundHeight: ((positionsPtr: number, count: number, outputPtr: number) => void) | null = null;
+/** Unified ground height (assembly/ground.ts) */
+export let wasmGetUnifiedGroundHeight: ((x: number, z: number, nowMs: number) => number) | null = null;
+export let wasmBatchUnifiedGroundHeight: ((positionsPtr: number, count: number, outputPtr: number, nowMs: number) => void) | null = null;
+export let wasmClearGroundPlatforms: (() => void) | null = null;
+export let wasmAddGroundPlatform: ((minX: number, maxX: number, minZ: number, maxZ: number, maxY: number) => void) | null = null;
+export let wasmInvalidateGroundCache: (() => void) | null = null;
+export let wasmSetGroundCacheTTL: ((seconds: number) => void) | null = null;
 export let wasmDampVelocity: ((velocityPtr: number, count: number, damping: number) => void) | null = null;
 export let wasmBatchDistanceCalc: ((positionsPtr: number, count: number, camX: number, camY: number, camZ: number, outputPtr: number) => void) | null = null;
 export let wasmBatchFrustumTest: ((positionsPtr: number, count: number, frustumPlanesPtr: number, outputPtr: number) => number) | null = null;
@@ -218,6 +225,12 @@ function cacheWasmFunctions(instance: WebAssembly.Instance): void {
     wasmCheckPositionValidity = exports.checkPositionValidity || null;
 
     wasmBatchGroundHeight = exports.batchGroundHeight || null;
+    wasmGetUnifiedGroundHeight = exports.getUnifiedGroundHeight || null;
+    wasmBatchUnifiedGroundHeight = exports.batchUnifiedGroundHeight || null;
+    wasmClearGroundPlatforms = exports.clearGroundPlatforms || null;
+    wasmAddGroundPlatform = exports.addGroundPlatform || null;
+    wasmInvalidateGroundCache = exports.invalidateGroundCache || null;
+    wasmSetGroundCacheTTL = exports.setGroundCacheTTL || null;
     wasmDampVelocity = exports.dampVelocity || null;
     wasmBatchDistanceCalc = exports.batchDistanceCalc || null;
     wasmBatchFrustumTest = exports.batchFrustumTest || null;
@@ -541,6 +554,22 @@ export function getNativeFunc(name: string): ((...args: number[]) => number) | n
     }
     if (typeof inst[name] === 'function') {
         return inst[name] as (...args: number[]) => number;
+    }
+    return null;
+}
+
+/**
+ * Get a native C++ function that returns void.
+ */
+export function getNativeFuncVoid(name: string): ((...args: number[]) => void) | null {
+    if (!emscriptenInstance) return null;
+    const inst = emscriptenInstance as ExtendedEmscriptenModule;
+    const underscoreName = '_' + name;
+    if (typeof inst[underscoreName] === 'function') {
+        return inst[underscoreName] as (...args: number[]) => void;
+    }
+    if (typeof inst[name] === 'function') {
+        return inst[name] as (...args: number[]) => void;
     }
     return null;
 }

@@ -1,5 +1,4 @@
 import { isCIorHeadless } from './config.ts';
-import { getGroundHeight } from '../systems/ground-system.ts';
 // src/core/game-loop.ts
 // Main animation loop and game state management
 
@@ -12,6 +11,7 @@ import {
     uGlitchIntensity,
     uTime,
     uPlayerPosition,
+    uPlayerVelocity,
 } from '../foliage/index.ts';
 import {
     uSkyTopColor,
@@ -31,7 +31,6 @@ import { updateMelodyRibbons } from '../foliage/ribbons.ts';
 import { updateSparkleTrail } from '../foliage/sparkle-trail.ts';
 import { updateDandelionSeeds } from '../foliage/dandelion-seeds.ts';
 import { getGroundHeight } from '../systems/ground-system.ts';
-import { fastInvSqrt } from '../utils/wasm-loader.ts';
 import { updateImpacts } from '../foliage/impacts.ts';
 import { createShield } from '../foliage/shield.ts';
 import { updateFoliageMaterials } from '../foliage/animation.ts';
@@ -90,7 +89,7 @@ import { InteractionSystem } from '../systems/interaction.ts';
 import { AudioSystem } from '../audio/audio-system.ts';
 import { BeatSync } from '../audio/beat-sync.ts';
 import { animatedFoliage, cpuAnimatedFoliage, foliageClouds, foliageMushrooms } from '../world/state.ts';
-import { getCycleState } from './cycle.ts';
+import { getCycleState, getDayNightBias } from './cycle.ts';
 import {
     CYCLE_DURATION,
     DURATION_SUNRISE,
@@ -102,10 +101,13 @@ import {
     areGodRaysEnabled,
     isDofEnabled,
     isDofManual,
+    resolveShadowSettings,
 } from './config.ts';
 import { uDofFocus, uDofMix, uShaftScatterBoost } from '../foliage/post-processing.ts';
+import { updateAerialPerspectiveUniforms } from '../foliage/aerial-perspective.ts';
+import { updateBaseContactAOUniforms } from '../foliage/material-core.ts';
 import { BiomeUniforms } from '../systems/biome-uniforms.ts';
-import { keyStates } from './input/index.js';
+import { keyStates } from './input/index.ts';
 import {
     updateHUD,
     getLastIsNight,
@@ -153,6 +155,11 @@ const _scratchBaseSkyTop = new THREE.Color();
 const _scratchBaseSkyBot = new THREE.Color();
 const _scratchBaseFog = new THREE.Color();
 const _scratchSunVector = new THREE.Vector3();
+const _scratchLightDir = new THREE.Vector3();
+const _shadowLightView = new THREE.Vector3();
+const _shadowSnap = new THREE.Vector3();
+let _shadowSnapCellX = Number.NaN;
+let _shadowSnapCellZ = Number.NaN;
 const _scratchAuroraColor = new THREE.Color();
 const _scratchCameraForward = new THREE.Vector3();
 
@@ -163,6 +170,57 @@ let _shaftIsNightMode = false;
 // Visual Impact: minimum dot(cameraForward, celestialDir) to show god rays (frustum gate)
 const _SHAFT_FRUSTUM_DOT = CONFIG.postfx.shaftFrustumDot;
 const _SHAFT_OPACITY_CAP = CONFIG.postfx.shaftOpacityCap;
+
+/**
+ * Player-following sun shadow rig with light-view texel snapping.
+ * Sky visuals use `_scratchSunVector` separately — do not drive corona/shafts from light.position.
+ */
+function updateSunShadowFollow(
+    sunLight: THREE.DirectionalLight,
+    playerPos: THREE.Vector3,
+    normalizedSunDir: THREE.Vector3,
+): void {
+    if (!sunLight.castShadow) return;
+
+    const cfg = CONFIG.lighting.shadows;
+    const renderRadius = cfg.followRadius + cfg.snapHeadroom;
+    const mapSize = sunLight.shadow.mapSize.width;
+    const texelWorld = (renderRadius * 2) / mapSize;
+
+    sunLight.position.copy(playerPos).addScaledVector(normalizedSunDir, cfg.sunDistance);
+    sunLight.target.position.copy(playerPos);
+    sunLight.target.updateMatrixWorld();
+
+    const cam = sunLight.shadow.camera as THREE.OrthographicCamera;
+    cam.position.copy(sunLight.position);
+    cam.lookAt(sunLight.target.position);
+    cam.updateMatrixWorld();
+
+    _shadowLightView.copy(playerPos);
+    cam.worldToLocal(_shadowLightView);
+
+    const snappedX = Math.floor(_shadowLightView.x / texelWorld) * texelWorld;
+    const snappedY = Math.floor(_shadowLightView.y / texelWorld) * texelWorld;
+    _shadowSnap.set(
+        snappedX - _shadowLightView.x,
+        snappedY - _shadowLightView.y,
+        0,
+    );
+    _shadowSnap.applyQuaternion(cam.quaternion);
+    cam.position.add(_shadowSnap);
+    cam.updateMatrixWorld();
+    cam.updateProjectionMatrix();
+
+    const cellX = Math.floor(playerPos.x / texelWorld);
+    const cellZ = Math.floor(playerPos.z / texelWorld);
+    if (cellX !== _shadowSnapCellX || cellZ !== _shadowSnapCellZ) {
+        _shadowSnapCellX = cellX;
+        _shadowSnapCellZ = cellZ;
+        sunLight.shadow.map.autoUpdate = true;
+    } else {
+        sunLight.shadow.map.autoUpdate = false;
+    }
+}
 
 // Post-FX enablement resolved once per session (URL overrides + CONFIG.postfx tier).
 const _godRaysEnabled = areGodRaysEnabled();
@@ -203,7 +261,6 @@ let lightShaftGroupRef: THREE.Object3D | null = null;
 let sunGlowMatRef: THREE.Material | null = null;
 let coronaMatRef: THREE.Material | null = null;
 let uShaftOpacityRef: { value: number } | null = null;
-let playerBlobShadowRef: THREE.Mesh | null = null;
 
 // Time offset reference (shared with main)
 let timeOffsetRef: { value: number } = { value: 0 };
@@ -239,7 +296,6 @@ export function initGameLoopDependencies(deps: {
     coronaMat: THREE.Material;
     uShaftOpacity: { value: number };
     timeOffset: { value: number };
-    playerBlobShadow: THREE.Mesh;
 }) {
     sceneRef = deps.scene;
     cameraRef = deps.camera;
@@ -261,7 +317,6 @@ export function initGameLoopDependencies(deps: {
     coronaMatRef = deps.coronaMat;
     uShaftOpacityRef = deps.uShaftOpacity;
     timeOffsetRef = deps.timeOffset;
-    playerBlobShadowRef = deps.playerBlobShadow;
 
     initGroundDebug(deps.scene);
 
@@ -311,8 +366,8 @@ function applyMusicReactiveLightShafts(delta: number): void {
     // Respect the post-FX quality tier — ?postfx=off (or CONFIG.postfx.godRays=false)
     // disables god rays entirely, keeping the group hidden with zero per-frame cost.
     if (!_godRaysEnabled) {
-        if (lightShaftGroupRef && lightShaftGroupRef.visible) {
-            lightShaftGroupRef.visible = false;
+        if (lightShaftGroupRef.visible) {
+            if (lightShaftGroupRef) lightShaftGroupRef.visible = false;
             _setShaftOpacity(0);
         }
         return;
@@ -376,8 +431,7 @@ function _updateDepthOfField(delta: number): void {
         // Focus-follow: distance along the camera look vector toward scenic flora
         const toX = _DOF_FLORA_ZONES[i][0] - px;
         const toZ = _DOF_FLORA_ZONES[i][1] - pz;
-        const horizLenSq = toX * toX + toZ * toZ;
-        const horizLen = horizLenSq > 0 ? 1.0 / fastInvSqrt(horizLenSq) : 1;
+        const horizLen = Math.sqrt(toX * toX + toZ * toZ) || 1;
         const lookAlong = toX * _scratchCameraForward.x + toZ * _scratchCameraForward.z;
         if (lookAlong > 2.0 && lookAlong < lookFocusDist) {
             lookFocusDist = lookAlong;
@@ -569,10 +623,13 @@ export function animate() {
     uAtmosphereIntensity.value = currentState.atmosphereIntensity;
     sceneRef.fog!.color.copy(baseFog);
 
-    const targetNear = isNightNow ? 5 : 20;
-    const targetFar = isNightNow ? 40 : 100;
-    (sceneRef.fog as any).near += (targetNear - (sceneRef.fog as any).near) * delta * 0.5;
-    (sceneRef.fog as any).far += (targetFar - (sceneRef.fog as any).far) * delta * 0.5;
+    updateAerialPerspectiveUniforms(
+        baseFog,
+        getDayNightBias(cyclePos),
+        (sceneRef.fog as THREE.Fog).near,
+        (sceneRef.fog as THREE.Fog).far,
+    );
+    updateBaseContactAOUniforms(getDayNightBias(cyclePos));
 
     let sunIntensity = currentState.sunInt;
     let ambIntensity = currentState.ambInt;
@@ -594,33 +651,31 @@ export function animate() {
         const sunProgress = cyclePos / 540;
         const angle = sunProgress * Math.PI;
         const r = 100;
+        const celestialX = Math.cos(angle) * -r;
+        const celestialY = Math.sin(angle) * r;
+        const celestialZ = 20;
 
-        // Directional shadow camera follow
-        const sunOffsetX = Math.cos(angle) * -r;
-        const sunOffsetY = Math.sin(angle) * r;
-        const sunOffsetZ = 20;
+        // Pure sky direction — drives corona/shafts/_celestialInView (decoupled from shadow rig).
+        _scratchLightDir.set(celestialX, celestialY, celestialZ).normalize();
+        _scratchSunVector.copy(_scratchLightDir);
 
-        sunLightRef!.position.set(
-            cameraRef.position.x + sunOffsetX,
-            cameraRef.position.y + sunOffsetY,
-            cameraRef.position.z + sunOffsetZ
-        );
-        sunLightRef!.target.position.copy(cameraRef.position);
-        sunLightRef!.target.updateMatrixWorld();
+        const shadowSettings = resolveShadowSettings();
+        sunLightRef!.castShadow = shadowSettings.enabled;
+        if (shadowSettings.enabled) {
+            updateSunShadowFollow(sunLightRef!, player.position, _scratchLightDir);
+        }
 
-        if (sunLightRef) sunLightRef.visible = true;
-        if (sunGlowRef) sunGlowRef.visible = true;
-        if (sunCoronaRef) sunCoronaRef.visible = true;
-        if (moonRef) moonRef.visible = false;
-
-        _scratchSunVector.set(sunOffsetX, sunOffsetY, sunOffsetZ).normalize();
+        sunLightRef!.visible = true;
+        sunGlowRef!.visible = true;
+        sunCoronaRef!.visible = true;
+        moonRef!.visible = false;
         _shaftIsNightMode = false;
 
-        sunGlowRef.position.copy(cameraRef.position).addScaledVector(_scratchSunVector, 400);
+        sunGlowRef.position.copy(_scratchSunVector).multiplyScalar(400);
         (sunGlowRef as any).lookAt(cameraRef.position);
-        sunCoronaRef.position.copy(cameraRef.position).addScaledVector(_scratchSunVector, 390);
+        sunCoronaRef.position.copy(_scratchSunVector).multiplyScalar(390);
         (sunCoronaRef as any).lookAt(cameraRef.position);
-        lightShaftGroupRef!.position.copy(cameraRef.position).addScaledVector(_scratchSunVector, 380);
+        lightShaftGroupRef!.position.copy(_scratchSunVector).multiplyScalar(380);
         (lightShaftGroupRef as any).lookAt(cameraRef.position);
 
         let glowIntensity = 0.25;
@@ -658,10 +713,11 @@ export function animate() {
         (sunGlowMatRef as any).opacity = glowIntensity;
         (coronaMatRef as any).opacity = coronaIntensity;
     } else {
-        if (sunLightRef) sunLightRef.visible = false;
-        if (sunGlowRef) sunGlowRef.visible = false;
-        if (sunCoronaRef) sunCoronaRef.visible = false;
-        if (moonRef) moonRef.visible = true;
+        sunLightRef!.visible = false;
+        sunLightRef!.castShadow = false;
+        sunGlowRef!.visible = false;
+        sunCoronaRef!.visible = false;
+        moonRef!.visible = true;
 
         _shaftIsGoldenHour = false;
         _shaftGoldenHourBase = 0;
@@ -867,6 +923,9 @@ export function animate() {
         // Safety check: ensure player position is valid before copying
         if (player.position && uPlayerPosition.value) {
             uPlayerPosition.value.copy(devOrbitActive ? cameraRef!.position : player.position);
+            if (uPlayerVelocity.value && player.velocity) {
+                uPlayerVelocity.value.copy(player.velocity);
+            }
         }
         if (sparkleTrail && player.position && player.velocity) {
             updateSparkleTrail(sparkleTrail, player.position, player.velocity, gameTime, rendererRef);
@@ -874,12 +933,6 @@ export function animate() {
 
         if (isGroundDebugEnabled() && player.position && cameraRef) {
             updateGroundDebug(player.position, cameraRef.position);
-        }
-
-        if (playerBlobShadowRef && player.position) {
-            playerBlobShadowRef.position.x = player.position.x;
-            playerBlobShadowRef.position.z = player.position.z;
-            playerBlobShadowRef.position.y = getGroundHeight(player.position.x, player.position.z) + 0.05;
         }
 
         if (unlockSystem.isUnlocked('arpeggio_shield')) {

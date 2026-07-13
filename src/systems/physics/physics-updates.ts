@@ -52,10 +52,10 @@ import {
     _scratchTargetVel,
     _scratchUp,
     foliageCaves
-} from './physics-types.js';
+} from './physics-types.ts';
 import {
     calculateMovementInput
-} from '../physics.core.js';
+} from '../physics.core.ts';
 import {
     physicsFoliageGrid,
     physicsTrapsGrid,
@@ -63,6 +63,14 @@ import {
     physicsPinesGrid,
     physicsPanningPadsGrid
 } from './physics-core.ts';
+import {
+    batchGeyserLaunch,
+    batchPadForces,
+    batchVineInteraction,
+    packGeysers,
+    packPads,
+    packVines,
+} from '../../utils/wasm-foliage-interact.ts';
 
 interface PhysicsSyncObject {
     position?: {
@@ -165,8 +173,7 @@ export function checkRetriggerMushrooms(delta: number, audioState: AudioState | 
 
     // ⚡ OPTIMIZATION: Hoisted O(N) audio channel scan outside the spatial query loop
     let isStrobing = false;
-    for (let i = 0; i < audioState.channelData.length; i++) {
-        const ch = audioState.channelData[i];
+    for (const ch of audioState.channelData) {
         if (ch.activeEffect === 5 && ch.effectValue > 0) {
             isStrobing = true;
             break;
@@ -213,8 +220,7 @@ export function checkVibratoViolets(delta: number, audioState: AudioState | null
 
     // ⚡ OPTIMIZATION: Hoisted O(N) audio channel scan outside the spatial query loop
     let isVibrating = false;
-    for (let i = 0; i < audioState.channelData.length; i++) {
-        const ch = audioState.channelData[i];
+    for (const ch of audioState.channelData) {
         if (ch.activeEffect === 4 && ch.effectValue > 0) {
             isVibrating = true;
             break;
@@ -335,66 +341,63 @@ export function checkSnareTraps(delta: number) {
 
 /**
  * Geyser lift mechanics.
+ * Hot path: batchGeyserLaunch (C++ when available, JS fallback otherwise).
  */
 export function checkGeysers(delta: number) {
     const nearbyGeysers = physicsGeysersGrid.findNearby(player.position.x, player.position.z, 5.0);
-    for (let i = 0; i < nearbyGeysers.length; i++) {
-        const geyser = nearbyGeysers[i];
-        const dx = player.position.x - geyser.position.x;
-        const dz = player.position.z - geyser.position.z;
-        const distSq = dx * dx + dz * dz;
-        if (distSq < 2.25) {
-             const eruptionStrength = geyser.userData.eruptionStrength || 0;
-             const maxHeight = geyser.userData.maxHeight || 5.0;
-             const activeHeight = maxHeight * eruptionStrength;
-             const baseHeight = 0.5;
-             if (player.position.y >= geyser.position.y + baseHeight - 0.5 &&
-                 player.position.y <= geyser.position.y + activeHeight + 1.0) {
-                  if (eruptionStrength > 0.1) {
-                      const targetVel = 15.0 * eruptionStrength;
-                      if (player.velocity.y < targetVel) {
-                          player.velocity.y += (targetVel - player.velocity.y) * 5.0 * delta;
-                      }
-                      player.airJumpsLeft = 1;
-                      player.isGrounded = false;
-                      discoverySystem.discover('kick_drum_geyser', 'Kick-Drum Geyser', '⛲');
-                  }
-             }
-        }
+    if (nearbyGeysers.length === 0) return;
+
+    const { data, count } = packGeysers(nearbyGeysers);
+    const result = batchGeyserLaunch(
+        player.position.x,
+        player.position.y,
+        player.position.z,
+        player.velocity.y,
+        delta,
+        data,
+        count
+    );
+
+    if (result.hit) {
+        player.velocity.y = result.vy;
+        if (result.airJump) player.airJumpsLeft = 1;
+        if (result.unground) player.isGrounded = false;
+        discoverySystem.discover('kick_drum_geyser', 'Kick-Drum Geyser', '⛲');
     }
 }
 
 /**
  * Panning pad bobbing platform mechanics.
+ * Hot path: batchPadForces (C++ when available, JS fallback otherwise).
  */
 export function checkPanningPads() {
     const nearbyPads = physicsPanningPadsGrid.findNearby(player.position.x, player.position.z, 10.0);
-    for (let i = 0; i < nearbyPads.length; i++) {
-        const pad = nearbyPads[i];
-        const dx = player.position.x - pad.position.x;
-        const dz = player.position.z - pad.position.z;
-        const distSq = dx*dx + dz*dz;
-        const radius = 1.5 * (pad.scale.x || 1.0);
-        if (distSq < (radius * radius)) {
-             const padY = pad.position.y;
-             const topY = padY + (0.1 * (pad.scale.y || 1.0));
-             if (player.velocity.y <= 0 &&
-                 player.position.y >= topY - 0.2 &&
-                 player.position.y <= topY + 0.5) {
-                 const currentBob = pad.userData.currentBob || 0;
-                 if (currentBob > 0.5) {
-                      player.velocity.y = 20.0;
-                      player.airJumpsLeft = 1;
-                      spawnImpact(pad.position, 'jump');
-                      discoverySystem.discover('panning_pad', 'Panning Pad', '🪷');
-                 } else {
-                      player.position.y = topY;
-                      player.velocity.y = 0;
-                      player.isGrounded = true;
-                 }
-                 return;
-             }
+    if (nearbyPads.length === 0) return;
+
+    const { data, count } = packPads(nearbyPads);
+    const result = batchPadForces(
+        player.position.x,
+        player.position.y,
+        player.position.z,
+        player.velocity.y,
+        data,
+        count
+    );
+
+    if (!result.hit) return;
+
+    if (result.action === 'launch') {
+        player.velocity.y = result.vy;
+        player.airJumpsLeft = 1;
+        const pad = nearbyPads[result.padIndex];
+        if (pad) {
+            spawnImpact(pad.position, 'jump');
+            discoverySystem.discover('panning_pad', 'Panning Pad', '🪷');
         }
+    } else if (result.action === 'snap') {
+        player.position.y = result.snapY;
+        player.velocity.y = 0;
+        player.isGrounded = true;
     }
 }
 
@@ -478,31 +481,26 @@ export function updateJSFallbackMovement(delta: number, camera: THREE.Camera, co
 
 /**
  * Vine attachment detection and handler.
+ * Proximity scan uses batchVineInteraction; attach still runs in JS.
  */
-export function checkVineAttachment(camera: THREE.Camera) {
+export function checkVineAttachment(_camera: THREE.Camera) {
     import('../../world/state.ts').then(vineStateModule => {
         if (!vineStateModule) return;
         const { vineSwings, setActiveVineSwing } = vineStateModule;
+        if (!vineSwings || vineSwings.length === 0) return;
+
         const playerPos = player.position;
-        for (let i = 0; i < vineSwings.length; i++) {
-            const vineManager = vineSwings[i];
-            if (!vineManager || !vineManager.anchorPoint) continue;
-            const anchor = vineManager.anchorPoint;
-            if (typeof anchor.x !== 'number' || typeof anchor.y !== 'number' || typeof anchor.z !== 'number') continue;
-            const dx = playerPos.x - anchor.x;
-            const dz = playerPos.z - anchor.z;
-            const distHSq = dx*dx + dz*dz;
-            // ⚡ OPTIMIZATION: Quick horizontal distance check before more expensive math
-            if (distHSq < 1.0) {
-                const tipY = anchor.y - (typeof vineManager.length === 'number' ? vineManager.length : 0);
-                if (playerPos.y < anchor.y && playerPos.y > tipY) {
-                    if (typeof vineManager.attach === 'function') {
-                        vineManager.attach(player, player.velocity);
-                        setActiveVineSwing(vineManager);
-                        break;
-                    }
-                }
-            }
+        const vineManagers: unknown[] = [];
+        const { data, count } = packVines(vineSwings, undefined, vineManagers);
+        if (count === 0) return;
+
+        const prox = batchVineInteraction(playerPos.x, playerPos.y, playerPos.z, data, count);
+        if (!prox.inAttachZone || prox.candidateIndex < 0) return;
+
+        const vineManager = vineManagers[prox.candidateIndex] as { attach?: (p: typeof player, v: typeof player.velocity) => void };
+        if (vineManager && typeof vineManager.attach === 'function') {
+            vineManager.attach(player, player.velocity);
+            setActiveVineSwing(vineManager);
         }
     });
 }
@@ -520,8 +518,7 @@ export async function initCppPhysics(camera: THREE.Camera) {
     if (totalCount > 0) {
         const batchData = new Float32Array(totalCount * 9);
         let ptr = 0;
-        for (let i = 0; i < validMushrooms.length; i++) {
-            const m = validMushrooms[i];
+        for (const m of validMushrooms) {
             batchData[ptr++] = 0;
             batchData[ptr++] = m.position.x;
             batchData[ptr++] = m.position.y;
@@ -532,8 +529,7 @@ export async function initCppPhysics(camera: THREE.Camera) {
             batchData[ptr++] = (m.userData as any).capRadius || 2;
             batchData[ptr++] = (m.userData as any).isTrampoline ? 1 : 0;
         }
-        for (let i = 0; i < validClouds.length; i++) {
-            const c = validClouds[i];
+        for (const c of validClouds) {
             batchData[ptr++] = 1;
             batchData[ptr++] = c.position.x;
             batchData[ptr++] = c.position.y;
@@ -544,8 +540,7 @@ export async function initCppPhysics(camera: THREE.Camera) {
             batchData[ptr++] = (c.userData as any).tier || 1;
             batchData[ptr++] = 0;
         }
-        for (let i = 0; i < validTrampolines.length; i++) {
-            const t = validTrampolines[i];
+        for (const t of validTrampolines) {
             batchData[ptr++] = 2;
             batchData[ptr++] = t.position.x;
             batchData[ptr++] = t.position.y;

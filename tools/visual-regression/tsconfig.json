@@ -12,6 +12,6 @@
     "outDir": "./dist",
     "rootDir": "."
   },
-  "include": ["src/**/*", "cli.ts"],
+  "include": ["src/**/*", "cli.ts", "index.ts", "validate.ts"],
   "exclude": ["node_modules", "dist", "test"]
 }

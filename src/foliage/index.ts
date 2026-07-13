@@ -23,6 +23,7 @@ export {
     uAudioLow,
     uAudioHigh,
     uPlayerPosition,
+    uPlayerVelocity,
     // Utility functions
     median,
     generateNoiseTexture,
@@ -58,6 +59,9 @@ export {
     createGradientMaterial,
     createStandardNodeMaterial,
     createTransparentNodeMaterial,
+    applyBaseContactAO,
+    getBaseContactHeight,
+    updateBaseContactAOUniforms,
 } from './material-core.ts';
 
 // =============================================================================

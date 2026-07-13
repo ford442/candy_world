@@ -4,7 +4,7 @@ A comprehensive visual regression testing and screenshot comparison system for c
 
 ## Features
 
-- 📸 **Multi-viewpoint Capture**: Test spawn, lake, forest, night, particles, and weather scenes
+- 📸 **Multi-viewpoint Capture**: Test spawn, lake, forest, night, particles, weather, sunset, slope_foot, lake_edge, horizon_lod, and gem_corridor_scale scenes
 - 🖥️ **Multi-resolution Support**: Mobile (375x667), Desktop (1920x1080), Ultrawide (3440x1440)
 - ⚙️ **Quality Settings**: Low, Medium, High, Ultra presets for different test scenarios
 - 🔍 **Pixel-perfect Comparison**: Detect even the smallest visual changes
@@ -53,6 +53,53 @@ npm run test:visual -- --update
 | `particles` | Fireflies, pollen effects | 4s |
 | `weather` | Rain/storm conditions | 3.5s |
 | `sunset` | Atmospheric scattering | 2s |
+| `slope_foot` | Terrain slope / ground continuity | 2.5s |
+| `lake_edge` | Lake shoreline and reflection consistency | 3s |
+| `horizon_lod` | Distant LOD tier transitions | 3s |
+| `gem_corridor_scale` | Gem canopy corridor scale/population | 3s |
+
+## Spatial coherence regression
+
+These viewpoints guard against **perspective-breaking** changes that the smoke test (`npm run test`) cannot catch — floating props, scale mismatches, fog/horizon discontinuities, and LOD pops. They target known-problem areas derived from `src/world/generation-utils.ts` biome centers and `src/systems/ground-system.ts` lake bounds.
+
+| Viewpoint | Guards against | Biome anchor |
+|-----------|----------------|--------------|
+| `slope_foot` | Root gaps / floating trees on slopes | Forest quadrant + `ARPEGGIO_GROVE` (-60, 60) |
+| `lake_edge` | Basin carve seam, shoreline reflections | `LAKE_BOUNDS` east rim; `LAKE_ISLAND` (20, 20) |
+| `horizon_lod` | Distant LOD pops, fog horizon band | 280u vantage toward origin treeline |
+| `gem_corridor_scale` | Gem-fruit scale / corridor depth | `GEM_CANOPY` corridor (75,-115)→(125,-45) |
+
+### Pass criteria
+
+- **Pixel diff threshold**: ≤ **5%** (`threshold: 0.05`) on `main` branch baselines
+- **CI renderer**: WebGL2 + SwiftShader via `?renderer=webgl&webglLite=1` (no WebGPU required)
+- **CI quality tier**: `medium` only (desktop viewport) — keeps cloud VM runs under ~15 min
+- **Required CI viewpoints**: at minimum `slope_foot` + `horizon_lod` (included in `ci.config.json`)
+
+### Camera poses
+
+Fixed poses live in [`viewpoints.json`](./viewpoints.json) (position, target, FOV, time-of-day, `waitForStable`). Edit that file when tuning anchors; the TypeScript fallback in `screenshot-capture.ts` is used only when JSON is missing.
+
+```bash
+# Capture spatial viewpoints only (local dev)
+cd tools/visual-regression
+pnpm run test:visual -- \
+  --viewpoints slope_foot,lake_edge,horizon_lod,gem_corridor_scale \
+  --qualities medium
+
+# Dev: include ground-height debug overlay in captures (not for CI baselines)
+pnpm run test:visual -- --debug-heights --viewpoints slope_foot --update
+```
+
+### Spatial coherence checklist (manual review)
+
+When a visual-regression diff fails or you are reviewing a grounding/fog/LOD change:
+
+- [ ] **Ground contact** — tree/mushroom bases touch terrain on slopes (`slope_foot`)
+- [ ] **Lake seam** — no hard step between carved basin and surrounding terrain (`lake_edge`)
+- [ ] **Horizon band** — fog color matches sky; no grey halo or pop at treeline (`horizon_lod`)
+- [ ] **Scale depth** — gem fruits read at consistent size along corridor (`gem_corridor_scale`)
+- [ ] **LOD cross-fade** — no billboard pop when impostors engage (`forest_horizon`, optional)
 
 ## Quality Settings
 
@@ -85,6 +132,9 @@ Options:
   --viewports, -p <list>    Comma-separated viewports
   --threshold, -t <float>   Diff threshold (default: 0.05)
   --update, -U              Update baselines
+  --seed <number|string>    Deterministic random seed
+  --debug-heights           Append ?debugHeights=1 (dev only; not for CI baselines)
+  --viewpoints-path <path>  Custom viewpoints.json path
   --no-report               Skip report generation
   --performance, -perf      Capture performance profiles
   --help, -h                Show help
@@ -114,22 +164,25 @@ npm run test:visual -- --threshold 0.05
 
 ## Configuration File
 
-Create a `visual-regression.config.json` in your project root:
+Create a `visual-regression.config.json` in your project root, or use the CI preset at `tools/visual-regression/ci.config.json`:
 
 ```json
 {
-  "baseUrl": "http://localhost:5173",
+  "baseUrl": "http://localhost:5173/?renderer=webgl&webglLite=1",
   "outputDir": "./test/screenshots",
   "baselineDir": "./test/baselines",
-  "viewpoints": ["spawn", "lake", "forest", "night"],
-  "qualities": ["medium", "high"],
+  "viewpoints": ["slope_foot", "lake_edge", "horizon_lod", "gem_corridor_scale", "spawn", "lake", "forest"],
+  "qualities": ["medium"],
   "viewports": ["desktop"],
   "threshold": 0.05,
+  "seed": 42,
   "updateBaselines": false,
   "generateReport": true,
   "capturePerformance": false
 }
 ```
+
+Camera poses are defined separately in [`viewpoints.json`](./viewpoints.json).
 
 ## Baseline Management
 
@@ -362,10 +415,10 @@ const baseline = await manager.getBaseline(viewpoint, quality, viewport);
 
 When adding new viewpoints:
 
-1. Add viewpoint config to `src/screenshot-capture.ts`
-2. Document in README
-3. Update example config
-4. Create baselines for the new viewpoint
+1. Add entry to `viewpoints.json` with `biomeAnchor` documenting the source constant
+2. Optionally add a TS fallback in `src/screenshot-capture.ts` (`DEFAULT_VIEWPOINTS`)
+3. Document in README (Spatial coherence regression table)
+4. Capture baselines: `pnpm run test:visual -- --viewpoints <name> --update`
 
 ## License
 

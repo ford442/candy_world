@@ -30,7 +30,7 @@ function check(name: string, condition: boolean, message?: string): boolean {
 async function validate() {
   console.log('🎮 Candy World Visual Regression Validation\n');
   
-  const rootDir = path.join(__dirname, '..', '..', '..');
+  const rootDir = path.join(__dirname, '..', '..');
   const vrDir = path.join(rootDir, 'tools', 'visual-regression');
   
   let passed = 0;
@@ -64,6 +64,8 @@ async function validate() {
   if (check('index.ts exists', fs.existsSync(path.join(vrDir, 'index.ts')))) passed++; else failed++;
   if (check('package.json exists', fs.existsSync(path.join(vrDir, 'package.json')))) passed++; else failed++;
   if (check('README.md exists', fs.existsSync(path.join(vrDir, 'README.md')))) passed++; else failed++;
+  if (check('viewpoints.json exists', fs.existsSync(path.join(vrDir, 'viewpoints.json')))) passed++; else failed++;
+  if (check('ci.config.json exists', fs.existsSync(path.join(vrDir, 'ci.config.json')))) passed++; else failed++;
   
   // Check package.json scripts
   console.log('\n📦 Package Configuration:');

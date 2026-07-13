@@ -22,7 +22,7 @@ export type {
     SessionMetadata,
     UnlockSaveData,
     MigrationFunction
-} from './save-types.js';
+} from './save-types.ts';
 
 // =============================================================================
 // CONSTANT EXPORTS
@@ -39,7 +39,7 @@ export {
     LOCALSTORAGE_KEY_SETTINGS,
     LOCALSTORAGE_KEY_METADATA,
     COMPRESSION_THRESHOLD
-} from './save-types.js';
+} from './save-types.ts';
 
 // =============================================================================
 // DATABASE EXPORTS
@@ -49,7 +49,7 @@ export {
     LZString,
     SaveDatabase,
     MigrationSystem
-} from './save-database.js';
+} from './save-database.ts';
 
 // =============================================================================
 // MAIN SAVE SYSTEM EXPORTS
@@ -61,10 +61,10 @@ export {
     createPlayerSaveData,
     createWorldSaveData,
     createProgressSaveData
-} from './save-system.js';
+} from './save-system.ts';
 
 // =============================================================================
 // DEFAULT EXPORT (Backward Compatibility)
 // =============================================================================
 
-export { saveSystem as default } from './save-system.js';
+export { saveSystem as default } from './save-system.ts';

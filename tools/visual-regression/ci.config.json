@@ -1,0 +1,23 @@
+{
+  "$schema": "./config.schema.json",
+  "baseUrl": "http://localhost:5173/?renderer=webgl&webglLite=1",
+  "outputDir": "./test/screenshots",
+  "baselineDir": "./test/baselines",
+  "viewpoints": [
+    "slope_foot",
+    "lake_edge",
+    "horizon_lod",
+    "gem_corridor_scale",
+    "spawn",
+    "lake",
+    "forest"
+  ],
+  "qualities": ["medium"],
+  "viewports": ["desktop"],
+  "threshold": 0.05,
+  "seed": 42,
+  "updateBaselines": false,
+  "generateReport": true,
+  "capturePerformance": false,
+  "skipComparison": false
+}

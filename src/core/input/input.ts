@@ -7,7 +7,7 @@
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js';
 import { AudioSystem } from '../../audio/audio-system';
 import * as THREE from 'three';
-import { discoverySystem } from '../../systems/discovery.js';
+import { discoverySystem } from '../../systems/discovery.ts';
 import { trapFocusInside } from '../../utils/interaction-utils.ts';
 import { openAccessibilityMenu, closeAccessibilityMenu } from '../../ui/accessibility-menu.ts';
 import { keyStates, InitInputResult, filterValidMusicFiles, triggerAbility } from './input-types.ts';
@@ -198,7 +198,7 @@ export function initInput(
 
         slot.addEventListener('pointerout', () => {
              // In case pointer leaves element while held
-             if(slot.classList.contains('keyboard-active')) {
+             if (slot.classList.contains('keyboard-active')) {
                  const keyEvent = new KeyboardEvent('keyup', { key: actionKey, code: `Key${actionKey.toUpperCase()}`, bubbles: true });
                  document.dispatchEvent(keyEvent);
                  slot.classList.remove('keyboard-active');

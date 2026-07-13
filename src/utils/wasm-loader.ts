@@ -68,6 +68,12 @@ export {
 
     // Hot-path Physics exports (Migrated from TS)
     wasmBatchGroundHeight,
+    wasmGetUnifiedGroundHeight,
+    wasmBatchUnifiedGroundHeight,
+    wasmClearGroundPlatforms,
+    wasmAddGroundPlatform,
+    wasmInvalidateGroundCache,
+    wasmSetGroundCacheTTL,
     wasmDampVelocity,
     wasmBatchDistanceCalc,
     wasmBatchFrustumTest,
@@ -100,6 +106,12 @@ export {
     cppFastSin,
     cppFastCos,
     cppFastPow2,
+    cppGetUnifiedGroundHeight,
+    cppBatchUnifiedGroundHeight,
+    cppClearGroundPlatforms,
+    cppAddGroundPlatform,
+    cppInvalidateGroundCache,
+    cppSetGroundCacheTTL,
     cppBatchShiverSimd,
     cppBatchSpringSimd,
     cppBatchFloatSimd,
@@ -313,3 +325,32 @@ export {
     batchFloatHighLevel,
     batchCloudBobHighLevel
 } from './wasm-batch.ts';
+
+// Unified ground-height bridge
+export {
+    isNativeUnifiedGroundReady,
+    syncGroundPlatformsToNative,
+    syncGroundCacheTTLToNative,
+    invalidateNativeGroundCache,
+    queryUnifiedGroundHeight,
+    fillUnifiedGroundHeights,
+    getUnifiedGroundBackend,
+    batchGroundHeightWithPlatforms,
+} from './wasm-ground.ts';
+
+// Foliage interaction batches
+export {
+    batchGeyserLaunch,
+    batchPadForces,
+    batchVineInteraction,
+    geyserLaunchJS,
+    padForcesJS,
+    vineProximityJS,
+    packGeysers,
+    packPads,
+    packVines,
+    isNativeFoliageInteractReady,
+    GEYSER_STRIDE,
+    PAD_STRIDE,
+    VINE_STRIDE,
+} from './wasm-foliage-interact.ts';

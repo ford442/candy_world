@@ -64,9 +64,7 @@ jobs:
         run: |
           cd tools/visual-regression
           pnpm run test:visual -- \
-            --url http://localhost:5173 \
-            --viewpoints spawn,lake,forest \
-            --qualities medium,high \
+            --config ci.config.json \
             --threshold 0.05
 
       - name: Upload test results
@@ -124,7 +122,6 @@ jobs:
 
   update-baselines:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: visual-regression
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -136,13 +133,52 @@ jobs:
           lfs: true
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Install dependencies
+        run: |
+          npm install -g pnpm@9
+          pnpm config set ignore-scripts false
+          pnpm install
+          cd tools/visual-regression
+          pnpm config set ignore-scripts false
+          pnpm install
+
+      - name: Install Playwright
+        run: |
+          cd tools/visual-regression
+          npx playwright install chromium
+
+      - name: Build WASM
+        run: |
+          pnpm run build:ci
+
+      - name: Start dev server
+        run: |
+          pnpm exec vite preview --port 5173 &
+          npx wait-on http-get://localhost:5173 --timeout 120000
+
+      - name: Update baselines
+        run: |
+          cd tools/visual-regression
+          pnpm run test:visual -- \
+            --config ci.config.json \
+            --update
+
       - name: Configure Git
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      # Baselines should be updated manually via PRs with intentional changes
-      # This job is a placeholder for automated baseline updates if needed
-      - name: Baseline update placeholder
+      - name: Commit updated baselines
         run: |
-          echo "Baselines should be updated via PR when making intentional visual changes"
+          git add tools/visual-regression/test/baselines/
+          if git diff --cached --quiet; then
+            echo "ℹ️  No baseline changes to commit"
+          else
+            git commit -m "chore: update visual regression baselines [ci skip]"
+            git push
+          fi

@@ -207,6 +207,19 @@ declare -A ANIMATION_FUNCTIONS=(
     ["fastSin"]="math"
     ["fastCos"]="math"
     ["fastPow2"]="math"
+
+    # Unified ground height (ground.cpp)
+    ["clearGroundPlatforms"]="ground"
+    ["addGroundPlatform"]="ground"
+    ["invalidateGroundCache"]="ground"
+    ["setGroundCacheTTL"]="ground"
+    ["getUnifiedGroundHeight"]="ground"
+    ["batchUnifiedGroundHeight"]="ground"
+
+    # Foliage interaction (foliage_interact.cpp)
+    ["batchGeyserLaunch_c"]="foliage_interact"
+    ["batchPadForces_c"]="foliage_interact"
+    ["batchVineInteraction_c"]="foliage_interact"
     
     # Physics functions (physics.cpp)
     ["initPhysicsMemory"]="physics"
@@ -346,6 +359,7 @@ declare -A ANIMATION_FUNCTIONS=(
     
     # Particle physics functions (particle_physics.cpp)
     ["updateParticlesWASM"]="particle_physics"
+    ["updateCpuParticlesWASM"]="particle_physics"
     ["getParticlePhysicsVersion"]="particle_physics"
     ["initParticleRandom"]="particle_physics"
 

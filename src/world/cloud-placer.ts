@@ -16,9 +16,10 @@
 import * as THREE from 'three';
 import { CONFIG } from '../core/config.ts';
 import { createCloud } from '../foliage/clouds.ts';
-import { safeAddFoliage } from './generation-core.ts';
-import { getGroundHeight } from '../systems/ground-system.ts';
+import { safeAddFoliage } from './generation-entities.ts';
+import { getGroundHeight, registerWalkableCloudPlatform } from '../systems/ground-system.ts';
 import { addCollisionObject } from '../utils/wasm-loader.ts';
+import { registerCloudPlatform } from '../debug/ground-debug.ts';
 import type { WeatherSystem } from '../systems/weather.ts';
 
 const STORAGE_KEY = 'candy_dev_cloud_placements';
@@ -84,15 +85,19 @@ function nextPlacementId(): string {
 
 function registerCloudPhysics(cloud: THREE.Object3D): void {
     if (!cloud.userData.isWalkable) return;
+    const sizeMul = typeof cloud.userData.cloudScale === 'number' ? cloud.userData.cloudScale : 1.0;
+    // Match the axis-aligned bounds used by ground-system.ts (#1266).
+    const halfX = 3.5 * cloud.scale.x * sizeMul * 0.5;
+    const halfZ = 3.5 * cloud.scale.z * sizeMul * 0.5;
+    const halfY = cloud.scale.y * sizeMul * 0.35;
     addCollisionObject(
         2,
         cloud.position.x,
         cloud.position.y,
         cloud.position.z,
-        cloud.scale.x || 1,
-        cloud.scale.y || 1,
-        0,
-        0,
+        halfX,
+        halfY,
+        halfZ,
         0
     );
 }
@@ -171,6 +176,7 @@ export function placeCloudBlock(
     const cloud = createCloud({ scale: size, tier: CONFIG.cloud.walkableTier });
     cloud.userData.tier = CONFIG.cloud.walkableTier;
     cloud.userData.isWalkable = CONFIG.cloud.walkableTier === 1;
+    cloud.userData.cloudScale = size;
     cloud.userData.persistentId = id;
     cloud.userData.devPlaced = true;
     cloud.userData.mapEntityType = 'cloud';
@@ -185,6 +191,8 @@ export function placeCloudBlock(
     }
 
     registerCloudPhysics(cloud);
+    registerWalkableCloudPlatform(cloud);
+    registerCloudPlatform(cloud);
 
     const record: CloudPlacementRecord = { id, x, y, z, size, rotation };
     if (options.persist !== false) {

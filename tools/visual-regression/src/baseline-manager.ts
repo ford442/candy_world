@@ -1,7 +1,7 @@
-import * as crypto from "crypto";
 import * as fs from 'fs';
 import * as path from 'path';
 import { execSync } from 'child_process';
+import { createHash } from 'crypto';
 
 /**
  * Baseline Manager Configuration
@@ -166,9 +166,8 @@ export class BaselineManager {
    * Calculate file hash
    */
   private calculateHash(filepath: string): string {
-
     const content = fs.readFileSync(filepath);
-    return crypto.createHash('sha256').update(content).digest('hex').substring(0, 16);
+    return createHash('sha256').update(content).digest('hex').substring(0, 16);
   }
 
   /**
@@ -183,7 +182,7 @@ export class BaselineManager {
       tags?: string[];
       name?: string;
     }
-  ): Promise<BaselineEntry> {
+  ): BaselineEntry {
     const branch = this.getCurrentBranch();
     const targetDir = this.config.branchIsolation
       ? path.join(this.config.baselineDir, branch)
@@ -236,7 +235,7 @@ export class BaselineManager {
     quality: string,
     viewport: string,
     branch?: string
-  ): Promise<BaselineEntry | null> {
+  ): BaselineEntry | null {
     const targetBranch = branch || this.getCurrentBranch();
 
     // Try exact branch match first

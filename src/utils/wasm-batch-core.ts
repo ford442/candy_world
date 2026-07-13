@@ -27,7 +27,7 @@ import {
     MaterialAnalysisResult, 
     DistanceCullResult,
     MaterialInfo 
-} from './wasm-batch-types.js';
+} from './wasm-batch-types.ts';
 
 // =============================================================================
 // BATCH UPLOAD FUNCTIONS

@@ -2,7 +2,7 @@
 // Ability system: Dash, Dodge Roll, Double Jump, Sonic Clap, Phase Shift
 
 import * as THREE from 'three';
-import { player, _lastInputState, _scratchCamDir, AudioState, KeyStates } from './physics-types.js';
+import { player, _lastInputState, _scratchCamDir, AudioState, KeyStates } from './physics-types.ts';
 import { spawnImpact } from '../../foliage/impacts.ts';
 import { spawnDandelionExplosion } from '../../foliage/dandelion-seeds.ts';
 import { dandelionBatcher } from '../../foliage/dandelion-batcher.ts';

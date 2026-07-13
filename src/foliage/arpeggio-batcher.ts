@@ -10,7 +10,9 @@ import {
     createJuicyRimLight,
     createStandardNodeMaterial,
     uAudioHigh,
-    uPlayerPosition
+    uPlayerPosition,
+    applyBaseContactAO,
+    getBaseContactHeight,
 } from './index.ts';
 import {
     color, float, uniform, vec3, positionLocal, sin, cos, mix, uv, varying,
@@ -30,10 +32,13 @@ import { camera } from '../core/camera-ref.ts';
 import { CONFIG } from '../core/config.ts';
 import { dynamicRadiiView } from '../utils/wasm-physics.ts';
 import { getCIAdjustedCount } from '../core/config.ts';
+import { getGroundAlignedQuaternion } from '../world/placement-utils.ts';
+import { applyAerialPerspective } from './aerial-perspective.ts';
 
 const MAX_FERNS = getCIAdjustedCount(500, 0.1, 50); // Reduced from 2000 for WebGPU uniform buffer limits
 const FRONDS_PER_FERN = 5;
 const _scratchMatrix = new THREE.Matrix4();
+const _scratchQuaternion = new THREE.Quaternion();
 
 export class ArpeggioFernBatcher {
     initialized: boolean;
@@ -299,8 +304,15 @@ export class ArpeggioFernBatcher {
 
         // Fragment Shader: Instance Color Tint + Rim Light
         const baseInstanceColor = varyingProperty('vec3', 'vInstanceColor');
-        // Mix instance color into base color
-        material.colorNode = mixedColor.mul(baseInstanceColor);
+        // Mix instance color into base color, then apply distance-driven aerial perspective
+        material.colorNode = applyBaseContactAO(
+            applyAerialPerspective(
+                mixedColor.mul(baseInstanceColor),
+                positionWorld,
+            ),
+            positionLocal.y,
+            float(getBaseContactHeight('arpeggio_fern')),
+        );
 
         // Juicy Rim Light
         const rim = createJuicyRimLight(baseInstanceColor, float(2.0), float(3.0), null);
@@ -378,7 +390,7 @@ export class ArpeggioFernBatcher {
         // ⚡ OPTIMIZATION: Eliminate CPU overhead and GC spikes from Matrix4 composition by writing directly to instanceMatrix.array
         // Compose directly from the logic object's properties without using a proxy THREE.Object3D
         dummy.scale.setScalar(scale);
-        _scratchMatrix.compose(dummy.position, dummy.quaternion, dummy.scale);
+        _scratchMatrix.compose(dummy.position, getGroundAlignedQuaternion(dummy, _scratchQuaternion), dummy.scale);
         _scratchMatrix.toArray(this.mesh!.instanceMatrix.array, i * 16);
 
         // Color
@@ -403,7 +415,7 @@ export class ArpeggioFernBatcher {
 
         // ⚡ OPTIMIZATION: Eliminate CPU overhead and GC spikes from Matrix4 composition by writing directly to instanceMatrix.array
         // Compose directly from the logic object's properties without using a proxy THREE.Object3D
-        _scratchMatrix.compose(dummy.position, dummy.quaternion, dummy.scale);
+        _scratchMatrix.compose(dummy.position, getGroundAlignedQuaternion(dummy, _scratchQuaternion), dummy.scale);
         _scratchMatrix.toArray(this.mesh!.instanceMatrix.array, index * 16);
 
         this.mesh!.instanceMatrix.needsUpdate = true;

@@ -115,7 +115,6 @@ function createCloudMaterial() {
     const floatDisp = sin(uTime.mul(floatSpeed).add(worldPhase)).mul(floatAmp);
     const floatOffset = vec3(0.0, floatDisp, 0.0);
 
-    material.positionNode = squishedPos.add(fluffOffset).add(floatDisp);
     // === SPRING BOUNCE (player land/jump response) ===
     // High-frequency sine gives that satisfying candy "boing" overshoot
     const bounceRinging = sin(uTime.mul(15.0)).mul(playerStrength).mul(0.15);

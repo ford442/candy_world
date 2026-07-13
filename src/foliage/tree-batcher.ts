@@ -1,4 +1,5 @@
 import { safeRemoveAndDispose } from "../utils/dispose-utils.ts";
+import { getGroundAlignedQuaternion } from '../world/placement-utils.ts';
 // src/foliage/tree-batcher.ts
 // Lazy dynamic buffer growth: Starts with INITIAL_INSTANCES=100, doubles capacity as needed.
 // Reduces startup allocation from 93,000 to ~500 instances for typical maps.
@@ -15,7 +16,9 @@ import {
     uAudioLow,
     uWindSpeed,
     uGlitchIntensity,
-    applyPlayerInteraction
+    applyPlayerInteraction,
+    applyBaseContactAO,
+    getBaseContactHeight,
 } from './index.ts';
 import {
     color, float, vec3, positionLocal, mix, attribute, uv, sin, cos, positionWorld, smoothstep,
@@ -33,13 +36,17 @@ import {
     scaleEmissiveByLod,
     lodHeroOnlyMultiplier,
     lodHeroGate,
-    lodMidOnlyGate
+    lodMidOnlyGate,
+    applyFoliageLodMaterialFade,
 } from './lod-nodes.ts';
 import { initInstanceLodAttribute, copyInstanceLodOnGrow } from './batcher-lod-utils.ts';
 import { registerFoliageBatcherLod, refreshFoliageLodMesh } from '../systems/batcher-lod.ts';
 import { getCIAdjustedCount } from '../core/config.ts';
+import { applyAerialPerspective, aerialPerspectiveLodBoost } from './aerial-perspective.ts';
 
 const _scratchTreeMatrix = new THREE.Matrix4();
+const _scratchTreeOriginalQuaternion = new THREE.Quaternion();
+const _scratchTreeFinalQuaternion = new THREE.Quaternion();
 
 const _defaultColorWhite = new THREE.Color(0xFFFFFF);
 const _defaultColorOrange = new THREE.Color(0xFF4500);
@@ -107,7 +114,13 @@ export class TreeBatcher {
         // PALETTE: Upgrade to "Clay Bark"
         // Use instanceColor but darken bottom for grounding
         const instanceColor = varyingProperty('vec3', 'vInstanceColor');
-        const trunkColor = mix(instanceColor.mul(0.6), instanceColor, positionLocal.y);
+        const trunkColorRaw = mix(instanceColor.mul(0.6), instanceColor, positionLocal.y);
+        const trunkColorGrounded = applyBaseContactAO(
+            trunkColorRaw,
+            positionLocal.y,
+            float(getBaseContactHeight('tree')),
+        );
+        const trunkColor = applyAerialPerspective(trunkColorGrounded, positionWorld, aerialPerspectiveLodBoost());
 
         // Combined Deformation: Interaction + Wind
         const animOffsetTrunk = applyInstanceAnimation();
@@ -124,6 +137,8 @@ export class TreeBatcher {
             triplanar: true    // Avoid UV seams on cylinder
         });
 
+        applyFoliageLodMaterialFade(trunkMat);
+
         this.trunks = new THREE.InstancedMesh(sharedGeometries.unitCylinder, trunkMat, this.trunkCapacity);
         this.trunks.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(this.trunkCapacity * 3), 3);
         this.trunks.geometry.setAttribute('instanceColor', this.trunks.instanceColor);
@@ -137,7 +152,12 @@ export class TreeBatcher {
 
         // --- 2. Sphere Batch (Leaves/Blooms) ---
         // PALETTE: "Flutter" + "Squash" Juice
-        const sphereColor = varyingProperty('vec3', 'vInstanceColor');
+        const sphereInstanceColor = varyingProperty('vec3', 'vInstanceColor');
+        const sphereColor = applyAerialPerspective(
+            sphereInstanceColor,
+            positionWorld,
+            aerialPerspectiveLodBoost(),
+        );
 
         // Flutter: High frequency vertex displacement driven by wind
         const flutterSpeed = float(15.0);
@@ -166,7 +186,7 @@ export class TreeBatcher {
         const sphereFinalDeform = sphereFluttered.mul(squashScaleLod);
 
         // Base Emissive logic based on High Freq Audio
-        const sphereEmissive = sphereColor.mul(uAudioHigh.mul(1.5).add(0.2));
+        const sphereEmissive = sphereInstanceColor.mul(uAudioHigh.mul(1.5).add(0.2));
 
         // 🎨 PALETTE: Twilight Glow System Support
 
@@ -197,7 +217,10 @@ export class TreeBatcher {
         });
 
         // 🎨 PALETTE: Make tree leaves pop with sparkly glow, base audio emissive, and twilight glow
-        sphereMat.emissiveNode = sphereEmissive.mul(BiomeUniforms.arpeggioGrove.noteColor).add(sugarSparkle).add(twilightGlowTint).add(createJuicyRimLight(color(0xFFFFFF), float(1.5), float(3.0), null));
+        sphereMat.emissiveNode = scaleEmissiveByLod(
+            sphereEmissive.mul(BiomeUniforms.arpeggioGrove.noteColor).add(sugarSparkle).add(twilightGlowTint).add(createJuicyRimLight(color(0xFFFFFF), float(1.5), float(3.0), null))
+        );
+        applyFoliageLodMaterialFade(sphereMat);
 
         this.spheres = new THREE.InstancedMesh(sharedGeometries.unitSphere, sphereMat, this.sphereCapacity);
         this.spheres.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(this.sphereCapacity * 3), 3);
@@ -211,7 +234,17 @@ export class TreeBatcher {
         foliageGroup.add(this.spheres);
 
         // --- 3. Capsule Batch (Branches) ---
-        const capsuleColor = varyingProperty('vec3', 'vInstanceColor');
+        const capsuleColorRaw = varyingProperty('vec3', 'vInstanceColor');
+        const capsuleColorGrounded = applyBaseContactAO(
+            capsuleColorRaw,
+            positionLocal.y,
+            float(getBaseContactHeight('tree')),
+        );
+        const capsuleColor = applyAerialPerspective(
+            capsuleColorGrounded,
+            positionWorld,
+            aerialPerspectiveLodBoost(),
+        );
         const animOffsetCapsule = applyInstanceAnimation();
         const baseCapsulePos = positionLocal.add(animOffsetCapsule);
         const capsuleDeform = foliageDeformationOffset(baseCapsulePos);
@@ -222,6 +255,8 @@ export class TreeBatcher {
             deformationNode: capsuleDeform, // 🏗️ ARCHITECT: Removed double-application of player interaction
             rimStrength: 0.4
         });
+
+        applyFoliageLodMaterialFade(capsuleMat);
 
         this.capsules = new THREE.InstancedMesh(sharedGeometries.capsule, capsuleMat, this.capsuleCapacity);
         this.capsules.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(this.capsuleCapacity * 3), 3);
@@ -236,7 +271,11 @@ export class TreeBatcher {
 
         // --- 4. Helix Batch (Vines/Strange Plants) ---
         // PALETTE: Neon Pulse
-        const helixColor = varyingProperty('vec3', 'vInstanceColor');
+        const helixColor = applyAerialPerspective(
+            varyingProperty('vec3', 'vInstanceColor'),
+            positionWorld,
+            aerialPerspectiveLodBoost(),
+        );
 
         // Spiral Math for Geometry (applied in vertex shader)
         const t = positionLocal.y; // 0 to 1
@@ -263,6 +302,8 @@ export class TreeBatcher {
             rimStrength: 0.8
         });
 
+        applyFoliageLodMaterialFade(helixMat);
+
         // Geometry: Use simple cylinder, deformed by shader to spiral
         // ⚡ OPTIMIZATION: Use shared geometry via registry (deduplicated)
         const helixGeo = getCylinderGeometry(1, 1, 1, 16, 30);
@@ -281,7 +322,11 @@ export class TreeBatcher {
 
         // --- 5. Rose Batch (TorusKnot) ---
         // PALETTE: Velvet/Sugar Look
-        const roseColor = varyingProperty('vec3', 'vInstanceColor');
+        const roseColor = applyAerialPerspective(
+            varyingProperty('vec3', 'vInstanceColor'),
+            positionWorld,
+            aerialPerspectiveLodBoost(),
+        );
         const animOffsetRose = applyInstanceAnimation();
         const baseRosePos = positionLocal.add(animOffsetRose);
         const roseDeform = foliageDeformationOffset(baseRosePos);
@@ -294,6 +339,8 @@ export class TreeBatcher {
             sheen: 1.0,
             audioReactStrength: 0.8 // Strong glow response
         });
+
+        applyFoliageLodMaterialFade(roseMat);
 
         // ⚡ OPTIMIZATION: Use shared geometry via registry (deduplicated)
         const roseGeo = getTorusKnotGeometry(0.25, 0.08, 64, 8, 2, 3);
@@ -592,7 +639,15 @@ export class TreeBatcher {
 
         // ⚡ OPTIMIZATION: Ensure world matrix is ready for child components
         // Avoids multiple updateWorldMatrix calls or manual premultiplications later
-        group.updateWorldMatrix(false, false);
+        const slopeQ = group.userData.groundSlopeQuaternion as THREE.Quaternion | undefined;
+        if (slopeQ) {
+            _scratchTreeOriginalQuaternion.copy(group.quaternion);
+            group.quaternion.copy(getGroundAlignedQuaternion(group, _scratchTreeFinalQuaternion));
+            group.updateWorldMatrix(false, false);
+            group.quaternion.copy(_scratchTreeOriginalQuaternion);
+        } else {
+            group.updateWorldMatrix(false, false);
+        }
 
         let animTypeEnum = ANIMATION_TYPES.STATIC;
         const typeStr = group.userData.animationType;

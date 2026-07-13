@@ -9,6 +9,14 @@ import { uv, distance, vec2, vec3, smoothstep, sin, float, mix, color, Fn } from
 import { uTime, uAudioHigh } from '../foliage/material-core.ts';
 import { gemCanopyNoteColorNode, BiomeUniforms } from '../systems/biome-uniforms.ts';
 import { ComputeParticleType, ComputeParticleConfig, ParticleAudioData } from './compute-particles-types.ts';
+import {
+    respawnCpuParticle,
+    simulateCpuParticles,
+    type CpuParticleBuffers,
+    type CpuParticleSimParams,
+} from './cpu-particle-simulate.ts';
+import { isEmscriptenReady } from '../utils/wasm-loader-core.ts';
+import { updateCpuParticlesNative } from '../utils/wasm-particles-cpp.ts';
 
 /**
  * CPU-based fallback when WebGPU compute is not available
@@ -27,51 +35,52 @@ export class CPUParticleSystem {
     private bounds: { x: number; y: number; z: number };
     private center: THREE.Vector3;
     private sizeRange: { min: number; max: number };
-    
-    private _scratchVector = new THREE.Vector3();
-    private _scratchVector2 = new THREE.Vector3();
-    private _tempColor = new THREE.Color();
-    
+    private buffers: CpuParticleBuffers;
+
     constructor(config: ComputeParticleConfig) {
         this.count = config.count || 10000;
         this.type = config.type;
         this.bounds = config.bounds || { x: 100, y: 20, z: 100 };
         this.center = config.center || new THREE.Vector3(0, 5, 0);
         this.sizeRange = config.sizeRange || { min: 0.1, max: 0.3 };
-        
-        // Initialize arrays
+
         this.positions = new Float32Array(this.count * 3);
         this.velocities = new Float32Array(this.count * 3);
         this.lives = new Float32Array(this.count);
         this.sizes = new Float32Array(this.count);
         this.colors = new Float32Array(this.count * 4);
         this.seeds = new Float32Array(this.count);
-        
-        // Initialize particles
+        this.buffers = {
+            positions: this.positions,
+            velocities: this.velocities,
+            lives: this.lives,
+            sizes: this.sizes,
+            colors: this.colors,
+            seeds: this.seeds,
+        };
+
+        const respawnParams = this.getRespawnParams();
         for (let i = 0; i < this.count; i++) {
-            this.respawnParticle(i, true);
+            respawnCpuParticle(this.buffers, respawnParams, i, true);
         }
-        
-        // Create geometry with quad for each particle (4 vertices)
+
         const geometry = new THREE.BufferGeometry();
         const quadPositions = new Float32Array(this.count * 4 * 3);
         const quadUvs = new Float32Array(this.count * 4 * 2);
         const quadIndices = new Uint32Array(this.count * 6);
-        
+
         for (let i = 0; i < this.count; i++) {
-            // Quad vertices (will be updated each frame)
             for (let j = 0; j < 4; j++) {
                 const baseIdx = (i * 4 + j) * 3;
                 quadPositions[baseIdx] = 0;
                 quadPositions[baseIdx + 1] = 0;
                 quadPositions[baseIdx + 2] = 0;
-                
+
                 const uvIdx = (i * 4 + j) * 2;
                 quadUvs[uvIdx] = j % 2 === 0 ? 0 : 1;
                 quadUvs[uvIdx + 1] = j < 2 ? 0 : 1;
             }
-            
-            // Indices for two triangles
+
             const idxBase = i * 6;
             quadIndices[idxBase] = i * 4;
             quadIndices[idxBase + 1] = i * 4 + 1;
@@ -80,14 +89,13 @@ export class CPUParticleSystem {
             quadIndices[idxBase + 4] = i * 4 + 3;
             quadIndices[idxBase + 5] = i * 4 + 2;
         }
-        
+
         geometry.setAttribute('position', new THREE.BufferAttribute(quadPositions, 3));
         geometry.setAttribute('uv', new THREE.BufferAttribute(quadUvs, 2));
         geometry.setIndex(new THREE.BufferAttribute(quadIndices, 1));
-        
-        // Create material
+
         const material = this.createMaterial();
-        
+
         this.mesh = new THREE.Points(geometry, material);
         this.mesh.frustumCulled = false;
         this.mesh.userData.isCPUParticles = true;
@@ -95,129 +103,65 @@ export class CPUParticleSystem {
             this.mesh.renderOrder = -10;
         }
     }
-    
-    private respawnParticle(i: number, initial: boolean = false): void {
-        const idx = i * 3;
-        
-        // Random position within bounds
-        this.positions[idx] = (Math.random() - 0.5) * this.bounds.x + this.center.x;
-        this.positions[idx + 1] = initial 
-            ? Math.random() * this.bounds.y + this.center.y
-            : this.center.y + this.bounds.y;
-        this.positions[idx + 2] = (Math.random() - 0.5) * this.bounds.z + this.center.z;
-        
-        // Reset velocity based on type
-        switch (this.type) {
-            case 'fireflies':
-                this.velocities[idx] = (Math.random() - 0.5) * 2;
-                this.velocities[idx + 1] = (Math.random() - 0.5) * 0.5;
-                this.velocities[idx + 2] = (Math.random() - 0.5) * 2;
-                this.lives[i] = 2 + Math.random() * 4;
-                break;
-            case 'pollen':
-                this.velocities[idx] = (Math.random() - 0.5) * 0.5;
-                this.velocities[idx + 1] = (Math.random() - 0.5) * 0.2;
-                this.velocities[idx + 2] = (Math.random() - 0.5) * 0.5;
-                this.lives[i] = 2 + Math.random() * 4;
-                break;
-            case 'berries':
-                this.velocities[idx] = (Math.random() - 0.5) * 3;
-                this.velocities[idx + 1] = Math.random() * 2;
-                this.velocities[idx + 2] = (Math.random() - 0.5) * 3;
-                this.lives[i] = 3 + Math.random() * 5;
-                break;
-            case 'rain':
-                this.velocities[idx] = (Math.random() - 0.5) * 0.5;
-                this.velocities[idx + 1] = -5 - Math.random() * 3;
-                this.velocities[idx + 2] = (Math.random() - 0.5) * 0.5;
-                this.lives[i] = 5;
-                break;
-            case 'sparks':
-                const angle = Math.random() * Math.PI * 2;
-                const speed = 3 + Math.random() * 5;
-                this.velocities[idx] = Math.cos(angle) * speed;
-                this.velocities[idx + 1] = Math.random() * speed;
-                this.velocities[idx + 2] = Math.sin(angle) * speed;
-                this.lives[i] = 0.3 + Math.random() * 0.5;
-                break;
-            case 'gem_sparks':
-                this.velocities[idx] = (Math.random() - 0.5) * 0.12;
-                this.velocities[idx + 1] = (Math.random() - 0.5) * 0.06;
-                this.velocities[idx + 2] = (Math.random() - 0.5) * 0.12;
-                this.lives[i] = 10 + Math.random() * 14;
-                break;
-        }
-        
-        this.sizes[i] = this.sizeRange.min + Math.random() * (this.sizeRange.max - this.sizeRange.min);
-        this.seeds[i] = Math.random() * 1000;
-        
-        // Set color based on type
-        this.setParticleColor(i);
+
+    private getRespawnParams() {
+        return {
+            type: this.type,
+            centerX: this.center.x,
+            centerY: this.center.y,
+            centerZ: this.center.z,
+            boundsX: this.bounds.x,
+            boundsY: this.bounds.y,
+            boundsZ: this.bounds.z,
+            sizeMin: this.sizeRange.min,
+            sizeMax: this.sizeRange.max,
+        };
     }
-    
-    private setParticleColor(i: number): void {
-        const idx = i * 4;
-        switch (this.type) {
-            case 'fireflies':
-                this.colors[idx] = 0.88;
-                this.colors[idx + 1] = 1.0;
-                this.colors[idx + 2] = 0.0;
-                this.colors[idx + 3] = 1.0;
-                break;
-            case 'pollen':
-                this.colors[idx] = 0.0;
-                this.colors[idx + 1] = 1.0;
-                this.colors[idx + 2] = 1.0;
-                this.colors[idx + 3] = 0.8;
-                break;
-            case 'berries':
-                this.colors[idx] = 1.0;
-                this.colors[idx + 1] = 0.4;
-                this.colors[idx + 2] = 0.0;
-                this.colors[idx + 3] = 1.0;
-                break;
-            case 'rain':
-                this.colors[idx] = 0.6;
-                this.colors[idx + 1] = 0.8;
-                this.colors[idx + 2] = 1.0;
-                this.colors[idx + 3] = 0.5;
-                break;
-            case 'sparks':
-                this.colors[idx] = 1.0;
-                this.colors[idx + 1] = 1.0;
-                this.colors[idx + 2] = 0.5;
-                this.colors[idx + 3] = 1.0;
-                break;
-            case 'gem_sparks': {
-                const huePick = (Math.sin(this.seeds[i] * 12.9898) * 0.5 + 0.5);
-                const ruby = [0.88, 0.07, 0.37];
-                const sapphire = [0.06, 0.32, 0.73];
-                const amethyst = [0.60, 0.40, 0.80];
-                this.colors[idx] = ruby[0] * (1 - huePick) + sapphire[0] * huePick;
-                this.colors[idx + 1] = ruby[1] * (1 - huePick) + amethyst[1] * huePick * huePick;
-                this.colors[idx + 2] = ruby[2] * (1 - huePick) + amethyst[2] * huePick;
-                this.colors[idx + 3] = 0.85;
-                break;
-            }
-        }
+
+    private buildSimParams(
+        deltaTime: number,
+        playerPosition: THREE.Vector3,
+        audioData: ParticleAudioData,
+        now: number
+    ): CpuParticleSimParams {
+        return {
+            type: this.type,
+            count: this.count,
+            deltaTime,
+            centerX: this.center.x,
+            centerY: this.center.y,
+            centerZ: this.center.z,
+            boundsX: this.bounds.x,
+            boundsY: this.bounds.y,
+            boundsZ: this.bounds.z,
+            sizeMin: this.sizeRange.min,
+            sizeMax: this.sizeRange.max,
+            playerX: playerPosition.x,
+            playerY: playerPosition.y,
+            playerZ: playerPosition.z,
+            audioLow: audioData.low,
+            audioHigh: audioData.high || 0,
+            windX: audioData.windX || 0,
+            windZ: audioData.windZ || 0,
+            timeOffsetFirefly: Math.cos(now * 0.001),
+            timeOffsetPollen: now * 0.0005,
+            timeSec: now * 0.001,
+        };
     }
-    
+
     private createMaterial(): THREE.Material {
-        // Use TSL for consistent look with GPU version
         const material = new PointsNodeMaterial({
             transparent: true,
             depthWrite: false,
             blending: THREE.AdditiveBlending
         });
-        
-        // TSL-based color and effects
+
         const aUv = uv();
         const distFromCenter = distance(aUv, vec2(0.5));
         const alpha = smoothstep(0.5, 0.2, distFromCenter);
-        
+
         material.opacityNode = alpha;
-        
-        // Type-specific coloring
+
         let finalColor;
         switch (this.type) {
             case 'fireflies':
@@ -249,312 +193,56 @@ export class CPUParticleSystem {
             default:
                 finalColor = vec3(1.0, 1.0, 1.0);
         }
-        
+
         material.colorNode = finalColor;
-        
+
         return material;
     }
-    
+
     update(deltaTime: number, playerPosition: THREE.Vector3, audioData: ParticleAudioData): void {
         const posAttr = this.mesh.geometry.getAttribute('position') as THREE.BufferAttribute;
-        const positions = posAttr.array as Float32Array;
-        
-        // ⚡ OPTIMIZATION: Cache timestamp once per frame
+        const quadPositions = posAttr.array as Float32Array;
         const now = Date.now();
-        const timeOffsetFirefly = Math.cos(now * 0.001);
-        const timeOffsetPollen = now * 0.0005;
-        const timeSec = now * 0.001;
+        const simParams = this.buildSimParams(deltaTime, playerPosition, audioData, now);
 
-        // Update each particle
-        for (let i = 0; i < this.count; i++) {
-            const idx = i * 3;
-            
-            // Decrease life
-            this.lives[i] -= deltaTime;
-            
-            // Respawn if dead
-            if (this.lives[i] <= 0) {
-                this.respawnParticle(i);
-            } else {
-                // Update based on type
-                switch (this.type) {
-                    case 'fireflies':
-                        this.updateFirefly(i, deltaTime, playerPosition, audioData, timeOffsetFirefly);
-                        break;
-                    case 'pollen':
-                        this.updatePollen(i, deltaTime, playerPosition, audioData, timeOffsetPollen);
-                        break;
-                    case 'berries':
-                        this.updateBerry(i, deltaTime);
-                        break;
-                    case 'rain':
-                        this.updateRain(i, deltaTime, audioData);
-                        break;
-                    case 'sparks':
-                        this.updateSpark(i, deltaTime);
-                        break;
-                    case 'gem_sparks':
-                        this.updateGemSpark(i, deltaTime, audioData, timeSec);
-                        break;
-                }
-            }
-            
-            // Update quad vertices for this particle
-            this.updateQuadVertices(i, positions);
+        if (isEmscriptenReady() && updateCpuParticlesNative(this.buffers, simParams)) {
+            // Native path handled simulation; only expand quads below.
+        } else {
+            simulateCpuParticles(this.buffers, simParams);
         }
-        
+
+        for (let i = 0; i < this.count; i++) {
+            this.updateQuadVertices(i, quadPositions);
+        }
+
         posAttr.needsUpdate = true;
     }
-    
-    private updateFirefly(i: number, deltaTime: number, playerPosition: THREE.Vector3, audioData: ParticleAudioData, timeOffset: number): void {
-        const idx = i * 3;
-        
-        // Curl noise approximation
-        const noiseX = Math.sin(this.positions[idx] * 0.1 + this.seeds[i]) * timeOffset;
-        const noiseY = Math.sin(this.positions[idx + 1] * 0.1 + this.seeds[i] + 10) * timeOffset;
-        const noiseZ = Math.sin(this.positions[idx + 2] * 0.1 + this.seeds[i] + 20) * timeOffset;
-        
-        // Spring force to center
-        const springX = (this.center.x - this.positions[idx]) * 0.5;
-        const springZ = (this.center.z - this.positions[idx + 2]) * 0.5;
-        
-        // Player repulsion
-        const toPlayerX = this.positions[idx] - playerPosition.x;
-        const toPlayerY = this.positions[idx + 1] - playerPosition.y;
-        const toPlayerZ = this.positions[idx + 2] - playerPosition.z;
-        const distToPlayerSq = toPlayerX * toPlayerX + toPlayerY * toPlayerY + toPlayerZ * toPlayerZ;
 
-        let repelX = 0;
-        let repelY = 0;
-        let repelZ = 0;
-
-        // ⚡ OPTIMIZATION: Use squared distance to completely avoid Math.sqrt() in hot CPU loop
-        if (distToPlayerSq < 25.0 && distToPlayerSq > 0.0001) { // 5^2
-            const distToPlayerSqInv = 1.0 / distToPlayerSq;
-            // Approximate linear falloff using squared distance
-            const repelStrength = (25.0 - distToPlayerSq) * 2.0;
-            repelX = toPlayerX * distToPlayerSqInv * repelStrength;
-            repelY = toPlayerY * distToPlayerSqInv * repelStrength;
-            repelZ = toPlayerZ * distToPlayerSqInv * repelStrength;
-        }
-        
-        // Apply forces
-        this.velocities[idx] += (noiseX * 2 + springX + repelX + audioData.low * 5) * deltaTime;
-        this.velocities[idx + 1] += (noiseY * 2 + repelY) * deltaTime;
-        this.velocities[idx + 2] += (noiseZ * 2 + springZ + repelZ) * deltaTime;
-        
-        // Damping
-        this.velocities[idx] *= 0.95;
-        this.velocities[idx + 1] *= 0.95;
-        this.velocities[idx + 2] *= 0.95;
-        
-        // Floor constraint
-        this.positions[idx] += this.velocities[idx] * deltaTime;
-        this.positions[idx + 1] += this.velocities[idx + 1] * deltaTime;
-        this.positions[idx + 2] += this.velocities[idx + 2] * deltaTime;
-        
-        if (this.positions[idx + 1] < 0.5) {
-            this.positions[idx + 1] = 0.5;
-            this.velocities[idx + 1] = Math.abs(this.velocities[idx + 1]) * 0.3;
-        }
-    }
-    
-    private updatePollen(i: number, deltaTime: number, playerPosition: THREE.Vector3, audioData: ParticleAudioData, timeOffset: number): void {
-        const idx = i * 3;
-        
-        // Wind force
-        const windX = audioData.windX || 0;
-        const windZ = audioData.windZ || 0;
-        this.velocities[idx] += windX * 0.05 * deltaTime;
-        this.velocities[idx + 2] += windZ * 0.05 * deltaTime;
-        
-        // Curl noise
-        const noiseScale = 0.2;
-        const noiseX = Math.sin(this.positions[idx] * noiseScale + timeOffset);
-        const noiseY = Math.sin(this.positions[idx + 1] * noiseScale + timeOffset + 10);
-        const noiseZ = Math.sin(this.positions[idx + 2] * noiseScale + timeOffset + 20);
-        
-        // Player repulsion
-        const toPlayerX = this.positions[idx] - playerPosition.x;
-        const toPlayerZ = this.positions[idx + 2] - playerPosition.z;
-        const distToPlayerSq = toPlayerX * toPlayerX + toPlayerZ * toPlayerZ;
-
-        let repelX = 0;
-        let repelZ = 0;
-
-        // ⚡ OPTIMIZATION: Use squared distance to completely avoid Math.sqrt() in hot CPU loop
-        if (distToPlayerSq < 25.0 && distToPlayerSq > 0.0001) { // 5^2
-            const distToPlayerSqInv = 1.0 / distToPlayerSq;
-            // Approximate linear falloff using squared distance
-            const repelFactor = (25.0 - distToPlayerSq) * 0.4;
-            repelX = toPlayerX * distToPlayerSqInv * repelFactor;
-            repelZ = toPlayerZ * distToPlayerSqInv * repelFactor;
-        }
-        
-        // Center attraction
-        const toCenterX = this.center.x - this.positions[idx];
-        const toCenterZ = this.center.z - this.positions[idx + 2];
-        const distToCenterSq = toCenterX * toCenterX + toCenterZ * toCenterZ;
-
-        let pullX = 0;
-        let pullZ = 0;
-
-        // ⚡ OPTIMIZATION: Use squared distance to completely avoid Math.sqrt() in hot CPU loop
-        if (distToCenterSq > 225.0 && distToCenterSq > 0.0001) { // 15^2
-            const distToCenterSqInv = 1.0 / distToCenterSq;
-            const pullStrength = (distToCenterSq - 225.0) * 0.003;
-            pullX = toCenterX * distToCenterSqInv * pullStrength;
-            pullZ = toCenterZ * distToCenterSqInv * pullStrength;
-        }
-        
-        // Apply forces
-        this.velocities[idx] += (noiseX * 0.5 + audioData.low * 2 + repelX + pullX) * deltaTime;
-        this.velocities[idx + 1] += (noiseY * 0.5) * deltaTime;
-        this.velocities[idx + 2] += (noiseZ * 0.5 + audioData.low * 2 + repelZ + pullZ) * deltaTime;
-        
-        // Damping
-        this.velocities[idx] *= 0.98;
-        this.velocities[idx + 1] *= 0.98;
-        this.velocities[idx + 2] *= 0.98;
-        
-        // Update position
-        this.positions[idx] += this.velocities[idx] * deltaTime;
-        this.positions[idx + 1] += this.velocities[idx + 1] * deltaTime;
-        this.positions[idx + 2] += this.velocities[idx + 2] * deltaTime;
-        
-        // Keep above water
-        if (this.positions[idx + 1] < 1.8) {
-            this.positions[idx + 1] = 1.8;
-            this.velocities[idx + 1] = Math.abs(this.velocities[idx + 1]) * 0.3;
-        }
-    }
-    
-    private updateBerry(i: number, deltaTime: number): void {
-        const idx = i * 3;
-        
-        // Gravity
-        this.velocities[idx + 1] -= 9.8 * deltaTime;
-        
-        // Update position
-        this.positions[idx] += this.velocities[idx] * deltaTime;
-        this.positions[idx + 1] += this.velocities[idx + 1] * deltaTime;
-        this.positions[idx + 2] += this.velocities[idx + 2] * deltaTime;
-        
-        // Ground bounce
-        if (this.positions[idx + 1] < 0.3) {
-            this.positions[idx + 1] = 0.3;
-            this.velocities[idx + 1] = Math.abs(this.velocities[idx + 1]) * 0.5;
-            this.velocities[idx] *= 0.8;
-            this.velocities[idx + 2] *= 0.8;
-        }
-    }
-    
-    private updateRain(i: number, deltaTime: number, audioData: ParticleAudioData): void {
-        const idx = i * 3;
-        
-        // Apply wind
-        const windX = audioData.windX || 0;
-        const windZ = audioData.windZ || 0;
-        this.velocities[idx] = windX * 0.1;
-        this.velocities[idx + 2] = windZ * 0.1;
-        
-        // Update position
-        this.positions[idx] += this.velocities[idx] * deltaTime;
-        this.positions[idx + 1] += this.velocities[idx + 1] * deltaTime;
-        this.positions[idx + 2] += this.velocities[idx + 2] * deltaTime;
-        
-        // Splash on ground
-        if (this.positions[idx + 1] < 0.5) {
-            this.lives[i] = 0; // Die and respawn
-        }
-    }
-    
-    private wrapAxis(pos: number, center: number, extent: number): number {
-        const half = extent * 0.5;
-        let rel = pos - center;
-        if (rel > half) rel -= extent;
-        else if (rel < -half) rel += extent;
-        return center + rel;
-    }
-
-    private updateGemSpark(i: number, deltaTime: number, audioData: ParticleAudioData, timeSec: number): void {
-        const idx = i * 3;
-        const seed = this.seeds[i];
-
-        // Simplified curl-noise drift (visually consistent with GPU path)
-        const noiseX = Math.sin(this.positions[idx] * 0.12 + timeSec * 0.11 + seed) * 0.35;
-        const noiseY = Math.sin(this.positions[idx + 1] * 0.12 + timeSec * 0.07 + seed * 1.3) * 0.2;
-        const noiseZ = Math.sin(this.positions[idx + 2] * 0.12 + timeSec * 0.09 + seed * 0.7) * 0.35;
-        const bobY = Math.sin(timeSec * 0.85 + seed) * 0.14;
-        const audioLift = (audioData.high || 0) * 0.25;
-
-        this.velocities[idx] += (noiseX * 0.55) * deltaTime;
-        this.velocities[idx + 1] += (noiseY * 0.08 + bobY * 0.08 + audioLift) * deltaTime;
-        this.velocities[idx + 2] += (noiseZ * 0.55) * deltaTime;
-
-        this.velocities[idx] *= 0.92;
-        this.velocities[idx + 1] *= 0.92;
-        this.velocities[idx + 2] *= 0.92;
-
-        this.positions[idx] += this.velocities[idx] * deltaTime;
-        this.positions[idx + 1] += this.velocities[idx + 1] * deltaTime;
-        this.positions[idx + 2] += this.velocities[idx + 2] * deltaTime;
-
-        this.positions[idx] = this.wrapAxis(this.positions[idx], this.center.x, this.bounds.x);
-        this.positions[idx + 1] = this.wrapAxis(this.positions[idx + 1], this.center.y, this.bounds.y);
-        this.positions[idx + 2] = this.wrapAxis(this.positions[idx + 2], this.center.z, this.bounds.z);
-    }
-
-    private updateSpark(i: number, deltaTime: number): void {
-        const idx = i * 3;
-        
-        // Gravity (lighter than berries)
-        this.velocities[idx + 1] -= 4.9 * deltaTime;
-        
-        // Air resistance
-        this.velocities[idx] *= 0.99;
-        this.velocities[idx + 1] *= 0.99;
-        this.velocities[idx + 2] *= 0.99;
-        
-        // Update position
-        this.positions[idx] += this.velocities[idx] * deltaTime;
-        this.positions[idx + 1] += this.velocities[idx + 1] * deltaTime;
-        this.positions[idx + 2] += this.velocities[idx + 2] * deltaTime;
-    }
-    
     private updateQuadVertices(i: number, positions: Float32Array): void {
         const idx = i * 3;
         const px = this.positions[idx];
         const py = this.positions[idx + 1];
         const pz = this.positions[idx + 2];
-        
-        // Simple billboard (camera-facing) - approximated
         const size = this.sizes[i];
-        
-        // Four corners of quad
         const baseIdx = i * 4 * 3;
-        
-        // Bottom-left
+
         positions[baseIdx] = px - size;
         positions[baseIdx + 1] = py - size;
         positions[baseIdx + 2] = pz;
-        
-        // Bottom-right
+
         positions[baseIdx + 3] = px + size;
         positions[baseIdx + 4] = py - size;
         positions[baseIdx + 5] = pz;
-        
-        // Top-left
+
         positions[baseIdx + 6] = px - size;
         positions[baseIdx + 7] = py + size;
         positions[baseIdx + 8] = pz;
-        
-        // Top-right
+
         positions[baseIdx + 9] = px + size;
         positions[baseIdx + 10] = py + size;
         positions[baseIdx + 11] = pz;
     }
-    
+
     dispose(): void {
         this.mesh.geometry.dispose();
         (this.mesh.material as THREE.Material).dispose();

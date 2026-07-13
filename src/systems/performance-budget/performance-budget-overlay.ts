@@ -245,7 +245,7 @@ export class PerformanceBudgetOverlay {
         <div>LOD: ${(adaptiveSettings.lodDistanceMultiplier * 100).toFixed(0)}% | 
              Shadows: ${(adaptiveSettings.shadowDistanceMultiplier * 100).toFixed(0)}% | 
              Particles: ${(adaptiveSettings.particleDensityMultiplier * 100).toFixed(0)}%</div>
-        <div>Foliage LOD — Hero: ${lodStats.hero} | Mid: ${lodStats.mid} | Far: ${lodStats.far} | Culled: ${lodStats.culled}${lodStats.impostors > 0 ? ` | Impostors: ${lodStats.impostors}` : ''}</div>
+        <div>Foliage LOD — Hero: ${lodStats.hero} | Mid: ${lodStats.mid} | Far: ${lodStats.far} | Culled: ${lodStats.culled}${lodStats.impostors > 0 ? ` | Impostors: ${lodStats.impostors}` : ''} | Blend: ${lodStats.blendBand}</div>
         <div>${adaptiveSettings.aggressiveBatching ? '⚡ Batching ' : ''}
              ${adaptiveSettings.meshMerging ? '🔗 Merging ' : ''}
              ${adaptiveSettings.unloadDistantFoliage ? '🗑️ Unload ' : ''}</div>

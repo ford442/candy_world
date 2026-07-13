@@ -323,32 +323,14 @@ export class WaterfallBatcher {
             const matrixArray = this.mesh!.instanceMatrix.array as Float32Array;
             const destOffset = indexToRemove * 16;
             const srcOffset = lastIndex * 16;
-            for(let k = 0; k < 16; k++) {
-                matrixArray[destOffset + k] = matrixArray[srcOffset + k];
-            }
+            matrixArray.copyWithin(destOffset, srcOffset, srcOffset + 16);
 
             // Swap Splashes (Block of 8)
             const srcStart = lastIndex * SPLASHES_PER_WATERFALL;
             const destStart = indexToRemove * SPLASHES_PER_WATERFALL;
 
-            for (let i = 0; i < SPLASHES_PER_WATERFALL; i++) {
-                const src = srcStart + i;
-                const dest = destStart + i;
-
-                // Copy Origin
-                this.splashOrigin!.setXYZ(dest,
-                    this.splashOrigin!.getX(src),
-                    this.splashOrigin!.getY(src),
-                    this.splashOrigin!.getZ(src)
-                );
-
-                // Copy Velocity
-                this.splashVelocity!.setXYZ(dest,
-                    this.splashVelocity!.getX(src),
-                    this.splashVelocity!.getY(src),
-                    this.splashVelocity!.getZ(src)
-                );
-            }
+            this.splashOrigin!.array.copyWithin(destStart * 3, srcStart * 3, srcStart * 3 + SPLASHES_PER_WATERFALL * 3);
+            this.splashVelocity!.array.copyWithin(destStart * 3, srcStart * 3, srcStart * 3 + SPLASHES_PER_WATERFALL * 3);
 
             // Update Map
             this.idToIndex.set(lastId, indexToRemove);

@@ -148,19 +148,21 @@ export class PerformanceScreenshotCapture {
       };
 
       // WebGPU timestamp query support
-      if (navigator.gpu) {
-        const originalCreateCommandEncoder = GPUDevice.prototype.createCommandEncoder;
-        GPUDevice.prototype.createCommandEncoder = function(descriptor) {
+      const nav = navigator as any;
+      const GPUDeviceCtor = (window as any).GPUDevice;
+      if (nav.gpu && GPUDeviceCtor) {
+        const originalCreateCommandEncoder = GPUDeviceCtor.prototype.createCommandEncoder;
+        GPUDeviceCtor.prototype.createCommandEncoder = function(descriptor: any) {
           const encoder = originalCreateCommandEncoder.call(this, descriptor);
-          
+
           // Wrap beginRenderPass to track render passes
           const originalBeginRenderPass = encoder.beginRenderPass.bind(encoder);
-          encoder.beginRenderPass = function(desc) {
+          encoder.beginRenderPass = function(desc: any) {
             const pass = originalBeginRenderPass(desc);
             (window as any).__perfMetrics.renderPasses.push(desc.label || 'unnamed');
             return pass;
           };
-          
+
           return encoder;
         };
       }
@@ -210,9 +212,9 @@ export class PerformanceScreenshotCapture {
     const metrics = await this.page.evaluate(() => {
       const perf = (window as any).__perfMetrics;
       const frames = perf.frames.slice(-Math.floor(duration / 16.67)); // Last ~duration ms
-      
+
       if (frames.length === 0) {
-        return { timeline: [], averageMetrics: null };
+        return null;
       }
 
       const avgFrameTime = frames.reduce((sum: number, f: any) => sum + f.frameTime, 0) / frames.length;
@@ -233,6 +235,13 @@ export class PerformanceScreenshotCapture {
         }
       };
     });
+
+    if (!metrics) {
+      return { timeline: [], averageMetrics: {
+        frameTime: 0, fps: 0, drawCalls: 0, triangles: 0,
+        textureMemory: 0, bufferMemory: 0, renderPassCount: 0, shaderSwitches: 0
+      }};
+    }
 
     return metrics;
   }

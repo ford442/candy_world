@@ -2,6 +2,9 @@ import { isCIorHeadless } from './config.ts';
 // src/core/main.ts
 // Main entry point - Core initialization and game startup
 
+// Deterministic random seed override must load before any world-generation logic.
+import '../utils/seeded-random.ts';
+
 import * as THREE from 'three';
 import '../../style.css';
 import { validateNodeGeometries } from '../foliage/index.ts';
@@ -605,6 +608,7 @@ if (startButton) {
                     nextIndex = (index - 1 + modeButtons.length) % modeButtons.length;
                 } else if (e.key === 'Enter' || e.key === ' ') {
                     // Tactile keyboard press down
+                    e.preventDefault();
                     btn.classList.add('keyboard-active');
                 }
 
@@ -785,10 +789,9 @@ if (startButton) {
             globalBackgroundProcessor.onProgress((completed, total) => {
                 setDeferredProgress(completed, total);
                 setDeferredFailures(spawnTracker.getReport().failCount);
-            // Start background processor for deferred work.
-            // resetCounters() syncs totalTasks to the queue length (which already
-            // contains horizon tasks from generateMap) and clears stale callbacks
-            // so start() isn't blocked by isRunning=true.
+            });
+            // Reset counters before starting deferred work so queued horizon tasks
+            // are counted and stale callbacks are cleared before start().
             globalBackgroundProcessor.resetCounters();
 
             // In waitForFull mode, keep the main loading screen up as a 'deferred-population'

@@ -1,21 +1,17 @@
 import * as THREE from 'three';
-import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { color, float, sin, positionLocal, normalLocal, mix, attribute } from 'three/tsl';
-import { uTime, createJuicyRimLight, getCachedProceduralMaterial } from './material-core.ts';
-import { registerReactiveMaterial } from './foliage-reactivity.ts';
+import { uTime, createJuicyRimLight, applyBaseContactAO, getBaseContactHeight } from './material-core.ts';
 import {
     applyPlayerInteractionWithLod,
     calculateWindSwayWithLod,
     scaleEmissiveByLod,
-    applyStandardDeformationWithLod
+    applyStandardDeformationWithLod,
+    applyFoliageLodMaterialFade,
 } from './lod-nodes.ts';
 import { initInstanceLodAttribute } from './batcher-lod-utils.ts';
 import { registerFoliageBatcherLod } from '../systems/batcher-lod.ts';
 import { LuminousPlantUniforms, luminousPlantsNoteColorNode, getBiomeUniforms, uCircadianPhase, uCircadianPoseOffset, type BiomeId } from '../systems/biome-uniforms.ts';
-
-const LUMINOUS_BIOME: BiomeId = 'luminous_plants';
-const luminousUniforms = getBiomeUniforms(LUMINOUS_BIOME);
 import { CONFIG, FEATURE_FLAGS } from '../core/config.ts';
 import { uTwilight } from './sky.ts';
 import {
@@ -23,11 +19,17 @@ import {
     persistentIdFromString,
     LUMINOUS_PLANT_TYPE_ID,
 } from '../systems/awakened-persistent-id.ts';
+import { getGroundAlignedQuaternion } from '../world/placement-utils.ts';
 
 const AWAKENED_ATTR_ENABLED = FEATURE_FLAGS.awakenedPersistence;
 const LUMINOUS_TYPE_ID = LUMINOUS_PLANT_TYPE_ID;
 
+const LUMINOUS_BIOME: BiomeId = 'luminous_plants';
+const luminousUniforms = getBiomeUniforms(LUMINOUS_BIOME);
+
 const _scratchPos = new THREE.Vector3();
+const _scratchOriginalQuaternion = new THREE.Quaternion();
+const _scratchFinalQuaternion = new THREE.Quaternion();
 
 export class LuminousPlantBatcher {
     private static instance: LuminousPlantBatcher;
@@ -68,79 +70,78 @@ export class LuminousPlantBatcher {
         }
         stemGeo.computeVertexNormals();
 
-        // 🎨 Palette: Module-level Material Cache and Audio Reactivity
-        const mat = getCachedProceduralMaterial('luminous_plant', 0x66CCFF, () => {
-            const m = new MeshStandardNodeMaterial({
-                roughness: 0.3,
-                metalness: 0.1,
-                transparent: true,
-                opacity: 0.95
-            });
-
-            const aPhaseOffset = attribute('aPhaseOffset', 'float');
-            const baseColor = color(0x66CCFF);
-
-            const pulseSpeed = float(CONFIG.luminousPlants?.pulseSpeed || 1.5);
-            const pulseDepth = float(CONFIG.luminousPlants?.pulseDepth || 0.3);
-            const localTime = uTime.mul(pulseSpeed).add(aPhaseOffset);
-
-            const heightFactor = positionLocal.y.div(4.0);
-            const breathe = sin(localTime).mul(pulseDepth).mul(heightFactor);
-            const shockwave = LuminousPlantUniforms.intensity.mul(heightFactor).mul(1.5);
-            const circadianSwell = normalLocal.mul(uCircadianPoseOffset).mul(heightFactor);
-            const totalDisplacement = normalLocal.mul(breathe.add(shockwave)).add(circadianSwell);
-            const animatedBase = positionLocal.add(totalDisplacement);
-            m.positionNode = applyStandardDeformationWithLod(animatedBase);
-
-            const sssStrength = float(CONFIG.luminousPlants?.subsurfaceStrength || 0.8);
-            const musicColor = mix(baseColor, luminousPlantsNoteColorNode, LuminousPlantUniforms.intensity);
-            m.colorNode = musicColor;
-
-            const musicEnergy = LuminousPlantUniforms.intensity;
-            const pulse = musicEnergy.mul(0.6).add(sin(localTime).mul(0.4));
-            const activeGlow = float(0.7).add(pulse.mul(float(CONFIG.luminousPlants?.glowIntensity || 2.0)));
-            const emissiveBase = musicColor.mul(activeGlow);
-
-            const rimIntensity = float(1.0).add(LuminousPlantUniforms.intensity.mul(2.0));
-            const rimLight = createJuicyRimLight(musicColor, rimIntensity, float(3.0), null);
-            const glowPhaseOffset = positionLocal.x.add(positionLocal.z).mul(2.0);
-            const idlePulse = sin(uTime.mul(float(CONFIG.glow.glowPulseFrequency)).add(glowPhaseOffset)).mul(float(CONFIG.glow.glowPulseAmplitude)).add(1.0).mul(float(0.5)).mul(LuminousPlantUniforms.intensity.mul(0.3).add(0.7));
-            const targetGlowColor = color(CONFIG.glow.glowColorMap['luminous_plants'] || 0x66CCFF);
-            const twilightGlowTint = targetGlowColor
-                .mul(uTwilight)
-                .mul(float(CONFIG.glow.glowIntensityMax))
-                .mul(float(0.3).add(idlePulse));
-            const nightMult = float(CONFIG.circadian.nightGlowMultiplier);
-            const circadianGlowMult = mix(nightMult, float(1.0), uCircadianPhase);
-
-            let emissiveWithCircadian = emissiveBase.mul(circadianGlowMult).add(rimLight.mul(sssStrength)).add(twilightGlowTint);
-
-            if (AWAKENED_ATTR_ENABLED) {
-                const aAwakened = attribute('aAwakened', 'float');
-                const aEmissiveScale = attribute('aEmissiveScale', 'float');
-                const awakenedBoost = mix(
-                    float(1.0),
-                    float(1.0).add(float(CONFIG.glow.awakenedGlowMultiplier)),
-                    aAwakened
-                );
-                const persistentGlow = musicColor
-                    .mul(aAwakened)
-                    .mul(aEmissiveScale)
-                    .mul(float(CONFIG.glow.awakenedGlowMultiplier).mul(0.55));
-                emissiveWithCircadian = emissiveWithCircadian.mul(awakenedBoost).add(persistentGlow);
-            }
-
-            m.emissiveNode = scaleEmissiveByLod(emissiveWithCircadian);
-
-            const skyWaveTint = luminousUniforms.noteColor.mul(0.18);
-            m.emissiveNode = (m.emissiveNode as any).add(skyWaveTint);
-
-            return m;
+        const mat = new MeshStandardNodeMaterial({
+            roughness: 0.3,
+            metalness: 0.1,
+            transparent: true,
+            opacity: 0.95
         });
 
-        registerReactiveMaterial(mat);
+        const aPhaseOffset = attribute('aPhaseOffset', 'float');
+        const baseColor = color(0x66CCFF);
 
-        this.mesh = new THREE.InstancedMesh(stemGeo, mat as MeshStandardNodeMaterial, this.maxInstances);
+        const pulseSpeed = float(CONFIG.luminousPlants?.pulseSpeed || 1.5);
+        const pulseDepth = float(CONFIG.luminousPlants?.pulseDepth || 0.3);
+        const localTime = uTime.mul(pulseSpeed).add(aPhaseOffset);
+
+        const heightFactor = positionLocal.y.div(4.0);
+        const breathe = sin(localTime).mul(pulseDepth).mul(heightFactor);
+        const shockwave = LuminousPlantUniforms.intensity.mul(heightFactor).mul(1.5);
+        const circadianSwell = normalLocal.mul(uCircadianPoseOffset).mul(heightFactor);
+        const totalDisplacement = normalLocal.mul(breathe.add(shockwave)).add(circadianSwell);
+        const animatedBase = positionLocal.add(totalDisplacement);
+        mat.positionNode = applyStandardDeformationWithLod(animatedBase);
+
+        const sssStrength = float(CONFIG.luminousPlants?.subsurfaceStrength || 0.8);
+        const musicColor = mix(baseColor, luminousPlantsNoteColorNode, LuminousPlantUniforms.intensity);
+        mat.colorNode = applyBaseContactAO(
+            musicColor,
+            positionLocal.y,
+            float(getBaseContactHeight('luminous_plant')),
+        );
+
+        const musicEnergy = LuminousPlantUniforms.intensity;
+        const pulse = musicEnergy.mul(0.6).add(sin(localTime).mul(0.4));
+        const activeGlow = float(0.7).add(pulse.mul(float(CONFIG.luminousPlants?.glowIntensity || 2.0)));
+        const emissiveBase = musicColor.mul(activeGlow);
+
+        const rimIntensity = float(1.0).add(LuminousPlantUniforms.intensity.mul(2.0));
+        const rimLight = createJuicyRimLight(musicColor, rimIntensity, float(3.0), null);
+        const glowPhaseOffset = positionLocal.x.add(positionLocal.z).mul(2.0);
+        const idlePulse = sin(uTime.mul(float(CONFIG.glow.glowPulseFrequency)).add(glowPhaseOffset)).mul(float(CONFIG.glow.glowPulseAmplitude)).add(1.0).mul(float(0.5)).mul(LuminousPlantUniforms.intensity.mul(0.3).add(0.7));
+        const targetGlowColor = color(CONFIG.glow.glowColorMap['luminous_plants'] || 0x66CCFF);
+        const twilightGlowTint = targetGlowColor
+            .mul(uTwilight)
+            .mul(float(CONFIG.glow.glowIntensityMax))
+            .mul(float(0.3).add(idlePulse));
+        const nightMult = float(CONFIG.circadian.nightGlowMultiplier);
+        const circadianGlowMult = mix(nightMult, float(1.0), uCircadianPhase);
+
+        let emissiveWithCircadian = emissiveBase.mul(circadianGlowMult).add(rimLight.mul(sssStrength)).add(twilightGlowTint);
+
+        if (AWAKENED_ATTR_ENABLED) {
+            const aAwakened = attribute('aAwakened', 'float');
+            const aEmissiveScale = attribute('aEmissiveScale', 'float');
+            const awakenedBoost = mix(
+                float(1.0),
+                float(1.0).add(float(CONFIG.glow.awakenedGlowMultiplier)),
+                aAwakened
+            );
+            const persistentGlow = musicColor
+                .mul(aAwakened)
+                .mul(aEmissiveScale)
+                .mul(float(CONFIG.glow.awakenedGlowMultiplier).mul(0.55));
+            emissiveWithCircadian = emissiveWithCircadian.mul(awakenedBoost).add(persistentGlow);
+        }
+
+        mat.emissiveNode = scaleEmissiveByLod(emissiveWithCircadian);
+
+        const skyWaveTint = luminousUniforms.noteColor.mul(0.18);
+        mat.emissiveNode = (mat.emissiveNode as any).add(skyWaveTint);
+
+        applyFoliageLodMaterialFade(mat);
+
+        this.mesh = new THREE.InstancedMesh(stemGeo, mat, this.maxInstances);
         this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
         this.mesh.castShadow = true;
         this.mesh.receiveShadow = true;
@@ -195,7 +196,15 @@ export class LuminousPlantBatcher {
 
         const id = this.count;
 
-        group.updateWorldMatrix(false, false);
+        const slopeQ = group.userData.groundSlopeQuaternion as THREE.Quaternion | undefined;
+        if (slopeQ) {
+            _scratchOriginalQuaternion.copy(group.quaternion);
+            group.quaternion.copy(getGroundAlignedQuaternion(group, _scratchFinalQuaternion));
+            group.updateWorldMatrix(false, false);
+            group.quaternion.copy(_scratchOriginalQuaternion);
+        } else {
+            group.updateWorldMatrix(false, false);
+        }
         group.matrixWorld.toArray(this.mesh.instanceMatrix.array, id * 16);
 
         const phaseAttr = this.mesh.geometry.getAttribute('aPhaseOffset') as THREE.InstancedBufferAttribute;
@@ -332,15 +341,25 @@ export class LuminousPlantBatcher {
 
     dispose(): void {
         if (this.mesh) {
-            // Preserve specific attribute disposal logic
             if (this.mesh.geometry) {
+                this.mesh.geometry.dispose();
                 const phaseAttr = this.mesh.geometry.getAttribute('aPhaseOffset');
                 if (phaseAttr && typeof (phaseAttr as any).dispose === 'function') {
                     try { (phaseAttr as any).dispose(); } catch (e) { /* ignore */ }
                 }
             }
-            if (this.mesh.parent) {
-                safeRemoveAndDispose(this.mesh.parent, this.mesh);
+            if (this.mesh.material) {
+                if (Array.isArray(this.mesh.material)) {
+                    this.mesh.material.forEach(m => m.dispose());
+                } else {
+                    (this.mesh.material as any).dispose();
+                }
+            }
+            if (this.mesh.instanceColor && typeof (this.mesh.instanceColor as any).dispose === 'function') {
+                try { (this.mesh.instanceColor as any).dispose(); } catch (e) { /* ignore */ }
+            }
+            if (this.mesh.instanceMatrix && typeof (this.mesh.instanceMatrix as any).dispose === 'function') {
+                try { (this.mesh.instanceMatrix as any).dispose(); } catch (e) { /* ignore */ }
             }
         }
     }

@@ -249,6 +249,27 @@ For vertex displacement in step 4, use `applyStandardDeformationWithLod` (batche
 
 ---
 
+## Entity scale reference (procedural placement)
+
+Canonical scale ranges live in [`CONFIG.world.scaleTable`](../src/core/config.ts) and are
+sampled via [`sampleEntityScale` / `sampleEntityHeight`](../src/world/entity-scale.ts).
+Hand-placed `map.json` entities keep explicit `scale` overrides.
+
+| Archetype | refHeight @ base | Typical range | Notes |
+|-----------|------------------|---------------|-------|
+| Tree (bubble_willow, portamento_pine) | 4.5–5.5 u | 0.9–1.1× | Tallest grounded flora |
+| Mushroom / glass_mushroom | 1.2–1.4 u | 0.85–1.15× | Cap diameter ≈ 1–2 u |
+| Arpeggio fern | 1.5 u | 0.9–1.1× | Musical flora, grove-tuned |
+| Cymbal dandelion | 0.9 u | 0.8–1.0× | Ground-cover scale |
+| Luminous plant | 1.8 u | 0.85–1.15× | Lake-shore biolum |
+| Gem fruit | 0.25 u | 0.85–1.15× | Hanging from canopy trees |
+| Cloud (tier 1 / 2) | 12–35 u float | tier-specific | Uses `size` param |
+
+Variance is clamped to **0.7×–1.5× of `base`** unless a biome override widens it.
+Optional `scaleDistanceBias` shrinks instances ~8% toward biome outer radius.
+
+---
+
 ## Core material foundations
 
 - **MeshPhysicalNodeMaterial** (via presets): clearcoat + transmission for the candy look.

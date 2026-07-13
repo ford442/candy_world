@@ -35,8 +35,12 @@ export interface QualityConfig {
 export interface Viewpoint {
   name: string;
   description: string;
+  /** Documented link to generation-utils / ground-system constants (metadata only). */
+  biomeAnchor?: string;
   cameraPosition: { x: number; y: number; z: number };
   cameraTarget: { x: number; y: number; z: number };
+  /** Perspective camera FOV in degrees (default: game camera FOV). */
+  fov?: number;
   timeOfDay?: 'day' | 'night' | 'sunset' | 'dawn';
   weather?: 'clear' | 'rain' | 'storm';
   waitForStable: number; // ms to wait for stable frame
@@ -52,6 +56,9 @@ export interface ScreenshotOptions {
   outputDir: string;
   fullPage?: boolean;
   mask?: Array<{ x: number; y: number; width: number; height: number }>;
+  seed?: number | string;
+  /** Dev-only: append ?debugHeights=1 for ground grid overlay in captures. */
+  debugHeights?: boolean;
 }
 
 /**
@@ -119,9 +126,9 @@ export const QUALITY_SETTINGS: Record<QualitySetting, QualityConfig> = {
 };
 
 /**
- * Test Viewpoints for candy_world
+ * Built-in fallback viewpoints (used when viewpoints.json is missing).
  */
-export const VIEWPOINTS: Viewpoint[] = [
+const DEFAULT_VIEWPOINTS: Viewpoint[] = [
   {
     name: 'spawn',
     description: 'Player start position - central view of the world',
@@ -178,8 +185,77 @@ export const VIEWPOINTS: Viewpoint[] = [
     cameraTarget: { x: 0, y: 0, z: 0 },
     timeOfDay: 'sunset',
     waitForStable: 2000
+  },
+  {
+    name: 'slope_foot',
+    description: 'Terrain slope at the foot of a hill - tests ground continuity and object grounding',
+    cameraPosition: { x: -35, y: 12, z: -25 },
+    cameraTarget: { x: -55, y: 2, z: -45 },
+    timeOfDay: 'day',
+    waitForStable: 2500
+  },
+  {
+    name: 'lake_edge',
+    description: 'Lake shoreline - tests water edge, island silhouette, and reflective surface consistency',
+    cameraPosition: { x: 70, y: 10, z: 20 },
+    cameraTarget: { x: 20, y: 0, z: 20 },
+    timeOfDay: 'day',
+    waitForStable: 3000
+  },
+  {
+    name: 'forest_horizon',
+    description: 'Forest treeline at ~250u — LOD impostor cross-fade regression (200→400u sweep)',
+    cameraPosition: { x: 0, y: 28, z: 250 },
+    cameraTarget: { x: 0, y: 10, z: 0 },
+    timeOfDay: 'day',
+    waitForStable: 3500
+  },
+  {
+    name: 'horizon_lod',
+    description: 'Distant horizon from an elevated vantage - tests LOD tier transitions and far-field coherence',
+    cameraPosition: { x: 0, y: 50, z: 180 },
+    cameraTarget: { x: 0, y: 0, z: 0 },
+    timeOfDay: 'day',
+    waitForStable: 3000
+  },
+  {
+    name: 'gem_corridor_scale',
+    description: 'Gem canopy corridor - tests instanced gem-fruit scale and corridor population',
+    cameraPosition: { x: 95, y: 12, z: -110 },
+    cameraTarget: { x: 110, y: 5, z: -60 },
+    timeOfDay: 'day',
+    waitForStable: 3000
   }
 ];
+
+/**
+ * Load viewpoints from tools/visual-regression/viewpoints.json when present.
+ */
+export function loadViewpoints(configPath?: string): Viewpoint[] {
+  const candidates = [
+    configPath,
+    path.join(__dirname, '..', 'viewpoints.json'),
+    path.join(process.cwd(), 'viewpoints.json'),
+    path.join(process.cwd(), 'tools', 'visual-regression', 'viewpoints.json'),
+  ].filter((p): p is string => !!p);
+
+  for (const candidate of candidates) {
+    try {
+      if (!fs.existsSync(candidate)) continue;
+      const raw = JSON.parse(fs.readFileSync(candidate, 'utf-8')) as { viewpoints?: Viewpoint[] };
+      if (Array.isArray(raw.viewpoints) && raw.viewpoints.length > 0) {
+        return raw.viewpoints;
+      }
+    } catch (err) {
+      console.warn(`[visual-regression] Failed to load viewpoints from ${candidate}:`, err);
+    }
+  }
+
+  return DEFAULT_VIEWPOINTS;
+}
+
+/** Active viewpoint list — sourced from viewpoints.json with TS fallback. */
+export const VIEWPOINTS: Viewpoint[] = loadViewpoints();
 
 /**
  * Screenshot Capture Class
@@ -292,6 +368,14 @@ export class ScreenshotCapture {
       skipIntro: 'true'
     });
 
+    if (options.seed !== undefined) {
+      params.set('seed', String(options.seed));
+    }
+
+    if (options.debugHeights) {
+      params.set('debugHeights', '1');
+    }
+
     // Inject the CI flag into window BEFORE the page loads so
     // heavy particle buffer allocations are aggressively scaled down
     await this.page.addInitScript(() => {
@@ -299,7 +383,14 @@ export class ScreenshotCapture {
       localStorage.setItem('__IS_FULL_BOOT_TEST', 'true');
     });
 
-    await this.page.goto(`${this.baseUrl}?${params.toString()}`, {
+    // Merge quality/query params with any params already present in baseUrl
+    // (e.g. ?renderer=webgl&webglLite=1 for the CI WebGL path).
+    const url = new URL(this.baseUrl);
+    params.forEach((value, key) => {
+      url.searchParams.set(key, value);
+    });
+
+    await this.page.goto(url.toString(), {
       waitUntil: 'networkidle',
       timeout: 120000
     });
@@ -318,7 +409,7 @@ export class ScreenshotCapture {
 
         // Wait for it to become enabled (if generation is slow)
         await this.page.waitForFunction(() => {
-            const btn = document.getElementById('startButton');
+            const btn = document.getElementById('startButton') as HTMLButtonElement | null;
             return btn && (btn.disabled === false || btn.getAttribute('disabled') === null) && btn.getAttribute('aria-disabled') !== 'true' && btn.getAttribute('aria-busy') !== 'true';
         }, { timeout: 120000 });
 
@@ -349,34 +440,33 @@ export class ScreenshotCapture {
     if (!this.page) throw new Error('Page not initialized');
 
     await this.page.evaluate((vp) => {
-      // Access the game's camera and scene through the global game instance
       const game = (window as any).game;
-      if (!game) return;
+      const cam = game?.camera ?? (window as any).camera;
+      if (!cam) return;
 
-      // Set camera position
-      if (game.camera) {
-        game.camera.position.set(vp.cameraPosition.x, vp.cameraPosition.y, vp.cameraPosition.z);
-        game.camera.lookAt(vp.cameraTarget.x, vp.cameraTarget.y, vp.cameraTarget.z);
+      cam.position.set(vp.cameraPosition.x, vp.cameraPosition.y, vp.cameraPosition.z);
+      cam.lookAt(vp.cameraTarget.x, vp.cameraTarget.y, vp.cameraTarget.z);
+      if (typeof vp.fov === 'number' && Number.isFinite(vp.fov)) {
+        cam.fov = vp.fov;
+        cam.updateProjectionMatrix();
       }
 
-      // Set time of day
-      if (vp.timeOfDay && game.timeSystem) {
+      // Set time of day when exposed on the game shell (optional).
+      if (vp.timeOfDay && game?.timeSystem?.setTime) {
         const timeMap: Record<string, number> = {
-          'dawn': 0.2,
-          'day': 0.5,
-          'sunset': 0.75,
-          'night': 0.95
+          dawn: 0.2,
+          day: 0.5,
+          sunset: 0.75,
+          night: 0.95,
         };
         game.timeSystem.setTime(timeMap[vp.timeOfDay] || 0.5);
       }
 
-      // Set weather
-      if (vp.weather && game.weatherSystem) {
+      if (vp.weather && game?.weatherSystem?.setWeather) {
         game.weatherSystem.setWeather(vp.weather);
       }
 
-      // Pause animations for consistent screenshots
-      if (game.clock) {
+      if (game?.clock) {
         game.clock.autoStart = false;
       }
     }, viewpoint);

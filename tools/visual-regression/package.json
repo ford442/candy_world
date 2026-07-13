@@ -11,7 +11,8 @@
     "report": "tsx src/report-generator.ts",
     "validate": "tsx validate.ts",
     "test": "tsx cli.ts",
-    "test:visual": "tsx cli.ts"
+    "test:visual": "tsx cli.ts",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@playwright/test": "^1.60.0",

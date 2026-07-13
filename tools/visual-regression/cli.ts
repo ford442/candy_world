@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { ScreenshotCapture, VIEWPOINTS, QUALITY_SETTINGS, VIEWPORTS } from './src/screenshot-capture.js';
+import { ScreenshotCapture, loadViewpoints, QUALITY_SETTINGS, VIEWPORTS } from './src/screenshot-capture.js';
 import { ScreenshotComparator } from './src/screenshot-compare.js';
 import { BaselineManager } from './src/baseline-manager.js';
 import { ReportGenerator } from './src/report-generator.js';
@@ -26,6 +26,11 @@ interface TestConfig {
   generateReport: boolean;
   capturePerformance: boolean;
   skipComparison: boolean;
+  seed?: number | string;
+  /** Optional path to viewpoints.json (defaults to tools/visual-regression/viewpoints.json). */
+  viewpointsPath?: string;
+  /** Dev-only: enable ?debugHeights=1 ground overlay in captures. */
+  debugHeights?: boolean;
 }
 
 /**
@@ -35,7 +40,7 @@ const DEFAULT_CONFIG: TestConfig = {
   baseUrl: process.env.CANDY_WORLD_URL || 'http://localhost:5173',
   outputDir: './test/screenshots',
   baselineDir: './test/baselines',
-  viewpoints: VIEWPOINTS.map(v => v.name),
+  viewpoints: loadViewpoints().map(v => v.name),
   qualities: ['medium', 'high'],
   viewports: ['desktop'],
   threshold: 0.05,
@@ -56,8 +61,10 @@ function loadConfig(configPath?: string): TestConfig {
   
   // Try to load from default locations
   const defaultPaths = [
+    './ci.config.json',
     './visual-regression.config.json',
     './.vr.config.json',
+    './tools/visual-regression/ci.config.json',
     './tools/visual-regression/config.json'
   ];
   
@@ -93,7 +100,8 @@ async function runVisualTests(config: TestConfig): Promise<void> {
   fs.mkdirSync(config.outputDir, { recursive: true });
   
   // Filter viewpoints, qualities, and viewports
-  const viewpoints = VIEWPOINTS.filter(v => config.viewpoints.includes(v.name));
+  const allViewpoints = loadViewpoints(config.viewpointsPath);
+  const viewpoints = allViewpoints.filter(v => config.viewpoints.includes(v.name));
   const qualities = config.qualities.map(q => QUALITY_SETTINGS[q as keyof typeof QUALITY_SETTINGS]).filter(Boolean);
   const viewports = VIEWPORTS.filter(v => config.viewports.includes(v.name));
   
@@ -104,6 +112,9 @@ async function runVisualTests(config: TestConfig): Promise<void> {
   console.log(`   Viewports: ${viewports.map(v => v.name).join(', ')}`);
   console.log(`   Threshold: ${(config.threshold * 100).toFixed(1)}%`);
   console.log(`   Update baselines: ${config.updateBaselines ? 'Yes' : 'No'}`);
+  if (config.seed !== undefined) {
+    console.log(`   Random seed: ${config.seed}`);
+  }
   console.log('');
   
   const totalTests = viewpoints.length * qualities.length * viewports.length;
@@ -129,7 +140,9 @@ async function runVisualTests(config: TestConfig): Promise<void> {
             viewpoint,
             quality,
             viewport,
-            outputDir: path.join(config.outputDir, viewpoint.name)
+            outputDir: path.join(config.outputDir, viewpoint.name),
+            seed: config.seed,
+            debugHeights: config.debugHeights,
           };
           
           await capture.navigate(screenshotOptions);
@@ -286,11 +299,14 @@ Usage: npm run test:visual [options]
 Options:
   --config, -c <path>       Config file path
   --url, -u <url>           Base URL (default: http://localhost:5173)
-  --viewpoints, -v <list>   Comma-separated viewpoints (spawn,lake,forest,night,particles,weather)
+  --viewpoints, -v <list>   Comma-separated viewpoints (spawn,lake,forest,forest_horizon,night,particles,weather,sunset,slope_foot,lake_edge,horizon_lod,gem_corridor_scale)
   --qualities, -q <list>    Comma-separated qualities (low,medium,high,ultra)
   --viewports, -p <list>    Comma-separated viewports (mobile,desktop,ultrawide,tablet)
   --threshold, -t <float>   Diff threshold (default: 0.05)
   --update, -U              Update baselines
+  --seed <number|string>    Deterministic random seed for reproducible screenshots
+  --debug-heights           Append ?debugHeights=1 (dev ground overlay; not for CI)
+  --viewpoints-path <path>  Custom viewpoints.json path
   --no-report               Skip report generation
   --performance, -perf      Capture performance profiles
   --help, -h                Show this help
@@ -306,7 +322,7 @@ Examples:
 /**
  * Parse CLI arguments
  */
-function parseArgs(): Partial<TestConfig> & { help?: boolean } {
+function parseArgs(): Partial<TestConfig> & { help?: boolean; config?: string } {
   const args = process.argv.slice(2);
   const options: any = {};
   
@@ -341,6 +357,15 @@ function parseArgs(): Partial<TestConfig> & { help?: boolean } {
       case '--update':
       case '-U':
         options.updateBaselines = true;
+        break;
+      case '--seed':
+        options.seed = args[++i];
+        break;
+      case '--debug-heights':
+        options.debugHeights = true;
+        break;
+      case '--viewpoints-path':
+        options.viewpointsPath = args[++i];
         break;
       case '--no-report':
         options.generateReport = false;

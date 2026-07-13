@@ -476,7 +476,9 @@ When implementing large visual changes:
 - `docs/MUSIC_MAP_BINDING.md` — Map/entity music override precedence and atmosphere bindings
 - `SETUP_GUIDE.md` — Development environment setup and Emscripten installation
 - `IMPLEMENTATION_SUMMARY.md` — Feature implementation history
-- `PERFORMANCE_MIGRATION_STRATEGY.md` — WASM migration guidelines (includes the "15% Rule")
+- `PERFORMANCE_MIGRATION_STRATEGY.md` — WASM migration guidelines (includes the "15% Rule") — lives at `docs/archive/PERFORMANCE_MIGRATION_STRATEGY.md`
+- `MIGRATION_STATUS.md` — Living tier table (TS / AS / C++ / WebGPU coverage)
+- `MIGRATION_TRACKER.md` — Prioritized next 15% slices + issue links
 - `SKY_ENHANCEMENTS.md` — Sky/weather system details
 - `WEATHER_INTEGRATION_SUMMARY.md` — Weather system architecture
 - `plan.md` and `weekly_plan.md` — Living task boards and completed work log (highest signal for "what just landed")

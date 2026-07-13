@@ -20,7 +20,7 @@ import {
     AudioState,
     KeyStates,
     foliageCaves
-} from './physics-types.js';
+} from './physics-types.ts';
 import { 
     activeVineSwing, 
     setActiveVineSwing, 

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { DataUtils } from 'three';
-import { getGroundHeight } from '../systems/ground-system.ts';
+import { getGroundHeight, registerGroundNormalData } from '../systems/ground-system.ts';
 
 export interface HeightmapTextures {
     heights: Float32Array;
@@ -123,6 +123,7 @@ export async function generateGroundHeightmap(
     // returned as part of the struct for callers that need CPU-side sampling
     // (e.g., sampleHeightmapCPU).  Callers that don't need them should let them
     // fall out of scope so the GC can reclaim ~1 MB of heap as soon as possible.
+    registerGroundNormalData(normals, size, resolution);
     return { heights, normals, heightTexture, normalTexture };
 }
 

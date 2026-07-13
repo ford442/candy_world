@@ -687,8 +687,9 @@ export class ReportGenerator {
    */
   async exportPDF(reportPath: string, outputPath: string): Promise<void> {
     try {
+      // @ts-ignore — puppeteer is an optional PDF-export dependency, not installed by default.
       const puppeteer = await import('puppeteer');
-      
+
       const browser = await puppeteer.launch();
       const page = await browser.newPage();
       

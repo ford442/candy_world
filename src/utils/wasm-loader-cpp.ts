@@ -1,4 +1,4 @@
-import { getNativeFunc } from './wasm-loader-core.ts';
+import { getNativeFunc, getNativeFuncVoid } from './wasm-loader-core.ts';
 
 // =============================================================================
 // C++ EMSCRIPTEN FUNCTION REFERENCES (CACHED)
@@ -15,6 +15,28 @@ export let cppFastSin: ((x: number) => number) | null = null;
 export let cppFastCos: ((x: number) => number) | null = null;
 export let cppFastPow2: ((x: number) => number) | null = null;
 
+/** Unified ground height from emscripten/ground.cpp */
+export let cppGetUnifiedGroundHeight: ((x: number, z: number, nowMs: number) => number) | null = null;
+export let cppBatchUnifiedGroundHeight: ((positionsPtr: number, count: number, outputPtr: number, nowMs: number) => void) | null = null;
+export let cppClearGroundPlatforms: (() => void) | null = null;
+export let cppAddGroundPlatform: ((minX: number, maxX: number, minZ: number, maxZ: number, maxY: number) => void) | null = null;
+export let cppInvalidateGroundCache: (() => void) | null = null;
+export let cppSetGroundCacheTTL: ((seconds: number) => void) | null = null;
+
+/** Foliage interaction batches from emscripten/foliage_interact.cpp */
+export let cppBatchGeyserLaunch: ((
+    px: number, py: number, pz: number, pvy: number, delta: number,
+    geysersPtr: number, count: number, outPtr: number
+) => void) | null = null;
+export let cppBatchPadForces: ((
+    px: number, py: number, pz: number, pvy: number,
+    padsPtr: number, count: number, outPtr: number
+) => void) | null = null;
+export let cppBatchVineInteraction: ((
+    px: number, py: number, pz: number,
+    vinesPtr: number, count: number, outPtr: number
+) => void) | null = null;
+
 /** Animation batch functions from emscripten/animation_batch.cpp */
 export let cppBatchShiverSimd: ((inputPtr: number, count: number, time: number, intensity: number, outputPtr: number) => void) | null = null;
 export let cppBatchSpringSimd: ((inputPtr: number, count: number, time: number, intensity: number, outputPtr: number) => void) | null = null;
@@ -27,6 +49,30 @@ export let cppBatchRetriggerSimd: ((inputPtr: number, count: number, time: numbe
 /** Emscripten module (native C functions) */
 export let emscriptenInstance: EmscriptenModule | null = null;
 export let emscriptenMemory: ArrayBuffer | null = null;
+
+// Physics / animation stubs referenced by initCppFunctions
+export let calcFiberWhip: ((...args: number[]) => number) | null = null;
+export let calcHopY: ((...args: number[]) => number) | null = null;
+export let calcShiver: ((...args: number[]) => number) | null = null;
+export let initPhysics: ((...args: number[]) => number) | null = null;
+export let updatePhysicsCPP: ((...args: number[]) => number) | null = null;
+export let setPhysicsTime: ((...args: number[]) => number) | null = null;
+export let setGravity: ((...args: number[]) => number) | null = null;
+export let registerMeshCollision: ((...args: number[]) => number) | null = null;
+export let batchCollisionCheck_c: ((...args: number[]) => number) | null = null;
+export let batchRaycast_c: ((...args: number[]) => number) | null = null;
+export let createEntity: ((...args: number[]) => number) | null = null;
+export let addTransform: ((...args: number[]) => number) | null = null;
+export let addPhysics: ((...args: number[]) => number) | null = null;
+export let getTransformX: ((...args: number[]) => number) | null = null;
+export let getTransformY: ((...args: number[]) => number) | null = null;
+export let getTransformZ: ((...args: number[]) => number) | null = null;
+export let setTransform: ((...args: number[]) => number) | null = null;
+export let initFluidSolver: ((...args: number[]) => number) | null = null;
+export let updateFluidSolver: ((...args: number[]) => number) | null = null;
+export let getFluidVelocityX: ((...args: number[]) => number) | null = null;
+export let getFluidVelocityY: ((...args: number[]) => number) | null = null;
+export let getFluidDensity: ((...args: number[]) => number) | null = null;
 
 export function setEmscriptenInstance(instance: EmscriptenModule | null): void {
   emscriptenInstance = instance;
@@ -43,7 +89,31 @@ export function setEmscriptenInstance(instance: EmscriptenModule | null): void {
 // INITIALIZE C++ EMSCRIPTEN FUNCTIONS
 // =============================================================================
 export function initCppFunctions(): void {
-  // Math
+  // Math (emscripten/math.cpp)
+  cppValueNoise2DSimd4 = getNativeFuncVoid('valueNoise2D_simd4');
+  cppFbm2DSimd4 = getNativeFuncVoid('fbm2D_simd4');
+  cppBatchGroundHeightSimd = getNativeFuncVoid('batchGroundHeight_simd');
+  cppBatchValueNoiseOmp = getNativeFuncVoid('batchValueNoise_omp');
+  cppBatchFbmOmp = getNativeFuncVoid('batchFbm_omp');
+  cppBatchDistSq3DOmp = getNativeFuncVoid('batchDistSq3D_omp');
+  cppFastSin = getNativeFunc('fastSin');
+  cppFastCos = getNativeFunc('fastCos');
+  cppFastPow2 = getNativeFunc('fastPow2');
+
+  // Unified ground (emscripten/ground.cpp)
+  cppGetUnifiedGroundHeight = getNativeFunc('getUnifiedGroundHeight');
+  cppBatchUnifiedGroundHeight = getNativeFuncVoid('batchUnifiedGroundHeight');
+  cppClearGroundPlatforms = getNativeFuncVoid('clearGroundPlatforms');
+  cppAddGroundPlatform = getNativeFuncVoid('addGroundPlatform');
+  cppInvalidateGroundCache = getNativeFuncVoid('invalidateGroundCache');
+  cppSetGroundCacheTTL = getNativeFuncVoid('setGroundCacheTTL');
+
+  // Foliage interaction (emscripten/foliage_interact.cpp)
+  cppBatchGeyserLaunch = getNativeFuncVoid('batchGeyserLaunch_c');
+  cppBatchPadForces = getNativeFuncVoid('batchPadForces_c');
+  cppBatchVineInteraction = getNativeFuncVoid('batchVineInteraction_c');
+
+  // Animation
   calcFiberWhip = getNativeFunc('calcFiberWhip');
   calcHopY = getNativeFunc('calcHopY');
   calcShiver = getNativeFunc('calcShiver');

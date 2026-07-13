@@ -101,6 +101,8 @@ export interface MapEntity {
     layer?: string;
     biome?: string;
     placement?: 'ground' | 'absolute' | 'offset';
+    /** Optional Y correction (world units) for hand-tuned landmark contact; see placement-utils ENTITY_BASE_OFFSETS */
+    baseOffset?: number;
     music?: {
         biome?: string;
         biomeTag?: string;

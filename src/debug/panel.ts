@@ -11,6 +11,8 @@ import {
   type StageMetadata,
 } from './stages.ts';
 import { switchRendererPreference, type RendererBackend } from '../rendering/renderer-mode.ts';
+import { getFogTelemetry } from '../systems/atmosphere-fog.ts';
+import { getFoliageLodStats, setFoliageLodDebugHighlight } from '../systems/batcher-lod.ts';
 
 /**
  * Debug panel UI controller
@@ -20,6 +22,9 @@ export class DebugPanel {
   private stageElements: Map<keyof DebugStages, HTMLElement> = new Map();
   private updateInterval: number | null = null;
   private batcherStatsEl: HTMLElement | null = null;
+  private fogStatsEl: HTMLElement | null = null;
+  private lodStatsEl: HTMLElement | null = null;
+  private lodHighlightEnabled = false;
 
   /**
    * Create and show the debug panel
@@ -152,6 +157,62 @@ export class DebugPanel {
     batcherStats.textContent = 'Batcher Stats: waiting for world init...';
     this.batcherStatsEl = batcherStats;
     panel.appendChild(batcherStats);
+
+    const fogStats = document.createElement('div');
+    fogStats.style.cssText = `
+      margin-top: 8px;
+      padding: 8px;
+      background: rgba(20, 30, 60, 0.35);
+      border: 1px solid rgba(125, 211, 252, 0.35);
+      border-radius: 4px;
+      font-size: 10px;
+      line-height: 1.35;
+      white-space: pre-wrap;
+      color: #b8e4ff;
+    `;
+    fogStats.textContent = 'Fog: waiting for weather init...';
+    this.fogStatsEl = fogStats;
+    panel.appendChild(fogStats);
+
+    const lodStats = document.createElement('div');
+    lodStats.style.cssText = `
+      margin-top: 8px;
+      padding: 8px;
+      background: rgba(40, 20, 50, 0.35);
+      border: 1px solid rgba(255, 153, 255, 0.35);
+      border-radius: 4px;
+      font-size: 10px;
+      line-height: 1.35;
+      white-space: pre-wrap;
+      color: #f0c8ff;
+    `;
+    lodStats.textContent = 'LOD: waiting for foliage batchers...';
+    this.lodStatsEl = lodStats;
+    panel.appendChild(lodStats);
+
+    const lodHighlightBtn = document.createElement('button');
+    lodHighlightBtn.id = 'debug-lod-highlight';
+    lodHighlightBtn.textContent = 'Highlight LOD blend band';
+    lodHighlightBtn.style.cssText = `
+      margin-top: 6px;
+      width: 100%;
+      background: #301838;
+      border: 1px solid #ff99ff;
+      color: #f0c8ff;
+      padding: 4px 8px;
+      cursor: pointer;
+      font-size: 10px;
+      border-radius: 3px;
+    `;
+    lodHighlightBtn.addEventListener('click', () => {
+      this.lodHighlightEnabled = !this.lodHighlightEnabled;
+      setFoliageLodDebugHighlight(this.lodHighlightEnabled);
+      lodHighlightBtn.style.background = this.lodHighlightEnabled ? '#502060' : '#301838';
+      lodHighlightBtn.textContent = this.lodHighlightEnabled
+        ? 'LOD blend highlight ON'
+        : 'Highlight LOD blend band';
+    });
+    panel.appendChild(lodHighlightBtn);
 
     // Instructions
     const instructions = document.createElement('div');
@@ -394,6 +455,34 @@ export class DebugPanel {
     });
 
     this.updateBatcherStats();
+    this.updateFogStats();
+    this.updateLodStats();
+  }
+
+  private updateLodStats(): void {
+    if (!this.lodStatsEl) return;
+    const s = getFoliageLodStats();
+    if (s.total === 0) {
+      this.lodStatsEl.textContent = 'LOD: no tracked instances yet';
+      return;
+    }
+    this.lodStatsEl.textContent =
+      `Foliage LOD Tiers\n` +
+      `Hero ${s.hero}  Mid ${s.mid}  Far ${s.far}  Culled ${s.culled}\n` +
+      `Impostors ${s.impostors}  Blend band ${s.blendBand}\n` +
+      `Total tracked ${s.total}`;
+  }
+
+  private updateFogStats(): void {
+    if (!this.fogStatsEl) return;
+    const t = getFogTelemetry();
+    this.fogStatsEl.textContent =
+      `Fog Distances\n` +
+      `Target  near ${t.targetNear.toFixed(1)}  far ${t.targetFar.toFixed(1)}\n` +
+      `Scene   near ${t.currentNear.toFixed(1)}  far ${t.currentFar.toFixed(1)}\n` +
+      `TSL     near ${t.tslNear.toFixed(1)}  far ${t.tslFar.toFixed(1)}\n` +
+      `Cam far ${t.cameraFar.toFixed(0)}  fov ${t.cameraFov.toFixed(0)}  Y ${t.playerY.toFixed(1)}\n` +
+      `Day bias ${t.dayNightBias.toFixed(2)}`;
   }
 
   private updateBatcherStats(): void {
@@ -476,6 +565,7 @@ export function initDebugPanel(): void {
   if (DEBUG_CONFIG.enabled) {
     const panel = getDebugPanel();
     panel.createPanel();
+    window.__getFogTelemetry = getFogTelemetry;
     console.log('%c[Debug] Panel initialized. Press D to toggle visibility.', 'color: cyan; font-weight: bold');
   }
 }

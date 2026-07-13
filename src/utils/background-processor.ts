@@ -248,12 +248,6 @@ export class BackgroundProcessor {
                 if (this.onProgressCallback) {
                     this.onProgressCallback(this.completedTasks, this.totalTasks);
                 }
-            } catch (e) {
-                spawnTracker.recordFailure(inferFailureTypeFromTaskId(task.id), e, {
-                    context: `background-task:${task.id}`,
-                    countAttempt: true,
-                });
-                console.error(`[BackgroundProcessor] Error executing task ${task.id}:`, e);
             }
         }
 

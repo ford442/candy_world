@@ -33,7 +33,7 @@ import { addCameraShake } from '../../core/camera-shake.ts';
 import { unlockSystem } from '../unlocks.ts';
 import {
     calculateMovementInput
-} from '../physics.core.js';
+} from '../physics.core.ts';
 import { CONFIG } from '../../core/config.ts';
 import { isInLakeBasin, reconcileGroundedEyeY } from '../ground-system.ts';
 import {
@@ -56,7 +56,7 @@ import {
     cppPhysicsInitialized,
     AudioState,
     KeyStates
-} from './physics-types.js';
+} from './physics-types.ts';
 
 import {
     updateSwimmingState,
@@ -65,13 +65,13 @@ import {
     updateDancingState,
     updateStateTransitions,
     updateEnvironmentalModifiers
-} from './physics-states.js';
+} from './physics-states.ts';
 
-import { handleAbilities } from './physics-abilities.js';
+import { handleAbilities } from './physics-abilities.ts';
 
 // Re-export player and types for external use
 export { player, PlayerState };
-export type { AudioState, KeyStates } from './physics-types.js';
+export type { AudioState, KeyStates } from './physics-types.ts';
 
 // --- Lightweight Physics Spatial Grid (⚡ OPTIMIZATION) ---
 let _globalQueryId = 0;

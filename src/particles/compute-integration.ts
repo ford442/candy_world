@@ -711,8 +711,7 @@ export async function benchmarkParticleSystem(
                     system = createComputePollen({ count });
                     break;
                 case 'rain':
-                    mesh = createIntegratedRain(config.options);
-                    system = (mesh as any).userData?.computeParticleSystem;
+                    system = createComputeRain({ count });
                     break;
                 case 'berries':
                     system = createComputeBerries({ count });

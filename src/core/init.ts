@@ -1,12 +1,13 @@
 // src/core/init.ts
 
 import * as THREE from 'three';
-import { color, uniform, uv, float, smoothstep, length } from 'three/tsl';
+import { color, uniform, uv, float, smoothstep } from 'three/tsl';
 import type UniformNode from 'three/src/nodes/core/UniformNode.js';
 import WebGPU from 'three/examples/jsm/capabilities/WebGPU.js';
 import { WebGPURenderer, MeshBasicNodeMaterial, StorageInstancedBufferAttribute, StorageBufferAttribute } from 'three/webgpu';
-import { PALETTE, CONFIG } from './config.ts';
-import { createCrescendoFogNode } from '../foliage/sky.ts';
+import { PALETTE, CONFIG, resolveShadowSettings } from './config.ts';
+import { createCrescendoFogNode, uFogNear, uFogFar } from '../foliage/sky.ts';
+import { getInitialFogDistances } from '../systems/atmosphere-fog.ts';
 import {
     resolveRendererBackend,
     type RendererBackend,
@@ -22,6 +23,49 @@ export type CandyRenderer = WebGPURenderer | THREE.WebGLRenderer;
  */
 export const isWebGPUMode = (r: CandyRenderer): r is WebGPURenderer =>
     r instanceof WebGPURenderer;
+
+/**
+ * Configure sun shadow map, tight ortho frustum, and renderer shadow pass.
+ * @returns true when shadows are active
+ */
+function configureSunShadows(
+    sunLight: THREE.DirectionalLight,
+    renderer: CandyRenderer,
+    scene: THREE.Scene,
+): boolean {
+    const settings = resolveShadowSettings();
+
+    if (!settings.enabled) {
+        sunLight.castShadow = false;
+        renderer.shadowMap.enabled = false;
+        return false;
+    }
+
+    const cfg = CONFIG.lighting.shadows;
+    const renderRadius = cfg.followRadius + cfg.snapHeadroom;
+
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+    sunLight.castShadow = true;
+    sunLight.shadow.mapSize.set(settings.mapSize, settings.mapSize);
+    sunLight.shadow.bias = cfg.bias;
+    sunLight.shadow.normalBias = cfg.normalBias;
+    sunLight.shadow.radius = cfg.pcfRadius;
+
+    const cam = sunLight.shadow.camera as THREE.OrthographicCamera;
+    cam.left = -renderRadius;
+    cam.right = renderRadius;
+    cam.top = renderRadius;
+    cam.bottom = -renderRadius;
+    cam.near = cfg.cameraNear;
+    cam.far = cfg.cameraFar;
+    cam.updateProjectionMatrix();
+
+    // DirectionalLight aims position → target; target must be in the scene graph.
+    scene.add(sunLight.target);
+    return true;
+}
 
 /**
  * Return type for initScene function
@@ -42,7 +86,6 @@ export interface SceneInitResult {
     sunGlowMat: THREE.MeshBasicMaterial;
     coronaMat: THREE.MeshBasicMaterial;
     uShaftOpacity: ReturnType<typeof uniform<number>>;
-    playerBlobShadow: THREE.Mesh;
 }
 
 /**
@@ -145,12 +188,16 @@ export function initScene(): SceneInitResult {
     const requested = resolveRendererBackend();
     const { renderer, mode, fallbackReason } = createRenderer(canvas, requested);
 
+    const initialFog = getInitialFogDistances();
+
     // TSL-driven Crescendo Fog initialization (WebGPU only)
     if (mode === 'webgpu') {
         scene.fogNode = createCrescendoFogNode(color(PALETTE.day.fog));
     }
-    // Standard fog kept for all renderers
-    scene.fog = new THREE.Fog(PALETTE.day.fog, 20, 100);
+    // Standard fog kept for all renderers — distances derived from camera constants
+    scene.fog = new THREE.Fog(PALETTE.day.fog, initialFog.near, initialFog.far);
+    uFogNear.value = initialFog.near;
+    uFogFar.value = initialFog.far;
 
     const camera = new THREE.PerspectiveCamera(
         60, 
@@ -199,10 +246,6 @@ export function initScene(): SceneInitResult {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5)); // Cap pixel ratio for better performance
     renderer.toneMappingExposure = 1.0;
 
-    // Shadow Map configuration
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-
     // --- Lighting ---
     const ambientLight = new THREE.HemisphereLight(
         PALETTE.day.skyTop, 
@@ -213,23 +256,15 @@ export function initScene(): SceneInitResult {
 
     const sunLight = new THREE.DirectionalLight(PALETTE.day.sun, 0.9);
     sunLight.position.set(50, 80, 30);
-    
-    sunLight.castShadow = true;
-    
-    sunLight.shadow.mapSize.width = 1024;
-    sunLight.shadow.mapSize.height = 1024;
 
-    const d = 40;
-    sunLight.shadow.camera.left = -d;
-    sunLight.shadow.camera.right = d;
-    sunLight.shadow.camera.top = d;
-    sunLight.shadow.camera.bottom = -d;
-    sunLight.shadow.camera.near = 0.5;
-    sunLight.shadow.camera.far = 150;
-    sunLight.shadow.bias = -0.0005;
+    const shadowsActive = configureSunShadows(sunLight, renderer, scene);
+    if (shadowsActive) {
+        console.log(`[Init] Sun shadows enabled (map ${sunLight.shadow.mapSize.width}, ortho ±${CONFIG.lighting.shadows.followRadius}u)`);
+    } else {
+        console.log('[Init] Sun shadows disabled (quality tier / CONFIG)');
+    }
 
     scene.add(sunLight);
-    scene.add(sunLight.target); // Needed for dynamically moving targets
 
     // Enhanced Sun Glow with dynamic corona effect
     const sunGlowMat = new THREE.MeshBasicMaterial({
@@ -318,44 +353,6 @@ export function initScene(): SceneInitResult {
     lightShaftGroup.visible = false; // Only visible during sunrise/sunset
     scene.add(lightShaftGroup);
 
-    // Player Blob Shadow (Contact Shadow)
-    const blobShadowGeo = new THREE.PlaneGeometry(3, 3);
-    blobShadowGeo.rotateX(-Math.PI / 2); // Lay flat
-
-    let blobShadowMat: THREE.Material;
-    if (mode === 'webgpu') {
-        blobShadowMat = new MeshBasicNodeMaterial({
-            transparent: true,
-            depthWrite: false,
-            color: 0x000000,
-        });
-        const dist = length(uv().sub(0.5));
-        const alpha = smoothstep(0.5, 0.0, dist);
-        (blobShadowMat as MeshBasicNodeMaterial).opacityNode = alpha.mul(0.6);
-    } else {
-        // Fallback for WebGL using a canvas gradient
-        const shadowCanvas = document.createElement('canvas');
-        shadowCanvas.width = 64;
-        shadowCanvas.height = 64;
-        const ctx = shadowCanvas.getContext('2d')!;
-        const gradient = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
-        gradient.addColorStop(0, 'rgba(0, 0, 0, 0.6)');
-        gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
-        ctx.fillStyle = gradient;
-        ctx.fillRect(0, 0, 64, 64);
-
-        const shadowTex = new THREE.CanvasTexture(shadowCanvas);
-        blobShadowMat = new THREE.MeshBasicMaterial({
-            transparent: true,
-            depthWrite: false,
-            map: shadowTex
-        });
-    }
-
-    const playerBlobShadow = new THREE.Mesh(blobShadowGeo, blobShadowMat);
-    // Y position will be dynamically updated in game-loop.ts
-    scene.add(playerBlobShadow);
-
     window.addEventListener('resize', () => {
         camera.aspect = window.innerWidth / window.innerHeight;
         camera.updateProjectionMatrix();
@@ -376,8 +373,7 @@ export function initScene(): SceneInitResult {
         lightShaftGroup,
         sunGlowMat,
         coronaMat,
-        uShaftOpacity,
-        playerBlobShadow
+        uShaftOpacity
     };
 }
 

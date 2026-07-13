@@ -1,0 +1,128 @@
+{
+  "$schema": "./viewpoints.schema.json",
+  "version": 1,
+  "description": "Fixed camera poses for visual regression. biomeAnchor values reference src/world/generation-utils.ts and src/systems/ground-system.ts constants.",
+  "viewpoints": [
+    {
+      "name": "spawn",
+      "description": "Player start position - central view of the world",
+      "biomeAnchor": "origin spawn (0, 0)",
+      "cameraPosition": { "x": 0, "y": 15, "z": 30 },
+      "cameraTarget": { "x": 0, "y": 0, "z": 0 },
+      "fov": 60,
+      "timeOfDay": "day",
+      "waitForStable": 2000
+    },
+    {
+      "name": "lake",
+      "description": "Water/refractive surfaces - tests water shader quality",
+      "biomeAnchor": "LAKE_BOUNDS center (~20, 20); Melody Lake mesh at (20, 1.5, 20)",
+      "cameraPosition": { "x": 50, "y": 10, "z": 50 },
+      "cameraTarget": { "x": 60, "y": 0, "z": 60 },
+      "fov": 60,
+      "timeOfDay": "day",
+      "waitForStable": 3000
+    },
+    {
+      "name": "forest",
+      "description": "Dense foliage - tests tree rendering and LOD",
+      "biomeAnchor": "procedural forest quadrant (~-60, -60)",
+      "cameraPosition": { "x": -40, "y": 12, "z": -40 },
+      "cameraTarget": { "x": -60, "y": 5, "z": -60 },
+      "fov": 60,
+      "timeOfDay": "day",
+      "waitForStable": 2500
+    },
+    {
+      "name": "night",
+      "description": "Night scene - tests lighting and glow effects",
+      "biomeAnchor": "origin spawn (0, 0)",
+      "cameraPosition": { "x": 0, "y": 15, "z": 30 },
+      "cameraTarget": { "x": 0, "y": 0, "z": 0 },
+      "fov": 60,
+      "timeOfDay": "night",
+      "waitForStable": 3000
+    },
+    {
+      "name": "particles",
+      "description": "Fireflies, pollen, and particle effects",
+      "biomeAnchor": "lake island vicinity (~-40, 40)",
+      "cameraPosition": { "x": 20, "y": 8, "z": 20 },
+      "cameraTarget": { "x": 30, "y": 5, "z": 30 },
+      "fov": 60,
+      "timeOfDay": "night",
+      "waitForStable": 4000
+    },
+    {
+      "name": "weather",
+      "description": "Rain/storm conditions - tests weather effects",
+      "biomeAnchor": "open terrain toward LAKE_BOUNDS",
+      "cameraPosition": { "x": 0, "y": 20, "z": 0 },
+      "cameraTarget": { "x": 50, "y": 0, "z": 50 },
+      "fov": 60,
+      "timeOfDay": "day",
+      "weather": "rain",
+      "waitForStable": 3500
+    },
+    {
+      "name": "sunset",
+      "description": "Sunset lighting - tests atmospheric scattering",
+      "biomeAnchor": "origin horizon",
+      "cameraPosition": { "x": -30, "y": 15, "z": 30 },
+      "cameraTarget": { "x": 0, "y": 0, "z": 0 },
+      "fov": 60,
+      "timeOfDay": "sunset",
+      "waitForStable": 2000
+    },
+    {
+      "name": "slope_foot",
+      "description": "First-person hillside foot — ground contact on sloped forest trees",
+      "biomeAnchor": "forest procedural quadrant + ARPEGGIO_GROVE slope (generation-utils ARPEGGIO_GROVE centerX:-60 centerZ:60)",
+      "cameraPosition": { "x": -48, "y": 3.8, "z": -42 },
+      "cameraTarget": { "x": -62, "y": 7.5, "z": -56 },
+      "fov": 70,
+      "timeOfDay": "day",
+      "waitForStable": 2500
+    },
+    {
+      "name": "lake_edge",
+      "description": "Lake basin rim — terrain meets carved Melody Lake (seam + reflection)",
+      "biomeAnchor": "LAKE_BOUNDS east rim (maxX:78); LAKE_ISLAND center (20, 20)",
+      "cameraPosition": { "x": 72, "y": 8, "z": 18 },
+      "cameraTarget": { "x": 20, "y": 0, "z": 20 },
+      "fov": 65,
+      "timeOfDay": "day",
+      "waitForStable": 3000
+    },
+    {
+      "name": "forest_horizon",
+      "description": "Forest treeline at ~250u — LOD impostor cross-fade regression",
+      "biomeAnchor": "distant forest ring from origin",
+      "cameraPosition": { "x": 0, "y": 28, "z": 250 },
+      "cameraTarget": { "x": 0, "y": 10, "z": 0 },
+      "fov": 55,
+      "timeOfDay": "day",
+      "waitForStable": 3500
+    },
+    {
+      "name": "horizon_lod",
+      "description": "Elevated vantage at 280u — distant LOD tier transitions and fog horizon",
+      "biomeAnchor": "300u world edge treeline; CONFIG.fog far ~100u visible band",
+      "cameraPosition": { "x": 0, "y": 55, "z": 280 },
+      "cameraTarget": { "x": 0, "y": 12, "z": 0 },
+      "fov": 50,
+      "timeOfDay": "day",
+      "waitForStable": 3000
+    },
+    {
+      "name": "gem_corridor_scale",
+      "description": "Gem canopy corridor — instanced gem-fruit scale and depth relationships",
+      "biomeAnchor": "GEM_CANOPY (startX:75 startZ:-115 endX:125 endZ:-45 corridorWidth:14)",
+      "cameraPosition": { "x": 100, "y": 10, "z": -82 },
+      "cameraTarget": { "x": 100, "y": 6, "z": -55 },
+      "fov": 65,
+      "timeOfDay": "day",
+      "waitForStable": 3000
+    }
+  ]
+}

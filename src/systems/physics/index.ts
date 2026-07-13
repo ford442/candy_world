@@ -10,14 +10,14 @@ export {
     triggerHarpoon,
     player,
     PlayerState
-} from './physics.js';
+} from './physics.ts';
 
 // Type exports
 export type {
     AudioState,
     PlayerExtended,
     KeyStates
-} from './physics-types.js';
+} from './physics-types.ts';
 
 // Re-export specific types/constants if needed by external modules
 export {
@@ -28,4 +28,4 @@ export {
     DANCE_KICK_THRESHOLD,
     bpmWind,
     grooveGravity
-} from './physics-types.js';
+} from './physics-types.ts';
