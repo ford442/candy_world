@@ -595,13 +595,16 @@ if (startButton) {
                 }
             });
 
-            // ♿ Aria: Keyboard navigation for radiogroup
+            // ♿ Aria: Keyboard navigation for radiogroup and tactile feedback
             btn.addEventListener('keydown', (e) => {
                 let nextIndex = -1;
                 if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
                     nextIndex = (index + 1) % modeButtons.length;
                 } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
                     nextIndex = (index - 1 + modeButtons.length) % modeButtons.length;
+                } else if (e.key === 'Enter' || e.key === ' ') {
+                    // Tactile keyboard press down
+                    btn.classList.add('keyboard-active');
                 }
 
                 if (nextIndex !== -1) {
@@ -610,6 +613,16 @@ if (startButton) {
                     nextBtn.focus();
                     nextBtn.click();
                 }
+            });
+
+            btn.addEventListener('keyup', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    btn.classList.remove('keyboard-active');
+                }
+            });
+
+            btn.addEventListener('blur', () => {
+                btn.classList.remove('keyboard-active');
             });
 
             // ♿ Aria: Roving tabindex management

@@ -696,3 +696,24 @@ button[aria-pressed="true"],
     opacity: 0.98;
     transform: translateX(-50%) translateY(0);
 }
+
+
+/* ♿ Aria: Focus Ring for Keyboard Users */
+#mode-select button:focus-visible {
+    outline: 3px solid #fff;
+    outline-offset: 4px;
+    box-shadow: 0 0 15px rgba(255, 255, 255, 0.5);
+}
+
+/* ♿ Aria: Tactile Press (Mouse/Touch and Keyboard) */
+#mode-select button:active,
+#mode-select button.keyboard-active {
+    transform: scale(0.95);
+    filter: brightness(0.85);
+    transition: transform 0.05s ease, filter 0.05s ease;
+}
+
+/* ♿ Aria: Ensure a snappy return */
+#mode-select button {
+    transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1), filter 0.15s ease;
+}
