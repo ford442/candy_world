@@ -219,15 +219,17 @@ export function updateGroundDebug(playerPos: THREE.Vector3, cameraPos: THREE.Vec
                 // Update box at the ground surface.
                 _dummy.position.set(x, groundY, z);
                 _dummy.quaternion.identity();
-                _dummy.updateMatrix();
-                _gridBoxes.setMatrixAt(idx, _dummy.matrix);
+                // ⚡ OPTIMIZATION: Write directly to instanceMatrix bypassing THREE.Object3D proxy and setMatrixAt overhead
+                _dummy.matrix.compose(_dummy.position, _dummy.quaternion, _dummy.scale);
+                _dummy.matrix.toArray(_gridBoxes.instanceMatrix.array, idx * 16);
 
                 // Update footprint rings
                 if (_footprintRings) {
                     _dummy.position.set(x, groundY + 0.02, z);
                     _dummy.quaternion.setFromUnitVectors(_upVector, normal);
-                    _dummy.updateMatrix();
-                    _footprintRings.setMatrixAt(idx, _dummy.matrix);
+                    // ⚡ OPTIMIZATION: Write directly to instanceMatrix bypassing THREE.Object3D proxy and setMatrixAt overhead
+                    _dummy.matrix.compose(_dummy.position, _dummy.quaternion, _dummy.scale);
+                    _dummy.matrix.toArray(_footprintRings.instanceMatrix.array, idx * 16);
                 }
 
                 idx++;

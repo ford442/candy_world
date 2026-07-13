@@ -256,6 +256,8 @@ export async function initWorld(scene: THREE.Scene, weatherSystem: WeatherSystem
 
     // Add the main world group (containing all generated foliage) to the scene
     scene.add(worldGroup);
+    // ⚡ OPTIMIZATION: Flattened scene hierarchy. foliageGroup is added directly to scene instead of worldGroup.
+    scene.add(foliageGroup);
 
     // Generate Content if requested (triggered by start button in main.ts)
     if (loadContent) {
