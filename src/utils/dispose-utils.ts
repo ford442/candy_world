@@ -7,7 +7,7 @@ import * as THREE from 'three';
  * ⚡ OPTIMIZATION: Recursively traverses children to ensure complex objects
  * (like preview meshes) are completely freed from GPU memory.
  */
-export function safeRemoveAndDispose(scene: THREE.Scene, obj: THREE.Object3D | undefined | null) {
+export function safeRemoveAndDispose(scene: THREE.Object3D, obj: THREE.Object3D | undefined | null, skipMaterialDispose: boolean = false) {
     if (!obj) return;
 
     // Traverse and dispose all children
@@ -16,7 +16,7 @@ export function safeRemoveAndDispose(scene: THREE.Scene, obj: THREE.Object3D | u
             child.geometry.dispose();
         }
 
-        if (child.material) {
+        if (child.material && !child.userData?.preventMaterialDispose) {
             if (Array.isArray(child.material)) {
                 child.material.forEach((m: any) => {
                     m.dispose();

@@ -197,6 +197,12 @@ body.a11y-motion-reduced .spinner {
     background: rgba(255, 255, 255, 0.2);
 }
 
+/* ♿ Aria: Jukebox Empty State */
+.jukebox-browse-btn:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px #ffffff, 0 0 0 6px #FF4081;
+}
+
 /* 🎨 Palette: Ability HUD */
 #ability-hud {
     position: fixed;
@@ -623,6 +629,12 @@ button[aria-pressed="true"],
     box-shadow: 0 5px 18px rgba(125, 211, 252, 0.55);
 }
 
+/* ♿ Aria: Keyboard focus for wait full checkbox */
+#wait-full-checkbox:focus-visible {
+    outline: 2px solid #FF4081;
+    outline-offset: 2px;
+}
+
 /* 🎨 Palette: Tactile feedback on interactive elements */
 .toggle-button:not([aria-disabled="true"]):active,
 .toggle-button:not([aria-disabled="true"]).keyboard-active,
@@ -683,4 +695,25 @@ button[aria-pressed="true"],
 #explore-hint.visible {
     opacity: 0.98;
     transform: translateX(-50%) translateY(0);
+}
+
+
+/* ♿ Aria: Focus Ring for Keyboard Users */
+#mode-select button:focus-visible {
+    outline: 3px solid #fff;
+    outline-offset: 4px;
+    box-shadow: 0 0 15px rgba(255, 255, 255, 0.5);
+}
+
+/* ♿ Aria: Tactile Press (Mouse/Touch and Keyboard) */
+#mode-select button:active,
+#mode-select button.keyboard-active {
+    transform: scale(0.95);
+    filter: brightness(0.85);
+    transition: transform 0.05s ease, filter 0.05s ease;
+}
+
+/* ♿ Aria: Ensure a snappy return */
+#mode-select button {
+    transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1), filter 0.15s ease;
 }

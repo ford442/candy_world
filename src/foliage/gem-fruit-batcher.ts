@@ -2,6 +2,7 @@
 // One InstancedMesh draw call per jewel type; music-driven via gem_canopy biome uniforms.
 
 import * as THREE from 'three';
+import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import {
     color, float, vec3, positionLocal, sin, cos, mix, attribute, smoothstep
@@ -11,12 +12,15 @@ import {
     uTime,
     uAudioLow,
     calculateWindSway,
+    applyStandardDeformation,
     createJuicyRimLight,
 } from './material-core.ts';
 import { registerReactiveMaterial } from './foliage-reactivity.ts';
 import { foliageGroup } from '../world/state.ts';
 import { getBiomeUniforms, gemCanopyNoteColorNode, type BiomeId } from '../systems/biome-uniforms.ts';
+import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { getCIAdjustedCount } from '../core/config.ts';
+import type { BatcherInstanceRef } from '../systems/awakened-persistence.ts';
 
 const GEM_BIOME: BiomeId = 'gem_canopy';
 const gemUniforms = getBiomeUniforms(GEM_BIOME);
@@ -56,6 +60,8 @@ function createGemMaterial(baseHex: number): MeshStandardNodeMaterial {
 
     const aPhase = attribute('aPhase', 'float');
     const aArmLen = attribute('aArmLen', 'float');
+    const aAwakened = attribute('aAwakened', 'float');
+    const aEmissiveScale = attribute('aEmissiveScale', 'float');
 
     const baseColor = color(baseHex);
     const musicTint = mix(baseColor, gemCanopyNoteColorNode, gemUniforms.shimmer);
@@ -77,13 +83,21 @@ function createGemMaterial(baseHex: number): MeshStandardNodeMaterial {
         swayed.y,
         swayed.x.mul(sin(twist)).add(swayed.z.mul(cos(twist)))
     );
-    mat.positionNode = twisted.add(calculateWindSway(twisted));
+    // Pendulum + wind: calculateWindSway gives the broad atmospheric drift.
+    mat.positionNode = applyStandardDeformation(twisted);
 
-    // Visual Impact: emissive pulse on shimmer — visible bloom response on crescendo
-    const shimmerGlow = gemUniforms.shimmer.mul(2.8).add(0.35);
-    const beatPulse = smoothstep(0.3, 1.0, uAudioLow).mul(0.5);
-    const rim = createJuicyRimLight(musicTint, float(1.2).add(gemUniforms.shimmer.mul(1.8)), float(3.5), null);
-    mat.emissiveNode = musicTint.mul(shimmerGlow.add(beatPulse)).add(rim.mul(0.65));
+    // Visual Impact: emissive pulse on shimmer — visible bloom response on crescendo.
+    // shimmerGlow is the sustained melody glow; beatPulse is the kick-hit flash.
+    const shimmerGlow = gemUniforms.shimmer.mul(3.0).add(0.4);
+    const beatPulse = smoothstep(0.3, 1.0, uAudioLow).mul(0.6);
+    const rim = createJuicyRimLight(
+        musicTint,
+        float(1.3).add(gemUniforms.shimmer.mul(2.0)), // Visual Impact: rim intensity swells with music
+        float(3.0),                                   // Visual Impact: rim falloff
+        null
+    );
+    mat.emissiveNode = musicTint.mul(shimmerGlow.add(beatPulse)).add(rim.mul(0.7))
+        .add(musicTint.mul(aAwakened.mul(aEmissiveScale).mul(0.45)));
 
     registerReactiveMaterial(mat);
     return mat;
@@ -120,8 +134,12 @@ export class GemFruitBatcher {
 
             const phaseArray = new Float32Array(MAX_GEMS_PER_TYPE);
             const armArray = new Float32Array(MAX_GEMS_PER_TYPE);
+            const awakenedArray = new Float32Array(MAX_GEMS_PER_TYPE);
+            const emissiveArray = new Float32Array(MAX_GEMS_PER_TYPE);
             mesh.geometry.setAttribute('aPhase', new THREE.InstancedBufferAttribute(phaseArray, 1));
             mesh.geometry.setAttribute('aArmLen', new THREE.InstancedBufferAttribute(armArray, 1));
+            mesh.geometry.setAttribute('aAwakened', new THREE.InstancedBufferAttribute(awakenedArray, 1));
+            mesh.geometry.setAttribute('aEmissiveScale', new THREE.InstancedBufferAttribute(emissiveArray, 1));
 
             mesh.userData.gemType = t;
             this.meshes.push(mesh);
@@ -137,13 +155,14 @@ export class GemFruitBatcher {
     attachToTree(
         treeGroup: THREE.Object3D,
         options: { height?: number; gemCount?: number } = {}
-    ): number {
+    ): { placed: number; refs: BatcherInstanceRef[] } {
         treeGroup.updateWorldMatrix(true, true);
         const treeScale = treeGroup.scale.y || 1;
         const height = (options.height ?? 4.0) * treeScale;
         const targetGems = options.gemCount ?? (5 + Math.floor(Math.random() * 4));
         const branchCount = Math.max(4, Math.min(7, Math.floor(targetGems / 1.5)));
         let placed = 0;
+        const refs: BatcherInstanceRef[] = [];
 
         for (let b = 0; b < branchCount && placed < targetGems; b++) {
             const angle = (b / branchCount) * Math.PI * 2 + Math.random() * 0.4;
@@ -169,63 +188,71 @@ export class GemFruitBatcher {
 
                 this._scratchMatrix.compose(this._scratchPos, this._scratchQuat, this._scratchScale);
 
-                if (this._registerInstance(gemType, this._scratchMatrix, drop + 0.2)) {
+                const instanceIndex = this._registerInstance(gemType, this._scratchMatrix, drop + 0.2);
+                if (instanceIndex >= 0) {
                     placed++;
+                    refs.push({ batcher: 'gem_fruit', instanceIndex, gemType });
                 }
             }
         }
-        return placed;
+        return { placed, refs };
     }
 
-    private _registerInstance(type: GemTypeIndex, matrix: THREE.Matrix4, armLen: number): boolean {
+    setAwakened(gemType: number, instanceIndex: number, emissiveScale: number): void {
+        const mesh = this.meshes[gemType];
+        if (!mesh || instanceIndex < 0 || instanceIndex >= this._counts[gemType]) return;
+        const awakenedAttr = mesh.geometry.getAttribute('aAwakened') as THREE.InstancedBufferAttribute;
+        const emissiveAttr = mesh.geometry.getAttribute('aEmissiveScale') as THREE.InstancedBufferAttribute;
+        awakenedAttr.setX(instanceIndex, 1);
+        emissiveAttr.setX(instanceIndex, emissiveScale);
+        awakenedAttr.needsUpdate = true;
+        emissiveAttr.needsUpdate = true;
+    }
+
+    private _registerInstance(type: GemTypeIndex, matrix: THREE.Matrix4, armLen: number): number {
         const mesh = this.meshes[type];
         const idx = this._counts[type];
         if (idx >= MAX_GEMS_PER_TYPE) {
             console.warn('[GemFruitBatcher] Max capacity reached for type', type);
-            return false;
+            return -1;
         }
 
         matrix.toArray(mesh.instanceMatrix.array, idx * 16);
         const phaseAttr = mesh.geometry.getAttribute('aPhase') as THREE.InstancedBufferAttribute;
         const armAttr = mesh.geometry.getAttribute('aArmLen') as THREE.InstancedBufferAttribute;
+        const awakenedAttr = mesh.geometry.getAttribute('aAwakened') as THREE.InstancedBufferAttribute;
+        const emissiveAttr = mesh.geometry.getAttribute('aEmissiveScale') as THREE.InstancedBufferAttribute;
         phaseAttr.setX(idx, Math.random() * Math.PI * 2);
         armAttr.setX(idx, armLen);
+        awakenedAttr.setX(idx, 0);
+        emissiveAttr.setX(idx, 0);
 
         this._counts[type] = idx + 1;
         mesh.count = idx + 1;
         mesh.instanceMatrix.needsUpdate = true;
         phaseAttr.needsUpdate = true;
         armAttr.needsUpdate = true;
-        return true;
+        return idx;
     }
 
     dispose(): void {
         for (let t = 0; t < this.meshes.length; t++) {
             const mesh = this.meshes[t];
-            if (mesh.geometry && mesh.geometry !== _sharedGemGeo) {
+            if (mesh.geometry) {
                 mesh.geometry.dispose();
-            }
-            const phaseAttr = mesh.geometry?.getAttribute('aPhase');
-            const armAttr = mesh.geometry?.getAttribute('aArmLen');
-            if (phaseAttr && typeof (phaseAttr as any).dispose === 'function') {
-                try { (phaseAttr as any).dispose(); } catch { /* noop */ }
-            }
-            if (armAttr && typeof (armAttr as any).dispose === 'function') {
-                try { (armAttr as any).dispose(); } catch { /* noop */ }
-            }
-            if (mesh.material) {
-                if (Array.isArray(mesh.material)) {
-                    mesh.material.forEach((m) => m.dispose());
-                } else {
-                    (mesh.material as THREE.Material).dispose();
+                const phaseAttr = mesh.geometry.getAttribute('aPhase');
+                const armAttr = mesh.geometry.getAttribute('aArmLen');
+                if (phaseAttr && typeof (phaseAttr as { dispose?: () => void }).dispose === 'function') {
+                    try { (phaseAttr as { dispose: () => void }).dispose(); } catch { /* ignore */ }
+                }
+                if (armAttr && typeof (armAttr as { dispose?: () => void }).dispose === 'function') {
+                    try { (armAttr as { dispose: () => void }).dispose(); } catch { /* ignore */ }
                 }
             }
-            if (mesh.instanceMatrix && typeof (mesh.instanceMatrix as any).dispose === 'function') {
-                try { (mesh.instanceMatrix as any).dispose(); } catch { /* noop */ }
-            }
-            foliageGroup.remove(mesh);
+            // ⚡ OPTIMIZATION: Replaced manual removal with safeRemoveAndDispose to prevent VRAM leaks
+            safeRemoveAndDispose(foliageGroup, mesh);
         }
-        foliageGroup.remove(this.group);
+        safeRemoveAndDispose(foliageGroup, this.group);
         if (_sharedGemGeo) {
             _sharedGemGeo.dispose();
             _sharedGemGeo = null;

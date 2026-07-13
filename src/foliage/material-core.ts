@@ -380,6 +380,10 @@ export interface UnifiedMaterialOptions {
     emissive?: number | string | THREE.Color;
     emissiveIntensity?: number;
 
+    // Contact Darkening / Base AO
+    contactDarkening?: number;
+    contactDarkeningHeight?: number;
+
     // Rim Light (Juicy Edge)
     rimStrength?: number;
     rimColor?: number | string | THREE.Color;
@@ -434,6 +438,10 @@ export function createUnifiedMaterial(hexColor: number | string | THREE.Color, o
         // Audio Reactivity (Juice)
         audioReactStrength = 0.0,
 
+        // Contact Darkening / Base AO
+        contactDarkening = 0.0,
+        contactDarkeningHeight = 1.0,
+
         // Rim Light (Palette Polish)
         rimStrength = 0.0,
         rimColor = 0xFFFFFF,
@@ -447,6 +455,13 @@ export function createUnifiedMaterial(hexColor: number | string | THREE.Color, o
         material.colorNode = colorNode;
     } else {
         material.colorNode = color(hexColor);
+    }
+
+    // Apply Contact Darkening (Cheap Base AO)
+    if (contactDarkening > 0.0) {
+        const gradient = smoothstep(float(0.0), float(contactDarkeningHeight), positionLocal.y).pow(2.0);
+        const aoFactor = mix(float(1.0).sub(float(contactDarkening)), float(1.0), gradient);
+        material.colorNode = material.colorNode.mul(aoFactor);
     }
     material.roughnessNode = float(roughness);
     material.metalnessNode = float(metalness);
@@ -636,6 +651,8 @@ export const CandyPresets: { [key: string]: PresetFn } = {
         bumpStrength: 0.15,
         noiseScale: 8.0,
         triplanar: true,
+        contactDarkening: 0.3,
+        contactDarkeningHeight: 1.0,
         // PALETTE: Subtle Rim Light by default
         rimStrength: 0.3,
         rimPower: 3.0,
@@ -650,6 +667,8 @@ export const CandyPresets: { [key: string]: PresetFn } = {
         sheen: 1.0,
         sheenColor: 0xFFFFFF,
         sheenRoughness: 0.5,
+        contactDarkening: 0.2,
+        contactDarkeningHeight: 0.8,
         ...opts
     }),
 
@@ -662,6 +681,8 @@ export const CandyPresets: { [key: string]: PresetFn } = {
         subsurfaceStrength: 0.6,
         subsurfaceColor: hex, // Self-colored glow
         thicknessDistortion: 0.3,
+        contactDarkening: 0.2,
+        contactDarkeningHeight: 1.0,
         ...opts
     }),
 
@@ -809,3 +830,11 @@ export function createTransparentNodeMaterial(options: any = {}) {
     mat.depthWrite = options.depthWrite !== undefined ? options.depthWrite : false; 
     return mat;
 }
+
+/**
+ * 🏗️ ARCHITECT: Standardized TSL deformation chain for non-LOD objects.
+ * Strictly composes wind sway followed by player interaction push.
+ */
+export const applyStandardDeformation = (basePosNode: any) => {
+    return applyPlayerInteraction(basePosNode.add(calculateWindSway(basePosNode)));
+};

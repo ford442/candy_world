@@ -241,10 +241,10 @@ export class EffectsManager {
         const shouldShowMist = melodyVol > 0.2 || (weatherType === 'mist' && state === WeatherState.RAIN);
 
         if (rainMesh) {
-            rainMesh.visible = shouldShowRain;
+            if (rainMesh) rainMesh.visible = shouldShowRain;
         }
         if (mistMesh) {
-            mistMesh.visible = shouldShowMist;
+            if (mistMesh) mistMesh.visible = shouldShowMist;
         }
 
         if (shouldShowRain && percussionRain) {

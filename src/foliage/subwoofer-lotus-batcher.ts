@@ -16,7 +16,8 @@ import {
     getCachedProceduralMaterial,
     createJuicyRimLight,
     calculateWindSway,
-      applyPlayerInteraction
+      applyPlayerInteraction,
+    applyStandardDeformation
 
 } from './index.ts';
 import { BiomeUniforms } from '../systems/biome-uniforms.ts';
@@ -38,6 +39,7 @@ export class SubwooferLotusBatcher {
 
     private _count = 0;
     private _scratchMatrix = new THREE.Matrix4();
+    private _scratchScale = new THREE.Vector3();
     private _color = new THREE.Color();
     private logicObjects: THREE.Object3D[] = [];
 
@@ -50,7 +52,7 @@ export class SubwooferLotusBatcher {
 
         // 1. Base Pad
         const padMat = createClayMaterial(hexColor);
-        padMat.positionNode = applyPlayerInteraction(positionLocal.add(calculateWindSway(positionLocal)));
+        padMat.positionNode = applyStandardDeformation(positionLocal);
         this.padMesh = new THREE.InstancedMesh(sharedGeometries.unitCylinder, padMat, MAX_LOTUS);
         this.padMesh.count = 0;
         this.padMesh.castShadow = true;
@@ -98,7 +100,7 @@ const ringMat = getCachedProceduralMaterial('subwoofer_lotus_ring', 0xFFFFFF, ()
 
     // 🎨 PALETTE: Correct Wind Sway + Player Interaction composition
     const newPos = positionLocal.add(vec3(0.0, displacement, 0.0));
-    mat.positionNode = applyPlayerInteraction(newPos.add(calculateWindSway(newPos)));
+    mat.positionNode = applyStandardDeformation(newPos);
 
     return mat;
 });
@@ -144,7 +146,7 @@ const ringMat = getCachedProceduralMaterial('subwoofer_lotus_ring', 0xFFFFFF, ()
 
         centerMat.colorNode = vec3(0.0);
         centerMat.emissiveNode = finalPortal.add(hotCenter);
-        centerMat.positionNode = applyPlayerInteraction(positionLocal.add(calculateWindSway(positionLocal)));
+        centerMat.positionNode = applyStandardDeformation(positionLocal);
 
         this.centerMesh = new THREE.InstancedMesh(centerGeo, centerMat, MAX_LOTUS);
         this.centerMesh.count = 0;
@@ -223,14 +225,15 @@ const ringMat = getCachedProceduralMaterial('subwoofer_lotus_ring', 0xFFFFFF, ()
          if (index >= this._count) return;
          const scale = proxy.userData.lotusScale ?? 1.0;
 
-         const padScale = new THREE.Vector3(1.5 * scale, 0.2 * scale, 1.5 * scale);
-         const padMatrix = new THREE.Matrix4().compose(proxy.position, proxy.quaternion, padScale);
-         padMatrix.toArray(this.padMesh.instanceMatrix.array, index * 16);
+         // ⚡ OPTIMIZATION: Bypassed THREE.Object3D proxy, THREE.Matrix4 instantiation and THREE.Vector3 instantiation by utilizing scratch objects
+         this._scratchScale.set(1.5 * scale, 0.2 * scale, 1.5 * scale);
+         this._scratchMatrix.compose(proxy.position, proxy.quaternion, this._scratchScale);
+         this._scratchMatrix.toArray(this.padMesh.instanceMatrix.array, index * 16);
 
-         const nonPadScale = new THREE.Vector3(scale, scale, scale);
-         const nonPadMatrix = new THREE.Matrix4().compose(proxy.position, proxy.quaternion, nonPadScale);
-         nonPadMatrix.toArray(this.ringsMesh.instanceMatrix.array, index * 16);
-         nonPadMatrix.toArray(this.centerMesh.instanceMatrix.array, index * 16);
+         this._scratchScale.set(scale, scale, scale);
+         this._scratchMatrix.compose(proxy.position, proxy.quaternion, this._scratchScale);
+         this._scratchMatrix.toArray(this.ringsMesh.instanceMatrix.array, index * 16);
+         this._scratchMatrix.toArray(this.centerMesh.instanceMatrix.array, index * 16);
 
          this.padMesh.instanceMatrix.needsUpdate = true;
          this.ringsMesh.instanceMatrix.needsUpdate = true;
@@ -244,31 +247,13 @@ const ringMat = getCachedProceduralMaterial('subwoofer_lotus_ring', 0xFFFFFF, ()
 
     dispose() {
         if (this.padMesh) {
-            this.padMesh.geometry.dispose();
-            if (Array.isArray(this.padMesh.material)) {
-                this.padMesh.material.forEach(m => m.dispose());
-            } else {
-                this.padMesh.material.dispose();
-            }
-            foliageGroup.remove(this.padMesh);
+            safeRemoveAndDispose(foliageGroup as unknown as THREE.Scene, this.padMesh);
         }
         if (this.ringsMesh) {
-            this.ringsMesh.geometry.dispose();
-            if (Array.isArray(this.ringsMesh.material)) {
-                this.ringsMesh.material.forEach(m => m.dispose());
-            } else {
-                this.ringsMesh.material.dispose();
-            }
-            foliageGroup.remove(this.ringsMesh);
+            safeRemoveAndDispose(foliageGroup as unknown as THREE.Scene, this.ringsMesh);
         }
         if (this.centerMesh) {
-            this.centerMesh.geometry.dispose();
-            if (Array.isArray(this.centerMesh.material)) {
-                this.centerMesh.material.forEach(m => m.dispose());
-            } else {
-                this.centerMesh.material.dispose();
-            }
-            foliageGroup.remove(this.centerMesh);
+            safeRemoveAndDispose(foliageGroup as unknown as THREE.Scene, this.centerMesh);
         }
         for (const obj of this.logicObjects) {
             safeRemoveAndDispose(obj.parent as THREE.Scene, obj);

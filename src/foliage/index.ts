@@ -38,6 +38,7 @@ export {
     // Player interaction
     calculatePlayerPush,
     applyPlayerInteraction,
+    applyStandardDeformation,
     // Wind and bloom
     calculateWindSway,
     calculateWindSwayLegacy,

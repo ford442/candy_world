@@ -397,7 +397,7 @@ if (flowerBatcher.getRandomPosition(_scratchFPos)) {
                 let newM;
                 if (mushroomPool.length > 0) {
                     newM = mushroomPool.pop();
-                    newM.visible = true;
+                    if (newM) newM.visible = true;
                     newM.scale.setScalar(0.7);
                     newM.userData.colorIndex = colorIndex;
                 } else {
@@ -441,7 +441,7 @@ if (flowerBatcher.getRandomPosition(_scratchFPos)) {
                     let newM;
                     if (mushroomPool.length > 0) {
                         newM = mushroomPool.pop();
-                        newM.visible = true;
+                        if (newM) newM.visible = true;
                         newM.scale.setScalar(0.7);
                         newM.userData.colorIndex = c.colorIndex;
                     } else {
