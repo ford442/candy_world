@@ -1,5 +1,5 @@
 import {
-    emscriptenInstance,
+    getEmscriptenInstance,
     cppValueNoise2DSimd4,
     cppFbm2DSimd4,
     cppBatchGroundHeightSimd,
@@ -196,23 +196,23 @@ export function batchValueNoiseSimd4(x: Float32Array, y: Float32Array): Float32A
     const count = x.length;
     const output = new Float32Array(count);
     
-    if (cppValueNoise2DSimd4 && emscriptenInstance) {
-        const xPtr = emscriptenInstance._malloc!(count * 4);
-        const yPtr = emscriptenInstance._malloc!(count * 4);
-        const outPtr = emscriptenInstance._malloc!(count * 4);
+    if (cppValueNoise2DSimd4 && getEmscriptenInstance()) {
+        const xPtr = getEmscriptenInstance()._malloc!(count * 4);
+        const yPtr = getEmscriptenInstance()._malloc!(count * 4);
+        const outPtr = getEmscriptenInstance()._malloc!(count * 4);
         
         if (!xPtr || !yPtr || !outPtr) return output;
         
-        emscriptenInstance.HEAPF32!.set(x, xPtr >> 2);
-        emscriptenInstance.HEAPF32!.set(y, yPtr >> 2);
+        getEmscriptenInstance().HEAPF32!.set(x, xPtr >> 2);
+        getEmscriptenInstance().HEAPF32!.set(y, yPtr >> 2);
         
         cppValueNoise2DSimd4(xPtr, yPtr, outPtr);
         
-        output.set(emscriptenInstance.HEAPF32!.subarray(outPtr >> 2, (outPtr >> 2) + count));
+        output.set(getEmscriptenInstance().HEAPF32!.subarray(outPtr >> 2, (outPtr >> 2) + count));
         
-        emscriptenInstance._free!(xPtr);
-        emscriptenInstance._free!(yPtr);
-        emscriptenInstance._free!(outPtr);
+        getEmscriptenInstance()._free!(xPtr);
+        getEmscriptenInstance()._free!(yPtr);
+        getEmscriptenInstance()._free!(outPtr);
         
         return output;
     }
@@ -235,23 +235,23 @@ export function batchFbmSimd4(x: Float32Array, y: Float32Array, octaves: number)
     const count = x.length;
     const output = new Float32Array(count);
     
-    if (cppFbm2DSimd4 && emscriptenInstance) {
-        const xPtr = emscriptenInstance._malloc!(count * 4);
-        const yPtr = emscriptenInstance._malloc!(count * 4);
-        const outPtr = emscriptenInstance._malloc!(count * 4);
+    if (cppFbm2DSimd4 && getEmscriptenInstance()) {
+        const xPtr = getEmscriptenInstance()._malloc!(count * 4);
+        const yPtr = getEmscriptenInstance()._malloc!(count * 4);
+        const outPtr = getEmscriptenInstance()._malloc!(count * 4);
         
         if (!xPtr || !yPtr || !outPtr) return output;
         
-        emscriptenInstance.HEAPF32!.set(x, xPtr >> 2);
-        emscriptenInstance.HEAPF32!.set(y, yPtr >> 2);
+        getEmscriptenInstance().HEAPF32!.set(x, xPtr >> 2);
+        getEmscriptenInstance().HEAPF32!.set(y, yPtr >> 2);
         
         cppFbm2DSimd4(xPtr, yPtr, octaves, outPtr);
         
-        output.set(emscriptenInstance.HEAPF32!.subarray(outPtr >> 2, (outPtr >> 2) + count));
+        output.set(getEmscriptenInstance().HEAPF32!.subarray(outPtr >> 2, (outPtr >> 2) + count));
         
-        emscriptenInstance._free!(xPtr);
-        emscriptenInstance._free!(yPtr);
-        emscriptenInstance._free!(outPtr);
+        getEmscriptenInstance()._free!(xPtr);
+        getEmscriptenInstance()._free!(yPtr);
+        getEmscriptenInstance()._free!(outPtr);
         
         return output;
     }
@@ -272,20 +272,20 @@ export function batchGroundHeightSimd(positions: Float32Array): Float32Array {
     const count = positions.length / 2;
     const output = new Float32Array(count);
     
-    if (cppBatchGroundHeightSimd && emscriptenInstance) {
-        const posPtr = emscriptenInstance._malloc!(positions.length * 4);
-        const outPtr = emscriptenInstance._malloc!(count * 4);
+    if (cppBatchGroundHeightSimd && getEmscriptenInstance()) {
+        const posPtr = getEmscriptenInstance()._malloc!(positions.length * 4);
+        const outPtr = getEmscriptenInstance()._malloc!(count * 4);
         
         if (!posPtr || !outPtr) return output;
         
-        emscriptenInstance.HEAPF32!.set(positions, posPtr >> 2);
+        getEmscriptenInstance().HEAPF32!.set(positions, posPtr >> 2);
         
         cppBatchGroundHeightSimd(posPtr, count, outPtr);
         
-        output.set(emscriptenInstance.HEAPF32!.subarray(outPtr >> 2, (outPtr >> 2) + count));
+        output.set(getEmscriptenInstance().HEAPF32!.subarray(outPtr >> 2, (outPtr >> 2) + count));
         
-        emscriptenInstance._free!(posPtr);
-        emscriptenInstance._free!(outPtr);
+        getEmscriptenInstance()._free!(posPtr);
+        getEmscriptenInstance()._free!(outPtr);
         
         return output;
     }
@@ -314,23 +314,23 @@ export function batchValueNoiseOmp(x: Float32Array, y: Float32Array): Float32Arr
     const count = x.length;
     const output = new Float32Array(count);
     
-    if (cppBatchValueNoiseOmp && emscriptenInstance) {
-        const xPtr = emscriptenInstance._malloc!(count * 4);
-        const yPtr = emscriptenInstance._malloc!(count * 4);
-        const outPtr = emscriptenInstance._malloc!(count * 4);
+    if (cppBatchValueNoiseOmp && getEmscriptenInstance()) {
+        const xPtr = getEmscriptenInstance()._malloc!(count * 4);
+        const yPtr = getEmscriptenInstance()._malloc!(count * 4);
+        const outPtr = getEmscriptenInstance()._malloc!(count * 4);
         
         if (!xPtr || !yPtr || !outPtr) return output;
         
-        emscriptenInstance.HEAPF32!.set(x, xPtr >> 2);
-        emscriptenInstance.HEAPF32!.set(y, yPtr >> 2);
+        getEmscriptenInstance().HEAPF32!.set(x, xPtr >> 2);
+        getEmscriptenInstance().HEAPF32!.set(y, yPtr >> 2);
         
         cppBatchValueNoiseOmp(xPtr, yPtr, count, outPtr);
         
-        output.set(emscriptenInstance.HEAPF32!.subarray(outPtr >> 2, (outPtr >> 2) + count));
+        output.set(getEmscriptenInstance().HEAPF32!.subarray(outPtr >> 2, (outPtr >> 2) + count));
         
-        emscriptenInstance._free!(xPtr);
-        emscriptenInstance._free!(yPtr);
-        emscriptenInstance._free!(outPtr);
+        getEmscriptenInstance()._free!(xPtr);
+        getEmscriptenInstance()._free!(yPtr);
+        getEmscriptenInstance()._free!(outPtr);
         
         return output;
     }
@@ -353,23 +353,23 @@ export function batchFbmOmp(x: Float32Array, y: Float32Array, octaves: number): 
     const count = x.length;
     const output = new Float32Array(count);
     
-    if (cppBatchFbmOmp && emscriptenInstance) {
-        const xPtr = emscriptenInstance._malloc!(count * 4);
-        const yPtr = emscriptenInstance._malloc!(count * 4);
-        const outPtr = emscriptenInstance._malloc!(count * 4);
+    if (cppBatchFbmOmp && getEmscriptenInstance()) {
+        const xPtr = getEmscriptenInstance()._malloc!(count * 4);
+        const yPtr = getEmscriptenInstance()._malloc!(count * 4);
+        const outPtr = getEmscriptenInstance()._malloc!(count * 4);
         
         if (!xPtr || !yPtr || !outPtr) return output;
         
-        emscriptenInstance.HEAPF32!.set(x, xPtr >> 2);
-        emscriptenInstance.HEAPF32!.set(y, yPtr >> 2);
+        getEmscriptenInstance().HEAPF32!.set(x, xPtr >> 2);
+        getEmscriptenInstance().HEAPF32!.set(y, yPtr >> 2);
         
         cppBatchFbmOmp(xPtr, yPtr, count, octaves, outPtr);
         
-        output.set(emscriptenInstance.HEAPF32!.subarray(outPtr >> 2, (outPtr >> 2) + count));
+        output.set(getEmscriptenInstance().HEAPF32!.subarray(outPtr >> 2, (outPtr >> 2) + count));
         
-        emscriptenInstance._free!(xPtr);
-        emscriptenInstance._free!(yPtr);
-        emscriptenInstance._free!(outPtr);
+        getEmscriptenInstance()._free!(xPtr);
+        getEmscriptenInstance()._free!(yPtr);
+        getEmscriptenInstance()._free!(outPtr);
         
         return output;
     }
@@ -402,26 +402,26 @@ export function batchDistSq3DOmp(
     const count = ax.length;
     const output = new Float32Array(count);
     
-    if (cppBatchDistSq3DOmp && emscriptenInstance) {
-        const axPtr = emscriptenInstance._malloc!(count * 4);
-        const ayPtr = emscriptenInstance._malloc!(count * 4);
-        const azPtr = emscriptenInstance._malloc!(count * 4);
-        const outPtr = emscriptenInstance._malloc!(count * 4);
+    if (cppBatchDistSq3DOmp && getEmscriptenInstance()) {
+        const axPtr = getEmscriptenInstance()._malloc!(count * 4);
+        const ayPtr = getEmscriptenInstance()._malloc!(count * 4);
+        const azPtr = getEmscriptenInstance()._malloc!(count * 4);
+        const outPtr = getEmscriptenInstance()._malloc!(count * 4);
         
         if (!axPtr || !ayPtr || !azPtr || !outPtr) return output;
         
-        emscriptenInstance.HEAPF32!.set(ax, axPtr >> 2);
-        emscriptenInstance.HEAPF32!.set(ay, ayPtr >> 2);
-        emscriptenInstance.HEAPF32!.set(az, azPtr >> 2);
+        getEmscriptenInstance().HEAPF32!.set(ax, axPtr >> 2);
+        getEmscriptenInstance().HEAPF32!.set(ay, ayPtr >> 2);
+        getEmscriptenInstance().HEAPF32!.set(az, azPtr >> 2);
         
         cppBatchDistSq3DOmp(axPtr, ayPtr, azPtr, bx, by, bz, count, outPtr);
         
-        output.set(emscriptenInstance.HEAPF32!.subarray(outPtr >> 2, (outPtr >> 2) + count));
+        output.set(getEmscriptenInstance().HEAPF32!.subarray(outPtr >> 2, (outPtr >> 2) + count));
         
-        emscriptenInstance._free!(axPtr);
-        emscriptenInstance._free!(ayPtr);
-        emscriptenInstance._free!(azPtr);
-        emscriptenInstance._free!(outPtr);
+        getEmscriptenInstance()._free!(axPtr);
+        getEmscriptenInstance()._free!(ayPtr);
+        getEmscriptenInstance()._free!(azPtr);
+        getEmscriptenInstance()._free!(outPtr);
         
         return output;
     }
@@ -446,7 +446,7 @@ export function batchDistSq3DOmp(
  * @returns Sine value
  */
 export function fastSin(x: number): number {
-    if (cppFastSin && emscriptenInstance) {
+    if (cppFastSin && getEmscriptenInstance()) {
         return cppFastSin(x);
     }
     return Math.sin(x);
@@ -458,7 +458,7 @@ export function fastSin(x: number): number {
  * @returns Cosine value
  */
 export function fastCos(x: number): number {
-    if (cppFastCos && emscriptenInstance) {
+    if (cppFastCos && getEmscriptenInstance()) {
         return cppFastCos(x);
     }
     return Math.cos(x);
@@ -470,7 +470,7 @@ export function fastCos(x: number): number {
  * @returns 2^x value
  */
 export function fastPow2(x: number): number {
-    if (cppFastPow2 && emscriptenInstance) {
+    if (cppFastPow2 && getEmscriptenInstance()) {
         return cppFastPow2(x);
     }
     return Math.pow(2, x);

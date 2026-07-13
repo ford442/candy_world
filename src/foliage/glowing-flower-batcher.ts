@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
+import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import type { Node } from 'three/webgpu';
 import {
     color, float, vec3, attribute, positionLocal, positionWorld,
@@ -9,7 +10,7 @@ import {
 import {
     sharedGeometries, foliageMaterials, uTime,
     uAudioLow, uAudioHigh, uWindSpeed, uWindDirection,
-    createJuicyRimLight, calculateWindSway, applyPlayerInteraction,
+    createJuicyRimLight, calculateWindSway, applyPlayerInteraction, applyStandardDeformation,
     createStandardNodeMaterial
 } from './index.ts';
 import { uTwilight } from './sky.ts';
@@ -19,7 +20,7 @@ import { BiomeUniforms } from '../systems/biome-uniforms.ts';
 // Use the instanced color varying populated by InstancedMeshNode
 const instanceColor = varyingProperty('vec3', 'vInstanceColor');
 
-const MAX_FLOWERS = 5000; // Reduced from 5000 for WebGPU uniform buffer limits
+const MAX_FLOWERS = 1000; // Reduced from 5000 for WebGPU uniform buffer limits
 const _scratchMat = new THREE.Matrix4();
 const _scratchMat2 = new THREE.Matrix4(); // ⚡ OPTIMIZATION: Additional scratch matrix
 const _scratchMat3 = new THREE.Matrix4(); // ⚡ OPTIMIZATION: Additional scratch matrix
@@ -124,11 +125,10 @@ export class GlowingFlowerBatcher {
         // Or we can assume the head moves with the stem tip.
         // Stem tip movement = calculateWindSway(vec3(0, 1, 0)) [since stem is unit cylinder, top is 1]
 
-        const windSway = calculateWindSway(vec3(0, 1, 0)); // Sway amount at top of unit
-        const playerPush = applyPlayerInteraction(vec3(0, 1, 0)); // Push amount at top
+        const standardDef = applyStandardDeformation(vec3(0, 1, 0)).sub(vec3(0, 1, 0)); // Sway & Push at top
 
         // Apply to Head
-        const headPos = positionLocal.mul(visibilityScale).add(windSway).add(playerPush);
+        const headPos = positionLocal.mul(visibilityScale).add(standardDef);
         headMat.positionNode = headPos;
 
 
@@ -208,18 +208,7 @@ export class GlowingFlowerBatcher {
 
         [this.stemMesh, this.headMesh, this.washMesh].forEach(mesh => {
             if (!mesh) return;
-            if (mesh.geometry) mesh.geometry.dispose();
-            if (mesh.material) {
-                if (Array.isArray(mesh.material)) {
-                    mesh.material.forEach(m => m.dispose());
-                } else {
-                    mesh.material.dispose();
-                }
-            }
-            if (mesh.instanceColor && typeof (mesh.instanceColor as any).dispose === 'function') {
-                try { (mesh.instanceColor as any).dispose(); } catch (e) {}
-            }
-            foliageGroup.remove(mesh);
+            safeRemoveAndDispose(foliageGroup as unknown as THREE.Scene, mesh);
         });
 
         this.initialized = false;

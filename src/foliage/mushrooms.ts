@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { mushroomBatcher } from './mushroom-batcher.ts';
 import { sharedGeometries } from './index.ts';
 import { makeInteractiveCylinder } from '../utils/interaction-utils.ts';
+import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 
 // Interface for Note Definition
 export interface MushroomNote {
@@ -182,20 +183,8 @@ export function replaceMushroomWithGiant(scene: THREE.Scene, oldMushroom: THREE.
     const colorIndex = oldMushroom.userData.colorIndex;
     const noteIndex = oldMushroom.userData.noteIndex;
 
-    // Remove old logic object
-    oldMushroom.parent.remove(oldMushroom);
-    // ⚡ OPTIMIZATION: Call .dispose() on geometries and materials when removing from scene to prevent VRAM leak.
-    oldMushroom.traverse((child: THREE.Object3D) => {
-        const mesh = child as THREE.Mesh;
-        if (mesh.geometry) mesh.geometry.dispose();
-        if (mesh.material) {
-            if (Array.isArray(mesh.material)) {
-                for (let i = 0; i < mesh.material.length; i++) { (mesh.material[i] as THREE.Material).dispose(); }
-            } else {
-                (mesh.material as THREE.Material).dispose();
-            }
-        }
-    });
+    // Memory Rescue: using safeRemoveAndDispose per directive
+    safeRemoveAndDispose(oldMushroom.parent as THREE.Scene, oldMushroom);
 
     // Current Time for pop animation
     const now = performance.now() / 1000.0;

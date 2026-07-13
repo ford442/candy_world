@@ -16,6 +16,7 @@ import {
     calculateFlowerBloom,
     calculateWindSway,
     applyPlayerInteraction,
+    applyStandardDeformation,
     getCachedProceduralMaterial,
     uTime,
     uAudioHigh,
@@ -360,8 +361,7 @@ export function createPrismRoseBush(options = {}): THREE.Group {
             const animatedPos = positionLocal.mul(breathScale);
 
             // 🎨 PALETTE: TSL Juice - Wind sway and player interaction
-            const posWind = animatedPos.add(calculateWindSway(animatedPos));
-            const posFinal = applyPlayerInteraction(posWind);
+            const posFinal = applyStandardDeformation(animatedPos);
             mat.positionNode = posFinal;
 
             // 3. Audio-reactive Emissive Pulse

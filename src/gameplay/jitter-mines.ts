@@ -242,7 +242,7 @@ class JitterMineSystem {
 
         const mine = this.mines[index];
         mine.active = true;
-        mine.visible = true;
+        if (mine) mine.visible = true;
         mine.position.copy(position);
         mine.time = 0;
 
@@ -283,7 +283,10 @@ class JitterMineSystem {
             mine.time += delta;
 
             // Proximity Check
-            const distSq = mine.position.distanceToSquared(playerPos);
+            const dx = mine.position.x - playerPos.x;
+            const dy = mine.position.y - playerPos.y;
+            const dz = mine.position.z - playerPos.z;
+            const distSq = dx * dx + dy * dy + dz * dz;
             if (distSq < TRIGGER_RADIUS * TRIGGER_RADIUS) {
                 this.explode(i);
             }
@@ -309,7 +312,7 @@ class JitterMineSystem {
         if (!mine.active) return;
 
         mine.active = false;
-        mine.visible = false;
+        if (mine) mine.visible = false;
 
         // Hide on GPU
         const stateArray = this.stateBuffer.array as Float32Array;

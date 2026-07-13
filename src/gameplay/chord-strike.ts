@@ -61,7 +61,7 @@ export class ChordStrikeSystem {
         material.positionNode = positionLocal.add(normalLocal.mul(ripple.mul(float(2.0))));
 
         this.mesh = new THREE.Mesh(geometry, material);
-        this.mesh.visible = false;
+        if (this.mesh) this.mesh.visible = false;
         this.mesh.frustumCulled = false;
     }
 
@@ -87,7 +87,7 @@ export class ChordStrikeSystem {
         this.position.z -= 5.0;
 
         this.mesh.position.copy(this.position);
-        this.mesh.visible = true;
+        if (this.mesh) this.mesh.visible = true;
         this.mesh.scale.set(0.1, 1, 0.1);
 
         showToast("CHORD STRIKE!! 🎶💥", "⚡");
@@ -106,7 +106,7 @@ export class ChordStrikeSystem {
 
         if (this.duration <= 0) {
             this.active = false;
-            this.mesh.visible = false;
+            if (this.mesh) this.mesh.visible = false;
             return;
         }
 
@@ -131,7 +131,10 @@ export class ChordStrikeSystem {
 
         // Physics Push: The beam provides a massive updraft
         // Check if player is near the beam
-        const distSq = player.position.distanceToSquared(this.position);
+        const dx = player.position.x - this.position.x;
+        const dy = player.position.y - this.position.y;
+        const dz = player.position.z - this.position.z;
+        const distSq = dx * dx + dy * dy + dz * dz;
         if (distSq < (this.radius + 5.0) * (this.radius + 5.0)) {
             // Push player up!
             player.velocity.y += 20.0 * dt;

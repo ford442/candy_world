@@ -1,5 +1,6 @@
 import { analytics, trackEvent } from '../systems/analytics';
 import { trapFocusInside } from '../utils/interaction-utils.ts';
+import { yieldToPaint } from '../utils/yield-to-paint.ts';
 import {
   DebugPanelElements,
   DebugStats,
@@ -96,6 +97,24 @@ export class AnalyticsDebugOverlay {
         }
       });
     }
+
+    // Add keyboard tactile feedback to all interactive elements in this menu
+    if (this.elements?.container) {
+      this.elements.container.addEventListener('keydown', (e: KeyboardEvent) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          const target = e.target as HTMLElement;
+          if (
+            target &&
+            (target.classList.contains('analytics-debug-button') ||
+             target.classList.contains('analytics-debug-close') ||
+             target.classList.contains('analytics-debug-toggle-switch'))
+          ) {
+            target.classList.add('keyboard-active');
+            setTimeout(() => target.classList.remove('keyboard-active'), 150);
+          }
+        }
+      });
+    }
   }
 
   /**
@@ -127,11 +146,11 @@ export class AnalyticsDebugOverlay {
     this.elements.container.style.transform = 'scale(1)';
 
     // Trap focus inside the overlay
-    setTimeout(() => {
+    yieldToPaint(50).then(() => {
       if (this.isVisible && this.elements?.container) {
         this.releaseFocusTrap = trapFocusInside(this.elements.container);
       }
-    }, 300);
+    });
 
     // Setup control handlers
     this.setupControls();

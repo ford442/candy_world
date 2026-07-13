@@ -79,6 +79,31 @@ npm run dev
 
 The system will gracefully fall back to JavaScript implementations for any functions that would normally be in the native module.
 
+### WebGL2 Reference Renderer
+
+Force the WebGL2 path for visual debugging, agent screenshots, or CI when WebGPU is unavailable:
+
+```bash
+npm run dev
+# open http://localhost:5173/?renderer=webgl
+```
+
+**Cinematic Explore** (showcase orbit camera): `?explore=1` or hold **Tab** in-game. Hybrid walk+orbit: `?explore=hybrid`.
+
+| Toggle | Value |
+|--------|-------|
+| URL | `?renderer=webgl` or `?renderer=webgpu` |
+| localStorage | `candy.renderer` |
+| Console | `window.setRenderer('webgl')` |
+| Debug panel | `?debug=1` → WebGPU / WebGL2 buttons |
+
+WebGL debug helpers: `?wireframe=1`, `?matDebug=1`, `?webglLite=1` (see [docs/webgl-fallback.md](./docs/webgl-fallback.md)).
+
+```bash
+# CI smoke test on WebGL path
+RENDERER=webgl npm run test
+```
+
 ### With Native Module (Performance Mode)
 
 ```bash

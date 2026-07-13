@@ -283,7 +283,7 @@
   position: relative;
   overflow: hidden;
   box-shadow: 0 0 10px rgba(255, 107, 157, 0.3);
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 120ms cubic-bezier(0.25, 0.1, 0.25, 1), background-color 80ms ease;
 }
 
 /* Shimmer effect on progress bar */
@@ -365,24 +365,6 @@
 }
 
 /* =============================================================================
-   FLAVOR TEXT
-   ========================================================================== */
-
-.progress-flavor-text {
-  display: block;
-  font-size: 0.85rem;
-  color: rgba(255, 255, 255, 0.7);
-  font-style: italic;
-  margin-top: 4px;
-  text-align: center;
-  animation: pulse 2s infinite ease-in-out;
-}
-
-.loading-screen.theme-dark .progress-flavor-text {
-  color: rgba(177, 156, 217, 0.7); /* Muted candy-purple */
-}
-
-/* =============================================================================
    TIME REMAINING
    ========================================================================== */
 
@@ -437,7 +419,9 @@
 }
 
 .skip-button:active,
-.fatal-error-reload:active {
+.skip-button.keyboard-active,
+.fatal-error-reload:active,
+.fatal-error-reload.keyboard-active {
   transform: translateY(0) scale(0.95);
   transition-duration: 0.05s;
   box-shadow: 
@@ -881,6 +865,20 @@
     text-align: right;
 }
 
+.deferred-fail {
+    display: none;
+    color: #ffdfe4;
+    background: rgba(120, 20, 20, 0.75);
+    border: 1px solid rgba(255, 120, 130, 0.45);
+    border-radius: 999px;
+    padding: 2px 6px;
+    font-size: 0.65rem;
+    line-height: 1;
+    font-weight: 600;
+}
+
+.deferred-fail.visible {
+    display: inline-block;
 .deferred-eta {
     color: rgba(255, 182, 193, 0.75);
     font-family: var(--font-family);

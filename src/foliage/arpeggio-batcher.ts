@@ -5,6 +5,7 @@ import {
     registerReactiveMaterial,
     sharedGeometries,
     applyPlayerInteraction,
+    applyStandardDeformation,
     calculateWindSway,
     createJuicyRimLight,
     createStandardNodeMaterial,
@@ -22,13 +23,15 @@ const arpeggioUniforms = getBiomeUniforms(ARPEGGIO_BIOME); // Future-proof: addi
 import { uTime, uGlitchIntensity } from './index.ts';
 import { applyGlitch } from './glitch.ts';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { PlantPoseMachine } from './plant-pose-machine.ts';
 import { musicReactivitySystem } from '../systems/music-reactivity.ts';
 import { camera } from '../core/camera-ref.ts';
 import { CONFIG } from '../core/config.ts';
 import { dynamicRadiiView } from '../utils/wasm-physics.ts';
+import { getCIAdjustedCount } from '../core/config.ts';
 
-const MAX_FERNS = 2000; // Reduced from 2000 for WebGPU uniform buffer limits
+const MAX_FERNS = getCIAdjustedCount(500, 0.1, 50); // Reduced from 2000 for WebGPU uniform buffer limits
 const FRONDS_PER_FERN = 5;
 const _scratchMatrix = new THREE.Matrix4();
 
@@ -285,10 +288,7 @@ export class ArpeggioFernBatcher {
         );
 
         // Interaction (Bending)
-        const withInteraction = applyPlayerInteraction(pulsedPos);
-
-        // Wind Sway
-        const withWind = withInteraction.add(calculateWindSway(pulsedPos));
+        const withWind = applyStandardDeformation(pulsedPos);
 
         // Bobbing (Unfurl bounce)
         const bob = instanceUnfurl.mul(0.2);
@@ -330,18 +330,7 @@ export class ArpeggioFernBatcher {
         if (!this.initialized) return;
 
         if (this.mesh) {
-            if (this.mesh.geometry) this.mesh.geometry.dispose();
-            if (this.mesh.material) {
-                if (Array.isArray(this.mesh.material)) {
-                    this.mesh.material.forEach(m => m.dispose());
-                } else {
-                    this.mesh.material.dispose();
-                }
-            }
-            if (this.mesh.instanceColor && typeof (this.mesh.instanceColor as any).dispose === 'function') {
-                try { (this.mesh.instanceColor as any).dispose(); } catch (e) {}
-            }
-            foliageGroup.remove(this.mesh);
+            safeRemoveAndDispose(foliageGroup as unknown as THREE.Scene, this.mesh);
         }
 
         this.initialized = false;

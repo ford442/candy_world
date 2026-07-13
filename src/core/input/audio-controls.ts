@@ -148,28 +148,9 @@ export function handleMuteKey(): void {
     toggleMute();
 }
 
-// Timers for visual feedback
-let volUpTimeout: ReturnType<typeof setTimeout> | null = null;
-let volDownTimeout: ReturnType<typeof setTimeout> | null = null;
-
 /**
  * Handle volume adjustment keys (+/-)
  */
 export function handleVolumeKey(delta: number): void {
     adjustVolume(delta);
-    if (delta === 0) return;
-
-    // Provide visual feedback for keyboard interaction
-    const btn = delta > 0 ? volUpBtn : volDownBtn;
-    if (btn && btn.getAttribute('aria-disabled') !== 'true') {
-        btn.classList.add('keyboard-active');
-
-        if (delta > 0) {
-            if (volUpTimeout) clearTimeout(volUpTimeout);
-            volUpTimeout = setTimeout(() => btn.classList.remove('keyboard-active'), 150);
-        } else {
-            if (volDownTimeout) clearTimeout(volDownTimeout);
-            volDownTimeout = setTimeout(() => btn.classList.remove('keyboard-active'), 150);
-        }
-    }
 }

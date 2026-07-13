@@ -1,3 +1,4 @@
+import { isCIorHeadless } from '../core/config.ts';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { MeshStandardNodeMaterial, StorageInstancedBufferAttribute } from 'three/webgpu';
@@ -8,7 +9,7 @@ import {
 } from 'three/tsl';
 import { uTime, uAudioHigh, uWindSpeed, uWindDirection, createSugarSparkle } from './index.ts';
 
-const MAX_SEEDS = 2000; // Reduced from 2000 for WebGPU uniform buffer limits
+const MAX_SEEDS = 500; // Reduced from 2000 for WebGPU uniform buffer limits
 const MAX_SPAWNS_PER_FRAME = 200; // Allow multiple explosions in a single frame
 
 let _seedMesh: THREE.InstancedMesh | null = null;
@@ -324,7 +325,7 @@ export function updateDandelionSeeds(renderer: any) {
         ud.uSpawnCount.value = _currentStageOffset;
         ud.uSpawnIndex.value = _spawnHeadStart;
 
-        renderer.compute(ud.computeNode);
+        if (!isCIorHeadless()) { renderer.compute(ud.computeNode); }
 
         _currentStageOffset = 0;
     } else {

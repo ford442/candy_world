@@ -9,6 +9,7 @@
  */
 
 import * as THREE from 'three';
+import { safeRemoveAndDispose } from '../../utils/dispose-utils.ts';
 import {
     CullableObject,
     CullingStats,
@@ -286,9 +287,8 @@ export class CullingDebugVisualizer {
 
         // Remove old frustum lines
         if (this.frustumLines) {
-            this.scene.remove(this.frustumLines);
-            this.frustumLines.geometry.dispose();
-            (this.frustumLines.material as THREE.Material).dispose();
+            safeRemoveAndDispose(this.scene, this.frustumLines);
+            this.frustumLines = undefined;
         }
 
         // Create frustum wireframe visualization
@@ -358,20 +358,7 @@ export class CullingDebugVisualizer {
         // Remove culled visualization if it exists
         const existing = this.debugObjects.get(obj.id);
         if (existing) {
-            this.scene.remove(existing);
-            const mesh = existing as THREE.Mesh;
-            if (mesh.geometry) {
-                mesh.geometry.dispose();
-            }
-            const mat = mesh.material;
-            // ⚡ OPTIMIZATION: Ensure multi-material arrays are fully disposed to prevent VRAM leaks.
-            if (mat) {
-                if (Array.isArray(mat)) {
-                    mat.forEach(m => m.dispose());
-                } else {
-                    mat.dispose();
-                }
-            }
+            safeRemoveAndDispose(this.scene, existing);
             this.debugObjects.delete(obj.id);
         }
     }
@@ -424,27 +411,12 @@ export class CullingDebugVisualizer {
     /** Clear all debug visualizations */
     clear(): void {
         for (const [id, obj] of this.debugObjects) {
-            this.scene.remove(obj);
-            const mesh = obj as THREE.Mesh;
-            if (mesh.geometry) {
-                mesh.geometry.dispose();
-            }
-            // ⚡ OPTIMIZATION: Ensure multi-material arrays are fully disposed to prevent VRAM leaks.
-            const mat = mesh.material;
-            if (mat) {
-                if (Array.isArray(mat)) {
-                    mat.forEach(m => m.dispose());
-                } else {
-                    (mat as THREE.Material).dispose();
-                }
-            }
+            safeRemoveAndDispose(this.scene, obj);
         }
         this.debugObjects.clear();
 
         if (this.frustumLines) {
-            this.scene.remove(this.frustumLines);
-            this.frustumLines.geometry.dispose();
-            (this.frustumLines.material as THREE.Material).dispose();
+            safeRemoveAndDispose(this.scene, this.frustumLines);
             this.frustumLines = undefined;
         }
 

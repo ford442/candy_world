@@ -7,6 +7,8 @@ import { AudioSystem } from '../../audio/audio-system';
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js';
 import { trapFocusInside } from '../../utils/interaction-utils.ts';
 import { formatSongTitle, filterValidMusicFiles } from './input-types.ts';
+import { announce } from '../../ui/announcer.ts';
+import { yieldToPaint } from '../../utils/yield-to-paint.ts';
 
 // State
 let isPlaylistOpen = false;
@@ -180,14 +182,23 @@ export function initPlaylistManager(
 
                     import('../../utils/toast.ts').then(({ showToast }) => {
                         if (invalidFiles.length > 0) {
-                            showToast(`Added ${validFiles.length} song${validFiles.length > 1 ? 's' : ''}. (${invalidFiles.length} ignored)`, '⚠️');
+                            const msg = `Added ${validFiles.length} song${validFiles.length > 1 ? 's' : ''}. (${invalidFiles.length} ignored)`;
+                            showToast(msg, '⚠️');
+                            announce(msg, 'polite');
                         } else {
-                            showToast(`Added ${validFiles.length} Song${validFiles.length > 1 ? 's' : ''}! 🎶`, '📂');
+                            const msg = `Added ${validFiles.length} Song${validFiles.length > 1 ? 's' : ''}! 🎶`;
+                            showToast(msg, '📂');
+                            if (validFiles.length === 1) {
+                                announce(`Song '${validFiles[0].name}' has been added and is ready to play.`, 'polite');
+                            } else {
+                                announce(`Added ${validFiles.length} songs to the playlist.`, 'polite');
+                            }
                         }
                     });
                 } else {
                     import('../../utils/toast.ts').then(({ showToast }) => {
                         showToast("❌ Only .mod, .xm, .it, .s3m allowed!", '🚫');
+                        announce("Failed to add songs, invalid format.", 'polite');
                     });
                 }
             }
@@ -204,23 +215,65 @@ function handlePlaylistUpload(e: Event): void {
     const target = e.target as HTMLInputElement;
     const files = target.files;
     if (files && files.length > 0) {
-        const { validFiles, invalidFiles } = filterValidMusicFiles(files);
-        if (validFiles.length > 0) {
-            audioSystemRef.addToQueue(validFiles);
-            import('../../utils/toast.ts').then(({ showToast }) => {
-                if (invalidFiles.length > 0) {
-                    showToast(`Added ${validFiles.length} song${validFiles.length > 1 ? 's' : ''}. (${invalidFiles.length} ignored)`, '⚠️');
-                } else {
-                    showToast(`Added ${validFiles.length} Song${validFiles.length > 1 ? 's' : ''}! 🎶`, '📂');
-                }
-            });
-        } else {
-            import('../../utils/toast.ts').then(({ showToast }) => {
-                showToast("❌ Only .mod, .xm, .it, .s3m allowed!", '🚫');
-            });
-        }
+        const browseBtn = playlistList?.querySelector('.jukebox-browse-btn') as HTMLElement | null;
+
+        const originalAddSongsHtml = addSongsBtn ? addSongsBtn.innerHTML : '';
+        const originalBrowseHtml = browseBtn ? browseBtn.innerHTML : '';
+
+        const setBusy = (btn: HTMLElement | null) => {
+            if (btn) {
+                btn.setAttribute('aria-busy', 'true');
+                btn.setAttribute('aria-disabled', 'true');
+                btn.innerHTML = '<span class="spinner" aria-hidden="true"></span> Processing...';
+            }
+        };
+
+        const restoreBusy = (btn: HTMLElement | null, originalHtml: string) => {
+            if (btn) {
+                btn.removeAttribute('aria-busy');
+                btn.removeAttribute('aria-disabled');
+                btn.innerHTML = originalHtml;
+            }
+        };
+
+        setBusy(addSongsBtn);
+        setBusy(browseBtn);
+
+        // Brief delay for satisfying UX feedback
+        setTimeout(() => {
+            const { validFiles, invalidFiles } = filterValidMusicFiles(files);
+
+            if (validFiles.length > 0) {
+                audioSystemRef!.addToQueue(validFiles);
+                import('../../utils/toast.ts').then(({ showToast }) => {
+                    if (invalidFiles.length > 0) {
+                        const msg = `Added ${validFiles.length} song${validFiles.length > 1 ? 's' : ''}. (${invalidFiles.length} ignored)`;
+                        showToast(msg, '⚠️');
+                        announce(msg, 'polite');
+                    } else {
+                        const msg = `Added ${validFiles.length} Song${validFiles.length > 1 ? 's' : ''}! 🎶`;
+                        showToast(msg, '📂');
+                        if (validFiles.length === 1) {
+                            announce(`Song '${validFiles[0].name}' has been added and is ready to play.`, 'polite');
+                        } else {
+                            announce(`Added ${validFiles.length} songs to the playlist.`, 'polite');
+                        }
+                    }
+                });
+            } else {
+                import('../../utils/toast.ts').then(({ showToast }) => {
+                    showToast("❌ Only .mod, .xm, .it, .s3m allowed!", '🚫');
+                    announce("Failed to add songs, invalid format.", 'polite');
+                });
+            }
+
+            restoreBusy(addSongsBtn, originalAddSongsHtml);
+            restoreBusy(browseBtn, originalBrowseHtml);
+            target.value = '';
+        }, 500);
+    } else {
+        target.value = '';
     }
-    target.value = '';
 }
 
 /**
@@ -330,23 +383,27 @@ export function renderPlaylist(): void {
 
             // UX: Restore Focus to an appropriate element
             requestAnimationFrame(() => {
-                const removeBtns = playlistList!.querySelectorAll('.playlist-remove-btn');
-                const playBtns = playlistList!.querySelectorAll('.playlist-btn');
-
-                // Try focusing the next remove button (at same index, since list shifted)
-                if (removeBtns[index]) {
-                    (removeBtns[index] as HTMLElement).focus({ preventScroll: true });
-                } else if (removeBtns[index - 1]) {
-                    // Or the previous one
-                    (removeBtns[index - 1] as HTMLElement).focus({ preventScroll: true });
-                } else if (playBtns[0]) {
-                    // Or the first song
-                    (playBtns[0] as HTMLElement).focus({ preventScroll: true });
+                // If it was active and the element is gone, or it was the last song
+                const remainingSongs = audioSystemRef!.getPlaylist().length;
+                if (remainingSongs === 0) {
+                     // Fallback to empty state button if list is now empty
+                     const emptyBtn = playlistList!.querySelector('.jukebox-browse-btn') || document.getElementById('addSongsBtn');
+                     if (emptyBtn) {
+                         (emptyBtn as HTMLElement).focus({ preventScroll: true });
+                     }
                 } else {
-                    // Fallback to empty state button if list is now empty
-                    const emptyBtn = playlistList!.querySelector('.jukebox-browse-btn') || document.getElementById('addSongsBtn');
-                    if (emptyBtn) {
-                        (emptyBtn as HTMLElement).focus({ preventScroll: true });
+                    const removeBtns = playlistList!.querySelectorAll('.playlist-remove-btn');
+                    const playBtns = playlistList!.querySelectorAll('.playlist-btn');
+
+                    // Try focusing the next remove button (at same index, since list shifted)
+                    if (removeBtns[index]) {
+                        (removeBtns[index] as HTMLElement).focus({ preventScroll: true });
+                    } else if (removeBtns[index - 1]) {
+                        // Or the previous one
+                        (removeBtns[index - 1] as HTMLElement).focus({ preventScroll: true });
+                    } else if (playBtns[0]) {
+                        // Or the first song
+                        (playBtns[0] as HTMLElement).focus({ preventScroll: true });
                     }
                 }
             });
@@ -362,6 +419,8 @@ export function renderPlaylist(): void {
         const li = document.createElement('li');
         li.className = 'jukebox-empty-state';
         li.style.listStyle = 'none';
+        li.setAttribute('role', 'status');
+        li.setAttribute('aria-live', 'polite');
 
         const iconContainer = document.createElement('div');
         iconContainer.className = 'jukebox-empty-icon-container';
@@ -437,10 +496,10 @@ export function togglePlaylist(): void {
             playlistOverlay.style.opacity = '1';
             playlistOverlay.style.transform = 'translate(-50%, -50%) scale(1)';
 
-            setTimeout(() => {
+            // 🎨 Palette: Wait for paint before intensive DOM manipulations and focus trapping
+            yieldToPaint(50).then(() => {
                 if (isPlaylistOpen && playlistOverlay) {
                     releaseJukeboxFocus = trapFocusInside(playlistOverlay);
-
 
                     // UX: Auto-focus the currently playing track for immediate context
                     if (!audioSystemRef || !playlistList) return;
@@ -456,7 +515,9 @@ export function togglePlaylist(): void {
                         closePlaylistBtn.focus({ preventScroll: true });
                     }
                 }
-            }, 300);
+            });
+
+            announce('Jukebox opened. Use Tab to navigate, Enter to select.', 'polite');
         }
         if (playlistBackdrop) playlistBackdrop.style.display = 'block';
         renderPlaylist();
@@ -471,6 +532,8 @@ export function togglePlaylist(): void {
             playlistOverlay.style.opacity = '0';
             playlistOverlay.style.transform = 'translate(-50%, -50%) scale(0.95)';
         }
+
+        announce('Jukebox closed', 'polite');
 
         setTimeout(() => {
             if (!isPlaylistOpen) {
