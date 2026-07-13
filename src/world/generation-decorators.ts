@@ -16,6 +16,7 @@ import {
     LAKE_ARPEGGIO_FERN_COUNT, LAKE_DANDELION_COUNT, GEM_CANOPY, MYCELIUM_GROVE, CLOUD_ARCHIPELAGO
 } from './generation-utils.ts';
 import { create, registerBuiltinWorldObjectTypes } from './foliage-registry.ts';
+import { spawnTracker } from './spawn-tracker.ts';
 import { plantOnSurface, sampleGroundY } from './placement-utils.ts';
 import { FEATURE_FLAGS } from '../core/config.ts';
 
@@ -456,6 +457,15 @@ export async function populateProceduralExtras(
             let exportVariant: string | undefined;
             let exportHasFace: boolean | undefined;
             const exportParams: Record<string, unknown> = {};
+            let hasTrackedAttempt = false;
+            let trackedType = 'procedural_extra';
+            const resolveSpawnType = () => normalizeMapEntityType(exportType ?? obj?.userData?.type ?? 'procedural_extra');
+            const recordAttemptOnce = () => {
+                if (hasTrackedAttempt) return;
+                trackedType = resolveSpawnType();
+                spawnTracker.recordAttempt(trackedType);
+                hasTrackedAttempt = true;
+            };
 
             try {
                 if (rand < 0.3) {
@@ -612,6 +622,7 @@ export async function populateProceduralExtras(
             }
 
             if (obj) {
+                recordAttemptOnce();
                 obj.rotation.y = Math.random() * Math.PI * 2;
                 const normalizedExportType = normalizeMapEntityType(exportType ?? obj.userData?.type ?? '');
                 obj.userData.mapEntityType = normalizedExportType;
@@ -622,6 +633,13 @@ export async function populateProceduralExtras(
                     hasFace: exportHasFace,
                     placement: normalizedExportType === 'cloud' ? 'absolute' : 'ground',
                 };
+                safeAddFoliage(obj, isObstacle, radius, weatherSystem);
+                spawnTracker.recordSuccess(trackedType);
+            } else {
+                recordAttemptOnce();
+                spawnTracker.recordFailure(trackedType, new Error(`Factory returned null for ${trackedType}`), {
+                    context: 'procedural-extra',
+                });
 
                 // ⚡ OPTIMIZATION: Bypassed Object.keys() array allocation
                 let hasParams = false;
@@ -639,6 +657,8 @@ export async function populateProceduralExtras(
                  }
             }
             } catch (e) {
+                recordAttemptOnce();
+                spawnTracker.recordFailure(trackedType, e, { context: 'procedural-extra' });
                 console.warn(`[World] Failed to spawn procedural extra at ${x},${z}`, e);
                 recordSpawnAttempt('procedural_extra', false, e);
             }

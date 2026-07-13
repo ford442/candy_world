@@ -45,7 +45,7 @@ import { animate, initGameLoopDependencies, addCameraShake } from './game-loop.t
 import { updateTheme, toggleDayNight, setInputSystem } from './hud.ts';
 import { initDeferredVisuals, initDeferredVisualsDependencies, runDeferredWarmup, applyAwakenedPersistenceAfterWorldLoad } from './deferred-init.ts';
 import { globalBackgroundProcessor } from '../utils/background-processor.ts';
-import { showDeferredIndicator, hideDeferredIndicator } from '../ui/index.ts';
+import { showDeferredIndicator, hideDeferredIndicator, setDeferredProgress, setDeferredFailures } from '../ui/index.ts';
 import { reset as resetSpawnTracker, getReport as getSpawnReport } from '../world/spawn-tracker.ts';
 import { globalLoadingManager } from '../systems/loading-manager.ts';
 import { validateWorldPopulation } from '../world/world-health.ts';
@@ -53,6 +53,7 @@ import { showModeBadge, showRendererBadge } from '../ui/mode-badge.ts';
 import { DeferredLoader, LoadPriority } from '../systems/deferred-loader.ts';
 import { initLoadingScreen, installLegacyAPI } from '../ui/loading-screen.ts';
 import { installBatcherTelemetry } from '../foliage/batcher-telemetry.ts';
+import { spawnTracker } from '../world/spawn-tracker.ts';
 
 // Debug staging system
 import { StageLoader, showDebugError, initDebugPanel } from '../debug/index.ts';
@@ -778,6 +779,12 @@ if (startButton) {
                 showToast("Click to explore! Press [ESC] for Controls", "🎮", 4000);
             });
 
+            // Start background processor for deferred work
+            showDeferredIndicator();
+            setDeferredFailures(0);
+            globalBackgroundProcessor.onProgress((completed, total) => {
+                setDeferredProgress(completed, total);
+                setDeferredFailures(spawnTracker.getReport().failCount);
             // Start background processor for deferred work.
             // resetCounters() syncs totalTasks to the queue length (which already
             // contains horizon tasks from generateMap) and clears stale callbacks

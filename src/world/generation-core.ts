@@ -33,6 +33,7 @@ import { clearMapMusicContext, deriveMapMusicContext, setMapMusicContext } from 
 import { create, getTypeMeta, registerBuiltinWorldObjectTypes, registerWorldObject } from './foliage-registry.ts';
 import { plantOnSurface, sampleGroundY } from './placement-utils.ts';
 import { treeBatcher } from '../foliage/tree-batcher.ts';
+import { resetSpawnTracker, spawnTracker } from './spawn-tracker.ts';
 import { subwooferLotusBatcher } from '../foliage/subwoofer-lotus-batcher.ts';
 
 let loadedMapPromise: Promise<LoadedCandyMap> | null = null;
@@ -399,7 +400,7 @@ export async function generateMap(
 ): Promise<void> {
     worldGenerationToken = Date.now();
     (window as any).__currentWorldGenerationToken = worldGenerationToken;
-    const generationToken = worldGenerationToken;
+    const generationToken = ++worldGenerationToken;
     resetSpawnTracker();
     performance.mark('candy:map-generation-start');
     console.time('[World] generateMap total');
@@ -766,6 +767,7 @@ const MUSICAL_FLORA_TYPES = new Set([
 function processMapEntity(item: MapEntity, weatherSystem: WeatherSystem, options?: ProcessEntityOptions): void {
     const [x, yInput, z] = item.position;
     const entityType = normalizeMapEntityType(item.type);
+    spawnTracker.recordAttempt(entityType);
 
     // Feature flag gates — skip entire entity without counting as a failure.
     if (!FEATURE_FLAGS.musicalFlora && MUSICAL_FLORA_TYPES.has(entityType)) return;
@@ -846,6 +848,7 @@ function processMapEntity(item: MapEntity, weatherSystem: WeatherSystem, options
 
         if (entityType === 'grass') {
             if (FEATURE_FLAGS.grass) addGrassInstance(x, y, z);
+            spawnTracker.recordSuccess(entityType);
             return;
         }
         switch (entityType) {
@@ -930,6 +933,9 @@ function processMapEntity(item: MapEntity, weatherSystem: WeatherSystem, options
 
         obj = create(entityType, createParams);
         if (!obj) {
+            spawnTracker.recordFailure(entityType, new Error(`Factory returned null for ${entityType}`), {
+                context: `map-entity:${item.id}`,
+            });
             recordSpawnAttempt(entityType, false, new Error(`Factory returned null for type "${entityType}"`));
             return;
         }
@@ -999,10 +1005,12 @@ function processMapEntity(item: MapEntity, weatherSystem: WeatherSystem, options
                 waterfallProxy.userData.type = 'waterfall';
                 animatedFoliage.push(waterfallProxy as any);
             }
+            spawnTracker.recordSuccess(entityType);
         }
 
         recordSpawnAttempt(entityType, true);
     } catch (e) {
+        spawnTracker.recordFailure(entityType, e, { context: `map-entity:${item.id}` });
         console.warn(`[World] Failed to spawn ${item.type} at ${x},${z}`, e);
         recordSpawnAttempt(item.type || 'unknown', false, e);
     }
