@@ -82,7 +82,7 @@ export const DEFAULT_REGION_CONFIG: RegionConfig = {
     loadRadius: 3,
     unloadRadius: 5,
     unloadDelayMs: 10000,
-    lodRadii: [0, 50, 100, 200],
+    lodRadii: [120, 365, 480, 640],
     enableSeamlessTransitions: true,
     maxCellsInMemory: 100
 };

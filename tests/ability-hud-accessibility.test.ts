@@ -93,24 +93,24 @@ test('triggerAbility sets keyState to true immediately', () => {
   keyStates.dash = false;
 });
 
-test('triggerAbility applies pressed class to element', () => {
+test('triggerAbility applies keyboard-active class to element', () => {
   const el = createMockElement();
 
   triggerAbility('dash', el as unknown as HTMLElement);
-  assertTrue(el.classList.contains('pressed'), 'pressed class should be added immediately');
+  assertTrue(el.classList.contains('keyboard-active'), 'keyboard-active class should be added immediately');
 
   // Clean up
   keyStates.dash = false;
 });
 
-test('triggerAbility removes pressed class after timeout', async () => {
+test('triggerAbility removes keyboard-active class after timeout', async () => {
   const el = createMockElement();
 
   triggerAbility('action', el as unknown as HTMLElement);
-  assertTrue(el.classList.contains('pressed'), 'pressed class should be added immediately');
+  assertTrue(el.classList.contains('keyboard-active'), 'keyboard-active class should be added immediately');
 
   await new Promise(resolve => setTimeout(resolve, 150));
-  assertEqual(el.classList.contains('pressed'), false, 'pressed class should be removed after timeout');
+  assertEqual(el.classList.contains('keyboard-active'), false, 'keyboard-active class should be removed after timeout');
 
   keyStates.action = false;
 });

@@ -1,10 +1,11 @@
 import * as THREE from 'three';
-import { foliageMaterials, registerReactiveMaterial, attachReactivity, pickAnimation, createClayMaterial, createGradientMaterial, sharedGeometries, uAudioLow, uWindSpeed, calculatePlayerPush, createStandardNodeMaterial, createJuicyRimLight, getCachedProceduralMaterial, calculateWindSway, applyPlayerInteraction } from './index.ts';
-import { color as tslColor, mix, float, sin, cos, vec3, positionLocal, positionWorld, time, normalWorld } from 'three/tsl';
+import { foliageMaterials, registerReactiveMaterial, attachReactivity, pickAnimation, createClayMaterial, createGradientMaterial, sharedGeometries, uAudioLow, uAudioHigh, uWindSpeed, calculatePlayerPush, createStandardNodeMaterial, createJuicyRimLight, getCachedProceduralMaterial, calculateWindSway, applyPlayerInteraction, applyStandardDeformation } from './index.ts';
+import { color as tslColor, mix, float, sin, cos, vec3, positionLocal, positionWorld, time, normalWorld, normalLocal } from 'three/tsl';
 import { uTwilight } from './sky.ts';
 import { createBerryCluster } from './berries.ts';
 import { FoliageObject } from './types.ts';
-import { treeBatcher } from './tree-batcher.ts'; // ⚡ OPTIMIZATION: Import Batcher
+import { treeBatcher } from './tree-batcher.ts';
+import { gemFruitBatcher } from './gem-fruit-batcher.ts'; // ⚡ OPTIMIZATION: Import Batcher
 import { MeshStandardNodeMaterial } from 'three/webgpu'; // Import explicit type for cast
 
 // Configuration interfaces for tree creation options
@@ -106,8 +107,11 @@ export function createFloweringTree(options: TreeOptions = {}): THREE.Group {
     trunk.castShadow = true;
     group.add(trunk);
 
-    const bloomMat = createClayMaterial(color);
-    enhanceWithFloralJuice(bloomMat);
+    const bloomMat = getCachedProceduralMaterial(`flowering_tree_bloom_${color}`, color, () => {
+        const mat = createClayMaterial(color);
+        enhanceWithFloralJuice(mat);
+        return mat;
+    });
     registerReactiveMaterial(bloomMat);
 
     const bloomCount = 3 + Math.floor(Math.random() * 3);
@@ -178,8 +182,11 @@ export function createShrub(options: ShrubOptions = {}): THREE.Group {
     base.castShadow = true;
     group.add(base);
 
-    const flowerMat = createClayMaterial(0xFF69B4);
-    enhanceWithFloralJuice(flowerMat);
+    const flowerMat = getCachedProceduralMaterial(`shrub_flower`, 0xFF69B4, () => {
+        const mat = createClayMaterial(0xFF69B4);
+        enhanceWithFloralJuice(mat);
+        return mat;
+    });
     registerReactiveMaterial(flowerMat);
 
     const flowerCount = 2 + Math.floor(Math.random() * 2);
@@ -233,7 +240,7 @@ export function createVine(options: VineOptions = {}): THREE.Group {
     // Create the material ONCE outside the loop, add TSL Juice, and register it.
     const vineMat = getCachedProceduralMaterial(`vine_${color}`, color, () => {
         const mat = createClayMaterial(color);
-        mat.positionNode = applyPlayerInteraction(positionLocal).add(calculateWindSway(positionLocal));
+        mat.positionNode = applyStandardDeformation(positionLocal);
         const audioRimIntensity = float(1.0).add(uAudioLow.mul(0.5));
         mat.emissiveNode = (mat.emissiveNode || tslColor(0x000000)).add(createJuicyRimLight(tslColor(color), audioRimIntensity, float(3.0), mat.normalNode));
         return mat;
@@ -281,7 +288,11 @@ export function createBubbleWillow(options: BubbleWillowOptions = {}): THREE.Gro
     group.add(trunk);
 
     const branchCount = 4 + Math.floor(Math.random() * 2);
-    const branchMat = createClayMaterial(color);
+    const branchMat = getCachedProceduralMaterial(`bubble_willow_branch_${color}`, color, () => {
+        const mat = createClayMaterial(color);
+        enhanceWithFloralJuice(mat);
+        return mat;
+    });
     registerReactiveMaterial(branchMat);
 
     for (let i = 0; i < branchCount; i++) {
@@ -307,6 +318,9 @@ export function createBubbleWillow(options: BubbleWillowOptions = {}): THREE.Gro
     // ⚡ OPTIMIZATION: Register to Batcher
     group.userData.onPlacement = () => {
         treeBatcher.register(group, 'bubbleWillow');
+        if (group.userData.attachGemFruits) {
+            gemFruitBatcher.attachToTree(group, { height: trunkH, gemCount: 5 + Math.floor(Math.random() * 3) });
+        }
         group.userData.isBatched = true;
         group.userData.onPlacement = null;
     };
@@ -338,7 +352,11 @@ export function createHelixPlant(options: HelixPlantOptions = {}): THREE.Group {
 
     const path = new SpiralCurve(1.0 + Math.random() * 0.5);
     const tubeGeo = new THREE.TubeGeometry(path, 20, 0.08, 8, false);
-    const mat = createClayMaterial(color);
+    const mat = getCachedProceduralMaterial(`helix_plant_${color}`, color, () => {
+        const m = createClayMaterial(color);
+        enhanceWithFloralJuice(m);
+        return m;
+    });
     registerReactiveMaterial(mat);
 
     const mesh = new THREE.Mesh(tubeGeo, mat);
@@ -375,7 +393,11 @@ export function createBalloonBush(options: BalloonBushOptions = {}): THREE.Group
     const group = new THREE.Group();
 
     const sphereCount = 5 + Math.floor(Math.random() * 5);
-    const mat = createClayMaterial(color);
+    const mat = getCachedProceduralMaterial(`balloon_bush_${color}`, color, () => {
+        const m = createClayMaterial(color);
+        enhanceWithFloralJuice(m);
+        return m;
+    });
     registerReactiveMaterial(mat);
 
     for (let i = 0; i < sphereCount; i++) {
@@ -476,13 +498,25 @@ export function createFiberOpticWillow(options: FiberOpticWillowOptions = {}): T
     group.add(trunk);
 
     const branchCount = 8;
-    const cableMat = foliageMaterials.opticCable;
-    const tipMat = foliageMaterials.opticTip.clone() as THREE.MeshStandardNodeMaterial;
 
-    const baseEmissive = tslColor(color).mul(0.8);
-    const twilightBoost = baseEmissive.mul(uTwilight).mul(2.0);
-    tipMat.emissiveNode = baseEmissive.add(twilightBoost);
+    const cableMat = getCachedProceduralMaterial('optic_cable_willow', 0x111111, () => {
+        const m = createClayMaterial(0x111111);
+        m.roughness = 0.4;
+        m.positionNode = applyStandardDeformation(positionLocal);
+        m.emissiveNode = (m.emissiveNode || tslColor(0x000000)).add(createJuicyRimLight(tslColor(0x222222), float(1.0).add(uAudioLow.mul(0.5)), float(3.0), normalLocal));
+        return m;
+    });
+    registerReactiveMaterial(cableMat);
 
+    const tipMat = getCachedProceduralMaterial(`optic_tip_willow_${color}`, color, () => {
+        const m = createStandardNodeMaterial({ color: 0xFFFFFF, roughness: 0.2 });
+        const baseEmissive = tslColor(color).mul(0.8);
+        const twilightBoost = baseEmissive.mul(uTwilight).mul(2.0);
+        const rimLight = createJuicyRimLight(tslColor(color), float(2.0).add(uAudioHigh.mul(2.0)), float(2.0), normalLocal);
+        m.emissiveNode = baseEmissive.add(twilightBoost).add(rimLight);
+        m.positionNode = applyStandardDeformation(positionLocal);
+        return m;
+    });
     registerReactiveMaterial(tipMat);
 
     for (let i = 0; i < branchCount; i++) {
@@ -649,7 +683,7 @@ export function createSwingableVine(options: SwingableVineOptions = {}): THREE.G
 
     const vineMat = getCachedProceduralMaterial(`swingable_vine_${color}`, color, () => {
         const mat = createClayMaterial(color);
-        mat.positionNode = applyPlayerInteraction(positionLocal).add(calculateWindSway(positionLocal));
+        mat.positionNode = applyStandardDeformation(positionLocal);
         const audioRimIntensity = float(1.0).add(uAudioLow.mul(0.5));
         mat.emissiveNode = (mat.emissiveNode || tslColor(0x000000)).add(createJuicyRimLight(tslColor(color), audioRimIntensity, float(3.0), mat.normalNode));
         return mat;
@@ -702,7 +736,7 @@ export function createVineLadder(options: VineLadderOptions = {}): THREE.Group {
 
     const vineMat = getCachedProceduralMaterial(`vine_ladder_${color}`, color, () => {
         const mat = createClayMaterial(color);
-        mat.positionNode = applyPlayerInteraction(positionLocal).add(calculateWindSway(positionLocal));
+        mat.positionNode = applyStandardDeformation(positionLocal);
         const audioRimIntensity = float(1.0).add(uAudioLow.mul(0.5));
         mat.emissiveNode = (mat.emissiveNode || tslColor(0x000000)).add(createJuicyRimLight(tslColor(color), audioRimIntensity, float(3.0), mat.normalNode));
         return mat;

@@ -10,6 +10,7 @@ import {
   type DebugStages,
   type StageMetadata,
 } from './stages.ts';
+import { switchRendererPreference, type RendererBackend } from '../rendering/renderer-mode.ts';
 
 /**
  * Debug panel UI controller
@@ -75,6 +76,28 @@ export class DebugPanel {
       ">✕</button>
     `;
     panel.appendChild(header);
+
+    const rendererControls = document.createElement('div');
+    rendererControls.style.cssText = `
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #0f0;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    `;
+    rendererControls.innerHTML = `
+      <div style="color:#0f0;font-weight:bold;font-size:11px;">Renderer</div>
+      <div style="display:flex;gap:6px;">
+        <button id="debug-renderer-webgpu" style="flex:1;background:#103040;border:1px solid #37cfff;color:#7dd3fc;padding:4px 6px;cursor:pointer;font-size:10px;border-radius:3px;">WebGPU</button>
+        <button id="debug-renderer-webgl" style="flex:1;background:#401028;border:1px solid #ff9ecd;color:#ffd1dc;padding:4px 6px;cursor:pointer;font-size:10px;border-radius:3px;">WebGL2</button>
+      </div>
+      <div style="display:flex;gap:6px;">
+        <button id="debug-wireframe" style="flex:1;background:#202020;border:1px solid #888;color:#ddd;padding:4px 6px;cursor:pointer;font-size:10px;border-radius:3px;">Wireframe (G)</button>
+        <button id="debug-matdebug" style="flex:1;background:#202020;border:1px solid #888;color:#ddd;padding:4px 6px;cursor:pointer;font-size:10px;border-radius:3px;">Mat Debug (M)</button>
+      </div>
+    `;
+    panel.appendChild(rendererControls);
 
     // Stage list
     const stageList = document.createElement('div');
@@ -144,6 +167,8 @@ export class DebugPanel {
       <div style="color: #0f0; margin-bottom: 4px;">Keyboard Shortcuts:</div>
       <div>• <kbd style="background:#333;padding:1px 4px;border-radius:2px">P</kbd> - Toggle Profiler</div>
       <div>• <kbd style="background:#333;padding:1px 4px;border-radius:2px">O</kbd> - Toggle Startup Overlay</div>
+      <div>• <kbd style="background:#333;padding:1px 4px;border-radius:2px">G</kbd> - Wireframe (WebGL)</div>
+      <div>• <kbd style="background:#333;padding:1px 4px;border-radius:2px">M</kbd> - Material debug (WebGL)</div>
       <div style="margin-top: 6px; color: #0f0;">Status Legend:</div>
       <div>⏳ Loading • ✅ Success • ❌ Failed • ⏭️ Skipped</div>
     `;
@@ -266,6 +291,28 @@ export class DebugPanel {
         } finally {
           exportBtn.removeAttribute('disabled');
         }
+      });
+    }
+
+    const setRendererBtn = (id: string, backend: RendererBackend) => {
+      const btn = document.getElementById(id);
+      if (!btn) return;
+      btn.addEventListener('click', () => switchRendererPreference(backend));
+    };
+    setRendererBtn('debug-renderer-webgpu', 'webgpu');
+    setRendererBtn('debug-renderer-webgl', 'webgl');
+
+    const wireframeBtn = document.getElementById('debug-wireframe');
+    if (wireframeBtn) {
+      wireframeBtn.addEventListener('click', () => {
+        window.candy_set_webgl_debug_mode?.('wireframe', true);
+      });
+    }
+
+    const matDebugBtn = document.getElementById('debug-matdebug');
+    if (matDebugBtn) {
+      matDebugBtn.addEventListener('click', () => {
+        window.candy_set_webgl_debug_mode?.('material', true);
       });
     }
 

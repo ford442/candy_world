@@ -37,12 +37,16 @@
 /* 🎨 Palette: "Game Feel" Active Pressed State */
 .a11y-tab:active,
 .a11y-tab[aria-pressed="true"],
+.a11y-tab.keyboard-active,
 .a11y-button:active,
 .a11y-button[aria-pressed="true"],
+.a11y-button.keyboard-active,
 .a11y-preset-card:active,
 .a11y-preset-card[aria-pressed="true"],
+.a11y-preset-card.keyboard-active,
 .a11y-close-btn:active,
-.a11y-close-btn[aria-pressed="true"] {
+.a11y-close-btn[aria-pressed="true"],
+.a11y-close-btn.keyboard-active {
     transform: scale(0.95);
     transition-duration: 0.05s;
 }

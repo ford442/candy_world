@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import {
     color, uniform, mix, vec3, positionLocal, normalLocal, mx_noise_float,
@@ -7,13 +8,14 @@ import {
 } from 'three/tsl';
 import {
     uTime, createJuicyRimLight, uAudioLow, uAudioHigh,
-    uWindSpeed, uWindDirection, triplanarNoise, uPlayerPosition
+    uWindSpeed, uWindDirection, triplanarNoise, uPlayerPosition, applyPlayerInteraction, uPlayerVelocity
 } from './index.ts';
 import { attribute } from 'three/tsl';
 import { foliageGroup } from '../world/state.ts';
 import { getIcosahedronGeometry } from '../utils/geometry-dedup.ts';
 import { uSkyDarkness, uTwilight } from './sky.ts';
 import { BiomeUniforms } from '../systems/biome-uniforms.ts';
+import { CONFIG } from '../core/config.ts';
 
 // --- Global Uniforms (Moved from clouds.js) ---
 export const uCloudRainbowIntensity = uniform(0.0);
@@ -46,12 +48,18 @@ function createCloudMaterial() {
     // Strength: 1.0 at center, 0.0 at edge
     const playerStrength = float(1.0).sub(smoothstep(0.0, 1.0, distFactor));
 
-    // Squash Y down, Bulge XZ out
-    const playerSquashAmount = playerStrength.mul(0.6); // Max 60% squash
+    // Enhanced Squash Y down, Bulge XZ out + Velocity impact (Juicy jump through)
+    const baseSquash = playerStrength.mul(0.6);
+    // If player is moving fast vertically (jumping), add extra vertical squash
+    const verticalVelSquash = uPlayerVelocity.y.abs().mul(0.015).mul(playerStrength).clamp(0.0, 0.4);
+    const totalSquashY = baseSquash.add(verticalVelSquash);
+    // Expand radially to preserve volume (ish)
+    const expandXZ = totalSquashY.mul(0.5);
+
     const playerSquishScale = vec3(
-        float(1.0).add(playerSquashAmount.mul(0.5)), // Expand X
-        float(1.0).sub(playerSquashAmount),          // Compress Y
-        float(1.0).add(playerSquashAmount.mul(0.5))  // Expand Z
+        float(1.0).add(expandXZ), // Expand X
+        float(1.0).sub(totalSquashY).max(0.4), // Compress Y, clamp at 0.4
+        float(1.0).add(expandXZ)  // Expand Z
     );
 
     // 2. Wind Shearing (Clouds drift faster at the top)
@@ -87,6 +95,9 @@ function createCloudMaterial() {
     // Melody Puff: Expands the cloud slightly on Highs
     const melodyPuff = uAudioHigh.mul(0.2);
 
+    // Music Impact: soft internal starlight pulse on melody hits
+    const melodyGlow = uAudioHigh.mul(float(CONFIG.cloud.emissivePulse));
+
     // Total Displacement Magnitude
     // Base fluff + Melody expansion
     const displacementStrength = float(0.2).add(melodyPuff);
@@ -98,18 +109,28 @@ function createCloudMaterial() {
     const squishedPos = shearedPos.mul(verticalSquish).mul(playerSquishScale);
 
     // Apply Fluff Displacement along Normal
-    const fluffOffset = normalLocal.mul(shapeNoise.mul(displacementStrength));
+    // Audio-reactive puff intensity during deformation
+    const puffIntensity = float(1.0).add(uAudioHigh.mul(0.8));
+    const fluffOffset = normalLocal.mul(shapeNoise.mul(displacementStrength)).mul(puffIntensity);
 
     // ⚡ OPTIMIZATION: TSL Floating Animation (Replaces CPU update)
     // Use world X/Z as phase seed for coherent bobbing
     const floatSpeed = float(0.5);
     const floatAmp = float(0.5);
     const worldPhase = positionWorld.x.mul(0.05).add(positionWorld.z.mul(0.05));
-    const floatOffset = sin(uTime.mul(floatSpeed).add(worldPhase)).mul(floatAmp);
-    const floatDisp = vec3(0.0, floatOffset, 0.0);
+    const floatDisp = sin(uTime.mul(floatSpeed).add(worldPhase)).mul(floatAmp);
+    const floatOffset = vec3(0.0, floatDisp, 0.0);
 
-    material.positionNode = squishedPos.add(fluffOffset).add(floatDisp);
+    // === SPRING BOUNCE (player land/jump response) ===
+    // High-frequency sine gives that satisfying candy "boing" overshoot
+    const bounceRinging = sin(uTime.mul(15.0)).mul(playerStrength).mul(0.15);
+    const bounceDisp = vec3(0.0, bounceRinging, 0.0);
 
+    const animatedPos = squishedPos.add(fluffOffset).add(floatOffset).add(bounceDisp);
+
+    // Apply player interaction
+    material.positionNode = applyPlayerInteraction(animatedPos);
+  
     // 4. Surface Detail (Triplanar Noise for "Cotton" Texture)
     // Adds high-frequency noise to Roughness and slightly to Color
     // Scale 10.0 for micro-detail
@@ -147,9 +168,11 @@ function createCloudMaterial() {
     // Darken the bottom of the cloud (y < 0)
     // We use positionLocal.y from before displacement for stability
     const aoGradient = smoothstep(-1.0, 1.0, positionLocal.y); // 0 at bottom, 1 at top
-    // Mix shadow color (Blue-Grey) with White
-    const shadowColor = color(0x8899AA);
-    const baseColor = mix(shadowColor, color(0xFFFFFF), aoGradient);
+    // PALETTE: Candy cloud pastels — lavender shadow, pink body, cream highlights
+    const shadowColor = color(CONFIG.cloud.lavenderShadow);
+    const candyBody = color(CONFIG.cloud.pastelTint);
+    const highlightColor = color(CONFIG.cloud.creamHighlight);
+    const baseColor = mix(shadowColor, mix(candyBody, highlightColor, aoGradient), aoGradient);
 
     // Apply cotton detail to base color (subtle dirtying)
     const texturedColor = baseColor.mul(float(0.95).add(cottonDetail.mul(0.05)));
@@ -174,10 +197,15 @@ function createCloudMaterial() {
     // Walkable clouds (tier 1) get a subtle cyan ice-crystal edge glow
     const walkableFlag = attribute('aIsWalkable', 'float');
     const crystalColor = color(0xE0FFFF);
-    const crystalRim = createJuicyRimLight(crystalColor, float(0.8), float(2.5), normalWorld).mul(walkableFlag);
+    const bobPulse = sin(uTime.mul(2.0).add(positionWorld.x.mul(0.1))).mul(0.3).add(0.7);
+    const crystalRim = createJuicyRimLight(crystalColor, float(0.8), float(2.5), normalWorld).mul(walkableFlag).mul(bobPulse).add(walkableFlag.mul(melodyGlow));
 
     // Dim emissive effects during storms too, except lightning
-    material.emissiveNode = lightningGlow.add(juicyRim.mul(stormDarkness)).add(rainbowSheen.mul(stormDarkness)).add(crystalRim);
+    material.emissiveNode = lightningGlow
+        .add(juicyRim.mul(stormDarkness))
+        .add(rainbowSheen.mul(stormDarkness))
+        .add(crystalRim)
+        .add(candyBody.mul(melodyGlow));
 
     return material;
 }
@@ -190,8 +218,10 @@ export function getSharedCloudMaterial() {
     return _sharedCloudMaterial;
 }
 
+import { getCIAdjustedCount } from '../core/config.ts';
+
 // --- Cloud Batcher ---
-const MAX_PUFFS = 400; // Reduced from 1000 for WebGPU uniform buffer limits (64KB max)
+const MAX_PUFFS = getCIAdjustedCount(400, 0.1, 50); // Reduced from 1000 for WebGPU uniform buffer limits (64KB max)
 const _scratchMat = new THREE.Matrix4();
 const _scratchWorldMat = new THREE.Matrix4();
 const _scratchPos = new THREE.Vector3();
@@ -348,7 +378,8 @@ export class CloudBatcher {
         // Iterate over clouds
         // ⚡ OPTIMIZATION: Only update moving clouds (e.g. falling or dragged)
         // Static clouds are now animated via TSL (Vertex Shader)
-        for (const cloud of this.clouds) {
+        for (let i = 0; i < this.clouds.length; i++) {
+            const cloud = this.clouds[i];
             // Run Cloud Logic (Sine Wave / Falling)
             // Note: updateFallingClouds in clouds.js handles falling physics on cloud.position externally.
             // Here we just handle the "Animation" callback if it exists.
@@ -378,6 +409,12 @@ export class CloudBatcher {
         if (needsUpdate) {
             this.mesh.count = this.count;
             this.mesh.instanceMatrix.needsUpdate = true;
+        }
+    }
+
+    dispose(): void {
+        if (this.mesh && this.mesh.parent) {
+            safeRemoveAndDispose(this.mesh.parent, this.mesh);
         }
     }
 }

@@ -7,10 +7,23 @@
  */
 
 import * as THREE from 'three';
-import { ComputeParticleSystem, createComputeFireflies, createComputePollen, createComputeSparks, createComputeBerries, createComputeRain } from './compute-particles.ts';
+import { ComputeParticleSystem, createComputeFireflies, createComputePollen, createComputeSparks, createComputeBerries, createComputeRain, createComputeGemSparks, addComputeSystem } from './compute-particles.ts';
 import type { ParticleAudioData } from './compute-particles.ts';
+import { getCIAdjustedCount } from '../core/config.ts';
 import { createFireflies as createLegacyFireflies } from '../foliage/fireflies.ts';
 import { createNeonPollen as createLegacyPollen } from '../foliage/pollen.ts';
+
+// ⚡ OPTIMIZATION: Detect Headless/CI environments to aggressively scale down particle
+// counts and prevent WebGPU Device Lost errors caused by massive VRAM buffer allocations.
+export const PARTICLE_QUALITY =
+    (typeof navigator !== 'undefined' && /headless|playwright|ci|test/i.test(navigator.userAgent || '')) ||
+    (typeof window !== 'undefined' && (window as any).__IS_FULL_BOOT_TEST === true) ||
+    (typeof localStorage !== 'undefined' && localStorage.getItem('__IS_FULL_BOOT_TEST') === 'true') ||
+    (typeof navigator !== 'undefined' && (navigator as any).webdriver === true)
+        ? 'ci'
+        : 'full';
+
+console.log(`[ComputeIntegration] PARTICLE_QUALITY determined as: ${PARTICLE_QUALITY}`);
 
 // =============================================================================
 // PERFORMANCE MONITORING
@@ -56,10 +69,17 @@ export function createIntegratedFireflies(options: IntegratedFireflyOptions = {}
     
     // Check for WebGPU support
     const hasWebGPU = typeof navigator !== 'undefined' && 'gpu' in navigator;
+    const skipHeavyParticles = typeof window !== 'undefined' && (window as any).__fastPopulationOverride;
     
+    // Scale down for CI to prevent device crash
+    const ciScale = PARTICLE_QUALITY === 'ci' ? 0.01 : 1.0;
+
+    if (PARTICLE_QUALITY === 'ci') return new THREE.Group();
+
     if (useCompute && hasWebGPU) {
         // Use GPU compute - 300x more particles!
-        const computeCount = Math.min(count * 300, 100000); // Cap at 100k
+        const targetCount = skipHeavyParticles ? count : Math.min(count * 300, 100000); // Cap at 100k
+        const computeCount = Math.max(Math.floor(targetCount * ciScale), 50); // Floor of 50 to avoid WGSL /0 errors
         
         try {
             const system = createComputeFireflies({
@@ -120,9 +140,16 @@ export function createIntegratedPollen(options: IntegratedPollenOptions = {}): T
     } = options;
     
     const hasWebGPU = typeof navigator !== 'undefined' && 'gpu' in navigator;
+    const skipHeavyParticles = typeof window !== 'undefined' && (window as any).__fastPopulationOverride;
     
+    // Scale down for CI to prevent device crash
+    const ciScale = PARTICLE_QUALITY === 'ci' ? 0.01 : 1.0;
+
+    if (PARTICLE_QUALITY === 'ci') return new THREE.Group();
+
     if (useCompute && hasWebGPU) {
-        const computeCount = Math.min(count * 15, 50000);
+        const targetCount = skipHeavyParticles ? count : Math.min(count * 15, 50000);
+        const computeCount = Math.max(Math.floor(targetCount * ciScale), 50);
         
         try {
             const system = createComputePollen({
@@ -161,6 +188,78 @@ export function createIntegratedPollen(options: IntegratedPollenOptions = {}): T
     return legacy;
 }
 
+export interface IntegratedSporesOptions {
+    count?: number;
+    areaSize?: number;
+    center?: THREE.Vector3;
+    useCompute?: boolean;
+}
+
+/**
+ * Ambient mycelium spore field. Built on the `pollen` compute type, whose color
+ * node already blends cyan↔magenta and blinks on `uAudioHigh` — exactly the
+ * cyan/purple, audio-reactive aesthetic the Mycelium Realm calls for. Spores
+ * drift slowly within the supplied bounds.
+ *
+ * Returns the particle mesh with `userData.computeParticleSystem` attached so the
+ * caller can `registerIntegratedSystem(...)` it for zero-alloc per-frame updates.
+ * Degrades gracefully: empty Group in CI, legacy CPU pollen when WebGPU is absent.
+ */
+export function createIntegratedSpores(options: IntegratedSporesOptions = {}): THREE.Object3D {
+    const {
+        count = 240,
+        areaSize = 18,
+        center = new THREE.Vector3(0, 3, 0),
+        useCompute = true,
+    } = options;
+
+    const hasWebGPU = typeof navigator !== 'undefined' && 'gpu' in navigator;
+    const skipHeavyParticles = typeof window !== 'undefined' && (window as any).__fastPopulationOverride;
+    const ciScale = PARTICLE_QUALITY === 'ci' ? 0.01 : 1.0;
+
+    if (PARTICLE_QUALITY === 'ci') return new THREE.Group();
+
+    if (useCompute && hasWebGPU) {
+        // Spores hang in the air — keep multiplier modest so 200+ stay visible but cheap.
+        const targetCount = skipHeavyParticles ? count : Math.min(count * 4, 6000);
+        const computeCount = Math.max(Math.floor(targetCount * ciScale), 200);
+
+        try {
+            const system = createComputePollen({
+                count: computeCount,
+                bounds: { x: areaSize, y: 8, z: areaSize }, // low ceiling → slow misty drift
+                center,
+            });
+
+            metrics.set('spores', {
+                particleCount: computeCount,
+                frameTime: 0,
+                gpuTime: 0,
+                cpuFallback: false,
+            });
+
+            console.log(`[Particles] GPU Spores: ${computeCount.toLocaleString()} particles`);
+
+            // Tag so callers can register it for per-frame audio updates.
+            system.mesh.userData.computeParticleSystem = system;
+            return system.mesh;
+        } catch (error) {
+            console.warn('[Particles] GPU compute failed for spores, falling back to CPU:', error);
+        }
+    }
+
+    // CPU fallback: legacy neon pollen (cyan/purple is approximated by its palette).
+    const legacy = createLegacyPollen(count, areaSize, center);
+    metrics.set('spores', {
+        particleCount: count,
+        frameTime: 0,
+        gpuTime: 0,
+        cpuFallback: true,
+    });
+    console.log(`[Particles] CPU Spores: ${count} particles (WebGPU unavailable or disabled)`);
+    return legacy;
+}
+
 export interface IntegratedSparksOptions {
     count?: number;
     areaSize?: number;
@@ -195,9 +294,16 @@ export function createIntegratedSparks(options: IntegratedSparksOptions = {}): T
     } = options;
 
     const hasWebGPU = typeof navigator !== 'undefined' && 'gpu' in navigator;
+    const skipHeavyParticles = typeof window !== 'undefined' && (window as any).__fastPopulationOverride;
+
+    // Scale down for CI to prevent device crash
+    const ciScale = PARTICLE_QUALITY === 'ci' ? 0.01 : 1.0;
+
+    if (PARTICLE_QUALITY === 'ci') return new THREE.Group();
 
     if (useCompute && hasWebGPU) {
-        const computeCount = Math.min(count * 5, 50000);
+        const targetCount = skipHeavyParticles ? count : Math.min(count * 5, 50000);
+        const computeCount = Math.max(Math.floor(targetCount * ciScale), 50);
 
         try {
             const system = createComputeSparks({
@@ -253,11 +359,19 @@ export function createIntegratedBerries(options: IntegratedBerriesOptions = {}):
     } = options;
 
     const hasWebGPU = typeof navigator !== 'undefined' && 'gpu' in navigator;
+    const skipHeavyParticles = typeof window !== 'undefined' && (window as any).__fastPopulationOverride;
+
+    // Scale down for CI to prevent device crash
+    const ciScale = PARTICLE_QUALITY === 'ci' ? 0.01 : 1.0;
+
+    if (PARTICLE_QUALITY === 'ci') return new THREE.Group();
 
     if (useCompute && hasWebGPU) {
         try {
+            const targetCount = skipHeavyParticles ? Math.floor(count / 10) : count;
+            const computeCount = Math.max(Math.floor(targetCount * ciScale), 50);
             const system = createComputeBerries({
-                count: count,
+                count: computeCount,
                 bounds: { x: areaSize * 2, y: 20, z: areaSize * 2 },
                 center: center
             });
@@ -290,6 +404,54 @@ export function createIntegratedBerries(options: IntegratedBerriesOptions = {}):
     return legacyGroup;
 }
 
+export interface IntegratedGemSparksOptions {
+    count?: number;
+    bounds?: { x: number; y: number; z: number };
+    center?: THREE.Vector3;
+    useCompute?: boolean;
+}
+
+/**
+ * Gem Canopy corridor sparkle field — noise-driven dust motes that twinkle to
+ * gem_canopy music bindings. Reuses ComputeParticleSystem (GPU + CPU fallback).
+ */
+export function createIntegratedGemSparks(options: IntegratedGemSparksOptions = {}): THREE.Object3D {
+    const {
+        count = getCIAdjustedCount(512, 0.1, 80),
+        bounds = { x: 40, y: 14, z: 18 },
+        center = new THREE.Vector3(0, 6, 0),
+        useCompute = true,
+    } = options;
+
+    const ciScale = PARTICLE_QUALITY === 'ci' ? 0.01 : 1.0;
+
+    if (PARTICLE_QUALITY === 'ci') return new THREE.Group();
+
+    if (!useCompute) return new THREE.Group();
+
+    try {
+        const computeCount = Math.max(Math.floor(count * ciScale), 50);
+        const system = createComputeGemSparks({ count: computeCount, bounds, center });
+
+        system.mesh.userData.computeParticleSystem = system;
+        addComputeSystem('gem_sparks', system);
+
+        metrics.set('gem_sparks', {
+            particleCount: computeCount,
+            frameTime: 0,
+            gpuTime: 0,
+            cpuFallback: !system.mesh.userData.isCPUParticles,
+        });
+
+        console.log(`[Particles] Gem Sparks: ${computeCount.toLocaleString()} motes`);
+
+        return system.mesh;
+    } catch (error) {
+        console.warn('[Particles] Gem sparks failed to initialize:', error);
+        return new THREE.Group();
+    }
+}
+
 
 /**
  * Creates an integrated rain system.
@@ -304,11 +466,19 @@ export function createIntegratedRain(options: IntegratedRainOptions = {}): THREE
     } = options;
 
     const hasWebGPU = typeof navigator !== 'undefined' && 'gpu' in navigator;
+    const skipHeavyParticles = typeof window !== 'undefined' && (window as any).__fastPopulationOverride;
+
+    // Scale down for CI to prevent device crash
+    const ciScale = PARTICLE_QUALITY === 'ci' ? 0.01 : 1.0;
+
+    if (PARTICLE_QUALITY === 'ci') return new THREE.Group();
 
     if (useCompute && hasWebGPU) {
         try {
+            const targetCount = skipHeavyParticles ? Math.floor(count / 10) : count;
+            const computeCount = Math.max(Math.floor(targetCount * ciScale), 50);
             const system = createComputeRain({
-                count: count,
+                count: computeCount,
                 bounds: { x: areaSize * 2, y: 100, z: areaSize * 2 },
                 center: center
             });
@@ -385,7 +555,8 @@ export function updateAllIntegratedSystems(
     playerPosition: THREE.Vector3,
     audioData: ParticleAudioData
 ): void {
-    for (const [id, system] of activeSystems) {
+    // ⚡ OPTIMIZATION: Swapped Map entry destructuring to .values() to eliminate array allocation and GC spikes in hot update loop.
+    for (const system of activeSystems.values()) {
         system.update(renderer, deltaTime, playerPosition, audioData);
     }
 }
@@ -402,7 +573,8 @@ export function disposeIntegratedSystem(id: string): void {
 }
 
 export function disposeAllIntegratedSystems(): void {
-    for (const [id] of activeSystems) {
+    // ⚡ OPTIMIZATION: Swapped Map entry destructuring to .keys() to eliminate array allocation and GC spikes during cleanup.
+    for (const id of activeSystems.keys()) {
         disposeIntegratedSystem(id);
     }
 }
@@ -413,7 +585,7 @@ export function disposeAllIntegratedSystems(): void {
 
 interface DeferredSystemConfig {
     id: string;
-    type: 'fireflies' | 'pollen' | 'rain' | 'sparks' | 'berries';
+    type: 'fireflies' | 'pollen' | 'rain' | 'sparks' | 'berries' | 'gem_sparks';
     options: any;
     priority: number;  // Lower = load first
 }
@@ -458,6 +630,10 @@ export async function loadDeferredSystems(
                     mesh = createIntegratedBerries(config.options);
                     system = (mesh as any).userData?.computeParticleSystem;
                     break;
+                case 'gem_sparks':
+                    mesh = createIntegratedGemSparks(config.options);
+                    system = (mesh as any).userData?.computeParticleSystem;
+                    break;
                 default:
                     console.warn(`[Particles] Unknown deferred type: ${config.type}`);
                     continue;
@@ -469,8 +645,17 @@ export async function loadDeferredSystems(
             loaded++;
             onProgress?.(loaded, total);
             
-            // Yield to prevent frame drops
-            await new Promise(resolve => setTimeout(resolve, 0));
+            if (system && system.initPromise) {
+                // Wait for GPU initialization to complete before moving to the next
+                // to prevent VRAM allocation spikes and WebGPU Device Lost errors
+                await system.initPromise;
+            }
+
+            // Yield multiple frames between systems in CI to let GC/GPU queue drain
+            const waitFrames = PARTICLE_QUALITY === 'ci' ? 3 : 1;
+            for (let i = 0; i < waitFrames; i++) {
+                await new Promise(resolve => requestAnimationFrame(resolve));
+            }
             
         } catch (error) {
             console.error(`[Particles] Failed to load deferred system ${config.id}:`, error);
@@ -605,5 +790,6 @@ export {
     createComputePollen,
     createComputeSparks,
     createComputeBerries,
+    createComputeGemSparks,
     type ParticleAudioData
 } from './compute-particles.ts';

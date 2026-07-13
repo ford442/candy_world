@@ -280,7 +280,10 @@ export class BatchCoordinator {
         const errors: Error[] = [];
         let loaded = 0;
 
-        const promises = ids.map(async (id) => {
+        const promises: Promise<LoadedAsset>[] = [];
+        for (let i = 0; i < ids.length; i++) {
+            const id = ids[i];
+            promises.push((async () => {
             try {
                 const asset = await loadAssetFn(id, priority);
                 results.push(asset);
@@ -292,7 +295,8 @@ export class BatchCoordinator {
                 errors.push(err);
                 throw err;
             }
-        });
+        })());
+        }
 
         try {
             await Promise.all(promises);
@@ -317,13 +321,17 @@ export class BatchCoordinator {
     static createBatchRequests(
         batch: AssetBatch
     ): AssetRequest[] {
-        return batch.ids.map(id => ({
-            id,
-            priority: batch.priority,
-            resolve: () => {},
-            reject: () => {},
-            attempts: 0
-        }));
+        const requests: AssetRequest[] = [];
+        for (let i = 0; i < batch.ids.length; i++) {
+            requests.push({
+                id: batch.ids[i],
+                priority: batch.priority,
+                resolve: () => {},
+                reject: () => {},
+                attempts: 0
+            });
+        }
+        return requests;
     }
 }
 

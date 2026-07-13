@@ -20,6 +20,7 @@ import {
 } from './performance-budget-types.ts';
 import { PerformanceBudget } from './performance-budget-core.ts';
 import { getGPUComputeStatus } from '../../compute/compute-init.ts';
+import { getFoliageLodStats } from '../batcher-lod.ts';
 
 export { DebugOverlayOptions };
 
@@ -238,11 +239,13 @@ export class PerformanceBudgetOverlay {
     `;
     
     // Show adaptive settings
+    const lodStats = getFoliageLodStats();
     html += `
       <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #444; font-size: ${10 * this.overlayOptions.scale}px; color: #aaa;">
         <div>LOD: ${(adaptiveSettings.lodDistanceMultiplier * 100).toFixed(0)}% | 
              Shadows: ${(adaptiveSettings.shadowDistanceMultiplier * 100).toFixed(0)}% | 
              Particles: ${(adaptiveSettings.particleDensityMultiplier * 100).toFixed(0)}%</div>
+        <div>Foliage LOD — Hero: ${lodStats.hero} | Mid: ${lodStats.mid} | Far: ${lodStats.far} | Culled: ${lodStats.culled}${lodStats.impostors > 0 ? ` | Impostors: ${lodStats.impostors}` : ''}</div>
         <div>${adaptiveSettings.aggressiveBatching ? '⚡ Batching ' : ''}
              ${adaptiveSettings.meshMerging ? '🔗 Merging ' : ''}
              ${adaptiveSettings.unloadDistantFoliage ? '🗑️ Unload ' : ''}</div>

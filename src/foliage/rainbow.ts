@@ -1,10 +1,16 @@
 import * as THREE from 'three';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
-import { color, uv, mix, Fn, uniform, sin, time, smoothstep, UniformNode } from 'three/tsl';
+import { uAudioLow, uAudioHigh } from './index.ts';
+import { registerReactiveMaterial } from './foliage-reactivity.ts';
+
+import { color, uv, mix, Fn, uniform, sin, time, smoothstep, UniformNode, float } from 'three/tsl';
 
 export const uRainbowOpacity = uniform(0.0);
 
-export function createRainbow(): THREE.Mesh {
+export function createRainbow(): THREE.Mesh | THREE.Group {
+    // TEMP ISOLATION - comment everything below and just return empty
+    return new THREE.Group();
+
     // Large Ring Geometry
     const innerRadius = 80;
     const outerRadius = 90;
@@ -68,11 +74,13 @@ export function createRainbow(): THREE.Mesh {
     const arcAlpha = smoothstep(0.0, 0.1, uv().x).mul(smoothstep(1.0, 0.9, uv().x));
 
     // Beat pulse?
-    const pulse = sin(time.mul(2.0)).mul(0.1).add(0.9);
+    const pulse = sin(time.mul(2.0)).mul(0.1).add(0.9).add(uAudioLow.mul(0.5));
 
     material.colorNode = col;
     material.opacityNode = uRainbowOpacity.mul(edgeAlpha).mul(arcAlpha).mul(pulse);
-    material.emissiveNode = col.mul(0.5); // Slight glow
+    material.emissiveNode = col.mul(float(0.5).add(uAudioHigh.mul(2.0))); // Audio-reactive glow
+
+    registerReactiveMaterial(material);
 
     const mesh = new THREE.Mesh(geometry, material);
     mesh.name = 'Rainbow';

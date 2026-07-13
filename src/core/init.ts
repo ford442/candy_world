@@ -1,12 +1,16 @@
 // src/core/init.ts
 
 import * as THREE from 'three';
-import { color, uniform } from 'three/tsl';
+import { color, uniform, uv, float, smoothstep, length } from 'three/tsl';
 import type UniformNode from 'three/src/nodes/core/UniformNode.js';
 import WebGPU from 'three/examples/jsm/capabilities/WebGPU.js';
 import { WebGPURenderer, MeshBasicNodeMaterial, StorageInstancedBufferAttribute, StorageBufferAttribute } from 'three/webgpu';
 import { PALETTE, CONFIG } from './config.ts';
 import { createCrescendoFogNode } from '../foliage/sky.ts';
+import {
+    resolveRendererBackend,
+    type RendererBackend,
+} from '../rendering/renderer-mode.ts';
 
 /**
  * Type union for supported renderers (WebGPU or WebGL fallback)
@@ -28,6 +32,8 @@ export interface SceneInitResult {
     camera: THREE.PerspectiveCamera;
     renderer: CandyRenderer;
     mode: 'webgpu' | 'webgl';
+    requested: RendererBackend;
+    fallbackReason: string | null;
     ambientLight: THREE.HemisphereLight;
     sunLight: THREE.DirectionalLight;
     sunGlow: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
@@ -36,6 +42,7 @@ export interface SceneInitResult {
     sunGlowMat: THREE.MeshBasicMaterial;
     coronaMat: THREE.MeshBasicMaterial;
     uShaftOpacity: ReturnType<typeof uniform<number>>;
+    playerBlobShadow: THREE.Mesh;
 }
 
 /**
@@ -48,19 +55,51 @@ declare global {
     }
 }
 
+function createWebGLRenderer(canvas: HTMLCanvasElement): THREE.WebGLRenderer {
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+    renderer.outputColorSpace = 'srgb';
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.0;
+    return renderer;
+}
+
+export interface CreateRendererResult {
+    renderer: CandyRenderer;
+    mode: 'webgpu' | 'webgl';
+    requested: RendererBackend;
+    fallbackReason: string | null;
+}
+
 /**
- * Create a renderer with automatic WebGL fallback if WebGPU is unavailable
- * or if the WebGPURenderer constructor throws at runtime (e.g. Safari 17.4 where
- * navigator.gpu exists but requestAdapter() returns null).
+ * Create a renderer from an explicit preference.
+ *
+ * Priority:
+ *   - `webgl`  → always WebGLRenderer (reference / debug / CI path)
+ *   - `webgpu` → WebGPURenderer when available; falls back to WebGL on failure
+ *
  * @param canvas The canvas element to render to
- * @returns Object containing the renderer and mode
+ * @param preference Resolved renderer preference from URL/localStorage
  */
-function createRenderer(canvas: HTMLCanvasElement): { renderer: CandyRenderer; mode: 'webgpu' | 'webgl' } {
+export function createRenderer(
+    canvas: HTMLCanvasElement,
+    preference: RendererBackend = resolveRendererBackend(),
+): CreateRendererResult {
+    if (preference === 'webgl') {
+        console.log('[Init] WebGL requested — creating WebGLRenderer');
+        return {
+            renderer: createWebGLRenderer(canvas),
+            mode: 'webgl',
+            requested: 'webgl',
+            fallbackReason: 'explicit-webgl',
+        };
+    }
+
     if (WebGPU.isAvailable()) {
         try {
             console.log('[Init] WebGPU available, creating WebGPURenderer');
             const renderer = new WebGPURenderer({ canvas, antialias: true });
-            return { renderer, mode: 'webgpu' };
+            return { renderer, mode: 'webgpu', requested: 'webgpu', fallbackReason: null };
         } catch (err) {
             // Issue #2: WebGPU may be declared available but fail at runtime
             // (e.g. requestAdapter returns null on Safari 17.4 / Chrome with
@@ -77,13 +116,13 @@ function createRenderer(canvas: HTMLCanvasElement): { renderer: CandyRenderer; m
         warning.style.zIndex = '1';  // Behind loading screen
         document.body.appendChild(warning);
     }
-    
-    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
-    renderer.outputColorSpace = THREE.SRGBColorSpace;
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.0;
-    return { renderer, mode: 'webgl' };
+
+    return {
+        renderer: createWebGLRenderer(canvas),
+        mode: 'webgl',
+        requested: 'webgpu',
+        fallbackReason: 'webgpu-unavailable',
+    };
 }
 
 /**
@@ -103,8 +142,8 @@ export function initScene(): SceneInitResult {
     const canvas = document.querySelector('#glCanvas') as HTMLCanvasElement;
     const scene = new THREE.Scene();
 
-    // Create renderer with automatic fallback from WebGPU to WebGL
-    const { renderer, mode } = createRenderer(canvas);
+    const requested = resolveRendererBackend();
+    const { renderer, mode, fallbackReason } = createRenderer(canvas, requested);
 
     // TSL-driven Crescendo Fog initialization (WebGPU only)
     if (mode === 'webgpu') {
@@ -119,7 +158,7 @@ export function initScene(): SceneInitResult {
         0.1, 
         2000
     );
-    camera.position.set(0, 5, 0);
+    camera.position.set(0, CONFIG.player.spawnEyeHeightY, 0);
 
     // WebGPU-specific fixes and configuration
     if (mode === 'webgpu') {
@@ -142,8 +181,7 @@ export function initScene(): SceneInitResult {
         if (supportsHDR) {
             console.log('[Init] HDR supported, configuring WebGPURenderer for extended dynamic range and Display P3.');
             try {
-                // Fallback to string literals since THREE.DisplayP3ColorSpace might not be available in this three.js version
-                webgpuRenderer.outputColorSpace = 'display-p3' as THREE.ColorSpace;
+                webgpuRenderer.outputColorSpace = 'display-p3';
             } catch (e) {
                 console.warn('[Init] Failed to set display-p3, falling back to srgb.');
                 webgpuRenderer.outputColorSpace = 'srgb';
@@ -161,6 +199,10 @@ export function initScene(): SceneInitResult {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5)); // Cap pixel ratio for better performance
     renderer.toneMappingExposure = 1.0;
 
+    // Shadow Map configuration
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
     // --- Lighting ---
     const ambientLight = new THREE.HemisphereLight(
         PALETTE.day.skyTop, 
@@ -176,7 +218,18 @@ export function initScene(): SceneInitResult {
     
     sunLight.shadow.mapSize.width = 1024;
     sunLight.shadow.mapSize.height = 1024;
+
+    const d = 40;
+    sunLight.shadow.camera.left = -d;
+    sunLight.shadow.camera.right = d;
+    sunLight.shadow.camera.top = d;
+    sunLight.shadow.camera.bottom = -d;
+    sunLight.shadow.camera.near = 0.5;
+    sunLight.shadow.camera.far = 150;
+    sunLight.shadow.bias = -0.0005;
+
     scene.add(sunLight);
+    scene.add(sunLight.target); // Needed for dynamically moving targets
 
     // Enhanced Sun Glow with dynamic corona effect
     const sunGlowMat = new THREE.MeshBasicMaterial({
@@ -224,8 +277,21 @@ export function initScene(): SceneInitResult {
             side: THREE.DoubleSide,
             depthWrite: false
         });
-        // Link opacity to a global TSL uniform
-        (shaftMaterial as MeshBasicNodeMaterial).opacityNode = uShaftOpacity;
+
+        // TSL Volumetric God Rays:
+        // Fade out horizontally at edges to prevent hard intersections
+        const uvNode = uv();
+        // Use proper boundaries: edge0 < edge1, then invert the result for the right side
+        const leftFade = smoothstep(0.0, 0.4, uvNode.x);
+        const rightFade = float(1.0).sub(smoothstep(0.6, 1.0, uvNode.x));
+        const fadeX = leftFade.mul(rightFade);
+
+        // Fade vertically to give a sense of scattering/dissipation (invert correctly)
+        const fadeY = float(1.0).sub(smoothstep(0.0, 1.0, uvNode.y)).pow(float(1.5));
+
+        // Link combined soft edges to global TSL uniform
+        const softOpacity = fadeX.mul(fadeY).mul(uShaftOpacity);
+        (shaftMaterial as MeshBasicNodeMaterial).opacityNode = softOpacity;
     } else {
         // WebGL fallback: use standard material with static opacity
         // Note: Opacity is updated dynamically in game-loop.ts based on sunrise/sunset.
@@ -248,8 +314,47 @@ export function initScene(): SceneInitResult {
         lightShaftGroup.add(shaft);
     }
     lightShaftGroup.position.copy(sunLight.position.clone().normalize().multiplyScalar(380));
+    lightShaftGroup.userData.shaftMaterial = shaftMaterial;
     lightShaftGroup.visible = false; // Only visible during sunrise/sunset
     scene.add(lightShaftGroup);
+
+    // Player Blob Shadow (Contact Shadow)
+    const blobShadowGeo = new THREE.PlaneGeometry(3, 3);
+    blobShadowGeo.rotateX(-Math.PI / 2); // Lay flat
+
+    let blobShadowMat: THREE.Material;
+    if (mode === 'webgpu') {
+        blobShadowMat = new MeshBasicNodeMaterial({
+            transparent: true,
+            depthWrite: false,
+            color: 0x000000,
+        });
+        const dist = length(uv().sub(0.5));
+        const alpha = smoothstep(0.5, 0.0, dist);
+        (blobShadowMat as MeshBasicNodeMaterial).opacityNode = alpha.mul(0.6);
+    } else {
+        // Fallback for WebGL using a canvas gradient
+        const shadowCanvas = document.createElement('canvas');
+        shadowCanvas.width = 64;
+        shadowCanvas.height = 64;
+        const ctx = shadowCanvas.getContext('2d')!;
+        const gradient = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+        gradient.addColorStop(0, 'rgba(0, 0, 0, 0.6)');
+        gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, 64, 64);
+
+        const shadowTex = new THREE.CanvasTexture(shadowCanvas);
+        blobShadowMat = new THREE.MeshBasicMaterial({
+            transparent: true,
+            depthWrite: false,
+            map: shadowTex
+        });
+    }
+
+    const playerBlobShadow = new THREE.Mesh(blobShadowGeo, blobShadowMat);
+    // Y position will be dynamically updated in game-loop.ts
+    scene.add(playerBlobShadow);
 
     window.addEventListener('resize', () => {
         camera.aspect = window.innerWidth / window.innerHeight;
@@ -262,6 +367,8 @@ export function initScene(): SceneInitResult {
         camera,
         renderer,
         mode,
+        requested,
+        fallbackReason,
         ambientLight,
         sunLight,
         sunGlow,
@@ -269,7 +376,8 @@ export function initScene(): SceneInitResult {
         lightShaftGroup,
         sunGlowMat,
         coronaMat,
-        uShaftOpacity // Export the uniform so main.ts can access it
+        uShaftOpacity,
+        playerBlobShadow
     };
 }
 
@@ -346,7 +454,12 @@ export async function forceFullSceneWarmup(
     // 4. Restore
     renderer.setViewport(scissor.x, scissor.y, scissor.z, scissor.w);
     restoreList.forEach(o => o.frustumCulled = true);
-    visibleRestoreList.forEach(o => o.visible = true);
+    visibleRestoreList.forEach(o => {
+        if (o && typeof o.visible !== 'undefined') {
+            o.visible = true;
+        }
+    });
+    visibleRestoreList.length = 0; // prevent stale references
     camera.layers.mask = originalMask;
     camera.position.copy(originalPos);
     camera.rotation.copy(originalRot);

@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { uGlitchExplosionCenter, uGlitchExplosionRadius, sharedGeometries } from '../foliage/index.ts';
 import { MeshStandardNodeMaterial, StorageInstancedBufferAttribute } from 'three/webgpu';
 import { color, float, attribute, storage, instanceIndex, Fn, If, vec4, uniform, positionLocal, smoothstep } from 'three/tsl';
-import { getGroundHeight } from '../utils/wasm-loader.ts';
+import { getGroundHeight } from '../systems/ground-system.ts';
 import { spawnImpact } from '../foliage/impacts.ts';
 import { addCameraShake } from '../core/camera-shake.ts';
 

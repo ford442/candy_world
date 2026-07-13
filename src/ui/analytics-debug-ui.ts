@@ -71,6 +71,12 @@ const DEBUG_STYLES = `
   opacity: 1;
 }
 
+.analytics-debug-close:active,
+.analytics-debug-close.keyboard-active {
+  transform: scale(0.95);
+  transition-duration: 0.05s;
+}
+
 .analytics-debug-close:focus-visible {
   outline: 2px solid #ff69b4;
   outline-offset: 2px;
@@ -230,7 +236,8 @@ const DEBUG_STYLES = `
   box-shadow: 0 4px 12px rgba(255, 105, 180, 0.4);
 }
 
-.analytics-debug-button:active {
+.analytics-debug-button:active,
+.analytics-debug-button.keyboard-active {
   transform: translateY(0) scale(0.95);
   transition-duration: 0.05s;
 }
@@ -278,6 +285,12 @@ const DEBUG_STYLES = `
   transition: background 0.3s;
   border: none;
   padding: 0;
+}
+
+.analytics-debug-toggle-switch:active,
+.analytics-debug-toggle-switch.keyboard-active {
+  transform: scale(0.95);
+  transition-duration: 0.05s;
 }
 
 .analytics-debug-toggle-switch:focus-visible {
