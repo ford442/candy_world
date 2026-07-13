@@ -238,7 +238,7 @@ export async function parallelWasmLoad(options: ParallelWasmLoadOptions = {}): P
                 return null;
             }
 
-            const locatePrefix = wasmCheck.path;
+            const locatePrefix = '/';
 
             // Import the generated JS loader
             let createCandyNative: ((config: Record<string, unknown>) => Promise<EmscriptenModule>) | undefined;

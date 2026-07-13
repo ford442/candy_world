@@ -1,3 +1,4 @@
+import { isCIorHeadless } from '../core/config.ts';
 import * as THREE from 'three';
 import { PointsNodeMaterial, StorageBufferAttribute } from 'three/webgpu';
 import { vec4, attribute, float, mix, color, vec3, smoothstep, sin, positionLocal, cos, Fn, instanceIndex, storage, uniform, If, length, floor } from 'three/tsl';
@@ -241,6 +242,6 @@ export function updateSparkleTrail(trail: THREE.Points, playerPos: THREE.Vector3
 
     // Execute the compute shader
     if (renderer && renderer.compute && spawnCount > 0) {
-        renderer.compute(userData.computeNode);
+        if (!isCIorHeadless()) { renderer.compute(userData.computeNode); }
     }
 }

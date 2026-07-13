@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { awakenedPersistence } from '../systems/awakened-persistence.ts';
 
 const _inverseMatrix = new THREE.Matrix4();
 const _ray = new THREE.Ray();
@@ -186,11 +187,17 @@ export function makeInteractive(group: THREE.Object3D) {
         group.userData.isHovered = false;
     };
 
+    const originalInteract = group.userData.onInteract;
+
     group.userData.onInteract = () => {
-        // Simple visual feedback (spin or pulse)
-        // Since we don't have tweening here easily, we rely on system updates
-        // or just a momentary scale bump
-        // group.scale.multiplyScalar(1.2); // Just for a frame, logic loop will reset it if using lerp
+        const entityId = awakenedPersistence.resolvePersistentId(group);
+        const type = (group.userData.type as string) || 'unknown';
+        const biome = group.userData.biome as string | undefined;
+        awakenedPersistence.markAwakened(entityId, { type, biome });
+
+        if (originalInteract) {
+            originalInteract();
+        }
     };
 
     return group;
@@ -229,12 +236,12 @@ export function trapFocusInside(element: HTMLElement): () => void {
 
         if (e.shiftKey) /* Shift + Tab */ {
             if (document.activeElement === firstFocusableEl) {
-                lastFocusableEl.focus();
+                lastFocusableEl.focus({ preventScroll: true });
                 e.preventDefault(); // Prevent default browser tab behavior
             }
         } else /* Tab */ {
             if (document.activeElement === lastFocusableEl) {
-                firstFocusableEl.focus();
+                firstFocusableEl.focus({ preventScroll: true });
                 e.preventDefault();
             }
         }
@@ -246,7 +253,7 @@ export function trapFocusInside(element: HTMLElement): () => void {
     // 3. Auto-focus the first element when triggered
     const initialFocusableEls = element.querySelectorAll<HTMLElement>(focusableSelectors);
     if (initialFocusableEls.length > 0) {
-        initialFocusableEls[0].focus();
+        initialFocusableEls[0].focus({ preventScroll: true });
     }
 
     // 4. Return a cleanup function to prevent memory leaks

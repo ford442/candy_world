@@ -11,7 +11,9 @@ export const reactiveMaterials: THREE.Material[] = [];
 export const _foliageReactiveColor = new THREE.Color(); 
 
 export function registerReactiveMaterial(mat: THREE.Material) { 
-    reactiveMaterials.push(mat); 
+    if (!reactiveMaterials.includes(mat)) {
+        reactiveMaterials.push(mat);
+    }
 }
 
 export function pickAnimation(types: string[]) { 
@@ -178,10 +180,25 @@ export function validateNodeGeometries(scene: THREE.Object3D) {
 
     if (missingPosition.length > 0) {
         const header = `[TSL] ${missingPosition.length} geometries missing 'position' attribute.`;
-        const examples = missingPosition.slice(0, 10).map(m => `${m.path} -> ${m.name}(${m.type}) [${m.geoType}] attrs: ${m.attrKeys}${m.patched ? ' (patched)' : ''}${m.ancestorType ? ` ancestor:${m.ancestorType}` : ''}`);
-        const patchedCount = missingPosition.filter(m => m.patched).length;
+
+        // ⚡ OPTIMIZATION: Replaced .slice().map() and .filter() with manual loops to prevent GC spikes in hot initialization path.
+        let examplesStr = '';
+        const limit = Math.min(10, missingPosition.length);
+        for (let i = 0; i < limit; i++) {
+            const m = missingPosition[i];
+            if (i > 0) examplesStr += '; ';
+            examplesStr += `${m.path} -> ${m.name}(${m.type}) [${m.geoType}] attrs: ${m.attrKeys}`;
+            if (m.patched) examplesStr += ' (patched)';
+            if (m.ancestorType) examplesStr += ` ancestor:${m.ancestorType}`;
+        }
+
+        let patchedCount = 0;
+        for (let i = 0; i < missingPosition.length; i++) {
+            if (missingPosition[i].patched) patchedCount++;
+        }
+
         const more = missingPosition.length > 10 ? ` + ${missingPosition.length - 10} more` : '';
-        let msg = `${header} Examples: ${examples.join('; ')}${more}.`;
+        let msg = `${header} Examples: ${examplesStr}${more}.`;
         if (patchedCount > 0) {
             msg += ` Note: ${patchedCount} were auto-patched with minimal position/normal data; consider fixing the source constructor.`;
         }

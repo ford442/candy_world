@@ -1,6 +1,9 @@
 # Music Map Binding
 
-Map data can now layer music personality on top of `assets/music-bindings.json` defaults without code edits.
+Map data can layer music personality on top of `assets/music-bindings.json` defaults
+without code edits. For material / TSL conventions when wiring new reactive foliage,
+see **[`CANDY_MATERIAL_COOKBOOK.md`](./CANDY_MATERIAL_COOKBOOK.md)** and
+**[`AGENTS.md`](../AGENTS.md)** (music-binding section).
 
 ## Override Precedence
 
@@ -73,53 +76,80 @@ Entity and region hints are normalized by `MapLoader` and folded into runtime ma
 1. `src/world/generation-core.ts` loads the map and derives map music context.
 2. `src/world/map-music-context.ts` stores normalized overrides.
 3. `src/systems/music-reactivity.ts` atomically reapplies bindings when context version changes.
-4. Foliage/atmospheric batchers consume `BiomeUniforms` and reflect the new profile.
+4. `src/systems/atmosphere-reactivity.ts` maps audio energy to `uBloomStrength`, `uCrescendoFogDensity`, and shaft state (called from `MusicReactivitySystem.update()`).
+5. Foliage/atmospheric batchers consume `BiomeUniforms` and reflect the new profile.
 
-## Atmosphere Reactivity (Bloom, Fog, Light Shafts)
+## Atmosphere Reactivity (`assets/music-bindings.json` → post-processing + sky)
 
-The optional top-level `atmosphere` block in `assets/music-bindings.json` drives
-post-processing and sky uniforms from audio analysis (`src/systems/atmosphere-reactivity.ts`,
-called once per frame from `MusicReactivitySystem.update()`). It is global config only —
-not currently exposed as a per-map `music` override.
+Optional top-level `atmosphere` block (parallel to `weatherReactivity`). Drives bloom, candy-dream fog, and moonbeam/golden-hour god rays with zero per-frame allocations.
 
 ```json
 {
   "atmosphere": {
     "bloom": {
-      "channels": [0, 1],
-      "restStrength": 1.0,
-      "maxStrength": 2.5,
-      "smoothing": 4.0
+      "channels": [0, 6],
+      "rest": 1.0,
+      "peak": 2.5,
+      "smoothing": 8.0
     },
-    "fog": {
-      "boostScale": 0.7,
-      "smoothing": 3.0
+    "fogDensity": {
+      "scale": 0.65,
+      "max": 0.85,
+      "smoothing": 6.0
     },
-    "shafts": {
-      "restOpacity": 0.0,
-      "maxOpacity": 0.35,
-      "smoothing": 2.5,
-      "activateThreshold": 0.15
+    "shaftMelody": {
+      "peak": 0.35,
+      "smoothing": 10.0
     },
     "beatPulse": {
-      "threshold": 0.5,
-      "bloomSpike": 0.6,
-      "shaftShimmerSpike": 0.25,
-      "decayRate": 4.0
+      "bloomSpike": 0.45,
+      "shaftShimmer": 0.12,
+      "decay": 12.0
     }
   }
 }
 ```
 
-| Source | Target uniform | Behavior |
-| --- | --- | --- |
-| `bloom.channels` average volume + `kickTrigger` | `uBloomStrength` (`src/foliage/post-processing.ts`) | Lerps from `restStrength` (~1.0) toward `maxStrength` (~2.5) on kick/bass energy, smoothed by `bloom.smoothing`. |
-| Average volume across all channels | `uCrescendoFogDensity` (`src/foliage/sky.ts`) | Enhances (never decreases) the existing weather-driven crescendo lerp; target = `averageVolume * fog.boostScale`, smoothed by `fog.smoothing`. |
-| `SkyUniforms.intensity` (sky/moon melody channel, night-gated) | `uShaftOpacity` (`src/core/init.ts`) | At night, lerps from `shafts.restOpacity` toward `shafts.maxOpacity` based on melody intensity, smoothed by `shafts.smoothing`. Crossing `shafts.activateThreshold` makes moonbeam god rays visible (`src/core/game-loop.ts`). |
-| `BeatSync` strong downbeats (`kickTrigger >= beatPulse.threshold`) | `uBloomStrength` + `uShaftOpacity` | Adds a decaying spike (`beatPulse.bloomSpike` / `beatPulse.shaftShimmerSpike`) on top of the targets above, decaying at `beatPulse.decayRate`. |
+| Signal | Source | Target uniform |
+|--------|--------|----------------|
+| Kick / bass energy | `atmosphere.bloom.channels` (fallback: ch0 + `global.shimmer`) | `uBloomStrength` (rest → peak on crescendo) |
+| Mix energy / avg volume | All tracker channels (smoothed) | `uCrescendoFogDensity` |
+| Melody channel hits | `sky_moon.melody_channel` (via `MRState.skyMoonCh`) | `uShaftOpacity` + night shaft visibility |
+| BeatSync downbeats | `atmosphere.beatPulse` | Brief bloom spike + shaft shimmer (smooth decay) |
 
-All fields are optional and fall back to the defaults shown above if the `atmosphere`
-block (or any individual field) is omitted. Sunrise/sunset god rays remain owned by
-`game-loop.ts`; near the day/night boundary it takes priority for `uShaftOpacity` for
-that frame so the two systems never fight over the same uniform.
+Map-level overrides: add `"atmosphere": { ... }` under `music` in map JSON (same precedence as other music overrides).
+
+**Ownership:** `atmosphere-reactivity.ts` is the sole writer of `uBloomStrength` and `uCrescendoFogDensity`. `weather-atmosphere.ts` reads fog density for visibility; `game-loop.ts` must not overwrite bloom before render.
+
+WebGL parity: `post-processing.ts` syncs `uBloomStrength.value` to `UnrealBloomPass.strength` each frame; `game-loop.ts` mirrors `uShaftOpacity` to the shared WebGL shaft material.
+
+## Gem Canopy Binding (`gem_canopy`)
+
+The Gem Canopy corridor is placed procedurally by `src/world/generation-decorators.ts` (`populateGemCanopyCorridor`). It is **not** authored in `assets/map.json`; the primary placement mechanism is the procedural decorator so the tree-lined jewel path can recede into fog with consistent density.
+
+```json
+{
+  "biomes": {
+    "gem_canopy": {
+      "shimmer": [1, 2],
+      "hueShift": [3],
+      "noteColor": [1]
+    }
+  },
+  "sky_wave": {
+    "target_biomes": ["arpeggio_grove", "crystalline_nebula", "luminous_plants", "sky_moon", "global", "gem_canopy"]
+  }
+}
+```
+
+| Signal | Source | Target uniform | Visual effect |
+|--------|--------|----------------|---------------|
+| Melody / chord shimmer | `gem_canopy.shimmer` | `BiomeUniforms.gemCanopy.shimmer` | Gems brighten and bloom; emissive pulse intensifies |
+| Note-hit twist driver | `gem_canopy.hueShift` | `BiomeUniforms.gemCanopy.hueShift` | Subtle pendulum twist on melody notes |
+| Note color | `gem_canopy.noteColor` | `BiomeUniforms.gemCanopy.noteColor` | Ruby / sapphire / amethyst tints shift toward the active tracker note |
+| Sky wave cascade | `sky_wave.target_biomes` includes `gem_canopy` | `BiomeUniforms.gemCanopy.noteColor` | Moon melody hue travels down to the corridor on the beat |
+
+Batcher implementation: `src/foliage/gem-fruit-batcher.ts` creates one `InstancedMesh` per jewel type (ruby, sapphire, amethyst) → three draw calls total. Each mesh uses `CandyPresets.Crystal` for the candy-glass clearcoat look, with `calculateWindSway` pendulum motion and a `gemCanopyNoteColorNode` tint in the TSL graph. Resolve uniforms via `getBiomeUniforms('gem_canopy')` — see the [Material Cookbook](./CANDY_MATERIAL_COOKBOOK.md). `GemFruitBatcher.attachToTree` is also used for corridor accent portamento/bubble-willow trees so the jewel motif stays consistent.
+
+Map export: `gem_canopy_tree` is in `SUPPORTED_EXPORT_TYPES` with `category: 'mushroom-trees'` and `biome: 'gem_canopy'`. Spawn tracker records attempts as type `gem_canopy_tree`, and batcher telemetry reports the instanced gem count under id `gem_canopy`.
 

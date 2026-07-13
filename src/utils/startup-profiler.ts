@@ -77,9 +77,11 @@ let warmupMetrics = {
 let generationChunksStreamed = 0;
 
 // UI Elements
-let overlayContainer: HTMLElement | null = null;
-let overlayCanvas: HTMLCanvasElement | null = null;
-let overlayCtx: CanvasRenderingContext2D | null = null;
+export const uiState = {
+  overlayContainer: null as HTMLElement | null,
+  overlayCanvas: null as HTMLCanvasElement | null,
+  overlayCtx: null as CanvasRenderingContext2D | null,
+};
 
 // Original console methods (for hooking)
 let originalConsoleTime: typeof console.time;
@@ -210,7 +212,7 @@ function hookWebGPU() {
           }
           // Fix for mapping issue on some devices - force mappedAtCreation to false when we can
           // Unless explicitly requested otherwise
-          if (desc.mappedAtCreation === undefined || desc.mappedAtCreation === true) {
+          if (desc.mappedAtCreation === undefined) {
              desc.mappedAtCreation = false;
           }
           return originalCreateBuffer.call(device, desc);
@@ -526,6 +528,9 @@ function outputReportToConsole(report: StartupReport): void {
 // Overlay UI
 // ============================================================================
 import { createOverlay, drawOverlay, hideOverlay, showOverlay } from './startup-profiler-ui.ts';
+import { toggleOverlay } from './startup-profiler-ui.ts';
+export { toggleOverlay };
+
 // ============================================================================
 // Public API
 // ============================================================================
@@ -642,17 +647,6 @@ export function finalizeStartupProfile(): StartupReport {
   }, 10000);
   
   return report;
-}
-
-/**
- * Toggle the profiler overlay visibility
- */
-export function toggleOverlay(): void {
-  if (!overlayContainer || overlayContainer.style.display === 'none') {
-    showOverlay();
-  } else {
-    hideOverlay();
-  }
 }
 
 /**

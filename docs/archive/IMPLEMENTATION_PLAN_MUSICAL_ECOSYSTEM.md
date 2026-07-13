@@ -90,3 +90,7 @@ Three.js Renderer -> WebGPU RenderPipeline (Raw Draw Calls)
 1. **Phase 4: The Graphics Rewire (Three.js → Raw WebGPU) Stage C — Scene Graph Replacement** (Status: Implemented ✅)
    - *Implementation Details:* Implemented AssemblyScript WASM ECS system using high-performance pointer arrays and memory mappings. Exported `ecs_createEntity`, `ecs_addComponent`, etc. to typescript.
    - *Next Step Suggestion:* Replace the large file refactoring tasks from `REFACTORING_PLAN_REMAINING.md`, starting with `src/world/generation.ts`.
+
+1. **Refactoring Large Files: Finalization** (Status: Implemented ✅)
+   - *Implementation Details:* Completed refactoring of all large files listed in `REFACTORING_PLAN_REMAINING.md` (`generation.ts`, `region-manager.ts`, `loading-screen.ts`, `audio-system.ts`, `analytics-debug.ts`) into smaller, modular components.
+   - *Next Step Suggestion:* Implement TSL Volumetric God Rays + selective DoF (#1173) or Awakened Flora Persistence (#1176).

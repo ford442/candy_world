@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { PointsNodeMaterial } from 'three/webgpu';
 import {
@@ -9,6 +10,7 @@ import {
     calculateFlowerBloom,
     calculateWindSway,
     applyPlayerInteraction,
+    applyStandardDeformation,
     createJuicyRimLight,
     uTime,
     uAudioHigh,
@@ -19,12 +21,15 @@ import { attribute, color as tslColor, positionLocal, vec3, float, mx_noise_floa
 import { foliageGroup } from '../world/state.ts';
 import { CONFIG } from '../core/config.ts';
 import { uTwilight } from './sky.ts';
+import { PlantPoseMachine } from './plant-pose-machine.ts';
+import { musicReactivitySystem } from '../systems/music-reactivity.ts';
+import { camera } from '../world/state.ts';
 import { BiomeUniforms } from '../systems/biome-uniforms.ts';
 
 // Use the instanced color varying populated by InstancedMeshNode
 const instanceColor = varyingProperty('vec3', 'vInstanceColor');
 
-const MAX_FLOWERS = 5000; // Reduced from 5000 for WebGPU uniform buffer limits
+const MAX_FLOWERS = 1000; // Reduced from 5000 for WebGPU uniform buffer limits
 const GRAINS_PER_FLOWER = 5;
 const MAX_POLLEN = MAX_FLOWERS * GRAINS_PER_FLOWER;
 
@@ -37,6 +42,7 @@ const _scratchScale = new THREE.Vector3();
 const _scratchColor = new THREE.Color();
 
 export class SimpleFlowerBatcher {
+    private _poseMachine!: PlantPoseMachine;
     initialized: boolean;
     count: number;
 
@@ -128,8 +134,7 @@ export class SimpleFlowerBatcher {
 
         // Petal: Velvet with Instance Color + Bloom + Wind + Push
         const posBloom = calculateFlowerBloom(positionLocal);
-        const posWind = posBloom.add(calculateWindSway(posBloom));
-        const posFinal = applyPlayerInteraction(posWind);
+        const posFinal = applyStandardDeformation(posBloom);
 
         // PALETTE: Enhance Petal Material with "Juice"
         const petalMat = CandyPresets.Velvet(0xFFFFFF, {
@@ -206,6 +211,7 @@ export class SimpleFlowerBatcher {
         // 4. Pollen System (Juice)
         this.initPollenSystem();
 
+        this._poseMachine = new PlantPoseMachine(MAX_FLOWERS);
         this.initialized = true;
         console.log(`[SimpleFlowerBatcher] Initialized with capacity ${MAX_FLOWERS}`);
     }
@@ -302,8 +308,8 @@ export class SimpleFlowerBatcher {
         return mesh;
     }
 
-    update(audioState: any) {
-        if (!this.initialized || this.count === 0) return;
+    update(time: number, deltaTime: number, audioState: any, dayNightBias: number) {
+        if (!this.initialized || this.count === 0 || !this._poseMachine) return;
         const kick = audioState?.kickTrigger || 0;
         const bloom = Math.min(kick * 0.3, 0.5);
         const meshes = [this.stemMesh, this.petalMesh, this.centerMesh, this.stamenMesh, this.beamMesh];
@@ -337,17 +343,6 @@ export class SimpleFlowerBatcher {
         _scratchScale.set(0.05, stemHeight, 0.05);
         _scratchMat.makeScale(_scratchScale.x, _scratchScale.y, _scratchScale.z);
         _scratchMat.premultiply(baseMatrix); // Apply World Transform
-        const bufferLength1 = this.stemMesh!.instanceMatrix.array.length / 16;
-        if (i >= this.maxInstances || i >= bufferLength1 || i < 0) {
-            console.error(
-                `[BOLT CRASH] ${this.constructor.name} prevented out-of-bounds write!`,
-                `index=${i}`,
-                `maxInstances=${this.maxInstances}`,
-                `bufferCapacity=${bufferLength1}`,
-                `currentCount=${this.count}`
-            );
-            return -1; // Early return to prevent bad write
-        }
         // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
         _scratchMat.toArray(this.stemMesh!.instanceMatrix.array, (i) * 16);
 
@@ -359,17 +354,6 @@ export class SimpleFlowerBatcher {
         const headWorld = _scratchMat2; // No clone, avoid GC spike
 
         // Petals
-        const bufferLength2 = this.petalMesh!.instanceMatrix.array.length / 16;
-        if (i >= this.maxInstances || i >= bufferLength2 || i < 0) {
-            console.error(
-                `[BOLT CRASH] ${this.constructor.name} prevented out-of-bounds write!`,
-                `index=${i}`,
-                `maxInstances=${this.maxInstances}`,
-                `bufferCapacity=${bufferLength2}`,
-                `currentCount=${this.count}`
-            );
-            return -1; // Early return to prevent bad write
-        }
         // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
         headWorld.toArray(this.petalMesh!.instanceMatrix.array, (i) * 16);
 
@@ -389,50 +373,15 @@ export class SimpleFlowerBatcher {
         // Center: Scale(0.1)
         _scratchMat.makeScale(0.1, 0.1, 0.1);
         _scratchMat.premultiply(headWorld);
-        const bufferLength3 = this.centerMesh!.instanceMatrix.array.length / 16;
-        if (i >= this.maxInstances || i >= bufferLength3 || i < 0) {
-            console.error(
-                `[BOLT CRASH] ${this.constructor.name} prevented out-of-bounds write!`,
-                `index=${i}`,
-                `maxInstances=${this.maxInstances}`,
-                `bufferCapacity=${bufferLength3}`,
-                `currentCount=${this.count}`
-            );
-            return -1; // Early return to prevent bad write
-        }
         // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
         _scratchMat.toArray(this.centerMesh!.instanceMatrix.array, (i) * 16);
 
         // Stamens: No extra scale needed (baked in geometry), just head transform
-        const bufferLength4 = this.stamenMesh!.instanceMatrix.array.length / 16;
-        if (i >= this.maxInstances || i >= bufferLength4 || i < 0) {
-            console.error(
-                `[BOLT CRASH] ${this.constructor.name} prevented out-of-bounds write!`,
-                `index=${i}`,
-                `maxInstances=${this.maxInstances}`,
-                `bufferCapacity=${bufferLength4}`,
-                `currentCount=${this.count}`
-            );
-            return -1; // Early return to prevent bad write
-        }
         // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
         headWorld.toArray(this.stamenMesh!.instanceMatrix.array, (i) * 16);
 
         // Beam: force for glowing variants, otherwise random chance for visual variety.
         const forceBeam = options.forceBeam === true;
-
-        const bufferLength5 = this.beamMesh!.instanceMatrix.array.length / 16;
-        if (i >= this.maxInstances || i >= bufferLength5 || i < 0) {
-            console.error(
-                `[BOLT CRASH] ${this.constructor.name} prevented out-of-bounds write!`,
-                `index=${i}`,
-                `maxInstances=${this.maxInstances}`,
-                `bufferCapacity=${bufferLength5}`,
-                `currentCount=${this.count}`
-            );
-            return -1; // Early return to prevent bad write
-        }
-
         if (forceBeam || Math.random() > 0.5) {
             _scratchMat.makeScale(0.1, 1.0, 0.1);
             _scratchMat.premultiply(headWorld);
@@ -514,6 +463,22 @@ export class SimpleFlowerBatcher {
             // Yes, unless we set drawRange.
             this.pollenPoints.geometry.setDrawRange(0, this.count * GRAINS_PER_FLOWER);
         }
+    }
+
+    dispose(): void {
+        const meshes = [
+            this.stemMesh,
+            this.petalMesh,
+            this.centerMesh,
+            this.stamenMesh,
+            this.beamMesh,
+            this.pollenPoints
+        ];
+        meshes.forEach(mesh => {
+            if (mesh && mesh.parent) {
+                safeRemoveAndDispose(mesh.parent, mesh);
+            }
+        });
     }
 }
 

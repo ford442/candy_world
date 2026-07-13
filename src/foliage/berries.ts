@@ -5,7 +5,7 @@ import {
     sin, dot, time, attribute,
     storage, instanceIndex, Fn, If, vec4, varyingProperty
 } from 'three/tsl';
-import { CandyPresets, uAudioLow, uTime, createJuicyRimLight, calculateWindSway, applyPlayerInteraction } from './index.ts';
+import { CandyPresets, uAudioLow, uTime, createJuicyRimLight, calculateWindSway, applyPlayerInteraction, applyStandardDeformation } from './index.ts';
 import { spawnImpact } from './impacts.ts';
 import { uChromaticIntensity } from './chromatic.ts';
 import { foliageGroup } from '../world/state.ts';
@@ -66,7 +66,7 @@ export interface FallingBerry {
 }
 
 // --- Berry Batcher ---
-const MAX_BERRIES = 10000; // Reduced from 10000 for WebGPU uniform buffer limits
+const MAX_BERRIES = 2500; // Reduced from 10000 for WebGPU uniform buffer limits
 
 export class BerryBatcher {
     private static instance: BerryBatcher;
@@ -193,9 +193,7 @@ export class BerryBatcher {
         }
 
             // Set Glow
-            if (idx < this.glowAttribute.count && idx >= 0) {
-                this.glowAttribute.setX(idx, baseGlow);
-            }
+            this.glowAttribute.setX(idx, baseGlow);
         }
 
         group.userData.initialTransforms = initialTransforms;
@@ -227,15 +225,6 @@ export class BerryBatcher {
                 const count = group.userData.count;
                 _scratchMatrix.makeScale(0, 0, 0);
                 for(let i=0; i<count; i++) {
-                    const idx = start + i;
-                    const bufferCapacity1 = this.mesh.instanceMatrix.array.length / 16;
-                    if (idx >= this.maxInstances || idx >= bufferCapacity1 || idx < 0) {
-                        console.error(
-                            `[BOLT CRASH] ${this.constructor.name} prevented out-of-bounds write!`,
-                            { index: idx, bufferCapacity: bufferCapacity1, maxInstances: this.maxInstances, currentCount: this.count }
-                        );
-                        continue;
-                    }
                     // ⚡ OPTIMIZATION: Write directly to instanceMatrix array instead of updateMatrix + setMatrixAt
                     _scratchMatrix.toArray(this.mesh.instanceMatrix.array, (start + i) * 16);
                 }
@@ -294,22 +283,11 @@ export class BerryBatcher {
                     // World = Parent * Local
                     _scratchMatrix.multiplyMatrices(parentMatrix, _scratchMatrix);
 
-                    const bufferCapacity2 = this.mesh.instanceMatrix.array.length / 16;
-                    if (idx >= this.maxInstances || idx >= bufferCapacity2 || idx < 0) {
-                        console.error(
-                            `[BOLT CRASH] ${this.constructor.name} prevented out-of-bounds write!`,
-                            { index: idx, bufferCapacity: bufferCapacity2, maxInstances: this.maxInstances, currentCount: this.count }
-                        );
-                        continue;
-                    }
-
                     _scratchMatrix.toArray(this.mesh.instanceMatrix.array, idx * 16);
                 }
 
                 // Update Glow
-                if (idx < this.glowAttribute.count && idx >= 0) {
-                    this.glowAttribute.setX(idx, targetIntensity);
-                }
+                this.glowAttribute.setX(idx, targetIntensity);
             }
 
             if (!skipMatrixUpdate) meshNeedsUpdate = true;
@@ -389,8 +367,7 @@ function createHeartbeatMaterial(): THREE.Material {
 
     // 🎨 PALETTE: Add TSL Wind Sway and Player Interaction
     const posScaled = positionLocal.mul(scaleFactor);
-    const posWind = posScaled.add(calculateWindSway(posScaled));
-    material.positionNode = applyPlayerInteraction(posWind);
+    material.positionNode = applyStandardDeformation(posScaled);
 
     // 3. Reactive Glow (Emissive)
     const aGlow = attribute('aGlow', 'float'); // FROM BATCHER

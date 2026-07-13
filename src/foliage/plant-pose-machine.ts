@@ -11,7 +11,7 @@
  */
 
 import * as THREE from 'three';
-import { ActiveWave, computeWaveTimeSinceArrival } from '../systems/music-reactivity.ts';
+import { ActiveWave, computeWaveDistSq } from '../systems/music-reactivity.ts';
 
 export interface PlantPoseConfig {
     /** Rate at which envelopeLevel ramps toward 1.0 per second when channel is active. */
@@ -98,10 +98,16 @@ export class PlantPoseMachine {
 
             if (activeWave && getPlantWorldPosition) {
                 getPlantWorldPosition(i, this._scratchPos);
-                const timeSinceArrival = computeWaveTimeSinceArrival(this._scratchPos, activeWave, cameraPosition);
+                const distSq = computeWaveDistSq(this._scratchPos, activeWave, cameraPosition);
 
-                if (timeSinceArrival > 0) {
-                    triggerValue = Math.min(1.0, timeSinceArrival * 2.0);
+                const speed = activeWave.speed || 25.0;
+                const elapsedSec = Math.max(0, (performance.now() - activeWave.timestamp) / 1000);
+                const currentRadius = elapsedSec * speed;
+                const waveRadiusSq = currentRadius * currentRadius;
+
+                if (distSq < waveRadiusSq && waveRadiusSq > 0) {
+                    const progress = 1.0 - (distSq / waveRadiusSq); // inverted for "arrival" feel
+                    triggerValue = Math.min(1.0, progress * 2.0); // quick ramp-up
                 } else {
                     triggerValue = 0;
                 }
@@ -116,15 +122,17 @@ export class PlantPoseMachine {
                 if (this._envelopeLevel[i] < 0.0) this._envelopeLevel[i] = 0.0;
             }
 
-            // --- Target pose: driven by day/night cycle, boosted by music ---
-            // Music envelope allows the plant to open/glow at night.
-            // During the day, it's already open (baseline near dayTarget).
-            const musicTarget = nightTarget + (dayTarget - nightTarget) * (this._envelopeLevel[i] * sustainLevel);
-            this._targetPose[i] = Math.max(baseline, musicTarget);
+            // --- Target pose: baseline shifted by envelope contribution ---
+            this._targetPose[i] = baseline + (envelopePeak - baseline) * this._envelopeLevel[i];
 
             // --- Smooth currentPose toward targetPose ---
             this._currentPose[i] += (this._targetPose[i] - this._currentPose[i]) * lerpK;
         }
+    }
+
+    /** Get the entire array of current poses (⚡ OPTIMIZATION) */
+    get currentPoses(): Float32Array {
+        return this._currentPose;
     }
 
     /** Read the current (smoothed) pose value for instance `index`. */

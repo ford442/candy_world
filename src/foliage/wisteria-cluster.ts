@@ -1,11 +1,11 @@
 import * as THREE from 'three';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import {
-    positionLocal, sin, cos, positionWorld, color, vec3, mix, float, smoothstep
+    time, positionLocal, sin, cos, positionWorld, color, vec3, mix, float, smoothstep
 } from 'three/tsl';
 import { _skyMoonNoteVal } from '../systems/music-reactivity.ts';
 import { attachReactivity } from './foliage-reactivity.ts';
-import { CandyPresets, uAudioHigh, uAudioLow, uTime, createJuicyRimLight, getCachedProceduralMaterial, applyPlayerInteraction, calculateWindSway } from './material-core.ts';
+import { CandyPresets, uAudioHigh, uAudioLow, uTime, createJuicyRimLight, getCachedProceduralMaterial, applyPlayerInteraction, applyStandardDeformation, calculateWindSway } from './material-core.ts';
 import { makeInteractive } from '../utils/interaction-utils.ts';
 import { CONFIG } from '../core/config.ts';
 import { uTwilight } from './sky.ts';
@@ -61,8 +61,7 @@ export function createWisteriaCluster(options: WisteriaClusterOptions = {}) {
 
         // Apply sway to vertex position
         const posSwayed = positionLocal.add(vec3(swayX, float(0.0), swayZ));
-        const posWind = posSwayed.add(calculateWindSway(posSwayed));
-        const posFinal = applyPlayerInteraction(posWind);
+        const posFinal = applyStandardDeformation(posSwayed);
         mat.positionNode = posFinal;
 
         // Glow Effect based on audio
@@ -77,7 +76,7 @@ export function createWisteriaCluster(options: WisteriaClusterOptions = {}) {
 
         // 🎨 PALETTE: Twilight Glow for wisteria
         const glowPhaseOffset = positionWorld.x.mul(0.5).add(positionWorld.z.mul(0.3));
-        const idlePulse = sin(uTime.mul(float(CONFIG.glow.glowPulseFrequency)).add(glowPhaseOffset)).mul(float(CONFIG.glow.glowPulseAmplitude)).add(1.0).mul(float(0.5)).mul(uAudioLow.mul(0.3).add(0.7));
+        const idlePulse = sin(time.mul(float(CONFIG.glow.glowPulseFrequency)).add(glowPhaseOffset)).mul(float(CONFIG.glow.glowPulseAmplitude)).add(1.0).mul(float(0.5)).mul(uAudioLow.mul(0.3).add(0.7));
         const targetGlowColor = color(CONFIG.glow.glowColorMap['wisteria']);
         const twilightGlowTint = targetGlowColor
             .mul(uTwilight)

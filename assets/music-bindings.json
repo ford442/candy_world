@@ -68,6 +68,23 @@
       "noteColor": [
         6
       ]
+    },
+    "gem_canopy": {
+      "shimmer": [
+        1,
+        2
+      ],
+      "hueShift": [
+        3
+      ],
+      "noteColor": [
+        1
+      ],
+      "sparkle": {
+        "intensity": 0.35,
+        "twinkleRate": 4.0,
+        "_comment": "Drives gem_sparks visual tuning; shares gem_canopy channel wiring via BiomeUniforms.gemCanopy.shimmer + uAudioHigh"
+      }
     }
   },
   "portamento_pine": {
@@ -91,10 +108,38 @@
       "crystalline_nebula",
       "luminous_plants",
       "sky_moon",
-      "global"
+      "global",
+      "gem_canopy"
     ],
     "decay_ms": 2000,
     "_comment": "Order in target_biomes controls stagger (earlier = hits first). Wave lerps the corresponding noteColor uniform so any foliage already consuming that uniform (portamento, wisteria, trees, mushrooms, etc.) receives the sky hue automatically."
+  },
+  "atmosphere": {
+    "bloom": {
+      "channels": [0, 6],
+      "rest": 1.0,
+      "peak": 2.5,
+      "smoothing": 8.0
+    },
+    "fogDensity": {
+      "scale": 0.65,
+      "max": 0.85,
+      "smoothing": 6.0
+    },
+    "shaftMelody": {
+      "peak": 0.35,
+      "smoothing": 10.0
+    },
+    "beatPulse": {
+      "bloomSpike": 0.45,
+      "shaftShimmer": 0.12,
+      "decay": 12.0
+    }
+  },
+  "cloud_platform": {
+    "melody_glow": [2, 3],
+    "emissive_strength": 0.35,
+    "_comment": "Walkable cloud blocks — melody channels drive uAudioHigh puff/glow in cloud-batcher.ts"
   },
   "weatherReactivity": {
     "rainIntensity": {
@@ -112,30 +157,5 @@
       "smoothing": 0.3,
       "scale": 0.5
     }
-  },
-  "atmosphere": {
-    "bloom": {
-      "channels": [0, 1],
-      "restStrength": 1.0,
-      "maxStrength": 2.5,
-      "smoothing": 4.0
-    },
-    "fog": {
-      "boostScale": 0.7,
-      "smoothing": 3.0
-    },
-    "shafts": {
-      "restOpacity": 0.0,
-      "maxOpacity": 0.35,
-      "smoothing": 2.5,
-      "activateThreshold": 0.15
-    },
-    "beatPulse": {
-      "threshold": 0.5,
-      "bloomSpike": 0.6,
-      "shaftShimmerSpike": 0.25,
-      "decayRate": 4.0
-    },
-    "_comment": "Optional. Drives bloom/fog/light-shaft post-processing uniforms from audio. bloom.channels sum volume -> uBloomStrength (restStrength..maxStrength). fog.boostScale enhances uCrescendoFogDensity on top of the weather-driven lerp (never decreases it). shafts intensity comes from SkyUniforms.intensity (driven by sky_moon.melody_channel) -> uShaftOpacity at night. beatPulse adds a decaying spike to bloom + shaft shimmer on strong downbeats."
   }
 }

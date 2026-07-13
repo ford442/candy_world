@@ -19,7 +19,8 @@ import {
     defaultNebulaShimmerCh, defaultNebulaAmplitudeCh, defaultNebulaNoteColorCh,
     defaultSkyMoonNoteColorCh, defaultSkyMoonIntensityCh, defaultGlobalShimmerCh,
     defaultGlobalHueShiftCh, defaultGlobalNoteColorCh, defaultSkyMoonMelodyCh,
-    defaultLuminousPlantTrackerChannel, WeatherReactivityBinding, defaultWeatherBindings,
+    defaultLuminousPlantTrackerChannel, defaultGemCanopyShimmerCh, defaultGemCanopyHueShiftCh,
+    defaultGemCanopyNoteColorCh, WeatherReactivityBinding, defaultWeatherBindings,
     defaultSkyWavePropagationMs, defaultSkyWaveDecayMs, defaultSkyWaveTargets,
     skyWaveUniformMap, CHROMATIC_SCALE
 } from './music-reactivity-defaults.ts';
@@ -27,7 +28,7 @@ import {
 import { getMapMusicContext } from '../world/map-music-context.ts';
 import type { MapMusicOverrides } from '../world/map-loader.ts';
 
-
+const _WEATHER_KEYS: Array<'rainIntensity' | 'thunderPulse' | 'fogDensity'> = ['rainIntensity', 'thunderPulse', 'fogDensity'];
 
 
 
@@ -62,9 +63,13 @@ export const MRState = {
     globalShimmerCh: defaultGlobalShimmerCh as readonly number[],
     globalHueShiftCh: defaultGlobalHueShiftCh as readonly number[],
     globalNoteColorCh: defaultGlobalNoteColorCh as readonly number[],
+    gemCanopyShimmerCh: defaultGemCanopyShimmerCh as readonly number[],
+    gemCanopyHueShiftCh: defaultGemCanopyHueShiftCh as readonly number[],
+    gemCanopyNoteColorCh: defaultGemCanopyNoteColorCh as readonly number[],
     arpeggioIntensityScale: 1.0,
     nebulaIntensityScale: 1.0,
     globalIntensityScale: 1.0,
+    gemCanopyIntensityScale: 1.0,
     skyMoonIntensityScale: 1.0,
     luminousIntensityScale: 1.0,
     arpeggioShimmerAccum: 0.0,
@@ -74,10 +79,13 @@ export const MRState = {
     skyMoonIntensityAccum: 0.0,
     globalShimmerAccum: 0.0,
     globalHueShiftAccum: 0.0,
+    gemCanopyShimmerAccum: 0.0,
+    gemCanopyHueShiftAccum: 0.0,
     skyMoonNoteVal: 0.0,
     arpeggioNoteVal: 0.0,
     nebulaNoteVal: 0.0,
     globalNoteVal: 0.0,
+    gemCanopyNoteVal: 0.0,
     skyMoonCh: defaultSkyMoonMelodyCh,
     luminousPlantTrackerChannel: defaultLuminousPlantTrackerChannel,
     smoothedSkyIntensity: 0.0,
@@ -89,7 +97,7 @@ export const MRState = {
     } as any,
     skyWavePropagationMs: defaultSkyWavePropagationMs,
     skyWaveDecayMs: defaultSkyWaveDecayMs,
-    skyWaveTargets: defaultSkyWaveTargets as readonly string[],
+    skyWaveTargets: [...defaultSkyWaveTargets] as string[],
     activeWave: null as any,
     waveDecayStartTime: 0,
     channelValidationDone: false,
@@ -100,6 +108,7 @@ export const _targetMoonColor = new THREE.Color(0xffffff);
 export const _targetArpeggioColor = new THREE.Color(0xffffff);
 export const _targetNebulaColor = new THREE.Color(0xffffff);
 export const _targetGlobalColor = new THREE.Color(0xffffff);
+export const _targetGemCanopyColor = new THREE.Color(0xffffff);
 
 // ⚡ OPTIMIZATION: Sky/Moon note reactivity scratch — allocated once, never in hot path.
 // melody_channel from assets/music-bindings.json sky_moon block.
@@ -140,11 +149,15 @@ export function computeWaveTimeSinceArrival(plantWorldPos: THREE.Vector3, active
     if (!activeWave) return -999;
     const origin = activeWave.origin || cameraPosition || _zeroVec;
     const speed = activeWave.speed || 25.0;
-    // ⚡ OPTIMIZATION: Bypassed THREE.Vector3.distanceTo() overhead in hot loop with raw math
+    // ⚡ OPTIMIZATION: Bypassed THREE.Vector3.distanceTo() overhead in hot loop with raw math.
     const dx = plantWorldPos.x - origin.x;
     const dy = plantWorldPos.y - origin.y;
     const dz = plantWorldPos.z - origin.z;
+
+    // Reverted: Using Math.sqrt() because we actually need linear arrival distance for timing logic.
+    // The previous optimization attempt distorted wave propagation.
     const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
     const arrivalTime = activeWave.timestamp + (distance / speed) * 1000;
     return (performance.now() - arrivalTime) / 1000;
 }
@@ -178,10 +191,14 @@ export function applyMapMusicContext(overrides: MapMusicOverrides | undefined): 
     MRState.globalShimmerCh = defaultGlobalShimmerCh;
     MRState.globalHueShiftCh = defaultGlobalHueShiftCh;
     MRState.globalNoteColorCh = defaultGlobalNoteColorCh;
+    MRState.gemCanopyShimmerCh = defaultGemCanopyShimmerCh;
+    MRState.gemCanopyHueShiftCh = defaultGemCanopyHueShiftCh;
+    MRState.gemCanopyNoteColorCh = defaultGemCanopyNoteColorCh;
 
     MRState.arpeggioIntensityScale = 1.0;
     MRState.nebulaIntensityScale = 1.0;
     MRState.globalIntensityScale = 1.0;
+    MRState.gemCanopyIntensityScale = 1.0;
     MRState.skyMoonIntensityScale = 1.0;
     MRState.luminousIntensityScale = 1.0;
 
@@ -195,7 +212,10 @@ export function applyMapMusicContext(overrides: MapMusicOverrides | undefined): 
     };
     MRState.skyWavePropagationMs = defaultSkyWavePropagationMs;
     MRState.skyWaveDecayMs = defaultSkyWaveDecayMs;
-    MRState.skyWaveTargets = defaultSkyWaveTargets;
+    MRState.skyWaveTargets.length = 0;
+    for (let i = 0; i < defaultSkyWaveTargets.length; i++) {
+        MRState.skyWaveTargets.push(defaultSkyWaveTargets[i]);
+    }
 
     const biomeOverrides = overrides?.biomes;
     if (biomeOverrides && typeof biomeOverrides === 'object') {
@@ -203,6 +223,7 @@ export function applyMapMusicContext(overrides: MapMusicOverrides | undefined): 
         const nebula = biomeOverrides.crystalline_nebula;
         const skyMoon = biomeOverrides.sky_moon;
         const global = biomeOverrides.global;
+        const gemCanopy = biomeOverrides.gem_canopy;
         if (arpeggio) {
             MRState.arpeggioShimmerCh = toChannels(arpeggio.shimmer) ?? MRState.arpeggioShimmerCh;
             MRState.arpeggioHueShiftCh = toChannels(arpeggio.hueShift) ?? MRState.arpeggioHueShiftCh;
@@ -234,6 +255,14 @@ export function applyMapMusicContext(overrides: MapMusicOverrides | undefined): 
                 MRState.globalIntensityScale = global.intensityScale;
             }
         }
+        if (gemCanopy) {
+            MRState.gemCanopyShimmerCh = toChannels(gemCanopy.shimmer) ?? MRState.gemCanopyShimmerCh;
+            MRState.gemCanopyHueShiftCh = toChannels(gemCanopy.hueShift) ?? MRState.gemCanopyHueShiftCh;
+            MRState.gemCanopyNoteColorCh = toChannels(gemCanopy.noteColor) ?? MRState.gemCanopyNoteColorCh;
+            if (typeof gemCanopy.intensityScale === 'number' && Number.isFinite(gemCanopy.intensityScale)) {
+                MRState.gemCanopyIntensityScale = gemCanopy.intensityScale;
+            }
+        }
     }
 
     if (typeof overrides?.skyMoon?.melodyChannel === 'number' && Number.isInteger(overrides.skyMoon.melodyChannel)) {
@@ -252,12 +281,24 @@ export function applyMapMusicContext(overrides: MapMusicOverrides | undefined): 
         MRState.skyWaveDecayMs = Math.max(100, overrides.skyWave.decayMs);
     }
     if (Array.isArray(overrides?.skyWave?.targetBiomes) && overrides.skyWave.targetBiomes.length > 0) {
-        const filteredTargets = overrides.skyWave.targetBiomes.filter((name: string) => typeof name === 'string');
-        if (filteredTargets.length > 0) MRState.skyWaveTargets = filteredTargets;
+        // ⚡ OPTIMIZATION: Replaced .filter() with manual loop + in-place mutation to eliminate array allocation in context syncs.
+        MRState.skyWaveTargets.length = 0;
+        for (let i = 0; i < overrides.skyWave.targetBiomes.length; i++) {
+            const name = overrides.skyWave.targetBiomes[i];
+            if (typeof name === 'string') {
+                MRState.skyWaveTargets.push(name);
+            }
+        }
+        // Fallback to default if empty
+        if (MRState.skyWaveTargets.length === 0) {
+            for (let i = 0; i < defaultSkyWaveTargets.length; i++) {
+                MRState.skyWaveTargets.push(defaultSkyWaveTargets[i]);
+            }
+        }
     }
     if (overrides?.weatherReactivity && typeof overrides.weatherReactivity === 'object') {
-        const keys: Array<'rainIntensity' | 'thunderPulse' | 'fogDensity'> = ['rainIntensity', 'thunderPulse', 'fogDensity'];
-        for (const key of keys) {
+        for (let i = 0; i < _WEATHER_KEYS.length; i++) {
+            const key = _WEATHER_KEYS[i];
             const current = MRState.weatherBindings[key];
             const override = overrides.weatherReactivity[key];
             if (!override || typeof override !== 'object') continue;
@@ -282,13 +323,12 @@ export function syncMapMusicContext(): void {
 
 // Helper to map MIDI note (0-127) to a color hue
 // Helper to map MIDI note (0-127) to a color using CONFIG.noteColorMap.sky
-export function mapNoteToColor(note: number, outColor: THREE.Color) {
-    if (note <= 0) return outColor.setHex(0xffffff); // Default white
-    // Standard map: C=0, C#=1 ... B=11
-
+export function mapNoteToColor(note: number, outColor: THREE.Color, palette: string = 'global') {
+    if (note <= 0) return outColor.setHex(0xffffff);
     const pitchClass = note % 12;
     const noteName = CHROMATIC_SCALE[pitchClass];
-    const hexColor = CONFIG.noteColorMap['global'][noteName] || 0xffffff;
+    const speciesMap = CONFIG.noteColorMap[palette] || CONFIG.noteColorMap.global;
+    const hexColor = speciesMap[noteName] || CONFIG.noteColorMap.global[noteName] || 0xffffff;
     outColor.setHex(hexColor);
     return outColor;
 }

@@ -12,6 +12,7 @@ import {
     calculateFlowerBloom,
     createJuicyRimLight,
     applyPlayerInteraction,
+    applyStandardDeformation,
     uTime,
     uAudioLow,
     uWindSpeed,
@@ -27,8 +28,7 @@ export const foliageMaterials: { [key: string]: THREE.Material | THREE.Material[
     stem: (() => {
         const mat = CandyPresets.Clay(0x66AA55);
         // Combine Player Push + Wind Sway
-        const withPush = applyPlayerInteraction(positionLocal);
-        mat.positionNode = withPush.add(calculateWindSway(positionLocal));
+        mat.positionNode = applyStandardDeformation(positionLocal);
 
         // 🎨 PALETTE: Add Juicy Rim Light to stem so it pops against dark backgrounds
         const audioRimIntensity = float(1.0).add(uAudioLow.mul(0.5));
@@ -48,8 +48,7 @@ export const foliageMaterials: { [key: string]: THREE.Material | THREE.Material[
     flowerStem: (() => {
         const mat = CandyPresets.Clay(0x66AA55);
         // Combine Player Push + Wind Sway
-        const withPush = applyPlayerInteraction(positionLocal);
-        mat.positionNode = withPush.add(calculateWindSway(positionLocal));
+        mat.positionNode = applyStandardDeformation(positionLocal);
 
         // 🎨 PALETTE: Add Juicy Rim Light to flowerStem so it pops against dark backgrounds
         const audioRimIntensity = float(1.0).add(uAudioLow.mul(0.5));
@@ -118,7 +117,7 @@ export const foliageMaterials: { [key: string]: THREE.Material | THREE.Material[
         const newPos = vec3(positionLocal.x.mul(curve), positionLocal.y, positionLocal.z.mul(curve));
 
         // PALETTE UPDATE: Apply Interaction to Shaped Stem
-        mat.positionNode = applyPlayerInteraction(newPos);
+        mat.positionNode = applyStandardDeformation(newPos);
 
         // Recalculate Normal: N = (x, -r'(y), z) -> (x, y-0.3, z)
         const ny = t.sub(0.3);

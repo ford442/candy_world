@@ -11,8 +11,7 @@ import { getCelestialState } from '../core/cycle.ts';
 import { spawnImpact } from '../foliage/impacts.ts';
 import { unlockSystem } from '../systems/unlocks.ts';
 import { triggerHarpoon } from '../systems/physics/index.js';
-import { isInLakeBasin } from '../systems/physics.core.ts';
-import { physicsGeysersGrid, physicsTrapsGrid } from '../systems/physics/physics-core.ts';
+import { isInLakeBasin } from '../systems/ground-system.ts';
 
 // Projectile Configuration
 const SPEED = 60.0;
@@ -295,7 +294,10 @@ class ProjectilePool {
             for (let j = clouds.length - 1; j >= 0; j--) {
                 const cloud = clouds[j];
                 const cloudRadius = 3.0 * (cloud.scale.x || 1.0);
-                const distSq = p.position.distanceToSquared(cloud.position);
+                const dx = p.position.x - cloud.position.x;
+                const dy = p.position.y - cloud.position.y;
+                const dz = p.position.z - cloud.position.z;
+                const distSq = dx * dx + dy * dy + dz * dz;
 
                 if (distSq < (cloudRadius * cloudRadius)) {
                     hit = true;
@@ -309,16 +311,18 @@ class ProjectilePool {
             }
 
             // Collision with Geysers (Charging)
-            // ⚡ OPTIMIZATION: Replaced linear array iteration with Spatial Hash Grid query
-            const nearbyGeysers = physicsGeysersGrid.findNearby(p.position.x, p.position.z, 5.0);
-            for (let j = nearbyGeysers.length - 1; j >= 0; j--) {
-                const geyser = nearbyGeysers[j];
+            const geysers = foliageGeysers || [];
+            for (let j = geysers.length - 1; j >= 0; j--) {
+                const geyser = geysers[j];
                 // Check if hit the base (radius ~1.0)
                 // Geyser is at y=ground. Check distSq to base.
-                const distSq = p.position.distanceToSquared(geyser.position);
+                const dx = p.position.x - geyser.position.x;
+                const dy = p.position.y - geyser.position.y;
+                const dz = p.position.z - geyser.position.z;
+                const distSq = dx * dx + dy * dy + dz * dz;
                 const hitRadius = 1.5;
 
-                if (distSq < (hitRadius * hitRadius) && Math.abs(p.position.y - geyser.position.y) < 2.0) {
+                if (distSq < (hitRadius * hitRadius) && Math.abs(dy) < 2.0) {
                     hit = true;
                     // Trigger Charge
                     geyser.userData.chargeLevel = (geyser.userData.chargeLevel || 0) + 0.5;
@@ -339,13 +343,15 @@ class ProjectilePool {
             }
 
             // Collision with Snare Traps (Reflection)
-            // ⚡ OPTIMIZATION: Replaced linear array iteration with Spatial Hash Grid query
-            const nearbyTraps = physicsTrapsGrid.findNearby(p.position.x, p.position.z, 5.0);
-            for (let j = nearbyTraps.length - 1; j >= 0; j--) {
-                const trap = nearbyTraps[j];
+            const traps = foliageTraps || [];
+            for (let j = traps.length - 1; j >= 0; j--) {
+                const trap = traps[j];
                 // Check bounds (Radius ~0.8 * scale)
                 const radius = 1.0 * (trap.scale.x || 1.0);
-                const distSq = p.position.distanceToSquared(trap.position);
+                const dx = p.position.x - trap.position.x;
+                const dy = p.position.y - trap.position.y;
+                const dz = p.position.z - trap.position.z;
+                const distSq = dx * dx + dy * dy + dz * dz;
 
                 if (distSq < (radius * radius)) {
                      if (unlockSystem.isUnlocked('snap_core')) {

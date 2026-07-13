@@ -1,7 +1,8 @@
+import { safeRemoveAndDispose } from "../utils/dispose-utils.ts";
 import * as THREE from 'three';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import {
-    color, float, vec3, positionLocal,
+    color, float, vec3, positionLocal, normalLocal,
     mix, sin, abs, smoothstep,
     mx_noise_float, uv, length, atan2, max
 } from 'three/tsl';
@@ -15,11 +16,13 @@ import {
     getCachedProceduralMaterial,
     createJuicyRimLight,
     calculateWindSway,
-    applyPlayerInteraction
+      applyPlayerInteraction,
+    applyStandardDeformation
+
 } from './index.ts';
 import { BiomeUniforms } from '../systems/biome-uniforms.ts';
 import { makeInteractive } from '../utils/interaction-utils.ts';
-import { CONFIG } from '../core/config.ts';
+import { CONFIG, getCIAdjustedCount } from '../core/config.ts';
 import { uTwilight } from './sky.ts';
 import { discoverySystem } from '../systems/discovery.ts';
 import { showToast } from '../utils/toast.ts';
@@ -27,7 +30,7 @@ import { spawnImpact } from './impacts.ts';
 import { foliageGroup } from '../world/state.ts';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
-const MAX_LOTUS = 100;
+const MAX_LOTUS = getCIAdjustedCount(100, 0.2, 20);
 
 export class SubwooferLotusBatcher {
     padMesh!: THREE.InstancedMesh;
@@ -36,6 +39,7 @@ export class SubwooferLotusBatcher {
 
     private _count = 0;
     private _scratchMatrix = new THREE.Matrix4();
+    private _scratchScale = new THREE.Vector3();
     private _color = new THREE.Color();
     private logicObjects: THREE.Object3D[] = [];
 
@@ -48,6 +52,7 @@ export class SubwooferLotusBatcher {
 
         // 1. Base Pad
         const padMat = createClayMaterial(hexColor);
+        padMat.positionNode = applyStandardDeformation(positionLocal);
         this.padMesh = new THREE.InstancedMesh(sharedGeometries.unitCylinder, padMat, MAX_LOTUS);
         this.padMesh.count = 0;
         this.padMesh.castShadow = true;
@@ -56,48 +61,49 @@ export class SubwooferLotusBatcher {
         foliageGroup.add(this.padMesh);
 
         // 2. Rings
-        const ringMat = getCachedProceduralMaterial('subwoofer_lotus_rings', 0xFFFFFF, () => {
-            const mat = new MeshStandardNodeMaterial();
-            mat.colorNode = color(0xFFFFFF);
-            mat.roughnessNode = float(0.2);
-            mat.metalnessNode = float(0.5);
+const ringMat = getCachedProceduralMaterial('subwoofer_lotus_ring', 0xFFFFFF, () => {
+    const mat = new MeshStandardNodeMaterial();
+    mat.colorNode = color(0xFFFFFF);
+    mat.roughnessNode = float(0.2);
+    mat.metalnessNode = float(0.5);
 
-            const bassPulse = uAudioLow.mul(0.8).mul(BiomeUniforms.crystallineNebula.amplitudeScale);
-            const glitchShake = mx_noise_float(vec3(uTime.mul(20.0), float(0.0), float(0.0))).mul(uGlitchIntensity).mul(0.5);
-            const displacement = bassPulse.add(glitchShake);
+    // Audio + glitch driven displacement (keep this)
+    const bassPulse = uAudioLow.mul(0.8).mul(BiomeUniforms.crystallineNebula.amplitudeScale);
+    const glitchShake = mx_noise_float(vec3(uTime.mul(20.0), float(0.0), float(0.0)))
+        .mul(uGlitchIntensity).mul(0.5);
+    const displacement = bassPulse.add(glitchShake);
 
-            const normalColor = vec3(1.0, 1.0, 1.0);
-            const glitchColor = vec3(0.8, 0.0, 1.0);
-            const finalColor = mix(normalColor, glitchColor, uGlitchIntensity);
+    // Color + emission logic (keep this)
+    const normalColor = vec3(1.0, 1.0, 1.0);
+    const glitchColor = vec3(0.8, 0.0, 1.0);
+    const finalColor = mix(normalColor, glitchColor, uGlitchIntensity);
+    const shimmerTint = vec3(0.4, 0.0, 1.0);
+    const shimmerGlow = BiomeUniforms.crystallineNebula.shimmer.mul(shimmerTint).mul(2.5);
+    const emission = finalColor.mul(bassPulse.add(0.2)).add(shimmerGlow);
 
-            const shimmerTint = vec3(0.4, 0.0, 1.0);
-            const shimmerGlow = BiomeUniforms.crystallineNebula.shimmer.mul(shimmerTint).mul(2.5);
-            const emission = finalColor.mul(bassPulse.add(0.2)).add(shimmerGlow);
+    mat.colorNode = finalColor;
 
-            mat.colorNode = finalColor;
+    // Glow / twilight logic (keep this)
+    const glowPhaseOffset = positionLocal.x.add(positionLocal.z).mul(2.0);
+    const idlePulse = sin(uTime.mul(float(CONFIG.glow.glowPulseFrequency)).add(glowPhaseOffset))
+        .mul(float(CONFIG.glow.glowPulseAmplitude)).add(1.0).mul(float(0.5))
+        .mul(uAudioLow.mul(0.3).add(0.7));
+    const targetGlowColor = color(CONFIG.glow.glowColorMap['lotus']);
+    const twilightGlowTint = targetGlowColor
+        .mul(uTwilight)
+        .mul(float(CONFIG.glow.glowIntensityMax))
+        .mul(float(0.3).add(idlePulse));
 
-            const glowPhaseOffset = positionLocal.x.add(positionLocal.z).mul(2.0);
-            const idlePulse = sin(uTime.mul(float(CONFIG.glow.glowPulseFrequency)).add(glowPhaseOffset)).mul(float(CONFIG.glow.glowPulseAmplitude)).add(1.0).mul(float(0.5)).mul(uAudioLow.mul(0.3).add(0.7));
-            const targetGlowColor = color(CONFIG.glow.glowColorMap['lotus']);
-            const twilightGlowTint = targetGlowColor
-                .mul(uTwilight)
-                .mul(float(CONFIG.glow.glowIntensityMax))
-                .mul(float(0.3).add(idlePulse));
+    // 🎨 PALETTE: Juicy Rim Light (good)
+    const rimLight = createJuicyRimLight(finalColor, float(2.0), float(3.0), normalLocal);
+    mat.emissiveNode = emission.add(twilightGlowTint).add(rimLight);
 
-            // 🎨 PALETTE: Juicy Rim Light for volumetric glow
-            const rimLight = createJuicyRimLight(finalColor, float(1.5), float(3.0), null);
+    // 🎨 PALETTE: Correct Wind Sway + Player Interaction composition
+    const newPos = positionLocal.add(vec3(0.0, displacement, 0.0));
+    mat.positionNode = applyStandardDeformation(newPos);
 
-            mat.emissiveNode = emission.add(twilightGlowTint).add(rimLight);
-
-            const displacedPos = positionLocal.add(vec3(0.0, displacement, 0.0));
-
-            // Add Wind Sway and Player Interaction
-            const posWind = displacedPos.add(calculateWindSway(displacedPos));
-            const posFinal = applyPlayerInteraction(posWind);
-            mat.positionNode = posFinal;
-
-            return mat;
-        });
+    return mat;
+});
 
         registerReactiveMaterial(ringMat);
 
@@ -121,37 +127,26 @@ export class SubwooferLotusBatcher {
         const centerGeo = new THREE.CircleGeometry(0.25, 32);
         centerGeo.rotateX(-Math.PI / 2);
         centerGeo.translate(0, 0.6, 0);
+        const centerMat = new MeshStandardNodeMaterial();
+        centerMat.roughnessNode = float(0.0);
 
-        const centerMat = getCachedProceduralMaterial('subwoofer_lotus_center', 0x000000, () => {
-            const mat = new MeshStandardNodeMaterial();
-            mat.roughnessNode = float(0.0);
+        const vUv = uv().sub(0.5).mul(2.0);
+        const len = length(vUv);
+        const spinSpeed = uTime.mul(5.0).add(uGlitchIntensity.mul(20.0));
+        const angle = float(atan2(vUv.y, vUv.x)).add(spinSpeed.mul(float(1.0).sub(len)));
+        const spiral = sin(angle.mul(5.0).sub(len.mul(10.0)));
+        const active = max(smoothstep(0.1, 0.5, uGlitchIntensity), smoothstep(0.7, 1.0, uAudioLow));
 
-            const vUv = uv().sub(0.5).mul(2.0);
-            const len = length(vUv);
-            const spinSpeed = uTime.mul(5.0).add(uGlitchIntensity.mul(20.0));
-            const angle = float(atan2(vUv.y, vUv.x)).add(spinSpeed.mul(float(1.0).sub(len)));
-            const spiral = sin(angle.mul(5.0).sub(len.mul(10.0)));
-            const active = max(smoothstep(0.1, 0.5, uGlitchIntensity), smoothstep(0.7, 1.0, uAudioLow));
+        const portalColor = vec3(0.0, 0.0, 0.0);
+        const swirlColor = vec3(0.5, 0.0, 1.0);
+        const hotColor = vec3(1.0, 0.0, 0.5);
 
-            const portalColor = vec3(0.0, 0.0, 0.0);
-            const swirlColor = vec3(0.5, 0.0, 1.0);
-            const hotColor = vec3(1.0, 0.0, 0.5);
+        const finalPortal = mix(portalColor, swirlColor, spiral.mul(active));
+        const hotCenter = smoothstep(0.2, 0.0, len).mul(hotColor).mul(active);
 
-            const finalPortal = mix(portalColor, swirlColor, spiral.mul(active));
-            const hotCenter = smoothstep(0.2, 0.0, len).mul(hotColor).mul(active);
-
-            mat.colorNode = vec3(0.0);
-            mat.emissiveNode = finalPortal.add(hotCenter);
-
-            // Add Wind Sway and Player Interaction
-            const posWind = positionLocal.add(calculateWindSway(positionLocal));
-            const posFinal = applyPlayerInteraction(posWind);
-            mat.positionNode = posFinal;
-
-            return mat;
-        });
-
-        registerReactiveMaterial(centerMat);
+        centerMat.colorNode = vec3(0.0);
+        centerMat.emissiveNode = finalPortal.add(hotCenter);
+        centerMat.positionNode = applyStandardDeformation(positionLocal);
 
         this.centerMesh = new THREE.InstancedMesh(centerGeo, centerMat, MAX_LOTUS);
         this.centerMesh.count = 0;
@@ -174,8 +169,8 @@ export class SubwooferLotusBatcher {
         this.centerMesh.count = this._count;
 
         // Apply Transform initially to prevent frame 1 blip at origin
-        proxy.updateMatrixWorld(true);
-        this._scratchMatrix.copy(proxy.matrixWorld);
+        // ⚡ OPTIMIZATION: Bypassed THREE.Object3D proxy and setMatrixAt() overhead by writing directly to instanceMatrix.
+        this._scratchMatrix.compose(proxy.position, proxy.quaternion, proxy.scale);
 
         const padScale = new THREE.Vector3(1.5 * scale, 0.2 * scale, 1.5 * scale);
         const padMatrix = new THREE.Matrix4().compose(proxy.position, proxy.quaternion, padScale);
@@ -230,14 +225,15 @@ export class SubwooferLotusBatcher {
          if (index >= this._count) return;
          const scale = proxy.userData.lotusScale ?? 1.0;
 
-         const padScale = new THREE.Vector3(1.5 * scale, 0.2 * scale, 1.5 * scale);
-         const padMatrix = new THREE.Matrix4().compose(proxy.position, proxy.quaternion, padScale);
-         padMatrix.toArray(this.padMesh.instanceMatrix.array, index * 16);
+         // ⚡ OPTIMIZATION: Bypassed THREE.Object3D proxy, THREE.Matrix4 instantiation and THREE.Vector3 instantiation by utilizing scratch objects
+         this._scratchScale.set(1.5 * scale, 0.2 * scale, 1.5 * scale);
+         this._scratchMatrix.compose(proxy.position, proxy.quaternion, this._scratchScale);
+         this._scratchMatrix.toArray(this.padMesh.instanceMatrix.array, index * 16);
 
-         const nonPadScale = new THREE.Vector3(scale, scale, scale);
-         const nonPadMatrix = new THREE.Matrix4().compose(proxy.position, proxy.quaternion, nonPadScale);
-         nonPadMatrix.toArray(this.ringsMesh.instanceMatrix.array, index * 16);
-         nonPadMatrix.toArray(this.centerMesh.instanceMatrix.array, index * 16);
+         this._scratchScale.set(scale, scale, scale);
+         this._scratchMatrix.compose(proxy.position, proxy.quaternion, this._scratchScale);
+         this._scratchMatrix.toArray(this.ringsMesh.instanceMatrix.array, index * 16);
+         this._scratchMatrix.toArray(this.centerMesh.instanceMatrix.array, index * 16);
 
          this.padMesh.instanceMatrix.needsUpdate = true;
          this.ringsMesh.instanceMatrix.needsUpdate = true;
@@ -251,37 +247,24 @@ export class SubwooferLotusBatcher {
 
     dispose() {
         if (this.padMesh) {
-            this.padMesh.geometry.dispose();
-            if (Array.isArray(this.padMesh.material)) {
-                this.padMesh.material.forEach(m => m.dispose());
-            } else {
-                this.padMesh.material.dispose();
-            }
-            foliageGroup.remove(this.padMesh);
+            safeRemoveAndDispose(foliageGroup as unknown as THREE.Scene, this.padMesh);
         }
         if (this.ringsMesh) {
-            this.ringsMesh.geometry.dispose();
-            if (Array.isArray(this.ringsMesh.material)) {
-                this.ringsMesh.material.forEach(m => m.dispose());
-            } else {
-                this.ringsMesh.material.dispose();
-            }
-            foliageGroup.remove(this.ringsMesh);
+            safeRemoveAndDispose(foliageGroup as unknown as THREE.Scene, this.ringsMesh);
         }
         if (this.centerMesh) {
-            this.centerMesh.geometry.dispose();
-            if (Array.isArray(this.centerMesh.material)) {
-                this.centerMesh.material.forEach(m => m.dispose());
-            } else {
-                this.centerMesh.material.dispose();
-            }
-            foliageGroup.remove(this.centerMesh);
+            safeRemoveAndDispose(foliageGroup as unknown as THREE.Scene, this.centerMesh);
         }
         for (const obj of this.logicObjects) {
-            if(obj.parent) obj.parent.remove(obj);
+            safeRemoveAndDispose(obj.parent as THREE.Scene, obj);
         }
         this.logicObjects = [];
         this._count = 0;
+    }
+
+    flushRegistrations(): void {
+        // No-op: SubwooferLotusBatcher registers immediately in register()
+        // This exists only for API compatibility with other batchers
     }
 }
 

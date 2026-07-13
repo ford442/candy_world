@@ -18,7 +18,8 @@ import {
     bpmWind,
     grooveGravity,
     AudioState,
-    KeyStates
+    KeyStates,
+    foliageCaves
 } from './physics-types.js';
 import { 
     activeVineSwing, 
@@ -31,15 +32,10 @@ import {
 import { discoverySystem } from '../discovery.ts';
 import { spawnImpact } from '../../foliage/impacts.ts';
 import { uChromaticIntensity } from '../../foliage/chromatic.ts';
-import { calculateWaterLevel, getUnifiedGroundHeightTyped } from '../physics.core.js';
-import { getGroundHeight } from '../../utils/wasm-loader.ts';
-import { foliageCaves } from './physics-types.js';
+import { calculateWaterLevel } from '../physics.core.ts';
+import { getGroundHeight as getAuthoritativeGroundHeight } from '../ground-system.ts';
 
-// Helper: Unified Ground Height (WASM + Lake Modifiers)
-// This prevents the player from floating on "invisible" ground over the lake
-function getUnifiedGroundHeight(x: number, z: number): number {
-    return getUnifiedGroundHeightTyped(x, z, getGroundHeight);
-}
+// Helper: Unified Ground Height (authoritative terrain + lake + island + platforms)
 
 // --- Environmental Modifiers ---
 export function updateEnvironmentalModifiers(delta: number, audioState: AudioState) {
@@ -212,15 +208,15 @@ export function updateSwimmingState(
             spawnImpact(player.position, 'jump');
         } else {
             // Pull towards anchor
-            // ⚡ OPTIMIZATION: distSq is always >= 4.0 here, but we guard against tiny values just in case
-            const dist = distSq > 0.0001 ? Math.sqrt(distSq) : 1;
+            // ⚡ OPTIMIZATION: Bypassed Math.sqrt overhead using fastInvSqrt for vector normalization
+            const invDist = fastInvSqrt(distSq);
             // Modulate pull speed with kick drum
             const kickBoost = audioState?.kickTrigger ? audioState.kickTrigger * 20.0 : 0;
             const pullSpeed = 30.0 + kickBoost;
 
-            player.velocity.x += (dx / dist) * pullSpeed * delta;
-            player.velocity.y += (dy / dist) * pullSpeed * delta;
-            player.velocity.z += (dz / dist) * pullSpeed * delta;
+            player.velocity.x += (dx * invDist) * pullSpeed * delta;
+            player.velocity.y += (dy * invDist) * pullSpeed * delta;
+            player.velocity.z += (dz * invDist) * pullSpeed * delta;
 
             if (Math.random() < 0.1) {
                 spawnImpact(player.position, 'dash');
@@ -391,7 +387,7 @@ export function updateDancingState(
     if (isFirstFrame || !player.danceStartPos) {
         player.danceStartPos = player.danceStartPos || new THREE.Vector3();
         player.danceStartPos.copy(player.position);
-        player.danceStartY = getUnifiedGroundHeight(player.position.x, player.position.z) + PLAYER_HEIGHT_OFFSET;
+        player.danceStartY = getAuthoritativeGroundHeight(player.position.x, player.position.z) + PLAYER_HEIGHT_OFFSET;
     }
     
     // Move in a circle around starting position

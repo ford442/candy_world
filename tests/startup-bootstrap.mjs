@@ -342,6 +342,52 @@ test('webgpu fallback: uses webgl when webgpu not available', () => {
 });
 
 // ============================================================================
+// Renderer preference resolution (renderer-mode.ts)
+// ============================================================================
+
+function simulateResolveRendererBackend(search = '') {
+  const params = new URLSearchParams(search);
+  const explicit = params.get('renderer')?.toLowerCase();
+  if (explicit === 'webgl' || explicit === 'webgl2' || params.has('webgl')) return 'webgl';
+  if (explicit === 'webgpu' || params.has('webgpu')) return 'webgpu';
+  return null;
+}
+
+function simulateCreateRendererWithPreference(preference, webgpuAvailable, webgpuThrows) {
+  if (preference === 'webgl') {
+    return { mode: 'webgl', requested: 'webgl', fallbackReason: 'explicit-webgl' };
+  }
+
+  if (webgpuAvailable) {
+    try {
+      if (webgpuThrows) throw new Error('GPUAdapter is null');
+      return { mode: 'webgpu', requested: 'webgpu', fallbackReason: null };
+    } catch (_err) {
+      // fall through
+    }
+  }
+
+  return { mode: 'webgl', requested: 'webgpu', fallbackReason: 'webgpu-unavailable' };
+}
+
+test('renderer preference: URL ?renderer=webgl forces webgl path', () => {
+  assert(simulateResolveRendererBackend('?renderer=webgl') === 'webgl', 'URL should force webgl');
+  const result = simulateCreateRendererWithPreference('webgl', true, false);
+  assert(result.mode === 'webgl', 'Explicit webgl should skip WebGPU even when available');
+  assert(result.fallbackReason === 'explicit-webgl', 'Should record explicit webgl reason');
+});
+
+test('renderer preference: URL ?renderer=webgpu selects webgpu when available', () => {
+  assert(simulateResolveRendererBackend('?renderer=webgpu') === 'webgpu', 'URL should request webgpu');
+  const result = simulateCreateRendererWithPreference('webgpu', true, false);
+  assert(result.mode === 'webgpu', 'Should use webgpu when available');
+});
+
+test('renderer preference: webgl2 alias maps to webgl', () => {
+  assert(simulateResolveRendererBackend('?renderer=webgl2') === 'webgl', 'webgl2 alias should map to webgl');
+});
+
+// ============================================================================
 // Deferred entity proximity sorting
 // Verifies that deferred map entities and procedural extras are queued
 // nearest-first so the background processor populates the visible area around

@@ -11,6 +11,7 @@ import {
     SaveSlotInfo
 } from '../../systems/save-system/index.js';
 import { showToast } from '../../utils/toast.ts';
+import { yieldToPaint } from '../../utils/yield-to-paint.ts';
 import type { SaveMenu } from './save-menu.js';
 
 /**
@@ -86,7 +87,7 @@ export function renderLoadTab(
     
     if (manualSlots.length === 0 && autoSlots.length === 0) {
         return `
-            <div class="candy-empty-state">
+            <div class="candy-empty-state" role="status" aria-live="polite">
                 <div class="candy-empty-state__icon" aria-hidden="true">📝</div>
                 <div class="candy-empty-state__text">No memories found yet. Embark on a journey to save your progress!</div>
                 ${currentMode === 'full' ? `
@@ -165,7 +166,6 @@ export async function handleSlotAction(
     // Set busy state if button was provided
     if (btnElement) {
         btnElement.setAttribute('aria-busy', 'true');
-        btnElement.setAttribute('aria-disabled', 'true');
         btnElement.style.pointerEvents = 'none';
         btnElement.style.opacity = '0.7';
         const originalText = btnElement.innerHTML;
@@ -174,13 +174,13 @@ export async function handleSlotAction(
         // Setup cleanup to restore state
         const cleanup = () => {
             btnElement.removeAttribute('aria-busy');
-            btnElement.removeAttribute('aria-disabled');
             btnElement.style.pointerEvents = '';
             btnElement.style.opacity = '';
             btnElement.innerHTML = originalText;
         };
 
         try {
+            await yieldToPaint();
             switch (action) {
                 case 'load':
                     await loadSave(slotId, onLoadCallback, menu);

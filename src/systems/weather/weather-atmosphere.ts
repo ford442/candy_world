@@ -128,20 +128,16 @@ export class AtmosphereManager {
         }
 
         let crescendoFactor = 0;
-        if (audioData && audioData.channelData && audioData.channelData.length > 0) {
+        if (uCrescendoFogDensity) {
+            // Atmosphere reactivity owns uCrescendoFogDensity — read, do not overwrite.
+            crescendoFactor = uCrescendoFogDensity.value as number;
+        } else if (audioData && audioData.channelData && audioData.channelData.length > 0) {
             let totalVolume = 0;
             for (let i = 0; i < audioData.channelData.length; i++) {
                 totalVolume += audioData.channelData[i].volume;
             }
             const averageVolume = totalVolume / audioData.channelData.length;
             crescendoFactor = Math.min(1.0, averageVolume * 0.5);
-        }
-
-        // TSL Crescendo Fog Update
-        if (uCrescendoFogDensity) {
-            // Smoothly interpolate to new crescendo factor to avoid sudden jumps
-            const currentDensity = uCrescendoFogDensity.value as number;
-            uCrescendoFogDensity.value = currentDensity + (crescendoFactor - currentDensity) * 0.1;
         }
 
         const weatherVisibility = (1.0 - intensity * (1.0 - fogMultiplier));
@@ -252,27 +248,19 @@ export class AtmosphereManager {
         if (giantsCount > 0) {
             const centerX = giantsX / giantsCount;
             const centerZ = giantsZ / giantsCount;
-            const lenSq = centerX * centerX + centerZ * centerZ;
-            if (lenSq > 0.0001) {
-                const len = Math.sqrt(lenSq);
-                const attractX = centerX / len;
-                const attractZ = centerZ / len;
-                windDirection.x += (attractX - windDirection.x) * 0.05;
-                windDirection.z += (attractZ - windDirection.z) * 0.05;
-            }
+            const len = Math.sqrt(centerX * centerX + centerZ * centerZ) || 1;
+            const attractX = centerX / len;
+            const attractZ = centerZ / len;
+
+            windDirection.x += (attractX - windDirection.x) * 0.05;
+            windDirection.z += (attractZ - windDirection.z) * 0.05;
         }
 
         // Normalize
-        // ⚡ OPTIMIZATION: Check squared length before Math.sqrt() to avoid unnecessary allocation/computation
-        const dirLenSq = windDirection.x * windDirection.x + windDirection.y * windDirection.y + windDirection.z * windDirection.z;
-        if (dirLenSq > 0.0001) {
-            const dirLen = Math.sqrt(dirLenSq);
-            windDirection.x /= dirLen;
-            windDirection.y /= dirLen;
-            windDirection.z /= dirLen;
-        } else {
-            windDirection.set(1, 0, 0); // Default fallback
-        }
+        const dirLen = Math.sqrt(windDirection.x * windDirection.x + windDirection.y * windDirection.y + windDirection.z * windDirection.z) || 1;
+        windDirection.x /= dirLen;
+        windDirection.y /= dirLen;
+        windDirection.z /= dirLen;
 
         return { windDirection, windSpeed, windTargetSpeed };
     }

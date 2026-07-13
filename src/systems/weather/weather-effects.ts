@@ -12,6 +12,7 @@ import { createIntegratedRain } from '../../particles/index.ts';
 import { ComputeParticleSystem as Phase4ComputeSystem } from '../../particles/compute-particles.ts';
 import { WeatherState } from '../weather-types.ts';
 import { CONFIG } from '../../core/config.ts';
+import { safeRemoveAndDispose } from '../../utils/dispose-utils.ts';
 
 // Cache palette keys outside the render loop to prevent GC spikes during storms
 const _cloudPaletteKeys = Object.keys((CONFIG.noteColorMap && CONFIG.noteColorMap.cloud) || {});
@@ -240,10 +241,10 @@ export class EffectsManager {
         const shouldShowMist = melodyVol > 0.2 || (weatherType === 'mist' && state === WeatherState.RAIN);
 
         if (rainMesh) {
-            rainMesh.visible = shouldShowRain;
+            if (rainMesh) rainMesh.visible = shouldShowRain;
         }
         if (mistMesh) {
-            mistMesh.visible = shouldShowMist;
+            if (mistMesh) mistMesh.visible = shouldShowMist;
         }
 
         if (shouldShowRain && percussionRain) {
@@ -281,63 +282,26 @@ export class EffectsManager {
      * Dispose of all effects
      */
     dispose(): void {
-        const { percussionRain, melodicMist, rainMesh, mistMesh, lightningLight, rainbow, aurora } = this.state;
+        const { percussionRain, melodicMist, rainMesh, mistMesh, lightningLight, rainbow } = this.state;
         
         if (percussionRain) {
             percussionRain.dispose();
             if (rainMesh) {
-                if (rainMesh.geometry) rainMesh.geometry.dispose();
-                if (rainMesh.material) {
-                    if (Array.isArray(rainMesh.material)) {
-                        rainMesh.material.forEach((m: any) => m.dispose());
-                    } else {
-                        (rainMesh.material as any).dispose();
-                    }
-                }
-                this.scene.remove(rainMesh);
+                safeRemoveAndDispose(this.scene, rainMesh);
             }
         }
         if (melodicMist) {
             melodicMist.dispose();
             if (mistMesh) {
-                if (mistMesh.geometry) mistMesh.geometry.dispose();
-                if (mistMesh.material) {
-                    if (Array.isArray(mistMesh.material)) {
-                        mistMesh.material.forEach((m: any) => m.dispose());
-                    } else {
-                        (mistMesh.material as any).dispose();
-                    }
-                }
-                this.scene.remove(mistMesh);
+                safeRemoveAndDispose(this.scene, mistMesh);
             }
         }
         if (lightningLight) {
             // ⚡ OPTIMIZATION: Ensure temporary lights are disposed before removal to prevent VRAM leaks.
-            lightningLight.dispose();
-            this.scene.remove(lightningLight);
+            safeRemoveAndDispose(this.scene, lightningLight);
         }
         if (rainbow) {
-            if (rainbow.geometry) rainbow.geometry.dispose();
-            if (rainbow.material) {
-                if (Array.isArray(rainbow.material)) {
-                    rainbow.material.forEach((m: any) => m.dispose());
-                } else {
-                    (rainbow.material as any).dispose();
-                }
-            }
-            this.scene.remove(rainbow);
-        }
-        if (aurora) {
-            // ⚡ OPTIMIZATION: Ensure aurora mesh and materials are disposed to prevent VRAM leak when weather effects are torn down.
-            if (aurora.geometry) aurora.geometry.dispose();
-            if (aurora.material) {
-                if (Array.isArray(aurora.material)) {
-                    aurora.material.forEach((m: any) => m.dispose());
-                } else {
-                    (aurora.material as any).dispose();
-                }
-            }
-            this.scene.remove(aurora);
+            safeRemoveAndDispose(this.scene, rainbow);
         }
     }
 }

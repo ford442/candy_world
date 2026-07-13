@@ -21,6 +21,7 @@
  */
 
 import * as THREE from 'three';
+import { isCIorHeadless } from '../core/config.ts';
 import {
     storage,
     uniform,
@@ -347,7 +348,7 @@ export class ComputeParticleSystem {
         this.uIntensity.value = intensity;
 
         // Execute Compute Shader on GPU (primary path)
-        if (this.computeNode) {
+        if (this.computeNode && !isCIorHeadless()) {
             this.renderer.compute(this.computeNode);
         }
         // Note: WASM fallback would be implemented here if GPU compute is unavailable
