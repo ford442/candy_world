@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { foliageGroup } from '../world/state.ts';
@@ -13,7 +14,7 @@ import { initInstanceLodAttribute } from './batcher-lod-utils.ts';
 import { registerFoliageBatcherLod } from '../systems/batcher-lod.ts';
 import { CONFIG } from '../core/config.ts';
 import { uTwilight } from './sky.ts';
-import { attribute, positionLocal, mix, color, float, sin, varyingProperty } from 'three/tsl';
+import { attribute, positionLocal, mix, color, float, sin, varyingProperty, vec3 } from 'three/tsl';
 import { PlantPoseMachine } from './plant-pose-machine.ts';
 import { BiomeUniforms } from '../systems/biome-uniforms.ts';
 import { musicReactivitySystem } from '../systems/music-reactivity.ts';
@@ -116,7 +117,20 @@ export class FlowerBatcher {
 
         // --- 2. Centers (Sphere) ---
         const centerMat = getCachedProceduralMaterial('flower_batch_center', 0xFFFFFF, () => {
-            return CandyPresets.Clay(0xfacc15, { deformationNode: posFinal });
+            const m = new MeshStandardNodeMaterial({
+                roughness: 0.8,
+                metalness: 0.2,
+                color: 0xffddaa // Base daytime color
+            });
+
+            const nightGlowColor = color(0xffaa22);
+            m.emissiveNode = mix(
+                vec3(0.0),
+                nightGlowColor.mul(2.0),
+                uTwilight
+            );
+            m.positionNode = posFinal;
+            return m;
         });
 
         const centerGeo = sharedGeometries.unitSphere.clone();
