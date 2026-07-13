@@ -125,11 +125,10 @@ export class GlowingFlowerBatcher {
         // Or we can assume the head moves with the stem tip.
         // Stem tip movement = calculateWindSway(vec3(0, 1, 0)) [since stem is unit cylinder, top is 1]
 
-        const windSway = calculateWindSway(vec3(0, 1, 0)); // Sway amount at top of unit
-        const playerPush = applyStandardDeformation(vec3(0, 1, 0)).sub(vec3(0, 1, 0)); // Push amount at top
+        const standardDef = applyStandardDeformation(vec3(0, 1, 0)).sub(vec3(0, 1, 0)); // Sway & Push at top
 
         // Apply to Head
-        const headPos = positionLocal.mul(visibilityScale).add(windSway).add(playerPush);
+        const headPos = positionLocal.mul(visibilityScale).add(standardDef);
         headMat.positionNode = headPos;
 
 

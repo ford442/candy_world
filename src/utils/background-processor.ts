@@ -15,6 +15,8 @@ import { isCIorHeadless } from '../core/config.ts';
  * causes one overrun rather than stacking overruns across entities.
  */
 
+import { spawnTracker } from '../world/spawn-tracker.ts';
+
 export interface DeferredTask {
     id: string;
     execute: () => void | Promise<void>;
@@ -25,6 +27,24 @@ export interface DeferredTask {
 // Detect requestIdleCallback at module level to avoid repeated property lookups.
 const hasIdleCallback = typeof requestIdleCallback !== 'undefined';
 
+const TASK_TYPE_PREFIX_MAP: Array<{ prefix: string; type: string }> = [
+    { prefix: 'map_stream_', type: 'map_entity_deferred' },
+    { prefix: 'map_fallback_', type: 'map_entity_deferred' },
+    { prefix: 'procedural_deferred_', type: 'procedural_extra_deferred' },
+];
+
+const TASK_TYPE_EXACT_MAP: Record<string, string> = {
+    deferred_visuals: 'deferred_visuals',
+    shader_warmup: 'shader_warmup',
+};
+
+function inferFailureTypeFromTaskId(taskId: string): string {
+    if (TASK_TYPE_EXACT_MAP[taskId]) return TASK_TYPE_EXACT_MAP[taskId];
+    for (const entry of TASK_TYPE_PREFIX_MAP) {
+        if (taskId.startsWith(entry.prefix)) return entry.type;
+    }
+    return 'background_task';
+}
 import { maybeRecordBackgroundFailure } from '../world/spawn-tracker.ts';
 import { isCIorHeadless } from '../core/config.ts';
 

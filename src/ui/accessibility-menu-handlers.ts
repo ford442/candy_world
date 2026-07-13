@@ -54,12 +54,7 @@ export class AccessibilityMenuHandlers extends AccessibilityMenuRendering {
 
           const nextTab = tabs[nextIndex];
           nextTab.focus({ preventScroll: true });
-
-          // Assuming tab id is like 'tab-presets' and section is 'presets'
-          const tabIdMatch = nextTab.id.match(/^tab-(.+)$/);
-          if (tabIdMatch && tabIdMatch[1]) {
-            this.switchSection(tabIdMatch[1] as MenuSection);
-          }
+          nextTab.click(); // Selection follows focus
         }
       }
     }

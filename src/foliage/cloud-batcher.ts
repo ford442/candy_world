@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import {
     color, uniform, mix, vec3, positionLocal, normalLocal, mx_noise_float,
@@ -47,18 +48,12 @@ function createCloudMaterial() {
     // Strength: 1.0 at center, 0.0 at edge
     const playerStrength = float(1.0).sub(smoothstep(0.0, 1.0, distFactor));
 
-    // Enhanced Squash Y down, Bulge XZ out + Velocity impact (Juicy jump through)
-    const baseSquash = playerStrength.mul(0.6);
-    // If player is moving fast vertically (jumping), add extra vertical squash
-    const verticalVelSquash = uPlayerVelocity.y.abs().mul(0.015).mul(playerStrength).clamp(0.0, 0.4);
-    const totalSquashY = baseSquash.add(verticalVelSquash);
-    // Expand radially to preserve volume (ish)
-    const expandXZ = totalSquashY.mul(0.5);
-
+    // Squash Y down, Bulge XZ out
+    const playerSquashAmount = playerStrength.mul(0.6); // Max 60% squash
     const playerSquishScale = vec3(
-        float(1.0).add(expandXZ), // Expand X
-        float(1.0).sub(totalSquashY).max(0.4), // Compress Y, clamp at 0.4
-        float(1.0).add(expandXZ)  // Expand Z
+        float(1.0).add(playerSquashAmount.mul(0.5)), // Expand X
+        float(1.0).sub(playerSquashAmount),          // Compress Y
+        float(1.0).add(playerSquashAmount.mul(0.5))  // Expand Z
     );
 
     // 2. Wind Shearing (Clouds drift faster at the top)
@@ -196,7 +191,8 @@ function createCloudMaterial() {
     // Walkable clouds (tier 1) get a subtle cyan ice-crystal edge glow
     const walkableFlag = attribute('aIsWalkable', 'float');
     const crystalColor = color(0xE0FFFF);
-    const crystalRim = createJuicyRimLight(crystalColor, float(0.8), float(2.5), normalWorld).mul(walkableFlag);
+    const bobPulse = sin(uTime.mul(2.0).add(positionWorld.x.mul(0.1))).mul(0.3).add(0.7);
+    const crystalRim = createJuicyRimLight(crystalColor, float(0.8), float(2.5), normalWorld).mul(walkableFlag).mul(bobPulse).add(walkableFlag.mul(melodyGlow));
 
     // Dim emissive effects during storms too, except lightning
     material.emissiveNode = lightningGlow
@@ -376,7 +372,8 @@ export class CloudBatcher {
         // Iterate over clouds
         // ⚡ OPTIMIZATION: Only update moving clouds (e.g. falling or dragged)
         // Static clouds are now animated via TSL (Vertex Shader)
-        for (const cloud of this.clouds) {
+        for (let i = 0; i < this.clouds.length; i++) {
+            const cloud = this.clouds[i];
             // Run Cloud Logic (Sine Wave / Falling)
             // Note: updateFallingClouds in clouds.js handles falling physics on cloud.position externally.
             // Here we just handle the "Animation" callback if it exists.
@@ -406,6 +403,12 @@ export class CloudBatcher {
         if (needsUpdate) {
             this.mesh.count = this.count;
             this.mesh.instanceMatrix.needsUpdate = true;
+        }
+    }
+
+    dispose(): void {
+        if (this.mesh && this.mesh.parent) {
+            safeRemoveAndDispose(this.mesh.parent, this.mesh);
         }
     }
 }

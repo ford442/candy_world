@@ -26,7 +26,7 @@ export const interactiveObjects: FoliageObject[] = [];
 // Groups
 export const worldGroup = new THREE.Group();
 export const foliageGroup = new THREE.Group();
-worldGroup.add(foliageGroup);
+// ⚡ OPTIMIZATION: Removed worldGroup.add(foliageGroup) to flatten scene hierarchy and avoid O(N) updateMatrixWorld traversal overhead on thousands of static batchers.
 
 export let activeVineSwing: VineSwing | null = null; // Current vine player is attached to
 export let lastVineDetachTime: number = 0; // Debounce re-attach

@@ -12,9 +12,6 @@ import {
 import { initInstanceLodAttribute } from './batcher-lod-utils.ts';
 import { registerFoliageBatcherLod } from '../systems/batcher-lod.ts';
 import { LuminousPlantUniforms, luminousPlantsNoteColorNode, getBiomeUniforms, uCircadianPhase, uCircadianPoseOffset, type BiomeId } from '../systems/biome-uniforms.ts';
-
-const LUMINOUS_BIOME: BiomeId = 'luminous_plants';
-const luminousUniforms = getBiomeUniforms(LUMINOUS_BIOME);
 import { CONFIG, FEATURE_FLAGS } from '../core/config.ts';
 import { uTwilight } from './sky.ts';
 import {
@@ -26,6 +23,9 @@ import { getGroundAlignedQuaternion } from '../world/placement-utils.ts';
 
 const AWAKENED_ATTR_ENABLED = FEATURE_FLAGS.awakenedPersistence;
 const LUMINOUS_TYPE_ID = LUMINOUS_PLANT_TYPE_ID;
+
+const LUMINOUS_BIOME: BiomeId = 'luminous_plants';
+const luminousUniforms = getBiomeUniforms(LUMINOUS_BIOME);
 
 const _scratchPos = new THREE.Vector3();
 const _scratchOriginalQuaternion = new THREE.Quaternion();

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import {
     CandyPresets,
@@ -209,31 +210,14 @@ export class KickDrumGeyserBatcher {
     }
 
     dispose() {
-        if (this.baseMesh) {
-            this.baseMesh.geometry.dispose();
-            if (Array.isArray(this.baseMesh.material)) {
-                this.baseMesh.material.forEach(m => m.dispose());
-            } else {
-                this.baseMesh.material.dispose();
-            }
+        if (this.baseMesh && this.baseMesh.parent) {
+            safeRemoveAndDispose(this.baseMesh.parent, this.baseMesh);
         }
-
-        if (this.coreMesh) {
-            this.coreMesh.geometry.dispose();
-            if (Array.isArray(this.coreMesh.material)) {
-                this.coreMesh.material.forEach(m => m.dispose());
-            } else {
-                this.coreMesh.material.dispose();
-            }
+        if (this.coreMesh && this.coreMesh.parent) {
+            safeRemoveAndDispose(this.coreMesh.parent, this.coreMesh);
         }
-
-        if (this.plumeMesh) {
-            this.plumeMesh.geometry.dispose();
-            if (Array.isArray(this.plumeMesh.material)) {
-                this.plumeMesh.material.forEach(m => m.dispose());
-            } else {
-                this.plumeMesh.material.dispose();
-            }
+        if (this.plumeMesh && this.plumeMesh.parent) {
+            safeRemoveAndDispose(this.plumeMesh.parent, this.plumeMesh);
         }
     }
 }

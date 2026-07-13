@@ -323,14 +323,6 @@ export function renderPlaylist(): void {
     const songs = audioSystemRef.getPlaylist();
     const currentIdx = audioSystemRef.getCurrentIndex();
 
-    if (songs.length === 0) {
-        const li = document.createElement('li');
-        li.className = 'playlist-empty-state';
-        li.setAttribute('aria-live', 'polite');
-        li.innerHTML = '<span aria-hidden="true" style="font-size: 2em; margin-bottom: 5px;">🎧</span>The Jukebox is silent.<br><span style="font-size: 0.85em; opacity: 0.8; font-weight: normal;">Upload some songs to start the party!</span>';
-        playlistList.appendChild(li);
-    }
-
     songs.forEach((file: File, index: number) => {
         const li = document.createElement('li');
         li.className = `playlist-item ${index === currentIdx ? 'active' : ''}`;
@@ -391,23 +383,27 @@ export function renderPlaylist(): void {
 
             // UX: Restore Focus to an appropriate element
             requestAnimationFrame(() => {
-                const removeBtns = playlistList!.querySelectorAll('.playlist-remove-btn');
-                const playBtns = playlistList!.querySelectorAll('.playlist-btn');
-
-                // Try focusing the next remove button (at same index, since list shifted)
-                if (removeBtns[index]) {
-                    (removeBtns[index] as HTMLElement).focus({ preventScroll: true });
-                } else if (removeBtns[index - 1]) {
-                    // Or the previous one
-                    (removeBtns[index - 1] as HTMLElement).focus({ preventScroll: true });
-                } else if (playBtns[0]) {
-                    // Or the first song
-                    (playBtns[0] as HTMLElement).focus({ preventScroll: true });
+                // If it was active and the element is gone, or it was the last song
+                const remainingSongs = audioSystemRef!.getPlaylist().length;
+                if (remainingSongs === 0) {
+                     // Fallback to empty state button if list is now empty
+                     const emptyBtn = playlistList!.querySelector('.jukebox-browse-btn') || document.getElementById('addSongsBtn');
+                     if (emptyBtn) {
+                         (emptyBtn as HTMLElement).focus({ preventScroll: true });
+                     }
                 } else {
-                    // Fallback to empty state button if list is now empty
-                    const emptyBtn = playlistList!.querySelector('.jukebox-browse-btn') || document.getElementById('addSongsBtn');
-                    if (emptyBtn) {
-                        (emptyBtn as HTMLElement).focus({ preventScroll: true });
+                    const removeBtns = playlistList!.querySelectorAll('.playlist-remove-btn');
+                    const playBtns = playlistList!.querySelectorAll('.playlist-btn');
+
+                    // Try focusing the next remove button (at same index, since list shifted)
+                    if (removeBtns[index]) {
+                        (removeBtns[index] as HTMLElement).focus({ preventScroll: true });
+                    } else if (removeBtns[index - 1]) {
+                        // Or the previous one
+                        (removeBtns[index - 1] as HTMLElement).focus({ preventScroll: true });
+                    } else if (playBtns[0]) {
+                        // Or the first song
+                        (playBtns[0] as HTMLElement).focus({ preventScroll: true });
                     }
                 }
             });
@@ -423,6 +419,8 @@ export function renderPlaylist(): void {
         const li = document.createElement('li');
         li.className = 'jukebox-empty-state';
         li.style.listStyle = 'none';
+        li.setAttribute('role', 'status');
+        li.setAttribute('aria-live', 'polite');
 
         const iconContainer = document.createElement('div');
         iconContainer.className = 'jukebox-empty-icon-container';

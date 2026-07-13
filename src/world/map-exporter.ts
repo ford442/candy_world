@@ -110,7 +110,9 @@ function withProvenanceParams(base: Record<string, unknown> | undefined, provena
     params.provenance = provenance;
     if (sourceId) params.sourceId = sourceId;
     if (isBatched) params.batched = true;
-    return Object.keys(params).length > 0 ? params : undefined;
+    // ⚡ OPTIMIZATION: Bypassed Object.keys() to prevent GC spikes
+    for (const _ in params) return params;
+    return undefined;
 }
 
 function entityHash(entity: CandyMapEntity): string {
