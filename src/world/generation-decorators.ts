@@ -703,7 +703,7 @@ export async function populateProceduralExtras(
     const proceduralTaskToken = worldGenerationToken;
     for (const item of deferredItems) {
         // ⚡ OPTIMIZATION: Bypassed Math.sqrt() in hot procedural sorting loop using distance decay estimation
-        const priority = Math.max(1, 60 - Math.floor(item.distSq / 16));
+        const priority = Math.max(1, 60 - Math.floor(Math.sqrt(item.distSq) / 4));
         globalBackgroundProcessor.enqueue({ id: item.id, execute: () => {
              const currentToken = (window as any).__currentWorldGenerationToken ?? worldGenerationToken;
              if (taskToken !== -1 && taskToken !== currentToken && !(window as any).__IS_FULL_BOOT_TEST) {

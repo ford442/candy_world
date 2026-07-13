@@ -393,6 +393,8 @@ function applyDreamyPopIn(obj: THREE.Object3D): void {
     requestAnimationFrame(tick);
 }
 
+export let worldGenerationToken = 0;
+
 export async function generateMap(
     weatherSystem: WeatherSystem,
     chunkSize: number = DEFAULT_MAP_CHUNK_SIZE,
