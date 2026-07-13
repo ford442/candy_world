@@ -1,0 +1,23 @@
+--- src/foliage/lod-nodes.ts
++++ src/foliage/lod-nodes.ts
+@@ -32,7 +32,9 @@
+
+ /**
+- * Full foliage motion offset (deformationNode semantics: displaced position minus positionLocal).
++ * Full foliage motion offset for LOD-enabled objects.
++ * (deformationNode semantics: displaced position minus positionLocal).
++ * 🏗️ ARCHITECT: Single source of truth for LOD deformation.
++ * Internally composes wind sway and player push. DO NOT wrap with applyPlayerInteraction.
+  */
+ export const foliageDeformationOffset = (
+@@ -74,3 +76,11 @@
+     return emissiveNode.mul(weight);
+ };
++
++/**
++ * 🏗️ ARCHITECT: Standardized TSL deformation chain for LOD-enabled objects
++ * that manually compose their offsets instead of using foliageDeformationOffset.
++ */
++export const applyStandardDeformationWithLod = (basePosNode: any) => {
++    return applyPlayerInteractionWithLod(basePosNode.add(calculateWindSwayWithLod(basePosNode)));
++};

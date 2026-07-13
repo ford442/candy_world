@@ -7,6 +7,7 @@ import {
     mx_noise_float
 } from 'three/tsl';
 import { createUnifiedMaterial } from './index.ts';
+import { fastInvSqrt } from '../utils/wasm-loader.ts';
 
 /**
  * Melody Ribbon System
@@ -230,10 +231,12 @@ export function updateMelodyRibbons(group: THREE.Group, deltaTime: number, audio
             const next = pathHistory[i+1];
             const dx = next.x - point.x;
             const dz = next.z - point.z;
-            const len = Math.sqrt(dx*dx + dz*dz);
-            if (len > 0.001) {
-                dirX = dx / len;
-                dirZ = dz / len;
+            const distSq = dx*dx + dz*dz;
+            // ⚡ OPTIMIZATION: Use squared distance dirty check and fast inverse square root to eliminate Math.sqrt()
+            if (distSq > 0.000001) {
+                const invLen = fastInvSqrt(distSq);
+                dirX = dx * invLen;
+                dirZ = dz * invLen;
             }
         }
 

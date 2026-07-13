@@ -7,7 +7,7 @@ import {
     smoothstep, abs
 } from 'three/tsl';
 import {
-    uAudioLow, createRimLight, triplanarNoise, perturbNormal
+    uAudioLow, createJuicyRimLight, applyPlayerInteraction, triplanarNoise, perturbNormal
 } from './index.ts';
 import { uTwilight } from './sky.ts';
 import { waterfallBatcher } from './waterfall-batcher.ts';
@@ -64,7 +64,8 @@ function getSharedCrystalMat() {
         const crystalGlowColor = color(0x00FFFF); // Cyan glow
 
         // 3. Rim Light (Edge Definition)
-        const crystalRim = createRimLight(color(0xffffff), float(0.8), float(3.0));
+        const crystalRim = createJuicyRimLight(color(0xffffff), float(0.8), float(3.0), normalWorld);
+        _sharedCrystalMat.positionNode = applyPlayerInteraction(positionLocal);
 
         // Combine Colors
         _sharedCrystalMat.colorNode = crystalBaseColor.add(crystalRim);
@@ -107,7 +108,8 @@ function getSharedRockMat() {
         const veinColor = color(0x00FFFF); // Cyan glow
 
         // 3. Rim Light (Edge Definition)
-        const rim = createRimLight(color(0x444455), float(0.5), float(2.0));
+        const rim = createJuicyRimLight(color(0x444455), float(0.5), float(2.0), normalWorld);
+        _sharedRockMat.positionNode = applyPlayerInteraction(positionLocal);
 
         // Combine Colors
         _sharedRockMat.colorNode = baseColor.add(rim);

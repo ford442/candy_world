@@ -65,6 +65,27 @@ export interface WorldSaveData {
 }
 
 /**
+ * State for a specific persistent awakened flora instance.
+ * Compact on disk — short keys in localStorage mirror; full names in save JSON.
+ */
+export interface AwakenedFloraState {
+    /** Stable hash id — preferred key for awakened store */
+    persistentId?: number;
+    entityId: string;
+    type: string;
+    biome?: string;
+    awakenedAt: number;
+    lastNoteColor?: number;
+    emissiveScale?: number;
+    /** @deprecated Use entityId */
+    id?: string;
+    awakened?: boolean;
+    interactionCount?: number;
+    /** @deprecated Use awakenedAt */
+    lastAwakenedTimestamp?: number;
+}
+
+/**
  * Progress tracking for save data
  */
 export interface ProgressSaveData {
@@ -74,6 +95,7 @@ export interface ProgressSaveData {
     playtime: number; // Total playtime in seconds
     unlocks: string[];
     inventory: Record<string, number>;
+    awakenedFlora?: AwakenedFloraState[];
 }
 
 /**

@@ -29,6 +29,7 @@
  */
 
 import * as THREE from 'three';
+import { getCIAdjustedCount, isCIorHeadless } from '../core/config.ts';
 import { 
     MeshStandardNodeMaterial, 
     PointsNodeMaterial, 
@@ -43,7 +44,7 @@ import {
 } from 'three/tsl';
 
 import { uTime, uAudioLow, uAudioHigh, uPlayerPosition, uWindSpeed, uWindDirection } from '../foliage/material-core.ts';
-import { getGroundHeight } from '../utils/wasm-loader.ts';
+import { gemCanopyNoteColorNode, BiomeUniforms } from '../systems/biome-uniforms.ts';
 
 import { 
     ComputeParticleType, 
@@ -55,6 +56,7 @@ import {
     BerryConfig,
     RainConfig,
     SparkConfig,
+    GemSparkConfig,
     ComputeSystemCollection
 } from './compute-particles-types.ts';
 
@@ -85,6 +87,7 @@ export class ComputeParticleSystem {
     private particleBuffer: GPUBuffer | null = null;
     private nextSpawnIndex: number = 0;
     private static scratchFloat32Array = new Float32Array(4);
+    private uniformArray: Float32Array = new Float32Array(20);
 
     public initPromise: Promise<void> | null = null;
     
@@ -117,6 +120,17 @@ export class ComputeParticleSystem {
         this.type = config.type;
         this.count = config.count || 10000;
         
+        // Check CI bypass here
+        if (isCIorHeadless() && (config.type === 'berries' || config.type === 'gem_sparks')) {
+            console.log(`[ComputeParticles] Stub mode activated for ${config.type} in CI/test (headless memory limit)`);
+            this.count = 1;
+            this.buffers = this.createBuffers();
+            this.mesh = this.createMesh();
+            this.mesh.userData.computeParticleSystem = this;
+            this.initPromise = Promise.resolve();
+            return;
+        }
+
         // Initialize buffers
         this.buffers = this.createBuffers();
         
@@ -192,6 +206,10 @@ export class ComputeParticleSystem {
         const mesh = new THREE.Points(geometry, material);
         mesh.frustumCulled = false;
         mesh.userData.type = `compute_${this.type}`;
+        // Render gem motes before faceted gems to avoid z-fighting / blowout
+        if (this.type === 'gem_sparks') {
+            mesh.renderOrder = -10;
+        }
         
         return mesh;
     }
@@ -235,6 +253,20 @@ case 'pollen':
                     const orange = color(0xFF8000);
                     return mix(orange, white, sparkLife);
                 })();
+
+            case 'gem_sparks':
+                return Fn(() => {
+                    // Per-mote static hue jitter from seed (avoids same-note color banding)
+                    const huePick = sin(seed.mul(12.9898)).mul(0.5).add(0.5);
+                    const jewelRuby = color(0xE0115F);
+                    const jewelSapphire = color(0x0F52BA);
+                    const jewelAmethyst = color(0x9966CC);
+                    const baseJewel = mix(mix(jewelRuby, jewelSapphire, huePick), jewelAmethyst, huePick.mul(huePick));
+                    // Music Impact: harmonize with hanging gems via gem_canopy bindings
+                    const musicTint = mix(baseJewel, gemCanopyNoteColorNode, BiomeUniforms.gemCanopy.shimmer);
+                    const beatBoost = uAudioHigh.mul(0.5).add(1.0);
+                    return musicTint.mul(beatBoost);
+                })();
             
             default:
                 return color(0xFFFFFF);
@@ -265,17 +297,51 @@ case 'pollen':
             
             case 'sparks':
                 return baseSize.mul(life.div(0.8));
+
+            case 'gem_sparks':
+                return Fn(() => {
+                    const twinkleRate = float(4.0).add(seed.mul(0.01));
+                    const twinkle = sin(uTime.mul(twinkleRate).add(seed.mul(6.28))).mul(0.35).add(1.0);
+                    const beatPulse = uAudioHigh.mul(0.8);
+                    return baseSize.mul(twinkle).add(beatPulse.mul(0.015));
+                })();
             
             default:
                 return baseSize;
         }
     }
 private getOpacityNode(): any {
+    const lifeStorage = storage(this.buffers.life, 'float', this.count);
+    const seedStorage = storage(this.buffers.seed, 'float', this.count);
+    const life = lifeStorage.element(vertexIndex);
+    const seed = seedStorage.element(vertexIndex);
+
+    if (this.type === 'gem_sparks') {
+        const posStorage = storage(this.buffers.position, 'vec4', this.count);
+        const pos = posStorage.element(vertexIndex).xyz;
+        const cx = float(this.config.center?.x ?? 0);
+        const cy = float(this.config.center?.y ?? 5);
+        const cz = float(this.config.center?.z ?? 0);
+        const halfX = float((this.config.bounds?.x ?? 40) * 0.5);
+        const halfY = float((this.config.bounds?.y ?? 14) * 0.5);
+        const halfZ = float((this.config.bounds?.z ?? 18) * 0.5);
+        return Fn(() => {
+            const relX = pos.x.sub(cx).abs();
+            const relY = pos.y.sub(cy).abs();
+            const relZ = pos.z.sub(cz).abs();
+            const edgeX = smoothstep(halfX, halfX.mul(0.72), relX);
+            const edgeY = smoothstep(halfY, halfY.mul(0.72), relY);
+            const edgeZ = smoothstep(halfZ, halfZ.mul(0.72), relZ);
+            const edgeFade = edgeX.mul(edgeY).mul(edgeZ);
+            const twinkle = sin(uTime.mul(4.0).add(seed.mul(6.28))).mul(0.25).add(0.75);
+            const beat = uAudioHigh.mul(0.35).add(0.65);
+            return edgeFade.mul(twinkle).mul(beat).clamp(0.0, 1.0);
+        })();
+    }
+
     // pointUV emits gl_PointCoord which WGSL does not support. WebGPU points are
     // single-fragment primitives without point-coord, so we fade by life instead of
     // applying a circular disc mask.
-    const lifeStorage = storage(this.buffers.life, 'float', this.count);
-    const life = lifeStorage.element(vertexIndex);
     return smoothstep(float(0.0), float(0.5), life).clamp(0.0, 1.0);
 }
     private async initWebGPU(): Promise<void> {
@@ -450,7 +516,8 @@ private getOpacityNode(): any {
             pollen: 1,
             berries: 2,
             rain: 3,
-            sparks: 4
+            sparks: 4,
+            gem_sparks: 5,
         };
         this.uniforms.particleType = typeMap[this.type];
     }
@@ -526,30 +593,28 @@ private getOpacityNode(): any {
             this.updateUniforms(deltaTime, playerPosition, audioData);
             
             // Write uniforms to GPU
-            const uniformArray = new Float32Array([
-                this.uniforms.deltaTime,
-                this.uniforms.time,
-                this.uniforms.count,
-                this.uniforms.boundsX,
-                this.uniforms.boundsY,
-                this.uniforms.boundsZ,
-                this.uniforms.centerX,
-                this.uniforms.centerY,
-                this.uniforms.centerZ,
-                this.uniforms.gravity,
-                this.uniforms.windX,
-                this.uniforms.windY,
-                this.uniforms.windZ,
-                this.uniforms.windSpeed,
-                this.uniforms.playerX,
-                this.uniforms.playerY,
-                this.uniforms.playerZ,
-                this.uniforms.audioLow,
-                this.uniforms.audioHigh,
-                this.uniforms.particleType
-            ]);
+            this.uniformArray[0] = this.uniforms.deltaTime;
+            this.uniformArray[1] = this.uniforms.time;
+            this.uniformArray[2] = this.uniforms.count;
+            this.uniformArray[3] = this.uniforms.boundsX;
+            this.uniformArray[4] = this.uniforms.boundsY;
+            this.uniformArray[5] = this.uniforms.boundsZ;
+            this.uniformArray[6] = this.uniforms.centerX;
+            this.uniformArray[7] = this.uniforms.centerY;
+            this.uniformArray[8] = this.uniforms.centerZ;
+            this.uniformArray[9] = this.uniforms.gravity;
+            this.uniformArray[10] = this.uniforms.windX;
+            this.uniformArray[11] = this.uniforms.windY;
+            this.uniformArray[12] = this.uniforms.windZ;
+            this.uniformArray[13] = this.uniforms.windSpeed;
+            this.uniformArray[14] = this.uniforms.playerX;
+            this.uniformArray[15] = this.uniforms.playerY;
+            this.uniformArray[16] = this.uniforms.playerZ;
+            this.uniformArray[17] = this.uniforms.audioLow;
+            this.uniformArray[18] = this.uniforms.audioHigh;
+            this.uniformArray[19] = this.uniforms.particleType;
             
-            this.device.queue.writeBuffer(this.uniformBuffer, 0, uniformArray);
+            this.device.queue.writeBuffer(this.uniformBuffer, 0, this.uniformArray);
             
             // Dispatch compute shader
             const commandEncoder = this.device.createCommandEncoder();
@@ -664,6 +729,12 @@ export function createComputePollen(config: PollenConfig = {}): ComputeParticleS
  * @returns ComputeParticleSystem instance
  */
 export function createComputeBerries(config: BerryConfig = {}): ComputeParticleSystem {
+    if (isCIorHeadless()) {
+        return new ComputeParticleSystem({
+            type: 'berries', count: 1, bounds: {x: 1, y: 1, z: 1}, center: new THREE.Vector3()
+        });
+    }
+
     return new ComputeParticleSystem({
         type: 'berries',
         count: config.count || 5000,
@@ -706,6 +777,30 @@ export function createComputeSparks(config: SparkConfig = {}): ComputeParticleSy
     });
 }
 
+/**
+ * Creates a gem-canopy sparkle / dust-mote field with GPU compute.
+ * Tiny additive motes that drift on noise and twinkle to gem_canopy music bindings.
+ */
+export function createComputeGemSparks(config: GemSparkConfig = {}): ComputeParticleSystem {
+    if (isCIorHeadless()) {
+        return new ComputeParticleSystem({
+            type: 'gem_sparks',
+            count: 1,
+            bounds: { x: 1, y: 1, z: 1 },
+            center: new THREE.Vector3(),
+        });
+    }
+
+    return new ComputeParticleSystem({
+        type: 'gem_sparks',
+        count: config.count ?? getCIAdjustedCount(512, 0.1, 80),
+        bounds: config.bounds || { x: 40, y: 14, z: 18 },
+        center: config.center || new THREE.Vector3(0, 6, 0),
+        sizeRange: config.sizeRange || { min: 0.025, max: 0.045 },
+        ...config,
+    });
+}
+
 // =============================================================================
 // SYSTEM MANAGER
 // =============================================================================
@@ -734,7 +829,9 @@ export function updateAllComputeSystems(
     playerPosition: THREE.Vector3,
     audioData: ParticleAudioData
 ): void {
-    for (const [type, system] of Object.entries(activeSystems)) {
+    // ⚡ OPTIMIZATION: Bypassed Object.entries() to eliminate array allocations and GC spikes in hot update loop.
+    for (const type in activeSystems) {
+        const system = activeSystems[type];
         if (system) {
             system.update(renderer, deltaTime, playerPosition, audioData);
         }
@@ -742,7 +839,9 @@ export function updateAllComputeSystems(
 }
 
 export function disposeAllComputeSystems(): void {
-    for (const [type, system] of Object.entries(activeSystems)) {
+    // ⚡ OPTIMIZATION: Bypassed Object.entries() to eliminate array allocations and GC spikes during cleanup.
+    for (const type in activeSystems) {
+        const system = activeSystems[type];
         if (system) {
             system.dispose();
         }

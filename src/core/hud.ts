@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { unlockSystem } from '../systems/unlocks.ts';
 import { jitterMineSystem } from '../gameplay/jitter-mines.ts';
 import { CYCLE_DURATION } from './config.ts';
+import { announce } from '../ui/announcer.ts';
 
 // Theme state (managed here, but timeOffset is in main)
 let isNight = false;
@@ -33,6 +34,9 @@ let _currentEnergyPulseScale: number = 1.0;
 let _lastPhaseCount: number | null = null;
 let _lastPhaseActive: boolean | null = null;
 let _lastStrikeState: boolean = false;
+
+// ♿ Aria: Track low energy announcement to prevent spam
+let _lastLowEnergyWarning: boolean = false;
 
 // ⚡ OPTIMIZATION: Cache prefersReducedMotion to avoid DOM queries in hot path
 let _cachedPrefersReducedMotion = false;
@@ -161,6 +165,11 @@ export function updateEnergyBar(
 
     // Pulse to the beat when health/energy is low (< 30%)
     if (energyPct < 0.3) {
+        if (!_lastLowEnergyWarning) {
+            announce('Warning: Critical energy level', 'assertive');
+            _lastLowEnergyWarning = true;
+        }
+
         hudEnergyContainer.classList.add('low-energy-pulse');
         const kick = _cachedPrefersReducedMotion ? 0 : (audioState?.kickTrigger || 0);
         // Add an intense, juicy pulse based on the beat
@@ -174,6 +183,7 @@ export function updateEnergyBar(
         hudEnergyFill.style.background = `linear-gradient(90deg, #ff4500, #ff0000)`;
         hudEnergyContainer.style.borderColor = '#ff0000';
     } else {
+        _lastLowEnergyWarning = false;
         hudEnergyContainer.classList.remove('low-energy-pulse');
 
         // 🎨 Palette: Smoothly return to normal scale when energy recovers

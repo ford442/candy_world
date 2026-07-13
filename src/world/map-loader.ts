@@ -86,6 +86,8 @@ export interface CandyMapEntity {
     id?: string;
     type: string;
     position: Vec3;
+    /** Stable ID for awakened-persistence (overrides position-hash when set) */
+    persistentId?: string;
     rotation?: number | Vec3 | Quat | MapRotation;
     scale?: MapScale;
     variant?: string;
@@ -184,6 +186,7 @@ const TYPE_ALIASES: Record<string, string> = {
     prismRoseBush: 'prism_rose_bush',
     fiberOpticWillow: 'fiber_optic_willow',
     bubbleWillow: 'bubble_willow',
+    gemCanopyTree: 'gem_canopy_tree',
     portamentoPine: 'portamento_pine',
     arpeggioFern: 'arpeggio_fern',
     cymbalDandelion: 'cymbal_dandelion',

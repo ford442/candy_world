@@ -130,6 +130,11 @@ export class PlantPoseMachine {
         }
     }
 
+    /** Get the entire array of current poses (⚡ OPTIMIZATION) */
+    get currentPoses(): Float32Array {
+        return this._currentPose;
+    }
+
     /** Read the current (smoothed) pose value for instance `index`. */
     getPose(index: number): number {
         return this._currentPose[index];

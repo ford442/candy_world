@@ -1,16 +1,22 @@
 import * as THREE from 'three';
+import { safeRemoveAndDispose } from '../utils/dispose-utils.ts';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import {
     CandyPresets,
     uTime,
-    registerReactiveMaterial
+    registerReactiveMaterial,
+    calculateWindSway,
+    applyPlayerInteraction,
+    applyStandardDeformation,
+    createJuicyRimLight
 } from './index.ts';
 import {
-    color, float, vec3, vec4, sin, cos, positionLocal, time, uniform
+    color, float, vec3, vec4, sin, cos, positionLocal, time, uniform, normalLocal
 } from 'three/tsl';
 import { BiomeId } from '../systems/biome-uniforms.ts';
 import { computeWaveDistSq } from '../systems/music-reactivity.ts';
 import { foliageGroup } from '../world/state.ts';
+import { computeWaveTimeSinceArrival } from '../systems/music-reactivity-core.ts';
 
 const MAX_GEYSERS = 500;
 
@@ -58,6 +64,8 @@ export class KickDrumGeyserBatcher {
             emissive: 0xFF4500,
             emissiveIntensity: 0.8
         });
+        // 🎨 PALETTE: Add juicy rim light to geyser core
+        coreMat.emissiveNode = (coreMat.emissiveNode || color(0x000000)).add(createJuicyRimLight(color(0xFF4500), float(1.5), float(3.0), normalLocal));
         registerReactiveMaterial(coreMat);
         this.coreMesh = new THREE.InstancedMesh(coreGeo, coreMat, MAX_GEYSERS);
         this.coreMesh.count = 0;
@@ -79,11 +87,14 @@ export class KickDrumGeyserBatcher {
         const jitterX = sin(uTime.mul(10.0).add(positionLocal.y.mul(10.0))).mul(0.1);
         const jitterZ = cos(uTime.mul(12.0).add(positionLocal.y.mul(10.0))).mul(0.1);
 
-        plumeMat.positionNode = vec3(
+        const plumePos = vec3(
             positionLocal.x.add(jitterX),
             positionLocal.y,
             positionLocal.z.add(jitterZ)
         );
+
+        // 🎨 PALETTE: Add wind sway and player interaction to the geyser plumes
+        plumeMat.positionNode = applyStandardDeformation(plumePos);
         plumeMat.colorNode = vec4(color(0xFF4500), float(0.8));
 
         this.plumeMesh = new THREE.InstancedMesh(plumeGeo, plumeMat, MAX_GEYSERS);
@@ -147,7 +158,7 @@ export class KickDrumGeyserBatcher {
             this._scratchPos.set(x, y, z);
 
             // Calculate distance-based wave timing
-            const waveTime = computeWaveTimeSinceArrival(activeWave, this._scratchPos);
+            const waveTime = computeWaveTimeSinceArrival(this._scratchPos, activeWave);
 
             // Simulate local kick intensity. If wave hasn't reached, it's 0.
             // If it reached recently, apply a sharp spike that decays.
@@ -199,31 +210,14 @@ export class KickDrumGeyserBatcher {
     }
 
     dispose() {
-        if (this.baseMesh) {
-            this.baseMesh.geometry.dispose();
-            if (Array.isArray(this.baseMesh.material)) {
-                this.baseMesh.material.forEach(m => m.dispose());
-            } else {
-                this.baseMesh.material.dispose();
-            }
+        if (this.baseMesh && this.baseMesh.parent) {
+            safeRemoveAndDispose(this.baseMesh.parent, this.baseMesh);
         }
-
-        if (this.coreMesh) {
-            this.coreMesh.geometry.dispose();
-            if (Array.isArray(this.coreMesh.material)) {
-                this.coreMesh.material.forEach(m => m.dispose());
-            } else {
-                this.coreMesh.material.dispose();
-            }
+        if (this.coreMesh && this.coreMesh.parent) {
+            safeRemoveAndDispose(this.coreMesh.parent, this.coreMesh);
         }
-
-        if (this.plumeMesh) {
-            this.plumeMesh.geometry.dispose();
-            if (Array.isArray(this.plumeMesh.material)) {
-                this.plumeMesh.material.forEach(m => m.dispose());
-            } else {
-                this.plumeMesh.material.dispose();
-            }
+        if (this.plumeMesh && this.plumeMesh.parent) {
+            safeRemoveAndDispose(this.plumeMesh.parent, this.plumeMesh);
         }
     }
 }

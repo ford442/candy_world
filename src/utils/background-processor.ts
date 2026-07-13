@@ -1,3 +1,4 @@
+import { isCIorHeadless } from '../core/config.ts';
 /**
  * Time-Budgeted Background Processor
  *
@@ -14,16 +15,38 @@
  * causes one overrun rather than stacking overruns across entities.
  */
 
+import { spawnTracker } from '../world/spawn-tracker.ts';
+
 export interface DeferredTask {
     id: string;
     execute: () => void | Promise<void>;
     priority?: number;
+    retryCount?: number;
 }
 
 // Detect requestIdleCallback at module level to avoid repeated property lookups.
 const hasIdleCallback = typeof requestIdleCallback !== 'undefined';
 
+const TASK_TYPE_PREFIX_MAP: Array<{ prefix: string; type: string }> = [
+    { prefix: 'map_stream_', type: 'map_entity_deferred' },
+    { prefix: 'map_fallback_', type: 'map_entity_deferred' },
+    { prefix: 'procedural_deferred_', type: 'procedural_extra_deferred' },
+];
+
+const TASK_TYPE_EXACT_MAP: Record<string, string> = {
+    deferred_visuals: 'deferred_visuals',
+    shader_warmup: 'shader_warmup',
+};
+
+function inferFailureTypeFromTaskId(taskId: string): string {
+    if (TASK_TYPE_EXACT_MAP[taskId]) return TASK_TYPE_EXACT_MAP[taskId];
+    for (const entry of TASK_TYPE_PREFIX_MAP) {
+        if (taskId.startsWith(entry.prefix)) return entry.type;
+    }
+    return 'background_task';
+}
 import { maybeRecordBackgroundFailure } from '../world/spawn-tracker.ts';
+import { isCIorHeadless } from '../core/config.ts';
 
 export class BackgroundProcessor {
     private queue: DeferredTask[] = [];
@@ -76,7 +99,24 @@ export class BackgroundProcessor {
     /**
      * Start processing the queue
      */
-    public start(): void {
+    public async start(): Promise<void> {
+        if (isCIorHeadless()) {
+            console.log('[BackgroundProcessor] CI/Headless mode detected, running synchronously.');
+            while (this.queue.length > 0) {
+                const task = this.queue.shift();
+                if (task) {
+                    try {
+                        const result = task.execute(); if (result instanceof Promise) { await result; }
+                        this.completedTasks++;
+                    } catch (e) {
+                        console.error(`[BackgroundProcessor] Error executing task ${task.id}:`, e);
+                        this.failedTasks++;
+                    }
+                }
+            }
+            this.onCompleteCallback?.(this.completedTasks, this.totalTasks, this.failedTasks);
+            return;
+        }
         if (this.isRunning) return;
         if (this.queue.length === 0) {
             this.onCompleteCallback?.(this.completedTasks, this.totalTasks, this.failedTasks);
@@ -86,6 +126,33 @@ export class BackgroundProcessor {
         this.startTimeMs = performance.now();
 
         console.log(`[BackgroundProcessor] Starting with ${this.queue.length} tasks`);
+
+        if (isCIorHeadless()) {
+            console.log(`[BackgroundProcessor] CI bypass: Synchronously processing ${this.queue.length} tasks...`);
+
+            // We create an async wrapper so we can await the tasks without making start() return a Promise
+            const processAllSync = async () => {
+                while (this.queue.length > 0) {
+                    const task = this.queue.shift()!;
+                    try {
+                        const result = task.execute();
+                        if (result instanceof Promise) {
+                            await result;
+                        }
+                        this.completedTasks++;
+                    } catch (e) {
+                        console.error(`[BackgroundProcessor] Error executing task ${task.id}:`, e);
+                        maybeRecordBackgroundFailure(task.id, e);
+                        this.failedTasks++;
+                    }
+                }
+                this.complete();
+            };
+
+            processAllSync();
+            return;
+        }
+
         this.scheduleNext();
     }
 
@@ -164,6 +231,12 @@ export class BackgroundProcessor {
                     await result;
                 }
             } catch (e) {
+                if ((task.retryCount || 0) < 1) {
+                    task.retryCount = (task.retryCount || 0) + 1;
+                    console.warn(`[BackgroundProcessor] Task ${task.id} failed, retrying once. Error:`, e);
+                    this.queue.unshift(task);
+                    continue;
+                }
                 console.error(`[BackgroundProcessor] Error executing task ${task.id}:`, e);
                 maybeRecordBackgroundFailure(task.id, e);
                 this.failedTasks++;
@@ -175,6 +248,12 @@ export class BackgroundProcessor {
                 if (this.onProgressCallback) {
                     this.onProgressCallback(this.completedTasks, this.totalTasks);
                 }
+            } catch (e) {
+                spawnTracker.recordFailure(inferFailureTypeFromTaskId(task.id), e, {
+                    context: `background-task:${task.id}`,
+                    countAttempt: true,
+                });
+                console.error(`[BackgroundProcessor] Error executing task ${task.id}:`, e);
             }
         }
 

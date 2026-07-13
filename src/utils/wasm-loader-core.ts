@@ -468,8 +468,8 @@ export async function loadEmscriptenModule(forceSingleThreaded = false): Promise
             };
 
             // Initialize Emscripten (will use Native WA for Memory creation)
-            const _emscriptenInstance = await createCandyNative(config);
-            setEmscriptenInstance(_emscriptenInstance);
+            const instance = await createCandyNative(config);
+            setEmscriptenInstance(instance);
 
             console.log(`[WASM] Emscripten ${isThreaded ? 'Pthreads' : 'Single-Threaded'} Ready`);
         } catch (e) {

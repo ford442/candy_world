@@ -17,6 +17,8 @@ import { request } from 'http';
 const FULL_BOOT = process.env.FULL_BOOT;
 const IS_FULL_BOOT = FULL_BOOT && FULL_BOOT !== '0' && FULL_BOOT !== 'false';
 const IS_FAST_FULL = FULL_BOOT === 'fast';
+const RENDERER = process.env.RENDERER?.toLowerCase();
+const USE_WEBGL_BOOT = RENDERER === 'webgl' || RENDERER === 'webgl2';
 
 /**
  * Check if a server is running on a port
@@ -117,6 +119,9 @@ async function runSmokeTest() {
         '--enable-features=Vulkan,WebGPU',
         '--enable-unsafe-webgpu',
         '--disable-features=IsolateOrigins,site-per-process',
+        '--use-gl=angle',
+        '--ignore-gpu-blocklist',
+        '--disable-gpu-sandbox',
       ],
     });
 
@@ -202,13 +207,17 @@ async function runSmokeTest() {
     // so the particle systems know to scale down their buffer allocations early
     await page.addInitScript(() => {
       window.__IS_FULL_BOOT_TEST = true;
+      window.__IS_CI_TEST = true;
       localStorage.setItem('__IS_FULL_BOOT_TEST', 'true');
     });
 
     // Navigate to localhost:4173
-    console.log('\nNavigating to http://localhost:4173');
+    const bootUrl = USE_WEBGL_BOOT
+      ? 'http://localhost:4173/?renderer=webgl&webglLite=1'
+      : 'http://localhost:4173';
+    console.log(`\nNavigating to ${bootUrl}`);
     try {
-      await page.goto('http://localhost:4173', {
+      await page.goto(bootUrl, {
         waitUntil: 'domcontentloaded',
         timeout: 30000,
       });
@@ -221,6 +230,7 @@ async function runSmokeTest() {
     console.log('Waiting for window.__sceneReady (up to 25s)...');
 
     try {
+      await page.waitForTimeout(4000);
       await page.waitForFunction(
         () => (window).__sceneReady === true,
         { timeout: 25000 }
@@ -236,6 +246,22 @@ async function runSmokeTest() {
     // Check WebGPU
     const hasWebGPU = await page.evaluate(() => navigator.gpu !== undefined);
     console.log(`WebGPU support: ${hasWebGPU ? '✓' : '⚠'}`);
+
+    const rendererInfo = await page.evaluate(() => ({
+      rendererType: window.rendererType ?? null,
+      usingWebGL: window.usingWebGL === true,
+      usingWebGPU: window.usingWebGPU === true,
+      fallbackReason: window.rendererFallbackReason ?? null,
+      canvasRenderer: document.querySelector('#glCanvas')?.dataset?.renderer ?? null,
+    }));
+    console.log(`Renderer: ${rendererInfo.rendererType ?? 'unknown'} (canvas=${rendererInfo.canvasRenderer ?? 'n/a'})`);
+    if (USE_WEBGL_BOOT) {
+      if (rendererInfo.usingWebGL) {
+        console.log('✓ WebGL boot path confirmed');
+      } else {
+        console.log('⚠ Expected WebGL boot path but got', rendererInfo.rendererType);
+      }
+    }
 
     // Check canvas
     const canvasInfo = await page.evaluate(() => {
@@ -259,6 +285,7 @@ async function runSmokeTest() {
         const btn = document.getElementById('openJukeboxBtn');
         if (btn) btn.click();
       });
+      await page.waitForTimeout(4000);
       await page.waitForFunction(
         () => {
           const overlay = document.getElementById('playlist-overlay');
@@ -307,6 +334,7 @@ async function runSmokeTest() {
             if (btn) btn.click();
           });
           console.log('⏳ Waiting for full world population (up to 60s)...');
+          await page.waitForTimeout(4000);
           await page.waitForFunction(
             () => window.__worldHealth !== undefined,
             { timeout: 60000 }
@@ -400,6 +428,7 @@ async function runSmokeTest() {
       // CORE default path: optional best-effort wait for world health report
       // -----------------------------------------------------------------------
       try {
+        await page.waitForTimeout(4000);
         await page.waitForFunction(
           () => window.__worldHealth !== undefined,
           { timeout: 30000 }

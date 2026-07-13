@@ -5,6 +5,8 @@ import { flowerBatcher } from './flower-batcher.ts';
 import { simpleFlowerBatcher } from './simple-flower-batcher.ts';
 import { CloudBatcher } from './cloud-batcher.ts';
 import { luminousPlantBatcher } from './luminous-plant-batcher.ts';
+import { gemFruitBatcher } from './gem-fruit-batcher.ts';
+import { glassMushroomBatcher } from './glass-mushroom-batcher.ts';
 import { waterfallBatcher } from './waterfall-batcher.ts';
 import { arpeggioFernBatcher } from './arpeggio-batcher.ts';
 import { portamentoPineBatcher } from './portamento-batcher.ts';
@@ -52,10 +54,13 @@ function getMeshesFromRecord(record: Record<string, unknown>, keys: readonly str
 function estimateGeometryBytes(geometry: THREE.BufferGeometry): number {
     let bytes = 0;
     const attrs = geometry.attributes;
-    for (const key of Object.keys(attrs)) {
-        const attr = attrs[key] as THREE.BufferAttribute | THREE.InterleavedBufferAttribute;
-        const attrArray = (attr as { array?: ArrayBufferView }).array;
-        if (attrArray && 'byteLength' in attrArray) bytes += attrArray.byteLength;
+    // ⚡ OPTIMIZATION: Bypassed Object.keys() to prevent GC spikes when estimating geometry sizes
+    for (const key in attrs) {
+        if (Object.prototype.hasOwnProperty.call(attrs, key)) {
+            const attr = attrs[key] as THREE.BufferAttribute | THREE.InterleavedBufferAttribute;
+            const attrArray = (attr as { array?: ArrayBufferView }).array;
+            if (attrArray && 'byteLength' in attrArray) bytes += attrArray.byteLength;
+        }
     }
     if (geometry.index?.array) bytes += geometry.index.array.byteLength;
     return bytes;
@@ -115,6 +120,8 @@ export function collectBatcherTelemetry(): BatcherTelemetryReport {
             ].filter((m): m is THREE.InstancedMesh => !!m)
         ),
         summarize('LuminousPlantBatcher', 'luminous', [luminousPlantBatcher?.mesh].filter((m): m is THREE.InstancedMesh => !!m)),
+        summarize('GemFruitBatcher', 'gem_canopy', gemFruitBatcher?.meshes ?? []),
+        summarize('GlassMushroomBatcher', 'glass_mushroom', [glassMushroomBatcher?.mesh].filter((m): m is THREE.InstancedMesh => !!m)),
         summarize('WaterfallBatcher', 'waterfall', [waterfallBatcher?.mesh, waterfallBatcher?.splashMesh].filter((m): m is THREE.InstancedMesh => !!m)),
         summarize('ArpeggioFernBatcher', 'arpeggio', arpeggioRecord ? getMeshesFromRecord(arpeggioRecord, ['mesh']) : []),
         summarize('PortamentoPineBatcher', 'portamento', portamentoRecord ? getMeshesFromRecord(portamentoRecord, ['trunkMesh', 'needleMesh']) : []),
